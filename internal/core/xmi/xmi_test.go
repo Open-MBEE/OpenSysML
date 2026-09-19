@@ -1,374 +1,184 @@
 package xmi
 
 import (
-	"archive/zip"
-	"bytes"
-	"os"
 	"strings"
 	"testing"
 )
 
-const fixture = "../../../tests/migrate/testdata/xmi/vehicle.xmi"
+const doc = `<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="20131001" xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmlns:uml="http://www.eclipse.org/uml2/5.0.0/UML">
+  <uml:Model xmi:id="m" name="Model">
+    <packagedElement xmi:type="uml:Activity" xmi:id="a" name="A" node="n1 n2">
+      <node xmi:type="uml:ForkNode" xmi:id="n1" name="fork"/>
+      <node xmi:type="uml:JoinNode" xmi:id="n2">
+        <incoming xmi:idref="e1"/>
+        <incoming xmi:idref="e2"/>
+      </node>
+      <edge xmi:type="uml:ControlFlow" xmi:id="e1" source="n1" target="n2">
+        <guard xmi:type="uml:LiteralBoolean" xmi:id="g" value="true"/>
+      </edge>
+      <edge xmi:type="uml:ControlFlow" xmi:id="e2" source="n1" target="n2"/>
+      <ownedComment xmi:type="uml:Comment" xmi:id="c">
+        <body>text body</body>
+      </ownedComment>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="k" name="K" classifierBehavior="a"/>
+    <behavior xmi:type="uml:Activity" href="lib.xmi#WriteLine"/>
+  </uml:Model>
+</xmi:XMI>
+`
 
-func readFixture(t *testing.T) *Model {
+func parse(t *testing.T) *Document {
 	t.Helper()
-	data, err := os.ReadFile(fixture)
+	d, err := Parse(strings.NewReader(doc))
 	if err != nil {
 		t.Fatal(err)
 	}
-	m, err := Parse(data)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return m
+	return d
 }
 
-func TestParseTree(t *testing.T) {
-	m := readFixture(t)
-	if m.Exporter != "Example UML Tool" {
-		t.Errorf("exporter = %q", m.Exporter)
+func TestParseIndexesAndNests(t *testing.T) {
+	d := parse(t)
+	if d.Root.Tag != "XMI" || d.Root.Attr("version") != "20131001" {
+		t.Errorf("root = %s %q", d.Root.Tag, d.Root.Attrs)
 	}
-	if len(m.Roots) != 2 || m.Roots[0].Type != "Model" || m.Roots[0].Name != "Model" {
-		t.Fatalf("roots = %+v", m.Roots)
+	if d.Root.Space != "http://www.omg.org/spec/XMI/20131001" {
+		t.Errorf("root namespace = %q", d.Root.Space)
 	}
-	vehicle := m.Lookup("_blk_vehicle")
-	if vehicle == nil || vehicle.Type != "Class" || vehicle.Role != "packagedElement" {
-		t.Fatalf("vehicle = %+v", vehicle)
+	a := d.ByID("a")
+	if a == nil || a.Type != "uml:Activity" || a.Name() != "A" || a.Tag != "packagedElement" {
+		t.Fatalf("a = %s", a.Describe())
 	}
-	if got := strings.Join(vehicle.Path(), "::"); got != "Model::Vehicle Design::Vehicle" {
-		t.Errorf("path = %q", got)
+	if a.Parent != d.ByID("m") || len(a.Children) != 5 || a.Line != 4 {
+		t.Errorf("a: parent %s, %d children, line %d", a.Parent.Describe(), len(a.Children), a.Line)
 	}
-	if attrs := vehicle.Owned("ownedAttribute"); len(attrs) != 13 {
-		t.Errorf("owned attributes = %d", len(attrs))
+	if d.ByID("") != nil || d.ByID("nope") != nil || (*Document)(nil).ByID("a") != nil {
+		t.Error("ByID resolved something it should not")
 	}
-	// The diagram inside xmi:Extension is tool-private and not read.
-	if m.Lookup("_diag_bdd") != nil {
-		t.Error("xmi:Extension content was read")
+	if got := d.ByID("c").First("body").Text; strings.TrimSpace(got) != "text body" {
+		t.Errorf("text = %q", got)
 	}
 }
 
-func TestReferences(t *testing.T) {
-	m := readFixture(t)
-	engine := m.Lookup("_prop_engine")
-	if got := m.Ref(engine, "type"); got == nil || got.ID != "_blk_engine" {
-		t.Errorf("type ref = %+v", got)
-	}
-	// Multi-valued attribute references are space-separated.
-	assoc := m.Lookup("_assoc_vehicle_engine")
-	if ends := m.Refs(assoc, "memberEnd"); len(ends) != 2 || ends[1].ID != "_ae_vehicle_1" {
-		t.Errorf("memberEnd = %+v", ends)
-	}
-	// Child idref elements resolve too.
-	cmt := m.Lookup("_cmt_vehicle")
-	if got := m.Ref(cmt, "annotatedElement"); got == nil || got.ID != "_blk_vehicle" {
-		t.Errorf("annotatedElement = %+v", got)
-	}
-	// An href yields a named proxy when its fragment reads as a name.
-	name := m.Lookup("_prop_name")
-	typ := m.Ref(name, "type")
-	if typ == nil || !typ.IsProxy() || typ.Name != "String" {
-		t.Errorf("href type = %+v", typ)
-	}
-	// An opaque body is the element's text.
-	body := m.Lookup("_dv_total").Owned("body")
-	if len(body) != 1 || strings.TrimSpace(body[0].Text) != "mass + engine.mass" {
-		t.Errorf("body = %+v", body)
-	}
-}
-
-func TestStereotypes(t *testing.T) {
-	m := readFixture(t)
-	vehicle := m.Lookup("_blk_vehicle")
-	block := vehicle.Stereotype("Block")
-	if block == nil || block.Tag("isEncapsulated") != "true" {
-		t.Fatalf("Block = %+v", block)
-	}
-	if !strings.Contains(block.Namespace, "SysML") {
-		t.Errorf("namespace = %q", block.Namespace)
-	}
-	req := m.Lookup("_req_mass_1").Stereotype("Requirement")
-	if req == nil || req.Tag("id") != "R1.1" || req.Tag("text") != "The chassis shall have a mass of less than 400 kg." {
-		t.Errorf("Requirement tags = %+v", req)
-	}
-	nested := m.Lookup("_ce_nested_2").Stereotype("NestedConnectorEnd")
-	if nested == nil || len(nested.Tags["propertyPath"]) != 2 || nested.Tags["propertyPath"][1] != "_prop_piston" {
-		t.Errorf("propertyPath = %+v", nested)
-	}
-	critical := m.Lookup("_blk_engine").Stereotype("Critical")
-	if critical == nil || critical.Tag("level") != "high" || !strings.Contains(critical.Namespace, "example.com") {
-		t.Errorf("user profile stereotype = %+v", critical)
-	}
-}
-
-// archive zips the entries after a prefix, as a self-extracting stub is.
-func archive(t *testing.T, prefix string, entries map[string][]byte) []byte {
-	t.Helper()
-	var buf bytes.Buffer
-	buf.WriteString(prefix)
-	zw := zip.NewWriter(&buf)
-	zw.SetOffset(int64(len(prefix)))
-	for name, content := range entries {
-		w, err := zw.Create(name)
-		if err != nil {
-			t.Fatal(err)
-		}
-		_, _ = w.Write(content)
-	}
-	if err := zw.Close(); err != nil {
-		t.Fatal(err)
-	}
-	return buf.Bytes()
-}
-
-func TestParseArchive(t *testing.T) {
-	data, err := os.ReadFile(fixture)
-	if err != nil {
-		t.Fatal(err)
-	}
-	project := map[string][]byte{
-		"PROJECT_MANIFEST":                           []byte("<options/>"),
-		"com.nomagic.magicdraw.core.project.options": []byte("<options/>"),
-		"com.nomagic.magicdraw.uml_model.model":      data,
-	}
-	for name, in := range map[string][]byte{
-		"project":       archive(t, "", project),
-		"stub-prefixed": archive(t, "#!/bin/sh\nexit 0\n", project),
+func TestNamespaceHelpers(t *testing.T) {
+	for _, ns := range []string{
+		"http://schema.omg.org/spec/XMI/2.1",
+		"http://www.omg.org/XMI",
+		"http://www.omg.org/spec/UML/20131001",
+		"http://www.eclipse.org/uml2/5.0.0/UML",
 	} {
-		m, err := Parse(in)
-		if err != nil {
-			t.Fatalf("%s: %v", name, err)
+		if strings.Contains(ns, "XMI") && !IsXMINamespace(ns) {
+			t.Errorf("IsXMINamespace(%q) = false", ns)
 		}
-		if m.Lookup("_blk_vehicle") == nil {
-			t.Errorf("%s: archive model entry was not read", name)
-		}
-	}
-}
-
-func TestParseArchiveWithoutModel(t *testing.T) {
-	_, err := Parse(archive(t, "", map[string][]byte{"readme.txt": []byte("nothing")}))
-	if err == nil || !strings.Contains(err.Error(), "readme.txt") {
-		t.Errorf("err = %v", err)
-	}
-	_, err = Parse(archive(t, "", nil))
-	if err == nil || !strings.Contains(err.Error(), "archive holds no model") {
-		t.Errorf("empty: err = %v", err)
-	}
-}
-
-func TestParseRejectsTruncatedArchive(t *testing.T) {
-	data, err := os.ReadFile(fixture)
-	if err != nil {
-		t.Fatal(err)
-	}
-	in := archive(t, "", map[string][]byte{"model.xmi": data})
-	_, err = Parse(in[:len(in)/2])
-	if err == nil || !strings.Contains(err.Error(), "reading archive") {
-		t.Errorf("err = %v", err)
-	}
-}
-
-func TestParseRejectsNonXMI(t *testing.T) {
-	for _, in := range []string{"part def V;", "<html><body/></html>", ""} {
-		if _, err := Parse([]byte(in)); err == nil {
-			t.Errorf("%q: accepted", in)
+		if strings.Contains(ns, "UML") && !IsUMLNamespace(ns) {
+			t.Errorf("IsUMLNamespace(%q) = false", ns)
 		}
 	}
-}
-
-func TestParseBareModelRoot(t *testing.T) {
-	src := `<?xml version="1.0"?>
-<uml:Model xmi:version="2.1" xmlns:xmi="http://schema.omg.org/spec/XMI/2.1" xmlns:uml="http://www.eclipse.org/uml2/5.0.0/UML" xmi:id="m" name="M">
-  <packagedElement xmi:type="uml:Class" xmi:id="c" name="C"/>
-</uml:Model>`
-	m, err := Parse([]byte(src))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(m.Roots) != 1 || m.Roots[0].Type != "Model" || m.Lookup("c") == nil {
-		t.Errorf("roots = %+v", m.Roots)
+	if IsUMLNamespace("http://www.omg.org/spec/UML/20161101/StandardProfile") {
+		t.Error("profile namespace classified as UML")
 	}
 }
 
-const wrapperOnly = `<?xml version="1.0"?>
-<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001">
-  <xmi:Documentation exporter="Example UML Tool"/>
+func TestAccessors(t *testing.T) {
+	d := parse(t)
+	a := d.ByID("a")
+	if got := a.Refs("node"); len(got) != 2 || got[0] != "n1" || got[1] != "n2" {
+		t.Errorf("Refs(node) = %q", got)
+	}
+	if got := d.ByID("n2").Refs("incoming"); len(got) != 2 || got[0] != "e1" || got[1] != "e2" {
+		t.Errorf("Refs(incoming) = %q", got)
+	}
+	e1 := d.ByID("e1")
+	if e1.Ref("source") != "n1" || e1.Ref("target") != "n2" || e1.Ref("guard") != "" || e1.Ref("nothing") != "" {
+		t.Errorf("Ref: source %q target %q guard %q", e1.Ref("source"), e1.Ref("target"), e1.Ref("guard"))
+	}
+	if e1.First("guard").Attr("value") != "true" || e1.First("missing") != nil {
+		t.Error("First")
+	}
+	if len(a.Tagged("node")) != 2 || len(a.Tagged("edge")) != 2 || len(a.Tagged("none")) != 0 {
+		t.Error("Tagged")
+	}
+	var href *Element
+	d.Root.Walk(func(e *Element) bool {
+		if e.Href() != "" {
+			href = e
+		}
+		return true
+	})
+	if href == nil || href.Href() != "lib.xmi#WriteLine" || href.ID != "" {
+		t.Errorf("href = %s", href.Describe())
+	}
+	if n := len(a.Descendants()); n != 9 {
+		t.Errorf("descendants = %d, want 9", n)
+	}
+	var seen int
+	d.Root.Walk(func(e *Element) bool {
+		seen++
+		return e.ID != "a"
+	})
+	if seen != 3 {
+		t.Errorf("Walk stopped after %d, want 3", seen)
+	}
+	var nilElem *Element
+	if nilElem.Attr("x") != "" || nilElem.Describe() != "<nil>" {
+		t.Error("nil element accessors")
+	}
+	if got := d.ByID("n1").Describe(); got != `uml:ForkNode "fork" (n1)` {
+		t.Errorf("Describe = %q", got)
+	}
+	if got := d.ByID("c").First("body").Describe(); got != "body" {
+		t.Errorf("Describe(untyped) = %q", got)
+	}
+}
+
+func TestParseErrors(t *testing.T) {
+	cases := map[string]string{
+		"empty":       "",
+		"unbalanced":  `<xmi:XMI xmlns:xmi="http://www.omg.org/spec/XMI/20131001"><a>`,
+		"two roots":   `<a/><b/>`,
+		"dup id":      `<xmi:XMI xmlns:xmi="http://www.omg.org/spec/XMI/20131001"><a xmi:id="x"/><b xmi:id="x"/></xmi:XMI>`,
+		"not xml":     `hello`,
+		"bad closing": `<a></b>`,
+	}
+	for name, src := range cases {
+		if _, err := Parse(strings.NewReader(src)); err == nil {
+			t.Errorf("%s: no error", name)
+		}
+	}
+}
+
+func TestParseAcceptsEveryXMINamespaceVersion(t *testing.T) {
+	for _, version := range []string{"2.1", "20110701", "20131001"} {
+		src := `<xmi:XMI xmlns:xmi="http://www.omg.org/spec/XMI/` + version + `" xmlns:uml="http://www.omg.org/spec/UML/20110701">
+  <uml:Model xmi:type="uml:Model" xmi:id="_0" name="Lib">
+    <packagedElement xmi:type="uml:FunctionBehavior" xmi:id="F-plus" name="+"/>
+  </uml:Model>
 </xmi:XMI>`
-
-func TestParseArchiveIgnoresUnrelatedXML(t *testing.T) {
-	data, err := os.ReadFile(fixture)
-	if err != nil {
-		t.Fatal(err)
-	}
-	metadata := []byte(`<?xml version="1.0"?><project><option name="x">1</option></project>`)
-	t.Run("project entry", func(t *testing.T) {
-		m, err := Parse(archive(t, "", map[string][]byte{
-			"com.nomagic.magicdraw.uml_model.model": data,
-			"metadata/settings.xml":                 metadata,
-			"broken.xmi":                            []byte("<xmi:XMI"),
-		}))
+		d, err := Parse(strings.NewReader(src))
 		if err != nil {
-			t.Fatal(err)
+			t.Fatalf("%s: %v", version, err)
 		}
-		if m.Lookup("_blk_vehicle") == nil {
-			t.Error("project model entry was not read")
+		e := d.ByID("F-plus")
+		if e == nil || e.Type != "uml:FunctionBehavior" || e.Name() != "+" {
+			t.Fatalf("%s: ByID(F-plus) = %s, want the function behavior", version, e.Describe())
 		}
-	})
-	t.Run("xmi fallback", func(t *testing.T) {
-		m, err := Parse(archive(t, "", map[string][]byte{
-			"model.xmi":    data,
-			"settings.xml": metadata,
-		}))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if m.Lookup("_blk_vehicle") == nil {
-			t.Error(".xmi entry was not read")
-		}
-	})
-	t.Run("malformed project entry", func(t *testing.T) {
-		_, err := Parse(archive(t, "", map[string][]byte{
-			"com.nomagic.magicdraw.uml_model.model": append(data[:len(data)/2:len(data)/2], []byte("<broken")...),
-		}))
-		if err == nil || !strings.Contains(err.Error(), "uml_model.model") {
-			t.Errorf("err = %v", err)
-		}
-	})
-	t.Run("malformed xmi fallback", func(t *testing.T) {
-		_, err := Parse(archive(t, "", map[string][]byte{
-			"model.xmi": data[:len(data)/2],
-		}))
-		if err == nil || !strings.Contains(err.Error(), "model.xmi") {
-			t.Errorf("err = %v", err)
-		}
-	})
-}
-
-func TestParseRejectsWrapperWithoutModel(t *testing.T) {
-	if _, err := Parse([]byte(wrapperOnly)); err == nil || !strings.Contains(err.Error(), "no model") {
-		t.Errorf("direct: err = %v", err)
 	}
-	_, err := Parse(archive(t, "", map[string][]byte{"com.nomagic.magicdraw.uml_model.model": []byte(wrapperOnly)}))
-	if err == nil || !strings.Contains(err.Error(), "no model") {
-		t.Errorf("archive: err = %v", err)
-	}
-}
-
-func TestParseRejectsTruncatedDocument(t *testing.T) {
-	data, err := os.ReadFile(fixture)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := Parse(data[:len(data)/2]); err == nil {
-		t.Error("truncated document accepted")
-	}
-}
-
-func TestParseRejectsMalformedXML(t *testing.T) {
-	for _, in := range []string{
-		`<xmi:XMI xmlns:xmi="x" xmlns:uml="u"><uml:Model xmi:id="_m" name="M"><packagedElement xmi:type="uml:Class" xmi:id="_c" name="C"></uml:Model></xmi:XMI>`,
-		`<xmi:XMI xmlns:xmi="x" xmlns:uml="u"><uml:Model xmi:id="_m" name="A &nbsp; B"/></xmi:XMI>`,
+	for name, ns := range map[string]string{
+		"foreign":          "http://example.com/not-xmi",
+		"no version":       "http://www.omg.org/spec/XMI/",
+		"not a version":    "http://www.omg.org/spec/XMI/next",
+		"only a dot":       "http://www.omg.org/spec/XMI/.",
+		"empty group":      "http://www.omg.org/spec/XMI/2..1",
+		"trailing dot":     "http://www.omg.org/spec/XMI/2.1.",
+		"below the prefix": "http://www.omg.org/spec/XMI/20131001/extensions",
 	} {
-		if _, err := Parse([]byte(in)); err == nil {
-			t.Errorf("%q: accepted", in)
+		other := `<x:XMI xmlns:x="` + ns + `"><e x:id="a" x:type="t"/></x:XMI>`
+		d, err := Parse(strings.NewReader(other))
+		if err != nil {
+			t.Fatal(err)
 		}
-	}
-}
-
-func TestUnresolvedReferences(t *testing.T) {
-	m := readFixture(t)
-	assoc := m.Lookup("_assoc_vehicle_engine")
-	if got := m.Unresolved(assoc, "memberEnd"); len(got) != 0 {
-		t.Errorf("Unresolved = %v", got)
-	}
-	e := &Element{Attrs: map[string]string{"client": "_prop_engine _nowhere"}}
-	if got := m.Unresolved(e, "client"); len(got) != 1 || got[0] != "_nowhere" {
-		t.Errorf("Unresolved = %v", got)
-	}
-}
-
-// A child carrying href or xmi:idref is a reference however it is typed: the
-// xmi:type describes the target, which the proxy keeps.
-func TestTypedReferencesAreNotOwned(t *testing.T) {
-	m, err := Parse([]byte(`<?xml version="1.0"?>
-<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmlns:uml="http://www.omg.org/spec/UML/20161101">
-  <uml:Model xmi:id="_m" name="M">
-    <packagedElement xmi:type="uml:Class" xmi:id="_a" name="A">
-      <generalization xmi:type="uml:Generalization" xmi:id="_g">
-        <general xmi:type="uml:Class" href="lib.xmi#_base"/>
-      </generalization>
-      <ownedAttribute xmi:type="uml:Property" xmi:id="_p" name="p">
-        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
-      </ownedAttribute>
-      <ownedAttribute xmi:type="uml:Property" xmi:id="_q" name="q">
-        <type xmi:type="uml:Class" xmi:idref="_a"/>
-      </ownedAttribute>
-    </packagedElement>
-  </uml:Model>
-</xmi:XMI>`))
-	if err != nil {
-		t.Fatal(err)
-	}
-	g := m.Lookup("_g")
-	if len(g.Children) != 0 {
-		t.Errorf("generalization owns %d children, want a reference", len(g.Children))
-	}
-	if base := m.Ref(g, "general"); base == nil || !base.IsProxy() || base.Type != "Class" {
-		t.Errorf("general = %+v", base)
-	}
-	p := m.Lookup("_p")
-	if typ := m.Ref(p, "type"); typ == nil || !typ.IsProxy() || typ.Name != "Real" || typ.Type != "PrimitiveType" {
-		t.Errorf("typed href = %+v", typ)
-	}
-	if len(p.Children) != 0 {
-		t.Errorf("property owns %d children, want a reference", len(p.Children))
-	}
-	if typ := m.Ref(m.Lookup("_q"), "type"); typ == nil || typ.ID != "_a" {
-		t.Errorf("typed idref = %+v", typ)
-	}
-}
-
-// A proxy is named by its href fragment when that spells a name, dotted path
-// included, and otherwise by the qualified name a tool's referenceExtension
-// records; the extension also supplies the target's metaclass.
-func TestReferenceExtensionsDescribeProxies(t *testing.T) {
-	m, err := Parse([]byte(`<?xml version="1.0"?>
-<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmlns:uml="http://www.omg.org/spec/UML/20161101">
-  <uml:Model xmi:id="_m" name="M">
-    <packagedElement xmi:type="uml:Class" xmi:id="_a" name="A">
-      <ownedAttribute xmi:type="uml:Property" xmi:id="_p" name="p">
-        <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Real"/>
-      </ownedAttribute>
-      <ownedAttribute xmi:type="uml:Property" xmi:id="_q" name="q">
-        <type href="Lib.mdzip#eee_1045467100323_385364_62">
-          <xmi:Extension extender="Some Tool">
-            <referenceExtension referentPath="Standard Profile::datatypes::float" referentType="DataType"/>
-          </xmi:Extension>
-        </type>
-      </ownedAttribute>
-      <ownedAttribute xmi:type="uml:Property" xmi:id="_r" name="r">
-        <type href="Lib.mdzip#_18_0_2_baa02e2_1429562376320_528739_151515"/>
-      </ownedAttribute>
-    </packagedElement>
-  </uml:Model>
-</xmi:XMI>`))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if typ := m.Ref(m.Lookup("_p"), "type"); typ == nil || typ.Name != "Real" || typ.QualifiedName != "" {
-		t.Errorf("dotted fragment = %+v", typ)
-	}
-	q := m.Lookup("_q")
-	typ := m.Ref(q, "type")
-	if typ == nil || typ.Name != "float" || typ.Type != "DataType" || typ.QualifiedName != "Standard Profile::datatypes::float" {
-		t.Errorf("described href = %+v", typ)
-	}
-	if len(q.Children) != 0 {
-		t.Errorf("property owns %d children, want a reference", len(q.Children))
-	}
-	if typ := m.Ref(m.Lookup("_r"), "type"); typ == nil || typ.Name != "" || typ.Type != "" {
-		t.Errorf("bare id href = %+v", typ)
-	}
-	if len(m.Extensions) != 1 || m.Extensions[0].Owner != q || len(m.Extensions[0].Elements) != 0 {
-		t.Errorf("Extensions = %+v", m.Extensions)
+		if d.ByID("a") != nil {
+			t.Errorf("%s: an id in the namespace %s must not be indexed", name, ns)
+		}
 	}
 }
