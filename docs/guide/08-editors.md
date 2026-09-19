@@ -131,7 +131,7 @@ capability that announces it.
 
 After rebuilding the binary, run `SysML: Restart Language Server` from the command palette.
 `editors/vscode/README.md` documents every setting, the grammar generator (keywords are taken
-from `internal/core/source.Keywords()`, so they cannot drift) and the <kbd>F5</kbd>
+from `internal/syntax/source.Keywords()`, so they cannot drift) and the <kbd>F5</kbd>
 extension-debugging loop.
 
 Other editors can launch `bin/sysml-lsp` over standard input and output through their own generic

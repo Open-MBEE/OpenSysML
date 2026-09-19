@@ -332,7 +332,7 @@ func TestCheckDocumentRejectsDrift(t *testing.T) {
 			{"path": "kerml/d.kerml", "bucket": "pilot-only-rejects"},
 			{"path": "kerml/d-open.kerml", "bucket": "both-accept"},
 			{"path": "kerml/d-odd.kerml", "bucket": "rejected"}]}`,
-		"internal/core/passes/a.go": "package passes\n\ntype APass struct{}\n\nfunc (APass) Run() {}\n\nfunc helper() {}\n\ntype Arena[T any] struct{}\n\nfunc (a *Arena[T]) Take() {}\n",
+		"internal/check/passes/a.go": "package passes\n\ntype APass struct{}\n\nfunc (APass) Run() {}\n\nfunc helper() {}\n\ntype Arena[T any] struct{}\n\nfunc (a *Arena[T]) Take() {}\n",
 	})
 	base := testBaseline(
 		Constraint{Name: "validateA", Source: "kerml", Status: StatusFaithful},
@@ -345,10 +345,10 @@ func TestCheckDocumentRejectsDrift(t *testing.T) {
 		"",
 		"| Constraint | Language | Checks | Implementation | Our message | Negative case | Status |",
 		"|---|---|---|---|---|---|---|",
-		"| `validateA` | KerML | a | internal/core/passes/a.go:APass.Run (and internal/core/passes/a.go:helper, internal/core/passes/a.go:Arena.Take). | same | `kerml/a.kerml`, `kerml/other.kerml`, `kerml/prose.kerml`, `kerml/spec.kerml`, `xpect/x.kerml` | ✅ faithful |",
+		"| `validateA` | KerML | a | internal/check/passes/a.go:APass.Run (and internal/check/passes/a.go:helper, internal/check/passes/a.go:Arena.Take). | same | `kerml/a.kerml`, `kerml/other.kerml`, `kerml/prose.kerml`, `kerml/spec.kerml`, `xpect/x.kerml` | ✅ faithful |",
 		"| `validateB` | SysML | b | — | — | `kerml/b.kerml` | ❌ not implemented |",
 		"| `validateC` | SysML | c | — | — | none | ❔ unknown — no case and no identifiable pass yet |",
-		"| `validateD` | KerML | d | internal/core/passes/a.go:helper | same | `kerml/d.kerml` | ⚠️ approximate |",
+		"| `validateD` | KerML | d | internal/check/passes/a.go:helper | same | `kerml/d.kerml` | ⚠️ approximate |",
 		"",
 	}, "\n")
 	if err := checkDocument(root, doc, base); err != nil {
@@ -447,57 +447,57 @@ func TestCheckDocumentRejectsDrift(t *testing.T) {
 		},
 		"implementation file is missing": {
 			mutate: func(s string) string {
-				return strings.Replace(s, "internal/core/passes/a.go:APass.Run", "internal/core/passes/gone.go:APass.Run", 1)
+				return strings.Replace(s, "internal/check/passes/a.go:APass.Run", "internal/check/passes/gone.go:APass.Run", 1)
 			},
-			want: "implementation: internal/core/passes/gone.go does not exist",
+			want: "implementation: internal/check/passes/gone.go does not exist",
 		},
 		"implementation method is missing": {
 			mutate: func(s string) string {
 				return strings.Replace(s, "a.go:APass.Run", "a.go:APass.Check", 1)
 			},
-			want: "internal/core/passes/a.go declares no APass.Check",
+			want: "internal/check/passes/a.go declares no APass.Check",
 		},
 		"implementation function is missing": {
 			mutate: func(s string) string { return strings.Replace(s, "a.go:helper", "a.go:renamed", 1) },
-			want:   "internal/core/passes/a.go declares no renamed",
+			want:   "internal/check/passes/a.go declares no renamed",
 		},
 		"implementation cites no location": {
 			mutate: func(s string) string {
-				return strings.Replace(s, "internal/core/passes/a.go:APass.Run (and internal/core/passes/a.go:helper, internal/core/passes/a.go:Arena.Take).", "internal/core/passes/a.go (APass)", 1)
+				return strings.Replace(s, "internal/check/passes/a.go:APass.Run (and internal/check/passes/a.go:helper, internal/check/passes/a.go:Arena.Take).", "internal/check/passes/a.go (APass)", 1)
 			},
-			want: "validateA implementation \"internal/core/passes/a.go (APass)\" cites no internal/<file>.go:<function> location",
+			want: "validateA implementation \"internal/check/passes/a.go (APass)\" cites no internal/<file>.go:<function> location",
 		},
 		"implementation cites a file by name only": {
 			mutate: func(s string) string {
-				return strings.Replace(s, "internal/core/passes/a.go:helper,", "a.go:helper,", 1)
+				return strings.Replace(s, "internal/check/passes/a.go:helper,", "a.go:helper,", 1)
 			},
 			want: "validateA implementation a.go:helper is not a repository-relative internal/<file>.go location",
 		},
 		"implementation cites a missing symbol in a file by name only": {
 			mutate: func(s string) string {
-				return strings.Replace(s, "internal/core/passes/a.go:helper,", "a.go:renamed,", 1)
+				return strings.Replace(s, "internal/check/passes/a.go:helper,", "a.go:renamed,", 1)
 			},
 			want: "validateA implementation a.go:renamed is not a repository-relative internal/<file>.go location",
 		},
 		"implementation continues past the method": {
 			mutate: func(s string) string { return strings.Replace(s, "a.go:APass.Run ", "a.go:APass.Run.extra ", 1) },
-			want:   "internal/core/passes/a.go:APass.Run.extra is not a <function> or <Type>.<method> location",
+			want:   "internal/check/passes/a.go:APass.Run.extra is not a <function> or <Type>.<method> location",
 		},
 		"implementation continues past the function with a dash": {
 			mutate: func(s string) string { return strings.Replace(s, "a.go:helper,", "a.go:helper-extra,", 1) },
-			want:   "internal/core/passes/a.go:helper-extra is not a <function> or <Type>.<method> location",
+			want:   "internal/check/passes/a.go:helper-extra is not a <function> or <Type>.<method> location",
 		},
 		"implementation continues past the function with a slash": {
 			mutate: func(s string) string { return strings.Replace(s, "a.go:helper,", "a.go:helper/extra,", 1) },
-			want:   "internal/core/passes/a.go:helper/extra is not a <function> or <Type>.<method> location",
+			want:   "internal/check/passes/a.go:helper/extra is not a <function> or <Type>.<method> location",
 		},
 		"implementation continues past the function with a colon": {
 			mutate: func(s string) string { return strings.Replace(s, "a.go:helper,", "a.go:helper:extra,", 1) },
-			want:   "internal/core/passes/a.go:helper:extra is not a <function> or <Type>.<method> location",
+			want:   "internal/check/passes/a.go:helper:extra is not a <function> or <Type>.<method> location",
 		},
 		"generic method is missing": {
 			mutate: func(s string) string { return strings.Replace(s, "a.go:Arena.Take", "a.go:Arena.Put", 1) },
-			want:   "internal/core/passes/a.go declares no Arena.Put",
+			want:   "internal/check/passes/a.go declares no Arena.Put",
 		},
 		"negative case attributed to another constraint": {
 			mutate: func(s string) string {

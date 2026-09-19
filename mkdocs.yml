@@ -208,6 +208,7 @@ nav:
       - Architecture: internals/architecture.md
       - Testing: internals/testing.md
       - Performance: internals/performance.md
+      - Execution IR design: internals/execution-ir-design.md
   - Project:
       - project/README.md
       - Spec compliance: project/spec-compliance.md

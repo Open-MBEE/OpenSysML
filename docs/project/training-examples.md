@@ -87,7 +87,7 @@ diagnostic on a well-formed model, so the count is pinned and the gap named:
 | `Analysis Case Definition Example` | `unresolved reference: i` (8×) | Real fix: a body expression's parameters (`->forAll {in i: Positive; ...}`) are in scope in its result. |
 
 Each verdict is locked by a focused test in
-`internal/core/model/inherited_scope_resolve_test.go`, including the negative
+`internal/workspace/model/inherited_scope_resolve_test.go`, including the negative
 cases (a redefinition of an undeclared name, and body-local names referenced
 from outside their body, both still report).
 
@@ -99,7 +99,7 @@ One entry drifted; every other file kept its exact count.
 
 | File | Was | Verdict |
 |---|---|---|
-| `31. Constraints/Time Constraints` | 1 × `unresolved member: done` | Real fix: `state normal;` is now implicitly typed by `States::StateAction`, which declares `done`, so `TimeOf(normal.done)` resolves to that declaration. The negative counterpart (`normal.notAMember`) still reports — see `internal/core/model/implicit_typing_test.go`. |
+| `31. Constraints/Time Constraints` | 1 × `unresolved member: done` | Real fix: `state normal;` is now implicitly typed by `States::StateAction`, which declares `done`, so `TimeOf(normal.done)` resolves to that declaration. The negative counterpart (`normal.notAMember`) still reports — see `internal/workspace/model/implicit_typing_test.go`. |
 
 **Still recorded, and why implicit typing alone does not fix them**
 
@@ -117,7 +117,7 @@ Two entries went clean and one reports more; every other file kept its exact cou
 
 | File | Was | Verdict |
 |---|---|---|
-| `18. Action Performance/Action Performance Example` | 2 × `unresolved member: focus`/`shoot` | Real fix: `perform action takePhoto references takePicture;` relates `takePhoto` to `takePicture` by a reference subsetting (SysML 7.17.6), which contributes the referenced action's members. `takePhoto.focus` now resolves to `takePicture::focus`. The negative counterpart (a member the referenced action does not declare) still reports — see `internal/core/semantics/reference_test.go` and `internal/core/model/perform_reference_test.go`. |
+| `18. Action Performance/Action Performance Example` | 2 × `unresolved member: focus`/`shoot` | Real fix: `perform action takePhoto references takePicture;` relates `takePhoto` to `takePicture` by a reference subsetting (SysML 7.17.6), which contributes the referenced action's members. `takePhoto.focus` now resolves to `takePicture::focus`. The negative counterpart (a member the referenced action does not declare) still reports — see `internal/semantic/semantics/reference_test.go` and `internal/workspace/model/perform_reference_test.go`. |
 | `38. Allocation/Allocation Usage Example` | 2 × `unresolved member: generateTorque` | Real fix, two causes: `perform providePower.generateTorque;` names its feature after the feature it references (KerML `Feature::effectiveName`), so `torqueGenerator.generateTorque` names a declaration; and `allocate torqueGenerator to powerTrain` is an anonymous binary allocation, whose first name is a connector end rather than the usage's own name. |
 | `32. Requirements/Requirement Satisfaction` | 2, then unchanged | Same fix, in a file that was already recorded: `perform 'provide power'.'generate torque'` resolves now. Its two remaining errors were unrelated and are cleared separately by the satisfy-reference verdicts below. |
 
@@ -139,7 +139,7 @@ One entry drifted; every other file kept its exact count.
 
 The payload *reference* form (`flow f of Fuel from a to b`) is unchanged and
 still resolves outward, with the negative case (`of` naming nothing) still
-reporting — see `internal/core/model/flow_payload_resolve_test.go`.
+reporting — see `internal/workspace/model/flow_payload_resolve_test.go`.
 
 ### Verdicts for the satisfy-reference re-pin (85/100)
 
@@ -191,7 +191,7 @@ requirement usage (including viewpoint and concern usages).
 The checking is narrowed, not dropped: `satisfy <non-requirement usage>` still
 reports (`satisfy target must be a requirement usage, found ...`), locked by
 `TestTypeCheckSatisfyNonRequirementUsageError` alongside the two positive cases in
-`internal/core/passes/typecheck_test.go`, and the parse shape is pinned by
+`internal/check/passes/typecheck_test.go`, and the parse shape is pinned by
 `tests/parser/testdata/parse/satisfy_reference.golden`.
 
 ### Verdicts for the implicit-parameter-redefinition re-pin (88/100)
@@ -202,11 +202,11 @@ One entry drifted; every other file kept its exact count.
 
 | File | Was | Verdict |
 |---|---|---|
-| `16. Conditional Succession/Conditional Succession Example-1` | 1 × `unresolved member: isWellFocused` | Real fix: `out item image;` inside `action focus : Focus` is the second parameter of a step, so it implicitly redefines `Focus::image` (KerML 7.4.7.3, SysML v2 7.17.2 — the match is by *position*, not by name) and takes its type `Image`. `focus.image.isWellFocused` now resolves to `Image::isWellFocused`, the declaration the OMG model means. The negative counterpart (`focus.image.notAMember`) still reports — see `internal/core/model/implicit_typing_test.go` `TestImplicitRedefinitionSuppliesInheritedMembers`. |
+| `16. Conditional Succession/Conditional Succession Example-1` | 1 × `unresolved member: isWellFocused` | Real fix: `out item image;` inside `action focus : Focus` is the second parameter of a step, so it implicitly redefines `Focus::image` (KerML 7.4.7.3, SysML v2 7.17.2 — the match is by *position*, not by name) and takes its type `Image`. `focus.image.isWellFocused` now resolves to `Image::isWellFocused`, the declaration the OMG model means. The negative counterpart (`focus.image.notAMember`) still reports — see `internal/workspace/model/implicit_typing_test.go` `TestImplicitRedefinitionSuppliesInheritedMembers`. |
 
 **Deliberate test change**
 
-`internal/core/model/implicit_typing_test.go` `TestParameterRedefinitionAccompaniesTheImplicitBase`
+`internal/workspace/model/implicit_typing_test.go` `TestParameterRedefinitionAccompaniesTheImplicitBase`
 pinned the previous behavior of a *name*-based rule: any usage whose name matched
 a feature its owner inherits was left with no implicit base at all, on the
 assumption that an implicit redefinition would later supply the type. The
@@ -239,7 +239,7 @@ still reports `individual cannot specialize attributeDef (kind mismatch)`, and a
 usage kind that rejects an occurrence definition still rejects an individual
 definition (`port p : SomeIndividualDef`). Both negatives, and the positive
 cases including the corpus file's shape, are locked by
-`internal/core/passes/typecheck_individuals_test.go`.
+`internal/check/passes/typecheck_individuals_test.go`.
 
 Two of the six messages named a usage kind the declaration does not have:
 `individual testSystem : TestSystem` was checked as an *attribute* usage and
@@ -324,7 +324,7 @@ conform to the type of the subsetted feature.
 
 **Verdict: our checker was over-strict.** A subsetting feature *adds* types; it
 does not have to specialize them. `checkTypingConformance` in
-`internal/core/passes/constraint.go` could therefore never report a true
+`internal/check/passes/constraint.go` could therefore never report a true
 positive, and it is removed. The corresponding conformance rule for
 *redefinition* (`checkRedefinition`) is untouched. `subsetting-multiplicity`,
 which implements a rule KerML does state (§7.3.4.4: a subsetting feature "can
@@ -413,7 +413,7 @@ One entry drifted; every other file kept its exact count. This reaches the
 
 **What changed**
 
-`compatibleTyping` in `internal/core/passes/typecheck.go` had one row covering
+`compatibleTyping` in `internal/check/passes/typecheck.go` had one row covering
 `subject` and `objective` together, accepting the structural definition kinds for
 both. The two memberships are not the same shape, so the row was split:
 
@@ -428,7 +428,7 @@ both. The two memberships are not the same shape, so the row was split:
   was right for `subject` stays as it was.
 
 Both directions are locked by unit tests in
-`internal/core/passes/typecheck_kinds_test.go`
+`internal/check/passes/typecheck_kinds_test.go`
 (`TestTypeCheckObjectiveTypedByRequirementDefOK`,
 `TestTypeCheckObjectiveTypedByConcernDefOK`,
 `TestTypeCheckObjectiveTypedByPartDefError`,
@@ -498,7 +498,7 @@ One entry drifted; every other file kept its exact count.
 
 **What changed**
 
-`internal/core/resolve/unqualified.go` `importsOf` only harvested imports from
+`internal/semantic/resolve/unqualified.go` `importsOf` only harvested imports from
 `*ast.Package`, `*ast.Namespace`, and `*ast.RootNamespace`, so an import declared
 inside a definition or usage body was never consulted during name resolution. It
 now also harvests imports from `*ast.Definition` and `*ast.Usage` bodies. The
@@ -507,7 +507,7 @@ import visibility (`visibleThroughImport`, `import all`) are unchanged, and a
 `private import` in a definition body still does not leak to importers of that
 definition because an imported name is not an *owned* member and is not
 re-surfaced by a `NamespaceImport` of the outer definition. Covered by
-`internal/core/resolve/imports_test.go`
+`internal/semantic/resolve/imports_test.go`
 (`TestImportInDefinitionBodyVisibleInBody`,
 `TestImportInDefinitionBodyVisibleInNestedBody`,
 `TestImportInPackageBodyVisibleInNestedDefinition`,

@@ -12,8 +12,8 @@ the sentence that justifies each ordering constraint cited, and the orderings th
 open named as open.
 
 The oracle cases live beside the other conformance cases under
-`internal/core/runtime/testdata/conformance/` and run through the same harness
-(`go test -run 'TestExecutionConformance|TestExecutionTrace' ./internal/core/runtime`). Where the
+`internal/exec/runtime/testdata/conformance/` and run through the same harness
+(`go test -run 'TestExecutionConformance|TestExecutionTrace' ./internal/exec/runtime`). Where the
 executor meets the derived expectation, the case also carries a `.trace.golden` that
 regression-locks the executor's linearization. Where it does not, the derived expectation is kept
 in the `.expected.json`, the case is listed in `known_failures.txt` so the harness reports rather
@@ -1289,10 +1289,68 @@ blinking of object #1 (unordered; ran state machine blinking of object #1 first)
 the two (`.declared.trace.golden`, `.seed-1.trace.golden`). One executor alone due at an instant
 is not a choice and is not reported.
 
+### A do step and a dispatch due at one instant: which goes first is open
+
+Fixtures: `state_do_step_or_dispatch` (golden, explored), `state_do_step_among_completions`
+(golden, explored), `state_do_step_or_tied_dispatch` (golden, explored).
+
+```
+state Machine { attribute log : String = "";
+                entry; then top;
+                state top { do action work { first start; then action mark assign log := log + "did "; then done; } }
+                transition first top accept Stop do assign log := log + "stop " then idle;
+                state idle; }
+```
+
+Derived constraints:
+
+- A state's do behavior starts before the state's other middle steps start and is otherwise
+  concurrent with them (`StatePerformances.kerml` `StatePerformance`, `succession do.startShot
+  then nonDoMiddle.startShot`); the succession is on the do performance's start, not on its first
+  action, so a do behavior that has begun and not yet performed its first action is a state the
+  library admits while the machine dispatches.
+- A transition's accept precedes its source's exit (`TransitionPerformances.kerml`
+  `StateTransitionPerformance`, `accept then transitionLinkSource.exit`), and the exit ends the
+  do behavior with the state (`succession [*] middle then [1] exit`): a dispatch that leaves the
+  state cuts the do behavior off wherever it stands.
+- No `HappensBefore` chain connects an action of the do behavior to the dispatch of an occurrence
+  in the machine's pool, so the library orders nothing between the two.
+- An occurrence no performance accepts is not a step of any performance: dropping it, or holding
+  it deferred, moves nothing in the `StatePerformance`, so there is nothing to order against the
+  do behavior's action — and the do behavior's next action may be the `accept` that takes it. The
+  draw is between the do step and a dispatch that *takes* its occurrence: fires a transition, or
+  lets a do behavior already parked at an `accept` go on.
+
+Open: whether the do behavior's next action or the dispatch goes first, at every instant both are
+due. In the fixture `Stop` is in the pool as `top` is entered, so `log` ends `did stop ` or
+`stop `.
+
+Pinned outcome: the admissible set `{did stop , stop }`, stated as `outcomes` citing this section.
+Under `check`, `replay` and `explore` the order is a choice point reported as `choice at t=0.0:
+next do top, dispatch accept Stop (unordered; took do top first)`: one move is one action of a
+state's do behavior, drawn against the dispatch the machine would make now (`do <state>` per due
+state, then `dispatch <event>`), and once every due do behavior has acted the dispatch owed is made
+before another round opens. A dispatch that would drop or defer its occurrence is not drawn ahead
+of a due do step; it waits for the round to close, as under the fixed policies, so an occurrence a
+do behavior is about to accept — `Tick` in `state_join_completion_segment_waits_for_do_behavior`,
+`b1`'s timer in `state_join_completion_is_not_a_timers_expiry` — is not lost to the draw, and
+those fixtures keep their admissible sets. `declared`, `reverse` and `seed:<n>` run the do round to its end and
+dispatch after it, so their traces record no such choice and end `did stop `; `explore` must reach
+both outcomes and no other. `state_do_step_among_completions` is the shape with two regions'
+completion effects for the dispatch: a region's do step and the other region's completion are
+each drawn at every instant both are due, and the region orders among the completions themselves
+stay their own draws. `state_do_step_or_tied_dispatch` ties two time triggers at the instant the
+do step is due, one guarded on what the step writes: each tied event is previewed on its own, so
+the unguarded trigger alone is drawn against the step (`choice at t=2.0: next do top, dispatch
+time top 2->idle`) and the guarded one, which the dispatch would drop before the step, waits for
+the round to close, where the two are a dispatch order; `log` ends `did one `, `did two ` or
+`two `, and `explore` reaches the three and no other. Were the tied events judged together, the
+dropped one would hide the acting one behind the step and `two ` would be lost.
+
 ## What the executor gets wrong
 
 Nothing, at present: every derivation above is met and carries a golden. The table this section
-held is empty and so omitted; `internal/core/runtime/testdata/conformance/known_failures.txt` is
+held is empty and so omitted; `internal/exec/runtime/testdata/conformance/known_failures.txt` is
 kept with only its header comments, because the harness reads it and because it is where the
 next unmet derivation goes (see [Adding a case](#adding-a-case)).
 

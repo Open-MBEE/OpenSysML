@@ -1,0 +1,19 @@
+do: l1
+stmt assign log
+    eval feature log -> ""
+    eval literal "did " -> "did "
+  eval operator + -> "did "
+exit: m1
+stmt assign log
+    eval feature log -> "did "
+    eval literal "m " -> "m "
+  eval operator + -> "did m "
+enter: m2
+transition: m1 -> m2
+exit: r1
+stmt assign log
+    eval feature log -> "did m "
+    eval literal "r " -> "r "
+  eval operator + -> "did m r "
+enter: r2
+transition: r1 -> r2

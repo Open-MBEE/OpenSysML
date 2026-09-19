@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/solve"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/solve"
 )
 
 // gateModel: the requirement holds at limit's default and fails for other values

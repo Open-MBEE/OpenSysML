@@ -1,0 +1,26 @@
+{
+  "type": "state",
+  "libraries": true,
+  "trace": true,
+  "outcomes": [
+    {
+      "finalState": "idle",
+      "outputs": {
+        "log": {"type": "String", "value": "did one "}
+      }
+    },
+    {
+      "finalState": "idle",
+      "outputs": {
+        "log": {"type": "String", "value": "did two "}
+      }
+    },
+    {
+      "finalState": "idle",
+      "outputs": {
+        "log": {"type": "String", "value": "two "}
+      }
+    }
+  ],
+  "admissible": "A do step and a dispatch due at one instant: which goes first is open"
+}

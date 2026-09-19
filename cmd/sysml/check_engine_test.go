@@ -334,7 +334,7 @@ func TestEngineCheckBindsWitnessObjectsAcrossRuns(t *testing.T) {
 // replay:<file>: the token order is drawn at the retry, where both branches are due.
 func TestEngineReplaysAnOrderDrawnAfterTheClockRetriesAStep(t *testing.T) {
 	binary := buildCLI(t)
-	model, err := os.ReadFile(filepath.Join("..", "..", "internal", "core", "runtime", "testdata", "conformance",
+	model, err := os.ReadFile(filepath.Join("..", "..", "internal", "exec", "runtime", "testdata", "conformance",
 		"action_explore_performed_and_accept_due_together.sysml"))
 	if err != nil {
 		t.Fatal(err)
@@ -368,24 +368,28 @@ func TestEngineCheckNamesTheBoundsItHits(t *testing.T) {
 }
 
 // A run the checker's moves leave out is named on the verdict as a bound is, and
-// the check is within bounds, not exhaustive: at the round a looping `do` body's
-// branches are due together with a timed exit, the fixed policies finish the round
-// before the dispatch, and the checker's one move dispatches. The two regions'
+// the check is not exhaustive: at the round a looping `do` body's branches are due
+// together with a timed exit, the checker draws the exit before or after one step
+// of the body — `left` diverges over the two — but the fixed policies finish the
+// round before the dispatch, a run no move of the checker makes. The two regions'
 // entry order is drawn, so each outcome is tabled with either order.
 func TestEngineCheckNamesTheDoRoundItLeavesOut(t *testing.T) {
 	binary := buildCLI(t)
-	model, err := os.ReadFile(filepath.Join("..", "..", "internal", "core", "runtime", "testdata", "conformance", "state_do_action_loop_timed_exit.sysml"))
+	model, err := os.ReadFile(filepath.Join("..", "..", "internal", "exec", "runtime", "testdata", "conformance", "state_do_action_loop_timed_exit.sysml"))
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	got := check(t, binary, string(model), "-engine", "check", "-state", "test::Machine")
-	wantReport(t, got, 2,
-		"? State machine test::Machine: no violation within bounds (18 states, 18 moves, depth 7; not enumerated: do round before dispatch)",
+	wantReport(t, got, 1,
+		"✗ State machine test::Machine: divergent (24 states, 24 moves, depth 7; not enumerated: do round before dispatch)",
+		"divergent: left ends as 0 or 1",
+		"outcome: finalState heard+finished; visits looping, waiting, finished, heard; late = 1; left = 0; right = 0",
 		"outcome: finalState heard+finished; visits looping, waiting, finished, heard; late = 1; left = 1; right = 0",
+		"outcome: finalState heard+finished; visits waiting, looping, finished, heard; late = 1; left = 0; right = 0",
 		"outcome: finalState heard+finished; visits waiting, looping, finished, heard; late = 1; left = 1; right = 0",
-		"standing: outcomes (bounded over schedules: 18 states, 18 moves searched, not enumerated: do round before dispatch)")
-	rejectReport(t, got, "exhaustive", "bounds hit", "(reached)")
+		"standing: sensitive (witnessed: 24 states, 24 moves searched, not enumerated: do round before dispatch, witness of 6 choices replayed)")
+	rejectReport(t, got, "exhaustive", "bounds hit", "(reached)", "right = 1")
 
 	got = check(t, binary, string(model), "-json", "-engine", "check", "-state", "test::Machine")
 	var report checkedReport
@@ -393,7 +397,7 @@ func TestEngineCheckNamesTheDoRoundItLeavesOut(t *testing.T) {
 		t.Fatalf("stdout is not the reported JSON: %v\n%s", err, got.output())
 	}
 	r := report.Checks[0].Results[0]
-	if got.status != 2 || r.Claim != "outcomes" || r.Strength != "bounded" || r.Check.Verdict != "no violation within bounds" ||
+	if got.status != 1 || r.Claim != "sensitive" || r.Strength != "witnessed" || r.Check.Verdict != "divergent" ||
 		len(r.Check.BoundsHit) != 0 || strings.Join(r.Check.NotEnumerated, ";") != "do round before dispatch" {
 		t.Errorf("the run left out is misreported:\n%s", got.stdout)
 	}
@@ -494,7 +498,7 @@ func TestEngineCheckRefusesMisuse(t *testing.T) {
 // sibling accept falls due with it — is a state the search holds and resumes.
 func TestEngineCheckSearchesAPausedBody(t *testing.T) {
 	binary := buildCLI(t)
-	paused, err := os.ReadFile(filepath.Join("..", "..", "internal", "core", "runtime", "testdata", "conformance",
+	paused, err := os.ReadFile(filepath.Join("..", "..", "internal", "exec", "runtime", "testdata", "conformance",
 		"action_explore_performed_and_accept_due_together.sysml"))
 	if err != nil {
 		t.Fatal(err)

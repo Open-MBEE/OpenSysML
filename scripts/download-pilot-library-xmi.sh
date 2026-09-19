@@ -13,7 +13,7 @@
 #
 # The library is published in the pilot's release repository under the same tag
 # as the pilot itself, so the release is pinned in scripts/pilot-pin.sh next to
-# the pilot's, and the bundled library under internal/core/libs/stdlib is the
+# the pilot's, and the bundled library under internal/workspace/libs/stdlib is the
 # notation from the same commit. The download records that pin in a .pilot-pin
 # stamp and is re-fetched when the stamp does not match.
 set -euo pipefail

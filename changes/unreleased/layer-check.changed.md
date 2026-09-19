@@ -1,0 +1,1 @@
+- **Moved the validation packages to `internal/check`.** `passes` (with `kit`, `behavior`, `document`, `diagram` and `identity`) and `edit` now live under `internal/check/`.

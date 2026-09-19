@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/xmi"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi"
 )
 
 // The names the suite's shared architecture gives its base classes and the

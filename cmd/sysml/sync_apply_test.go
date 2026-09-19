@@ -13,9 +13,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
-	"github.com/Open-MBEE/OpenSysML/internal/core/rdf"
-	"github.com/Open-MBEE/OpenSysML/internal/interop/flexo"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/interop/flexo"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
 
 // fakeStack stands in for Layer 1 and the service: SPARQL answered from the

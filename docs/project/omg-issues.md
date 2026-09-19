@@ -2,7 +2,7 @@
 
 One place to look for defects found in the OMG-published sources this
 implementation consumes. This page records defects in the **vendored specification
-libraries** (`internal/core/libs/stdlib/`), in the **published example corpora**, and
+libraries** (`internal/workspace/libs/stdlib/`), in the **published example corpora**, and
 in the **OMG pilot implementation** the differential is measured against, and in the
 **PSSM test suite** the state-machine referee runs.
 
@@ -24,7 +24,7 @@ divergence is also a row in [spec-compliance.md](spec-compliance.md).
 ## `Collections::UniqueCollection::elements` and its kin — unique by a note, over a `nonunique` root
 
 Quoted verbatim from
-`internal/core/libs/stdlib/Kernel Libraries/Kernel Data Type Library/Collections.kerml`:
+`internal/workspace/libs/stdlib/Kernel Libraries/Kernel Data Type Library/Collections.kerml`:
 
 ```kerml
 abstract datatype Collection {
@@ -95,9 +95,9 @@ own declarations and defaults are conforming:
   nothing — points the other way. `Set`, `OrderedSet`, `Map`, `OrderedMap`, and a model's
   `:>> elements` under any of them, inherit uniqueness from these four.
 
-Implementation: `internal/core/semantics/uniqueness.go` (`Model.IsUnique`, `uniqueByLibraryNote`).
+Implementation: `internal/semantic/semantics/uniqueness.go` (`Model.IsUnique`, `uniqueByLibraryNote`).
 Evidence: `semantics/uniqueness_test.go:TestIsUniqueLibraryCollections` pins all six library
-collections; the conformance fixtures under `internal/core/runtime/testdata/conformance/`
+collections; the conformance fixtures under `internal/exec/runtime/testdata/conformance/`
 for ISQ vectors, coordinate frames and geometry run unchanged, and
 `library_ordered_set_elements_repeated` / `library_ordered_map_elements_repeated` refuse the repeat.
 The row is in [spec-compliance.md](spec-compliance.md) under *Uniqueness through redefinition
@@ -108,7 +108,7 @@ should say which of the two readings a redefinition takes.
 ## `includingAt` — the vendored declaration
 
 Quoted verbatim from
-`internal/core/libs/stdlib/Kernel Libraries/Kernel Function Library/SequenceFunctions.kerml`:
+`internal/workspace/libs/stdlib/Kernel Libraries/Kernel Function Library/SequenceFunctions.kerml`:
 
 ```kerml
 function includingAt{ in seq: Anything[0..*] ordered nonunique; in values: Anything[0..*] ordered nonunique;
@@ -131,7 +131,7 @@ vendored body and is recorded here for review against a future OMG release.
 posted upstream.
 
 Quoted verbatim from
-`internal/core/libs/stdlib/Kernel Libraries/Kernel Function Library/NaturalFunctions.kerml`:
+`internal/workspace/libs/stdlib/Kernel Libraries/Kernel Function Library/NaturalFunctions.kerml`:
 
 ```kerml
 function '/' specializes IntegerFunctions::'/' { in x: Natural[1]; in y: Natural[1]; return : Natural[1]; }
@@ -170,7 +170,7 @@ than truncating or answering a Rational (`runtime/library_operators.go`
 posted upstream.
 
 Quoted verbatim from
-`internal/core/libs/stdlib/Domain Libraries/Quantities and Units/VectorCalculations.sysml`:
+`internal/workspace/libs/stdlib/Domain Libraries/Quantities and Units/VectorCalculations.sysml`:
 
 ```sysml
 	calc def inner :> VectorFunctions::inner { in : VectorQuantityValue[1]; in : VectorQuantityValue[1]; return : Number[1]; }
@@ -230,7 +230,7 @@ results as declared (`runtime/quantity_functions.go`).
 posted upstream.
 
 Quoted verbatim from
-`internal/core/libs/stdlib/Domain Libraries/Quantities and Units/VectorCalculations.sysml`:
+`internal/workspace/libs/stdlib/Domain Libraries/Quantities and Units/VectorCalculations.sysml`:
 
 ```sysml
     calc def outer { in : VectorQuantityValue[1]; in : VectorQuantityValue[1]; return : VectorQuantityValue[1]; }
@@ -274,7 +274,7 @@ types a call by the declaration, as the checker must.
 Not a defect report; a record of a reading the text does not fix.
 
 Quoted verbatim from
-`internal/core/libs/stdlib/Domain Libraries/Quantities and Units/TensorCalculations.sysml`:
+`internal/workspace/libs/stdlib/Domain Libraries/Quantities and Units/TensorCalculations.sysml`:
 
 ```sysml
     calc def isZeroTensorQuantity { 
@@ -308,7 +308,7 @@ invented for a vector, a rectangular or a higher-order tensor.
 posted upstream.
 
 Quoted verbatim from
-`internal/core/libs/stdlib/Domain Libraries/Quantities and Units/MeasurementReferences.sysml`:
+`internal/workspace/libs/stdlib/Domain Libraries/Quantities and Units/MeasurementReferences.sysml`:
 
 ```sysml
 	attribute def CoordinateFramePlacement :> CoordinateTransformation {
@@ -414,7 +414,7 @@ record's *Structured values* section names each decision).
 posted upstream.
 
 Quoted verbatim from
-`internal/core/libs/stdlib/Domain Libraries/Geometry/ShapeItems.sysml`
+`internal/workspace/libs/stdlib/Domain Libraries/Geometry/ShapeItems.sysml`
 (`CuboidOrTriangularPrism`; `Cuboid` adds the `srf`, `tsre`, `ufre`, `urre`,
 `tfrv`, `trrv` bindings in the same form):
 
@@ -582,13 +582,13 @@ Every finding is an entry of the declared errata overlay (`tools/oracle/errata`,
 [the declared errata overlay](errata-overlay.md)), under the same contract as the example-model
 entries below: a specification citation, a written derivation, and an as-published line that
 must still match the vendored file, all checked by tests. The published bytes under
-`internal/core/libs/stdlib` are never edited. Three entries carry a correction — the line has
+`internal/workspace/libs/stdlib` are never edited. Three entries carry a correction — the line has
 one reading with the declared dimension — and the library a process loads
 (`libs.BundledSource`, and the snapshot generated from it) is the published text with those
 three lines substituted on read. The other six have no unambiguous intended reading and are
 documented **without** a correction: the bundled library keeps their published text and the
 checker keeps reporting them. `libs.EmbeddedSource` still serves the text exactly as published,
-and two gates in `internal/core/model` pin both verdicts as exact sets:
+and two gates in `internal/workspace/model` pin both verdicts as exact sets:
 `TestExprTypeCheckPublishedStdlibDefects` finds all nine over the published text, and
 `TestExprTypeCheckNoStdlibFalsePositives` finds exactly the six uncorrected ones over the bundled
 library — so a correction can only be declared for a line the checker rejects, and a corrected
@@ -1146,7 +1146,7 @@ bodies, so its result is `Anything` and no argument is a unit).
 
 **Not filed.** Drafted here for a maintainer to authorise; nothing has been
 posted upstream. The rules are implemented on our side by
-`internal/core/passes/control_node.go` and refereed against the specification
+`internal/check/passes/control_node.go` and refereed against the specification
 text; the adjudication is in
 [pilot-differential.md](pilot-differential.md#control-node-successions-the-pilot-does-not-validate).
 
@@ -1222,7 +1222,7 @@ it is to be submitted, and nothing has been posted yet. Reproduced with
 `validate-kerml` at `2026-07` (0.61.0) and again at `2026-08` (0.62.0); the
 lines cited are unchanged on `master` at `5cca16d8` (2026-09-12). OpenSysML
 reads the referenced feature's declared type
-(`internal/core/passes/w8c_multiplicity_bounds.go`) wherever the feature is
+(`internal/check/passes/w8c_multiplicity_bounds.go`) wherever the feature is
 owned and rejects only a bound whose type does not conform to `Integer`; the
 adjudication is in
 [pilot-differential.md](pilot-differential.md#multiplicity-bound-result-types-round).
@@ -1414,7 +1414,7 @@ return type.getOwnedMembership().stream().
 **Not filed.** Drafted here for a maintainer to authorise; nothing has been
 posted upstream. OpenSysML counts a declaration's effective ends — owned and
 inherited — when choosing between `Links::links` and `Links::binaryLinks`
-(`internal/core/semantics/implicit.go`, `connector.go`); the adjudication is in
+(`internal/semantic/semantics/implicit.go`, `connector.go`); the adjudication is in
 [pilot-differential.md](pilot-differential.md#binary-link-specialization-round).
 
 ````markdown
@@ -1581,7 +1581,7 @@ intended reading?
 
 **Not filed.** Drafted here for a maintainer to authorise; nothing has been
 posted upstream. OpenSysML checks a conjugated classifier against every default
-base its kind and end count imply (`internal/core/passes/w11e_implicit_base.go`);
+base its kind and end count imply (`internal/check/passes/w11e_implicit_base.go`);
 the census row (`validateClassifierDefaultSupertype` in
 [validation-constraints.md](validation-constraints.md)) records the difference as
 ⚠️ approximate.
@@ -1622,7 +1622,7 @@ implicit-specialization machinery that conjugation switches off?
 
 **Not filed.** Drafted here for a maintainer to authorise; nothing has been
 posted upstream. OpenSysML reports the two `Duplicate of … member name` warnings
-on every repeated anonymous performed or exhibited use (`internal/core/resolve/distinguishability.go`),
+on every repeated anonymous performed or exhibited use (`internal/semantic/resolve/distinguishability.go`),
 as the pilot does when the uses have bodies; the Name Resolution map in
 [spec-compliance.md](spec-compliance.md) records the bodiless case as a pilot
 artefact.
@@ -1681,6 +1681,7 @@ adjudicates the test on the traces the suite registers.
 | Test | Registered expectation | Defect | Reading | Status |
 |---|---|---|---|---|
 | *Transition 017* | eight admitted traces, two of which — `T2(effect)::S1(entry)::T2.2(effect)::T3.2(effect)::S3.1(doActivity)::T3.1.2(effect)` and `…::T2.2(effect)::T3.2(effect)::T3.1.2(effect)::S3.1(doActivity)` — have `T3.2`, the completion transition out of `S3.1`, fire before `T3.1.2`, the completion transition inside `S3.1`'s own region, and run `S3.1`'s do activity after it | a composite state completes when its regions have reached their final states, so its completion transition cannot precede a transition of its region; the suite's own "Expected execution sequence" comment on the test's state machine fires `T3.2` when the completion event `S3.1` generates is consumed, *after* the inner region's `T3.1.2` and final state — the six other traces, not these two | `StatePerformances.kerml`: `private succession [*] transitionLinkSource.nonDoMiddle then [1] Performance::self;` on `StateTransitionPerformance` orders a transition out of a state after every non-do middle step of the state, the nested region's transition performances among them; `private succession [*] middle then [1] exit;` orders every middle step, the do activity included, before the state's exit. No reading of either admits `T3.2(effect)` before `T3.1.2(effect)` | **not filed**; documented without a correction — the test stays `fail` in the referee on these two traces alone, adjudicated in [the referee record](pssm-referee.md) |
+| *Exiting 002* | one admitted trace, `S1(doActivityPartI)::S1(exit)`, the do activity's first segment before the dispatch of the tester's `Continue` that leaves `S1` | the suite has a do activity evolve on its own thread of execution, and registers both orders of the same segment against the same dispatch for *Behavior 003 A*; `S1(exit)` alone, the dispatch first, is not registered here | the second order is the suite's own reading one test earlier; the test's point, the exit aborting the do activity, holds in both | documented, not corrected: `fail` in the referee while `S1(exit)` is the only reached trace not admitted |
 
 ### PSSM Transition 017 admits a parent's completion before its region's
 
@@ -1728,6 +1729,36 @@ the likely origin; nothing in the suite says so.
 The suite is downloaded by `./scripts/download-pssm-suite.sh` under a pinned digest and is
 not vendored, so the two traces are not corrected: the referee reads the suite as published,
 reports *Transition 017* `fail` while they are the only admitted traces not reached, and
+[the referee record](pssm-referee.md) adjudicates the test on that reason. Nothing has been
+posted upstream.
+
+### PSSM Exiting 002 registers one of the two orders the suite admits elsewhere
+
+The test enters `S1`, whose do activity traces `S1(doActivityPartI)`, accepts a signal and
+traces `S1(doActivityPartII)`, and whose exit behavior traces `S1(exit)`; the tester's
+`Continue`, in the pool as `S1` is entered, fires the transition out of `S1`, and the exit aborts
+the do activity. The suite registers one trace, `S1(doActivityPartI)::S1(exit)`: the do
+activity's first segment before the dispatch of `Continue`.
+
+The suite's own account of a do activity, from *Deferred 006*'s rationale, quoted from the XMI:
+
+```text
+A doActivity behavior evolves on its own thread of execution.
+```
+
+A segment on its own thread and a dispatch on the machine's are unordered, and the suite
+registers them so one test earlier: *Behavior 003 A*, the same `S1` with an entry behavior in
+place of the exit behavior and the tester's `AnotherSignal` in place of `Continue`, admits both
+`S1(entry)::S1(doActivityPartI)` and `S1(entry)` — the dispatch before the first segment,
+which the transition's effect then never lets run. *Exiting 002*'s expected execution is the
+same race with the exit behavior in the trace, and `S1(exit)` alone, the dispatch first, is
+the order *Behavior 003 A* admits and this test does not register; its own note contemplates
+the do activity's timing (`If the doActivity was still running at the time where the exit
+behavior is executed …`) and registers one order all the same. The test's point — the exit
+aborts the do activity, so `S1(doActivityPartII)` never traces — holds in both orders.
+
+The suite is not vendored, so the missing trace is not added: the referee reports *Exiting 002*
+`fail` while `S1(exit)` is the only reached trace not admitted, and
 [the referee record](pssm-referee.md) adjudicates the test on that reason. Nothing has been
 posted upstream.
 

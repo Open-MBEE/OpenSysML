@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/usage"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/usage"
 )
 
 // The shipped page is generated, so a flag or a section added to the

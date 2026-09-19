@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/migrate"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/migrate"
 )
 
 func wantNoLine(t *testing.T, notation []byte, line string) {

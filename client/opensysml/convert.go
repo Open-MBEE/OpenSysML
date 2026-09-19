@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
-	"github.com/Open-MBEE/OpenSysML/internal/protoconv"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/protoconv"
 )
 
 // The conversions from the wire types to the public ones. Every conversion

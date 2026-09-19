@@ -21,7 +21,7 @@ package OpenSysMLSurfaces {
     }
 
     #Surface part def Repl :> AskingInterface {
-        attribute :>> goPackage = "internal/repl";
+        attribute :>> goPackage = "internal/frontend/repl";
         attribute :>> entrypoint = "cmd/sysml";
         attribute :>> protocol = "terminal";
         attribute :>> engineSelector = "%engine";
@@ -34,7 +34,7 @@ package OpenSysMLSurfaces {
     // Every capability the server announces in its initialize result; the
     // rendering requests are the experimental extension the VS Code client uses.
     #Surface part def LanguageServer :> Interface {
-        attribute :>> goPackage = "internal/lsp";
+        attribute :>> goPackage = "internal/frontend/lsp";
         attribute :>> entrypoint = "cmd/sysml-lsp";
         attribute :>> protocol = "lsp-stdio";
         attribute incrementalSync : Boolean = true;
@@ -69,7 +69,7 @@ package OpenSysMLSurfaces {
     // One hand-written service behind two generated transports: gRPC over
     // HTTP/2 with reflection, and Connect over plain HTTP for browsers.
     #Surface part def ModelService :> AskingInterface {
-        attribute :>> goPackage = "internal/grpc";
+        attribute :>> goPackage = "internal/frontend/grpc";
         attribute :>> entrypoint = "cmd/sysml-grpc";
         attribute :>> protocol = "grpc, connect";
         attribute :>> engineSelector = "engine";
@@ -78,22 +78,22 @@ package OpenSysMLSurfaces {
         attribute enginesCapability : String = "engines";
         attribute reflectionEnabled : Boolean = true;
         attribute handWrittenService : Boolean = true;
-        attribute connectAdapter : String = "internal/grpc/connect.go";
-        attribute stdioTransport : String = "internal/stdiorpc";
+        attribute connectAdapter : String = "internal/frontend/grpc/connect.go";
+        attribute stdioTransport : String = "internal/frontend/stdiorpc";
         part schema : ApiSchema;
     }
 
     // The same service over a pipe: a process that embeds the binary talks to
     // it without a network listener.
     #Surface part def StdioService :> Interface {
-        attribute :>> goPackage = "internal/stdiorpc";
+        attribute :>> goPackage = "internal/frontend/stdiorpc";
         attribute :>> entrypoint = "cmd/sysml-grpc";
         attribute :>> protocol = "stdio";
     }
 
     // The non-interactive side of the REPL binary: convert, query, render.
     #Surface part def CommandLine :> AskingInterface {
-        attribute :>> goPackage = "internal/repl";
+        attribute :>> goPackage = "internal/frontend/repl";
         attribute :>> entrypoint = "cmd/sysml";
         attribute :>> protocol = "flags";
         attribute :>> engineSelector = "-engine";
@@ -154,7 +154,7 @@ package OpenSysMLSurfaces {
 
     // Semantic-token classes, in the order the LSP legend lists them.
     part def Highlighter :> CodeUnit {
-        attribute :>> goPackage = "internal/core/highlight";
+        attribute :>> goPackage = "internal/semantic/highlight";
         attribute tokenClasses : Integer = 15;
         in item tree : SyntaxTree;
         out item tokens : SemanticToken;
@@ -163,7 +163,7 @@ package OpenSysMLSurfaces {
     // A fix carries the edit that applies it and points at the diagnostic it
     // answers; a diagnostic with no unambiguous repair offers none.
     part def QuickFixer :> CodeUnit {
-        attribute :>> goPackage = "internal/core/diag";
+        attribute :>> goPackage = "internal/syntax/diag";
         attribute editsAttached : Boolean = true;
         in item findings : Diagnostic;
         out item fixes : QuickFix;
@@ -171,7 +171,7 @@ package OpenSysMLSurfaces {
 
     // The nearest declared names for one that did not resolve.
     part def Suggester :> CodeUnit {
-        attribute :>> goPackage = "internal/core/suggest";
+        attribute :>> goPackage = "internal/semantic/suggest";
         attribute rankedByDistance : Boolean = true;
         in item findings : Diagnostic;
     }
@@ -179,7 +179,7 @@ package OpenSysMLSurfaces {
     // Span-based rewriting of source text. The result is re-parsed and
     // re-analysed, and an edit that would leave the model unreadable is refused.
     part def SourceEditor :> CodeUnit {
-        attribute :>> goPackage = "internal/core/edit";
+        attribute :>> goPackage = "internal/check/edit";
         attribute operations : String = "set value, rename, add member, delete";
         attribute preservesUntouchedText : Boolean = true;
         attribute reanalysesResult : Boolean = true;
@@ -189,7 +189,7 @@ package OpenSysMLSurfaces {
 
     // Re-indents the token stream, so comments and error nodes survive a save.
     part def Formatter :> CodeUnit {
-        attribute :>> goPackage = "internal/core/format";
+        attribute :>> goPackage = "internal/syntax/format";
         attribute worksOnTokens : Boolean = true;
         in item text : SourceText;
     }
@@ -197,9 +197,9 @@ package OpenSysMLSurfaces {
     // A document name and a span, carried from a declaration to whatever is
     // derived from it; a synthetic artifact carries the unlocated origin.
     part def Provenance :> CodeUnit {
-        attribute :>> goPackage = "internal/core/symbols";
+        attribute :>> goPackage = "internal/semantic/symbols";
         attribute keyedByDocumentAndSpan : Boolean = true;
-        attribute consumers : String = "internal/core/docir, internal/core/view, internal/core/queryplan";
+        attribute consumers : String = "internal/doc/docir, internal/ir/view, internal/ir/queryplan";
         out item origins : SourceSpan;
     }
 
@@ -229,7 +229,7 @@ package OpenSysMLSurfaces {
     // Every kind in StandardViewDefinitions is recognized, so a view stating
     // one that is not produced is told so rather than rendered as another.
     part def ViewEngine :> CodeUnit {
-        attribute :>> goPackage = "internal/core/view";
+        attribute :>> goPackage = "internal/ir/view";
         attribute recognizedKinds : Integer = 8;
         attribute supportedKinds : Integer = 6;
         part tree : RenderingKind { attribute :>> kind = "tree"; }
@@ -252,12 +252,12 @@ package OpenSysMLSurfaces {
     }
 
     part def QueryCompiler :> CodeUnit {
-        attribute :>> goPackage = "internal/core/queryplan";
+        attribute :>> goPackage = "internal/ir/queryplan";
         attribute immutablePlans : Boolean = true;
     }
 
     part def QueryExecutor :> CodeUnit {
-        attribute :>> goPackage = "internal/core/queryexec";
+        attribute :>> goPackage = "internal/doc/queryexec";
         attribute orderedRows : Boolean = true;
         out item rows : QueryRows;
     }
@@ -266,9 +266,9 @@ package OpenSysMLSurfaces {
     // planner compiles a document definition into an immutable plan holding
     // compiled query programs.
     part def DocumentPlanner :> CodeUnit {
-        attribute :>> goPackage = "internal/core/docplan";
+        attribute :>> goPackage = "internal/ir/docplan";
         attribute libraryFile : String =
-            "internal/core/libs/stdlib/OpenSysML Libraries/DocumentQueries.sysml";
+            "internal/workspace/libs/stdlib/OpenSysML Libraries/DocumentQueries.sysml";
         attribute immutablePlans : Boolean = true;
         attribute contentKinds : String = "section, paragraph, table, list, diagram";
         in item rows : QueryRows;
@@ -278,7 +278,7 @@ package OpenSysMLSurfaces {
     // Evaluating a plan gives one tree, carrying provenance on every node and
     // knowing nothing about the backend that will write it out.
     part def DocumentIR :> CodeUnit {
-        attribute :>> goPackage = "internal/core/docir";
+        attribute :>> goPackage = "internal/doc/docir";
         attribute backendAgnostic : Boolean = true;
         attribute provenancePerNode : Boolean = true;
         attribute resolvesCrossDocumentRefs : Boolean = true;
@@ -288,7 +288,7 @@ package OpenSysMLSurfaces {
     }
 
     part def MarkdownBackend :> CodeUnit {
-        attribute :>> goPackage = "internal/core/docrender";
+        attribute :>> goPackage = "internal/doc/docrender";
         attribute form : String = "markdown";
         attribute needsExternalTool : Boolean = false;
         in item tree : DocumentTree;
@@ -297,7 +297,7 @@ package OpenSysMLSurfaces {
     // The only stage that leaves the process: the tree becomes prepared
     // Markdown, its diagrams become images, and a converter makes the PDF.
     part def PdfBackend :> CodeUnit {
-        attribute :>> goPackage = "internal/core/docpdf";
+        attribute :>> goPackage = "internal/doc/docpdf";
         attribute form : String = "pdf";
         attribute engines : String = "weasyprint, pandoc, prince";
         attribute diagramTool : String = "mmdc";
@@ -311,7 +311,7 @@ package OpenSysMLSurfaces {
     // turtle and rdf are Turtle, uml is XMI as Eclipse UML2 writes it and
     // mdzip is XMI in a zip archive.
     part def Exporter :> CodeUnit {
-        attribute :>> goPackage = "internal/core/export";
+        attribute :>> goPackage = "internal/translate/export";
         attribute formats : String = "sysml, ttl, xmi";
         attribute formatNames : String = "kerml, mdzip, rdf, sysml, text, ttl, turtle, uml, xmi";
         attribute roundTrips : Boolean = true;
@@ -319,7 +319,7 @@ package OpenSysMLSurfaces {
     }
 
     part def OslcQuery :> CodeUnit {
-        attribute :>> goPackage = "internal/core/query";
+        attribute :>> goPackage = "internal/semantic/query";
         attribute dialect : String = "oslc";
     }
 
@@ -442,9 +442,9 @@ package OpenSysMLSurfaces {
 
     // The bundled standard library must parse clean; the gate is in the suite.
     #Oracle part def StdlibConformanceGate :> ConformanceOracle {
-        attribute :>> goPackage = "internal/core/libs";
+        attribute :>> goPackage = "internal/workspace/libs";
         attribute :>> reference = "OMG standard library release";
-        attribute :>> baseline = "internal/core/libs/stdlib";
+        attribute :>> baseline = "internal/workspace/libs/stdlib";
         attribute :>> gating = true;
     }
 
@@ -452,7 +452,7 @@ package OpenSysMLSurfaces {
     #Oracle part def StdlibSnapshotGate :> ConformanceOracle {
         attribute :>> goPackage = "tools/gen/snapshot";
         attribute :>> reference = "the bundled library files";
-        attribute :>> baseline = "internal/core/libs/stdlib.snapshot";
+        attribute :>> baseline = "internal/workspace/libs/stdlib.snapshot";
         attribute :>> gating = true;
     }
 
@@ -466,7 +466,7 @@ package OpenSysMLSurfaces {
     }
 
     part def Errata :> CodeUnit {
-        attribute :>> goPackage = "tools/oracle/errata, internal/core/libs/errata";
+        attribute :>> goPackage = "tools/oracle/errata, internal/workspace/libs/errata";
         attribute overlaysPublishedMaterial : Boolean = true;
     }
 

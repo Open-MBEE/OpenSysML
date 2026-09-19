@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/convert"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 )
 
 // The help states the RDF mapping's status in the same wording a conversion
