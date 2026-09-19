@@ -193,11 +193,8 @@ func (e *ActionExecutor) incomplete() error {
 	return nil
 }
 
-// enabledMoves lists the moves of the machine's state as oneUnit makes them: the
-// dispatch a closed round owes; else a step of each do action of the round and the
-// dispatch due together where it acts on its occurrence, picked as the step order
-// lists them — the do steps by their place in the round, the dispatch after them —
-// or whichever of the two is there, picked as it is alone.
+// enabledMoves lists the moves oneUnit makes: the dispatch a closed round owes; else
+// the round's do steps and an acting dispatch, picked as the step order lists them.
 func (e *StateExecutor) enabledMoves() []enabledMove {
 	defer e.ctx.beginExecutorRun(&e.driven)()
 	if e.state != StateRunning && e.state != StateSuspended {
@@ -222,9 +219,8 @@ func (e *StateExecutor) enabledMoves() []enabledMove {
 	return moves
 }
 
-// leftOut is NotEnumeratedDoRound at a machine with a dispatch due while a do
-// behavior stepped one token at a time can go on: a fixed policy moves each ready
-// token before the dispatch, a run the checker has no move making.
+// leftOut is NotEnumeratedDoRound where a dispatch is due while a stepped do behavior
+// can go on: a fixed policy moves each ready token first, a run no move of the checker makes.
 func (e *StateExecutor) leftOut() string {
 	defer e.ctx.beginExecutorRun(&e.driven)()
 	if e.state != StateRunning && e.state != StateSuspended {
@@ -264,10 +260,8 @@ func statesOf(acts []*doAction) []*ast.StateNode {
 	return states
 }
 
-// dispatchMoves is the dispatch due, if any: one move when a change condition
-// has risen, a signal is in flight or one event heads the queue, else one per
-// event tied at the head, picked by its place among them; acts as dueDispatch
-// reports it.
+// dispatchMoves is the dispatch due, if any: one move, or one per event tied at the
+// head picked by its place among them; acts as dueDispatch reports it.
 func (e *StateExecutor) dispatchMoves() (moves []enabledMove, acts bool) {
 	label, acts, due := e.dueDispatch()
 	if !due {

@@ -3170,10 +3170,8 @@ func (e *StateExecutor) runOne(progress *dueProgress) (moved bool, err error) {
 	return moved, err
 }
 
-// oneUnit runs one atomic unit of the machine's work at the current instant: the
-// dispatch a closed round owes; else one step of the round under way — a do action's
-// step, or the dispatch due, drawn against each other under ChoiceStepOrder — opening
-// a round of the do actions due when none is. False when nothing was left to do.
+// oneUnit runs one atomic unit at the current instant: the dispatch a closed round
+// owes, else one step of the round under way (stepRound); false when nothing was left.
 func (e *StateExecutor) oneUnit(progress *dueProgress) (moved bool, err error) {
 	if e.completionDue {
 		return true, e.completeMachine()
@@ -3191,9 +3189,8 @@ func (e *StateExecutor) oneUnit(progress *dueProgress) (moved bool, err error) {
 	return e.stepRound(progress)
 }
 
-// dueRound lists the do actions the next do step picks among: those of the round
-// under way still registered, else a new round of the due ones, as runDoRound
-// sweeps them.
+// dueRound lists the do actions the next step picks among: the round under way's
+// still registered, else a new round of the due ones, as runDoRound sweeps them.
 func (e *StateExecutor) dueRound() []*doAction {
 	round := slices.DeleteFunc(slices.Clone(e.round), func(act *doAction) bool { return !e.isRunningDoAction(act) })
 	if len(round) > 0 {
@@ -3207,10 +3204,8 @@ func (e *StateExecutor) dueRound() []*doAction {
 	return round
 }
 
-// stepRound runs one step of the round under way: one do action's step or, drawn
-// against the steps under ChoiceStepOrder while a dispatch that acts is due, the
-// dispatch, which leaves the round as it is. The round closes, its dispatch owed,
-// once each action has stepped.
+// stepRound runs one do action's step or, drawn against the steps under ChoiceStepOrder
+// while a dispatch that acts is due, the dispatch; the round closes once each has stepped.
 func (e *StateExecutor) stepRound(progress *dueProgress) (bool, error) {
 	var next int
 	if dispatch, acts, due := e.dueDispatch(); due && acts {
@@ -3247,18 +3242,15 @@ func (e *StateExecutor) stepRound(progress *dueProgress) (bool, error) {
 	return true, nil
 }
 
-// stepWherePrefix opens where a step order names its instant; dispatchTiedLabel
-// is its dispatch alternative where events tied at the head leave the event to a
-// draw of its own.
+// stepWherePrefix opens where a step order names its instant; dispatchTiedLabel is
+// its dispatch alternative where events tied at the head get a draw of their own.
 const (
 	stepWherePrefix   = "at t="
 	dispatchTiedLabel = "dispatch"
 )
 
-// dueDispatch names the dispatch dispatchOne would make now, as a step order lists
-// it: the change condition risen, the signal in flight, else the event at the head
-// of the queue — bare where tied events leave that to a draw of its own. acts
-// reports whether the dispatch would take its occurrence (eventActs).
+// dueDispatch names the dispatch dispatchOne would make now as a step order lists it
+// (risen change, signal in flight, else the head event); acts is eventActs over it.
 func (e *StateExecutor) dueDispatch() (label string, acts, due bool) {
 	if trans, risen := e.risenChange(); risen {
 		if trans == nil {
@@ -3336,9 +3328,8 @@ func (e *StateExecutor) changeLabel(trans *lower.Transition) string {
 	return transitionDescription(trans)
 }
 
-// chooseStepOrder draws what goes first under ChoiceStepOrder — a do step of the
-// round, `do <state>` each in round order, or the dispatch due after them — and
-// returns the index taken, len(due) for the dispatch.
+// chooseStepOrder draws what goes first under ChoiceStepOrder — `do <state>` per due
+// action in round order, then the dispatch — returning the index taken, len(due) for the dispatch.
 func (e *StateExecutor) chooseStepOrder(due []*doAction, dispatch string) (int, error) {
 	alternatives := make([]string, 0, len(due)+1)
 	for _, name := range e.stateNames(statesOf(due)) {

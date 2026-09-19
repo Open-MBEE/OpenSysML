@@ -132,11 +132,8 @@ func newChangePoll() *changePoll {
 	}
 }
 
-// risenChange observes the change conditions as a poll does, under a probe so the
-// machine keeps its latches, and reports whether a poll now would dispatch a rise
-// or fail: what pollChangeEvents would report, with the same rule for what a rise
-// enables, whether or not the join a segment leads into is ready to fire. The
-// transition is the first the poll finds enabled, nil where the poll would fail.
+// risenChange polls the change conditions under a probe, keeping the latches, and
+// reports whether pollChangeEvents would now dispatch a rise (the first transition enabled) or fail (nil).
 func (e *StateExecutor) risenChange() (*lower.Transition, bool) {
 	defer e.ctx.beginProbe()()
 	fired := maps.Clone(e.changeFired)
