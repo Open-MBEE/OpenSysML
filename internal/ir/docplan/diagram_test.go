@@ -3,7 +3,7 @@ package docplan
 import (
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/view"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 )
 
 const diagramModel = `

@@ -3,8 +3,8 @@ package docir
 import (
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/docplan"
 	"github.com/Open-MBEE/OpenSysML/internal/core/queryexec"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/docplan"
 )
 
 // crossDocumentFixture declares two documents where one references the

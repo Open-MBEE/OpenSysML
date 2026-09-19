@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/view"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 )
 
 // htmlClassVocabulary is the documented class surface: a theme may rely on

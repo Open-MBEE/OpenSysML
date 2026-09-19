@@ -3,8 +3,8 @@
 package docplan
 
 import (
-	"github.com/Open-MBEE/OpenSysML/internal/core/queryplan"
-	"github.com/Open-MBEE/OpenSysML/internal/core/view"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/queryplan"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
