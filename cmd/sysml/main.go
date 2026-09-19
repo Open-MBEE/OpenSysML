@@ -16,10 +16,10 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	engineset "github.com/Open-MBEE/OpenSysML/internal/exec/engines"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
-	"github.com/Open-MBEE/OpenSysML/internal/repl"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/usage"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
-	"github.com/Open-MBEE/OpenSysML/internal/usage"
 )
 
 // errPrefix names the tool in the messages it writes to stderr.
