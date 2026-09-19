@@ -1,6 +1,6 @@
 package runtime
 
-import "github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+import "github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 
 // frame is one level of local bindings an evaluation reads: a calc invocation's
 // parameter slots, a map of named values, or both.

@@ -8,8 +8,8 @@ import (
 
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
-	corequery "github.com/Open-MBEE/OpenSysML/internal/core/query"
-	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	corequery "github.com/Open-MBEE/OpenSysML/internal/semantic/query"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 // queryModel is the model the query tests run against: parts and attributes at

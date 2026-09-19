@@ -5,7 +5,7 @@ import (
 	"math"
 	"slices"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 )
 
 // clockWaiter is an executor the shared clock drives: it registers its waits on

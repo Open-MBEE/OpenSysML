@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
-	corequery "github.com/Open-MBEE/OpenSysML/internal/core/query"
-	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	corequery "github.com/Open-MBEE/OpenSysML/internal/semantic/query"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 // queryTypesOf reports the `@type` every named element of a source is projected

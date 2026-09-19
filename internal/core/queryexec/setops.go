@@ -2,7 +2,7 @@ package queryexec
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/queryplan"
-	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 // setKey is a row's identity for set operations: an element or object as rowKey

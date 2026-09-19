@@ -11,7 +11,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/analysis/modelform"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/solve"
-	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 // coversParams is the covers request: the question and the model in the entry's forms.

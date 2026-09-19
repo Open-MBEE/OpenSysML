@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
-	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 // toolRunner is the runner one plan attaches to every context its runs use: each

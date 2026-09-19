@@ -167,7 +167,7 @@ func TestW6CExposeOfAPrivateMemberIsClean(t *testing.T) {
 
 // Row ~982. A succession usage is a redefinition target: the pinned validator
 // and we are both clean on the corrected fixture, so the F52 diagnostic no
-// longer reproduces; the `SymbolUnknown` root cause is in `internal/core/symbols`.
+// longer reproduces; the `SymbolUnknown` root cause is in `internal/semantic/symbols`.
 func TestW6CSuccessionRedefinitionTargetIsClean(t *testing.T) {
 	got := w6cDiags(t, "w6c_succession.sysml", `package P {
 	action def A {

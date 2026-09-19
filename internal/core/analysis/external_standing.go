@@ -9,8 +9,8 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/analysis/enginewire"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
-	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/solve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 )
 
 // shape is the protocol check of an answer's form: a claim and strength the framework

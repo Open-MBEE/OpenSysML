@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/suggest"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/suggest"
 )
 
 // A name the session itself declares under a package is nearer than a library

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 )
 
 // framePose is where a target frame sits in its source frame: a source-coordinate

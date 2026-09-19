@@ -9,8 +9,8 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/docir"
 	"github.com/Open-MBEE/OpenSysML/internal/core/queryexec"
-	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/core/view"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 // defaultCSS is the stylesheet a standalone document carries.

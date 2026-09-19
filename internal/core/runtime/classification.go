@@ -4,8 +4,8 @@ import (
 	"math"
 	"slices"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
-	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 // classifiedBy is which of a value's types a classification reads (KerML 1.0 Table 5):

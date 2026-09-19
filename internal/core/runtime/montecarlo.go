@@ -7,7 +7,7 @@ import (
 	"math/big"
 	"slices"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 )
 
 // A Monte Carlo is a sweep over nothing but the seed: one ordinary run of a

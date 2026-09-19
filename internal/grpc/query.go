@@ -10,8 +10,8 @@ import (
 
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
-	corequery "github.com/Open-MBEE/OpenSysML/internal/core/query"
-	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	corequery "github.com/Open-MBEE/OpenSysML/internal/semantic/query"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 // Query property names, as the SysML v2 API & Services standard's clients write

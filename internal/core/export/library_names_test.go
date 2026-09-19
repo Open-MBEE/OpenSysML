@@ -3,8 +3,8 @@ package export
 import (
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
 )
 
 // A graph is a version of a bundled library document only when every root is
