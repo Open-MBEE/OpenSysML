@@ -23,9 +23,9 @@ const (
 	parserDir             = "internal/syntax/parser"
 	parserSuiteDir        = "tests/parser"
 	parserGoldenDir       = parserSuiteDir + "/testdata/parse"
-	grpcDir               = "internal/grpc"
+	grpcDir               = "internal/frontend/grpc"
 	grpcConformanceDir    = "tests/grpc/testdata/conformance"
-	lspDir                = "internal/lsp"
+	lspDir                = "internal/frontend/lsp"
 )
 
 // SuiteCounts are the test-suite figures counted from the tree: the fixtures

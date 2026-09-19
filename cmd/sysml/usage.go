@@ -3,9 +3,9 @@ package main
 import (
 	"flag"
 
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/usage"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/interop/flexo"
-	"github.com/Open-MBEE/OpenSysML/internal/usage"
 )
 
 // doc describes the command for both the terminal help and the man page, so a

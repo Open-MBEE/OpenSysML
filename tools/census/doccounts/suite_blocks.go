@@ -48,7 +48,7 @@ var suiteBlockTemplateTexts = map[string]string{
 	inventoryNegativesBlock:    "{{.Suite.Negatives}} negative parser subtests (first-level subtests of `TestNegative`; {{.Suite.NegativesPrefixed}} across the `TestNegative*` functions, {{.Suite.NegativesKerML}} of them KerML, and {{.Suite.NegativesAll}} across every `*Negative*` parser test)",
 	inventoryGRPCBlock:         "{{.Suite.GRPCConformance}} gRPC conformance cases and {{.Suite.GRPCRobustness}} gRPC robustness cases (first-level subtests across the `TestGRPCRobustness*` functions)",
 	inventoryTestsBlock:        "{{.Suite.TestFunctions}} top-level `Test` functions across the module",
-	lspTestsBlock:              "{{.Suite.LSPTestFunctions}} top-level `Test` functions in `internal/lsp`",
+	lspTestsBlock:              "{{.Suite.LSPTestFunctions}} top-level `Test` functions in `internal/frontend/lsp`",
 }
 
 // suiteFigures are the suite counts spelt as the templates print them.

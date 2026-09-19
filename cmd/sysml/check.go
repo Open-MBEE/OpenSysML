@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
-	"github.com/Open-MBEE/OpenSysML/internal/repl"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
 )
 
 // checks are the model checks and runs named on the command line, in the order

@@ -103,18 +103,18 @@ var packageLayer = map[string]string{
 	"internal/workspace/project":     "workspace",
 	"internal/workspace/envvar":      "workspace",
 
-	"api/proto":              "frontend",
-	"api/proto/protoconnect": "frontend",
-	"client/opensysml":       "frontend",
-	"internal/protoconv":     "frontend",
-	"internal/repl":          "frontend",
-	"internal/lsp":           "frontend",
-	"internal/grpc":          "frontend",
-	"internal/stdiorpc":      "frontend",
-	"internal/usage":         "frontend",
-	"cmd/sysml":              "frontend",
-	"cmd/sysml-grpc":         "frontend",
-	"cmd/sysml-lsp":          "frontend",
+	"api/proto":                   "frontend",
+	"api/proto/protoconnect":      "frontend",
+	"client/opensysml":            "frontend",
+	"internal/frontend/protoconv": "frontend",
+	"internal/frontend/repl":      "frontend",
+	"internal/frontend/lsp":       "frontend",
+	"internal/frontend/grpc":      "frontend",
+	"internal/frontend/stdiorpc":  "frontend",
+	"internal/frontend/usage":     "frontend",
+	"cmd/sysml":                   "frontend",
+	"cmd/sysml-grpc":              "frontend",
+	"cmd/sysml-lsp":               "frontend",
 }
 
 // tolerated is the imports the layer table does not permit and that still
@@ -142,7 +142,7 @@ var removed = map[string][]string{
 	"internal/check/passes/behavior":    {"internal/check/passes"},
 	"internal/exec/runtime":             {"internal/syntax/parser", "internal/check/passes"},
 	"internal/semantic/query":           {"internal/translate/rdf"},
-	"internal/repl":                     {"internal/grpc"},
+	"internal/frontend/repl":            {"internal/frontend/grpc"},
 }
 
 // TestPackageLayering checks the import graph against the layer tables: every
