@@ -169,10 +169,11 @@ type migration struct {
 	// invokers lists, for each behavior, the actions, states, transitions and
 	// classifiers that run it without owning it, whose object it then acts on.
 	invokers map[*sysmlv1.Element][]*sysmlv1.Element
-	// connectors lists the user model's connectors; portSends its send signal
-	// actions going out through a port. arrived indexes, from both, the ports
-	// each signal arrives at, once a trigger asks.
+	// connectors lists the user model's connectors, ports its ports, and portSends its
+	// send signal actions going out through a port. arrived indexes, from these, the
+	// ports each signal arrives at, once a trigger asks.
 	connectors []*sysmlv1.Element
+	ports      []*sysmlv1.Element
 	portSends  []*sysmlv1.Element
 	arrived    *arrivals
 	// bound gives, while a transition's effect is written, the expression over
@@ -295,6 +296,9 @@ func (m *migration) prepare() {
 				m.exposeNamed(e, e.Parent.Parent)
 			}
 		case "Property", "Port":
+			if e.Type == "Port" {
+				m.ports = append(m.ports, e)
+			}
 			for _, r := range m.model.Refs(e, "redefinedProperty") {
 				m.expose(r, qualifiedName(e)+" redefines it")
 			}

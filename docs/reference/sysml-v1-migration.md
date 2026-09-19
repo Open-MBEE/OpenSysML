@@ -317,9 +317,15 @@ signal.
 
 A trigger naming a port of the behavior's owner is `accept Sig via rx`; one naming a port of
 another block is written without it and the report says whose port it is. A trigger naming no
-port is written plain, and when the document's connectors and delegations carry its signal to a
-port of the owner it is also written accepting via each such port, so a message a connector
-delivers to the port is taken as one addressed to the object is.
+port is written plain, and it is also written accepting via each port of the owner the signal
+arrives at, so a message a connector delivers to the port is taken as one addressed to the
+object is. A signal arrives at a port when the document sends it through a port the connectors
+and delegations join to it, when an item flow a connector realizes conveys it there, or when the
+port's type — its generals and the interfaces it realizes included — declares a flow property of
+the signal's type flowing in (out on a conjugated port) or a reception of the signal; a special
+of a declared type arrives as well. A port that is untyped, or whose type declares neither flow
+property nor reception, says nothing about what reaches it, so a signal nothing sends there is
+not accepted via it and the report names the port left unrouted.
 
 A transition whose ends lie in different regions or nesting levels names the far end by its
 path — `transition first Idle accept Resume then Work::Run;` — which the runtime executes as

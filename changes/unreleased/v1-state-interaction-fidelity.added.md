@@ -43,8 +43,11 @@
   region holding no vertex is skipped when the machine's states are named as when they are
   written, so a machine whose other region is populated is written inline and a transition
   across nesting levels names its far end by a path that exists. A
-  trigger naming no port is also written accepting via each port of the owner the document's
-  connectors and delegations carry its signal to, and an activity whose required input pin only
+  trigger naming no port is also written accepting via each port of the owner its signal arrives
+  at — one the document's connectors and delegations carry a send of it to, one an item flow
+  conveys it to, or one whose type (generals and realized interfaces included) declares an inward
+  flow property or a reception of it — with the ports that declare nothing and receive no send
+  reported as left unrouted, and an activity whose required input pin only
   parameters nothing values flow into is reported as never firing instead of written to wait.
 - **A `via` path can start at a bound reference, and delegated, redefined and untyped ports
   route.** `send … via ctx.p` from a behavior whose `ctx` is bound to another object leaves that

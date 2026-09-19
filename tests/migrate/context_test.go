@@ -92,7 +92,7 @@ func TestUnownedActivityAcceptsViaThePortsOfTheBlocksRunningIt(t *testing.T) {
 	} {
 		wantLine(t, r.Notation, line)
 	}
-	wantNote(t, r, "_takeTr", migrate.Approximated, "the signal arrives at the port rx over the document's connectors, so the action accepts via it; an action accepts through one route, and one sent to the object itself is not taken")
+	wantNote(t, r, "_takeTr", migrate.Approximated, "the signal arrives at the port rx over the document's connectors or declarations, so the action accepts via it; an action accepts through one route, and one sent to the object itself is not taken")
 	wantNote(t, r, "_callAwait", migrate.Mapped, "the behavior acts on a Host through its parameter context, which is bound to this")
 	wantNote(t, r, "_await", migrate.Approximated, "acts on a Host through its ports, which it takes as its parameter context; also run as the do action of 'waiting'; the behavior acts on a Host through its parameter context, which is bound to this")
 	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {

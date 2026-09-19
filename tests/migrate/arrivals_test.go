@@ -87,7 +87,7 @@ func TestTriggersAcceptViaThePortsTheSignalArrivesAt(t *testing.T) {
 	if strings.Contains(string(r.Notation), "via aux") || strings.Contains(string(r.Notation), "via tx then") {
 		t.Errorf("a transition accepts via a port the signal does not arrive at:\n%s", r.Notation)
 	}
-	wantNote(t, r, "_rt1", migrate.Mapped, "the signal arrives at the port rx over the document's connectors, so the trigger is also written accepting via each")
+	wantNote(t, r, "_rt1", migrate.Mapped, "the signal arrives at the port rx over the document's connectors or declarations, so the trigger is also written accepting via each")
 	wantNote(t, r, "_ntr1", migrate.Approximated, "the trigger's port Sender::tx is no port of the behavior's owner")
 	wantNote(t, r, "_nt1", migrate.Mapped, "the trigger accepts via the port rx it names")
 	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
