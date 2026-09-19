@@ -76,7 +76,7 @@ func TestEngineCheckWitnessesTheSpacecraftRaceAndReplaysEach(t *testing.T) {
 // order of `modes`' two regions is drawn first, telling the 41 outcome's visit orders apart.
 func TestExploreTablesTheSpacecraftRaceWithinItsBudget(t *testing.T) {
 	binary := buildCLI(t)
-	explore := func(budget string, jobs string) runOutcome {
+	explore := func(budget, jobs string) runOutcome {
 		return runFiles(t, binary, []string{spacecraftModel}, append([]string{"-jobs", jobs, "-schedule", "explore:" + budget}, spacecraftMachine...)...)
 	}
 

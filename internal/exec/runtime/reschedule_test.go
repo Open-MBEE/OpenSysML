@@ -40,10 +40,10 @@ func rescheduleRun(t *testing.T) (*Context, func() string) {
 	if len(machines) != 1 || machines[0].State == nil {
 		t.Fatalf("chooser exhibits %d machines; want pick", len(machines))
 	}
-	go_ := resolveSymbol(t, root, "Go")
+	goSym := resolveSymbol(t, root, "Go")
 	return ctx, func() string {
 		t.Helper()
-		msg, err := ctx.SignalMessage(go_, nil, chooser)
+		msg, err := ctx.SignalMessage(goSym, nil, chooser)
 		if err != nil {
 			t.Fatalf("SignalMessage(Go): %v", err)
 		}
@@ -62,15 +62,15 @@ func seedGoingSecond(t *testing.T, draws int) SchedulePolicy {
 seeds:
 	for seed := 0; seed < 256; seed++ {
 		policy := mustPolicy(t, fmt.Sprintf("seed:%d", seed))
-		ctx, go_ := rescheduleRun(t)
+		ctx, fireGo := rescheduleRun(t)
 		if err := ctx.Reschedule(policy); err != nil {
 			t.Fatal(err)
 		}
 		for i := 0; i < draws; i++ {
-			if go_() != "second" {
+			if fireGo() != "second" {
 				continue seeds
 			}
-			go_()
+			fireGo()
 		}
 		return policy
 	}
@@ -83,35 +83,35 @@ seeds:
 // while SetSchedule leaves them under the policy they started with.
 func TestRescheduleReachesTheDrivenRuns(t *testing.T) {
 	seeded := seedGoingSecond(t, 1)
-	ctx, go_ := rescheduleRun(t)
-	if got := go_(); got != "first" {
+	ctx, fireGo := rescheduleRun(t)
+	if got := fireGo(); got != "first" {
 		t.Fatalf("Go under the default reverse policy went to %s, want first", got)
 	}
-	if got := go_(); got != "start" {
+	if got := fireGo(); got != "start" {
 		t.Fatalf("Go back went to %s, want start", got)
 	}
 	if err := ctx.SetSchedule(seeded); err != nil {
 		t.Fatal(err)
 	}
-	if got := go_(); got != "first" {
+	if got := fireGo(); got != "first" {
 		t.Fatalf("Go after SetSchedule(%s) went to %s, want first: a run under way keeps its policy", seeded, got)
 	}
-	if got := go_(); got != "start" {
+	if got := fireGo(); got != "start" {
 		t.Fatalf("Go back went to %s, want start", got)
 	}
 	if err := ctx.Reschedule(seeded); err != nil {
 		t.Fatal(err)
 	}
-	if got := go_(); got != "second" {
+	if got := fireGo(); got != "second" {
 		t.Fatalf("Go after Reschedule(%s) went to %s, want second", seeded, got)
 	}
-	if got := go_(); got != "start" {
+	if got := fireGo(); got != "start" {
 		t.Fatalf("Go back went to %s, want start", got)
 	}
 	if err := ctx.Reschedule(mustPolicy(t, "declared")); err != nil {
 		t.Fatal(err)
 	}
-	if got := go_(); got != "first" {
+	if got := fireGo(); got != "first" {
 		t.Fatalf("Go after Reschedule(declared) went to %s, want first", got)
 	}
 	if got := ctx.Clock().Now(); got != 7 {
@@ -127,14 +127,14 @@ func TestRescheduleReachesTheDrivenRuns(t *testing.T) {
 // as they would have.
 func TestRescheduleIsUndoneWithTheSnapshot(t *testing.T) {
 	seeded := seedGoingSecond(t, 2)
-	ctx, go_ := rescheduleRun(t)
+	ctx, fireGo := rescheduleRun(t)
 	if err := ctx.Reschedule(seeded); err != nil {
 		t.Fatal(err)
 	}
-	if got := go_(); got != "second" {
+	if got := fireGo(); got != "second" {
 		t.Fatalf("Go under %s went to %s, want second", seeded, got)
 	}
-	if got := go_(); got != "start" {
+	if got := fireGo(); got != "start" {
 		t.Fatalf("Go back went to %s, want start", got)
 	}
 	snapshot, err := ctx.Snapshot()
@@ -144,11 +144,11 @@ func TestRescheduleIsUndoneWithTheSnapshot(t *testing.T) {
 	if err := ctx.Reschedule(mustPolicy(t, "declared")); err != nil {
 		t.Fatal(err)
 	}
-	if got := go_(); got != "first" {
+	if got := fireGo(); got != "first" {
 		t.Fatalf("Go after Reschedule(declared) went to %s, want first", got)
 	}
 	snapshot.Restore()
-	if got := go_(); got != "second" {
+	if got := fireGo(); got != "second" {
 		t.Errorf("Go after restoring the snapshot went to %s, want second: the second draw of %s", got, seeded)
 	}
 }
@@ -158,22 +158,22 @@ func TestRescheduleIsUndoneWithTheSnapshot(t *testing.T) {
 func TestRescheduleStartsASeedOver(t *testing.T) {
 	first := make(map[int]string)
 	for seed := 0; seed < 8; seed++ {
-		ctx, go_ := rescheduleRun(t)
+		ctx, fireGo := rescheduleRun(t)
 		if err := ctx.Reschedule(mustPolicy(t, fmt.Sprintf("seed:%d", seed))); err != nil {
 			t.Fatal(err)
 		}
-		first[seed] = go_()
+		first[seed] = fireGo()
 	}
-	ctx, go_ := rescheduleRun(t)
-	go_()
+	ctx, fireGo := rescheduleRun(t)
+	fireGo()
 	for seed := 0; seed < 8; seed++ {
-		if got := go_(); got != "start" {
+		if got := fireGo(); got != "start" {
 			t.Fatalf("Go back went to %s, want start", got)
 		}
 		if err := ctx.Reschedule(mustPolicy(t, fmt.Sprintf("seed:%d", seed))); err != nil {
 			t.Fatal(err)
 		}
-		if got := go_(); got != first[seed] {
+		if got := fireGo(); got != first[seed] {
 			t.Errorf("seed:%d set after earlier turns went to %s; a run started under it goes to %s", seed, got, first[seed])
 		}
 	}

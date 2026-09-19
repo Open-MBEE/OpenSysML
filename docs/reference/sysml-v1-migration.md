@@ -470,7 +470,8 @@ does the same from the command line.
 ## Run configurations
 
 A simulation tool's run configuration — MagicDraw's «SimulationConfig», recognised by the
-provenance of its profile (`…/schemas/SimulationProfile.xmi`), not by its name — states which
+provenance of its profile (`magicdraw.com` or `nomagic.com`, at `/schemas/SimulationProfile.xmi` and no
+other path; a stereotype so named from any other profile is kept as a comment), not by its name — states which
 object a behavior ran on, how many times, and how the tool resolved its random durations. Each
 becomes an `action def` a user runs as any other:
 
@@ -518,7 +519,9 @@ action def 'Group 0' {
   naming no classifier — are migrated as individuals of the most special block their slots'
   features belong to, provided those blocks are one lineage ending in the configuration's target
   classifier or a general of it (a classifier-less instance anywhere else, or whose slots are of
-  unrelated blocks, is unmapped with the reason), and indexed per configuration in the JSON sidecar
+  unrelated blocks, is unmapped with the reason), and indexed per configuration — a snapshot
+  classified by the target's classifier, a general or a special of it, not one classified by a
+  sibling special sharing only a general with it, which is of a run on another kind — in the JSON sidecar
   `-convert sysml … -migration-results results.json` writes beside the notation:
 
   ```json

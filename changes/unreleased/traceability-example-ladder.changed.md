@@ -1,0 +1,1 @@
+- **PDF headings and captions stay with what they introduce.** A heading, a caption, or the paragraph directly before a table is no longer left at the foot of one page with its table or figure at the head of the next, and a column header is no longer broken inside a word to fit; a page break can move by a paragraph in an existing document, but page counts do not change.

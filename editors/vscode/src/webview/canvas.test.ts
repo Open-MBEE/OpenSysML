@@ -70,7 +70,7 @@ test("liftNode floats the dragged subtree over a canvas that stays put, drawn la
   assert.deepEqual([svg.getAttribute("width"), svg.getAttribute("height")], [String(layout.width), String(layout.height)]);
   assert.equal(svg.getAttribute("viewBox"), `${layout.origin.x} ${layout.origin.y} ${layout.width} ${layout.height}`);
   // The edge from the lifted valve to the pump is redrawn to follow it, with its handles.
-  assert.deepEqual([...svg.querySelectorAll<SVGGElement>("g.lifted")].map((group) => group.className.baseVal.split(" ")[0]), [
+  assert.deepEqual([...svg.querySelectorAll<SVGGElement>("g.lifted")].map((group) => group.classList[0]), [
     "opensysml-node", "opensysml-node", "opensysml-edge", "edge-handles",
   ]);
   // A node the layout does not hold lifts nothing.
@@ -188,4 +188,51 @@ test("drawCanvas draws a sequence's lifelines", () => {
   assert.equal(svg.querySelectorAll("line.lifeline").length, 2);
   assert.equal(svg.querySelectorAll("g.edge-handles").length, 0);
   assert.equal(svg.querySelectorAll("g.opensysml-node.movable").length, 0);
+});
+
+test("drawCanvas classes each box as the PlantUML form stereotypes it, squaring only a definition", () => {
+  const boxed: RenderResult = {
+    ...result,
+    nodes: [
+      node("p", "Plant", { kind: "package" }),
+      node("q", "Lib", { kind: "library package" }),
+      node("def", "Tank", { kind: "part def" }),
+      node("cls", "Thing", { kind: "class" }),
+      node("reg", "r", { kind: "region" }),
+      node("use", "tank", { kind: "part" }),
+    ],
+    edges: [],
+  };
+  const svg = drawCanvas(layoutCanvas(boxed));
+  const rect = (id: string) => svg.querySelector(`g[data-opensysml-id="${id}"] > rect`)!;
+  assert.deepEqual(
+    ["p", "q", "def", "cls", "reg", "use"].map((id) => [rect(id).classList[1], rect(id).getAttribute("rx")]),
+    [["package", "6"], ["package", "6"], ["definition", null], ["definition", null], ["region", "6"], ["usage", "6"]],
+  );
+});
+
+test("drawCanvas carries each palette colour on the shape as its own custom property, and nothing on a node given none", () => {
+  const coloured: RenderResult = {
+    ...result,
+    nodes: [
+      node("def", "Tank", { kind: "part def", fill: "#E69F00", border: "#E69F00" }),
+      node("use", "tank", { kind: "part", parent: "def", fill: "#F5D999", border: "#E69F00" }),
+      node("lifeline", "producer", { kind: "part", fill: "#F5D999" }),
+      node("plain", "pump"),
+      node("d", "", { kind: "fork" }),
+    ],
+  };
+  const svg = drawCanvas(layoutCanvas(coloured));
+  const shape = (id: string) => svg.querySelector<SVGElement>(`g[data-opensysml-id="${id}"] > .shape`)!;
+  assert.deepEqual([shape("def").style.getPropertyValue("--node-fill"), shape("def").style.getPropertyValue("--node-border")], ["#E69F00", "#E69F00"]);
+  assert.deepEqual([shape("use").style.getPropertyValue("--node-fill"), shape("use").style.getPropertyValue("--node-border")], ["#F5D999", "#E69F00"]);
+  // A sequence participant is filled alone; its border stays the look's.
+  assert.deepEqual([shape("lifeline").style.getPropertyValue("--node-fill"), shape("lifeline").style.getPropertyValue("--node-border")], ["#F5D999", ""]);
+  assert.equal(shape("plain").getAttribute("style"), null);
+  assert.equal(shape("d").getAttribute("style"), null);
+  // Colour changes nothing the editing gestures read.
+  const groups = [...svg.querySelectorAll<SVGGElement>("g.opensysml-node")];
+  assert.deepEqual(groups.map((group) => [group.dataset.opensysmlId, group.dataset.kind]), [["def", "part def"], ["use", "part"], ["lifeline", "part"], ["plain", "part"], ["d", "fork"]]);
+  assert.equal(shape("def").classList.contains("container"), true);
+  assert.equal(shape("d").classList.contains("filled"), true);
 });

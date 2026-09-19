@@ -48,7 +48,7 @@ func (m *migration) resultSnapshots(r *simresults.ConfigurationResults, s *sysml
 			continue
 		}
 		for _, inst := range m.descendantInstances(pkg) {
-			if seenInstance[inst] || !m.isSnapshotOf(inst, typed) {
+			if seenInstance[inst] || !m.isSnapshotOf(inst, target.classifiers, typed) {
 				continue
 			}
 			seenInstance[inst] = true
@@ -334,10 +334,18 @@ func (m *migration) mostSpecial(classifiers []*sysmlv1.Element) *sysmlv1.Element
 }
 
 // isSnapshotOf reports whether inst is classified, by name or by its slots' features,
-// by one of typed or a special of one.
-func (m *migration) isSnapshotOf(inst *sysmlv1.Element, typed map[*sysmlv1.Element]bool) bool {
-	for c := range m.classifierClosure(m.classifiersOf(inst)) {
+// by a classifier of the target, a general of one (typed) or a special of one; a
+// classifier merely sharing a general with the target's is of another kind.
+func (m *migration) isSnapshotOf(inst *sysmlv1.Element, targets []*sysmlv1.Element, typed map[*sysmlv1.Element]bool) bool {
+	classifiers := m.classifiersOf(inst)
+	for _, c := range classifiers {
 		if typed[c] {
+			return true
+		}
+	}
+	closure := m.classifierClosure(classifiers)
+	for _, t := range targets {
+		if closure[t] {
 			return true
 		}
 	}

@@ -10,6 +10,12 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
 
+// stmtNote and durNote open the diagnostics statements and durations repeat.
+const (
+	stmtNote = "the statement "
+	durNote  = "the duration "
+)
+
 // classifyBehavior decides the v2 declaration a UML behavior becomes: action def,
 // state def, calc def for an expression body, or a scenario action def for an interaction.
 func (m *migration) classifyBehavior(e *sysmlv1.Element) (category, string) {
@@ -396,7 +402,7 @@ func (m *migration) statements(body, lang string, scope *sysmlv1.Element) (lines
 		}
 		mt := assignment.FindStringSubmatch(st)
 		if mt == nil || strings.HasPrefix(mt[3], "=") {
-			return nil, false, "the statement " + strconv.Quote(st) + " is not an assignment of a v2 expression" + langNote(lang)
+			return nil, false, stmtNote + strconv.Quote(st) + " is not an assignment of a v2 expression" + langNote(lang)
 		}
 		lhs, op, rhs := strings.TrimSpace(mt[1]), mt[2], strings.TrimSpace(mt[3])
 		target, ok := m.assignable(lhs, scope)
@@ -406,14 +412,14 @@ func (m *migration) statements(body, lang string, scope *sysmlv1.Element) (lines
 		switch op {
 		case "++", "--":
 			if rhs != "" {
-				return nil, false, "the statement " + strconv.Quote(st) + " is not an assignment" + langNote(lang)
+				return nil, false, stmtNote + strconv.Quote(st) + " is not an assignment" + langNote(lang)
 			}
 			lines = append(lines, "assign "+target+" := "+target+" "+op[:1]+" 1;")
 			continue
 		}
 		expr, ok, enote := m.behaviorExpr(rhs, lang, scope)
 		if !ok {
-			return nil, false, "the statement " + strconv.Quote(st) + " assigns a value whose expression is not migrated: " + enote
+			return nil, false, stmtNote + strconv.Quote(st) + " assigns a value whose expression is not migrated: " + enote
 		}
 		if op != "=" {
 			expr = target + " " + op[:1] + " (" + expr + ")"
@@ -569,7 +575,7 @@ func (m *migration) durationExpr(v, scope *sysmlv1.Element) (expr string, ok boo
 		if s, ok := parseDuration(v.Attrs["value"]); ok {
 			return s, true, ""
 		}
-		return "", false, "the duration " + strconv.Quote(v.Attrs["value"]) + " is not a number with a time unit"
+		return "", false, durNote + strconv.Quote(v.Attrs["value"]) + " is not a number with a time unit"
 	case "LiteralInteger", "LiteralReal", "LiteralUnlimitedNatural":
 		if v.Type == "LiteralUnlimitedNatural" && v.Attrs["value"] == "*" {
 			return "", false, "the duration * is unbounded"
@@ -579,9 +585,9 @@ func (m *migration) durationExpr(v, scope *sysmlv1.Element) (expr string, ok boo
 			return "", false, note
 		}
 		if s, ok := parseDuration(expr); ok {
-			return s, true, "the duration " + expr + " carries no unit and is taken as seconds"
+			return s, true, durNote + expr + " carries no unit and is taken as seconds"
 		}
-		return "", false, "the duration " + expr + " is not a finite number"
+		return "", false, durNote + expr + " is not a finite number"
 	case "OpaqueExpression":
 		body, lang := opaqueBody(v)
 		if s, ok := parseDuration(body); ok {
@@ -589,7 +595,7 @@ func (m *migration) durationExpr(v, scope *sysmlv1.Element) (expr string, ok boo
 		}
 		expr, ok, note := m.behaviorExpr(body, lang, scope)
 		if !ok {
-			return "", false, "the duration " + strconv.Quote(body) + " is neither a number with a time unit nor an expression: " + note
+			return "", false, durNote + strconv.Quote(body) + " is neither a number with a time unit nor an expression: " + note
 		}
 		return expr, true, "the duration expression " + body + " is taken as seconds"
 	}

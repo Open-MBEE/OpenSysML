@@ -92,16 +92,18 @@ func (o CompareOptions) selection(cfgs []simresults.ConfigurationResults) (selec
 	return selected, refused
 }
 
-// sameName reports whether name is qualified, the last segment of it, quoted or bare.
+// sameName reports whether name spells qualified or its last segment, quoted or
+// bare; a `::` inside a quoted segment is part of that segment, not a separator.
 func sameName(name, qualified string) bool {
 	if name == qualified {
 		return true
 	}
-	last := qualified
-	if i := strings.LastIndex(qualified, "::"); i >= 0 {
-		last = qualified[i+2:]
+	segments, ok := nameSegments(qualified)
+	if !ok {
+		return nameText(name) == nameText(qualified)
 	}
-	return name == last || name == strings.Trim(last, "'") || strings.Trim(name, "'") == strings.Trim(last, "'")
+	want := nameText(name)
+	return want == strings.Join(segments, "::") || want == segments[len(segments)-1]
 }
 
 // compareVerdict compares one configuration: a refusal names what the runs

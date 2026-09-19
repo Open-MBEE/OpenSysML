@@ -2,6 +2,7 @@ package docplan
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"reflect"
 	"testing"
@@ -655,6 +656,50 @@ func TestCompileAcceptsSignedNumericBindings(t *testing.T) {
 	factor, ok := bindings[2].Values()[0].Real()
 	if !ok || factor != 2.5 {
 		t.Fatalf("factor = %g %v", factor, ok)
+	}
+}
+
+// TestCompileAcceptsDotNotationElementBindings pins that a binding names a nested element by
+// dot notation and that a chain naming nothing is an unsupported binding.
+func TestCompileAcceptsDotNotationElementBindings(t *testing.T) {
+	model := `
+		calc def Names :> Query {
+			in root : Element;
+			OwnedElements(source = root)
+		}
+		part telescope {
+			part optics {
+				part mirror;
+			}
+		}
+		part def Report :> Document {
+			attribute redefines title = "Report";
+			part list : List {
+				calc items : Names {
+					in root = telescope.optics.%s;
+				}
+			}
+		}
+	`
+	fixture := loadPlanningFixture(t, fmt.Sprintf(model, "mirror"))
+	plan, err := fixture.compile(t, "Report")
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	values := plan.Content()[0].Query().Bindings()[0].Values()
+	element, ok := values[0].Element()
+	if !ok || symbols.FQNOf(element) != "Observatory::telescope::optics::mirror" {
+		t.Fatalf("root = %s %v", symbols.FQNOf(element), ok)
+	}
+	if !values[0].Origin().Located() {
+		t.Fatalf("root origin = %+v", values[0].Origin())
+	}
+
+	fixture = loadPlanningFixture(t, fmt.Sprintf(model, "lens"))
+	_, err = fixture.compile(t, "Report")
+	planning := planningError(t, err)
+	if planning.Kind != ErrorUnsupportedBinding || planning.Parameter != "root" {
+		t.Fatalf("error = %+v", planning)
 	}
 }
 

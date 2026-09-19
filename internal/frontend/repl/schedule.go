@@ -112,8 +112,11 @@ func (s *Session) setDraws(policy runtime.DrawPolicy) {
 	}
 }
 
-// doDraws shows the draw policy, or sets it when one is named.
+// doDraws shows the draw policy, or sets it when exactly one is named.
 func (s *Session) doDraws(args []string) []string {
+	if len(args) > 1 {
+		return []string{"usage: %draws [random|min|max|average]"}
+	}
 	if len(args) > 0 {
 		policy, err := runtime.ParseDrawPolicy(args[0])
 		if err != nil {

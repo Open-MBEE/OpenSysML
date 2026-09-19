@@ -3,6 +3,7 @@ package view
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -228,5 +229,123 @@ func TestPaletteNotice(t *testing.T) {
 		if want := kind.SupportsForm(FormDot) || kind.SupportsForm(FormPlantUML); kind.SupportsPalette() != want {
 			t.Errorf("%s.SupportsPalette() = %v, want %v", kind, kind.SupportsPalette(), want)
 		}
+	}
+}
+
+// Fills gives every node the fill and border the DOT form of the same rendering
+// draws it with, and no more: the nodes DOT leaves black and white are absent.
+func TestFillsMatchDOT(t *testing.T) {
+	dotBorder := regexp.MustCompile(`^\s*"([^"]+)" \[.*fillcolor="(#[0-9A-F]{6})", color="(#[0-9A-F]{6})"`)
+	for _, tc := range plantumlGoldenCases {
+		rendering := render(t, tc.file, tc.view)
+		for _, palette := range Palettes() {
+			fills, err := rendering.Fills(palette)
+			if err != nil {
+				t.Fatalf("%s %s Fills: %v", tc.name, palette, err)
+			}
+			if !tc.kind.SupportsForm(FormDot) {
+				continue
+			}
+			dot, err := rendering.DOTWith(Options{Palette: palette})
+			if err != nil {
+				t.Fatalf("%s %s DOT: %v", tc.name, palette, err)
+			}
+			want := map[string]Fill{}
+			for _, line := range strings.Split(dot, "\n") {
+				if m := dotBorder.FindStringSubmatch(line); m != nil {
+					want[m[1]] = Fill{Fill: m[2], Border: m[3]}
+				}
+			}
+			if len(want) == 0 {
+				t.Errorf("%s %s: DOT fills no node", tc.name, palette)
+			}
+			if fmt.Sprint(fills) != fmt.Sprint(want) {
+				t.Errorf("%s %s: Fills %v, DOT %v", tc.name, palette, fills, want)
+			}
+		}
+	}
+}
+
+// Fills gives every node the fill and border the PlantUML form of the same
+// rendering draws it with: a participant the fill alone, its border uncoloured.
+func TestFillsMatchPlantUML(t *testing.T) {
+	decorated := regexp.MustCompile(`^\s*\w+ ".*" as ([^ ]+)(?: <<[^>]*>>)* (#[0-9A-F]{6})(?:;line:([0-9A-F]{6}))?$`)
+	sequences := 0
+	for _, tc := range plantumlGoldenCases {
+		if tc.name == "sequence-empty" {
+			continue
+		}
+		rendering := render(t, tc.file, tc.view)
+		for _, palette := range Palettes() {
+			fills, err := rendering.Fills(palette)
+			if err != nil {
+				t.Fatalf("%s %s Fills: %v", tc.name, palette, err)
+			}
+			puml, err := rendering.PlantUMLWith(Options{Palette: palette})
+			if err != nil {
+				t.Fatalf("%s %s PlantUML: %v", tc.name, palette, err)
+			}
+			want := map[string]Fill{}
+			for _, line := range strings.Split(puml, "\n") {
+				if m := decorated.FindStringSubmatch(line); m != nil {
+					fill := Fill{Fill: m[2]}
+					if m[3] != "" {
+						fill.Border = "#" + m[3]
+					}
+					want[m[1]] = fill
+				}
+			}
+			if len(want) == 0 {
+				t.Errorf("%s %s: PlantUML fills no node", tc.name, palette)
+			}
+			if fmt.Sprint(fills) != fmt.Sprint(want) {
+				t.Errorf("%s %s: Fills %v, PlantUML %v", tc.name, palette, fills, want)
+			}
+			if tc.kind == KindSequence {
+				sequences++
+				for id, fill := range fills {
+					if fill.Border != "" {
+						t.Errorf("%s %s: participant %s has border %s, want none", tc.name, palette, id, fill.Border)
+					}
+				}
+			}
+		}
+	}
+	if sequences == 0 {
+		t.Error("no sequence rendering checked")
+	}
+}
+
+// No palette fills nothing, an unknown one is refused, and a kind no form
+// fills, a control node and an interconnection's container take no fill.
+func TestFillsOutsideThePalette(t *testing.T) {
+	rendering := &Rendering{View: "V", Kind: KindInterconnection, Roots: []*Node{
+		{ID: "n0", Kind: "part def", Name: "Def", Children: []*Node{
+			{ID: "n1", Kind: "part", Name: "p"},
+			{ID: "n2", Kind: "initial"},
+		}},
+	}}
+	if fills, err := rendering.Fills(""); err != nil || len(fills) != 0 {
+		t.Errorf("Fills(\"\") = %v, %v; want none", fills, err)
+	}
+	if _, err := rendering.Fills(Palette("rainbow")); !errors.Is(err, ErrUnknownPalette) {
+		t.Errorf("Fills(rainbow) error = %v, want ErrUnknownPalette", err)
+	}
+	fills, err := rendering.Fills(PaletteOkabeIto)
+	if err != nil {
+		t.Fatalf("Fills: %v", err)
+	}
+	part := paletteColors[PaletteOkabeIto][0]
+	want := map[string]Fill{"n1": {Fill: paletteFill(part, true), Border: part}}
+	if fmt.Sprint(fills) != fmt.Sprint(want) {
+		t.Errorf("Fills = %v, want %v", fills, want)
+	}
+	tree := &Rendering{View: "V", Kind: KindTree, Roots: rendering.Roots}
+	if fills, err := tree.Fills(PaletteOkabeIto); err != nil || fills["n0"] != (Fill{Fill: part, Border: part}) {
+		t.Errorf("tree Fills(n0) = %v, %v; want the container filled %s", fills["n0"], err, part)
+	}
+	table := &Rendering{View: "V", Kind: KindTable, Roots: rendering.Roots}
+	if fills, err := table.Fills(PaletteOkabeIto); err != nil || len(fills) != 0 {
+		t.Errorf("table Fills = %v, %v; want none", fills, err)
 	}
 }

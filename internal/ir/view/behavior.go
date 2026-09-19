@@ -172,15 +172,15 @@ type stateBody struct {
 	node  *Node
 }
 
-// declaredDocs is a lowered graph that knows which document each of its
+// docOfer is a lowered graph that knows which document each of its
 // declarations was written in.
-type declaredDocs interface {
+type docOfer interface {
 	DocOf(decl ast.Node) string
 }
 
 // docOf is the document a graph declaration was written in, else the document of
 // the behavior drawn, for a graph lowered outside any document.
-func docOf(graph declaredDocs, decl ast.Node, fallback string) string {
+func docOf(graph docOfer, decl ast.Node, fallback string) string {
 	if doc := graph.DocOf(decl); doc != "" {
 		return doc
 	}
@@ -432,6 +432,17 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 			}
 		}
 	}
+	r.actionEdges(subject, graph, nodes, out)
+	if len(root.Children) == 0 {
+		root.Detail = detailWith(root.Detail, "declares no nodes")
+	}
+	return root, true
+}
+
+// actionEdges draws the action's successions and object flows between its own
+// nodes; one leaving them is noticed instead.
+func (r *Renderer) actionEdges(subject actionSubject, graph *lower.ActionGraph, nodes map[ast.Node]*Node, out *Rendering) {
+	name, doc := subject.name, subject.doc
 	for _, src := range graph.Nodes {
 		for _, edge := range graph.Edges[src] {
 			to, ok := nodes[edge.Target]
@@ -441,18 +452,7 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 				continue
 			}
 			edgeDoc := docOf(graph, edge.Decl, doc)
-			label := ""
-			if guard := edge.Guard; guard != nil {
-				if text := r.nodeText(edgeDoc, guard); text != "" {
-					label = "[" + text + "]"
-				} else {
-					label = "[guard]"
-				}
-			}
-			if weight := edge.Probability; weight != nil {
-				label = strings.TrimSpace(label + " p = " + r.nodeText(doc, weight.Expr))
-			}
-			out.Edges = append(out.Edges, Edge{From: nodes[src].ID, To: to.ID, Label: label, Kind: EdgeSuccession,
+			out.Edges = append(out.Edges, Edge{From: nodes[src].ID, To: to.ID, Label: r.successionLabel(edge, edgeDoc, doc), Kind: EdgeSuccession,
 				Origin: nodeOrigin(edgeDoc, edge.Decl), Route: r.declaredRouteOf(subject.view, subject.elem, edge.Decl, out)})
 		}
 		for _, flow := range graph.DataFlows[src] {
@@ -466,10 +466,22 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 				Origin: nodeOrigin(docOf(graph, flow.Decl, doc), flow.Decl), Route: r.declaredRouteOf(subject.view, subject.elem, flow.Decl, out)})
 		}
 	}
-	if len(root.Children) == 0 {
-		root.Detail = detailWith(root.Detail, "declares no nodes")
+}
+
+// successionLabel is the succession's guard in brackets, then its probability.
+func (r *Renderer) successionLabel(edge lower.ActionEdge, edgeDoc, doc string) string {
+	label := ""
+	if guard := edge.Guard; guard != nil {
+		if text := r.nodeText(edgeDoc, guard); text != "" {
+			label = "[" + text + "]"
+		} else {
+			label = "[guard]"
+		}
 	}
-	return root, true
+	if weight := edge.Probability; weight != nil {
+		label = strings.TrimSpace(label + " p = " + r.nodeText(doc, weight.Expr))
+	}
+	return label
 }
 
 // flowLabel is what an object flow carries: the pins it joins, named by the flow

@@ -32,8 +32,12 @@ was produced by it.
    [traceability example](examples/traceability.md)
    ([source](examples/traceability.sysml)) renders every requirement's
    satisfiers, verifiers and verdicts in one report
-9. [Limitations and troubleshooting](troubleshooting.md) — the typed error
-   catalog and the current limitations
+9. [Requirements traceability examples](traceability-examples.md) — four
+   graded reports, from three flat requirements and their satisfiers to a
+   multi-team program with derivation chains, verdicts, coverage gaps and a
+   grouped matrix, each with its source and rendered output
+10. [Limitations and troubleshooting](troubleshooting.md) — the typed error
+    catalog and the current limitations
 
 The document-query vocabulary is a **non-normative OpenSysML extension** — it
 is not part of the OMG SysML v2 or KerML standard. Models that use it remain

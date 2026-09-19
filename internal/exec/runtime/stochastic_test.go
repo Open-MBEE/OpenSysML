@@ -750,7 +750,7 @@ func TestReplayRefusesDrawsItCannotConsume(t *testing.T) {
 		t.Fatal(err)
 	}
 	good := Witness{Draws: ctx.DrawsTaken()}
-	real := func(x float64) semantics.Value { return semantics.Value{Kind: semantics.ValReal, Real: x} }
+	realOf := func(x float64) semantics.Value { return semantics.Value{Kind: semantics.ValReal, Real: x} }
 	integer := func(n int64) semantics.Value { return semantics.Value{Kind: semantics.ValInt, Int: n} }
 	cases := []struct {
 		name  string
@@ -758,13 +758,13 @@ func TestReplayRefusesDrawsItCannotConsume(t *testing.T) {
 		draw  int
 		want  string
 	}{
-		{"another call", []DrawTaken{{What: "normal(0.0, 1.0)", Value: real(0.5)}, good.Draws[1]}, 1, "the run drew uniform(0.0, 1.0) instead"},
+		{"another call", []DrawTaken{{What: "normal(0.0, 1.0)", Value: realOf(0.5)}, good.Draws[1]}, 1, "the run drew uniform(0.0, 1.0) instead"},
 		{"missing", good.Draws[:1], 0, "records no draw left for it"},
-		{"left over", append(append([]DrawTaken{}, good.Draws...), DrawTaken{What: "uniform(0.0, 1.0)", Value: real(0.25)}), 3, "the run ended without drawing it"},
+		{"left over", append(append([]DrawTaken{}, good.Draws...), DrawTaken{What: "uniform(0.0, 1.0)", Value: realOf(0.25)}), 3, "the run ended without drawing it"},
 		{"none at all", nil, 0, "records no draw left for it"},
-		{"real above hi", []DrawTaken{{What: good.Draws[0].What, Value: real(2)}, good.Draws[1]}, 1, "records 2.0, which the call cannot draw"},
-		{"real below lo", []DrawTaken{{What: good.Draws[0].What, Value: real(-0.5)}, good.Draws[1]}, 1, "records -0.5, which the call cannot draw"},
-		{"real for an integer", []DrawTaken{good.Draws[0], {What: good.Draws[1].What, Value: real(3.5)}}, 2, "records 3.5, which the call cannot draw"},
+		{"real above hi", []DrawTaken{{What: good.Draws[0].What, Value: realOf(2)}, good.Draws[1]}, 1, "records 2.0, which the call cannot draw"},
+		{"real below lo", []DrawTaken{{What: good.Draws[0].What, Value: realOf(-0.5)}, good.Draws[1]}, 1, "records -0.5, which the call cannot draw"},
+		{"real for an integer", []DrawTaken{good.Draws[0], {What: good.Draws[1].What, Value: realOf(3.5)}}, 2, "records 3.5, which the call cannot draw"},
 		{"integer past hi", []DrawTaken{good.Draws[0], {What: good.Draws[1].What, Value: integer(7)}}, 2, "records 7, which the call cannot draw"},
 		{"integer for a real", []DrawTaken{{What: good.Draws[0].What, Value: integer(0)}, good.Draws[1]}, 1, "records 0, which the call cannot draw"},
 	}
@@ -826,7 +826,7 @@ func TestReplayRefusesDrawsOutsideTheCallsDistribution(t *testing.T) {
 	if len(good) != 5 {
 		t.Fatalf("recorded %v, want five draws", good)
 	}
-	real := func(x float64) semantics.Value { return semantics.Value{Kind: semantics.ValReal, Real: x} }
+	realOf := func(x float64) semantics.Value { return semantics.Value{Kind: semantics.ValReal, Real: x} }
 	with := func(i int, v semantics.Value) []DrawTaken {
 		draws := append([]DrawTaken{}, good...)
 		draws[i].Value = v
@@ -837,19 +837,19 @@ func TestReplayRefusesDrawsOutsideTheCallsDistribution(t *testing.T) {
 		draws []DrawTaken
 		ok    bool
 	}{
-		{"triangular at lo", with(0, real(0)), true},
-		{"triangular at hi", with(0, real(2)), true},
-		{"triangular past hi", with(0, real(2.5)), false},
-		{"zero deviation at the mean", with(1, real(5)), true},
-		{"zero deviation off the mean", with(1, real(5.1)), false},
-		{"normal far out", with(2, real(-40)), true},
-		{"normal infinite", with(2, real(math.Inf(1))), false},
-		{"uniform at lo", with(3, real(0)), true},
-		{"uniform just below hi", with(3, real(math.Nextafter(1, 0))), true},
-		{"uniform at hi", with(3, real(1)), false},
-		{"uniform below lo", with(3, real(-0.1)), false},
-		{"zero-width uniform at its one value", with(4, real(3)), true},
-		{"zero-width uniform off its one value", with(4, real(3.1)), false},
+		{"triangular at lo", with(0, realOf(0)), true},
+		{"triangular at hi", with(0, realOf(2)), true},
+		{"triangular past hi", with(0, realOf(2.5)), false},
+		{"zero deviation at the mean", with(1, realOf(5)), true},
+		{"zero deviation off the mean", with(1, realOf(5.1)), false},
+		{"normal far out", with(2, realOf(-40)), true},
+		{"normal infinite", with(2, realOf(math.Inf(1))), false},
+		{"uniform at lo", with(3, realOf(0)), true},
+		{"uniform just below hi", with(3, realOf(math.Nextafter(1, 0))), true},
+		{"uniform at hi", with(3, realOf(1)), false},
+		{"uniform below lo", with(3, realOf(-0.1)), false},
+		{"zero-width uniform at its one value", with(4, realOf(3)), true},
+		{"zero-width uniform off its one value", with(4, realOf(3.1)), false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

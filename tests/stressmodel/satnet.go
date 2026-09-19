@@ -103,12 +103,32 @@ func (g *generator) line(depth int, format string, args ...any) {
 	g.b.WriteByte('\n')
 }
 
+// imports writes a private import of each named package's members.
+func (g *generator) imports(depth int, packages ...string) {
+	for _, p := range packages {
+		g.line(depth, "private import %s::*;", p)
+	}
+}
+
+// redefinePart opens the body of a part usage redefining name.
+func (g *generator) redefinePart(depth int, name string) {
+	g.decl(depth, "part :>> %s {", name)
+}
+
+// dataRate redefines a link's or terminal's data rate.
+func (g *generator) dataRate(depth, rate int) {
+	g.decl(depth, "attribute :>> dataRate = %d.0;", rate)
+}
+
+// spacecraftSubject writes the subject every spacecraft requirement constrains.
+func (g *generator) spacecraftSubject(depth int) {
+	g.decl(depth, "subject sc : Spacecraft;")
+}
+
 // library writes the fixed definitions every satellite is built from.
 func (g *generator) library() {
 	g.decl(0, "package SatelliteNetwork {")
-	g.line(1, "private import ScalarValues::*;")
-	g.line(1, "private import ISQ::*;")
-	g.line(1, "private import SI::*;")
+	g.imports(1, "ScalarValues", "ISQ", "SI")
 	g.line(0, "")
 	g.decl(1, "package Items {")
 	g.decl(2, "item def Telemetry { attribute timestamp :> ISQ::time; attribute frameBytes : Integer; }")
@@ -122,7 +142,7 @@ func (g *generator) library() {
 	g.line(1, "}")
 	g.line(0, "")
 	g.decl(1, "package Ports {")
-	g.line(2, "private import Items::*;")
+	g.imports(2, "Items")
 	g.decl(2, "port def RFPort { out item tlmOut : Telemetry; in item cmdIn : Command; }")
 	g.stats.Elements += 2
 	g.decl(2, "port def PowerOut { out item power : ElectricalPower; }")
@@ -140,7 +160,7 @@ func (g *generator) library() {
 	g.line(1, "}")
 	g.line(0, "")
 	g.decl(1, "package Interfaces {")
-	g.line(2, "private import Ports::*;")
+	g.imports(2, "Ports")
 	g.decl(2, "interface def RFLink {")
 	g.decl(3, "end a : RFPort;")
 	g.decl(3, "end b : ~RFPort;")
@@ -169,7 +189,7 @@ func (g *generator) library() {
 	g.line(1, "}")
 	g.line(0, "")
 	g.decl(1, "package Components {")
-	g.line(2, "private import Ports::*;")
+	g.imports(2, "Ports")
 	g.decl(2, "abstract part def Component {")
 	g.decl(3, "attribute mass :> ISQ::mass;")
 	g.decl(3, "attribute powerDraw :> ISQ::power;")
@@ -215,9 +235,7 @@ func (g *generator) library() {
 	g.line(1, "}")
 	g.line(0, "")
 	g.decl(1, "package Subsystems {")
-	g.line(2, "private import Ports::*;")
-	g.line(2, "private import Interfaces::*;")
-	g.line(2, "private import Components::*;")
+	g.imports(2, "Ports", "Interfaces", "Components")
 	g.decl(2, "abstract part def Subsystem {")
 	g.decl(3, "attribute mass :> ISQ::mass;")
 	g.decl(3, "attribute powerDraw :> ISQ::power;")
@@ -291,28 +309,25 @@ func (g *generator) library() {
 	g.line(1, "}")
 	g.line(0, "")
 	g.decl(1, "package Requirements {")
-	g.line(2, "private import Platform::*;")
+	g.imports(2, "Platform")
 	g.decl(2, "requirement def MassBudget {")
-	g.decl(3, "subject sc : Spacecraft;")
+	g.spacecraftSubject(3)
 	g.decl(3, "attribute limit :> ISQ::mass;")
 	g.decl(3, "require constraint { sc.dryMass <= limit }")
 	g.line(2, "}")
 	g.decl(2, "requirement def PowerBudget {")
-	g.decl(3, "subject sc : Spacecraft;")
+	g.spacecraftSubject(3)
 	g.decl(3, "require constraint { sc.totalPowerDraw <= sc.eps.solarArray.generated }")
 	g.line(2, "}")
 	g.decl(2, "requirement def CrosslinkCapacity {")
-	g.decl(3, "subject sc : Spacecraft;")
+	g.spacecraftSubject(3)
 	g.decl(3, "attribute minimumRate : Real;")
 	g.decl(3, "require constraint { sc.comms.crosslinkTerminal.dataRate >= minimumRate }")
 	g.line(2, "}")
 	g.line(1, "}")
 	g.line(0, "")
 	g.decl(1, "package Platform {")
-	g.line(2, "private import Ports::*;")
-	g.line(2, "private import Interfaces::*;")
-	g.line(2, "private import Subsystems::*;")
-	g.line(2, "private import Behavior::*;")
+	g.imports(2, "Ports", "Interfaces", "Subsystems", "Behavior")
 	g.decl(2, "abstract part def Spacecraft {")
 	g.decl(3, "attribute catalogId : Integer;")
 	g.decl(3, "attribute plane : Integer;")
@@ -343,10 +358,7 @@ func (g *generator) library() {
 // constellation writes every satellite and ground station and the links between them.
 func (g *generator) constellation(n SatelliteNetwork) {
 	g.decl(1, "package Constellation {")
-	g.line(2, "private import Interfaces::*;")
-	g.line(2, "private import Platform::*;")
-	g.line(2, "private import Requirements::*;")
-	g.line(2, "private import Behavior::*;")
+	g.imports(2, "Interfaces", "Platform", "Requirements", "Behavior")
 	id := 0
 	for p := 0; p < n.Planes; p++ {
 		for s := 0; s < n.Satellites; s++ {
@@ -387,7 +399,7 @@ func (g *generator) network(n SatelliteNetwork) {
 				k := i % n.GroundStations
 				g.stats.Connections++
 				g.decl(3, "interface downlink%dTo%d : RFLink connect sat%d.comms.rf to gs%d.uplink {", k, i, i, k)
-				g.decl(4, "attribute :>> dataRate = %d.0;", 50+i%200)
+				g.dataRate(4, 50+i%200)
 				g.decl(4, "attribute :>> slantRange = %d [km];", 900+i%1500)
 				g.line(3, "}")
 			}
@@ -402,7 +414,7 @@ func (g *generator) network(n SatelliteNetwork) {
 func (g *generator) link(kind string, a, b int) {
 	g.stats.Connections++
 	g.decl(3, "interface %s%dTo%d : RFLink connect sat%d.comms.crosslinkTx to sat%d.comms.crosslinkRx {", kind, a, b, a, b)
-	g.decl(4, "attribute :>> dataRate = %d.0;", 100+(a+b)%400)
+	g.dataRate(4, 100+(a+b)%400)
 	g.decl(4, "attribute :>> slantRange = %d [km];", 2000+(a*7+b*3)%3000)
 	g.line(3, "}")
 }
@@ -418,13 +430,13 @@ func (g *generator) satellite(id, plane, slot int) {
 	for _, s := range subsystems {
 		massTerms = append(massTerms, s.name+".mass")
 		powerTerms = append(powerTerms, s.name+".powerDraw")
-		g.decl(3, "part :>> %s {", s.name)
+		g.redefinePart(3, s.name)
 		var subMass, subPower []string
 		for j, c := range s.components {
 			g.stats.Components++
 			subMass = append(subMass, c.name+".mass")
 			subPower = append(subPower, c.name+".powerDraw")
-			g.decl(4, "part :>> %s {", c.name)
+			g.redefinePart(4, c.name)
 			g.decl(5, "attribute :>> mass = %d.%d [kg];", 2+(id+j)%40, (id*3+j)%10)
 			g.decl(5, "attribute :>> powerDraw = %d.0 [W];", 5+(id*5+j*7)%50)
 			g.decl(5, "attribute :>> serialNumber = \"%s-%05d-%d\";", strings.ToUpper(c.name), id, j)
@@ -501,7 +513,7 @@ func (g *generator) componentDetail(def string, id, j int) {
 		g.decl(5, "attribute :>> transmitPower = %d.0 [W];", 10+id%40)
 	case "CrosslinkTerminal":
 		g.decl(5, "attribute :>> wavelength = 1550 [nm];")
-		g.decl(5, "attribute :>> dataRate = %d.0;", 100+(id*3)%400)
+		g.dataRate(5, 100+(id*3)%400)
 	case "Antenna":
 		g.decl(5, "attribute :>> gain = %d.%d;", 20+id%20, id%10)
 		g.decl(5, "attribute :>> diameter = 0.%d [m];", 3+id%6)
@@ -533,7 +545,7 @@ func (g *generator) groundStation(k int) {
 	g.decl(3, "attribute :>> longitude = %d.%d;", -180+(k*53)%360, k%10)
 	for j, c := range stationComponents {
 		g.stats.Components++
-		g.decl(3, "part :>> %s {", c.name)
+		g.redefinePart(3, c.name)
 		g.decl(4, "attribute :>> mass = %d.0 [kg];", 50+(k*7+j*11)%900)
 		g.decl(4, "attribute :>> powerDraw = %d.0 [W];", 100+(k*13+j*17)%2000)
 		g.decl(4, "attribute :>> serialNumber = \"GS-%s-%03d\";", strings.ToUpper(c.name), k)

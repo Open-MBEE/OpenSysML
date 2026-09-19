@@ -28,7 +28,7 @@ func (r *Rendering) PlantUMLWith(options Options) (string, error) {
 	if err := options.Palette.check(); err != nil {
 		return "", err
 	}
-	w := &plantumlWriter{borders: r.Kind != KindSequence, fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree}}
+	w := &plantumlWriter{borders: r.Kind.paletteBorders(), fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree}}
 	for _, root := range r.Roots {
 		w.fills.collect(root)
 	}

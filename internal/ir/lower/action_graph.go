@@ -590,179 +590,14 @@ func ToActionGraphWith(actionDecl ast.Node, scope *symbols.Scope, resolver *reso
 	if err != nil {
 		return nil, err
 	}
-	weights := &probabilityReader{resolver: resolver, scope: scope}
-
-	// Note: Initial node is optional at graph construction time.
-	// The executor's initialize() will validate and return the error if missing.
-
-	// Second pass: build edges
+	// The initial node is optional at graph construction time; the executor's
+	// initialize() reports its absence.
+	edges := &actionEdgeLowerer{graph: graph, scope: scope, weights: &probabilityReader{resolver: resolver, scope: scope}}
 	for _, member := range members {
-		actualMember := unwrapMembership(member)
-
-		switch n := actualMember.(type) {
-		case *ast.InitialNode:
-			// `first a then b;` is the succession a -> b, as `succession first a then b;` is.
-			if n.Successor == nil {
-				if err := weights.refuseStrayIn(nil, n.Members); err != nil {
-					return nil, err
-				}
-				continue
-			}
-			if !annotationsOnly(n.Members) {
-				return nil, fmt.Errorf("action succession has unsupported body")
-			}
-			weight, err := weights.read(n.Members)
-			if err != nil {
-				return nil, err
-			}
-			if err := lowerSuccession(graph, n.First, n.Successor, n.Guard, n, weight); err != nil {
-				return nil, err
-			}
-		case *ast.ForkNode, *ast.JoinNode, *ast.MergeNode, *ast.DecisionNode:
-			if err := weights.refuseStrayIn(nil, ast.NodeBodyMembers(n)); err != nil {
-				return nil, err
-			}
-		case *ast.SuccessionEdge:
-			sourceNode := resolveActionEndpointForEdge(graph, n.Source, n.SourceMember, true)
-			targetNode := resolveActionEndpointForEdge(graph, n.Target, n.TargetMember, false)
-
-			if sourceNode == nil {
-				return nil, fmt.Errorf("succession edge references undefined source node %s", edgeEnd(n.Source, n.SourceMember))
-			}
-			if targetNode == nil {
-				return nil, fmt.Errorf("succession edge references undefined target node %s", edgeEnd(n.Target, n.TargetMember))
-			}
-			weight, err := weights.read(n.Members)
-			if err != nil {
-				return nil, err
-			}
-			graph.Edges[sourceNode] = append(graph.Edges[sourceNode], ActionEdge{
-				Source:      sourceNode,
-				Target:      targetNode,
-				Decl:        n,
-				Probability: weight,
-			})
-		case *ast.ControlFlowEdge:
-			sourceNode := resolveActionEndpointForEdge(graph, n.Source, n.SourceMember, true)
-			targetNode := resolveActionEndpointForEdge(graph, n.Target, n.TargetMember, false)
-
-			if sourceNode == nil {
-				return nil, fmt.Errorf("control flow edge references undefined source %s", edgeEnd(n.Source, n.SourceMember))
-			}
-			if targetNode == nil {
-				return nil, fmt.Errorf("control flow edge references undefined target %s", edgeEnd(n.Target, n.TargetMember))
-			}
-			graph.Edges[sourceNode] = append(graph.Edges[sourceNode], ActionEdge{
-				Source: sourceNode,
-				Target: targetNode,
-				Guard:  n.Guard,
-				Decl:   n,
-			})
-		case *ast.TransitionMember:
-			sourceNode := resolveActionEndpoint(graph, n.Source, true)
-			targetNode := resolveActionEndpoint(graph, n.Target, false)
-			if sourceNode == nil {
-				return nil, fmt.Errorf("succession references undefined source node %s", edgeEndName(n.Source))
-			}
-			if targetNode == nil {
-				return nil, fmt.Errorf("succession references undefined target node %s", edgeEndName(n.Target))
-			}
-			weight, err := weights.read(n.Members)
-			if err != nil {
-				return nil, err
-			}
-			graph.Edges[sourceNode] = append(graph.Edges[sourceNode], ActionEdge{
-				Source:      sourceNode,
-				Target:      targetNode,
-				Guard:       n.Guard,
-				Decl:        n,
-				Probability: weight,
-			})
-		case *ast.ObjectFlowEdge:
-			sourceNode, sourcePin := parsePinReference(graph.Nodes, n.Source)
-			targetNode, targetPin := parsePinReference(graph.Nodes, n.Target)
-
-			if sourceNode == nil {
-				return nil, fmt.Errorf("object flow edge references undefined source %v", n.Source)
-			}
-			if targetNode == nil {
-				return nil, fmt.Errorf("object flow edge references undefined target %v", n.Target)
-			}
-			for _, end := range []*ast.QualifiedName{n.Source, n.Target} {
-				if err := flowEndReaches(end); err != nil {
-					return nil, fmt.Errorf("object flow edge: %w", err)
-				}
-			}
-
-			graph.DataFlows[sourceNode] = append(graph.DataFlows[sourceNode], ObjectFlow{
-				SourcePin: sourcePin,
-				TargetPin: targetPin,
-				Target:    targetNode,
-				Decl:      n,
-			})
-		case *ast.Usage:
-			if n.Kind == ast.UsageAction {
-				if err := weights.refuseStrayIn(n.Prefixes, n.Members); err != nil {
-					return nil, err
-				}
-				continue
-			}
-			if n.Kind == ast.UsageBinding {
-				bindings, err := lowerPinBindings(graph, nodesNamed(graph.Nodes), n, scope)
-				if err != nil {
-					return nil, err
-				}
-				graph.Bindings = append(graph.Bindings, bindings...)
-				continue
-			}
-			if n.Kind == ast.UsageSuccession {
-				if len(n.ConnectorEnds) != 2 {
-					return nil, fmt.Errorf("action succession must have exactly two connector ends, got %d", len(n.ConnectorEnds))
-				}
-				if n.Multiplicity != nil {
-					return nil, fmt.Errorf("action succession has unsupported multiplicity")
-				}
-				if !annotationsOnly(n.Members) {
-					return nil, fmt.Errorf("action succession has unsupported body")
-				}
-				for i, end := range n.ConnectorEnds {
-					if end.Multiplicity != nil {
-						return nil, fmt.Errorf("action succession end %d has unsupported multiplicity", i+1)
-					}
-				}
-				weight, err := weights.read(n.Members)
-				if err != nil {
-					return nil, err
-				}
-				sourceRef := connectorEndReference(n.ConnectorEnds[0])
-				targetRef := connectorEndReference(n.ConnectorEnds[1])
-				if err := lowerSuccession(graph, sourceRef, targetRef, nil, n, weight); err != nil {
-					return nil, err
-				}
-				continue
-			}
-			if n.Kind == ast.UsageMetadata {
-				if err := weights.refuseStray(n); err != nil {
-					return nil, err
-				}
-				continue
-			}
-			if n.Kind != ast.UsageFlow || n.FlowEnds == nil {
-				continue
-			}
-			source, flow, err := lowerFlow(nodesNamed(graph.Nodes), n)
-			if err != nil {
-				return nil, err
-			}
-			graph.DataFlows[source] = append(graph.DataFlows[source], flow)
-			succeedFlow(graph, source, flow)
-		case *ast.PrefixMetadata:
-			if err := weights.refuseStray(n); err != nil {
-				return nil, err
-			}
+		if err := edges.member(unwrapMembership(member)); err != nil {
+			return nil, err
 		}
 	}
-
 	if err := lowerInheritedPinConnections(graph, scope); err != nil {
 		return nil, err
 	}
@@ -771,6 +606,189 @@ func ToActionGraphWith(actionDecl ast.Node, scope *symbols.Scope, resolver *reso
 	}
 	recordBlockNodes(graph)
 	return graph, nil
+}
+
+// actionEdgeLowerer lowers the members of an action body that connect its nodes,
+// once the nodes themselves are collected.
+type actionEdgeLowerer struct {
+	graph   *ActionGraph
+	scope   *symbols.Scope
+	weights *probabilityReader
+}
+
+func (l *actionEdgeLowerer) member(member ast.Node) error {
+	switch n := member.(type) {
+	case *ast.InitialNode:
+		return l.initial(n)
+	case *ast.ForkNode, *ast.JoinNode, *ast.MergeNode, *ast.DecisionNode:
+		return l.weights.refuseStrayIn(nil, ast.NodeBodyMembers(n))
+	case *ast.SuccessionEdge:
+		return l.successionEdge(n)
+	case *ast.ControlFlowEdge:
+		return l.controlFlowEdge(n)
+	case *ast.TransitionMember:
+		return l.transition(n)
+	case *ast.ObjectFlowEdge:
+		return l.objectFlowEdge(n)
+	case *ast.Usage:
+		return l.usage(n)
+	case *ast.PrefixMetadata:
+		return l.weights.refuseStray(n)
+	}
+	return nil
+}
+
+// initial lowers `first a then b;`, the succession a -> b, as `succession first a then b;` is.
+func (l *actionEdgeLowerer) initial(n *ast.InitialNode) error {
+	if n.Successor == nil {
+		return l.weights.refuseStrayIn(nil, n.Members)
+	}
+	if !annotationsOnly(n.Members) {
+		return fmt.Errorf("action succession has unsupported body")
+	}
+	weight, err := l.weights.read(n.Members)
+	if err != nil {
+		return err
+	}
+	return lowerSuccession(l.graph, n.First, n.Successor, n.Guard, n, weight)
+}
+
+func (l *actionEdgeLowerer) successionEdge(n *ast.SuccessionEdge) error {
+	sourceNode := resolveActionEndpointForEdge(l.graph, n.Source, n.SourceMember, true)
+	targetNode := resolveActionEndpointForEdge(l.graph, n.Target, n.TargetMember, false)
+	if sourceNode == nil {
+		return fmt.Errorf("succession edge references undefined source node %s", edgeEnd(n.Source, n.SourceMember))
+	}
+	if targetNode == nil {
+		return fmt.Errorf("succession edge references undefined target node %s", edgeEnd(n.Target, n.TargetMember))
+	}
+	weight, err := l.weights.read(n.Members)
+	if err != nil {
+		return err
+	}
+	l.graph.Edges[sourceNode] = append(l.graph.Edges[sourceNode], ActionEdge{
+		Source:      sourceNode,
+		Target:      targetNode,
+		Decl:        n,
+		Probability: weight,
+	})
+	return nil
+}
+
+func (l *actionEdgeLowerer) controlFlowEdge(n *ast.ControlFlowEdge) error {
+	sourceNode := resolveActionEndpointForEdge(l.graph, n.Source, n.SourceMember, true)
+	targetNode := resolveActionEndpointForEdge(l.graph, n.Target, n.TargetMember, false)
+	if sourceNode == nil {
+		return fmt.Errorf("control flow edge references undefined source %s", edgeEnd(n.Source, n.SourceMember))
+	}
+	if targetNode == nil {
+		return fmt.Errorf("control flow edge references undefined target %s", edgeEnd(n.Target, n.TargetMember))
+	}
+	l.graph.Edges[sourceNode] = append(l.graph.Edges[sourceNode], ActionEdge{
+		Source: sourceNode,
+		Target: targetNode,
+		Guard:  n.Guard,
+		Decl:   n,
+	})
+	return nil
+}
+
+func (l *actionEdgeLowerer) transition(n *ast.TransitionMember) error {
+	sourceNode := resolveActionEndpoint(l.graph, n.Source, true)
+	targetNode := resolveActionEndpoint(l.graph, n.Target, false)
+	if sourceNode == nil {
+		return fmt.Errorf("succession references undefined source node %s", edgeEndName(n.Source))
+	}
+	if targetNode == nil {
+		return fmt.Errorf("succession references undefined target node %s", edgeEndName(n.Target))
+	}
+	weight, err := l.weights.read(n.Members)
+	if err != nil {
+		return err
+	}
+	l.graph.Edges[sourceNode] = append(l.graph.Edges[sourceNode], ActionEdge{
+		Source:      sourceNode,
+		Target:      targetNode,
+		Guard:       n.Guard,
+		Decl:        n,
+		Probability: weight,
+	})
+	return nil
+}
+
+func (l *actionEdgeLowerer) objectFlowEdge(n *ast.ObjectFlowEdge) error {
+	sourceNode, sourcePin := parsePinReference(l.graph.Nodes, n.Source)
+	targetNode, targetPin := parsePinReference(l.graph.Nodes, n.Target)
+	if sourceNode == nil {
+		return fmt.Errorf("object flow edge references undefined source %v", n.Source)
+	}
+	if targetNode == nil {
+		return fmt.Errorf("object flow edge references undefined target %v", n.Target)
+	}
+	for _, end := range []*ast.QualifiedName{n.Source, n.Target} {
+		if err := flowEndReaches(end); err != nil {
+			return fmt.Errorf("object flow edge: %w", err)
+		}
+	}
+	l.graph.DataFlows[sourceNode] = append(l.graph.DataFlows[sourceNode], ObjectFlow{
+		SourcePin: sourcePin,
+		TargetPin: targetPin,
+		Target:    targetNode,
+		Decl:      n,
+	})
+	return nil
+}
+
+func (l *actionEdgeLowerer) usage(n *ast.Usage) error {
+	switch n.Kind {
+	case ast.UsageAction:
+		return l.weights.refuseStrayIn(n.Prefixes, n.Members)
+	case ast.UsageBinding:
+		bindings, err := lowerPinBindings(l.graph, nodesNamed(l.graph.Nodes), n, l.scope)
+		if err != nil {
+			return err
+		}
+		l.graph.Bindings = append(l.graph.Bindings, bindings...)
+	case ast.UsageSuccession:
+		return l.successionUsage(n)
+	case ast.UsageMetadata:
+		return l.weights.refuseStray(n)
+	case ast.UsageFlow:
+		if n.FlowEnds == nil {
+			return nil
+		}
+		source, flow, err := lowerFlow(nodesNamed(l.graph.Nodes), n)
+		if err != nil {
+			return err
+		}
+		l.graph.DataFlows[source] = append(l.graph.DataFlows[source], flow)
+		succeedFlow(l.graph, source, flow)
+	}
+	return nil
+}
+
+func (l *actionEdgeLowerer) successionUsage(n *ast.Usage) error {
+	if len(n.ConnectorEnds) != 2 {
+		return fmt.Errorf("action succession must have exactly two connector ends, got %d", len(n.ConnectorEnds))
+	}
+	if n.Multiplicity != nil {
+		return fmt.Errorf("action succession has unsupported multiplicity")
+	}
+	if !annotationsOnly(n.Members) {
+		return fmt.Errorf("action succession has unsupported body")
+	}
+	for i, end := range n.ConnectorEnds {
+		if end.Multiplicity != nil {
+			return fmt.Errorf("action succession end %d has unsupported multiplicity", i+1)
+		}
+	}
+	weight, err := l.weights.read(n.Members)
+	if err != nil {
+		return err
+	}
+	sourceRef := connectorEndReference(n.ConnectorEnds[0])
+	targetRef := connectorEndReference(n.ConnectorEnds[1])
+	return lowerSuccession(l.graph, sourceRef, targetRef, nil, n, weight)
 }
 
 // lowerInheritedPinConnections lowers the bindings and flows the actions the

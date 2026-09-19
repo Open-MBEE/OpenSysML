@@ -106,10 +106,10 @@ func TestCacheAddKeepsTheFirst(t *testing.T) {
 	first := &CachedModel{Documents: []*CachedDocument{{Root: &ast.RootNamespace{}}}}
 	second := &CachedModel{Documents: []*CachedDocument{{Root: &ast.RootNamespace{}}}}
 
-	if got := cache.Add("hash", first); got != first {
+	if cache.Add("hash", first) != first {
 		t.Fatal("Add of a new hash did not hand back the model added")
 	}
-	if got := cache.Add("hash", second); got != first {
+	if cache.Add("hash", second) != first {
 		t.Error("Add under a cached hash did not hand back the entry already cached")
 	}
 	if got, _ := cache.Get("hash"); got != first {

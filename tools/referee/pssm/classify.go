@@ -369,7 +369,7 @@ func guardSideEffect(g *Guard) bool {
 // does not follow, so whether it acts is unknown; a function behavior does not
 // by UML's contract (§13.2.3.3) and is the expression it spells.
 func guardBehaviorUnread(g *Guard) bool {
-	return g != nil && g.Behavior != nil && g.Behavior.Body == nil && g.Behavior.Type != "uml:FunctionBehavior"
+	return g != nil && g.Behavior != nil && g.Behavior.Body == nil && g.Behavior.Type != typeFunctionBehavior
 }
 
 // behavior records a state behavior with parameters: the notation binds event

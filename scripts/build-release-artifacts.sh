@@ -100,9 +100,9 @@ fail() {
   status=1
 }
 for binary in sysml-* grpc/sysml-grpc-*; do
-  case "$binary" in
-    *.tar.gz|*.zip|*.sha256) continue ;;
-  esac
+  if [[ "$binary" == *.tar.gz || "$binary" == *.zip || "$binary" == *.sha256 ]]; then
+    continue
+  fi
   if [[ "$binary" == *"-${host}" ]]; then
     reported="$("./$binary" --version 2>&1 | head -n 1)"
     case " $reported " in
