@@ -242,6 +242,9 @@ type Transition struct {
 	// (`accept Ping via commPort`), and "" when the trigger names no port, in
 	// which case an occurrence reaching the machine by any route fires it.
 	Via string
+	// ViaSelf records a via path written from `this`, whose root is a feature of
+	// the performer however the machine's data would resolve the name.
+	ViaSelf bool
 
 	// Scope is the scope the transition was declared in, in which the expressions
 	// its trigger carries — a time event's duration, a change event's condition —
@@ -1511,7 +1514,7 @@ func lowerTransitionMember(graph *StateGraph, member *ast.TransitionMember, body
 	if err := refuseTransitionProbability(graph, member, scope); err != nil {
 		return nil, err
 	}
-	via, _ := ViaPortPath(member.Via)
+	via, viaSelf := ViaPortPath(member.Via)
 	return &Transition{
 		Name:      member.Name,
 		Decl:      member,
@@ -1521,6 +1524,7 @@ func lowerTransitionMember(graph *StateGraph, member *ast.TransitionMember, body
 		Guard:     member.Guard,
 		Effect:    transitionEffects(member, bodyScope, graph.resolver),
 		Via:       via,
+		ViaSelf:   viaSelf,
 		Scope:     scope,
 		BodyScope: bodyScope,
 	}, nil
