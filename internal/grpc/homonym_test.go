@@ -30,7 +30,7 @@ package Occurrences {
 // A metadata annotation written as a member of a type once collapsed that
 // type's members to its own: the annotation's type was resolved while the
 // type's supertypes were being derived, and the answer computed under that
-// guard was memoized (internal/core/semantics/reference.go).
+// guard was memoized (internal/semantic/semantics/reference.go).
 func TestAMetadataAnnotationMemberDoesNotHideInheritedAttributes(t *testing.T) {
 	srv := mustNewService(t, 10)
 	both := make(map[string][]string)

@@ -2,7 +2,7 @@ package queryexec
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
-	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 // State is one row of States or InState: an active leaf state of one object's

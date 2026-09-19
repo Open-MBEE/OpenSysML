@@ -4,7 +4,7 @@ import (
 	"strconv"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes/kit"
-	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 // mosaFacts is what the MOSA audit gathers from one document: the kinds and

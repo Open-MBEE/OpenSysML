@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
 )
 
 // TestPilotLibraryXMI asserts, in both directions, that the ids derived here are the

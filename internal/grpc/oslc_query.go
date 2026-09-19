@@ -2,8 +2,8 @@ package grpc
 
 import (
 	"connectrpc.com/connect"
-	corequery "github.com/Open-MBEE/OpenSysML/internal/core/query"
-	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	corequery "github.com/Open-MBEE/OpenSysML/internal/semantic/query"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 type coreQueryModel struct {

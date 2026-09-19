@@ -255,7 +255,7 @@ package OpenSysMLGates {
     }
 
     verification def SnapshotGate {
-        doc /* make stdlib-snapshot-check; go test -run 'Snapshot' ./internal/core/libs ./internal/core/symbols */
+        doc /* make stdlib-snapshot-check; go test -run 'Snapshot' ./internal/core/libs ./internal/semantic/symbols */
         subject stdlib : StandardLibrary;
         objective {
             verify snapshotIsDerived;

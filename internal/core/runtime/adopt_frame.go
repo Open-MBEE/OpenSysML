@@ -1,6 +1,6 @@
 package runtime
 
-import "github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+import "github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 
 // planFrame rebinds what a frame itself names — its declaration, its type and the
 // units of its axes — so a frame read before the re-analysis keeps its identity.

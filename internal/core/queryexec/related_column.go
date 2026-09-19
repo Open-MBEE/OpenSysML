@@ -4,7 +4,7 @@ import (
 	"errors"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/queryplan"
-	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 // relatedColumn is one decoded RelatedColumn of a projection: a relationship

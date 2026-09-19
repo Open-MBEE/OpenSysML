@@ -3,7 +3,7 @@ package libs
 import (
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 // A bundled file is classified by the bundle directory it sits under, however

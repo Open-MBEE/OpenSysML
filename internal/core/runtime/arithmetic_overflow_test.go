@@ -5,7 +5,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 )
 
 // sumModel and productModel are calcs over parameters, so their arithmetic

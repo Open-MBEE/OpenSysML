@@ -1,6 +1,6 @@
 package runtime
 
-import "github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+import "github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 
 const (
 	// maxMaterializeDepth bounds how deep a materialization walk descends into the
