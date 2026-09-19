@@ -5,11 +5,14 @@ occurrence selects across regions are choice points the schedule policy draws an
 enumerates — the runtime gap the [alignment note](precise-semantics-alignment.md) lists under
 its findings as *the order in which orthogonal regions are entered, exited and stepped is not a
 recorded choice point*, and the [PSSM referee record](../../project/pssm-referee.md) measures.
-Three of the finding's four sites are implemented as this note describes: region entry (a
-composite state's regions, a fork's branches, the regions a history restores), region exit, and
-the units of the firings across regions. The fourth — a due do step against the dispatch at the
-head of the pool — is designed here and not yet implemented; so is the fix to the gap found
-while implementing the entry site, a completion's firing against the entry front (finding 11).
+The finding's four sites are implemented as this note describes: region entry (a composite
+state's regions, a fork's branches, the regions a history restores), region exit, the units of
+the firings across regions, and a due do step against the dispatch at the head of the pool —
+the last at the grain of a do action's step, one action of the do body per draw, where this note
+first specified a token move (see [the do-step site](#the-do-step-site)). The gap found while
+implementing the entry site, a completion's firing against the entry front (finding 11), turned
+out on reading the admitted sets not to be one gap of the runtime, and its last section records
+what it is instead.
 The note extends [scheduling policies, choice points and exploration](scheduling.md), whose
 vocabulary it uses throughout.
 
@@ -26,12 +29,14 @@ admitted sets are quoted where they decide a design point.
 | Restoring a history | the restored regions' entries as the composite's regions above | `enterRegionsInto`, from the history's record |
 | Exiting a composite state's regions | each region's exits, innermost first, on a front under `ChoiceExitOrder`; then the composite's own exit | `state_region_transition.go`, `state_executor.go:exitState` → `performUnits` |
 | Firing the transitions one occurrence selects across regions | one queue per firing — source exit, effects, target entry — on a front under `ChoiceRegionOrder`, drawn one unit at a time | `state_executor.go:dispatchInOrder` → `openFront` |
-| A due do step against the dispatch at the head of the pool | **not yet implemented**: the do round first (`runDoRound`, every due do action one step, ordered by `chooseDoAction`), then the change-trigger poll, then the dispatch | `state_executor.go:runStep` |
+| A due do step against the dispatch at the head of the pool | under `check`, `replay` and `explore` the machine runs one unit at a time: a step of one due do action of the round under way, or the dispatch due when it would take its occurrence, drawn under `ChoiceStepOrder`; the round closes once each due action has stepped and the dispatch it owes goes before another opens. The fixed policies keep the round first (`runDoRound`, every due do action one step, ordered by `chooseDoAction`), then the change-trigger poll, then the dispatch | `state_executor.go:oneUnit` → `stepRound`, `chooseStepOrder`; `runStep` for the fixed policies |
 
 The model checker mirrors the last row: `check_moves.go:enabledMoves` offers the due do steps of
-a round before it offers the dispatch, so a checked machine never dispatches while a do step is
-due either, and `check` reports a search that met that state as within bounds rather than
-exhaustive (`CheckReport.NotEnumerated`, *do round before dispatch*;
+the round and the dispatch that acts together, one move each, as `oneUnit` draws them, and the
+dispatch alone once the round has closed. Where a step left a token of the do body standing, the
+fixed policies' run — the rest of the sweep, then the dispatch — is still the one left out, and
+`check` reports a search that met that state as within bounds rather than exhaustive
+(`CheckReport.NotEnumerated`, *do round before dispatch*;
 [bounded model checking](bounded-model-checking.md)). The other sites lie inside one move of the
 checker (a dispatch or an entry), where the checker resolves the choice points the move draws
 through its `picks`.
@@ -49,14 +54,14 @@ the nested state whose do activity is logged. Transition names are the suite's o
 | Terminate 001 | 2 | 1 | `r2(entry)` before `r1(entry)` | all reached, `pass` |
 | Deferred 006 C | 2 | 1 | the two regions' do activities take one occurrence in either order | all reached, `pass` |
 | Transition 019 | 6 | 4 | both sources' exits before either segment's effect | all reached; six unadmitted traces, the join's segment order (SM34), `fail` |
-| Entering 010 | 3 | 1 | `r1(entry)` before, between or after `T2.1(effect)::r2(entry)` | finding 11 |
-| Entering 011 | 6 | 1 | every interleaving of `T1.1(effect)::r1(entry)` with `T2.1(effect)::r2(entry)` | finding 11 |
-| Junction 005 | 3 | 1 | `T1.3(effect)` before, between or after `T2.1(effect)::r2(entry)` | finding 11 |
-| History 001-C | 12 | 1 | the two regions' restored entries and exits interleaved, twice over | finding 11 |
-| History 002-B | 6 | 1 | `r1(exit)::r1'(entry)` interleaved with `r2(entry)::r2.1(exit)::T2.2.2(effect)::r2.2(entry)` | finding 11 |
+| Entering 010 | 3 | 1 | `r1(entry)` before, between or after `T2.1(effect)::r2(entry)` | finding 11: an initial transition's effect, a completion effect in v2 |
+| Entering 011 | 6 | 1 | every interleaving of `T1.1(effect)::r1(entry)` with `T2.1(effect)::r2(entry)` | finding 11: as *Entering 010* |
+| Junction 005 | 3 | 1 | `T1.3(effect)` before, between or after `T2.1(effect)::r2(entry)` | finding 11: as *Entering 010* |
+| History 001-C | 12 | 1 | the two regions' completions and restored entries interleaved, twice over | finding 11: the pool's order, and the suite's defect |
+| History 002-B | 6 | 1 | `r1(exit)::r1'(entry)` against `r2(exit)::r2'(entry)`, then `r2'.1(exit)::T2.2.2(effect)::r2'.2(entry)`, twice over | finding 11: the suite's defect |
 | Behavior 003 A | 2 | 1 | `top(entry)` alone: the dispatch before the do activity's first step | the do-step site |
-| Terminate 002 | 5 | 1 | `r2(entry)` before `r1(entry)`; the do activity's first segment against the terminating completion | one reached; the do-step site and finding 11 |
-| Transition 017 | 8 | 1 | `deep(doActivity)` at any point among the completion effects, and two more (see *Transition 017*) | the do-step site, finding 11, and the suite's defect |
+| Terminate 002 | 5 | 1 | `r2(entry)` before `r1(entry)`; the do activity's first segment against the terminating completion | one reached; the do-step site |
+| Transition 017 | 8 | 1 | `deep(doActivity)` at any point among the completion effects, and two more (see *Transition 017*) | the do-step site, the pool's order (finding 11), and the suite's defect |
 
 In every row the reached traces are admitted; the failure was exploration reporting itself
 complete after one linearization.
@@ -89,8 +94,8 @@ reached conform; the referee's missing traces were the other linearizations. Rec
 each point where two regions both have a next unit, and letting the policy take either, makes
 every linearization of the partial order reachable and no other: that is the whole design, and
 the admitted sets above are exactly the linearizations of the per-region chains they log (three
-of one and two, six of two and two, twelve of the *History 001-C* pair, with the two exceptions
-of *Transition 017* taken up below).
+of one and two, six of two and two), with the two exceptions of *Transition 017* taken up below
+and the five tests of finding 11, whose chains are not what the runtime's are.
 
 ### The unit
 
@@ -105,7 +110,7 @@ separately:
   as units of their own;
 - the **effect** of one transition segment (`runEffects` over a `routeEffect`), the segment's
   owner entered ahead as the fix to the junction finding does;
-- one **do step** (`stepDoAction`: one action of a do behavior; the site not yet drawn);
+- one **do step** (`stepDoAction`: one action of a do behavior);
 - one **dispatch** — the selection of an occurrence's transitions — which then decomposes into
   the exit, effect and entry units of the firings it selected.
 
@@ -191,15 +196,14 @@ rather than hung.
 
 ## The choice kinds
 
-Two kinds are added to `ChoiceKind`, one existing kind draws at a finer grain, and one more is
-designed:
+Three kinds are added to `ChoiceKind`, and one existing kind draws at a finer grain:
 
 | Kind | Site | `Where` | Alternatives, canonically | Taken |
 |------|------|---------|---------------------------|-------|
 | `ChoiceEntryOrder` | region entry, fork branch entry, history restore | `entering <state>` — the composite whose regions are entered; `fork <name>` for a fork's branches | the queues with a unit ready, in declaration order, each labelled by its next performing unit: `left(entry)`, `T2.1(effect)`, `split->a(effect)` | the queue advanced |
 | `ChoiceExitOrder` | region exit | `exiting <state>` | the queues with a unit ready, in declaration order, each labelled by its next performing unit: `inner(exit)` | the queue advanced |
 | `ChoiceRegionOrder` (existing) | firing units across regions, and the entries and exits nested in a firing | `on accept <event>`, `on change` — as `dispatchInOrder` labels the occurrence | the firings with a unit ready, by source state in declaration order, each labelled by its next unit: `l1(exit)`, `l1->l2(effect)`, `l2(entry)` | the firing advanced |
-| `ChoiceStepOrder` (designed, not implemented) | a due do step against the dispatch at the head of the pool | `at t=<instant>` | `do <state>` per due do action in entry order, then `dispatch <event>` for the head of the pool (a change trigger risen is `dispatch change <condition>`) | the unit run |
+| `ChoiceStepOrder` | a due do step against the dispatch at the head of the pool | `at t=<instant>` | `do <state>` per due do action of the round in entry order, then `dispatch <event>` for the head of the pool once a message in flight is queued behind the events already there, so the message is named (`dispatch accept <signal>`) only when nothing is ahead of it (`dispatch change <condition>` for a change trigger risen, `dispatch` bare where two or more tied events whose dispatch acts leave the event to a draw of its own among them) | the unit run |
 
 Canonical order is declaration order for regions, branches and firings — the order the runtime
 took before the draws were recorded — so the first alternative taken at every draw reproduces
@@ -296,11 +300,14 @@ a parallel state grew with the draws — `por_state_join_exit`, three regions, f
 start's entry orders and the join's exit orders now being configurations of their own. Their
 reduced counts equal their unreduced ones after as before: neither model had a reduction to lose.
 
-The step-order site is to reach the checker as a change to `enabledMoves`: the due do steps and
-the dispatch enabled *together* rather than the do round first, one move each, which is the
-state-space reading of the same choice; the static partial-order reduction (`check_reduce.go`)
-already footprints a do step and a dispatch separately, so two that commute are explored once.
-That change is what retires the *do round before dispatch* bound of `CheckReport.NotEnumerated`.
+The step-order site reaches the checker as `enabledMoves` following `oneUnit`: the due do steps
+and the dispatch enabled *together* rather than the do round first, one move each, which is the
+state-space reading of the same choice — a dispatch move's `picks` open with its index past the
+round's steps, so the checker's script resolves the draw as the runtime's replay does; the static
+partial-order reduction (`check_reduce.go`) footprints a do step and a dispatch separately, so
+two that commute are explored once. The *do round before dispatch* bound of
+`CheckReport.NotEnumerated` stays for the one run the moves still leave out (the rest of a sweep
+whose step left a token standing, then the dispatch); it retires with the token-move grain.
 
 ## Policies at the sites
 
@@ -398,11 +405,15 @@ Conformance fixtures under `internal/exec/runtime/testdata/conformance/`, each w
 | `state_history_restore_order` | a deep history restoring two regions; entries and exits interleaved, eight outcomes |
 | `state_firing_units_interleaved` | two regions' transitions on one event, exit and effect each; six outcomes, joined afterwards so the join row's order stays visible (*Transition 019*'s shape) |
 
-To be added with the step-order site: `state_do_step_or_dispatch` (a do action due and a signal
-at the head of the pool; two outcomes, one where the dispatch exits the state before the do
-step ran — *Behavior 003 A*'s shape) and `state_do_step_among_completions` (a do step against
-completion effects across regions), and `state_do_action_loop_timed_exit` gains the exact
-`outcomes` set the fixed policies and the checker reach between them.
+| `state_do_step_or_dispatch` | a do action due and a signal at the head of the pool; two outcomes, one where the dispatch exits the state before the do step ran (*Behavior 003 A*'s shape) |
+| `state_do_step_among_completions` | a region's do step against the other region's completion effects; three outcomes |
+
+`robustness_region_do_step_test.go` holds the step-order site's failure modes: a witness naming
+a state with no due do step, a dispatch not at the head of the pool or a draw at a unit offering
+none, each refused with the run rolled back; an endless do body under `explore` ending in
+`ErrDoStepLimitExceeded`. Still to be added:
+`state_do_action_loop_timed_exit` gains the exact `outcomes` set the fixed policies and the
+checker reach between them.
 
 `explore_test.go` covers each kind — every outcome reached exactly once, the count of draws,
 determinism across runs — and `explore_queue_test.go`'s sweep on eight jobs covers the fixtures
@@ -415,8 +426,8 @@ refuses a witness line at each site with the run rolled back to the move's start
 
 Of its eight admitted traces, six are the do step `deep(doActivity)` placed among
 `T2.2(effect)`, `T3.1.2(effect)` and `T3.2(effect)` with `T3.1.2` before `T3.2` — the inner
-leaf's completion before its parent's — which the unit model reaches once the step-order site
-and finding 11's fix are in. Two have `T3.2(effect)` before `T3.1.2(effect)` and the do step
+leaf's completion before its parent's — which the unit model reaches once the do-step site and
+the pool's order (finding 11, below) are in. Two have `T3.2(effect)` before `T3.1.2(effect)` and the do step
 after `T3.2`: `deep`'s completion transition fires before the transition its inner region's
 completion enables, and the do activity steps after its state was left. The suite's own comment
 on the test's state machine ("Expected execution sequence") has `T3.2` fire when the completion
@@ -428,48 +439,282 @@ runtime does not produce them; the test stays `fail` on those two, the defect re
 as the suite's rather than corrected in the downloaded XMI, and no `differs-by-design` row is
 added for it.
 
-## The do-step site, designed
+## The do-step site
 
-At each **token move** of a due do flow while an occurrence at the head of the pool is due at
-the same instant, the choice is "dispatch it now" against "keep moving the do flow" — finer
-than a round: under `check`, `replay` and `explore` a do behavior's flow is stepped one token
-move at a time and the machine may dispatch after each; under the fixed policies a do step is
-one sweep (each token once) and the dispatch follows the sweep. A do behavior is concurrent
-with the machine (`StatePerformances.kerml`, above), so a dispatch may cut a sweep anywhere,
-and both are runs the library admits. `declared`, `reverse` and `seed:<n>` keep finishing the
-sweep before they dispatch, so no default trace moves; `check` and `explore` enumerate both, so
-the exhaustive set becomes a superset of every fixed policy's outcome, and the bounded verdict
-`check` gives today at that state (*do round before dispatch*) is retired with its report
-field once no other left-out interleaving remains. `runDoRound` keeps the order among several
-due do steps (`chooseDoAction`). *Behavior 003 A*, *Terminate 002*'s terminating-completion
-traces and *Transition 017*'s do step are what it reaches.
+A do behavior is concurrent with the machine (`StatePerformances.kerml`, above), so while a do
+step is due and an occurrence at the head of the pool is due at the same instant, "dispatch it
+now" against "keep moving the do flow" are both runs the library admits. Under `check`, `replay`
+and `explore` the machine runs one unit at a time (`state_executor.go:oneUnit`): a round of the
+do actions due opens, and at each step the draw under `ChoiceStepOrder` is one action of one
+due do behavior (`stepDoAction`, the round's order among several kept by `chooseDoAction`) or
+the dispatch; the round closes once each due action has stepped, and the dispatch it owes is
+made before another round opens — the rhythm of the fixed policies, with the dispatch's place
+within the round drawn. `declared`, `reverse` and `seed:<n>` keep finishing the round before
+they dispatch (`runStep`), so no default trace moves; `check` and `explore` enumerate both, so
+the exhaustive set is a superset of every fixed policy's outcome. *Behavior 003 A*,
+*Terminate 002*'s terminating-completion traces and *Transition 017*'s do step are what it
+reaches.
+
+A dispatch is drawn against a due do step only where it would **take** its occurrence — fire a
+transition, or let a do behavior already parked at an `accept` go on (`dueDispatch`,
+`eventActs`, previewed and rolled back). One that would defer or drop it is not: neither is a
+performance's acceptance, and the due do step may be the `accept` that takes the occurrence, so
+the occurrence waits for the round to close as under the fixed policies. Without that rule the
+draw spends an occurrence a do behavior is one action from accepting, a run no policy of the
+runtime's makes and none the library orders (`state_join_completion_segment_waits_for_do_behavior`'s
+`Tick`, `state_join_completion_is_not_a_timers_expiry`'s timer). Events tied at the head are
+previewed one by one: those that act are the dispatch's alternatives against the step — one named
+by itself, two or more as the bare `dispatch` whose dispatch order is then drawn among them alone —
+and one that would be dropped is not, so a guarded trigger tied with an unguarded one does not hide
+the unguarded one's dispatch behind the step (`state_do_step_or_tied_dispatch`).
+
+The grain is the do action's step, not the token move this note first specified: one move is
+one statement of the do body (`doRun` yields after each statement of its body) or one action of
+a do behavior given as actions, not one token of a sweep. Refining the move to a token — a dispatch cutting a sweep
+anywhere, and the *do round before dispatch* bound of `CheckReport.NotEnumerated` retired with
+its report field — follows the resumable inline do body's pausing per token, and touches
+`stepRound` alone: the round keeps an action whose step left a token standing.
 
 ## Finding 11: a pending completion inside the entry front
 
 Found while implementing the entry site. Every admitted trace *Entering 010*, *Entering 011*,
 *Junction 005*, *History 001-C* and *History 002-B* still miss interleaves the firing of a
 **completion transition** — the initial transition of a region, translated as a completion out
-of a start state (`T2.1(effect)` in *Entering 010*), or the restored state's exit and its
-successor's entry in the History tests — with the entry units of the sibling region *in the same step*. The runtime dispatches a
-completion as a run-to-completion step of its own once the entry move has settled (the
-alignment note's SM9 and SM10), so no draw among the entry units reaches an order in which the
-completion fires before the sibling's entry; PSSM, which fires the completion as soon as its
-source is complete while the region's entry is still under way, admits both. One trace of
-*Terminate 002* has the same shape with a do behavior's first segment in place of the
-completion's firing, and three of *Transition 017* have it between two regions' completions.
+of a start state (`T2.1(effect)` in *Entering 010*), or in the History tests the exit of the
+state a region enters by default and its successor's entry — with the entry units of the sibling
+region *in the same step*. The runtime dispatches a completion as a run-to-completion step of
+its own once the entry move has settled (the alignment note's SM9 and SM10), so no draw among
+the entry units reaches an order in which the completion fires before the sibling's entry; the
+suite's registered traces admit both. One trace of *Terminate 002* has the same shape with a do
+behavior's first segment in place of the completion's firing, and three of *Transition 017*
+have it between two regions' completions.
 
-The fix, so a follow-up can implement it without re-deriving it: a state whose entry leaves it
-complete — no do behavior, no regions still active, a completion transition enabled — **offers
-its completion's firing as a unit of its region's queue** on the front that entered it, drawn
-against the sibling regions' remaining units under `ChoiceRegionOrder` (the front of a firing
-already accepts nested sites), the firing's own units — exit, effects, target entry — following
-as units of that queue. `declared` and `reverse` take it **last**: the completion's queue is
-ready only once every other queue is done, so the default order — the step the runtime
-dispatches today, after the entry has settled — is unchanged and no trace golden moves under
-the default; `seed:<n>` and `explore` draw it against the siblings. A completion so drawn is
-the one step the runtime would have dispatched next, so the run-to-completion accounting
-records it as dispatched within the move rather than as a step of its own, and a refused
-replay line at it rolls back with the entry move as any other unit. What it must not do is fire
-a completion whose source is completed by a sibling's unit still to come (a join's, a region's
-final state reached by the sibling): the offer is made only when the completion is enabled by
-the state's own entry.
+### The rule as first written
+
+The fix as first designed: a state whose entry leaves it complete — no do behavior, no regions
+still active, a completion transition enabled — **offers its completion's firing as a unit of its
+region's queue** on the front that entered it, drawn against the sibling regions' remaining units
+under `ChoiceRegionOrder`, the firing's own units — exit, effects, target entry — following as
+units of that queue; `declared` and `reverse` take it last, so the default order is the step the
+runtime dispatches today and no golden moves; the offer is made only when the completion is
+enabled by the state's own entry, never by a sibling's unit still to come.
+
+That rule is **not implemented**, and should not be: checked against the admitted sets read off
+the referee, it reaches every trace of the five and, on three of them, traces PSSM refuses — and
+no narrower rule reaches the five either. This section records what the sets show, so the
+finding is not re-derived as one gap when it is three.
+
+### What the admitted sets show
+
+Each test's move is a set of per-region chains — the entry units of the move, and the completion
+firings a chain's states generate as they are entered (a firing being its source's exit, its
+effect and its target's entry, the target's entry possibly generating the next). The five tests
+have these chains, read off the translated models (`-keep`) and their `log` statements, the
+states named as the sites table names them (`r2'.1` a state nested inside `r2'`):
+
+| Test | Region 1 | Region 2 | Admitted |
+|---|---|---|---|
+| Entering 010 | `r1(entry)` | start state (silent) → completion `T2.1(effect)::r2(entry)` | 3 |
+| Entering 011 | start state → completion `T2.1(effect)::r1(entry)` | start state → completion `T1.1(effect)::r2(entry)` | 6 |
+| Junction 005 | entered explicitly through its junction: `T1.3(effect)`, then `r1` (silent) | entered by default: start state → completion `T2.1(effect)::r2(entry)`; `r2` complete → completion out of `top` to the machine's final state, `r1(exit)::top(exit)` | 3 |
+| History 001-C, first half | `r1` (silent) → completion `r1(exit)::r1'(entry)` | `r2` (silent) → completion `r2'(entry)`, `r2'.1` (silent) → completion `r2'.1(exit)::r2'.2(entry)` | 2 |
+| History 001-C, second half (the deep history is region 2's) | entered by default: `r1` (silent) → completion `r1(exit)::r1'(entry)` | restored: `r2'(entry)`, `r2'.2(entry)` | 6 |
+| History 002-B, first half | as *History 001-C* | `r2` (silent) → completion `r2(exit)::r2'(entry)`, `r2'.1` (silent) → completion `r2'.1(exit)::T2.2.2(effect)::r2'.2(entry)` | 2 |
+| History 002-B, second half (the shallow history is region 2's) | as *History 001-C* | restored: `r2'(entry)`, then its initial `r2'.1` (silent) → completion `r2'.1(exit)::T2.2.2(effect)::r2'.2(entry)` | 3 |
+
+The History tests admit the cross product of their halves, twelve for *001-C* and six for
+*002-B*; *001-C*'s first half alone has ten linearizations, of which two are admitted.
+
+Enumerating the traces each candidate rule reaches on these chains, against the admitted sets:
+
+| Rule | Entering 010 | Entering 011 | Junction 005 | History 001-C first / second half | History 002-B first / second half |
+|---|---|---|---|---|---|
+| Today: completions dispatched after the move, pool in declaration order (SM9, SM10) | 1 of 3 | 1 of 6 | 1 of 3 | 1 of 2 / 1 of 6 | 1 of 2 / 1 of 3 |
+| After the move, pool in the order the sources were entered (the entry draw) | 1 of 3 | 2 of 6 | 1 of 3 | **2 of 2** / 1 of 6 | 1 of 2, **1 extra** / 2 of 3 |
+| The earliest pending completion offered whole against the move's remaining units, completions in order among themselves | 2 of 3 | 2 of 6 | 2 of 3, **1 extra** | 2 of 2, **1 extra** / 3 of 6 | 2 of 2, **1 extra** / **3 of 3** |
+| As above, the firing's units drawn one at a time against the move's | **3 of 3** | 2 of 6 | 3 of 3, **2 extra** | 2 of 2, **1 extra** / **6 of 6** | 2 of 2, **1 extra** / 3 of 3, **1 extra** |
+| The rule as first written: a completion's units are units of its region's queue, drawn against anything | **3 of 3** | **6 of 6** | 3 of 3, **2 extra** | 2 of 2, **8 extra** / **6 of 6** | 2 of 2, **19 extra** / 3 of 3, **12 extra** |
+| Today's rule, with an initial transition's effect as an entry unit of its region | **3 of 3** | **6 of 6** | **3 of 3** | (no initial effect) | (no initial effect) |
+| Today's rule, the translation folding an initial transition's effect into its target state's entry action, ahead of that state's own entry behavior | 0 of 3, **2 extra** | 2 of 6 | no spelling: the initial transition ends at a junction | (no initial effect) | (no initial effect) |
+
+The last two rows are spellings of the translation, not rules of the runtime; the last was run
+by emitting the three tests with the fold in place of the start state and exploring them against
+the admitted sets as the referee does.
+
+No rule reaches every set, and the reason is that the five tests want three different things.
+
+**The Entering and Junction tests are about the initial transition, not about completion.**
+In UML the effect of a region's initial transition is part of the region's *entry*: the default
+entry rule (UML 2.5.1 §14.2.3.4.5, "State entry continues from an initial Pseudostate via its
+outgoing Transition"; PSSM's region activation enters by firing it) runs it as the last step of
+entering the region, and the tests admit it anywhere against the sibling region's entry units
+— the entry-unit row of the table, every set reached exactly, shows that the referee's admitted
+sets are the linearizations of the entry chains when that effect is an entry unit. SysML v2 cannot
+spell it: an entry transition (`entry; then s;`, §7.18.3 `EntryTransitionMember`) is a
+succession from the owner's `entry` to a substate carrying a guard at most
+(`GuardedTargetSuccession`), no effect and no trigger, so the referee translates the effect as
+the effect of an unguarded completion transition out of a behavior-less start state
+(`emit.go:startTarget`). That changes its scheduling class: a v2 completion transition fires by
+a step of its own after the move (SM9), and the runtime's one trace is the one PSSM would give a
+UML model in which `T2.1` really were a completion transition.
+
+The two other spellings a v2 model offers were tried and fail, for reasons that are not the
+tests'. Folding the effect into the entry action of the *region* (the owner of the initial
+transition) performs it on every entry of the region, a history restore included, where UML's
+restore bypasses the initial transition — the emitter defect *History 001-B* exposed, in the
+referee record's translation-defects table. Folding it into the entry action of the *target*
+state, sequenced before that state's own entry behavior so that the trace keeps the order
+effect-then-entry, has the same defect one state down, and the tests show it (the table's last
+row). In `StatePerformances.kerml` a state's `entry` is one step of its `StatePerformance`
+(`step entry[1]`, before `middle` and `exit`), performed whenever the state is, and a
+`StateTransitionPerformance` is a performance of its own between `transitionLinkSource.exit`
+and the target's `entry`; the fold moves a behavior from the transition into the state, so it
+runs on every way into the state and not only by the initial transition. *Entering 010*'s
+region 1 is that case: its initial transition `T1.1` has an effect, and its target `r1` is the
+state the tester enters explicitly, bypassing the initial transition, so the fold runs
+`T1.1(effect)` on that entry and every trace reached is one the test refuses (`0 of 3`, two
+extra). Where the target is entered by the initial transition alone the fold is faithful by
+accident of the model, not by the spelling — the special case the rules above forbid. It also
+merges two behavior executions into one unit: UML performs the effect and the target's entry as
+distinct behaviors, and PSSM interleaves each against the sibling region, so *Entering 011*'s
+six admitted orders split `T1.1(effect)` from `r2(entry)` around the sibling's units in four,
+which one entry action, one unit of the front, cannot do (`2 of 6`, no extra). And it has no
+target at all when the initial transition ends at a pseudostate: *Junction 005*'s `T2.1` ends at
+a junction whose way out a guard decides at firing time, `r2` or its sibling state, so there is
+no one state's entry to fold into. What the fold leaves alone is the case it was to be checked
+against: `r2`'s completion out of `top` stays a completion dispatched after the front, so the
+fold would reach no refused trace there — but it cannot be spelled there. The start state's
+completion stays the referee's spelling: it keeps the effect a behavior of its own, run once,
+on the initial transition alone, at the cost of the step boundary.
+
+*Junction 005* pins the difference from the other side: `r2`'s completion is a real one,
+leaving `top` through its exit, and every admitted trace has it *after* `T1.3(effect)`, the
+sibling's remaining entry unit — so a rule that fires a completion inside the entry front
+reaches two traces PSSM refuses. The only rule that reaches all three sets exactly is the
+entry-unit row, and it is not a scheduling rule of the runtime: it is a fact about the
+translation. A runtime rule that fired *some* completions in the
+entry front and not others would have to tell a start state's completion from `r2`'s by the
+source having no behavior, which v2 does not distinguish (a state with no entry, do or exit has
+an empty `StatePerformance` and a completion like any other) and PSSM contradicts (its completion
+event is dispatched after the step whatever the source performs). That is a special case of the
+translation's shape, not a semantics.
+
+**The first halves of the History tests are about the pool's order.** Both regions enter a
+silent state whose completion is enabled at once. PSSM's pool holds the two completion events in
+the order they were generated — §8.5.9, "a new `CompletionEventOccurrence` is placed into the
+(ordered) `eventPool` behind any `CompletionEventOccurrences` already in the pool" (SM10) — and
+generates each as its source is entered, so the pool's order is the entry draw's; the runtime
+queues them once the move has settled, leaf by leaf in region declaration order
+(`scheduleTransitionEvents`), whichever order the front drew, so under `seed:<n>` and `explore`
+the pool's order and the draw disagree. *History 001-C* admits exactly the two orders the entry
+draw gives (second row, `2 of 2`), and its own RTC table is one of them; the same site is what
+*Transition 017*'s three finding-11 traces need, between `T2.2(effect)` and `T3.1.2(effect)`,
+whose sources are entered silently. *History 002-B*'s first half, of the same shape — `r2`
+has an exit action there and `T2.2.2` an effect, which only add labels — admits
+`r1(exit)::r1'(entry)` first (its RTC table: step 4 dispatches `CE(r1)` before `CE(r2)`),
+and then `r2(exit)::r2'(entry)` first followed by **`r2'.1(exit)::T2.2.2(effect)::r2'.2(entry)`
+before `r1(exit)::r1'(entry)`**: `r2'.1`'s completion, generated when `T2.2`'s firing
+entered it in the step after the entry, dispatched before `r1`'s, generated by the entry
+itself — an order §8.5.9 excludes whichever region was entered first — while the order §8.5.9
+does give when region 2 is entered first, `r2(exit)::r2'(entry)::r1(exit)::r1'(entry)::…`,
+is the one *History 001-C* admits for the identical half and *History 002-B* does not. The two
+tests contradict each other on structurally identical halves, and *002-B*'s registered
+alternative contradicts the specification's pool.
+
+**The second halves are about a completion fired inside the restore.** In both tests the history
+pseudostate is region 2's, so the restore re-enters region 2 and region 1 takes its default
+entry: `r1`, silent, whose completion `r1(exit)::r1'(entry)` is enabled at once. PSSM's
+restore places that completion event in the pool and ends the step — §8.5.7.4, "If, after
+this, the `StateActivation` is completed, a `CompletionEventOccurrence` is placed in the
+`StateMachine` context's event pool", the regions "restored concurrently"; and the
+specification's descriptions of the two tests (§9.3.15.4, §9.3.15.7, quoted in
+[`omg-issues.md`](../../project/omg-issues.md#pssm-history-001-c-and-002-b-admit-a-completion-inside-the-restore-and-contradict-each-other))
+say so of these very steps: in *001-C* the restore completes the step `T4` started and `r1`'s
+completion event, when dispatched, fires `T1.2`, its RTC table at step 11 already in
+`top[r1, r2'[r2'.2]]` with `CE(r1)` pending; in *002-B* the step `AnotherSignal` initiated
+ends in `top[r1, r2'[r2'.1]]` and the next step fires `T1.2`. Under that reading
+*001-C*'s second half has one trace, `r2'(entry)::r2'.2(entry)::r1(exit)::r1'(entry)`, the
+one printed and the one the runtime reaches; *002-B*'s has two, the printed
+`r2'(entry)::r1(exit)::r1'(entry)::r2'.1(exit)::T2.2.2(effect)::r2'.2(entry)` and its
+first alternative with `r2'.1`'s completion dispatched before `r1`'s — the two orders of a
+pool holding both after the restore, which the entry draw decides. Every other registered
+alternative fires `r1`'s completion *inside* the restore, before or between region 2's
+entries: five of *001-C*'s six, one of *002-B*'s three. Those are what the rule as first
+written was designed to reach, and they are not one rule either: *001-C*'s five split the
+firing around a restored entry (`r1(exit)::r2'(entry)::r1'(entry)`, three of them), *002-B*'s
+one keeps it whole, and region 1 and the first restored unit are identical in the two tests —
+they differ only in what follows `r2'(entry)` in region 2 (the deep restore enters `r2'.2`,
+the shallow one runs `r2'`'s initial and fires `r2'.1`'s completion), which no rule drawn
+from what a region has done so far can make the reason `r1`'s completion splits around
+`r2'(entry)` in one test and not in the other. Both tests' in-move alternatives come from an
+implementation that dispatches a default-entered state's completion while the sibling region's
+restore is still under way, which the tests' own notes exclude, and they disagree with each
+other on how far.
+
+### Where this leaves the finding
+
+There is no completion-scheduling rule the runtime can adopt that reaches the five admitted sets:
+the Entering and Junction sets are reached only by a rule about the translation of an initial
+transition's effect; the History sets are reached by no rule at all, since each test's halves
+admit what the other's forbid. The rule as first written reaches every admitted trace of the
+five and adds traces PSSM refuses: two to *Junction 005*, eight to *History 001-C*'s first half,
+nineteen and twelve to *History 002-B*'s. Read against the specification's own text rather than
+the registered alternatives, the History sets are smaller than registered and partly outside
+what is registered: *001-C* has two traces (its two first halves, the printed second), both
+registered; *002-B* has four (two first halves by the entry draw, two second halves by the pool's
+order after the restore), two of them registered and two not, and four of its six registered
+traces excluded. The rule that reaches exactly those — completions dispatched after the move,
+the pool in the order the entries were drawn (the table's second row) — moves neither test to
+`pass`. So finding 11 is not one gap of exploration with one fix; it decomposes as follows, each
+part with its own home:
+
+- **An initial transition's effect is a completion effect in v2.** A translation limit, and
+  behind it a language difference: UML runs the effect as part of the region's entry, SysML v2
+  has no place for it there. *Entering 010*, *Entering 011* and *Junction 005* stay `fail` under
+  today's rule, and their reasons cite this difference rather than a missing site. Whether the
+  difference is decided as a *differs because v2 differs* row — which would move the three to
+  `differs-by-design` through `tools/referee/pssm/rows.go:TestRows` — is an adjudication of the
+  alignment note, not of this design; the alignment note's item 11 records the reading and its
+  open decision 8 holds the row, leaning against it.
+- **The pool's order follows the entry draw.** A runtime item of the region-order design
+  proper, and the one part of the finding that is a gap of the runtime: when the entries of two
+  regions each generate a completion event, PSSM's pool holds them in the order the entries
+  happened (§8.5.9), which the entry draw decides, while `scheduleTransitionEvents` queues them
+  after the move in region declaration order whatever the draw was — SM10's *agrees* holds under
+  `declared`, where the two orders coincide, and not under `seed:<n>` or `explore`. The fix is
+  small — queue a state's completion as its entry unit is performed
+  (`scheduleCompletionTransitions` from the entry front's units rather than from the settled
+  configuration), so the event IDs follow the draw, with one consequence for the front: an entry
+  unit that generates a completion event is observable through the pool's order even when the
+  state performs nothing, so it must be drawn rather than ride with the neighboring performing
+  unit as a silent unit does — which is why *Transition 017*'s and the History tests' entries,
+  every one of them silent, record no draw today. `declared` then queues what it queues today
+  and no default golden moves, while a `reverse` or `seed:<n>` run whose draw entered two
+  completing states out of declaration order dispatches their completions in the draw's order
+  instead — and it is what *Transition 017*'s three finding-11
+  traces need beside the do-step site, `T3.1.2(effect)` before `T2.2(effect)` when region 3 is
+  drawn first. By the enumeration above it moves no test on its own: *History 001-C* gains its
+  second trace and still misses ten, *History 002-B* gains one and reaches two the suite does
+  not register. It is a runtime change of its own, small, and a real divergence under `reverse`,
+  `seed:<n>` and `explore`; with the do-step site drawn it is what completes *Transition 017*'s
+  reachable set, and it is recorded here for that change to take up, with the two History tests'
+  reasons to be re-read then against the sets above.
+- **The History pair contradicts itself and the specification.** Recorded in
+  `docs/project/omg-issues.md` as a suite defect: two tests with identical halves register
+  different admitted sets — *002-B* a dispatch order §8.5.9's pool cannot give and *001-C* the
+  order it gives, *001-C* a split firing *002-B* forbids — and both register alternatives that
+  dispatch a completion inside the restore step their own notes and RTC tables end first. The
+  two stay `fail`, their reasons citing the defect; no runtime rule is chosen to reach either.
+  The fix above brings the runtime to the sets the specification's text gives for both, which
+  are not the registered ones, so neither test can reach `pass` against the downloaded XMI.
+- **A do step against a sibling's entry unit.** *Terminate 002*'s trace
+  `top(entry)::r1(entry)::r1(doActivityPartI)::r2(entry)` was filed under this finding by
+  shape only. It is a do step, not a completion: the do behavior is started at `r1`'s entry
+  (`startDoAction`), the library orders its steps after `entry` and against nothing in the
+  sibling region, so a due do step of an entered state is a unit of its region's queue on the
+  entry front. That is the do-step site's rule extended to the entry front — the do step is
+  drawn against the sibling's remaining entry units as it is against the dispatch — and belongs
+  to that site's change.
+
+The `check` verdicts and the exploration model are untouched: no new choice kind, no new unit,
+and every draw the front records today is as it was.

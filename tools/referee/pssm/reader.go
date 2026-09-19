@@ -221,9 +221,9 @@ func (r *reader) behavior(e *xmi.Element) *Behavior {
 		}
 	}
 	switch e.Type {
-	case "uml:Activity":
+	case typeActivity:
 		b.Body = r.readActivity(e)
-	case "uml:OpaqueBehavior", "uml:FunctionBehavior":
+	case "uml:OpaqueBehavior", typeFunctionBehavior:
 		b.Opaque = readOpaque(e)
 	case typeStateMachine:
 		// A submachine or classifier behavior; read under readMachines.
@@ -549,7 +549,7 @@ func (r *reader) readRegistrations() {
 	for _, c := range r.classes {
 		byName[c.Name] = c
 	}
-	for _, act := range r.typed("uml:Activity") {
+	for _, act := range r.typed(typeActivity) {
 		if !registrationActivity.MatchString(act.Name()) || act.Parent == nil || act.Parent.Type != "uml:Package" {
 			continue
 		}
@@ -597,7 +597,7 @@ func registrationStatements(body *xmi.Element) []*xmi.Element {
 func (r *reader) createdTest(st *xmi.Element, area string, created map[string]*Test) *Test {
 	var test *Test
 	st.Walk(func(e *xmi.Element) bool {
-		if e.Type != "uml:CreateObjectAction" {
+		if e.Type != typeCreateObjectAction {
 			return true
 		}
 		cls := r.classes[e.Attr("classifier")]
@@ -624,7 +624,7 @@ func (r *reader) createdTest(st *xmi.Element, area string, created map[string]*T
 func (r *reader) readRegistrationWrite(st, act *xmi.Element, created map[string]*Test) {
 	var write *xmi.Element
 	st.Walk(func(e *xmi.Element) bool {
-		if e.Type == "uml:AddStructuralFeatureValueAction" {
+		if e.Type == typeAddStructuralFeatureValueAction {
 			write = e
 			return false
 		}

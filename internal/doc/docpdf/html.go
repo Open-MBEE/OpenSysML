@@ -122,7 +122,7 @@ func writeContent(b *strings.Builder, blocks []block, art artwork, opts Options)
 		case blockParagraph:
 			b.WriteString("<p>" + inlineHTML(blk.Text, art.math) + "</p>\n")
 		case blockCaption:
-			b.WriteString("<p class=\"caption\"><em>" + inlineHTML(blk.Text, art.math) + "</em></p>\n")
+			b.WriteString(emphasised("caption", inlineHTML(blk.Text, art.math)))
 		case blockAnchor:
 			b.WriteString(`<a id="` + html.EscapeString(blk.Anchor) + `"></a>` + "\n")
 		case blockTable:
@@ -140,6 +140,18 @@ func writeContent(b *strings.Builder, blocks []block, art artwork, opts Options)
 			writeDiagramHTML(b, blk, d)
 		}
 	}
+}
+
+// emphasised returns a paragraph of the given class whose inner HTML is emphasised.
+func emphasised(class, inner string) string {
+	return "<p class=\"" + class + "\"><em>" + inner + "</em></p>\n"
+}
+
+// writeSourceFigure writes a diagram the backend does not draw: the notice
+// saying so, then its source verbatim.
+func writeSourceFigure(b *strings.Builder, class, notice, source string) {
+	b.WriteString("<figure class=\"" + class + "\">" + emphasised("notice", html.EscapeString(notice)) +
+		"<pre>" + html.EscapeString(source) + "</pre></figure>\n")
 }
 
 // headingNumber advances the hierarchical counters for a heading at the given
@@ -200,10 +212,23 @@ func cellHTML(cell string, math formulas) string {
 	return strings.Join(parts, "<br>")
 }
 
-// styleSheet lays the document out for print: pages numbered in the footer,
-// bordered tables and diagrams no wider than the text, captions in small type,
-// and a title page and table of contents on pages of their own when written.
-const styleSheet = `@page {
+// wideTable selects a table of seven or more columns, which is set on a
+// landscape page in smaller type together with the heading and caption leading into it.
+const wideTable = "table:has(thead > tr > th:nth-child(7))"
+
+// captionParagraph selects a caption in either engine's HTML: docpdf's own
+// p.caption and pandoc's span.caption inside a paragraph.
+const captionParagraph = ":is(p.caption, p:has(.caption))"
+
+const anyHeading = ":is(h1, h2, h3, h4, h5, h6)"
+
+// styleSheet lays the document out for print: numbered pages, bordered tables, wide tables
+// on landscape pages. Sibling chains nest :has() because cssselect2 evaluates "+ p + table" against the first sibling alone.
+var styleSheet = strings.NewReplacer(
+	"WIDE", wideTable,
+	"CAPTION", captionParagraph,
+	"HEADING", anyHeading,
+).Replace(`@page {
   margin: 2.2cm 2.2cm;
   @bottom-center { content: counter(page); font-size: 9pt; color: #444444; }
 }
@@ -226,6 +251,17 @@ nav.toc a { text-decoration: none; color: inherit; }
 table { border-collapse: collapse; margin: 0.8em 0; width: 100%; }
 tr { break-inside: avoid; }
 th, td { border: 0.5pt solid #666666; padding: 0.3em 0.6em; text-align: left; overflow-wrap: anywhere; }
+th { overflow-wrap: normal; }
+HEADING, CAPTION { break-after: avoid; }
+p:has(+ table) { break-after: avoid; }
+@page wide { size: landscape; }
+body { page: main; }
+WIDE { page: wide; font-size: 9pt; }
+p:has(+ WIDE),
+CAPTION:has(+ p:has(+ WIDE)),
+HEADING:has(+ WIDE),
+HEADING:has(+ p:has(+ WIDE)),
+HEADING:has(+ CAPTION:has(+ p:has(+ WIDE))) { page: wide; }
 th { background: #eeeeee; }
 p.caption, span.caption { font-size: 9.5pt; color: #444444; }
 figure { margin: 0.8em 0; }
@@ -233,4 +269,4 @@ figure img { max-width: 100%; }
 div.formula { margin: 0.8em 0; }
 figure.dot pre, figure.plantuml pre { font-size: 9pt; white-space: pre-wrap; }
 p.notice { font-size: 9.5pt; color: #444444; }
-`
+`)

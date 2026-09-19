@@ -384,43 +384,54 @@ func (ctx *Context) carriedVerdicts(obj *validatedObject) ([]ObjectVerdict, []*S
 	var stated []*SatisfyAssertion
 	seen := map[*ast.Usage]bool{}
 	for _, typ := range obj.inst.types() {
-		var effective map[*symbols.Symbol]bool
-		for _, member := range ctx.chainMembers(typ, typ.OwnerScope) {
-			usage, ok := member.node.(*ast.Usage)
-			if !ok || seen[usage] {
+		typeVerdicts, typeStated := ctx.carriedVerdictsOf(typ, obj, seen)
+		verdicts = append(verdicts, typeVerdicts...)
+		stated = append(stated, typeStated...)
+	}
+	return verdicts, stated
+}
+
+// carriedVerdictsOf checks the assertions one type of the object states about it,
+// skipping those seen through an earlier type and recording the ones it checks.
+func (ctx *Context) carriedVerdictsOf(typ *symbols.Symbol, obj *validatedObject, seen map[*ast.Usage]bool) ([]ObjectVerdict, []*SatisfyAssertion) {
+	var verdicts []ObjectVerdict
+	var stated []*SatisfyAssertion
+	var effective map[*symbols.Symbol]bool
+	for _, member := range ctx.chainMembers(typ, typ.OwnerScope) {
+		usage, ok := member.node.(*ast.Usage)
+		if !ok || seen[usage] {
+			continue
+		}
+		kind, asserted := assertionKindOf(usage)
+		if !asserted {
+			continue
+		}
+		sym := memberSymbol(member.scope, member.node)
+		if sym == nil {
+			continue
+		}
+		if sym.Name != "" {
+			if effective == nil {
+				effective = ctx.effectiveMembers(typ)
+			}
+			if !effective[sym] {
 				continue
 			}
-			kind, asserted := assertionKindOf(usage)
-			if !asserted {
-				continue
+		}
+		seen[usage] = true
+		switch kind {
+		case AssertionSatisfaction:
+			if a := ctx.satisfyAssertionOf(sym); a != nil {
+				stated = append(stated, a)
 			}
-			sym := memberSymbol(member.scope, member.node)
-			if sym == nil {
-				continue
-			}
-			if sym.Name != "" {
-				if effective == nil {
-					effective = ctx.effectiveMembers(typ)
-				}
-				if !effective[sym] {
-					continue
-				}
-			}
-			seen[usage] = true
-			switch kind {
-			case AssertionSatisfaction:
-				if a := ctx.satisfyAssertionOf(sym); a != nil {
-					stated = append(stated, a)
-				}
-			case AssertionConstraint:
-				result, err := ctx.CheckConstraintOn(sym, member.scope, obj.inst)
-				verdicts = append(verdicts, ctx.objectVerdict(kind, sym, assertionText(usage, sym), obj, result, err))
-			case AssertionRequirement:
-				result, err := ctx.CheckRequirementOn(sym, member.scope, obj.inst)
-				v := ctx.objectVerdict(kind, sym, assertionText(usage, sym), obj, result, err)
-				v.Requirement = sym
-				verdicts = append(verdicts, v)
-			}
+		case AssertionConstraint:
+			result, err := ctx.CheckConstraintOn(sym, member.scope, obj.inst)
+			verdicts = append(verdicts, ctx.objectVerdict(kind, sym, assertionText(usage, sym), obj, result, err))
+		case AssertionRequirement:
+			result, err := ctx.CheckRequirementOn(sym, member.scope, obj.inst)
+			v := ctx.objectVerdict(kind, sym, assertionText(usage, sym), obj, result, err)
+			v.Requirement = sym
+			verdicts = append(verdicts, v)
 		}
 	}
 	return verdicts, stated

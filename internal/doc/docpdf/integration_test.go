@@ -1,9 +1,13 @@
 package docpdf
 
 import (
+	"bytes"
+	"compress/zlib"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -303,4 +307,87 @@ func TestRenderDiagramsWithInstalledPlantUML(t *testing.T) {
 	if !strings.HasPrefix(string(pdf), "%PDF-") {
 		t.Fatalf("output is no PDF: %.16q", pdf)
 	}
+}
+
+// TestRenderWideTableLandscapeWithInstalledEngines renders a seven-column table through each
+// installed converter and reads back a landscape page between two portrait ones.
+func TestRenderWideTableLandscapeWithInstalledEngines(t *testing.T) {
+	markdown := strings.Join([]string{
+		"# Wide Report",
+		"",
+		"An opening paragraph\\.",
+		"",
+		"## Matrix",
+		"",
+		"<!-- caption -->",
+		"*Every requirement*",
+		"",
+		"**team: Power**",
+		"",
+		"| a | b | c | d | e | f | g |",
+		"| --- | --- | --- | --- | --- | --- | --- |",
+		"| 1 | 2 | 3 | 4 | 5 | 6 | 7 |",
+		"",
+		"## Afterwards",
+		"",
+		"A closing paragraph\\.",
+		"",
+	}, "\n")
+	for _, engine := range Engines() {
+		t.Run(engine, func(t *testing.T) {
+			requireEngine(t, engine)
+			pdf, err := Render(markdown, engine, Options{})
+			if err != nil {
+				t.Fatalf("Render: %v", err)
+			}
+			pages := pageOrientations(t, pdf)
+			if len(pages) != 3 || pages[0] != "portrait" || pages[1] != "landscape" || pages[2] != "portrait" {
+				t.Fatalf("pages are %v, want portrait, landscape, portrait", pages)
+			}
+		})
+	}
+}
+
+// pageOrientations reads each page's orientation from the /MediaBox entries of
+// a PDF, inflating the object streams the converters write pages into.
+func pageOrientations(t *testing.T, pdf []byte) []string {
+	t.Helper()
+	box := regexp.MustCompile(`/MediaBox \[\s*[-\d.]+\s+[-\d.]+\s+([-\d.]+)\s+([-\d.]+)\s*\]`)
+	var pages []string
+	collect := func(data []byte) {
+		for _, m := range box.FindAllSubmatch(data, -1) {
+			width, errW := strconv.ParseFloat(string(m[1]), 64)
+			height, errH := strconv.ParseFloat(string(m[2]), 64)
+			if errW != nil || errH != nil {
+				t.Fatalf("unreadable /MediaBox %q", m[0])
+			}
+			if width > height {
+				pages = append(pages, "landscape")
+			} else {
+				pages = append(pages, "portrait")
+			}
+		}
+	}
+	collect(pdf)
+	rest := pdf
+	for {
+		i := bytes.Index(rest, []byte("stream\n"))
+		if i < 0 {
+			break
+		}
+		rest = rest[i+len("stream\n"):]
+		reader, err := zlib.NewReader(bytes.NewReader(rest))
+		if err != nil {
+			continue
+		}
+		data, err := io.ReadAll(reader)
+		if err != nil && len(data) == 0 {
+			continue
+		}
+		collect(data)
+	}
+	if len(pages) == 0 {
+		t.Fatal("no /MediaBox found in the PDF")
+	}
+	return pages
 }

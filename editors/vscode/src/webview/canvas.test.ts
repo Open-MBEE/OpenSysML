@@ -70,7 +70,7 @@ test("liftNode floats the dragged subtree over a canvas that stays put, drawn la
   assert.deepEqual([svg.getAttribute("width"), svg.getAttribute("height")], [String(layout.width), String(layout.height)]);
   assert.equal(svg.getAttribute("viewBox"), `${layout.origin.x} ${layout.origin.y} ${layout.width} ${layout.height}`);
   // The edge from the lifted valve to the pump is redrawn to follow it, with its handles.
-  assert.deepEqual([...svg.querySelectorAll<SVGGElement>("g.lifted")].map((group) => group.className.baseVal.split(" ")[0]), [
+  assert.deepEqual([...svg.querySelectorAll<SVGGElement>("g.lifted")].map((group) => group.classList[0]), [
     "opensysml-node", "opensysml-node", "opensysml-edge", "edge-handles",
   ]);
   // A node the layout does not hold lifts nothing.

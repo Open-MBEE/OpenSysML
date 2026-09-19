@@ -174,8 +174,7 @@ export function viewTitle(view: string): string {
   if (view.startsWith("#")) {
     return view;
   }
-  const parts = view.split("::");
-  return parts[parts.length - 1];
+  return view.split("::").at(-1) ?? view;
 }
 
 /** A store of view-by-document records, as `vscode.Memento` offers it. */
@@ -191,7 +190,7 @@ export class ChosenViews {
   private writes: Promise<void> = Promise.resolve();
 
   constructor(private readonly store: ChoiceStore) {
-    this.chosen = { ...(store.get(CHOSEN_VIEWS_KEY) ?? {}) };
+    this.chosen = { ...store.get(CHOSEN_VIEWS_KEY) };
   }
 
   get(uri: string): string | undefined {

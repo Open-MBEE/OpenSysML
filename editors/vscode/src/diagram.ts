@@ -346,7 +346,8 @@ export class DiagramPanels implements vscode.Disposable {
   // renamed folder, to their new URIs, keeping view and group; the replacement
   // is the extension's doing, not a dismissal.
   private rebind(from: vscode.Uri, to: vscode.Uri): void {
-    for (const old of [...this.panels.values()]) {
+    // The loop replaces panels, so it walks a snapshot of them.
+    for (const old of Array.from(this.panels.values())) {
       const moved = renamedUri(old.documentUri().toString(), from.toString(), to.toString());
       if (moved === undefined) {
         continue;

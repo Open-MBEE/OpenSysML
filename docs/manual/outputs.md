@@ -258,6 +258,17 @@ own.
 All three are off by default and shape HTML and PDF alike; `-pdf-title-page`,
 `-pdf-toc` and `-pdf-number-sections` are aliases of them.
 
+### Wide tables
+
+The PDF stylesheet keeps every table within the text width: cells wrap
+wherever they must, so a long qualified name breaks rather than pushing the
+rightmost columns off the page. A table of seven or more columns — a
+traceability matrix, say — is placed on landscape pages, together with the
+heading and caption that introduce it, while the surrounding pages stay
+portrait. The rules use the CSS `:has()` selector, which WeasyPrint — and so
+`weasyprint` and `pandoc` — supports; an engine without it keeps the whole
+document portrait.
+
 ### PDF rendering of inline runs and anchors
 
 Inline runs and cross-reference anchors keep their meaning in PDF. A

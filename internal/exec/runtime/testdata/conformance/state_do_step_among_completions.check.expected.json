@@ -1,0 +1,13 @@
+{
+	"verdict": "divergent",
+	"divergent": {
+		"log": [
+			"\"did m r \"",
+			"\"m did r \"",
+			"\"m r did \""
+		]
+	},
+	"agreed": {
+		"finalState": "l1+m2+r2"
+	}
+}

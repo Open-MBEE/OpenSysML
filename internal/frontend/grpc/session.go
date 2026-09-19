@@ -81,6 +81,9 @@ const (
 	TriggerCall       = "call"
 )
 
+// decideFailed formats the error a decision step of dispatching a signal raised.
+const decideFailed = "deciding the signal failed: %v"
+
 // SessionAcceptance is what dispatching a signal to an object now would do, read
 // from the machines delivery would let take it; where several would, the
 // schedule's due order decides which consumes it.
@@ -443,19 +446,19 @@ func (ss *Session) decide(machines []*runtime.StateExecutor, msg runtime.Message
 	for _, machine := range machines {
 		takes, err := machine.TakesMessage(msg)
 		if err != nil {
-			return nil, ss.runFailure(err, "deciding the signal failed: %v")
+			return nil, ss.runFailure(err, decideFailed)
 		}
 		if !takes {
 			continue
 		}
 		triggered, err := machine.TriggeredBy(msg)
 		if err != nil {
-			return nil, ss.runFailure(err, "deciding the signal failed: %v")
+			return nil, ss.runFailure(err, decideFailed)
 		}
 		out.Accepted = out.Accepted || triggered
 		decision, transitions, err := machine.DecideTransitions(msg)
 		if err != nil {
-			return nil, ss.runFailure(err, "deciding the signal failed: %v")
+			return nil, ss.runFailure(err, decideFailed)
 		}
 		for _, trans := range transitions {
 			out.Fires = append(out.Fires, transitionFact(trans))

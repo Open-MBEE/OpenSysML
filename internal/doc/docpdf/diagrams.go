@@ -184,8 +184,7 @@ func writeDiagramHTML(b *strings.Builder, blk block, d diagram) {
 	if notice == "" {
 		notice = sourceNotice(diagramFormName(blk.Kind), nil)
 	}
-	b.WriteString("<figure class=\"" + figureClass(blk.Kind) + "\"><p class=\"notice\"><em>" + html.EscapeString(notice) + "</em></p>\n" +
-		"<pre>" + html.EscapeString(blk.Source) + "</pre></figure>\n")
+	writeSourceFigure(b, figureClass(blk.Kind), notice, blk.Source)
 }
 
 // markdownWithImages rewrites the document's Markdown with each drawn diagram's
