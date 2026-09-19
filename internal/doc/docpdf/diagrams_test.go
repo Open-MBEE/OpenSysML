@@ -412,6 +412,8 @@ func TestRenderDiagramToolWroteNoSVG(t *testing.T) {
 		"html":         `printf '<html><body>not a drawing</body></html>' > "$out"`,
 		"noNamespace":  `printf '<svg><text>x</text></svg>' > "$out"`,
 		"secondRoot":   `printf '<svg xmlns="http://www.w3.org/2000/svg"/><html/>' > "$out"`,
+		"textBefore":   `printf 'warning: font missing\n<svg xmlns="http://www.w3.org/2000/svg"/>' > "$out"`,
+		"textAfter":    `printf '<svg xmlns="http://www.w3.org/2000/svg"/>\nwarning: font missing\n' > "$out"`,
 	}
 	for name, script := range cases {
 		t.Run(name, func(t *testing.T) {

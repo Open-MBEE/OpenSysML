@@ -102,7 +102,8 @@ func (f *diagramForm) render(dir string, n int, source string) (diagram, error) 
 }
 
 // checkSVG requires the file a tool wrote to be a well-formed XML document
-// whose single root is `svg` in the SVG namespace: a tool exiting 0 without a drawing fails here.
+// whose single root is `svg` in the SVG namespace, with nothing but markup around
+// it: a tool exiting 0 without a drawing, or with diagnostics around one, fails here.
 func checkSVG(path string) error {
 	file, err := os.Open(path) // #nosec G304 -- the path is within the render directory
 	if err != nil {
@@ -123,20 +124,24 @@ func checkSVG(path string) error {
 		if err != nil {
 			return fmt.Errorf("wrote no SVG, %v", err)
 		}
-		switch start := tok.(type) {
+		switch node := tok.(type) {
 		case xml.StartElement:
 			if depth == 0 {
 				if roots > 0 {
-					return fmt.Errorf("wrote no SVG, a second root <%s> follows it", start.Name.Local)
+					return fmt.Errorf("wrote no SVG, a second root <%s> follows it", node.Name.Local)
 				}
-				if start.Name.Local != "svg" || start.Name.Space != svgNamespace {
-					return fmt.Errorf("wrote no SVG, a <%s> document", start.Name.Local)
+				if node.Name.Local != "svg" || node.Name.Space != svgNamespace {
+					return fmt.Errorf("wrote no SVG, a <%s> document", node.Name.Local)
 				}
 				roots++
 			}
 			depth++
 		case xml.EndElement:
 			depth--
+		case xml.CharData:
+			if depth == 0 && strings.TrimSpace(string(node)) != "" {
+				return errors.New("wrote no SVG, text outside the root element")
+			}
 		}
 	}
 }
