@@ -341,8 +341,8 @@ func attributeDecl(root *Activity, owner string, p *Property) (string, error) {
 	switch {
 	case p.Type.Zero():
 		return fmt.Sprintf("attribute %s%s;", quote(p.Name), m), nil
-	case scalarTypes[p.Type.Name] != "":
-		return fmt.Sprintf("attribute %s : %s%s;", quote(p.Name), scalarTypes[p.Type.Name], m), nil
+	case root.Model.primitive(p.Type) != "":
+		return fmt.Sprintf("attribute %s : %s%s;", quote(p.Name), root.Model.scalar(root.Model.primitive(p.Type)), m), nil
 	case root.Model.SignalOf(p.Type) != nil:
 		return fmt.Sprintf("attribute %s : %s%s;", quote(p.Name), quote(root.Model.SignalOf(p.Type).Name), m), nil
 	}
@@ -419,6 +419,34 @@ var scalarTypes = map[string]string{
 	"Boolean": "Boolean",
 	"String":  "String",
 	"Real":    "Real",
+}
+
+// primitive is the ScalarValues type the fUML primitive type t names, or "" when
+// t names none: a class or signal of the model named as a primitive is that classifier.
+func (m *Model) primitive(t TypeRef) string {
+	if m != nil && (m.classes[t.ID] != nil || m.signals[t.ID] != nil) {
+		return ""
+	}
+	return scalarTypes[t.Name]
+}
+
+// scalar spells a ScalarValues type, qualified when a class or signal of the
+// model bears its name and would take it over in the package.
+func (m *Model) scalar(name string) string {
+	if m == nil {
+		return name
+	}
+	for _, c := range m.Classes {
+		if c.Name == name {
+			return "ScalarValues::" + name
+		}
+	}
+	for _, sg := range m.Signals {
+		if sg.Name == name {
+			return "ScalarValues::" + name
+		}
+	}
+	return name
 }
 
 // identRe is a name that needs no quoting.
@@ -607,8 +635,8 @@ func (e *emitter) typeOf(t TypeRef, where string) (string, error) {
 	if t.Zero() {
 		return "", &TranslateError{e.a.Name, where, "has no type"}
 	}
-	if name, ok := scalarTypes[t.Name]; ok {
-		return name, nil
+	if name := e.a.Model.primitive(t); name != "" {
+		return e.a.Model.scalar(name), nil
 	}
 	if c := e.a.Model.ClassOf(t); c != nil {
 		return quote(c.Name), nil
@@ -846,7 +874,7 @@ func (s *scope) valueNode(n *Node) error {
 	pinName := "result"
 	s.pins[pin] = pinName
 	s.add(&snode{name: name, kind: kindAction, node: n,
-		decl: fmt.Sprintf("action %s { out %s : %s%s = %s; }", quote(name), pinName, t, multiplicity(pin.Multiplicity), lit)})
+		decl: fmt.Sprintf("action %s { out %s : %s%s = %s; }", quote(name), pinName, e.a.Model.scalar(t), multiplicity(pin.Multiplicity), lit)})
 	return nil
 }
 
@@ -1007,7 +1035,7 @@ func (s *scope) featureNode(n *Node) error {
 	}
 	if position != nil {
 		s.pins[position] = position.Role
-		features = append(features, fmt.Sprintf("in %s : Integer;", position.Role))
+		features = append(features, fmt.Sprintf("in %s : %s;", position.Role, e.a.Model.scalar("Integer")))
 	}
 	result := pins["result"]
 	if n.Kind == ReadStructuralFeatureAction {
@@ -1149,7 +1177,8 @@ func orType(t, fallback TypeRef) TypeRef {
 // takes the value outright; otherwise a unique feature drops its old copy, and the
 // value goes at the position given, `*` appending and none inserting first.
 // Remove: every copy (removeDuplicates), the value at the position given, or the
-// first copy; a single-valued feature is emptied when it holds the value. Clear empties.
+// first copy; a single-valued feature is emptied when its one value is the one
+// positioned or held. Clear empties.
 func featureUpdate(n *Node, f *Property, positioned bool) string {
 	held := "object." + quote(f.Name)
 	switch {
@@ -1166,6 +1195,8 @@ func featureUpdate(n *Node, f *Property, positioned bool) string {
 			return "(value, " + base + ")"
 		}
 		return fmt.Sprintf("if insertAt < 0 ? including(%s, value) else if insertAt == 0 ? (value, %s) else includingAt(%s, value, insertAt)", base, base, base)
+	case f.Upper == 1 && positioned && !n.RemoveDuplicates:
+		return fmt.Sprintf("if removeAt == 1 ? () else %s", held)
 	case f.Upper == 1:
 		return fmt.Sprintf("if %s == value ? () else %s", held, held)
 	case n.RemoveDuplicates:
@@ -1512,9 +1543,14 @@ func (s *scope) guard(decision *Node, edge *Edge) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	t, err := e.typeOf(effectiveType(input), pinLabel(input))
+	typ := effectiveType(input)
+	spelled, err := e.typeOf(typ, pinLabel(input))
 	if err != nil {
 		return "", err
+	}
+	t := e.a.Model.primitive(typ)
+	if t == "" {
+		return "", e.fail(edgeLabel(edge), "guards a "+spelled+", which no literal spells")
 	}
 	lit, err := e.literal(edge.Guard, t, edgeLabel(edge))
 	if err != nil {

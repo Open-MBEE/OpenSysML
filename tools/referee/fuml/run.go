@@ -182,7 +182,7 @@ func defaultInputs(ctx *runtime.Context, em *Emitted, classes classLookup) (map[
 // is under construction, so a class holding one of itself is refused.
 func defaultValue(ctx *runtime.Context, em *Emitted, classes classLookup, t TypeRef, where string, making map[*Class]bool) (runtime.Value, error) {
 	a := em.Activity
-	switch t.Name {
+	switch a.Model.primitive(t) {
 	case "Integer":
 		return runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValInt}}, nil
 	case "Boolean":

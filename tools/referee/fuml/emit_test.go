@@ -895,6 +895,103 @@ func TestEmitClassTypedSignalAttribute(t *testing.T) {
 	}
 }
 
+// namesakeModel declares a class named Integer beside the primitive: Holder
+// references one and holds an optional primitive Integer; Boxing creates a
+// Holder, writes and positionally removes its optional value, and boxes an object.
+const namesakeModel = `<?xml version="1.0" encoding="UTF-8"?>
+<uml:Model xmi:version="20131001" xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmlns:uml="http://www.eclipse.org/uml2/5.0.0/UML" xmi:id="m" name="Namesakes">
+  <packagedElement xmi:type="uml:Class" xmi:id="intclass" name="Integer">
+    <ownedAttribute xmi:type="uml:Property" xmi:id="intn" name="n">` + integerType + `</ownedAttribute>
+  </packagedElement>
+  <packagedElement xmi:type="uml:Class" xmi:id="holder" name="Holder">
+    <ownedAttribute xmi:type="uml:Property" xmi:id="hvalue" name="value" type="intclass">
+      <lowerValue xmi:type="uml:LiteralInteger" xmi:id="hvalueLo"/>
+      <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="hvalueHi" value="1"/>
+    </ownedAttribute>
+    <ownedAttribute xmi:type="uml:Property" xmi:id="hopt" name="opt">` + integerType + `
+      <lowerValue xmi:type="uml:LiteralInteger" xmi:id="hoptLo"/>
+      <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="hoptHi" value="1"/>
+    </ownedAttribute>
+  </packagedElement>
+  <packagedElement xmi:type="uml:Activity" xmi:id="boxing" name="Boxing">
+    <ownedParameter xmi:type="uml:Parameter" xmi:id="boxingOut" name="boxed" direction="out" type="holder"/>
+    <node xmi:type="uml:CreateObjectAction" xmi:id="createHolder" name="Create(Holder)" classifier="holder">
+      <result xmi:type="uml:OutputPin" xmi:id="createHolderR" name="result" type="holder"/>
+    </node>
+    <node xmi:type="uml:CreateObjectAction" xmi:id="createInt" name="Create(Integer)" classifier="intclass">
+      <result xmi:type="uml:OutputPin" xmi:id="createIntR" name="result" type="intclass"/>
+    </node>
+    <node xmi:type="uml:ValueSpecificationAction" xmi:id="b7" name="Value(7)">
+      <result xmi:type="uml:OutputPin" xmi:id="b7r" name="result">` + integerType + `</result>
+      <value xmi:type="uml:LiteralInteger" xmi:id="b7v" value="7"/>
+    </node>
+    <node xmi:type="uml:ValueSpecificationAction" xmi:id="b9" name="Value(9)">
+      <result xmi:type="uml:OutputPin" xmi:id="b9r" name="result">` + integerType + `</result>
+      <value xmi:type="uml:LiteralInteger" xmi:id="b9v" value="9"/>
+    </node>
+    <node xmi:type="uml:ValueSpecificationAction" xmi:id="b1" name="Value(1)">
+      <result xmi:type="uml:OutputPin" xmi:id="b1r" name="result">` + integerType + `</result>
+      <value xmi:type="uml:LiteralInteger" xmi:id="b1v" value="1"/>
+    </node>
+    <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="writeOpt" name="Write(opt)" structuralFeature="hopt" isReplaceAll="true">
+      <object xmi:type="uml:InputPin" xmi:id="writeOpto" name="object" type="holder"/>
+      <value xmi:type="uml:InputPin" xmi:id="writeOptv" name="value">` + integerType + `</value>
+      <result xmi:type="uml:OutputPin" xmi:id="writeOptr" name="result" type="holder"/>
+    </node>
+    <node xmi:type="uml:RemoveStructuralFeatureValueAction" xmi:id="removeOpt" name="RemoveAt(opt)" structuralFeature="hopt">
+      <object xmi:type="uml:InputPin" xmi:id="removeOpto" name="object" type="holder"/>
+      <value xmi:type="uml:InputPin" xmi:id="removeOptv" name="value">` + integerType + `</value>
+      <removeAt xmi:type="uml:InputPin" xmi:id="removeOpta" name="removeAt">` + integerType + `</removeAt>
+      <result xmi:type="uml:OutputPin" xmi:id="removeOptr" name="result" type="holder"/>
+    </node>
+    <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="writeValue" name="Write(value)" structuralFeature="hvalue" isReplaceAll="true">
+      <object xmi:type="uml:InputPin" xmi:id="writeValueo" name="object" type="holder"/>
+      <value xmi:type="uml:InputPin" xmi:id="writeValuev" name="value" type="intclass"/>
+      <result xmi:type="uml:OutputPin" xmi:id="writeValuer" name="result" type="holder"/>
+    </node>
+    <node xmi:type="uml:ActivityParameterNode" xmi:id="boxingOutNode" name="Parameter(boxed)" parameter="boxingOut"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="n1" source="createHolderR" target="writeOpto"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="n2" source="b7r" target="writeOptv"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="n3" source="writeOptr" target="removeOpto"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="n4" source="b9r" target="removeOptv"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="n5" source="b1r" target="removeOpta"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="n6" source="removeOptr" target="writeValueo"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="n7" source="createIntR" target="writeValuev"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="n8" source="writeValuer" target="boxingOutNode"/>
+  </packagedElement>
+</uml:Model>
+`
+
+// A class named as a primitive is the class wherever the model references it,
+// and the primitive is spelled qualified beside it so neither takes the other
+// over; a positioned removal from a single-valued feature empties it at
+// position 1 whatever value the pin holds, as the reference implementation does.
+func TestEmitPrimitiveNamesakeAndPositionedScalarRemove(t *testing.T) {
+	s := fixtureSuite(t, namesakeModel)
+	em := emitted(t, s, "Boxing")
+	wantLines(t, em,
+		"\tpart def Integer {\n\t\tattribute n : ScalarValues::Integer;\n\t}\n",
+		"\tpart def Holder {\n\t\tref part value : Integer [0..1];\n\t\tattribute opt : ScalarValues::Integer [0..1];\n\t}\n",
+		"action 'Value(7)' { out result : ScalarValues::Integer = 7; }",
+		"action 'Create(Integer)' { out result : Integer = new Integer(); }",
+		"action 'RemoveAt(opt)' { in object : Holder; in value : ScalarValues::Integer; in removeAt : ScalarValues::Integer; out result : Holder = object; assign object.opt := if removeAt == 1 ? () else object.opt; }",
+		"action 'Write(value)' { in object : Holder; in value : Integer; out result : Holder = object; assign object.value := value; }")
+	boxing := fixtureActivity(t, s, "Boxing")
+	boxed := object("h", "Holder", ExpectedFeature{Feature: "value", Values: []ExpectedValue{{Kind: "Reference", Referent: &ExpectedValue{Kind: "Object", ID: "i", Types: []string{"Integer"}, Features: []ExpectedFeature{{Feature: "n"}}}}}})
+	boxed.Features = append(boxed.Features, ExpectedFeature{Feature: "opt"})
+	x := executed(boxing, []ExpectedOutput{{Parameter: "boxed", Values: []ExpectedValue{boxed}}})
+	ex, err := Execute(context.Background(), em, &x, DefaultBudget, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ex.Passed() || strings.Join(ex.Reached, "|") != "boxed = Holder#1{opt = -; value = Integer#2{n = -}}" {
+		t.Errorf("Boxing: %+v", ex)
+	}
+	if got := featureUpdate(&Node{Kind: RemoveStructuralFeatureValueAction, RemoveDuplicates: true}, &Property{Name: "opt", Multiplicity: Multiplicity{Upper: 1}}, true); got != "if object.opt == value ? () else object.opt" {
+		t.Errorf("a removeDuplicates removal from a scalar = %q, want the value compared", got)
+	}
+}
+
 // A send signal action is an action taking the target and one value per
 // attribute of the signal, generals' included, whose body sends a new instance
 // to the target; it completes without waiting for a reply.
