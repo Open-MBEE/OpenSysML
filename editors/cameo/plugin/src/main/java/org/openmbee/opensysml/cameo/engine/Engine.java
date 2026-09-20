@@ -13,6 +13,8 @@ import org.openmbee.opensysml.Connection;
 import org.openmbee.opensysml.ConnectionOptions;
 import org.openmbee.opensysml.Diagnostic;
 import org.openmbee.opensysml.Model;
+import org.openmbee.opensysml.ServiceException;
+import org.openmbee.opensysml.StatusCode;
 import org.openmbee.opensysml.Symbol;
 import org.openmbee.opensysml.cameo.bin.HostBinary;
 import org.openmbee.opensysml.cameo.results.ResultsMapper;
@@ -71,9 +73,11 @@ public final class Engine implements AutoCloseable {
     if (cancellation.requested()) return RunResult.cancelled(request);
     long started = System.nanoTime();
     Thread watcher = null;
+    Connection current = null;
     try {
-      Connection current = connection();
-      watcher = new Thread(() -> watch(cancellation, current), "opensysml-cancel-watcher");
+      current = connection();
+      Connection runConnection = current;
+      watcher = new Thread(() -> watch(cancellation, runConnection), "opensysml-cancel-watcher");
       watcher.setDaemon(true);
       watcher.start();
       Model model = current.parseSources(request.source().sources(current));
@@ -83,6 +87,7 @@ public final class Engine implements AutoCloseable {
       return cancellation.requested() ? RunResult.cancelled(request) : result.withElapsed(elapsed(started));
     } catch (RuntimeException exception) {
       if (cancellation.requested()) return RunResult.cancelled(request);
+      if (current != null && isUnavailable(exception)) dropConnection(current);
       return RunResult.error(request, exception, elapsed(started));
     } finally {
       if (watcher != null) {
@@ -94,6 +99,16 @@ public final class Engine implements AutoCloseable {
         }
       }
     }
+  }
+
+  private static boolean isUnavailable(Throwable failure) {
+    for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
+      if (cause instanceof ServiceException service
+          && service.status() == StatusCode.UNAVAILABLE) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private synchronized void dropConnection(Connection expected) {
