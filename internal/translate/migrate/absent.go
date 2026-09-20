@@ -51,16 +51,20 @@ func isStructured(n *sysmlv1.Element) bool {
 
 // admitAbsent marks one graph's pins fed by nothing carrying a value, the callee
 // parameters its calls pass none or such a pin for, and the out parameters such
-// pins feed; it reports whether any mark is new.
+// pins feed; it reports whether any mark is new. A placeholder's pins are declared
+// and bound as any node's are, so they are marked too; its call is not made.
 func (a *activity) admitAbsent() (changed bool) {
 	for _, n := range a.nodes {
-		if nodeKind(n) != nodeAction || a.dead[n] {
+		if nodeKind(n) != nodeAction {
 			continue
 		}
 		for _, pin := range inputPins(n) {
 			if why := a.absentFeed(pin); why != "" && a.m.admitNone(pin, why) {
 				changed = true
 			}
+		}
+		if a.dead[n] {
+			continue
 		}
 		callee, args := a.callArguments(n)
 		if callee == nil {

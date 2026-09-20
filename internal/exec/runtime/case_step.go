@@ -71,7 +71,6 @@ func (e *performances) performCase(perf *actionFrame) error {
 		}
 		activation, endStep := e.ctx.beginStep()
 		reader := e.evalContextAround(perf, declaring)
-		reader.inBehaviorBody = true
 		reader.activation = activation
 		f = &caseStepFrame{endStep: endStep}
 		if f.start, f.run, err = e.ctx.beginCalcUsage(reader, sym); err != nil {

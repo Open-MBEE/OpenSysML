@@ -316,7 +316,6 @@ func (e *performances) bindArguments(perf *actionFrame, activation int64) error 
 	inv.step, _ = stepSymbol(perf.flow, perf.node)
 	scope := nodeScope(perf.flow, perf.node)
 	ec := e.evalContextAround(perf, scope)
-	ec.inBehaviorBody = true
 	ec.activation = activation
 	arguments, callee, err := invocationArguments(e.ctx, scope, inv, ec)
 	if err != nil {
@@ -784,8 +783,11 @@ func (e *performances) evalContextFor(perf *actionFrame, scope *symbols.Scope) *
 
 // evalContextAround returns a context evaluating in scope what is written at perf's
 // node: the enclosing performances and the block-locals around the node, not perf's own.
+// What is written there is a statement of the body, reaching the performer's features
+// only by names resolving to them.
 func (e *performances) evalContextAround(perf *actionFrame, scope *symbols.Scope) *EvalContext {
 	ec := NewEvalContextIn(e.ctx, scope, e.self)
+	ec.inBehaviorBody = true
 	if perf.parent != nil {
 		for _, f := range perf.parent.lexicalFrames() {
 			ec.pushFrame(f)
@@ -1225,7 +1227,6 @@ func (e *performances) beginInvocation(perf *actionFrame, inv actionInvocation) 
 	performer := e.self
 	if inv.chain != nil {
 		ec := e.evalContextAround(perf, nodeScope(perf.flow, perf.node))
-		ec.inBehaviorBody = true
 		defer ec.beginStep()()
 		if performer, err = e.ctx.performerOf(ec, inv, e.self); err != nil {
 			return nil, err
