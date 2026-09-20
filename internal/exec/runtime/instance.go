@@ -718,33 +718,36 @@ func (inst *Instance) SetFeatureValue(ctx *Context, name string, value Value) er
 	if err != nil {
 		return err
 	}
-	if err := ctx.holdWritten(inst, fv, value); err != nil {
-		return fmt.Errorf("feature %s.%s: %w", inst.Type.Name, name, err)
-	}
-	ctx.noteProbeWrite(fv)
-	before := ctx.beforeWrite(fv)
-	if fv.Feature.Scalar() {
-		fv.Value = value
-		fv.Values = Value{}
-	} else {
-		fv.Values = value
-		fv.Value = Value{}
-	}
-	fv.Materialized, fv.Written = true, true
-	fv.BindingDerived, fv.Assumed = false, false
-	ctx.afterWrite(fv, before)
-	return nil
+	return ctx.storedBeforeStarting(func() error {
+		if err := ctx.holdWritten(inst, fv, value); err != nil {
+			return fmt.Errorf("feature %s.%s: %w", inst.Type.Name, name, err)
+		}
+		ctx.noteProbeWrite(fv)
+		before := ctx.beforeWrite(fv)
+		if fv.Feature.Scalar() {
+			fv.Value = value
+			fv.Values = Value{}
+		} else {
+			fv.Values = value
+			fv.Value = Value{}
+		}
+		fv.Materialized, fv.Written = true, true
+		fv.BindingDerived, fv.Assumed = false, false
+		ctx.afterWrite(fv, before)
+		return nil
+	})
 }
 
 // materializeFeatureValue is GetFeatureValue's materialization: the feature value's value, evaluated and
 // checked against the multiplicity governing its feature the first time it is read.
 func (inst *Instance) materializeFeatureValue(ctx *Context, name string, open *openPopulation) (*FeatureValue, error) {
-	defer ctx.beginRun()()
-
 	fv := inst.FeatureValues[name]
-	before := ctx.beforeWrite(fv)
-	err := inst.materializeBoundOrIntrinsic(ctx, fv, name, open)
-	ctx.afterWrite(fv, before)
+	err := ctx.storedBeforeStarting(func() error {
+		before := ctx.beforeWrite(fv)
+		err := inst.materializeBoundOrIntrinsic(ctx, fv, name, open)
+		ctx.afterWrite(fv, before)
+		return err
+	})
 	if err != nil {
 		return nil, err
 	}

@@ -94,7 +94,7 @@ func (ctx *Context) holdWritten(inst *Instance, fv *FeatureValue, val Value) err
 	if !holdsObjects(fv.Feature) {
 		return nil
 	}
-	commit, rollback := ctx.beginJournal()
+	commit, rollback := ctx.beginHoldJournal()
 	ctx.adoptWritten(inst, fv, val)
 	if err := ctx.classifyHeld(fv.Feature.heldBy(), val); err != nil {
 		rollback()
@@ -107,7 +107,7 @@ func (ctx *Context) holdWritten(inst *Instance, fv *FeatureValue, val Value) err
 // holdDeclared is admitted for a declared value (a default or a binding's), with the composite
 // adoption holdWritten gives a written one; a refused value leaves ownership as it was.
 func (ctx *Context) holdDeclared(inst *Instance, fv *FeatureValue, val Value) (Value, error) {
-	commit, rollback := ctx.beginJournal()
+	commit, rollback := ctx.beginHoldJournal()
 	ctx.adoptWritten(inst, fv, val)
 	val, err := ctx.admitted(fv.Feature, val, admitDeclared)
 	if err != nil {

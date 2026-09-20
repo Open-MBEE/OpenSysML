@@ -474,6 +474,61 @@ func (ctx *Context) startBehaviorsOfAll(objects []*Instance) error {
 	return ctx.runAttachedBehaviors()
 }
 
+// storing is a store under way and the journal of the hold it reached, nil until it reaches one.
+type storing struct {
+	commit, rollback func()
+}
+
+// storedBeforeStarting runs store, a write or materialization, with the behaviors the hold it
+// reaches starts (an object classified by the feature holding it) attached but not run until the
+// value is stored, then runs them, so one reading the feature reads the object it started for. The
+// hold's journal (beginHoldJournal) stays open over their run: a start that fails undoes the hold
+// and the store, leaving what the store evaluated. Once kept, the older behaviors it woke answer;
+// one of them failing is reported as its own, with the store kept.
+func (ctx *Context) storedBeforeStarting(store func() error) error {
+	defer ctx.beginRun()()
+	defer ctx.holdDrivenWork()()
+	s := &storing{}
+	ctx.storing = append(ctx.storing, s)
+	endBoundary := ctx.beginRunBoundary()
+	err := store()
+	if err == nil {
+		err = ctx.runAttachedBehaviors()
+	}
+	endBoundary()
+	ctx.storing = ctx.storing[:len(ctx.storing)-1]
+	if err != nil {
+		if s.rollback != nil {
+			s.rollback()
+		}
+		return err
+	}
+	if s.commit != nil {
+		s.commit()
+	}
+	return ctx.runAttachedBehaviors()
+}
+
+// beginHoldJournal is beginJournal for a hold on a feature value: under a store, the first hold
+// only attaches the behaviors it starts, and its journal is left to the store to close once it
+// has run them.
+func (ctx *Context) beginHoldJournal() (commit, rollback func()) {
+	commit, rollback = ctx.beginJournal()
+	n := len(ctx.storing)
+	if n == 0 || ctx.storing[n-1].commit != nil {
+		return commit, rollback
+	}
+	s := ctx.storing[n-1]
+	s.commit, s.rollback = commit, rollback
+	ctx.behaviorRunDepth++
+	undo := rollback
+	return func() { ctx.behaviorRunDepth-- }, func() {
+		ctx.behaviorRunDepth--
+		s.commit, s.rollback = nil, nil
+		undo()
+	}
+}
+
 // materializeBehavingParts materializes the required composite parts of an
 // object whose type runs behaviors, so the object runs to quiescence as a whole
 // when it is created rather than part by part in the order its parts are first

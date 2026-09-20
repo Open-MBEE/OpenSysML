@@ -29,6 +29,7 @@ func TestRuntimeRobustnessObjectLifecycle(t *testing.T) {
 	t.Run("a_failed_constructor_revives_what_its_behaviors_destroyed_whole", testObjectLifecycleFailedConstructorDestroy)
 	t.Run("a_part_declared_or_bound_to_a_new_object_ends_with_the_whole", testObjectLifecycleDeclaredPart)
 	t.Run("an_object_two_wholes_hold_composite_ends_with_either", testObjectLifecycleSharedPortion)
+	t.Run("behaviors_a_write_starts_run_once_the_feature_holds_the_object", testObjectLifecycleStartsAfterStore)
 	t.Run("explore_creating_objects_is_deterministic", testObjectLifecycleExploreCreation)
 	t.Run("explore_destroy_race_reaches_both_outcomes", testObjectLifecycleExploreDestroyRace)
 }
@@ -538,6 +539,39 @@ func testObjectLifecycleSharedPortion(t *testing.T) {
 	}
 	if l, _ := ctx.OccurrenceLife(a.ID); !l.Alive() {
 		t.Errorf("OccurrenceLife(a) = %v; want alive, it was not destroyed", l)
+	}
+}
+
+// testObjectLifecycleStartsAfterStore: the behaviors a write starts on the object written run once
+// the feature holds it, so one reading the holder through the extent sees the object, not what was there.
+func testObjectLifecycleStartsAfterStore(t *testing.T) {
+	instantiate, _, ctx := lifetimeFixture(t, `
+		package test {
+			private import ScalarValues::*; private import SequenceFunctions::*;
+			part def Device { attribute slotted : Integer; }
+			part def Rack {
+				part slot : Device[0..1] {
+					perform action look { first start; then action count { assign slotted := (all Rack).slot->size(); } then done; }
+				}
+			}
+			part rack : Rack;
+		}`)
+	rack := instantiate("rack")
+	_, scope := calcByName(t, ctx.model.resolver.Index().DocumentRoot("<test>"), "test", "Rack")
+	device, err := evalIn(t, ctx, scope, "new Device()")
+	if err != nil {
+		t.Fatalf("new Device(): %v", err)
+	}
+	if err := rack.SetFeatureValue(ctx, "slot", device); err != nil {
+		t.Fatalf("rack.slot := device: %v", err)
+	}
+	id, _ := device.Object()
+	fv, err := ctx.instances[id].GetFeatureValue(ctx, "slotted")
+	if err != nil {
+		t.Fatalf("device.slotted: %v", err)
+	}
+	if got := FormatValue(fv.HeldValue()); got != "1" {
+		t.Errorf("device.slotted = %s after the write started look; want 1, the slot holding it", got)
 	}
 }
 
