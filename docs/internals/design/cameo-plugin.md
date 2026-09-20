@@ -233,8 +233,8 @@ expected to poll `isCancel()`
 ([ProgressStatusRunner, 2026x Refresh1](https://jdocs.nomagic.com/2026xRefresh1/com/nomagic/ui/ProgressStatusRunner.html);
 [RunnableWithProgress, 2026x Refresh1](https://jdocs.nomagic.com/2026xRefresh1/com/nomagic/task/RunnableWithProgress.html)).
 The RPCs are unary, so "cancel" means: stop waiting, discard the answer when it arrives, and —
-for a run that will not return — close the `Connection`, which ends the child, and open a new
-one for the next run. The client has one deadline per connection:
+for a run that will not return — stop the child and start over. The client has one deadline
+per connection:
 `ConnectionOptions.requestTimeout` (default 60 s) applies to every RPC made on that
 `Connection`, and no call takes a deadline of its own
 (`client/java/opensysml-client/src/main/java/org/openmbee/opensysml/ConnectionOptions.java`;
@@ -244,12 +244,15 @@ ten-minute connection blocks for ten minutes. The design opens **two connections
 plugin's classloader with different timeouts: a short one for `Convert` and `ParseSources`,
 a long one for execution and verification. Both share the one private child, so the model the
 short connection parsed is adopted on the long one by hash (`connection.model(model.hash())`)
-without a second parse. Cancelling a run that will not return calls
-`Connection.stopSharedServices()`, which ends the child; the next run starts a new one and pays
-the parse again. A per-call deadline in the Java client would collapse the two connections into
-one and is listed as a phase 2 prerequisite (§11). A finer cancel — a streaming or session RPC —
-is the surface-parity note's session API ([`api-surface-parity.md`](api-surface-parity.md)),
-not this plugin's to invent.
+without a second parse. Because the child is reference-counted across connections
+(`ServiceRegistry.release` stops it only when the last connection closes), closing the long
+connection alone would leave the child — and the run — alive under the short one's reference;
+so the one cancellation path is: call `Connection.stopSharedServices()`, close both
+`Connection` objects, and recreate both together before the next operation, which pays the
+child start and the parse again. A per-call deadline in the Java client would collapse the two
+connections into one and is listed as a phase 2 prerequisite (§11). A finer cancel — a
+streaming or session RPC — is the surface-parity note's session API
+([`api-surface-parity.md`](api-surface-parity.md)), not this plugin's to invent.
 
 **Diagram highlighting (for step-debug later).** Two mechanisms exist. *Annotations*
 (`com.nomagic.magicdraw.annotation.Annotation`, `AnnotationManager`) attach a severity, kind,
@@ -631,7 +634,7 @@ editors/cameo/
       actions/                        Run, Verify, Sweep, ShowResults (MDAction subclasses)
       configurators/                  Browser/Diagram/MainMenu configurators
       export/                         Exporter: exportModule / saveProject → tmp .mdzip
-      identity/                       ElementMap: report id → Cameo element, target → id
+      identity/                       ElementMap: report id → Cameo element, target → candidate entries
       results/                        ResultsWindow (ProjectWindow), Annotations, ValidationSuite bridge
     src/main/resources/plugin.xml
     src/main/resources/descriptor.xml  Resource Manager descriptor (templated at build)
@@ -722,11 +725,20 @@ share the parse cache when the exported archive is unchanged (the client hashes 
 ### 10.5 Results mapping
 
 `ElementMap` is built once per conversion from the report: `Map<String xmiId, Entry>` and
-`Map<String target, String xmiId>`; a Cameo `Element` is fetched by ID with `Project.getElementByID(String)`
-([Project, 2026x Refresh1](https://jdocs.nomagic.com/2026xRefresh1/com/nomagic/magicdraw/core/Project.html)). Answers carry v2 qualified names (`Symbol`,
-`Verification.constraintId`/`requirementId`, `SweepRow`), resolved through the second map. A
-name with no entry — a library element, or a name the conversion synthesized — is shown in the
-panel without an element link, never dropped.
+`Map<String target, List<Entry>>`; a Cameo `Element` is fetched by ID with `Project.getElementByID(String)`
+([Project, 2026x Refresh1](https://jdocs.nomagic.com/2026xRefresh1/com/nomagic/magicdraw/core/Project.html)).
+The reverse map is a list because a target is not a unique key: the migration deliberately
+writes some source elements into a declaration owned by another — an operation's method
+behavior is recorded against the operation's target ("written as the body of the operation",
+`internal/translate/migrate/behavior.go`), and a renamed duplicate member may share a target
+with the element it collided with. Answers carry v2 qualified names (`Symbol`,
+`Verification.constraintId`/`requirementId`, `SweepRow`) and are resolved through that list;
+when it has more than one entry the result kind picks by `Entry.kind` (an action or state
+verdict prefers the `Behavior`, a constraint verdict the `Constraint`, a value the
+`Property`), and when the kind does not decide, the verdict is linked to **every** candidate
+and the panel shows them all rather than choosing one silently. A name with no entry — a
+library element, or a name the conversion synthesized — is shown in the panel without an
+element link, never dropped.
 
 ## 11. Phased plan
 
