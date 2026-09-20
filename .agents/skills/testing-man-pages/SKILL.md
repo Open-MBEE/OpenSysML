@@ -33,7 +33,7 @@ packages plus the formatter lint. Both of these must FAIL, and `make man` must r
 # 1. mutate a committed page
 sed -i 's/SysML v2 and KerML models/SysML models/' packaging/man/man1/sysml.1
 make man-check   # → packaging/man/man1/sysml.1 is not what sysml -man now writes; run make man  (make Error 1)
-make man && git diff --stat man/   # empty: regeneration is byte-for-byte
+make man && git diff --stat packaging/man/   # empty: regeneration is byte-for-byte
 
 # 2. add a flag without regenerating
 #    insert fs.Bool("throwaway-flag", …) into cmd/sysml-lsp/usage.go registerFlags
