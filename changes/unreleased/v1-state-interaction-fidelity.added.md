@@ -30,7 +30,9 @@
   accepts the signal and says so. State machines gain transitions across regions and
   nesting levels named by path, `junction`/`choice`/`fork`/`join`/`history`/`deep history`
   pseudostates, entry and exit points of a submachine as states of its `state def` addressed
-  by path, internal transitions as self transitions where re-entry is not observable, and
+  by path, internal transitions as self transitions where re-entry is not observable (written
+  with no target, as some tools do, they stay in their source; one targeting another vertex or
+  leaving a pseudostate is refused), and
   absolute time events as `accept at <instant>` over a `Time::TimeInstantValue` attribute of
   the behavior. A `CallOperationAction` over a port performs the operation on the part a
   connector of the caller's block joins to that port, the way connector paths resolve.

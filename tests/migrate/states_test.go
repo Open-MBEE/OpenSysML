@@ -354,3 +354,84 @@ func TestPseudostatesNamedLikeMembersAreDistinguished(t *testing.T) {
 		t.Errorf("the join, history and second fork did not re-enter both regions:\n%s", out)
 	}
 }
+
+// internalMachine has an internal transition written with no target, one whose target is
+// another state, and one leaving a choice pseudostate.
+const internalMachine = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_iping" name="Ping"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_ipingEv" signal="_iping"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_ijump" name="Jump"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_ijumpEv" signal="_ijump"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_igo" name="Go"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_igoEv" signal="_igo"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_counter" name="Counter" classifierBehavior="_ism">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_ipings" name="pings">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_ipings0" value="0"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_ism" name="Counting">
+        <region xmi:type="uml:Region" xmi:id="_ir" name="Main">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_iinit"/>
+          <subvertex xmi:type="uml:State" xmi:id="_iidle" name="Idle"/>
+          <subvertex xmi:type="uml:State" xmi:id="_ibusy" name="Busy"/>
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_ipick" kind="choice"/>
+          <transition xmi:type="uml:Transition" xmi:id="_it0" source="_iinit" target="_iidle"/>
+          <transition xmi:type="uml:Transition" xmi:id="_itPing" kind="internal" source="_iidle">
+            <trigger xmi:type="uml:Trigger" xmi:id="_itrPing" event="_ipingEv"/>
+            <effect xmi:type="uml:OpaqueBehavior" xmi:id="_ieff">
+              <language>JavaScript</language>
+              <body>pings = pings + 1;</body>
+            </effect>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_itJump" kind="internal" source="_iidle" target="_ibusy">
+            <trigger xmi:type="uml:Trigger" xmi:id="_itrJump" event="_ijumpEv"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_itGo" source="_iidle" target="_ipick">
+            <trigger xmi:type="uml:Trigger" xmi:id="_itrGo" event="_igoEv"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_itPick" kind="internal" source="_ipick">
+            <trigger xmi:type="uml:Trigger" xmi:id="_itrPick" event="_ipingEv"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_itOut" source="_ipick" target="_ibusy"/>
+        </region>
+      </ownedBehavior>
+    </packagedElement>`
+
+const internalApplications = `
+  <sysml:Block xmi:id="_i1" base_Class="_counter"/>`
+
+// An internal transition with no target stays in its source and is written as the self
+// transition, effect included; one naming another target, or leaving a pseudostate, is refused.
+func TestTargetlessInternalTransitionsStayInTheirSource(t *testing.T) {
+	r := migrateDocument(t, internalMachine, internalApplications)
+	for _, line := range []string{
+		"transition first Idle accept Ping",
+		"do action {",
+		"assign this.pings := this.pings + 1;",
+		"then Idle;",
+		"/* not migrated: Transition (_itJump) — an internal transition targets 'Busy', not its source 'Idle'; whether it stays or moves cannot be told */",
+		"/* not migrated: Transition (_itPick) — the source (_ipick) is a Pseudostate, and only a state has an internal transition */",
+		"transition first choice then Busy;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNote(t, r, "_itPing", migrate.Mapped, "an internal transition is written as a self transition; Idle has no entry, exit or do behavior and no substates, so re-entering it is not observable")
+	wantNote(t, r, "_itJump", migrate.Unmapped, "an internal transition targets 'Busy', not its source 'Idle'")
+	wantNote(t, r, "_itPick", migrate.Unmapped, "only a state has an internal transition")
+
+	s := session(t, r)
+	meta(t, s, "%instantiate Counter")
+	meta(t, s, "%state Counter::Counting")
+	for i := 0; i < 2; i++ {
+		if out := meta(t, s, "%send Ping"); !strings.Contains(out, "transition Idle -> Idle fires on it") {
+			t.Errorf("%%send Ping: %s", out)
+		}
+		meta(t, s, "%step")
+	}
+	if out := meta(t, s, "%features #1"); !strings.Contains(out, "pings = 2") {
+		t.Errorf("the internal transition's effect did not run twice:\n%s", out)
+	}
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Idle") {
+		t.Errorf("the internal transition left Idle:\n%s", out)
+	}
+}
