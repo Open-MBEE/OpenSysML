@@ -146,6 +146,7 @@ func (ctx *Context) destroy(inst *Instance) error {
 		}
 	}
 	ctx.endBehaviorsWith(ended)
+	ctx.forgetMessagesTo(ended)
 	if ctx.innermostRun().endsWithin(ended) {
 		return &terminated{object: inst, ended: ended}
 	}

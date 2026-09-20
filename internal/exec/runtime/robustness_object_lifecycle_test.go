@@ -29,6 +29,8 @@ func TestRuntimeRobustnessObjectLifecycle(t *testing.T) {
 	t.Run("a_failed_constructor_revives_what_its_behaviors_destroyed_whole", testObjectLifecycleFailedConstructorDestroy)
 	t.Run("a_part_declared_or_bound_to_a_new_object_ends_with_the_whole", testObjectLifecycleDeclaredPart)
 	t.Run("an_object_two_wholes_hold_composite_ends_with_either", testObjectLifecycleSharedPortion)
+	t.Run("a_composite_write_making_the_holder_its_own_portion_is_refused", testObjectLifecycleCompositeCycle)
+	t.Run("destroying_an_object_forgets_the_messages_addressed_to_it", testObjectLifecycleForgetsMessages)
 	t.Run("behaviors_a_write_starts_run_once_the_feature_holds_the_object", testObjectLifecycleStartsAfterStore)
 	t.Run("behaviors_a_constructor_argument_starts_run_once_every_argument_is_stored", testObjectLifecycleConstructorStartsAfterStores)
 	t.Run("behaviors_a_bound_default_starts_run_once_the_feature_holds_the_object", testObjectLifecycleBoundDefaultStartsAfterStore)
@@ -547,6 +549,84 @@ func testObjectLifecycleSharedPortion(t *testing.T) {
 	}
 	if l, _ := ctx.OccurrenceLife(a.ID); !l.Alive() {
 		t.Errorf("OccurrenceLife(a) = %v; want alive, it was not destroyed", l)
+	}
+}
+
+// testObjectLifecycleCompositeCycle: a composite write that would make the holder a portion of
+// itself — holding itself, or a whole it is a portion of — is refused with ErrOccurrenceLifetime and
+// holds nothing, so destroying the would-be portion cannot end its whole.
+func testObjectLifecycleCompositeCycle(t *testing.T) {
+	instantiate, _, ctx := lifetimeFixture(t, `
+		package test {
+			private import OccurrenceFunctions::*;
+			part def Node { part child : Node[0..1]; }
+			part root : Node;
+			calc def Drop { in n : Node; return : Node = destroy(n); }
+		}`)
+	root := instantiate("root")
+	_, scope := calcByName(t, ctx.model.resolver.Index().DocumentRoot("<test>"), "test", "Node")
+	leaf, err := evalIn(t, ctx, scope, "new Node()")
+	if err != nil {
+		t.Fatalf("new Node(): %v", err)
+	}
+	if err := root.SetFeatureValue(ctx, "child", leaf); err != nil {
+		t.Fatalf("root.child := leaf: %v", err)
+	}
+	id, _ := leaf.Object()
+	leafInst := ctx.instances[id]
+	for _, whole := range []*Instance{root, leafInst} {
+		err := leafInst.SetFeatureValue(ctx, "child", objectValue(whole))
+		if !errors.Is(err, ErrOccurrenceLifetime) {
+			t.Errorf("leaf.child := #%d = %v; want ErrOccurrenceLifetime, it would make the leaf a portion of itself", whole.ID, err)
+		}
+	}
+	if fv := leafInst.FeatureValues["child"]; fv != nil && fv.Written {
+		t.Errorf("leaf.child holds %v after the refused writes; want nothing written", fv.HeldValue())
+	}
+	if _, err := evalIn(t, ctx, scope, "Drop(root.child)"); err != nil {
+		t.Fatalf("Drop(root.child): %v", err)
+	}
+	if l, _ := ctx.OccurrenceLife(root.ID); !l.Alive() {
+		t.Errorf("OccurrenceLife(root) = %v after destroying its leaf; want alive", l)
+	}
+}
+
+// testObjectLifecycleForgetsMessages: the messages addressed to a destroyed object, which no
+// consumer of it can take, leave the bus with it, and come back when the destruction is rolled back.
+func testObjectLifecycleForgetsMessages(t *testing.T) {
+	instantiate, _, ctx := lifetimeFixture(t, `
+		package test {
+			private import OccurrenceFunctions::*;
+			attribute def Ping;
+			part def Device;
+			part def Fleet { part units : Device[0..*]; }
+			part fleet : Fleet;
+			part other : Device;
+			calc def Drop { in f : Fleet; return : Fleet = destroy(f); }
+		}`)
+	fleet, other := instantiate("fleet"), instantiate("other")
+	_, scope := calcByName(t, ctx.model.resolver.Index().DocumentRoot("<test>"), "test", "Fleet")
+	unit, err := evalIn(t, ctx, scope, "new Device()")
+	if err != nil {
+		t.Fatalf("new Device(): %v", err)
+	}
+	if err := fleet.SetFeatureValue(ctx, "units", unit); err != nil {
+		t.Fatalf("fleet.units := unit: %v", err)
+	}
+	id, _ := unit.Object()
+	for _, to := range []int64{id, other.ID} {
+		ctx.PostMessage(Message{SignalType: "Ping", Object: to})
+	}
+	_, rollback := ctx.beginJournal()
+	if _, err := evalIn(t, ctx, scope, "Drop(fleet)"); err != nil {
+		t.Fatalf("Drop(fleet): %v", err)
+	}
+	if got := ctx.PendingMessages(); len(got) != 1 || got[0].Object != other.ID {
+		t.Errorf("pending after destroying the fleet: %v; want the one Ping to other alone", got)
+	}
+	rollback()
+	if got := ctx.PendingMessages(); len(got) != 2 {
+		t.Errorf("pending after rolling the destruction back: %v; want both Pings", got)
 	}
 }
 

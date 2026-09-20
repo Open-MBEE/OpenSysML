@@ -424,7 +424,7 @@ func namesAbandonedObject(val Value, abandoned map[int64]bool) bool {
 	return false
 }
 
-// forgetMessagesTo drops the messages addressed to an abandoned object, which
+// forgetMessagesTo drops the messages addressed to an abandoned or destroyed object, which
 // nothing can consume once the object holding its consumers is gone.
 func (ctx *Context) forgetMessagesTo(abandoned map[int64]bool) {
 	kept := make([]Message, 0, len(ctx.messages))

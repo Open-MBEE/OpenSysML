@@ -95,7 +95,10 @@ func (ctx *Context) holdWritten(inst *Instance, fv *FeatureValue, val Value) err
 		return nil
 	}
 	commit, rollback := ctx.beginHoldJournal()
-	ctx.adoptWritten(inst, fv, val)
+	if err := ctx.adoptWritten(inst, fv, val); err != nil {
+		rollback()
+		return err
+	}
 	if err := ctx.classifyHeld(fv.Feature.heldBy(), val); err != nil {
 		rollback()
 		return err
@@ -108,7 +111,10 @@ func (ctx *Context) holdWritten(inst *Instance, fv *FeatureValue, val Value) err
 // adoption holdWritten gives a written one; a refused value leaves ownership as it was.
 func (ctx *Context) holdDeclared(inst *Instance, fv *FeatureValue, val Value) (Value, error) {
 	commit, rollback := ctx.beginHoldJournal()
-	ctx.adoptWritten(inst, fv, val)
+	if err := ctx.adoptWritten(inst, fv, val); err != nil {
+		rollback()
+		return Value{}, err
+	}
 	val, err := ctx.admitted(fv.Feature, val, admitDeclared)
 	if err != nil {
 		rollback()
@@ -127,10 +133,19 @@ func (ctx *Context) ownsHeld(feat *EffectiveFeature) bool {
 
 // adoptWritten makes inst the home (Instance.owner) of the ownerless objects a write to its composite
 // feature holds, releasing the ones it drops; each change is noted for the journal under way to undo.
-// Being a portion of inst does not depend on it: portionsOf reads the composite features themselves.
-func (ctx *Context) adoptWritten(inst *Instance, fv *FeatureValue, val Value) {
+// Being a portion of inst does not depend on it: portionsOf reads the composite features themselves,
+// so a write that would make inst a portion of itself is refused before anything is held.
+func (ctx *Context) adoptWritten(inst *Instance, fv *FeatureValue, val Value) error {
 	if !ctx.ownsHeld(fv.Feature) {
-		return
+		return nil
+	}
+	for _, el := range elementsOf(val) {
+		if id, ok := el.Object(); ok {
+			if child, found := ctx.instances[id]; found && ctx.isPortionOf(inst, child) {
+				return fmt.Errorf("%w: %s #%d would hold %s #%d, a whole it is a portion of, as a portion of itself",
+					ErrOccurrenceLifetime, symbolText(inst.Type), inst.ID, symbolText(child.Type), child.ID)
+			}
+		}
 	}
 	ctx.releaseDropped(inst, fv, val)
 	for _, el := range elementsOf(val) {
@@ -139,12 +154,13 @@ func (ctx *Context) adoptWritten(inst *Instance, fv *FeatureValue, val Value) {
 			continue
 		}
 		child, ok := ctx.instances[id]
-		if !ok || child == inst || child.owner != nil || ctx.holdsItself(inst, child) {
+		if !ok || child.owner != nil {
 			continue
 		}
 		child.owner, child.ownerFeature = inst, fv.Feature.Name
 		ctx.noteProbeUndo(func() { child.owner, child.ownerFeature = nil, "" })
 	}
+	return nil
 }
 
 // releaseDropped frees an object the composite feature owned and the write no longer holds,
@@ -171,14 +187,9 @@ func (ctx *Context) releaseDropped(inst *Instance, fv *FeatureValue, val Value) 
 	}
 }
 
-// holdsItself reports whether inst is a portion of child, which child then cannot become one of.
-func (ctx *Context) holdsItself(inst, child *Instance) bool {
-	for o := inst.owner; o != nil; o = o.owner {
-		if o == child {
-			return true
-		}
-	}
-	return false
+// isPortionOf reports whether inst is whole itself or one of the portions whole holds, transitively.
+func (ctx *Context) isPortionOf(inst, whole *Instance) bool {
+	return slices.Contains(ctx.portionsOf(whole), inst)
 }
 
 // classify records typ as a classifier of inst with the features and behaviors it adds; a

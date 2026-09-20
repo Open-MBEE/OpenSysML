@@ -123,7 +123,8 @@ func TestBindingRefusesADestroyedEnd(t *testing.T) {
 }
 
 // TestDestroyedObjectPerformsNothing: a destroyed object performs no behavior of
-// its type, not even one that touches none of its features, and sends nothing.
+// its type, not even one that touches none of its features, and sends nothing;
+// the message it addressed to itself (`tower` resolves to the beacon) leaves with it.
 func TestDestroyedObjectPerformsNothing(t *testing.T) {
 	instantiate, invoke, ctx := lifetimeFixture(t, `
 		package test {
@@ -154,8 +155,8 @@ func TestDestroyedObjectPerformsNothing(t *testing.T) {
 			t.Errorf("invoke %s on a destroyed object = %v; want %v", op, err, ErrOccurrenceDestroyed)
 		}
 	}
-	if sent := len(ctx.PendingMessages()); sent != 1 {
-		t.Errorf("messages after destroy = %d, want the 1 sent before it", sent)
+	if sent := len(ctx.PendingMessages()); sent != 0 {
+		t.Errorf("messages after destroy = %d, want 0: the Ping it addressed to itself left with it, and it sent nothing since", sent)
 	}
 	members := map[string]*symbols.Symbol{}
 	for _, member := range ctx.model.semantics.MembersOf(beacon.Type) {
