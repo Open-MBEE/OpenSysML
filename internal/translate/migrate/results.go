@@ -27,11 +27,16 @@ func (m *migration) resultSnapshots(r *simresults.ConfigurationResults, s *sysml
 	}
 	typed := m.classifierClosure(target.classifiers)
 	configured := m.configuredValues(target)
+	analysed, analysisNote := m.monteCarloObservable(target.classifiers)
+	if analysed != nil {
+		r.Analysis = analysed.Name
+	}
 	seenObservable := map[string]bool{}
 	seenLocation := map[*sysmlv1.Element]bool{}
 	seenInstance := map[*sysmlv1.Element]bool{}
 	unread := map[string]int{}
 	others := map[string]int{}
+	statistics := map[string]int{}
 	var locations []string
 	for _, id := range ids {
 		pkg := m.model.Lookup(id)
@@ -58,7 +63,17 @@ func (m *migration) resultSnapshots(r *simresults.ConfigurationResults, s *sysml
 			}
 			snap := simresults.Snapshot{ID: inst.ID, Name: inst.Name, Values: map[string]float64{}}
 			held := map[string]int{}
+			summary := map[string]float64{}
 			for _, slot := range inst.Owned("slot") {
+				if stat, value, ok := m.monteCarloSlot(slot); ok {
+					switch {
+					case analysed == nil:
+						unread[monteCarloAnalysisBlock+"::"+stat+" holds a statistic of no observable the target analyses"]++
+					case stat != monteCarloOutOfSpec:
+						summary[stat] = value
+					}
+					continue
+				}
 				name, value, reason := m.snapshotSlot(slot)
 				if reason != "" {
 					unread[name+" "+reason]++
@@ -82,11 +97,27 @@ func (m *migration) resultSnapshots(r *simresults.ConfigurationResults, s *sysml
 					unread[name+" holds "+strconv.Itoa(n)+" numbers over as many slots, and a result is one number"]++
 				}
 			}
+			if analysed != nil {
+				stats, note, foreign := monteCarloStatistics(analysed.Name, summary, snap.Values)
+				if note != "" {
+					statistics[note]++
+				}
+				if foreign {
+					continue
+				}
+				if stats != nil {
+					snap.Statistics = stats
+					seenObservable[analysed.Name] = true
+				}
+			}
 			for name := range snap.Values {
 				seenObservable[name] = true
 			}
 			r.Snapshots = append(r.Snapshots, snap)
 		}
+	}
+	if analysisNote != "" {
+		r.Notes = append(r.Notes, analysisNote)
 	}
 	for name := range seenObservable {
 		r.Observables = append(r.Observables, name)
@@ -108,6 +139,14 @@ func (m *migration) resultSnapshots(r *simresults.ConfigurationResults, s *sysml
 	for _, k := range keys {
 		r.Notes = append(r.Notes, strconv.Itoa(others[k])+" snapshot(s) record other values of "+k+" than the target configures, so they are of another configuration and not among the results")
 	}
+	keys = keys[:0]
+	for k := range statistics {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		r.Notes = append(r.Notes, strconv.Itoa(statistics[k])+" snapshot(s) "+k)
+	}
 	r.Location = strings.Join(locations, ", ")
 	if len(typed) == 0 && len(locations) > 0 {
 		r.Notes = append(r.Notes, "the snapshots in "+r.Location+" are not read: the configuration has no target classifier they could be of")
@@ -115,6 +154,133 @@ func (m *migration) resultSnapshots(r *simresults.ConfigurationResults, s *sysml
 		r.Notes = append(r.Notes, "the result location "+r.Location+" holds no snapshot of the target's classifier")
 	}
 	return lost
+}
+
+// monteCarloObservable is the feature the MonteCarloAnalysis a target classifier inherits
+// binds its Mean to; note says why the analysis names none. Both empty without the analysis.
+func (m *migration) monteCarloObservable(classifiers []*sysmlv1.Element) (observable *sysmlv1.Element, note string) {
+	order := m.classifierOrder(classifiers)
+	var analysing *sysmlv1.Element
+	for _, c := range order {
+		for _, g := range c.Owned("generalization") {
+			if isMonteCarloAnalysis(m.model.Ref(g, "general")) {
+				analysing = c
+				break
+			}
+		}
+		if analysing != nil {
+			break
+		}
+	}
+	if analysing == nil {
+		return nil, ""
+	}
+	var bound []*sysmlv1.Element
+	seen := map[*sysmlv1.Element]bool{}
+	for _, c := range order {
+		for _, conn := range c.Owned("ownedConnector") {
+			ends := conn.Owned("end")
+			if len(ends) != 2 {
+				continue
+			}
+			for i, end := range ends {
+				if monteCarloFeature(m.model.Ref(end, "role")) != monteCarloMean {
+					continue
+				}
+				if f := m.model.Ref(ends[1-i], "role"); f != nil && !f.IsProxy() && f.Type == "Property" && !seen[f] {
+					seen[f] = true
+					bound = append(bound, f)
+				}
+			}
+		}
+	}
+	subject := describe(analysing) + " inherits " + monteCarloAnalysisBlock
+	switch len(bound) {
+	case 0:
+		return nil, subject + " but binds its " + monteCarloMean + " to no feature, so its statistics summarise no observable"
+	case 1:
+		return bound[0], ""
+	}
+	names := make([]string, len(bound))
+	for i, f := range bound {
+		names[i] = f.Name
+	}
+	return nil, subject + " and binds its " + monteCarloMean + " to " + strings.Join(names, ", ") + " alike, so its statistics summarise no one observable"
+}
+
+// monteCarloBinding says why a connector with an end on a MonteCarloAnalysis feature
+// has no v2 form: it wires the tool's statistic, which the migration results carry;
+// "" for a connector on no such feature.
+func (m *migration) monteCarloBinding(c *sysmlv1.Element) string {
+	ends := c.Owned("end")
+	for i, end := range ends {
+		stat := monteCarloFeature(m.model.Ref(end, "role"))
+		if stat == "" {
+			continue
+		}
+		note := "the connector wires the simulation tool's " + monteCarloAnalysisBlock + "::" + stat + ", a statistic it computes over the runs, which v2 has no analysis pattern for"
+		if len(ends) == 2 {
+			if f := m.model.Ref(ends[1-i], "role"); f != nil && !f.IsProxy() {
+				note = "the connector binds " + f.Name + " to the simulation tool's " + monteCarloAnalysisBlock + "::" + stat + ", the statistic it computes of " + f.Name + " over the runs, which v2 has no analysis pattern for"
+			}
+		}
+		return note + "; the migration results read the statistic from the result snapshots"
+	}
+	return ""
+}
+
+// monteCarloSlot reads a snapshot slot of the analysis's own features as the number it
+// holds, a blank one as zero; ok is false for a slot of anything else.
+func (m *migration) monteCarloSlot(slot *sysmlv1.Element) (stat string, value float64, ok bool) {
+	f := m.model.Ref(slot, "definingFeature")
+	switch stat = monteCarloFeature(f); stat {
+	case monteCarloRuns, monteCarloMean, monteCarloDeviation, monteCarloOutOfSpec:
+	default:
+		return "", 0, false
+	}
+	values := slot.Owned("value")
+	if len(values) != 1 || blankLiteral(values[0]) {
+		return stat, 0, true
+	}
+	scalar, reason := m.literalScalar(values[0])
+	if reason != "" || scalar.kind != kindNumber {
+		return stat, 0, true
+	}
+	return stat, scalar.number, true
+}
+
+// monteCarloStatistics makes the statistics a snapshot's N, Mean and Deviation record
+// of the analysed observable, which the binding leaves holding the Mean; none when the
+// analysis left them blank. note says what is amiss; foreign marks a snapshot whose Mean
+// another observable holds instead — of an analysis of that one, so of another configuration.
+func monteCarloStatistics(observable string, summary, values map[string]float64) (stats *simresults.Statistics, note string, foreign bool) {
+	if len(summary) == 0 {
+		return nil, "", false
+	}
+	runs, hasRuns := summary[monteCarloRuns]
+	mean, hasMean := summary[monteCarloMean]
+	switch {
+	case !hasRuns || !hasMean:
+		return nil, "record no " + monteCarloAnalysisBlock + "::" + monteCarloRuns + " and " + monteCarloMean + " together, so they hold no statistics", false
+	case runs == 0 && mean == 0:
+		return nil, "", false
+	case runs != math.Trunc(runs) || runs < 1:
+		return nil, "record a " + monteCarloAnalysisBlock + "::" + monteCarloRuns + " of " + strconv.FormatFloat(runs, 'g', -1, 64) + ", which is no count of runs, so they hold no statistics", false
+	}
+	if value, recorded := values[observable]; recorded && value == mean {
+		return &simresults.Statistics{Observable: observable, Runs: int64(runs), Mean: mean, Deviation: summary[monteCarloDeviation]}, "", false
+	}
+	var holders []string
+	for name, value := range values {
+		if value == mean {
+			holders = append(holders, name)
+		}
+	}
+	sort.Strings(holders)
+	if len(holders) > 0 {
+		return nil, "hold the " + monteCarloAnalysisBlock + "::" + monteCarloMean + " as " + strings.Join(holders, ", ") + " and not as " + observable + ", which the analysis binds it to, so they are of an analysis of another configuration and not among the results", true
+	}
+	return nil, "record " + monteCarloAnalysisBlock + " statistics whose " + monteCarloMean + " no value of " + observable + " holds, though the analysis binds the two, so the statistics are not read", false
 }
 
 // configuredValues is the scalar the target sets each of its features to — by a

@@ -15,6 +15,51 @@ import (
 // the snapshots a simulation tool stored of its runs.
 var simconfigXMI = filepath.Join("..", "..", "tests", "migrate", "testdata", "xmi", "simconfig.xmi")
 
+// montecarloXMI is a v1 model whose target inherits the MagicDraw customization's
+// MonteCarloAnalysis: its result package holds runs one by one and summarised.
+var montecarloXMI = filepath.Join("..", "..", "tests", "migrate", "testdata", "xmi", "montecarlo.xmi")
+
+// TestSummarisedMigrationResultsThroughCLI checks a configuration whose tool
+// summarised runs is compared by the count and mean the summary kept, pooled with
+// the runs stored one by one; that one storing no run is run and told so; and
+// that one stating no numberOfRuns is run once.
+func TestSummarisedMigrationResultsThroughCLI(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	model, sidecar := filepath.Join(dir, "model.sysml"), filepath.Join(dir, "results.json")
+
+	migrated := runCommand(t, exec.Command(binary, montecarloXMI, "-convert", "sysml", "-o", model, "-migration-results", sidecar))
+	if migrated.status != 0 {
+		t.Fatalf("migrating failed: %s", migrated.output())
+	}
+	if !strings.Contains(migrated.stderr, "(results of 3 run configuration(s): 2 with 6 stored snapshot(s) standing for 9 run(s))") {
+		t.Errorf("the sidecar summary counts no summarised runs:\n%s", migrated.output())
+	}
+	compared := runCommand(t, exec.Command(binary, model, "-compare-results", sidecar, "-seed", "1"))
+	if compared.status != 0 {
+		t.Fatalf("exit status = %d, want 0\n%s", compared.status, compared.output())
+	}
+	for _, want := range []string{
+		"compare 'Group 0' — 8 stored run(s) over 5 snapshot(s) in Results; 3 run(s) by OpenSysML, draws average, seed 1\n",
+		"p          | tool                 | 1    | 0.5   | 0.5                | 0.5   | 0.5   | 0.5",
+		"t          | tool                 | 7    |       | 3.7142857142857144 |       |       |",
+		"           | OpenSysML (target.t) | 3    | 3.0   | 3.0                | 3.0   | 3.0   | 3.0",
+		"           | difference           |      |       | -19.2%             |       |       |",
+		`note: "analysis of 4 runs" summarises 4 run(s) of t: mean 3.5, deviation 0.5`,
+		"note: 1 snapshot(s) hold the MonteCarloAnalysis::Mean as u and not as t, which the analysis binds it to, so they are of an analysis of another configuration and not among the results",
+		"compare 'Group 1' — no stored run in Empty; 1 run(s) by OpenSysML, draws average, seed 1\n",
+		"t          | tool (no stored result to compare) | 0    |     |      |     |     |",
+		"           | OpenSysML (target.t)               | 1    | 3.0 | 3.0  | 3.0 | 3.0 | 3.0",
+		"note: the configuration states no numberOfRuns, so one run is made, as its tool makes without one; -runs <number> makes more",
+		"compare 'Group 2' — 1 stored run(s) in Unbound Results; 1 run(s) by OpenSysML, draws average, seed 1\n",
+		"note: 'Unbound Analysis' inherits MonteCarloAnalysis but binds its Mean to no feature, so its statistics summarise no observable",
+	} {
+		if !strings.Contains(compared.stdout, want) {
+			t.Errorf("the comparison lacks %q:\n%s", want, compared.output())
+		}
+	}
+}
+
 // TestMigrationResultsThroughCLI checks -migration-results writes the sidecar
 // -compare-results reads: the configuration's runs and draws, its target and
 // behavior, and the numbers of every snapshot; then that the migrated model is

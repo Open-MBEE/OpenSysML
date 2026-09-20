@@ -751,6 +751,10 @@ func (m *migration) generals(e *sysmlv1.Element, cat category) (string, string) 
 			notes = append(notes, "the quantity value type "+qualifiedName(target)+" is written as ScalarValues::Real; its unit is not kept")
 			continue
 		}
+		if isMonteCarloAnalysis(target) {
+			notes = append(notes, "generalization of the simulation tool's "+monteCarloAnalysisBlock+" is not written: v2 has no analysis pattern for the statistics it computes over the runs, which the migration results read from the result snapshots")
+			continue
+		}
 		if target.IsProxy() || m.isLibrary(target) {
 			notes = append(notes, "generalization of library type "+qualifiedName(target)+" is not written")
 			continue
@@ -945,6 +949,9 @@ func (m *migration) individualBody(e *sysmlv1.Element) {
 // lines that write it and the notes on them; ok is false, and note says why,
 // when it has no v2 form.
 func (m *migration) slotForm(e, slot, f *sysmlv1.Element) (lines []string, note string, ok bool) {
+	if stat := monteCarloFeature(f); stat != "" {
+		return nil, "the slot holds the simulation tool's " + monteCarloAnalysisBlock + "::" + stat + " statistic of the runs, which is no value of the instance; the migration results read it", false
+	}
 	if f == nil || f.IsProxy() {
 		return nil, "the slot's defining feature is not in the document", false
 	}
@@ -1885,6 +1892,10 @@ func isNatural(s string) bool {
 // connector writes a connector: a binding or delegation connector as `bind`,
 // an assembly connector as `connect`, and an item flow it realizes as `flow`.
 func (m *migration) connector(c *sysmlv1.Element) {
+	if note := m.monteCarloBinding(c); note != "" {
+		m.unmappedConnector(c, note)
+		return
+	}
 	segs, note := m.connectorEnds(c, m.scope)
 	if note != "" {
 		m.unmappedConnector(c, note)

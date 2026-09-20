@@ -168,9 +168,16 @@ func (m *migration) simulationConfig(e *sysmlv1.Element, header, note string) {
 }
 
 // resultsComment says what the tool stored of the configuration's runs and
-// where; the snapshots themselves are written as individuals in their package.
+// where — how many runs, when a snapshot summarises several; the snapshots
+// themselves are written as individuals in their package.
 func resultsComment(r simresults.ConfigurationResults) string {
 	text := "results of the simulation tool: " + strconv.Itoa(len(r.Snapshots)) + " snapshot(s) in " + r.Location
+	if runs := r.StoredRuns(); runs != int64(len(r.Snapshots)) {
+		text += " standing for " + strconv.FormatInt(runs, 10) + " run(s)"
+	}
+	if r.Analysis != "" {
+		text += " analysing " + r.Analysis
+	}
 	if len(r.Observables) > 0 {
 		text += " holding " + strings.Join(r.Observables, ", ")
 	}

@@ -35,6 +35,8 @@ type ConfigurationResults struct {
 	Behavior string `json:"behavior,omitempty"`
 	// Location is the qualified v1 name of the result package, "" for none.
 	Location string `json:"resultLocation,omitempty"`
+	// Analysis is the observable the target's Monte Carlo analysis summarises, "" for none.
+	Analysis string `json:"analysis,omitempty"`
 	// Observables are the properties the snapshots hold numbers for, sorted.
 	Observables []string   `json:"observables"`
 	Snapshots   []Snapshot `json:"snapshots"`
@@ -42,17 +44,32 @@ type ConfigurationResults struct {
 	Notes []string `json:"notes,omitempty"`
 }
 
-// Snapshot is one run the tool stored: the numbers its slots hold, by property.
+// Snapshot is one run the tool stored: the numbers its slots hold, by property;
+// or the statistics of several runs, when the tool summarised them in one.
 type Snapshot struct {
-	ID     string             `json:"id"`
-	Name   string             `json:"name,omitempty"`
-	Values map[string]float64 `json:"values"`
+	ID         string             `json:"id"`
+	Name       string             `json:"name,omitempty"`
+	Values     map[string]float64 `json:"values"`
+	Statistics *Statistics        `json:"statistics,omitempty"`
 }
 
-// Values are the numbers every snapshot holds for observable, in snapshot order.
+// Statistics are what a tool's Monte Carlo analysis records of one observable
+// over the runs of a snapshot: their count, mean and standard deviation.
+type Statistics struct {
+	Observable string  `json:"observable"`
+	Runs       int64   `json:"runs"`
+	Mean       float64 `json:"mean"`
+	Deviation  float64 `json:"deviation"`
+}
+
+// Values are the numbers the snapshots hold for observable run by run, in snapshot
+// order; a snapshot summarising the observable holds its mean, which is no run's.
 func (c *ConfigurationResults) Values(observable string) []float64 {
 	var out []float64
 	for _, s := range c.Snapshots {
+		if s.Statistics != nil && s.Statistics.Observable == observable {
+			continue
+		}
 		if v, ok := s.Values[observable]; ok {
 			out = append(out, v)
 		}
@@ -60,16 +77,49 @@ func (c *ConfigurationResults) Values(observable string) []float64 {
 	return out
 }
 
-// Summary counts what the sidecar indexes: configurations, those with snapshots, and snapshots.
+// Summarised are the snapshots recording statistics of observable, in snapshot
+// order; none when every snapshot stores the observable run by run.
+func (c *ConfigurationResults) Summarised(observable string) []Snapshot {
+	var out []Snapshot
+	for _, s := range c.Snapshots {
+		if s.Statistics != nil && s.Statistics.Observable == observable {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// StoredRuns are the runs the snapshots stand for: each summarised snapshot
+// counts its runs, every other one run.
+func (c *ConfigurationResults) StoredRuns() int64 {
+	var runs int64
+	for _, s := range c.Snapshots {
+		if s.Statistics != nil {
+			runs += s.Statistics.Runs
+			continue
+		}
+		runs++
+	}
+	return runs
+}
+
+// Summary counts what the sidecar indexes: configurations, those with snapshots,
+// snapshots, and the runs they stand for when a snapshot summarises several.
 func (r *Results) Summary() string {
 	stored, snapshots := 0, 0
+	var runs int64
 	for _, c := range r.Configurations {
 		if len(c.Snapshots) > 0 {
 			stored++
 		}
 		snapshots += len(c.Snapshots)
+		runs += c.StoredRuns()
 	}
-	return fmt.Sprintf("results of %d run configuration(s): %d with %d stored snapshot(s)", len(r.Configurations), stored, snapshots)
+	out := fmt.Sprintf("results of %d run configuration(s): %d with %d stored snapshot(s)", len(r.Configurations), stored, snapshots)
+	if runs != int64(snapshots) {
+		out += fmt.Sprintf(" standing for %d run(s)", runs)
+	}
+	return out
 }
 
 // Read reads a sidecar -migration-results wrote: exactly one JSON document

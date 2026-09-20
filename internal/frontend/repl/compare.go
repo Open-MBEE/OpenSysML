@@ -5,6 +5,7 @@ import (
 	"math"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
@@ -107,21 +108,21 @@ func sameName(name, qualified string) bool {
 }
 
 // compareVerdict compares one configuration: a refusal names what the runs
-// cannot be made without, else the table of both distributions.
+// cannot be made without, else the table of both distributions — the runs'
+// alone, against a row saying so, when the tool stored no result.
 func (s *Session) compareVerdict(cfg *simresults.ConfigurationResults, opts CompareOptions) Verdict {
 	label := "compare " + cfg.Name
-	if len(cfg.Snapshots) == 0 {
-		return unresolvedVerdict(label, withNotes("the tool stored no result of the configuration to compare with", cfg.Notes))
-	}
 	if cfg.Behavior == "" {
 		return unresolvedVerdict(label, withNotes("the configuration performs no migrated behavior", cfg.Notes))
 	}
+	var notes []string
 	count := cfg.Runs
 	if opts.Runs > 0 {
 		count = opts.Runs
 	}
 	if count <= 0 {
-		return unresolvedVerdict(label, "the configuration states no numberOfRuns; name the runs to make, as -runs <number>")
+		count = 1
+		notes = append(notes, "the configuration states no numberOfRuns, so one run is made, as its tool makes without one; -runs <number> makes more")
 	}
 	policy := s.draws
 	switch {
@@ -153,8 +154,8 @@ func (s *Session) compareVerdict(cfg *simresults.ConfigurationResults, opts Comp
 		}
 		completed++
 	}
-	header := fmt.Sprintf("%s — %d stored run(s) in %s; %d run(s) by OpenSysML, draws %s", label,
-		len(cfg.Snapshots), orNone(cfg.Location), completed, policy)
+	header := fmt.Sprintf("%s — %s in %s; %d run(s) by OpenSysML, draws %s", label,
+		storedRuns(cfg), orNone(cfg.Location), completed, policy)
 	if !table.Seedless {
 		header += fmt.Sprintf(", seed %d", table.Seed)
 	}
@@ -163,7 +164,7 @@ func (s *Session) compareVerdict(cfg *simresults.ConfigurationResults, opts Comp
 	for _, f := range dedupe(failures) {
 		lines = append(lines, "error: "+f)
 	}
-	for _, n := range cfg.Notes {
+	for _, n := range append(notes, cfg.Notes...) {
 		lines = append(lines, "note: "+n)
 	}
 	status := VerdictHolds
@@ -173,53 +174,52 @@ func (s *Session) compareVerdict(cfg *simresults.ConfigurationResults, opts Comp
 	return standing(Verdict{Subject: label, Status: status, Lines: lines}, answered)
 }
 
+// storedRuns spells how many runs the tool stored of a configuration, and over
+// how many snapshots when one summarises several.
+func storedRuns(cfg *simresults.ConfigurationResults) string {
+	runs := cfg.StoredRuns()
+	if len(cfg.Snapshots) == 0 {
+		return "no stored run"
+	}
+	if runs == int64(len(cfg.Snapshots)) {
+		return fmt.Sprintf("%d stored run(s)", runs)
+	}
+	return fmt.Sprintf("%d stored run(s) over %d snapshot(s)", runs, len(cfg.Snapshots))
+}
+
 // comparisonTable is one row per observable and side — the tool's stored
-// numbers, the runs' values, and the relative difference of each statistic.
+// numbers, the runs' values, and the relative difference of each statistic. An
+// observable the tool summarised is compared by count and mean, the statistics
+// it kept; one the tool stored nothing of has the runs' row alone.
 func comparisonTable(cfg *simresults.ConfigurationResults, table runtime.SweepTable, observe []ObservablePair) []string {
 	cells := [][]string{{"observable", "source", "runs", "min", "mean", "p50", "p90", "max"}}
 	var notes []string
-	for _, pair := range comparedObservables(cfg, observe) {
+	for _, pair := range comparedObservables(cfg, table, observe) {
 		name, feature := pair.Stored, pair.Feature
+		if len(cfg.Snapshots) == 0 {
+			cells = append(cells, []string{name, "tool (no stored result to compare)", "0", "", "", "", "", ""})
+			cells, notes = runRows(cells, notes, name, feature, table, nil)
+			continue
+		}
 		if !slices.Contains(cfg.Observables, name) {
 			notes = append(notes, fmt.Sprintf("note: the tool stored no observable named %s, which %s was to answer", name, feature))
 			continue
 		}
-		stored := runtime.Distribute(reals(cfg.Values(name)))
+		stored, pooled := storedDistribution(cfg, name)
 		if stored == nil {
 			notes = append(notes, fmt.Sprintf("note: no snapshot holds a number for %s", name))
 			continue
 		}
-		ran, units, other, missing := runValues(table, feature)
-		cells = append(cells, statisticsRow(name, "tool", stored, ""))
-		d := runtime.Distribute(ran)
-		switch {
-		case len(ran) == 0 && other == 0:
-			cells = append(cells, []string{"", "OpenSysML (" + feature + ")", "0", "", "", "", "", ""})
-			notes = append(notes, fmt.Sprintf("note: no completed run produced %s, which answers %s", feature, name))
-			continue
-		case missing > 0:
-			cells = append(cells, []string{"", "OpenSysML (" + feature + ")", fmt.Sprint(len(ran)), "", "", "", "", ""})
-			note := fmt.Sprintf("note: %s was produced by %d of the %d completed run(s)", feature, len(ran)+other, len(ran)+other+missing)
-			if other > 0 {
-				note += fmt.Sprintf(" and holds no number in %d of those", other)
+		if pooled {
+			cells = append(cells, []string{name, "tool", fmt.Sprint(stored.Count), "", withUnit(drawnMean(stored), ""), "", "", ""})
+			for _, snap := range cfg.Summarised(name) {
+				st := snap.Statistics
+				notes = append(notes, fmt.Sprintf("note: %s summarises %d run(s) of %s: mean %s, deviation %s", orUnnamed(snap.Name), st.Runs, name, spell(st.Mean), spell(st.Deviation)))
 			}
-			notes = append(notes, note+fmt.Sprintf(", so %s is not compared", name))
-			continue
-		case d == nil:
-			cells = append(cells, []string{"", "OpenSysML (" + feature + ")", "0", "", "", "", "", ""})
-			notes = append(notes, fmt.Sprintf("note: %s holds no number in any completed run, so %s is not compared", feature, name))
-			continue
-		case other > 0:
-			cells = append(cells, []string{"", "OpenSysML (" + feature + ")", fmt.Sprint(len(ran)), "", "", "", "", ""})
-			notes = append(notes, fmt.Sprintf("note: %s holds no number in %d of the %d completed run(s) that produced it, so %s is not compared", feature, other, other+len(ran), name))
-			continue
-		case len(units) > 1:
-			cells = append(cells, []string{"", "OpenSysML (" + feature + ")", fmt.Sprint(len(ran)), "", "", "", "", ""})
-			notes = append(notes, fmt.Sprintf("note: %s came to numbers in more than one unit (%s) over the completed runs, so %s is not compared", feature, unitList(units), name))
-			continue
+		} else {
+			cells = append(cells, statisticsRow(name, "tool", stored, ""))
 		}
-		cells = append(cells, statisticsRow("", "OpenSysML ("+feature+")", d, units[0]))
-		cells = append(cells, differenceRow(stored, d))
+		cells, notes = runRows(cells, notes, name, feature, table, &comparison{stored: stored, pooled: pooled})
 	}
 	widths := make([]int, len(cells[0]))
 	for _, row := range cells {
@@ -234,18 +234,127 @@ func comparisonTable(cfg *simresults.ConfigurationResults, table runtime.SweepTa
 	return append(lines, notes...)
 }
 
+// comparison is the tool's side of one observable: its distribution, pooled from
+// summaries (count and mean alone) or over the runs it stored one by one.
+type comparison struct {
+	stored *runtime.Distribution
+	pooled bool
+}
+
+// storedDistribution is the tool's distribution of observable: over the numbers
+// its snapshots hold run by run, or pooled — count and mean — with the runs the
+// snapshots summarise, when any does; nil when the tool stored no number of it.
+func storedDistribution(cfg *simresults.ConfigurationResults, observable string) (d *runtime.Distribution, pooled bool) {
+	values := cfg.Values(observable)
+	summarised := cfg.Summarised(observable)
+	if len(summarised) == 0 {
+		return runtime.Distribute(reals(values)), false
+	}
+	var runs int64
+	var sum float64
+	for _, v := range values {
+		runs++
+		sum += v
+	}
+	for _, s := range summarised {
+		runs += s.Statistics.Runs
+		sum += float64(s.Statistics.Runs) * s.Statistics.Mean
+	}
+	if runs == 0 {
+		return nil, true
+	}
+	return &runtime.Distribution{Count: int(runs), Mean: sum / float64(runs)}, true
+}
+
+// runRows appends the runs' row of one observable — and the difference from the
+// tool's when there is one — or the note saying why the runs are not compared.
+func runRows(cells [][]string, notes []string, name, feature string, table runtime.SweepTable, tool *comparison) ([][]string, []string) {
+	ran, units, other, missing := runValues(table, feature)
+	d := runtime.Distribute(ran)
+	switch {
+	case len(ran) == 0 && other == 0:
+		cells = append(cells, []string{"", "OpenSysML (" + feature + ")", "0", "", "", "", "", ""})
+		notes = append(notes, fmt.Sprintf("note: no completed run produced %s, which answers %s", feature, name))
+		return cells, notes
+	case missing > 0:
+		cells = append(cells, []string{"", "OpenSysML (" + feature + ")", fmt.Sprint(len(ran)), "", "", "", "", ""})
+		note := fmt.Sprintf("note: %s was produced by %d of the %d completed run(s)", feature, len(ran)+other, len(ran)+other+missing)
+		if other > 0 {
+			note += fmt.Sprintf(" and holds no number in %d of those", other)
+		}
+		notes = append(notes, note+fmt.Sprintf(", so %s is not compared", name))
+		return cells, notes
+	case d == nil:
+		cells = append(cells, []string{"", "OpenSysML (" + feature + ")", "0", "", "", "", "", ""})
+		notes = append(notes, fmt.Sprintf("note: %s holds no number in any completed run, so %s is not compared", feature, name))
+		return cells, notes
+	case other > 0:
+		cells = append(cells, []string{"", "OpenSysML (" + feature + ")", fmt.Sprint(len(ran)), "", "", "", "", ""})
+		notes = append(notes, fmt.Sprintf("note: %s holds no number in %d of the %d completed run(s) that produced it, so %s is not compared", feature, other, other+len(ran), name))
+		return cells, notes
+	case len(units) > 1:
+		cells = append(cells, []string{"", "OpenSysML (" + feature + ")", fmt.Sprint(len(ran)), "", "", "", "", ""})
+		notes = append(notes, fmt.Sprintf("note: %s came to numbers in more than one unit (%s) over the completed runs, so %s is not compared", feature, unitList(units), name))
+		return cells, notes
+	}
+	cells = append(cells, statisticsRow("", "OpenSysML ("+feature+")", d, units[0]))
+	switch {
+	case tool == nil:
+	case tool.pooled:
+		cells = append(cells, []string{"", "difference", "", "", relative(drawnMean(tool.stored), drawnMean(d)), "", "", ""})
+		notes = append(notes, fmt.Sprintf("note: %s came to a deviation of %s over the %d completed run(s)", feature, spell(deviation(ran, d.Mean)), d.Count))
+	default:
+		cells = append(cells, differenceRow(tool.stored, d))
+	}
+	return cells, notes
+}
+
+// deviation is the sample standard deviation of values about their mean, 0 for fewer than two.
+func deviation(values []semantics.Value, mean float64) float64 {
+	if len(values) < 2 {
+		return 0
+	}
+	var sum float64
+	for _, v := range values {
+		d := realOf(v) - mean
+		sum += d * d
+	}
+	return math.Sqrt(sum / float64(len(values)-1))
+}
+
+// spell writes a statistic as the tool's numbers are written in the table.
+func spell(v float64) string {
+	return withUnit(semantics.Value{Kind: semantics.ValReal, Real: v}, "")
+}
+
+func orUnnamed(name string) string {
+	if name == "" {
+		return "an unnamed snapshot"
+	}
+	return strconv.Quote(name)
+}
+
 // comparedObservables are the pairs asked for, or every stored observable when
-// none was; one naming no feature is read from the feature of its own name that
-// the target object holds — `target.Time_Total` — or the bare name when the
+// none was — the observable the configuration's analysis summarises, else every
+// feature the completed runs produced a number for, when the tool stored none;
+// one naming no feature is read from the feature of its own name that the
+// target object holds — `target.Time_Total` — or the bare name when the
 // configuration runs on no target.
-func comparedObservables(cfg *simresults.ConfigurationResults, observe []ObservablePair) []ObservablePair {
+func comparedObservables(cfg *simresults.ConfigurationResults, table runtime.SweepTable, observe []ObservablePair) []ObservablePair {
 	pairs := make([]ObservablePair, 0, max(len(observe), len(cfg.Observables)))
-	if len(observe) == 0 {
+	switch {
+	case len(observe) > 0:
+		pairs = append(pairs, observe...)
+	case len(cfg.Snapshots) == 0 && cfg.Analysis != "":
+		pairs = append(pairs, ObservablePair{Stored: cfg.Analysis})
+	case len(cfg.Snapshots) == 0:
+		for _, feature := range numericOutputs(table) {
+			pairs = append(pairs, ObservablePair{Stored: strings.TrimPrefix(feature, cfg.Target+"."), Feature: feature})
+		}
+	default:
 		for _, name := range cfg.Observables {
 			pairs = append(pairs, ObservablePair{Stored: name})
 		}
-	} else {
-		pairs = append(pairs, observe...)
 	}
 	for i := range pairs {
 		if pairs[i].Feature != "" {
@@ -257,6 +366,25 @@ func comparedObservables(cfg *simresults.ConfigurationResults, observe []Observa
 		}
 	}
 	return pairs
+}
+
+// numericOutputs names, sorted, every feature some completed run produced as a number.
+func numericOutputs(table runtime.SweepTable) []string {
+	seen := map[string]bool{}
+	var names []string
+	for _, row := range table.Rows {
+		if row.Err != nil {
+			continue
+		}
+		for _, out := range row.Outputs {
+			if _, ok := runtime.MagnitudeValue(out.Value); ok && !seen[out.Name] {
+				seen[out.Name] = true
+				names = append(names, out.Name)
+			}
+		}
+	}
+	sort.Strings(names)
+	return names
 }
 
 // runValues collects the numbers a feature came to in the completed runs, the
