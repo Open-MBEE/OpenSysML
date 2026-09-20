@@ -152,6 +152,7 @@ type AcceptForm struct {
 	Param        string       `json:"param,omitempty"`
 	SignalType   string       `json:"signalType,omitempty"`
 	ViaPort      string       `json:"viaPort,omitempty"`
+	ViaSelf      bool         `json:"viaSelf,omitempty"`
 	SubsetsEvent *ExprForm    `json:"subsetsEvent,omitempty"`
 	Trigger      *TriggerForm `json:"trigger,omitempty"`
 	Scope        string       `json:"scope,omitempty"`
@@ -231,6 +232,7 @@ type StatementForm struct {
 	TargetSymbol string    `json:"targetSymbol,omitempty"`
 	TargetPath   bool      `json:"targetPath,omitempty"`
 	Via          bool      `json:"via,omitempty"`
+	ViaSelf      bool      `json:"viaSelf,omitempty"`
 	Receiver     string    `json:"receiver,omitempty"`
 	ReceiverPath bool      `json:"receiverPath,omitempty"`
 	// assign, declare, declare usage
@@ -564,6 +566,7 @@ func (x *graphsExporter) statement(enclosing *symbols.Scope, s lower.Statement) 
 			TargetSymbol: symbols.FQNOf(s.TargetSym),
 			TargetPath:   s.TargetPath,
 			Via:          s.IsVia,
+			ViaSelf:      s.ViaSelf,
 			Receiver:     s.Receiver,
 			ReceiverPath: s.ReceiverPath,
 		}, nil
@@ -693,6 +696,7 @@ func (x *graphsExporter) accept(enclosing *symbols.Scope, a lower.Accept) *Accep
 		Param:        a.ParamName,
 		SignalType:   qualifiedName(a.SignalType),
 		ViaPort:      a.ViaPort,
+		ViaSelf:      a.ViaSelf,
 		SubsetsEvent: x.expr(scope, a.SubsetsEvent),
 		Trigger:      x.trigger(scope, a.Trigger),
 		Scope:        scopeName(a.Scope),

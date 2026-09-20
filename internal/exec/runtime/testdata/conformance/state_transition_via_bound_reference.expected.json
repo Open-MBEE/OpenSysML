@@ -1,0 +1,24 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "StateViaBoundReference::Rig",
+  "materialization": {},
+  "objects": [
+    {
+      "path": "sender",
+      "events": [{"signal": "Go"}],
+      "finalState": "sent",
+      "stateVisits": ["idle", "toLiveStep", "toPartStep", "sent"]
+    },
+    {
+      "path": "commander",
+      "finalState": "bound",
+      "stateVisits": ["waiting", "bound"]
+    },
+    {
+      "path": "owner",
+      "finalState": "own",
+      "stateVisits": ["waiting", "own"]
+    }
+  ]
+}

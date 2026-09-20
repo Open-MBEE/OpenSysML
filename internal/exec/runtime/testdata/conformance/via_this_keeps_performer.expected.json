@@ -1,0 +1,42 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "ViaThisKeepsPerformer::Rig",
+  "materialization": {},
+  "objects": [
+    {
+      "path": "commander",
+      "events": [
+        {
+          "signal": "Go"
+        }
+      ],
+      "finalState": "ready",
+      "stateVisits": [
+        "idle",
+        "commanding",
+        "ready"
+      ],
+      "slots": {
+        "lastAck": {
+          "type": "Instance"
+        }
+      }
+    },
+    {
+      "path": "m1cs",
+      "finalState": "idle",
+      "stateVisits": [
+        "idle"
+      ]
+    },
+    {
+      "path": "decoy",
+      "finalState": "installed",
+      "stateVisits": [
+        "idle",
+        "installed"
+      ]
+    }
+  ]
+}

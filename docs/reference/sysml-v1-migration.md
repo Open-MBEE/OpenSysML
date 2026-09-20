@@ -133,7 +133,7 @@ returned over the service yet.
 | Comment, Documentation | `doc` (first) / `comment`, HTML tags stripped | mapped |
 | Custom-profile stereotypes and tags | preserved as `/* applied stereotype «Name»: tag = value */` | mapped |
 | SysML stereotype tags without a v2 form (`Block.isEncapsulated`, `ValueType.unit`, …) | preserved as `/* «Name» tags with no v2 form: tag = value */` | approximated |
-| Two members of one namespace with the same name (UML allows it, v2 does not) | the later one renamed `Name 2`; a connection end named like a member of its connection def renamed `name2` | approximated |
+| Two members of one namespace with the same name (UML allows it, v2 does not) | the later one renamed `Name 2`, a state, pseudostate or history a machine's region puts beside its attributes included; a connection end named like a member of its connection def renamed `name2` | approximated |
 | Anonymous property with no v2 type | a `ref` named after its type, or `unnamed` | approximated |
 | Multiplicity bounds that are not natural numbers (a tool's `492x21` array dimensions) | omitted | approximated |
 | `NaN`/infinite real literals | comment | approximated |
@@ -144,7 +144,7 @@ returned over the service yet.
 | InitialNode, ActivityFinalNode, FlowFinalNode | `first start then …`; `action x terminate;`; the token ends where a flow final does | mapped |
 | ForkNode, JoinNode, DecisionNode, MergeNode | `fork`, `join`, `decide`, `merge`; a node several edges leave or reach without a control node gets one written for it | mapped (implicit fork/join: approximated) |
 | CallBehaviorAction | `action x : Def;` with `bind`/`flow` for its pins; a call of a state machine, of a behavior with no v2 declaration, or of no behavior at all | mapped / **unmapped** |
-| CallOperationAction | `action x : Owner::Op;`, or `perform action x ::> target.op;` when the target pin's value is an object whose type owns the operation | mapped |
+| CallOperationAction | `perform action x ::> target.op;` when the target pin's value is an object whose type owns the operation, or when `onPort` names a port a connector of the caller's block joins to a part that owns it (a port of the target itself names it); otherwise `action x : Owner::Op;`, which runs in the caller's context | mapped / approximated (unresolved target: the reason names it) |
 | ControlFlow | `first a then b;`, `if <guard>` when the guard parses and resolves; otherwise the guard text as a comment and the edge unguarded | mapped / approximated |
 | «Probability» on the edges out of a decision, a number | `first d then x { @Stochastic::Probability { p = <value>; } }`; constants not summing to 1 are scaled by their sum; a value outside `[0, 1]` leaves the decision unweighted | mapped / approximated |
 | «Probability» naming a property (by name or `xmi:id`) visible from the activity — its own, or one of the block whose classifier behavior it is, inherited included — typed by a numeric value type and holding one value | `p = <property>;`, a reference the run reads from the object performing the action when the decision is reached, checking then that it lies in `[0, 1]` and the branches sum to 1 | mapped |
@@ -157,9 +157,10 @@ returned over the service yet.
 | ObjectFlow | `flow a.out to b.in;`, or `bind` to a parameter; each producer-pin pair is written once however many edges carry it; a flow from or to an action that is not migrated is a comment | mapped / approximated |
 | SendSignalAction | `action x send new Sig(args) to <target>;`, `via <port>` when `onPort` is set; the target is read from the target pin's flow: `this`, `this.part` where a structural read feeds the pin, else the pin itself (`in target;` bound to what feeds it, an activity parameter or another node's output), which the runtime evaluates to the object it holds | mapped / approximated |
 | AcceptEventAction | `action x accept p : Sig;` (signal trigger), `accept after <d> [SI::s]` (relative TimeEvent), `accept when <cond>` (ChangeEvent) | mapped |
-| AcceptEventAction on an absolute TimeEvent (`when` is an instant, not a duration) | comment | **unmapped** — no literal writes a `TimeInstantValue` |
+| AcceptEventAction on an absolute TimeEvent (`when` is an instant, not a duration) | `accept at <instant>`, the instant a `Time::TimeInstantValue` attribute of the `action def` when `when` is a number with a time unit or an expression that resolves; otherwise a comment | approximated (the instant is read on the simulation clock, which starts at 0) / **unmapped** |
 | OpaqueAction, ValueSpecificationAction, ReadStructuralFeatureAction, AddStructuralFeatureValueAction | `assign`/`out result = …` when the body parses as a v2 expression whose names resolve (a script's `x = expr;` statements are read as assignments); otherwise the body as a comment inside `action x { }` naming the language | mapped / approximated |
 | DurationConstraint on an action | a wait before the action: `accept after lo [SI::s]` when the interval is a point, `accept after RandomFunctions::uniform(lo, hi) [SI::s]` otherwise; `1s`, `0.5 s`, `80ms`, `2 min`, `1 h` and `t = 1 minute 30 seconds` literals are scaled to seconds | approximated (a tool's min/max/average/random mode is the run's `-draws` policy, which its configuration records) |
+| DurationConstraint whose interval is open on one side (a min with no max, a max of `*`, a max with no min) | comment naming the bound it lacks | **unmapped** — every wait past the bound satisfies the interval, so no one delay stands for it; a MagicDraw document's min beside a max that is a duration with no expression is that tool's encoding of a one-valued `{60s}` and is written as its fixed wait, approximated |
 | DurationConstraint whose bounds are not numbers with time units (`setup s`), DurationObservation, TimeObservation | comment | **unmapped** — the runtime reports a run's clock |
 | ActivityPartition | comment naming the partition and its nodes (`perform … by` has no legal form for a partition of arbitrary nodes) | approximated |
 | StructuredActivityNode, SequenceNode | `action x { }` holding the nested flow | mapped |
@@ -168,24 +169,44 @@ returned over the service yet.
 | State, composite State, Region | `state`; the regions of an orthogonal state are sub-states of a `parallel` state | mapped |
 | State with `submachine` | `state s : SubMachineDef;` — the referenced state machine's own `state def`, not inlined | mapped |
 | Pseudostate initial, FinalState | `entry; then s;`, `done` | mapped |
-| Pseudostate choice, junction | a `state` its guarded transitions leave at once | approximated |
-| Pseudostate exitPoint, terminate | a transition into it is written to `done` | approximated |
-| Pseudostate entryPoint, ConnectionPointReference, deep/shallow history, fork/join pseudostates | comment | **unmapped** — no v2 form |
+| Pseudostate choice, junction | `junction x;` / `choice x;` — a transient node the guarded transitions leave at once | mapped |
+| Pseudostate fork, join | `fork x;` / `join x;` — the transitions out of a fork enter the states of several regions of a `parallel` state, those into a join leave them | mapped |
+| Pseudostate shallowHistory, deepHistory | `history x;` / `deep history x;` in the composite state; a transition targeting it re-enters the substate (the innermost substates) active when the state was last left, the history's own outgoing transition being its default | mapped |
+| Pseudostate entryPoint, exitPoint on a state machine | a `state` of the submachine's `state def`; a transition into an entry point continues by the entry point's own transition, a transition out of an exit point leaves the submachine state | mapped |
+| Pseudostate exitPoint on a region, terminate | a transition into it is written to `done` | approximated |
+| ConnectionPointReference on a submachine state | the transition is written to `s.<entryPoint>` / from `s.<exitPoint>`, the submachine's state named by its path | mapped |
+| Transition between regions or nesting levels (source or target not a sibling) | the transition names the far end by its path, `Work::Run`; a local transition into a substate of its source is written external, so the composite state exits and re-enters | mapped (local into own substate: approximated) |
 | `entry`, `doActivity`, `exit` behaviors | `entry action { … }` / `do action { … }` / `exit action { … }` inline when the behavior is owned by the state, `entry x;` / `do x : Def;` by reference otherwise | mapped |
 | Transition | `transition first s accept Sig if <guard> do <effect> then t;`; several triggers are several transitions; a completion transition is `transition first s then t;` | mapped (several triggers: approximated) |
 | Transition `effect` with `in` parameters | the accepted signal is named, `accept sig : Sig`, and each parameter typed by the signal (or a general of it), or the sole untyped one, is bound to it: `in p : Sig = sig;`; a parameter of another type takes no value | mapped (an unbound parameter: approximated) |
 | State `deferrableTrigger` on a SignalEvent | `defer Sig;` in the state's body — the OpenSysML `defer` extension (see [Behavior](../guide/06-behavior.md)), which the runtime executes and the validator reports as non-standard notation | approximated |
-| Internal transition (`kind = internal`), `deferrableTrigger` on any other event | comment | **unmapped** — no v2 form |
+| Internal transition (`kind = internal`) | a self transition of the state; faithful when the state has no entry, exit or do behavior and no substates (re-entry is not observable), otherwise the exit and entry run where v1 stayed in the state; one without a trigger is a comment, as a self transition would fire again on every re-entry | mapped / approximated / **unmapped** |
+| `deferrableTrigger` on any other event | comment | **unmapped** — no v2 form |
 | State `stateInvariant` | comment in the state's body quoting the constraint; the state is written with a body so the comment has a place | **unmapped** — no v2 form |
 | Initial transition with a trigger or guard | the region's `entry; then s;`; each trigger and the guard are dropped and reported apart from the transition | approximated (the trigger, the guard: unmapped) |
-| SignalEvent, ChangeEvent, relative TimeEvent | written where a trigger refers to them, as `accept Sig`, `accept when <cond>`, `accept after <d> [SI::s]`; an event no trigger refers to is a comment | mapped / approximated |
-| Absolute TimeEvent, TimeEvent whose `when` is not a number with a time unit | comment | **unmapped** |
-| Interaction | a scenario `action def` of `send`s in occurrence order, when every message is an asynchronous signal send received on a lifeline standing for a part of the interaction's owner | approximated |
-| Interaction with a synchronous call, a reply, a message to a lifeline that is not a part, or no message; DurationConstraint on an interaction | comment | **unmapped** — the reason names the message |
+| SignalEvent, ChangeEvent, relative TimeEvent | written where a trigger refers to them, as `accept Sig`, `accept when <cond>`, `accept after <d> [SI::s]` | mapped / approximated |
+| Absolute TimeEvent a trigger refers to | `accept at <instant>` on the transition or accept action, the instant an attribute of the `state def`/`action def` typed `Time::TimeInstantValue` when `when` is a number with a time unit or an expression that resolves, read on the simulation clock, which starts at 0 | approximated (the clock's origin is the run's, not the calendar's) |
+| Event (of any kind) no trigger refers to | — | skipped, counted as a model element nothing refers to |
+| SignalEvent whose signal is not written, TimeEvent whose `when` is not a number with a time unit | comment; the transition that refers to it drops the trigger | **unmapped** — the reason names the signal or the time |
+| Interaction | a scenario `action def` on the owning block: each message in occurrence order as a step — a signal send `send new Sig(args) to this.part`, a `synchCall`/`asynchCall` of an operation `perform action x : Owner::Op ::> part.op { in p = arg; }` with the arguments bound to the `in` parameters by name or position, a `reply` an assignment of the call's `out` to the caller lifeline's attribute the reply's argument names | approximated (the lifelines' own behavior is not part of it; an `asynchCall` waits for the callee where v1 did not) |
+| Lifeline | the feature path from the owning block to the part, port or reference it `represents`, through the parts and their types (`drive.motor`), or the interaction's `in` parameter | mapped |
+| Lifeline with a `selector`, standing for an `out` parameter, a property no part of the owning block reaches or one reached along two paths, or for no ConnectableElement; Interaction owned by a Collaboration or by no block | comment: the whole interaction is refused | **unmapped** — the reason names the lifeline |
+| CombinedFragment `alt`, `opt` | `action x { if <guard> { … } else { … } }` when every guard parses as a v2 expression whose names resolve | mapped |
+| CombinedFragment `loop` | `for i in 1..n { … }` when `minint = maxint`, `while <guard> { … }` when the guard is unbounded; a guard with bounds is refused | mapped |
+| CombinedFragment `par` | `fork x;` … `join xEnd;` around the operands | mapped |
+| CombinedFragment `seq`, `strict` | the operands in order | mapped |
+| CombinedFragment with a guard that does not parse or resolve, an `alt` with an unguarded operand before its last, or of another operator (`critical`, `neg`, `assert`, `ignore`, `consider`, `break`) | comment: the whole interaction is refused | **unmapped** — the reason quotes the guard or names the operator |
+| Message `createMessage`, `deleteMessage`; a message without a signal or operation | comment where the step would go; the steps around it are written | **unmapped** — a part exists for as long as its owner does |
+| Message binding no argument to a parameter or signal attribute that must hold a value (no default, lower bound above zero), or one whose argument is not written | comment: the whole interaction is refused | **unmapped** — the reason names the parameter or attribute |
+| DurationConstraint on a message, or on the occurrences of two messages of a scenario | a wait before the message's step, `accept after lo [SI::s]` or `accept after RandomFunctions::uniform(lo, hi) [SI::s]` as for an action; between two messages, a wait before the later step when they are adjacent, else `fork`ed after the earlier step and `join`ed before the later one, so the steps between count toward the interval | approximated (a v2 send arrives at once; a tool's duration mode is a run setting) |
+| DurationConstraint between two messages of a scenario whose steps lie in different fragments (one in an `alt` operand, the other outside it) | comment before the later step | **unmapped** — a wait forked in one fragment cannot be joined in another |
+| Interaction with no message | comment naming what it records (state invariants under time constraints: a timing trace); DurationConstraint, TimeConstraint, observation on an interaction | **unmapped** — no scenario step performs it |
 | OpaqueBehavior, FunctionBehavior | `calc def` with its parameters when its one body is a v2 expression whose names resolve; otherwise `action def` keeping the body as a comment | mapped / approximated |
 | Operation | `action def <Op>` owned by the owner, with its parameters; the `method` behavior is written as its body (an Activity as the flow, an OpaqueBehavior as expression or comment), its parameters standing for the operation's at the same position, direction and type under the operation's names; a method parameter matching none is declared and reported, since a call binds only the operation's; no method: `abstract action def`; an `action <op> : <Op>;` usage of the owner performs it, as a call on an object does | mapped |
 | Operation `precondition`, `postcondition`, `bodyCondition` | `assert constraint { <expr> }` in the action def when the expression parses and resolves; otherwise a comment | mapped / approximated |
-| Reception | comment on the `part def` naming the signal (the state machine's `accept sig : Sig` already carries it) | approximated |
+| Reception with a `signal` and an Activity `method` | `action def <Sig> { action receive accept sig : Sig; action run : <Method> { in p = sig.p; } first run then receive; }` on the `part def`, plus `perform action sig : <Sig>;`, so every object of the block runs it from creation and accepts the signal again after each: the signal's attributes bind the method's `in` parameters of the same name whose type they conform to and whose multiplicity holds theirs, defaulted and optional parameters stay unbound; a parameter that must hold a value no attribute supplies, or whose type or multiplicity the same-named attribute does not fit, leaves the method unrun, with the reason. Where the signal arrives at ports of the block over the document's connectors or declarations, a `fork` after `start` adds one such loop per port, `accept … : Sig via <port>;` | mapped (a required parameter unsupplied, or an attribute not fitting its parameter: approximated, the signal is only accepted) |
+| Reception without a method, or whose method is not an Activity | the same performed `action def`, accepting the signal and accepting again; the method is named in the report | approximated |
+| Reception whose signal is not written | comment | **unmapped** — the reason names the signal |
 | «Unit», «QuantityKind» instance specifications | comment placeholder | **unmapped** — use the `SI`/`ISQ` libraries |
 | Profiles, the SysML/UML libraries themselves | — | skipped |
 
@@ -224,6 +245,56 @@ not a feature of the model but a simulation setting, so a body reading it stays 
 the total duration of a run is what the runtime's clock reports at its end, which `%runs`
 measures directly.
 
+**The object an activity acts on.** A block's own activity acts on the block's object, `this`.
+An activity no block owns, or one whose sends, accepts and calls all go through the ports of
+another block, acts in v1 on whichever object ran it; it is written with a reference parameter
+for that object, `in ref context : Host;`, its ports read `context.tx`, and every call of it
+binds the parameter, `bind hit.context = this;` from that block's behaviors or `= context` from
+another such activity. The block is the one whose ports the activity or the behaviors it calls
+name; activities calling each other in a cycle name the ports of the whole cycle and take the
+same block. An activity naming ports of several blocks none of which specializes the others
+takes no parameter, and the report says which blocks; an activity naming none accepts through
+the ports the signals it waits for arrive at, on the blocks whose behaviors run it.
+
+An action whose input pin must hold a value (`lower` of 1 or more) but which only flows from
+parameters nothing values, or from object flows that trace back to no pin or parameter at all (a
+buffer nothing fills, an expansion node whose collection is not expanded), can never fire — the
+token would wait forever at it — so it is written and reported as approximated with the pin that
+starves it, no succession reaches or leaves it, and the report on the activity says
+which of its parameters the caller has to value. A call whose target pin is fed from a part of
+the context block, or from the activity's `context` parameter, performs the callee on that
+object, `perform action x ::> drive.motor.spin;`.
+
+**Values that never arrive.** v1 lets a call or a signal send fire holding no value for a
+parameter or attribute that must have one; v2 does not admit a typed perform or `send new
+Sig(x)` with an input unbound, so such a step keeps its place in the flow but performs nothing:
+it is written as an empty action carrying the token, with the reason in its comment and in the
+report. The reasons are the ones the model itself decides: the call passes no argument for a
+required parameter (one with no default and a lower bound above zero; `out` and `return`
+parameters and the operation's target pin are not arguments), the send passes no argument for a
+required attribute of its signal, inherited ones included, or the pin it passes is fed only
+by flows no value travels — from a parameter nothing values, from an action that is not
+migrated (an opaque action's result, or a value specification action whose literal is no value
+of its result's type), from a call whose callee gives that `out` parameter no value, judged
+by the same analysis of the callee's own activity, through any depth of nesting, or from a
+call's result pin past the callee's `out` parameters, which stands for none. Every such object flow is kept as a comment naming its source, never written as a
+`flow` from a feature that will hold nothing, and the receiving action's report line says which
+input receives no value. A call whose callee acts on an object the caller does not hold — the
+method reads ports of its block, and the caller is a behavior of another block with no part of
+that type — is refused the same way, since running it on the caller's object would go through
+ports it lacks.
+
+**Control nodes carrying data.** A fork, join, merge, decision or buffer node that lies on no
+control path and whose every outgoing edge leads to an action's pin routes values, not control:
+the flows through it are written from their sources to the pins it leads to, and the node
+itself is reported as routing data only. A control node no edge leaves ends the token that reaches it, as
+`done` does, and one no edge reaches is skipped as a node nothing refers to. An action whose
+input is fed by an object flow from an action outside its control path waits for the value as
+well as for the control flow — a `join` of the two — but only when the producer runs on every
+pass of the surrounding loop; a producer a later pass can skip, through a decision or a guarded
+edge, is not waited on, since the wait would starve the consumer where v1 would go on with the
+value the last pass left.
+
 **Durations and probabilities.** A `DurationConstraint` on an action is a wait the action's
 token takes before it: `accept after 3.0 [SI::s]` for a point interval, and
 `accept after RandomFunctions::uniform(1.0, 80.0) [SI::s]` for a proper one — a draw from
@@ -232,7 +303,11 @@ tool's `min`/`max`/`average`/`random` duration mode belongs to its run configura
 the model, so the interval is migrated faithfully as a random duration and the mode is the
 [draw policy](../guide/06-behavior.md#draw-policies-min-max-average-and-random) of the run —
 `-draws random -seed <n>` reproduces the tool's random mode, `-draws max` its max mode — which
-each migrated configuration records (below). «Probability» on the edges out of a decision is
+each migrated configuration records (below). An interval open on one side — `{5s..}`, a max of
+`*` — is satisfied by every wait past its bound, so no one delay stands for it and the
+constraint is reported with the bound it lacks; the exception is a MagicDraw document, where a
+constraint written with one value, `{60s}`, is stored as that min beside a max that is a
+duration with no expression, and is written as the fixed wait it shows. «Probability» on the edges out of a decision is
 written as `@Stochastic::Probability { p = … }` on each succession: a tag that is a number is
 the constant `p = 0.5;`, and one that names a property of the activity or of the block whose
 classifier behavior it is — the v1 idiom of an analysis block whose `ProbabilityBTOOP : Real`
@@ -250,16 +325,133 @@ edge written unguarded, so such a decision is a scheduling choice the runtime dr
 with the model seed; the report says so.
 
 **State machines.** A composite state's regions become sub-states of a `parallel` state, so
-the orthogonal regions run together; a submachine state is a `state` usage typed by the
+the orthogonal regions run together — a region holding no vertex is skipped as content
+nothing enters, so a machine whose one other region is populated is written inline and its
+paths hold no parallel state; a submachine state is a `state` usage typed by the
 referenced machine's `state def`, composing through any depth. Triggers are written on the
 transition that refers to them — `accept Sig`, `accept after 2.0 [SI::s]`,
-`accept when this.temperature > 200.0` — and the event's own report line says where. An effect
-with parameters reads the accepted signal: the accept names it, `accept sig : Sig`, and the
-parameters the signal fits are bound to that name. Entry, do and exit behaviors owned by the
-state are inline action bodies, on a submachine state as on any other; those it only refers to
-are `entry x;` references. A transition into an exit point or a terminate pseudostate is written to `done`; entry points,
-connection point references, history pseudostates and internal transitions have no v2 form and
-are comments.
+`accept when this.temperature > 200.0`, `accept at dawn` for an absolute time the `state def`
+holds as a `Time::TimeInstantValue` attribute — and the event's own report line says where. An
+event no trigger refers to is not a gap in the migration: nothing would ever accept it, so it
+is skipped and the summary counts it apart from profile content. An effect with parameters
+reads the accepted signal: the accept names it, `accept sig : Sig`, and the parameters the
+signal fits are bound to that name. Entry, do and exit behaviors owned by the state are inline
+action bodies, on a submachine state as on any other; those it only refers to are `entry x;`
+references.
+
+A state whose entry or do behavior takes parameters is entered by transitions that carry no
+arguments, so the parameters are valued from the signal those transitions accept when every
+transition into the state accepts the same signal and its attributes match the parameters in
+order, type and multiplicity — the signal's own attributes first, then those it inherits from
+its generals: the `state def` declares an item of the signal's type,
+`item setPoint : SetPoint;`, each transition into the state assigns what it accepted to it,
+`accept setPoint2 : SetPoint … assign setPoint := setPoint2;`, and the behavior's parameters
+read its attributes, `in target : ScalarValues::Real = setPoint.level;` inline, or
+`entry action : Handle { in level = setPoint.level; }` where the state refers to a behavior
+written elsewhere, an `inout` parameter bound as `inout` so its value is written back. A state some
+transition enters without a signal — from the initial pseudostate, on a time or change event,
+or carrying a different signal — or whose parameters the signal's attributes do not fit, keeps
+the parameters unvalued and the report says which transition or attribute is the reason; an
+exit behavior with parameters is refused the same way, since nothing of the exit carries a
+signal. A referred-to behavior whose parameter must hold a value is then not run, as a call
+passing no argument for such a parameter is not.
+
+A trigger naming a port of the behavior's owner is `accept Sig via rx`; one naming a port of
+another block is written without it and the report says whose port it is. A trigger naming no
+port is written plain, and it is also written accepting via each port of the owner the signal
+arrives at, so a message a connector delivers to the port is taken as one addressed to the
+object is. A signal arrives at a port when the document sends it through a port the connectors
+and delegations join to it, when an item flow a connector realizes conveys it there, or when the
+port's type — its generals and the interfaces it realizes included — declares a flow property of
+the signal's type flowing in (out on a conjugated port) or a reception of the signal; a special
+of a declared type arrives as well. A port that is untyped, or whose type declares neither flow
+property nor reception, says nothing about what reaches it, so a signal nothing sends there is
+not accepted via it and the report names the port left unrouted.
+
+A transition whose ends lie in different regions or nesting levels names the far end by its
+path — `transition first Idle accept Resume then Work::Run;` — which the runtime executes as
+the compound transition v1 meant, exiting and entering the enclosing states along the way; a
+local transition from a composite state into its own substate has no v2 form that stays inside
+the state, so it is written external and reported as running the exit and entry behaviors. The
+pseudostates are written as the v2 nodes of the same name: `junction`/`choice` for the guarded
+chains, `fork`/`join` to enter and leave the regions of an orthogonal state, `history`/`deep
+history` to re-enter what was active when the state was last left. An entry or exit point of a
+state machine is a `state` of its `state def` whose own transition continues into the machine,
+and a submachine state's connection point references address them by path,
+`then Cell::warmStart;` / `first Cell::spent then Idle;`. An internal transition is a self
+transition, faithful when re-entering the state is not observable (no entry, exit, do or
+substates) and reported otherwise; one written with no target stays in its source, one that
+targets another vertex or leaves a pseudostate is refused, and one without a trigger is a
+comment, as a self transition would fire again on every re-entry. A transition into an exit point of a
+region, or a terminate pseudostate, is written to `done`.
+
+**Interactions.** An interaction owned by a block is a scenario: an `action def` of the block
+whose steps are the messages in the order their occurrences take on the lifelines. Each
+lifeline is resolved to a feature path from the block through its parts, ports and references
+and their types — `drive.motor` — or to an `in` parameter of the interaction (two parts of one
+type are two paths, `left.motor` and `right.motor`, so a lifeline standing for their shared
+`motor` is ambiguous), and a lifeline that resolves to nothing, to two paths, to an `out`
+parameter or through a `selector` refuses the whole interaction, since the scenario could not
+address its steps. A signal message is
+`send new Sig(n = 3) to this.drive.motor;`; a call message is a typed perform of the
+operation's usage on the object, `perform action spin : Motor::Spin ::> drive.motor.spin
+{ in rpm = 30.0; }`, its arguments bound to the operation's `in` and `inout` parameters by
+name or by position, each with the parameter's direction so an `inout` value is written back
+to what the argument named, and a call that leaves a required parameter (no default, lower bound above zero)
+unbound refuses the interaction; a reply answers the latest call of its operation between
+its lifelines that no earlier reply has answered, so nested calls pair with their replies
+stack-like, and assigns that call's `out` to the attribute of the caller's lifeline the reply
+names when the reply lies in the call's fragment or one nested in it. The operands of an `alt`,
+`opt` or `loop` are alternative paths, so each may answer a call made before the fragment, and a
+call answered on any of those paths (or made on only some of them) is open to no reply after the
+fragment; the operands of a `par` are unordered between themselves, so none answers a call
+another makes, while the calls they make are open after the join. Combined fragments become the
+corresponding action structure when their guards are v2
+expressions whose names resolve — `if`/`else` for `alt` and `opt`, `for`/`while` for `loop`,
+`fork`/`join` for `par` — and refuse the interaction, quoting the guard, when they are not.
+A duration constraint on a message is a wait before its step, as on an action; one between
+two messages measures the interval from the earlier step to the later one, so it is a wait
+before the later step when nothing lies between them and otherwise a wait forked after the
+earlier step and joined before the later — the steps between count toward the interval, and
+the bound is drawn once at the earlier step. Two steps in different fragments cannot share a
+fork and join, so such a constraint is reported instead.
+Create and delete messages are comments where the step would go, since a part exists for as
+long as its owner does; the steps around them are written. An interaction with no message is
+not a scenario: the report names what it records (state invariants under time constraints are
+a timing trace). An interaction that is a `TestCase` is a `verification def` whose subject is
+the block, the steps addressing the parts through it.
+
+**Receptions.** A block's reception is an `action def` of the block that accepts its signal,
+`action receive accept setLevel : Signals::SetLevel;`, and runs the method as a nested typed
+action whose `in` parameters read the accepted signal's attributes of the same name,
+`action run : 'Apply Level' { in value = setLevel.value; }`, then returns to the accept,
+`first run then receive;`; a method that is also the method of an operation of the block is
+written once, as that operation's body, so the reception runs the operation's `action def`,
+binding the parameters it declares. The block performs it, `perform action setLevel : SetLevel;`, so
+every object of the block listens from the moment it is created — nothing starts the reception —
+and a signal sent to the object at any time is accepted and its method runs against the object,
+not the signal, as many times as the signal arrives. The runtime keeps a message delivered to a
+port apart from one addressed to the object, so where the document's connectors or port
+declarations bring the signal to ports of the block, the accept is forked: after `start` a
+`fork spread;` leads to the accept from the object and to one accept per port,
+`action 'receive via rx' accept 'setLevel via rx' : Signals::SetLevel via rx;`, each running the
+method and returning to its own accept, so a signal sent to the object or through any of those
+ports runs the method; a port nothing declares or sends the signal to is named in the report as
+not accepting it, as for a trigger. A reception without a method, or with one
+that is not an Activity, accepts the signal and listens again, and the report names the method
+it does not run; so does one whose method has an `in` parameter with no default and a lower bound
+above zero that no attribute of the signal supplies, since v2 does not run an action holding no
+value for it, and one whose same-named attribute is typed by a type that does not conform to the
+parameter's (a `String` attribute for an `Integer` parameter) or whose multiplicity does not lie
+within the parameter's (`[0..*]` for `[1]`), since binding it would violate the parameter.
+
+**Operation calls over ports.** A `CallOperationAction` with `onPort` is resolved the way the
+connector paths are: a connector of the caller's block from that port to a port of a part
+whose type owns the operation makes the call a perform of the part's usage,
+`perform action 'spin over p' ::> motor.spin;`; a port of the target itself names the target;
+a port no connector joins, or one whose connectors reach several parts that own the operation
+(the call names no one of them), leaves the call an action typed by the operation, running in
+the caller's context, and the report says so.
 
 **Running a migrated behavior.** Instantiate the block whose classifier behavior the activity
 or state machine is, then step it or run it many times with the model seed:
@@ -387,7 +579,9 @@ one of four verdicts:
 - **approximated** — written, but not one-to-one; the note says what was lost or changed.
 - **unmapped** — no v2 form was written. The element appears in the notation as a comment at
   the place it would have gone, so a reader of the migrated model can see the gap.
-- **skipped** — profile and library content that is not part of the user's model.
+- **skipped** — profile and library content that is not part of the user's model, and the
+  user's own elements nothing in the model refers to (an event no trigger names), which no v2
+  form would represent; the summary counts the two apart.
 
 The text form (default) groups by verdict, unmapped first, one line per element: kind with its
 stereotypes, qualified v1 name, `xmi:id`, the v2 name it became, and a note. The JSON form
