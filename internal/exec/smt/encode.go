@@ -764,7 +764,7 @@ type nodeEffect struct {
 	failed   []*solve.Term
 	overflow []*solve.Term
 	loops    map[int]*solve.Term
-	// staged holds, per pin queue and source pin this performance streamed from, when it did.
+	// staged holds, per pin queue and resolved source pin this performance streamed from, when it did.
 	staged map[string]*solve.Term
 }
 
@@ -1350,7 +1350,7 @@ func (e *Encoding) stream(x *nodeEffect, cond *solve.Term, node ast.Node, pin *s
 			streamed = or(held, cond)
 		}
 		x.env.has[streamedName(pin.Name)] = streamed
-		e.carry(x, cond, flow, target, value, where)
+		e.carry(x, cond, flow, pin, target, value, where)
 	}
 	return nil
 }
@@ -1364,16 +1364,16 @@ func unreceivedName(pin string) string { return "unreceived(" + pin + ")" }
 
 // carry puts a flow's payload where its target reads it, where cond holds: the pin
 // queue of a node in a frame of its own, else the action's feature. A queue holding a
-// value from another performance or pin is an overflow; a streaming flow's own earlier
-// value it replaces, and a value queued after its target performed is unreceived.
-func (e *Encoding) carry(x *nodeEffect, cond *solve.Term, flow lower.ObjectFlow, target *solve.Var, value *solve.Term, where string) {
+// value from another performance or source pin is an overflow; a streaming flow's own
+// earlier value it replaces, and a value queued after its target performed is unreceived.
+func (e *Encoding) carry(x *nodeEffect, cond *solve.Term, flow lower.ObjectFlow, source, target *solve.Var, value *solve.Term, where string) {
 	if domain := e.domain(target.Name, value); domain != nil {
 		x.fail(cond, domain)
 	}
 	if pending, queued := e.pending[target.Name]; queued {
 		full := x.env.has[pending.Name]
 		if flow.Kind == lower.FlowStreaming {
-			slot := target.Name + " from " + flow.SourcePin
+			slot := target.Name + " from " + source.Name
 			if staged := x.staged[slot]; staged != nil {
 				full = and(full, not(staged))
 				x.staged[slot] = or(staged, cond)
@@ -1421,7 +1421,7 @@ func (e *Encoding) flows(x *nodeEffect, node ast.Node, where string) error {
 				cond = not(streamed)
 			}
 		}
-		e.carry(x, cond, flow, target, x.env.values[source.Name], where)
+		e.carry(x, cond, flow, source, target, x.env.values[source.Name], where)
 	}
 	return nil
 }

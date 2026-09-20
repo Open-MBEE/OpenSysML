@@ -703,9 +703,9 @@ func (f *actionFrame) queue(node ast.Node, pin string, value Value) int {
 	return len(f.pending[node][pin]) - 1
 }
 
-// stage queues a value streamed from source's from pin ahead of node's next
-// performance, or replaces the one an earlier write to from left waiting at the
-// pin; it reports whether a value was appended.
+// stage queues a value streamed from source's from pin (its key, so aliases share a
+// slot) ahead of node's next performance, or replaces the one an earlier write to from
+// left waiting at the pin; it reports whether a value was appended.
 func (f *actionFrame) stage(node ast.Node, pin string, source *actionFrame, from string, value Value) bool {
 	queue := f.pending[node][pin]
 	for _, s := range f.staged[node][pin] {
@@ -885,7 +885,11 @@ func (e *performances) streamFlow(
 			return fmt.Errorf("%s: %w", flowDescription(flow), err)
 		}
 		pin := canonical(pins.aliases, flow.TargetPin)
-		appended := frame.stage(flow.Target, pin, perf, flow.SourcePin, value)
+		from := flow.SourcePin
+		if perf != nil {
+			from = perf.key(from)
+		}
+		appended := frame.stage(flow.Target, pin, perf, from, value)
 		if latest := frame.subactions[flow.Target]; appended && latest != nil && latest.ended {
 			if frame.unreceived == nil {
 				frame.unreceived = make(map[ast.Node][]unreceivedStream)
