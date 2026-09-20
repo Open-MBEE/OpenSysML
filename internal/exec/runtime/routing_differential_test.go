@@ -48,17 +48,12 @@ func TestRoutingUnchangedByConnectorObjects(t *testing.T) {
 				t.Fatal(err)
 			}
 			runConformanceCase(t, conformanceDir, name, DefaultSchedulePolicy)
-			if expected.Type != "instance" {
-				if expected.Type != "state" || len(expected.Performers) == 0 {
-					runConformanceCaseWithOwned(t, conformanceDir, name, DefaultSchedulePolicy, true)
-					return
-				}
-				runConformanceCaseWithOwned(t, conformanceDir, name, DefaultSchedulePolicy, true)
+			// Only a case with an object before execution has connectors to force;
+			// the others skip inside the harness.
+			if expected.Type == "instance" || expected.Type == "state" && len(expected.Performers) > 0 {
 				forcedCases[name] = true
-				return
 			}
 			runConformanceCaseWithOwned(t, conformanceDir, name, DefaultSchedulePolicy, true)
-			forcedCases[name] = true
 		})
 	}
 	for _, name := range cases {
