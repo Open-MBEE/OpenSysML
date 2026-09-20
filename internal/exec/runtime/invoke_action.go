@@ -308,12 +308,16 @@ type calleeFrame struct {
 	name   string
 	out    []string
 	joined bool
+	// performer is the node's performance listening to a joined callee's outputs.
+	performer *actionFrame
 }
 
 func (f *calleeFrame) abandon(*Context) {
 	if !f.joined {
 		f.exec.Release()
+		return
 	}
+	f.exec.unlisten(f.performer)
 }
 
 func (f *calleeFrame) clone() bodyFrame { c := *f; return &c }
@@ -321,27 +325,30 @@ func (f *calleeFrame) clone() bodyFrame { c := *f; return &c }
 // beginOrJoinCallee begins a performance of the action inv names on self, or, for a
 // `part.callee` whose object performs the callee already (its type performs it), joins
 // that one performance, as a run of the action named on an object does (performAction).
-func (ctx *Context) beginOrJoinCallee(inv actionInvocation, sym *symbols.Symbol, self *Instance, inputs map[string]Value, streamOutput func(string, Value) error) (*calleeFrame, error) {
+func (ctx *Context) beginOrJoinCallee(inv actionInvocation, sym *symbols.Symbol, self *Instance, inputs map[string]Value, listener *outputListener) (*calleeFrame, error) {
 	if inv.chain != nil {
 		exec, err := performanceOf(sym, self, inputs)
 		if err != nil {
 			return nil, err
 		}
 		if exec != nil {
+			if listener != nil {
+				exec.listen(listener.perf, listener.take)
+			}
 			return &calleeFrame{exec: exec, joined: true}, nil
 		}
 	}
-	return ctx.beginCallee(inv.performed(sym), sym, self, inputs, streamOutput)
+	return ctx.beginCallee(inv.performed(sym), sym, self, inputs, listener)
 }
 
 // beginCallee starts action, a performance of performed, as a sub-execution of
-// the caller nested one deeper, on the clock until run to completion; streamOutput,
+// the caller nested one deeper, on the clock until run to completion; listener,
 // if any, takes each write to its outputs from its first declared value on.
-func (ctx *Context) beginCallee(performed, action *symbols.Symbol, self *Instance, inputs map[string]Value, streamOutput func(string, Value) error) (*calleeFrame, error) {
+func (ctx *Context) beginCallee(performed, action *symbols.Symbol, self *Instance, inputs map[string]Value, listener *outputListener) (*calleeFrame, error) {
 	ctx.actionDepth++
 	defer func() { ctx.actionDepth-- }()
 	defer ctx.nestRun()()
-	exec, err := ctx.beginPerformed(performed, action, self, inputs, false, streamOutput, startActionStep)
+	exec, err := ctx.beginPerformed(performed, action, self, inputs, false, listener, startActionStep)
 	if err != nil {
 		return nil, err
 	}

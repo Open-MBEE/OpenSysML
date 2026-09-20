@@ -572,13 +572,17 @@ func clonePending(pending map[ast.Node]map[string][]Value) map[ast.Node]map[stri
 	return cloned
 }
 
-func cloneStaged(staged map[ast.Node]map[string]stagedStream) map[ast.Node]map[string]stagedStream {
+func cloneStaged(staged map[ast.Node]map[string][]stagedStream) map[ast.Node]map[string][]stagedStream {
 	if staged == nil {
 		return nil
 	}
-	cloned := make(map[ast.Node]map[string]stagedStream, len(staged))
+	cloned := make(map[ast.Node]map[string][]stagedStream, len(staged))
 	for node, pins := range staged {
-		cloned[node] = maps.Clone(pins)
+		clonedPins := make(map[string][]stagedStream, len(pins))
+		for pin, entries := range pins {
+			clonedPins[pin] = slices.Clone(entries)
+		}
+		cloned[node] = clonedPins
 	}
 	return cloned
 }

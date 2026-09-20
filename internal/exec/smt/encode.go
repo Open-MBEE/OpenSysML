@@ -3,6 +3,7 @@ package smt
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"math/big"
 	"sort"
 
@@ -1442,7 +1443,7 @@ func (e *Encoding) statements(x *nodeEffect, body []lower.Statement, path *solve
 			value, defined := x.env.evaluate(e.exprs[s.Value])
 			x.fail(path, defined)
 			e.write(x, path, target, value, where)
-			if err := e.stream(x, solve.BoolTerm(true), node, target, x.env.values[target.Name], where); err != nil {
+			if err := e.stream(x, path, node, target, x.env.values[target.Name], where); err != nil {
 				return err
 			}
 		case lower.Declare:
@@ -1454,7 +1455,7 @@ func (e *Encoding) statements(x *nodeEffect, body []lower.Statement, path *solve
 			value, defined := x.env.evaluate(e.exprs[s.Value])
 			x.fail(path, defined)
 			e.write(x, path, target, value, where)
-			if err := e.stream(x, solve.BoolTerm(true), node, target, x.env.values[target.Name], where); err != nil {
+			if err := e.stream(x, path, node, target, x.env.values[target.Name], where); err != nil {
 				return err
 			}
 		case lower.Block:
@@ -1464,19 +1465,17 @@ func (e *Encoding) statements(x *nodeEffect, body []lower.Statement, path *solve
 		case lower.If:
 			cond, defined := x.env.evaluate(e.exprs[s.Condition])
 			x.fail(path, defined)
-			then := &nodeEffect{env: x.env.clone(), loops: make(map[int]*solve.Term)}
+			then := x.branch()
 			if err := e.statements(then, s.Then.Statements, and(path, cond), where, node); err != nil {
 				return err
 			}
-			otherwise := &nodeEffect{env: x.env.clone(), loops: make(map[int]*solve.Term)}
+			otherwise := x.branch()
 			if s.Else != nil {
 				if err := e.statements(otherwise, s.Else.Statements, and(path, not(cond)), where, node); err != nil {
 					return err
 				}
 			}
 			x.env = e.merge(cond, then.env, otherwise.env, where)
-			x.failed = append(x.failed, then.failed...)
-			x.failed = append(x.failed, otherwise.failed...)
 			x.absorb(then)
 			x.absorb(otherwise)
 		case lower.Loop:
@@ -1490,13 +1489,29 @@ func (e *Encoding) statements(x *nodeEffect, body []lower.Statement, path *solve
 	return nil
 }
 
-// absorb takes the loop conditions of a branch's effect into x.
+// branch is the effect of a body's branch or loop pass, over a copy of x's
+// environment and what x has staged so far.
+func (x *nodeEffect) branch() *nodeEffect {
+	return &nodeEffect{env: x.env.clone(), loops: make(map[int]*solve.Term), staged: maps.Clone(x.staged)}
+}
+
+// absorb takes the failures, overflows, loop conditions and staging of a branch's
+// effect into x; each is already conditioned on the branch's path.
 func (x *nodeEffect) absorb(branch *nodeEffect) {
+	x.failed = append(x.failed, branch.failed...)
+	x.overflow = append(x.overflow, branch.overflow...)
 	for l, term := range branch.loops {
 		if held, ok := x.loops[l]; ok {
 			x.loops[l] = or(held, term)
 		} else {
 			x.loops[l] = term
+		}
+	}
+	for pin, term := range branch.staged {
+		if held, ok := x.staged[pin]; ok && held != term {
+			x.staged[pin] = or(held, term)
+		} else {
+			x.staged[pin] = term
 		}
 	}
 }
@@ -1568,12 +1583,11 @@ func (e *Encoding) loop(x *nodeEffect, s lower.Loop, path *solve.Term, where str
 			x.fail(alive, defined)
 			alive = and(alive, cond)
 		}
-		body := &nodeEffect{env: x.env.clone(), loops: make(map[int]*solve.Term)}
+		body := x.branch()
 		if err := e.statements(body, s.Body.Statements, alive, where, node); err != nil {
 			return err
 		}
 		x.env = e.merge(alive, body.env, x.env, where)
-		x.failed = append(x.failed, body.failed...)
 		x.absorb(body)
 		if post != nil {
 			cond, defined := x.env.evaluate(e.exprs[post])

@@ -25,9 +25,9 @@ const actionLabelPrefix = "action "
 
 // ActionExecutor executes action bodies using token-flow semantics.
 type ActionExecutor struct {
-	// streamOutput, set while a node of another action performs this one, takes each
-	// write to an output of the action as it is made; nil when nothing is listening.
-	streamOutput func(name string, value Value) error
+	// outputListeners, one per node of another action performing this one, take each
+	// write to an output of the action as it is made; empty when nothing is listening.
+	outputListeners []outputListener
 	// performances holds the action's own performance, root, and runs its nodes' as
 	// its subperformances; self is the object performing the action, whose
 	// connections route what it sends.
@@ -1203,8 +1203,36 @@ func (e *ActionExecutor) setFeature(name string, value Value) error {
 	}
 	e.root.data[e.root.key(name)] = value
 	e.moved = true
-	if e.streamOutput != nil {
-		return e.streamOutput(name, value)
+	return e.streamOutput(name, value)
+}
+
+// outputListener is a node's ear on the outputs of the action it performs: perf is
+// the node's performance, take carries each write to its pins.
+type outputListener struct {
+	perf *actionFrame
+	take func(name string, value Value) error
+}
+
+// listen has perf take each later write to the action's outputs, replacing what it
+// listened through before.
+func (e *ActionExecutor) listen(perf *actionFrame, take func(string, Value) error) {
+	e.unlisten(perf)
+	e.outputListeners = append(e.outputListeners, outputListener{perf: perf, take: take})
+}
+
+// unlisten stops perf's listening; a performance a node joined outlives the node.
+func (e *ActionExecutor) unlisten(perf *actionFrame) {
+	e.outputListeners = slices.DeleteFunc(e.outputListeners, func(l outputListener) bool {
+		return l.perf == perf
+	})
+}
+
+// streamOutput carries a write to an output to every listener, in listening order.
+func (e *ActionExecutor) streamOutput(name string, value Value) error {
+	for _, l := range e.outputListeners {
+		if err := l.take(name, value); err != nil {
+			return err
+		}
 	}
 	return nil
 }

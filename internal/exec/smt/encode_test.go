@@ -396,3 +396,40 @@ func TestEncodeFlowKindsDiffer(t *testing.T) {
 		})
 	}
 }
+
+func TestEncodeStreamsConditionalWrite(t *testing.T) {
+	solver := requireSolver(t)
+	const k = 10
+	ctx, action, graph, held := loweredDocument(t, "conditional_stream_test.sysml", `package test {
+	private import ScalarValues::*;
+	action outer {
+		in enabled : Boolean;
+		attribute seen : Integer = -1;
+		first start;
+		action producer { out value : Integer = 5; if enabled { assign value := 7; } }
+		action consumer { in got : Integer = 0; assign seen := got; }
+		done;
+		succession first start then producer;
+		succession first producer then consumer;
+		succession first consumer then done;
+		flow producer.value to consumer.got;
+	}
+}`, "test::outer")
+	enc, err := Encode(ctx, action, graph, held, nil, k, DefaultUnroll)
+	if err != nil {
+		t.Fatalf("encode: %v", err)
+	}
+	last := enc.States[k]
+	failed := solve.VarTerm(last.Failed)
+	seen, enabled := last.Values["test::outer::seen"], last.Values["test::outer::enabled"]
+	if seen == nil || enabled == nil {
+		t.Fatalf("no features seen and enabled among %v", names(enc.Features))
+	}
+	if got := status(t, solver, enc, k, failed); got != solve.StatusUnsat {
+		t.Errorf("completes failed: %v, want unsat", got)
+	}
+	agree := eq(solve.VarTerm(seen), solve.Ite(solve.VarTerm(enabled), solve.IntTerm(7), solve.IntTerm(5)))
+	if got := status(t, solver, enc, k, solve.Not(agree)); got != solve.StatusUnsat {
+		t.Errorf("seen disagrees with the branch taken: %v, want unsat", got)
+	}
+}

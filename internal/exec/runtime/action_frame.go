@@ -101,9 +101,9 @@ type actionFrame struct {
 	// pending queues what flows and bindings delivered to a node's pins ahead of
 	// its performances, each of which takes the oldest delivery at each pin.
 	pending map[ast.Node]map[string][]Value
-	// staged locates, per target node and pin, the queued value the latest streaming
-	// write from a source performance left, which its next write replaces.
-	staged map[ast.Node]map[string]stagedStream
+	// staged locates, per target node and pin, the queued value each streaming source
+	// performance's latest write left, which the source's next write replaces.
+	staged map[ast.Node]map[string][]stagedStream
 	// nested queues deliveries to pins of the nodes under a node (`leg.inner.v`) ahead
 	// of its next performance, which forwards them to its own nodes.
 	nested map[ast.Node][]nestedDelivery
@@ -706,18 +706,21 @@ func (f *actionFrame) queue(node ast.Node, pin string, value Value) int {
 // replaces the one source's earlier write left waiting at the pin; it reports
 // whether a value was appended.
 func (f *actionFrame) stage(node ast.Node, pin string, source *actionFrame, value Value) bool {
-	if s, ok := f.staged[node][pin]; ok && source != nil && s.source == source && s.at < len(f.pending[node][pin]) {
-		f.pending[node][pin][s.at] = value
-		return false
+	queue := f.pending[node][pin]
+	for _, s := range f.staged[node][pin] {
+		if source != nil && s.source == source && s.at < len(queue) {
+			queue[s.at] = value
+			return false
+		}
 	}
 	at := f.queue(node, pin, value)
 	if f.staged == nil {
-		f.staged = make(map[ast.Node]map[string]stagedStream)
+		f.staged = make(map[ast.Node]map[string][]stagedStream)
 	}
 	if f.staged[node] == nil {
-		f.staged[node] = make(map[string]stagedStream)
+		f.staged[node] = make(map[string][]stagedStream)
 	}
-	f.staged[node][pin] = stagedStream{source: source, at: at}
+	f.staged[node][pin] = append(f.staged[node][pin], stagedStream{source: source, at: at})
 	return true
 }
 
@@ -748,13 +751,7 @@ func (e *performances) takeDeliveries(f *actionFrame, node ast.Node, perf *actio
 	queues := f.pending[node]
 	for pin, values := range queues {
 		f.receiveStream(node, pin)
-		if s, ok := f.staged[node][pin]; ok {
-			if s.at--; s.at < 0 {
-				delete(f.staged[node], pin)
-			} else {
-				f.staged[node][pin] = s
-			}
-		}
+		f.shiftStaged(node, pin)
 		perf.data[pin] = values[0]
 		if len(values) == 1 {
 			delete(queues, pin)
@@ -773,6 +770,22 @@ func (e *performances) takeDeliveries(f *actionFrame, node ast.Node, perf *actio
 		}
 	}
 	return nil
+}
+
+// shiftStaged moves what is staged at node's pin one place toward the front of the
+// pin's queue, as a performance takes the oldest delivery, dropping what it took.
+func (f *actionFrame) shiftStaged(node ast.Node, pin string) {
+	var kept []stagedStream
+	for _, s := range f.staged[node][pin] {
+		if s.at--; s.at >= 0 {
+			kept = append(kept, s)
+		}
+	}
+	if kept == nil {
+		delete(f.staged[node], pin)
+		return
+	}
+	f.staged[node][pin] = kept
 }
 
 // receiveStream notes that a performance of node took the oldest value at pin: the
@@ -1348,11 +1361,14 @@ func (e *performances) performInvocation(perf *actionFrame, inv actionInvocation
 			return err
 		}
 	}
-	if resumed && !callee.joined {
-		callee.exec.streamOutput = e.streamCalleeOutput(perf, callee.out)
+	if resumed {
+		callee.exec.listen(perf, e.streamCalleeOutput(perf, callee.out))
 	}
 	if _, _, err := e.ctx.runCallee(callee); err != nil {
 		return err
+	}
+	if callee.joined {
+		callee.exec.unlisten(perf)
 	}
 	perf.adopt(callee.exec)
 	perf.outputs = callee.out
@@ -1412,11 +1428,12 @@ func (e *performances) beginInvocation(perf *actionFrame, inv actionInvocation) 
 	}
 
 	sort.Strings(out)
-	callee, err := e.ctx.beginOrJoinCallee(inv, sym, performer, inputs, e.streamCalleeOutput(perf, out))
+	listener := &outputListener{perf: perf, take: e.streamCalleeOutput(perf, out)}
+	callee, err := e.ctx.beginOrJoinCallee(inv, sym, performer, inputs, listener)
 	if err != nil {
 		return nil, fmt.Errorf("invoke action %s: %w", inv.name(), err)
 	}
-	callee.name, callee.out = inv.name(), out
+	callee.name, callee.out, callee.performer = inv.name(), out, perf
 	return callee, nil
 }
 

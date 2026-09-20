@@ -62,7 +62,14 @@ type imagedFrame struct {
 	outer      []imagedOuter
 	subactions map[ast.Node]int
 	pending    map[ast.Node]map[string][]Value
+	staged     map[ast.Node]map[string][]imagedStaged
 	nested     map[ast.Node][]nestedDelivery
+}
+
+// imagedStaged is a staged streaming write, its source performance by position.
+type imagedStaged struct {
+	source int
+	at     int
 }
 
 // imagedOuter is one level of bindings around a performance, its performance by position.
@@ -203,7 +210,7 @@ func (t *imaging) frame(perf *actionFrame, at func(*actionFrame) int) (imagedFra
 	}
 	f := imagedFrame{saved: *perf, parent: at(perf.parent)}
 	f.saved.parent, f.saved.locals, f.saved.outer, f.saved.data = nil, nil, nil, nil
-	f.saved.subactions, f.saved.pending, f.saved.nested = nil, nil, nil
+	f.saved.subactions, f.saved.pending, f.saved.staged, f.saved.nested = nil, nil, nil, nil
 	f.saved.connections = slices.Clone(perf.connections)
 	f.saved.features = maps.Clone(perf.features)
 	f.saved.aliases = maps.Clone(perf.aliases)
@@ -252,6 +259,17 @@ func (t *imaging) frame(perf *actionFrame, at func(*actionFrame) int) (imagedFra
 		}
 	}
 	f.pending = clonePending(perf.pending)
+	if perf.staged != nil {
+		f.staged = make(map[ast.Node]map[string][]imagedStaged, len(perf.staged))
+		for node, pins := range perf.staged {
+			f.staged[node] = make(map[string][]imagedStaged, len(pins))
+			for pin, entries := range pins {
+				for _, s := range entries {
+					f.staged[node][pin] = append(f.staged[node][pin], imagedStaged{source: at(s.source), at: s.at})
+				}
+			}
+		}
+	}
 	for _, deliveries := range perf.nested {
 		for _, d := range deliveries {
 			if err := t.value(d.value); err != nil {
@@ -534,6 +552,17 @@ func (m *materializing) frame(perf *actionFrame, img imagedFrame, frameAt func(i
 				}
 			}
 			perf.pending[node] = carriedPins
+		}
+	}
+	if img.staged != nil {
+		perf.staged = make(map[ast.Node]map[string][]stagedStream, len(img.staged))
+		for node, pins := range img.staged {
+			perf.staged[node] = make(map[string][]stagedStream, len(pins))
+			for pin, entries := range pins {
+				for _, s := range entries {
+					perf.staged[node][pin] = append(perf.staged[node][pin], stagedStream{source: frameAt(s.source), at: s.at})
+				}
+			}
 		}
 	}
 	if img.nested != nil {

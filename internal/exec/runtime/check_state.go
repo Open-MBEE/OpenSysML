@@ -462,7 +462,9 @@ func (s *stateSpeller) frame(perf *actionFrame) string {
 	for _, node := range sortedNodes(perf.staged) {
 		pins := perf.staged[node]
 		for _, pin := range slices.Sorted(maps.Keys(pins)) {
-			fmt.Fprintf(&b, " staged{%s.%s[%d] by %s}", s.node(perf.graph, node), pin, pins[pin].at, s.frameLabel(pins[pin].source))
+			for _, staged := range pins[pin] {
+				fmt.Fprintf(&b, " staged{%s.%s[%d] by %s}", s.node(perf.graph, node), pin, staged.at, s.frameLabel(staged.source))
+			}
 		}
 	}
 	for _, node := range sortedNodes(perf.unreceived) {
