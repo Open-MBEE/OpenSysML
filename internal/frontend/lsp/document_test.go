@@ -455,7 +455,7 @@ func TestRenderDocumentMarkdown(t *testing.T) {
 	}
 	for _, want := range []string{
 		"# Telescope Mass Report",
-		"<!-- caption -->\n*All subsystems by mass*",
+		"*All subsystems by mass*",
 		"| name | mass |",
 		"| optics | 8.5 |",
 	} {

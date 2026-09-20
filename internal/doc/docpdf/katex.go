@@ -2,80 +2,29 @@ package docpdf
 
 import (
 	"fmt"
-	"html"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
 )
 
 // This file typesets a document's formulas ahead of conversion: KaTeX renders
 // each LaTeX source to HTML that any paged-media engine lays out with the
 // KaTeX fonts, so no converter needs a TeX or MathML engine of its own.
 
-// formula is one LaTeX source to typeset, inline or on a display line.
-type formula struct {
-	Source  string
-	Display bool
-}
-
-// formulas is the typeset HTML of a document's formulas and the stylesheet it
-// needs, as a path within the working directory; a document without formulas
-// has neither.
+// formulas is the typeset HTML of a document's formulas, keyed as
+// docrender.Formulas lists them and kept in that order, and the stylesheet
+// they need as a path within the working directory; a document without
+// formulas has neither.
 type formulas struct {
-	html map[formula]string
+	list []docrender.Formula
+	html map[docrender.Formula]string
 	css  string
 }
 
-// typeset returns the HTML for one formula; one never typeset shows its
-// source, escaped.
-func (f formulas) typeset(m formula) string {
-	if typeset, ok := f.html[m]; ok {
-		return typeset
-	}
-	return html.EscapeString(m.Source)
-}
-
-// collectFormulas lists the distinct formulas the blocks show, in document
-// order: display blocks, and the inline math of every prose line.
-func collectFormulas(blocks []block) []formula {
-	var list []formula
-	seen := map[formula]bool{}
-	add := func(m formula) {
-		if !seen[m] {
-			seen[m] = true
-			list = append(list, m)
-		}
-	}
-	inline := func(text string) {
-		for _, seg := range splitMath(text) {
-			if seg.math {
-				add(formula{Source: seg.text})
-			}
-		}
-	}
-	for _, blk := range blocks {
-		switch blk.Kind {
-		case blockHeading, blockParagraph, blockCaption:
-			inline(blk.Text)
-		case blockList:
-			for _, item := range blk.Items {
-				inline(item)
-			}
-		case blockTable:
-			for _, cell := range blk.Header {
-				inline(cell)
-			}
-			for _, row := range blk.Rows {
-				for _, cell := range row {
-					inline(cell)
-				}
-			}
-		case blockFormula:
-			add(formula{Source: blk.Source, Display: true})
-		}
-	}
-	return list
-}
+// keys lists the typeset formulas in document order.
+func (f formulas) keys() []docrender.Formula { return f.list }
 
 // Where the KaTeX stylesheet and its fonts are copied to within the working
 // directory; the stylesheet names the fonts relative to itself.
@@ -85,11 +34,10 @@ const (
 	katexFontDir = "fonts"
 )
 
-// renderFormulas typesets each formula in blocks to HTML with the katex
-// command-line tool and copies its stylesheet and fonts into dir. A document
-// without formulas needs no KaTeX at all.
-func renderFormulas(dir string, blocks []block) (formulas, error) {
-	list := collectFormulas(blocks)
+// renderFormulas typesets each formula to HTML with the katex command-line
+// tool and copies its stylesheet and fonts into dir. A document without
+// formulas needs no KaTeX at all.
+func renderFormulas(dir string, list []docrender.Formula) (formulas, error) {
 	if len(list) == 0 {
 		return formulas{}, nil
 	}
@@ -104,11 +52,11 @@ func renderFormulas(dir string, blocks []block) (formulas, error) {
 	if err := copyStylesheet(css, filepath.Join(dir, katexDir)); err != nil {
 		return formulas{}, err
 	}
-	typeset := formulas{html: make(map[formula]string, len(list)), css: filepath.ToSlash(filepath.Join(katexDir, katexCSSName))}
+	typeset := formulas{list: list, html: make(map[docrender.Formula]string, len(list)), css: filepath.ToSlash(filepath.Join(katexDir, katexCSSName))}
 	for i, m := range list {
 		input := fmt.Sprintf("formula-%d.tex", i+1)
 		output := fmt.Sprintf("formula-%d.html", i+1)
-		if err := os.WriteFile(filepath.Join(dir, input), []byte(m.Source+"\n"), 0o600); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, input), []byte(m.TeX()+"\n"), 0o600); err != nil {
 			return formulas{}, err
 		}
 		// HTML alone: the MathML KaTeX would add for assistive technology
@@ -192,69 +140,4 @@ func copyFile(src, dst string) error {
 		return err
 	}
 	return os.WriteFile(dst, data, 0o600)
-}
-
-// markdownWithFormulas rewrites the document's Markdown with each formula
-// replaced by its typeset HTML in a raw-attribute span or block, which a
-// converter reading the Markdown passes through without interpreting.
-// Fenced code blocks are kept as written, dollars and all.
-func markdownWithFormulas(markdown string, typeset formulas) string {
-	lines := strings.Split(markdown, "\n")
-	var out []string
-	for i := 0; i < len(lines); i++ {
-		if strings.HasPrefix(lines[i], "```") {
-			end := fenceEndAt(lines, i+1, "```")
-			if end < 0 {
-				end = len(lines) - 1
-			}
-			out = append(out, lines[i:end+1]...)
-			i = end
-			continue
-		}
-		if lines[i] == mathFence {
-			end := fenceEndAt(lines, i+1, mathFence)
-			if end < 0 {
-				end = len(lines)
-			}
-			source := strings.Join(lines[i+1:end], "\n")
-			out = append(out, "```{=html}", `<div class="formula">`+typeset.typeset(formula{Source: source, Display: true})+"</div>", "```")
-			i = end
-			continue
-		}
-		out = append(out, lineWithFormulas(lines[i], typeset))
-	}
-	return strings.Join(out, "\n")
-}
-
-// lineWithFormulas replaces each inline formula of one line with its typeset
-// HTML in a raw-attribute code span, keeping the prose around it as written.
-func lineWithFormulas(line string, typeset formulas) string {
-	segs := splitMath(line)
-	if len(segs) == 1 && !segs[0].math {
-		return line
-	}
-	var b strings.Builder
-	for _, seg := range segs {
-		if !seg.math {
-			b.WriteString(seg.text)
-			continue
-		}
-		rendered := `<span class="math">` + typeset.typeset(formula{Source: seg.text}) + "</span>"
-		fence := strings.Repeat("`", longestBacktickRun(rendered)+1)
-		b.WriteString(fence + rendered + fence + "{=html}")
-	}
-	return b.String()
-}
-
-// longestBacktickRun is the length of the longest run of backticks in text.
-func longestBacktickRun(text string) int {
-	longest := 0
-	for i := 0; i < len(text); {
-		run := backtickRun(text, i)
-		if run > longest {
-			longest = run
-		}
-		i += run + 1
-	}
-	return longest
 }

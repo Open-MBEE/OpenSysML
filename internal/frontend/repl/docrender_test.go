@@ -113,7 +113,7 @@ func TestRenderDocumentPrintsMarkdown(t *testing.T) {
 		"# Telescope Mass Report",
 		"Mass rollup for the telescope assembly.",
 		"## Heavy Subsystems",
-		"<!-- caption -->\n*Heavy subsystems by mass*",
+		"*Heavy subsystems by mass*",
 		"| name | mass |",
 		"| --- | --- |",
 		"| mount | 15 |",

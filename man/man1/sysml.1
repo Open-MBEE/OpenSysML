@@ -257,16 +257,16 @@ Converter \-doc\-form pdf drives: weasyprint (default), pandoc or prince
 .SS Styling HTML documents
 .TP
 .BR \-html\-theme " \fItheme\fP"
-Style the page with a bundled theme layered over the default stylesheet:
-default, modern, print or report
+Style the HTML page or PDF with a bundled theme layered over the default
+stylesheet: default, modern, print or report
 .TP
 .BR \-html\-css " \fIfile|url\fP"
-Style the page with this stylesheet too: a file is inlined, a URL is linked
-(repeatable, applied in order after the default sheet)
+Style the HTML or PDF with this stylesheet too: a file is inlined, a URL is
+linked (repeatable, applied in order after the default sheet)
 .TP
 .B \-html\-no\-default\-css
-Leave the default stylesheet out, so only \-html\-css sheets style the
-document
+Leave the default stylesheet out, so only \-html\-css sheets style the HTML or
+PDF
 .TP
 .B \-html\-fragment
 Write the document element alone, without the page shell or a stylesheet, to
@@ -767,11 +767,13 @@ stays a table. Neither Graphviz nor PlantUML is needed to write it.
 identity and kind, styled by a stylesheet in a cascade layer your own CSS
 overrides without !important.
 .PP
-\-doc\-form pdf converts that Markdown with an external converter named by
-\-pdf\-engine \(em weasyprint (default), pandoc or prince \(em run as a
-subprocess, never linked in; diagrams are pre\-rendered to SVG with
-mermaid\-cli (mmdc). None of these tools is needed until PDF output is asked
-for; scripts/download\-doc\-pdf\-toolchain.sh provisions pinned copies.
+\-doc\-form pdf lays that HTML out with a print stylesheet through an external
+converter named by \-pdf\-engine \(em weasyprint (default) or prince, or
+pandoc, which reads the Markdown instead \(em run as a subprocess, never
+linked in; diagrams are pre\-rendered to SVG with mermaid\-cli (mmdc).
+\-html\-theme, \-html\-css and \-html\-no\-default\-css style the PDF as they
+style the page. None of these tools is needed until PDF output is asked for;
+scripts/download\-doc\-pdf\-toolchain.sh provisions pinned copies.
 .PP
 HTML output needs nothing external and loads nothing by default: \-html\-theme
 picks one of the bundled looks (default, modern, print, report), \-html\-css

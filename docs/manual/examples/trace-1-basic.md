@@ -2,7 +2,6 @@
 
 Which part of the rover satisfies each requirement.
 
-<!-- caption -->
 *Requirements and their satisfiers*
 
 | shortName | documentation | satisfiedBy | satisfied |

@@ -19,6 +19,9 @@ const telescopeFixture = "../../doc/docrender/testdata/telescope_report.sysml"
 // telescopeGolden is the Markdown the fixture's MassReport renders to.
 const telescopeGolden = "../../doc/docrender/testdata/telescope_report.golden.md"
 
+// telescopeHTMLGolden is the standalone HTML page the same document renders to.
+const telescopeHTMLGolden = "../../doc/docrender/testdata/telescope_report.golden.html"
+
 // defaultedFixture declares queries whose parameters carry defaults.
 const defaultedFixture = "../../doc/docrender/testdata/defaulted_queries.sysml"
 
@@ -512,6 +515,45 @@ func TestRenderDocumentMatchesTheRendererGolden(t *testing.T) {
 	}
 }
 
+// TestRenderDocumentHTMLMatchesTheRendererGolden: form "html" answers the HTML
+// backend's standalone page in html and leaves markdown empty; the explicit
+// "markdown" form answers what the empty form does.
+func TestRenderDocumentHTMLMatchesTheRendererGolden(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := parseTelescope(t, srv)
+
+	resp, err := srv.RenderDocument(context.Background(), &pb.RenderDocumentRequest{
+		ModelHash: hash, DocumentId: "Observatory::MassReport", Form: "html",
+	})
+	if err != nil {
+		t.Fatalf("RenderDocument(html) failed: %v", err)
+	}
+	golden, err := os.ReadFile(telescopeHTMLGolden)
+	if err != nil {
+		t.Fatalf("read golden: %v", err)
+	}
+	if resp.Html != string(golden) {
+		t.Errorf("html differs from the renderer's golden:\n%s", resp.Html)
+	}
+	if resp.Markdown != "" {
+		t.Errorf("html form also answered markdown:\n%s", resp.Markdown)
+	}
+
+	resp, err = srv.RenderDocument(context.Background(), &pb.RenderDocumentRequest{
+		ModelHash: hash, DocumentId: "Observatory::MassReport", Form: "markdown",
+	})
+	if err != nil {
+		t.Fatalf("RenderDocument(markdown) failed: %v", err)
+	}
+	markdown, err := os.ReadFile(telescopeGolden)
+	if err != nil {
+		t.Fatalf("read golden: %v", err)
+	}
+	if resp.Markdown != string(markdown) || resp.Html != "" {
+		t.Errorf("markdown form: markdown matches golden = %v, html = %q", resp.Markdown == string(markdown), resp.Html)
+	}
+}
+
 func TestRenderDocumentUsesParameterDefaults(t *testing.T) {
 	srv := mustNewService(t, 10)
 	hash := parseFixture(t, srv, defaultedFixture)
@@ -553,6 +595,9 @@ func TestRenderDocumentFailures(t *testing.T) {
 		}, connect.CodeNotFound},
 		{"not a document", &pb.RenderDocumentRequest{
 			ModelHash: hash, DocumentId: "Observatory::SubsystemTable",
+		}, connect.CodeInvalidArgument},
+		{"unknown form", &pb.RenderDocumentRequest{
+			ModelHash: hash, DocumentId: "Observatory::MassReport", Form: "pdf",
 		}, connect.CodeInvalidArgument},
 	}
 	for _, tc := range cases {

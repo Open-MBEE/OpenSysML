@@ -293,20 +293,24 @@ class Model:
             self._hash, query_id, bindings=bindings,
         )
 
-    def render_document(self, document_id):
-        """Render one of this model's named documents to Markdown.
+    def render_document(self, document_id, form="markdown"):
+        """Render one of this model's named documents to Markdown or HTML.
 
         The document is a part def specializing ``DocumentQueries::Document``,
         whose queries are bound in the model.
 
         Args:
             document_id (str): Qualified name of the document
+            form (str): ``"markdown"`` (the default) or ``"html"``, the
+                standalone page the CLI's ``-doc-form html`` writes
 
         Returns:
-            str: The rendered Markdown
+            str: The rendered document in the form asked for
 
         Raises:
-            MissingCapabilityError: If the service cannot render documents
+            ValueError: If ``form`` is neither ``"markdown"`` nor ``"html"``
+            MissingCapabilityError: If the service cannot render documents, or
+                cannot render HTML when that form is asked for
             InvalidRequestError: If the symbol named is not a document
             SymbolNotFoundError: If this model does not declare the document
             ModelNotFoundError: If the service no longer holds this model
@@ -315,8 +319,11 @@ class Model:
             >>> markdown = model.render_document("Observatory::MassReport")
             >>> markdown.splitlines()[0]
             '# Telescope Mass Report'
+            >>> html = model.render_document("Observatory::MassReport", form="html")
+            >>> html.startswith("<!DOCTYPE html>")
+            True
         """
-        return self.connection.render_document(self._hash, document_id)
+        return self.connection.render_document(self._hash, document_id, form=form)
 
     def find(self, name):
         """Find symbol by short name or fully-qualified name.
