@@ -86,11 +86,30 @@ func (ctx *Context) endBehaviorsWith(ended map[int64]bool) {
 		}
 		switch {
 		case b.Action != nil && b.Action.endsWith(ended) && !ctx.underWay(&b.Action.driven):
+			ctx.noteEndingUndo(b)
 			b.Action.endTerminated()
 		case b.State != nil && b.State.endsWith(ended) && !ctx.underWay(&b.State.driven):
+			ctx.noteEndingUndo(b)
 			b.State.endTerminated()
 		}
 	}
+}
+
+// noteEndingUndo captures the behavior's executor and the run it drives where they stand,
+// for the journal under way to put them back should the ending be rolled back.
+func (ctx *Context) noteEndingUndo(b *ObjectBehavior) {
+	if ctx.journals == 0 {
+		return
+	}
+	var captured executorCaptures
+	if b.Action != nil {
+		captured.captureAction(b.Action)
+		captured.captureRunState(b.Action.driven.state)
+	} else {
+		captured.captureState(b.State)
+		captured.captureRunState(b.State.driven.state)
+	}
+	ctx.noteProbeUndo(captured.restore)
 }
 
 // endsWith reports whether the executor's performance ends with the objects ended:

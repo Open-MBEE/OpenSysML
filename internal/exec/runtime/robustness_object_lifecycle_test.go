@@ -26,6 +26,8 @@ func TestRuntimeRobustnessObjectLifecycle(t *testing.T) {
 	t.Run("a_destroyed_object_is_no_subject_of_a_check", testObjectLifecycleDestroyedNotSubject)
 	t.Run("a_failed_constructor_rolls_back_what_its_behaviors_wrote", testObjectLifecycleFailedConstructorWrites)
 	t.Run("a_refused_write_leaves_no_adoption_for_an_outer_rollback", testObjectLifecycleRefusedWriteJournal)
+	t.Run("a_failed_constructor_revives_what_its_behaviors_destroyed_whole", testObjectLifecycleFailedConstructorDestroy)
+	t.Run("a_part_declared_or_bound_to_a_new_object_ends_with_the_whole", testObjectLifecycleDeclaredPart)
 	t.Run("explore_creating_objects_is_deterministic", testObjectLifecycleExploreCreation)
 	t.Run("explore_destroy_race_reaches_both_outcomes", testObjectLifecycleExploreDestroyRace)
 }
@@ -460,6 +462,46 @@ func testObjectLifecycleFailedConstructorWrites(t *testing.T) {
 	}
 }
 
+// testObjectLifecycleFailedConstructorDestroy: a constructor whose behavior destroys a live object and
+// then fails is rolled back whole: the object lives on and its machine stands where it stood.
+func testObjectLifecycleFailedConstructorDestroy(t *testing.T) {
+	instantiate, _, ctx := lifetimeFixture(t, `
+		package test {
+			private import ScalarValues::*;
+			private import OccurrenceFunctions::*;
+			part def Plant {
+				attribute count : Integer = 0;
+				exhibit state running { entry; then idle; state idle; }
+			}
+			part def Worker {
+				ref part p : Plant;
+				perform action go {
+					first start;
+					then action kill { assign p := destroy(p); }
+					then action fail { assign p.count := 1/0; }
+					then done;
+				}
+			}
+			part plant : Plant;
+		}`)
+	plant := instantiate("plant")
+	b, ok := plant.Behavior("running")
+	if !ok || b.State == nil || b.State.State().Ended() {
+		t.Fatalf("running = %v, %v; want the machine under way", b, ok)
+	}
+	was := b.State.State()
+	_, scope := calcByName(t, ctx.model.resolver.Index().DocumentRoot("<test>"), "test", "Plant")
+	if _, err := evalIn(t, ctx, scope, "new Worker(plant)"); err == nil {
+		t.Fatal("new Worker(plant) succeeded; want its failing action reported")
+	}
+	if l, _ := ctx.OccurrenceLife(plant.ID); !l.Alive() {
+		t.Errorf("OccurrenceLife(plant) = %v after the failed constructor; want alive again", l)
+	}
+	if got := b.State.State(); got != was {
+		t.Errorf("running = %v after the failed constructor; want %v, as before", got, was)
+	}
+}
+
 // testObjectLifecycleRefusedWriteJournal: a write refused when the behavior its feature adds fails
 // restores ownership and leaves an enclosing journal nothing to undo, so a later move stands.
 func testObjectLifecycleRefusedWriteJournal(t *testing.T) {
@@ -487,6 +529,49 @@ func testObjectLifecycleRefusedWriteJournal(t *testing.T) {
 	}
 	if err := shelf.SetFeatureValue(ctx, "slot", objectValue(device)); err != nil || device.owner != shelf {
 		t.Errorf("shelf.slot := device = %v, owner %v; want the shelf to own it", err, device.owner)
+	}
+}
+
+// testObjectLifecycleDeclaredPart: an object a composite feature's default or a binding makes
+// is the whole's portion just like a written one, so destroying the whole ends it.
+// (A binding end names a feature, so the bound object is made by a reference's default.)
+func testObjectLifecycleDeclaredPart(t *testing.T) {
+	instantiate, _, ctx := lifetimeFixture(t, `
+		package test {
+			private import OccurrenceFunctions::*;
+			part def Child;
+			part def Whole {
+				part byDefault : Child = new Child();
+				ref part made : Child = new Child();
+				part byBinding : Child;
+				bind byBinding = made;
+			}
+			calc def DestroyWhole { in w : Whole; return : Whole = destroy(w); }
+		}`)
+	whole := instantiate("Whole")
+	children := map[string]*Instance{}
+	for _, name := range []string{"byDefault", "byBinding"} {
+		fv, err := whole.GetFeatureValue(ctx, name)
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		id, ok := fv.HeldValue().Object()
+		if !ok {
+			t.Fatalf("%s holds %v; want an object", name, fv.HeldValue())
+		}
+		children[name] = ctx.instances[id]
+		if child := children[name]; child.owner != whole || child.ownerFeature != name {
+			t.Errorf("%s #%d owned by %v.%s; want the whole", name, child.ID, child.owner, child.ownerFeature)
+		}
+	}
+	sym, scope := calcByName(t, ctx.model.resolver.Index().DocumentRoot("<test>"), "test", "DestroyWhole")
+	if _, err := ctx.InvokeCalc(sym, []Value{objectValue(whole)}, scope); err != nil {
+		t.Fatalf("destroy(whole) = %v", err)
+	}
+	for name, child := range children {
+		if l, _ := ctx.OccurrenceLife(child.ID); !l.Destroyed {
+			t.Errorf("%s #%d = %v; want destroyed with the whole", name, child.ID, l)
+		}
 	}
 }
 

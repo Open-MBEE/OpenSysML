@@ -27,19 +27,19 @@ var ErrSnapshotPausedBody = errors.New("snapshot of a body paused mid-statement"
 // the run had made keeps its identity across a restore; what it made after the
 // mark is abandoned, and the identities it took are handed out again.
 type Snapshot struct {
-	ctx       *Context
-	journal   journalMark
-	run       runCapture
-	runStates []runStateCapture
+	ctx     *Context
+	journal journalMark
+	run     runCapture
 	executorCaptures
 	released bool
 }
 
 // executorCaptures is a set of executors captured by value, each once: those
-// asked for, and those the paused bodies of these perform.
+// asked for, and those the paused bodies of these perform, with the runs they drive.
 type executorCaptures struct {
-	actions []actionCapture
-	states  []stateCapture
+	actions   []actionCapture
+	states    []stateCapture
+	runStates []runStateCapture
 }
 
 // journalMark is where in the journal a change began and what the journal holds
@@ -199,9 +199,6 @@ func (s *Snapshot) Restore() {
 	ctx.snapshots = ctx.snapshots[:at+1]
 	ctx.rollbackJournal(s.journal)
 	s.run.restore(ctx)
-	for _, capture := range s.runStates {
-		capture.restore()
-	}
 	s.executorCaptures.restore()
 }
 
@@ -235,6 +232,9 @@ func (s *executorCaptures) captureState(e *StateExecutor) {
 }
 
 func (s *executorCaptures) restore() {
+	for _, capture := range s.runStates {
+		capture.restore()
+	}
 	for _, capture := range s.actions {
 		capture.restore()
 	}
@@ -361,7 +361,7 @@ func (c runCapture) restore(ctx *Context) {
 }
 
 // captureRunState captures a run's state once, however many executors share it.
-func (s *Snapshot) captureRunState(state *runState) {
+func (s *executorCaptures) captureRunState(state *runState) {
 	if state == nil || slices.ContainsFunc(s.runStates, func(c runStateCapture) bool { return c.state == state }) {
 		return
 	}

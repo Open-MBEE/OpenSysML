@@ -857,7 +857,7 @@ func (ctx *Context) assignBindingValue(inst *Instance, fv *FeatureValue, name st
 	if err := ctx.checkDefault(inst, fv, name, &val, admitDeclared); err != nil {
 		return err
 	}
-	val, err := ctx.admitted(fv.Feature, val, admitDeclared)
+	val, err := ctx.holdDeclared(inst, fv, val)
 	if err != nil {
 		return err
 	}

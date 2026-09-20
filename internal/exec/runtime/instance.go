@@ -888,7 +888,7 @@ func (inst *Instance) materializeDerived(ctx *Context, fv *FeatureValue, name st
 	if err := ctx.checkDefault(inst, fv, name, &val, admitDeclared); err != nil {
 		return nil, err
 	}
-	if val, err = ctx.admitted(fv.Feature, val, admitDeclared); err != nil {
+	if val, err = ctx.holdDeclared(inst, fv, val); err != nil {
 		return nil, err
 	}
 	ctx.noteProbeWrite(fv)
@@ -1061,7 +1061,7 @@ func (inst *Instance) holdContributed(ctx *Context, fv *FeatureValue, name strin
 	if err := ctx.checkDefault(inst, fv, name, &val, admitDeclared); err != nil {
 		return nil, err
 	}
-	val, err := ctx.admitted(fv.Feature, val, admitDeclared)
+	val, err := ctx.holdDeclared(inst, fv, val)
 	if err != nil {
 		return nil, fmt.Errorf("feature value %s.%s: %w", inst.Type.Name, name, err)
 	}

@@ -104,10 +104,33 @@ func (ctx *Context) holdWritten(inst *Instance, fv *FeatureValue, val Value) err
 	return nil
 }
 
+// holdDeclared is admitted for a declared value (a default or a binding's), with the composite
+// adoption holdWritten gives a written one; a refused value leaves ownership as it was.
+func (ctx *Context) holdDeclared(inst *Instance, fv *FeatureValue, val Value) (Value, error) {
+	commit, rollback := ctx.beginJournal()
+	if holdsObjects(fv.Feature) {
+		ctx.adoptWritten(inst, fv, val)
+	}
+	val, err := ctx.admitted(fv.Feature, val, admitDeclared)
+	if err != nil {
+		rollback()
+		return Value{}, err
+	}
+	commit()
+	return val, nil
+}
+
+// ownsHeld reports a composite usage (SysML v2 §7.6.2), whose objects are portions of the object holding
+// it however they got there — instantiated, written, or stated by a default or a binding.
+func (ctx *Context) ownsHeld(feat *EffectiveFeature) bool {
+	return holdsObjects(feat) && semantics.UsageIsComposite(feat.Symbol) && !isSubjectUsage(feat.Symbol) &&
+		!ctx.model.semantics.IsVariationFeature(feat.Symbol)
+}
+
 // adoptWritten gives inst the ownerless objects a write to its composite feature holds, releasing
 // the ones it drops; each change is noted for the journal under way to undo.
 func (ctx *Context) adoptWritten(inst *Instance, fv *FeatureValue, val Value) {
-	if ctx.CompositeTypeOf(fv.Feature) == nil {
+	if !ctx.ownsHeld(fv.Feature) {
 		return
 	}
 	ctx.releaseDropped(inst, fv, val)
