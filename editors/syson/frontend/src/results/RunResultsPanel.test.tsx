@@ -168,9 +168,11 @@ describe('RunResultsPanel', () => {
       <RunResultsPanel
         result={baseResult({
           operation: 'EXPLORE_ACTION',
+          outputs: [{ name: 'y', value: '42' }],
+          trace: ['Done'],
           outcomes: [
             {
-              outputs: [],
+              outputs: [{ name: 'y', value: '42' }],
               finalState: null,
               trace: [],
               error: null,
@@ -182,6 +184,9 @@ describe('RunResultsPanel', () => {
       />
     );
     expect(screen.getByText('Outcomes (1)')).toBeInTheDocument();
+    expect(screen.getAllByText('outputs: y = 42')).toHaveLength(1);
+    expect(screen.queryByText('Outputs')).not.toBeInTheDocument();
+    expect(screen.queryByText('Trace')).not.toBeInTheDocument();
     expect(screen.getByText('witness: first: left, second: right')).toBeInTheDocument();
   });
 });

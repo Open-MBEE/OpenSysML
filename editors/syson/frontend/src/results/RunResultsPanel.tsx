@@ -74,7 +74,7 @@ export const RunResultsPanel = ({ result, onSelectElement }: RunResultsPanelProp
       {result.finalTime !== null && <Typography variant="body2">final time: {result.finalTime}</Typography>}
       {result.resultText && <Typography variant="body2">{result.resultText}</Typography>}
 
-      {result.outputs.length > 0 && (
+      {result.outcomes.length === 0 && result.outputs.length > 0 && (
         <section>
           <Typography variant="subtitle2">Outputs</Typography>
           <Table size="small">
@@ -96,7 +96,7 @@ export const RunResultsPanel = ({ result, onSelectElement }: RunResultsPanelProp
         </section>
       )}
 
-      {result.trace.length > 0 && (
+      {result.outcomes.length === 0 && result.trace.length > 0 && (
         <section>
           <Typography variant="subtitle2">Trace</Typography>
           <List dense>
