@@ -333,15 +333,6 @@ func (h *stateStmtHost) performNode(engine *stmtEngine, graph *lower.ActionGraph
 }
 
 func (h *stateStmtHost) runBlockFlow(engine *stmtEngine, block lower.Block) (stmtFlow, error) {
-	if block.Graph != nil {
-		if err := h.flow.validateSubflows(block.Graph); err != nil {
-			return flowNext, fmt.Errorf("%s: %w", h.describe(), err)
-		}
-		h.flow.graph = block.Graph
-		if err := h.flow.checkResultParameters(); err != nil {
-			return flowNext, fmt.Errorf("%s: %w", h.describe(), err)
-		}
-	}
 	return h.perfs.performBlockFlow(h.perfs.root, engine, block)
 }
 

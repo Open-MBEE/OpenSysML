@@ -33,6 +33,10 @@ func (e *performances) subflowOf(graph *lower.ActionGraph, node ast.Node) (*lowe
 func (e *ActionExecutor) enterSubflow(tokenIdx int, perf *actionFrame) error {
 	token := &e.tokens[tokenIdx]
 	node := token.Location
+	if perf.graph != nil && perf.graph.Invalid != nil {
+		return fmt.Errorf("%w: action node %s: %w",
+			ErrInvalidActionFlow, ActionNodeName(node), perf.graph.Invalid)
+	}
 	if perf.graph == nil || perf.graph.Initial == nil {
 		return fmt.Errorf("%w: action node %s owns a flow that cannot be built",
 			ErrInvalidActionFlow, ActionNodeName(node))
@@ -110,6 +114,10 @@ func (e *ActionExecutor) runSubflow(perf *actionFrame) error {
 // node, with one token at its initial node.
 func (e *ActionExecutor) enterBodyFlow(perf *actionFrame) (*subflowFrame, error) {
 	node := perf.node
+	if perf.graph != nil && perf.graph.Invalid != nil {
+		return nil, fmt.Errorf("%w: %s: %w",
+			ErrInvalidActionFlow, perf.describe(), perf.graph.Invalid)
+	}
 	if perf.graph == nil || perf.graph.Initial == nil {
 		return nil, fmt.Errorf("%w: %s owns a flow that cannot be built",
 			ErrInvalidActionFlow, perf.describe())
