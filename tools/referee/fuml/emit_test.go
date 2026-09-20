@@ -1376,6 +1376,25 @@ func TestRenderSignalValues(t *testing.T) {
 	if got := renderOutputs(listener, ctx, outputs); got != want {
 		t.Errorf("run side:\n%s\nwant\n%s", got, want)
 	}
+	// A signal is a value: one instance two outputs hold spells whole in each,
+	// as the record's two mentions do, never as an alias of the first.
+	pingRef := TypeRef{ID: "Ping", Name: "Ping", Kind: "Signal"}
+	twice := &Activity{Model: listener.Model, Parameters: []*Parameter{
+		{Name: "first", Direction: Out, Type: pingRef, Multiplicity: Multiplicity{Lower: 1, Upper: 1, Unique: true}},
+		{Name: "second", Direction: Out, Type: pingRef, Multiplicity: Multiplicity{Lower: 1, Upper: 1, Unique: true}},
+	}}
+	x = executed(twice, []ExpectedOutput{
+		{Parameter: "first", Values: []ExpectedValue{heard}},
+		{Parameter: "second", Values: []ExpectedValue{heard}},
+	})
+	const wantTwice = "first = Ping#1{level = 8}\nsecond = Ping#2{level = 8}"
+	if got := renderExpected(twice, &x); got != wantTwice {
+		t.Errorf("expected side, twice:\n%s\nwant\n%s", got, wantTwice)
+	}
+	shared := runtime.Value{Kind: runtime.ValInstance, Instance: inst.ID}
+	if got := renderOutputs(twice, ctx, map[string]runtime.Value{"first": shared, "second": shared}); got != wantTwice {
+		t.Errorf("run side, twice:\n%s\nwant\n%s", got, wantTwice)
+	}
 }
 
 // A send to an object that runs no behavior completes, the message left

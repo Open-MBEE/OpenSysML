@@ -81,10 +81,12 @@ type graph struct {
 	ctx     *runtime.Context
 	objects map[string]*entity
 	order   []*entity
+	// filling holds the run's instances whose features are being read.
+	filling map[int64]bool
 }
 
 func newGraph(model *Model, ctx *runtime.Context) *graph {
-	return &graph{model: model, ctx: ctx, objects: map[string]*entity{}}
+	return &graph{model: model, ctx: ctx, objects: map[string]*entity{}, filling: map[int64]bool{}}
 }
 
 // at is the object of a side's identity key, added at its first mention.
@@ -113,6 +115,12 @@ func (g *graph) attributesOf(typeName string) ([]*Property, bool) {
 	attrs = append([]*Property(nil), attrs...)
 	sort.Slice(attrs, func(i, j int) bool { return attrs[i].Name < attrs[j].Name })
 	return attrs, true
+}
+
+// signalType reports whether typeName is a signal of the model and no class.
+func (g *graph) signalType(typeName string) bool {
+	ref := TypeRef{Name: typeName}
+	return g.model.ClassOf(ref) == nil && g.model.SignalOf(ref) != nil
 }
 
 // expected converts a recorded value.
@@ -209,7 +217,8 @@ func (g *graph) runtime(v runtime.Value) []value {
 }
 
 // runtimeObject converts a run's object or signal by the class or signal its
-// definition translates.
+// definition translates. A signal is a value, as in the record: every mention
+// spells it whole, unless it is reached again while its own features are read.
 func (g *graph) runtimeObject(id int64) *entity {
 	key := "#" + strconv.FormatInt(id, 10)
 	inst, ok := g.ctx.Instance(id)
@@ -217,11 +226,16 @@ func (g *graph) runtimeObject(id int64) *entity {
 		o, _ := g.at(key, "<unknown object>")
 		return o
 	}
+	if g.signalType(inst.Type.Name) && !g.filling[id] {
+		key += "@" + strconv.Itoa(len(g.order))
+	}
 	o, fresh := g.at(key, inst.Type.Name)
 	if !fresh || !o.known {
 		return o
 	}
 	o.filled = true
+	g.filling[id] = true
+	defer delete(g.filling, id)
 	for _, attr := range o.attrs {
 		fv, err := inst.GetFeatureValue(g.ctx, attr.Name)
 		if err != nil {
