@@ -113,13 +113,12 @@ public class RunWithOpenSysMLService {
 
     private ResultParts dispatch(Model model, String target, RunWithOpenSysMLInput input, ExecutionOptions options,
             ExportedProject project) {
-        Map<String, Value> values = new LinkedHashMap<>();
-        input.inputs().forEach((name, expression) -> values.put(name, model.eval(expression)));
-        List<Value> arguments = input.arguments().stream().map(model::eval).toList();
         return switch (input.operation()) {
             case INSTANTIATE -> ResultParts.instantiation(model.instantiate(target), project);
-            case EXECUTE_ACTION -> ResultParts.action(model.executeAction(target, values, options), project);
-            case EXPLORE_ACTION -> ResultParts.exploration(model.exploreAction(target, values, options), project);
+            case EXECUTE_ACTION -> ResultParts.action(model.executeAction(target, namedValues(model, input), options),
+                    project);
+            case EXPLORE_ACTION -> ResultParts.exploration(model.exploreAction(target, namedValues(model, input), options),
+                    project);
             case EXECUTE_STATE -> ResultParts.state(model.executeState(target, input.events(), options), project);
             case EXPLORE_STATE -> ResultParts.exploration(model.exploreState(target, input.events(), options), project);
             case VERIFY_CONSTRAINT -> ResultParts.verification(input.subject() == null ? model.verifyConstraint(target)
@@ -129,12 +128,23 @@ public class RunWithOpenSysMLService {
             case VERIFY_SATISFACTION -> ResultParts.satisfaction(
                     input.subject() == null ? model.verifySatisfaction() : model.verifySatisfaction(input.subject()),
                     project);
-            case EVALUATE_CALC -> ResultParts.calculation(model.evaluateCalc(target, arguments), project);
+            case EVALUATE_CALC -> ResultParts.calculation(model.evaluateCalc(target, arguments(model, input)), project);
             case RUN_ANALYSIS -> ResultParts.analysis(model.runAnalysis(target,
-                    new AnalysisOptions(Optional.ofNullable(input.subject()), arguments, values,
+                    new AnalysisOptions(Optional.ofNullable(input.subject()), arguments(model, input),
+                            namedValues(model, input),
                             options.schedule())), project);
             case VALIDATE_INSTANCE -> ResultParts.validation(model.validateInstance(target), project);
         };
+    }
+
+    private Map<String, Value> namedValues(Model model, RunWithOpenSysMLInput input) {
+        Map<String, Value> values = new LinkedHashMap<>();
+        input.inputs().forEach((name, expression) -> values.put(name, model.eval(expression)));
+        return values;
+    }
+
+    private List<Value> arguments(Model model, RunWithOpenSysMLInput input) {
+        return input.arguments().stream().map(model::eval).toList();
     }
 
     private RunResult result(String hash, RunWithOpenSysMLInput input, String target, ResultParts parts,

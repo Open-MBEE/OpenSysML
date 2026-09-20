@@ -78,11 +78,11 @@ export const RunWithOpenSysMLDialog = ({
       editingContextId,
       objectId,
       operation,
-      inputs,
-      events: events.filter(Boolean),
-      arguments: argumentsText.filter(Boolean),
-      schedule: schedule || null,
-      subject: subject || null,
+      inputs: usesInputs(operation) ? inputs : [],
+      events: usesEvents(operation) ? events.filter(Boolean) : [],
+      arguments: usesArguments(operation) ? argumentsText.filter(Boolean) : [],
+      schedule: usesSchedule(operation) ? schedule || null : null,
+      subject: usesSubject(operation) ? subject || null : null,
     });
   };
 

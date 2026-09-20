@@ -180,7 +180,7 @@ describe('RunWithOpenSysMLDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Run' }));
     await waitFor(() => expect(variableMatcher).toHaveBeenCalled());
     const variables = variableMatcher.mock.calls[0][0];
-    expect(variables.input.events).toEqual(['start', 'stop']);
+    expect(variables.input.events).toEqual([]);
     expect(variables.input.arguments).toEqual(['1', '2']);
   });
 
@@ -199,5 +199,54 @@ describe('RunWithOpenSysMLDialog', () => {
 
     expect(screen.getAllByText('Duplicate input name')).not.toHaveLength(0);
     expect(screen.getByRole('button', { name: 'Run' })).toBeDisabled();
+  });
+
+  it('omits stale arguments when submitting instantiate', async () => {
+    type InstantiateVariables = {
+      input: {
+        operation: string;
+        inputs: unknown[];
+        events: string[];
+        arguments: string[];
+        schedule: string | null;
+        subject: string | null;
+      };
+    };
+    const variableMatcher = vi.fn((_variables: InstantiateVariables) => true);
+    const instantiateMock = {
+      request: { query: runWithOpenSysMLMutation },
+      variableMatcher,
+      result: {
+        data: {
+          runWithOpenSysML: {
+            __typename: 'RunWithOpenSysMLSuccessPayload',
+            id: 'run',
+            messages: [],
+            result: { ...successResult, operation: 'INSTANTIATE' },
+          },
+        },
+      },
+    };
+    render(
+      <MockedProvider mocks={[instantiateMock]}>
+        <RunWithOpenSysMLDialog {...props} />
+      </MockedProvider>
+    );
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Operation' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Evaluate calculation' }));
+    fireEvent.click(screen.getByText('Add argument'));
+    fireEvent.change(screen.getByLabelText('Argument 1'), { target: { value: 'stale' } });
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Operation' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Instantiate' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }));
+
+    await waitFor(() => expect(variableMatcher).toHaveBeenCalled());
+    const variables = variableMatcher.mock.calls[0][0].input;
+    expect(variables.operation).toBe('INSTANTIATE');
+    expect(variables.inputs).toEqual([]);
+    expect(variables.events).toEqual([]);
+    expect(variables.arguments).toEqual([]);
+    expect(variables.schedule).toBeNull();
+    expect(variables.subject).toBeNull();
   });
 });

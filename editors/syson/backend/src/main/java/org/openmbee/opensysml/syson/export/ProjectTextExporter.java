@@ -53,7 +53,8 @@ public class ProjectTextExporter implements ProjectExporter {
                 String serialized = serializer.serialize(root, statuses::add);
                 if (serialized == null) serialized = "";
                 text.append(serialized);
-                int end = Math.max(start, lineCount(text));
+                int end = Math.max(start,
+                        lineCount(text) - (text.length() > 0 && text.charAt(text.length() - 1) == '\n' ? 1 : 0));
                 ranges.add(new ExportedProject.DocumentRange(name, start, end, element));
                 statuses.forEach(status -> messages.add(new ExportedProject.ExportMessage(ExportedProject.level(status),
                         status.message())));

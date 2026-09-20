@@ -59,6 +59,29 @@ class ProjectTextExporterTest {
     }
 
     @Test
+    void excludesTrailingNewlineFromRootRange() {
+        ResourceSet set = new ResourceSetImpl();
+        FakeElement first = new FakeElement("First");
+        FakeElement second = new FakeElement("Second");
+        FakeElement empty = new FakeElement("Empty");
+        Resource resource = new ResourceImpl(URI.createURI("sirius:///three"));
+        resource.getContents().add(first);
+        resource.getContents().add(empty);
+        resource.getContents().add(second);
+        set.getResources().add(resource);
+        IEMFEditingContext context = context(set);
+        ElementSerializer serializer = (element, report) -> element == first ? "part def A;\n"
+                : element == second ? "part def B;" : "";
+
+        var result = new ProjectTextExporter(serializer, mock(IIdentityService.class)).export(context);
+
+        assertThat(result.ranges()).extracting(ProjectTextExporterTest::startLine).containsExactly(1, 2, 2);
+        assertThat(result.ranges()).extracting(range -> range.endLine()).containsExactly(1, 2, 2);
+        assertThat(result.elementAt("three.sysml", 2)).hasValueSatisfying(element ->
+                assertThat(element.element()).isSameAs(second));
+    }
+
+    @Test
     void exportsStableDocumentNames() {
         ResourceSet set = new ResourceSetImpl();
         FakeElement root = new FakeElement("Pkg");

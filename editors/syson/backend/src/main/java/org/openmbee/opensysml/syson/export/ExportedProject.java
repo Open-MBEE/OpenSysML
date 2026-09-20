@@ -19,7 +19,7 @@ public record ExportedProject(List<SourceDocument> documents, ElementIndex index
         return ranges.stream()
                 .filter(range -> range.documentName().equals(documentName) && line >= range.startLine()
                         && line <= range.endLine())
-                .findFirst()
+                .reduce((first, second) -> second)
                 .flatMap(range -> index.byElement(range.element()));
     }
 
