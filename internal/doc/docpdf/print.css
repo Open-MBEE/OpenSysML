@@ -1,0 +1,159 @@
+/* The PDF backend's print stylesheet, laid over the HTML backend's default
+   sheet in a later cascade layer: it wins over the default and a theme, and a
+   reader's unlayered stylesheet still wins over it. Every value comes from a
+   --sysml-* token, so a reader retunes the page by setting tokens alone. */
+@layer opensysml-print;
+
+@layer opensysml-print {
+  :root {
+    --sysml-page-size: A4;
+    --sysml-page-margin: 2.2cm;
+    --sysml-page-number-font-size: 9pt;
+    --sysml-page-number-color: #444444;
+  }
+
+  @page {
+    size: var(--sysml-page-size);
+    margin: var(--sysml-page-margin);
+
+    @bottom-center {
+      content: counter(page);
+      font-size: var(--sysml-page-number-font-size);
+      color: var(--sysml-page-number-color);
+    }
+  }
+
+  .sysml-document {
+    --sysml-font-body: serif;
+    --sysml-font-heading: sans-serif;
+    --sysml-font-size: 11pt;
+    --sysml-line-height: 1.45;
+    --sysml-measure: none;
+    --sysml-space: 0.8em;
+    --sysml-title-font-size: 26pt;
+    --sysml-title-page-height: 60vh;
+    --sysml-heading-font-size: 20pt;
+    --sysml-subheading-font-size: 15pt;
+    --sysml-subsubheading-font-size: 13pt;
+    --sysml-diagram-font-size: 9pt;
+    --sysml-wide-table-font-size: 9pt;
+    --sysml-image-width: 100%;
+    --sysml-notice-font-style: italic;
+
+    margin: 0;
+    padding: 0;
+    page: main;
+  }
+
+  .sysml-document h1,
+  .sysml-document h2,
+  .sysml-document h3,
+  .sysml-document h4,
+  .sysml-document h5,
+  .sysml-document h6 {
+    font-family: var(--sysml-font-heading);
+    line-height: 1.2;
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  .sysml-document h1 {
+    font-size: var(--sysml-heading-font-size);
+  }
+
+  .sysml-document h2 {
+    font-size: var(--sysml-subheading-font-size);
+  }
+
+  .sysml-document h3 {
+    font-size: var(--sysml-subsubheading-font-size);
+  }
+
+  .sysml-document .sysml-title-page .sysml-title {
+    font-size: var(--sysml-title-font-size);
+  }
+
+  .sysml-document .sysml-toc {
+    break-after: page;
+    page-break-after: always;
+  }
+
+  .sysml-document .sysml-toc a {
+    text-decoration: none;
+  }
+
+  .sysml-document .sysml-table tr,
+  .sysml-document .sysml-diagram,
+  .sysml-document .sysml-formula,
+  .sysml-document .sysml-entry {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* A cell holding long unbreakable tokens wraps rather than pushing the
+     rightmost columns past the page edge; a header keeps its words whole. */
+  .sysml-document .sysml-table th,
+  .sysml-document .sysml-table td {
+    overflow-wrap: anywhere;
+  }
+
+  .sysml-document .sysml-table th {
+    overflow-wrap: normal;
+  }
+
+  /* The paragraph leading into a table stays on the table's page, as a
+     heading does above and a caption does as part of its table. */
+  .sysml-document p:has(+ .sysml-table) {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  /* A table of seven or more columns goes on a landscape page in smaller type
+     with its heading and lead-in; :has() nests since cssselect2 misreads "+ p + table". */
+  @page wide {
+    size: var(--sysml-page-size) landscape;
+  }
+
+  .sysml-document .sysml-table:has(thead > tr > th:nth-child(7)) {
+    page: wide;
+    font-size: var(--sysml-wide-table-font-size);
+  }
+
+  .sysml-document p:has(+ .sysml-table:has(thead > tr > th:nth-child(7))),
+  .sysml-document :is(h1, h2, h3, h4, h5, h6):has(+ .sysml-table:has(thead > tr > th:nth-child(7))),
+  .sysml-document :is(h1, h2, h3, h4, h5, h6):has(+ p:has(+ .sysml-table:has(thead > tr > th:nth-child(7)))) {
+    page: wide;
+  }
+
+  .sysml-document .sysml-diagram img {
+    max-width: var(--sysml-image-width);
+  }
+
+  .sysml-document .sysml-diagram pre {
+    font-size: var(--sysml-diagram-font-size);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  /* A diagram kept as source, in a form the PDF backend does not draw, says so
+     ahead of its source. */
+  .sysml-document .sysml-diagram pre.dot::before,
+  .sysml-document .sysml-diagram pre.plantuml::before {
+    display: block;
+    font-family: var(--sysml-font-body);
+    font-style: var(--sysml-notice-font-style);
+    margin-bottom: var(--sysml-space-tight);
+  }
+
+  .sysml-document .sysml-diagram pre.dot::before {
+    content: "This diagram is written in Graphviz DOT, which the PDF backend does not draw; its source follows.";
+  }
+
+  .sysml-document .sysml-diagram pre.plantuml::before {
+    content: "This diagram is written in PlantUML, which the PDF backend does not draw; its source follows.";
+  }
+
+  .sysml-document .sysml-formula .sysml-math {
+    overflow-x: visible;
+  }
+}

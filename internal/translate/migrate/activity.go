@@ -166,6 +166,7 @@ const (
 	thenKw    = " then "
 	noV2UML   = "no v2 form for a UML "
 	noFeature = ", which has no feature "
+	namesProp = "names the property "
 )
 
 // nodeKinds classifies the UML activity node metaclasses the writer knows.
@@ -966,23 +967,14 @@ func (a *activity) probabilities(outs []*sysmlv1.Element, tos []string) []string
 			continue
 		}
 		marked = true
-		text := s.Tag("probability")
-		if text == "" {
-			notes = append(notes, "the «Probability» on "+describe(e)+" has no probability value")
-			continue
-		}
-		w, reason := a.probability(text)
-		if reason != "" {
-			notes = append(notes, "the probability "+strconv.Quote(text)+" on "+describe(e)+" "+reason)
+		w, note := a.branchWeight(e, s)
+		if note != "" {
+			notes = append(notes, note)
 			continue
 		}
 		if w.property != nil {
 			dynamic = true
 			weights[i] = w
-			continue
-		}
-		if w.value < 0 || w.value > 1 {
-			notes = append(notes, "the probability "+w.expr+" on "+describe(e)+" is not between 0 and 1")
 			continue
 		}
 		sum += w.value
@@ -1009,6 +1001,30 @@ func (a *activity) probabilities(outs []*sysmlv1.Element, tos []string) []string
 		}
 		return nil
 	}
+	return a.weightExprs(outs, weights, unmarked, sum, dynamic)
+}
+
+// branchWeight reads the «Probability» of one marked edge: the weight it is
+// weighted with, or the note why none is read.
+func (a *activity) branchWeight(e *sysmlv1.Element, s *sysmlv1.Stereotype) (w probabilityWeight, note string) {
+	text := s.Tag("probability")
+	if text == "" {
+		return w, "the «Probability» on " + describe(e) + " has no probability value"
+	}
+	w, reason := a.probability(text)
+	if reason != "" {
+		return w, "the probability " + strconv.Quote(text) + " on " + describe(e) + " " + reason
+	}
+	if w.property == nil && (w.value < 0 || w.value > 1) {
+		return w, "the probability " + w.expr + " on " + describe(e) + " is not between 0 and 1"
+	}
+	return w, ""
+}
+
+// weightExprs writes each branch's weight expression: unmarked branches share
+// what the marked leave of 1, a constant sum other than 1 scales the constants.
+func (a *activity) weightExprs(outs []*sysmlv1.Element, weights []probabilityWeight, unmarked []int, sum float64, dynamic bool) []string {
+	remainder := 1 - sum
 	switch {
 	case len(unmarked) > 0 && dynamic:
 		share := a.dynamicRemainder(weights, len(unmarked))
@@ -1086,7 +1102,7 @@ func (a *activity) probability(text string) (probabilityWeight, string) {
 				return probabilityWeight{}, "names " + describe(t) + ", a " + t.Type + " rather than a property"
 			}
 			if visible[a.m.nameOf(t)] != t {
-				return probabilityWeight{}, "names the property " + qualifiedName(t) + ", which is not visible from the activity"
+				return probabilityWeight{}, namesProp + qualifiedName(t) + ", which is not visible from the activity"
 			}
 			p = t
 		} else if h := hidden[text]; h != nil {
@@ -1103,10 +1119,10 @@ func (a *activity) probability(text string) (probabilityWeight, string) {
 		if t != nil {
 			typed = "is typed by " + describe(t)
 		}
-		return probabilityWeight{}, "names the property " + qualifiedName(p) + ", which " + typed + ", not a number"
+		return probabilityWeight{}, namesProp + qualifiedName(p) + ", which " + typed + ", not a number"
 	}
 	if mult, _ := a.m.multiplicity(p); mult != "" {
-		return probabilityWeight{}, "names the property " + qualifiedName(p) + ", which holds " + mult + " values, not one number"
+		return probabilityWeight{}, namesProp + qualifiedName(p) + ", which holds " + mult + " values, not one number"
 	}
 	return probabilityWeight{expr: writeName(a.m.nameOf(p)), property: p}, ""
 }

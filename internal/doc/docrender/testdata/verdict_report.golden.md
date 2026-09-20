@@ -2,7 +2,6 @@
 
 The assertions about the car and what it holds.
 
-<!-- caption -->
 *Verdicts on the car*
 
 | path | name | verdict | reason |

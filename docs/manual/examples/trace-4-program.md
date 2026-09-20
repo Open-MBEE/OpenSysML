@@ -4,7 +4,6 @@ Every requirement of the program in one matrix, grouped by the team that owns it
 
 ## Traceability matrix
 
-<!-- caption -->
 *Requirements by owning team*
 
 **team: Comms**
@@ -46,7 +45,6 @@ Every requirement of the program in one matrix, grouped by the team that owns it
 
 ## Coverage gaps
 
-<!-- caption -->
 *Leaf requirements with no satisfier or no verification*
 
 | team | shortName | name | priority |
@@ -55,14 +53,12 @@ Every requirement of the program in one matrix, grouped by the team that owns it
 | Thermal | THM-1 | heaterPower | critical |
 | Power | PWR-3 | cellDegradation | high |
 
-<!-- caption -->
 *Of those, the critical ones*
 
 | team | shortName | name | priority |
 | --- | --- | --- | --- |
 | Thermal | THM-1 | heaterPower | critical |
 
-<!-- caption -->
 *Satisfied but never verified*
 
 | team | shortName | name | priority |
@@ -70,7 +66,6 @@ Every requirement of the program in one matrix, grouped by the team that owns it
 | Power | PWR-3 | cellDegradation | high |
 | Systems | SYS-1 | downlink | critical |
 
-<!-- caption -->
 *Unsatisfied but already refined by a design element or analysis*
 
 | team | shortName | name | priority |
@@ -80,7 +75,6 @@ Every requirement of the program in one matrix, grouped by the team that owns it
 
 ## Verdicts
 
-<!-- caption -->
 *Every check across the three designs*
 
 | kind | name | path | verdict |
@@ -98,7 +92,6 @@ Every requirement of the program in one matrix, grouped by the team that owns it
 | verification | dataRateTest | CommsDesign::commsSubsystem.transmitter | holds |
 | satisfaction |  | CommsDesign::commsSubsystem.transmitter | undecided |
 
-<!-- caption -->
 *Checks that came out false*
 
 | kind | name | path | condition |

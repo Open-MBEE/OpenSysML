@@ -1,6 +1,5 @@
 # Derived Stage Masses
 
-<!-- caption -->
 *Every stage, heaviest first*
 
 | name | dryMass | mass | engines | class | perEngine |

@@ -1438,15 +1438,19 @@ class RunDocumentQueryResponse(_message.Message):
     def __init__(self, columns: _Optional[_Iterable[_Union[DocumentQueryColumn, _Mapping]]] = ..., rows: _Optional[_Iterable[_Union[DocumentQueryRow, _Mapping]]] = ...) -> None: ...
 
 class RenderDocumentRequest(_message.Message):
-    __slots__ = ("model_hash", "document_id")
+    __slots__ = ("model_hash", "document_id", "form")
     MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
     DOCUMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    FORM_FIELD_NUMBER: _ClassVar[int]
     model_hash: str
     document_id: str
-    def __init__(self, model_hash: _Optional[str] = ..., document_id: _Optional[str] = ...) -> None: ...
+    form: str
+    def __init__(self, model_hash: _Optional[str] = ..., document_id: _Optional[str] = ..., form: _Optional[str] = ...) -> None: ...
 
 class RenderDocumentResponse(_message.Message):
-    __slots__ = ("markdown",)
+    __slots__ = ("markdown", "html")
     MARKDOWN_FIELD_NUMBER: _ClassVar[int]
+    HTML_FIELD_NUMBER: _ClassVar[int]
     markdown: str
-    def __init__(self, markdown: _Optional[str] = ...) -> None: ...
+    html: str
+    def __init__(self, markdown: _Optional[str] = ..., html: _Optional[str] = ...) -> None: ...

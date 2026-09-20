@@ -250,7 +250,7 @@ func TestWitnessCarriesTheDrawPolicy(t *testing.T) {
 // max, though uniform draws it at random.
 func TestReplayAdmitsDrawsUnderTheWitnessPolicy(t *testing.T) {
 	m := parseLibraryModel(t, drawingModel)
-	real := func(x float64) semantics.Value { return semantics.Value{Kind: semantics.ValReal, Real: x} }
+	realValue := func(x float64) semantics.Value { return semantics.Value{Kind: semantics.ValReal, Real: x} }
 	integer := func(n int64) semantics.Value { return semantics.Value{Kind: semantics.ValInt, Int: n} }
 	cases := []struct {
 		name   string
@@ -259,13 +259,13 @@ func TestReplayAdmitsDrawsUnderTheWitnessPolicy(t *testing.T) {
 		ok     bool
 		reason string
 	}{
-		{"max at the fixed points", DrawMax, real(1), integer(6), true, ""},
-		{"min at the fixed points", DrawMin, real(0), integer(1), true, ""},
-		{"average at the fixed points", DrawAverage, real(0.5), integer(4), true, ""},
-		{"random at hi", DrawRandom, real(1), integer(6), false, "records 1.0, which the call cannot draw"},
-		{"max off hi", DrawMax, real(0.5), integer(6), false, "records 0.5, which the call cannot draw under max"},
-		{"max off the greatest integer", DrawMax, real(1), integer(5), false, "records 5, which the call cannot draw under max"},
-		{"average off the midpoint", DrawAverage, real(0.5), integer(3), false, "records 3, which the call cannot draw under average"},
+		{"max at the fixed points", DrawMax, realValue(1), integer(6), true, ""},
+		{"min at the fixed points", DrawMin, realValue(0), integer(1), true, ""},
+		{"average at the fixed points", DrawAverage, realValue(0.5), integer(4), true, ""},
+		{"random at hi", DrawRandom, realValue(1), integer(6), false, "records 1.0, which the call cannot draw"},
+		{"max off hi", DrawMax, realValue(0.5), integer(6), false, "records 0.5, which the call cannot draw under max"},
+		{"max off the greatest integer", DrawMax, realValue(1), integer(5), false, "records 5, which the call cannot draw under max"},
+		{"average off the midpoint", DrawAverage, realValue(0.5), integer(3), false, "records 3, which the call cannot draw under average"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
