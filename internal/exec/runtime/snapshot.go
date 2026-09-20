@@ -429,6 +429,7 @@ type actionCapture struct {
 	moved             bool
 	leftStanding      bool
 	awaiting          *actionFrame
+	outputListeners   []outputListener
 	firedBreakpoints  mapState[breakpointVisit, bool]
 	traversals        []Traversal
 	traversalBase     int
@@ -448,6 +449,7 @@ func (e *ActionExecutor) capture() actionCapture {
 		pausedAt: e.pausedAt, released: e.released, pauses: e.pauses,
 		steps: e.steps, stepsSpent: e.stepsSpent, inRun: e.inRun, held: e.held, moved: e.moved, awaiting: e.awaiting,
 		leftStanding:     e.leftStanding,
+		outputListeners:  slices.Clone(e.outputListeners),
 		firedBreakpoints: captureMap(e.firedBreakpoints),
 		traversals:       cloneTraversals(e.traversals),
 		traversalBase:    e.traversalBase,
@@ -467,6 +469,7 @@ func (c actionCapture) restore() {
 	e.pausedAt, e.released, e.pauses = c.pausedAt, c.released, c.pauses
 	e.steps, e.stepsSpent, e.inRun, e.held = c.steps, c.stepsSpent, c.inRun, c.held
 	e.moved, e.awaiting, e.leftStanding = c.moved, c.awaiting, c.leftStanding
+	e.outputListeners = slices.Clone(c.outputListeners)
 	e.firedBreakpoints = c.firedBreakpoints.restore()
 	e.traversals, e.traversalBase = cloneTraversals(c.traversals), c.traversalBase
 	e.driven.state = c.driven

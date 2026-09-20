@@ -1361,15 +1361,18 @@ func (e *performances) performInvocation(perf *actionFrame, inv actionInvocation
 			return err
 		}
 	}
-	if resumed || callee.joined {
+	if resumed {
 		callee.exec.listen(perf, e.streamCalleeOutput(perf, callee.out))
 	}
-	if callee.joined {
-		// A joined performance outlives the node: it is listened to only while run here.
-		defer callee.exec.unlisten(perf)
-	}
 	if _, _, err := e.ctx.runCallee(callee); err != nil {
+		if callee.joined && !paused(err) {
+			callee.exec.unlisten(perf)
+		}
 		return err
+	}
+	if callee.joined {
+		// A joined performance outlives the node, which is done listening to it.
+		callee.exec.unlisten(perf)
 	}
 	perf.adopt(callee.exec)
 	perf.outputs = callee.out
@@ -1434,7 +1437,7 @@ func (e *performances) beginInvocation(perf *actionFrame, inv actionInvocation) 
 	if err != nil {
 		return nil, fmt.Errorf("invoke action %s: %w", inv.name(), err)
 	}
-	callee.name, callee.out = inv.name(), out
+	callee.name, callee.out, callee.performer = inv.name(), out, perf
 	return callee, nil
 }
 
