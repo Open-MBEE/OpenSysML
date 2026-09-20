@@ -359,33 +359,30 @@ func (ctx *Context) portInstanceID(holder *Instance, port string) (int64, error)
 // can receive the message gets a copy, which is the ends whose flow features
 // carry inward after conjugation. The behavior's own connections are read as
 // written (ends it binds through ec); the port holder's under the path re-rooted
-// there. A send that reaches none of them is delivered nowhere, which is a typed
-// error rather than a message quietly dropped.
+// there, where an addressed receiver is a node of that holder. A send that
+// reaches none of them is delivered nowhere, which is a typed error rather than
+// a message quietly dropped.
 func (ctx *Context) postVia(ec *EvalContext, conns []lower.Connection, msg Message, send lower.Send, self *Instance, behavior *symbols.Symbol) error {
-	if send.Receiver != "" && send.Scope != nil {
-		sym, ok := ctx.portSymbol(send.Scope, send.Target)
-		if !ok || sym == nil || sym.Kind != symbols.SymbolPortUsage ||
-			!ctx.ownPortPath(send.Scope, strings.Split(send.Target, ".")) {
-			return &UnknownSendPortError{Port: send.Target, Receiver: send.Receiver}
-		}
+	routed, holder, err := ec.viaSender(send, self)
+	if err != nil {
+		return err
+	}
+	if send.Receiver != "" && send.Scope != nil && !ctx.sendsOwnPort(routed, holder, holder != self) {
+		return &UnknownSendPortError{Port: send.Target, Receiver: send.Receiver}
 	}
 	receiver := send.Receiver
 	if receiver != "" {
-		receiverSend := send
+		receiverSend := routed
 		receiverSend.Target = send.Receiver
 		receiverSend.TargetPath = send.ReceiverPath
 		receiverSend.IsVia = false
-		addr, err := ctx.resolveRoutedReceiver(receiverSend, self)
-		if err != nil || (addr.Object != 0 && addr.Object != objectID(self)) {
+		addr, err := ctx.resolveRoutedReceiver(receiverSend, holder)
+		if err != nil || (addr.Object != 0 && addr.Object != objectID(holder)) {
 			return &UnreachableSendReceiverError{Port: send.Target, Receiver: send.Receiver}
 		}
 		receiver = addr.Name
 	}
 	typed := receiver != ""
-	routed, holder, err := ec.viaSender(send, self)
-	if err != nil {
-		return err
-	}
 	own, outbound, typeMismatch, err := ctx.connectedDeliveries(
 		ec, ctx.realizedConnections(conns, self), self, send, msg, typed,
 	)
@@ -459,6 +456,22 @@ func (ctx *Context) postVia(ec *EvalContext, conns []lower.Connection, msg Messa
 		ctx.postFrom(c.msg, c.from, behavior)
 	}
 	return nil
+}
+
+// sendsOwnPort reports whether a send's port is the sender's own: a port of the
+// object the path was re-rooted to, or else one the sending behavior declares.
+func (ctx *Context) sendsOwnPort(send lower.Send, holder *Instance, rerooted bool) bool {
+	if rerooted {
+		for _, of := range ctx.FeaturesOfObject(holder) {
+			if of.Name == send.Target && isPortFeature(of.Feature) {
+				return true
+			}
+		}
+		return false
+	}
+	sym, ok := ctx.portSymbol(send.Scope, send.Target)
+	return ok && sym != nil && sym.Kind == symbols.SymbolPortUsage &&
+		ctx.ownPortPath(send.Scope, strings.Split(send.Target, "."))
 }
 
 // appendUnseen appends the ends of more that out does not already list.

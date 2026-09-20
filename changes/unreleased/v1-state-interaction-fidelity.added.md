@@ -65,7 +65,8 @@
   and a state transition's `accept … via ctx.p` resolves its path the same way through the
   machine's parameters; the behavior's own connectors are read the same way, so a
   `connect ctx.p to snk.local` between two bound references carries that send beside the
-  connections of the object holding the port;
+  connections of the object holding the port, and an addressed `send … via ctx.p to m`
+  names a machine of the object the path is re-rooted to;
   a part's port is known to the connectors its type inherits under the name the
   part was declared with before redefinition; a `ref` usage holds what is bound to it rather than
   an object of its own; and an untyped `port` materializes as a `Ports::Port`, so a binding
