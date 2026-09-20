@@ -3,6 +3,6 @@
 	"outputs": {
 		"sum": {"type": "Integer", "value": 1},
 		"after": {"type": "Integer", "value": 0},
-		"done": {"type": "Integer", "value": 1}
+		"completed": {"type": "Integer", "value": 1}
 	}
 }
