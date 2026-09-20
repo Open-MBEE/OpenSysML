@@ -117,6 +117,13 @@ it again at the prompt *replaces* it (`note: replaced package …`) rather than 
 loaded file, edit it and load it again. Tab completion completes paths after `%load` and `%save`,
 and meta-commands and symbol names everywhere else.
 
+A loaded file's imports are followed to its neighbors: when a file imports a root namespace that
+neither the loaded files nor the standard library declare, the `.sysml` and `.kerml` files beside
+and below it are searched for one declaring that name, and each is loaded too, its own imports
+followed the same way. `%load main.sysml` therefore brings in `parts/lib.sysml` when `main.sysml`
+imports `Lib::*` and only `parts/lib.sysml` declares `package Lib`, and leaves unrelated siblings
+alone; the same holds for a file named on the command line. Hidden directories are not searched.
+
 A file the parser cannot read is reported the same way as a typed declaration, with the
 diagnostic pointing at the offending line of the file. None of its contents enter the
 session, so the next submission is parsed against the model as it stood before the load. In
