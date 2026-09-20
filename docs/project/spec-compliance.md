@@ -2370,7 +2370,7 @@ The behavior-execution entries below — interruptible regions, expansion region
 
 **Actions (Advanced):**
 - Interruptible regions
-- Expansion regions (parallel/iterative)
+- Expansion regions — closed, not to be implemented ([design record](expansion-regions.md)): the iterative form is `for` (§7.17.12, `Actions::ForLoopAction`), which runs in every body position; the parallel form is not SysML v2 — a multiplicity on a performed action usage with a `flow` delivering a collection to its input is not a standard spelling of per-element concurrent performance (SysML v2 §7.17.2, §8.4.13.2; KerML §7.4.7, Annex A.3.6; `Performances.kerml`, `Transfers.kerml`), no OMG corpus model writes one, and the pinned pilot performs no actions. The runtime performs such a node once per token (`runtime/action_frame.go` `beginPerformance`) and refuses a collection delivered to a one-valued pin (`runtime/write_conformance.go` `checkTargetAs`, `ErrMultiplicityViolation`); per-element concurrency is written as distinct nodes under a `fork`
 - Streaming pins
 - Exception handlers
 - Structured activities with pin connectors

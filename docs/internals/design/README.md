@@ -66,6 +66,12 @@ maintainers; the behavior a user sees is [the guide](../../guide/).
   operations the wire lacks (satisfiability, checker options, replay, views, search), design a
   session API for the debuggers apart from the stateless calls, and make the agreement a
   conformance protocol rather than a claim
+- **[A SysON plugin](syson-plugin.md)** — a discovery and design: how Eclipse SysON's Sirius
+  Web backend and React frontend take contributions, its textual exporter and SysIDE importer,
+  its partial SysML v2 REST API and normative library ids, the mapping between a qualified-name
+  `Symbol.id` and an EMF element, `sysml -validate` over SysON's textual models, then the layout
+  of `editors/syson/`, the "Run with OpenSysML" sequence and a four-phase plan; nothing is
+  implemented
 - **[Transport evaluation](transport-evaluation.md)** — Connect and stdio measured beside gRPC,
   with the lifecycle-code delta and a recommendation
 - **[Visual modeling in VS Code](vscode-visual-modeling.md)** — the live diagram panel, the

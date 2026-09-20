@@ -24,8 +24,9 @@ python_pattern='^client/python/'
 java_pattern='^client/java/'
 rust_pattern='^client/rust/'
 vscode_pattern='^editors/vscode/'
+syson_pattern='^editors/syson/'
 
-known_pattern="$service_pattern|$docs_pattern|$node_pattern|$python_pattern|$java_pattern|$rust_pattern|$vscode_pattern|^\.agents/|^\.gitignore$|^\.gitattributes$|^LICENSE|^packaging/"
+known_pattern="$service_pattern|$docs_pattern|$node_pattern|$python_pattern|$java_pattern|$rust_pattern|$vscode_pattern|$syson_pattern|^\.agents/|^\.gitignore$|^\.gitattributes$|^LICENSE|^packaging/"
 
 matches() {
   local pattern=$1
@@ -52,3 +53,4 @@ emit python "$( { [[ "$service" = true ]] || matches "$python_pattern"; } && ech
 emit java "$( { [[ "$service" = true ]] || matches "$java_pattern"; } && echo true || echo false)"
 emit rust "$( { [[ "$service" = true ]] || matches "$rust_pattern"; } && echo true || echo false)"
 emit vscode "$( { [[ "$service" = true ]] || matches "$vscode_pattern"; } && echo true || echo false)"
+emit syson "$( { [[ "$service" = true ]] || matches "$syson_pattern"; } && echo true || echo false)"
