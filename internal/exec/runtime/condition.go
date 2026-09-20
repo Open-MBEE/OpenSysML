@@ -602,8 +602,13 @@ func (ctx *Context) heldObjectIDs() map[int64]bool {
 		if inst == nil {
 			continue
 		}
+		destroyed := ctx.checkNotDestroyed(inst) != nil
 		for _, fv := range inst.FeatureValues {
 			for _, id := range heldObjects(fv.HeldValue()) {
+				// A destroyed holder is not walked, so a live object it refers to stands on its own.
+				if child, ok := ctx.instances[id]; destroyed && ok && ctx.checkNotDestroyed(child) == nil {
+					continue
+				}
 				held[id] = true
 			}
 		}

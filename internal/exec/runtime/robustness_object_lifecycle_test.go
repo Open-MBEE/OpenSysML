@@ -21,6 +21,8 @@ func TestRuntimeRobustnessObjectLifecycle(t *testing.T) {
 	t.Run("destroy_of_the_whole_ends_the_created_parts", testObjectLifecycleDestroyWholeEndsCreatedParts)
 	t.Run("a_part_moved_between_wholes_ends_with_the_new_whole", testObjectLifecycleMovedPart)
 	t.Run("send_new_starts_the_message_objects_behaviors", testObjectLifecycleSendNew)
+	t.Run("a_failed_constructor_leaves_no_argument_object", testObjectLifecycleFailedConstructor)
+	t.Run("destroying_a_holder_leaves_what_it_referred_to_in_the_extent", testObjectLifecycleDestroyedHolderExtent)
 	t.Run("explore_creating_objects_is_deterministic", testObjectLifecycleExploreCreation)
 	t.Run("explore_destroy_race_reaches_both_outcomes", testObjectLifecycleExploreDestroyRace)
 }
@@ -340,6 +342,61 @@ func testObjectLifecycleSendNew(t *testing.T) {
 	}
 	if b, ok := sent.Behavior("running"); !ok || b.State == nil || b.State.State().Ended() {
 		t.Errorf("sent running = %v, %v; want the machine under way", b, ok)
+	}
+}
+
+// testObjectLifecycleFailedConstructor: a `new Pair(new Car(1), 1/0)` whose later argument
+// fails constructs nothing, the car its earlier argument made included.
+func testObjectLifecycleFailedConstructor(t *testing.T) {
+	instantiate, invoke, ctx := lifetimeFixture(t, objectLifecycleModel+`
+		package more { private import ScalarValues::*; private import test::*;
+			part def Pair { part c : Car[0..1]; attribute k : Integer; }
+		}`)
+	fleet := instantiate("Fleet")
+	before := len(ctx.created)
+	_, scope := calcByName(t, ctx.model.resolver.Index().DocumentRoot("<test>"), "test", "Extent")
+	if _, err := evalIn(t, ctx, scope, "new more::Pair(new test::Car(1), 1/0)"); err == nil {
+		t.Fatal("new Pair(new Car(1), 1/0) succeeded; want the failing argument reported")
+	}
+	after := 0
+	for _, id := range ctx.created {
+		if inst := ctx.instances[id]; inst != nil && inst.Type.Name == "Car" {
+			after++
+		}
+	}
+	if after != 2 || len(ctx.created) != before {
+		t.Errorf("%d cars, %d objects after the failed constructor; want the fleet's two cars and %d objects", after, len(ctx.created), before)
+	}
+	if got, err := invoke("Extent", objectValue(fleet)); err != nil || FormatValue(got) != "2" {
+		t.Errorf("all Car = %v, %v after the failed constructor; want the fleet's two", got, err)
+	}
+}
+
+// testObjectLifecycleDestroyedHolderExtent: destroying a fleet ends the cars it owns but not
+// the car its `ref part spare` refers to, which `all Car` still reaches.
+func testObjectLifecycleDestroyedHolderExtent(t *testing.T) {
+	instantiate, invoke, ctx := lifetimeFixture(t, objectLifecycleModel+`
+		package more { private import OccurrenceFunctions::*; private import test::*;
+			calc def DestroyFleet { in f : Fleet; return : Fleet = destroy(f); }
+		}`)
+	fleet := instantiate("Fleet")
+	cars := heldCars(t, ctx, fleet)
+	loose := cars[1]
+	if err := fleet.SetFeatureValue(ctx, "cars", sequenceOf([]Value{objectValue(cars[0])})); err != nil {
+		t.Fatalf("fleet.cars := (first) = %v", err)
+	}
+	if loose.owner != nil {
+		t.Fatalf("#%d owned by %v; want released", loose.ID, loose.owner)
+	}
+	sym, scope := calcByName(t, ctx.model.resolver.Index().DocumentRoot("<test>"), "more", "DestroyFleet")
+	if _, err := ctx.InvokeCalc(sym, []Value{objectValue(fleet)}, scope); err != nil {
+		t.Fatalf("destroy(fleet) = %v", err)
+	}
+	if l, _ := ctx.OccurrenceLife(loose.ID); !l.Alive() {
+		t.Fatalf("OccurrenceLife(spare) = %v after destroying the fleet; want alive", l)
+	}
+	if got, err := invoke("Extent", objectValue(fleet)); err != nil || FormatValue(got) != "1" {
+		t.Errorf("all Car = %v, %v after destroying the fleet; want the spare alone", got, err)
 	}
 }
 

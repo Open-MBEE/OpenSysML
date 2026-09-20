@@ -1352,14 +1352,12 @@ func (e *EvalContext) buildConstructedMessage(scope *symbols.Scope, constructor 
 	if err := e.checkConstructorArity(signal, constructor, "send "+signal.Name); err != nil {
 		return Message{}, err
 	}
-	msg, err := e.buildTypedMessage(scope, signal.Name, signal, target,
-		messageArgs{typeRef: constructor.Type, args: constructor.Args, named: constructor.NamedArgs})
+	msg, inst, err := e.constructObject(func() (Message, error) {
+		return e.buildTypedMessage(scope, signal.Name, signal, target,
+			messageArgs{typeRef: constructor.Type, args: constructor.Args, named: constructor.NamedArgs})
+	}, "send new "+signal.Name)
 	if err != nil {
 		return Message{}, err
-	}
-	inst, err := e.ctx.constructObject(msg)
-	if err != nil {
-		return Message{}, fmt.Errorf("send new %s: %w", signal.Name, err)
 	}
 	msg.Value = &Value{Kind: ValInstance, Instance: inst.ID}
 	return msg, nil
@@ -1376,31 +1374,39 @@ func (e *EvalContext) evalConstructor(constructor *ast.ConstructorExpr) (Value, 
 	if err := e.checkConstructorArity(typ, constructor, what); err != nil {
 		return Value{}, err
 	}
-	msg, err := e.buildTypedMessage(e.scope, typ.Name, typ, "",
-		messageArgs{typeRef: constructor.Type, args: constructor.Args, named: constructor.NamedArgs, written: what})
+	_, inst, err := e.constructObject(func() (Message, error) {
+		return e.buildTypedMessage(e.scope, typ.Name, typ, "",
+			messageArgs{typeRef: constructor.Type, args: constructor.Args, named: constructor.NamedArgs, written: what})
+	}, what)
 	if err != nil {
 		return Value{}, err
-	}
-	inst, err := e.ctx.constructObject(msg)
-	if err != nil {
-		return Value{}, fmt.Errorf("%s: %w", what, err)
 	}
 	return e.ctx.objectValue(inst)
 }
 
 // constructObject materializes the object `new T(…)` denotes (KerML §7.4.9): an occurrence
-// whose life begins here and that performs T's behaviors; a failed construction leaves nothing.
-func (ctx *Context) constructObject(msg Message) (*Instance, error) {
-	mark := len(ctx.created)
+// whose life begins here and that performs T's behaviors. A construction that fails at any
+// step — an argument, the materialization, a behavior's start — leaves nothing, not even the
+// objects its arguments made.
+func (e *EvalContext) constructObject(build func() (Message, error), what string) (Message, *Instance, error) {
+	ctx := e.ctx
+	mark, attached := len(ctx.created), len(ctx.objectBehaviors)
+	msg, err := build()
+	if err != nil {
+		ctx.abandonCreationSince(mark, attached)
+		return Message{}, nil, err
+	}
 	value, err := ctx.materializeMessage(msg)
 	if err != nil {
-		return nil, err
+		ctx.abandonCreationSince(mark, attached)
+		return Message{}, nil, fmt.Errorf("%s: %w", what, err)
 	}
 	inst := ctx.instances[value.Instance]
 	if err := ctx.startClassifierBehaviors(inst, mark); err != nil {
-		return nil, err
+		ctx.abandonCreationSince(mark, attached)
+		return Message{}, nil, fmt.Errorf("%s: %w", what, err)
 	}
-	return inst, nil
+	return msg, inst, nil
 }
 
 // checkConstructorArity rejects positional arguments beyond the constructed

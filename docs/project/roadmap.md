@@ -1477,7 +1477,7 @@ and nothing destroyed it: `new T(…)` built a message-shaped value for `send`, 
 into a feature was classified by it but owned by nothing, `destroy` refused an object whose state
 machine was under way (`ErrOccurrenceLifetime`), and a destroyed object stayed in `all T`. Now an
 object created while a behavior runs is a first-class occurrence of the run
-(`runtime/signal.go` `evalConstructor` → `Context.constructObject`): it has an identity of its own,
+(`runtime/signal.go` `evalConstructor` → `EvalContext.constructObject`): it has an identity of its own,
 begins its life where it is made, is classified by the type it is created as, and starts the
 behaviors its type exhibits or performs as an object materialized from a declaration does. The
 spellings are the specifications': KerML §7.4.9's instantiation expression `new T(args)`, in any
