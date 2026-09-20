@@ -326,6 +326,8 @@ func (ctx *Context) rollbackJournal(mark journalMark) {
 	}
 	ctx.journalUndos = ctx.journalUndos[:mark.undos]
 	ctx.messages = slices.Clone(mark.messages)
+	ctx.bus.cuts++
+	ctx.writes++
 	ctx.abandonCreationSince(mark.created, mark.attached)
 	ctx.clock.now, ctx.clock.waiters = mark.clockNow, slices.Clone(mark.clockWaiters)
 }
@@ -475,6 +477,7 @@ func (c actionCapture) restore() {
 	e.firedBreakpoints = c.firedBreakpoints.restore()
 	e.traversals, e.traversalBase = cloneTraversals(c.traversals), c.traversalBase
 	e.driven.state = c.driven
+	e.driven.stir(0)
 	e.dynamics = c.dynamics.clone()
 	for _, perf := range c.frames {
 		perf.restore()
@@ -708,6 +711,7 @@ func (c stateCapture) restore() {
 	}
 	e.round, e.roundDone = slices.Clone(c.round), c.roundDone
 	e.machineExited, e.driven.state, e.inRun, e.moved = c.machineExited, c.driven, c.inRun, c.moved
+	e.driven.stir(0)
 	e.timerScheduled = c.timerScheduled.restore()
 	e.timeTriggerVerdict = c.timeTriggerVerdict.restore()
 	e.changeFired = c.changeFired.restore()

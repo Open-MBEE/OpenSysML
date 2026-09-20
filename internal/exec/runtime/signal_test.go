@@ -1057,7 +1057,7 @@ func TestPortRoutedMessageDoesNotReachStateMachine(t *testing.T) {
 }
 
 // The two judgements of whether a machine reacts to a message — matchesEvent,
-// dispatching a queued occurrence to a transition, and acceptsSignalFrom,
+// dispatching a queued occurrence to a transition, and acceptsSignalAlong,
 // deciding whether a state takes a message in flight — agree for a transfer
 // addressed to the performer, addressed to its port, and routed to its port: a
 // via-less accept receives only what is addressed to the performer itself.
@@ -1163,12 +1163,12 @@ func TestAcceptRoutingAgreesBetweenDispatchAndAcceptance(t *testing.T) {
 		if len(fired) != 1 || fired[0] != tc.fires {
 			t.Errorf("%s: matchesEvent enables %v, want [%s]", tc.name, fired, tc.fires)
 		}
-		accepts, err := exec.acceptsSignalFrom(waiting, tc.msg)
+		accepts, err := exec.acceptsSignalAlong(waiting, tc.msg)
 		if err != nil {
-			t.Fatalf("%s: acceptsSignalFrom: %v", tc.name, err)
+			t.Fatalf("%s: acceptsSignalAlong: %v", tc.name, err)
 		}
 		if accepts != (len(fired) > 0) {
-			t.Errorf("%s: acceptsSignalFrom = %v while matchesEvent enables %v", tc.name, accepts, fired)
+			t.Errorf("%s: acceptsSignalAlong = %v while matchesEvent enables %v", tc.name, accepts, fired)
 		}
 	}
 }

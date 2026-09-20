@@ -103,6 +103,7 @@ func (ctx *Context) postFrom(msg Message, from *Instance, behavior *symbols.Symb
 		msg.Delivery = deliveryOf(msg)
 	}
 	ctx.messages = append(ctx.messages, msg)
+	ctx.bus.posts++
 	if ctx.trace != nil {
 		target, _ := ctx.Instance(msg.Object)
 		ctx.trace.RecordSend(TraceOrigin{At: ctx.clock.now, Object: from, Behavior: behavior}, msg, target)
@@ -142,10 +143,41 @@ func (ctx *Context) TakeMessage(match func(Message) bool) (Message, bool) {
 	for i := 0; i < len(ctx.messages); i++ {
 		if msg := ctx.messages[i]; match(msg) {
 			ctx.messages = append(ctx.messages[:i], ctx.messages[i+1:]...)
+			ctx.bus.cuts++
 			return msg, true
 		}
 	}
 	return Message{}, false
+}
+
+// busSerials counts the messages posted to the bus and the cuts that removed or
+// replaced messages: between two marks with equal cuts the bus has only grown.
+type busSerials struct {
+	posts, cuts uint64
+}
+
+// pendingMemo is a machine's memoized poll of the bus for a message it takes:
+// the answer, and the marks it holds under. It stands while nothing it depends on
+// moved: the bus, the machine and what runs under it and, where the scan read
+// them, the objects' data (a via path, an event subsetted, a sibling's guard).
+type pendingMemo struct {
+	valid     bool
+	bus       busSerials
+	writes    uint64
+	machine   uint64
+	readsData bool
+	// scanned is how many messages the scan examined; a bus that only grew since
+	// needs the rest examined.
+	scanned int
+	msg     Message
+	ok      bool
+}
+
+// notePollReadsData records that the poll under way, if any, read the objects' data.
+func (ctx *Context) notePollReadsData() {
+	if ctx.polling != nil {
+		ctx.polling.readsData = true
+	}
 }
 
 // PendingMessages returns the messages still in flight, oldest first.
@@ -1076,6 +1108,7 @@ func (ec *EvalContext) carriesEvent(m Message, subsets ast.Node) bool {
 	if path == "" {
 		return true
 	}
+	ec.ctx.notePollReadsData()
 	want, ok := ec.ctx.featureSymbol(ec.scope, path)
 	if !ok {
 		name := lastSegment(path)
@@ -1138,11 +1171,54 @@ func (ctx *Context) messageMatches(m Message, want *ast.QualifiedName, scope *sy
 		return true
 	}
 	if m.Signal != nil && ctx.model.semantics != nil {
-		if wantSym := ctx.resolveTypeRef(scope, want); wantSym != nil {
-			return ctx.conforms(m.Signal, wantSym)
+		if wantSym := ctx.triggerType(scope, want); wantSym != nil {
+			return ctx.signalConforms(m.Signal, wantSym)
 		}
 	}
 	return m.SignalType == want.Parts[len(want.Parts)-1].Text
+}
+
+// triggerTypeKey is a type reference as written in one scope; the model fixes what it denotes.
+type triggerTypeKey struct {
+	scope *symbols.Scope
+	ref   *ast.QualifiedName
+}
+
+// signalMatchKey is a message's signal against the definition an accept names.
+type signalMatchKey struct {
+	signal, want *symbols.Symbol
+}
+
+// triggerType is resolveTypeRef memoized on the model; a binding under way resolves
+// afresh so that what it read is noted for it.
+func (ctx *Context) triggerType(scope *symbols.Scope, want *ast.QualifiedName) *symbols.Symbol {
+	if ctx.recordingReads() {
+		return ctx.resolveTypeRef(scope, want)
+	}
+	key := triggerTypeKey{scope: scope, ref: want}
+	if sym, ok := ctx.model.triggerTypes[key]; ok {
+		return sym
+	}
+	sym := ctx.resolveTypeRef(scope, want)
+	ctx.model.triggerTypes[key] = sym
+	return sym
+}
+
+// signalConforms is conforms memoized on the model, as triggerType is.
+func (ctx *Context) signalConforms(signal, want *symbols.Symbol) bool {
+	if ctx.recordingReads() {
+		return ctx.conforms(signal, want)
+	}
+	if signal == want {
+		return true
+	}
+	key := signalMatchKey{signal: signal, want: want}
+	if matches, ok := ctx.model.signalMatches[key]; ok {
+		return matches
+	}
+	matches := ctx.conforms(signal, want)
+	ctx.model.signalMatches[key] = matches
+	return matches
 }
 
 // buildMessage evaluates a send statement into a message.

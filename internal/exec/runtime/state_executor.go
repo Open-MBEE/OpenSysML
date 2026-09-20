@@ -38,6 +38,11 @@ type StateExecutor struct {
 
 	// Lowered graph (source of truth)
 	graph *lower.StateGraph
+	// acceptsAlong memoizes, per leaf state, the accept-triggered transitions out of it
+	// and its enclosing states, in the order a message is tried against them.
+	acceptsAlong map[*ast.StateNode][]*lower.Transition
+	// pending memoizes the machine's last poll of the bus for a message it takes.
+	pending pendingMemo
 
 	// State machine execution state
 	activeConfig *StateConfiguration // Active state configuration (simple or multi-region)
@@ -3928,6 +3933,7 @@ func (e *StateExecutor) yieldsTo(m Message) bool {
 	if len(siblings) == 0 {
 		return false
 	}
+	e.ctx.notePollReadsData()
 	if own, err := e.Decide(m); err != nil || own.Enabled() {
 		return false
 	}
@@ -4122,34 +4128,78 @@ func (e *StateExecutor) hasPendingSignal() bool {
 // pendingSignal is the message in flight deliverPendingSignal would take, the
 // first the machine takes; ok as hasPendingSignal, so a failing port counts.
 func (e *StateExecutor) pendingSignal() (Message, bool) {
-	for _, msg := range e.ctx.PendingMessages() {
-		if takes, err := e.takesMessage(msg); err != nil || takes {
-			return msg, true
+	if !e.driven.settled() {
+		// The machine, or a behavior under it, is mid-call: its state moves between polls.
+		e.pending.valid = false
+		return e.scanPending(nil, 0)
+	}
+	memo := &e.pending
+	if memo.holds(e) {
+		if memo.ok || memo.bus.posts == e.ctx.bus.posts {
+			return memo.msg, memo.ok
+		}
+		// The bus only grew since a negative answer: the messages added are examined.
+		return e.scanPending(memo, memo.scanned)
+	}
+	memo.readsData = false
+	return e.scanPending(memo, 0)
+}
+
+// scanPending polls the bus from its from-th message for one the machine takes,
+// recording in memo, if any, the marks the answer holds under and what it read.
+func (e *StateExecutor) scanPending(memo *pendingMemo, from int) (Message, bool) {
+	if memo != nil {
+		memo.valid, memo.bus, memo.writes, memo.machine = true, e.ctx.bus, e.ctx.writes, e.driven.serial
+		memo.msg, memo.ok, memo.scanned = Message{}, false, from
+	}
+	saved := e.ctx.polling
+	e.ctx.polling = memo
+	defer func() {
+		e.ctx.polling = saved
+		// A poll within a poll reads for the poll enclosing it too.
+		if saved != nil && (memo == nil || memo.readsData) {
+			saved.readsData = true
+		}
+	}()
+	messages := e.ctx.PendingMessages()
+	for i := from; i < len(messages); i++ {
+		if memo != nil {
+			memo.scanned = i + 1
+		}
+		if takes, err := e.takesMessage(messages[i]); err != nil || takes {
+			if memo != nil {
+				memo.msg, memo.ok = messages[i], true
+			}
+			return messages[i], true
 		}
 	}
 	return Message{}, false
+}
+
+// holds reports whether the memo still answers for e: taken, and nothing it
+// depends on moved since, the objects' data counting only where the scan read it.
+func (memo *pendingMemo) holds(e *StateExecutor) bool {
+	return memo.valid && memo.machine == e.driven.serial && memo.bus.cuts == e.ctx.bus.cuts &&
+		(!memo.readsData || memo.writes == e.ctx.writes)
 }
 
 // acceptsSignal reports whether any transition out of the active configuration,
 // or out of a composite state enclosing it, is triggered by this signal.
 func (e *StateExecutor) acceptsSignal(msg Message) (bool, error) {
 	for _, leaf := range e.activeStates() {
-		for _, state := range e.getParentChain(leaf) {
-			if accepted, err := e.acceptsSignalFrom(state, msg); err != nil || accepted {
-				return accepted, err
-			}
+		if accepted, err := e.acceptsSignalAlong(leaf, msg); err != nil || accepted {
+			return accepted, err
 		}
 	}
 	return false, nil
 }
 
-// acceptsSignalFrom reports whether a transition out of one state is triggered
-// by this message's signal. Only a message of the right signal resolves the
-// transition's `via` port; a failure to do so is returned.
-func (e *StateExecutor) acceptsSignalFrom(state *ast.StateNode, msg Message) (bool, error) {
-	for _, trans := range e.graph.Transitions[state] {
-		accept, ok := trans.Trigger.(*ast.AcceptEvent)
-		if !ok || !e.triggerSignalMatches(accept, trans.Scope, msg) {
+// acceptsSignalAlong reports whether a transition out of a leaf state or a state
+// enclosing it is triggered by this message's signal. Only a message of the right
+// signal resolves the transition's `via` port; a failure to do so is returned.
+func (e *StateExecutor) acceptsSignalAlong(leaf *ast.StateNode, msg Message) (bool, error) {
+	for _, trans := range e.acceptTransitionsAlong(leaf) {
+		if !e.triggerSignalMatches(trans.Trigger.(*ast.AcceptEvent), trans.Scope, msg) {
 			continue
 		}
 		reaches, err := e.transitionReached(trans, msg)
@@ -4158,6 +4208,27 @@ func (e *StateExecutor) acceptsSignalFrom(state *ast.StateNode, msg Message) (bo
 		}
 	}
 	return false, nil
+}
+
+// acceptTransitionsAlong lists the accept-triggered transitions out of a leaf state
+// and, after them, out of each state enclosing it; the graph fixes the list.
+func (e *StateExecutor) acceptTransitionsAlong(leaf *ast.StateNode) []*lower.Transition {
+	if along, ok := e.acceptsAlong[leaf]; ok {
+		return along
+	}
+	var along []*lower.Transition
+	for _, state := range e.getParentChain(leaf) {
+		for _, trans := range e.graph.Transitions[state] {
+			if _, ok := trans.Trigger.(*ast.AcceptEvent); ok {
+				along = append(along, trans)
+			}
+		}
+	}
+	if e.acceptsAlong == nil {
+		e.acceptsAlong = make(map[*ast.StateNode][]*lower.Transition)
+	}
+	e.acceptsAlong[leaf] = along
+	return along
 }
 
 // transitionReached reports whether a message arrives where a transition's

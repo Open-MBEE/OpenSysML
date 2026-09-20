@@ -434,6 +434,7 @@ func (ctx *Context) forgetMessagesTo(abandoned map[int64]bool) {
 		}
 	}
 	ctx.messages = kept
+	ctx.bus.cuts++
 }
 
 // restartClassifierBehaviors gives every object a fresh execution of the
