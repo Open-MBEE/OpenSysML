@@ -2,10 +2,41 @@ package runtime
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
 func TestRuntimeRobustnessNestedNodeInBody(t *testing.T) {
+	t.Run("state_body_flow_unsequenced_statement", func(t *testing.T) {
+		exec := stateExecutorForSource(t, "Machine", `package test {
+			private import ScalarValues::*;
+			state Machine {
+				attribute n : Integer = 0;
+				entry; then active;
+				state active {
+					do action work {
+						for i in 1..1 {
+							action a { assign n := n + 1; }
+							action b { assign n := n + 10; }
+							assign n := n + 100;
+							first a then b;
+							succession a then b;
+						}
+					}
+				}
+			}
+		}`)
+		err := exec.RunToCompletion()
+		if !errors.Is(err, ErrInvalidActionFlow) {
+			t.Fatalf("error = %v, want ErrInvalidActionFlow", err)
+		}
+		if !strings.Contains(err.Error(), "assignment written directly in an action body") {
+			t.Fatalf("error = %v, want the invalid stated-body flow diagnostic", err)
+		}
+		if n := exec.stateData["n"]; n.Kind != ValConst || n.Const.Int != 0 {
+			t.Fatalf("n = %v, want no action side effects", n)
+		}
+	})
 	t.Run("body_flow_with_no_start", func(t *testing.T) {
 		_, err := executeActionSource(t, "host", `package test {
 			action host {
