@@ -200,7 +200,7 @@ func TestRunsRefusesWhatItCannotRun(t *testing.T) {
 		{"%runs -2 7 MC::acquire", `"-2" is not a number of runs to make`},
 		{"%runs 3 x MC::acquire", `"x" is not a seed`},
 		{"%runs 2 7 MC::Missing", "unresolved reference: MC::Missing"},
-		{"%runs 3 7 MC::acquire total nope", "MC::acquire holds no feature named nope (the clock is observed as clock)"},
+		{"%runs 3 7 MC::acquire total nope", "no completed run of MC::acquire produced a value named nope (the clock is observed as clock)"},
 		{"%runs 3 7 MC::acquire total total", "observable total is named twice"},
 	} {
 		wants(t, run(t, s, tc.line), tc.want)
@@ -342,5 +342,5 @@ func TestRunsObserveWhatTheActionsPartsHold(t *testing.T) {
 		t.Errorf("a part of two objects is observed:\n%s", out)
 	}
 	wants(t, sweepTable(run(t, s, "%runs 1 7 P::Cfg target.total")), "run | target.total | time", "1   | 2.5          | <time>")
-	wants(t, run(t, s, "%runs 1 7 P::Cfg spares.total"), "P::Cfg holds no feature named spares.total")
+	wants(t, run(t, s, "%runs 1 7 P::Cfg spares.total"), "no completed run of P::Cfg produced a value named spares.total")
 }

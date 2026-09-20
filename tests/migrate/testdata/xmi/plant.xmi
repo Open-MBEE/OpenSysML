@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:SimulationProfile="http://www.magicdraw.com/schemas/SimulationProfile.xmi">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+
+    <packagedElement xmi:type="uml:Class" xmi:id="_valve" name="Valve">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_open" name="open"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Boolean"/>
+        <defaultValue xmi:type="uml:LiteralBoolean" xmi:id="_open0" value="false"/>
+      </ownedAttribute>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_tank" name="Tank">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_volume" name="volume"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_volume0" value="1.0"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_tvalve" name="valve" type="_valve" aggregation="composite"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_pump" name="Pump">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_on" name="on"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Boolean"/>
+        <defaultValue xmi:type="uml:LiteralBoolean" xmi:id="_on0" value="false"/>
+      </ownedAttribute>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_led" name="Led">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_lit" name="lit"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Boolean"/>
+        <defaultValue xmi:type="uml:LiteralBoolean" xmi:id="_lit0" value="false"/>
+      </ownedAttribute>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_controller" name="Controller">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_status" name="status"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Boolean"/>
+        <defaultValue xmi:type="uml:LiteralBoolean" xmi:id="_status0" value="false"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_cled" name="led" type="_led" aggregation="composite"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_rack" name="Rack">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_rcontroller" name="controller" type="_controller" aggregation="composite"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_control" name="Control">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_crack" name="rack" type="_rack" aggregation="composite"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_site" name="Site">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_scontrol" name="control" type="_control" aggregation="composite"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_plant" name="Plant">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_psite" name="site" type="_site" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_ptank" name="tank" type="_tank" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_ppump" name="pump" type="_pump" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_level" name="level"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_level0" value="0.0"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_runs" name="runs"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_runs0" value="0"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_fill" name="Fill">
+        <group xmi:type="uml:ActivityPartition" xmi:id="_outer" name="Tank" represents="_ptank" node="_fillv _torn _twice _mine" isDimension="true">
+          <subpartition xmi:type="uml:ActivityPartition" xmi:id="_inner" name="Valve" represents="_tvalve" node="_openv"/>
+        </group>
+        <group xmi:type="uml:ActivityPartition" xmi:id="_self" name="Plant" represents="_plant"/>
+        <group xmi:type="uml:ActivityPartition" xmi:id="_unset" name="Operator"/>
+        <group xmi:type="uml:ActivityPartition" xmi:id="_gone" name="Elsewhere" represents="_nowhere"/>
+        <group xmi:type="uml:ActivityPartition" xmi:id="_idle" name="Idle" represents="_ptank" node="_twice"/>
+        <group xmi:type="uml:ActivityPartition" xmi:id="_spare" name="Spare" represents="_ptank"/>
+        <group xmi:type="uml:ActivityPartition" xmi:id="_pumps" name="Pump" represents="_ppump" node="_torn _prime" isDimension="true"/>
+        <group xmi:type="uml:ActivityPartition" xmi:id="_deep" name="Controller" represents="_controller" node="_arm"/>
+        <group xmi:type="uml:ActivityPartition" xmi:id="_ledlane" name="Led" represents="_cled" node="_light"/>
+        <node xmi:type="uml:InitialNode" xmi:id="_init"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_openv" name="open valve">
+          <language>JavaScript</language>
+          <body>open = true;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_fillv" name="fill tank">
+          <language>JavaScript</language>
+          <body>volume = volume * 2 + (valve.open ? 1 : 0);</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_torn" name="torn">
+          <language>JavaScript</language>
+          <body>volume = 0;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_prime" name="prime">
+          <inPartition xmi:idref="_unset"/>
+          <language>JavaScript</language>
+          <body>on = true;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_twice" name="twice">
+          <language>JavaScript</language>
+          <body>volume = volume + 1;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_mine" name="mine">
+          <language>JavaScript</language>
+          <body>this.level = 1;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_count" name="count run">
+          <inPartition xmi:idref="_self"/>
+          <language>JavaScript</language>
+          <body>runs += 1;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_note" name="note level">
+          <inPartition xmi:idref="_unset"/>
+          <language>JavaScript</language>
+          <body>level = tank.volume;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_lost" name="lost">
+          <inPartition xmi:idref="_gone"/>
+          <language>JavaScript</language>
+          <body>level = level + 1;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_free" name="free">
+          <language>JavaScript</language>
+          <body>level = level + tank.volume;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_arm" name="arm">
+          <language>JavaScript</language>
+          <body>this.status = true;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_light" name="light">
+          <language>JavaScript</language>
+          <body>lit = true;</body>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_final"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_f1" source="_init" target="_openv"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_f2" source="_openv" target="_fillv"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_f3" source="_fillv" target="_torn"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_f3a" source="_torn" target="_prime">
+          <guard xmi:type="uml:OpaqueExpression" xmi:id="_g3a">
+            <language>JavaScript</language>
+            <body>on</body>
+          </guard>
+        </edge>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_f3b" source="_prime" target="_twice"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_f3c" source="_twice" target="_mine"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_f3d" source="_mine" target="_count"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_f4" source="_count" target="_note"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_f5" source="_note" target="_lost"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_f6" source="_lost" target="_free"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_f7" source="_free" target="_arm"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_f8" source="_arm" target="_light"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_f9" source="_light" target="_final"/>
+      </ownedBehavior>
+    </packagedElement>
+  </uml:Model>
+
+  <sysml:Block xmi:id="_s1" base_Class="_plant"/>
+  <sysml:Block xmi:id="_s2" base_Class="_tank"/>
+  <sysml:Block xmi:id="_s3" base_Class="_valve"/>
+  <sysml:Block xmi:id="_s4" base_Class="_pump"/>
+  <sysml:Block xmi:id="_s5" base_Class="_site"/>
+  <sysml:Block xmi:id="_s6" base_Class="_control"/>
+  <sysml:Block xmi:id="_s7" base_Class="_rack"/>
+  <sysml:Block xmi:id="_s8" base_Class="_controller"/>
+  <sysml:Block xmi:id="_s9" base_Class="_led"/>
+</xmi:XMI>

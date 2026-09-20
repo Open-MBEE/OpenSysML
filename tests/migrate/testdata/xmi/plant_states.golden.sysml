@@ -70,7 +70,7 @@ part def Plant {
         transition first Idle accept Ping then Idle;
         transition first Work accept Bump then Work::Prep;
         transition first Pause accept at dawn then Idle;
-        /* transition (_tNever) from Pause to done not migrated — a trigger is dropped: the time event's time is not written: the instant "next Tuesday" is not a number with a time unit */
+        /* transition (_tNever) from Pause to done not migrated — a trigger is dropped: the time event's time is not written: the instant "next Tuesday" is neither a number with a time unit nor an expression: not v2 expression syntax */
     }
     state def CellMachine {
         state warmStart;

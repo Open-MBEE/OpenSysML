@@ -263,7 +263,7 @@ func TestProfileNamespaceEndingInXMIIsAStereotype(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := m.Lookup("c").Stereotype("SimulationConfig")
-	if s == nil || s.Tag("numberOfRuns") != "5" || s.ID != "s" {
+	if s == nil || s.Tag("numberOfRuns") != "5" || s.ID != "s" || !strings.HasSuffix(s.Namespace, "SimulationProfile.xmi") {
 		t.Fatalf("SimulationConfig = %+v", s)
 	}
 }

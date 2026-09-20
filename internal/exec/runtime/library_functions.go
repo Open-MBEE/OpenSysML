@@ -129,11 +129,13 @@ func init() {
 	// OpenSysMLMathFunctions is the non-normative OpenSysML extension library
 	// (internal/workspace/libs/stdlib/OpenSysML Libraries/OpenSysMLMathFunctions.kerml),
 	// which declares the exponential, logarithmic and two-argument arctangent
-	// functions the OMG Kernel Function Library omits.
+	// functions, the ceiling and the Integer quotient the OMG Kernel Function Library omits.
 	registerLibraryFunction("OpenSysMLMathFunctions::exp", []string{"x"}, realUnary(math.Exp))
 	registerLibraryFunction("OpenSysMLMathFunctions::ln", []string{"x"}, naturalLog, positiveReal)
 	registerLibraryFunction("OpenSysMLMathFunctions::log", []string{"x", "base"}, logToBase, positiveReal, logarithmBase)
 	registerLibraryFunction("OpenSysMLMathFunctions::atan2", []string{"y", "x"}, atan2Real)
+	registerLibraryFunction("OpenSysMLMathFunctions::ceiling", []string{"x"}, ceilingToInteger)
+	registerLibraryFunction("OpenSysMLMathFunctions::quotient", []string{"x", "y"}, integerQuotient, integerDomain, integerDomain)
 
 	registerRandomFunctions()
 }
@@ -681,6 +683,11 @@ func floorToInteger(args []semantics.Value) (semantics.Value, error) {
 	return integerResult(math.Floor(asReal(args[0])))
 }
 
+// ceilingToInteger is OpenSysMLMathFunctions::ceiling, which returns Integer.
+func ceilingToInteger(args []semantics.Value) (semantics.Value, error) {
+	return integerResult(math.Ceil(asReal(args[0])))
+}
+
 // roundToInteger is RealFunctions::round, which returns Integer. Halves round
 // away from zero, as math.Round does.
 func roundToInteger(args []semantics.Value) (semantics.Value, error) {
@@ -733,6 +740,20 @@ func integerExtremum(larger bool) func([]semantics.Value) (semantics.Value, erro
 		}
 		return semantics.Value{Kind: semantics.ValInt, Int: res}, nil
 	}
+}
+
+// integerQuotient is OpenSysMLMathFunctions::quotient, the exact ratio of two
+// Integers truncated toward zero. The one quotient outside the Integer range,
+// the most negative Integer by -1, is reported rather than wrapped to itself.
+func integerQuotient(args []semantics.Value) (semantics.Value, error) {
+	x, y := args[0].Int, args[1].Int
+	if y == 0 {
+		return semantics.Value{}, ErrDivisionByZero
+	}
+	if x == math.MinInt64 && y == -1 {
+		return semantics.Value{}, fmt.Errorf("%w: quotient(%d, %d) exceeds the Integer range", semantics.ErrArithmeticOverflow, x, y)
+	}
+	return semantics.Value{Kind: semantics.ValInt, Int: x / y}, nil
 }
 
 // integerDomain is the domain of an Integer parameter: a Real does not conform.
