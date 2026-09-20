@@ -777,6 +777,15 @@ func (e *performances) streamFrom(f *actionFrame, pin string, value Value) error
 	if f.parent == nil || f.flow == nil {
 		return nil
 	}
+	key := streamKey{frame: f, pin: pin}
+	if e.ctx.streaming[key] {
+		return fmt.Errorf("%w: a value written to %s of %s is carried back to it", ErrStreamCycle, pin, f.describe())
+	}
+	if e.ctx.streaming == nil {
+		e.ctx.streaming = make(map[streamKey]bool)
+	}
+	e.ctx.streaming[key] = true
+	defer delete(e.ctx.streaming, key)
 	for _, flow := range f.flow.DataFlows[f.node] {
 		if flow.Kind != lower.FlowStreaming || f.key(flow.SourcePin) != pin {
 			continue
@@ -790,6 +799,13 @@ func (e *performances) streamFrom(f *actionFrame, pin string, value Value) error
 		}
 	}
 	return nil
+}
+
+// streamKey is a pin of a performance whose write is being carried on along its
+// streaming flows; a second write to it before the first is through is a cycle.
+type streamKey struct {
+	frame *actionFrame
+	pin   string
 }
 
 // streamFlow delivers one value a streaming flow carries: to the pin of every ongoing
@@ -1290,6 +1306,9 @@ func (e *performances) performInvocation(perf *actionFrame, inv actionInvocation
 			return err
 		}
 	}
+	if !callee.joined {
+		callee.exec.streamOutput = e.streamCalleeOutput(perf, callee.out)
+	}
 	if _, _, err := e.ctx.runCallee(callee); err != nil {
 		return err
 	}
@@ -1357,6 +1376,18 @@ func (e *performances) beginInvocation(perf *actionFrame, inv actionInvocation) 
 	sort.Strings(out)
 	callee.name, callee.out = inv.name(), out
 	return callee, nil
+}
+
+// streamCalleeOutput is what the action a node performs writes its outputs through
+// while it runs: each lands at the node's pin and goes on along its streaming flows.
+func (e *performances) streamCalleeOutput(perf *actionFrame, out []string) func(string, Value) error {
+	return func(name string, value Value) error {
+		if !slices.Contains(out, name) {
+			return nil
+		}
+		perf.data[perf.key(name)] = value
+		return e.streamFrom(perf, perf.key(name), value)
+	}
 }
 
 // adopt makes the completed performance of the action a node performed the node's

@@ -38,6 +38,10 @@ type Context struct {
 	maxStateEvents int64
 	maxDoSteps     int64
 
+	// streaming holds the pins whose writes are being carried on along streaming flows
+	// at this moment, to catch flows that lead a value back to where it was written.
+	streaming map[streamKey]bool
+
 	// maxElements bounds the collection elements one run materializes, which is
 	// what its memory grows with, unlike a step.
 	maxElements int64

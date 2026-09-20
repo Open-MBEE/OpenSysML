@@ -25,6 +25,9 @@ const actionLabelPrefix = "action "
 
 // ActionExecutor executes action bodies using token-flow semantics.
 type ActionExecutor struct {
+	// streamOutput, set while a node of another action performs this one, takes each
+	// write to an output of the action as it is made; nil when nothing is listening.
+	streamOutput func(name string, value Value) error
 	// performances holds the action's own performance, root, and runs its nodes' as
 	// its subperformances; self is the object performing the action, whose
 	// connections route what it sends.
@@ -1200,6 +1203,9 @@ func (e *ActionExecutor) setFeature(name string, value Value) error {
 	}
 	e.root.data[e.root.key(name)] = value
 	e.moved = true
+	if e.streamOutput != nil {
+		return e.streamOutput(name, value)
+	}
 	return nil
 }
 

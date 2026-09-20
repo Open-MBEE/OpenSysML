@@ -13,6 +13,7 @@ func TestRuntimeRobustnessStreamingFlow(t *testing.T) {
 	t.Run("target_completed_before_source_writes", testStreamingFlowTargetCompletedFirst)
 	t.Run("target_pin_not_declared", testStreamingFlowTargetPinNotDeclared)
 	t.Run("later_performance_takes_one_of_two_late_values", testStreamingFlowOneLateValueLeft)
+	t.Run("flows_form_a_cycle", testStreamingFlowCycle)
 }
 
 // streamingPair is an action performing producer and consumer side by side, the
@@ -127,5 +128,44 @@ func testStreamingFlowOneLateValueLeft(t *testing.T) {
 	}`)
 	if !errors.Is(err, ErrStreamUnreceived) || !strings.Contains(err.Error(), "node consumer completed before node producer wrote value") {
 		t.Fatalf("error = %v, want ErrStreamUnreceived for the late value no performance took", err)
+	}
+}
+
+// testStreamingFlowCycle: two ongoing nodes stream into each other, so a write to one
+// pin is carried back to it; that is refused rather than carried on without end.
+func testStreamingFlowCycle(t *testing.T) {
+	_, err := executeActionSource(t, "stream", `package test {
+		action stream {
+			attribute n : Integer = 0;
+			fork split;
+			action a {
+				inout v : Integer;
+				action wait { assign n := n + 1; }
+				action write { assign v := 1; }
+				succession first start then wait;
+				succession first wait then write;
+				succession first write then done;
+			}
+			action b {
+				inout v : Integer;
+				action idle { assign n := n + 1; }
+				action linger { assign n := n + 1; }
+				succession first start then idle;
+				succession first idle then linger;
+				succession first linger then done;
+			}
+			join sync;
+			succession first start then split;
+			succession first split then a;
+			succession first split then b;
+			succession first a then sync;
+			succession first b then sync;
+			succession first sync then done;
+			flow a.v to b.v;
+			flow b.v to a.v;
+		}
+	}`)
+	if !errors.Is(err, ErrStreamCycle) {
+		t.Fatalf("error = %v, want ErrStreamCycle", err)
 	}
 }

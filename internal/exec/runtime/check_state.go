@@ -460,7 +460,10 @@ func (s *stateSpeller) frame(perf *actionFrame) string {
 		fmt.Fprintf(&b, " streamed{%s}", strings.Join(streamed, ","))
 	}
 	for _, node := range sortedNodes(perf.unreceived) {
-		fmt.Fprintf(&b, " unreceived{%s}", s.node(perf.graph, node))
+		for _, stream := range perf.unreceived[node] {
+			fmt.Fprintf(&b, " unreceived{%s.%s[%d] from %s.%s}", s.node(perf.graph, node), stream.pin, stream.at,
+				nodeKey(stream.source), orAnyPin(stream.flow.SourcePin))
+		}
 	}
 	return b.String()
 }
