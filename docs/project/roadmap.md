@@ -3022,17 +3022,9 @@ The open items, by track, with the item that gates each where one does. Everythi
 is landed or is a track the previous baseline left as it stands (D, N, M, I, V, B, R2–R5);
 Tracks F, S, L and A are closed.
 
-<<<<<<< HEAD
-- **Track E** — eligible and first: E2, then E4 (E1 landed), then E6 on request, E3 closed by
-  its design record, E5 closed by its record (an optional follow-up waits on a model that needs
-  it), E7 behind its object-model item, E8 behind a model that needs it. The
-||||||| parent of cab80e653 (feat(runtime): invoke an operation with a positional argument list)
-- **Track E** — eligible and first: E2, then E4 (E1 landed), then E6 on request, E3/E5 behind
-  their design records, E7 behind its object-model item, E8 behind a model that needs it. The
-=======
-- **Track E** — eligible and first: E2, then E4 (E1 and E6 landed), E3/E5 behind
-  their design records, E7 behind its object-model item, E8 behind a model that needs it. The
->>>>>>> cab80e653 (feat(runtime): invoke an operation with a positional argument list)
+- **Track E** — eligible and first: E2, then E4 (E1 and E6 landed), E3 closed by its design
+  record, E5 closed by its record (an optional follow-up waits on a model that needs it), E7
+  behind its object-model item, E8 behind a model that needs it. The
   PSSM referee's 17 `fail` tests are the state side's measurement, every one attributed (#326):
   eleven wait on the region-order choice point whose design record #342 wrote and left at two
   maintainer decisions — the nine the record names to move `fail` → `pass`, plus *Terminate 001*
