@@ -17,12 +17,12 @@ import (
 // artworkFilterName is the Lua filter Render writes beside the Markdown.
 const artworkFilterName = "artwork.lua"
 
-// Notices written ahead of a diagram kept as source, in a form the PDF
-// backend does not draw; the print stylesheet says the same over the HTML
-// backend's page.
+// Notices written ahead of a diagram kept as source because the optional tool
+// that draws its form was not found, naming the variable to set; the print
+// stylesheet says the same over the HTML backend's page.
 const (
-	dotNotice      = "This diagram is written in Graphviz DOT, which the PDF backend does not draw; its source follows."
-	plantumlNotice = "This diagram is written in PlantUML, which the PDF backend does not draw; its source follows."
+	dotNotice      = "This diagram is written in Graphviz DOT, which the PDF backend did not draw: Graphviz was not found. Install it and point " + DotEnv + " at its dot to have the diagram drawn; its source follows."
+	plantumlNotice = "This diagram is written in PlantUML, which the PDF backend did not draw: the PlantUML jar or java was not found. Point " + PlantUMLJarEnv + " at the jar, and " + JavaEnv + " at a java that is not on PATH, to have the diagram drawn; its source follows."
 )
 
 // writeArtworkFilter writes the filter for a document with diagrams (drawn,

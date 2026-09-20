@@ -203,22 +203,3 @@ func fileURL(path string) string {
 	}
 	return (&url.URL{Scheme: "file", Path: p}).String()
 }
-
-// drawDiagrams draws the document's graph-shaped diagrams into dir, returning
-// one image file name per diagram in order; an empty name keeps that diagram
-// as source. Mermaid source is drawn with mermaid-cli; a document whose
-// diagrams are in another form, or has none, needs no diagram tool.
-func drawDiagrams(dir string, diagrams []docrender.Diagram, form view.Form) ([]string, error) {
-	if len(diagrams) == 0 {
-		return nil, nil
-	}
-	sources := make([]string, len(diagrams))
-	for i, diagram := range diagrams {
-		sources[i] = diagram.Source
-	}
-	switch form {
-	case "", view.FormMermaid:
-		return renderDiagrams(dir, sources)
-	}
-	return make([]string, len(diagrams)), nil
-}
