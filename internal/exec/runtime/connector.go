@@ -506,6 +506,8 @@ func anonymousConnectorSymbol(typeSym *symbols.Symbol, usage *ast.Usage) *symbol
 		kind = symbols.SymbolAllocationUsage
 	case ast.UsageFlow:
 		kind = symbols.SymbolFlowUsage
+	case ast.UsageBinding:
+		kind = symbols.SymbolBindingUsage
 	}
 	return &symbols.Symbol{
 		Kind:       kind,

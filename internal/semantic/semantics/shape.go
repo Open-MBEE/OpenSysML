@@ -208,16 +208,12 @@ func IsShapeFeature(sym *symbols.Symbol) bool {
 	if sym == nil {
 		return false
 	}
-	if sym.Kind == symbols.SymbolUnknown {
-		usage, ok := sym.Decl.(*ast.Usage)
-		return ok && usage.Kind == ast.UsageBinding
-	}
 	switch sym.Kind {
 	case symbols.SymbolAttributeUsage, symbols.SymbolPartUsage, symbols.SymbolItemUsage,
 		symbols.SymbolPortUsage, symbols.SymbolConnectionUsage, symbols.SymbolActionUsage,
 		symbols.SymbolStateUsage, symbols.SymbolConstraintUsage, symbols.SymbolRequirementUsage,
 		symbols.SymbolOccurrenceUsage, symbols.SymbolIndividualUsage,
-		symbols.SymbolInterfaceUsage, symbols.SymbolFlowUsage,
+		symbols.SymbolInterfaceUsage, symbols.SymbolFlowUsage, symbols.SymbolBindingUsage,
 		// An allocation usage is a connection usage of the allocation library
 		// (SysML v2 §8.3.19), so an object carries it as a feature.
 		symbols.SymbolAllocationUsage:

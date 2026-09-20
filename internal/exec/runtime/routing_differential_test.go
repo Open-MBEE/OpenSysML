@@ -23,7 +23,7 @@ func TestRoutingUnchangedByConnectorObjects(t *testing.T) {
 			continue
 		}
 		name := strings.TrimSuffix(entry.Name(), ".expected.json")
-		if pattern.MatchString(name) {
+		if pattern.MatchString(name) || name == "connector_object_binding_flow" {
 			if _, err := os.Stat(filepath.Join(conformanceDir, name+".sysml")); err != nil {
 				continue
 			}
@@ -32,6 +32,7 @@ func TestRoutingUnchangedByConnectorObjects(t *testing.T) {
 	}
 	sort.Strings(cases)
 	known := loadKnownFailures(t, conformanceDir)
+	forcedCases := make(map[string]bool)
 	for _, name := range cases {
 		name := name
 		t.Run(name, func(t *testing.T) {
@@ -48,10 +49,23 @@ func TestRoutingUnchangedByConnectorObjects(t *testing.T) {
 			}
 			runConformanceCase(t, conformanceDir, name, DefaultSchedulePolicy)
 			if expected.Type != "instance" {
-				t.Log("no root instance exists before behavior execution; normal execution is the only applicable routing comparison")
+				if expected.Type != "state" || len(expected.Performers) == 0 {
+					runConformanceCaseWithOwned(t, conformanceDir, name, DefaultSchedulePolicy, true)
+					return
+				}
+				runConformanceCaseWithOwned(t, conformanceDir, name, DefaultSchedulePolicy, true)
+				forcedCases[name] = true
 				return
 			}
 			runConformanceCaseWithOwned(t, conformanceDir, name, DefaultSchedulePolicy, true)
+			forcedCases[name] = true
 		})
+	}
+	for _, name := range cases {
+		if strings.HasPrefix(name, "send_bind_relay_") || name == "connector_object_binding_flow" {
+			if !forcedCases[name] {
+				t.Fatalf("required routing differential case %q did not run under forceOwned", name)
+			}
+		}
 	}
 }
