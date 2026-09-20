@@ -72,7 +72,9 @@
   an object of its own; and an untyped `port` materializes as a `Ports::Port`, so a binding
   connector can join it and a signal sent inward over it reaches the bound part's machine.
 - **A migrated call or send that v1 fires without a required value keeps its place and performs
-  nothing.** A call passing no argument for a parameter that must hold a value, or a call or
+  nothing.** A call passing no argument for a parameter that must hold a value — a parameter of
+  the operation's action def, which declares the operation's parameters and then those its method
+  adds, so a call binds and is checked against exactly what is declared — or a call or
   signal send passing none for a signal attribute that must, one passing a pin of a type the attribute cannot take, or one whose pin is fed only by flows no value travels — from a parameter nothing values,
   an unmigrated opaque or value specification action, a callee whose own activity gives that
   `out` parameter no value, judged through any depth of nesting, or a call's result pin past

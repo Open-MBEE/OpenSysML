@@ -392,8 +392,8 @@ func TestMethodParametersStandForTheOperationsByPosition(t *testing.T) {
 		t.Errorf("the method's own parameter name was written:\n%s", r.Notation)
 	}
 	wantNote(t, r, "_pAngle", migrate.Mapped, "stands for the operation's parameter azimuth at the same position, which is written once")
-	wantNote(t, r, "_tOut", migrate.Approximated, "the method's parameter matches none of the operation's by position, direction and type; a call binds only the operation's parameters")
-	wantNote(t, r, "_tExtra", migrate.Approximated, "the method's parameter matches none of the operation's by position, direction and type; a call binds only the operation's parameters")
+	wantNote(t, r, "_tOut", migrate.Approximated, "the method's parameter matches none of the operation's by position, direction and type; it is declared after them, and a call binds it there")
+	wantNote(t, r, "_tExtra", migrate.Approximated, "the method's parameter matches none of the operation's by position, direction and type; it is declared after them, and a call binds it there")
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Scope")
@@ -401,5 +401,137 @@ func TestMethodParametersStandForTheOperationsByPosition(t *testing.T) {
 	meta(t, s, "%continue")
 	if out := meta(t, s, "%features #1"); !strings.Contains(out, "azimuth = 90.0") {
 		t.Errorf("the call did not reach the method's body through the operation's parameter:\n%s", out)
+	}
+}
+
+// methodInputs is a block whose operation Tilt(in amount) has a method taking a
+// second required input the operation lacks, called twice from an activity — once
+// with the operation's argument alone, once with both — and twice from
+// interactions of a block owning it, with the same two argument lists.
+const methodInputs = `
+    <packagedElement xmi:type="uml:Class" xmi:id="_tilter" name="Tilter">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_reach" name="reach">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_reach0" value="0.0"/>
+      </ownedAttribute>
+      <ownedOperation xmi:type="uml:Operation" xmi:id="_tilt" name="Tilt" method="_tilting">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_tAmount" name="amount" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedParameter>
+      </ownedOperation>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_tilting" name="Tilting" specification="_tilt">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_tAngle" name="angle" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedParameter>
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_tExtra" name="extra" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedParameter>
+        <node xmi:type="uml:ActivityParameterNode" xmi:id="_tApn" name="extra" parameter="_tExtra"/>
+        <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="_tSet" name="set reach" structuralFeature="_reach" isReplaceAll="true">
+          <value xmi:type="uml:InputPin" xmi:id="_tSetVal" name="value"/>
+        </node>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_tOf" source="_tApn" target="_tSetVal"/>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_aim" name="Aim">
+        <node xmi:type="uml:InitialNode" xmi:id="_init"/>
+        <node xmi:type="uml:ValueSpecificationAction" xmi:id="_ninety" name="ninety">
+          <value xmi:type="uml:LiteralReal" xmi:id="_ninetyV" value="90.0"/>
+          <result xmi:type="uml:OutputPin" xmi:id="_ninetyOut" name="result"/>
+        </node>
+        <node xmi:type="uml:ValueSpecificationAction" xmi:id="_seven" name="seven">
+          <value xmi:type="uml:LiteralReal" xmi:id="_sevenV" value="7.0"/>
+          <result xmi:type="uml:OutputPin" xmi:id="_sevenOut" name="result"/>
+        </node>
+        <node xmi:type="uml:CallOperationAction" xmi:id="_short" name="short" operation="_tilt">
+          <argument xmi:type="uml:InputPin" xmi:id="_shortAmount" name="amount"/>
+        </node>
+        <node xmi:type="uml:CallOperationAction" xmi:id="_full" name="full" operation="_tilt">
+          <argument xmi:type="uml:InputPin" xmi:id="_fullAmount" name="amount"/>
+          <argument xmi:type="uml:InputPin" xmi:id="_fullExtra" name="extra"/>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_final"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e1" source="_init" target="_ninety"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_of1" source="_ninetyOut" target="_shortAmount"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e2" source="_short" target="_seven"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_of2" source="_sevenOut" target="_fullAmount"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_of3" source="_sevenOut" target="_fullExtra"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e3" source="_full" target="_final"/>
+      </ownedBehavior>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_operator" name="Operator"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_rig" name="Rig">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_rigOp" name="op" type="_operator" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_rigTilter" name="tilter" type="_tilter" aggregation="composite"/>
+      <ownedBehavior xmi:type="uml:Interaction" xmi:id="_brief" name="Brief">
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_blo" name="o" represents="_rigOp"/>
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_blt" name="t" represents="_rigTilter"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_bs" covered="_blo" message="_bm"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_br" covered="_blt" message="_bm"/>
+        <message xmi:type="uml:Message" xmi:id="_bm" name="tilt" messageSort="synchCall" signature="_tilt" sendEvent="_bs" receiveEvent="_br">
+          <argument xmi:type="uml:LiteralReal" xmi:id="_bmAmount" value="90.0"/>
+        </message>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:Interaction" xmi:id="_whole" name="Whole">
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_wlo" name="o" represents="_rigOp"/>
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_wlt" name="t" represents="_rigTilter"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_ws" covered="_wlo" message="_wm"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_wr" covered="_wlt" message="_wm"/>
+        <message xmi:type="uml:Message" xmi:id="_wm" name="tilt" messageSort="synchCall" signature="_tilt" sendEvent="_ws" receiveEvent="_wr">
+          <argument xmi:type="uml:LiteralReal" xmi:id="_wmAmount" value="90.0"/>
+          <argument xmi:type="uml:LiteralReal" xmi:id="_wmExtra" value="7.0"/>
+        </message>
+      </ownedBehavior>
+    </packagedElement>`
+
+const methodInputsApplications = `
+  <sysml:Block xmi:id="_s1" base_Class="_tilter"/>
+  <sysml:Block xmi:id="_s2" base_Class="_operator"/>
+  <sysml:Block xmi:id="_s3" base_Class="_rig"/>`
+
+// A call binds the signature the action def declares — the operation's parameters
+// and the method's extra ones — so a call supplying the operation's alone is
+// refused for the method's required input, and one supplying both runs the method.
+func TestCallsBindTheMethodsExtraParameters(t *testing.T) {
+	r := migrateDocument(t, methodInputs, methodInputsApplications)
+	for _, line := range []string{
+		"action def Tilt {",
+		"in amount : ScalarValues::Real;",
+		"in extra : ScalarValues::Real;",
+		"bind 'set reach'.value = extra;",
+		"action short {",
+		"/* not migrated: CallOperationAction 'short' — the call passes no argument for the parameter extra of Tilter::Tilt, which must hold a value; v1 runs the callee without it, which v2 does not admit, so the action carries the token and performs nothing */",
+		"action full : Tilt;",
+		"flow ninety.result to short.amount;",
+		"flow seven.result to full.amount;",
+		"flow seven.result to full.extra;",
+		"/* not migrated: Interaction 'Brief' — the message 'tilt' binds no argument to the parameter extra of Tilt, which must hold a value */",
+		"perform action tilt : Tilter::Tilt ::> tilter.tilt { in amount = 90.0; in extra = 7.0; }",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	if strings.Contains(string(r.Notation), "action short : Tilt;") {
+		t.Errorf("a call lacking the method's required argument was written as the typed call:\n%s", r.Notation)
+	}
+	wantNote(t, r, "_short", migrate.Approximated, "the call passes no argument for the parameter extra of Tilter::Tilt, which must hold a value; v1 runs the callee without it, which v2 does not admit, so the action carries the token and performs nothing")
+	wantNote(t, r, "_full", migrate.Mapped, "")
+	wantNote(t, r, "_brief", migrate.Unmapped, "the message 'tilt' binds no argument to the parameter extra of Tilt, which must hold a value")
+	wantNote(t, r, "_wm", migrate.Mapped, "")
+
+	s := session(t, r)
+	meta(t, s, "%instantiate Tilter")
+	meta(t, s, "%action Tilter::Aim #1")
+	if out := meta(t, s, "%continue"); !strings.Contains(out, "completed") {
+		t.Errorf("the run did not complete:\n%s", out)
+	}
+	if out := meta(t, s, "%features #1"); !strings.Contains(out, "reach = 7.0") {
+		t.Errorf("the full call did not reach the method's body through its extra parameter:\n%s", out)
+	}
+	meta(t, s, "%instantiate Rig")
+	meta(t, s, "%action Rig::Whole #2")
+	if out := meta(t, s, "%continue"); !strings.Contains(out, "completed") {
+		t.Errorf("the interaction did not complete:\n%s", out)
+	}
+	if out := meta(t, s, "%features #2"); !strings.Contains(out, "reach = 7.0") {
+		t.Errorf("the message did not reach the method's body through its extra parameter:\n%s", out)
 	}
 }

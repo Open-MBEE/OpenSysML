@@ -1424,7 +1424,7 @@ func (a *activity) callBehavior(n *sysmlv1.Element, name string) {
 	if cat, _ := a.m.classify(b); cat == catActionDef {
 		c := a.m.contextOf(b)
 		a.m.w.line(actionKw + name + " : " + a.m.ref(b, a.def) + ";")
-		a.pins(n, true, b.Owned("ownedParameter"))
+		a.pins(n, true, a.m.actionParameters(b))
 		note := ""
 		if owner, here := classifierOf(b), a.selfType(); owner != nil && owner != here && (here == nil || !a.m.inherits(here, owner)) {
 			note = "the behavior belongs to " + qualifiedName(owner) + " and runs here in the caller's context"
@@ -1507,7 +1507,7 @@ func (a *activity) callOperation(n *sysmlv1.Element, name string) {
 	default:
 		a.m.w.line(actionKw + name + " : " + a.m.ref(op, a.def) + ";")
 	}
-	a.declarePins(n, ins, outs, true, op.Owned("ownedParameter"))
+	a.declarePins(n, ins, outs, true, a.m.actionParameters(op))
 	a.m.add(n, verdictFor(note), name, note)
 }
 

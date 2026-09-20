@@ -422,7 +422,7 @@ func (s *scenario) call(step *scenarioStep, sort string) (*scenarioStep, string)
 		return nil, "calls " + op.Name + " on " + step.receiver.path + ", a " + qualifiedName(step.receiver.typ) + ", which has no such operation"
 	}
 	var ins []*sysmlv1.Element
-	for _, p := range op.Owned("ownedParameter") {
+	for _, p := range s.m.actionParameters(op) {
 		if dir, _ := parameterDirection(p); dir == "in" || dir == "inout" {
 			ins = append(ins, p)
 		}
@@ -466,7 +466,7 @@ func (s *scenario) reply(step *scenarioStep) (*scenarioStep, string) {
 	step.call = call
 	step.op = op
 	var outs []*sysmlv1.Element
-	for _, p := range op.Owned("ownedParameter") {
+	for _, p := range s.m.actionParameters(op) {
 		if dir, _ := parameterDirection(p); dir != "in" {
 			outs = append(outs, p)
 		}
