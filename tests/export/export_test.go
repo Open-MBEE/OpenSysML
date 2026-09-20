@@ -2559,6 +2559,45 @@ func TestLegacyTransitionEffectsStayEffects(t *testing.T) {
 	}
 }
 
+// A state subaction graph from an older mapping recorded its braces with
+// sysx:hasBody and owned the block's statements itself. An unbraced one still
+// reads as the action it performs; a braced one is refused, since the braces
+// declare an anonymous action that owns the statements, which the graph lacks.
+func TestLegacyBracedSubactionsAreRefused(t *testing.T) {
+	src := "package P {\n\taction def Warm;\n\tstate def M {\n\t\tstate s1 {\n\t\t\tentry action stop : Warm;\n\t\t}\n\t}\n}"
+	const kind = `sysx:subactionKind "entry" ;`
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	turtle = withoutTriples(t, withoutTriples(t, turtle, "sysx:sourceText"), "sysx:sourceTail")
+	if !strings.Contains(string(turtle), kind) {
+		t.Fatalf("the subaction is not the one the test rewrites:\n%s", turtle)
+	}
+	for name, braced := range map[string]bool{"unbraced": false, "braced": true} {
+		t.Run(name, func(t *testing.T) {
+			graph := strings.Replace(string(turtle), kind, fmt.Sprintf("%s\n    sysx:hasBody \"%t\"^^xsd:boolean ;", kind, braced), 1)
+			back, err := convert.Convert("m.ttl", []byte(graph), convert.FormatTurtle, convert.FormatSysML)
+			if braced {
+				var unsupported *export.UnsupportedError
+				if !errors.As(err, &unsupported) {
+					t.Fatalf("got %v, want an UnsupportedError", err)
+				}
+				if !strings.Contains(err.Error(), "P__M__s1___400") || !strings.Contains(err.Error(), "anonymous action") {
+					t.Errorf("the error does not name the subaction and its braced block: %v", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("back to notation: %v", err)
+			}
+			if want := "entry action stop : Warm;"; !strings.Contains(string(back), want) {
+				t.Errorf("the subaction did not come back as the action it performs:\n%s", back)
+			}
+		})
+	}
+}
+
 // The effect and body links of a transition must partition its members: a graph
 // whose links are missing, doubled or dangling is refused rather than have an
 // action silently moved after the target.

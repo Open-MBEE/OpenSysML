@@ -1235,6 +1235,14 @@ func (d *decoder) subactionText(el *element, depth int) (string, error) {
 		return "", d.missing(el, "sysx:"+xSubactionKind, "a state subaction states whether it runs on entry, throughout or on exit")
 	}
 	keyword := d.keywordOr(el, kind)
+	// A braced block is one anonymous action; a graph that wrote it as the
+	// statements it holds cannot be read back as that action.
+	if d.boolOf(el, rdf.OpenSysML+xHasBody) {
+		return "", &UnsupportedError{
+			What: fmt.Sprintf("the %s subaction %s", kind, el.iri),
+			Note: "its braced `" + kind + " { … }` block is written as its statements, not as the anonymous action the braces declare",
+		}
+	}
 	if len(el.children) == 0 {
 		return keyword + ";", nil
 	}
