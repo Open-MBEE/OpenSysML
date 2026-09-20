@@ -12,7 +12,7 @@ maintainers; the behavior a user sees is [the guide](../../guide/).
   parallel; the contract, the registry and the four engines over existing code are
   implemented (`internal/exec/analysis`), the rest is a proposal
 - **[A Cameo Systems Modeler plugin](cameo-plugin.md)** — a proposal: a plugin for Cameo
-  2024x Refresh3 that exports the selection, runs `Convert(xmi→sysml)` and `ParseSources` over
+  2026x Refresh1 that exports the selection, runs `Convert(xmi→sysml)` and `ParseSources` over
   the Java client, executes and verifies on `sysml-grpc`, and lands each verdict on the Cameo
   element it came from through the migration report's `xmi:id → target` accounting; the vendor
   plugin mechanics, UI contribution points, export routes, Simulation Toolkit positioning and

@@ -31,9 +31,9 @@ installation was available: nothing here was run against the tool.
 The vendor's current documentation site describes **2026x Refresh1** as the latest release of
 every CATIA Magic / No Magic product, released on June 26, 2026
 ([version news](https://docs.nomagic.com/VN/latest/2026x-refresh1-version-news-314179593.html)).
-The last release of the 2024x line is **2024x Refresh3**
+The last release of the previous line is **2024x Refresh3**
 ([2024x Refresh3 version news](https://docs.nomagic.com/spaces/CSM2024xR3/pages/239796953/2024x+Refresh3+Version+News)).
-The two differ in the JDK they ship:
+The two lines differ in the JDK they ship:
 
 | Release | Bundled / recommended JDK | Source |
 |---|---|---|
@@ -41,18 +41,24 @@ The two differ in the JDK they ship:
 | 2026x | Temurin 21.0.8+9 HotSpot, all OSs | [Java version support, 2026x](https://docs.nomagic.com/IL/2026x/java-version-support-272740412.html) |
 | 2024x Refresh3 | Temurin **17.0.14** HotSpot | [Java version support for 2024x Refresh3](https://docs.nomagic.com/spaces/IL2024xR3/pages/249579845/Java+version+support+for+2024x+Refresh3) |
 
-**Pin:** the plugin targets **Cameo Systems Modeler 2024x Refresh3** with its bundled
-**Eclipse Temurin 17.0.14 HotSpot** — the last release of the 2024x line, and the JDK the
-OpenSysML Java client already requires ([`docs/reference/java-api.md`](../../reference/java-api.md)).
-The plugin is compiled with `--release 17` so that the same jar also loads in **2026x /
-2026x Refresh1** (JDK 21); nothing in it may need a class that only exists in 2026x. Every
-OpenAPI class the v1 path relies on (§2–§6) is cited from the 2024x Refresh3 Javadoc
-(`https://jdocs.nomagic.com/2024xRefresh3/`) or documentation where that page was read; a
-2026x Refresh1 citation stands in only where the 2024x Refresh3 page was not read, and is then
-evidence for the 2026x line, not proof of 2024x behavior. The class list of the 2026x Refresh1
-Javadoc index (`https://jdocs.nomagic.com/2026xRefresh1/allclasses-index.html`) was the source
-for "no such OpenAPI class exists" statements below; the 2024x Refresh3 index was not searched
-the same way, so each such statement is **unverified for 2024x Refresh3**.
+**Pin:** the plugin targets **Cameo Systems Modeler 2026x Refresh1** with its bundled
+**Eclipse Temurin 21.0.10+7 HotSpot** — the latest publicly documented release. Every OpenAPI
+class the design relies on (§2–§6, §8) is cited from the 2026x Refresh1 Javadoc
+(`https://jdocs.nomagic.com/2026xRefresh1/`) or the current developer guide, and every "no such
+OpenAPI class exists" statement below was checked against the 2026x Refresh1 class index
+(`https://jdocs.nomagic.com/2026xRefresh1/allclasses-index.html`).
+
+**JDK.** The OpenSysML Java client is built to a JDK 17 baseline and documents that on JDK 21
+the same code runs unchanged ([`docs/reference/java-api.md`](../../reference/java-api.md)); a
+JDK 21 host adds nothing the client needs and removes nothing it uses. The plugin is compiled
+with `--release 17`, so the one jar loads on the pinned JDK 21 and on the JDK 17 of the minimum
+release below. It must not use JDK 21 language or library features until the minimum moves.
+
+**Minimum supported: 2024x Refresh3** (Temurin 17.0.14), the last release of the previous line.
+The v1 path (§2–§6) uses only OpenAPI classes that the 2024x Refresh3 Javadoc
+(`https://jdocs.nomagic.com/2024xRefresh3/`) also lists — each such class is named where it
+matters — so the same jar runs there; the SysML v2 path (§8) uses classes that exist only in
+2026x and is absent on 2024x Refresh3 by design (§10.1).
 
 ## 2. Plugin mechanics
 
@@ -60,9 +66,9 @@ the same way, so each such statement is **unverified for 2024x Refresh3**.
 
 A plugin is a directory under the tool's `plugins/` folder holding a `plugin.xml` descriptor,
 its jar(s) and any libraries
-([Plugin descriptor, 2024x Refresh3](https://docs.nomagic.com/spaces/DEVG2024xR3/pages/225347166/Plugin+descriptor);
+([Plugin descriptor, current developer guide](https://docs.nomagic.com/DEVG/latest/plugin-descriptor-303989032.html);
 the 2024x Refresh2 page, [here](https://docs.nomagic.com/spaces/DEVG2024xR2/pages/191934885/Plugin%2Bdescriptor),
-tabulates the attributes). The fields the design uses:
+tabulates the attributes and is unchanged in substance). The fields the design uses:
 
 | Element / attribute | Meaning (from the descriptor page) |
 |---|---|
@@ -76,7 +82,8 @@ tabulates the attributes). The fields the design uses:
 | `class-lookup="LocalFirst"` | with `ownClassloader`, prefer the plugin's copies of classes over the tool's |
 
 `PluginDescriptor` exposes the same data at run time
-([Javadoc, 2024x Refresh3](https://jdocs.nomagic.com/2024xRefresh3/com/nomagic/magicdraw/plugins/PluginDescriptor.html)):
+([PluginDescriptor, 2026x Refresh1](https://jdocs.nomagic.com/2026xRefresh1/com/nomagic/magicdraw/plugins/PluginDescriptor.html);
+also in [2024x Refresh3](https://jdocs.nomagic.com/2024xRefresh3/com/nomagic/magicdraw/plugins/PluginDescriptor.html)):
 notably `getPluginDirectory()`, which is how the plugin finds the native `sysml-grpc` binary it
 ships (§2.4).
 
@@ -84,7 +91,7 @@ ships (§2.4).
 
 The abstract class has three methods
 ([Plugin, 2026x Refresh1](https://jdocs.nomagic.com/2026xRefresh1/com/nomagic/magicdraw/plugins/Plugin.html);
-[Plugin classes, 2024x Refresh3](https://docs.nomagic.com/spaces/DEVG2024xR3/pages/225347167/Plugin+classes)):
+[Plugin classes, current developer guide](https://docs.nomagic.com/DEVG/latest/plugin-classes-303989028.html)):
 
 - `isSupported()` — called first; the plugin is initialized only if it returns `true`. The
   OpenSysML plugin returns `false` when no `sysml-grpc` binary for the host platform is
@@ -94,7 +101,8 @@ The abstract class has three methods
   lazily on first `Connection` use, and an idle child at every Cameo start is what a user would
   notice. `init()` only wires UI.
 - `close()` — called before exit; returning `false` vetoes exit. The plugin closes its
-  `Connection`, which ends the child (§12), and returns `true`.
+  `Connection`s and calls `Connection.stopSharedServices()`, which ends the child (§12), and
+  returns `true`.
 
 `ResourceDependentPlugin` is a second interface for plugins that own a profile the project
 depends on
@@ -169,24 +177,26 @@ Resource…) that assembles the same zip. The `editors/cameo/` build produces th
 
 ## 3. UI contribution points
 
-`ActionsProvider`, `ActionsConfiguratorsManager`, `BrowserContextAMConfigurator` and
-`DiagramContextAMConfigurator` are all listed in the 2024x Refresh3 Javadoc index
-(`https://jdocs.nomagic.com/2024xRefresh3/allclasses-index.html`); the remaining classes below
-were confirmed in the 2026x Refresh1 Javadoc and the developer guide.
+Every class in this section is in the 2026x Refresh1 Javadoc. `ActionsProvider`,
+`ActionsConfiguratorsManager`, `BrowserContextAMConfigurator`, `DiagramContextAMConfigurator`,
+`ProjectWindow` and `RunnableWithProgress` are also listed in the 2024x Refresh3 index
+(`https://jdocs.nomagic.com/2024xRefresh3/allclasses-index.html`), which is what the minimum
+release of §1.1 rests on.
 
 **Context menus.** Actions live in `ActionsManager`s configured by *configurators* registered
 with `ActionsConfiguratorsManager` from `Plugin.init()`. Three interfaces matter
 ([Creating new actions, 2024x Refresh2](https://docs.nomagic.com/spaces/DEVG2024xR2/pages/191934931/Creating+new+actions);
-[ActionsConfiguratorsManager, 2026x](https://jdocs.nomagic.com/2026x/com/nomagic/magicdraw/actions/ActionsConfiguratorsManager.html)):
+[ActionsConfiguratorsManager, 2026x Refresh1](https://jdocs.nomagic.com/2026xRefresh1/com/nomagic/magicdraw/actions/ActionsConfiguratorsManager.html)):
 
 - `BrowserContextAMConfigurator.configure(ActionsManager, Tree)` — the containment-tree
-  shortcut menu; registered with `addContainmentBrowserContextConfigurator`. The `Tree` gives
-  the selected nodes, so *Run with OpenSysML* is offered on a `Package`, `Class` (a Block), a
-  `Behavior` or a `Constraint`/`Requirement`.
+  shortcut menu; registered with `addContainmentBrowserContextConfigurator`
+  ([BrowserContextAMConfigurator, 2026x Refresh1](https://jdocs.nomagic.com/2026xRefresh1/com/nomagic/magicdraw/actions/BrowserContextAMConfigurator.html)).
+  The `Tree` gives the selected nodes, so *Run with OpenSysML* is offered on a `Package`,
+  `Class` (a Block), a `Behavior` or a `Constraint`/`Requirement`.
 - `DiagramContextAMConfigurator.configure(ActionsManager, DiagramPresentationElement, PresentationElement[], PresentationElement)`
   — a diagram's shortcut menu with the selected symbols; registered per diagram type with
   `addDiagramContextConfigurator(String diagramType, …)`
-  ([DiagramContextAMConfigurator, 2024x Refresh3](https://jdocs.nomagic.com/2024xRefresh3/com/nomagic/magicdraw/actions/DiagramContextAMConfigurator.html)).
+  ([DiagramContextAMConfigurator, 2026x Refresh1](https://jdocs.nomagic.com/2026xRefresh1/com/nomagic/magicdraw/actions/DiagramContextAMConfigurator.html)).
 - `AMConfigurator` — main menu and toolbars (`addMainMenuConfigurator`), for a *Tools ▸
   OpenSysML* menu with *Run…*, *Verify…*, *Sweep…* and *Show results*.
 
@@ -198,7 +208,7 @@ accessing actions in different parts (diagrams, browsers, main menu and etc.)", 
 `getContainmentBrowserContextActions(BrowserTabTree)`,
 `getDiagramContextActions(String diagramType, DiagramPresentationElement, PresentationElement[], PresentationElement)`
 and `getDiagramShortcutActions(...)`
-([ActionsProvider, 2024x Refresh3](https://jdocs.nomagic.com/2024xRefresh3/com/nomagic/magicdraw/actions/ActionsProvider.html)).
+([ActionsProvider, 2026x Refresh1](https://jdocs.nomagic.com/2026xRefresh1/com/nomagic/magicdraw/actions/ActionsProvider.html)).
 It *reads* the configured managers; a plugin *contributes* through the configurators above and
 only needs `ActionsProvider` to invoke or inspect an existing action (for example, to run the
 tool's own *Validate* after the results are in). The design registers configurators and does
@@ -209,8 +219,8 @@ not call `ActionsProvider` directly.
 — a Swing component described by a `WindowComponentInfo` (id, name, icon, side, docking state)
 — to the active project, and `ProjectWindowsManager.ConfiguratorRegistry.addConfigurator(...)`
 from `init()` makes its docking state persist with the project
-([ProjectWindowsManager, 2026x](https://jdocs.nomagic.com/2026x/com/nomagic/magicdraw/ui/ProjectWindowsManager.html);
-[ProjectWindow, 2024x Refresh3](https://jdocs.nomagic.com/2024xRefresh3/com/nomagic/magicdraw/ui/ProjectWindow.html);
+([ProjectWindowsManager, 2026x Refresh1](https://jdocs.nomagic.com/2026xRefresh1/com/nomagic/magicdraw/ui/ProjectWindowsManager.html);
+[ProjectWindow, 2026x Refresh1](https://jdocs.nomagic.com/2026xRefresh1/com/nomagic/magicdraw/ui/ProjectWindow.html);
 [ProjectWindowsConfigurator, 2026x Refresh1](https://jdocs.nomagic.com/2026xRefresh1/com/nomagic/magicdraw/ui/ProjectWindowsConfigurator.html)).
 This is where the *OpenSysML Results* table (§6) lives, beside the tool's own Validation
 Results window. `GUILog` (`Application.getInstance().getGUILog()`) is the message/notification
@@ -221,14 +231,25 @@ window for one-line status and hyperlinks
 runs a task with the tool's progress dialog; the runnable receives a `ProgressStatus` and is
 expected to poll `isCancel()`
 ([ProgressStatusRunner, 2026x Refresh1](https://jdocs.nomagic.com/2026xRefresh1/com/nomagic/ui/ProgressStatusRunner.html);
-[RunnableWithProgress, 2024x Refresh3](https://jdocs.nomagic.com/2024xRefresh3/com/nomagic/task/RunnableWithProgress.html)).
+[RunnableWithProgress, 2026x Refresh1](https://jdocs.nomagic.com/2026xRefresh1/com/nomagic/task/RunnableWithProgress.html)).
 The RPCs are unary, so "cancel" means: stop waiting, discard the answer when it arrives, and —
 for a run that will not return — close the `Connection`, which ends the child, and open a new
-one for the next run. The client documents `ConnectionOptions` deadlines
-([`docs/reference/java-api.md`](../../reference/java-api.md)); the plugin sets one per phase
-(export, convert, parse, run) so a cancel is never more than one deadline away. A finer
-cancel — a streaming or session RPC — is the surface-parity note's session API
-([`api-surface-parity.md`](api-surface-parity.md)), not this plugin's to invent.
+one for the next run. The client has one deadline per connection:
+`ConnectionOptions.requestTimeout` (default 60 s) applies to every RPC made on that
+`Connection`, and no call takes a deadline of its own
+(`client/java/opensysml-client/src/main/java/org/openmbee/opensysml/ConnectionOptions.java`;
+[`docs/reference/java-api.md`](../../reference/java-api.md)). A single connection therefore
+cannot give `Convert` thirty seconds and a run ten minutes, and a cancelled `Convert` on a
+ten-minute connection blocks for ten minutes. The design opens **two connections** in the
+plugin's classloader with different timeouts: a short one for `Convert` and `ParseSources`,
+a long one for execution and verification. Both share the one private child, so the model the
+short connection parsed is adopted on the long one by hash (`connection.model(model.hash())`)
+without a second parse. Cancelling a run that will not return calls
+`Connection.stopSharedServices()`, which ends the child; the next run starts a new one and pays
+the parse again. A per-call deadline in the Java client would collapse the two connections into
+one and is listed as a phase 2 prerequisite (§11). A finer cancel — a streaming or session RPC —
+is the surface-parity note's session API ([`api-surface-parity.md`](api-surface-parity.md)),
+not this plugin's to invent.
 
 **Diagram highlighting (for step-debug later).** Two mechanisms exist. *Annotations*
 (`com.nomagic.magicdraw.annotation.Annotation`, `AnnotationManager`) attach a severity, kind,
@@ -236,7 +257,7 @@ text and actions to a `BaseElement` or a `PresentationElement`; they are runtime
 stored in the project"), the manager "takes care of drawing decorations around symbols with
 annotations", and the caller must `update()` after adding or removing them and remove them
 afterwards ([Annotation, 2026x Refresh1](https://jdocs.nomagic.com/2026xRefresh1/com/nomagic/magicdraw/annotation/Annotation.html);
-[AnnotationManager, 2024x](https://jdocs.nomagic.com/2024x/com/nomagic/magicdraw/annotation/AnnotationManager.html)).
+[AnnotationManager, 2026x Refresh1](https://jdocs.nomagic.com/2026xRefresh1/com/nomagic/magicdraw/annotation/AnnotationManager.html)).
 A custom `AnnotationPainter` (`Annotation.addPainter`) can draw the decoration itself. This is
 enough to mark "current state", "fired transition" and "failed constraint" on an open diagram
 without touching the model. The second mechanism — the Simulation Toolkit's own animation of
@@ -367,7 +388,7 @@ Three vendor mechanisms, used together:
 2. **The Validation Results window** — `ValidationHelper.openValidationWindow(ValidationRunData, String windowID, Collection<RuleViolationResult>)`
    "opens validation window and displays `RuleViolationResult` in it"
    ([ValidationHelper, 2026x Refresh1](https://jdocs.nomagic.com/2026xRefresh1/com/nomagic/magicdraw/validation/ValidationHelper.html);
-   [ValidationRunData, 2026x](https://jdocs.nomagic.com/2026x/com/nomagic/magicdraw/validation/ValidationRunData.html)).
+   [ValidationRunData, 2026x Refresh1](https://jdocs.nomagic.com/2026xRefresh1/com/nomagic/magicdraw/validation/ValidationRunData.html)).
    A `RuleViolationResult` pairs an `Annotation` with the `Constraint` (a validation rule) it
    violates, so this route needs a rule element in the model — an *OpenSysML* validation suite
    profile with one rule per verdict kind (constraint failed, requirement unsatisfied, run
@@ -437,28 +458,22 @@ v1 model, mock-up UIs, MATLAB/Mathematica/Dymola evaluators, and Alf. A user wit
 Toolkit-dependent model keeps using the Toolkit; the OpenSysML plugin sits beside it for
 batch, sweep, solve and replay.
 
-## 8. SysML v2 in Cameo — in 2026x it exists, and it changes the plugin
+## 8. SysML v2 in Cameo — the pinned release has it, and it changes the plugin
 
-**2024x Refresh3 first, since that is the pin.** Its version news
-([2024x Refresh3 Version News](https://docs.nomagic.com/spaces/CSM2024xR3/pages/239796953/2024x+Refresh3+Version+News))
-announces no SysML v2 project type or textual import, and its Javadoc index has no textual
-notation service (below). No SysML v2 project type or `.sysml` import for 2024x Refresh3 was
-found in the public documentation; treat "2024x Refresh3 has no SysML v2 support" as
-**unverified (not found)** rather than established. On that release OpenSysML is therefore the
-*only* SysML v2 parser the plugin has, and every model reaches it through the v1 migration
-(§4–§5).
-
-The 2026x release line ships a **SysML v2 Plugin** with a textual editor and two-way
-synchronization between text and diagrams, a **SysML v2 Evaluation Plugin** for static
-evaluation, and a free **Community Edition** capped at 500 elements
+The pinned release, **2026x Refresh1**, ships a **SysML v2 Plugin** with a SysML v2 project
+type, a textual editor and two-way synchronization between text and diagrams, a **SysML v2
+Evaluation Plugin** for static evaluation, and a free **Community Edition** capped at 500
+elements
 ([SysML v2 Plugin documentation, 2026x](https://docs.nomagic.com/SYSML2P/2026x/sysml-v2-plugin-documentation-254421938.html);
 [CATIA Magic/Cameo SysML v2 Solution](https://docs.nomagic.com/SYSML2P/2026x/catia-magic-cameo-sysml-v2-solution-272740940.html)).
 SysML v1 and v2 are chosen **per project**, in one installation (same page). Concretely:
 
 - **Textual import/export in the UI**: File ▸ Export To ▸ *SysML v2 Textual Notation* writes
-  selected root namespaces as `.sysml` files; File ▸ Import From ▸ *SysML v2 Textual Notation*
-  imports a `.sysml` file "into a separate root namespace"
-  ([Textual notation import/export](https://docs.nomagic.com/SYSML2P/2026x/textual-notation-import-export-254422195.html)).
+  selected root namespaces as `.sysml` files — "You can export SysML v2 project namespaces into
+  .sysml textual notation files which you can later import into your projects" — and File ▸
+  Import From ▸ *SysML v2 Textual Notation* imports a `.sysml` file into a separate root
+  namespace
+  ([Textual notation import/export, 2026x Refresh1](https://docs.nomagic.com/SYSML2P/latest/textual-notation-import-export-304006231.html)).
 - **Textual import/export in the OpenAPI** (2026x Refresh1):
   `SysMLTextualNotationService.exportTextual(Namespace) → String` and
   `importTextual(ModelElementProject, String)`
@@ -468,29 +483,47 @@ SysML v1 and v2 are chosen **per project**, in one installation (same page). Con
   The v2 metamodel is a separate API (`com.dassault_systemes.modeler.kerml.model.kerml.Namespace`,
   the `com.dassault_systemes.modeler.sysml.libraries.standard.*` library classes), not the UML
   `Element` tree.
-- **Their own v1→v2 migration** (File ▸ Export To ▸ SysML v2 Model) is "a work in progress,
-  covering about 20% of the metamodel", writes an `.xlsx` of not-migrated elements, and does not
-  migrate diagrams ([Migration from SysML v1 to SysML v2](https://docs.nomagic.com/SYSML2P/2026x/migration-from-sysml-v1-to-sysml-v2-254423020.html)).
-  Whether the 2026x Refresh1 page reports a higher figure is **unverified**; the page fetched
-  is the 2026x version.
+- **Their own v1→v2 transformation** (File ▸ Export To ▸ SysML v2 Model) is "a work in
+  progress": the 2026x Refresh1 page says it covers "over 80% of the SysML v1 to SysML v2
+  Transformation specification", where the 2026x page said "about 20% of the metamodel"; it
+  writes an `.xlsx` of not-migrated elements and does not migrate diagrams
+  ([Performing SysML v1 to v2 model transformation, 2026x Refresh1](https://docs.nomagic.com/SYSML2P/latest/migration-from-sysml-v1-to-sysml-v2-254423020.html);
+  [Migration from SysML v1 to SysML v2, 2026x](https://docs.nomagic.com/SYSML2P/2026x/migration-from-sysml-v1-to-sysml-v2-254423020.html)).
+  The two percentages measure different things (a specification's clauses versus the
+  metamodel) and are not comparable with each other or with the benchmark in §9.
 
-**Consequence.** The plugin has two front ends and one engine:
+**Consequence.** On the pinned release the plugin has two front ends and one engine:
 
 | Project kind | How the model reaches OpenSysML | Identity map |
 |---|---|---|
-| SysML **v1** (2024x Refresh3 and 2026x) | `.mdzip` → `Convert(xmi→sysml)` → `ParseSources` (§4) | migration report `id → target` (§5) |
-| SysML **v2** (2026x with the SysML v2 Plugin) | `SysMLTextualNotationService.exportTextual(root)` → `ParseSources` — **no migration** | v2 qualified names are the same on both sides; OpenSysML's `Symbol` answers carry them |
+| SysML **v1** | `.mdzip` → `Convert(xmi→sysml)` → `ParseSources` (§4) | migration report `id → target` (§5) |
+| SysML **v2** (SysML v2 Plugin installed) | `SysMLTextualNotationService.exportTextual(root)` → `ParseSources` — **no migration** | v2 qualified names are the same on both sides; OpenSysML's `Symbol` answers carry them |
 
-For v2 projects OpenSysML is a *second parser and the execution engine* of text the vendor's own
-parser also reads; disagreements between the two parsers are themselves findings (the
-`Diagnostic`s from `ParseSources` land in the results panel). Whether `exportTextual` emits
-element IDs as comments or `@id` metadata that would give a stronger identity than names is
-**unverified**. The plugin's v2 path compiles only against 2026x jars (the 2024x Refresh3
-Javadoc index lists no `com.dassault_systemes.modeler.magic.sysml.textual` or `.core`
-package, only a handful of diagram classes under `com.dassault_systemes.modeler.magic`), so it
-is a separate
-module loaded by reflection or a second plugin, and `isSupported()` of the v2 module checks for
-the SysML v2 Plugin.
+For v2 projects the vendor's parser is the one the user authored against and OpenSysML is a
+*second parser and the execution engine* of the same text; disagreements between the two
+parsers are themselves findings (the `Diagnostic`s from `ParseSources` land in the results
+panel). Whether `exportTextual` emits element IDs as comments or `@id` metadata that would give
+a stronger identity than names is **unverified**.
+
+A third route exists for v1 projects on the pinned release — the vendor's own transformation
+to a v2 project, then `exportTextual` — and the design does **not** take it as the primary
+path: the transformation is a user-driven export that produces a second project, its
+not-migrated list is an `.xlsx` rather than a per-element map, and nothing ties a v2 element it
+creates back to the `xmi:id` of the v1 element, so verdicts could not land on the user's v1
+elements (§5–§6). OpenSysML's own migration keeps that map. The vendor route is offered as an
+opt-in ("Run the SysML v2 project instead") for users who have already transformed, and its
+coverage is compared with §9 in the first licensed run (§10.3).
+
+**On the minimum release, 2024x Refresh3**, no SysML v2 project type or `.sysml` import was
+found: its version news
+([2024x Refresh3 Version News](https://docs.nomagic.com/spaces/CSM2024xR3/pages/239796953/2024x+Refresh3+Version+News))
+announces none, and its Javadoc index lists no `com.dassault_systemes.modeler.magic.sysml.textual`
+or `.core` package, only a handful of diagram classes under `com.dassault_systemes.modeler.magic`.
+Treat "2024x Refresh3 has no SysML v2 support" as **unverified (not found)** rather than
+established. There OpenSysML is the only SysML v2 parser the plugin has and every model reaches
+it through the v1 migration (§4–§5). Because the v2 front end's vendor types are absent on the
+minimum release, it is a separate module loaded by reflection or a second plugin (§10.1), and
+its `isSupported()` checks for the SysML v2 Plugin.
 
 ## 9. Migration benchmark
 
@@ -590,10 +623,11 @@ integration test against a licensed Cameo (§10.3) should convert the vendor's b
 editors/cameo/
   README.md                       install, build, run-in-Cameo, licence-free CI
   settings.gradle.kts / build.gradle.kts
-  plugin/                         the plugin proper — compiles with --release 17
+  plugin/                         the v1 path — compiles with --release 17 against the 2026x Refresh1
+                                  OpenAPI, using only classes also present in 2024x Refresh3 (§1.1)
     src/main/java/org/openmbee/opensysml/cameo/
       OpenSysMLPlugin.java            Plugin: isSupported / init / close
-      Engine.java                     owns the one Connection; binary resolution from the plugin dir
+      Engine.java                     owns the two Connections (§3); binary resolution from the plugin dir
       actions/                        Run, Verify, Sweep, ShowResults (MDAction subclasses)
       configurators/                  Browser/Diagram/MainMenu configurators
       export/                         Exporter: exportModule / saveProject → tmp .mdzip
@@ -601,7 +635,7 @@ editors/cameo/
       results/                        ResultsWindow (ProjectWindow), Annotations, ValidationSuite bridge
     src/main/resources/plugin.xml
     src/main/resources/descriptor.xml  Resource Manager descriptor (templated at build)
-  plugin-v2/                      SysML v2 front end; compiles only against 2026x jars
+  plugin-v2/                      SysML v2 front end; needs the SysML v2 Plugin's jars (2026x line only)
     src/main/java/.../v2/TextualExport.java   SysMLTextualNotationService bridge
   openapi-stubs/                  compile-only stubs of the OpenAPI classes the plugin touches (§10.3)
   bin/                            sysml-grpc-<os>-<arch>[.exe] staged at build; not committed
@@ -680,8 +714,9 @@ user: right-click Package P (or a Block, Behavior, Requirement) ▸ OpenSysML �
      "Reveal converted model" action, because the user will want to read what the engine read
 ```
 
-`isCancel()` is polled between phases and the current phase's deadline bounds the wait inside
-one. The first run after start-up pays the child start (the client starts it lazily); later runs
+`isCancel()` is polled between phases and the current connection's deadline bounds the wait
+inside one (§3: the short connection for phases 4–5, the long one for phase 6). The first run
+after start-up pays the child start (the client starts it lazily); later runs
 share the parse cache when the exported archive is unchanged (the client hashes sources).
 
 ### 10.5 Results mapping
@@ -698,10 +733,10 @@ panel without an element link, never dropped.
 | Phase | Delivers | Prerequisites in OpenSysML |
 |---|---|---|
 | **1. Migration-based execution** | `editors/cameo/plugin` skeleton; `plugin.xml`; browser/diagram/menu actions; export → `Convert` → `ParseSources` → `instantiate`/run/verify; results in `GUILog` and a plain table; stubs lane in CI; nightly `.zip` | none — everything used is on the wire today |
-| **2. Results UI** | docking `ProjectWindow` table; `Annotation`s on elements; validation-suite module and `RuleViolationResult` bridge; *Reveal converted model*; per-phase deadlines and cancel | none for the UI; **identity requires phase 3's report** — until then names only |
+| **2. Results UI** | docking `ProjectWindow` table; `Annotation`s on elements; validation-suite module and `RuleViolationResult` bridge; *Reveal converted model*; per-phase deadlines and cancel | none for the UI (two connections give per-phase deadlines, §3; a per-call deadline in the Java client would replace them); **identity requires phase 3's report** — until then names only |
 | **3. Units and report-over-service** | pre-flight counts and per-element migration notes in the panel; unit-bearing constraints evaluated correctly | `Convert` returns the migration report (`ConvertResponse.migration_report`, the `Entry` shape of `report.go`, as [`api-surface-parity.md`](api-surface-parity.md) plans) and accepts several source files for one conversion (used modules); unit migration in `internal/translate/migrate` |
 | **4. Step-debug** | step a behavior from Cameo; highlight current state / fired transition / token on the open diagram through `AnnotationPainter`s; choice-point display and reseed | the debugger session API of [`api-surface-parity.md`](api-surface-parity.md) on the wire and in the Java client |
-| **v2 front end** (in parallel from phase 1 on a 2026x machine) | `plugin-v2`: `exportTextual` → `ParseSources`, no migration; parser-disagreement report | none |
+| **v2 front end** (in parallel from phase 1; needs the SysML v2 Plugin on the developer machine) | `plugin-v2`: `exportTextual` → `ParseSources`, no migration; parser-disagreement report; opt-in run of a vendor-transformed v2 project | none |
 
 ## 12. Unknowns and risks
 
@@ -733,10 +768,12 @@ Each item says what is known, what is not, and what would settle it.
    no local file. Both need the multi-source `Convert` of phase 3 and a licensed TWC test.
 6. **Units.** Not migrated; a model whose constraints depend on unit conversion is wrong, not
    just approximate, until `internal/translate/migrate` handles «Unit»/«QuantityKind».
-7. **Two JDKs.** 2024x Refresh3 runs the plugin on JDK 17, 2026x Refresh1 on 21; `--release 17`
-   covers both, but the `plugin-v2` module's vendor types exist only on 2026x, so the v2
-   module must be loaded reflectively or shipped as a second plugin with `requires-plugin` on
-   the SysML v2 Plugin.
+7. **Two JDKs, two API surfaces.** The pinned 2026x Refresh1 runs the plugin on JDK 21, the
+   minimum 2024x Refresh3 on JDK 17; `--release 17` covers both and the Java client's JDK 17
+   baseline runs unchanged on 21 (§1.1). The `plugin-v2` module's vendor types exist only on
+   the 2026x line, so it must be loaded reflectively or shipped as a second plugin with
+   `requires-plugin` on the SysML v2 Plugin. Dropping the minimum release later removes the
+   split.
 8. **Licence terms for CI** (§10.3): unverified whether an unattended seat is permitted.
 9. **Simulation Toolkit conformance claims** (§7.1): PSSM and PSCS conformance are not claimed
    on any page found; the positioning table says "SCXML-based state machines" and no more. If a
@@ -747,8 +784,6 @@ Each item says what is known, what is not, and what would settle it.
 
 ## 13. Every unverified claim, in one list
 
-- "No such OpenAPI class exists" statements were checked against the 2026x Refresh1 class index
-  only, not 2024x Refresh3 (§1.1).
 - That the Resource Manager preserves the POSIX execute bit when extracting a plugin zip on
   macOS/Linux (§2.4) — the design `chmod`s regardless.
 - macOS Gatekeeper behaviour for a `sysml-grpc` binary extracted by the Resource Manager (§2.4).
@@ -760,10 +795,8 @@ Each item says what is known, what is not, and what would settle it.
 - `BaseElement.getID()` being the persisted `xmi:id` (§5) — verified only through the fixtures'
   IDs, not from the Javadoc page.
 - The Simulation Toolkit's PSSM and PSCS conformance (§7.1).
-- That 2024x Refresh3 has no SysML v2 project type or textual import (§8) — not found in its
-  version news or Javadoc index, which is absence of evidence only.
-- The 2026x Refresh1 figure for the vendor's own v1→v2 migration coverage (§8) — the 2026x page
-  says about 20 %.
+- That the minimum release, 2024x Refresh3, has no SysML v2 project type or textual import
+  (§8) — not found in its version news or Javadoc index, which is absence of evidence only.
 - Whether `SysMLTextualNotationService.exportTextual` emits element identity beyond names (§8).
 - Windows pipe semantics of the child under Cameo's launcher and abnormal shutdown (§12.1).
 - Whether the vendor's licence permits an unattended CI seat (§10.3).
