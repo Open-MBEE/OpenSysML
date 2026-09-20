@@ -777,9 +777,12 @@ func (inst *Instance) materializeFeatureValueIntrinsic(ctx *Context, name string
 
 func (inst *Instance) materializeIntrinsicValue(ctx *Context, name string, open *openPopulation) (*FeatureValue, error) {
 	fv := inst.FeatureValues[name]
-	before := ctx.beforeWrite(fv)
-	_, err := inst.materializeIntrinsic(ctx, fv, name, open)
-	ctx.afterWrite(fv, before)
+	err := ctx.storedBeforeStarting(func() error {
+		before := ctx.beforeWrite(fv)
+		_, err := inst.materializeIntrinsic(ctx, fv, name, open)
+		ctx.afterWrite(fv, before)
+		return err
+	})
 	if err != nil {
 		return nil, err
 	}

@@ -475,8 +475,10 @@ func (ctx *Context) startBehaviorsOfAll(objects []*Instance) error {
 }
 
 // storing is a store under way and the journal of the hold it reached, nil until it reaches one.
+// One that gathers takes the stores under it as its own, running what they start once all are done.
 type storing struct {
 	commit, rollback func()
+	gathers          bool
 }
 
 // storedBeforeStarting runs store, a write or materialization, with the behaviors the hold it
@@ -486,9 +488,22 @@ type storing struct {
 // and the store, leaving what the store evaluated. Once kept, the older behaviors it woke answer;
 // one of them failing is reported as its own, with the store kept.
 func (ctx *Context) storedBeforeStarting(store func() error) error {
+	return ctx.stored(store, false)
+}
+
+// storedTogether is storedBeforeStarting over several stores, the writes of a constructor's
+// arguments: the behaviors any of them starts run once every one has stored its value.
+func (ctx *Context) storedTogether(store func() error) error {
+	return ctx.stored(store, true)
+}
+
+func (ctx *Context) stored(store func() error, gathers bool) error {
+	if n := len(ctx.storing); n > 0 && ctx.storing[n-1].gathers {
+		return store()
+	}
 	defer ctx.beginRun()()
 	defer ctx.holdDrivenWork()()
-	s := &storing{}
+	s := &storing{gathers: gathers}
 	ctx.storing = append(ctx.storing, s)
 	endBoundary := ctx.beginRunBoundary()
 	err := store()
@@ -509,18 +524,22 @@ func (ctx *Context) storedBeforeStarting(store func() error) error {
 	return ctx.runAttachedBehaviors()
 }
 
-// beginHoldJournal is beginJournal for a hold on a feature value: under a store, the first hold
-// only attaches the behaviors it starts, and its journal is left to the store to close once it
-// has run them.
+// beginHoldJournal is beginJournal for a hold on a feature value: under a store, a hold only
+// attaches the behaviors it starts, and the journal of the first is left to the store to close
+// once it has run them (a later hold's journal is nested in it).
 func (ctx *Context) beginHoldJournal() (commit, rollback func()) {
 	commit, rollback = ctx.beginJournal()
 	n := len(ctx.storing)
-	if n == 0 || ctx.storing[n-1].commit != nil {
+	if n == 0 {
 		return commit, rollback
 	}
-	s := ctx.storing[n-1]
-	s.commit, s.rollback = commit, rollback
 	ctx.behaviorRunDepth++
+	s := ctx.storing[n-1]
+	if s.commit != nil {
+		keep, undo := commit, rollback
+		return func() { ctx.behaviorRunDepth--; keep() }, func() { ctx.behaviorRunDepth--; undo() }
+	}
+	s.commit, s.rollback = commit, rollback
 	undo := rollback
 	return func() { ctx.behaviorRunDepth-- }, func() {
 		ctx.behaviorRunDepth--

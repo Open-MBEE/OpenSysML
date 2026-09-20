@@ -30,6 +30,8 @@ func TestRuntimeRobustnessObjectLifecycle(t *testing.T) {
 	t.Run("a_part_declared_or_bound_to_a_new_object_ends_with_the_whole", testObjectLifecycleDeclaredPart)
 	t.Run("an_object_two_wholes_hold_composite_ends_with_either", testObjectLifecycleSharedPortion)
 	t.Run("behaviors_a_write_starts_run_once_the_feature_holds_the_object", testObjectLifecycleStartsAfterStore)
+	t.Run("behaviors_a_constructor_argument_starts_run_once_every_argument_is_stored", testObjectLifecycleConstructorStartsAfterStores)
+	t.Run("behaviors_a_bound_default_starts_run_once_the_feature_holds_the_object", testObjectLifecycleBoundDefaultStartsAfterStore)
 	t.Run("explore_creating_objects_is_deterministic", testObjectLifecycleExploreCreation)
 	t.Run("explore_destroy_race_reaches_both_outcomes", testObjectLifecycleExploreDestroyRace)
 }
@@ -81,15 +83,21 @@ const objectLifecycleModel = `
 // heldCars reads the cars a fleet or lot holds, failing the test when they cannot be read.
 func heldCars(t *testing.T, ctx *Context, inst *Instance) []*Instance {
 	t.Helper()
-	fv, err := inst.GetFeatureValue(ctx, "cars")
+	return heldNamed(t, ctx, inst, "cars")
+}
+
+// heldNamed reads the objects inst's feature holds, failing the test when they cannot be read.
+func heldNamed(t *testing.T, ctx *Context, inst *Instance, name string) []*Instance {
+	t.Helper()
+	fv, err := inst.GetFeatureValue(ctx, name)
 	if err != nil {
-		t.Fatalf("cars: %v", err)
+		t.Fatalf("%s: %v", name, err)
 	}
 	var out []*Instance
 	for _, el := range elementsOf(fv.HeldValue()) {
 		id, ok := el.Object()
 		if !ok {
-			t.Fatalf("cars holds %v, want objects", fv.HeldValue())
+			t.Fatalf("%s holds %v, want objects", name, fv.HeldValue())
 		}
 		out = append(out, ctx.instances[id])
 	}
@@ -572,6 +580,68 @@ func testObjectLifecycleStartsAfterStore(t *testing.T) {
 	}
 	if got := FormatValue(fv.HeldValue()); got != "1" {
 		t.Errorf("device.slotted = %s after the write started look; want 1, the slot holding it", got)
+	}
+}
+
+// testObjectLifecycleConstructorStartsAfterStores: the behavior a constructor's first argument starts
+// through the feature holding it runs once the later arguments are stored too, so it reads them.
+func testObjectLifecycleConstructorStartsAfterStores(t *testing.T) {
+	_, _, ctx := lifetimeFixture(t, `
+		package test {
+			private import ScalarValues::*; private import SequenceFunctions::*;
+			part def Device { attribute seen : Integer; }
+			part def Pair {
+				part lead : Device[0..1] {
+					perform action look { first start; then action count { assign seen := (all Pair).trail->size(); } then done; }
+				}
+				part trail : Device[0..1];
+			}
+		}`)
+	_, scope := calcByName(t, ctx.model.resolver.Index().DocumentRoot("<test>"), "test", "Pair")
+	pair, err := evalIn(t, ctx, scope, "new Pair(new Device(), new Device())")
+	if err != nil {
+		t.Fatalf("new Pair(...): %v", err)
+	}
+	id, _ := pair.Object()
+	lead := heldNamed(t, ctx, ctx.instances[id], "lead")
+	if len(lead) != 1 {
+		t.Fatalf("pair.lead holds %d objects; want 1", len(lead))
+	}
+	fv, err := lead[0].GetFeatureValue(ctx, "seen")
+	if err != nil {
+		t.Fatalf("lead.seen: %v", err)
+	}
+	if got := FormatValue(fv.HeldValue()); got != "1" {
+		t.Errorf("lead.seen = %s after the construction started look; want 1, the trail stored before it ran", got)
+	}
+}
+
+// testObjectLifecycleBoundDefaultStartsAfterStore: a default object reached through a binding's
+// endpoint starts its behavior once the endpoint holds it, so the behavior reads it there.
+func testObjectLifecycleBoundDefaultStartsAfterStore(t *testing.T) {
+	instantiate, _, ctx := lifetimeFixture(t, `
+		package test {
+			private import ScalarValues::*; private import SequenceFunctions::*;
+			part def Device { attribute seen : Integer; }
+			part def Rack {
+				part source : Device[0..1] = new Device() {
+					perform action look { first start; then action count { assign seen := (all Rack).source->size(); } then done; }
+				}
+				part slot : Device[0..1];
+				bind slot = source;
+			}
+			part rack : Rack;
+		}`)
+	slot := heldNamed(t, ctx, instantiate("rack"), "slot")
+	if len(slot) != 1 {
+		t.Fatalf("rack.slot holds %d objects; want the bound default", len(slot))
+	}
+	fv, err := slot[0].GetFeatureValue(ctx, "seen")
+	if err != nil {
+		t.Fatalf("slot.seen: %v", err)
+	}
+	if got := FormatValue(fv.HeldValue()); got != "1" {
+		t.Errorf("slot.seen = %s after the default started look; want 1, the source holding it", got)
 	}
 }
 

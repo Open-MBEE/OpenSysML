@@ -1396,7 +1396,11 @@ func (e *EvalContext) constructObject(build func() (Message, error), what string
 		rollback()
 		return Message{}, nil, err
 	}
-	value, err := ctx.materializeMessage(msg)
+	var value Value
+	err = ctx.storedTogether(func() (err error) {
+		value, err = ctx.materializeMessage(msg)
+		return err
+	})
 	if err != nil {
 		rollback()
 		return Message{}, nil, fmt.Errorf("%s: %w", what, err)
