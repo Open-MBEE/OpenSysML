@@ -221,6 +221,10 @@ func (s *Server) DidChangeWorkspaceFolders(ctx context.Context, params *protocol
 		for _, folder := range params.Event.Added {
 			s.addFolder(uriToName(protocol.DocumentURI(folder.URI)))
 		}
+		// A document whose folder was just removed is now a lone file.
+		for _, name := range s.ws.OpenNames() {
+			s.indexOpenedDirectory(name)
+		}
 	})
 	s.refreshOpenDiagnostics(ctx, "")
 	return nil

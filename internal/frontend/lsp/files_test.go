@@ -444,6 +444,41 @@ func TestDidChangeWorkspaceFoldersIndexesAddedFolder(t *testing.T) {
 	}
 }
 
+// A document left open when its folder is removed is a lone file from then on,
+// so its directory is indexed for it as though it had been opened that way.
+func TestRemovingFolderAroundOpenFileKeepsSiblingsIndexed(t *testing.T) {
+	s, fc, dir, lib, main := multiFileWorkspace(t)
+	ctx := context.Background()
+
+	openFile(t, s, main, mainSource)
+	if msgs := diagnosticsFor(fc, main); len(msgs) != 0 {
+		t.Fatalf("diagnostics for main = %v, want none", msgs)
+	}
+	if err := s.DidChangeWorkspaceFolders(ctx, &protocol.DidChangeWorkspaceFoldersParams{
+		Event: protocol.WorkspaceFoldersChangeEvent{
+			Removed: []protocol.WorkspaceFolder{{URI: string(uri.File(dir)), Name: "multi"}},
+		},
+	}); err != nil {
+		t.Fatalf("DidChangeWorkspaceFolders err = %v", err)
+	}
+	if s.ws.Document(lib) == nil {
+		t.Errorf("lib.sysml unindexed while main.sysml, which imports it, is still open")
+	}
+	if msgs := diagnosticsFor(fc, main); len(msgs) != 0 {
+		t.Errorf("diagnostics for main = %v, want none after its folder was removed", msgs)
+	}
+
+	// Closing the document releases the directory as for any lone file.
+	if err := s.DidClose(ctx, &protocol.DidCloseTextDocumentParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(main)},
+	}); err != nil {
+		t.Fatalf("DidClose err = %v", err)
+	}
+	if s.ws.Document(lib) != nil {
+		t.Errorf("lib.sysml still indexed after the last document under its directory closed")
+	}
+}
+
 func TestDidChangeWorkspaceFoldersKeepsOpenBuffer(t *testing.T) {
 	s, _, dir, lib, _ := multiFileWorkspace(t)
 
