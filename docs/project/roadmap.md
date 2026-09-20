@@ -1332,7 +1332,7 @@ per-element behavior whose `for` result is wrong or too slow — the record's op
 starting point, as an explicitly non-standard extension the compliance mapping would have to flag,
 or a later specification revision re-adjudicates the record. No other item depends on this one.
 
-## E4 — streaming flows ("streaming pins") (landed)
+## E4 — streaming flows ("streaming pins")
 
 **Landed.** A `flow` between two action parameters is a *streaming* flow, and only the
 `succession flow` spelling moves its value when the source completes. SysML v2 §7.16: "the input
