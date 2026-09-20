@@ -530,13 +530,17 @@ const positionalInvokeFixture = `
 				first apply; action apply { assign level := level - n; assign sink := sink + n; assign drained := n; } }
 			calc scaled { in factor : Integer; return : Integer = level * factor; }
 			calc scaled { in factor : Integer; in offset : Integer; return : Integer = level * factor + offset; }
+			attribute label : String = "";
+			action run { in x : String; first apply; action apply { assign label := x; } }
+			calc run { in x : Integer; return : Integer = level + x; }
 		}
 	}
 `
 
 // A positional argument list binds the operation's `in` and `inout` parameters in
 // declaration order, leaves a trailing defaulted parameter to its default, skips an
-// `out` parameter, and selects among same-named operations by arity.
+// `out` parameter, and selects among same-named operations by arity and by type —
+// an action and a calc of one name each answering the arguments that fit it.
 func TestInvokeOperationWithPositionalArguments(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, positionalInvokeFixture))
 	tank := findSymbolByName(idx.DocumentRoot("<test>"), "Tank", ast.DefPart)
@@ -587,6 +591,24 @@ func TestInvokeOperationWithPositionalArguments(t *testing.T) {
 		t.Fatalf("scaled(factor=3, offset=1): %v", err)
 	}
 	wantResult(t, results, "result", 22)
+
+	results, err = ctx.InvokeOperationWith(inst, "run", positional(intArgument(3)))
+	if err != nil {
+		t.Fatalf("run(3): %v", err)
+	}
+	wantResult(t, results, "result", 10)
+	if _, err = ctx.InvokeOperationWith(inst, "run", positional(NewStringValue("go"))); err != nil {
+		t.Fatalf(`run("go"): %v`, err)
+	}
+	if fv, err := inst.GetFeatureValue(ctx, "label"); err != nil || fv.HeldValue().Str() != "go" {
+		t.Errorf("label = %v, %v, want go", fv, err)
+	}
+	if _, err = ctx.InvokeOperationWith(inst, "run", OperationArguments{Named: map[string]Value{"x": NewStringValue("named")}}); err != nil {
+		t.Fatalf(`run(x="named"): %v`, err)
+	}
+	if fv, err := inst.GetFeatureValue(ctx, "label"); err != nil || fv.HeldValue().Str() != "named" {
+		t.Errorf("label = %v, %v, want named", fv, err)
+	}
 
 	for _, tc := range []struct {
 		name string

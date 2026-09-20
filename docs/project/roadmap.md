@@ -1405,8 +1405,10 @@ delegates to it. A positional list binds to the operation's effective input para
 invocation expression in signature order, `out` and result excluded — so a trailing defaulted
 parameter may be omitted, an `inout` parameter takes a position and comes back as a result, and an
 `out` parameter takes none. Among same-named members, `operationOf` selects through
-`semantics.Model.SelectAmongArguments`, the overload selection the expression evaluator uses, so
-two calcs of one name are told apart by arity and a list neither takes is refused. A surplus is
+`semantics.Model.SelectAmongArguments`, the overload selection the expression evaluator uses, in
+its `PerformsOperation` mode — every behavior admitted alike, an expression's preference for a
+calc set aside — so two calcs of one name are told apart by arity, an action and a calc of one
+name by the arguments' types, and a list none takes is refused. A surplus is
 `ErrOperationArity` (`operation … takes N input parameter(s), got M argument(s)`), a list mixing
 the two forms is `ErrMixedArguments`, and a required parameter left unbound is still
 `ErrUnboundParameter`. The REPL's `%invoke <object> <op>` takes bare expressions or `<p>=<expr>`

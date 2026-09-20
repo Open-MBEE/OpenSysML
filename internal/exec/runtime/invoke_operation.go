@@ -116,7 +116,7 @@ func (ctx *Context) operationOf(inst *Instance, name string, args OperationArgum
 		for _, param := range slices.Sorted(maps.Keys(args.Named)) {
 			typed = append(typed, ec.valueArgument(args.Named[param], ast.QualifiedNameOf(param)))
 		}
-		sel := ctx.model.semantics.SelectAmongArguments(scope, candidates, typed, semantics.PerformsBehavior)
+		sel := ctx.model.semantics.SelectAmongArguments(scope, candidates, typed, semantics.PerformsOperation)
 		if sel.Ambiguous || sel.Called() == nil {
 			return nil, ambiguousInvocationError(name, sel.Tied)
 		}
