@@ -225,7 +225,6 @@ part masses : Table {
 ```
 
 ```markdown
-<!-- caption -->
 *All subsystems by mass*
 
 | name | mass |
@@ -265,7 +264,6 @@ part zones : Table {
 ```
 
 ```markdown
-<!-- caption -->
 *Subsystems grouped by zone*
 
 **zone: support**
@@ -404,7 +402,6 @@ renders as:
 ```markdown
 The mirror's mass scales as $m \propto D^{2.5}_{\text{eff}}$ and each \$ of budget buys about 1 cm^2 of aperture.
 
-<!-- caption -->
 *Collecting area of a circular mirror*
 
 $$

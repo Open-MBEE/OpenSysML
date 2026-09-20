@@ -14,7 +14,6 @@ Every requirement, what satisfies and verifies it, and whether the spacecraft me
 
 ## Traceability Matrix
 
-<!-- caption -->
 *Requirements with their satisfiers and verifiers*
 
 | shortName | name | satisfiedBy | verifiedBy | verifications |
@@ -26,7 +25,6 @@ Every requirement, what satisfies and verifies it, and whether the spacecraft me
 
 ## Verdicts
 
-<!-- caption -->
 *Checks of the spacecraft against its requirements*
 
 | kind | name | path | verdict | condition |

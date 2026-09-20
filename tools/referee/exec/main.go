@@ -63,6 +63,9 @@ const defaultCases = "tools/referee/exec/testdata/cases"
 // toolName is the command's name in its flags, messages and output directory.
 const toolName = "pilot-exec-diff"
 
+// errFormat is the diagnostic format every fatal error is reported with.
+const errFormat = ": %v\n"
+
 // Main runs the pilot-exec-diff command over args and returns its exit status.
 func Main(args []string, stderr io.Writer) int {
 	flags := flag.NewFlagSet(toolName, flag.ContinueOnError)
@@ -80,7 +83,7 @@ func Main(args []string, stderr io.Writer) int {
 
 	root, err := repo.Choose(*repoFlag)
 	if err != nil {
-		fmt.Fprintf(stderr, toolName+": %v\n", err)
+		fmt.Fprintf(stderr, toolName+errFormat, err)
 		return 1
 	}
 	launcher := repo.Resolve(root, *launcherFlag)
@@ -101,7 +104,7 @@ func Main(args []string, stderr io.Writer) int {
 	}
 	caseFiles, err := readCaseFiles(casesDir)
 	if err != nil {
-		fmt.Fprintf(stderr, toolName+": %v\n", err)
+		fmt.Fprintf(stderr, toolName+errFormat, err)
 		return 1
 	}
 	out := repo.Resolve(root, *outFlag)
@@ -110,11 +113,11 @@ func Main(args []string, stderr io.Writer) int {
 	}
 	report, err := execute(root, launcher, caseFiles)
 	if err != nil {
-		fmt.Fprintf(stderr, toolName+": %v\n", err)
+		fmt.Fprintf(stderr, toolName+errFormat, err)
 		return 1
 	}
 	if err := writeReport(out, report); err != nil {
-		fmt.Fprintf(stderr, toolName+": %v\n", err)
+		fmt.Fprintf(stderr, toolName+errFormat, err)
 		return 1
 	}
 	printSummary(report)

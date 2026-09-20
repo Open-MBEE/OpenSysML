@@ -45,6 +45,7 @@ jobs:
       java: ${{ steps.areas.outputs.java }}
       rust: ${{ steps.areas.outputs.rust }}
       vscode: ${{ steps.areas.outputs.vscode }}
+      syson: ${{ steps.areas.outputs.syson }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -514,7 +515,8 @@ jobs:
       needs.changes.outputs.node == 'true' ||
       needs.changes.outputs.python == 'true' ||
       needs.changes.outputs.java == 'true' ||
-      needs.changes.outputs.rust == 'true'
+      needs.changes.outputs.rust == 'true' ||
+      needs.changes.outputs.syson == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -565,7 +567,9 @@ jobs:
       - conformance-pkg
       - docs
       - java-test
+      - syson-plugin
       - node-test
+      - pdf-toolchain
       - python-test
       - race-tests
       - rust-test
@@ -583,7 +587,9 @@ jobs:
           CONFORMANCE_PKG_RESULT: ${{ needs.conformance-pkg.result }}
           DOCS_RESULT: ${{ needs.docs.result }}
           JAVA_TEST_RESULT: ${{ needs.java-test.result }}
+          SYSON_PLUGIN_RESULT: ${{ needs.syson-plugin.result }}
           NODE_TEST_RESULT: ${{ needs.node-test.result }}
+          PDF_TOOLCHAIN_RESULT: ${{ needs.pdf-toolchain.result }}
           PYTHON_TEST_RESULT: ${{ needs.python-test.result }}
           RACE_TESTS_RESULT: ${{ needs.race-tests.result }}
           RUST_TEST_RESULT: ${{ needs.rust-test.result }}
@@ -596,7 +602,9 @@ jobs:
              ! ok "$CONFORMANCE_PKG_RESULT" ||
              ! ok "$DOCS_RESULT" ||
              ! ok "$JAVA_TEST_RESULT" ||
+             ! ok "$SYSON_PLUGIN_RESULT" ||
              ! ok "$NODE_TEST_RESULT" ||
+             ! ok "$PDF_TOOLCHAIN_RESULT" ||
              ! ok "$PYTHON_TEST_RESULT" ||
              ! ok "$RACE_TESTS_RESULT" ||
              ! ok "$RUST_TEST_RESULT" ||
@@ -607,7 +615,9 @@ jobs:
             echo "conformance-pkg=$CONFORMANCE_PKG_RESULT"
             echo "docs=$DOCS_RESULT"
             echo "java-test=$JAVA_TEST_RESULT"
+            echo "syson-plugin=$SYSON_PLUGIN_RESULT"
             echo "node-test=$NODE_TEST_RESULT"
+            echo "pdf-toolchain=$PDF_TOOLCHAIN_RESULT"
             echo "python-test=$PYTHON_TEST_RESULT"
             echo "race-tests=$RACE_TESTS_RESULT"
             echo "rust-test=$RUST_TEST_RESULT"
@@ -615,6 +625,79 @@ jobs:
             echo "vscode-extension=$VSCODE_EXTENSION_RESULT"
             exit 1
           fi
+
+  # The PDF backend drives external tools (WeasyPrint, pandoc, mermaid-cli,
+  # KaTeX, Graphviz, the PlantUML jar) as subprocesses; the Go suite above
+  # tests that contract with fakes. This job runs the integration tests
+  # against the pinned toolchain, with an absent tool a failure, not a skip.
+  pdf-toolchain:
+    name: PDF toolchain tests
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 20
+    env:
+      OPENSYSML_REQUIRE_PDF_TOOLCHAIN: "1"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Set up Python
+        id: setup-python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      # Keyed on the provisioning script, whose pins and digests are the
+      # toolchain's identity; the venv is not restored across Python builds.
+      - name: Cache the PDF toolchain
+        id: toolchain-cache
+        uses: actions/cache@v4
+        with:
+          path: build/doc-pdf
+          key: doc-pdf-toolchain-${{ runner.os }}-${{ hashFiles('scripts/download-doc-pdf-toolchain.sh') }}-py${{ steps.setup-python.outputs.python-version }}
+
+      # WeasyPrint's venv links against the system's Pango, the browser
+      # mermaid-cli launches needs its shared libraries, and Graphviz's neato
+      # layout plugin needs GTS.
+      - name: Install the toolchain's system libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 \
+            libnss3 libatk-bridge2.0-0 libgbm1 libxkbcommon0 libasound2t64 fonts-dejavu-core libgts-0.7-5
+
+      - name: Provision the PDF toolchain
+        run: ./scripts/download-doc-pdf-toolchain.sh
+
+      - name: Run the PDF integration tests
+        env:
+          OPENSYSML_PANDOC: ${{ github.workspace }}/build/doc-pdf/pandoc-3.10.2/bin/pandoc
+          OPENSYSML_WEASYPRINT: ${{ github.workspace }}/build/doc-pdf/weasyprint/bin/weasyprint
+          OPENSYSML_MMDC: ${{ github.workspace }}/build/doc-pdf/mermaid/node_modules/.bin/mmdc
+          OPENSYSML_MMDC_PUPPETEER: ${{ github.workspace }}/build/doc-pdf/mermaid/puppeteer.json
+          OPENSYSML_KATEX: ${{ github.workspace }}/build/doc-pdf/katex/node_modules/.bin/katex
+          OPENSYSML_DOT: ${{ github.workspace }}/build/doc-pdf/graphviz/bin/dot
+          OPENSYSML_PLANTUML_JAR: ${{ github.workspace }}/build/doc-pdf/plantuml/plantuml-1.2026.8.jar
+        run: go test -count=1 -v -run Installed ./internal/doc/docpdf
 
   vscode-extension:
     name: VS Code extension
@@ -1065,6 +1148,57 @@ jobs:
           make proto-buf BUF=buf
           git add -N client/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto
           git diff --exit-code client/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto
+
+  syson-plugin:
+    name: SysON plugin
+    needs: [changes, build]
+    if: needs.changes.outputs.syson == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Download binary artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: binaries
+          path: bin
+
+      - name: Make the service binary executable
+        run: chmod +x bin/sysml-grpc
+
+      # SysON 2026.9.0 runs on 21; the module compiles at release 17.
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Install the client dependency
+        run: mvn -B -q -f client/java/pom.xml install -DskipTests -Dmaven.javadoc.skip=true
+
+      - name: Test and install the SysON backend
+        run: mvn -B -f editors/syson/pom.xml install -Dopensysml.requireService=true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: editors/syson/frontend/package-lock.json
+
+      - name: Build and test the SysON frontend
+        working-directory: editors/syson/frontend
+        run: |
+          npm ci
+          npm run typecheck
+          npm run format:check
+          npm test
+          npm run build
 
   conformance-pkg:
     name: Conformance suite

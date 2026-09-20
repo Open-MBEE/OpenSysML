@@ -45,6 +45,11 @@ CAPABILITY_DOCUMENT_QUERY = "document_query"
 #: Without it the service refuses with ``UNIMPLEMENTED``.
 CAPABILITY_RENDER_DOCUMENT = "render_document"
 
+#: ``form`` on ``RenderDocumentRequest``, which asks ``RenderDocument`` for the
+#: HTML page instead of Markdown. Without it the service would render Markdown
+#: whatever form was asked, so the client refuses to ask for HTML.
+CAPABILITY_RENDER_DOCUMENT_HTML = "render_document_html"
+
 #: An enumeration literal as ``Value.enum_literal``. Without it a literal is
 #: reported as an unsupported null, which is indistinguishable from a value the
 #: service could not evaluate.

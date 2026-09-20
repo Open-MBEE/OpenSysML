@@ -51,4 +51,30 @@ public interface RenderDocumentRequestOrBuilder extends
    */
   com.google.protobuf.ByteString
       getDocumentIdBytes();
+
+  /**
+   * <pre>
+   * Form to render: "markdown" (the default when empty) or "html", the
+   * standalone page with the default stylesheet that the CLI's -doc-form html
+   * writes. Any other form fails with INVALID_ARGUMENT; PDF needs the CLI's
+   * converter toolchain and is not offered here.
+   * </pre>
+   *
+   * <code>string form = 3 [json_name = "form"];</code>
+   * @return The form.
+   */
+  java.lang.String getForm();
+  /**
+   * <pre>
+   * Form to render: "markdown" (the default when empty) or "html", the
+   * standalone page with the default stylesheet that the CLI's -doc-form html
+   * writes. Any other form fails with INVALID_ARGUMENT; PDF needs the CLI's
+   * converter toolchain and is not offered here.
+   * </pre>
+   *
+   * <code>string form = 3 [json_name = "form"];</code>
+   * @return The bytes for form.
+   */
+  com.google.protobuf.ByteString
+      getFormBytes();
 }

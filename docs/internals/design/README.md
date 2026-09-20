@@ -11,6 +11,13 @@ maintainers; the behavior a user sees is [the guide](../../guide/).
   observed, not covered), dispatch by question with fallback, and runs isolated so they can be
   parallel; the contract, the registry and the four engines over existing code are
   implemented (`internal/exec/analysis`), the rest is a proposal
+- **[A Cameo Systems Modeler plugin](cameo-plugin.md)** — a proposal: a plugin for Cameo
+  2026x Refresh1 that exports the selection, runs `Convert(xmi→sysml)` and `ParseSources` over
+  the Java client, executes and verifies on `sysml-grpc`, and lands each verdict on the Cameo
+  element it came from through the migration report's `xmi:id → target` accounting; the vendor
+  plugin mechanics, UI contribution points, export routes, Simulation Toolkit positioning and
+  SysML v2 status answered from public documentation with every unverified claim marked, a
+  migration benchmark over twenty public v1 models, a phased plan and the risks
 - **[Bring your own engine](bring-your-own-engines.md)** — a proposal: a manifest and a
   protocol under which a user's own engine, scheduling policy, sampler or tool registers with
   the analysis framework as a process, a WebAssembly module or Go over the public package; every
@@ -59,6 +66,12 @@ maintainers; the behavior a user sees is [the guide](../../guide/).
   operations the wire lacks (satisfiability, checker options, replay, views, search), design a
   session API for the debuggers apart from the stateless calls, and make the agreement a
   conformance protocol rather than a claim
+- **[A SysON plugin](syson-plugin.md)** — a discovery and design: how Eclipse SysON's Sirius
+  Web backend and React frontend take contributions, its textual exporter and SysIDE importer,
+  its partial SysML v2 REST API and normative library ids, the mapping between a qualified-name
+  `Symbol.id` and an EMF element, `sysml -validate` over SysON's textual models, then the layout
+  of `editors/syson/`, the "Run with OpenSysML" sequence and a four-phase plan; nothing is
+  implemented
 - **[Transport evaluation](transport-evaluation.md)** — Connect and stdio measured beside gRPC,
   with the lifecycle-code delta and a recommendation
 - **[Visual modeling in VS Code](vscode-visual-modeling.md)** — the live diagram panel, the

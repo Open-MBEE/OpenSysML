@@ -38,6 +38,19 @@ const CrossDocumentCapability = "openSysmlCrossDocumentLayout"
 // when a render request's palette colours the result's nodes with fill and border.
 const RenderPaletteCapability = "openSysmlRenderPalette"
 
+// RenderFormsCapability is the experimental capability whose value lists the
+// forms opensysml/render writes, so a client offers exactly those.
+const RenderFormsCapability = "openSysmlRenderForms"
+
+// renderFormNames lists the forms in the order the writer defines them.
+func renderFormNames() []string {
+	names := make([]string, 0, len(view.Forms()))
+	for _, form := range view.Forms() {
+		names = append(names, string(form))
+	}
+	return names
+}
+
 // renderParams asks for one rendering. View names a view the document declares,
 // or a supported pseudo-view (`#<kind>` or `#<kind>:<fqn>`); empty renders the
 // document's own view. Form is the artifact written, defaulting to the machine

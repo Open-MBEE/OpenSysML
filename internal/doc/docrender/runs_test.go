@@ -3,6 +3,7 @@ package docrender
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -157,6 +158,124 @@ func TestMarkdownGroupedTableEmpty(t *testing.T) {
 	want := "| zone | name |\n| --- | --- |"
 	if !strings.Contains(got, want) {
 		t.Errorf("rendering does not contain %q\n%s", want, got)
+	}
+}
+
+// TestMarkdownGroupedTableBlankKey checks that a group whose key is blank
+// writes a strong span CommonMark parses, with the blank outside the marks.
+func TestMarkdownGroupedTableBlankKey(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "blank_group.sysml")
+	model := `
+		package Groups {
+			private import DocumentQueries::*;
+			private import KerML::Root::Element;
+			private import ScalarValues::*;
+
+			calc def Zoned :> Query {
+				in root : Element;
+				Project(
+					source = WhereType(source = OwnedElements(source = root), type = "Groups::Widget"),
+					properties = ("name", "zone")
+				)
+			}
+
+			part def Widget {
+				attribute zone : String;
+			}
+
+			part hollow {
+				part def Widget :> Groups::Widget;
+				part inner : Widget {
+					attribute redefines zone = "payload";
+				}
+			}
+
+			part def Report :> Document {
+				attribute redefines title = "Report";
+				part zones : Table {
+					attribute redefines groupBy = "zone";
+					calc rows : Zoned {
+						in root = hollow;
+					}
+				}
+			}
+		}
+	`
+	if err := os.WriteFile(path, []byte(model), 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+	got := renderFixtureDocument(t, path, "Groups::Report")
+	if !strings.Contains(got, "\n**zone:** \n") || strings.Contains(got, "**zone: **") {
+		t.Errorf("blank group key is not a strong span CommonMark parses\n%s", got)
+	}
+	if !strings.Contains(got, "\n**zone: payload**\n") {
+		t.Errorf("rendering does not contain the payload group key\n%s", got)
+	}
+}
+
+// TestMarkdownPaddedCaption checks a caption padded with blanks, four spaces
+// or a tab is written as plain emphasis (CommonMark would read the padding as
+// indented code), and that a blank caption writes no paragraph and is not
+// listed by Captions.
+func TestMarkdownPaddedCaption(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "padded_caption.sysml")
+	model := `
+		package Padded {
+			private import DocumentQueries::*;
+			private import KerML::Root::Element;
+
+			calc def Named :> Query {
+				in root : Element;
+				Project(source = OwnedElements(source = root), properties = ("name"))
+			}
+
+			part widgets { part a; }
+
+			part def Report :> Document {
+				attribute redefines title = "Report";
+				part padded : Table {
+					attribute redefines caption = " Masses ";
+					calc rows : Named { in root = widgets; }
+				}
+				part indented : Table {
+					attribute redefines caption = "    Volumes";
+					calc rows : Named { in root = widgets; }
+				}
+				part tabbed : Table {
+					attribute redefines caption = "	Areas";
+					calc rows : Named { in root = widgets; }
+				}
+				part blank : Table {
+					attribute redefines caption = "   ";
+					calc rows : Named { in root = widgets; }
+				}
+				part trailing : Table {
+					attribute redefines caption = "Details";
+					calc rows : Named { in root = widgets; }
+				}
+			}
+		}
+	`
+	if err := os.WriteFile(path, []byte(model), 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+	document := fixtureDocument(t, path, "Padded::Report")
+	got, err := Markdown(document, MarkdownOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"\n*Masses*\n", "\n*Volumes*\n", "\n*Areas*\n", "\n*Details*\n"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("Markdown lacks %q as a plain emphasized paragraph\n%s", want, got)
+		}
+	}
+	for _, literal := range []string{"* Masses *", " *Masses*", "    *Volumes*", "\t*Areas*", "*   *", "\n   \n"} {
+		if strings.Contains(got, literal) {
+			t.Errorf("Markdown carries a caption's padding %q\n%s", literal, got)
+		}
+	}
+	if captions := Captions(document); !reflect.DeepEqual(captions, []string{"Masses", "Volumes", "Areas", "Details"}) {
+		t.Errorf("Captions = %q, want the non-blank captions trimmed", captions)
 	}
 }
 

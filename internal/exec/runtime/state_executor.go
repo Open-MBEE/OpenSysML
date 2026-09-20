@@ -902,7 +902,7 @@ func (e *StateExecutor) dispatchEvent(event Event) (Dispatch, error) {
 				Target:  targetState,
 				Trigger: edge.Trigger,
 				Guard:   edge.Guard,
-				Effect:  lower.LowerBehaviors(edge.Effect, e.stateMachine.Scope, e.ctx.Resolver()),
+				Effect:  lower.LowerBehaviors(edge.Effect, lower.BehaviorBlock{Member: edge}, e.stateMachine.Scope, e.ctx.Resolver()),
 			}
 			var err error
 			dispatch.Fired, err = e.fireTransition(lowerTrans, route{segments: []*lower.Transition{lowerTrans}, target: targetState})
@@ -2573,10 +2573,8 @@ func (e *StateExecutor) fireForkTransition(trans *lower.Transition, fork *ast.Ps
 	if err != nil {
 		return err
 	}
-	for _, behavior := range trans.Effect {
-		if err := e.executeBehavior(behavior); err != nil {
-			return fmt.Errorf("transition effect: %w", err)
-		}
+	if err := e.executeBehaviors(trans.Effect); err != nil {
+		return fmt.Errorf("transition effect: %w", err)
 	}
 
 	// The fork's own parent is entered before its branches fire; the branches
@@ -3576,22 +3574,29 @@ func (e *StateExecutor) runDoRound() (int, error) {
 }
 
 // stepDoAction performs one action of a do behavior: the behavior under way goes
-// on as told, else the next behavior begins.
+// on as told, else the next behavior begins. One a `terminate` ends takes the
+// rest of its block with it; the do behavior goes on with the next block's.
 func (e *StateExecutor) stepDoAction(act *doAction, goOn func(*doRun) (*doRun, error)) error {
 	e.moved = true
 	if e.trace() != nil {
 		e.trace().RecordDoStep(e.traceOrigin(), act.state.Name)
 	}
-	var err error
-	if act.run != nil {
-		act.run, err = goOn(act.run)
-	} else {
+	run := act.run
+	if run == nil {
 		behavior := act.pending[0]
 		act.pending = act.pending[1:]
-		act.run, err = e.startDoRun(behavior)
+		if run = e.newDoRun(behavior); run == nil {
+			return nil
+		}
+		goOn = func(run *doRun) (*doRun, error) { return run.resume(e.ctx) }
 	}
+	var err error
+	act.run, err = goOn(run)
 	if err != nil {
 		return fmt.Errorf("do action in state %s: %w", act.state.Name, err)
+	}
+	if act.run == nil && run.host.terminated {
+		act.pending = e.endBlockPending(act.pending, run.host.behavior.Block)
 	}
 	return nil
 }
@@ -4353,11 +4358,8 @@ func (e *StateExecutor) initialize() (err error) {
 
 // enterMachine runs the machine's own entry behaviors and starts its do behavior.
 func (e *StateExecutor) enterMachine() error {
-	behaviors := e.behaviorsOf(e.graph.Machine)
-	for _, behavior := range behaviors.Entry {
-		if err := e.executeBehavior(behavior); err != nil {
-			return fmt.Errorf("entry action: %w", err)
-		}
+	if err := e.executeBehaviors(e.behaviorsOf(e.graph.Machine).Entry); err != nil {
+		return fmt.Errorf("entry action: %w", err)
 	}
 	e.startDoAction(e.graph.Machine)
 	return nil
@@ -4469,10 +4471,8 @@ func (e *StateExecutor) exitMachine() error {
 	}
 	e.machineExited = true
 	e.stopDoAction(e.graph.Machine)
-	for _, behavior := range e.behaviorsOf(e.graph.Machine).Exit {
-		if err := e.executeBehavior(behavior); err != nil {
-			return fmt.Errorf("exit action: %w", err)
-		}
+	if err := e.executeBehaviors(e.behaviorsOf(e.graph.Machine).Exit); err != nil {
+		return fmt.Errorf("exit action: %w", err)
 	}
 	return nil
 }
@@ -4585,10 +4585,8 @@ func (e *StateExecutor) performEntry(state *ast.StateNode) error {
 	}
 
 	// Execute entry actions
-	for _, behavior := range e.behaviorsOf(state).Entry {
-		if err := e.executeBehavior(behavior); err != nil {
-			return fmt.Errorf("entry action: %w", err)
-		}
+	if err := e.executeBehaviors(e.behaviorsOf(state).Entry); err != nil {
+		return fmt.Errorf("entry action: %w", err)
 	}
 	return nil
 }
@@ -4671,10 +4669,8 @@ func (e *StateExecutor) exitState(state *ast.StateNode) error {
 	}
 
 	// Execute exit actions
-	for _, behavior := range e.behaviorsOf(state).Exit {
-		if err := e.executeBehavior(behavior); err != nil {
-			return fmt.Errorf("exit action: %w", err)
-		}
+	if err := e.executeBehaviors(e.behaviorsOf(state).Exit); err != nil {
+		return fmt.Errorf("exit action: %w", err)
 	}
 
 	// Clear simple state

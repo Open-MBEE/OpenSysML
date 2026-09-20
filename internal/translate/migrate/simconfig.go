@@ -19,6 +19,12 @@ import (
 // of the def runs the behavior on an object configured as the tool ran it. Its
 // settings are recorded by Simulation::Configuration metadata.
 
+// The note prefixes the configuration findings repeat.
+const (
+	simConfig  = "«SimulationConfig» "
+	targetNote = "the execution target "
+)
+
 // simulationConfig returns e's «SimulationConfig» application, or nil.
 func simulationConfig(e *sysmlv1.Element) *sysmlv1.Stereotype {
 	for _, s := range e.Stereotypes {
@@ -209,13 +215,13 @@ func (m *migration) configurationSettings(s *sysmlv1.Stereotype) (settings confi
 			continue
 		}
 		if len(vs) > 1 {
-			notes = append(notes, "«SimulationConfig» "+c.tag+" has "+strconv.Itoa(len(vs))+" values; Simulation::Configuration::"+c.attribute+" takes one")
+			notes = append(notes, simConfig+c.tag+" has "+strconv.Itoa(len(vs))+" values; Simulation::Configuration::"+c.attribute+" takes one")
 			unread = append(unread, c.tag+" = "+strings.Join(vs, ", "))
 			continue
 		}
 		lit, reason := c.form(vs[0])
 		if reason != "" {
-			notes = append(notes, "«SimulationConfig» "+c.tag+" = "+strconv.Quote(vs[0])+" "+reason+", so it is not recorded as Simulation::Configuration::"+c.attribute)
+			notes = append(notes, simConfig+c.tag+" = "+strconv.Quote(vs[0])+" "+reason+", so it is not recorded as Simulation::Configuration::"+c.attribute)
 			unread = append(unread, c.tag+" = "+vs[0])
 			continue
 		}
@@ -233,7 +239,7 @@ func (m *migration) configurationSettings(s *sysmlv1.Stereotype) (settings confi
 		if len(vs) == 0 || (len(vs) == 1 && (vs[0] == "true" || vs[0] == "1")) {
 			continue
 		}
-		notes = append(notes, "«SimulationConfig» "+a.tag+" = "+strings.Join(vs, ", ")+" has no v2 form: "+a.means)
+		notes = append(notes, simConfig+a.tag+" = "+strings.Join(vs, ", ")+" has no v2 form: "+a.means)
 		unread = append(unread, a.tag+" = "+strings.Join(vs, ", "))
 	}
 	for tag, vs := range s.Tags {
@@ -271,10 +277,10 @@ func (m *migration) targetClassifiers(s *sysmlv1.Stereotype) (t *sysmlv1.Element
 	}
 	t = m.model.Lookup(ids[0])
 	if t == nil || t.IsProxy() {
-		return nil, nil, "the execution target " + strconv.Quote(ids[0]) + " is outside the document, so the configuration runs no behavior"
+		return nil, nil, targetNote + strconv.Quote(ids[0]) + " is outside the document, so the configuration runs no behavior"
 	}
 	if m.isLibrary(t) || !m.written(t) {
-		return nil, nil, "the execution target " + describe(t) + " is not migrated, so the configuration runs no behavior"
+		return nil, nil, targetNote + describe(t) + " is not migrated, so the configuration runs no behavior"
 	}
 	cat, why := m.classify(t)
 	switch cat {
@@ -283,14 +289,14 @@ func (m *migration) targetClassifiers(s *sysmlv1.Stereotype) (t *sysmlv1.Element
 	case catIndividualDef:
 		kind, written, _ := m.individualClassifiers(t)
 		if kind != catPartDef {
-			return nil, nil, "the execution target " + describe(t) + " is written as an " + individualKeyword(kind) + ", which no part can be typed by, so the configuration runs no behavior"
+			return nil, nil, targetNote + describe(t) + " is written as an " + individualKeyword(kind) + ", which no part can be typed by, so the configuration runs no behavior"
 		}
 		classifiers = written
 	default:
-		return nil, nil, joinNotes("the execution target "+describe(t)+" is written as a "+cat.keyword()+", which no part can be typed by, so the configuration runs no behavior", why)
+		return nil, nil, joinNotes(targetNote+describe(t)+" is written as a "+cat.keyword()+", which no part can be typed by, so the configuration runs no behavior", why)
 	}
 	if len(classifiers) == 0 {
-		return t, nil, "the execution target " + describe(t) + " has no written classifier, so no behavior of it is performed"
+		return t, nil, targetNote + describe(t) + " has no written classifier, so no behavior of it is performed"
 	}
 	return t, classifiers, ""
 }

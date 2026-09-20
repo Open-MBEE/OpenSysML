@@ -99,7 +99,18 @@ through a `Route` waypoint. The geometry is on every node and edge the server se
 `%% layout:` comments, so other clients can honor it; see
 [Diagram layout annotations](../project/diagram-layout-annotations.md). A drag applies to the
 tree, interconnection, state and action diagrams, which read the annotations back.
-`SysML: Export Diagram` saves that Mermaid (or a table's Markdown) to a file.
+
+#### Exporting a diagram
+
+`SysML: Export Diagram` (the title bar's `…` menu and the right-click menu offer it too) saves
+the drawn view in a form you pick from a list: Mermaid (`.mmd`) with the model's positions as
+`%% layout:` comments, Graphviz DOT (`.dot`) with the positions as `pos` attributes and a
+`// layout:` header naming the engine that keeps them, PlantUML (`.puml`) in the Pilot
+visualizer's style, Markdown (`.md`) for a table, or the text form (`.txt`). The list is the
+one the connected server advertises, so it matches what that server writes; the pick is sent
+as the request's `form`, the server writes that form, and the save dialog opens on the matching
+extension and filter. A form the drawn kind has no grammar for — DOT for a sequence, Mermaid for
+a table — is refused by the server and the message names the form that kind uses.
 
 Drawing and exporting need a connected server that provides the render methods
 ([LSP extensions](../reference/lsp.md)); without one, or with an older `sysml-lsp`, the
@@ -164,6 +175,12 @@ build first with `PATH="$PWD/bin:$PATH" opencode`. Two details of the configurat
 `lsp` as an object keeps OpenCode's built-in servers enabled alongside this one (omitting the
 key disables them all), and OpenCode starts a declared server with the project directory as its
 workspace root, so the whole checkout is the server's workspace.
+
+**What the server indexes.** Every `.sysml` and `.kerml` file under the editor's workspace
+folders is indexed at start-up, so a name declared in a file you never opened still resolves,
+and an open buffer's text stands in for its file on disk. A file opened from outside every
+workspace folder — a lone file, or one in another checkout — has its own directory indexed the
+same way, so its imports of sibling files resolve rather than being reported unresolved.
 
 **Capabilities advertised at `initialize`**, recorded from a live session with `bin/sysml-lsp`:
 

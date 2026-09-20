@@ -75,11 +75,13 @@ func (s *Session) LoadFileSummary(path string) ([]string, error) {
 
 // LoadFilesSummary is LoadFileSummary over every path as one submission, indexed and
 // analyzed once, each file still summarized on its own; a read failure is a *ReadError.
+// Files beside and below the paths that declare an imported root namespace load too.
 func (s *Session) LoadFilesSummary(paths []string) ([]string, error) {
 	defer s.enter()()
+	paths = s.withDependencies(expandHomes(paths))
 	files := make([]SourceFile, 0, len(paths))
 	for _, path := range paths {
-		name, data, err := project.ReadFile(expandHome(path))
+		name, data, err := project.ReadFile(path)
 		if err != nil {
 			return nil, readError(name, err)
 		}

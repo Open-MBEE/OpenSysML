@@ -6,7 +6,6 @@ The mirror's mass scales as $m \propto D^{2.5}_{\text{eff}}$ and each \$ of budg
 
 <a id="overview-mirrorArea"></a>
 
-<!-- caption -->
 *Collecting area of a circular mirror*
 
 $$

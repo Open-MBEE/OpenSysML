@@ -1779,17 +1779,24 @@ message RunDocumentQueryResponse {
 }
 
 // RenderDocumentRequest renders a named document — a part def specializing
-// DocumentQueries::Document — to Markdown. A document binds its queries'
-// parameters in the model, so the request carries none.
+// DocumentQueries::Document — to Markdown or HTML. A document binds its
+// queries' parameters in the model, so the request carries none.
 message RenderDocumentRequest {
   string model_hash = 1;  // from ParseFile response
   // FQN of the document to render. Fails with NOT_FOUND when the model does
   // not declare it, and INVALID_ARGUMENT when it declares something else.
   string document_id = 2;
+  // Form to render: "markdown" (the default when empty) or "html", the
+  // standalone page with the default stylesheet that the CLI's -doc-form html
+  // writes. Any other form fails with INVALID_ARGUMENT; PDF needs the CLI's
+  // converter toolchain and is not offered here.
+  string form = 3;
 }
 
-// RenderDocumentResponse carries the rendered Markdown, byte-for-byte what the
-// CLI's -render-document writes.
+// RenderDocumentResponse carries the rendered document in the form requested,
+// byte-for-byte what the CLI's -render-document writes: markdown for the
+// Markdown form, html for the HTML form, the other left empty.
 message RenderDocumentResponse {
   string markdown = 1;
+  string html = 2;
 }

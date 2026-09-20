@@ -45,6 +45,10 @@ within these records and means nothing outside this repository.
 - **[Lossless library records](lossless-library-records.md)** — the record format
   and version-compatibility surface roadmap L3 needs, the measurements that chose it, and the rows
   it leaves open
+- **[Expansion regions](expansion-regions.md)** — whether a multiplicity on a performed action
+  usage fed by a `flow` is SysML v2's spelling of concurrent per-element performance, adjudicated
+  against the specifications, the library, the corpora and the pilot, and closed: the iterative
+  form is `for`, the parallel form is not SysML v2
 - **[Exact-rational evaluation](exact-rational-evaluation.md)** — whether the evaluator should
   compute `Real`/`Rational` arithmetic exactly rather than in binary64, adjudicated against the
   pinned pilot and the specification text, and declined

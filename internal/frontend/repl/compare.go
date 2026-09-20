@@ -29,6 +29,12 @@ type CompareOptions struct {
 	Only []string
 }
 
+// The verdict-name prefix and the runs-column label the comparison repeats.
+const (
+	comparePrefix  = "compare "
+	openSysMLLabel = "OpenSysML ("
+)
+
 // ObservablePair is a stored observable and the feature of the run that answers
 // it; an empty Feature is the target's feature of the observable's own name.
 type ObservablePair struct {
@@ -80,13 +86,13 @@ func (o CompareOptions) selection(cfgs []simresults.ConfigurationResults) (selec
 		case 1:
 			selected[found[0]] = true
 		case 0:
-			refused = append(refused, unresolvedVerdict("compare "+name, fmt.Sprintf("no configuration is named %s", name)))
+			refused = append(refused, unresolvedVerdict(comparePrefix+name, fmt.Sprintf("no configuration is named %s", name)))
 		default:
 			names := make([]string, len(found))
 			for j, i := range found {
 				names[j] = cfgs[i].Name
 			}
-			refused = append(refused, unresolvedVerdict("compare "+name,
+			refused = append(refused, unresolvedVerdict(comparePrefix+name,
 				fmt.Sprintf("%d configurations are named %s (%s); name one by its qualified name", len(found), name, strings.Join(names, ", "))))
 		}
 	}
@@ -111,7 +117,7 @@ func sameName(name, qualified string) bool {
 // cannot be made without, else the table of both distributions — the runs'
 // alone, against a row saying so, when the tool stored no result.
 func (s *Session) compareVerdict(cfg *simresults.ConfigurationResults, opts CompareOptions) Verdict {
-	label := "compare " + cfg.Name
+	label := comparePrefix + cfg.Name
 	if cfg.Behavior == "" {
 		return unresolvedVerdict(label, withNotes("the configuration performs no migrated behavior", cfg.Notes))
 	}
@@ -273,11 +279,11 @@ func runRows(cells [][]string, notes []string, name, feature string, table runti
 	d := runtime.Distribute(ran)
 	switch {
 	case len(ran) == 0 && other == 0:
-		cells = append(cells, []string{"", "OpenSysML (" + feature + ")", "0", "", "", "", "", ""})
+		cells = append(cells, []string{"", openSysMLLabel + feature + ")", "0", "", "", "", "", ""})
 		notes = append(notes, fmt.Sprintf("note: no completed run produced %s, which answers %s", feature, name))
 		return cells, notes
 	case missing > 0:
-		cells = append(cells, []string{"", "OpenSysML (" + feature + ")", fmt.Sprint(len(ran)), "", "", "", "", ""})
+		cells = append(cells, []string{"", openSysMLLabel + feature + ")", fmt.Sprint(len(ran)), "", "", "", "", ""})
 		note := fmt.Sprintf("note: %s was produced by %d of the %d completed run(s)", feature, len(ran)+other, len(ran)+other+missing)
 		if other > 0 {
 			note += fmt.Sprintf(" and holds no number in %d of those", other)
@@ -285,19 +291,19 @@ func runRows(cells [][]string, notes []string, name, feature string, table runti
 		notes = append(notes, note+fmt.Sprintf(", so %s is not compared", name))
 		return cells, notes
 	case d == nil:
-		cells = append(cells, []string{"", "OpenSysML (" + feature + ")", "0", "", "", "", "", ""})
+		cells = append(cells, []string{"", openSysMLLabel + feature + ")", "0", "", "", "", "", ""})
 		notes = append(notes, fmt.Sprintf("note: %s holds no number in any completed run, so %s is not compared", feature, name))
 		return cells, notes
 	case other > 0:
-		cells = append(cells, []string{"", "OpenSysML (" + feature + ")", fmt.Sprint(len(ran)), "", "", "", "", ""})
+		cells = append(cells, []string{"", openSysMLLabel + feature + ")", fmt.Sprint(len(ran)), "", "", "", "", ""})
 		notes = append(notes, fmt.Sprintf("note: %s holds no number in %d of the %d completed run(s) that produced it, so %s is not compared", feature, other, other+len(ran), name))
 		return cells, notes
 	case len(units) > 1:
-		cells = append(cells, []string{"", "OpenSysML (" + feature + ")", fmt.Sprint(len(ran)), "", "", "", "", ""})
+		cells = append(cells, []string{"", openSysMLLabel + feature + ")", fmt.Sprint(len(ran)), "", "", "", "", ""})
 		notes = append(notes, fmt.Sprintf("note: %s came to numbers in more than one unit (%s) over the completed runs, so %s is not compared", feature, unitList(units), name))
 		return cells, notes
 	}
-	cells = append(cells, statisticsRow("", "OpenSysML ("+feature+")", d, units[0]))
+	cells = append(cells, statisticsRow("", openSysMLLabel+feature+")", d, units[0]))
 	switch {
 	case tool == nil:
 	case tool.pooled:

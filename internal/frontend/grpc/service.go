@@ -52,6 +52,10 @@ const CapabilityDocumentQuery = "document_query"
 // which renders a named document to Markdown.
 const CapabilityRenderDocument = "render_document"
 
+// CapabilityRenderDocumentHTML names the capability of RenderDocumentRequest's
+// form field, which asks RenderDocument for HTML instead of Markdown.
+const CapabilityRenderDocumentHTML = "render_document_html"
+
 // CapabilityOSLCQuery names the capability of evaluating OSLC Query text.
 const CapabilityOSLCQuery = "oslc_query"
 
@@ -190,6 +194,7 @@ var capabilities = []string{
 	CapabilityEnginesExternal,
 	CapabilityEditDocuments,
 	CapabilityPerformer,
+	CapabilityRenderDocumentHTML,
 }
 
 type capabilityAvailability struct {

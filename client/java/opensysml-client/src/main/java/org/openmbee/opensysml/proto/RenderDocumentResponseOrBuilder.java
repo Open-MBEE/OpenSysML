@@ -21,4 +21,16 @@ public interface RenderDocumentResponseOrBuilder extends
    */
   com.google.protobuf.ByteString
       getMarkdownBytes();
+
+  /**
+   * <code>string html = 2 [json_name = "html"];</code>
+   * @return The html.
+   */
+  java.lang.String getHtml();
+  /**
+   * <code>string html = 2 [json_name = "html"];</code>
+   * @return The bytes for html.
+   */
+  com.google.protobuf.ByteString
+      getHtmlBytes();
 }

@@ -234,9 +234,12 @@ jobs:
           name: Check the clients ship the pinned release digests
           command: python3 scripts/sync-release-digests.py --check
 
+      # no_output_timeout: gosec runs with -quiet and prints nothing until it has
+      # walked every package, which now takes longer than CircleCI's 10m default.
       - run:
           name: Run static analysis (staticcheck + gosec)
           command: make lint
+          no_output_timeout: 30m
 
       - run:
           name: Check grpc-go stays out of production code
@@ -1380,7 +1383,7 @@ jobs:
               mkdir -p "$stage/share/man/man1"
               cp "sysml-${platform}" "${stage}/sysml"
               cp "sysml-lsp-${platform}" "${stage}/sysml-lsp"
-              cp ../man/man1/sysml.1 ../man/man1/sysml-lsp.1 "${stage}/share/man/man1/"
+              cp ../packaging/man/man1/sysml.1 ../packaging/man/man1/sysml-lsp.1 "${stage}/share/man/man1/"
               tar czf "opensysml-${platform}.tar.gz" -C "$stage" sysml sysml-lsp share
             done
             mkdir -p stage/windows-amd64

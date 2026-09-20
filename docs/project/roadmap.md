@@ -322,7 +322,7 @@ like R4, not engineering.
 ## R3 — Homebrew: install it on a real Mac
 
 Everything about the tap is automated and verified on Linux (install, `brew test`,
-`brew audit --strict --online`), and the manual pages (#699, `man/man1/*.1`, generated from
+`brew audit --strict --online`), and the manual pages (#699, `packaging/man/man1/*.1`, generated from
 `internal/frontend/usage` and drift-gated by `make man-check`) are in the bundles the formula installs. The
 one thing never done is running the darwin bottle on macOS: the darwin archives' checksums match
 the release manifest and nothing more.
@@ -1300,32 +1300,37 @@ bullet removed and the `entry`/`do`/`exit` row in the State Machine map re-state
 statements — until then the documented spelling (`do { … }` as one action per statement) gives
 the same result.
 
-## E3 — concurrent per-element performance ("expansion regions")
+## E3 — concurrent per-element performance ("expansion regions") (closed)
 
-**Today.** SysML v2 has no expansion-region notation. Its iterative half is the `for` loop
-(§7.17.12, `Actions::ForLoopAction`), which the runtime executes in every body position
-(`runtime/action_statements.go`, `runtime/statements.go` `forLoop`), one iteration after the
-other, with the step budget bounding it. Its parallel half — the body performed once per element
-of a collection, all performances ongoing at once — has no spelling the runtime refuses, because
-no spelling for it has been established here: a `for` is sequential by definition
-(`ForLoopAction` walks `seq` by an `index`), and a `fork` duplicates control, not a collection.
+**Closed** by its design record, [expansion-regions.md](expansion-regions.md): **the iterative
+form is `for`; the parallel form is not SysML v2.** SysML v2 has no expansion-region notation.
+Its iterative half is the `for` loop (§7.17.12, `Actions::ForLoopAction`), which the runtime
+executes in every body position (`runtime/action_statements.go`, `runtime/statements.go`
+`forLoop`), one iteration after the other, with the step budget bounding it — sequential by
+definition, `ForLoopAction` walking `seq` by an `index`. Its parallel half — the body performed
+once per element of a collection, all performances ongoing at once — has no standard spelling.
+The record adjudicates the candidate the item asked about, a multiplicity on a performed action
+usage with a `flow` delivering the collection to its input, against the pinned specifications,
+the bundled library, the four OMG corpora and the pilot, and finds every source silent on it:
+§7.17.2 gives a usage's multiplicity no meaning beyond a count of performances, which KerML
+§7.4.7 and Annex A.3.6 fix by the connectors attached to the step and never by a value's
+elements; a `Transfer` delivers its whole payload to one target and partitions nothing;
+`Performances.kerml`'s `performances`/`subperformances` are `[0..*]` and unordered; the corpora
+write `[*]` for "any number of times over a lifetime" (`perform action takePicture[*]`) and `for`
+for "once per element"; the pinned pilot performs no actions. Adopting the reading would be an
+extension with nothing to adjudicate its rules against, so the runtime stays as it is: one
+performance per token, a `fork` duplicating control and not a collection, and a collection
+delivered to a one-valued pin the `ErrMultiplicityViolation` it is.
 
-**Target.** To be settled before any executor work, in a design record under `docs/project/`
-like the others: whether SysML v2 §7.17.2's multiplicity on a performed action usage, with a
-`flow` delivering the collection to its input, is the standard spelling of concurrent per-element
-performance, and what `Performances.kerml` then says about the ordering of those performances.
-If the reading is that no such spelling exists, the item closes as "the iterative form is `for`;
-the parallel form is not SysML v2" and the bullet is re-worded to say so.
-
-**Work.** The record first; then, if there is a spelling, one performance per element with its
-own token and pins, joined when all complete, on top of the concurrency the fork/join executor
-already has — and the interaction with E4 (a streaming consumer of the elements) decided with it.
-No other item depends on this one.
-
-**Proof.** Conformance for a collection of three performed concurrently with per-element outputs
-collected; a trace golden for the interleaving; robustness for an empty collection and a body
-that fails on one element. **Prioritize when** someone needs it: a model with a per-element
-behavior whose sequential `for` result is wrong or too slow.
+**No executor work follows.** The per-element performance, join on completion, ordering and
+streaming interaction the item listed *if a spelling exists* are not designed, and the proof
+fixtures it named (three elements performed concurrently with outputs collected, the interleaving
+golden, the empty collection, a body failing on one element) are not written, since there is no
+rule for them to prove. A model that needs per-element concurrency today writes the elements as
+distinct nodes under a `fork`, or accepts the sequential `for`. Should someone need more — a
+per-element behavior whose `for` result is wrong or too slow — the record's option (a) is the
+starting point, as an explicitly non-standard extension the compliance mapping would have to flag,
+or a later specification revision re-adjudicates the record. No other item depends on this one.
 
 ## E4 — streaming flows ("streaming pins")
 
@@ -1352,8 +1357,9 @@ after the source completes. What runs today is the second, applied to both.
 `lower.ObjectFlow` to the executor; keep the succession behavior for the `succession flow`
 spelling; for a plain `flow`, deliver on each write to the source parameter while the target is
 ongoing, which needs a node to be readable while it still holds a token — the same notion of an
-ongoing performance E1 and E2 introduce. Depends on E1 for that notion; E3's parallel form would
-feed it.
+ongoing performance E1 and E2 introduce. Depends on E1 for that notion; E3's parallel form, had
+it had a standard spelling, would have fed it — its record closed without one, so nothing feeds
+it but a producer's own writes.
 
 **Proof.** Conformance: a producer loop writing three values to an `out` streamed to a consumer
 that accumulates them, with the `succession flow` variant of the same model receiving only the
@@ -2972,7 +2978,8 @@ carried more than that list. By track, with the pull requests the tracks cite:
   that declares the element across the workspace (#307), and reparents by drag (#305).
 - **Track E** — E1 landed (`terminate` runs in every position, the PSSM `terminate-gap` bucket
   retired); E9 and E10 landed as conformance findings; E8's refusal landed (#229), the item
-  itself is open.
+  itself is open; E3 closed by its design record ([expansion-regions.md](expansion-regions.md):
+  the iterative form is `for`, the parallel form is not SysML v2), no executor work following.
 - **Track D** — D12 (the standard library's normative element ids) is done.
 - **Release follow-through** — R4's Windows installer is published by `v0.7.0` and `v0.8.0`
   alike; the release procedure runs git-flow (#151); `opensysml` 0.5.0 is on PyPI; the
@@ -2984,8 +2991,9 @@ The open items, by track, with the item that gates each where one does. Everythi
 is landed or is a track the previous baseline left as it stands (D, N, M, I, V, B, R2–R5);
 Tracks F, S, L and A are closed.
 
-- **Track E** — eligible and first: E2, then E4 (E1 landed), then E6 on request, E3/E5 behind
-  their design records, E7 behind its object-model item, E8 behind a model that needs it. The
+- **Track E** — eligible and first: E2, then E4 (E1 landed), then E6 on request, E5 behind
+  its design record (E3's closed the item), E7 behind its object-model item, E8 behind a model
+  that needs it. The
   PSSM referee's 17 `fail` tests are the state side's measurement, every one attributed (#326):
   eleven wait on the region-order choice point whose design record #342 wrote and left at two
   maintainer decisions — the nine the record names to move `fail` → `pass`, plus *Terminate 001*
@@ -3099,9 +3107,10 @@ an empty action end its performance. The decision is the release checklist's, re
   the region-order choice point afterwards. Nothing remains in the track.
 - **Track E.** Eligible — step 1 above. **E1** (termination of an ongoing performance, which
   **E2** and **E4** build on) is landed; the order is **E2**, then **E4**; **E6** whenever asked,
-  being a day's work; **E3** and **E5** only after their design records; **E7** after the
+  being a day's work; **E5** only after its design record; **E7** after the
   object-model item it depends on; **E8** when a model redefines run-to-completion, its refusal
-  (#229) standing until then; **E1**, **E9** and **E10** are landed.
+  (#229) standing until then; **E1**, **E9** and **E10** are landed; **E3** is closed by its
+  record, no work following.
 - **Track X.** X2, X3, X4, X5, X6, X7's values and X8's typing landed (#164, #115, #113, #211,
   #122, #121, #112). What is left, in order: X8's harness halves (normalization and adjudication
   in the pilot differential, a standalone RDF expression-tree round trip) so every later X item is

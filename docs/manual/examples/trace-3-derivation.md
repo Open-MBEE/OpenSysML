@@ -4,7 +4,6 @@ How the mission requirements flow down to the subsystems, what refines them, and
 
 ## Lineage
 
-<!-- caption -->
 *Every requirement with its parent, children, descendant count, refinements and satisfiers*
 
 | shortName | name | derivedFrom | derives | descendants | refinedBy | satisfiedBy |
@@ -20,7 +19,6 @@ How the mission requirements flow down to the subsystems, what refines them, and
 
 ## Following a chain
 
-<!-- caption -->
 *Everything derived from M-1, at any depth*
 
 | shortName | name | documentation |
@@ -30,7 +28,6 @@ How the mission requirements flow down to the subsystems, what refines them, and
 | B-1 | batteryCapacity | The battery shall hold 1.5 kWh. |
 | D-1 | driveEfficiency | The drive shall convert 85 percent of electrical energy to motion. |
 
-<!-- caption -->
 *Derived directly from M-1*
 
 | shortName | name | documentation |
@@ -38,7 +35,6 @@ How the mission requirements flow down to the subsystems, what refines them, and
 | S-1 | dailyRange | The rover shall drive 500 m per sol. |
 | S-2 | energyBudget | The rover shall store 1.2 kWh for each sol's drive. |
 
-<!-- caption -->
 *The chain above B-1*
 
 | shortName | name | documentation |
@@ -48,7 +44,6 @@ How the mission requirements flow down to the subsystems, what refines them, and
 
 ## Chain ends
 
-<!-- caption -->
 *Requirements at the top of a chain*
 
 | shortName | name | documentation |
@@ -56,7 +51,6 @@ How the mission requirements flow down to the subsystems, what refines them, and
 | M-1 | range | The rover shall traverse 20 km over the mission. |
 | M-2 | lifetime | The rover shall operate for 90 sols. |
 
-<!-- caption -->
 *Leaves no part satisfies*
 
 | shortName | name | documentation |

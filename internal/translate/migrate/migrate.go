@@ -664,61 +664,74 @@ func (m *migration) classifier(e *sysmlv1.Element) {
 	if note != "" {
 		verdict = Approximated
 	}
-	var header strings.Builder
-	if (e.Attrs["isAbstract"] == "true" && cat != catValue) || m.abstractOperation(e) {
-		header.WriteString("abstract ")
-	}
-	if cat == catIndividualDef {
-		kind, _, _ := m.individualClassifiers(e)
-		header.WriteString(individualKeyword(kind))
-	} else {
-		header.WriteString(cat.keyword())
-	}
-	header.WriteByte(' ')
-	if cat == catRequirementDef {
-		if id := requirementID(e); id != "" {
-			header.WriteString("<" + writeName(id) + "> ")
-		}
-	}
-	header.WriteString(writeName(name))
-	gens, n := m.generals(e, cat)
-	if gens != "" {
-		if cat == catValue {
-			header.WriteString(" : " + gens)
-		} else {
-			header.WriteString(" :> " + gens)
-		}
-	}
-	if cat == catConnectionDef {
-		n = joinNotes(n, m.dangling(e, "memberEnd"))
-	}
+	header, n := m.classifierHeader(e, cat, name)
 	if n != "" {
 		verdict = Approximated
 		note = joinNotes(note, n)
 	}
 	if cat == catSimConfig {
-		m.simulationConfig(e, header.String(), note)
+		m.simulationConfig(e, header, note)
 		return
 	}
 	m.add(e, verdict, m.v2Name(e), note)
+	m.classifierBody(e, cat, header)
+}
+
+// classifierHeader builds the declaration line a classifier is written with:
+// abstract, its keyword and name, its requirement id, its generalizations; n
+// notes what the generalizations and dangling ends leave out.
+func (m *migration) classifierHeader(e *sysmlv1.Element, cat category, name string) (header string, n string) {
+	var b strings.Builder
+	if (e.Attrs["isAbstract"] == "true" && cat != catValue) || m.abstractOperation(e) {
+		b.WriteString("abstract ")
+	}
+	if cat == catIndividualDef {
+		kind, _, _ := m.individualClassifiers(e)
+		b.WriteString(individualKeyword(kind))
+	} else {
+		b.WriteString(cat.keyword())
+	}
+	b.WriteByte(' ')
+	if cat == catRequirementDef {
+		if id := requirementID(e); id != "" {
+			b.WriteString("<" + writeName(id) + "> ")
+		}
+	}
+	b.WriteString(writeName(name))
+	gens, n := m.generals(e, cat)
+	if gens != "" {
+		if cat == catValue {
+			b.WriteString(" : " + gens)
+		} else {
+			b.WriteString(" :> " + gens)
+		}
+	}
+	if cat == catConnectionDef {
+		n = joinNotes(n, m.dangling(e, "memberEnd"))
+	}
+	return b.String(), n
+}
+
+// classifierBody writes the member block a classifier category carries.
+func (m *migration) classifierBody(e *sysmlv1.Element, cat category, header string) {
 	switch cat {
 	case catConnectionDef:
 		m.association(e)
 		return
 	case catIndividualDef, catValue:
-		m.w.block(header.String(), func() { m.individualBody(e) })
+		m.w.block(header, func() { m.individualBody(e) })
 		return
 	case catVerificationDef:
-		m.w.block(header.String(), func() { m.verificationBody(e) })
+		m.w.block(header, func() { m.verificationBody(e) })
 		return
 	case catConstraintDef:
-		m.w.block(header.String(), func() { m.constraintBody(e) })
+		m.w.block(header, func() { m.constraintBody(e) })
 		return
 	case catRequirementDef:
-		m.w.block(header.String(), func() { m.requirementBody(e) })
+		m.w.block(header, func() { m.requirementBody(e) })
 		return
 	case catEnumDef:
-		m.w.block(header.String(), func() {
+		m.w.block(header, func() {
 			m.comments(e)
 			for _, lit := range e.Owned("ownedLiteral") {
 				m.w.line(writeName(m.nameOf(lit)) + ";")
@@ -729,13 +742,13 @@ func (m *migration) classifier(e *sysmlv1.Element) {
 		return
 	}
 	if behaviorCategory(cat) {
-		m.w.block(header.String(), func() { m.behaviorBody(e, cat) })
+		m.w.block(header, func() { m.behaviorBody(e, cat) })
 		if e.Type == "Operation" {
 			m.operationFeature(e)
 		}
 		return
 	}
-	m.w.block(header.String(), func() {
+	m.w.block(header, func() {
 		m.body(e)
 		m.classifierBehavior(e)
 		m.stereotypeComments(e)

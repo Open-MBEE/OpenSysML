@@ -28,19 +28,21 @@ func (m *migration) resultSnapshots(r *simresults.ConfigurationResults, s *sysml
 	if len(ids) == 0 {
 		return nil
 	}
-	typed := m.classifierClosure(target.classifiers)
-	configured := m.configuredValues(target)
-	analysed, analysisNote := m.monteCarloObservable(target.classifiers)
-	if analysed != nil {
-		r.Analysis = analysed.Name
+	scan := &snapshotScan{
+		typed:          m.classifierClosure(target.classifiers),
+		configured:     m.configuredValues(target),
+		seenInstance:   map[*sysmlv1.Element]bool{},
+		seenObservable: map[string]bool{},
+		unread:         map[string]int{},
+		others:         map[string]int{},
+		statistics:     map[string]int{},
+		ranOn:          map[string]int{},
 	}
-	seenObservable := map[string]bool{}
+	scan.analysed, scan.analysisNote = m.monteCarloObservable(target.classifiers)
+	if scan.analysed != nil {
+		r.Analysis = scan.analysed.Name
+	}
 	seenLocation := map[*sysmlv1.Element]bool{}
-	seenInstance := map[*sysmlv1.Element]bool{}
-	unread := map[string]int{}
-	others := map[string]int{}
-	statistics := map[string]int{}
-	ranOn := map[string]int{}
 	var locations []string
 	for _, id := range ids {
 		pkg := m.model.Lookup(id)
@@ -53,126 +55,152 @@ func (m *migration) resultSnapshots(r *simresults.ConfigurationResults, s *sysml
 		}
 		seenLocation[pkg] = true
 		locations = append(locations, qualifiedName(pkg))
-		if len(typed) == 0 {
+		if len(scan.typed) == 0 {
 			continue
 		}
 		for _, inst := range m.descendantInstances(pkg) {
-			if seenInstance[inst] {
-				continue
-			}
-			if !m.isSnapshotOf(inst, target.classifiers, typed) {
-				if ran := m.ranOnOther(inst, s, typed); ran != nil && len(m.model.Refs(inst, "classifier")) == 0 {
-					seenInstance[inst] = true
-					ranOn[ranOnOtherNote(inst, ran)]++
-				}
-				continue
-			}
-			seenInstance[inst] = true
-			if differ := m.recordsOtherValues(inst, configured); len(differ) > 0 {
-				others[strings.Join(differ, ", ")]++
-				continue
-			}
-			snap := simresults.Snapshot{ID: inst.ID, Name: inst.Name, Values: map[string]float64{}}
-			held := map[string]int{}
-			summary := map[string]float64{}
-			for _, slot := range inst.Owned("slot") {
-				if stat, value, ok := m.monteCarloSlot(slot); ok {
-					switch {
-					case analysed == nil:
-						unread[monteCarloAnalysisBlock+"::"+stat+" holds a statistic of no observable the target analyses"]++
-					case stat != monteCarloOutOfSpec:
-						summary[stat] = value
-					}
-					continue
-				}
-				name, value, reason := m.snapshotSlot(slot)
-				if reason != "" {
-					unread[name+" "+reason]++
-					continue
-				}
-				if value.kind != kindNumber {
-					unread[name+" holds a "+value.spec+", which is no number"]++
-					continue
-				}
-				if !value.carried() {
-					held[name]++
-					unread[name+" holds "+strconv.Quote(value.text)+", which no float64 spells exactly, and a result is a float64"]++
-					continue
-				}
-				snap.Values[name] = value.number
-				held[name]++
-			}
-			for name, n := range held {
-				if n > 1 {
-					delete(snap.Values, name)
-					unread[name+" holds "+strconv.Itoa(n)+" numbers over as many slots, and a result is one number"]++
-				}
-			}
-			if analysed != nil {
-				stats, note, foreign := monteCarloStatistics(analysed.Name, summary, snap.Values)
-				if note != "" {
-					statistics[note]++
-				}
-				if foreign {
-					continue
-				}
-				if stats != nil {
-					snap.Statistics = stats
-					seenObservable[analysed.Name] = true
-				}
-			}
-			for name := range snap.Values {
-				seenObservable[name] = true
-			}
-			r.Snapshots = append(r.Snapshots, snap)
+			m.instanceSnapshot(r, inst, s, target, scan)
 		}
 	}
-	if analysisNote != "" {
-		r.Notes = append(r.Notes, analysisNote)
+	m.snapshotNotes(r, scan, locations)
+	return lost
+}
+
+// snapshotScan gathers the snapshots of one location scan: the values the
+// target configures, the observable the target's analysis summarises, what was
+// already seen, and why slots or snapshots were no results.
+type snapshotScan struct {
+	typed          map[*sysmlv1.Element]bool
+	configured     map[*sysmlv1.Element]scalarValue
+	analysed       *sysmlv1.Element
+	analysisNote   string
+	seenInstance   map[*sysmlv1.Element]bool
+	seenObservable map[string]bool
+	unread         map[string]int
+	others         map[string]int
+	statistics     map[string]int
+	ranOn          map[string]int
+}
+
+// instanceSnapshot reads one snapshot instance into r; it is skipped when
+// already seen, of no target classifier, or of another configuration. One of no
+// classifier that names a run on another classifier is counted as that.
+func (m *migration) instanceSnapshot(r *simresults.ConfigurationResults, inst *sysmlv1.Element, s *sysmlv1.Stereotype, target executionTarget, scan *snapshotScan) {
+	if scan.seenInstance[inst] {
+		return
 	}
-	for name := range seenObservable {
+	if !m.isSnapshotOf(inst, target.classifiers, scan.typed) {
+		if ran := m.ranOnOther(inst, s, scan.typed); ran != nil && len(m.model.Refs(inst, "classifier")) == 0 {
+			scan.seenInstance[inst] = true
+			scan.ranOn[ranOnOtherNote(inst, ran)]++
+		}
+		return
+	}
+	scan.seenInstance[inst] = true
+	if differ := m.recordsOtherValues(inst, scan.configured); len(differ) > 0 {
+		scan.others[strings.Join(differ, ", ")]++
+		return
+	}
+	snap := simresults.Snapshot{ID: inst.ID, Name: inst.Name, Values: map[string]float64{}}
+	held := map[string]int{}
+	summary := m.slotValues(inst, &snap, held, scan)
+	for name, n := range held {
+		if n > 1 {
+			delete(snap.Values, name)
+			scan.unread[name+" holds "+strconv.Itoa(n)+" numbers over as many slots, and a result is one number"]++
+		}
+	}
+	if scan.analysed != nil {
+		stats, note, foreign := monteCarloStatistics(scan.analysed.Name, summary, snap.Values)
+		if note != "" {
+			scan.statistics[note]++
+		}
+		if foreign {
+			return
+		}
+		if stats != nil {
+			snap.Statistics = stats
+			scan.seenObservable[scan.analysed.Name] = true
+		}
+	}
+	for name := range snap.Values {
+		scan.seenObservable[name] = true
+	}
+	r.Snapshots = append(r.Snapshots, snap)
+}
+
+// slotValues reads each slot of inst into snap.Values; a slot whose name, kind
+// or number is no result is counted in scan.unread under its reason. The slots of
+// the analysis's own statistics are returned instead, by statistic.
+func (m *migration) slotValues(inst *sysmlv1.Element, snap *simresults.Snapshot, held map[string]int, scan *snapshotScan) map[string]float64 {
+	summary := map[string]float64{}
+	for _, slot := range inst.Owned("slot") {
+		if stat, value, ok := m.monteCarloSlot(slot); ok {
+			switch {
+			case scan.analysed == nil:
+				scan.unread[monteCarloAnalysisBlock+"::"+stat+" holds a statistic of no observable the target analyses"]++
+			case stat != monteCarloOutOfSpec:
+				summary[stat] = value
+			}
+			continue
+		}
+		name, value, reason := m.snapshotSlot(slot)
+		if reason != "" {
+			scan.unread[name+" "+reason]++
+			continue
+		}
+		if value.kind != kindNumber {
+			scan.unread[name+" holds a "+value.spec+", which is no number"]++
+			continue
+		}
+		if !value.carried() {
+			held[name]++
+			scan.unread[name+" holds "+strconv.Quote(value.text)+", which no float64 spells exactly, and a result is a float64"]++
+			continue
+		}
+		snap.Values[name] = value.number
+		held[name]++
+	}
+	return summary
+}
+
+// snapshotNotes records on r the scan's observables and its notes.
+func (m *migration) snapshotNotes(r *simresults.ConfigurationResults, scan *snapshotScan, locations []string) {
+	if scan.analysisNote != "" {
+		r.Notes = append(r.Notes, scan.analysisNote)
+	}
+	for name := range scan.seenObservable {
 		r.Observables = append(r.Observables, name)
 	}
 	sort.Strings(r.Observables)
-	keys := make([]string, 0, len(unread))
-	for k := range unread {
-		keys = append(keys, k)
+	for _, k := range sortedKeys(scan.unread) {
+		r.Notes = append(r.Notes, "the slot of "+k+" in "+strconv.Itoa(scan.unread[k])+" snapshot(s), so it is not among the results")
 	}
-	sort.Strings(keys)
-	for _, k := range keys {
-		r.Notes = append(r.Notes, "the slot of "+k+" in "+strconv.Itoa(unread[k])+" snapshot(s), so it is not among the results")
+	for _, k := range sortedKeys(scan.others) {
+		r.Notes = append(r.Notes, strconv.Itoa(scan.others[k])+" snapshot(s) record other values of "+k+" than the target configures, so they are of another configuration and not among the results")
 	}
-	keys = keys[:0]
-	for k := range others {
-		keys = append(keys, k)
+	for _, k := range sortedKeys(scan.statistics) {
+		r.Notes = append(r.Notes, strconv.Itoa(scan.statistics[k])+" snapshot(s) "+k)
 	}
-	sort.Strings(keys)
-	for _, k := range keys {
-		r.Notes = append(r.Notes, strconv.Itoa(others[k])+" snapshot(s) record other values of "+k+" than the target configures, so they are of another configuration and not among the results")
-	}
-	keys = keys[:0]
-	for k := range statistics {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	for _, k := range keys {
-		r.Notes = append(r.Notes, strconv.Itoa(statistics[k])+" snapshot(s) "+k)
-	}
-	keys = keys[:0]
-	for k := range ranOn {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	for _, k := range keys {
-		r.Notes = append(r.Notes, strconv.Itoa(ranOn[k])+" snapshot(s) are not among the results: "+k+" in the result location")
+	for _, k := range sortedKeys(scan.ranOn) {
+		r.Notes = append(r.Notes, strconv.Itoa(scan.ranOn[k])+" snapshot(s) are not among the results: "+k+" in the result location")
 	}
 	r.Location = strings.Join(locations, ", ")
-	if len(typed) == 0 && len(locations) > 0 {
+	if len(scan.typed) == 0 && len(locations) > 0 {
 		r.Notes = append(r.Notes, "the snapshots in "+r.Location+" are not read: the configuration has no target classifier they could be of")
 	} else if len(r.Snapshots) == 0 && len(locations) > 0 {
 		r.Notes = append(r.Notes, "the result location "+r.Location+" holds no snapshot of the target's classifier")
 	}
-	return lost
+}
+
+// sortedKeys is the keys of counts, sorted.
+func sortedKeys(counts map[string]int) []string {
+	keys := make([]string, 0, len(counts))
+	for k := range counts {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 // monteCarloObservable is the feature the MonteCarloAnalysis a target classifier inherits
@@ -641,7 +669,7 @@ func (m *migration) snapshotSlot(slot *sysmlv1.Element) (name string, value scal
 		return name, scalarValue{}, "holds no value"
 	case 1:
 	default:
-		return name, scalarValue{}, "holds " + strconv.Itoa(len(values)) + " values, and a result is one number"
+		return name, scalarValue{}, holdsNote + strconv.Itoa(len(values)) + " values, and a result is one number"
 	}
 	if value, reason = m.literalScalar(values[0]); reason != "" {
 		return name, scalarValue{}, reason
@@ -685,6 +713,9 @@ func (v scalarValue) carried() bool {
 	return ok && shortest.Cmp(v.exact) == 0
 }
 
+// holdsNote prefixes a reason a snapshot slot is no result.
+const holdsNote = "holds "
+
 const (
 	kindNumber      = "number"
 	kindBoolean     = "boolean"
@@ -715,7 +746,7 @@ func (m *migration) literalScalar(v *sysmlv1.Element) (value scalarValue, reason
 		case "false", "0", "":
 			value.text = "false"
 		default:
-			reason = "holds " + strconv.Quote(text) + ", which is no Boolean"
+			reason = holdsNote + strconv.Quote(text) + ", which is no Boolean"
 		}
 	case "LiteralString":
 		value.kind, value.text = kindString, v.Attrs["value"]
@@ -744,7 +775,7 @@ func literalNumber(v *sysmlv1.Element) (exact *big.Rat, value float64, reason st
 	}
 	value, err := strconv.ParseFloat(text, 64)
 	if err != nil || math.IsNaN(value) || math.IsInf(value, 0) {
-		return nil, 0, "holds " + strconv.Quote(text) + ", which is no finite number"
+		return nil, 0, holdsNote + strconv.Quote(text) + ", which is no finite number"
 	}
 	if exact, ok := new(big.Rat).SetString(text); ok {
 		return exact, value, ""

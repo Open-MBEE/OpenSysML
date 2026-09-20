@@ -316,7 +316,7 @@ make install-tree DESTDIR="$pkgdir" prefix=/usr
 
 It installs `sysml`, `sysml-lsp` and `sysml-grpc` into `$(bindir)`, and
 `sysml.1`, `sysml-lsp.1` and `sysml-grpc.1` into `$(man1dir)`. The pages are
-committed under `man/man1`, so building a package needs no documentation
+committed under `packaging/man/man1`, so building a package needs no documentation
 converter and no network. They are generated from each command's own
 description: `make man` rewrites them and `make man-check` (which CI runs)
 fails if a committed page is not what the command renders. Each binary can also

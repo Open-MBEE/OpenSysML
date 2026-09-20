@@ -8,8 +8,8 @@ package org.openmbee.opensysml.proto;
 /**
  * <pre>
  * RenderDocumentRequest renders a named document — a part def specializing
- * DocumentQueries::Document — to Markdown. A document binds its queries'
- * parameters in the model, so the request carries none.
+ * DocumentQueries::Document — to Markdown or HTML. A document binds its
+ * queries' parameters in the model, so the request carries none.
  * </pre>
  *
  * Protobuf type {@code sysml.RenderDocumentRequest}
@@ -36,6 +36,7 @@ private static final long serialVersionUID = 0L;
   private RenderDocumentRequest() {
     modelHash_ = "";
     documentId_ = "";
+    form_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -147,6 +148,59 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int FORM_FIELD_NUMBER = 3;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object form_ = "";
+  /**
+   * <pre>
+   * Form to render: "markdown" (the default when empty) or "html", the
+   * standalone page with the default stylesheet that the CLI's -doc-form html
+   * writes. Any other form fails with INVALID_ARGUMENT; PDF needs the CLI's
+   * converter toolchain and is not offered here.
+   * </pre>
+   *
+   * <code>string form = 3 [json_name = "form"];</code>
+   * @return The form.
+   */
+  @java.lang.Override
+  public java.lang.String getForm() {
+    java.lang.Object ref = form_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      form_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * Form to render: "markdown" (the default when empty) or "html", the
+   * standalone page with the default stylesheet that the CLI's -doc-form html
+   * writes. Any other form fails with INVALID_ARGUMENT; PDF needs the CLI's
+   * converter toolchain and is not offered here.
+   * </pre>
+   *
+   * <code>string form = 3 [json_name = "form"];</code>
+   * @return The bytes for form.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getFormBytes() {
+    java.lang.Object ref = form_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      form_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -167,6 +221,9 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(documentId_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 2, documentId_);
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(form_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 3, form_);
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -181,6 +238,9 @@ private static final long serialVersionUID = 0L;
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(documentId_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(2, documentId_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(form_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(3, form_);
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -201,6 +261,8 @@ private static final long serialVersionUID = 0L;
         .equals(other.getModelHash())) return false;
     if (!getDocumentId()
         .equals(other.getDocumentId())) return false;
+    if (!getForm()
+        .equals(other.getForm())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -216,6 +278,8 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getModelHash().hashCode();
     hash = (37 * hash) + DOCUMENT_ID_FIELD_NUMBER;
     hash = (53 * hash) + getDocumentId().hashCode();
+    hash = (37 * hash) + FORM_FIELD_NUMBER;
+    hash = (53 * hash) + getForm().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -316,8 +380,8 @@ private static final long serialVersionUID = 0L;
   /**
    * <pre>
    * RenderDocumentRequest renders a named document — a part def specializing
-   * DocumentQueries::Document — to Markdown. A document binds its queries'
-   * parameters in the model, so the request carries none.
+   * DocumentQueries::Document — to Markdown or HTML. A document binds its
+   * queries' parameters in the model, so the request carries none.
    * </pre>
    *
    * Protobuf type {@code sysml.RenderDocumentRequest}
@@ -355,6 +419,7 @@ private static final long serialVersionUID = 0L;
       bitField0_ = 0;
       modelHash_ = "";
       documentId_ = "";
+      form_ = "";
       return this;
     }
 
@@ -394,6 +459,9 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000002) != 0)) {
         result.documentId_ = documentId_;
       }
+      if (((from_bitField0_ & 0x00000004) != 0)) {
+        result.form_ = form_;
+      }
     }
 
     @java.lang.Override
@@ -416,6 +484,11 @@ private static final long serialVersionUID = 0L;
       if (!other.getDocumentId().isEmpty()) {
         documentId_ = other.documentId_;
         bitField0_ |= 0x00000002;
+        onChanged();
+      }
+      if (!other.getForm().isEmpty()) {
+        form_ = other.form_;
+        bitField0_ |= 0x00000004;
         onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
@@ -454,6 +527,11 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000002;
               break;
             } // case 18
+            case 26: {
+              form_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000004;
+              break;
+            } // case 26
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -656,6 +734,113 @@ private static final long serialVersionUID = 0L;
       checkByteStringIsUtf8(value);
       documentId_ = value;
       bitField0_ |= 0x00000002;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object form_ = "";
+    /**
+     * <pre>
+     * Form to render: "markdown" (the default when empty) or "html", the
+     * standalone page with the default stylesheet that the CLI's -doc-form html
+     * writes. Any other form fails with INVALID_ARGUMENT; PDF needs the CLI's
+     * converter toolchain and is not offered here.
+     * </pre>
+     *
+     * <code>string form = 3 [json_name = "form"];</code>
+     * @return The form.
+     */
+    public java.lang.String getForm() {
+      java.lang.Object ref = form_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        form_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Form to render: "markdown" (the default when empty) or "html", the
+     * standalone page with the default stylesheet that the CLI's -doc-form html
+     * writes. Any other form fails with INVALID_ARGUMENT; PDF needs the CLI's
+     * converter toolchain and is not offered here.
+     * </pre>
+     *
+     * <code>string form = 3 [json_name = "form"];</code>
+     * @return The bytes for form.
+     */
+    public com.google.protobuf.ByteString
+        getFormBytes() {
+      java.lang.Object ref = form_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        form_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Form to render: "markdown" (the default when empty) or "html", the
+     * standalone page with the default stylesheet that the CLI's -doc-form html
+     * writes. Any other form fails with INVALID_ARGUMENT; PDF needs the CLI's
+     * converter toolchain and is not offered here.
+     * </pre>
+     *
+     * <code>string form = 3 [json_name = "form"];</code>
+     * @param value The form to set.
+     * @return This builder for chaining.
+     */
+    public Builder setForm(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      form_ = value;
+      bitField0_ |= 0x00000004;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Form to render: "markdown" (the default when empty) or "html", the
+     * standalone page with the default stylesheet that the CLI's -doc-form html
+     * writes. Any other form fails with INVALID_ARGUMENT; PDF needs the CLI's
+     * converter toolchain and is not offered here.
+     * </pre>
+     *
+     * <code>string form = 3 [json_name = "form"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearForm() {
+      form_ = getDefaultInstance().getForm();
+      bitField0_ = (bitField0_ & ~0x00000004);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Form to render: "markdown" (the default when empty) or "html", the
+     * standalone page with the default stylesheet that the CLI's -doc-form html
+     * writes. Any other form fails with INVALID_ARGUMENT; PDF needs the CLI's
+     * converter toolchain and is not offered here.
+     * </pre>
+     *
+     * <code>string form = 3 [json_name = "form"];</code>
+     * @param value The bytes for form to set.
+     * @return This builder for chaining.
+     */
+    public Builder setFormBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      form_ = value;
+      bitField0_ |= 0x00000004;
       onChanged();
       return this;
     }
