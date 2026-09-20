@@ -103,21 +103,17 @@ public final class OperationActions implements BrowserContextAMConfigurator, Dia
         args = CalcArguments.parse(text);
       }
       // Model access stays on the EDT; only the service calls go to the progress runner's thread.
-      ModelSource source;
+      ModelSource source = null;
       IdentityResolver index;
       try {
         source = selection.export().get();
+        index = selection.index().get();
       } catch (RuntimeException exception) {
+        if (source != null) source.close();
         JOptionPane.showMessageDialog(
             Application.getInstance().getMainFrame(), exception.getMessage(),
             "OpenSysML: export failed", JOptionPane.ERROR_MESSAGE);
         return;
-      }
-      try {
-        index = selection.index().get();
-      } catch (RuntimeException exception) {
-        source.close();
-        throw exception;
       }
       RunRequest request = new RunRequest(operation, source, selection.subject().qualifiedName(), args);
       ProgressStatusRunner.runWithProgressStatus(
