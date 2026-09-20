@@ -48,6 +48,8 @@ type Server struct {
 	shutdownReceived bool
 	exitReceived     bool
 	folders          []string
+	// openDirs are the directories indexed for documents opened under no folder.
+	openDirs map[string]bool
 	// hoverMarkdown records that the client advertised Markdown for hover.
 	hoverMarkdown bool
 	// completionMarkdown records that the client advertised Markdown for

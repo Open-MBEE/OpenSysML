@@ -119,7 +119,11 @@ func (s *Server) loadFolders(ctx context.Context) {
 
 // loadFolder reads the model sources one folder holds, skipping hidden and
 // vendored directories and passing over entries it cannot read.
-func (s *Server) loadFolder(folder string) {
+func (s *Server) loadFolder(folder string) { s.scanFolder(folder, -1) }
+
+// scanFolder is loadFolder over at most budget directories, every directory
+// when budget is negative; a walk that runs out of budget stops where it is.
+func (s *Server) scanFolder(folder string, budget int) {
 	if folder == "" {
 		return
 	}
@@ -134,6 +138,10 @@ func (s *Server) loadFolder(folder string) {
 			if path != folder && skipDir(d.Name()) {
 				return fs.SkipDir
 			}
+			if budget == 0 {
+				return fs.SkipAll
+			}
+			budget--
 			return nil
 		}
 		if !model.IsModelSource(path) {
@@ -216,6 +224,32 @@ func (s *Server) DidChangeWorkspaceFolders(ctx context.Context, params *protocol
 	})
 	s.refreshOpenDiagnostics(ctx, "")
 	return nil
+}
+
+// maxOpenedDirs bounds the directories the scan for an opened document's
+// siblings visits: the document's directory was not chosen as a workspace, and
+// may be a home directory or the filesystem root.
+const maxOpenedDirs = 2000
+
+// indexOpenedDirectory indexes, once, the directory of a document opened under no
+// folder of the session — a lone file, or one outside the editor's workspace — so
+// the sibling files its imports lead to resolve as they would inside a folder.
+func (s *Server) indexOpenedDirectory(name string) {
+	if !filepath.IsAbs(name) {
+		return
+	}
+	dir := filepath.Dir(name)
+	s.mu.Lock()
+	if underAnyFolder(name, s.folders) || s.openDirs[dir] {
+		s.mu.Unlock()
+		return
+	}
+	if s.openDirs == nil {
+		s.openDirs = map[string]bool{}
+	}
+	s.openDirs[dir] = true
+	s.mu.Unlock()
+	s.scanFolder(dir, maxOpenedDirs)
 }
 
 // addFolder records a folder and indexes the model sources under it.

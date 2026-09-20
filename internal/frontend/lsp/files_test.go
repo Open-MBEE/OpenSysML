@@ -634,3 +634,73 @@ func TestInitializeFoldersFallsBackToRoot(t *testing.T) {
 		t.Errorf("folders = %v, want [%s]", got, dir)
 	}
 }
+
+// A document opened under none of the session's folders has its own directory
+// indexed, so the sibling files it imports resolve as inside a folder.
+func TestOpeningFileOutsideFoldersIndexesItsDirectory(t *testing.T) {
+	dir := t.TempDir()
+	lib := filepath.Join(dir, "parts", "lib.sysml")
+	main := filepath.Join(dir, "main.sysml")
+	if err := os.MkdirAll(filepath.Dir(lib), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(lib, []byte(libSource), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(main, []byte(mainSource), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	s := NewServer(model.NewWorkspace())
+	fc := &fakeClient{}
+	s.client = fc
+	ctx := context.Background()
+	if _, err := s.Initialize(ctx, &protocol.InitializeParams{}); err != nil {
+		t.Fatalf("Initialize err = %v", err)
+	}
+	if err := s.Initialized(ctx, &protocol.InitializedParams{}); err != nil {
+		t.Fatalf("Initialized err = %v", err)
+	}
+
+	openFile(t, s, main, mainSource)
+	if msgs := diagnosticsFor(fc, main); len(msgs) != 0 {
+		t.Fatalf("diagnostics for main = %v, want none", msgs)
+	}
+	if s.ws.Document(lib) == nil {
+		t.Errorf("lib.sysml not indexed when its sibling was opened")
+	}
+	if s.ws.IsOpen(lib) {
+		t.Errorf("lib.sysml reported open; the scan records on-disk content only")
+	}
+}
+
+// The directory scan an open document triggers never overwrites another open
+// buffer, whose text the editor owns.
+func TestOpeningFileOutsideFoldersKeepsOpenBuffers(t *testing.T) {
+	dir := t.TempDir()
+	lib := filepath.Join(dir, "lib.sysml")
+	main := filepath.Join(dir, "main.sysml")
+	if err := os.WriteFile(lib, []byte("package Lib {\n}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(main, []byte(mainSource), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	s := NewServer(model.NewWorkspace())
+	fc := &fakeClient{}
+	s.client = fc
+	if _, err := s.Initialize(context.Background(), &protocol.InitializeParams{}); err != nil {
+		t.Fatalf("Initialize err = %v", err)
+	}
+
+	// The editor holds Widget in an unsaved buffer; the disk copy lacks it.
+	openFile(t, s, lib, libSource)
+	openFile(t, s, main, mainSource)
+	if msgs := diagnosticsFor(fc, main); len(msgs) != 0 {
+		t.Fatalf("diagnostics for main = %v, want none", msgs)
+	}
+	if !s.ws.IsOpen(lib) {
+		t.Errorf("lib.sysml no longer open after the sibling scan")
+	}
+}

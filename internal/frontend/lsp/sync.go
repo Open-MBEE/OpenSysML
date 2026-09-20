@@ -8,14 +8,19 @@ import (
 
 // DidOpen registers a newly opened document with the workspace. The buffer the
 // editor sends can differ from what was read from disk, so the other open
-// documents are refreshed too. A library document is served from the bundled
-// text the index holds, so opening one changes nothing.
+// documents are refreshed too. A document under none of the session's folders
+// has its directory indexed, so its imports of sibling files resolve. A library
+// document is served from the bundled text the index holds, so opening one
+// changes nothing.
 func (s *Server) DidOpen(ctx context.Context, params *protocol.DidOpenTextDocumentParams) error {
 	if isLibraryURI(params.TextDocument.URI) {
 		return nil
 	}
 	name := uriToName(params.TextDocument.URI)
-	s.debugEdit(ctx, "", func() { s.ws.Open(name, []byte(params.TextDocument.Text), int(params.TextDocument.Version)) })
+	s.debugEdit(ctx, "", func() {
+		s.ws.Open(name, []byte(params.TextDocument.Text), int(params.TextDocument.Version))
+		s.indexOpenedDirectory(name)
+	})
 	s.publishDiagnostics(ctx, name)
 	s.queueOpenDiagnostics(ctx, name)
 	return nil

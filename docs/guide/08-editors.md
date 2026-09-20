@@ -165,6 +165,12 @@ build first with `PATH="$PWD/bin:$PATH" opencode`. Two details of the configurat
 key disables them all), and OpenCode starts a declared server with the project directory as its
 workspace root, so the whole checkout is the server's workspace.
 
+**What the server indexes.** Every `.sysml` and `.kerml` file under the editor's workspace
+folders is indexed at start-up, so a name declared in a file you never opened still resolves,
+and an open buffer's text stands in for its file on disk. A file opened from outside every
+workspace folder — a lone file, or one in another checkout — has its own directory indexed the
+same way, so its imports of sibling files resolve rather than being reported unresolved.
+
 **Capabilities advertised at `initialize`**, recorded from a live session with `bin/sysml-lsp`:
 
 - ✅ Document synchronization, incremental (`textDocumentSync.change: 2`)
