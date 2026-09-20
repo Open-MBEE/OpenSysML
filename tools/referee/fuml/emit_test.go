@@ -790,6 +790,12 @@ const signalModel = `<?xml version="1.0" encoding="UTF-8"?>
   <packagedElement xmi:type="uml:Signal" xmi:id="envelope" name="Envelope">
     <ownedAttribute xmi:type="uml:Property" xmi:id="payload" name="payload" type="message"/>
   </packagedElement>
+  <packagedElement xmi:type="uml:Signal" xmi:id="chain" name="Chain">
+    <ownedAttribute xmi:type="uml:Property" xmi:id="next" name="next" type="chain">
+      <lowerValue xmi:type="uml:LiteralInteger" xmi:id="nextLo"/>
+      <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="nextHi" value="1"/>
+    </ownedAttribute>
+  </packagedElement>
   <packagedElement xmi:type="uml:SignalEvent" xmi:id="pingEvent" signal="ping"/>
   <packagedElement xmi:type="uml:SignalEvent" xmi:id="pongEvent" signal="pong"/>
   <packagedElement xmi:type="uml:SignalEvent" xmi:id="envelopeEvent" signal="envelope"/>
@@ -862,6 +868,12 @@ const signalModel = `<?xml version="1.0" encoding="UTF-8"?>
     <edge xmi:type="uml:ObjectFlow" xmi:id="q2" source="createMessageR" target="posterFork"/>
     <edge xmi:type="uml:ObjectFlow" xmi:id="q3" source="posterFork" target="sendEnvelopePayload"/>
     <edge xmi:type="uml:ObjectFlow" xmi:id="q4" source="posterFork" target="posterOutNode"/>
+  </packagedElement>
+  <packagedElement xmi:type="uml:Activity" xmi:id="linker" name="Linker">
+    <ownedParameter xmi:type="uml:Parameter" xmi:id="linkerOut" name="link" direction="out" type="chain">
+      <lowerValue xmi:type="uml:LiteralInteger" xmi:id="linkLo"/>
+      <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="linkHi" value="1"/>
+    </ownedParameter>
   </packagedElement>
   <packagedElement xmi:type="uml:Activity" xmi:id="unmarshaller" name="Unmarshaller">
     <node xmi:type="uml:AcceptEventAction" xmi:id="acceptUnmarshalled" name="Accept(Ping)" isUnmarshall="true">
@@ -1394,6 +1406,31 @@ func TestRenderSignalValues(t *testing.T) {
 	shared := runtime.Value{Kind: runtime.ValInstance, Instance: inst.ID}
 	if got := renderOutputs(twice, ctx, map[string]runtime.Value{"first": shared, "second": shared}); got != wantTwice {
 		t.Errorf("run side, twice:\n%s\nwant\n%s", got, wantTwice)
+	}
+	// A signal reached again while its own features are read is that signal, not
+	// a copy: a cycle through a feature spells as an alias of the one being filled.
+	linker := fixtureActivity(t, s, "Linker")
+	em = emitted(t, s, "Linker")
+	action, _, fresh, err = build(em, budgets)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ctx, err = fresh(0); err != nil {
+		t.Fatal(err)
+	}
+	chain, ok := action.OwnerScope.LookupLocal("Chain")
+	if !ok {
+		t.Fatal("the emitted model declares no Chain")
+	}
+	loop, err := ctx.InstantiateRead(chain, func(inst *runtime.Instance) error {
+		return inst.SetFeatureValue(ctx, "next", runtime.Value{Kind: runtime.ValInstance, Instance: inst.ID})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	const wantLoop = "link = Chain#1{next = #1}"
+	if got := renderOutputs(linker, ctx, map[string]runtime.Value{"link": {Kind: runtime.ValInstance, Instance: loop.ID}}); got != wantLoop {
+		t.Errorf("run side, cycle:\n%s\nwant\n%s", got, wantLoop)
 	}
 }
 

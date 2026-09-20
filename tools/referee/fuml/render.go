@@ -81,12 +81,12 @@ type graph struct {
 	ctx     *runtime.Context
 	objects map[string]*entity
 	order   []*entity
-	// filling holds the run's instances whose features are being read.
-	filling map[int64]bool
+	// filling is the entity of each run instance whose features are being read.
+	filling map[int64]*entity
 }
 
 func newGraph(model *Model, ctx *runtime.Context) *graph {
-	return &graph{model: model, ctx: ctx, objects: map[string]*entity{}, filling: map[int64]bool{}}
+	return &graph{model: model, ctx: ctx, objects: map[string]*entity{}, filling: map[int64]*entity{}}
 }
 
 // at is the object of a side's identity key, added at its first mention.
@@ -226,7 +226,10 @@ func (g *graph) runtimeObject(id int64) *entity {
 		o, _ := g.at(key, "<unknown object>")
 		return o
 	}
-	if g.signalType(inst.Type.Name) && !g.filling[id] {
+	if active := g.filling[id]; active != nil {
+		return active
+	}
+	if g.signalType(inst.Type.Name) {
 		key += "@" + strconv.Itoa(len(g.order))
 	}
 	o, fresh := g.at(key, inst.Type.Name)
@@ -234,7 +237,7 @@ func (g *graph) runtimeObject(id int64) *entity {
 		return o
 	}
 	o.filled = true
-	g.filling[id] = true
+	g.filling[id] = o
 	defer delete(g.filling, id)
 	for _, attr := range o.attrs {
 		fv, err := inst.GetFeatureValue(g.ctx, attr.Name)
