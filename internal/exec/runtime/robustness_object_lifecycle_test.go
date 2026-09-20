@@ -25,6 +25,7 @@ func TestRuntimeRobustnessObjectLifecycle(t *testing.T) {
 	t.Run("destroying_a_holder_leaves_what_it_referred_to_in_the_extent", testObjectLifecycleDestroyedHolderExtent)
 	t.Run("a_destroyed_object_is_no_subject_of_a_check", testObjectLifecycleDestroyedNotSubject)
 	t.Run("a_failed_constructor_rolls_back_what_its_behaviors_wrote", testObjectLifecycleFailedConstructorWrites)
+	t.Run("a_refused_write_leaves_no_adoption_for_an_outer_rollback", testObjectLifecycleRefusedWriteJournal)
 	t.Run("explore_creating_objects_is_deterministic", testObjectLifecycleExploreCreation)
 	t.Run("explore_destroy_race_reaches_both_outcomes", testObjectLifecycleExploreDestroyRace)
 }
@@ -456,6 +457,36 @@ func testObjectLifecycleFailedConstructorWrites(t *testing.T) {
 	}
 	if len(ctx.created) != before {
 		t.Errorf("%d objects after the failed constructor; want %d", len(ctx.created), before)
+	}
+}
+
+// testObjectLifecycleRefusedWriteJournal: a write refused when the behavior its feature adds fails
+// restores ownership and leaves an enclosing journal nothing to undo, so a later move stands.
+func testObjectLifecycleRefusedWriteJournal(t *testing.T) {
+	instantiate, _, ctx := lifetimeFixture(t, `
+		package test {
+			private import ScalarValues::*;
+			part def Device;
+			part def Rack {
+				part slot : Device[0..1] {
+					attribute bad : Integer;
+					perform action boom { first start; then action b { assign bad := 1/0; } then done; }
+				}
+			}
+			part def Shelf { part slot : Device[0..1]; }
+		}`)
+	rack, shelf, device := instantiate("Rack"), instantiate("Shelf"), instantiate("Device")
+	commit, _ := ctx.beginJournal()
+	defer commit()
+	undos := len(ctx.journalUndos)
+	if err := rack.SetFeatureValue(ctx, "slot", objectValue(device)); err == nil {
+		t.Fatal("rack.slot := device succeeded; want the slot's failing action reported")
+	}
+	if device.owner != nil || len(ctx.journalUndos) != undos {
+		t.Errorf("after the refused write: owner %v, %d journal entries added; want none of either", device.owner, len(ctx.journalUndos)-undos)
+	}
+	if err := shelf.SetFeatureValue(ctx, "slot", objectValue(device)); err != nil || device.owner != shelf {
+		t.Errorf("shelf.slot := device = %v, owner %v; want the shelf to own it", err, device.owner)
 	}
 }
 

@@ -89,25 +89,28 @@ func (ctx *Context) classifyHeld(feature *symbols.Symbol, val Value) error {
 
 // holdWritten makes the objects written to a feature of inst its values (KerML §7.3.4.1): a composite
 // feature adopts the ownerless ones first, so the behaviors the feature adds start on a part of a whole.
+// The write is journaled whole: a refused classification leaves ownership as it was.
 func (ctx *Context) holdWritten(inst *Instance, fv *FeatureValue, val Value) error {
 	if !holdsObjects(fv.Feature) {
 		return nil
 	}
-	undo := ctx.adoptWritten(inst, fv, val)
+	commit, rollback := ctx.beginJournal()
+	ctx.adoptWritten(inst, fv, val)
 	if err := ctx.classifyHeld(fv.Feature.heldBy(), val); err != nil {
-		undo()
+		rollback()
 		return err
 	}
+	commit()
 	return nil
 }
 
 // adoptWritten gives inst the ownerless objects a write to its composite feature holds, releasing
-// the ones it drops; the returned function restores the ownership the write found.
-func (ctx *Context) adoptWritten(inst *Instance, fv *FeatureValue, val Value) func() {
+// the ones it drops; each change is noted for the journal under way to undo.
+func (ctx *Context) adoptWritten(inst *Instance, fv *FeatureValue, val Value) {
 	if ctx.CompositeTypeOf(fv.Feature) == nil {
-		return func() {}
+		return
 	}
-	undo := ctx.releaseDropped(inst, fv, val)
+	ctx.releaseDropped(inst, fv, val)
 	for _, el := range elementsOf(val) {
 		id, ok := el.Object()
 		if !ok {
@@ -118,21 +121,13 @@ func (ctx *Context) adoptWritten(inst *Instance, fv *FeatureValue, val Value) fu
 			continue
 		}
 		child.owner, child.ownerFeature = inst, fv.Feature.Name
-		release := func() { child.owner, child.ownerFeature = nil, "" }
-		ctx.noteProbeUndo(release)
-		undo = append(undo, release)
-	}
-	return func() {
-		for i := len(undo) - 1; i >= 0; i-- {
-			undo[i]()
-		}
+		ctx.noteProbeUndo(func() { child.owner, child.ownerFeature = nil, "" })
 	}
 }
 
 // releaseDropped frees an object the composite feature owned and the write no longer holds,
-// so the feature it is written into next may own it; it returns what restores each release.
-func (ctx *Context) releaseDropped(inst *Instance, fv *FeatureValue, val Value) []func() {
-	var undo []func()
+// so the feature it is written into next may own it; each release is noted for the journal.
+func (ctx *Context) releaseDropped(inst *Instance, fv *FeatureValue, val Value) {
 	kept := map[int64]bool{}
 	for _, el := range elementsOf(val) {
 		if id, ok := el.Object(); ok {
@@ -150,11 +145,8 @@ func (ctx *Context) releaseDropped(inst *Instance, fv *FeatureValue, val Value) 
 		}
 		feature := child.ownerFeature
 		child.owner, child.ownerFeature = nil, ""
-		restore := func() { child.owner, child.ownerFeature = inst, feature }
-		ctx.noteProbeUndo(restore)
-		undo = append(undo, restore)
+		ctx.noteProbeUndo(func() { child.owner, child.ownerFeature = inst, feature })
 	}
-	return undo
 }
 
 // holdsItself reports whether inst is a portion of child, which child then cannot become one of.
