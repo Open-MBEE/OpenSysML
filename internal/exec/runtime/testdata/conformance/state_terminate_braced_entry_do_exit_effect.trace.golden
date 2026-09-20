@@ -1,0 +1,20 @@
+do: s
+stmt assign d
+  eval literal 1 -> 1
+do: s
+stmt terminate
+terminate anonymous state behavior: no token dropped
+terminate anonymous state behavior: ended before it began
+exit: s (exit action)
+stmt assign x
+  eval literal 1 -> 1
+stmt terminate
+terminate anonymous state behavior: no token dropped
+terminate anonymous state behavior: ended before it began
+stmt assign n
+  eval literal 1 -> 1
+stmt terminate
+terminate anonymous state behavior: no token dropped
+terminate anonymous state behavior: ended before it began
+enter: t
+transition: s -> t (event: time)

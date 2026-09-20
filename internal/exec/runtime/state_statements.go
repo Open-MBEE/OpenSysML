@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -22,18 +23,67 @@ type stateStmtHost struct {
 	// attrs are the attributes of the state the behavior belongs to and of the
 	// states enclosing it, innermost first.
 	attrs []map[string]Value
+	// terminated: the run ended by a `terminate` of the behavior's own performance.
+	terminated bool
 }
 
-// executeBehavior runs one behavior of a state or transition to its end at the
-// instant it is triggered: an entry, exit or effect behavior does not wait on the
-// clock, so one whose flow does is an error; a do behavior runs as a doRun instead.
-func (e *StateExecutor) executeBehavior(behavior lower.StateBehavior) error {
+// executeBehaviors runs behaviors in order, each to its end at the instant. One a
+// `terminate` ends takes the rest of its block with it; other blocks run as written.
+func (e *StateExecutor) executeBehaviors(behaviors []lower.StateBehavior) error {
+	var ended []lower.BehaviorBlock
+	for _, behavior := range behaviors {
+		if e.endedBefore(ended, behavior) {
+			continue
+		}
+		terminated, err := e.executeBehavior(behavior)
+		if err != nil {
+			return err
+		}
+		if terminated {
+			ended = append(ended, behavior.Block)
+		}
+	}
+	return nil
+}
+
+// executeBehavior runs one behavior to its end at the instant it is triggered (one
+// waiting on the clock is an error; a do behavior runs as a doRun instead) and
+// reports a run a `terminate` of the behavior's own performance ended.
+func (e *StateExecutor) executeBehavior(behavior lower.StateBehavior) (bool, error) {
 	if len(behavior.Body) == 0 {
-		return nil
+		return false, nil
 	}
 	host := e.behaviorHost(behavior)
 	defer e.ctx.holdClock(host.describe())()
-	return host.run()
+	if err := host.run(); err != nil {
+		return false, err
+	}
+	return host.terminated, nil
+}
+
+// endedBefore reports whether a `terminate` ended behavior's block already: the
+// behavior then ends before it begins, which the trace records.
+func (e *StateExecutor) endedBefore(ended []lower.BehaviorBlock, behavior lower.StateBehavior) bool {
+	if !slices.ContainsFunc(ended, behavior.Block.Same) {
+		return false
+	}
+	if tr := e.trace(); tr != nil {
+		tr.RecordActionTerminatePending(describeBehavior(behavior), false)
+	}
+	return true
+}
+
+// endBlockPending ends, before they begin, the pending do behaviors of a block a
+// `terminate` ended; the other behaviors keep their order.
+func (e *StateExecutor) endBlockPending(pending []lower.StateBehavior, block lower.BehaviorBlock) []lower.StateBehavior {
+	ended := []lower.BehaviorBlock{block}
+	kept := make([]lower.StateBehavior, 0, len(pending))
+	for _, behavior := range pending {
+		if !e.endedBefore(ended, behavior) {
+			kept = append(kept, behavior)
+		}
+	}
+	return kept
 }
 
 // behaviorHost prepares one execution of a behavior: its performance over the
@@ -80,6 +130,7 @@ func (h *stateStmtHost) ended(err error) error {
 	endNested(root)
 	root.live = 0
 	h.flow.state = StateCompleted
+	h.terminated = true
 	if t := unwound(err); t != nil {
 		return h.flow.endAlongside(t)
 	}
@@ -111,16 +162,15 @@ type doRun struct {
 	mail []Message
 }
 
-// startDoRun begins a do behavior, performing its first statement and pausing it
-// there; nil once it has ended, with the error that ended it.
-func (e *StateExecutor) startDoRun(behavior lower.StateBehavior) (*doRun, error) {
+// newDoRun prepares a do behavior to run, its first statement yet to be performed;
+// nil for a behavior with no statement to run.
+func (e *StateExecutor) newDoRun(behavior lower.StateBehavior) *doRun {
 	if len(behavior.Body) == 0 {
-		return nil, nil
+		return nil
 	}
 	host := e.behaviorHost(behavior)
 	body := &bodyRun{work: host, awaitsMessages: true, yields: true}
-	run := &doRun{host: host, body: body}
-	return run.resume(e.ctx)
+	return &doRun{host: host, body: body}
 }
 
 // resume lets the run go on to its next statement boundary or wait, or to its end.
@@ -128,6 +178,7 @@ func (run *doRun) resume(ctx *Context) (*doRun, error) {
 	defer ctx.readingMail(&run.mail)()
 	defer func() { run.mail = nil }()
 	run.host.flow.leftStanding = false
+	run.host.terminated = false
 	for {
 		pause, paused := run.body.resume(ctx)
 		if !paused {
@@ -239,11 +290,14 @@ func behaviorSymbol(behavior lower.StateBehavior) *symbols.Symbol {
 	return nil
 }
 
-func (h *stateStmtHost) describe() string {
-	if h.behavior.Name != "" {
-		return "state behavior " + h.behavior.Name
+func (h *stateStmtHost) describe() string { return describeBehavior(h.behavior) }
+
+// describeBehavior names a behavior as the trace and errors report it.
+func describeBehavior(behavior lower.StateBehavior) string {
+	if behavior.Name != "" {
+		return "state behavior " + behavior.Name
 	}
-	if usage, ok := h.behavior.Node.(*ast.Usage); ok {
+	if usage, ok := behavior.Node.(*ast.Usage); ok {
 		return "state behavior " + stateActionName(usage)
 	}
 	return "anonymous state behavior"

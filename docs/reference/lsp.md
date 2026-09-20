@@ -9,7 +9,8 @@ result:
 { "capabilities": { "experimental": {
     "openSysmlRender": true, "openSysmlRenderDocument": true, "openSysmlStdlibContent": true,
     "openSysmlApplyModelEdit": true, "openSysmlDebug": true,
-    "openSysmlCrossDocumentLayout": true, "openSysmlRenderPalette": true } } }
+    "openSysmlCrossDocumentLayout": true, "openSysmlRenderPalette": true,
+    "openSysmlRenderForms": ["text", "mermaid", "markdown", "dot", "plantuml"] } } }
 ```
 
 `openSysmlRender` covers the view-rendering methods, `openSysmlRenderDocument`
@@ -23,6 +24,11 @@ behavior and report where it stands, and `openSysmlRenderPalette` that a
 
 A client that does not see that capability must not send these methods. That is
 how a new client and an older server stay compatible.
+
+`openSysmlRenderForms` lists the values `opensysml/render` accepts as `form`, so
+a client offering a *save as* can show what the server it is connected to
+writes rather than a list of its own. A server without it accepts the five named
+on this page.
 
 `openSysmlCrossDocumentLayout` is the one capability both sides advertise, the
 client among its own `experimental` capabilities in the `initialize` request. It

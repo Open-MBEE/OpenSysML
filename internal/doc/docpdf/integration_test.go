@@ -15,10 +15,27 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docir"
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 )
+
+// toolchainRequiredEnv is set in CI after the toolchain script has run, so an
+// absent tool fails these tests instead of skipping them.
+const toolchainRequiredEnv = "OPENSYSML_REQUIRE_PDF_TOOLCHAIN"
+
+// skipWithout skips the calling test for a tool that is not installed — unless
+// the toolchain is declared mandatory, when it fails.
+func skipWithout(t *testing.T, what string, err error) {
+	t.Helper()
+	if required := os.Getenv(toolchainRequiredEnv); required != "" {
+		t.Fatalf("%s=%s but %s not installed: %v", toolchainRequiredEnv, required, what, err)
+	}
+	t.Skipf("%s not installed: %v", what, err)
+}
 
 // installedConverter returns the named converter, skipping the test when a
 // tool it needs is not installed; the contract itself is tested with fakes.
+// Prince is commercial and never provisioned, so it skips even when the
+// toolchain is mandatory.
 func installedConverter(t *testing.T, engine string) Converter {
 	t.Helper()
 	converter, err := EngineNamed(engine)
@@ -27,10 +44,13 @@ func installedConverter(t *testing.T, engine string) Converter {
 	}
 	if err := converter.Available(); err != nil {
 		var docErr *Error
-		if errors.As(err, &docErr) && docErr.Kind == ErrorToolMissing {
+		if !errors.As(err, &docErr) || docErr.Kind != ErrorToolMissing {
+			t.Fatal(err)
+		}
+		if converter.Name() == princeTool.name {
 			t.Skipf("%s not installed: %v", engine, err)
 		}
-		t.Fatal(err)
+		skipWithout(t, engine, err)
 	}
 	return converter
 }
@@ -148,7 +168,7 @@ func TestRenderWithInstalledEngines(t *testing.T) {
 // Markdown escapes or Mermaid source.
 func TestRenderTelescopeWithInstalledEngines(t *testing.T) {
 	if _, err := mermaidTool.locate(""); err != nil {
-		t.Skipf("mmdc not installed: %v", err)
+		skipWithout(t, "mmdc", err)
 	}
 	document := telescopeDocument(t)
 	for _, engine := range Engines() {
@@ -253,7 +273,7 @@ func TestRenderInlineRunsWithInstalledEngines(t *testing.T) {
 // and none of the LaTeX source, and each installed engine lays it out.
 func TestRenderFormulasWithInstalledKatex(t *testing.T) {
 	if _, err := katexTool.locate(""); err != nil {
-		t.Skipf("katex not installed: %v", err)
+		skipWithout(t, "katex", err)
 	}
 	document := mathDocument(t)
 	dir := t.TempDir()
@@ -342,9 +362,113 @@ func TestRenderStateReportWithInstalledEngines(t *testing.T) {
 // diagrams when mermaid-cli and an engine are installed, and skips otherwise.
 func TestRenderDiagramsWithInstalledMermaid(t *testing.T) {
 	if _, err := mermaidTool.locate(""); err != nil {
-		t.Skipf("mmdc not installed: %v", err)
+		skipWithout(t, "mmdc", err)
 	}
 	_, text := renderInstalled(t, telescopeDocument(t), "", Options{})
+	if text != "" && !strings.Contains(text, "Imaging chain interconnection") {
+		t.Fatalf("diagram caption missing:\n%s", text)
+	}
+}
+
+// TestRenderDiagramsWithInstalledGraphviz draws the telescope report's
+// diagrams as DOT through a real Graphviz when one is installed, and skips
+// otherwise; a positioned diagram is laid out by the engine its header names,
+// at the coordinates it states.
+func TestRenderDiagramsWithInstalledGraphviz(t *testing.T) {
+	if _, err := graphvizTool.locate(""); err != nil {
+		skipWithout(t, "Graphviz dot", err)
+	}
+	dir := t.TempDir()
+	diagrams, err := docrender.Diagrams(telescopeDocument(t), view.FormDot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	positioned := docrender.Diagram{Name: "placed", Source: "// kind: interconnection\n// layout: neato -n\ngraph G {\n  node [shape=box];\n  Pump [pos=\"0,0\"];\n  Tank [pos=\"200,100\"];\n  Pump -- Tank [label=\"supply\"];\n}"}
+	images, err := drawDiagrams(dir, append(diagrams, positioned), view.FormDot)
+	if err != nil {
+		t.Fatalf("drawDiagrams: %v", err)
+	}
+	if len(images) != 3 || images[0] != "diagram-1.svg" || images[2] != "diagram-3.svg" {
+		t.Fatalf("images = %q", images)
+	}
+	for i, image := range images {
+		if err := checkSVG(filepath.Join(dir, image)); err != nil {
+			t.Fatalf("diagram %d: %v", i+1, err)
+		}
+	}
+	placed, err := os.ReadFile(filepath.Join(dir, "diagram-3.svg"))
+	if err != nil || !strings.Contains(string(placed), "supply") {
+		t.Fatalf("neato -n SVG: %v\n%s", err, placed)
+	}
+	// With -n the stated positions are kept, so Tank sits 200 points right of
+	// Pump: the SVG's Tank text is right of the Pump text.
+	pump, tank := strings.Index(string(placed), ">Pump</text>"), strings.Index(string(placed), ">Tank</text>")
+	if pump < 0 || tank < 0 {
+		t.Fatalf("labels missing from the neato SVG:\n%s", placed)
+	}
+	x := func(at int) float64 {
+		text := string(placed)[:at]
+		text = text[strings.LastIndex(text, "<text"):]
+		_, after, _ := strings.Cut(text, `x="`)
+		before, _, _ := strings.Cut(after, `"`)
+		v, err := strconv.ParseFloat(before, 64)
+		if err != nil {
+			t.Fatalf("text x %q: %v", before, err)
+		}
+		return v
+	}
+	if px, tx := x(pump), x(tank); tx <= px {
+		t.Fatalf("Tank (x=%v) is not right of Pump (x=%v):\n%s", tx, px, placed)
+	}
+
+	_, text := renderInstalled(t, telescopeDocument(t), "", Options{DiagramForm: view.FormDot})
+	if text != "" && (strings.Contains(text, "digraph") || strings.Contains(text, dotNotice[:40])) {
+		t.Fatalf("DOT source or its notice reached the PDF:\n%s", text)
+	}
+	if text != "" && !strings.Contains(text, "Imaging chain interconnection") {
+		t.Fatalf("diagram caption missing:\n%s", text)
+	}
+}
+
+// TestRenderDiagramsWithInstalledPlantUML draws the telescope report's
+// diagrams as PlantUML through a real jar when OPENSYSML_PLANTUML_JAR and java
+// are set, and skips otherwise.
+func TestRenderDiagramsWithInstalledPlantUML(t *testing.T) {
+	if _, err := locatePlantUMLJar(); err != nil {
+		skipWithout(t, "the PlantUML jar", err)
+	}
+	if _, err := javaTool.locate(""); err != nil {
+		skipWithout(t, "java", err)
+	}
+	dir := t.TempDir()
+	diagrams, err := docrender.Diagrams(telescopeDocument(t), view.FormPlantUML)
+	if err != nil {
+		t.Fatal(err)
+	}
+	images, err := drawDiagrams(dir, diagrams, view.FormPlantUML)
+	if err != nil {
+		t.Fatalf("drawDiagrams: %v", err)
+	}
+	if len(images) != 2 || images[0] != "diagram-1.svg" || images[1] != "diagram-2.svg" {
+		t.Fatalf("images = %q", images)
+	}
+	svg, err := os.ReadFile(filepath.Join(dir, "diagram-1.svg"))
+	if err != nil || !strings.HasPrefix(string(svg), "<svg") {
+		t.Fatalf("PlantUML SVG: %v\n%s", err, svg)
+	}
+
+	// A diagram the jar rejects is the typed failure, with what it said.
+	rejected := []docrender.Diagram{{Name: "bad", Source: "@startuml\nclass A\nA --> \n@enduml"}}
+	_, err = drawDiagrams(t.TempDir(), rejected, view.FormPlantUML)
+	var docErr *Error
+	if !errors.As(err, &docErr) || docErr.Kind != ErrorToolFailed || !strings.Contains(docErr.Detail, "Syntax Error") {
+		t.Fatalf("rejected diagram: got %v, want ErrorToolFailed with the jar's message", err)
+	}
+
+	_, text := renderInstalled(t, telescopeDocument(t), "", Options{DiagramForm: view.FormPlantUML})
+	if text != "" && (strings.Contains(text, "@startuml") || strings.Contains(text, plantumlNotice[:40])) {
+		t.Fatalf("PlantUML source or its notice reached the PDF:\n%s", text)
+	}
 	if text != "" && !strings.Contains(text, "Imaging chain interconnection") {
 		t.Fatalf("diagram caption missing:\n%s", text)
 	}

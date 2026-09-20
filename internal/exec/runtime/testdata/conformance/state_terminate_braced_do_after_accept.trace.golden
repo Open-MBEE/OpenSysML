@@ -1,0 +1,21 @@
+do: s
+stmt action body
+enter action node: state behavior wait
+do: s
+leave action node: state behavior wait
+do: s
+stmt assign d
+  eval literal 1 -> 1
+do: s
+stmt terminate
+terminate anonymous state behavior: no token dropped
+terminate state behavior again: ended before it began
+terminate anonymous state behavior: ended before it began
+exit: s
+enter: t
+  eval literal 1 -> 1
+eval index -> 1 [SI::s]
+transition: s -> t
+exit: t
+enter: u
+transition: t -> u (event: time)

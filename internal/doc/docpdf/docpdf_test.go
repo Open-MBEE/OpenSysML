@@ -573,12 +573,12 @@ func TestRenderReaderStylesheets(t *testing.T) {
 }
 
 // TestRenderDiagramFormKeepsSourceForOtherForms checks that a document whose
-// diagrams are asked for as DOT or PlantUML needs no diagram tool and shows
-// each as source, since the PDF backend draws only Mermaid.
+// diagrams are asked for as DOT or PlantUML renders without Graphviz or the
+// PlantUML jar, showing each diagram as source, and looks for no Mermaid CLI.
 func TestRenderDiagramFormKeepsSourceForOtherForms(t *testing.T) {
 	dir := t.TempDir()
+	withoutDiagramTools(t)
 	capture := captureWeasyPrint(t, dir)
-	t.Setenv(MermaidEnv, filepath.Join(dir, "no-mmdc-here"))
 	for _, form := range []view.Form{view.FormDot, view.FormPlantUML} {
 		if _, err := Render(telescopeDocument(t), "weasyprint", Options{DiagramForm: form}); err != nil {
 			t.Fatalf("Render %s: %v", form, err)
@@ -616,7 +616,7 @@ func TestRenderDiagramToolWritesNothing(t *testing.T) {
 	if !errors.As(err, &docErr) || docErr.Kind != ErrorToolFailed || docErr.Tool != "mmdc" {
 		t.Fatalf("got %v, want ErrorToolFailed for mmdc", err)
 	}
-	if !strings.Contains(docErr.Detail, "wrote no SVG for diagram-1.mmd") {
+	if !strings.Contains(docErr.Detail, "wrote no SVG") || !strings.Contains(docErr.Detail, "diagram 1") {
 		t.Fatalf("detail %q", docErr.Detail)
 	}
 }
@@ -735,16 +735,16 @@ func TestRenderForPandocLeavesDefaultStylesOff(t *testing.T) {
 }
 
 // TestRenderForPandocKeepsOtherFormsUnderNotice checks a document whose
-// diagrams are asked for as DOT or PlantUML is handed to pandoc with a filter
-// that draws nothing and sets the notice the print stylesheet sets over the
-// HTML backend's page, so both converter inputs say the same.
+// diagrams are asked for as DOT or PlantUML, without Graphviz or the jar, is
+// handed to pandoc with a filter that draws nothing and sets the notice the
+// print stylesheet sets over the HTML backend's page, so both inputs say the same.
 func TestRenderForPandocKeepsOtherFormsUnderNotice(t *testing.T) {
 	dir := t.TempDir()
+	withoutDiagramTools(t)
 	capture := filepath.Join(dir, "capture")
 	fakeTool(t, dir, "pandoc", PandocEnv,
 		`cp "$(dirname "$1")/artwork.lua" "`+capture+`.lua"; out=""; while [ $# -gt 0 ]; do [ "$1" = "--output" ] && out="$2"; shift; done; printf '%%PDF-1.7 fake' > "$out"`+"\n")
 	fakeTool(t, dir, "weasyprint", WeasyPrintEnv, "exit 0\n")
-	t.Setenv(MermaidEnv, filepath.Join(dir, "no-mmdc-here"))
 	for form, notice := range map[view.Form]string{view.FormDot: dotNotice, view.FormPlantUML: plantumlNotice} {
 		if _, err := Render(telescopeDocument(t), "pandoc", Options{DiagramForm: form}); err != nil {
 			t.Fatalf("Render %s: %v", form, err)
