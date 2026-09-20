@@ -133,6 +133,9 @@ func (w *Workspace) libraryVersionLocked(name string, doc *Document) string {
 	return catalog.VersionOf(sem, resolver, name)
 }
 
+// IsLibraryRoot reports whether name is a top-level package of the workspace's library.
+func (w *Workspace) IsLibraryRoot(name string) bool { return w.libraryRoots[name] }
+
 // namesLibraryRoots reports whether every root of the parsed document is a
 // package named as a top-level package of the workspace's library: the cheap
 // test a document passes before the library's catalog is consulted, or built.

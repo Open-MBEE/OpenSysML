@@ -57,6 +57,7 @@ case_ syson-readme docs,syson editors/syson/README.md
 case_ vscode-grammar cameo,docs,go,java,node,python,rust,syson,vscode editors/vscode/tools/gengrammar/grammar.go
 case_ vscode-syntaxes cameo,docs,go,java,node,python,rust,syson,vscode editors/vscode/syntaxes/sysml.tmLanguage.json
 # Any markdown counts as documentation: the site links out to repository files.
+case_ man-page docs packaging/man/man1/sysml.1
 case_ two-client-readmes cameo,docs,java,node client/java/README.md client/node/README.md
 case_ two-clients cameo,java,node client/java/pom.xml client/node/tsconfig.json
 case_ go-source cameo,docs,go,java,node,python,rust,syson,vscode internal/syntax/parser/parser.go

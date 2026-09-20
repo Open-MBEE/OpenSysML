@@ -239,3 +239,35 @@ func TestACommentOnlyFileKeepsItsIdentity(t *testing.T) {
 		t.Fatalf("the comment file was deleted with the redeclaration: %v", got)
 	}
 }
+
+// A file whose import names a root namespace a sibling file declares loads that
+// sibling too, so the reference resolves as it does when the directory is named.
+func TestLoadingOneFilePullsInTheSiblingsItImports(t *testing.T) {
+	dir := t.TempDir()
+	main := writeFile(t, filepath.Join(dir, "main.sysml"), "package Main {\n    private import Lib::*;\n    part w : Widget;\n}\n")
+	writeFile(t, filepath.Join(dir, "parts", "lib.sysml"), "package Lib {\n    part def Widget;\n}\n")
+	writeFile(t, filepath.Join(dir, "broken.sysml"), "package Broken {\n    part b : Nowhere;\n}\n")
+
+	s := NewSession()
+	rep, err := s.LoadPathsReport([]string{main})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rep.Errors {
+		t.Errorf("load reported errors: %v", rep.Found)
+	}
+	if got := strings.Join(rep.Loaded, "\n"); !strings.Contains(got, "loaded 2 files:") || !strings.Contains(got, "lib.sysml") || strings.Contains(got, "broken.sysml") {
+		t.Errorf("loaded = %q, want main and lib only", got)
+	}
+	if _, _, err := s.lookupSymbol("Lib::Widget"); err != nil {
+		t.Errorf("Lib::Widget did not resolve: %v", err)
+	}
+
+	sum := NewSession()
+	if _, err := sum.LoadFilesSummary([]string{main}); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := sum.lookupSymbol("Lib::Widget"); err != nil {
+		t.Errorf("Lib::Widget did not resolve through LoadFilesSummary: %v", err)
+	}
+}

@@ -41,10 +41,20 @@ DISPLAY=:0 wmctrl -r :ACTIVE: -b add,maximized_vert,maximized_horz
 Workspace trust must be granted — Restricted Mode silently disables the extension (no LSP, no outline).
 The trust banner appears on the Welcome tab; "Manage" → "Trust" reloads the window.
 
-**Always open the repo *folder*, not a lone `.sysml` file.** `code <file.sysml>` gives the window no
-workspace folder, so `resolveServer` skips the `<workspace>/bin/sysml-lsp` fallback, finds nothing on
-PATH, and you get an empty "SysML v2" channel plus 0 problems — which looks exactly like a broken
-server. Launch with the repo root as the argument, then open the file from the Explorer.
+**Choose server discovery deliberately for folder versus lone-file testing.** Opening the repo
+folder enables the `<workspace>/bin/sysml-lsp` fallback. For a lone `.sysml` file or a scratch
+folder outside the repo, set User `opensysml.server.path` to the freshly built absolute binary
+path (or put it on PATH). Otherwise an empty Problems panel may merely mean no server started.
+In an empty window, use File > Open File and keep Explorer's "No Folder Opened" visible.
+Confirm a real server process and resolved symbol hover; mutate a reference to an undefined
+name and undo to prove diagnostics are live.
+
+For unsaved-buffer authority during sibling indexing, use `main.sysml` above a
+`parts/lib.sysml`. Open only the library, change its declaration without saving, then restart
+the language server. Open the parent main file: its first directory scan revisits the already
+open library. The unsaved declaration must resolve and the disk-only declaration must not.
+Simply opening both files and restarting does not establish which buffer was open first.
+Revert both files before changing to folder-open mode.
 
 ## Server discovery (`editors/vscode/src/extension.ts`)
 
