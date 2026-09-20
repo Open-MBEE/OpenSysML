@@ -11,6 +11,13 @@ maintainers; the behavior a user sees is [the guide](../../guide/).
   observed, not covered), dispatch by question with fallback, and runs isolated so they can be
   parallel; the contract, the registry and the four engines over existing code are
   implemented (`internal/exec/analysis`), the rest is a proposal
+- **[A Cameo Systems Modeler plugin](cameo-plugin.md)** — a proposal: a plugin for Cameo
+  2024x Refresh3 that exports the selection, runs `Convert(xmi→sysml)` and `ParseSources` over
+  the Java client, executes and verifies on `sysml-grpc`, and lands each verdict on the Cameo
+  element it came from through the migration report's `xmi:id → target` accounting; the vendor
+  plugin mechanics, UI contribution points, export routes, Simulation Toolkit positioning and
+  SysML v2 status answered from public documentation with every unverified claim marked, a
+  migration benchmark over twenty public v1 models, a phased plan and the risks
 - **[Bring your own engine](bring-your-own-engines.md)** — a proposal: a manifest and a
   protocol under which a user's own engine, scheduling policy, sampler or tool registers with
   the analysis framework as a process, a WebAssembly module or Go over the public package; every
