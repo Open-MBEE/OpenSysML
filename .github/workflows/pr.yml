@@ -671,13 +671,14 @@ jobs:
           key: doc-pdf-toolchain-${{ runner.os }}-${{ hashFiles('scripts/download-doc-pdf-toolchain.sh') }}-py${{ steps.setup-python.outputs.python-version }}
 
       # WeasyPrint's venv links against the system's Pango, the browser
-      # mermaid-cli launches needs its shared libraries, and Graphviz's neato
-      # layout plugin needs GTS.
+      # mermaid-cli launches needs its shared libraries, Graphviz's neato
+      # layout plugin needs GTS; the tests read PDFs back with poppler-utils.
       - name: Install the toolchain's system libraries
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 \
-            libnss3 libatk-bridge2.0-0 libgbm1 libxkbcommon0 libasound2t64 fonts-dejavu-core libgts-0.7-5
+            libnss3 libatk-bridge2.0-0 libgbm1 libxkbcommon0 libasound2t64 fonts-dejavu-core libgts-0.7-5 \
+            poppler-utils
 
       - name: Provision the PDF toolchain
         run: ./scripts/download-doc-pdf-toolchain.sh
