@@ -25,13 +25,15 @@ func (m *migration) resultSnapshots(r *simresults.ConfigurationResults, s *sysml
 	if len(ids) == 0 {
 		return nil
 	}
-	typed := m.classifierClosure(target.classifiers)
-	configured := m.configuredValues(target)
-	seenObservable := map[string]bool{}
+	scan := &snapshotScan{
+		typed:          m.classifierClosure(target.classifiers),
+		configured:     m.configuredValues(target),
+		seenInstance:   map[*sysmlv1.Element]bool{},
+		seenObservable: map[string]bool{},
+		unread:         map[string]int{},
+		others:         map[string]int{},
+	}
 	seenLocation := map[*sysmlv1.Element]bool{}
-	seenInstance := map[*sysmlv1.Element]bool{}
-	unread := map[string]int{}
-	others := map[string]int{}
 	var locations []string
 	for _, id := range ids {
 		pkg := m.model.Lookup(id)
@@ -44,77 +46,105 @@ func (m *migration) resultSnapshots(r *simresults.ConfigurationResults, s *sysml
 		}
 		seenLocation[pkg] = true
 		locations = append(locations, qualifiedName(pkg))
-		if len(typed) == 0 {
+		if len(scan.typed) == 0 {
 			continue
 		}
 		for _, inst := range m.descendantInstances(pkg) {
-			if seenInstance[inst] || !m.isSnapshotOf(inst, target.classifiers, typed) {
-				continue
-			}
-			seenInstance[inst] = true
-			if differ := m.recordsOtherValues(inst, configured); len(differ) > 0 {
-				others[strings.Join(differ, ", ")]++
-				continue
-			}
-			snap := simresults.Snapshot{ID: inst.ID, Name: inst.Name, Values: map[string]float64{}}
-			held := map[string]int{}
-			for _, slot := range inst.Owned("slot") {
-				name, value, reason := m.snapshotSlot(slot)
-				if reason != "" {
-					unread[name+" "+reason]++
-					continue
-				}
-				if value.kind != kindNumber {
-					unread[name+" holds a "+value.spec+", which is no number"]++
-					continue
-				}
-				if !value.carried() {
-					held[name]++
-					unread[name+" holds "+strconv.Quote(value.text)+", which no float64 spells exactly, and a result is a float64"]++
-					continue
-				}
-				snap.Values[name] = value.number
-				held[name]++
-			}
-			for name, n := range held {
-				if n > 1 {
-					delete(snap.Values, name)
-					unread[name+" holds "+strconv.Itoa(n)+" numbers over as many slots, and a result is one number"]++
-				}
-			}
-			for name := range snap.Values {
-				seenObservable[name] = true
-			}
-			r.Snapshots = append(r.Snapshots, snap)
+			m.instanceSnapshot(r, inst, target, scan)
 		}
 	}
-	for name := range seenObservable {
+	m.snapshotNotes(r, scan, locations)
+	return lost
+}
+
+// snapshotScan gathers the snapshots of one location scan: the values the
+// target configures, what was already seen, and why slots were no results.
+type snapshotScan struct {
+	typed          map[*sysmlv1.Element]bool
+	configured     map[*sysmlv1.Element]scalarValue
+	seenInstance   map[*sysmlv1.Element]bool
+	seenObservable map[string]bool
+	unread         map[string]int
+	others         map[string]int
+}
+
+// instanceSnapshot reads one snapshot instance into r; it is skipped when
+// already seen, of no target classifier, or of another configuration.
+func (m *migration) instanceSnapshot(r *simresults.ConfigurationResults, inst *sysmlv1.Element, target executionTarget, scan *snapshotScan) {
+	if scan.seenInstance[inst] || !m.isSnapshotOf(inst, target.classifiers, scan.typed) {
+		return
+	}
+	scan.seenInstance[inst] = true
+	if differ := m.recordsOtherValues(inst, scan.configured); len(differ) > 0 {
+		scan.others[strings.Join(differ, ", ")]++
+		return
+	}
+	snap := simresults.Snapshot{ID: inst.ID, Name: inst.Name, Values: map[string]float64{}}
+	held := map[string]int{}
+	m.slotValues(inst, &snap, held, scan.unread)
+	for name, n := range held {
+		if n > 1 {
+			delete(snap.Values, name)
+			scan.unread[name+" holds "+strconv.Itoa(n)+" numbers over as many slots, and a result is one number"]++
+		}
+	}
+	for name := range snap.Values {
+		scan.seenObservable[name] = true
+	}
+	r.Snapshots = append(r.Snapshots, snap)
+}
+
+// slotValues reads each slot of inst into snap.Values; a slot whose name, kind
+// or number is no result is counted in unread under its reason.
+func (m *migration) slotValues(inst *sysmlv1.Element, snap *simresults.Snapshot, held, unread map[string]int) {
+	for _, slot := range inst.Owned("slot") {
+		name, value, reason := m.snapshotSlot(slot)
+		if reason != "" {
+			unread[name+" "+reason]++
+			continue
+		}
+		if value.kind != kindNumber {
+			unread[name+" holds a "+value.spec+", which is no number"]++
+			continue
+		}
+		if !value.carried() {
+			held[name]++
+			unread[name+" holds "+strconv.Quote(value.text)+", which no float64 spells exactly, and a result is a float64"]++
+			continue
+		}
+		snap.Values[name] = value.number
+		held[name]++
+	}
+}
+
+// snapshotNotes records on r the scan's observables and its notes.
+func (m *migration) snapshotNotes(r *simresults.ConfigurationResults, scan *snapshotScan, locations []string) {
+	for name := range scan.seenObservable {
 		r.Observables = append(r.Observables, name)
 	}
 	sort.Strings(r.Observables)
-	keys := make([]string, 0, len(unread))
-	for k := range unread {
+	keys := make([]string, 0, len(scan.unread))
+	for k := range scan.unread {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
 	for _, k := range keys {
-		r.Notes = append(r.Notes, "the slot of "+k+" in "+strconv.Itoa(unread[k])+" snapshot(s), so it is not among the results")
+		r.Notes = append(r.Notes, "the slot of "+k+" in "+strconv.Itoa(scan.unread[k])+" snapshot(s), so it is not among the results")
 	}
 	keys = keys[:0]
-	for k := range others {
+	for k := range scan.others {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
 	for _, k := range keys {
-		r.Notes = append(r.Notes, strconv.Itoa(others[k])+" snapshot(s) record other values of "+k+" than the target configures, so they are of another configuration and not among the results")
+		r.Notes = append(r.Notes, strconv.Itoa(scan.others[k])+" snapshot(s) record other values of "+k+" than the target configures, so they are of another configuration and not among the results")
 	}
 	r.Location = strings.Join(locations, ", ")
-	if len(typed) == 0 && len(locations) > 0 {
+	if len(scan.typed) == 0 && len(locations) > 0 {
 		r.Notes = append(r.Notes, "the snapshots in "+r.Location+" are not read: the configuration has no target classifier they could be of")
 	} else if len(r.Snapshots) == 0 && len(locations) > 0 {
 		r.Notes = append(r.Notes, "the result location "+r.Location+" holds no snapshot of the target's classifier")
 	}
-	return lost
 }
 
 // configuredValues is the scalar the target sets each of its features to — by a
@@ -373,7 +403,7 @@ func (m *migration) snapshotSlot(slot *sysmlv1.Element) (name string, value scal
 		return name, scalarValue{}, "holds no value"
 	case 1:
 	default:
-		return name, scalarValue{}, "holds " + strconv.Itoa(len(values)) + " values, and a result is one number"
+		return name, scalarValue{}, holdsNote + strconv.Itoa(len(values)) + " values, and a result is one number"
 	}
 	if value, reason = m.literalScalar(values[0]); reason != "" {
 		return name, scalarValue{}, reason
@@ -417,6 +447,9 @@ func (v scalarValue) carried() bool {
 	return ok && shortest.Cmp(v.exact) == 0
 }
 
+// holdsNote prefixes a reason a snapshot slot is no result.
+const holdsNote = "holds "
+
 const (
 	kindNumber      = "number"
 	kindBoolean     = "boolean"
@@ -447,7 +480,7 @@ func (m *migration) literalScalar(v *sysmlv1.Element) (value scalarValue, reason
 		case "false", "0", "":
 			value.text = "false"
 		default:
-			reason = "holds " + strconv.Quote(text) + ", which is no Boolean"
+			reason = holdsNote + strconv.Quote(text) + ", which is no Boolean"
 		}
 	case "LiteralString":
 		value.kind, value.text = kindString, v.Attrs["value"]
@@ -476,7 +509,7 @@ func literalNumber(v *sysmlv1.Element) (exact *big.Rat, value float64, reason st
 	}
 	value, err := strconv.ParseFloat(text, 64)
 	if err != nil || math.IsNaN(value) || math.IsInf(value, 0) {
-		return nil, 0, "holds " + strconv.Quote(text) + ", which is no finite number"
+		return nil, 0, holdsNote + strconv.Quote(text) + ", which is no finite number"
 	}
 	if exact, ok := new(big.Rat).SetString(text); ok {
 		return exact, value, ""

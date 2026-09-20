@@ -8,6 +8,18 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/interop/flexo"
 )
 
+// The help-text placeholders and check flag names the help repeats.
+const (
+	nameArg         = "<name>"
+	fileArg         = "<file>"
+	featureArg      = "<feature>"
+	formatArg       = "<format>"
+	formArg         = "<form>"
+	checkDepthFlag  = "check-depth"
+	checkStatesFlag = "check-states"
+	checkUnrollFlag = "check-unroll"
+)
+
 // doc describes the command for both the terminal help and the man page, so a
 // mode documented for one is documented for the other.
 func doc() usage.Doc {
@@ -515,10 +527,10 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.Var(&modelChecks.checker.inputs, "check-input", "Under smt, leave this feature of the action free in its declared domain although the model binds it (repeatable)")
 	fs.Var(&modelChecks.checker.assume, "check-assume", "Under smt, assume this constraint or requirement over the initial state of the action (repeatable)")
 	fs.StringVar(&modelChecks.checker.witness, "check-witness", "", "Write a witness file for each violation and each divergent value to this directory, for -schedule replay:<file> and %replay to follow")
-	modelChecks.checker.depth.flag, modelChecks.checker.states.flag, modelChecks.checker.unroll.flag = "check-depth", "check-states", "check-unroll"
-	fs.Var(&modelChecks.checker.depth, "check-depth", "The most moves one schedule may make before the search backtracks, or the moves smt unrolls the action to (default 10000 for check, 40 for smt)")
-	fs.Var(&modelChecks.checker.states, "check-states", "Under check, the most distinct states the search may visit (default 1000000)")
-	fs.Var(&modelChecks.checker.unroll, "check-unroll", "Under smt, the most iterations of one loop the solver unrolls before it stops (default 4)")
+	modelChecks.checker.depth.flag, modelChecks.checker.states.flag, modelChecks.checker.unroll.flag = checkDepthFlag, checkStatesFlag, checkUnrollFlag
+	fs.Var(&modelChecks.checker.depth, checkDepthFlag, "The most moves one schedule may make before the search backtracks, or the moves smt unrolls the action to (default 10000 for check, 40 for smt)")
+	fs.Var(&modelChecks.checker.states, checkStatesFlag, "Under check, the most distinct states the search may visit (default 1000000)")
+	fs.Var(&modelChecks.checker.unroll, checkUnrollFlag, "Under smt, the most iterations of one loop the solver unrolls before it stops (default 4)")
 	fs.Var(&modelChecks.checker.timeout, "check-timeout", "The time the check's plan may run for, as 30s or 2m, and the time each smt solver query may take in place of OPENSYSML_SMT_TIMEOUT")
 
 	fs.StringVar(&convertFormat, "convert", "", "Convert the model to this format instead of running it: sysml, kerml, ttl, turtle or rdf (RDF is experimental)")
@@ -597,26 +609,26 @@ func optionGroups() []usage.OptionGroup {
 		Options: []usage.Option{
 			usage.Opt("validate", "[=<object>]"),
 			usage.Opt("strict", ""),
-			usage.Opt("constraint", "<name>"),
-			usage.Opt("requirement", "<name>"),
+			usage.Opt("constraint", nameArg),
+			usage.Opt("requirement", nameArg),
 			usage.Opt("satisfy", "[=<name>]"),
 			usage.Opt("calc", "<call>"),
 			usage.Opt("analysis", "<call>"),
 			usage.Opt("run-query", "<query>"),
-			usage.Opt("instantiate", "<name>"),
+			usage.Opt("instantiate", nameArg),
 			usage.Opt("json", ""),
 		},
 	}, {
 		Title: "Running behaviors",
 		Options: []usage.Option{
-			usage.Opt("action", "<name>"),
-			usage.Opt("state", "<name>"),
+			usage.Opt("action", nameArg),
+			usage.Opt("state", nameArg),
 			usage.Opt("advance", "<time>"),
 			usage.Opt("schedule", "<policy>"),
 			usage.Opt("seed", "<n>"),
 			usage.Opt("draws", "<policy>"),
 			usage.Opt("runs", "<n>"),
-			usage.Opt("observe", "<feature>"),
+			usage.Opt("observe", featureArg),
 			usage.Opt("sweep", "<range>"),
 			usage.Opt("samples", "<n>"),
 			usage.Opt("jobs", "<n>"),
@@ -626,30 +638,30 @@ func optionGroups() []usage.OptionGroup {
 		Options: []usage.Option{
 			usage.Opt("engines", ""),
 			usage.Opt("probe", ""),
-			usage.Opt("engine", "<name>"),
+			usage.Opt("engine", nameArg),
 		},
 	}, {
 		Title: "Checking every schedule (-engine check, smt or all)",
 		Options: []usage.Option{
-			usage.Opt("check-property", "<name>"),
-			usage.Opt("check-diverge", "<feature>"),
-			usage.Opt("check-input", "<feature>"),
-			usage.Opt("check-assume", "<name>"),
+			usage.Opt("check-property", nameArg),
+			usage.Opt("check-diverge", featureArg),
+			usage.Opt("check-input", featureArg),
+			usage.Opt("check-assume", nameArg),
 			usage.Opt("check-witness", "<dir>"),
-			usage.Opt("check-depth", "<n>"),
-			usage.Opt("check-states", "<n>"),
-			usage.Opt("check-unroll", "<n>"),
+			usage.Opt(checkDepthFlag, "<n>"),
+			usage.Opt(checkStatesFlag, "<n>"),
+			usage.Opt(checkUnrollFlag, "<n>"),
 			usage.Opt("check-timeout", "<duration>"),
 		},
 	}, {
 		Title: "Converting and migrating",
 		Options: []usage.Option{
-			usage.Opt("convert", "<format>"),
-			usage.Opt("from", "<format>"),
-			usage.Opt("output", "<file>", "o"),
-			usage.Opt("migration-report", "<file>"),
-			usage.Opt("migration-results", "<file>"),
-			usage.Opt("compare-results", "<file>"),
+			usage.Opt("convert", formatArg),
+			usage.Opt("from", formatArg),
+			usage.Opt("output", fileArg, "o"),
+			usage.Opt("migration-report", fileArg),
+			usage.Opt("migration-results", fileArg),
+			usage.Opt("compare-results", fileArg),
 		},
 	}, {
 		Title: "Compiling natively",
@@ -663,16 +675,16 @@ func optionGroups() []usage.OptionGroup {
 		Options: []usage.Option{
 			usage.Opt("render", "<view>"),
 			usage.Opt("render-all", "<dir>"),
-			usage.Opt("render-form", "<form>"),
+			usage.Opt("render-form", formArg),
 			usage.Opt("render-palette", "<palette>"),
 		},
 	}, {
 		Title: "Rendering documents",
 		Options: []usage.Option{
-			usage.Opt("render-document", "<name>"),
+			usage.Opt("render-document", nameArg),
 			usage.Opt("render-documents", "<dir>"),
-			usage.Opt("doc-form", "<form>"),
-			usage.Opt("diagram-form", "<form>"),
+			usage.Opt("doc-form", formArg),
+			usage.Opt("diagram-form", formArg),
 			usage.Opt("doc-title-page", ""),
 			usage.Opt("doc-toc", ""),
 			usage.Opt("doc-number-sections", ""),
@@ -694,11 +706,11 @@ func optionGroups() []usage.OptionGroup {
 		Options: []usage.Option{
 			usage.Opt("sync-diff", "<repo>"),
 			usage.Opt("sync-apply", "<url>"),
-			usage.Opt("sync-base", "<file>"),
-			usage.Opt("sync-state", "<file>"),
+			usage.Opt("sync-base", fileArg),
+			usage.Opt("sync-state", fileArg),
 			usage.Opt("sync-confirm-deletes", ""),
 			usage.Opt("sync-mint-ids", ""),
-			usage.Opt("sync-annotate", "<file>"),
+			usage.Opt("sync-annotate", fileArg),
 		},
 	}, {
 		Title: "Diagnostics and profiling",
@@ -706,14 +718,14 @@ func optionGroups() []usage.OptionGroup {
 			usage.Opt("debug", ""),
 			usage.Opt("quiet", ""),
 			usage.Opt("trace", ""),
-			usage.Opt("cpuprofile", "<file>"),
-			usage.Opt("memprofile", "<file>"),
+			usage.Opt("cpuprofile", fileArg),
+			usage.Opt("memprofile", fileArg),
 			usage.Opt("memstats", ""),
 		},
 	}, {
 		Title: "Deprecated",
 		Options: []usage.Option{
-			usage.Opt("to", "<format>"),
+			usage.Opt("to", formatArg),
 			usage.Opt("pdf-title-page", ""),
 			usage.Opt("pdf-toc", ""),
 			usage.Opt("pdf-number-sections", ""),

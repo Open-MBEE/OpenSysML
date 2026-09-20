@@ -6,7 +6,10 @@ import { DEFAULT_STYLE, isStyle, paletteOf, PALETTES, pilotLook, STYLE_LABELS, S
 test("the styles are the theme, the pilot's black and white, and one per server palette, each labelled", () => {
   assert.deepEqual(STYLES.slice(0, 2), ["theme", "pilot"]);
   assert.deepEqual(STYLES.slice(2), [...PALETTES]);
-  assert.deepEqual(Object.keys(STYLE_LABELS).sort(), [...STYLES].sort());
+  assert.deepEqual(
+    Object.keys(STYLE_LABELS).sort((a, b) => a.localeCompare(b)),
+    [...STYLES].sort((a, b) => a.localeCompare(b)),
+  );
   assert.equal(DEFAULT_STYLE, "theme");
 });
 
