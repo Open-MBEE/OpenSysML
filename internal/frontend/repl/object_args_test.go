@@ -361,7 +361,8 @@ func TestMalformedExpressionsMaterializeNothing(t *testing.T) {
 	for _, tc := range []struct{ line, reject string }{
 		{"%eval in car.fl : radius *", "car.fl"},
 		{"%invoke car.fl spin turns=1 +", "car.fl"},
-		{"%invoke car.fl spin 1", "car.fl"},
+		{"%invoke car.fl spin 1 +", "car.fl"},
+		{"%invoke car.fl spin 1 turns=2", "car.fl"},
 		{"%send Spin(turns=1 +) to car.fl", "car.fl"},
 		{"%send Spin(1) to car.fl", "car.fl"},
 		{"%send Spin(turns=1, turns=2) to car.fl", "car.fl"},

@@ -72,8 +72,21 @@ func TestInvokeRunsAnOperationOnTheObject(t *testing.T) {
 	wants(t, run(t, s, "%features Obj::Monitor"), "count = 5")
 }
 
+// A positional argument list binds the operation's input parameters in declaration
+// order, an expression with spaces included.
+func TestInvokeBindsPositionalArguments(t *testing.T) {
+	s := loadFixture(t, "testdata/exhibited_machine.sysml")
+	run(t, s, "%instantiate Obj::Monitor")
+
+	wants(t, run(t, s, "%invoke Obj::Monitor bumpBy 4"), "Invoked bumpBy on object #")
+	wants(t, run(t, s, "%features Obj::Monitor"), "count = 5")
+	wants(t, run(t, s, "%invoke Obj::Monitor bumpBy 2 + 3"), "Invoked bumpBy on object #")
+	wants(t, run(t, s, "%features Obj::Monitor"), "count = 10")
+}
+
 // %invoke reports its usage, an operation the type does not own, an argument
-// naming no parameter and a parameter left unbound.
+// naming no parameter, a parameter left unbound, a list mixing the positional and
+// the named form, a surplus positional argument and one bound twice.
 func TestInvokeReportsItsFailureModes(t *testing.T) {
 	s := loadFixture(t, "testdata/exhibited_machine.sysml")
 	run(t, s, "%instantiate Obj::Monitor")
@@ -82,7 +95,11 @@ func TestInvokeReportsItsFailureModes(t *testing.T) {
 	wants(t, run(t, s, "%invoke Obj::Monitor missing"), "error:", "missing")
 	wants(t, run(t, s, "%invoke Obj::Monitor bumpBy"), "error:", "unbound parameter")
 	wants(t, run(t, s, "%invoke Obj::Monitor bumpBy other=1"), "error:", "unbound parameter")
-	wants(t, run(t, s, "%invoke Obj::Monitor bumpBy n"), "error:", "<parameter>=<expression>")
+	wants(t, run(t, s, "%invoke Obj::Monitor bumpBy n"), "error:", "unresolved reference")
+	wants(t, run(t, s, "%invoke Obj::Monitor bumpBy 1 n=2"), "error:", "positional and named arguments mixed")
+	wants(t, run(t, s, "%invoke Obj::Monitor bumpBy 1 2"), "error:", "takes 1 input parameter(s), got 2 argument(s)")
+	wants(t, run(t, s, "%invoke Obj::Monitor bumpBy n=1 n=2"), "error:", "parameter n is given more than one argument")
+	wants(t, run(t, s, "%features Obj::Monitor"), "count = 1")
 }
 
 // An unrelated declaration submitted while an object's machine is being debugged

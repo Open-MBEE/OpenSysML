@@ -273,6 +273,14 @@ var (
 	// parameter twice: by two named arguments, or by a positional and a named one.
 	ErrDuplicateArgument = errors.New("argument bound more than once")
 
+	// ErrOperationArity is returned when an operation invocation passes more
+	// positional arguments than the operation declares input parameters.
+	ErrOperationArity = errors.New("operation argument count mismatch")
+
+	// ErrMixedArguments is returned when an operation invocation gives positional and
+	// named arguments together: an argument list is one form or the other (KerML 8.2.5.8.3).
+	ErrMixedArguments = errors.New("positional and named arguments mixed")
+
 	// ErrNodeNotPerformed is returned when a pin of an action node is read before
 	// any performance of the node has started.
 	ErrNodeNotPerformed = errors.New("action node read before it is performed")
