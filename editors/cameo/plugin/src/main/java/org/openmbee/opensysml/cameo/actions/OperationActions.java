@@ -109,7 +109,13 @@ public final class OperationActions implements BrowserContextAMConfigurator, Dia
         source = selection.export().get();
         index = selection.index().get();
       } catch (RuntimeException exception) {
-        if (source != null) source.close();
+        if (source != null) {
+          try {
+            source.close();
+          } catch (RuntimeException closeException) {
+            exception.addSuppressed(closeException);
+          }
+        }
         JOptionPane.showMessageDialog(
             Application.getInstance().getMainFrame(), exception.getMessage(),
             "OpenSysML: export failed", JOptionPane.ERROR_MESSAGE);
