@@ -308,23 +308,21 @@ type calleeFrame struct {
 	name   string
 	out    []string
 	joined bool
-	// performer is the node's performance listening to a joined callee's outputs.
-	performer *actionFrame
 }
 
 func (f *calleeFrame) abandon(*Context) {
 	if !f.joined {
 		f.exec.Release()
-		return
 	}
-	f.exec.unlisten(f.performer)
 }
 
 func (f *calleeFrame) clone() bodyFrame { c := *f; return &c }
 
 // beginOrJoinCallee begins a performance of the action inv names on self, or, for a
 // `part.callee` whose object performs the callee already (its type performs it), joins
-// that one performance, as a run of the action named on an object does (performAction).
+// that one performance, as a run of the action named on an object does (performAction);
+// listener, if any, is installed on a performance begun here, a joined one is listened
+// to by the node while it runs it.
 func (ctx *Context) beginOrJoinCallee(inv actionInvocation, sym *symbols.Symbol, self *Instance, inputs map[string]Value, listener *outputListener) (*calleeFrame, error) {
 	if inv.chain != nil {
 		exec, err := performanceOf(sym, self, inputs)
@@ -332,9 +330,6 @@ func (ctx *Context) beginOrJoinCallee(inv actionInvocation, sym *symbols.Symbol,
 			return nil, err
 		}
 		if exec != nil {
-			if listener != nil {
-				exec.listen(listener.perf, listener.take)
-			}
 			return &calleeFrame{exec: exec, joined: true}, nil
 		}
 	}
