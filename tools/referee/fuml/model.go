@@ -37,15 +37,16 @@ func (m *Model) Class(id string) *Class {
 	return m.classes[id]
 }
 
-// ClassOf returns the class a type reference names, by ID first and then by
-// name (a reference may carry either), or nil when it names none. An external
-// reference names an element of another document, never one of the model's.
+// ClassOf returns the class a type reference names: by ID when it carries one
+// (an ID naming another kind of element names no class), else by name, or nil
+// when it names none or the name is ambiguous. An external reference names an
+// element of another document, never one of the model's.
 func (m *Model) ClassOf(t TypeRef) *Class {
 	if m == nil || t.Zero() || t.External {
 		return nil
 	}
-	if c := m.classes[t.ID]; c != nil {
-		return c
+	if t.ID != "" {
+		return m.classes[t.ID]
 	}
 	var found *Class
 	for _, c := range m.Classes {
@@ -60,14 +61,15 @@ func (m *Model) ClassOf(t TypeRef) *Class {
 	return found
 }
 
-// SignalOf returns the signal a type reference names, by ID first and then by
-// name, or nil when it names none, the name is ambiguous or it is external.
+// SignalOf returns the signal a type reference names: by ID when it carries
+// one, else by name, or nil when it names none, the name is ambiguous or it is
+// external.
 func (m *Model) SignalOf(t TypeRef) *Signal {
 	if m == nil || t.Zero() || t.External {
 		return nil
 	}
-	if s := m.signals[t.ID]; s != nil {
-		return s
+	if t.ID != "" {
+		return m.signals[t.ID]
 	}
 	var found *Signal
 	for _, s := range m.Signals {

@@ -1260,6 +1260,62 @@ func TestEmitExternalTypesNeverLocalClassifiers(t *testing.T) {
 		"action 'Create(Counter)' { out result : Counter = new Counter(); }")
 }
 
+// nameNamesakeModel declares a class and a signal both named Notice: Hear
+// accepts the signal and hands it out, touching the class nowhere.
+const nameNamesakeModel = `<?xml version="1.0" encoding="UTF-8"?>
+<uml:Model xmi:version="20131001" xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmlns:uml="http://www.eclipse.org/uml2/5.0.0/UML" xmi:id="m" name="NameNamesakes">
+  <packagedElement xmi:type="uml:Class" xmi:id="noticeClass" name="Notice">
+    <ownedAttribute xmi:type="uml:Property" xmi:id="noticeN" name="n">` + integerType + `</ownedAttribute>
+  </packagedElement>
+  <packagedElement xmi:type="uml:Signal" xmi:id="noticeSignal" name="Notice"/>
+  <packagedElement xmi:type="uml:SignalEvent" xmi:id="noticeEvent" signal="noticeSignal"/>
+  <packagedElement xmi:type="uml:Activity" xmi:id="hear" name="Hear">
+    <ownedParameter xmi:type="uml:Parameter" xmi:id="hearOut" name="heard" direction="out" type="noticeSignal">
+      <lowerValue xmi:type="uml:LiteralInteger" xmi:id="heardLo"/>
+      <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="heardHi" value="1"/>
+    </ownedParameter>
+    <node xmi:type="uml:InitialNode" xmi:id="hearInit" name="Initial"/>
+    <node xmi:type="uml:AcceptEventAction" xmi:id="acceptNotice" name="Accept(Notice)">
+      <result xmi:type="uml:OutputPin" xmi:id="acceptNoticeR" name="signal" type="noticeSignal"/>
+      <trigger xmi:type="uml:Trigger" xmi:id="noticeTrigger" event="noticeEvent"/>
+    </node>
+    <node xmi:type="uml:ActivityParameterNode" xmi:id="hearOutNode" name="Parameter(heard)" parameter="hearOut"/>
+    <edge xmi:type="uml:ControlFlow" xmi:id="h1" source="hearInit" target="acceptNotice"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="h2" source="acceptNoticeR" target="hearOutNode"/>
+  </packagedElement>
+</uml:Model>
+`
+
+// A reference carrying an XMI id names the element with that id and no other:
+// the id of a signal selects no class of the same name, so an activity touching
+// only the signal declares only the signal.
+func TestEmitIDReferencesNeverResolveByName(t *testing.T) {
+	s := fixtureSuite(t, nameNamesakeModel)
+	m := s.Tests
+	signal := TypeRef{ID: "noticeSignal", Name: "Notice", Kind: "Signal"}
+	class := TypeRef{ID: "noticeClass", Name: "Notice", Kind: "Class"}
+	if c := m.ClassOf(signal); c != nil {
+		t.Errorf("the signal's id resolves to class %s", c.Name)
+	}
+	if sg := m.SignalOf(class); sg != nil {
+		t.Errorf("the class's id resolves to signal %s", sg.Name)
+	}
+	if c := m.ClassOf(class); c == nil || c.ID != "noticeClass" {
+		t.Errorf("the class's id resolves to %v", c)
+	}
+	if sg := m.SignalOf(signal); sg == nil || sg.ID != "noticeSignal" {
+		t.Errorf("the signal's id resolves to %v", sg)
+	}
+	if m.ClassOf(TypeRef{ID: "missing", Name: "Notice"}) != nil || m.SignalOf(TypeRef{ID: "missing", Name: "Notice"}) != nil {
+		t.Error("an id naming nothing resolves by name")
+	}
+	em := emitted(t, s, "Hear")
+	wantLines(t, em, "attribute def Notice;", "out heard : Notice[0..1] = ();")
+	if strings.Contains(em.Text, "part def") {
+		t.Errorf("Hear declares the class it never touches:\n%s", em.Text)
+	}
+}
+
 // zeroInsertModel inserts into an ordered feature at position 0, which no
 // one-based position is.
 const zeroInsertModel = `<?xml version="1.0" encoding="UTF-8"?>
