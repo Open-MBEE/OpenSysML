@@ -211,6 +211,10 @@ type StateGraph struct {
 	// recorded where a state runs a behavior another body declares.
 	behaviorScope map[ast.Node]*symbols.Scope
 
+	// behaviorBlock: entry, do or exit action → the member it was written in,
+	// which groups the actions of one braced block.
+	behaviorBlock map[ast.Node]ast.Node
+
 	// attributeScope: attribute declaration → the scope its default value
 	// resolves in.
 	attributeScope map[ast.Node]*symbols.Scope
@@ -513,7 +517,12 @@ func (g *StateGraph) lowerBehaviorsFor(state *ast.StateNode, actions []ast.Node,
 		if inherited := g.behaviorScope[actual]; inherited != nil {
 			declared = inherited
 		}
-		behavior := lowerStateBehavior(actual, declared, g.resolver)
+		// An action recorded in no member is a block of its own.
+		block := BehaviorBlock{Member: actual}
+		if member := g.behaviorBlock[actual]; member != nil {
+			block.Member = member
+		}
+		behavior := lowerStateBehavior(actual, block, declared, g.resolver)
 		behavior.Owner = state
 		behaviors = append(behaviors, behavior)
 	}
@@ -593,6 +602,7 @@ func newStateGraph(scope *symbols.Scope, endpoints EndpointResolver) *StateGraph
 		declaredIn:          make(map[ast.Node]*symbols.Scope),
 		copiedFrom:          make(map[ast.Node]ast.Node),
 		behaviorScope:       make(map[ast.Node]*symbols.Scope),
+		behaviorBlock:       make(map[ast.Node]ast.Node),
 		attributeScope:      make(map[ast.Node]*symbols.Scope),
 		bodyOf:              make(map[*ast.StateNode][]inheritedMember),
 		parallelState:       make(map[*ast.StateNode]bool),
@@ -1117,6 +1127,9 @@ func (g *StateGraph) machineState(decl ast.Node, inherited []inheritedMember, me
 		inheritedNodes = append(inheritedNodes, member.node)
 		g.recordBehaviorScope(member.node, member.scope)
 	}
+	for _, member := range members {
+		g.recordBehaviorScope(member, nil)
+	}
 	state := parallelMachineState(decl, members)
 	_ = redeclare(state, parallelMachineState(decl, inheritedNodes), state)
 	g.StateScopes[state] = scope
@@ -1124,16 +1137,16 @@ func (g *StateGraph) machineState(decl ast.Node, inherited []inheritedMember, me
 	return state
 }
 
-// recordBehaviorScope records the scope an inherited entry, do or exit member's
-// actions were declared in.
+// recordBehaviorScope records the member an entry, do or exit member's actions
+// were written in and, for an inherited one, the scope they were declared in.
 func (g *StateGraph) recordBehaviorScope(member ast.Node, scope *symbols.Scope) {
 	switch m := unwrapMembership(member).(type) {
 	case *ast.EntryMember:
-		g.behaviorsIn(m.Actions, scope)
+		g.behaviorsIn(m, m.Actions, scope)
 	case *ast.DoMember:
-		g.behaviorsIn(m.Actions, scope)
+		g.behaviorsIn(m, m.Actions, scope)
 	case *ast.ExitMember:
-		g.behaviorsIn(m.Actions, scope)
+		g.behaviorsIn(m, m.Actions, scope)
 	}
 }
 
@@ -1496,7 +1509,7 @@ func lowerTransitionEdge(graph *StateGraph, edge *ast.TransitionEdge, owner ast.
 		Target:    target,
 		Trigger:   edge.Trigger,
 		Guard:     edge.Guard,
-		Effect:    LowerBehaviors(edge.Effect, scope, graph.resolver),
+		Effect:    LowerBehaviors(edge.Effect, BehaviorBlock{Member: edge}, scope, graph.resolver),
 		Scope:     scope,
 		BodyScope: scope,
 	}, nil
@@ -1562,8 +1575,9 @@ func lowerTransitionMember(graph *StateGraph, member *ast.TransitionMember, body
 // `do`, then the steps its body states (SysML.xtext:1863, where TransitionUsage
 // ends in ActionBody).
 func transitionEffects(member *ast.TransitionMember, scope *symbols.Scope, resolver *resolve.Resolver) []StateBehavior {
-	effects := LowerBehaviors(member.Effect, scope, resolver)
-	return append(effects, LowerBehaviors(BodyStatementMembers(member.Members), scope, resolver)...)
+	effects := LowerBehaviors(member.Effect, BehaviorBlock{Member: member}, scope, resolver)
+	body := LowerBehaviors(BodyStatementMembers(member.Members), BehaviorBlock{Member: member, Body: true}, scope, resolver)
+	return append(effects, body...)
 }
 
 // isEntrySubaction reports whether member is the entry subaction of the body a

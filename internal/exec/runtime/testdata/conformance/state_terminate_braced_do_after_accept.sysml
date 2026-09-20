@@ -1,8 +1,9 @@
 // A braced `do { … }` runs one statement at a time. Its first statement parks at
 // an accept until Go arrives; the `terminate` reached after it ends the whole
-// block, so the second accept the block would have parked at never begins, the
-// do behavior is over, and the state completes to `t` rather than waiting on the
-// timed transition. The machine keeps dispatching: `t` leaves for `u` on time.
+// block, so the second accept the block would have parked at never begins and
+// the assignment after it never runs. With its do behavior over the state
+// completes to `t`, and the machine keeps dispatching: the timed transition
+// takes `t` to `u` a second later.
 package Test {
 	private import ScalarValues::*;
 	private import SI::*;
@@ -25,10 +26,8 @@ package Test {
 		}
 		state t;
 		state u;
-		state stuck;
 
 		transition first s then t;
-		transition first s accept after 5 [SI::s] then stuck;
 		transition first t accept after 1 [SI::s] then u;
 	}
 }
