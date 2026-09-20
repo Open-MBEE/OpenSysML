@@ -74,6 +74,7 @@ func (ctx *Context) endLifeAt(inst *Instance, at int64) {
 	prior := ctx.lives[inst.ID]
 	ctx.lives[inst.ID] = life{reached: prior.reached, began: prior.began, ended: at}
 	ctx.noteProbeUndo(func() { ctx.lives[inst.ID] = prior })
+	ctx.livesChanged()
 }
 
 // endBehaviorsWith ends, in the order the behaviors were begun, every behavior whose

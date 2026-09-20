@@ -37,6 +37,8 @@ func (ec *EvalContext) evalExtent(n *ast.OperatorExpr) (Value, error) {
 		return Value{}, fmt.Errorf("%w: %s is a data type, whose values are not enumerated (only an enumeration's literals are)",
 			ErrUnboundedExtent, qualifiedNameToString(qn))
 	}
+	// The extent is the objects there are, alive: what derives it reads the lives.
+	ec.ctx.readsLives()
 	roots, err := ec.extentRoots(target)
 	if err != nil {
 		return Value{}, err

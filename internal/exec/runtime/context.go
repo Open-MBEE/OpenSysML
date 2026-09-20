@@ -30,6 +30,8 @@ type Context struct {
 	created   []int64
 	// lives holds, per registered object, when it began and ended (lifetimes.go).
 	lives map[int64]life
+	// lifetimes stands for the lives as a `=` value reads them, to derive again when they change.
+	lifetimes FeatureValue
 
 	// maxActionSteps, maxStateEvents and maxDoSteps bound the executors this
 	// context runs: token-flow steps, dispatched events, and do actions.

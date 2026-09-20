@@ -32,6 +32,7 @@ func TestRuntimeRobustnessObjectLifecycle(t *testing.T) {
 	t.Run("an_object_two_wholes_hold_composite_ends_with_either", testObjectLifecycleSharedPortion)
 	t.Run("a_composite_write_making_the_holder_its_own_portion_is_refused", testObjectLifecycleCompositeCycle)
 	t.Run("destroying_an_object_forgets_the_messages_addressed_to_it", testObjectLifecycleForgetsMessages)
+	t.Run("derivations_that_read_lifetimes_derive_again_when_they_change", testObjectLifecycleDerivationsFollowLives)
 	t.Run("behaviors_a_write_starts_run_once_the_feature_holds_the_object", testObjectLifecycleStartsAfterStore)
 	t.Run("behaviors_a_constructor_argument_starts_run_once_every_argument_is_stored", testObjectLifecycleConstructorStartsAfterStores)
 	t.Run("behaviors_a_bound_default_starts_run_once_the_feature_holds_the_object", testObjectLifecycleBoundDefaultStartsAfterStore)
@@ -659,6 +660,78 @@ func testObjectLifecycleForgetsMessages(t *testing.T) {
 	rollback()
 	if got := ctx.PendingMessages(); len(got) != 2 {
 		t.Errorf("pending after rolling the destruction back: %v; want both Pings", got)
+	}
+}
+
+// testObjectLifecycleDerivationsFollowLives: a `=` value that read a car's feature, whether the
+// car is alive, or the extent derives again once a car is created or destroyed, rather than
+// answering from what it derived before.
+func testObjectLifecycleDerivationsFollowLives(t *testing.T) {
+	instantiate, _, ctx := lifetimeFixture(t, `
+		package test {
+			private import ScalarValues::*;
+			private import OccurrenceFunctions::*;
+			private import SequenceFunctions::*;
+			part def Car { attribute n : Integer = 2; }
+			part def Garage {
+				part slot : Car[0..1];
+				attribute slotN : Integer = slot.n;
+				attribute slotAlive : Boolean = isDuring(slot);
+				attribute cars : Natural = (all Car)->size();
+			}
+			part garage : Garage;
+			calc def Scrap { in c : Car; return : Car[0..1] = destroy(c); }
+		}`)
+	garage := instantiate("garage")
+	_, scope := calcByName(t, ctx.model.resolver.Index().DocumentRoot("<test>"), "test", "Garage")
+	read := func(name string) (string, error) {
+		fv, err := garage.GetFeatureValue(ctx, name)
+		if err != nil {
+			return "", err
+		}
+		return FormatValue(fv.HeldValue()), nil
+	}
+	if got, err := read("cars"); err != nil || got != "0" {
+		t.Fatalf("garage.cars before any car = %s, %v; want 0", got, err)
+	}
+	car, err := evalIn(t, ctx, scope, "new Car()")
+	if err != nil {
+		t.Fatalf("new Car(): %v", err)
+	}
+	if got, err := read("cars"); err != nil || got != "1" {
+		t.Errorf("garage.cars after new Car() = %s, %v; want 1", got, err)
+	}
+	if err := garage.SetFeatureValue(ctx, "slot", car); err != nil {
+		t.Fatalf("garage.slot := car: %v", err)
+	}
+	if got, err := read("slotN"); err != nil || got != "2" {
+		t.Fatalf("garage.slotN = %s, %v; want 2", got, err)
+	}
+	if got, err := read("slotAlive"); err != nil || got != "true" {
+		t.Fatalf("garage.slotAlive = %s, %v; want true", got, err)
+	}
+	_, rollback := ctx.beginJournal()
+	if _, err := evalIn(t, ctx, scope, "Scrap(garage.slot)"); err != nil {
+		t.Fatalf("Scrap(garage.slot): %v", err)
+	}
+	if got, err := read("slotAlive"); err != nil || got != "false" {
+		t.Errorf("garage.slotAlive after scrapping the car = %s, %v; want false", got, err)
+	}
+	rollback()
+	if got, err := read("slotAlive"); err != nil || got != "true" {
+		t.Errorf("garage.slotAlive after rolling the scrapping back = %s, %v; want true", got, err)
+	}
+	if _, err := evalIn(t, ctx, scope, "Scrap(garage.slot)"); err != nil {
+		t.Fatalf("Scrap(garage.slot): %v", err)
+	}
+	if _, err := read("slotN"); !errors.Is(err, ErrOccurrenceDestroyed) {
+		t.Errorf("garage.slotN after scrapping the car = %v; want ErrOccurrenceDestroyed, derived again", err)
+	}
+	if got, err := read("slotAlive"); err != nil || got != "false" {
+		t.Errorf("garage.slotAlive after scrapping the car = %s, %v; want false", got, err)
+	}
+	if got, err := read("cars"); err != nil || got != "0" {
+		t.Errorf("garage.cars after scrapping the car = %s, %v; want 0", got, err)
 	}
 }
 

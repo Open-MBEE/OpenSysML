@@ -32,9 +32,67 @@ type life struct {
 // alive reports whether the occurrence has begun and not ended.
 func (l life) alive() bool { return l.began > 0 && l.ended == 0 }
 
+// readsLives lists the `=` value being derived, if any, as reading the lives: which
+// objects there are, and when each began and ended.
+func (ctx *Context) readsLives() { ctx.noteRead(&ctx.lifetimes) }
+
+// livesChanged unmaterializes what derived from the lives, save what is deriving now:
+// a change a `=` value makes while deriving is its own, and what it derives reflects it.
+func (ctx *Context) livesChanged() {
+	src := &ctx.lifetimes
+	var deriving, settled []*FeatureValue
+	for _, dep := range src.dependents {
+		if ctx.isDeriving(dep) {
+			deriving = append(deriving, dep)
+		} else {
+			settled = append(settled, dep)
+		}
+	}
+	if len(settled) == 0 {
+		return
+	}
+	ctx.noteProbeWrite(src)
+	src.dependents = listDependents(deriving, ctx.invalidate(settled))
+}
+
+// livesGrew is livesChanged for an object materialized or a performance begun or
+// ended: under a `=` value being derived that is its materialization, changing nothing
+// a value stands for, so nothing is derived again.
+func (ctx *Context) livesGrew() {
+	if len(ctx.deriving) > 0 {
+		return
+	}
+	ctx.livesChanged()
+}
+
+// isDeriving reports whether fv is being derived right now.
+func (ctx *Context) isDeriving(fv *FeatureValue) bool {
+	for i := range ctx.deriving {
+		if ctx.deriving[i].fv == fv {
+			return true
+		}
+	}
+	return false
+}
+
+// forgetDerivedFrom unmaterializes what derived from a feature of the ended objects:
+// read again, it finds them destroyed, as reading the feature itself does.
+func (ctx *Context) forgetDerivedFrom(ended map[int64]bool) {
+	for id := range ended {
+		inst, ok := ctx.instances[id]
+		if !ok {
+			continue
+		}
+		for _, fv := range inst.FeatureValues {
+			ctx.invalidateDependents(fv)
+		}
+	}
+}
+
 // lifeOf answers the lifetime of inst for function op; an object the context
 // holds without one is a fault of the context, reported rather than guessed.
 func (ctx *Context) lifeOf(op string, inst *Instance) (life, error) {
+	ctx.readsLives()
 	l, ok := ctx.lives[inst.ID]
 	if !ok {
 		return life{}, fmt.Errorf("%w: function %s: object #%d (%s) has no lifetime here",
@@ -90,6 +148,7 @@ func (ctx *Context) beginLife(inst *Instance) {
 		}
 	}
 	ctx.lives[inst.ID] = l
+	ctx.livesGrew()
 }
 
 // createDuring starts inst during the call entered at mark: only an object the
@@ -111,6 +170,7 @@ func (ctx *Context) createDuring(op string, inst *Instance, mark int64) error {
 	}
 	ctx.lives[inst.ID] = life{reached: prior.reached, began: prior.reached}
 	ctx.noteProbeUndo(func() { ctx.lives[inst.ID] = prior })
+	ctx.livesChanged()
 	for _, portion := range ctx.portionsOf(inst)[1:] {
 		if held := ctx.lives[portion.ID]; held.began < prior.reached {
 			ctx.lives[portion.ID] = life{reached: held.reached, began: prior.reached, ended: held.ended, destroyed: held.destroyed}
@@ -145,6 +205,8 @@ func (ctx *Context) destroy(inst *Instance) error {
 			ctx.trace.RecordOccurrenceDestroyed(symbolText(portion.Type), portion.ID)
 		}
 	}
+	ctx.livesChanged()
+	ctx.forgetDerivedFrom(ended)
 	ctx.endBehaviorsWith(ended)
 	ctx.forgetMessagesTo(ended)
 	if ctx.innermostRun().endsWithin(ended) {
@@ -246,6 +308,7 @@ func (ctx *Context) beginPerformanceLife(inst *Instance, activation int64) {
 	}
 	ctx.lives[inst.ID] = life{reached: prior.reached, began: activation}
 	ctx.noteProbeUndo(func() { ctx.lives[inst.ID] = prior })
+	ctx.livesGrew()
 }
 
 // endPerformanceLife records a performance occurrence completing, where one
@@ -260,6 +323,7 @@ func (ctx *Context) endPerformanceLife(inst *Instance) {
 	}
 	ctx.lives[inst.ID] = life{reached: prior.reached, began: prior.began, ended: ctx.newActivation()}
 	ctx.noteProbeUndo(func() { ctx.lives[inst.ID] = prior })
+	ctx.livesGrew()
 }
 
 // carryLife keeps a carried-over object destroyed when it was destroyed in the
@@ -271,6 +335,7 @@ func (ctx *Context) carryLife(prev *Context, inst *Instance) {
 	if l, ok := prev.lives[inst.ID]; ok && l.destroyed {
 		here := ctx.lives[inst.ID]
 		ctx.lives[inst.ID] = life{reached: here.reached, began: here.began, ended: ctx.newActivation(), destroyed: true}
+		ctx.livesChanged()
 	}
 }
 
