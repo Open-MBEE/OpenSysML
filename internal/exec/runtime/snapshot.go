@@ -50,6 +50,8 @@ type journalMark struct {
 	messages          []Message
 	clockNow          float64
 	clockWaiters      []clockWaiter
+	trace             *TraceRecorder
+	traced            traceCapture
 }
 
 // runCapture is the run bookkeeping the context keeps outside its journal.
@@ -305,12 +307,14 @@ func (ctx *Context) markJournal() journalMark {
 		messages:     slices.Clone(ctx.messages),
 		clockNow:     ctx.clock.now,
 		clockWaiters: slices.Clone(ctx.clock.waiters),
+		trace:        ctx.trace,
+		traced:       captureTrace(ctx.trace),
 	}
 }
 
 // rollbackJournal undoes every change journaled since the mark: the feature
-// values written, the other changes noted, the bus, the clock, the objects made
-// and the behaviors attached. The journal is cut back to the mark.
+// values written, the other changes noted, the bus, the clock, the objects made,
+// the behaviors attached and the trace recorded. The journal is cut back to the mark.
 func (ctx *Context) rollbackJournal(mark journalMark) {
 	for i := len(ctx.journalWrites) - 1; i >= mark.writes; i-- {
 		*ctx.journalWrites[i].fv = ctx.journalWrites[i].prior
@@ -323,6 +327,7 @@ func (ctx *Context) rollbackJournal(mark journalMark) {
 	ctx.messages = slices.Clone(mark.messages)
 	ctx.abandonCreationSince(mark.created, mark.attached)
 	ctx.clock.now, ctx.clock.waiters = mark.clockNow, slices.Clone(mark.clockWaiters)
+	mark.traced.restore(mark.trace)
 }
 
 func (ctx *Context) captureRun() runCapture {

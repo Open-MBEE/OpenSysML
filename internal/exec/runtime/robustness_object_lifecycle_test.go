@@ -27,6 +27,7 @@ func TestRuntimeRobustnessObjectLifecycle(t *testing.T) {
 	t.Run("a_destroyed_part_a_live_whole_retains_is_no_subject_of_a_check", testObjectLifecycleDestroyedNestedNotSubject)
 	t.Run("a_failed_constructor_rolls_back_what_its_behaviors_wrote", testObjectLifecycleFailedConstructorWrites)
 	t.Run("a_refused_write_leaves_no_adoption_for_an_outer_rollback", testObjectLifecycleRefusedWriteJournal)
+	t.Run("a_rolled_back_store_or_constructor_leaves_no_trace_of_what_it_undid", testObjectLifecycleRolledBackTrace)
 	t.Run("a_failed_constructor_revives_what_its_behaviors_destroyed_whole", testObjectLifecycleFailedConstructorDestroy)
 	t.Run("a_part_declared_or_bound_to_a_new_object_ends_with_the_whole", testObjectLifecycleDeclaredPart)
 	t.Run("an_object_two_wholes_hold_composite_ends_with_either", testObjectLifecycleSharedPortion)
@@ -857,6 +858,77 @@ func testObjectLifecycleRefusedWriteJournal(t *testing.T) {
 	}
 	if err := shelf.SetFeatureValue(ctx, "slot", objectValue(device)); err != nil || device.owner != shelf {
 		t.Errorf("shelf.slot := device = %v, owner %v; want the shelf to own it", err, device.owner)
+	}
+}
+
+// testObjectLifecycleRolledBackTrace: the behaviors a refused write or a failed constructor
+// started are rolled back trace and all, so the trace reports no step the run does not show;
+// the trace of a store that is kept stays.
+func testObjectLifecycleRolledBackTrace(t *testing.T) {
+	instantiate, _, ctx := lifetimeFixture(t, `
+		package test {
+			private import ScalarValues::*;
+			part def Device;
+			part def Rack {
+				part slot : Device[0..1] {
+					attribute bad : Integer;
+					perform action boom { first start; then action b { assign bad := 1/0; } then done; }
+				}
+			}
+			part def Shelf {
+				part slot : Device[0..1] {
+					attribute n : Integer;
+					perform action fill { first start; then action f { assign n := 1; } then done; }
+				}
+			}
+			part def Plant { attribute count : Integer = 0; }
+			part def Worker {
+				ref part p : Plant;
+				perform action go {
+					first start;
+					then action write { assign p.count := 1; }
+					then action fail { assign p.count := 1/0; }
+					then done;
+				}
+			}
+			part plant : Plant;
+		}`)
+	tr := NewTraceRecorder()
+	ctx.SetTrace(tr)
+	rack, shelf, device, plant := instantiate("Rack"), instantiate("Shelf"), instantiate("Device"), instantiate("plant")
+	// stepsIn is what the records say of the behaviors: everything but the failing evaluation's own line.
+	stepsIn := func(records []TraceRecord) (steps []string) {
+		for _, r := range records {
+			if r.Kind == TraceLine && !strings.HasPrefix(r.text, "eval construct ") {
+				steps = append(steps, r.text)
+			}
+		}
+		return steps
+	}
+	before := len(tr.records)
+	if err := rack.SetFeatureValue(ctx, "slot", objectValue(device)); err == nil {
+		t.Fatal("rack.slot := device succeeded; want the slot's failing action reported")
+	}
+	if steps := stepsIn(tr.records[before:]); len(steps) != 0 {
+		t.Errorf("the refused write left %d step records in the trace: %q; want none", len(steps), steps)
+	}
+	_, scope := calcByName(t, ctx.model.resolver.Index().DocumentRoot("<test>"), "test", "Plant")
+	before = len(tr.records)
+	if _, err := evalIn(t, ctx, scope, "new Worker(plant)"); err == nil {
+		t.Fatal("new Worker(plant) succeeded; want its failing action reported")
+	}
+	if steps := stepsIn(tr.records[before:]); len(steps) != 0 {
+		t.Errorf("the failed constructor left %d step records in the trace: %q; want none", len(steps), steps)
+	}
+	if fv, err := plant.GetFeatureValue(ctx, "count"); err != nil || FormatValue(fv.HeldValue()) != "0" {
+		t.Errorf("plant.count = %v, %v after the failed constructor; want 0", fv, err)
+	}
+	before = len(tr.records)
+	if err := shelf.SetFeatureValue(ctx, "slot", objectValue(device)); err != nil {
+		t.Fatalf("shelf.slot := device: %v", err)
+	}
+	if steps := stepsIn(tr.records[before:]); len(steps) == 0 {
+		t.Error("the kept write left no step records in the trace; want the fill action's steps")
 	}
 }
 
