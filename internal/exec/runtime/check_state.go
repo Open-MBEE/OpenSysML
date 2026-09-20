@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"maps"
 	"slices"
 	"sort"
 	"strconv"
@@ -453,6 +454,13 @@ func (s *stateSpeller) frame(perf *actionFrame) string {
 	}
 	for _, node := range sortedNodes(perf.subactions) {
 		fmt.Fprintf(&b, " latest{%s = %s}", s.node(perf.graph, node), s.frameLabel(perf.subactions[node]))
+	}
+	streamed := slices.Sorted(maps.Keys(perf.streamed))
+	if len(streamed) > 0 {
+		fmt.Fprintf(&b, " streamed{%s}", strings.Join(streamed, ","))
+	}
+	for _, node := range sortedNodes(perf.unreceived) {
+		fmt.Fprintf(&b, " unreceived{%s}", s.node(perf.graph, node))
 	}
 	return b.String()
 }

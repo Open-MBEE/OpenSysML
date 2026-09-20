@@ -107,6 +107,12 @@ type actionFrame struct {
 	// ended marks a performance that has completed, so a delivery to a node under it
 	// waits for the next performance rather than reaching one that is over.
 	ended bool
+	// streamed marks the pins whose writes this performance carried on along a
+	// streaming flow, so its completion does not carry the last of them again.
+	streamed map[string]bool
+	// unreceived holds, per target node, a streaming flow that carried a value after the
+	// node's latest performance ended; the node's next performance takes it, else it is reported.
+	unreceived map[ast.Node]unreceivedStream
 	// nodes are the action nodes a state behavior's performance runs, which its body's
 	// blocks declare; the frames of a state machine and its states hold none.
 	nodes []ast.Node
@@ -126,6 +132,13 @@ func (f *actionFrame) within() []ast.Node {
 	}
 	slices.Reverse(chain)
 	return chain
+}
+
+// unreceivedStream is a streaming flow, and the node it runs from, whose value waits at
+// a target whose performances are all over.
+type unreceivedStream struct {
+	flow   lower.ObjectFlow
+	source ast.Node
 }
 
 // nestedDelivery is a value bound for a pin of a node under another: path leads to the
@@ -366,6 +379,9 @@ func (e *performances) seedDeclaredValues(perf *actionFrame, features []lower.Fe
 // carry what it produced to their other ends.
 func (e *performances) endPerformance(perf *actionFrame) error {
 	perf.ended = true
+	if err := checkStreamsReceived(perf); err != nil {
+		return err
+	}
 	for _, name := range perf.outputs {
 		value, ok := perf.data[perf.key(name)]
 		if !ok {
@@ -376,6 +392,19 @@ func (e *performances) endPerformance(perf *actionFrame) error {
 		}
 	}
 	return e.bindOutputPins(perf)
+}
+
+// checkStreamsReceived reports a value a streaming flow of frame's nodes carried after
+// its target's last performance ended, which no later performance of the target took.
+func checkStreamsReceived(frame *actionFrame) error {
+	nodes := sortedNodes(frame.unreceived)
+	if len(nodes) == 0 {
+		return nil
+	}
+	stream := frame.unreceived[nodes[0]]
+	return fmt.Errorf("%w: %s: %s completed before %s wrote %s",
+		ErrStreamUnreceived, flowDescription(stream.flow), nodeDescription(nodes[0]),
+		nodeDescription(stream.source), orAnyPin(stream.flow.SourcePin))
 }
 
 // nodePins are the pins a performance of node holds (its own and its action's),
@@ -677,6 +706,7 @@ func (e *performances) checkNestedDelivery(flow *lower.ActionGraph, node ast.Nod
 // performances of one node begun in turn each start with their own inputs, and
 // forwards what waits for the nodes under it.
 func (e *performances) takeDeliveries(f *actionFrame, node ast.Node, perf *actionFrame) error {
+	delete(f.unreceived, node)
 	queues := f.pending[node]
 	for pin, values := range queues {
 		perf.data[pin] = values[0]
@@ -714,6 +744,56 @@ func (e *performances) setFrameFeature(f *actionFrame, name string, value Value)
 	}
 	f.data[f.key(name)] = value
 	e.noteFrameWrite(f, name, value)
+	return e.streamFrom(f, f.key(name), value)
+}
+
+// streamFrom carries a value written to pin of f on along the streaming flows out of
+// f's node, to the performances of their targets under way.
+func (e *performances) streamFrom(f *actionFrame, pin string, value Value) error {
+	if f.parent == nil || f.flow == nil {
+		return nil
+	}
+	for _, flow := range f.flow.DataFlows[f.node] {
+		if flow.Kind != lower.FlowStreaming || f.key(flow.SourcePin) != pin {
+			continue
+		}
+		if f.streamed == nil {
+			f.streamed = make(map[string]bool)
+		}
+		f.streamed[flow.SourcePin] = true
+		if err := e.streamFlow(f.parent, f.flow, f.node, flow, value); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// streamFlow delivers one value a streaming flow carries: to the pin of every ongoing
+// performance of its target in frame's flow, else ahead of the target's next performance.
+func (e *performances) streamFlow(
+	frame *actionFrame, graph *lower.ActionGraph, source ast.Node, flow lower.ObjectFlow, value Value,
+) error {
+	if _, performs := flow.Target.(*ast.Usage); !performs {
+		return e.deliverFlow(frame, graph, flow, value)
+	}
+	ongoing := e.flow.ongoing(frame, flow.Target)
+	if len(ongoing) == 0 {
+		if latest := frame.subactions[flow.Target]; latest != nil && latest.ended {
+			if frame.unreceived == nil {
+				frame.unreceived = make(map[ast.Node]unreceivedStream)
+			}
+			frame.unreceived[flow.Target] = unreceivedStream{flow: flow, source: source}
+		}
+		return e.deliverFlow(frame, graph, flow, value)
+	}
+	for _, target := range ongoing {
+		if !target.declares(flow.TargetPin) {
+			return fmt.Errorf("%s: %w: %s declares no %s", flowDescription(flow), ErrNodePin, target.describe(), flow.TargetPin)
+		}
+		if err := e.setFrameFeature(target, flow.TargetPin, value); err != nil {
+			return fmt.Errorf("%s: %w", flowDescription(flow), err)
+		}
+	}
 	return nil
 }
 

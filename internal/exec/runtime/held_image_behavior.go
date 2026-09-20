@@ -209,6 +209,8 @@ func (t *imaging) frame(perf *actionFrame, at func(*actionFrame) int) (imagedFra
 	f.saved.aliases = maps.Clone(perf.aliases)
 	f.saved.outputs = slices.Clone(perf.outputs)
 	f.saved.nodes = slices.Clone(perf.nodes)
+	f.saved.streamed = maps.Clone(perf.streamed)
+	f.saved.unreceived = maps.Clone(perf.unreceived)
 	for _, local := range perf.locals {
 		if err := t.values(local); err != nil {
 			return imagedFrame{}, err
@@ -487,6 +489,8 @@ func (m *materializing) frame(perf *actionFrame, img imagedFrame, frameAt func(i
 	perf.aliases = maps.Clone(img.saved.aliases)
 	perf.outputs = slices.Clone(img.saved.outputs)
 	perf.nodes = slices.Clone(img.saved.nodes)
+	perf.streamed = maps.Clone(img.saved.streamed)
+	perf.unreceived = maps.Clone(img.saved.unreceived)
 	var err error
 	perf.locals = nil
 	for _, local := range img.locals {

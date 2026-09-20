@@ -1876,6 +1876,9 @@ func (e *ActionExecutor) retireToken(tokenIdx int) error {
 	if frame == e.root && !frame.inBody {
 		e.removeToken(tokenIdx)
 		if len(e.tokens) == 0 {
+			if err := checkStreamsReceived(e.root); err != nil {
+				return err
+			}
 			e.state = StateCompleted
 			e.ctx.endPerformanceLife(e.occurrence)
 		}
@@ -2161,7 +2164,7 @@ func (e *ActionExecutor) leaveExecutionNode(tokenIdx int, frame *actionFrame, no
 	}
 
 	// Apply data flows: transfer data from this node's output pins to target input pins
-	if err := e.applyDataFlows(frame, frame.graph, node, frame.data); err != nil {
+	if err := e.applyDataFlows(frame, frame.graph, node, frame.data, nil); err != nil {
 		return err
 	}
 
@@ -2283,7 +2286,7 @@ func (e *ActionExecutor) completeNode(tokenIdx int, perf *actionFrame) error {
 
 	// The flows out of this node carry what this performance produced to the
 	// pins the nodes downstream read.
-	if err := e.applyDataFlows(frame, frame.graph, node, perf.data); err != nil {
+	if err := e.applyDataFlows(frame, frame.graph, node, perf.data, perf.streamed); err != nil {
 		return err
 	}
 
@@ -2575,16 +2578,28 @@ func statementNodeKeyword(node ast.Node) string {
 
 // applyDataFlows moves what the completed performance produced along graph's flows out
 // of sourceNode to the target pins; a source pin holding nothing is an error, not a no-op.
-func (e *performances) applyDataFlows(frame *actionFrame, graph *lower.ActionGraph, sourceNode ast.Node, produced map[string]Value) error {
+// A streaming flow from a pin in streamed carried its values as they were written.
+func (e *performances) applyDataFlows(
+	frame *actionFrame, graph *lower.ActionGraph, sourceNode ast.Node, produced map[string]Value, streamed map[string]bool,
+) error {
 	for _, flow := range graph.DataFlows[sourceNode] {
+		if flow.Kind == lower.FlowStreaming && streamed[flow.SourcePin] {
+			continue
+		}
 		sourceData, ok := produced[flow.SourcePin]
 		if !ok {
 			return fmt.Errorf(
-				"%s: %s produced no value at %s",
-				flowDescription(flow), nodeDescription(sourceNode), orAnyPin(flow.SourcePin),
+				"%w: %s: %s produced no value at %s",
+				ErrFlowSource, flowDescription(flow), nodeDescription(sourceNode), orAnyPin(flow.SourcePin),
 			)
 		}
-		if err := e.deliverFlow(frame, graph, flow, sourceData); err != nil {
+		var err error
+		if flow.Kind == lower.FlowStreaming {
+			err = e.streamFlow(frame, graph, sourceNode, flow, sourceData)
+		} else {
+			err = e.deliverFlow(frame, graph, flow, sourceData)
+		}
+		if err != nil {
 			return err
 		}
 	}
@@ -2603,14 +2618,14 @@ func (e *performances) deliverFlow(frame *actionFrame, graph *lower.ActionGraph,
 	return e.setFrameFeature(frame, flow.TargetPin, value)
 }
 
-// flowDescription names a data flow for a diagnostic: its own name when it was
-// declared with one, and the pins it joins otherwise.
+// flowDescription names a data flow for a diagnostic: its kind and its own name when it
+// was declared with one, and the pins it joins otherwise.
 func flowDescription(flow lower.ObjectFlow) string {
 	if flow.Name != "" {
-		return "flow " + flow.Name
+		return flow.Kind.String() + " " + flow.Name
 	}
 	return fmt.Sprintf(
-		"flow from %s to %s",
+		flow.Kind.String()+" from %s to %s",
 		orAnyPin(flow.SourcePin), orAnyPin(flow.TargetPin),
 	)
 }

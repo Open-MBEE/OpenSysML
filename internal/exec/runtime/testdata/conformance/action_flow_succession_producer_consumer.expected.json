@@ -1,0 +1,9 @@
+{
+	"type": "action",
+	"trace": true,
+	"outputs": {
+		"total": {"type": "Integer", "value": 9},
+		"i": {"type": "Integer", "value": 3},
+		"reads": {"type": "Integer", "value": 3}
+	}
+}
