@@ -571,6 +571,10 @@ func (ctx *Context) rootInstances() []*Instance {
 		if inst == nil || held[inst.ID] || (nestedFeature(inst.Type) && ctx.readThrough(inst)) {
 			continue
 		}
+		// A destroyed object is no subject of anything; what it held is reached from where it stands.
+		if ctx.checkNotDestroyed(inst) != nil {
+			continue
+		}
 		if ctx.denotesOccurrence(inst) {
 			denoted[inst.Type] = append(denoted[inst.Type], inst)
 			continue

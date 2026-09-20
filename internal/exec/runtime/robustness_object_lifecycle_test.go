@@ -23,6 +23,8 @@ func TestRuntimeRobustnessObjectLifecycle(t *testing.T) {
 	t.Run("send_new_starts_the_message_objects_behaviors", testObjectLifecycleSendNew)
 	t.Run("a_failed_constructor_leaves_no_argument_object", testObjectLifecycleFailedConstructor)
 	t.Run("destroying_a_holder_leaves_what_it_referred_to_in_the_extent", testObjectLifecycleDestroyedHolderExtent)
+	t.Run("a_destroyed_object_is_no_subject_of_a_check", testObjectLifecycleDestroyedNotSubject)
+	t.Run("a_failed_constructor_rolls_back_what_its_behaviors_wrote", testObjectLifecycleFailedConstructorWrites)
 	t.Run("explore_creating_objects_is_deterministic", testObjectLifecycleExploreCreation)
 	t.Run("explore_destroy_race_reaches_both_outcomes", testObjectLifecycleExploreDestroyRace)
 }
@@ -397,6 +399,63 @@ func testObjectLifecycleDestroyedHolderExtent(t *testing.T) {
 	}
 	if got, err := invoke("Extent", objectValue(fleet)); err != nil || FormatValue(got) != "1" {
 		t.Errorf("all Car = %v, %v after destroying the fleet; want the spare alone", got, err)
+	}
+}
+
+// testObjectLifecycleDestroyedNotSubject: of two standalone cars, the latest destroyed, the
+// destroyed one is no carrier of Car's constraint, so the check is about the live one.
+func testObjectLifecycleDestroyedNotSubject(t *testing.T) {
+	instantiate, invoke, ctx := lifetimeFixture(t, `
+		package test {
+			private import ScalarValues::*;
+			private import OccurrenceFunctions::*;
+			part def Car { attribute n : Integer = 1; constraint small { n < 10 } }
+			calc def Destroy { in c : Car; return : Car[0..1] = destroy(c); }
+		}`)
+	live, doomed := instantiate("Car"), instantiate("Car")
+	small := memberPath(t, ctx.model.resolver.Index().DocumentRoot("<test>"), "test", "Car", "small")
+	if _, err := invoke("Destroy", objectValue(doomed)); err != nil {
+		t.Fatalf("destroy = %v", err)
+	}
+	if l, _ := ctx.OccurrenceLife(live.ID); !l.Alive() {
+		t.Fatalf("the other car ended too")
+	}
+	satisfied, err := ctx.EvaluateConstraint(small, small.OwnerScope)
+	if err != nil || !satisfied {
+		t.Errorf("EvaluateConstraint after destroying one car = %t, %v; want the live car's verdict", satisfied, err)
+	}
+}
+
+// testObjectLifecycleFailedConstructorWrites: the action a `new Worker(plant)` performs writes
+// the plant's count before failing, and the failed construction leaves the count as it was.
+func testObjectLifecycleFailedConstructorWrites(t *testing.T) {
+	instantiate, _, ctx := lifetimeFixture(t, `
+		package test {
+			private import ScalarValues::*;
+			part def Plant { attribute count : Integer = 0; }
+			part def Worker {
+				ref part p : Plant;
+				perform action go {
+					first start;
+					then action write { assign p.count := 1; }
+					then action fail { assign p.count := 1/0; }
+					then done;
+				}
+			}
+			part plant : Plant;
+		}`)
+	plant := instantiate("plant")
+	_, scope := calcByName(t, ctx.model.resolver.Index().DocumentRoot("<test>"), "test", "Plant")
+	before := len(ctx.created)
+	if _, err := evalIn(t, ctx, scope, "new Worker(plant)"); err == nil {
+		t.Fatal("new Worker(plant) succeeded; want its failing action reported")
+	}
+	fv, err := plant.GetFeatureValue(ctx, "count")
+	if err != nil || FormatValue(fv.HeldValue()) != "0" {
+		t.Errorf("plant.count = %v, %v after the failed constructor; want 0, the write rolled back", fv, err)
+	}
+	if len(ctx.created) != before {
+		t.Errorf("%d objects after the failed constructor; want %d", len(ctx.created), before)
 	}
 }
 

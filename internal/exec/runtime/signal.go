@@ -1386,26 +1386,27 @@ func (e *EvalContext) evalConstructor(constructor *ast.ConstructorExpr) (Value, 
 
 // constructObject materializes the object `new T(…)` denotes (KerML §7.4.9): an occurrence
 // whose life begins here and that performs T's behaviors. A construction that fails at any
-// step — an argument, the materialization, a behavior's start — leaves nothing, not even the
-// objects its arguments made.
+// step — an argument, the materialization, a behavior's start — leaves nothing: the objects
+// its arguments made, the values written and the messages sent along the way are rolled back.
 func (e *EvalContext) constructObject(build func() (Message, error), what string) (Message, *Instance, error) {
 	ctx := e.ctx
-	mark, attached := len(ctx.created), len(ctx.objectBehaviors)
+	commit, rollback := ctx.beginJournal()
 	msg, err := build()
 	if err != nil {
-		ctx.abandonCreationSince(mark, attached)
+		rollback()
 		return Message{}, nil, err
 	}
 	value, err := ctx.materializeMessage(msg)
 	if err != nil {
-		ctx.abandonCreationSince(mark, attached)
+		rollback()
 		return Message{}, nil, fmt.Errorf("%s: %w", what, err)
 	}
 	inst := ctx.instances[value.Instance]
-	if err := ctx.startClassifierBehaviors(inst, mark); err != nil {
-		ctx.abandonCreationSince(mark, attached)
+	if err := ctx.startClassifierBehaviors(inst, len(ctx.created)); err != nil {
+		rollback()
 		return Message{}, nil, fmt.Errorf("%s: %w", what, err)
 	}
+	commit()
 	return msg, inst, nil
 }
 
