@@ -25,8 +25,9 @@ java_pattern='^client/java/'
 rust_pattern='^client/rust/'
 vscode_pattern='^editors/vscode/'
 cameo_pattern='^editors/cameo/'
+syson_pattern='^editors/syson/'
 
-known_pattern="$service_pattern|$docs_pattern|$node_pattern|$python_pattern|$java_pattern|$rust_pattern|$vscode_pattern|$cameo_pattern|^\.agents/|^\.gitignore$|^\.gitattributes$|^LICENSE|^packaging/"
+known_pattern="$service_pattern|$docs_pattern|$node_pattern|$python_pattern|$java_pattern|$rust_pattern|$vscode_pattern|$cameo_pattern|$syson_pattern|^\.agents/|^\.gitignore$|^\.gitattributes$|^LICENSE|^packaging/"
 
 matches() {
   local pattern=$1
@@ -55,3 +56,4 @@ emit rust "$( { [[ "$service" = true ]] || matches "$rust_pattern"; } && echo tr
 emit vscode "$( { [[ "$service" = true ]] || matches "$vscode_pattern"; } && echo true || echo false)"
 # The Cameo plugin builds on the Java client, so a client change re-runs it too.
 emit cameo "$( { [[ "$service" = true ]] || matches "$cameo_pattern" || matches "$java_pattern"; } && echo true || echo false)"
+emit syson "$( { [[ "$service" = true ]] || matches "$syson_pattern"; } && echo true || echo false)"

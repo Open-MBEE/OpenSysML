@@ -125,10 +125,8 @@ func (e *StateExecutor) runBranchEffect(branch *lower.Transition) error {
 	if _, err := e.unit(ChoiceEntryOrder, unitHead{label: e.effectLabel(branch), at: branch.Decl, silent: len(branch.Effect) == 0}); err != nil {
 		return err
 	}
-	for _, behavior := range branch.Effect {
-		if err := e.executeBehavior(behavior); err != nil {
-			return fmt.Errorf("fork branch effect: %w", err)
-		}
+	if err := e.executeBehaviors(branch.Effect); err != nil {
+		return fmt.Errorf("fork branch effect: %w", err)
 	}
 	return nil
 }

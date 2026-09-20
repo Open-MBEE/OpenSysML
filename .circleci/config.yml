@@ -234,9 +234,12 @@ jobs:
           name: Check the clients ship the pinned release digests
           command: python3 scripts/sync-release-digests.py --check
 
+      # no_output_timeout: gosec runs with -quiet and prints nothing until it has
+      # walked every package, which now takes longer than CircleCI's 10m default.
       - run:
           name: Run static analysis (staticcheck + gosec)
           command: make lint
+          no_output_timeout: 30m
 
       - run:
           name: Check grpc-go stays out of production code

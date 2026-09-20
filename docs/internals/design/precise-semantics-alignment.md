@@ -881,6 +881,27 @@ not exit any States", do activities "automatically aborted" — are these; the s
 in PSSM's own expected traces (the last step of *Terminate 001*'s admitted trace is the exit of
 the state whose completion transition reaches the pseudostate). **agrees**.
 
+*The braced block as the unit a `terminate` ends.* SysML.xtext reads `entry { … }`, `do { … }`,
+`exit { … }` and a transition's `do { … }` as one `ActionUsage` with an `ActionBody`, so a
+`terminate;` written in one names the performance of the whole block (`Performances.kerml`
+`TerminatePerformance`). The parser here keeps the block as one action member per statement
+(`parser/behavior.go:parseStateSubactionBlock`, `parseTransitionEffect`), and lowering and the
+runtime keep running it one action per statement — the reading that gives orthogonal regions
+their statement-level interleaving and inline do bodies their resumption between statements,
+which the conformance corpus pins (`state_anonymous_do_atomic`, `state_concurrent_inline_do_bodies`).
+Lowering records the member each behavior was written in (`lower.StateBehavior.Block`,
+`lower.BehaviorBlock`: the `EntryMember`, `DoMember`, `ExitMember`, `TransitionMember` or
+`TransitionEdge`, kept across inheritance), and the runtime treats a `terminate` of one
+behavior's own performance as ending the block: the block's later behaviors end before they
+begin (`state_statements.go:StateExecutor.executeBehaviors`, `endBlockPending`), each a trace
+line, while the other members of the state and the transition's completion are untouched
+(conformance `state_terminate_braced_entry_do_exit_effect`, `state_terminate_braced_do_after_accept`,
+`state_terminate_braced_entry_among_named`, `state_terminate_braced_inherited_by_two_usages`,
+`state_terminate_braced_do_in_one_region`). Whether to parse the braced block as one anonymous
+action usage instead — the grammar's reading, which the resumable inline do body now makes
+possible, and which would move every trace golden and choice point the per-statement reading
+produces — is an open design decision for a maintainer; it is not taken here.
+
 #### Time and change events against the simulation clock
 
 PSSM restricts a transition's triggers to `CallEvent`s and `SignalEvent`s

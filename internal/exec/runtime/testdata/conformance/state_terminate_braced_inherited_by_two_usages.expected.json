@@ -1,0 +1,11 @@
+{
+	"type": "state",
+	"evaluate": "Test::Machine",
+	"events": [{"signal": "Next"}, {"signal": "Go"}, {"signal": "Next"}],
+	"finalState": "done",
+	"stateVisits": ["one", "idle", "done", "two", "idle", "done"],
+	"outputs": {
+		"one.log": {"type": "String", "value": "e1;d1;x1;n1;"},
+		"two.log": {"type": "String", "value": "e1;d1;x1;n1;"}
+	}
+}

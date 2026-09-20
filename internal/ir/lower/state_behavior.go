@@ -29,6 +29,25 @@ type StateBehavior struct {
 	// Owner is the state whose attributes the behavior reads and writes: the
 	// state it belongs to, or the source of the transition it is an effect of.
 	Owner *ast.StateNode
+	// Block is the block the behavior was written in, shared by the behaviors
+	// of one braced block and by no other; a `terminate` in one ends them all.
+	Block BehaviorBlock
+}
+
+// BehaviorBlock identifies the block the behaviors of one braced `{ … }` were
+// written in, which a `terminate` in any of them ends as one performance.
+type BehaviorBlock struct {
+	// Member is the EntryMember, DoMember or ExitMember, or the TransitionMember
+	// or TransitionEdge whose `do` effect the block is; a lone behavior is its own.
+	Member ast.Node
+	// Body marks the steps a transition's body states, beside its `do` effect.
+	Body bool
+}
+
+// Same reports whether two behaviors were written in one block; a behavior of no
+// member is a block of its own.
+func (b BehaviorBlock) Same(other BehaviorBlock) bool {
+	return b.Member != nil && b == other
 }
 
 // StateBehaviors are the lowered entry, do and exit behaviors of one state, each
@@ -40,16 +59,17 @@ type StateBehaviors struct {
 }
 
 // LowerBehaviors lowers the actions of an entry, do or exit member, or the
-// effects of a transition, in the scope they were declared in. resolver is the
-// name-resolution tier's, by which a body's Probability metadata is read (ToActionGraphWith).
-func LowerBehaviors(actions []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) []StateBehavior {
+// effects of a transition, in the scope they were declared in; block is the
+// block they were written in. resolver is the name-resolution tier's, by which a
+// body's Probability metadata is read (ToActionGraphWith).
+func LowerBehaviors(actions []ast.Node, block BehaviorBlock, scope *symbols.Scope, resolver *resolve.Resolver) []StateBehavior {
 	if len(actions) == 0 {
 		return nil
 	}
 	behaviors := make([]StateBehavior, 0, len(actions))
 	for _, action := range actions {
 		if actual := unwrapMembership(action); actual != nil {
-			behaviors = append(behaviors, lowerStateBehavior(actual, scope, resolver))
+			behaviors = append(behaviors, lowerStateBehavior(actual, block, scope, resolver))
 		}
 	}
 	return behaviors
@@ -57,8 +77,8 @@ func LowerBehaviors(actions []ast.Node, scope *symbols.Scope, resolver *resolve.
 
 // lowerStateBehavior lowers one behavior into the statements it states: the
 // statements of an inline action body, or the one statement every other form is.
-func lowerStateBehavior(action ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) StateBehavior {
-	behavior := StateBehavior{Node: action, Scope: scope}
+func lowerStateBehavior(action ast.Node, block BehaviorBlock, scope *symbols.Scope, resolver *resolve.Resolver) StateBehavior {
+	behavior := StateBehavior{Node: action, Scope: scope, Block: block}
 	switch node := action.(type) {
 	case *ast.Usage:
 		behavior.Name, _ = ast.EffectiveName(node)

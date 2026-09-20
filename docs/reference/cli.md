@@ -824,9 +824,14 @@ and attaches `-html-css` sheets in its page after its own. `-html-fragment`, `-h
 Diagram blocks are pre-rendered to SVG with [mermaid-cli](https://github.com/mermaid-js/mermaid-cli)
 (`mmdc`; override with `OPENSYSML_MMDC`. `OPENSYSML_MMDC_PUPPETEER` names a puppeteer configuration
 file for a browser that needs launch flags, such as `--no-sandbox` in a container). A document
-without Mermaid diagrams needs no diagram tool. Under `-diagram-form dot` or `-diagram-form
-plantuml` no diagram is drawn: the PDF keeps each one's DOT or PlantUML source under a notice
-saying so, and neither `mmdc` nor a Graphviz or PlantUML tool is looked for.
+without Mermaid diagrams needs no diagram tool. Under `-diagram-form dot` the diagrams are drawn
+by Graphviz (`dot`; override with `OPENSYSML_DOT`), as SVG under the layout engine each block's
+`// layout:` header names, so a positioned view is drawn where the model put it; under
+`-diagram-form plantuml` by the PlantUML jar `OPENSYSML_PLANTUML_JAR` names, run by `java`
+(override with `OPENSYSML_JAVA`) as `java -jar <jar> -tsvg -pipe`. Both are optional where
+`mmdc` is required: a missing Graphviz, jar or Java keeps each diagram's source in the PDF under
+a notice naming the variable to set, and the render succeeds; a tool that is present and fails
+is a typed `tool-failed` error carrying its output.
 
 Formulas — math spans and `Formula` blocks, wherever the document carries them — are typeset with
 [KaTeX](https://katex.org)'s command line (`katex`; override with `OPENSYSML_KATEX`, and name its
