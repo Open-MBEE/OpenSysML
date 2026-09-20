@@ -30,7 +30,9 @@
   accepts the signal and says so. State machines gain transitions across regions and
   nesting levels named by path, `junction`/`choice`/`fork`/`join`/`history`/`deep history`
   pseudostates, entry and exit points of a submachine as states of its `state def` addressed
-  by path, internal transitions as self transitions where re-entry is not observable, and
+  by path, internal transitions as self transitions where re-entry is not observable (written
+  with no target, as some tools do, they stay in their source; one targeting another vertex or
+  leaving a pseudostate is refused), and
   absolute time events as `accept at <instant>` over a `Time::TimeInstantValue` attribute of
   the behavior. A `CallOperationAction` over a port performs the operation on the part a
   connector of the caller's block joins to that port, the way connector paths resolve.
@@ -63,13 +65,18 @@
   object's port even when the performer owns a feature of the same name, the binding shadowing
   it as it does in every other expression, while `via this.ctx.p` stays the performer's own,
   and a state transition's `accept … via ctx.p` resolves its path the same way through the
-  machine's parameters;
+  machine's parameters; the behavior's own connectors are read the same way, so a
+  `connect ctx.p to snk.local` between two bound references carries that send beside the
+  connections of the object holding the port, and an addressed `send … via ctx.p to m`
+  names a machine of the object the path is re-rooted to;
   a part's port is known to the connectors its type inherits under the name the
   part was declared with before redefinition; a `ref` usage holds what is bound to it rather than
   an object of its own; and an untyped `port` materializes as a `Ports::Port`, so a binding
   connector can join it and a signal sent inward over it reaches the bound part's machine.
 - **A migrated call or send that v1 fires without a required value keeps its place and performs
-  nothing.** A call passing no argument for a parameter that must hold a value, or a call or
+  nothing.** A call passing no argument for a parameter that must hold a value — a parameter of
+  the operation's action def, which declares the operation's parameters and then those its method
+  adds, so a call binds and is checked against exactly what is declared — or a call or
   signal send passing none for a signal attribute that must, one passing a pin of a type the attribute cannot take, or one whose pin is fed only by flows no value travels — from a parameter nothing values,
   an unmigrated opaque or value specification action, a callee whose own activity gives that
   `out` parameter no value, judged through any depth of nesting, or a call's result pin past

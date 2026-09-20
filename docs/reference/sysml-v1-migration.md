@@ -455,8 +455,9 @@ state machine is a `state` of its `state def` whose own transition continues int
 and a submachine state's connection point references address them by path,
 `then Cell::warmStart;` / `first Cell::spent then Idle;`. An internal transition is a self
 transition, faithful when re-entering the state is not observable (no entry, exit, do or
-substates) and reported otherwise; an internal transition without a trigger is a comment, as a
-self transition would fire again on every re-entry. A transition into an exit point of a
+substates) and reported otherwise; one written with no target stays in its source, one that
+targets another vertex or leaves a pseudostate is refused, and one without a trigger is a
+comment, as a self transition would fire again on every re-entry. A transition into an exit point of a
 region, or a terminate pseudostate, is written to `done`.
 
 **Interactions.** An interaction owned by a block is a scenario: an `action def` of the block

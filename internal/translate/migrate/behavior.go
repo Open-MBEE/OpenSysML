@@ -205,7 +205,7 @@ func (m *migration) parameter(p, scope *sysmlv1.Element, declared map[string]boo
 		}
 		declared[name] = true
 		if p.Parent != scope {
-			note = joinNotes(note, "the method's parameter matches none of the operation's by position, direction and type; a call binds only the operation's parameters")
+			note = joinNotes(note, "the method's parameter matches none of the operation's by position, direction and type; it is declared after them, and a call binds it there")
 		}
 	}
 	t := m.model.Ref(p, "type")
@@ -772,14 +772,15 @@ func langName(lang string) string {
 	return lang
 }
 
-// operationBody writes an operation's parameters, conditions and method.
+// operationBody writes an operation's parameters, conditions and method; the
+// parameters are those actionParameters lists, so a call binds what is declared.
 func (m *migration) operationBody(op *sysmlv1.Element) {
 	declared := map[string]bool{}
 	for _, p := range op.Owned("ownedParameter") {
 		m.parameter(p, op, declared)
 	}
 	method := m.model.Ref(op, "method")
-	if method != nil {
+	if method != nil && method.Parent == op.Parent {
 		for _, p := range method.Owned("ownedParameter") {
 			m.parameter(p, op, declared)
 		}

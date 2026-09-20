@@ -251,13 +251,13 @@ func (a *activity) valueless(pin *sysmlv1.Element) *sysmlv1.Element {
 	return dry
 }
 
-// unarguedParameter returns the first in or inout parameter of a called behavior
-// or operation that must hold a value (no default, lower bound above 0) but that no
-// argument pin of the call stands for, or whose pin no value reaches, and says
-// which; nil when every such parameter is served.
+// unarguedParameter returns the first in or inout parameter the action def of a
+// called behavior or operation declares that must hold a value (no default, lower
+// bound above 0) but that no argument pin of the call stands for, or whose pin no
+// value reaches, and says which; nil when every such parameter is served.
 func (a *activity) unarguedParameter(args []*sysmlv1.Element, callee *sysmlv1.Element) (*sysmlv1.Element, string) {
 	i := 0
-	for _, p := range callee.Owned("ownedParameter") {
+	for _, p := range a.m.actionParameters(callee) {
 		if dir, _ := parameterDirection(p); dir == "out" || dir == "return" {
 			continue
 		}

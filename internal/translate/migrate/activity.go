@@ -1547,7 +1547,7 @@ func (a *activity) callBehavior(n *sysmlv1.Element, name string) {
 			}
 			note = joinNotes(why, note)
 		}
-		a.pins(n, true, b.Owned("ownedParameter"))
+		a.pins(n, true, a.m.actionParameters(b))
 		if c != nil {
 			expr, cnote := a.callContext(n, c)
 			a.m.w.line("bind " + name + "." + writeName(c.name) + " = " + expr + ";")
@@ -1626,7 +1626,7 @@ func (a *activity) callOperation(n *sysmlv1.Element, name string) {
 	default:
 		a.m.w.line(actionKw + name + " : " + a.m.ref(op, a.def) + ";")
 	}
-	a.declarePins(n, ins, outs, true, op.Owned("ownedParameter"))
+	a.declarePins(n, ins, outs, true, a.m.actionParameters(op))
 	a.m.add(n, verdictFor(note), name, note)
 }
 

@@ -779,6 +779,11 @@ func (s *stateRegion) connection(t, v *sysmlv1.Element, role string) (string, bo
 // accepts one, sharing the guard and effect.
 func (s *stateRegion) transition(t *sysmlv1.Element) {
 	src, tgt := s.m.model.Ref(t, "source"), s.m.model.Ref(t, "target")
+	internal := t.Attrs["kind"] == "internal"
+	if internal && tgt == nil && len(s.m.model.Unresolved(t, "target")) == 0 {
+		// An internal transition stays in its source; some tools write it with no target.
+		tgt = src
+	}
 	if src == nil || tgt == nil {
 		s.m.unmapped(t, joinNotes(s.m.dangling(t, "source", "target"), "the transition lacks an end"))
 		return
@@ -787,31 +792,42 @@ func (s *stateRegion) transition(t *sysmlv1.Element) {
 		// Written as the region's entry.
 		return
 	}
+	if internal {
+		if src.Type != "State" {
+			s.m.unmapped(t, "the source "+describe(src)+isA+kindOf(src)+", and only a state has an internal transition")
+			return
+		}
+		if tgt != src {
+			s.m.unmapped(t, "an internal transition targets "+describe(tgt)+", not its source "+describe(src)+"; whether it stays or moves cannot be told")
+			return
+		}
+	}
 	from, ok := s.source(t, src)
 	if !ok {
 		s.m.unmapped(t, "the source "+describe(src)+isA+kindOf(src)+outsideMachine)
 		return
 	}
-	to, ok := s.target(t, tgt)
-	if !ok {
-		s.m.unmapped(t, "the target "+describe(tgt)+isA+kindOf(tgt)+outsideMachine)
-		return
+	to := from
+	if !internal {
+		if to, ok = s.target(t, tgt); !ok {
+			s.m.unmapped(t, "the target "+describe(tgt)+isA+kindOf(tgt)+outsideMachine)
+			return
+		}
 	}
 	triggers := t.Owned("trigger")
 	var notes []string
-	switch t.Attrs["kind"] {
-	case "internal":
+	switch {
+	case internal:
 		if len(triggers) == 0 {
 			s.m.unmapped(t, "an internal transition without a trigger has no v2 form: a self transition would fire again on every re-entry")
 			return
 		}
-		to = from
 		if !s.m.reentryObservable(src) {
 			s.m.add(t, Mapped, "", "an internal transition is written as a self transition; "+from+" has no entry, exit or do behavior and no substates, so re-entering it is not observable")
 			break
 		}
 		notes = append(notes, "an internal transition is written as a self transition, which exits and re-enters "+from+" where v1 stayed in it, running its exit and entry behaviors")
-	case "local":
+	case t.Attrs["kind"] == "local":
 		notes = append(notes, "a local transition is written external: the composite state "+from+" exits and re-enters where v1 stayed in it, running its exit and entry behaviors")
 	}
 	guard, gnote := s.guard(t, src)
