@@ -383,7 +383,9 @@ func TestTranslatedOutputPinsFeedTheirFlows(t *testing.T) {
 	wantNote(t, r, "_quarterly", migrate.Mapped, "the Java 1.8.0_202 body is translated to v2")
 	wantNote(t, r, "_cc", migrate.Approximated, "the JavaCC body is written as v2 assignments")
 	wantNote(t, r, "_o2", migrate.Approximated, "the flow is kept as a comment: the body of 'idle' never assigns 'z', so no value leaves it")
-	wantNote(t, r, "_sink", migrate.Approximated, "its input sink.w receives no value, since the body of 'idle' never assigns idle.z; the action cannot be performed until one is bound")
+	wantNote(t, r, "_sinkw", migrate.Approximated, "it is declared admitting no value: 'idle', which feeds it, produces no value")
+	wantNote(t, r, "_sink", migrate.Approximated, "this.total must hold a value, so it is assigned only when w, which may hold none, holds one")
+	wantLine(t, r.Notation, "if w->SequenceFunctions::notEmpty() { assign this.total := w; }")
 	wantNote(t, r, "_o3", migrate.Approximated, "the flow is kept as a comment: its source 'dark' is not migrated, so no value reaches 'q'")
 
 	s := session(t, r)

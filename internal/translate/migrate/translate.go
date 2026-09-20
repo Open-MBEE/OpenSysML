@@ -192,10 +192,11 @@ func (s *bodyScope) feature(path []string, write bool) (opaqueRef, *refusal) {
 		m.useLane(s.scope, s.lane)
 	}
 	return opaqueRef{
-		expr:   expr,
-		scalar: m.scalarBase(m.typedAs(f)),
-		object: m.nonScalar(m.typedAs(f)),
-		plural: plural || manyValued(f),
+		expr:     expr,
+		scalar:   m.scalarBase(m.typedAs(f)),
+		object:   m.nonScalar(m.typedAs(f)),
+		plural:   plural || manyValued(f),
+		optional: m.lacksValue(f),
 	}, nil
 }
 
@@ -297,6 +298,11 @@ func (s *bodyScope) note(lang string) string {
 // noted records on scope's report entry how a body read there was translated,
 // unless scope is a classifier or package, whose entry is not about the body.
 func (m *migration) noted(scope *sysmlv1.Element, note string) {
+	m.notedAs(scope, Mapped, note)
+}
+
+// notedAs is noted with the verdict the body's translation earns.
+func (m *migration) notedAs(scope *sysmlv1.Element, v Verdict, note string) {
 	if note == "" || m.contextClassifier(scope) == scope {
 		return
 	}
@@ -304,7 +310,7 @@ func (m *migration) noted(scope *sysmlv1.Element, note string) {
 	case "Package", "Model", "Profile":
 		return
 	}
-	m.add(scope, Mapped, "", note)
+	m.add(scope, v, "", note)
 }
 
 // translatedExpr translates an opaque body as one expression read at scope
@@ -324,22 +330,23 @@ func (m *migration) translatedExpr(body, lang string, scope *sysmlv1.Element, wa
 }
 
 // translatedStatements translates an opaque body as the statements of an action
-// body read at scope, each checked to parse.
-func (m *migration) translatedStatements(body, lang string, scope *sysmlv1.Element) (lines []string, note string, err *refusal) {
+// body read at scope, each checked to parse; guarded notes the assignments made
+// only when a value read admitting none holds one.
+func (m *migration) translatedStatements(body, lang string, scope *sysmlv1.Element) (lines []string, note, guarded string, err *refusal) {
 	s := m.bodyScope(scope)
-	lines, err = translateStatements(body, lang, s)
+	lines, guards, err := translateStatements(body, lang, s)
 	if err != nil {
-		return nil, "", err
+		return nil, "", "", err
 	}
 	for _, line := range lines {
 		if !parseStatement(line) {
-			return nil, "", &refusal{kind: refusedSyntax, token: body, why: "its translation " + strconv.Quote(line) + " is not v2 syntax"}
+			return nil, "", "", &refusal{kind: refusedSyntax, token: body, why: "its translation " + strconv.Quote(line) + " is not v2 syntax"}
 		}
 	}
 	if note = s.note(lang); note == "" {
 		note = "the body is translated to v2"
 	}
-	return lines, note, nil
+	return lines, note, strings.Join(guards, "; "), nil
 }
 
 // symbolicDuration reads a duration written as an expression, optionally

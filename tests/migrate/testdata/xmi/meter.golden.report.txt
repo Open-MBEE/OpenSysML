@@ -1,7 +1,7 @@
 # SysML v1 to v2 migration report: meter.xmi
-# migrated 130 element(s): 97 mapped, 33 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 130 element(s): 95 mapped, 35 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
-## approximated (33)
+## approximated (35)
 ControlFlow	Meter::Arm::<ControlFlow>	_a2	(the guard [{JavaScript} ready and enabled] is kept as a comment and the edge written unguarded: the text "and" is not expression syntax: text follows the expression)
 Parameter	Meter::Arm::armed	_armed	-> Meter::Arm::armed	(default value not migrated: the types at "Math.sqrt(total)" disagree: the expression is a Real, not the Boolean wanted)
 OpaqueAction	Meter::Arm::fuse	_fuse	-> fuse	(the body is kept as a comment: the text "and" is not expression syntax: a statement ends at `;` or a newline)
@@ -16,8 +16,10 @@ ValuePin	Meter::Measure::judge::ok	_judgeok	-> Meter::Measure::judge.ok	(the val
 ObjectFlow	Meter::Skip::<ObjectFlow>	_o2	(the flow is kept as a comment: the body of 'idle' never assigns 'z', so no value leaves it)
 ObjectFlow	Meter::Skip::<ObjectFlow>	_o3	(the flow is kept as a comment: its source 'dark' is not migrated, so no value reaches 'q')
 OpaqueAction	Meter::Skip::dark	_dark	-> dark	(the body is kept as a comment: the statement assigns q, which nothing visible from Meter::Skip::dark is called (language Python))
-OpaqueAction	Meter::Skip::drain	_drain	-> drain	(the JavaScript body is translated to v2; its input drain.w receives no value, since 'dark' is not migrated; the action cannot be performed until one is bound)
-OpaqueAction	Meter::Skip::sink	_sink	-> sink	(the JavaScript body is translated to v2; its input sink.w receives no value, since the body of 'idle' never assigns idle.z; the action cannot be performed until one is bound)
+OpaqueAction	Meter::Skip::drain	_drain	-> drain	(the JavaScript body is translated to v2; this.total must hold a value, so it is assigned only when w, which may hold none, holds one)
+InputPin	Meter::Skip::drain::w	_drainw	-> Meter::Skip::drain.w	(it is declared admitting no value: 'dark', which feeds it, produces no value)
+OpaqueAction	Meter::Skip::sink	_sink	-> sink	(the JavaScript body is translated to v2; this.total must hold a value, so it is assigned only when w, which may hold none, holds one)
+InputPin	Meter::Skip::sink::w	_sinkw	-> Meter::Skip::sink.w	(it is declared admitting no value: 'idle', which feeds it, produces no value)
 ActivityPartition	Meter::Sweep::bank	_bank_lane	(a partition names who performs its nodes; it is kept as a comment; the partition represents a Bank through the part Meter::banks, but the multiplicity of Meter::banks is not written in numbers, so whether it holds one value cannot be told)
 ActivityPartition	Meter::Sweep::banks	_banks_lane	(a partition names who performs its nodes; it is kept as a comment; the partition represents Meter::banks, but the multiplicity of Meter::banks is not written in numbers, so whether it holds one value cannot be told)
 OpaqueAction	Meter::Sweep::calib	_calib	-> calib	(the body is kept as a comment: the construct "reading" is outside the translated subset: this.cells is a collection, so the assignment would write through several objects)
@@ -36,7 +38,7 @@ Property	Meter::square	_square	-> Meter::square	(default value not migrated: the
 Property	Meter::tag	_tag	-> Meter::tag	(default value not migrated: the construct "+" is outside the translated subset: string concatenation has no v2 form in the subset)
 Property	Meter::top	_top	-> Meter::top	(default value not migrated: the types at "cells.reading" disagree: the expression is a collection, not the one value wanted)
 
-## mapped (97)
+## mapped (95)
 «Block» Class	Bank	_bank	-> Bank
 Property	Bank::level	_level	-> Bank::level
 «Block» Class	Gauge	_gauge	-> Gauge
@@ -91,10 +93,8 @@ ControlFlow	Meter::Skip::<ControlFlow>	_s2
 ControlFlow	Meter::Skip::<ControlFlow>	_s3
 InitialNode	Meter::Skip::<InitialNode>	_sinit	-> start
 OutputPin	Meter::Skip::dark::q	_darkq	-> Meter::Skip::dark.q
-InputPin	Meter::Skip::drain::w	_drainw	-> Meter::Skip::drain.w
 OpaqueAction	Meter::Skip::idle	_idle	-> idle	(the JavaScript body is translated to v2)
 OutputPin	Meter::Skip::idle::z	_idlez	-> Meter::Skip::idle.z
-InputPin	Meter::Skip::sink::w	_sinkw	-> Meter::Skip::sink.w
 Activity	Meter::Sweep	_sweep	-> Meter::Sweep
 ActivityFinalNode	Meter::Sweep::<ActivityFinalNode>	_wfinal	-> final
 ControlFlow	Meter::Sweep::<ControlFlow>	_w2

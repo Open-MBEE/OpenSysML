@@ -76,6 +76,7 @@ func FromModel(name string, model *sysmlv1.Model) *Result {
 		invokers:     map[*sysmlv1.Element][]*sysmlv1.Element{},
 		unvalued:     map[*sysmlv1.Element]bool{},
 		dryOut:       map[*sysmlv1.Element]map[*sysmlv1.Element]bool{},
+		admitsNone:   map[*sysmlv1.Element]string{},
 		carrierOf:    map[*sysmlv1.Element]*carrier{},
 		carrierNotes: map[*sysmlv1.Element]string{},
 		indexed:      map[string]int{},
@@ -206,6 +207,9 @@ type migration struct {
 	// snapshots types each classifier-less instance under a run configuration's
 	// result location by what its slots prove it a snapshot of.
 	snapshots map[*sysmlv1.Element]snapshotTyping
+	// instanceNames indexes the document's classifiers by the default name of
+	// their instances, for namesakes; built on first use.
+	instanceNames map[string][]*sysmlv1.Element
 	// bound gives, while a transition's effect is written, the expression over
 	// the accepted signal each of its parameters is bound to.
 	bound map[*sysmlv1.Element]string
@@ -223,6 +227,9 @@ type migration struct {
 	unvalued map[*sysmlv1.Element]bool
 	// dryOut holds, per activity, the out parameters no value reaches; see dryOutputs.
 	dryOut map[*sysmlv1.Element]map[*sysmlv1.Element]bool
+	// admitsNone says, for each parameter and pin declared admitting no value, why
+	// a value may fail to reach it while v1 runs the action; see admitAbsent.
+	admitsNone map[*sysmlv1.Element]string
 	// indexed locates each element's report entry by id, so an element that
 	// several writers account for is reported once.
 	indexed map[string]int
@@ -404,6 +411,7 @@ func (m *migration) prepare() {
 	for _, act := range laned {
 		m.prepareLanes(act)
 	}
+	m.admitAbsent(laned)
 }
 
 // exposeReached exposes the features a connector's ends or an instance's slots
@@ -1832,9 +1840,24 @@ func (m *migration) typeRef(t, scope *sysmlv1.Element) (string, string) {
 	return m.ref(t, scope), ""
 }
 
-// multiplicity writes a [lower..upper] multiplicity, or nothing for 1..1. A
-// bound that is not a natural number (or * above) is dropped with a note.
+// multiplicity writes a parameter's or pin's [lower..upper] multiplicity, with
+// the lower bound at 0 for one declared admitting no value; see admitAbsent.
 func (m *migration) multiplicity(p *sysmlv1.Element) (string, string) {
+	mult, note := m.declaredMultiplicity(p)
+	why, ok := m.admitsNone[p]
+	if !ok || note != "" {
+		return mult, note
+	}
+	upper := "1"
+	if uv := firstOwned(p, "upperValue"); uv != nil && boundValue(uv) != "" {
+		upper = boundValue(uv)
+	}
+	return "[0.." + upper + "]", "it is declared admitting no value: " + why
+}
+
+// declaredMultiplicity writes the [lower..upper] multiplicity v1 declares, or nothing
+// for 1..1. A bound that is not a natural number (or * above) is dropped with a note.
+func (m *migration) declaredMultiplicity(p *sysmlv1.Element) (string, string) {
 	lower, upper := "", ""
 	if lv := firstOwned(p, "lowerValue"); lv != nil {
 		lower = boundValue(lv)

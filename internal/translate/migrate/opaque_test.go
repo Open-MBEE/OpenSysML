@@ -48,6 +48,8 @@ var testScope = fakeScope{
 	"Guide Star":       {expr: "this.'Guide Star'", object: []string{"Star"}},
 	"Stage 2 Ready":    {expr: "this.'Stage 2 Ready'", scalar: "Boolean"},
 	"Retry Count":      {expr: "this.'Retry Count'", scalar: "Integer"},
+	"new":              {expr: "this.'new'", scalar: "Real"},
+	"typeof":           {expr: "this.'typeof'", scalar: "Integer"},
 }
 
 func TestTranslateExpr(t *testing.T) {
@@ -61,6 +63,9 @@ func TestTranslateExpr(t *testing.T) {
 		{"JavaScript", "i < Retries && !GS_Found", "", "this.i < this.Retries and not this.GS_Found", "Boolean"},
 		{"JavaScript", "i == 1 || i === 2", "", "this.i == 1 or this.i == 2", "Boolean"},
 		{"JavaScript", "i != Retries", "", "this.i != this.Retries", "Boolean"},
+		{"JavaScript", "new = Math.max(t, t0)", "Boolean", "this.'new' == RealFunctions::max(this.t, this.t0)", "Boolean"},
+		{"JavaScript", "Math.max(t, new)", "", "RealFunctions::max(this.t, this.'new')", "Real"},
+		{"JavaScript", "typeof * 2", "", "this.'typeof' * 2", "Integer"},
 		{"JavaScript", "(t - t0) * 2", "", "(this.t - this.t0) * 2", "Real"},
 		{"JavaScript", "t / 2 + i % 3", "", "this.t / 2 + this.i % 3", "Real"},
 		{"JavaScript", "t - (t0 - 1)", "", "this.t - (this.t0 - 1)", "Real"},
@@ -223,6 +228,8 @@ func TestTranslateStatements(t *testing.T) {
 		{"JavaScript", "t -= 2; t *= 3;\nt /= 4", []string{
 			"assign this.t := this.t - 2;", "assign this.t := this.t * 3;", "assign this.t := this.t / 4;"}},
 		{"JavaScript", "GS_Found = true", []string{"assign this.GS_Found := true;"}},
+		{"JavaScript", "new = t", []string{"assign this.'new' := this.t;"}},
+		{"JavaScript", "typeof++", []string{"assign this.'typeof' := this.'typeof' + 1;"}},
 		{"JavaScript", "i = 2.0", []string{"assign this.i := 2;"}},
 		{"JavaScript", "state = ON", []string{"assign this.state := States::ON;"}},
 		{"JavaScript", "state = mode", []string{"assign this.state := this.mode;"}},
@@ -253,7 +260,7 @@ func TestTranslateStatements(t *testing.T) {
 		{"", "GS_Found = i >= Retries", []string{"assign this.GS_Found := this.i >= this.Retries;"}},
 	}
 	for _, c := range cases {
-		got, err := translateStatements(c.body, c.lang, testScope)
+		got, _, err := translateStatements(c.body, c.lang, testScope)
 		if err != nil {
 			t.Errorf("%s %q: refused: %s", c.lang, c.body, err.note())
 			continue
@@ -322,6 +329,13 @@ func TestTranslateRefusals(t *testing.T) {
 		{"Java", "t = Math.max(t, t0, 1.0)", true, refusedCall, "Math.max"},
 		{"Java", "i = Math.min(i)", true, refusedCall, "Math.min"},
 		{"JavaScript", "i = new Date()", true, refusedConstruct, "new"},
+		{"JavaScript", "new Date()", false, refusedConstruct, "new"},
+		{"JavaScript", "new (Date)()", false, refusedConstruct, "new"},
+		{"JavaScript", "typeof i", false, refusedConstruct, "typeof"},
+		{"JavaScript", "typeof -i", false, refusedConstruct, "typeof"},
+		{"JavaScript", "delete tank", true, refusedConstruct, "delete"},
+		{"JavaScript", "void 0", false, refusedConstruct, "void"},
+		{"JavaScript", "in = 1", true, refusedConstruct, "in"},
 		{"JavaScript", `name = "\v"`, true, refusedConstruct, `\v`},
 		{"JavaScript", `name = "\0"`, true, refusedConstruct, `\0`},
 		{"JavaScript", `name = "\101"`, true, refusedConstruct, `\1`},
@@ -452,7 +466,7 @@ func TestTranslateRefusals(t *testing.T) {
 			want = oneOf("", featureHolds)
 		}
 		if c.statements {
-			_, err = translateStatements(c.body, c.lang, testScope)
+			_, _, err = translateStatements(c.body, c.lang, testScope)
 		} else {
 			_, err = translateExpr(c.body, c.lang, testScope, want)
 		}

@@ -425,9 +425,10 @@ func (m *migration) statements(body, lang string, scope *sysmlv1.Element) (lines
 		return nil, false, "the body is empty"
 	}
 	if dialectOf(lang).script() {
-		lines, note, refused := m.translatedStatements(body, lang, scope)
+		lines, note, guarded, refused := m.translatedStatements(body, lang, scope)
 		if refused == nil {
 			m.noted(scope, note)
+			m.notedAs(scope, Approximated, guarded)
 			return lines, true, ""
 		}
 		if refused.final(lang) {

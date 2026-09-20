@@ -2,6 +2,7 @@ package migrate
 
 import (
 	"math"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode"
@@ -78,10 +79,11 @@ func (r *refusal) final(lang string) bool {
 // it is known to hold followed by every type that generalizes it (nil when a
 // scalar or unknown), plural for a collection.
 type opaqueRef struct {
-	expr   string
-	scalar string
-	object []string
-	plural bool
+	expr     string
+	scalar   string
+	object   []string
+	plural   bool
+	optional bool // the feature is declared admitting no value
 }
 
 // value is the ref read as an expression.
@@ -267,17 +269,18 @@ func translateExpr(body, lang string, sc opaqueScope, want wanted) (translated, 
 }
 
 // translateStatements translates body as a sequence of script statements into
-// the lines of a v2 action body: local declarations and assignments.
-func translateStatements(body, lang string, sc opaqueScope) ([]string, *refusal) {
+// the lines of a v2 action body: local declarations and assignments. guarded
+// notes the assignments made only when a value read admitting none holds one.
+func translateStatements(body, lang string, sc opaqueScope) (lines, guarded []string, err *refusal) {
 	d := dialectOf(lang)
 	switch d {
 	case dialectNone:
-		return nil, &refusal{kind: refusedLanguage, token: lang}
+		return nil, nil, &refusal{kind: refusedLanguage, token: lang}
 	case dialectEnglish:
-		return nil, &refusal{kind: refusedLanguage, token: lang, why: "prose has no statements to write"}
+		return nil, nil, &refusal{kind: refusedLanguage, token: lang, why: "prose has no statements to write"}
 	}
-	if _, err := statementsIn(body, d, anyScope{}); err != nil && err.kind != refusedType {
-		return nil, err
+	if _, _, err := statementsIn(body, d, anyScope{}); err != nil && err.kind != refusedType {
+		return nil, nil, err
 	}
 	return statementsIn(body, d, sc)
 }
@@ -292,12 +295,13 @@ func wholeExprIn(body string, d dialect, sc opaqueScope) (translated, *refusal) 
 }
 
 // statementsIn parses body as statements of dialect d, its names answered by sc.
-func statementsIn(body string, d dialect, sc opaqueScope) ([]string, *refusal) {
+func statementsIn(body string, d dialect, sc opaqueScope) (lines, guarded []string, err *refusal) {
 	p, err := newOpaqueParser(body, d, sc)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return p.statements()
+	lines, err = p.statements()
+	return lines, p.guarded, err
 }
 
 // anyScope answers every name with an unknown type, so a body's shape is judged
@@ -600,6 +604,8 @@ type opaqueParser struct {
 	sc      opaqueScope
 	locals  map[string]local // names a `var`, `let` or `const` declared
 	assigns bool             // whether `=` assigns (a statement) rather than compares
+	absent  []string         // the names admitting no value the statement being read reads
+	guarded []string         // notes on the assignments made only when such a name holds a value
 }
 
 func newOpaqueParser(body string, d dialect, sc opaqueScope) (*opaqueParser, *refusal) {
@@ -615,6 +621,7 @@ func newOpaqueParser(body string, d dialect, sc opaqueScope) (*opaqueParser, *re
 type local struct {
 	scalar   string
 	constant bool
+	optional bool // declared from a value admitting none, so admitting none too
 }
 
 // peek returns the next token, skipping newlines when skipNL is set.
@@ -655,6 +662,38 @@ var scriptReserved = map[string]bool{
 	"NaN": true, "Infinity": true,
 }
 
+// operatorWords are the reserved words that prefix an operand (`new Date()`,
+// `typeof x`); a model names its features freely, so one that no operand
+// follows is a name, as a parameter called `new` in `new = max(old, current)`.
+var operatorWords = map[string]bool{"new": true, "typeof": true, "delete": true, "void": true}
+
+// reservedAt reports whether tok, at the position of a name, opens a construct
+// the subset leaves out rather than naming a feature.
+func (p *opaqueParser) reservedAt(tok token, i int) bool {
+	if !p.d.script() || !scriptReserved[tok.text] {
+		return false
+	}
+	if !operatorWords[tok.text] {
+		return true
+	}
+	for p.toks[i].kind == tokNewline {
+		i++
+	}
+	return p.startsOperand(p.toks[i])
+}
+
+// startsOperand reports whether tok can open an operand: a literal, a name, a
+// parenthesis, an object or array literal, or a unary operator.
+func (p *opaqueParser) startsOperand(tok token) bool {
+	switch tok.kind {
+	case tokNumber, tokString, tokIdent:
+		return true
+	case tokPunct:
+		return tok.text == "(" || tok.text == "[" || tok.text == "{" || p.unaryPrefix(tok)
+	}
+	return false
+}
+
 // wholeExpr reads the body as one expression, which must reach its end.
 func (p *opaqueParser) wholeExpr() (translated, *refusal) {
 	t, err := p.expr()
@@ -683,6 +722,7 @@ func (p *opaqueParser) statements() ([]string, *refusal) {
 		if tok.kind == tokEOF {
 			break
 		}
+		p.absent = nil
 		written, err := p.statement()
 		if err != nil {
 			return nil, err
@@ -707,7 +747,7 @@ func (p *opaqueParser) statement() ([]string, *refusal) {
 	switch {
 	case tok.kind == tokIdent && (tok.text == "var" || tok.text == "let" || tok.text == "const"):
 		return p.declaration()
-	case tok.kind == tokIdent && scriptReserved[tok.text]:
+	case p.reservedAt(tok, p.i+1):
 		return nil, &refusal{kind: refusedConstruct, token: tok.text}
 	case tok.isPunct("{"):
 		return nil, &refusal{kind: refusedConstruct, token: "{", why: "a block is not a statement of the subset"}
@@ -766,10 +806,14 @@ func (p *opaqueParser) declaration() ([]string, *refusal) {
 		}
 		return nil, &refusal{kind: refusedType, token: kw.text + " " + name.text, why: why}
 	}
-	p.locals[name.text] = local{scalar: value.scalar, constant: kw.text == "const"}
+	p.locals[name.text] = local{scalar: value.scalar, constant: kw.text == "const", optional: len(p.absent) > 0}
 	target := writeName(name.text)
+	mult := ""
+	if len(p.absent) > 0 {
+		mult = "[0..1]"
+	}
 	return []string{
-		"attribute " + target + " : ScalarValues::" + value.scalar + ";",
+		"attribute " + target + " : ScalarValues::" + value.scalar + mult + ";",
 		"assign " + target + " := " + value.expr + ";",
 	}, nil
 }
@@ -832,7 +876,22 @@ func (p *opaqueParser) assignment(path []string, op string) ([]string, *refusal)
 	if held.held() != "" && value.held() != "" && !assignableTo(held, value) {
 		return nil, &refusal{kind: refusedType, token: name + " " + op, why: "a " + value.held() + " is assigned to the " + held.held() + " " + name + " holds"}
 	}
-	return []string{"assign " + target.expr + " := " + spellFor(target.scalar, value) + ";"}, nil
+	return p.guardedAssign(target, spellFor(target.scalar, value)), nil
+}
+
+// guardedAssign writes the assignment of value to target; one reading a name
+// admitting no value, into a feature admitting none, is made only when it holds one.
+func (p *opaqueParser) guardedAssign(target opaqueRef, value string) []string {
+	assign := "assign " + target.expr + " := " + value + ";"
+	if len(p.absent) == 0 || target.optional {
+		return []string{assign}
+	}
+	holds := make([]string, len(p.absent))
+	for i, name := range p.absent {
+		holds[i] = name + "->SequenceFunctions::notEmpty()"
+	}
+	p.guarded = append(p.guarded, target.expr+" must hold a value, so it is assigned only when "+strings.Join(p.absent, " and ")+", which may hold none, holds one")
+	return []string{"if " + strings.Join(holds, " and ") + " { " + assign + " }"}
 }
 
 // target resolves the feature an assignment writes.
@@ -842,7 +901,7 @@ func (p *opaqueParser) target(path []string) (opaqueRef, *refusal) {
 			if l.constant {
 				return opaqueRef{}, &refusal{kind: refusedConstruct, token: path[0], why: "a const is not assigned again"}
 			}
-			return opaqueRef{expr: writeName(path[0]), scalar: l.scalar}, nil
+			return opaqueRef{expr: writeName(path[0]), scalar: l.scalar, optional: l.optional}, nil
 		}
 	}
 	return p.sc.feature(path, true)
@@ -1208,7 +1267,7 @@ func (p *opaqueParser) primary() (translated, *refusal) {
 				return translated{}, &refusal{kind: refusedName, token: tok.text, why: "a script spells its Booleans in lower case"}
 			}
 			return translated{expr: strings.ToLower(tok.text), scalar: "Boolean", atomic: true, lit: "boolean"}, nil
-		case p.d.script() && scriptReserved[tok.text]:
+		case p.reservedAt(tok, p.i):
 			return translated{}, &refusal{kind: refusedConstruct, token: tok.text}
 		}
 		p.i--
@@ -1254,6 +1313,7 @@ func (p *opaqueParser) primary() (translated, *refusal) {
 func (p *opaqueParser) name(path []string) (translated, *refusal) {
 	if len(path) == 1 {
 		if l, ok := p.locals[path[0]]; ok {
+			p.readAbsent(writeName(path[0]), l.optional)
 			return translated{expr: writeName(path[0]), scalar: l.scalar, atomic: true}, nil
 		}
 	}
@@ -1261,7 +1321,15 @@ func (p *opaqueParser) name(path []string) (translated, *refusal) {
 	if err != nil {
 		return translated{}, err
 	}
+	p.readAbsent(ref.expr, ref.optional)
 	return ref.value(), nil
+}
+
+// readAbsent records that the statement reads name, when it admits no value.
+func (p *opaqueParser) readAbsent(name string, optional bool) {
+	if optional && !slices.Contains(p.absent, name) {
+		p.absent = append(p.absent, name)
+	}
 }
 
 // call reads the arguments of a call and writes the library function the table maps it to.
