@@ -1,0 +1,1 @@
+- **`Session.LoadFile` follows imports to sibling model files.** Loading one file through the session's exported single-file API now pulls in the `.sysml`/`.kerml` files beside and below it that declare an imported root namespace, as `%load`, `-check`, `-compile` and `-render` already did, and submits them together so a reference into a sibling package resolves.
