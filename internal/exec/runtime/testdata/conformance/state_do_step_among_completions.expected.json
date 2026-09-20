@@ -4,7 +4,10 @@
   "outcomes": [
     {"finalState": "l1+m2+r2", "outputs": {"log": {"type": "String", "value": "did m r "}}},
     {"finalState": "l1+m2+r2", "outputs": {"log": {"type": "String", "value": "m did r "}}},
-    {"finalState": "l1+m2+r2", "outputs": {"log": {"type": "String", "value": "m r did "}}}
+    {"finalState": "l1+m2+r2", "outputs": {"log": {"type": "String", "value": "m r did "}}},
+    {"finalState": "l1+m2+r2", "outputs": {"log": {"type": "String", "value": "did r m "}}},
+    {"finalState": "l1+m2+r2", "outputs": {"log": {"type": "String", "value": "r did m "}}},
+    {"finalState": "l1+m2+r2", "outputs": {"log": {"type": "String", "value": "r m did "}}}
   ],
   "admissible": "A do step and a dispatch due at one instant: which goes first is open"
 }

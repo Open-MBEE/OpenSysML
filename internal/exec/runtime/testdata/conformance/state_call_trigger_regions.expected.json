@@ -11,6 +11,14 @@
     {
       "finalState": "Chiming+Lit",
       "stateVisits": ["start", "start", "Dimmed", "Muted", "Lit", "Chiming"]
+    },
+    {
+      "finalState": "Chiming+Lit",
+      "stateVisits": ["start", "start", "Muted", "Dimmed", "Chiming", "Lit"]
+    },
+    {
+      "finalState": "Chiming+Lit",
+      "stateVisits": ["start", "start", "Muted", "Dimmed", "Lit", "Chiming"]
     }
   ],
   "admissible": "Transitions in sibling regions enabled by one event: each fires, in which order is open"

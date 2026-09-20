@@ -66,7 +66,6 @@ func FromModel(name string, model *sysmlv1.Model) *Result {
 		methodOf:     map[*sysmlv1.Element]*sysmlv1.Element{},
 		realizes:     map[*sysmlv1.Element]*sysmlv1.Element{},
 		opUsage:      map[*sysmlv1.Element]string{},
-		cbUsage:      map[*sysmlv1.Element]string{},
 		deciding:     map[*sysmlv1.Element]bool{},
 		bounded:      map[*sysmlv1.Element][]*sysmlv1.Element{},
 		triggered:    map[*sysmlv1.Element]bool{},
@@ -84,6 +83,11 @@ func FromModel(name string, model *sysmlv1.Model) *Result {
 		vertexNames:  map[*sysmlv1.Element]string{},
 		instant:      map[*sysmlv1.Element]map[*sysmlv1.Element]instantValue{},
 		self:         "this",
+		lanes:        map[*sysmlv1.Element]*lanes{},
+		routes:       map[[2]*sysmlv1.Element]partRoute{},
+		usageOf:      map[*sysmlv1.Element]string{},
+		pins:         map[*sysmlv1.Element]pinDecl{},
+		opaque:       map[*sysmlv1.Element]*opaqueResult{},
 	}
 	m.prepare()
 	for _, root := range model.Roots {
@@ -174,8 +178,6 @@ type migration struct {
 	realizes map[*sysmlv1.Element]*sysmlv1.Element
 	// opUsage names, for each operation, the action usage of its owner that performs it.
 	opUsage map[*sysmlv1.Element]string
-	// cbUsage names, for each class, the usage that runs its classifier behavior.
-	cbUsage map[*sysmlv1.Element]string
 	// deciding holds each opaque behavior whose body is being checked for names
 	// it can see, which is written whichever declaration the check picks.
 	deciding map[*sysmlv1.Element]bool
@@ -224,6 +226,21 @@ type migration struct {
 	// indexed locates each element's report entry by id, so an element that
 	// several writers account for is reported once.
 	indexed map[string]int
+	// lanes indexes each activity's partitions by the nodes and edges they hold.
+	lanes map[*sysmlv1.Element]*lanes
+	// routes memoizes, per classifier and target, the chains of composite parts between them.
+	routes map[[2]*sysmlv1.Element]partRoute
+	// usageOf names, for each activity a lane's object performs, the action
+	// usage of the activity's owner that performs it.
+	usageOf map[*sysmlv1.Element]string
+	// pins records how each declared pin is written, for the bodies that name it.
+	pins map[*sysmlv1.Element]pinDecl
+	// opaque memoizes what each opaque action's body translates to.
+	opaque map[*sysmlv1.Element]*opaqueResult
+	// clocks memoizes the names a simulation configuration gives the clock.
+	clocks map[string]string
+	// observed memoizes, per observation, the durations and time expressions that read it.
+	observed map[*sysmlv1.Element][]*sysmlv1.Element
 	// regionUsed holds the vertex names each region's body has taken.
 	regionUsed map[*sysmlv1.Element]map[string]bool
 	// vertexNames gives the v2 name of every vertex a state machine writes.
@@ -285,7 +302,7 @@ func weaker(a, b Verdict) bool {
 // types the run configurations' result snapshots, and then exposes the
 // features the connectors and slots that will be written reach.
 func (m *migration) prepare() {
-	var reachers, configs []*sysmlv1.Element
+	var reachers, configs, laned []*sysmlv1.Element
 	var walk func(e *sysmlv1.Element)
 	walk = func(e *sysmlv1.Element) {
 		m.distinguish(e)
@@ -352,6 +369,8 @@ func (m *migration) prepare() {
 				m.methodOf[method] = e
 				m.realizeParameters(e, method)
 			}
+		case "Activity":
+			laned = append(laned, e)
 		case "DurationConstraint":
 			for _, c := range m.model.Refs(e, "constrainedElement") {
 				m.bounded[c] = append(m.bounded[c], e)
@@ -381,6 +400,9 @@ func (m *migration) prepare() {
 	m.indexSnapshots(configs)
 	for _, e := range reachers {
 		m.exposeReached(e)
+	}
+	for _, act := range laned {
+		m.prepareLanes(act)
 	}
 }
 
@@ -870,7 +892,7 @@ func (m *migration) constraintBody(e *sysmlv1.Element) {
 		}
 		if spec == nil {
 			m.unmapped(result, "the constraint has no specification")
-		} else if expr, ok, note := m.valueExpr(spec, e); ok {
+		} else if expr, ok, note := m.valueExprAs(spec, e, oneOf("Boolean", "the constraint yields")); ok {
 			m.w.line(expr)
 			m.add(result, verdictFor(note), m.v2Name(e), note)
 		} else {
@@ -2094,7 +2116,7 @@ func (m *migration) rule(r *sysmlv1.Element) {
 		m.unmapped(r, "the constraint has no specification")
 		return
 	}
-	expr, ok, note := m.valueExpr(spec, m.scope)
+	expr, ok, note := m.valueExprAs(spec, m.scope, oneOf("Boolean", "the constraint yields"))
 	if !ok {
 		m.unmappedExpr(r, spec, note)
 		return

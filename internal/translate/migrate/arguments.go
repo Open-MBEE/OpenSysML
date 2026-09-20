@@ -29,7 +29,10 @@ func (a *activity) refusal(n *sysmlv1.Element) (why string, v Verdict, refused b
 	case "CallBehaviorAction":
 		b := a.m.model.Ref(n, "behavior")
 		if b == nil {
-			return joinNotes(a.m.dangling(n, "behavior"), "the action calls no behavior"), Unmapped, true
+			if a.leafStep(n) {
+				return "", Mapped, false
+			}
+			return a.unbehaved(n), Unmapped, true
 		}
 		if op := a.m.methodOf[b]; op != nil {
 			b = op
@@ -48,7 +51,7 @@ func (a *activity) refusal(n *sysmlv1.Element) (why string, v Verdict, refused b
 			return why, Approximated, true
 		}
 		if c := a.m.contextOf(b); c != nil {
-			if expr, cnote := a.contextArgument(c); expr == "" {
+			if expr, cnote := a.callContext(n, c); expr == "" {
 				return a.uncontexted(b, cnote), Approximated, true
 			}
 		}
@@ -108,17 +111,24 @@ func (a *activity) deaden() {
 }
 
 // produces reports whether a node's output pins may carry a value: a refused call
-// and an opaque action, whose pins stay unwritten, produce none.
+// and an opaque action whose body is kept as a comment produce none.
 func (a *activity) produces(n *sysmlv1.Element) bool {
-	return !a.dead[n] && n.Type != "OpaqueAction"
+	if a.dead[n] {
+		return false
+	}
+	return n.Type != "OpaqueAction" || a.opaqueOf(n).ok
 }
 
-// producesAt reports whether an output pin may carry a value: its node must
-// produce one, and a call's pin must stand for a parameter its callee gives a value.
+// producesAt reports whether an output pin may carry a value: its node must produce
+// one, an opaque body must assign the pin, and a call's pin must stand for a
+// parameter its callee gives a value.
 func (a *activity) producesAt(pin *sysmlv1.Element) bool {
 	n := pin.Parent
 	if n == nil || !a.produces(n) {
 		return false
+	}
+	if n.Type == "OpaqueAction" {
+		return a.opaqueOf(n).assigned[pin]
 	}
 	callee, p := a.calleeOutput(pin)
 	if callee != nil && p == nil {

@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:SimulationProfile="http://www.magicdraw.com/schemas/SimulationProfile.xmi">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+
+    <packagedElement xmi:type="uml:Class" xmi:id="_config" name="Group 0"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_config1" name="Group 1"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_tcsb" name="TCS">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_i" name="i"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_i0" value="0"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_retries" name="Retries"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_r0" value="4"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_gs" name="GS_Found"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Boolean"/>
+        <defaultValue xmi:type="uml:LiteralBoolean" xmi:id="_gs0" value="false"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_lost" name="Guide Star Lost"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Boolean"/>
+        <defaultValue xmi:type="uml:LiteralBoolean" xmi:id="_lost0" value="false"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_dit" name="ditSetup"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_dit0" value="2.5"/>
+      </ownedAttribute>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_obs" name="Observatory">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_tcs" name="tcs" type="_tcsb" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_tacq" name="Time_Acq_Total"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_tacq0" value="0.0"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_acq" name="Acquire">
+        <group xmi:type="uml:ActivityPartition" xmi:id="_lane" name="Telescope Control" represents="_tcs" node="_seed _set _attempt _decide _found _bump _abort" edge="_e5 _e6 _e10"/>
+        <node xmi:type="uml:InitialNode" xmi:id="_init"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_stamp0" name="start timer">
+          <language>JavaScript</language>
+          <body>Time_Acq_Total = simtime;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_seed" name="seed">
+          <inputValue xmi:type="uml:ValuePin" xmi:id="_seedr" name="Retries"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+            <value xmi:type="uml:LiteralInteger" xmi:id="_seedr0" value="2"/>
+          </inputValue>
+          <language>JavaScript</language>
+          <body>GS_Found = Retries &lt; 1;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_set" name="first attempt">
+          <language>JavaScript</language>
+          <body>i = 1;
+GS_Found = false;</body>
+        </node>
+        <node xmi:type="uml:MergeNode" xmi:id="_merge"/>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_attempt" name="attempt"/>
+        <node xmi:type="uml:ForkNode" xmi:id="_split"/>
+        <node xmi:type="uml:FlowFinalNode" xmi:id="_ff"/>
+        <node xmi:type="uml:MergeNode" xmi:id="_drop"/>
+        <node xmi:type="uml:DecisionNode" xmi:id="_decide"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_found" name="guide star found">
+          <language>JavaScript</language>
+          <body>GS_Found = true;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_bump" name="next attempt">
+          <language>JavaScript</language>
+          <body>i += 1;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_abort" name="abort">
+          <language>JavaScript</language>
+          <body>GS_Found = false;</body>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_stamp1" name="stop timer">
+          <language>JavaScript</language>
+          <body>Time_Acq_Total = simtime - Time_Acq_Total;</body>
+        </node>
+        <node xmi:type="uml:MergeNode" xmi:id="_done"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_final"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e1" source="_init" target="_stamp0"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e2" source="_stamp0" target="_seed"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e2b" source="_seed" target="_set"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e3" source="_set" target="_merge"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e4" source="_merge" target="_attempt"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e4b" source="_attempt" target="_split"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e4c" source="_split" target="_decide"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e4d" source="_split" target="_ff"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e4e" source="_split" target="_drop"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e11b" source="_abort" target="_drop"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e5" source="_decide" target="_found">
+          <guard xmi:type="uml:OpaqueExpression" xmi:id="_g5">
+            <language>JavaScript</language>
+            <body>i &gt;= Retries</body>
+          </guard>
+        </edge>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e6" source="_decide" target="_bump">
+          <guard xmi:type="uml:OpaqueExpression" xmi:id="_g6">
+            <language>English</language>
+            <body>not GS_Found and not Guide Star Lost and i &lt; Retries</body>
+          </guard>
+        </edge>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e10" source="_decide" target="_abort">
+          <guard xmi:type="uml:OpaqueExpression" xmi:id="_g10">
+            <language>English</language>
+            <body>FALSE</body>
+          </guard>
+        </edge>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e11" source="_abort" target="_ff"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e7" source="_bump" target="_merge"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e8" source="_found" target="_done"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e12" source="_done" target="_stamp1"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e9" source="_stamp1" target="_final"/>
+        <ownedRule xmi:type="uml:DurationConstraint" xmi:id="_dc" name="settle">
+          <constrainedElement xmi:idref="_attempt"/>
+          <specification xmi:type="uml:DurationInterval" xmi:id="_di" min="_d1" max="_d2"/>
+        </ownedRule>
+        <observation xmi:type="uml:DurationObservation" xmi:id="_span" name="Time_Loop">
+          <event xmi:idref="_set"/>
+          <event xmi:idref="_found"/>
+        </observation>
+        <observation xmi:type="uml:DurationObservation" xmi:id="_between" name="Time_Between" firstEvent="false true">
+          <event xmi:idref="_set"/>
+          <event xmi:idref="_found"/>
+        </observation>
+        <observation xmi:type="uml:DurationObservation" xmi:id="_single" name="Time_Attempt">
+          <event xmi:idref="_attempt"/>
+        </observation>
+        <observation xmi:type="uml:DurationObservation" xmi:id="_never" name="Time_Never">
+          <event xmi:idref="_abort"/>
+          <event xmi:idref="_found"/>
+        </observation>
+        <observation xmi:type="uml:DurationObservation" xmi:id="_unfinished" name="Time_Unfinished">
+          <event xmi:idref="_set"/>
+          <event xmi:idref="_abort"/>
+        </observation>
+        <observation xmi:type="uml:DurationObservation" xmi:id="_run" name="Time_Run" firstEvent="true true">
+          <event xmi:idref="_init"/>
+          <event xmi:idref="_final"/>
+        </observation>
+        <observation xmi:type="uml:DurationObservation" xmi:id="_kickoff" name="Time_Kickoff">
+          <event xmi:idref="_init"/>
+        </observation>
+        <observation xmi:type="uml:DurationObservation" xmi:id="_astray" name="Time_Astray">
+          <event xmi:idref="_tcs"/>
+        </observation>
+        <observation xmi:type="uml:DurationObservation" xmi:id="_pass" name="Time_Pass" firstEvent="true true">
+          <event xmi:idref="_set"/>
+          <event xmi:idref="_ff"/>
+        </observation>
+        <observation xmi:type="uml:DurationObservation" xmi:id="_ended" name="Time_Ended">
+          <event xmi:idref="_ff"/>
+        </observation>
+        <observation xmi:type="uml:DurationObservation" xmi:id="_drop_o" name="Time_Drop" firstEvent="true true">
+          <event xmi:idref="_set"/>
+          <event xmi:idref="_drop"/>
+        </observation>
+        <observation xmi:type="uml:DurationObservation" xmi:id="_dropped" name="Time_Dropped">
+          <event xmi:idref="_drop"/>
+        </observation>
+        <observation xmi:type="uml:DurationObservation" xmi:id="_dangle" name="Time_Lost">
+          <event xmi:idref="_set"/>
+          <event xmi:idref="_missing"/>
+        </observation>
+        <observation xmi:type="uml:DurationObservation" xmi:id="_blank" name="Time_Blank"/>
+      </ownedBehavior>
+    </packagedElement>
+    <packagedElement xmi:type="uml:TimeEvent" xmi:id="_te1">
+      <when xmi:type="uml:TimeExpression" xmi:id="_te1w">
+        <expr xmi:type="uml:Duration" xmi:id="_d1"><expr xmi:type="uml:LiteralString" xmi:id="_l1" value="ditSetup s"/></expr>
+      </when>
+    </packagedElement>
+    <packagedElement xmi:type="uml:TimeEvent" xmi:id="_te2">
+      <when xmi:type="uml:TimeExpression" xmi:id="_te2w">
+        <expr xmi:type="uml:Duration" xmi:id="_d2"><expr xmi:type="uml:LiteralString" xmi:id="_l2" value="ditSetup s"/></expr>
+      </when>
+    </packagedElement>
+  </uml:Model>
+
+  <sysml:Block xmi:id="_s1" base_Class="_obs"/>
+  <sysml:Block xmi:id="_s2" base_Class="_tcsb"/>
+  <SimulationProfile:SimulationConfig xmi:id="_s3" base_Class="_config" timeVariableName="simtime" durationSimulationMode="random" numberOfRuns="6"/>
+  <SimulationProfile:SimulationConfig xmi:id="_s4" base_Class="_config1" durationSimulationMode="max" numberOfRuns="1"/>
+</xmi:XMI>

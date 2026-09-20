@@ -404,6 +404,15 @@ func (a *activity) contextArgument(c *behaviorContext) (expr, note string) {
 	return a.m.contextBinding(c, a.selfType(), a.self())
 }
 
+// callContext is contextArgument for the call behavior action n: the object its
+// swimlane names as the performer when there is one, else the caller's.
+func (a *activity) callContext(n *sysmlv1.Element, c *behaviorContext) (expr, note string) {
+	if l, _, _ := a.m.lanePerformer(n); l != nil {
+		return a.m.contextBinding(c, l.typ, l.expr)
+	}
+	return a.contextArgument(c)
+}
+
 // contextBinding writes the object bound to a run behavior's context parameter,
 // where the runner's object is a self of type selfType: that object when it is
 // one, else its one part that is.

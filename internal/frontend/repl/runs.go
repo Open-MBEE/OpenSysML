@@ -196,7 +196,8 @@ func observe(ctx *runtime.Context, outcome runtime.Outcome, observables []string
 }
 
 // unobserved is the error of an observable no completed run produced: the
-// action holds no such feature. Nothing is held against a table whose every run failed.
+// action holds no such feature, or holds one no run gave a value. Nothing is
+// held against a table whose every run failed.
 func unobserved(table runtime.SweepTable, observables []string) error {
 	produced := make(map[string]bool)
 	completed := 0
@@ -214,7 +215,7 @@ func unobserved(table runtime.SweepTable, observables []string) error {
 	}
 	for _, name := range observables {
 		if !produced[name] {
-			return fmt.Errorf("%w: %s holds no feature named %s (the clock is observed as %s)",
+			return fmt.Errorf("%w: no completed run of %s produced a value named %s (the clock is observed as %s)",
 				runtime.ErrSweepRuns, table.Target, name, ClockObservable)
 		}
 	}

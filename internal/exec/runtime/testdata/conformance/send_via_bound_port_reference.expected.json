@@ -1,0 +1,27 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "SendViaBoundPortReference::Rig",
+  "materialization": {},
+  "objects": [
+    {
+      "path": "",
+      "events": [{"signal": "Go"}],
+      "finalState": "fired",
+      "stateVisits": ["idle", "firing", "fired"],
+      "slots": {"lastReply": {"type": "Instance"}}
+    },
+    {
+      "path": "wired",
+      "finalState": "done",
+      "stateVisits": ["idle", "done"],
+      "slots": {"heard": {"type": "Boolean", "value": true}}
+    },
+    {
+      "path": "decoy",
+      "finalState": "idle",
+      "stateVisits": ["idle"],
+      "slots": {"heard": {"type": "Boolean", "value": false}}
+    }
+  ]
+}
