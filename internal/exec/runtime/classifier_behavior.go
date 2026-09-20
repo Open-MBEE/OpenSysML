@@ -755,10 +755,13 @@ func (ctx *Context) nextRunnableBehavior() (*ObjectBehavior, bool) {
 		first = min(boundary.pending, len(ctx.pendingBehaviors))
 		attached = min(boundary.behaviors, len(ctx.objectBehaviors))
 	}
-	if first < len(ctx.pendingBehaviors) {
+	// A behavior ended before its first run (its object destroyed) has no run to take.
+	for first < len(ctx.pendingBehaviors) {
 		behavior := ctx.pendingBehaviors[first]
 		ctx.pendingBehaviors = slices.Delete(ctx.pendingBehaviors, first, first+1)
-		return behavior, true
+		if !behavior.completed() {
+			return behavior, true
+		}
 	}
 	for _, behavior := range ctx.objectBehaviors[attached:] {
 		if !ctx.heldBehaviors[behavior] && behavior.hasPendingWork() {
@@ -895,10 +898,13 @@ func (ctx *Context) performanceOccurrence(
 		return nil, fmt.Errorf("%w: object #%d has no feature for %s %s",
 			sentinel, inst.ID, decl.behavior.Kind, decl.behavior.Name)
 	}
-	fv, err := inst.GetFeatureValue(ctx, name)
-	if err != nil {
-		return nil, fmt.Errorf("%w: materialize %s of object #%d: %w",
-			sentinel, name, inst.ID, err)
+	// A held occurrence is taken as it stands, so a destroyed object's binding still resolves.
+	if fv.HeldValue().Kind == ValInvalid {
+		var err error
+		if fv, err = inst.GetFeatureValue(ctx, name); err != nil {
+			return nil, fmt.Errorf("%w: materialize %s of object #%d: %w",
+				sentinel, name, inst.ID, err)
+		}
 	}
 	if fv.HeldValue().Kind == ValInvalid {
 		occurrence, err := ctx.materialize(behavior, 0, inst, name)

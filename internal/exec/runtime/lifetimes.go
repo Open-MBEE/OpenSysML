@@ -123,32 +123,31 @@ func (ctx *Context) createDuring(op string, inst *Instance, mark int64) error {
 	return nil
 }
 
-// destroy ends inst and every object it holds as a portion of itself, none of
-// which outlives its whole, ends twice, or ends while performing a behavior.
+// destroy ends inst and every object it holds as a portion of itself, none of which
+// outlives its whole or ends twice, and ends the behaviors they perform; a behavior
+// under way ends where its call catches the unwinding, which destroy returns.
 func (ctx *Context) destroy(inst *Instance) error {
-	if err := ctx.checkMayEnd(inst); err != nil {
+	if err := ctx.checkLiving(inst); err != nil {
 		return err
 	}
-	// A portion that ended before its whole stays ended where it did.
-	var portions []*Instance
+	// One boundary ends the whole and its portions; a portion that ended before its whole stays ended where it did.
+	ended := map[int64]bool{}
+	at := ctx.newActivation()
 	for _, portion := range ctx.portionsOf(inst) {
-		if ctx.lives[portion.ID].ended != 0 {
+		prior := ctx.lives[portion.ID]
+		if prior.ended != 0 {
 			continue
 		}
-		if err := ctx.checkMayEnd(portion); err != nil {
-			return err
-		}
-		portions = append(portions, portion)
-	}
-	// One boundary ends the whole and its portions: none outlives its whole.
-	ended := ctx.newActivation()
-	for _, portion := range portions {
-		prior := ctx.lives[portion.ID]
-		ctx.lives[portion.ID] = life{reached: prior.reached, began: prior.began, ended: ended, destroyed: true}
+		ended[portion.ID] = true
+		ctx.lives[portion.ID] = life{reached: prior.reached, began: prior.began, ended: at, destroyed: true}
 		ctx.noteProbeUndo(func() { ctx.lives[portion.ID] = prior })
 		if ctx.trace != nil {
 			ctx.trace.RecordOccurrenceDestroyed(symbolText(portion.Type), portion.ID)
 		}
+	}
+	ctx.endBehaviorsWith(ended)
+	if ctx.innermostRun().endsWithin(ended) {
+		return &terminated{object: inst, ended: ended}
 	}
 	return nil
 }
@@ -205,19 +204,6 @@ func (ctx *Context) lifeEnded(inst *Instance) bool {
 	return ok && l.ended != 0
 }
 
-// checkMayEnd reports why inst cannot end now: it ended already, or a behavior
-// it performs, or one performed as it, is under way.
-func (ctx *Context) checkMayEnd(inst *Instance) error {
-	if err := ctx.checkLiving(inst); err != nil {
-		return err
-	}
-	if b := ctx.performanceUnderWay(inst); b != nil {
-		return fmt.Errorf("%w: object #%d (%s) cannot end while %s is under way",
-			ErrOccurrenceLifetime, inst.ID, symbolText(inst.Type), b.Describe())
-	}
-	return nil
-}
-
 // checkLiving refuses an occurrence that has no lifetime here, was destroyed, or ended already.
 func (ctx *Context) checkLiving(inst *Instance) error {
 	prior, ok := ctx.lives[inst.ID]
@@ -233,38 +219,6 @@ func (ctx *Context) checkLiving(inst *Instance) error {
 			ErrOccurrenceLifetime, inst.ID, symbolText(inst.Type), prior.ended)
 	}
 	return nil
-}
-
-// performanceUnderWay answers a behavior inst performs, or one whose performance
-// occurrence inst is, that has not completed; nil when there is none.
-func (ctx *Context) performanceUnderWay(inst *Instance) *ObjectBehavior {
-	performers := []*Instance{inst}
-	if inst.owner != nil {
-		performers = append(performers, inst.owner)
-	}
-	for _, performer := range performers {
-		for _, b := range performer.behaviors {
-			if b.performanceOf(inst) && !b.completed() {
-				return b
-			}
-		}
-	}
-	return nil
-}
-
-// performanceOf reports whether the behavior is performed by inst, or is the
-// performance inst stands for.
-func (b *ObjectBehavior) performanceOf(inst *Instance) bool {
-	if b.Object == inst {
-		return true
-	}
-	switch {
-	case b.Action != nil:
-		return b.Action.occurrence == inst
-	case b.State != nil:
-		return b.State.occurrence == inst
-	}
-	return false
 }
 
 // completed reports whether the behavior's executor has reached its end.

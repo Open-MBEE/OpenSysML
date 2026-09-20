@@ -87,6 +87,43 @@ func (ctx *Context) classifyHeld(feature *symbols.Symbol, val Value) error {
 	return nil
 }
 
+// holdWritten makes the objects written to a feature of inst its values (KerML §7.3.4.1): each is
+// classified by the feature, and one no feature holds yet becomes a part of inst when it is composite.
+func (ctx *Context) holdWritten(inst *Instance, fv *FeatureValue, val Value) error {
+	if !holdsObjects(fv.Feature) {
+		return nil
+	}
+	if err := ctx.classifyHeld(fv.Feature.heldBy(), val); err != nil {
+		return err
+	}
+	if ctx.CompositeTypeOf(fv.Feature) == nil {
+		return nil
+	}
+	for _, el := range elementsOf(val) {
+		id, ok := el.Object()
+		if !ok {
+			continue
+		}
+		child, ok := ctx.instances[id]
+		if !ok || child == inst || child.owner != nil || ctx.holdsItself(inst, child) {
+			continue
+		}
+		child.owner, child.ownerFeature = inst, fv.Feature.Name
+		ctx.noteProbeUndo(func() { child.owner, child.ownerFeature = nil, "" })
+	}
+	return nil
+}
+
+// holdsItself reports whether inst is a portion of child, which child then cannot become one of.
+func (ctx *Context) holdsItself(inst, child *Instance) bool {
+	for o := inst.owner; o != nil; o = o.owner {
+		if o == child {
+			return true
+		}
+	}
+	return false
+}
+
 // classify records typ as a classifier of inst with the features and behaviors it adds; a
 // type the object already conforms to adds nothing and is recorded as a direct type alone.
 // It is one transaction: a failure, or a probe rolling it back, leaves the object, what its

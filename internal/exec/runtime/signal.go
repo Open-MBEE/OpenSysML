@@ -1381,11 +1381,26 @@ func (e *EvalContext) evalConstructor(constructor *ast.ConstructorExpr) (Value, 
 	if err != nil {
 		return Value{}, err
 	}
-	value, err := e.ctx.materializeMessage(msg)
+	inst, err := e.ctx.constructObject(msg)
 	if err != nil {
 		return Value{}, fmt.Errorf("%s: %w", what, err)
 	}
-	return e.ctx.objectValue(e.ctx.instances[value.Instance])
+	return e.ctx.objectValue(inst)
+}
+
+// constructObject materializes the object `new T(…)` denotes (KerML §7.4.9): an occurrence
+// whose life begins here and that performs T's behaviors; a failed construction leaves nothing.
+func (ctx *Context) constructObject(msg Message) (*Instance, error) {
+	mark := len(ctx.created)
+	value, err := ctx.materializeMessage(msg)
+	if err != nil {
+		return nil, err
+	}
+	inst := ctx.instances[value.Instance]
+	if err := ctx.startClassifierBehaviors(inst, mark); err != nil {
+		return nil, err
+	}
+	return inst, nil
 }
 
 // checkConstructorArity rejects positional arguments beyond the constructed

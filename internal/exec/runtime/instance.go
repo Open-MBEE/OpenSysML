@@ -718,6 +718,9 @@ func (inst *Instance) SetFeatureValue(ctx *Context, name string, value Value) er
 	if err != nil {
 		return err
 	}
+	if err := ctx.holdWritten(inst, fv, value); err != nil {
+		return fmt.Errorf("feature %s.%s: %w", inst.Type.Name, name, err)
+	}
 	ctx.noteProbeWrite(fv)
 	before := ctx.beforeWrite(fv)
 	if fv.Feature.Scalar() {

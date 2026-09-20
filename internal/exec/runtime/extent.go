@@ -119,6 +119,10 @@ func (ctx *Context) objectsOf(roots []*Instance, target *symbols.Symbol) (Value,
 			return nil
 		}
 		seen[inst.ID] = true
+		// A destroyed object left the extent with its portions; what it referred to is reached from where it is held.
+		if ctx.checkNotDestroyed(inst) != nil {
+			return nil
+		}
 		if ctx.isOf(inst, target) {
 			val, err := ctx.objectValue(inst)
 			if err != nil {
