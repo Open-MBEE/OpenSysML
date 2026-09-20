@@ -756,6 +756,45 @@ element link, never dropped.
 | **4. Step-debug** | step a behavior from Cameo; highlight current state / fired transition / token on the open diagram through `AnnotationPainter`s; choice-point display and reseed | the debugger session API of [`api-surface-parity.md`](api-surface-parity.md) on the wire and in the Java client |
 | **v2 front end** (in parallel from phase 1; needs the SysML v2 Plugin on the developer machine) | `plugin-v2`: `exportTextual` → `ParseSources`, no migration; parser-disagreement report; opt-in run of a vendor-transformed v2 project | none |
 
+### 11.1 Phase 1 as built
+
+The implementation under `editors/cameo/` follows §10 with these deviations:
+
+- **Maven, not Gradle.** The module is a Maven reactor (`openapi-stubs`, `tools`, `plugin`,
+  `dist`) so it builds with the same toolchain as `client/java`; the client is consumed as an
+  installed artifact rather than an included build. `CAMEO_HOME` (a shell script, not a Gradle
+  property) compiles the plugin against a licensed installation.
+- **One module for both paths.** `plugin-v2` is folded into `plugin` (`org.openmbee.opensysml.cameo.v2`)
+  because the SysML v2 classes it needs (`SysMLTextualNotationService`, KerML `Element`,
+  `Namespace`) are stubbed like the rest of the OpenAPI, so nothing forces a second source set.
+  At runtime the v2 path is taken only when the textual service class loads and the selection
+  is a SysML v2 element; otherwise the selection is exported as a `.mdzip`.
+- **Identity by qualified name on both paths.** The service does not return the migration
+  report (phase 3), so v1 results are matched by the Cameo qualified name normalized the way the
+  migration writes it (quoted segments unquoted). Every candidate for an ambiguous name is kept
+  and annotated; a name the migration synthesized (`unnamed2`, renamed duplicates) is shown in
+  the results window without an element link. The `Entry.kind` preference of §10.5 waits for
+  the report.
+- **Actions per operation, not a Run dialog.** The context menu group holds six actions
+  (Instantiate, Execute action, Execute state machine, Verify requirement/constraint, Evaluate
+  calc, Run analysis), enabled for exactly one selected element; Verify picks
+  `verifyRequirement`, `verifySatisfaction` or `verifyConstraint` from the symbol's kind. Sweep,
+  the schedule dialog and *Reveal converted model* are deferred with phase 2's remaining items.
+- **Whole-project export.** `exportModule` is given the primary model, since a selected element
+  alone loses the references the conversion needs; a saved, unmodified `.mdzip` is read in place.
+- **Phase 2's results window and annotations are in phase 1**: a docking `ProjectWindow`
+  per project with outcomes, diagnostics, final time and schedule, double-click selecting the
+  element in the containment tree, and `Annotation`s replaced per project on every run. The
+  `RuleViolationResult` bridge and the validation-suite module are not.
+- **One connection, cancel by close.** A single `Connection` is opened lazily and reused; the
+  progress dialog's `isCancel()` is polled every 250 ms and cancelling closes the connection,
+  which aborts the in-flight RPC. The next run reopens it. Per-phase deadlines come from the
+  client's request timeout rather than two connections.
+- **Distribution.** `mvn -f editors/cameo/pom.xml -Dopensysml.version=vX.Y.Z package` downloads
+  the five `sysml-grpc` release assets, verifies each against the digest table the client jar
+  ships, generates `plugin.xml` listing every runtime jar, and zips
+  `plugins/org.openmbee.opensysml.cameo/` with `data/resourcemanager/`.
+
 ## 12. Unknowns and risks
 
 Each item says what is known, what is not, and what would settle it.

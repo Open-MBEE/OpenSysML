@@ -45,25 +45,26 @@ case_() {
 case_ docs-only docs docs/guide/index.md
 case_ changelog-only docs CHANGELOG.md
 case_ changelog-fragment docs changes/unreleased/repl-thing.added.md
-case_ java-only java client/java/opensysml-client/pom.xml
+case_ java-only cameo,java client/java/opensysml-client/pom.xml
 case_ node-only node client/node/package.json
 case_ python-only python client/python/opensysml/connection.py
 case_ rust-only rust client/rust/opensysml/src/connection.rs
 case_ vscode-only vscode editors/vscode/package.json
+case_ cameo-only cameo editors/cameo/pom.xml
 # The grammar generator and its committed output are held together by a Go test.
-case_ vscode-grammar docs,go,java,node,python,rust,vscode editors/vscode/tools/gengrammar/grammar.go
-case_ vscode-syntaxes docs,go,java,node,python,rust,vscode editors/vscode/syntaxes/sysml.tmLanguage.json
+case_ vscode-grammar cameo,docs,go,java,node,python,rust,vscode editors/vscode/tools/gengrammar/grammar.go
+case_ vscode-syntaxes cameo,docs,go,java,node,python,rust,vscode editors/vscode/syntaxes/sysml.tmLanguage.json
 # Any markdown counts as documentation: the site links out to repository files.
-case_ two-client-readmes docs,java,node client/java/README.md client/node/README.md
-case_ two-clients java,node client/java/pom.xml client/node/tsconfig.json
-case_ go-source docs,go,java,node,python,rust,vscode internal/syntax/parser/parser.go
-case_ go-client docs,go,java,node,python,rust,vscode client/opensysml/client.go
-case_ release-digests docs,go,java,node,python,rust,vscode client/release-digests.json
-case_ go-tools docs,go,java,node,python,rust,vscode tools/gen/snapshot/main.go
-case_ proto docs,go,java,node,python,rust,vscode api/proto/sysml.proto
-case_ conformance docs,go,java,node,python,rust,vscode conformance/scenarios/01-server-info.json
-case_ workflow docs,go,java,node,python,rust,vscode .github/workflows/pr.yml
-case_ unclaimed docs,go,java,node,python,rust,vscode some-new-top-level/thing.txt
+case_ two-client-readmes cameo,docs,java,node client/java/README.md client/node/README.md
+case_ two-clients cameo,java,node client/java/pom.xml client/node/tsconfig.json
+case_ go-source cameo,docs,go,java,node,python,rust,vscode internal/syntax/parser/parser.go
+case_ go-client cameo,docs,go,java,node,python,rust,vscode client/opensysml/client.go
+case_ release-digests cameo,docs,go,java,node,python,rust,vscode client/release-digests.json
+case_ go-tools cameo,docs,go,java,node,python,rust,vscode tools/gen/snapshot/main.go
+case_ proto cameo,docs,go,java,node,python,rust,vscode api/proto/sysml.proto
+case_ conformance cameo,docs,go,java,node,python,rust,vscode conformance/scenarios/01-server-info.json
+case_ workflow cameo,docs,go,java,node,python,rust,vscode .github/workflows/pr.yml
+case_ unclaimed cameo,docs,go,java,node,python,rust,vscode some-new-top-level/thing.txt
 
 if [[ "$failures" -ne 0 ]]; then
   echo "$failures case(s) failed" >&2
