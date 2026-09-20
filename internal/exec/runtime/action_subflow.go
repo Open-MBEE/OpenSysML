@@ -118,6 +118,9 @@ func (e *ActionExecutor) enterBodyFlow(perf *actionFrame) (*subflowFrame, error)
 		return nil, fmt.Errorf("%w: %s: %w",
 			ErrInvalidActionFlow, perf.describe(), perf.graph.Invalid)
 	}
+	if err := e.checkNodeResultParameters(perf.graph); err != nil {
+		return nil, fmt.Errorf("%s: %w", perf.describe(), err)
+	}
 	if perf.graph == nil || perf.graph.Initial == nil {
 		return nil, fmt.Errorf("%w: %s owns a flow that cannot be built",
 			ErrInvalidActionFlow, perf.describe())
