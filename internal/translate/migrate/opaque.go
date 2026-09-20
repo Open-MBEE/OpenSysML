@@ -110,18 +110,19 @@ type translated struct {
 	lit    string
 }
 
-// wanted is the type a translated expression must yield: what the feature
-// holding it holds (scalar and object as on opaqueRef), one value when single;
-// the zero value wants any value.
+// wanted is the type an expression must yield: what the feature holding it
+// holds (scalar and object as on opaqueRef), one value when single; the zero
+// value wants any value. holder says what wants it, for a refusal ("the feature holds").
 type wanted struct {
 	scalar string
 	object []string
 	single bool
+	holder string
 }
 
-// oneOf wants one value of scalar ("" for any scalar or object).
-func oneOf(scalar string) wanted {
-	return wanted{scalar: scalar, single: true}
+// oneOf wants one value of scalar ("" for any scalar or object) for holder.
+func oneOf(scalar, holder string) wanted {
+	return wanted{scalar: scalar, single: true, holder: holder}
 }
 
 // target is the wanted type as the value a feature of that type reads.

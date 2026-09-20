@@ -24,8 +24,76 @@ func (m *migration) valueExpr(v, scope *sysmlv1.Element) (expr string, ok bool, 
 
 // valueExprAs writes a value specification yielding what want asks for: an
 // opaque body in the translated subset is translated, else copied when it is
-// already v2 whose names resolve from scope.
+// already v2 whose names resolve from scope; a literal is checked to spell a
+// value of the wanted scalar, and an instance refused when a scalar is wanted.
 func (m *migration) valueExprAs(v, scope *sysmlv1.Element, want wanted) (expr string, ok bool, note string) {
+	expr, ok, note = m.directValue(v, scope, want)
+	if !ok || want.scalar == "" {
+		return expr, ok, note
+	}
+	if v.Type == "InstanceValue" {
+		inst := m.model.Ref(v, "instance")
+		kind := "instance"
+		if inst.Type == "EnumerationLiteral" {
+			kind = "literal"
+		}
+		for _, c := range m.model.Refs(inst, "classifier") {
+			if m.scalarBase(c) == want.scalar {
+				return expr, ok, note
+			}
+		}
+		return "", false, "the " + kind + " " + qualifiedName(inst) + " is not a value of " + want.scalar + ", which " + want.holder
+	}
+	kind, text := literalKind(v, expr)
+	if kind == "" {
+		return expr, ok, note
+	}
+	value, ok, lnote := literalAs(kind, expr, text, want)
+	if !ok {
+		return "", false, lnote
+	}
+	return value, true, joinNotes(note, lnote)
+}
+
+// literalKind names the literal kind of v — integer, real, boolean or string, as
+// scalarLiteral takes them — with its source text; "" for anything else. An opaque
+// expression is a literal when expr, what it was written as, is one.
+func literalKind(v *sysmlv1.Element, expr string) (kind, text string) {
+	switch v.Type {
+	case "LiteralInteger", "LiteralUnlimitedNatural":
+		return "integer", strings.TrimSpace(v.Attrs["value"])
+	case "LiteralReal":
+		return "real", strings.TrimSpace(v.Attrs["value"])
+	case "LiteralBoolean":
+		return "boolean", strings.TrimSpace(v.Attrs["value"])
+	case "LiteralString":
+		return "string", strings.TrimSpace(v.Attrs["value"])
+	case "OpaqueExpression":
+		return exprLiteral(expr)
+	}
+	return "", ""
+}
+
+// literalAs writes a literal of kind, written expr with source text, as the
+// value want asks for: a scalar it spells is written as that scalar, one it
+// does not spell is refused; with no scalar wanted it is kept as written.
+func literalAs(kind, expr, text string, want wanted) (value string, ok bool, note string) {
+	if want.scalar == "" {
+		return expr, true, ""
+	}
+	value, spelled := scalarLiteral(kind, expr, text, want.scalar)
+	switch {
+	case !spelled:
+		return "", false, "the " + kind + " " + expr + " is not a value of " + want.scalar + ", which " + want.holder
+	case value != expr:
+		return value, true, "the " + kind + " " + expr + " is written as the " + want.scalar + " " + want.holder
+	}
+	return expr, true, ""
+}
+
+// directValue writes a value specification as valueExprAs does, before the
+// wanted type is checked against a literal or instance it yields.
+func (m *migration) directValue(v, scope *sysmlv1.Element, want wanted) (expr string, ok bool, note string) {
 	switch v.Type {
 	case "LiteralInteger", "LiteralUnlimitedNatural":
 		val := v.Attrs["value"]
@@ -172,29 +240,14 @@ func (m *migration) featureValue(v, f, scope *sysmlv1.Element) (expr string, ok 
 	if v.Type == "InstanceValue" && t != nil {
 		inst := m.model.Ref(v, "instance")
 		if inst.Type == "InstanceSpecification" && !m.instanceOf(m.model.Refs(inst, "classifier"), t) {
-			return "", false, "the instance " + qualifiedName(inst) + " is not a " + qualifiedName(t) + featureHolds
+			return "", false, "the instance " + qualifiedName(inst) + " is not a " + qualifiedName(t) + ", which " + featureHolds
 		}
 		if inst.Type == "EnumerationLiteral" && inst.Parent != t && m.written(t) {
-			return "", false, "the literal " + qualifiedName(inst) + " is not a " + qualifiedName(t) + featureHolds
+			return "", false, "the literal " + qualifiedName(inst) + " is not a " + qualifiedName(t) + ", which " + featureHolds
 		}
 	}
-	sv := m.scalarBase(t)
-	if sv == "" && strings.HasPrefix(v.Type, "Literal") && v.Type != "LiteralNull" && (m.structuredValueType(t) || m.written(t)) {
+	if m.scalarBase(t) == "" && strings.HasPrefix(v.Type, "Literal") && v.Type != "LiteralNull" && (m.structuredValueType(t) || m.written(t)) {
 		return "", false, "the literal " + expr + " is not a value of " + qualifiedName(t) + ", which has no scalar base"
-	}
-	if sv == "" || !strings.HasPrefix(v.Type, "Literal") || v.Type == "LiteralNull" {
-		return expr, ok, note
-	}
-	kind := strings.ToLower(strings.TrimPrefix(v.Type, "Literal"))
-	if kind == "unlimitednatural" {
-		kind = "integer"
-	}
-	value, spelled := scalarLiteral(kind, expr, strings.TrimSpace(v.Attrs["value"]), sv)
-	switch {
-	case !spelled:
-		return "", false, "the " + kind + " " + expr + " is not a value of " + sv + featureHolds
-	case value != expr:
-		return value, true, joinNotes(note, "the "+kind+" "+expr+" is written as the "+sv+" the feature holds")
 	}
 	return expr, ok, note
 }
@@ -374,8 +427,8 @@ func exprLiteral(text string) (kind, value string) {
 // exprProbePrefix precedes an expression parsed on its own as an attribute's value.
 const exprProbePrefix = "attribute probe = "
 
-// featureHolds ends the notes a refused literal value carries.
-const featureHolds = ", which the feature holds"
+// featureHolds is what wants a feature's value, in the notes a refused or rewritten literal carries.
+const featureHolds = "the feature holds"
 
 // refCollector gathers the names an expression refers to beyond its local
 // ones; unread is set when a member of a kind the walk does not read is met.

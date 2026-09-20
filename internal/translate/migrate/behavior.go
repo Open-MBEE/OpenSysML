@@ -283,28 +283,13 @@ func (m *migration) typedBehaviorValue(v, f, scope *sysmlv1.Element) (expr strin
 		return m.featureValue(v, f, scope)
 	}
 	t := m.model.Ref(f, "type")
-	sv := m.scalarBase(t)
 	body, lang := opaqueBody(v)
 	expr, ok, note = m.behaviorExprAs(body, lang, scope, m.wantedOf(f))
 	if !ok {
 		return expr, ok, note
 	}
-	kind, text := exprLiteral(expr)
-	if kind == "" {
-		return expr, ok, note
-	}
-	if sv == "" {
-		if m.structuredValueType(t) || m.written(t) {
-			return "", false, "the literal " + expr + " is not a value of " + qualifiedName(t) + ", which has no scalar base"
-		}
-		return expr, ok, note
-	}
-	value, spelled := scalarLiteral(kind, expr, text, sv)
-	switch {
-	case !spelled:
-		return "", false, "the " + kind + " " + expr + " is not a value of " + sv + ", which the feature holds"
-	case value != expr:
-		return value, true, joinNotes(note, "the "+kind+" "+expr+" is written as the "+sv+" the feature holds")
+	if kind, _ := exprLiteral(expr); kind != "" && m.scalarBase(t) == "" && (m.structuredValueType(t) || m.written(t)) {
+		return "", false, "the literal " + expr + " is not a value of " + qualifiedName(t) + ", which has no scalar base"
 	}
 	return expr, ok, note
 }
@@ -323,7 +308,8 @@ func (m *migration) behaviorExprAs(text, lang string, scope *sysmlv1.Element, wa
 }
 
 // behaviorExprHow is behaviorExprAs also reporting whether the translator
-// wrote the expression, rather than the body being v2 syntax already.
+// wrote the expression, rather than the body being v2 syntax already. An
+// expression that is one literal is checked to spell a value of the wanted scalar.
 func (m *migration) behaviorExprHow(text, lang string, scope *sysmlv1.Element, want wanted) (expr string, ok bool, note string, translated bool) {
 	text = strings.TrimSpace(text)
 	if text == "" {
@@ -333,7 +319,8 @@ func (m *migration) behaviorExprHow(text, lang string, scope *sysmlv1.Element, w
 		expr, note, refused := m.translatedExpr(text, lang, scope, want)
 		if refused == nil {
 			m.noted(scope, note)
-			return expr, true, "", true
+			expr, ok, note = literalExprAs(expr, want)
+			return expr, ok, note, true
 		}
 		if refused.final(lang) {
 			return "", false, refused.note(), false
@@ -343,7 +330,18 @@ func (m *migration) behaviorExprHow(text, lang string, scope *sysmlv1.Element, w
 	if !ok {
 		return "", false, note, false
 	}
-	return expr, true, note, false
+	expr, ok, lnote := literalExprAs(expr, want)
+	return expr, ok, joinNotes(note, lnote), false
+}
+
+// literalExprAs writes expr as the value want asks for when it is one literal,
+// and as it is otherwise.
+func literalExprAs(expr string, want wanted) (value string, ok bool, note string) {
+	kind, text := exprLiteral(expr)
+	if kind == "" {
+		return expr, true, ""
+	}
+	return literalAs(kind, expr, text, want)
 }
 
 // v2Expr writes text, already v2 expression syntax, read inside scope, or

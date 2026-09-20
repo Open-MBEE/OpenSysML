@@ -225,7 +225,7 @@ func boundsNote(f *sysmlv1.Element) string {
 // unless f is known to hold several (an unreadable multiplicity is written as one value).
 func (m *migration) wantedOf(f *sysmlv1.Element) wanted {
 	t := m.typedAs(f)
-	return wanted{scalar: m.scalarBase(t), object: m.nonScalar(t), single: !manyValued(f)}
+	return wanted{scalar: m.scalarBase(t), object: m.nonScalar(t), single: !manyValued(f), holder: featureHolds}
 }
 
 // nonScalar names t, then every type generalizing it, when its values are
@@ -273,7 +273,7 @@ func (m *migration) typedAs(f *sysmlv1.Element) *sysmlv1.Element {
 		return d.typ
 	}
 	switch f.Type {
-	case "Property", "Port", "Parameter":
+	case "Property", "Port", "Parameter", "InputPin", "OutputPin", "ValuePin", "ActionInputPin":
 		return m.model.Ref(f, "type")
 	}
 	return f
@@ -355,7 +355,7 @@ func (m *migration) symbolicDuration(text, lang string, scope *sysmlv1.Element) 
 	if body == "" {
 		return "", false, "the duration has no expression"
 	}
-	expr, ok, note = m.behaviorExprAs(body, lang, scope, oneOf("Real"))
+	expr, ok, note = m.behaviorExprAs(body, lang, scope, oneOf("Real", "the duration takes"))
 	if !ok {
 		return "", false, note
 	}

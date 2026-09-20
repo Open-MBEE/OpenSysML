@@ -167,7 +167,7 @@ func TestTranslateExpr(t *testing.T) {
 		if strings.HasPrefix(body, "Mean") {
 			body = strings.Replace(body, "Mean", "t", 1)
 		}
-		got, err := translateExpr(body, c.lang, testScope, oneOf(c.want))
+		got, err := translateExpr(body, c.lang, testScope, oneOf(c.want, featureHolds))
 		if err != nil {
 			t.Errorf("%s %q: refused: %s", c.lang, c.body, err.note())
 			continue
@@ -443,13 +443,13 @@ func TestTranslateRefusals(t *testing.T) {
 		want := wanted{}
 		switch c.body {
 		case "Retries", "state", "Math.sqrt(t)":
-			want = oneOf("Boolean")
+			want = oneOf("Boolean", featureHolds)
 		case "-1":
-			want = oneOf("Natural")
+			want = oneOf("Natural", featureHolds)
 		case "GS_Found ? drum : vat", "i", "tank":
 			want = wanted{object: []string{"Drum", "Tank"}, single: true}
 		case "xs", "tanks":
-			want = oneOf("")
+			want = oneOf("", featureHolds)
 		}
 		if c.statements {
 			_, err = translateStatements(c.body, c.lang, testScope)

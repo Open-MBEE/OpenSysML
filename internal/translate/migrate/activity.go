@@ -916,7 +916,7 @@ func (a *activity) guard(e *sysmlv1.Element, input string) guardText {
 	var ok bool
 	if g.Type == "OpaqueExpression" {
 		body, lang := opaqueBody(g)
-		expr, ok, note = a.m.behaviorExprAs(body, lang, e, oneOf("Boolean"))
+		expr, ok, note = a.m.behaviorExprAs(body, lang, e, oneOf("Boolean", "the guard tests"))
 	} else {
 		expr, ok, note = a.m.behaviorValue(g, e)
 	}

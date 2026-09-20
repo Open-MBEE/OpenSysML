@@ -892,7 +892,7 @@ func (m *migration) constraintBody(e *sysmlv1.Element) {
 		}
 		if spec == nil {
 			m.unmapped(result, "the constraint has no specification")
-		} else if expr, ok, note := m.valueExprAs(spec, e, oneOf("Boolean")); ok {
+		} else if expr, ok, note := m.valueExprAs(spec, e, oneOf("Boolean", "the constraint yields")); ok {
 			m.w.line(expr)
 			m.add(result, verdictFor(note), m.v2Name(e), note)
 		} else {
@@ -2116,7 +2116,7 @@ func (m *migration) rule(r *sysmlv1.Element) {
 		m.unmapped(r, "the constraint has no specification")
 		return
 	}
-	expr, ok, note := m.valueExprAs(spec, m.scope, oneOf("Boolean"))
+	expr, ok, note := m.valueExprAs(spec, m.scope, oneOf("Boolean", "the constraint yields"))
 	if !ok {
 		m.unmappedExpr(r, spec, note)
 		return
