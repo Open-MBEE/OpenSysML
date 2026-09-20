@@ -51,7 +51,8 @@ public final class HostBinary {
     if (!Files.isRegularFile(path)) {
       throw new IllegalStateException("missing OpenSysML service binary: " + path);
     }
-    if (!path.toFile().setExecutable(true, false) && !Files.isExecutable(path)) {
+    path.toFile().setExecutable(true, false);
+    if (!Files.isExecutable(path)) {
       throw new IllegalStateException("OpenSysML service binary cannot be made executable: " + path);
     }
     return path;
