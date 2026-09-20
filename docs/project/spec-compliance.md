@@ -2366,7 +2366,7 @@ are tracked here):
 
 ### Major Features Not Implemented (UML-referenced; no SysML v2 notation or KerML performance)
 
-The behavior-execution entries below — interruptible regions, expansion regions, streaming pins, protocol state machines, positional operation arguments, routing to a second object — each have a stated scope, dependency order and acceptance gate as [Track E of the roadmap](roadmap.md#track-e--behavior-execution); none is near-term.
+The behavior-execution entries below — interruptible regions, expansion regions, streaming pins, positional operation arguments, routing to a second object — each have a stated scope, dependency order and acceptance gate as [Track E of the roadmap](roadmap.md#track-e--behavior-execution); none is near-term.
 
 **Actions (Advanced):**
 - Interruptible regions
@@ -2376,7 +2376,15 @@ The behavior-execution entries below — interruptible regions, expansion region
 - Structured activities with pin connectors
 
 **State Machines (Advanced):**
-- Protocol state machines
+- Protocol state machines — **not a SysML v2 construct**; see
+  [protocol-state-machines.md](protocol-state-machines.md). The order of *receptions* on a port
+  or part is an ordinary exhibited state machine (§7.18.4, `accept … via` §7.17.8), which runs
+  today on parts (*Classifier Behaviors*, `state_transition_accept_via_port`) and on port
+  definitions; an arrival no transition of the active state accepts is dropped and reported
+  (`AdvanceReport.Dropped`), not raised. UML's post-conditions, `ProtocolConformance`, static
+  sequence checking and the gating of *operation calls* by state have no SysML v2 spelling and are
+  not tracked as missing. An opt-in typed error for a refused arrival is the record's optional
+  follow-up.
 
 **Object Model:**
 - Dynamic object creation/destruction (an object is materialized once, and nothing destroys it)
