@@ -1,4 +1,4 @@
-import { ExtensionRegistry } from '@eclipse-sirius/sirius-components-core';
+import { ExtensionRegistry as SiriusExtensionRegistry } from '@eclipse-sirius/sirius-components-core';
 import {
   GQLTreeItemContextMenuEntry,
   TreeItemContextMenuOverrideContribution,
@@ -7,12 +7,17 @@ import {
 import { RUN_WITH_OPENSYSML_TOOL_ID } from '../constants';
 import { RunWithOpenSysMLMenuContribution } from '../extension/RunWithOpenSysMLMenuContribution';
 
+interface ExtensionRegistry {
+  putData<P>(extensionPoint: { identifier: string; fallback: P }, extension: { identifier: string; data: P }): void;
+  getData<P>(extensionPoint: { identifier: string; fallback: P }): { identifier: string; data: P } | null;
+}
+
 const contribution: TreeItemContextMenuOverrideContribution = {
   canHandle: (entry: GQLTreeItemContextMenuEntry) => entry.id === RUN_WITH_OPENSYSML_TOOL_ID,
   component: RunWithOpenSysMLMenuContribution,
 };
 
-export const opensysmlExtensionRegistry = new ExtensionRegistry();
+export const opensysmlExtensionRegistry: ExtensionRegistry = new SiriusExtensionRegistry();
 
 opensysmlExtensionRegistry.putData(treeItemContextMenuEntryOverrideExtensionPoint, {
   identifier: 'opensysml_treeItemContextMenuEntryOverride',

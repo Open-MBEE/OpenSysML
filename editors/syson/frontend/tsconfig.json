@@ -14,12 +14,7 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true,
-    "baseUrl": ".",
-    "paths": {
-      "@eclipse-sirius/sirius-components-core": ["src/vendor/sirius-components-core.tsx"],
-      "@eclipse-sirius/sirius-components-trees": ["src/vendor/sirius-components-trees.ts"]
-    }
+    "allowSyntheticDefaultImports": true
   },
   "include": ["src"],
   "exclude": ["dist", "node_modules"]

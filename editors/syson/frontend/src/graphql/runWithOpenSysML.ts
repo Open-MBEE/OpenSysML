@@ -1,6 +1,17 @@
 import { gql, useMutation } from '@apollo/client';
-import { GQLErrorPayload, GQLMessage, useMultiToast } from '@eclipse-sirius/sirius-components-core';
+import { useMultiToast } from '@eclipse-sirius/sirius-components-core';
 import { useEffect } from 'react';
+
+interface GQLMessage {
+  body: string;
+  level: string;
+}
+
+interface GQLErrorPayload {
+  __typename: 'ErrorPayload';
+  id: string | null;
+  messages: GQLMessage[] | null;
+}
 
 export type GQLRunOperation =
   | 'INSTANTIATE'

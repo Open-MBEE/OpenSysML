@@ -3,8 +3,49 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import MenuItem from '@mui/material/MenuItem';
 import { forwardRef, useState } from 'react';
-import type { TreeItemContextMenuComponentProps } from '@eclipse-sirius/sirius-components-trees';
 import { RunWithOpenSysMLDialog } from '../dialog/RunWithOpenSysMLDialog';
+
+type GQLTreeItem = {
+  id: string;
+  label: {
+    styledStringFragments: { text: string }[];
+  };
+  kind: string;
+  iconURL: [string];
+  hasChildren: boolean;
+  children: GQLTreeItem[];
+  expanded: boolean;
+  editable: boolean;
+  deletable: boolean;
+  selectable: boolean;
+};
+
+type TreeItemContextMenuComponentProps = {
+  editingContextId: string;
+  treeId: string;
+  item: GQLTreeItem;
+  entry: {
+    id: string;
+    label: string;
+    iconURL: string[];
+    keyBindings: {
+      isCtrl: boolean;
+      isMeta: boolean;
+      isAlt: boolean;
+      key: string;
+    }[];
+    __typename: string;
+  } | null;
+  readOnly: boolean;
+  expandItem: () => void;
+  selectTreeItems: (selectedTreeItemIds: string[]) => void;
+  onExpandedElementChange: (expanded: string[], maxDepth: number) => void;
+  onClose: () => void;
+  key: string;
+  expanded: string[];
+  maxDepth: number;
+  selectedTreeItemIds: string[];
+};
 
 export const RunWithOpenSysMLMenuContribution = forwardRef<HTMLLIElement, TreeItemContextMenuComponentProps>(
   ({ editingContextId, treeId, item, onClose }, ref) => {

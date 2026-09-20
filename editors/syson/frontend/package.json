@@ -51,7 +51,7 @@
     "vitest": "3.2.4"
   },
   "scripts": {
-    "build": "vite build && tsc -p tsconfig.build.json && rm -rf dist/vendor",
+    "build": "vite build && tsc -p tsconfig.build.json",
     "test": "vitest run",
     "format": "prettier --write src",
     "format:check": "prettier --check src",

@@ -45,6 +45,7 @@ jobs:
       java: ${{ steps.areas.outputs.java }}
       rust: ${{ steps.areas.outputs.rust }}
       vscode: ${{ steps.areas.outputs.vscode }}
+      syson: ${{ steps.areas.outputs.syson }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -514,7 +515,8 @@ jobs:
       needs.changes.outputs.node == 'true' ||
       needs.changes.outputs.python == 'true' ||
       needs.changes.outputs.java == 'true' ||
-      needs.changes.outputs.rust == 'true'
+      needs.changes.outputs.rust == 'true' ||
+      needs.changes.outputs.syson == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -565,6 +567,7 @@ jobs:
       - conformance-pkg
       - docs
       - java-test
+      - syson-plugin
       - node-test
       - python-test
       - race-tests
@@ -583,6 +586,7 @@ jobs:
           CONFORMANCE_PKG_RESULT: ${{ needs.conformance-pkg.result }}
           DOCS_RESULT: ${{ needs.docs.result }}
           JAVA_TEST_RESULT: ${{ needs.java-test.result }}
+          SYSON_PLUGIN_RESULT: ${{ needs.syson-plugin.result }}
           NODE_TEST_RESULT: ${{ needs.node-test.result }}
           PYTHON_TEST_RESULT: ${{ needs.python-test.result }}
           RACE_TESTS_RESULT: ${{ needs.race-tests.result }}
@@ -596,6 +600,7 @@ jobs:
              ! ok "$CONFORMANCE_PKG_RESULT" ||
              ! ok "$DOCS_RESULT" ||
              ! ok "$JAVA_TEST_RESULT" ||
+             ! ok "$SYSON_PLUGIN_RESULT" ||
              ! ok "$NODE_TEST_RESULT" ||
              ! ok "$PYTHON_TEST_RESULT" ||
              ! ok "$RACE_TESTS_RESULT" ||
@@ -607,6 +612,7 @@ jobs:
             echo "conformance-pkg=$CONFORMANCE_PKG_RESULT"
             echo "docs=$DOCS_RESULT"
             echo "java-test=$JAVA_TEST_RESULT"
+            echo "syson-plugin=$SYSON_PLUGIN_RESULT"
             echo "node-test=$NODE_TEST_RESULT"
             echo "python-test=$PYTHON_TEST_RESULT"
             echo "race-tests=$RACE_TESTS_RESULT"
@@ -1065,6 +1071,57 @@ jobs:
           make proto-buf BUF=buf
           git add -N client/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto
           git diff --exit-code client/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto
+
+  syson-plugin:
+    name: SysON plugin
+    needs: [changes, build]
+    if: needs.changes.outputs.syson == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Download binary artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: binaries
+          path: bin
+
+      - name: Make the service binary executable
+        run: chmod +x bin/sysml-grpc
+
+      # SysON 2026.9.0 runs on 21; the module compiles at release 17.
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Install the client dependency
+        run: mvn -B -q -f client/java/pom.xml install -DskipTests -Dmaven.javadoc.skip=true
+
+      - name: Test and install the SysON backend
+        run: mvn -B -f editors/syson/pom.xml install -Dopensysml.requireService=true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: editors/syson/frontend/package-lock.json
+
+      - name: Build and test the SysON frontend
+        working-directory: editors/syson/frontend
+        run: |
+          npm ci
+          npm run typecheck
+          npm run format:check
+          npm test
+          npm run build
 
   conformance-pkg:
     name: Conformance suite

@@ -4,7 +4,6 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
-const realSysON = process.env.OPENSYSML_SYSON_REAL === '1';
 const peerDependencies = [
   '@apollo/client',
   '@eclipse-sirius/sirius-components-core',
@@ -22,14 +21,21 @@ const isExternal = (id: string) =>
 
 export default defineConfig({
   plugins: [react()],
-  resolve: realSysON
-    ? undefined
-    : {
-        alias: {
-          '@eclipse-sirius/sirius-components-core': path.resolve(root, 'src/vendor/sirius-components-core.tsx'),
-          '@eclipse-sirius/sirius-components-trees': path.resolve(root, 'src/vendor/sirius-components-trees.ts'),
-        },
-      },
+  resolve:
+    process.env.VITEST === 'true'
+      ? {
+          alias: {
+            '@eclipse-sirius/sirius-components-core': path.resolve(
+              root,
+              'src/test/sirius-doubles/sirius-components-core.tsx',
+            ),
+            '@eclipse-sirius/sirius-components-trees': path.resolve(
+              root,
+              'src/test/sirius-doubles/sirius-components-trees.ts',
+            ),
+          },
+        }
+      : undefined,
   build: {
     minify: false,
     lib: {
@@ -39,7 +45,7 @@ export default defineConfig({
       fileName: (format) => `opensysml-syson.${format}.js`,
     },
     rollupOptions: {
-      external: (id) => isExternal(id) || (!realSysON && /^@eclipse-sirius\/sirius-components-(core|trees)(\/|$)/.test(id)),
+      external: isExternal,
     },
   },
   test: {

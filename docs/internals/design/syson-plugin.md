@@ -1,7 +1,7 @@
 # A SysON plugin: OpenSysML as the execution engine behind Eclipse SysON
 
 **Date:** 2026-09-20
-**Status:** Discovery and design — nothing under `editors/syson/` exists yet
+**Status:** Discovery, design and implementation notes for `editors/syson/`
 **Scope:** a future `editors/syson/`, the Java client under `client/java/opensysml-client`, the wire in `api/proto/sysml.proto`
 **SysON pinned at:** [`v2026.9.0`](https://github.com/eclipse-syson/syson/releases/tag/v2026.9.0) (commit `ede4fbc43a607720350b850a862211660a99652a`); `main` was one commit ahead of the tag when this was written and differs in nothing this document relies on
 
@@ -392,29 +392,28 @@ models with the listed expression kinds. That is the first measurement of phase 
 
 ```
 editors/syson/
-  README.md                      what it is, how to build a SysON with it, how to run it
-  pom.xml                        org.openmbee:opensysml-syson-parent, modules below
-  backend/                       org.openmbee:opensysml-syson (jar on the SysON backend classpath)
-    src/main/java/org/eclipse/syson/opensysml/   (under a scanned package, see §2.1)
-      OpenSysMLConfiguration.java              @Configuration: ConnectionOptions from properties,
-                                               one Connection bean, its lifecycle
-      export/ProjectTextExporter.java          editing context → List<SourceDocument> (+ id map)
-      identity/ElementIndex.java               qualified name ↔ Element ↔ Sirius id
-      run/RunWithOpenSysMLInput.java           IInput record: editingContextId, objectId, operation, options
-      run/RunWithOpenSysMLEventHandler.java    IEditingContextEventHandler: export → parse → RPC → payload
-      run/MutationRunWithOpenSysMLDataFetcher.java   @QueryDataFetcher("Mutation","runWithOpenSysML")
-      run/RunResultStore.java                  last result per editing context
-      menu/OpenSysMLTreeItemPaletteCustomizer.java  adds the "Run with OpenSysML…" entry
-      validation/OpenSysMLValidationService.java    IValidationService over RunResultStore
-      importcheck/CheckingSysMLTextImporter.java    phase 3, wraps ISysMLTextImporter
+  README.md
+  pom.xml
+  syson-api-stubs/               compile-only Sirius Web and SysON API classes
+  backend/                       org.openmbee:opensysml-syson
+    src/main/java/org/openmbee/opensysml/syson/
+      OpenSysMLAutoConfiguration.java
+      run/RunWithOpenSysMLService.java
+      export/ProjectTextExporter.java
+      identity/ElementIndex.java
+      run/RunWithOpenSysMLInput.java
+      run/MutationRunWithOpenSysMLDataFetcher.java
+      run/RunResultStore.java
+      menu/OpenSysMLTreeItemPaletteCustomizer.java
+      validation/OpenSysMLValidationService.java
     src/main/resources/schema/opensysml.graphqls
-    src/test/java/...                          Spring tests against SysON's test fixtures
-  frontend/                      @openmbee/opensysml-syson (npm package, see §2.2)
-    src/RunWithOpenSysMLMenuContribution.tsx   TreeItemContextMenuOverrideContribution for the entry id
-    src/RunWithOpenSysMLDialog.tsx             operation picker, arguments, result rendering
-    src/opensysmlExtensionRegistry.ts          addComponent/putData calls the host index.tsx spreads in
-  distribution/                  a SysON fork as a git submodule or patch: the two dependency lines
-                                 and the registry merge, plus a Dockerfile
+    src/test/java/...
+  frontend/                      @openmbee/opensysml-syson
+    src/extension/RunWithOpenSysMLMenuContribution.tsx
+    src/dialog/RunWithOpenSysMLDialog.tsx
+    src/results/RunResultsPanel.tsx
+    src/registry/opensysmlExtensionRegistry.ts
+  distribution/                  (not in this phase)
 ```
 
 The backend module depends on `org.openmbee:opensysml-client:0.1.0-SNAPSHOT` (the Java client,
@@ -579,3 +578,39 @@ keyed by `elementId`.
   The handler should run the RPC off the dispatcher thread and complete the payload
   asynchronously, or enforce the request timeout from `ConnectionOptions`; which the Sirius
   input contract permits is to be confirmed in phase 1.
+
+## 6. Implementation notes
+
+Where the code departs from §3–§4, and why.
+
+- **Beans are registered by Spring Boot auto-configuration, not by package scan.** The jar's
+  classes live under `org.openmbee.opensysml.syson` and are listed in
+  `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`, so a
+  deployment adds the jar and nothing else; putting them under `org.eclipse.syson` (§2.1) would
+  have made a foreign jar claim SysON's namespace.
+- **Compile-only stubs stand in for the SysON and Sirius Web artifacts by default.** Both are
+  published only to GitHub Packages, which needs a token even to read. `syson-api-stubs/` holds
+  the exact classes, signatures and constants the backend uses, taken from the `2026.9.0` sources;
+  the default `stubs` Maven profile compiles and tests against them, and `-Psyson-artifacts`
+  swaps in the real `provided` dependencies through `settings.xml`. The frontend does the same
+  with ambient type declarations for `@eclipse-sirius/sirius-components-core` and `-trees`,
+  runtime doubles used only by its tests, and `npm run install:syson` / `build:syson` for the
+  real packages. The mandatory CI job runs the stub path; `syson-artifacts.yml` runs the real one
+  on demand with a `read:packages` token.
+- **The palette customizer runs last.** Sirius applies `ITreeItemPaletteCustomizer`s in bean
+  order and SysON's own customizer rebuilds the palette instead of extending it, so the
+  OpenSysML customizer is ordered `LOWEST_PRECEDENCE` and appends to whatever it receives.
+- **The frontend appends to SysON's contribution rather than merging registries.** SysON's
+  registry already `putData`s at `treeItem#contextMenuEntryOverride`, and `putData` replaces;
+  `addOpenSysMLContributions(registry)` reads the existing entry and re-puts it with the
+  OpenSysML contribution appended.
+- **Budgets are schedule strings.** The Java client exposes no separate budget fields;
+  `opensysml.explore.runs` and `opensysml.explore.depth` are encoded into the exploration schedule
+  (`explore:runs=N,depth=D`) that the explore operations send.
+- **Results stay in the dialog.** The workbench view extension point (§4.2 step 3) was not
+  exercised; the dialog renders outcomes, traces, verdicts, instances and diagnostics, and a
+  diagnostic click selects its element. Diagnostics also reach the Validation view through
+  `OpenSysMLValidationService`, which serves the last run per editing context.
+- **Deferred:** building SysON itself and the Batmobile export survey (§4.1 steps 1–2), the
+  Spring Boot test over SysON's test application (§4.1 step 4, replaced by unit tests over a
+  stubbed export plus integration tests against a real `sysml-grpc`), and phases 3–4.

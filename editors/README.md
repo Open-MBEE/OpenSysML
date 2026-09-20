@@ -15,14 +15,14 @@ directory here with its own build.
   [`docs/internals/design/cameo-plugin.md`](../docs/internals/design/cameo-plugin.md).
 <!-- cameo: end -->
 
-- **Eclipse SysON** (`syson/`, not yet started) — a plugin for
+- **Eclipse SysON** (`syson/`) — a plugin with a backend adapter and frontend dialog for
   [Eclipse SysON](https://github.com/eclipse-syson/syson), the Sirius Web based graphical SysML
-  v2 workbench, that lets a user right-click an element and instantiate, execute, explore or
-  verify it on OpenSysML through the Java client in
+  v2 workbench. Phases 1–2 provide right-click instantiate, execute, explore or verify operations
+  on OpenSysML through the Java client in
   [`client/java/opensysml-client`](../client/java/opensysml-client), shows the results in SysON
-  with the diagnostics attached to the elements they concern, and optionally has OpenSysML check
-  the textual notation SysON imports; the discovery against release `v2026.9.0`, the module
-  layout, the call sequence and the phased plan are in
+  with diagnostics attached to the elements they concern. Parser checks on import and structural
+  synchronization are designed only; the discovery against release `v2026.9.0`, module layout,
+  call sequence and phased plan are in
   [`docs/internals/design/syson-plugin.md`](../docs/internals/design/syson-plugin.md).
 
 No code lives here for [OpenCode](https://opencode.ai): the checkout's
