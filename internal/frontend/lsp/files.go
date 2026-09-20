@@ -251,21 +251,42 @@ func (s *Server) indexOpenedDirectory(name string) {
 	s.scanFolder(dir, maxOpenedDirs)
 }
 
-// releaseOpenedDirectory forgets the directory indexed for name once no open
-// document lies under it, so the next document opened there is scanned afresh.
-func (s *Server) releaseOpenedDirectory(name string) {
-	if !filepath.IsAbs(name) {
-		return
-	}
-	dir := filepath.Dir(name)
-	for _, open := range s.ws.OpenNames() {
-		if open != name && underAnyFolder(open, []string{dir}) {
-			return
+// releaseOpenedDirectories forgets every indexed directory no open document lies
+// under any more, with the siblings only it contributed, so the next document
+// opened there is scanned afresh and a deleted sibling does not linger. The
+// document just closed stays indexed, as one closed under a folder does.
+func (s *Server) releaseOpenedDirectories(closed string) {
+	open := s.ws.OpenNames()
+	s.mu.Lock()
+	var released, kept []string
+	for dir := range s.openDirs {
+		if underAnyOpen(dir, open) {
+			kept = append(kept, dir)
+		} else {
+			released = append(released, dir)
+			delete(s.openDirs, dir)
 		}
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	delete(s.openDirs, dir)
+	folders := append(kept, s.folders...)
+	s.mu.Unlock()
+	if len(released) == 0 {
+		return
+	}
+	for _, name := range s.ws.DocumentNames() {
+		if name != closed && underAnyFolder(name, released) && !underAnyFolder(name, folders) && !s.ws.IsOpen(name) {
+			s.ws.DeleteOnDisk(name)
+		}
+	}
+}
+
+// underAnyOpen reports whether one of the open documents lies inside dir.
+func underAnyOpen(dir string, open []string) bool {
+	for _, name := range open {
+		if underFolder(name, dir) {
+			return true
+		}
+	}
+	return false
 }
 
 // addFolder records a folder and indexes the model sources under it.

@@ -122,7 +122,8 @@ func declaredNames(members []ast.Node) []string {
 }
 
 // collect records the import roots at every depth that no enclosing namespace
-// (outermost first, members' own scope last) declares.
+// (outermost first, members' own scope last) declares; a $:: import names the
+// global namespace, so no enclosing one satisfies it.
 func (f *fileSummary) collect(members []ast.Node, enclosing []map[string]bool) {
 	scope := map[string]bool{}
 	for _, name := range declaredNames(members) {
@@ -133,7 +134,7 @@ func (f *fileSummary) collect(members []ast.Node, enclosing []map[string]bool) {
 		decl := unwrapMember(m)
 		if imp, ok := decl.(*ast.Import); ok {
 			if imp.Imported != nil && len(imp.Imported.Parts) > 0 {
-				if name := imp.Imported.Parts[0].Text; !visible(name, enclosing) {
+				if name := imp.Imported.Parts[0].Text; imp.Imported.Global || !visible(name, enclosing) {
 					f.importRoots = append(f.importRoots, name)
 				}
 			}

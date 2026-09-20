@@ -60,13 +60,15 @@ func TestDependenciesLoadEveryFileDeclaringTheRoot(t *testing.T) {
 
 func TestDependenciesResolveImportsInTheirOwnScope(t *testing.T) {
 	dir := t.TempDir()
-	// Nested A::Lib does not satisfy B's import; Q's own Inner satisfies Deep's.
-	main := writeModel(t, filepath.Join(dir, "main.sysml"), "package A { package Lib; }\npackage B {\n    private import Lib::*;\n    part w : Widget;\n}\npackage Q {\n    package Inner { part def X; }\n    package Deep { private import Inner::*; }\n}\n")
+	// Nested A::Lib does not satisfy B's import; Q's own Inner satisfies Deep's
+	// but not the $:: import beside it.
+	main := writeModel(t, filepath.Join(dir, "main.sysml"), "package A { package Lib; }\npackage B {\n    private import Lib::*;\n    part w : Widget;\n}\npackage Q {\n    package Inner { part def X; }\n    package Deep { private import Inner::*; }\n    package Global { private import $::Glob::*; }\n    package Glob;\n}\n")
+	glob := writeModel(t, filepath.Join(dir, "glob.sysml"), "package Glob {\n    part def G;\n}\n")
 	lib := writeModel(t, filepath.Join(dir, "lib.sysml"), "package Lib {\n    part def Widget;\n}\n")
 	writeModel(t, filepath.Join(dir, "inner.sysml"), "package Inner {\n    part def Y;\n}\n")
 
 	got := Dependencies([]string{main}, nil)
-	if want := []string{lib}; !reflect.DeepEqual(got, want) {
+	if want := []string{glob, lib}; !reflect.DeepEqual(got, want) {
 		t.Errorf("Dependencies = %v, want %v", got, want)
 	}
 }
