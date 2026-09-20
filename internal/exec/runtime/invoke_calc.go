@@ -813,6 +813,12 @@ func (ctx *Context) runCalcBody(shape *calcShape, frame *invocationFrame, caller
 // the calc's parameters on the way in and its locals on the way out, reporting
 // the value host took from a `return` and whether the body returned one.
 func runCalcSteps(engine *stmtEngine, host *calcStmtHost, shape *calcShape) (Value, bool, error) {
+	// A case body's flow waits on the clock for its own `accept after`, so the
+	// clock must know its waits to advance to them while the case runs.
+	if host.flow != nil {
+		host.ctx.clock.attach(host.flow)
+		defer host.ctx.clock.detach(host.flow)
+	}
 	flow, err := engine.run(shape.Steps)
 	if err != nil {
 		return Value{}, false, err
