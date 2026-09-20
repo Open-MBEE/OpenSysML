@@ -733,10 +733,16 @@ behavior is recorded against the operation's target ("written as the body of the
 `internal/translate/migrate/behavior.go`), and a renamed duplicate member may share a target
 with the element it collided with. Answers carry v2 qualified names (`Symbol`,
 `Verification.constraintId`/`requirementId`, `SweepRow`) and are resolved through that list;
-when it has more than one entry the result kind picks by `Entry.kind` (an action or state
-verdict prefers the `Behavior`, a constraint verdict the `Constraint`, a value the
-`Property`), and when the kind does not decide, the verdict is linked to **every** candidate
-and the panel shows them all rather than choosing one silently. A name with no entry — a
+when it has more than one entry the result kind picks by `Entry.kind`, whose vocabulary is the
+source's UML metaclass with an optional stereotype prefix (`kindOf` in
+`internal/translate/migrate/classify.go` writes `«Block» Class`, `Activity`, `Operation`, never
+an abstract `Behavior`): an action or state verdict prefers the entry whose metaclass, after
+the `«…»` prefix, is one of `Activity`, `StateMachine`, `OpaqueBehavior`, `FunctionBehavior`
+or `Interaction`; a constraint verdict prefers `Constraint`; a value prefers `Property` or
+`Port`. When the kind still does not decide, the verdict is linked to **every** candidate and
+the panel shows them all rather than choosing one silently. A normalized target-kind field on
+the report entry would replace this string matching and belongs with the report-over-service
+change (§11, phase 3). A name with no entry — a
 library element, or a name the conversion synthesized — is shown in the panel without an
 element link, never dropped.
 
