@@ -191,6 +191,19 @@ func TestBinaryUsageBaseFeatures(t *testing.T) {
 	}
 }
 
+func TestConjugatedUsageHasNoImplicitBaseFeature(t *testing.T) {
+	const src = `package P {
+		port def PortDef;
+		part def A { port p : ~PortDef; }
+	}`
+	generals := implicitGeneralNamesOf(t, src, "P", "A", "p")
+	for _, general := range generals {
+		if general == "Ports::ports" {
+			t.Fatalf("implicit generals = %v, must not contain Ports::ports", generals)
+		}
+	}
+}
+
 // TestImplicitBaseNotAppliedToTypedUsage covers the negative cases: a usage that
 // declares its own type or specialization keeps exactly that supertype, and a
 // definition never gets an implicit usage base.

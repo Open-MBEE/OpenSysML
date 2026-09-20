@@ -620,6 +620,9 @@ func (m *Model) implicitUsageBaseFeature(sym *symbols.Symbol) *symbols.Symbol {
 	if sym == nil || m.resolver == nil || m.resolver.Index() == nil || m.isKerMLDoc(sym) {
 		return nil
 	}
+	if declaresConjugation(sym) {
+		return nil
+	}
 	if m.computingUsageBase[sym] {
 		return nil
 	}
