@@ -61,6 +61,7 @@ func (s *Server) DidClose(ctx context.Context, params *protocol.DidCloseTextDocu
 	s.debugEdit(ctx, name, func() {
 		s.loadFromDisk(name)
 		s.ws.Close(name)
+		s.releaseOpenedDirectory(name)
 	})
 	s.clearDiagnostics(ctx, name)
 	s.queueOpenDiagnostics(ctx, name)

@@ -231,9 +231,8 @@ func (s *Server) DidChangeWorkspaceFolders(ctx context.Context, params *protocol
 // may be a home directory or the filesystem root.
 const maxOpenedDirs = 2000
 
-// indexOpenedDirectory indexes, once, the directory of a document opened under no
-// folder of the session — a lone file, or one outside the editor's workspace — so
-// the sibling files its imports lead to resolve as they would inside a folder.
+// indexOpenedDirectory indexes the directory of a document opened outside every
+// folder, so sibling imports resolve; it is rescanned once all its documents close.
 func (s *Server) indexOpenedDirectory(name string) {
 	if !filepath.IsAbs(name) {
 		return
@@ -250,6 +249,23 @@ func (s *Server) indexOpenedDirectory(name string) {
 	s.openDirs[dir] = true
 	s.mu.Unlock()
 	s.scanFolder(dir, maxOpenedDirs)
+}
+
+// releaseOpenedDirectory forgets the directory indexed for name once no open
+// document lies under it, so the next document opened there is scanned afresh.
+func (s *Server) releaseOpenedDirectory(name string) {
+	if !filepath.IsAbs(name) {
+		return
+	}
+	dir := filepath.Dir(name)
+	for _, open := range s.ws.OpenNames() {
+		if open != name && underAnyFolder(open, []string{dir}) {
+			return
+		}
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.openDirs, dir)
 }
 
 // addFolder records a folder and indexes the model sources under it.

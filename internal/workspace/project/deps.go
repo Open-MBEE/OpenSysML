@@ -1,7 +1,6 @@
 package project
 
 import (
-	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -77,17 +76,17 @@ func prune(wanted, declared map[string]bool, known func(string) bool) {
 	}
 }
 
-// fileSummary is what a model file declares and what its imports begin with.
+// fileSummary is what a model file declares at its root and which imports it
+// cannot satisfy itself; only root names are visible to imports in other files.
 type fileSummary struct {
 	path        string
 	roots       []string // names declared at the root namespace
-	declared    []string // names declared at any depth
-	importRoots []string // first segment of every import
+	importRoots []string // first segment of every import no enclosing namespace declares
 }
 
-// contribute records the file's names as declared and its import roots as wanted.
+// contribute records the file's root names as declared and its import roots as wanted.
 func (f *fileSummary) contribute(declared, wanted map[string]bool) {
-	for _, name := range f.declared {
+	for _, name := range f.roots {
 		declared[name] = true
 	}
 	for _, name := range f.importRoots {
@@ -106,31 +105,55 @@ func summarize(path string) (*fileSummary, bool) {
 	}
 	root := parser.New(source.New(path, content)).ParseFile()
 	f := &fileSummary{path: path}
-	for _, m := range root.Members {
-		if id, ok := declIdent(unwrapMember(m)); ok {
-			f.roots = append(f.roots, namesOf(id)...)
-		}
-	}
-	f.collect(root.Members)
+	f.roots = declaredNames(root.Members)
+	f.collect(root.Members, nil)
 	return f, true
 }
 
-// collect walks members at every depth for declared names and import roots.
-func (f *fileSummary) collect(members []ast.Node) {
+// declaredNames lists the names the members of one namespace declare.
+func declaredNames(members []ast.Node) []string {
+	var out []string
+	for _, m := range members {
+		if id, ok := declIdent(unwrapMember(m)); ok {
+			out = append(out, namesOf(id)...)
+		}
+	}
+	return out
+}
+
+// collect records the import roots at every depth that no enclosing namespace
+// (outermost first, members' own scope last) declares.
+func (f *fileSummary) collect(members []ast.Node, enclosing []map[string]bool) {
+	scope := map[string]bool{}
+	for _, name := range declaredNames(members) {
+		scope[name] = true
+	}
+	enclosing = append(enclosing, scope)
 	for _, m := range members {
 		decl := unwrapMember(m)
 		if imp, ok := decl.(*ast.Import); ok {
 			if imp.Imported != nil && len(imp.Imported.Parts) > 0 {
-				f.importRoots = append(f.importRoots, imp.Imported.Parts[0].Text)
+				if name := imp.Imported.Parts[0].Text; !visible(name, enclosing) {
+					f.importRoots = append(f.importRoots, name)
+				}
 			}
-			f.collect(imp.Body)
+			f.collect(imp.Body, enclosing)
 			continue
 		}
-		if id, ok := declIdent(decl); ok {
-			f.declared = append(f.declared, namesOf(id)...)
+		if inner := membersOf(decl); len(inner) > 0 {
+			f.collect(inner, enclosing)
 		}
-		f.collect(membersOf(decl))
 	}
+}
+
+// visible reports whether one of the enclosing namespaces declares name.
+func visible(name string, enclosing []map[string]bool) bool {
+	for _, scope := range enclosing {
+		if scope[name] {
+			return true
+		}
+	}
+	return false
 }
 
 // namesOf lists the names an identification declares, long and short.
@@ -191,36 +214,14 @@ func membersOf(node ast.Node) []ast.Node {
 // file's directory was not chosen as a project, and may be a home directory.
 const maxDependencyDirs = 2000
 
-// rootIndex maps each root-declared name to the model files under dirs that
-// declare it, sorted by path, files already loaded left out. Hidden directories
-// and entries that cannot be read are passed over, and the search stops once it
-// has visited maxDependencyDirs directories.
+// rootIndex maps each root-declared name to the unloaded model files under dirs
+// declaring it, sorted by path; the walk is ModelFiles' but tolerant and bounded.
 func rootIndex(dirs []string, loaded map[string]bool) map[string][]*fileSummary {
 	var candidates []string
 	budget := maxDependencyDirs
+	visited := map[string]bool{}
 	for _, dir := range dirs {
-		_ = filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
-			if err != nil {
-				if d != nil && d.IsDir() {
-					return fs.SkipDir
-				}
-				return nil
-			}
-			if d.IsDir() {
-				if path != dir && strings.HasPrefix(d.Name(), ".") {
-					return fs.SkipDir
-				}
-				if budget == 0 {
-					return fs.SkipAll
-				}
-				budget--
-				return nil
-			}
-			if IsModelFile(path) {
-				candidates = append(candidates, path)
-			}
-			return nil
-		})
+		walkTolerant(dir, visited, &budget, &candidates)
 	}
 	sort.Strings(candidates)
 	byRoot := map[string][]*fileSummary{}
@@ -240,4 +241,34 @@ func rootIndex(dirs []string, loaded map[string]bool) map[string][]*fileSummary 
 		}
 	}
 	return byRoot
+}
+
+// walkTolerant appends the model files under dir to out as walk does, but
+// passes over whatever cannot be read and stops once budget directories are visited.
+func walkTolerant(dir string, visited map[string]bool, budget *int, out *[]string) {
+	resolved, err := filepath.EvalSymlinks(dir)
+	if err != nil || visited[resolved] || *budget == 0 {
+		return
+	}
+	visited[resolved] = true
+	*budget--
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return
+	}
+	for _, e := range entries {
+		path := filepath.Join(dir, e.Name())
+		info, err := os.Stat(path) // resolves a link to what it points at
+		if err != nil {
+			continue
+		}
+		switch {
+		case info.IsDir():
+			if !strings.HasPrefix(e.Name(), ".") {
+				walkTolerant(path, visited, budget, out)
+			}
+		case IsModelFile(path):
+			*out = append(*out, path)
+		}
+	}
 }

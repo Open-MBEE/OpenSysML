@@ -58,6 +58,37 @@ func TestDependenciesLoadEveryFileDeclaringTheRoot(t *testing.T) {
 	}
 }
 
+func TestDependenciesResolveImportsInTheirOwnScope(t *testing.T) {
+	dir := t.TempDir()
+	// Nested A::Lib does not satisfy B's import; Q's own Inner satisfies Deep's.
+	main := writeModel(t, filepath.Join(dir, "main.sysml"), "package A { package Lib; }\npackage B {\n    private import Lib::*;\n    part w : Widget;\n}\npackage Q {\n    package Inner { part def X; }\n    package Deep { private import Inner::*; }\n}\n")
+	lib := writeModel(t, filepath.Join(dir, "lib.sysml"), "package Lib {\n    part def Widget;\n}\n")
+	writeModel(t, filepath.Join(dir, "inner.sysml"), "package Inner {\n    part def Y;\n}\n")
+
+	got := Dependencies([]string{main}, nil)
+	if want := []string{lib}; !reflect.DeepEqual(got, want) {
+		t.Errorf("Dependencies = %v, want %v", got, want)
+	}
+}
+
+func TestDependenciesFollowSymlinkedDirectories(t *testing.T) {
+	dir := t.TempDir()
+	main := writeModel(t, filepath.Join(dir, "model", "main.sysml"), "package Main {\n    private import Shared::*;\n}\n")
+	shared := writeModel(t, filepath.Join(dir, "elsewhere", "shared.sysml"), "package Shared {\n    part def S;\n}\n")
+	link := filepath.Join(dir, "model", "vendor")
+	if err := os.Symlink(filepath.Join(dir, "elsewhere"), link); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if err := os.Symlink(filepath.Join(dir, "model"), filepath.Join(dir, "elsewhere", "back")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+
+	got := Dependencies([]string{main}, nil)
+	if want := []string{filepath.Join(link, "shared.sysml")}; !reflect.DeepEqual(got, want) {
+		t.Errorf("Dependencies = %v, want %v (through the link to %s)", got, want, shared)
+	}
+}
+
 func TestDependenciesIgnoreStdinAndUnreadableFiles(t *testing.T) {
 	dir := t.TempDir()
 	missing := filepath.Join(dir, "missing.sysml")
