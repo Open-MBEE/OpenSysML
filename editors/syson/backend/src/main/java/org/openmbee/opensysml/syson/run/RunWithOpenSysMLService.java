@@ -126,7 +126,7 @@ public class RunWithOpenSysMLService {
             case VERIFY_REQUIREMENT -> ResultParts.verification(input.subject() == null ? model.verifyRequirement(target)
                     : model.verifyRequirement(target, input.subject()), project);
             case VERIFY_SATISFACTION -> ResultParts.satisfaction(
-                    input.subject() == null ? model.verifySatisfaction() : model.verifySatisfaction(input.subject()),
+                    input.subject() == null ? model.verifySatisfaction(target) : model.verifySatisfaction(input.subject()),
                     project);
             case EVALUATE_CALC -> ResultParts.calculation(model.evaluateCalc(target, arguments(model, input)), project);
             case RUN_ANALYSIS -> ResultParts.analysis(model.runAnalysis(target,

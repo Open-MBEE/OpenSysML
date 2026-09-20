@@ -109,7 +109,7 @@ export const RunResultsPanel = ({ result, onSelectElement }: RunResultsPanelProp
         </section>
       )}
 
-      {result.outcomes.length > 1 && (
+      {result.outcomes.length >= 1 && (
         <section>
           <Typography variant="subtitle2">Outcomes ({result.outcomes.length})</Typography>
           {result.outcomes.map((outcome, index) => (
@@ -121,6 +121,9 @@ export const RunResultsPanel = ({ result, onSelectElement }: RunResultsPanelProp
               )}
               {outcome.trace.length > 0 && <Typography variant="body2">trace: {outcome.trace.join(', ')}</Typography>}
               {outcome.error && <Typography variant="body2">error: {outcome.error}</Typography>}
+              {outcome.witness.length > 0 && (
+                <Typography variant="body2">witness: {outcome.witness.join(', ')}</Typography>
+              )}
               <Typography variant="body2">linearizations: {outcome.linearizations}</Typography>
             </div>
           ))}

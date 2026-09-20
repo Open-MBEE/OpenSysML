@@ -162,4 +162,26 @@ describe('RunResultsPanel', () => {
     expect(screen.getByText('error: failed')).toBeInTheDocument();
     expect(screen.getAllByText(/linearizations:/)).toHaveLength(2);
   });
+
+  it('renders one exploration outcome and its witness', () => {
+    render(
+      <RunResultsPanel
+        result={baseResult({
+          operation: 'EXPLORE_ACTION',
+          outcomes: [
+            {
+              outputs: [],
+              finalState: null,
+              trace: [],
+              error: null,
+              linearizations: 1,
+              witness: ['first: left', 'second: right'],
+            },
+          ],
+        })}
+      />
+    );
+    expect(screen.getByText('Outcomes (1)')).toBeInTheDocument();
+    expect(screen.getByText('witness: first: left, second: right')).toBeInTheDocument();
+  });
 });
