@@ -323,6 +323,19 @@ func TestNegative(t *testing.T) {
 		{"transition_effect_assign_two_semicolons", "state def S { attribute x; state a; state b; transition first a do assign x := 1 then b ;; }"},
 		{"transition_effect_no_semicolon", "state def S { attribute x; state a; state b; transition first a do assign x := 1 then b }"},
 		{"transition_braced_effect_no_semicolon", "state def S { attribute x; state a; state b; transition first a do { assign x := 1; } then b }"},
+		// A braced state behavior block is one anonymous action's body, so it
+		// closes, its statements end, and it holds action body items only.
+		{"entry_block_unterminated", "state def S { attribute x; state a { entry { assign x := 1; } }"},
+		{"do_block_unterminated", "state def S { attribute x; state a { do { assign x := 1; }"},
+		{"exit_block_unterminated", "state def S { attribute x; state a { exit { assign x := 1; "},
+		{"transition_effect_block_unterminated", "state def S { attribute x; state a; state b; transition first a do { assign x := 1; then b; }"},
+		{"entry_block_terminate_unterminated", "state def S { state a { entry { terminate } } }"},
+		{"do_block_terminate_unterminated", "state def S { state a { do { terminate assign x := 1; } } }"},
+		{"transition_effect_block_terminate_unterminated", "state def S { state a; state b; transition first a do { terminate } then b; }"},
+		{"entry_block_expression_statement", "state def S { attribute x; state a { entry { x + 1; } } }"},
+		{"do_block_stray_token", "state def S { state a { do { ) } } }"},
+		{"exit_block_assign_no_value", "state def S { attribute x; state a { exit { assign x := ; } } }"},
+		{"transition_effect_block_stray_token", "state def S { state a; state b; transition first a do { ] } then b; }"},
 		// A binding end names a feature by a qualified name or a chain of them,
 		// so neither qualification nor chaining may end in nothing.
 		{"binding_end_qualification_no_name", "package P { part c; binding bind R:: = c; }"},
