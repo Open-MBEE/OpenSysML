@@ -13,9 +13,9 @@ func intConst(i int64) Value {
 	return Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: i}}
 }
 
-// Streaming writes staged ahead of a target's performance are kept per source: a
-// source's next write replaces its own earlier value however many other sources wrote
-// in between, and taking a delivery shifts what every source left waiting.
+// Streaming writes staged ahead of a target's performance are kept per source pin: a
+// source's next write to a pin replaces its own earlier value however many other
+// sources wrote in between, and taking a delivery shifts what every source left waiting.
 func TestStagedStreamsAreKeptPerSource(t *testing.T) {
 	target := &ast.Usage{NodeBase: ast.NodeBase{NodeSpan: source.Span{Offset: 10, Len: 1}}, Kind: ast.UsageAction}
 	frame, a, b := &actionFrame{}, &actionFrame{}, &actionFrame{}
@@ -27,10 +27,10 @@ func TestStagedStreamsAreKeptPerSource(t *testing.T) {
 		return values
 	}
 	appended := []bool{
-		frame.stage(target, "v", a, intConst(1)),
-		frame.stage(target, "v", b, intConst(2)),
-		frame.stage(target, "v", a, intConst(3)),
-		frame.stage(target, "v", b, intConst(4)),
+		frame.stage(target, "v", a, "out", intConst(1)),
+		frame.stage(target, "v", b, "out", intConst(2)),
+		frame.stage(target, "v", a, "out", intConst(3)),
+		frame.stage(target, "v", b, "out", intConst(4)),
 	}
 	if want := []bool{true, true, false, false}; !slices.Equal(appended, want) {
 		t.Fatalf("appended = %v, want %v", appended, want)
@@ -43,18 +43,24 @@ func TestStagedStreamsAreKeptPerSource(t *testing.T) {
 		frame.pending[target]["v"] = frame.pending[target]["v"][1:]
 	}
 	take()
-	if !frame.stage(target, "v", a, intConst(5)) {
+	if !frame.stage(target, "v", a, "out", intConst(5)) {
 		t.Fatalf("a's write after its value was taken was not appended")
 	}
 	if got := queue(); !slices.Equal(got, []int64{4, 5}) {
 		t.Fatalf("queue = %v, want [4 5]: a's value gone with the delivery, its next write queued last", got)
 	}
 	take()
-	if !frame.stage(target, "v", b, intConst(6)) || frame.stage(target, "v", a, intConst(7)) {
+	if !frame.stage(target, "v", b, "out", intConst(6)) || frame.stage(target, "v", a, "out", intConst(7)) {
 		t.Fatalf("after the second delivery, want b's write appended and a's replacing its own")
 	}
 	if got := queue(); !slices.Equal(got, []int64{7, 6}) {
 		t.Fatalf("queue = %v, want [7 6]", got)
+	}
+	if !frame.stage(target, "v", a, "other", intConst(8)) || frame.stage(target, "v", a, "other", intConst(9)) {
+		t.Fatalf("want a's write to another pin appended, and its next write there replacing it")
+	}
+	if got := queue(); !slices.Equal(got, []int64{7, 6, 9}) {
+		t.Fatalf("queue = %v, want [7 6 9]: a's two pins each hold their own place", got)
 	}
 }
 

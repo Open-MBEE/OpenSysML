@@ -146,10 +146,11 @@ type unreceivedStream struct {
 	at     int
 }
 
-// stagedStream is where in a pending queue a streaming source performance's latest
-// value waits: the source's next write replaces it, as a target reads a pin's value.
+// stagedStream is where in a pending queue the latest value a streaming source
+// performance wrote to one of its pins waits: its next write to that pin replaces it.
 type stagedStream struct {
 	source *actionFrame
+	pin    string
 	at     int
 }
 
@@ -702,13 +703,13 @@ func (f *actionFrame) queue(node ast.Node, pin string, value Value) int {
 	return len(f.pending[node][pin]) - 1
 }
 
-// stage queues a streamed value from source ahead of node's next performance, or
-// replaces the one source's earlier write left waiting at the pin; it reports
-// whether a value was appended.
-func (f *actionFrame) stage(node ast.Node, pin string, source *actionFrame, value Value) bool {
+// stage queues a value streamed from source's from pin ahead of node's next
+// performance, or replaces the one an earlier write to from left waiting at the
+// pin; it reports whether a value was appended.
+func (f *actionFrame) stage(node ast.Node, pin string, source *actionFrame, from string, value Value) bool {
 	queue := f.pending[node][pin]
 	for _, s := range f.staged[node][pin] {
-		if source != nil && s.source == source && s.at < len(queue) {
+		if source != nil && s.source == source && s.pin == from && s.at < len(queue) {
 			queue[s.at] = value
 			return false
 		}
@@ -720,7 +721,7 @@ func (f *actionFrame) stage(node ast.Node, pin string, source *actionFrame, valu
 	if f.staged[node] == nil {
 		f.staged[node] = make(map[string][]stagedStream)
 	}
-	f.staged[node][pin] = append(f.staged[node][pin], stagedStream{source: source, at: at})
+	f.staged[node][pin] = append(f.staged[node][pin], stagedStream{source: source, pin: from, at: at})
 	return true
 }
 
@@ -864,7 +865,7 @@ type streamKey struct {
 
 // streamFlow delivers one value a streaming flow carries from the source performance:
 // to the pin of every ongoing performance of its target in frame's flow, else ahead of
-// the target's next performance, where a later write from the same source replaces it.
+// the target's next performance, where a later write to the same source pin replaces it.
 func (e *performances) streamFlow(
 	frame *actionFrame, graph *lower.ActionGraph, source ast.Node, perf *actionFrame, flow lower.ObjectFlow, value Value,
 ) error {
@@ -884,7 +885,7 @@ func (e *performances) streamFlow(
 			return fmt.Errorf("%s: %w", flowDescription(flow), err)
 		}
 		pin := canonical(pins.aliases, flow.TargetPin)
-		appended := frame.stage(flow.Target, pin, perf, value)
+		appended := frame.stage(flow.Target, pin, perf, flow.SourcePin, value)
 		if latest := frame.subactions[flow.Target]; appended && latest != nil && latest.ended {
 			if frame.unreceived == nil {
 				frame.unreceived = make(map[ast.Node][]unreceivedStream)

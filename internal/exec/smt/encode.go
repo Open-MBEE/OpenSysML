@@ -764,7 +764,7 @@ type nodeEffect struct {
 	failed   []*solve.Term
 	overflow []*solve.Term
 	loops    map[int]*solve.Term
-	// staged holds, per pin queue this performance streamed to, when it did.
+	// staged holds, per pin queue and source pin this performance streamed from, when it did.
 	staged map[string]*solve.Term
 }
 
@@ -1364,7 +1364,7 @@ func unreceivedName(pin string) string { return "unreceived(" + pin + ")" }
 
 // carry puts a flow's payload where its target reads it, where cond holds: the pin
 // queue of a node in a frame of its own, else the action's feature. A queue holding a
-// value from another performance is an overflow; a streaming flow's own earlier
+// value from another performance or pin is an overflow; a streaming flow's own earlier
 // value it replaces, and a value queued after its target performed is unreceived.
 func (e *Encoding) carry(x *nodeEffect, cond *solve.Term, flow lower.ObjectFlow, target *solve.Var, value *solve.Term, where string) {
 	if domain := e.domain(target.Name, value); domain != nil {
@@ -1373,11 +1373,12 @@ func (e *Encoding) carry(x *nodeEffect, cond *solve.Term, flow lower.ObjectFlow,
 	if pending, queued := e.pending[target.Name]; queued {
 		full := x.env.has[pending.Name]
 		if flow.Kind == lower.FlowStreaming {
-			if staged := x.staged[target.Name]; staged != nil {
+			slot := target.Name + " from " + flow.SourcePin
+			if staged := x.staged[slot]; staged != nil {
 				full = and(full, not(staged))
-				x.staged[target.Name] = or(staged, cond)
+				x.staged[slot] = or(staged, cond)
 			} else {
-				x.staged[target.Name] = cond
+				x.staged[slot] = cond
 			}
 			unreceived := unreceivedName(target.Name)
 			late := and(cond, x.env.values[performedName(e.Flow.label(flow.Target))])
