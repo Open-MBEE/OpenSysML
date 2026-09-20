@@ -1,0 +1,10 @@
+{
+	"type": "instance",
+	"libraries": true,
+	"modelSeed": 7,
+	"instantiate": "test::Study",
+	"slots": {
+		"fast.taken": {"type": "Integer", "value": 1},
+		"slow.taken": {"type": "Integer", "value": 2}
+	}
+}

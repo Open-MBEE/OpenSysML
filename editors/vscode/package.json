@@ -94,6 +94,35 @@
           "type": "boolean",
           "default": true,
           "markdownDescription": "Open the diagram of a SysML or KerML file beside its editor as soon as the file is shown. A diagram you close stays closed for that file until you run **SysML: Open Diagram** on it again."
+        },
+        "opensysml.diagram.style": {
+          "type": "string",
+          "default": "theme",
+          "enum": [
+            "theme",
+            "pilot",
+            "okabe-ito",
+            "tol-bright",
+            "tol-muted",
+            "tol-light",
+            "brewer-set2",
+            "brewer-dark2",
+            "viridis",
+            "cividis"
+          ],
+          "enumDescriptions": [
+            "Follow the VS Code colour theme.",
+            "The pilot visualizer's Standard B&W: white canvas, black text, thin dark borders, square definitions and rounded usages.",
+            "The pilot look, filled by keyword family from the Okabe–Ito palette.",
+            "The pilot look, filled by keyword family from Paul Tol's bright palette.",
+            "The pilot look, filled by keyword family from Paul Tol's muted palette.",
+            "The pilot look, filled by keyword family from Paul Tol's light palette.",
+            "The pilot look, filled by keyword family from ColorBrewer Set2.",
+            "The pilot look, filled by keyword family from ColorBrewer Dark2.",
+            "The pilot look, filled by keyword family from the viridis colour map.",
+            "The pilot look, filled by keyword family from the cividis colour map."
+          ],
+          "markdownDescription": "The look every diagram is drawn in, also chosen from the **Style** list in the diagram panel. A palette colours definitions with their keyword family's colour and usages with a lighter tint of it, the same colours the DOT and PlantUML exports take; text stays black."
         }
       }
     },

@@ -6722,6 +6722,7 @@ func testUnguardedLoopThroughAMerge(t *testing.T) {
 		}
 	`
 	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
+	ctx.maxActionSteps = 1000
 	sym := findSymbolByName(idx.DocumentRoot("<test>"), "spin", ast.DefAction)
 	if sym == nil {
 		t.Fatal("action spin not found")
@@ -7173,11 +7174,16 @@ func testParallelStateBodyUnsupportedMember(t *testing.T) {
 	}
 }
 
+// A region with substates of its own must name the one it starts in; a bare
+// `state left;` is a region standing in that state and needs none.
 func testParallelStateRegionWithoutInitial(t *testing.T) {
 	src := `
 		package test {
 			state Machine parallel {
-				state left;
+				state left {
+					state a;
+					state b;
+				}
 			}
 		}
 	`
@@ -13616,6 +13622,7 @@ func testNestedFlowThatNeverEnds(t *testing.T) {
 		}
 	`
 	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
+	ctx.maxActionSteps = 1000
 	sym := findSymbolByName(idx.DocumentRoot("<test>"), "outer", ast.DefAction)
 	if sym == nil {
 		t.Fatal("action outer not found")

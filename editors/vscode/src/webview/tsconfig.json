@@ -9,5 +9,5 @@
   // The extension project excludes this directory; that exclusion is inherited
   // and would leave this project with nothing of the webview in it.
   "exclude": [],
-  "include": ["../protocol.ts", "."]
+  "include": ["../protocol.ts", "../style.ts", "."]
 }

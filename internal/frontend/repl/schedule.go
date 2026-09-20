@@ -72,22 +72,59 @@ func (s *Session) ClearModelSeed() {
 func (s *Session) setModelSeed(seed sessionSeed) {
 	s.modelSeed = seed
 	if s.rtCtx != nil {
-		s.applyModelSeed(s.rtCtx)
+		s.applyDraws(s.rtCtx)
 	}
 }
 
-// applyModelSeed gives ctx the session's model seed, or none.
-func (s *Session) applyModelSeed(ctx *runtime.Context) {
+// applyDraws gives ctx the session's model seed, or none, and its draw policy.
+func (s *Session) applyDraws(ctx *runtime.Context) {
 	if s.modelSeed.set {
 		ctx.SetModelSeed(s.modelSeed.value)
 	} else {
 		ctx.ClearModelSeed()
 	}
+	ctx.SetDrawPolicy(s.draws)
 }
 
 // askedModelSeed is the session's model seed as a question to the engines carries it.
 func (s *Session) askedModelSeed() analysis.ModelSeed {
 	return analysis.ModelSeed{Seed: s.modelSeed.value, Set: s.modelSeed.set}
+}
+
+// Draws returns the policy runs started from here on resolve their RandomFunctions
+// draws under: at random from the seeded stream, or at each call's min, max or average.
+func (s *Session) Draws() runtime.DrawPolicy {
+	defer s.reading()()
+	return s.draws
+}
+
+// SetDraws sets the draw policy for runs started from here on, the debugger's
+// included; a fixed policy draws without a seed.
+func (s *Session) SetDraws(policy runtime.DrawPolicy) {
+	defer s.enter()()
+	s.setDraws(policy)
+}
+
+func (s *Session) setDraws(policy runtime.DrawPolicy) {
+	s.draws = policy
+	if s.rtCtx != nil {
+		s.rtCtx.SetDrawPolicy(policy)
+	}
+}
+
+// doDraws shows the draw policy, or sets it when exactly one is named.
+func (s *Session) doDraws(args []string) []string {
+	if len(args) > 1 {
+		return []string{"usage: %draws [random|min|max|average]"}
+	}
+	if len(args) > 0 {
+		policy, err := runtime.ParseDrawPolicy(args[0])
+		if err != nil {
+			return []string{errPrefix + err.Error()}
+		}
+		s.setDraws(policy)
+	}
+	return []string{fmt.Sprintf("draws: %s", s.draws)}
 }
 
 // sessionSeed is a model seed and whether one is set.

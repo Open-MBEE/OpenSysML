@@ -238,9 +238,12 @@ func ParseObject(text string) (ObjectNamed, error) {
 type Witness struct {
 	Objects []ObjectNamed
 	Inputs  []InputTaken
-	Draws   []DrawTaken
-	Choices []ChoiceTaken
-	Trace   string
+	// DrawPolicy is the policy the draws were resolved under; the line is written
+	// only for a fixed policy, so a random run's witness reads as before.
+	DrawPolicy DrawPolicy
+	Draws      []DrawTaken
+	Choices    []ChoiceTaken
+	Trace      string
 	// Property names the property false at the state the schedule reaches, or
 	// whose evaluation there fails as Fails says; empty for a state or a run's failure.
 	Property string
@@ -256,7 +259,7 @@ const (
 )
 
 // String renders the witness as a file holds it: its objects one per line, its
-// inputs one per line, its draws one per line, its choices one per line — or `no
+// inputs one per line, `draws by <policy>` for a fixed draw policy, its draws one per line, its choices one per line — or `no
 // choice points` — a blank line, the trace, and after a blank line the claims closing it: `property: <name>`
 // for a property's, `fails: <the failure>` for a schedule ending in a failure, last.
 func (w Witness) String() string {
@@ -268,6 +271,9 @@ func (w Witness) String() string {
 	for _, in := range w.Inputs {
 		b.WriteString(in.String())
 		b.WriteByte('\n')
+	}
+	if w.DrawPolicy.Fixed() {
+		b.WriteString(drawPolicyPrefix + w.DrawPolicy.String() + "\n")
 	}
 	for _, d := range w.Draws {
 		b.WriteString(d.String())
@@ -448,11 +454,15 @@ func (w *Witness) readClaims() {
 	}
 }
 
+// drawPolicyPrefix opens the witness line naming the draw policy of its draws.
+const drawPolicyPrefix = "draws by "
+
 // readHeader reads a witness header: object lines as ObjectNamed.String spells
-// them, input lines as InputTaken.String spells them, draw lines as DrawTaken.String
+// them, input lines as InputTaken.String spells them, a `draws by <policy>` line, draw lines as DrawTaken.String
 // spells them, then choices as ChoiceTaken.String spells them, one per line or joined by `; `, ending at the
 // first blank line after it. It says whether the text has a header.
 func readHeader(text string) (w Witness, headed bool, err error) {
+	policied := false
 	for i, line := range strings.Split(text, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {
@@ -496,6 +506,25 @@ func readHeader(text string) (w Witness, headed bool, err error) {
 				return Witness{}, true, err
 			}
 			w.Inputs = append(w.Inputs, in)
+			continue
+		}
+		if rest, ok := strings.CutPrefix(line, drawPolicyPrefix); ok {
+			policy, err := ParseDrawPolicy(rest)
+			if err == nil && (len(w.Draws) > 0 || len(w.Choices) > 0) {
+				err = &DrawParseError{Text: line, Reason: "the draw policy comes before the draws and the moves"}
+			}
+			if err == nil && policied {
+				err = &DrawParseError{Text: line, Reason: "the draw policy is named twice, and a witness draws by one"}
+			}
+			if err != nil {
+				var parse *DrawParseError
+				if !errors.As(err, &parse) {
+					parse = &DrawParseError{Text: line, Reason: err.Error()}
+				}
+				parse.Line = i + 1
+				return Witness{}, true, parse
+			}
+			w.DrawPolicy, policied = policy, true
 			continue
 		}
 		if strings.HasPrefix(line, drawPrefix) {
@@ -828,6 +857,7 @@ type replayRun struct {
 	unbound  []ObjectNamed
 	renumber map[string]string
 	inputs   []InputTaken
+	policy   DrawPolicy
 	draws    []DrawTaken
 	nextDraw int
 	choices  []ChoiceTaken
@@ -842,6 +872,7 @@ func newReplayRun(w Witness) *replayRun {
 		unbound:  slices.Clone(w.Objects),
 		renumber: make(map[string]string, len(w.Objects)),
 		inputs:   slices.Clone(w.Inputs),
+		policy:   w.DrawPolicy,
 		draws:    slices.Clone(w.Draws),
 		choices:  slices.Clone(w.Choices),
 	}
@@ -919,11 +950,19 @@ func (r *replayRun) takeInputs() []InputTaken {
 	return inputs
 }
 
+// drawsByPolicy reports whether the witness leaves its draws to its fixed policy: it
+// names one and records no draw, so each call resolves to its fixed point as the run would.
+func (r *replayRun) drawsByPolicy() bool {
+	return r.policy.Fixed() && len(r.draws) == 0
+}
+
 // takeDraw hands the call what the witness's next recorded draw, which must be of
 // the same call and a value the call admits; a draw the witness does not record,
 // records for another call, or records outside the call's distribution refuses
 // the witness and fails the call.
-func (r *replayRun) takeDraw(what string, admits func(semantics.Value) bool) (semantics.Value, error) {
+// takeDraw hands out the witness's next recorded draw for the call what, refusing
+// one the call cannot make: under the witness's fixed policy, any but the fixed point.
+func (r *replayRun) takeDraw(what string, dist distribution) (semantics.Value, error) {
 	if r.nextDraw >= len(r.draws) {
 		err := &WitnessDrawError{What: what, Reason: "the witness records no draw left for it"}
 		if r.refused == nil {
@@ -939,8 +978,12 @@ func (r *replayRun) takeDraw(what string, admits func(semantics.Value) bool) (se
 		}
 		return semantics.Value{}, err
 	}
-	if !admits(d.Value) {
-		err := &WitnessDrawError{Draw: r.nextDraw + 1, What: d.What, Reason: "the witness records " + formatDrawn(d.Value) + ", which the call cannot draw"}
+	if !dist.admitsUnder(r.policy, d.Value) {
+		reason := "the witness records " + formatDrawn(d.Value) + ", which the call cannot draw"
+		if r.policy.Fixed() {
+			reason += " under " + r.policy.String()
+		}
+		err := &WitnessDrawError{Draw: r.nextDraw + 1, What: d.What, Reason: reason}
 		if r.refused == nil {
 			r.refused = err
 		}

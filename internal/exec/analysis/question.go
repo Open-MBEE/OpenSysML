@@ -95,6 +95,9 @@ type Question struct {
 	// ModelSeed is the seed the runs' modeled draws come from when one is set
 	// apart from the schedule (runtime.Context.SetModelSeed).
 	ModelSeed ModelSeed
+	// Draws is how the runs resolve their RandomFunctions draws: at random from
+	// the seeded stream, or at each call's min, max or average (runtime.Context.SetDrawPolicy).
+	Draws runtime.DrawPolicy
 	// Free is what the question leaves open.
 	Free Freedom
 	// Perform makes the one execution an Evaluate question asks for.
@@ -129,13 +132,15 @@ func (s ModelSeed) apply(ctx *runtime.Context) {
 }
 
 // fresh is a context of a run's own on the plan's worker for job, under the budget as
-// Model.NewContextOn takes it, drawing from the question's model seed where one is set.
+// Model.NewContextOn takes it, drawing from the question's model seed where one is set
+// and under its draw policy.
 func (q Question) fresh(model *Model, job int, budget Budget) (*runtime.Context, error) {
 	ctx, err := model.NewContextOn(job, budget)
 	if err != nil {
 		return nil, err
 	}
 	q.ModelSeed.apply(ctx)
+	ctx.SetDrawPolicy(q.Draws)
 	return ctx, nil
 }
 
@@ -146,6 +151,14 @@ func ModelSeedOf(ctx *runtime.Context) ModelSeed {
 	}
 	seed, set := ctx.ModelSeed()
 	return ModelSeed{Seed: seed, Set: set}
+}
+
+// DrawsOf is the draw policy set on ctx, random when ctx is nil.
+func DrawsOf(ctx *runtime.Context) runtime.DrawPolicy {
+	if ctx == nil {
+		return runtime.DrawRandom
+	}
+	return ctx.DrawPolicy()
 }
 
 // Performance makes one execution in the given context and reports what it established.

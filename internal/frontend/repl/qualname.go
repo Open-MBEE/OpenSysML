@@ -30,21 +30,37 @@ func plainName(text string) (string, bool) {
 
 // parseName reads a name as plainName does, and whether it was qualified.
 func parseName(text string) parsedName {
+	segments, ok := nameSegments(text)
+	if !ok {
+		return parsedName{}
+	}
+	return parsedName{name: strings.Join(segments, "::"), qualified: len(segments) > 1, ok: true}
+}
+
+// nameSegments reads a name's segments as the index registers them, a quoted
+// segment to its text; false for text that is no name or has an empty segment.
+func nameSegments(text string) ([]string, bool) {
 	text = strings.TrimSpace(text)
 	if text == "" {
-		return parsedName{}
+		return nil, false
 	}
 	p := parser.New(source.New("name", []byte(text)))
 	expr := p.ParseExpression()
 	if len(p.Diagnostics) > 0 || p.Offset() != len(text) {
-		return parsedName{}
+		return nil, false
 	}
 	ref, ok := expr.(*ast.FeatureReference)
 	if !ok || ref.Name == nil || ref.Name.Global {
-		return parsedName{}
+		return nil, false
 	}
-	name := qualifiedText(ref.Name)
-	return parsedName{name: name, qualified: len(ref.Name.Parts) > 1, ok: name != ""}
+	segments := make([]string, 0, len(ref.Name.Parts))
+	for _, part := range ref.Name.Parts {
+		if part.Text == "" {
+			return nil, false
+		}
+		segments = append(segments, part.Text)
+	}
+	return segments, len(segments) > 0
 }
 
 // qualifiedText spells a qualified name as the index registers it, "" for one

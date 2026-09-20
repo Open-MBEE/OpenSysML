@@ -46,10 +46,11 @@ func TestConvertFromXMIComposesTheMigration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("migrate.Migrate: %v", err)
 	}
-	notation, report, err := convert.Migrate("vehicle.xmi", data, convert.FormatSysML)
+	asNotation, err := convert.Migrate("vehicle.xmi", data, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("Migrate to notation: %v", err)
 	}
+	notation, report := asNotation.Output, asNotation.Report
 	if len(report.Entries) != len(migrated.Report.Entries) {
 		t.Errorf("Migrate reported %d entries, the migration %d", len(report.Entries), len(migrated.Report.Entries))
 	}
@@ -88,7 +89,7 @@ func TestEntryPointErrors(t *testing.T) {
 		t.Errorf("ConvertTolerant notation to notation = (%v, %v), want output with the syntax error alongside", tolerated, err)
 	}
 	var notWritable *convert.NotWritableError
-	if _, _, err := convert.Migrate("m.xmi", nil, convert.FormatXMI); !errors.As(err, &notWritable) {
+	if _, err := convert.Migrate("m.xmi", nil, convert.FormatXMI); !errors.As(err, &notWritable) {
 		t.Errorf("Migrate to XMI = %v, want a NotWritableError", err)
 	}
 	if _, err := convert.ParseFormat("nosuchformat"); err == nil || !strings.Contains(err.Error(), "nosuchformat") {

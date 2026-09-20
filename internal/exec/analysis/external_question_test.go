@@ -23,8 +23,9 @@ func wired(t *testing.T, model *Model, q Question) string {
 }
 
 // A sweep's seed goes on the wire whenever rows are drawn from it, a seed of 0 included,
-// and stays off it for a swept table, which draws nothing; an engine reading the line can
-// tell an unseeded sweep from one seeded with 0.
+// and stays off it for a swept table, which draws nothing, and for a Monte Carlo under
+// a fixed draw policy, whose runs derive no seed; an engine reading the line can tell an
+// unseeded sweep from one seeded with 0.
 func TestWireSweepKeepsAZeroSeed(t *testing.T) {
 	f := parseFixture(t)
 	ctx := f.context(t)
@@ -43,6 +44,7 @@ func TestWireSweepKeepsAZeroSeed(t *testing.T) {
 		{"sampled seed 0", sampled, `"sampled":true,"samples":4,"seed":0}`},
 		{"runs seed 0", runtime.MonteCarloPlan(3, 0), `"sweep":{"ranges":[],"seed":0,"runs":3}`},
 		{"runs seed 7", runtime.MonteCarloPlan(3, 7), `"sweep":{"ranges":[],"seed":7,"runs":3}`},
+		{"runs without a seed", runtime.SeedlessMonteCarloPlan(3), `"sweep":{"ranges":[],"runs":3}`},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -91,6 +93,33 @@ func TestWireQuestionCarriesTheModelSeed(t *testing.T) {
 	}
 	if strings.Contains(wired(t, Held(ctx), Question{Kind: Evaluate, Subject: "test::Tank::low", Schedule: ctx.Schedule(), Perform: perform}), "modelSeed") {
 		t.Fatal("a question with no model seed set named one")
+	}
+}
+
+// A question carries a fixed draw policy as -draws spells it and none under random,
+// the default; the policy a held context was given is the one its question carries.
+func TestWireQuestionCarriesTheDrawPolicy(t *testing.T) {
+	f := parseFixture(t)
+	ctx := f.context(t)
+	perform := func(*runtime.Context) (Answer, error) { return Answer{Claim: ClaimHolds}, nil }
+	for _, policy := range []runtime.DrawPolicy{runtime.DrawMin, runtime.DrawMax, runtime.DrawAverage} {
+		t.Run(policy.String(), func(t *testing.T) {
+			q := Question{Kind: Evaluate, Subject: "test::Tank::low", Schedule: ctx.Schedule(), Draws: policy, Perform: perform}
+			line := wired(t, Held(ctx), q)
+			if want := `"draws":"` + policy.String() + `"`; !strings.Contains(line, want) {
+				t.Fatalf("the host wrote %s, want it to carry %s", line, want)
+			}
+		})
+	}
+	if strings.Contains(wired(t, Held(ctx), Question{Kind: Evaluate, Subject: "test::Tank::low", Schedule: ctx.Schedule(), Perform: perform}), "draws") {
+		t.Fatal("a question drawing at random named a policy")
+	}
+	if got := DrawsOf(nil); got != runtime.DrawRandom {
+		t.Fatalf("no context draws under %s, want random", got)
+	}
+	ctx.SetDrawPolicy(runtime.DrawAverage)
+	if got := DrawsOf(ctx); got != runtime.DrawAverage {
+		t.Fatalf("the held context draws under %s, want average", got)
 	}
 }
 
