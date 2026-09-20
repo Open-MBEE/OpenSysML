@@ -24,6 +24,7 @@ func TestRuntimeRobustnessObjectLifecycle(t *testing.T) {
 	t.Run("a_failed_constructor_leaves_no_argument_object", testObjectLifecycleFailedConstructor)
 	t.Run("destroying_a_holder_leaves_what_it_referred_to_in_the_extent", testObjectLifecycleDestroyedHolderExtent)
 	t.Run("a_destroyed_object_is_no_subject_of_a_check", testObjectLifecycleDestroyedNotSubject)
+	t.Run("a_destroyed_part_a_live_whole_retains_is_no_subject_of_a_check", testObjectLifecycleDestroyedNestedNotSubject)
 	t.Run("a_failed_constructor_rolls_back_what_its_behaviors_wrote", testObjectLifecycleFailedConstructorWrites)
 	t.Run("a_refused_write_leaves_no_adoption_for_an_outer_rollback", testObjectLifecycleRefusedWriteJournal)
 	t.Run("a_failed_constructor_revives_what_its_behaviors_destroyed_whole", testObjectLifecycleFailedConstructorDestroy)
@@ -438,6 +439,37 @@ func testObjectLifecycleDestroyedNotSubject(t *testing.T) {
 	satisfied, err := ctx.EvaluateConstraint(small, small.OwnerScope)
 	if err != nil || !satisfied {
 		t.Errorf("EvaluateConstraint after destroying one car = %t, %v; want the live car's verdict", satisfied, err)
+	}
+}
+
+// testObjectLifecycleDestroyedNestedNotSubject: a live whole retains the destroyed part it
+// held, but the destroyed part is no carrier of Part's constraint, so the check is about the live one.
+func testObjectLifecycleDestroyedNestedNotSubject(t *testing.T) {
+	instantiate, invoke, ctx := lifetimeFixture(t, `
+		package test {
+			private import ScalarValues::*;
+			private import OccurrenceFunctions::*;
+			part def Wheel { attribute n : Integer = 1; constraint small { n < 10 } }
+			part def Car { part front : Wheel; part rear : Wheel; }
+			part car : Car;
+			calc def Destroy { in w : Wheel; return : Wheel[0..1] = destroy(w); }
+		}`)
+	car := instantiate("car")
+	fv, err := car.GetFeatureValue(ctx, "rear")
+	if err != nil {
+		t.Fatalf("car.rear: %v", err)
+	}
+	rear := fv.HeldValue()
+	small := memberPath(t, ctx.model.resolver.Index().DocumentRoot("<test>"), "test", "Wheel", "small")
+	if _, err := invoke("Destroy", rear); err != nil {
+		t.Fatalf("destroy = %v", err)
+	}
+	if _, ok := car.FeatureValues["rear"].HeldValue().Object(); !ok {
+		t.Fatalf("car.rear after destroy = %s; want the stale object kept", FormatValue(car.FeatureValues["rear"].HeldValue()))
+	}
+	satisfied, err := ctx.EvaluateConstraint(small, small.OwnerScope)
+	if err != nil || !satisfied {
+		t.Errorf("EvaluateConstraint after destroying the rear wheel = %t, %v; want the front wheel's verdict", satisfied, err)
 	}
 }
 
