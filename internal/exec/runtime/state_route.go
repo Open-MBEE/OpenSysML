@@ -523,8 +523,13 @@ func certainStates(lists [][]*ast.StateNode) []*ast.StateNode {
 
 // runEffects performs a compound transition's effects in path order, activating the
 // chain down to the state enclosing each first: a segment is a performance of its owner.
+// A `terminate` ending an effect ends the block it was written in (executeBehaviors).
 func (e *StateExecutor) runEffects(effects []routeEffect, chain []*ast.StateNode) error {
+	var ended []lower.BehaviorBlock
 	for i, effect := range effects {
+		if e.endedBefore(ended, effect.behavior) {
+			continue
+		}
 		if upto := e.enclosingIndex(chain, effect.within); upto >= 0 {
 			if err := e.enterAhead(chain[:upto+1]); err != nil {
 				return err
@@ -536,8 +541,12 @@ func (e *StateExecutor) runEffects(effects []routeEffect, chain []*ast.StateNode
 				return err
 			}
 		}
-		if err := e.executeBehavior(effect.behavior); err != nil {
+		terminated, err := e.executeBehavior(effect.behavior)
+		if err != nil {
 			return fmt.Errorf("transition effect: %w", err)
+		}
+		if terminated {
+			ended = append(ended, effect.behavior.Block)
 		}
 	}
 	return nil
@@ -752,10 +761,8 @@ func (e *StateExecutor) terminateAt(trans *lower.Transition, fromName string, r 
 
 // runBehaviors performs a transition's effects, in order.
 func (e *StateExecutor) runBehaviors(effects []lower.StateBehavior) error {
-	for _, behavior := range effects {
-		if err := e.executeBehavior(behavior); err != nil {
-			return fmt.Errorf("transition effect: %w", err)
-		}
+	if err := e.executeBehaviors(effects); err != nil {
+		return fmt.Errorf("transition effect: %w", err)
 	}
 	return nil
 }
