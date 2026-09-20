@@ -1,7 +1,7 @@
 # Protocol state machines: what SysML v2 has, and what the runtime does with it (roadmap E5)
 
 > **Labels.** This is an engineering record. `E5` is the roadmap item under
-> [Track E of the roadmap](roadmap.md#e5--protocol-state-machines); `SM…` numbers refer to the
+> [Track E of the roadmap](roadmap.md#e5--protocol-state-machines-design-record-landed); `SM…` numbers refer to the
 > state-machine rows of `docs/internals/design/precise-semantics-alignment.md`. A reader outside
 > the repository needs none of them.
 
