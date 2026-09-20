@@ -25,8 +25,18 @@ public final class V1Exporter {
       Path directory = Files.createTempDirectory("opensysml-cameo");
       Path destination = directory.resolve("project.mdzip");
       ProjectDescriptor descriptor = ProjectDescriptorsFactory.createLocalProjectDescriptor(project, destination.toFile());
-      Application.getInstance().getProjectsManager()
-          .exportModule(project, List.of(project.getPrimaryModel()), "OpenSysML run", descriptor);
+      try {
+        Application.getInstance().getProjectsManager()
+            .exportModule(project, List.of(project.getPrimaryModel()), "OpenSysML run", descriptor);
+      } catch (RuntimeException failure) {
+        try {
+          Files.deleteIfExists(destination);
+          Files.deleteIfExists(directory);
+        } catch (IOException cleanupFailure) {
+          failure.addSuppressed(cleanupFailure);
+        }
+        throw failure;
+      }
       return new V1MdzipSource(destination, true);
     } catch (IOException exception) {
       throw new UncheckedIOException("cannot create the OpenSysML export directory", exception);

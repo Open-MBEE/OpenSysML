@@ -20,6 +20,7 @@ import java.util.Optional;
 import java.util.function.Supplier;
 import javax.swing.JOptionPane;
 import org.openmbee.opensysml.Value;
+import org.openmbee.opensysml.Diagnostic;
 import org.openmbee.opensysml.cameo.annotations.AnnotationPlanner;
 import org.openmbee.opensysml.cameo.annotations.Annotations;
 import org.openmbee.opensysml.cameo.engine.Engine;
@@ -100,7 +101,14 @@ public final class OperationActions implements BrowserContextAMConfigurator, Dia
             "Arguments for " + selection.subject().qualifiedName() + " (comma separated)",
             "OpenSysML: Evaluate calc", JOptionPane.QUESTION_MESSAGE);
         if (text == null) return;
-        args = CalcArguments.parse(text);
+        try {
+          args = CalcArguments.parse(text);
+        } catch (IllegalArgumentException exception) {
+          JOptionPane.showMessageDialog(
+              Application.getInstance().getMainFrame(), exception.getMessage(),
+              "OpenSysML: Evaluate calc", JOptionPane.ERROR_MESSAGE);
+          return;
+        }
       }
       // Model access stays on the EDT; only the service calls go to the progress runner's thread.
       ModelSource source = null;
@@ -129,14 +137,36 @@ public final class OperationActions implements BrowserContextAMConfigurator, Dia
     /** Runs off the EDT under the progress dialog; only the final display hops back onto it. */
     private void run(RunRequest request, IdentityResolver index, ProgressStatus status) {
       status.setDescription(operation.label() + " " + request.subjectQualifiedName());
-      RunResult result;
-      try (ModelSource source = request.source()) {
+      RunResult result = null;
+      RuntimeException cleanupFailure = null;
+      try {
         result = engine.get().run(request, status::isCancel);
+      } catch (RuntimeException failure) {
+        try {
+          request.source().close();
+        } catch (RuntimeException closeFailure) {
+          failure.addSuppressed(closeFailure);
+        }
+        throw failure;
+      }
+      try {
+        request.source().close();
+      } catch (RuntimeException closeFailure) {
+        cleanupFailure = closeFailure;
+      }
+      if (cleanupFailure != null && result != null) {
+        result = result.withLeadingDiagnostics(List.of(new Diagnostic(
+            Diagnostic.Severity.WARNING,
+            "temporary export not removed: " + cleanupFailure.getMessage(),
+            "export-cleanup",
+            Optional.empty())));
       }
       if (result.status() == RunResult.Status.CANCELLED) return;
+      RunResult completed = result;
+      IdentityResolver completedIndex = index;
       ResultsWindow.onEdt(() -> {
-        ResultsWindow.forProject(project).show(result, index);
-        Annotations.apply(project, AnnotationPlanner.plan(result, index));
+        ResultsWindow.forProject(project).show(completed, completedIndex);
+        Annotations.apply(project, AnnotationPlanner.plan(completed, completedIndex));
       });
     }
   }

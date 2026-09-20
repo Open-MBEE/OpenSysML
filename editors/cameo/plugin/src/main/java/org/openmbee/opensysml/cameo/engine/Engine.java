@@ -70,11 +70,12 @@ public final class Engine implements AutoCloseable {
     Objects.requireNonNull(cancellation);
     if (cancellation.requested()) return RunResult.cancelled(request);
     long started = System.nanoTime();
-    Thread watcher = new Thread(() -> watch(cancellation), "opensysml-cancel-watcher");
-    watcher.setDaemon(true);
-    watcher.start();
+    Thread watcher = null;
     try {
       Connection current = connection();
+      watcher = new Thread(() -> watch(cancellation, current), "opensysml-cancel-watcher");
+      watcher.setDaemon(true);
+      watcher.start();
       Model model = current.parseSources(request.source().sources(current));
       List<Diagnostic> setup = new ArrayList<>(request.source().exportDiagnostics());
       setup.addAll(model.parseDiagnostics());
@@ -84,11 +85,25 @@ public final class Engine implements AutoCloseable {
       if (cancellation.requested()) return RunResult.cancelled(request);
       return RunResult.error(request, exception, elapsed(started));
     } finally {
-      watcher.interrupt();
+      if (watcher != null) {
+        watcher.interrupt();
+        try {
+          watcher.join();
+        } catch (InterruptedException interrupted) {
+          Thread.currentThread().interrupt();
+        }
+      }
     }
   }
 
-  private void watch(Cancellation cancellation) {
+  private synchronized void dropConnection(Connection expected) {
+    if (connection == expected) {
+      expected.close();
+      connection = null;
+    }
+  }
+
+  private void watch(Cancellation cancellation, Connection expected) {
     while (!cancellation.requested()) {
       try {
         Thread.sleep(CANCEL_POLL.toMillis());
@@ -96,7 +111,7 @@ public final class Engine implements AutoCloseable {
         return;
       }
     }
-    dropConnection();
+    dropConnection(expected);
   }
 
   private static RunResult dispatch(RunRequest request, Model model) {
