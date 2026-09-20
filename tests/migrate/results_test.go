@@ -564,7 +564,8 @@ func TestConfiguredNumbersTellSnapshotsApartExactly(t *testing.T) {
 
 // A configuration whose results cannot be read says so: a result location
 // outside the document in the report, a location with no snapshot of the
-// target or a target with no classifier in the sidecar's notes.
+// target or a target with no classifier in the sidecar's notes, which also
+// carry why the configuration runs no behavior.
 func TestResultSnapshotsReportWhatIsNotRead(t *testing.T) {
 	r := migrateDocument(t, storedResults+`
     <packagedElement xmi:type="uml:Class" xmi:id="_g1" name="Group 1"/>
@@ -592,7 +593,7 @@ func TestResultSnapshotsReportWhatIsNotRead(t *testing.T) {
 	if want := []string{"the result location Empty holds no snapshot of the target's classifier"}; !reflect.DeepEqual(configs[1].Notes, want) {
 		t.Errorf("an empty location notes %q, want %q", configs[1].Notes, want)
 	}
-	if want := []string{"the snapshots in Results are not read: the configuration has no target classifier they could be of"}; !reflect.DeepEqual(configs[2].Notes, want) || len(configs[2].Snapshots) != 0 {
+	if want := []string{"the configuration names no execution target, so it runs no behavior", "the snapshots in Results are not read: the configuration has no target classifier they could be of"}; !reflect.DeepEqual(configs[2].Notes, want) || len(configs[2].Snapshots) != 0 {
 		t.Errorf("a configuration with no target indexes %+v", configs[2])
 	}
 	for _, c := range configs {

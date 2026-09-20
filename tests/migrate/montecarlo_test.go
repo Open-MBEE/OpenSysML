@@ -42,7 +42,7 @@ func TestMonteCarloAnalysisSnapshotsAreSummaries(t *testing.T) {
 		ID: "_g5", Name: "'Group 1'", Draws: "average",
 		Target: "target", Behavior: "run", Location: "Empty", Analysis: "t",
 		Observables: []string{}, Snapshots: []simresults.Snapshot{},
-		Notes:       []string{"the result location Empty holds no snapshot of the target's classifier"},
+		Notes: []string{"the result location Empty holds no snapshot of the target's classifier"},
 	}, {
 		ID: "_g6", Name: "'Group 2'", Runs: 1, Draws: "average",
 		Target: "target", Behavior: "run", Location: "Unbound Results",

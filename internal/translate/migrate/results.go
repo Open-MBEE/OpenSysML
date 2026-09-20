@@ -3,9 +3,12 @@ package migrate
 import (
 	"math"
 	"math/big"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/simresults"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
@@ -37,6 +40,7 @@ func (m *migration) resultSnapshots(r *simresults.ConfigurationResults, s *sysml
 	unread := map[string]int{}
 	others := map[string]int{}
 	statistics := map[string]int{}
+	ranOn := map[string]int{}
 	var locations []string
 	for _, id := range ids {
 		pkg := m.model.Lookup(id)
@@ -53,7 +57,14 @@ func (m *migration) resultSnapshots(r *simresults.ConfigurationResults, s *sysml
 			continue
 		}
 		for _, inst := range m.descendantInstances(pkg) {
-			if seenInstance[inst] || !m.isSnapshotOf(inst, target.classifiers, typed) {
+			if seenInstance[inst] {
+				continue
+			}
+			if !m.isSnapshotOf(inst, target.classifiers, typed) {
+				if ran := m.ranOnOther(inst, s, typed); ran != nil && len(m.model.Refs(inst, "classifier")) == 0 {
+					seenInstance[inst] = true
+					ranOn[ranOnOtherNote(inst, ran)]++
+				}
 				continue
 			}
 			seenInstance[inst] = true
@@ -146,6 +157,14 @@ func (m *migration) resultSnapshots(r *simresults.ConfigurationResults, s *sysml
 	sort.Strings(keys)
 	for _, k := range keys {
 		r.Notes = append(r.Notes, strconv.Itoa(statistics[k])+" snapshot(s) "+k)
+	}
+	keys = keys[:0]
+	for k := range ranOn {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		r.Notes = append(r.Notes, strconv.Itoa(ranOn[k])+" snapshot(s) are not among the results: "+k+" in the result location")
 	}
 	r.Location = strings.Join(locations, ", ")
 	if len(typed) == 0 && len(locations) > 0 {
@@ -444,11 +463,14 @@ func (m *migration) snapshotTyping(inst, cfg *sysmlv1.Element, typed map[*sysmlv
 	if len(owners) == 0 {
 		return snapshotTyping{config: cfg}
 	}
+	where := " under the result location of the run configuration " + describe(cfg)
+	if ran := m.ranOnOther(inst, simulationConfig(cfg), typed); ran != nil {
+		return snapshotTyping{config: cfg, note: ranOnOtherNote(inst, ran) + where}
+	}
 	names := make([]string, len(owners))
 	for i, o := range owners {
 		names[i] = qualifiedName(o)
 	}
-	where := " under the result location of the run configuration " + describe(cfg)
 	special := m.mostSpecial(owners)
 	switch {
 	case special == nil:
@@ -457,6 +479,88 @@ func (m *migration) snapshotTyping(inst, cfg *sysmlv1.Element, typed map[*sysmlv
 		return snapshotTyping{config: cfg, note: "its slots are of features of " + strings.Join(names, ", ") + ", neither a classifier of the configuration's target nor a general of one, so it is no snapshot of a run on it" + where}
 	}
 	return snapshotTyping{classifiers: []*sysmlv1.Element{special}, config: cfg}
+}
+
+// ranOnOther is the classifier inst's name says its run was on, when that is neither s's
+// target, a general (typed) nor a special of it; nil when the name names no other classifier.
+func (m *migration) ranOnOther(inst *sysmlv1.Element, s *sysmlv1.Stereotype, typed map[*sysmlv1.Element]bool) *sysmlv1.Element {
+	named := m.namesakes(inst.Name)
+	if len(named) == 0 {
+		return nil
+	}
+	targets := s.IDs("executionTarget")
+	for _, c := range named {
+		if typed[c] || (len(targets) == 1 && c.ID == targets[0]) {
+			return nil
+		}
+		closure := m.classifierClosure([]*sysmlv1.Element{c})
+		for t := range typed {
+			if closure[t] {
+				return nil
+			}
+		}
+	}
+	return named[0]
+}
+
+// ranOnOtherNote says that inst, by its name, is the result of a run on ran.
+func ranOnOtherNote(inst, ran *sysmlv1.Element) string {
+	return "it is named " + strconv.Quote(inst.Name) + " after " + qualifiedName(ran) + ", which is neither the configuration's target nor a general or special of it, and the tool names a result after the classifier it ran, so it is a snapshot of a run on that classifier stored"
+}
+
+// namesakes lists the classifiers whose default instance name a result snapshot's name is,
+// once a number keeping names apart and an " at <timestamp>" suffix are dropped.
+func (m *migration) namesakes(name string) []*sysmlv1.Element {
+	if m.instanceNames == nil {
+		m.instanceNames = map[string][]*sysmlv1.Element{}
+		var walk func(e *sysmlv1.Element)
+		walk = func(e *sysmlv1.Element) {
+			if isClassifierType(e.Type) && e.Name != "" {
+				key := defaultInstanceName(e.Name)
+				m.instanceNames[key] = append(m.instanceNames[key], e)
+			}
+			for _, c := range e.Children {
+				walk(c)
+			}
+		}
+		for _, r := range m.model.Roots {
+			if !r.IsProxy() {
+				walk(r)
+			}
+		}
+	}
+	name = resultTimestamp.ReplaceAllString(name, "")
+	for {
+		if found := m.instanceNames[name]; len(found) > 0 {
+			return found
+		}
+		n := len(name)
+		if n == 0 || name[n-1] < '0' || name[n-1] > '9' {
+			return nil
+		}
+		name = name[:n-1]
+	}
+}
+
+// resultTimestamp is the suffix a tool capturing timestamps gives a result snapshot's name.
+var resultTimestamp = regexp.MustCompile(`\s+at\s+\d{4}\.\d{2}\.\d{2}\s+\d{2}\.\d{2}(\.\d{2})?$`)
+
+// defaultInstanceName is the classifier's name with its first letter lowered, as
+// a tool names an instance the user does not.
+func defaultInstanceName(classifier string) string {
+	for i, r := range classifier {
+		return string(unicode.ToLower(r)) + classifier[i+utf8.RuneLen(r):]
+	}
+	return classifier
+}
+
+// isClassifierType reports whether a UML element type is a classifier a result snapshot can be of.
+func isClassifierType(typ string) bool {
+	switch typ {
+	case "Class", "Actor", "DataType", "PrimitiveType", "Enumeration", "Signal", "Interface", "AssociationClass":
+		return true
+	}
+	return false
 }
 
 // slotOwners lists, in slot order, the classifiers in the document owning the
@@ -469,9 +573,7 @@ func (m *migration) slotOwners(inst *sysmlv1.Element) []*sysmlv1.Element {
 		if f == nil || f.IsProxy() || f.Parent == nil || seen[f.Parent] {
 			continue
 		}
-		switch f.Parent.Type {
-		case "Class", "Actor", "DataType", "PrimitiveType", "Enumeration", "Signal", "Interface", "AssociationClass":
-		default:
+		if !isClassifierType(f.Parent.Type) {
 			continue
 		}
 		seen[f.Parent] = true
