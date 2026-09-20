@@ -74,6 +74,15 @@ export interface GQLOpenSysMLInstance {
   featureValues: GQLOpenSysMLNamedValue[];
 }
 
+export interface GQLOpenSysMLRunOutcome {
+  outputs: GQLOpenSysMLNamedValue[];
+  finalState: string | null;
+  trace: string[];
+  error: string | null;
+  linearizations: number;
+  witness: string[];
+}
+
 export interface GQLOpenSysMLRunResult {
   modelHash: string;
   operation: GQLRunOperation;
@@ -84,6 +93,7 @@ export interface GQLOpenSysMLRunResult {
   finalTime: number | null;
   outputs: GQLOpenSysMLNamedValue[];
   trace: string[];
+  outcomes: GQLOpenSysMLRunOutcome[];
   resultText: string | null;
   diagnostics: GQLOpenSysMLDiagnostic[];
   verdicts: GQLOpenSysMLVerdict[];
@@ -132,6 +142,17 @@ export const runWithOpenSysMLMutation = gql`
             value
           }
           trace
+          outcomes {
+            outputs {
+              name
+              value
+            }
+            finalState
+            trace
+            error
+            linearizations
+            witness
+          }
           resultText
           diagnostics {
             severity

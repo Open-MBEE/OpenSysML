@@ -13,6 +13,7 @@ const baseResult = (overrides: Partial<GQLOpenSysMLRunResult> = {}): GQLOpenSysM
   finalTime: null,
   outputs: [],
   trace: [],
+  outcomes: [],
   resultText: null,
   diagnostics: [],
   verdicts: [],
@@ -111,5 +112,38 @@ describe('RunResultsPanel', () => {
     );
     expect(screen.getByText('Vehicle::Car')).toBeInTheDocument();
     expect(screen.getByText('speed = 42')).toBeInTheDocument();
+  });
+
+  it('renders multiple exploration outcomes', () => {
+    render(
+      <RunResultsPanel
+        result={baseResult({
+          operation: 'EXPLORE_ACTION',
+          outcomes: [
+            {
+              outputs: [{ name: 'value', value: '1' }],
+              finalState: null,
+              trace: [],
+              error: null,
+              linearizations: 2,
+              witness: ['first: left'],
+            },
+            {
+              outputs: [{ name: 'value', value: '2' }],
+              finalState: null,
+              trace: ['Done'],
+              error: 'failed',
+              linearizations: 1,
+              witness: ['first: right'],
+            },
+          ],
+        })}
+      />
+    );
+    expect(screen.getByText('Outcomes (2)')).toBeInTheDocument();
+    expect(screen.getByText('outputs: value = 1')).toBeInTheDocument();
+    expect(screen.getByText('outputs: value = 2')).toBeInTheDocument();
+    expect(screen.getByText('error: failed')).toBeInTheDocument();
+    expect(screen.getAllByText(/linearizations:/)).toHaveLength(2);
   });
 });

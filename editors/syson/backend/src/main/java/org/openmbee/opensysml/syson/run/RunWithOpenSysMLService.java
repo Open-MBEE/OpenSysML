@@ -9,6 +9,7 @@ import java.util.Optional;
 import org.eclipse.sirius.components.emf.services.api.IEMFEditingContext;
 import org.eclipse.syson.sysml.Element;
 import org.openmbee.opensysml.Analysis;
+import org.openmbee.opensysml.AnalysisOptions;
 import org.openmbee.opensysml.Calculation;
 import org.openmbee.opensysml.CapabilityException;
 import org.openmbee.opensysml.Diagnostic;
@@ -33,6 +34,7 @@ import org.openmbee.opensysml.syson.export.ExportedProject;
 import org.openmbee.opensysml.syson.export.ProjectExporter;
 import org.openmbee.opensysml.syson.export.ProjectTextExporter;
 import org.openmbee.opensysml.syson.identity.ElementIndex.IndexedElement;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @Service
 public class RunWithOpenSysMLService {
@@ -41,6 +43,7 @@ public class RunWithOpenSysMLService {
     private final RunResultStore store;
     private final OpenSysMLProperties properties;
 
+    @Autowired
     public RunWithOpenSysMLService(Connection connection, ProjectTextExporter exporter, RunResultStore store,
             OpenSysMLProperties properties) {
         this(connection, (ProjectExporter) exporter, store, properties);
@@ -87,7 +90,7 @@ public class RunWithOpenSysMLService {
                     new RunResult.MappedDiagnostic(value.diagnostic(), value.element())));
             resultDiagnostics.add(new RunResult.MappedDiagnostic(diagnostic, selected.element()));
             RunResult result = new RunResult("", input.operation(), targetName, false, null, null, null, List.of(),
-                    List.of(), null, List.of(), List.of(),
+                    List.of(), null, List.of(), List.of(), List.of(),
                     resultDiagnostics);
             store.put(context.getId(), result);
             return result;
@@ -127,7 +130,9 @@ public class RunWithOpenSysMLService {
                     input.subject() == null ? model.verifySatisfaction() : model.verifySatisfaction(input.subject()),
                     project);
             case EVALUATE_CALC -> ResultParts.calculation(model.evaluateCalc(target, arguments), project);
-            case RUN_ANALYSIS -> ResultParts.analysis(model.runAnalysis(target), project);
+            case RUN_ANALYSIS -> ResultParts.analysis(model.runAnalysis(target,
+                    new AnalysisOptions(Optional.ofNullable(input.subject()), arguments, values,
+                            options.schedule())), project);
             case VALIDATE_INSTANCE -> ResultParts.validation(model.validateInstance(target), project);
         };
     }
@@ -140,11 +145,11 @@ public class RunWithOpenSysMLService {
             mappedDiagnostics.add(new RunResult.MappedDiagnostic(value.diagnostic(), value.element()));
         });
         return new RunResult(hash, input.operation(), target, parts.ok, parts.verdict, parts.schedule, parts.finalTime,
-                parts.outputs, parts.trace, parts.resultText, parts.verdicts, parts.instances,
+                parts.outputs, parts.trace, parts.resultText, parts.outcomes, parts.verdicts, parts.instances,
                 mappedDiagnostics);
     }
 
-    private static final class ResultParts {
+    static final class ResultParts {
         private final ExportedProject project;
         private boolean ok = true;
         private String verdict;
@@ -152,6 +157,7 @@ public class RunWithOpenSysMLService {
         private Double finalTime;
         private List<RunNamedValue> outputs = List.of();
         private List<String> trace = List.of();
+        private List<RunOutcome> outcomes = List.of();
         private String resultText;
         private List<Diagnostic> diagnostics = List.of();
         private List<RunVerdict> verdicts = List.of();
@@ -159,6 +165,10 @@ public class RunWithOpenSysMLService {
 
         private ResultParts(ExportedProject project) {
             this.project = project;
+        }
+
+        String verdict() {
+            return verdict;
         }
 
         static ResultParts instantiation(Instantiation result, ExportedProject project) {
@@ -186,11 +196,15 @@ public class RunWithOpenSysMLService {
             ResultParts p = new ResultParts(project);
             p.ok = result.complete();
             p.verdict = result.status();
+            p.resultText = result.status();
+            p.outcomes = result.outcomes().stream().map(outcome -> new RunOutcome(values(outcome.outputs()),
+                    outcome.finalState().orElse(null), outcome.statesVisited(), outcome.error().orElse(null),
+                    outcome.linearizations(), outcome.witness())).toList();
+            p.diagnostics = result.outcomes().stream().flatMap(outcome -> outcome.diagnostics().stream()).toList();
             if (!result.outcomes().isEmpty()) {
                 var outcome = result.outcomes().get(0);
                 p.outputs = values(outcome.outputs());
                 p.trace = outcome.statesVisited();
-                p.diagnostics = outcome.diagnostics();
             }
             return p;
         }
@@ -206,8 +220,9 @@ public class RunWithOpenSysMLService {
         }
         static ResultParts satisfaction(Satisfaction result, ExportedProject project) {
             ResultParts p = new ResultParts(project);
-            p.verdict = result.holds() ? "pass" : "fail";
             p.verdicts = result.verdicts().stream().map(p::verdict).toList();
+            p.verdict = result.verdicts().stream().anyMatch(verdict -> !verdict.decided())
+                    ? "undecided" : result.holds() ? "pass" : "fail";
             p.diagnostics = result.diagnostics();
             p.instances = p.instances(result.instances());
             return p;
@@ -221,15 +236,17 @@ public class RunWithOpenSysMLService {
         }
         static ResultParts analysis(Analysis result, ExportedProject project) {
             ResultParts p = new ResultParts(project);
-            p.verdict = result.holds() ? "holds" : "violated";
+            p.verdict = result.verdicts().stream().anyMatch(verdict -> !verdict.decided())
+                    ? "undecided" : result.holds() ? "holds" : "violated";
             p.diagnostics = result.diagnostics();
             p.instances = p.instances(result.instances());
             return p;
         }
         static ResultParts validation(org.openmbee.opensysml.Validation result, ExportedProject project) {
             ResultParts p = new ResultParts(project);
-            p.verdict = result.holds() ? "holds" : "violated";
             p.verdicts = result.verdicts().stream().map(p::verdict).toList();
+            p.verdict = result.summary().decided()
+                    ? (result.holds() ? "holds" : "violated") : "undecided";
             p.diagnostics = result.diagnostics();
             p.instances = p.instances(result.instances());
             return p;

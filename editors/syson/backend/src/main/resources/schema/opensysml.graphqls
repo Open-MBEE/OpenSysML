@@ -51,10 +51,20 @@ type OpenSysMLRunResult {
   finalTime: Float
   outputs: [OpenSysMLNamedValue!]!
   trace: [String!]!
+  outcomes: [OpenSysMLRunOutcome!]!
   resultText: String
   diagnostics: [OpenSysMLDiagnostic!]!
   verdicts: [OpenSysMLVerdict!]!
   instances: [OpenSysMLInstance!]!
+}
+
+type OpenSysMLRunOutcome {
+  outputs: [OpenSysMLNamedValue!]!
+  finalState: String
+  trace: [String!]!
+  error: String
+  linearizations: Int!
+  witness: [String!]!
 }
 
 type OpenSysMLNamedValue {

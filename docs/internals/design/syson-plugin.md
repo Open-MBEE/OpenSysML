@@ -611,6 +611,9 @@ Where the code departs from §3–§4, and why.
   exercised; the dialog renders outcomes, traces, verdicts, instances and diagnostics, and a
   diagnostic click selects its element. Diagnostics also reach the Validation view through
   `OpenSysMLValidationService`, which serves the last run per editing context.
+- **Diagnostic selection:** diagnostics naming a qualified name select that element; span-only
+  diagnostics select the root element of the exported document containing the line. The
+  serializer emits no source map.
 - **Deferred:** building SysON itself and the Batmobile export survey (§4.1 steps 1–2), the
   Spring Boot test over SysON's test application (§4.1 step 4, replaced by unit tests over a
   stubbed export plus integration tests against a real `sysml-grpc`), and phases 3–4.

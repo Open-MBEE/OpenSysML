@@ -93,6 +93,15 @@ class RunWithOpenSysMLIntegrationTest {
         assertThat(violatedResult.verdict()).isEqualTo("violated");
     }
 
+    @Test
+    void exploresChoiceActionIntoMultipleOutcomes() throws Exception {
+        String source = Files.readString(repository.resolve("editors/syson/backend/src/test/resources/models/choice.sysml"));
+        Element target = target("test::tally");
+        RunResult result = service(project("choice.sysml", source, target)).run(context(), target,
+                input(RunOperation.EXPLORE_ACTION, Map.of()));
+        assertThat(result.outcomes()).hasSizeGreaterThanOrEqualTo(2);
+    }
+
     private RunWithOpenSysMLService service(ExportedProject project) {
         ProjectExporter exporter = context -> project;
         return new RunWithOpenSysMLService(connection, exporter, new RunResultStore(), new OpenSysMLProperties());

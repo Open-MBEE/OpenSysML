@@ -109,6 +109,24 @@ export const RunResultsPanel = ({ result, onSelectElement }: RunResultsPanelProp
         </section>
       )}
 
+      {result.outcomes.length > 1 && (
+        <section>
+          <Typography variant="subtitle2">Outcomes ({result.outcomes.length})</Typography>
+          {result.outcomes.map((outcome, index) => (
+            <div key={index}>
+              {outcome.outputs.length > 0 && (
+                <Typography variant="body2">
+                  outputs: {outcome.outputs.map((output) => `${output.name} = ${output.value}`).join(', ')}
+                </Typography>
+              )}
+              {outcome.trace.length > 0 && <Typography variant="body2">trace: {outcome.trace.join(', ')}</Typography>}
+              {outcome.error && <Typography variant="body2">error: {outcome.error}</Typography>}
+              <Typography variant="body2">linearizations: {outcome.linearizations}</Typography>
+            </div>
+          ))}
+        </section>
+      )}
+
       {result.verdicts.length > 0 && (
         <section>
           <Typography variant="subtitle2">Verdicts</Typography>

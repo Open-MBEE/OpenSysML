@@ -37,22 +37,21 @@ const operationOptions: Array<[GQLRunOperation, string]> = [
   ['VALIDATE_INSTANCE', 'Validate instance'],
 ];
 
-const usesInputs = (operation: GQLRunOperation) => operation === 'EXECUTE_ACTION' || operation === 'EXPLORE_ACTION';
+const usesInputs = (operation: GQLRunOperation) =>
+  operation === 'EXECUTE_ACTION' || operation === 'EXPLORE_ACTION' || operation === 'RUN_ANALYSIS';
 const usesEvents = (operation: GQLRunOperation) => operation === 'EXECUTE_STATE' || operation === 'EXPLORE_STATE';
 const usesArguments = (operation: GQLRunOperation) => operation === 'EVALUATE_CALC' || operation === 'RUN_ANALYSIS';
 const usesSchedule = (operation: GQLRunOperation) =>
   operation === 'EXECUTE_ACTION' ||
   operation === 'EXPLORE_ACTION' ||
   operation === 'EXECUTE_STATE' ||
-  operation === 'EXPLORE_STATE';
+  operation === 'EXPLORE_STATE' ||
+  operation === 'RUN_ANALYSIS';
 const usesSubject = (operation: GQLRunOperation) =>
-  operation === 'VERIFY_CONSTRAINT' || operation === 'VERIFY_REQUIREMENT' || operation === 'VERIFY_SATISFACTION';
-
-const splitValues = (value: string): string[] =>
-  value
-    .split(/[\n,]+/)
-    .map((entry) => entry.trim())
-    .filter(Boolean);
+  operation === 'VERIFY_CONSTRAINT' ||
+  operation === 'VERIFY_REQUIREMENT' ||
+  operation === 'VERIFY_SATISFACTION' ||
+  operation === 'RUN_ANALYSIS';
 
 export const RunWithOpenSysMLDialog = ({
   editingContextId,
@@ -62,8 +61,8 @@ export const RunWithOpenSysMLDialog = ({
 }: RunWithOpenSysMLDialogProps) => {
   const [operation, setOperation] = useState<GQLRunOperation>('INSTANTIATE');
   const [inputs, setInputs] = useState<GQLRunInputValue[]>([]);
-  const [events, setEvents] = useState('');
-  const [argumentsText, setArgumentsText] = useState('');
+  const [events, setEvents] = useState<string[]>([]);
+  const [argumentsText, setArgumentsText] = useState<string[]>([]);
   const [schedule, setSchedule] = useState('');
   const [subject, setSubject] = useState('');
   const { run, loading, result } = useRunWithOpenSysML();
@@ -76,8 +75,8 @@ export const RunWithOpenSysMLDialog = ({
       objectId,
       operation,
       inputs,
-      events: splitValues(events),
-      arguments: splitValues(argumentsText),
+      events: events.filter(Boolean),
+      arguments: argumentsText.filter(Boolean),
       schedule: schedule || null,
       subject: subject || null,
     });
@@ -149,25 +148,61 @@ export const RunWithOpenSysMLDialog = ({
         )}
 
         {usesEvents(operation) && (
-          <TextField
-            fullWidth
-            margin="normal"
-            label="Events"
-            helperText="Separate events with commas or new lines"
-            value={events}
-            onChange={(event) => setEvents(event.target.value)}
-          />
+          <div>
+            {events.map((event, index) => (
+              <div key={`${index}-${event}`}>
+                <TextField
+                  fullWidth
+                  margin="normal"
+                  label={`Event ${index + 1}`}
+                  value={event}
+                  onChange={(change) =>
+                    setEvents((previous) =>
+                      previous.map((entry, entryIndex) => (entryIndex === index ? change.target.value : entry))
+                    )
+                  }
+                />
+                <Button
+                  aria-label={`Remove event ${index + 1}`}
+                  onClick={() => setEvents((previous) => previous.filter((_, entryIndex) => entryIndex !== index))}>
+                  <DeleteIcon />
+                </Button>
+              </div>
+            ))}
+            <Button startIcon={<AddIcon />} onClick={() => setEvents((previous) => [...previous, ''])}>
+              Add event
+            </Button>
+          </div>
         )}
 
         {usesArguments(operation) && (
-          <TextField
-            fullWidth
-            margin="normal"
-            label="Arguments"
-            helperText="Separate expressions with commas or new lines"
-            value={argumentsText}
-            onChange={(event) => setArgumentsText(event.target.value)}
-          />
+          <div>
+            {argumentsText.map((argument, index) => (
+              <div key={`${index}-${argument}`}>
+                <TextField
+                  fullWidth
+                  margin="normal"
+                  label={`Argument ${index + 1}`}
+                  value={argument}
+                  onChange={(change) =>
+                    setArgumentsText((previous) =>
+                      previous.map((entry, entryIndex) => (entryIndex === index ? change.target.value : entry))
+                    )
+                  }
+                />
+                <Button
+                  aria-label={`Remove argument ${index + 1}`}
+                  onClick={() =>
+                    setArgumentsText((previous) => previous.filter((_, entryIndex) => entryIndex !== index))
+                  }>
+                  <DeleteIcon />
+                </Button>
+              </div>
+            ))}
+            <Button startIcon={<AddIcon />} onClick={() => setArgumentsText((previous) => [...previous, ''])}>
+              Add argument
+            </Button>
+          </div>
         )}
 
         {usesSchedule(operation) && (

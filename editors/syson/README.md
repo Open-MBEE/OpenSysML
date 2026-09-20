@@ -99,3 +99,5 @@ and validation results. Real-service integration tests run the mutation against 
 instantiation, action execution, verification, diagnostics and stored results. Frontend tests
 cover the registry, explorer menu, operation dialog, toast errors, mapped selection, outputs,
 traces, verdicts, instances and diagnostics.
+
+Diagnostics that name a qualified name select that element; span-only diagnostics select the root element of the exported document containing the line. The serializer emits no source map.

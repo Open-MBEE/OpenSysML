@@ -15,6 +15,7 @@ const successResult = {
   finalTime: 1,
   outputs: [{ name: 'y', value: '42' }],
   trace: [],
+  outcomes: [],
   resultText: null,
   diagnostics: [],
   verdicts: [],
@@ -140,5 +141,46 @@ describe('RunWithOpenSysMLDialog', () => {
     fireEvent.click(screen.getByTestId('opensysml-diagnostic'));
     expect(setSelection).toHaveBeenCalledWith({ entries: [{ id: 'sid-1' }] });
     expect(screen.getByText('Run with OpenSysML: Counter')).toBeInTheDocument();
+  });
+
+  it('submits ordered event and argument entries', async () => {
+    type OrderedVariables = { input: { events: string[]; arguments: string[] } };
+    const variableMatcher = vi.fn((_variables: OrderedVariables) => true);
+    const entryMock = {
+      request: { query: runWithOpenSysMLMutation },
+      variableMatcher,
+      result: {
+        data: {
+          runWithOpenSysML: {
+            __typename: 'RunWithOpenSysMLSuccessPayload',
+            id: 'run',
+            messages: [],
+            result: successResult,
+          },
+        },
+      },
+    };
+    render(
+      <MockedProvider mocks={[entryMock]}>
+        <RunWithOpenSysMLDialog {...props} />
+      </MockedProvider>
+    );
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Operation' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Execute state machine' }));
+    fireEvent.click(screen.getByText('Add event'));
+    fireEvent.change(screen.getByLabelText('Event 1'), { target: { value: 'start' } });
+    fireEvent.click(screen.getByText('Add event'));
+    fireEvent.change(screen.getByLabelText('Event 2'), { target: { value: 'stop' } });
+    fireEvent.click(screen.getByRole('combobox', { name: 'Operation' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Evaluate calculation' }));
+    fireEvent.click(screen.getByText('Add argument'));
+    fireEvent.change(screen.getByLabelText('Argument 1'), { target: { value: '1' } });
+    fireEvent.click(screen.getByText('Add argument'));
+    fireEvent.change(screen.getByLabelText('Argument 2'), { target: { value: '2' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }));
+    await waitFor(() => expect(variableMatcher).toHaveBeenCalled());
+    const variables = variableMatcher.mock.calls[0][0];
+    expect(variables.input.events).toEqual(['start', 'stop']);
+    expect(variables.input.arguments).toEqual(['1', '2']);
   });
 });
