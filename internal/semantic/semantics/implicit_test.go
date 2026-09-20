@@ -22,7 +22,7 @@ func TestImplicitBaseWithoutLibrary(t *testing.T) {
 // TestImplicitBaseResolvesThroughIndex covers the lookup itself against a
 // stand-in library declared in the same document.
 func TestImplicitBaseResolvesThroughIndex(t *testing.T) {
-	m, root := buildModel(t, "package Parts { part def Part; } part p; part q : Parts::Part;")
+	m, root := buildModel(t, "package Parts { part def Part; abstract part parts : Part[*]; } part p; part q : Parts::Part;")
 	parts := sym(t, root, "Parts")
 	part, _ := parts.Scope.LookupLocal("Part")
 
@@ -273,6 +273,7 @@ func TestW7ATransitionMemberImplicitBase(t *testing.T) {
 			action accepter;
 			action effect;
 		}
+		abstract action transitionActions : TransitionAction[*];
 	}
 	package States { action def StateAction; }
 	package P {
@@ -339,7 +340,7 @@ func TestW7AKerMLFeatureBaseSuppressedWhenDeclared(t *testing.T) {
 // TestW7ASysMLSuppressionMatchesKerML covers the same rule in SysML: a declared
 // generalization that does not reach the kind's base does not suppress it.
 func TestW7ASysMLSuppressionMatchesKerML(t *testing.T) {
-	m, root := buildModelNamed(t, "t.sysml", `package Parts { part def Part { feature endShot; } }
+	m, root := buildModelNamed(t, "t.sysml", `package Parts { part def Part { feature endShot; } abstract part parts : Part[*]; }
 	package Frames { attribute def Frame; }
 	part p :> Frames::Frame;
 	part q :> Parts::Part;`)

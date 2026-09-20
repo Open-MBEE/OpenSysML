@@ -73,6 +73,26 @@ func (ctx *Context) connectorBaseOf(feat *EffectiveFeature) *symbols.Symbol {
 // a binary connector, `participant` for any other arity.
 func (ctx *Context) connectorEndFeatures(typeSym *symbols.Symbol, declared map[string]bool) []EffectiveFeature {
 	ends := ctx.model.semantics.ConnectorEndAttachments(typeSym)
+	if len(ends) == 0 && ctx.model.semantics.IsBinaryConnector(typeSym) {
+		var out []EffectiveFeature
+		for _, name := range []string{"source", "target"} {
+			end, ok := ctx.model.semantics.LookupMember(typeSym, name)
+			if !ok {
+				continue
+			}
+			if declared[name] {
+				continue
+			}
+			declared[name] = true
+			out = append(out, EffectiveFeature{
+				Name:         name,
+				Symbol:       end,
+				OwnerType:    typeSym,
+				Multiplicity: singleValue(),
+			})
+		}
+		return out
+	}
 	if len(ends) == 0 {
 		return nil
 	}

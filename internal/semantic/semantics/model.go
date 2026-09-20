@@ -55,6 +55,9 @@ type Model struct {
 	subtracting map[*symbols.Symbol]bool
 	// implicitBase memoizes each declaration's kind bases once settled (see implicit.go).
 	implicitBase map[*symbols.Symbol][]*symbols.Symbol
+	// computingUsageBase prevents member lookup from recursing through a usage's
+	// own implicit base while resolving its declared generalization targets.
+	computingUsageBase map[*symbols.Symbol]bool
 
 	superEdgeCache map[*symbols.Symbol][]superEdge      // generalization edges with conjugation
 	conjSupers     map[*symbols.Symbol][]conjugatedType // supertypes with conjugation parity
@@ -132,22 +135,23 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		directSupers: make(map[*symbols.Symbol][]*symbols.Symbol),
 		allSupers:    make(map[*symbols.Symbol][]*symbols.Symbol),
 
-		provisionalSupers: make(map[*symbols.Symbol]bool),
-		computingSupers:   make(map[*symbols.Symbol]int),
-		valuing:           make(map[*symbols.Symbol]bool),
-		referenced:        make(map[*symbols.Symbol]*symbols.Symbol),
-		resolvingRef:      make(map[*symbols.Symbol]bool),
-		memberSources:     make(map[*symbols.Symbol][]*symbols.Symbol),
-		lookupOrder:       make(map[*symbols.Symbol][]lookupSource),
-		contributed:       make(map[*symbols.Symbol][]*symbols.Symbol),
-		primTypes:         make(map[*symbols.Symbol]PrimType),
-		params:            make(map[*symbols.Symbol]behaviorParameters),
-		invocations:       make(map[invocationKey]*InvocationSelection),
-		typingArgs:        make(map[*ast.InvocationExpr]bool),
-		composed:          make(map[composedKey][]*symbols.Symbol),
-		ends:              make(map[*symbols.Symbol][]connectorEnd),
-		subtracting:       make(map[*symbols.Symbol]bool),
-		implicitBase:      make(map[*symbols.Symbol][]*symbols.Symbol),
+		provisionalSupers:  make(map[*symbols.Symbol]bool),
+		computingSupers:    make(map[*symbols.Symbol]int),
+		valuing:            make(map[*symbols.Symbol]bool),
+		referenced:         make(map[*symbols.Symbol]*symbols.Symbol),
+		resolvingRef:       make(map[*symbols.Symbol]bool),
+		memberSources:      make(map[*symbols.Symbol][]*symbols.Symbol),
+		lookupOrder:        make(map[*symbols.Symbol][]lookupSource),
+		contributed:        make(map[*symbols.Symbol][]*symbols.Symbol),
+		primTypes:          make(map[*symbols.Symbol]PrimType),
+		params:             make(map[*symbols.Symbol]behaviorParameters),
+		invocations:        make(map[invocationKey]*InvocationSelection),
+		typingArgs:         make(map[*ast.InvocationExpr]bool),
+		composed:           make(map[composedKey][]*symbols.Symbol),
+		ends:               make(map[*symbols.Symbol][]connectorEnd),
+		subtracting:        make(map[*symbols.Symbol]bool),
+		implicitBase:       make(map[*symbols.Symbol][]*symbols.Symbol),
+		computingUsageBase: make(map[*symbols.Symbol]bool),
 
 		superEdgeCache: make(map[*symbols.Symbol][]superEdge),
 		conjSupers:     make(map[*symbols.Symbol][]conjugatedType),

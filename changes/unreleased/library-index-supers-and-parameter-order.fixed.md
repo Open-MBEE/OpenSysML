@@ -1,0 +1,2 @@
+- **Untyped usages now subset the standard-library base feature for their kind and derive their type from that feature, preserving inherited members through recorded library specialization edges.**
+- **Behavior and step usages typed by library behaviors now redefine parameters by position through cold loads, disk-cache restores, and the embedded snapshot.**
