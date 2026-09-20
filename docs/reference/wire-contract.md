@@ -1774,7 +1774,7 @@ selected, filtered and bound — are on the Go API page and are not repeated her
 [Native document queries and rendering over gRPC](api.md#native-document-queries-and-rendering-over-grpc).
 Each is its own capability: `Query` needs `query` (and `oslc_query` when the request uses
 `oslcQuery`); `RunDocumentQuery` needs `document_query`; `RenderDocument` needs
-`render_document`.
+`render_document`, and `render_document_html` too when its `form` is `html`.
 
 ### `Query`
 

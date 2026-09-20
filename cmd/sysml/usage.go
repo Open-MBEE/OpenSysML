@@ -386,12 +386,14 @@ func doc() usage.Doc {
 				"-doc-form html writes semantic HTML instead, carrying each element's " +
 					"identity and kind, styled by a stylesheet in a cascade layer your " +
 					"own CSS overrides without !important.",
-				"-doc-form pdf converts that Markdown with an external converter named " +
-					"by -pdf-engine — weasyprint (default), pandoc or prince — run as " +
+				"-doc-form pdf lays that HTML out with a print stylesheet through an " +
+					"external converter named by -pdf-engine — weasyprint (default) or " +
+					"prince, or pandoc, which reads the Markdown instead — run as " +
 					"a subprocess, never linked in; diagrams are pre-rendered to SVG " +
-					"with mermaid-cli (mmdc). None of these tools is needed until PDF " +
-					"output is asked for; scripts/download-doc-pdf-toolchain.sh " +
-					"provisions pinned copies.",
+					"with mermaid-cli (mmdc). -html-theme, -html-css and " +
+					"-html-no-default-css style the PDF as they style the page. None of " +
+					"these tools is needed until PDF output is asked for; " +
+					"scripts/download-doc-pdf-toolchain.sh provisions pinned copies.",
 				"HTML output needs nothing external and loads nothing by default: -html-theme " +
 					"picks one of the bundled looks (default, modern, print, report), -html-css adds " +
 					"your own stylesheets, -html-no-default-css drops the default one, " +
@@ -559,9 +561,9 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.BoolVar(&pdfNumbering, "doc-number-sections", false, "Number the section headings hierarchically (html or pdf)")
 	fs.StringVar(&pdfEngine, "pdf-engine", "", "Converter -doc-form pdf drives: weasyprint (default), pandoc or prince")
 
-	fs.StringVar(&htmlTheme, "html-theme", "", "Style the page with a bundled theme layered over the default stylesheet: default, modern, print or report")
-	fs.Var(&htmlCSS, "html-css", "Style the page with this stylesheet too: a file is inlined, a URL is linked (repeatable, applied in order after the default sheet)")
-	fs.BoolVar(&htmlNoCSS, "html-no-default-css", false, "Leave the default stylesheet out, so only -html-css sheets style the document")
+	fs.StringVar(&htmlTheme, "html-theme", "", "Style the HTML page or PDF with a bundled theme layered over the default stylesheet: default, modern, print or report")
+	fs.Var(&htmlCSS, "html-css", "Style the HTML or PDF with this stylesheet too: a file is inlined, a URL is linked (repeatable, applied in order after the default sheet)")
+	fs.BoolVar(&htmlNoCSS, "html-no-default-css", false, "Leave the default stylesheet out, so only -html-css sheets style the HTML or PDF")
 	fs.BoolVar(&htmlFragment, "html-fragment", false, "Write the document element alone, without the page shell or a stylesheet, to embed in a page of your own")
 	fs.BoolVar(&htmlShowCSS, "html-default-css", false, "Write the default document stylesheet, or with -html-theme that theme's whole sheet, and exit")
 	fs.StringVar(&htmlMermaid, "html-mermaid", "", "Have the page load Mermaid to draw its diagrams: cdn loads a pinned release from jsDelivr, a URL the script it names")

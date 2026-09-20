@@ -8856,14 +8856,19 @@ func (x *RunDocumentQueryResponse) GetRows() []*DocumentQueryRow {
 }
 
 // RenderDocumentRequest renders a named document — a part def specializing
-// DocumentQueries::Document — to Markdown. A document binds its queries'
-// parameters in the model, so the request carries none.
+// DocumentQueries::Document — to Markdown or HTML. A document binds its
+// queries' parameters in the model, so the request carries none.
 type RenderDocumentRequest struct {
 	state     protoimpl.MessageState `protogen:"open.v1"`
 	ModelHash string                 `protobuf:"bytes,1,opt,name=model_hash,json=modelHash,proto3" json:"model_hash,omitempty"` // from ParseFile response
 	// FQN of the document to render. Fails with NOT_FOUND when the model does
 	// not declare it, and INVALID_ARGUMENT when it declares something else.
-	DocumentId    string `protobuf:"bytes,2,opt,name=document_id,json=documentId,proto3" json:"document_id,omitempty"`
+	DocumentId string `protobuf:"bytes,2,opt,name=document_id,json=documentId,proto3" json:"document_id,omitempty"`
+	// Form to render: "markdown" (the default when empty) or "html", the
+	// standalone page with the default stylesheet that the CLI's -doc-form html
+	// writes. Any other form fails with INVALID_ARGUMENT; PDF needs the CLI's
+	// converter toolchain and is not offered here.
+	Form          string `protobuf:"bytes,3,opt,name=form,proto3" json:"form,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -8912,11 +8917,20 @@ func (x *RenderDocumentRequest) GetDocumentId() string {
 	return ""
 }
 
-// RenderDocumentResponse carries the rendered Markdown, byte-for-byte what the
-// CLI's -render-document writes.
+func (x *RenderDocumentRequest) GetForm() string {
+	if x != nil {
+		return x.Form
+	}
+	return ""
+}
+
+// RenderDocumentResponse carries the rendered document in the form requested,
+// byte-for-byte what the CLI's -render-document writes: markdown for the
+// Markdown form, html for the HTML form, the other left empty.
 type RenderDocumentResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Markdown      string                 `protobuf:"bytes,1,opt,name=markdown,proto3" json:"markdown,omitempty"`
+	Html          string                 `protobuf:"bytes,2,opt,name=html,proto3" json:"html,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -8954,6 +8968,13 @@ func (*RenderDocumentResponse) Descriptor() ([]byte, []int) {
 func (x *RenderDocumentResponse) GetMarkdown() string {
 	if x != nil {
 		return x.Markdown
+	}
+	return ""
+}
+
+func (x *RenderDocumentResponse) GetHtml() string {
+	if x != nil {
+		return x.Html
 	}
 	return ""
 }
@@ -9631,14 +9652,16 @@ const file_sysml_proto_rawDesc = "" +
 	"\x05cells\x18\x02 \x03(\v2\x18.sysml.DocumentQueryCellR\x05cells\"}\n" +
 	"\x18RunDocumentQueryResponse\x124\n" +
 	"\acolumns\x18\x01 \x03(\v2\x1a.sysml.DocumentQueryColumnR\acolumns\x12+\n" +
-	"\x04rows\x18\x02 \x03(\v2\x17.sysml.DocumentQueryRowR\x04rows\"W\n" +
+	"\x04rows\x18\x02 \x03(\v2\x17.sysml.DocumentQueryRowR\x04rows\"k\n" +
 	"\x15RenderDocumentRequest\x12\x1d\n" +
 	"\n" +
 	"model_hash\x18\x01 \x01(\tR\tmodelHash\x12\x1f\n" +
 	"\vdocument_id\x18\x02 \x01(\tR\n" +
-	"documentId\"4\n" +
+	"documentId\x12\x12\n" +
+	"\x04form\x18\x03 \x01(\tR\x04form\"H\n" +
 	"\x16RenderDocumentResponse\x12\x1a\n" +
-	"\bmarkdown\x18\x01 \x01(\tR\bmarkdown*\x93\x01\n" +
+	"\bmarkdown\x18\x01 \x01(\tR\bmarkdown\x12\x12\n" +
+	"\x04html\x18\x02 \x01(\tR\x04html*\x93\x01\n" +
 	"\rFailureReason\x12\x1e\n" +
 	"\x1aFAILURE_REASON_UNSPECIFIED\x10\x00\x12\x1d\n" +
 	"\x19FAILURE_REASON_EVALUATION\x10\x01\x12\x1d\n" +

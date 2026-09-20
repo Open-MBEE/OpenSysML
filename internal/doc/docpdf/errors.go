@@ -18,13 +18,9 @@ const (
 	ErrorToolFailed ErrorKind = "tool-failed"
 	// ErrorNoPDF reports a converter that succeeded without producing a PDF.
 	ErrorNoPDF ErrorKind = "no-pdf"
-	// ErrorUnclosedFence reports a diagram fence the Markdown never closes.
-	ErrorUnclosedFence ErrorKind = "unclosed-fence"
-	// ErrorUnclosedMath reports a display-math block the Markdown never closes.
-	ErrorUnclosedMath ErrorKind = "unclosed-math"
-	// ErrorDanglingCaption reports a caption marker not followed by a
-	// fully-emphasized caption line.
-	ErrorDanglingCaption ErrorKind = "dangling-caption"
+	// ErrorUnsupportedOption reports a stylesheet option the selected
+	// converter cannot apply, as it writes its own HTML.
+	ErrorUnsupportedOption ErrorKind = "unsupported-option"
 )
 
 // Error is a typed PDF-rendering failure.
@@ -46,6 +42,9 @@ type Error struct {
 
 	// Detail carries what the tool said on stderr, trimmed.
 	Detail string
+
+	// Option names the command-line option a converter cannot apply.
+	Option string
 }
 
 func (e *Error) Error() string {
@@ -80,12 +79,8 @@ func (e *Error) Error() string {
 		return msg
 	case ErrorNoPDF:
 		return fmt.Sprintf("%s reported success but wrote no PDF", e.Tool)
-	case ErrorUnclosedFence:
-		return "the document's Markdown opens a diagram fence it never closes"
-	case ErrorUnclosedMath:
-		return "the document's Markdown opens a $$ display-math block it never closes"
-	case ErrorDanglingCaption:
-		return "the document's Markdown has a caption marker without a caption line after it"
+	case ErrorUnsupportedOption:
+		return fmt.Sprintf("%s styles the HTML backend's page, which the %s engine does not read; select an engine reading HTML with -pdf-engine", e.Option, e.Engine)
 	default:
 		return "PDF rendering failed"
 	}

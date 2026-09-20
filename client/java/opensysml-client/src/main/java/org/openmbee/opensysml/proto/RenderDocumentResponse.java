@@ -7,8 +7,9 @@ package org.openmbee.opensysml.proto;
 
 /**
  * <pre>
- * RenderDocumentResponse carries the rendered Markdown, byte-for-byte what the
- * CLI's -render-document writes.
+ * RenderDocumentResponse carries the rendered document in the form requested,
+ * byte-for-byte what the CLI's -render-document writes: markdown for the
+ * Markdown form, html for the HTML form, the other left empty.
  * </pre>
  *
  * Protobuf type {@code sysml.RenderDocumentResponse}
@@ -34,6 +35,7 @@ private static final long serialVersionUID = 0L;
   }
   private RenderDocumentResponse() {
     markdown_ = "";
+    html_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -88,6 +90,45 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int HTML_FIELD_NUMBER = 2;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object html_ = "";
+  /**
+   * <code>string html = 2 [json_name = "html"];</code>
+   * @return The html.
+   */
+  @java.lang.Override
+  public java.lang.String getHtml() {
+    java.lang.Object ref = html_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      html_ = s;
+      return s;
+    }
+  }
+  /**
+   * <code>string html = 2 [json_name = "html"];</code>
+   * @return The bytes for html.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getHtmlBytes() {
+    java.lang.Object ref = html_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      html_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -105,6 +146,9 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(markdown_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 1, markdown_);
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(html_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 2, html_);
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -116,6 +160,9 @@ private static final long serialVersionUID = 0L;
     size = 0;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(markdown_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(1, markdown_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(html_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(2, html_);
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -134,6 +181,8 @@ private static final long serialVersionUID = 0L;
 
     if (!getMarkdown()
         .equals(other.getMarkdown())) return false;
+    if (!getHtml()
+        .equals(other.getHtml())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -147,6 +196,8 @@ private static final long serialVersionUID = 0L;
     hash = (19 * hash) + getDescriptor().hashCode();
     hash = (37 * hash) + MARKDOWN_FIELD_NUMBER;
     hash = (53 * hash) + getMarkdown().hashCode();
+    hash = (37 * hash) + HTML_FIELD_NUMBER;
+    hash = (53 * hash) + getHtml().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -246,8 +297,9 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * RenderDocumentResponse carries the rendered Markdown, byte-for-byte what the
-   * CLI's -render-document writes.
+   * RenderDocumentResponse carries the rendered document in the form requested,
+   * byte-for-byte what the CLI's -render-document writes: markdown for the
+   * Markdown form, html for the HTML form, the other left empty.
    * </pre>
    *
    * Protobuf type {@code sysml.RenderDocumentResponse}
@@ -284,6 +336,7 @@ private static final long serialVersionUID = 0L;
       super.clear();
       bitField0_ = 0;
       markdown_ = "";
+      html_ = "";
       return this;
     }
 
@@ -320,6 +373,9 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000001) != 0)) {
         result.markdown_ = markdown_;
       }
+      if (((from_bitField0_ & 0x00000002) != 0)) {
+        result.html_ = html_;
+      }
     }
 
     @java.lang.Override
@@ -337,6 +393,11 @@ private static final long serialVersionUID = 0L;
       if (!other.getMarkdown().isEmpty()) {
         markdown_ = other.markdown_;
         bitField0_ |= 0x00000001;
+        onChanged();
+      }
+      if (!other.getHtml().isEmpty()) {
+        html_ = other.html_;
+        bitField0_ |= 0x00000002;
         onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
@@ -370,6 +431,11 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000001;
               break;
             } // case 10
+            case 18: {
+              html_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000002;
+              break;
+            } // case 18
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -455,6 +521,78 @@ private static final long serialVersionUID = 0L;
       checkByteStringIsUtf8(value);
       markdown_ = value;
       bitField0_ |= 0x00000001;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object html_ = "";
+    /**
+     * <code>string html = 2 [json_name = "html"];</code>
+     * @return The html.
+     */
+    public java.lang.String getHtml() {
+      java.lang.Object ref = html_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        html_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <code>string html = 2 [json_name = "html"];</code>
+     * @return The bytes for html.
+     */
+    public com.google.protobuf.ByteString
+        getHtmlBytes() {
+      java.lang.Object ref = html_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        html_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <code>string html = 2 [json_name = "html"];</code>
+     * @param value The html to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHtml(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      html_ = value;
+      bitField0_ |= 0x00000002;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string html = 2 [json_name = "html"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHtml() {
+      html_ = getDefaultInstance().getHtml();
+      bitField0_ = (bitField0_ & ~0x00000002);
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string html = 2 [json_name = "html"];</code>
+     * @param value The bytes for html to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHtmlBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      html_ = value;
+      bitField0_ |= 0x00000002;
       onChanged();
       return this;
     }

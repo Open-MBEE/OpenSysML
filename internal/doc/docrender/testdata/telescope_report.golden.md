@@ -6,7 +6,6 @@ Reading order: *em\*ph\*asis* **bold\_move** `` mass >= `limit` `` [the \[spec\]
 
 <a id="zones"></a>
 
-<!-- caption -->
 *Subsystems grouped by zone*
 
 **zone: support \| \*frame\***
@@ -27,7 +26,6 @@ Reading order: *em\*ph\*asis* **bold\_move** `` mass >= `limit` `` [the \[spec\]
 
 ## Subsystem Masses \| by \*name\*
 
-<!-- caption -->
 *All subsystems by mass*
 
 | name | mass |
@@ -37,7 +35,6 @@ Reading order: *em\*ph\*asis* **bold\_move** `` mass >= `limit` `` [the \[spec\]
 | optics | 8.5 |
 | segmentControl | 20 |
 
-<!-- caption -->
 *Mass margins (allocated - estimated)*
 
 | name | label | margin |
@@ -47,7 +44,6 @@ Reading order: *em\*ph\*asis* **bold\_move** `` mass >= `limit` `` [the \[spec\]
 | optics | subsystem: optics | 1.5 |
 | segmentControl | subsystem: segmentControl | 5.5 |
 
-<!-- caption -->
 *Subsystem notes*
 
 | shortName | name | documentation |
@@ -82,7 +78,6 @@ mount segmentControl
 
 ## Diagrams
 
-<!-- caption -->
 *Imaging chain interconnection*
 
 ```mermaid
@@ -102,7 +97,6 @@ flowchart LR
   n1 ---|"link"| n2
 ```
 
-<!-- caption -->
 *Observatory states, left to right*
 
 ```mermaid
@@ -122,7 +116,6 @@ stateDiagram-v2
 
 The declared type of the telescope, by relationship traversal.
 
-<!-- caption -->
 *Type of telescope*
 
 | element |

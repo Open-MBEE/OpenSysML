@@ -331,7 +331,7 @@ func TestMarkdownDefaultedQueryParameters(t *testing.T) {
 		filepath.Join("testdata", "defaulted_queries.sysml"),
 		"Observatory::DefaultedReport")
 	want := "# Defaulted Queries\n\n" +
-		"<!-- caption -->\n*Heavy subsystems by default*\n\n" +
+		"*Heavy subsystems by default*\n\n" +
 		"| name | mass |\n| --- | --- |\n| mount | 15 |\n| segmentControl | 20 |\n\n" +
 		"- mount 15\n- optics 8.5\n- segmentControl 20\n\n" +
 		"- spectrograph 4\n"
@@ -425,7 +425,7 @@ func TestMarkdownRollupReport(t *testing.T) {
 		filepath.Join("testdata", "rollup_report.sysml"),
 		"Rollup::MassReport")
 	want := "# Rolled-Up Masses\n\n" +
-		"<!-- caption -->\n*Own mass and total mass*\n\n" +
+		"*Own mass and total mass*\n\n" +
 		"| name | mass | totalMass |\n| --- | --- | --- |\n" +
 		"| leaf | 100 \\[kg\\] | 100 \\[kg\\] |\n" +
 		"| stack | 10 \\[kg\\] | 210 \\[kg\\] |\n" +

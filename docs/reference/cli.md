@@ -228,9 +228,9 @@ reported, so a script that reads it takes the output from the first `{`.
 | `--doc-title-page` | | Put the document title on a page of its own (`--doc-form html` or `pdf`) |
 | `--doc-toc` | | Write a table of contents ahead of the content (`--doc-form html` or `pdf`) |
 | `--doc-number-sections` | | Number the section headings hierarchically (`--doc-form html` or `pdf`) |
-| `--html-theme <name>` | | Style the HTML page with a bundled theme layered over the default stylesheet: `default`, `modern`, `print` or `report` (default: the default stylesheet alone) |
-| `--html-css <file\|url>` | | Style the HTML with this stylesheet: a file is inlined in a single page and written beside a set's pages, a URL is linked. Repeatable, applied in order after the default sheet (`--doc-form html`) |
-| `--html-no-default-css` | | Leave the default stylesheet out, so only `--html-css` sheets style the document |
+| `--html-theme <name>` | | Style the HTML page or PDF with a bundled theme layered over the default stylesheet: `default`, `modern`, `print` or `report` (default: the default stylesheet alone) |
+| `--html-css <file\|url>` | | Style the HTML or PDF with this stylesheet: a file is inlined in a single page and written beside a set's pages, a URL is linked. Repeatable, applied in order after the default sheet (`--doc-form html` or `pdf`) |
+| `--html-no-default-css` | | Leave the default stylesheet out, so only `--html-css` sheets style the HTML or PDF |
 | `--html-default-css` | | Write the default document stylesheet and exit, as a starting point for your own; with `--html-theme`, the theme's whole sheet |
 | `--html-fragment` | | Write the document element alone, without the page shell or a stylesheet, to embed in a page of your own |
 | `--html-mermaid <cdn\|url>` | | Have the HTML page load Mermaid to draw its diagrams: `cdn` loads a pinned release from jsDelivr, a URL loads the script it names (default: diagrams stay Mermaid source) |
@@ -781,10 +781,13 @@ in a page that brings its own.
 
 ## Rendering a document as PDF
 
-`-render-document <name> -doc-form pdf -o report.pdf` converts the rendered Markdown to PDF. The
+`-render-document <name> -doc-form pdf -o report.pdf` renders the document tree to PDF. The
 conversion never runs inside the `sysml` binary: it drives an external converter as a subprocess,
 chosen with `-pdf-engine`, so the binary links no PDF renderer and Markdown output needs none of
-these tools.
+these tools. An engine reading HTML is handed the page `-doc-form html` writes, with its diagrams
+drawn and formulas typeset and a print stylesheet layered over the default sheet; `pandoc` is
+handed the Markdown `-doc-form markdown` writes, with a filter marking the artwork up on pandoc's
+own syntax tree.
 
 ```bash
 sysml model.sysml -render-document Reports::MassReport -doc-form pdf -o report.pdf
@@ -797,13 +800,26 @@ at a specific executable:
 
 | Engine | Tools it drives | Override |
 |--------|-----------------|----------|
-| `weasyprint` (default) | `weasyprint`, an HTML-to-PDF paged-media engine | `OPENSYSML_WEASYPRINT` |
+| `weasyprint` (default) | `weasyprint`, an HTML-to-PDF paged-media engine reading the HTML page | `OPENSYSML_WEASYPRINT` |
 | `pandoc` | `pandoc` reading the Markdown itself, with WeasyPrint as its PDF engine | `OPENSYSML_PANDOC` (and `OPENSYSML_WEASYPRINT`) |
-| `prince` | `prince`, a commercial HTML-to-PDF engine | `OPENSYSML_PRINCE` |
+| `prince` | `prince`, a commercial HTML-to-PDF engine reading the HTML page | `OPENSYSML_PRINCE` |
 
 The title page, table of contents and section numbering belong to this output step alone. They
 are flags of the run, never attributes of the document model, so the same document renders to
 Markdown unchanged.
+
+A PDF from an HTML-reading engine is styled as an HTML page is: the print stylesheet — page size
+and margins, the page-number footer, print faces, page breaks kept out of tables and figures — is
+declared in a cascade layer `opensysml-print` after the default sheet's `opensysml` layer, draws
+its values from the same `--sysml-*` tokens and writes no `style` attributes, so `-html-theme`
+rethemes a PDF, `-html-css` sheets apply unlayered after both layers and win on cascade origin,
+and `-html-no-default-css` leaves both layers out so only your sheets (their `@page` rules
+included) style the PDF. A sheet's relative `url()` and `@import` references resolve against
+the PDF's directory, as a page's resolve against the page's, so a font or image beside the
+`-o` path is found under every engine. `pandoc` writes its own HTML, so it refuses `-html-theme`
+and `-html-no-default-css` with an `unsupported-option` error naming an engine that reads HTML,
+and attaches `-html-css` sheets in its page after its own. `-html-fragment`, `-html-mermaid` and
+`-html-math` shape a browser page and are refused with `-doc-form pdf`.
 
 Diagram blocks are pre-rendered to SVG with [mermaid-cli](https://github.com/mermaid-js/mermaid-cli)
 (`mmdc`; override with `OPENSYSML_MMDC`. `OPENSYSML_MMDC_PUPPETEER` names a puppeteer configuration
@@ -812,7 +828,7 @@ without Mermaid diagrams needs no diagram tool. Under `-diagram-form dot` or `-d
 plantuml` no diagram is drawn: the PDF keeps each one's DOT or PlantUML source under a notice
 saying so, and neither `mmdc` nor a Graphviz or PlantUML tool is looked for.
 
-Formulas — `$…$` spans and `$$…$$` blocks, wherever the Markdown carries them — are typeset with
+Formulas — math spans and `Formula` blocks, wherever the document carries them — are typeset with
 [KaTeX](https://katex.org)'s command line (`katex`; override with `OPENSYSML_KATEX`, and name its
 stylesheet with `OPENSYSML_KATEX_CSS` when it is not installed beside the command), whose HTML and
 fonts every engine embeds, so the PDF shows typeset mathematics rather than LaTeX. A document
@@ -820,8 +836,10 @@ without formulas needs no KaTeX; LaTeX KaTeX rejects fails the run with its pars
 
 Inline runs keep their meaning in PDF: emphasis, strong and code styling, links, and `Ref`
 cross-references as clickable internal links to their targets' invisible anchors, in every engine
-(`weasyprint` and `prince` through the prepared HTML, `pandoc` through the Markdown itself). A
-grouped table's group key renders in bold above each subtable.
+(`weasyprint` and `prince` through the HTML page, `pandoc` through the Markdown itself). A
+grouped table's group key heads each group, and a caption is a `<caption>` or `<figcaption>` in
+the HTML page; `pandoc` tells a caption from an emphasized paragraph by matching the paragraph
+ahead of each table, diagram and formula block against the document's captions in order.
 
 A PDF is a binary artifact, so `-doc-form pdf` requires `-o`. A missing tool stops the run with
 status 2 and a message naming the tool, its override variable and the other engines; a converter

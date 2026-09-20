@@ -22,7 +22,6 @@ The lander specification as a tree, what satisfies and verifies each requirement
 
 ## Traceability matrix
 
-<!-- caption -->
 *Every requirement with its satisfiers and verifiers*
 
 | shortName | name | satisfiedBy | verifiedBy |
@@ -38,7 +37,6 @@ The lander specification as a tree, what satisfies and verifies each requirement
 
 ## Coverage gaps
 
-<!-- caption -->
 *Requirements no part satisfies*
 
 | shortName | name |
@@ -47,7 +45,6 @@ The lander specification as a tree, what satisfies and verifies each requirement
 | L-3 | touchdown |
 | L-3.2 | tipOver |
 
-<!-- caption -->
 *Requirements no case verifies*
 
 | shortName | name |
@@ -57,7 +54,6 @@ The lander specification as a tree, what satisfies and verifies each requirement
 | L-3.2 | tipOver |
 | L-4 | beacon |
 
-<!-- caption -->
 *Requirements with a gap of either kind*
 
 | shortName | name |
@@ -67,7 +63,6 @@ The lander specification as a tree, what satisfies and verifies each requirement
 | L-3.2 | tipOver |
 | L-4 | beacon |
 
-<!-- caption -->
 *Requirements satisfied but never verified*
 
 | shortName | name |
@@ -76,7 +71,6 @@ The lander specification as a tree, what satisfies and verifies each requirement
 
 ## Verdicts
 
-<!-- caption -->
 *Every check of the lander against its requirements*
 
 | kind | name | path | verdict |
@@ -91,7 +85,6 @@ The lander specification as a tree, what satisfies and verifies each requirement
 | verification | radarRangeTest | LanderHierarchy::lander.avionics.radar | holds |
 | satisfaction |  | LanderHierarchy::lander.avionics.transponder | undecided |
 
-<!-- caption -->
 *Checks that came out false*
 
 | kind | name | path | condition |

@@ -46,7 +46,7 @@ func TestMarkdownMathRuns(t *testing.T) {
 		`*see* [Collecting area of a circular mirror](#overview-mirrorArea) and the [aperture memo](<https://example.com/aperture>)`,
 		// The formula is anchored and captioned like a table; blank source
 		// lines drop, other lines keep their breaks.
-		"<a id=\"overview-mirrorArea\"></a>\n\n<!-- caption -->\n*Collecting area of a circular mirror*\n\n$$\nA = \\pi \\left(\\frac{D}{2}\\right)^2\n= \\frac{\\pi D^2}{4}\n$$",
+		"<a id=\"overview-mirrorArea\"></a>\n\n*Collecting area of a circular mirror*\n\n$$\nA = \\pi \\left(\\frac{D}{2}\\right)^2\n= \\frac{\\pi D^2}{4}\n$$",
 		// Escaped dollars stay, bare ones gain an escape.
 		"$$\n\\text{cost} = 10^6\\,\\$ \\times D^{2.5} + \\$\n$$",
 		// Query-backed math runs.

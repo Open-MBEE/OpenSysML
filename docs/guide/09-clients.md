@@ -1225,6 +1225,7 @@ for row in result.rows:
 model.run_document_query("Observatory::HeavierThan", bindings={"threshold": 10.0})
 
 markdown = model.render_document("Observatory::SubsystemReport")
+html = model.render_document("Observatory::SubsystemReport", form="html")
 ```
 
 A binding value is an element (`opensysml.ElementRef("Demo::optics")`), a `str`, an `int`, a
@@ -1232,11 +1233,13 @@ A binding value is an element (`opensysml.ElementRef("Demo::optics")`), a `str`,
 is sent. Cell values come back with those Python types, an element as `ElementRef` and an
 unbounded multiplicity as `opensysml.INFINITY`. `render_document` takes no bindings, because a
 document binds its queries' parameters in the model; it returns the Markdown text, identical to
-what `sysml -render-document` writes.
+what `sysml -render-document` writes, or with `form="html"` the standalone page
+`-doc-form html` writes. PDF stays with the CLI, whose converter toolchain it needs.
 
 An unknown query or document raises `SymbolNotFoundError`, a bad binding raises
 `InvalidRequestError` naming the parameter, and both calls are capability-negotiated
-(`document_query` and `render_document`) the same way as everything above.
+(`document_query`, `render_document` and, for HTML, `render_document_html`) the same way as
+everything above.
 
 ## From Node or a browser
 
