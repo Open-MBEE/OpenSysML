@@ -28,6 +28,7 @@ func TestRuntimeRobustnessObjectLifecycle(t *testing.T) {
 	t.Run("a_refused_write_leaves_no_adoption_for_an_outer_rollback", testObjectLifecycleRefusedWriteJournal)
 	t.Run("a_failed_constructor_revives_what_its_behaviors_destroyed_whole", testObjectLifecycleFailedConstructorDestroy)
 	t.Run("a_part_declared_or_bound_to_a_new_object_ends_with_the_whole", testObjectLifecycleDeclaredPart)
+	t.Run("an_object_two_wholes_hold_composite_ends_with_either", testObjectLifecycleSharedPortion)
 	t.Run("explore_creating_objects_is_deterministic", testObjectLifecycleExploreCreation)
 	t.Run("explore_destroy_race_reaches_both_outcomes", testObjectLifecycleExploreDestroyRace)
 }
@@ -499,6 +500,44 @@ func testObjectLifecycleFailedConstructorDestroy(t *testing.T) {
 	}
 	if got := b.State.State(); got != was {
 		t.Errorf("running = %v after the failed constructor; want %v, as before", got, was)
+	}
+}
+
+// testObjectLifecycleSharedPortion: an object two wholes hold in composite features (as a binding
+// makes them) is a portion of both, ended with either, whichever is its home.
+func testObjectLifecycleSharedPortion(t *testing.T) {
+	instantiate, _, ctx := lifetimeFixture(t, `
+		package test {
+			private import OccurrenceFunctions::*;
+			part def Car;
+			part def Garage { part slot : Car[0..1]; }
+			part a : Garage;
+			part b : Garage;
+			calc def Scrap { in g : Garage; return : Garage = destroy(g); }
+		}`)
+	a, b := instantiate("a"), instantiate("b")
+	_, scope := calcByName(t, ctx.model.resolver.Index().DocumentRoot("<test>"), "test", "Garage")
+	car, err := evalIn(t, ctx, scope, "new Car()")
+	if err != nil {
+		t.Fatalf("new Car(): %v", err)
+	}
+	for _, g := range []*Instance{a, b} {
+		if err := g.SetFeatureValue(ctx, "slot", car); err != nil {
+			t.Fatalf("#%d.slot := car: %v", g.ID, err)
+		}
+	}
+	id, _ := car.Object()
+	if owner := ctx.instances[id].owner; owner != a {
+		t.Fatalf("car's home is %v; want a, the first to hold it", owner)
+	}
+	if _, err := evalIn(t, ctx, scope, "Scrap(b)"); err != nil {
+		t.Fatalf("Scrap(b): %v", err)
+	}
+	if l, _ := ctx.OccurrenceLife(id); !l.Destroyed {
+		t.Errorf("OccurrenceLife(car) = %v after destroying b; want destroyed with the whole holding it", l)
+	}
+	if l, _ := ctx.OccurrenceLife(a.ID); !l.Alive() {
+		t.Errorf("OccurrenceLife(a) = %v; want alive, it was not destroyed", l)
 	}
 }
 

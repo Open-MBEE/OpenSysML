@@ -108,9 +108,7 @@ func (ctx *Context) holdWritten(inst *Instance, fv *FeatureValue, val Value) err
 // adoption holdWritten gives a written one; a refused value leaves ownership as it was.
 func (ctx *Context) holdDeclared(inst *Instance, fv *FeatureValue, val Value) (Value, error) {
 	commit, rollback := ctx.beginJournal()
-	if holdsObjects(fv.Feature) {
-		ctx.adoptWritten(inst, fv, val)
-	}
+	ctx.adoptWritten(inst, fv, val)
 	val, err := ctx.admitted(fv.Feature, val, admitDeclared)
 	if err != nil {
 		rollback()
@@ -127,8 +125,9 @@ func (ctx *Context) ownsHeld(feat *EffectiveFeature) bool {
 		!ctx.model.semantics.IsVariationFeature(feat.Symbol)
 }
 
-// adoptWritten gives inst the ownerless objects a write to its composite feature holds, releasing
-// the ones it drops; each change is noted for the journal under way to undo.
+// adoptWritten makes inst the home (Instance.owner) of the ownerless objects a write to its composite
+// feature holds, releasing the ones it drops; each change is noted for the journal under way to undo.
+// Being a portion of inst does not depend on it: portionsOf reads the composite features themselves.
 func (ctx *Context) adoptWritten(inst *Instance, fv *FeatureValue, val Value) {
 	if !ctx.ownsHeld(fv.Feature) {
 		return

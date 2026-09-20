@@ -152,21 +152,22 @@ func (ctx *Context) destroy(inst *Instance) error {
 	return nil
 }
 
-// portionsOf lists inst and, in identity order, the objects it holds as
-// portions of itself: those its feature values own, transitively, each once
-// however many names of a redefined feature hold it.
+// portionsOf lists inst and, in identity order, the objects it holds as portions of itself:
+// those its composite features hold (wherever their home is) and those it is home to,
+// transitively, each once however many names of a redefined feature hold it.
 func (ctx *Context) portionsOf(inst *Instance) []*Instance {
 	portions := []*Instance{inst}
 	listed := map[int64]bool{inst.ID: true}
 	for i := 0; i < len(portions); i++ {
 		var owned []*Instance
 		for _, fv := range portions[i].FeatureValues {
+			composite := ctx.ownsHeld(fv.Feature)
 			for _, element := range elementsOf(fv.HeldValue()) {
 				id, ok := element.Object()
 				if !ok || listed[id] {
 					continue
 				}
-				if held, found := ctx.instances[id]; found && held.owner == portions[i] {
+				if held, found := ctx.instances[id]; found && (composite || held.owner == portions[i]) {
 					listed[id] = true
 					owned = append(owned, held)
 				}
