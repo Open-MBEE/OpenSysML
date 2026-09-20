@@ -149,20 +149,21 @@ func TestBlockFlowNestsTwoLevels(t *testing.T) {
 	}
 }
 
-// A block stating an edge of its own is not a flow of its own: the flow it states
-// is an action body's, so its members keep their statement form and the ones no
-// statement executes are reported when reached.
-func TestBlockStatingItsOwnEdgeKeepsItsStatements(t *testing.T) {
+// A block stating an edge of its own runs that flow rather than statement-lowering it.
+func TestBlockStatingItsOwnEdgeIsLoweredToAStatedFlow(t *testing.T) {
 	graph := actionGraphFor(t, `
 		action test {
 			attribute total : Integer = 0;
 			first start;
 			action accumulate {
 				while total < 3 {
-					action bump {
+					action a {
 						assign total := total + 1;
 					}
-					succession first bump then bump;
+					action b {
+						assign total := total + 1;
+					}
+					succession a then b;
 				}
 			}
 			done;
@@ -172,14 +173,87 @@ func TestBlockStatingItsOwnEdgeKeepsItsStatements(t *testing.T) {
 	`)
 
 	block := loopBodyOf(t, graph, "accumulate")
-	if block.Graph != nil {
-		t.Fatalf("loop body lowered to a flow of its own, want statements: %#v", block.Graph.Nodes)
+	if block.Graph == nil || !block.Stated || block.Own {
+		t.Fatalf("loop body = %#v, want a stated non-own flow", block)
 	}
-	if len(block.Statements) == 0 {
-		t.Fatal("loop body lowered to no statements")
+	if len(block.Graph.Nodes) != 2 {
+		t.Fatalf("stated flow has %d nodes, want 2: %#v", len(block.Graph.Nodes), block.Graph.Nodes)
 	}
-	if _, ok := block.Statements[0].(Unsupported); !ok {
-		t.Errorf("nested action lowered to %#v, want Unsupported", block.Statements[0])
+	a, b := nodeNamed(t, block.Graph, "a"), nodeNamed(t, block.Graph, "b")
+	if block.Graph.Initial != a {
+		t.Errorf("stated flow initial = %T, want a", block.Graph.Initial)
+	}
+	if next := block.Graph.Edges[a]; len(next) != 1 || next[0].Target != b {
+		t.Errorf("a successors = %#v, want b", next)
+	}
+	if len(block.Graph.Edges[b]) != 0 {
+		t.Errorf("b successors = %#v, want none", block.Graph.Edges[b])
+	}
+}
+
+func TestBlockStatingACycleKeepsInitialUnset(t *testing.T) {
+	graph := actionGraphFor(t, `
+		action test {
+			first start;
+			action accumulate {
+				while true {
+					action a;
+					action b;
+					succession a then b;
+					succession b then a;
+				}
+			}
+			done;
+			succession first start then accumulate;
+			succession first accumulate then done;
+		}
+	`)
+
+	block := loopBodyOf(t, graph, "accumulate")
+	if block.Graph == nil || !block.Stated || block.Own {
+		t.Fatalf("loop body = %#v, want a stated non-own flow", block)
+	}
+	if block.Graph.Initial != nil {
+		t.Fatalf("cycle initial = %T, want nil", block.Graph.Initial)
+	}
+}
+
+func TestStatedFlowInIfBranchInsideLoop(t *testing.T) {
+	graph := actionGraphFor(t, `
+		action test {
+			first start;
+			action accumulate {
+				while true {
+					if true {
+						action d;
+						action e;
+						succession e then d;
+					}
+				}
+			}
+			done;
+			succession first start then accumulate;
+			succession first accumulate then done;
+		}
+	`)
+
+	body := loopBodyOf(t, graph, "accumulate")
+	if len(body.Statements) != 1 {
+		t.Fatalf("loop body statements = %#v, want if", body.Statements)
+	}
+	ifStmt, ok := body.Statements[0].(If)
+	if !ok {
+		t.Fatalf("loop body statement = %T, want If", body.Statements[0])
+	}
+	if ifStmt.Then.Graph == nil || !ifStmt.Then.Stated || ifStmt.Then.Own {
+		t.Fatalf("if branch = %#v, want a stated non-own flow", ifStmt.Then)
+	}
+	e, d := nodeNamed(t, ifStmt.Then.Graph, "e"), nodeNamed(t, ifStmt.Then.Graph, "d")
+	if ifStmt.Then.Graph.Initial != e {
+		t.Errorf("if branch initial = %T, want e", ifStmt.Then.Graph.Initial)
+	}
+	if next := ifStmt.Then.Graph.Edges[e]; len(next) != 1 || next[0].Target != d {
+		t.Errorf("e successors = %#v, want d", next)
 	}
 }
 

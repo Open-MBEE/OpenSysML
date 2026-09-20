@@ -1,0 +1,19 @@
+exit: init
+enter: active
+transition: init -> active
+do: active
+stmt action body
+enter action node: state behavior work
+  stmt assign total
+      eval feature total -> 0
+      eval literal 1 -> 1
+    eval operator + -> 1
+do: active
+  stmt assign total
+      eval feature total -> 1
+      eval literal 10 -> 10
+    eval operator + -> 11
+leave action node: state behavior work
+exit: active
+enter: done
+transition: active -> done

@@ -119,7 +119,7 @@ func (e *ActionExecutor) enterBodyFlow(perf *actionFrame) (*subflowFrame, error)
 	e.nextTokenID++
 	// The root performance, a case body's own flow, has no node and is traced by name.
 	name := ActionNodeName(node)
-	if node == nil {
+	if name == "" {
 		name = perf.describe()
 	}
 	if tr := e.trace(); tr != nil {
@@ -360,6 +360,9 @@ func (e *ActionExecutor) leaveSubflow(tokenIdx int) error {
 // graph's flow or in a block flow a body of it states. It runs at initialize(),
 // not at construction, per the error-timing contract.
 func (e *ActionExecutor) validateSubflows(graph *lower.ActionGraph) error {
+	if graph.Invalid != nil {
+		return fmt.Errorf("%w: %w", ErrInvalidActionFlow, graph.Invalid)
+	}
 	for _, node := range graph.Nodes {
 		if sub, owns := e.subflowOf(graph, node); owns {
 			if sub.Err != nil {
@@ -375,6 +378,10 @@ func (e *ActionExecutor) validateSubflows(graph *lower.ActionGraph) error {
 			}
 		}
 		for _, block := range lower.BlockFlows(graph.Bodies[node]) {
+			if len(block.Nodes) > 0 && block.Initial == nil {
+				return fmt.Errorf("%w: no node starts the flow a body of action node %s states%s",
+					ErrInvalidActionFlow, ActionNodeName(node), noFlowStart(block))
+			}
 			if err := e.validateSubflows(block); err != nil {
 				return err
 			}

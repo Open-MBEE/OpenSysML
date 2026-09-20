@@ -1,0 +1,9 @@
+{
+	"type": "state",
+	"trace": true,
+	"finalState": "done",
+	"stateVisits": ["init", "active", "done"],
+	"outputs": {
+		"total": {"type": "Integer", "value": 11}
+	}
+}

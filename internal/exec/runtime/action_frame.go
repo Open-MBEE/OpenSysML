@@ -55,6 +55,8 @@ type actionFrame struct {
 	flow   *lower.ActionGraph
 	scope  *symbols.Scope // the namespace the performance's features resolve in
 	parent *actionFrame
+	// body marks a transparent performance for a loop or branch body's own flow.
+	body bool
 	// locals are the block-local bindings entered around node in parent's body,
 	// outermost first: a loop variable the node's declarations read.
 	locals []map[string]Value
@@ -120,7 +122,7 @@ type actionFrame struct {
 func (f *actionFrame) within() []ast.Node {
 	var chain []ast.Node
 	for ; f != nil; f = f.parent {
-		if f.node != nil {
+		if f.node != nil && !f.body {
 			chain = append(chain, f.node)
 		}
 	}

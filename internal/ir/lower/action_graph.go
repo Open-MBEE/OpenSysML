@@ -65,6 +65,10 @@ type ActionGraph struct {
 	// InitialNode (required)
 	Initial ast.Node
 
+	// Invalid records a malformed flow that must be reported by execution at
+	// initialize time rather than while constructing a nested body.
+	Invalid error
+
 	// FinalNodes (may be multiple)
 	Finals []ast.Node
 
@@ -586,9 +590,28 @@ func ToActionGraph(actionDecl ast.Node, scope *symbols.Scope) (*ActionGraph, err
 // ToActionGraphWith is ToActionGraph reading the metadata the resolver identifies:
 // a succession's `@Probability { p = ...; }` becomes its edge's weight.
 func ToActionGraphWith(actionDecl ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) (*ActionGraph, error) {
-	graph, members, err := collectActionNodes(actionDecl, scope, resolver)
+	members, err := actionMembers(actionDecl)
 	if err != nil {
 		return nil, err
+	}
+	graph, err := lowerActionFlow(members, scope, resolver)
+	if err != nil {
+		return nil, err
+	}
+	if graph.Invalid != nil {
+		return nil, graph.Invalid
+	}
+	return graph, nil
+}
+
+func lowerActionFlow(members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) (*ActionGraph, error) {
+	graph, err := collectActionNodes(members, scope, resolver)
+	if err != nil {
+		if graph == nil {
+			return nil, err
+		}
+		graph.Invalid = err
+		return graph, nil
 	}
 	// The initial node is optional at graph construction time; the executor's
 	// initialize() reports its absence.
@@ -1316,6 +1339,9 @@ func redefinedNames(u *ast.Usage) []string {
 // is the node the block belongs to, which is the element that owns the block's
 // body-local namespace, and scope is the namespace it owns.
 func lowerBlock(owner ast.Node, members []ast.Node, scope *symbols.Scope) Block {
+	if statesOwnFlow(members) {
+		return lowerStatedBlock(owner, members, scope)
+	}
 	if blockNeedsFlow(members) {
 		return Block{Node: owner, Scope: scope, Graph: lowerBlockFlow(members, scope, false)}
 	}
