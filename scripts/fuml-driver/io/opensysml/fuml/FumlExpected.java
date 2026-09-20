@@ -246,6 +246,88 @@ public final class FumlExpected {
 		void shutdown() {
 			executor.shutdownNow();
 		}
+		/** The behavior's parameters as the implementation loaded them. */
+		private static List<Object> parameters(Behavior behavior) {
+			List<Object> out = new ArrayList<>();
+			for (Parameter p : behavior.ownedParameter) {
+				Map<String, Object> m = new LinkedHashMap<>();
+				m.put("name", p.name);
+				m.put("direction", String.valueOf(p.direction));
+				m.put("type", p.type == null ? null : p.type.name);
+				m.put("lower", p.multiplicityElement.lower);
+				m.put("upper", p.multiplicityElement.upper.naturalValue < 0 ? "*"
+						: String.valueOf(p.multiplicityElement.upper.naturalValue));
+				m.put("isOrdered", p.multiplicityElement.isOrdered);
+				m.put("isUnique", p.multiplicityElement.isUnique);
+				out.add(m);
+			}
+			return out;
+		}
+		private static List<Object> outputs(ParameterValueList outputs, Map<String, String> aliases) {
+			List<Object> out = new ArrayList<>();
+			if (outputs == null) {
+				return out;
+			}
+			for (ParameterValue pv : outputs) {
+				Map<String, Object> m = new LinkedHashMap<>();
+				m.put("parameter", pv.parameter == null ? null : pv.parameter.name);
+				m.put("values", values(pv.values, aliases, new IdentityHashMap<>(), VALUE_DEPTH));
+				out.add(m);
+			}
+			return out;
+		}
+		/** Parses "Kind key=value ..." lines (a final "value=" takes the rest); adds the element's id where unique. */
+		private static List<Object> eventRecords(List<String> lines, Map<String, String> aliases,
+				Map<String, ActivityDecl> byName) {
+			List<Object> out = new ArrayList<>();
+			for (String line : lines) {
+				Map<String, Object> m = new LinkedHashMap<>();
+				int sp = line.indexOf(' ');
+				String kind = sp < 0 ? line : line.substring(0, sp);
+				m.put("kind", kind);
+				String rest = sp < 0 ? "" : line.substring(sp + 1);
+				int valueAt = rest.indexOf(" value=");
+				String value = null;
+				if (valueAt >= 0) {
+					value = rest.substring(valueAt + " value=".length());
+					rest = rest.substring(0, valueAt);
+				} else if (rest.startsWith("value=")) {
+					value = rest.substring("value=".length());
+					rest = "";
+				}
+				String[] keys = { "activity=", "action=", "parameter=" };
+				// Names may contain spaces, so each field runs to the next known key.
+				int pos = 0;
+				while (pos < rest.length()) {
+					int keyEnd = rest.indexOf('=', pos);
+					if (keyEnd < 0) {
+						break;
+					}
+					String key = rest.substring(pos, keyEnd + 1);
+					int next = rest.length();
+					for (String k : keys) {
+						int at = rest.indexOf(" " + k, keyEnd);
+						if (at >= 0 && at < next) {
+							next = at;
+						}
+					}
+					m.put(key.substring(0, key.length() - 1), rest.substring(keyEnd + 1, next));
+					pos = next + 1;
+				}
+				if ("Fire".equals(kind) || "Execute".equals(kind) || "Complete".equals(kind)) {
+					String id = elementId(byName, (String) m.get("activity"), (String) m.get("action"));
+					if (id != null) {
+						m.put("id", id);
+					}
+				}
+				if (value != null) {
+					m.put(VALUE, alias(value, aliases));
+				}
+				out.add(m);
+			}
+			return out;
+		}
+
 	}
 
 	public static void main(String[] args) throws Exception {
@@ -486,38 +568,6 @@ public final class FumlExpected {
 		return ids != null && ids.size() == 1 ? ids.get(0) : null;
 	}
 
-	/** The behavior's parameters as the implementation loaded them. */
-	private static List<Object> parameters(Behavior behavior) {
-		List<Object> out = new ArrayList<>();
-		for (Parameter p : behavior.ownedParameter) {
-			Map<String, Object> m = new LinkedHashMap<>();
-			m.put("name", p.name);
-			m.put("direction", String.valueOf(p.direction));
-			m.put("type", p.type == null ? null : p.type.name);
-			m.put("lower", p.multiplicityElement.lower);
-			m.put("upper", p.multiplicityElement.upper.naturalValue < 0 ? "*"
-					: String.valueOf(p.multiplicityElement.upper.naturalValue));
-			m.put("isOrdered", p.multiplicityElement.isOrdered);
-			m.put("isUnique", p.multiplicityElement.isUnique);
-			out.add(m);
-		}
-		return out;
-	}
-
-	private static List<Object> outputs(ParameterValueList outputs, Map<String, String> aliases) {
-		List<Object> out = new ArrayList<>();
-		if (outputs == null) {
-			return out;
-		}
-		for (ParameterValue pv : outputs) {
-			Map<String, Object> m = new LinkedHashMap<>();
-			m.put("parameter", pv.parameter == null ? null : pv.parameter.name);
-			m.put("values", values(pv.values, aliases, new IdentityHashMap<>(), VALUE_DEPTH));
-			out.add(m);
-		}
-		return out;
-	}
-
 	private static List<Object> values(ValueList values, Map<String, String> aliases,
 			IdentityHashMap<Object, Boolean> visiting, int depth) {
 		List<Object> out = new ArrayList<>();
@@ -618,58 +668,6 @@ public final class FumlExpected {
 		}
 		sb.append(s.substring(last));
 		return sb.toString();
-	}
-
-	/** Parses "Kind key=value ..." lines (a final "value=" takes the rest); adds the element's id where unique. */
-	private static List<Object> eventRecords(List<String> lines, Map<String, String> aliases,
-			Map<String, ActivityDecl> byName) {
-		List<Object> out = new ArrayList<>();
-		for (String line : lines) {
-			Map<String, Object> m = new LinkedHashMap<>();
-			int sp = line.indexOf(' ');
-			String kind = sp < 0 ? line : line.substring(0, sp);
-			m.put("kind", kind);
-			String rest = sp < 0 ? "" : line.substring(sp + 1);
-			int valueAt = rest.indexOf(" value=");
-			String value = null;
-			if (valueAt >= 0) {
-				value = rest.substring(valueAt + " value=".length());
-				rest = rest.substring(0, valueAt);
-			} else if (rest.startsWith("value=")) {
-				value = rest.substring("value=".length());
-				rest = "";
-			}
-			String[] keys = { "activity=", "action=", "parameter=" };
-			// Names may contain spaces, so each field runs to the next known key.
-			int pos = 0;
-			while (pos < rest.length()) {
-				int keyEnd = rest.indexOf('=', pos);
-				if (keyEnd < 0) {
-					break;
-				}
-				String key = rest.substring(pos, keyEnd + 1);
-				int next = rest.length();
-				for (String k : keys) {
-					int at = rest.indexOf(" " + k, keyEnd);
-					if (at >= 0 && at < next) {
-						next = at;
-					}
-				}
-				m.put(key.substring(0, key.length() - 1), rest.substring(keyEnd + 1, next));
-				pos = next + 1;
-			}
-			if ("Fire".equals(kind) || "Execute".equals(kind) || "Complete".equals(kind)) {
-				String id = elementId(byName, (String) m.get("activity"), (String) m.get("action"));
-				if (id != null) {
-					m.put("id", id);
-				}
-			}
-			if (value != null) {
-				m.put(VALUE, alias(value, aliases));
-			}
-			out.add(m);
-		}
-		return out;
 	}
 
 	private static String sha256(Path p) throws IOException {
