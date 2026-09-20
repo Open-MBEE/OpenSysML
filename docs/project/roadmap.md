@@ -1350,9 +1350,11 @@ pin — an assignment in the source's body, a nested node's output carried back 
 carried at once along the streaming flows out of the node to the pin of every ongoing
 performance of the target, found by E1's `ongoing`; a target that reads its pin between two
 writes sees each. A value written while no performance of the target is under way waits at the
-target's pin as a flow's value always has (`pending`), one per performance, oldest first, so a
-target that begins after the source, a stream inside a loop body — the value of one pass taken
-by that pass's target — and fork/join around the two nodes all read what was written for them.
+target's pin as a flow's value always has (`pending`), and a further write from the same source
+performance replaces it (`stage`, `actionFrame.staged`), so a target that begins after the
+source reads the pin as the source left it; the writes of distinct source performances wait one
+per target performance, oldest first, so a stream inside a loop body — the value of one pass
+taken by that pass's target — and fork/join around the two nodes all read what was written for them.
 The source completing carries nothing more for a pin it streamed (`actionFrame.streamed`), so
 no value arrives twice; a source that completes with the pin never written is `ErrFlowSource`.
 A write after the target's last performance ended reaches no performance: it waits, the target's
@@ -1372,11 +1374,10 @@ writes, a target over before its source wrote, a stream to an undeclared pin). T
 `spec-compliance.md` Actions map's object-flow row is split by kind and "Streaming pins" leaves
 the not-implemented list.
 
-**What it leaves.** The runtime performs an atomic body whole in one step, so a source whose
-body writes its pin several times before any target performance is under way queues every
-value and each performance of the target takes one; a concurrent reading — the target
-performing beside each write — would take the last. E3's parallel form, when it has a spelling,
-decides the streaming consumer of its elements with it.
+**What it leaves.** A source whose body writes its pin several times before any target
+performance is under way leaves the target the pin's value — its latest write — as a target
+performing beside each write would read; only a target performance under way sees every write.
+E3's parallel form, when it has a spelling, decides the streaming consumer of its elements with it.
 
 ## E5 — protocol state machines (design record landed)
 

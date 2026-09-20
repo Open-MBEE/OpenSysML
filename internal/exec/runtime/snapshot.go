@@ -527,6 +527,7 @@ func captureFrame(perf *actionFrame) frameCapture {
 	c.saved.outputs = slices.Clone(perf.outputs)
 	c.saved.subactions = maps.Clone(perf.subactions)
 	c.saved.pending = clonePending(perf.pending)
+	c.saved.staged = cloneStaged(perf.staged)
 	c.saved.nested = cloneNested(perf.nested)
 	c.saved.streamed = maps.Clone(perf.streamed)
 	c.saved.unreceived = cloneUnreceived(perf.unreceived)
@@ -549,6 +550,7 @@ func (c frameCapture) restore() {
 	perf.outputs = slices.Clone(c.saved.outputs)
 	perf.subactions = maps.Clone(c.saved.subactions)
 	perf.pending = clonePending(c.saved.pending)
+	perf.staged = cloneStaged(c.saved.staged)
 	perf.nested = cloneNested(c.saved.nested)
 	perf.streamed = maps.Clone(c.saved.streamed)
 	perf.unreceived = cloneUnreceived(c.saved.unreceived)
@@ -566,6 +568,17 @@ func clonePending(pending map[ast.Node]map[string][]Value) map[ast.Node]map[stri
 			clonedPins[pin] = slices.Clone(values)
 		}
 		cloned[node] = clonedPins
+	}
+	return cloned
+}
+
+func cloneStaged(staged map[ast.Node]map[string]stagedStream) map[ast.Node]map[string]stagedStream {
+	if staged == nil {
+		return nil
+	}
+	cloned := make(map[ast.Node]map[string]stagedStream, len(staged))
+	for node, pins := range staged {
+		cloned[node] = maps.Clone(pins)
 	}
 	return cloned
 }

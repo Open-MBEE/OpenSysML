@@ -53,6 +53,10 @@ type Encoding struct {
 	// holds the delivery an object flow left at a pin, keyed by the pin.
 	pins    map[ast.Node][]pin
 	pending map[string]*solve.Var
+	// marks are the Boolean features of the encoding's own bookkeeping, every one
+	// false at the start; waiting are those flagging a streamed value unreceived.
+	marks   map[string]*solve.Var
+	waiting []*solve.Var
 	// results are the features an inline expression node writes its value to.
 	results map[ast.Node]*solve.Var
 	// held are the values the performance holds at its start, ahead of its defaults;
@@ -117,6 +121,7 @@ func Encode(ctx *runtime.Context, action *symbols.Symbol, graph *lower.ActionGra
 		exprs:      make(map[ast.Node]*solve.Expression),
 		pins:       make(map[ast.Node][]pin),
 		pending:    make(map[string]*solve.Var),
+		marks:      make(map[string]*solve.Var),
 		results:    make(map[ast.Node]*solve.Var),
 		held:       held,
 		unbound:    unbound,
@@ -358,7 +363,32 @@ func (e *Encoding) collectFlows(node ast.Node) error {
 		e.features[p.Name] = p
 		e.flagged[p.Name] = true
 	}
+	for _, flow := range graph.DataFlows[node] {
+		if _, performs := flow.Target.(*ast.Usage); !performs || flow.Kind != lower.FlowStreaming {
+			continue
+		}
+		target, err := e.flowEnd(flow.Target, flow.TargetPin, flowLabel(flow), label)
+		if err != nil {
+			return err
+		}
+		e.mark(performedName(e.Flow.label(flow.Target)))
+		if v := e.mark(unreceivedName(target.Name)); v != nil {
+			e.waiting = append(e.waiting, v)
+		}
+	}
 	return nil
+}
+
+// mark declares a Boolean feature of the encoding's own bookkeeping, false at the
+// start, reporting it when new.
+func (e *Encoding) mark(name string) *solve.Var {
+	if _, ok := e.features[name]; ok {
+		return nil
+	}
+	v := boolVar(name)
+	e.features[name] = v
+	e.marks[name] = v
+	return v
 }
 
 // flowEnd is the variable an object flow reads or writes at node: the pin a
@@ -633,6 +663,9 @@ func (e *Encoding) initial() error {
 		if e.flagged[base.Name] && !open[base.Name] {
 			env.has[base.Name] = solve.BoolTerm(false)
 		}
+		if _, marked := e.marks[base.Name]; marked {
+			env.values[base.Name] = solve.BoolTerm(false)
+		}
 	}
 	failed, err := e.initialInputs(env)
 	if err != nil {
@@ -730,6 +763,8 @@ type nodeEffect struct {
 	failed   []*solve.Term
 	overflow []*solve.Term
 	loops    map[int]*solve.Term
+	// staged holds, per pin queue this performance streamed to, when it did.
+	staged map[string]*solve.Term
 }
 
 // move ties state i to state i-1 by the choice of move i.
@@ -781,6 +816,14 @@ func (e *Encoding) move(i int) error {
 				overflow = append(overflow, and(pick, full))
 			}
 		}
+	}
+	if len(e.waiting) > 0 {
+		// A value streamed after its target's last performance fails the action as it completes.
+		waiting := make([]*solve.Term, len(e.waiting))
+		for w, v := range e.waiting {
+			waiting[w] = solve.VarTerm(next.value(v))
+		}
+		failed = append(failed, and(e.Completed[i], or(waiting...)))
 	}
 	e.assert(eq(solve.VarTerm(next.Failed), or(failed...)), fmt.Sprintf("move %d fails", i))
 	if next.Overflow != nil {
@@ -1195,9 +1238,11 @@ func undefinedGuards(defined []*solve.Term) []*solve.Term {
 // perform is one performance of node n in move i, in the interpreter's order: pins take their
 // deliveries or defaults, the body runs over prev, the guards are read, the object flows carry.
 func (e *Encoding) perform(i, n int, node ast.Node, prev *State) (*nodeEffect, error) {
-	effect := &nodeEffect{env: e.environment(prev), loops: make(map[int]*solve.Term)}
+	effect := &nodeEffect{env: e.environment(prev), loops: make(map[int]*solve.Term), staged: make(map[string]*solve.Term)}
 	where := fmt.Sprintf("%d.%s", i, e.Flow.Labels[n])
-	e.begin(effect, node, where)
+	if err := e.begin(effect, node, where); err != nil {
+		return nil, err
+	}
 	body := e.Flow.graphOf(node).Bodies[node]
 	if err := e.statements(effect, body, solve.BoolTerm(true), where, node); err != nil {
 		return nil, err
@@ -1206,6 +1251,9 @@ func (e *Encoding) perform(i, n int, node ast.Node, prev *State) (*nodeEffect, e
 		value, defined := effect.env.evaluate(e.exprs[action.Expression])
 		effect.fail(solve.BoolTerm(true), defined)
 		e.write(effect, solve.BoolTerm(true), e.results[node], value, where)
+		if err := e.stream(effect, solve.BoolTerm(true), node, e.results[node], effect.env.values[e.results[node].Name], where); err != nil {
+			return nil, err
+		}
 	}
 	effect.guards = effect.env.clone()
 	if err := e.flows(effect, node, where); err != nil {
@@ -1215,9 +1263,23 @@ func (e *Encoding) perform(i, n int, node ast.Node, prev *State) (*nodeEffect, e
 }
 
 // begin starts a performance of node: each pin holds the delivery queued for
-// it, else the value its own declaration gives it, else none.
-func (e *Encoding) begin(x *nodeEffect, node ast.Node, where string) {
+// it, else the value its own declaration gives it, else none. Nothing has streamed yet.
+func (e *Encoding) begin(x *nodeEffect, node ast.Node, where string) error {
 	always := solve.BoolTerm(true)
+	label := e.Flow.label(node)
+	if _, marked := e.marks[performedName(label)]; marked {
+		x.env.write(performedName(label), always)
+	}
+	for _, flow := range e.Flow.graphOf(node).DataFlows[node] {
+		if flow.Kind != lower.FlowStreaming {
+			continue
+		}
+		source, err := e.flowEnd(node, flow.SourcePin, flowLabel(flow), label)
+		if err != nil {
+			return err
+		}
+		x.env.has[streamedName(source.Name)] = solve.BoolTerm(false)
+	}
 	for _, p := range e.pins[node] {
 		name := p.v.Name
 		value, has := x.env.values[name], solve.BoolTerm(false)
@@ -1225,6 +1287,9 @@ func (e *Encoding) begin(x *nodeEffect, node ast.Node, where string) {
 		pending, queued := e.pending[name]
 		if queued {
 			seeded = not(x.env.has[pending.Name])
+		}
+		if _, marked := e.marks[unreceivedName(name)]; marked {
+			x.env.write(unreceivedName(name), solve.BoolTerm(false))
 		}
 		if p.feature.Value != nil {
 			declared, defined := x.env.evaluate(e.exprs[p.feature.Value])
@@ -1246,6 +1311,88 @@ func (e *Encoding) begin(x *nodeEffect, node ast.Node, where string) {
 		e.assert(eq(solve.VarTerm(v), value), "start of "+name)
 		x.env.values[name] = solve.VarTerm(v)
 		x.env.has[name] = has
+		// A declared value seeding the pin streams as the interpreter's does; a delivery does not.
+		if p.feature.Value != nil {
+			if err := e.stream(x, seeded, node, p.v, x.env.values[name], where); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// streamedName flags in a body's environment that a value written to pin already
+// streamed over its flows, so completion does not carry it a second time.
+func streamedName(pin string) string { return "streamed(" + pin + ")" }
+
+// stream carries a value written to pin of node over its streaming flows where
+// cond holds, at the write rather than at completion as the interpreter does.
+func (e *Encoding) stream(x *nodeEffect, cond *solve.Term, node ast.Node, pin *solve.Var, value *solve.Term, where string) error {
+	label := e.Flow.label(node)
+	for _, flow := range e.Flow.graphOf(node).DataFlows[node] {
+		if flow.Kind != lower.FlowStreaming {
+			continue
+		}
+		source, err := e.flowEnd(node, flow.SourcePin, flowLabel(flow), label)
+		if err != nil {
+			return err
+		}
+		if source != pin {
+			continue
+		}
+		target, err := e.flowEnd(flow.Target, flow.TargetPin, flowLabel(flow), label)
+		if err != nil {
+			return err
+		}
+		streamed := cond
+		if held, ok := x.env.has[streamedName(pin.Name)]; ok {
+			streamed = or(held, cond)
+		}
+		x.env.has[streamedName(pin.Name)] = streamed
+		e.carry(x, cond, flow, target, value, where)
+	}
+	return nil
+}
+
+// performedName is the feature set once a node in a frame of its own has performed.
+func performedName(label string) string { return "performed(" + label + ")" }
+
+// unreceivedName is the feature set while a streamed value queued at pin arrived
+// after its target's last performance, which fails the action if none takes it.
+func unreceivedName(pin string) string { return "unreceived(" + pin + ")" }
+
+// carry puts a flow's payload where its target reads it, where cond holds: the pin
+// queue of a node in a frame of its own, else the action's feature. A queue holding a
+// value from another performance is an overflow; a streaming flow's own earlier
+// value it replaces, and a value queued after its target performed is unreceived.
+func (e *Encoding) carry(x *nodeEffect, cond *solve.Term, flow lower.ObjectFlow, target *solve.Var, value *solve.Term, where string) {
+	if domain := e.domain(target.Name, value); domain != nil {
+		x.fail(cond, domain)
+	}
+	if pending, queued := e.pending[target.Name]; queued {
+		full := x.env.has[pending.Name]
+		if flow.Kind == lower.FlowStreaming {
+			if staged := x.staged[target.Name]; staged != nil {
+				full = and(full, not(staged))
+				x.staged[target.Name] = or(staged, cond)
+			} else {
+				x.staged[target.Name] = cond
+			}
+			unreceived := unreceivedName(target.Name)
+			late := and(cond, x.env.values[performedName(e.Flow.label(flow.Target))])
+			x.env.write(unreceived, or(x.env.values[unreceived], late))
+		}
+		x.overflow = append(x.overflow, and(cond, full))
+		target = pending
+	}
+	if cond.Op == solve.OpBool && cond.Bool {
+		e.write(x, cond, target, value, where)
+		return
+	}
+	had, flagged := x.env.has[target.Name]
+	e.write(x, cond, target, ite(cond, value, x.env.values[target.Name]), where)
+	if flagged {
+		x.env.has[target.Name] = or(cond, had)
 	}
 }
 
@@ -1266,17 +1413,13 @@ func (e *Encoding) flows(x *nodeEffect, node ast.Node, where string) error {
 		if has, flagged := x.env.has[source.Name]; flagged {
 			x.fail(always, has)
 		}
-		value := x.env.values[source.Name]
-		if domain := e.domain(target.Name, value); domain != nil {
-			x.fail(always, domain)
+		cond := always
+		if flow.Kind == lower.FlowStreaming {
+			if streamed, ok := x.env.has[streamedName(source.Name)]; ok {
+				cond = not(streamed)
+			}
 		}
-		pending, queued := e.pending[target.Name]
-		if !queued {
-			e.write(x, always, target, value, where)
-			continue
-		}
-		x.overflow = append(x.overflow, x.env.has[pending.Name])
-		e.write(x, always, pending, value, where)
+		e.carry(x, cond, flow, target, x.env.values[source.Name], where)
 	}
 	return nil
 }
@@ -1299,6 +1442,9 @@ func (e *Encoding) statements(x *nodeEffect, body []lower.Statement, path *solve
 			value, defined := x.env.evaluate(e.exprs[s.Value])
 			x.fail(path, defined)
 			e.write(x, path, target, value, where)
+			if err := e.stream(x, solve.BoolTerm(true), node, target, x.env.values[target.Name], where); err != nil {
+				return err
+			}
 		case lower.Declare:
 			target := e.features[e.translatedName(s.Name, s.Scope)]
 			if s.Value == nil {
@@ -1308,6 +1454,9 @@ func (e *Encoding) statements(x *nodeEffect, body []lower.Statement, path *solve
 			value, defined := x.env.evaluate(e.exprs[s.Value])
 			x.fail(path, defined)
 			e.write(x, path, target, value, where)
+			if err := e.stream(x, solve.BoolTerm(true), node, target, x.env.values[target.Name], where); err != nil {
+				return err
+			}
 		case lower.Block:
 			if err := e.statements(x, s.Statements, path, where, node); err != nil {
 				return err

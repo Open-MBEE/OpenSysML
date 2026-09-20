@@ -184,7 +184,7 @@ func (e *performances) performNode(parent *actionFrame, engine *stmtEngine, grap
 			return flowNext, err
 		}
 	}
-	if err := e.applyDataFlows(parent, graph, node, f.perf.data, f.perf.streamed); err != nil {
+	if err := e.applyDataFlows(parent, graph, node, f.perf, f.perf.data, f.perf.streamed); err != nil {
 		return flowNext, err
 	}
 	if ended != nil {

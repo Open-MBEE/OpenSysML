@@ -62,6 +62,11 @@ type ActionGraph struct {
 	// completes only when that flow does (action_subflow.go).
 	Subflows map[ast.Node]*Subflow
 
+	// Enclosing and EnclosingNode are the graph and node a nested flow runs under,
+	// whose pins a write under the flow streams from; nil for the outermost flow.
+	Enclosing     *ActionGraph
+	EnclosingNode ast.Node
+
 	// InitialNode (required)
 	Initial ast.Node
 
@@ -628,6 +633,7 @@ func ToActionGraphWith(actionDecl ast.Node, scope *symbols.Scope, resolver *reso
 		return nil, err
 	}
 	recordBlockNodes(graph)
+	encloseBlockFlows(graph)
 	return graph, nil
 }
 

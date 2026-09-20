@@ -110,11 +110,11 @@ func testStreamingFlowOneLateValueLeft(t *testing.T) {
 			}
 			action producer {
 				out value : Integer;
-				action one { assign value := 1; }
-				action two { assign value := 2; }
-				succession first start then one;
-				succession first one then two;
-				succession first two then done;
+				assign value := 1;
+			}
+			action second {
+				out value : Integer;
+				assign value := 2;
 			}
 			decide choose;
 			succession first start then again;
@@ -122,11 +122,13 @@ func testStreamingFlowOneLateValueLeft(t *testing.T) {
 			succession first consumer then choose;
 			if total == 1 then producer;
 			else done;
-			succession first producer then again;
+			succession first producer then second;
+			succession first second then again;
 			flow producer.value to consumer.value;
+			flow second.value to consumer.value;
 		}
 	}`)
-	if !errors.Is(err, ErrStreamUnreceived) || !strings.Contains(err.Error(), "node consumer completed before node producer wrote value") {
+	if !errors.Is(err, ErrStreamUnreceived) || !strings.Contains(err.Error(), "node consumer completed before node second wrote value") {
 		t.Fatalf("error = %v, want ErrStreamUnreceived for the late value no performance took", err)
 	}
 }

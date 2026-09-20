@@ -312,3 +312,87 @@ func TestEncodeInlineExpressionFeedsFlow(t *testing.T) {
 		}
 	}
 }
+
+// TestEncodeFlowKindsDiffer: a plain flow streams the write to its source pin
+// into a consumer performing beside the producer, which fails when the consumer
+// completed first and reads 7 otherwise; a succession flow orders the consumer
+// after the producer and hands it the value, so no schedule fails.
+func TestEncodeFlowKindsDiffer(t *testing.T) {
+	solver := requireSolver(t)
+	const k = 12
+	const forked = `
+		fork split;
+		join sync;
+		succession first start then split;
+		succession first split then producer;
+		succession first split then consumer;
+		succession first producer then sync;
+		succession first consumer then sync;
+		succession first sync then done;
+		flow producer.value to consumer.got;`
+	const ordered = `
+		succession first start then producer;
+		succession first consumer then done;
+		succession flow producer.value to consumer.got;`
+	model := func(wiring string) string {
+		return `package test {
+	private import ScalarValues::*;
+	action outer {
+		attribute seen : Integer = -1;
+		first start;
+		action producer { out value : Integer = 5; assign value := 7; }
+		action consumer { in got : Integer = 0; assign seen := got; }
+		done;` + wiring + `
+	}
+}`
+	}
+	cases := []struct {
+		name, wiring string
+		fails        bool
+	}{
+		{"flow", forked, true},
+		{"succession flow", ordered, false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			ctx, action, graph, held := loweredDocument(t, "kinds_test.sysml", model(c.wiring), "test::outer")
+			exploration := explore(t, runtime.DefaultExploreBudget, func() (*runtime.Context, error) {
+				return runtime.NewContext(ctx.Model(), 10000), nil
+			}, action)
+			if !exploration.Complete() {
+				t.Fatalf("exploration %s", exploration.Status())
+			}
+			failing, values := false, make(map[string]bool)
+			for _, o := range exploration.Outcomes {
+				if o.Outcome.Err != nil {
+					failing = true
+					continue
+				}
+				values[runtime.FormatValue(o.Outcome.Outputs["seen"])] = true
+			}
+			if failing != c.fails || len(values) != 1 || !values["7"] {
+				t.Fatalf("the interpreter's outcomes: fails=%v, seen in %v; want fails=%v, seen = 7 only", failing, values, c.fails)
+			}
+			enc, err := Encode(ctx, action, graph, held, nil, k, DefaultUnroll)
+			if err != nil {
+				t.Fatalf("encode: %v", err)
+			}
+			last := enc.States[k]
+			failed := solve.VarTerm(last.Failed)
+			seen := last.Values["test::outer::seen"]
+			if seen == nil {
+				t.Fatalf("no feature seen among %v", names(enc.Features))
+			}
+			is := eq(solve.VarTerm(seen), solve.IntTerm(7))
+			if got := status(t, solver, enc, k, solve.And(solve.Not(failed), is)); got != solve.StatusSat {
+				t.Errorf("seen = 7 on unfailed completion: %v, want sat", got)
+			}
+			if got := status(t, solver, enc, k, solve.And(solve.Not(failed), solve.Not(is))); got != solve.StatusUnsat {
+				t.Errorf("seen != 7 on unfailed completion: %v, want unsat", got)
+			}
+			if got := status(t, solver, enc, k, failed); (got == solve.StatusSat) != c.fails {
+				t.Errorf("completes failed: %v, want fails=%v", got, c.fails)
+			}
+		})
+	}
+}

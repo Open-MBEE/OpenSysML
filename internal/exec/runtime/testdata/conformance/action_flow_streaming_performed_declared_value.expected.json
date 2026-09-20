@@ -2,6 +2,6 @@
 	"type": "action",
 	"evaluate": "test::stream",
 	"outputs": {
-		"total": {"type": "Integer", "value": 3}
+		"total": {"type": "Integer", "value": 5}
 	}
 }

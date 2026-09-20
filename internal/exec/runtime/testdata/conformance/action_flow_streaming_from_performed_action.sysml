@@ -15,26 +15,19 @@ package test {
 	}
 
 	// The outputs an action performed by a node writes stream from the node as they are
-	// written: each of 1, 2, 3 waits for a consumer performance of its own, so total = 6.
+	// written; a consumer begun afterwards reads the pin's value, the last of them.
 	action stream {
 		attribute total : Integer = 0;
-		attribute reads : Integer = 0;
 
 		action producer : Producer;
-		merge again;
 		action consumer {
 			in value : Integer;
 			assign total := total + value;
-			assign reads := reads + 1;
 		}
-		decide more;
 
 		succession first start then producer;
-		succession first producer then again;
-		succession first again then consumer;
-		succession first consumer then more;
-		succession first more if reads < 3 then again;
-		succession first more if reads >= 3 then done;
+		succession first producer then consumer;
+		succession first consumer then done;
 
 		flow producer.value to consumer.value;
 	}

@@ -459,6 +459,12 @@ func (s *stateSpeller) frame(perf *actionFrame) string {
 	if len(streamed) > 0 {
 		fmt.Fprintf(&b, " streamed{%s}", strings.Join(streamed, ","))
 	}
+	for _, node := range sortedNodes(perf.staged) {
+		pins := perf.staged[node]
+		for _, pin := range slices.Sorted(maps.Keys(pins)) {
+			fmt.Fprintf(&b, " staged{%s.%s[%d] by %s}", s.node(perf.graph, node), pin, pins[pin].at, s.frameLabel(pins[pin].source))
+		}
+	}
 	for _, node := range sortedNodes(perf.unreceived) {
 		for _, stream := range perf.unreceived[node] {
 			fmt.Fprintf(&b, " unreceived{%s.%s[%d] from %s.%s}", s.node(perf.graph, node), stream.pin, stream.at,

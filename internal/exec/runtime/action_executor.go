@@ -2170,7 +2170,7 @@ func (e *ActionExecutor) leaveExecutionNode(tokenIdx int, frame *actionFrame, no
 	}
 
 	// Apply data flows: transfer data from this node's output pins to target input pins
-	if err := e.applyDataFlows(frame, frame.graph, node, frame.data, nil); err != nil {
+	if err := e.applyDataFlows(frame, frame.graph, node, nil, frame.data, nil); err != nil {
 		return err
 	}
 
@@ -2292,7 +2292,7 @@ func (e *ActionExecutor) completeNode(tokenIdx int, perf *actionFrame) error {
 
 	// The flows out of this node carry what this performance produced to the
 	// pins the nodes downstream read.
-	if err := e.applyDataFlows(frame, frame.graph, node, perf.data, perf.streamed); err != nil {
+	if err := e.applyDataFlows(frame, frame.graph, node, perf, perf.data, perf.streamed); err != nil {
 		return err
 	}
 
@@ -2584,9 +2584,10 @@ func statementNodeKeyword(node ast.Node) string {
 
 // applyDataFlows moves what the completed performance produced along graph's flows out
 // of sourceNode to the target pins; a source pin holding nothing is an error, not a no-op.
-// A streaming flow from a pin in streamed carried its values as they were written.
+// A streaming flow from a pin in streamed carried its values as they were written;
+// perf is the performance that produced, nil for a node performed in frame itself.
 func (e *performances) applyDataFlows(
-	frame *actionFrame, graph *lower.ActionGraph, sourceNode ast.Node, produced map[string]Value, streamed map[string]bool,
+	frame *actionFrame, graph *lower.ActionGraph, sourceNode ast.Node, perf *actionFrame, produced map[string]Value, streamed map[string]bool,
 ) error {
 	for _, flow := range graph.DataFlows[sourceNode] {
 		if flow.Kind == lower.FlowStreaming && streamed[flow.SourcePin] {
@@ -2601,7 +2602,7 @@ func (e *performances) applyDataFlows(
 		}
 		var err error
 		if flow.Kind == lower.FlowStreaming {
-			err = e.streamFlow(frame, graph, sourceNode, flow, sourceData)
+			err = e.streamFlow(frame, graph, sourceNode, perf, flow, sourceData)
 		} else {
 			err = e.deliverFlow(frame, graph, flow, sourceData)
 		}

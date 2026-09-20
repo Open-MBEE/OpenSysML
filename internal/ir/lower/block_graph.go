@@ -172,6 +172,17 @@ func recordBlockNodes(graph *ActionGraph) {
 	}
 }
 
+// encloseBlockFlows records, for each block flow a node's body states, the graph
+// and node it runs under, recursively for the block flow's own nodes.
+func encloseBlockFlows(graph *ActionGraph) {
+	for node, body := range graph.Bodies {
+		for _, flow := range BlockFlows(body) {
+			flow.Enclosing, flow.EnclosingNode = graph, node
+			encloseBlockFlows(flow)
+		}
+	}
+}
+
 // BlockNodes returns the action nodes the blocks among stmts declare, in
 // declaration order: the nodes a body's performance runs as subperformances.
 func BlockNodes(stmts []Statement) []ast.Node {

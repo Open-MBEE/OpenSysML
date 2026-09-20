@@ -101,6 +101,9 @@ type actionFrame struct {
 	// pending queues what flows and bindings delivered to a node's pins ahead of
 	// its performances, each of which takes the oldest delivery at each pin.
 	pending map[ast.Node]map[string][]Value
+	// staged locates, per target node and pin, the queued value the latest streaming
+	// write from a source performance left, which its next write replaces.
+	staged map[ast.Node]map[string]stagedStream
 	// nested queues deliveries to pins of the nodes under a node (`leg.inner.v`) ahead
 	// of its next performance, which forwards them to its own nodes.
 	nested map[ast.Node][]nestedDelivery
@@ -140,6 +143,13 @@ type unreceivedStream struct {
 	flow   lower.ObjectFlow
 	source ast.Node
 	pin    string
+	at     int
+}
+
+// stagedStream is where in a pending queue a streaming source performance's latest
+// value waits: the source's next write replaces it, as a target reads a pin's value.
+type stagedStream struct {
+	source *actionFrame
 	at     int
 }
 
@@ -676,7 +686,12 @@ func (e *performances) deliver(f *actionFrame, flow *lower.ActionGraph, node ast
 	if err := e.ctx.checkNamedWrite(flow.Scopes[node], nodeDescription(node), pin, &value); err != nil {
 		return err
 	}
-	pin = canonical(pins.aliases, pin)
+	f.queue(node, canonical(pins.aliases, pin), value)
+	return nil
+}
+
+// queue appends a value to the pending queue of node's pin, returning its position.
+func (f *actionFrame) queue(node ast.Node, pin string, value Value) int {
 	if f.pending == nil {
 		f.pending = make(map[ast.Node]map[string][]Value)
 	}
@@ -684,7 +699,26 @@ func (e *performances) deliver(f *actionFrame, flow *lower.ActionGraph, node ast
 		f.pending[node] = make(map[string][]Value)
 	}
 	f.pending[node][pin] = append(f.pending[node][pin], value)
-	return nil
+	return len(f.pending[node][pin]) - 1
+}
+
+// stage queues a streamed value from source ahead of node's next performance, or
+// replaces the one source's earlier write left waiting at the pin; it reports
+// whether a value was appended.
+func (f *actionFrame) stage(node ast.Node, pin string, source *actionFrame, value Value) bool {
+	if s, ok := f.staged[node][pin]; ok && source != nil && s.source == source && s.at < len(f.pending[node][pin]) {
+		f.pending[node][pin][s.at] = value
+		return false
+	}
+	at := f.queue(node, pin, value)
+	if f.staged == nil {
+		f.staged = make(map[ast.Node]map[string]stagedStream)
+	}
+	if f.staged[node] == nil {
+		f.staged[node] = make(map[string]stagedStream)
+	}
+	f.staged[node][pin] = stagedStream{source: source, at: at}
+	return true
 }
 
 // checkNestedDelivery checks that path leads from node through the flows under it to a
@@ -714,6 +748,13 @@ func (e *performances) takeDeliveries(f *actionFrame, node ast.Node, perf *actio
 	queues := f.pending[node]
 	for pin, values := range queues {
 		f.receiveStream(node, pin)
+		if s, ok := f.staged[node][pin]; ok {
+			if s.at--; s.at < 0 {
+				delete(f.staged[node], pin)
+			} else {
+				f.staged[node][pin] = s
+			}
+		}
 		perf.data[pin] = values[0]
 		if len(values) == 1 {
 			delete(queues, pin)
@@ -794,7 +835,7 @@ func (e *performances) streamFrom(f *actionFrame, pin string, value Value) error
 			f.streamed = make(map[string]bool)
 		}
 		f.streamed[flow.SourcePin] = true
-		if err := e.streamFlow(f.parent, f.flow, f.node, flow, value); err != nil {
+		if err := e.streamFlow(f.parent, f.flow, f.node, f, flow, value); err != nil {
 			return err
 		}
 	}
@@ -808,34 +849,35 @@ type streamKey struct {
 	pin   string
 }
 
-// streamFlow delivers one value a streaming flow carries: to the pin of every ongoing
-// performance of its target in frame's flow, else ahead of the target's next performance.
+// streamFlow delivers one value a streaming flow carries from the source performance:
+// to the pin of every ongoing performance of its target in frame's flow, else ahead of
+// the target's next performance, where a later write from the same source replaces it.
 func (e *performances) streamFlow(
-	frame *actionFrame, graph *lower.ActionGraph, source ast.Node, flow lower.ObjectFlow, value Value,
+	frame *actionFrame, graph *lower.ActionGraph, source ast.Node, perf *actionFrame, flow lower.ObjectFlow, value Value,
 ) error {
 	if _, performs := flow.Target.(*ast.Usage); !performs {
 		return e.deliverFlow(frame, graph, flow, value)
 	}
 	ongoing := e.flow.ongoing(frame, flow.Target)
 	if len(ongoing) == 0 {
-		if err := e.deliverFlow(frame, graph, flow, value); err != nil {
-			return err
+		pins, err := e.nodePins(graph, flow.Target)
+		if err != nil {
+			return fmt.Errorf("%s: %w", flowDescription(flow), err)
 		}
-		if latest := frame.subactions[flow.Target]; latest != nil && latest.ended {
-			pins, err := e.nodePins(graph, flow.Target)
-			if err != nil {
-				return err
-			}
-			pin := canonical(pins.aliases, flow.TargetPin)
-			queued := len(frame.pending[flow.Target][pin])
-			if queued == 0 {
-				return nil
-			}
+		if !pins.declares(flow.TargetPin) {
+			return fmt.Errorf("%s: %w: %s declares no %s", flowDescription(flow), ErrNodePin, nodeDescription(flow.Target), flow.TargetPin)
+		}
+		if err := e.ctx.checkNamedWrite(graph.Scopes[flow.Target], nodeDescription(flow.Target), flow.TargetPin, &value); err != nil {
+			return fmt.Errorf("%s: %w", flowDescription(flow), err)
+		}
+		pin := canonical(pins.aliases, flow.TargetPin)
+		appended := frame.stage(flow.Target, pin, perf, value)
+		if latest := frame.subactions[flow.Target]; appended && latest != nil && latest.ended {
 			if frame.unreceived == nil {
 				frame.unreceived = make(map[ast.Node][]unreceivedStream)
 			}
 			frame.unreceived[flow.Target] = append(frame.unreceived[flow.Target], unreceivedStream{
-				flow: flow, source: source, pin: pin, at: queued - 1,
+				flow: flow, source: source, pin: pin, at: len(frame.pending[flow.Target][pin]) - 1,
 			})
 		}
 		return nil
@@ -1306,7 +1348,7 @@ func (e *performances) performInvocation(perf *actionFrame, inv actionInvocation
 			return err
 		}
 	}
-	if !callee.joined {
+	if resumed && !callee.joined {
 		callee.exec.streamOutput = e.streamCalleeOutput(perf, callee.out)
 	}
 	if _, _, err := e.ctx.runCallee(callee); err != nil {
@@ -1369,11 +1411,11 @@ func (e *performances) beginInvocation(perf *actionFrame, inv actionInvocation) 
 		}
 	}
 
-	callee, err := e.ctx.beginOrJoinCallee(inv, sym, performer, inputs)
+	sort.Strings(out)
+	callee, err := e.ctx.beginOrJoinCallee(inv, sym, performer, inputs, e.streamCalleeOutput(perf, out))
 	if err != nil {
 		return nil, fmt.Errorf("invoke action %s: %w", inv.name(), err)
 	}
-	sort.Strings(out)
 	callee.name, callee.out = inv.name(), out
 	return callee, nil
 }
