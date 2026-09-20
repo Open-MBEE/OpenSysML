@@ -13,9 +13,12 @@ import org.eclipse.sirius.components.trees.Tree;
 import org.eclipse.sirius.components.trees.TreeItem;
 import org.eclipse.sirius.components.trees.description.TreeDescription;
 import org.eclipse.syson.sysml.Element;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Service;
 
 @Service
+@Order(Ordered.LOWEST_PRECEDENCE) // Runs after SysON's provider, which replaces the palette.
 public class OpenSysMLTreeItemPaletteCustomizer implements ITreeItemPaletteCustomizer {
     public static final String TOOL_ID = "runWithOpenSysML";
     private final IObjectSearchService objectSearchService;

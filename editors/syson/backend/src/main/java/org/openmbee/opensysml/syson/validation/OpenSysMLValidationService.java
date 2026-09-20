@@ -30,13 +30,14 @@ public class OpenSysMLValidationService implements IValidationService {
     }
 
     private List<Object> diagnostics(RunResult result) {
-        return result.diagnostics().stream().map(diagnostic -> {
+        return result.mappedDiagnostics().stream().map(mapped -> {
+            RunDiagnostic diagnostic = mapped.diagnostic();
             int severity = switch (diagnostic.severity()) {
                 case "error" -> Diagnostic.ERROR;
                 case "warning" -> Diagnostic.WARNING;
                 default -> Diagnostic.INFO;
             };
-            Object[] data = result.elementFor(diagnostic) == null ? new Object[0] : new Object[] { result.elementFor(diagnostic) };
+            Object[] data = mapped.element() == null ? new Object[0] : new Object[] { mapped.element() };
             return new BasicDiagnostic(severity, "opensysml", 0, diagnostic.message(), data);
         }).map(Object.class::cast).toList();
     }

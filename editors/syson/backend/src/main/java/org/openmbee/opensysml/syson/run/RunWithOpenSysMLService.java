@@ -32,6 +32,7 @@ import org.openmbee.opensysml.syson.OpenSysMLProperties;
 import org.openmbee.opensysml.syson.export.ExportedProject;
 import org.openmbee.opensysml.syson.export.ProjectExporter;
 import org.openmbee.opensysml.syson.export.ProjectTextExporter;
+import org.openmbee.opensysml.syson.identity.ElementIndex.IndexedElement;
 
 @Service
 public class RunWithOpenSysMLService {
@@ -55,37 +56,39 @@ public class RunWithOpenSysMLService {
 
     public RunResult run(IEMFEditingContext context, Element target, RunWithOpenSysMLInput input) {
         ExportedProject project = exporter.export(context);
-        ElementIndexTarget selected = project.index().byElement(target).map(value -> new ElementIndexTarget(value))
-                .orElse(null);
+        IndexedElement selected = project.index().byElement(target).orElse(null);
         if (selected == null) {
             RunResult result = RunResult.failure("", input.operation(), "", "selected element has no qualified name in the export");
             store.put(context.getId(), result);
             return result;
         }
-        String targetName = selected.value.qualifiedName();
+        String targetName = selected.qualifiedName();
         List<DiagnosticMapper.Mapped> mappedDiagnostics = new ArrayList<>();
         List<RunDiagnostic> exportDiagnostics = project.messages().stream()
                 .map(message -> new RunDiagnostic(message.level().name().toLowerCase(), message.message(), "", null, null,
-                        targetName, selected.value.elementId(), selected.value.siriusId()))
+                        targetName, selected.elementId(), selected.siriusId()))
                 .toList();
         try {
             Model model = connection.parseSources(project.documents());
             model.diagnostics().forEach(diagnostic -> mappedDiagnostics.add(DiagnosticMapper.map(diagnostic, project)));
             ExecutionOptions options = options(input);
-            ResultParts parts = dispatch(model, targetName, input, options);
+            ResultParts parts = dispatch(model, targetName, input, options, project);
             parts.schedule = options.schedule().orElse(null);
             for (Diagnostic diagnostic : parts.diagnostics) mappedDiagnostics.add(DiagnosticMapper.map(diagnostic, project));
-            RunResult result = result(model.hash(), input, targetName, parts, mappedDiagnostics, exportDiagnostics, project);
+            RunResult result = result(model.hash(), input, targetName, parts, mappedDiagnostics, exportDiagnostics);
             store.put(context.getId(), result);
             return result;
         } catch (ModelException | ServiceException | CapabilityException | IllegalArgumentException exception) {
             RunDiagnostic diagnostic = new RunDiagnostic("error", exception.getMessage(), "", null, null, targetName,
-                    selected.value.elementId(), selected.value.siriusId());
-            List<RunDiagnostic> diagnostics = new ArrayList<>(exportDiagnostics);
-            mappedDiagnostics.forEach(value -> diagnostics.add(value.diagnostic()));
-            diagnostics.add(diagnostic);
+                    selected.elementId(), selected.siriusId());
+            List<RunResult.MappedDiagnostic> resultDiagnostics = new ArrayList<>();
+            exportDiagnostics.forEach(value -> resultDiagnostics.add(new RunResult.MappedDiagnostic(value, null)));
+            mappedDiagnostics.forEach(value -> resultDiagnostics.add(
+                    new RunResult.MappedDiagnostic(value.diagnostic(), value.element())));
+            resultDiagnostics.add(new RunResult.MappedDiagnostic(diagnostic, selected.element()));
             RunResult result = new RunResult("", input.operation(), targetName, false, null, null, null, List.of(),
-                    List.of(), null, diagnostics, List.of(), List.of(), Map.of());
+                    List.of(), null, List.of(), List.of(),
+                    resultDiagnostics);
             store.put(context.getId(), result);
             return result;
         }
@@ -105,48 +108,44 @@ public class RunWithOpenSysMLService {
         return options;
     }
 
-    private ResultParts dispatch(Model model, String target, RunWithOpenSysMLInput input, ExecutionOptions options) {
+    private ResultParts dispatch(Model model, String target, RunWithOpenSysMLInput input, ExecutionOptions options,
+            ExportedProject project) {
         Map<String, Value> values = new LinkedHashMap<>();
         input.inputs().forEach((name, expression) -> values.put(name, model.eval(expression)));
         List<Value> arguments = input.arguments().stream().map(model::eval).toList();
         return switch (input.operation()) {
-            case INSTANTIATE -> ResultParts.instantiation(model.instantiate(target));
-            case EXECUTE_ACTION -> ResultParts.action(model.executeAction(target, values, options));
-            case EXPLORE_ACTION -> ResultParts.exploration(model.exploreAction(target, values, options));
-            case EXECUTE_STATE -> ResultParts.state(model.executeState(target, input.events(), options));
-            case EXPLORE_STATE -> ResultParts.exploration(model.exploreState(target, input.events(), options));
+            case INSTANTIATE -> ResultParts.instantiation(model.instantiate(target), project);
+            case EXECUTE_ACTION -> ResultParts.action(model.executeAction(target, values, options), project);
+            case EXPLORE_ACTION -> ResultParts.exploration(model.exploreAction(target, values, options), project);
+            case EXECUTE_STATE -> ResultParts.state(model.executeState(target, input.events(), options), project);
+            case EXPLORE_STATE -> ResultParts.exploration(model.exploreState(target, input.events(), options), project);
             case VERIFY_CONSTRAINT -> ResultParts.verification(input.subject() == null ? model.verifyConstraint(target)
-                    : model.verifyConstraint(target, input.subject()));
+                    : model.verifyConstraint(target, input.subject()), project);
             case VERIFY_REQUIREMENT -> ResultParts.verification(input.subject() == null ? model.verifyRequirement(target)
-                    : model.verifyRequirement(target, input.subject()));
+                    : model.verifyRequirement(target, input.subject()), project);
             case VERIFY_SATISFACTION -> ResultParts.satisfaction(
-                    input.subject() == null ? model.verifySatisfaction() : model.verifySatisfaction(input.subject()));
-            case EVALUATE_CALC -> ResultParts.calculation(model.evaluateCalc(target, arguments));
-            case RUN_ANALYSIS -> ResultParts.analysis(model.runAnalysis(target));
-            case VALIDATE_INSTANCE -> ResultParts.validation(model.validateInstance(target));
+                    input.subject() == null ? model.verifySatisfaction() : model.verifySatisfaction(input.subject()),
+                    project);
+            case EVALUATE_CALC -> ResultParts.calculation(model.evaluateCalc(target, arguments), project);
+            case RUN_ANALYSIS -> ResultParts.analysis(model.runAnalysis(target), project);
+            case VALIDATE_INSTANCE -> ResultParts.validation(model.validateInstance(target), project);
         };
     }
 
     private RunResult result(String hash, RunWithOpenSysMLInput input, String target, ResultParts parts,
-            List<DiagnosticMapper.Mapped> mapped, List<RunDiagnostic> exportDiagnostics, ExportedProject project) {
-        List<RunDiagnostic> diagnostics = new ArrayList<>();
-        diagnostics.addAll(exportDiagnostics);
-        Map<RunDiagnostic, Element> elements = new LinkedHashMap<>();
-        mapped.forEach(value -> { diagnostics.add(value.diagnostic()); elements.put(value.diagnostic(), value.element()); });
-        diagnostics.addAll(parts.extraDiagnostics.stream().map(d -> {
-            RunDiagnostic value = new RunDiagnostic("error", d, "", null, null, target, null, null);
-            return value;
-        }).toList());
+            List<DiagnosticMapper.Mapped> mapped, List<RunDiagnostic> exportDiagnostics) {
+        List<RunResult.MappedDiagnostic> mappedDiagnostics = new ArrayList<>();
+        exportDiagnostics.forEach(value -> mappedDiagnostics.add(new RunResult.MappedDiagnostic(value, null)));
+        mapped.forEach(value -> {
+            mappedDiagnostics.add(new RunResult.MappedDiagnostic(value.diagnostic(), value.element()));
+        });
         return new RunResult(hash, input.operation(), target, parts.ok, parts.verdict, parts.schedule, parts.finalTime,
-                parts.outputs, parts.trace, parts.resultText, diagnostics, parts.verdicts, parts.instances, elements);
-    }
-
-    private static final class ElementIndexTarget {
-        private final org.openmbee.opensysml.syson.identity.ElementIndex.IndexedElement value;
-        private ElementIndexTarget(org.openmbee.opensysml.syson.identity.ElementIndex.IndexedElement value) { this.value = value; }
+                parts.outputs, parts.trace, parts.resultText, parts.verdicts, parts.instances,
+                mappedDiagnostics);
     }
 
     private static final class ResultParts {
+        private final ExportedProject project;
         private boolean ok = true;
         private String verdict;
         private String schedule;
@@ -155,23 +154,107 @@ public class RunWithOpenSysMLService {
         private List<String> trace = List.of();
         private String resultText;
         private List<Diagnostic> diagnostics = List.of();
-        private List<String> extraDiagnostics = List.of();
         private List<RunVerdict> verdicts = List.of();
         private List<RunInstance> instances = List.of();
-        static ResultParts instantiation(Instantiation result) {
-            ResultParts p = new ResultParts(); p.diagnostics = result.diagnostics(); p.instances = instances(result.reachable());
+
+        private ResultParts(ExportedProject project) {
+            this.project = project;
+        }
+
+        static ResultParts instantiation(Instantiation result, ExportedProject project) {
+            ResultParts p = new ResultParts(project);
+            p.diagnostics = result.diagnostics();
+            p.instances = p.instances(result.reachable());
             return p;
         }
-        static ResultParts action(ActionRun result) { ResultParts p = new ResultParts(); p.outputs = values(result.outputs()); p.finalTime = result.finalTime().isPresent() ? result.finalTime().getAsDouble() : null; p.diagnostics = result.diagnostics(); return p; }
-        static ResultParts state(StateRun result) { ResultParts p = new ResultParts(); p.outputs = values(result.finalContext()); p.trace = result.statesVisited(); p.finalTime = result.finalTime().isPresent() ? result.finalTime().getAsDouble() : null; p.diagnostics = result.diagnostics(); return p; }
-        static ResultParts exploration(Exploration result) { ResultParts p = new ResultParts(); p.ok = result.complete(); p.verdict = result.status(); if (!result.outcomes().isEmpty()) { var o = result.outcomes().get(0); p.outputs = values(o.outputs()); p.trace = o.statesVisited(); p.diagnostics = o.diagnostics(); } return p; }
-        static ResultParts verification(Verification result) { ResultParts p = new ResultParts(); p.verdict = result.verdict().decided() ? (result.verdict().holds() ? "holds" : "violated") : "undecided"; p.diagnostics = result.diagnostics(); p.verdicts = List.of(verdict(result.verdict())); p.instances = instances(result.instances()); return p; }
-        static ResultParts satisfaction(Satisfaction result) { ResultParts p = new ResultParts(); p.verdict = result.holds() ? "pass" : "fail"; p.verdicts = result.verdicts().stream().map(ResultParts::verdict).toList(); p.diagnostics = result.diagnostics(); p.instances = instances(result.instances()); return p; }
-        static ResultParts calculation(Calculation result) { ResultParts p = new ResultParts(); p.resultText = result.value().map(ValueText::render).orElse(null); p.outputs = values(result.outputs()); p.diagnostics = result.diagnostics(); return p; }
-        static ResultParts analysis(Analysis result) { ResultParts p = new ResultParts(); p.verdict = result.holds() ? "holds" : "violated"; p.diagnostics = result.diagnostics(); p.instances = instances(result.instances()); return p; }
-        static ResultParts validation(org.openmbee.opensysml.Validation result) { ResultParts p = new ResultParts(); p.verdict = result.holds() ? "holds" : "violated"; p.verdicts = result.verdicts().stream().map(ResultParts::verdict).toList(); p.diagnostics = result.diagnostics(); p.instances = instances(result.instances()); return p; }
-        static List<RunNamedValue> values(Map<String, Value> values) { return values.entrySet().stream().map(e -> new RunNamedValue(e.getKey(), ValueText.render(e.getValue()))).toList(); }
-        static List<RunInstance> instances(List<Instance> instances) { return instances.stream().map(instance -> new RunInstance(instance.id(), instance.typeSymbolId(), null, instance.featureValues().values().stream().flatMap(value -> value.value().stream()).map(value -> new RunNamedValue("value", ValueText.render(value))).toList())).toList(); }
-        static RunVerdict verdict(Verdict value) { return new RunVerdict(value.element(), value.kind(), value.holds(), value.error().orElse(null), null); }
+        static ResultParts action(ActionRun result, ExportedProject project) {
+            ResultParts p = new ResultParts(project);
+            p.outputs = values(result.outputs());
+            p.finalTime = result.finalTime().isPresent() ? result.finalTime().getAsDouble() : null;
+            p.diagnostics = result.diagnostics();
+            return p;
+        }
+        static ResultParts state(StateRun result, ExportedProject project) {
+            ResultParts p = new ResultParts(project);
+            p.outputs = values(result.finalContext());
+            p.trace = result.statesVisited();
+            p.finalTime = result.finalTime().isPresent() ? result.finalTime().getAsDouble() : null;
+            p.diagnostics = result.diagnostics();
+            return p;
+        }
+        static ResultParts exploration(Exploration result, ExportedProject project) {
+            ResultParts p = new ResultParts(project);
+            p.ok = result.complete();
+            p.verdict = result.status();
+            if (!result.outcomes().isEmpty()) {
+                var outcome = result.outcomes().get(0);
+                p.outputs = values(outcome.outputs());
+                p.trace = outcome.statesVisited();
+                p.diagnostics = outcome.diagnostics();
+            }
+            return p;
+        }
+        static ResultParts verification(Verification result, ExportedProject project) {
+            ResultParts p = new ResultParts(project);
+            p.verdict = result.verdict().decided()
+                    ? (result.verdict().holds() ? "holds" : "violated")
+                    : "undecided";
+            p.diagnostics = result.diagnostics();
+            p.verdicts = List.of(p.verdict(result.verdict()));
+            p.instances = p.instances(result.instances());
+            return p;
+        }
+        static ResultParts satisfaction(Satisfaction result, ExportedProject project) {
+            ResultParts p = new ResultParts(project);
+            p.verdict = result.holds() ? "pass" : "fail";
+            p.verdicts = result.verdicts().stream().map(p::verdict).toList();
+            p.diagnostics = result.diagnostics();
+            p.instances = p.instances(result.instances());
+            return p;
+        }
+        static ResultParts calculation(Calculation result, ExportedProject project) {
+            ResultParts p = new ResultParts(project);
+            p.resultText = result.value().map(ValueText::render).orElse(null);
+            p.outputs = values(result.outputs());
+            p.diagnostics = result.diagnostics();
+            return p;
+        }
+        static ResultParts analysis(Analysis result, ExportedProject project) {
+            ResultParts p = new ResultParts(project);
+            p.verdict = result.holds() ? "holds" : "violated";
+            p.diagnostics = result.diagnostics();
+            p.instances = p.instances(result.instances());
+            return p;
+        }
+        static ResultParts validation(org.openmbee.opensysml.Validation result, ExportedProject project) {
+            ResultParts p = new ResultParts(project);
+            p.verdict = result.holds() ? "holds" : "violated";
+            p.verdicts = result.verdicts().stream().map(p::verdict).toList();
+            p.diagnostics = result.diagnostics();
+            p.instances = p.instances(result.instances());
+            return p;
+        }
+        static List<RunNamedValue> values(Map<String, Value> values) {
+            return values.entrySet().stream()
+                    .map(entry -> new RunNamedValue(entry.getKey(), ValueText.render(entry.getValue())))
+                    .toList();
+        }
+        List<RunInstance> instances(List<Instance> instances) {
+            return instances.stream().map(instance -> {
+                String siriusId = project.index().byQualifiedName(instance.typeSymbolId())
+                        .map(IndexedElement::siriusId).orElse(null);
+                List<RunNamedValue> featureValues = instance.featureValues().values().stream()
+                        .map(value -> new RunNamedValue(value.featureName(),
+                                value.value().map(ValueText::render).orElseGet(
+                                        () -> value.values().stream().map(ValueText::render).toList().toString())))
+                        .toList();
+                return new RunInstance(instance.id(), instance.typeSymbolId(), siriusId, featureValues);
+            }).toList();
+        }
+        RunVerdict verdict(Verdict value) {
+            String siriusId = project.index().byQualifiedName(value.element())
+                    .map(IndexedElement::siriusId).orElse(null);
+            return new RunVerdict(value.element(), value.kind(), value.holds(), value.error().orElse(null), siriusId);
+        }
     }
 }

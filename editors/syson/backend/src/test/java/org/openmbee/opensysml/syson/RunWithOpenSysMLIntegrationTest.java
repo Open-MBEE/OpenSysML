@@ -1,7 +1,6 @@
 package org.openmbee.opensysml.syson;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -36,16 +35,8 @@ class RunWithOpenSysMLIntegrationTest {
     @BeforeAll
     static void startService() {
         repository = Path.of("").toAbsolutePath();
-        while (repository != null && !Files.exists(repository.resolve("go.mod"))) {
-            repository = repository.getParent();
-        }
-        Path binary = repository == null ? null : repository.resolve("bin/sysml-grpc");
-        boolean required = Boolean.getBoolean("opensysml.requireService");
-        if (!required) return;
-        if (binary == null || !Files.isExecutable(binary)) {
-            throw new AssertionError("required sysml-grpc is absent");
-        }
-        connection = Connection.open(ConnectionOptions.builder().binaryPath(binary).build());
+        while (repository != null && !Files.exists(repository.resolve("go.mod"))) repository = repository.getParent();
+        connection = Connection.open(ConnectionOptions.builder().binaryPath(ServiceBinary.required()).build());
     }
 
     @AfterAll
@@ -55,19 +46,18 @@ class RunWithOpenSysMLIntegrationTest {
 
     @Test
     void instantiatesVehicleAndStoresResult() throws Exception {
-        assumeTrue(connection != null);
         String source = Files.readString(repository.resolve("editors/syson/backend/src/test/resources/models/vehicle.sysml"));
         Element target = target("Vehicle::Car");
         ExportedProject project = project("vehicle.sysml", source, target);
         RunResult result = service(project).run(context(), target, input(RunOperation.INSTANTIATE, Map.of()));
         assertThat(result.ok()).isTrue();
         assertThat(result.instances()).isNotEmpty();
+        assertThat(result.instances().get(0).typeSiriusId()).isNotNull();
         assertThat(result.modelHash()).isEqualTo(connection.parseSources(List.of(SourceDocument.inline("vehicle.sysml", source))).hash());
     }
 
     @Test
     void executesCounterWithDeclaredSchedule() throws Exception {
-        assumeTrue(connection != null);
         String source = "action def Counter { in x : Integer; out y : Integer; first start; "
                 + "action compute { assign y := x * 2; } succession first start then compute; "
                 + "succession first compute then done; }";
@@ -82,17 +72,16 @@ class RunWithOpenSysMLIntegrationTest {
 
     @Test
     void mapsBrokenModelDiagnosticsToTarget() throws Exception {
-        assumeTrue(connection != null);
         String source = Files.readString(repository.resolve("editors/syson/backend/src/test/resources/models/broken.sysml"));
         Element target = target("Broken::A");
         RunResult result = service(project("broken.sysml", source, target)).run(context(), target,
                 input(RunOperation.INSTANTIATE, Map.of()));
+        assertThat(result.diagnostics()).isNotEmpty();
         assertThat(result.diagnostics()).anyMatch(diagnostic -> "Broken::A".equals(diagnostic.qualifiedName()));
     }
 
     @Test
     void verifiesHoldingAndViolatedRequirements() throws Exception {
-        assumeTrue(connection != null);
         String source = Files.readString(repository.resolve("editors/syson/backend/src/test/resources/models/req.sysml"));
         Element holding = target("Holding");
         Element violated = target("Violated");

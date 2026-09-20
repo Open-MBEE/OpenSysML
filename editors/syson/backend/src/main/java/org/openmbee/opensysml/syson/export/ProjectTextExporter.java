@@ -65,7 +65,7 @@ public class ProjectTextExporter implements ProjectExporter {
     }
 
     private void index(Element root, Map<String, ElementIndex.IndexedElement> entries) {
-        walk(root, element -> {
+        visit(root, element -> {
             String qualifiedName = element.getQualifiedName();
             if (qualifiedName != null && !qualifiedName.isBlank()) {
                 entries.put(qualifiedName, new ElementIndex.IndexedElement(qualifiedName, element.getElementId(),
@@ -74,20 +74,10 @@ public class ProjectTextExporter implements ProjectExporter {
         });
     }
 
-    private void walk(Element element, Consumer<Element> consumer) {
+    private void visit(Element element, Consumer<Element> consumer) {
         consumer.accept(element);
         element.eContents().forEach(child -> {
-            if (child instanceof Element childElement) consumer.accept(childElement);
-            if (child instanceof Element childElement) walkChildren(childElement, consumer);
-        });
-    }
-
-    private void walkChildren(Element element, Consumer<Element> consumer) {
-        element.eContents().forEach(child -> {
-            if (child instanceof Element childElement) {
-                consumer.accept(childElement);
-                walkChildren(childElement, consumer);
-            }
+            if (child instanceof Element childElement) visit(childElement, consumer);
         });
     }
 
