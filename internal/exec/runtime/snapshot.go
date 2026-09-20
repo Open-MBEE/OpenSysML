@@ -529,7 +529,7 @@ func captureFrame(perf *actionFrame) frameCapture {
 	c.saved.pending = clonePending(perf.pending)
 	c.saved.nested = cloneNested(perf.nested)
 	c.saved.streamed = maps.Clone(perf.streamed)
-	c.saved.unreceived = maps.Clone(perf.unreceived)
+	c.saved.unreceived = cloneUnreceived(perf.unreceived)
 	c.saved.nodes = slices.Clone(perf.nodes)
 	return c
 }
@@ -551,7 +551,7 @@ func (c frameCapture) restore() {
 	perf.pending = clonePending(c.saved.pending)
 	perf.nested = cloneNested(c.saved.nested)
 	perf.streamed = maps.Clone(c.saved.streamed)
-	perf.unreceived = maps.Clone(c.saved.unreceived)
+	perf.unreceived = cloneUnreceived(c.saved.unreceived)
 	perf.nodes = slices.Clone(c.saved.nodes)
 }
 

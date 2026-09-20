@@ -110,9 +110,9 @@ type actionFrame struct {
 	// streamed marks the pins whose writes this performance carried on along a
 	// streaming flow, so its completion does not carry the last of them again.
 	streamed map[string]bool
-	// unreceived holds, per target node, a streaming flow that carried a value after the
-	// node's latest performance ended; the node's next performance takes it, else it is reported.
-	unreceived map[ast.Node]unreceivedStream
+	// unreceived holds, per target node, the values streaming flows carried after the
+	// node's latest performance ended; a later performance takes each, else it is reported.
+	unreceived map[ast.Node][]unreceivedStream
 	// nodes are the action nodes a state behavior's performance runs, which its body's
 	// blocks declare; the frames of a state machine and its states hold none.
 	nodes []ast.Node
@@ -134,11 +134,13 @@ func (f *actionFrame) within() []ast.Node {
 	return chain
 }
 
-// unreceivedStream is a streaming flow, and the node it runs from, whose value waits at
-// a target whose performances are all over.
+// unreceivedStream is a value a streaming flow carried to a target whose performances
+// were all over: it waits at position at in the pending queue of the target's pin.
 type unreceivedStream struct {
 	flow   lower.ObjectFlow
 	source ast.Node
+	pin    string
+	at     int
 }
 
 // nestedDelivery is a value bound for a pin of a node under another: path leads to the
@@ -370,6 +372,9 @@ func (e *performances) seedDeclaredValues(perf *actionFrame, features []lower.Fe
 			return err
 		}
 		perf.data[perf.key(feature.Name)] = value
+		if err := e.streamFrom(perf, perf.key(feature.Name), value); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -401,7 +406,7 @@ func checkStreamsReceived(frame *actionFrame) error {
 	if len(nodes) == 0 {
 		return nil
 	}
-	stream := frame.unreceived[nodes[0]]
+	stream := frame.unreceived[nodes[0]][0]
 	return fmt.Errorf("%w: %s: %s completed before %s wrote %s",
 		ErrStreamUnreceived, flowDescription(stream.flow), nodeDescription(nodes[0]),
 		nodeDescription(stream.source), orAnyPin(stream.flow.SourcePin))
@@ -706,9 +711,9 @@ func (e *performances) checkNestedDelivery(flow *lower.ActionGraph, node ast.Nod
 // performances of one node begun in turn each start with their own inputs, and
 // forwards what waits for the nodes under it.
 func (e *performances) takeDeliveries(f *actionFrame, node ast.Node, perf *actionFrame) error {
-	delete(f.unreceived, node)
 	queues := f.pending[node]
 	for pin, values := range queues {
+		f.receiveStream(node, pin)
 		perf.data[pin] = values[0]
 		if len(values) == 1 {
 			delete(queues, pin)
@@ -727,6 +732,25 @@ func (e *performances) takeDeliveries(f *actionFrame, node ast.Node, perf *actio
 		}
 	}
 	return nil
+}
+
+// receiveStream notes that a performance of node took the oldest value at pin: the
+// streamed values behind it move up, and the one taken is received.
+func (f *actionFrame) receiveStream(node ast.Node, pin string) {
+	var kept []unreceivedStream
+	for _, s := range f.unreceived[node] {
+		if s.pin == pin {
+			s.at--
+		}
+		if s.at >= 0 {
+			kept = append(kept, s)
+		}
+	}
+	if kept == nil {
+		delete(f.unreceived, node)
+		return
+	}
+	f.unreceived[node] = kept
 }
 
 // setFrameFeature writes a feature the performance holds, through the action's
@@ -778,13 +802,27 @@ func (e *performances) streamFlow(
 	}
 	ongoing := e.flow.ongoing(frame, flow.Target)
 	if len(ongoing) == 0 {
-		if latest := frame.subactions[flow.Target]; latest != nil && latest.ended {
-			if frame.unreceived == nil {
-				frame.unreceived = make(map[ast.Node]unreceivedStream)
-			}
-			frame.unreceived[flow.Target] = unreceivedStream{flow: flow, source: source}
+		if err := e.deliverFlow(frame, graph, flow, value); err != nil {
+			return err
 		}
-		return e.deliverFlow(frame, graph, flow, value)
+		if latest := frame.subactions[flow.Target]; latest != nil && latest.ended {
+			pins, err := e.nodePins(graph, flow.Target)
+			if err != nil {
+				return err
+			}
+			pin := canonical(pins.aliases, flow.TargetPin)
+			queued := len(frame.pending[flow.Target][pin])
+			if queued == 0 {
+				return nil
+			}
+			if frame.unreceived == nil {
+				frame.unreceived = make(map[ast.Node][]unreceivedStream)
+			}
+			frame.unreceived[flow.Target] = append(frame.unreceived[flow.Target], unreceivedStream{
+				flow: flow, source: source, pin: pin, at: queued - 1,
+			})
+		}
+		return nil
 	}
 	for _, target := range ongoing {
 		if !target.declares(flow.TargetPin) {
@@ -1357,4 +1395,16 @@ func checkInputsBound(inv actionInvocation, params []actionParameter, inputs map
 // through, which also answers for the nodes of its flow.
 func performanceFrame(f *actionFrame) frame {
 	return frame{vars: f.data, aliases: f.aliases, perf: f, run: f.run}
+}
+
+// cloneUnreceived copies the unreceived streams of a frame, queues included.
+func cloneUnreceived(m map[ast.Node][]unreceivedStream) map[ast.Node][]unreceivedStream {
+	if m == nil {
+		return nil
+	}
+	out := make(map[ast.Node][]unreceivedStream, len(m))
+	for node, streams := range m {
+		out[node] = slices.Clone(streams)
+	}
+	return out
 }

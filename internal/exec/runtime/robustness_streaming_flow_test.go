@@ -12,6 +12,7 @@ func TestRuntimeRobustnessStreamingFlow(t *testing.T) {
 	t.Run("source_never_writes", testStreamingFlowSourceNeverWrites)
 	t.Run("target_completed_before_source_writes", testStreamingFlowTargetCompletedFirst)
 	t.Run("target_pin_not_declared", testStreamingFlowTargetPinNotDeclared)
+	t.Run("later_performance_takes_one_of_two_late_values", testStreamingFlowOneLateValueLeft)
 }
 
 // streamingPair is an action performing producer and consumer side by side, the
@@ -91,5 +92,40 @@ func testStreamingFlowTargetPinNotDeclared(t *testing.T) {
 	))
 	if !errors.Is(err, ErrNodePin) {
 		t.Fatalf("error = %v, want ErrNodePin from a stream to an undeclared pin", err)
+	}
+}
+
+// testStreamingFlowOneLateValueLeft: two values streamed after the target's performance
+// ended; one further performance of the target takes the first, and the second, which no
+// performance took, is reported when the action completes.
+func testStreamingFlowOneLateValueLeft(t *testing.T) {
+	_, err := executeActionSource(t, "stream", `package test {
+		action stream {
+			attribute total : Integer = 0;
+			merge again;
+			action consumer {
+				in value : Integer;
+				assign total := total + 1;
+			}
+			action producer {
+				out value : Integer;
+				action one { assign value := 1; }
+				action two { assign value := 2; }
+				succession first start then one;
+				succession first one then two;
+				succession first two then done;
+			}
+			decide choose;
+			succession first start then again;
+			succession first again then consumer;
+			succession first consumer then choose;
+			if total == 1 then producer;
+			else done;
+			succession first producer then again;
+			flow producer.value to consumer.value;
+		}
+	}`)
+	if !errors.Is(err, ErrStreamUnreceived) || !strings.Contains(err.Error(), "node consumer completed before node producer wrote value") {
+		t.Fatalf("error = %v, want ErrStreamUnreceived for the late value no performance took", err)
 	}
 }
