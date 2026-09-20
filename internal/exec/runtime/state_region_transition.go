@@ -74,7 +74,7 @@ func (e *StateExecutor) enterToward(lca, target *ast.StateNode, branches map[*as
 		}
 	}
 	for _, state := range e.descendantChain(lca, enter) {
-		if err := e.enterStateInto(state, plan); err != nil {
+		if err := e.enterStateInto(state, plan, state == enter); err != nil {
 			return nil, nil, fmt.Errorf("enter state: %w", err)
 		}
 	}
