@@ -44,10 +44,10 @@ package 'Vehicle Design' {
             out attribute speedOut : 'Vehicle Design'::'Value Types'::Speed;
         }
         port diag;
-        connection 'fuel line' connect fuelIn to engine.fuelPort;
+        binding 'fuel line' bind fuelIn = engine.fuelPort;
         flow fuelIn.fuel to engine.fuelPort.fuel;
         bind mass = massLimit.m;
-        connect speedOut to engine.piston.p;
+        bind speedOut = engine.piston.p;
         abstract action def start {
             in key : ScalarValues::Integer;
         }

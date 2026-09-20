@@ -201,7 +201,7 @@ graph carries, the form carries.
   `initial`, `finals`, `edges`, `flows`, `bindings`, `connections`, or `error` when the lowering
   refused it. A `NodeForm` is `id` (its index), `kind`, `name`, `span`, `features`, `body`
   (lowered statements, each with its `kind`, expressions as `{text, span}`), `block`, `accept`
-  (`param`, `signalType`, `viaPort`, `trigger`), `subflow` (the nested graph or its refusal),
+  (`param`, `signalType`, `viaPort`, `viaSelf` for a port path written from `this`, `trigger`), `subflow` (the nested graph or its refusal),
   `performs`, and `footprint` — the places the move reads and writes, the channels it sends on
   and accepts from, the control nodes it joins, `dynamic` when the lowering could not project it
   — present on every node the lowering computed one for. An `EdgeForm` is `source`, `target`,

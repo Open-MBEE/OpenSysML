@@ -18,7 +18,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.time.Duration;
 import org.junit.jupiter.api.Test;
+import org.openmbee.opensysml.internal.ConnectTransport;
 import org.openmbee.opensysml.internal.Protos;
 
 /** The public value types: immutable, comparable by value, and free of generated types. */
@@ -636,6 +638,54 @@ class PublicTypesTest {
       } else {
         super.writeInt(value);
       }
+    }
+  }
+
+  @Test
+  void anEditExceptionPreservesItsRefusalWhenSerialized() throws Exception {
+    List<Diagnostic> diagnostics =
+        List.of(
+            new Diagnostic(Diagnostic.Severity.ERROR, "still referred", "", Optional.empty()));
+    List<Referrer> referrers =
+        List.of(
+            new Referrer("EngineUser::Car", "engine_user.sysml"),
+            new Referrer("EngineUser::Truck", "engine_user.sysml"));
+    List<String> referringElements = List.of("EngineUser::Car (engine_user.sysml)");
+    EditException original =
+        new EditException(
+            "Demo::sc is referred to",
+            EditFailure.DELETE_REFERENCED,
+            "EDIT_FAILURE_DELETE_REFERENCED",
+            diagnostics,
+            referringElements,
+            referrers);
+
+    ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+    try (ObjectOutputStream output = new ObjectOutputStream(bytes)) {
+      output.writeObject(original);
+    }
+    try (ObjectInputStream input =
+        new ObjectInputStream(new ByteArrayInputStream(bytes.toByteArray()))) {
+      EditException restored = (EditException) input.readObject();
+      assertEquals(original.getMessage(), restored.getMessage());
+      assertEquals(original.failure(), restored.failure());
+      assertEquals(original.failureName(), restored.failureName());
+      assertEquals(referrers, restored.referrers());
+      assertEquals(referringElements, restored.referringElements());
+      assertEquals(diagnostics, restored.diagnostics());
+    }
+  }
+
+  @Test
+  void theExploreEngineNeedsScheduleExploreBesideEngines() {
+    try (Connection limited =
+        new Connection(
+            new ConnectTransport("127.0.0.1:1", Encoding.PROTOBUF, Duration.ofSeconds(1)),
+            new Capabilities("dev", java.util.Set.of(Capabilities.ENGINES)))) {
+      Model model = new Model(limited, "hash", List.of(), List.of());
+      CapabilityException refused =
+          assertThrows(CapabilityException.class, () -> model.withEngine("explore"));
+      assertEquals(Capabilities.SCHEDULE_EXPLORE, refused.capability());
     }
   }
 

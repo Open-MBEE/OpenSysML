@@ -23,6 +23,7 @@ public class ModelException extends OpenSysMLException {
   private static final long serialVersionUID = 2L;
   private static final int MAX_SERIALIZED_DIAGNOSTICS = 100_000;
 
+  private final FailureReason failureReason;
   private transient List<Diagnostic> diagnostics;
 
   /**
@@ -32,8 +33,29 @@ public class ModelException extends OpenSysMLException {
    * @param diagnostics diagnostics the answer carried
    */
   public ModelException(String message, List<Diagnostic> diagnostics) {
+    this(message, FailureReason.UNSPECIFIED, diagnostics);
+  }
+
+  /**
+   * Creates a model exception the service classified.
+   *
+   * @param message the failure, as the service worded it
+   * @param failureReason what kind of failure it is
+   * @param diagnostics diagnostics the answer carried
+   */
+  public ModelException(String message, FailureReason failureReason, List<Diagnostic> diagnostics) {
     super(message);
+    this.failureReason = Objects.requireNonNull(failureReason, "failureReason");
     this.diagnostics = List.copyOf(Objects.requireNonNull(diagnostics, "diagnostics"));
+  }
+
+  /**
+   * What kind of failure this is, so a caller acts on the kind rather than on the message text.
+   *
+   * @return the reason; {@link FailureReason#UNSPECIFIED} when the service did not classify it
+   */
+  public FailureReason failureReason() {
+    return failureReason;
   }
 
   /**

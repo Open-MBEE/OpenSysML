@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -595,5 +596,564 @@ class ApiIntegrationTest {
     closed.close();
     closed.close(); // idempotent
     assertThrows(IllegalStateException.class, () -> closed.parse(VEHICLE));
+  }
+
+  private static final String BEHAVIOR =
+      """
+      package Test {
+        private import ScalarValues::*;
+        action addFive {
+          attribute result : Integer = 0;
+          first start;
+          action inner { assign result := result + 5; }
+          done;
+          succession first start then inner;
+          succession first inner then done;
+        }
+        action noStart {
+          attribute result : Integer = 0;
+        }
+        action race {
+          attribute x : Integer = 0;
+          first start;
+          fork split;
+          action a { assign x := 1; }
+          action b { assign x := 2; }
+          action c { assign x := 3; }
+          join sync;
+          done;
+          succession first start then split;
+          succession first split then a;
+          succession first split then b;
+          succession first split then c;
+          succession first a then sync;
+          succession first b then sync;
+          succession first c then sync;
+          succession first sync then done;
+        }
+        state Machine {
+          entry; then init;
+          state init;
+          state Running;
+          succession first init then Running;
+          succession first Running then done;
+        }
+      }
+      """;
+
+  @Test
+  void anActionRunsWithItsInputsAndReportsItsAttributes() {
+    Model model = connection.parse(BEHAVIOR);
+    ActionRun run = model.executeAction("Test::addFive");
+    assertEquals(new Value.IntegerValue(5), run.outputs().get("result"));
+    assertEquals(
+        connection.capabilities().has(Capabilities.FINAL_TIME), run.finalTime().isPresent());
+
+    ActionRun seeded =
+        model.executeAction("Test::addFive", Map.of("result", new Value.IntegerValue(10)));
+    assertEquals(new Value.IntegerValue(15), seeded.outputs().get("result"));
+
+    ActionRun declared =
+        model.executeAction(
+            "Test::race", Map.of(), ExecutionOptions.defaults().withSchedule("declared"));
+    assertEquals(new Value.IntegerValue(3), declared.outputs().get("x"));
+  }
+
+  @Test
+  void anActionThatCannotStartIsAModelFailureAndABadScheduleIsRefused() {
+    Model model = connection.parse(BEHAVIOR);
+    ModelException failed =
+        assertThrows(ModelException.class, () -> model.executeAction("Test::noStart"));
+    assertFalse(failed.getMessage().isBlank());
+    ServiceException refused =
+        assertThrows(
+            ServiceException.class,
+            () ->
+                model.executeAction(
+                    "Test::race", Map.of(), ExecutionOptions.defaults().withSchedule("seed:abc")));
+    assertEquals(StatusCode.INVALID_ARGUMENT, refused.status());
+    assertTrue(refused.getMessage().contains("seed:abc"));
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            model.exploreAction(
+                "Test::race", Map.of(), ExecutionOptions.defaults().withSchedule("declared")));
+  }
+
+  @Test
+  void exploringAnActionReachesEveryOutcomeWithItsWitness() {
+    Model model = connection.parse(BEHAVIOR);
+    Exploration exploration = model.exploreAction("Test::race");
+    assertTrue(exploration.complete());
+    assertEquals(6, exploration.runs());
+    assertEquals(List.of(), exploration.budgetsHit());
+    assertEquals("complete (6 runs)", exploration.status());
+    assertEquals(
+        List.of(new Value.IntegerValue(1), new Value.IntegerValue(2), new Value.IntegerValue(3)),
+        exploration.outcomes().stream().map(o -> o.outputs().get("x")).toList());
+    for (Outcome outcome : exploration.outcomes()) {
+      assertTrue(outcome.completed());
+      assertEquals(2, outcome.linearizations());
+      assertFalse(outcome.witness().isEmpty());
+    }
+
+    Exploration bounded =
+        model.exploreAction(
+            "Test::race", Map.of(), ExecutionOptions.defaults().withSchedule("explore:runs=2"));
+    assertFalse(bounded.complete());
+    assertEquals(List.of("runs"), bounded.budgetsHit());
+    assertEquals(2, bounded.runsBudget());
+    assertTrue(bounded.status().startsWith("incomplete: runs budget 2"));
+  }
+
+  @Test
+  void aStateMachineReportsTheStatesItVisitedAndExploresToItsFinalState() {
+    Model model = connection.parse(BEHAVIOR);
+    StateRun run = model.executeState("Test::Machine", List.of());
+    assertEquals(List.of("init", "Running", "done"), run.statesVisited());
+    assertEquals(Optional.of("done"), run.finalState());
+
+    Exploration exploration = model.exploreState("Test::Machine", List.of());
+    assertTrue(exploration.complete());
+    assertEquals(1, exploration.outcomes().size());
+    assertEquals(Optional.of("done"), exploration.outcomes().get(0).finalState());
+    assertEquals(
+        List.of("init", "Running", "done"), exploration.outcomes().get(0).statesVisited());
+
+    assertThrows(ModelException.class, () -> model.executeState("Test::NoMachine", List.of()));
+  }
+
+  private static final String VERIFICATION =
+      """
+      package Demo {
+        part def Vehicle {
+          attribute mass default = 1500.0;
+          constraint massPositive { mass > 0.0 }
+          constraint massLight { mass < 100.0 }
+          requirement lightEnough { require constraint { mass < 2000.0 } }
+          requirement tiny { require constraint { mass < 10.0 } }
+        }
+        requirement def MassLimit {
+          subject vehicle : Vehicle;
+          attribute maxMass;
+          require constraint { vehicle.mass <= maxMass }
+        }
+        requirement massLimit : MassLimit { attribute :>> maxMass = 2000.0; }
+        requirement massTiny : MassLimit { attribute :>> maxMass = 10.0; }
+        part sedan : Vehicle { attribute :>> mass = 1200.0; }
+        part analysis {
+          assert satisfy massLimit by sedan;
+          assert satisfy massTiny by sedan;
+        }
+        calc add { in x; in y; x + y }
+      }
+      """;
+
+  @Test
+  void aConstraintIsVerifiedAgainstDeclaredValuesOrAnObjectAndAFalseAnswerIsNotAFailure() {
+    Model model = connection.parse(VERIFICATION);
+    Verification holding = model.verifyConstraint("Demo::Vehicle::massPositive");
+    assertTrue(holding.holds());
+    assertTrue(holding.verdict().decided());
+    assertEquals(Optional.empty(), holding.subject());
+
+    Verification violated = model.verifyConstraint("Demo::Vehicle::massLight");
+    assertFalse(violated.holds());
+    assertTrue(violated.verdict().violated());
+    assertTrue(violated.verdict().condition().isPresent());
+    assertEquals(Optional.empty(), violated.verdict().error());
+
+    Verification about = model.verifyConstraint("Demo::Vehicle::massPositive", "Demo::sedan");
+    assertTrue(about.holds());
+    assertEquals("Demo::sedan", about.subject().orElseThrow().typeSymbolId());
+
+    Verification wrongKind = model.verifyConstraint("Demo::sedan");
+    assertFalse(wrongKind.verdict().decided());
+    assertFalse(wrongKind.holds());
+    assertEquals(FailureReason.WRONG_KIND, wrongKind.verdict().failureReason());
+    assertTrue(wrongKind.verdict().error().orElseThrow().length() > 0);
+  }
+
+  @Test
+  void requirementsAndSatisfactionsReportEachVerdict() {
+    Model model = connection.parse(VERIFICATION);
+    assertTrue(model.verifyRequirement("Demo::Vehicle::lightEnough").holds());
+    Verification tiny = model.verifyRequirement("Demo::Vehicle::tiny");
+    assertTrue(tiny.verdict().violated());
+
+    Satisfaction all = model.verifySatisfaction();
+    assertEquals(2, all.verdicts().size());
+    assertFalse(all.holds());
+    assertEquals(1, all.violated().size());
+    assertEquals(List.of(), all.undecided());
+    assertEquals(Optional.of("Demo::massTiny"), all.violated().get(0).requirementId());
+
+    Satisfaction scoped = model.verifySatisfaction("Demo::analysis");
+    assertEquals(2, scoped.verdicts().size());
+
+    Validation validation = model.validateInstance("Demo::sedan");
+    assertFalse(validation.holds());
+    assertEquals("Demo::sedan", validation.root().orElseThrow().typeSymbolId());
+    assertTrue(validation.verdicts().size() >= 2);
+    assertThrows(ModelException.class, () -> model.validateInstance("Demo::nosuch"));
+    ModelException wrongKind =
+        assertThrows(ModelException.class, () -> model.validateInstance("Demo"));
+    assertEquals(FailureReason.WRONG_KIND, wrongKind.failureReason());
+  }
+
+  private static final String VERIFICATION_CASES =
+      """
+      package Demo {
+        private import ScalarValues::*;
+        part def Widget { attribute m : Integer default = 0; }
+        part good : Widget;
+        requirement def Zeroed {
+          subject w : Widget;
+          require constraint { w.m == 0 }
+        }
+        requirement zeroed : Zeroed { subject w = good; }
+        requirement bounded : Zeroed { subject w = good; }
+        verification def ZeroCheck {
+          subject w : Widget;
+          objective { verify zeroed; }
+          VerificationCases::PassIf(w.m == 0)
+        }
+        verification def BoundCheck {
+          subject w : Widget;
+          objective { verify bounded; }
+          VerificationCases::PassIf(w.m == 1)
+        }
+        verification checkZero : ZeroCheck { subject w = good; }
+        verification checkBound : BoundCheck { subject w = good; }
+        part checks {
+          assert satisfy zeroed by good;
+          assert satisfy bounded by good;
+        }
+      }
+      """;
+
+  @Test
+  void theVerificationCasesOfARequirementReportBesideItsVerdict() {
+    Model model = connection.parse(VERIFICATION_CASES);
+    Verification bounded = model.verifyRequirement("Demo::bounded");
+    assertTrue(bounded.holds());
+    assertEquals(1, bounded.verifications().size());
+    VerificationVerdict check = bounded.verifications().get(0);
+    assertEquals("Demo::checkBound", check.caseId());
+    assertEquals(VerificationVerdict.FAIL, check.kind());
+    assertFalse(check.passed());
+    assertEquals(Optional.of("Demo::bounded"), check.requirementId());
+
+    Satisfaction checks = model.verifySatisfaction("Demo::checks");
+    assertTrue(checks.holds());
+    assertEquals(VerificationVerdict.PASS, checks.verificationsOf("Demo::zeroed").get(0).kind());
+    assertEquals(VerificationVerdict.FAIL, checks.verificationsOf("Demo::bounded").get(0).kind());
+  }
+
+  @Test
+  void aCalcIsEvaluatedWithPositionalArgumentsAndTheWrongKindIsAModelFailure() {
+    Model model = connection.parse(VERIFICATION);
+    Calculation sum =
+        model.evaluateCalc(
+            "Demo::add", List.of(new Value.IntegerValue(2), new Value.IntegerValue(3)));
+    assertEquals(Optional.of(new Value.IntegerValue(5)), sum.value());
+    assertEquals(Optional.of(new Value.IntegerValue(5)), sum.result());
+    ModelException wrongKind =
+        assertThrows(ModelException.class, () -> model.evaluateCalc("Demo::sedan", List.of()));
+    assertEquals(FailureReason.WRONG_KIND, wrongKind.failureReason());
+  }
+
+  @Test
+  void aTradeStudyArrivesThroughThePublicApiWithItsSelectedAlternative() {
+    Model model = connection.parse(TRADE_STUDY);
+    Analysis analysis = model.runAnalysis("Trade::lightest");
+    assertTrue(analysis.holds());
+    assertEquals("tradeStudyObjective", analysis.objective().orElseThrow().element());
+    Value selected = analysis.outputs().get("selectedAlternative");
+    assertInstanceOf(Value.InstanceReference.class, selected);
+    assertEquals(
+        "Trade::b",
+        analysis.resolve((Value.InstanceReference) selected).orElseThrow().typeSymbolId());
+    assertEquals(
+        List.of("Trade::a", "Trade::b", "Trade::c"),
+        analysis.evaluations().stream()
+            .map(e -> analysis.resolve((Value.InstanceReference) e.arguments().get(0)))
+            .map(i -> i.orElseThrow().typeSymbolId())
+            .toList());
+    assertEquals(
+        List.of(false, true, false),
+        analysis.evaluations().stream().map(org.openmbee.opensysml.CaseEvaluation::selected).toList());
+    assertEquals(
+        List.of(false, false, true),
+        analysis.evaluations().stream().map(org.openmbee.opensysml.CaseEvaluation::tied).toList());
+    assertEquals(analysis.evaluations().get(1), analysis.selected().orElseThrow());
+  }
+
+  @Test
+  void anAnalysisBindsItsArgumentsAndAFailedRunKeepsWhatItLeft() {
+    Model model = connection.parse(TRADE_STUDY);
+    Analysis three =
+        model.runAnalysis(
+            "Trade::perOffset",
+            AnalysisOptions.defaults().withNamedArguments(Map.of("offset", new Value.IntegerValue(3))));
+    assertEquals(
+        List.of(Optional.of(new Value.RealValue(10.0)), Optional.of(new Value.RealValue(10.0))),
+        three.evaluations().stream().map(org.openmbee.opensysml.CaseEvaluation::result).toList());
+
+    AnalysisException failed =
+        assertThrows(
+            AnalysisException.class,
+            () ->
+                model.runAnalysis(
+                    "Trade::perOffset",
+                    AnalysisOptions.defaults().withArguments(List.of(new Value.IntegerValue(4)))));
+    assertTrue(failed.getMessage().contains("division by zero"));
+    assertEquals(FailureReason.EVALUATION, failed.failureReason());
+    Analysis partial = failed.partial().orElseThrow();
+    assertEquals(2, partial.evaluations().size());
+    assertEquals(Optional.of(new Value.RealValue(15.0)), partial.evaluations().get(0).result());
+    assertTrue(partial.evaluations().get(1).error().orElseThrow().contains("division by zero"));
+    assertFalse(partial.holds());
+    assertEquals(Optional.empty(), partial.selected());
+
+    ModelException wrongKind =
+        assertThrows(ModelException.class, () -> model.runAnalysis("Trade::a"));
+    assertEquals(FailureReason.WRONG_KIND, wrongKind.failureReason());
+    assertFalse(wrongKind instanceof AnalysisException);
+  }
+
+  @Test
+  void theExploreEngineRunsNoSingleAnalysis() {
+    Model model = connection.parse(TRADE_STUDY);
+    if (!connection.capabilities().has(Capabilities.SCHEDULE_EXPLORE)) {
+      assertThrows(CapabilityException.class, () -> model.withEngine("explore"));
+      return;
+    }
+    Model exploring = model.withEngine("explore");
+    IllegalArgumentException refused =
+        assertThrows(
+            IllegalArgumentException.class, () -> exploring.runAnalysis("Trade::lightest"));
+    assertEquals("engine explore answers every outcome; use exploreAnalysis", refused.getMessage());
+  }
+
+  private static final String QUERY =
+      """
+      package Demo {
+        abstract part def Vehicle { attribute mass; }
+        part def Wheel;
+        part vehicle : Vehicle {
+          part wheels : Wheel[4];
+          attribute vin;
+        }
+        part spare : Wheel;
+      }
+      """;
+
+  @Test
+  void aQuerySelectsElementsByTypeScopeAndProperty() {
+    Model model = connection.parse(QUERY);
+    List<String> all = model.query(Query.all()).stream().map(QueryElement::id).toList();
+    assertTrue(all.containsAll(List.of("Demo", "Demo::Vehicle", "Demo::vehicle::wheels", "Demo::spare")));
+
+    List<QueryElement> parts =
+        model.query(Query.all().where(Condition.equal("@type", List.of("PartUsage"))));
+    assertEquals(
+        List.of("Demo::spare", "Demo::vehicle", "Demo::vehicle::wheels"),
+        parts.stream().map(QueryElement::id).sorted().toList());
+    parts.forEach(e -> assertEquals("PartUsage", e.type()));
+
+    List<QueryElement> scoped = model.query(Query.all().withScope(List.of("Demo::vehicle")));
+    assertEquals(3, scoped.size());
+
+    List<QueryElement> selected =
+        model.query(
+            Query.all()
+                .withSelect(List.of("name", "owner"))
+                .where(Condition.equal("qualifiedName", List.of("Demo::vehicle::wheels"))));
+    assertEquals(
+        List.of(
+            new QueryElement(
+                "Demo::vehicle::wheels",
+                "PartUsage",
+                Map.of("name", "wheels", "owner", "Demo::vehicle"))),
+        selected);
+
+    assertEquals(
+        3, model.queryOslc("oslc.where=rdf:type=\"PartUsage\"&oslc.select=sysml:name").size());
+    ServiceException refused =
+        assertThrows(
+            ServiceException.class,
+            () -> model.query(Query.all().withScope(List.of("Demo::Missing"))));
+    assertEquals(StatusCode.INVALID_ARGUMENT, refused.status());
+  }
+
+  @Test
+  void theServiceListsItsEnginesAndAModelCanBeBoundToOne() {
+    List<EngineInfo> engines = connection.listEngines();
+    assertFalse(engines.isEmpty());
+    engines.forEach(e -> assertFalse(e.name().isBlank()));
+    Model model = connection.parse(VERIFICATION);
+    Model bound = model.withEngine(Standing.ENGINE_AUTO);
+    assertEquals(Optional.of(Standing.ENGINE_AUTO), bound.engine());
+    assertEquals(model.hash(), bound.hash());
+    Verification holding = bound.verifyConstraint("Demo::Vehicle::massPositive");
+    assertTrue(holding.holds());
+  }
+
+  private static Path fixture(String name) {
+    return Path.of(System.getProperty("user.dir"))
+        .resolve("../../../conformance/fixtures")
+        .normalize()
+        .resolve(name);
+  }
+
+  @Test
+  void parseSourcesParsesSeveralDocumentsAsOneModel() throws Exception {
+    Model model =
+        connection.parseSources(
+            List.of(
+                SourceDocument.inline(
+                    "engine_library.sysml",
+                    Files.readString(fixture("engine_library.sysml"))),
+                SourceDocument.inline(
+                    "engine_user.sysml", Files.readString(fixture("engine_user.sysml")))));
+    assertEquals(2, model.roots().size());
+    assertTrue(model.root().isPresent());
+    assertEquals("Engine", model.symbol("EngineLibrary::Engine").name());
+    assertEquals("Car", model.symbol("EngineUser::Car").name());
+  }
+
+  @Test
+  void parseSourcesRefusesTwoDocumentsOfOneName() throws Exception {
+    ServiceException refused =
+        assertThrows(
+            ServiceException.class,
+            () ->
+                connection.parseSources(
+                    List.of(
+                        SourceDocument.inline(
+                            "same.sysml", Files.readString(fixture("engine_library.sysml"))),
+                        SourceDocument.inline(
+                            "same.sysml", Files.readString(fixture("engine_user.sysml"))))));
+    assertEquals(StatusCode.INVALID_ARGUMENT, refused.status());
+  }
+
+  @Test
+  void convertRewritesContentAndAParsedModel() throws Exception {
+    String source = Files.readString(fixture("vehicle.sysml"));
+    Conversion conversion =
+        connection.convert(
+            source, "sysml", ConversionOptions.defaults().withFromFormat("sysml"));
+    assertFalse(conversion.content().isBlank());
+    assertEquals("sysml", conversion.fromFormat());
+    assertEquals("sysml", conversion.toFormat());
+    assertTrue(conversion.content().contains("package"));
+
+    Model model = connection.load(fixture("vehicle.sysml"));
+    Conversion roundTrip = model.convert("sysml");
+    assertFalse(roundTrip.content().isBlank());
+  }
+
+  @Test
+  void convertOfUnreadableNotationIsAModelFailure() throws Exception {
+    String source = Files.readString(fixture("syntax_error.sysml"));
+    ModelException failed =
+        assertThrows(
+            ModelException.class,
+            () ->
+                connection.convert(
+                    source, "sysml", ConversionOptions.defaults().withFromFormat("sysml")));
+    assertFalse(failed.diagnostics().isEmpty());
+  }
+
+  @Test
+  void applyEditsRewritesAValueAndAnswersTheText() {
+    Model model = connection.load(fixture("editable.sysml"));
+    EditResult result =
+        model.applyEdits(List.of(new Edit.SetValue("Demo::SC::unitMass", "1050.0[SI::kg]")));
+    assertFalse(result.content().isBlank());
+    assertTrue(result.content().contains("1050.0"));
+    assertEquals(1, result.applied().size());
+    assertEquals("Demo::SC::unitMass", result.applied().get(0).target());
+  }
+
+  @Test
+  void applyEditsRefusesAnUnknownTargetByKind() {
+    Model model = connection.load(fixture("editable.sysml"));
+    EditException refused =
+        assertThrows(
+            EditException.class,
+            () -> model.applyEdits(List.of(new Edit.SetValue("Demo::SC::nope", "1.0"))));
+    assertEquals(EditFailure.UNKNOWN_TARGET, refused.failure());
+    assertEquals("EDIT_FAILURE_UNKNOWN_TARGET", refused.failureName());
+  }
+
+  @Test
+  void runSweepStepsThroughARangeAndReportsEachRow() {
+    Model model = connection.load(fixture("sweep.sysml"));
+    Sweep sweep =
+        model.runSweep(
+            "Sw::Sum",
+            List.of(
+                org.openmbee.opensysml.SweepRange.of(
+                        "b", new Value.RealValue(0.0), new Value.RealValue(4.0))
+                    .withStep(new Value.RealValue(2.0))),
+            SweepOptions.defaults().withArguments(List.of(new Value.RealValue(1.0))));
+    assertEquals(List.of("b"), sweep.parameters());
+    assertEquals(3, sweep.rows().size());
+    assertFalse(sweep.sampled());
+    assertEquals(
+        new Value.RealValue(1.0), sweep.rows().get(0).outputs().get("result"));
+    assertFalse(sweep.rows().get(0).failed());
+  }
+
+  @Test
+  void runSweepOfAnotherKindIsAModelFailure() {
+    Model model = connection.load(fixture("sweep.sysml"));
+    ModelException failed =
+        assertThrows(
+            ModelException.class,
+            () ->
+                model.runSweep(
+                    "Sw::barge",
+                    List.of(
+                        org.openmbee.opensysml.SweepRange.of(
+                                "limit", new Value.RealValue(0.0), new Value.RealValue(4.0))
+                            .withStep(new Value.RealValue(2.0)))));
+    assertEquals(FailureReason.WRONG_KIND, failed.failureReason());
+  }
+
+  @Test
+  void runDocumentQueryAnswersTypedRows() {
+    Model model = connection.load(fixture("document.sysml"));
+    DocumentQueryResult result =
+        model.runDocumentQuery(
+            "Observatory::SubsystemTable",
+            Map.of(
+                "root",
+                List.of(new DocumentValue.ElementRef("Observatory::telescope", ""))));
+    assertEquals(List.of("name", "mass"), result.columns());
+    assertEquals(4, result.rows().size());
+    assertEquals(
+        "Observatory::telescope::baffle|shroud *tricky*", result.rows().get(0).element().id());
+    assertEquals(
+        List.of(new DocumentValue.StringValue("baffle|shroud *tricky*")),
+        result.rows().get(0).cells().get(0));
+  }
+
+  @Test
+  void renderDocumentRendersTheNamedDocument() {
+    Model model = connection.load(fixture("document.sysml"));
+    RenderedDocument rendered = model.renderDocument("Observatory::MassReport");
+    assertTrue(rendered.markdown().contains("# Telescope Mass Report"));
+  }
+
+  @Test
+  void renderDocumentOfAnUnknownDocumentIsNotFound() {
+    Model model = connection.load(fixture("document.sysml"));
+    ServiceException refused =
+        assertThrows(
+            ServiceException.class, () -> model.renderDocument("Observatory::NoSuchDocument"));
+    assertEquals(StatusCode.NOT_FOUND, refused.status());
   }
 }

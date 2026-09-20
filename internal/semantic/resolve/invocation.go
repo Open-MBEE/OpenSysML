@@ -159,6 +159,9 @@ func (r *Resolver) unqualifiedCandidates(scope *symbols.Scope, name string) []*s
 			if out, ok := r.localBindingCandidates(enclosing, name); ok {
 				return out
 			}
+			if out, ok := one(r.acceptPayload(enclosing, name)); ok {
+				return out
+			}
 		}
 		if out := r.importMatches(s, name); len(out) > 0 {
 			return out

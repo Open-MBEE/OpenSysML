@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+
+    <packagedElement xmi:type="uml:Package" xmi:id="_sigs" name="Signals">
+      <packagedElement xmi:type="uml:Signal" xmi:id="_setLevel" name="SetLevel">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_slValue" name="value">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedAttribute>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Signal" xmi:id="_stop" name="Stop"/>
+      <packagedElement xmi:type="uml:Signal" xmi:id="_reset" name="Reset"/>
+      <packagedElement xmi:type="uml:Signal" xmi:id="_boost" name="Boost"/>
+      <packagedElement xmi:type="uml:Signal" xmi:id="_setName" name="SetName">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_snName" name="name">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
+        </ownedAttribute>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Signal" xmi:id="_setLevels" name="SetLevels">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_slsValues" name="values">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_slsLo" value="0"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_slsHi" value="*"/>
+        </ownedAttribute>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Signal" xmi:id="_nudge" name="Nudge">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_ndDelta" name="delta">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedAttribute>
+      </packagedElement>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_heater" name="Heater">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_level" name="level">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_level0" value="0.0"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_rx" name="rx" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_aux" name="aux" aggregation="composite"/>
+      <ownedReception xmi:type="uml:Reception" xmi:id="_rcvSet" name="SetLevel" signal="_setLevel" method="_apply">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_rpValue" name="value" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedParameter>
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_rpExtra" name="extra" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedParameter>
+      </ownedReception>
+      <ownedReception xmi:type="uml:Reception" xmi:id="_rcvStop" name="Stop" signal="_stop"/>
+      <ownedReception xmi:type="uml:Reception" xmi:id="_rcvReset" name="Reset" signal="_reset" method="_resetting"/>
+      <ownedReception xmi:type="uml:Reception" xmi:id="_rcvBoost" name="Boost" signal="_boost" method="_boosting"/>
+      <ownedReception xmi:type="uml:Reception" xmi:id="_rcvName" name="SetName" signal="_setName" method="_naming"/>
+      <ownedReception xmi:type="uml:Reception" xmi:id="_rcvLevels" name="SetLevels" signal="_setLevels" method="_leveling"/>
+      <ownedReception xmi:type="uml:Reception" xmi:id="_rcvNudge" name="OnNudge" signal="_nudge" method="_nudging"/>
+      <ownedReception xmi:type="uml:Reception" xmi:id="_rcvAway" name="Away" signal="_elsewhere"/>
+      <ownedOperation xmi:type="uml:Operation" xmi:id="_opNudge" name="Nudge" method="_nudging">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_onDelta" name="delta" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedParameter>
+      </ownedOperation>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_apply" name="Apply Level" specification="_rcvSet">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_apValue" name="value" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedParameter>
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_apGain" name="gain" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+          <defaultValue xmi:type="uml:LiteralReal" xmi:id="_apGain0" value="1.0"/>
+        </ownedParameter>
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_apSlack" name="slack" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_apSlackLo" value="0"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_apSlackHi" value="1"/>
+        </ownedParameter>
+        <node xmi:type="uml:ActivityParameterNode" xmi:id="_apnValue" name="value" parameter="_apValue"/>
+        <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="_set" name="set level" structuralFeature="_level" isReplaceAll="true">
+          <value xmi:type="uml:InputPin" xmi:id="_setVal" name="value"/>
+        </node>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_of" source="_apnValue" target="_setVal"/>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_boosting" name="Boosting" specification="_rcvBoost">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_bpAmount" name="amount" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedParameter>
+        <node xmi:type="uml:ActivityParameterNode" xmi:id="_bpnAmount" name="amount" parameter="_bpAmount"/>
+        <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="_bset" name="set level" structuralFeature="_level" isReplaceAll="true">
+          <value xmi:type="uml:InputPin" xmi:id="_bsetVal" name="value"/>
+        </node>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_bof" source="_bpnAmount" target="_bsetVal"/>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_naming" name="Naming" specification="_rcvName">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_npName" name="name" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        </ownedParameter>
+        <node xmi:type="uml:ActivityParameterNode" xmi:id="_npnName" name="name" parameter="_npName"/>
+        <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="_nset" name="set level" structuralFeature="_level" isReplaceAll="true">
+          <value xmi:type="uml:InputPin" xmi:id="_nsetVal" name="value"/>
+        </node>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_nof" source="_npnName" target="_nsetVal"/>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_leveling" name="Leveling" specification="_rcvLevels">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_lpValues" name="values" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedParameter>
+        <node xmi:type="uml:ActivityParameterNode" xmi:id="_lpnValues" name="values" parameter="_lpValues"/>
+        <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="_lset" name="set level" structuralFeature="_level" isReplaceAll="true">
+          <value xmi:type="uml:InputPin" xmi:id="_lsetVal" name="value"/>
+        </node>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_lof" source="_lpnValues" target="_lsetVal"/>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_nudging" name="Nudging" specification="_opNudge">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_ngDelta" name="d" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedParameter>
+        <node xmi:type="uml:ActivityParameterNode" xmi:id="_ngnDelta" name="d" parameter="_ngDelta"/>
+        <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="_ngset" name="set level" structuralFeature="_level" isReplaceAll="true">
+          <value xmi:type="uml:InputPin" xmi:id="_ngsetVal" name="value"/>
+        </node>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_ngof" source="_ngnDelta" target="_ngsetVal"/>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_resetting" name="Resetting">
+        <region xmi:type="uml:Region" xmi:id="_rr">
+          <subvertex xmi:type="uml:State" xmi:id="_idle" name="Idle"/>
+        </region>
+      </ownedBehavior>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_thermostat" name="Thermostat">
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_tx" name="tx" aggregation="composite"/>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_turnUp" name="Turn Up">
+        <node xmi:type="uml:InitialNode" xmi:id="_tuInit"/>
+        <node xmi:type="uml:ValueSpecificationAction" xmi:id="_tuSeven" name="seven">
+          <value xmi:type="uml:LiteralReal" xmi:id="_tuSevenV" value="7.25"/>
+          <result xmi:type="uml:OutputPin" xmi:id="_tuSevenOut" name="result"/>
+        </node>
+        <node xmi:type="uml:SendSignalAction" xmi:id="_tuSend" name="send level" signal="_setLevel" onPort="_tx">
+          <argument xmi:type="uml:InputPin" xmi:id="_tuSendValue" name="value"/>
+        </node>
+        <node xmi:type="uml:SendSignalAction" xmi:id="_tuStop" name="send stop" signal="_stop" onPort="_tx"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_tuFinal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_tuE1" source="_tuInit" target="_tuSeven"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_tuOf" source="_tuSevenOut" target="_tuSendValue"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_tuE2" source="_tuSend" target="_tuStop"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_tuE3" source="_tuStop" target="_tuFinal"/>
+      </ownedBehavior>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_room" name="Room">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_roomT" name="t" type="_thermostat" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_roomH" name="h" type="_heater" aggregation="composite"/>
+      <ownedConnector xmi:type="uml:Connector" xmi:id="_roomLink">
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_roomLink1" role="_tx" partWithPort="_roomT"/>
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_roomLink2" role="_rx" partWithPort="_roomH"/>
+      </ownedConnector>
+    </packagedElement>
+  </uml:Model>
+
+  <sysml:Block xmi:id="_s1" base_Class="_heater"/>
+  <sysml:Block xmi:id="_s2" base_Class="_thermostat"/>
+  <sysml:Block xmi:id="_s3" base_Class="_room"/>
+</xmi:XMI>

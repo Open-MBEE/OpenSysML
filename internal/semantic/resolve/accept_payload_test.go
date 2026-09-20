@@ -109,6 +109,40 @@ func TestAcceptPayloadShadowsOuterFeature(t *testing.T) {
 	}
 }
 
+// A payload is nearer than the outer scopes' bindings from inside a typed nested
+// usage's body too: the perform's argument reads it, not the same-named outer usage.
+func TestAcceptPayloadShadowsOuterFromTypedUsageBody(t *testing.T) {
+	const src = `
+		package P {
+			item def Warning { attribute level; }
+			part def Alarm {
+				action def Handle { in level; }
+				action def Watch {
+					action wait accept msg : Warning;
+					perform action run : Handle { in level = msg.level; }
+				}
+				action msg : Watch;
+			}
+		}
+	`
+	r := resolveDoc(t, "d.sysml", src)
+	assertNoUnresolved(t, r)
+
+	run := scopeNamed(t, r, "d.sysml", "run")
+	wait := scopeNamed(t, r, "d.sysml", "wait")
+	payload, ok := wait.LookupLocal("msg")
+	if !ok {
+		t.Fatal("the accept node declares no payload named msg")
+	}
+	sym, ok := r.LookupName(run, "msg")
+	if !ok {
+		t.Fatal("msg does not resolve in the perform's body")
+	}
+	if sym.Decl != payload.Decl {
+		t.Errorf("msg resolved to %v, want the accept payload declaration", sym.Decl)
+	}
+}
+
 // A name nothing declares is still reported, payloads or not.
 func TestAcceptPayloadUnresolvedStillReported(t *testing.T) {
 	r := resolveDoc(t, "d.sysml", `

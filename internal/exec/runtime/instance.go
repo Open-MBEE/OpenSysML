@@ -1089,9 +1089,9 @@ func (ctx *Context) CompositeTypeOf(feat *EffectiveFeature) *symbols.Symbol {
 	if ctx.model.semantics.IsVariationFeature(feat.Symbol) {
 		return nil
 	}
-	// A subject is a reference usage (SysML.xtext SubjectUsage): it holds what
-	// is bound to it, never an object of its own.
-	if isSubjectUsage(feat.Symbol) {
+	// A reference usage — a subject (SysML.xtext SubjectUsage), a `ref` usage or
+	// one that `references` another — holds what is bound to it, never an object of its own.
+	if isSubjectUsage(feat.Symbol) || isReferenceUsage(feat.Symbol) {
 		return nil
 	}
 	if feat.Symbol != nil && (ctx.declaresFeatures(feat) || untypedOccurrenceUsage(feat)) {
@@ -1114,14 +1114,24 @@ func (ctx *Context) declaresFeatures(feat *EffectiveFeature) bool {
 	return false
 }
 
-// untypedOccurrenceUsage reports an occurrence usage declaring no type, which its kind's implicit
-// base still classifies (SysML v2 §7.9.2: an untyped `item` is an Items::Item).
+// untypedOccurrenceUsage reports an occurrence or port usage declaring no type, which its
+// kind's implicit base still classifies (SysML v2 §7.9.2: an untyped `item` is an Items::Item,
+// an untyped `port` a Ports::Port).
 func untypedOccurrenceUsage(feat *EffectiveFeature) bool {
-	if feat.Type != nil || !isOccurrenceUsage(feat.Symbol) {
+	if feat.Type != nil || !(isOccurrenceUsage(feat.Symbol) || untypedPortUsage(feat.Symbol)) {
 		return false
 	}
 	usage := feat.Symbol.Decl.(*ast.Usage)
 	return !usage.IsReference
+}
+
+// untypedPortUsage reports a port usage, whose object a binding connector can join to another's.
+func untypedPortUsage(sym *symbols.Symbol) bool {
+	if sym == nil || sym.Kind != symbols.SymbolPortUsage {
+		return false
+	}
+	usage, ok := sym.Decl.(*ast.Usage)
+	return ok && usage.Value == nil
 }
 
 // isSubjectUsage reports whether sym is the subject parameter of a case.
@@ -1134,6 +1144,27 @@ func isSubjectUsage(sym *symbols.Symbol) bool {
 		return true
 	case *ast.Usage:
 		return decl.Kind == ast.UsageSubject
+	}
+	return false
+}
+
+// isReferenceUsage reports a usage declared `ref` or with a `references` relationship
+// (SysML v2 §7.6.2: Usage::isReference), which owns none of the objects it holds.
+func isReferenceUsage(sym *symbols.Symbol) bool {
+	if sym == nil {
+		return false
+	}
+	usage, ok := sym.Decl.(*ast.Usage)
+	if !ok {
+		return false
+	}
+	if usage.IsReference {
+		return true
+	}
+	for _, rel := range usage.Relationships {
+		if rel != nil && rel.Kind == ast.RelReferences {
+			return true
+		}
 	}
 	return false
 }

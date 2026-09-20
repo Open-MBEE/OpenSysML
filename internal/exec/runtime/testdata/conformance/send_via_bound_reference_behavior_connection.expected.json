@@ -1,0 +1,29 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "SendViaBoundReferenceBehaviorConnection::Rig",
+  "materialization": {},
+  "objects": [
+    {
+      "path": "",
+      "events": [{"signal": "Go"}],
+      "finalState": "fired",
+      "stateVisits": ["idle", "firing", "fired"]
+    },
+    {
+      "path": "bound",
+      "finalState": "heard",
+      "stateVisits": ["idle", "heard"]
+    },
+    {
+      "path": "wired",
+      "finalState": "heard",
+      "stateVisits": ["idle", "heard"]
+    },
+    {
+      "path": "decoy",
+      "finalState": "idle",
+      "stateVisits": ["idle"]
+    }
+  ]
+}
