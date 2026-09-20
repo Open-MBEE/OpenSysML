@@ -63,7 +63,9 @@
   object's port even when the performer owns a feature of the same name, the binding shadowing
   it as it does in every other expression, while `via this.ctx.p` stays the performer's own,
   and a state transition's `accept … via ctx.p` resolves its path the same way through the
-  machine's parameters;
+  machine's parameters; the behavior's own connectors are read the same way, so a
+  `connect ctx.p to snk.local` between two bound references carries that send beside the
+  connections of the object holding the port;
   a part's port is known to the connectors its type inherits under the name the
   part was declared with before redefinition; a `ref` usage holds what is bound to it rather than
   an object of its own; and an untyped `port` materializes as a `Ports::Port`, so a binding
