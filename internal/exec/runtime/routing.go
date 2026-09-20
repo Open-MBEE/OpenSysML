@@ -44,6 +44,22 @@ func (e *SendTargetValueError) Error() string {
 
 func (e *SendTargetValueError) Unwrap() error { return ErrSendTargetNotObject }
 
+// ErrSendViaNotPort reports a via path that is a binding of the sending behavior
+// holding an object which is no port.
+var ErrSendViaNotPort = errors.New("send via holds no port")
+
+// ViaNotPortError gives the bound via path holding an object that is no port, and what it holds.
+type ViaNotPortError struct {
+	Via   string // the via path as written
+	Value string // the object the binding holds, formatted
+}
+
+func (e *ViaNotPortError) Error() string {
+	return fmt.Sprintf("%s: %q holds %s, which is no port to send via", ErrSendViaNotPort, e.Via, e.Value)
+}
+
+func (e *ViaNotPortError) Unwrap() error { return ErrSendViaNotPort }
+
 // UnknownSendPortError gives the routed send's invalid port and receiver.
 type UnknownSendPortError struct {
 	Port     string
