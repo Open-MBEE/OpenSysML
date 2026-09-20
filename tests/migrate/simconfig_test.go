@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/migrate"
 )
 
@@ -151,6 +152,226 @@ func TestSimulationConfigOfAnotherProfileIsNotARunConfiguration(t *testing.T) {
 	}
 	if errs := errors(t, "t.sysml", r.Notation); len(errs) > 0 {
 		t.Errorf("the migrated document does not analyse clean: %v\n%s", errs, r.Notation)
+	}
+}
+
+// testBench is a block whose classifier behavior is a «TestCase» interaction
+// storing a reply; Idle Bench specializes it with a test case with no message.
+const testBench = `
+    <packagedElement xmi:type="uml:Class" xmi:id="_motor" name="Motor">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_speed" name="speed">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_speed0" value="0.0"/>
+      </ownedAttribute>
+      <ownedOperation xmi:type="uml:Operation" xmi:id="_spin" name="Spin" method="_spinning">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_spRpm" name="rpm" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedParameter>
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_spRes" name="result" direction="return">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedParameter>
+      </ownedOperation>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_spinning" name="Spinning" specification="_spin">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_spRpm2" name="rpm" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedParameter>
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_spRes2" name="result" direction="return">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedParameter>
+        <node xmi:type="uml:ActivityParameterNode" xmi:id="_apnRpm" name="rpm" parameter="_spRpm2"/>
+        <node xmi:type="uml:ActivityParameterNode" xmi:id="_apnRes" name="result" parameter="_spRes2"/>
+        <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="_set" name="set speed" structuralFeature="_speed" isReplaceAll="true">
+          <value xmi:type="uml:InputPin" xmi:id="_setVal" name="value"/>
+        </node>
+        <node xmi:type="uml:ReadStructuralFeatureAction" xmi:id="_read" name="read speed" structuralFeature="_speed">
+          <result xmi:type="uml:OutputPin" xmi:id="_readOut" name="result"/>
+        </node>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_ofRpm" source="_apnRpm" target="_setVal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_cfSet" source="_set" target="_read"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_ofRes" source="_readOut" target="_apnRes"/>
+      </ownedBehavior>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_ctrl" name="Controller">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_got" name="got">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_got0" value="0.0"/>
+      </ownedAttribute>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_bench" name="Bench" classifierBehavior="_tc">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_bCtrl" name="ctrl" type="_ctrl" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_bMotor" name="motor" type="_motor" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_bGot" name="got">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+      </ownedAttribute>
+      <ownedConnector xmi:type="uml:Connector" xmi:id="_bind">
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_bind1" role="_bGot"/>
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_bind2" role="_got" partWithPort="_bCtrl"/>
+      </ownedConnector>
+      <ownedBehavior xmi:type="uml:Interaction" xmi:id="_tc" name="Bench Test">
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_lc" name="c" represents="_bCtrl"/>
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_lm" name="m" represents="_bMotor"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_sSpin" covered="_lc" message="_mSpin"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_rSpin" covered="_lm" message="_mSpin"/>
+        <fragment xmi:type="uml:BehaviorExecutionSpecification" xmi:id="_exec" covered="_lm" start="_rSpin" finish="_sRet"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_sRet" covered="_lm" message="_mRet"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_rRet" covered="_lc" message="_mRet"/>
+        <message xmi:type="uml:Message" xmi:id="_mSpin" name="spin" messageSort="synchCall" signature="_spin" sendEvent="_sSpin" receiveEvent="_rSpin">
+          <argument xmi:type="uml:LiteralReal" xmi:id="_mSpinRpm" value="12.0"/>
+        </message>
+        <message xmi:type="uml:Message" xmi:id="_mRet" name="spun" messageSort="reply" signature="_spin" sendEvent="_sRet" receiveEvent="_rRet">
+          <argument xmi:type="uml:Expression" xmi:id="_mRetArg" symbol="=">
+            <operand xmi:type="uml:LiteralString" xmi:id="_mRetTarget" value="got"/>
+            <operand xmi:type="uml:LiteralReal" xmi:id="_mRetValue" value="12.0"/>
+          </argument>
+        </message>
+      </ownedBehavior>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_idle" name="Idle Bench" classifierBehavior="_idling">
+      <generalization xmi:type="uml:Generalization" xmi:id="_gIdle" general="_bench"/>
+      <ownedBehavior xmi:type="uml:Interaction" xmi:id="_idling" name="Idling">
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_lIdle" name="m" represents="_bMotor"/>
+      </ownedBehavior>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_g0" name="Group 0"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_g1" name="Group 1"/>
+    <packagedElement xmi:type="uml:Package" xmi:id="_results" name="Results">
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_r1" name="Bench at 2024.03.01 10.15" classifier="_bench">
+        <slot xmi:type="uml:Slot" xmi:id="_r1g" definingFeature="_bGot">
+          <value xmi:type="uml:LiteralReal" xmi:id="_r1gv" value="12.0"/>
+        </slot>
+      </packagedElement>
+    </packagedElement>`
+
+// A «TestCase» classifier behavior is performed as a verification with the target
+// as its subject; a nearer one that is not migrated is named as the reason nothing is.
+func TestSimulationConfigPerformsATestCaseClassifierBehavior(t *testing.T) {
+	r := migrateDocument(t, testBench, `
+  <sysml:Block xmi:id="_s1" base_Class="_motor"/>
+  <sysml:Block xmi:id="_s2" base_Class="_ctrl"/>
+  <sysml:Block xmi:id="_s3" base_Class="_bench"/>
+  <sysml:Block xmi:id="_s4" base_Class="_idle"/>
+  <sysml:BindingConnector xmi:id="_s5" base_Connector="_bind"/>
+  <sysml:TestCase xmi:id="_s6" base_Behavior="_tc"/>
+  <sysml:TestCase xmi:id="_s7" base_Behavior="_idling"/>
+  <SimulationProfile:SimulationConfig `+simulationProfile+` xmi:id="_c0" base_Class="_g0"
+      executionTarget="_bench" resultLocation="_results" numberOfRuns="1"/>
+  <SimulationProfile:SimulationConfig `+simulationProfile+` xmi:id="_c1" base_Class="_g1"
+      executionTarget="_idle" numberOfRuns="1"/>`)
+	for _, line := range []string{
+		"verification def 'Bench Test' {",
+		"subject context : Bench;",
+		"part target : Bench;",
+		"verification run : Bench::'Bench Test' { subject context = target; }",
+		"part target : 'Idle Bench';",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNoLine(t, r.Notation, "perform action run")
+	wantNote(t, r, "_g0", migrate.Mapped, "")
+	wantNote(t, r, "_g1", migrate.Approximated, "the classifier behavior of Idle Bench is a test case whose scenario is not migrated, so no action is performed; the configuration only holds 'Idle Bench': the interaction has no message")
+	if errs := errors(t, "t.sysml", r.Notation); len(errs) > 0 {
+		t.Errorf("the migrated configurations do not analyse clean: %v\n%s", errs, r.Notation)
+	}
+	if cfg := r.Results.Configurations[0]; cfg.Behavior != "run" || cfg.Target != "target" {
+		t.Errorf("the sidecar of Group 0 = behavior %q on target %q, want run on target", cfg.Behavior, cfg.Target)
+	}
+	if cfg := r.Results.Configurations[1]; cfg.Behavior != "" {
+		t.Errorf("the sidecar of Group 1 performs %q, want nothing", cfg.Behavior)
+	}
+
+	s := session(t, r)
+	verdicts := s.CompareResults(r.Results, repl.CompareOptions{Seed: seedOf(1), Only: []string{"Group 0"}})
+	if len(verdicts) != 1 {
+		t.Fatalf("CompareResults = %d verdict(s), want 1", len(verdicts))
+	}
+	lines := strings.Join(verdicts[0].Lines, "\n")
+	if !verdicts[0].Holds() {
+		t.Fatalf("the comparison = %s:\n%s", verdicts[0].Status, lines)
+	}
+	for _, want := range []string{
+		"got        | tool                   | 1    | 12.0  | 12.0  | 12.0  | 12.0  | 12.0",
+		"           | OpenSysML (target.got) | 1    | 12.0  | 12.0  | 12.0  | 12.0  | 12.0",
+	} {
+		if !strings.Contains(lines, want) {
+			t.Errorf("the comparison lacks %q:\n%s", want, lines)
+		}
+	}
+}
+
+// parametricTarget is a block with no behavior, holding constraint properties
+// itself, through a general and through a composite part.
+const parametricTarget = `
+    <packagedElement xmi:type="uml:Class" xmi:id="_ohm" name="Ohm">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_ohmV" name="v">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_ohmI" name="i">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_ohmR" name="r">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+      </ownedAttribute>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_ohmRule" constrainedElement="_ohm">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_ohmSpec">
+          <body>v == i * r</body>
+          <language>SysML</language>
+        </specification>
+      </ownedRule>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_peak" name="Peak">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_peakA" name="a">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_peakB" name="b">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_peakP" name="p">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+      </ownedAttribute>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_peakRule" constrainedElement="_peak">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_peakSpec">
+          <body>p=max(a,b)</body>
+          <language>Javascript Rhino</language>
+        </specification>
+      </ownedRule>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_network" name="Network">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_netOhm" name="law" type="_ohm" aggregation="composite"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_load" name="Load">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_loadPeak" type="_peak" aggregation="composite"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_circuit" name="Circuit">
+      <generalization xmi:type="uml:Generalization" xmi:id="_gCircuit" general="_network"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_cLoad" name="load" type="_load" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_cPeak" name="worst" type="_peak" aggregation="composite"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_c1" name="circuit" classifier="_circuit"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_g0" name="Group 0"/>`
+
+// A target with no behavior is one the tool's parametric solver evaluates, so
+// the note names each constraint it holds and whether its rule is migrated.
+func TestSimulationConfigNamesTheConstraintsOfAParametricTarget(t *testing.T) {
+	r := migrateDocument(t, parametricTarget, `
+  <sysml:ConstraintBlock xmi:id="_s1" base_Class="_ohm"/>
+  <sysml:ConstraintBlock xmi:id="_s2" base_Class="_peak"/>
+  <sysml:Block xmi:id="_s3" base_Class="_network"/>
+  <sysml:Block xmi:id="_s4" base_Class="_load"/>
+  <sysml:Block xmi:id="_s5" base_Class="_circuit"/>
+  <sysml:ConstraintProperty xmi:id="_s6" base_Property="_netOhm"/>
+  <sysml:ConstraintProperty xmi:id="_s7" base_Property="_loadPeak"/>
+  <sysml:ConstraintProperty xmi:id="_s8" base_Property="_cPeak"/>
+  <SimulationProfile:SimulationConfig `+simulationProfile+` xmi:id="_c0" base_Class="_g0"
+      executionTarget="_c1" numberOfRuns="1"/>`)
+	wantLine(t, r.Notation, "part target : circuit;")
+	wantNoLine(t, r.Notation, "perform action run")
+	wantNote(t, r, "_g0", migrate.Approximated, "neither Circuit nor any general of it has a classifier behavior, so the configuration only holds 'circuit'"+
+		"; the tool solves the constraints it holds for values, which a v2 run checks and does not solve: "+
+		`Circuit::worst : 'Peak', whose rule {Javascript Rhino} p=max(a,b) is not migrated: the call "max" is not in the translated function table`+
+		"; Network::law : 'Ohm', whose rule is migrated as a constraint"+
+		"; Load::peak : 'Peak', as above")
+	if errs := errors(t, "t.sysml", r.Notation); len(errs) > 0 {
+		t.Errorf("the migrated configuration does not analyse clean: %v\n%s", errs, r.Notation)
 	}
 }
 

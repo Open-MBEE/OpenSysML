@@ -147,10 +147,15 @@ func (m *migration) simulationConfig(e *sysmlv1.Element, header, note string) {
 			part := m.freshName(e, "target")
 			results.Target = part
 			m.w.line("part " + writeName(part) + " : " + m.ref(target.element, e) + ";")
-			if target.usage != "" {
+			switch {
+			case target.usage != "":
 				run := m.freshName(e, "run")
 				results.Behavior = run
 				m.w.line("perform action " + writeName(run) + " ::> " + writeName(part) + "." + writeName(target.usage) + ";")
+			case target.testCase != nil:
+				run := m.freshName(e, "run")
+				results.Behavior = run
+				m.w.line("verification " + writeName(run) + " : " + m.ref(target.testCase, e) + " { subject " + writeName(target.subject) + " = " + writeName(part) + "; }")
 			}
 		}
 		if results.Location != "" {
@@ -242,11 +247,14 @@ func (m *migration) configurationSettings(s *sysmlv1.Stereotype) (settings confi
 
 // executionTarget is a configuration's target as resolved: the element its
 // part is typed by, the classifiers of that element, the usage of the part by
-// which a run performs their classifier behavior, and what could not be resolved.
+// which a run performs their classifier behavior — or the test case a run
+// performs on the part as its subject — and what could not be resolved.
 type executionTarget struct {
 	element     *sysmlv1.Element
 	classifiers []*sysmlv1.Element
 	usage       string
+	testCase    *sysmlv1.Element
+	subject     string
 	notes       []string
 }
 
@@ -297,23 +305,107 @@ func (m *migration) configurationTarget(s *sysmlv1.Stereotype) executionTarget {
 	target := executionTarget{element: t, classifiers: classifiers}
 	behavior := m.inheritedClassifierBehavior(classifiers)
 	if behavior == nil {
-		target.notes = []string{"neither " + qualifiedName(classifiers[0]) + " nor any general of it has a classifier behavior, so the configuration only holds " + describe(t)}
+		target.notes = []string{"neither " + qualifiedName(classifiers[0]) + " nor any general of it has a classifier behavior, so the configuration only holds " + describe(t) + m.constraintNetwork(classifiers)}
 		return target
 	}
-	_, usage, bcat := m.classifierBehaviorUsage(behavior)
+	b, usage, bcat := m.classifierBehaviorUsage(behavior)
+	if b == nil {
+		b = m.model.Ref(behavior, "classifierBehavior")
+		_, why := m.classify(b)
+		target.notes = []string{joinNotes("the classifier behavior of "+qualifiedName(behavior)+", "+describe(b)+", is not migrated, so no action is performed; the configuration only holds "+describe(t), why)}
+		return target
+	}
 	switch bcat {
 	case catActionDef:
 		target.usage = usage
 	case catStateDef:
 		target.notes = []string{"the classifier behavior of " + qualifiedName(behavior) + " is a state machine, which a run performs as no action; the configuration only holds " + describe(t)}
+	case catVerificationDef:
+		target.testCase, target.subject, target.notes = m.targetTestCase(t, classifiers, b)
 	default:
 		target.notes = []string{"the classifier behavior of " + qualifiedName(behavior) + " is written as a " + bcat.keyword() + ", not an action def, so no action is performed"}
 	}
 	return target
 }
 
+// targetTestCase resolves a test case a target's class runs as its classifier
+// behavior: the tool runs its scenario on the object, so the configuration
+// performs the verification with the target as its subject — when the scenario
+// is written and the subject's block is one the target is typed by.
+func (m *migration) targetTestCase(t *sysmlv1.Element, classifiers []*sysmlv1.Element, b *sysmlv1.Element) (testCase *sysmlv1.Element, subject string, notes []string) {
+	if b.Type != "Interaction" {
+		return nil, "", []string{"the classifier behavior of " + qualifiedName(b.Parent) + " is a test case with no scenario to perform, so no action is performed; the configuration only holds " + describe(t)}
+	}
+	subject = m.subjectName(b)
+	s, note := m.scenario(b, subject)
+	if note != "" {
+		return nil, "", []string{"the classifier behavior of " + qualifiedName(b.Parent) + " is a test case whose scenario is not migrated, so no action is performed; the configuration only holds " + describe(t) + ": " + note}
+	}
+	for _, c := range classifiers {
+		if c == s.context || m.inherits(c, s.context) {
+			return b, subject, nil
+		}
+	}
+	return nil, "", []string{"the classifier behavior of " + qualifiedName(b.Parent) + " is a test case whose subject is " + describe(s.context) + ", which " + describe(t) + " is not typed by, so no action is performed; the configuration only holds " + describe(t)}
+}
+
+// constraintNetwork lists the constraint properties a target holds, through its
+// generals and composite parts, saying per block whether its rule is migrated.
+func (m *migration) constraintNetwork(classifiers []*sysmlv1.Element) string {
+	var usages []string
+	blocks := map[*sysmlv1.Element]bool{}
+	seen := map[*sysmlv1.Element]bool{}
+	queue := append([]*sysmlv1.Element(nil), classifiers...)
+	for len(queue) > 0 {
+		c := queue[0]
+		queue = queue[1:]
+		if seen[c] {
+			continue
+		}
+		seen[c] = true
+		for _, g := range c.Owned("generalization") {
+			if general := m.model.Ref(g, "general"); general != nil && !general.IsProxy() {
+				queue = append(queue, general)
+			}
+		}
+		for _, p := range c.Owned("ownedAttribute") {
+			t := m.model.Ref(p, "type")
+			if t == nil || t.IsProxy() {
+				continue
+			}
+			switch cat, _ := m.classify(t); cat {
+			case catConstraintDef:
+				usage := m.v2Name(c) + "::" + writeName(m.nameFor(p)) + " : " + describe(t)
+				switch f := m.constraintRule(t); {
+				case f.rule == nil:
+					usage += ", whose block states no rule"
+				case blocks[t]:
+					usage += ", as above"
+				case f.spec == nil:
+					usage += ", whose rule is not migrated: " + f.note
+				case !f.ok:
+					usage += ", whose rule " + describeValue(f.spec) + " is not migrated: " + f.note
+				default:
+					usage += ", whose rule is migrated as a constraint"
+				}
+				blocks[t] = true
+				usages = append(usages, usage)
+			case catPartDef:
+				if p.Attrs["aggregation"] == "composite" {
+					queue = append(queue, t)
+				}
+			}
+		}
+	}
+	if len(usages) == 0 {
+		return ""
+	}
+	return "; the tool solves the constraints it holds for values, which a v2 run checks and does not solve: " + strings.Join(usages, "; ")
+}
+
 // inheritedClassifierBehavior finds, breadth first through generalizations,
-// the nearest of the classifiers or their generals with a written classifier behavior.
+// the nearest of the classifiers or their generals with a classifier behavior
+// of its own, written or not: an object runs the nearest one.
 func (m *migration) inheritedClassifierBehavior(classifiers []*sysmlv1.Element) *sysmlv1.Element {
 	seen := map[*sysmlv1.Element]bool{}
 	queue := append([]*sysmlv1.Element(nil), classifiers...)
@@ -324,7 +416,7 @@ func (m *migration) inheritedClassifierBehavior(classifiers []*sysmlv1.Element) 
 			continue
 		}
 		seen[c] = true
-		if b, _, _ := m.classifierBehaviorUsage(c); b != nil {
+		if b := m.model.Ref(c, "classifierBehavior"); b != nil && b.Parent == c {
 			return c
 		}
 		for _, g := range c.Owned("generalization") {

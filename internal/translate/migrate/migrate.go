@@ -77,6 +77,7 @@ func FromModel(name string, model *sysmlv1.Model) *Result {
 		unvalued:     map[*sysmlv1.Element]bool{},
 		dryOut:       map[*sysmlv1.Element]map[*sysmlv1.Element]bool{},
 		admitsNone:   map[*sysmlv1.Element]string{},
+		rules:        map[*sysmlv1.Element]ruleForm{},
 		carrierOf:    map[*sysmlv1.Element]*carrier{},
 		carrierNotes: map[*sysmlv1.Element]string{},
 		indexed:      map[string]int{},
@@ -244,6 +245,8 @@ type migration struct {
 	pins map[*sysmlv1.Element]pinDecl
 	// opaque memoizes what each opaque action's body translates to.
 	opaque map[*sysmlv1.Element]*opaqueResult
+	// rules memoizes how each constraint block's anonymous rule is written.
+	rules map[*sysmlv1.Element]ruleForm
 	// clocks memoizes the names a simulation configuration gives the clock.
 	clocks map[string]string
 	// observed memoizes, per observation, the durations and time expressions that read it.
@@ -879,37 +882,67 @@ func (m *migration) requirementBody(e *sysmlv1.Element) {
 	m.scope = saved
 }
 
+// ruleForm is how a constraint block's anonymous rule is written: the result
+// expression when its specification has a v2 form, else the note saying why not.
+type ruleForm struct {
+	rule, spec *sysmlv1.Element
+	expr, note string
+	ok         bool
+}
+
+// constraintRule resolves, once, the anonymous rule of constraint block e;
+// rule is nil when the block has none.
+func (m *migration) constraintRule(e *sysmlv1.Element) ruleForm {
+	if f, ok := m.rules[e]; ok {
+		return f
+	}
+	var f ruleForm
+	for _, c := range e.Children {
+		if c.Role == "ownedRule" && c.Name == "" {
+			f.rule = c
+			break
+		}
+	}
+	if f.rule != nil {
+		f.spec = m.model.Ref(f.rule, "specification")
+		if f.spec == nil {
+			f.spec = firstOwned(f.rule, "specification")
+		}
+		if f.spec == nil {
+			f.note = "the constraint has no specification"
+		} else {
+			f.expr, f.ok, f.note = m.valueExprAs(f.spec, e, oneOf("Boolean", "the constraint yields"))
+		}
+	}
+	m.rules[e] = f
+	return f
+}
+
 // constraintBody writes a constraint block: its parameters, then its
 // anonymous rule as the result expression.
 func (m *migration) constraintBody(e *sysmlv1.Element) {
 	saved := m.scope
 	m.scope = e
 	m.comments(e)
-	var result *sysmlv1.Element
+	f := m.constraintRule(e)
 	for _, c := range e.Children {
-		if c.Role == "ownedRule" && c.Name == "" && result == nil {
-			result = c
-			continue
+		if c != f.rule {
+			m.member(c)
 		}
-		m.member(c)
 	}
 	for _, extra := range m.extras[e] {
 		extra()
 	}
 	m.stereotypeComments(e)
-	if result != nil {
-		spec := m.model.Ref(result, "specification")
-		if spec == nil {
-			spec = firstOwned(result, "specification")
-		}
-		if spec == nil {
-			m.unmapped(result, "the constraint has no specification")
-		} else if expr, ok, note := m.valueExprAs(spec, e, oneOf("Boolean", "the constraint yields")); ok {
-			m.w.line(expr)
-			m.add(result, verdictFor(note), m.v2Name(e), note)
-		} else {
-			m.unmappedExpr(result, spec, note)
-		}
+	switch {
+	case f.rule == nil:
+	case f.spec == nil:
+		m.unmapped(f.rule, f.note)
+	case f.ok:
+		m.w.line(f.expr)
+		m.add(f.rule, verdictFor(f.note), m.v2Name(e), f.note)
+	default:
+		m.unmappedExpr(f.rule, f.spec, f.note)
 	}
 	m.scope = saved
 }
