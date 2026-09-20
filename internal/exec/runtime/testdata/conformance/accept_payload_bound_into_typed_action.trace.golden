@@ -1,0 +1,20 @@
+step 1: token 1@sender
+stmt send
+  eval literal 2.5 -> 2.5
+materialize: Warning #1
+step 2: token 1@receiver
+step 3: token 1@run
+  eval feature msg -> instance#1
+eval chain level -> 2.5
+step 1: token 1@compute
+eval feature level -> 2.5
+  eval feature x -> 2.5
+  eval literal 2.0 -> 2.0
+eval operator * -> 5.0
+step 2: token 1@done
+step 3: no active tokens
+step 4: token 1@keep
+stmt assign total
+  eval chain doubled -> 5.0
+step 5: token 1@done
+step 6: no active tokens

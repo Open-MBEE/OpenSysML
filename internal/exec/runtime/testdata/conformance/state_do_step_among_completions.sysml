@@ -1,7 +1,7 @@
 // A region's do behavior and the completions of two sibling regions due at one
 // instant: as work is entered, l1's do behavior is due and m1's and r1's
-// completion events are in the pool, queued in the order the states completed.
-// Under check and explore each instant both are due draws the do step against
+// completion events are in the pool, queued in the order the entry draw entered
+// them. Under check and explore each instant both are due draws the do step against
 // the completion at the head of the pool, so the do step falls before, between
 // or after the two completion effects; the fixed policies run the do round to
 // its end and dispatch after it.

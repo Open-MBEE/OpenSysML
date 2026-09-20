@@ -86,6 +86,15 @@ public final class Capabilities {
   /** Inline content may name the notation it is written in. */
   public static final String INLINE_LANGUAGE = "inline_language";
 
+  /** The {@code ParseSources} RPC parses several documents as one model. */
+  public static final String PARSE_SOURCES = "parse_sources";
+
+  /** The {@code RunDocumentQuery} RPC runs a named document query. */
+  public static final String DOCUMENT_QUERY = "document_query";
+
+  /** The {@code RenderDocument} RPC renders a named document to Markdown. */
+  public static final String RENDER_DOCUMENT = "render_document";
+
   /** A parse can judge the source as conforming SysML v2. */
   public static final String STRICT_CONFORMANCE = "strict_conformance";
 

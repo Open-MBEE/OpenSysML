@@ -1,0 +1,30 @@
+{
+	"type": "state",
+	"trace": true,
+	"events": [
+		{
+			"signal": "Go"
+		}
+	],
+	"outcomes": [
+		{
+			"finalState": "l2+r2",
+			"outputs": {
+				"log": {
+					"type": "String",
+					"value": "l r "
+				}
+			}
+		},
+		{
+			"finalState": "l2+r2",
+			"outputs": {
+				"log": {
+					"type": "String",
+					"value": "r l "
+				}
+			}
+		}
+	],
+	"admissible": "Regions of a parallel state entered on one occurrence: each is entered, in which order is open"
+}

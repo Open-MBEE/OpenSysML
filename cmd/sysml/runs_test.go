@@ -225,7 +225,7 @@ func TestRunsRefusesAnUnheldObservableThroughCLI(t *testing.T) {
 	if got.status != 2 {
 		t.Errorf("exit status = %d, want 2\n%s", got.status, got.output())
 	}
-	if !strings.Contains(got.output(), "MC::route holds no feature named nope") {
+	if !strings.Contains(got.output(), "no completed run of MC::route produced a value named nope") {
 		t.Errorf("report is\n%s\nwant the observable refused", got.output())
 	}
 }

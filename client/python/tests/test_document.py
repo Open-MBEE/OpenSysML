@@ -17,6 +17,7 @@ import pytest
 from opensysml.capabilities import (
     CAPABILITY_DOCUMENT_QUERY,
     CAPABILITY_RENDER_DOCUMENT,
+    CAPABILITY_RENDER_DOCUMENT_HTML,
     MissingCapabilityError,
 )
 from opensysml.connection import Connection
@@ -55,6 +56,9 @@ FIXTURE = os.path.join(
 GOLDEN = os.path.join(
     REPO_ROOT, "internal", "doc", "docrender", "testdata", "telescope_report.golden.md"
 )
+HTML_GOLDEN = os.path.join(
+    REPO_ROOT, "internal", "doc", "docrender", "testdata", "telescope_report.golden.html"
+)
 #: The renderer's verdict fixture: assertions on a car and queries over them.
 VERDICT_FIXTURE = os.path.join(
     REPO_ROOT, "internal", "doc", "docrender", "testdata", "verdict_report.sysml"
@@ -72,16 +76,19 @@ STATE_FIXTURE = os.path.join(
     "document_query_states.sysml",
 )
 
-CAPABILITIES = (CAPABILITY_DOCUMENT_QUERY, CAPABILITY_RENDER_DOCUMENT)
+CAPABILITIES = (
+    CAPABILITY_DOCUMENT_QUERY, CAPABILITY_RENDER_DOCUMENT, CAPABILITY_RENDER_DOCUMENT_HTML,
+)
 
 
 class FakeService(sysml_pb2_grpc.SysMLServiceServicer):
     """A sysml-grpc whose document RPCs record requests and answer as told."""
 
-    def __init__(self, capabilities=CAPABILITIES, response=None, markdown=""):
+    def __init__(self, capabilities=CAPABILITIES, response=None, markdown="", html=""):
         self._capabilities = list(capabilities)
         self._response = response or sysml_pb2.RunDocumentQueryResponse()
         self._markdown = markdown
+        self._html = html
         self.requests = []
 
     def GetServerInfo(self, request, context):
@@ -102,6 +109,8 @@ class FakeService(sysml_pb2_grpc.SysMLServiceServicer):
 
     def RenderDocument(self, request, context):
         self.requests.append(request)
+        if request.form == "html":
+            return sysml_pb2.RenderDocumentResponse(html=self._html)
         return sysml_pb2.RenderDocumentResponse(markdown=self._markdown)
 
 
@@ -254,6 +263,29 @@ def test_render_document_requires_the_capability(fake_service):
         with pytest.raises(MissingCapabilityError) as excinfo:
             model.render_document("Demo::Doc")
     assert excinfo.value.capability == CAPABILITY_RENDER_DOCUMENT
+    assert service.requests == []
+
+
+def test_render_document_html_requires_its_own_capability(fake_service):
+    """A service that renders Markdown only is not asked for HTML; Markdown still works."""
+    port, service = fake_service(
+        capabilities=(CAPABILITY_DOCUMENT_QUERY, CAPABILITY_RENDER_DOCUMENT), markdown="# R\n"
+    )
+    with Connection(port=port, auto_start=False) as conn:
+        model = conn.load_from_content("package Demo;")
+        with pytest.raises(MissingCapabilityError) as excinfo:
+            model.render_document("Demo::Doc", form="html")
+        assert excinfo.value.capability == CAPABILITY_RENDER_DOCUMENT_HTML
+        assert service.requests == []
+        assert model.render_document("Demo::Doc") == "# R\n"
+
+
+def test_render_document_refuses_a_form_it_does_not_know(fake_service):
+    port, service = fake_service()
+    with Connection(port=port, auto_start=False) as conn:
+        model = conn.load_from_content("package Demo;")
+        with pytest.raises(ValueError, match="markdown"):
+            model.render_document("Demo::Doc", form="pdf")
     assert service.requests == []
 
 
@@ -540,6 +572,16 @@ def test_render_document_answers_the_markdown(fake_service):
     (request,) = service.requests
     assert request.model_hash == model.hash
     assert request.document_id == "Demo::Doc"
+    assert request.form == ""
+
+
+def test_render_document_asks_for_and_answers_the_html(fake_service):
+    port, service = fake_service(html="<!DOCTYPE html>\n")
+    with Connection(port=port, auto_start=False) as conn:
+        model = conn.load_from_content("package Demo;")
+        assert model.render_document("Demo::Doc", form="html") == "<!DOCTYPE html>\n"
+    (request,) = service.requests
+    assert request.form == "html"
 
 
 @pytest.fixture(scope="module")
@@ -827,6 +869,15 @@ class TestDocumentsAgainstRealService:
                 "Observatory::MassReport"
             )
         assert markdown == golden
+
+    def test_a_rendered_html_document_is_the_renderer_s_golden(self, real_service, telescope):
+        with open(HTML_GOLDEN, encoding="utf-8") as f:
+            golden = f.read()
+        with Connection(port=real_service, auto_start=False) as conn:
+            html = conn.load_from_content(telescope).render_document(
+                "Observatory::MassReport", form="html"
+            )
+        assert html == golden
 
     def test_an_unknown_query_raises_symbol_not_found(self, real_service, telescope):
         with Connection(port=real_service, auto_start=False) as conn:

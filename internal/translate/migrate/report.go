@@ -21,7 +21,8 @@ const (
 	// recorded as a comment where it stood.
 	Unmapped
 	// Skipped: the element is not the user's model — a profile, a library the
-	// tool bundled, a diagram — and is left out without a comment.
+	// tool bundled, a diagram — or nothing in the model refers to it, so no v2
+	// form would say anything; it is left out without a comment.
 	Skipped
 )
 
@@ -87,12 +88,29 @@ func (r *Report) Count() map[Verdict]int {
 	return counts
 }
 
+// unreferencedNote opens the note of a model element skipped because nothing
+// in the model refers to it, so that the summary can count those apart.
+const unreferencedNote = "not referenced by any behavior"
+
+// Unreferenced returns how many skipped entries are the user's own elements
+// that nothing refers to, as opposed to profile, library or notation content.
+func (r *Report) Unreferenced() int {
+	n := 0
+	for _, e := range r.Entries {
+		if e.Verdict == Skipped && strings.HasPrefix(e.Note, unreferencedNote) {
+			n++
+		}
+	}
+	return n
+}
+
 // Summary is the one-line account a command prints after migrating.
 func (r *Report) Summary() string {
 	c := r.Count()
 	total := len(r.Entries) - c[Skipped]
-	return fmt.Sprintf("migrated %d element(s): %d mapped, %d approximated, %d unmapped (%d skipped as profile or library content)",
-		total, c[Mapped], c[Approximated], c[Unmapped], c[Skipped])
+	unreferenced := r.Unreferenced()
+	return fmt.Sprintf("migrated %d element(s): %d mapped, %d approximated, %d unmapped (%d skipped as profile, library or notation-only content, %d as model elements nothing refers to)",
+		total, c[Mapped], c[Approximated], c[Unmapped], c[Skipped]-unreferenced, unreferenced)
 }
 
 // WriteText writes the report as a table, one element per line, grouped by

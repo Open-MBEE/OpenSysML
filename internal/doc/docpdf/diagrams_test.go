@@ -6,23 +6,18 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 )
 
-// dotMarkdown is a document whose one diagram is written as DOT: a `&` and a
-// quoted ID check the source reaches the page escaped, not interpreted.
-const dotMarkdown = "# T\n\n## Flow\n\n```dot\n// kind: action\ndigraph \"a & b\" {\n  \"n0\" -> \"n1\";\n}\n```\n\n<!-- caption -->\n*Figure 1\\. Flow*\n"
-
-// plantumlMarkdown is a document whose one diagram is written as PlantUML: a
-// creole label and a style block check the source reaches the page escaped.
-const plantumlMarkdown = "# T\n\n## Flow\n\n```plantuml\n@startuml\n' action rendering\n<style>\nelement {\n  LineColor #181818\n}\n</style>\nstate \"**a & b**\" as n0 <<action>>\nn0 --> n1\n@enduml\n```\n\n<!-- caption -->\n*Figure 1\\. Flow*\n"
-
-// withoutDiagramTools empties PATH and every diagram tool's override, so a
-// test sees the tools absent whatever the machine has installed.
+// withoutDiagramTools points every diagram tool's variable at a file that does
+// not exist, so a test sees the tools absent whatever the machine has installed.
 func withoutDiagramTools(t *testing.T) {
 	t.Helper()
-	t.Setenv("PATH", t.TempDir())
+	missing := t.TempDir()
 	for _, env := range []string{MermaidEnv, DotEnv, JavaEnv, PlantUMLJarEnv} {
-		t.Setenv(env, "")
+		t.Setenv(env, filepath.Join(missing, "no-"+strings.ToLower(env)+"-here"))
 	}
 }
 
@@ -50,209 +45,101 @@ fi
 	return log
 }
 
-// fakeWeasyPrint writes a fake converter that keeps the HTML it was given at
-// seenPath and writes a PDF signature; shell builtins only, as PATH is empty.
-func fakeWeasyPrint(t *testing.T, dir string) string {
+// fakeJar writes an empty stand-in jar in dir and points PlantUMLJarEnv at it.
+func fakeJar(t *testing.T, dir string) string {
 	t.Helper()
-	seenPath := filepath.Join(dir, "input-seen.html")
-	fakeTool(t, dir, "weasyprint", WeasyPrintEnv, `while IFS= read -r line; do printf '%s\n' "$line"; done < "$1" > "`+seenPath+`"
-printf '%%PDF-1.7 fake' > "$2"
-`)
-	return seenPath
-}
-
-// A DOT fence parses to its own block; without Graphviz it is kept as source
-// under a notice naming the variable to set, on both converter inputs, and
-// no Mermaid CLI is looked for.
-func TestDOTBlockWithoutGraphvizIsKeptAsSource(t *testing.T) {
-	blocks, err := parseBlocks(dotMarkdown)
-	if err != nil {
-		t.Fatalf("parseBlocks: %v", err)
-	}
-	if len(blocks) != 4 || blocks[2].Kind != blockDOT || !strings.Contains(blocks[2].Source, `"n0" -> "n1";`) {
-		t.Fatalf("blocks = %+v", blocks)
-	}
-	withoutDiagramTools(t)
-	diagrams, err := renderDiagrams(t.TempDir(), blocks)
-	if err != nil || len(diagrams) != 1 || diagrams[0].Image != "" {
-		t.Fatalf("renderDiagrams = %+v, %v; want one source diagram and no error", diagrams, err)
-	}
-	notice := diagrams[0].Notice
-	if !strings.Contains(notice, "Graphviz DOT") || !strings.Contains(notice, "dot was not found") || !strings.Contains(notice, DotEnv) {
-		t.Fatalf("notice does not name the tool and its variable: %q", notice)
-	}
-	page := documentHTML(blocks, artwork{diagrams: diagrams}, Options{})
-	for _, want := range []string{
-		`<figure class="dot"><p class="notice"><em>` + notice + `</em></p>`,
-		"<pre>// kind: action\ndigraph &#34;a &amp; b&#34; {\n  &#34;n0&#34; -&gt; &#34;n1&#34;;\n}</pre></figure>",
-		`<p class="caption"><em>Figure 1. Flow</em></p>`,
-	} {
-		if !strings.Contains(page, want) {
-			t.Errorf("HTML missing %q:\n%s", want, page)
-		}
-	}
-	if strings.Contains(page, "<img") {
-		t.Errorf("a DOT block became an image:\n%s", page)
-	}
-	md := markdownWithImages(dotMarkdown, diagrams)
-	if !strings.Contains(md, "*"+notice+"*\n\n```dot\n// kind: action\n") || !strings.Contains(md, "\n}\n```\n") {
-		t.Errorf("Markdown lacks the notice ahead of the fence:\n%s", md)
-	}
-	if strings.Contains(md, "![diagram]") {
-		t.Errorf("a DOT fence became an image reference:\n%s", md)
-	}
-}
-
-// A PlantUML fence parses to its own block; without the jar it is kept as
-// source under a notice naming the variable to set, on both converter inputs.
-func TestPlantUMLBlockWithoutJarIsKeptAsSource(t *testing.T) {
-	blocks, err := parseBlocks(plantumlMarkdown)
-	if err != nil {
-		t.Fatalf("parseBlocks: %v", err)
-	}
-	if len(blocks) != 4 || blocks[2].Kind != blockPlantUML || !strings.Contains(blocks[2].Source, "n0 --> n1") {
-		t.Fatalf("blocks = %+v", blocks)
-	}
-	withoutDiagramTools(t)
-	diagrams, err := renderDiagrams(t.TempDir(), blocks)
-	if err != nil || len(diagrams) != 1 || diagrams[0].Image != "" {
-		t.Fatalf("renderDiagrams = %+v, %v; want one source diagram and no error", diagrams, err)
-	}
-	notice := diagrams[0].Notice
-	if !strings.Contains(notice, "PlantUML") || !strings.Contains(notice, "the PlantUML jar was not found") || !strings.Contains(notice, PlantUMLJarEnv) {
-		t.Fatalf("notice does not name the jar and its variable: %q", notice)
-	}
-	page := documentHTML(blocks, artwork{diagrams: diagrams}, Options{})
-	for _, want := range []string{
-		`<figure class="plantuml"><p class="notice"><em>` + notice + `</em></p>`,
-		"<pre>@startuml\n&#39; action rendering\n&lt;style&gt;\n",
-		"state &#34;**a &amp; b**&#34; as n0 &lt;&lt;action&gt;&gt;\nn0 --&gt; n1\n@enduml</pre></figure>",
-		`<p class="caption"><em>Figure 1. Flow</em></p>`,
-	} {
-		if !strings.Contains(page, want) {
-			t.Errorf("HTML missing %q:\n%s", want, page)
-		}
-	}
-	if strings.Contains(page, "<img") || strings.Contains(page, `class="dot"`) {
-		t.Errorf("a PlantUML block became an image or a DOT figure:\n%s", page)
-	}
-	md := markdownWithImages(plantumlMarkdown, diagrams)
-	if !strings.Contains(md, "*"+notice+"*\n\n```plantuml\n@startuml\n") || !strings.Contains(md, "\n@enduml\n```\n") {
-		t.Errorf("Markdown lacks the notice ahead of the fence:\n%s", md)
-	}
-	if strings.Contains(md, "![diagram]") {
-		t.Errorf("a PlantUML fence became an image reference:\n%s", md)
-	}
-}
-
-// With the jar but no java, a PlantUML block is kept as source under a notice
-// that names java's variable; a jar path naming no file is the jar missing.
-func TestPlantUMLNoticeNamesTheMissingPiece(t *testing.T) {
-	blocks, err := parseBlocks(plantumlMarkdown)
-	if err != nil {
-		t.Fatalf("parseBlocks: %v", err)
-	}
-	withoutDiagramTools(t)
-	dir := t.TempDir()
 	jar := filepath.Join(dir, "plantuml.jar")
 	if err := os.WriteFile(jar, []byte("PK"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv(PlantUMLJarEnv, jar)
-	diagrams, err := renderDiagrams(dir, blocks)
-	if err != nil || len(diagrams) != 1 || !strings.Contains(diagrams[0].Notice, "java was not found") || !strings.Contains(diagrams[0].Notice, JavaEnv) {
-		t.Fatalf("without java: %+v, %v", diagrams, err)
+	return jar
+}
+
+// telescopeDiagrams lists the telescope report's two diagrams written in form.
+func telescopeDiagrams(t *testing.T, form view.Form) []docrender.Diagram {
+	t.Helper()
+	diagrams, err := docrender.Diagrams(telescopeDocument(t), form)
+	if err != nil {
+		t.Fatal(err)
 	}
-	t.Setenv(PlantUMLJarEnv, filepath.Join(dir, "absent.jar"))
-	fakeSVGTool(t, dir, "java", JavaEnv)
-	diagrams, err = renderDiagrams(dir, blocks)
-	if err != nil || len(diagrams) != 1 || !strings.Contains(diagrams[0].Notice, "absent.jar was not found") || !strings.Contains(diagrams[0].Notice, PlantUMLJarEnv) {
-		t.Fatalf("with a jar path naming no file: %+v, %v", diagrams, err)
+	if len(diagrams) != 2 {
+		t.Fatalf("telescope report has %d diagrams, want 2", len(diagrams))
+	}
+	return diagrams
+}
+
+// TestSourceNoticesNameTheVariables checks the notice over a diagram kept as
+// source names the tool that was not found and the variable that locates it.
+func TestSourceNoticesNameTheVariables(t *testing.T) {
+	if !strings.Contains(dotNotice, "Graphviz DOT") || !strings.Contains(dotNotice, "Graphviz was not found") || !strings.Contains(dotNotice, DotEnv) {
+		t.Fatalf("DOT notice: %q", dotNotice)
+	}
+	if !strings.Contains(plantumlNotice, "PlantUML") || !strings.Contains(plantumlNotice, PlantUMLJarEnv) || !strings.Contains(plantumlNotice, JavaEnv) {
+		t.Fatalf("PlantUML notice: %q", plantumlNotice)
+	}
+	for _, notice := range []string{dotNotice, plantumlNotice} {
+		if !strings.Contains(PrintStylesheet, `content: "`+notice+`";`) {
+			t.Fatalf("print stylesheet does not set the notice %q", notice)
+		}
 	}
 }
 
-// Rendering a document whose only diagram is DOT needs no Mermaid CLI and,
-// without Graphviz, hands the converter the source under the notice.
-func TestRenderDOTOnlyDocumentWithoutGraphviz(t *testing.T) {
-	dir := t.TempDir()
-	withoutDiagramTools(t)
-	seenPath := fakeWeasyPrint(t, dir)
-	pdf, err := Render(dotMarkdown, "weasyprint", Options{})
-	if err != nil {
-		t.Fatalf("Render: %v", err)
-	}
-	if !strings.HasPrefix(string(pdf), "%PDF-") {
-		t.Fatalf("output is no PDF: %q", pdf)
-	}
-	seen, err := os.ReadFile(seenPath)
-	if err != nil {
-		t.Fatalf("converter input: %v", err)
-	}
-	if !strings.Contains(string(seen), DotEnv) || !strings.Contains(string(seen), "digraph &#34;a &amp; b&#34;") {
-		t.Fatalf("converter input lacks the DOT notice or source:\n%s", seen)
-	}
-}
-
-// Rendering a document whose only diagram is PlantUML needs no Mermaid CLI
-// and, without the jar, hands the converter the source under the notice.
-func TestRenderPlantUMLOnlyDocumentWithoutJar(t *testing.T) {
-	dir := t.TempDir()
-	withoutDiagramTools(t)
-	seenPath := fakeWeasyPrint(t, dir)
-	pdf, err := Render(plantumlMarkdown, "weasyprint", Options{})
-	if err != nil {
-		t.Fatalf("Render: %v", err)
-	}
-	if !strings.HasPrefix(string(pdf), "%PDF-") {
-		t.Fatalf("output is no PDF: %q", pdf)
-	}
-	seen, err := os.ReadFile(seenPath)
-	if err != nil {
-		t.Fatalf("converter input: %v", err)
-	}
-	if !strings.Contains(string(seen), PlantUMLJarEnv) || !strings.Contains(string(seen), "n0 --&gt; n1") {
-		t.Fatalf("converter input lacks the PlantUML notice or source:\n%s", seen)
-	}
-}
-
-// With Graphviz, a DOT block is drawn to SVG and referenced as an image on
-// both converter inputs; dot is run with -Tsvg on the block's source.
+// TestRenderDOTWithFakeGraphviz checks a document asked for as DOT is drawn
+// through dot with -Tsvg on each diagram's source, and the page shows the
+// images in document order in place of the source.
 func TestRenderDOTWithFakeGraphviz(t *testing.T) {
 	dir := t.TempDir()
 	withoutDiagramTools(t)
 	log := fakeSVGTool(t, dir, "dot", DotEnv)
-	seenPath := fakeWeasyPrint(t, dir)
-	if _, err := Render(dotMarkdown, "weasyprint", Options{}); err != nil {
+	capture := captureWeasyPrint(t, dir)
+	if _, err := Render(telescopeDocument(t), "weasyprint", Options{DiagramForm: view.FormDot}); err != nil {
 		t.Fatalf("Render: %v", err)
 	}
-	seen, _ := os.ReadFile(seenPath)
-	if !strings.Contains(string(seen), `<figure><img src="diagram-1.svg" alt="diagram"></figure>`) || strings.Contains(string(seen), "did not draw") {
-		t.Fatalf("converter input lacks the drawn diagram:\n%s", seen)
+	page, listing := readCapture(t, capture)
+	work := captureDir(t, capture)
+	images := fileRefs(work, []string{"diagram-1.svg", "diagram-2.svg"})
+	first, second := strings.Index(page, `<img src="`+images[0]+`"`), strings.Index(page, `<img src="`+images[1]+`"`)
+	if first < 0 || second < 0 || first > second || strings.Contains(page, `<pre class="dot">`) {
+		t.Fatalf("page does not show the two drawn diagrams in order:\n%s", page)
+	}
+	for _, file := range []string{"diagram-1.dot", "diagram-1.svg", "diagram-2.dot", "diagram-2.svg"} {
+		if !strings.Contains(listing, file) {
+			t.Fatalf("render directory lacks %s:\n%s", file, listing)
+		}
 	}
 	args, _ := os.ReadFile(log)
-	if !strings.Contains(string(args), "args:-Kdot -Tsvg -o diagram-1.svg diagram-1.dot") {
-		t.Fatalf("dot arguments: %s", args)
-	}
-	blocks, err := parseBlocks(dotMarkdown)
-	if err != nil {
-		t.Fatalf("parseBlocks: %v", err)
-	}
-	diagrams, err := renderDiagrams(dir, blocks)
-	if err != nil {
-		t.Fatalf("renderDiagrams: %v", err)
-	}
-	md := markdownWithImages(dotMarkdown, diagrams)
-	if strings.Contains(md, "```dot") || !strings.Contains(md, "![diagram](diagram-1.svg)") {
-		t.Fatalf("Markdown keeps the fence or lacks the image:\n%s", md)
-	}
-	source, err := os.ReadFile(filepath.Join(dir, "diagram-1.dot"))
-	if err != nil || !strings.HasPrefix(string(source), "// kind: action\ndigraph \"a & b\"") {
-		t.Fatalf("dot input: %q, %v", source, err)
+	for _, want := range []string{"args:-Kdot -Tsvg -o diagram-1.svg diagram-1.dot\n", "args:-Kdot -Tsvg -o diagram-2.svg diagram-2.dot\n"} {
+		if !strings.Contains(string(args), want) {
+			t.Fatalf("dot arguments lack %q: %s", want, args)
+		}
 	}
 }
 
-// The `// layout:` header the DOT writer opens a block with picks the layout
-// engine, and `-n` keeps the positions the block states.
+// TestDrawDOTWritesTheDiagramSource checks dot is handed each diagram's source
+// as the DOT backend writes it, and the images are named in diagram order.
+func TestDrawDOTWritesTheDiagramSource(t *testing.T) {
+	dir := t.TempDir()
+	withoutDiagramTools(t)
+	fakeSVGTool(t, dir, "dot", DotEnv)
+	diagrams := telescopeDiagrams(t, view.FormDot)
+	images, err := drawDiagrams(dir, diagrams, view.FormDot)
+	if err != nil {
+		t.Fatalf("drawDiagrams: %v", err)
+	}
+	if len(images) != 2 || images[0] != "diagram-1.svg" || images[1] != "diagram-2.svg" {
+		t.Fatalf("images = %q", images)
+	}
+	for i, diagram := range diagrams {
+		source, err := os.ReadFile(filepath.Join(dir, images[i][:len(images[i])-len(".svg")]+".dot"))
+		if err != nil || string(source) != diagram.Source+"\n" {
+			t.Fatalf("dot input %d: %q, %v; want the diagram's source", i+1, source, err)
+		}
+	}
+}
+
+// TestGraphvizLayoutArgs checks the `// layout:` header the DOT writer opens a
+// block with picks the layout engine, and `-n` keeps the positions it states.
 func TestGraphvizLayoutArgs(t *testing.T) {
 	for source, want := range map[string]string{
 		"digraph G {}":                                                "-Kdot",
@@ -273,18 +160,15 @@ func TestGraphvizLayoutArgs(t *testing.T) {
 	}
 }
 
-// A positioned block runs the engine its header names.
-func TestRenderDOTRunsTheHeaderEngine(t *testing.T) {
+// TestDrawDOTRunsTheHeaderEngine checks a positioned diagram runs the engine
+// its header names.
+func TestDrawDOTRunsTheHeaderEngine(t *testing.T) {
 	dir := t.TempDir()
 	withoutDiagramTools(t)
 	log := fakeSVGTool(t, dir, "dot", DotEnv)
-	md := "# T\n\n```dot\n// kind: interconnection\n// layout: neato -n\ngraph G {\n  a [pos=\"0,0\"];\n}\n```\n"
-	blocks, err := parseBlocks(md)
-	if err != nil {
-		t.Fatalf("parseBlocks: %v", err)
-	}
-	if _, err := renderDiagrams(dir, blocks); err != nil {
-		t.Fatalf("renderDiagrams: %v", err)
+	positioned := docrender.Diagram{Name: "placed", Source: "// kind: interconnection\n// layout: neato -n\ngraph G {\n  a [pos=\"0,0\"];\n}"}
+	if _, err := drawDiagrams(dir, []docrender.Diagram{positioned}, view.FormDot); err != nil {
+		t.Fatalf("drawDiagrams: %v", err)
 	}
 	args, _ := os.ReadFile(log)
 	if !strings.Contains(string(args), "args:-Kneato -n -Tsvg -o diagram-1.svg diagram-1.dot") {
@@ -292,52 +176,55 @@ func TestRenderDOTRunsTheHeaderEngine(t *testing.T) {
 	}
 }
 
-// With java and the jar, a PlantUML block is drawn through the jar in pipe
-// mode: the source on stdin, the SVG from stdout into the diagram file.
+// TestRenderPlantUMLWithFakeJava checks a document asked for as PlantUML is
+// drawn through the jar in pipe mode — the source on stdin, the SVG from
+// stdout into the diagram file — and the page shows the images.
 func TestRenderPlantUMLWithFakeJava(t *testing.T) {
 	dir := t.TempDir()
 	withoutDiagramTools(t)
-	jar := filepath.Join(dir, "plantuml.jar")
-	if err := os.WriteFile(jar, []byte("PK"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv(PlantUMLJarEnv, jar)
+	jar := fakeJar(t, dir)
 	log := fakeSVGTool(t, dir, "java", JavaEnv)
-	seenPath := fakeWeasyPrint(t, dir)
-	if _, err := Render(plantumlMarkdown, "weasyprint", Options{}); err != nil {
+	capture := captureWeasyPrint(t, dir)
+	if _, err := Render(telescopeDocument(t), "weasyprint", Options{DiagramForm: view.FormPlantUML}); err != nil {
 		t.Fatalf("Render: %v", err)
 	}
-	seen, _ := os.ReadFile(seenPath)
-	if !strings.Contains(string(seen), `<figure><img src="diagram-1.svg" alt="diagram"></figure>`) || strings.Contains(string(seen), "did not draw") {
-		t.Fatalf("converter input lacks the drawn diagram:\n%s", seen)
+	page, listing := readCapture(t, capture)
+	images := fileRefs(captureDir(t, capture), []string{"diagram-1.svg", "diagram-2.svg"})
+	if !strings.Contains(page, `<img src="`+images[0]+`"`) || !strings.Contains(page, `<img src="`+images[1]+`"`) || strings.Contains(page, `<pre class="plantuml">`) {
+		t.Fatalf("page does not show the two drawn diagrams:\n%s", page)
+	}
+	if !strings.Contains(listing, "diagram-1.svg") || !strings.Contains(listing, "diagram-2.svg") {
+		t.Fatalf("render directory lacks the SVGs:\n%s", listing)
 	}
 	logged, _ := os.ReadFile(log)
-	if !strings.Contains(string(logged), "args:-Djava.awt.headless=true -jar "+jar+" -tsvg -pipe\n") {
+	if strings.Count(string(logged), "args:-Djava.awt.headless=true -jar "+jar+" -tsvg -pipe\n") != 2 {
 		t.Fatalf("java arguments: %s", logged)
 	}
-	if !strings.Contains(string(logged), "@startuml\n' action rendering\n") || !strings.Contains(string(logged), "n0 --> n1\n@enduml\n") {
+	if strings.Count(string(logged), "@startuml\n") != 2 || strings.Count(string(logged), "@enduml\n") != 2 {
 		t.Fatalf("source not piped to the jar: %s", logged)
-	}
-	blocks, err := parseBlocks(plantumlMarkdown)
-	if err != nil {
-		t.Fatalf("parseBlocks: %v", err)
-	}
-	diagrams, err := renderDiagrams(dir, blocks)
-	if err != nil {
-		t.Fatalf("renderDiagrams: %v", err)
-	}
-	svg, err := os.ReadFile(filepath.Join(dir, diagrams[0].Image))
-	if err != nil || !strings.Contains(string(svg), "drawn by java") {
-		t.Fatalf("SVG from stdout: %q, %v", svg, err)
-	}
-	md := markdownWithImages(plantumlMarkdown, diagrams)
-	if strings.Contains(md, "```plantuml") || !strings.Contains(md, "![diagram](diagram-1.svg)") {
-		t.Fatalf("Markdown keeps the fence or lacks the image:\n%s", md)
 	}
 }
 
-// The jar and the tools may be named by paths relative to the working
-// directory; they are still found when the tools run in the render directory.
+// TestDrawPlantUMLKeepsStdoutAsTheImage checks the SVG the jar writes to
+// stdout becomes the diagram file.
+func TestDrawPlantUMLKeepsStdoutAsTheImage(t *testing.T) {
+	dir := t.TempDir()
+	withoutDiagramTools(t)
+	fakeJar(t, dir)
+	fakeSVGTool(t, dir, "java", JavaEnv)
+	images, err := drawDiagrams(dir, telescopeDiagrams(t, view.FormPlantUML), view.FormPlantUML)
+	if err != nil {
+		t.Fatalf("drawDiagrams: %v", err)
+	}
+	svg, err := os.ReadFile(filepath.Join(dir, images[0]))
+	if err != nil || !strings.Contains(string(svg), "drawn by java") {
+		t.Fatalf("SVG from stdout: %q, %v", svg, err)
+	}
+}
+
+// TestRenderPlantUMLWithRelativeJarAndJava checks the jar and the tools may
+// be named by paths relative to the working directory, and are still found
+// when the tools run in the render directory.
 func TestRenderPlantUMLWithRelativeJarAndJava(t *testing.T) {
 	dir := t.TempDir()
 	withoutDiagramTools(t)
@@ -345,11 +232,12 @@ func TestRenderPlantUMLWithRelativeJarAndJava(t *testing.T) {
 		t.Fatal(err)
 	}
 	log := fakeSVGTool(t, dir, "java", JavaEnv)
-	fakeWeasyPrint(t, dir)
+	captureWeasyPrint(t, dir)
+	document := telescopeDocument(t)
 	t.Chdir(dir)
 	t.Setenv(PlantUMLJarEnv, "plantuml.jar")
 	t.Setenv(JavaEnv, "./java")
-	if _, err := Render(plantumlMarkdown, "weasyprint", Options{}); err != nil {
+	if _, err := Render(document, "weasyprint", Options{DiagramForm: view.FormPlantUML}); err != nil {
 		t.Fatalf("Render: %v", err)
 	}
 	logged, _ := os.ReadFile(log)
@@ -358,17 +246,32 @@ func TestRenderPlantUMLWithRelativeJarAndJava(t *testing.T) {
 	}
 }
 
-// A Graphviz or PlantUML that is installed but fails is the typed error a
-// failing Mermaid CLI is, carrying the tool's stderr.
-func TestRenderDiagramToolFailed(t *testing.T) {
-	failing := `echo "syntax error in line 2 near '->'" >&2
-exit 1
-`
+// TestRenderPlantUMLWithoutJavaKeepsSource checks the jar alone, without a
+// java to run it, keeps the diagrams as source under the notice.
+func TestRenderPlantUMLWithoutJavaKeepsSource(t *testing.T) {
 	dir := t.TempDir()
 	withoutDiagramTools(t)
-	fakeWeasyPrint(t, dir)
-	fakeTool(t, dir, "dot", DotEnv, failing)
-	_, err := Render(dotMarkdown, "weasyprint", Options{})
+	fakeJar(t, dir)
+	capture := captureWeasyPrint(t, dir)
+	if _, err := Render(telescopeDocument(t), "weasyprint", Options{DiagramForm: view.FormPlantUML}); err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+	page, listing := readCapture(t, capture)
+	if strings.Count(page, `<pre class="plantuml">`) != 2 || strings.Contains(page, "<img") || strings.Contains(listing, "diagram-") {
+		t.Fatalf("page without java:\n%s\n%s", page, listing)
+	}
+}
+
+// TestRenderDiagramToolFailed checks a Graphviz or PlantUML that is installed
+// but fails is the typed error a failing Mermaid CLI is, carrying its stderr.
+func TestRenderDiagramToolFailed(t *testing.T) {
+	dir := t.TempDir()
+	withoutDiagramTools(t)
+	captureWeasyPrint(t, dir)
+	fakeTool(t, dir, "dot", DotEnv, `echo "syntax error in line 2 near '->'" >&2
+exit 1
+`)
+	_, err := Render(telescopeDocument(t), "weasyprint", Options{DiagramForm: view.FormDot})
 	var docErr *Error
 	if !errors.As(err, &docErr) || docErr.Kind != ErrorToolFailed || docErr.Tool != "dot" {
 		t.Fatalf("failing dot: got %v, want ErrorToolFailed from dot", err)
@@ -377,18 +280,14 @@ exit 1
 		t.Fatalf("dot stderr not carried: %q", docErr.Detail)
 	}
 
-	jar := filepath.Join(dir, "plantuml.jar")
-	if err := os.WriteFile(jar, []byte("PK"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv(PlantUMLJarEnv, jar)
+	fakeJar(t, dir)
 	fakeTool(t, dir, "java", JavaEnv, `echo "INFO: Created user preferences directory." >&2
 echo "ERROR" >&2
 echo "2" >&2
 echo "Syntax Error? (Assumed diagram type: class)" >&2
 exit 200
 `)
-	_, err = Render(plantumlMarkdown, "weasyprint", Options{})
+	_, err = Render(telescopeDocument(t), "weasyprint", Options{DiagramForm: view.FormPlantUML})
 	if !errors.As(err, &docErr) || docErr.Kind != ErrorToolFailed || docErr.Tool != "java" {
 		t.Fatalf("failing PlantUML: got %v, want ErrorToolFailed from java", err)
 	}
@@ -402,9 +301,10 @@ const outputArg = `out=""
 while [ $# -gt 0 ]; do case "$1" in -o) out="$2"; shift ;; esac; shift; done
 `
 
-// A tool that exits 0 without writing an SVG document — nothing, its
-// diagnostics, malformed XML or some other document — is a failure too.
-func TestRenderDiagramToolWroteNoSVG(t *testing.T) {
+// TestDrawDiagramToolWroteNoSVG checks a tool that exits 0 without writing an
+// SVG document — nothing, diagnostics, malformed XML, another document, text
+// around the root — is a failure too.
+func TestDrawDiagramToolWroteNoSVG(t *testing.T) {
 	cases := map[string]string{
 		"nothing":      "exit 0\n",
 		"diagnostics":  `printf 'warning: renderer unavailable\n' > "$out"`,
@@ -420,11 +320,7 @@ func TestRenderDiagramToolWroteNoSVG(t *testing.T) {
 			dir := t.TempDir()
 			withoutDiagramTools(t)
 			fakeTool(t, dir, "dot", DotEnv, outputArg+script+"\n")
-			blocks, err := parseBlocks(dotMarkdown)
-			if err != nil {
-				t.Fatalf("parseBlocks: %v", err)
-			}
-			_, err = renderDiagrams(dir, blocks)
+			_, err := drawDiagrams(dir, telescopeDiagrams(t, view.FormDot), view.FormDot)
 			var docErr *Error
 			if !errors.As(err, &docErr) || docErr.Kind != ErrorToolFailed || docErr.Tool != "dot" || !strings.Contains(docErr.Detail, "wrote no SVG") || !strings.Contains(docErr.Detail, "diagram 1") {
 				t.Fatalf("got %v, want ErrorToolFailed from dot naming diagram 1", err)
@@ -433,75 +329,71 @@ func TestRenderDiagramToolWroteNoSVG(t *testing.T) {
 	}
 }
 
-// A real drawing opens on an XML declaration and a DOCTYPE before its root,
-// as Graphviz and PlantUML write it, and is accepted.
-func TestRenderDiagramToolWroteAPrefacedSVG(t *testing.T) {
+// TestDrawDiagramToolWroteAPrefacedSVG checks a drawing opening on an XML
+// declaration and a DOCTYPE, as Graphviz and PlantUML write it, is accepted.
+func TestDrawDiagramToolWroteAPrefacedSVG(t *testing.T) {
 	dir := t.TempDir()
 	withoutDiagramTools(t)
 	fakeTool(t, dir, "dot", DotEnv, outputArg+`printf '<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">\n<!-- Generated by graphviz -->\n<svg width="8pt" height="8pt" xmlns="http://www.w3.org/2000/svg"><g/></svg>\n' > "$out"`+"\n")
-	blocks, err := parseBlocks(dotMarkdown)
+	images, err := drawDiagrams(dir, telescopeDiagrams(t, view.FormDot)[:1], view.FormDot)
 	if err != nil {
-		t.Fatalf("parseBlocks: %v", err)
+		t.Fatalf("drawDiagrams: %v", err)
 	}
-	drawn, err := renderDiagrams(dir, blocks)
-	if err != nil {
-		t.Fatalf("renderDiagrams: %v", err)
-	}
-	if len(drawn) != 1 || drawn[0].Image != "diagram-1.svg" {
-		t.Fatalf("got %+v, want the one drawn image", drawn)
+	if len(images) != 1 || images[0] != "diagram-1.svg" {
+		t.Fatalf("got %q, want the one drawn image", images)
 	}
 }
 
-// A document mixing every diagram form draws each with its tool, numbering
-// the images in block order, and keeps as source only the blocks whose
-// optional tool is absent.
-func TestMixedDiagramFormsInBlockOrder(t *testing.T) {
-	md := sampleMarkdown + "\n" + strings.TrimPrefix(dotMarkdown, "# T\n") + "\n" + strings.TrimPrefix(plantumlMarkdown, "# T\n")
-	blocks, err := parseBlocks(md)
-	if err != nil {
-		t.Fatalf("parseBlocks: %v", err)
-	}
-	dir := t.TempDir()
+// TestDrawDiagramsWithoutDiagrams checks a document with nothing to draw
+// looks for no tool.
+func TestDrawDiagramsWithoutDiagrams(t *testing.T) {
 	withoutDiagramTools(t)
-	fakeSVGTool(t, dir, "mmdc", MermaidEnv)
-	fakeSVGTool(t, dir, "dot", DotEnv)
-	diagrams, err := renderDiagrams(dir, blocks)
-	if err != nil {
-		t.Fatalf("renderDiagrams: %v", err)
-	}
-	if len(diagrams) != 3 || diagrams[0].Image != "diagram-1.svg" || diagrams[1].Image != "diagram-2.svg" || diagrams[2].Image != "" || !strings.Contains(diagrams[2].Notice, PlantUMLJarEnv) {
-		t.Fatalf("diagrams = %+v", diagrams)
-	}
-	page := documentHTML(blocks, artwork{diagrams: diagrams}, Options{})
-	first, second, third := strings.Index(page, `<img src="diagram-1.svg"`), strings.Index(page, `<img src="diagram-2.svg"`), strings.Index(page, `<figure class="plantuml">`)
-	if first < 0 || second < 0 || third < 0 || first > second || second > third {
-		t.Fatalf("images at %d, %d, PlantUML at %d:\n%s", first, second, third, page)
-	}
-	if strings.Contains(page, `<figure class="dot">`) {
-		t.Fatalf("the drawn DOT block was kept as source:\n%s", page)
-	}
-	out := markdownWithImages(md, diagrams)
-	if strings.Contains(out, "```mermaid") || strings.Contains(out, "```dot") || !strings.Contains(out, "![diagram](diagram-1.svg)") ||
-		!strings.Contains(out, "![diagram](diagram-2.svg)") || !strings.Contains(out, "```plantuml\n") {
-		t.Fatalf("mixed Markdown:\n%s", out)
-	}
-	if strings.Index(out, "![diagram](diagram-1.svg)") > strings.Index(out, "![diagram](diagram-2.svg)") {
-		t.Fatalf("images out of order:\n%s", out)
+	for _, form := range []view.Form{"", view.FormMermaid, view.FormDot, view.FormPlantUML} {
+		images, err := drawDiagrams(t.TempDir(), nil, form)
+		if err != nil || len(images) != 0 {
+			t.Fatalf("%q: got %q, %v", form, images, err)
+		}
 	}
 }
 
-// A missing Mermaid CLI stays an error: only Graphviz and PlantUML are optional.
+// TestMermaidStaysRequiredBesideOptionalTools checks a missing Mermaid CLI
+// stays an error: only Graphviz and PlantUML are optional.
 func TestMermaidStaysRequiredBesideOptionalTools(t *testing.T) {
 	dir := t.TempDir()
 	withoutDiagramTools(t)
 	fakeSVGTool(t, dir, "dot", DotEnv)
-	blocks, err := parseBlocks(sampleMarkdown + "\n" + strings.TrimPrefix(dotMarkdown, "# T\n"))
-	if err != nil {
-		t.Fatalf("parseBlocks: %v", err)
-	}
-	_, err = renderDiagrams(dir, blocks)
+	_, err := drawDiagrams(dir, telescopeDiagrams(t, view.FormMermaid), view.FormMermaid)
 	var docErr *Error
 	if !errors.As(err, &docErr) || docErr.Kind != ErrorToolMissing || docErr.EnvVar != MermaidEnv {
 		t.Fatalf("got %v, want ErrorToolMissing for mmdc", err)
+	}
+}
+
+// TestRenderForPandocDrawsDOTAndPlantUML checks the Markdown-reading engine
+// is handed a filter swapping each fence for the image its tool drew.
+func TestRenderForPandocDrawsDOTAndPlantUML(t *testing.T) {
+	dir := t.TempDir()
+	withoutDiagramTools(t)
+	fakeSVGTool(t, dir, "dot", DotEnv)
+	fakeJar(t, dir)
+	fakeSVGTool(t, dir, "java", JavaEnv)
+	capture := filepath.Join(dir, "capture")
+	fakeTool(t, dir, "pandoc", PandocEnv,
+		`pwd > "`+capture+`.dir"; cp "$(dirname "$1")/artwork.lua" "`+capture+`.lua"; out=""; while [ $# -gt 0 ]; do [ "$1" = "--output" ] && out="$2"; shift; done; printf '%%PDF-1.7 fake' > "$out"`+"\n")
+	fakeTool(t, dir, "weasyprint", WeasyPrintEnv, "exit 0\n")
+	for _, form := range []view.Form{view.FormDot, view.FormPlantUML} {
+		if _, err := Render(telescopeDocument(t), "pandoc", Options{DiagramForm: form}); err != nil {
+			t.Fatalf("Render %s: %v", form, err)
+		}
+		filter, err := os.ReadFile(capture + ".lua")
+		if err != nil {
+			t.Fatal(err)
+		}
+		images := fileRefs(captureDir(t, capture), []string{"diagram-1.svg", "diagram-2.svg"})
+		for _, want := range []string{`local form = "` + string(form) + `"`, `local images = {"` + images[0] + `", "` + images[1] + `"}`} {
+			if !strings.Contains(string(filter), want) {
+				t.Fatalf("%s filter lacks %q:\n%s", form, want, filter)
+			}
+		}
 	}
 }

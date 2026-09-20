@@ -177,6 +177,9 @@ type Send struct {
 	// the sender's features, rather than a name in a namespace (`R`, `P::R`).
 	TargetPath bool
 	IsVia      bool
+	// ViaSelf records a via path written from `this`, whose root is a feature of
+	// the sender even where the behavior binds that name to another object.
+	ViaSelf bool
 	// Receiver is the name addressed by a routed send, empty when omitted.
 	Receiver     string
 	ReceiverPath bool
@@ -464,6 +467,7 @@ type Accept struct {
 	ParamName    string
 	SignalType   *ast.QualifiedName
 	ViaPort      string
+	ViaSelf      bool // ViaPort was written from `this`, as Send.ViaSelf
 	SubsetsEvent ast.Node
 	Trigger      ast.Node
 	// Scope is the scope the accept was declared in, in which SignalType resolves.
@@ -1161,9 +1165,11 @@ func lowerStatement(member ast.Node, scope *symbols.Scope) Statement {
 		// a port of the sender, rendered as connector ends are so the two match.
 		target, isPath := SendTarget(m.Target)
 		var targetSym *symbols.Symbol
+		var viaSelf bool
 		if m.IsVia {
-			target, isPath = FeaturePath(m.Target), true
-			targetSym, _ = resolve.FeatureSymbolInScope(scope, strings.Split(target, "."))
+			target, viaSelf = ViaPortPath(m.Target)
+			isPath = true
+			targetSym, _ = resolve.FeatureSymbolInScope(scope, strings.Split(FeaturePath(m.Target), "."))
 		}
 		message := m.Message
 		if message == nil {
@@ -1183,6 +1189,7 @@ func lowerStatement(member ast.Node, scope *symbols.Scope) Statement {
 			TargetSym:    targetSym,
 			TargetPath:   isPath,
 			IsVia:        m.IsVia,
+			ViaSelf:      viaSelf,
 			Receiver:     receiver,
 			ReceiverPath: receiverPath,
 			Scope:        scope,
@@ -1366,17 +1373,18 @@ func usageDescription(u *ast.Usage) string {
 // acceptPort returns the port an accept action routes through
 // (`action r accept msg : T via p`), which the parser records as a reference
 // relationship on the accept action, or "" when it named none. The port is the
-// whole path it was written as, so a nested one is the port it names.
-func acceptPort(node *ast.Usage) string {
+// whole path it was written as, so a nested one is the port it names; self
+// reports that it was written from `this`.
+func acceptPort(node *ast.Usage) (port string, self bool) {
 	for _, rel := range node.Relationships {
 		if rel == nil || rel.Kind != ast.RelVia {
 			continue
 		}
-		if name := FeaturePath(rel.Target); name != "" {
-			return name
+		if name, self := ViaPortPath(rel.Target); name != "" {
+			return name, self
 		}
 	}
-	return ""
+	return "", false
 }
 
 // subsettingTarget is the feature a usage subsets (`:> e`, `:>> a.e`) as the

@@ -68,6 +68,12 @@ func (e *StateExecutor) silentEntry(state *ast.StateNode) bool {
 	return len(behaviors.Entry) == 0 && len(behaviors.Do) == 0
 }
 
+// entryHead is the unit entering state; one queuing a completion (leaf) is observable through
+// the pool's order, so it is drawn even when the state performs nothing.
+func (e *StateExecutor) entryHead(state *ast.StateNode, leaf bool) unitHead {
+	return unitHead{label: e.entryLabel(state), at: state, silent: !leaf && e.silentEntry(state)}
+}
+
 // silentExit is silentEntry for leaving state.
 func (e *StateExecutor) silentExit(state *ast.StateNode) bool {
 	behaviors := e.behaviorsOf(state)

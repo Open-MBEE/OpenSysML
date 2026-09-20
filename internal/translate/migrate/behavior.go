@@ -75,6 +75,7 @@ func (m *migration) behaviorBody(e *sysmlv1.Element, cat category) {
 		m.interactionBody(e)
 	case e.Type == "Activity":
 		m.parameters(e, e)
+		m.contextParameter(e)
 		m.activityBody(e, e)
 	default:
 		m.parameters(e, e)
@@ -93,17 +94,10 @@ func (m *migration) methodBehavior(e, op *sysmlv1.Element) {
 // classifierBehavior writes the usage that performs or exhibits the behavior
 // a class names as its classifier behavior, so an object of it runs it.
 func (m *migration) classifierBehavior(c *sysmlv1.Element) {
-	b := m.model.Ref(c, "classifierBehavior")
-	if b == nil || b.Parent != c || !m.written(b) {
+	b, name, cat := m.classifierBehaviorUsage(c)
+	if b == nil {
 		return
 	}
-	name := ""
-	if op := m.methodOf[b]; op != nil {
-		b, name = op, m.operationUsage(op)
-	} else {
-		name = m.freshName(c, lowerFirst(m.nameFor(b)))
-	}
-	cat, _ := m.classify(b)
 	switch cat {
 	case catStateDef:
 		m.w.line("exhibit state " + writeName(name) + " : " + m.ref(b, c) + ";")
@@ -113,6 +107,25 @@ func (m *migration) classifierBehavior(c *sysmlv1.Element) {
 		return
 	}
 	m.downgrade(b, "the classifier behavior is run by every object of "+qualifiedName(c)+" as its usage "+name)
+}
+
+// classifierBehaviorUsage names the usage by which an object of c runs its
+// classifier behavior, and the behavior (or the operation it is the method of)
+// with its category; nil when c has no written classifier behavior of its own.
+// The name is fixed on the first ask, so a reference (a call on an object, a
+// swimlane's performer) may precede the declaration.
+func (m *migration) classifierBehaviorUsage(c *sysmlv1.Element) (b *sysmlv1.Element, name string, cat category) {
+	b = m.model.Ref(c, "classifierBehavior")
+	if b == nil || b.Parent != c || !m.written(b) {
+		return nil, "", catNone
+	}
+	if op := m.methodOf[b]; op != nil {
+		b, name = op, m.operationUsage(op)
+	} else {
+		name = m.behaviorUsage(b)
+	}
+	cat, _ = m.classify(b)
+	return b, name, cat
 }
 
 // operationUsage names the action usage of an operation's owner that performs
@@ -192,7 +205,7 @@ func (m *migration) parameter(p, scope *sysmlv1.Element, declared map[string]boo
 		}
 		declared[name] = true
 		if p.Parent != scope {
-			note = joinNotes(note, "the method's parameter matches none of the operation's by position, direction and type; a call binds only the operation's parameters")
+			note = joinNotes(note, "the method's parameter matches none of the operation's by position, direction and type; it is declared after them, and a call binds it there")
 		}
 	}
 	t := m.model.Ref(p, "type")
@@ -214,7 +227,7 @@ func (m *migration) parameter(p, scope *sysmlv1.Element, declared map[string]boo
 	if dv := firstOwned(p, "defaultValue"); dv != nil && isBound {
 		note = joinNotes(note, "the default value "+describeValue(dv)+" gives way to the binding")
 	} else if dv != nil {
-		expr, ok, vnote := m.behaviorValue(dv, scope)
+		expr, ok, vnote := m.typedBehaviorValue(dv, p, scope)
 		if ok {
 			b.WriteString(" default = " + expr)
 			note = joinNotes(note, vnote)
@@ -225,7 +238,11 @@ func (m *migration) parameter(p, scope *sysmlv1.Element, declared map[string]boo
 	}
 	v := verdictFor(note)
 	if isBound {
-		note = joinNotes("bound to "+bound+", the signal the transition accepts", note)
+		what := m.boundNote
+		if what == "" {
+			what = "the signal the transition accepts"
+		}
+		note = joinNotes("bound to "+bound+", "+what, note)
 	}
 	m.add(p, v, m.v2Name(p), note)
 	m.w.block(b.String(), func() {
@@ -259,33 +276,20 @@ func (m *migration) behaviorValue(v, scope *sysmlv1.Element) (expr string, ok bo
 }
 
 // typedBehaviorValue writes v as the value of feature f, read inside scope: a
-// literal, opaque or not, is checked against the type f holds.
+// translated body must yield what f holds, and a literal, opaque or not, is
+// checked against that type.
 func (m *migration) typedBehaviorValue(v, f, scope *sysmlv1.Element) (expr string, ok bool, note string) {
 	if v.Type != "OpaqueExpression" {
 		return m.featureValue(v, f, scope)
 	}
-	expr, ok, note = m.behaviorValue(v, scope)
+	t := m.model.Ref(f, "type")
+	body, lang := opaqueBody(v)
+	expr, ok, note = m.behaviorExprAs(body, lang, scope, m.wantedOf(f))
 	if !ok {
 		return expr, ok, note
 	}
-	kind, text := exprLiteral(expr)
-	if kind == "" {
-		return expr, ok, note
-	}
-	t := m.model.Ref(f, "type")
-	sv := m.scalarBase(t)
-	if sv == "" {
-		if m.structuredValueType(t) || m.written(t) {
-			return "", false, "the literal " + expr + " is not a value of " + qualifiedName(t) + ", which has no scalar base"
-		}
-		return expr, ok, note
-	}
-	value, spelled := scalarLiteral(kind, expr, text, sv)
-	switch {
-	case !spelled:
-		return "", false, "the " + kind + " " + expr + " is not a value of " + sv + ", which the feature holds"
-	case value != expr:
-		return value, true, joinNotes(note, "the "+kind+" "+expr+" is written as the "+sv+" the feature holds")
+	if kind, _ := exprLiteral(expr); kind != "" && m.scalarBase(t) == "" && (m.structuredValueType(t) || m.written(t)) {
+		return "", false, "the literal " + expr + " is not a value of " + qualifiedName(t) + ", which has no scalar base"
 	}
 	return expr, ok, note
 }
@@ -293,22 +297,68 @@ func (m *migration) typedBehaviorValue(v, f, scope *sysmlv1.Element) (expr strin
 // behaviorExpr writes text as a v2 expression read inside scope, or refuses
 // with the reason: it is not expression syntax, or a name resolves to nothing.
 func (m *migration) behaviorExpr(text, lang string, scope *sysmlv1.Element) (expr string, ok bool, note string) {
+	return m.behaviorExprAs(text, lang, scope, wanted{})
+}
+
+// behaviorExprAs is behaviorExpr yielding what want asks for: a body in a
+// language the translator reads is translated first, then read as v2 syntax.
+func (m *migration) behaviorExprAs(text, lang string, scope *sysmlv1.Element, want wanted) (expr string, ok bool, note string) {
+	expr, ok, note, _ = m.behaviorExprHow(text, lang, scope, want)
+	return expr, ok, note
+}
+
+// behaviorExprHow is behaviorExprAs also reporting whether the translator
+// wrote the expression, rather than the body being v2 syntax already. An
+// expression that is one literal is checked to spell a value of the wanted scalar.
+func (m *migration) behaviorExprHow(text, lang string, scope *sysmlv1.Element, want wanted) (expr string, ok bool, note string, translated bool) {
 	text = strings.TrimSpace(text)
 	if text == "" {
-		return "", false, "the expression has no body"
+		return "", false, "the expression has no body", false
 	}
+	if dialectOf(lang) != dialectNone {
+		expr, note, refused := m.translatedExpr(text, lang, scope, want)
+		if refused == nil {
+			m.noted(scope, note)
+			expr, ok, note = literalExprAs(expr, want)
+			return expr, ok, note, true
+		}
+		if refused.final(lang) {
+			return "", false, refused.note(), false
+		}
+	}
+	expr, ok, note = m.v2Expr(text, lang, scope)
+	if !ok {
+		return "", false, note, false
+	}
+	expr, ok, lnote := literalExprAs(expr, want)
+	return expr, ok, joinNotes(note, lnote), false
+}
+
+// literalExprAs writes expr as the value want asks for when it is one literal,
+// and as it is otherwise.
+func literalExprAs(expr string, want wanted) (value string, ok bool, note string) {
+	kind, text := exprLiteral(expr)
+	if kind == "" {
+		return expr, true, ""
+	}
+	return literalAs(kind, expr, text, want)
+}
+
+// v2Expr writes text, already v2 expression syntax, read inside scope, or
+// refuses with the reason: it is not expression syntax, or a name resolves to nothing.
+func (m *migration) v2Expr(text, lang string, scope *sysmlv1.Element) (expr string, ok bool, note string) {
 	refs, ok := exprRefs(text)
 	if !ok {
 		return "", false, "not v2 expression syntax" + langNote(lang)
 	}
 	if missing := m.invisible(refs, scope); missing != "" {
-		return "", false, "names " + missing + langNote(lang)
+		return "", false, missing + langNote(lang)
 	}
 	return m.qualifySelf(text, refs, scope), true, ""
 }
 
-// qualifySelf prefixes `this.` to each name in text that resolves to a feature
-// of the classifier enclosing scope, which a nested action reaches no other way.
+// qualifySelf prefixes `this.` (or the subject's name, in a test case) to each name
+// in text that resolves to a feature of the classifier enclosing scope.
 func (m *migration) qualifySelf(text string, refs []reference, scope *sysmlv1.Element) string {
 	visible, _ := m.visibleFrom(scope)
 	var starts []int
@@ -324,7 +374,7 @@ func (m *migration) qualifySelf(text string, refs []reference, scope *sysmlv1.El
 	}
 	sort.Sort(sort.Reverse(sort.IntSlice(starts)))
 	for _, s := range starts {
-		text = text[:s] + "this." + text[s:]
+		text = text[:s] + m.self + "." + text[s:]
 	}
 	return text
 }
@@ -366,13 +416,30 @@ func behaviorScope(e *sysmlv1.Element) bool {
 // assignment is one statement of an opaque body written as a v2 assignment.
 var assignment = regexp.MustCompile(`^([\p{L}_][\p{L}\p{N}_ ]*)\s*(\+\+|--|[-+*/]?=)\s*(.*)$`)
 
-// statements writes an opaque body as v2 assignments read inside scope when every
-// statement assigns a v2 expression to a visible feature, else refuses with the reason.
+// statements writes an opaque body as v2 assignments read inside scope: a body
+// in a language the translator reads is translated first, then each statement
+// is read as an assignment of a v2 expression; else refuses with the reason.
 func (m *migration) statements(body, lang string, scope *sysmlv1.Element) (lines []string, ok bool, note string) {
 	body = strings.TrimSpace(body)
 	if body == "" {
 		return nil, false, "the body is empty"
 	}
+	if dialectOf(lang).script() {
+		lines, note, refused := m.translatedStatements(body, lang, scope)
+		if refused == nil {
+			m.noted(scope, note)
+			return lines, true, ""
+		}
+		if refused.final(lang) {
+			return nil, false, refused.note()
+		}
+	}
+	return m.v2Statements(body, lang, scope)
+}
+
+// v2Statements writes an opaque body whose every statement assigns a v2
+// expression to a visible feature, else refuses with the reason.
+func (m *migration) v2Statements(body, lang string, scope *sysmlv1.Element) (lines []string, ok bool, note string) {
 	if strings.ContainsAny(body, "{}") {
 		return nil, false, "the body is not a sequence of assignments" + langNote(lang)
 	}
@@ -398,7 +465,7 @@ func (m *migration) statements(body, lang string, scope *sysmlv1.Element) (lines
 			lines = append(lines, "assign "+target+" := "+target+" "+op[:1]+" 1;")
 			continue
 		}
-		expr, ok, enote := m.behaviorExpr(rhs, lang, scope)
+		expr, ok, enote := m.v2Expr(rhs, lang, scope)
 		if !ok {
 			return nil, false, stmtNote + strconv.Quote(st) + " assigns a value whose expression is not migrated: " + enote
 		}
@@ -410,7 +477,7 @@ func (m *migration) statements(body, lang string, scope *sysmlv1.Element) (lines
 	if len(lines) == 0 {
 		return nil, false, "the body is empty"
 	}
-	return lines, true, ""
+	return lines, true, "the " + langName(lang) + " body is written as v2 assignments"
 }
 
 // assignable writes the v2 target of an assignment to name read in scope: a
@@ -486,6 +553,62 @@ func realLiteral(v float64) string {
 	return s
 }
 
+// singleValue is the min of a duration interval whose max is a duration without
+// an expression in a MagicDraw document, which is how that tool stores and shows
+// a constraint written with one value, `{60s}`; ok is false for anything else.
+func (m *migration) singleValue(spec *sysmlv1.Element, lo string, lok bool, hok bool) (bound, note string, ok bool) {
+	if !lok || hok || !m.fromMagicDraw() {
+		return "", "", false
+	}
+	v := m.model.Ref(spec, "max")
+	if v == nil || v.Type != "Duration" && v.Type != "TimeExpression" {
+		return "", "", false
+	}
+	for v != nil && (v.Type == "Duration" || v.Type == "TimeExpression") {
+		v = firstOwned(v, "expr")
+	}
+	if v != nil {
+		return "", "", false
+	}
+	return lo, "the max is a duration without an expression, MagicDraw's form of the one-valued constraint {" + lo + " s}", true
+}
+
+// fromMagicDraw reports whether MagicDraw or Cameo wrote the document, by the
+// exporter it names or the extender of its tool-private extensions.
+func (m *migration) fromMagicDraw() bool {
+	tool := func(s string) bool {
+		s = strings.ToLower(s)
+		return strings.Contains(s, "magicdraw") || strings.Contains(s, "cameo")
+	}
+	if tool(m.model.Exporter) {
+		return true
+	}
+	for _, ext := range m.model.Extensions {
+		if tool(ext.Extender) {
+			return true
+		}
+	}
+	return false
+}
+
+// openInterval says why an interval lacking a usable bound is not written as a
+// wait: open on one side, it admits every wait past the bound it has.
+func (m *migration) openInterval(spec *sysmlv1.Element, lo string, lok bool, lnote, hi string, hok bool, hnote string) string {
+	missing := func(role, note string) string {
+		if m.model.Ref(spec, role) == nil {
+			return "the interval has no " + role
+		}
+		return "the interval's " + role + " is not written: " + note
+	}
+	switch {
+	case lok && !hok:
+		return missing("max", hnote) + ", so the interval is open above and no one wait of at least " + lo + " s stands for it"
+	case hok && !lok:
+		return missing("min", lnote) + ", so the interval is open below and no one wait of at most " + hi + " s stands for it"
+	}
+	return joinNotes(missing("min", lnote), missing("max", hnote))
+}
+
 // durationExpr writes a UML duration value as a v2 expression in seconds: a scaled
 // literal, a bare number, or an expression read in scope; else ok is false with why.
 func (m *migration) durationExpr(v, scope *sysmlv1.Element) (expr string, ok bool, note string) {
@@ -500,8 +623,15 @@ func (m *migration) durationExpr(v, scope *sysmlv1.Element) (expr string, ok boo
 		if s, ok := parseDuration(v.Attrs["value"]); ok {
 			return s, true, ""
 		}
-		return "", false, durNote + strconv.Quote(v.Attrs["value"]) + " is not a number with a time unit"
+		expr, ok, note := m.symbolicDuration(v.Attrs["value"], "", scope)
+		if !ok {
+			return "", false, durNote + strconv.Quote(v.Attrs["value"]) + " is neither a number with a time unit nor an expression: " + note
+		}
+		return expr, true, note
 	case "LiteralInteger", "LiteralReal", "LiteralUnlimitedNatural":
+		if v.Type == "LiteralUnlimitedNatural" && v.Attrs["value"] == "*" {
+			return "", false, "the duration * is unbounded"
+		}
 		expr, ok, note := m.valueExpr(v, scope)
 		if !ok {
 			return "", false, note
@@ -515,11 +645,11 @@ func (m *migration) durationExpr(v, scope *sysmlv1.Element) (expr string, ok boo
 		if s, ok := parseDuration(body); ok {
 			return s, true, ""
 		}
-		expr, ok, note := m.behaviorExpr(body, lang, scope)
+		expr, ok, note := m.symbolicDuration(body, lang, scope)
 		if !ok {
 			return "", false, durNote + strconv.Quote(body) + " is neither a number with a time unit nor an expression: " + note
 		}
-		return expr, true, "the duration expression " + body + " is taken as seconds"
+		return expr, true, note
 	}
 	return "", false, "a UML " + v.Type + " has no v2 duration form"
 }
@@ -527,24 +657,71 @@ func (m *migration) durationExpr(v, scope *sysmlv1.Element) (expr string, ok boo
 // calcExpr returns the result expression of an opaque or function behavior,
 // when its one body is a v2 expression whose names resolve from the behavior.
 func (m *migration) calcExpr(e *sysmlv1.Element) (expr string, ok bool, note string) {
+	expr, ok, note, _ = m.calcExprHow(e)
+	return expr, ok, note
+}
+
+// calcExprHow is calcExpr also reporting whether the translator wrote the expression.
+func (m *migration) calcExprHow(e *sysmlv1.Element) (expr string, ok bool, note string, translated bool) {
 	bodies := e.Owned("body")
 	if len(bodies) > 1 {
-		return "", false, "the behavior has " + strconv.Itoa(len(bodies)) + " bodies; only one can be the result expression"
+		return "", false, "the behavior has " + strconv.Itoa(len(bodies)) + " bodies; only one can be the result expression", false
 	}
 	body, lang := opaqueBody(e)
 	if body == "" {
-		return "", false, "the behavior has no body"
+		return "", false, "the behavior has no body", false
 	}
-	return m.behaviorExpr(body, lang, e)
+	want, rnote := m.calcResult(e)
+	if rnote != "" {
+		return "", false, rnote, false
+	}
+	return m.behaviorExprHow(body, lang, e, want)
+}
+
+// calcResult is what a behavior's result expression must yield: the value of
+// its one return or output parameter; a behavior with none wants any value,
+// and with several the expression can stand for none of them.
+func (m *migration) calcResult(e *sysmlv1.Element) (wanted, string) {
+	var outs []*sysmlv1.Element
+	for _, p := range e.Owned("ownedParameter") {
+		if dir, _ := parameterDirection(p); dir != "in" {
+			outs = append(outs, p)
+		}
+	}
+	switch len(outs) {
+	case 0:
+		return wanted{}, ""
+	case 1:
+		return m.wantedOf(outs[0]), ""
+	}
+	return wanted{}, "the behavior has " + strconv.Itoa(len(outs)) + " output parameters; one result expression can stand for none of them"
+}
+
+// resultRefusal is why a body the translator reads whole as an expression is
+// still no result expression for e: its type, or which parameter it would be.
+func (m *migration) resultRefusal(e *sysmlv1.Element) string {
+	body, lang := opaqueBody(e)
+	if dialectOf(lang) == dialectNone {
+		return ""
+	}
+	want, rnote := m.calcResult(e)
+	_, _, err := m.translatedExpr(body, lang, e, want)
+	switch {
+	case err == nil:
+		return rnote
+	case err.kind == refusedType:
+		return err.note()
+	}
+	return ""
 }
 
 // calcBody writes an opaque or function behavior's parameters and result expression.
 func (m *migration) calcBody(e *sysmlv1.Element) {
 	m.parameters(e, e)
-	expr, _, _ := m.calcExpr(e)
+	expr, _, _, translated := m.calcExprHow(e)
 	_, lang := opaqueBody(e)
 	m.w.line(expr)
-	if lang != "" {
+	if lang != "" && !translated {
 		m.downgrade(e, "the "+lang+" body is written verbatim as the result expression, since it is also v2 expression syntax")
 	}
 }
@@ -555,6 +732,9 @@ func (m *migration) opaqueBehaviorBody(e, scope *sysmlv1.Element) {
 	body, lang := opaqueBody(e)
 	lines, ok, note := m.statements(body, lang, scope)
 	if !ok {
+		if r := m.resultRefusal(e); r != "" && r != note {
+			note = "as the result expression, " + r + "; as statements, " + note
+		}
 		m.opaqueComment(body, lang, note)
 		m.downgrade(e, "the body is kept as a comment: "+note)
 		return
@@ -563,7 +743,9 @@ func (m *migration) opaqueBehaviorBody(e, scope *sysmlv1.Element) {
 	m.w.line("first start then " + writeName(name) + ";")
 	m.w.block("action "+writeName(name), func() { m.w.lines(lines) })
 	m.w.line("first " + writeName(name) + " then done;")
-	m.downgrade(e, "the "+langName(lang)+" body is written as v2 assignments")
+	if note != "" {
+		m.downgrade(e, note)
+	}
 }
 
 // opaqueComment keeps an opaque body the mapping cannot write as a comment.
@@ -588,14 +770,15 @@ func langName(lang string) string {
 	return lang
 }
 
-// operationBody writes an operation's parameters, conditions and method.
+// operationBody writes an operation's parameters, conditions and method; the
+// parameters are those actionParameters lists, so a call binds what is declared.
 func (m *migration) operationBody(op *sysmlv1.Element) {
 	declared := map[string]bool{}
 	for _, p := range op.Owned("ownedParameter") {
 		m.parameter(p, op, declared)
 	}
 	method := m.model.Ref(op, "method")
-	if method != nil {
+	if method != nil && method.Parent == op.Parent {
 		for _, p := range method.Owned("ownedParameter") {
 			m.parameter(p, op, declared)
 		}
@@ -665,38 +848,213 @@ func (m *migration) reported(e *sysmlv1.Element) bool {
 	return ok
 }
 
-// reception writes a reception as a comment on its owner: v2 has no
-// reception, the signal it names being accepted by the owner's behaviors.
+// reception writes a reception as an action def of its owner that accepts the signal, from the
+// object and via each port it arrives at, performs the method and accepts again, performed from creation.
 func (m *migration) reception(r *sysmlv1.Element) {
 	sig := m.model.Ref(r, "signal")
-	text := "reception " + describe(r)
-	note := "a reception names the signal its owner accepts, which the owner's behaviors carry as accept"
+	if sig == nil || !m.written(sig) {
+		m.receptionComment(r, sig)
+		return
+	}
+	owner := r.Parent
+	name := m.nameFor(r)
+	usage := m.freshName(owner, lowerFirst(name))
+	ports, info := m.arrivalRoutes(owner, sig, "reception")
+	method := m.model.Ref(r, "method")
+	performed := method
+	if op := m.methodOf[method]; op != nil {
+		performed = op
+	}
+	route := receptionRoute{owner: owner, sig: sig, method: performed, used: map[string]bool{"start": true, "done": true}}
+	m.w.block("action def "+writeName(name), func() {
+		from := "start"
+		if len(ports) > 0 {
+			from = freshIn(route.used, "spread")
+			m.w.line("first start then " + from + ";")
+			m.w.line("fork " + from + ";")
+		}
+		m.receptionLoop(r, &route, from, nil)
+		for _, p := range ports {
+			m.receptionLoop(r, &route, from, p)
+		}
+	})
+	m.w.line("perform action " + writeName(usage) + " : " + writeName(name) + ";")
+	m.receptionParameters(r, sig)
+	desc := "written as an action def accepting " + m.nameFor(sig)
+	if route.performed {
+		desc += " and performing its method " + qualifiedName(method)
+		if performed != method {
+			desc += " as the operation " + qualifiedName(performed) + ", whose body it is"
+		}
+	}
+	m.add(r, verdictFor(route.note), m.v2Name(r), joinNotes(joinNotes(desc+", which its owner performs as "+usage+" from creation, accepting the signal again after each", route.note), info))
+}
+
+// receptionRoute is what every accept loop of one reception shares: the signal and the method
+// as written (the operation whose body it is), the names taken, and whether it is performed.
+type receptionRoute struct {
+	owner, sig, method *sysmlv1.Element
+	used               map[string]bool
+	note               string
+	performed          bool
+}
+
+// receptionLoop writes one accept loop of reception r reached from node from: an accept of the
+// signal from the object, or via port when given, the method performed when it can be, and the return.
+func (m *migration) receptionLoop(r *sysmlv1.Element, route *receptionRoute, from string, port *sysmlv1.Element) {
+	suffix, via := "", ""
+	if port != nil {
+		suffix = " via " + m.nameFor(port)
+		via = " via " + writeName(m.nameFor(port))
+	}
+	trig := writeName(freshIn(route.used, "receive"+suffix))
+	payload := writeName(freshIn(route.used, lowerFirst(m.nameFor(route.sig))+suffix))
+	m.w.line("first " + from + " then " + trig + ";")
+	m.w.line("action " + trig + " accept " + payload + " : " + m.ref(route.sig, route.owner) + via + ";")
+	last := trig
+	method := route.method
 	switch {
-	case sig == nil:
-		note = joinNotes(note, m.dangling(r, "signal"))
+	case method == nil:
+		if len(m.model.Unresolved(r, "method")) > 0 {
+			route.note = "the method refers to nothing in the document; the reception only accepts the signal"
+		} else {
+			route.note = "the reception has no method, so it only accepts the signal"
+		}
+	case !m.written(method) || !(method.Type == "Operation" || hasActionForm(method)):
+		route.note = "the method " + qualifiedName(method) + " has no action def to perform; the reception only accepts the signal"
+	default:
+		args, refusal := m.receptionArguments(method, route.sig, payload)
+		if refusal != "" {
+			route.note = refusal + "; the reception only accepts the signal"
+			break
+		}
+		run := writeName(freshIn(route.used, "run"+suffix))
+		last, route.performed = run, true
+		m.w.line("first " + trig + " then " + run + ";")
+		decl := "action " + run + " : " + m.ref(method, route.owner)
+		if len(args) == 0 {
+			m.w.line(decl + ";")
+		} else {
+			m.w.line(decl + " { " + strings.Join(args, "; ") + "; }")
+		}
+	}
+	m.w.line("first " + last + " then " + trig + ";")
+}
+
+// receptionComment writes a reception whose signal has no v2 declaration as a
+// comment, since nothing could accept it.
+func (m *migration) receptionComment(r, sig *sysmlv1.Element) {
+	text := "reception " + describe(r)
+	note := ""
+	if sig == nil {
+		note = m.dangling(r, "signal")
 		if note == "" || len(m.model.Unresolved(r, "signal")) == 0 {
 			note = joinNotes(note, "the reception names no signal")
 		}
-	case m.written(sig):
-		text += " accepts " + m.ref(sig, m.scope)
-	default:
+	} else {
 		text += " accepts " + qualifiedName(sig)
-		note = joinNotes(note, "the signal "+qualifiedName(sig)+" has no v2 declaration in the document")
+		note = "the signal " + qualifiedName(sig) + " has no v2 declaration in the document"
 	}
 	m.w.lines(prefixFirst(commentPrefix, commentLines(text)))
-	m.add(r, Approximated, "", note)
+	m.add(r, Unmapped, "", note)
+}
+
+// actionParameters lists the parameters the action def written for behavior b declares: an
+// operation's own, then its method's that stand for none of them by position or name.
+func (m *migration) actionParameters(b *sysmlv1.Element) []*sysmlv1.Element {
+	params := b.Owned("ownedParameter")
+	method := m.model.Ref(b, "method")
+	if b.Type != "Operation" || method == nil || method.Parent != b.Parent {
+		return params
+	}
+	declared := map[string]bool{}
+	for _, p := range params {
+		declared[m.nameFor(p)] = true
+	}
+	for _, p := range method.Owned("ownedParameter") {
+		if m.realizes[p] != nil || declared[m.nameFor(p)] {
+			continue
+		}
+		declared[m.nameFor(p)] = true
+		params = append(params, p)
+	}
+	return params
+}
+
+// receptionArguments binds the method's in parameters to the accepted signal's attributes of the
+// same name, conforming in type and multiplicity; one that does not, or is missing where a value
+// is required, refuses the method.
+func (m *migration) receptionArguments(method, sig *sysmlv1.Element, payload string) (args []string, refusal string) {
+	attrs := map[string]*sysmlv1.Element{}
+	for _, a := range m.signalAttributes(sig) {
+		attrs[m.nameOf(a)] = a
+	}
+	for _, p := range m.actionParameters(method) {
+		dir, _ := parameterDirection(p)
+		if dir != "in" && dir != "inout" {
+			continue
+		}
+		name := m.nameOf(p)
+		a := attrs[name]
+		if name == "" || a == nil {
+			if requiresValue(p) {
+				refusal = joinNotes(refusal, "the method "+qualifiedName(method)+"'s parameter "+m.nameFor(p)+" must hold a value that no attribute of the signal supplies")
+			}
+			continue
+		}
+		if why := m.bindingMismatch(a, p); why != "" {
+			refusal = joinNotes(refusal, "the signal's attribute "+name+" "+why+" the method "+qualifiedName(method)+"'s parameter "+m.nameFor(p))
+			continue
+		}
+		args = append(args, m.parameterBinding(p, name, payload+"."+writeName(name)))
+	}
+	return args, refusal
+}
+
+// parameterBinding writes the binding of parameter p, called name, in the body of an action
+// usage of its behavior, keeping p's direction so an inout value is written back.
+func (m *migration) parameterBinding(p *sysmlv1.Element, name, expr string) string {
+	dir, _ := parameterDirection(p)
+	return dir + " " + writeName(name) + " = " + expr
+}
+
+// bindingMismatch says why feature a cannot be bound to parameter p: its type does not conform
+// or its multiplicity does not lie within p's; "" when it can. Non-literal bounds are trusted.
+func (m *migration) bindingMismatch(a, p *sysmlv1.Element) string {
+	at, pt := m.model.Ref(a, "type"), m.model.Ref(p, "type")
+	if !m.conform(at, pt) {
+		return "is typed by " + qualifiedName(at) + ", which does not conform to the type " + qualifiedName(pt) + " of"
+	}
+	al, au, aok := bounds(a)
+	pl, pu, pok := bounds(p)
+	if aok && pok && (al < pl || (pu >= 0 && (au < 0 || au > pu))) {
+		return "has multiplicity " + boundsText(al, au) + ", which does not lie within the " + boundsText(pl, pu) + " of"
+	}
+	return ""
+}
+
+// receptionParameters reports a reception's own parameters, which mirror the
+// signal's attributes and are carried by the accepted payload.
+func (m *migration) receptionParameters(r, sig *sysmlv1.Element) {
+	attrs := map[string]*sysmlv1.Element{}
+	for _, a := range m.signalAttributes(sig) {
+		attrs[m.nameOf(a)] = a
+	}
+	for _, p := range r.Owned("ownedParameter") {
+		if a := attrs[m.nameOf(p)]; a != nil {
+			m.add(p, Mapped, m.v2Name(a), "stands for the signal's attribute "+m.nameOf(a)+", which the accepted payload carries")
+			continue
+		}
+		m.add(p, Unmapped, "", "the parameter "+m.nameFor(p)+" matches no attribute of the signal, whose payload is all the accept carries")
+	}
 }
 
 // event reports an event declared as a member: it is written as an accept clause
-// where a trigger refers to it, and the triggers report those, in their own scope.
+// where a trigger refers to it, and the triggers report those, in their own
+// scope; one no trigger refers to is skipped, since no behavior would accept it.
 func (m *migration) event(e *sysmlv1.Element) {
 	if m.triggered[e] {
 		return
 	}
-	clause, note, ok := m.acceptClause(e, e.Parent, "")
-	if !ok {
-		m.unmapped(e, joinNotes("no trigger refers to the event", note))
-		return
-	}
-	m.add(e, Approximated, "", joinNotes("no trigger refers to the event, which would be written as "+clause, note))
+	m.add(e, Skipped, "", unreferencedNote+": no trigger refers to the event, so nothing would accept it")
 }

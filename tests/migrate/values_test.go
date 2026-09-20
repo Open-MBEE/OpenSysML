@@ -129,6 +129,120 @@ func TestLiteralOfAnotherScalarTypeIsNotBound(t *testing.T) {
 	wantClean(t, "mistyped.sysml", r)
 }
 
+// A constraint yields a Boolean, so a specification that is a literal or
+// instance of anything else is left as a comment, whether the constraint is
+// a block's own rule or a constraint block's body; a Boolean literal, a
+// string spelling one, a Boolean expression and an OCL body that is one are written.
+func TestNonBooleanConstraintSpecificationIsNotWritten(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Enumeration" xmi:id="_mode" name="Mode">
+      <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="_on" name="on"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_b" name="Lamp">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_lit" name="lit">`+booleanHref+`</ownedAttribute>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_c1" name="one">
+        <specification xmi:type="uml:LiteralInteger" xmi:id="_c1s" value="1"/>
+      </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_c2" name="half">
+        <specification xmi:type="uml:LiteralReal" xmi:id="_c2s" value="0.5"/>
+      </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_c3" name="word">
+        <specification xmi:type="uml:LiteralString" xmi:id="_c3s" value="ok"/>
+      </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_c4" name="mode">
+        <specification xmi:type="uml:InstanceValue" xmi:id="_c4s" instance="_on"/>
+      </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_c5" name="two">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_c5s">
+          <language>OCL</language>
+          <body>2</body>
+        </specification>
+      </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_c6" name="always">
+        <specification xmi:type="uml:LiteralBoolean" xmi:id="_c6s" value="true"/>
+      </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_c7" name="spelled">
+        <specification xmi:type="uml:LiteralString" xmi:id="_c7s" value="false"/>
+      </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_c8" name="lighted">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_c8s">
+          <language>OCL</language>
+          <body>lit or not lit</body>
+        </specification>
+      </ownedRule>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_c9" name="yes">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_c9s">
+          <language>OCL</language>
+          <body>true</body>
+        </specification>
+      </ownedRule>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_cb" name="Rule">
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_r">
+        <specification xmi:type="uml:LiteralInteger" xmi:id="_rs" value="3"/>
+      </ownedRule>
+    </packagedElement>`, `<sysml:Block xmi:id="_st" base_Class="_b"/><sysml:ConstraintBlock xmi:id="_scb" base_Class="_cb"/>`)
+	wantLine(t, r.Notation, "constraint always { true }")
+	wantLine(t, r.Notation, "constraint spelled { false }")
+	wantLine(t, r.Notation, "constraint lighted { lit or not lit }")
+	wantLine(t, r.Notation, "constraint yes { true }")
+	wantNoLine(t, r.Notation, "constraint one {")
+	wantNoLine(t, r.Notation, "constraint half {")
+	wantNoLine(t, r.Notation, "constraint word {")
+	wantNoLine(t, r.Notation, "constraint mode {")
+	wantNoLine(t, r.Notation, "constraint two {")
+	wantNoLine(t, r.Notation, "    3\n")
+	wantNote(t, r, "_c1", migrate.Unmapped, "the integer 1 is not a value of Boolean, which the constraint yields")
+	wantNote(t, r, "_c2", migrate.Unmapped, "the real 0.5 is not a value of Boolean, which the constraint yields")
+	wantNote(t, r, "_c3", migrate.Unmapped, `the string "ok" is not a value of Boolean, which the constraint yields`)
+	wantNote(t, r, "_c4", migrate.Unmapped, "the literal Mode::on is not a value of Boolean, which the constraint yields")
+	wantNote(t, r, "_c5", migrate.Unmapped, "the integer 2 is not a value of Boolean, which the constraint yields")
+	wantNote(t, r, "_c6", migrate.Mapped, "")
+	wantNote(t, r, "_c7", migrate.Approximated, `the string "false" is written as the Boolean the constraint yields`)
+	wantNote(t, r, "_c8", migrate.Approximated, "opaque expression copied verbatim (language OCL)")
+	wantNote(t, r, "_r", migrate.Unmapped, "the integer 3 is not a value of Boolean, which the constraint yields")
+	wantClean(t, "constraints.sysml", r)
+}
+
+// A value action's literal, opaque or not, is checked against its result pin's
+// type as a default is against its feature's: a string spelling no number is
+// not a Real result, a numeric string is written as the Real it spells.
+func TestValueActionLiteralTakesTheResultPinsType(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_b" name="Stage">
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_run" name="Run">
+        <node xmi:type="uml:InitialNode" xmi:id="_init"/>
+        <node xmi:type="uml:ValueSpecificationAction" xmi:id="_deg" name="deg">
+          <value xmi:type="uml:LiteralString" xmi:id="_degV" value="-1deg"/>
+          <result xmi:type="uml:OutputPin" xmi:id="_degOut" name="result">`+realHref+`</result>
+        </node>
+        <node xmi:type="uml:ValueSpecificationAction" xmi:id="_num" name="num">
+          <value xmi:type="uml:LiteralString" xmi:id="_numV" value="-1"/>
+          <result xmi:type="uml:OutputPin" xmi:id="_numOut" name="result">`+realHref+`</result>
+        </node>
+        <node xmi:type="uml:ValueSpecificationAction" xmi:id="_script" name="script">
+          <value xmi:type="uml:OpaqueExpression" xmi:id="_scriptV">
+            <language>JavaScript</language>
+            <body>"2deg"</body>
+          </value>
+          <result xmi:type="uml:OutputPin" xmi:id="_scriptOut" name="result">`+realHref+`</result>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_final"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e1" source="_init" target="_deg"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e2" source="_deg" target="_num"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e3" source="_num" target="_script"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e4" source="_script" target="_final"/>
+      </ownedBehavior>
+    </packagedElement>`, `<sysml:Block xmi:id="_sb" base_Class="_b"/>`)
+	wantLine(t, r.Notation, "out result : ScalarValues::Real = -1.0;")
+	wantNoLine(t, r.Notation, `= "-1deg";`)
+	wantNoLine(t, r.Notation, `= "2deg";`)
+	wantNote(t, r, "_deg", migrate.Approximated, `the value -1deg is not written: the string "-1deg" is not a value of Real, which the feature holds`)
+	wantNote(t, r, "_num", migrate.Approximated, `the string "-1" is written as the Real the feature holds`)
+	wantNote(t, r, "_script", migrate.Approximated, `the value {JavaScript} "2deg" is not written: the types at "\"2deg\"" disagree: the expression is a String, not the Real wanted`)
+	wantClean(t, "value_pins.sysml", r)
+}
+
 // A literal is no value of a value type or enumeration with no scalar base:
 // such a default is left as a comment rather than a binding no v2 checker
 // accepts. A value type over an external base is written with none, so the
@@ -409,7 +523,7 @@ func TestFeatureReachedByAConnectorLosesItsPrivacy(t *testing.T) {
   <sysml:Block xmi:id="_s3" base_Class="_car"/>`)
 	wantLine(t, r.Notation, "port intake : Fuel;")
 	wantLine(t, r.Notation, "private port aux : Fuel;")
-	wantLine(t, r.Notation, "connection feed connect tank to engine.intake;")
+	wantLine(t, r.Notation, "binding feed bind tank = engine.intake;")
 	wantNote(t, r, "_pt_in", migrate.Approximated, "private visibility is not written: connector 'feed' in Car reaches it")
 	wantClean(t, "reached.sysml", r)
 }

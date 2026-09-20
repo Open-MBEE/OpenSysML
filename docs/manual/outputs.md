@@ -25,10 +25,6 @@ What the renderer emits:
   when rendered with `-diagram-form dot`, ` ```plantuml ` blocks with
   `-diagram-form plantuml`, or a pipe table for the `table` kind whichever
   form), with captions in emphasis.
-- Every table and diagram caption preceded by a `<!-- caption -->` marker
-  line, so the caption is distinguishable from an emphasis-only paragraph.
-  The marker is metadata of OpenSysML's Markdown dialect: ordinary Markdown
-  renderers treat it as a comment and display nothing.
 - An object the session holds as its path from the object the query was bound
   through (`car.wheels[2]`), and a verdict as `<assertion> on <path>: <verdict>`
   (`assert constraint powerLow on car.engine: violated`).
@@ -209,10 +205,14 @@ $ sysml report.sysml -render-document Observatory::MassReport \
     -doc-form pdf -o report.pdf
 ```
 
-Internally the engine renders Markdown, converts it to styled HTML, renders
-any Mermaid diagrams to SVG with Mermaid CLI (`mmdc`), typesets any formulas
-with KaTeX (`katex`), and hands the result to an external HTML-to-PDF
-converter. Rendered with `-diagram-form dot`, the diagrams are drawn by
+Internally the PDF backend reads the compiled document tree, renders any
+Mermaid diagrams to SVG with Mermaid CLI (`mmdc`), typesets any formulas
+with KaTeX (`katex`), and hands an external converter the document in the
+form it reads: an HTML-to-PDF engine gets the [HTML backend's](#html) page
+with the drawn diagrams and typeset formulas in place of their source and a
+print stylesheet over the default sheet; pandoc gets the
+[Markdown](#markdown) with a filter swapping the artwork in on its own
+syntax tree. Rendered with `-diagram-form dot`, the diagrams are drawn by
 Graphviz — the `dot` named by `OPENSYSML_DOT`, else the one on `PATH`, writing
 SVG under the layout engine the block's `// layout:` header names, so a view
 the model positions is drawn where its `Layout` annotations put it — and with
@@ -223,6 +223,31 @@ block's DOT or PlantUML source under a notice naming the variable to set, and
 the render still succeeds. A tool that is present and fails stops the render
 with a typed `tool-failed` error carrying its output, as a failing `mmdc`
 does.
+
+### Styling a PDF
+
+An engine reading HTML lays out the same markup the HTML form writes, so a
+PDF is styled the way an HTML page is. The print stylesheet — page size and
+margins, the page-number footer, print faces and sizes, page breaks kept out
+of tables and figures, the title page and contents on pages of their own —
+is declared in a second cascade layer after the default sheet:
+
+```css
+@layer opensysml;        /* the default sheet, or the theme over it */
+@layer opensysml-print;  /* the PDF backend's print sheet */
+```
+
+Both layers draw their values from the same `--sysml-*` tokens and write no
+`style` attributes, so `-html-theme` rethemes a PDF as it does a page,
+`-html-css` sheets apply unlayered after both layers and win on cascade
+origin, and `-html-no-default-css` leaves both layers out so that only your
+sheets — `@page` rules included — style the PDF. A sheet's relative `url()`
+and `@import` references resolve against the PDF's directory, as a page's
+resolve against the page's. The pandoc engine reads Markdown and writes its
+own HTML, so `-html-theme` and `-html-no-default-css` are refused for it,
+while `-html-css` sheets are attached in pandoc's page after its own.
+`-html-fragment`, `-html-mermaid` and `-html-math` shape a browser page and
+are refused for PDF.
 
 ### Engines
 
@@ -275,26 +300,32 @@ Inline runs and cross-reference anchors keep their meaning in PDF. A
 paragraph built from `Span`/`Link`/`Ref` runs renders with emphasis, strong
 and code styling and working links; a `Ref` anchor becomes an invisible
 PDF-native anchor, so an in-document `Ref` is a clickable internal link; and
-a grouped table's group key renders in bold above each subtable. All
-three engines support internal links: `weasyprint` and `prince` from the
-prepared HTML's element ids and fragment hrefs, and `pandoc` from the
-Markdown itself, whose CommonMark reader keeps the anchor's raw HTML.
+a grouped table's group key heads each group. All three engines support
+internal links: `weasyprint` and `prince` from the HTML's element ids and
+fragment hrefs, and `pandoc` from the Markdown itself, whose CommonMark
+reader keeps the anchor's raw HTML. Captions are `<caption>` and
+`<figcaption>` elements in the HTML the first two read; the pandoc engine
+tells a caption from an emphasized paragraph by matching the paragraph ahead
+of each table, diagram and formula block against the document's captions in
+order, and styles it small.
 
 ### Mathematics
 
-Formulas are typeset in the PDF, not printed as LaTeX. The engine reads the
-`$…$` spans and `$$…$$` blocks the Markdown carries — in paragraphs,
-headings, captions, list items and table cells alike — and runs each distinct
-formula once through the KaTeX command line (`katex`, found on `PATH` or
-named by `OPENSYSML_KATEX`), which typesets it as HTML that needs no
-JavaScript. KaTeX's stylesheet and fonts are copied beside the page, so the
-finished PDF embeds the KaTeX faces and shows the formula as a formula:
+Formulas are typeset in the PDF, not printed as LaTeX. The backend lists the
+document's distinct formulas — math spans in paragraphs, list items and
+definitions, and `Formula` blocks — and runs each once through the KaTeX
+command line (`katex`, found on `PATH` or named by `OPENSYSML_KATEX`), which
+typesets it as HTML that needs no JavaScript. KaTeX's stylesheet and fonts
+are copied beside the page, so the finished PDF embeds the KaTeX faces and
+shows the formula as a formula:
 
-- `weasyprint` and `prince` lay out the typeset HTML directly, an inline
-  formula in a `<span class="math">` and a displayed one in a
-  `<div class="formula">` centered on its own line under its caption;
-- `pandoc` receives the Markdown with each formula replaced by the typeset
-  HTML as a raw block or span, and links the same stylesheet.
+- `weasyprint` and `prince` lay out the typeset HTML in the HTML backend's
+  own places, an inline formula in its `<span class="sysml-math">` and a
+  displayed one in the `<div class="sysml-math">` of its
+  `<figure class="sysml-formula">`, centered under its caption;
+- `pandoc` reads the Markdown, and its filter replaces each formula pandoc
+  parses with the typeset HTML as a raw block or span, linking the same
+  stylesheet.
 
 A document without formulas needs no KaTeX, as one without diagrams needs no
 Mermaid. An escaped `\$` in prose stays a dollar sign, and a `$` inside a

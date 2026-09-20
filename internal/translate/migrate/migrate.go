@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/translate/simresults"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
 
@@ -28,10 +29,12 @@ const (
 // scalarValuesPrefix qualifies a name from the standard ScalarValues package.
 const scalarValuesPrefix = "ScalarValues::"
 
-// Result is a migration's output: the v2 notation and the report over it.
+// Result is a migration's output: the v2 notation, the report over it, and
+// the result snapshots of its run configurations.
 type Result struct {
 	Notation []byte
 	Report   *Report
+	Results  *simresults.Results
 }
 
 // Migrate reads a SysML v1 model as UML XMI, or a zip archive (such as a
@@ -48,24 +51,43 @@ func Migrate(name string, data []byte) (*Result, error) {
 // FromModel migrates an already-read XMI model.
 func FromModel(name string, model *sysmlv1.Model) *Result {
 	m := &migration{
-		model:     model,
-		report:    &Report{Source: name, Exporter: model.Exporter},
-		w:         &writer{},
-		names:     map[*sysmlv1.Element]string{},
-		extras:    map[*sysmlv1.Element][]func(){},
-		flows:     map[*sysmlv1.Element][]*sysmlv1.Element{},
-		outcomes:  map[*sysmlv1.Element]*flowOutcome{},
-		unplaced:  map[*sysmlv1.Element]*placement{},
-		taken:     map[*sysmlv1.Element]map[string]bool{},
-		parallel:  map[*sysmlv1.Element]string{},
-		exposed:   map[*sysmlv1.Element]string{},
-		methodOf:  map[*sysmlv1.Element]*sysmlv1.Element{},
-		realizes:  map[*sysmlv1.Element]*sysmlv1.Element{},
-		opUsage:   map[*sysmlv1.Element]string{},
-		deciding:  map[*sysmlv1.Element]bool{},
-		bounded:   map[*sysmlv1.Element][]*sysmlv1.Element{},
-		triggered: map[*sysmlv1.Element]bool{},
-		indexed:   map[string]int{},
+		model:        model,
+		report:       &Report{Source: name, Exporter: model.Exporter},
+		results:      &simresults.Results{Source: name, Configurations: []simresults.ConfigurationResults{}},
+		w:            &writer{},
+		names:        map[*sysmlv1.Element]string{},
+		extras:       map[*sysmlv1.Element][]func(){},
+		flows:        map[*sysmlv1.Element][]*sysmlv1.Element{},
+		outcomes:     map[*sysmlv1.Element]*flowOutcome{},
+		unplaced:     map[*sysmlv1.Element]*placement{},
+		taken:        map[*sysmlv1.Element]map[string]bool{},
+		parallel:     map[*sysmlv1.Element]string{},
+		exposed:      map[*sysmlv1.Element]string{},
+		methodOf:     map[*sysmlv1.Element]*sysmlv1.Element{},
+		realizes:     map[*sysmlv1.Element]*sysmlv1.Element{},
+		opUsage:      map[*sysmlv1.Element]string{},
+		deciding:     map[*sysmlv1.Element]bool{},
+		bounded:      map[*sysmlv1.Element][]*sysmlv1.Element{},
+		triggered:    map[*sysmlv1.Element]bool{},
+		snapshots:    map[*sysmlv1.Element]snapshotTyping{},
+		contexts:     map[*sysmlv1.Element]*behaviorContext{},
+		contextNotes: map[*sysmlv1.Element]string{},
+		visiting:     map[*sysmlv1.Element]*contextVisit{},
+		invokers:     map[*sysmlv1.Element][]*sysmlv1.Element{},
+		unvalued:     map[*sysmlv1.Element]bool{},
+		dryOut:       map[*sysmlv1.Element]map[*sysmlv1.Element]bool{},
+		carrierOf:    map[*sysmlv1.Element]*carrier{},
+		carrierNotes: map[*sysmlv1.Element]string{},
+		indexed:      map[string]int{},
+		regionUsed:   map[*sysmlv1.Element]map[string]bool{},
+		vertexNames:  map[*sysmlv1.Element]string{},
+		instant:      map[*sysmlv1.Element]map[*sysmlv1.Element]instantValue{},
+		self:         "this",
+		lanes:        map[*sysmlv1.Element]*lanes{},
+		routes:       map[[2]*sysmlv1.Element]partRoute{},
+		usageOf:      map[*sysmlv1.Element]string{},
+		pins:         map[*sysmlv1.Element]pinDecl{},
+		opaque:       map[*sysmlv1.Element]*opaqueResult{},
 	}
 	m.prepare()
 	for _, root := range model.Roots {
@@ -74,7 +96,7 @@ func FromModel(name string, model *sysmlv1.Model) *Result {
 	m.flushFlows()
 	m.unwrittenEvents()
 	m.extensions()
-	return &Result{Notation: []byte(m.w.String()), Report: m.report}
+	return &Result{Notation: []byte(m.w.String()), Report: m.report, Results: m.results}
 }
 
 // unwrittenEvents reports the events whose triggers were never written: those
@@ -126,7 +148,9 @@ func (m *migration) extensions() {
 type migration struct {
 	model  *sysmlv1.Model
 	report *Report
-	w      *writer
+	// results index the run configurations' result snapshots.
+	results *simresults.Results
+	w       *writer
 	// names holds the names synthesized for anonymous elements.
 	names map[*sysmlv1.Element]string
 	// extras are members other elements contribute to a body: a Satisfy is
@@ -161,12 +185,72 @@ type migration struct {
 	bounded map[*sysmlv1.Element][]*sysmlv1.Element
 	// triggered holds each event some trigger refers to, which is reported where it is.
 	triggered map[*sysmlv1.Element]bool
+	// contexts holds, once asked, the context each activity acts on through a
+	// parameter; contextNotes says why an activity naming ports of several gets none.
+	contexts     map[*sysmlv1.Element]*behaviorContext
+	contextNotes map[*sysmlv1.Element]string
+	// visiting is the search settling contexts: each activity it has reached and
+	// not settled, and the order it reached them in.
+	visiting map[*sysmlv1.Element]*contextVisit
+	visits   []*sysmlv1.Element
+	// invokers lists, for each behavior, the actions, states, transitions and
+	// classifiers that run it without owning it, whose object it then acts on.
+	invokers map[*sysmlv1.Element][]*sysmlv1.Element
+	// connectors lists the user model's connectors, ports its ports, and portSends its
+	// send signal actions going out through a port. arrived indexes, from these, the
+	// ports each signal arrives at, once a trigger asks.
+	connectors []*sysmlv1.Element
+	ports      []*sysmlv1.Element
+	portSends  []*sysmlv1.Element
+	arrived    *arrivals
+	// snapshots types each classifier-less instance under a run configuration's
+	// result location by what its slots prove it a snapshot of.
+	snapshots map[*sysmlv1.Element]snapshotTyping
 	// bound gives, while a transition's effect is written, the expression over
 	// the accepted signal each of its parameters is bound to.
 	bound map[*sysmlv1.Element]string
+	// boundNote says what the expressions in bound are, for the report.
+	boundNote string
+	// keeping is the statement the effect being written ends with, which keeps
+	// the accepted signal for the state the transition enters.
+	keeping string
+	// carrierOf gives each state the signal its entry and do parameters take
+	// their values from; carrierNotes says why a state has none.
+	carrierOf    map[*sysmlv1.Element]*carrier
+	carrierNotes map[*sysmlv1.Element]string
+	// unvalued holds the in parameters nothing passes a value to, so a flow
+	// out of one is kept as a comment instead of binding an absent value.
+	unvalued map[*sysmlv1.Element]bool
+	// dryOut holds, per activity, the out parameters no value reaches; see dryOutputs.
+	dryOut map[*sysmlv1.Element]map[*sysmlv1.Element]bool
 	// indexed locates each element's report entry by id, so an element that
 	// several writers account for is reported once.
 	indexed map[string]int
+	// lanes indexes each activity's partitions by the nodes and edges they hold.
+	lanes map[*sysmlv1.Element]*lanes
+	// routes memoizes, per classifier and target, the chains of composite parts between them.
+	routes map[[2]*sysmlv1.Element]partRoute
+	// usageOf names, for each activity a lane's object performs, the action
+	// usage of the activity's owner that performs it.
+	usageOf map[*sysmlv1.Element]string
+	// pins records how each declared pin is written, for the bodies that name it.
+	pins map[*sysmlv1.Element]pinDecl
+	// opaque memoizes what each opaque action's body translates to.
+	opaque map[*sysmlv1.Element]*opaqueResult
+	// clocks memoizes the names a simulation configuration gives the clock.
+	clocks map[string]string
+	// observed memoizes, per observation, the durations and time expressions that read it.
+	observed map[*sysmlv1.Element][]*sysmlv1.Element
+	// regionUsed holds the vertex names each region's body has taken.
+	regionUsed map[*sysmlv1.Element]map[string]bool
+	// vertexNames gives the v2 name of every vertex a state machine writes.
+	vertexNames map[*sysmlv1.Element]string
+	// instant names, per state machine, the TimeInstantValue attribute each
+	// absolute time event its transitions accept is written as.
+	instant map[*sysmlv1.Element]map[*sysmlv1.Element]instantValue
+	// self names the object whose features a behavior body reads: `this`, or the
+	// subject of a test case while its scenario is written.
+	self string
 }
 
 // add records e's verdict. An element reported before keeps one entry: the
@@ -215,12 +299,16 @@ func weaker(a, b Verdict) bool {
 
 // prepare walks the model once ahead of writing: it indexes the item flows
 // by realizing connector, names every anonymous feature that is referred to,
-// and then exposes the features the connectors and slots that will be written reach.
+// types the run configurations' result snapshots, and then exposes the
+// features the connectors and slots that will be written reach.
 func (m *migration) prepare() {
-	var reachers []*sysmlv1.Element
+	var reachers, configs, laned []*sysmlv1.Element
 	var walk func(e *sysmlv1.Element)
 	walk = func(e *sysmlv1.Element) {
 		m.distinguish(e)
+		if simulationConfig(e) != nil {
+			configs = append(configs, e)
+		}
 		switch e.Type {
 		case "InformationFlow":
 			if cs := m.model.Refs(e, "realizingConnector"); len(cs) > 0 {
@@ -242,14 +330,24 @@ func (m *migration) prepare() {
 					}
 				}
 			}
-		case "Connector", "InstanceSpecification":
+		case "Connector":
 			reachers = append(reachers, e)
+			m.connectors = append(m.connectors, e)
+		case "InstanceSpecification":
+			reachers = append(reachers, e)
+		case "SendSignalAction":
+			if m.model.Ref(e, "onPort") != nil && m.model.Ref(e, "signal") != nil {
+				m.portSends = append(m.portSends, e)
+			}
 		case "OpaqueExpression":
 			// A default, rule or slot value is read in the scope of its owner's owner.
 			if e.Parent != nil && e.Parent.Parent != nil {
 				m.exposeNamed(e, e.Parent.Parent)
 			}
 		case "Property", "Port":
+			if e.Type == "Port" {
+				m.ports = append(m.ports, e)
+			}
 			for _, r := range m.model.Refs(e, "redefinedProperty") {
 				m.expose(r, qualifiedName(e)+" redefines it")
 			}
@@ -271,6 +369,8 @@ func (m *migration) prepare() {
 				m.methodOf[method] = e
 				m.realizeParameters(e, method)
 			}
+		case "Activity":
+			laned = append(laned, e)
 		case "DurationConstraint":
 			for _, c := range m.model.Refs(e, "constrainedElement") {
 				m.bounded[c] = append(m.bounded[c], e)
@@ -279,6 +379,14 @@ func (m *migration) prepare() {
 			if ev := m.model.Ref(e, "event"); ev != nil {
 				m.triggered[ev] = true
 			}
+		case "CallBehaviorAction":
+			m.invoke(e, "behavior")
+		case "State":
+			m.invoke(e, "entry", "doActivity", "exit")
+		case "Transition":
+			m.invoke(e, "effect")
+		case "Class", "Component", "Node", "Device", "ExecutionEnvironment":
+			m.invoke(e, "classifierBehavior")
 		}
 		for _, c := range e.Children {
 			walk(c)
@@ -289,8 +397,12 @@ func (m *migration) prepare() {
 			walk(r)
 		}
 	}
+	m.indexSnapshots(configs)
 	for _, e := range reachers {
 		m.exposeReached(e)
+	}
+	for _, act := range laned {
+		m.prepareLanes(act)
 	}
 }
 
@@ -387,7 +499,7 @@ func namespaceMembers(e *sysmlv1.Element) []*sysmlv1.Element {
 				continue
 			}
 			for _, v := range c.Owned("subvertex") {
-				if v.Type == "State" || pseudoKind(v) == "choice" || pseudoKind(v) == "junction" {
+				if vertexBase(v) != "" {
 					members = append(members, v)
 				}
 			}
@@ -429,13 +541,19 @@ func (m *migration) body(e *sysmlv1.Element) {
 	saved := m.scope
 	m.scope = e
 	m.comments(e)
+	m.members(e)
+	m.scope = saved
+}
+
+// members writes the owned members of e, the current scope, then what other
+// elements contribute to its body.
+func (m *migration) members(e *sysmlv1.Element) {
 	for _, c := range e.Children {
 		m.member(c)
 	}
 	for _, extra := range m.extras[e] {
 		extra()
 	}
-	m.scope = saved
 }
 
 // member writes one owned element of the current scope.
@@ -535,57 +653,74 @@ func (m *migration) classifier(e *sysmlv1.Element) {
 	if note != "" {
 		verdict = Approximated
 	}
-	var header strings.Builder
+	header, n := m.classifierHeader(e, cat, name)
+	if n != "" {
+		verdict = Approximated
+		note = joinNotes(note, n)
+	}
+	if cat == catSimConfig {
+		m.simulationConfig(e, header, note)
+		return
+	}
+	m.add(e, verdict, m.v2Name(e), note)
+	m.classifierBody(e, cat, header)
+}
+
+// classifierHeader builds the declaration line a classifier is written with:
+// abstract, its keyword and name, its requirement id, its generalizations; n
+// notes what the generalizations and dangling ends leave out.
+func (m *migration) classifierHeader(e *sysmlv1.Element, cat category, name string) (header string, n string) {
+	var b strings.Builder
 	if (e.Attrs["isAbstract"] == "true" && cat != catValue) || m.abstractOperation(e) {
-		header.WriteString("abstract ")
+		b.WriteString("abstract ")
 	}
 	if cat == catIndividualDef {
 		kind, _, _ := m.individualClassifiers(e)
-		header.WriteString(individualKeyword(kind))
+		b.WriteString(individualKeyword(kind))
 	} else {
-		header.WriteString(cat.keyword())
+		b.WriteString(cat.keyword())
 	}
-	header.WriteByte(' ')
+	b.WriteByte(' ')
 	if cat == catRequirementDef {
 		if id := requirementID(e); id != "" {
-			header.WriteString("<" + writeName(id) + "> ")
+			b.WriteString("<" + writeName(id) + "> ")
 		}
 	}
-	header.WriteString(writeName(name))
+	b.WriteString(writeName(name))
 	gens, n := m.generals(e, cat)
 	if gens != "" {
 		if cat == catValue {
-			header.WriteString(" : " + gens)
+			b.WriteString(" : " + gens)
 		} else {
-			header.WriteString(" :> " + gens)
+			b.WriteString(" :> " + gens)
 		}
 	}
 	if cat == catConnectionDef {
 		n = joinNotes(n, m.dangling(e, "memberEnd"))
 	}
-	if n != "" {
-		verdict = Approximated
-		note = joinNotes(note, n)
-	}
-	m.add(e, verdict, m.v2Name(e), note)
+	return b.String(), n
+}
+
+// classifierBody writes the member block a classifier category carries.
+func (m *migration) classifierBody(e *sysmlv1.Element, cat category, header string) {
 	switch cat {
 	case catConnectionDef:
 		m.association(e)
 		return
 	case catIndividualDef, catValue:
-		m.w.block(header.String(), func() { m.individualBody(e) })
+		m.w.block(header, func() { m.individualBody(e) })
 		return
 	case catVerificationDef:
-		m.w.block(header.String(), func() { m.verificationBody(e) })
+		m.w.block(header, func() { m.verificationBody(e) })
 		return
 	case catConstraintDef:
-		m.w.block(header.String(), func() { m.constraintBody(e) })
+		m.w.block(header, func() { m.constraintBody(e) })
 		return
 	case catRequirementDef:
-		m.w.block(header.String(), func() { m.requirementBody(e) })
+		m.w.block(header, func() { m.requirementBody(e) })
 		return
 	case catEnumDef:
-		m.w.block(header.String(), func() {
+		m.w.block(header, func() {
 			m.comments(e)
 			for _, lit := range e.Owned("ownedLiteral") {
 				m.w.line(writeName(m.nameOf(lit)) + ";")
@@ -596,13 +731,13 @@ func (m *migration) classifier(e *sysmlv1.Element) {
 		return
 	}
 	if behaviorCategory(cat) {
-		m.w.block(header.String(), func() { m.behaviorBody(e, cat) })
+		m.w.block(header, func() { m.behaviorBody(e, cat) })
 		if e.Type == "Operation" {
 			m.operationFeature(e)
 		}
 		return
 	}
-	m.w.block(header.String(), func() {
+	m.w.block(header, func() {
 		m.body(e)
 		m.classifierBehavior(e)
 		m.stereotypeComments(e)
@@ -770,7 +905,7 @@ func (m *migration) constraintBody(e *sysmlv1.Element) {
 		}
 		if spec == nil {
 			m.unmapped(result, "the constraint has no specification")
-		} else if expr, ok, note := m.valueExpr(spec, e); ok {
+		} else if expr, ok, note := m.valueExprAs(spec, e, oneOf("Boolean", "the constraint yields")); ok {
 			m.w.line(expr)
 			m.add(result, verdictFor(note), m.v2Name(e), note)
 		} else {
@@ -1029,7 +1164,7 @@ func repeated(vals []string) string {
 }
 
 // verificationBody writes a test case: the requirements it verifies form its
-// objective; its behavior is not migrated.
+// objective; an interaction's scenario runs on its subject, the interaction's context.
 func (m *migration) verificationBody(e *sysmlv1.Element) {
 	saved := m.scope
 	m.scope = e
@@ -1041,8 +1176,28 @@ func (m *migration) verificationBody(e *sysmlv1.Element) {
 			}
 		})
 	}
+	if e.Type == "Interaction" {
+		subject := m.subjectName(e)
+		if s, note := m.scenario(e, subject); note == "" {
+			m.w.line("subject " + writeName(subject) + " : " + m.ref(s.context, e) + ";")
+			m.parameters(e, e)
+			s.write()
+		}
+	}
 	m.stereotypeComments(e)
 	m.scope = saved
+}
+
+// subjectName names the subject of a test case written from an interaction:
+// `context`, the interaction's context block, unless a member of the case takes the name.
+func (m *migration) subjectName(e *sysmlv1.Element) string {
+	used := map[string]bool{"start": true, "done": true}
+	for _, c := range e.Children {
+		if n := m.nameOf(c); n != "" {
+			used[n] = true
+		}
+	}
+	return freshIn(used, "context")
 }
 
 // ownsEveryEnd reports whether no classifier property carries the association:
@@ -1740,8 +1895,8 @@ func isNatural(s string) bool {
 	return true
 }
 
-// connector writes a connector: a binding connector as `bind`, another as
-// `connect`, and an item flow it realizes as `flow`.
+// connector writes a connector: a binding or delegation connector as `bind`,
+// an assembly connector as `connect`, and an item flow it realizes as `flow`.
 func (m *migration) connector(c *sysmlv1.Element) {
 	segs, note := m.connectorEnds(c, m.scope)
 	if note != "" {
@@ -1757,8 +1912,13 @@ func (m *migration) connector(c *sysmlv1.Element) {
 		paths[i] = strings.Join(parts, ".")
 	}
 	decl, kw := "connect "+paths[0]+" to "+paths[1]+";", "connection "
-	if has(c, "BindingConnector") {
+	note = ""
+	switch {
+	case has(c, "BindingConnector"):
 		decl, kw = "bind "+paths[0]+" = "+paths[1]+";", "binding "
+	case delegates(segs):
+		decl, kw = "bind "+paths[0]+" = "+paths[1]+";", "binding "
+		note = "the connector delegates the owner's port to the part's, so it is written as a binding, which relays a message either way"
 	}
 	target := ""
 	if m.nameOf(c) != "" {
@@ -1766,11 +1926,18 @@ func (m *migration) connector(c *sysmlv1.Element) {
 		target = m.v2Name(c)
 	}
 	m.w.line(decl)
-	m.add(c, Mapped, target, "")
+	m.add(c, Mapped, target, note)
 	m.stereotypeComments(c)
 	for _, f := range m.flows[c] {
 		m.itemFlow(f, c.Owned("end"), paths)
 	}
+}
+
+// delegates reports whether the connector ends make a UML delegation connector:
+// one end is a port of the connector's owner itself, the other a nested part's.
+func delegates(segs [][]*sysmlv1.Element) bool {
+	own := func(end []*sysmlv1.Element) bool { return len(end) == 1 && end[0].Type == "Port" }
+	return own(segs[0]) && len(segs[1]) > 1 || own(segs[1]) && len(segs[0]) > 1
 }
 
 // unmappedConnector records a connector with no v2 form and settles the item
@@ -1962,7 +2129,7 @@ func (m *migration) rule(r *sysmlv1.Element) {
 		m.unmapped(r, "the constraint has no specification")
 		return
 	}
-	expr, ok, note := m.valueExpr(spec, m.scope)
+	expr, ok, note := m.valueExprAs(spec, m.scope, oneOf("Boolean", "the constraint yields"))
 	if !ok {
 		m.unmappedExpr(r, spec, note)
 		return
@@ -2408,7 +2575,7 @@ func (m *migration) stereotypeComments(e *sysmlv1.Element) {
 	for _, s := range e.Stereotypes {
 		classifying := isStandard(s) && classifyingStereotypes[s.Name]
 		consumed := consumedTags[s.Name]
-		if m.isConstraintParameterMarker(e, s) {
+		if m.isConstraintParameterMarker(e, s) || isSimulationConfig(s) {
 			continue
 		}
 		if isStandard(s) && isRequirementStereotype(s.Name) {

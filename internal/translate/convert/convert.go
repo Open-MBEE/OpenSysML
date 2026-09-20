@@ -18,6 +18,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/migrate"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/simresults"
 )
 
 // Format is one of the representations a model can be read from or written to.
@@ -226,21 +227,28 @@ func trimTrailingTrivia(text string) string {
 	return strings.TrimSpace(text[:end])
 }
 
-// Migrate reads a SysML v1 model in XMI and writes it in the to format, with
-// the report of what each v1 element became.
-func Migrate(name string, data []byte, to Format) ([]byte, *migrate.Report, error) {
+// Migration is a v1 model written in another format, with the report of what
+// each v1 element became and the results its simulation tool stored.
+type Migration struct {
+	Output  []byte
+	Report  *migrate.Report
+	Results *simresults.Results
+}
+
+// Migrate reads a SysML v1 model in XMI and writes it in the to format.
+func Migrate(name string, data []byte, to Format) (*Migration, error) {
 	if !to.Writable() {
-		return nil, nil, &NotWritableError{Format: to}
+		return nil, &NotWritableError{Format: to}
 	}
 	result, err := migrate.Migrate(name, data)
 	if err != nil {
-		return nil, nil, fmt.Errorf("%s: %w", name, err)
+		return nil, fmt.Errorf("%s: %w", name, err)
 	}
 	out, _, err := convert(name+".sysml", result.Notation, FormatSysML, to, false)
 	if err != nil {
-		return nil, nil, fmt.Errorf("the migrated notation could not be written: %w", err)
+		return nil, fmt.Errorf("the migrated notation could not be written: %w", err)
 	}
-	return out, result.Report, nil
+	return &Migration{Output: out, Report: result.Report, Results: result.Results}, nil
 }
 
 func convert(name string, data []byte, from, to Format, tolerateSyntaxErrors bool) ([]byte, *SyntaxError, error) {
@@ -249,8 +257,11 @@ func convert(name string, data []byte, from, to Format, tolerateSyntaxErrors boo
 		return nil, nil, &NotWritableError{Format: to}
 
 	case from == FormatXMI:
-		out, _, err := Migrate(name, data, to)
-		return out, nil, err
+		m, err := Migrate(name, data, to)
+		if err != nil {
+			return nil, nil, err
+		}
+		return m.Output, nil, nil
 
 	case from == FormatSysML && to == FormatSysML:
 		// A save of textual notation: keep every lexeme, fix the indentation.

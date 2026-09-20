@@ -3,6 +3,7 @@ package runtime
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
@@ -42,6 +43,22 @@ func (e *SendTargetValueError) Error() string {
 }
 
 func (e *SendTargetValueError) Unwrap() error { return ErrSendTargetNotObject }
+
+// ErrSendViaNotPort reports a via path that is a binding of the sending behavior
+// holding an object which is no port.
+var ErrSendViaNotPort = errors.New("send via holds no port")
+
+// ViaNotPortError gives the bound via path holding an object that is no port, and what it holds.
+type ViaNotPortError struct {
+	Via   string // the via path as written
+	Value string // the object the binding holds, formatted
+}
+
+func (e *ViaNotPortError) Error() string {
+	return fmt.Sprintf("%s: %q holds %s, which is no port to send via", ErrSendViaNotPort, e.Via, e.Value)
+}
+
+func (e *ViaNotPortError) Unwrap() error { return ErrSendViaNotPort }
 
 // UnknownSendPortError gives the routed send's invalid port and receiver.
 type UnknownSendPortError struct {
@@ -136,9 +153,7 @@ func (ctx *Context) ownerDeliveries(
 			break
 		}
 		owner := child.owner
-		for i := range sendingPaths {
-			sendingPaths[i] = child.ownerFeature + "." + sendingPaths[i]
-		}
+		sendingPaths, targetSyms = ctx.heldPortPaths(owner, child.ownerFeature, sendingPaths, targetSyms)
 		sendingPaths, targetSyms = ctx.boundPortPaths(owner, sendingPaths, targetSyms)
 		conns := ctx.realizedConnections(ctx.connectionsOf(owner), owner)
 		for _, conn := range conns {
@@ -179,6 +194,30 @@ func (ctx *Context) ownerDeliveries(
 		}
 	}
 	return out, mismatch, nil
+}
+
+// heldPortPaths prefixes the paths a port is known by from a held object with each
+// name the holder reads that object under, since a connector its type inherits
+// names the part by the name it was declared with before redefinition.
+func (ctx *Context) heldPortPaths(owner *Instance, feature string, paths []string, targets []*symbols.Symbol) ([]string, []*symbols.Symbol) {
+	names := []string{feature}
+	if owner.Type != nil {
+		for alias := range ctx.redefinitionAliases(owner.Type, feature) {
+			if alias != feature {
+				names = append(names, alias)
+			}
+		}
+	}
+	sort.Strings(names[1:])
+	var outPaths []string
+	var outTargets []*symbols.Symbol
+	for _, name := range names {
+		for i, path := range paths {
+			outPaths = append(outPaths, name+"."+path)
+			outTargets = append(outTargets, targets[i])
+		}
+	}
+	return outPaths, outTargets
 }
 
 // joinsAnyTarget reports whether a connection has an end naming one of the
@@ -249,10 +288,11 @@ func (ctx *Context) holdsViaPort(inst *Instance, segments []string, want *symbol
 
 // connectedDeliveries answers where a `send … via p` arrives through the
 // connections the sender routes over, each receiving end resolved to the object
-// holding the port it names (SysML v2 §7.16). The later results are the ends
-// that refused the message, which decide the error a send delivered nowhere gives.
+// holding the port it names (SysML v2 §7.16) — through the behavior's bindings in
+// ec where the end starts at one. The later results are the ends that refused
+// the message, which decide the error a send delivered nowhere gives.
 func (ctx *Context) connectedDeliveries(
-	conns []lower.Connection, self *Instance, send lower.Send, msg Message, typed bool,
+	ec *EvalContext, conns []lower.Connection, self *Instance, send lower.Send, msg Message, typed bool,
 ) ([]ownerDelivery, []string, bool, error) {
 	if send.Target == "" {
 		return nil, nil, false, nil
@@ -283,7 +323,7 @@ func (ctx *Context) connectedDeliveries(
 				continue
 			}
 			seenEnd[end] = true
-			deliveries, err := ctx.endDeliveries(conn.Scope, self, end)
+			deliveries, err := ctx.endDeliveries(ec, conn, self, end)
 			if err != nil {
 				return nil, outbound, mismatch, err
 			}
@@ -299,11 +339,18 @@ func (ctx *Context) connectedDeliveries(
 	return out, outbound, mismatch, nil
 }
 
-// endDeliveries resolves the port an end names to the objects holding it. An end
-// naming a port of a behavior, or one this run's instance graph does not reach,
-// is delivered to the sender under the path as written.
-func (ctx *Context) endDeliveries(scope *symbols.Scope, self *Instance, end string) ([]ownerDelivery, error) {
-	addrs, err := ctx.featureAddresses(scope, self, strings.Split(end, "."))
+// endDeliveries resolves the port an end names to the objects holding it: those a
+// binding of the behavior declaring the connection leads to, else those reached
+// from the sender. An end naming a port of a behavior, or one this run's instance
+// graph does not reach, is delivered to the sender under the path as written.
+func (ctx *Context) endDeliveries(ec *EvalContext, conn lower.Connection, self *Instance, end string) ([]ownerDelivery, error) {
+	if conn.Owner == lower.OwnerBehavior {
+		out, bound, err := ec.boundEndDeliveries(end)
+		if err != nil || bound {
+			return out, err
+		}
+	}
+	addrs, err := ctx.featureAddresses(conn.Scope, self, strings.Split(end, "."))
 	if err != nil {
 		return nil, err
 	}
@@ -335,24 +382,10 @@ func (ctx *Context) endNamesAStructuralPath(self *Instance, end string) bool {
 	return held && !isPortFeature(fv.Feature) && !isBehaviorFeature(fv.Feature)
 }
 
-// routableConnections are the connections a `send … via p` of a behavior can
-// travel over: the ones the behavior's own body declares, and the ones declared
-// by the part performing it, whose ports the send names. The performer is the
-// object when one performs the behavior, and otherwise the part the behavior was
-// declared in, which performs it by owning it (SysML v2 §7.16).
-func (ctx *Context) routableConnections(own []lower.Connection, self *Instance, scope *symbols.Scope) []lower.Connection {
-	performer := ctx.performerConnections(self, scope)
-	if len(performer) == 0 {
-		return own
-	}
-	out := make([]lower.Connection, 0, len(own)+len(performer))
-	return append(append(out, own...), performer...)
-}
-
-// performerConnections returns the connections of the part performing a
-// behavior: those of the object's types when an object performs it, and those of
-// the enclosing part when none does, so a behavior declared in a part reaches
-// that part's own ports either way.
+// performerConnections returns the connections a `send … via p` of a behavior
+// travels beside the behavior's own: those of the part performing it, whose ports
+// the send names — the object's types' when an object performs it, and the
+// enclosing part's when none does, which performs it by owning it (SysML v2 §7.16).
 func (ctx *Context) performerConnections(self *Instance, scope *symbols.Scope) []lower.Connection {
 	if self != nil {
 		return ctx.connectionsOf(self)

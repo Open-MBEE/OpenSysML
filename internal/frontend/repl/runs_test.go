@@ -200,7 +200,7 @@ func TestRunsRefusesWhatItCannotRun(t *testing.T) {
 		{"%runs -2 7 MC::acquire", `"-2" is not a number of runs to make`},
 		{"%runs 3 x MC::acquire", `"x" is not a seed`},
 		{"%runs 2 7 MC::Missing", "unresolved reference: MC::Missing"},
-		{"%runs 3 7 MC::acquire total nope", "MC::acquire holds no feature named nope (the clock is observed as clock)"},
+		{"%runs 3 7 MC::acquire total nope", "no completed run of MC::acquire produced a value named nope (the clock is observed as clock)"},
 		{"%runs 3 7 MC::acquire total total", "observable total is named twice"},
 	} {
 		wants(t, run(t, s, tc.line), tc.want)
@@ -234,7 +234,7 @@ func TestRunsReadsQuotedNames(t *testing.T) {
 func TestRunRunsRefusesFewerThanOneRun(t *testing.T) {
 	s := runsSession(t)
 	for _, count := range []int64{0, -3} {
-		verdict := s.RunRuns("MC::fixed", nil, count, 7, nil)
+		verdict := s.RunRuns("MC::fixed", nil, count, seedOf(7), nil)
 		got := strings.Join(verdict.Lines, "\n")
 		wants(t, got, runtime.ErrSweepRuns.Error(), "runs nothing; ask for at least one")
 		if strings.Contains(got, runtime.ErrSweepEmpty.Error()) {
@@ -284,7 +284,7 @@ func TestRunsRefusedUnderAReplay(t *testing.T) {
 // %help names %runs, so a reader at the prompt finds it.
 func TestHelpNamesRuns(t *testing.T) {
 	s := runsSession(t)
-	wants(t, run(t, s, "%help"), "%runs <n> <seed> <action> [<observable>...]", "%seed [<n>|off]")
+	wants(t, run(t, s, "%help"), "%runs <n> [<seed>] <action> [<observable>...]", "%seed [<n>|off]", "%draws [<policy>]")
 }
 
 // %seed fixes the seed one run's draws come from under any schedule: unset, a
@@ -312,4 +312,35 @@ func TestSeedFixesTheDrawsOfARun(t *testing.T) {
 	if _, set := s.ModelSeed(); set {
 		t.Error("ModelSeed() is set after seed off")
 	}
+}
+
+// seedOf is a seed as RunRuns takes it, named.
+func seedOf(seed uint64) *uint64 { return &seed }
+
+// What the one object a part of the action denotes holds is observed as
+// `part.attribute` — the library's isSolid as the performer's `this.` is — by
+// default and by name; a part of several objects is not.
+func TestRunsObserveWhatTheActionsPartsHold(t *testing.T) {
+	s := NewSession()
+	if errs := errorDiagnostics(s.Submit(`package P {
+		private import ScalarValues::*;
+		part def Probe {
+			attribute total : Real = 0.0;
+			perform action measure { action step { assign total := total + 2.5; } first step; }
+		}
+		action def Cfg {
+			part target : Probe;
+			part spares : Probe[2];
+			perform action run ::> target.measure;
+		}
+	}`).Diagnostics); len(errs) > 0 {
+		t.Fatalf("model has errors: %v", errs)
+	}
+	out := sweepTable(run(t, s, "%runs 2 7 P::Cfg"))
+	wants(t, out, "run | target.isSolid | target.total | clock", "1   | true           | 2.5          | 0.0 [s]", "target.total: 2 run(s), min 2.5, mean 2.5, max 2.5")
+	if strings.Contains(out, "spares") {
+		t.Errorf("a part of two objects is observed:\n%s", out)
+	}
+	wants(t, sweepTable(run(t, s, "%runs 1 7 P::Cfg target.total")), "run | target.total | time", "1   | 2.5          | <time>")
+	wants(t, run(t, s, "%runs 1 7 P::Cfg spares.total"), "no completed run of P::Cfg produced a value named spares.total")
 }

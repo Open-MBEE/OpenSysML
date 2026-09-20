@@ -189,7 +189,7 @@ func TestRenderDocumentHTMLMermaid(t *testing.T) {
 		2, "-doc-form html")
 	wantReport(t, check(t, binary, documentModel, "-render-document", "Reports::MassReport",
 		"-doc-form", "pdf", "-o", filepath.Join(t.TempDir(), "r.pdf"), "-html-mermaid", "cdn"),
-		2, "-doc-form html")
+		2, "-html-mermaid loads a script into an HTML page")
 	wantReport(t, check(t, binary, documentModel, "-html-mermaid", "cdn"),
 		2, "apply to -render-document")
 	wantReport(t, runCommand(t, exec.Command(binary, "-html-default-css", "-html-mermaid", "cdn")),
@@ -277,7 +277,7 @@ func TestRenderDocumentHTMLMath(t *testing.T) {
 		2, "-doc-form html")
 	wantReport(t, check(t, binary, mathModel, "-render-document", "Reports::OpticsReport",
 		"-doc-form", "pdf", "-o", filepath.Join(t.TempDir(), "r.pdf"), "-html-math", "cdn"),
-		2, "-doc-form html")
+		2, "-html-math loads a script into an HTML page")
 	wantReport(t, check(t, binary, mathModel, "-html-math", "cdn"),
 		2, "apply to -render-document")
 	wantReport(t, runCommand(t, exec.Command(binary, "-html-default-css", "-html-math", "cdn")),
@@ -370,8 +370,11 @@ func TestRenderDocumentHTMLTheme(t *testing.T) {
 	wantReport(t, check(t, binary, documentModel, "-render-document", "Reports::MassReport", "-html-theme", "report"),
 		2, "-doc-form html")
 	wantReport(t, check(t, binary, documentModel, "-render-document", "Reports::MassReport",
-		"-doc-form", "pdf", "-o", filepath.Join(t.TempDir(), "r.pdf"), "-html-theme", "report"),
-		2, "-doc-form html")
+		"-doc-form", "pdf", "-o", filepath.Join(t.TempDir(), "r.pdf"), "-html-theme", "fancy"),
+		2, `no bundled theme is named "fancy"`)
+	wantReport(t, check(t, binary, documentModel, "-render-document", "Reports::MassReport",
+		"-doc-form", "pdf", "-o", filepath.Join(t.TempDir(), "r.pdf"), "-html-no-default-css", "-html-theme", "report"),
+		2, "ask for one or the other")
 	wantReport(t, check(t, binary, documentModel, "-html-theme", "report"),
 		2, "apply to -render-document")
 }

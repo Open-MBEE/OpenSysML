@@ -1,0 +1,12 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "SendUntypedPort::Rig",
+  "objects": [
+    {
+      "path": "b.r",
+      "finalState": "got",
+      "stateVisits": ["idle", "got"]
+    }
+  ]
+}

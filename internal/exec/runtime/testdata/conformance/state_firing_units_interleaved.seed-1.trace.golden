@@ -9,6 +9,7 @@ stmt assign log
     eval feature log -> "l1(exit) "
     eval literal "T1(effect) " -> "T1(effect) "
   eval operator + -> "l1(exit) T1(effect) "
+choice on accept Go: next l2(entry), r1(exit) (unordered; took l2(entry) first)
 enter: l2
 transition: l1 -> l2 (event: accept Go)
 exit: r1 (exit action)

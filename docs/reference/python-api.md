@@ -287,7 +287,7 @@ make python-proto
   `ExperimentalFeatureWarning` an RDF conversion raises
 - `query.py` — the standard's Query payload, translated and its answers
 - `document.py` — native document queries: typed bindings, typed rows, and
-  `model.render_document`'s Markdown
+  `model.render_document`'s Markdown or HTML
 - `values.py` — the value kinds the wire carries: `Quantity`, `Array`, `Vector`,
   `VectorQuantity`, `TensorQuantity`, `SetValue`, `MeasurementRef`, `Function`,
   `Metaobject`, `Undetermined`, `INFINITY` and `UNSET`

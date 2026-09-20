@@ -1,7 +1,7 @@
 # The Java client API
 
 This page covers what `org.openmbee:opensysml-client` exposes, what it deliberately keeps
-out of its public surface, and where its v1 stops. To choose between the clients, see
+out of its public surface, and where it stops. To choose between the clients, see
 [client libraries](clients.md); for a task-oriented walkthrough, see
 [guide chapter 9](../guide/09-clients.md#from-java). The client's own notes on its
 dependency footprint, service ownership and release verification are in
@@ -37,8 +37,11 @@ try (Connection connection = Connection.open()) {          // private child serv
 | `open()` / `open(ConnectionOptions)` | connects, and starts a private service unless one was named |
 | `load(Path)`, `load(Path, ParseOptions)` | parses a file the service can read |
 | `parse(String)`, `parse(String, ParseOptions)` | parses inline content |
+| `parseSources(List<SourceDocument>)`, `parseSources(List, ParseOptions)` | parses several documents as one model |
+| `convert(String content, String toFormat[, ConversionOptions])`, `convertFile(Path, ...)` | translates source between notations (`sysml`, `kerml`, `ttl`, `xmi`) |
 | `model(String modelHash)` | adopts a model the service already holds |
 | `capabilities()` | what `GetServerInfo` reported, asked once at open |
+| `listEngines()` | the analysis engines the service can put a question to, as `EngineInfo` |
 | `address()`, `ownsService()` | where this connection talks, and whether it started that service |
 | `close()` | idempotent; releases a private child, only disconnects from an external one |
 | `Connection.stopSharedServices()` | stops what this classloader still owns; returns how many |
@@ -71,7 +74,7 @@ Model model = connection.load(Path.of("model.sysml"));
 model.hash();                                   // what the service holds it under
 model.parseDiagnostics();                       // from the parse that produced it
 model.diagnostics();                            // asked of the service now
-model.root();                                   // Optional: absent for an adopted model
+model.roots();                                  // one Symbol per document; empty for an adopted model
 
 Symbol vehicle = model.symbol("Demo::Vehicle"); // throws if the model has no such symbol
 model.findSymbol("Demo::Vehicle");              // Optional, for a name that may be absent
@@ -84,6 +87,211 @@ Instantiation built = model.instantiate("Demo::Vehicle");
 
 `ParseOptions` is a record of `Language` (`SYSML` or `KERML`) and
 `strictConformance`, with `defaults()` and `withLanguage`/`withStrictConformance`.
+
+### Execution
+
+```java
+ActionRun run = model.executeAction("Test::addFive");                 // declared values as inputs
+run.outputs().get("result");                                          // every attribute, when it stopped
+ActionRun seeded = model.executeAction("Test::addFive",
+    Map.of("result", new Value.IntegerValue(10)));
+ActionRun ordered = model.executeAction("Test::race", Map.of(),
+    ExecutionOptions.defaults().withSchedule("declared"));            // or "seed:7", "random"
+StateRun machine = model.executeState("Test::Machine", List.of("go"));
+machine.statesVisited();                                              // ["init", "Running", "done"]
+machine.finalState();                                                 // Optional: the last of them
+
+Exploration all = model.exploreAction("Test::race");                  // every schedule
+all.complete();                                                       // false when a budget stopped it
+for (Outcome outcome : all.outcomes()) {
+  outcome.outputs(); outcome.witness(); outcome.linearizations();     // one order that reaches it
+}
+```
+
+`executeAction`/`executeState` run once and answer an `ActionRun` (`outputs`,
+`finalTime`, `diagnostics`) or a `StateRun` (`statesVisited`, `finalContext`,
+`finalTime`, `diagnostics`). `finalTime` is filled only by a service advertising
+`final_time`. `ExecutionOptions` carries a `schedule` and a `performer`; the
+capabilities they need (`schedule`, `performer`) are checked before the call, and a
+schedule the service does not know is refused as `INVALID_ARGUMENT`.
+`exploreAction`/`exploreState` take an exploration schedule (`explore`,
+`explore:runs=N,depth=M`; a non-exploring schedule is an `IllegalArgumentException`)
+and answer an `Exploration` of `Outcome`s, each a distinct end state with the
+`witness` order that reached it and how many `linearizations` do, plus whether the
+search was `complete`, how many `runs` it made and which `budgetsHit`.
+
+### Verification
+
+```java
+Verification v = model.verifyConstraint("Demo::Vehicle::massLight");   // over declared values
+Verification about = model.verifyConstraint("Demo::Vehicle::massLight", "Demo::sedan");
+Verification req = model.verifyRequirement("Demo::Vehicle::lightEnough");
+Satisfaction all = model.verifySatisfaction();                          // every `assert satisfy`
+Satisfaction scoped = model.verifySatisfaction("Demo::analysis");
+Validation checked = model.validateInstance("Demo::sedan");             // every constraint of one object
+
+v.holds();                       // false here: mass is 1500, the constraint asks < 100
+v.verdict().decided();           // true — a false answer is an answer
+v.verdict().condition();         // Optional: the condition that was false
+v.verdict().error();             // Optional: why no answer could be reached, when decided() is false
+v.verdict().failureReason();     // EVALUATION, WRONG_KIND, AMBIGUOUS_SUBJECT, …
+```
+
+A `Verdict` records `kind` (`constraint`, `requirement`, `satisfy`, …),
+`elementId`/`element`, `holds`, the `condition` it evaluated, the instance it was
+checked on (`instanceId`, `instanceTypeId`, `instancePath`), the `requirementId` a
+satisfaction stands for, and the engine `standing` that produced it. **A false
+verdict with no error is a decided answer, and is returned, not thrown**: the model
+says the constraint does not hold. `decided()` is false only when `error` is filled
+— the condition could not be evaluated, the symbol is of another kind, the subject
+is ambiguous — and `failureReason` classifies which. `Verification` carries one
+verdict; `Satisfaction` carries one per assertion, with `violated()` and
+`undecided()` selecting among them; `Validation` carries a `summary` over one
+object's constraints beside every `verdict`, and `bounded` says whether the check
+ran out of budget. Each also carries the `instances` it materialised (to follow
+`instanceId`), the `verifications` — a `VerificationVerdict` per verification-case
+body that verifies the requirement, `PASS`/`FAIL`/`INCONCLUSIVE`/`ERROR` — and
+`diagnostics`. A request that cannot be verified at all (no such symbol, a symbol of
+another kind asked of `validateInstance`) is a `ModelException` whose
+`failureReason()` says why.
+
+### Calculation and analysis
+
+```java
+Calculation sum = model.evaluateCalc("Demo::add",
+    List.of(new Value.IntegerValue(2), new Value.IntegerValue(3)));
+sum.value();                     // Optional: the direct result, or the sole `out`
+sum.outputs();                   // every named `out`, when there are several
+
+Analysis study = model.runAnalysis("Trade::lightest");
+study.holds();                   // every verdict the objective reached
+study.outputs().get("selectedAlternative");
+study.selected();                // Optional<CaseEvaluation>: the alternative the objective chose
+study.evaluations();             // one CaseEvaluation per alternative: arguments, result, error, selected, tied
+Analysis bound = model.runAnalysis("Trade::perOffset",
+    AnalysisOptions.defaults()
+        .withNamedArguments(Map.of("offset", new Value.IntegerValue(3)))
+        .withSubject("Trade::sedan"));
+```
+
+`Calculation`, `Analysis` and every `Verdict` carry the `Standing` of the answer:
+which `engine` answered (`run`, `explore`, `solve`, `sweep`), the `strength` of
+its answer (`observed`, `witnessed`, `bounded`, `proved`, or `not covered`) and
+the `bounds` it ran under, each `reached` or not. `model.withEngine("solve")` (or
+`Standing.ENGINE_AUTO`/`ENGINE_ALL`) binds every question the model is asked to an
+engine, and `connection.listEngines()` names what is available; both need the
+`engines` capability. A run whose objective stops on an error throws an `AnalysisException`
+carrying, in `partial()`, the outputs, verdicts, evaluations and instances the run
+left behind — including the `CaseEvaluation` whose `error` stopped it — so a
+caller can still show what was computed; a run that produced nothing throws the
+plain `ModelException`.
+
+### Query
+
+```java
+List<QueryElement> parts = model.query(
+    Query.all()
+        .withScope(List.of("Demo::vehicle"))                        // beneath these elements
+        .withSelect(List.of("name", "owner"))                       // properties to read
+        .where(Condition.all(List.of(
+            Condition.equal("@type", List.of("PartUsage")),
+            Condition.greater("mass", "1000").negated()))));
+parts.get(0).id(); parts.get(0).type(); parts.get(0).properties();  // qualified name, metaclass, selected values
+List<QueryElement> same = model.queryOslc("oslc.where=rdf:type=\"PartUsage\"&oslc.select=sysml:name");
+```
+
+`Condition` is sealed over `Comparison` (`equal`, `greater`, `less`, each
+`negated()`) and `Combination` (`all`, `any`), so the query is a value a caller can
+build and inspect. `queryOslc` needs the `oslc_query` capability; a scope naming
+no element is refused as `INVALID_ARGUMENT`.
+
+### Several documents, and conversion
+
+`Connection.parseSources` reads a list of `SourceDocument`s — `file(Path)` for
+what the service can read, `inline(name, content)` for what it cannot — as **one
+model**, so the references between them resolve:
+
+```java
+Model model = connection.parseSources(List.of(
+    SourceDocument.inline("library.sysml", librarySource),
+    SourceDocument.inline("use.sysml", useSource)));
+model.roots();   // one Symbol per document, in request order
+```
+
+`Connection.convert`/`convertFile` translate source text between notations and
+answer a `Conversion` (`content`, the resolved `fromFormat`/`toFormat`,
+`experimental`/`experimentalNotice`, `diagnostics`); `Model.convert` converts the
+parsed model itself. `ConversionOptions` carries a `fromFormat` (else the service
+sniffs it) and `tolerateSyntaxErrors` — without it, a syntax error throws a
+`ModelException` carrying the diagnostics rather than converting anyway.
+
+### Edits
+
+```java
+EditResult result = model.applyEdits(List.of(
+    new Edit.SetValue("Demo::sc::unitMass", "1200.0[SI::kg]"),
+    new Edit.Rename("Demo::sc", "subsystem"),
+    Edit.AddMember.of("Demo::SC", "attribute", "margin")
+        .withType("ISQ::MassValue"),
+    new Edit.Delete("Demo::old", true),      // cascade the referred declarations
+    new Edit.Move("Demo::helper", "Demo::Internal")),
+    EditOptions.defaults().withAcceptDocuments(true));
+result.content();        // the rewritten source of a one-document model
+result.documents();      // EditedDocument per rewritten document, by parse name
+result.applied();        // AppliedEdit per operation: the span it rewrote, old/new text
+```
+
+`EditOptions` `acceptDocuments` defaults to **true**: a batch that reaches
+documents beyond the one the first edit touched is refused unless the caller
+accepts a multi-document answer, and `document` limits the batch to one named
+document. A batch the service refuses — an unknown target, a delete of an
+element still referred to — throws `EditException`, a `ModelException` whose
+`failure()` is an `EditFailure` (`UNKNOWN_TARGET`, `TARGET_REFERRED`, …) and
+whose `referringElements()`/`referrers()` name the references that refused it.
+
+### Parameter sweeps
+
+```java
+Sweep sweep = model.runSweep("Sw::CostAnalysis",
+    List.of(SweepRange.of("count",
+        new Value.IntegerValue(1), new Value.IntegerValue(5)).withStep(new Value.IntegerValue(1))),
+    SweepOptions.defaults().withSamples(0));            // or .withSamples(50).withSeed(7)
+sweep.rows();                // one SweepRow per run: inputs, outputs, verdicts, elapsed
+sweep.holds();               // every row's verdicts all held, no row failed
+sweep.failures();            // the rows that carried an error
+```
+
+A `SweepRange` is `of(parameter, start, end)` plus an optional `withStep` — a
+discrete grid the sweep runs once per value; `SweepOptions` carries `subject`,
+`arguments`/`namedArguments`, and `samples`/`seed` for a sampled rather than
+enumerated sweep (the answer's `sampled` and `seed` echo what ran). A run that
+fails is a row carrying `error` and `failureReason` — a row is an answer, not an
+exception — while a sweep that cannot start at all throws a `ModelException`.
+
+### Document queries and rendering
+
+```java
+DocumentQueryResult table = model.runDocumentQuery(
+    "Observatory::SubsystemTable",
+    Map.of("root", List.of(new DocumentValue.ElementRef("Observatory::telescope", "PartUsage"))));
+table.columns();             // the declared columns
+for (DocumentRow row : table.rows()) {
+  row.element().elementId(); // the element the row is about
+  row.cells();               // List<List<DocumentValue>>, one per column
+}
+RenderedDocument page = model.renderDocument("Observatory::MassReport");
+page.markdown();             // the rendered notation
+```
+
+`DocumentValue` is sealed over `ElementRef`, `ObjectRef` (an `Instance` plus its
+element ids), `Verdict`, `State`, `Event`, `LiteralValue` (wrapping a `Value`),
+`Quantity`, `Range`, `QuantityRange`, `InstanceRef` and `Unit` — the kinds a
+native document's cells and bindings speak. A `DocumentRow` carries its subject
+whichever kind it is — `element()` for an element row, `verdict()`/
+`state()`/`event()`/`object()` as `Optional`s for the typed rows — beside the
+cells. `runDocumentQuery` needs the `document_query` capability and
+`renderDocument` the `render_document` capability; an unknown query or document
+id is a `ServiceException` `NOT_FOUND`.
 
 ## Values and the rest of the domain
 
@@ -138,7 +346,9 @@ throws nothing.
 | exception | what happened |
 | --- | --- |
 | `ServiceException` | the call was refused, carrying a `StatusCode` (`NOT_FOUND`, …) |
-| `ModelException` | the call succeeded and the answer reports a model failure |
+| `ModelException` | the call succeeded and the answer reports a model failure; `failureReason()` classifies it and `diagnostics()` carry what the service said |
+| `AnalysisException` | a `ModelException` from `runAnalysis` whose `partial()` holds what the run computed before it stopped |
+| `EditException` | a `ModelException` from `applyEdits` carrying the `EditFailure` kind and the `referrers` a refused edit named |
 | `TransportException` | HTTP or IO failure; the service was not reached or answered |
 | `CapabilityException` | the service does not advertise a capability the call needs |
 | `ServiceStartException` | no binary, a digest mismatch, or a child that would not start |
@@ -147,13 +357,15 @@ throws nothing.
 
 The `ServiceException`/`ModelException` split is the one the conformance suite
 draws too: an expression that will not evaluate is a successful call carrying an
-error, not a service problem.
+error, not a service problem. A verdict that is *false* is neither: it is an answer,
+and `verifyConstraint` returns it.
 
 ## Capability negotiation
 
 `Connection.open` calls `GetServerInfo` once and keeps what it reported.
 Negotiation is on the advertised **names** — the constants on `Capabilities`, such
-as `EVALUATE_SUBJECT`, `FEATURE_VALUES`, `STRICT_CONFORMANCE`, `INLINE_LANGUAGE` —
+as `EVALUATE_SUBJECT`, `FEATURE_VALUES`, `STRICT_CONFORMANCE`, `INLINE_LANGUAGE`,
+`PARSE_SOURCES`, `DOCUMENT_QUERY`, `RENDER_DOCUMENT` —
 never on the version string:
 
 ```java
@@ -180,27 +392,25 @@ rather than trusted from the checksum served beside it.
 [client/java/README.md](../../client/java/README.md) states the trust model, its
 opt-out and its limitations in full.
 
-## What v1 does not do
+## What the client does not do
 
-Deliberately out of scope, rather than half-implemented: the edit API
-(`ApplyEdits`), RDF conversion (`Convert`), the verification helpers
-(`VerifyConstraint`, `VerifyRequirement`, `VerifySatisfaction`), behaviour
-execution (`ExecuteAction`, `ExecuteState`), `EvaluateCalc`, `RunAnalysis`, `Query`/OSLC, and
-generated model-ergonomics types. The service still serves all of them, but the
-public API offers no generic call: `org.openmbee.opensysml.proto` carries the request and
-response messages — `ApplyEditsResponse.getDocumentsList()` carries the edited
-notation of every document an edit rewrote, by parse name, beside the
-sole-document `content` — and the transport that would send one is
-`org.openmbee.opensysml.internal`, which is internal and not a compatibility promise. Reach
-those RPCs from the Go or Python client until a v2 wraps them here.
+Deliberately out of scope, rather than half-implemented: **generated
+model-ergonomics types** — no code generation from a model into Java classes.
+Every RPC the service serves is a public method now. The generated messages stay
+what they are — `org.openmbee.opensysml.proto` carries every request and
+response the service speaks, but no public call sends one directly: the
+transport that would is `org.openmbee.opensysml.internal`, which is internal and
+not a compatibility promise.
 
 ## Conformance
 
 `opensysml-conformance` runs the language-neutral scenarios **through the public
 API** and writes the report shape `tools/cmd/conformance` writes; `mvn -f
-client/java/pom.xml test` is what CI runs. Of 59 scenarios, 25 run and pass over
-both `connect` and `connect-json`, and 34 are skipped — the scenarios of the RPCs
-v1 does not cover, plus one the public API cannot express (a `ParseFile` naming no
-source). gRPC is not run at all: this client does not speak it. `-mutate` corrupts
+client/java/pom.xml test` is what CI runs. Of 134 scenarios, 129 run and pass over
+both `connect` and `connect-json`, and 5 are skipped — the requests the public API
+cannot express: a
+`ParseFile` naming no source, a `Query` with both a structured and an OSLC query or
+a comparison with no operator, and an `EvaluateCalc` argument the client's own
+`Value` reader would refuse. gRPC is not run at all: this client does not speak it. `-mutate` corrupts
 every answer before it is compared, and a test asserts each corruption is caught,
 which is what keeps the run from being vacuous.

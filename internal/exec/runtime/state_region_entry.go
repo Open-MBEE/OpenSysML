@@ -101,7 +101,8 @@ func (e *StateExecutor) enterShared(l *lazyEntry) error {
 		state := l.chain[i]
 		perform := true
 		if e.entryIsUnit(state) {
-			head := unitHead{label: e.entryLabel(state), at: state, shared: state, dropped: func() bool { return l.next > i }, silent: e.silentEntry(state)}
+			head := e.entryHead(state, false)
+			head.shared, head.dropped = state, func() bool { return l.next > i }
 			var err error
 			if perform, err = e.unit(ChoiceEntryOrder, head); err != nil {
 				return err
@@ -162,9 +163,10 @@ func (e *StateExecutor) enterRegion(w *regionEntry) error {
 func (e *StateExecutor) startHead(body ast.Node, above *ast.StateNode) unitHead {
 	starts := e.graph.StartOf(body)
 	if len(starts) > 0 && starts[0].Guard == nil {
-		for _, state := range e.descendantChain(above, starts[0].Target) {
+		target := starts[0].Target
+		for _, state := range e.descendantChain(above, target) {
 			if e.entryIsUnit(state) {
-				return unitHead{label: e.entryLabel(state), at: state, silent: e.silentEntry(state)}
+				return e.entryHead(state, state == target && e.completesAtEntry(state))
 			}
 		}
 	}

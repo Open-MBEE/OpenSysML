@@ -3,9 +3,10 @@ package Test {
     // yield after each statement — a `for` body after each iteration, a nested
     // block after each of its statements — so the regions share the machine one
     // statement at a time as state_concurrent_do's one-action-per-statement form
-    // does: left enters one step before right, then the two interleave, the
-    // order within a round a choice the policy draws (1,2,4,3,5,6 in entry
-    // order). A body run to its end at entry would give 1,2,3,4,5,6 instead.
+    // does: the region the entry draw entered first enters its work one step
+    // before the other, then the two interleave, the order within a round a
+    // choice the policy draws (1,2,4,3,5,6 in declaration order). A body run to
+    // its end at entry would give 1,2,3,4,5,6 instead.
     private import ScalarValues::*;
 
     state def Interleave parallel {

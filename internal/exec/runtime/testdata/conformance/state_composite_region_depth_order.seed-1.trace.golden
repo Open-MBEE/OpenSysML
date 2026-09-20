@@ -4,13 +4,13 @@ choice entering Working: next lstart(entry), rstart(entry) (unordered; took rsta
 enter: rstart
 enter: lstart
 transition: start -> Working
-exit: lstart
-enter: l1
-transition: lstart -> l1
 exit: rstart
 enter: deep
 enter: dstart
 transition: rstart -> deep
+exit: lstart
+enter: l1
+transition: lstart -> l1
 exit: dstart
 enter: d1
 transition: dstart -> d1

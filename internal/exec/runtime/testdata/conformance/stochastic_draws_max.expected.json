@@ -1,0 +1,11 @@
+{
+	"type": "action",
+	"libraries": true,
+	"trace": true,
+	"draws": "max",
+	"outputs": {
+		"d": {"type": "Real", "value": 1.0},
+		"n": {"type": "Integer", "value": 6},
+		"t": {"type": "Real", "value": 10.0}
+	}
+}

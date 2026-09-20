@@ -14,9 +14,12 @@ starts and stops on its own.
 | Java | `org.openmbee:opensysml-client` | Connect, over the JDK's own HTTP client | [Java API](../reference/java-api.md) |
 | Rust | `opensysml` | Connect, blocking, with no async runtime | [Rust API](../reference/rust-api.md) |
 
-They do not all cover the same ground. Go and Python expose every RPC the service offers. Node,
-Java and Rust cover a smaller v1 surface (parse, look up a symbol, evaluate, instantiate), and of
-those three only Node has an escape hatch to the rest, through the generated Connect client it
+They do not all cover the same ground. Go and Python expose every RPC the service offers, and the
+Java client does too — `parseSources`, `convert`, `applyEdits`, `runSweep`, `runDocumentQuery` and
+`renderDocument` beside the v1 surface and its execution, verification, calculation, analysis and
+query methods; Node and Rust cover
+that smaller v1 surface (parse, look up a symbol, evaluate, instantiate), and of
+those two only Node has an escape hatch to the rest, through the generated Connect client it
 exposes. Only Python and Go are published so far.
 [Client libraries](../reference/clients.md) lays out what each covers and how to choose;
 [the troubleshooting chapter](10-troubleshooting.md) covers runs that stop short.
@@ -1222,6 +1225,7 @@ for row in result.rows:
 model.run_document_query("Observatory::HeavierThan", bindings={"threshold": 10.0})
 
 markdown = model.render_document("Observatory::SubsystemReport")
+html = model.render_document("Observatory::SubsystemReport", form="html")
 ```
 
 A binding value is an element (`opensysml.ElementRef("Demo::optics")`), a `str`, an `int`, a
@@ -1229,11 +1233,13 @@ A binding value is an element (`opensysml.ElementRef("Demo::optics")`), a `str`,
 is sent. Cell values come back with those Python types, an element as `ElementRef` and an
 unbounded multiplicity as `opensysml.INFINITY`. `render_document` takes no bindings, because a
 document binds its queries' parameters in the model; it returns the Markdown text, identical to
-what `sysml -render-document` writes.
+what `sysml -render-document` writes, or with `form="html"` the standalone page
+`-doc-form html` writes. PDF stays with the CLI, whose converter toolchain it needs.
 
 An unknown query or document raises `SymbolNotFoundError`, a bad binding raises
 `InvalidRequestError` naming the parameter, and both calls are capability-negotiated
-(`document_query` and `render_document`) the same way as everything above.
+(`document_query`, `render_document` and, for HTML, `render_document_html`) the same way as
+everything above.
 
 ## From Node or a browser
 
@@ -1290,6 +1296,13 @@ try (Connection connection = Connection.open()) {      // starts a private sysml
 
   Symbol vehicle = model.symbol("Demo::Vehicle");      // findSymbol returns Optional
   Instantiation built = model.instantiate("Demo::Vehicle");
+
+  ActionRun run = model.executeAction("Test::addFive");           // outputs, final time, diagnostics
+  Exploration every = model.exploreAction("Test::race");          // one Outcome per distinct end state
+  Verification light = model.verifyConstraint("Demo::Vehicle::massLight", "Demo::sedan");
+  Analysis study = model.runAnalysis("Trade::lightest");          // selected alternative, evaluations
+  List<QueryElement> parts = model.query(
+      Query.all().where(Condition.equal("@type", List.of("PartUsage"))));
 }
 ```
 
@@ -1301,19 +1314,23 @@ Netty out of a host that has its own. Nothing is published yet; `make build` fol
 
 Everything returned is immutable, and no protobuf message appears in the public API: `Value` is a
 sealed interface over records, so its variants are closed and enumerable, and `Symbol`, `Diagnostic`,
-`Instance` and `Instantiation` are records with copied collections. Everything thrown is unchecked
-and descends from `OpenSysMLException`, with `ServiceException` (the call was refused) kept separate
-from `ModelException` (the call succeeded and the answer reports a model failure).
+`Instance`, `Instantiation` and the execution, verification, analysis and query results are records
+with copied collections. Everything thrown is unchecked and descends from `OpenSysMLException`, with
+`ServiceException` (the call was refused) kept separate from `ModelException` (the call succeeded and
+the answer reports a model failure). A verdict that is false is neither: `light.holds()` answers
+`false` with `light.verdict().decided()` true, and only a verdict the service could not evaluate
+carries an `error` and a `failureReason`.
 
 One private service is started per classloader, so an Eclipse plugin and a web application in one JVM
 each own one and share nothing, while every connection made through one copy of the client shares a
 child and therefore its parse cache. Call `Connection.stopSharedServices()` from a plugin's `stop()`
 or a `ServletContextListener`, since unloading a classloader does not by itself stop the child.
 
-The typed surface stops short of execution (`ExecuteAction`, `ExecuteState` and `RunAnalysis` are
-among what v1 does not do), so nothing here takes a `schedule` or reads `outcomes`;
-`Capabilities.SCHEDULE` and `Capabilities.SCHEDULE_EXPLORE` only name the two capabilities a
-service advertising scheduling policies reports.
+`ExecutionOptions.defaults().withSchedule("seed:7")` fixes the order a run takes and
+`exploreAction` takes an `explore` schedule and answers every `Outcome` with the `witness` order
+that reaches it; `Capabilities.SCHEDULE` and `Capabilities.SCHEDULE_EXPLORE` are checked before
+the call. `runAnalysis` throws an `AnalysisException` whose `partial()` keeps what a failed run
+computed, so a trade study that stops on one alternative still shows the others.
 
 [The Java API reference](../reference/java-api.md) documents the surface, the exceptions and the
 options.

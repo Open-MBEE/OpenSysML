@@ -471,11 +471,8 @@ func (e *StateExecutor) getLCA(state1, state2 *ast.StateNode) *ast.StateNode {
 	return nil // No common ancestor
 }
 
-// scheduleTransitionEvents schedules TimeEvents for the outgoing transitions of
-// the active configuration, in region declaration order: the order the
-// transitions are queued in is observable. A time trigger on a composite state
-// counts from entering it, so the enclosing states of every active leaf are
-// scheduled too, and their timers are left alone while they stay active.
+// scheduleTransitionEvents schedules the time triggers of the active leaves and of the states
+// enclosing them, in region declaration order; completions are queued at entry (enterStateInto).
 func (e *StateExecutor) scheduleTransitionEvents() error {
 	for _, leaf := range e.activeLeaves() {
 		if err := e.scheduleFromLeaf(leaf); err != nil {
@@ -485,14 +482,11 @@ func (e *StateExecutor) scheduleTransitionEvents() error {
 	return nil
 }
 
-// scheduleFromLeaf schedules the outgoing transitions of an active leaf and the
-// time transitions of the composite states enclosing it.
+// scheduleFromLeaf schedules the time transitions of an active leaf and of the
+// composite states enclosing it, innermost first.
 func (e *StateExecutor) scheduleFromLeaf(leaf *ast.StateNode) error {
-	if err := e.scheduleTransitionsForState(leaf); err != nil {
-		return err
-	}
-	for _, ancestor := range e.getParentChain(leaf)[1:] {
-		if err := e.scheduleTimeTransitions(ancestor); err != nil {
+	for _, state := range e.getParentChain(leaf) {
+		if err := e.scheduleTimeTransitions(state); err != nil {
 			return err
 		}
 	}
@@ -525,12 +519,13 @@ func (e *StateExecutor) scheduleCompletionTransitions(state *ast.StateNode) erro
 	return nil
 }
 
-// scheduleTransitionsForState schedules events for outgoing transitions of a specific state.
-func (e *StateExecutor) scheduleTransitionsForState(state *ast.StateNode) error {
-	if err := e.scheduleCompletionTransitions(state); err != nil {
-		return err
+// completesAtEntry reports whether entering state as the end of an entry path queues
+// its completion at once: it has a completion transition and nothing below to enter.
+func (e *StateExecutor) completesAtEntry(state *ast.StateNode) bool {
+	if _, orthogonal := e.graph.CompositeStates[state]; orthogonal || len(e.graph.StartOf(state)) > 0 {
+		return false
 	}
-	return e.scheduleTimeTransitions(state)
+	return completionCount(e.graph.Transitions[state]) > 0
 }
 
 // scheduleTimeTransitions queues a time event per time-triggered transition out
@@ -1790,7 +1785,7 @@ func (e *StateExecutor) matchesEvent(trans *lower.Transition, event *Event) (boo
 		if !ok {
 			return trans.Via == "", nil
 		}
-		return e.ctx.messageReaches(msg, e.stateMachine.Name, trans.Via, e.self)
+		return e.transitionReached(trans, msg)
 
 	case EventTime:
 		// Time events carry the specific transition in Payload
@@ -2169,11 +2164,17 @@ func (e *StateExecutor) completeInto(trans *lower.Transition, fromName string, t
 	return nil
 }
 
-// regionComplete reports whether region rests at its completion vertex, or at
-// its owner once a transition into the owner left it without an active state.
+// regionComplete reports whether region rests at its own completion vertex (not a
+// nested composite's `done`), or at its owner once a transition into the owner left it empty.
 func (e *StateExecutor) regionComplete(region *ast.StateRegion) bool {
 	active, ok := e.activeConfig.regionStates[region]
-	return ok && (e.graph.Completes(active) || active == e.graph.RegionOwner[region])
+	if !ok {
+		return false
+	}
+	if e.graph.Completes(active) {
+		return e.graph.RegionOf[active] == region
+	}
+	return active == e.graph.RegionOwner[region]
 }
 
 // stateComplete reports whether state's body has completed: it is a completion
@@ -2404,7 +2405,7 @@ func (e *StateExecutor) moveToHistory(trans *lower.Transition, currentState *ast
 	below := lca
 	if owner != e.graph.Machine {
 		for _, state := range e.descendantChain(lca, owner) {
-			if err := e.enterStateInto(state, nil); err != nil {
+			if err := e.enterStateInto(state, nil, false); err != nil {
 				return fmt.Errorf("enter state: %w", err)
 			}
 		}
@@ -4151,12 +4152,23 @@ func (e *StateExecutor) acceptsSignalFrom(state *ast.StateNode, msg Message) (bo
 		if !ok || !e.triggerSignalMatches(accept, trans.Scope, msg) {
 			continue
 		}
-		reaches, err := e.ctx.messageReaches(msg, e.stateMachine.Name, trans.Via, e.self)
+		reaches, err := e.transitionReached(trans, msg)
 		if err != nil || reaches {
 			return reaches, err
 		}
 	}
 	return false, nil
+}
+
+// transitionReached reports whether a message arrives where a transition's
+// `via` names: the performer's port, or the port of an object the machine's
+// data binds the path's root to, as an action's accept resolves its via.
+func (e *StateExecutor) transitionReached(trans *lower.Transition, msg Message) (bool, error) {
+	holder, port, err := e.triggerEval(trans.Scope).viaHolder(trans.Via, trans.ViaSelf, e.self)
+	if err != nil {
+		return false, err
+	}
+	return e.ctx.messageReaches(msg, e.stateMachine.Name, port, holder)
 }
 
 // triggerSignalMatches reports whether the message carries the signal an
@@ -4215,7 +4227,7 @@ func (e *StateExecutor) initialize() (err error) {
 		e.state = StateRunning
 		e.stateStack = e.rootToLeaf(start)
 		for _, state := range e.stateStack {
-			if err := e.enterState(state); err != nil {
+			if err := e.enterStateInto(state, nil, state == start); err != nil {
 				return fmt.Errorf("enter state %s: %w", state.Name, err)
 			}
 		}
@@ -4370,7 +4382,7 @@ func (e *StateExecutor) enterStartOf(state *ast.StateNode) (*ast.StateNode, erro
 			return leaf, nil
 		}
 		for _, descendant := range e.descendantChain(leaf, start) {
-			if err := e.enterState(descendant); err != nil {
+			if err := e.enterStateInto(descendant, nil, descendant == start); err != nil {
 				return nil, fmt.Errorf("enter state %s: %w", descendant.Name, err)
 			}
 		}
@@ -4418,20 +4430,15 @@ func (e *StateExecutor) descendantChain(ancestor, leaf *ast.StateNode) []*ast.St
 	return []*ast.StateNode{leaf}
 }
 
-// enterState executes entry behaviors when entering a state.
-func (e *StateExecutor) enterState(state *ast.StateNode) error {
-	return e.enterStateInto(state, nil)
-}
-
-// enterStateInto enters state, starting each of its orthogonal regions at
-// branches[region] where branches names one and at the region's initial state
-// otherwise, bypassing that initial state's entry and do behaviors.
-func (e *StateExecutor) enterStateInto(state *ast.StateNode, branches map[*ast.StateRegion]*ast.StateNode) error {
+// enterStateInto enters state, starting each of its orthogonal regions at branches[region] or at
+// its initial state; last says the entry path ends at state, whose completion its entry unit queues.
+func (e *StateExecutor) enterStateInto(state *ast.StateNode, branches map[*ast.StateRegion]*ast.StateNode, last bool) error {
 	if state == nil {
 		return nil
 	}
+	leaf := last && e.completesAtEntry(state)
 	if e.entryIsUnit(state) && !e.enteredAhead[state] {
-		if _, err := e.unit(ChoiceEntryOrder, unitHead{label: e.entryLabel(state), at: state, silent: e.silentEntry(state)}); err != nil {
+		if _, err := e.unit(ChoiceEntryOrder, e.entryHead(state, leaf)); err != nil {
 			return err
 		}
 	}
@@ -4448,9 +4455,13 @@ func (e *StateExecutor) enterStateInto(state *ast.StateNode, branches map[*ast.S
 	// behaviors of the states active alongside it, rather than at entry.
 	e.startDoAction(state)
 
-	// Don't schedule transitions here - let the caller decide when to schedule
-	// This prevents double-scheduling in region transitions
-
+	// The completion goes into the pool behind those queued by the entries performed
+	// before this one (PSSM §8.5.9); time triggers are scheduled once the move settles.
+	if leaf {
+		if err := e.scheduleCompletionTransitions(state); err != nil {
+			return fmt.Errorf("schedule completion of state %s: %w", state.Name, err)
+		}
+	}
 	return nil
 }
 

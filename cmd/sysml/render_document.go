@@ -43,22 +43,46 @@ func runRenderDocument(files []string) error {
 		}
 		return writeArtifact(rendered, formHTML)
 	}
-	markdown, err := sess.RenderDocumentMarkdown(renderDoc, markdownOptions())
-	if err != nil {
-		return err
-	}
 	if form == docFormPDF {
-		pdf, err := docpdf.Render(markdown, pdfEngine, docpdf.Options{
-			TitlePage:      pdfTitlePage,
-			TOC:            pdfTOC,
-			NumberSections: pdfNumbering,
-		})
+		opts, err := pdfOptions()
+		if err != nil {
+			return err
+		}
+		document, err := sess.EvaluateDocument(renderDoc)
+		if err != nil {
+			return err
+		}
+		pdf, err := docpdf.Render(document, pdfEngine, opts)
 		if err != nil {
 			return err
 		}
 		return writePDFArtifact(pdf)
 	}
+	markdown, err := sess.RenderDocumentMarkdown(renderDoc, markdownOptions())
+	if err != nil {
+		return err
+	}
 	return writeArtifact(markdown, view.FormMarkdown)
+}
+
+// pdfOptions resolves the PDF flags: the deliverable options and the
+// stylesheet options, which reach the PDF as they reach an HTML page, their
+// relative references resolving against the PDF's directory.
+func pdfOptions() (docpdf.Options, error) {
+	page, err := htmlOptions()
+	if err != nil {
+		return docpdf.Options{}, err
+	}
+	return docpdf.Options{
+		TitlePage:           pdfTitlePage,
+		TOC:                 pdfTOC,
+		NumberSections:      pdfNumbering,
+		Theme:               page.Theme,
+		NoDefaultStylesheet: page.NoDefaultStylesheet,
+		Stylesheets:         page.Stylesheets,
+		BaseDir:             filepath.Dir(outputPath),
+		DiagramForm:         page.DiagramForm,
+	}, nil
 }
 
 // runRenderDocuments renders every document definition of the model named on
@@ -727,8 +751,17 @@ func documentForm() (string, error) {
 		}
 		return form, nil
 	case docFormPDF:
-		if htmlFlagsGiven() {
-			return "", errors.New("the -html- options shape HTML output; ask for it with -doc-form html")
+		if htmlFragment {
+			return "", errors.New("-html-fragment writes the document element alone for embedding in a page; a PDF is laid out from a whole page")
+		}
+		if htmlMermaid != "" {
+			return "", errors.New("-html-mermaid loads a script into an HTML page; a PDF draws its diagrams with mermaid-cli ahead of the converter")
+		}
+		if htmlMath != "" {
+			return "", errors.New("-html-math loads a script into an HTML page; a PDF typesets its formulas with KaTeX ahead of the converter")
+		}
+		if err := checkThemeUse(); err != nil {
+			return "", err
 		}
 		if outputPath == "" {
 			return "", errors.New("-doc-form pdf writes a binary artifact; name the file to write with -o")

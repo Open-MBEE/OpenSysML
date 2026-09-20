@@ -62,10 +62,30 @@ func (s *Service) RunDocumentQuery(ctx context.Context, req *pb.RunDocumentQuery
 	return rowSetResponse(qctx.Index, result), nil
 }
 
-// RenderDocument renders a named document to Markdown, as -render-document does.
+// Forms RenderDocument renders, named as the CLI's -doc-form names them.
+const (
+	renderFormMarkdown = "markdown"
+	renderFormHTML     = "html"
+)
+
+// RenderDocument renders a named document to Markdown or HTML, as
+// -render-document does.
 func (s *Service) RenderDocument(ctx context.Context, req *pb.RenderDocumentRequest) (*pb.RenderDocumentResponse, error) {
 	if err := s.requireCapability(CapabilityRenderDocument); err != nil {
 		return nil, err
+	}
+	form := req.Form
+	if form == "" {
+		form = renderFormMarkdown
+	}
+	if form != renderFormMarkdown && form != renderFormHTML {
+		return nil, statusErrorf(connect.CodeInvalidArgument,
+			"form %q is not one this service renders: markdown or html", req.Form)
+	}
+	if form == renderFormHTML {
+		if err := s.requireCapability(CapabilityRenderDocumentHTML); err != nil {
+			return nil, err
+		}
 	}
 	cached, ok := s.cache.Get(req.ModelHash)
 	if !ok {
@@ -96,6 +116,13 @@ func (s *Service) RenderDocument(ctx context.Context, req *pb.RenderDocumentRequ
 		qctx, queryexec.Options{}, cachedSourceText(cached))
 	if err != nil {
 		return nil, held.documentStatus(err)
+	}
+	if form == renderFormHTML {
+		page, err := docrender.HTML(document, docrender.HTMLOptions{})
+		if err != nil {
+			return nil, documentStatus(err)
+		}
+		return &pb.RenderDocumentResponse{Html: page}, nil
 	}
 	markdown, err := docrender.Markdown(document, docrender.MarkdownOptions{})
 	if err != nil {
