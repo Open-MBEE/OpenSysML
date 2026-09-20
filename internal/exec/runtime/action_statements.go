@@ -224,6 +224,7 @@ func (f *performFrame) abandon(*Context) {
 
 func (f *performFrame) clone() bodyFrame { c := *f; return &c }
 
+// blockFlowFrame resumes a transparent performance for a stated body flow.
 type blockFlowFrame struct {
 	perf   *actionFrame
 	levels int
@@ -237,6 +238,8 @@ func (f *blockFlowFrame) abandon(*Context) {
 
 func (f *blockFlowFrame) clone() bodyFrame { c := *f; return &c }
 
+// performBlockFlow runs the flow a loop or branch body states as a performance
+// of its own, a subperformance of parent with engine's block-locals in reach.
 func (e *performances) performBlockFlow(parent *actionFrame, engine *stmtEngine, block lower.Block) (stmtFlow, error) {
 	f, resumed, err := popFrame[*blockFlowFrame](e.ctx)
 	if err != nil {

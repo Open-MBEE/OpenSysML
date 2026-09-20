@@ -4,6 +4,6 @@
 	"finalState": "done",
 	"stateVisits": ["init", "active", "done"],
 	"outputs": {
-		"total": {"type": "Integer", "value": 11}
+		"total": {"type": "Integer", "value": 22}
 	}
 }

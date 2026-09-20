@@ -1043,11 +1043,17 @@ func (p *Parser) parseWhileLoopAction(tok lexer.Token) ast.Node {
 		}
 		p.advance() // consume '{'
 
+		parsed := p.newBodyBuilder()
 		leave := p.pushBodyContext(bodyAction)
 		for !p.at(lexer.RBrace) && !p.atEOF() {
-			body = append(body, p.parseActionMember())
+			if parsed.atSuccession() {
+				parsed.takeSuccession()
+				continue
+			}
+			parsed.add(p.parseActionMember())
 		}
 		leave()
+		body = parsed.finish()
 
 		p.expect(lexer.RBrace, "expected '}' after while body")
 	}
@@ -1082,18 +1088,24 @@ func (p *Parser) parseLoopAction(tok lexer.Token) ast.Node {
 	var body []ast.Node
 
 	// The unbraced body is an ActionBodyParameter: `loop action [<name>] { … }`.
+	bodyParameter := !braced && p.atKeyword("action")
 	if !braced && p.atKeyword("action") {
 		body = p.parseActionBodyParameter()
 	}
 
 	// Parse loop body members until 'until' keyword or closing brace
+	parsed := p.newBodyBuilder()
 	leave := p.pushBodyContext(bodyAction)
 	for !p.atKeyword("until") && !p.at(lexer.RBrace) && !p.atEOF() {
 		before := p.peek().Span.Offset
+		if parsed.atSuccession() {
+			parsed.takeSuccession()
+			continue
+		}
 
 		// Try direction parameters first
 		if p.isDirectionKeyword() {
-			body = append(body, p.parseDirectionParameter())
+			parsed.add(p.parseDirectionParameter())
 			continue
 		}
 
@@ -1101,7 +1113,7 @@ func (p *Parser) parseLoopAction(tok lexer.Token) ast.Node {
 		if p.atDefUsageStart() {
 			m := p.parseBodyMember()
 			if m != nil {
-				body = append(body, m)
+				parsed.add(m)
 			}
 			// Check if no progress (prevent infinite loop)
 			if p.peek().Span.Offset == before {
@@ -1111,7 +1123,7 @@ func (p *Parser) parseLoopAction(tok lexer.Token) ast.Node {
 		}
 
 		// Parse behavioral statements
-		body = append(body, p.parseActionMember())
+		parsed.add(p.parseActionMember())
 
 		// Ensure progress
 		if p.peek().Span.Offset == before {
@@ -1119,6 +1131,12 @@ func (p *Parser) parseLoopAction(tok lexer.Token) ast.Node {
 		}
 	}
 	leave()
+	tail := parsed.finish()
+	if bodyParameter {
+		body = append(body, tail...)
+	} else {
+		body = tail
+	}
 
 	if braced {
 		p.expect(lexer.RBrace, "expected '}' after loop body")
@@ -1198,13 +1216,18 @@ func (p *Parser) parseForAction(tok lexer.Token) ast.Node {
 
 	// Parse body as mixed content (declarations + behavioral statements)
 	var body []ast.Node
+	parsed := p.newBodyBuilder()
 	leave := p.pushBodyContext(bodyAction)
 	for !p.at(lexer.RBrace) && !p.atEOF() {
 		before := p.peek().Span.Offset
+		if parsed.atSuccession() {
+			parsed.takeSuccession()
+			continue
+		}
 
 		// Try direction parameters
 		if p.isDirectionKeyword() {
-			body = append(body, p.parseDirectionParameter())
+			parsed.add(p.parseDirectionParameter())
 			continue
 		}
 
@@ -1212,7 +1235,7 @@ func (p *Parser) parseForAction(tok lexer.Token) ast.Node {
 		if p.atDefUsageStart() {
 			m := p.parseBodyMember()
 			if m != nil {
-				body = append(body, m)
+				parsed.add(m)
 			}
 			if p.peek().Span.Offset == before {
 				p.advance()
@@ -1221,7 +1244,7 @@ func (p *Parser) parseForAction(tok lexer.Token) ast.Node {
 		}
 
 		// Parse behavioral statements
-		body = append(body, p.parseActionMember())
+		parsed.add(p.parseActionMember())
 
 		// Ensure progress
 		if p.peek().Span.Offset == before {
@@ -1229,6 +1252,7 @@ func (p *Parser) parseForAction(tok lexer.Token) ast.Node {
 		}
 	}
 	leave()
+	body = parsed.finish()
 
 	p.expect(lexer.RBrace, "expected '}'")
 
@@ -1339,21 +1363,25 @@ func (p *Parser) parseIfAction(tok lexer.Token) ast.Node {
 // else branch). Both declarations and behavioral statements are accepted, so
 // `if <cond> { action x : Type { body }; first x then y; }` parses.
 func (p *Parser) parseIfBranch(kind ast.IfBranchKind, start int, closeMsg string) *ast.IfBranchNode {
-	var body []ast.Node
+	parsed := p.newBodyBuilder()
 	leave := p.pushBodyContext(bodyAction)
 	for !p.at(lexer.RBrace) && !p.atEOF() {
 		before := p.peek().Span.Offset
+		if parsed.atSuccession() {
+			parsed.takeSuccession()
+			continue
+		}
 
 		// Direction parameters first.
 		if p.isDirectionKeyword() {
-			body = append(body, p.parseDirectionParameter())
+			parsed.add(p.parseDirectionParameter())
 			continue
 		}
 
 		// Declarations (action/part/etc).
 		if p.atDefUsageStart() {
 			if m := p.parseBodyMember(); m != nil {
-				body = append(body, m)
+				parsed.add(m)
 			}
 			// No progress: advance to avoid an infinite loop.
 			if p.peek().Span.Offset == before {
@@ -1362,10 +1390,11 @@ func (p *Parser) parseIfBranch(kind ast.IfBranchKind, start int, closeMsg string
 			continue
 		}
 
-		body = append(body, p.parseActionMember())
+		parsed.add(p.parseActionMember())
 	}
 	leave()
 	p.expect(lexer.RBrace, closeMsg)
+	body := parsed.finish()
 
 	branch := &ast.IfBranchNode{Kind: kind, Body: body}
 	branch.NodeSpan = p.spanFrom(start)

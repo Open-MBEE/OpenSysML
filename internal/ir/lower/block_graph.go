@@ -96,13 +96,12 @@ func lowerBlockFlow(members []ast.Node, scope *symbols.Scope, nodeBody bool) *Ac
 func lowerStatedBlock(owner ast.Node, members []ast.Node, scope *symbols.Scope) Block {
 	graph, err := lowerActionFlow(members, scope, nil)
 	if err != nil {
-		if graph != nil {
-			graph.Invalid = err
-			StartFlow(graph)
-			return Block{Node: owner, Scope: scope, Graph: graph, Stated: true}
+		if graph == nil {
+			graph = newActionGraph(scope)
 		}
-		return Block{Node: owner, Scope: scope, Statements: []Statement{Unsupported{
-			Description: "the flow the body states: " + err.Error(), Node: owner, Scope: scope}}}
+		graph.Invalid = err
+		StartFlow(graph)
+		return Block{Node: owner, Scope: scope, Graph: graph, Stated: true}
 	}
 	StartFlow(graph)
 	return Block{Node: owner, Scope: scope, Graph: graph, Stated: true}

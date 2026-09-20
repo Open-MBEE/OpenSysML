@@ -7,9 +7,11 @@ package test {
 		state init;
 		state active {
 			do action work {
-				action b { assign total := total + 10; }
-				action a { assign total := total + 1; }
-				succession a then b;
+				for i in 1..2 {
+					action b { assign total := total + 10; }
+					action a { assign total := total + 1; }
+					succession a then b;
+				}
 			}
 		}
 		state done;

@@ -65,8 +65,8 @@ type ActionGraph struct {
 	// InitialNode (required)
 	Initial ast.Node
 
-	// Invalid records a malformed flow that must be reported by execution at
-	// initialize time rather than while constructing a nested body.
+	// Invalid is the error a stated body's flow failed to lower with,
+	// reported at initialize().
 	Invalid error
 
 	// FinalNodes (may be multiple)
@@ -598,34 +598,27 @@ func ToActionGraphWith(actionDecl ast.Node, scope *symbols.Scope, resolver *reso
 	if err != nil {
 		return nil, err
 	}
-	if graph.Invalid != nil {
-		return nil, graph.Invalid
-	}
 	return graph, nil
 }
 
 func lowerActionFlow(members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) (*ActionGraph, error) {
 	graph, err := collectActionNodes(members, scope, resolver)
 	if err != nil {
-		if graph == nil {
-			return nil, err
-		}
-		graph.Invalid = err
-		return graph, nil
+		return graph, err
 	}
 	// The initial node is optional at graph construction time; the executor's
 	// initialize() reports its absence.
 	edges := &actionEdgeLowerer{graph: graph, scope: scope, weights: &probabilityReader{resolver: resolver, scope: scope}}
 	for _, member := range members {
 		if err := edges.member(unwrapMembership(member)); err != nil {
-			return nil, err
+			return graph, err
 		}
 	}
 	if err := lowerInheritedPinConnections(graph, scope); err != nil {
-		return nil, err
+		return graph, err
 	}
 	if err := checkProbabilities(graph); err != nil {
-		return nil, err
+		return graph, err
 	}
 	recordBlockNodes(graph)
 	return graph, nil

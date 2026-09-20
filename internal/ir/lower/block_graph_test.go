@@ -1,6 +1,7 @@
 package lower
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -215,6 +216,34 @@ func TestBlockStatingACycleKeepsInitialUnset(t *testing.T) {
 	}
 	if block.Graph.Initial != nil {
 		t.Fatalf("cycle initial = %T, want nil", block.Graph.Initial)
+	}
+}
+
+func TestStatedBlockWithUnsequencedStatementRecordsInvalidFlow(t *testing.T) {
+	graph := actionGraphFor(t, `
+		action test {
+			attribute x : Integer = 0;
+			first start;
+			action accumulate {
+				while true {
+					action a;
+					action b;
+					assign x := 1;
+					succession a then b;
+				}
+			}
+			done;
+			succession first start then accumulate;
+			succession first accumulate then done;
+		}
+	`)
+
+	block := loopBodyOf(t, graph, "accumulate")
+	if block.Graph == nil || !block.Stated || block.Own {
+		t.Fatalf("loop body = %#v, want a stated non-own flow", block)
+	}
+	if !errors.Is(block.Graph.Invalid, ErrStatementOutsideFlow) {
+		t.Fatalf("stated flow error = %v, want ErrStatementOutsideFlow", block.Graph.Invalid)
 	}
 }
 

@@ -378,12 +378,12 @@ func (e *ActionExecutor) validateSubflows(graph *lower.ActionGraph) error {
 			}
 		}
 		for _, block := range lower.BlockFlows(graph.Bodies[node]) {
+			if err := e.validateSubflows(block); err != nil {
+				return err
+			}
 			if len(block.Nodes) > 0 && block.Initial == nil {
 				return fmt.Errorf("%w: no node starts the flow a body of action node %s states%s",
 					ErrInvalidActionFlow, ActionNodeName(node), noFlowStart(block))
-			}
-			if err := e.validateSubflows(block); err != nil {
-				return err
 			}
 		}
 	}

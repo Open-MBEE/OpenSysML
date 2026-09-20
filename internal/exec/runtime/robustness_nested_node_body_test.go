@@ -42,6 +42,29 @@ func TestRuntimeRobustnessNestedNodeInBody(t *testing.T) {
 			t.Fatalf("error = %v, want ErrInvalidActionFlow", err)
 		}
 	})
+	t.Run("body_flow_unsequenced_statement", func(t *testing.T) {
+		_, err := executeActionSource(t, "host", `package test {
+			private import ScalarValues::*;
+			action host {
+				attribute x : Integer = 0;
+				first start;
+				then action iterate {
+					for i in 1..1 {
+						action a;
+						action b;
+						assign x := 1;
+						succession a then b;
+					}
+				}
+			}
+		}`)
+		if !errors.Is(err, ErrInvalidActionFlow) {
+			t.Fatalf("error = %v, want ErrInvalidActionFlow", err)
+		}
+		if errors.Is(err, ErrStatementNotExecutable) {
+			t.Fatalf("error = %v, want initialize-time invalid flow", err)
+		}
+	})
 	t.Run("body_flow_pin_read_before_performed", func(t *testing.T) {
 		_, err := executeActionSource(t, "host", `package test {
 			private import ScalarValues::*;
