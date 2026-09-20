@@ -55,11 +55,12 @@ type value struct {
 	entity *entity
 }
 
-// entity is one object the outputs reach, its features in the class's attribute
-// order; class is nil when the model declares no class of its type.
+// entity is one object or signal the outputs reach and the features its type
+// declares; known is false when the model declares no class or signal of its type.
 type entity struct {
 	typeName string
-	class    *Class
+	attrs    []*Property
+	known    bool
 	features []held
 	filled   bool
 	arrival  int
@@ -87,14 +88,31 @@ func newGraph(model *Model, ctx *runtime.Context) *graph {
 }
 
 // at is the object of a side's identity key, added at its first mention.
-func (g *graph) at(key, typeName string, c *Class) (*entity, bool) {
+func (g *graph) at(key, typeName string) (*entity, bool) {
 	if o := g.objects[key]; o != nil {
 		return o, false
 	}
-	o := &entity{typeName: typeName, class: c, arrival: len(g.order)}
+	o := &entity{typeName: typeName, arrival: len(g.order)}
+	o.attrs, o.known = g.attributesOf(typeName)
 	g.objects[key] = o
 	g.order = append(g.order, o)
 	return o, true
+}
+
+// attributesOf is the own and inherited attributes, in name order, of the class
+// or signal the model declares under typeName.
+func (g *graph) attributesOf(typeName string) ([]*Property, bool) {
+	var attrs []*Property
+	if c := g.model.ClassOf(TypeRef{Name: typeName}); c != nil {
+		attrs = c.AllAttributes()
+	} else if s := g.model.SignalOf(TypeRef{Name: typeName}); s != nil {
+		attrs = s.AllAttributes()
+	} else {
+		return nil, false
+	}
+	attrs = append([]*Property(nil), attrs...)
+	sort.Slice(attrs, func(i, j int) bool { return attrs[i].Name < attrs[j].Name })
+	return attrs, true
 }
 
 // expected converts a recorded value.
@@ -123,21 +141,22 @@ func (g *graph) expected(v ExpectedValue) value {
 		if v.Referent != nil {
 			return g.expected(*v.Referent)
 		}
-	case "Object":
+	case "Object", "Signal":
 		return value{entity: g.expectedObject(v)}
 	}
 	return value{text: v.Kind + string(v.Value)}
 }
 
-// expectedObject converts a recorded object by the class its type names; the
+// expectedObject converts a recorded object or signal by the type it names; the
 // record repeats the features at every mention, so the first untruncated one fills them.
+// A signal carries no id, each mention being a value of its own.
 func (g *graph) expectedObject(v ExpectedValue) *entity {
-	var c *Class
-	if len(v.Types) == 1 {
-		c = g.model.ClassOf(TypeRef{Name: v.Types[0]})
+	key := v.ID
+	if key == "" {
+		key = "anonymous#" + strconv.Itoa(len(g.order))
 	}
-	o, _ := g.at(v.ID, strings.Join(v.Types, "&"), c)
-	if o.filled || v.Truncated || o.class == nil {
+	o, _ := g.at(key, strings.Join(v.Types, "&"))
+	if o.filled || v.Truncated || !o.known {
 		return o
 	}
 	o.filled = true
@@ -145,7 +164,7 @@ func (g *graph) expectedObject(v ExpectedValue) *entity {
 	for _, f := range v.Features {
 		recorded[f.Feature] = f.Values
 	}
-	for _, attr := range sortedAttributes(o.class) {
+	for _, attr := range o.attrs {
 		var values []value
 		for _, rv := range recorded[attr.Name] {
 			values = append(values, g.expected(rv))
@@ -189,20 +208,21 @@ func (g *graph) runtime(v runtime.Value) []value {
 	return []value{{text: runtime.FormatValue(v)}}
 }
 
-// runtimeObject converts a run's object by the class its definition translates.
+// runtimeObject converts a run's object or signal by the class or signal its
+// definition translates.
 func (g *graph) runtimeObject(id int64) *entity {
 	key := "#" + strconv.FormatInt(id, 10)
 	inst, ok := g.ctx.Instance(id)
 	if !ok || inst.Type == nil {
-		o, _ := g.at(key, "<unknown object>", nil)
+		o, _ := g.at(key, "<unknown object>")
 		return o
 	}
-	o, fresh := g.at(key, inst.Type.Name, g.model.ClassOf(TypeRef{Name: inst.Type.Name}))
-	if !fresh || o.class == nil {
+	o, fresh := g.at(key, inst.Type.Name)
+	if !fresh || !o.known {
 		return o
 	}
 	o.filled = true
-	for _, attr := range sortedAttributes(o.class) {
+	for _, attr := range o.attrs {
 		fv, err := inst.GetFeatureValue(g.ctx, attr.Name)
 		if err != nil {
 			o.features = append(o.features, held{attr.Name, attr.Multiplicity, []value{{text: "<error: " + err.Error() + ">"}}})
@@ -369,7 +389,7 @@ func (s *speller) value(v value) string {
 		return alias
 	}
 	s.shown[o] = true
-	if o.class == nil {
+	if !o.known {
 		return o.typeName + alias + "{?}"
 	}
 	var lines []string
@@ -382,13 +402,6 @@ func (s *speller) value(v value) string {
 // unordered reports whether a feature's values form a multiset rather than a list.
 func unordered(m Multiplicity) bool {
 	return !m.Ordered && m.Upper != 1
-}
-
-// sortedAttributes is the class's own and inherited attributes in name order.
-func sortedAttributes(c *Class) []*Property {
-	attrs := append([]*Property(nil), c.AllAttributes()...)
-	sort.Slice(attrs, func(i, j int) bool { return attrs[i].Name < attrs[j].Name })
-	return attrs
 }
 
 // renderReal spells a real so that the implementation's and the runtime's agree

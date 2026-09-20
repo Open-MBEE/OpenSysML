@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 )
 
 // flowModel exercises the translation rules found by hand: Pick decides on an
@@ -1334,6 +1335,46 @@ func TestEmitAcceptEvent(t *testing.T) {
 	var te *TranslateError
 	if !errors.As(err, &te) || te.Where != "Accept(Ping)" || !strings.Contains(te.Reason, "unmarshalls") {
 		t.Errorf("Emit(Unmarshaller) = %v, want a TranslateError on the unmarshalling accept", err)
+	}
+}
+
+// A signal an output holds spells by the attributes its definition declares, as
+// an object does, on the record's side and the run's alike.
+func TestRenderSignalValues(t *testing.T) {
+	s := fixtureSuite(t, signalModel)
+	listener := fixtureActivity(t, s, "Listener")
+	em := emitted(t, s, "Listener")
+	heard := ExpectedValue{Kind: "Signal", Types: []string{"Ping"}, Features: []ExpectedFeature{feature("level", 8)}}
+	x := executed(listener, []ExpectedOutput{{Parameter: "heard", Values: []ExpectedValue{heard}}})
+	const want = "heard = Ping#1{level = 8}"
+	if got := renderExpected(listener, &x); got != want {
+		t.Errorf("expected side:\n%s\nwant\n%s", got, want)
+	}
+	budgets, err := runBudgets()
+	if err != nil {
+		t.Fatal(err)
+	}
+	action, _, fresh, err := build(em, budgets)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, err := fresh(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ping, ok := action.OwnerScope.LookupLocal("Ping")
+	if !ok {
+		t.Fatal("the emitted model declares no Ping")
+	}
+	inst, err := ctx.InstantiateRead(ping, func(inst *runtime.Instance) error {
+		return inst.SetFeatureValue(ctx, "level", runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 8}})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	outputs := map[string]runtime.Value{"heard": {Kind: runtime.ValInstance, Instance: inst.ID}}
+	if got := renderOutputs(listener, ctx, outputs); got != want {
+		t.Errorf("run side:\n%s\nwant\n%s", got, want)
 	}
 }
 
