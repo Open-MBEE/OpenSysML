@@ -168,7 +168,7 @@ func (e *ActionExecutor) driveSubflow(f *subflowFrame) error {
 			}
 			continue
 		}
-		if e.waitsOnClock(perf) && !e.hasDueTimeWait(perf) && !e.hasDueHeldRun(perf) {
+		if e.waitsOnClock(perf) && !e.hasDueTimeWait(perf) && !e.hasDuePausedWork(perf) {
 			if err := e.ctx.pauseForClock(bodyWait{exec: e, perf: perf}); err != nil {
 				return err
 			}

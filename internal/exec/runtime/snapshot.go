@@ -252,14 +252,19 @@ type bodyCapture struct {
 }
 
 // captureBody captures the run and, into the set, the executors its paused work
-// performs: the action it holds, and a do behavior's own flow.
+// performs: the action it holds, the flow of a case it runs, and a do behavior's own flow.
 func (s *executorCaptures) captureBody(run *bodyRun) *bodyCapture {
 	c := &bodyCapture{run: run, saved: *run}
 	c.saved.work, c.saved.cursor, c.saved.resuming = run.work.clone(), nil, nil
 	for _, f := range run.cursor {
 		c.frames = append(c.frames, f.clone())
-		if callee, ok := f.(*calleeFrame); ok {
-			s.captureAction(callee.exec)
+		switch f := f.(type) {
+		case *calleeFrame:
+			s.captureAction(f.exec)
+		case *caseStepFrame:
+			if f.run == nil {
+				s.captureAction(f.start.host.flow)
+			}
 		}
 	}
 	if held := run.paused.wait.held; held != nil {

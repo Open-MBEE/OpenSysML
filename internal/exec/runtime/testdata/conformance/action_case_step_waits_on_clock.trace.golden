@@ -1,0 +1,32 @@
+enter verification test::Config::run
+materialize: target #1
+  eval feature target -> instance#1
+  bind context = instance#1 [default]
+  stmt action body
+enter action node: verification test::Config::run
+      eval literal 60.0 -> 60.0
+    eval index -> 60.0 [s]
+    stmt assign context.log
+          eval feature context -> instance#1
+        eval chain log -> 0.0
+        eval literal 1.0 -> 1.0
+      eval operator + -> 1.0
+      eval feature context -> instance#1
+    stmt assign context.arrived
+materialize: universalClock #2
+          eval feature universalClock -> instance#2
+        eval feature localClock -> instance#2
+      eval chain currentTime -> 60.0
+      eval feature context -> instance#1
+leave action node: verification test::Config::run
+  stmt return
+    eval feature VerdictKind::pass -> VerdictKind::pass
+exit verification test::Config::run -> VerdictKind::pass
+step 1: token 1@after
+stmt assign verdict
+  eval chain verdict -> VerdictKind::pass
+stmt assign ended
+      eval feature universalClock -> instance#2
+    eval feature localClock -> instance#2
+  eval chain currentTime -> 60.0
+step 2: no active tokens
