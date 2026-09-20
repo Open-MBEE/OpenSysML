@@ -5,6 +5,23 @@ description: How to build, drive, and record end-to-end tests of the OpenSysML s
 
 # Testing the `sysml` REPL end-to-end
 
+## Dynamic object lifecycle through the REPL
+
+- `%instantiate <PartDef>` already runs the classifier actions the definition
+  performs, so the objects they create with `new` exist on `#1` right after it;
+  a separate detached `%action` builds its own objects and never shows them.
+- `%instances` lists session roots only, not nested objects created at runtime.
+  Read them through the holder: `%features #1`, `%eval in #1 : cars`, and
+  `%eval in #1 : size(all P::Car)` for the live extent — which also counts the
+  declared singleton parts, not only the `new` objects.
+- A destroyed nested object shows its lifetime note under the alias that holds it
+  (`%features P::Fleet.spare`); `%eval in #1 : spare.n` prints the typed error's
+  text (`occurrence was destroyed`), so identity (`errors.Is`) is not observable here.
+
+### Devin Secrets Needed
+
+None.
+
 ## Action checker and witness replay
 
 - Low-level runtime conformance fixtures may omit scalar imports because their
