@@ -195,12 +195,11 @@ func (m *Model) FeatureBaseFQN(sym *symbols.Symbol) (string, bool) {
 		return typed, true
 	}
 	if !m.isKerMLDoc(sym) {
-		usage, ok := sym.Decl.(*ast.Usage)
-		if !ok {
-			return "", false
-		}
-		if fqn, ok := implicitUsageBases[usage.Kind]; ok {
+		if fqn, ok := m.usageBaseFeatureFQN(sym); ok {
 			return fqn, true
+		}
+		if usage, ok := sym.Decl.(*ast.Usage); !ok || usage.IsIndividual {
+			return "", false
 		}
 		// A usage of no particular kind still subsets the base feature every
 		// usage does, which is what types it (SysML v2 §7.3.2).
@@ -242,15 +241,18 @@ func (m *Model) kindBaseFQNs(sym *symbols.Symbol, isKerML bool) []string {
 // kindBaseDefinitionFQNs returns definition qualified names for sym's implicit
 // kind bases, deriving definitions from feature bases when necessary.
 func (m *Model) kindBaseDefinitionFQNs(sym *symbols.Symbol, isKerML bool) []string {
+	names := m.kindBaseFQNs(sym, isKerML)
 	if m.resolver == nil || m.resolver.Index() == nil {
-		return nil
+		return names
 	}
 	var out []string
-	for _, fqn := range m.kindBaseFQNs(sym, isKerML) {
+	for _, fqn := range names {
+		found := false
 		for _, base := range m.resolver.Index().LookupQualified(fqn) {
 			if base == nil {
 				continue
 			}
+			found = true
 			if base.IsFeature() {
 				for _, typ := range m.baseFeatureTypes(base, nil) {
 					if typ != nil {
@@ -261,6 +263,9 @@ func (m *Model) kindBaseDefinitionFQNs(sym *symbols.Symbol, isKerML bool) []stri
 				out = append(out, fqn)
 			}
 			break
+		}
+		if !found {
+			out = append(out, fqn)
 		}
 	}
 	return out
@@ -288,19 +293,14 @@ func (m *Model) kindBaseFQN(sym *symbols.Symbol, isKerML bool) (string, bool) {
 		if d.Keyword == "" && d.Kind == ast.UsageAttribute {
 			return anythingFQN, true
 		}
-		if len(ownedEnds(sym)) == 2 {
-			switch d.Kind {
-			case ast.UsageConnection:
-				return "Connections::binaryConnections", true
-			case ast.UsageInterface:
-				return "Interfaces::binaryInterfaces", true
-			}
-		}
 		if d.IsIndividual && d.Kind == ast.UsageOccurrence {
 			// An individual occurrence is a life, not an arbitrary occurrence
 			// (SysML v2 §7.9.4), however the modifier is spelled.
 			fqn, ok := implicitUsageBases[ast.UsageIndividual]
 			return fqn, ok
+		}
+		if fqn, ok := m.usageBaseFeatureFQN(sym); ok {
+			return fqn, true
 		}
 		fqn, ok := implicitUsageBases[d.Kind]
 		return fqn, ok
@@ -349,6 +349,41 @@ func (m *Model) kindBaseFQN(sym *symbols.Symbol, isKerML bool) (string, bool) {
 		return "Actions::DecisionAction", true
 	}
 	return "", false
+}
+
+// usageBaseFeatureFQN returns the SysML base feature selected by a usage kind,
+// or false when the kind has no feature base or names a definition instead.
+func (m *Model) usageBaseFeatureFQN(sym *symbols.Symbol) (string, bool) {
+	if sym == nil || m.isKerMLDoc(sym) {
+		return "", false
+	}
+	switch d := sym.Decl.(type) {
+	case *ast.Usage:
+		if len(ownedEnds(sym)) == 2 {
+			switch d.Kind {
+			case ast.UsageConnection:
+				return "Connections::binaryConnections", true
+			case ast.UsageInterface:
+				return "Interfaces::binaryInterfaces", true
+			}
+		}
+		fqn, ok := implicitUsageBases[d.Kind]
+		if !ok || fqn == "Occurrences::Life" {
+			return "", false
+		}
+		return fqn, true
+	case *ast.SubstateMember:
+		fqn, ok := implicitUsageBases[ast.UsageState]
+		return fqn, ok
+	case *ast.TransitionMember:
+		fqn, ok := implicitUsageBases[ast.UsageTransition]
+		return fqn, ok
+	case *ast.AssumeMember, *ast.RequireMember:
+		fqn, ok := implicitUsageBases[ast.UsageConstraint]
+		return fqn, ok
+	default:
+		return "", false
+	}
 }
 
 // isKerMLDoc reports whether sym is declared by a KerML document, as recorded
@@ -590,21 +625,8 @@ func (m *Model) implicitUsageBaseFeature(sym *symbols.Symbol) *symbols.Symbol {
 	}
 	m.computingUsageBase[sym] = true
 	defer delete(m.computingUsageBase, sym)
-	var fqn string
-	switch d := sym.Decl.(type) {
-	case *ast.Usage:
-		var ok bool
-		fqn, ok = implicitUsageBases[d.Kind]
-		if !ok {
-			return nil
-		}
-	case *ast.SubstateMember:
-		fqn = implicitUsageBases[ast.UsageState]
-	case *ast.TransitionMember:
-		fqn = implicitUsageBases[ast.UsageTransition]
-	case *ast.AssumeMember, *ast.RequireMember:
-		fqn = implicitUsageBases[ast.UsageConstraint]
-	default:
+	fqn, ok := m.usageBaseFeatureFQN(sym)
+	if !ok {
 		return nil
 	}
 	if fqn == "" || m.declaredGeneralizationReaches(sym, fqn, nil) {

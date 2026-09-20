@@ -71,6 +71,35 @@ func implicitGeneralNamesOf(t *testing.T, src string, path ...string) []string {
 	return names
 }
 
+func featureBaseNameOf(t *testing.T, src string, path ...string) string {
+	t.Helper()
+	const uri = "file:///feature-base.sysml"
+	ws := NewWorkspace()
+	ws.Open(uri, []byte(src), 1)
+	defer ws.Close(uri)
+
+	scope := ws.index.DocumentRoot(uri)
+	var sym *symbols.Symbol
+	for _, part := range path {
+		if scope == nil {
+			t.Fatalf("no scope while looking up %q", part)
+		}
+		s, ok := scope.LookupLocal(part)
+		if !ok {
+			t.Fatalf("symbol %q not found", part)
+		}
+		sym, scope = s, s.Scope
+	}
+	r := resolve.New(ws.index)
+	m := semantics.NewModel(r)
+	r.SetModel(m)
+	fqn, ok := m.FeatureBaseFQN(sym)
+	if !ok {
+		return ""
+	}
+	return fqn
+}
+
 // TestImplicitUsageBaseTypes covers the standard library definition each kind of
 // untyped usage is implicitly typed by, so members inherited from it resolve.
 func TestImplicitUsageBaseTypes(t *testing.T) {
@@ -121,6 +150,42 @@ func TestImplicitUsageBaseTypes(t *testing.T) {
 			}
 			if !found {
 				t.Fatalf("implicit generals of %q = %v, want %s", tc.decl, generals, tc.base)
+			}
+		})
+	}
+}
+
+func TestBinaryUsageBaseFeatures(t *testing.T) {
+	const src = `package P {
+		part def A { port p; }
+		part def B { port q; }
+		part a : A;
+		part b : B;
+		connection c connect a.p to b.q;
+		interface i connect a.p to b.q;
+	}`
+	for _, tc := range []struct {
+		name string
+		path string
+		base string
+	}{
+		{"connection", "c", "Connections::binaryConnections"},
+		{"interface", "i", "Interfaces::binaryInterfaces"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			generals := implicitGeneralNamesOf(t, src, "P", tc.path)
+			found := false
+			for _, general := range generals {
+				if general == tc.base {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Fatalf("implicit generals = %v, want %s", generals, tc.base)
+			}
+			if got := featureBaseNameOf(t, src, "P", tc.path); got != tc.base {
+				t.Fatalf("FeatureBaseFQN = %q, want %q", got, tc.base)
 			}
 		})
 	}
