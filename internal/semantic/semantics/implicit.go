@@ -22,8 +22,8 @@ const (
 	assocStructKw   = "assoc struct"
 )
 
-// implicitUsageBases maps a usage kind to the base feature every usage of that
-// kind implicitly subsets (SysML v2 §7.6.2).
+// implicitUsageBases maps each usage kind to the standard-library base feature
+// specified by SysML v2 §7 and the corresponding library package.
 var implicitUsageBases = map[ast.UsageKind]string{
 	ast.UsagePart:             "Parts::parts",
 	ast.UsageAttribute:        "Base::dataValues",
@@ -239,6 +239,8 @@ func (m *Model) kindBaseFQNs(sym *symbols.Symbol, isKerML bool) []string {
 	return out
 }
 
+// kindBaseDefinitionFQNs returns definition qualified names for sym's implicit
+// kind bases, deriving definitions from feature bases when necessary.
 func (m *Model) kindBaseDefinitionFQNs(sym *symbols.Symbol, isKerML bool) []string {
 	if m.resolver == nil || m.resolver.Index() == nil {
 		return nil
@@ -253,21 +255,6 @@ func (m *Model) kindBaseDefinitionFQNs(sym *symbols.Symbol, isKerML bool) []stri
 				for _, typ := range m.baseFeatureTypes(base, nil) {
 					if typ != nil {
 						out = append(out, m.resolver.Index().GetFQN(typ))
-					}
-				}
-				if fqn == "Connections::binaryConnections" || fqn == "Interfaces::binaryInterfaces" {
-					for _, sup := range m.DirectSupertypes(base) {
-						if !sup.IsFeature() {
-							continue
-						}
-						for _, typ := range m.baseFeatureTypes(sup, nil) {
-							if typ != nil {
-								name := m.resolver.Index().GetFQN(typ)
-								if !slices.Contains(out, name) {
-									out = append(out, name)
-								}
-							}
-						}
 					}
 				}
 			} else {
@@ -328,9 +315,9 @@ func (m *Model) kindBaseFQN(sym *symbols.Symbol, isKerML bool) (string, bool) {
 		if len(ownedEnds(sym)) == 2 {
 			switch d.Kind {
 			case ast.DefConnection:
-				return "Connections::binaryConnections", true
+				return "Connections::BinaryConnection", true
 			case ast.DefInterface:
-				return "Interfaces::binaryInterfaces", true
+				return "Interfaces::BinaryInterface", true
 			case ast.DefFlow:
 				return "Flows::Message", true
 			}
@@ -416,6 +403,8 @@ func (m *Model) computeImplicitBases(sym *symbols.Symbol) []*symbols.Symbol {
 	return out
 }
 
+// baseFeatureTypes returns the definition types supplied by a feature and all
+// feature bases it subsets, retaining first-seen most-specific types.
 func (m *Model) baseFeatureTypes(base *symbols.Symbol, visiting map[*symbols.Symbol]bool) []*symbols.Symbol {
 	if base == nil {
 		return nil
@@ -437,13 +426,34 @@ func (m *Model) baseFeatureTypes(base *symbols.Symbol, visiting map[*symbols.Sym
 			types = append(types, sup)
 		}
 	}
-	if len(types) > 0 {
-		return types
-	}
 	for _, feature := range features {
 		types = append(types, m.baseFeatureTypes(feature, visiting)...)
 	}
-	return types
+
+	var out []*symbols.Symbol
+	for _, typ := range types {
+		if typ == nil || slices.Contains(out, typ) {
+			continue
+		}
+		out = append(out, typ)
+	}
+	pruned := out[:0]
+	for i, typ := range out {
+		redundant := false
+		for j, other := range out {
+			if i == j {
+				continue
+			}
+			if m.Conforms(other, typ) && !m.Conforms(typ, other) {
+				redundant = true
+				break
+			}
+		}
+		if !redundant {
+			pruned = append(pruned, typ)
+		}
+	}
+	return pruned
 }
 
 // declaresConjugation reports whether sym conjugates a type.
@@ -569,6 +579,8 @@ func (m *Model) implicitKerMLFeatureBase(sym *symbols.Symbol) *symbols.Symbol {
 	return nil
 }
 
+// implicitUsageBaseFeature returns a usage's standard-library base feature as
+// a contributor and implicit general, never as a DirectSupertypes entry.
 func (m *Model) implicitUsageBaseFeature(sym *symbols.Symbol) *symbols.Symbol {
 	if sym == nil || m.resolver == nil || m.resolver.Index() == nil || m.isKerMLDoc(sym) {
 		return nil

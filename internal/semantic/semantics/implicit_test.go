@@ -1,6 +1,9 @@
 package semantics
 
 import (
+	"fmt"
+	"slices"
+	"sort"
 	"strings"
 	"testing"
 
@@ -77,6 +80,124 @@ func TestImplicitBaseUsageContributesThat(t *testing.T) {
 	// A definition is not a usage element and takes nothing from the base usage.
 	if _, ok := m.LookupMember(part, "that"); ok {
 		t.Errorf("`that` reported as a member of a definition")
+	}
+}
+
+func TestBaseFeatureTypesForUsageBases(t *testing.T) {
+	want := map[string][]string{
+		"Parts::parts":                         {"Parts::Part"},
+		"Base::dataValues":                     {"Base::DataValue"},
+		"Items::items":                         {"Items::Item"},
+		"Occurrences::occurrences":             {"Occurrences::Occurrence"},
+		"Occurrences::Life":                    {"Occurrences::Life"},
+		"Metadata::metadataItems":              {"Metadata::MetadataItem"},
+		"Views::views":                         {"Views::View"},
+		"Views::viewpointChecks":               {"Views::ViewpointCheck"},
+		"Views::renderings":                    {"Views::Rendering"},
+		"Requirements::concernChecks":          {"Requirements::ConcernCheck"},
+		"Connections::connections":             {"Connections::Connection"},
+		"Ports::ports":                         {"Ports::Port"},
+		"Interfaces::interfaces":               {"Interfaces::Interface"},
+		"Allocations::allocations":             {"Allocations::Allocation"},
+		"Actions::actions":                     {"Actions::Action"},
+		"States::stateActions":                 {"States::StateAction"},
+		"Actions::transitionActions":           {"Actions::TransitionAction"},
+		"Performances::performances":           {"Performances::Performance"},
+		"Calculations::calculations":           {"Calculations::Calculation"},
+		"Performances::evaluations":            {"Performances::Evaluation"},
+		"Constraints::constraintChecks":        {"Constraints::ConstraintCheck"},
+		"Requirements::requirementChecks":      {"Requirements::RequirementCheck"},
+		"Cases::cases":                         {"Cases::Case"},
+		"AnalysisCases::analysisCases":         {"AnalysisCases::AnalysisCase"},
+		"VerificationCases::verificationCases": {"VerificationCases::VerificationCase"},
+		"UseCases::useCases":                   {"UseCases::UseCase"},
+		"Connections::binaryConnections":       {"Connections::Connection", "Objects::BinaryLinkObject"},
+		"Interfaces::binaryInterfaces":         {"Interfaces::Interface", "Objects::BinaryLinkObject"},
+	}
+	for _, fqn := range implicitUsageBases {
+		if _, ok := want[fqn]; !ok {
+			t.Errorf("baseFeatureTypes test has no expectation for implicit usage base %q", fqn)
+		}
+	}
+
+	type packageDecl struct {
+		types    []string
+		features []string
+	}
+	packages := make(map[string]*packageDecl)
+	for fqn, types := range want {
+		parts := strings.Split(fqn, "::")
+		pkg, name := parts[0], parts[1]
+		decl := packages[pkg]
+		if decl == nil {
+			decl = &packageDecl{}
+			packages[pkg] = decl
+		}
+		if name == "Life" {
+			decl.types = append(decl.types, name)
+			continue
+		}
+		typeName := strings.TrimPrefix(types[0], pkg+"::")
+		if !slices.Contains(decl.types, typeName) {
+			decl.types = append(decl.types, typeName)
+		}
+		switch fqn {
+		case "Connections::binaryConnections", "Interfaces::binaryInterfaces":
+			subsetName := "connections"
+			if pkg == "Interfaces" {
+				subsetName = "interfaces"
+			}
+			decl.features = append(decl.features, fmt.Sprintf(
+				"feature %s typed by %s, Objects::BinaryLinkObject subsets %s;",
+				name, typeName, subsetName,
+			))
+		default:
+			decl.features = append(decl.features, fmt.Sprintf("feature %s : %s;", name, typeName))
+		}
+	}
+	objects := packages["Objects"]
+	if objects == nil {
+		objects = &packageDecl{}
+		packages["Objects"] = objects
+	}
+	objects.types = append(objects.types, "BinaryLinkObject")
+
+	var src strings.Builder
+	names := make([]string, 0, len(packages))
+	for pkg := range packages {
+		names = append(names, pkg)
+	}
+	sort.Strings(names)
+	for _, pkg := range names {
+		decl := packages[pkg]
+		fmt.Fprintf(&src, "package %s {\n", pkg)
+		sort.Strings(decl.types)
+		for _, typ := range decl.types {
+			fmt.Fprintf(&src, "\tclassifier %s;\n", typ)
+		}
+		sort.Strings(decl.features)
+		for _, feature := range decl.features {
+			fmt.Fprintf(&src, "\t%s\n", feature)
+		}
+		src.WriteString("}\n")
+	}
+
+	m, root := buildModelNamed(t, "t.kerml", src.String())
+	for fqn, expected := range want {
+		parts := strings.Split(fqn, "::")
+		pkg := sym(t, root, parts[0])
+		base := sym(t, pkg.Scope, parts[1])
+		var got []string
+		if base.IsFeature() {
+			for _, typ := range m.baseFeatureTypes(base, nil) {
+				got = append(got, m.resolver.Index().GetFQN(typ))
+			}
+		} else {
+			got = append(got, m.resolver.Index().GetFQN(base))
+		}
+		if strings.Join(got, " ") != strings.Join(expected, " ") {
+			t.Errorf("baseFeatureTypes(%s) = %v, want %v", fqn, got, expected)
+		}
 	}
 }
 

@@ -55,8 +55,9 @@ type Model struct {
 	subtracting map[*symbols.Symbol]bool
 	// implicitBase memoizes each declaration's kind bases once settled (see implicit.go).
 	implicitBase map[*symbols.Symbol][]*symbols.Symbol
-	// computingUsageBase prevents member lookup from recursing through a usage's
-	// own implicit base while resolving its declared generalization targets.
+	// computingUsageBase breaks implicitUsageBaseFeature ->
+	// declaredGeneralizationReaches -> relationshipTarget/resolver lookup ->
+	// collectContributors -> implicitUsageBaseFeature recursion.
 	computingUsageBase map[*symbols.Symbol]bool
 
 	superEdgeCache map[*symbols.Symbol][]superEdge      // generalization edges with conjugation

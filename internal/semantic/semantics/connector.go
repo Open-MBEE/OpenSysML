@@ -633,9 +633,6 @@ func (m *Model) ConnectorEndAttachments(sym *symbols.Symbol) []ConnectorEndAttac
 			att.Name, att.EndFeature = leafName(owned[i].Name), owned[i]
 		case general != nil:
 			att.Name, att.EndFeature = leafName(general.Name), general
-			if att.Name == "" && len(usage.ConnectorEnds) == 2 {
-				att.Name = binaryConnectorEndNames[i]
-			}
 		case len(usage.ConnectorEnds) == 2:
 			att.Name = binaryConnectorEndNames[i]
 		}
