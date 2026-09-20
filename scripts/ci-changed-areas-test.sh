@@ -54,6 +54,7 @@ case_ vscode-only vscode editors/vscode/package.json
 case_ vscode-grammar docs,go,java,node,python,rust,vscode editors/vscode/tools/gengrammar/grammar.go
 case_ vscode-syntaxes docs,go,java,node,python,rust,vscode editors/vscode/syntaxes/sysml.tmLanguage.json
 # Any markdown counts as documentation: the site links out to repository files.
+case_ man-page docs packaging/man/man1/sysml.1
 case_ two-client-readmes docs,java,node client/java/README.md client/node/README.md
 case_ two-clients java,node client/java/pom.xml client/node/tsconfig.json
 case_ go-source docs,go,java,node,python,rust,vscode internal/syntax/parser/parser.go
