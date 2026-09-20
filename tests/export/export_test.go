@@ -2501,35 +2501,55 @@ func TestEmptyTransitionBlocksComeBackFromTheGraphAlone(t *testing.T) {
 	}
 }
 
-// A transition graph written before members were linked as effect or body
-// owns the effect alone, with sysx:hasBody recording its braces. Such a graph
-// still reads as the effect it was, braced or not.
+// A transition graph from an older mapping — one that owned the effect alone,
+// with sysx:hasBody recording its braces, or one that linked the effect's
+// members but wrote a braced effect as its statements under sysx:bracedEffect —
+// still reads an unbraced effect as the effect it was. A braced one is refused:
+// the braces declare an anonymous action that owns the statements, which the
+// older graphs do not hold.
 func TestLegacyTransitionEffectsStayEffects(t *testing.T) {
-	// Each effect with the canonical notation it is written back as.
-	effects := map[string][2]string{
-		"unbraced": {"do action stop : Warm", "transition first s1 do action stop : Warm then s2;"},
-		"braced":   {"do { action stop : Warm; }", "transition first s1 do {\n            action stop : Warm;\n        } then s2;"},
+	src := "package P {\n\taction def Warm;\n\tstate def M {\n\t\tstate s1;\n\t\tstate s2;\n\t\ttransition first s1 do action stop : Warm then s2;\n\t}\n}"
+	const hasEffect = `sysx:hasEffect "true"^^xsd:boolean`
+	graph := func(t *testing.T, without []string, replacement string) string {
+		turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+		if err != nil {
+			t.Fatalf("to turtle: %v", err)
+		}
+		for _, property := range append([]string{"sysx:sourceText", "sysx:sourceTail"}, without...) {
+			turtle = withoutTriples(t, turtle, property)
+		}
+		if !strings.Contains(string(turtle), hasEffect) {
+			t.Fatalf("the effect is not the one the test rewrites:\n%s", turtle)
+		}
+		return strings.ReplaceAll(string(turtle), hasEffect, replacement)
 	}
-	for name, effect := range effects {
-		effect, want := effect[0], effect[1]
+	unlinked := []string{"sysx:effectMember", "sysx:bodyMember"}
+	shapes := map[string]struct {
+		graph  string
+		braced bool
+	}{
+		"unlinked unbraced": {graph(t, unlinked, `sysx:hasBody "false"^^xsd:boolean`), false},
+		"unlinked braced":   {graph(t, unlinked, `sysx:hasBody "true"^^xsd:boolean`), true},
+		"linked unbraced":   {graph(t, nil, `sysx:bracedEffect "false"^^xsd:boolean`), false},
+		"linked braced":     {graph(t, nil, `sysx:bracedEffect "true"^^xsd:boolean`), true},
+	}
+	for name, shape := range shapes {
 		t.Run(name, func(t *testing.T) {
-			src := "package P {\n\taction def Warm;\n\tstate def M {\n\t\tstate s1;\n\t\tstate s2;\n\t\ttransition first s1 " + effect + " then s2;\n\t}\n}"
-			turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
-			if err != nil {
-				t.Fatalf("to turtle: %v", err)
+			back, err := convert.Convert("m.ttl", []byte(shape.graph), convert.FormatTurtle, convert.FormatSysML)
+			if shape.braced {
+				var unsupported *export.UnsupportedError
+				if !errors.As(err, &unsupported) {
+					t.Fatalf("got %v, want an UnsupportedError", err)
+				}
+				if !strings.Contains(err.Error(), "P__M___402") || !strings.Contains(err.Error(), "anonymous action") {
+					t.Errorf("the error does not name the transition and its braced effect: %v", err)
+				}
+				return
 			}
-			for _, property := range []string{"sysx:sourceText", "sysx:sourceTail", "sysx:effectMember", "sysx:bodyMember"} {
-				turtle = withoutTriples(t, turtle, property)
-			}
-			legacy := strings.ReplaceAll(string(turtle), "sysx:bracedEffect ", "sysx:hasBody ")
-			if !strings.Contains(legacy, "sysx:hasBody") {
-				t.Fatalf("the legacy shape needs sysx:hasBody for the effect's braces:\n%s", legacy)
-			}
-			back, err := convert.Convert("m.ttl", []byte(legacy), convert.FormatTurtle, convert.FormatSysML)
 			if err != nil {
 				t.Fatalf("back to notation: %v", err)
 			}
-			if !strings.Contains(string(back), want) {
+			if want := "transition first s1 do action stop : Warm then s2;"; !strings.Contains(string(back), want) {
 				t.Errorf("the effect did not come back as one:\n%s", back)
 			}
 			if strings.Contains(string(back), "then s2 {") {
@@ -2543,7 +2563,7 @@ func TestLegacyTransitionEffectsStayEffects(t *testing.T) {
 // whose links are missing, doubled or dangling is refused rather than have an
 // action silently moved after the target.
 func TestInconsistentTransitionLinksAreRefused(t *testing.T) {
-	src := "package P {\n\taction def Warm;\n\tstate def M {\n\t\tstate s1;\n\t\tstate s2;\n\t\ttransition first s1 do { action stop : Warm; } then s2 { action tidy : Warm; }\n\t}\n}"
+	src := "package P {\n\taction def Warm;\n\tstate def M {\n\t\tstate s1;\n\t\tstate s2;\n\t\ttransition first s1 do action stop : Warm then s2 { action tidy : Warm; }\n\t}\n}"
 	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)

@@ -56,7 +56,7 @@
               (ExitMember
                 (Membership visibility="default"
                   (Usage kind="action" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="exit")))))
-          (SubstateMember name="c")
+          (SubstateMember name="done")
           (EntryMember)
           (SuccessionEdge source="@entry" target="a")
           (TransitionMember source="a" target="b" trigger="x"
@@ -73,12 +73,12 @@
                 (SendStatement via=false
                   (FeatureReference name="x")
                   (FeatureReference name="operator")))))
-          (TransitionMember source="a" target="c"
+          (TransitionMember source="a" target="done"
             (ChangeEvent
               (LiteralBool value=true))
             (Membership visibility="default"
               (Usage kind="action" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false)))
-          (TransitionMember source="b" target="c"
+          (TransitionMember source="b" target="done"
             (ChangeEvent
               (LiteralBool value=true))
             (Membership visibility="default"

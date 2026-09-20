@@ -3,6 +3,7 @@
 eval operator > -> true
 exit: a1
 enter: a2 (entry action)
-stmt assign route
-  eval literal 3 -> 3
+stmt action body
+  stmt assign route
+    eval literal 3 -> 3
 transition: a1 -> a2 (event: accept Go)

@@ -25,11 +25,11 @@ package BracedBlocks {
 			do action { assign c := c + 1; assign c := c + 2; }
 			exit action { }
 		}
-		state c;
+		state done;
 		entry; then a;
 		transition first a accept x do { assign c := 0; send x to operator; } then b;
 		transition first b accept x do action { assign c := 0; send x to operator; } then a;
-		transition first a accept when true do { } then c;
-		transition first b accept when true do action { } then c;
+		transition first a accept when true do { } then done;
+		transition first b accept when true do action { } then done;
 	}
 }

@@ -326,11 +326,11 @@ func (g *StateGraph) addMember(content *stateContent, member ast.Node, parallel 
 	}
 	switch m := member.(type) {
 	case *ast.EntryMember:
-		state.Entry = append(state.Entry, g.behaviorsIn(m, m.Actions, scope)...)
+		state.Entry = append(state.Entry, g.behaviorsIn(m.Actions, scope)...)
 	case *ast.DoMember:
-		state.Do = append(state.Do, g.behaviorsIn(m, m.Actions, scope)...)
+		state.Do = append(state.Do, g.behaviorsIn(m.Actions, scope)...)
 	case *ast.ExitMember:
-		state.Exit = append(state.Exit, g.behaviorsIn(m, m.Actions, scope)...)
+		state.Exit = append(state.Exit, g.behaviorsIn(m.Actions, scope)...)
 	case *ast.DeferMember:
 		state.Defer = append(state.Defer, m.Triggers...)
 	case *ast.StateRegion:
@@ -432,15 +432,10 @@ func loweredElsewhere(member ast.Node) bool {
 
 // behaviorsIn records the scope each behavior was declared in, which is the
 // definition's body for a behavior a usage inherits, and returns the actions.
-func (g *StateGraph) behaviorsIn(member ast.Node, actions []ast.Node, scope *symbols.Scope) []ast.Node {
+func (g *StateGraph) behaviorsIn(actions []ast.Node, scope *symbols.Scope) []ast.Node {
 	for _, action := range actions {
 		if actual := unwrapMembership(action); actual != nil {
-			if scope != nil {
-				g.behaviorScope[actual] = scope
-			}
-			if member != nil {
-				g.behaviorBlock[actual] = member
-			}
+			g.behaviorScope[actual] = scope
 		}
 	}
 	return actions
@@ -452,9 +447,9 @@ func cloneStateNode(g *StateGraph, node *ast.StateNode, scope *symbols.Scope) *a
 	clone := &ast.StateNode{
 		NodeBase: ast.NodeBase{NodeSpan: node.NodeSpan},
 		Name:     node.Name,
-		Entry:    g.behaviorsIn(nil, node.Entry, childScope(scope, node)),
-		Do:       g.behaviorsIn(nil, node.Do, childScope(scope, node)),
-		Exit:     g.behaviorsIn(nil, node.Exit, childScope(scope, node)),
+		Entry:    g.behaviorsIn(node.Entry, childScope(scope, node)),
+		Do:       g.behaviorsIn(node.Do, childScope(scope, node)),
+		Exit:     g.behaviorsIn(node.Exit, childScope(scope, node)),
 		Defer:    node.Defer,
 	}
 	g.declOf[clone] = node

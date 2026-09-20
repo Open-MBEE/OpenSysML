@@ -874,8 +874,7 @@ elmt:R90__Run___400
     sysml:owningNamespace elmt:R90__Run ;
     sysml:owner elmt:R90__Run ;
     sysml:owningRelatedElement elmt:R90__Run ;
-    sysx:subactionKind "entry" ;
-    sysx:hasBody "false"^^xsd:boolean .
+    sysx:subactionKind "entry" .
 
 elmt:R90__Run___401
     a sysml:SuccessionAsUsage ;

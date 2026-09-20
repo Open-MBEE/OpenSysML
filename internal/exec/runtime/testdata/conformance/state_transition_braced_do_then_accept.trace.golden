@@ -1,0 +1,38 @@
+exit: idle
+stmt action body
+  stmt assign log
+        eval feature log -> 0
+        eval literal 10 -> 10
+      eval operator * -> 0
+      eval literal 1 -> 1
+    eval operator + -> 1
+  stmt assign log
+        eval feature log -> 1
+        eval literal 10 -> 10
+      eval operator * -> 10
+      eval literal 2 -> 2
+    eval operator + -> 12
+  stmt assign log
+        eval feature log -> 12
+        eval literal 10 -> 10
+      eval operator * -> 120
+      eval literal 3 -> 3
+    eval operator + -> 123
+enter: busy
+transition: idle -> busy (event: accept Go)
+exit: busy
+stmt action body
+  stmt assign log
+        eval feature log -> 123
+        eval literal 10 -> 10
+      eval operator * -> 1230
+      eval literal 4 -> 4
+    eval operator + -> 1234
+  stmt assign log
+        eval feature log -> 1234
+        eval literal 10 -> 10
+      eval operator * -> 12340
+      eval literal 5 -> 5
+    eval operator + -> 12345
+enter: done
+transition: busy -> done (event: accept Go)
