@@ -17,8 +17,8 @@ changed=$(git diff --name-only "$(git merge-base "$base" "$head")" "$head")
 # scenarios: a change here can change every client's answers, so all of them run.
 # The extension's grammar generator and its committed output are here too: the
 # test that holds them together is a Go test, run by the Go suite.
-service_pattern='^(api/proto/|cmd/|internal/|tools/|client/opensysml/|client/release-digests\.json$|conformance/|tests/|scripts/|examples/|editors/vscode/tools/|editors/vscode/syntaxes/|Makefile$|go\.mod$|go\.sum$|buf\.|\.github/workflows/|\.circleci/)'
-docs_pattern='^(docs/|mkdocs\.yml$|README\.md$|CHANGELOG\.md$|CONTRIBUTING\.md$|AGENTS\.md$|.*\.md$)'
+service_pattern='^(api/proto/|cmd/|internal/|tools/|client/opensysml/|client/release-digests\.json$|conformance/|tests/|scripts/|examples/|editors/vscode/tools/|editors/vscode/syntaxes/|Makefile$|go\.mod$|go\.sum$|\.github/workflows/|\.circleci/)'
+docs_pattern='^(docs/|packaging/man/|mkdocs\.yml$|README\.md$|CHANGELOG\.md$|CONTRIBUTING\.md$|AGENTS\.md$|.*\.md$)'
 node_pattern='^client/node/'
 python_pattern='^client/python/'
 java_pattern='^client/java/'

@@ -9,7 +9,7 @@ import (
 )
 
 // ManDir is where the shipped pages live, relative to the repository root.
-const ManDir = "man/man1"
+const ManDir = "packaging/man/man1"
 
 // Page renders the command's manual page as the shipped file holds it.
 func Page(d Doc, fs *flag.FlagSet) []byte {

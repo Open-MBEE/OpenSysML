@@ -322,7 +322,7 @@ like R4, not engineering.
 ## R3 — Homebrew: install it on a real Mac
 
 Everything about the tap is automated and verified on Linux (install, `brew test`,
-`brew audit --strict --online`), and the manual pages (#699, `man/man1/*.1`, generated from
+`brew audit --strict --online`), and the manual pages (#699, `packaging/man/man1/*.1`, generated from
 `internal/frontend/usage` and drift-gated by `make man-check`) are in the bundles the formula installs. The
 one thing never done is running the darwin bottle on macOS: the darwin archives' checksums match
 the release manifest and nothing more.
