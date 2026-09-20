@@ -27,7 +27,7 @@ COMMIT="${COMMIT:-$(git rev-parse --short HEAD)}"
 BUILD_TIME="${BUILD_TIME:-$(date -u '+%Y-%m-%d_%H:%M:%S')}"
 GO_VERSION="${GO_VERSION:-$(go version | awk '{print $3}')}"
 PLATFORMS=(linux-amd64 linux-arm64 darwin-amd64 darwin-arm64 windows-amd64)
-MAN="$(pwd)/man/man1"
+MAN="$(pwd)/packaging/man/man1"
 CHECK_STATIC="$(pwd)/scripts/check-static-binaries.sh"
 
 build() { # <make target> <binary name> <platform> <destination>

@@ -1383,7 +1383,7 @@ jobs:
               mkdir -p "$stage/share/man/man1"
               cp "sysml-${platform}" "${stage}/sysml"
               cp "sysml-lsp-${platform}" "${stage}/sysml-lsp"
-              cp ../man/man1/sysml.1 ../man/man1/sysml-lsp.1 "${stage}/share/man/man1/"
+              cp ../packaging/man/man1/sysml.1 ../packaging/man/man1/sysml-lsp.1 "${stage}/share/man/man1/"
               tar czf "opensysml-${platform}.tar.gz" -C "$stage" sysml sysml-lsp share
             done
             mkdir -p stage/windows-amd64
