@@ -20,7 +20,7 @@ public final class AnnotationPlanner {
     return switch (status) {
       case PASSED, INFO -> AnnotationPlan.Severity.INFO;
       case FAILED -> AnnotationPlan.Severity.ERROR;
-      case ERROR, CANCELLED -> AnnotationPlan.Severity.WARNING;
+      case INCONCLUSIVE, ERROR, CANCELLED -> AnnotationPlan.Severity.WARNING;
     };
   }
 }

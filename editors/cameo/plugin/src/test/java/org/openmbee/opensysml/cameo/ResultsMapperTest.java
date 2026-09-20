@@ -64,6 +64,10 @@ class ResultsMapperTest {
     assertEquals(2, result.outcomes().size());
     assertEquals("A::req", result.outcomes().get(1).elementId());
     assertEquals(Status.FAILED, result.outcomes().get(1).status());
+    var undecided = new VerificationVerdict("A::case", VerificationVerdict.INCONCLUSIVE, Optional.empty(), false, Optional.empty());
+    var open = ResultsMapper.map(request(Operation.VERIFY, "A::req"),
+        new Verification(verdict("A::req", true, Optional.empty()), List.of(undecided), List.of(), List.of()), ELAPSED);
+    assertEquals(Status.INCONCLUSIVE, open.outcomes().get(1).status());
   }
 
   @Test
@@ -105,6 +109,9 @@ class ResultsMapperTest {
     var empty = ResultsMapper.map(request(Operation.EVALUATE_CALC, "A::f"),
         new Calculation(Optional.empty(), Map.of(), List.of(), Standing.none()), ELAPSED);
     assertEquals("no result value", empty.outcomes().get(0).detail());
+    var single = ResultsMapper.map(request(Operation.EVALUATE_CALC, "A::f"),
+        new Calculation(Optional.empty(), Map.of("out", new Value.IntegerValue(7)), List.of(), Standing.none()), ELAPSED);
+    assertEquals("7", single.outcomes().get(0).detail());
   }
 
   @Test

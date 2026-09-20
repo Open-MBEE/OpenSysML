@@ -107,12 +107,17 @@ public final class OperationActions implements BrowserContextAMConfigurator, Dia
       IdentityResolver index;
       try {
         source = selection.export().get();
-        index = selection.index().get();
       } catch (RuntimeException exception) {
         JOptionPane.showMessageDialog(
             Application.getInstance().getMainFrame(), exception.getMessage(),
             "OpenSysML: export failed", JOptionPane.ERROR_MESSAGE);
         return;
+      }
+      try {
+        index = selection.index().get();
+      } catch (RuntimeException exception) {
+        source.close();
+        throw exception;
       }
       RunRequest request = new RunRequest(operation, source, selection.subject().qualifiedName(), args);
       ProgressStatusRunner.runWithProgressStatus(

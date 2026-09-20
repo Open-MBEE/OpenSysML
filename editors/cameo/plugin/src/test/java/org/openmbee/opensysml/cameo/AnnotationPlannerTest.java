@@ -51,4 +51,12 @@ class AnnotationPlannerTest {
     assertEquals(2, plans.size());
     assertTrue(plans.stream().allMatch(plan -> plan.severity() == AnnotationPlan.Severity.ERROR));
   }
+
+  @Test
+  void inconclusiveOutcomesWarnInsteadOfFailing() {
+    var index = IdentityIndex.of(List.of(new SimpleElement("1", "Demo::c", "c", "a")));
+    var plans = AnnotationPlanner.plan(result(new Outcome("Demo::c", "undecided", Status.INCONCLUSIVE, "Demo::c")), index);
+    assertEquals(1, plans.size());
+    assertEquals(AnnotationPlan.Severity.WARNING, plans.get(0).severity());
+  }
 }

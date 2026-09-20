@@ -76,7 +76,7 @@ public final class ResultsMapper {
 
   public static RunResult map(RunRequest request, Calculation value, Duration elapsed) {
     List<Outcome> outcomes = new ArrayList<>();
-    String detail = value.result().map(ResultsMapper::render).orElse("no result value");
+    String detail = value.value().map(ResultsMapper::render).orElse("no result value");
     outcomes.add(new Outcome(request.subjectQualifiedName(), detail, Status.PASSED, request.subjectQualifiedName()));
     outputs(value.outputs(), outcomes);
     return result(request, Status.PASSED, outcomes, value.diagnostics(), Optional.empty(), List.of(), elapsed);
@@ -113,8 +113,9 @@ public final class ResultsMapper {
   private static Outcome verification(VerificationVerdict row) {
     Status status = switch (row.kind()) {
       case VerificationVerdict.PASS -> Status.PASSED;
+      case VerificationVerdict.FAIL -> Status.FAILED;
       case VerificationVerdict.ERROR -> Status.ERROR;
-      default -> Status.FAILED;
+      default -> Status.INCONCLUSIVE;
     };
     return new Outcome(row.caseId(), row.detail().orElse(row.kind()), status, row.requirementId().orElse(row.caseId()));
   }

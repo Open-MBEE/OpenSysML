@@ -94,8 +94,9 @@ public final class ResultsWindow implements WindowComponentContent {
   }
 
   private void selectInBrowser(int row) {
-    if (row < 0) return;
-    for (ModelElement element : resolver.resolve(outcomes.outcome(row).elementId())) {
+    String elementId = row < 0 ? null : outcomes.outcome(row).elementId();
+    if (elementId == null) return;
+    for (ModelElement element : resolver.resolve(elementId)) {
       if (element.handle() instanceof BaseElement base) {
         project.getBrowser().getContainmentTree().openNode(base, true, true);
         return;

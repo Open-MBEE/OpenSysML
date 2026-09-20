@@ -33,6 +33,7 @@
     <file>
       <source>src/main/resources/MDR_Plugin_OpenSysML_cameo_descriptor.xml</source>
       <outputDirectory>data/resourcemanager</outputDirectory>
+      <filtered>true</filtered>
     </file>
   </files>
 </assembly>

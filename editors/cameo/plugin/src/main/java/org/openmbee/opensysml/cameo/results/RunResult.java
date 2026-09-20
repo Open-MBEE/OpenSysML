@@ -24,6 +24,7 @@ public record RunResult(
   public enum Status {
     PASSED,
     FAILED,
+    INCONCLUSIVE,
     ERROR,
     CANCELLED,
     INFO
