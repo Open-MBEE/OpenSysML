@@ -248,6 +248,26 @@ func TestParseBareModelRoot(t *testing.T) {
 	}
 }
 
+// A profile whose namespace merely ends in ".xmi" (MagicDraw's SimulationProfile.xmi)
+// applies stereotypes; it is not XMI metadata.
+func TestProfileNamespaceEndingInXMIIsAStereotype(t *testing.T) {
+	src := `<?xml version="1.0"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmlns:uml="http://www.omg.org/spec/UML/20131001" xmlns:Sim="http://www.magicdraw.com/schemas/SimulationProfile.xmi">
+  <uml:Model xmi:id="m" name="M">
+    <packagedElement xmi:type="uml:Class" xmi:id="c" name="C"/>
+  </uml:Model>
+  <Sim:SimulationConfig xmi:id="s" base_Class="c" numberOfRuns="5"/>
+</xmi:XMI>`
+	m, err := Parse([]byte(src))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := m.Lookup("c").Stereotype("SimulationConfig")
+	if s == nil || s.Tag("numberOfRuns") != "5" || s.ID != "s" {
+		t.Fatalf("SimulationConfig = %+v", s)
+	}
+}
+
 const wrapperOnly = `<?xml version="1.0"?>
 <xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001">
   <xmi:Documentation exporter="Example UML Tool"/>

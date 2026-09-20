@@ -35,7 +35,8 @@ func drawCall(name string, args []semantics.Value) string {
 	return name + "(" + strings.Join(parts, ", ") + ")"
 }
 
-// drawUniform is RandomFunctions::uniform: a Real uniform on [lo, hi), lo at most hi.
+// drawUniform is RandomFunctions::uniform: a Real uniform on [lo, hi), lo at most
+// hi; the fixed policies yield lo, hi (the bound, though no random draw reaches it) and their midpoint.
 func drawUniform(ctx *Context, name string, args []semantics.Value) (semantics.Value, error) {
 	lo, hi := asReal(args[0]), asReal(args[1])
 	if err := finiteBounds(name, args); err != nil {
@@ -50,12 +51,14 @@ func drawUniform(ctx *Context, name string, args []semantics.Value) (semantics.V
 			return drawnReal(math.Min(between(lo, hi, rng.Float64()), math.Nextafter(hi, lo)))
 		},
 		admits: realHalfOpen(lo, hi),
+		fixed:  realPoints(lo, hi, between(lo, hi, 0.5)),
 	})
 }
 
 // drawUniformInteger is RandomFunctions::uniformInteger: an Integer uniform on
 // [lo, hi], both ends included, lo at most hi; the span is counted unsigned so
-// the whole Integer range stays exact.
+// the whole Integer range stays exact. The average is the midpoint, a half
+// rounded toward hi.
 func drawUniformInteger(ctx *Context, name string, args []semantics.Value) (semantics.Value, error) {
 	lo, hi := args[0].Int, args[1].Int
 	if lo > hi {
@@ -67,12 +70,26 @@ func drawUniformInteger(ctx *Context, name string, args []semantics.Value) (sema
 			return semantics.Value{Kind: semantics.ValInt, Int: signedInt(unsignedInt(lo) + drawOffset(rng, span))}
 		},
 		admits: func(v semantics.Value) bool { return v.Kind == semantics.ValInt && lo <= v.Int && v.Int <= hi },
+		fixed: func(policy DrawPolicy) (semantics.Value, bool) {
+			var n int64
+			switch policy {
+			case DrawMin:
+				n = lo
+			case DrawMax:
+				n = hi
+			case DrawAverage:
+				n = signedInt(unsignedInt(lo) + span/2 + span%2)
+			default:
+				return semantics.Value{}, false
+			}
+			return semantics.Value{Kind: semantics.ValInt, Int: n}, true
+		},
 	})
 }
 
 // drawTriangular is RandomFunctions::triangular: a Real on [lo, hi] densest at
 // mode, lo at most mode at most hi and lo below hi, drawn by the inverse of its
-// distribution function.
+// distribution function; its average is the distribution's mean (lo + mode + hi) / 3.
 func drawTriangular(ctx *Context, name string, args []semantics.Value) (semantics.Value, error) {
 	lo, mode, hi := asReal(args[0]), asReal(args[1]), asReal(args[2])
 	if err := finiteBounds(name, args); err != nil {
@@ -91,11 +108,13 @@ func drawTriangular(ctx *Context, name string, args []semantics.Value) (semantic
 			return drawnReal(between(lo, hi, 1-math.Sqrt((1-u)*(1-cut))))
 		},
 		admits: realWithin(lo, hi),
+		fixed:  realPoints(lo, hi, lo/3+mode/3+hi/3),
 	})
 }
 
 // drawNormal is RandomFunctions::normal: a finite Real about mean with sd >= 0
-// (zero draws mean); a tail overflowing to infinity is drawn again.
+// (zero draws mean); a tail overflowing to infinity is drawn again. Its average is
+// mean; with sd > 0 it has no least or greatest value, so `min` and `max` refuse it.
 func drawNormal(ctx *Context, name string, args []semantics.Value) (semantics.Value, error) {
 	mean, sd := asReal(args[0]), asReal(args[1])
 	if err := finiteBounds(name, args); err != nil {
@@ -117,6 +136,12 @@ func drawNormal(ctx *Context, name string, args []semantics.Value) (semantics.Va
 				return v.Kind == semantics.ValReal && v.Real == mean
 			}
 			return v.Kind == semantics.ValReal && !math.IsInf(v.Real, 0) && !math.IsNaN(v.Real)
+		},
+		fixed: func(policy DrawPolicy) (semantics.Value, bool) {
+			if policy == DrawAverage || sd == 0 {
+				return drawnReal(mean), true
+			}
+			return semantics.Value{}, false
 		},
 	})
 }

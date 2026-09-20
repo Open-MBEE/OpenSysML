@@ -226,7 +226,8 @@ func TestProbabilitiesAreWrittenOnlyWhenTheyAreSound(t *testing.T) {
 }
 
 // weightedChooser is a block whose value properties hold the probabilities the
-// «Probability» edges of its classifier behavior name.
+// «Probability» edges of its classifier behavior name, a subclass that fixes
+// one of them, an object of that subclass, and an unrelated block of its own.
 const weightedChooser = `
     <packagedElement xmi:type="uml:Class" xmi:id="_chooser" name="Chooser" classifierBehavior="_act">
       <ownedAttribute xmi:type="uml:Property" xmi:id="_pa" name="pA">
@@ -236,6 +237,169 @@ const weightedChooser = `
       <ownedAttribute xmi:type="uml:Property" xmi:id="_pb" name="pB">
         <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
         <defaultValue xmi:type="uml:LiteralReal" xmi:id="_pbv" value="NaN"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_flag" name="flag">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Boolean"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_act" name="Choose">
+        <node xmi:type="uml:InitialNode" xmi:id="_init"/>
+        <node xmi:type="uml:DecisionNode" xmi:id="_decide"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_a" name="a"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_b" name="b"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_final"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e0" source="_init" target="_decide"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_ea" source="_decide" target="_a"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_eb" source="_decide" target="_b"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_fa" source="_a" target="_final"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_fb" source="_b" target="_final"/>
+      </ownedBehavior>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_sure" name="Sure">
+      <generalization xmi:type="uml:Generalization" xmi:id="_g" general="_chooser"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_pa2" name="pA" redefinedProperty="_pa">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_pa2v" value="1.0"/>
+      </ownedAttribute>
+    </packagedElement>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_s0" name="sure" classifier="_sure"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_other" name="Other">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_po" name="pOther">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+      </ownedAttribute>
+    </packagedElement>`
+
+// A probability naming a numeric property visible from the activity, by name or
+// by id, is written as a reference to it, so the object performing the action
+// supplies the weight; the run checks the weight when the decision is reached.
+func TestPropertyBackedProbabilitiesAreReferences(t *testing.T) {
+	t.Run("by id and by name", func(t *testing.T) {
+		r := migrateDocument(t, weightedChooser, `
+  <sysml:Block xmi:id="_s1" base_Class="_chooser"/>
+  <sysml:Block xmi:id="_s2" base_Class="_sure"/>
+  <sysml:Probability xmi:id="_p1" base_ActivityEdge="_ea" probability="_pa"/>
+  <sysml:Probability xmi:id="_p2" base_ActivityEdge="_eb" probability="0.75"/>`)
+		wantLine(t, r.Notation, "first 'decide' then a { @Stochastic::Probability { p = pA; } }")
+		wantLine(t, r.Notation, "first 'decide' then b { @Stochastic::Probability { p = 0.75; } }")
+		wantNote(t, r, "_ea", migrate.Mapped, "the probability reads the property pA of the object performing the action")
+		wantNote(t, r, "_eb", migrate.Mapped, "")
+		if errs := errors(t, "chooser.sysml", r.Notation); len(errs) > 0 {
+			t.Errorf("the property-valued probability does not analyse clean: %v\n%s", errs, r.Notation)
+		}
+		s := session(t, r)
+		meta(t, s, "%seed 1")
+		wantVerdict(t, s.RunAction("Chooser::Choose"))
+	})
+	t.Run("the object performing the action supplies the weight", func(t *testing.T) {
+		r := migrateDocument(t, weightedChooser, `
+  <sysml:Block xmi:id="_s1" base_Class="_chooser"/>
+  <sysml:Block xmi:id="_s2" base_Class="_sure"/>
+  <sysml:Probability xmi:id="_p1" base_ActivityEdge="_ea" probability="pA"/>
+  <sysml:Probability xmi:id="_p2" base_ActivityEdge="_eb" probability="0.0"/>`)
+		wantLine(t, r.Notation, "first 'decide' then a { @Stochastic::Probability { p = pA; } }")
+		s := session(t, r)
+		meta(t, s, "%seed 1")
+		// Chooser's own pA is 0.25: the branches sum to 0.25, which a run refuses.
+		v := s.RunAction("Chooser::Choose")
+		if v.Holds() || !strings.Contains(strings.Join(v.Lines, "\n"), "sum to 0.25") {
+			t.Errorf("a run of Chooser::Choose with pA = 0.25 and 0.0 = %s:\n%s", v.Status, strings.Join(v.Lines, "\n"))
+		}
+		// The object sure fixes pA at 1.0, so its run holds and always takes a.
+		meta(t, s, "%instantiate sure")
+		wantVerdict(t, s.RunAction("Chooser::Choose", "sure"))
+		runs := s.RunRuns("Chooser::Choose", []string{"sure"}, 5, seedOf(1), nil)
+		if lines := strings.Join(runs.Lines, "\n"); !runs.Holds() || !strings.Contains(lines, "5 run(s)") {
+			t.Errorf("Monte Carlo runs on the object sure = %s:\n%s", runs.Status, lines)
+		}
+	})
+	t.Run("NaN default is refused when the decision is reached", func(t *testing.T) {
+		r := migrateDocument(t, weightedChooser, `
+  <sysml:Block xmi:id="_s1" base_Class="_chooser"/>
+  <sysml:Probability xmi:id="_p1" base_ActivityEdge="_ea" probability="_pa"/>
+  <sysml:Probability xmi:id="_p2" base_ActivityEdge="_eb" probability="pB"/>`)
+		wantLine(t, r.Notation, "first 'decide' then a { @Stochastic::Probability { p = pA; } }")
+		wantLine(t, r.Notation, "first 'decide' then b { @Stochastic::Probability { p = pB; } }")
+		wantNote(t, r, "_eb", migrate.Mapped, "the probability reads the property pB")
+		s := session(t, r)
+		meta(t, s, "%seed 1")
+		v := s.RunAction("Chooser::Choose")
+		if v.Holds() || !strings.Contains(strings.Join(v.Lines, "\n"), "invalid branch weights") {
+			t.Errorf("a run with pB unset = %s:\n%s", v.Status, strings.Join(v.Lines, "\n"))
+		}
+	})
+	t.Run("unmarked branch takes what the reference leaves", func(t *testing.T) {
+		r := migrateDocument(t, weightedChooser, `
+  <sysml:Block xmi:id="_s1" base_Class="_chooser"/>
+  <sysml:Probability xmi:id="_p1" base_ActivityEdge="_ea" probability="pA"/>`)
+		wantLine(t, r.Notation, "first 'decide' then a { @Stochastic::Probability { p = pA; } }")
+		wantLine(t, r.Notation, "first 'decide' then b { @Stochastic::Probability { p = 1.0 - pA; } }")
+		wantNote(t, r, "_eb", migrate.Approximated, "read when the decision is reached")
+		s := session(t, r)
+		meta(t, s, "%seed 1")
+		wantVerdict(t, s.RunAction("Chooser::Choose"))
+	})
+	t.Run("not a number, not visible", func(t *testing.T) {
+		r := migrateDocument(t, weightedChooser, `
+  <sysml:Block xmi:id="_s1" base_Class="_chooser"/>
+  <sysml:Block xmi:id="_s3" base_Class="_other"/>
+  <sysml:Probability xmi:id="_p1" base_ActivityEdge="_ea" probability="flag"/>
+  <sysml:Probability xmi:id="_p2" base_ActivityEdge="_eb" probability="_po"/>`)
+		if n := string(r.Notation); strings.Contains(n, "p = flag") || strings.Contains(n, "p = pOther") {
+			t.Errorf("a weight was written from a property that is not a number visible from the activity:\n%s", n)
+		}
+		wantNote(t, r, "_ea", migrate.Approximated, `the probability "flag" on`)
+		wantNote(t, r, "_ea", migrate.Approximated, "names the property Chooser::flag, which is typed by 'Boolean', not a number")
+		wantNote(t, r, "_eb", migrate.Approximated, "names the property Other::pOther, which is not visible from the activity")
+		wantNote(t, r, "_decide", migrate.Approximated, "one is drawn at random with the model seed: each branch is weighted 0.5")
+	})
+	t.Run("no such property", func(t *testing.T) {
+		r := migrateDocument(t, weightedChooser, `
+  <sysml:Block xmi:id="_s1" base_Class="_chooser"/>
+  <sysml:Probability xmi:id="_p1" base_ActivityEdge="_ea" probability="pZ"/>
+  <sysml:Probability xmi:id="_p2" base_ActivityEdge="_eb" probability="0.5"/>`)
+		wantNote(t, r, "_ea", migrate.Approximated, "is neither a number nor the name of a property visible from the activity")
+	})
+	t.Run("every numeric type binds and is checked when drawn", func(t *testing.T) {
+		r := migrateDocument(t, widerChooser, `
+  <sysml:Block xmi:id="_s1" base_Class="_chooser"/>
+  <sysml:Probability xmi:id="_p1" base_ActivityEdge="_ea" probability="phase"/>
+  <sysml:Probability xmi:id="_p2" base_ActivityEdge="_eb" probability="count"/>`)
+		wantLine(t, r.Notation, "attribute phase : ScalarValues::Complex default = 1.0;")
+		wantLine(t, r.Notation, "attribute count : ScalarValues::Number default = 0.0;")
+		wantLine(t, r.Notation, "first 'decide' then a { @Stochastic::Probability { p = phase; } }")
+		wantLine(t, r.Notation, "first 'decide' then b { @Stochastic::Probability { p = count; } }")
+		wantNote(t, r, "_ea", migrate.Mapped, "the probability reads the property phase")
+		wantNote(t, r, "_eb", migrate.Mapped, "the probability reads the property count")
+		if errs := errors(t, "chooser.sysml", r.Notation); len(errs) > 0 {
+			t.Errorf("Complex and Number weights do not analyse clean: %v\n%s", errs, r.Notation)
+		}
+		s := session(t, r)
+		meta(t, s, "%seed 1")
+		wantVerdict(t, s.RunAction("Chooser::Choose"))
+		// A value the type admits but no probability is: refused at the decision.
+		r = migrateDocument(t, strings.Replace(widerChooser, `value="0.0"`, `value="2.0"`, 1), `
+  <sysml:Block xmi:id="_s1" base_Class="_chooser"/>
+  <sysml:Probability xmi:id="_p1" base_ActivityEdge="_ea" probability="phase"/>
+  <sysml:Probability xmi:id="_p2" base_ActivityEdge="_eb" probability="count"/>`)
+		s = session(t, r)
+		meta(t, s, "%seed 1")
+		v := s.RunAction("Chooser::Choose")
+		if v.Holds() || !strings.Contains(strings.Join(v.Lines, "\n"), "not a probability in [0, 1]") {
+			t.Errorf("a run with count = 2.0 = %s:\n%s", v.Status, strings.Join(v.Lines, "\n"))
+		}
+	})
+}
+
+// widerChooser is a block whose decision weights are properties typed by the
+// wider numeric value types Complex and Number rather than Real.
+const widerChooser = `
+    <packagedElement xmi:type="uml:Class" xmi:id="_chooser" name="Chooser" classifierBehavior="_act">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_phase" name="phase">
+        <type xmi:type="uml:DataType" href="http://www.omg.org/spec/SysML/20181001/PrimitiveValueTypes.xmi#Complex"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_phasev" value="1.0"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_count" name="count">
+        <type xmi:type="uml:DataType" href="http://www.omg.org/spec/SysML/20181001/PrimitiveValueTypes.xmi#Number"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_countv" value="0.0"/>
       </ownedAttribute>
       <ownedBehavior xmi:type="uml:Activity" xmi:id="_act" name="Choose">
         <node xmi:type="uml:InitialNode" xmi:id="_init"/>
@@ -250,35 +414,6 @@ const weightedChooser = `
         <edge xmi:type="uml:ControlFlow" xmi:id="_fb" source="_b" target="_final"/>
       </ownedBehavior>
     </packagedElement>`
-
-// A probability naming a value property takes the property's default: a finite
-// number is written as the weight, while a default that is not one drops the
-// decision's marked weights with the reason, leaving an even draw.
-func TestPropertyBackedProbabilitiesMustBeFinite(t *testing.T) {
-	t.Run("finite default", func(t *testing.T) {
-		r := migrateDocument(t, weightedChooser, `
-  <sysml:Block xmi:id="_s1" base_Class="_chooser"/>
-  <sysml:Probability xmi:id="_p1" base_ActivityEdge="_ea" probability="_pa"/>
-  <sysml:Probability xmi:id="_p2" base_ActivityEdge="_eb" probability="0.75"/>`)
-		wantLine(t, r.Notation, "first 'decide' then a { @Stochastic::Probability { p = 0.25; } }")
-		wantLine(t, r.Notation, "first 'decide' then b { @Stochastic::Probability { p = 0.75; } }")
-		wantNote(t, r, "_ea", migrate.Mapped, "")
-	})
-	t.Run("NaN default", func(t *testing.T) {
-		r := migrateDocument(t, weightedChooser, `
-  <sysml:Block xmi:id="_s1" base_Class="_chooser"/>
-  <sysml:Probability xmi:id="_p1" base_ActivityEdge="_ea" probability="_pa"/>
-  <sysml:Probability xmi:id="_p2" base_ActivityEdge="_eb" probability="pB"/>`)
-		if n := string(r.Notation); strings.Contains(n, "p = 0.25") || strings.Contains(n, "p = NaN") {
-			t.Errorf("a marked weight was written beside a default that is not a number:\n%s", n)
-		}
-		wantLine(t, r.Notation, "first 'decide' then a { @Stochastic::Probability { p = 0.5; } }")
-		wantLine(t, r.Notation, "first 'decide' then b { @Stochastic::Probability { p = 0.5; } }")
-		wantNote(t, r, "_eb", migrate.Approximated, `no «Probability» is written on the decision's branches: the probability "pB" on`)
-		wantNote(t, r, "_eb", migrate.Approximated, "is neither a number nor a property with a numeric default")
-		wantNote(t, r, "_decide", migrate.Approximated, "one is drawn at random with the model seed: each branch is weighted 0.5")
-	})
-}
 
 // parallelEdges is a block whose classifier behavior joins the same two nodes by
 // several control flows: two guarded branches of a decision reach Retry, an else

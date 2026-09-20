@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/translate/simresults"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
 
@@ -28,10 +29,12 @@ const (
 // scalarValuesPrefix qualifies a name from the standard ScalarValues package.
 const scalarValuesPrefix = "ScalarValues::"
 
-// Result is a migration's output: the v2 notation and the report over it.
+// Result is a migration's output: the v2 notation, the report over it, and
+// the result snapshots of its run configurations.
 type Result struct {
 	Notation []byte
 	Report   *Report
+	Results  *simresults.Results
 }
 
 // Migrate reads a SysML v1 model as UML XMI, or a zip archive (such as a
@@ -50,6 +53,7 @@ func FromModel(name string, model *sysmlv1.Model) *Result {
 	m := &migration{
 		model:     model,
 		report:    &Report{Source: name, Exporter: model.Exporter},
+		results:   &simresults.Results{Source: name, Configurations: []simresults.ConfigurationResults{}},
 		w:         &writer{},
 		names:     map[*sysmlv1.Element]string{},
 		extras:    map[*sysmlv1.Element][]func(){},
@@ -62,9 +66,11 @@ func FromModel(name string, model *sysmlv1.Model) *Result {
 		methodOf:  map[*sysmlv1.Element]*sysmlv1.Element{},
 		realizes:  map[*sysmlv1.Element]*sysmlv1.Element{},
 		opUsage:   map[*sysmlv1.Element]string{},
+		cbUsage:   map[*sysmlv1.Element]string{},
 		deciding:  map[*sysmlv1.Element]bool{},
 		bounded:   map[*sysmlv1.Element][]*sysmlv1.Element{},
 		triggered: map[*sysmlv1.Element]bool{},
+		snapshots: map[*sysmlv1.Element]snapshotTyping{},
 		indexed:   map[string]int{},
 	}
 	m.prepare()
@@ -74,7 +80,7 @@ func FromModel(name string, model *sysmlv1.Model) *Result {
 	m.flushFlows()
 	m.unwrittenEvents()
 	m.extensions()
-	return &Result{Notation: []byte(m.w.String()), Report: m.report}
+	return &Result{Notation: []byte(m.w.String()), Report: m.report, Results: m.results}
 }
 
 // unwrittenEvents reports the events whose triggers were never written: those
@@ -126,7 +132,9 @@ func (m *migration) extensions() {
 type migration struct {
 	model  *sysmlv1.Model
 	report *Report
-	w      *writer
+	// results index the run configurations' result snapshots.
+	results *simresults.Results
+	w       *writer
 	// names holds the names synthesized for anonymous elements.
 	names map[*sysmlv1.Element]string
 	// extras are members other elements contribute to a body: a Satisfy is
@@ -154,6 +162,8 @@ type migration struct {
 	realizes map[*sysmlv1.Element]*sysmlv1.Element
 	// opUsage names, for each operation, the action usage of its owner that performs it.
 	opUsage map[*sysmlv1.Element]string
+	// cbUsage names, for each class, the usage that runs its classifier behavior.
+	cbUsage map[*sysmlv1.Element]string
 	// deciding holds each opaque behavior whose body is being checked for names
 	// it can see, which is written whichever declaration the check picks.
 	deciding map[*sysmlv1.Element]bool
@@ -161,6 +171,9 @@ type migration struct {
 	bounded map[*sysmlv1.Element][]*sysmlv1.Element
 	// triggered holds each event some trigger refers to, which is reported where it is.
 	triggered map[*sysmlv1.Element]bool
+	// snapshots types each classifier-less instance under a run configuration's
+	// result location by what its slots prove it a snapshot of.
+	snapshots map[*sysmlv1.Element]snapshotTyping
 	// bound gives, while a transition's effect is written, the expression over
 	// the accepted signal each of its parameters is bound to.
 	bound map[*sysmlv1.Element]string
@@ -215,12 +228,16 @@ func weaker(a, b Verdict) bool {
 
 // prepare walks the model once ahead of writing: it indexes the item flows
 // by realizing connector, names every anonymous feature that is referred to,
-// and then exposes the features the connectors and slots that will be written reach.
+// types the run configurations' result snapshots, and then exposes the
+// features the connectors and slots that will be written reach.
 func (m *migration) prepare() {
-	var reachers []*sysmlv1.Element
+	var reachers, configs []*sysmlv1.Element
 	var walk func(e *sysmlv1.Element)
 	walk = func(e *sysmlv1.Element) {
 		m.distinguish(e)
+		if simulationConfig(e) != nil {
+			configs = append(configs, e)
+		}
 		switch e.Type {
 		case "InformationFlow":
 			if cs := m.model.Refs(e, "realizingConnector"); len(cs) > 0 {
@@ -289,6 +306,7 @@ func (m *migration) prepare() {
 			walk(r)
 		}
 	}
+	m.indexSnapshots(configs)
 	for _, e := range reachers {
 		m.exposeReached(e)
 	}
@@ -429,13 +447,19 @@ func (m *migration) body(e *sysmlv1.Element) {
 	saved := m.scope
 	m.scope = e
 	m.comments(e)
+	m.members(e)
+	m.scope = saved
+}
+
+// members writes the owned members of e, the current scope, then what other
+// elements contribute to its body.
+func (m *migration) members(e *sysmlv1.Element) {
 	for _, c := range e.Children {
 		m.member(c)
 	}
 	for _, extra := range m.extras[e] {
 		extra()
 	}
-	m.scope = saved
 }
 
 // member writes one owned element of the current scope.
@@ -566,6 +590,10 @@ func (m *migration) classifier(e *sysmlv1.Element) {
 	if n != "" {
 		verdict = Approximated
 		note = joinNotes(note, n)
+	}
+	if cat == catSimConfig {
+		m.simulationConfig(e, header.String(), note)
+		return
 	}
 	m.add(e, verdict, m.v2Name(e), note)
 	switch cat {
@@ -2408,7 +2436,7 @@ func (m *migration) stereotypeComments(e *sysmlv1.Element) {
 	for _, s := range e.Stereotypes {
 		classifying := isStandard(s) && classifyingStereotypes[s.Name]
 		consumed := consumedTags[s.Name]
-		if m.isConstraintParameterMarker(e, s) {
+		if m.isConstraintParameterMarker(e, s) || isSimulationConfig(s) {
 			continue
 		}
 		if isStandard(s) && isRequirementStereotype(s.Name) {

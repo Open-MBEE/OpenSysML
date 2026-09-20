@@ -92,13 +92,21 @@ Policy every run resolves its choice points under: declared, reverse
 Seed the model's own draws \(em weighted decisions, random functions \(em and
 those of \-samples and \-runs; the same seed draws the same run or table
 .TP
+.BR \-draws " \fIpolicy\fP"
+How every run resolves the draws of RandomFunctions: random (default) draws
+from \-seed; min, max and average take each call's least, greatest or mean
+value and need no seed; weighted decisions draw from \-seed whatever the
+policy
+.TP
 .BR \-runs " \fIn\fP"
 Run the \-action this many times, each run seeded from \-seed, and table the
-\-observe features; needs \-seed
+\-observe features; needs \-seed unless \-draws is min, max or average
 .TP
 .BR \-observe " \fIfeature\fP"
 Report this feature of the \-runs action, or clock for the time it completed
-at; default every feature it holds and the clock (repeatable)
+at; default every feature it holds and the clock. With \-compare\-results, the
+stored observable to compare, or <observable>=<feature> to read it from
+another feature of the run (repeatable)
 .TP
 .BR \-sweep " \fIrange\fP"
 Run the \-analysis or \-calc once per value of this range, as \-sweep
@@ -178,6 +186,17 @@ this file instead of stdout
 .BR \-migration\-report " \fIfile\fP"
 With \-convert from xmi, write the element\-by\-element migration report to
 this file: JSON when it ends in .json, text otherwise
+.TP
+.BR \-migration\-results " \fIfile\fP"
+With \-convert from xmi, write the run configurations and the result snapshots
+the simulation tool stored for them to this JSON file, for \-compare\-results
+to read against the migrated model
+.TP
+.BR \-compare\-results " \fIfile\fP"
+Run every configuration this \-migration\-results file indexes \(em or those
+\-action names \(em with its recorded runs and duration mode, or the \-runs
+and \-draws given, seeded from \-seed, and table the tool's and OpenSysML's
+min, mean, p50, p90 and max of each observable with their relative difference
 .SS Compiling natively
 .TP
 .BR \-compile " \fIcalc\fP"
@@ -554,6 +573,10 @@ sysml \-action Acquire \-runs 100 \-seed 7 m.sysml
 sysml \-action Acquire \-runs 100 \-seed 7 \-observe elapsed m.sysml
 # One run, its draws seeded
 sysml \-action Acquire \-seed 7 m.sysml
+# Durations at their max
+sysml \-action Acquire \-draws max m.sysml
+# Mean durations
+sysml \-action A \-runs 9 \-seed 7 \-draws average m.sysml
 .fi
 .RE
 .PP
@@ -564,6 +587,17 @@ seeded from a seed of its own derived from \-seed, so the same seed makes the
 same table on every platform and a run can be replayed alone. \-schedule stays
 the second, independent knob: it decides the concurrency choices, which carry
 no probability, in every run alike.
+.PP
+\-draws is the third knob, the duration policy: random (the default) draws
+every RandomFunctions call from the seed; min, max and average resolve each
+call to the least, greatest or mean value of its distribution instead \(em the
+midpoint of a uniform, the mean of a triangular \(em so a run whose only
+randomness is durations completes deterministically and needs no \-seed.
+normal has no least or greatest value, so a run that calls it under min or max
+stops with an error. Weighted decisions are not durations: they draw from the
+seed under every policy, and an unseeded run takes the most probable branch.
+The policy is written into every witness as `draws by <policy>`, and
+\-schedule replay: follows it.
 .PP
 The table has one row per run, numbered, with each \-observe feature of the
 action \(em `clock` is the simulation time the run completed at, never a

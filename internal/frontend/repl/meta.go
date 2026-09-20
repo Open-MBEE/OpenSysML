@@ -168,6 +168,7 @@ var metaCommandTable = []metaCommand{
 	{name: "%strict", group: groupSettings, args: "[on|off]", desc: "show or set strict conformance: report notation no SysML v2 production admits as an error"},
 	{name: "%schedule", group: groupSettings, args: "[<policy>]", desc: "show or set the scheduling policy runs started from here on resolve choice points under: declared, reverse or seed:<n>"},
 	{name: "%seed", group: groupSettings, args: "[<n>|off]", desc: "show or set the seed runs started from here on draw their modeled randomness from — Probability-weighted decisions, RandomFunctions — whatever the schedule; off leaves it to the schedule's seed:<n>"},
+	{name: "%draws", group: groupSettings, args: "[<policy>]", desc: "show or set how runs started from here on resolve RandomFunctions draws: random (from the seed), min, max or average of each call's distribution; min, max and average need no seed"},
 	{name: "%budget", group: groupSettings, desc: "show the bounds one run may spend, and the variable raising each"},
 	{name: "%jobs", group: groupSettings, args: "[<n>]", desc: "show or set how many runs of one check go concurrently: an exploration's linearizations, the engines all consults"},
 
@@ -197,7 +198,7 @@ var metaCommandTable = []metaCommand{
 	{name: cmdAnalysis, group: groupBehavioral, args: "<name>[(<args>)] [<object>]", desc: "run an analysis case and report its outputs and the verdict of its objective; arguments bind its inputs and an object is its subject"},
 	{name: cmdSweep, group: groupBehavioral, args: "<name>[(<args>)] [<object>] <p>=<from>..<to>[:<step>]...", desc: "run an analysis case or calc once per value of each range, one run per row of the cartesian product, and print the table"},
 	{name: cmdSamples, group: groupBehavioral, args: "<n> <seed> <name>[(<args>)] [<object>] <p>=<from>..<to>...", desc: "run an analysis case or calc over <n> values drawn uniformly from each range with the given seed, and print the table"},
-	{name: cmdRuns, group: groupBehavioral, args: "<n> <seed> <action> [<observable>...]", desc: "run an action <n> times, each run's modeled randomness seeded from the given seed, and print the table of the observables with each one's distribution"},
+	{name: cmdRuns, group: groupBehavioral, args: "<n> [<seed>] <action> [<observable>...]", desc: "run an action <n> times, each run's modeled randomness seeded from the given seed — left out under %draws min, max or average — and print the table of the observables with each one's distribution"},
 	{name: cmdRunQuery, group: groupBehavioral, args: "<name> [<p>=<expr>...]", desc: "execute a document query and print its rows, with each binding written as <parameter>=<expression>"},
 	{name: cmdRenderDocument, group: groupBehavioral, args: "<name> [mermaid|dot|plantuml]", desc: "compile a document definition, run its queries and print the rendered Markdown, its graph-shaped diagrams as Mermaid, Graphviz DOT or PlantUML"},
 	{name: "%constraint", group: groupBehavioral, args: argName, desc: "evaluate a constraint definition"},
@@ -369,6 +370,8 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 		return metaOut(s.doSchedule(fields[1:]), false, nil), true
 	case "%seed":
 		return metaOut(s.doSeed(fields[1:]), false, nil), true
+	case "%draws":
+		return metaOut(s.doDraws(fields[1:]), false, nil), true
 	case "%budget":
 		return metaOut(s.doBudget(), false, nil), true
 	case "%jobs":

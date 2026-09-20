@@ -366,14 +366,14 @@ func (g *StateGraph) collectRegions(body []inheritedMember) {
 func (g *StateGraph) recordRegionInitials() error {
 	for _, region := range g.TopRegions {
 		g.RegionInitials[region] = g.UnconditionalStart(region)
-		if len(g.EntryTransitions[region]) == 0 {
+		if len(g.EntryTransitions[region]) == 0 && !g.stateless(region) {
 			return g.noInitialState(region, fmt.Sprintf("top-level region %s", region.Name))
 		}
 	}
 	for _, state := range g.CompositeStateOrder {
 		for _, region := range g.CompositeStates[state] {
 			g.RegionInitials[region] = g.UnconditionalStart(region)
-			if len(g.EntryTransitions[region]) > 0 {
+			if len(g.EntryTransitions[region]) > 0 || g.stateless(region) {
 				continue
 			}
 			if !g.ForkStarted(region) {
@@ -920,6 +920,21 @@ func collectStateContents(graph *StateGraph, state *ast.StateNode, scope *symbol
 		}
 	}
 	return nil
+}
+
+// stateless reports whether region is stood for by a state declaring no substates
+// (behaviors, transitions and deferred events are not states): such a region
+// starts in, and stays in, that state, so it needs no initial.
+func (g *StateGraph) stateless(region *ast.StateRegion) bool {
+	if g.RegionState[region] == nil {
+		return false
+	}
+	for _, member := range region.States {
+		if isParallelRegionMember(unwrapMembership(member)) {
+			return false
+		}
+	}
+	return true
 }
 
 // recordCompositeState registers a state's regions while retaining their

@@ -221,6 +221,8 @@ func doc() usage.Doc {
 				usage.Ex(`sysml -action Acquire -runs 100 -seed 7 m.sysml`, "100 runs, every feature"),
 				usage.Ex(`sysml -action Acquire -runs 100 -seed 7 -observe elapsed m.sysml`, "One observable"),
 				usage.Ex(`sysml -action Acquire -seed 7 m.sysml`, "One run, its draws seeded"),
+				usage.Ex(`sysml -action Acquire -draws max m.sysml`, "Durations at their max"),
+				usage.Ex(`sysml -action A -runs 9 -seed 7 -draws average m.sysml`, "Mean durations"),
 			},
 			Paragraphs: []string{
 				"-runs runs one -action to completion that many times, each run on a " +
@@ -231,6 +233,17 @@ func doc() usage.Doc {
 					"and a run can be replayed alone. -schedule stays the second, " +
 					"independent knob: it decides the concurrency choices, which carry " +
 					"no probability, in every run alike.",
+				"-draws is the third knob, the duration policy: random (the default) " +
+					"draws every RandomFunctions call from the seed; min, max and average " +
+					"resolve each call to the least, greatest or mean value of its " +
+					"distribution instead — the midpoint of a uniform, the mean of a " +
+					"triangular — so a run whose only randomness is durations completes " +
+					"deterministically and needs no -seed. normal has no least or greatest " +
+					"value, so a run that calls it under min or max stops with an error. " +
+					"Weighted decisions are not durations: they draw from the seed under " +
+					"every policy, and an unseeded run takes the most probable branch. " +
+					"The policy is written into every witness as `draws by <policy>`, " +
+					"and -schedule replay: follows it.",
 				"The table has one row per run, numbered, with each -observe feature " +
 					"of the action — `clock` is the simulation time the run completed " +
 					"at, never a feature of that name — and without -observe every " +
@@ -486,8 +499,9 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.Var(&modelChecks.advance, "advance", "Simulated time units to run the -action and -state behaviors for, on one shared clock; without it a state machine takes only its initial transition")
 	fs.Var(&schedule, "schedule", "Policy every run resolves its choice points under: declared, reverse (default), seed:<n>, explore[:runs=N,depth=D] or replay:<file>")
 	fs.Var(&modelChecks.seed, "seed", "Seed the model's own draws — weighted decisions, random functions — and those of -samples and -runs; the same seed draws the same run or table")
-	fs.Var(&modelChecks.runs, "runs", "Run the -action this many times, each run seeded from -seed, and table the -observe features; needs -seed")
-	fs.Var(&modelChecks.observe, "observe", "Report this feature of the -runs action, or clock for the time it completed at; default every feature it holds and the clock (repeatable)")
+	fs.Var(&modelChecks.draws, "draws", "How every run resolves the draws of RandomFunctions: random (default) draws from -seed; min, max and average take each call's least, greatest or mean value and need no seed; weighted decisions draw from -seed whatever the policy")
+	fs.Var(&modelChecks.runs, "runs", "Run the -action this many times, each run seeded from -seed, and table the -observe features; needs -seed unless -draws is min, max or average")
+	fs.Var(&modelChecks.observe, "observe", "Report this feature of the -runs action, or clock for the time it completed at; default every feature it holds and the clock. With -compare-results, the stored observable to compare, or <observable>=<feature> to read it from another feature of the run (repeatable)")
 	fs.Var(&modelChecks.sweeps, "sweep", "Run the -analysis or -calc once per value of this range, as -sweep \"n=1..8:2\"; several ranges run their cartesian product (repeatable)")
 	fs.Var(&modelChecks.samples, "samples", "Draw this many values uniformly from each -sweep range instead of stepping through it; needs -seed")
 	fs.Var(&jobsFlag, "jobs", "Runs of one check that may go concurrently, each on a worker of its own; default OPENSYSML_JOBS, else the number of CPUs")
@@ -512,6 +526,8 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.StringVar(&outputPath, "output", "", "Write what -convert, -compile, -render or -render-document produces to this file instead of stdout")
 	fs.StringVar(&outputPath, "o", "", "Write what -convert, -compile, -render or -render-document produces to this file instead of stdout")
 	fs.StringVar(&migrationReport, "migration-report", "", "With -convert from xmi, write the element-by-element migration report to this file: JSON when it ends in .json, text otherwise")
+	fs.StringVar(&migrationResults, "migration-results", "", "With -convert from xmi, write the run configurations and the result snapshots the simulation tool stored for them to this JSON file, for -compare-results to read against the migrated model")
+	fs.StringVar(&modelChecks.compare, "compare-results", "", "Run every configuration this -migration-results file indexes — or those -action names — with its recorded runs and duration mode, or the -runs and -draws given, seeded from -seed, and table the tool's and OpenSysML's min, mean, p50, p90 and max of each observable with their relative difference")
 
 	fs.StringVar(&compileCalc, "compile", "", "Compile this calc def to a native executable named by -o, as -compile Pkg::Fib")
 	fs.StringVar(&compileTarget, "target", "c", "Backend -compile generates code for: c or go")
@@ -598,6 +614,7 @@ func optionGroups() []usage.OptionGroup {
 			usage.Opt("advance", "<time>"),
 			usage.Opt("schedule", "<policy>"),
 			usage.Opt("seed", "<n>"),
+			usage.Opt("draws", "<policy>"),
 			usage.Opt("runs", "<n>"),
 			usage.Opt("observe", "<feature>"),
 			usage.Opt("sweep", "<range>"),
@@ -631,6 +648,8 @@ func optionGroups() []usage.OptionGroup {
 			usage.Opt("from", "<format>"),
 			usage.Opt("output", "<file>", "o"),
 			usage.Opt("migration-report", "<file>"),
+			usage.Opt("migration-results", "<file>"),
+			usage.Opt("compare-results", "<file>"),
 		},
 	}, {
 		Title: "Compiling natively",

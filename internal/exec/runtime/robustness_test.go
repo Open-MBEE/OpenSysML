@@ -7174,11 +7174,16 @@ func testParallelStateBodyUnsupportedMember(t *testing.T) {
 	}
 }
 
+// A region with substates of its own must name the one it starts in; a bare
+// `state left;` is a region standing in that state and needs none.
 func testParallelStateRegionWithoutInitial(t *testing.T) {
 	src := `
 		package test {
 			state Machine parallel {
-				state left;
+				state left {
+					state a;
+					state b;
+				}
 			}
 		}
 	`
