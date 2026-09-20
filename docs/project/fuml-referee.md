@@ -294,8 +294,13 @@ is the output parameters**: each run's `out` and `inout` values are rendered and
 the record's, a scalar by value, an ordered multi-valued parameter in order, an unordered one as
 a multiset (both sides sorted), an absent optional output as `-` against a present one, and an
 object by its class and features — `TestClass#1{x = 7; y = 5, 3}`, every attribute of the class
-in name order, an unset one `-`, an object mentioned again `#n` — the objects numbered by first
-mention on each side, since the record's identifiers are aliases and the runtime's are its own. A row
+in name order, an unset one `-`, an object mentioned again `#n` — the objects numbered
+canonically on each side, since the record's identifiers are aliases and the runtime's are its
+own: each side's objects are refined by their type, their features' values and every parameter
+or feature holding them until the classes settle, then numbered in class order, so equal object
+graphs number alike whichever order either side met them (two objects alike in every feature,
+one of which a second parameter also holds, are told apart by that holder), and objects the
+refinement cannot tell apart number in order of first mention. A row
 passes when every run within the budget agrees with the record and none ends in a runtime
 error; the runs need not exhaust the schedules, and `status` says whether they did
 (`complete (972 runs)`, `incomplete: runs budget 1024 hit after 1024 runs`), so an agreement

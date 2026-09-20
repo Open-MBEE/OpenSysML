@@ -541,6 +541,26 @@ const objectModel = `<?xml version="1.0" encoding="UTF-8"?>
     <edge xmi:type="uml:ObjectFlow" xmi:id="p5" source="writeAr" target="pairingOutNode"/>
     <edge xmi:type="uml:ObjectFlow" xmi:id="p6" source="writeBr" target="pairingOutNode"/>
   </packagedElement>
+  <packagedElement xmi:type="uml:Activity" xmi:id="twins" name="Twins">
+    <ownedParameter xmi:type="uml:Parameter" xmi:id="twinsBoth" name="both" direction="out" type="item">
+      <lowerValue xmi:type="uml:LiteralInteger" xmi:id="twinsBothLo"/>
+      <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="twinsBothHi" value="*"/>
+    </ownedParameter>
+    <ownedParameter xmi:type="uml:Parameter" xmi:id="twinsPick" name="pick" direction="out" type="item"/>
+    <node xmi:type="uml:CreateObjectAction" xmi:id="twinA" name="Create(A)" classifier="item">
+      <result xmi:type="uml:OutputPin" xmi:id="twinAr" name="result" type="item"/>
+    </node>
+    <node xmi:type="uml:CreateObjectAction" xmi:id="twinB" name="Create(B)" classifier="item">
+      <result xmi:type="uml:OutputPin" xmi:id="twinBr" name="result" type="item"/>
+    </node>
+    <node xmi:type="uml:ForkNode" xmi:id="twinsFork" name="Fork"/>
+    <node xmi:type="uml:ActivityParameterNode" xmi:id="twinsBothNode" name="Parameter(both)" parameter="twinsBoth"/>
+    <node xmi:type="uml:ActivityParameterNode" xmi:id="twinsPickNode" name="Parameter(pick)" parameter="twinsPick"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="t1" source="twinAr" target="twinsBothNode"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="t2" source="twinBr" target="twinsFork"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="t3" source="twinsFork" target="twinsBothNode"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="t4" source="twinsFork" target="twinsPickNode"/>
+  </packagedElement>
   <packagedElement xmi:type="uml:Class" xmi:id="holder" name="Holder">
     <ownedBehavior xmi:type="uml:Activity" xmi:id="reflect" name="Reflect">
       <ownedParameter xmi:type="uml:Parameter" xmi:id="reflectOut" name="me" direction="out" type="holder"/>
@@ -722,6 +742,34 @@ func TestExecuteUnorderedObjects(t *testing.T) {
 		}
 		if !ex.Passed() || strings.Join(ex.Reached, "|") != want {
 			t.Errorf("Pairing, %s record: %+v", name, ex)
+		}
+	}
+}
+
+// Two objects alike in every feature are told apart by their holders: the one a
+// second parameter also holds numbers alike whichever order either side met them.
+func TestExecuteIdenticalObjectsNumberByReference(t *testing.T) {
+	s := fixtureSuite(t, objectModel)
+	twins := fixtureActivity(t, s, "Twins")
+	lone, picked := object("a", "Item"), object("b", "Item")
+	record := func(both ...ExpectedValue) ExpectedActivity {
+		return executed(twins, []ExpectedOutput{
+			{Parameter: "both", Values: both},
+			{Parameter: "pick", Values: []ExpectedValue{picked}},
+		})
+	}
+	forward, backward := record(lone, picked), record(picked, lone)
+	want := "both = Item#1{n = -; opt = -; set = -; xs = -}, Item#2{n = -; opt = -; set = -; xs = -}\npick = #1"
+	for name, x := range map[string]ExpectedActivity{"forward": forward, "backward": backward} {
+		if got := renderExpected(twins, &x); got != want {
+			t.Errorf("renderExpected(%s) = %q, want %q", name, got, want)
+		}
+		ex, err := Execute(context.Background(), emitted(t, s, "Twins"), &x, DefaultBudget, 1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !ex.Passed() || strings.Join(ex.Reached, "|") != strings.ReplaceAll(want, "\n", "; ") || ex.Runs < 2 {
+			t.Errorf("Twins, %s record: %+v", name, ex)
 		}
 	}
 }
