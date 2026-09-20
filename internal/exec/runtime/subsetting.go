@@ -443,7 +443,7 @@ func fewestOf(mult semantics.Range) int64 {
 func (ctx *Context) fillsFromSubsetted(feat *EffectiveFeature) bool {
 	lower := feat.Multiplicity.Lower
 	return lower.Known && !lower.Infinite && lower.Value == 0 &&
-		!ctx.model.semantics.IsConnectorUsage(feat.Symbol) && ctx.CompositeTypeOf(feat) != nil
+		!ctx.model.semantics.IsConnectorObjectUsage(feat.Symbol) && ctx.CompositeTypeOf(feat) != nil
 }
 
 // materializeSubsettedCollections reads the collections an optional feature subsets before the

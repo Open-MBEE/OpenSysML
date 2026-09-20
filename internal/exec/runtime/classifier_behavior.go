@@ -508,7 +508,7 @@ func (ctx *Context) behavingParts(typeSym *symbols.Symbol) []int {
 	features := ctx.FeaturesOf(typeSym)
 	parts := []int{}
 	for i := range features {
-		if !ctx.model.semantics.IsConnectorUsage(features[i].Symbol) && ctx.holdsBehavingPart(&features[i]) {
+		if !ctx.model.semantics.IsConnectorObjectUsage(features[i].Symbol) && ctx.holdsBehavingPart(&features[i]) {
 			parts = append(parts, i)
 		}
 	}
@@ -556,7 +556,7 @@ func (ctx *Context) runsBehaviors(typeSym *symbols.Symbol, visiting map[*symbols
 		if runs {
 			break
 		}
-		if ctx.model.semantics.IsConnectorUsage(features[i].Symbol) {
+		if ctx.model.semantics.IsConnectorObjectUsage(features[i].Symbol) {
 			continue
 		}
 		if composite := ctx.requiredPartType(&features[i]); composite != nil && ctx.runsBehaviors(composite, visiting) {

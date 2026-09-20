@@ -391,6 +391,10 @@ func loadKnownFailures(t *testing.T, conformanceDir string) map[string]bool {
 // runConformanceCase executes a single conformance test case under policy, or
 // under the policy the case pins if it pins one.
 func runConformanceCase(t *testing.T, conformanceDir, caseName string, policy SchedulePolicy) {
+	runConformanceCaseWithOwned(t, conformanceDir, caseName, policy, false)
+}
+
+func runConformanceCaseWithOwned(t *testing.T, conformanceDir, caseName string, policy SchedulePolicy, forceOwned bool) {
 	// Load .sysml file
 	sysmlPath := filepath.Join(conformanceDir, caseName+".sysml")
 	sysmlData, err := os.ReadFile(sysmlPath)
@@ -457,7 +461,7 @@ func runConformanceCase(t *testing.T, conformanceDir, caseName string, policy Sc
 	case "verification":
 		runVerificationConformance(t, ctx, idx, sysmlPath, expected)
 	case "instance":
-		runInstanceConformance(t, ctx, idx, sysmlPath, expected)
+		runInstanceConformance(t, ctx, idx, sysmlPath, expected, forceOwned)
 	default:
 		t.Fatalf("unknown test type: %s", expected.Type)
 	}
@@ -1477,7 +1481,7 @@ func runSatisfyConformance(t *testing.T, ctx *Context, idx *symbols.Index, path 
 // runInstanceConformance instantiates a type and validates the values its feature values
 // hold, including derived defaults, plus the verdict of each constraint the
 // instance carries.
-func runInstanceConformance(t *testing.T, ctx *Context, idx *symbols.Index, path string, expected ExpectedOutcome) {
+func runInstanceConformance(t *testing.T, ctx *Context, idx *symbols.Index, path string, expected ExpectedOutcome, forceOwned bool) {
 	if expected.Instantiate == "" {
 		t.Fatalf("instance case declares no \"instantiate\" type")
 	}
@@ -1494,6 +1498,11 @@ func runInstanceConformance(t *testing.T, ctx *Context, idx *symbols.Index, path
 	}
 	if err != nil {
 		t.Fatalf("Instantiate(%s) failed: %v", expected.Instantiate, err)
+	}
+	if forceOwned {
+		if _, err := inst.OwnedConnectors(ctx); err != nil {
+			t.Fatalf("OwnedConnectors(%s) failed before execution: %v", expected.Instantiate, err)
+		}
 	}
 
 	for name, expectedVal := range expected.FeatureValues {

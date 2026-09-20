@@ -416,7 +416,7 @@ func (tc *typeChecker) checkTypeTarget(scope *symbols.Scope, target ast.Node, re
 	}
 	msg := compatMessage(decl, relKind, kind)
 	if (relKind == ast.RelReferences || relKind == ast.RelSubsets) &&
-		kind == symbols.SymbolUnknown && targetSym.IsFeature() {
+		targetSym.IsFeature() && (kind == symbols.SymbolUnknown || isBindingUsage(targetSym)) {
 		msg = unclassifiedReferenceKindMessage(decl, relKind, targetSym)
 	}
 	if msg == "" {
@@ -480,7 +480,7 @@ func (tc *typeChecker) checkChainReferenceKind(scope *symbols.Scope, target ast.
 		return // unresolved: name-resolution tier owns this
 	}
 	msg := referenceKindMessage(decl, relKind, referentKind(sym))
-	if sym.Kind == symbols.SymbolUnknown && sym.IsFeature() {
+	if sym.IsFeature() && (sym.Kind == symbols.SymbolUnknown || isBindingUsage(sym)) {
 		msg = unclassifiedReferenceKindMessage(decl, relKind, sym)
 	}
 	if msg == "" {
@@ -801,6 +801,11 @@ func referentKind(sym *symbols.Symbol) symbols.SymbolKind {
 // kind (a named binding): a feature of no constraint kind, named by its notation.
 func unclassifiedReferenceKindMessage(decl declKind, rel ast.RelationshipKind, sym *symbols.Symbol) string {
 	return referentKindMessage(decl, rel, sym.Kind, sym.Notation())
+}
+
+func isBindingUsage(sym *symbols.Symbol) bool {
+	usage, ok := sym.Decl.(*ast.Usage)
+	return ok && usage.Kind == ast.UsageBinding
 }
 
 func referentKindMessage(decl declKind, rel ast.RelationshipKind, target symbols.SymbolKind, found string) string {

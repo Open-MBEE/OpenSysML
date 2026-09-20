@@ -208,6 +208,10 @@ func IsShapeFeature(sym *symbols.Symbol) bool {
 	if sym == nil {
 		return false
 	}
+	if sym.Kind == symbols.SymbolUnknown {
+		usage, ok := sym.Decl.(*ast.Usage)
+		return ok && usage.Kind == ast.UsageBinding
+	}
 	switch sym.Kind {
 	case symbols.SymbolAttributeUsage, symbols.SymbolPartUsage, symbols.SymbolItemUsage,
 		symbols.SymbolPortUsage, symbols.SymbolConnectionUsage, symbols.SymbolActionUsage,

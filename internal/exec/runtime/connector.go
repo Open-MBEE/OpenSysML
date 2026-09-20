@@ -72,7 +72,7 @@ func (ctx *Context) connectorBaseOf(feat *EffectiveFeature) *symbols.Symbol {
 // they are answered from the ends the usage attaches: `source` and `target` for
 // a binary connector, `participant` for any other arity.
 func (ctx *Context) connectorEndFeatures(typeSym *symbols.Symbol, declared map[string]bool) []EffectiveFeature {
-	ends := ctx.model.semantics.ConnectorEndAttachments(typeSym)
+	ends := ctx.model.semantics.ConnectorObjectEnds(typeSym)
 	if len(ends) == 0 {
 		return nil
 	}
@@ -109,7 +109,7 @@ func (ctx *Context) materializeConnector(owner *Instance, connSym, base *symbols
 // message, and keep never sees it. Once kept, the older behaviors it woke answer;
 // one of them failing is reported as its own, with the connector kept.
 func (ctx *Context) materializeConnectorAs(owner *Instance, connSym, base *symbols.Symbol, id int64, keep func(*Instance)) error {
-	ends := ctx.model.semantics.ConnectorEndAttachments(connSym)
+	ends := ctx.model.semantics.ConnectorObjectEnds(connSym)
 	if len(ends) == 0 {
 		return fmt.Errorf("%w: %s declares no end to attach", ErrConnectorEnd, connectorName(connSym))
 	}
@@ -480,13 +480,10 @@ func (ctx *Context) anonymousConnectors(typeSym *symbols.Symbol) []*symbols.Symb
 			if !ok || usage.Ident.Name != "" || usage.Ident.ShortName != "" {
 				continue
 			}
-			if len(usage.ConnectorEnds) < 2 {
-				continue
-			}
 			// A succession or transition carries ends too, and relates its ends in
 			// time rather than joining them, so it is no connector to materialize.
 			sym := anonymousConnectorSymbol(decl, usage)
-			if !ctx.model.semantics.IsConnectorUsage(sym) {
+			if len(ctx.model.semantics.ConnectorObjectEnds(sym)) < 2 {
 				continue
 			}
 			out = append(out, sym)
@@ -507,6 +504,8 @@ func anonymousConnectorSymbol(typeSym *symbols.Symbol, usage *ast.Usage) *symbol
 		kind = symbols.SymbolInterfaceUsage
 	case ast.UsageAllocation:
 		kind = symbols.SymbolAllocationUsage
+	case ast.UsageFlow:
+		kind = symbols.SymbolFlowUsage
 	}
 	return &symbols.Symbol{
 		Kind:       kind,
