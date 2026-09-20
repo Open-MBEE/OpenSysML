@@ -1,6 +1,6 @@
 ---
 name: testing-man-pages
-description: How to end-to-end test the generated manual pages and GNU-style installation (internal/frontend/usage, `<cmd> -man`, `make man` / `make man-check` / `make install-tree`, man/man1/*.1) on Linux — proving the drift gate is load-bearing, that `man` really renders an installed page, and that rendering is reproducible.
+description: How to end-to-end test the generated manual pages and GNU-style installation (internal/frontend/usage, `<cmd> -man`, `make man` / `make man-check` / `make install-tree`, packaging/man/man1/*.1) on Linux — proving the drift gate is load-bearing, that `man` really renders an installed page, and that rendering is reproducible.
 ---
 
 # Verifying the generated manual pages and `make install-tree` (Linux)
@@ -8,7 +8,7 @@ description: How to end-to-end test the generated manual pages and GNU-style ins
 Each command (`sysml`, `sysml-lsp`, `sysml-grpc`) declares a `usage.Doc` in its `usage.go`;
 `internal/frontend/usage` renders both the terminal help (`-help`) and the roff page (`-man`) from it, and
 options are enumerated from the command's `flag.FlagSet`. The pages are **committed** under
-`man/man1/*.1` and gated by `make man-check`.
+`packaging/man/man1/*.1` and gated by `make man-check`.
 
 ## Provisioning (neither is preinstalled by the blueprint)
 
@@ -31,14 +31,14 @@ packages plus the formatter lint. Both of these must FAIL, and `make man` must r
 
 ```bash
 # 1. mutate a committed page
-sed -i 's/SysML v2 and KerML models/SysML models/' man/man1/sysml.1
-make man-check   # → man/man1/sysml.1 is not what sysml -man now writes; run make man  (make Error 1)
+sed -i 's/SysML v2 and KerML models/SysML models/' packaging/man/man1/sysml.1
+make man-check   # → packaging/man/man1/sysml.1 is not what sysml -man now writes; run make man  (make Error 1)
 make man && git diff --stat man/   # empty: regeneration is byte-for-byte
 
 # 2. add a flag without regenerating
 #    insert fs.Bool("throwaway-flag", …) into cmd/sysml-lsp/usage.go registerFlags
-make man-check   # → fails naming man/man1/sysml-lsp.1
-make man && grep throwaway man/man1/sysml-lsp.1   # → .B \-throwaway\-flag
+make man-check   # → fails naming packaging/man/man1/sysml-lsp.1
+make man && grep throwaway packaging/man/man1/sysml-lsp.1   # → .B \-throwaway\-flag
 git checkout cmd/sysml-lsp/usage.go && make man && git status --short   # must end empty
 ```
 
@@ -52,7 +52,7 @@ emitted as `.B \-flag` or `.BI \-flag " value"`:
 
 ```bash
 ./bin/$c -help 2>&1 | grep -oE '^  -[a-zA-Z-]+' | tr -d ' ' | sort -u
-grep -oE '^\.BI? \\-[a-zA-Z\\-]+' man/man1/$c.1 | sed -E 's/^\.BI? //; s/\\//g' | sort -u
+grep -oE '^\.BI? \\-[a-zA-Z\\-]+' packaging/man/man1/$c.1 | sed -E 's/^\.BI? //; s/\\//g' | sort -u
 ```
 
 Expected today: `sysml` 34 flags, `sysml-lsp` 7, `sysml-grpc` 12, `diff` silent for each.

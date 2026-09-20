@@ -51,7 +51,7 @@ NODE_DIR := client/node
 PROTOC_GEN_ES := $(NODE_DIR)/node_modules/.bin/protoc-gen-es
 VSCODE_DIR := editors/vscode
 PYTHON ?= python3
-# buf.gen.python.yaml starts the interpreter this names.
+# api/proto/buf.gen.python.yaml starts the interpreter this names.
 export PYTHON
 SITE_DIR := site
 # Where make self-model writes the architecture self-model's rendered views.
@@ -66,7 +66,7 @@ TOOLS_DIR := tools
 
 # The commands whose manual pages are generated and shipped, in section 1.
 COMMANDS := sysml sysml-lsp sysml-grpc
-MAN_DIR := man/man1
+MAN_DIR := packaging/man/man1
 MAN_PAGES := $(addprefix $(MAN_DIR)/,$(addsuffix .1,$(COMMANDS)))
 
 # Installation paths, as a distribution's packaging expects to set them.
@@ -253,36 +253,36 @@ proto: proto-buf python-proto proto-ts proto-rust ## Regenerate all protobuf stu
 # The Java plugin is a remote one, so this needs the Buf Schema Registry.
 proto-buf: ## Regenerate the Go and Java protobuf stubs
 	@echo "Regenerating Go and Java protobuf stubs..."
-	$(BUF) generate
+	$(BUF) generate api/proto --template api/proto/buf.gen.yaml
 	@echo "✓ Regenerated Go and Java stubs"
 
 python-proto: ## Regenerate Python protobuf stubs
 	@echo "Regenerating Python protobuf stubs..."
 	@$(PYTHON) -c "import grpc_tools.protoc" >/dev/null 2>&1 || { echo "Error: grpcio-tools not installed. Run: $(PYTHON) -m pip install grpcio-tools"; exit 1; }
-	$(BUF) generate --template buf.gen.python.yaml
+	$(BUF) generate api/proto --template api/proto/buf.gen.python.yaml
 	@echo "✓ Regenerated Python stubs"
 
 proto-ts: $(PROTOC_GEN_ES) ## Regenerate the TypeScript stubs the npm client in client/node ships
 	@echo "Regenerating TypeScript protobuf stubs..."
-	$(BUF) generate --template buf.gen.ts.yaml
+	$(BUF) generate api/proto --template api/proto/buf.gen.ts.yaml
 	@echo "✓ Regenerated TypeScript stubs"
 
 $(PROTOC_GEN_ES): $(NODE_DIR)/package-lock.json
 	cd $(NODE_DIR) && npm ci --ignore-scripts
 
 proto-rust: ## Generate Rust stubs and the descriptor for the Rust clients
-	$(BUF) generate --template buf.gen.rust.yaml
-	$(BUF) build -o client/rust/conformance/sysml.descriptor.binpb
+	$(BUF) generate api/proto --template api/proto/buf.gen.rust.yaml
+	$(BUF) build api/proto -o client/rust/conformance/sysml.descriptor.binpb
 
 proto-lint: ## Lint the protobuf schema
-	$(BUF) lint
+	$(BUF) lint api/proto
 	@echo "✓ Proto lint passed"
 
 proto-breaking: ## Check the protobuf schema for wire-breaking changes against develop
 	@# An archive, not the .git directory: buf would clone that, which a blobless (CI) checkout cannot serve.
 	baseline=$$(mktemp -t proto-baseline.XXXXXX) && trap 'rm -f "$$baseline"' EXIT && \
 	git archive --format=tar -o "$$baseline" '$(BUF_BREAKING_REF)' api/proto && \
-	$(BUF) breaking --against "$$baseline#format=tar,subdir=api/proto"
+	$(BUF) breaking api/proto --against "$$baseline#format=tar,subdir=api/proto"
 	@echo "✓ No breaking schema changes"
 
 python-install: ## Install the Python client in editable mode
