@@ -16,10 +16,13 @@ func (ec *EvalContext) viaSender(send lower.Send, self *Instance) (lower.Send, *
 	if err != nil {
 		return send, self, err
 	}
-	if port == send.Target {
+	if holder == self && port == send.Target {
 		return send, self, nil
 	}
 	send.Target, send.TargetPath = port, false
+	if fv, ok := holder.FeatureValues[port]; ok && fv.Feature != nil && fv.Feature.Symbol != nil {
+		send.TargetSym = fv.Feature.Symbol
+	}
 	return send, holder, nil
 }
 
@@ -29,7 +32,7 @@ func (ec *EvalContext) viaSender(send lower.Send, self *Instance) (lower.Send, *
 func (ec *EvalContext) viaHolder(path string, viaSelf bool, self *Instance) (*Instance, string, error) {
 	segments := strings.Split(path, ".")
 	root := segments[0]
-	if viaSelf || len(segments) < 2 {
+	if viaSelf {
 		return self, path, nil
 	}
 	held, bound, err := ec.boundHolders(root, path)
@@ -41,6 +44,13 @@ func (ec *EvalContext) viaHolder(path string, viaSelf bool, self *Instance) (*In
 		return self, path, &SendTargetValueError{Target: path, Name: root, Value: FormatValue(value)}
 	}
 	holder := held[0]
+	if len(segments) == 1 {
+		owner, port, ok := portOwner(holder)
+		if !ok {
+			return self, path, &ViaNotPortError{Via: path, Value: FormatValue(Value{Kind: ValInstance, Instance: holder.ID})}
+		}
+		return owner, port, nil
+	}
 	for _, segment := range segments[1 : len(segments)-1] {
 		next, ok, err := ec.ctx.fvObject(holder, segment)
 		if err != nil {
@@ -54,16 +64,41 @@ func (ec *EvalContext) viaHolder(path string, viaSelf bool, self *Instance) (*In
 	return holder, segments[len(segments)-1], nil
 }
 
+// portOwner answers the object a port object belongs to and the port's name in it,
+// false for an object that is no port.
+func portOwner(inst *Instance) (*Instance, string, bool) {
+	owner, feature := inst.Owner()
+	if owner == nil {
+		return nil, "", false
+	}
+	fv, ok := owner.FeatureValues[feature]
+	if !ok || !isPortFeature(fv.Feature) {
+		return nil, "", false
+	}
+	return owner, feature, true
+}
+
 // boundEndDeliveries resolves a connection end whose root the behavior binds, as a via
 // path is: to the port of each object the binding holds. false where it binds none.
 func (ec *EvalContext) boundEndDeliveries(end string) ([]ownerDelivery, bool, error) {
 	segments := strings.Split(end, ".")
-	if ec == nil || len(segments) < 2 || segments[0] == thisName {
+	if ec == nil || segments[0] == thisName {
 		return nil, false, nil
 	}
 	held, bound, err := ec.boundHolders(segments[0], end)
 	if err != nil || !bound {
 		return nil, bound, err
+	}
+	if len(segments) == 1 {
+		var out []ownerDelivery
+		for _, inst := range held {
+			owner, port, ok := portOwner(inst)
+			if !ok {
+				return nil, true, &ViaNotPortError{Via: end, Value: FormatValue(Value{Kind: ValInstance, Instance: inst.ID})}
+			}
+			out = append(out, ownerDelivery{object: owner.ID, port: port})
+		}
+		return out, true, nil
 	}
 	addrs, err := ec.ctx.addressesFrom(held, segments[1:])
 	if err != nil {
