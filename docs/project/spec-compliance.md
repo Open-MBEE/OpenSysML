@@ -2379,12 +2379,16 @@ The behavior-execution entries below — interruptible regions, expansion region
 - Protocol state machines — **not a SysML v2 construct**; see
   [protocol-state-machines.md](protocol-state-machines.md). The order of *receptions* on a port
   or part is an ordinary exhibited state machine (§7.18.4, `accept … via` §7.17.8), which runs
-  today on parts (*Classifier Behaviors*, `state_transition_accept_via_port`) and on port
-  definitions; an arrival no transition of the active state accepts is dropped and reported
-  (`AdvanceReport.Dropped`), not raised. UML's post-conditions, `ProtocolConformance`, static
-  sequence checking and the gating of *operation calls* by state have no SysML v2 spelling and are
-  not tracked as missing. An opt-in typed error for a refused arrival is the record's optional
-  follow-up.
+  today on parts (*Classifier Behaviors*, `state_transition_accept_via_port`). ⚠️ The order it
+  declares is enforced only for a directly injected event (`StateExecutor.SendSignal`: dropped
+  and reported in `AdvanceReport.Dropped`; the REPL's `%send` refuses it): a message a model sends
+  that the active state neither accepts nor defers stays on the context-wide bus
+  (`state_executor.go:takesMessage`) and is taken by the first later state that accepts it, and a
+  machine exhibited by a port definition does not take a model's messages routed to that port.
+  The record specifies the follow-up (discard-and-report on the bus path; port-machine routing;
+  an optional typed error). UML's post-conditions, `ProtocolConformance`, static sequence checking
+  and the gating of *operation calls* by state have no SysML v2 spelling and are not tracked as
+  missing.
 
 **Object Model:**
 - Dynamic object creation/destruction (an object is materialized once, and nothing destroys it)

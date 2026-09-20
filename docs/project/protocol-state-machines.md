@@ -10,7 +10,7 @@ state machine* (§14.4) that states the legal order of operation calls and recep
 classifier; SysML v2 has no notation named that; is there a **standard** SysML v2 or KerML
 construct that says the same thing, and does OpenSysML already execute or check it? This record
 answers from the specification text, the standard library as vendored, the OMG corpora and the
-runtime as it stands; the probe it reports needed no change to the runtime.
+runtime as it stands; the probes it reports needed no change to the runtime.
 
 ## The question
 
@@ -121,8 +121,8 @@ authors mean by "protocol" they write as the part's own behavior.
 | Guarantee | SysML v2 spelling | Runtime | Evidence |
 |---|---|---|---|
 | 1 Order, machine on the part | `part def P { port p; exhibit state m { … accept S via p … } }` | Runs at materialization of the part (`lower.ExhibitedState`, `runtime/classifier_behavior.go:startClassifierBehaviors`); a message to `p` reaches the transition (`state_executor.go:matchesEvent`, `acceptsSignalFrom`) | `classifier_behavior_test.go:TestInstantiateStartsExhibitedStateMachine`, conformance `state_transition_accept_via_port`, `accept_via_bound_context_port`; compliance rows *Classifier behaviors* and *`accept … via <port>`* |
-| 1 Order, machine on the port definition | `port def FilePort { in item open : Open; exhibit state protocol { … accept Open then opened; … } }` | Runs at materialization of the port object, which is an object of the port definition; a bare `accept` takes the transfers addressed to that port | Probed against the tree, not yet a fixture — see *Probe* below |
-| 1 Order, an arrival the current state does not accept | — | **Model surface:** the transfer is dispatched, no transition fires, it is dropped and reported (`advance.go:dueProgress.noteDispatch`, `AdvanceReport.Dropped`); not an error, the machine stays in its state. **Debugger surface:** the REPL's `%send` refuses to enqueue it — `object … accepts no signal Read now: state machine "protocol" in state closed` (`frontend/repl/send.go`) | `state_deferred_test.go:TestUndeferredEventIsDroppedWhereNoTransitionHandlesIt`, `robustness_test.go:testCallOfUnhandledOperation` (state stays `waiting`), `repl/send_test.go` (`accepts no signal … now`) |
+| 1 Order, machine on the port definition | `port def FilePort { in item open : Open; exhibit state protocol { … accept Open then opened; … } }` | Runs at materialization of the port object, which is an object of the port definition; a bare `accept` takes a transfer addressed **to the port object itself** (the REPL's `%send … to #1.f`). A transfer a model action sends `to file.f` is routed to the port *of the part* (`signal.go:deliveryOf` → `DeliverPort`) and the port's own machine does not take it: it stays on the bus | Probed against the tree, not a fixture — see *Probes* below |
+| 1 Order, an arrival the current state does not accept | — | **Directly injected event** (`StateExecutor.SendSignal`, a debugger driving one machine): dispatched, no transition fires, dropped and reported (`advance.go:dueProgress.noteDispatch`, `AdvanceReport.Dropped`); the machine stays in its state. **Model-posted message** (an action's `send`, `signal.go:Context.postFrom`): left on the context-wide bus — a machine takes a message only when its active configuration accepts or defers it (`state_executor.go:takesMessage`, `acceptableMessage`), so nothing is dispatched, nothing is reported, and the message is **taken later** by the first state that accepts it. **Debugger surface:** the REPL's `%send` refuses to enqueue it — `object … accepts no signal Read now: state machine "protocol" in state closed` (`frontend/repl/send.go`) | `state_deferred_test.go:TestUndeferredEventIsDroppedWhereNoTransitionHandlesIt` (direct injection only), `robustness_test.go:testCallOfUnhandledOperation` (state stays `waiting`), `repl/send_test.go` (`accepts no signal … now`); the model-posted case has no test — see *Probes* |
 | 1 Order, deferral | `state s { defer S; }` | Held and re-dispatched after the state is left | `TestDeferredEventIsDeliveredAfterLeavingTheDeferringState`, conformance `state_deferred_event` |
 | 2 Pre-condition | `accept S if <guard>` | Guard evaluated against the performer at dispatch | compliance *State Machine* rows for guards; conformance `state_transition_guard_exit_effect_entry_order` |
 | 2 Post-condition | no spelling (a transition has no post-condition slot) | — | — |
@@ -132,10 +132,12 @@ authors mean by "protocol" they write as the part's own behavior.
 | Order of *operation calls* (perform, not send) | `perform action` on the object | `runtime/invoke_operation.go` executes the action directly; the object's exhibited machine is not consulted and receives no event. `StateExecutor.InvokeOperation` injects an `EventCall` into one machine, but only when a debugger drives that machine directly | compliance *Classifier behaviors*: "an operation call … does not travel over connections"; `pssm-referee.md` on call events whose results do not return to the caller |
 | Occurrence-order constraints (`HappensBefore`, `succession`) | `first a then b`; `constraint { a.happensBefore(b) }` | Successions between action nodes and state transitions are executed as the graph; a user-written `HappensBefore` constraint or a `happensBefore` call in a `constraint` is not evaluated at run time over recorded performances | compliance *Structural, Interface and Analysis Notation* (§8.3.9.11 Occurrences); nothing asserts over a performance log |
 
-### Probe
+### Probes
 
-The model is not in the repository; it is reproduced here so a follow-up can turn it into the
-fixture:
+The models are not in the repository; they are reproduced here so a follow-up can turn them into
+fixtures.
+
+**Probe 1 — a port definition's machine, driven from the debugger.**
 
 ```sysml
 package ProbePortMachine {
@@ -161,28 +163,66 @@ REPL transcript, abridged: `%instantiate ProbePortMachine::file` materializes `f
 `accepts no signal Read now: state machine "protocol" in state closed`. `%send Open to #1.f` then
 `%advance` moves to `opened`; two `Read`s each fire `opened -> opened` and `file.f.reads` reads
 `2`; `Close` returns to `closed`, after which `Read` is refused again. So a machine exhibited by a
-port definition is lowered, started with the port object and driven by the messages addressed to
-that port, and the debugger reports an out-of-order arrival by name and state.
+port definition is lowered, started with the port object and driven by messages addressed to the
+port object, and the debugger reports an out-of-order arrival by name and state.
 
-What the probe did **not** establish, and a follow-up must: (a) that a message routed to the port
-by a connector — `send Read to peer` over an `interface` or `connect`, rather than addressed to the
-port object — is matched by the port's machine (the routing lands on the port object's identity,
-`signal.go`, so `matchesEvent`'s "routed to the performer" rule should take it; unverified); (b) how
-the port's machine and the owning part's `accept … via f` machine share one arrival (each machine
-has its own pool, SM1, so both should see it; unverified); (c) that an out-of-order arrival in a
-*model* — not through `%send` — is visible anywhere other than `AdvanceReport.Dropped`.
+**Probe 2 — the same arrivals sent by the model.** The sender is a sibling machine on the
+enclosing part:
+
+```sysml
+part def System {
+    part file : File;
+    exhibit state driving {
+        entry; then run;
+        state run {
+            entry {
+                send new Read() to file.f;
+                send new Open() to file.f;
+                send new Read() to file.f;
+            }
+        }
+    }
+}
+```
+
+Instantiating `System` and advancing (`Context.Instantiate`, `Context.Advance(5)`) gives, in two
+variants:
+
+- *Machine on the port definition* (`FilePort` as in probe 1): all three messages remain in
+  `Context.PendingMessages()` after the advance (`Delivery: DeliverPort`, `Object` the `File`,
+  `PortID` the port), the port's machine stays in `closed`, `reads` is `0`, `AdvanceReport.Dropped`
+  is empty. A message routed to the port of a part is not taken by the port object's own machine.
+- *Machine on the part* (`File` exhibiting `protocol`, triggers `accept Open via f`,
+  `accept Read via f` — the corpora's spelling): the bus is empty after the advance, the machine is
+  in `opened`, and `reads` is **`2`**: the `Read` sent while the machine was in `closed` was neither
+  dropped nor reported; it waited on the bus and was taken once `Open` had moved the machine to
+  `opened`. `AdvanceReport.Dropped` is empty.
+
+So at the model surface the runtime does not refuse an out-of-order reception; the context-wide
+bus holds it until some state accepts it, which is an implicit, unbounded deferral that the model
+did not write (`defer` is the spelling for it, §7.18.3). UML's behavior-state-machine semantics,
+and the PSSM suite the referee runs, discard an event the active configuration neither accepts nor
+defers; the direct-injection path (`SendSignal` → dispatch → `Dropped`) does that, the bus path
+does not.
 
 ## The gap
 
 Against the four guarantees:
 
-- **Guarantee 1 is covered** by the ordinary behavior state machine — on the part with
-  `accept … via`, as the corpora write it, and on the port definition with a bare `accept`, as the
-  probe shows — *for receptions*. For **operation calls** (`perform` of the object's action) it is
-  not: a call runs whether or not the object's machine is in a state that would accept it.
-- **A protocol violation has no run-time identity.** An arrival no transition accepts is dropped
-  and, in a model, is observable only as a `Dropped` dispatch in the advance report; the REPL
-  reports it, the runtime does not raise it. UML's semantics make this an error of the caller.
+- **Guarantee 1 is spelled, and is enforced only at the debugger.** The ordinary behavior state
+  machine — on the part with `accept … via`, as the corpora write it — states the legal order of
+  *receptions*, and the runtime fires its transitions in that order. But a reception the active
+  state does not accept is not refused when a model sends it: it waits on the bus and is taken by
+  a later state (probe 2), so a model that violates the order it declared runs as if it had
+  respected it. Only the REPL's `%send` refuses such an arrival, and only a directly injected event
+  is dropped and reported. For **operation calls** (`perform` of the object's action) the guarantee
+  is not spelled at all: a call runs whether or not the object's machine is in a state that would
+  accept it.
+- **A machine on the port definition is reachable only from the debugger.** It runs and reacts to
+  messages addressed to the port object (probe 1), but a model's `send … to part.port` is routed to
+  the port of the part and is not taken by the port object's machine (probe 2).
+- **A protocol violation has no run-time identity.** Nothing in the runtime names a machine, a
+  state and a transfer as "refused"; the REPL message is the only place the notion exists.
 - **Guarantees 2 (post-condition), 3 (conformance) and 4 (static checking) have no SysML v2
   spelling**, standard or otherwise, and no library vocabulary to anchor one on.
 
@@ -191,24 +231,42 @@ Against the four guarantees:
 **A — Close: not a SysML v2 construct; receptions covered by exhibited machines.** Record that
 "protocol state machine" is a UML metaclass with no SysML v2 counterpart, that the order of
 *receptions* on a port or part is stated by an exhibited behavior state machine (§7.18.4 +
-§7.17.8) which the runtime already executes, that an out-of-order reception is reported as a
-dropped dispatch, and that post-conditions, conformance and static checking are out of scope
-because the language does not spell them. Reword the compliance bullet accordingly. Cost: this
-record. Leaves: operation calls unchecked; no typed violation.
+§7.17.8), and that post-conditions, conformance and static checking are out of scope because the
+language does not spell them. Cost: this record. Leaves: the machine states an order the runtime
+does not enforce for model-posted messages (probe 2), so the compliance bullet could not honestly
+say the construct runs; operation calls unchecked; no typed violation. **Rejected** on the first
+point: the item asked whether OpenSysML *executes or checks* the construct, and for the model
+surface the answer is no.
 
-**B — A, plus a typed run-time verdict for a refused reception (small follow-up).** Keep the
-model surface as it is by default, and add an opt-in execution policy under which a transfer that
-reaches a state machine's performer, matches no transition of the active configuration and is
-not deferrable ends the advance with a typed error naming the machine, its active state and the
-transfer (`ErrUnacceptedTransfer`, say), so that a model whose port machine is *meant* as a
-protocol fails loudly. IR: none (the machine is already lowered; the policy is an executor
-option). Executor: `dueProgress.noteDispatch` already isolates the dropped case; the policy turns
-it into a returned error on the same path. Proof: the probe above as a conformance fixture
-(`state_port_def_exhibited_machine`, expected states and `reads`), a trace golden for the
-dispatch order, a robustness case for the refusal, and a REPL `send_test.go` case. Cost: one
-short session. Risk: the default cannot change — SM-family fixtures (`state_deferred_event`,
-`TestUndeferredEventIsDroppedWhereNoTransitionHandlesIt`) and the PSSM referee depend on
-drop-and-continue, which is also the UML behavior-state-machine semantics.
+**B — Keep open; make the runtime discard, and report, a model-posted reception the active
+configuration neither accepts nor defers (follow-up).** Two changes in the state executor, no IR
+change, no new notation:
+
+1. *An addressed message no machine of its destination takes is consumed and dropped, not held.*
+   When a message with a destination (`DeliverPort`, `DeliverPortReceiver`, `DeliverReceiver`,
+   `DeliverObject` — not `DeliverAnyone`, which has no destination to hold it to) reaches a
+   performer whose exhibited machines are all started and none of which accepts or defers it in
+   its active configuration (`takesMessage` false for every one), the machine that would have been
+   its receiver takes it off the bus and dispatches it as a non-firing `Dispatch`, so it lands in
+   `AdvanceReport.Dropped` through `dueProgress.noteDispatch` exactly as a directly injected event
+   does. The REPL's `droppedDispatchNote` then reports it unchanged. This is the UML/PSSM discard
+   rule the direct path already implements; a message to an object with no started machine, or
+   with none at all, stays on the bus as today (an action's later `accept` may be its consumer).
+2. *A port definition's machine takes the messages routed to its port.* `acceptableMessage`'s
+   reach test (`m.reaches(name, m.Port, objectID(e.self))`) must accept a message whose `PortID`
+   is the port object performing the machine, not only one whose `Object` is.
+
+Optionally, on top: an opt-in execution policy under which such a drop ends the advance with a
+typed error naming the machine, its active state and the transfer (`ErrUnacceptedTransfer`, say),
+for a model whose machine is *meant* as a protocol. Proof: probe 2, both variants, as conformance
+fixtures (`state_model_send_out_of_order_dropped`: final state `opened`, `reads` **`1`**, one
+dropped dispatch naming `Read`; `state_port_def_exhibited_machine`: the port machine reaches
+`opened`, `reads` `1`), a trace golden for the dispatch order, a runtime test posting through
+`Context.PostMessage` (not `SendSignal`) and asserting `AdvanceReport.Dropped`, a robustness case
+for the typed error, and probe 1 as a REPL `send_test.go` case. Risk: every fixture whose sender
+runs before its receiver's machine has started, or whose message is taken by a state entered after
+the send, now drops it — the conformance suite, `state_deferred_event` and the PSSM referee must be
+run to find them, and each is either the bug this fixes or a sender to be moved. Cost: one session.
 
 **C — Invent a protocol construct** (a `protocol` keyword, or a metadata annotation on an
 exhibited machine that forbids effects and turns unaccepted arrivals and unenabled operation
@@ -223,21 +281,24 @@ with the occurrence-semantics work, not here.
 
 ## Recommendation
 
-**Option A, with B recorded as the follow-up to take if a user brings the need.** The finding is
-that SysML v2 does not have protocol state machines and does not need a separate construct for
-the half of the idea it can express: the legal order of *receptions* on a port or a part is an
-exhibited behavior state machine, which OpenSysML lowers, starts with the exhibiting object and
-drives from routed messages today — on parts (corpora, conformance fixtures) and on port
-definitions (probe). What SysML v2 cannot express — ordering *operation calls*, post-conditions,
-conformance between machines, static sequence checking — is not a gap in OpenSysML's conformance
-to SysML v2 but a UML feature the language dropped, and the compliance record should say so rather
-than list "protocol state machines" as an unimplemented feature. The one behavior a maintainer
-might still want, an *error* rather than a silent drop when a port's machine refuses an arrival,
-is option B: small, opt-in, no IR change, and its proof fixtures are already written above.
+**Option B: keep the item open with the follow-up above; do not reword the compliance bullet as
+covered.** The language finding stands: SysML v2 does not have protocol state machines and does
+not need a separate construct for the half of the idea it can express — the legal order of
+*receptions* on a port or a part is an exhibited behavior state machine, and what SysML v2 cannot
+express (ordering *operation calls*, post-conditions, conformance between machines, static
+sequence checking) is a UML feature the language dropped, not an OpenSysML gap. But the item also
+asked whether OpenSysML executes or checks that construct, and at the model surface it does not:
+a reception the active state does not accept is held on the bus and taken later (probe 2), which
+is neither the machine's declared order nor the UML discard rule the direct-injection path
+follows, and a machine on a port definition never sees a model's messages at all. Until the
+follow-up lands, the compliance bullet should say that the notation runs and the order it declares
+is enforced only for debugger-injected events.
 
-If B is taken, the follow-up should first settle the two unverified points of the probe (connector
-routing to a port's machine; the port machine and the owner's `via` machine sharing an arrival),
-since both decide what the error names.
+The follow-up should settle two routing points first, since both decide which machine drops and
+what the error names: whether the port machine and the owning part's `accept … via f` machine
+share one arrival or the first taker wins (each machine has its own pool, SM1), and whether a
+message addressed to an object whose only consumer is an action not yet at its `accept` stays on
+the bus (it should).
 
 ## Sources
 

@@ -1370,28 +1370,31 @@ reads before its producer completes.
 
 ## E5 — protocol state machines (design record landed)
 
-**Landed** as a design record, [protocol-state-machines.md](protocol-state-machines.md), which
-settles the question the item posed. No SysML v2 notation exists for a protocol state machine
-(UML 2.5.1 §14.4) and none should be invented; the record establishes, from §7.17.8, §7.18.3–4 and
-the Kernel Semantic Library (`StatePerformances`, `Transfers`, `Occurrences`), that the half of the
-idea SysML v2 can express — the legal order of *receptions* on a port or part — is an ordinary
-exhibited behavior state machine, and that OpenSysML already runs it: on a part with
-`accept … via <port>` (the corpora's spelling; conformance `state_transition_accept_via_port`), and
-on a **port definition** with a bare `accept`, which is lowered, started with the port object and
-driven by the messages addressed to that port (probed at the REPL; the model is in the record). An
-arrival the active state does not accept is dropped and reported (`AdvanceReport.Dropped`; the
-REPL's `%send` refuses it by machine and state), not raised. What SysML v2 cannot spell — ordering
-*operation calls*, post-conditions, `ProtocolConformance`, static sequence checking — is a UML
-feature the language dropped, not an OpenSysML gap, and the `spec-compliance.md` bullet now says so.
+**Design record landed**, [protocol-state-machines.md](protocol-state-machines.md); **the item
+stays open** for the runtime follow-up it specifies. No SysML v2 notation exists for a protocol
+state machine (UML 2.5.1 §14.4) and none should be invented; the record establishes, from
+§7.17.8, §7.18.3–4 and the Kernel Semantic Library (`StatePerformances`, `Transfers`,
+`Occurrences`), that the half of the idea SysML v2 can express — the legal order of *receptions*
+on a port or part — is an ordinary exhibited behavior state machine, which OpenSysML lowers,
+starts with the exhibiting object and fires in the declared order on a part with
+`accept … via <port>` (the corpora's spelling; conformance `state_transition_accept_via_port`).
+What SysML v2 cannot spell — ordering *operation calls*, post-conditions, `ProtocolConformance`,
+static sequence checking — is a UML feature the language dropped, not an OpenSysML gap.
 
-**What it leaves.** One optional follow-up, specified in the record: an opt-in execution policy
-under which a transfer that reaches a machine, matches no transition of the active configuration
-and is not deferrable ends the advance with a typed error naming the machine, state and transfer.
-No IR change; the drop-and-continue default is kept (the deferred-event fixtures and the PSSM
-referee depend on it). Its proof fixtures are written in the record; two routing points (a
-connector-routed message reaching a port's own machine; that machine and the owner's `via` machine
-sharing one arrival) are to be settled first. **Prioritize when** a user brings a model that needs
-an out-of-order message on a port to fail rather than drop.
+**What it leaves.** The order the machine declares is enforced only for events a debugger injects
+directly (`StateExecutor.SendSignal` → dispatched, dropped, reported in `AdvanceReport.Dropped`;
+the REPL's `%send` refuses one by machine and state). A message a *model* sends that the active
+state neither accepts nor defers is not dropped: it waits on the context-wide bus and is taken by
+the first later state that accepts it, so an out-of-order `Read` before `Open` is counted as if it
+had come after (the record's second probe: `reads = 2`, nothing reported). A machine exhibited by a
+**port definition** runs and answers the debugger's messages to the port object, but does not
+take a model's messages routed to that port. The follow-up specified in the record: a message
+addressed to a performer whose started machines all refuse it is taken off the bus and dispatched as
+a non-firing dispatch, so it is reported as the direct path reports it; a port definition's machine
+takes the messages routed to its port; optionally, an opt-in policy that makes the drop a typed error.
+No IR change; proof fixtures written in the record; two routing points to settle first.
+**Prioritize when** a model relies on an exhibited machine to refuse an arrival, or on a port
+definition's machine at all.
 
 ## E6 — operation invocation with positional arguments
 
