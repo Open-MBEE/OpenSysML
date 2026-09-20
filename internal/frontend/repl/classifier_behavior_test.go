@@ -84,6 +84,21 @@ func TestInvokeBindsPositionalArguments(t *testing.T) {
 	wants(t, run(t, s, "%features Obj::Monitor"), "count = 10")
 }
 
+// A string literal argument reaches the operation as written, its quotes and the
+// spaces inside it included, positionally and by name.
+func TestInvokeKeepsStringLiteralArguments(t *testing.T) {
+	s := loadFixture(t, "testdata/exhibited_machine.sysml")
+	run(t, s, "%instantiate Obj::Monitor")
+
+	wants(t, run(t, s, `%invoke Obj::Monitor setLabel "ready now"`), "Invoked setLabel on object #")
+	wants(t, run(t, s, "%features Obj::Monitor"), `label = "ready now"`)
+	wants(t, run(t, s, `%invoke Obj::Monitor setLabel text="by name"`), "Invoked setLabel on object #")
+	wants(t, run(t, s, "%features Obj::Monitor"), `label = "by name"`)
+	wants(t, run(t, s, `%invoke Obj::Monitor setLabel ""`), "Invoked setLabel on object #")
+	wants(t, run(t, s, "%features Obj::Monitor"), `label = ""`)
+	wants(t, run(t, s, `%invoke Obj::Monitor setLabel "a" "b"`), "error:", "takes 1 input parameter(s), got 2 argument(s)")
+}
+
 // %invoke reports its usage, an operation the type does not own, an argument
 // naming no parameter, a parameter left unbound, a list mixing the positional and
 // the named form, a surplus positional argument and one bound twice.

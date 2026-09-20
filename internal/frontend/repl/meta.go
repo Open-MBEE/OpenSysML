@@ -597,7 +597,8 @@ func (s *Session) metaDebugCommand(fields []string, line string) (metaResult, bo
 		if len(fields) < 3 {
 			return metaOut([]string{"usage: %invoke <object> <operation> [<expression> ... | <parameter>=<expression> ...]"}, false, nil), true
 		}
-		return metaOut(s.doInvoke(fields[1], fields[2], strings.Join(fields[3:], " "))), true
+		object, operation, args := splitInvokeLine(strings.TrimPrefix(strings.TrimSpace(line), "%invoke"))
+		return metaOut(s.doInvoke(object, operation, args)), true
 	case cmdQuery:
 		if len(fields) < 2 {
 			return metaOut([]string{"usage: %query <oslc-query>"}, false, nil), true
@@ -3207,6 +3208,21 @@ func parseInvokeArguments(text string) (invokeArguments, error) {
 		}
 	}
 	return args, nil
+}
+
+// splitInvokeLine cuts `%invoke`'s tail into the object, the operation and the
+// argument text as written, so a string literal keeps its quotes and spaces.
+func splitInvokeLine(tail string) (object, operation, args string) {
+	tail = strings.TrimSpace(tail)
+	cut := indexOutsideName(tail, " \t")
+	if cut < 0 {
+		return tail, "", ""
+	}
+	object, tail = tail[:cut], strings.TrimSpace(tail[cut:])
+	if cut = indexOutsideName(tail, " \t"); cut < 0 {
+		return object, tail, ""
+	}
+	return object, tail[:cut], strings.TrimSpace(tail[cut:])
 }
 
 // parseArguments takes apart and parses `name=<expression>` arguments.
