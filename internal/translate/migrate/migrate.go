@@ -68,6 +68,7 @@ func FromModel(name string, model *sysmlv1.Model) *Result {
 		opUsage:      map[*sysmlv1.Element]string{},
 		deciding:     map[*sysmlv1.Element]bool{},
 		bounded:      map[*sysmlv1.Element][]*sysmlv1.Element{},
+		allocated:    map[*sysmlv1.Element][]*sysmlv1.Element{},
 		triggered:    map[*sysmlv1.Element]bool{},
 		snapshots:    map[*sysmlv1.Element]snapshotTyping{},
 		contexts:     map[*sysmlv1.Element]*behaviorContext{},
@@ -185,6 +186,8 @@ type migration struct {
 	deciding map[*sysmlv1.Element]bool
 	// bounded lists the duration constraints constraining each element.
 	bounded map[*sysmlv1.Element][]*sysmlv1.Element
+	// allocated lists the suppliers of the «Allocate» dependencies each element is client of.
+	allocated map[*sysmlv1.Element][]*sysmlv1.Element
 	// triggered holds each event some trigger refers to, which is reported where it is.
 	triggered map[*sysmlv1.Element]bool
 	// contexts holds, once asked, the context each activity acts on through a
@@ -371,6 +374,11 @@ func (m *migration) prepare() {
 			for _, role := range []string{"client", "supplier"} {
 				if r := m.model.Ref(e, role); r != nil && (r.Type == "Property" || r.Type == "Port") {
 					m.nameFor(r)
+				}
+			}
+			if has(e, "Allocate") {
+				for _, c := range m.model.Refs(e, "client") {
+					m.allocated[c] = append(m.allocated[c], m.model.Refs(e, "supplier")...)
 				}
 			}
 			m.placeDependency(e)

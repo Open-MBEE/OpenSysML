@@ -339,24 +339,33 @@ which of its parameters the caller has to value. A call whose target pin is fed 
 the context block, or from the activity's `context` parameter, performs the callee on that
 object, `perform action x ::> drive.motor.spin;`.
 
-**Values that never arrive.** v1 lets a call or a signal send fire holding no value for a
-parameter or attribute that must have one; v2 does not admit a typed perform or `send new
-Sig(x)` with an input unbound, so such a step keeps its place in the flow but performs nothing:
-it is written as an empty action carrying the token, with the reason in its comment and in the
-report. The reasons are the ones the model itself decides: the call passes no argument for a
-required parameter (one with no default and a lower bound above zero; `out` and `return`
-parameters and the operation's target pin are not arguments), the send passes no argument for a
-required attribute of its signal, inherited ones included, or the pin it passes is fed only
-by flows no value travels — from a parameter nothing values, from an action that is not
-migrated (an opaque action's result, or a value specification action whose literal is no value
-of its result's type), from a call whose callee gives that `out` parameter no value, judged
-by the same analysis of the callee's own activity, through any depth of nesting, or from a
-call's result pin past the callee's `out` parameters, which stands for none. Every such object flow is kept as a comment naming its source, never written as a
-`flow` from a feature that will hold nothing, and the receiving action's report line says which
-input receives no value. A call whose callee acts on an object the caller does not hold — the
-method reads ports of its block, and the caller is a behavior of another block with no part of
-that type — is refused the same way, since running it on the caller's object would go through
-ports it lacks.
+**Values that never arrive.** v1 lets a call fire holding no value for a parameter that must
+have one — the callee runs with the parameter empty — so the call is performed all the same,
+and the parameter, and every pin and `out` parameter it feeds through any depth of nesting, is
+declared admitting no value: its lower bound is written as zero, its upper bound kept, and the
+report says on each why a value may fail to reach it (`declared admitting no value: …`). The
+reasons are the ones the model itself decides: the call passes no argument for a required
+parameter (one with no default and a lower bound above zero; `out` and `return` parameters and
+the operation's target pin are not arguments), or the pin it passes is fed only by flows no value
+travels — from a parameter nothing values, from an action that is not migrated (an opaque
+action's result, or a value specification action whose literal is no value of its result's
+type), from a call whose callee gives that `out` parameter no value, judged by the same analysis
+of the callee's own activity, or from a call's result pin past the callee's `out` parameters,
+which stands for none. Such a flow into a call is bound as any other; one from a source that
+will hold nothing is kept as a comment naming it, never written as a `flow` from that feature.
+A write of such a value to a feature requiring one is guarded, `if x->SequenceFunctions::notEmpty()
+{ assign … }`, so the run neither invents a value nor fails the feature's multiplicity where v1
+left it untouched. A signal send is the exception: v2 does not admit `send new Sig(x)` with a
+required attribute unbound, so a send passing no argument, or a valueless pin, for a required
+attribute of its signal, inherited ones included, keeps its place in the flow but performs
+nothing, written as an empty action carrying the token, with the reason in its comment and in the
+report. A call whose callee acts on an object the caller does not hold — the method reads
+ports of its block, and the caller is a behavior of another block with no part of that type —
+is refused the same way, since running it on the caller's object would go through ports it lacks.
+So is a call behavior action that names no behavior yet has pins: nothing in the model says
+what it performs, and no v1 relation it stands in names it — an «Allocate» from the action to
+a part says where it runs, not what it does, and the report says so — so the action is written
+empty with its pins, which nothing computes, and no behavior or value is made up for it.
 
 **Control nodes carrying data.** A fork, join, merge, decision or buffer node that lies on no
 control path and whose every outgoing edge leads to an action's pin routes values, not control:
@@ -694,6 +703,23 @@ action def 'Group 0' {
   there, so it also records no other value than the target configures and does not put the
   snapshot out), and a target with no
   classifier to match snapshots against are each noted in the configuration's `notes`.
+- A target whose classifier specializes MagicDraw's `MonteCarloAnalysis` (the analysis pattern
+  of the SimulationProfile, recognised by provenance) summarises its runs rather than recording
+  each: a snapshot's `N`, `Mean`, `Deviation` and `OutOfSpec` slots are the count, mean and
+  standard deviation of the observable the analysis binds its `Mean` to, so they are kept out of
+  the observables and written as the snapshot's `"statistics"`, standing for `N` runs, and the
+  configuration's `"analysis"` names that observable, which the snapshot holds the same mean
+  for. An analysis binding its `Mean` to no feature, or to several, a snapshot recording `N`
+  without `Mean` or the reverse, an `N` that is no count, or a `Mean` no value of the
+  observable holds is noted and the snapshot read as an ordinary run of the numbers it does
+  hold; one whose `Mean` another feature holds instead summarises an analysis of another
+  configuration and is set aside with a note.
+- A target whose classifiers, and their generals, have no classifier behavior but hold
+  constraint properties — the parametric configurations a tool solves for values — performs
+  nothing, since a v2 run checks a constraint and does not solve it; the note lists each
+  constraint property the target holds, through its parts, with its constraint block and whether
+  the block's rule is migrated as a constraint or, for an opaque rule the translated function
+  table lacks, which call stops it.
 
 `sysml model.sysml -compare-results results.json` then runs every configuration the sidecar
 indexes — with its `runs` and `draws`, or the `-runs` and `-draws` given, seeded from `-seed` —

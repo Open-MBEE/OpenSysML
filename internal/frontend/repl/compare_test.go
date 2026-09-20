@@ -317,6 +317,27 @@ func TestCompareDefaultsToOneRun(t *testing.T) {
 	}
 }
 
+// A configuration whose behavior was not migrated is refused naming it, so a
+// refusal printed among other failures to run still says which configuration
+// it is about, with the sidecar's notes saying why.
+func TestCompareNamesTheConfigurationItRefuses(t *testing.T) {
+	s := compareSession(t)
+	seed := uint64(1)
+	results := compareResults("'Group 1'", 2)
+	results.Configurations[0].Behavior = ""
+	results.Configurations[0].Notes = []string{"the configuration names no execution target, so it runs no behavior"}
+
+	got := s.CompareResults(results, CompareOptions{Seed: &seed})
+	if len(got) != 1 || got[0].Status != VerdictUnresolved {
+		t.Fatalf("a configuration without behavior = %+v, want a refusal", got)
+	}
+	lines := strings.Join(got[0].Lines, "\n")
+	want := "error: the configuration Cfg::'Group 1' performs no migrated behavior; the configuration names no execution target, so it runs no behavior"
+	if lines != want {
+		t.Errorf("refusal:\n%s\nwant:\n%s", lines, want)
+	}
+}
+
 // An observable the tool summarised — a snapshot holding the mean of several
 // runs, not one run's value — is compared by count and mean alone, pooled with
 // the runs stored one by one; the statistics the tool did not keep stay blank,

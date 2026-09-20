@@ -1103,8 +1103,12 @@ that stored observable. The relative difference is `(OpenSysML − tool) / |tool
 `+0.0%` where both are zero and `+1 (of 0)` where only the tool's is; a stored observable the
 run holds no value for, one whose value is no number, or one the completed runs produce in more
 than one unit (a quantity in some, a bare number or another unit in others, which no one
-distribution can pool) is a note under the table rather than a missing row; a configuration the tool stored no snapshot of, or whose behavior was not migrated,
-is undecided saying so, with the sidecar's notes. A run that fails is an `error:` line under the
+distribution can pool) is a note under the table rather than a missing row. A configuration the
+tool stored no snapshot of is run all the same, its table holding a `tool (no stored result to
+compare)` row of zero runs over OpenSysML's statistics of the observable its analysis summarises,
+or of every feature the runs produced a number for; one stating no `numberOfRuns` is run once, as
+its tool runs it, under a note saying so (`-runs` makes more); one whose behavior was not migrated
+is undecided naming it, with the sidecar's notes. A run that fails is an `error:` line under the
 table and fails the comparison (exit status `1`), as it fails a `-runs` table: the statistics
 are of the completed runs only, so they are not passed off as the configuration's. The statistics
 are nearest-rank on both sides,

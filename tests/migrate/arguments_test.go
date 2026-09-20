@@ -133,6 +133,59 @@ func TestCallsWithoutRequiredArgumentsAdmitNone(t *testing.T) {
 	}
 }
 
+// allocatedCalls is a block whose activity has two call behavior actions
+// naming no behavior: one with a result pin, «Allocate»d to a part of the block,
+// and one with no pins, so it is a bare step.
+const allocatedCalls = `
+    <packagedElement xmi:type="uml:Class" xmi:id="_sensor" name="Sensor"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_ctl" name="Ctl">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_eye" name="eye" type="_sensor" aggregation="composite"/>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_run" name="Run">
+        <node xmi:type="uml:InitialNode" xmi:id="_init"/>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_measure" name="measure">
+          <result xmi:type="uml:OutputPin" xmi:id="_measureOut" name="reading">
+            <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+          </result>
+        </node>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_settle" name="settle"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_final"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e1" source="_init" target="_measure"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e2" source="_measure" target="_settle"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e3" source="_settle" target="_final"/>
+      </ownedBehavior>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Abstraction" xmi:id="_alloc">
+      <client xmi:idref="_measure"/>
+      <supplier xmi:idref="_eye"/>
+    </packagedElement>`
+
+const allocatedApplications = `
+  <sysml:Block xmi:id="_b1" base_Class="_sensor"/>
+  <sysml:Block xmi:id="_b2" base_Class="_ctl"/>
+  <sysml:Allocate xmi:id="_s1" base_Abstraction="_alloc"/>`
+
+// A call behavior action naming no behavior is not given one: an «Allocate» from
+// the action to a part places it on the structure, but names nothing to perform,
+// so an action with pins is unmapped saying so, keeping its place in the flow, and
+// no value is made up for its result. One without pins is a bare step.
+func TestAllocatedCallsWithoutBehaviorStayUnresolved(t *testing.T) {
+	r := migrateDocument(t, allocatedCalls, allocatedApplications)
+	wantNote(t, r, "_measure", migrate.Unmapped, "the action calls no behavior, yet has the pins 'reading', which nothing then computes; its «Allocate» to Ctl::eye says where it runs, not what it does")
+	wantNote(t, r, "_settle", migrate.Approximated, "a step with no behavior and no duration; it passes the token on")
+	for _, line := range []string{
+		"action measure {",
+		"out reading : ScalarValues::Real;",
+		"/* not migrated: CallBehaviorAction 'measure' — the action calls no behavior",
+		"first measure then settle;",
+		"action settle;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNoLine(t, r.Notation, "eye.")
+	wantNoLine(t, r.Notation, "reading :=")
+	wantClean(t, "t.sysml", r)
+}
+
 // dryOutputs is a Cache whose Fetch gives its out parameter only what an opaque
 // action computes, and whose Run passes Fetch's result to Use, which requires it,
 // and sends it in a Fresh, whose attribute must hold a value.

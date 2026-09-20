@@ -119,7 +119,7 @@ func sameName(name, qualified string) bool {
 func (s *Session) compareVerdict(cfg *simresults.ConfigurationResults, opts CompareOptions) Verdict {
 	label := comparePrefix + cfg.Name
 	if cfg.Behavior == "" {
-		return unresolvedVerdict(label, withNotes("the configuration performs no migrated behavior", cfg.Notes))
+		return unresolvedVerdict(label, withNotes("the configuration "+cfg.Name+" performs no migrated behavior", cfg.Notes))
 	}
 	var notes []string
 	count := cfg.Runs
@@ -137,7 +137,7 @@ func (s *Session) compareVerdict(cfg *simresults.ConfigurationResults, opts Comp
 	case cfg.Draws != "":
 		parsed, err := runtime.ParseDrawPolicy(cfg.Draws)
 		if err != nil {
-			return unresolvedVerdict(label, fmt.Sprintf("the configuration's durationSimulationMode %q is no draw policy", cfg.Draws))
+			return unresolvedVerdict(label, fmt.Sprintf("the durationSimulationMode %q of the configuration %s is no draw policy", cfg.Draws, cfg.Name))
 		}
 		policy = parsed
 	}
@@ -149,7 +149,7 @@ func (s *Session) compareVerdict(cfg *simresults.ConfigurationResults, opts Comp
 	}
 	answered, table, err := s.runsTable(inv, count, opts.Seed, nil, policy)
 	if err != nil {
-		return standing(unresolvedVerdict(label, err.Error()), answered)
+		return standing(unresolvedVerdict(label, "the configuration "+cfg.Name+" could not be run: "+err.Error()), answered)
 	}
 	completed := 0
 	var failures []string
