@@ -19,6 +19,8 @@ func TestRuntimeRobustnessObjectLifecycle(t *testing.T) {
 	t.Run("destroy_ends_the_created_objects_machine", testObjectLifecycleDestroyEndsMachine)
 	t.Run("destroy_twice_is_refused", testObjectLifecycleDestroyTwice)
 	t.Run("destroy_of_the_whole_ends_the_created_parts", testObjectLifecycleDestroyWholeEndsCreatedParts)
+	t.Run("a_part_moved_between_wholes_ends_with_the_new_whole", testObjectLifecycleMovedPart)
+	t.Run("send_new_starts_the_message_objects_behaviors", testObjectLifecycleSendNew)
 	t.Run("explore_creating_objects_is_deterministic", testObjectLifecycleExploreCreation)
 	t.Run("explore_destroy_race_reaches_both_outcomes", testObjectLifecycleExploreDestroyRace)
 }
@@ -256,6 +258,88 @@ func testObjectLifecycleDestroyWholeEndsCreatedParts(t *testing.T) {
 		if _, err := invoke("Destroy", objectValue(car)); !errors.Is(err, ErrOccurrenceDestroyed) {
 			t.Errorf("destroy(#%d) after the fleet = %v; want %v", car.ID, err, ErrOccurrenceDestroyed)
 		}
+	}
+}
+
+// testObjectLifecycleMovedPart: a car dropped from one composite feature and written into
+// another is owned by the second holder, so destroying the first spares it and the second ends it.
+func testObjectLifecycleMovedPart(t *testing.T) {
+	instantiate, _, ctx := lifetimeFixture(t, objectLifecycleModel+`
+		package more { private import OccurrenceFunctions::*; private import SequenceFunctions::*; private import test::*;
+			part def Garage { part cars : Car[0..*]; }
+			calc def DestroyFleet { in f : Fleet; return : Fleet = destroy(f); }
+			calc def DestroyGarage { in g : Garage; return : Garage = destroy(g); }
+		}`)
+	fleet := instantiate("Fleet")
+	idx := ctx.model.resolver.Index()
+	garageSyms := idx.LookupQualified("more::Garage")
+	if len(garageSyms) != 1 {
+		t.Fatalf("more::Garage: %d matching symbols, want 1", len(garageSyms))
+	}
+	garage, err := ctx.Instantiate(garageSyms[0])
+	if err != nil {
+		t.Fatalf("Instantiate(Garage): %v", err)
+	}
+	root := idx.DocumentRoot("<test>")
+	destroyWith := func(name string, inst *Instance) {
+		sym, scope := calcByName(t, root, "more", name)
+		if _, err := ctx.InvokeCalc(sym, []Value{objectValue(inst)}, scope); err != nil {
+			t.Fatalf("%s = %v", name, err)
+		}
+	}
+	cars := heldCars(t, ctx, fleet)
+	moved := cars[0]
+	if err := fleet.SetFeatureValue(ctx, "cars", sequenceOf([]Value{objectValue(cars[1])})); err != nil {
+		t.Fatalf("fleet.cars := (second) = %v", err)
+	}
+	if moved.owner != nil {
+		t.Fatalf("#%d owned by %v.%s after being dropped; want no owner", moved.ID, moved.owner, moved.ownerFeature)
+	}
+	if err := garage.SetFeatureValue(ctx, "cars", sequenceOf([]Value{objectValue(moved)})); err != nil {
+		t.Fatalf("garage.cars := (moved) = %v", err)
+	}
+	if moved.owner != garage || moved.ownerFeature != "cars" {
+		t.Fatalf("#%d owned by %v.%s; want the garage's cars", moved.ID, moved.owner, moved.ownerFeature)
+	}
+	destroyWith("DestroyFleet", fleet)
+	if l, _ := ctx.OccurrenceLife(moved.ID); !l.Alive() {
+		t.Errorf("OccurrenceLife(moved) = %v after destroying the fleet; want alive", l)
+	}
+	if l, _ := ctx.OccurrenceLife(cars[1].ID); l.Alive() {
+		t.Errorf("OccurrenceLife(kept) = %v after destroying the fleet; want ended with it", l)
+	}
+	destroyWith("DestroyGarage", garage)
+	if l, _ := ctx.OccurrenceLife(moved.ID); l.Alive() {
+		t.Errorf("OccurrenceLife(moved) = %v after destroying the garage; want ended with it", l)
+	}
+}
+
+// testObjectLifecycleSendNew: the object `send new Car(9)` constructs performs Car's machine
+// like one any other expression constructs.
+func testObjectLifecycleSendNew(t *testing.T) {
+	ctx, _, err := instantiateWithLibraries(t, objectLifecycleModel+`
+		package more { private import ScalarValues::*; private import test::*;
+			part def Sender {
+				perform action ship { first start; then send new Car(9); then done; }
+			}
+		}`, "more::Sender")
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	var sent *Instance
+	for _, inst := range ctx.instances {
+		if inst.Type != nil && inst.Type.Name == "Car" {
+			sent = inst
+		}
+	}
+	if sent == nil {
+		t.Fatal("no Car constructed by the send")
+	}
+	if l, ok := ctx.OccurrenceLife(sent.ID); !ok || !l.Alive() {
+		t.Errorf("OccurrenceLife(sent) = %v, %v; want alive", l, ok)
+	}
+	if b, ok := sent.Behavior("running"); !ok || b.State == nil || b.State.State().Ended() {
+		t.Errorf("sent running = %v, %v; want the machine under way", b, ok)
 	}
 }
 

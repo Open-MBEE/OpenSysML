@@ -99,6 +99,7 @@ func (ctx *Context) holdWritten(inst *Instance, fv *FeatureValue, val Value) err
 	if ctx.CompositeTypeOf(fv.Feature) == nil {
 		return nil
 	}
+	ctx.releaseDropped(inst, fv, val)
 	for _, el := range elementsOf(val) {
 		id, ok := el.Object()
 		if !ok {
@@ -112,6 +113,30 @@ func (ctx *Context) holdWritten(inst *Instance, fv *FeatureValue, val Value) err
 		ctx.noteProbeUndo(func() { child.owner, child.ownerFeature = nil, "" })
 	}
 	return nil
+}
+
+// releaseDropped frees an object the composite feature owned and the write no longer holds,
+// so the feature it is written into next may own it.
+func (ctx *Context) releaseDropped(inst *Instance, fv *FeatureValue, val Value) {
+	kept := map[int64]bool{}
+	for _, el := range elementsOf(val) {
+		if id, ok := el.Object(); ok {
+			kept[id] = true
+		}
+	}
+	for _, el := range elementsOf(fv.HeldValue()) {
+		id, ok := el.Object()
+		if !ok || kept[id] {
+			continue
+		}
+		child, ok := ctx.instances[id]
+		if !ok || child.owner != inst || inst.FeatureValues[child.ownerFeature] != fv {
+			continue
+		}
+		feature := child.ownerFeature
+		child.owner, child.ownerFeature = nil, ""
+		ctx.noteProbeUndo(func() { child.owner, child.ownerFeature = inst, feature })
+	}
 }
 
 // holdsItself reports whether inst is a portion of child, which child then cannot become one of.

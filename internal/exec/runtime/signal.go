@@ -1357,11 +1357,11 @@ func (e *EvalContext) buildConstructedMessage(scope *symbols.Scope, constructor 
 	if err != nil {
 		return Message{}, err
 	}
-	value, err := e.ctx.materializeMessage(msg)
+	inst, err := e.ctx.constructObject(msg)
 	if err != nil {
 		return Message{}, fmt.Errorf("send new %s: %w", signal.Name, err)
 	}
-	msg.Value = &value
+	msg.Value = &Value{Kind: ValInstance, Instance: inst.ID}
 	return msg, nil
 }
 
