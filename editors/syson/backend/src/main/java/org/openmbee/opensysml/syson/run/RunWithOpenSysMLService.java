@@ -171,6 +171,26 @@ public class RunWithOpenSysMLService {
             return verdict;
         }
 
+        boolean ok() {
+            return ok;
+        }
+
+        String resultText() {
+            return resultText;
+        }
+
+        List<RunOutcome> outcomes() {
+            return outcomes;
+        }
+
+        List<RunNamedValue> outputs() {
+            return outputs;
+        }
+
+        List<RunVerdict> verdicts() {
+            return verdicts;
+        }
+
         static ResultParts instantiation(Instantiation result, ExportedProject project) {
             ResultParts p = new ResultParts(project);
             p.diagnostics = result.diagnostics();
@@ -194,13 +214,17 @@ public class RunWithOpenSysMLService {
         }
         static ResultParts exploration(Exploration result, ExportedProject project) {
             ResultParts p = new ResultParts(project);
-            p.ok = result.complete();
+            p.ok = result.complete() && result.outcomes().stream().allMatch(outcome -> outcome.error().isEmpty());
             p.verdict = result.status();
-            p.resultText = result.status();
             p.outcomes = result.outcomes().stream().map(outcome -> new RunOutcome(values(outcome.outputs()),
                     outcome.finalState().orElse(null), outcome.statesVisited(), outcome.error().orElse(null),
                     outcome.linearizations(), outcome.witness())).toList();
             p.diagnostics = result.outcomes().stream().flatMap(outcome -> outcome.diagnostics().stream()).toList();
+            p.resultText = result.status();
+            long failed = result.outcomes().stream().filter(outcome -> outcome.error().isPresent()).count();
+            if (failed > 0) {
+                p.resultText += "; " + failed + " of " + result.outcomes().size() + " outcomes failed";
+            }
             if (!result.outcomes().isEmpty()) {
                 var outcome = result.outcomes().get(0);
                 p.outputs = values(outcome.outputs());
@@ -238,6 +262,8 @@ public class RunWithOpenSysMLService {
             ResultParts p = new ResultParts(project);
             p.verdict = result.verdicts().stream().anyMatch(verdict -> !verdict.decided())
                     ? "undecided" : result.holds() ? "holds" : "violated";
+            p.outputs = values(result.outputs());
+            p.verdicts = result.verdicts().stream().map(p::verdict).toList();
             p.diagnostics = result.diagnostics();
             p.instances = p.instances(result.instances());
             return p;
@@ -269,9 +295,10 @@ public class RunWithOpenSysMLService {
             }).toList();
         }
         RunVerdict verdict(Verdict value) {
-            String siriusId = project.index().byQualifiedName(value.element())
+            String siriusId = value.elementId().flatMap(name -> project.index().byQualifiedName(name))
                     .map(IndexedElement::siriusId).orElse(null);
-            return new RunVerdict(value.element(), value.kind(), value.holds(), value.error().orElse(null), siriusId);
+            return new RunVerdict(value.element(), value.kind(), value.holds(), value.decided(),
+                    value.error().orElse(null), siriusId);
         }
     }
 }

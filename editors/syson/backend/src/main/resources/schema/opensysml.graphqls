@@ -87,6 +87,7 @@ type OpenSysMLVerdict {
   subject: String!
   kind: String!
   holds: Boolean!
+  decided: Boolean!
   detail: String
   siriusId: String
 }

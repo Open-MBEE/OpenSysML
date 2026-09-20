@@ -47,7 +47,8 @@ public class ProjectTextExporter implements ProjectExporter {
             StringBuilder text = new StringBuilder();
             for (EObject root : resource.getContents()) {
                 if (!(root instanceof Element element)) continue;
-                int start = lineCount(text) + 1;
+                if (!text.isEmpty() && text.charAt(text.length() - 1) != '\n') text.append('\n');
+                int start = text.isEmpty() ? 1 : lineCount(text);
                 List<Status> statuses = new ArrayList<>();
                 String serialized = serializer.serialize(root, statuses::add);
                 if (serialized == null) serialized = "";

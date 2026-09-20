@@ -29,13 +29,29 @@ describe('RunResultsPanel', () => {
           operation: 'VERIFY_REQUIREMENT',
           ok: false,
           verdict: 'violated',
-          verdicts: [{ subject: 'Req', kind: 'requirement', holds: false, detail: 'broken', siriusId: null }],
+          verdicts: [
+            { subject: 'Req', kind: 'requirement', holds: false, decided: true, detail: 'broken', siriusId: null },
+          ],
         })}
       />
     );
     expect(screen.getByText('violated')).toBeInTheDocument();
     expect(screen.getByText('Req')).toBeInTheDocument();
     expect(screen.getByRole('cell', { name: /broken/ })).toBeInTheDocument();
+  });
+
+  it('renders undecided verdicts neutrally', () => {
+    render(
+      <RunResultsPanel
+        result={baseResult({
+          verdicts: [
+            { subject: 'Req', kind: 'requirement', holds: false, decided: false, detail: 'unknown', siriusId: null },
+          ],
+        })}
+      />
+    );
+    expect(screen.getAllByText('undecided')).not.toHaveLength(0);
+    expect(screen.getByRole('cell', { name: /unknown/ })).toBeInTheDocument();
   });
 
   it('renders outputs, schedule, and final time', () => {

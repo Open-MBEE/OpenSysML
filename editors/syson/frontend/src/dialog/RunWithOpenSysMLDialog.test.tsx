@@ -183,4 +183,21 @@ describe('RunWithOpenSysMLDialog', () => {
     expect(variables.input.events).toEqual(['start', 'stop']);
     expect(variables.input.arguments).toEqual(['1', '2']);
   });
+
+  it('disables Run when input names are duplicated', () => {
+    render(
+      <MockedProvider mocks={[]}>
+        <RunWithOpenSysMLDialog {...props} />
+      </MockedProvider>
+    );
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Operation' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Execute action' }));
+    fireEvent.click(screen.getByText('Add input'));
+    fireEvent.click(screen.getByText('Add input'));
+    fireEvent.change(screen.getAllByLabelText('Name')[0], { target: { value: 'x' } });
+    fireEvent.change(screen.getAllByLabelText('Name')[1], { target: { value: 'x' } });
+
+    expect(screen.getAllByText('Duplicate input name')).not.toHaveLength(0);
+    expect(screen.getByRole('button', { name: 'Run' })).toBeDisabled();
+  });
 });

@@ -144,7 +144,14 @@ export const RunResultsPanel = ({ result, onSelectElement }: RunResultsPanelProp
                 const content = (
                   <>
                     {verdict.subject} {verdict.kind}{' '}
-                    {verdict.holds ? <CheckIcon color="success" /> : <ClearIcon color="error" />} {verdict.detail ?? ''}
+                    {!verdict.decided ? (
+                      <Chip label="undecided" size="small" />
+                    ) : verdict.holds ? (
+                      <CheckIcon color="success" />
+                    ) : (
+                      <ClearIcon color="error" />
+                    )}{' '}
+                    {verdict.detail ?? ''}
                   </>
                 );
                 return (
@@ -154,7 +161,15 @@ export const RunResultsPanel = ({ result, onSelectElement }: RunResultsPanelProp
                     onClick={() => verdict.siriusId && onSelectElement?.(verdict.siriusId)}>
                     <TableCell>{verdict.subject}</TableCell>
                     <TableCell>{verdict.kind}</TableCell>
-                    <TableCell>{verdict.holds ? <CheckIcon color="success" /> : <ClearIcon color="error" />}</TableCell>
+                    <TableCell>
+                      {!verdict.decided ? (
+                        <Chip label="undecided" size="small" />
+                      ) : verdict.holds ? (
+                        <CheckIcon color="success" />
+                      ) : (
+                        <ClearIcon color="error" />
+                      )}
+                    </TableCell>
                     <TableCell>{content}</TableCell>
                   </TableRow>
                 );

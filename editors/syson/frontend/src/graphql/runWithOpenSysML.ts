@@ -63,6 +63,7 @@ export interface GQLOpenSysMLVerdict {
   subject: string;
   kind: string;
   holds: boolean;
+  decided: boolean;
   detail: string | null;
   siriusId: string | null;
 }
@@ -168,6 +169,7 @@ export const runWithOpenSysMLMutation = gql`
             subject
             kind
             holds
+            decided
             detail
             siriusId
           }

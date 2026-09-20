@@ -10,15 +10,54 @@ import org.eclipse.emf.common.util.URI;
 import org.eclipse.emf.edit.provider.ComposedAdapterFactory;
 import org.eclipse.emf.edit.domain.AdapterFactoryEditingDomain;
 import org.eclipse.emf.ecore.resource.impl.ResourceImpl;
+import org.eclipse.emf.ecore.resource.Resource;
 import org.eclipse.emf.ecore.resource.ResourceSet;
 import org.eclipse.emf.ecore.resource.impl.ResourceSetImpl;
 import org.eclipse.sirius.components.core.api.IIdentityService;
 import org.eclipse.sirius.components.emf.services.api.IEMFEditingContext;
 import org.junit.jupiter.api.Test;
+import org.openmbee.opensysml.syson.export.ElementSerializer;
 import org.openmbee.opensysml.syson.export.ProjectTextExporter;
 import org.eclipse.syson.sysml.metamodel.services.textual.utils.Status;
 
 class ProjectTextExporterTest {
+    @Test
+    void mapsOneLineRootAtFirstLine() {
+        ResourceSet set = new ResourceSetImpl();
+        FakeElement root = new FakeElement("Pkg");
+        set.getResources().add(new ResourceImpl(URI.createURI("sirius:///one")));
+        set.getResources().get(0).getContents().add(root);
+        IEMFEditingContext context = context(set);
+        ElementSerializer serializer = (element, report) -> "one";
+
+        var result = new ProjectTextExporter(serializer, mock(IIdentityService.class)).export(context);
+
+        assertThat(result.ranges()).singleElement().satisfies(range -> {
+            assertThat(range.startLine()).isEqualTo(1);
+            assertThat(range.endLine()).isEqualTo(1);
+        });
+        assertThat(result.elementAt("one.sysml", 1)).isPresent();
+    }
+
+    @Test
+    void separatesRootsWithoutTrailingNewlines() {
+        ResourceSet set = new ResourceSetImpl();
+        FakeElement first = new FakeElement("First");
+        FakeElement second = new FakeElement("Second");
+        Resource resource = new ResourceImpl(URI.createURI("sirius:///two"));
+        resource.getContents().add(first);
+        resource.getContents().add(second);
+        set.getResources().add(resource);
+        IEMFEditingContext context = context(set);
+        ElementSerializer serializer = (element, report) -> element == first ? "first" : "second";
+
+        var result = new ProjectTextExporter(serializer, mock(IIdentityService.class)).export(context);
+
+        assertThat(result.ranges()).extracting(ProjectTextExporterTest::startLine).containsExactly(1, 2);
+        assertThat(result.elementAt("two.sysml", 1)).isPresent();
+        assertThat(result.elementAt("two.sysml", 2)).isPresent();
+    }
+
     @Test
     void exportsStableDocumentNames() {
         ResourceSet set = new ResourceSetImpl();
@@ -44,5 +83,17 @@ class ProjectTextExporterTest {
         assertThat(result.elementAt("doc-a.sysml", 3)).isPresent();
         assertThat(result.messages()).singleElement().isNotNull();
         assertThat(result.messages().get(0).message()).isEqualTo("warning");
+    }
+
+    private static IEMFEditingContext context(ResourceSet set) {
+        AdapterFactoryEditingDomain domain = new AdapterFactoryEditingDomain(new ComposedAdapterFactory(),
+                new BasicCommandStack(), set);
+        IEMFEditingContext context = mock(IEMFEditingContext.class);
+        when(context.getDomain()).thenReturn(domain);
+        return context;
+    }
+
+    private static int startLine(org.openmbee.opensysml.syson.export.ExportedProject.DocumentRange range) {
+        return range.startLine();
     }
 }

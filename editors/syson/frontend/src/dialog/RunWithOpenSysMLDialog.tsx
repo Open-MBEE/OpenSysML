@@ -67,6 +67,10 @@ export const RunWithOpenSysMLDialog = ({
   const [subject, setSubject] = useState('');
   const { run, loading, result } = useRunWithOpenSysML();
   const { setSelection } = useSelection();
+  const hasInvalidInputNames = inputs.some((input) => input.name.trim() === '');
+  const hasDuplicateInputNames = inputs.some(
+    (input, index) => input.name !== '' && inputs.findIndex((entry) => entry.name === input.name) !== index
+  );
 
   const submit = (): void => {
     run({
@@ -113,6 +117,17 @@ export const RunWithOpenSysMLDialog = ({
                 <TextField
                   label="Name"
                   value={input.name}
+                  error={
+                    input.name.trim() === '' ||
+                    (input.name !== '' && inputs.findIndex((entry) => entry.name === input.name) !== index)
+                  }
+                  helperText={
+                    input.name.trim() === ''
+                      ? 'Input name is required'
+                      : input.name !== '' && inputs.findIndex((entry) => entry.name === input.name) !== index
+                      ? 'Duplicate input name'
+                      : undefined
+                  }
                   onChange={(event) =>
                     setInputs((previous) =>
                       previous.map((entry, entryIndex) =>
@@ -229,7 +244,10 @@ export const RunWithOpenSysMLDialog = ({
         {result && <RunResultsPanel result={result} onSelectElement={selectElement} />}
       </DialogContent>
       <DialogActions>
-        <Button onClick={submit} disabled={loading} variant="contained">
+        <Button
+          onClick={submit}
+          disabled={loading || hasInvalidInputNames || hasDuplicateInputNames}
+          variant="contained">
           {loading && <CircularProgress size={20} />}
           Run
         </Button>
