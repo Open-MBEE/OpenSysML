@@ -665,8 +665,8 @@ func testObjectLifecycleForgetsMessages(t *testing.T) {
 }
 
 // testObjectLifecycleDerivationsFollowLives: a `=` value that read a car's feature, whether the
-// car is alive, or the extent derives again once a car is created or destroyed, rather than
-// answering from what it derived before.
+// car is alive, or the extent derives again once a car is created — by a `=` value deriving
+// too — or destroyed, rather than answering from what it derived before.
 func testObjectLifecycleDerivationsFollowLives(t *testing.T) {
 	instantiate, _, ctx := lifetimeFixture(t, `
 		package test {
@@ -679,6 +679,7 @@ func testObjectLifecycleDerivationsFollowLives(t *testing.T) {
 				attribute slotN : Integer = slot.n;
 				attribute slotAlive : Boolean = isDuring(slot);
 				attribute cars : Natural = (all Car)->size();
+				attribute spareN : Integer = (new Car()).n;
 			}
 			part garage : Garage;
 			calc def Scrap { in c : Car; return : Car[0..1] = destroy(c); }
@@ -701,6 +702,12 @@ func testObjectLifecycleDerivationsFollowLives(t *testing.T) {
 	}
 	if got, err := read("cars"); err != nil || got != "1" {
 		t.Errorf("garage.cars after new Car() = %s, %v; want 1", got, err)
+	}
+	if _, err := read("spareN"); err != nil {
+		t.Fatalf("garage.spareN: %v", err)
+	}
+	if got, err := read("cars"); err != nil || got != "2" {
+		t.Errorf("garage.cars after the derived spareN's new Car() = %s, %v; want 2", got, err)
 	}
 	if err := garage.SetFeatureValue(ctx, "slot", car); err != nil {
 		t.Fatalf("garage.slot := car: %v", err)
@@ -731,8 +738,8 @@ func testObjectLifecycleDerivationsFollowLives(t *testing.T) {
 	if got, err := read("slotAlive"); err != nil || got != "false" {
 		t.Errorf("garage.slotAlive after scrapping the car = %s, %v; want false", got, err)
 	}
-	if got, err := read("cars"); err != nil || got != "0" {
-		t.Errorf("garage.cars after scrapping the car = %s, %v; want 0", got, err)
+	if got, err := read("cars"); err != nil || got != "1" {
+		t.Errorf("garage.cars after scrapping the car = %s, %v; want 1, the spare", got, err)
 	}
 }
 

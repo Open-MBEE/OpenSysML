@@ -55,16 +55,6 @@ func (ctx *Context) livesChanged() {
 	src.dependents = listDependents(deriving, ctx.invalidate(settled))
 }
 
-// livesGrew is livesChanged for an object materialized or a performance begun or
-// ended: under a `=` value being derived that is its materialization, changing nothing
-// a value stands for, so nothing is derived again.
-func (ctx *Context) livesGrew() {
-	if len(ctx.deriving) > 0 {
-		return
-	}
-	ctx.livesChanged()
-}
-
 // isDeriving reports whether fv is being derived right now.
 func (ctx *Context) isDeriving(fv *FeatureValue) bool {
 	for i := range ctx.deriving {
@@ -148,7 +138,7 @@ func (ctx *Context) beginLife(inst *Instance) {
 		}
 	}
 	ctx.lives[inst.ID] = l
-	ctx.livesGrew()
+	ctx.livesChanged()
 }
 
 // createDuring starts inst during the call entered at mark: only an object the
@@ -308,7 +298,7 @@ func (ctx *Context) beginPerformanceLife(inst *Instance, activation int64) {
 	}
 	ctx.lives[inst.ID] = life{reached: prior.reached, began: activation}
 	ctx.noteProbeUndo(func() { ctx.lives[inst.ID] = prior })
-	ctx.livesGrew()
+	ctx.livesChanged()
 }
 
 // endPerformanceLife records a performance occurrence completing, where one
@@ -323,7 +313,7 @@ func (ctx *Context) endPerformanceLife(inst *Instance) {
 	}
 	ctx.lives[inst.ID] = life{reached: prior.reached, began: prior.began, ended: ctx.newActivation()}
 	ctx.noteProbeUndo(func() { ctx.lives[inst.ID] = prior })
-	ctx.livesGrew()
+	ctx.livesChanged()
 }
 
 // carryLife keeps a carried-over object destroyed when it was destroyed in the
