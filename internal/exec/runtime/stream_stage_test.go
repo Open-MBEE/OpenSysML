@@ -171,3 +171,62 @@ func TestOutputListenersTakeEachWrite(t *testing.T) {
 		t.Fatalf("heard = %v, want %v", heard, want)
 	}
 }
+
+const performedOutputSource = `
+	package test {
+		action def Base {
+			out result : Integer;
+		}
+		action def Producer :> Base {
+			out value : Integer redefines result = 5;
+			attribute i : Integer = 0;
+			action again { assign result := i; }
+			succession first start then again;
+			succession first again then done;
+		}
+	}
+`
+
+// The value an action's declaration gives an output reaches the node performing it
+// as the performance begins, before any node runs; an attribute's does not.
+func TestPerformedOutputDefaultStreamsAtOnce(t *testing.T) {
+	model, resolver, root := parseAndBuildModel(t, performedOutputSource)
+	ctx := NewContext(typedModel(model, resolver), 10000)
+	producer := resolveSymbol(t, resolveSymbol(t, root, "test").Scope, "Producer")
+	var heard []string
+	listener := &outputListener{perf: &actionFrame{}, take: func(name string, value Value) error {
+		heard = append(heard, name+"="+FormatValue(value))
+		return nil
+	}}
+	if _, err := ctx.beginCallee(producer, producer, nil, nil, listener); err != nil {
+		t.Fatalf("beginCallee: %v", err)
+	}
+	if want := []string{"value=5"}; !slices.Equal(heard, want) {
+		t.Fatalf("heard %v on beginning the performance, want %v", heard, want)
+	}
+}
+
+// A node takes the writes of the action it performs by whatever name the action
+// spells them, the name a pin redefines included; writes to other features it drops.
+func TestCalleeOutputsLandByRedefinedName(t *testing.T) {
+	model, resolver, _ := parseAndBuildModel(t, performedOutputSource)
+	ctx := NewContext(typedModel(model, resolver), 10000)
+	e := &performances{ctx: ctx}
+	perf := &actionFrame{
+		data:     make(map[string]Value),
+		features: map[string]ast.FeatureDirection{"value": ast.DirOut},
+		aliases:  map[string]string{"result": "value"},
+	}
+	take := e.streamCalleeOutput(perf, []string{"value"})
+	for name, value := range map[string]int64{"result": 9, "i": 1} {
+		if err := take(name, intConst(value)); err != nil {
+			t.Fatalf("take(%s): %v", name, err)
+		}
+	}
+	if got, ok := perf.data["value"]; !ok || got.Const.Int != 9 {
+		t.Errorf("value = %v, %v; want 9 from the write spelled result", got, ok)
+	}
+	if len(perf.data) != 1 {
+		t.Errorf("data = %v, want only value: a write to an attribute is not an output", perf.data)
+	}
+}

@@ -1133,6 +1133,9 @@ func (e *ActionExecutor) initializeAttributes() error {
 			}
 			if value := fv.HeldValue(); value.Kind != ValInvalid {
 				e.root.data[e.root.key(attr.Name)] = value
+				if err := e.streamInitialOutput(attr.Name, value); err != nil {
+					return err
+				}
 			}
 		}
 		return nil
@@ -1152,8 +1155,21 @@ func (e *ActionExecutor) initializeAttributes() error {
 			return fmt.Errorf("eval attribute default %s: %w", attr.Name, err)
 		}
 		e.root.data[e.root.key(attr.Name)] = value
+		if err := e.streamInitialOutput(attr.Name, value); err != nil {
+			return err
+		}
 	}
 
+	return nil
+}
+
+// streamInitialOutput carries the initial value of an output or inout to the listeners,
+// as a write to it would; other features are the performance's own.
+func (e *ActionExecutor) streamInitialOutput(name string, value Value) error {
+	switch e.root.features[e.root.key(name)] {
+	case ast.DirOut, ast.DirInOut:
+		return e.streamOutput(name, value)
+	}
 	return nil
 }
 

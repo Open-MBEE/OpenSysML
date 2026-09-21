@@ -3,6 +3,7 @@ package runtime
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"sort"
 
@@ -197,7 +198,7 @@ func (e *ActionExecutor) newRootFrame() *actionFrame {
 // features the action holds, aliasing what each redefines.
 func (e *ActionExecutor) declareRootFeatures(root *actionFrame) {
 	for _, attr := range e.graph.Attributes {
-		root.features[attr.Name] = ast.DirNone
+		root.features[attr.Name] = attr.Direction
 		scope := attr.Scope
 		if scope == nil {
 			scope = e.graph.Scope
@@ -746,14 +747,16 @@ func (e *performances) checkNestedDelivery(flow *lower.ActionGraph, node ast.Nod
 }
 
 // takeDeliveries moves the oldest delivery at each pin of node into perf, so that
-// performances of one node begun in turn each start with their own inputs, and
-// forwards what waits for the nodes under it.
+// performances of one node begun in turn each start with their own inputs, streams
+// each on along the pin's flows, and forwards what waits for the nodes under it.
 func (e *performances) takeDeliveries(f *actionFrame, node ast.Node, perf *actionFrame) error {
 	queues := f.pending[node]
+	taken := make(map[string]Value, len(queues))
 	for pin, values := range queues {
 		f.receiveStream(node, pin)
 		f.shiftStaged(node, pin)
 		perf.data[pin] = values[0]
+		taken[pin] = values[0]
 		if len(values) == 1 {
 			delete(queues, pin)
 		} else {
@@ -762,6 +765,11 @@ func (e *performances) takeDeliveries(f *actionFrame, node ast.Node, perf *actio
 	}
 	if len(queues) == 0 {
 		delete(f.pending, node)
+	}
+	for _, pin := range slices.Sorted(maps.Keys(taken)) {
+		if err := e.streamFrom(perf, pin, taken[pin]); err != nil {
+			return err
+		}
 	}
 	nested := f.nested[node]
 	delete(f.nested, node)
@@ -1449,12 +1457,17 @@ func (e *performances) beginInvocation(perf *actionFrame, inv actionInvocation) 
 // streamCalleeOutput is what the action a node performs writes its outputs through
 // while it runs: each lands at the node's pin and goes on along its streaming flows.
 func (e *performances) streamCalleeOutput(perf *actionFrame, out []string) func(string, Value) error {
+	outputs := make(map[string]bool, len(out))
+	for _, name := range out {
+		outputs[perf.key(name)] = true
+	}
 	return func(name string, value Value) error {
-		if !slices.Contains(out, name) {
+		key := perf.key(name)
+		if !outputs[key] {
 			return nil
 		}
-		perf.data[perf.key(name)] = value
-		return e.streamFrom(perf, perf.key(name), value)
+		perf.data[key] = value
+		return e.streamFrom(perf, key, value)
 	}
 }
 
