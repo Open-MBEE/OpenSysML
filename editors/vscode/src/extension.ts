@@ -66,6 +66,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         void restart();
       }
     }),
+    vscode.workspace.onDidGrantWorkspaceTrust(() => void restart()),
   );
 
   await enqueue(startClient);
@@ -102,6 +103,9 @@ async function startClient(): Promise<void> {
       `Could not find ${EXECUTABLE}. Build it with \`make build\` and set "opensysml.server.path", or put it on your PATH. Syntax highlighting still works.`,
     );
     return;
+  }
+  if (!vscode.workspace.isTrusted) {
+    output.appendLine("Restricted Mode: a sysml-lsp build in the workspace's bin/ is skipped; using a configured or PATH server.");
   }
   output.appendLine(`Starting ${command}`);
 
@@ -152,6 +156,9 @@ async function stopClient(): Promise<void> {
 function resolveServer(configured: string): string | undefined {
   if (configured) {
     return isExecutable(configured) ? configured : undefined;
+  }
+  if (!vscode.workspace.isTrusted) {
+    return onPath(EXECUTABLE);
   }
   for (const folder of vscode.workspace.workspaceFolders ?? []) {
     const candidate = join(folder.uri.fsPath, "bin", EXECUTABLE);
