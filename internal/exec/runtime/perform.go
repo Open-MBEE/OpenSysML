@@ -55,7 +55,7 @@ type pendingCall struct {
 }
 
 // Call queues the call event, runs the machine to completion and releases the
-// caller with the outputs the triggered behaviors returned, by name (PSSM 8.5.4).
+// caller with the outputs the triggered behaviors returned, by name (PSSM 8.5.9).
 func (e *StateExecutor) Call(operation string, args map[string]Value) (map[string]Value, error) {
 	call := &pendingCall{id: e.nextEventID, outputs: make(map[string]Value)}
 	e.pendingCall = call
