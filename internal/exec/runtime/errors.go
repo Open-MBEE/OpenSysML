@@ -278,6 +278,14 @@ var (
 	// parameter twice: by two named arguments, or by a positional and a named one.
 	ErrDuplicateArgument = errors.New("argument bound more than once")
 
+	// ErrOperationArity is returned when an operation invocation passes more
+	// positional arguments than the operation declares input parameters.
+	ErrOperationArity = errors.New("operation argument count mismatch")
+
+	// ErrMixedArguments is returned when an operation invocation gives positional and
+	// named arguments together: an argument list is one form or the other (KerML 8.2.5.8.3).
+	ErrMixedArguments = errors.New("positional and named arguments mixed")
+
 	// ErrNodeNotPerformed is returned when a pin of an action node is read before
 	// any performance of the node has started.
 	ErrNodeNotPerformed = errors.New("action node read before it is performed")
@@ -285,6 +293,18 @@ var (
 	// ErrNodePin is returned when a pin read, flow, or binding names a feature the
 	// action node does not declare, or the node's result where it has none.
 	ErrNodePin = errors.New("action node pin not declared")
+
+	// ErrFlowSource is returned when a flow's source completes with its pin holding
+	// no value to carry: a streaming source that never wrote, a succession source that produced nothing.
+	ErrFlowSource = errors.New("flow source produced no value")
+
+	// ErrStreamUnreceived is returned when a streaming flow carried a value after its
+	// target's last performance ended, so no performance of the target ever received it.
+	ErrStreamUnreceived = errors.New("streamed value reached no performance of its target")
+
+	// ErrStreamCycle is returned when streaming flows lead a value written to a pin back
+	// to that pin while the write is still being carried on.
+	ErrStreamCycle = errors.New("streaming flows form a cycle")
 
 	// ErrViolated is returned when an asserted constraint or a required
 	// condition evaluates to false. It is a verdict about the model, not a

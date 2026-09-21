@@ -91,92 +91,17 @@ func (m *migration) lanesAround(e *sysmlv1.Element) (*lanes, *sysmlv1.Element) {
 func (s *bodyScope) feature(path []string, write bool) (opaqueRef, *refusal) {
 	m := s.m
 	full := strings.Join(path, ".")
-	var expr string
-	var f *sysmlv1.Element
-	var plural bool    // whether the objects the name reads through are a collection
-	var carrier string // the first such collection
-	if path[0] == "this" {
-		switch {
-		case s.lane != nil && s.lane.expr != "" && s.lane.typ != nil:
-			expr, f, plural, carrier = s.lane.expr, s.lane.typ, s.lane.plural, s.lane.expr
-			s.viaLane = true
-		case m.contextClassifier(s.scope) != nil:
-			expr, f = "this", m.contextClassifier(s.scope)
-		default:
-			return opaqueRef{}, &refusal{kind: refusedContext, token: "this",
-				why: "the body is in no classifier and its partition represents no object"}
-		}
-		if len(path) == 1 {
-			if write {
-				return opaqueRef{}, &refusal{kind: refusedContext, token: "this", why: "the object itself is not assigned"}
-			}
-			return opaqueRef{expr: expr, plural: plural}, nil
-		}
-	} else if p, d := m.pinNamed(s.scope, path[0]); p != nil {
-		if write && len(path) == 1 && d.dir == "in" {
-			return opaqueRef{}, &refusal{kind: refusedConstruct, token: full, why: "an input pin is not assigned"}
-		}
-		expr, f = writeName(d.name), p
-	} else {
-		name := path[0]
-		if lf := m.laneFeature(s.lane, name); lf != nil {
-			expr, f, plural, carrier = s.lane.expr+"."+writeName(m.nameOf(lf)), lf, s.lane.plural, s.lane.expr
-			s.viaLane = true
-		} else {
-			visible, hidden := m.visibleFrom(s.scope)
-			f = visible[name]
-			// The clock variable is the tool's global; any feature of that name shadows it.
-			if by, clock := m.clockNames()[name]; clock && f == nil && hidden[name] == nil && len(path) == 1 {
-				if write {
-					return opaqueRef{}, &refusal{kind: refusedConstruct, token: name, why: "the simulation clock is read, never assigned"}
-				}
-				s.clock = name + ", " + by
-				return opaqueRef{expr: clockRead, scalar: "Real"}, nil
-			}
-			switch {
-			case f == nil && hidden[name] != nil:
-				return opaqueRef{}, &refusal{kind: refusedName, token: name,
-					why: "it is private to " + qualifiedName(hidden[name].Parent)}
-			case f == nil:
-				return opaqueRef{}, &refusal{kind: refusedName, token: name,
-					why: joinNotes("nothing visible from "+qualifiedName(s.scope)+" is called "+name, s.clash)}
-			case f.Type != "Property" && f.Type != "Port" && f.Type != "Parameter":
-				return opaqueRef{}, &refusal{kind: refusedName, token: name,
-					why: "it is " + kindOf(f) + " " + qualifiedName(f) + ", not a feature a body reads"}
-			}
-			expr = writeName(m.nameOf(f))
-			if m.ownedByClassifier(f, s.scope) {
-				expr = "this." + expr
-			}
-		}
+	a := s.featureAnchor(path, write)
+	if a.refusal != nil {
+		return opaqueRef{}, a.refusal
 	}
-	for _, step := range path[1:] {
-		if unreadableBounds(f) {
-			return opaqueRef{}, boundsRefusal(f, full)
-		}
-		if !plural && manyValued(f) {
-			plural, carrier = true, expr
-		}
-		typ := m.typedAs(f)
-		if typ == nil {
-			return opaqueRef{}, &refusal{kind: refusedName, token: full,
-				why: qualifiedName(f) + " has no type, so no feature " + step}
-		}
-		visible, hidden := m.membersOf(typ, memberAny)
-		next := visible[step]
-		switch {
-		case next == nil && hidden[step] != nil:
-			return opaqueRef{}, &refusal{kind: refusedName, token: full,
-				why: step + " is private to " + qualifiedName(hidden[step].Parent)}
-		case next == nil:
-			return opaqueRef{}, &refusal{kind: refusedName, token: full,
-				why: qualifiedName(f) + " has no feature " + step}
-		case next.Type != "Property" && next.Type != "Port":
-			return opaqueRef{}, &refusal{kind: refusedName, token: full,
-				why: step + " is " + kindOf(next) + ", not a feature a body reads"}
-		}
-		expr += "." + writeName(m.nameOf(next))
-		f = next
+	if a.res != nil {
+		return *a.res, nil
+	}
+	expr, f, plural, carrier := a.expr, a.f, a.plural, a.carrier
+	expr, f, plural, carrier, r := s.featureSteps(path, full, expr, f, plural, carrier)
+	if r != nil {
+		return opaqueRef{}, r
 	}
 	if unreadableBounds(f) {
 		return opaqueRef{}, boundsRefusal(f, full)
@@ -198,6 +123,130 @@ func (s *bodyScope) feature(path []string, write bool) (opaqueRef, *refusal) {
 		plural:   plural || manyValued(f),
 		optional: m.lacksValue(f),
 	}, nil
+}
+
+// featureAnchor is what a dotted name's first step resolved to — the object and
+// expression it reads — or the whole answer (res or refusal) when the name ends there.
+type featureAnchor struct {
+	expr    string
+	f       *sysmlv1.Element
+	plural  bool // whether the objects the name reads through are a collection
+	carrier string
+	res     *opaqueRef
+	refusal *refusal
+}
+
+// featureAnchor resolves the first step of path: `this`, a pin, a lane feature or a
+// member visible from the scope.
+func (s *bodyScope) featureAnchor(path []string, write bool) featureAnchor {
+	m := s.m
+	full := strings.Join(path, ".")
+	if path[0] == "this" {
+		return s.thisAnchor(path, write)
+	}
+	if p, d := m.pinNamed(s.scope, path[0]); p != nil {
+		if write && len(path) == 1 && d.dir == "in" {
+			return featureAnchor{refusal: &refusal{kind: refusedConstruct, token: full, why: "an input pin is not assigned"}}
+		}
+		return featureAnchor{expr: writeName(d.name), f: p}
+	}
+	return s.scopeAnchor(path, write)
+}
+
+// thisAnchor resolves `this` to the lane's object when the lane represents one,
+// else the context classifier.
+func (s *bodyScope) thisAnchor(path []string, write bool) featureAnchor {
+	m := s.m
+	var a featureAnchor
+	switch {
+	case s.lane != nil && s.lane.expr != "" && s.lane.typ != nil:
+		a.expr, a.f, a.plural, a.carrier = s.lane.expr, s.lane.typ, s.lane.plural, s.lane.expr
+		s.viaLane = true
+	case m.contextClassifier(s.scope) != nil:
+		a.expr, a.f = "this", m.contextClassifier(s.scope)
+	default:
+		return featureAnchor{refusal: &refusal{kind: refusedContext, token: "this",
+			why: "the body is in no classifier and its partition represents no object"}}
+	}
+	if len(path) == 1 {
+		if write {
+			return featureAnchor{refusal: &refusal{kind: refusedContext, token: "this", why: "the object itself is not assigned"}}
+		}
+		return featureAnchor{res: &opaqueRef{expr: a.expr, plural: a.plural}}
+	}
+	return a
+}
+
+// scopeAnchor resolves the first step of path to a lane feature, the simulation
+// clock, or a member visible from the scope.
+func (s *bodyScope) scopeAnchor(path []string, write bool) featureAnchor {
+	m := s.m
+	name := path[0]
+	if lf := m.laneFeature(s.lane, name); lf != nil {
+		s.viaLane = true
+		return featureAnchor{expr: s.lane.expr + "." + writeName(m.nameOf(lf)), f: lf, plural: s.lane.plural, carrier: s.lane.expr}
+	}
+	visible, hidden := m.visibleFrom(s.scope)
+	f := visible[name]
+	// The clock variable is the tool's global; any feature of that name shadows it.
+	if by, clock := m.clockNames()[name]; clock && f == nil && hidden[name] == nil && len(path) == 1 {
+		if write {
+			return featureAnchor{refusal: &refusal{kind: refusedConstruct, token: name, why: "the simulation clock is read, never assigned"}}
+		}
+		s.clock = name + ", " + by
+		return featureAnchor{res: &opaqueRef{expr: clockRead, scalar: "Real"}}
+	}
+	switch {
+	case f == nil && hidden[name] != nil:
+		return featureAnchor{refusal: &refusal{kind: refusedName, token: name,
+			why: "it is private to " + qualifiedName(hidden[name].Parent)}}
+	case f == nil:
+		return featureAnchor{refusal: &refusal{kind: refusedName, token: name,
+			why: joinNotes("nothing visible from "+qualifiedName(s.scope)+" is called "+name, s.clash)}}
+	case f.Type != "Property" && f.Type != "Port" && f.Type != "Parameter":
+		return featureAnchor{refusal: &refusal{kind: refusedName, token: name,
+			why: "it is " + kindOf(f) + " " + qualifiedName(f) + ", not a feature a body reads"}}
+	}
+	expr := writeName(m.nameOf(f))
+	if m.ownedByClassifier(f, s.scope) {
+		expr = "this." + expr
+	}
+	return featureAnchor{expr: expr, f: f}
+}
+
+// featureSteps resolves each further step of path as a feature of the last object,
+// tracking whether the name reads through a collection.
+func (s *bodyScope) featureSteps(path []string, full, expr string, f *sysmlv1.Element, plural bool, carrier string) (string, *sysmlv1.Element, bool, string, *refusal) {
+	m := s.m
+	for _, step := range path[1:] {
+		if unreadableBounds(f) {
+			return expr, f, plural, carrier, boundsRefusal(f, full)
+		}
+		if !plural && manyValued(f) {
+			plural, carrier = true, expr
+		}
+		typ := m.typedAs(f)
+		if typ == nil {
+			return expr, f, plural, carrier, &refusal{kind: refusedName, token: full,
+				why: qualifiedName(f) + " has no type, so no feature " + step}
+		}
+		visible, hidden := m.membersOf(typ, memberAny)
+		next := visible[step]
+		switch {
+		case next == nil && hidden[step] != nil:
+			return expr, f, plural, carrier, &refusal{kind: refusedName, token: full,
+				why: step + " is private to " + qualifiedName(hidden[step].Parent)}
+		case next == nil:
+			return expr, f, plural, carrier, &refusal{kind: refusedName, token: full,
+				why: qualifiedName(f) + " has no feature " + step}
+		case next.Type != "Property" && next.Type != "Port":
+			return expr, f, plural, carrier, &refusal{kind: refusedName, token: full,
+				why: step + " is " + kindOf(next) + ", not a feature a body reads"}
+		}
+		expr += "." + writeName(m.nameOf(next))
+		f = next
+	}
+	return expr, f, plural, carrier, nil
 }
 
 // manyValued reports whether feature f is known to hold other than exactly one value.
@@ -404,8 +453,23 @@ func (m *migration) clockNames() map[string]string {
 		return m.clocks
 	}
 	m.clocks = map[string]string{}
-	var configs []*sysmlv1.Element
-	profiled := false
+	configs, profiled := m.simulationConfigs()
+	for name, by := range clockNamers(configs) {
+		if len(by) == 1 {
+			m.clocks[name] = "named by the configuration " + qualifiedName(by[0])
+		} else {
+			m.clocks[name] = "named by " + strconv.Itoa(len(by)) + " simulation configurations"
+		}
+	}
+	if profiled && len(m.clocks) == 0 {
+		m.clocks[defaultClockName] = "the simulation profile's default name"
+	}
+	return m.clocks
+}
+
+// simulationConfigs lists the elements carrying a simulation configuration,
+// and whether any element applies the simulation profile at all.
+func (m *migration) simulationConfigs() (configs []*sysmlv1.Element, profiled bool) {
 	var walk func(e *sysmlv1.Element)
 	walk = func(e *sysmlv1.Element) {
 		for _, s := range e.Stereotypes {
@@ -424,6 +488,11 @@ func (m *migration) clockNames() map[string]string {
 		walk(r)
 	}
 	sort.Slice(configs, func(i, j int) bool { return configs[i].ID < configs[j].ID })
+	return configs, profiled
+}
+
+// clockNamers tallies which configurations name each clock variable.
+func clockNamers(configs []*sysmlv1.Element) map[string][]*sysmlv1.Element {
 	namers := map[string][]*sysmlv1.Element{}
 	for _, e := range configs {
 		for _, s := range e.Stereotypes {
@@ -439,15 +508,5 @@ func (m *migration) clockNames() map[string]string {
 			}
 		}
 	}
-	for name, by := range namers {
-		if len(by) == 1 {
-			m.clocks[name] = "named by the configuration " + qualifiedName(by[0])
-		} else {
-			m.clocks[name] = "named by " + strconv.Itoa(len(by)) + " simulation configurations"
-		}
-	}
-	if profiled && len(m.clocks) == 0 {
-		m.clocks[defaultClockName] = "the simulation profile's default name"
-	}
-	return m.clocks
+	return namers
 }

@@ -194,7 +194,7 @@ List<QueryElement> parts = model.query(
         .withScope(List.of("Demo::vehicle"))                        // beneath these elements
         .withSelect(List.of("name", "owner"))                       // properties to read
         .where(Condition.all(List.of(
-            Condition.equal("@type", List.of("PartUsage")),
+            Condition.equalTo("@type", List.of("PartUsage")),
             Condition.greater("mass", "1000").negated()))));
 parts.get(0).id(); parts.get(0).type(); parts.get(0).properties();  // qualified name, metaclass, selected values
 List<QueryElement> same = model.queryOslc("oslc.where=rdf:type=\"PartUsage\"&oslc.select=sysml:name");

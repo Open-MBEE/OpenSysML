@@ -1,15 +1,18 @@
 exit: idle (exit action)
-stmt assign log
-    eval feature log -> ""
-    eval literal "idle(exit);" -> "idle(exit);"
-  eval operator + -> "idle(exit);"
-stmt assign log
-    eval feature log -> "idle(exit);"
-    eval literal "check;" -> "check;"
-  eval operator + -> "idle(exit);check;"
-stmt assign log
-    eval feature log -> "idle(exit);check;"
-    eval literal "relay;" -> "relay;"
-  eval operator + -> "idle(exit);check;relay;"
+stmt action body
+  stmt assign log
+      eval feature log -> ""
+      eval literal "idle(exit);" -> "idle(exit);"
+    eval operator + -> "idle(exit);"
+stmt action body
+  stmt assign log
+      eval feature log -> "idle(exit);"
+      eval literal "check;" -> "check;"
+    eval operator + -> "idle(exit);check;"
+stmt action body
+  stmt assign log
+      eval feature log -> "idle(exit);check;"
+      eval literal "relay;" -> "relay;"
+    eval operator + -> "idle(exit);check;relay;"
 transition: idle -> stop (event: accept Check)
 terminate: stop

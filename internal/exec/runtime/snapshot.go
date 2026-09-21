@@ -27,19 +27,19 @@ var ErrSnapshotPausedBody = errors.New("snapshot of a body paused mid-statement"
 // the run had made keeps its identity across a restore; what it made after the
 // mark is abandoned, and the identities it took are handed out again.
 type Snapshot struct {
-	ctx       *Context
-	journal   journalMark
-	run       runCapture
-	runStates []runStateCapture
+	ctx     *Context
+	journal journalMark
+	run     runCapture
 	executorCaptures
 	released bool
 }
 
 // executorCaptures is a set of executors captured by value, each once: those
-// asked for, and those the paused bodies of these perform.
+// asked for, and those the paused bodies of these perform, with the runs they drive.
 type executorCaptures struct {
-	actions []actionCapture
-	states  []stateCapture
+	actions   []actionCapture
+	states    []stateCapture
+	runStates []runStateCapture
 }
 
 // journalMark is where in the journal a change began and what the journal holds
@@ -50,6 +50,8 @@ type journalMark struct {
 	messages          []Message
 	clockNow          float64
 	clockWaiters      []clockWaiter
+	trace             *TraceRecorder
+	traced            traceCapture
 }
 
 // runCapture is the run bookkeeping the context keeps outside its journal.
@@ -199,9 +201,6 @@ func (s *Snapshot) Restore() {
 	ctx.snapshots = ctx.snapshots[:at+1]
 	ctx.rollbackJournal(s.journal)
 	s.run.restore(ctx)
-	for _, capture := range s.runStates {
-		capture.restore()
-	}
 	s.executorCaptures.restore()
 }
 
@@ -235,6 +234,9 @@ func (s *executorCaptures) captureState(e *StateExecutor) {
 }
 
 func (s *executorCaptures) restore() {
+	for _, capture := range s.runStates {
+		capture.restore()
+	}
 	for _, capture := range s.actions {
 		capture.restore()
 	}
@@ -310,12 +312,14 @@ func (ctx *Context) markJournal() journalMark {
 		messages:     slices.Clone(ctx.messages),
 		clockNow:     ctx.clock.now,
 		clockWaiters: slices.Clone(ctx.clock.waiters),
+		trace:        ctx.trace,
+		traced:       captureTrace(ctx.trace),
 	}
 }
 
 // rollbackJournal undoes every change journaled since the mark: the feature
-// values written, the other changes noted, the bus, the clock, the objects made
-// and the behaviors attached. The journal is cut back to the mark.
+// values written, the other changes noted, the bus, the clock, the objects made,
+// the behaviors attached and the trace recorded. The journal is cut back to the mark.
 func (ctx *Context) rollbackJournal(mark journalMark) {
 	for i := len(ctx.journalWrites) - 1; i >= mark.writes; i-- {
 		*ctx.journalWrites[i].fv = ctx.journalWrites[i].prior
@@ -330,6 +334,7 @@ func (ctx *Context) rollbackJournal(mark journalMark) {
 	ctx.writes++
 	ctx.abandonCreationSince(mark.created, mark.attached)
 	ctx.clock.now, ctx.clock.waiters = mark.clockNow, slices.Clone(mark.clockWaiters)
+	mark.traced.restore(mark.trace)
 }
 
 func (ctx *Context) captureRun() runCapture {
@@ -368,7 +373,7 @@ func (c runCapture) restore(ctx *Context) {
 }
 
 // captureRunState captures a run's state once, however many executors share it.
-func (s *Snapshot) captureRunState(state *runState) {
+func (s *executorCaptures) captureRunState(state *runState) {
 	if state == nil || slices.ContainsFunc(s.runStates, func(c runStateCapture) bool { return c.state == state }) {
 		return
 	}
@@ -436,6 +441,7 @@ type actionCapture struct {
 	moved             bool
 	leftStanding      bool
 	awaiting          *actionFrame
+	outputListeners   []outputListener
 	firedBreakpoints  mapState[breakpointVisit, bool]
 	traversals        []Traversal
 	traversalBase     int
@@ -455,6 +461,7 @@ func (e *ActionExecutor) capture() actionCapture {
 		pausedAt: e.pausedAt, released: e.released, pauses: e.pauses,
 		steps: e.steps, stepsSpent: e.stepsSpent, inRun: e.inRun, held: e.held, moved: e.moved, awaiting: e.awaiting,
 		leftStanding:     e.leftStanding,
+		outputListeners:  slices.Clone(e.outputListeners),
 		firedBreakpoints: captureMap(e.firedBreakpoints),
 		traversals:       cloneTraversals(e.traversals),
 		traversalBase:    e.traversalBase,
@@ -474,6 +481,7 @@ func (c actionCapture) restore() {
 	e.pausedAt, e.released, e.pauses = c.pausedAt, c.released, c.pauses
 	e.steps, e.stepsSpent, e.inRun, e.held = c.steps, c.stepsSpent, c.inRun, c.held
 	e.moved, e.awaiting, e.leftStanding = c.moved, c.awaiting, c.leftStanding
+	e.outputListeners = slices.Clone(c.outputListeners)
 	e.firedBreakpoints = c.firedBreakpoints.restore()
 	e.traversals, e.traversalBase = cloneTraversals(c.traversals), c.traversalBase
 	e.driven.state = c.driven
@@ -535,7 +543,10 @@ func captureFrame(perf *actionFrame) frameCapture {
 	c.saved.outputs = slices.Clone(perf.outputs)
 	c.saved.subactions = maps.Clone(perf.subactions)
 	c.saved.pending = clonePending(perf.pending)
+	c.saved.staged = cloneStaged(perf.staged)
 	c.saved.nested = cloneNested(perf.nested)
+	c.saved.streamed = maps.Clone(perf.streamed)
+	c.saved.unreceived = cloneUnreceived(perf.unreceived)
 	c.saved.nodes = slices.Clone(perf.nodes)
 	return c
 }
@@ -555,7 +566,10 @@ func (c frameCapture) restore() {
 	perf.outputs = slices.Clone(c.saved.outputs)
 	perf.subactions = maps.Clone(c.saved.subactions)
 	perf.pending = clonePending(c.saved.pending)
+	perf.staged = cloneStaged(c.saved.staged)
 	perf.nested = cloneNested(c.saved.nested)
+	perf.streamed = maps.Clone(c.saved.streamed)
+	perf.unreceived = cloneUnreceived(c.saved.unreceived)
 	perf.nodes = slices.Clone(c.saved.nodes)
 }
 
@@ -568,6 +582,21 @@ func clonePending(pending map[ast.Node]map[string][]Value) map[ast.Node]map[stri
 		clonedPins := make(map[string][]Value, len(pins))
 		for pin, values := range pins {
 			clonedPins[pin] = slices.Clone(values)
+		}
+		cloned[node] = clonedPins
+	}
+	return cloned
+}
+
+func cloneStaged(staged map[ast.Node]map[string][]stagedStream) map[ast.Node]map[string][]stagedStream {
+	if staged == nil {
+		return nil
+	}
+	cloned := make(map[ast.Node]map[string][]stagedStream, len(staged))
+	for node, pins := range staged {
+		clonedPins := make(map[string][]stagedStream, len(pins))
+		for pin, entries := range pins {
+			clonedPins[pin] = slices.Clone(entries)
 		}
 		cloned[node] = clonedPins
 	}
@@ -619,6 +648,7 @@ type stateCapture struct {
 	firingNotes        []RunNote
 	changeRearmed      mapState[*lower.Transition, bool]
 	changeWaits        []changeWait
+	pendingCall        *pendingCall
 }
 
 // doActionCapture is one do action's progress: the behaviors it has still to run
@@ -662,6 +692,7 @@ func (e *StateExecutor) capture() stateCapture {
 		firingNotes:        slices.Clone(e.firingNotes),
 		changeRearmed:      captureMap(e.changeRearmed),
 		changeWaits:        slices.Clone(e.changeWaits),
+		pendingCall:        e.pendingCall.clone(),
 	}
 	if e.eventQueue != nil {
 		c.events = slices.Clone(e.eventQueue.events)
@@ -718,6 +749,7 @@ func (c stateCapture) restore() {
 	e.firingChange, e.firingNotes = c.firingChange, slices.Clone(c.firingNotes)
 	e.changeRearmed = c.changeRearmed.restore()
 	e.changeWaits = slices.Clone(c.changeWaits)
+	e.pendingCall = c.pendingCall.clone()
 }
 
 func cloneConfiguration(config *StateConfiguration) *StateConfiguration {

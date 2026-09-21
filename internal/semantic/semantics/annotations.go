@@ -1148,6 +1148,7 @@ var metaclassNames = map[symbols.SymbolKind]string{
 	symbols.SymbolConcernUsage:            "ConcernUsage",
 	symbols.SymbolConnectionDef:           "ConnectionDefinition",
 	symbols.SymbolConnectionUsage:         "ConnectionUsage",
+	symbols.SymbolBindingUsage:            "BindingConnectorAsUsage",
 	symbols.SymbolSuccessionUsage:         "SuccessionAsUsage",
 	symbols.SymbolFlowDef:                 "FlowDefinition",
 	symbols.SymbolFlowUsage:               "FlowUsage",

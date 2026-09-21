@@ -54,10 +54,11 @@ stmt action body
       eval feature log -> "outer(entry);middle(entry);outer(exit);outer(entry);middle(entry);innerTwo(entry);"
       eval literal "outer(exit);" -> "outer(exit);"
     eval operator + -> "outer(entry);middle(entry);outer(exit);outer(entry);middle(entry);innerTwo(entry);outer(exit);"
-stmt assign log
-    eval feature log -> "outer(entry);middle(entry);outer(exit);outer(entry);middle(entry);innerTwo(entry);outer(exit);"
-    eval literal "reset(effect);" -> "reset(effect);"
-  eval operator + -> "outer(entry);middle(entry);outer(exit);outer(entry);middle(entry);innerTwo(entry);outer(exit);reset(effect);"
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);middle(entry);outer(exit);outer(entry);middle(entry);innerTwo(entry);outer(exit);"
+      eval literal "reset(effect);" -> "reset(effect);"
+    eval operator + -> "outer(entry);middle(entry);outer(exit);outer(entry);middle(entry);innerTwo(entry);outer(exit);reset(effect);"
 enter: outer (entry action)
 stmt action body
   stmt assign log

@@ -12,6 +12,10 @@ import java.util.Optional;
  */
 public sealed interface Edit {
 
+  private static void requireTarget(String target) {
+    Objects.requireNonNull(target, "target");
+  }
+
   /**
    * Sets the value of a feature that already exists, replacing the expression of its {@code =
    * <expr>} or adding one before the declaration's {@code ;}.
@@ -30,7 +34,7 @@ public sealed interface Edit {
      * @param value the new value, never {@code null}
      */
     public SetValue {
-      Objects.requireNonNull(target, "target");
+      requireTarget(target);
       Objects.requireNonNull(value, "value");
     }
   }
@@ -52,7 +56,7 @@ public sealed interface Edit {
      * @param newName the new name, never {@code null}
      */
     public Rename {
-      Objects.requireNonNull(target, "target");
+      requireTarget(target);
       Objects.requireNonNull(newName, "newName");
     }
   }
@@ -170,7 +174,7 @@ public sealed interface Edit {
      * @param cascade whether referring declarations go too
      */
     public Delete {
-      Objects.requireNonNull(target, "target");
+      requireTarget(target);
     }
   }
 
@@ -191,7 +195,7 @@ public sealed interface Edit {
      * @param owner the receiving namespace, never {@code null}
      */
     public Move {
-      Objects.requireNonNull(target, "target");
+      requireTarget(target);
       Objects.requireNonNull(owner, "owner");
     }
   }

@@ -47,6 +47,16 @@ const usesSchedule = (operation: GQLRunOperation) =>
   operation === 'EXECUTE_STATE' ||
   operation === 'EXPLORE_STATE' ||
   operation === 'RUN_ANALYSIS';
+const inputNameError = (inputs: GQLRunInputValue[], name: string, index: number): string | undefined => {
+  if (name.trim() === '') {
+    return 'Input name is required';
+  }
+  if (inputs.findIndex((entry) => entry.name === name) !== index) {
+    return 'Duplicate input name';
+  }
+  return undefined;
+};
+
 const usesSubject = (operation: GQLRunOperation) =>
   operation === 'VERIFY_CONSTRAINT' ||
   operation === 'VERIFY_REQUIREMENT' ||
@@ -90,6 +100,27 @@ export const RunWithOpenSysMLDialog = ({
     setSelection({ entries: [{ id: siriusId }] });
   };
 
+  const updateInput = (index: number, field: 'name' | 'expression', value: string): void => {
+    setInputs((previous) =>
+      previous.map((entry, entryIndex) => (entryIndex === index ? { ...entry, [field]: value } : entry))
+    );
+  };
+  const removeInput = (index: number): void => {
+    setInputs((previous) => previous.filter((_, entryIndex) => entryIndex !== index));
+  };
+  const updateEvent = (index: number, value: string): void => {
+    setEvents((previous) => previous.map((entry, entryIndex) => (entryIndex === index ? value : entry)));
+  };
+  const removeEvent = (index: number): void => {
+    setEvents((previous) => previous.filter((_, entryIndex) => entryIndex !== index));
+  };
+  const updateArgument = (index: number, value: string): void => {
+    setArgumentsText((previous) => previous.map((entry, entryIndex) => (entryIndex === index ? value : entry)));
+  };
+  const removeArgument = (index: number): void => {
+    setArgumentsText((previous) => previous.filter((_, entryIndex) => entryIndex !== index));
+  };
+
   return (
     <Dialog open onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>Run with OpenSysML: {elementLabel}</DialogTitle>
@@ -121,35 +152,15 @@ export const RunWithOpenSysMLDialog = ({
                     input.name.trim() === '' ||
                     (input.name !== '' && inputs.findIndex((entry) => entry.name === input.name) !== index)
                   }
-                  helperText={
-                    input.name.trim() === ''
-                      ? 'Input name is required'
-                      : input.name !== '' && inputs.findIndex((entry) => entry.name === input.name) !== index
-                      ? 'Duplicate input name'
-                      : undefined
-                  }
-                  onChange={(event) =>
-                    setInputs((previous) =>
-                      previous.map((entry, entryIndex) =>
-                        entryIndex === index ? { ...entry, name: event.target.value } : entry
-                      )
-                    )
-                  }
+                  helperText={inputNameError(inputs, input.name, index)}
+                  onChange={(event) => updateInput(index, 'name', event.target.value)}
                 />
                 <TextField
                   label="Expression"
                   value={input.expression}
-                  onChange={(event) =>
-                    setInputs((previous) =>
-                      previous.map((entry, entryIndex) =>
-                        entryIndex === index ? { ...entry, expression: event.target.value } : entry
-                      )
-                    )
-                  }
+                  onChange={(event) => updateInput(index, 'expression', event.target.value)}
                 />
-                <Button
-                  aria-label={`Remove input ${index + 1}`}
-                  onClick={() => setInputs((previous) => previous.filter((_, entryIndex) => entryIndex !== index))}>
+                <Button aria-label={`Remove input ${index + 1}`} onClick={() => removeInput(index)}>
                   <DeleteIcon />
                 </Button>
               </div>
@@ -171,15 +182,9 @@ export const RunWithOpenSysMLDialog = ({
                   margin="normal"
                   label={`Event ${index + 1}`}
                   value={event}
-                  onChange={(change) =>
-                    setEvents((previous) =>
-                      previous.map((entry, entryIndex) => (entryIndex === index ? change.target.value : entry))
-                    )
-                  }
+                  onChange={(change) => updateEvent(index, change.target.value)}
                 />
-                <Button
-                  aria-label={`Remove event ${index + 1}`}
-                  onClick={() => setEvents((previous) => previous.filter((_, entryIndex) => entryIndex !== index))}>
+                <Button aria-label={`Remove event ${index + 1}`} onClick={() => removeEvent(index)}>
                   <DeleteIcon />
                 </Button>
               </div>
@@ -199,17 +204,9 @@ export const RunWithOpenSysMLDialog = ({
                   margin="normal"
                   label={`Argument ${index + 1}`}
                   value={argument}
-                  onChange={(change) =>
-                    setArgumentsText((previous) =>
-                      previous.map((entry, entryIndex) => (entryIndex === index ? change.target.value : entry))
-                    )
-                  }
+                  onChange={(change) => updateArgument(index, change.target.value)}
                 />
-                <Button
-                  aria-label={`Remove argument ${index + 1}`}
-                  onClick={() =>
-                    setArgumentsText((previous) => previous.filter((_, entryIndex) => entryIndex !== index))
-                  }>
+                <Button aria-label={`Remove argument ${index + 1}`} onClick={() => removeArgument(index)}>
                   <DeleteIcon />
                 </Button>
               </div>

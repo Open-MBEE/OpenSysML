@@ -1155,8 +1155,7 @@ elmt:IrregularLayout__Ops___400
     sysml:owningNamespace elmt:IrregularLayout__Ops ;
     sysml:owner elmt:IrregularLayout__Ops ;
     sysml:owningRelatedElement elmt:IrregularLayout__Ops ;
-    sysx:subactionKind "entry" ;
-    sysx:hasBody "false"^^xsd:boolean .
+    sysx:subactionKind "entry" .
 
 elmt:IrregularLayout__Ops___401
     a sysml:SuccessionAsUsage ;

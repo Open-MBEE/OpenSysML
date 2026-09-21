@@ -523,9 +523,9 @@ func certainStates(lists [][]*ast.StateNode) []*ast.StateNode {
 
 // runEffects performs a compound transition's effects in path order, activating the
 // chain down to the state enclosing each first: a segment is a performance of its owner.
-// A `terminate` ending an effect ends the block it was written in (executeBehaviors).
+// A `terminate` ending a step of a transition body ends the body's later steps (endedBefore).
 func (e *StateExecutor) runEffects(effects []routeEffect, chain []*ast.StateNode) error {
-	var ended []lower.BehaviorBlock
+	var ended []ast.Node
 	for i, effect := range effects {
 		if e.endedBefore(ended, effect.behavior) {
 			continue

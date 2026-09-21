@@ -734,6 +734,8 @@ var usageSymbolKinds = map[ast.UsageKind]SymbolKind{
 	// (KerML 1.0 §7.4.6), so it is one kind of symbol.
 	ast.UsageConnection: SymbolConnectionUsage,
 	ast.UsageConnector:  SymbolConnectionUsage,
+	// A binding is a BindingConnectorAsUsage (SysML v2 §8.3.13).
+	ast.UsageBinding: SymbolBindingUsage,
 	// A succession is a SuccessionAsUsage (SysML v2 §8.3.13.7): a connector
 	// usage of its own kind, so it is a redefinition target like any feature.
 	ast.UsageSuccession:  SymbolSuccessionUsage,

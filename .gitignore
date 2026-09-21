@@ -43,8 +43,11 @@ coverage-node.lcov
 /gen/
 /client/rust/target/
 
-# Maven build output for the Java client
+# Maven build output for the Java client and the Cameo plugin
 /client/java/**/target/
+/editors/cameo/**/target/
+/editors/syson/**/target/
+!/editors/cameo/dist/
 
 # Partial oracle record a failed `make fuml-expected` leaves for diagnosis
 /docs/project/fuml-referee-expected.json.failed

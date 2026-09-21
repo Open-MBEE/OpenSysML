@@ -798,7 +798,7 @@ func referentKind(sym *symbols.Symbol) symbols.SymbolKind {
 }
 
 // unclassifiedReferenceKindMessage judges a referent the builder leaves without a
-// kind (a named binding): a feature of no constraint kind, named by its notation.
+// kind: a feature of no constraint kind, named by its notation.
 func unclassifiedReferenceKindMessage(decl declKind, rel ast.RelationshipKind, sym *symbols.Symbol) string {
 	return referentKindMessage(decl, rel, sym.Kind, sym.Notation())
 }
@@ -989,6 +989,7 @@ var usageSymbolKinds = map[symbols.SymbolKind]bool{
 	symbols.SymbolRenderingUsage:          true,
 	symbols.SymbolConcernUsage:            true,
 	symbols.SymbolConnectionUsage:         true,
+	symbols.SymbolBindingUsage:            true,
 	symbols.SymbolSuccessionUsage:         true,
 	symbols.SymbolFlowUsage:               true,
 	symbols.SymbolPortUsage:               true,

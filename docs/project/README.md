@@ -38,6 +38,9 @@ within these records and means nothing outside this repository.
   with a violating model as evidence; the figures and the name list are gated in CI
 - **[Adjudications](adjudications.md)** — the divergences from the pinned pilot implementation we
   keep, the rows still open against it, and the reading behind each one
+- **[Protocol state machines](protocol-state-machines.md)** — whether SysML v2 has a construct for
+  UML's protocol state machine, which of its guarantees an exhibited state machine on a port or
+  part already gives at run time, and the runtime follow-up that is left
 - **[Element-scoped tier gating](element-scoped-tier-gating.md)** — how a pass opts out of
   document-wide skipping and gates itself per subject, and what that measured
 - **[Declared errata overlay](errata-overlay.md)** — how a defect in the published reference

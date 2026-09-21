@@ -22,8 +22,9 @@ exit: rc2
 exit: rc
 exit: work
 enter: paused (entry action)
-stmt assign resumed
-  eval literal true -> true
+stmt action body
+  stmt assign resumed
+    eval literal true -> true
 transition: work -> paused (event: accept Pause)
 exit: paused
 enter: work

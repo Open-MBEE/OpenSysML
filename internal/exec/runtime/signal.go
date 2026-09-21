@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 	"sort"
@@ -79,9 +80,12 @@ const (
 	DeliverObject
 )
 
-// Call is the payload of an EventCall: the operation invoked and its arguments.
+// Call is the payload of an EventCall: the operation invoked, its declaration as
+// a behavior member of the machine's owner (nil when it declares none) and the
+// arguments.
 type Call struct {
 	Operation string
+	Declared  *symbols.Symbol
 	Args      map[string]Value
 }
 
@@ -394,7 +398,7 @@ func (ctx *Context) portInstanceID(holder *Instance, port string) (int64, error)
 // there, where an addressed receiver is a node of that holder. A send that
 // reaches none of them is delivered nowhere, which is a typed error rather than
 // a message quietly dropped.
-func (ctx *Context) postVia(ec *EvalContext, conns []lower.Connection, msg Message, send lower.Send, self *Instance, behavior *symbols.Symbol) error {
+func (ctx *Context) postVia(ec *EvalContext, conns []lower.Connection, msg Message, send lower.Send, receivers []*Instance, self *Instance, behavior *symbols.Symbol) error {
 	routed, holder, err := ec.viaSender(send, self)
 	if err != nil {
 		return err
@@ -403,16 +407,36 @@ func (ctx *Context) postVia(ec *EvalContext, conns []lower.Connection, msg Messa
 		return &UnknownSendPortError{Port: send.Target, Receiver: send.Receiver}
 	}
 	receiver := send.Receiver
+	// receiverObjects are the objects a `to` expression evaluated to, where the
+	// receiver names no receiving node of the sending object: deliveries are then
+	// held to those objects rather than to a node's name.
+	var receiverObjects map[int64]bool
 	if receiver != "" {
-		receiverSend := routed
-		receiverSend.Target = send.Receiver
-		receiverSend.TargetPath = send.ReceiverPath
-		receiverSend.IsVia = false
-		addr, err := ctx.resolveRoutedReceiver(receiverSend, holder)
-		if err != nil || (addr.Object != 0 && addr.Object != objectID(holder)) {
-			return &UnreachableSendReceiverError{Port: send.Target, Receiver: send.Receiver}
+		separator := "::"
+		if send.ReceiverPath {
+			separator = "."
 		}
-		receiver = addr.Name
+		segments := strings.Split(receiver, separator)
+		objects, err := ec.routedReceiverObjects(send, holder, segments, len(segments) > 1)
+		if err != nil {
+			return err
+		}
+		if objects != nil {
+			receiverObjects = objects
+			receiver = ""
+		} else {
+			receiverSend := routed
+			receiverSend.Target = send.Receiver
+			receiverSend.TargetPath = send.ReceiverPath
+			receiverSend.IsVia = false
+			addr, err := ctx.resolveRoutedReceiver(receiverSend, holder)
+			if err != nil || (addr.Object != 0 && addr.Object != objectID(holder)) {
+				return &UnreachableSendReceiverError{Port: send.Target, Receiver: send.Receiver}
+			}
+			receiver = addr.Name
+		}
+	} else if receivers != nil {
+		receiverObjects = objectSet(receivers)
 	}
 	typed := receiver != ""
 	own, outbound, typeMismatch, err := ctx.connectedDeliveries(
@@ -459,6 +483,9 @@ func (ctx *Context) postVia(ec *EvalContext, conns []lower.Connection, msg Messa
 		if i == len(own) {
 			from = holder
 		}
+		if receiverObjects != nil && !receiverObjects[delivery.object] {
+			continue
+		}
 		if posted[delivery] {
 			continue
 		}
@@ -483,6 +510,9 @@ func (ctx *Context) postVia(ec *EvalContext, conns []lower.Connection, msg Messa
 			copied.Delivery = DeliverPortReceiver
 		}
 		copies = append(copies, outgoing{copied, from})
+	}
+	if receiverObjects != nil && len(copies) == 0 {
+		return &UnreachableSendReceiverError{Port: send.Target, Receiver: exprText(send.ReceiverExpr)}
 	}
 	for _, c := range copies {
 		ctx.postFrom(c.msg, c.from, behavior)
@@ -1057,8 +1087,9 @@ func isPerformanceEvent(sym *symbols.Symbol) bool {
 	return isBehaviorSymbol(owner)
 }
 
-// send builds and posts the message a send statement describes; a message the
-// send cannot build or deliver leaves nothing building it created behind.
+// send builds and posts the message a send statement describes; a send that
+// cannot deliver leaves nothing its payload or receiver expression created
+// behind, while whatever posting itself materialized survives.
 func (ctx *Context) send(ec *EvalContext, scope *symbols.Scope, conns []lower.Connection, s lower.Send, self *Instance, behavior *symbols.Symbol) error {
 	mark, attached := len(ctx.created), len(ctx.objectBehaviors)
 	msg, err := ec.buildMessage(scope, s)
@@ -1066,24 +1097,151 @@ func (ctx *Context) send(ec *EvalContext, scope *symbols.Scope, conns []lower.Co
 		ctx.abandonCreationSince(mark, attached)
 		return err
 	}
+	receivers, err := ec.valuedReceivers(s)
+	if err != nil {
+		ctx.abandonCreationSince(mark, attached)
+		return err
+	}
 	built, started := len(ctx.created), len(ctx.objectBehaviors)
-	if err := ctx.postFor(ec, conns, msg, s, self, behavior); err != nil {
+	if err := ctx.postFor(ec, conns, msg, s, receivers, self, behavior); err != nil {
 		ctx.abandonCreationBetween(mark, built, attached, started)
 		return err
 	}
 	return nil
 }
 
+// valuedReceivers evaluates the bare receiver expression of a send — its `to`
+// clause that is no name or path — to the objects it denotes, nil where the
+// send carries none.
+func (ec *EvalContext) valuedReceivers(s lower.Send) ([]*Instance, error) {
+	switch {
+	case !s.IsVia && s.Target == "" && s.TargetExpr != nil:
+		return ec.receiverObjects(s.TargetExpr)
+	case s.IsVia && s.Receiver == "" && s.ReceiverExpr != nil:
+		return ec.receiverObjects(s.ReceiverExpr)
+	}
+	return nil, nil
+}
+
 // postFor posts a message as its send addressed it: to the objects a target
-// bound in ec holds, else as post routes it.
-func (ctx *Context) postFor(ec *EvalContext, conns []lower.Connection, msg Message, s lower.Send, self *Instance, behavior *symbols.Symbol) error {
+// bound in ec or valued by its receiver expression holds, else as post routes it.
+// receivers is what valuedReceivers evaluated, nil where the send carried none.
+func (ctx *Context) postFor(ec *EvalContext, conns []lower.Connection, msg Message, s lower.Send, receivers []*Instance, self *Instance, behavior *symbols.Symbol) error {
 	if addrs, bound, err := ec.boundTargetAddresses(s); bound {
 		if err != nil {
 			return err
 		}
 		return ctx.postAt(msg, addrs, self, behavior)
 	}
-	return ctx.post(ec, conns, msg, s, self, behavior)
+	if receivers != nil && !s.IsVia {
+		addrs, err := ctx.addressesFrom(receivers, nil)
+		if err != nil {
+			return err
+		}
+		return ctx.postAt(msg, addrs, self, behavior)
+	}
+	return ctx.post(ec, conns, msg, s, receivers, self, behavior)
+}
+
+// receiverObjects evaluates node to the objects it yields: every element it
+// holds must be a live object of this run, else the send's target is no object
+// to address — the error names the expression and what it held.
+func (ec *EvalContext) receiverObjects(node ast.Node) ([]*Instance, error) {
+	text := exprText(node)
+	value, err := ec.Eval(node)
+	if err != nil {
+		return nil, err
+	}
+	var out []*Instance
+	for _, held := range heldElements(value) {
+		id, isObject := held.Object()
+		inst, ok := ec.ctx.instances[id]
+		if !isObject || !ok {
+			return nil, &SendReceiverValueError{Receiver: text, Value: FormatValue(value)}
+		}
+		if err := ec.ctx.checkNotDestroyed(inst); err != nil {
+			return nil, err
+		}
+		out = append(out, inst)
+	}
+	if len(out) == 0 {
+		return nil, &SendReceiverValueError{Receiver: text, Value: FormatValue(value)}
+	}
+	return out, nil
+}
+
+// routedReceiverObjects evaluates a routed send's `to` to the objects it
+// yields where its name is no receiving node of the holder, nil then — an
+// unresolved reference included, which the caller reports as unreachable.
+func (ec *EvalContext) routedReceiverObjects(send lower.Send, holder *Instance, segments []string, path bool) (map[int64]bool, error) {
+	if send.ReceiverExpr == nil || ec.ctx.routedReceiverExists(send.Scope, segments, path, holder) {
+		return nil, nil
+	}
+	objects, err := ec.receiverObjects(send.ReceiverExpr)
+	if err != nil {
+		if errors.Is(err, ErrUnresolvedReference) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return objectSet(objects), nil
+}
+
+// objectSet maps the objects a receiver expression yielded by identity.
+func objectSet(objects []*Instance) map[int64]bool {
+	out := make(map[int64]bool, len(objects))
+	for _, inst := range objects {
+		out[inst.ID] = true
+	}
+	return out
+}
+
+// exprText renders an expression a send diagnostic names: a name or chain as
+// written, and other forms by their shape since no printer renders them.
+func exprText(node ast.Node) string {
+	switch n := node.(type) {
+	case nil:
+		return ""
+	case *ast.FeatureReference, *ast.QualifiedName, *ast.FeatureChainExpr:
+		return targetText(node)
+	case *ast.IndexExpr:
+		open, close := "#(", ")"
+		if n.Bracket {
+			open, close = "[", "]"
+		}
+		return exprText(n.Operand) + open + exprText(n.Index) + close
+	case *ast.ConstructorExpr:
+		return "new " + ast.QualifiedText(n.Type)
+	case *ast.InvocationExpr:
+		return ast.QualifiedText(n.Type) + "()"
+	case *ast.SequenceExpr:
+		elements := make([]string, 0, len(n.Elements))
+		for _, element := range n.Elements {
+			elements = append(elements, exprText(element))
+		}
+		return "(" + strings.Join(elements, ", ") + ")"
+	case *ast.OperatorExpr:
+		if len(n.Operands) == 1 {
+			return n.Operator.String() + exprText(n.Operands[0])
+		}
+		operands := make([]string, 0, len(n.Operands))
+		for _, operand := range n.Operands {
+			operands = append(operands, exprText(operand))
+		}
+		return strings.Join(operands, " "+n.Operator.String()+" ")
+	case *ast.LiteralInteger:
+		return n.Value
+	case *ast.LiteralReal:
+		return n.Value
+	case *ast.LiteralString:
+		return n.Value
+	case *ast.LiteralBool:
+		if n.Value {
+			return "true"
+		}
+		return "false"
+	}
+	return "the receiver expression"
 }
 
 // post delivers a built message the way the send addressed it: routed through
@@ -1091,9 +1249,9 @@ func (ctx *Context) postFor(ec *EvalContext, conns []lower.Connection, msg Messa
 // object performing the behavior that sent it, nil for a behavior no object
 // performs; behavior is that behavior, which the trace names; ec holds the
 // behavior's bindings, nil where it has none.
-func (ctx *Context) post(ec *EvalContext, conns []lower.Connection, msg Message, send lower.Send, self *Instance, behavior *symbols.Symbol) error {
+func (ctx *Context) post(ec *EvalContext, conns []lower.Connection, msg Message, send lower.Send, receivers []*Instance, self *Instance, behavior *symbols.Symbol) error {
 	if send.IsVia {
-		return ctx.postVia(ec, conns, msg, send, self, behavior)
+		return ctx.postVia(ec, conns, msg, send, receivers, self, behavior)
 	}
 	return ctx.postTo(msg, send, self, behavior)
 }
@@ -1428,16 +1586,14 @@ func (e *EvalContext) buildConstructedMessage(scope *symbols.Scope, constructor 
 	if err := e.checkConstructorArity(signal, constructor, "send "+signal.Name); err != nil {
 		return Message{}, err
 	}
-	msg, err := e.buildTypedMessage(scope, signal.Name, signal, target,
-		messageArgs{typeRef: constructor.Type, args: constructor.Args, named: constructor.NamedArgs})
+	msg, inst, err := e.constructObject(func() (Message, error) {
+		return e.buildTypedMessage(scope, signal.Name, signal, target,
+			messageArgs{typeRef: constructor.Type, args: constructor.Args, named: constructor.NamedArgs})
+	}, "send new "+signal.Name)
 	if err != nil {
 		return Message{}, err
 	}
-	value, err := e.ctx.materializeMessage(msg)
-	if err != nil {
-		return Message{}, fmt.Errorf("send new %s: %w", signal.Name, err)
-	}
-	msg.Value = &value
+	msg.Value = &Value{Kind: ValInstance, Instance: inst.ID}
 	return msg, nil
 }
 
@@ -1452,16 +1608,44 @@ func (e *EvalContext) evalConstructor(constructor *ast.ConstructorExpr) (Value, 
 	if err := e.checkConstructorArity(typ, constructor, what); err != nil {
 		return Value{}, err
 	}
-	msg, err := e.buildTypedMessage(e.scope, typ.Name, typ, "",
-		messageArgs{typeRef: constructor.Type, args: constructor.Args, named: constructor.NamedArgs, written: what})
+	_, inst, err := e.constructObject(func() (Message, error) {
+		return e.buildTypedMessage(e.scope, typ.Name, typ, "",
+			messageArgs{typeRef: constructor.Type, args: constructor.Args, named: constructor.NamedArgs, written: what})
+	}, what)
 	if err != nil {
 		return Value{}, err
 	}
-	value, err := e.ctx.materializeMessage(msg)
+	return e.ctx.objectValue(inst)
+}
+
+// constructObject materializes the object `new T(…)` denotes (KerML §7.4.9): an occurrence
+// whose life begins here and that performs T's behaviors. A construction that fails at any
+// step — an argument, the materialization, a behavior's start — leaves nothing: the objects
+// its arguments made, the values written and the messages sent along the way are rolled back.
+func (e *EvalContext) constructObject(build func() (Message, error), what string) (Message, *Instance, error) {
+	ctx := e.ctx
+	commit, rollback := ctx.beginJournal()
+	msg, err := build()
 	if err != nil {
-		return Value{}, fmt.Errorf("%s: %w", what, err)
+		rollback()
+		return Message{}, nil, err
 	}
-	return e.ctx.objectValue(e.ctx.instances[value.Instance])
+	var value Value
+	err = ctx.storedTogether(func() (err error) {
+		value, err = ctx.materializeMessage(msg)
+		return err
+	})
+	if err != nil {
+		rollback()
+		return Message{}, nil, fmt.Errorf("%s: %w", what, err)
+	}
+	inst := ctx.instances[value.Instance]
+	if err := ctx.startClassifierBehaviors(inst, len(ctx.created)); err != nil {
+		rollback()
+		return Message{}, nil, fmt.Errorf("%s: %w", what, err)
+	}
+	commit()
+	return msg, inst, nil
 }
 
 // checkConstructorArity rejects positional arguments beyond the constructed

@@ -20,19 +20,21 @@ eval index -> 10 [s]
 transition: away -> waiting (event: time)
 exit: c0
 enter: c1 (entry action)
-stmt assign log
-      eval feature log -> 0
-      eval literal 10 -> 10
-    eval operator * -> 0
-    eval literal 2 -> 2
-  eval operator + -> 2
+stmt action body
+  stmt assign log
+        eval feature log -> 0
+        eval literal 10 -> 10
+      eval operator * -> 0
+      eval literal 2 -> 2
+    eval operator + -> 2
 transition: c0 -> c1 (event: time)
 exit: waiting
 enter: late (entry action)
-stmt assign log
-      eval feature log -> 2
-      eval literal 10 -> 10
-    eval operator * -> 20
-    eval literal 1 -> 1
-  eval operator + -> 21
+stmt action body
+  stmt assign log
+        eval feature log -> 2
+        eval literal 10 -> 10
+      eval operator * -> 20
+      eval literal 1 -> 1
+    eval operator + -> 21
 transition: waiting -> late (event: time)

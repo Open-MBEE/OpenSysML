@@ -54,6 +54,7 @@ func lowerActionNode(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) 
 	}
 	sub, err := ToActionGraphWith(node, scope, graph.resolver)
 	if err == nil {
+		sub.Enclosing, sub.EnclosingNode = graph, node
 		StartFlow(sub)
 	}
 	graph.Subflows[node] = &Subflow{Graph: sub, Err: err}

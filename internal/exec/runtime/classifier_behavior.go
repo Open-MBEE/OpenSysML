@@ -424,12 +424,12 @@ func namesAbandonedObject(val Value, abandoned map[int64]bool) bool {
 	return false
 }
 
-// forgetMessagesTo drops the messages addressed to an abandoned object, which
-// nothing can consume once the object holding its consumers is gone.
+// forgetMessagesTo drops the messages addressed to an abandoned or destroyed object, or routed
+// to such a port, which nothing can consume once the object holding its consumers is gone.
 func (ctx *Context) forgetMessagesTo(abandoned map[int64]bool) {
 	kept := make([]Message, 0, len(ctx.messages))
 	for _, msg := range ctx.messages {
-		if !abandoned[msg.Object] {
+		if !abandoned[msg.Object] && !abandoned[msg.PortID] {
 			kept = append(kept, msg)
 		}
 	}
@@ -475,6 +475,80 @@ func (ctx *Context) startBehaviorsOfAll(objects []*Instance) error {
 	return ctx.runAttachedBehaviors()
 }
 
+// storing is a store under way and the journal of the hold it reached, nil until it reaches one.
+// One that gathers takes the stores under it as its own, running what they start once all are done.
+type storing struct {
+	commit, rollback func()
+	gathers          bool
+}
+
+// storedBeforeStarting runs store, a write or materialization, with the behaviors the hold it
+// reaches starts (an object classified by the feature holding it) attached but not run until the
+// value is stored, then runs them, so one reading the feature reads the object it started for. The
+// hold's journal (beginHoldJournal) stays open over their run: a start that fails undoes the hold
+// and the store, leaving what the store evaluated. Once kept, the older behaviors it woke answer;
+// one of them failing is reported as its own, with the store kept.
+func (ctx *Context) storedBeforeStarting(store func() error) error {
+	return ctx.stored(store, false)
+}
+
+// storedTogether is storedBeforeStarting over several stores, the writes of a constructor's
+// arguments: the behaviors any of them starts run once every one has stored its value.
+func (ctx *Context) storedTogether(store func() error) error {
+	return ctx.stored(store, true)
+}
+
+func (ctx *Context) stored(store func() error, gathers bool) error {
+	if n := len(ctx.storing); n > 0 && ctx.storing[n-1].gathers {
+		return store()
+	}
+	defer ctx.beginRun()()
+	defer ctx.holdDrivenWork()()
+	s := &storing{gathers: gathers}
+	ctx.storing = append(ctx.storing, s)
+	endBoundary := ctx.beginRunBoundary()
+	err := store()
+	if err == nil {
+		err = ctx.runAttachedBehaviors()
+	}
+	endBoundary()
+	ctx.storing = ctx.storing[:len(ctx.storing)-1]
+	if err != nil {
+		if s.rollback != nil {
+			s.rollback()
+		}
+		return err
+	}
+	if s.commit != nil {
+		s.commit()
+	}
+	return ctx.runAttachedBehaviors()
+}
+
+// beginHoldJournal is beginJournal for a hold on a feature value: under a store, a hold only
+// attaches the behaviors it starts, and the journal of the first is left to the store to close
+// once it has run them (a later hold's journal is nested in it).
+func (ctx *Context) beginHoldJournal() (commit, rollback func()) {
+	commit, rollback = ctx.beginJournal()
+	n := len(ctx.storing)
+	if n == 0 {
+		return commit, rollback
+	}
+	ctx.behaviorRunDepth++
+	s := ctx.storing[n-1]
+	if s.commit != nil {
+		keep, undo := commit, rollback
+		return func() { ctx.behaviorRunDepth--; keep() }, func() { ctx.behaviorRunDepth--; undo() }
+	}
+	s.commit, s.rollback = commit, rollback
+	undo := rollback
+	return func() { ctx.behaviorRunDepth-- }, func() {
+		ctx.behaviorRunDepth--
+		s.commit, s.rollback = nil, nil
+		undo()
+	}
+}
+
 // materializeBehavingParts materializes the required composite parts of an
 // object whose type runs behaviors, so the object runs to quiescence as a whole
 // when it is created rather than part by part in the order its parts are first
@@ -509,7 +583,7 @@ func (ctx *Context) behavingParts(typeSym *symbols.Symbol) []int {
 	features := ctx.FeaturesOf(typeSym)
 	parts := []int{}
 	for i := range features {
-		if !ctx.model.semantics.IsConnectorUsage(features[i].Symbol) && ctx.holdsBehavingPart(&features[i]) {
+		if !ctx.model.semantics.IsConnectorObjectUsage(features[i].Symbol) && ctx.holdsBehavingPart(&features[i]) {
 			parts = append(parts, i)
 		}
 	}
@@ -557,7 +631,7 @@ func (ctx *Context) runsBehaviors(typeSym *symbols.Symbol, visiting map[*symbols
 		if runs {
 			break
 		}
-		if ctx.model.semantics.IsConnectorUsage(features[i].Symbol) {
+		if ctx.model.semantics.IsConnectorObjectUsage(features[i].Symbol) {
 			continue
 		}
 		if composite := ctx.requiredPartType(&features[i]); composite != nil && ctx.runsBehaviors(composite, visiting) {
@@ -756,10 +830,13 @@ func (ctx *Context) nextRunnableBehavior() (*ObjectBehavior, bool) {
 		first = min(boundary.pending, len(ctx.pendingBehaviors))
 		attached = min(boundary.behaviors, len(ctx.objectBehaviors))
 	}
-	if first < len(ctx.pendingBehaviors) {
+	// A behavior ended before its first run (its object destroyed) has no run to take.
+	for first < len(ctx.pendingBehaviors) {
 		behavior := ctx.pendingBehaviors[first]
 		ctx.pendingBehaviors = slices.Delete(ctx.pendingBehaviors, first, first+1)
-		return behavior, true
+		if !behavior.completed() {
+			return behavior, true
+		}
 	}
 	for _, behavior := range ctx.objectBehaviors[attached:] {
 		if !ctx.heldBehaviors[behavior] && behavior.hasPendingWork() {
@@ -896,10 +973,13 @@ func (ctx *Context) performanceOccurrence(
 		return nil, fmt.Errorf("%w: object #%d has no feature for %s %s",
 			sentinel, inst.ID, decl.behavior.Kind, decl.behavior.Name)
 	}
-	fv, err := inst.GetFeatureValue(ctx, name)
-	if err != nil {
-		return nil, fmt.Errorf("%w: materialize %s of object #%d: %w",
-			sentinel, name, inst.ID, err)
+	// A held occurrence is taken as it stands, so a destroyed object's binding still resolves.
+	if fv.HeldValue().Kind == ValInvalid {
+		var err error
+		if fv, err = inst.GetFeatureValue(ctx, name); err != nil {
+			return nil, fmt.Errorf("%w: materialize %s of object #%d: %w",
+				sentinel, name, inst.ID, err)
+		}
 	}
 	if fv.HeldValue().Kind == ValInvalid {
 		occurrence, err := ctx.materialize(behavior, 0, inst, name)

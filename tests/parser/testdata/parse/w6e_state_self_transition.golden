@@ -13,9 +13,13 @@
           (Membership visibility="default"
             (Usage kind="state" name="s" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
               (EntryMember
-                (*ast.AssignmentActionNode))
+                (Membership visibility="default"
+                  (Usage kind="action" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="entry"
+                    (*ast.AssignmentActionNode))))
               (ExitMember
-                (*ast.AssignmentActionNode))))
+                (Membership visibility="default"
+                  (Usage kind="action" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="exit"
+                    (*ast.AssignmentActionNode))))))
           (TransitionMember source="s" target="s" trigger="again"
             (*ast.AssignmentActionNode))
           (Membership visibility="default"

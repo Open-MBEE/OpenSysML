@@ -56,7 +56,7 @@ func installedConverter(t *testing.T, engine string) Converter {
 }
 
 // renderInstalled renders document with an installed engine and returns the
-// PDF's text as pdftotext extracts it, skipping when pdftotext is absent.
+// PDF's text as pdftotext extracts it.
 func renderInstalled(t *testing.T, document *docir.Document, engine string, opts Options) (pdf []byte, text string) {
 	t.Helper()
 	installedConverter(t, engine)
@@ -70,12 +70,13 @@ func renderInstalled(t *testing.T, document *docir.Document, engine string, opts
 	return pdf, pdfText(t, pdf)
 }
 
-// pdfText extracts a PDF's text with pdftotext, "" when it is not installed.
+// pdfText extracts a PDF's text with pdftotext; absent, it skips the test, or
+// fails it when the toolchain is mandatory.
 func pdfText(t *testing.T, pdf []byte) string {
 	t.Helper()
 	pdftotext, err := exec.LookPath("pdftotext")
 	if err != nil {
-		return ""
+		skipWithout(t, "pdftotext", err)
 	}
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "doc.pdf"), pdf, 0o600); err != nil {
@@ -89,12 +90,12 @@ func pdfText(t *testing.T, pdf []byte) string {
 }
 
 // pdfImages lists a PDF's raster images as pdfimages reports them, one line
-// each, "" when it is not installed.
+// each; an absent pdfimages is handled as in pdfText.
 func pdfImages(t *testing.T, pdf []byte) string {
 	t.Helper()
 	pdfimages, err := exec.LookPath("pdfimages")
 	if err != nil {
-		return ""
+		skipWithout(t, "pdfimages", err)
 	}
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "doc.pdf"), pdf, 0o600); err != nil {
@@ -130,16 +131,10 @@ func TestRenderStylesheetAssetsBesideTheOutput(t *testing.T) {
 	for _, engine := range Engines() {
 		t.Run(engine, func(t *testing.T) {
 			pdf, text := renderInstalled(t, document, engine, Options{Stylesheets: []docrender.Stylesheet{sheet}, BaseDir: out})
-			if text == "" {
-				t.Skip("pdftotext not installed")
-			}
 			if !strings.Contains(text, "IMPORTEDBESIDE") {
 				t.Errorf("the imported sheet beside the PDF did not apply:\n%s", text)
 			}
 			images := pdfImages(t, pdf)
-			if images == "" {
-				t.Skip("pdfimages not installed")
-			}
 			if !regexp.MustCompile(`(?m)^\s*1\s+0\s+image\s+12\s+12\s`).MatchString(images) {
 				t.Errorf("the image beside the PDF was not drawn:\n%s", images)
 			}
@@ -154,7 +149,7 @@ func TestRenderWithInstalledEngines(t *testing.T) {
 	for _, engine := range Engines() {
 		t.Run(engine, func(t *testing.T) {
 			_, text := renderInstalled(t, document, engine, Options{TOC: true, NumberSections: true})
-			if text != "" && !strings.Contains(text, "One paragraph.") {
+			if !strings.Contains(text, "One paragraph.") {
 				t.Fatalf("paragraph missing from the PDF text:\n%s", text)
 			}
 		})
@@ -174,9 +169,6 @@ func TestRenderTelescopeWithInstalledEngines(t *testing.T) {
 	for _, engine := range Engines() {
 		t.Run(engine, func(t *testing.T) {
 			_, text := renderInstalled(t, document, engine, Options{TitlePage: true, TOC: true, NumberSections: true})
-			if text == "" {
-				t.Skip("pdftotext not installed")
-			}
 			for _, want := range []string{
 				"Telescope Mass Report",
 				"Subsystems grouped by zone",
@@ -251,9 +243,6 @@ func TestRenderInlineRunsWithInstalledEngines(t *testing.T) {
 	for _, engine := range Engines() {
 		t.Run(engine, func(t *testing.T) {
 			_, text := renderInstalled(t, document, engine, Options{})
-			if text == "" {
-				t.Skip("pdftotext not installed")
-			}
 			for _, want := range []string{"The margin is critical for m > 0 per the spec", "See Subsystems by zone below.", "zone: hot", "zone: cold", "mirror"} {
 				if !strings.Contains(text, want) {
 					t.Errorf("PDF text lacks %q:\n%s", want, text)
@@ -308,9 +297,6 @@ func TestRenderFormulasWithInstalledKatex(t *testing.T) {
 	for _, engine := range Engines() {
 		t.Run(engine, func(t *testing.T) {
 			_, text := renderInstalled(t, document, engine, Options{TOC: true})
-			if text == "" {
-				t.Skip("pdftotext not installed")
-			}
 			for _, want := range []string{"Collecting area of a circular mirror", "Rayleigh criterion", "each $ of budget"} {
 				if !strings.Contains(text, want) {
 					t.Errorf("PDF text lacks %q:\n%s", want, text)
@@ -333,9 +319,6 @@ func TestRenderStateReportWithInstalledEngines(t *testing.T) {
 	for _, engine := range Engines() {
 		t.Run(engine, func(t *testing.T) {
 			_, text := renderInstalled(t, document, engine, Options{TOC: true})
-			if text == "" {
-				t.Skip("pdftotext not installed")
-			}
 			for _, want := range []string{
 				"Lamp Report",
 				"Active states of every lamp",
@@ -365,7 +348,7 @@ func TestRenderDiagramsWithInstalledMermaid(t *testing.T) {
 		skipWithout(t, "mmdc", err)
 	}
 	_, text := renderInstalled(t, telescopeDocument(t), "", Options{})
-	if text != "" && !strings.Contains(text, "Imaging chain interconnection") {
+	if !strings.Contains(text, "Imaging chain interconnection") {
 		t.Fatalf("diagram caption missing:\n%s", text)
 	}
 }
@@ -422,10 +405,10 @@ func TestRenderDiagramsWithInstalledGraphviz(t *testing.T) {
 	}
 
 	_, text := renderInstalled(t, telescopeDocument(t), "", Options{DiagramForm: view.FormDot})
-	if text != "" && (strings.Contains(text, "digraph") || strings.Contains(text, dotNotice[:40])) {
+	if strings.Contains(text, "digraph") || strings.Contains(text, dotNotice[:40]) {
 		t.Fatalf("DOT source or its notice reached the PDF:\n%s", text)
 	}
-	if text != "" && !strings.Contains(text, "Imaging chain interconnection") {
+	if !strings.Contains(text, "Imaging chain interconnection") {
 		t.Fatalf("diagram caption missing:\n%s", text)
 	}
 }
@@ -466,10 +449,10 @@ func TestRenderDiagramsWithInstalledPlantUML(t *testing.T) {
 	}
 
 	_, text := renderInstalled(t, telescopeDocument(t), "", Options{DiagramForm: view.FormPlantUML})
-	if text != "" && (strings.Contains(text, "@startuml") || strings.Contains(text, plantumlNotice[:40])) {
+	if strings.Contains(text, "@startuml") || strings.Contains(text, plantumlNotice[:40]) {
 		t.Fatalf("PlantUML source or its notice reached the PDF:\n%s", text)
 	}
-	if text != "" && !strings.Contains(text, "Imaging chain interconnection") {
+	if !strings.Contains(text, "Imaging chain interconnection") {
 		t.Fatalf("diagram caption missing:\n%s", text)
 	}
 }

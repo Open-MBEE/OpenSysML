@@ -5,6 +5,23 @@ description: How to build, drive, and record end-to-end tests of the OpenSysML s
 
 # Testing the `sysml` REPL end-to-end
 
+## Dynamic object lifecycle through the REPL
+
+- `%instantiate <PartDef>` already runs the classifier actions the definition
+  performs, so the objects they create with `new` exist on `#1` right after it;
+  a separate detached `%action` builds its own objects and never shows them.
+- `%instances` lists session roots only, not nested objects created at runtime.
+  Read them through the holder: `%features #1`, `%eval in #1 : cars`, and
+  `%eval in #1 : size(all P::Car)` for the live extent — which also counts the
+  declared singleton parts, not only the `new` objects.
+- A destroyed nested object shows its lifetime note under the alias that holds it
+  (`%features P::Fleet.spare`); `%eval in #1 : spare.n` prints the typed error's
+  text (`occurrence was destroyed`), so identity (`errors.Is`) is not observable here.
+
+### Devin Secrets Needed
+
+None.
+
 ## Action checker and witness replay
 
 - Low-level runtime conformance fixtures may omit scalar imports because their
@@ -2841,10 +2858,10 @@ Discovered while testing inline `entry action { … }` bodies and calc `out` ass
   written that way silently tests *only* the entry behavior and never the exit behavior. To exercise
   exit behaviors and ordering, use **completion transitions**: `entry; then start; … then start work;
   then work done;` (the `state_anonymous_action_body.sysml` conformance fixture is the model to copy).
-- **An inline body is one action per do round.** After a do body has run to its end the state has
-  no more pending work, so further `%advance` calls do not re-run it; a counter incremented by a
-  `do action { … }` reaches 1 and stays there unless a transition re-enters the state. The
-  one-action-per-statement `do { … }` form is what interleaves and re-runs per statement.
+- **An inline body runs once, one statement per do round.** After a do body has run to its end the
+  state has no more pending work, so further `%advance` calls do not re-run it; a counter incremented
+  by a `do action { … }` reaches 1 and stays there unless a transition re-enters the state. A braced
+  `do { … }` is the same anonymous action and behaves the same way.
 - **Notation gotchas that cost fixture rewrites:**
   - a self-send must name the machine, statement style: `entry action { send Ping to Driver1; }`
     with `item def Ping;` — `send Sig() to self` with an `attribute def` parses but never delivers.

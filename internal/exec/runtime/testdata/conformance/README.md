@@ -83,7 +83,12 @@ top-level one is. `instantiate` names an instance case's type the same way.
   (`{"call": "setSpeed", "args": {"value": {"type": "Integer", "value": 55}}}`,
   driving `CallEvent`-triggered transitions), with `args` optional. Events are
   delivered in order. Optional; omit for autonomous (time/completion-driven)
-  machines.
+  machines. A call may state `results` (`{"call": "compute", "results": {"result":
+  {"type": "Integer", "value": 6}}}`): the outputs the behaviors its dispatch
+  triggers return to the machine, which a synchronous caller is released with
+  (`StateExecutor.Call`). A case stating any `results` is driven one event at a
+  time, each run to completion before the next, and a call that returns an output
+  the case does not list fails it.
 - `finalState`: qualified name of final reached state; for a machine ending in
   orthogonal regions, their active states joined by `+` in region name order
   (`d2+deep+r2`)

@@ -193,7 +193,7 @@ var metaCommandTable = []metaCommand{
 	{name: "%eval", group: groupRuntime, args: "[in <name>|<path>|#<id> :] <expr>", desc: "evaluate an expression, in the named element or object when one is named"},
 	{name: "%features", group: groupRuntime, args: "<object> [all|depth <n>] [json]", desc: "show an object's feature values and what its behaviors are doing, bounded unless all or a depth is asked for; json writes the object graph as the API does; an object is named, #<id>, or a path such as car.fl or #1.wheels[2]"},
 	{name: "%instances", group: groupRuntime, desc: "list all instantiated objects"},
-	{name: "%invoke", group: groupRuntime, args: "<object> <op> [<p>=<expr>]", desc: "invoke an operation of an object's type, performed by that object; an object is named, #<id>, or a path such as car.fl"},
+	{name: "%invoke", group: groupRuntime, args: "<object> <op> [<expr>... | <p>=<expr>...]", desc: "invoke an operation of an object's type, performed by that object, with arguments by position or by name; an object is named, #<id>, or a path such as car.fl"},
 
 	{name: "%calc", group: groupBehavioral, args: "<name> <args>", desc: "invoke a calculation with arguments"},
 	{name: cmdAnalysis, group: groupBehavioral, args: "<name>[(<args>)] [<object>]", desc: "run an analysis case and report its outputs and the verdict of its objective; arguments bind its inputs and an object is its subject"},
@@ -598,9 +598,10 @@ func (s *Session) metaDebugCommand(fields []string, line string) (metaResult, bo
 		return metaOut(s.doStateMachine(fields[1], fields[2:])), true
 	case "%invoke":
 		if len(fields) < 3 {
-			return metaOut([]string{"usage: %invoke <object> <operation> [<parameter>=<expression> ...]"}, false, nil), true
+			return metaOut([]string{"usage: %invoke <object> <operation> [<expression> ... | <parameter>=<expression> ...]"}, false, nil), true
 		}
-		return metaOut(s.doInvoke(fields[1], fields[2], fields[3:])), true
+		object, operation, args := splitInvokeLine(strings.TrimPrefix(strings.TrimSpace(line), "%invoke"))
+		return metaOut(s.doInvoke(object, operation, args)), true
 	case cmdQuery:
 		if len(fields) < 2 {
 			return metaOut([]string{"usage: %query <oslc-query>"}, false, nil), true
@@ -2027,10 +2028,13 @@ func splitArgs(text string) []string {
 // continuesExpr reports whether frag continues the expression buf holds rather
 // than starting the next argument: a unit or index bracket does, as does a
 // fragment that is no expression on its own or that follows an unfinished one
-// (`5 - 3` is one argument, `5 -3` is two).
+// (`5 - 3` is one argument, `5 -3` is two). A named argument always starts one.
 func continuesExpr(buf, frag string) bool {
 	if strings.HasPrefix(frag, "[") || strings.HasPrefix(frag, "#") {
 		return true
+	}
+	if isNamedArgument(frag) {
+		return false
 	}
 	if _, err := parseWholeExpr(frag); err != nil {
 		return true
@@ -3108,7 +3112,7 @@ func (s *Session) stateStep(exec *runtime.StateExecutor) (string, error) {
 }
 
 // doInvoke invokes an operation on an object, with the object as its performer.
-func (s *Session) doInvoke(name, operation string, args []string) ([]string, bool, error) {
+func (s *Session) doInvoke(name, operation, args string) ([]string, bool, error) {
 	lines, err := s.invokeOperation(name, operation, args)
 	if err != nil {
 		if errors.Is(err, errRuntimeInit) {
@@ -3120,11 +3124,11 @@ func (s *Session) doInvoke(name, operation string, args []string) ([]string, boo
 	return lines, false, nil
 }
 
-// invokeOperation binds the arguments written as `name=<expression>` and runs the
-// operation the object's type owns, performed by that object; the arguments are
-// parsed before the object is reached.
-func (s *Session) invokeOperation(name, operation string, args []string) ([]string, error) {
-	parsed, err := parseArguments(args)
+// invokeOperation binds the arguments, written positionally or as `name=<expression>`,
+// and runs the operation the object's type owns, performed by that object; the
+// arguments are parsed before the object is reached.
+func (s *Session) invokeOperation(name, operation, args string) ([]string, error) {
+	parsed, err := parseInvokeArguments(args)
 	if err != nil {
 		return nil, err
 	}
@@ -3136,11 +3140,18 @@ func (s *Session) invokeOperation(name, operation string, args []string) ([]stri
 	if rerr != nil {
 		return nil, rerr
 	}
-	bound, err := s.evalArguments(ctx, parsed)
-	if err != nil {
+	var bound runtime.OperationArguments
+	if bound.Named, err = s.evalArguments(ctx, parsed.named); err != nil {
 		return nil, err
 	}
-	results, err := ctx.InvokeOperation(inst, operation, bound)
+	for i, arg := range parsed.positional {
+		value, err := ctx.EvalWithScope(arg.expr, s.promptScope())
+		if err != nil {
+			return nil, fmt.Errorf("argument %d (%s): %w", i+1, arg.text, err)
+		}
+		bound.Positional = append(bound.Positional, value)
+	}
+	results, err := ctx.InvokeOperationWith(inst, operation, bound)
 	if err != nil {
 		return nil, err
 	}
@@ -3159,6 +3170,62 @@ func (s *Session) invokeOperation(name, operation string, args []string) ([]stri
 type argument struct {
 	param string
 	node  ast.Node
+}
+
+// invokeArguments are %invoke's arguments parsed and not yet evaluated: the list is
+// positional or named, never both.
+type invokeArguments struct {
+	positional []argExpr
+	named      []argument
+}
+
+// parseInvokeArguments parses %invoke's argument list, each argument either a bare
+// expression or `<parameter>=<expression>`. A list mixing the two forms or naming
+// a parameter twice is refused here, before the object is reached.
+func parseInvokeArguments(text string) (invokeArguments, error) {
+	var args invokeArguments
+	for _, arg := range splitArgs(text) {
+		if isNamedArgument(arg) {
+			named, err := parseArguments([]string{arg})
+			if err != nil {
+				return invokeArguments{}, err
+			}
+			args.named = append(args.named, named...)
+			continue
+		}
+		expr, err := parseWholeExpr(arg)
+		if err != nil {
+			return invokeArguments{}, err
+		}
+		args.positional = append(args.positional, argExpr{expr: expr, text: arg})
+	}
+	if len(args.positional) > 0 && len(args.named) > 0 {
+		return invokeArguments{}, fmt.Errorf("%w: %d positional and %d named argument(s)",
+			runtime.ErrMixedArguments, len(args.positional), len(args.named))
+	}
+	for i, a := range args.named {
+		for _, b := range args.named[:i] {
+			if a.param == b.param {
+				return invokeArguments{}, fmt.Errorf("parameter %s is given more than one argument", a.param)
+			}
+		}
+	}
+	return args, nil
+}
+
+// splitInvokeLine cuts `%invoke`'s tail into the object, the operation and the
+// argument text as written, so a string literal keeps its quotes and spaces.
+func splitInvokeLine(tail string) (object, operation, args string) {
+	tail = strings.TrimSpace(tail)
+	cut := indexOutsideName(tail, " \t")
+	if cut < 0 {
+		return tail, "", ""
+	}
+	object, tail = tail[:cut], strings.TrimSpace(tail[cut:])
+	if cut = indexOutsideName(tail, " \t"); cut < 0 {
+		return object, tail, ""
+	}
+	return object, tail[:cut], strings.TrimSpace(tail[cut:])
 }
 
 // parseArguments takes apart and parses `name=<expression>` arguments.

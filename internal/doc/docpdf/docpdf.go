@@ -1,7 +1,7 @@
 package docpdf
 
 import (
-	_ "embed"
+	_ "embed" // for the //go:embed directives below
 	"net/url"
 	"os"
 	"path/filepath"

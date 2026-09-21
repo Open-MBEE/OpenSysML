@@ -224,7 +224,7 @@ func carriedObject(v Value) (int64, bool) {
 // connectorFeatureValue reports whether the feature value holds the object of a connector, whose
 // ends a new context attaches again rather than keeping what they read before.
 func (ctx *Context) connectorFeatureValue(s *FeatureValue) bool {
-	return s.Feature != nil && ctx.model.semantics.IsConnectorUsage(s.Feature.Symbol)
+	return s.Feature != nil && ctx.model.semantics.IsConnectorObjectUsage(s.Feature.Symbol)
 }
 
 // HoldsObject reports whether the value is, or carries, an object of this context:

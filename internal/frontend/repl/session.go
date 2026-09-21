@@ -794,12 +794,6 @@ func (s *Session) submitAll(srcs []string) Result {
 	return s.submitFiles(files)
 }
 
-// submit accumulates src as Submit does, recording the file it came from when it
-// came from one.
-func (s *Session) submit(origin, src string) Result {
-	return s.submitFiles([]SourceFile{{Name: origin, Text: src}})
-}
-
 // SubmitFiles accumulates every file as one submission: all of them are accepted
 // before the buffer is reindexed and analyzed, so a declaration in one resolves
 // against the others no matter which order they arrive in. This is what makes

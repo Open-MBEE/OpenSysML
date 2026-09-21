@@ -653,3 +653,153 @@ func TestFootprintsAreProjectedOnceOnFirstUse(t *testing.T) {
 		t.Errorf("step writes = %v, want [x]", got)
 	}
 }
+
+// A write under a node's own flow to a pin of that node streams along the
+// streaming flows out of it, so the writing move writes the target pins too,
+// carried on along the streaming flows out of the target pin; a succession flow
+// carries its value only when the source completes.
+func TestFootprintStreamingWritesReachTargetPins(t *testing.T) {
+	graph := scopedActionGraph(t, `
+		action def Stream {
+			attribute total : Integer = 0;
+			first start;
+			fork both;
+			action producer {
+				out value : Integer;
+				attribute i : Integer = 0;
+				first start;
+				action emit { assign i := i + 1; assign value := i; }
+				action idle { assign i := i; }
+				done;
+				succession first start then emit;
+				succession first emit then idle;
+				succession first idle then done;
+			}
+			action consumer {
+				in got : Integer;
+				first start;
+				action take { assign total := total + got; }
+				done;
+				succession first start then take;
+				succession first take then done;
+			}
+			action sink {
+				in heard : Integer;
+				first start;
+				action hear { assign total := heard; }
+				done;
+				succession first start then hear;
+				succession first hear then done;
+			}
+			action later { in last : Integer; assign total := last; }
+			join joined;
+			done;
+			succession first start then both;
+			succession first both then producer;
+			succession first both then consumer;
+			succession first both then sink;
+			succession first producer then later;
+			succession first consumer then joined;
+			succession first sink then joined;
+			succession first later then joined;
+			succession first joined then done;
+			flow producer.value to consumer.got;
+			flow consumer.got to sink.heard;
+			succession flow producer.value to later.last;
+		}
+	`, "Stream")
+	producer := graph.Subflows[namedActionNode(t, graph, "producer")]
+	consumer := graph.Subflows[namedActionNode(t, graph, "consumer")]
+	if producer == nil || producer.Graph == nil || consumer == nil || consumer.Graph == nil {
+		t.Fatal("subflows missing")
+	}
+	emit := producer.Graph.Footprints()[namedActionNode(t, producer.Graph, "emit")]
+	for _, pin := range []string{"value", "got", "heard"} {
+		if !hasPlace(emit.Writes, pin) {
+			t.Errorf("emit footprint:\n%s\nwant a write of %s", emit, pin)
+		}
+	}
+	if hasPlace(emit.Writes, "last") {
+		t.Errorf("emit footprint:\n%s\nwrites the succession flow's target pin before completing", emit)
+	}
+	idle := producer.Graph.Footprints()[namedActionNode(t, producer.Graph, "idle")]
+	if hasPlace(idle.Writes, "got") {
+		t.Errorf("idle footprint:\n%s\nwrites a pin it never streams to", idle)
+	}
+	take := consumer.Graph.Footprints()[namedActionNode(t, consumer.Graph, "take")]
+	if !emit.Dependent(take) || !take.Dependent(emit) {
+		t.Errorf("emit and take commute:\n%s\n%s", emit, take)
+	}
+	if hasPlace(take.Writes, "heard") {
+		t.Errorf("take footprint:\n%s\nwrites a pin it only reads from", take)
+	}
+	whole := footprintNamed(t, graph, "producer")
+	for _, pin := range []string{"got", "heard", "last"} {
+		if !hasPlace(whole.Writes, pin) {
+			t.Errorf("producer footprint:\n%s\nwant a write of %s", whole, pin)
+		}
+	}
+}
+
+// A flow may name its source pin by the name it redefines: the pin and that name
+// are one, so a write to either streams along the flow, through the first target on.
+func TestFootprintStreamingFollowsRedefinedSourcePins(t *testing.T) {
+	graph := scopedActionGraph(t, `
+		action def Relay {
+			in got : Integer;
+			out result : Integer;
+		}
+		action def Stream {
+			attribute total : Integer = 0;
+			first start;
+			fork both;
+			action producer {
+				out value : Integer;
+				first start;
+				action emit { assign value := 1; }
+				done;
+				succession first start then emit;
+				succession first emit then done;
+			}
+			action relay : Relay {
+				in heard : Integer redefines got;
+				out value : Integer redefines result;
+				first start;
+				action pass { assign value := heard; }
+				done;
+				succession first start then pass;
+				succession first pass then done;
+			}
+			action sink {
+				in last : Integer;
+				first start;
+				action hear { assign total := last; }
+				done;
+				succession first start then hear;
+				succession first hear then done;
+			}
+			join joined;
+			done;
+			succession first start then both;
+			succession first both then producer;
+			succession first both then relay;
+			succession first both then sink;
+			succession first producer then joined;
+			succession first relay then joined;
+			succession first sink then joined;
+			succession first joined then done;
+			flow producer.value to relay.got;
+			flow relay.heard to sink.last;
+		}
+	`, "Stream")
+	producer := graph.Subflows[namedActionNode(t, graph, "producer")]
+	if producer == nil || producer.Graph == nil {
+		t.Fatal("producer subflow missing")
+	}
+	emit := producer.Graph.Footprints()[namedActionNode(t, producer.Graph, "emit")]
+	for _, pin := range []string{"value", "got", "last"} {
+		if !hasPlace(emit.Writes, pin) {
+			t.Errorf("emit footprint:\n%s\nwant a write of %s", emit, pin)
+		}
+	}
+}
