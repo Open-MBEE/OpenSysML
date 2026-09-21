@@ -118,7 +118,7 @@ func TestReadStandaloneMachine(t *testing.T) {
 	if len(tt.Target.Attributes) != 1 || tt.Target.Attributes[0].Name != "balance" || tt.Target.Attributes[0].Type != "Integer" {
 		t.Errorf("attributes = %+v", tt.Target.Attributes)
 	}
-	op := tt.Target.Operation("bump")
+	op := tt.Target.Operation("opBump")
 	if op == nil || op.Method == nil || op.Method.Body == nil || len(op.Method.Body.Statements) != 1 ||
 		op.Method.Body.Statements[0].String() != "this.balance := plus(this.balance, 100)" {
 		t.Errorf("operation bump = %+v", op)

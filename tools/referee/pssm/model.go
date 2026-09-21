@@ -113,13 +113,14 @@ type Attribute struct {
 	Default *Literal
 }
 
-// Operation returns the class's own operation of the given name, nil for none.
-func (c *Class) Operation(name string) *Operation {
+// Operation returns the class's own operation with the given xmi:id, nil for
+// none; same-named operations are told apart by identity, as UML does.
+func (c *Class) Operation(id string) *Operation {
 	if c == nil {
 		return nil
 	}
 	for _, op := range c.Operations {
-		if op.Name == name {
+		if op.ID == id {
 			return op
 		}
 	}
@@ -144,6 +145,16 @@ func (op *Operation) Outputs() []Param {
 		}
 	}
 	return out
+}
+
+// Signature spells the operation with its parameters, `bump(inout count : Integer)`,
+// the form that tells same-named operations apart.
+func (op *Operation) Signature() string {
+	parts := make([]string, len(op.Params))
+	for i, p := range op.Params {
+		parts[i] = p.Direction + " " + p.Name + " : " + p.Type
+	}
+	return op.Name + "(" + strings.Join(parts, ", ") + ")"
 }
 
 // Inputs are the operation's in and inout parameters in order: the ones a
@@ -488,10 +499,12 @@ func (b *Body) Empty() bool { return b == nil || (len(b.Statements) == 0 && len(
 type Statement struct {
 	Kind StatementKind
 	// Call and Send: the operation, behavior or signal named and its arguments
-	// in parameter order; Receiver is the object addressed, nil for a behavior.
-	Name     string
-	Args     []Expr
-	Receiver *Expr
+	// in parameter order; Receiver is the object addressed, nil for a behavior;
+	// OperationID the xmi:id of the operation an operation call names.
+	Name        string
+	Args        []Expr
+	Receiver    *Expr
+	OperationID string
 	// Accept: the events waited for, and Result the name the accepted
 	// occurrence is bound to when the body reads it ("" otherwise).
 	Events []*Event
@@ -568,13 +581,15 @@ type Expr struct {
 	Name   string
 	Object *Expr
 	// Apply: the behavior applied by short name, Library when a library owns it,
-	// Args in parameter order. Call: Result is the output read, ID the call action.
+	// Args in parameter order. Call: Result is the output read, ID the call action,
+	// OperationID the xmi:id of the operation called.
 	// New: the classifier instantiated by Name and TypeID, ID the create action.
-	Args    []Expr
-	Library *LibraryBehavior
-	Result  string
-	ID      string
-	TypeID  string
+	Args        []Expr
+	Library     *LibraryBehavior
+	Result      string
+	ID          string
+	OperationID string
+	TypeID      string
 	// Unknown: what the reader could not follow, for the diagnostic.
 	Text string
 }

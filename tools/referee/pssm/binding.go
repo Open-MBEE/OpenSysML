@@ -139,7 +139,8 @@ func (b *binder) site(bh *Behavior, where string, set triggerSet, at *Transition
 		if event == nil {
 			event = trig.Event
 		} else if !sameEvent(event, trig.Event) {
-			b.refuse(bh, where, fmt.Sprintf("bound from %s by one path and %s by another", event.Describe(), trig.Event.Describe()))
+			first, second := describeApart(event, trig.Event)
+			b.refuse(bh, where, fmt.Sprintf("bound from %s by one path and %s by another", first, second))
 			return
 		}
 	}
@@ -313,15 +314,27 @@ func exits(v *Vertex, t *Transition) bool {
 	return main.Kind == VertexState && inside(v, main)
 }
 
+// describeApart names two distinct events for a diagnostic, same-named
+// operations by their signatures so the reader can tell the overloads apart.
+func describeApart(a, b *Event) (string, string) {
+	x, y := a.Describe(), b.Describe()
+	if x == y && a.Kind == EventCall {
+		return a.Operation.Signature(), b.Operation.Signature()
+	}
+	return x, y
+}
+
+// sameEvent reports whether two triggers' events are one event: the same signal
+// or the same operation by identity, so same-named overloads stay apart.
 func sameEvent(a, b *Event) bool {
 	if a.Kind != b.Kind {
 		return false
 	}
 	switch a.Kind {
 	case EventSignal:
-		return a.Signal != nil && b.Signal != nil && a.Signal.Name == b.Signal.Name
+		return a.Signal != nil && a.Signal == b.Signal
 	case EventCall:
-		return a.Operation != nil && b.Operation != nil && a.Operation.Name == b.Operation.Name
+		return a.Operation != nil && a.Operation == b.Operation
 	}
 	return a.Type == b.Type
 }

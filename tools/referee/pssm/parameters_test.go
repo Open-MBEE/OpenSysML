@@ -139,6 +139,12 @@ const bumpOperation = `      <ownedOperation xmi:type="uml:Operation" xmi:id="op
       </ownedOperation>
 `
 
+// bumpFlagOperation is `bump(in flag : Boolean)`, an overload of bumpOperation.
+const bumpFlagOperation = `      <ownedOperation xmi:type="uml:Operation" xmi:id="opBumpFlag" name="bump">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="opBumpFlagF" name="flag" direction="in"><type href="` + primitiveTypes + `Boolean"/></ownedParameter>
+      </ownedOperation>
+`
+
 // swapOperation is `swap(inout a : Integer, inout b : Integer)`.
 const swapOperation = `      <ownedOperation xmi:type="uml:Operation" xmi:id="opSwap" name="swap">
         <ownedParameter xmi:type="uml:Parameter" xmi:id="opSwapA" name="a" direction="inout"><type href="` + primitiveTypes + `Integer"/></ownedParameter>
@@ -180,6 +186,7 @@ func parameterSuite(operations, body string, expected []string, steps ...testerS
 		`  <packagedElement xmi:type="uml:CallEvent" xmi:id="evOr" operation="opOr"/>
   <packagedElement xmi:type="uml:CallEvent" xmi:id="evBump" operation="opBump"/>
   <packagedElement xmi:type="uml:CallEvent" xmi:id="evSwap" operation="opSwap"/>
+  <packagedElement xmi:type="uml:CallEvent" xmi:id="evBumpFlag" operation="opBumpFlag"/>
   <packagedElement xmi:type="uml:Package" xmi:id="areaX" name="Area">
 ` + registration("Area", "semX", "Area 001", expected...) +
 		`  <packagedElement xmi:type="uml:Package" xmi:id="pkgX" name="001">
@@ -318,6 +325,57 @@ func TestParametersCallBindsInputsAndReturnsOutputs(t *testing.T) {
 		if !strings.Contains(m.Text, want) {
 			t.Errorf("emitted text lacks %q:\n%s", want, m.Text)
 		}
+	}
+}
+
+// The tester's call and the machine's trigger name an overload by identity, not
+// by name: the call binds the second bump's parameter and fires its event alone.
+func TestParametersOverloadsByIdentity(t *testing.T) {
+	body := `
+          <subvertex xmi:type="uml:State" xmi:id="xS1" name="S1">
+            ` + paramTrace("entry", "xS1entry", "S1(entry)", param{"flag", "in", "Boolean"}) + `
+          </subvertex>
+          <transition xmi:type="uml:Transition" xmi:id="xT2" name="T2" source="xWait" target="xS1">
+            <trigger xmi:type="uml:Trigger" xmi:id="xT2trig" event="evBumpFlag"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="xT3" name="T3" source="xS1" target="xFin">
+            <trigger xmi:type="uml:Trigger" xmi:id="xT3trig" event="evContinue"/>
+          </transition>`
+	call := testerStep{call: "opBumpFlag", args: []string{"uml:LiteralBoolean=true"}}
+	report, s := refereeParameterSuite(t, bumpOperation+bumpFlagOperation, body,
+		[]string{"S1(entry)[in=true]"}, call, sendContinue)
+	wantPass(t, report.Tests[0])
+	events, err := Stimulation(s, s.Tests[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) < 1 || events[0].Call != "bump" || len(events[0].Args) != 1 || events[0].Args[0].Name != "flag" {
+		t.Errorf("call stimulus = %+v, want bump bound to flag", events[0])
+	}
+}
+
+// Paths triggered by two same-named operations bind from different events, and
+// the refusal tells the overloads apart by signature.
+func TestParametersOverloadsBindApart(t *testing.T) {
+	body := `
+          <subvertex xmi:type="uml:State" xmi:id="xS1" name="S1">
+            ` + paramTrace("entry", "xS1entry", "S1(entry)", param{"flag", "in", "Boolean"}) + `
+          </subvertex>
+          <transition xmi:type="uml:Transition" xmi:id="xT2" name="T2" source="xWait" target="xS1">
+            <trigger xmi:type="uml:Trigger" xmi:id="xT2trig" event="evBump"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="xT3" name="T3" source="xWait" target="xS1">
+            <trigger xmi:type="uml:Trigger" xmi:id="xT3trig" event="evBumpFlag"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="xT4" name="T4" source="xS1" target="xFin">
+            <trigger xmi:type="uml:Trigger" xmi:id="xT4trig" event="evContinue"/>
+          </transition>`
+	s := readFixture(t, parameterSuite(bumpOperation+bumpFlagOperation, body, []string{"S1(entry)[in=true]"}, sendContinue))
+	noDiagnostics(t, s)
+	bindings := BindBehaviors(s.Tests[0].Machine)
+	want := "bound from bump(inout count : Integer) by one path and bump(in flag : Boolean) by another"
+	if len(bindings.Refused) != 1 || bindings.Refused[0].Where != "S1" || !strings.Contains(bindings.Refused[0].Reason, want) {
+		t.Fatalf("refused = %+v, want %q at S1", bindings.Refused, want)
 	}
 }
 

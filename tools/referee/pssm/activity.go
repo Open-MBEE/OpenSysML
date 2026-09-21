@@ -262,7 +262,7 @@ func (ar *activityReader) readNode(n *xmi.Element) {
 			ar.unsupported(n, "calls an operation the document does not define")
 			return
 		}
-		ar.emit(Statement{Kind: StmtCall, Name: op.Name(), Receiver: ar.pinValue(n.First("target")), Args: ar.args(n)})
+		ar.emit(Statement{Kind: StmtCall, Name: op.Name(), OperationID: op.ID, Receiver: ar.pinValue(n.First("target")), Args: ar.args(n)})
 	case typeCallBehaviorAction:
 		if ar.consumed(n) {
 			return
@@ -477,7 +477,7 @@ func (ar *activityReader) actionValue(n, pin *xmi.Element) Expr {
 		if !ok {
 			return Expr{Kind: ExprUnknown, Text: n.Describe() + " reads a result pin " + op.Name() + " has no output parameter for"}
 		}
-		return Expr{Kind: ExprCall, Name: op.Name(), Object: deref(ar.pinValue(n.First("target"))), Args: ar.args(n), Result: result, ID: n.ID}
+		return Expr{Kind: ExprCall, Name: op.Name(), OperationID: op.ID, Object: deref(ar.pinValue(n.First("target"))), Args: ar.args(n), Result: result, ID: n.ID}
 	case typeTestIdentityAction:
 		return Expr{Kind: ExprApply, Name: "==", Args: []Expr{*deref(ar.pinValue(n.First("first"))), *deref(ar.pinValue(n.First("second")))}}
 	case typeAcceptEventAction, typeAcceptCallAction:
