@@ -1373,6 +1373,74 @@ func TestEmitExternalTypesNeverLocalClassifiers(t *testing.T) {
 		"action 'Create(Counter)' { out result : Counter = new Counter(); }")
 }
 
+// activityNamesakeModel declares an activity named Integer, an object classifier
+// yielding a primitive Integer: Minting creates one and hands it out beside a
+// primitive value.
+const activityNamesakeModel = `<?xml version="1.0" encoding="UTF-8"?>
+<uml:Model xmi:version="20131001" xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmlns:uml="http://www.eclipse.org/uml2/5.0.0/UML" xmi:id="m" name="ActivityNamesakes">
+  <packagedElement xmi:type="uml:Activity" xmi:id="intact" name="Integer">
+    <ownedAttribute xmi:type="uml:Property" xmi:id="intactTally" name="tally">` + integerType + `</ownedAttribute>
+    <ownedParameter xmi:type="uml:Parameter" xmi:id="intactN" name="n" direction="out">` + integerType + `</ownedParameter>
+    <node xmi:type="uml:ValueSpecificationAction" xmi:id="a4" name="Value(4)">
+      <result xmi:type="uml:OutputPin" xmi:id="a4r" name="result">` + integerType + `</result>
+      <value xmi:type="uml:LiteralInteger" xmi:id="a4v" value="4"/>
+    </node>
+    <node xmi:type="uml:ActivityParameterNode" xmi:id="intactNNode" name="Parameter(n)" parameter="intactN"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="a1" source="a4r" target="intactNNode"/>
+  </packagedElement>
+  <packagedElement xmi:type="uml:Activity" xmi:id="minting" name="Minting">
+    <ownedParameter xmi:type="uml:Parameter" xmi:id="mintingMade" name="made" direction="out" type="intact"/>
+    <ownedParameter xmi:type="uml:Parameter" xmi:id="mintingCount" name="count" direction="out">` + integerType + `</ownedParameter>
+    <node xmi:type="uml:CreateObjectAction" xmi:id="createInt" name="Create(Integer)" classifier="intact">
+      <result xmi:type="uml:OutputPin" xmi:id="createIntR" name="result" type="intact"/>
+    </node>
+    <node xmi:type="uml:ValueSpecificationAction" xmi:id="m3" name="Value(3)">
+      <result xmi:type="uml:OutputPin" xmi:id="m3r" name="result">` + integerType + `</result>
+      <value xmi:type="uml:LiteralInteger" xmi:id="m3v" value="3"/>
+    </node>
+    <node xmi:type="uml:ActivityParameterNode" xmi:id="mintingMadeNode" name="Parameter(made)" parameter="mintingMade"/>
+    <node xmi:type="uml:ActivityParameterNode" xmi:id="mintingCountNode" name="Parameter(count)" parameter="mintingCount"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="g1" source="createIntR" target="mintingMadeNode"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="g2" source="m3r" target="mintingCountNode"/>
+  </packagedElement>
+</uml:Model>
+`
+
+// An activity named as a primitive that objects are created of is that part
+// definition wherever the model references it by id, never the scalar, and the
+// primitive is spelled qualified beside it, inside its owned behavior included.
+func TestEmitActivityNamesakeOfPrimitive(t *testing.T) {
+	s := fixtureSuite(t, activityNamesakeModel)
+	m := s.Tests
+	if got := m.primitive(TypeRef{ID: "intact", Name: "Integer", Kind: "Activity"}); got != "" {
+		t.Errorf("the activity Integer as a primitive = %q, want none", got)
+	}
+	if got := m.primitive(TypeRef{ID: "Integer", Name: "Integer", Kind: "PrimitiveType", External: true}); got != "Integer" {
+		t.Errorf("external Integer as a primitive = %q", got)
+	}
+	em := emitted(t, s, "Minting")
+	wantLines(t, em,
+		"\tpart def Integer {\n\t\tattribute tally : ScalarValues::Integer;\n\t\taction def 'behavior' {\n\t\t\tout n : ScalarValues::Integer;\n",
+		"\t\t\taction 'Value(4)' { out result : ScalarValues::Integer = 4; }\n",
+		"\t\t}\n\t\taction classifierBehavior : 'behavior';\n\t}\n",
+		"out made : Integer;",
+		"out count : ScalarValues::Integer;",
+		"action 'Create(Integer)' { out result : Integer = new Integer(); }",
+		"action 'Value(3)' { out result : ScalarValues::Integer = 3; }")
+	if strings.Contains(em.Text, "\n\taction def Integer") {
+		t.Errorf("Integer declared as an action def as well:\n%s", em.Text)
+	}
+	minting := fixtureActivity(t, s, "Minting")
+	x := executed(minting, []ExpectedOutput{{Parameter: "made", Values: []ExpectedValue{object("i", "Integer", ExpectedFeature{Feature: "tally"})}}, integers("count", 3)})
+	ex, err := Execute(context.Background(), em, &x, DefaultBudget, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ex.Passed() || strings.Join(ex.Reached, "|") != "made = Integer#1{tally = -}; count = 3" {
+		t.Errorf("Minting: %+v", ex)
+	}
+}
+
 // nameNamesakeModel declares a class and a signal both named Notice: Hear
 // accepts the signal and hands it out, touching the class nowhere.
 const nameNamesakeModel = `<?xml version="1.0" encoding="UTF-8"?>

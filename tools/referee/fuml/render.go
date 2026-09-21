@@ -107,14 +107,17 @@ func (g *graph) at(key, typeName string) (*entity, bool) {
 	return o, true
 }
 
-// attributesOf is the own and inherited attributes, in name order, of the class
-// or signal the model declares under typeName.
+// attributesOf is the own and inherited attributes, in name order, of the class,
+// signal or activity the model declares under typeName.
 func (g *graph) attributesOf(typeName string) ([]*Property, bool) {
 	var attrs []*Property
-	if c := g.model.ClassOf(TypeRef{Name: typeName}); c != nil {
+	ref := TypeRef{Name: typeName}
+	if c := g.model.ClassOf(ref); c != nil {
 		attrs = c.AllAttributes()
-	} else if s := g.model.SignalOf(TypeRef{Name: typeName}); s != nil {
+	} else if s := g.model.SignalOf(ref); s != nil {
 		attrs = s.AllAttributes()
+	} else if a := g.model.ActivityOf(ref); a != nil {
+		attrs = a.Attributes
 	} else {
 		return nil, false
 	}

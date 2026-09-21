@@ -695,17 +695,18 @@ var scalarTypes = map[string]string{
 }
 
 // primitive is the ScalarValues type the fUML primitive type t names, or "" when
-// t names none: a class or signal of the model named as a primitive is that
-// classifier, but no external reference names one, whatever its fragment.
+// t names none: a class, signal or activity of the model named as a primitive is
+// that classifier, but no external reference names one, whatever its fragment.
 func (m *Model) primitive(t TypeRef) string {
-	if m != nil && !t.External && (m.classes[t.ID] != nil || m.signals[t.ID] != nil) {
+	if m != nil && !t.External &&
+		(m.classes[t.ID] != nil || m.signals[t.ID] != nil || m.activities[t.ID] != nil) {
 		return ""
 	}
 	return scalarTypes[t.Name]
 }
 
-// scalar spells a ScalarValues type, qualified when a class or signal of the
-// model bears its name and would take it over in the package.
+// scalar spells a ScalarValues type, qualified when a class, signal or activity
+// of the model bears its name and would take it over in the package.
 func (m *Model) scalar(name string) string {
 	if m == nil {
 		return name
@@ -717,6 +718,11 @@ func (m *Model) scalar(name string) string {
 	}
 	for _, sg := range m.Signals {
 		if sg.Name == name {
+			return "ScalarValues::" + name
+		}
+	}
+	for _, a := range m.Activities {
+		if a.Name == name {
 			return "ScalarValues::" + name
 		}
 	}
