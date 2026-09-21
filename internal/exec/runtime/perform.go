@@ -47,21 +47,27 @@ func (e *StateExecutor) Enqueue(event QueuedEvent) error {
 // synchronous caller would still be waiting on it.
 var ErrCallNotReturned = errors.New("call not returned")
 
-// pendingCall is the synchronous call Call is waiting on and the outputs the
-// machine has returned to its caller so far.
+// pendingCall is the synchronous call Call is waiting on, the outputs the
+// machine has returned to its caller so far and the names the operation's
+// declaration lets out (nil when the machine's owner declares no such operation).
 type pendingCall struct {
 	id      int64
 	outputs map[string]Value
+	returns map[string]bool
 }
 
-// Call queues the call event, runs the machine to completion and releases the
-// caller with the outputs the triggered behaviors returned, by name (PSSM 8.5.9).
+// Call queues the call event, runs the machine through the run-to-completion
+// step dispatching it and releases the caller with the outputs the behaviors that
+// step fired returned, by name (PSSM 8.5.9): the operation's out parameters when
+// the machine's owner declares it, every output otherwise. Events that step
+// queued and timers it armed stay for the machine's later runs; the clock does
+// not move.
 func (e *StateExecutor) Call(operation string, args map[string]Value) (map[string]Value, error) {
-	call := &pendingCall{id: e.nextEventID, outputs: make(map[string]Value)}
+	call := &pendingCall{id: e.nextEventID, outputs: make(map[string]Value), returns: e.callReturns(operation)}
 	e.pendingCall = call
 	defer func() { e.pendingCall = nil }()
 	e.InvokeOperation(operation, args)
-	if err := e.RunToCompletion(); err != nil {
+	if err := e.RunToQuiescence(); err != nil {
 		return nil, err
 	}
 	if held := e.eventDisposition(call.id); held != "" {
@@ -83,11 +89,43 @@ func (e *StateExecutor) WriteAttribute(name string, value Value) error {
 	return e.assignAttribute(name, value)
 }
 
+// callReleased reports whether the pending call's event has left the queue, so
+// its run-to-completion step is done (or it is deferred) and the caller may go.
+func (e *StateExecutor) callReleased() bool {
+	return e.pendingCall != nil && e.eventDisposition(e.pendingCall.id) != "queued"
+}
+
+// callReturns is the set of out and inout parameters the operation declares as a
+// member of the machine's owner (of the machine itself when it stands alone);
+// nil when no member of that name states a behavior.
+func (e *StateExecutor) callReturns(operation string) map[string]bool {
+	owner := e.stateMachine
+	if e.self != nil && e.self.Type != nil {
+		owner = e.self.Type
+	}
+	for _, member := range e.ctx.model.semantics.MembersOf(owner) {
+		if member.Name != operation || !isActionSymbol(member) {
+			continue
+		}
+		_, out := parameterNames(e.ctx.actionParametersOf(member))
+		returns := make(map[string]bool, len(out))
+		for _, name := range out {
+			returns[name] = true
+		}
+		return returns
+	}
+	return nil
+}
+
 // recordCallOutput keeps an output a behavior returned to the machine while the
-// pending call's event is being dispatched, for Call to release the caller with.
+// pending call's event is being dispatched, for Call to release the caller with;
+// a name the declared operation does not return stays the machine's own.
 func (e *StateExecutor) recordCallOutput(name string, value Value) {
 	call := e.pendingCall
 	if call == nil || e.firingEvent == nil || e.firingEvent.ID != call.id {
+		return
+	}
+	if call.returns != nil && !call.returns[name] {
 		return
 	}
 	call.outputs[name] = value

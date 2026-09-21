@@ -150,8 +150,8 @@ For each expressible test the referee parses the emitted model, resolves the sta
 and drives a state executor (`Context.CreateStateExecutorFor`, the executor the runtime's
 shared state driver and the execution-conformance harness use) through the tester's steps in
 the tester's order (`run.go:drive`): a send is queued, a call is `StateExecutor.Call` — the
-call event queued, the machine run to completion, the operation's outputs returned to the
-driver as PSSM §8.5.9 returns them to a synchronous caller — and a tester `trace(...)` is
+call event queued, the machine run through the step dispatching it and no further, the
+operation's outputs returned to the driver as PSSM §8.5.9 returns them to a synchronous caller — and a tester `trace(...)` is
 evaluated over the suite's test library read into the model (`library.go`: `Concat`,
 `ToString`, `formatParameterValue`) and appended to the target's `log` where the tester makes
 it. The run is under the `explore` schedule policy,

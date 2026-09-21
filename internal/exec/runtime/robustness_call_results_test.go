@@ -7,13 +7,18 @@ import (
 )
 
 // TestRuntimeRobustnessCallResults exercises the failure modes of a synchronous
-// call (StateExecutor.Call): held, untaken, empty, repeated and erroring calls.
+// call (StateExecutor.Call): held, untaken, empty, repeated and erroring calls,
+// and the caller released at its own step's end, ahead of later events and timers.
 func TestRuntimeRobustnessCallResults(t *testing.T) {
 	t.Run("call_left_deferred", testCallResultsLeftDeferred)
 	t.Run("call_left_queued_behind_termination", testCallResultsLeftQueued)
 	t.Run("call_nothing_takes_returns_empty", testCallResultsNothingTakes)
 	t.Run("results_do_not_carry_over", testCallResultsDoNotCarryOver)
 	t.Run("dispatch_error_reaches_the_caller", testCallResultsDispatchError)
+	t.Run("released_before_the_completion_step", testCallResultsReleasedBeforeCompletion)
+	t.Run("timer_after_the_step_is_not_drained", testCallResultsTimerNotDrained)
+	t.Run("queued_signal_is_dispatched_before_the_call", testCallResultsQueuedSignalFirst)
+	t.Run("declared_operation_returns_its_parameters_only", testCallResultsDeclaredReturns)
 }
 
 const callResultsModel = `package test {
@@ -41,10 +46,72 @@ const callResultsModel = `package test {
 	}
 }`
 
+// callBoundaryModel: the step answering `ask` enters `answered`, whose completion
+// transition leads to `later`, whose timer fires an effect that fails.
+const callBoundaryModel = `package test {
+	private import SI::*;
+	private import ScalarValues::*;
+	action def Answer {
+		out result : Integer;
+		first start;
+		action answering { assign result := 42; }
+		done;
+		succession first start then answering;
+		succession first answering then done;
+	}
+	state def Machine {
+		attribute result : Integer = 0;
+		attribute divisor : Integer = 0;
+		attribute poked : Boolean = false;
+		entry; then idle;
+		state idle;
+		state answered;
+		state later;
+		transition first idle accept ask() do perform Answer then answered;
+		transition first idle accept Poke do assign poked := true then idle;
+		transition first answered then later;
+		transition first later accept after 1 [s] do assign result := result / divisor then done;
+	}
+}`
+
+// callOwnerModel: `Owner` declares `ask` returning `result` alone, and its machine
+// answers both `ask` and the undeclared `tell` with a helper that also writes `log`.
+const callOwnerModel = `package P {
+	private import ScalarValues::*;
+	part def Owner {
+		attribute log : String = "";
+		attribute result : Integer = 0;
+		action def ask { out result : Integer; }
+		action def Answer {
+			inout log : String;
+			out result : Integer;
+			first start;
+			action answering { assign result := 42; assign log := "answered"; }
+			done;
+			succession first start then answering;
+			succession first answering then done;
+		}
+		exhibit state sm {
+			entry; then idle;
+			state idle;
+			state answered;
+			transition first idle accept ask() do action : Answer { inout log = log; } then answered;
+			transition first answered accept tell() do action : Answer { inout log = log; } then idle;
+		}
+	}
+	part owner : Owner;
+}`
+
 // callResultsMachine creates an executor of the model's machine on a fresh context.
 func callResultsMachine(t *testing.T) *StateExecutor {
 	t.Helper()
-	m := parseExploreModel(t, callResultsModel)
+	return callMachineOf(t, callResultsModel)
+}
+
+// callMachineOf creates an executor of the model's `Machine` on a fresh context.
+func callMachineOf(t *testing.T, model string) *StateExecutor {
+	t.Helper()
+	m := parseLibraryModel(t, model)
 	ctx, err := m.fresh()
 	if err != nil {
 		t.Fatal(err)
@@ -147,5 +214,102 @@ func testCallResultsDispatchError(t *testing.T) {
 	results, err := exec.Call("ask", nil)
 	if err == nil || !strings.Contains(err.Error(), "division by zero") {
 		t.Fatalf("Call = (%v, %v), want the division by zero", results, err)
+	}
+}
+
+// testCallResultsReleasedBeforeCompletion: the caller is released once the step
+// dispatching its call ends; the completion event that step queued is a later step.
+func testCallResultsReleasedBeforeCompletion(t *testing.T) {
+	exec := callMachineOf(t, callBoundaryModel)
+	results, err := exec.Call("ask", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, ok := results["result"]; !ok || got.Const.Int != 42 {
+		t.Fatalf("Call returned %v, want result = 42", results)
+	}
+	if got := exec.Outcome().FinalState; got != "answered" {
+		t.Errorf("state after the call %q, want answered with its completion still queued", got)
+	}
+	if err := exec.RunToQuiescence(); err != nil {
+		t.Fatal(err)
+	}
+	if got := exec.Outcome().FinalState; got != "later" {
+		t.Errorf("state after the next run %q, want later", got)
+	}
+}
+
+// testCallResultsTimerNotDrained: a timer the call's step arms does not run under
+// the call; its later failure reaches the run that advances the clock, not the caller.
+func testCallResultsTimerNotDrained(t *testing.T) {
+	exec := callMachineOf(t, callBoundaryModel)
+	results, err := exec.Call("ask", nil)
+	if err != nil {
+		t.Fatalf("Call = %v, want the result ahead of the timer's failure", err)
+	}
+	if got, ok := results["result"]; !ok || got.Const.Int != 42 {
+		t.Fatalf("Call returned %v, want result = 42", results)
+	}
+	err = exec.RunToCompletion()
+	if err == nil || !strings.Contains(err.Error(), "division by zero") {
+		t.Fatalf("RunToCompletion = %v, want the timer's division by zero", err)
+	}
+}
+
+// testCallResultsQueuedSignalFirst: a signal queued ahead of the call is dispatched
+// first, in its own step, and the call still returns its step's results.
+func testCallResultsQueuedSignalFirst(t *testing.T) {
+	exec := callMachineOf(t, callBoundaryModel)
+	if err := exec.Enqueue(QueuedEvent{Signal: "Poke"}); err != nil {
+		t.Fatal(err)
+	}
+	results, err := exec.Call("ask", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, ok := results["result"]; !ok || got.Const.Int != 42 {
+		t.Fatalf("Call returned %v, want result = 42", results)
+	}
+	if len(results) != 1 {
+		t.Errorf("Call returned %v, want the call's own result alone", results)
+	}
+	if got := exec.StateData()["poked"]; got.Kind != ValConst || !got.Const.Bool {
+		t.Errorf("poked = %v, want the queued signal dispatched before the call", got)
+	}
+	if got := exec.Outcome().FinalState; got != "answered" {
+		t.Errorf("state after the call %q, want answered", got)
+	}
+}
+
+// testCallResultsDeclaredReturns: a call of an operation the owner declares
+// releases its out parameters alone, so the helper's `log` stays the object's;
+// a call the owner declares nothing for releases every output the step returned.
+func testCallResultsDeclaredReturns(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, callOwnerModel))
+	owner, err := ctx.Instantiate(oneSymbol(t, idx, "P::owner"))
+	if err != nil {
+		t.Fatalf("instantiate owner: %v", err)
+	}
+	exec, err := ctx.CreateStateExecutorFor(oneSymbol(t, idx, "P::Owner::sm"), owner)
+	if err != nil {
+		t.Fatalf("create state executor: %v", err)
+	}
+	t.Cleanup(exec.Release)
+	asked, err := exec.Call("ask", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, ok := asked["result"]; !ok || got.Const.Int != 42 || len(asked) != 1 {
+		t.Fatalf("ask returned %v, want result = 42 alone", asked)
+	}
+	if log, err := owner.GetFeatureValue(ctx, "log"); err != nil || log.Value.Str() != "answered" {
+		t.Errorf("log = %v, %v; want the helper's write kept by the object", log, err)
+	}
+	told, err := exec.Call("tell", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, ok := told["log"]; !ok || got.Str() != "answered" || len(told) != 2 {
+		t.Errorf("tell returned %v, want both outputs of the undeclared operation", told)
 	}
 }

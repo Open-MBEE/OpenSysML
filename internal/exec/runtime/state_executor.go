@@ -3052,6 +3052,9 @@ func (e *StateExecutor) runCounting(atCurrentTime bool, progress *dueProgress) (
 		}
 		if stepped {
 			progress.unsettle()
+			if e.callReleased() {
+				return nil
+			}
 			continue
 		}
 		if atCurrentTime {
