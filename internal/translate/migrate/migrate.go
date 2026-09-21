@@ -94,6 +94,7 @@ func FromModel(name string, model *sysmlv1.Model) *Result {
 		usageOf:      map[*sysmlv1.Element]string{},
 		pins:         map[*sysmlv1.Element]pinDecl{},
 		opaque:       map[*sysmlv1.Element]*opaqueResult{},
+		actors:       map[*sysmlv1.Element]*actorLink{},
 	}
 	m.prepare()
 	for _, root := range model.Roots {
@@ -253,6 +254,9 @@ type migration struct {
 	opaque map[*sysmlv1.Element]*opaqueResult
 	// rules memoizes how each constraint block's anonymous rule is written.
 	rules map[*sysmlv1.Element]ruleForm
+	// actors gives each association linking a use case to an actor the actor
+	// usage it is written as in the use case's body.
+	actors map[*sysmlv1.Element]*actorLink
 	// clocks memoizes the names a simulation configuration gives the clock.
 	clocks map[string]string
 	// observed memoizes, per observation, the durations and time expressions that read it.
@@ -324,6 +328,7 @@ func weaker(a, b Verdict) bool {
 // features the connectors and slots that will be written reach.
 func (m *migration) prepare() {
 	var reachers, configs, laned []*sysmlv1.Element
+	var links []*actorLink
 	var walk func(e *sysmlv1.Element)
 	walk = func(e *sysmlv1.Element) {
 		m.distinguish(e)
@@ -411,8 +416,12 @@ func (m *migration) prepare() {
 			m.invoke(e, "entry", "doActivity", "exit")
 		case "Transition":
 			m.invoke(e, "effect")
-		case "Class", "Component", "Node", "Device", "ExecutionEnvironment":
+		case "Class", "Component", "Node", "Device", "ExecutionEnvironment", "UseCase":
 			m.invoke(e, "classifierBehavior")
+		case "Association":
+			if link := m.actorLink(e); link != nil {
+				links = append(links, link)
+			}
 		}
 		for _, c := range e.Children {
 			walk(c)
@@ -424,6 +433,7 @@ func (m *migration) prepare() {
 		}
 	}
 	m.indexSnapshots(configs)
+	m.placeActors(links)
 	for _, e := range reachers {
 		m.exposeReached(e)
 	}
@@ -630,6 +640,15 @@ func (m *migration) member(e *sysmlv1.Element) {
 	case "InterfaceRealization":
 		m.interfaceRealization(e)
 		return
+	case "Include":
+		m.include(e)
+		return
+	case "Extend":
+		m.extend(e)
+		return
+	case "ExtensionPoint":
+		m.unmapped(e, "v2 has no extension points; an extending use case is written as a dependency on the extended one")
+		return
 	case "Comment":
 		// A comment in a non-ownedComment role is still a comment.
 		m.comment(e)
@@ -759,6 +778,9 @@ func (m *migration) classifierBody(e *sysmlv1.Element, cat category, header stri
 		return
 	case catRequirementDef:
 		m.w.block(header, func() { m.requirementBody(e) })
+		return
+	case catUseCaseDef:
+		m.w.block(header, func() { m.useCaseBody(e) })
 		return
 	case catEnumDef:
 		m.w.block(header, func() {
@@ -1298,14 +1320,22 @@ func ownsEveryEnd(e *sysmlv1.Element, ends []*sysmlv1.Element) bool {
 func (m *migration) association(e *sysmlv1.Element) {
 	ends := m.model.Refs(e, "memberEnd")
 	name := m.nameOf(e)
+	link := m.actors[e]
 	if name == "" {
 		missing := m.dangling(e, "memberEnd")
+		if link != nil {
+			m.add(e, Mapped, m.actorTarget(link), "the anonymous association to the actor is written as an actor of the use case")
+			return
+		}
 		if e.Type == "Association" && !ownsEveryEnd(e, ends) {
 			m.add(e, verdictFor(missing), "", joinNotes("the anonymous association is written as its member-end properties", missing))
 			return
 		}
 		name = m.nameFor(e)
 		m.add(e, Approximated, m.v2Name(e), joinNotes("the anonymous "+e.Type+" owns every end, so it is written as connection def "+name, missing))
+	}
+	if link != nil {
+		m.add(e, Mapped, m.v2Name(e), "the association is also written as the actor "+link.name+" of the use case "+m.v2Name(link.useCase))
 	}
 	header := "connection def " + writeName(name)
 	if gens, _ := m.generals(e, catConnectionDef); gens != "" {
@@ -1389,6 +1419,9 @@ func (m *migration) featureKeyword(p *sysmlv1.Element, owner category) (keyword,
 	if t == nil {
 		return "ref", "", "the untyped property is written as a reference usage"
 	}
+	if owner == catUseCaseDef && t.Type == "Actor" && m.written(t) {
+		return "actor", "", ""
+	}
 	kw, note := m.typeKeyword(t)
 	switch kw {
 	case "item":
@@ -1410,7 +1443,7 @@ func (m *migration) featureKeyword(p *sysmlv1.Element, owner category) (keyword,
 			return "part", "ref ", joinNotes(note, "shared aggregation is written as a reference part")
 		}
 		return "part", "ref ", note
-	case "action", "state", "calc":
+	case "action", "state", "calc", "use case":
 		// A property typed by a behavior holds a performance; only a perform
 		// or exhibit usage runs one, so the property is a reference.
 		return kw, "ref ", joinNotes(note, "a property typed by a behavior is written as a reference "+kw+" usage")
@@ -1443,6 +1476,8 @@ func (m *migration) typeKeyword(t *sysmlv1.Element) (keyword, note string) {
 		return "state", ""
 	case catCalcDef:
 		return "calc", ""
+	case catUseCaseDef:
+		return "use case", ""
 	case catNone, catLibrary:
 		return "attribute", "typed by library element " + t.Name + " with no known v2 counterpart"
 	case catUnmapped:

@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:Custom="http://www.example.org/profiles/Custom">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+
+    <packagedElement xmi:type="uml:Package" xmi:id="_ctx" name="Context">
+      <packagedElement xmi:type="uml:Class" xmi:id="_garage" name="Garage"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_ticket" name="Ticket"/>
+      <packagedElement xmi:type="uml:Actor" xmi:id="_driver" name="Driver">
+        <ownedComment xmi:type="uml:Comment" xmi:id="_driverDoc" annotatedElement="_driver" body="The person parking a car."/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Actor" xmi:id="_attendant" name="Attendant"/>
+      <packagedElement xmi:type="uml:Actor" xmi:id="_bank" name="Bank"/>
+    </packagedElement>
+
+    <packagedElement xmi:type="uml:Package" xmi:id="_ucs" name="Use Cases">
+
+      <!-- A use case with a subject, a classifier behavior, an inclusion and an
+           extension point; the actors reach it through associations. -->
+      <packagedElement xmi:type="uml:UseCase" xmi:id="_park" name="Park Car" subject="_garage" classifierBehavior="_parkFlow">
+        <ownedComment xmi:type="uml:Comment" xmi:id="_parkDoc" annotatedElement="_park" body="A driver parks a car in the garage."/>
+        <include xmi:type="uml:Include" xmi:id="_incPay" includingCase="_park" addition="_pay"/>
+        <extensionPoint xmi:type="uml:ExtensionPoint" xmi:id="_epFull" name="garage full"/>
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_parkFlow" name="Park Flow">
+          <node xmi:type="uml:InitialNode" xmi:id="_pfStart" outgoing="_pfE1"/>
+          <node xmi:type="uml:OpaqueAction" xmi:id="_pfEnter" name="Enter" incoming="_pfE1" outgoing="_pfE2"/>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_pfEnd" incoming="_pfE2"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_pfE1" source="_pfStart" target="_pfEnter"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_pfE2" source="_pfEnter" target="_pfEnd"/>
+        </ownedBehavior>
+      </packagedElement>
+
+      <!-- An included use case with a named inclusion of its own and a second
+           subject, which v2 cannot hold. -->
+      <packagedElement xmi:type="uml:UseCase" xmi:id="_pay" name="Pay Fee" subject="_garage _ticket">
+        <include xmi:type="uml:Include" xmi:id="_incAuth" name="authorise" includingCase="_pay" addition="_authorise"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_payAmount" name="amount" type="_real"/>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:UseCase" xmi:id="_authorise" name="Authorise Payment">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_authBank" name="bank" type="_bank"/>
+      </packagedElement>
+
+      <!-- An extending use case: v2 has no extend, so it becomes a dependency. -->
+      <packagedElement xmi:type="uml:UseCase" xmi:id="_wait" name="Wait For Space">
+        <extend xmi:type="uml:Extend" xmi:id="_extFull" extension="_wait" extendedCase="_park" extensionLocation="_epFull">
+          <condition xmi:type="uml:Constraint" xmi:id="_extCond">
+            <specification xmi:type="uml:OpaqueExpression" xmi:id="_extCondSpec" body="no bay is free" language="English"/>
+          </condition>
+        </extend>
+      </packagedElement>
+
+      <!-- A stereotyped use case whose include and extend point outside the document. -->
+      <packagedElement xmi:type="uml:UseCase" xmi:id="_leave" name="Leave Garage">
+        <include xmi:type="uml:Include" xmi:id="_incLost" includingCase="_leave" addition="_lostCase"/>
+        <extend xmi:type="uml:Extend" xmi:id="_extLost" extension="_leave" extendedCase="_lostCase"/>
+      </packagedElement>
+
+      <!-- A use case generalizing another, and typed as a property of a block. -->
+      <packagedElement xmi:type="uml:UseCase" xmi:id="_valet" name="Valet Park">
+        <generalization xmi:type="uml:Generalization" xmi:id="_valetGen" general="_park"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_service" name="Valet Service">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_svcCase" name="offer" type="_valet"/>
+      </packagedElement>
+
+      <!-- Anonymous associations owning both ends: written as actors. -->
+      <packagedElement xmi:type="uml:Association" xmi:id="_aDriverPark" memberEnd="_eDriver _eParkD">
+        <ownedEnd xmi:type="uml:Property" xmi:id="_eDriver" name="driver" type="_driver" association="_aDriverPark"/>
+        <ownedEnd xmi:type="uml:Property" xmi:id="_eParkD" type="_park" association="_aDriverPark"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Association" xmi:id="_aAttendantPark" memberEnd="_eAttendant _eParkA">
+        <ownedEnd xmi:type="uml:Property" xmi:id="_eAttendant" type="_attendant" association="_aAttendantPark">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_eAttLow" value="0"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_eAttUp" value="1"/>
+        </ownedEnd>
+        <ownedEnd xmi:type="uml:Property" xmi:id="_eParkA" type="_park" association="_aAttendantPark"/>
+      </packagedElement>
+      <!-- A named association keeps its connection def beside the actor. -->
+      <packagedElement xmi:type="uml:Association" xmi:id="_aBankPay" name="Settlement" memberEnd="_eBank _ePayB">
+        <ownedEnd xmi:type="uml:Property" xmi:id="_eBank" name="bank" type="_bank" association="_aBankPay"/>
+        <ownedEnd xmi:type="uml:Property" xmi:id="_ePayB" type="_pay" association="_aBankPay"/>
+      </packagedElement>
+      <!-- An association between two use cases is not an actor link. -->
+      <packagedElement xmi:type="uml:Association" xmi:id="_aParkWait" memberEnd="_ePW1 _ePW2">
+        <ownedEnd xmi:type="uml:Property" xmi:id="_ePW1" type="_park" association="_aParkWait"/>
+        <ownedEnd xmi:type="uml:Property" xmi:id="_ePW2" type="_wait" association="_aParkWait"/>
+      </packagedElement>
+    </packagedElement>
+
+    <packagedElement xmi:type="uml:PrimitiveType" xmi:id="_real" name="Real"/>
+  </uml:Model>
+  <sysml:Block xmi:id="_s1" base_Class="_garage"/>
+  <sysml:Block xmi:id="_s2" base_Class="_ticket"/>
+  <sysml:Block xmi:id="_s3" base_Class="_service"/>
+  <Custom:HyperlinkOwner xmi:id="_s4" base_Element="_leave"/>
+</xmi:XMI>

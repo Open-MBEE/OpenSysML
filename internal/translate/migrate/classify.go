@@ -30,6 +30,8 @@ const (
 	// catCalcDef is an opaque or function behavior computing a result.
 	catCalcDef
 	catStateDef
+	// catUseCaseDef is a UML use case, whatever incidental stereotype it carries.
+	catUseCaseDef
 	// catSimConfig is a simulation tool's run configuration: an action def
 	// that instantiates its execution target and performs its behavior.
 	catSimConfig
@@ -73,6 +75,8 @@ func (c category) keyword() string {
 		return "calc def"
 	case catStateDef:
 		return "state def"
+	case catUseCaseDef:
+		return "use case def"
 	case catSimConfig:
 		return "action def"
 	case catValue:
@@ -518,7 +522,7 @@ func (m *migration) classify(e *sysmlv1.Element) (category, string) {
 	case "Reception":
 		return catUnmapped, "a reception names the signal its owner accepts, which the owner's behaviors carry as accept"
 	case "UseCase":
-		return catUnmapped, "use cases are not migrated yet"
+		return catUseCaseDef, ""
 	case "Collaboration", "Node", "Device", "ExecutionEnvironment", "Artifact":
 		return catUnmapped, "no v2 form for a UML " + e.Type
 	case "DurationObservation", "TimeObservation":
