@@ -165,9 +165,12 @@ func (ctx *Context) bindingsForFeature(typeSym *symbols.Symbol, name string) []l
 	return bindings
 }
 
-// bindingLinksNothing reports a binding with an end of multiplicity [0], which links no
-// value and so constrains neither feature (KerML 1.0 §7.4.9.2, connector end multiplicity).
+// bindingLinksNothing reports a binding with an end or connector multiplicity of [0],
+// which links no value and so constrains neither feature (KerML 1.0 §7.4.9.2).
 func (ctx *Context) bindingLinksNothing(binding lower.Binding) bool {
+	if r, ok := ctx.model.semantics.RangeOf(binding.Multiplicity); ok && r.Upper.Known && !r.Upper.Infinite && r.Upper.Value == 0 {
+		return true
+	}
 	for _, end := range binding.Ends {
 		if r, ok := ctx.model.semantics.RangeOf(end.Multiplicity); ok && r.Upper.Known && !r.Upper.Infinite && r.Upper.Value == 0 {
 			return true
@@ -505,6 +508,14 @@ func (ctx *Context) wholeBindingCounts(binding lower.Binding, val Value) error {
 		if (stated.Lower.Known && count < stated.Lower.Value) ||
 			(stated.Upper.Known && !stated.Upper.Infinite && count > stated.Upper.Value) {
 			return ctx.bindingEndCountError(binding, end, stated, count)
+		}
+	}
+	// The connector's own multiplicity states how many links the binding declares.
+	if links, ok := ctx.model.semantics.RangeOf(binding.Multiplicity); ok {
+		if (links.Lower.Known && count < links.Lower.Value) ||
+			(links.Upper.Known && !links.Upper.Infinite && count > links.Upper.Value) {
+			return fmt.Errorf("%w: `%s` declares %s link(s) but identifies %d value(s)",
+				ErrMultiplicityViolation, ctx.bindingText(binding), links.Text(), count)
 		}
 	}
 	return nil

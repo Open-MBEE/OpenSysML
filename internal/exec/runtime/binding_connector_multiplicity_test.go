@@ -74,6 +74,49 @@ func TestWholeBindingWithoutConnectorMultiplicityStillChecksCounts(t *testing.T)
 	}
 }
 
+// The connector multiplicity is also checked whole: `binding [2]` identifying
+// one value is a multiplicity violation, and `binding [0]` declares no links,
+// so it assigns nothing to either end.
+func TestConnectorMultiplicityDeclaresLinkCount(t *testing.T) {
+	ctx, idx := libraryShapeContext(t, `package test {
+		private import ScalarValues::*;
+		part def Rig {
+			attribute a : Real [1] = 1;
+			attribute b : Real [1];
+			binding [2] bind a = b;
+			attribute z : Real [1];
+			attribute w : Real [1] = 1;
+			binding [0] bind z = w;
+		}
+		part rig : Rig;
+	}`)
+	pkg, ok := idx.DocumentRoot("<test>").LookupLocal("test")
+	if !ok || pkg.Scope == nil {
+		t.Fatal("test package not indexed")
+	}
+
+	for _, expr := range []string{"rig.b", "rig.a"} {
+		_, err := evalIn(t, ctx, pkg.Scope, expr)
+		if !errors.Is(err, ErrMultiplicityViolation) {
+			t.Fatalf("%s = %v, want ErrMultiplicityViolation", expr, err)
+		}
+		if !strings.Contains(err.Error(), "binding [2]") {
+			t.Errorf("%s error %q does not name the connector multiplicity", expr, err.Error())
+		}
+	}
+
+	val, err := evalIn(t, ctx, pkg.Scope, "rig.z")
+	if err != nil {
+		t.Fatalf("rig.z: %v", err)
+	}
+	if val.Kind != ValUndetermined {
+		t.Errorf("rig.z = %s, want %s: `binding [0]` assigns nothing", FormatValue(val), UndeterminedText)
+	}
+	if val, err := evalIn(t, ctx, pkg.Scope, "rig.w"); err != nil || FormatValue(val) != "1" {
+		t.Errorf("rig.w = %s, %v; want 1 with no error", FormatValue(val), err)
+	}
+}
+
 // A connector declaring as many links as the ends' features hold is a whole
 // binding again: `binding [2]` binds q to the two objects p holds.
 func TestConnectorMultiplicityWideEnoughIsWhole(t *testing.T) {
