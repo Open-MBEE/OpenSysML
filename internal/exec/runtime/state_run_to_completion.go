@@ -25,6 +25,8 @@ type heldEntry struct {
 	branches map[*ast.StateRegion]*ast.StateNode
 	// chain lists states entered by this cascade, outermost first.
 	chain []*ast.StateNode
+	// scopes are the RTC scopes guarding dispatch while this cascade is held.
+	scopes []*ast.StateNode
 	// machine reports that the machine body is part of this cascade.
 	machine bool
 }
@@ -89,9 +91,13 @@ func (e *StateExecutor) holdEntry(owner *ast.StateNode, regions []*ast.StateRegi
 		return false, nil
 	}
 	members := slices.Clone(chain)
+	if !slices.Contains(members, owner) {
+		members = append(members, owner)
+	}
 	if machine {
 		members = append(members, nil)
 	}
+	var scopes []*ast.StateNode
 	for _, state := range members {
 		rtc, err := e.rtcOf(state)
 		if err != nil {
@@ -100,10 +106,13 @@ func (e *StateExecutor) holdEntry(owner *ast.StateNode, regions []*ast.StateRegi
 		if rtc && e.graph.RunToCompletionOf(state).Scope == nil {
 			return false, nil
 		}
+		if rtc {
+			scopes = append(scopes, e.graph.RunToCompletionOf(state).Scope)
+		}
 	}
 	e.held = append(e.held, heldEntry{
 		owner: owner, regions: regions, branches: branches,
-		chain: chain, machine: machine,
+		chain: chain, scopes: scopes, machine: machine,
 	})
 	return true, nil
 }
@@ -219,19 +228,7 @@ func (e *StateExecutor) entryStep(progress *dueProgress) (bool, error) {
 func (e *StateExecutor) heldScopes() []*ast.StateNode {
 	var scopes []*ast.StateNode
 	for _, item := range e.held {
-		members := slices.Clone(item.chain)
-		if !slices.Contains(members, item.owner) {
-			members = append(members, item.owner)
-		}
-		if item.machine {
-			members = append(members, nil)
-		}
-		for _, state := range members {
-			rtc, err := e.rtcOf(state)
-			if err == nil && rtc {
-				scopes = append(scopes, e.graph.RunToCompletionOf(state).Scope)
-			}
-		}
+		scopes = append(scopes, item.scopes...)
 	}
 	return scopes
 }

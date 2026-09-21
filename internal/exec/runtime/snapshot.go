@@ -770,6 +770,7 @@ func cloneHeldEntries(entries []heldEntry) []heldEntry {
 			regions:  slices.Clone(entry.regions),
 			branches: maps.Clone(entry.branches),
 			chain:    slices.Clone(entry.chain),
+			scopes:   slices.Clone(entry.scopes),
 			machine:  entry.machine,
 		}
 	}
