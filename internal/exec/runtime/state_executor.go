@@ -1750,14 +1750,14 @@ func (e *StateExecutor) transitionWeights(source ast.Node, transitions []*lower.
 			}
 			if !lower.WeightInRange(w) {
 				return nil, fmt.Errorf("%w: %s: weight of %s is %s, not a probability in [0, 1]",
-					ErrBranchWeights, weightWhere(source, transitions, pos), transitionName(transitions, pos), formatWeight(w))
+					ErrBranchWeights, weightWhere(source, transitions, pos), transitionName(transitions, pos), FormatWeight(w))
 			}
 			evaluated[pos] = w
 			total += w
 		}
 		if math.Abs(total-1) > lower.ProbabilityTolerance {
 			return nil, fmt.Errorf("%w: %s: the weights of its transitions sum to %s, not 1.0",
-				ErrBranchWeights, weightWhere(source, transitions, group[0]), formatWeight(total))
+				ErrBranchWeights, weightWhere(source, transitions, group[0]), FormatWeight(total))
 		}
 	}
 	weights := make([]float64, len(enabled))

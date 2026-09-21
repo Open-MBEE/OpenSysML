@@ -1260,7 +1260,7 @@ func (r *replayRun) weighedAlike(w ChoiceTaken, c ChoicePoint, taken int) bool {
 			return false
 		}
 		if got := c.Weights[at]; got != w.Weights[i] {
-			r.refuse(fmt.Sprintf("%s weighs p=%s, not p=%s", choiceLabel(alt), formatWeight(got), formatWeight(w.Weights[i])))
+			r.refuse(fmt.Sprintf("%s weighs p=%s, not p=%s", choiceLabel(alt), FormatWeight(got), FormatWeight(w.Weights[i])))
 			return false
 		}
 	}
@@ -1268,7 +1268,7 @@ func (r *replayRun) weighedAlike(w ChoiceTaken, c ChoicePoint, taken int) bool {
 		return true
 	}
 	if math.IsNaN(w.Drew) || w.Drew < 0 || w.Drew >= 1 {
-		r.refuse(fmt.Sprintf("the draw %s is no unit draw in [0, 1)", formatWeight(w.Drew)))
+		r.refuse(fmt.Sprintf("the draw %s is no unit draw in [0, 1)", FormatWeight(w.Drew)))
 		return false
 	}
 	total := 0.0
@@ -1276,7 +1276,7 @@ func (r *replayRun) weighedAlike(w ChoiceTaken, c ChoicePoint, taken int) bool {
 		total += weight
 	}
 	if pick := weightedPick(c.Weights, total, w.Drew); pick != taken {
-		r.refuse(fmt.Sprintf("the draw %s selects %s, not %s", formatWeight(w.Drew), choiceLabel(c.Alternatives[pick]), choiceLabel(w.Took)))
+		r.refuse(fmt.Sprintf("the draw %s selects %s, not %s", FormatWeight(w.Drew), choiceLabel(c.Alternatives[pick]), choiceLabel(w.Took)))
 		return false
 	}
 	return true

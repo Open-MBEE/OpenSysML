@@ -116,7 +116,9 @@ schedule the library leaves open — an action's token orders and branches, a ma
 transitions, region orders and the events due together — and reports the first violation,
 deadlock or failure it reaches or the features whose final value the schedule decides — the
 CLI's [`-engine check`](cli.md#checking-every-schedule-of-an-action-or-a-state-machine), with
-the same verdicts and the same bounds. A machine is searched with its clock run until nothing
+the same verdicts and the same bounds. Each violation's line ends `(probability <mass>)`: the
+sum of the path probabilities of the search paths reaching it, `≥`-prefixed when the search was
+bounded, revisited a state or its reduction left a move out. A machine is searched with its clock run until nothing
 more is due; `%advance <time>` after it searches the same behavior again up to that horizon,
 and the CLI's `-action` and `-state` with `-advance` (the session's `RunFor`) search the
 behaviors named as one invocation on one clock, an action's wait and a machine's timer due

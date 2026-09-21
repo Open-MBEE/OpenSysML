@@ -1123,6 +1123,19 @@ afresh after each move, and `complete` covers every interleaving at body granula
 sweep, so no default trace moved, and the oracle's run counts were re-derived at the new
 granularity (`action_merge_fork_branch_and_loop` now needs `explore:runs=10000` to complete).
 
+The track's last mile, landed on `develop` after the tag: the open picks can now carry the odds
+a model states. `Stochastic::Probability` weights a transition the way it already weighted a
+decision's succession — one more choice-point kind drawn by weight under `seed:<n>`, enumerated
+by `explore`, followed by `replay:` — among the transitions otherwise equally eligible for one
+dispatch, so innermost-wins still resolves before any weighting. And where the table once
+stopped at the set, `explore` now reports each outcome's probability — a linearization carrying
+the product of its picks' shares, a weighted pick's stated weight's share and an unweighted
+choice's uniform `1/n`, `≥`-marked while the search is incomplete — and `check` the probability
+mass of the paths reaching each violation (`mass` beside `massLowerBound` in the JSON report,
+`Outcome.probability` / `ExplorationStatus.probabilities_lower_bound` on the wire, and an
+optional `probability` per `outcomes` entry in the conformance schema, exercised by the weighted
+transition fixture).
+
 ---
 
 # Track E — behavior execution

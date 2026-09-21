@@ -3,12 +3,14 @@ package runtime
 import (
 	"context"
 	"errors"
+	"math"
 	"slices"
 	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
@@ -272,5 +274,72 @@ func TestExploreEnumeratesNestedWeightedTransitions(t *testing.T) {
 		if !followed {
 			t.Fatalf("replaying %s made no weighted transition pick: %s", FormatChoices(o.Witness), FormatChoices(choices))
 		}
+	}
+}
+
+// Explore still enumerates every weighted alternative and each outcome carries
+// the product of its run's pick shares: the stated weight for a weighted pick.
+func TestExploreReportsTransitionProbabilities(t *testing.T) {
+	m := parseLibraryModel(t, weightedMachine(`
+		transition first a accept go then b { @Probability { p = 0.3; } }
+		transition first a accept go then c { @Probability { p = 0.7; } }
+	`))
+	sym := m.state(t, "Machine")
+	x, err := Explore(context.Background(), mustPolicy(t, "explore"), m.fresh, stateRun(sym, "go"))
+	if err != nil || !x.Complete() || len(x.Outcomes) != 2 {
+		t.Fatalf("explore: %v, %v", x, err)
+	}
+	probs := map[string]float64{}
+	for _, o := range x.Outcomes {
+		probs[o.Outcome.FinalState] += o.Probability
+	}
+	if math.Abs(probs["b"]-0.3) > 1e-9 || math.Abs(probs["c"]-0.7) > 1e-9 {
+		t.Errorf("probabilities %v, want b=0.3, c=0.7", probs)
+	}
+	if p := x.Probability(); math.Abs(p-1) > 1e-9 || x.ProbabilitiesBounded() {
+		t.Errorf("a complete exploration covers %v, want 1 exact", p)
+	}
+}
+
+// A check of a machine whose dispatch is a weighted pick charges each violation
+// the share of the path that reaches it: 0.3 for the 0.3-weighted transition.
+func TestCheckWeightsViolationMass(t *testing.T) {
+	m := parseLibraryModel(t, `package test {
+		private import ScalarValues::*;
+		private import Stochastic::*;
+		state def Machine {
+			entry; then decide;
+			state decide;
+			state bad;
+			state good;
+			state later;
+			transition first decide then bad { @Probability { p = 0.3; } }
+			transition first decide then good { @Probability { p = 0.7; } }
+			transition first good then later;
+		}
+	}`)
+	inv := invocationOf(nil, []*symbols.Symbol{m.state(t, "Machine")})
+	prop := CheckProperty{Name: "notBad", Holds: func(_ *Context, inv *Invocation) (bool, error) {
+		return inv.States[0].FinalStateName() != "bad", nil
+	}}
+
+	report, err := Check(context.Background(), m.fresh, inv, CheckBudget{}, CheckOptions{}, []CheckProperty{prop})
+	if err != nil || report.Verdict != CheckViolation || len(report.Violations) != 1 {
+		t.Fatalf("check: %v, %v", report, err)
+	}
+	v := report.Violations[0]
+	if v.Name != "notBad" || math.Abs(v.Mass-0.3) > 1e-9 {
+		t.Errorf("violation %s carries mass %v, want 0.3", v.Name, v.Mass)
+	}
+	if report.MassBounded {
+		t.Errorf("a tree-shaped search reports its masses as lower bounds")
+	}
+
+	bounded, err := Check(context.Background(), m.fresh, inv, CheckBudget{Depth: 1}, CheckOptions{}, []CheckProperty{prop})
+	if err != nil || bounded.Verdict != CheckViolation || len(bounded.Violations) != 1 {
+		t.Fatalf("bounded check: %v, %v", bounded, err)
+	}
+	if !bounded.MassBounded || len(bounded.BoundsHit) == 0 {
+		t.Errorf("a depth cut reports massLowerBound=%v bounds=%v, want the bound hit", bounded.MassBounded, bounded.BoundsHit)
 	}
 }

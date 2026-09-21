@@ -60,10 +60,10 @@ func TestRunActionExploresEveryLinearization(t *testing.T) {
 	}
 	wantsInOrder(t, strings.Join(v.Lines, "\n"),
 		"✓ explored Race::race: 3 outcomes",
-		"outcome | linearizations | witness",
-		"x = 1   | 2              | step 3: 3@b first of 2@a, 3@b, 4@c; step 4: 4@c first of 2@a, 4@c",
-		"x = 2   | 2              | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 4@c first of 3@b, 4@c",
-		"x = 3   | 2              | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 3@b first of 3@b, 4@c",
+		"outcome | linearizations | probability        | witness",
+		"x = 1   | 2              | 0.3333333333333333 | step 3: 3@b first of 2@a, 3@b, 4@c; step 4: 4@c first of 2@a, 4@c",
+		"x = 2   | 2              | 0.3333333333333333 | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 4@c first of 3@b, 4@c",
+		"x = 3   | 2              | 0.3333333333333333 | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 3@b first of 3@b, 4@c",
 		"complete (6 runs)")
 	if len(v.Outcomes) != 3 || v.Exploration == nil || !v.Exploration.Complete || v.Exploration.Runs != 6 {
 		t.Errorf("verdict outcomes = %+v, exploration = %+v", v.Outcomes, v.Exploration)
@@ -85,7 +85,7 @@ func TestRunActionExploresNoChoiceInOneRun(t *testing.T) {
 		t.Fatal(err)
 	}
 	v := s.RunAction("Race::steady")
-	wants(t, strings.Join(v.Lines, "\n"), "✓ explored Race::steady: 1 outcome", "y = 7   | 1              | no choice points", "complete (1 runs)")
+	wants(t, strings.Join(v.Lines, "\n"), "✓ explored Race::steady: 1 outcome", "y = 7   | 1              | 1           | no choice points", "complete (1 runs)")
 }
 
 // A budget hit leaves the verdict unresolved and names the budget; the outcomes
@@ -650,8 +650,8 @@ func TestRunForExploresEveryDueOrder(t *testing.T) {
 	}
 	wantsInOrder(t, strings.Join(verdicts[0].Lines, "\n"),
 		"✓ explored Shared::Lamp::peek, Shared::Lamp::glow: 2 outcomes",
-		`Shared::Lamp::glow finalState = "on"; Shared::Lamp::glow visits = "off, on"; Shared::Lamp::peek.saw = false; this.isSolid = true; this.lit = true | 1              | t=3.0: action peek of object #1 first of state machine glow of object #1, action peek of object #1`,
-		`Shared::Lamp::glow finalState = "on"; Shared::Lamp::glow visits = "off, on"; Shared::Lamp::peek.saw = true; this.isSolid = true; this.lit = true  | 1              | t=3.0: state machine glow of object #1 first of state machine glow of object #1, action peek of object #1`,
+		`Shared::Lamp::glow finalState = "on"; Shared::Lamp::glow visits = "off, on"; Shared::Lamp::peek.saw = false; this.isSolid = true; this.lit = true | 1              | 0.5         | t=3.0: action peek of object #1 first of state machine glow of object #1, action peek of object #1`,
+		`Shared::Lamp::glow finalState = "on"; Shared::Lamp::glow visits = "off, on"; Shared::Lamp::peek.saw = true; this.isSolid = true; this.lit = true  | 1              | 0.5         | t=3.0: state machine glow of object #1 first of state machine glow of object #1, action peek of object #1`,
 		"complete (2 runs)")
 
 	// One behavior explored with a duration is its own outcome, as RunStateMachine tables it.
@@ -660,7 +660,7 @@ func TestRunForExploresEveryDueOrder(t *testing.T) {
 		t.Fatalf("verdicts = %+v, want one that holds", verdicts)
 	}
 	wants(t, strings.Join(verdicts[0].Lines, "\n"), "✓ explored Shared::Lamp::glow: 1 outcome",
-		"finalState on; visits off, on; this.isSolid = true; this.lit = true | 1              | no choice points", "complete (1 runs)")
+		"finalState on; visits off, on; this.isSolid = true; this.lit = true | 1              | 1           | no choice points", "complete (1 runs)")
 
 	// A behavior that does not resolve is reported and nothing is explored.
 	verdicts = s.RunFor([]Behavior{{Name: "Shared::Lamp::nothing"}}, []Behavior{glow}, 3)
@@ -707,13 +707,13 @@ func TestRunStateMachineExploresEveryRegionEntryOrder(t *testing.T) {
 	out := strings.Join(v.Lines, "\n")
 	wantsInOrder(t, out,
 		"✓ explored Regions::Pair: 6 outcomes",
-		"outcome                                                    | linearizations | witness",
-		`finalState l+r; visits work, l, r; log = "left l right r " | 1              | entering work: left(entry) first of left(entry), right(entry); entering work: l(entry) first of l(entry), right(entry)`,
-		`finalState l+r; visits work, l, r; log = "left right l r " | 1              | entering work: left(entry) first of left(entry), right(entry); entering work: right(entry) first of l(entry), right(entry); entering work: l(entry) first of l(entry), r(entry)`,
-		`finalState l+r; visits work, l, r; log = "right left l r " | 1              | entering work: right(entry) first of left(entry), right(entry); entering work: left(entry) first of left(entry), r(entry); entering work: l(entry) first of l(entry), r(entry)`,
-		`finalState l+r; visits work, r, l; log = "left right r l " | 1              | entering work: left(entry) first of left(entry), right(entry); entering work: right(entry) first of l(entry), right(entry); entering work: r(entry) first of l(entry), r(entry)`,
-		`finalState l+r; visits work, r, l; log = "right left r l " | 1              | entering work: right(entry) first of left(entry), right(entry); entering work: left(entry) first of left(entry), r(entry); entering work: r(entry) first of l(entry), r(entry)`,
-		`finalState l+r; visits work, r, l; log = "right r left l " | 1              | entering work: right(entry) first of left(entry), right(entry); entering work: r(entry) first of left(entry), r(entry)`,
+		"outcome                                                    | linearizations | probability | witness",
+		`finalState l+r; visits work, l, r; log = "left l right r " | 1              | 0.25        | entering work: left(entry) first of left(entry), right(entry); entering work: l(entry) first of l(entry), right(entry)`,
+		`finalState l+r; visits work, l, r; log = "left right l r " | 1              | 0.125       | entering work: left(entry) first of left(entry), right(entry); entering work: right(entry) first of l(entry), right(entry); entering work: l(entry) first of l(entry), r(entry)`,
+		`finalState l+r; visits work, l, r; log = "right left l r " | 1              | 0.125       | entering work: right(entry) first of left(entry), right(entry); entering work: left(entry) first of left(entry), r(entry); entering work: l(entry) first of l(entry), r(entry)`,
+		`finalState l+r; visits work, r, l; log = "left right r l " | 1              | 0.125       | entering work: left(entry) first of left(entry), right(entry); entering work: right(entry) first of l(entry), right(entry); entering work: r(entry) first of l(entry), r(entry)`,
+		`finalState l+r; visits work, r, l; log = "right left r l " | 1              | 0.125       | entering work: right(entry) first of left(entry), right(entry); entering work: left(entry) first of left(entry), r(entry); entering work: r(entry) first of l(entry), r(entry)`,
+		`finalState l+r; visits work, r, l; log = "right r left l " | 1              | 0.25        | entering work: right(entry) first of left(entry), right(entry); entering work: r(entry) first of left(entry), r(entry)`,
 		"complete (6 runs)")
 	if again := s.RunStateMachine("Regions::Pair"); strings.Join(again.Lines, "\n") != out {
 		t.Errorf("exploration rendered\n%s\nthen\n%s", out, strings.Join(again.Lines, "\n"))

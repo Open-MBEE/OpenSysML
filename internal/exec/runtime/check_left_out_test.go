@@ -70,12 +70,12 @@ func TestCheckTellsAMachineLeavingItsDoRoundStandingFromOneThatDidNot(t *testing
 	if names := c.run.leftOut(); len(names) != 0 {
 		t.Fatalf("each token moved: leaves out %v, want nothing", names)
 	}
-	_, moved, _, visited, err := c.visit(0)
+	_, moved, _, visited, err := c.visit(0, 1, nil)
 	if err != nil || visited || len(c.notEnumerated) != 0 {
 		t.Fatalf("first visit: visited %v, not enumerated %v, err %v; want a new state leaving nothing out", visited, c.notEnumerated, err)
 	}
 	standing(true)
-	_, left, _, visited, err := c.visit(0)
+	_, left, _, visited, err := c.visit(0, 1, nil)
 	if err != nil || visited || left == moved {
 		t.Fatalf("visit left standing: visited %v, same key %v, err %v; want a new state of its own", visited, left == moved, err)
 	}

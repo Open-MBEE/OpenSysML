@@ -535,8 +535,12 @@ Execution runtime (Tiers 1-5: instances, expressions, behaviors).
     `assertion <name>` and `verdict <case>`
   - **`Exploration`** — `Budget`, `Runs`, the distinct `Outcomes` in canonical order and
     `BudgetsHit`, `runs` before `depth`, empty when `Complete()`. `Status()` renders
-    `complete (N runs)` or `incomplete: <budget> budget <limit> hit after N runs`
-  - **`ExploredOutcome`** — One `Outcome` with the `Linearizations` that reached it, the
+    `complete (N runs)` or `incomplete: <budget> budget <limit> hit after N runs`, suffixed
+    `; probabilities are lower bounds` when incomplete. `Probability()` sums the outcomes'
+    probabilities (`1` over a complete exploration); `ProbabilitiesBounded()` is `!Complete()`
+  - **`ExploredOutcome`** — One `Outcome` with the `Linearizations` that reached it, its
+    `Probability` (the sum of the shares its runs' picks resolved with — a weighted pick's
+    stated weight's share, an unweighted choice's uniform `1/n`), the
     `Witness` (one run's `ChoiceTaken` sequence, `FormatChoices` renders it) and `WitnessRun`
   - **`ChoiceTaken`** — One resolved choice point: its `Kind`, `Step`, `Where`, the
     `Alternatives` and `Among` it had and the `Taken`/`Took` it resolved to

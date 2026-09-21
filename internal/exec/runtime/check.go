@@ -102,6 +102,11 @@ type Violation struct {
 	// Depth is how many moves the witness makes.
 	Depth   int
 	Witness Witness
+	// Mass is the probability of the schedules reaching this violation: the sum
+	// of their path masses, each the product of its picks' shares — a weighted
+	// choice's stated share, an unweighted one's uniform share. It is a lower
+	// bound while the report's MassBounded holds.
+	Mass float64
 }
 
 // String renders the violation for a report.
@@ -201,6 +206,10 @@ type CheckReport struct {
 	Divergent  []Divergence
 	// Finals are the distinct outcomes of the complete schedules, in canonical order.
 	Finals []CheckFinal
+	// MassBounded reports the violations' masses are lower bounds: they are when a
+	// bound kept schedules out, moves left an interleaving out, a state was reached
+	// again, or the reduction left a move unexplored at a state.
+	MassBounded bool
 }
 
 // Status renders how the check ended for a report.
@@ -296,9 +305,14 @@ func (c *checker) searchFrom(stop context.Context, fresh func() (*Context, error
 			more = append(more, slices.Concat(picks, make([]int, i), []int{alt}))
 		}
 	}
+	// The start's own picks are the mass every schedule from it shares.
+	mass := 1.0
+	for _, choice := range check.faced {
+		mass *= shareOf(choice, choice.Taken)
+	}
 	if err != nil {
 		// Failing to start fails on every schedule from it: a violation with no move.
-		c.violate(Violation{Kind: ViolationFailure, Err: err, Witness: c.failing(err)})
+		c.violate(Violation{Kind: ViolationFailure, Err: err, Witness: c.failing(err), Mass: mass})
 		return more, nil
 	}
 	defer run.inv.Release()
@@ -309,7 +323,7 @@ func (c *checker) searchFrom(stop context.Context, fresh func() (*Context, error
 	if err := c.resolveDiverge(); err != nil {
 		return nil, err
 	}
-	if err := c.search(stop); err != nil {
+	if err := c.search(stop, mass); err != nil {
 		return nil, err
 	}
 	return more, nil
@@ -345,17 +359,22 @@ type checker struct {
 	// finals indexes result.Finals by outcome identity.
 	finals  map[string]int
 	results []CheckFinal
+	// revisit is set once the search reached a state a second time, leftOut once
+	// a frame ended with a move unexplored; either bounds the violation masses.
+	revisit, leftOut bool
 	// nested are the `node.pin` names Diverge selects; untold are those among them only
 	// a performance can tell, each dropped once a state held it.
 	nested, untold map[string]bool
 }
 
 // visitedState is what the search remembers of a state: the moves explored from
-// it, the shallowest depth it was searched from, and whether a bound cut below it.
+// it, the shallowest depth it was searched from, whether a bound cut below it,
+// and the properties found false at it.
 type visitedState struct {
 	explored map[string]bool
 	depth    int
 	cut      bool
+	violated []string
 }
 
 // checkFrame is one state on the search stack.
@@ -378,6 +397,12 @@ type checkFrame struct {
 	full bool
 	// cut is set once the depth bound cut a schedule through the state.
 	cut bool
+	// mass is the probability of the schedule reaching the state, and units how
+	// many distinct units its moves span; violated names the properties false on
+	// the path to it, so each is credited once per path.
+	mass     float64
+	units    int
+	violated []string
 }
 
 // spending counts the moves of one schedule by the executor budget each draws on.
@@ -430,20 +455,44 @@ func (c *checker) leaveOut(name string) {
 }
 
 // violate records the violation; a property is reported once, by the shortest
-// schedule found to reach a state where it is false.
+// schedule found to reach a state where it is false, its mass the sum over the
+// schedules reaching such a state.
 func (c *checker) violate(v Violation) {
 	if v.Kind == ViolationProperty {
 		for i, seen := range c.violations {
 			if seen.Kind != ViolationProperty || seen.Name != v.Name {
 				continue
 			}
+			seen.Mass += v.Mass
 			if v.Depth < seen.Depth {
+				v.Mass = seen.Mass
 				c.violations[i] = v
+			} else {
+				c.violations[i].Mass = seen.Mass
 			}
 			return
 		}
 	}
 	c.violations = append(c.violations, v)
+}
+
+// shareOf is the share of one choice point's alternative: the stated weight's
+// share of the total for a weighted point, the uniform share otherwise.
+func shareOf(c ChoicePoint, i int) float64 {
+	n := len(c.Alternatives)
+	if n == 0 {
+		return 1
+	}
+	if c.Weighted() && i < len(c.Weights) {
+		total := 0.0
+		for _, w := range c.Weights {
+			total += w
+		}
+		if total > 0 {
+			return c.Weights[i] / total
+		}
+	}
+	return 1 / float64(n)
 }
 
 // witness is the schedule so far: the choices the run noted and its trace.
@@ -464,15 +513,15 @@ func (c *checker) failing(err error) Witness {
 }
 
 // search runs the depth-first search from the started invocation's state,
-// stopping early once stop ends.
-func (c *checker) search(stop context.Context) error {
+// stopping early once stop ends; mass is the probability of the start's picks.
+func (c *checker) search(stop context.Context, mass float64) error {
 	if err := c.run.stabilize(); err != nil {
-		return c.failed(err, 0)
+		return c.failed(err, 0, mass)
 	}
 	if c.run.terminal() {
-		return c.complete(0)
+		return c.complete(0, mass, nil)
 	}
-	root, key, err := c.enter(0, nil)
+	root, key, err := c.enter(0, nil, mass, nil)
 	if err != nil || root == nil {
 		return err
 	}
@@ -488,6 +537,9 @@ func (c *checker) search(stop context.Context) error {
 			c.stack = c.stack[:len(c.stack)-1]
 			c.onStack[f.key]--
 			f.snap.Release()
+			if !f.full && len(f.moves) < len(f.all) {
+				c.leftOut = true
+			}
 			if f.cut && len(c.stack) > 0 {
 				c.cut(c.stack[len(c.stack)-1])
 			}
@@ -542,16 +594,24 @@ func (c *checker) take(f *checkFrame, m searchMove) error {
 	c.moves++
 	c.maxDepth = max(c.maxDepth, depth)
 	f.reveal(m, drawn)
+	// The move's mass is its frame's over the units, times the share of every
+	// choice point it faced — scripted picks and drawn ones alike.
+	mass := f.mass / float64(max(f.units, 1))
+	if check := c.run.checking(); check != nil {
+		for _, choice := range check.faced {
+			mass *= shareOf(choice, choice.Taken)
+		}
+	}
 	if err != nil {
-		return c.failed(err, depth)
+		return c.failed(err, depth, mass)
 	}
 	if err := c.run.stabilize(); err != nil {
-		return c.failed(err, depth)
+		return c.failed(err, depth, mass)
 	}
 	if c.run.terminal() {
-		return c.complete(depth)
+		return c.complete(depth, mass, f.violated)
 	}
-	child, key, err := c.enter(depth, c.childSleep(f, m))
+	child, key, err := c.enter(depth, c.childSleep(f, m), mass, f.violated)
 	if err != nil {
 		return err
 	}
@@ -575,7 +635,7 @@ func (c *checker) take(f *checkFrame, m searchMove) error {
 // failed classifies the error a move raised: a budget is a bound the search
 // hit, a move the run made otherwise than selected fails the check, anything
 // else is a violation on the schedule that reached it.
-func (c *checker) failed(err error, depth int) error {
+func (c *checker) failed(err error, depth int, mass float64) error {
 	if bound, isBound := boundOf(err); isBound {
 		c.hit(bound)
 		return nil
@@ -587,14 +647,14 @@ func (c *checker) failed(err error, depth int) error {
 	if errors.Is(err, ErrActionDeadlock) || errors.Is(err, ErrAcceptDeadlock) {
 		kind = ViolationDeadlock
 	}
-	c.violate(Violation{Kind: kind, Err: err, Depth: depth, Witness: c.failing(err)})
+	c.violate(Violation{Kind: kind, Err: err, Depth: depth, Witness: c.failing(err), Mass: mass})
 	return nil
 }
 
 // complete visits the terminal state the invocation reached: a state like any
 // other, its properties evaluated when new, whose outcome is a final.
-func (c *checker) complete(depth int) error {
-	if _, _, seen, _, err := c.visit(depth); err != nil || seen == nil {
+func (c *checker) complete(depth int, mass float64, violated []string) error {
+	if _, _, seen, _, err := c.visit(depth, mass, violated); err != nil || seen == nil {
 		return err
 	}
 	c.final()
@@ -604,7 +664,7 @@ func (c *checker) complete(depth int) error {
 // visit records the stable state the invocation stands in, noting the runs its moves
 // leave out, evaluating the properties at a new one; seen is nil when the states bound
 // keeps the search out.
-func (c *checker) visit(depth int) (form canonicalForm, key stateKey, seen *visitedState, visited bool, err error) {
+func (c *checker) visit(depth int, mass float64, violated []string) (form canonicalForm, key stateKey, seen *visitedState, visited bool, err error) {
 	form = c.run.canonicalState()
 	key = form.key()
 	for _, name := range c.run.leftOut() {
@@ -618,27 +678,51 @@ func (c *checker) visit(depth int) (form canonicalForm, key stateKey, seen *visi
 		seen = &visitedState{explored: make(map[string]bool), depth: depth}
 		c.visited[key] = seen
 		c.tellHeld()
-		c.properties(depth)
-	} else if depth < seen.depth {
-		if seen.cut {
-			seen.explored = make(map[string]bool)
-			seen.cut = false
+		c.properties(depth, mass, violated, seen)
+	} else {
+		c.revisit = true
+		// A path reaching a state where a property is false is credited the first
+		// time it violates it, however the property was found false here before.
+		for _, name := range seen.violated {
+			if !slices.Contains(violated, name) {
+				c.credit(name, mass)
+			}
 		}
-		seen.depth = depth
+		if depth < seen.depth {
+			if seen.cut {
+				seen.explored = make(map[string]bool)
+				seen.cut = false
+			}
+			seen.depth = depth
+		}
 	}
 	return form, key, seen, visited, nil
+}
+
+// credit adds the path's mass to the violation the property named stands for.
+func (c *checker) credit(name string, mass float64) {
+	for i, v := range c.violations {
+		if v.Kind == ViolationProperty && v.Name == name {
+			c.violations[i].Mass += mass
+			return
+		}
+	}
 }
 
 // enter visits the stable state the invocation stands in and returns the frame to
 // search it from, nil when nothing remains to explore from it or a bound keeps
 // the search out.
-func (c *checker) enter(depth int, sleep []searchMove) (*checkFrame, stateKey, error) {
-	form, key, seen, visited, err := c.visit(depth)
+func (c *checker) enter(depth int, sleep []searchMove, mass float64, violated []string) (*checkFrame, stateKey, error) {
+	form, key, seen, visited, err := c.visit(depth, mass, violated)
 	if err != nil || seen == nil {
 		return nil, key, err
 	}
 	all := c.movesOf(form)
-	f := &checkFrame{turn: c.run.turn, key: key, depth: depth, all: all, sleep: sleep}
+	f := &checkFrame{turn: c.run.turn, key: key, depth: depth, all: all, sleep: sleep,
+		mass:     mass,
+		units:    countUnits(all),
+		violated: slices.Concat(violated, seen.violated),
+	}
 	f.moves = c.persistent(all, sleep)
 	if visited && !seen.wanted(f) {
 		return nil, key, nil
@@ -741,22 +825,40 @@ func (f *checkFrame) expand() {
 	}
 }
 
-// properties evaluates every property at the state; one false is a violation,
-// one failing to evaluate a failure, the witness naming the property either way.
-func (c *checker) properties(depth int) {
+// properties evaluates every property at the state; one false is a violation
+// credited the path's mass unless the path already violated it, one failing to
+// evaluate a failure, the witness naming the property either way. The names
+// found false are remembered on the state, crediting paths reaching it again.
+func (c *checker) properties(depth int, mass float64, violated []string, seen *visitedState) {
 	for _, p := range c.props {
 		holds, err := c.evaluate(p)
 		switch {
 		case err != nil:
 			w := c.failing(err)
 			w.Property = p.Name
-			c.violate(Violation{Kind: ViolationFailure, Name: p.Name, Err: err, Depth: depth, Witness: w})
+			c.violate(Violation{Kind: ViolationFailure, Name: p.Name, Err: err, Depth: depth, Witness: w, Mass: mass})
 		case !holds:
+			if !slices.Contains(seen.violated, p.Name) {
+				seen.violated = append(seen.violated, p.Name)
+			}
+			if slices.Contains(violated, p.Name) {
+				continue
+			}
 			w := c.witness()
 			w.Property = p.Name
-			c.violate(Violation{Kind: ViolationProperty, Name: p.Name, Depth: depth, Witness: w})
+			c.violate(Violation{Kind: ViolationProperty, Name: p.Name, Depth: depth, Witness: w, Mass: mass})
 		}
 	}
+}
+
+// countUnits is the number of distinct units — executor, token and node — the
+// moves span; a move's share of its frame's mass is one of them.
+func countUnits(moves []searchMove) int {
+	units := make(map[tokenKey]bool)
+	for _, m := range moves {
+		units[m.unit()] = true
+	}
+	return len(units)
 }
 
 // evaluate asks the property of the state under a probe: what evaluating it
@@ -1223,6 +1325,10 @@ func (c *checker) result() *CheckReport {
 	default:
 		r.Verdict = CheckExhaustive
 	}
+	// The masses are exact only when every schedule was searched through states
+	// reached once — a bound, a left-out interleaving, a revisit, or a move the
+	// reduction skipped makes them lower bounds.
+	r.MassBounded = len(r.BoundsHit) > 0 || len(r.NotEnumerated) > 0 || c.revisit || c.leftOut
 	return r
 }
 

@@ -1,7 +1,7 @@
 eval literal 0.4 -> 0.4
 eval literal 0.6 -> 0.6
 choice on accept go: next l1(exit), r1(exit) (unordered; took l1(exit) first)
-choice state l1 on accept go: transitions 1->l2, 2->l3 (unordered; took 2->l3)
+choice state l1 on accept go: transitions 1->l2 p=0.4, 2->l3 p=0.6 (weighted; drew 0.774817894359002, took 2->l3)
 exit: l1
 enter: l3 (entry action)
 stmt action body

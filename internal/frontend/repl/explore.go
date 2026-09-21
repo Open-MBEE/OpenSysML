@@ -48,12 +48,16 @@ func (e *ExploredObjectError) Error() string {
 }
 
 // VerdictOutcome is one distinct outcome an exploration reached: what the runs
-// reaching it produced, how many did, and the choices of one that did.
+// reaching it produced, how many did, the probability they carry, and the
+// choices of one that did.
 type VerdictOutcome struct {
 	Values []NamedValue
 	// Error is what stopped the runs reaching this outcome, empty for one they completed.
 	Error          string
 	Linearizations int
+	// Probability is the share of the schedule space reaching the outcome, a
+	// lower bound while the exploration is incomplete.
+	Probability float64
 	// Witness is one run's choice sequence, a choice per entry in run order.
 	Witness []string
 }
@@ -65,6 +69,8 @@ type VerdictExploration struct {
 	Runs     int
 	// BudgetsHit names the budgets hit, `runs` before `depth`; none when complete.
 	BudgetsHit []string
+	// ProbabilitiesBounded reports the outcomes' probabilities are lower bounds.
+	ProbabilitiesBounded bool
 }
 
 // exploring reports whether runs started from here on explore, and under what:
@@ -164,9 +170,10 @@ func explorationVerdict(subject string, x *runtime.Exploration) Verdict {
 		status = VerdictUnresolved
 	}
 	outcomes := make([]VerdictOutcome, 0, len(x.Outcomes))
-	cells := [][]string{{"outcome", "linearizations", "witness"}}
+	cells := [][]string{{"outcome", "linearizations", "probability", "witness"}}
+	bounded := x.ProbabilitiesBounded()
 	for _, o := range x.Outcomes {
-		vo := VerdictOutcome{Linearizations: o.Linearizations}
+		vo := VerdictOutcome{Linearizations: o.Linearizations, Probability: o.Probability}
 		if o.Outcome.Err != nil {
 			vo.Error = o.Outcome.Err.Error()
 			status = VerdictUnresolved
@@ -176,10 +183,15 @@ func explorationVerdict(subject string, x *runtime.Exploration) Verdict {
 		for _, c := range o.Witness {
 			vo.Witness = append(vo.Witness, c.String())
 		}
+		probability := runtime.FormatWeight(o.Probability)
+		if bounded {
+			probability = "≥ " + probability
+		}
 		outcomes = append(outcomes, vo)
 		cells = append(cells, []string{
 			oneLine(o.Outcome.String()),
 			strconv.Itoa(o.Linearizations),
+			probability,
 			runtime.FormatChoices(o.Witness),
 		})
 	}
@@ -206,9 +218,10 @@ func explorationVerdict(subject string, x *runtime.Exploration) Verdict {
 		Lines:    lines,
 		Outcomes: outcomes,
 		Exploration: &VerdictExploration{
-			Complete:   x.Complete(),
-			Runs:       x.Runs,
-			BudgetsHit: x.BudgetsHit,
+			Complete:             x.Complete(),
+			Runs:                 x.Runs,
+			BudgetsHit:           x.BudgetsHit,
+			ProbabilitiesBounded: x.ProbabilitiesBounded(),
 		},
 	}
 }

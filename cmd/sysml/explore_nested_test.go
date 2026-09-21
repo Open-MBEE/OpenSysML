@@ -75,8 +75,8 @@ func TestExploreRunsAMachineOnANestedObject(t *testing.T) {
 
 	got := check(t, binary, linkedPairModel, "-schedule", "explore", "-state", "Comms::Ground::listen Comms::pair.ground", "-advance", "5")
 	wantReport(t, got, 0, "✓ explored Comms::Ground::listen: 2 outcomes",
-		"finalState quiet; visits idle, listening, quiet; this.isSolid = true; this.received = 1 | 2              | t=3.0: state machine listen of object #2 first of state machine listen of object #2, state machine modes of object #4",
-		"finalState quiet; visits idle, listening, quiet; this.isSolid = true; this.received = 2 | 1              | t=3.0: state machine modes of object #4 first of state machine listen of object #2, state machine modes of object #4; events at t=3.0: accept Frame first of time listening 1->quiet, accept Frame",
+		"finalState quiet; visits idle, listening, quiet; this.isSolid = true; this.received = 1 | 2              | 0.75        | t=3.0: state machine listen of object #2 first of state machine listen of object #2, state machine modes of object #4",
+		"finalState quiet; visits idle, listening, quiet; this.isSolid = true; this.received = 2 | 1              | 0.25        | t=3.0: state machine modes of object #4 first of state machine listen of object #2, state machine modes of object #4; events at t=3.0: accept Frame first of time listening 1->quiet, accept Frame",
 		"complete (3 runs)")
 	for _, jobs := range []string{"1", "4"} {
 		again := check(t, binary, linkedPairModel, "-jobs", jobs, "-schedule", "explore", "-state", "Comms::Ground::listen Comms::pair.ground", "-advance", "5")
@@ -89,7 +89,7 @@ func TestExploreRunsAMachineOnANestedObject(t *testing.T) {
 	calm := strings.Replace(linkedPairModel, "accept after 2 [s] then quiet", "accept after 1.5 [s] then quiet", 1)
 	wantReport(t, check(t, binary, calm, "-schedule", "explore", "-state", "Comms::Ground::listen Comms::pair.ground", "-advance", "5"), 0,
 		"✓ explored Comms::Ground::listen: 1 outcome",
-		"finalState quiet; visits idle, listening, quiet; this.isSolid = true; this.received = 1 | 1              | no choice points",
+		"finalState quiet; visits idle, listening, quiet; this.isSolid = true; this.received = 1 | 1              | 1           | no choice points",
 		"complete (1 runs)")
 }
 
@@ -101,8 +101,8 @@ func TestExploreRunsSiblingsOnOneAssembly(t *testing.T) {
 	binary := buildCLI(t)
 
 	outcomes := []string{
-		"Comms::pair.craft.isSolid = true; Comms::pair.craft.sent = 4; Comms::pair.ground.isSolid = true; Comms::pair.ground.received = 1 | 2              | t=3.0: state machine listen of object #2 first of state machine listen of object #2, state machine modes of object #4",
-		"Comms::pair.craft.isSolid = true; Comms::pair.craft.sent = 4; Comms::pair.ground.isSolid = true; Comms::pair.ground.received = 2 | 1              | t=3.0: state machine modes of object #4 first of state machine listen of object #2, state machine modes of object #4",
+		"Comms::pair.craft.isSolid = true; Comms::pair.craft.sent = 4; Comms::pair.ground.isSolid = true; Comms::pair.ground.received = 1 | 2              | 0.75        | t=3.0: state machine listen of object #2 first of state machine listen of object #2, state machine modes of object #4",
+		"Comms::pair.craft.isSolid = true; Comms::pair.craft.sent = 4; Comms::pair.ground.isSolid = true; Comms::pair.ground.received = 2 | 1              | 0.25        | t=3.0: state machine modes of object #4 first of state machine listen of object #2, state machine modes of object #4",
 		"complete (3 runs)",
 	}
 	byPath := check(t, binary, linkedPairModel, "-schedule", "explore",

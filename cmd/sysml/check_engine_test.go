@@ -185,7 +185,7 @@ func TestEngineCheckWitnessOfNoChoiceReplays(t *testing.T) {
 		"-action", "Plant::Tank::overfill Plant::tank", "-check-property", "Plant::Tank::low", "-check-witness", dir)
 	witness := filepath.Join(dir, "Plant.Tank.overfill@Plant.tank.violation-1.witness")
 	wantReport(t, got, 1, "✗ Action Plant::Tank::overfill: violation",
-		"violation: Plant::Tank::low is false after 2 moves (witness "+witness+")",
+		"violation: Plant::Tank::low is false after 2 moves (probability 1) (witness "+witness+")",
 		"standing: violated (witnessed:")
 	content, err := os.ReadFile(witness)
 	if err != nil {
