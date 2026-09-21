@@ -367,15 +367,25 @@ func (m *migration) notedAs(scope *sysmlv1.Element, v Verdict, note string) {
 // returned when the body has no v2 form, with the v2 text checked to parse.
 func (m *migration) translatedExpr(body, lang string, scope *sysmlv1.Element, want wanted) (expr, note string, err *refusal) {
 	s := m.bodyScope(scope)
-	t, err := translateExpr(body, lang, s, want)
+	expr, err = m.translateIn(body, lang, s, want)
 	if err != nil {
 		return "", "", err
 	}
-	expr = spellFor(want.scalar, t)
-	if _, ok := parseExpr(expr); !ok {
-		return "", "", &refusal{kind: refusedSyntax, token: body, why: "its translation " + strconv.Quote(expr) + " is not v2 expression syntax"}
-	}
 	return expr, s.note(lang), nil
+}
+
+// translateIn translates body as one expression whose names sc answers, with
+// the v2 text checked to parse.
+func (m *migration) translateIn(body, lang string, sc featureResolver, want wanted) (string, *refusal) {
+	t, err := translateExpr(body, lang, sc, want)
+	if err != nil {
+		return "", err
+	}
+	expr := spellFor(want.scalar, t)
+	if _, ok := parseExpr(expr); !ok {
+		return "", &refusal{kind: refusedSyntax, token: body, why: "its translation " + strconv.Quote(expr) + " is not v2 expression syntax"}
+	}
+	return expr, nil
 }
 
 // translatedStatements translates an opaque body as the statements of an action
