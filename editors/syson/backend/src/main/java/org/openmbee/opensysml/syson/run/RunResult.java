@@ -23,31 +23,61 @@ public final class RunResult {
     private final List<RunInstance> instances;
     private final List<MappedDiagnostic> mappedDiagnostics;
 
-    public RunResult(String modelHash, RunOperation operation, String target, boolean ok, String verdict, String schedule,
-            Double finalTime, List<RunNamedValue> outputs, List<String> trace, String resultText,
-            List<RunOutcome> outcomes, List<RunVerdict> verdicts, List<RunInstance> instances,
-            List<MappedDiagnostic> mappedDiagnostics) {
-        this.modelHash = modelHash;
-        this.operation = operation;
-        this.target = target;
-        this.ok = ok;
-        this.verdict = verdict;
-        this.schedule = schedule;
-        this.finalTime = finalTime;
-        this.outputs = List.copyOf(outputs);
-        this.trace = List.copyOf(trace);
-        this.outcomes = List.copyOf(outcomes);
-        this.resultText = resultText;
-        this.verdicts = List.copyOf(verdicts);
-        this.instances = List.copyOf(instances);
-        this.mappedDiagnostics = List.copyOf(mappedDiagnostics);
+    private RunResult(Builder builder) {
+        this.modelHash = builder.modelHash;
+        this.operation = builder.operation;
+        this.target = builder.target;
+        this.ok = builder.ok;
+        this.verdict = builder.verdict;
+        this.schedule = builder.schedule;
+        this.finalTime = builder.finalTime;
+        this.outputs = List.copyOf(builder.outputs);
+        this.trace = List.copyOf(builder.trace);
+        this.outcomes = List.copyOf(builder.outcomes);
+        this.resultText = builder.resultText;
+        this.verdicts = List.copyOf(builder.verdicts);
+        this.instances = List.copyOf(builder.instances);
+        this.mappedDiagnostics = List.copyOf(builder.mappedDiagnostics);
     }
 
-    public RunResult(String modelHash, RunOperation operation, String target, boolean ok, String verdict, String schedule,
-            Double finalTime, List<RunNamedValue> outputs, List<String> trace, String resultText,
-            List<RunVerdict> verdicts, List<RunInstance> instances, List<MappedDiagnostic> mappedDiagnostics) {
-        this(modelHash, operation, target, ok, verdict, schedule, finalTime, outputs, trace, resultText, List.of(),
-                verdicts, instances, mappedDiagnostics);
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    public static final class Builder {
+        private String modelHash;
+        private RunOperation operation;
+        private String target;
+        private boolean ok;
+        private String verdict;
+        private String schedule;
+        private Double finalTime;
+        private List<RunNamedValue> outputs = List.of();
+        private List<String> trace = List.of();
+        private List<RunOutcome> outcomes = List.of();
+        private String resultText;
+        private List<RunVerdict> verdicts = List.of();
+        private List<RunInstance> instances = List.of();
+        private List<MappedDiagnostic> mappedDiagnostics = List.of();
+
+        public Builder modelHash(String modelHash) { this.modelHash = modelHash; return this; }
+        public Builder operation(RunOperation operation) { this.operation = operation; return this; }
+        public Builder target(String target) { this.target = target; return this; }
+        public Builder ok(boolean ok) { this.ok = ok; return this; }
+        public Builder verdict(String verdict) { this.verdict = verdict; return this; }
+        public Builder schedule(String schedule) { this.schedule = schedule; return this; }
+        public Builder finalTime(Double finalTime) { this.finalTime = finalTime; return this; }
+        public Builder outputs(List<RunNamedValue> outputs) { this.outputs = outputs; return this; }
+        public Builder trace(List<String> trace) { this.trace = trace; return this; }
+        public Builder outcomes(List<RunOutcome> outcomes) { this.outcomes = outcomes; return this; }
+        public Builder resultText(String resultText) { this.resultText = resultText; return this; }
+        public Builder verdicts(List<RunVerdict> verdicts) { this.verdicts = verdicts; return this; }
+        public Builder instances(List<RunInstance> instances) { this.instances = instances; return this; }
+        public Builder mappedDiagnostics(List<MappedDiagnostic> mappedDiagnostics) {
+            this.mappedDiagnostics = mappedDiagnostics;
+            return this;
+        }
+        public RunResult build() { return new RunResult(this); }
     }
 
     public String modelHash() { return modelHash; }
@@ -70,7 +100,7 @@ public final class RunResult {
 
     public static RunResult failure(String hash, RunOperation operation, String target, String message) {
         RunDiagnostic diagnostic = new RunDiagnostic("error", message, "", null, null, null, null, null);
-        return new RunResult(hash, operation, target, false, null, null, null, List.of(), List.of(), null,
-                List.of(), List.of(), List.of(), List.of(new MappedDiagnostic(diagnostic, null)));
+        return RunResult.builder().modelHash(hash).operation(operation).target(target)
+                .mappedDiagnostics(List.of(new MappedDiagnostic(diagnostic, null))).build();
     }
 }

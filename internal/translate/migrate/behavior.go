@@ -18,6 +18,12 @@ const (
 
 // classifyBehavior decides the v2 declaration a UML behavior becomes: action def,
 // state def, calc def for an expression body, or a scenario action def for an interaction.
+
+// The note fragments the writer repeats.
+const (
+	methodNote = "the method "
+)
+
 func (m *migration) classifyBehavior(e *sysmlv1.Element) (category, string) {
 	switch e.Type {
 	case "Activity":
@@ -146,7 +152,7 @@ func (m *migration) operationFeature(op *sysmlv1.Element) {
 		return
 	}
 	usage := m.operationUsage(op)
-	m.w.line("action " + writeName(usage) + " : " + m.ref(op, op.Parent) + ";")
+	m.w.line(actionKw + writeName(usage) + " : " + m.ref(op, op.Parent) + ";")
 	m.add(op, Mapped, "", "its owner's usage "+usage+" performs it, as a call on an object does")
 }
 
@@ -741,8 +747,8 @@ func (m *migration) opaqueBehaviorBody(e, scope *sysmlv1.Element) {
 	}
 	name := m.freshName(scope, "body")
 	m.w.line("first start then " + writeName(name) + ";")
-	m.w.block("action "+writeName(name), func() { m.w.lines(lines) })
-	m.w.line("first " + writeName(name) + " then done;")
+	m.w.block(actionKw+writeName(name), func() { m.w.lines(lines) })
+	m.w.line(firstKw + writeName(name) + " then done;")
 	if note != "" {
 		m.downgrade(e, note)
 	}
@@ -790,7 +796,7 @@ func (m *migration) operationBody(op *sysmlv1.Element) {
 			m.downgrade(op, "the method refers to nothing in the document; the operation is written abstract")
 		}
 	case method.Parent != op.Parent:
-		m.downgrade(op, "the method "+qualifiedName(method)+" is owned elsewhere and written there; the operation is written abstract")
+		m.downgrade(op, methodNote+qualifiedName(method)+" is owned elsewhere and written there; the operation is written abstract")
 	case method.Type == "Activity":
 		m.activityBody(method, op)
 	case method.Type == "OpaqueBehavior" || method.Type == "FunctionBehavior":
@@ -909,8 +915,8 @@ func (m *migration) receptionLoop(r *sysmlv1.Element, route *receptionRoute, fro
 	}
 	trig := writeName(freshIn(route.used, "receive"+suffix))
 	payload := writeName(freshIn(route.used, lowerFirst(m.nameFor(route.sig))+suffix))
-	m.w.line("first " + from + " then " + trig + ";")
-	m.w.line("action " + trig + " accept " + payload + " : " + m.ref(route.sig, route.owner) + via + ";")
+	m.w.line(firstKw + from + thenKw + trig + ";")
+	m.w.line(actionKw + trig + " accept " + payload + " : " + m.ref(route.sig, route.owner) + via + ";")
 	last := trig
 	method := route.method
 	switch {
@@ -921,7 +927,7 @@ func (m *migration) receptionLoop(r *sysmlv1.Element, route *receptionRoute, fro
 			route.note = "the reception has no method, so it only accepts the signal"
 		}
 	case !m.written(method) || !(method.Type == "Operation" || hasActionForm(method)):
-		route.note = "the method " + qualifiedName(method) + " has no action def to perform; the reception only accepts the signal"
+		route.note = methodNote + qualifiedName(method) + " has no action def to perform; the reception only accepts the signal"
 	default:
 		args, refusal := m.receptionArguments(method, route.sig, payload)
 		if refusal != "" {
@@ -930,15 +936,15 @@ func (m *migration) receptionLoop(r *sysmlv1.Element, route *receptionRoute, fro
 		}
 		run := writeName(freshIn(route.used, "run"+suffix))
 		last, route.performed = run, true
-		m.w.line("first " + trig + " then " + run + ";")
-		decl := "action " + run + " : " + m.ref(method, route.owner)
+		m.w.line(firstKw + trig + thenKw + run + ";")
+		decl := actionKw + run + " : " + m.ref(method, route.owner)
 		if len(args) == 0 {
 			m.w.line(decl + ";")
 		} else {
 			m.w.line(decl + " { " + strings.Join(args, "; ") + "; }")
 		}
 	}
-	m.w.line("first " + last + " then " + trig + ";")
+	m.w.line(firstKw + last + thenKw + trig + ";")
 }
 
 // receptionComment writes a reception whose signal has no v2 declaration as a
@@ -998,7 +1004,7 @@ func (m *migration) receptionArguments(method, sig *sysmlv1.Element, payload str
 		a := attrs[name]
 		if name == "" || a == nil {
 			if requiresValue(p) {
-				refusal = joinNotes(refusal, "the method "+qualifiedName(method)+"'s parameter "+m.nameFor(p)+" must hold a value that no attribute of the signal supplies")
+				refusal = joinNotes(refusal, methodNote+qualifiedName(method)+"'s parameter "+m.nameFor(p)+" must hold a value that no attribute of the signal supplies")
 			}
 			continue
 		}

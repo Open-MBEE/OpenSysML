@@ -18,6 +18,15 @@ const (
 )
 
 // stateMachineBody writes a state machine's regions as the body of its state def.
+
+// The note fragments the writer repeats.
+const (
+	doAction    = "do action"
+	exitAction  = "exit action"
+	notRun      = " is not run: "
+	performsIts = "a state performs its "
+)
+
 func (m *migration) stateMachineBody(sm *sysmlv1.Element) {
 	m.parameters(sm, sm)
 	for _, c := range sm.Children {
@@ -32,7 +41,7 @@ func (m *migration) stateMachineBody(sm *sysmlv1.Element) {
 	for _, cp := range sm.Owned("connectionPoint") {
 		m.connectionPoint(cp)
 	}
-	m.regions(sm, m.populatedRegions(sm), false, func() {})
+	m.regions(sm, m.populatedRegions(sm), false, func() { /* no extra nesting to write */ })
 }
 
 // nameMachine names every vertex of a machine down through its nested regions ahead of writing,
@@ -463,10 +472,10 @@ func (s *stateRegion) state(v *sysmlv1.Element) {
 		entered := entry != nil && s.m.inlineBehavior("entry action", entry, v)
 		between := func() {
 			if do != nil {
-				s.m.inlineBehavior("do action", do, v)
+				s.m.inlineBehavior(doAction, do, v)
 			}
 			if exit != nil {
-				s.m.inlineBehavior("exit action", exit, v)
+				s.m.inlineBehavior(exitAction, exit, v)
 			}
 		}
 		if len(regions) == 0 {
@@ -552,19 +561,19 @@ func (m *migration) inlineBehavior(kw string, b, owner *sysmlv1.Element) bool {
 		if c := m.contextOf(b); c != nil {
 			expr, cnote := m.contextBinding(c, classifierOf(owner), "this")
 			if expr == "" {
-				m.w.lines(commentLines(kw + " " + qualifiedName(b) + " is not run: " + cnote))
+				m.w.lines(commentLines(kw + " " + qualifiedName(b) + notRun + cnote))
 				m.downgrade(b, "not run as the "+kw+" of "+describe(owner)+": "+cnote)
-				m.add(owner, Approximated, "", "its "+kw+" "+qualifiedName(b)+" is not run: "+cnote)
+				m.add(owner, Approximated, "", "its "+kw+" "+qualifiedName(b)+notRun+cnote)
 				return false
 			}
 			ins = append(ins, "in "+writeName(c.name)+" = "+expr)
 			note = joinNotes(note, cnote)
 		}
 		if params := inParameters(b); len(params) > 0 && owner.Type != "Transition" {
-			why := "a state performs its " + kw + " with no arguments; " + m.carrierWhy(owner, kw)
+			why := performsIts + kw + " with no arguments; " + m.carrierWhy(owner, kw)
 			bound := m.carrierBindings(owner, b)
 			switch {
-			case bound != nil && kw != "exit action":
+			case bound != nil && kw != exitAction:
 				for _, p := range params {
 					ins = append(ins, m.parameterBinding(p, m.nameFor(p), bound[p]))
 				}
@@ -572,9 +581,9 @@ func (m *migration) inlineBehavior(kw string, b, owner *sysmlv1.Element) bool {
 			case slices.IndexFunc(params, requiresValue) >= 0:
 				p := params[slices.IndexFunc(params, requiresValue)]
 				why = "its parameter " + m.nameFor(p) + " must hold a value that nothing supplies: " + why
-				m.w.lines(commentLines(kw + " " + qualifiedName(b) + " is not run: " + why))
+				m.w.lines(commentLines(kw + " " + qualifiedName(b) + notRun + why))
 				m.downgrade(b, "not run as the "+kw+" of "+describe(owner)+": "+why)
-				m.add(owner, Approximated, "", "its "+kw+" "+qualifiedName(b)+" is not run: "+why)
+				m.add(owner, Approximated, "", "its "+kw+" "+qualifiedName(b)+notRun+why)
 				return false
 			default:
 				note = joinNotes(note, "its parameters take no value: "+why)
@@ -594,14 +603,14 @@ func (m *migration) inlineBehavior(kw string, b, owner *sysmlv1.Element) bool {
 	if owner.Type != "Transition" {
 		bound := m.carrierBindings(owner, b)
 		switch {
-		case bound != nil && kw != "exit action":
+		case bound != nil && kw != exitAction:
 			savedBound, savedNote := m.bound, m.boundNote
 			m.bound, m.boundNote = bound, "an attribute of the signal the transitions into the state accept"
 			defer func() { m.bound, m.boundNote = savedBound, savedNote }()
 		case owner.Type == "State":
-			m.unbound(b, joinNotes("a state performs its "+kw+" with no arguments", m.carrierWhy(owner, kw)))
+			m.unbound(b, joinNotes(performsIts+kw+" with no arguments", m.carrierWhy(owner, kw)))
 		default:
-			m.unbound(b, "a state performs its "+kw+" with no arguments; only a transition's effect receives the accepted signal")
+			m.unbound(b, performsIts+kw+" with no arguments; only a transition's effect receives the accepted signal")
 		}
 	}
 	header := kw
@@ -969,11 +978,11 @@ func (s *stateRegion) writeTransitionEffect(t, eff *sysmlv1.Element, accept acce
 	s.m.w.line(line)
 	s.m.w.indented(func() {
 		if eff == nil {
-			s.m.w.block("do action", func() { s.m.w.line(accept.keeping) })
+			s.m.w.block(doAction, func() { s.m.w.line(accept.keeping) })
 		} else {
 			saved, savedKeep := s.m.bound, s.m.keeping
 			s.m.bound, s.m.keeping = accept.bound, accept.keeping
-			s.m.inlineBehavior("do action", eff, t)
+			s.m.inlineBehavior(doAction, eff, t)
 			s.m.bound, s.m.keeping = saved, savedKeep
 		}
 		s.m.w.line("then " + to + ";")

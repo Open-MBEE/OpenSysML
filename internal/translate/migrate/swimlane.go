@@ -27,6 +27,13 @@ type lane struct {
 
 // use records that a name or a call at e resolved through lane l, and so
 // through every other partition holding e that represents the same object.
+
+// The note fragments the writer repeats.
+const (
+	partRepresents = "the partition represents "
+	butNote        = ", but "
+)
+
 func (ls *lanes) use(e *sysmlv1.Element, l *lane) {
 	l.used = true
 	for _, o := range ls.of[e] {
@@ -214,11 +221,11 @@ func (m *migration) resolveLane(l *lane, ctx *sysmlv1.Element) {
 		case !m.written(r) || m.nameOf(r) == "":
 			l.note = "the property " + qualifiedName(r) + " it represents has no v2 declaration"
 		case unreadableBounds(r):
-			l.note = "the partition represents " + qualifiedName(r) + ", but " + boundsNote(r)
+			l.note = partRepresents + qualifiedName(r) + butNote + boundsNote(r)
 		case l.parent != nil && l.parent.expr != "" && l.parent.typ != nil && m.hasFeature(l.parent.typ, r):
 			l.expr = l.parent.expr + "." + name
 			l.plural = l.parent.plural || manyValued(r)
-			l.note = "the partition represents " + m.nameOf(r) + " of the enclosing partition's object, read as " + l.expr
+			l.note = partRepresents + m.nameOf(r) + " of the enclosing partition's object, read as " + l.expr
 		case ctx == nil:
 			l.note = "the activity is in no classifier whose object could hold " + qualifiedName(r)
 		case m.hasFeature(ctx, r):
@@ -227,11 +234,11 @@ func (m *migration) resolveLane(l *lane, ctx *sysmlv1.Element) {
 			l.note = "the partition represents the context's " + m.nameOf(r) + ", read as " + l.expr
 		default:
 			if path, plural, unread := m.partPath(ctx, owner); unread != nil {
-				l.note = "the partition represents " + qualifiedName(r) + " through the part " + qualifiedName(unread) + ", but " + boundsNote(unread)
+				l.note = partRepresents + qualifiedName(r) + " through the part " + qualifiedName(unread) + butNote + boundsNote(unread)
 			} else if path != "" {
 				l.expr = "this." + path + "." + name
 				l.plural = plural || manyValued(r)
-				l.note = "the partition represents " + qualifiedName(r) + ", read as " + l.expr
+				l.note = partRepresents + qualifiedName(r) + ", read as " + l.expr
 			} else {
 				l.note = "no part of " + qualifiedName(ctx) + " is a " + qualifiedName(owner) + ", which holds the represented " + m.nameOf(r)
 			}
@@ -258,7 +265,7 @@ func (m *migration) resolveLane(l *lane, ctx *sysmlv1.Element) {
 		l.note = "the partition represents the context object itself, a " + qualifiedName(r)
 	default:
 		if path, plural, unread := m.partPath(ctx, r); unread != nil {
-			l.note = "the partition represents a " + qualifiedName(r) + " through the part " + qualifiedName(unread) + ", but " + boundsNote(unread)
+			l.note = "the partition represents a " + qualifiedName(r) + " through the part " + qualifiedName(unread) + butNote + boundsNote(unread)
 		} else if path != "" {
 			l.expr, l.plural = "this."+path, plural
 			l.note = "the partition represents the context's part " + path + ", a " + qualifiedName(r)

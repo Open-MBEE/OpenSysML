@@ -48,6 +48,13 @@ const verdictColor = (result: GQLOpenSysMLRunResult): 'success' | 'error' | 'war
 
 const verdictLabel = (result: GQLOpenSysMLRunResult): string => result.verdict ?? (result.ok ? 'completed' : 'failed');
 
+const verdictIcon = (verdict: GQLOpenSysMLRunResult['verdicts'][number]) => {
+  if (!verdict.decided) {
+    return <Chip label="undecided" size="small" />;
+  }
+  return verdict.holds ? <CheckIcon color="success" /> : <ClearIcon color="error" />;
+};
+
 const diagnosticIcon = (severity: string) => {
   switch (severity.toLowerCase()) {
     case 'error':
@@ -112,8 +119,8 @@ export const RunResultsPanel = ({ result, onSelectElement }: RunResultsPanelProp
       {result.outcomes.length >= 1 && (
         <section>
           <Typography variant="subtitle2">Outcomes ({result.outcomes.length})</Typography>
-          {result.outcomes.map((outcome, index) => (
-            <div key={index}>
+          {result.outcomes.map((outcome) => (
+            <div key={JSON.stringify(outcome)}>
               {outcome.outputs.length > 0 && (
                 <Typography variant="body2">
                   outputs: {outcome.outputs.map((output) => `${output.name} = ${output.value}`).join(', ')}
@@ -146,15 +153,7 @@ export const RunResultsPanel = ({ result, onSelectElement }: RunResultsPanelProp
               {result.verdicts.map((verdict, index) => {
                 const content = (
                   <>
-                    {verdict.subject} {verdict.kind}{' '}
-                    {!verdict.decided ? (
-                      <Chip label="undecided" size="small" />
-                    ) : verdict.holds ? (
-                      <CheckIcon color="success" />
-                    ) : (
-                      <ClearIcon color="error" />
-                    )}{' '}
-                    {verdict.detail ?? ''}
+                    {verdict.subject} {verdict.kind} {verdictIcon(verdict)} {verdict.detail ?? ''}
                   </>
                 );
                 return (
@@ -164,15 +163,7 @@ export const RunResultsPanel = ({ result, onSelectElement }: RunResultsPanelProp
                     onClick={() => verdict.siriusId && onSelectElement?.(verdict.siriusId)}>
                     <TableCell>{verdict.subject}</TableCell>
                     <TableCell>{verdict.kind}</TableCell>
-                    <TableCell>
-                      {!verdict.decided ? (
-                        <Chip label="undecided" size="small" />
-                      ) : verdict.holds ? (
-                        <CheckIcon color="success" />
-                      ) : (
-                        <ClearIcon color="error" />
-                      )}
-                    </TableCell>
+                    <TableCell>{verdictIcon(verdict)}</TableCell>
                     <TableCell>{content}</TableCell>
                   </TableRow>
                 );
@@ -213,11 +204,12 @@ export const RunResultsPanel = ({ result, onSelectElement }: RunResultsPanelProp
         ) : (
           <List dense>
             {result.diagnostics.map((diagnostic, index) => {
-              const text = `${diagnostic.message}${
+              const location =
                 diagnostic.documentName && diagnostic.line !== null
                   ? ` (${diagnostic.documentName}:${diagnostic.line})`
-                  : ''
-              }${diagnostic.qualifiedName ? ` [${diagnostic.qualifiedName}]` : ''}`;
+                  : '';
+              const qualified = diagnostic.qualifiedName ? ` [${diagnostic.qualifiedName}]` : '';
+              const text = `${diagnostic.message}${location}${qualified}`;
               const primary = (
                 <>
                   {diagnosticIcon(diagnostic.severity)} {text}

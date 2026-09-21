@@ -18,6 +18,12 @@ type carrier struct {
 // carriers declares, for each state whose entry or do behavior takes parameters, the item
 // holding the incoming signal whose properties match them by position, type, order and multiplicity.
 // Internal transitions enter no state, so they neither settle the signal nor rule it out.
+
+// The note fragments the writer repeats.
+const (
+	transitionFrom = "the transition from "
+)
+
 func (m *migration) carriers(sm *sysmlv1.Element, used map[string]bool) {
 	incoming := map[*sysmlv1.Element][]*sysmlv1.Element{}
 	var states []*sysmlv1.Element
@@ -105,15 +111,15 @@ func (m *migration) carrierSignal(v *sysmlv1.Element, incoming []*sysmlv1.Elemen
 		}
 		triggers := t.Owned("trigger")
 		if len(triggers) == 0 {
-			return nil, "the transition from " + describe(src) + " enters the state with no trigger"
+			return nil, transitionFrom + describe(src) + " enters the state with no trigger"
 		}
 		for _, tr := range triggers {
 			ev := m.model.Ref(tr, "event")
 			if ev == nil || ev.Type != "SignalEvent" {
-				return nil, "the transition from " + describe(src) + " accepts " + eventKind(ev) + ", which carries no signal"
+				return nil, transitionFrom + describe(src) + " accepts " + eventKind(ev) + ", which carries no signal"
 			}
 			if note, ok := m.signalOf(ev); !ok {
-				return nil, "the transition from " + describe(src) + " accepts a signal with no v2 declaration: " + note
+				return nil, transitionFrom + describe(src) + " accepts a signal with no v2 declaration: " + note
 			}
 			s := m.model.Ref(ev, "signal")
 			if sig != nil && s != sig {

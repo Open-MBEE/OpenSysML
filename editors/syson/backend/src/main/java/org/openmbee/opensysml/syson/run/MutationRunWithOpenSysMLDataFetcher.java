@@ -39,15 +39,13 @@ public class MutationRunWithOpenSysMLDataFetcher implements IDataFetcherWithFiel
         String inputError = null;
         for (Map<String, String> value : (List<Map<String, String>>) argument.getOrDefault("inputs", List.of())) {
             String name = value.get("name");
-            if (name == null || name.isBlank()) {
+            if (inputError == null && (name == null || name.isBlank())) {
                 inputError = "input name must not be blank";
-                break;
-            }
-            if (values.containsKey(name)) {
+            } else if (inputError == null && values.containsKey(name)) {
                 inputError = "duplicate input name: " + name;
-                break;
+            } else if (inputError == null) {
+                values.put(name, value.get("expression"));
             }
-            values.put(name, value.get("expression"));
         }
         Map<String, Object> convertedArgument = new LinkedHashMap<>(argument);
         convertedArgument.put("inputs", values);

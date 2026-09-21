@@ -38,6 +38,14 @@ type refusal struct {
 }
 
 // note spells the refusal for a report entry or a comment.
+
+// The note fragments the writer repeats.
+const (
+	assignKw   = "assign "
+	notBoolean = ", not a Boolean"
+	mathRound  = "Math.round"
+)
+
 func (r *refusal) note() string {
 	var text string
 	switch r.kind {
@@ -89,9 +97,9 @@ func (r opaqueRef) value() translated {
 	return translated{expr: r.expr, scalar: r.scalar, object: r.object, plural: r.plural, atomic: true}
 }
 
-// opaqueScope answers what the names of an opaque body mean where it is read;
+// featureResolver answers what the names of an opaque body mean where it is read;
 // a path starting with `this` asks for a feature of the context object.
-type opaqueScope interface {
+type featureResolver interface {
 	feature(path []string, write bool) (opaqueRef, *refusal)
 }
 
@@ -243,7 +251,7 @@ func javaLabel(l string) bool {
 
 // translateExpr translates body as one expression read in sc yielding what
 // want asks for. The expression is complete or refused.
-func translateExpr(body, lang string, sc opaqueScope, want wanted) (translated, *refusal) {
+func translateExpr(body, lang string, sc featureResolver, want wanted) (translated, *refusal) {
 	d := dialectOf(lang)
 	if d == dialectNone {
 		return translated{}, &refusal{kind: refusedLanguage, token: lang}
@@ -268,7 +276,7 @@ func translateExpr(body, lang string, sc opaqueScope, want wanted) (translated, 
 
 // translateStatements translates body as a sequence of script statements into
 // the lines of a v2 action body: local declarations and assignments.
-func translateStatements(body, lang string, sc opaqueScope) ([]string, *refusal) {
+func translateStatements(body, lang string, sc featureResolver) ([]string, *refusal) {
 	d := dialectOf(lang)
 	switch d {
 	case dialectNone:
@@ -283,7 +291,7 @@ func translateStatements(body, lang string, sc opaqueScope) ([]string, *refusal)
 }
 
 // wholeExprIn parses body as one expression of dialect d, its names answered by sc.
-func wholeExprIn(body string, d dialect, sc opaqueScope) (translated, *refusal) {
+func wholeExprIn(body string, d dialect, sc featureResolver) (translated, *refusal) {
 	p, err := newOpaqueParser(body, d, sc)
 	if err != nil {
 		return translated{}, err
@@ -292,7 +300,7 @@ func wholeExprIn(body string, d dialect, sc opaqueScope) (translated, *refusal) 
 }
 
 // statementsIn parses body as statements of dialect d, its names answered by sc.
-func statementsIn(body string, d dialect, sc opaqueScope) ([]string, *refusal) {
+func statementsIn(body string, d dialect, sc featureResolver) ([]string, *refusal) {
 	p, err := newOpaqueParser(body, d, sc)
 	if err != nil {
 		return nil, err
@@ -597,12 +605,12 @@ type opaqueParser struct {
 	toks    []token
 	i       int
 	d       dialect
-	sc      opaqueScope
+	sc      featureResolver
 	locals  map[string]local // names a `var`, `let` or `const` declared
 	assigns bool             // whether `=` assigns (a statement) rather than compares
 }
 
-func newOpaqueParser(body string, d dialect, sc opaqueScope) (*opaqueParser, *refusal) {
+func newOpaqueParser(body string, d dialect, sc featureResolver) (*opaqueParser, *refusal) {
 	toks, err := lexOpaque(body)
 	if err != nil {
 		return nil, err
@@ -770,7 +778,7 @@ func (p *opaqueParser) declaration() ([]string, *refusal) {
 	target := writeName(name.text)
 	return []string{
 		"attribute " + target + " : ScalarValues::" + value.scalar + ";",
-		"assign " + target + " := " + value.expr + ";",
+		assignKw + target + " := " + value.expr + ";",
 	}, nil
 }
 
@@ -785,7 +793,7 @@ func (p *opaqueParser) declarable(kw, name string) *refusal {
 	if inheritedActionNames()[name] {
 		return &refusal{kind: refusedConstruct, token: token, why: name + " is a member every action has"}
 	}
-	if _, any := p.sc.(anyScope); any {
+	if _, isAny := p.sc.(anyScope); isAny {
 		return nil
 	}
 	if _, err := p.sc.feature([]string{name}, false); err == nil {
@@ -803,7 +811,7 @@ func (p *opaqueParser) step(path []string, op string) ([]string, *refusal) {
 	if held := target.value().held(); held != "" && !isNumeric(target.scalar) {
 		return nil, &refusal{kind: refusedType, token: strings.Join(path, ".") + op, why: "a " + held + " is not counted"}
 	}
-	return []string{"assign " + target.expr + " := " + target.expr + " " + op[:1] + " 1;"}, nil
+	return []string{assignKw + target.expr + " := " + target.expr + " " + op[:1] + " 1;"}, nil
 }
 
 // assignment writes `x = e` or `x op= e` as an assignment.
@@ -832,7 +840,7 @@ func (p *opaqueParser) assignment(path []string, op string) ([]string, *refusal)
 	if held.held() != "" && value.held() != "" && !assignableTo(held, value) {
 		return nil, &refusal{kind: refusedType, token: name + " " + op, why: "a " + value.held() + " is assigned to the " + held.held() + " " + name + " holds"}
 	}
-	return []string{"assign " + target.expr + " := " + spellFor(target.scalar, value) + ";"}, nil
+	return []string{assignKw + target.expr + " := " + spellFor(target.scalar, value) + ";"}, nil
 }
 
 // target resolves the feature an assignment writes.
@@ -909,7 +917,7 @@ func (p *opaqueParser) expr() (translated, *refusal) {
 	}
 	p.next(true)
 	if cond.held() != "" && cond.scalar != "Boolean" {
-		return translated{}, &refusal{kind: refusedType, token: "?", why: "the condition is a " + cond.held() + ", not a Boolean"}
+		return translated{}, &refusal{kind: refusedType, token: "?", why: "the condition is a " + cond.held() + notBoolean}
 	}
 	yes, err := p.expr()
 	if err != nil {
@@ -960,7 +968,7 @@ func (p *opaqueParser) logical(next func() (translated, *refusal), op binaryOp, 
 		}
 		for _, side := range []translated{left, right} {
 			if side.held() != "" && side.scalar != "Boolean" {
-				return translated{}, &refusal{kind: refusedType, token: tok.text, why: "an operand is a " + side.held() + ", not a Boolean"}
+				return translated{}, &refusal{kind: refusedType, token: tok.text, why: "an operand is a " + side.held() + notBoolean}
 			}
 		}
 		left = binary(left, op.v2, right, loose, "Boolean")
@@ -1158,7 +1166,7 @@ func (p *opaqueParser) unary() (translated, *refusal) {
 			return translated{}, err
 		}
 		if x.held() != "" && x.scalar != "Boolean" {
-			return translated{}, &refusal{kind: refusedType, token: tok.text, why: "the operand is a " + x.held() + ", not a Boolean"}
+			return translated{}, &refusal{kind: refusedType, token: tok.text, why: "the operand is a " + x.held() + notBoolean}
 		}
 		return translated{expr: "not " + x.operandOf(looseUnary, true), scalar: "Boolean", loose: looseUnary}, nil
 	case tok.isPunct("++"), tok.isPunct("--"):
@@ -1325,7 +1333,7 @@ func (p *opaqueParser) call(path []string) (translated, *refusal) {
 			lib = "RealFunctions"
 		}
 		return translated{expr: lib + "::abs(" + args[0].expr + ")", scalar: args[0].scalar, atomic: true}, nil
-	case "Math.floor", "Math.round", "Math.ceil":
+	case "Math.floor", mathRound, "Math.ceil":
 		if err := arity(1); err != nil {
 			return translated{}, err
 		}
@@ -1334,14 +1342,14 @@ func (p *opaqueParser) call(path []string) (translated, *refusal) {
 		}
 		// Java's floor and ceil answer a double, so a `/` after them is real division; its round answers a long.
 		yields := "Integer"
-		if p.d == dialectJava && fn != "Math.round" {
+		if p.d == dialectJava && fn != mathRound {
 			yields = "Real"
 		}
 		switch fn {
 		case "Math.ceil":
 			// -floor(-x) would overflow at the least Integer; the extension library's ceiling does not.
 			return translated{expr: "OpenSysMLMathFunctions::ceiling(" + args[0].expr + ")", scalar: yields, atomic: true}, nil
-		case "Math.round":
+		case mathRound:
 			// JavaScript and Java round a half toward +∞, where RealFunctions::round rounds it away from zero.
 			half := translated{expr: "0.5", scalar: "Real", atomic: true, lit: "real"}
 			return translated{expr: "RealFunctions::floor(" + binary(args[0], "+", half, looseAdditive, "Real").expr + ")", scalar: "Integer", atomic: true}, nil

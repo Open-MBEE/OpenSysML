@@ -123,11 +123,11 @@ printf '<svg xmlns="http://www.w3.org/2000/svg"/>' > "$out"
 		t.Fatal(err)
 	}
 	def := strings.Index(string(page), "@layer opensysml {")
-	print := strings.Index(string(page), "@layer opensysml-print {")
+	printLayer := strings.Index(string(page), "@layer opensysml-print {")
 	reader := strings.Index(string(page), "rebeccapurple")
 	link := strings.Index(string(page), `<link rel="stylesheet" href="https://example.test/site.css">`)
-	if def < 0 || print < def || reader < print || link < reader {
-		t.Errorf("stylesheet order default=%d print=%d reader=%d link=%d:\n%s", def, print, reader, link, page)
+	if def < 0 || printLayer < def || reader < printLayer || link < reader {
+		t.Errorf("stylesheet order default=%d printLayer=%d reader=%d link=%d:\n%s", def, printLayer, reader, link, page)
 	}
 	if !strings.Contains(string(page), "/* report:") {
 		t.Errorf("converter input misses the report theme:\n%s", page)
