@@ -81,6 +81,9 @@ func FromModel(name string, model *sysmlv1.Model) *Result {
 		indexed:      map[string]int{},
 		regionUsed:   map[*sysmlv1.Element]map[string]bool{},
 		vertexNames:  map[*sysmlv1.Element]string{},
+		points:       map[*sysmlv1.Element]pointForm{},
+		incoming:     map[*sysmlv1.Element][]*sysmlv1.Element{},
+		outgoing:     map[*sysmlv1.Element][]*sysmlv1.Element{},
 		instant:      map[*sysmlv1.Element]map[*sysmlv1.Element]instantValue{},
 		self:         "this",
 		lanes:        map[*sysmlv1.Element]*lanes{},
@@ -245,6 +248,11 @@ type migration struct {
 	regionUsed map[*sysmlv1.Element]map[string]bool
 	// vertexNames gives the v2 name of every vertex a state machine writes.
 	vertexNames map[*sysmlv1.Element]string
+	// points says how each connection point of a composite state is written.
+	points map[*sysmlv1.Element]pointForm
+	// incoming and outgoing list the transitions into and out of each vertex
+	// of the machines named so far.
+	incoming, outgoing map[*sysmlv1.Element][]*sysmlv1.Element
 	// instant names, per state machine, the TimeInstantValue attribute each
 	// absolute time event its transitions accept is written as.
 	instant map[*sysmlv1.Element]map[*sysmlv1.Element]instantValue

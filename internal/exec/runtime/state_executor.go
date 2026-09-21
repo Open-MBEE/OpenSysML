@@ -2416,7 +2416,7 @@ func (e *StateExecutor) moveToHistory(trans *lower.Transition, currentState *ast
 		return err
 	}
 	if r.terminate != nil {
-		return e.terminateAt(trans, fromName, r, e.descendantChain(below, e.graph.TerminateOwner[r.terminate]))
+		return e.terminateAt(trans, fromName, r, r.effects(e.graph), e.descendantChain(below, e.graph.TerminateOwner[r.terminate]))
 	}
 	if err := e.runEffects(r.effects(e.graph), e.descendantChain(below, r.target)); err != nil {
 		return err

@@ -178,6 +178,163 @@ func TestStateMachineCrossRegionTransitionsAndPseudostates(t *testing.T) {
 	}
 }
 
+// testdata/xmi/station_points.xmi: entry and exit points owned by composite states — on a
+// nested state, on a state with orthogonal regions, beside a default initial pseudostate
+// and a shallow history — are written as junctions, a fork and a join of their state; an
+// entry point leading straight to an exit point of its state is refused. Every entry, exit
+// and effect behavior appends a two-digit code to trace, so a run pins the UML order:
+// 11 Work entry, 12 Work exit, 13 Prep entry, 14 Run entry, 15 Run exit, 17 Fast entry,
+// 21 Deep→Fast, 22 Fast→Out, 23 Start→Run, 24 Run→Leave, 25 Out→Prep, 31 Sync entry,
+// 32 Sync exit, 33/34 A1 entry/exit, 35/36 B1 entry/exit, 37 A1→Gather, 38 B1→Gather,
+// 41 Idle→Start, 42 Idle→Deep, 43 Leave→Idle, 44 Work→Idle, 46 Gather→Idle.
+func TestCompositeStateConnectionPointsKeepTheUMLOrder(t *testing.T) {
+	r := migrateFixtureFile(t, "station_points")
+	for _, line := range []string{
+		"state Work {",
+		"junction Start;",
+		"junction Leave;",
+		"junction Deep;",
+		"junction Out;",
+		"history H;",
+		"transition first Work::Run::Deep",
+		"transition first Fast accept Back",
+		"then Work::Run::Out;",
+		"transition first Work::Start",
+		"transition first Run accept Finish",
+		"then Work::Leave;",
+		"transition first Work::Run::Out",
+		"fork Both;",
+		"join Gather;",
+		"transition first Sync::Both then A1;",
+		"transition first Sync::Both then B1;",
+		"then Sync::Gather;",
+		"then Work::Start;",
+		"transition first Idle accept Enter then Work;",
+		"then Work::Run::Deep;",
+		"transition first Idle accept Resume then Work::H;",
+		"transition first Work::Leave",
+		"transition first Idle accept Split then Sync::Both;",
+		"transition first Sync::Gather",
+		"/* not migrated: Pseudostate 'Through' — (_tThrough) leads from the entry point straight to the exit point 'Leave' of the same state, crossing it without settling in it; the runtime would then run neither its entry nor its exit behavior */",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	if strings.Contains(string(r.Notation), "state Start") || strings.Contains(string(r.Notation), "then Through") {
+		t.Errorf("a connection point was written as a state, or a refused one was named:\n%s", r.Notation)
+	}
+	wantNote(t, r, "_start", migrate.Mapped, "written as a junction of its state; a transition entering through it runs the state's entry behavior, then the transition leaving the junction")
+	wantNote(t, r, "_leave", migrate.Mapped, "written as a junction of its state; a transition leaving through it runs the transition into the junction, the state's exit behavior, then the transition leaving it")
+	wantNote(t, r, "_deep", migrate.Mapped, "written as a junction of its state")
+	wantNote(t, r, "_out", migrate.Mapped, "written as a junction of its state")
+	wantNote(t, r, "_plain", migrate.Mapped, "no transition leaves the entry point, so entering through it enters 'Work' by its default entry; a transition to it is written to the state")
+	wantNote(t, r, "_tEnter", migrate.Mapped, "written to Work: no transition leaves the entry point 'Plain'")
+	wantNote(t, r, "_both", migrate.Mapped, "written as a fork of its state, whose branches start its regions; a transition entering through it runs the state's entry behavior, then the branches")
+	wantNote(t, r, "_gather", migrate.Mapped, "written as a join of its state, which its regions leave through together; the transitions into the join run, then the state's exit behavior, then the transition leaving it")
+	wantNote(t, r, "_tGo", migrate.Mapped, "named by its path Work::Start")
+	wantNote(t, r, "_tDive", migrate.Mapped, "named by its path Work::Run::Deep")
+	wantNote(t, r, "_tBothA", migrate.Mapped, "named by its path Sync::Both")
+	wantNote(t, r, "_tAg", migrate.Mapped, "named by its path Sync::Gather")
+	wantNote(t, r, "_hist", migrate.Mapped, "written as a shallow history")
+	wantNote(t, r, "_through", migrate.Unmapped, "leads from the entry point straight to the exit point 'Leave' of the same state, crossing it without settling in it; the runtime would then run neither its entry nor its exit behavior")
+	wantNote(t, r, "_tThrough", migrate.Unmapped, "the source 'Through' has no v2 form")
+	wantNote(t, r, "_tSkip", migrate.Unmapped, "the target 'Through' has no v2 form")
+
+	s := session(t, r)
+	trace := func(object, want string) {
+		t.Helper()
+		if out := meta(t, s, "%eval in "+object+" : trace"); strings.TrimSpace(out[strings.LastIndex(out, "=")+1:]) != want {
+			t.Errorf("trace of %s: want %s, got\n%s", object, want, out)
+		}
+	}
+	current := func(want string) {
+		t.Helper()
+		if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: "+want) {
+			t.Errorf("want the current state %s:\n%s", want, out)
+		}
+	}
+	station := func() string {
+		t.Helper()
+		out := meta(t, s, "%instantiate Station")
+		_, id, ok := strings.Cut(out, "ID: ")
+		if !ok {
+			t.Fatalf("%%instantiate Station: %s", out)
+		}
+		id, _, _ = strings.Cut(id, "\n")
+		object := "#" + strings.TrimSpace(id)
+		meta(t, s, "%state Station::Cycle "+object)
+		return object
+	}
+	drive := func(signal, fires string) {
+		t.Helper()
+		if out := meta(t, s, "%send "+signal); !strings.Contains(out, "transition "+fires+" fires on it") {
+			t.Errorf("%%send %s: %s", signal, out)
+		}
+		meta(t, s, "%step")
+	}
+
+	// Through the entry point Start: the effect into it, Work's entry, the
+	// transition out of it, then Run and its default Slow. Out through Leave
+	// from the nested Run: Run's exit, the transition into it, Work's exit,
+	// then the transition out of it.
+	one := station()
+	drive("Go", "Idle -> Start")
+	current("Slow")
+	trace(one, "41112314")
+	drive("Finish", "Run -> Leave")
+	current("Idle")
+	trace(one, "4111231415241243")
+	meta(t, s, "%stop")
+
+	// Into the nested Run through its own entry point Deep: Work's entry, Run's
+	// entry, the transition out of Deep, then Fast rather than the default Slow.
+	// Out of Run through its exit point Out: the transition into it, Run's exit,
+	// then the transition out of it into Prep, still inside Work.
+	two := station()
+	drive("Dive", "Idle -> Deep")
+	current("Fast")
+	trace(two, "4211142117")
+	drive("Back", "Fast -> Out")
+	current("Prep")
+	trace(two, "421114211722152513")
+	meta(t, s, "%stop")
+
+	// An entry point no transition leaves enters Work by its default Prep. After
+	// Work is left from Run, the shallow history beside the entry points brings
+	// Run back, with its default Slow.
+	three := station()
+	drive("Enter", "Idle -> Work")
+	current("Prep")
+	trace(three, "1113")
+	drive("Next", "Prep -> Run")
+	drive("Stop", "Work -> Idle")
+	trace(three, "111314151244")
+	drive("Resume", "Idle -> H")
+	current("Slow")
+	trace(three, "1113141512441114")
+	meta(t, s, "%stop")
+
+	// The entry point Both of the orthogonal Sync starts both regions at once
+	// after Sync's entry; each region then leaves through the exit point Gather,
+	// which joins them: both exits and effects, Sync's exit, then the transition out.
+	four := station()
+	drive("Split", "Idle -> Both")
+	current("A1 | B1")
+	trace(four, "313335")
+	meta(t, s, "%step")
+	current("Idle")
+	trace(four, "313335343736383246")
+	meta(t, s, "%stop")
+
+	// Entered plainly, Sync's regions start at A0 and B0 and reach Gather the same way.
+	five := station()
+	drive("Pair", "Idle -> Sync")
+	current("A0 | B0")
+	drive("Bump", "A0 -> A1 and transition B0 -> B1")
+	meta(t, s, "%step")
+	current("Idle")
+	trace(five, "313335343736383246")
+}
+
 // gateMachine has an empty region beside the one holding its states, and transitions
 // between Idle and the nested Busy::Inner across nesting levels.
 const gateMachine = `
@@ -433,5 +590,47 @@ func TestTargetlessInternalTransitionsStayInTheirSource(t *testing.T) {
 	}
 	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Idle") {
 		t.Errorf("the internal transition left Idle:\n%s", out)
+	}
+}
+
+const emptyEffectMachine = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_ego" name="Go"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_egoEv" signal="_ego"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_eclass" name="Blank" classifierBehavior="_esm">
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_esm" name="Blanking">
+        <region xmi:type="uml:Region" xmi:id="_er" name="main">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_einit"/>
+          <subvertex xmi:type="uml:State" xmi:id="_eidle" name="Idle"/>
+          <subvertex xmi:type="uml:State" xmi:id="_ebusy" name="Busy"/>
+          <transition xmi:type="uml:Transition" xmi:id="_et0" source="_einit" target="_eidle"/>
+          <transition xmi:type="uml:Transition" xmi:id="_etGo" source="_eidle" target="_ebusy">
+            <trigger xmi:type="uml:Trigger" xmi:id="_etrGo" event="_egoEv"/>
+            <effect xmi:type="uml:Activity" xmi:id="_eeff" name="effect"/>
+          </transition>
+        </region>
+      </ownedBehavior>
+    </packagedElement>`
+
+const emptyEffectApplications = `
+  <sysml:Block xmi:id="_e1" base_Class="_eclass"/>`
+
+// A transition whose effect activity has no nodes keeps its braces, `do action effect { }`,
+// so the `then` clause that follows still belongs to the transition; the result parses and runs.
+func TestEmptyTransitionEffectKeepsItsBraces(t *testing.T) {
+	r := migrateDocument(t, emptyEffectMachine, emptyEffectApplications)
+	wantLine(t, r.Notation, "do action effect { }\n")
+	wantLine(t, r.Notation, "then Busy;")
+	if strings.Contains(string(r.Notation), "do action effect;") {
+		t.Errorf("an empty effect ended the transition clause:\n%s", r.Notation)
+	}
+	s := session(t, r)
+	meta(t, s, "%instantiate Blank")
+	meta(t, s, "%state Blank::Blanking")
+	if out := meta(t, s, "%send Go"); !strings.Contains(out, "transition Idle -> Busy fires on it") {
+		t.Errorf("%%send Go: %s", out)
+	}
+	meta(t, s, "%step")
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Busy") {
+		t.Errorf("the transition with the empty effect did not fire:\n%s", out)
 	}
 }

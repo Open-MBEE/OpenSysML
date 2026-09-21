@@ -43,11 +43,32 @@ func (m *migration) nameMachine(sm *sysmlv1.Element) map[string]bool {
 	}
 	used := inheritedStateNamesSet()
 	m.regionUsed[sm] = used
+	m.indexTransitions(sm)
 	for _, cp := range sm.Owned("connectionPoint") {
 		m.nameVertex(cp, sm, used)
 	}
 	m.nameRegions(m.populatedRegions(sm), sm, used)
 	return used
+}
+
+// indexTransitions lists the transitions into and out of every vertex of a
+// machine, so a connection point's shape can be read before it is written.
+func (m *migration) indexTransitions(sm *sysmlv1.Element) {
+	var walk func(e *sysmlv1.Element)
+	walk = func(e *sysmlv1.Element) {
+		for _, c := range e.Children {
+			if c.Role == "transition" {
+				if src := m.model.Ref(c, "source"); src != nil {
+					m.outgoing[src] = append(m.outgoing[src], c)
+				}
+				if tgt := m.model.Ref(c, "target"); tgt != nil {
+					m.incoming[tgt] = append(m.incoming[tgt], c)
+				}
+			}
+			walk(c)
+		}
+	}
+	walk(sm)
 }
 
 // nameRegions names the vertices of the regions of a state machine or state:
@@ -77,11 +98,163 @@ func (m *migration) nameRegions(regions []*sysmlv1.Element, owner *sysmlv1.Eleme
 func (m *migration) nameRegion(r, owner *sysmlv1.Element, used map[string]bool) {
 	m.regionUsed[r] = used
 	for _, v := range r.Owned("subvertex") {
-		m.nameVertex(v, owner, used)
 		if v.Type == "State" {
-			m.nameRegions(m.populatedRegions(v), v, inheritedStateNamesSet())
+			m.nameVertex(v, owner, used)
+			inner := inheritedStateNamesSet()
+			m.namePoints(v, inner)
+			m.nameRegions(m.populatedRegions(v), v, inner)
+			continue
+		}
+		if pointOwner(v) != nil && pointOwner(v).Type == "State" {
+			// A tool that lists a state's connection point among its region's vertices.
+			continue
+		}
+		m.nameVertex(v, owner, used)
+	}
+}
+
+// namePoints settles how each connection point of composite state v is written
+// and names those written as members of its body, whose names used lists.
+func (m *migration) namePoints(v *sysmlv1.Element, used map[string]bool) {
+	for _, cp := range m.connectionPoints(v) {
+		f := m.statePointForm(cp, v)
+		m.points[cp] = f
+		if f.kw != "" {
+			m.nameVertex(cp, v, used)
 		}
 	}
+}
+
+// connectionPoints lists the entry and exit points of composite state v: those
+// it owns, and those a tool listed among the vertices of its regions.
+func (m *migration) connectionPoints(v *sysmlv1.Element) []*sysmlv1.Element {
+	points := v.Owned("connectionPoint")
+	for _, r := range v.Owned("region") {
+		for _, sv := range r.Owned("subvertex") {
+			if k := pseudoKind(sv); k == "entryPoint" || k == "exitPoint" {
+				points = append(points, sv)
+			}
+		}
+	}
+	return points
+}
+
+// pointOwner is the state or state machine an entry or exit point belongs to,
+// through the region a tool may have listed it in; nil for another vertex.
+func pointOwner(v *sysmlv1.Element) *sysmlv1.Element {
+	if k := pseudoKind(v); k != "entryPoint" && k != "exitPoint" {
+		return nil
+	}
+	owner := v.Parent
+	if owner != nil && owner.Type == "Region" {
+		owner = owner.Parent
+	}
+	return owner
+}
+
+// pointForm says how a composite state's entry or exit point is written: as
+// the pseudostate kw of the state's body, or not at all.
+type pointForm struct {
+	// kw is junction, fork or join; "" when the point is written as no member.
+	kw string
+	// note is what the report says of a point that is written.
+	note string
+	// defaultEntry marks an entry point no transition leaves: a transition to it
+	// enters its state by the state's default entry, so it is written to the state.
+	defaultEntry bool
+	// why says why a point has no v2 form; "" when it has one.
+	why string
+}
+
+// statePointForm settles how connection point v of composite state owner is written from the
+// transitions through it: a junction, a fork starting several regions, or a join they leave by.
+func (m *migration) statePointForm(v, owner *sysmlv1.Element) pointForm {
+	if pseudoKind(v) == "entryPoint" {
+		return m.entryPointForm(v, owner)
+	}
+	return m.exitPointForm(v, owner)
+}
+
+func (m *migration) entryPointForm(v, owner *sysmlv1.Element) pointForm {
+	out := m.outgoing[v]
+	if len(out) == 0 {
+		return pointForm{defaultEntry: true, note: "no transition leaves the entry point, so entering through it enters " + describe(owner) + " by its default entry; a transition to it is written to the state"}
+	}
+	for _, t := range out {
+		tgt := m.model.Ref(t, "target")
+		if tgt != nil && pseudoKind(tgt) == "exitPoint" && pointOwner(tgt) == owner {
+			return pointForm{why: describe(t) + " leads from the entry point straight to the exit point " + describe(tgt) + " of the same state, crossing it without settling in it; the runtime would then run neither its entry nor its exit behavior"}
+		}
+	}
+	regions := m.regionsCrossed(out, owner, "target")
+	if len(out) < 2 || len(regions) < 2 {
+		return pointForm{kw: "junction", note: "written as a junction of its state; a transition entering through it runs the state's entry behavior, then the transition leaving the junction"}
+	}
+	if len(regions) < len(out) {
+		return pointForm{why: "the entry point starts several regions of " + describe(owner) + ", as a fork does, but two of its outgoing transitions enter the same region"}
+	}
+	for _, t := range out {
+		if why := m.forkBranchWhy(t, m.model.Ref(t, "target")); why != "" {
+			return pointForm{why: "the entry point starts several regions of " + describe(owner) + ", as a fork does, but " + describe(t) + " " + why}
+		}
+	}
+	return pointForm{kw: "fork", note: "written as a fork of its state, whose branches start its regions; a transition entering through it runs the state's entry behavior, then the branches"}
+}
+
+func (m *migration) exitPointForm(v, owner *sysmlv1.Element) pointForm {
+	in := m.incoming[v]
+	regions := m.regionsCrossed(in, owner, "source")
+	if len(in) < 2 || len(regions) < 2 {
+		return pointForm{kw: "junction", note: "written as a junction of its state; a transition leaving through it runs the transition into the junction, the state's exit behavior, then the transition leaving it"}
+	}
+	if len(regions) < len(in) {
+		return pointForm{why: "several regions of " + describe(owner) + " leave through the exit point, as through a join, but two of its incoming transitions leave the same region"}
+	}
+	for _, t := range in {
+		if src := m.model.Ref(t, "source"); src != nil && src.Type != "State" {
+			return pointForm{why: "several regions of " + describe(owner) + " leave through the exit point, as through a join, but " + describe(t) + " leaves " + describe(src) + ", a " + kindOf(src) + " rather than a state"}
+		}
+	}
+	return pointForm{kw: "join", note: "written as a join of its state, which its regions leave through together; the transitions into the join run, then the state's exit behavior, then the transition leaving it"}
+}
+
+// regionsCrossed lists the distinct regions of owner the given ends of the
+// transitions lie in; an end outside owner counts as none.
+func (m *migration) regionsCrossed(transitions []*sysmlv1.Element, owner *sysmlv1.Element, role string) []*sysmlv1.Element {
+	var regions []*sysmlv1.Element
+	for _, t := range transitions {
+		if r := regionWithin(m.model.Ref(t, role), owner); r != nil && !slices.Contains(regions, r) {
+			regions = append(regions, r)
+		}
+	}
+	return regions
+}
+
+// regionWithin is the region of owner that holds vertex v, however deep; nil
+// when v lies outside owner.
+func regionWithin(v, owner *sysmlv1.Element) *sysmlv1.Element {
+	for cur := v; cur != nil && cur.Parent != nil; cur = cur.Parent {
+		if cur.Parent == owner && cur.Type == "Region" {
+			return cur
+		}
+	}
+	return nil
+}
+
+// forkBranchWhy says why transition t into tgt cannot be a fork's branch, which
+// enters a state with no trigger or guard of its own; "" when it can.
+func (m *migration) forkBranchWhy(t, tgt *sysmlv1.Element) string {
+	switch {
+	case tgt == nil:
+		return "lacks a target"
+	case tgt.Type != "State":
+		return "enters " + describe(tgt) + ", a " + kindOf(tgt) + " rather than a state"
+	case len(t.Owned("trigger")) > 0:
+		return "has a trigger"
+	case firstOwned(t, "guard") != nil:
+		return "has a guard"
+	}
+	return ""
 }
 
 // populatedRegions returns the regions of a machine or state that hold a
@@ -398,6 +571,10 @@ func (s *stateRegion) vertex(v *sysmlv1.Element) {
 		case "terminate":
 			s.m.add(v, Approximated, "done", "a terminate pseudostate ends the machine; a transition to it is written to done, which ends its region")
 		case "entryPoint", "exitPoint":
+			if pointOwner(v).Type == "State" {
+				// Written in the body of the state it belongs to.
+				return
+			}
 			s.m.connectionPoint(v)
 		default:
 			s.m.unmapped(v, "no v2 form for a "+pseudoKind(v)+" pseudostate")
@@ -409,12 +586,12 @@ func (s *stateRegion) vertex(v *sysmlv1.Element) {
 	}
 }
 
-// connectionPoint writes an entry or exit point as a state of the state def: entered at the entry
-// point's state, and leaving through the exit point's state completes the submachine state's transition.
+// connectionPoint writes an entry or exit point of a state machine as a state of the state def: entered
+// at the entry point's state, and leaving through the exit point's state completes the submachine state's transition.
 func (m *migration) connectionPoint(v *sysmlv1.Element) {
 	name, ok := m.vertexNames[v]
 	if !ok {
-		m.unmapped(v, "a "+pseudoKind(v)+" owned by a "+v.Parent.Type+" is not written; only a state machine's connection points are")
+		m.unmapped(v, "a "+pseudoKind(v)+" owned by a "+v.Parent.Type+" is not written; only a state machine's or a state's connection points are")
 		return
 	}
 	m.w.line(stateKw + writeName(name) + ";")
@@ -423,6 +600,38 @@ func (m *migration) connectionPoint(v *sysmlv1.Element) {
 		return
 	}
 	m.add(v, Mapped, name, "written as a state; a transition entering a submachine state through the entry point enters this state")
+}
+
+// statePoints writes the connection points of composite state v in its body, in
+// the form namePoints settled on; it reports how many members were written.
+func (m *migration) statePoints(v *sysmlv1.Element) int {
+	written := 0
+	for _, cp := range m.connectionPoints(v) {
+		f := m.points[cp]
+		switch {
+		case f.why != "":
+			m.unmapped(cp, f.why)
+		case f.defaultEntry:
+			m.add(cp, Mapped, m.vertexNames[v], f.note)
+		default:
+			name := writeName(m.vertexNames[cp])
+			m.w.line(f.kw + " " + name + ";")
+			m.add(cp, Mapped, name, f.note)
+			written++
+		}
+	}
+	return written
+}
+
+// writtenPoints counts the connection points of v written as members of its body.
+func (m *migration) writtenPoints(v *sysmlv1.Element) int {
+	n := 0
+	for _, cp := range m.connectionPoints(v) {
+		if m.points[cp].kw != "" {
+			n++
+		}
+	}
+	return n
 }
 
 // state writes a state, typed by its submachine's state def when it has one,
@@ -450,8 +659,10 @@ func (s *stateRegion) state(v *sysmlv1.Element) {
 	regions := s.m.populatedRegions(v)
 	entry, do, exit := s.m.stateBehavior(v, "entry"), s.m.stateBehavior(v, "doActivity"), s.m.stateBehavior(v, "exit")
 	inv := firstOwned(v, "stateInvariant")
-	if entry == nil && do == nil && exit == nil && inv == nil && len(regions) == 0 && len(defers) == 0 {
+	points := s.m.connectionPoints(v)
+	if entry == nil && do == nil && exit == nil && inv == nil && len(regions) == 0 && len(defers) == 0 && s.m.writtenPoints(v) == 0 {
 		s.m.w.line(head + ";")
+		s.m.statePoints(v)
 		return
 	}
 	s.m.w.block(head, func() {
@@ -467,6 +678,9 @@ func (s *stateRegion) state(v *sysmlv1.Element) {
 			}
 			if exit != nil {
 				s.m.inlineBehavior("exit action", exit, v)
+			}
+			if len(points) > 0 {
+				s.m.statePoints(v)
 			}
 		}
 		if len(regions) == 0 {
@@ -580,11 +794,11 @@ func (m *migration) inlineBehavior(kw string, b, owner *sysmlv1.Element) bool {
 				note = joinNotes(note, "its parameters take no value: "+why)
 			}
 		}
-		line := kw + " : " + m.ref(b, owner) + ";"
 		if len(ins) > 0 {
-			line = kw + " : " + m.ref(b, owner) + " { " + strings.Join(ins, "; ") + "; }"
+			m.w.line(kw + " : " + m.ref(b, owner) + " { " + strings.Join(ins, "; ") + "; }")
+		} else {
+			m.w.block(kw+" : "+m.ref(b, owner), func() {})
 		}
-		m.w.line(line)
 		m.downgrade(b, note)
 		return true
 	}
@@ -697,12 +911,31 @@ func (s *stateRegion) target(t, v *sysmlv1.Element) (string, bool) {
 		case "terminate":
 			return "done", true
 		case "exitPoint":
+			if s.m.points[v].why != "" {
+				return "", false
+			}
 			if p, ok := s.endpoint(t, v, "target"); ok {
 				return p, true
 			}
+			if pointOwner(v).Type == "State" {
+				return "", false
+			}
 			s.m.add(t, Approximated, "", "the exit point "+describe(v)+" belongs to another machine; the transition is written to done")
 			return "done", true
-		case "choice", "junction", "fork", "join", "shallowHistory", "deepHistory", "entryPoint":
+		case "entryPoint":
+			f := s.m.points[v]
+			if f.why != "" {
+				return "", false
+			}
+			if f.defaultEntry {
+				p, ok := s.endpoint(t, pointOwner(v), "target")
+				if ok {
+					s.m.add(t, Mapped, "", "written to "+p+": no transition leaves the entry point "+describe(v)+", so entering through it enters the state by its default entry")
+				}
+				return p, ok
+			}
+			return s.endpoint(t, v, "target")
+		case "choice", "junction", "fork", "join", "shallowHistory", "deepHistory":
 			return s.endpoint(t, v, "target")
 		}
 	case "ConnectionPointReference":
@@ -722,13 +955,37 @@ func (s *stateRegion) source(t, v *sysmlv1.Element) (string, bool) {
 		return s.endpoint(t, v, "source")
 	case "Pseudostate":
 		switch pseudoKind(v) {
-		case "choice", "junction", "fork", "join", "shallowHistory", "deepHistory", "entryPoint", "exitPoint":
+		case "entryPoint", "exitPoint":
+			if s.m.points[v].why != "" {
+				return "", false
+			}
+			return s.endpoint(t, v, "source")
+		case "choice", "junction", "fork", "join", "shallowHistory", "deepHistory":
 			return s.endpoint(t, v, "source")
 		}
 	case "ConnectionPointReference":
 		return s.connection(t, v, "exit")
 	}
 	return "", false
+}
+
+// noForm says why vertex v is no end for a transition: its connection point's refusal,
+// else that it lies outside the machine or has no v2 form.
+func (s *stateRegion) noForm(v *sysmlv1.Element) string {
+	if why := s.m.points[v].why; why != "" {
+		return " has no v2 form: " + why
+	}
+	return isA + kindOf(v) + outsideMachine
+}
+
+// transient reports a pseudostate a compound transition passes through in one
+// step, whose outgoing transitions the runtime follows on reaching it.
+func transient(v *sysmlv1.Element) bool {
+	switch pseudoKind(v) {
+	case "junction", "choice", "entryPoint", "exitPoint":
+		return true
+	}
+	return false
 }
 
 // connection names the state of a submachine's state def a connection point
@@ -802,15 +1059,19 @@ func (s *stateRegion) transition(t *sysmlv1.Element) {
 			return
 		}
 	}
+	if transient(src) && (pseudoKind(tgt) == "shallowHistory" || pseudoKind(tgt) == "deepHistory") {
+		s.m.unmapped(t, "the runtime does not follow a transition from a "+pseudoKind(src)+" pseudostate on into the history pseudostate "+describe(tgt))
+		return
+	}
 	from, ok := s.source(t, src)
 	if !ok {
-		s.m.unmapped(t, "the source "+describe(src)+isA+kindOf(src)+outsideMachine)
+		s.m.unmapped(t, "the source "+describe(src)+s.noForm(src))
 		return
 	}
 	to := from
 	if !internal {
 		if to, ok = s.target(t, tgt); !ok {
-			s.m.unmapped(t, "the target "+describe(tgt)+isA+kindOf(tgt)+outsideMachine)
+			s.m.unmapped(t, "the target "+describe(tgt)+s.noForm(tgt))
 			return
 		}
 	}
@@ -968,14 +1229,16 @@ func (s *stateRegion) writeTransitionEffect(t, eff *sysmlv1.Element, accept acce
 	}
 	s.m.w.line(line)
 	s.m.w.indented(func() {
-		if eff == nil {
-			s.m.w.block("do action", func() { s.m.w.line(accept.keeping) })
-		} else {
+		s.m.w.braced(func() {
+			if eff == nil {
+				s.m.w.block("do action", func() { s.m.w.line(accept.keeping) })
+				return
+			}
 			saved, savedKeep := s.m.bound, s.m.keeping
 			s.m.bound, s.m.keeping = accept.bound, accept.keeping
 			s.m.inlineBehavior("do action", eff, t)
 			s.m.bound, s.m.keeping = saved, savedKeep
-		}
+		})
 		s.m.w.line("then " + to + ";")
 	})
 }
