@@ -1209,7 +1209,10 @@ segments fire with their own trigger bound, and a refused join is undone whole) 
 bucket is retired, and the baseline is 46 `pass` / 17 `fail` / 38 `not-expressible` /
 2 `differs-by-design` — *Terminate 003* passes, *Terminate 001* and *002* fail on the
 region-entry order the same open finding already covers. E2–E7 have not moved; the referee's
-17 `fail` are their measurement on the state side.
+17 `fail` are their measurement on the state side. The object-model item E7 waits on then
+landed: a run creates objects by `new T(…)` and destroys them by `destroy`, a context holds
+several objects of one usage, and a destroyed object is released from `all T` with the behaviors
+it performed terminated (below, *Dynamic object creation and destruction*).
 
 ## E1 — `terminate` in a body (landed)
 
@@ -1467,6 +1470,42 @@ positional, mixed and surplus cases; `robustness_test.go` the arity failure; the
 list. **Prioritize when** a REPL or API user asks for it — it is the smallest item in the track
 and the one most likely to be done on demand.
 
+## Dynamic object creation and destruction (landed)
+
+**Landed** in one change set. Before it an object was materialized once, from its declaration,
+and nothing destroyed it: `new T(…)` built a message-shaped value for `send`, an object written
+into a feature was classified by it but owned by nothing, `destroy` refused an object whose state
+machine was under way (`ErrOccurrenceLifetime`), and a destroyed object stayed in `all T`. Now an
+object created while a behavior runs is a first-class occurrence of the run
+(`runtime/signal.go` `evalConstructor` → `EvalContext.constructObject`): it has an identity of its own,
+begins its life where it is made, is classified by the type it is created as, and starts the
+behaviors its type exhibits or performs as an object materialized from a declaration does. The
+spellings are the specifications': KerML §7.4.9's instantiation expression `new T(args)`, in any
+expression position — an assignment, a feature value, an argument, `send new Data(…)` — and the
+library's `create`/`addNew`/`addNewAt`; SysML v2 defines no other textual constructor for an
+occurrence of a definition, and the compliance record says so. Writing an object into a feature
+holds it (`runtime/classify.go` `holdWritten`, from `SetFeatureValue`): the feature's type
+classifies it and, where the feature is composite and the object owns no whole yet, the object
+becomes a portion of the owner, so `assign cars := (cars, new Car(n))` in a loop leaves the fleet
+holding one car per iteration, each a distinct object `all Car`, feature chains, `%features`,
+`isDuring`/`istype` and routing reach. `destroy` (`runtime/lifetimes.go`) ends the occurrence and
+its portions, terminates the state machine it exhibits and the actions it performs where they
+stand (`occurrence_terminate.go` `endBehaviorsWith`), and releases it from the extent
+(`extent.go` `objectsOf`); a feature still naming it keeps the value and reading through it is
+`ErrOccurrenceDestroyed`, the library declaring `destroy` over the occurrence and not over what
+refers to it. Under `explore` creation and destruction are ordinary moves — identities are
+allotted in run order, so every linearization of two creating branches reaches one outcome and a
+destroy racing a read reaches exactly two — and a snapshot carries created objects, a destroyed
+one with its behaviors terminated. Proof: conformance `object_created_by_constructor` and
+`object_destroyed_at_runtime` with trace goldens, `robustness_object_lifecycle_test.go`
+`TestRuntimeRobustnessObjectLifecycle`, `TestDestroyEndsTheMachinePerformed`; the compliance
+record's *Dynamic object creation* row and its `create`/`destroy` row, and the "not supported"
+bullet gone.
+
+**What it leaves.** E7 itself: `send … to <expr>` still resolves a target that is a usage name to
+the occurrence the context holds for it, so the second object of a usage is addressed only through
+a feature that holds it. The RDF mapping is of the model and exports no run's objects.
+
 ## E7 — an addressed send to a second object of one usage
 
 **Today.** A `send … to <target>` resolves its target through `runtime/signal.go`
@@ -1490,16 +1529,15 @@ from.
 
 **Work.** Address by value rather than by usage: evaluate the `to` expression to an object
 reference and post to that object's identity (`objectID`), with the by-usage resolution kept for a
-target that is a name. That is only meaningful once a context can hold more than one object of one
-usage, which is the "dynamic object creation/destruction" bullet beside this one in the compliance
-list and outside this track: an object materialized by `new` or held in a feature the sender
-reads. Depends on that object-model item; independent of E1–E6.
+target that is a name. That is meaningful now that a context can hold more than one object of one
+usage — an object materialized by `new` or held in a feature the sender reads (*Dynamic object
+creation and destruction*, landed, above); the send side is what remains. Independent of E1–E6.
 
 **Proof.** Conformance: two objects of one usage, a send addressed to the second, only the second's
 accept fires (with the `via` form of the same model); a trace golden; robustness for a target
 expression yielding no object. `spec-compliance.md`: the Known Limitations bullet and the "not
-supported" bullet both leave. **Prioritize when** the object-model item lands, since without it
-there is no second object to address.
+supported" bullet both leave. The object-model item has landed, so the second object to address
+exists; this is ready to take up.
 
 ## E8 — `isRunToCompletion` and `runToCompletionScope` redefinitions
 

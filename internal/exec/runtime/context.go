@@ -30,6 +30,8 @@ type Context struct {
 	created   []int64
 	// lives holds, per registered object, when it began and ended (lifetimes.go).
 	lives map[int64]life
+	// lifetimes stands for the lives as a `=` value reads them, to derive again when they change.
+	lifetimes FeatureValue
 
 	// maxActionSteps, maxStateEvents and maxDoSteps bound the executors this
 	// context runs: token-flow steps, dispatched events, and do actions.
@@ -195,6 +197,9 @@ type Context struct {
 	// pendingBehaviors the behaviors a change still to be kept or undone attached
 	// begin: the only ones a drain under it may run (see nextRunnableBehavior).
 	runBoundaries []runBoundary
+	// storing are the stores under way, innermost last, each keeping the journal of the hold
+	// it reached open until the behaviors the hold started have run (see storedBeforeStarting).
+	storing []*storing
 	// run is the state of the run under way, or of the latest one ended; see beginRun.
 	run *runState
 	// runDepth is the number of runs currently under way, so the state is installed

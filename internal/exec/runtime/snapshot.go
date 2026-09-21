@@ -27,19 +27,19 @@ var ErrSnapshotPausedBody = errors.New("snapshot of a body paused mid-statement"
 // the run had made keeps its identity across a restore; what it made after the
 // mark is abandoned, and the identities it took are handed out again.
 type Snapshot struct {
-	ctx       *Context
-	journal   journalMark
-	run       runCapture
-	runStates []runStateCapture
+	ctx     *Context
+	journal journalMark
+	run     runCapture
 	executorCaptures
 	released bool
 }
 
 // executorCaptures is a set of executors captured by value, each once: those
-// asked for, and those the paused bodies of these perform.
+// asked for, and those the paused bodies of these perform, with the runs they drive.
 type executorCaptures struct {
-	actions []actionCapture
-	states  []stateCapture
+	actions   []actionCapture
+	states    []stateCapture
+	runStates []runStateCapture
 }
 
 // journalMark is where in the journal a change began and what the journal holds
@@ -50,6 +50,8 @@ type journalMark struct {
 	messages          []Message
 	clockNow          float64
 	clockWaiters      []clockWaiter
+	trace             *TraceRecorder
+	traced            traceCapture
 }
 
 // runCapture is the run bookkeeping the context keeps outside its journal.
@@ -199,9 +201,6 @@ func (s *Snapshot) Restore() {
 	ctx.snapshots = ctx.snapshots[:at+1]
 	ctx.rollbackJournal(s.journal)
 	s.run.restore(ctx)
-	for _, capture := range s.runStates {
-		capture.restore()
-	}
 	s.executorCaptures.restore()
 }
 
@@ -235,6 +234,9 @@ func (s *executorCaptures) captureState(e *StateExecutor) {
 }
 
 func (s *executorCaptures) restore() {
+	for _, capture := range s.runStates {
+		capture.restore()
+	}
 	for _, capture := range s.actions {
 		capture.restore()
 	}
@@ -305,12 +307,14 @@ func (ctx *Context) markJournal() journalMark {
 		messages:     slices.Clone(ctx.messages),
 		clockNow:     ctx.clock.now,
 		clockWaiters: slices.Clone(ctx.clock.waiters),
+		trace:        ctx.trace,
+		traced:       captureTrace(ctx.trace),
 	}
 }
 
 // rollbackJournal undoes every change journaled since the mark: the feature
-// values written, the other changes noted, the bus, the clock, the objects made
-// and the behaviors attached. The journal is cut back to the mark.
+// values written, the other changes noted, the bus, the clock, the objects made,
+// the behaviors attached and the trace recorded. The journal is cut back to the mark.
 func (ctx *Context) rollbackJournal(mark journalMark) {
 	for i := len(ctx.journalWrites) - 1; i >= mark.writes; i-- {
 		*ctx.journalWrites[i].fv = ctx.journalWrites[i].prior
@@ -323,6 +327,7 @@ func (ctx *Context) rollbackJournal(mark journalMark) {
 	ctx.messages = slices.Clone(mark.messages)
 	ctx.abandonCreationSince(mark.created, mark.attached)
 	ctx.clock.now, ctx.clock.waiters = mark.clockNow, slices.Clone(mark.clockWaiters)
+	mark.traced.restore(mark.trace)
 }
 
 func (ctx *Context) captureRun() runCapture {
@@ -361,7 +366,7 @@ func (c runCapture) restore(ctx *Context) {
 }
 
 // captureRunState captures a run's state once, however many executors share it.
-func (s *Snapshot) captureRunState(state *runState) {
+func (s *executorCaptures) captureRunState(state *runState) {
 	if state == nil || slices.ContainsFunc(s.runStates, func(c runStateCapture) bool { return c.state == state }) {
 		return
 	}

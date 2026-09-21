@@ -1352,16 +1352,14 @@ func (e *EvalContext) buildConstructedMessage(scope *symbols.Scope, constructor 
 	if err := e.checkConstructorArity(signal, constructor, "send "+signal.Name); err != nil {
 		return Message{}, err
 	}
-	msg, err := e.buildTypedMessage(scope, signal.Name, signal, target,
-		messageArgs{typeRef: constructor.Type, args: constructor.Args, named: constructor.NamedArgs})
+	msg, inst, err := e.constructObject(func() (Message, error) {
+		return e.buildTypedMessage(scope, signal.Name, signal, target,
+			messageArgs{typeRef: constructor.Type, args: constructor.Args, named: constructor.NamedArgs})
+	}, "send new "+signal.Name)
 	if err != nil {
 		return Message{}, err
 	}
-	value, err := e.ctx.materializeMessage(msg)
-	if err != nil {
-		return Message{}, fmt.Errorf("send new %s: %w", signal.Name, err)
-	}
-	msg.Value = &value
+	msg.Value = &Value{Kind: ValInstance, Instance: inst.ID}
 	return msg, nil
 }
 
@@ -1376,16 +1374,44 @@ func (e *EvalContext) evalConstructor(constructor *ast.ConstructorExpr) (Value, 
 	if err := e.checkConstructorArity(typ, constructor, what); err != nil {
 		return Value{}, err
 	}
-	msg, err := e.buildTypedMessage(e.scope, typ.Name, typ, "",
-		messageArgs{typeRef: constructor.Type, args: constructor.Args, named: constructor.NamedArgs, written: what})
+	_, inst, err := e.constructObject(func() (Message, error) {
+		return e.buildTypedMessage(e.scope, typ.Name, typ, "",
+			messageArgs{typeRef: constructor.Type, args: constructor.Args, named: constructor.NamedArgs, written: what})
+	}, what)
 	if err != nil {
 		return Value{}, err
 	}
-	value, err := e.ctx.materializeMessage(msg)
+	return e.ctx.objectValue(inst)
+}
+
+// constructObject materializes the object `new T(…)` denotes (KerML §7.4.9): an occurrence
+// whose life begins here and that performs T's behaviors. A construction that fails at any
+// step — an argument, the materialization, a behavior's start — leaves nothing: the objects
+// its arguments made, the values written and the messages sent along the way are rolled back.
+func (e *EvalContext) constructObject(build func() (Message, error), what string) (Message, *Instance, error) {
+	ctx := e.ctx
+	commit, rollback := ctx.beginJournal()
+	msg, err := build()
 	if err != nil {
-		return Value{}, fmt.Errorf("%s: %w", what, err)
+		rollback()
+		return Message{}, nil, err
 	}
-	return e.ctx.objectValue(e.ctx.instances[value.Instance])
+	var value Value
+	err = ctx.storedTogether(func() (err error) {
+		value, err = ctx.materializeMessage(msg)
+		return err
+	})
+	if err != nil {
+		rollback()
+		return Message{}, nil, fmt.Errorf("%s: %w", what, err)
+	}
+	inst := ctx.instances[value.Instance]
+	if err := ctx.startClassifierBehaviors(inst, len(ctx.created)); err != nil {
+		rollback()
+		return Message{}, nil, fmt.Errorf("%s: %w", what, err)
+	}
+	commit()
+	return msg, inst, nil
 }
 
 // checkConstructorArity rejects positional arguments beyond the constructed
