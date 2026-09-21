@@ -133,6 +133,7 @@ func (a *activity) primitiveRefusal(n *sysmlv1.Element, p *primitiveCall) (why s
 	if p.outs == nil {
 		return joinNotes("the behavior "+p.qualified()+" it calls has no v2 library function: "+p.note, p.provenance), Unmapped, true
 	}
+	a.settlePins(n)
 	ins := inputPins(n)
 	for i, arg := range p.arguments() {
 		if i < len(ins) {
@@ -156,8 +157,9 @@ func (a *activity) primitiveRefusal(n *sysmlv1.Element, p *primitiveCall) (why s
 	return "", Mapped, false
 }
 
-// unwritten returns the value of a value pin of n that has no v2 expression,
-// and why; nil for another pin or a value that is written.
+// unwritten returns the value of a value pin of n that has no v2 expression, and
+// why; nil for another pin or a value that is written. n's pins must be settled
+// first, so a value naming a sibling pin reads it.
 func (a *activity) unwritten(n, pin *sysmlv1.Element) (*sysmlv1.Element, string) {
 	v := firstOwned(pin, "value")
 	if v == nil || pin.Type != "ValuePin" {
