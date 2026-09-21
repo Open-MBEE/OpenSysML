@@ -641,7 +641,7 @@ func testBindingMultipleCollectionContributors(t *testing.T) {
 		if !errors.Is(err, ErrBindingEnd) {
 			t.Fatalf("GetFeatureValue(edges) = %v, want ErrBindingEnd", err)
 		}
-		if got, want := err.Error(), "binding end cannot be resolved: Sys.edges is bound by `bind [0..1] edges = [0..1] leftEdge`, "+
+		if got, want := err.Error(), "binding end cannot be resolved: Sys.edges is bound by `binding [1] bind [0..1] edges = [0..1] leftEdge`, "+
 			"which makes some value of edges a value of leftEdge without saying which value of either; the model does not state what edges holds"; got != want {
 			t.Errorf("error = %q, want %q", got, want)
 		}
@@ -772,7 +772,7 @@ func testBindingMultipleCollectionContributors(t *testing.T) {
 							binding [1] bind `+ends+` edges = `+ends+` pair;
 						}
 					}`))
-					want := "multiplicity violation: `bind " + ends + " edges = " + ends + " pair` links " +
+					want := "multiplicity violation: `binding [1] bind " + ends + " edges = " + ends + " pair` links " +
 						ends + " of edges, which holds 1 value(s)"
 					for _, order := range [][]string{{"pair", "edges", "pair"}, {"edges", "pair", "edges"}} {
 						inst, err := ctx.Instantiate(oneSymbol(t, idx, "P::Sys"))
@@ -808,7 +808,7 @@ func testBindingMultipleCollectionContributors(t *testing.T) {
 				binding [1] bind [2] edges = [2] pair;
 			}
 		}`))
-		want := "multiplicity violation: `bind [2] edges = [2] pair` links [2] of pair, which holds 1 value(s)"
+		want := "multiplicity violation: `binding [1] bind [2] edges = [2] pair` links [2] of pair, which holds 1 value(s)"
 		for _, order := range [][]string{{"edges", "pair"}, {"pair", "edges"}} {
 			inst, err := ctx.Instantiate(oneSymbol(t, idx, "P::Sys"))
 			if err != nil {
@@ -853,7 +853,7 @@ func testBindingMultipleCollectionContributors(t *testing.T) {
 				binding [1] bind [1] a = [1] c;
 			}
 		}`))
-		want := "multiplicity violation: `bind [1] a = [1] b` links [1] of a, which holds 0 value(s)"
+		want := "multiplicity violation: `binding [1] bind [1] a = [1] b` links [1] of a, which holds 0 value(s)"
 		for _, order := range [][]string{{"a", "b"}, {"b", "a"}} {
 			inst, err := ctx.Instantiate(oneSymbol(t, idx, "P::Empty"))
 			if err != nil {
