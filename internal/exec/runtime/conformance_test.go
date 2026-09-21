@@ -66,10 +66,17 @@ type ExpectedEvaluation struct {
 // ExpectedEvent represents an event to inject during state machine execution:
 // either a signal (`signal`) or an operation invocation (`call`).
 type ExpectedEvent struct {
-	Signal string                   `json:"signal,omitempty"` // Signal type name
-	Call   string                   `json:"call,omitempty"`   // Invoked operation name
-	Args   map[string]ExpectedValue `json:"args,omitempty"`   // Signal feature bindings or call arguments
-	Value  *ExpectedValue           `json:"value,omitempty"`  // The one bare value a signal carries
+	Signal  string                   `json:"signal,omitempty"`  // Signal type name
+	Call    string                   `json:"call,omitempty"`    // Invoked operation name
+	Args    map[string]ExpectedValue `json:"args,omitempty"`    // Signal feature bindings or call arguments
+	Value   *ExpectedValue           `json:"value,omitempty"`   // The one bare value a signal carries
+	Results map[string]ExpectedValue `json:"results,omitempty"` // Outputs a synchronous call returns its caller
+}
+
+// returnsResults reports whether a case observes what a call returns, so its
+// events are performed one at a time as a synchronous caller performs them.
+func returnsResults(events []ExpectedEvent) bool {
+	return slices.ContainsFunc(events, func(event ExpectedEvent) bool { return event.Results != nil })
 }
 
 // Performer is one object performing the case's behavior, and the outcome
@@ -967,7 +974,13 @@ func injectEvents(t *testing.T, exec *StateExecutor, events []ExpectedEvent) {
 func runOneStatePerformance(t *testing.T, ctx *Context, stateSym *symbols.Symbol, self *Instance, expected ExpectedOutcome) {
 	// The executor's own loop drives the run: a harness-local copy drifts from
 	// the semantics under test.
-	exec, err := ctx.PerformState(stateSym, self, queuedEvents(t, expected.Events))
+	var exec *StateExecutor
+	var err error
+	if returnsResults(expected.Events) {
+		exec, err = callingPerformance(t, ctx, stateSym, self, expected.Events)
+	} else {
+		exec, err = ctx.PerformState(stateSym, self, queuedEvents(t, expected.Events))
+	}
 	if err != nil {
 		t.Fatalf("state machine: %v", err)
 	}
@@ -983,6 +996,43 @@ func runOneStatePerformance(t *testing.T, ctx *Context, stateSym *symbols.Symbol
 			validateStateOutcome(r, ctx, exec, outcome)
 		})
 	}
+}
+
+// callingPerformance performs a machine as a caller does, one event per step:
+// a call is performed synchronously and what it returns checked against the
+// results the case states for it, every other event queued and run.
+func callingPerformance(t *testing.T, ctx *Context, stateSym *symbols.Symbol, self *Instance, events []ExpectedEvent) (*StateExecutor, error) {
+	t.Helper()
+	exec, err := ctx.CreateStateExecutorFor(stateSym, self)
+	if err != nil {
+		return nil, err
+	}
+	for i, event := range events {
+		queued := queuedEvents(t, events[i:i+1])[0]
+		if event.Results == nil {
+			if err := exec.Enqueue(queued); err != nil {
+				exec.Release()
+				return nil, err
+			}
+			if err := exec.RunToCompletion(); err != nil {
+				exec.Release()
+				return nil, err
+			}
+			continue
+		}
+		results, err := exec.Call(queued.Call, queued.Args)
+		if err != nil {
+			exec.Release()
+			return nil, fmt.Errorf("call %d %s: %w", i, queued.Call, err)
+		}
+		validateOutputs(t, ctx, event.Results, results)
+		for name := range results {
+			if _, ok := event.Results[name]; !ok {
+				t.Errorf("call %d %s returned %s, which the case does not expect", i, queued.Call, name)
+			}
+		}
+	}
+	return exec, nil
 }
 
 // validateStateOutcome checks a state performance against one outcome.

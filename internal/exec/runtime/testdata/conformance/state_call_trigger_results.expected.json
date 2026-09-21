@@ -1,0 +1,32 @@
+{
+  "type": "state",
+  "trace": true,
+  "events": [
+    {
+      "call": "compute",
+      "args": {
+        "value": {"type": "Integer", "value": 3}
+      },
+      "results": {
+        "result": {"type": "Integer", "value": -6}
+      }
+    },
+    {
+      "call": "compute",
+      "args": {
+        "value": {"type": "Integer", "value": 5}
+      },
+      "results": {
+        "result": {"type": "Integer", "value": 10}
+      }
+    },
+    {
+      "signal": "Settle"
+    }
+  ],
+  "finalState": "done",
+  "stateVisits": ["idle", "doubled", "settled", "done"],
+  "outputs": {
+    "result": {"type": "Integer", "value": 10}
+  }
+}

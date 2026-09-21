@@ -1189,6 +1189,11 @@ func (e *ActionExecutor) assignAround(string, Value) (bool, error) {
 	return false, nil
 }
 
+// returnAround holds nothing either.
+func (e *ActionExecutor) returnAround(string, Value) (bool, error) {
+	return false, nil
+}
+
 // runOwnFlow runs the flow a block-declared node states of its own to completion.
 func (e *ActionExecutor) runOwnFlow(perf *actionFrame) error {
 	return e.runSubflow(perf)

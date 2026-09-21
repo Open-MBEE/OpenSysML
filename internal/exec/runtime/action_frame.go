@@ -38,6 +38,9 @@ type performanceOwner interface {
 	// assignAround writes a name no performance nor block around a node holds to
 	// what is around the root, reporting whether something there holds it.
 	assignAround(name string, value Value) (bool, error)
+	// returnAround is assignAround for an output a performed action returns past
+	// every frame: what is around the root may also keep it for a caller.
+	returnAround(name string, value Value) (bool, error)
 	// pauseAt pauses the run before node, in the flow of within, performs where a breakpoint is set on it.
 	pauseAt(within []ast.Node, node ast.Node) error
 	// runOwnFlow runs the flow perf's node states of its own to completion.
@@ -419,7 +422,7 @@ func (e *performances) endPerformance(perf *actionFrame) error {
 		if !ok {
 			continue
 		}
-		if _, err := e.assignEnclosing(perf, name, value); err != nil {
+		if _, err := e.assignEnclosingBy(perf, name, value, e.owner.returnAround); err != nil {
 			return err
 		}
 	}
@@ -937,10 +940,17 @@ func (e *performances) streamFlow(
 // assignEnclosing writes name to the innermost block-local or performance feature
 // around perf that holds it, else to what is around the root, reporting whether one did.
 func (e *performances) assignEnclosing(perf *actionFrame, name string, value Value) (bool, error) {
+	return e.assignEnclosingBy(perf, name, value, e.owner.assignAround)
+}
+
+// assignEnclosingBy is assignEnclosing writing past the root through around.
+func (e *performances) assignEnclosingBy(
+	perf *actionFrame, name string, value Value, around func(string, Value) (bool, error),
+) (bool, error) {
 	local, holder, ok := enclosingHolder(perf, name)
 	switch {
 	case !ok:
-		return e.owner.assignAround(name, value)
+		return around(name, value)
 	case local != nil:
 		local[name] = value
 		return true, nil

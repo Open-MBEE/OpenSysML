@@ -60,6 +60,8 @@ type StateExecutor struct {
 	// deferred holds, in arrival order, the events an active state defers and no
 	// transition of the active configuration handled.
 	deferred []Event
+	// pendingCall is the synchronous Call the machine is running, if any.
+	pendingCall *pendingCall
 	// lastDispatch is what became of the event the last step took off the queue,
 	// lastEventAt the instant it was dispatched at.
 	lastDispatch *Dispatch
@@ -4637,6 +4639,7 @@ func (e *StateExecutor) invokeNested(inv actionInvocation) error {
 		return err
 	}
 	for _, name := range slices.Sorted(maps.Keys(outputs)) {
+		e.recordCallOutput(name, outputs[name])
 		if err := e.writeStateValue(name, outputs[name]); err != nil {
 			return err
 		}
