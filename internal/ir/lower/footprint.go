@@ -2,6 +2,7 @@ package lower
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -220,6 +221,7 @@ func footprintOf(graph *ActionGraph, node ast.Node, declared map[ast.Node]bool) 
 	b.features()
 	b.bindings()
 	b.flows()
+	b.streams()
 	b.accept()
 	b.successions()
 	b.control()
@@ -638,16 +640,98 @@ func (b *footprintBuilder) bindingEnd(binding PinBinding, node ast.Node, path []
 	b.place(binding.Scope, segments, b.write)
 }
 
-// flows adds the pins the node's outputs are delivered to when it completes.
+// flows adds the target pins of the node's flows: written at completion and,
+// for a streaming flow, at each write to the source pin.
 func (b *footprintBuilder) flows() {
+	seen := make(map[pinKey]bool)
 	for _, flow := range b.graph.DataFlows[b.node] {
-		place := Place{Name: flow.TargetPin, Local: true}
-		if scope := b.graph.Scopes[flow.Target]; scope != nil {
-			if sym, ok := scope.LookupLocal(flow.TargetPin); ok {
-				place.Sym = sym
+		b.flowTarget(b.graph, flow, seen)
+	}
+}
+
+// pinKey is one pin of one node of a graph.
+type pinKey struct {
+	node ast.Node
+	pin  string
+}
+
+// flowTarget adds the write to the flow's target pin and, when the flow
+// streams, the writes a value reaching that pin streams on to.
+func (b *footprintBuilder) flowTarget(graph *ActionGraph, flow ObjectFlow, seen map[pinKey]bool) {
+	place := Place{Name: flow.TargetPin, Local: true}
+	if scope := graph.Scopes[flow.Target]; scope != nil {
+		if sym, ok := scope.LookupLocal(flow.TargetPin); ok {
+			place.Sym = sym
+		}
+	}
+	b.write(place)
+	if flow.Kind != FlowStreaming {
+		return
+	}
+	b.streamsFrom(graph, flow.Target, flow.TargetPin, seen)
+}
+
+// streamsFrom adds the writes a value written to node's pin streams on to, along
+// the streaming flows out of node in graph; a pin and the names it redefines are one.
+func (b *footprintBuilder) streamsFrom(graph *ActionGraph, node ast.Node, pin string, seen map[pinKey]bool) {
+	aliases := pinAliases(graph.Features[node])
+	pin = pinName(aliases, pin)
+	key := pinKey{node: node, pin: pin}
+	if seen[key] {
+		return
+	}
+	seen[key] = true
+	for _, flow := range graph.DataFlows[node] {
+		if flow.Kind == FlowStreaming && pinName(aliases, flow.SourcePin) == pin {
+			b.flowTarget(graph, flow, seen)
+		}
+	}
+}
+
+// pinAliases maps each name a node's feature redefines to the feature's own name.
+func pinAliases(features []Feature) map[string]string {
+	var aliases map[string]string
+	for _, f := range features {
+		u, ok := f.Node.(*ast.Usage)
+		if !ok {
+			continue
+		}
+		for _, redefined := range redefinedNames(u) {
+			if redefined == f.Name {
+				continue
+			}
+			if aliases == nil {
+				aliases = make(map[string]string)
+			}
+			aliases[redefined] = f.Name
+		}
+	}
+	return aliases
+}
+
+// pinName is the name a node's pin is held under, following what it redefines.
+func pinName(aliases map[string]string, pin string) string {
+	if name, ok := aliases[pin]; ok {
+		return name
+	}
+	return pin
+}
+
+// streams adds the writes the node's own writes stream on to: a write to a pin
+// of an enclosing node is carried at once along the streaming flows out of it.
+func (b *footprintBuilder) streams() {
+	seen := make(map[pinKey]bool)
+	for _, place := range slices.Clone(b.footprint.Writes) {
+		if place.Sym == nil {
+			continue
+		}
+		for g := b.graph; g.Enclosing != nil; g = g.Enclosing {
+			for _, f := range g.Enclosing.Features[g.EnclosingNode] {
+				if featureSymbol(g.Enclosing.Scopes[g.EnclosingNode], f) == place.Sym {
+					b.streamsFrom(g.Enclosing, g.EnclosingNode, f.Name, seen)
+				}
 			}
 		}
-		b.write(place)
 	}
 }
 

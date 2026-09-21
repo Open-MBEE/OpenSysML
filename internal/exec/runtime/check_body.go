@@ -116,6 +116,14 @@ func (f *performFrame) spell(s *stateSpeller) string {
 	return fmt.Sprintf("perform %s phase %d%s", s.frameLabel(f.perf), f.phase, ended)
 }
 
+func (f *blockFlowFrame) spell(s *stateSpeller) string {
+	ended := ""
+	if f.perf != nil && f.perf.ended {
+		ended = " ended"
+	}
+	return fmt.Sprintf("block flow %s%s", s.frameLabel(f.perf), ended)
+}
+
 func (f *subflowFrame) spell(s *stateSpeller) string {
 	settled := make([]string, 0, len(f.progress.settled))
 	for w := range f.progress.settled {
