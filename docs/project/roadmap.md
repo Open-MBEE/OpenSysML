@@ -21,7 +21,8 @@ Read `AGENTS.md` first; it governs everything below.
 > compilation track, `R` the release follow-through, `W` the diagram output formats a view
 > rendering is written in, `F` the executor defects the conformance gate carried as
 > known failures (closed), `S` the multiple-valid-executions work the executor needed before
-> Track E (landed), `E` the behavior-execution semantics the runtime does not yet have, `X` the expression forms it
+> Track E (landed), `E` the behavior-execution semantics of the runtime; every item is now landed or
+> closed by design record, and this section records how each was decided, `X` the expression forms it
 > parses but does not evaluate, `Q` the runtime query surface, `A` analysis and simulation
 > execution, `V` the validation census, `I` the language integrations, `B` the bindings from
 > modeled elements to external data and services, `M` the embedded target, and `P` the package
@@ -1127,38 +1128,20 @@ granularity (`action_merge_fork_branch_and_loop` now needs `explore:runs=10000` 
 # Track E — behavior execution
 
 The runtime executes actions, state machines, calculations and constraints against the lowered
-IR (`internal/ir/lower` `ActionGraph`/`StateGraph`, `internal/exec/runtime`), and
-`docs/project/spec-compliance.md` § "What We Don't (Yet) Support" lists what it does not
-execute: interruptible regions, expansion regions, streaming pins, protocol state machines,
-and operation invocation with positional arguments; a `terminate` inside a body is refused by the runtime with a typed error and appears in no
-list. The behavior-execution review after `v0.4.3` found nothing missing beyond those, and this
-track records each as work with a stated scope, dependency order and acceptance gate rather than
-as a bullet or an error message alone. **Eligible: the next executor track.** The condition was
-"after F and S have landed and a release has shipped with them"; F and S landed (#116, #120,
-#110, #123, #125, #134) and `v0.7.0` shipped them, `v0.8.0` followed, and nothing else waits in
-front of E. No conformance fixture or trace golden exercises any of the seven items, and each
-has a typed refusal or a documented limitation in place of a wrong result. The executor loops E
-edits are now the ones F fixed and S instrumented and parameterized, and since #136 they also run
-on A5's shared simulation clock (`Context.Clock()`, `Context.Advance`, `accept after`/`at`
-parking a token in an action body, `due order` as a choice point), so every E item is written
-against a named scheduling policy and a shared clock, not an implicit order. Each item below ends
-with what would move it forward; until that happens, the honest status is the "not supported"
-bullet or the refusal. E8–E10 are the three findings about the runtime's own conformance in
-`docs/internals/design/precise-semantics-alignment.md` that concern state machines: E8, E9 and E10 landed with the change set that decided the note's open decisions.
+IR (`internal/ir/lower` `ActionGraph`/`StateGraph`, `internal/exec/runtime`). The behavior-execution
+items were once listed as unsupported or approximate; on this tree E1, E2, E4, E6, E7, E8, E9
+and E10 are landed, while E3 and E5 are closed by design record. The landed items have conformance
+fixtures under `internal/exec/runtime/testdata/conformance/`, trace goldens, and robustness coverage;
+the design closures are recorded in
+[expansion-regions.md](expansion-regions.md) and [protocol-state-machines.md](protocol-state-machines.md).
+The track records how each item was decided against the SysML v2 notation, the Kernel Semantic
+Library, the Systems Library and the available execution evidence.
 
-Two things about the list's own terms. First, four of the seven items — interruptible regions,
-expansion regions, streaming pins, protocol state machines — are UML 2.5.1 concepts that SysML v2
-(`formal/2026-03-02`) does not carry as notation: its actions (§7.17) spell termination,
-acceptance, loops and flows directly and its states (§7.18) have no protocol variant. Each of
-those items therefore starts by naming the SysML v2 spelling it corresponds to, and the target is
-that spelling's semantics in the Kernel Semantic Library and the Systems Library, never the UML
-feature by name. Second, the proof for every item is the four-layer contract of `AGENTS.md`
-§5.2 — a conformance fixture (`.sysml` + `.expected.json` under
-`internal/exec/runtime/testdata/conformance/`), a trace golden where ordering matters
-(`TestExecutionTrace`, `-update-traces`), a robustness case in `robustness_test.go` for the
-failure mode, and the row in `spec-compliance.md` moving out of the "not supported" list — and
-every item is self-assessed, since the pinned pilot evaluates expressions and executes no action
-or state machine ([pilot-execution-referee.md](pilot-execution-referee.md)).
+The UML comparison remains useful for explaining the closures: SysML v2 has no expansion-region or
+protocol-state-machine notation, while its actions and states provide the corresponding `for`,
+flow, acceptance and exhibited-state-machine forms. The proof for landed execution items follows
+the four-layer contract in `AGENTS.md` §5.2, with the pinned pilot used for expression-level
+adjudication rather than action or state execution.
 
 **Landed ahead of E1–E7**, all merged: the one structural finding of the review
 — nested action nodes shared the enclosing action's flat feature space, so `p.v` and `q.v`
@@ -1267,39 +1250,18 @@ succession leads to "monitorCriticalActivity" or to "criticalActivity"` — wher
 unsequenced nested actions start concurrently when their container does. That is a flow-start
 item, not a terminate one, and it is what the example waits on.
 
-## E2 — interrupting an ongoing performance ("interruptible regions")
+## E2 — interrupting an ongoing performance ("interruptible regions") (landed)
 
-**Today.** SysML v2 has no interruptible-region notation; what UML models with one is spelled in
-SysML v2 as an `accept` followed by a `terminate` in a forked branch (§7.17.10's
-`MonitoredActivity`: "Terminates `performCriticalActivity` even if `monitorCriticalActivity` is
-still ongoing"), or as a transition leaving a state whose `do` is running (§7.18.3: "If the
-source state has a do action that is still being performed, that is interrupted."). The action
-half is E1 and landed. The state half runs, with one documented approximation
-(`spec-compliance.md` § Known Limitations, *Runtime*): an inline `do` body is one action, so
-`runDoRound` advances it as a unit and an outgoing transition interrupts it only between rounds,
-never between its statements; the one-action-per-statement `do { … }` form is the interruptible
-spelling. There is no refusal here — the approximation is a documented ordering, not an error.
+**Landed.** An inline `do` body pauses after each statement, so a transition leaving the state
+after `s1` leaves later statements such as `s2` and `s3` unrun. The body remains resumable through
+loops, nested blocks and branches, and its trace and conformance fixtures cover the interruption.
+Fixed scheduling policies still finish a do round before dispatch; the checker reports
+`not enumerated: do round before dispatch` for that omitted interleaving.
 
-**Target.** §7.18.3's transition semantics, step 1: the source state's do action, "if it is
-still being performed, is interrupted" when the transition is triggered — `StatePerformance::do`
-is a `step` of the state's performance, and the `StateTransitionPerformance` that leaves it is
-keyed on its `accept` step and `transitionLink` (`StatePerformances.kerml`,
-`TransitionPerformances.kerml`) — so the do behavior's remaining statements do not run once the
-trigger is accepted, whether the body was written as one action or several. For actions, the
-target is E1's: the terminate ends the performance whatever else it has in flight.
-
-**Work.** After E1: make an inline `do` body resumable between statements so a round can leave it
-mid-body (the statement hosts already run a body statement at a time through `stmtEnv` frames;
-what is missing is a do behavior that yields after each statement rather than after the whole
-inline body), and drop the pending statements when the state exits. Depends on E1 for the shared
-notion of ending an ongoing performance; nothing depends on it.
-
-**Proof.** Conformance and a trace golden for a `do` body of three statements interrupted by a
-signal after the first; the existing do-interruption fixtures unchanged; the Known Limitations
-bullet removed and the `entry`/`do`/`exit` row in the State Machine map re-stated.
-**Prioritize when** a model's result depends on a `do` body being interrupted between two of its
-statements — until then the documented spelling (`do { … }` as one action per statement) gives
-the same result.
+**Before it landed.** SysML v2 has no interruptible-region notation; the corresponding state
+semantics interrupt a still-running `do` action when a transition leaves the state. The runtime
+formerly advanced an inline body as one action and interrupted only between rounds, so the work,
+target and proof were to add statement-boundary resumption and drop pending statements on exit.
 
 ## E3 — concurrent per-element performance ("expansion regions") (closed)
 
@@ -1372,8 +1334,7 @@ reads interleaved, `action_flow_succession_producer_consumer` (the same nodes in
 consumer reads 3 three times, total 9) with its trace golden, `action_flow_streaming_before_target_begins`,
 `action_flow_streaming_in_loop_body`; `robustness_streaming_flow_test.go` (a source that never
 writes, a target over before its source wrote, a stream to an undeclared pin). The
-`spec-compliance.md` Actions map's object-flow row is split by kind and "Streaming pins" leaves
-the not-implemented list.
+`spec-compliance.md` Actions map's object-flow row is split by kind and the compliance row records the two flow kinds.
 
 **What it leaves.** A source whose body writes its pin several times before any target
 performance is under way leaves the target the pin's value — its latest write — as a target
@@ -1382,16 +1343,11 @@ E3's parallel form, when it has a spelling, decides the streaming consumer of it
 
 ## E5 — protocol state machines (design record landed)
 
-**Design record landed**, [protocol-state-machines.md](protocol-state-machines.md); **the item
-stays open** for the runtime follow-up it specifies. No SysML v2 notation exists for a protocol
-state machine (UML 2.5.1 §14.4) and none should be invented; the record establishes, from
-§7.17.8, §7.18.3–4 and the Kernel Semantic Library (`StatePerformances`, `Transfers`,
-`Occurrences`), that the half of the idea SysML v2 can express — the legal order of *receptions*
-on a port or part — is an ordinary exhibited behavior state machine, which OpenSysML lowers,
-starts with the exhibiting object and fires in the declared order on a part with
-`accept … via <port>` (the corpora's spelling; conformance `state_transition_accept_via_port`).
-What SysML v2 cannot spell — ordering *operation calls*, post-conditions, `ProtocolConformance`,
-static sequence checking — is a UML feature the language dropped, not an OpenSysML gap.
+**Closed by its design record:** protocol state machines are not a SysML v2 construct; reception
+ordering is an ordinary exhibited state machine. The record establishes that the legal order of
+receptions on a port or part is expressed with `accept … via <port>` and runs on the exhibiting
+object. Ordering operation calls, post-conditions, `ProtocolConformance` and static sequence
+checking have no SysML v2 spelling and are not OpenSysML gaps.
 
 **What it leaves.** The order the machine declares is enforced only for events a debugger injects
 directly (`StateExecutor.SendSignal` → dispatched, dropped, reported in `AdvanceReport.Dropped`;
@@ -1400,13 +1356,10 @@ state neither accepts nor defers is not dropped: it waits on the context-wide bu
 the first later state that accepts it, so an out-of-order `Read` before `Open` is counted as if it
 had come after (the record's second probe: `reads = 2`, nothing reported). A machine exhibited by a
 **port definition** runs and answers the debugger's messages to the port object, but does not
-take a model's messages routed to that port. The follow-up specified in the record: a message
-addressed to a performer whose started machines all refuse it is taken off the bus and dispatched as
-a non-firing dispatch, so it is reported as the direct path reports it; a port definition's machine
-takes the messages routed to its port; optionally, an opt-in policy that makes the drop a typed error.
-No IR change; proof fixtures written in the record; two routing points to settle first.
-**Prioritize when** a model relies on an exhibited machine to refuse an arrival, or on a port
-definition's machine at all.
+take a model's messages routed to that port.
+
+**Optional follow-up (not a spec gap).** A future opt-in policy may make a refused model arrival a
+typed error and align port-definition routing with the direct-injection path.
 
 ## E6 — operation invocation with positional arguments (landed)
 
@@ -1443,30 +1396,10 @@ form only. Arguments bind by name and only by name: `operationInputs` takes a ma
 `in`/`inout` parameter by its name and refuses a missing one (`ErrUnboundParameter: parameter …
 has no argument and no default`) and an unknown one (`ErrUnboundParameter: … is no input
 parameter of operation …`). The REPL's `%invoke <object> <op> [<p>=<expr>]` (`repl/meta.go`
-`operationArguments`) refuses an argument not written `<parameter>=<expression>`. There is no
-positional form on either surface, and no refusal specific to one — the row says so: "no
-invocation surface expresses positional operation arguments". An operation call *written in a
-model* is an `InvocationExpression` and is bound by the expression machinery, where positional
-arguments already work (`runtime/invoke_calc.go` `bindCalcParameter`; for a performed action,
-`runtime/invoke_action.go` `bindArguments` binds `inv.args` in parameter order and refuses a
-surplus with `action … takes N input parameter(s), got M argument(s)`).
-
-**Target.** KerML 1.0 §8.2.5.8.3 gives an invocation's `ArgumentList` as either a
-`PositionalArgumentList` or a `NamedArgumentList`, never a mix, and §8.4.4.9.5 binds a positional
-list to the behavior's parameters in declaration order (`feature a redefines F::a = e1; feature b
-redefines F::b = e2; …`) — as `bindArguments` and `bindCalcParameter` already do for a call in the
-model. The API and the REPL should offer the same two forms, so `%invoke rover1 drive 10 20` binds
-`10` and `20` to the first two `in` parameters, a list mixing the two forms is refused, and a
-surplus is refused with the same arity error.
-
-**Work.** Small and self-contained: an ordered argument list on `InvokeOperation` (or a second
-entry point) sharing `bindArguments`'s rules, and `%invoke` accepting a list of bare expressions
-in place of its `<p>=<expr>` pairs. Depends on nothing; nothing depends on it.
-
-**Proof.** `runtime/classifier_behavior_test.go` and `repl/classifier_behavior_test.go` gain the
-positional, mixed and surplus cases; `robustness_test.go` the arity failure; the bullet leaves the
-list. **Prioritize when** a REPL or API user asks for it — it is the smallest item in the track
-and the one most likely to be done on demand.
+`operationArguments`) formerly required named arguments, while model invocation expressions already
+supported positional binding. The target was to expose the same positional-or-named choice through
+the API and REPL, never mixing the two forms; the implementation and proof then added the ordered
+API list, bare REPL expressions, mixed-list and surplus-argument diagnostics.
 
 ## Dynamic object creation and destruction (landed)
 
@@ -1503,37 +1436,7 @@ bullet gone.
 **What it leaves.** The RDF mapping is of the model and exports no run's objects. E7, the send
 side, has landed (below).
 
-## E7 — an addressed send to a second object of one usage
-
-**Today.** A `send … to <target>` resolves its target through `runtime/signal.go`
-`resolveAddresses` → `featureAddresses` → `addressOwner`: a name that is a feature of the sending
-object (or of an object holding it) reaches that feature's value, and otherwise the shortest prefix
-naming an occurrence usage that `occursOnce` reaches *the* occurrence this context holds for it
-(`ctx.occurrenceOf(sym)`, `runtime/instance.go`). A `via` send follows the connections
-(`runtime/routing.go`, `signal.go` `postVia`) to the object at the other end. In both forms the
-object reached is the one this context materialized as the usage's occurrence; a second object
-instantiated of that same usage is a different object, which a send addressed to the usage does
-not reach. There is no refusal: the send reaches the held occurrence, and
-`spec-compliance.md` § Known Limitations (*Standard behavioral notation*) documents it.
-
-**Target.** §7.17.7: a `SendAction` has three input parameters — the payload, a *sender*
-occurrence (`via`) and a *receiver* occurrence (`to`) — and "the behavior of a `SendAction` is to
-transfer the payload from the sender to the receiver"; the receiver is a value the `to` expression
-(or a flow or binding into the `receiver` parameter) supplies, and the message is a
-`MessageTransfer` between those two occurrences (`Transfers.kerml`). So a send whose receiver
-expression yields a particular object reaches that object, whichever usage it was instantiated
-from.
-
-**Work.** Address by value rather than by usage: evaluate the `to` expression to an object
-reference and post to that object's identity (`objectID`), with the by-usage resolution kept for a
-target that is a name. That is meaningful now that a context can hold more than one object of one
-usage — an object materialized by `new` or held in a feature the sender reads (*Dynamic object
-creation and destruction*, landed, above); the send side is what remains. Independent of E1–E6.
-
-**Proof.** Conformance: two objects of one usage, a send addressed to the second, only the second's
-accept fires (with the `via` form of the same model); a trace golden; robustness for a target
-expression yielding no object. `spec-compliance.md`: the Known Limitations bullet and the "not
-supported" bullet both leave.
+## E7 — an addressed send to a second object of one usage (landed)
 
 **Landed.** `lower.Send` carries the `to` expression (`TargetExpr`, `ReceiverExpr`) beside the
 name it reduces to; a target that is neither a name nor a feature chain — `cars#(2)`,
@@ -1551,6 +1454,11 @@ trace goldens, `send_to_object_held_in_feature`, `send_to_object_through_chain`,
 compliance record's send rows updated, the Known Limitations bullet and the "not supported" bullet
 gone.
 
+**Before it landed.** A send formerly resolved a named usage to the one occurrence held by the
+context, so a second object of that usage was unreachable through the usage name. The target,
+work and proof were to evaluate the receiver by value, address the resulting identity, and pin
+the second object's acceptance with conformance and trace coverage.
+
 ## E8 — `isRunToCompletion` and `runToCompletionScope` redefinitions (landed)
 
 **Landed.** Effective values and scopes are lowered into `StateGraph`; the state executor applies
@@ -1561,65 +1469,15 @@ are typed refusals for a missing occurrence scope and a scope that is not an anc
 redefining state.
 
 **Known limitations.** Fork/shared-path `enterLazily` entries are not split. The boundary applies
-only to entry cascades; exit and effect sequences are unchanged. The pre-existing re-run of a
-parallel machine's region-state entry action on an intra-region transition is unchanged.
+only to entry cascades; exit and effect sequences are unchanged. A parallel region owner stays
+active during an intra-region transition, so its entry behavior does not re-run.
 
-**Today.** `Kernel Semantic Library/Occurrences.kerml` declares, on every `Occurrence`,
-`isRunToCompletion: Boolean [1] default true` — "determines whether transition performances might
-happen during state entry performances within the run to completion scope" — and
-`runToCompletionScope: Occurrence [1] default self`, and `StatePerformances.kerml` redefines both
-on `StatePerformance` (`default this.isRunToCompletion`, `default this.runToCompletionScope`) with
-the invariant that under `isRunToCompletion` every `TransitionPerformance` within the scope
-precedes or follows the state's `entry`. The runtime implements the defaults and only the
-defaults: `runtime/state_executor.go` `runStep` → `processNextEvent` dispatches one occurrence
-per step and `enterStateInto` runs a state's entry behavior and its regions' initial entries to
-the end before the step returns, so no transition fires during an entry; the scope is always the
-whole machine, since `run` is one loop over one `eventQueue`. A model that redefines either
-feature to anything else — narrowing the scope to one composite, or switching run-to-completion
-off so that a transition may fire while a sibling's entry is still performing — is refused when
-the machine is lowered: `lower/run_to_completion.go` `refuseRunToCompletionRedefinitions` judges
-the redefinition each body makes effective (its own, or the one it inherits from a specialized
-definition, the target resolved to its library symbol so an alias is caught) and returns the typed
-`lower.RunToCompletionRedefinition`, an `ErrUnsupportedStateContent` naming the feature, the
-declaring state and the value written, for `false`, for a scope other than the machine itself, and
-for a value it cannot verify restates the default. A redefinition restating the default (`= true`,
-`= self` on the machine) runs. Before that, such a model was run under the defaults with no
-diagnostic. The lowered `StateGraph` still carries neither feature; the precise-semantics
-alignment note records the refusal, and the remaining gap, against its SM1 row.
-
-**Target.** The two declarations above, read from the model. `isRunToCompletion = false` on a
-scope means the library no longer orders transition performances within that scope against
-entry performances, so the executor may — and under `explore` must — interleave a dispatch with
-an ongoing entry there; `runToCompletionScope` names the occurrence within which the ordering
-holds, so a scope narrower than the machine leaves transitions outside it free to fire while a
-state inside it is entering. A redefinition that names no occurrence, or a scope that is not an
-ancestor of the redefining state, is a typed error.
-
-**Work.** Lower both features per state into the `StateGraph` (the value expression, or the
-inherited default), resolved through the same redefinition walk `lower/state_graph.go` uses for
-entry transitions; give the state executor a per-scope step boundary in place of the single
-`runStep` one — a dispatch that arrives while an entry is performing is held at the boundary of
-the innermost enclosing scope with `isRunToCompletion` true, and taken as a move where it is
-false — and record the interleaving as a choice point (`scheduling.md`) so `explore` enumerates
-it and `seed:<n>` replays it. The default configuration must run every existing fixture and
-trace golden unchanged. Independent of E1–E7; touches the loop E1 and E2 also edit.
-
-**Proof.** The refusal is pinned: conformance `state_run_to_completion_redefined_false`,
-`_scope_narrowed`, `_inherited_redefinition`, `_region_redefinition`, `_unverified` and
-`_alias_redefinition` expect the typed error, `_defaults_restated` and `_default_restored` run,
-`robustness_test.go` `run_to_completion_*` match it with `errors.As`, and the state rendering
-(`view/render_test.go`) and the REPL's `%state` (`repl/runtime_commands_test.go`) show the same
-message. The implementation adds:
-conformance for a redefinition to `false` on a composite whose entry sends a signal the composite
-itself accepts, pinning that the transition fires during the entry where the default holds it
-until after; a narrowed scope with a sibling region's transition firing during the scoped state's
-entry; the default unchanged. A trace golden for the interleaving order. Robustness: a scope that
-is not an ancestor. `spec-compliance.md`: the run-to-completion row gains the two features with
-file:function in place of the refusal; the alignment note's SM1 row and its finding move to
-agreement. **Prioritize when** a user model redefines either feature — none in the corpora does
-today — or when the model checker, which searches a machine's transitions, region orders, event
-and due orders but takes run-to-completion as the library fixes it, needs the interleaving as a
-move.
+**Before it landed.** The library defaults held all entry transitions to the end of the machine
+entry cascade, and redefinitions of `isRunToCompletion` or `runToCompletionScope` were rejected.
+The target was to lower effective values and ancestor scopes into `StateGraph`, expose free versus
+held dispatch as an `entry` choice point, and retain typed refusals for missing or non-ancestor
+scopes. The proof covered default twins, state/scoped/machine redefinitions, invalid scopes, and
+the resulting exploration and replay behavior.
 
 ## E9 — a composite state's completion fires its own completion transition (landed)
 
@@ -3079,13 +2937,11 @@ carried more than that list. By track, with the pull requests the tracks cite:
   behavior it draws through the language server's `opensysml/debug/*` requests (#294), opens a
   document's several views (#349) and opens on demand (#348), writes layout into the document
   that declares the element across the workspace (#307), and reparents by drag (#305).
-- **Track E** — E1 landed (`terminate` runs in every position, the PSSM `terminate-gap` bucket
-  retired); E4 landed (a plain `flow` streams each write, a `succession flow` moves the value at
-  completion); E6 landed (a positional argument list on `InvokeOperationWith` and `%invoke`,
-  bound to the effective signature an invocation expression binds to); E9 and E10 landed as
-  conformance findings; E8 landed; E3 closed by its
-  design record ([expansion-regions.md](expansion-regions.md): the iterative form is `for`, the
-  parallel form is not SysML v2), no executor work following.
+- **Track E** — complete: E1 landed; E2 landed; E3 closed by record; E4 landed; E5 closed by
+  record; E6 landed; E7 landed; E8 landed; E9 landed; E10 landed. E3's record
+  ([expansion-regions.md](expansion-regions.md)) closes the parallel per-element form because the
+  iterative form is `for`; E5's record closes protocol state machines because they are not a
+  SysML v2 construct.
 - **Track D** — D12 (the standard library's normative element ids) is done.
 - **Release follow-through** — R4's Windows installer is published by `v0.7.0` and `v0.8.0`
   alike; the release procedure runs git-flow (#151); `opensysml` 0.5.0 is on PyPI; the
@@ -3097,9 +2953,9 @@ The open items, by track, with the item that gates each where one does. Everythi
 is landed or is a track the previous baseline left as it stands (D, N, M, I, V, B, R2–R5);
 Tracks F, S, L and A are closed.
 
-- **Track E** — eligible and first: E2 (E1 and E4 landed), with E6 landed; E3 closed by its
-  design record, E5 closed by its record (an optional follow-up waits on a model that needs it),
-  E7 landed, E8 landed. The
+- **Track E** — complete: E1 landed; E2 landed; E3 closed by record; E4 landed; E5 closed by
+  record; E6 landed; E7 landed; E8 landed; E9 landed; E10 landed. Optional runtime follow-ups
+  are not SysML v2 specification gaps. The
   PSSM referee's 17 `fail` tests are the state side's measurement, every one attributed (#326):
   eleven wait on the region-order choice point whose design record #342 wrote and left at two
   maintainer decisions — the nine the record names to move `fail` → `pass`, plus *Terminate 001*
@@ -3129,43 +2985,35 @@ The release housekeeping the previous order opened with is done — #286 folded 
 `develop`, PyPI serves the Python client's 0.5.0 — and its steps 2 (L7, #292), 4's first half
 (Q2, #293) and 5 (A4, #296) landed on `develop`, so the order is shorter by three.
 
-1. **Track E** — E2, in the track's own order below; E1 and E4 landed. F and S landed and two
-   releases shipped them, so the condition the previous baseline set is met; the loops E edits
-   carry A5's clock and S2's choice points, and every E item is written against a named scheduling
-   policy. The state-executor fixes since the tag (#295, #297, #311, #313–#315, #317, #318, #322,
-   #336) and E1 (#335, #352) moved the PSSM referee to 46 `pass` / 17 `fail`; E1 gave E2 and E4
-   the notion of ending an ongoing performance they build on. Beside E2, the largest single
-   lever on the state side is not a lettered item: eleven of the 17 failures wait on the
-   region-order choice point, whose design record (#342) is written and stops at two decisions
-   for the maintainers — whether default-policy trace goldens may gain `choice` lines, and two
-   admitted traces of *Transition 017* no reading of the model produces. Those decisions, then
-   the code, run beside E2 without touching it.
-2. **Q3** — state and event queries, on A5's clock and Q2's object rows. Q1, the page that says
+**Track E** — complete: E1, E2, E4, E6, E7, E8, E9 and E10 landed; E3 and E5 closed by
+design record. Its remaining design notes do not add an open Track E item.
+
+1. **Q3** — state and event queries, on A5's clock and Q2's object rows. Q1, the page that says
    which query is which, is written in the document-generation manual now that the set is
    complete (#267, #289 and #293 closed Q2 on `develop`); Q4 (#849) landed independently ahead
    of it.
-3. **I2, I3, then I4's client** — the shared fixtures, the thin R, Julia and MATLAB packages, the
+2. **I2, I3, then I4's client** — the shared fixtures, the thin R, Julia and MATLAB packages, the
    C client, each derived from the wire contract (I1, landed in #848); the C *ABI* half of I4 is
    not here — it is step 7.
-4. **D2 and D1, then D9.1 and D9.2** — Flexo: the standard vocabulary for expression trees and
+3. **D2 and D1, then D9.1 and D9.2** — Flexo: the standard vocabulary for expression trees and
    end structure, then the authenticated push and the branch read (the collection JSON annotations,
    D3.4, landed in #850). Push and read depend on the vocabulary quality, which is why they come
    last in the step; re-record the live-stack harness after D1/D2.
-5. **X8's harness halves, then X7's RDF and native layout** — normalization and adjudication in
+4. **X8's harness halves, then X7's RDF and native layout** — normalization and adjudication in
    the pilot differential and a standalone RDF expression-tree round trip, so every later
    expression item is measured; the set and tensor layouts when something needs them.
-6. **B1, then B2** — the binding vocabulary, then the provider contract in the runtime and Go
+5. **B1, then B2** — the binding vocabulary, then the provider contract in the runtime and Go
    API. The two items depend on nothing outstanding (the wire contract is landed, the dispatch and
    materialization seams exist) and touch only the metadata library, one pass and the runtime's
    dispatch, so they can run beside steps 3 and 4; B2 drains events into loops that carry the
    clock (A5) and the choice points (S2). **B3** follows the transport decision, **I5** goes with
    step 3 since it is built from the same fixtures, and **B4**/**B5** come whenever a model needs
    them.
-7. **M1, then M2 (with N2.6)** — the closed behavior IR, then the state and action C backend over
+6. **M1, then M2 (with N2.6)** — the closed behavior IR, then the state and action C backend over
    static tables. Embedded behavior compilation depends on the closed IR; the native track's
    action and state phases start from the same IR rather than a second one. M3 and M5 prove it;
    M6 last.
-8. **The shared C ABI** — N2.4 / I4 / M4 designed once, after N2.2 (the budget) is decided and
+7. **The shared C ABI** — N2.4 / I4 / M4 designed once, after N2.2 (the budget) is decided and
    after M1 fixes what an embedded entry point looks like, so a stable native/embedded calling
    contract exists to design against rather than three.
 
