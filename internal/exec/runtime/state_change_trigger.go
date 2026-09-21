@@ -132,9 +132,9 @@ func newChangePoll() *changePoll {
 	}
 }
 
-// risenChange polls the change conditions under a probe, keeping the latches, and
-// reports whether pollChangeEvents would now dispatch a rise (the first transition enabled) or fail (nil).
-func (e *StateExecutor) risenChange() (*lower.Transition, bool) {
+// risenChanges polls the change conditions under a probe, keeping the latches,
+// and reports every transition whose rise would now dispatch, or fail (nil).
+func (e *StateExecutor) risenChanges() ([]*lower.Transition, bool) {
 	defer e.ctx.beginProbe()()
 	fired := maps.Clone(e.changeFired)
 	defer func() { e.changeFired = fired }()
@@ -144,12 +144,26 @@ func (e *StateExecutor) risenChange() (*lower.Transition, bool) {
 	if err := e.observeChangeConditions(poll); err != nil {
 		return nil, true
 	}
+	var risen []*lower.Transition
 	for _, trans := range poll.observed {
 		if e.riseEnables(poll, trans) {
-			return trans, true
+			risen = append(risen, trans)
 		}
 	}
-	return nil, false
+	return risen, len(risen) > 0
+}
+
+// risenChange polls the change conditions under a probe, keeping the latches,
+// and reports the first transition whose rise would now dispatch, or fail (nil).
+func (e *StateExecutor) risenChange() (*lower.Transition, bool) {
+	risen, ok := e.risenChanges()
+	if !ok {
+		return nil, false
+	}
+	if len(risen) == 0 {
+		return nil, true
+	}
+	return risen[0], true
 }
 
 // riseEnables reports whether the poll's rise is an occurrence for trans, one a
