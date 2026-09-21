@@ -1277,10 +1277,12 @@ func TestExitPointReachedFromOutsideIsRefused(t *testing.T) {
 }
 
 // An entry point a tool lists in a region of an orthogonal state is a member of the state's
-// body, so it is renamed when the body has a member of its name, as a sibling would be.
+// body, so it is renamed when the body has a member of its name, as a sibling would be;
+// a point written as no member, here one named like the first free name, is no obstacle.
 func TestRegionListedPointKeepsClearOfTheStatesMembers(t *testing.T) {
 	entry := `<subvertex xmi:type="uml:State" xmi:id="_rSync" name="Sync">
-            <entry xmi:type="uml:OpaqueBehavior" xmi:id="_rSyncEntry" name="Both"/>`
+            <entry xmi:type="uml:OpaqueBehavior" xmi:id="_rSyncEntry" name="Both"/>
+            <connectionPoint xmi:type="uml:Pseudostate" xmi:id="_rBoth2" name="Both 2" kind="entryPoint"/>`
 	xmi := strings.Replace(regionListedPoints, `<subvertex xmi:type="uml:State" xmi:id="_rSync" name="Sync">`, entry, 1)
 	r := migrateDocument(t, xmi, regionListedPointsApplications)
 	for _, line := range []string{
@@ -1294,6 +1296,7 @@ func TestRegionListedPointKeepsClearOfTheStatesMembers(t *testing.T) {
 		}
 	}
 	wantNote(t, r, "_rBoth", migrate.Approximated, "written as Both 2 since a sibling is also named Both")
+	wantNote(t, r, "_rBoth2", migrate.Mapped, "no transition leaves the entry point")
 	session(t, r)
 }
 

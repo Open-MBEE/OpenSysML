@@ -486,15 +486,15 @@ func (m *migration) distinguish(e *sysmlv1.Element) {
 			seen[c.Name] = true
 			continue
 		}
-		m.names[c] = m.distinct(e, seen, c.Name)
+		m.names[c] = distinct(seen, func(n string) bool { return m.nameTaken(e, n) }, c.Name)
 	}
 }
 
-// distinct gives a member of e named name, which a sibling in seen already bears,
-// the first `name 2`, `name 3`, … no member of e has, and marks it seen.
-func (m *migration) distinct(e *sysmlv1.Element, seen map[string]bool, name string) string {
+// distinct gives a member named name, which a sibling in seen already bears, the
+// first `name 2`, `name 3`, … neither seen nor taken, and marks it seen.
+func distinct(seen map[string]bool, taken func(string) bool, name string) string {
 	fresh := name
-	for i := 2; seen[fresh] || m.nameTaken(e, fresh); i++ {
+	for i := 2; seen[fresh] || taken(fresh); i++ {
 		fresh = fmt.Sprintf("%s %d", name, i)
 	}
 	seen[fresh] = true
