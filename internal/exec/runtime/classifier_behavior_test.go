@@ -1056,22 +1056,36 @@ func TestExhibitedStateNamingNothingExhibitsItself(t *testing.T) {
 
 // An exhibited state naming nothing whose body declares no initial state
 // fails at initialization with ErrNoInitialState, like any machine stating an
-// empty body — the declaration is its own body, not a naming error.
+// empty or parameter-only body — the declaration is its own body, not a
+// naming error.
 func TestExhibitedStateNamingNothingWithNoInitialStateIsReported(t *testing.T) {
-	src := `
-		part def Controller {
-			exhibit state idle;
-		}
-	`
-	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(typedModel(model, resolver), 10000)
+	for _, tc := range []struct {
+		name     string
+		behavior string
+		want     string
+	}{
+		{"empty body", "exhibit state idle;", "idle"},
+		{"parameter-only body", `
+			attribute level : Integer = 3;
+			exhibit state modes { in amount : Integer = level; }`, "modes"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			src := `
+				part def Controller {
+			` + tc.behavior + `
+				}
+			`
+			model, resolver, root := parseAndBuildModel(t, src)
+			ctx := NewContext(typedModel(model, resolver), 10000)
 
-	_, err := ctx.Instantiate(resolveSymbol(t, root, "Controller"))
-	if !errors.Is(err, ErrNoInitialState) {
-		t.Fatalf("error = %v, want ErrNoInitialState", err)
-	}
-	if !strings.Contains(err.Error(), "idle") {
-		t.Errorf("error %q does not name the behavior", err)
+			_, err := ctx.Instantiate(resolveSymbol(t, root, "Controller"))
+			if !errors.Is(err, ErrNoInitialState) {
+				t.Fatalf("error = %v, want ErrNoInitialState", err)
+			}
+			if !strings.Contains(err.Error(), tc.want) {
+				t.Errorf("error %q does not name the behavior %q", err, tc.want)
+			}
+		})
 	}
 }
 

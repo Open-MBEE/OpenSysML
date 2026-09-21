@@ -12,12 +12,6 @@ run: exhibited state machine modes of #1
 exit: start
 enter: waiting
 transition: start -> waiting
-  eval feature engineControl -> instance#3
-eval chain cmd -> instance#4
-enter: start
-exit: start
-enter: waiting
-transition: start -> waiting
 exit: waiting
 enter: done
 transition: waiting -> done (event: accept EngineCommand)
