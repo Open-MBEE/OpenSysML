@@ -113,9 +113,11 @@ type emitter struct {
 	defs     []string
 	defNames map[*Behavior]string
 	// scope maps the parameters of the behavior being spelled to the names or
-	// arguments standing for them; scopeTypes carries their UML types.
-	scope      map[string]string
-	scopeTypes map[string]string
+	// arguments standing for them; scopeTypes carries their UML types and
+	// scopeWrites the attributes its returns write instead, where they differ.
+	scope       map[string]string
+	scopeTypes  map[string]string
+	scopeWrites map[string]string
 }
 
 func (e *emitter) fail(where, reason string) error {
@@ -889,7 +891,7 @@ func (e *emitter) plainBody(bh *Behavior, where string) ([]string, error) {
 	if bh.Body == nil {
 		return nil, e.fail(where, "an opaque behavior has no translation")
 	}
-	steps, err := e.steps(inoutWritesLast(bh), where, 0)
+	steps, err := e.steps(bh.Body, where, 0)
 	if err != nil {
 		return nil, err
 	}

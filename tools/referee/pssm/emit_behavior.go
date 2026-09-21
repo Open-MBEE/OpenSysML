@@ -194,31 +194,36 @@ func inputSpelling(binding *Binding, p Param) (dir, name string) {
 	return "inout", spell(p.Name)
 }
 
-// inoutWritesLast moves a body's writes to its inout parameters after every
-// other statement: UML posts an output parameter node's value when the activity
-// completes, and every read of the one feature before that is of the input.
-func inoutWritesLast(bh *Behavior) *Body {
-	inouts := map[string]bool{}
+// inoutHolders names, per inout parameter the body writes, the attribute holding
+// the value until the body ends: UML posts it when the activity completes.
+func inoutHolders(bh *Behavior, scope map[string]string) map[string]string {
+	taken := map[string]bool{"log": true}
+	for _, name := range scope {
+		taken[name] = true
+	}
+	holders := map[string]string{}
 	for _, p := range bh.Params {
-		if p.Direction == "inout" {
-			inouts[p.Name] = true
-		}
-	}
-	if len(inouts) == 0 {
-		return bh.Body
-	}
-	body := *bh.Body
-	body.Statements = nil
-	var writes []Statement
-	for _, st := range bh.Body.Statements {
-		if st.Kind == StmtReturn && inouts[st.Feature] {
-			writes = append(writes, st)
+		if p.Direction != "inout" || !writes(bh.Body, p.Name) {
 			continue
 		}
-		body.Statements = append(body.Statements, st)
+		name := scope[p.Name] + "_written"
+		for n := 2; taken[name]; n++ {
+			name = fmt.Sprintf("%s_written_%d", scope[p.Name], n)
+		}
+		taken[name] = true
+		holders[p.Name] = name
 	}
-	body.Statements = append(body.Statements, writes...)
-	return &body
+	return holders
+}
+
+// writes reports whether a body returns through the named parameter.
+func writes(body *Body, param string) bool {
+	for _, st := range body.Statements {
+		if st.Kind == StmtReturn && st.Feature == param {
+			return true
+		}
+	}
+	return false
 }
 
 // definition spells a bound behavior as an action definition once: `inout log`
@@ -256,11 +261,19 @@ func (e *emitter) definition(binding *Binding, where, base string) (string, erro
 		types[p.Name] = p.Type
 		fmt.Fprintf(&b, "        out %s : %s;\n", spell(binding.Outputs[i]), scalarTypes[p.Type])
 	}
+	holders := inoutHolders(bh, scope)
 	stmts, err := scoped(e, scope, types, func() ([]string, error) {
+		e.scopeWrites = holders
 		return e.plainBody(bh, where)
 	})
 	if err != nil {
 		return "", err
+	}
+	for _, p := range bh.Params {
+		if holder, ok := holders[p.Name]; ok {
+			fmt.Fprintf(&b, "        attribute %s : %s = %s;\n", holder, scalarTypes[p.Type], zeroLiteral(scalarTypes[p.Type]))
+			stmts = append(stmts, fmt.Sprintf("assign %s := %s;", scope[p.Name], holder))
+		}
 	}
 	b.WriteString("        first start;\n")
 	if len(stmts) > 0 {
@@ -291,18 +304,22 @@ func (e *emitter) defName(site string) string {
 // scoped spells with the parameters of one behavior in scope, restoring the
 // enclosing scope after.
 func scoped[T any](e *emitter, scope, types map[string]string, spell func() (T, error)) (T, error) {
-	outerScope, outerTypes := e.scope, e.scopeTypes
-	e.scope, e.scopeTypes = scope, types
-	defer func() { e.scope, e.scopeTypes = outerScope, outerTypes }()
+	outerScope, outerTypes, outerWrites := e.scope, e.scopeTypes, e.scopeWrites
+	e.scope, e.scopeTypes, e.scopeWrites = scope, types, nil
+	defer func() { e.scope, e.scopeTypes, e.scopeWrites = outerScope, outerTypes, outerWrites }()
 	return spell()
 }
 
 // stepReturn translates a bound behavior's return as an assignment to the
-// output the caller receives; outside a definition it has no destination.
+// output the caller receives, or to the attribute holding an inout's value
+// until the body ends; outside a definition it has no destination.
 func (e *emitter) stepReturn(out *stepList, st Statement, where string, depth int) error {
 	target, ok := e.scope[st.Feature]
 	if !ok {
 		return e.fail(where, "a return has no translation")
+	}
+	if holder, ok := e.scopeWrites[st.Feature]; ok {
+		target = holder
 	}
 	value, err := e.expr(out, st.Value, where, depth)
 	if err != nil {

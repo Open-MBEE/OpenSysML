@@ -1686,9 +1686,11 @@ values of the operation's output parameters, so `out value : Integer` against
 `op(out result : String)` is a refusal, not an integer under the name `result`. An `inout`
 parameter is one feature of the definition, declared `inout` under the operation's name and
 bound `inout count = trigger_bump_count;` in the usage, so the runtime returns it as the
-operation's `inout`; the body's write to it is spelled after its other statements, since UML
-posts an output parameter node's value when the activity completes and every read before that
-is of the input (`TestParametersInoutBindsOnceAndReturns`). A do activity
+operation's `inout`. The body's write to it is evaluated where UML feeds the output parameter
+node, into an `attribute count_written` of the definition, and `assign count := count_written;`
+closes the body: UML posts the node's value when the activity completes, and every read of the
+parameter before that — by the body's later statements or by another inout's write — is of the
+input (`TestParametersInoutBindsOnceAndReturns`, `TestParametersInoutWritesReadInputs`). A do activity
 with outputs is refused instead (`binding.go`): the step that dispatched the call ends while the
 activity runs, so its outputs return to nobody; no test of the suite has the shape. The four
 tests run and pass, each on exactly its admitted traces: the effect's `return` is traced by the

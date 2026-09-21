@@ -139,18 +139,37 @@ const bumpOperation = `      <ownedOperation xmi:type="uml:Operation" xmi:id="op
       </ownedOperation>
 `
 
-// inoutBump writes an activity <tag> with `inout count : Integer` that traces
-// `<segment>` and formatParameterValue(true, count), then returns count + 1;
-// the write is fed first in document order, as UML lets it be.
-func inoutBump(tag, id, segment string) string {
+// swapOperation is `swap(inout a : Integer, inout b : Integer)`.
+const swapOperation = `      <ownedOperation xmi:type="uml:Operation" xmi:id="opSwap" name="swap">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="opSwapA" name="a" direction="inout"><type href="` + primitiveTypes + `Integer"/></ownedParameter>
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="opSwapB" name="b" direction="inout"><type href="` + primitiveTypes + `Integer"/></ownedParameter>
+      </ownedOperation>
+`
+
+// inoutPlusOne writes an activity <tag> with the named `inout : Integer`
+// parameters, feeding each output node the next parameter's input plus one (the
+// last the first's), last parameter first, ahead of a trace of `<segment>` and each input.
+func inoutPlusOne(tag, id, segment string, names ...string) string {
 	b := &behaviorBuilder{id: id}
-	pid := id + "P0"
-	decls := param{"count", "inout", "Integer"}.decl(pid) +
-		`  <node xmi:type="uml:ActivityParameterNode" xmi:id="` + pid + `OutNode" parameter="` + pid + `"/>` + "\n"
-	b.flows(b.primitive("IntegerFunctions-plus", pid+"Node", b.literal("uml:LiteralInteger", "1")), pid+"OutNode")
-	b.trace(b.primitive("StringFunctions-Concat", b.literal("uml:LiteralString", segment), b.format(true, pid+"Node")))
+	var decls strings.Builder
+	var ins []string
+	for i, name := range names {
+		pid := fmt.Sprintf("%sP%d", id, i)
+		decls.WriteString(param{name, "inout", "Integer"}.decl(pid))
+		fmt.Fprintf(&decls, `  <node xmi:type="uml:ActivityParameterNode" xmi:id="%sOutNode" parameter="%s"/>`+"\n", pid, pid)
+		ins = append(ins, pid+"Node")
+	}
+	for i := len(names) - 1; i >= 0; i-- {
+		next := ins[(i+1)%len(ins)]
+		b.flows(b.primitive("IntegerFunctions-plus", next, b.literal("uml:LiteralInteger", "1")), fmt.Sprintf("%sP%dOutNode", id, i))
+	}
+	text := b.literal("uml:LiteralString", segment)
+	for _, in := range ins {
+		text = b.primitive("StringFunctions-Concat", text, b.format(true, in))
+	}
+	b.trace(text)
 	return `<` + tag + ` xmi:type="uml:Activity" xmi:id="` + id + `" name="` + id + `">
-` + decls + b.nodes.String() + b.flow.String() + `</` + tag + `>
+` + decls.String() + b.nodes.String() + b.flow.String() + `</` + tag + `>
 `
 }
 
@@ -160,6 +179,7 @@ func parameterSuite(operations, body string, expected []string, steps ...testerS
 	return fixtureHead + fixtureEvents + tracingLibrary +
 		`  <packagedElement xmi:type="uml:CallEvent" xmi:id="evOr" operation="opOr"/>
   <packagedElement xmi:type="uml:CallEvent" xmi:id="evBump" operation="opBump"/>
+  <packagedElement xmi:type="uml:CallEvent" xmi:id="evSwap" operation="opSwap"/>
   <packagedElement xmi:type="uml:Package" xmi:id="areaX" name="Area">
 ` + registration("Area", "semX", "Area 001", expected...) +
 		`  <packagedElement xmi:type="uml:Package" xmi:id="pkgX" name="001">
@@ -301,22 +321,29 @@ func TestParametersCallBindsInputsAndReturnsOutputs(t *testing.T) {
 	}
 }
 
-// An inout parameter is one feature of the definition, bound from the call's
-// argument and returned as the operation's inout after the body's reads of it.
-func TestParametersInoutBindsOnceAndReturns(t *testing.T) {
-	body := `
+// inoutBody is a machine whose T2 effect and S1 entry are the parameterised
+// behavior, triggered by the call event.
+func inoutBody(event string, behavior func(tag, id, segment string) string) string {
+	return `
           <subvertex xmi:type="uml:State" xmi:id="xS1" name="S1">
-            ` + inoutBump("entry", "xS1entry", "S1(entry)") + `
+            ` + behavior("entry", "xS1entry", "S1(entry)") + `
           </subvertex>
           <transition xmi:type="uml:Transition" xmi:id="xT2" name="T2" source="xWait" target="xS1">
-            <trigger xmi:type="uml:Trigger" xmi:id="xT2trig" event="evBump"/>
-            ` + inoutBump("effect", "xT2effect", "T2(effect)") + `
+            <trigger xmi:type="uml:Trigger" xmi:id="xT2trig" event="` + event + `"/>
+            ` + behavior("effect", "xT2effect", "T2(effect)") + `
           </transition>
           <transition xmi:type="uml:Transition" xmi:id="xT3" name="T3" source="xS1" target="xFin">
             <trigger xmi:type="uml:Trigger" xmi:id="xT3trig" event="evContinue"/>
           </transition>`
+}
+
+// An inout parameter is one feature of the definition, bound from the call's
+// argument and returned as the operation's inout; the body's write to it is
+// evaluated where UML feeds the output node and posted when the body ends.
+func TestParametersInoutBindsOnceAndReturns(t *testing.T) {
+	bump := func(tag, id, segment string) string { return inoutPlusOne(tag, id, segment, "count") }
 	call := testerStep{call: "opBump", args: []string{"uml:LiteralInteger=5"}}
-	report, s := refereeParameterSuite(t, bumpOperation, body,
+	report, s := refereeParameterSuite(t, bumpOperation, inoutBody("evBump", bump),
 		[]string{"T2(effect)[in=5]::S1(entry)[in=5]::[out=6]"},
 		call.tracingResult(), sendContinue)
 	wantPass(t, report.Tests[0])
@@ -325,10 +352,11 @@ func TestParametersInoutBindsOnceAndReturns(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, want := range []string{
-		"inout count : Integer;\n        first start;",
+		"inout count : Integer;\n        attribute count_written : Integer = 0;\n        first start;",
 		"inout count = trigger_bump_count;",
 		"inout count = count;",
-		"ToString(count) + \"]\"));\n            assign count := (count + 1);",
+		"assign count_written := (count + 1);\n            assign log :=",
+		"ToString(count) + \"]\"));\n            assign count := count_written;\n",
 	} {
 		if !strings.Contains(m.Text, want) {
 			t.Errorf("emitted text lacks %q:\n%s", want, m.Text)
@@ -338,6 +366,25 @@ func TestParametersInoutBindsOnceAndReturns(t *testing.T) {
 		if strings.Contains(m.Text, " "+banned) {
 			t.Errorf("emitted text declares the inout twice (%q):\n%s", banned, m.Text)
 		}
+	}
+}
+
+// An inout's output fed from another inout the body wrote first reads that
+// one's input (UML reads the input node, never the output): a = b + 1 = 11, not 3.
+func TestParametersInoutWritesReadInputs(t *testing.T) {
+	swap := func(tag, id, segment string) string { return inoutPlusOne(tag, id, segment, "a", "b") }
+	call := testerStep{call: "opSwap", args: []string{"uml:LiteralInteger=1", "uml:LiteralInteger=10"}}
+	report, s := refereeParameterSuite(t, swapOperation, inoutBody("evSwap", swap),
+		[]string{"T2(effect)[in=1][in=10]::S1(entry)[in=1][in=10]::[out=11]"},
+		call.tracingResult(), sendContinue)
+	wantPass(t, report.Tests[0])
+	m, err := Emit(s, s.Tests[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "assign b_written := (a + 1);\n            assign a_written := (b + 1);\n"
+	if !strings.Contains(m.Text, want) {
+		t.Errorf("emitted text lacks %q:\n%s", want, m.Text)
 	}
 }
 
