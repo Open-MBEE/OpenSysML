@@ -626,7 +626,7 @@ type materializeMark struct {
 	activations, runs int64
 	clock             float64
 	clockRun          *runState
-	readLives         int
+	readLives         []*FeatureValue
 }
 
 func (ctx *Context) materializeMark() materializeMark {
@@ -635,7 +635,7 @@ func (ctx *Context) materializeMark() materializeMark {
 		nextID: ctx.ids.next, tookHigh: ctx.took.high, ids: ctx.ids,
 		activations: ctx.activations, runs: ctx.runs,
 		clock: ctx.clock.now, clockRun: ctx.clockRun.state,
-		readLives: len(ctx.lifetimes.dependents),
+		readLives: slices.Clone(ctx.lifetimes.dependents),
 	}
 }
 
@@ -651,7 +651,7 @@ func (mark materializeMark) rollBack(ctx *Context) {
 	ctx.activations, ctx.runs = mark.activations, mark.runs
 	ctx.clock.now = mark.clock
 	ctx.clockRun.state = mark.clockRun
-	ctx.lifetimes.dependents = ctx.lifetimes.dependents[:mark.readLives]
+	ctx.lifetimes.dependents = mark.readLives
 }
 
 // materializing builds one context's objects for an image.
@@ -717,6 +717,8 @@ func (m *materializing) run() error {
 	for _, obj := range img.objects {
 		m.edges(obj)
 	}
+	// The objects made are lives of dst: what derived from the lives, imaged or dst's own, derives again.
+	dst.livesChanged()
 	dst.activations = max(dst.activations, img.activations)
 	dst.runs = max(dst.runs, img.runs)
 	dst.clock.now = img.clock

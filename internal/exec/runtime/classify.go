@@ -154,9 +154,9 @@ func (ctx *Context) adoptWritten(inst *Instance, fv *FeatureValue, val Value) er
 			return fmt.Errorf("%w: %s #%d would hold %s #%d, a whole it is a portion of, as a portion of itself",
 				ErrOccurrenceLifetime, symbolText(inst.Type), inst.ID, symbolText(child.Type), child.ID)
 		}
-		if whole.ended != 0 && ctx.lives[id].ended == 0 {
-			return fmt.Errorf("%w: %s #%d ended at %d and cannot hold live %s #%d as a portion of itself",
-				ErrOccurrenceLifetime, symbolText(inst.Type), inst.ID, whole.ended, symbolText(child.Type), child.ID)
+		if part := ctx.lives[id]; whole.ended != 0 && (part.ended == 0 || part.ended > whole.ended) {
+			return fmt.Errorf("%w: %s #%d ended at %d and cannot hold %s #%d, %s, as a portion of itself",
+				ErrOccurrenceLifetime, symbolText(inst.Type), inst.ID, whole.ended, symbolText(child.Type), child.ID, endedText(part))
 		}
 	}
 	ctx.releaseDropped(inst, fv, val)
@@ -173,6 +173,14 @@ func (ctx *Context) adoptWritten(inst *Instance, fv *FeatureValue, val Value) er
 		ctx.noteProbeUndo(func() { child.owner, child.ownerFeature = nil, "" })
 	}
 	return nil
+}
+
+// endedText says when a life ended, or that it has not.
+func endedText(l life) string {
+	if l.ended == 0 {
+		return "live"
+	}
+	return fmt.Sprintf("ended at %d", l.ended)
 }
 
 // releaseDropped moves the home of an object the composite feature owned and the write no longer
