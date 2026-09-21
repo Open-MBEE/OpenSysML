@@ -89,10 +89,10 @@ func (e *StateExecutor) WriteAttribute(name string, value Value) error {
 	return e.assignAttribute(name, value)
 }
 
-// callReleased reports whether the pending call's event has left the queue, so
-// its run-to-completion step is done (or it is deferred) and the caller may go.
+// callReleased reports whether the pending call's event has been dispatched, so
+// its run-to-completion step is done; a deferred call still holds its caller.
 func (e *StateExecutor) callReleased() bool {
-	return e.pendingCall != nil && e.eventDisposition(e.pendingCall.id) != "queued"
+	return e.pendingCall != nil && e.eventDisposition(e.pendingCall.id) == ""
 }
 
 // callReturns is the set of out and inout parameters the operation declares as a

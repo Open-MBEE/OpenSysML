@@ -1205,7 +1205,9 @@ behaviors — the transition's effect, an entry or an exit — wrote to the oper
 parameters, the last write winning. `StateExecutor.Call` (`perform.go`) does the same: it queues
 the call event, runs the machine at the current instant through the step dispatching it and no
 further — a completion event that step queued or a timer it armed is the machine's next step,
-after the caller has resumed, as §8.5.10 makes each occurrence its own step — collects what a
+after the caller has resumed, as §8.5.10 makes each occurrence its own step, while a call a
+state defers holds its caller through the steps until the machine recalls and dispatches it, as
+§8.5.9's blocked caller waits for the deferred occurrence — collects what a
 behavior the event fires `return`s or assigns to an output parameter of that name, and hands the
 outputs back typed and by name — under the `out`/`inout` parameters the operation declares as a
 member of the machine's owner (or of the machine standing alone) when it declares one, as §8.5.9
@@ -1213,8 +1215,9 @@ returns the operation's own parameters, and under every name the step returned w
 names no declared operation; a call the run left queued or deferred is `ErrCallNotReturned`,
 since its caller would still be waiting, and an unhandled call returns nothing, as PSSM's
 discarded occurrence does (`state_call_trigger_results`; `TestRuntimeRobustnessCallResults`:
-held, untaken, empty, repeated and erroring calls, the caller released ahead of the completion
-step and the timer its step set up, a declared operation returning its own parameters alone).
+held, recalled, untaken, empty, repeated and erroring calls, the caller released ahead of the
+completion step and the timer its step set up, a declared operation returning its own
+parameters alone).
 **agrees.**
 
 **A15. One firing per token, or one performance per node.** fUML §8.9.1 and §8.10.1

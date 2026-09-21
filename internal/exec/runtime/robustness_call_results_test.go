@@ -11,6 +11,7 @@ import (
 // and the caller released at its own step's end, ahead of later events and timers.
 func TestRuntimeRobustnessCallResults(t *testing.T) {
 	t.Run("call_left_deferred", testCallResultsLeftDeferred)
+	t.Run("deferred_call_returns_once_recalled", testCallResultsDeferredRecalled)
 	t.Run("call_left_queued_behind_termination", testCallResultsLeftQueued)
 	t.Run("call_nothing_takes_returns_empty", testCallResultsNothingTakes)
 	t.Run("results_do_not_carry_over", testCallResultsDoNotCarryOver)
@@ -43,6 +44,32 @@ const callResultsModel = `package test {
 		transition first idle accept Finish then done;
 		transition first answered accept ask() then quiet;
 		transition first quiet accept ask() do assign result := result / divisor then done;
+	}
+}`
+
+// callDeferredModel: the step taking `Hold` sends `Release` behind the call and
+// enters `holding`, which defers `ask` until `Release` returns the machine to `idle`.
+const callDeferredModel = `package test {
+	private import ScalarValues::*;
+	attribute def Hold;
+	attribute def Release;
+	action def Answer {
+		out result : Integer;
+		first start;
+		action answering { assign result := 42; }
+		done;
+		succession first start then answering;
+		succession first answering then done;
+	}
+	state def Machine {
+		attribute result : Integer = 0;
+		entry; then idle;
+		state idle;
+		state holding { defer ask(); }
+		state answered;
+		transition first idle accept Hold do send new Release() then holding;
+		transition first holding accept Release then idle;
+		transition first idle accept ask() do perform Answer then answered;
 	}
 }`
 
@@ -140,6 +167,28 @@ func testCallResultsLeftDeferred(t *testing.T) {
 	}
 	if n := len(exec.DeferredEvents()); n != 1 {
 		t.Errorf("%d deferred events, want the call held", n)
+	}
+}
+
+// testCallResultsDeferredRecalled: a call the active state defers holds its
+// caller through the machine's later steps and returns once it is recalled.
+func testCallResultsDeferredRecalled(t *testing.T) {
+	exec := callMachineOf(t, callDeferredModel)
+	if err := exec.Enqueue(QueuedEvent{Signal: "Hold"}); err != nil {
+		t.Fatal(err)
+	}
+	results, err := exec.Call("ask", nil)
+	if err != nil {
+		t.Fatalf("Call = %v, want the caller released once the deferred call was recalled", err)
+	}
+	if got, ok := results["result"]; !ok || got.Const.Int != 42 {
+		t.Errorf("Call returned %v, want result = 42", results)
+	}
+	if got := exec.Outcome().FinalState; got != "answered" {
+		t.Errorf("final state %q, want answered", got)
+	}
+	if n := len(exec.DeferredEvents()); n != 0 {
+		t.Errorf("%d deferred events, want none left", n)
 	}
 }
 
