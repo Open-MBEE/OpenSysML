@@ -112,11 +112,12 @@ func StartableBehaviorOf(member ast.Node) (ClassifierBehavior, bool) {
 	}
 	name, _ := ast.EffectiveName(usage)
 	return ClassifierBehavior{
-		Kind:       kind,
-		Name:       name,
-		Decl:       usage,
-		StatesBody: StatesBehaviorBody(usage.Members),
-		Arguments:  behaviorArguments(usage.Members),
+		Kind:          kind,
+		Name:          name,
+		Decl:          usage,
+		StatesBody:    StatesBehaviorBody(usage.Members),
+		NamesBehavior: namesBehavior(usage),
+		Arguments:     behaviorArguments(usage.Members),
 	}, true
 }
 

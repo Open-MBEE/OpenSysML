@@ -8,14 +8,14 @@
     "libraryDigest": "7e8bae518398fd44d788e9c1145c7a0754bde5935c1e6127fec9878e8e2da8b7",
     "jarDigest": "4e78a194bdd15ed4ee30b26828a91d3b2bd32e57cd397667e32b21eb4de1f06e",
     "activities": 55,
-    "recorded": "2026-09-18",
-    "develop": "031ba33296796fc05dca1a3aa993c8f72b10d5f0"
+    "recorded": "2026-09-21",
+    "develop": "3461e87a95f6e7bd6e6e1b12b1a57b9a2a4bb40a"
   },
   "buckets": {
     "differs-by-design": 4,
     "fail": 0,
-    "not-expressible": 31,
-    "pass": 20
+    "not-expressible": 28,
+    "pass": 23
   },
   "activities": [
     {
@@ -89,16 +89,14 @@
       "bucket": "differs-by-design",
       "reasons": [
         "per-token action re-firing (fUML fires an action once per object token on a multiplicity-1 pin; SysML v2 performs the node once with every delivery): ForkMergeData.Action_B fired 2 times",
-        "the run agrees with the implementation"
+        "run error: execute action: unbound parameter: action fuml::Copier: input parameter input is bound by no argument"
       ],
       "expected": [
         "output = 0, 0"
       ],
-      "reached": [
-        "output = 0, 0"
-      ],
-      "runs": 20,
-      "status": "complete (20 runs)"
+      "runs": 14,
+      "status": "complete (14 runs)",
+      "fired": "fired by the implementation only: Action_A, Action_B"
     },
     {
       "name": "TestClassIdentityTester",
@@ -156,7 +154,8 @@
       "bucket": "differs-by-design",
       "reasons": [
         "per-token action re-firing (fUML fires an action once per object token on a multiplicity-1 pin; SysML v2 performs the node once with every delivery): TestBooleanFunctions.Call(Not) fired 2 times, TestBooleanFunctions.Call(And) fired 4 times, TestBooleanFunctions.Call(Or) fired 4 times, TestBooleanFunctions.Call(Implies) fired 4 times, TestBooleanFunctions.Call(Xor) fired 4 times",
-        "run error: execute action: flow from argumentData1 to And.x: node Call(And): assignment to And.x: multiplicity violation: 4 value(s) bound to a feature with multiplicity upper bound 1"
+        "run error: execute action: invoke action fuml::GenerateBooleanTestData: execute action: flow from argumentData1 to And.x: node Call(And): assignment to And.x: multiplicity violation: 2 value(s) bound to a feature with multiplicity upper bound 1",
+        "run error: execute action: invoke action fuml::GenerateBooleanTestData: execute action: flow from argumentData2 to And.y: node Call(And): assignment to And.y: multiplicity violation: 2 value(s) bound to a feature with multiplicity upper bound 1"
       ],
       "expected": [
         "NotResult = false, true",
@@ -453,9 +452,9 @@
       "name": "ActiveClassBehavior",
       "model": "fUML-Tests.uml",
       "class": "expressible",
-      "bucket": "not-expressible",
+      "bucket": "pass",
       "reasons": [
-        "not yet translated: activity: an owned behavior of a class is not translated by the pilot emitter"
+        "started by ActiveClassBehaviorSender, which is pass"
       ]
     },
     {
@@ -464,26 +463,30 @@
       "class": "expressible",
       "bucket": "not-expressible",
       "reasons": [
-        "not yet translated: Write(signal): touches a feature of TestSignalReceiver, which is no class of the model"
+        "not yet translated: ReadSelf: reads self in an activity performed on its own, where self is the performance and not an object"
       ]
     },
     {
       "name": "TestSpecializedSignalSend",
       "model": "fUML-Tests.uml",
       "class": "expressible",
-      "bucket": "not-expressible",
-      "reasons": [
-        "not yet translated: Create(TestSignalReceiver): creates an object of the activity TestSignalReceiver; a behavior as an object is not translated by the pilot emitter"
-      ]
+      "bucket": "pass",
+      "reached": [
+        ""
+      ],
+      "runs": 5,
+      "status": "complete (5 runs)"
     },
     {
       "name": "ActiveClassBehaviorSender",
       "model": "fUML-Tests.uml",
       "class": "expressible",
-      "bucket": "not-expressible",
-      "reasons": [
-        "not yet translated: Start(ActiveClass): StartObjectBehaviorAction is not translated by the pilot emitter"
-      ]
+      "bucket": "pass",
+      "reached": [
+        ""
+      ],
+      "runs": 6,
+      "status": "complete (6 runs)"
     },
     {
       "name": "NodeEnabler",
