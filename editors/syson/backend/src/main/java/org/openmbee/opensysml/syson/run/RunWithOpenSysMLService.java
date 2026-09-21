@@ -259,7 +259,7 @@ public class RunWithOpenSysMLService {
         static ResultParts satisfaction(Satisfaction result, ExportedProject project) {
             ResultParts p = new ResultParts(project);
             p.verdicts = result.verdicts().stream().map(p::verdict).toList();
-            p.verdict = verdictLabel(result.verdicts().stream().allMatch(RunVerdict::decided),
+            p.verdict = verdictLabel(result.verdicts().stream().allMatch(Verdict::decided),
                     result.holds(), "pass", "fail");
             p.diagnostics = result.diagnostics();
             p.instances = p.instances(result.instances());
@@ -274,7 +274,7 @@ public class RunWithOpenSysMLService {
         }
         static ResultParts analysis(Analysis result, ExportedProject project) {
             ResultParts p = new ResultParts(project);
-            p.verdict = verdictLabel(result.verdicts().stream().allMatch(RunVerdict::decided),
+            p.verdict = verdictLabel(result.verdicts().stream().allMatch(Verdict::decided),
                     result.holds(), HOLDS, VIOLATED);
             p.outputs = values(result.outputs());
             p.verdicts = result.verdicts().stream().map(p::verdict).toList();

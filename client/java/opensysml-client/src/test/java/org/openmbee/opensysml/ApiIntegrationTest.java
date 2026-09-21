@@ -1097,13 +1097,13 @@ class ApiIntegrationTest {
   @Test
   void runSweepOfAnotherKindIsAModelFailure() {
     Model model = connection.load(fixture("sweep.sysml"));
-    ModelException failed =
     List<org.openmbee.opensysml.SweepRange> ranges =
         List.of(
             org.openmbee.opensysml.SweepRange.of(
                     "limit", new Value.RealValue(0.0), new Value.RealValue(4.0))
                 .withStep(new Value.RealValue(2.0)));
-    assertThrows(
+    ModelException failed =
+        assertThrows(
             ModelException.class,
             () -> model.runSweep("Sw::barge", ranges));
     assertEquals(FailureReason.WRONG_KIND, failed.failureReason());

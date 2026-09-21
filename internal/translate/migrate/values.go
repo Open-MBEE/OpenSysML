@@ -137,47 +137,59 @@ func (m *migration) directValue(v, scope *sysmlv1.Element, want wanted) (expr st
 	case "LiteralNull":
 		return "null", true, ""
 	case "InstanceValue":
-		inst := m.model.Ref(v, "instance")
-		if inst == nil {
-			return "", false, "instance value refers to nothing in the document"
-		}
-		if inst.Type == "EnumerationLiteral" && inst.Parent != nil {
-			return m.ref(inst.Parent, scope) + "::" + writeName(inst.Name), true, ""
-		}
-		switch cat, _ := m.classify(inst); cat {
-		case catValue:
-			return m.ref(inst, scope), true, ""
-		case catIndividualDef:
-			return "", false, individualSubject + qualifiedName(inst) + " is a definition, which is not a v2 value"
-		}
-		return "", false, "instance value of a " + inst.Type + " has no v2 expression"
+		return m.instanceValue(v, scope)
 	case "OpaqueExpression":
-		body, lang := opaqueBody(v)
-		if body == "" {
-			return "", false, "opaque expression has no body"
-		}
-		if dialectOf(lang) != dialectNone {
-			expr, note, refused := m.translatedExpr(body, lang, scope, want)
-			if refused == nil {
-				m.noted(valueOwner(v, scope), note)
-				return expr, true, ""
-			}
-			if refused.final(lang) {
-				return "", false, refused.note()
-			}
-		}
-		refs, ok := exprRefs(body)
-		if !ok {
-			return "", false, "opaque expression is not v2 expression syntax" + langNote(lang)
-		}
-		if problem := m.invisible(refs, scope); problem != "" {
-			return "", false, "opaque expression " + problem + langNote(lang)
-		}
-		return body, true, "opaque expression copied verbatim" + langNote(lang)
+		return m.opaqueValue(v, scope, want)
 	case "Expression", "TimeExpression", "Duration", "Interval", "StringExpression":
 		return "", false, "a UML " + v.Type + " tree has no v2 form"
 	}
 	return "", false, "no v2 form for a UML " + v.Type
+}
+
+// instanceValue writes an instance value: an enumeration literal by qualified
+// name, a value by reference, nothing else.
+func (m *migration) instanceValue(v, scope *sysmlv1.Element) (expr string, ok bool, note string) {
+	inst := m.model.Ref(v, "instance")
+	if inst == nil {
+		return "", false, "instance value refers to nothing in the document"
+	}
+	if inst.Type == "EnumerationLiteral" && inst.Parent != nil {
+		return m.ref(inst.Parent, scope) + "::" + writeName(inst.Name), true, ""
+	}
+	switch cat, _ := m.classify(inst); cat {
+	case catValue:
+		return m.ref(inst, scope), true, ""
+	case catIndividualDef:
+		return "", false, individualSubject + qualifiedName(inst) + " is a definition, which is not a v2 value"
+	}
+	return "", false, "instance value of a " + inst.Type + " has no v2 expression"
+}
+
+// opaqueValue writes an opaque expression: translated when its language is a
+// known dialect, else copied verbatim once its references are visible.
+func (m *migration) opaqueValue(v, scope *sysmlv1.Element, want wanted) (expr string, ok bool, note string) {
+	body, lang := opaqueBody(v)
+	if body == "" {
+		return "", false, "opaque expression has no body"
+	}
+	if dialectOf(lang) != dialectNone {
+		expr, note, refused := m.translatedExpr(body, lang, scope, want)
+		if refused == nil {
+			m.noted(valueOwner(v, scope), note)
+			return expr, true, ""
+		}
+		if refused.final(lang) {
+			return "", false, refused.note()
+		}
+	}
+	refs, ok := exprRefs(body)
+	if !ok {
+		return "", false, "opaque expression is not v2 expression syntax" + langNote(lang)
+	}
+	if problem := m.invisible(refs, scope); problem != "" {
+		return "", false, "opaque expression " + problem + langNote(lang)
+	}
+	return body, true, "opaque expression copied verbatim" + langNote(lang)
 }
 
 func langNote(lang string) string {

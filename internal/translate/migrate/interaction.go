@@ -678,16 +678,26 @@ func (s *scenario) fragment(f *sysmlv1.Element, body *[]*scenarioStep) (*scenari
 	default:
 		return nil, "is a " + kind + " fragment, which has no v2 form"
 	}
-	if step.kind != stepAlt && step.kind != stepSeq && len(operands) > 1 {
-		if step.kind != stepPar {
-			return nil, "is a " + kind + " fragment with " + strconv.Itoa(len(operands)) + " operands; it takes one"
-		}
+	if step.kind != stepAlt && step.kind != stepSeq && step.kind != stepPar && len(operands) > 1 {
+		return nil, "is a " + kind + " fragment with " + strconv.Itoa(len(operands)) + " operands; it takes one"
 	}
 	// The operands of alt, opt, loop and par each resolve from the calls open before the fragment:
 	// alternatives do not see each other, and concurrent operands are unordered between themselves.
-	isolated := step.kind != stepSeq
 	in := slices.Clone(s.calls)
-	var outs [][]*scenarioStep
+	outs, ferr := s.fragmentOperands(step, kind, operands, in, body)
+	if ferr != "" {
+		return nil, ferr
+	}
+	s.joinCalls(step, in, outs)
+	step.base = freshIn(s.used, kind)
+	step.name = writeName(step.base)
+	return step, ""
+}
+
+// fragmentOperands resolves each operand's steps and collects the calls each
+// leaves open; isolated operands all start from the calls open before the fragment.
+func (s *scenario) fragmentOperands(step *scenarioStep, kind string, operands []*sysmlv1.Element, in []*scenarioStep, body *[]*scenarioStep) (outs [][]*scenarioStep, err string) {
+	isolated := step.kind != stepSeq
 	for i, o := range operands {
 		operand := &scenarioOperand{e: o}
 		var steps []*scenarioStep
@@ -695,32 +705,8 @@ func (s *scenario) fragment(f *sysmlv1.Element, body *[]*scenarioStep) (*scenari
 		s.outer[&operand.steps] = body
 		guard := firstOwned(o, "guard")
 		var note string
-		switch step.kind {
-		case stepAlt:
-			operand.guard, operand.gnote, note = s.guard(guard)
-			if note != "" {
-				return nil, "has an operand whose guard is not written: " + note
-			}
-			if operand.guard == "" && i != len(operands)-1 {
-				return nil, "has an operand without a guard before its last, so the operands after it would never run"
-			}
-		case stepOpt:
-			operand.guard, operand.gnote, note = s.guard(guard)
-			if note != "" {
-				return nil, "has a guard that is not written: " + note
-			}
-			if operand.guard == "" {
-				return nil, "has no guard, so whether its operand runs is unspecified"
-			}
-		case stepLoop:
-			operand.guard, step.count, operand.gnote, note = s.loopBounds(guard)
-			if note != "" {
-				return nil, note
-			}
-		case stepPar, stepSeq:
-			if guard != nil && !trueGuard(guard) {
-				return nil, "has a guard on an operand of a " + kind + " fragment, which runs its operands regardless"
-			}
+		if err := s.operandGuard(step, kind, operand, guard, i, len(operands)); err != "" {
+			return nil, err
 		}
 		if isolated {
 			s.calls = slices.Clone(in)
@@ -733,6 +719,45 @@ func (s *scenario) fragment(f *sysmlv1.Element, body *[]*scenarioStep) (*scenari
 		step.operands = append(step.operands, operand)
 		outs = append(outs, s.calls)
 	}
+	return outs, ""
+}
+
+// operandGuard resolves an operand's guard by the fragment's kind, or why it cannot.
+func (s *scenario) operandGuard(step *scenarioStep, kind string, operand *scenarioOperand, guard *sysmlv1.Element, i, n int) string {
+	var note string
+	switch step.kind {
+	case stepAlt:
+		operand.guard, operand.gnote, note = s.guard(guard)
+		if note != "" {
+			return "has an operand whose guard is not written: " + note
+		}
+		if operand.guard == "" && i != n-1 {
+			return "has an operand without a guard before its last, so the operands after it would never run"
+		}
+	case stepOpt:
+		operand.guard, operand.gnote, note = s.guard(guard)
+		if note != "" {
+			return "has a guard that is not written: " + note
+		}
+		if operand.guard == "" {
+			return "has no guard, so whether its operand runs is unspecified"
+		}
+	case stepLoop:
+		operand.guard, step.count, operand.gnote, note = s.loopBounds(guard)
+		if note != "" {
+			return note
+		}
+	case stepPar, stepSeq:
+		if guard != nil && !trueGuard(guard) {
+			return "has a guard on an operand of a " + kind + " fragment, which runs its operands regardless"
+		}
+	}
+	return ""
+}
+
+// joinCalls closes the calls every operand path answers; a par's operands
+// also open to replies the calls they made.
+func (s *scenario) joinCalls(step *scenarioStep, in []*scenarioStep, outs [][]*scenarioStep) {
 	switch step.kind {
 	case stepAlt, stepOpt, stepLoop:
 		// A path may skip the fragment unless an alt ends in an else; only a call still open on every path stays open.
@@ -752,9 +777,6 @@ func (s *scenario) fragment(f *sysmlv1.Element, body *[]*scenarioStep) (*scenari
 			}
 		}
 	}
-	step.base = freshIn(s.used, kind)
-	step.name = writeName(step.base)
-	return step, ""
 }
 
 // openOnEveryPath keeps the calls of in that every path in outs leaves unanswered.

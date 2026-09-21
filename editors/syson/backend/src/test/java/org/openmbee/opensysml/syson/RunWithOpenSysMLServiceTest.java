@@ -25,7 +25,7 @@ import org.openmbee.opensysml.syson.run.RunWithOpenSysMLService;
 
 class RunWithOpenSysMLServiceTest {
     private static final String VEHICLE = "Vehicle";
-    private static final String VEHICLE_ID = VEHICLE_ID;
+    private static final String VEHICLE_ID = "vehicle-id";
     @Test
     void doesNotEvaluateStaleArgumentsWhenInstantiating() {
         Connection connection = org.mockito.Mockito.mock(Connection.class);

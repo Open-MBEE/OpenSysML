@@ -351,9 +351,31 @@ func (a *activity) write() {
 // An object flow into an action control flows also reach carries a value only, as
 // does one into a control or buffer node whose every outgoing edge does.
 func (a *activity) link() {
-	controlled := map[*sysmlv1.Element]bool{}
-	control := map[[2]*sysmlv1.Element]bool{}
-	outs := map[*sysmlv1.Element][]*sysmlv1.Element{}
+	controlled, control, outs := a.controlIndex()
+	for _, e := range a.edges {
+		src, tgt := a.m.model.Ref(e, "source"), a.m.model.Ref(e, "target")
+		if src == nil || tgt == nil || nodeKind(tgt) != nodePin || !controlled[tgt.Parent] {
+			continue
+		}
+		if from := ownerNode(src); nodeKind(from) != nodeParam && from != tgt.Parent {
+			a.dataOnly[e] = true
+		}
+	}
+	a.propagateData(controlled, outs)
+	for _, n := range a.nodes {
+		if nodeKind(n) == nodeControl && len(outs[n]) == 0 {
+			a.sink[n] = true
+		}
+	}
+	a.linkEdges(control)
+}
+
+// controlIndex marks the nodes a control flow reaches, the node pairs one
+// joins, and every node's outgoing edges.
+func (a *activity) controlIndex() (controlled map[*sysmlv1.Element]bool, control map[[2]*sysmlv1.Element]bool, outs map[*sysmlv1.Element][]*sysmlv1.Element) {
+	controlled = map[*sysmlv1.Element]bool{}
+	control = map[[2]*sysmlv1.Element]bool{}
+	outs = map[*sysmlv1.Element][]*sysmlv1.Element{}
 	for _, e := range a.edges {
 		src, tgt := a.m.model.Ref(e, "source"), a.m.model.Ref(e, "target")
 		if e.Type == "ControlFlow" && src != nil && tgt != nil {
@@ -364,42 +386,48 @@ func (a *activity) link() {
 			outs[src] = append(outs[src], e)
 		}
 	}
-	for _, e := range a.edges {
-		src, tgt := a.m.model.Ref(e, "source"), a.m.model.Ref(e, "target")
-		if src == nil || tgt == nil || nodeKind(tgt) != nodePin || !controlled[tgt.Parent] {
-			continue
-		}
-		if from := ownerNode(src); nodeKind(from) != nodeParam && from != tgt.Parent {
-			a.dataOnly[e] = true
-		}
-	}
+	return controlled, control, outs
+}
+
+// propagateData marks as data nodes the control and buffer nodes whose every
+// outgoing edge carries data only, feeding their incoming edges the same way,
+// to a fixpoint.
+func (a *activity) propagateData(controlled map[*sysmlv1.Element]bool, outs map[*sysmlv1.Element][]*sysmlv1.Element) {
 	for changed := true; changed; {
 		changed = false
 		for _, n := range a.nodes {
-			if k := nodeKind(n); k != nodeControl && k != nodeBuffer || a.dataNode[n] || controlled[n] || len(outs[n]) == 0 {
-				continue
-			}
-			routes := true
-			for _, e := range outs[n] {
-				routes = routes && a.dataOnly[e]
-			}
-			if !routes {
-				continue
-			}
-			a.dataNode[n] = true
-			changed = true
-			for _, e := range a.edges {
-				if a.m.model.Ref(e, "target") == n {
-					a.dataOnly[e] = true
-				}
+			if a.promoteDataNode(n, controlled, outs) {
+				changed = true
 			}
 		}
 	}
-	for _, n := range a.nodes {
-		if nodeKind(n) == nodeControl && len(outs[n]) == 0 {
-			a.sink[n] = true
+}
+
+// promoteDataNode marks n a data node and its incoming edges data-only when n is
+// an uncontrolled control or buffer node whose outgoing edges are all data-only.
+func (a *activity) promoteDataNode(n *sysmlv1.Element, controlled map[*sysmlv1.Element]bool, outs map[*sysmlv1.Element][]*sysmlv1.Element) bool {
+	if k := nodeKind(n); k != nodeControl && k != nodeBuffer || a.dataNode[n] || controlled[n] || len(outs[n]) == 0 {
+		return false
+	}
+	routes := true
+	for _, e := range outs[n] {
+		routes = routes && a.dataOnly[e]
+	}
+	if !routes {
+		return false
+	}
+	a.dataNode[n] = true
+	for _, e := range a.edges {
+		if a.m.model.Ref(e, "target") == n {
+			a.dataOnly[e] = true
 		}
 	}
+	return true
+}
+
+// linkEdges records the successions between nodes: every eligible edge into
+// succ, the first edge between two nodes also into next and prev.
+func (a *activity) linkEdges(control map[[2]*sysmlv1.Element]bool) {
 	linked := map[[2]*sysmlv1.Element]bool{}
 	for _, e := range a.edges {
 		src, tgt := a.m.model.Ref(e, "source"), a.m.model.Ref(e, "target")
@@ -538,6 +566,40 @@ func (a *activity) endpointIn(n *sysmlv1.Element) string {
 	return a.entry[n]
 }
 
+// startTargets lists the nodes start successions lead to: the initial nodes'
+// targets, then every node no edge leads to (a starved one only marked, never a
+// target). seen marks either.
+func (a *activity) startTargets() (targets []*sysmlv1.Element, seen map[*sysmlv1.Element]bool) {
+	seen = map[*sysmlv1.Element]bool{}
+	for _, n := range a.nodes {
+		if nodeKind(n) != nodeInitial {
+			continue
+		}
+		for _, t := range a.next[n] {
+			if !seen[t] {
+				seen[t] = true
+				targets = append(targets, t)
+			}
+		}
+	}
+	for _, n := range a.nodes {
+		k := nodeKind(n)
+		if k != nodeAction && k != nodeControl && k != nodeBuffer || len(a.prev[n]) > 0 || seen[n] || a.dataNode[n] || a.sink[n] {
+			continue
+		}
+		if k == nodeControl && n.Type != "ForkNode" {
+			// A join or merge nothing leads to would never fire.
+			continue
+		}
+		if a.starved[n] == nil {
+			targets = append(targets, n)
+			a.m.add(n, Approximated, "", "no edge leads to the node, so it starts with the activity")
+		}
+		seen[n] = true
+	}
+	return targets, seen
+}
+
 // unwritableEdge reports an edge into a node no succession may lead to.
 func (a *activity) unwritableEdge(e *sysmlv1.Element) {
 	a.m.unmapped(e, "the edge leads to "+describe(ownerNode(a.m.model.Ref(e, "target")))+", "+a.unwritableTarget(e))
@@ -563,36 +625,25 @@ func (a *activity) unwritableTarget(e *sysmlv1.Element) string {
 // and to every node no edge leads to, forked when several, after the initial
 // nodes' clock stamps and the activity's wait.
 func (a *activity) startSuccessions() {
-	var targets []*sysmlv1.Element
-	seen := map[*sysmlv1.Element]bool{}
-	for _, n := range a.nodes {
-		if nodeKind(n) != nodeInitial {
-			continue
-		}
-		for _, t := range a.next[n] {
-			if !seen[t] {
-				seen[t] = true
-				targets = append(targets, t)
-			}
+	targets, _ := a.startTargets()
+	from := a.startPrologue()
+	if len(targets) > 1 {
+		f := a.fresh("fork")
+		a.m.w.line(firstKw + from + thenKw + writeName(f) + ";")
+		a.m.w.line("fork " + writeName(f) + ";")
+		from = writeName(f)
+	}
+	for _, t := range targets {
+		if to := a.endpointIn(t); to != "" {
+			a.m.w.line(firstKw + from + thenKw + to + ";")
 		}
 	}
-	for _, n := range a.nodes {
-		k := nodeKind(n)
-		if k != nodeAction && k != nodeControl && k != nodeBuffer || len(a.prev[n]) > 0 || seen[n] || a.dataNode[n] || a.sink[n] {
-			continue
-		}
-		if k == nodeControl && n.Type != "ForkNode" {
-			// A join or merge nothing leads to would never fire.
-			continue
-		}
-		if a.starved[n] != nil {
-			seen[n] = true
-			continue
-		}
-		seen[n] = true
-		targets = append(targets, n)
-		a.m.add(n, Approximated, "", "no edge leads to the node, so it starts with the activity")
-	}
+	a.checkInitialSuccessions()
+}
+
+// startPrologue writes what precedes the targets: the kept action, the initial
+// nodes' clock stamps and the activity's wait, returning the name they leave from.
+func (a *activity) startPrologue() string {
 	from := "start"
 	if a.keeping != "" {
 		name := a.fresh("keep")
@@ -613,17 +664,12 @@ func (a *activity) startSuccessions() {
 		a.m.w.line(actionKw + writeName(name) + " accept after " + w + ";")
 		from = writeName(name)
 	}
-	if len(targets) > 1 {
-		f := a.fresh("fork")
-		a.m.w.line(firstKw + from + thenKw + writeName(f) + ";")
-		a.m.w.line("fork " + writeName(f) + ";")
-		from = writeName(f)
-	}
-	for _, t := range targets {
-		if to := a.endpointIn(t); to != "" {
-			a.m.w.line(firstKw + from + thenKw + to + ";")
-		}
-	}
+	return from
+}
+
+// checkInitialSuccessions reports an initial node's edge whose target no
+// succession may lead to.
+func (a *activity) checkInitialSuccessions() {
 	for _, n := range a.nodes {
 		if nodeKind(n) != nodeInitial {
 			continue

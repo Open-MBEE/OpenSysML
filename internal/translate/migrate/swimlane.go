@@ -214,41 +214,7 @@ func (m *migration) resolveLane(l *lane, ctx *sysmlv1.Element) {
 	}
 	l.represents = r
 	if r.Type == "Property" || r.Type == "Port" {
-		owner := r.Parent
-		l.typ = m.model.Ref(r, "type")
-		name := writeName(m.nameOf(r))
-		switch {
-		case !m.written(r) || m.nameOf(r) == "":
-			l.note = "the property " + qualifiedName(r) + " it represents has no v2 declaration"
-		case unreadableBounds(r):
-			l.note = partRepresents + qualifiedName(r) + butNote + boundsNote(r)
-		case l.parent != nil && l.parent.expr != "" && l.parent.typ != nil && m.hasFeature(l.parent.typ, r):
-			l.expr = l.parent.expr + "." + name
-			l.plural = l.parent.plural || manyValued(r)
-			l.note = partRepresents + m.nameOf(r) + " of the enclosing partition's object, read as " + l.expr
-		case ctx == nil:
-			l.note = "the activity is in no classifier whose object could hold " + qualifiedName(r)
-		case m.hasFeature(ctx, r):
-			l.expr = "this." + name
-			l.plural = manyValued(r)
-			l.note = "the partition represents the context's " + m.nameOf(r) + ", read as " + l.expr
-		default:
-			if path, plural, unread := m.partPath(ctx, owner); unread != nil {
-				l.note = partRepresents + qualifiedName(r) + " through the part " + qualifiedName(unread) + butNote + boundsNote(unread)
-			} else if path != "" {
-				l.expr = "this." + path + "." + name
-				l.plural = plural || manyValued(r)
-				l.note = partRepresents + qualifiedName(r) + ", read as " + l.expr
-			} else {
-				l.note = "no part of " + qualifiedName(ctx) + " is a " + qualifiedName(owner) + ", which holds the represented " + m.nameOf(r)
-			}
-		}
-		if l.typ == nil && l.expr != "" {
-			l.note += "; the property has no type, so no name resolves through it"
-		}
-		if l.plural {
-			l.note += "; it is a collection, so names read through it are collections and are not assigned"
-		}
+		m.laneFeatureObject(l, r, ctx)
 		return
 	}
 	l.typ = r
@@ -272,6 +238,46 @@ func (m *migration) resolveLane(l *lane, ctx *sysmlv1.Element) {
 		} else {
 			l.note = "no part of " + qualifiedName(ctx) + " is a " + qualifiedName(r) + ", which the partition represents"
 		}
+	}
+	if l.plural {
+		l.note += "; it is a collection, so names read through it are collections and are not assigned"
+	}
+}
+
+// laneFeatureObject resolves a lane representing a property or port: the read
+// expression, its type, and a note saying how it was found or why not.
+func (m *migration) laneFeatureObject(l *lane, r, ctx *sysmlv1.Element) {
+	owner := r.Parent
+	l.typ = m.model.Ref(r, "type")
+	name := writeName(m.nameOf(r))
+	switch {
+	case !m.written(r) || m.nameOf(r) == "":
+		l.note = "the property " + qualifiedName(r) + " it represents has no v2 declaration"
+	case unreadableBounds(r):
+		l.note = partRepresents + qualifiedName(r) + butNote + boundsNote(r)
+	case l.parent != nil && l.parent.expr != "" && l.parent.typ != nil && m.hasFeature(l.parent.typ, r):
+		l.expr = l.parent.expr + "." + name
+		l.plural = l.parent.plural || manyValued(r)
+		l.note = partRepresents + m.nameOf(r) + " of the enclosing partition's object, read as " + l.expr
+	case ctx == nil:
+		l.note = "the activity is in no classifier whose object could hold " + qualifiedName(r)
+	case m.hasFeature(ctx, r):
+		l.expr = "this." + name
+		l.plural = manyValued(r)
+		l.note = "the partition represents the context's " + m.nameOf(r) + ", read as " + l.expr
+	default:
+		if path, plural, unread := m.partPath(ctx, owner); unread != nil {
+			l.note = partRepresents + qualifiedName(r) + " through the part " + qualifiedName(unread) + butNote + boundsNote(unread)
+		} else if path != "" {
+			l.expr = "this." + path + "." + name
+			l.plural = plural || manyValued(r)
+			l.note = partRepresents + qualifiedName(r) + ", read as " + l.expr
+		} else {
+			l.note = "no part of " + qualifiedName(ctx) + " is a " + qualifiedName(owner) + ", which holds the represented " + m.nameOf(r)
+		}
+	}
+	if l.typ == nil && l.expr != "" {
+		l.note += "; the property has no type, so no name resolves through it"
 	}
 	if l.plural {
 		l.note += "; it is a collection, so names read through it are collections and are not assigned"

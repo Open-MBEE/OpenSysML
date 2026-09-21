@@ -32,7 +32,7 @@ import org.openmbee.opensysml.syson.run.RunWithOpenSysMLService;
 
 class RunWithOpenSysMLServiceAnalysisTest {
     private static final String ANALYSIS = "Analysis";
-    private static final String ANALYSIS_ID = ANALYSIS_ID;
+    private static final String ANALYSIS_ID = "analysis-id";
     @Test
     void passesAnalysisOptionsToModel() {
         Connection connection = mock(Connection.class);
