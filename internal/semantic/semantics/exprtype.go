@@ -241,6 +241,9 @@ func (m *Model) DeclaresResolvedType(sym *symbols.Symbol, prim PrimType) bool {
 		if m.kindBaseExcludes(m.implicitKerMLFeatureBase(cur), prim) {
 			return true
 		}
+		if m.kindBaseExcludes(m.implicitUsageBaseFeature(cur), prim) {
+			return true
+		}
 	}
 	return false
 }
