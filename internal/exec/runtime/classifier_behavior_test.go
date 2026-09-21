@@ -1049,6 +1049,32 @@ func TestExhibitedMachineNamingNoBodyIsReported(t *testing.T) {
 	}
 }
 
+// A performed action naming nothing — no reference subsetting, no typing —
+// performs itself: the PerformActionUsage is its own event occurrence
+// (SysML v2 §8.3.16, eventOccurrence), so its object is created, not refused.
+func TestPerformedActionNamingNothingPerformsItself(t *testing.T) {
+	src := `
+		part def Engine {
+			attribute level : Integer = 3;
+			perform action boost { in amount : Integer = level; }
+			perform action idle;
+		}
+	`
+	model, resolver, root := parseAndBuildModel(t, src)
+	ctx := NewContext(typedModel(model, resolver), 10000)
+
+	inst, err := ctx.Instantiate(resolveSymbol(t, root, "Engine"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	for _, name := range []string{"boost", "idle"} {
+		behavior, ok := inst.Behavior(name)
+		if !ok || behavior.Action == nil {
+			t.Fatalf("object performs no %s action, behaviors: %v", name, inst.Behaviors())
+		}
+	}
+}
+
 // A type exhibits a machine through the declaration stating it inline, one typed
 // by a definition, or one naming a state usage declared beside it, and every
 // binding on the way to the body addresses it; a machine it merely performs, and

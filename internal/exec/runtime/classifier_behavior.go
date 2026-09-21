@@ -1036,7 +1036,8 @@ func (ctx *Context) classifierBehaviorSymbol(decl classifierBehaviorDecl) (*symb
 
 // classifierBehaviorChain resolves the bindings from a binding declaration to the
 // element holding the body it runs: the declaration first, then what each names in
-// turn, ending at the one stating a body.
+// turn, ending at the one stating a body — or at a performed action naming no
+// element, which is the body itself (SysML v2 §8.3.16, eventOccurrence).
 func (ctx *Context) classifierBehaviorChain(decl classifierBehaviorDecl) ([]*symbols.Symbol, error) {
 	sym := decl.member
 	chain := []*symbols.Symbol{sym}
@@ -1050,11 +1051,17 @@ func (ctx *Context) classifierBehaviorChain(decl classifierBehaviorDecl) ([]*sym
 		}
 		next := ctx.namedBehavior(sym)
 		if next == nil || next == sym {
-			// A declaration naming nothing that holds a body is not executable:
-			// the type binds a behavior no element states.
 			if sym != decl.member {
 				return chain, nil
 			}
+			// A performed action naming nothing is its own body: the
+			// EventOccurrenceUsage is itself the event occurrence
+			// (SysML v2 §8.3.16, eventOccurrence).
+			if decl.behavior.Kind == lower.PerformedAction && !decl.behavior.NamesBehavior {
+				return chain, nil
+			}
+			// A declaration naming nothing that holds a body is not executable:
+			// the type binds a behavior no element states.
 			return nil, fmt.Errorf("%w: %s %s of %s names no behavior body",
 				ErrUnresolvedClassifierBehavior, decl.behavior.Kind, decl.behavior.Name, symbolText(decl.member))
 		}

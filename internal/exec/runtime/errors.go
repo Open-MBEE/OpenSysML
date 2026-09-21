@@ -359,8 +359,9 @@ var (
 	ErrNoRequirement = errors.New("no requirement to satisfy")
 
 	// ErrUnresolvedClassifierBehavior is returned when a type exhibits or
-	// performs a behavior whose body no element states, so the objects of that
-	// type have nothing to run.
+	// performs a behavior that names an element no element states a body for,
+	// so the objects of that type have nothing to run. A performed action
+	// naming nothing is its own body and never fails here.
 	ErrUnresolvedClassifierBehavior = errors.New("classifier behavior names no body")
 
 	// ErrUnsupportedClassifierBehavior is returned when a type binds a behavior
