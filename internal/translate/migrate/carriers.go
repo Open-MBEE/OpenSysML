@@ -18,6 +18,12 @@ type carrier struct {
 // carriers declares, for each state whose entry or do behavior takes parameters, the item
 // holding the incoming signal whose properties match them by position, type, order and multiplicity.
 // Internal transitions enter no state, so they neither settle the signal nor rule it out.
+
+// The note fragments the writer repeats.
+const (
+	transitionFrom = "the transition from "
+)
+
 func (m *migration) carriers(sm *sysmlv1.Element, used map[string]bool) {
 	incoming := map[*sysmlv1.Element][]*sysmlv1.Element{}
 	var states []*sysmlv1.Element
@@ -99,41 +105,62 @@ func (m *migration) carrierSignal(v *sysmlv1.Element, incoming []*sysmlv1.Elemen
 	}
 	var sig *sysmlv1.Element
 	for _, t := range incoming {
-		src := m.model.Ref(t, "source")
-		if src != nil && src.Type == "Pseudostate" {
-			return nil, "the transition from the " + pseudoKind(src) + " pseudostate " + describe(src) + " enters the state with no signal of its own"
+		s, note, fail := m.incomingSignal(t, sig)
+		if fail {
+			return nil, note
 		}
-		triggers := t.Owned("trigger")
-		if len(triggers) == 0 {
-			return nil, "the transition from " + describe(src) + " enters the state with no trigger"
-		}
-		for _, tr := range triggers {
-			ev := m.model.Ref(tr, "event")
-			if ev == nil || ev.Type != "SignalEvent" {
-				return nil, "the transition from " + describe(src) + " accepts " + eventKind(ev) + ", which carries no signal"
-			}
-			if note, ok := m.signalOf(ev); !ok {
-				return nil, "the transition from " + describe(src) + " accepts a signal with no v2 declaration: " + note
-			}
-			s := m.model.Ref(ev, "signal")
-			if sig != nil && s != sig {
-				return nil, "the transitions into the state accept different signals, " + m.nameFor(sig) + " and " + m.nameFor(s)
-			}
-			sig = s
-		}
-		if eff := firstOwned(t, "effect"); eff != nil {
-			switch {
-			case eff.Parent != t:
-				return nil, "the effect of the transition from " + describe(src) + " is written once, as its own action def, which cannot keep the accepted signal"
-			case eff.Type != "Activity" && eff.Type != "OpaqueBehavior" && eff.Type != "FunctionBehavior":
-				return nil, "the effect of the transition from " + describe(src) + " is " + aOrAn(eff.Type) + ", which has no action form to keep the accepted signal in"
-			}
-		}
+		sig = s
 	}
 	if cat, _ := m.classify(sig); cat != catItemDef {
 		return nil, "the signal " + m.nameFor(sig) + " is written as " + aOrAn(cat.keyword()) + ", which no item holds"
 	}
 	return sig, ""
+}
+
+// incomingSignal checks one transition into the state: its trigger accepts a signal
+// consistent with the others and its effect can keep it. fail reports the first reason not.
+func (m *migration) incomingSignal(t, sig *sysmlv1.Element) (*sysmlv1.Element, string, bool) {
+	src := m.model.Ref(t, "source")
+	if src != nil && src.Type == "Pseudostate" {
+		return nil, "the transition from the " + pseudoKind(src) + " pseudostate " + describe(src) + " enters the state with no signal of its own", true
+	}
+	triggers := t.Owned("trigger")
+	if len(triggers) == 0 {
+		return nil, transitionFrom + describe(src) + " enters the state with no trigger", true
+	}
+	for _, tr := range triggers {
+		s, note, fail := m.triggerSignal(tr, src, sig)
+		if fail {
+			return nil, note, true
+		}
+		sig = s
+	}
+	if eff := firstOwned(t, "effect"); eff != nil {
+		switch {
+		case eff.Parent != t:
+			return nil, "the effect of the transition from " + describe(src) + " is written once, as its own action def, which cannot keep the accepted signal", true
+		case eff.Type != "Activity" && eff.Type != "OpaqueBehavior" && eff.Type != "FunctionBehavior":
+			return nil, "the effect of the transition from " + describe(src) + " is " + aOrAn(eff.Type) + ", which has no action form to keep the accepted signal in", true
+		}
+	}
+	return sig, "", false
+}
+
+// triggerSignal checks one trigger's event: a SignalEvent whose declared signal
+// matches the signals the other transitions accept.
+func (m *migration) triggerSignal(tr, src, sig *sysmlv1.Element) (*sysmlv1.Element, string, bool) {
+	ev := m.model.Ref(tr, "event")
+	if ev == nil || ev.Type != "SignalEvent" {
+		return nil, transitionFrom + describe(src) + " accepts " + eventKind(ev) + ", which carries no signal", true
+	}
+	if note, ok := m.signalOf(ev); !ok {
+		return nil, transitionFrom + describe(src) + " accepts a signal with no v2 declaration: " + note, true
+	}
+	s := m.model.Ref(ev, "signal")
+	if sig != nil && s != sig {
+		return nil, "the transitions into the state accept different signals, " + m.nameFor(sig) + " and " + m.nameFor(s), true
+	}
+	return s, "", false
 }
 
 // eventKind names an event for a diagnostic, or its absence.

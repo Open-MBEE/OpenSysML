@@ -36,5 +36,6 @@
               (FeatureReference name="index")
               (LiteralInteger value="10"))
             (*ast.AssignmentActionNode)
-            (*ast.AssignmentActionNode))
+            (*ast.AssignmentActionNode)
+            (SuccessionEdge source="@assign" target="@assign"))
           (SuccessionEdge source="@assign" target="@while"))))))

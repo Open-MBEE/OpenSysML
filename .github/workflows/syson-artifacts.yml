@@ -44,7 +44,7 @@ jobs:
       - name: Build against the real Sirius packages
         working-directory: editors/syson/frontend
         run: |
-          npm ci
+          npm ci --ignore-scripts
           cp .npmrc.example .npmrc
           npm run install:syson
           npm run build:syson

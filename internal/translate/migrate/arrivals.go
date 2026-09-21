@@ -32,6 +32,14 @@ func (m *migration) arrivalIndex() *arrivals {
 		inward:  map[*sysmlv1.Element][]*sysmlv1.Element{},
 	}
 	m.arrived = idx
+	conveyed := m.portDelegations(idx)
+	idx.propagate(m, conveyed)
+	return idx
+}
+
+// portDelegations fills idx's peer and delegation edges from the port connectors and
+// lists, as port and signal pairs, the signals their item flows convey to an end port.
+func (m *migration) portDelegations(idx *arrivals) [][2]*sysmlv1.Element {
 	peers, outward, inward := idx.peers, idx.outward, idx.inward
 	var conveyed [][2]*sysmlv1.Element
 	for _, c := range m.connectors {
@@ -60,48 +68,61 @@ func (m *migration) arrivalIndex() *arrivals {
 			peers[p1] = append(peers[p1], p0)
 		}
 	}
-	sent := map[*sysmlv1.Element]map[*sysmlv1.Element]bool{}
-	var reach func(into map[*sysmlv1.Element]map[*sysmlv1.Element]bool, p, sig *sysmlv1.Element)
-	reach = func(into map[*sysmlv1.Element]map[*sysmlv1.Element]bool, p, sig *sysmlv1.Element) {
-		if into[p][sig] {
-			return
-		}
-		if into[p] == nil {
-			into[p] = map[*sysmlv1.Element]bool{}
-		}
-		into[p][sig] = true
-		for _, q := range inward[p] {
-			reach(into, q, sig)
-		}
-	}
-	var leave func(p, sig *sysmlv1.Element)
-	leave = func(p, sig *sysmlv1.Element) {
-		if sent[p][sig] {
-			return
-		}
-		if sent[p] == nil {
-			sent[p] = map[*sysmlv1.Element]bool{}
-		}
-		sent[p][sig] = true
-		for _, q := range peers[p] {
-			reach(idx.at, q, sig)
-		}
-		for _, q := range outward[p] {
-			leave(q, sig)
-		}
-	}
+	return conveyed
+}
+
+// propagate spreads the sends and declared arrivals through idx's delegations: a send
+// reaches a peer's arrival set and travels outward; declared and conveyed signals are carried.
+func (idx *arrivals) propagate(m *migration, conveyed [][2]*sysmlv1.Element) {
+	w := &arrivalWalk{idx: idx, sent: map[*sysmlv1.Element]map[*sysmlv1.Element]bool{}}
 	for _, send := range m.portSends {
-		leave(m.model.Ref(send, "onPort"), m.model.Ref(send, "signal"))
+		w.leave(m.model.Ref(send, "onPort"), m.model.Ref(send, "signal"))
 	}
 	for _, p := range m.ports {
 		for _, sig := range m.declaredArrivals(p) {
-			reach(idx.carried, p, sig)
+			w.reach(idx.carried, p, sig)
 		}
 	}
 	for _, pair := range conveyed {
-		reach(idx.carried, pair[0], pair[1])
+		w.reach(idx.carried, pair[0], pair[1])
 	}
-	return idx
+}
+
+// arrivalWalk carries the send set while a propagation walks the delegations.
+type arrivalWalk struct {
+	idx  *arrivals
+	sent map[*sysmlv1.Element]map[*sysmlv1.Element]bool
+}
+
+// reach records sig arriving at p and follows inward delegations.
+func (w *arrivalWalk) reach(into map[*sysmlv1.Element]map[*sysmlv1.Element]bool, p, sig *sysmlv1.Element) {
+	if into[p][sig] {
+		return
+	}
+	if into[p] == nil {
+		into[p] = map[*sysmlv1.Element]bool{}
+	}
+	into[p][sig] = true
+	for _, q := range w.idx.inward[p] {
+		w.reach(into, q, sig)
+	}
+}
+
+// leave records sig sent from p, reaches its peers, and travels outward.
+func (w *arrivalWalk) leave(p, sig *sysmlv1.Element) {
+	if w.sent[p][sig] {
+		return
+	}
+	if w.sent[p] == nil {
+		w.sent[p] = map[*sysmlv1.Element]bool{}
+	}
+	w.sent[p][sig] = true
+	for _, q := range w.idx.peers[p] {
+		w.reach(w.idx.at, q, sig)
+	}
+	for _, q := range w.idx.outward[p] {
+		w.leave(q, sig)
+	}
 }
 
 // conveyedTo lists, as port and signal, the signals the item flows connector c realizes
@@ -135,34 +156,57 @@ func (m *migration) declaredArrivals(p *sysmlv1.Element) []*sysmlv1.Element {
 			return
 		}
 		seen[t] = true
-		for _, a := range t.Owned("ownedAttribute") {
-			fp := stereo(a, "FlowProperty")
-			if fp == nil {
-				continue
-			}
-			dir := fp.Tag("direction")
-			if dir == "in" && conjugated || dir == "out" && !conjugated {
-				continue
-			}
-			if sig := m.model.Ref(a, "type"); sig != nil && sig.Type == "Signal" {
-				out = append(out, sig)
-			}
-		}
+		out = append(out, m.flowSignals(t, conjugated)...)
 		if !conjugated {
-			for _, r := range t.Owned("ownedReception") {
-				if sig := m.model.Ref(r, "signal"); sig != nil {
-					out = append(out, sig)
-				}
-			}
-			for _, ir := range t.Owned("interfaceRealization") {
-				walk(m.model.Ref(ir, "contract"))
-			}
+			out = append(out, m.receptionSignals(t)...)
 		}
-		for _, g := range t.Owned("generalization") {
-			walk(m.model.Ref(g, "general"))
-		}
+		m.arrivalSupertypes(t, conjugated, walk)
 	}
 	walk(m.model.Ref(p, "type"))
+	return out
+}
+
+// receptionSignals lists the signals of t's owned receptions.
+func (m *migration) receptionSignals(t *sysmlv1.Element) []*sysmlv1.Element {
+	var out []*sysmlv1.Element
+	for _, r := range t.Owned("ownedReception") {
+		if sig := m.model.Ref(r, "signal"); sig != nil {
+			out = append(out, sig)
+		}
+	}
+	return out
+}
+
+// arrivalSupertypes walks t's realized interface contracts — unconjugated only —
+// and its general classifiers.
+func (m *migration) arrivalSupertypes(t *sysmlv1.Element, conjugated bool, walk func(*sysmlv1.Element)) {
+	if !conjugated {
+		for _, ir := range t.Owned("interfaceRealization") {
+			walk(m.model.Ref(ir, "contract"))
+		}
+	}
+	for _, g := range t.Owned("generalization") {
+		walk(m.model.Ref(g, "general"))
+	}
+}
+
+// flowSignals lists the signal types of t's flow properties that arrive when conjugation
+// reads as given: flowing in, or out when conjugated.
+func (m *migration) flowSignals(t *sysmlv1.Element, conjugated bool) []*sysmlv1.Element {
+	var out []*sysmlv1.Element
+	for _, a := range t.Owned("ownedAttribute") {
+		fp := stereo(a, "FlowProperty")
+		if fp == nil {
+			continue
+		}
+		dir := fp.Tag("direction")
+		if dir == "in" && conjugated || dir == "out" && !conjugated {
+			continue
+		}
+		if sig := m.model.Ref(a, "type"); sig != nil && sig.Type == "Signal" {
+			out = append(out, sig)
+		}
+	}
 	return out
 }
 

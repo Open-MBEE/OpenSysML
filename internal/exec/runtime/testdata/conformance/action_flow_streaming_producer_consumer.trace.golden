@@ -1,0 +1,95 @@
+step 1: token 1@split
+step 2: token 2@producer, token 3@consumer
+enter action node: consumer
+enter action node: producer
+choice step 3: tokens 2@producer, 3@consumer (unordered; took 3@consumer first)
+step 3: token 2@start, token 3@start
+choice step 4: tokens 2@start, 3@start (unordered; took 3@start first)
+step 4: token 2@emit, token 3@prime
+stmt assign reads
+  eval literal 0 -> 0
+stmt assign i
+    eval feature i -> 0
+    eval literal 1 -> 1
+  eval operator + -> 1
+stmt assign value
+  eval feature i -> 1
+choice step 5: tokens 2@emit, 3@prime (unordered; took 3@prime first)
+step 5: token 2@again, token 3@take
+stmt assign total
+    eval feature total -> 0
+    eval feature value -> 1
+  eval operator + -> 1
+stmt assign reads
+    eval feature reads -> 0
+    eval literal 1 -> 1
+  eval operator + -> 1
+  eval feature i -> 1
+  eval literal 3 -> 3
+eval operator < -> true
+choice step 6: tokens 2@again, 3@take (unordered; took 3@take first)
+step 6: token 2@emit, token 3@more
+  eval feature reads -> 1
+  eval literal 3 -> 3
+eval operator < -> true
+stmt assign i
+    eval feature i -> 1
+    eval literal 1 -> 1
+  eval operator + -> 2
+stmt assign value
+  eval feature i -> 2
+choice step 7: tokens 2@emit, 3@more (unordered; took 3@more first)
+step 7: token 2@again, token 3@take
+stmt assign total
+    eval feature total -> 1
+    eval feature value -> 2
+  eval operator + -> 3
+stmt assign reads
+    eval feature reads -> 1
+    eval literal 1 -> 1
+  eval operator + -> 2
+  eval feature i -> 2
+  eval literal 3 -> 3
+eval operator < -> true
+choice step 8: tokens 2@again, 3@take (unordered; took 3@take first)
+step 8: token 2@emit, token 3@more
+  eval feature reads -> 2
+  eval literal 3 -> 3
+eval operator < -> true
+stmt assign i
+    eval feature i -> 2
+    eval literal 1 -> 1
+  eval operator + -> 3
+stmt assign value
+  eval feature i -> 3
+choice step 9: tokens 2@emit, 3@more (unordered; took 3@more first)
+step 9: token 2@again, token 3@take
+stmt assign total
+    eval feature total -> 3
+    eval feature value -> 3
+  eval operator + -> 6
+stmt assign reads
+    eval feature reads -> 2
+    eval literal 1 -> 1
+  eval operator + -> 3
+  eval feature i -> 3
+  eval literal 3 -> 3
+eval operator < -> false
+  eval feature i -> 3
+  eval literal 3 -> 3
+eval operator >= -> true
+choice step 10: tokens 2@again, 3@take (unordered; took 3@take first)
+step 10: token 2@done, token 3@more
+  eval feature reads -> 3
+  eval literal 3 -> 3
+eval operator < -> false
+  eval feature reads -> 3
+  eval literal 3 -> 3
+eval operator >= -> true
+leave action node: producer
+choice step 11: tokens 2@done, 3@more (unordered; took 3@more first)
+step 11: token 2@sync, token 3@done
+leave action node: consumer
+step 12: token 2@sync, token 3@sync
+step 13: token 4@done
+step 14: no active tokens

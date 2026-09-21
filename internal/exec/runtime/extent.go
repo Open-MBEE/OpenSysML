@@ -37,6 +37,8 @@ func (ec *EvalContext) evalExtent(n *ast.OperatorExpr) (Value, error) {
 		return Value{}, fmt.Errorf("%w: %s is a data type, whose values are not enumerated (only an enumeration's literals are)",
 			ErrUnboundedExtent, qualifiedNameToString(qn))
 	}
+	// The extent is the objects there are, alive: what derives it reads the lives.
+	ec.ctx.readsLives()
 	roots, err := ec.extentRoots(target)
 	if err != nil {
 		return Value{}, err
@@ -119,6 +121,10 @@ func (ctx *Context) objectsOf(roots []*Instance, target *symbols.Symbol) (Value,
 			return nil
 		}
 		seen[inst.ID] = true
+		// A destroyed object left the extent with its portions; what it referred to is reached from where it is held.
+		if ctx.checkNotDestroyed(inst) != nil {
+			return nil
+		}
 		if ctx.isOf(inst, target) {
 			val, err := ctx.objectValue(inst)
 			if err != nil {

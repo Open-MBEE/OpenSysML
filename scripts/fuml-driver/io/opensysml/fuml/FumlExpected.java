@@ -328,6 +328,19 @@ public final class FumlExpected {
 			return out;
 		}
 
+		/** The XMI id of the named activity, or of its one node with the action's name; null if shared. */
+		private static String elementId(Map<String, ActivityDecl> byName, String activity, String action) {
+			ActivityDecl decl = activity == null ? null : byName.get(activity);
+			if (decl == null) {
+				return null;
+			}
+			if (action == null) {
+				return decl.id;
+			}
+			List<String> ids = decl.nodeIds.get(action);
+			return ids != null && ids.size() == 1 ? ids.get(0) : null;
+		}
+
 	}
 
 	public static void main(String[] args) throws Exception {
@@ -553,19 +566,6 @@ public final class FumlExpected {
 		}
 		byName.keySet().removeAll(shared);
 		return byName;
-	}
-
-	/** The XMI id of the named activity, or of its one node with the action's name; null if shared. */
-	private static String elementId(Map<String, ActivityDecl> byName, String activity, String action) {
-		ActivityDecl decl = activity == null ? null : byName.get(activity);
-		if (decl == null) {
-			return null;
-		}
-		if (action == null) {
-			return decl.id;
-		}
-		List<String> ids = decl.nodeIds.get(action);
-		return ids != null && ids.size() == 1 ? ids.get(0) : null;
 	}
 
 	private static List<Object> values(ValueList values, Map<String, String> aliases,

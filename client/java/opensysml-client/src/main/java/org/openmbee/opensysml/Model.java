@@ -72,6 +72,10 @@ import java.util.Optional;
  * what the call needs.
  */
 public final class Model {
+  private static final String EXPLORE = "explore";
+  private static final String NAME_SUBJECT_SYMBOL_ID = "subjectSymbolId";
+  private static final String NAME_SYMBOL_ID = "symbolId";
+  private static final String NAME_OPTIONS = "options";
 
   private final Connection connection;
   private final String hash;
@@ -171,7 +175,7 @@ public final class Model {
   public Model withEngine(String engine) {
     Objects.requireNonNull(engine, "engine");
     connection.capabilities().require(Capabilities.ENGINES);
-    if (engine.equals("explore")) {
+    if (engine.equals(EXPLORE)) {
       connection.capabilities().require(Capabilities.SCHEDULE_EXPLORE);
     }
     return new Model(connection, hash, roots, parseDiagnostics, Optional.of(engine));
@@ -263,7 +267,7 @@ public final class Model {
    *     would otherwise ignore rather than refuse
    */
   public Value evalWithSubject(String expression, String subjectSymbolId) {
-    Objects.requireNonNull(subjectSymbolId, "subjectSymbolId");
+    Objects.requireNonNull(subjectSymbolId, NAME_SUBJECT_SYMBOL_ID);
     connection.capabilities().require(Capabilities.EVALUATE_SUBJECT);
     return evaluated(request(expression).setSubjectSymbolId(subjectSymbolId).build());
   }
@@ -277,7 +281,7 @@ public final class Model {
    * @throws ServiceException if the service does not hold this model
    */
   public Instantiation instantiate(String symbolId) {
-    Objects.requireNonNull(symbolId, "symbolId");
+    Objects.requireNonNull(symbolId, NAME_SYMBOL_ID);
     InstantiateResponse response =
         connection.call(
             "Instantiate",
@@ -503,12 +507,12 @@ public final class Model {
    * @throws CapabilityException if the service does not advertise {@code verification}
    */
   public Verification verifyConstraint(String symbolId, String subjectSymbolId) {
-    Objects.requireNonNull(subjectSymbolId, "subjectSymbolId");
+    Objects.requireNonNull(subjectSymbolId, NAME_SUBJECT_SYMBOL_ID);
     return verifyConstraint(symbolId, Optional.of(subjectSymbolId));
   }
 
   private Verification verifyConstraint(String symbolId, Optional<String> subjectSymbolId) {
-    Objects.requireNonNull(symbolId, "symbolId");
+    Objects.requireNonNull(symbolId, NAME_SYMBOL_ID);
     connection.capabilities().require(Capabilities.VERIFICATION);
     VerifyConstraintRequest.Builder request =
         VerifyConstraintRequest.newBuilder().setModelHash(hash).setSymbolId(symbolId);
@@ -546,12 +550,12 @@ public final class Model {
    * @throws CapabilityException if the service does not advertise {@code verification}
    */
   public Verification verifyRequirement(String symbolId, String subjectSymbolId) {
-    Objects.requireNonNull(subjectSymbolId, "subjectSymbolId");
+    Objects.requireNonNull(subjectSymbolId, NAME_SUBJECT_SYMBOL_ID);
     return verifyRequirement(symbolId, Optional.of(subjectSymbolId));
   }
 
   private Verification verifyRequirement(String symbolId, Optional<String> subjectSymbolId) {
-    Objects.requireNonNull(symbolId, "symbolId");
+    Objects.requireNonNull(symbolId, NAME_SYMBOL_ID);
     connection.capabilities().require(Capabilities.VERIFICATION);
     VerifyRequirementRequest.Builder request =
         VerifyRequirementRequest.newBuilder().setModelHash(hash).setSymbolId(symbolId);
@@ -616,7 +620,7 @@ public final class Model {
    * @throws CapabilityException if the service does not advertise {@code verification}
    */
   public Validation validateInstance(String symbolId) {
-    Objects.requireNonNull(symbolId, "symbolId");
+    Objects.requireNonNull(symbolId, NAME_SYMBOL_ID);
     connection.capabilities().require(Capabilities.VERIFICATION);
     ValidateInstanceRequest.Builder request =
         ValidateInstanceRequest.newBuilder().setModelHash(hash).setSymbolId(symbolId);
@@ -640,7 +644,7 @@ public final class Model {
    * @throws ServiceException if the service does not hold this model
    */
   public Calculation evaluateCalc(String symbolId, List<Value> arguments) {
-    Objects.requireNonNull(symbolId, "symbolId");
+    Objects.requireNonNull(symbolId, NAME_SYMBOL_ID);
     Objects.requireNonNull(arguments, "arguments");
     EvaluateCalcRequest.Builder request =
         EvaluateCalcRequest.newBuilder()
@@ -732,10 +736,10 @@ public final class Model {
 
   private RunAnalysisResponse runAnalysis(
       String symbolId, AnalysisOptions options, boolean explore) {
-    Objects.requireNonNull(symbolId, "symbolId");
-    Objects.requireNonNull(options, "options");
+    Objects.requireNonNull(symbolId, NAME_SYMBOL_ID);
+    Objects.requireNonNull(options, NAME_OPTIONS);
     connection.capabilities().require(Capabilities.VERIFICATION);
-    if (!explore && engine.isPresent() && engine.orElseThrow().equals("explore")) {
+    if (!explore && engine.isPresent() && engine.orElseThrow().equals(EXPLORE)) {
       throw new IllegalArgumentException(
           "engine explore answers every outcome; use exploreAnalysis");
     }
@@ -813,7 +817,7 @@ public final class Model {
    */
   public Conversion convert(String toFormat, ConversionOptions options) {
     Objects.requireNonNull(toFormat, "toFormat");
-    Objects.requireNonNull(options, "options");
+    Objects.requireNonNull(options, NAME_OPTIONS);
     connection.capabilities().require(Capabilities.CONVERT);
     ConvertRequest.Builder request =
         ConvertRequest.newBuilder()
@@ -863,7 +867,7 @@ public final class Model {
    */
   public EditResult applyEdits(List<Edit> edits, EditOptions options) {
     Objects.requireNonNull(edits, "edits");
-    Objects.requireNonNull(options, "options");
+    Objects.requireNonNull(options, NAME_OPTIONS);
     connection.capabilities().require(Capabilities.APPLY_EDITS);
     for (Edit edit : edits) {
       if (edit instanceof Edit.AddMember || edit instanceof Edit.Delete || edit instanceof Edit.Move) {
@@ -923,9 +927,9 @@ public final class Model {
    * @throws CapabilityException if the service does not advertise {@code verification}
    */
   public Sweep runSweep(String symbolId, List<SweepRange> ranges, SweepOptions options) {
-    Objects.requireNonNull(symbolId, "symbolId");
+    Objects.requireNonNull(symbolId, NAME_SYMBOL_ID);
     Objects.requireNonNull(ranges, "ranges");
-    Objects.requireNonNull(options, "options");
+    Objects.requireNonNull(options, NAME_OPTIONS);
     connection.capabilities().require(Capabilities.VERIFICATION);
     RunSweepRequest.Builder request =
         RunSweepRequest.newBuilder()
@@ -1016,7 +1020,7 @@ public final class Model {
   }
 
   private String schedule(ExecutionOptions options, boolean explore) {
-    Objects.requireNonNull(options, "options");
+    Objects.requireNonNull(options, NAME_OPTIONS);
     if (options.performer().isPresent()) {
       connection.capabilities().require(Capabilities.PERFORMER);
     }
@@ -1030,7 +1034,7 @@ public final class Model {
             "schedule " + schedule.orElseThrow() + " runs once; an exploration takes explore");
       }
       connection.capabilities().require(Capabilities.SCHEDULE_EXPLORE);
-      return schedule.orElse("explore");
+      return schedule.orElse(EXPLORE);
     }
     if (explores) {
       throw new IllegalArgumentException(
@@ -1057,7 +1061,7 @@ public final class Model {
   }
 
   private SymbolResponse symbolResponse(String symbolId) {
-    Objects.requireNonNull(symbolId, "symbolId");
+    Objects.requireNonNull(symbolId, NAME_SYMBOL_ID);
     return connection.call(
         "GetSymbol",
         GetSymbolRequest.newBuilder().setModelHash(hash).setSymbolId(symbolId).build(),

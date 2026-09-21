@@ -312,3 +312,200 @@ func TestEncodeInlineExpressionFeedsFlow(t *testing.T) {
 		}
 	}
 }
+
+// TestEncodeFlowKindsDiffer: a plain flow streams the write to its source pin
+// into a consumer performing beside the producer, which fails when the consumer
+// completed first and reads 7 otherwise; a succession flow orders the consumer
+// after the producer and hands it the value, so no schedule fails.
+func TestEncodeFlowKindsDiffer(t *testing.T) {
+	solver := requireSolver(t)
+	const k = 12
+	const forked = `
+		fork split;
+		join sync;
+		succession first start then split;
+		succession first split then producer;
+		succession first split then consumer;
+		succession first producer then sync;
+		succession first consumer then sync;
+		succession first sync then done;
+		flow producer.value to consumer.got;`
+	const ordered = `
+		succession first start then producer;
+		succession first consumer then done;
+		succession flow producer.value to consumer.got;`
+	model := func(wiring string) string {
+		return `package test {
+	private import ScalarValues::*;
+	action outer {
+		attribute seen : Integer = -1;
+		first start;
+		action producer { out value : Integer = 5; assign value := 7; }
+		action consumer { in got : Integer = 0; assign seen := got; }
+		done;` + wiring + `
+	}
+}`
+	}
+	cases := []struct {
+		name, wiring string
+		fails        bool
+	}{
+		{"flow", forked, true},
+		{"succession flow", ordered, false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			ctx, action, graph, held := loweredDocument(t, "kinds_test.sysml", model(c.wiring), "test::outer")
+			exploration := explore(t, runtime.DefaultExploreBudget, func() (*runtime.Context, error) {
+				return runtime.NewContext(ctx.Model(), 10000), nil
+			}, action)
+			if !exploration.Complete() {
+				t.Fatalf("exploration %s", exploration.Status())
+			}
+			failing, values := false, make(map[string]bool)
+			for _, o := range exploration.Outcomes {
+				if o.Outcome.Err != nil {
+					failing = true
+					continue
+				}
+				values[runtime.FormatValue(o.Outcome.Outputs["seen"])] = true
+			}
+			if failing != c.fails || len(values) != 1 || !values["7"] {
+				t.Fatalf("the interpreter's outcomes: fails=%v, seen in %v; want fails=%v, seen = 7 only", failing, values, c.fails)
+			}
+			enc, err := Encode(ctx, action, graph, held, nil, k, DefaultUnroll)
+			if err != nil {
+				t.Fatalf("encode: %v", err)
+			}
+			last := enc.States[k]
+			failed := solve.VarTerm(last.Failed)
+			seen := last.Values["test::outer::seen"]
+			if seen == nil {
+				t.Fatalf("no feature seen among %v", names(enc.Features))
+			}
+			is := eq(solve.VarTerm(seen), solve.IntTerm(7))
+			if got := status(t, solver, enc, k, solve.And(solve.Not(failed), is)); got != solve.StatusSat {
+				t.Errorf("seen = 7 on unfailed completion: %v, want sat", got)
+			}
+			if got := status(t, solver, enc, k, solve.And(solve.Not(failed), solve.Not(is))); got != solve.StatusUnsat {
+				t.Errorf("seen != 7 on unfailed completion: %v, want unsat", got)
+			}
+			if got := status(t, solver, enc, k, failed); (got == solve.StatusSat) != c.fails {
+				t.Errorf("completes failed: %v, want fails=%v", got, c.fails)
+			}
+		})
+	}
+}
+
+func TestEncodeStreamsConditionalWrite(t *testing.T) {
+	solver := requireSolver(t)
+	const k = 10
+	ctx, action, graph, held := loweredDocument(t, "conditional_stream_test.sysml", `package test {
+	private import ScalarValues::*;
+	action outer {
+		in enabled : Boolean;
+		attribute seen : Integer = -1;
+		first start;
+		action producer { out value : Integer = 5; if enabled { assign value := 7; } }
+		action consumer { in got : Integer = 0; assign seen := got; }
+		done;
+		succession first start then producer;
+		succession first producer then consumer;
+		succession first consumer then done;
+		flow producer.value to consumer.got;
+	}
+}`, "test::outer")
+	enc, err := Encode(ctx, action, graph, held, nil, k, DefaultUnroll)
+	if err != nil {
+		t.Fatalf("encode: %v", err)
+	}
+	last := enc.States[k]
+	failed := solve.VarTerm(last.Failed)
+	seen, enabled := last.Values["test::outer::seen"], last.Values["test::outer::enabled"]
+	if seen == nil || enabled == nil {
+		t.Fatalf("no features seen and enabled among %v", names(enc.Features))
+	}
+	if got := status(t, solver, enc, k, failed); got != solve.StatusUnsat {
+		t.Errorf("completes failed: %v, want unsat", got)
+	}
+	agree := eq(solve.VarTerm(seen), solve.Ite(solve.VarTerm(enabled), solve.IntTerm(7), solve.IntTerm(5)))
+	if got := status(t, solver, enc, k, solve.Not(agree)); got != solve.StatusUnsat {
+		t.Errorf("seen disagrees with the branch taken: %v, want unsat", got)
+	}
+}
+
+// TestEncodeStreamsBackToOwnPin: a plain flow from one pin of a node to another
+// reaches the performance under way, whatever order the pins are declared in and
+// whether the value it carries is the pin's declared one or a write in the body,
+// and streams on from there; flows leading it back are the interpreter's cycle error.
+func TestEncodeStreamsBackToOwnPin(t *testing.T) {
+	solver := requireSolver(t)
+	const k = 8
+	cases := []struct {
+		name, node, flows string
+		want              int64
+		cycle             bool
+	}{
+		{"target declared first", `action n { in back : Integer; out value : Integer = 5; assign seen := back; }`, `flow n.value to n.back;`, 5, false},
+		{"source declared first", `action n { out value : Integer = 5; in back : Integer = 0; assign seen := back; }`, `flow n.value to n.back;`, 5, false},
+		{"written in the body", `action n { in back : Integer; out value : Integer = 5; assign value := 7; assign seen := back; }`, `flow n.value to n.back;`, 7, false},
+		{"two hops", `action n { in far : Integer; in back : Integer; out value : Integer = 5; assign seen := far; }`, `flow n.value to n.back; flow n.back to n.far;`, 5, false},
+		{"cycle", `action n { in back : Integer; out value : Integer = 5; assign seen := back; }`, `flow n.value to n.back; flow n.back to n.value;`, 5, true},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			ctx, action, graph, held := loweredDocument(t, "own_pin_test.sysml", `package test {
+	private import ScalarValues::*;
+	action outer {
+		attribute seen : Integer = -1;
+		first start;
+		`+c.node+`
+		done;
+		succession first start then n;
+		succession first n then done;
+		`+c.flows+`
+	}
+}`, "test::outer")
+			exploration := explore(t, runtime.DefaultExploreBudget, func() (*runtime.Context, error) {
+				return runtime.NewContext(ctx.Model(), 10000), nil
+			}, action)
+			if !exploration.Complete() {
+				t.Fatalf("exploration %s", exploration.Status())
+			}
+			for _, o := range exploration.Outcomes {
+				if c.cycle {
+					if !errors.Is(o.Outcome.Err, runtime.ErrStreamCycle) {
+						t.Fatalf("the interpreter: err=%v, want %v", o.Outcome.Err, runtime.ErrStreamCycle)
+					}
+					continue
+				}
+				if o.Outcome.Err != nil || o.Outcome.Outputs["seen"].Const.Int != c.want {
+					t.Fatalf("the interpreter: err=%v seen=%s, want %d", o.Outcome.Err, runtime.FormatValue(o.Outcome.Outputs["seen"]), c.want)
+				}
+			}
+			enc, err := Encode(ctx, action, graph, held, nil, k, DefaultUnroll)
+			if err != nil {
+				t.Fatalf("encode: %v", err)
+			}
+			last := enc.States[k]
+			failed := solve.VarTerm(last.Failed)
+			if c.cycle {
+				if got := status(t, solver, enc, k, solve.Not(failed)); got != solve.StatusUnsat {
+					t.Errorf("unfailed: %v, want unsat", got)
+				}
+				return
+			}
+			seen := last.Values["test::outer::seen"]
+			if seen == nil {
+				t.Fatalf("no feature seen among %v", names(enc.Features))
+			}
+			is := eq(solve.VarTerm(seen), solve.IntTerm(c.want))
+			if got := status(t, solver, enc, k, solve.And(solve.Not(failed), is)); got != solve.StatusSat {
+				t.Errorf("seen = %d on unfailed completion: %v, want sat", c.want, got)
+			}
+			if got := status(t, solver, enc, k, solve.Or(failed, solve.Not(is))); got != solve.StatusUnsat {
+				t.Errorf("fails or seen != %d: %v, want unsat", c.want, got)
+			}
+		})
+	}
+}

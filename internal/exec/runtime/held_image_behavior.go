@@ -62,7 +62,15 @@ type imagedFrame struct {
 	outer      []imagedOuter
 	subactions map[ast.Node]int
 	pending    map[ast.Node]map[string][]Value
+	staged     map[ast.Node]map[string][]imagedStaged
 	nested     map[ast.Node][]nestedDelivery
+}
+
+// imagedStaged is a staged streaming write, its source performance by position.
+type imagedStaged struct {
+	source int
+	pin    string
+	at     int
 }
 
 // imagedOuter is one level of bindings around a performance, its performance by position.
@@ -108,6 +116,7 @@ type imagedState struct {
 	firingNotes        []RunNote
 	changeRearmed      map[*lower.Transition]bool
 	changeWaits        []changeWait
+	pendingCall        *pendingCall
 }
 
 // behavior takes one behavior's execution.
@@ -203,12 +212,14 @@ func (t *imaging) frame(perf *actionFrame, at func(*actionFrame) int) (imagedFra
 	}
 	f := imagedFrame{saved: *perf, parent: at(perf.parent)}
 	f.saved.parent, f.saved.locals, f.saved.outer, f.saved.data = nil, nil, nil, nil
-	f.saved.subactions, f.saved.pending, f.saved.nested = nil, nil, nil
+	f.saved.subactions, f.saved.pending, f.saved.staged, f.saved.nested = nil, nil, nil, nil
 	f.saved.connections = slices.Clone(perf.connections)
 	f.saved.features = maps.Clone(perf.features)
 	f.saved.aliases = maps.Clone(perf.aliases)
 	f.saved.outputs = slices.Clone(perf.outputs)
 	f.saved.nodes = slices.Clone(perf.nodes)
+	f.saved.streamed = maps.Clone(perf.streamed)
+	f.saved.unreceived = cloneUnreceived(perf.unreceived)
 	for _, local := range perf.locals {
 		if err := t.values(local); err != nil {
 			return imagedFrame{}, err
@@ -250,6 +261,17 @@ func (t *imaging) frame(perf *actionFrame, at func(*actionFrame) int) (imagedFra
 		}
 	}
 	f.pending = clonePending(perf.pending)
+	if perf.staged != nil {
+		f.staged = make(map[ast.Node]map[string][]imagedStaged, len(perf.staged))
+		for node, pins := range perf.staged {
+			f.staged[node] = make(map[string][]imagedStaged, len(pins))
+			for pin, entries := range pins {
+				for _, s := range entries {
+					f.staged[node][pin] = append(f.staged[node][pin], imagedStaged{source: at(s.source), pin: s.pin, at: s.at})
+				}
+			}
+		}
+	}
 	for _, deliveries := range perf.nested {
 		for _, d := range deliveries {
 			if err := t.value(d.value); err != nil {
@@ -294,6 +316,7 @@ func (t *imaging) stateExecutor(e *StateExecutor) (*imagedState, error) {
 		firingNotes:        slices.Clone(e.firingNotes),
 		changeRearmed:      maps.Clone(e.changeRearmed),
 		changeWaits:        slices.Clone(e.changeWaits),
+		pendingCall:        e.pendingCall.clone(),
 	}
 	var err error
 	if img.run, err = t.run(e.driven.state); err != nil {
@@ -301,6 +324,14 @@ func (t *imaging) stateExecutor(e *StateExecutor) (*imagedState, error) {
 	}
 	if err := t.values(e.stateData); err != nil {
 		return nil, err
+	}
+	if call := e.pendingCall; call != nil {
+		if err := t.values(call.outputs); err != nil {
+			return nil, fmt.Errorf("call: %w", err)
+		}
+		if err := t.values(call.inouts); err != nil {
+			return nil, fmt.Errorf("call: %w", err)
+		}
 	}
 	for node, attrs := range e.stateAttrs {
 		if err := t.values(attrs); err != nil {
@@ -487,6 +518,8 @@ func (m *materializing) frame(perf *actionFrame, img imagedFrame, frameAt func(i
 	perf.aliases = maps.Clone(img.saved.aliases)
 	perf.outputs = slices.Clone(img.saved.outputs)
 	perf.nodes = slices.Clone(img.saved.nodes)
+	perf.streamed = maps.Clone(img.saved.streamed)
+	perf.unreceived = cloneUnreceived(img.saved.unreceived)
 	var err error
 	perf.locals = nil
 	for _, local := range img.locals {
@@ -530,6 +563,17 @@ func (m *materializing) frame(perf *actionFrame, img imagedFrame, frameAt func(i
 				}
 			}
 			perf.pending[node] = carriedPins
+		}
+	}
+	if img.staged != nil {
+		perf.staged = make(map[ast.Node]map[string][]stagedStream, len(img.staged))
+		for node, pins := range img.staged {
+			perf.staged[node] = make(map[string][]stagedStream, len(pins))
+			for pin, entries := range pins {
+				for _, s := range entries {
+					perf.staged[node][pin] = append(perf.staged[node][pin], stagedStream{source: frameAt(s.source), pin: s.pin, at: s.at})
+				}
+			}
 		}
 	}
 	if img.nested != nil {
@@ -607,6 +651,24 @@ func (m *materializing) stateExecutor(e *StateExecutor, img *imagedState) error 
 	e.firingChange, e.firingNotes = img.firingChange, slices.Clone(img.firingNotes)
 	e.changeRearmed = maps.Clone(img.changeRearmed)
 	e.changeWaits = slices.Clone(img.changeWaits)
+	return m.pendingCall(e, img.pendingCall)
+}
+
+// pendingCall gives e the imaged call, its values carried as dst's own.
+func (m *materializing) pendingCall(e *StateExecutor, call *pendingCall) error {
+	if call == nil {
+		e.pendingCall = nil
+		return nil
+	}
+	carried := call.clone()
+	var err error
+	if carried.outputs, err = m.values(call.outputs); err != nil {
+		return err
+	}
+	if carried.inouts, err = m.values(call.inouts); err != nil {
+		return err
+	}
+	e.pendingCall = carried
 	return nil
 }
 
@@ -625,7 +687,7 @@ func (m *materializing) event(event Event) (Event, error) {
 		if err != nil {
 			return Event{}, fmt.Errorf("call %s: %w", payload.Operation, err)
 		}
-		out.Payload = Call{Operation: payload.Operation, Args: args}
+		out.Payload = Call{Operation: payload.Operation, Declared: payload.Declared, Args: args}
 	}
 	return out, nil
 }

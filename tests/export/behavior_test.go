@@ -293,6 +293,21 @@ func TestThenSequencesFromTheNameAnUnnamedUsageAnswersTo(t *testing.T) {
 	}
 }
 
+func TestThenBeforeUnnamedAssignmentRoundTrips(t *testing.T) {
+	src := "package P {\n    action A {\n        attribute x : Integer;\n        action a;\n        then assign x := 1;\n    }\n}\n"
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	back, err := convert.Convert("m.ttl", withoutSourceText(t, turtle), convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation from the mapping alone: %v\n%s", err, turtle)
+	}
+	if string(back) != src {
+		t.Fatalf("the notation changed\n--- want ---\n%s--- got ---\n%s", src, back)
+	}
+}
+
 // A `then` after `first start;` sequences from the member `start` names, the
 // one the initial node links to, so the graph reads back unchanged.
 func TestThenAfterFirstSequencesFromTheMemberTheStartNames(t *testing.T) {

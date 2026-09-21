@@ -27,8 +27,3 @@ directory here with its own build.
   synchronization are designed only; the discovery against release `v2026.9.0`, module layout,
   call sequence and phased plan are in
   [`docs/internals/design/syson-plugin.md`](../docs/internals/design/syson-plugin.md).
-
-No code lives here for [OpenCode](https://opencode.ai): the checkout's
-[`opencode.json`](../opencode.json) declares `sysml-lsp` to it, and the same block in a user's
-global configuration enables the server for every project; see
-[the guide](../docs/guide/08-editors.md#opencode).

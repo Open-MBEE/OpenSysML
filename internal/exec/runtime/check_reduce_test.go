@@ -28,6 +28,7 @@ var reductionCorpus = []reductionCase{
 	{file: "por_independent_branches", action: "parallel"},
 	{file: "por_alias", action: "aliased"},
 	{file: "por_address", action: "addressed"},
+	{file: "por_streaming_flow", action: "stream"},
 	{file: "por_constructor", action: "populate", library: true},
 	{file: "por_state_independent", action: "parallel", states: []string{"stepper"}},
 	{file: "por_state_effect_write", action: "watcher", states: []string{"lighter"}},

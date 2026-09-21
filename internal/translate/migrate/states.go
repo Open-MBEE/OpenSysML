@@ -18,6 +18,15 @@ const (
 )
 
 // stateMachineBody writes a state machine's regions as the body of its state def.
+
+// The note fragments the writer repeats.
+const (
+	doAction    = "do action"
+	exitAction  = "exit action"
+	notRun      = " is not run: "
+	performsIts = "a state performs its "
+)
+
 func (m *migration) stateMachineBody(sm *sysmlv1.Element) {
 	m.parameters(sm, sm)
 	for _, c := range sm.Children {
@@ -32,7 +41,7 @@ func (m *migration) stateMachineBody(sm *sysmlv1.Element) {
 	for _, cp := range sm.Owned("connectionPoint") {
 		m.connectionPoint(cp)
 	}
-	m.regions(sm, m.populatedRegions(sm), false, func() {})
+	m.regions(sm, m.populatedRegions(sm), false, func() { /* no extra nesting to write */ })
 }
 
 // nameMachine names every vertex of a machine down through its nested regions ahead of writing,
@@ -802,10 +811,10 @@ func (s *stateRegion) state(v *sysmlv1.Element) {
 		entered := entry != nil && s.m.inlineBehavior("entry action", entry, v)
 		between := func() {
 			if do != nil {
-				s.m.inlineBehavior("do action", do, v)
+				s.m.inlineBehavior(doAction, do, v)
 			}
 			if exit != nil {
-				s.m.inlineBehavior("exit action", exit, v)
+				s.m.inlineBehavior(exitAction, exit, v)
 			}
 			if len(points) > 0 {
 				s.m.statePoints(v)
@@ -899,56 +908,7 @@ func inheritedStateNamesSet() map[string]bool {
 // kw of the current body, and reports whether anything was written.
 func (m *migration) inlineBehavior(kw string, b, owner *sysmlv1.Element) bool {
 	if b.Parent != owner {
-		if !m.written(b) {
-			m.w.lines(commentLines(kw + " " + qualifiedName(b) + " has no v2 declaration"))
-			m.add(b, Unmapped, "", "the behavior is not written; "+describe(owner)+" names it as its "+kw)
-			return false
-		}
-		if cat, _ := m.classify(b); cat != catActionDef {
-			m.w.lines(commentLines(kw + " " + qualifiedName(b) + " is written as a " + cat.keyword() + ", which no state runs"))
-			m.downgrade(b, describe(owner)+" names it as its "+kw+", which a "+cat.keyword()+" cannot be")
-			return false
-		}
-		var ins []string
-		note := "also run as the " + kw + " of " + describe(owner)
-		if c := m.contextOf(b); c != nil {
-			expr, cnote := m.contextBinding(c, classifierOf(owner), "this")
-			if expr == "" {
-				m.w.lines(commentLines(kw + " " + qualifiedName(b) + " is not run: " + cnote))
-				m.downgrade(b, "not run as the "+kw+" of "+describe(owner)+": "+cnote)
-				m.add(owner, Approximated, "", "its "+kw+" "+qualifiedName(b)+" is not run: "+cnote)
-				return false
-			}
-			ins = append(ins, "in "+writeName(c.name)+" = "+expr)
-			note = joinNotes(note, cnote)
-		}
-		if params := inParameters(b); len(params) > 0 && owner.Type != "Transition" {
-			why := "a state performs its " + kw + " with no arguments; " + m.carrierWhy(owner, kw)
-			bound := m.carrierBindings(owner, b)
-			switch {
-			case bound != nil && kw != "exit action":
-				for _, p := range params {
-					ins = append(ins, m.parameterBinding(p, m.nameFor(p), bound[p]))
-				}
-				note = joinNotes(note, "its parameters take the attributes of the signal the transitions into the state accept")
-			case slices.IndexFunc(params, requiresValue) >= 0:
-				p := params[slices.IndexFunc(params, requiresValue)]
-				why = "its parameter " + m.nameFor(p) + " must hold a value that nothing supplies: " + why
-				m.w.lines(commentLines(kw + " " + qualifiedName(b) + " is not run: " + why))
-				m.downgrade(b, "not run as the "+kw+" of "+describe(owner)+": "+why)
-				m.add(owner, Approximated, "", "its "+kw+" "+qualifiedName(b)+" is not run: "+why)
-				return false
-			default:
-				note = joinNotes(note, "its parameters take no value: "+why)
-			}
-		}
-		if len(ins) > 0 {
-			m.w.line(kw + " : " + m.ref(b, owner) + " { " + strings.Join(ins, "; ") + "; }")
-		} else {
-			m.w.block(kw+" : "+m.ref(b, owner), func() {})
-		}
-		m.downgrade(b, note)
-		return true
+		return m.referencedBehavior(kw, b, owner)
 	}
 	saved := m.scope
 	m.scope = b
@@ -956,14 +916,14 @@ func (m *migration) inlineBehavior(kw string, b, owner *sysmlv1.Element) bool {
 	if owner.Type != "Transition" {
 		bound := m.carrierBindings(owner, b)
 		switch {
-		case bound != nil && kw != "exit action":
+		case bound != nil && kw != exitAction:
 			savedBound, savedNote := m.bound, m.boundNote
 			m.bound, m.boundNote = bound, "an attribute of the signal the transitions into the state accept"
 			defer func() { m.bound, m.boundNote = savedBound, savedNote }()
 		case owner.Type == "State":
-			m.unbound(b, joinNotes("a state performs its "+kw+" with no arguments", m.carrierWhy(owner, kw)))
+			m.unbound(b, joinNotes(performsIts+kw+" with no arguments", m.carrierWhy(owner, kw)))
 		default:
-			m.unbound(b, "a state performs its "+kw+" with no arguments; only a transition's effect receives the accepted signal")
+			m.unbound(b, performsIts+kw+" with no arguments; only a transition's effect receives the accepted signal")
 		}
 	}
 	header := kw
@@ -974,6 +934,12 @@ func (m *migration) inlineBehavior(kw string, b, owner *sysmlv1.Element) bool {
 		}
 		header += " " + writeName(name)
 	}
+	return m.writeInlineBody(kw, b, owner, header)
+}
+
+// writeInlineBody writes an inline behavior's block by its kind: an activity's
+// full body, an opaque body's statements or a comment, nothing otherwise.
+func (m *migration) writeInlineBody(kw string, b, owner *sysmlv1.Element, header string) bool {
 	switch b.Type {
 	case "Activity":
 		m.w.block(header, func() {
@@ -1008,6 +974,71 @@ func (m *migration) inlineBehavior(kw string, b, owner *sysmlv1.Element) bool {
 	m.w.lines(commentLines(kw + " " + describe(b) + isA + b.Type + ", which has no action form"))
 	m.add(b, Unmapped, "", "a "+b.Type+" has no action form")
 	return false
+}
+
+// referencedBehavior writes `kw : ref` for a behavior written elsewhere, binding
+// its context and signal-carried parameters where it can and reporting why not.
+func (m *migration) referencedBehavior(kw string, b, owner *sysmlv1.Element) bool {
+	if !m.written(b) {
+		m.w.lines(commentLines(kw + " " + qualifiedName(b) + " has no v2 declaration"))
+		m.add(b, Unmapped, "", "the behavior is not written; "+describe(owner)+" names it as its "+kw)
+		return false
+	}
+	if cat, _ := m.classify(b); cat != catActionDef {
+		m.w.lines(commentLines(kw + " " + qualifiedName(b) + " is written as a " + cat.keyword() + ", which no state runs"))
+		m.downgrade(b, describe(owner)+" names it as its "+kw+", which a "+cat.keyword()+" cannot be")
+		return false
+	}
+	var ins []string
+	note := "also run as the " + kw + " of " + describe(owner)
+	if c := m.contextOf(b); c != nil {
+		expr, cnote := m.contextBinding(c, classifierOf(owner), "this")
+		if expr == "" {
+			m.w.lines(commentLines(kw + " " + qualifiedName(b) + notRun + cnote))
+			m.downgrade(b, "not run as the "+kw+" of "+describe(owner)+": "+cnote)
+			m.add(owner, Approximated, "", "its "+kw+" "+qualifiedName(b)+notRun+cnote)
+			return false
+		}
+		ins = append(ins, "in "+writeName(c.name)+" = "+expr)
+		note = joinNotes(note, cnote)
+	}
+	if params := inParameters(b); len(params) > 0 && owner.Type != "Transition" {
+		var ok bool
+		ins, note, ok = m.parameterIns(kw, b, owner, params, ins, note)
+		if !ok {
+			return false
+		}
+	}
+	if len(ins) > 0 {
+		m.w.line(kw + " : " + m.ref(b, owner) + " { " + strings.Join(ins, "; ") + "; }")
+	} else {
+		m.w.block(kw+" : "+m.ref(b, owner), func() {})
+	}
+	m.downgrade(b, note)
+	return true
+}
+
+// parameterIns binds a referenced behavior's parameters: the carrier's signal
+// attributes when it has one, otherwise it reports what nothing supplies.
+func (m *migration) parameterIns(kw string, b, owner *sysmlv1.Element, params []*sysmlv1.Element, ins []string, note string) ([]string, string, bool) {
+	why := performsIts + kw + " with no arguments; " + m.carrierWhy(owner, kw)
+	bound := m.carrierBindings(owner, b)
+	switch {
+	case bound != nil && kw != exitAction:
+		for _, p := range params {
+			ins = append(ins, m.parameterBinding(p, m.nameFor(p), bound[p]))
+		}
+		return ins, joinNotes(note, "its parameters take the attributes of the signal the transitions into the state accept"), true
+	case slices.IndexFunc(params, requiresValue) >= 0:
+		p := params[slices.IndexFunc(params, requiresValue)]
+		why = "its parameter " + m.nameFor(p) + " must hold a value that nothing supplies: " + why
+		m.w.lines(commentLines(kw + " " + qualifiedName(b) + notRun + why))
+		m.downgrade(b, "not run as the "+kw+" of "+describe(owner)+": "+why)
+		m.add(owner, Approximated, "", "its "+kw+" "+qualifiedName(b)+notRun+why)
+		return ins, note, false
+	default:
+		return ins, joinNotes(note, "its parameters take no value: "+why), true
+	}
 }
 
 // path names vertex v from region s.r: its name when the region holds it, else
@@ -1183,29 +1214,9 @@ func (s *stateRegion) connection(t, v *sysmlv1.Element, role string) (string, bo
 // transition writes a transition: one per trigger, since a v2 transition
 // accepts one, sharing the guard and effect.
 func (s *stateRegion) transition(t *sysmlv1.Element) {
-	src, tgt := s.m.model.Ref(t, "source"), s.m.model.Ref(t, "target")
-	internal := t.Attrs["kind"] == "internal"
-	if internal && tgt == nil && len(s.m.model.Unresolved(t, "target")) == 0 {
-		// An internal transition stays in its source; some tools write it with no target.
-		tgt = src
-	}
-	if src == nil || tgt == nil {
-		s.m.unmapped(t, joinNotes(s.m.dangling(t, "source", "target"), "the transition lacks an end"))
+	src, tgt, internal, ok := s.transitionEnds(t)
+	if !ok {
 		return
-	}
-	if pseudoKind(src) == "initial" {
-		// Written as the region's entry.
-		return
-	}
-	if internal {
-		if src.Type != "State" {
-			s.m.unmapped(t, "the source "+describe(src)+isA+kindOf(src)+", and only a state has an internal transition")
-			return
-		}
-		if tgt != src {
-			s.m.unmapped(t, "an internal transition targets "+describe(tgt)+", not its source "+describe(src)+"; whether it stays or moves cannot be told")
-			return
-		}
 	}
 	if transient(src) && (pseudoKind(tgt) == "shallowHistory" || pseudoKind(tgt) == "deepHistory") {
 		s.m.unmapped(t, "the runtime does not follow a transition from a "+pseudoKind(src)+" pseudostate on into the history pseudostate "+describe(tgt))
@@ -1224,44 +1235,16 @@ func (s *stateRegion) transition(t *sysmlv1.Element) {
 		}
 	}
 	triggers := t.Owned("trigger")
-	var notes []string
-	switch {
-	case internal:
-		if len(triggers) == 0 {
-			s.m.unmapped(t, "an internal transition without a trigger has no v2 form: a self transition would fire again on every re-entry")
-			return
-		}
-		if !s.m.reentryObservable(src) {
-			s.m.add(t, Mapped, "", "an internal transition is written as a self transition; "+from+" has no entry, exit or do behavior and no substates, so re-entering it is not observable")
-			break
-		}
-		notes = append(notes, "an internal transition is written as a self transition, which exits and re-enters "+from+" where v1 stayed in it, running its exit and entry behaviors")
-	case t.Attrs["kind"] == "local":
-		notes = append(notes, "a local transition is written external: the composite state "+from+" exits and re-enters where v1 stayed in it, running its exit and entry behaviors")
+	notes, done := s.kindNotes(t, src, internal, len(triggers), from)
+	if done {
+		return
 	}
 	guard, gnote := s.guard(t, src)
 	eff := firstOwned(t, "effect")
-	var accepts []acceptance
-	var info []string
-	written := 0
 	if gnote != "" {
 		notes = append(notes, gnote)
 	}
-	for _, tr := range triggers {
-		a, note, ok := s.triggerAccept(t, tr, eff, tgt)
-		if !ok {
-			notes = append(notes, note)
-			continue
-		}
-		written++
-		routes, rinfo, rnote := s.routes(tr, a)
-		if rinfo != "" {
-			info = append(info, rinfo)
-		}
-		note = joinNotes(note, rnote)
-		s.m.add(tr, verdictFor(note), "", joinNotes(note, rinfo))
-		accepts = append(accepts, routes...)
-	}
+	accepts, notes, info, written := s.transitionAccepts(t, triggers, eff, tgt, notes)
 	if len(triggers) > 0 && len(accepts) == 0 {
 		s.m.w.lines(commentLines("transition " + describe(t) + " from " + from + " to " + to + " not migrated — " + strings.Join(notes, "; ")))
 		s.m.add(t, Unmapped, "", "every trigger is dropped, so the transition would fire at once: "+strings.Join(notes, "; "))
@@ -1279,6 +1262,89 @@ func (s *stateRegion) transition(t *sysmlv1.Element) {
 	if s.m.nameOf(t) != "" {
 		tname = freshIn(s.used, s.m.nameOf(t))
 	}
+	s.writeAccepts(t, accepts, tname, guard, eff, from, to)
+	note := strings.Join(notes, "; ")
+	s.m.add(t, verdictFor(note), tname, joinNotes(note, strings.Join(info, "; ")))
+}
+
+// kindNotes notes how an internal or local transition's semantics change in
+// v2; done reports an internal transition with no trigger, which is unmapped.
+func (s *stateRegion) kindNotes(t, src *sysmlv1.Element, internal bool, triggers int, from string) (notes []string, done bool) {
+	switch {
+	case internal:
+		if triggers == 0 {
+			s.m.unmapped(t, "an internal transition without a trigger has no v2 form: a self transition would fire again on every re-entry")
+			return nil, true
+		}
+		if !s.m.reentryObservable(src) {
+			s.m.add(t, Mapped, "", "an internal transition is written as a self transition; "+from+" has no entry, exit or do behavior and no substates, so re-entering it is not observable")
+			return nil, false
+		}
+		return []string{"an internal transition is written as a self transition, which exits and re-enters " + from + " where v1 stayed in it, running its exit and entry behaviors"}, false
+	case t.Attrs["kind"] == "local":
+		return []string{"a local transition is written external: the composite state " + from + " exits and re-enters where v1 stayed in it, running its exit and entry behaviors"}, false
+	}
+	return nil, false
+}
+
+// transitionEnds resolves a transition's source and target, checking the ends
+// exist, an initial source is skipped, and an internal one stays in its source.
+// False means the transition is done or unmapped.
+func (s *stateRegion) transitionEnds(t *sysmlv1.Element) (src, tgt *sysmlv1.Element, internal, ok bool) {
+	src, tgt = s.m.model.Ref(t, "source"), s.m.model.Ref(t, "target")
+	internal = t.Attrs["kind"] == "internal"
+	if internal && tgt == nil && len(s.m.model.Unresolved(t, "target")) == 0 {
+		// An internal transition stays in its source; some tools write it with no target.
+		tgt = src
+	}
+	if src == nil || tgt == nil {
+		s.m.unmapped(t, joinNotes(s.m.dangling(t, "source", "target"), "the transition lacks an end"))
+		return nil, nil, internal, false
+	}
+	if pseudoKind(src) == "initial" {
+		// Written as the region's entry.
+		return nil, nil, internal, false
+	}
+	if internal {
+		if src.Type != "State" {
+			s.m.unmapped(t, "the source "+describe(src)+isA+kindOf(src)+", and only a state has an internal transition")
+			return nil, nil, internal, false
+		}
+		if tgt != src {
+			s.m.unmapped(t, "an internal transition targets "+describe(tgt)+", not its source "+describe(src)+"; whether it stays or moves cannot be told")
+			return nil, nil, internal, false
+		}
+	}
+	return src, tgt, internal, true
+}
+
+// transitionAccepts writes one acceptance per usable trigger, noting the ones
+// dropped; returns the acceptances, updated notes and infos, and how many were written.
+func (s *stateRegion) transitionAccepts(t *sysmlv1.Element, triggers []*sysmlv1.Element, eff, tgt *sysmlv1.Element, notes []string) ([]acceptance, []string, []string, int) {
+	var accepts []acceptance
+	var info []string
+	written := 0
+	for _, tr := range triggers {
+		a, note, ok := s.triggerAccept(t, tr, eff, tgt)
+		if !ok {
+			notes = append(notes, note)
+			continue
+		}
+		written++
+		routes, rinfo, rnote := s.routes(tr, a)
+		if rinfo != "" {
+			info = append(info, rinfo)
+		}
+		note = joinNotes(note, rnote)
+		s.m.add(tr, verdictFor(note), "", joinNotes(note, rinfo))
+		accepts = append(accepts, routes...)
+	}
+	return accepts, notes, info, written
+}
+
+// writeAccepts writes one transition line per acceptance, each with the guard,
+// an effect body when there is one, and the target.
+func (s *stateRegion) writeAccepts(t *sysmlv1.Element, accepts []acceptance, tname, guard string, eff *sysmlv1.Element, from, to string) {
 	for i, accept := range accepts {
 		line := "transition "
 		if tname != "" {
@@ -1295,8 +1361,6 @@ func (s *stateRegion) transition(t *sysmlv1.Element) {
 		}
 		s.m.w.line(line + " then " + to + ";")
 	}
-	note := strings.Join(notes, "; ")
-	s.m.add(t, verdictFor(note), tname, joinNotes(note, strings.Join(info, "; ")))
 }
 
 // routes writes the acceptances a trigger stands for: as read when taken from the object itself,
@@ -1379,12 +1443,12 @@ func (s *stateRegion) writeTransitionEffect(t, eff *sysmlv1.Element, accept acce
 	s.m.w.indented(func() {
 		s.m.w.braced(func() {
 			if eff == nil {
-				s.m.w.block("do action", func() { s.m.w.line(accept.keeping) })
+				s.m.w.block(doAction, func() { s.m.w.line(accept.keeping) })
 				return
 			}
 			saved, savedKeep := s.m.bound, s.m.keeping
 			s.m.bound, s.m.keeping = accept.bound, accept.keeping
-			s.m.inlineBehavior("do action", eff, t)
+			s.m.inlineBehavior(doAction, eff, t)
 			s.m.bound, s.m.keeping = saved, savedKeep
 		})
 		s.m.w.line("then " + to + ";")

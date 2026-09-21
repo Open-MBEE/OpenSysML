@@ -714,62 +714,89 @@ func documentForm() (string, error) {
 	}
 	switch form := docFormOrDefault(); form {
 	case docFormMarkdown:
-		if htmlFlagsGiven() {
-			return "", errors.New("the -html- options shape HTML output; ask for it with -doc-form html")
-		}
-		if pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering {
-			return "", errors.New("-pdf-engine and the title page, contents and numbering options shape HTML and PDF output; ask for one with -doc-form html or -doc-form pdf")
-		}
-		return form, nil
+		return checkMarkdownForm(form)
 	case docFormHTML:
-		if pdfEngine != "" {
-			return "", errors.New("-pdf-engine shapes PDF output; -doc-form html needs no external converter")
-		}
-		if htmlFragment && htmlNoCSS {
-			return "", errors.New("-html-fragment already writes no stylesheet; -html-no-default-css leaves the default sheet out of a whole page")
-		}
-		if htmlFragment && len(htmlCSS) > 0 {
-			return "", errors.New("-html-fragment writes the document element alone, with no place for a stylesheet; style the page you embed it in")
-		}
-		if htmlFragment && htmlMermaid != "" {
-			return "", errors.New("-html-fragment writes the document element alone, with no place for a script; load Mermaid in the page you embed it in")
-		}
-		if htmlFragment && htmlMath != "" {
-			return "", errors.New("-html-fragment writes the document element alone, with no place for a script; load MathJax in the page you embed it in")
-		}
-		if err := checkMermaidScript(); err != nil {
-			return "", err
-		}
-		if err := checkMathScript(); err != nil {
-			return "", err
-		}
-		if htmlFragment && htmlTheme != "" {
-			return "", errors.New("-html-fragment writes the document element alone, with no place for a stylesheet; -html-theme styles a whole page")
-		}
-		if err := checkThemeUse(); err != nil {
-			return "", err
-		}
-		return form, nil
+		return checkHTMLForm(form)
 	case docFormPDF:
-		if htmlFragment {
-			return "", errors.New("-html-fragment writes the document element alone for embedding in a page; a PDF is laid out from a whole page")
-		}
-		if htmlMermaid != "" {
-			return "", errors.New("-html-mermaid loads a script into an HTML page; a PDF draws its diagrams with mermaid-cli ahead of the converter")
-		}
-		if htmlMath != "" {
-			return "", errors.New("-html-math loads a script into an HTML page; a PDF typesets its formulas with KaTeX ahead of the converter")
-		}
-		if err := checkThemeUse(); err != nil {
-			return "", err
-		}
-		if outputPath == "" {
-			return "", errors.New("-doc-form pdf writes a binary artifact; name the file to write with -o")
-		}
-		return form, nil
+		return checkPDFForm(form)
 	default:
 		return "", unknownDocumentForm(form)
 	}
+}
+
+// checkMarkdownForm refuses the HTML and PDF options, which do not apply.
+func checkMarkdownForm(form string) (string, error) {
+	if htmlFlagsGiven() {
+		return "", errors.New("the -html- options shape HTML output; ask for it with -doc-form html")
+	}
+	if pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering {
+		return "", errors.New("-pdf-engine and the title page, contents and numbering options shape HTML and PDF output; ask for one with -doc-form html or -doc-form pdf")
+	}
+	return form, nil
+}
+
+// checkHTMLForm checks the HTML option combination and the scripts and theme it names.
+func checkHTMLForm(form string) (string, error) {
+	if pdfEngine != "" {
+		return "", errors.New("-pdf-engine shapes PDF output; -doc-form html needs no external converter")
+	}
+	if err := checkFragmentOptions(); err != nil {
+		return "", err
+	}
+	if err := checkMermaidScript(); err != nil {
+		return "", err
+	}
+	if err := checkMathScript(); err != nil {
+		return "", err
+	}
+	if htmlFragment && htmlTheme != "" {
+		return "", errors.New("-html-fragment writes the document element alone, with no place for a stylesheet; -html-theme styles a whole page")
+	}
+	if err := checkThemeUse(); err != nil {
+		return "", err
+	}
+	return form, nil
+}
+
+// checkFragmentOptions refuses the stylesheet, script and theme options a
+// fragment has no place for.
+func checkFragmentOptions() error {
+	if !htmlFragment {
+		return nil
+	}
+	if htmlNoCSS {
+		return errors.New("-html-fragment already writes no stylesheet; -html-no-default-css leaves the default sheet out of a whole page")
+	}
+	if len(htmlCSS) > 0 {
+		return errors.New("-html-fragment writes the document element alone, with no place for a stylesheet; style the page you embed it in")
+	}
+	if htmlMermaid != "" {
+		return errors.New("-html-fragment writes the document element alone, with no place for a script; load Mermaid in the page you embed it in")
+	}
+	if htmlMath != "" {
+		return errors.New("-html-fragment writes the document element alone, with no place for a script; load MathJax in the page you embed it in")
+	}
+	return nil
+}
+
+// checkPDFForm refuses the HTML options a PDF does not use and requires -o.
+func checkPDFForm(form string) (string, error) {
+	if htmlFragment {
+		return "", errors.New("-html-fragment writes the document element alone for embedding in a page; a PDF is laid out from a whole page")
+	}
+	if htmlMermaid != "" {
+		return "", errors.New("-html-mermaid loads a script into an HTML page; a PDF draws its diagrams with mermaid-cli ahead of the converter")
+	}
+	if htmlMath != "" {
+		return "", errors.New("-html-math loads a script into an HTML page; a PDF typesets its formulas with KaTeX ahead of the converter")
+	}
+	if err := checkThemeUse(); err != nil {
+		return "", err
+	}
+	if outputPath == "" {
+		return "", errors.New("-doc-form pdf writes a binary artifact; name the file to write with -o")
+	}
+	return form, nil
 }
 
 // writePDFArtifact writes the PDF bytes to -o, byte-exact.
