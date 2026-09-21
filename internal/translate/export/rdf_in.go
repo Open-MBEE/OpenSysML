@@ -2152,6 +2152,21 @@ func (d *decoder) importedName(el *element) (string, error) {
 				len(memberships)+len(namespaces), curieList([]string{pImportedMembership, pImportedNamespace})),
 		}
 	}
+	// A concrete import class fixes which property names its target; the wrong
+	// one would be written with the other kind's syntax and import a different set.
+	namespaceClass := el.metaclass == mNamespaceImport || el.metaclass == mNamespaceExpose
+	membershipClass := el.metaclass == mMembershipImport || el.metaclass == mMembershipExpose
+	if (namespaceClass && len(memberships) > 0) || (membershipClass && len(namespaces) > 0) {
+		stated, wanted := pImportedMembership, pImportedNamespace
+		if membershipClass {
+			stated, wanted = pImportedNamespace, pImportedMembership
+		}
+		return "", &UnsupportedError{
+			What: fmt.Sprintf("the import <%s>", el.iri),
+			Note: fmt.Sprintf("a %s names its target with %s%s, and it states %s%s instead, so writing it as either kind would import a different set",
+				sysmlPrefix+el.metaclass, sysmlPrefix, wanted, sysmlPrefix, stated),
+		}
+	}
 	if len(memberships) == 0 {
 		return d.referenceText(el, rdf.SysML+pImportedNamespace)
 	}
