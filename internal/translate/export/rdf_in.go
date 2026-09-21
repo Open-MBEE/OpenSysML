@@ -49,9 +49,6 @@ type element struct {
 	// local marks a declaration inside an expression body: no member of a
 	// namespace, so it has no qualified name and its id is its position.
 	local bool
-	// bodyParameter marks a body-parameter reference whose spelling is relative
-	// to the surrounding expression scope rather than the model namespace.
-	bodyParameter bool
 	// ProjectRef provenance of a scope root, written back as an annotation.
 	projectID, branch, org string
 	// scope is the qualified name of the namespace this element is declared
@@ -2847,9 +2844,6 @@ func (d *decoder) referenceName(term rdf.Term, el *element) (string, error) {
 		return "", err
 	}
 	spelled := d.spelledName(target)
-	if el.bodyParameter {
-		return qualifiedNameText(relativeName(spelled, el.scope)), nil
-	}
 	key := nameKey{member: el.qname, target: target.qname}
 	written := spelled
 	if d.names != nil {

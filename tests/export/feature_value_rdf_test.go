@@ -136,6 +136,34 @@ func TestFeatureValueCanBeStatedOnlyOnItsMembership(t *testing.T) {
 	}
 }
 
+func TestDirectAndFeatureValueExpressionsRenderOnce(t *testing.T) {
+	src := []byte(`package P {
+    attribute limit : Integer;
+    attribute xs : Integer[*];
+    attribute total = xs->collect({ in limit : Integer = limit; limit });
+}`)
+	turtle, err := convert.Convert("duplicate.sysml", src, convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("encode duplicate value routes: %v", err)
+	}
+	if !strings.Contains(string(turtle), "elmt:P__total\n") ||
+		!strings.Contains(string(turtle), "sysml:value expr:P__total_pvalue ;") ||
+		!strings.Contains(string(turtle), "sysml:featureWithValue elmt:P__total ;\n    sysml:value expr:P__total_pvalue .") {
+		t.Fatalf("encoder did not provide both value routes:\n%s", turtle)
+	}
+	out, err := convert.Convert("duplicate.ttl", withoutSourceText(t, turtle), convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("decode duplicate value routes: %v", err)
+	}
+	got := string(out)
+	if want := "xs->collect({ in limit : Integer = limit; limit })"; !strings.Contains(got, want) {
+		t.Fatalf("duplicate value routes changed the shortest reference:\n%s", got)
+	}
+	if count := strings.Count(got, "= limit;"); count != 1 {
+		t.Fatalf("expression reference rendered %d times, want once:\n%s", count, got)
+	}
+}
+
 func TestConflictingUsageAndFeatureValueAreRefused(t *testing.T) {
 	src := `package P {
     attribute a : Integer;
