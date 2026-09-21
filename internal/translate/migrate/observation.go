@@ -204,7 +204,7 @@ func (a *activity) writeLeafStep(n *sysmlv1.Element, name string) {
 // step is not written: what it fails to resolve and the pins nothing computes.
 func (a *activity) unbehaved(n *sysmlv1.Element) string {
 	note := "the action calls no behavior"
-	if pins := append(inputPins(n), append(n.Owned("result"), n.Owned("outputValue")...)...); len(pins) > 0 {
+	if pins := append(inputPins(n), outputPins(n)...); len(pins) > 0 {
 		var names []string
 		for _, p := range pins {
 			names = append(names, describe(p))

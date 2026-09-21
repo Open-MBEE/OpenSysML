@@ -39,6 +39,22 @@ func (m *migration) activityBody(act, def *sysmlv1.Element) {
 	a.rules()
 }
 
+// nodesRefused counts, once act's body is written, the actions among its
+// nodes reported unmapped, and those actions in all; control nodes structure
+// the flow and are left out.
+func (m *migration) nodesRefused(act *sysmlv1.Element) (refused, total int) {
+	for _, n := range act.Owned("node") {
+		if nodeKind(n) != nodeAction {
+			continue
+		}
+		total++
+		if i, ok := m.indexed[n.ID]; ok && m.report.Entries[i].Verdict == Unmapped {
+			refused++
+		}
+	}
+	return refused, total
+}
+
 // activity writes one node graph: an activity's, or a structured node's.
 type activity struct {
 	m   *migration
@@ -80,6 +96,8 @@ type activity struct {
 	edgeSelf    map[*sysmlv1.Element]bool
 	// inert marks the nodes written as placeholders, whose output pins no value reaches.
 	inert map[*sysmlv1.Element]bool
+	// computed is the v2 expression an output pin is declared with, when a library primitive gives its value.
+	computed map[*sysmlv1.Element]string
 	// receivers maps a call's target pin to the receiver path its perform names instead.
 	receivers map[*sysmlv1.Element]string
 	// dataOnly marks the object flows that carry a value into an action without
@@ -139,6 +157,7 @@ func (m *migration) newActivity(act, def *sysmlv1.Element) *activity {
 		edgeSelf:    map[*sysmlv1.Element]bool{},
 		written:     map[[2]*sysmlv1.Element]bool{},
 		inert:       map[*sysmlv1.Element]bool{},
+		computed:    map[*sysmlv1.Element]string{},
 		receivers:   map[*sysmlv1.Element]string{},
 		before:      map[*sysmlv1.Element]*stamp{},
 		after:       map[*sysmlv1.Element]*stamp{},
@@ -1329,10 +1348,15 @@ func inputPins(n *sysmlv1.Element) []*sysmlv1.Element {
 	return append(ins, n.Owned("insertAt")...)
 }
 
+// outputPins lists the output pins of an action, results first.
+func outputPins(n *sysmlv1.Element) []*sysmlv1.Element {
+	return append(n.Owned("result"), n.Owned("outputValue")...)
+}
+
 // pins declares an untyped action usage's pins as its parameters and records how a
 // flow refers to each; a typed usage's pins stand for params, its definition's, in order.
 func (a *activity) pins(n *sysmlv1.Element, typed bool, params []*sysmlv1.Element) {
-	a.declarePins(n, inputPins(n), append(n.Owned("result"), n.Owned("outputValue")...), typed, params)
+	a.declarePins(n, inputPins(n), outputPins(n), typed, params)
 }
 
 // declarePins declares the given input and output pins of n; see pins.
@@ -1371,7 +1395,7 @@ func (a *activity) declarePins(n *sysmlv1.Element, ins, outs []*sysmlv1.Element,
 		}
 		mult, mnote := a.m.multiplicity(pin)
 		note = joinNotes(note, mnote)
-		decl += mult
+		decl += mult + collection(pin)
 		if v := firstOwned(pin, "value"); v != nil && pin.Type == "ValuePin" {
 			expr, ok, vnote := a.m.typedBehaviorValue(v, pin, n)
 			if ok {
@@ -1380,6 +1404,9 @@ func (a *activity) declarePins(n *sysmlv1.Element, ins, outs []*sysmlv1.Element,
 			} else {
 				note = joinNotes(note, "the value pin's value "+describeValue(v)+" is not written: "+vnote)
 			}
+		}
+		if expr, ok := a.computed[pin]; ok {
+			decl += " = " + expr
 		}
 		a.m.w.line(decl + ";")
 		a.m.add(pin, verdictFor(note), a.m.v2Name(n)+"."+pname, note)
@@ -1423,7 +1450,7 @@ func (a *activity) settlePins(n *sysmlv1.Element) {
 	for _, pin := range inputPins(n) {
 		a.settlePin(n, pin, "in", used)
 	}
-	for _, pin := range append(n.Owned("result"), n.Owned("outputValue")...) {
+	for _, pin := range outputPins(n) {
 		a.settlePin(n, pin, "out", used)
 	}
 }
@@ -1437,7 +1464,7 @@ type pinDecl struct {
 
 // pinNamed is the pin of node n a body names, with its declaration; nil when none.
 func (m *migration) pinNamed(n *sysmlv1.Element, name string) (*sysmlv1.Element, pinDecl) {
-	pins := append(inputPins(n), append(n.Owned("result"), n.Owned("outputValue")...)...)
+	pins := append(inputPins(n), outputPins(n)...)
 	for _, p := range pins {
 		if d, ok := m.pins[p]; ok && m.nameOf(p) == name {
 			return p, d
@@ -1629,6 +1656,10 @@ func (a *activity) callBehavior(n *sysmlv1.Element, name string) {
 		a.placeholder(n, name, why, v)
 		return
 	}
+	if p := a.m.primitiveCalled(n); p != nil {
+		a.callPrimitive(n, name, p)
+		return
+	}
 	b := a.m.model.Ref(n, "behavior")
 	if b == nil {
 		a.writeLeafStep(n, name)
@@ -1681,6 +1712,32 @@ func (a *activity) callBehavior(n *sysmlv1.Element, name string) {
 	a.m.add(n, Approximated, name, "the calc "+qualifiedName(b)+" is evaluated when the action runs; a calc is no action node")
 }
 
+// callPrimitive writes a call to a behavior of the fUML or Alf library as an action
+// whose output pins take the v2 library expressions over its input pins, in v1 order.
+func (a *activity) callPrimitive(n *sysmlv1.Element, name string, p *primitiveCall) {
+	a.settlePins(n)
+	args := make([]string, len(p.ins))
+	for i := range args {
+		args[i] = "null"
+	}
+	ins := inputPins(n)
+	for i, pin := range ins[:min(len(ins), len(args))] {
+		args[i] = writeName(a.m.pins[pin].name)
+	}
+	outs := outputPins(n)
+	for i, pin := range outs[:min(len(outs), len(p.outs))] {
+		a.computed[pin] = p.result(i, args)
+	}
+	a.m.w.block(actionKw+name, func() { a.pins(n, false, nil) })
+	for _, pin := range ins[min(len(ins), len(args)):] {
+		a.m.add(pin, Unmapped, "", p.qualified()+" takes "+strconv.Itoa(len(args))+" argument(s); the pin passes nothing")
+	}
+	for _, pin := range outs[min(len(outs), len(p.outs)):] {
+		a.m.add(pin, Unmapped, "", p.qualified()+" gives "+strconv.Itoa(len(p.outs))+" result(s); the pin takes nothing")
+	}
+	a.m.add(n, p.verdict, name, joinNotes(joinNotes("calls "+p.qualified()+", which the v2 library computes", p.provenance), p.note))
+}
+
 // classifierOf returns the classifier a behavior belongs to: the nearest
 // enclosing element that is no behavior, operation or part of a state machine,
 // nil for a package.
@@ -1707,7 +1764,7 @@ func (a *activity) callOperation(n *sysmlv1.Element, name string) {
 	op := a.m.model.Ref(n, "operation")
 	t := firstOwned(n, "target")
 	ins := slices.DeleteFunc(inputPins(n), func(p *sysmlv1.Element) bool { return p == t })
-	outs := append(n.Owned("result"), n.Owned("outputValue")...)
+	outs := outputPins(n)
 	receiver, note, ok := a.receiverOf(t, op)
 	port := a.m.model.Ref(n, "onPort")
 	if port != nil {
@@ -1779,7 +1836,7 @@ func (a *activity) opaqueOf(n *sysmlv1.Element) *opaqueResult {
 	body, lang := opaqueBody(n)
 	r := &opaqueResult{assigned: map[*sysmlv1.Element]bool{}}
 	r.lines, r.ok, r.note = a.m.statements(body, lang, n)
-	for _, p := range append(n.Owned("result"), n.Owned("outputValue")...) {
+	for _, p := range outputPins(n) {
 		d, ok := a.m.pins[p]
 		if ok && slices.ContainsFunc(r.lines, func(l string) bool { return strings.HasPrefix(l, "assign "+writeName(d.name)+" :=") }) {
 			r.assigned[p] = true

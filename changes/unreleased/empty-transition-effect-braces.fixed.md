@@ -1,0 +1,1 @@
+- **The SysML v1 migrator writes a transition effect with no body as `do action effect { }`.** An effect activity with no nodes was written `do action effect;`, which ended the transition clause before its `then`, a syntax error in the migrated notation; the braces are now kept so the `then` still belongs to the transition.
