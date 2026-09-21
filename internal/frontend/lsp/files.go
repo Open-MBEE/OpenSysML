@@ -232,16 +232,20 @@ func (s *Server) DidChangeWorkspaceFolders(ctx context.Context, params *protocol
 
 // maxOpenedDirs bounds the directories the scan for an opened document's
 // siblings visits: the document's directory was not chosen as a workspace, and
-// may be a home directory or the filesystem root.
+// may be a home directory.
 const maxOpenedDirs = 2000
 
 // indexOpenedDirectory indexes the directory of a document opened outside every
-// folder, so sibling imports resolve; it is rescanned once all its documents close.
+// folder, so sibling imports resolve; it is rescanned once all its documents
+// close. The filesystem root is never indexed: walking it can take minutes.
 func (s *Server) indexOpenedDirectory(name string) {
 	if !filepath.IsAbs(name) {
 		return
 	}
 	dir := filepath.Dir(name)
+	if dir == filepath.VolumeName(name)+string(filepath.Separator) {
+		return
+	}
 	s.mu.Lock()
 	if underAnyFolder(name, s.folders) || s.openDirs[dir] {
 		s.mu.Unlock()

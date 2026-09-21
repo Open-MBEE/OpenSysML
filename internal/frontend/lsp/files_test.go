@@ -709,6 +709,30 @@ func TestOpeningFileOutsideFoldersIndexesItsDirectory(t *testing.T) {
 	}
 }
 
+// A document at the filesystem root indexes no siblings: scanning it would
+// walk the whole filesystem.
+func TestOpeningFileAtFilesystemRootIndexesNothing(t *testing.T) {
+	s := NewServer(model.NewWorkspace())
+	fc := &fakeClient{}
+	s.client = fc
+	ctx := context.Background()
+	if _, err := s.Initialize(ctx, &protocol.InitializeParams{}); err != nil {
+		t.Fatalf("Initialize err = %v", err)
+	}
+	if err := s.Initialized(ctx, &protocol.InitializedParams{}); err != nil {
+		t.Fatalf("Initialized err = %v", err)
+	}
+
+	name := filepath.Join(string(filepath.Separator), "m.sysml")
+	openFile(t, s, name, "package M {\n    part def A;\n}\n")
+	if len(s.openDirs) != 0 {
+		t.Errorf("openDirs = %v, want none", s.openDirs)
+	}
+	if msgs := diagnosticsFor(fc, name); len(msgs) != 0 {
+		t.Fatalf("diagnostics for %s = %v, want none", name, msgs)
+	}
+}
+
 // The directory scan an open document triggers never overwrites another open
 // buffer, whose text the editor owns.
 func TestOpeningFileOutsideFoldersKeepsOpenBuffers(t *testing.T) {
