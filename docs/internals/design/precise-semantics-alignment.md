@@ -1220,7 +1220,11 @@ discarded occurrence does (`state_call_trigger_results`; `TestRuntimeRobustnessC
 held, recalled, untaken, empty, repeated and erroring calls, the caller released ahead of the
 completion step and the timer its step set up, a declared operation returning its own
 parameters alone and an `inout` argument as passed, as written and not at all when nothing takes
-the call).
+the call). Only a write to a behavior's own output parameter comes back — a nested action's
+`return` or its assignment to an `out`/`inout` (`state_statements.go:returnAround`) — because
+§8.5.9 collects the values of the triggered Behavior's output parameters and nothing else; an inline
+`assign` in an entry, exit or effect writes a feature of the machine's owner, not a parameter, so it
+stays state and is no result even when its name coincides with a declared `out`.
 **agrees.**
 
 **A15. One firing per token, or one performance per node.** fUML §8.9.1 and §8.10.1
