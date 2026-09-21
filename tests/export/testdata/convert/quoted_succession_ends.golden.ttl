@@ -141,7 +141,7 @@ elmt:QuotedSuccessionEnds__provide_20power___403
     sysml:owner elmt:QuotedSuccessionEnds__provide_20power ;
     sysml:owningRelationship elmt:QuotedSuccessionEnds__provide_20power___403_om ;
     sysml:owningMembership elmt:QuotedSuccessionEnds__provide_20power___403_om ;
-    sysml:sourceFeature "start" ;
+    sysml:sourceFeature <urn:sysmlv2:element:9a0d2905-0f9c-5bb4-af74-9780d6db1817> ;
     sysml:targetFeature elmt:QuotedSuccessionEnds__provide_20power__engineStarted ;
     sysx:sourceText "        first start then engineStarted;\n" .
 
@@ -240,7 +240,7 @@ expr:QuotedSuccessionEnds__provide_20power__s_pend1
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "done" ;
     sysml:elementId "QuotedSuccessionEnds__provide_20power__s_pend1" ;
-    sysml:referent "done" ;
+    sysml:referent <urn:sysmlv2:element:0cdc3cd3-b06c-5c32-beda-0cf4ba164a64> ;
     sysx:endIndex "1"^^xsd:integer .
 
 elmt:QuotedSuccessionEnds__drive

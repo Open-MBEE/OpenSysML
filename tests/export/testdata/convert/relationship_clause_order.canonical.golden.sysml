@@ -1,10 +1,10 @@
 package ClauseOrder {
     private import ScalarValues::*;
     part def Quantity {
-        attribute num : ScalarValues::Real;
+        attribute num : Real;
     }
     part def Ratio specializes Quantity {
-        attribute : ScalarValues::Real redefines num;
+        attribute : Real redefines num;
     }
     part def Ctx;
     part def Mission {

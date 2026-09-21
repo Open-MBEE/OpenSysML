@@ -1122,7 +1122,7 @@ elmt:Shadowing__Consumer__Lib__Cell_om
     sysml:membershipOwningNamespace elmt:Shadowing__Consumer__Lib .
 
 elmt:Shadowing__Consumer___401
-    a sysml:Import ;
+    a sysml:MembershipImport ;
     sysml:qualifiedName "Shadowing::Consumer::@1" ;
     sysml:elementId "Shadowing__Consumer___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
@@ -1131,8 +1131,8 @@ elmt:Shadowing__Consumer___401
     sysml:owningRelatedElement elmt:Shadowing__Consumer ;
     sysml:importOwningNamespace elmt:Shadowing__Consumer ;
     sysml:visibility "private" ;
-    sysml:importedNamespace elmt:Shadowing__Lib__Cell ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:importedMembership elmt:Shadowing__Lib__Cell_om ;
     sysx:sourceText "        private import Shadowing::Lib::Cell;\n" .
 
 elmt:Shadowing__Consumer__cell
@@ -1236,7 +1236,7 @@ elmt:Shadowing__Exposed__Lib_om
     sysml:membershipOwningNamespace elmt:Shadowing__Exposed .
 
 elmt:Shadowing__Exposed___401
-    a sysml:Import ;
+    a sysml:NamespaceImport ;
     sysml:qualifiedName "Shadowing::Exposed::@1" ;
     sysml:elementId "Shadowing__Exposed___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
@@ -1246,6 +1246,5 @@ elmt:Shadowing__Exposed___401
     sysml:importOwningNamespace elmt:Shadowing__Exposed ;
     sysml:visibility "private" ;
     sysml:importedNamespace elmt:Shadowing__Lib ;
-    sysx:isNamespaceImport "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        private import Shadowing::Lib::*;\n" .

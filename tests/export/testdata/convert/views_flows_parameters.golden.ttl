@@ -637,7 +637,7 @@ expr:FlowsAndViews__StructureView___400_pfilter
     sysx:sourceText "@SysML::PartUsage" ;
     sysml:elementId "FlowsAndViews__StructureView___400_pfilter" ;
     sysml:operator "@" ;
-    sysx:typeArgument "SysML::PartUsage" .
+    sysx:typeArgument <urn:sysmlv2:element:550f9923-23f8-5142-aa06-d7ff476876d7> .
 
 elmt:FlowsAndViews__vehicleView
     a sysml:ViewUsage ;
@@ -666,7 +666,7 @@ elmt:FlowsAndViews__vehicleView_om
     sysml:membershipOwningNamespace elmt:FlowsAndViews .
 
 elmt:FlowsAndViews__vehicleView___400
-    a sysml:Import ;
+    a sysml:MembershipImport ;
     sysml:qualifiedName "FlowsAndViews::vehicleView::@0" ;
     sysml:elementId "FlowsAndViews__vehicleView___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
@@ -675,8 +675,8 @@ elmt:FlowsAndViews__vehicleView___400
     sysml:owningRelatedElement elmt:FlowsAndViews__vehicleView ;
     sysml:importOwningNamespace elmt:FlowsAndViews__vehicleView ;
     sysml:visibility "protected" ;
-    sysml:importedNamespace elmt:FlowsAndViews__vehicle ;
     sysml:isImportAll "true"^^xsd:boolean ;
     sysx:isRecursive "true"^^xsd:boolean ;
     sysx:isExpose "true"^^xsd:boolean ;
-    sysx:hasBody "false"^^xsd:boolean .
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:importedMembership elmt:FlowsAndViews__vehicle_om .

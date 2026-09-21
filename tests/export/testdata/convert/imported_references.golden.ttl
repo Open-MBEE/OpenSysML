@@ -284,7 +284,7 @@ elmt:R90
     json:ownedMembership "[{\"@id\":\"R90__Ledger_om\"},{\"@id\":\"R90__A_om\"},{\"@id\":\"R90__B_om\"},{\"@id\":\"R90__G1_om\"},{\"@id\":\"R90__G2_om\"},{\"@id\":\"R90__H_om\"},{\"@id\":\"R90__Run_om\"},{\"@id\":\"R90__Done_om\"}]" .
 
 elmt:R90___400
-    a sysml:Import ;
+    a sysml:NamespaceImport ;
     sysml:qualifiedName "R90::@0" ;
     sysml:elementId "R90___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
@@ -294,7 +294,6 @@ elmt:R90___400
     sysml:importOwningNamespace elmt:R90 ;
     sysml:visibility "public" ;
     sysml:importedNamespace elmt:OtherPkg ;
-    sysx:isNamespaceImport "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "    public import OtherPkg::*;\n" .
 
@@ -1132,7 +1131,7 @@ elmt:Filtered
     json:ownedRelationship "[{\"@id\":\"Filtered___400\"},{\"@id\":\"Filtered__C_om\"}]" .
 
 elmt:Filtered___400
-    a sysml:Import ;
+    a sysml:NamespaceImport ;
     sysml:qualifiedName "Filtered::@0" ;
     sysml:elementId "Filtered___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
@@ -1142,7 +1141,6 @@ elmt:Filtered___400
     sysml:importOwningNamespace elmt:Filtered ;
     sysml:visibility "public" ;
     sysml:importedNamespace elmt:Meta ;
-    sysx:isNamespaceImport "true"^^xsd:boolean ;
     sysx:filter expr:Filtered___400_pfilter ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "    public import Meta::*[@Safety];\n" .

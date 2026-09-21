@@ -288,7 +288,18 @@ triples come); a set of classes with no such member is refused, naming the subje
 - `rdf:type` — the SysML metaclass (`sysml:PartUsage`, `sysml:ActionDefinition`, …).
   Every definition and usage keyword the parser accepts has a metaclass; the
   tables in `internal/translate/export/kinds.go` are the source of truth, and the
-  reverse direction is derived from them so the two cannot disagree.
+  reverse direction is derived from them so the two cannot disagree. Every
+  metaclass written is one the metamodel declares **concrete** (checked against
+  the abstract classes of the pilot's `SysML.ecore` and `kerml.ecore`:
+  `ConnectorAsUsage`, `ControlNode`, `Element`, `Expose`, `Import`,
+  `InstantiationExpression`, `LoopActionUsage`, `Relationship`), since the
+  SysML v2 API never returns an abstract one. So an import is a
+  `sysml:NamespaceImport` (`import P::*`, `P::**`) or a `sysml:MembershipImport`
+  (`import P::M`, `P::M::**`), and a KerML `connector` is a `sysml:Connector`.
+  Reading, the abstract `sysml:Import` earlier releases wrote is still accepted,
+  told apart by its `sysx:isNamespaceImport` flag or its imported property, as
+  is `sysml:ConnectorAsUsage`; both are written back as the concrete class on
+  the next hop.
 - `sysml:declaredName`, `sysml:declaredShortName`, `sysml:qualifiedName` —
   on a requirement's `subject`, `assume constraint` and `require constraint`
   members as on any usage, so `subject <s> x : T;` comes back with its short name
@@ -333,14 +344,25 @@ triples come); a set of classes with no such member is refused, naming the subje
   stating the kind alone reads back by its kind, and gains the flag when
   re-exported
 - Declaration-head relationships, as element IRIs where the target resolves
-  inside the model — by name resolution, so a name reached through an import,
-  an alias or a nested package qualification links to the same element its
-  fully qualified spelling does — and as plain literals where it does not: `sysml:type`
+  to an element with an identity — by name resolution, so a name reached through
+  an import, an alias, an inherited member or a nested package qualification
+  links to the same element its fully qualified spelling does, and a standard
+  library element is linked by its [normative id](#normative-library-identity)
+  (`attribute mass : MassValue` links
+  `<urn:sysmlv2:element:9cd0e404-efee-50e5-a59b-681065bd188c>`, whether or not
+  the library is in the graph) — and as plain literals only where the name
+  resolves to nothing the model declares: `sysml:type`
   (the `:` clause), `specializes`, `subsets`, `redefines`, `references`,
   `crosses`, `disjointFrom`, `intersects`, `inverseOf`, `unions`, `chains`,
   `includes`, `via`, `subject`, `annotatedElement` for an `about` clause, and
-  the namespace or member an import names, `importedNamespace`. A literal
-  carries the name itself,
+  what an import names: `importedNamespace` on a `NamespaceImport`, and on a
+  `MembershipImport` `importedMembership`, which links the imported element's
+  **owning membership** (the metamodel's range), a library member's by its
+  normative membership id; an import written through an alias imports the
+  alias. The same rule links a succession's `sourceFeature` (an implied `first
+  start then a` names the `start` the owner inherits from `Actions::Action`),
+  a feature chain's `targetFeature`, a feature reference's `referent` and an
+  invocation's `function`. A literal carries the name itself,
   without the quotes an unrestricted name is written with; a target that is an
   expression rather than a name (a feature chain, say) is carried as the text it
   was written as, typed `sysx:Expression` to tell the two apart. These
@@ -365,6 +387,13 @@ triples come); a set of classes with no such member is refused, naming the subje
   actions the loop body declares. A body expression's parameter, a `for` loop's
   variable and a trigger's parameter are no elements of the graph: a reference
   to one stays its name, even where it shadows a feature of the same name.
+  Reading a graph back, a link and a legacy literal spell the same reference:
+  a literal is the name as written; an IRI of this graph is spelled by the
+  shortest name that resolves to that element from where it is written, and a
+  library IRI by the library element's shortest visible name (`Real` under
+  `import ScalarValues::*`, else `ScalarValues::Real`) — so a short name
+  (`#moe`) comes back as the element's name (`#MeasureOfEffectiveness`) once
+  the source text is gone.
 - A KerML relationship written keyword-first as a member of its own
   (`specialization Gen subtype A specializes B;`, `subset f subsets g;`,
   `inverse f of g;`, `featuring of f by T;`, `disjoint A from B;`) is an element

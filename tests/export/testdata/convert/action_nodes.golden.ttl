@@ -235,7 +235,7 @@ elmt:ActionNodes__Drive___404
     sysml:owner elmt:ActionNodes__Drive ;
     sysml:owningRelationship elmt:ActionNodes__Drive___404_om ;
     sysml:owningMembership elmt:ActionNodes__Drive___404_om ;
-    sysml:sourceFeature "start" ;
+    sysml:sourceFeature <urn:sysmlv2:element:9a0d2905-0f9c-5bb4-af74-9780d6db1817> ;
     sysx:sourceText "        first start;\n" .
 
 elmt:ActionNodes__Drive___404_om
@@ -700,7 +700,7 @@ expr:ActionNodes__Drive___4019_pend0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "start" ;
     sysml:elementId "ActionNodes__Drive___4019_pend0" ;
-    sysml:referent "start" ;
+    sysml:referent <urn:sysmlv2:element:9a0d2905-0f9c-5bb4-af74-9780d6db1817> ;
     sysx:endIndex "0"^^xsd:integer .
 
 expr:ActionNodes__Drive___4019_pend1
@@ -748,5 +748,5 @@ expr:ActionNodes__Drive___4020_pend1
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "done" ;
     sysml:elementId "ActionNodes__Drive___4020_pend1" ;
-    sysml:referent "done" ;
+    sysml:referent <urn:sysmlv2:element:0cdc3cd3-b06c-5c32-beda-0cf4ba164a64> ;
     sysx:endIndex "1"^^xsd:integer .

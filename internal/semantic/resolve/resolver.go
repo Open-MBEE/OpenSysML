@@ -303,12 +303,18 @@ func (r *Resolver) EndSymbol(qn *ast.QualifiedName) (*symbols.Symbol, bool) {
 }
 
 // resolveInitial binds `first x` to the member of the body x names, if any:
-// lowering starts the flow there instead of at the node (see lower).
+// lowering starts the flow there instead of at the node (see lower). A name no
+// declared member bears reaches an inherited one, so `first start` links the
+// start the owner inherits; a member of an enclosing body is not a start.
 func (r *Resolver) resolveInitial(scope *symbols.Scope, n *ast.InitialNode) {
 	if n.Name() == "" {
 		return
 	}
-	if sym, ok := memberPastLabels(scope, n.Name()); ok {
+	sym, ok := memberPastLabels(scope, n.Name())
+	if !ok {
+		sym, ok = r.lookupContributedMember(scope.Owner(), n.Name(), nil)
+	}
+	if ok {
 		journalNew(r, r.initials, n, n)
 		r.initials[n] = sym
 	}

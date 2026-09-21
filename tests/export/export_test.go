@@ -218,7 +218,7 @@ func TestWrittenReferencesResolveWhereWritten(t *testing.T) {
 		"sysml:type elmt:Shadowing__Field",
 		"sysml:targetFeature elmt:Shadowing__Packet__payload",
 		"sysml:referent elmt:Shadowing__payload",
-		"sysml:importedNamespace elmt:Shadowing__Lib__Cell",
+		"sysml:importedMembership elmt:Shadowing__Lib__Cell_om",
 		"sysml:importedNamespace elmt:Shadowing__Lib",
 		"sysml:type elmt:Shadowing__Lib__Cell",
 		"sysml:type elmt:Shadowing__Consumer__Lib__Cell",
@@ -488,7 +488,7 @@ func TestSpellingsAreCheckedBesideEachOther(t *testing.T) {
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
-	if want := "sysml:importedNamespace elmt:ImportTest__Pkg2__Pkg21__Pkg211__P211"; !strings.Contains(string(graph), want) {
+	if want := "sysml:importedMembership elmt:ImportTest__Pkg2__Pkg21__Pkg211__P211_om"; !strings.Contains(string(graph), want) {
 		t.Fatalf("graph does not link %q\n%s", want, graph)
 	}
 	notation := structuralRoundTrip(t, "imports", graph)
@@ -3549,7 +3549,7 @@ func TestKerMLBinaryConnectorEndsCarryTheRoundTripWithoutSourceText(t *testing.T
 		}
 	}
 	for _, name := range []string{"eng", "a", "transitionLink"} {
-		if strings.Contains(graph, "elmt:Corpus__Vehicle__"+name+"\n    a sysml:ConnectorAsUsage ;") {
+		if strings.Contains(graph, "elmt:Corpus__Vehicle__"+name+"\n    a sysml:Connector ;") {
 			t.Errorf("the connector took the end %s as its name\n%s", name, graph)
 		}
 	}

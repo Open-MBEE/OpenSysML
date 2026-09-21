@@ -1570,16 +1570,7 @@ func (r *Resolver) chainFrom(scope *symbols.Scope, fc *ast.FeatureChainExpr, ope
 	if operandSym == nil || fc.Member == nil {
 		return resolution{}
 	}
-	if featuring := r.featuringOf(scope, operandSym); featuring != nil {
-		operandSym = featuring
-	}
-	// A chain from `this` reads the object the body is owned by, which the
-	// library declares as its context occurrence rather than as its type.
-	if r.IsOccurrenceThis(operandSym) {
-		if object := r.ThisContext(scope); object != nil {
-			operandSym = object
-		}
-	}
+	operandSym = r.chainedFrom(scope, operandSym)
 
 	// A chaining feature spelled as a qualified name resolves outward through the
 	// enclosing namespaces when the previous element has no such member (KerML
@@ -1602,6 +1593,20 @@ func (r *Resolver) chainFrom(scope *symbols.Scope, fc *ast.FeatureChainExpr, ope
 
 	memberSym := r.resolveMemberChain(operandSym, fc.Member, fc)
 	return resolution{sym: memberSym, ok: memberSym != nil}
+}
+
+// chainedFrom is the feature a chain written in scope reads its segments from:
+// the usage `that` is featured by, the object `this` is owned by, else operand.
+func (r *Resolver) chainedFrom(scope *symbols.Scope, operand *symbols.Symbol) *symbols.Symbol {
+	if featuring := r.featuringOf(scope, operand); featuring != nil {
+		return featuring
+	}
+	if r.IsOccurrenceThis(operand) {
+		if object := r.ThisContext(scope); object != nil {
+			return object
+		}
+	}
+	return operand
 }
 
 // chainMember looks a chain segment up as a member of sym itself — flattened over
