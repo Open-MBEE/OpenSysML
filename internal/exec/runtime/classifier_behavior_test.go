@@ -1027,24 +1027,50 @@ func TestWritingOneValueToAManyValuedFeatureHoldsACollection(t *testing.T) {
 	}
 }
 
-// A type that exhibits a machine no element states is reported, not ignored.
-func TestExhibitedMachineNamingNoBodyIsReported(t *testing.T) {
+// An exhibited state naming nothing — no reference subsetting, no typing —
+// exhibits itself: the ExhibitStateUsage is its own exhibitedState
+// (SysML v2 §8.3.17), so its machine is created and run, not refused.
+func TestExhibitedStateNamingNothingExhibitsItself(t *testing.T) {
 	src := `
 		part def Controller {
-			exhibit state modes;
+			attribute level : Integer = 3;
+			exhibit state modes {
+				in amount : Integer = level;
+				entry; then a;
+				state a;
+			}
+		}
+	`
+	model, resolver, root := parseAndBuildModel(t, src)
+	ctx := NewContext(typedModel(model, resolver), 10000)
+
+	inst, err := ctx.Instantiate(resolveSymbol(t, root, "Controller"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	behavior, ok := inst.Behavior("modes")
+	if !ok || behavior.State == nil {
+		t.Fatalf("object exhibits no modes machine, behaviors: %v", inst.Behaviors())
+	}
+}
+
+// An exhibited state naming nothing whose body declares no initial state
+// fails at initialization with ErrNoInitialState, like any machine stating an
+// empty body — the declaration is its own body, not a naming error.
+func TestExhibitedStateNamingNothingWithNoInitialStateIsReported(t *testing.T) {
+	src := `
+		part def Controller {
+			exhibit state idle;
 		}
 	`
 	model, resolver, root := parseAndBuildModel(t, src)
 	ctx := NewContext(typedModel(model, resolver), 10000)
 
 	_, err := ctx.Instantiate(resolveSymbol(t, root, "Controller"))
-	if err == nil {
-		t.Fatal("expected an error for a machine naming no body")
+	if !errors.Is(err, ErrNoInitialState) {
+		t.Fatalf("error = %v, want ErrNoInitialState", err)
 	}
-	if !errors.Is(err, ErrUnresolvedClassifierBehavior) {
-		t.Fatalf("error = %v, want ErrUnresolvedClassifierBehavior", err)
-	}
-	if !strings.Contains(err.Error(), "modes") {
+	if !strings.Contains(err.Error(), "idle") {
 		t.Errorf("error %q does not name the behavior", err)
 	}
 }

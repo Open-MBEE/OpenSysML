@@ -1,0 +1,13 @@
+{
+  "type": "state",
+  "evaluate": "test::Engine::modes",
+  "trace": true,
+  "performers": [
+    {
+      "object": "test::engine",
+      "events": [{"signal": "EngineCommand"}],
+      "finalState": "done",
+      "stateVisits": ["start", "waiting", "done"]
+    }
+  ]
+}
