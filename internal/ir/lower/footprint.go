@@ -671,19 +671,50 @@ func (b *footprintBuilder) flowTarget(graph *ActionGraph, flow ObjectFlow, seen 
 	b.streamsFrom(graph, flow.Target, flow.TargetPin, seen)
 }
 
-// streamsFrom adds the writes a value written to node's pin streams on to,
-// along the streaming flows out of node in graph.
+// streamsFrom adds the writes a value written to node's pin streams on to, along
+// the streaming flows out of node in graph; a pin and the names it redefines are one.
 func (b *footprintBuilder) streamsFrom(graph *ActionGraph, node ast.Node, pin string, seen map[pinKey]bool) {
+	aliases := pinAliases(graph.Features[node])
+	pin = pinName(aliases, pin)
 	key := pinKey{node: node, pin: pin}
 	if seen[key] {
 		return
 	}
 	seen[key] = true
 	for _, flow := range graph.DataFlows[node] {
-		if flow.Kind == FlowStreaming && flow.SourcePin == pin {
+		if flow.Kind == FlowStreaming && pinName(aliases, flow.SourcePin) == pin {
 			b.flowTarget(graph, flow, seen)
 		}
 	}
+}
+
+// pinAliases maps each name a node's feature redefines to the feature's own name.
+func pinAliases(features []Feature) map[string]string {
+	var aliases map[string]string
+	for _, f := range features {
+		u, ok := f.Node.(*ast.Usage)
+		if !ok {
+			continue
+		}
+		for _, redefined := range redefinedNames(u) {
+			if redefined == f.Name {
+				continue
+			}
+			if aliases == nil {
+				aliases = make(map[string]string)
+			}
+			aliases[redefined] = f.Name
+		}
+	}
+	return aliases
+}
+
+// pinName is the name a node's pin is held under, following what it redefines.
+func pinName(aliases map[string]string, pin string) string {
+	if name, ok := aliases[pin]; ok {
+		return name
+	}
+	return pin
 }
 
 // streams adds the writes the node's own writes stream on to: a write to a pin

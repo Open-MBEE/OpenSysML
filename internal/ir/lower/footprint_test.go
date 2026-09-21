@@ -740,3 +740,66 @@ func TestFootprintStreamingWritesReachTargetPins(t *testing.T) {
 		}
 	}
 }
+
+// A flow may name its source pin by the name it redefines: the pin and that name
+// are one, so a write to either streams along the flow, through the first target on.
+func TestFootprintStreamingFollowsRedefinedSourcePins(t *testing.T) {
+	graph := scopedActionGraph(t, `
+		action def Relay {
+			in got : Integer;
+			out result : Integer;
+		}
+		action def Stream {
+			attribute total : Integer = 0;
+			first start;
+			fork both;
+			action producer {
+				out value : Integer;
+				first start;
+				action emit { assign value := 1; }
+				done;
+				succession first start then emit;
+				succession first emit then done;
+			}
+			action relay : Relay {
+				in heard : Integer redefines got;
+				out value : Integer redefines result;
+				first start;
+				action pass { assign value := heard; }
+				done;
+				succession first start then pass;
+				succession first pass then done;
+			}
+			action sink {
+				in last : Integer;
+				first start;
+				action hear { assign total := last; }
+				done;
+				succession first start then hear;
+				succession first hear then done;
+			}
+			join joined;
+			done;
+			succession first start then both;
+			succession first both then producer;
+			succession first both then relay;
+			succession first both then sink;
+			succession first producer then joined;
+			succession first relay then joined;
+			succession first sink then joined;
+			succession first joined then done;
+			flow producer.value to relay.got;
+			flow relay.heard to sink.last;
+		}
+	`, "Stream")
+	producer := graph.Subflows[namedActionNode(t, graph, "producer")]
+	if producer == nil || producer.Graph == nil {
+		t.Fatal("producer subflow missing")
+	}
+	emit := producer.Graph.Footprints()[namedActionNode(t, producer.Graph, "emit")]
+	for _, pin := range []string{"value", "got", "last"} {
+		if !hasPlace(emit.Writes, pin) {
+			t.Errorf("emit footprint:\n%s\nwant a write of %s", emit, pin)
+		}
+	}
+}
