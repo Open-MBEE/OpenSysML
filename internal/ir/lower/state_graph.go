@@ -238,9 +238,11 @@ type Transition struct {
 	Name string
 	// Decl is the declaration the transition was written as, for a consumer that
 	// reports where it comes from.
-	Decl    ast.Node
-	Source  ast.Node // *ast.StateNode or *ast.PseudostateNode
-	Target  ast.Node // *ast.StateNode, *ast.PseudostateNode or a terminate action *ast.Usage
+	Decl   ast.Node
+	Source ast.Node // *ast.StateNode or *ast.PseudostateNode
+	Target ast.Node // *ast.StateNode, *ast.PseudostateNode or a terminate action *ast.Usage
+	// Owner is the state whose body declares the transition, nil for the machine body.
+	Owner   *ast.StateNode
 	Trigger ast.Node // TimeEvent, ChangeEvent, SignalEvent, CallEvent, nil = completion
 	Guard   ast.Node // guard expression, nil = no guard
 	// Effect are the transition's effect behaviors, lowered the same way a state's
@@ -263,6 +265,20 @@ type Transition struct {
 	// Scope, except for a call trigger, whose parameters are visible to the guard
 	// and effect and nowhere else (`accept setSpeed(v) if v > 0`).
 	BodyScope *symbols.Scope
+}
+
+// declaringState is the state whose body owner is; nil is the machine's body.
+func (g *StateGraph) declaringState(owner ast.Node) *ast.StateNode {
+	switch o := owner.(type) {
+	case nil:
+		return nil
+	case *ast.StateNode:
+		return o
+	case *ast.StateRegion:
+		return g.RegionOwner[o]
+	default:
+		return g.findStateDecl(o)
+	}
 }
 
 // ToStateGraph converts a state machine AST (Usage or Definition) to a StateGraph.
@@ -1504,6 +1520,7 @@ func lowerTransitionEdge(graph *StateGraph, edge *ast.TransitionEdge, owner ast.
 		Decl:      edge,
 		Source:    source,
 		Target:    target,
+		Owner:     graph.declaringState(owner),
 		Trigger:   edge.Trigger,
 		Guard:     edge.Guard,
 		Effect:    LowerBehaviors(edge.Effect, nil, scope, graph.resolver),
@@ -1558,6 +1575,7 @@ func lowerTransitionMember(graph *StateGraph, member *ast.TransitionMember, body
 		Decl:      member,
 		Source:    source,
 		Target:    target,
+		Owner:     graph.declaringState(owner),
 		Trigger:   classifyTrigger(member.Trigger),
 		Guard:     member.Guard,
 		Effect:    transitionEffects(member, bodyScope, graph.resolver),
@@ -1775,11 +1793,12 @@ func collectTransitions(graph *StateGraph, body transitionBody) error {
 
 // addCompletion records the completion transition `source then target`
 // declared by decl in scope.
-func (graph *StateGraph) addCompletion(decl, source, target ast.Node, scope *symbols.Scope) {
+func (graph *StateGraph) addCompletion(decl, source, target, owner ast.Node, scope *symbols.Scope) {
 	trans := &Transition{
 		Decl:      decl,
 		Source:    source,
 		Target:    target,
+		Owner:     graph.declaringState(owner),
 		Trigger:   nil, // Completion transition
 		Guard:     nil,
 		Effect:    nil,
@@ -1817,7 +1836,7 @@ func collectUsageTransitions(graph *StateGraph, n *ast.Usage, body transitionBod
 			}
 		}
 		if sourceVertex != nil && targetVertex != nil {
-			graph.addCompletion(n, sourceVertex, targetVertex, scope)
+			graph.addCompletion(n, sourceVertex, targetVertex, body.owner, scope)
 		}
 	case ast.UsageState:
 		// A state usage carries the transitions its own body declares and
@@ -1856,7 +1875,7 @@ func collectSuccessionEdge(graph *StateGraph, n *ast.SuccessionEdge, body transi
 	}
 
 	if sourceVertex != nil && targetVertex != nil {
-		graph.addCompletion(n, sourceVertex, targetVertex, scope)
+		graph.addCompletion(n, sourceVertex, targetVertex, body.owner, scope)
 	}
 	return nil
 }

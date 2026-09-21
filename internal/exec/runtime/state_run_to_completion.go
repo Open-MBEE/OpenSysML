@@ -255,8 +255,10 @@ func (e *StateExecutor) dispatchFree(d dueDispatch) (dueDispatch, bool) {
 			return true
 		}
 		for _, candidate := range candidates {
-			if scopeContains(e.graph, scopes, e.graph.ParentState[candidate.source]) {
-				return true
+			for _, index := range candidate.enabled {
+				if scopeContains(e.graph, scopes, e.graph.Transitions[candidate.source][index].Owner) {
+					return true
+				}
 			}
 		}
 		return false
@@ -292,14 +294,7 @@ func (e *StateExecutor) dispatchFree(d dueDispatch) (dueDispatch, bool) {
 }
 
 func (e *StateExecutor) transitionOwner(trans *lower.Transition) *ast.StateNode {
-	switch source := trans.Source.(type) {
-	case *ast.StateNode:
-		return e.graph.ParentState[source]
-	case *ast.PseudostateNode:
-		return e.graph.PseudostateOwner[source]
-	default:
-		return nil
-	}
+	return trans.Owner
 }
 
 func scopeContains(graph *lower.StateGraph, scopes []*ast.StateNode, owner *ast.StateNode) bool {

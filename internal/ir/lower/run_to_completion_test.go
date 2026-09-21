@@ -3,6 +3,8 @@ package lower
 import (
 	"errors"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 func TestRunToCompletionInheritanceAndOverrides(t *testing.T) {
@@ -81,6 +83,70 @@ func TestRunToCompletionMachineSelfScopeIsWholeMachine(t *testing.T) {
 	`, "Machine")
 	if got := graph.RunToCompletionOf(nil).Scope; got != nil {
 		t.Fatalf("machine self scope = %v, want nil", got)
+	}
+}
+
+func TestTransitionOwnerRecordsDeclaringBody(t *testing.T) {
+	graph := stateGraphOf(t, `
+		package test {
+			state def Machine {
+				entry; then qualified;
+				state qualified {
+					state inner;
+				}
+				state work {
+					state nested;
+					state after;
+					transition first nested then after;
+				}
+				state regionWork parallel {
+					state left {
+						entry; then l;
+						state l;
+					}
+					state right {
+						entry; then r2;
+						state r2;
+					}
+					choice pick;
+					transition first pick then l;
+				}
+				state done;
+				transition first qualified.inner accept Go then done;
+			}
+		}
+	`, "Machine")
+
+	var machineBody, workBody, regionBody *Transition
+	for source, transitions := range graph.Transitions {
+		for _, transition := range transitions {
+			switch sourceName := source.(type) {
+			case *ast.StateNode:
+				switch sourceName.Name {
+				case "inner":
+					machineBody = transition
+				case "nested":
+					workBody = transition
+				}
+			case *ast.PseudostateNode:
+				if sourceName.Name == "pick" {
+					regionBody = transition
+				}
+			}
+		}
+	}
+	if machineBody == nil || machineBody.Owner != nil {
+		t.Fatalf("qualified machine-body transition owner = %v, want nil", machineBody)
+	}
+	if workBody == nil || workBody.Owner == nil || workBody.Owner.Name != "work" {
+		t.Fatalf("work-body transition owner = %v, want work", workBody)
+	}
+	if regionBody == nil || regionBody.Owner == nil || regionBody.Owner.Name != "regionWork" {
+		var ownerName string
+		if regionBody != nil && regionBody.Owner != nil {
+			ownerName = regionBody.Owner.Name
+		}
+		t.Fatalf("region transition owner = %q, want regionWork", ownerName)
 	}
 }
 
