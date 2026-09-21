@@ -60,7 +60,7 @@ func (s *Session) CompareResults(results *simresults.Results, opts CompareOption
 		if len(opts.Only) > 0 && !selected[i] {
 			continue
 		}
-		verdicts = append(verdicts, s.withTrace(s.compareVerdict(cfg, opts)))
+		verdicts = append(verdicts, s.withTrace(s.compareVerdict(cfg, results.Repeats(i), opts)))
 	}
 	return append(verdicts, refused...)
 }
@@ -117,13 +117,14 @@ func sameName(name, qualified string) bool {
 
 // compareVerdict compares one configuration: a refusal names what the runs
 // cannot be made without, else the table of both distributions — the runs'
-// alone, against a row saying so, when the tool stored no result.
-func (s *Session) compareVerdict(cfg *simresults.ConfigurationResults, opts CompareOptions) Verdict {
+// alone, against a row saying so, when the tool stored no result. repeats
+// notes the stored snapshots another configuration's repeat.
+func (s *Session) compareVerdict(cfg *simresults.ConfigurationResults, repeats []string, opts CompareOptions) Verdict {
 	label := comparePrefix + cfg.Name
 	if cfg.Behavior == "" {
 		return unresolvedVerdict(label, withNotes("the configuration "+cfg.Name+" performs no migrated behavior", cfg.Notes))
 	}
-	var notes []string
+	notes := repeats
 	count := cfg.Runs
 	if opts.Runs > 0 {
 		count = opts.Runs

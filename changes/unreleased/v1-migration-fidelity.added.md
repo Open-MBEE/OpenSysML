@@ -7,8 +7,10 @@
 - **Every run configuration is compared.** `-compare-results` runs a configuration the tool
   stored no snapshot of and prints its statistics under a `tool (no stored result to compare)`
   row; runs one stating no `numberOfRuns` once, as the tool does, under a note saying so; counts
-  the runs a summary stands for and pools raw values with summary means; and shows only the
-  statistics a summary holds.
+  the runs a summary stands for and pools raw values with summary means; shows only the
+  statistics a summary holds; and notes a summarising snapshot another configuration stores under
+  the same name with the same statistics as a likely copy, naming that configuration and its
+  result location.
 - **A run configuration resolves to an inherited classifier behavior.** The `executionTarget`'s
   classifier behavior is looked up through its generalizations, nearest first, and a test-case
   behavior is performed where its scenario is migrated. A target with no classifier behavior at

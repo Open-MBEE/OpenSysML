@@ -1124,7 +1124,11 @@ tool stored no snapshot of is run all the same, its table holding a `tool (no st
 compare)` row of zero runs over OpenSysML's statistics of the observable its analysis summarises,
 or of every feature the runs produced a number for; one stating no `numberOfRuns` is run once, as
 its tool runs it, under a note saying so (`-runs` makes more); one whose behavior was not migrated
-is undecided naming it, with the sidecar's notes. A configuration whose tool ran it on a stepped
+is undecided naming it, with the sidecar's notes. A summarising snapshot another configuration's
+repeats — the same name and the same statistics (count, mean and deviation), no observable both
+hold a different number of — is noted under each as a likely copy naming the other configuration
+and its result location, since a Monte Carlo does not come out alike twice, and compared all the
+same. A configuration whose tool ran it on a stepped
 clock — a `startTime` set, so the tool's clock was going, its `stepSize` (`1.0` when unstated) the
 step — is run under that step, named in the header as `clock step <seconds> s`; `-clock-step`
 replaces it for every configuration, `-clock-step 0` running them all on a continuous clock. A run that fails is an `error:` line under the

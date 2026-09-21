@@ -317,6 +317,35 @@ func TestCompareDefaultsToOneRun(t *testing.T) {
 	}
 }
 
+// A summarising snapshot two configurations store alike is noted under each as a
+// likely copy, naming the other configuration and its result location.
+func TestCompareNotesSnapshotsStoredTwice(t *testing.T) {
+	s := compareSession(t)
+	seed := uint64(1)
+	summary := simresults.Snapshot{
+		ID: "_sum", Name: "analysis", Values: map[string]float64{"total": 10.0},
+		Statistics: &simresults.Statistics{Observable: "total", Runs: 8, Mean: 10.0, Deviation: 1.5},
+	}
+	results := compareResults("'Group 1'", 2)
+	results.Configurations[0].Snapshots = []simresults.Snapshot{summary}
+	twin := results.Configurations[0]
+	twin.ID, twin.Name, twin.Location = "_d", "Cfg::'Sub::Group'", "'Other Results'"
+	results.Configurations = append(results.Configurations, twin)
+
+	got := s.CompareResults(results, CompareOptions{Seed: &seed})
+	if len(got) != 2 || !got[0].Holds() || !got[1].Holds() {
+		t.Fatalf("CompareResults = %+v, want both to hold", got)
+	}
+	for i, want := range []string{
+		`note: the snapshot "analysis" bears the name and the statistics of total of a snapshot of the configuration Cfg::'Sub::Group' (in 'Other Results'), so one may be a copy of the other`,
+		`note: the snapshot "analysis" bears the name and the statistics of total of a snapshot of the configuration Cfg::'Group 1' (in Results), so one may be a copy of the other`,
+	} {
+		if lines := strings.Join(got[i].Lines, "\n"); !strings.Contains(lines, want) {
+			t.Errorf("verdict %d lacks %q:\n%s", i, want, lines)
+		}
+	}
+}
+
 // A configuration whose behavior was not migrated is refused naming it, so a
 // refusal printed among other failures to run still says which configuration
 // it is about, with the sidecar's notes saying why.

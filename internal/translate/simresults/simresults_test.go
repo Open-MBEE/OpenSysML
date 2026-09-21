@@ -81,3 +81,28 @@ func TestReadKeepsStatistics(t *testing.T) {
 		t.Errorf("StoredRuns = %d, want 8", got)
 	}
 }
+
+// A summarising snapshot another configuration stores under the same name with
+// the same statistics is noted as a likely copy; one differing in a number both
+// hold, in its statistics, or storing runs one by one, is not.
+func TestRepeatsNoteSummariesStoredTwice(t *testing.T) {
+	summary := func(name string, values map[string]float64, dev float64) Snapshot {
+		return Snapshot{ID: "_" + name, Name: name, Values: values, Statistics: &Statistics{Observable: "t", Runs: 5, Mean: 3.5, Deviation: dev}}
+	}
+	r := Results{Source: "m.xmi", Configurations: []ConfigurationResults{
+		{ID: "_a", Name: "'Group 0'", Location: "'Results A'", Snapshots: []Snapshot{summary("g0", map[string]float64{"t": 3.5, "p": 1}, 0.5)}},
+		{ID: "_b", Name: "'Group 0 again'", Location: "'Results B'", Snapshots: []Snapshot{summary("g0", map[string]float64{"t": 3.5, "p": 1, "q": 2}, 0.5)}},
+		{ID: "_c", Name: "'Group 1'", Location: "'Results C'", Snapshots: []Snapshot{summary("g0", map[string]float64{"t": 3.5, "p": 0}, 0.5)}},
+		{ID: "_d", Name: "'Group 2'", Location: "'Results D'", Snapshots: []Snapshot{summary("g0", map[string]float64{"t": 3.5}, 0.25)}},
+		{ID: "_e", Name: "'Group 3'", Location: "'Results E'", Snapshots: []Snapshot{{ID: "_run", Name: "g0", Values: map[string]float64{"t": 3.5}}}},
+	}}
+	want := []string{`the snapshot "g0" bears the name and the statistics of t of a snapshot of the configuration 'Group 0 again' (in 'Results B'), so one may be a copy of the other`}
+	if got := r.Repeats(0); !reflect.DeepEqual(got, want) {
+		t.Errorf("Repeats(0) = %q, want %q", got, want)
+	}
+	for i := 2; i < len(r.Configurations); i++ {
+		if got := r.Repeats(i); got != nil {
+			t.Errorf("Repeats(%d) = %q, want none: %s", i, got, r.Configurations[i].Name)
+		}
+	}
+}

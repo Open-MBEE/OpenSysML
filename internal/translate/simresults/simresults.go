@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 )
 
 // A simulation tool stores each run of a configuration as a result snapshot: an
@@ -104,6 +105,44 @@ func (c *ConfigurationResults) StoredRuns() int64 {
 		runs++
 	}
 	return runs
+}
+
+// Repeats notes each summarising snapshot of configuration i that another
+// configuration's snapshot repeats — same name, same statistics, no number apart —
+// since Monte Carlo runs do not come out alike twice, but a stored result is copied.
+func (r *Results) Repeats(i int) []string {
+	var notes []string
+	for _, s := range r.Configurations[i].Snapshots {
+		var twins []string
+		for j := range r.Configurations {
+			if j == i {
+				continue
+			}
+			for _, o := range r.Configurations[j].Snapshots {
+				if s.Repeats(o) {
+					twins = append(twins, fmt.Sprintf("%s (in %s)", r.Configurations[j].Name, r.Configurations[j].Location))
+				}
+			}
+		}
+		if len(twins) > 0 {
+			notes = append(notes, fmt.Sprintf("the snapshot %q bears the name and the statistics of %s of a snapshot of the configuration %s, so one may be a copy of the other", s.Name, s.Statistics.Observable, strings.Join(twins, " and of ")))
+		}
+	}
+	return notes
+}
+
+// Repeats reports whether o stores the same summarised runs as s: the same name,
+// the same statistics, and no observable both hold a different number of.
+func (s Snapshot) Repeats(o Snapshot) bool {
+	if s.Name != o.Name || s.Statistics == nil || o.Statistics == nil || *s.Statistics != *o.Statistics {
+		return false
+	}
+	for k, v := range s.Values {
+		if w, ok := o.Values[k]; ok && w != v {
+			return false
+		}
+	}
+	return true
 }
 
 // Summary counts what the sidecar indexes: configurations, those with snapshots,

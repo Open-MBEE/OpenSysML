@@ -547,8 +547,12 @@ func parseDuration(text string) (seconds string, ok bool) {
 	return realLiteral(total), true
 }
 
-// realLiteral writes a float as a v2 real literal, with a decimal point.
+// realLiteral writes a float as a v2 real literal, with a decimal point, at 15
+// significant digits so binary rounding noise of the arithmetic behind it is not written.
 func realLiteral(v float64) string {
+	if rounded, err := strconv.ParseFloat(strconv.FormatFloat(v, 'g', 15, 64), 64); err == nil {
+		v = rounded
+	}
 	s := strconv.FormatFloat(v, 'f', -1, 64)
 	if !strings.ContainsAny(s, ".eE") {
 		s += ".0"
