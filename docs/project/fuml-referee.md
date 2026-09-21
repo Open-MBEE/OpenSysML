@@ -248,7 +248,10 @@ translation of the pilot activities and then generalized:
 | `ActivityFinalNode` | `done`; a `FlowFinalNode` ends the edge into it |
 | `Class` with `ownedAttribute`s and `generalization`s | `part def <Class> :> <General> { attribute <p> : <T> [l..u] ordered nonunique; … }` — a part definition, not an item definition, because a fUML object is an occurrence that may perform behaviors (an active class's classifier behavior, alignment row SM43) and a SysML v2 part is the item that performs actions; the attributes keep their declared multiplicity exactly, UML's default `[1..1]` unwritten, since a class's feature is a store the actions write within its bounds, where a parameter's fills one token at a time. An attribute typed by a class is a `part` (composite) or `ref part`. Every class the activity's closure names — as a parameter's, pin's or attribute's type, as the classifier created, as the owner of a feature touched — is declared once, generals first; a class is found by its XMI id and then by its name, since a type reference may carry either |
 | `CreateObjectAction` | `action <name> { out result : <Class> = new <Class>(); }` — a new occurrence on the result pin. Creation starts no behavior; that is `StartObjectBehaviorAction`'s (SM43) |
-| `ReadSelfAction` | `action <name> { out result : <Owner> = this; }` inside a class's owned behavior, `this` being the object performing it; in an activity no class owns there is no self, and the action is refused |
+| `ReadSelfAction` | `action <name> { out result : <Owner> = this; }` inside a class's owned behavior, `this` being the object performing it — the behavior's definition is nested in the owner's `part def`, so the name resolves lexically to the enclosing object; in an activity performed on its own, self is the performance and not an object, and the action is refused |
+| `Class` with `ownedBehavior`s and a `classifierBehavior` | inside the `part def`, `action def <Behavior> { … }` per owned behavior the closure spells, the activity's body translated by the same rules as a top-level one, and `action classifierBehavior : <Behavior>;` for the classifier behavior — an action usage the part's objects may perform, declared without `perform`, so an object is created performing nothing (SM43); the class's members share one namespace, so an attribute named as a behavior, as a parameter of one or as `classifierBehavior` is refused, as is a `CallBehaviorAction` of an owned behavior (fUML calls it in the caller's context, which no SysML v2 nested action does) |
+| `Activity` used as a class — instantiated by `CreateObjectAction` or owning attributes | `part def <Activity> { attribute …; action def 'behavior' { … } action classifierBehavior : 'behavior'; }` — a UML behavior is a class, and the suite creates objects of one and starts them; the body is its own classifier behavior under the name `behavior`, since the part definition took the activity's. An activity both instantiated and called as an action would be two things and is refused |
+| `StartObjectBehaviorAction` | `action <name> { in object : <Class>; perform object.classifierBehavior.start; }` — the start of the object's classifier behavior, own or inherited, performed: the runtime lowers a `perform` of a behavior member's `start` to an explicit start effect that runs the behavior as the object's own execution, asynchronously, the starter completing at once as fUML's start does (SM43); a second start of a running or completed behavior starts nothing. A start with a result pin, without an object pin, passing arguments, or of an object whose class has no classifier behavior is refused |
 | `ReadStructuralFeatureAction` | `action <name> { in object : <Class>; out result : <T> [m] = object.<f>; }` at the feature's multiplicity; the object arrives at the `object` pin as fUML's does |
 | `Signal` with `ownedAttribute`s and `generalization`s | `attribute def <Signal> :> <General> { attribute <p> : <T> [l..u]; … }` — an attribute definition, since a fUML signal instance is a value carried by a message and read by attribute, never an occurrence that performs anything; a signal with nothing to declare is `attribute def <Signal>;`. Every signal the closure names — sent, accepted, typing a parameter, a pin or an attribute of a class or of another signal — is declared once, generals first, before the classes and the activities, and a signal is found by id and then by name as a class is |
 | `SendSignalAction` | `action <name> { in target : <Class>; in <arg> : <T>; … send new <Signal>(<attr> = <arg>, …) to target; }` — the target object and one argument pin per attribute of the signal, inherited ones included, in the signal's attribute order; the body sends a new instance to the target and completes without waiting, as fUML's send does. A send with a result pin, without a target pin or with an argument count other than the signal's attribute count is refused |
@@ -268,16 +271,32 @@ accept that nothing can ever satisfy is the runtime's typed `accept deadlock`, s
 that waits for a signal no node of it sends is a `fail` naming the wait — where the reference
 implementation's `execute()` returns with the accepter registered and the outputs empty.
 
-Everything else the classifier calls expressible — `StartObjectBehaviorAction`, an activity
-instantiated as an object or owning attributes of its own (a UML behavior is a class), a
-class's owned or classifier behavior (and so `ReadSelfAction` in practice, until the behavior
-it reads self in is translated), an edge weight other than 1, an object-flow cycle through
-control nodes — is a **`TranslateError`** naming the activity,
-the node or edge, and the construct: `TestSignalReceiver: Write(signal): touches a feature of
-TestSignalReceiver, which is no class of the model`. The classifier decides expressibility; the emitter
+A started classifier behavior is the object's own execution: `this` in it is the object, its
+writes land on the object's features, and an accept in it parks the behavior — not the
+starter — until a message for the object arrives, which the runtime delivers once the
+enclosing run has posted it (the object's behaviors are drained after the top-level
+performance ends as well as at the start). The behavior completing leaves the object, which
+the activity may still hand out through a parameter (SM44); a start that fails is undone
+whole, so the object performs nothing and keeps no write of the failed behavior. A behavior's
+body nested in the `part def` is refereed through the activity that starts an object of its
+owner (below), since the record runs it only that way.
+
+Everything else the classifier calls expressible — `ReadSelfAction` in an activity performed
+on its own (its self is the performance, which the suite's `TestSignalReceiver` writes an
+attribute of as fUML treats an execution as an object), a start passing arguments, an edge
+weight other than 1, an object-flow cycle through control nodes — is a **`TranslateError`**
+naming the activity, the node or edge, and the construct: `TestSignalReceiver: ReadSelf:
+reads self in an activity performed on its own, where self is the performance and not an
+object`. The classifier decides expressibility; the emitter
 decides what it can translate; a `TranslateError` on an expressible activity files the row
 `not-expressible` by the emitter, its reason `not yet translated:` and the construct, the
-row's `class` still `expressible` so the two judgments stay apart. Every translated model is
+row's `class` still `expressible` so the two judgments stay apart. The two edge rules are
+refusals no row of the pinned suite reaches: every `weight` in both models is the literal
+`1`, and no expressible activity routes an object flow back through a control node, so a
+weighted edge (SysML v2 has no per-firing token count on a `flow`) and such a cycle stay
+`TranslateError`s proven only by `TestEmitRefusesWeightsAndCycles`, and a model of the
+suite that grew one would file `not-expressible` by the emitter, never `pass` by accident.
+Every translated model is
 checked (`Validate`) through the parser's diagnostics and the lowering to an action graph
 before it is run, so a translation the runtime would reject fails as a translation, with the
 diagnostic.
@@ -343,10 +362,10 @@ The committed baseline over the 55 activities of both models:
 
 | Bucket | Count | Activities |
 |---|---|---|
-| `pass` | 20 | `Copier`, `CopierCaller`, `SimpleDecision`, `ForkJoin`, `ForkMerge`, `NodeEnabler`, `TestNodeEnabler`, `TestIntegerFunctions`, `TestIntegerComparisonFunctions`, `TestRealFunctions`, `TestRealComparisonFunctions`, `TestStringFunctions`, `GenerateBooleanTestData`, `GenerateListTestData`, `TestListFunctions`, `TestGeneralizationAssembly`, `TestClassObjectCreator`, `TestClassWriterReader`, `TestClassAttributeWriter`, `TestClassAttributeValueRemover` |
+| `pass` | 23 | `Copier`, `CopierCaller`, `SimpleDecision`, `ForkJoin`, `ForkMerge`, `NodeEnabler`, `TestNodeEnabler`, `TestIntegerFunctions`, `TestIntegerComparisonFunctions`, `TestRealFunctions`, `TestRealComparisonFunctions`, `TestStringFunctions`, `GenerateBooleanTestData`, `GenerateListTestData`, `TestListFunctions`, `TestGeneralizationAssembly`, `TestClassObjectCreator`, `TestClassWriterReader`, `TestClassAttributeWriter`, `TestClassAttributeValueRemover`, `TestSpecializedSignalSend`, `ActiveClassBehaviorSender`, `ActiveClassBehavior` |
 | `fail` | 0 | |
 | `differs-by-design` | 4 | `DecisionJoin`, `ForkMergeData`, `TestSimpleActivities`, `TestBooleanFunctions` |
-| `not-expressible` | 31 | the 15 of the test model and the 12 of the exception model listed above, by the classifier; and by the emitter, `TestSignalReceiver` (a structural feature of the activity itself), `TestSpecializedSignalSend` (`CreateObjectAction` of an activity, `TestSignalReceiver`, as an object), `ActiveClassBehaviorSender` (`StartObjectBehaviorAction`) and `ActiveClassBehavior` (a class's owned behavior) |
+| `not-expressible` | 28 | the 15 of the test model and the 12 of the exception model listed above, by the classifier; and by the emitter, `TestSignalReceiver` (`ReadSelfAction` in an activity performed on its own) |
 
 Every pilot activity the scope named runs: the eight control- and object-flow activities and
 the primitive-function tests pass with every linearization agreeing, seven of them with the
@@ -363,39 +382,53 @@ through `:>` and returns it through an `inout` parameter. Each agrees with the r
 every linearization, the schedules exhausted (the remover in 18 runs, the writer in 6, the
 others in 1 or 2), and the object comparison is by class and feature values, never by identity.
 
-**No row fails, and four are `not-expressible` by the emitter rather than the classifier**,
-each adjudicated as such: a `TranslateError` on the first construct the emitter meets that it
-does not yet spell, where the classifier holds the activity expressible. None reached the
-runtime. Each row keeps `class: expressible` and names the construct after `not yet
-translated:`, so the four are told apart from the classifier's 27 in the report and move to
-`pass` or `fail` only when the emitter grows a rule. The signals themselves are translated —
-`TestSignal`, `SpecializedSignal :> TestSignal`, the sends and the accepts of all four
-activities spell — and what the four wait on is one construct: a UML behavior is a class, and
-the suite uses it as one. `TestSignalReceiver` owns an attribute `signal` and writes it
-through `ReadSelf`, so the object of `Write(signal)` is the activity's own performance;
-`TestSpecializedSignalSend` creates an object of `TestSignalReceiver` and starts it;
-`ActiveClassBehaviorSender` starts an `ActiveClass` whose classifier behavior
-`ActiveClassBehavior` reads self. All four depend on the object-lifecycle mapping the
-alignment note fixes: creation does not start a behavior; `StartObjectBehaviorAction` does.
+**The three active-object activities pass.** `ActiveClassBehaviorSender` creates an
+`ActiveClass`, starts it and sends it a `TestSignal` and an `OtherSignal`; its classifier
+behavior `ActiveClassBehavior` — nested in the `part def`, refereed through its starter since
+the record runs it only as part of its owner — accepts both, reads self and writes each signal
+into the object's attribute, and the run ends with the starter complete and the object's
+behavior done, over all 6 linearizations; the record has no output parameter to hold
+against, so the pass is the run's completion, as the reference's own is.
+`TestSpecializedSignalSend` creates an object of the activity `TestSignalReceiver`, starts it
+and sends it a `SpecializedSignal`; the behavior accepts it as a `TestSignal`, writes it
+through `ReadSelf` into the object's `signal` and into its own `testSignalOut`, and the
+starter, which has no output, agrees with the record over all 5 linearizations. Both sides
+hold the created object alive after its behavior completes, and neither runs a behavior at
+creation.
+
+**No row fails, and one is `not-expressible` by the emitter rather than the classifier**,
+adjudicated as such: a `TranslateError` on a construct the emitter does not spell, where the
+classifier holds the activity expressible, so the row keeps `class: expressible` and names
+the construct after `not yet translated:`, told apart from the classifier's 27 in the report.
+`TestSignalReceiver` is the same body the pass above runs as an object's behavior, executed
+here on its own as the JUnit suite also does: its `ReadSelf` then yields the activity
+execution, which fUML treats as an object with the activity's attribute `signal`, and the
+emitter has no spelling for a performance written to as an object. The record of that run
+is empty — the reference registers the accept on an execution that is no active object, so
+nothing ever fires and `testSignalOut` stays empty — where a SysML v2 performance parked at
+the accept would be the runtime's typed accept deadlock, so translating the row would move
+it to `fail` on a difference of the accept model rather than a finding about the executor.
+It stays untranslated, its reason naming the construct, and moves only if the emitter grows
+a rule for self as a performance or the row is reclassified with that argument.
 
 ### Movements since the previous baseline
 
-Five rows moved since the previous baseline (15 `pass`, 36 `not-expressible`): the emitter
-gained the rules for classes, object creation, `ReadSelfAction` and the structural feature
-actions, then for signals, `SendSignalAction` and `AcceptEventAction` (the construct map
-above), and the referee gained class-typed default inputs and the object rendering. No other
-row's bucket changed; the classifier's 27 rows and the four `differs-by-design` rows are
-byte-identical to the previous baseline's, and the four emitter rows that stay
-`not-expressible` name the next untranslated construct the emitter meets now that the object
-and signal constructs are spelled. The signal rules moved no row on their own: the two
-signal activities of the suite are also the two that use an activity as a class (an owned
-attribute written through `ReadSelf`; a `CreateObjectAction` of an activity, started), so
-their reasons sharpened — `TestSignalReceiver` from `Accept(TestSignal): AcceptEventAction`
-to `Write(signal): touches a feature of TestSignalReceiver, which is no class of the model` —
-and their bucket did not. The rules are proven over synthetic models instead (`TestEmitSignals`,
-`TestEmitSendSignal`, `TestEmitAcceptEvent`, `TestExecuteSignals`), where a `Pong :> Ping`
-sent with its inherited attribute reaches an accept of `Ping`, and an accept nothing sends to
-is the runtime's typed accept deadlock, a `fail` and never a `not-expressible`.
+Eight rows moved since the previous baseline (15 `pass`, 36 `not-expressible`), in three
+steps of the emitter, each with a re-run of the suite: the rules for classes, object
+creation and the structural feature actions moved five (20 `pass`, 31 `not-expressible`);
+the rules for signals, `SendSignalAction` and `AcceptEventAction` moved none on their own,
+since the two signal activities of the suite are also the two that use an activity as a
+class, so their reasons sharpened and their bucket did not; the rules for a class's owned
+behaviors, an activity as a class, `ReadSelfAction` in an owned behavior and
+`StartObjectBehaviorAction` moved three (23 `pass`, 28 `not-expressible`). The referee
+gained class-typed default inputs, the object rendering and the refereeing of an owned
+behavior through its starter. No other row's bucket changed; the classifier's 27 rows and
+the four `differs-by-design` rows are byte-identical to the previous baseline's, and the one
+emitter row that stays `not-expressible` names the construct it still meets. The signal
+rules are proven over synthetic models as well (`TestEmitSignals`, `TestEmitSendSignal`,
+`TestEmitAcceptEvent`, `TestExecuteSignals`), where a `Pong :> Ping` sent with its inherited
+attribute reaches an accept of `Ping`, and an accept nothing sends to is the runtime's typed
+accept deadlock, a `fail` and never a `not-expressible`.
 
 | Activity | Movement | Adjudication |
 |---|---|---|
@@ -404,6 +437,10 @@ is the runtime's typed accept deadlock, a `fail` and never a `not-expressible`.
 | `TestClassAttributeValueRemover` | `not-expressible` (emitter) → `pass` | Expected. Four adds without a position put their values first, as the reference's `FirstChoiceStrategy` inserts them; a remove without a position drops the first copy of its value and a remove with `isRemoveDuplicates` drops every copy (`excluding`); the record's `y = 2, 0` is what the runtime leaves. Exhaustive over 18 runs |
 | `TestClassWriterReader` | `not-expressible` (emitter) → `pass` | Expected. Creates a `TestClass`, writes `999` to `x` (single-valued: the value replaces), reads `x` back onto the result pin and returns it; the read is `object.x` at the feature's multiplicity. Exhaustive over 2 runs |
 | `TestGeneralizationAssembly` | `not-expressible` (emitter) → `pass` | Expected. `Specific :> General`; the created `Specific` reaches the `inout result` parameter through its output node — the node with an incoming edge, told apart from the same parameter's input node — and renders with `General`'s attribute among its own, as the record's does |
+| `ActiveClassBehaviorSender` | `not-expressible` (emitter) → `pass` | Expected. Creates an `ActiveClass`, starts it (`perform object.classifierBehavior.start`, the behavior running asynchronously as the object's own execution) and sends it a `TestSignal` then an `OtherSignal`; the record has no parameter, so the verdict is the run completing with nothing to compare, as the reference's is. The started behavior is not what the record holds against, but it runs: after the run the `ActiveClass` performs one completed `classifierBehavior` with `signal1` and `signal2` holding the two instances sent, the accepts having fired in whichever order the schedule delivered the signals. Exhaustive over 6 runs |
+| `ActiveClassBehavior` | `not-expressible` (emitter) → `pass` | Expected, by its starter. The record does not execute the owned behavior on its own (`skipped: ownedBehavior of ActiveClass: runs only as part of its owner`), so the row's bucket is the bucket of the activity that starts an object of `ActiveClass` — `ActiveClassBehaviorSender`, `pass` — and its reason names that starter. Its body is the `action def ActiveClassBehavior` nested in `part def ActiveClass`, translated by the same rules as a top-level one; were the starter to `fail`, this row would `fail` with it |
+| `TestSpecializedSignalSend` | `not-expressible` (emitter) → `pass` | Expected. Creates an object of the activity `TestSignalReceiver` (a `part def` whose classifier behavior `'behavior'` is the activity's body), starts it and sends it a `SpecializedSignal`; the behavior's `accept` of `TestSignal` takes the specialized instance, and `ReadSelf` yields the object, so `Write(signal)` lands on the object's attribute and `testSignalOut` on the behavior's own parameter. The record has no parameter; the verdict is the run completing with nothing to compare, as the reference's is. Exhaustive over 5 runs |
+| `TestSignalReceiver` | stays `not-expressible` (emitter) | The same body, executed on its own; its `ReadSelf` is the performance, not an object, and the emitter refuses it (`ReadSelf: reads self in an activity performed on its own, where self is the performance and not an object`). Adjudicated above: the record's `testSignalOut` is empty because the reference's accept on a non-object execution never fires, where the runtime would report a typed accept deadlock — a difference of the accept model, not an executor finding |
 
 **The four design differences run as the alignment row predicts.** `DecisionJoin` offers
 `Action_A` two tokens through a multiplicity-1 pin; the implementation fires it twice and the
@@ -437,4 +474,16 @@ provenance-then-counts comparison with its moved-row diagnostic; and over an obj
 part definitions with their generalization and every multiplicity shape, creation, the
 replacing, first-position and indexed adds, the indexed remove, the unique feature's one copy,
 the read and the clear, the object handed on through result pins, the top-level `ReadSelf`
-refused, and the executed object compared against the record's shape, in order and out of it.
+refused, and the executed object compared against the record's shape, in order and out of it;
+and over an active-object model, the owned behavior nested in its owner's `part def` with the
+`classifierBehavior` usage, `ReadSelf` bound to the owner, an activity as a `part def` whose
+body is its `'behavior'`, the mixed activity refused, the created object handed out unchanged
+after its started behavior ran (`TestExecuteStartedObject`), and the owned behavior's row
+taking its starter's bucket (`TestRefereeOwnedBehavior`). The runtime side — creation performing
+nothing, the start running the behavior as the object with `this` bound, a later message waking
+it, a second start running nothing more, an inherited behavior started on the specialized
+object, the typed refusals of a start on no object or of no behavior, a failing start undone
+whole, and the trace — is `TestRuntimeRobustnessClassifierBehaviorStart` in
+`internal/exec/runtime/robustness_classifier_behavior_test.go`, with
+`TestStartedActionAwaitingAMessageIsWokenByASibling` beside the materialization tests in
+`classifier_behavior_test.go`.

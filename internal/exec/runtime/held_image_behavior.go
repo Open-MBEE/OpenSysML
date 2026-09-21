@@ -430,7 +430,8 @@ func (m *materializing) behavior(b imagedBehavior) error {
 	return nil
 }
 
-// declaration finds, among the behaviors the object's types bind, the one member declares.
+// declaration finds, among the behaviors the object's types bind or declare for a
+// start, the one member declares.
 func (m *materializing) declaration(inst *Instance, member *symbols.Symbol) (classifierBehaviorDecl, bool) {
 	for _, typ := range inst.types() {
 		for _, decl := range m.dst.classifierBehaviorsOf(typ) {
@@ -439,7 +440,7 @@ func (m *materializing) declaration(inst *Instance, member *symbols.Symbol) (cla
 			}
 		}
 	}
-	return classifierBehaviorDecl{}, false
+	return m.dst.startableDeclaration(inst, member)
 }
 
 // runOf is the run of dst's own made for an imaged run, nil for none.

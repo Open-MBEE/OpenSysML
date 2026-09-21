@@ -955,12 +955,24 @@ on its result pin, and the behavior of an object nobody starts never runs — ea
 execution of its own, sharing the object's event pool; PSSM §8.5.1 makes a state machine such a
 classifier behavior. *v2/KerML:* §7.18.4 an
 `exhibit state` "must be carried out entirely within the lifetime of the performing occurrence";
-`Objects.kerml`/`Occurrences.kerml` `performances`. *Runtime:* `Context.Instantiate` →
-`classifier_behavior.go:runAttachedBehaviors` starts every exhibited state machine and performed action of a part as
-its own executor on the shared bus and clock (`TestInstantiateStartsExhibitedStateMachine`,
-`TestExhibitedMachinesOfTwoObjectsAreIndependent`, `TestExhibitedMachineWritesItsObjectsFeatureValues`
-in `classifier_behavior_test.go`). One pool per machine rather than per object (SM1) is the one
-structural difference, and it is the v2 one. **agrees.**
+`Objects.kerml`/`Occurrences.kerml` `performances`. *Runtime:* two paths, told apart by what the
+type declares. A behavior the type **exhibits or performs** is bound to every object of it, so
+`Context.Instantiate` → `classifier_behavior.go:runAttachedBehaviors` starts every exhibited state
+machine and performed action of a part as its own executor on the shared bus and clock
+(`TestInstantiateStartsExhibitedStateMachine`, `TestExhibitedMachinesOfTwoObjectsAreIndependent`,
+`TestExhibitedMachineWritesItsObjectsFeatureValues` in `classifier_behavior_test.go`) — the v2
+reading, where a performance a type declares is carried out within every occurrence's lifetime. A
+behavior the type **merely declares** (`action beh : Beh;` in a `part def`,
+`lower.StartableBehaviorOf`) is the fUML reading: construction is passive — `new T()` and a
+materialization run nothing of it — and an explicit `StartObjectBehaviorAction`, spelled
+`perform obj.beh.start;` (`lower.EffectStart`, `start_behavior.go:startBehaviorOn`), starts the
+classifier behavior as the object's own execution, `this` in it the object, a later message waking
+an accept it parks at, a second start of a running behavior starting nothing more, and a start
+that fails undone whole (`robustness_classifier_behavior_test.go`,
+`TestStartedActionAwaitingAMessageIsWokenByASibling`). The fUML referee's emitter takes the
+second path for an active class, so `ActiveClassBehaviorSender` runs the reference's order:
+create, start, send. One pool per machine rather than per object (SM1) is the one structural
+difference, and it is the v2 one. **agrees.**
 
 **SM44. The machine ends; the object does not.** fUML §8.8.1: a classifier behavior completing
 does not destroy its object; the object persists, receives occurrences, and handles them with
@@ -969,7 +981,11 @@ addressed to it are lost. *v2/KerML:* `done` ends the state performance, `Life` 
 separate. *Runtime:* `completeIfDone` ends the performance (`endPerformanceLife`) and the machine
 reports `StateCompleted`; the object remains, later messages to the machine are dropped
 (`robustness_test.go:state_event_after_completion`, `state_completion_rests_in_done`,
-`classifier_behavior_test.go:TestMessageLeftForACompletedMachineDoesNotBlockANewObject`). **agrees.**
+`classifier_behavior_test.go:TestMessageLeftForACompletedMachineDoesNotBlockANewObject`); a
+started classifier behavior completing preserves its owner the same way — the object, its feature
+values and the behavior's writes to them outlive the behavior, and an activity may still hand the
+object out through a parameter (`robustness_classifier_behavior_test.go:start_runs_the_behavior_as_the_object`,
+`TestStartedActionAwaitingAMessageIsWokenByASibling`). **agrees.**
 
 **SM45. Destroying the object.** fUML §8.7.2.4 `Object::destroy`: "Stop the object activation
 (if any), clear all types, clear all feature values and destroy the object" — a running

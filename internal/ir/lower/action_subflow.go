@@ -46,6 +46,9 @@ func lowerActionNode(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) 
 	}
 	if !statesOwnFlow(node.Members) {
 		lowerBody(graph, node, scope)
+		if _, _, starts := startedBehavior(node); starts {
+			graph.Bodies[node] = append(graph.Bodies[node], performEffect(node, scope))
+		}
 		return
 	}
 	lowerAccept(graph, node, scope)
@@ -84,6 +87,20 @@ func (g *ActionGraph) TerminateUsage(node ast.Node) (Effect, bool) {
 	}
 	last, ok := body[len(body)-1].(Effect)
 	if !ok || last.Kind != EffectTerminate || last.Terminates != TerminateEnclosing || last.Node != node {
+		return Effect{}, false
+	}
+	return last, true
+}
+
+// StartUsage returns the start a performed action node stands for (`perform
+// obj.beh.start;`), the last of its body; false for a node that performs otherwise.
+func (g *ActionGraph) StartUsage(node ast.Node) (Effect, bool) {
+	body := g.Bodies[node]
+	if len(body) == 0 {
+		return Effect{}, false
+	}
+	last, ok := body[len(body)-1].(Effect)
+	if !ok || last.Kind != EffectStart || last.Node != node {
 		return Effect{}, false
 	}
 	return last, true

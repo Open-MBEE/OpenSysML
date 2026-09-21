@@ -61,6 +61,18 @@ func (m *Model) ClassOf(t TypeRef) *Class {
 	return found
 }
 
+// ActivityOf returns the activity a type reference names, as ClassOf does a
+// class: by ID when it carries one, else by name, or nil.
+func (m *Model) ActivityOf(t TypeRef) *Activity {
+	if m == nil || t.Zero() || t.External {
+		return nil
+	}
+	if t.ID != "" {
+		return m.activities[t.ID]
+	}
+	return m.ActivityNamed(t.Name)
+}
+
 // SignalOf returns the signal a type reference names: by ID when it carries
 // one, else by name, or nil when it names none, the name is ambiguous or it is
 // external.
@@ -103,6 +115,29 @@ func (c *Class) AllAttributes() []*Property {
 	}
 	visit(c)
 	return effectiveProperties(out)
+}
+
+// StartedBehavior returns the behavior an object of the class runs when started:
+// its classifierBehavior, or the nearest one it inherits, generals in order.
+func (c *Class) StartedBehavior() *Activity {
+	seen := map[*Class]bool{}
+	var find func(c *Class) *Activity
+	find = func(c *Class) *Activity {
+		if c == nil || c.Model == nil || seen[c] {
+			return nil
+		}
+		seen[c] = true
+		if c.ClassifierBehavior != nil {
+			return c.ClassifierBehavior
+		}
+		for _, g := range c.Generals {
+			if b := find(c.Model.ClassOf(g)); b != nil {
+				return b
+			}
+		}
+		return nil
+	}
+	return find(c)
 }
 
 // effectiveProperties drops from props every property another of them redefines,

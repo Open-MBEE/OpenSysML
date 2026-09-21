@@ -208,11 +208,66 @@ func TestEmitRefusesUntranslatedConstructs(t *testing.T) {
 	if !errors.As(err, &te) || !IsTranslateError(err) {
 		t.Fatalf("Emit(Selfer) = %v, want a TranslateError", err)
 	}
-	if te.Activity != "Selfer" || te.Where != "ReadSelf" || !strings.Contains(te.Reason, "no class owns") {
+	if te.Activity != "Selfer" || te.Where != "ReadSelf" || !strings.Contains(te.Reason, "performed on its own") {
 		t.Errorf("TranslateError = %+v", te)
 	}
 	if IsTranslateError(errors.New("other")) {
 		t.Error("a plain error is a TranslateError")
+	}
+}
+
+// edgeModel holds the two edge shapes the emitter refuses: Weighted delivers
+// its value over an edge of weight 2, Looping routes it back through a merge.
+const edgeModel = `<?xml version="1.0" encoding="UTF-8"?>
+<uml:Model xmi:version="20131001" xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmlns:uml="http://www.eclipse.org/uml2/5.0.0/UML" xmi:id="m" name="Edges">
+  <packagedElement xmi:type="uml:Activity" xmi:id="weighted" name="Weighted">
+    <ownedParameter xmi:type="uml:Parameter" xmi:id="wOut" name="result" direction="out">` + integerType + `</ownedParameter>
+    <node xmi:type="uml:ValueSpecificationAction" xmi:id="wv" name="Value(1)">
+      <result xmi:type="uml:OutputPin" xmi:id="wvr" name="result">` + integerType + `</result>
+      <value xmi:type="uml:LiteralInteger" xmi:id="wvv" value="1"/>
+    </node>
+    <node xmi:type="uml:ActivityParameterNode" xmi:id="wOutNode" name="Parameter(result)" parameter="wOut"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="we" name="heavy" source="wvr" target="wOutNode">
+      <weight xmi:type="uml:LiteralInteger" xmi:id="wew" value="2"/>
+    </edge>
+  </packagedElement>
+  <packagedElement xmi:type="uml:Activity" xmi:id="looping" name="Looping">
+    <ownedParameter xmi:type="uml:Parameter" xmi:id="lOut" name="result" direction="out">` + integerType + `</ownedParameter>
+    <node xmi:type="uml:ValueSpecificationAction" xmi:id="lv" name="Value(1)">
+      <result xmi:type="uml:OutputPin" xmi:id="lvr" name="result">` + integerType + `</result>
+      <value xmi:type="uml:LiteralInteger" xmi:id="lvv" value="1"/>
+    </node>
+    <node xmi:type="uml:MergeNode" xmi:id="lMerge" name="Merge"/>
+    <node xmi:type="uml:ForkNode" xmi:id="lFork" name="Fork"/>
+    <node xmi:type="uml:ActivityParameterNode" xmi:id="lOutNode" name="Parameter(result)" parameter="lOut"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="l1" source="lvr" target="lMerge"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="l2" source="lMerge" target="lFork"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="l3" source="lFork" target="lOutNode"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="l4" name="back" source="lFork" target="lMerge"/>
+  </packagedElement>
+</uml:Model>
+`
+
+// A weight other than 1 and an object-flow cycle through control nodes are
+// TranslateErrors naming the edge (the weighted one, or the one met twice).
+func TestEmitRefusesWeightsAndCycles(t *testing.T) {
+	s := fixtureSuite(t, edgeModel)
+	for _, tc := range []struct{ activity, where, reason string }{
+		{"Weighted", "ObjectFlow heavy", "an edge weight other than 1"},
+		{"Looping", "ObjectFlow Merge -> Fork", "an object flow cycle through control nodes"},
+	} {
+		a := fixtureActivity(t, s, tc.activity)
+		if c := Classify(a, nil); c.Class != Expressible {
+			t.Fatalf("%s classified %s: %s", tc.activity, c.Class, c.Reason())
+		}
+		_, err := Emit(a)
+		var te *TranslateError
+		if !errors.As(err, &te) ||
+			te.Activity != tc.activity ||
+			te.Where != tc.where ||
+			te.Reason != untranslated(tc.reason) {
+			t.Errorf("Emit(%s) = %v, want a TranslateError at %s on %q", tc.activity, err, tc.where, tc.reason)
+		}
 	}
 }
 
@@ -369,7 +424,9 @@ func TestExecuteBudgets(t *testing.T) {
 // objectModel exercises the object rules: Item specializes Base and declares
 // every multiplicity shape; Assemble creates one and edits each feature its way;
 // Reader reads and clears the features of an Item it is given; Pairing collects
-// two Items into an unordered output; Holder's owned behavior Reflect reads self.
+// two Items into an unordered output; Holder's classifier behavior Reflect reads
+// self, and Awakener creates a Holder and starts it; Instantiator creates an
+// object of the activity Reader, which Mixed also calls.
 const objectModel = `<?xml version="1.0" encoding="UTF-8"?>
 <uml:Model xmi:version="20131001" xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmlns:uml="http://www.eclipse.org/uml2/5.0.0/UML" xmi:id="m" name="Objects">
   <packagedElement xmi:type="uml:Class" xmi:id="base" name="Base">
@@ -562,7 +619,8 @@ const objectModel = `<?xml version="1.0" encoding="UTF-8"?>
     <edge xmi:type="uml:ObjectFlow" xmi:id="t3" source="twinsFork" target="twinsBothNode"/>
     <edge xmi:type="uml:ObjectFlow" xmi:id="t4" source="twinsFork" target="twinsPickNode"/>
   </packagedElement>
-  <packagedElement xmi:type="uml:Class" xmi:id="holder" name="Holder">
+  <packagedElement xmi:type="uml:Class" xmi:id="holder" name="Holder" classifierBehavior="reflect">
+    <ownedAttribute xmi:type="uml:Property" xmi:id="holderN" name="n">` + integerType + `</ownedAttribute>
     <ownedBehavior xmi:type="uml:Activity" xmi:id="reflect" name="Reflect">
       <ownedParameter xmi:type="uml:Parameter" xmi:id="reflectOut" name="me" direction="out" type="holder"/>
       <node xmi:type="uml:ReadSelfAction" xmi:id="readSelf" name="ReadSelf">
@@ -571,11 +629,32 @@ const objectModel = `<?xml version="1.0" encoding="UTF-8"?>
       <node xmi:type="uml:ActivityParameterNode" xmi:id="reflectOutNode" name="Parameter(me)" parameter="reflectOut"/>
       <edge xmi:type="uml:ObjectFlow" xmi:id="h1" source="readSelfr" target="reflectOutNode"/>
     </ownedBehavior>
+    <ownedBehavior xmi:type="uml:Activity" xmi:id="idle" name="Idle"/>
   </packagedElement>
   <packagedElement xmi:type="uml:Activity" xmi:id="instantiator" name="Instantiator">
     <node xmi:type="uml:CreateObjectAction" xmi:id="createReader" name="Create(Reader)" classifier="reader">
       <result xmi:type="uml:OutputPin" xmi:id="createReaderr" name="result" type="reader"/>
     </node>
+  </packagedElement>
+  <packagedElement xmi:type="uml:Activity" xmi:id="mixed" name="Mixed">
+    <node xmi:type="uml:CallBehaviorAction" xmi:id="callReader" name="Call(Reader)" behavior="reader"/>
+    <node xmi:type="uml:CreateObjectAction" xmi:id="createReader2" name="Create(Reader)" classifier="reader">
+      <result xmi:type="uml:OutputPin" xmi:id="createReader2r" name="result" type="reader"/>
+    </node>
+  </packagedElement>
+  <packagedElement xmi:type="uml:Activity" xmi:id="awakener" name="Awakener">
+    <ownedParameter xmi:type="uml:Parameter" xmi:id="awakenerOut" name="made" direction="out" type="holder"/>
+    <node xmi:type="uml:CreateObjectAction" xmi:id="createHolder" name="Create(Holder)" classifier="holder">
+      <result xmi:type="uml:OutputPin" xmi:id="createHolderr" name="result" type="holder"/>
+    </node>
+    <node xmi:type="uml:ForkNode" xmi:id="awakenerFork" name="Fork"/>
+    <node xmi:type="uml:StartObjectBehaviorAction" xmi:id="startHolder" name="Start(Holder)">
+      <object xmi:type="uml:InputPin" xmi:id="startHoldero" name="object" type="holder"/>
+    </node>
+    <node xmi:type="uml:ActivityParameterNode" xmi:id="awakenerOutNode" name="Parameter(made)" parameter="awakenerOut"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="w1" source="createHolderr" target="awakenerFork"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="w2" source="awakenerFork" target="startHoldero"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="w3" source="awakenerFork" target="awakenerOutNode"/>
   </packagedElement>
 </uml:Model>
 `
@@ -653,37 +732,67 @@ func TestEmitFeatureReads(t *testing.T) {
 		"flow 'Read(n)'.result to 'Parameter(n)'.v;")
 }
 
-// A read self action outside any class is a TranslateError; a class's owned
-// behavior, where `this` would be the object, is one too until owned behaviors
-// are translated.
+// A class's owned behavior is spelled inside its part def, so that `this` is the
+// object performing it, and a start performs the usage binding the classifier
+// behavior; on its own the behavior has no object to be this and is refused, as
+// is a read self action in an activity performed on its own.
 func TestEmitReadSelf(t *testing.T) {
 	s := fixtureSuite(t, objectModel)
-	var reflect *Activity
-	for _, c := range s.Tests.Classes {
-		for _, b := range c.Behaviors {
-			if b.Name == "Reflect" {
-				reflect = b
-			}
-		}
+	holder := s.Tests.ClassOf(TypeRef{Name: "Holder"})
+	if holder == nil || holder.ClassifierBehavior == nil || holder.ClassifierBehavior.Name != "Reflect" {
+		t.Fatalf("Holder's classifier behavior is not Reflect: %+v", holder)
 	}
-	if reflect == nil || reflect.Owner == nil || reflect.Owner.Name != "Holder" {
-		t.Fatalf("Holder owns no Reflect: %+v", reflect)
-	}
-	_, err := Emit(reflect)
+	_, err := Emit(holder.ClassifierBehavior)
 	var te *TranslateError
-	if !errors.As(err, &te) || te.Activity != "Reflect" || te.Where != "activity" || !strings.Contains(te.Reason, "owned behavior") {
+	if !errors.As(err, &te) || te.Activity != "Reflect" || te.Where != "activity" || !strings.Contains(te.Reason, "owned behavior of Holder") {
 		t.Errorf("Emit(Reflect) = %v, want a TranslateError on the owned behavior", err)
+	}
+	em := emitted(t, s, "Awakener")
+	wantLines(t, em,
+		"\tpart def Holder {\n\t\tattribute n : Integer;\n\t\taction def Reflect {\n\t\t\tout me : Holder;\n\t\t\taction ReadSelf { out result : Holder = this; }\n",
+		"\t\t}\n\t\taction classifierBehavior : Reflect;\n\t}\n",
+		"action 'Create(Holder)' { out result : Holder = new Holder(); }",
+		"action 'Start(Holder)' { in object : Holder; perform object.classifierBehavior.start; }",
+		"flow 'Create(Holder)'.result to 'Start(Holder)'.object;")
+	if strings.Contains(em.Text, "\n\taction def Reflect") {
+		t.Errorf("Reflect declared in the package as well:\n%s", em.Text)
 	}
 }
 
-// An activity instantiated as an object (a behavior is a class in UML) is
-// refused naming the activity, apart from a classifier the model lacks.
-func TestEmitRefusesAnActivityAsObject(t *testing.T) {
+// An activity instantiated as an object (a behavior is a class in UML) is a part
+// def whose classifier behavior, named `behavior`, is the activity's own body;
+// one the translation also performs as an action cannot be both and is refused.
+func TestEmitActivityAsObject(t *testing.T) {
 	s := fixtureSuite(t, objectModel)
-	_, err := Emit(fixtureActivity(t, s, "Instantiator"))
+	em := emitted(t, s, "Instantiator")
+	wantLines(t, em,
+		"\tpart def Reader {\n\t\taction def 'behavior' {\n\t\t\tin given : Item;\n",
+		"\t\t\taction 'Read(n)' { in object : Item; out result : Integer[0..1] = object.n; }\n",
+		"\t\t}\n\t\taction classifierBehavior : 'behavior';\n\t}\n",
+		"action 'Create(Reader)' { out result : Reader = new Reader(); }")
+	if strings.Contains(em.Text, "\n\taction def Reader") {
+		t.Errorf("Reader declared as an action def as well:\n%s", em.Text)
+	}
+	_, err := Emit(fixtureActivity(t, s, "Mixed"))
 	var te *TranslateError
-	if !errors.As(err, &te) || te.Where != "Create(Reader)" || !strings.Contains(te.Reason, "object of the activity Reader") {
-		t.Errorf("Emit(Instantiator) = %v, want a TranslateError on the activity created", err)
+	if !errors.As(err, &te) || te.Where != "activity Reader" || !strings.Contains(te.Reason, "both performed as an action and instantiated as an object") {
+		t.Errorf("Emit(Mixed) = %v, want a TranslateError on Reader", err)
+	}
+}
+
+// Starting the created Holder runs Reflect as the object's behavior, whose
+// `this` is the Holder; creation alone starts nothing, and the Holder handed out
+// is the same object whatever the start did.
+func TestExecuteStartedObject(t *testing.T) {
+	s := fixtureSuite(t, objectModel)
+	awakener := fixtureActivity(t, s, "Awakener")
+	x := executed(awakener, []ExpectedOutput{{Parameter: "made", Values: []ExpectedValue{object("o1", "Holder")}}})
+	ex, err := Execute(context.Background(), emitted(t, s, "Awakener"), &x, DefaultBudget, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ex.Passed() || strings.Join(ex.Reached, "|") != "made = Holder#1{n = -}" {
+		t.Errorf("Awakener: %+v", ex)
 	}
 }
 
@@ -1030,16 +1139,20 @@ func TestEmitSignalTypedAttribute(t *testing.T) {
 		t.Fatal("no class Carrier")
 	}
 	root := fixtureActivity(t, s, "Listener")
-	text, err := emitClass(root, c)
+	cl, err := closureOf(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text, err := cl.emitObject(&objectDef{name: c.Name, attributes: c.Attributes, class: c}, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if text != "\tpart def Carrier {\n\t\tattribute last : Ping [0..1];\n\t}\n" {
 		t.Errorf("Carrier:\n%s", text)
 	}
-	signals, err := signalClosure(root, nil, []*Class{c})
-	if err != nil || len(signals) != 1 || signals[0].Name != "Ping" {
-		t.Errorf("signalClosure(Carrier) = %v, %v; want Ping", signals, err)
+	alone := &closure{root: root, m: root.Model, objects: []*objectDef{{name: c.Name, attributes: c.Attributes, class: c}}}
+	if err := alone.signalDefs(); err != nil || len(alone.signals) != 1 || alone.signals[0].Name != "Ping" {
+		t.Errorf("signalDefs(Carrier) = %v, %v; want Ping", alone.signals, err)
 	}
 }
 

@@ -82,6 +82,38 @@ func ClassifierBehaviorsOf(members []ast.Node) []ClassifierBehavior {
 	return out
 }
 
+// StartableBehaviorOf reports the behavior a type's member holds for its objects
+// to start: one the type exhibits or performs, or an action or state usage it
+// merely declares (`action beh : Beh;`), which an object runs once a
+// `perform obj.beh.start` starts it and not before.
+func StartableBehaviorOf(member ast.Node) (ClassifierBehavior, bool) {
+	if behavior, ok := ClassifierBehaviorOf(member); ok {
+		return behavior, true
+	}
+	usage, ok := unwrapMembership(member).(*ast.Usage)
+	if !ok || usage.Direction != ast.DirNone || usage.IsResult || usage.IsBodyParameter ||
+		usage.IsTerminate || usage.IsAccept || usage.IsStateAction() {
+		return ClassifierBehavior{}, false
+	}
+	var kind ClassifierBehaviorKind
+	switch usage.Kind {
+	case ast.UsageAction:
+		kind = PerformedAction
+	case ast.UsageState:
+		kind = ExhibitedState
+	default:
+		return ClassifierBehavior{}, false
+	}
+	name, _ := ast.EffectiveName(usage)
+	return ClassifierBehavior{
+		Kind:       kind,
+		Name:       name,
+		Decl:       usage,
+		StatesBody: StatesBehaviorBody(usage.Members),
+		Arguments:  behaviorArguments(usage.Members),
+	}, true
+}
+
 // classifierBehaviorKind reports which behavior an `exhibit` or `perform`
 // declaration binds, by the keyword it was written with.
 func classifierBehaviorKind(usage *ast.Usage) (ClassifierBehaviorKind, bool) {

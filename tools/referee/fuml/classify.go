@@ -495,26 +495,30 @@ func objectTypesAt(n *Node, found map[*Node]*typeSources, depth int) (types []Ty
 	return types, flowed && !fed && resolved, low
 }
 
-// effectiveType is a node's declared type, or for an activity parameter node
-// that repeats none the type of the parameter it stands for.
+// effectiveType is a node's declared type, or for an untyped activity parameter
+// node the type of its parameter, and for the untyped result pin of an accept of
+// one signal that signal, which is what the pin carries.
 func effectiveType(n *Node) TypeRef {
-	if n.Type.Zero() && n.Kind == ActivityParameterNode && n.Parameter != nil {
+	if !n.Type.Zero() {
+		return n.Type
+	}
+	if n.Kind == ActivityParameterNode && n.Parameter != nil {
 		return n.Parameter.Type
+	}
+	if o := n.Owner; n.Kind == OutputPin && o != nil && o.Kind == AcceptEventAction && !o.Unmarshall && len(o.Triggers) == 1 && o.Triggers[0].Operation == nil {
+		return o.Triggers[0].Signal
 	}
 	return n.Type
 }
 
 // classifierBehavior is the behavior an object of the type runs when started:
-// an active activity runs itself, a class its classifierBehavior.
+// an activity runs itself, a class its classifierBehavior, own or inherited.
 func classifierBehavior(m *Model, t TypeRef) *Activity {
-	if m == nil || t.External {
-		return nil
-	}
-	if act := m.Activity(t.ID); act != nil {
+	if act := m.ActivityOf(t); act != nil {
 		return act
 	}
-	if c := m.Class(t.ID); c != nil {
-		return c.ClassifierBehavior
+	if c := m.ClassOf(t); c != nil {
+		return c.StartedBehavior()
 	}
 	return nil
 }

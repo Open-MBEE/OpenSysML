@@ -226,7 +226,7 @@ func TestRefereeBuckets(t *testing.T) {
 	if selfer.Bucket != oreport.BucketNotExpressible || selfer.Class != "expressible" || selfer.Runs != 0 || len(selfer.Reasons) != 1 {
 		t.Errorf("Selfer = %+v", selfer)
 	}
-	wantReasons(t, selfer, "not yet translated: ReadSelf: reads self in an activity no class owns")
+	wantReasons(t, selfer, "not yet translated: ReadSelf: reads self in an activity performed on its own, where self is the performance and not an object")
 	extent := row(t, r, "Extent")
 	if extent.Bucket != oreport.BucketNotExpressible || extent.Runs != 0 || len(extent.Reasons) != 1 {
 		t.Errorf("Extent = %+v", extent)
@@ -251,6 +251,38 @@ func TestRefereeNoRecord(t *testing.T) {
 	wantReasons(t, r.Activities[0], "record has no execution of it")
 	r = refereed(t, s, x, Options{Filter: "Twice"})
 	wantReasons(t, r.Activities[0], "record has no execution of it: the test harness has no case for it")
+}
+
+// A class's owned behavior runs only as the behavior of an object of the class,
+// so its row is carried by the activities whose start runs it: pass when a
+// starter passes, fail when one fails, each reason naming the starter; one
+// nothing starts fails saying so.
+func TestRefereeOwnedBehavior(t *testing.T) {
+	s := fixtureSuite(t, objectModel)
+	awakener := fixtureActivity(t, s, "Awakener")
+	x := &Expected{Activities: []ExpectedActivity{
+		executed(awakener, []ExpectedOutput{{Parameter: "made", Values: []ExpectedValue{object("o1", "Holder")}}}),
+		{Model: TestsFile, ID: "reflect", Name: "Reflect", Skipped: "ownedBehavior of Holder"},
+	}}
+	r := refereed(t, s, x, Options{Filter: "Reflect"})
+	reflect := row(t, r, "Reflect")
+	if reflect.Bucket != oreport.BucketPass || reflect.Class != "expressible" || reflect.Runs != 0 || len(reflect.Reasons) != 1 {
+		t.Errorf("Reflect = %+v", reflect)
+	}
+	wantReasons(t, reflect, "started by Awakener, which is pass")
+	idle := row(t, refereed(t, s, x, Options{Filter: "Idle"}), "Idle")
+	if idle.Bucket != oreport.BucketFail {
+		t.Errorf("Idle = %+v", idle)
+	}
+	wantReasons(t, idle, "no activity starts an object of Holder, so nothing runs it")
+
+	x.Activities[0] = executed(awakener, []ExpectedOutput{{Parameter: "made", Values: []ExpectedValue{object("o1", "Holder", feature("n", 4))}}})
+	r = refereed(t, s, x, Options{})
+	reflect = row(t, r, "Reflect")
+	if reflect.Bucket != oreport.BucketFail || row(t, r, "Awakener").Bucket != oreport.BucketFail {
+		t.Errorf("Reflect = %+v", reflect)
+	}
+	wantReasons(t, reflect, "started by Awakener, which is fail: outputs differ: made = Holder#1{n = -}")
 }
 
 // A run whose outputs differ from the record fails naming both; the differing
