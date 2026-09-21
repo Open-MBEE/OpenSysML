@@ -37,6 +37,18 @@ func (w *writer) lines(ls []string) {
 // block writes header with a brace-delimited body, or as `header;` when the
 // body writes nothing.
 func (w *writer) block(header string, body func()) {
+	w.enclose(header, ";", body)
+}
+
+// braced writes header with a brace-delimited body, `header { }` when the body
+// writes nothing: for a clause the grammar continues after, which `;` would end.
+func (w *writer) braced(header string, body func()) {
+	w.enclose(header, " { }", body)
+}
+
+// enclose writes header with a brace-delimited body, or header followed by
+// empty when the body writes nothing.
+func (w *writer) enclose(header, empty string, body func()) {
 	w.buf()
 	w.bufs = append(w.bufs, &strings.Builder{})
 	w.indent++
@@ -45,7 +57,7 @@ func (w *writer) block(header string, body func()) {
 	inner := w.bufs[len(w.bufs)-1].String()
 	w.bufs = w.bufs[:len(w.bufs)-1]
 	if inner == "" {
-		w.line(header + ";")
+		w.line(header + empty)
 		return
 	}
 	w.line(header + " {")

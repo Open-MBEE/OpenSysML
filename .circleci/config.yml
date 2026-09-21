@@ -416,6 +416,22 @@ jobs:
           environment:
             OPENSYSML_REQUIRE_PSSM_SUITE: "1"
 
+      # The migration of the PSSM suite to v2 notation alone, so its report totals
+      # are legible in the log and a skip cannot hide behind a green suite
+      # (docs/project/pssm-migration.md).
+      - run:
+          name: Run PSSM migration gate
+          command: |
+            set -o pipefail
+            go test -count=1 -v ./tests/corpus -run 'TestPSSMSuiteMigration' | tee pssm-migration-gate.log
+            grep -E 'PSSM_TestSuite.xmi: migrated [0-9]+ element' pssm-migration-gate.log
+            if grep -qE '^\s*--- SKIP' pssm-migration-gate.log; then
+              echo "error: the PSSM migration gate skipped" >&2
+              exit 1
+            fi
+          environment:
+            OPENSYSML_REQUIRE_PSSM_SUITE: "1"
+
       # The fUML reader and classifier over the pinned models, likewise, then the
       # referee's bucket-count check against the committed record; the jar never runs.
       - run:

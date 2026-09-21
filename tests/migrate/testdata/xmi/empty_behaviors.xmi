@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+
+    <!-- Behaviors that write no statements: an activity with no nodes, an
+         activity whose every node is refused, and an opaque behavior in a
+         language the translator does not read, each as a state's entry, do
+         and exit, as the effect of a triggered transition and as the effect of
+         a completion transition; and a behavior the block owns, referred to
+         by a triggered and by a completion transition as their effect. -->
+
+    <packagedElement xmi:type="uml:Signal" xmi:id="_go" name="Go"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_goEv" signal="_go"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_log" name="Log"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_gate" name="Gate" classifierBehavior="_cycle">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_count" name="count">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_count0" value="0"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_reset" name="Reset"/>
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_cycle" name="Cycle">
+        <region xmi:type="uml:Region" xmi:id="_main" name="main">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_init"/>
+          <subvertex xmi:type="uml:State" xmi:id="_idle" name="Idle">
+            <entry xmi:type="uml:Activity" xmi:id="_idleEntry" name="prime"/>
+            <doActivity xmi:type="uml:Activity" xmi:id="_idleDo" name="spin">
+              <node xmi:type="uml:CreateObjectAction" xmi:id="_idleSpinNew" name="new log" classifier="_log"/>
+            </doActivity>
+            <exit xmi:type="uml:OpaqueBehavior" xmi:id="_idleExit" name="flush">
+              <language>Fortran</language>
+              <body>CALL FLUSH(count)</body>
+            </exit>
+          </subvertex>
+          <subvertex xmi:type="uml:State" xmi:id="_busy" name="Busy">
+            <entry xmi:type="uml:Activity" xmi:id="_busyEntry" name="open">
+              <node xmi:type="uml:CreateObjectAction" xmi:id="_busyOpenNew" name="new log" classifier="_log"/>
+              <node xmi:type="uml:DestroyObjectAction" xmi:id="_busyOpenOld" name="drop log"/>
+            </entry>
+            <doActivity xmi:type="uml:OpaqueBehavior" xmi:id="_busyDo" name="poll">
+              <language>Fortran</language>
+              <body>CALL POLL(count)</body>
+            </doActivity>
+            <exit xmi:type="uml:Activity" xmi:id="_busyExit" name="close"/>
+          </subvertex>
+          <subvertex xmi:type="uml:State" xmi:id="_cool" name="Cool">
+            <entry xmi:type="uml:OpaqueBehavior" xmi:id="_coolEntry" name="vent">
+              <language>Fortran</language>
+              <body>CALL VENT(count)</body>
+            </entry>
+            <doActivity xmi:type="uml:Activity" xmi:id="_coolDo" name="wait"/>
+            <exit xmi:type="uml:Activity" xmi:id="_coolExit" name="seal">
+              <node xmi:type="uml:CreateObjectAction" xmi:id="_coolSealNew" name="new log" classifier="_log"/>
+            </exit>
+          </subvertex>
+          <subvertex xmi:type="uml:State" xmi:id="_warm" name="Warm"/>
+          <subvertex xmi:type="uml:State" xmi:id="_cold" name="Cold"/>
+          <subvertex xmi:type="uml:State" xmi:id="_off" name="Off"/>
+          <subvertex xmi:type="uml:State" xmi:id="_hot" name="Hot"/>
+          <transition xmi:type="uml:Transition" xmi:id="_t0" source="_init" target="_idle"/>
+          <transition xmi:type="uml:Transition" xmi:id="_tGoBusy" source="_idle" target="_busy">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trGoBusy" event="_goEv"/>
+            <effect xmi:type="uml:Activity" xmi:id="_effGoBusy" name="effect"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tGoCool" source="_busy" target="_cool">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trGoCool" event="_goEv"/>
+            <effect xmi:type="uml:Activity" xmi:id="_effGoCool" name="effect">
+              <node xmi:type="uml:CreateObjectAction" xmi:id="_effGoCoolNew" name="new log" classifier="_log"/>
+            </effect>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tGoWarm" source="_cool" target="_warm">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trGoWarm" event="_goEv"/>
+            <effect xmi:type="uml:OpaqueBehavior" xmi:id="_effGoWarm" name="effect">
+              <language>Fortran</language>
+              <body>CALL WARM(count)</body>
+            </effect>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tWarmCold" source="_warm" target="_cold">
+            <effect xmi:type="uml:Activity" xmi:id="_effWarmCold" name="effect"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tColdOff" source="_cold" target="_off">
+            <effect xmi:type="uml:Activity" xmi:id="_effColdOff" name="effect">
+              <node xmi:type="uml:CreateObjectAction" xmi:id="_effColdOffNew" name="new log" classifier="_log"/>
+            </effect>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tOffIdle" source="_off" target="_idle">
+            <effect xmi:type="uml:OpaqueBehavior" xmi:id="_effOffIdle" name="effect">
+              <language>Fortran</language>
+              <body>CALL RESTART(count)</body>
+            </effect>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tGoHot" source="_off" target="_hot" effect="_reset">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trGoHot" event="_goEv"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tHotIdle" source="_hot" target="_idle" effect="_reset"/>
+        </region>
+      </ownedBehavior>
+    </packagedElement>
+  </uml:Model>
+</xmi:XMI>

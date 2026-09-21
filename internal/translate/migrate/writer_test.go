@@ -18,6 +18,22 @@ func TestWriterBlocks(t *testing.T) {
 	}
 }
 
+// A braced clause keeps its braces when its body is empty, so what follows it
+// on the next line still belongs to the same statement.
+func TestWriterBracedKeepsEmptyBody(t *testing.T) {
+	w := &writer{}
+	w.line("transition first S1")
+	w.indented(func() {
+		w.braced("do action effect", func() {})
+		w.line("then S2;")
+		w.braced("do action", func() { w.line("assign x := 1;") })
+	})
+	want := "transition first S1\n    do action effect { }\n    then S2;\n    do action {\n        assign x := 1;\n    }\n"
+	if got := w.String(); got != want {
+		t.Errorf("got\n%s\nwant\n%s", got, want)
+	}
+}
+
 // Sibling blocks must not copy the output written before them: the bytes
 // allocated stay within a small factor of the output.
 func TestWriterSiblingBlocksAreLinear(t *testing.T) {
