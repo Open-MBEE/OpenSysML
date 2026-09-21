@@ -118,15 +118,21 @@ func (a *activity) sendRefusal(n *sysmlv1.Element) (why string, v Verdict, refus
 }
 
 // primitiveRefusal says why a call to a behavior of the fUML or Alf library is a
-// placeholder: the v2 library has no function for it, or a pin standing for a
-// parameter that must hold a value is dry, or may hold none and nothing fills it.
-// A pin that must hold a value and that nothing fills starves the action instead.
+// placeholder: the v2 library has no function for it, a value pin holds a value
+// v2 cannot spell, or a pin standing for a parameter that must hold a value is
+// dry, or may hold none and nothing fills it. A pin that must hold a value and
+// that nothing fills starves the action instead.
 func (a *activity) primitiveRefusal(n *sysmlv1.Element, p *primitiveCall) (why string, v Verdict, refused bool) {
 	if p.outs == nil {
 		return joinNotes("the behavior "+p.qualified()+" it calls has no v2 library function: "+p.note, p.provenance), Unmapped, true
 	}
 	ins := inputPins(n)
 	for i, arg := range p.arguments() {
+		if i < len(ins) {
+			if v, vnote := a.unwritten(n, ins[i]); v != nil {
+				return "the pin " + describe(ins[i]) + " it passes for the parameter " + arg.name + " of " + p.qualified() + " holds the value " + describeValue(v) + ", which has no v2 expression: " + vnote + "; v1 computes on it, so the action carries the token and performs nothing", Approximated, true
+			}
+		}
 		if !arg.required {
 			continue
 		}
@@ -141,6 +147,19 @@ func (a *activity) primitiveRefusal(n *sysmlv1.Element, p *primitiveCall) (why s
 		}
 	}
 	return "", Mapped, false
+}
+
+// unwritten returns the value of a value pin of n that has no v2 expression,
+// and why; nil for another pin or a value that is written.
+func (a *activity) unwritten(n, pin *sysmlv1.Element) (*sysmlv1.Element, string) {
+	v := firstOwned(pin, "value")
+	if v == nil || pin.Type != "ValuePin" {
+		return nil, ""
+	}
+	if _, ok, note := a.m.typedBehaviorValue(v, pin, n); !ok {
+		return v, note
+	}
+	return nil, ""
 }
 
 // holdsNone reports whether an input pin admitting no value (lower bound 0) is

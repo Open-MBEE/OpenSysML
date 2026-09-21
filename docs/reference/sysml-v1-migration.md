@@ -621,6 +621,9 @@ so a call whose pins do not is ill-formed, and is written as it stands. A sequen
 passed nothing — the empty sequence — but a scalar parameter must hold a value: a call that
 passes no argument for one, or whose pin only flows from something that produces none, never
 fires in v1, and is written as an empty action carrying the token, as any starved call is.
+So is a call whose value pin holds a value v2 cannot spell — an unlimited natural `*`, a real
+that is not a finite number — since v1 computes on a value the written call would lack; the note
+says which value and why.
 Where the v2 function differs from the v1 behavior — an index outside the sequence fails in v2
 where v1 gives no result; `ToBoolean` reads `TRUE` in v1 and only `true` in v2 — the call is
 approximated and the note says how; where the v2 library has no equivalent, the call is
