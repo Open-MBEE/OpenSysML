@@ -303,9 +303,12 @@ func (ar *activityReader) readNode(n *xmi.Element) {
 			Replace:   n.Attr("isReplaceAll") == "true",
 		})
 	case typeActivityParameterNode:
-		// A fed return parameter node is the body's return statement.
+		// A fed output parameter node is the body's return statement.
 		param := ar.r.doc.ByID(n.Attr("parameter"))
-		if param != nil && (param.Attr("direction") == "return" || param.Attr("direction") == "out") && len(ar.incoming[n.ID]) > 0 {
+		if param == nil || len(ar.incoming[n.ID]) == 0 {
+			return
+		}
+		if dir := param.Attr("direction"); dir == "return" || dir == "out" || dir == "inout" {
 			ar.emit(Statement{Kind: StmtReturn, Feature: param.Attr("name"), Value: ar.pinValue(n)})
 		}
 	case typeInitialNode, typeActivityFinalNode, typeFlowFinalNode, typeForkNode, typeJoinNode,

@@ -1680,7 +1680,15 @@ action def T2_effect {
 transition first waiting accept op() do { action : T2_effect { inout log = log; } } then done;
 ```
 
-The runtime returns what the usage assigned to `output` to the caller of `op()`. A do activity
+The runtime returns what the usage assigned to `output` to the caller of `op()`. The behavior's
+outputs must match the operation's by position and type as its inputs must: §8.5.9 returns the
+values of the operation's output parameters, so `out value : Integer` against
+`op(out result : String)` is a refusal, not an integer under the name `result`. An `inout`
+parameter is one feature of the definition, declared `inout` under the operation's name and
+bound `inout count = trigger_bump_count;` in the usage, so the runtime returns it as the
+operation's `inout`; the body's write to it is spelled after its other statements, since UML
+posts an output parameter node's value when the activity completes and every read before that
+is of the input (`TestParametersInoutBindsOnceAndReturns`). A do activity
 with outputs is refused instead (`binding.go`): the step that dispatched the call ends while the
 activity runs, so its outputs return to nobody; no test of the suite has the shape. The four
 tests run and pass, each on exactly its admitted traces: the effect's `return` is traced by the

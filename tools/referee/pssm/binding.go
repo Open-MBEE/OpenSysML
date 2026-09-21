@@ -385,7 +385,8 @@ func conforms(bh *Behavior, ev *Event, data []Param) string {
 }
 
 // outputNames names the behavior's outputs as they return: the operation's
-// output parameters by position for a call event, their own names otherwise.
+// output parameters by position and type for a call event, their own names
+// otherwise.
 func outputNames(bh *Behavior, ev *Event) ([]string, string) {
 	outs := outputs(bh)
 	var names []string
@@ -394,7 +395,10 @@ func outputNames(bh *Behavior, ev *Event) ([]string, string) {
 		if len(outs) != len(returned) {
 			return nil, fmt.Sprintf("%d output parameters, %s returns %d values", len(outs), ev.Describe(), len(returned))
 		}
-		for _, p := range returned {
+		for i, p := range returned {
+			if outs[i].Type != p.Type {
+				return nil, fmt.Sprintf("parameter %s is a %s but %s returns a %s there", outs[i].Name, outs[i].Type, ev.Describe(), p.Type)
+			}
 			names = append(names, p.Name)
 		}
 	} else {

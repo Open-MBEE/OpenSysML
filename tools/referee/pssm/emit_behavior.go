@@ -173,10 +173,52 @@ func (e *emitter) defUsage(binding *Binding, ind, where, base string) (string, e
 	var b strings.Builder
 	fmt.Fprintf(&b, " : %s {\n%s    inout log = log;\n", name, ind)
 	for i, p := range inputs(binding.Behavior) {
-		fmt.Fprintf(&b, "%s    in %s = %s;\n", ind, spell(p.Name), bindValues(binding)[i])
+		dir, name := inputSpelling(binding, p)
+		fmt.Fprintf(&b, "%s    %s %s = %s;\n", ind, dir, name, bindValues(binding)[i])
 	}
 	fmt.Fprintf(&b, "%s}", ind)
 	return b.String(), nil
+}
+
+// inputSpelling is the direction and feature name an input is declared under:
+// an inout is one feature, named as it returns.
+func inputSpelling(binding *Binding, p Param) (dir, name string) {
+	if p.Direction != "inout" {
+		return "in", spell(p.Name)
+	}
+	for i, o := range outputs(binding.Behavior) {
+		if o.Name == p.Name {
+			return "inout", spell(binding.Outputs[i])
+		}
+	}
+	return "inout", spell(p.Name)
+}
+
+// inoutWritesLast moves a body's writes to its inout parameters after every
+// other statement: UML posts an output parameter node's value when the activity
+// completes, and every read of the one feature before that is of the input.
+func inoutWritesLast(bh *Behavior) *Body {
+	inouts := map[string]bool{}
+	for _, p := range bh.Params {
+		if p.Direction == "inout" {
+			inouts[p.Name] = true
+		}
+	}
+	if len(inouts) == 0 {
+		return bh.Body
+	}
+	body := *bh.Body
+	body.Statements = nil
+	var writes []Statement
+	for _, st := range bh.Body.Statements {
+		if st.Kind == StmtReturn && inouts[st.Feature] {
+			writes = append(writes, st)
+			continue
+		}
+		body.Statements = append(body.Statements, st)
+	}
+	body.Statements = append(body.Statements, writes...)
+	return &body
 }
 
 // definition spells a bound behavior as an action definition once: `inout log`
@@ -201,11 +243,15 @@ func (e *emitter) definition(binding *Binding, where, base string) (string, erro
 	var b strings.Builder
 	fmt.Fprintf(&b, "    action def %s {\n        inout log : String;\n", name)
 	for i, p := range inputs(bh) {
-		scope[p.Name] = spell(p.Name)
+		dir, feat := inputSpelling(binding, p)
+		scope[p.Name] = feat
 		types[p.Name] = p.Type
-		fmt.Fprintf(&b, "        in %s : %s;\n", spell(p.Name), e.dataType(binding.Event, binding.Data[i]))
+		fmt.Fprintf(&b, "        %s %s : %s;\n", dir, feat, e.dataType(binding.Event, binding.Data[i]))
 	}
 	for i, p := range outputs(bh) {
+		if p.Direction == "inout" {
+			continue
+		}
 		scope[p.Name] = spell(binding.Outputs[i])
 		types[p.Name] = p.Type
 		fmt.Fprintf(&b, "        out %s : %s;\n", spell(binding.Outputs[i]), scalarTypes[p.Type])

@@ -133,11 +133,33 @@ const orOperation = `      <ownedOperation xmi:type="uml:Operation" xmi:id="opOr
 
 var orParams = []param{{"left", "in", "Boolean"}, {"right", "in", "Boolean"}, {"result", "out", "Boolean"}, {"return", "return", "Boolean"}}
 
+// bumpOperation is `bump(inout count : Integer)`, with its call event.
+const bumpOperation = `      <ownedOperation xmi:type="uml:Operation" xmi:id="opBump" name="bump">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="opBumpC" name="count" direction="inout"><type href="` + primitiveTypes + `Integer"/></ownedParameter>
+      </ownedOperation>
+`
+
+// inoutBump writes an activity <tag> with `inout count : Integer` that traces
+// `<segment>` and formatParameterValue(true, count), then returns count + 1;
+// the write is fed first in document order, as UML lets it be.
+func inoutBump(tag, id, segment string) string {
+	b := &behaviorBuilder{id: id}
+	pid := id + "P0"
+	decls := param{"count", "inout", "Integer"}.decl(pid) +
+		`  <node xmi:type="uml:ActivityParameterNode" xmi:id="` + pid + `OutNode" parameter="` + pid + `"/>` + "\n"
+	b.flows(b.primitive("IntegerFunctions-plus", pid+"Node", b.literal("uml:LiteralInteger", "1")), pid+"OutNode")
+	b.trace(b.primitive("StringFunctions-Concat", b.literal("uml:LiteralString", segment), b.format(true, pid+"Node")))
+	return `<` + tag + ` xmi:type="uml:Activity" xmi:id="` + id + `" name="` + id + `">
+` + decls + b.nodes.String() + b.flow.String() + `</` + tag + `>
+`
+}
+
 // parameterSuite is one test package: the target owns the operations, its machine
 // goes Initial -> wait then the body, and the tester performs the steps after Start.
 func parameterSuite(operations, body string, expected []string, steps ...testerStep) string {
 	return fixtureHead + fixtureEvents + tracingLibrary +
 		`  <packagedElement xmi:type="uml:CallEvent" xmi:id="evOr" operation="opOr"/>
+  <packagedElement xmi:type="uml:CallEvent" xmi:id="evBump" operation="opBump"/>
   <packagedElement xmi:type="uml:Package" xmi:id="areaX" name="Area">
 ` + registration("Area", "semX", "Area 001", expected...) +
 		`  <packagedElement xmi:type="uml:Package" xmi:id="pkgX" name="001">
@@ -279,6 +301,46 @@ func TestParametersCallBindsInputsAndReturnsOutputs(t *testing.T) {
 	}
 }
 
+// An inout parameter is one feature of the definition, bound from the call's
+// argument and returned as the operation's inout after the body's reads of it.
+func TestParametersInoutBindsOnceAndReturns(t *testing.T) {
+	body := `
+          <subvertex xmi:type="uml:State" xmi:id="xS1" name="S1">
+            ` + inoutBump("entry", "xS1entry", "S1(entry)") + `
+          </subvertex>
+          <transition xmi:type="uml:Transition" xmi:id="xT2" name="T2" source="xWait" target="xS1">
+            <trigger xmi:type="uml:Trigger" xmi:id="xT2trig" event="evBump"/>
+            ` + inoutBump("effect", "xT2effect", "T2(effect)") + `
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="xT3" name="T3" source="xS1" target="xFin">
+            <trigger xmi:type="uml:Trigger" xmi:id="xT3trig" event="evContinue"/>
+          </transition>`
+	call := testerStep{call: "opBump", args: []string{"uml:LiteralInteger=5"}}
+	report, s := refereeParameterSuite(t, bumpOperation, body,
+		[]string{"T2(effect)[in=5]::S1(entry)[in=5]::[out=6]"},
+		call.tracingResult(), sendContinue)
+	wantPass(t, report.Tests[0])
+	m, err := Emit(s, s.Tests[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"inout count : Integer;\n        first start;",
+		"inout count = trigger_bump_count;",
+		"inout count = count;",
+		"ToString(count) + \"]\"));\n            assign count := (count + 1);",
+	} {
+		if !strings.Contains(m.Text, want) {
+			t.Errorf("emitted text lacks %q:\n%s", want, m.Text)
+		}
+	}
+	for _, banned := range []string{"in count :", "out count :", "in count ="} {
+		if strings.Contains(m.Text, " "+banned) {
+			t.Errorf("emitted text declares the inout twice (%q):\n%s", banned, m.Text)
+		}
+	}
+}
+
 // A do activity's in parameters bind like an entry's; the trace admits the
 // activity finishing or not before the next event, as PSSM does.
 func TestParametersDoActivityBindsInputs(t *testing.T) {
@@ -360,6 +422,14 @@ func TestParametersRefusals(t *testing.T) {
             <trigger xmi:type="uml:Trigger" xmi:id="xT3trig" event="evData"/>
           </transition>`,
 			"S2", "parameter flag is a Boolean but IntegerData carries a IntegerData there"},
+		{"wrong output type", bound + `
+          <subvertex xmi:type="uml:State" xmi:id="xS2" name="S2">
+            ` + paramTrace("entry", "xS2entry", "S2(entry)", orParams[0], orParams[1], param{"result", "out", "Integer"}, orParams[3]) + `
+          </subvertex>
+          <transition xmi:type="uml:Transition" xmi:id="xT3" name="T3" source="xS1" target="xS2">
+            <trigger xmi:type="uml:Trigger" xmi:id="xT3trig" event="evOr"/>
+          </transition>`,
+			"S2", "parameter result is a Integer but or() returns a Boolean there"},
 		{"do with outputs", bound + `
           <subvertex xmi:type="uml:State" xmi:id="xS2" name="S2">
             ` + paramTrace("doActivity", "xS2do", "S2(doActivity)", orParams...) + `

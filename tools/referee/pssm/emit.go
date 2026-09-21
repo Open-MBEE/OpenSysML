@@ -889,7 +889,7 @@ func (e *emitter) plainBody(bh *Behavior, where string) ([]string, error) {
 	if bh.Body == nil {
 		return nil, e.fail(where, "an opaque behavior has no translation")
 	}
-	steps, err := e.steps(bh.Body, where, 0)
+	steps, err := e.steps(inoutWritesLast(bh), where, 0)
 	if err != nil {
 		return nil, err
 	}
