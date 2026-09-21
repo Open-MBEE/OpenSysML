@@ -133,14 +133,10 @@ func (r *invocationRun) stabilize() error {
 // park steps every running action with no move so its tokens park: at their
 // accepts, or on the clock. Under check the step is scripted to select none. An
 // action whose tokens all stand parked is left as it is: its step is the clock's to
-// retry. A machine with no move rests as its own step with nothing to do leaves it.
+// retry.
 func (r *invocationRun) park() error {
 	defer r.enter()()
 	for _, exec := range r.inv.executors() {
-		if machine, isMachine := exec.(*StateExecutor); isMachine {
-			machine.rest()
-			continue
-		}
 		action, isAction := exec.(*ActionExecutor)
 		if !isAction || (action.state != StateRunning && action.state != StateWaiting) || action.allTokensParked() {
 			continue

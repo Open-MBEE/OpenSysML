@@ -221,25 +221,25 @@ func (e *StateExecutor) enabledMoves() []enabledMove {
 		return moves
 	}
 	dispatch := e.dueDispatch()
-	if e.roundDone && dispatch.due {
+	due := e.dueDoActions()
+	if len(due) == 0 {
 		return e.dispatchMoves(dispatch, false)
 	}
-	round := e.dueRound()
-	if len(round) == 0 {
-		return e.dispatchMoves(dispatch, false)
-	}
+	moves := e.doMoves(due, len(due) >= 2)
 	if !dispatch.acts {
-		return e.doMoves(round, len(round) >= 2)
+		return moves
 	}
-	moves := e.doMoves(round, true)
+	for i := range moves {
+		moves[i].Picks = slices.Concat([]int{0}, moves[i].Picks)
+	}
 	for _, m := range e.dispatchMoves(dispatch, true) {
-		m.Picks = slices.Concat([]int{len(round)}, m.Picks)
+		m.Picks = slices.Concat([]int{1}, m.Picks)
 		moves = append(moves, m)
 	}
 	return moves
 }
 
-// doMoves is one do-step move per due do action, picked by its index in the round
+// doMoves is one do-step move per due do action, picked by its index among them
 // where the unit draws an order among them.
 func (e *StateExecutor) doMoves(due []*doAction, picked bool) []enabledMove {
 	moves := make([]enabledMove, 0, len(due))
@@ -294,12 +294,6 @@ func (e *StateExecutor) stepOne() error {
 		return &CheckMoveError{Move: e.dueLabel(), Faced: "the machine had nothing to do"}
 	}
 	return nil
-}
-
-// rest leaves a machine with no move as oneUnit leaves one with nothing to do: the
-// dispatch its closed round owed was not there, so its next unit opens a round.
-func (e *StateExecutor) rest() {
-	e.roundDone = false
 }
 
 // incomplete is nil for a machine: one at rest in a configuration nothing wakes

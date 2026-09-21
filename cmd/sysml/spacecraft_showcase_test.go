@@ -3,6 +3,7 @@ package main
 import (
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -16,16 +17,30 @@ var spacecraftMachine = []string{"-instantiate", "SpacecraftComms::mission",
 	"-state", "SpacecraftComms::SpacecraftVehicle::modes SpacecraftComms::mission.spacecraftVehicle", "-advance", "80"}
 
 // spacecraftOutcomes are the ends of the race at t=79 between the drain, the
-// frame send and the charge as the checker steps it, one token a move with the
-// dispatch drawn after each: how many frames go out, and whether the charge
-// lands, before `BatteryLow` interrupts — the fixed policies' whole-round run,
-// 39 with 51200 left, among them.
-var spacecraftOutcomes = []string{"battery 39, data 51200, 50 frames", "battery 39, data 52224, 49 frames", "battery 41, data 53248, 48 frames"}
+// frame send and the charge that the check's witnesses replay to, one witness
+// per divergent value of the spacecraft's battery and data: whether the charge
+// lands before the drain's test decides how many frames are consumed before
+// `BatteryLow` interrupts, and a dispatch cutting the flow between a frame's
+// consume and its send leaves the station one frame short. The fixed policies'
+// whole-round values, 39 with 51200 left, are among them.
+var spacecraftOutcomes = []string{
+	"battery 39, data 51200, 49 frames",
+	"battery 39, data 52224, 49 frames",
+	"battery 41, data 52224, 48 frames",
+	"battery 41, data 53248, 48 frames",
+}
+
+// spacecraftPair names both machines of the mission, so the station's count of
+// frames is a checked feature too.
+var spacecraftPair = append(slices.Clone(spacecraftMachine[:len(spacecraftMachine)-2]),
+	"-state", "SpacecraftComms::GroundStation::modes SpacecraftComms::mission.groundStation", "-advance", "80")
 
 // TestEngineCheckWitnessesTheSpacecraftRaceAndReplaysEach checks -engine check on
 // the showcase's spacecraft: the race at t=79, inside a state whose `do` body
 // loops through timed waits, is a divergence of the battery and the data left,
-// and every witness written replays to the values it claims.
+// and every witness written replays to the values it claims. Checked with the
+// station's machine, the frames it counts end as 48, 49 or 50: the fixed
+// policies' whole-round run, 50 frames with 39 and 51200, is enumerated.
 func TestEngineCheckWitnessesTheSpacecraftRaceAndReplaysEach(t *testing.T) {
 	binary := buildCLI(t)
 	dir := t.TempDir()
@@ -68,13 +83,24 @@ func TestEngineCheckWitnessesTheSpacecraftRaceAndReplaysEach(t *testing.T) {
 	if strings.Join(outcomes, "; ") != strings.Join(spacecraftOutcomes, "; ") {
 		t.Errorf("the witnesses replay to %v, want %v", reached, spacecraftOutcomes)
 	}
+
+	pair := runFiles(t, binary, []string{spacecraftModel}, append([]string{"-engine", "check"}, spacecraftPair...)...)
+	wantReport(t, pair, 1,
+		"divergent: SpacecraftComms::mission.groundStation.framesReceived ends as 48 or 49 or 50",
+		"divergent: SpacecraftComms::mission.spacecraftVehicle.battery ends as 39 or 41",
+		"divergent: SpacecraftComms::mission.spacecraftVehicle.data ends as 51200 or 52224 or 53248",
+		"groundStation.framesReceived = 50; SpacecraftComms::mission.groundStation.isSolid = true; SpacecraftComms::mission.spacecraftVehicle.battery = 39; SpacecraftComms::mission.spacecraftVehicle.chargePerSecond = 1; SpacecraftComms::mission.spacecraftVehicle.data = 51200;")
+	rejectReport(t, pair, "framesReceived = 50; SpacecraftComms::mission.groundStation.isSolid = true; SpacecraftComms::mission.spacecraftVehicle.battery = 41", "not covered")
 }
 
 // TestExploreTablesTheSpacecraftRaceWithinItsBudget checks -schedule explore on the
 // showcase's spacecraft: a run to t=80 meets more choice points than the default
-// depth, so the round at t=79 is varied only once depth covers it, and then by the
-// run after the first run's choice points, in one table under any -jobs; the entry
-// order of `modes`' two regions is drawn first, telling the 41 outcome's visit orders apart.
+// depth, so the moves at t=79 are varied only once depth covers them, one at a
+// time from the first run's, in one table under any -jobs; the entry order of
+// `modes`' two regions is drawn first, telling the 41 outcome's visit orders
+// apart. The 39 outcome needs the charge's wait to end and the charge to land
+// before the drain — two of the first run's moves at t=79 varied together — so
+// it lies past a budget of one variation a run; `check` reaches it.
 func TestExploreTablesTheSpacecraftRaceWithinItsBudget(t *testing.T) {
 	binary := buildCLI(t)
 	explore := func(budget, jobs string) runOutcome {
@@ -83,27 +109,28 @@ func TestExploreTablesTheSpacecraftRaceWithinItsBudget(t *testing.T) {
 
 	shallow := explore("runs=300", "1")
 	wantReport(t, shallow, 2, "? explored SpacecraftComms::SpacecraftVehicle::modes: 2 outcomes",
-		"this.battery = 41; this.chargePerSecond = 1; this.data = 53248;",
+		"this.battery = 41; this.chargePerSecond = 1; this.data = 52224;",
 		"entering modes: notRecharging(entry) first of waitingGSPing(entry), notRecharging(entry)",
-		"do round at t=79.0: transmitting first of transmitting, recharging",
+		"at t=79.0: do transmitting or recharging first of do transmitting or recharging, dispatch accept BatteryLow",
 		"incomplete: runs budget 300 and depth budget 64 hit after 300 runs")
-	rejectReport(t, shallow, "this.battery = 39;")
+	rejectReport(t, shallow, "this.battery = 39;", "this.data = 53248;")
 
-	got := explore("runs=300,depth=512", "1")
+	got := explore("runs=500,depth=1024", "1")
 	wantReport(t, got, 2, "? explored SpacecraftComms::SpacecraftVehicle::modes: 3 outcomes",
-		"this.battery = 39; this.chargePerSecond = 1; this.data = 52224;",
+		"this.battery = 41; this.chargePerSecond = 1; this.data = 52224;",
 		"this.battery = 41; this.chargePerSecond = 1; this.data = 53248;",
-		"do round at t=79.0: recharging first of transmitting, recharging",
 		"do round at t=79.0: transmitting first of transmitting, recharging",
-		"incomplete: runs budget 300 hit after 300 runs")
-	rejectReport(t, got, "depth budget")
-	if again := explore("runs=300,depth=512", "4"); again.output() != got.output() {
+		"at t=79.0: do recharging first of do recharging, dispatch accept BatteryLow",
+		"incomplete: runs budget 500 hit after 500 runs")
+	rejectReport(t, got, "depth budget", "this.battery = 39;")
+	if again := explore("runs=500,depth=1024", "4"); again.output() != got.output() {
 		t.Errorf("under -jobs 4:\n%s\nwant\n%s", again.output(), got.output())
 	}
 
-	// The first run meets 278 choice points; each is varied once by run 279.
-	wantReport(t, explore("runs=279,depth=512", "1"), 2,
-		"? explored SpacecraftComms::SpacecraftVehicle::modes: 3 outcomes", "incomplete: runs budget 279 hit after 279 runs")
+	// The first run meets 283 choice points; each is varied once by run 284, none
+	// of them alone reaching the third outcome.
+	wantReport(t, explore("runs=284,depth=1024", "1"), 2,
+		"? explored SpacecraftComms::SpacecraftVehicle::modes: 2 outcomes", "incomplete: runs budget 284 hit after 284 runs")
 }
 
 var evaluated = regexp.MustCompile(`✓ (battery|data|framesReceived) \(on [^)]*\)\n  = (\d+)`)

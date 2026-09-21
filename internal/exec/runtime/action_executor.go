@@ -609,12 +609,25 @@ func (e *ActionExecutor) run(atCurrentTime bool) error {
 			}
 			break
 		}
+		if err := e.pauseAfterMove(); err != nil {
+			e.held = true
+			return err
+		}
 	}
 	if e.state == StateWaiting && !atCurrentTime {
 		e.endPausedBodies()
 		return e.deadlockError(nil)
 	}
 	return nil
+}
+
+// pauseAfterMove pauses the body performing this action after one token move where
+// its run goes one move at a time and another move is open now; nil else.
+func (e *ActionExecutor) pauseAfterMove() error {
+	if !e.ctx.stepsTokens() || e.state != StateRunning || !e.canAct(nil) {
+		return nil
+	}
+	return e.ctx.tokenStepBody()
 }
 
 // StepToBreakpoint is Step with the breakpoints a run stops at: a token sitting
