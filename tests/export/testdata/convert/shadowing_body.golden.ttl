@@ -25,7 +25,7 @@ elmt:ShadowBody
     json:ownedMembership "[{\"@id\":\"ShadowBody__Speed_om\"},{\"@id\":\"ShadowBody__Sensor_om\"}]" .
 
 elmt:ShadowBody___400
-    a sysml:Import ;
+    a sysml:NamespaceImport ;
     sysml:qualifiedName "ShadowBody::@0" ;
     sysml:elementId "ShadowBody___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
@@ -34,8 +34,7 @@ elmt:ShadowBody___400
     sysml:owningRelatedElement elmt:ShadowBody ;
     sysml:importOwningNamespace elmt:ShadowBody ;
     sysml:visibility "private" ;
-    sysml:importedNamespace "ControlFunctions" ;
-    sysx:isNamespaceImport "true"^^xsd:boolean ;
+    sysml:importedNamespace <urn:sysmlv2:element:1ed3f10f-1391-5a27-a5bd-233a70b01328> ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "    private import ControlFunctions::*;\n" .
 
@@ -201,7 +200,7 @@ expr:ShadowBody__Sensor__highs_pvalue
     a sysml:InvocationExpression ;
     sysx:sourceText "readings->select { in value; value > 5 }" ;
     sysml:elementId "ShadowBody__Sensor__highs_pvalue" ;
-    sysml:function "select" ;
+    sysml:function elmt:d2b84130-4d51-5e96-9ce6-150b5bd9ff56 ;
     sysml:operand expr:ShadowBody__Sensor__highs_pvalue_poperand ;
     sysml:argument expr:ShadowBody__Sensor__highs_pvalue_pa0 ;
     sysml:ownedRelationship expr:ShadowBody__Sensor__highs_pvalue_pin0_om ;

@@ -78,7 +78,7 @@ func chainTargets(t *testing.T, graph *rdf.Graph, owner rdf.Term, text string) [
 // Polyhedron's chain `faces.edges` binds to the anonymous member of `faces` named
 // by its redefinition. The redefinition `faces::edges` inside `ff :> faces` starts
 // at ff's generals instead: Polygon inherits Path's `:>> faces`, whose `edges` is
-// the library's StructuredSpaceObject::faces::edges, outside this graph.
+// the library's StructuredSpaceObject::faces::edges, linked by its normative id.
 func TestShapeItemsChainsThroughRedefiningFacesBindInTheGraph(t *testing.T) {
 	path := filepath.Join("..", "..", "internal", "workspace", "libs", "stdlib", "Domain Libraries", "Geometry", "ShapeItems.sysml")
 	src, err := os.ReadFile(path)
@@ -106,8 +106,9 @@ func TestShapeItemsChainsThroughRedefiningFacesBindInTheGraph(t *testing.T) {
 	for _, usage := range []string{"ff", "rf"} {
 		member := elementNamed(t, graph, "ShapeItems::CuboidOrTriangularPrism::"+usage+"::@0")
 		got := graph.Objects(member, rdf.SysML+"redefines")
-		if len(got) != 2 || got[0] != polygonEdges || got[1] != rdf.String("faces::edges") {
-			t.Errorf("%s's `:>> Polygon::edges, faces::edges` redefines %v, want Polygon's edges and the library's faces::edges as text", usage, got)
+		facesEdges := rdf.IRI(rdf.Element + "fbddc2c8-6a82-5e4a-bd0a-6d1666839005")
+		if len(got) != 2 || got[0] != polygonEdges || got[1] != facesEdges {
+			t.Errorf("%s's `:>> Polygon::edges, faces::edges` redefines %v, want Polygon's edges and the library's faces::edges by id", usage, got)
 		}
 	}
 	for owner, texts := range map[string][]string{

@@ -454,8 +454,9 @@ func TestIndexesOutsideIntAreRefused(t *testing.T) {
 	}
 }
 
-// A body has one result, a subject one index and an import one kind, so a
-// graph stating a second is refused by name rather than one being dropped.
+// A body has one result, a subject one index and an older graph's abstract
+// import one kind flag, so a graph stating a second is refused by name rather
+// than one being dropped.
 func TestRepeatedSingleValuedPropertiesAreRefused(t *testing.T) {
 	for _, tc := range []struct{ fixture, from, to, want string }{
 		{
@@ -478,8 +479,9 @@ func TestRepeatedSingleValuedPropertiesAreRefused(t *testing.T) {
 		},
 		{
 			"imports",
-			`sysx:isNamespaceImport "true"^^xsd:boolean ;`,
-			`sysx:isNamespaceImport "true"^^xsd:boolean , "false"^^xsd:boolean ;`,
+			`a sysml:NamespaceImport ;`,
+			`a sysml:Import ;
+    sysx:isNamespaceImport "true"^^xsd:boolean , "false"^^xsd:boolean ;`,
 			`it states sysx:isNamespaceImport twice, as "true"^^xsd:boolean and "false"^^xsd:boolean`,
 		},
 		{

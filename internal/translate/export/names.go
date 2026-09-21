@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -138,8 +139,7 @@ func chooseNames(name, library string, text []byte, want *wanted, previous *name
 	}
 	chosen := map[*ast.QualifiedName]string{}
 	for key, refs := range occurrences {
-		target, ok := declared[key.target]
-		if !ok {
+		if _, ok := declared[key.target]; !ok && !e.ids.libraryName(key.target) {
 			continue
 		}
 		ref := want.references[key]
@@ -147,7 +147,7 @@ func chooseNames(name, library string, text []byte, want *wanted, previous *name
 		if previous != nil {
 			spellings = fromWritten(spellings, ref.written)
 		}
-		spelling, ok := spellingFor(e.res, refs, spellings, target)
+		spelling, ok := e.spellingFor(refs, spellings, key.target)
 		if !ok {
 			return nil, false, &UnsupportedError{
 				What: fmt.Sprintf("the reference to %s from %s", key.target, key.member),
@@ -270,15 +270,43 @@ func (e *encoder) segmentReads(refs []resolve.Reference, spelling, target string
 }
 
 // referenceSpellings are the spellings tried for a reference written fully
-// qualified as qname: its suffixes shortest first, then its global form.
+// qualified as qname: its qualifications shortest first, then its global form.
 func referenceSpellings(qname string) []string {
-	segments := strings.Split(qname, "::")
-	spellings := make([]string, 0, len(segments)+1)
-	for i := len(segments) - 1; i >= 0; i-- {
-		spellings = append(spellings, strings.Join(segments[i:], "::"))
-	}
-	return append(spellings, "$::"+qname)
+	return append(qualifications(strings.Split(qname, "::")), "$::"+qname)
 }
+
+// qualifications are the ways of naming the last of parts through some of the
+// namespaces before it, fewest first and a suffix before a skipping form, so an
+// element reached through a namespace's import is named the way it is imported.
+func qualifications(parts []string) []string {
+	last := len(parts) - 1
+	if last > maxSkippedQualifiers {
+		spellings := make([]string, 0, len(parts))
+		for i := last; i >= 0; i-- {
+			spellings = append(spellings, strings.Join(parts[i:], "::"))
+		}
+		return spellings
+	}
+	var spellings []string
+	for n := 0; n <= last; n++ {
+		var picks func(from, left int, chosen []string)
+		picks = func(from, left int, chosen []string) {
+			if left == 0 {
+				spellings = append(spellings, strings.Join(append(chosen, parts[last]), "::"))
+				return
+			}
+			for i := last - left; i >= from; i-- {
+				picks(i+1, left-1, append(chosen[:len(chosen):len(chosen)], parts[i]))
+			}
+		}
+		picks(0, n, nil)
+	}
+	return spellings
+}
+
+// maxSkippedQualifiers bounds the namespaces a spelling may skip between, past
+// which only suffixes are tried.
+const maxSkippedQualifiers = 8
 
 // segmentSpellings are the spellings tried for a chain segment naming target:
 // the name as written, then target's qualifications shortest first, then its
@@ -286,8 +314,10 @@ func referenceSpellings(qname string) []string {
 func segmentSpellings(name, target string) []string {
 	spellings := []string{name}
 	parts := strings.Split(target, "::")
-	for i := len(parts) - 2; i >= 0; i-- {
-		spellings = append(spellings, strings.Join(parts[i:], "::"))
+	for _, spelling := range qualifications(parts) {
+		if spelling != name {
+			spellings = append(spellings, spelling)
+		}
 	}
 	return append(spellings, "$::"+target)
 }
@@ -389,10 +419,8 @@ func (e *encoder) writtenTarget(ref resolve.Reference) string {
 			return fqn
 		}
 	}
-	if sym, ok := e.res.ProbeReference(ref); ok && sym != nil {
-		if fqn, ok := e.fqn[sym.Decl]; ok {
-			return fqn
-		}
+	if _, fqn, ok := e.linked(e.res.ProbeReference(ref)); ok {
+		return fqn
 	}
 	return qualifiedText(ref.QN)
 }
@@ -409,10 +437,11 @@ func readNotation(name string, text []byte) (*source.SourceFile, *ast.RootNamesp
 	return file, root, true
 }
 
-// spellingFor is the first of spellings every occurrence resolves to target.
-func spellingFor(res *resolve.Resolver, refs []resolve.Reference, spellings []string, target ast.Node) (string, bool) {
+// spellingFor is the first of spellings every occurrence resolves to the
+// element target names.
+func (e *encoder) spellingFor(refs []resolve.Reference, spellings []string, target string) (string, bool) {
 	for _, spelling := range spellings {
-		if resolvesTo(res, refs, spelling, target) {
+		if e.resolvesTo(refs, spelling, target) {
 			return spelling, true
 		}
 	}
@@ -432,16 +461,27 @@ func spelledName(text string) *ast.QualifiedName {
 	return qn
 }
 
-func resolvesTo(res *resolve.Resolver, refs []resolve.Reference, spelling string, target ast.Node) bool {
+// resolvesTo reports whether every occurrence spelled that way reads as target;
+// the spelling the rendering wrote is judged by how the rendering read it.
+func (e *encoder) resolvesTo(refs []resolve.Reference, spelling, target string) bool {
 	for _, ref := range refs {
 		qn := spelledName(spelling)
-		sym, ok := res.ProbeReference(ref.Spelled(qn))
+		var sym *symbols.Symbol
+		var ok bool
+		if qualifiedText(ref.QN) == spelling {
+			qn = ref.QN
+			sym, ok = e.links[qn]
+		} else {
+			sym, ok = e.res.ProbeReference(ref.Spelled(qn))
+		}
 		if !ok || sym == nil {
 			return false
 		}
+		if _, fqn, ok := e.linked(sym, true); ok && fqn == target {
+			continue
+		}
 		// The graph links a name written through an alias to that alias.
-		alias, aliased := res.PartAlias(qn, len(qn.Parts)-1)
-		if sym.Decl != target && !(aliased && alias.Decl == target) {
+		if _, fqn, ok := e.linked(e.res.PartAlias(qn, len(qn.Parts)-1)); !ok || fqn != target {
 			return false
 		}
 	}

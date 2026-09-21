@@ -67,7 +67,7 @@ elmt:Vehicles__Vehicle__mass
     sysml:owningRelationship elmt:Vehicles__Vehicle__mass_om ;
     sysml:owningMembership elmt:Vehicles__Vehicle__mass_om ;
     sysml:declaredName "mass" ;
-    sysml:type "ISQ::MassValue" ;
+    sysml:type <urn:sysmlv2:element:9cd0e404-efee-50e5-a59b-681065bd188c> ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        attribute mass : ISQ::MassValue;\n" .
 

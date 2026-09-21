@@ -141,7 +141,7 @@ elmt:QuotedSuccessionEnds__provide_20power___403
     sysml:owner elmt:QuotedSuccessionEnds__provide_20power ;
     sysml:owningRelationship elmt:QuotedSuccessionEnds__provide_20power___403_om ;
     sysml:owningMembership elmt:QuotedSuccessionEnds__provide_20power___403_om ;
-    sysml:sourceFeature "start" ;
+    sysml:sourceFeature <urn:sysmlv2:element:9a0d2905-0f9c-5bb4-af74-9780d6db1817> ;
     sysml:targetFeature elmt:QuotedSuccessionEnds__provide_20power__engineStarted ;
     sysx:sourceText "        first start then engineStarted;\n" .
 
@@ -217,8 +217,9 @@ elmt:QuotedSuccessionEnds__provide_20power__s
     sysml:ownedFeatureMembership expr:QuotedSuccessionEnds__provide_20power__s_pend0_om, expr:QuotedSuccessionEnds__provide_20power__s_pend1_om ;
     sysml:ownedFeature expr:QuotedSuccessionEnds__provide_20power__s_pend0, expr:QuotedSuccessionEnds__provide_20power__s_pend1 ;
     sysml:ownedEndFeature expr:QuotedSuccessionEnds__provide_20power__s_pend0, expr:QuotedSuccessionEnds__provide_20power__s_pend1 ;
-    sysml:relatedFeature elmt:QuotedSuccessionEnds__provide_20power__amplify_20torque ;
+    sysml:relatedFeature elmt:QuotedSuccessionEnds__provide_20power__amplify_20torque, <urn:sysmlv2:element:0cdc3cd3-b06c-5c32-beda-0cf4ba164a64> ;
     sysml:sourceFeature elmt:QuotedSuccessionEnds__provide_20power__amplify_20torque ;
+    sysml:targetFeature <urn:sysmlv2:element:0cdc3cd3-b06c-5c32-beda-0cf4ba164a64> ;
     sysx:endForm "firstThen" ;
     sysx:endVerb "first" ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -228,7 +229,8 @@ elmt:QuotedSuccessionEnds__provide_20power__s
     json:ownedMembership "[{\"@id\":\"QuotedSuccessionEnds__provide_20power__s_pend0_om\"},{\"@id\":\"QuotedSuccessionEnds__provide_20power__s_pend1_om\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"QuotedSuccessionEnds__provide_20power__s_pend0_om\"},{\"@id\":\"QuotedSuccessionEnds__provide_20power__s_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"QuotedSuccessionEnds__provide_20power__s_pend0\"},{\"@id\":\"QuotedSuccessionEnds__provide_20power__s_pend1\"}]" ;
-    json:ownedEndFeature "[{\"@id\":\"QuotedSuccessionEnds__provide_20power__s_pend0\"},{\"@id\":\"QuotedSuccessionEnds__provide_20power__s_pend1\"}]" .
+    json:ownedEndFeature "[{\"@id\":\"QuotedSuccessionEnds__provide_20power__s_pend0\"},{\"@id\":\"QuotedSuccessionEnds__provide_20power__s_pend1\"}]" ;
+    json:relatedFeature "[{\"@id\":\"QuotedSuccessionEnds__provide_20power__amplify_20torque\"},{\"@id\":\"0cdc3cd3-b06c-5c32-beda-0cf4ba164a64\"}]" .
 
 elmt:QuotedSuccessionEnds__provide_20power__s_om
     a sysml:FeatureMembership ;
@@ -270,7 +272,7 @@ expr:QuotedSuccessionEnds__provide_20power__s_pend1
     sysml:owningRelationship expr:QuotedSuccessionEnds__provide_20power__s_pend1_om ;
     sysml:owningMembership expr:QuotedSuccessionEnds__provide_20power__s_pend1_om ;
     sysx:sourceText "done" ;
-    sysml:references "done" .
+    sysml:references <urn:sysmlv2:element:0cdc3cd3-b06c-5c32-beda-0cf4ba164a64> .
 
 expr:QuotedSuccessionEnds__provide_20power__s_pend1_om
     a sysml:EndFeatureMembership ;

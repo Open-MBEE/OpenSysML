@@ -584,7 +584,7 @@ Saving and SysML ↔ RDF Turtle conversion landed (`internal/translate/rdf`,
 `internal/translate/export`, `%save`, `sysml -convert`, `-sync-diff`); see
 [the RDF mapping](../reference/rdf-mapping.md).
 
-The RDF direction ships **experimental**, because of D1, D2 and D7 below: its vocabulary
+The RDF direction ships **experimental**, because of D1 and D2 below: its vocabulary
 may change without a compatibility path, and the one triplestore interop measured — Flexo — still
 drops what those items carry. Every surface says so (`convert.ExperimentalNotice`), and promoting
 it to stable is re-measuring the harness once those land, not a documentation change.
@@ -731,33 +731,48 @@ What remains:
   standard indirect alternative is a `ReferenceSubsetting` with
   `referencedFeature`/`referencingFeature`, which is not yet the emitted end shape.
 
-## D7 — reference-valued properties are emitted as strings, and one metaclass is abstract
+## D7 — reference-valued properties are emitted as strings, and one metaclass is abstract (done)
 
 The reader turns a resource-valued object into `{"@id": …}` and a literal into a string, so a
 property the API defines as a reference has to be an element IRI in the graph. `imports.golden.ttl`
-shows both halves of this gap: `sysml:importedNamespace "ISQ"` is a string where the API expects
-a reference, and the metaclass is `sysml:Import`, which is abstract in KerML — the API's own
+showed both halves of this gap: `sysml:importedNamespace "ISQ"` was a string where the API expects
+a reference, and the metaclass was `sysml:Import`, which is abstract in KerML — the API's own
 elements are `NamespaceImport` or `MembershipImport`.
 
-The reference-vs-literal half is mechanized against the OWL ontology (D8):
-`TestGoldenGraphsMatchOntology` (`internal/translate/export`) checks every SysML-namespace triple in
-the 54 golden graphs against the metamodel's declared domain and range, finds **412 triples in 79
-distinct metaclass/property violations** at this baseline (the count grew with the fixtures the
-metadata, result-expression, reference and anonymous-declaration work added, not with new kinds of
-disagreement), and
-every one is inventoried key-by-key with a reason in
-`internal/translate/export/testdata/ontology-known-violations.txt`, so any *new* disagreement fails the
-build. The object-property-carrying-a-literal group is this item's own bug: `type` on
-`AttributeUsage`, `ReferenceUsage` and `PartUsage`, `sourceFeature` on `SuccessionAsUsage` and
-`sysx:InitialNode`, `referent` on `FeatureReferenceExpression` where the referent resolves outside
-the graph, and `targetFeature` on `FeatureChainExpression`. #827 and #855 narrowed the *decoder*
-side — a name written back re-resolves to the element the graph named, through imports and
-aliases — but the encoder still writes the name as a literal, which is what this item is. Identity is stable (D3.1), so each is
-mechanical: resolve the name and emit the IRI, and fall back to the literal only where the
-referent is outside the graph, as feature references already do. The abstract-metaclass half is
-not mechanizable from the ontology: `SysML.owl` records no ecore abstractness (see D8), so nothing
-in the suite catches `sysml:Import` being abstract, and that audit against the API's own element
-list stays manual.
+**Landed.** A reference-valued property links the element its name resolves to, wherever that
+element has an identity: an element of the graph by its own id, and a standard library element by
+its normative id (D12) whether or not the library is in the graph — `attribute mass : MassValue`
+links `<urn:sysmlv2:element:9cd0e404-…>`, an implied `first start then a` links the `start`
+the action inherits from `Actions::Action`, and `import ISQ::MassValue` is a
+`sysml:MembershipImport` whose `sysml:importedMembership` is the normative owning membership,
+the metamodel's range. The converted properties are `type` on every usage, `importedNamespace`
+(now on `NamespaceImport` only) and `importedMembership`, `sourceFeature` on `SuccessionAsUsage`
+and `sysx:InitialNode`, `referent`, `targetFeature` and `function`. The literal is kept only for
+a name that resolves to nothing the model declares (`attribute t : Missing::Kind`,
+`->collect` without `ControlFunctions` in scope) and for a body parameter, which is no element of
+the graph. The decoder reads both forms — a link or the legacy literal — and spells a link back
+by the shortest name that resolves to that element from where it is written, so a graph from an
+older release still converts and gains the links on its next hop.
+
+Measured against the OWL ontology (D8) by `TestGoldenGraphsMatchOntology` (`tests/export`),
+which checks every SysML-namespace triple in the 58 golden graphs against the metamodel's
+declared domain and range: **464 triples in 79 distinct metaclass/property violations** before,
+**411 triples in 76** after, with `domain-mismatch Import importedNamespace` and
+`literal-for-object-property … sourceFeature` on `SuccessionAsUsage` and `sysx:InitialNode` off
+the inventory in `tests/export/testdata/ontology-known-violations.txt`. The `type`, `referent`,
+`function` and `targetFeature` keys stay listed for the fixtures' unresolvable names and body
+parameters above; the parameters go when D1/D2 make expression bodies elements of the graph.
+
+The abstract-metaclass half is not mechanizable from the ontology: `SysML.owl` records no ecore
+abstractness (see D8), so every metaclass the encoder writes (`kinds.go` and the constants in
+`rdf_out.go`/`rdf_expr.go`) was checked by hand against the abstract classes of the pilot's
+`SysML.ecore` and `kerml.ecore` — `ConnectorAsUsage`, `ControlNode`, `Element`, `Expose`,
+`Import`, `InstantiationExpression`, `LoopActionUsage`, `Relationship`. Two were written:
+`Import`, now `NamespaceImport` / `MembershipImport` and, for an `expose`, `NamespaceExpose` /
+`MembershipExpose` in place of an `sysx:isExpose` flag, and `ConnectorAsUsage` for a KerML
+`connector`, now `Connector`. The decoder still accepts both abstract classes from older graphs.
+The ratchets did not move: every model under `examples/` still round-trips, and the Flexo hop
+still delivers every `type`, `referent` and `targetFeature` of its fixture.
 
 ## D8 — an optional second output profile: the Open-MBEE SysML v2 OWL ontology
 
@@ -3046,7 +3061,7 @@ an empty action end its performance. The decision is the release checklist's, re
   differential's record and constructor coverage both need it; decide N2.2 (the budget) before
   N2.4; N2.3 tracks L4 package by package; N2.6's actions and states are Track M's M1/M2.
 - **Track D.** The RDF ratchet is 353/353 with no refusal left; step 4 above is next; **D7** is
-  mechanical now that identity is stable and fits anywhere; the ontology modules (#774 on the
+  done (references are element IRIs, every metaclass written is concrete); the ontology modules (#774 on the
   previous repository) have to be re-proposed against this repository before **D8**'s profile,
   which only becomes conformant behind D1 and D2; **D12** (the standard library's normative
   element ids) is done; **D11** (the API element form) after D1 and D2, and before D9.2 if the

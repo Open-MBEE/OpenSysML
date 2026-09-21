@@ -123,7 +123,7 @@ expr:Loops__Charge___401_puntilCondition
     sysml:ownedFeature expr:Loops__Charge___401_puntilCondition_pin0 ;
     sysml:parameter expr:Loops__Charge___401_puntilCondition_pin0 ;
     sysml:input expr:Loops__Charge___401_puntilCondition_pin0 ;
-    sysml:targetFeature "done" ;
+    sysml:targetFeature <urn:sysmlv2:element:0cdc3cd3-b06c-5c32-beda-0cf4ba164a64> ;
     sysml:owner elmt:Loops__Charge___401 ;
     sysml:owningRelationship expr:Loops__Charge___401_puntilCondition_om ;
     sysml:owningMembership expr:Loops__Charge___401_puntilCondition_om .
@@ -251,7 +251,7 @@ expr:Loops__Charge___402_pwhileCondition
     sysml:ownedFeature expr:Loops__Charge___402_pwhileCondition_pin0 ;
     sysml:parameter expr:Loops__Charge___402_pwhileCondition_pin0 ;
     sysml:input expr:Loops__Charge___402_pwhileCondition_pin0 ;
-    sysml:targetFeature "done" ;
+    sysml:targetFeature <urn:sysmlv2:element:0cdc3cd3-b06c-5c32-beda-0cf4ba164a64> ;
     sysml:owner elmt:Loops__Charge___402 ;
     sysml:owningRelationship expr:Loops__Charge___402_pwhileCondition_om ;
     sysml:owningMembership expr:Loops__Charge___402_pwhileCondition_om .
@@ -320,7 +320,7 @@ expr:Loops__Charge___402_puntilCondition
     sysml:ownedFeature expr:Loops__Charge___402_puntilCondition_pin0 ;
     sysml:parameter expr:Loops__Charge___402_puntilCondition_pin0 ;
     sysml:input expr:Loops__Charge___402_puntilCondition_pin0 ;
-    sysml:targetFeature "done" ;
+    sysml:targetFeature <urn:sysmlv2:element:0cdc3cd3-b06c-5c32-beda-0cf4ba164a64> ;
     sysml:owner elmt:Loops__Charge___402 ;
     sysml:owningRelationship expr:Loops__Charge___402_puntilCondition_om ;
     sysml:owningMembership expr:Loops__Charge___402_puntilCondition_om .

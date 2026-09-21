@@ -363,7 +363,8 @@ func TestNamedTerminateUsageWithoutHasBodyKeepsItsName(t *testing.T) {
 
 // The `first` end of an action body's `first a then b;` is the source of that
 // succession, linked to the member it names; the one-ended `first start;`
-// beside it carries the start it marks. Both read back unchanged.
+// beside it links the start the action inherits from the library, under the
+// normative id of Actions::Action::start. Both read back unchanged.
 func TestFirstThenLinksItsSourceLikeASuccession(t *testing.T) {
 	src := "package P {\n    action def Step;\n    action def A {\n        action a : Step;\n        action b : Step;\n" +
 		"        first start;\n        first a then b;\n        succession first a then b;\n    }\n}\n"
@@ -377,8 +378,11 @@ func TestFirstThenLinksItsSourceLikeASuccession(t *testing.T) {
 	if !strings.Contains(string(turtle), "sysml:references elmt:P__A__a") {
 		t.Fatalf("`succession first a then b` should link a through its end:\n%s", turtle)
 	}
-	if !strings.Contains(string(turtle), `sysml:sourceFeature "start"`) {
-		t.Fatalf("`first start;` should carry the start it marks by name:\n%s", turtle)
+	if !strings.Contains(string(turtle), "sysml:sourceFeature <urn:sysmlv2:element:9a0d2905-0f9c-5bb4-af74-9780d6db1817>") {
+		t.Fatalf("`first start;` should link the start the action inherits:\n%s", turtle)
+	}
+	if strings.Contains(string(turtle), `sysml:sourceFeature "start"`) {
+		t.Fatalf("`first start;` should not carry its start as text:\n%s", turtle)
 	}
 	back, err := convert.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {

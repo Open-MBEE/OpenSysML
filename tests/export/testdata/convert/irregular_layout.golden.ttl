@@ -25,7 +25,7 @@ elmt:IrregularLayout
     json:ownedMembership "[{\"@id\":\"IrregularLayout___401_om\"},{\"@id\":\"IrregularLayout__Speed_om\"},{\"@id\":\"IrregularLayout__Wheel_om\"},{\"@id\":\"IrregularLayout__Axle_om\"},{\"@id\":\"IrregularLayout__Rover_om\"},{\"@id\":\"IrregularLayout__Drive_om\"},{\"@id\":\"IrregularLayout__Ops_om\"}]" .
 
 elmt:IrregularLayout___400
-    a sysml:Import ;
+    a sysml:NamespaceImport ;
     sysml:qualifiedName "IrregularLayout::@0" ;
     sysml:elementId "IrregularLayout___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
@@ -34,8 +34,7 @@ elmt:IrregularLayout___400
     sysml:owningRelatedElement elmt:IrregularLayout ;
     sysml:importOwningNamespace elmt:IrregularLayout ;
     sysml:visibility "private" ;
-    sysml:importedNamespace "ScalarValues" ;
-    sysx:isNamespaceImport "true"^^xsd:boolean ;
+    sysml:importedNamespace <urn:sysmlv2:element:40bb440c-5036-58e1-8675-5afccb8b8f1d> ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "    private import ScalarValues::*;\n" .
 
@@ -106,7 +105,7 @@ elmt:IrregularLayout__Speed__m
     sysml:declaredName "m" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:direction "in" ;
-    sysml:type "Real" ;
+    sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
     sysx:hasBody "false"^^xsd:boolean .
 
 elmt:IrregularLayout__Speed__m_om
@@ -133,7 +132,7 @@ elmt:IrregularLayout__Speed___401
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isResult "true"^^xsd:boolean ;
     sysml:direction "out" ;
-    sysml:type "Real" ;
+    sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
     sysx:hasBody "false"^^xsd:boolean .
 
 elmt:IrregularLayout__Speed___401_om
@@ -260,7 +259,7 @@ elmt:IrregularLayout__Rover__mass
     sysml:owningRelationship elmt:IrregularLayout__Rover__mass_om ;
     sysml:owningMembership elmt:IrregularLayout__Rover__mass_om ;
     sysml:declaredName "mass" ;
-    sysml:type "Real" ;
+    sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
     sysml:value expr:IrregularLayout__Rover__mass_pvalue ;
     sysml:ownedRelationship expr:IrregularLayout__Rover__mass_pvalue_om ;
     sysml:ownedMembership expr:IrregularLayout__Rover__mass_pvalue_om ;
@@ -310,7 +309,7 @@ elmt:IrregularLayout__Rover__limit
     sysml:owningRelationship elmt:IrregularLayout__Rover__limit_om ;
     sysml:owningMembership elmt:IrregularLayout__Rover__limit_om ;
     sysml:declaredName "limit" ;
-    sysml:type "Real" ;
+    sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
     sysml:value expr:IrregularLayout__Rover__limit_pvalue ;
     sysml:ownedRelationship expr:IrregularLayout__Rover__limit_pvalue_om ;
     sysml:ownedMembership expr:IrregularLayout__Rover__limit_pvalue_om ;
@@ -509,7 +508,7 @@ elmt:IrregularLayout__Rover__tabbed
     sysml:owningRelationship elmt:IrregularLayout__Rover__tabbed_om ;
     sysml:owningMembership elmt:IrregularLayout__Rover__tabbed_om ;
     sysml:declaredName "tabbed" ;
-    sysml:type "Real" ;
+    sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
     sysml:value expr:IrregularLayout__Rover__tabbed_pvalue ;
     sysml:ownedRelationship expr:IrregularLayout__Rover__tabbed_pvalue_om ;
     sysml:ownedMembership expr:IrregularLayout__Rover__tabbed_pvalue_om ;

@@ -61,6 +61,7 @@ const (
 	pChainingFeature           = "chainingFeature"
 	pOwnedEndFeature           = "ownedEndFeature"
 	pImportedNamespace         = "importedNamespace"
+	pImportedMembership        = "importedMembership"
 	pAliasFor                  = "aliasedElement"
 	pClient                    = "client"
 	pSupplier                  = "supplier"
@@ -80,14 +81,14 @@ const (
 // body presence, and the source text of the constructs whose head this
 // mapping keeps verbatim (see the package doc).
 const (
-	xMemberIndex     = "memberIndex"
-	xHasBody         = "hasBody"
-	xSourceText      = "sourceText"
-	xSourceTail      = "sourceTail"
-	xSourceLanguage  = "sourceLanguage"
-	xFilter          = "filter"
-	xNamespaceImport = "isNamespaceImport"
-	xRecursive       = "isRecursive"
+	xMemberIndex    = "memberIndex"
+	xHasBody        = "hasBody"
+	xSourceText     = "sourceText"
+	xSourceTail     = "sourceTail"
+	xSourceLanguage = "sourceLanguage"
+	xFilter         = "filter"
+	xRecursive      = "isRecursive"
+	// xExpose is only read: an older graph flags an expose on an abstract sysml:Import.
 	xExpose          = "isExpose"
 	xDeclaredKeyword = "declaredKeyword"
 	xDeclaredPrefix  = "declaredPrefix"
@@ -152,6 +153,13 @@ const (
 	mResultExpressionMembership = "ResultExpressionMembership"
 	pOwnedResultExpression      = "ownedResultExpression"
 	mDocumentation              = "Documentation"
+	// The concrete imports and exposes; sysml:Import and sysml:Expose are
+	// abstract, and an older graph's sysml:Import with sysx:isExpose is only read.
+	mImport           = "Import"
+	mNamespaceImport  = "NamespaceImport"
+	mMembershipImport = "MembershipImport"
+	mNamespaceExpose  = "NamespaceExpose"
+	mMembershipExpose = "MembershipExpose"
 )
 
 // Metaclass names for the constructs that have no SysML metaclass of their own
@@ -216,6 +224,7 @@ func encodeDocument(file *source.SourceFile, root *ast.RootNamespace, library st
 	if err := e.encode(root.Members, "", rdf.Term{}); err != nil {
 		return nil, err
 	}
+	e.importedMemberships()
 	if e.idErr != nil {
 		return nil, e.idErr
 	}
@@ -330,6 +339,71 @@ type encoder struct {
 	bodies  map[rdf.Term]region
 	// offsets holds where in file each element's declaration starts.
 	offsets map[string]int
+	// membershipImports are the membership imports, whose imported membership
+	// is written once every membership is minted.
+	membershipImports []membershipImport
+}
+
+// membershipImport is a membership import's subject and the name it imports.
+type membershipImport struct {
+	subject rdf.Term
+	name    *ast.QualifiedName
+}
+
+// importedMemberships writes each membership import's sysml:importedMembership:
+// an alias written through, else the member's minted membership, else the name.
+func (e *encoder) importedMemberships() {
+	for _, imp := range e.membershipImports {
+		e.graph.Add(imp.subject, e.sysml(pImportedMembership), e.importedMembership(imp.name))
+	}
+}
+
+// importMetaclass is the concrete class of an import, or of an expose.
+func importMetaclass(imported, exposed string, expose bool) string {
+	if expose {
+		return exposed
+	}
+	return imported
+}
+
+// importedMembership is the membership a membership import names: the one
+// owning the alias written, else the one owning the member the name resolves
+// to; the name itself where neither is an element of the graph.
+func (e *encoder) importedMembership(name *ast.QualifiedName) rdf.Term {
+	if qualifiedText(name) == "" {
+		return rdf.String("")
+	}
+	decl, fqn, ok := e.linked(e.res.PartAlias(name, len(name.Parts)-1))
+	if !ok {
+		decl, fqn, ok = e.referent(name)
+	}
+	if ok {
+		membership := e.ids.owningMembershipOf(decl, e.ids.subjectForNode(decl, fqn))
+		if _, minted := e.subjects[membership.Value]; minted || e.ids.normativeMembership(decl) {
+			return membership
+		}
+	}
+	return rdf.String(qualifiedText(name))
+}
+
+// claimLibrary reserves the IRIs of a library element the document links to,
+// and of its owning membership, so no element declared here lands on them.
+func (e *encoder) claimLibrary(node ast.Node, fqn string) {
+	subject := e.ids.subjectForNode(node, fqn)
+	claims := []struct{ iri, standsFor string }{{subject.Value, fqn}}
+	if e.ids.normativeMembership(node) {
+		claims = append(claims, struct{ iri, standsFor string }{
+			e.ids.owningMembershipOf(node, subject).Value, fqn + "'s owning membership",
+		})
+	}
+	for _, c := range claims {
+		if prior, taken := e.claim(c.iri, c.standsFor); taken && e.idErr == nil {
+			e.idErr = &UnsupportedError{
+				What: fmt.Sprintf("the reference to %s", fqn),
+				Note: fmt.Sprintf("the id the norm fixes for it lands on the same IRI as %s, and merging two elements into one subject would be a different model", prior),
+			}
+		}
+	}
 }
 
 // claim reserves an IRI for what it stands for, returning the holder it
@@ -814,13 +888,18 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		return members(bodyMembers(n))
 
 	case *ast.Import:
-		head(rdf.SysMLTerm("Import"))
-		e.graph.Add(subject, e.sysml(pImportedNamespace), e.reference(n.Imported))
+		// A membership import names a membership, minted once the walk reaches
+		// the member, so it is written after the walk.
+		if n.Kind == ast.ImportNamespace {
+			head(rdf.SysMLTerm(importMetaclass(mNamespaceImport, mNamespaceExpose, n.IsExpose)))
+			e.graph.Add(subject, e.sysml(pImportedNamespace), e.reference(n.Imported))
+		} else {
+			head(rdf.SysMLTerm(importMetaclass(mMembershipImport, mMembershipExpose, n.IsExpose)))
+			e.membershipImports = append(e.membershipImports, membershipImport{subject, n.Imported})
+		}
 		e.flags(subject, []boolProperty{
 			{pIsImportAll, n.IsAll},
-			{xNamespaceImport, n.Kind == ast.ImportNamespace},
 			{xRecursive, n.IsRecursive},
-			{xExpose, n.IsExpose},
 		})
 		if err := e.expression(subject, e.sysx(xFilter), xFilter, within, n.FilterExpr); err != nil {
 			return err
@@ -1510,7 +1589,7 @@ func (e *encoder) flags(subject rdf.Term, flags []boolProperty) {
 // because the SysML metamodel has no such property.
 func isExtensionFlag(name string) bool {
 	switch name {
-	case "isLibraryPackage", "isStandardLibraryPackage", xNamespaceImport, xRecursive, xExpose:
+	case "isLibraryPackage", "isStandardLibraryPackage", xRecursive:
 		return true
 	}
 	return false
@@ -1702,8 +1781,7 @@ func (e *encoder) multiplicity(subject rdf.Term, owner string, mult *ast.Multipl
 }
 
 // reference renders a name reference as a link when it resolves to an element
-// this document declares, and as the written name otherwise — a type from the
-// standard library is a name, not an element of this graph.
+// this document declares or the norm fixes an id for, else as the written name.
 func (e *encoder) reference(name *ast.QualifiedName) rdf.Term {
 	if qualifiedText(name) == "" {
 		return rdf.String("")
@@ -1757,14 +1835,24 @@ func (e *encoder) linkedElement(name *ast.QualifiedName, sym *symbols.Symbol, ok
 }
 
 // linked is the declaration and qualified name of the element a symbol names,
-// declared or effectively; a `first start` label or loop variable names none.
+// declared or effectively, here or in the standard library; a `first x` label
+// stands for the member x reaches past it, and a loop variable names none.
 func (e *encoder) linked(sym *symbols.Symbol, ok bool) (ast.Node, string, bool) {
 	if !ok || sym == nil {
 		return nil, "", false
 	}
+	if label, isLabel := sym.Decl.(*ast.InitialNode); isLabel {
+		if sym, ok = e.res.InitialSymbol(label); !ok {
+			return nil, "", false
+		}
+	}
 	fqn, declared := e.fqn[sym.Decl]
 	if !declared {
-		return nil, "", false
+		if fqn, declared = e.ids.libraryElement(sym); !declared {
+			return nil, "", false
+		}
+		e.claimLibrary(sym.Decl, fqn)
+		return sym.Decl, fqn, true
 	}
 	if name, _ := declaredNameAndMembers(sym.Decl); name == "" && !sym.EffectiveName() {
 		return nil, "", false

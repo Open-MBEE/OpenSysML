@@ -348,7 +348,7 @@ elmt:ConnectorEnds__Vehicle__transitionLink_om
     sysml:owningType elmt:ConnectorEnds__Vehicle .
 
 elmt:ConnectorEnds__Vehicle___406
-    a sysml:ConnectorAsUsage ;
+    a sysml:Connector ;
     sysml:qualifiedName "ConnectorEnds::Vehicle::@6" ;
     sysml:elementId "ConnectorEnds__Vehicle___406" ;
     sysx:memberIndex "6"^^xsd:integer ;
@@ -448,7 +448,7 @@ expr:ConnectorEnds__Vehicle___406_pend1_pchain_om
     sysml:membershipOwningNamespace expr:ConnectorEnds__Vehicle___406_pend1 .
 
 elmt:ConnectorEnds__Vehicle___407
-    a sysml:ConnectorAsUsage ;
+    a sysml:Connector ;
     sysml:qualifiedName "ConnectorEnds::Vehicle::@7" ;
     sysml:elementId "ConnectorEnds__Vehicle___407" ;
     sysx:memberIndex "7"^^xsd:integer ;
@@ -550,7 +550,7 @@ expr:ConnectorEnds__Vehicle___407_pend1_om
     sysml:membershipOwningNamespace elmt:ConnectorEnds__Vehicle___407 .
 
 elmt:ConnectorEnds__Vehicle___408
-    a sysml:ConnectorAsUsage ;
+    a sysml:Connector ;
     sysml:qualifiedName "ConnectorEnds::Vehicle::@8" ;
     sysml:elementId "ConnectorEnds__Vehicle___408" ;
     sysx:memberIndex "8"^^xsd:integer ;
@@ -673,7 +673,7 @@ expr:ConnectorEnds__Vehicle___408_pend1_pupperBound
     sysml:value "1"^^xsd:integer .
 
 elmt:ConnectorEnds__Vehicle___409
-    a sysml:ConnectorAsUsage ;
+    a sysml:Connector ;
     sysml:qualifiedName "ConnectorEnds::Vehicle::@9" ;
     sysml:elementId "ConnectorEnds__Vehicle___409" ;
     sysx:memberIndex "9"^^xsd:integer ;
@@ -776,7 +776,7 @@ expr:ConnectorEnds__Vehicle___409_pend1_pchain_om
     sysml:membershipOwningNamespace expr:ConnectorEnds__Vehicle___409_pend1 .
 
 elmt:ConnectorEnds__Vehicle___4010
-    a sysml:ConnectorAsUsage ;
+    a sysml:Connector ;
     sysml:qualifiedName "ConnectorEnds::Vehicle::@10" ;
     sysml:elementId "ConnectorEnds__Vehicle___4010" ;
     sysx:memberIndex "10"^^xsd:integer ;
@@ -885,7 +885,7 @@ expr:ConnectorEnds__Vehicle___4010_pend1_pupperBound
     sysml:elementId "ConnectorEnds__Vehicle___4010_pend1_pupperBound" .
 
 elmt:ConnectorEnds__Vehicle__link
-    a sysml:ConnectorAsUsage ;
+    a sysml:Connector ;
     sysml:qualifiedName "ConnectorEnds::Vehicle::link" ;
     sysml:elementId "ConnectorEnds__Vehicle__link" ;
     sysx:memberIndex "11"^^xsd:integer ;
@@ -987,7 +987,7 @@ expr:ConnectorEnds__Vehicle__link_pend1_pchain_om
     sysml:membershipOwningNamespace expr:ConnectorEnds__Vehicle__link_pend1 .
 
 elmt:ConnectorEnds__Vehicle___4012
-    a sysml:ConnectorAsUsage ;
+    a sysml:Connector ;
     sysml:qualifiedName "ConnectorEnds::Vehicle::@12" ;
     sysml:elementId "ConnectorEnds__Vehicle___4012" ;
     sysx:memberIndex "12"^^xsd:integer ;
@@ -1089,7 +1089,7 @@ expr:ConnectorEnds__Vehicle___4012_pend1_pchain_om
     sysml:membershipOwningNamespace expr:ConnectorEnds__Vehicle___4012_pend1 .
 
 elmt:ConnectorEnds__Vehicle___4013
-    a sysml:ConnectorAsUsage ;
+    a sysml:Connector ;
     sysml:qualifiedName "ConnectorEnds::Vehicle::@13" ;
     sysml:elementId "ConnectorEnds__Vehicle___4013" ;
     sysx:memberIndex "13"^^xsd:integer ;
@@ -1190,7 +1190,7 @@ expr:ConnectorEnds__Vehicle___4013_pend1_pchain_om
     sysml:membershipOwningNamespace expr:ConnectorEnds__Vehicle___4013_pend1 .
 
 elmt:ConnectorEnds__Vehicle___4014
-    a sysml:ConnectorAsUsage ;
+    a sysml:Connector ;
     sysml:qualifiedName "ConnectorEnds::Vehicle::@14" ;
     sysml:elementId "ConnectorEnds__Vehicle___4014" ;
     sysx:memberIndex "14"^^xsd:integer ;
@@ -1291,7 +1291,7 @@ expr:ConnectorEnds__Vehicle___4014_pend1_pchain_om
     sysml:membershipOwningNamespace expr:ConnectorEnds__Vehicle___4014_pend1 .
 
 elmt:ConnectorEnds__Vehicle___4015
-    a sysml:ConnectorAsUsage ;
+    a sysml:Connector ;
     sysml:qualifiedName "ConnectorEnds::Vehicle::@15" ;
     sysml:elementId "ConnectorEnds__Vehicle___4015" ;
     sysx:memberIndex "15"^^xsd:integer ;
