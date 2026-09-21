@@ -145,11 +145,6 @@ func (s *session) response(id int) map[string]any {
 	return nil
 }
 
-// read reads one framed message from the server.
-func (s *session) read() map[string]any {
-	return s.readBy(time.Now().Add(20 * time.Second))
-}
-
 // readBy reads one framed message before deadline, killing the server if it
 // stays silent until then.
 func (s *session) readBy(deadline time.Time) map[string]any {
