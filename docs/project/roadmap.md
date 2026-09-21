@@ -1255,8 +1255,9 @@ item, not a terminate one, and it is what the example waits on.
 **Landed.** An inline `do` body pauses after each statement, so a transition leaving the state
 after `s1` leaves later statements such as `s2` and `s3` unrun. The body remains resumable through
 loops, nested blocks and branches, and its trace and conformance fixtures cover the interruption.
-Fixed scheduling policies still finish a do round before dispatch; the checker reports
-`not enumerated: do round before dispatch` for that omitted interleaving.
+Fixed scheduling policies finish a do round before they dispatch; under `check`, `replay` and
+`explore` the dispatch is drawn against each token move of the body, so the round-first run is
+one of the interleavings enumerated.
 
 **Before it landed.** SysML v2 has no interruptible-region notation; the corresponding state
 semantics interrupt a still-running `do` action when a transition leaves the state. The runtime

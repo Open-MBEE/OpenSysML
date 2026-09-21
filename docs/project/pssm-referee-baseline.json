@@ -7,7 +7,7 @@
     "suiteDigest": "c355b249c356774377a46b60345019d827af1ce417bde88e533aa5f39206ae07",
     "tests": 103,
     "recorded": "2026-09-21",
-    "develop": "92ac11846b98c8e491ef474707ed2876e3914196"
+    "develop": "921cda365de7f2690a641d0b2c74cb40ff020584"
   },
   "buckets": {
     "differs-by-design": 1,
@@ -1199,7 +1199,7 @@
         "S1.1(doActivity)::S1.2(doActivity)",
         "S1.2(doActivity)::S1.1(doActivity)"
       ],
-      "runs": 24
+      "runs": 368
     },
     {
       "name": "Deferred 007",

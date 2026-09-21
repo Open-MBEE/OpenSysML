@@ -8,8 +8,8 @@ recorded choice point*, and the [PSSM referee record](../../project/pssm-referee
 The finding's four sites are implemented as this note describes: region entry (a composite
 state's regions, a fork's branches, the regions a history restores), region exit, the units of
 the firings across regions, and a due do step against the dispatch at the head of the pool —
-the last at the grain of a do action's step, one action of the do body per draw, where this note
-first specified a token move (see [the do-step site](#the-do-step-site)). The gap found while
+the last at the grain of one token move of the do flow (see
+[the do-step site](#the-do-step-site)). The gap found while
 implementing the entry site, a completion's firing against the entry front (finding 11), turned
 out on reading the admitted sets not to be one gap of the runtime, and its last section records
 what it is instead.
@@ -29,15 +29,13 @@ admitted sets are quoted where they decide a design point.
 | Restoring a history | the restored regions' entries as the composite's regions above | `enterRegionsInto`, from the history's record |
 | Exiting a composite state's regions | each region's exits, innermost first, on a front under `ChoiceExitOrder`; then the composite's own exit | `state_region_transition.go`, `state_executor.go:exitState` → `performUnits` |
 | Firing the transitions one occurrence selects across regions | one queue per firing — source exit, effects, target entry — on a front under `ChoiceRegionOrder`, drawn one unit at a time | `state_executor.go:dispatchInOrder` → `openFront` |
-| A due do step against the dispatch at the head of the pool | under `check`, `replay` and `explore` the machine runs one unit at a time: a step of one due do action of the round under way, or the dispatch due when it would take its occurrence, drawn under `ChoiceStepOrder`; the round closes once each due action has stepped and the dispatch it owes goes before another opens. The fixed policies keep the round first (`runDoRound`, every due do action one step, ordered by `chooseDoAction`), then the change-trigger poll, then the dispatch | `state_executor.go:oneUnit` → `stepRound`, `chooseStepOrder`; `runStep` for the fixed policies |
+| A due do step against the dispatch at the head of the pool | under `check`, `replay` and `explore` the machine runs one unit at a time: one token move of one due do behavior (drawn among the due ones by `chooseDoAction`), or the dispatch due when it would take its occurrence, drawn against the move under `ChoiceStepOrder`. The fixed policies run the whole round first (`runDoRound`, every due do action one sweep of its tokens), then the change-trigger poll, then the dispatch | `state_executor.go:oneUnit` → `stepDue`, `chooseStepOrder`; `runStep` for the fixed policies |
 
-The model checker mirrors the last row: `check_moves.go:enabledMoves` offers the due do steps of
-the round and the dispatch that acts together, one move each, as `oneUnit` draws them, and the
-dispatch alone once the round has closed. Where a step left a token of the do body standing, the
-fixed policies' run — the rest of the sweep, then the dispatch — is still the one left out, and
-`check` reports a search that met that state as within bounds rather than exhaustive
-(`CheckReport.NotEnumerated`, *do round before dispatch*;
-[bounded model checking](bounded-model-checking.md)). The other sites lie inside one move of the
+The model checker mirrors the last row: `check_moves.go:enabledMoves` offers the token moves of
+the due do behaviors and the dispatch that acts together, one move each, as `oneUnit` draws
+them, and the dispatch alone once no do behavior is due. Every run a fixed policy makes — the
+whole round, then the dispatch — is one path of that enumeration, so a search that completes is
+exhaustive ([bounded model checking](bounded-model-checking.md)). The other sites lie inside one move of the
 checker (a dispatch or an entry), where the checker resolves the choice points the move draws
 through its `picks`.
 
@@ -110,7 +108,8 @@ separately:
   as units of their own;
 - the **effect** of one transition segment (`runEffects` over a `routeEffect`), the segment's
   owner entered ahead as the fix to the junction finding does;
-- one **do step** (`stepDoAction`: one action of a do behavior);
+- one **do step** (`stepDoAction`: one token move of a do behavior's flow — a body statement, an
+  action of a do behavior given as actions, or one token of a nested perform's flow);
 - one **dispatch** — the selection of an occurrence's transitions — which then decomposes into
   the exit, effect and entry units of the firings it selected.
 
@@ -127,7 +126,7 @@ the decision as its SM21 row.
 
 The unit is the smallest thing a trace distinguishes, which is why nothing finer is drawn: two
 entry behaviors of one state run in declaration order (`performEntry`), two effects of one
-segment likewise, and the body of a do step is one action.
+segment likewise, and a do step is one token move.
 
 ### Silent units
 
@@ -213,7 +212,7 @@ Three kinds are added to `ChoiceKind`, and one existing kind draws at a finer gr
 | `ChoiceEntryOrder` | region entry, fork branch entry, history restore | `entering <state>` — the composite whose regions are entered; `fork <name>` for a fork's branches | the queues with a unit ready, in declaration order, each labelled by its next performing unit: `left(entry)`, `T2.1(effect)`, `split->a(effect)` | the queue advanced |
 | `ChoiceExitOrder` | region exit | `exiting <state>` | the queues with a unit ready, in declaration order, each labelled by its next performing unit: `inner(exit)` | the queue advanced |
 | `ChoiceRegionOrder` (existing) | firing units across regions, and the entries and exits nested in a firing | `on accept <event>`, `on change` — as `dispatchInOrder` labels the occurrence | the firings with a unit ready, by source state in declaration order, each labelled by its next unit: `l1(exit)`, `l1->l2(effect)`, `l2(entry)` | the firing advanced |
-| `ChoiceStepOrder` | a due do step against the dispatch at the head of the pool | `at t=<instant>` | `do <state>` per due do action of the round in entry order, then `dispatch <event>` for the head of the pool once a message in flight is queued behind the events already there, so the message is named (`dispatch accept <signal>`) only when nothing is ahead of it (`dispatch change <condition>` for a change trigger risen, `dispatch` bare where two or more tied events whose dispatch acts leave the event to a draw of its own among them) | the unit run |
+| `ChoiceStepOrder` | a due do step against the dispatch at the head of the pool | `at t=<instant>` | `do <state>` naming the due do behaviors in entry order, then `dispatch <event>` for the head of the pool once a message in flight is queued behind the events already there, so the message is named (`dispatch accept <signal>`) only when nothing is ahead of it (`dispatch change <condition>` for a change trigger risen, `dispatch` bare where two or more tied events whose dispatch acts leave the event to a draw of its own among them) | the unit run |
 
 Canonical order is declaration order for regions, branches and firings — the order the runtime
 took before the draws were recorded — so the first alternative taken at every draw reproduces
@@ -310,14 +309,13 @@ a parallel state grew with the draws — `por_state_join_exit`, three regions, f
 start's entry orders and the join's exit orders now being configurations of their own. Their
 reduced counts equal their unreduced ones after as before: neither model had a reduction to lose.
 
-The step-order site reaches the checker as `enabledMoves` following `oneUnit`: the due do steps
-and the dispatch enabled *together* rather than the do round first, one move each, which is the
+The step-order site reaches the checker as `enabledMoves` following `oneUnit`: the due do
+behaviors' token moves and the dispatch enabled *together* rather than the do round first, one move each, which is the
 state-space reading of the same choice — a dispatch move's `picks` open with its index past the
-round's steps, so the checker's script resolves the draw as the runtime's replay does; the static
+do moves, so the checker's script resolves the draw as the runtime's replay does; the static
 partial-order reduction (`check_reduce.go`) footprints a do step and a dispatch separately, so
-two that commute are explored once. The *do round before dispatch* bound of
-`CheckReport.NotEnumerated` stays for the one run the moves still leave out (the rest of a sweep
-whose step left a token standing, then the dispatch); it retires with the token-move grain.
+two that commute are explored once. No run is left out: a dispatch may cut a sweep after any
+token move, and the fixed policies' whole round is the path that takes every do move first.
 
 ## Policies at the sites
 
@@ -414,16 +412,21 @@ Conformance fixtures under `internal/exec/runtime/testdata/conformance/`, each w
 | `state_region_exit_order` | nested and sibling exits interleaved; three outcomes (*Exiting 001*'s shape) |
 | `state_history_restore_order` | a deep history restoring two regions; entries and exits interleaved, eight outcomes |
 | `state_firing_units_interleaved` | two regions' transitions on one event, exit and effect each; six outcomes, joined afterwards so the join row's order stays visible (*Transition 019*'s shape) |
-
 | `state_do_step_or_dispatch` | a do action due and a signal at the head of the pool; two outcomes, one where the dispatch exits the state before the do step ran (*Behavior 003 A*'s shape) |
 | `state_do_step_among_completions` | a region's do step against the other region's completion effects, in either order of the two completions; six outcomes |
+| `state_do_step_cuts_typed_do` | a do behavior given as a two-step action against a signal; the dispatch cuts it at either step or waits: two outcomes |
+| `state_do_step_cuts_nested_perform` | an inline do body performing that action between two assignments; the dispatch cuts at any of the four moves: four outcomes |
+| `state_do_action_loop_timed_exit` | a looping do forking to two timed branches against a timed exit; the fixed policies' `left = right = 1` among four outcomes, the check hitting no bound |
 
 `robustness_region_do_step_test.go` holds the step-order site's failure modes: a witness naming
 a state with no due do step, a dispatch not at the head of the pool or a draw at a unit offering
 none, each refused with the run rolled back; an endless do body under `explore` ending in
-`ErrDoStepLimitExceeded`. Still to be added:
-`state_do_action_loop_timed_exit` gains the exact `outcomes` set the fixed policies and the
-checker reach between them.
+`ErrDoStepLimitExceeded`. `robustness_do_step_token_grain_test.go` holds the token grain's: a
+do flow that never rests against a queued dispatch ends each run at the dispatch or at the
+do-step budget, under `explore` and `check` alike; a `step order` line naming a do body parked
+at an `accept` is refused. `state_do_action_loop_timed_exit` states the exact `outcomes` set
+the fixed policies and the checker reach between them, and its `check.expected.json` states the
+four values of a search that hit no bound.
 
 `explore_test.go` covers each kind — every outcome reached exactly once, the count of draws,
 determinism across runs — and `explore_queue_test.go`'s sweep on eight jobs covers the fixtures
@@ -454,16 +457,16 @@ added for it.
 A do behavior is concurrent with the machine (`StatePerformances.kerml`, above), so while a do
 step is due and an occurrence at the head of the pool is due at the same instant, "dispatch it
 now" against "keep moving the do flow" are both runs the library admits. Under `check`, `replay`
-and `explore` the machine runs one unit at a time (`state_executor.go:oneUnit`): a round of the
-do actions due opens, and at each step the draw under `ChoiceStepOrder` is one action of one
-due do behavior (`stepDoAction`, the round's order among several kept by `chooseDoAction`) or
-the dispatch; the round closes once each due action has stepped, and the dispatch it owes is
-made before another round opens — the rhythm of the fixed policies, with the dispatch's place
-within the round drawn. `declared`, `reverse` and `seed:<n>` keep finishing the round before
-they dispatch (`runStep`), so no default trace moves; `check` and `explore` enumerate both, so
+and `explore` the machine runs one unit at a time (`state_executor.go:oneUnit`): while a do
+behavior is due, the draw under `ChoiceStepOrder` is one token move of one due do behavior
+(`stepDue` → `stepDoAction`, the one among several drawn by `chooseDoAction`) or the dispatch,
+and the draw is made again after every move until no do behavior is due — a dispatch may cut a
+do flow after any token move. `declared`, `reverse` and `seed:<n>` run the whole round first
+(`runStep` → `runDoRound`, every due do behavior one sweep of its tokens) and dispatch after
+it, so no default trace moves; `check` and `explore` enumerate every cut, so
 the exhaustive set is a superset of every fixed policy's outcome. *Behavior 003 A*,
-*Terminate 002*'s terminating-completion traces and *Transition 017*'s do step are what it
-reaches.
+*Transition 017*'s do step among the completion effects and the cuts of *Deferred 006 C*'s two
+do activities are what it reaches.
 
 A dispatch is drawn against a due do step only where it would **take** its occurrence — fire a
 transition, or let a do behavior already parked at an `accept` go on (`dueDispatch`,
@@ -478,12 +481,17 @@ by itself, two or more as the bare `dispatch` whose dispatch order is then drawn
 and one that would be dropped is not, so a guarded trigger tied with an unguarded one does not hide
 the unguarded one's dispatch behind the step (`state_do_step_or_tied_dispatch`).
 
-The grain is the do action's step, not the token move this note first specified: one move is
-one statement of the do body (`doRun` yields after each statement of its body) or one action of
-a do behavior given as actions, not one token of a sweep. Refining the move to a token — a dispatch cutting a sweep
-anywhere, and the *do round before dispatch* bound of `CheckReport.NotEnumerated` retired with
-its report field — follows the resumable inline do body's pausing per token, and touches
-`stepRound` alone: the round keeps an action whose step left a token standing.
+The grain is the token move. A do behavior's run under these engines steps its tokens
+(`bodyRun.steps`): the action executor draws one eligible token (`drawOneMove`), moves it, and
+pauses the run there (`bodyPause.tokenStep`), to be resumed by the next draw that picks the
+behavior; a nested perform's flow inherits the stepping, so a token move inside a called action
+is a move of the outer do step too, and a body parked at an `accept` offers no move until its
+occurrence is dispatched. One move is the same thing for an inline do body, a do behavior given
+as an action, a loop's iteration, or a nested perform (`state_do_step_cuts_typed_do`,
+`state_do_step_cuts_nested_perform`, `state_do_action_loop_timed_exit`), and a run whose do
+flow never rests against a queued dispatch ends at the dispatch or at the do-step budget
+(`robustness_do_step_token_grain_test.go`). Under the fixed policies a do step is one sweep
+(`stepSubflowSweep`) and nothing pauses within it.
 
 ## Finding 11: a pending completion inside the entry front
 
@@ -736,7 +744,10 @@ part with its own home:
   sibling region, so a due do step of an entered state is a unit of its region's queue on the
   entry front. That is the do-step site's rule extended to the entry front — the do step is
   drawn against the sibling's remaining entry units as it is against the dispatch — and belongs
-  to that site's change.
+  with the pending completion above: both are units of a behavior already running inside the
+  entry front, and the front (`state_unit_front.go`) is where they are drawn. The do-step site
+  itself draws only once the entry move has settled, so the trace stays out of reach at token
+  grain and *Terminate 002* keeps this as its one reason.
 
 The exploration model is untouched: no new choice kind, no new unit, and every draw the front
 recorded before is as it was; what the pool's fix added is a `ChoiceEntryOrder` draw where a

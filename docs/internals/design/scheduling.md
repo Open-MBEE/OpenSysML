@@ -215,12 +215,7 @@ Every element above has a test surface, documented for authors in
   without `outcomes` is not explored, on the expectation that it has one reachable outcome; when
   exploring it shows more, the fix is to derive its admissible set in the oracle and list it, not
   to pin the policy. A `schedule` pin of `reverse` says the case's result is one linearization,
-  kept only until its admissible set is derived or the bug it pins is fixed. One case is pinned
-  the other way round: `state_do_action_loop_timed_exit` states the fixed policies' one result,
-  a whole `do` round then the dispatch, which `explore` and `check` — stepping the `do` flow one
-  token at a time and dispatching between tokens — do not yet reach; it gains `outcomes` when
-  that interleaving becomes a recorded choice
-  ([region-order scheduling](region-order-scheduling.md)).
+  kept only until its admissible set is derived or the bug it pins is fixed.
 - `TestExecutionTrace` checks a case's `.trace.golden` under the default policy and, for a case
   with `outcomes`, a `<case>.<policy>.trace.golden` under each sweep policy; a `.trace.order`
   states the partial order — `a < b` per line — a trace must respect, checked beside the golden

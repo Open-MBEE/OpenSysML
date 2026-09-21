@@ -750,20 +750,22 @@ reach an open site stay `fail` citing it until a change of its own closes it:
   *Transition 019* is reached, leaving SM34 alone (the movements tables above adjudicate each).
   The fourth site — a due do step against the dispatch the machine would make at the same
   instant — is drawn under `check`, `replay` and `explore` (`ChoiceStepOrder`, `state_executor.go:oneUnit`):
-  one move is one action of a state's do behavior (`stepDoAction`) or the dispatch, "dispatch it
-  now" against "keep moving the do flow"; the fixed policies finish the do round before they
+  one move is one token move of a state's do behavior (`stepDoAction`) or the dispatch, "dispatch it
+  now" against "keep moving the do flow", drawn again after every move while a do behavior is
+  due; the fixed policies finish the whole do round before they
   dispatch as they always did, so no default trace moved. A dispatch that would drop or defer its
   occurrence is not drawn ahead of a due do step — neither is an acceptance, and the do step may
-  be the `accept` that takes it — so it waits for the round to close. Moved: *Behavior 003 A* to
+  be the `accept` that takes it — so it waits until no do move is due. Moved: *Behavior 003 A* to
   `pass`; *Terminate 002* and *Transition 017* reach every admitted trace of the do step's
-  placement and stay `fail` on finding 11's (and, *Transition 017*, on the suite's two anomalous
+  placement against a dispatch and stay `fail` on finding 11's (and, *Transition 017*, on the suite's two anomalous
   traces, recorded in
   [`omg-issues.md`](omg-issues.md#pssm-transition-017-admits-a-parents-completion-before-its-regions));
   *Exiting 002* reaches the order the suite registers for *Behavior 003 A* and not for it, the
-  suite's defect. A round closes once each due do action has stepped, and the dispatch it owes
-  goes before another opens, the fixed policies' rhythm; where a step left a token of its body
-  standing the sweep-then-dispatch run of the fixed policies is still the checker's bounded
-  verdict (`notEnumerated`), not yet a move of its own.
+  suite's defect. The token grain moves no bucket: the do behaviors the suite's tests log are
+  single actions, so their one move was already the draw, and *Deferred 006 C*'s two do
+  activities alone gain linearizations (24 to 368, all reaching its two admitted traces); the
+  whole-round run of the fixed policies is one path of the enumeration, so `check` no longer
+  reports a run left out.
 - **A completion transition's firing is not drawn against the entry front it completes in**
   (*Entering 010*, *Entering 011*, *Junction 005*, *History 001-C*, *History 002-B*; alignment
   finding 11, adjudicated). Found while implementing finding 9's entry site: every admitted

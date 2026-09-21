@@ -127,10 +127,20 @@ func TestExploreTablesTheSpacecraftRaceWithinItsBudget(t *testing.T) {
 		t.Errorf("under -jobs 4:\n%s\nwant\n%s", again.output(), got.output())
 	}
 
-	// The first run meets 283 choice points; each is varied once by run 284, none
-	// of them alone reaching the third outcome.
-	wantReport(t, explore("runs=284,depth=1024", "1"), 2,
-		"? explored SpacecraftComms::SpacecraftVehicle::modes: 2 outcomes", "incomplete: runs budget 284 hit after 284 runs")
+	// The first run meets 516 choice points, varied once each, earliest first: run 496
+	// varies the 495th, the first draw of `BatteryLow` against a do move at t=79, and
+	// reaches 53248; by run 517 every one is varied and none alone reached 39.
+	before := explore("runs=495,depth=1024", "1")
+	wantReport(t, before, 2, "? explored SpacecraftComms::SpacecraftVehicle::modes: 2 outcomes", "incomplete: runs budget 495 hit after 495 runs")
+	rejectReport(t, before, "this.data = 53248;")
+	wantReport(t, explore("runs=496,depth=1024", "1"), 2,
+		"? explored SpacecraftComms::SpacecraftVehicle::modes: 3 outcomes",
+		"this.data = 53248; this.drainPerFrame = 2; this.frameSize = 1024; this.fullLevel = 100; this.isSolid = true; this.lowLevel = 40; this.resumeLevel = 80 | 1              |",
+		"at t=79.0: dispatch accept BatteryLow first of do transmitting or recharging, dispatch accept BatteryLow",
+		"incomplete: runs budget 496 hit after 496 runs")
+	each := explore("runs=517,depth=1024", "1")
+	wantReport(t, each, 2, "? explored SpacecraftComms::SpacecraftVehicle::modes: 3 outcomes", "incomplete: runs budget 517 hit after 517 runs")
+	rejectReport(t, each, "this.battery = 39;")
 }
 
 var evaluated = regexp.MustCompile(`✓ (battery|data|framesReceived) \(on [^)]*\)\n  = (\d+)`)
