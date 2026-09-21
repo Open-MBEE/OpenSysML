@@ -382,7 +382,7 @@ func (ctx *Context) postVia(ec *EvalContext, conns []lower.Connection, msg Messa
 			separator = "."
 		}
 		segments := strings.Split(receiver, separator)
-		objects, err := ec.objectsReceiverAddresses(send, holder, segments, len(segments) > 1)
+		objects, err := ec.routedReceiverObjects(send, holder, segments, len(segments) > 1)
 		if err != nil {
 			return err
 		}
@@ -401,7 +401,7 @@ func (ctx *Context) postVia(ec *EvalContext, conns []lower.Connection, msg Messa
 			receiver = addr.Name
 		}
 	} else if send.ReceiverExpr != nil {
-		objects, err := ec.receiverObjects(send.ReceiverExpr, exprText(send.ReceiverExpr))
+		objects, err := ec.receiverObjects(send.ReceiverExpr)
 		if err != nil {
 			return err
 		}
@@ -1095,7 +1095,7 @@ func (ctx *Context) postFor(ec *EvalContext, conns []lower.Connection, msg Messa
 // valuedTargetAddresses evaluates a receiver expression to the objects it yields,
 // one address per live object; no object, a non-object value or a destroyed object is a typed error.
 func (ec *EvalContext) valuedTargetAddresses(send lower.Send) ([]messageAddress, error) {
-	objects, err := ec.receiverObjects(send.TargetExpr, exprText(send.TargetExpr))
+	objects, err := ec.receiverObjects(send.TargetExpr)
 	if err != nil {
 		return nil, err
 	}
@@ -1105,7 +1105,8 @@ func (ec *EvalContext) valuedTargetAddresses(send lower.Send) ([]messageAddress,
 // receiverObjects evaluates node to the objects it yields: every element it
 // holds must be a live object of this run, else the send's target is no object
 // to address — the error names the expression and what it held.
-func (ec *EvalContext) receiverObjects(node ast.Node, text string) ([]*Instance, error) {
+func (ec *EvalContext) receiverObjects(node ast.Node) ([]*Instance, error) {
+	text := exprText(node)
 	value, err := ec.Eval(node)
 	if err != nil {
 		return nil, err
@@ -1114,7 +1115,7 @@ func (ec *EvalContext) receiverObjects(node ast.Node, text string) ([]*Instance,
 	for _, held := range heldElements(value) {
 		inst, ok := ec.ctx.instances[held.Instance]
 		if held.Kind != ValInstance || !ok {
-			return nil, &SendTargetValueError{Target: text, Name: text, Value: FormatValue(value)}
+			return nil, &SendReceiverValueError{Receiver: text, Value: FormatValue(value)}
 		}
 		if err := ec.ctx.checkNotDestroyed(inst); err != nil {
 			return nil, err
@@ -1122,21 +1123,19 @@ func (ec *EvalContext) receiverObjects(node ast.Node, text string) ([]*Instance,
 		out = append(out, inst)
 	}
 	if len(out) == 0 {
-		return nil, &SendTargetValueError{Target: text, Name: text, Value: FormatValue(value)}
+		return nil, &SendReceiverValueError{Receiver: text, Value: FormatValue(value)}
 	}
 	return out, nil
 }
 
-// objectsReceiverAddresses yields the objects a routed send's `to` expression
-// denotes where the name it formed is no receiving node of the holder: nil is
-// the name path, an unresolved reference included, which the caller reports as
-// an unreachable receiver as before.
-func (ec *EvalContext) objectsReceiverAddresses(send lower.Send, holder *Instance, segments []string, path bool) (map[int64]bool, error) {
+// routedReceiverObjects evaluates a routed send's `to` to the objects it
+// yields where its name is no receiving node of the holder, nil then — an
+// unresolved reference included, which the caller reports as unreachable.
+func (ec *EvalContext) routedReceiverObjects(send lower.Send, holder *Instance, segments []string, path bool) (map[int64]bool, error) {
 	if send.ReceiverExpr == nil || ec.ctx.routedReceiverExists(send.Scope, segments, path, holder) {
 		return nil, nil
 	}
-	text := exprText(send.ReceiverExpr)
-	objects, err := ec.receiverObjects(send.ReceiverExpr, text)
+	objects, err := ec.receiverObjects(send.ReceiverExpr)
 	if err != nil {
 		if errors.Is(err, ErrUnresolvedReference) {
 			return nil, nil
@@ -1179,6 +1178,15 @@ func exprText(node ast.Node) string {
 			elements = append(elements, exprText(element))
 		}
 		return "(" + strings.Join(elements, ", ") + ")"
+	case *ast.OperatorExpr:
+		if len(n.Operands) == 1 {
+			return n.Operator.String() + exprText(n.Operands[0])
+		}
+		operands := make([]string, 0, len(n.Operands))
+		for _, operand := range n.Operands {
+			operands = append(operands, exprText(operand))
+		}
+		return strings.Join(operands, " "+n.Operator.String()+" ")
 	case *ast.LiteralInteger:
 		return n.Value
 	case *ast.LiteralReal:
@@ -1191,7 +1199,7 @@ func exprText(node ast.Node) string {
 		}
 		return "false"
 	}
-	return fmt.Sprintf("%T", node)
+	return "the receiver expression"
 }
 
 // post delivers a built message the way the send addressed it: routed through
