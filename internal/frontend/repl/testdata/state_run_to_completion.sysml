@@ -1,13 +1,15 @@
-// A machine redefining isRunToCompletion away from the library default: the
-// debugger refuses to start it with the lowering error, not a run under the default.
+// A machine whose run-to-completion scope names a sibling state remains a
+// typed lowering refusal, so the debugger reports the invalid scope.
 package Refused {
-	attribute def Go;
+	alias Scope for Occurrences::Occurrence::runToCompletionScope;
 
-	state def Machine {
-		attribute :>> isRunToCompletion = false;
-		entry; then idle;
-		state idle;
-		accept Go then done;
-		state done;
+	state def Machine parallel {
+		state left {
+			state idle;
+		}
+		state right {
+			attribute :>> Scope = left.idle;
+			state done;
+		}
 	}
 }

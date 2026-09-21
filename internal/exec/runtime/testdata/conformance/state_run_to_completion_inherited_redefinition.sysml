@@ -1,6 +1,5 @@
 // The redefinition sits on the state definition the exhibited machine is typed
-// by, so the machine inherits it: lowering refuses the machine, naming the
-// definition that declares the redefinition.
+// by, so the machine inherits it and executes with the lowered effective value.
 package test {
 	attribute def Go;
 

@@ -42,6 +42,11 @@ type ClassifierBehavior struct {
 	// StatesBody reports whether Decl states the behavior's body. A declaration
 	// that states none names the element that holds one instead.
 	StatesBody bool
+	// NamesBehavior reports whether Decl names the element holding the body: the
+	// reference form (`perform a;`, `exhibit m;`), a `references`/`::>` clause
+	// or a typing. A declaration naming none is the body itself
+	// (SysML v2 §8.3.16, eventOccurrence).
+	NamesBehavior bool
 	// Arguments are the values the declaration binds to the behavior's
 	// parameters (`exhibit m { in controller = vehicleController; }`), in
 	// declaration order.
@@ -62,11 +67,12 @@ func ClassifierBehaviorOf(member ast.Node) (ClassifierBehavior, bool) {
 	}
 	name, _ := ast.EffectiveName(usage)
 	return ClassifierBehavior{
-		Kind:       kind,
-		Name:       name,
-		Decl:       usage,
-		StatesBody: StatesBehaviorBody(usage.Members),
-		Arguments:  behaviorArguments(usage.Members),
+		Kind:          kind,
+		Name:          name,
+		Decl:          usage,
+		StatesBody:    StatesBehaviorBody(usage.Members),
+		NamesBehavior: namesBehavior(usage),
+		Arguments:     behaviorArguments(usage.Members),
 	}, true
 }
 
@@ -125,6 +131,21 @@ func classifierBehaviorKind(usage *ast.Usage) (ClassifierBehaviorKind, bool) {
 	default:
 		return 0, false
 	}
+}
+
+// namesBehavior reports whether the declaration names the element holding its
+// behavior's body rather than being that body itself: the reference form
+// (`perform a;`, `exhibit m;`), a `references`/`::>` clause, or a typing.
+func namesBehavior(usage *ast.Usage) bool {
+	if usage.Keyword == "perform" || usage.Keyword == "exhibit" {
+		return true
+	}
+	for _, rel := range usage.Relationships {
+		if rel.Kind == ast.RelTyping || rel.Kind.ReferenceSubsets() {
+			return true
+		}
+	}
+	return false
 }
 
 // BehaviorMembers are the members of a behavior declaration, and an error for a

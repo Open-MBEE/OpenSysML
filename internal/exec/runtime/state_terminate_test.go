@@ -77,6 +77,50 @@ func TestTerminatedMachineHoldsNoPendingWork(t *testing.T) {
 	}
 }
 
+func TestTerminatedMachineDropsHeldEntry(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `package test {
+		private import ScalarValues::*;
+		item def Start;
+		item def Go;
+		state Machine parallel {
+			attribute hits : Integer = 0;
+			state left {
+				entry; then start;
+				state start;
+				state work {
+					attribute :>> runToCompletionScope default = self;
+					entry action { send new Go() to Machine; } then step;
+					state step;
+				}
+				transition first start accept Start then work;
+			}
+			state right {
+				entry; then idle;
+				state idle;
+				transition first idle accept Go then stop;
+				action stop terminate;
+			}
+		}
+	}`))
+	exec, err := ctx.CreateStateExecutor(findSymbolByName(idx.DocumentRoot("<test>"), "Machine", ast.DefState))
+	if err != nil {
+		t.Fatal(err)
+	}
+	exec.SendSignal("Start", nil)
+	if err := exec.RunToQuiescence(); err != nil {
+		t.Fatalf("RunToQuiescence: %v", err)
+	}
+	if exec.State() != StateTerminated {
+		t.Fatalf("state = %v; want Terminated", exec.State())
+	}
+	if exec.HoldsEntry() {
+		t.Error("HoldsEntry() = true after termination")
+	}
+	if exec.HasPendingWork() {
+		t.Error("HasPendingWork() = true after termination")
+	}
+}
+
 // TestChangeTriggeredTerminationHoldsNoWaits: a change condition rising in one
 // region routes to the terminate action while the other region's condition stays
 // false; the poll that ended the machine publishes no wait for it.

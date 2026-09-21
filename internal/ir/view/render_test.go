@@ -209,9 +209,8 @@ func TestStateRenderingComesFromTheLoweredGraph(t *testing.T) {
 	}
 }
 
-// A machine the runtime refuses is refused by the state rendering too, its
-// redefinitions resolved as the runtime resolves them: an alias of the
-// library's run-to-completion feature is reported, not drawn as if it ran.
+// A machine with a non-ancestor run-to-completion scope is refused by state
+// rendering too, using the same lowered scope resolution as the runtime.
 func TestStateRenderingRefusesWhatTheRuntimeRefuses(t *testing.T) {
 	rendering := render(t, "state-refused.sysml", "MachineViews::relaxedStates")
 	if len(rendering.Roots) != 0 {
@@ -220,7 +219,7 @@ func TestStateRenderingRefusesWhatTheRuntimeRefuses(t *testing.T) {
 	if len(rendering.Notices) != 1 {
 		t.Fatalf("notices = %v, want one refusing the machine", rendering.Notices)
 	}
-	for _, want := range []string{"Machines::Relaxed does not lower to a state graph", "isRunToCompletion", "= false"} {
+	for _, want := range []string{"Machines::Relaxed does not lower to a state graph", "runToCompletionScope", "neither the state itself"} {
 		if !strings.Contains(rendering.Notices[0], want) {
 			t.Errorf("notice = %q, want %q named", rendering.Notices[0], want)
 		}

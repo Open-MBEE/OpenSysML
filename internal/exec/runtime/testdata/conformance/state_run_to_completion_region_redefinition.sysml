@@ -1,5 +1,5 @@
-// A substate of an orthogonal region carrying the redefinition is refused like
-// any other state: region content is lowered through the same state path.
+// A substate of an orthogonal region carries a non-run-to-completion
+// redefinition; the region content executes through the same lowered state path.
 package test {
 	attribute def Go;
 

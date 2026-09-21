@@ -747,8 +747,9 @@ each due `do` behavior moves one token, then the machine dispatches the event at
 pool. Under the fixed policies (`reverse`, `declared`, `seed:<n>`) a do behavior's flow instead
 advances every steppable token once a round, and the machine dispatches only between rounds. The
 run a fixed policy makes — the whole round, then the dispatch — is therefore an interleaving
-`check`'s enumeration does not yet contain: a `do` behavior that a transition interrupts may end
-with a value under `reverse` that `check` does not table. A check that reaches such a state — a
+with a value under `reverse` that `check` does not table. The fixed-policy `check` enumeration
+does not contain the interleaving where a transition interrupts a `do` behavior mid-round; the
+runtime does support that interruption. A check that reaches such a state — a
 machine owing a dispatch after a `do` step that left a token able to act standing, one ready
 beside the token moved or one its move freed, where a fixed policy's round would have moved it too
 — therefore does not report

@@ -14,6 +14,9 @@ func (a *activity) refusal(n *sysmlv1.Element) (why string, v Verdict, refused b
 	case "ValueSpecificationAction":
 		return a.valueActionRefusal(n)
 	case "CallBehaviorAction":
+		if p := a.m.primitiveCalled(n); p != nil {
+			return a.primitiveRefusal(n, p)
+		}
 		return a.behaviorCallRefusal(n)
 	case "CallOperationAction":
 		return a.operationCallRefusal(n)
@@ -121,6 +124,65 @@ func (a *activity) sendRefusal(n *sysmlv1.Element) (why string, v Verdict, refus
 	return "", Mapped, false
 }
 
+// primitiveRefusal says why a call to a behavior of the fUML or Alf library is a
+// placeholder: the v2 library has no function for it, a value pin holds a value
+// v2 cannot spell, or a pin standing for a parameter that must hold a value is
+// dry, or may hold none and nothing fills it. A pin that must hold a value and
+// that nothing fills starves the action instead.
+func (a *activity) primitiveRefusal(n *sysmlv1.Element, p *primitiveCall) (why string, v Verdict, refused bool) {
+	if p.outs == nil {
+		return joinNotes("the behavior "+p.qualified()+" it calls has no v2 library function: "+p.note, p.provenance), Unmapped, true
+	}
+	a.settlePins(n)
+	ins := inputPins(n)
+	for i, arg := range p.arguments() {
+		if i < len(ins) {
+			if v, vnote := a.unwritten(n, ins[i]); v != nil {
+				return "the pin " + describe(ins[i]) + " it passes for the parameter " + arg.name + " of " + p.qualified() + " holds the value " + describeValue(v) + ", which has no v2 expression: " + vnote + "; v1 computes on it, so the action carries the token and performs nothing", Approximated, true
+			}
+		}
+		if !arg.required {
+			continue
+		}
+		if i >= len(ins) {
+			return "the call passes no argument for the parameter " + arg.name + " of " + p.qualified() + ", which must hold a value; v1 leaves the call undefined without it, so the action carries the token and performs nothing", Approximated, true
+		}
+		if dry := a.valueless(ins[i]); dry != nil {
+			return "the pin " + describe(ins[i]) + " it passes for the parameter " + arg.name + " of " + p.qualified() + ", which must hold a value, receives none: " + describe(dry) + ", which feeds it, produces no value; v1 never fires the call, so the action carries the token and performs nothing", Approximated, true
+		}
+		if a.holdsNone(ins[i]) {
+			return "the pin " + describe(ins[i]) + " it passes for the parameter " + arg.name + " of " + p.qualified() + ", which must hold a value, may hold none and nothing fills it; v1 leaves the call undefined without it, so the action carries the token and performs nothing", Approximated, true
+		}
+	}
+	return "", Mapped, false
+}
+
+// unwritten returns the value of a value pin of n that has no v2 expression, and
+// why; nil for another pin or a value that is written. n's pins must be settled
+// first, so a value naming a sibling pin reads it.
+func (a *activity) unwritten(n, pin *sysmlv1.Element) (*sysmlv1.Element, string) {
+	v := firstOwned(pin, "value")
+	if v == nil || pin.Type != "ValuePin" {
+		return nil, ""
+	}
+	if _, ok, note := a.m.typedBehaviorValue(v, pin, n); !ok {
+		return v, note
+	}
+	return nil, ""
+}
+
+// holdsNone reports whether an input pin admitting no value (lower bound 0) is
+// sure to hold none: it is no value pin, and nothing producing a value flows into it.
+func (a *activity) holdsNone(pin *sysmlv1.Element) bool {
+	if pin.Type == "ValuePin" && firstOwned(pin, "value") != nil || a.selfFed[pin] {
+		return false
+	}
+	if lv := firstOwned(pin, "lowerValue"); lv == nil || boundValue(lv) != "0" {
+		return false
+	}
+	return len(a.sources[pin]) == 0 || a.unvaluedSources(pin)
+}
+
 // deaden marks the nodes written as placeholders, whose result pins carry no
 // value, until no further call turns on a value none of them produces.
 func (a *activity) deaden() {
@@ -158,6 +220,9 @@ func (a *activity) producesAt(pin *sysmlv1.Element) bool {
 	if n.Type == "OpaqueAction" {
 		return a.opaqueOf(n).assigned[pin]
 	}
+	if p := a.m.primitiveCalled(n); p != nil {
+		return slices.Index(outputPins(n), pin) < len(p.outs)
+	}
 	callee, p := a.calleeOutput(pin)
 	if callee != nil && p == nil {
 		return false
@@ -180,7 +245,7 @@ func (a *activity) calleeOutput(pin *sysmlv1.Element) (callee, param *sysmlv1.El
 	if callee == nil || callee.Type != "Activity" {
 		return nil, nil
 	}
-	i := slices.Index(append(n.Owned("result"), n.Owned("outputValue")...), pin)
+	i := slices.Index(outputPins(n), pin)
 	for _, p := range callee.Owned("ownedParameter") {
 		switch p.Attrs["direction"] {
 		case "out", "return", "inout":

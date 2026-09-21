@@ -1033,13 +1033,14 @@ func runOneStatePerformance(t *testing.T, ctx *Context, stateSym *symbols.Symbol
 		t.Fatalf("state machine: %v", err)
 	}
 
-	validateStateOutcome(t, ctx, exec, AdmittedOutcome{
-		Outputs:     expected.Outputs,
-		FinalState:  expected.FinalState,
-		Terminated:  expected.Terminated,
-		StateVisits: expected.StateVisits,
-	})
-	if len(expected.Outcomes) > 0 {
+	if len(expected.Outcomes) == 0 {
+		validateStateOutcome(t, ctx, exec, AdmittedOutcome{
+			Outputs:     expected.Outputs,
+			FinalState:  expected.FinalState,
+			Terminated:  expected.Terminated,
+			StateVisits: expected.StateVisits,
+		})
+	} else {
 		matchOutcome(t, expected.Outcomes, func(r reporter, outcome AdmittedOutcome) {
 			validateStateOutcome(r, ctx, exec, outcome)
 		})

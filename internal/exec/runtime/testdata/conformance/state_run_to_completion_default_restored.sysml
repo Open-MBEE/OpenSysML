@@ -7,16 +7,16 @@ package test {
 	attribute def Go;
 
 	state def Relaxed {
-		attribute :>> isRunToCompletion = false;
+		attribute :>> isRunToCompletion default = false;
 	}
 
 	state def Base {
-		attribute :>> isRunToCompletion = false;
+		attribute :>> isRunToCompletion default = false;
 		attribute hits : Integer = 0;
 
 		entry; then idle;
 		state idle : Relaxed {
-			attribute :>> isRunToCompletion = true;
+			attribute :>> isRunToCompletion default = true;
 			entry action bump {
 				assign hits := hits + 1;
 			}
@@ -26,6 +26,6 @@ package test {
 	}
 
 	state def Machine :> Base {
-		attribute :>> isRunToCompletion = true;
+		attribute :>> isRunToCompletion default = true;
 	}
 }

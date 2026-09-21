@@ -33,37 +33,30 @@ type StateRedefinitionResolver interface {
 	LibraryFeature(sym *symbols.Symbol) bool
 }
 
-// RunToCompletionRedefinition reports a redefinition of isRunToCompletion or
-// runToCompletionScope the executor cannot honor: a value other than the
-// library default, or an expression lowering cannot decide restates it.
+// RunToCompletionRedefinition reports a redefinition of runToCompletionScope the
+// graph cannot resolve to this machine or an enclosing state.
 type RunToCompletionRedefinition struct {
-	// Feature is isRunToCompletion or runToCompletionScope.
+	// Feature is the redefined run-to-completion feature.
 	Feature string
-	// Decl is the redefining declaration.
+	// Decl is the redefinition declaration.
 	Decl *ast.Usage
-	// Owner describes the state or definition whose body declares it.
+	// Owner describes the body containing the declaration.
 	Owner string
 	// Written is the value as written.
 	Written string
-	// Unverified marks a value lowering cannot decide rather than one it read
-	// as departing from the default.
-	Unverified bool
+	// NotAncestor reports a resolved state outside the current state ancestry.
+	NotAncestor bool
 }
 
 func (e *RunToCompletionRedefinition) Error() string {
 	var sb strings.Builder
-	fmt.Fprintf(&sb, "%s: %s redefines %s = %s, which the runtime ", ErrUnsupportedStateContent, e.Owner, e.Feature, e.Written)
-	if e.Unverified {
-		sb.WriteString("cannot verify restates the library default: ")
+	fmt.Fprintf(&sb, "%s: %s redefines %s = %s, which ", ErrUnsupportedStateContent, e.Owner, e.Feature, e.Written)
+	if e.NotAncestor {
+		sb.WriteString("is neither the state itself nor a state enclosing it: ")
 	} else {
-		sb.WriteString("cannot honor: ")
+		sb.WriteString("names no occurrence of this state machine: ")
 	}
-	switch e.Feature {
-	case isRunToCompletionFeature:
-		sb.WriteString("every state machine runs to completion (Occurrences::Occurrence::isRunToCompletion default true)")
-	default:
-		sb.WriteString("the whole state machine is the run-to-completion scope (Occurrences::Occurrence::runToCompletionScope default self)")
-	}
+	sb.WriteString("a run-to-completion scope is the state itself or a state enclosing it (Occurrences::Occurrence::runToCompletionScope default self)")
 	return sb.String()
 }
 
@@ -123,45 +116,30 @@ func libraryRunToCompletionFeature(resolver StateRedefinitionResolver, sym *symb
 	return redefinedRunToCompletionFeatureIn(resolver, usage, sym.OwnerScope, seen)
 }
 
-// refuseRunToCompletionRedefinition refuses usage, declared in scope, when it
-// redefines a run-to-completion feature to anything but the library default. A
-// redefinition without a value keeps the inherited default. `self` restates the
-// scope only in the machine's own body: written in a substate, it narrows the
-// scope to that state.
-func (g *StateGraph) refuseRunToCompletionRedefinition(usage *ast.Usage, scope *symbols.Scope, owner string, machine bool) error {
-	feature := g.redefinedRunToCompletionFeature(usage, scope)
-	if feature == "" || usage.Value == nil {
-		return nil
-	}
-	refusal := &RunToCompletionRedefinition{Feature: feature, Decl: usage, Owner: owner, Written: writtenValue(usage.Value)}
-	switch feature {
-	case isRunToCompletionFeature:
-		lit, ok := usage.Value.(*ast.LiteralBool)
-		switch {
-		case ok && lit.Value:
-			return nil
-		case ok:
-			return refusal
-		}
-	case runToCompletionScopeFeature:
-		switch {
-		case FeaturePath(usage.Value) != "self":
-		case machine:
-			return nil
-		default:
-			refusal.Written += ", narrowing the scope to that state"
-			return refusal
-		}
-	}
-	refusal.Unverified = true
-	return refusal
+// runToCompletionDecl records one effective RTC declaration and its scope.
+type runToCompletionDecl struct {
+	// usage is the declaration carrying the effective value.
+	usage *ast.Usage
+	// scope resolves names written in usage.
+	scope *symbols.Scope
+	// owner describes the body containing usage.
+	owner string
 }
 
-// refuseRunToCompletionRedefinitions applies refuseRunToCompletionRedefinition
-// to the redefinition of each feature a body makes effective: the last one with a
-// value, most general first and the body's own members last, since a later
-// redefinition masks an inherited one. self describes the body's own declaration.
-func (g *StateGraph) refuseRunToCompletionRedefinitions(body []inheritedMember, self string, machine bool) error {
+// RunToCompletion is the effective run-to-completion configuration of a body.
+type RunToCompletion struct {
+	// Value is the isRunToCompletion expression, nil for the default true.
+	Value ast.Node
+	// ValueScope resolves names in Value.
+	ValueScope *symbols.Scope
+	// ValueOwner owns Value's state data; nil denotes the machine.
+	ValueOwner *ast.StateNode
+	// Scope is the state named by runToCompletionScope; nil denotes the machine.
+	Scope *ast.StateNode
+}
+
+// recordRunToCompletion records the effective valued members of one body.
+func (g *StateGraph) recordRunToCompletion(state *ast.StateNode, body []inheritedMember, self string) {
 	effective := map[string]inheritedMember{}
 	for _, member := range body {
 		usage, ok := unwrapMembership(member.node).(*ast.Usage)
@@ -171,6 +149,9 @@ func (g *StateGraph) refuseRunToCompletionRedefinitions(body []inheritedMember, 
 		if feature := g.redefinedRunToCompletionFeature(usage, member.scope); feature != "" {
 			effective[feature] = member
 		}
+	}
+	if g.runToCompletionDecls[state] == nil {
+		g.runToCompletionDecls[state] = make(map[string]runToCompletionDecl)
 	}
 	for _, feature := range []string{isRunToCompletionFeature, runToCompletionScopeFeature} {
 		member, ok := effective[feature]
@@ -182,11 +163,109 @@ func (g *StateGraph) refuseRunToCompletionRedefinitions(body []inheritedMember, 
 			owner = DescribeMember(member.owner) + ", inherited by " + self + ","
 		}
 		usage := unwrapMembership(member.node).(*ast.Usage)
-		if err := g.refuseRunToCompletionRedefinition(usage, member.scope, owner, machine); err != nil {
+		g.runToCompletionDecls[state][feature] = runToCompletionDecl{
+			usage: usage,
+			scope: member.scope,
+			owner: owner,
+		}
+	}
+}
+
+// RunToCompletionOf returns the effective configuration for state, or the
+// machine when state is nil.
+func (g *StateGraph) RunToCompletionOf(state *ast.StateNode) RunToCompletion {
+	return g.RunToCompletion[state]
+}
+
+// resolveRunToCompletion resolves recorded RTC declarations after graph vertices exist.
+func (g *StateGraph) resolveRunToCompletion() error {
+	done := map[*ast.StateNode]bool{}
+	var resolve func(*ast.StateNode) error
+	resolve = func(state *ast.StateNode) error {
+		if done[state] {
+			return nil
+		}
+		if parent := g.ParentState[state]; parent != nil {
+			if err := resolve(parent); err != nil {
+				return err
+			}
+		}
+		r := RunToCompletion{}
+		if state != nil {
+			r = g.RunToCompletion[g.ParentState[state]]
+		}
+		if decl := g.runToCompletionDecls[state][isRunToCompletionFeature]; decl.usage != nil {
+			r.Value = decl.usage.Value
+			r.ValueScope = decl.scope
+			r.ValueOwner = state
+		}
+		if decl := g.runToCompletionDecls[state][runToCompletionScopeFeature]; decl.usage != nil {
+			if FeaturePath(decl.usage.Value) == "self" {
+				r.Scope = state
+			} else {
+				var err error
+				r.Scope, err = g.scopeState(state, decl)
+				if err != nil {
+					return err
+				}
+				if r.Scope != nil {
+					ancestor := false
+					for current := state; current != nil; current = g.ParentState[current] {
+						if current == r.Scope {
+							ancestor = true
+							break
+						}
+					}
+					if !ancestor {
+						return decl.refusal(true)
+					}
+				}
+			}
+		}
+		g.RunToCompletion[state] = r
+		done[state] = true
+		return nil
+	}
+	if err := resolve(nil); err != nil {
+		return err
+	}
+	for _, state := range g.States {
+		if err := resolve(state); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// scopeState resolves a scope declaration to the machine or a state vertex.
+func (g *StateGraph) scopeState(state *ast.StateNode, decl runToCompletionDecl) (*ast.StateNode, error) {
+	if named, ok := g.endpoints.Endpoint(decl.scope, decl.usage.Value); ok && named == g.machineDecl {
+		return nil, nil
+	}
+	resolved, err := g.vertex(decl.scope, decl.usage.Value)
+	if err != nil || resolved == nil {
+		return nil, decl.refusal(false)
+	}
+	switch target := resolved.(type) {
+	case *ast.StateNode:
+		return target, nil
+	case *ast.Usage:
+		if target == g.machineDecl {
+			return nil, nil
+		}
+	}
+	return nil, decl.refusal(false)
+}
+
+// refusal builds the typed error for an invalid scope declaration.
+func (decl runToCompletionDecl) refusal(notAncestor bool) error {
+	return &RunToCompletionRedefinition{
+		Feature:     runToCompletionScopeFeature,
+		Decl:        decl.usage,
+		Owner:       decl.owner,
+		Written:     writtenValue(decl.usage.Value),
+		NotAncestor: notAncestor,
+	}
 }
 
 // writtenValue renders a feature value for a message, as far as the notation

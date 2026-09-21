@@ -146,6 +146,14 @@ type StateExecutor struct {
 	// front is the site under way whose regions' units are drawn one at a time;
 	// it lives within one move, so no snapshot sees it.
 	front *unitFront
+	// held contains entry cascades paused at RTC boundaries.
+	held []heldEntry
+	// entering marks states entered during the current entry unit.
+	entering map[*ast.StateNode]bool
+	// enteringMachine marks an entry cascade that includes the machine.
+	enteringMachine bool
+	// activeAtEntry records states active before the current entry unit.
+	activeAtEntry map[*ast.StateNode]bool
 
 	// changeRearmed collects, while a poll runs, the watches a state entry armed
 	// for a new activation, so the poll's earlier observation does not latch them.
@@ -262,6 +270,7 @@ func newStateExecutorOn(
 		activeConfig: &StateConfiguration{
 			regionStates: make(map[*ast.StateRegion]*ast.StateNode),
 		},
+		entering: make(map[*ast.StateNode]bool),
 	}
 	exec.driven.exec = exec
 	return exec
@@ -1982,23 +1991,7 @@ func (e *StateExecutor) enterBelow(trans *lower.Transition, fromName string, lca
 		return err
 	}
 
-	// Each region on the path activates its deepest entered state; a leaf in no
-	// region is the machine's single active state.
-	onPath := e.branchesTo(nil, leaf)
-	for region, state := range onPath {
-		e.activeConfig.regionStates[region] = state
-	}
-	if len(onPath) == 0 && len(e.activeConfig.regionStates) == 0 {
-		e.activeConfig.simpleState = leaf
-	}
-	e.stateStack = e.rootToLeaf(leaf)
-
-	// Schedule new events
-	if err := e.scheduleTransitionEvents(); err != nil {
-		return fmt.Errorf("schedule events: %w", err)
-	}
-
-	if err := e.completeIfDone(leaf); err != nil {
+	if err := e.settleEntered(leaf); err != nil {
 		return fmt.Errorf("complete state machine: %w", err)
 	}
 
@@ -2072,6 +2065,7 @@ func (e *StateExecutor) abandonMachine() []string {
 	}
 	clear(e.doActions)
 	e.doActions = e.doActions[:0]
+	e.clearEntryState()
 	e.activeConfig.simpleState = nil
 	e.activeConfig.regionStates = make(map[*ast.StateRegion]*ast.StateNode)
 	e.stateStack = nil
@@ -2424,13 +2418,13 @@ func (e *StateExecutor) moveToHistory(trans *lower.Transition, currentState *ast
 	if err != nil {
 		return err
 	}
+	e.noteFired(r.segments...)
 	if r.terminate != nil {
-		return e.terminateAt(trans, fromName, r, e.descendantChain(below, e.graph.TerminateOwner[r.terminate]))
+		return e.terminateAt(trans, fromName, r, r.effects(e.graph), e.descendantChain(below, e.graph.TerminateOwner[r.terminate]))
 	}
 	if err := e.runEffects(r.effects(e.graph), e.descendantChain(below, r.target)); err != nil {
 		return err
 	}
-	e.noteFired(r.segments...)
 	return e.enterBelow(trans, fromName, below, r.target, nil)
 }
 
@@ -3149,7 +3143,7 @@ func (e *StateExecutor) dueWork() bool {
 	if !e.drivable() {
 		return false
 	}
-	return e.completionDue || e.hasDueEvent() || e.hasPendingSignal() || e.HasPendingDoWork()
+	return e.completionDue || len(e.held) > 0 || e.hasDueEvent() || e.hasPendingSignal() || e.HasPendingDoWork()
 }
 
 // watchesChange reports a change condition the active configuration waits on.
@@ -3194,6 +3188,10 @@ func (e *StateExecutor) runOne(progress *dueProgress) (moved bool, err error) {
 // oneUnit runs one atomic unit at the current instant: the dispatch a closed round
 // owes, else one step of the round under way (stepRound); false when nothing was left.
 func (e *StateExecutor) oneUnit(progress *dueProgress) (moved bool, err error) {
+	e.resetEntering()
+	if len(e.held) > 0 {
+		return e.entryStep(progress)
+	}
 	if e.completionDue {
 		return true, e.completeMachine()
 	}
@@ -3280,6 +3278,7 @@ type dueDispatch struct {
 	due   bool
 	label string  // the dispatch as dispatchOne makes it; dispatchTiedLabel over tied events
 	step  string  // the dispatch as a step order offers it: bare over the acting tied events, else one
+	event *Event  // the queued event at the head, when dispatching one
 	tied  []Event // the events tied at the head, the dispatch being the draw among them
 	among []Event // the tied events whose dispatch acts: what a step order draws among
 	acts  bool    // whether the dispatch takes its occurrence (eventActs)
@@ -3311,7 +3310,9 @@ func (e *StateExecutor) dueDispatch() dueDispatch {
 		return d
 	}
 	head := queue.Peek()
-	return one(dispatchPrefix+e.eventLabel(head), len(e.actingEvents([]Event{head})) > 0)
+	d := one(dispatchPrefix+e.eventLabel(head), len(e.actingEvents([]Event{head})) > 0)
+	d.event = &head
+	return d
 }
 
 // actingEvents previews which of the events a dispatch now would take (eventActs), in
@@ -3441,6 +3442,10 @@ func (e *StateExecutor) runUnit(progress *dueProgress) (bool, error) {
 // runStep is one run-to-completion step (a do round, a risen change condition,
 // else the next due event); false when nothing was left to do at this instant.
 func (e *StateExecutor) runStep(progress *dueProgress) (bool, error) {
+	e.resetEntering()
+	if len(e.held) > 0 {
+		return e.entryStep(progress)
+	}
 	if e.completionDue {
 		return true, e.completeMachine()
 	}
@@ -4227,6 +4232,8 @@ func (e *StateExecutor) initialize() (err error) {
 	defer e.completedWhole(&err)
 	defer e.unfireOnError(len(e.fired), &err)
 	e.ctx.beginPerformanceLife(e.occurrence, e.ctx.newActivation())
+	e.resetEntering()
+	e.enteringMachine = true
 
 	// A machine without orthogonal regions of its own starts in the state its
 	// body's entry transitions choose, then in that state's own start, and so on.
@@ -4237,33 +4244,8 @@ func (e *StateExecutor) initialize() (err error) {
 		if err := e.enterMachine(); err != nil {
 			return fmt.Errorf("enter state machine: %w", err)
 		}
-		start, err := e.startIn(nil)
-		if err != nil {
-			return err
-		}
-
-		e.setCurrentState(start)
 		e.state = StateRunning
-		e.stateStack = e.rootToLeaf(start)
-		for _, state := range e.stateStack {
-			if err := e.enterStateInto(state, nil, state == start); err != nil {
-				return fmt.Errorf("enter state %s: %w", state.Name, err)
-			}
-		}
-		leaf, err := e.enterStartOf(start)
-		if err != nil {
-			return err
-		}
-		e.stateStack = e.rootToLeaf(leaf)
-
-		if err := e.scheduleTransitionEvents(); err != nil {
-			return fmt.Errorf("schedule events: %w", err)
-		}
-		// An entry transition choosing `done` completes the machine as it starts.
-		if err := e.completeIfDone(leaf); err != nil {
-			return fmt.Errorf("complete state machine: %w", err)
-		}
-		return nil
+		return e.enterMachineStart()
 	}
 
 	if e.graph.Machine != nil {
@@ -4275,28 +4257,7 @@ func (e *StateExecutor) initialize() (err error) {
 	e.state = StateRunning
 	e.activeConfig.regionStates = make(map[*ast.StateRegion]*ast.StateNode)
 	e.activeConfig.simpleState = nil
-
-	// Enter the initial state of each of the machine's own regions, in declaration
-	// order: the order they are entered in is observable.
-	if err := e.enterRegionsInto(nil, e.graph.TopRegions, nil); err != nil {
-		return err
-	}
-
-	// Schedule events for outgoing transitions in all regions
-	if err := e.scheduleTransitionEvents(); err != nil {
-		return fmt.Errorf("schedule events: %w", err)
-	}
-
-	// Every region starting in `done` completes the machine as it starts.
-	for _, region := range e.graph.TopRegions {
-		if err := e.completeIfDone(e.activeConfig.regionStates[region]); err != nil {
-			return fmt.Errorf("complete state machine: %w", err)
-		}
-		if e.state.Ended() {
-			break
-		}
-	}
-	return nil
+	return e.enterMachineRegions()
 }
 
 // enterMachine runs the machine's own entry behaviors and starts its do behavior.
@@ -4305,6 +4266,45 @@ func (e *StateExecutor) enterMachine() error {
 		return fmt.Errorf("entry action: %w", err)
 	}
 	e.startDoAction(e.graph.Machine)
+	return nil
+}
+
+// enterMachineStart enters the machine body's serial start cascade.
+func (e *StateExecutor) enterMachineStart() error {
+	start, err := e.startIn(nil)
+	if err != nil {
+		return err
+	}
+	e.setCurrentState(start)
+	e.stateStack = e.rootToLeaf(start)
+	for _, state := range e.stateStack {
+		if err := e.enterStateInto(state, nil, state == start); err != nil {
+			return fmt.Errorf("enter state %s: %w", state.Name, err)
+		}
+	}
+	leaf, err := e.enterStartOf(start)
+	if err != nil {
+		return err
+	}
+	return e.settleEntered(leaf)
+}
+
+// enterMachineRegions enters the machine's orthogonal top-level regions.
+func (e *StateExecutor) enterMachineRegions() error {
+	if err := e.enterRegionsInto(nil, e.graph.TopRegions, nil); err != nil {
+		return err
+	}
+	if err := e.scheduleTransitionEvents(); err != nil {
+		return fmt.Errorf("schedule events: %w", err)
+	}
+	for _, region := range e.graph.TopRegions {
+		if err := e.completeIfDone(e.activeConfig.regionStates[region]); err != nil {
+			return fmt.Errorf("complete state machine: %w", err)
+		}
+		if e.state.Ended() {
+			break
+		}
+	}
 	return nil
 }
 
@@ -4385,7 +4385,17 @@ func (e *StateExecutor) enterStartOf(state *ast.StateNode) (*ast.StateNode, erro
 		if _, orthogonal := e.graph.CompositeStates[leaf]; orthogonal {
 			return leaf, nil
 		}
+		if e.heldOwner(leaf) != nil {
+			return leaf, nil
+		}
 		if len(e.graph.StartOf(leaf)) > 0 {
+			held, err := e.holdEntry(leaf, nil, nil)
+			if err != nil {
+				return nil, err
+			}
+			if held {
+				return leaf, nil
+			}
 			if err := e.unitAhead(ChoiceEntryOrder, e.startHead(leaf, leaf)); err != nil {
 				return nil, err
 			}
@@ -4413,11 +4423,19 @@ func (e *StateExecutor) exitMachine() error {
 		return nil
 	}
 	e.machineExited = true
+	e.clearEntryState()
 	e.stopDoAction(e.graph.Machine)
 	if err := e.executeBehaviors(e.behaviorsOf(e.graph.Machine).Exit); err != nil {
 		return fmt.Errorf("exit action: %w", err)
 	}
 	return nil
+}
+
+func (e *StateExecutor) clearEntryState() {
+	e.held = e.held[:0]
+	clear(e.entering)
+	e.enteringMachine = false
+	clear(e.activeAtEntry)
 }
 
 // descendantChain returns the states from ancestor's child down to leaf,
@@ -4460,6 +4478,12 @@ func (e *StateExecutor) enterStateInto(state *ast.StateNode, branches map[*ast.S
 		return err
 	}
 	if regions, isComposite := e.graph.CompositeStates[state]; isComposite {
+		if held, err := e.holdEntry(state, regions, branches); err != nil {
+			return err
+		} else if held {
+			e.startDoAction(state)
+			return nil
+		}
 		if err := e.enterRegionsInto(state, regions, branches); err != nil {
 			return err
 		}
@@ -4499,8 +4523,23 @@ func (e *StateExecutor) activateState(state *ast.StateNode) error {
 	return nil
 }
 
+// resetEntering starts an entry unit and snapshots the configuration active before it.
+func (e *StateExecutor) resetEntering() {
+	e.entering = make(map[*ast.StateNode]bool)
+	e.enteringMachine = false
+	e.activeAtEntry = make(map[*ast.StateNode]bool)
+	for _, active := range e.activeStates() {
+		for _, state := range e.getParentChain(active) {
+			e.activeAtEntry[state] = true
+		}
+	}
+}
+
 // performEntry records the entry of state and performs its entry behaviors.
 func (e *StateExecutor) performEntry(state *ast.StateNode) error {
+	if !e.activeAtEntry[state] {
+		e.entering[state] = true
+	}
 	// Change watches are created fresh per activation, so a condition that stayed
 	// true rises again; the firing transition keeps its latch so the entry it
 	// caused does not re-enable it.
@@ -4539,6 +4578,19 @@ func (e *StateExecutor) exitState(state *ast.StateNode) error {
 	if state == nil {
 		return nil
 	}
+	e.held = slices.DeleteFunc(e.held, func(item heldEntry) bool {
+		if item.owner == state {
+			delete(e.entering, item.owner)
+			return true
+		}
+		for current := item.owner; current != nil; current = e.graph.ParentState[current] {
+			if current == state {
+				delete(e.entering, item.owner)
+				return true
+			}
+		}
+		return false
+	})
 
 	// A state's timers are destroyed when it is left: the event one already queued
 	// is withdrawn, so re-entering the state times a fresh interval.
@@ -4991,10 +5043,15 @@ func (e *StateExecutor) ProcessNextEvent() (err error) {
 	defer e.completedWhole(&err)
 
 	e.lastDispatch = nil
+	var progress dueProgress
+	e.resetEntering()
+	if len(e.held) > 0 {
+		_, err := e.entryStep(&progress)
+		return err
+	}
 	if e.completionDue {
 		return e.completeMachine()
 	}
-	var progress dueProgress
 	for {
 		ran, err := e.runDoRound()
 		if err != nil {
@@ -5067,7 +5124,7 @@ func (e *StateExecutor) HasDueEvent() bool {
 // an event is queued, a signal this machine accepts is in flight, or a state's
 // do behavior has actions left to run.
 func (e *StateExecutor) HasPendingWork() bool {
-	return e.completionDue || e.eventQueue.Len() > 0 || len(e.doActions) > 0 || e.hasPendingSignal()
+	return e.completionDue || len(e.held) > 0 || e.eventQueue.Len() > 0 || len(e.doActions) > 0 || e.hasPendingSignal()
 }
 
 // RunDoRound advances every active state's do behavior by one action, without
@@ -5076,6 +5133,9 @@ func (e *StateExecutor) RunDoRound() (ran int, err error) {
 	defer e.ctx.beginExecutorRun(&e.driven)()
 	defer e.completedWhole(&err)
 
+	if len(e.held) > 0 {
+		return 0, nil
+	}
 	return e.runDoRound()
 }
 

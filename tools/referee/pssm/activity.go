@@ -262,12 +262,12 @@ func (ar *activityReader) readNode(n *xmi.Element) {
 			ar.unsupported(n, "calls an operation the document does not define")
 			return
 		}
-		ar.emit(Statement{Kind: StmtCall, Name: op.Name(), Receiver: ar.pinValue(n.First("target")), Args: ar.args(n)})
+		ar.emit(Statement{Kind: StmtCall, Name: op.Name(), OperationID: op.ID, Receiver: ar.pinValue(n.First("target")), Args: ar.args(n)})
 	case typeCallBehaviorAction:
 		if ar.consumed(n) {
 			return
 		}
-		ar.emit(Statement{Kind: StmtCall, Name: ar.behaviorName(n), Args: ar.args(n)})
+		ar.emit(Statement{Kind: StmtCall, Name: ar.behaviorName(n), BehaviorID: ar.behaviorID(n), Args: ar.args(n)})
 	case typeSendSignalAction:
 		sig := ar.r.doc.ByID(n.Attr("signal"))
 		if sig == nil {
@@ -303,10 +303,13 @@ func (ar *activityReader) readNode(n *xmi.Element) {
 			Replace:   n.Attr("isReplaceAll") == "true",
 		})
 	case typeActivityParameterNode:
-		// A fed return parameter node is the body's return statement.
+		// A fed output parameter node is the body's return statement.
 		param := ar.r.doc.ByID(n.Attr("parameter"))
-		if param != nil && (param.Attr("direction") == "return" || param.Attr("direction") == "out") && len(ar.incoming[n.ID]) > 0 {
-			ar.emit(Statement{Kind: StmtReturn, Value: ar.pinValue(n)})
+		if param == nil || len(ar.incoming[n.ID]) == 0 {
+			return
+		}
+		if dir := param.Attr("direction"); dir == "return" || dir == "out" || dir == "inout" {
+			ar.emit(Statement{Kind: StmtReturn, Feature: paramName(param), Value: ar.pinValue(n)})
 		}
 	case typeInitialNode, typeActivityFinalNode, typeFlowFinalNode, typeForkNode, typeJoinNode,
 		typeMergeNode, typeDecisionNode, typeExpansionNode:
@@ -367,6 +370,19 @@ func (ar *activityReader) behaviorName(n *xmi.Element) string {
 	return n.Name()
 }
 
+// behaviorID is the xmi:id of the behavior a CallBehaviorAction calls when the
+// document defines it; "" for one referenced by href.
+func (ar *activityReader) behaviorID(n *xmi.Element) string {
+	id := n.Attr("behavior")
+	if b := n.First("behavior"); id == "" && b != nil {
+		id = b.Attr("idref")
+	}
+	if ar.r.doc.ByID(id) == nil {
+		return ""
+	}
+	return id
+}
+
 // pinValue reads the value flowing into a pin or node: nil when nothing feeds
 // it (an absent optional argument), an Expr otherwise.
 func (ar *activityReader) pinValue(pin *xmi.Element) *Expr {
@@ -406,7 +422,7 @@ func (ar *activityReader) value(id string) Expr {
 			return Expr{Kind: ExprUnknown, Text: e.Describe() + " names no parameter"}
 		}
 		if dir := param.Attr("direction"); dir == "in" || dir == "inout" || dir == "" {
-			return Expr{Kind: ExprParam, Name: param.Name()}
+			return Expr{Kind: ExprParam, Name: paramName(param)}
 		}
 		return ar.passThrough(e)
 	}
@@ -464,7 +480,7 @@ func (ar *activityReader) actionValue(n, pin *xmi.Element) Expr {
 	case typeClearStructuralFeatureAction:
 		return *deref(ar.pinValue(n.First("object")))
 	case typeCallBehaviorAction:
-		return Expr{Kind: ExprApply, Name: ar.behaviorName(n), Library: ar.library(n), Args: ar.args(n)}
+		return Expr{Kind: ExprApply, Name: ar.behaviorName(n), BehaviorID: ar.behaviorID(n), Library: ar.library(n), Args: ar.args(n)}
 	case typeCallOperationAction:
 		op := ar.r.doc.ByID(n.Attr("operation"))
 		if op == nil {
@@ -474,7 +490,7 @@ func (ar *activityReader) actionValue(n, pin *xmi.Element) Expr {
 		if !ok {
 			return Expr{Kind: ExprUnknown, Text: n.Describe() + " reads a result pin " + op.Name() + " has no output parameter for"}
 		}
-		return Expr{Kind: ExprCall, Name: op.Name(), Object: deref(ar.pinValue(n.First("target"))), Args: ar.args(n), Result: result, ID: n.ID}
+		return Expr{Kind: ExprCall, Name: op.Name(), OperationID: op.ID, Object: deref(ar.pinValue(n.First("target"))), Args: ar.args(n), Result: result, ID: n.ID}
 	case typeTestIdentityAction:
 		return Expr{Kind: ExprApply, Name: "==", Args: []Expr{*deref(ar.pinValue(n.First("first"))), *deref(ar.pinValue(n.First("second")))}}
 	case typeAcceptEventAction, typeAcceptCallAction:
@@ -493,7 +509,11 @@ func (ar *activityReader) resultParam(call, pin, op *xmi.Element) (string, bool)
 		if p != pin {
 			continue
 		}
-		outputs := (&Operation{Params: ar.r.readParams(op)}).Outputs()
+		read := ar.r.ops[op.ID]
+		if read == nil {
+			return "", false
+		}
+		outputs := read.Outputs()
 		if i >= len(outputs) {
 			return "", false
 		}
@@ -527,7 +547,7 @@ func packagedBehavior(b *xmi.Element) *LibraryBehavior {
 		return nil
 	}
 	var path []string
-	for e := b; e != nil && e.Type != "uml:Model"; e = e.Parent {
+	for e := b; e != nil && e.Type != "uml:Model" && e.Tag != "Model"; e = e.Parent {
 		path = append([]string{e.Name()}, path...)
 	}
 	return &LibraryBehavior{Name: b.Name(), Qualified: strings.Join(path, "::")}
