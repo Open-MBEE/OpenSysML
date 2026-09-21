@@ -31,7 +31,7 @@ action def 'Group 0' {
     }
     part target : 'timer analysis';
     perform action run ::> target.tick;
-    /* results of the simulation tool: 10 snapshot(s) in Results standing for 14 run(s) analysing t holding p, t, u */
+    /* results of the simulation tool: 11 snapshot(s) in Results standing for 15 run(s) analysing t holding p, t, u */
 }
 action def 'Group 1' {
     @Simulation::Configuration {
@@ -102,6 +102,12 @@ package Results {
         attribute :>> t = 5.0;
         /* not migrated: Slot (_blankN) — the slot holds the simulation tool's MonteCarloAnalysis::N statistic of the runs, which is no value of the instance; the migration results read it */
         /* not migrated: Slot (_blankMean) — the slot holds the simulation tool's MonteCarloAnalysis::Mean statistic of the runs, which is no value of the instance; the migration results read it */
+    }
+    individual part def 'analysis counted twice' :> 'Timer Analysis' {
+        attribute :>> t = 8.0;
+        /* not migrated: Slot (_twiceN) — the slot holds the simulation tool's MonteCarloAnalysis::N statistic of the runs, which is no value of the instance; the migration results read it */
+        /* not migrated: Slot (_twiceN2) — the slot holds the simulation tool's MonteCarloAnalysis::N statistic of the runs, which is no value of the instance; the migration results read it */
+        /* not migrated: Slot (_twiceMean) — the slot holds the simulation tool's MonteCarloAnalysis::Mean statistic of the runs, which is no value of the instance; the migration results read it */
     }
 }
 package Empty;

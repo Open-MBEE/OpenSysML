@@ -32,7 +32,7 @@ func TestSummarisedMigrationResultsThroughCLI(t *testing.T) {
 	if migrated.status != 0 {
 		t.Fatalf("migrating failed: %s", migrated.output())
 	}
-	if !strings.Contains(migrated.stderr, "(results of 3 run configuration(s): 2 with 11 stored snapshot(s) standing for 15 run(s))") {
+	if !strings.Contains(migrated.stderr, "(results of 3 run configuration(s): 2 with 12 stored snapshot(s) standing for 16 run(s))") {
 		t.Errorf("the sidecar summary counts no summarised runs:\n%s", migrated.output())
 	}
 	compared := runCommand(t, exec.Command(binary, model, "-compare-results", sidecar, "-seed", "1"))
@@ -40,15 +40,16 @@ func TestSummarisedMigrationResultsThroughCLI(t *testing.T) {
 		t.Fatalf("exit status = %d, want 0\n%s", compared.status, compared.output())
 	}
 	for _, want := range []string{
-		"compare 'Group 0' — 14 stored run(s) over 10 snapshot(s) in Results; 3 run(s) by OpenSysML, draws average, seed 1\n",
+		"compare 'Group 0' — 15 stored run(s) over 11 snapshot(s) in Results; 3 run(s) by OpenSysML, draws average, seed 1\n",
 		"p          | tool                 | 1    | 0.5   | 0.5               | 0.5   | 0.5   | 0.5",
-		"t          | tool                 | 12   |       | 4.333333333333333 |       |       |",
+		"t          | tool                 | 13   |       | 4.615384615384615 |       |       |",
 		"           | OpenSysML (target.t) | 3    | 3.0   | 3.0               | 3.0   | 3.0   | 3.0",
-		"           | difference           |      |       | -30.8%            |       |       |",
+		"           | difference           |      |       | -35.0%            |       |       |",
 		`note: "analysis of 4 runs" summarises 4 run(s) of t: mean 3.5, deviation 0.5, 1 out of specification`,
 		`note: "analysis without a deviation" summarises 2 run(s) of t: mean 7.0` + "\n",
 		"note: the slot of MonteCarloAnalysis::Mean holds a LiteralString, which is no number in 1 snapshot(s), so it is not among the results",
-		"note: 1 snapshot(s) record a MonteCarloAnalysis statistic that is no number, so they hold no statistics",
+		"note: the slot of MonteCarloAnalysis::N holds 2 numbers over as many slots, and a statistic is one number in 1 snapshot(s), so it is not among the results",
+		"note: 2 snapshot(s) record a MonteCarloAnalysis statistic that is no one number, so they hold no statistics",
 		"u          | tool                 | 1    | 9.0   | 9.0               | 9.0   | 9.0   | 9.0",
 		"note: 2 snapshot(s) record MonteCarloAnalysis statistics whose Mean no value of t holds, though the analysis binds the two, so the statistics are not read",
 		"compare 'Group 1' — no stored run in Empty; 1 run(s) by OpenSysML, draws average, seed 1\n",

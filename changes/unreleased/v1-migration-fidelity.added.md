@@ -4,8 +4,8 @@
   snapshot's `statistics` of the observable the analysis binds its `Mean` to, standing for `N`
   runs, rather than as one more run — `deviation` and `outOfSpec` only when the snapshot records
   them, so a missing deviation is not a zero — and notes a summary that is incomplete, counts
-  no runs or more than a count holds, binds no observable, states an `OutOfSpec` that is no
-  count of its runs, or summarises another configuration's.
+  no runs or more than a count holds, holds a statistic over several slots, binds no observable,
+  states an `OutOfSpec` that is no count of its runs, or summarises another configuration's.
 - **Every run configuration is compared.** `-compare-results` runs a configuration the tool
   stored no snapshot of and prints its statistics under a `tool (no stored result to compare)`
   row; runs one stating no `numberOfRuns` once, as the tool does, under a note saying so; counts

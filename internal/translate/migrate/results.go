@@ -129,9 +129,10 @@ func (m *migration) instanceSnapshot(r *simresults.ConfigurationResults, inst *s
 // slotValues reads each slot of inst into snap.Values; a slot whose name, kind
 // or number is no result is counted in scan.unread under its reason. The slots of
 // the analysis's own statistics are returned instead, by statistic; unread marks
-// one of them holding no number.
+// one of them holding no number, or one held over several slots.
 func (m *migration) slotValues(inst *sysmlv1.Element, snap *simresults.Snapshot, held map[string]int, scan *snapshotScan) (summary map[string]float64, unread bool) {
 	summary = map[string]float64{}
+	statSlots := map[string]int{}
 	for _, slot := range inst.Owned("slot") {
 		if stat, value, reason := m.monteCarloSlot(slot); stat != "" {
 			switch {
@@ -142,6 +143,7 @@ func (m *migration) slotValues(inst *sysmlv1.Element, snap *simresults.Snapshot,
 				unread = true
 			default:
 				summary[stat] = value
+				statSlots[stat]++
 			}
 			continue
 		}
@@ -161,6 +163,13 @@ func (m *migration) slotValues(inst *sysmlv1.Element, snap *simresults.Snapshot,
 		}
 		snap.Values[name] = value.number
 		held[name]++
+	}
+	for stat, n := range statSlots {
+		if n > 1 {
+			delete(summary, stat)
+			scan.unread[monteCarloAnalysisBlock+"::"+stat+" holds "+strconv.Itoa(n)+" numbers over as many slots, and a statistic is one number"]++
+			unread = true
+		}
 	}
 	return summary, unread
 }
@@ -313,7 +322,7 @@ func (m *migration) monteCarloSlot(slot *sysmlv1.Element) (stat string, value fl
 func monteCarloStatistics(observable string, summary map[string]float64, unread bool, values map[string]float64) (stats *simresults.Statistics, note string) {
 	switch {
 	case unread:
-		return nil, "record a " + monteCarloAnalysisBlock + " statistic that is no number, so they hold no statistics"
+		return nil, "record a " + monteCarloAnalysisBlock + " statistic that is no one number, so they hold no statistics"
 	case len(summary) == 0:
 		return nil, ""
 	}

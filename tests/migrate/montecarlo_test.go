@@ -40,12 +40,14 @@ func TestMonteCarloAnalysisSnapshotsAreSummaries(t *testing.T) {
 			{ID: "_stray", Name: "analysis of nothing held", Values: map[string]float64{}},
 			{ID: "_garbled", Name: "analysis with a garbled mean", Values: map[string]float64{"t": 3}},
 			{ID: "_blank", Name: "analysis left blank", Values: map[string]float64{"t": 5}},
+			{ID: "_twice", Name: "analysis counted twice", Values: map[string]float64{"t": 8}},
 		},
 		Notes: []string{
 			"the slot of MonteCarloAnalysis::Deviation holds \"NaN\", which is no finite number in 1 snapshot(s), so it is not among the results",
 			"the slot of MonteCarloAnalysis::Mean holds a LiteralString, which is no number in 1 snapshot(s), so it is not among the results",
+			"the slot of MonteCarloAnalysis::N holds 2 numbers over as many slots, and a statistic is one number in 1 snapshot(s), so it is not among the results",
 			"2 snapshot(s) record MonteCarloAnalysis statistics whose Mean no value of t holds, though the analysis binds the two, so the statistics are not read",
-			"1 snapshot(s) record a MonteCarloAnalysis statistic that is no number, so they hold no statistics",
+			"2 snapshot(s) record a MonteCarloAnalysis statistic that is no one number, so they hold no statistics",
 			"1 snapshot(s) record a MonteCarloAnalysis::N of 2.5, which is no count of runs, so they hold no statistics",
 			"1 snapshot(s) record a MonteCarloAnalysis::N of 9.223372036854776e+18, which is more runs than a count holds, so they hold no statistics",
 			"1 snapshot(s) record no MonteCarloAnalysis::N and Mean together, so they hold no statistics",
@@ -76,17 +78,17 @@ func TestMonteCarloAnalysisSnapshotsAreSummaries(t *testing.T) {
 		}
 	}
 	group0 := r.Results.Configurations[0]
-	if values := group0.Values("t"); !reflect.DeepEqual(values, []float64{2, 6, 4, 4, 3, 5}) {
+	if values := group0.Values("t"); !reflect.DeepEqual(values, []float64{2, 6, 4, 4, 3, 5, 8}) {
 		t.Errorf("Values(t) = %v, want the runs stored one by one, without the summary's mean", values)
 	}
-	if runs := group0.StoredRuns(); runs != 14 {
-		t.Errorf("StoredRuns = %d, want 6 summarised and 8 stored one by one", runs)
+	if runs := group0.StoredRuns(); runs != 15 {
+		t.Errorf("StoredRuns = %d, want 6 summarised and 9 stored one by one", runs)
 	}
-	if got, want := r.Results.Summary(), "results of 3 run configuration(s): 2 with 11 stored snapshot(s) standing for 15 run(s)"; got != want {
+	if got, want := r.Results.Summary(), "results of 3 run configuration(s): 2 with 12 stored snapshot(s) standing for 16 run(s)"; got != want {
 		t.Errorf("Summary = %q, want %q", got, want)
 	}
 
-	wantLine(t, r.Notation, "/* results of the simulation tool: 10 snapshot(s) in Results standing for 14 run(s) analysing t holding p, t, u */")
+	wantLine(t, r.Notation, "/* results of the simulation tool: 11 snapshot(s) in Results standing for 15 run(s) analysing t holding p, t, u */")
 	wantLine(t, r.Notation, "/* results of the simulation tool: 0 snapshot(s) in Empty analysing t */")
 	wantLine(t, r.Notation, "/* results of the simulation tool: 1 snapshot(s) in Unbound Results holding t */")
 	wantNote(t, r, "_analysis", migrate.Approximated, "generalization of the simulation tool's MonteCarloAnalysis is not written: v2 has no analysis pattern for the statistics it computes over the runs, which the migration results read from the result snapshots")

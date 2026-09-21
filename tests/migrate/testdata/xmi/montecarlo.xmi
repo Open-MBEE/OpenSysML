@@ -296,6 +296,35 @@
           <value xmi:type="uml:LiteralReal" xmi:id="_blankMeanv"/>
         </slot>
       </packagedElement>
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_twice" name="analysis counted twice" classifier="_analysis">
+        <slot xmi:type="uml:Slot" xmi:id="_twiceT" definingFeature="_t">
+          <value xmi:type="uml:LiteralReal" xmi:id="_twiceTv" value="8.0"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_twiceN">
+          <definingFeature href="MD_customization_for_SysML.mdzip#_mcN">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::N" referentType="Property"/>
+            </xmi:Extension>
+          </definingFeature>
+          <value xmi:type="uml:LiteralInteger" xmi:id="_twiceNv" value="5"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_twiceN2">
+          <definingFeature href="MD_customization_for_SysML.mdzip#_mcN">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::N" referentType="Property"/>
+            </xmi:Extension>
+          </definingFeature>
+          <value xmi:type="uml:LiteralInteger" xmi:id="_twiceN2v" value="10"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_twiceMean">
+          <definingFeature href="MD_customization_for_SysML.mdzip#_mcMean">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::Mean" referentType="Property"/>
+            </xmi:Extension>
+          </definingFeature>
+          <value xmi:type="uml:LiteralReal" xmi:id="_twiceMeanv" value="8.0"/>
+        </slot>
+      </packagedElement>
     </packagedElement>
     <packagedElement xmi:type="uml:Package" xmi:id="_empty" name="Empty"/>
     <packagedElement xmi:type="uml:Package" xmi:id="_unboundResults" name="Unbound Results">
