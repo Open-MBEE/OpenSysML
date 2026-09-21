@@ -969,7 +969,10 @@ materialization run nothing of it — and an explicit `StartObjectBehaviorAction
 classifier behavior as the object's own execution, `this` in it the object, a later message waking
 an accept it parks at, a second start of a running behavior starting nothing more, and a start
 that fails undone whole (`robustness_classifier_behavior_test.go`,
-`TestStartedActionAwaitingAMessageIsWokenByASibling`). The fUML referee's emitter takes the
+`TestStartedActionAwaitingAMessageIsWokenByASibling`). Lowering tells the start shot from a feature
+declared under that name through the scope tree (`action_graph.go:namesStartableBehavior`): `perform
+vehicle.start;` where `Vehicle` declares `action start : Launch;` performs that action
+(`TestPerformOfDeclaredStartActionStaysPerform`). The fUML referee's emitter takes the
 second path for an active class, so `ActiveClassBehaviorSender` runs the reference's order:
 create, start, send. One pool per machine rather than per object (SM1) is the one structural
 difference, and it is the v2 one. **agrees.**

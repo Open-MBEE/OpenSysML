@@ -420,15 +420,16 @@ type Effect struct {
 // performEffect lowers a `perform`: one naming the `start` of a behavior held by
 // an object (`perform obj.beh.start`) starts it, any other performs what it names.
 func performEffect(node ast.Node, scope *symbols.Scope) Effect {
-	if started, ref, ok := startedBehavior(node); ok {
+	if started, ref, ok := startedBehavior(node, scope); ok {
 		return Effect{Kind: EffectStart, Node: node, Scope: scope, Target: started, TargetExpr: ref}
 	}
 	return Effect{Kind: EffectPerform, Node: node, Scope: scope}
 }
 
 // startedBehavior reports the behavior a perform starts: the operand of a
-// reference chain ending in the implied `start` marker every behavior has.
-func startedBehavior(node ast.Node) (started, ref ast.Node, ok bool) {
+// reference chain ending in the `start` shot every behavior has, the operand
+// itself a behavior an object holds where the scope can say what it names.
+func startedBehavior(node ast.Node, scope *symbols.Scope) (started, ref ast.Node, ok bool) {
 	var target ast.Node
 	switch n := node.(type) {
 	case *ast.PerformActionNode:
@@ -442,14 +443,38 @@ func startedBehavior(node ast.Node) (started, ref ast.Node, ok bool) {
 		}
 	}
 	chain, isChain := target.(*ast.FeatureChainExpr)
-	if !isChain || chain.Member == nil || len(chain.Member.Parts) != 1 || chain.Member.Parts[0].Text != "start" {
+	if !isChain || chain.Member == nil || len(chain.Member.Parts) != 1 || chain.Member.Parts[0].Text != ast.StartFeature {
 		return nil, nil, false
 	}
 	switch chain.Operand.(type) {
 	case *ast.FeatureChainExpr, *ast.QualifiedName, *ast.FeatureReference:
-		return chain.Operand, chain, true
+	default:
+		return nil, nil, false
 	}
-	return nil, nil, false
+	if !namesStartableBehavior(chain.Operand, scope) {
+		return nil, nil, false
+	}
+	return chain.Operand, chain, true
+}
+
+// namesStartableBehavior reports whether the `start` of the feature a path names is
+// the shot every behavior has, not a `start` the feature's type declares itself; a
+// path the scope cannot follow is taken as written and left to the runtime to refuse.
+func namesStartableBehavior(operand ast.Node, scope *symbols.Scope) bool {
+	path := FeaturePath(operand)
+	if scope == nil || path == "" {
+		return true
+	}
+	segments := strings.Split(path, ".")
+	sym, ok := resolve.FeatureSymbolInScope(scope, segments)
+	if !ok || sym == nil || sym.Decl == nil {
+		return true
+	}
+	if _, startable := StartableBehaviorOf(sym.Decl); startable {
+		return true
+	}
+	_, declared := resolve.FeatureSymbolInScope(scope, append(segments, ast.StartFeature))
+	return !declared
 }
 
 // TerminateTarget is what a terminate names, settled where it was written.

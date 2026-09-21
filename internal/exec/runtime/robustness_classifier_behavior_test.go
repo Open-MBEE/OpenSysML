@@ -22,6 +22,7 @@ func TestRuntimeRobustnessClassifierBehaviorStart(t *testing.T) {
 	t.Run("an_inherited_behavior_starts_on_the_specialized_object", testStartInherited)
 	t.Run("start_on_no_object_is_refused", testStartOnNoObject)
 	t.Run("start_of_no_behavior_is_refused", testStartOfNoBehavior)
+	t.Run("an_action_declared_as_start_is_performed_not_started", testStartNamedActionPerformed)
 	t.Run("a_failing_start_is_undone_whole", testStartFailureRollsBack)
 	t.Run("start_is_traced_as_the_objects_own_execution", testStartTraced)
 }
@@ -220,6 +221,38 @@ func testStartOfNoBehavior(t *testing.T) {
 		first start then create; first create then kick; first kick then done;`))
 	if !errors.Is(err, ErrNoSuchBehavior) || !strings.Contains(err.Error(), "n is no behavior of object #") {
 		t.Fatalf("error = %v, want ErrNoSuchBehavior naming n", err)
+	}
+}
+
+// testStartNamedActionPerformed: `perform target.start` naming an action the object's
+// type declares under the name start performs that action as a step, once, as any other
+// perform of it would; it is no start of a behavior called `target`.
+func testStartNamedActionPerformed(t *testing.T) {
+	src := `package test {
+		private import ScalarValues::*;
+		part def Vehicle {
+			attribute n : Integer = 0;
+			action def Launch { first start; then action tally { assign n := n + 1; } then done; }
+			action start : Launch;
+		}
+		action def Starter {
+			out made : Vehicle;
+			action create { out result : Vehicle = new Vehicle(); }
+			action kick { in target : Vehicle; perform target.start; }
+			flow create.result to kick.target;
+			first start then create; first create then kick; first kick then done;
+			bind create.result = made;
+		}
+	}`
+	ctx, vehicle, err := runStarter(t, src)
+	if err != nil {
+		t.Fatalf("Starter: %v", err)
+	}
+	if got := featureInt(t, ctx, vehicle, "n"); got != 1 {
+		t.Errorf("n = %d after performing the action named start, want 1", got)
+	}
+	if bs := vehicle.Behaviors(); len(bs) != 0 {
+		t.Errorf("the Vehicle performs %v, want no behavior started on it by a perform of its start action", bs)
 	}
 }
 

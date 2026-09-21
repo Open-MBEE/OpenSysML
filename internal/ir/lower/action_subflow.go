@@ -46,7 +46,7 @@ func lowerActionNode(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) 
 	}
 	if !statesOwnFlow(node.Members) {
 		lowerBody(graph, node, scope)
-		if _, _, starts := startedBehavior(node); starts {
+		if _, _, starts := startedBehavior(node, scope); starts {
 			graph.Bodies[node] = append(graph.Bodies[node], performEffect(node, scope))
 		}
 		return

@@ -269,18 +269,18 @@ func (rf *refereeing) referee(a *Activity) (ActivityReport, error) {
 }
 
 // carried files a class's owned behavior by the rows of the activities whose
-// start runs it: it fails when one fails, else passes when one passes, else
+// run starts it: it fails when one fails, else passes when one passes, else
 // takes the bucket the starters share. With none, nothing runs it and it fails
 // saying so, as an activity the record has no execution of does.
 func (rf *refereeing) carried(row ActivityReport, b *Activity, fixed report.Bucket, c Classification) (ActivityReport, error) {
 	var reasons []string
 	bucket := report.Bucket("")
-	for _, s := range starters(b) {
-		sr, err := rf.row(s)
+	for _, s := range rf.starters(b) {
+		sr, err := rf.row(s.activity)
 		if err != nil {
 			return row, err
 		}
-		reason := fmt.Sprintf("started by %s, which is %s", s.Name, sr.Bucket)
+		reason := fmt.Sprintf("started by %s, which is %s", s.String(), sr.Bucket)
 		if len(sr.Reasons) > 0 {
 			reason += ": " + strings.Join(sr.Reasons, "; ")
 		}
@@ -307,27 +307,72 @@ func carriedBucket(a, b report.Bucket) report.Bucket {
 	return a
 }
 
-// starters lists the activities of the model no class owns whose start action
-// runs the owned behavior: the classifier behavior, own or inherited, of the
-// type of a start's object pin.
-func starters(b *Activity) []*Activity {
-	var out []*Activity
+// starter is an activity no class owns whose run starts an owned behavior, and
+// the activity holding the start action when the run reaches it through calls.
+type starter struct {
+	activity, through *Activity
+}
+
+func (s starter) String() string {
+	if s.through == nil {
+		return s.activity.Name
+	}
+	return s.activity.Name + " through " + s.through.Name
+}
+
+// starters lists the activities no class owns whose run starts the owned
+// behavior: those whose start action's object pin has its type, and every
+// activity calling one, transitively, in the model's order. Where the record
+// executes some of them, those alone carry the row; the others never ran it.
+func (rf *refereeing) starters(b *Activity) []starter {
+	callers := map[*Activity][]*Activity{}
+	through := map[*Activity]*Activity{}
+	var pending []*Activity
 	for _, a := range b.Model.Activities {
-		if a.Owner != nil {
-			continue
-		}
 		for _, n := range a.AllNodes() {
-			if n.Kind != StartObjectBehaviorAction {
-				continue
-			}
-			for _, p := range n.Inputs() {
-				if p.Role == "object" && startedBehavior(b.Model, p) == b {
-					out = append(out, a)
+			switch n.Kind {
+			case CallBehaviorAction:
+				if n.Behavior != nil && n.Behavior.Activity != nil {
+					callers[n.Behavior.Activity] = append(callers[n.Behavior.Activity], a)
+				}
+			case StartObjectBehaviorAction:
+				for _, p := range n.Inputs() {
+					if p.Role == "object" && startedBehavior(b.Model, p) == b && through[a] == nil {
+						through[a] = a
+						pending = append(pending, a)
+					}
 				}
 			}
 		}
 	}
-	return out
+	for len(pending) > 0 {
+		a := pending[0]
+		pending = pending[1:]
+		for _, c := range callers[a] {
+			if through[c] == nil {
+				through[c] = through[a]
+				pending = append(pending, c)
+			}
+		}
+	}
+	var all, executed []starter
+	for _, a := range b.Model.Activities {
+		if through[a] == nil || a.Owner != nil {
+			continue
+		}
+		s := starter{activity: a}
+		if through[a] != a {
+			s.through = through[a]
+		}
+		all = append(all, s)
+		if x := rf.x.Activity(a.Model.File, a.ID); x != nil && x.Executed {
+			executed = append(executed, s)
+		}
+	}
+	if len(executed) > 0 {
+		return executed
+	}
+	return all
 }
 
 // filed puts a row in the classifier's fixed bucket with its reason first, or

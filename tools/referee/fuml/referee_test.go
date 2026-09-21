@@ -285,6 +285,64 @@ func TestRefereeOwnedBehavior(t *testing.T) {
 	wantReasons(t, reflect, "started by Awakener, which is fail: outputs differ: made = Holder#1{n = -}")
 }
 
+// driverModel adds to the object model a Driver that calls Awakener, the start
+// of the Holder reached through the call, and passes the Holder made out.
+var driverModel = strings.Replace(objectModel, "</uml:Model>", `
+  <packagedElement xmi:type="uml:Activity" xmi:id="driver" name="Driver">
+    <ownedParameter xmi:type="uml:Parameter" xmi:id="driverOut" name="got" direction="out" type="holder"/>
+    <node xmi:type="uml:CallBehaviorAction" xmi:id="callAwakener" name="Call(Awakener)" behavior="awakener">
+      <result xmi:type="uml:OutputPin" xmi:id="callAwakenerr" name="made" type="holder"/>
+    </node>
+    <node xmi:type="uml:ActivityParameterNode" xmi:id="driverOutNode" name="Parameter(got)" parameter="driverOut"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="d1" source="callAwakenerr" target="driverOutNode"/>
+  </packagedElement>
+  <packagedElement xmi:type="uml:Activity" xmi:id="loop" name="Loop">
+    <node xmi:type="uml:CallBehaviorAction" xmi:id="callLoop" name="Call(Loop)" behavior="loop"/>
+    <node xmi:type="uml:CallBehaviorAction" xmi:id="callDriver" name="Call(Driver)" behavior="driver"/>
+  </packagedElement>
+</uml:Model>`, 1)
+
+// An owned behavior started by an activity the record never executed on its own
+// is carried by the executed activities that reach the start through calls,
+// transitively, an activity calling itself walked once; when none is executed,
+// every activity reaching the start speaks.
+func TestRefereeOwnedBehaviorStartedThroughACall(t *testing.T) {
+	s := fixtureSuite(t, driverModel)
+	driver := fixtureActivity(t, s, "Driver")
+	x := &Expected{Activities: []ExpectedActivity{
+		executed(driver, []ExpectedOutput{{Parameter: "got", Values: []ExpectedValue{object("o1", "Holder")}}}),
+		{Model: TestsFile, ID: "awakener", Name: "Awakener", Skipped: "no test executes it"},
+		{Model: TestsFile, ID: "loop", Name: "Loop", Skipped: "no test executes it"},
+		{Model: TestsFile, ID: "reflect", Name: "Reflect", Skipped: "ownedBehavior of Holder"},
+	}}
+	r := refereed(t, s, x, Options{})
+	reflect := row(t, r, "Reflect")
+	if reflect.Bucket != oreport.BucketPass || len(reflect.Reasons) != 1 {
+		t.Errorf("Reflect = %+v", reflect)
+	}
+	wantReasons(t, reflect, "started by Driver through Awakener, which is pass")
+	if awakener := row(t, r, "Awakener"); awakener.Bucket != oreport.BucketFail {
+		t.Errorf("Awakener = %+v", awakener)
+	}
+
+	x.Activities[0] = executed(driver, []ExpectedOutput{{Parameter: "got", Values: []ExpectedValue{object("o1", "Holder", feature("n", 4))}}})
+	reflect = row(t, refereed(t, s, x, Options{}), "Reflect")
+	if reflect.Bucket != oreport.BucketFail {
+		t.Errorf("Reflect = %+v", reflect)
+	}
+	wantReasons(t, reflect, "started by Driver through Awakener, which is fail: outputs differ")
+
+	x.Activities = x.Activities[1:]
+	reflect = row(t, refereed(t, s, x, Options{}), "Reflect")
+	if reflect.Bucket != oreport.BucketFail || len(reflect.Reasons) != 3 {
+		t.Errorf("Reflect = %+v", reflect)
+	}
+	wantReasons(t, reflect,
+		"started by Awakener, which is fail: the implementation's record has no execution of it",
+		"started by Driver through Awakener, which is fail",
+		"started by Loop through Awakener, which is fail")
+}
+
 // A run whose outputs differ from the record fails naming both; the differing
 // values, and the actions that fired in one but produced no value in the other,
 // are reported.

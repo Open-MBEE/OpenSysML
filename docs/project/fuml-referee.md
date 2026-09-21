@@ -278,8 +278,11 @@ enclosing run has posted it (the object's behaviors are drained after the top-le
 performance ends as well as at the start). The behavior completing leaves the object, which
 the activity may still hand out through a parameter (SM44); a start that fails is undone
 whole, so the object performs nothing and keeps no write of the failed behavior. A behavior's
-body nested in the `part def` is refereed through the activity that starts an object of its
-owner (below), since the record runs it only that way.
+body nested in the `part def` is refereed through the activities that start an object of its
+owner (below), since the record runs it only that way: the activity holding the start and every
+activity calling it, transitively, of which those the record executes carry the row — `fail` when
+one fails, else `pass` when one passes — each reason naming the starter and, when the start is
+reached through a call, the activity holding it.
 
 Everything else the classifier calls expressible — `ReadSelfAction` in an activity performed
 on its own (its self is the performance, which the suite's `TestSignalReceiver` writes an

@@ -85,6 +85,46 @@ func TestPerformOfBehaviorStaysPerform(t *testing.T) {
 	}
 }
 
+// A `start` the part's type declares as an action of its own is performed; the
+// behavior a part holds is started; an attribute's is left to the runtime to refuse.
+func TestPerformOfDeclaredStartActionStaysPerform(t *testing.T) {
+	graph := scopedActionGraph(t, `
+		part def Vehicle {
+			attribute n : Integer;
+			action def Launch;
+			action start : Launch;
+			action def Run;
+			action run : Run;
+		}
+		action def Test {
+			action own { in v : Vehicle; perform v.start; }
+			action held { in v : Vehicle; perform v.run.start; }
+			action attr { in v : Vehicle; perform v.n.start; }
+			first start then own; first own then held; first held then attr; first attr then done;
+		}
+	`, "Test")
+
+	own := graph.Bodies[nodeNamed(t, graph, "own")]
+	if len(own) != 1 {
+		t.Fatalf("own lowered to %d statements, want 1: %#v", len(own), own)
+	}
+	if effect, ok := own[0].(Effect); !ok || effect.Kind != EffectPerform {
+		t.Errorf("perform v.start, start an action Vehicle declares, lowered to %#v, want a perform effect", own[0])
+	}
+
+	held := graph.Bodies[nodeNamed(t, graph, "held")]
+	if len(held) != 1 {
+		t.Fatalf("held lowered to %d statements, want 1: %#v", len(held), held)
+	}
+	assertStart(t, held[0], "v.run")
+
+	attr := graph.Bodies[nodeNamed(t, graph, "attr")]
+	if len(attr) != 1 {
+		t.Fatalf("attr lowered to %d statements, want 1: %#v", len(attr), attr)
+	}
+	assertStart(t, attr[0], "v.n")
+}
+
 func assertStart(t *testing.T, stmt Statement, target string) {
 	t.Helper()
 	effect, ok := stmt.(Effect)
