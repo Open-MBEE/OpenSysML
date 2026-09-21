@@ -145,6 +145,7 @@ returned over the service yet.
 | InitialNode, ActivityFinalNode, FlowFinalNode | `first start then …`; `action x terminate;`; the token ends where a flow final does | mapped |
 | ForkNode, JoinNode, DecisionNode, MergeNode | `fork`, `join`, `decide`, `merge`; a node several edges leave or reach without a control node gets one written for it | mapped (implicit fork/join: approximated) |
 | CallBehaviorAction | `action x : Def;` with `bind`/`flow` for its pins; a call of no behavior whose only content is a duration is a leaf step, the wait written for it; a call of a state machine, of a behavior with no v2 declaration, or of no behavior with pins to feed | mapped (a leaf step: mapped, "a step with a duration and no further behavior") / **unmapped** |
+| CallBehaviorAction of an fUML or Alf library primitive (`fUML_Library.xmi#…`, `Alf-Library.xmi#…`, any date) | the action with its pins, each result pin valued by the v2 library expression over the arguments, `out result : ScalarValues::String = StringFunctions::'+'(x, y);`; see [the table](#calls-to-the-fuml-and-alf-libraries) | mapped / approximated (the note says where v2 differs) / **unmapped** (no v2 equivalent: the note says which) |
 | CallOperationAction | `perform action x ::> target.op;` when the target pin's value is an object whose type owns the operation, or when `onPort` names a port a connector of the caller's block joins to a part that owns it (a port of the target itself names it); otherwise `action x : Owner::Op;`, which runs in the caller's context | mapped / approximated (unresolved target: the reason names it) |
 | ControlFlow | `first a then b;`, `if <guard>` when the guard parses and resolves as a v2 expression or translates from JavaScript or English (`i >= Retries`, `GS_Found`, `not Found and i < 3`, `TRUE`) through the [subset](#the-opaque-language-subset); otherwise the guard text as a comment and the edge unguarded, the report naming the token refused | mapped / approximated |
 | «Probability» on the edges out of a decision, a number | `first d then x { @Stochastic::Probability { p = <value>; } }`; constants not summing to 1 are scaled by their sum; a value outside `[0, 1]` leaves the decision unweighted | mapped / approximated |
@@ -545,6 +546,169 @@ mean, max, p50 and p90 with a histogram, and `sysml model.sysml -action <name> -
 does the same from the command line. An attribute the migrated body assigns from the clock is
 observed beside it with `-observe this.Time_Acq_Total`; an action that reads its performer's
 features (the `this.tcs.i` of a swimlane) is run through the performer, `-action "'Block' 'Action'"`.
+
+### Calls to the fUML and Alf libraries
+
+A `CallBehaviorAction` whose behavior is an element of the
+fUML library document (`http://www.omg.org/spec/FUML/<date>/fUML_Library.xmi`) or the Alf
+library document (`http://www.omg.org/spec/ALF/<date>/Alf-Library.xmi`) calls a primitive the
+tool computes, not an activity the model holds. The migrator knows the behavior by the document
+the href names and the fragment within it — whatever date the URI carries, and whether or not
+the model bundles a copy of the library, whose copy is then read for the pins' types but never
+for the mapping — never by the behavior's bare name, so a model's own `Concat` is an ordinary
+call. The call is written with its pins, and each result pin takes the v2 library expression
+over the argument pins, so the flows out of it carry the computed value:
+`out result : ScalarValues::String = StringFunctions::'+'(x, y);`. A sequence parameter may be
+passed nothing — the empty sequence — but a scalar parameter must hold a value: a call that
+passes no argument for one, or whose pin only flows from something that produces none, never
+fires in v1, and is written as an empty action carrying the token, as any starved call is.
+Where the v2 function differs from the v1 behavior — an index outside the sequence fails in v2
+where v1 gives no result; `ToBoolean` reads `TRUE` in v1 and only `true` in v2 — the call is
+approximated and the note says how; where the v2 library has no equivalent, the call is
+refused with the reason, and its result flows are comments. The mapping, as the tests pin it:
+
+| v1 behavior (arguments in v1 order) | v2 expression per result, in v1 order | Verdict |
+|---|---|---|
+| `fUML IntegerFunctions::Neg(x)` | `IntegerFunctions::'-'(x)` | mapped |
+| `fUML IntegerFunctions::Abs(x)` | `IntegerFunctions::abs(x)` | mapped |
+| `fUML IntegerFunctions::plus(x, y)` | `IntegerFunctions::'+'(x, y)` | mapped |
+| `fUML IntegerFunctions::minus(x, y)` | `IntegerFunctions::'-'(x, y)` | mapped |
+| `fUML IntegerFunctions::times(x, y)` | `IntegerFunctions::'*'(x, y)` | mapped |
+| `fUML IntegerFunctions::divide(x, y)` | `RealFunctions::'/'(x, y)` | approximated: v2 fails on a divisor of 0 where v1 gives no result |
+| `fUML IntegerFunctions::Div(x, y)` | `RealFunctions::ToInteger(IntegerFunctions::'/'(x, y))` | approximated: the quotient is truncated toward zero, as in v1; v2 fails on a divisor of 0 where v1 gives no result |
+| `fUML IntegerFunctions::Mod(x, y)` | `IntegerFunctions::'%'(x, y)` | approximated: v2 fails on a divisor of 0, which v1 leaves undefined |
+| `fUML IntegerFunctions::Max(x, y)` | `IntegerFunctions::max(x, y)` | mapped |
+| `fUML IntegerFunctions::Min(x, y)` | `IntegerFunctions::min(x, y)` | mapped |
+| `fUML IntegerFunctions::lt(x, y)` | `IntegerFunctions::'<'(x, y)` | mapped |
+| `fUML IntegerFunctions::gt(x, y)` | `IntegerFunctions::'>'(x, y)` | mapped |
+| `fUML IntegerFunctions::le(x, y)` | `IntegerFunctions::'<='(x, y)` | mapped |
+| `fUML IntegerFunctions::ge(x, y)` | `IntegerFunctions::'>='(x, y)` | mapped |
+| `fUML IntegerFunctions::ToString(x)` | `IntegerFunctions::ToString(x)` | mapped |
+| `fUML IntegerFunctions::ToUnlimitedNatural(x)` | `IntegerFunctions::ToNatural(x)` | approximated: v2 fails on a negative argument where v1 gives no result |
+| `fUML IntegerFunctions::ToInteger(x)` | `IntegerFunctions::ToInteger(x)` | approximated: v2 fails on text that is no decimal integer where v1 gives no result |
+| `fUML RealFunctions::Neg(x)` | `RealFunctions::'-'(x)` | mapped |
+| `fUML RealFunctions::Abs(x)` | `RealFunctions::abs(x)` | mapped |
+| `fUML RealFunctions::Inv(x)` | `RealFunctions::'/'(1.0, x)` | approximated: v2 fails on an argument of 0.0 where v1 gives no result |
+| `fUML RealFunctions::Floor(x)` | `RealFunctions::floor(x)` | mapped |
+| `fUML RealFunctions::Round(x)` | `RealFunctions::floor(RealFunctions::'+'(x, 0.5))` | mapped: a half rounds to the larger integer, as in v1 (-2.5 to -2); the v2 round would round it away from zero |
+| `fUML RealFunctions::plus(x, y)` | `RealFunctions::'+'(x, y)` | mapped |
+| `fUML RealFunctions::minus(x, y)` | `RealFunctions::'-'(x, y)` | mapped |
+| `fUML RealFunctions::times(x, y)` | `RealFunctions::'*'(x, y)` | mapped |
+| `fUML RealFunctions::divide(x, y)` | `RealFunctions::'/'(x, y)` | approximated: v2 fails on a divisor of 0.0 where v1 gives no result |
+| `fUML RealFunctions::Max(x, y)` | `RealFunctions::max(x, y)` | mapped |
+| `fUML RealFunctions::Min(x, y)` | `RealFunctions::min(x, y)` | mapped |
+| `fUML RealFunctions::lt(x, y)` | `RealFunctions::'<'(x, y)` | mapped |
+| `fUML RealFunctions::gt(x, y)` | `RealFunctions::'>'(x, y)` | mapped |
+| `fUML RealFunctions::le(x, y)` | `RealFunctions::'<='(x, y)` | mapped |
+| `fUML RealFunctions::ge(x, y)` | `RealFunctions::'>='(x, y)` | mapped |
+| `fUML RealFunctions::ToString(x)` | `RealFunctions::ToString(x)` | approximated: v1 leaves the text of a real unspecified beyond reading back as the same value; v2 writes the shortest such text, with an exponent for large or small magnitudes (1e+21) |
+| `fUML RealFunctions::ToInteger(x)` | `RealFunctions::ToInteger(x)` | mapped |
+| `fUML RealFunctions::ToReal(x)` | `RealFunctions::ToReal(x)` | approximated: v2 fails on text that is no real number where v1 gives no result |
+| `fUML UnlimitedNaturalFunctions::Max(x, y)` | `NaturalFunctions::max(x, y)` | approximated: v2 Natural has no unbounded value, so an argument of * has no v2 rendering; bounded values compare as in v1 |
+| `fUML UnlimitedNaturalFunctions::Min(x, y)` | `NaturalFunctions::min(x, y)` | approximated: v2 Natural has no unbounded value, so an argument of * has no v2 rendering; bounded values compare as in v1 |
+| `fUML UnlimitedNaturalFunctions::lt(x, y)` | `NaturalFunctions::'<'(x, y)` | approximated: v2 Natural has no unbounded value, so an argument of * has no v2 rendering; bounded values compare as in v1 |
+| `fUML UnlimitedNaturalFunctions::gt(x, y)` | `NaturalFunctions::'>'(x, y)` | approximated: v2 Natural has no unbounded value, so an argument of * has no v2 rendering; bounded values compare as in v1 |
+| `fUML UnlimitedNaturalFunctions::le(x, y)` | `NaturalFunctions::'<='(x, y)` | approximated: v2 Natural has no unbounded value, so an argument of * has no v2 rendering; bounded values compare as in v1 |
+| `fUML UnlimitedNaturalFunctions::ge(x, y)` | `NaturalFunctions::'>='(x, y)` | approximated: v2 Natural has no unbounded value, so an argument of * has no v2 rendering; bounded values compare as in v1 |
+| `fUML UnlimitedNaturalFunctions::ToString(x)` | `NaturalFunctions::ToString(x)` | approximated: v2 Natural has no unbounded value, so an argument of * has no v2 rendering, where v1 writes "*" |
+| `fUML UnlimitedNaturalFunctions::ToInteger(x)` | `x` | approximated: a v2 Natural is an Integer and passes through unchanged; v2 has no unbounded value, for which v1 gives no result |
+| `fUML UnlimitedNaturalFunctions::ToUnlimitedNatural(x)` | `NaturalFunctions::ToNatural(x)` | approximated: v2 fails on text that is no decimal natural, "*" included, where v1 gives no result |
+| `fUML BooleanFunctions::Or(x, y)` | `BooleanFunctions::'|'(x, y)` | mapped |
+| `fUML BooleanFunctions::Xor(x, y)` | `BooleanFunctions::xor(x, y)` | mapped |
+| `fUML BooleanFunctions::And(x, y)` | `BooleanFunctions::'&'(x, y)` | mapped |
+| `fUML BooleanFunctions::Implies(x, y)` | `ControlFunctions::implies(x, y)` | mapped |
+| `fUML BooleanFunctions::Not(x)` | `BooleanFunctions::not(x)` | mapped |
+| `fUML BooleanFunctions::ToString(x)` | `BooleanFunctions::ToString(x)` | mapped |
+| `fUML BooleanFunctions::ToBoolean(x)` | `BooleanFunctions::ToBoolean(x)` | approximated: v2 reads "true" and "false" only, where v1 reads them in any letter case, and fails on other text where v1 gives no result |
+| `fUML StringFunctions::Concat(x, y)` | `StringFunctions::'+'(x, y)` | mapped |
+| `fUML StringFunctions::Size(x)` | `StringFunctions::Length(x)` | mapped |
+| `fUML StringFunctions::Substring(x, lower, upper)` | `StringFunctions::Substring(x, lower, upper)` | approximated: v2 fails on bounds outside 1..Size(x) or a lower bound above the upper where v1 gives no result |
+| `fUML ListFunctions::ListSize(list)` | `SequenceFunctions::size(list)` | mapped |
+| `fUML ListFunctions::ListGet(list, index)` | `SequenceFunctions::'#'(list, index)` | approximated: v2 fails on an index outside 1..ListSize(list) where v1 gives no result |
+| `fUML BasicInputOutput::WriteLine(value)` | — | unmapped: writes a line to the standard output channel, which the v2 library has no function for |
+| `fUML BasicInputOutput::ReadLine()` | — | unmapped: reads a line from the standard input channel, which the v2 library has no function for |
+| `Alf IntegerFunctions::ToNatural(x)` | `NaturalFunctions::ToNatural(x)` | approximated: v2 reads decimal text only, where v1 also reads the 0b, 0o and 0x forms of a natural literal, and fails on other text where v1 gives no result |
+| `Alf BitStringFunctions::IsSet(b, n)` | — | unmapped: v2 has no BitString type: no library function performs bitwise operations |
+| `Alf BitStringFunctions::BitLength()` | — | unmapped: v2 has no BitString type: no library function performs bitwise operations |
+| `Alf BitStringFunctions::ToBitString(n)` | — | unmapped: v2 has no BitString type: no library function performs bitwise operations |
+| `Alf BitStringFunctions::ToInteger(b)` | — | unmapped: v2 has no BitString type: no library function performs bitwise operations |
+| `Alf BitStringFunctions::ToHexString(b)` | — | unmapped: v2 has no BitString type: no library function performs bitwise operations |
+| `Alf BitStringFunctions::ToOctalString(b)` | — | unmapped: v2 has no BitString type: no library function performs bitwise operations |
+| `Alf BitStringFunctions::~(b)` | — | unmapped: v2 has no BitString type: no library function performs bitwise operations |
+| `Alf BitStringFunctions::&(b1, b2)` | — | unmapped: v2 has no BitString type: no library function performs bitwise operations |
+| `Alf BitStringFunctions::^(b1, b2)` | — | unmapped: v2 has no BitString type: no library function performs bitwise operations |
+| `Alf BitStringFunctions::|(b1, b2)` | — | unmapped: v2 has no BitString type: no library function performs bitwise operations |
+| `Alf BitStringFunctions::<<(b, n)` | — | unmapped: v2 has no BitString type: no library function performs bitwise operations |
+| `Alf BitStringFunctions::>>(b, n)` | — | unmapped: v2 has no BitString type: no library function performs bitwise operations |
+| `Alf BitStringFunctions::>>>(b, n)` | — | unmapped: v2 has no BitString type: no library function performs bitwise operations |
+| `Alf SequenceFunctions::Size(seq)` | `SequenceFunctions::size(seq)` | mapped |
+| `Alf SequenceFunctions::Includes(seq, element)` | `SequenceFunctions::includes(seq, element)` | mapped |
+| `Alf SequenceFunctions::Excludes(seq, element)` | `SequenceFunctions::excludes(seq, element)` | mapped |
+| `Alf SequenceFunctions::Count(seq, element)` | `IntegerFunctions::'-'(SequenceFunctions::size(seq), SequenceFunctions::size(SequenceFunctions::excluding(seq, element)))` | mapped |
+| `Alf SequenceFunctions::IsEmpty(seq)` | `SequenceFunctions::isEmpty(seq)` | mapped |
+| `Alf SequenceFunctions::NotEmpty(seq)` | `SequenceFunctions::notEmpty(seq)` | mapped |
+| `Alf SequenceFunctions::IncludesAll(seq1, seq2)` | `SequenceFunctions::includes(seq1, seq2)` | mapped |
+| `Alf SequenceFunctions::ExcludesAll(seq1, seq2)` | `SequenceFunctions::excludes(seq1, seq2)` | mapped |
+| `Alf SequenceFunctions::Equals(seq1, seq2)` | `SequenceFunctions::equals(seq1, seq2)` | mapped |
+| `Alf SequenceFunctions::At(seq, index)` | `SequenceFunctions::'#'(seq, index)` | approximated: v2 fails on an index outside 1..Size(seq) where v1 gives no result |
+| `Alf SequenceFunctions::IndexOf(seq, element)` | — | unmapped: the v2 library has no function giving the position of an element in a sequence |
+| `Alf SequenceFunctions::First(seq)` | `SequenceFunctions::head(seq)` | mapped |
+| `Alf SequenceFunctions::Last(seq)` | `SequenceFunctions::last(seq)` | mapped |
+| `Alf SequenceFunctions::Union(seq1, seq2)` | `SequenceFunctions::union(seq1, seq2)` | mapped |
+| `Alf SequenceFunctions::Intersection(seq1, seq2)` | `SequenceFunctions::intersection(seq1, seq2)` | mapped |
+| `Alf SequenceFunctions::Difference(seq1, seq2)` | `SequenceFunctions::excluding(seq1, seq2)` | mapped |
+| `Alf SequenceFunctions::Including(seq, element)` | `SequenceFunctions::including(seq, element)` | mapped |
+| `Alf SequenceFunctions::IncludeAt(seq, element, index)` | `SequenceFunctions::includingAt(seq, element, index)` | approximated: v2 fails on an index outside 1..Size(seq)+1, where v1 gives seq unchanged |
+| `Alf SequenceFunctions::InsertAt(seq, element, index)` | `SequenceFunctions::includingAt(seq, element, index)` | approximated: v2 fails on an index outside 1..Size(seq)+1, where v1 gives seq unchanged |
+| `Alf SequenceFunctions::IncludeAllAt(seq1, seq2, index)` | `SequenceFunctions::includingAt(seq1, seq2, index)` | approximated: v2 fails on an index outside 1..Size(seq)+1, where v1 gives seq unchanged |
+| `Alf SequenceFunctions::Excluding(seq, element)` | `SequenceFunctions::excluding(seq, element)` | mapped |
+| `Alf SequenceFunctions::ExcludingOne(seq, element)` | — | unmapped: the v2 library removes every occurrence of an element from a sequence (excluding); none removes the first alone |
+| `Alf SequenceFunctions::ExcludeAt(seq, index)` | `SequenceFunctions::excludingAt(seq, index)` | approximated: v2 fails on an index outside 1..Size(seq), where v1 gives seq unchanged |
+| `Alf SequenceFunctions::Replacing(seq, element, newElement)` | — | unmapped: the v2 library has no function replacing the occurrences of an element in a sequence |
+| `Alf SequenceFunctions::ReplacingAt(seq, index, element)` | `SequenceFunctions::includingAt(SequenceFunctions::excludingAt(seq, index), element, index)` | approximated: v2 fails on an index outside 1..Size(seq), which v1 requires |
+| `Alf SequenceFunctions::ReplacingOne(seq, element, newElement)` | — | unmapped: the v2 library has no function replacing the first occurrence of an element in a sequence |
+| `Alf SequenceFunctions::Subsequence(seq, lower, upper)` | `SequenceFunctions::subsequence(seq, IntegerFunctions::max(lower, 1), IntegerFunctions::min(upper, SequenceFunctions::size(seq)))` | approximated: the bounds are clamped to 1..Size(seq) as in v1; v2 fails on a lower bound above Size(seq), which v1 leaves undefined |
+| `Alf SequenceFunctions::ToOrderedSet(seq)` | — | unmapped: the v2 library has no function removing the repeated elements of a sequence |
+| `Alf CollectionFunctions::size(seq)` | `SequenceFunctions::size(seq)` | mapped |
+| `Alf CollectionFunctions::includes(seq, element)` | `SequenceFunctions::includes(seq, element)` | mapped |
+| `Alf CollectionFunctions::excludes(seq, element)` | `SequenceFunctions::excludes(seq, element)` | mapped |
+| `Alf CollectionFunctions::count(seq, element)` | `IntegerFunctions::'-'(SequenceFunctions::size(seq), SequenceFunctions::size(SequenceFunctions::excluding(seq, element)))` | mapped |
+| `Alf CollectionFunctions::isEmpty(seq)` | `SequenceFunctions::isEmpty(seq)` | mapped |
+| `Alf CollectionFunctions::notEmpty(seq)` | `SequenceFunctions::notEmpty(seq)` | mapped |
+| `Alf CollectionFunctions::includesAll(seq1, seq2)` | `SequenceFunctions::includes(seq1, seq2)` | mapped |
+| `Alf CollectionFunctions::excludesAll(seq1, seq2)` | `SequenceFunctions::excludes(seq1, seq2)` | mapped |
+| `Alf CollectionFunctions::equals(seq1, seq2)` | `SequenceFunctions::equals(seq1, seq2)` | mapped |
+| `Alf CollectionFunctions::at(seq, index)` | `SequenceFunctions::'#'(seq, index)` | approximated: v2 fails on an index outside 1..Size(seq) where v1 gives no result |
+| `Alf CollectionFunctions::indexOf(seq, element)` | — | unmapped: the v2 library has no function giving the position of an element in a sequence |
+| `Alf CollectionFunctions::first(seq)` | `SequenceFunctions::head(seq)` | mapped |
+| `Alf CollectionFunctions::last(seq)` | `SequenceFunctions::last(seq)` | mapped |
+| `Alf CollectionFunctions::union(seq1, seq2)` | `SequenceFunctions::union(seq1, seq2)` | mapped |
+| `Alf CollectionFunctions::intersection(seq1, seq2)` | `SequenceFunctions::intersection(seq1, seq2)` | mapped |
+| `Alf CollectionFunctions::difference(seq1, seq2)` | `SequenceFunctions::excluding(seq1, seq2)` | mapped |
+| `Alf CollectionFunctions::including(seq, element)` | `SequenceFunctions::including(seq, element)` | mapped |
+| `Alf CollectionFunctions::includeAt(seq, element, index)` | `SequenceFunctions::includingAt(seq, element, index)` | approximated: v2 fails on an index outside 1..Size(seq)+1, where v1 gives seq unchanged |
+| `Alf CollectionFunctions::insertAt(seq, element, index)` | `SequenceFunctions::includingAt(seq, element, index)` | approximated: v2 fails on an index outside 1..Size(seq)+1, where v1 gives seq unchanged |
+| `Alf CollectionFunctions::includeAllAt(seq1, seq2, index)` | `SequenceFunctions::includingAt(seq1, seq2, index)` | approximated: v2 fails on an index outside 1..Size(seq)+1, where v1 gives seq unchanged |
+| `Alf CollectionFunctions::excluding(seq, element)` | `SequenceFunctions::excluding(seq, element)` | mapped |
+| `Alf CollectionFunctions::excludingOne(seq, element)` | — | unmapped: the v2 library removes every occurrence of an element from a sequence (excluding); none removes the first alone |
+| `Alf CollectionFunctions::excludeAt(seq, index)` | `SequenceFunctions::excludingAt(seq, index)` | approximated: v2 fails on an index outside 1..Size(seq), where v1 gives seq unchanged |
+| `Alf CollectionFunctions::replacing(seq, element, newElement)` | — | unmapped: the v2 library has no function replacing the occurrences of an element in a sequence |
+| `Alf CollectionFunctions::replacingAt(seq, index, element)` | `SequenceFunctions::includingAt(SequenceFunctions::excludingAt(seq, index), element, index)` | approximated: v2 fails on an index outside 1..Size(seq), which v1 requires |
+| `Alf CollectionFunctions::replacingOne(seq, element, newElement)` | — | unmapped: the v2 library has no function replacing the first occurrence of an element in a sequence |
+| `Alf CollectionFunctions::subsequence(seq, lower, upper)` | `SequenceFunctions::subsequence(seq, IntegerFunctions::max(lower, 1), IntegerFunctions::min(upper, SequenceFunctions::size(seq)))` | approximated: the bounds are clamped to 1..Size(seq) as in v1; v2 fails on a lower bound above Size(seq), which v1 leaves undefined |
+| `Alf CollectionFunctions::toOrderedSet(seq)` | — | unmapped: the v2 library has no function removing the repeated elements of a sequence |
+| `Alf CollectionFunctions::add(seq, element)` | `SequenceFunctions::including(seq, element)`; `SequenceFunctions::including(seq, element)` | approximated: the sequence the inout parameter hands back and the result are one value in v2, as the in-place function assigns them in v1 |
+| `Alf CollectionFunctions::addAll(seq1, seq2, index)` | `SequenceFunctions::union(seq1, seq2)` | approximated: the library document declares addAll with the in parameters seq1, seq2 and an unused index, and one result: seq1 with seq2 appended |
+| `Alf CollectionFunctions::addAt(seq, element, index)` | `SequenceFunctions::includingAt(seq, element, index)`; `SequenceFunctions::includingAt(seq, element, index)` | approximated: v2 fails on an index outside 1..Size(seq)+1, where v1 gives seq unchanged; the sequence the inout parameter hands back and the result are one value in v2, as the in-place function assigns them in v1 |
+| `Alf CollectionFunctions::addAllAt(seq1, seq2, index)` | `SequenceFunctions::includingAt(seq1, seq2, index)`; `SequenceFunctions::includingAt(seq1, seq2, index)` | approximated: v2 fails on an index outside 1..Size(seq)+1, where v1 gives seq unchanged; the sequence the inout parameter hands back and the result are one value in v2, as the in-place function assigns them in v1 |
+| `Alf CollectionFunctions::remove(seq, element)` | `SequenceFunctions::excluding(seq, element)`; `SequenceFunctions::excluding(seq, element)` | approximated: the sequence the inout parameter hands back and the result are one value in v2, as the in-place function assigns them in v1 |
+| `Alf CollectionFunctions::removeAll(seq1, seq2)` | `SequenceFunctions::excluding(seq1, seq2)`; `SequenceFunctions::excluding(seq1, seq2)` | approximated: the sequence the inout parameter hands back and the result are one value in v2, as the in-place function assigns them in v1 |
+| `Alf CollectionFunctions::removeOne(seq, element)` | — | unmapped: the v2 library removes every occurrence of an element from a sequence (excluding); none removes the first alone |
+| `Alf CollectionFunctions::removeAt(seq, index)` | `SequenceFunctions::excludingAt(seq, index)`; `SequenceFunctions::excludingAt(seq, index)` | approximated: v2 fails on an index outside 1..Size(seq), where v1 gives seq unchanged; the sequence the inout parameter hands back and the result are one value in v2, as the in-place function assigns them in v1 |
+| `Alf CollectionFunctions::replace(seq, element, newElement)` | — | unmapped: the v2 library has no function replacing the occurrences of an element in a sequence |
+| `Alf CollectionFunctions::replaceOne(seq, element, newElement)` | — | unmapped: the v2 library has no function replacing the first occurrence of an element in a sequence |
+| `Alf CollectionFunctions::replaceAt(seq, index, element)` | `SequenceFunctions::includingAt(SequenceFunctions::excludingAt(seq, index), element, index)`; `SequenceFunctions::includingAt(SequenceFunctions::excludingAt(seq, index), element, index)` | approximated: v2 fails on an index outside 1..Size(seq), which v1 requires; the sequence the inout parameter hands back and the result are one value in v2, as the in-place function assigns them in v1 |
+| `Alf CollectionFunctions::clear(seq)` | `()` | mapped: the inout parameter hands back the empty sequence, as v1 assigns null to it |
 
 ## The opaque-language subset
 
