@@ -1100,12 +1100,7 @@ func (e *emitter) method(st Statement) *Behavior {
 		return nil
 	}
 	if st.Receiver == nil {
-		for _, bh := range e.test.Target.Behaviors {
-			if bh.Name == st.Name {
-				return bh
-			}
-		}
-		return nil
+		return e.ownedBehavior(st.BehaviorID)
 	}
 	if !isSelf(st.Receiver) {
 		return nil

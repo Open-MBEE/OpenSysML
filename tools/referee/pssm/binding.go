@@ -306,8 +306,12 @@ func mainEnd(end, other *Vertex) *Vertex {
 }
 
 // enters reports whether transition t enters state v: v lies on the path from
-// the main target down to the target.
+// the main target down to the target; a still active target is not re-entered.
 func enters(v *Vertex, t *Transition) bool {
+	// Into the state enclosing the source: its region completes (PSSM 8.5.8).
+	if t.Source != t.Target && inside(t.Source, t.Target) {
+		return false
+	}
 	return inside(t.Target, v) && inside(v, mainEnd(t.Target, t.Source))
 }
 

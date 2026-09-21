@@ -364,7 +364,7 @@ const formatParameterValueQualified = "Util::Tracing::formatParameterValue"
 // its expression, and formatParameterValue brackets as the suite's library does.
 func (e *emitter) apply(out *stepList, x *Expr, where string, depth int) (string, error) {
 	if x.Library == nil {
-		if bh := e.ownedBehavior(x.Name); bh != nil {
+		if bh := e.ownedBehavior(x.BehaviorID); bh != nil {
 			return e.inline(out, bh, x, where, depth)
 		}
 	}
@@ -401,13 +401,13 @@ func (e *emitter) apply(out *stepList, x *Expr, where string, depth int) (string
 	return fmt.Sprintf(form.form, args[0], args[1]), nil
 }
 
-// ownedBehavior finds a behavior the target class owns by name.
-func (e *emitter) ownedBehavior(name string) *Behavior {
-	if e.test.Target == nil {
+// ownedBehavior finds the behavior the target class owns by xmi:id.
+func (e *emitter) ownedBehavior(id string) *Behavior {
+	if e.test.Target == nil || id == "" {
 		return nil
 	}
 	for _, bh := range e.test.Target.Behaviors {
-		if bh.Name == name {
+		if bh.ID == id {
 			return bh
 		}
 	}

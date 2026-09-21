@@ -1712,7 +1712,10 @@ state's, performed with no reference to the transfer that caused them. The spell
 data through the machine: `binding.go` finds, for each behavior with parameters, the one event
 every triggered transition into its site accepts (a transition's own triggers, or those
 reaching a pseudostate it leaves; a transition into a state's initial pseudostate carries what
-entered the state), checks the signature against the event's data by position and type, and
+entered the state; a transition from a substate into the state enclosing it enters nothing, as
+PSSM §8.5.8 leaves the target active and completes its region — SM35 — so it neither binds nor
+refuses the entry, `TestParametersEnclosingTargetIsNotEntered`), checks the signature against
+the event's data by position and type, and
 the emitter then stores each value the accept binds in an attribute of the machine named for
 the event, and declares the action's parameter bound to it. A signal `Data` with one scalar
 attribute `value` and an operation `op(p1 : Integer, p2 : String)`:
@@ -1762,7 +1765,9 @@ own attributes — the overload's number among the machine's call triggers in do
 the name, `trigger_bump_1_count` for `bump(inout count : Integer)` and `trigger_bump_2_flag` for
 `bump(in flag : Boolean)`, so one carrier never holds the other's value
 (`TestParametersOverloadsByIdentity`, `TestParametersOverloadsBindApart`,
-`TestParametersOverloadsCarryApart`). The trigger itself is where the notation runs out:
+`TestParametersOverloadsCarryApart`); a `CallBehaviorAction` likewise names one `Behavior`, so
+the reader carries its `xmi:id` and the emitter inlines that owned behavior, not the first of
+its name (`TestParametersAppliesBehaviorByIdentity`). The trigger itself is where the notation runs out:
 `accept bump(count)` names the operation by name and parameter names, the emitted machine
 declares no operation for the runtime to select among, and a call of either overload binds a
 `count`, so two same-named operations one of whose input names cover the other's —

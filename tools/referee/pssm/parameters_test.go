@@ -292,6 +292,79 @@ func TestParametersSignalBindsEffectAndEntries(t *testing.T) {
 	wantPass(t, report.Tests[0])
 }
 
+// plainTrace writes an activity <tag> without parameters tracing `<segment>`.
+func plainTrace(tag, id, segment string) string {
+	b := &behaviorBuilder{id: id}
+	b.trace(b.literal("uml:LiteralString", segment))
+	return `<` + tag + ` xmi:type="uml:Activity" xmi:id="` + id + `" name="` + id + `">
+` + b.nodes.String() + b.flow.String() + `</` + tag + `>
+`
+}
+
+// A transition from a substate into the state enclosing it completes that
+// state's region rather than re-entering it (PSSM 8.5.8), so the entry binds
+// from the transitions entering the state and that one's event is not among them.
+func TestParametersEnclosingTargetIsNotEntered(t *testing.T) {
+	body := `
+          <subvertex xmi:type="uml:State" xmi:id="xS1" name="S1">
+            ` + paramTrace("entry", "xS1entry", "S1(entry)", integerData) + `
+            <region xmi:type="uml:Region" xmi:id="xS1r" name="R">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="xS1i" name="I"/>
+              <subvertex xmi:type="uml:State" xmi:id="xS11" name="S1.1"/>
+              <transition xmi:type="uml:Transition" xmi:id="xT11" name="T1.1" source="xS1i" target="xS11"/>
+              <transition xmi:type="uml:Transition" xmi:id="xT12" name="T1.2" source="xS11" target="xS1">
+                <trigger xmi:type="uml:Trigger" xmi:id="xT12trig" event="evContinue"/>
+                ` + plainTrace("effect", "xT12effect", "T1.2(effect)") + `
+              </transition>
+            </region>
+          </subvertex>
+          <transition xmi:type="uml:Transition" xmi:id="xT2" name="T2" source="xWait" target="xS1">
+            <trigger xmi:type="uml:Trigger" xmi:id="xT2trig" event="evData"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="xT3" name="T3" source="xS1" target="xFin"/>`
+	report, s := refereeParameterSuite(t, "", body,
+		[]string{"S1(entry)[in=5]::T1.2(effect)"},
+		sendData("5"), sendContinue)
+	wantPass(t, report.Tests[0])
+	var s1 *Vertex
+	for _, v := range s.Tests[0].Machine.Regions[0].Vertices {
+		if v.Name == "S1" {
+			s1 = v
+		}
+	}
+	binding := BindBehaviors(s.Tests[0].Machine).Bound[s1.Entry]
+	if binding == nil || len(binding.Triggers) != 1 || binding.Triggers[0].Name != "T2" {
+		t.Fatalf("S1 entry bound from %+v, want T2 alone", binding)
+	}
+}
+
+// returningBehavior writes an owned activity <name> whose return is the literal.
+func returningBehavior(id, name, value string) string {
+	b := &behaviorBuilder{id: id}
+	b.flows(b.literal("uml:LiteralString", value), id+"RetNode")
+	return `      <ownedBehavior xmi:type="uml:Activity" xmi:id="` + id + `" name="` + name + `">
+` + param{"", "return", "String"}.decl(id+"Ret") + b.nodes.String() + b.flow.String() + `      </ownedBehavior>
+`
+}
+
+// A behavior call names one activity by identity, as a UML CallBehaviorAction
+// does: of two same-named owned behaviors, the one referenced is inlined.
+func TestParametersAppliesBehaviorByIdentity(t *testing.T) {
+	b := &behaviorBuilder{id: "xT2effect"}
+	applied := b.fresh()
+	fmt.Fprintf(&b.nodes, `  <node xmi:type="uml:CallBehaviorAction" xmi:id="%s" behavior="xSecond"><result xmi:type="uml:OutputPin" xmi:id="%sOut"/></node>`+"\n", applied, applied)
+	b.trace(applied + "Out")
+	body := `
+          <transition xmi:type="uml:Transition" xmi:id="xT2" name="T2" source="xWait" target="xFin">
+            <trigger xmi:type="uml:Trigger" xmi:id="xT2trig" event="evContinue"/>
+            <effect xmi:type="uml:Activity" xmi:id="xT2effect" name="T2_effect">
+` + b.nodes.String() + b.flow.String() + `            </effect>
+          </transition>`
+	behaviors := returningBehavior("xFirst", "helper", "first") + returningBehavior("xSecond", "helper", "second")
+	report, _ := refereeParameterSuite(t, behaviors, body, []string{"second"}, sendContinue)
+	wantPass(t, report.Tests[0])
+}
+
 // Each occurrence binds afresh: a state re-entered by a later occurrence of
 // the same signal traces the later value.
 func TestParametersRebindPerOccurrence(t *testing.T) {

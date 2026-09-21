@@ -500,11 +500,13 @@ type Statement struct {
 	Kind StatementKind
 	// Call and Send: the operation, behavior or signal named and its arguments
 	// in parameter order; Receiver is the object addressed, nil for a behavior;
-	// OperationID the xmi:id of the operation an operation call names.
+	// OperationID the xmi:id of the operation an operation call names, BehaviorID
+	// that of the behavior a behavior call names when the document defines it.
 	Name        string
 	Args        []Expr
 	Receiver    *Expr
 	OperationID string
+	BehaviorID  string
 	// Accept: the events waited for, and Result the name the accepted
 	// occurrence is bound to when the body reads it ("" otherwise).
 	Events []*Event
@@ -580,15 +582,17 @@ type Expr struct {
 	// the feature read on Object.
 	Name   string
 	Object *Expr
-	// Apply: the behavior applied by short name, Library when a library owns it,
-	// Args in parameter order. Call: Result is the output read, ID the call action,
-	// OperationID the xmi:id of the operation called.
+	// Apply: the behavior applied by short name, BehaviorID its xmi:id when the
+	// document defines it, Library when a library owns it, Args in parameter
+	// order. Call: Result is the output read, ID the call action, OperationID
+	// the xmi:id of the operation called.
 	// New: the classifier instantiated by Name and TypeID, ID the create action.
 	Args        []Expr
 	Library     *LibraryBehavior
 	Result      string
 	ID          string
 	OperationID string
+	BehaviorID  string
 	TypeID      string
 	// Unknown: what the reader could not follow, for the diagnostic.
 	Text string

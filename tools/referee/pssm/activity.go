@@ -267,7 +267,7 @@ func (ar *activityReader) readNode(n *xmi.Element) {
 		if ar.consumed(n) {
 			return
 		}
-		ar.emit(Statement{Kind: StmtCall, Name: ar.behaviorName(n), Args: ar.args(n)})
+		ar.emit(Statement{Kind: StmtCall, Name: ar.behaviorName(n), BehaviorID: ar.behaviorID(n), Args: ar.args(n)})
 	case typeSendSignalAction:
 		sig := ar.r.doc.ByID(n.Attr("signal"))
 		if sig == nil {
@@ -370,6 +370,19 @@ func (ar *activityReader) behaviorName(n *xmi.Element) string {
 	return n.Name()
 }
 
+// behaviorID is the xmi:id of the behavior a CallBehaviorAction calls when the
+// document defines it; "" for one referenced by href.
+func (ar *activityReader) behaviorID(n *xmi.Element) string {
+	id := n.Attr("behavior")
+	if b := n.First("behavior"); id == "" && b != nil {
+		id = b.Attr("idref")
+	}
+	if ar.r.doc.ByID(id) == nil {
+		return ""
+	}
+	return id
+}
+
 // pinValue reads the value flowing into a pin or node: nil when nothing feeds
 // it (an absent optional argument), an Expr otherwise.
 func (ar *activityReader) pinValue(pin *xmi.Element) *Expr {
@@ -467,7 +480,7 @@ func (ar *activityReader) actionValue(n, pin *xmi.Element) Expr {
 	case typeClearStructuralFeatureAction:
 		return *deref(ar.pinValue(n.First("object")))
 	case typeCallBehaviorAction:
-		return Expr{Kind: ExprApply, Name: ar.behaviorName(n), Library: ar.library(n), Args: ar.args(n)}
+		return Expr{Kind: ExprApply, Name: ar.behaviorName(n), BehaviorID: ar.behaviorID(n), Library: ar.library(n), Args: ar.args(n)}
 	case typeCallOperationAction:
 		op := ar.r.doc.ByID(n.Attr("operation"))
 		if op == nil {
