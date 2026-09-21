@@ -533,7 +533,10 @@ const positionalInvokeFixture = `
 			attribute label : String = "";
 			action run { in x : String; first apply; action apply { assign label := x; } }
 			calc run { in x : Integer; return : Integer = level + x; }
+			action countUp : Count { inout redefines tally;
+				first apply; action apply { assign tally := tally + by; assign level := level + by; } }
 		}
+		action def Count { inout tally : Integer; in by : Integer = 1; }
 	}
 `
 
@@ -628,6 +631,36 @@ func TestInvokeOperationWithPositionalArguments(t *testing.T) {
 				t.Fatalf("error = %v, want %v", err, tc.want)
 			}
 		})
+	}
+}
+
+// An unnamed `inout redefines` parameter is bound and returned under the name it
+// inherits, positionally or by name, the defaulted trailing input left out.
+func TestInvokeOperationReturnsRedefinedInout(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, positionalInvokeFixture))
+	tank := findSymbolByName(idx.DocumentRoot("<test>"), "Tank", ast.DefPart)
+	if tank == nil {
+		t.Fatal("Tank not found")
+	}
+	inst, err := ctx.Instantiate(tank)
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	results, err := ctx.InvokeOperationWith(inst, "countUp", OperationArguments{Positional: []Value{intArgument(10), intArgument(4)}})
+	if err != nil {
+		t.Fatalf("countUp(10, 4): %v", err)
+	}
+	wantResult(t, results, "tally", 14)
+	results, err = ctx.InvokeOperationWith(inst, "countUp", OperationArguments{Named: map[string]Value{"tally": intArgument(10)}})
+	if err != nil {
+		t.Fatalf("countUp(tally=10): %v", err)
+	}
+	wantResult(t, results, "tally", 11)
+	if len(results) != 1 {
+		t.Errorf("results = %v, want tally alone", results)
+	}
+	if fv, err := inst.GetFeatureValue(ctx, "level"); err != nil || fv.HeldValue().Const.Int != 7 {
+		t.Errorf("level = %v, %v, want 7", fv, err)
 	}
 }
 
