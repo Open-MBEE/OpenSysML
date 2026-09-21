@@ -640,6 +640,7 @@ type stateCapture struct {
 	firingNotes        []RunNote
 	changeRearmed      mapState[*lower.Transition, bool]
 	changeWaits        []changeWait
+	pendingCall        *pendingCall
 }
 
 // doActionCapture is one do action's progress: the behaviors it has still to run
@@ -683,6 +684,7 @@ func (e *StateExecutor) capture() stateCapture {
 		firingNotes:        slices.Clone(e.firingNotes),
 		changeRearmed:      captureMap(e.changeRearmed),
 		changeWaits:        slices.Clone(e.changeWaits),
+		pendingCall:        e.pendingCall.clone(),
 	}
 	if e.eventQueue != nil {
 		c.events = slices.Clone(e.eventQueue.events)
@@ -738,6 +740,7 @@ func (c stateCapture) restore() {
 	e.firingChange, e.firingNotes = c.firingChange, slices.Clone(c.firingNotes)
 	e.changeRearmed = c.changeRearmed.restore()
 	e.changeWaits = slices.Clone(c.changeWaits)
+	e.pendingCall = c.pendingCall.clone()
 }
 
 func cloneConfiguration(config *StateConfiguration) *StateConfiguration {
