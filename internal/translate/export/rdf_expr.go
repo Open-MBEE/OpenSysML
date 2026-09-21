@@ -359,6 +359,7 @@ func (e *encoder) invocation(subject rdf.Term, owner string, function *ast.Quali
 	return nil
 }
 
+// expressionOwnership owns an expression root through the position that holds it.
 func (e *encoder) expressionOwnership(node, owner rdf.Term, featureValue bool) error {
 	if isRelationship(e.metaclassOf(owner)) {
 		e.relationshipOwnership(node, owner, e.metaclassOf(owner), e.metaclassOf(node))
@@ -367,9 +368,9 @@ func (e *encoder) expressionOwnership(node, owner rdf.Term, featureValue bool) e
 	membership := rdf.OwningMembershipIRIOf(node)
 	metaclass := mOwningMembership
 	if featureValue {
-		metaclass = "FeatureValue"
+		metaclass = mFeatureValue
 	}
-	e.emitExpressionMembership(membership, node, owner, metaclass, true)
+	e.emitMembershipCore(membership, node, owner, metaclass, true)
 	e.graph.Add(owner, e.sysml(pOwnedRelationship), membership)
 	e.graph.Add(owner, e.sysml(pOwnedMembership), membership)
 	if featureValue {
@@ -386,14 +387,15 @@ func (e *encoder) expressionOwnership(node, owner rdf.Term, featureValue bool) e
 	return nil
 }
 
+// expressionOperandOwnership models an operand as an input parameter and value.
 func (e *encoder) expressionOperandOwnership(node, operand rdf.Term, index int) error {
 	parameter := rdf.ExpressionIRI(node, fmt.Sprintf("in%d", index))
 	membership := rdf.OwningMembershipIRIOf(parameter)
 	valueMembership := rdf.OwningMembershipIRIOf(operand)
-	e.typed(parameter, "Feature")
+	e.typed(parameter, mFeature)
 	e.graph.Add(parameter, e.sysml(pElementID), rdf.String(rdf.LocalName(parameter.Value)))
 	e.graph.Add(parameter, e.sysml(pDirection), rdf.String("in"))
-	e.emitExpressionMembership(membership, parameter, node, "ParameterMembership", true)
+	e.emitMembershipCore(membership, parameter, node, mParameterMembership, true)
 	e.graph.Add(node, e.sysml(pOwnedRelationship), membership)
 	e.graph.Add(node, e.sysml(pOwnedMembership), membership)
 	e.graph.Add(node, e.sysml(pOwnedFeatureMembership), membership)
@@ -405,17 +407,13 @@ func (e *encoder) expressionOperandOwnership(node, operand rdf.Term, index int) 
 	e.graph.Add(membership, e.sysml(pOwnedMemberParameter), parameter)
 	e.graph.Add(parameter, e.sysml(pOwnedRelationship), valueMembership)
 	e.graph.Add(parameter, e.sysml(pOwnedMembership), valueMembership)
-	e.emitExpressionMembership(valueMembership, operand, parameter, "FeatureValue", true)
+	e.emitMembershipCore(valueMembership, operand, parameter, mFeatureValue, true)
 	e.graph.Add(valueMembership, e.sysml(pFeatureWithValue), parameter)
 	e.graph.Add(valueMembership, e.sysml(pValue), operand)
 	e.graph.Add(operand, e.sysml(pOwner), parameter)
 	e.graph.Add(operand, e.sysml(pOwningRelationship), valueMembership)
 	e.graph.Add(operand, e.sysml(pOwningMembership), valueMembership)
 	return nil
-}
-
-func (e *encoder) emitExpressionMembership(membership, member, owner rdf.Term, metaclass string, namespace bool) {
-	e.emitMembershipCore(membership, member, owner, metaclass, namespace)
 }
 
 // expressionMetaclasses are the metaclasses of an expression node, which is a
@@ -437,7 +435,6 @@ func (d *decoder) isExpressionNode(subject rdf.Term) bool {
 	if known, ok := d.expressionNodes[subject.Value]; ok {
 		return known
 	}
-	d.expressionNodes[subject.Value] = false
 	if membership, owned := d.owningMembership[subject.Value]; owned && !d.nodeMembership[membership.iri] {
 		d.expressionNodes[subject.Value] = false
 		return false
@@ -449,6 +446,7 @@ func (d *decoder) isExpressionNode(subject rdf.Term) bool {
 	return known
 }
 
+// ownershipPredicates are structural edges that do not form expression text.
 var ownershipPredicates = func() map[string]bool {
 	properties := []string{
 		pOwner, pOwningRelationship, pOwningMembership, pOwnedRelationship,
@@ -479,10 +477,13 @@ func (d *decoder) resolveExpressions() error {
 		parents[triple.Object.Value] = append(parents[triple.Object.Value], triple.Subject)
 		el, ok := d.byIRI[triple.Subject.Value]
 		if !ok {
-			if d.metaclass(triple.Subject) == "FeatureValue" && triple.Predicate.Value == rdf.SysML+pValue {
+			if d.metaclass(triple.Subject) == mFeatureValue && triple.Predicate.Value == rdf.SysML+pValue {
 				owner, ownerOK := d.graph.Object(triple.Subject, rdf.SysML+pFeatureWithValue)
+				if !ownerOK || d.featureValues[owner.Value] != triple.Subject {
+					continue
+				}
 				el, ok = d.byIRI[owner.Value]
-				if !ownerOK || !ok {
+				if !ok {
 					continue
 				}
 			} else {
@@ -813,7 +814,7 @@ func (d *decoder) bodyParameterText(param rdf.Term, in *element) (string, error)
 	what := fmt.Sprintf("the body parameter <%s>", param.Value)
 	// A body parameter is written `in name`, so the node must be a Feature whose
 	// direction, when stated, is in; any other shape would be rewritten, not kept.
-	if metaclass := d.metaclass(param); !ontology.IsAncestorOrSelf(metaclass, "Feature") {
+	if metaclass := d.metaclass(param); !ontology.IsAncestorOrSelf(metaclass, mFeature) {
 		return "", &UnsupportedError{
 			What: what,
 			Note: fmt.Sprintf("a parameter of an expression body is a Feature, and this one is %s", typeDescription(metaclass)),
@@ -1117,10 +1118,11 @@ func (d *decoder) expressionOperands(node rdf.Term, in *element) ([]operand, err
 	return legacy, nil
 }
 
+// standardExpressionOperands reads operands through typed parameter memberships.
 func (d *decoder) standardExpressionOperands(node rdf.Term, in *element) ([]operand, bool, error) {
 	var memberships []rdf.Term
 	for _, membership := range d.graph.Objects(node, rdf.SysML+pOwnedFeatureMembership) {
-		if d.metaclass(membership) == "ParameterMembership" {
+		if d.metaclass(membership) == mParameterMembership {
 			memberships = append(memberships, membership)
 		}
 	}
@@ -1170,24 +1172,13 @@ func (d *decoder) standardExpressionOperands(node rdf.Term, in *element) ([]oper
 	return out, true, nil
 }
 
+// featureValueMembership returns the indexed FeatureValue for a feature.
 func (d *decoder) featureValueMembership(parameter rdf.Term) (rdf.Term, bool) {
-	for _, property := range []string{pOwnedMembership, pOwnedRelationship} {
-		for _, membership := range d.graph.Objects(parameter, rdf.SysML+property) {
-			if d.metaclass(membership) == "FeatureValue" {
-				return membership, true
-			}
-		}
-	}
-	for _, subject := range d.graph.Subjects() {
-		if d.metaclass(subject) == "FeatureValue" {
-			if feature, ok := d.graph.Object(subject, rdf.SysML+pFeatureWithValue); ok && feature == parameter {
-				return subject, true
-			}
-		}
-	}
-	return rdf.Term{}, false
+	membership, ok := d.featureValues[parameter.Value]
+	return membership, ok
 }
 
+// legacyExpressionOperands reads the pre-membership argument representation.
 func (d *decoder) legacyExpressionOperands(node rdf.Term, in *element) ([]operand, error) {
 	type argument struct {
 		index int
@@ -1239,6 +1230,7 @@ func splitOperands(args []operand, floor int) []string {
 	return out
 }
 
+// sameOperands compares operand identity and named-argument spelling.
 func sameOperands(left, right []operand) bool {
 	if len(left) != len(right) {
 		return false

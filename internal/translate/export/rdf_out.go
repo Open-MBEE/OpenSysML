@@ -131,9 +131,12 @@ const dtExpression = "Expression"
 // through a VariantMembership, and every other namespace member is owned
 // through an OwningMembership. All three are concrete.
 const (
-	mOwningMembership  = "OwningMembership"
-	mFeatureMembership = "FeatureMembership"
-	mVariantMembership = "VariantMembership"
+	mOwningMembership    = "OwningMembership"
+	mFeatureMembership   = "FeatureMembership"
+	mVariantMembership   = "VariantMembership"
+	mFeatureValue        = "FeatureValue"
+	mParameterMembership = "ParameterMembership"
+	mFeature             = "Feature"
 	// The membership a body owns its result expression through, which states
 	// the expression as sysml:ownedResultExpression.
 	mResultExpressionMembership = "ResultExpressionMembership"
@@ -1046,7 +1049,7 @@ func (e *encoder) owningMembership(node ast.Node, member, owner rdf.Term, member
 	// A type owns a feature through a FeatureMembership, which is the membership
 	// the API's payloads carry for it; anything else, a metadata usage included,
 	// through an OwningMembership.
-	feature := ontology.IsAncestorOrSelf(memberClass, "Feature") && isType(ownerClass) && !metadata
+	feature := ontology.IsAncestorOrSelf(memberClass, mFeature) && isType(ownerClass) && !metadata
 	membership := e.ids.owningMembershipOf(node, member)
 	// The membership shares the element namespace, so its IRI is reserved too.
 	if prior, taken := e.claim(membership.Value, memberFQN+"'s owning membership"); taken && e.idErr == nil {
@@ -1096,6 +1099,7 @@ func (e *encoder) owningMembership(node ast.Node, member, owner rdf.Term, member
 	return membership
 }
 
+// emitMembershipCore writes the shared ownership triples for a membership.
 func (e *encoder) emitMembershipCore(membership, member, owner rdf.Term, metaclass string, namespace bool) {
 	e.graph.Add(member, e.sysml(pOwner), owner)
 	e.graph.Add(member, e.sysml(pOwningRelationship), membership)
@@ -1149,7 +1153,7 @@ func (e *encoder) relationshipOwnership(member, owner rdf.Term, ownerClass, memb
 	if ontology.IsAncestorOrSelf(ownerClass, "OwningMembership") {
 		e.graph.Add(owner, e.sysml(pOwnedMemberElement), member)
 	}
-	if ontology.IsAncestorOrSelf(ownerClass, mFeatureMembership) && ontology.IsAncestorOrSelf(memberClass, "Feature") {
+	if ontology.IsAncestorOrSelf(ownerClass, mFeatureMembership) && ontology.IsAncestorOrSelf(memberClass, mFeature) {
 		e.graph.Add(owner, e.sysml(pOwnedMemberFeature), member)
 	}
 }
