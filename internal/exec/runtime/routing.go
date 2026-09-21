@@ -26,8 +26,9 @@ var ErrSendPortTypeMismatch = errors.New("send message type is not carried by th
 // ErrUnreachableSendReceiver reports a routed receiver that cannot be resolved.
 var ErrUnreachableSendReceiver = errors.New("send receiver is unreachable")
 
-// ErrSendTargetNotObject reports an addressed send whose target is a binding of
-// the sending behavior holding no object.
+// ErrSendTargetNotObject reports an addressed send whose target holds no object:
+// a binding of the sending behavior holding none, or a receiver expression
+// yielding none.
 var ErrSendTargetNotObject = errors.New("send target holds no object")
 
 // SendTargetValueError gives the bound target that holds no object, and what it holds.
@@ -43,6 +44,19 @@ func (e *SendTargetValueError) Error() string {
 }
 
 func (e *SendTargetValueError) Unwrap() error { return ErrSendTargetNotObject }
+
+// SendReceiverValueError gives a receiver expression that yields no object, and what it yielded.
+type SendReceiverValueError struct {
+	Receiver string // the expression as written
+	Value    string // what it yielded, formatted
+}
+
+func (e *SendReceiverValueError) Error() string {
+	return fmt.Sprintf("%s: %q yields %s, which is no object to send to",
+		ErrSendTargetNotObject, e.Receiver, e.Value)
+}
+
+func (e *SendReceiverValueError) Unwrap() error { return ErrSendTargetNotObject }
 
 // ErrSendViaNotPort reports a via path that is a binding of the sending behavior
 // holding an object which is no port.

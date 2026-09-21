@@ -453,6 +453,14 @@ func (b *footprintBuilder) statement(stmt Statement) {
 		b.reads(s.Scope, s.Message)
 		b.address(s.Scope, s.Target, s.TargetPath)
 		b.address(s.Scope, s.Receiver, s.ReceiverPath)
+		if s.Target == "" && s.TargetExpr != nil {
+			b.reads(s.Scope, s.TargetExpr)
+			b.footprint.Dynamic = true
+		}
+		if s.Receiver == "" && s.ReceiverExpr != nil {
+			b.reads(s.Scope, s.ReceiverExpr)
+			b.footprint.Dynamic = true
+		}
 		if s.IsVia {
 			// A `via` send is routed by connections at run time.
 			b.footprint.Dynamic = true
