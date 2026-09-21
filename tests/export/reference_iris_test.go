@@ -248,6 +248,33 @@ func TestImportNamingTwoElementsIsRefused(t *testing.T) {
 	}
 }
 
+// TestImportContradictingItsClassIsRefused pins that a concrete import class
+// stating the other kind's target property is refused, not written as either kind.
+func TestImportContradictingItsClassIsRefused(t *testing.T) {
+	graph, err := convert.Convert("refs.sysml", []byte(referenceFixture), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	for _, c := range []struct{ target, class, other string }{
+		{"sysml:importedMembership elmt:Refs__Motor_om ;", "sysml:MembershipImport", "sysml:NamespaceImport"},
+		{"sysml:importedNamespace elmt:Refs__Wheels ;", "sysml:NamespaceImport", "sysml:MembershipImport"},
+	} {
+		i := strings.Index(string(graph), c.target)
+		if i < 0 {
+			t.Fatalf("graph does not record %q\n%s", c.target, graph)
+		}
+		head := strings.LastIndex(string(graph)[:i], "a "+c.class+" ;")
+		if head < 0 {
+			t.Fatalf("no %s before %q\n%s", c.class, c.target, graph)
+		}
+		swapped := string(graph)[:head] + "a " + c.other + " ;" + string(graph)[head+len("a "+c.class+" ;"):]
+		_, err = convert.Convert("swapped.ttl", []byte(swapped), convert.FormatTurtle, convert.FormatSysML)
+		if err == nil || !strings.Contains(err.Error(), "import a different set") {
+			t.Errorf("a %s stating %s should be refused, got %v", c.other, c.target, err)
+		}
+	}
+}
+
 // TestLibraryIDCollisionIsRefused pins that an element declaring the id the
 // norm fixes for a library element it refers to is refused, not merged with it.
 func TestLibraryIDCollisionIsRefused(t *testing.T) {
