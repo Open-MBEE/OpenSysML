@@ -6,10 +6,12 @@ orbs:
   sonarcloud: sonarsource/sonarcloud@4.0.0
 
 executors:
+  # 4 vCPU: the -race suite needs them to finish inside the per-package 30m
+  # timeout; the smaller jobs it shares this executor with are not harmed.
   go-executor:
     docker:
       - image: cimg/go:1.25
-    resource_class: medium
+    resource_class: large
   
   python-executor:
     docker:
