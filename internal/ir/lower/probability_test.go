@@ -376,3 +376,65 @@ func TestProbabilityOnPseudostateBranchRefused(t *testing.T) {
 		})
 	}
 }
+
+// resolvedStateGraph lowers state usage `m` of src through the name-resolution
+// tier, so trigger names resolve to their definitions.
+func resolvedStateGraph(t *testing.T, src string) (*StateGraph, error) {
+	t.Helper()
+	p := parser.New(source.New("m.sysml", []byte(src)))
+	root := p.ParseFile()
+	if len(p.Diagnostics) > 0 {
+		t.Fatalf("parse errors: %v", p.Diagnostics)
+	}
+	idx := libs.NewModelIndex()
+	idx.AddDocument("m.sysml", root)
+	idx.ExpandWildcardImports()
+	pkg, ok := idx.DocumentRoot("m.sysml").LookupLocal("M")
+	if !ok {
+		t.Fatal("package M not indexed")
+	}
+	usage, ok := pkg.Scope.LookupLocal("m")
+	if !ok {
+		t.Fatal("state m not indexed")
+	}
+	return ToStateGraphWithEndpoints(usage.Decl, usage.Scope, NewLibraryStateTypes(resolve.New(idx)))
+}
+
+// Two accept triggers whose names spell the same simple name but resolve to
+// different definitions are different groups; two spellings of one definition
+// are one group.
+func TestTriggerKeyResolvesSignalDefinitions(t *testing.T) {
+	apart, err := resolvedStateGraph(t, `package M {
+		import Stochastic::*;
+		package A { item def Go; }
+		package B { item def Go; }
+		state m {
+			entry; then a;
+			state a; state b; state c;
+			transition t1 first a accept A::Go then b { @Probability { p = 1.0; } }
+			transition t2 first a accept B::Go then c;
+		}
+	}`)
+	if err != nil {
+		t.Fatalf("A::Go weighted, B::Go not — different groups, so accepted: %v", err)
+	}
+	transitions := apart.Transitions[stateNamed(apart, "a")]
+	if len(transitions) != 2 || TriggerKey(transitions[0]) == TriggerKey(transitions[1]) {
+		t.Fatalf("A::Go and B::Go keyed alike: %v", transitions)
+	}
+
+	_, err = resolvedStateGraph(t, `package M {
+		import Stochastic::*;
+		package A { item def Go; }
+		state m {
+			import A::*;
+			entry; then a;
+			state a; state b; state c;
+			transition t1 first a accept Go then b { @Probability { p = 1.0; } }
+			transition t2 first a accept A::Go then c;
+		}
+	}`)
+	if err == nil || !errors.Is(err, ErrProbability) {
+		t.Fatalf("Go and A::Go resolve to one def — one group, mixed weights refused; got %v", err)
+	}
+}

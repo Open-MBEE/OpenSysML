@@ -327,14 +327,76 @@ func orAnyName(name string) string {
 	return name
 }
 
-// TriggerKey is the spelling of the event a transition reacts to: the
-// transitions out of one state sharing a key compete for the same occurrences
-// and are checked for their weights as one group; "" keys the completion group.
+// TriggerKey is the key of the event a transition reacts to: the transitions
+// out of one state sharing it compete for the same occurrences and are checked
+// for their weights as one group; "" keys the completion group. The lowered
+// transition's resolved GroupKey is returned when set.
 func TriggerKey(trans *Transition) string {
+	if trans.GroupKey != "" {
+		return trans.GroupKey
+	}
+	return triggerKey(trans, nil)
+}
+
+// triggerKey spells a transition's group key, resolving the signal or
+// operation the trigger names through resolver when one is available, so two
+// spellings of one definition group and same-named types of different
+// namespaces do not; what cannot be resolved keys on its written name.
+func triggerKey(trans *Transition, resolver *resolve.Resolver) string {
+	operand := func(node ast.Node) string {
+		if node == nil {
+			return "any"
+		}
+		if qn := ast.AsQualifiedName(node); qn != nil {
+			if resolver != nil {
+				if sym, ok := resolver.ResolveQualified(trans.Scope, qn); ok {
+					if fqn := symbols.FQNOf(sym); fqn != "" {
+						return "sym:" + fqn
+					}
+				}
+			}
+			if text := ast.QualifiedText(qn); text != "" {
+				return "qn:" + text
+			}
+		}
+		return exprKeyOrUnique(node)
+	}
 	key := TriggerName(trans.Trigger)
 	switch t := trans.Trigger.(type) {
 	case nil:
 		return ""
+	case *ast.AcceptEvent:
+		if t.Subsets != nil {
+			key = "accept :> " + operand(t.Subsets)
+		} else {
+			key = "accept " + operand(t.SignalType)
+		}
+	case *ast.CallEvent:
+		key = "call " + operand(t.Operation)
+	case *ast.TimeEvent:
+		keyword := "after"
+		if t.Absolute {
+			keyword = "at"
+		}
+		key = "accept " + keyword + " " + exprKeyOrUnique(t.Duration)
+	case *ast.ChangeEvent:
+		key = "accept when " + exprKeyOrUnique(t.Condition)
+	}
+	if trans.Via != "" {
+		if trans.ViaSelf {
+			key += " via this." + trans.Via
+		} else {
+			key += " via " + trans.Via
+		}
+	}
+	return key
+}
+
+// triggerSpelling is the trigger's human spelling, for diagnostics — the
+// resolved group key would name symbols a reader does not write.
+func triggerSpelling(trans *Transition) string {
+	key := TriggerName(trans.Trigger)
+	switch t := trans.Trigger.(type) {
 	case *ast.AcceptEvent:
 		if t.Subsets != nil {
 			key = "accept :> " + triggerOperand(t.Subsets)
@@ -346,9 +408,9 @@ func TriggerKey(trans *Transition) string {
 		if t.Absolute {
 			keyword = "at"
 		}
-		key = "accept " + keyword + " " + exprKeyOrUnique(t.Duration)
+		key = "accept " + keyword + " " + writtenValue(t.Duration)
 	case *ast.ChangeEvent:
-		key = "accept when " + exprKeyOrUnique(t.Condition)
+		key = "accept when " + writtenValue(t.Condition)
 	}
 	if trans.Via != "" {
 		if trans.ViaSelf {
@@ -644,7 +706,7 @@ func checkTransitionGroup(source ast.Node, transitions []*Transition, group []in
 	}
 	competing := "transitions"
 	if _, isState := source.(*ast.StateNode); isState {
-		if key := TriggerKey(transitions[group[0]]); key != "" {
+		if key := triggerSpelling(transitions[group[0]]); key != "" {
 			competing += " on " + key
 		} else {
 			competing = "completion transitions"

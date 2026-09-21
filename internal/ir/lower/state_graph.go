@@ -269,6 +269,10 @@ type Transition struct {
 	// Probability is the weight `@Probability { p = ...; }` states for the
 	// transition, read where its guard is; nil when the transition is unweighted.
 	Probability *Probability
+
+	// GroupKey is the resolved trigger spelling this transition competes under:
+	// TriggerKey returns it when set, else computes the un-resolved spelling.
+	GroupKey string
 }
 
 // declaringState is the state whose body owner is; nil is the machine's body.
@@ -1524,7 +1528,7 @@ func lowerTransitionEdge(graph *StateGraph, edge *ast.TransitionEdge, owner ast.
 		return nil, fmt.Errorf("transition edge references undefined target state %s", EndpointText(edge.Target))
 	}
 
-	return &Transition{
+	trans := &Transition{
 		Decl:      edge,
 		Source:    source,
 		Target:    target,
@@ -1534,7 +1538,9 @@ func lowerTransitionEdge(graph *StateGraph, edge *ast.TransitionEdge, owner ast.
 		Effect:    LowerBehaviors(edge.Effect, nil, scope, graph.resolver),
 		Scope:     scope,
 		BodyScope: scope,
-	}, nil
+	}
+	trans.GroupKey = triggerKey(trans, graph.resolver)
+	return trans, nil
 }
 
 // lowerTransitionMember converts a TransitionMember (parser output) to a Transition.
@@ -1579,7 +1585,7 @@ func lowerTransitionMember(graph *StateGraph, member *ast.TransitionMember, body
 		return nil, err
 	}
 	via, viaSelf := ViaPortPath(member.Via)
-	return &Transition{
+	trans := &Transition{
 		Name:        member.Name,
 		Decl:        member,
 		Source:      source,
@@ -1593,7 +1599,9 @@ func lowerTransitionMember(graph *StateGraph, member *ast.TransitionMember, body
 		Scope:       scope,
 		BodyScope:   bodyScope,
 		Probability: probability,
-	}, nil
+	}
+	trans.GroupKey = triggerKey(trans, graph.resolver)
+	return trans, nil
 }
 
 // transitionEffects are the behaviors a transition performs: those written with

@@ -71,6 +71,7 @@ func TestRuntimeRobustnessTransitionProbability(t *testing.T) {
 	t.Run("lone_completion_zero_weight", testLoneCompletionZeroWeight)
 	t.Run("lone_completion_guarded_off_skips_weight", testLoneCompletionGuardedOffSkipsWeightCheck)
 	t.Run("fork_branch_weight_refused", testForkBranchWeightRefused)
+	t.Run("same_named_signals_separate_groups", testSameNamedSignalsSeparateGroups)
 }
 
 // testTransitionNegativeWeight: a probability is in [0, 1], so a constant
@@ -625,5 +626,38 @@ func testForkBranchWeightRefused(t *testing.T) {
 	if !errors.Is(err, lower.ErrProbability) ||
 		!strings.Contains(err.Error(), "out of a fork cannot be weighted") {
 		t.Fatalf("error = %v, want ErrProbability naming the fork branch", err)
+	}
+}
+
+// testSameNamedSignalsSeparateGroups: A::Go and B::Go are different groups, so
+// weighting one trigger does not oblige the other — the model runs.
+func testSameNamedSignalsSeparateGroups(t *testing.T) {
+	m := parseLibraryModel(t, `package test {
+		private import ScalarValues::*;
+		private import Stochastic::*;
+		package sigs {
+			package a { item def Go; }
+			package b { item def Go; }
+		}
+		state def Machine {
+			entry; then wait;
+			state wait; state b;
+			transition first wait accept sigs::a::Go then b { @Probability { p = 1.0; } }
+			transition first wait accept sigs::b::Go then wait;
+		}
+	}`)
+	ctx, err := m.fresh()
+	if err != nil {
+		t.Fatal(err)
+	}
+	exec, err := ctx.CreateStateExecutor(m.state(t, "Machine"))
+	if err != nil {
+		t.Fatalf("different definitions group apart — create must not refuse the mix: %v", err)
+	}
+	// One occurrence matching both accepts still runs both enabled checks; the
+	// dispatch is not refused for grouping reasons alone.
+	exec.SendSignal("Other", nil)
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("run: %v", err)
 	}
 }
