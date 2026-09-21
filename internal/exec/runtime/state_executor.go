@@ -1052,7 +1052,11 @@ func (e *StateExecutor) firingOn(event *Event, fire func() (bool, error)) (bool,
 	saved := e.firingEvent
 	e.firingEvent = event
 	defer func() { e.firingEvent = saved }()
-	return fire()
+	fired, err := fire()
+	if fired {
+		e.callTaken(event)
+	}
+	return fired, err
 }
 
 // dispatchInOrder fires the candidates as queues of one front, drawing which firing's next

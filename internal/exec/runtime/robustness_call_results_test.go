@@ -20,6 +20,7 @@ func TestRuntimeRobustnessCallResults(t *testing.T) {
 	t.Run("timer_after_the_step_is_not_drained", testCallResultsTimerNotDrained)
 	t.Run("queued_signal_is_dispatched_before_the_call", testCallResultsQueuedSignalFirst)
 	t.Run("declared_operation_returns_its_parameters_only", testCallResultsDeclaredReturns)
+	t.Run("inout_argument_returns_as_passed_unless_written", testCallResultsInoutArgument)
 }
 
 const callResultsModel = `package test {
@@ -101,14 +102,17 @@ const callBoundaryModel = `package test {
 	}
 }`
 
-// callOwnerModel: `Owner` declares `ask` returning `result` alone, and its machine
-// answers both `ask` and the undeclared `tell` with a helper that also writes `log`.
+// callOwnerModel: `Owner` declares `ask` returning `result` alone and `nudge`
+// carrying `x` in and out; its machine answers `ask` and the undeclared `tell`
+// with a helper that also writes `log`, takes `nudge` in `idle` without writing
+// `x`, in `answered` with a helper that increments it, and never in `told`.
 const callOwnerModel = `package P {
 	private import ScalarValues::*;
 	part def Owner {
 		attribute log : String = "";
 		attribute result : Integer = 0;
 		action def ask { out result : Integer; }
+		action def nudge { inout x : Integer; }
 		action def Answer {
 			inout log : String;
 			out result : Integer;
@@ -118,16 +122,42 @@ const callOwnerModel = `package P {
 			succession first start then answering;
 			succession first answering then done;
 		}
+		action def Increment {
+			inout x : Integer;
+			first start;
+			action incrementing { assign x := x + 1; }
+			done;
+			succession first start then incrementing;
+			succession first incrementing then done;
+		}
 		exhibit state sm {
 			entry; then idle;
 			state idle;
 			state answered;
+			state told;
+			transition first idle accept nudge(x) then idle;
 			transition first idle accept ask() do action : Answer { inout log = log; } then answered;
-			transition first answered accept tell() do action : Answer { inout log = log; } then idle;
+			transition first answered accept nudge(x) do action : Increment { inout x = x; } then answered;
+			transition first answered accept tell() do action : Answer { inout log = log; } then told;
 		}
 	}
 	part owner : Owner;
 }`
+
+// callOwnerMachine creates an executor of callOwnerModel's machine on its owner.
+func callOwnerMachine(t *testing.T) *StateExecutor {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, callOwnerModel))
+	owner, err := ctx.Instantiate(oneSymbol(t, idx, "P::owner"))
+	if err != nil {
+		t.Fatalf("instantiate owner: %v", err)
+	}
+	exec, err := ctx.CreateStateExecutorFor(oneSymbol(t, idx, "P::Owner::sm"), owner)
+	if err != nil {
+		t.Fatalf("create state executor: %v", err)
+	}
+	t.Cleanup(exec.Release)
+	return exec
+}
 
 // callResultsMachine creates an executor of the model's machine on a fresh context.
 func callResultsMachine(t *testing.T) *StateExecutor {
@@ -334,16 +364,8 @@ func testCallResultsQueuedSignalFirst(t *testing.T) {
 // releases its out parameters alone, so the helper's `log` stays the object's;
 // a call the owner declares nothing for releases every output the step returned.
 func testCallResultsDeclaredReturns(t *testing.T) {
-	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, callOwnerModel))
-	owner, err := ctx.Instantiate(oneSymbol(t, idx, "P::owner"))
-	if err != nil {
-		t.Fatalf("instantiate owner: %v", err)
-	}
-	exec, err := ctx.CreateStateExecutorFor(oneSymbol(t, idx, "P::Owner::sm"), owner)
-	if err != nil {
-		t.Fatalf("create state executor: %v", err)
-	}
-	t.Cleanup(exec.Release)
+	exec := callOwnerMachine(t)
+	owner, ctx := exec.self, exec.ctx
 	asked, err := exec.Call("ask", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -360,5 +382,42 @@ func testCallResultsDeclaredReturns(t *testing.T) {
 	}
 	if got, ok := told["log"]; !ok || got.Str() != "answered" || len(told) != 2 {
 		t.Errorf("tell returned %v, want both outputs of the undeclared operation", told)
+	}
+}
+
+// testCallResultsInoutArgument: a declared inout goes back to the caller as it
+// was passed when the step writes nothing to it, as the step's value when a
+// behavior writes it, and not at all when no transition takes the call.
+func testCallResultsInoutArgument(t *testing.T) {
+	exec := callOwnerMachine(t)
+	nudged, err := exec.Call("nudge", map[string]Value{"x": constInt(7)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, ok := nudged["x"]; !ok || got.Const.Int != 7 || len(nudged) != 1 {
+		t.Errorf("nudge in idle returned %v, want x = 7 as passed", nudged)
+	}
+	if _, err := exec.Call("ask", nil); err != nil {
+		t.Fatal(err)
+	}
+	nudged, err = exec.Call("nudge", map[string]Value{"x": constInt(7)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, ok := nudged["x"]; !ok || got.Const.Int != 8 || len(nudged) != 1 {
+		t.Errorf("nudge in answered returned %v, want x = 8 from the helper", nudged)
+	}
+	if _, err := exec.Call("tell", nil); err != nil {
+		t.Fatal(err)
+	}
+	nudged, err = exec.Call("nudge", map[string]Value{"x": constInt(7)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(nudged) != 0 {
+		t.Errorf("nudge in told returned %v, want nothing for a call no transition takes", nudged)
+	}
+	if got := exec.Outcome().FinalState; got != "told" {
+		t.Errorf("final state %q, want told", got)
 	}
 }

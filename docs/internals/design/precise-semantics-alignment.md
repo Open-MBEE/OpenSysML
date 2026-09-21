@@ -1211,13 +1211,16 @@ state defers holds its caller through the steps until the machine recalls and di
 behavior the event fires `return`s or assigns to an output parameter of that name, and hands the
 outputs back typed and by name — under the `out`/`inout` parameters the operation declares as a
 member of the machine's owner (or of the machine standing alone) when it declares one, as §8.5.9
-returns the operation's own parameters, and under every name the step returned when the trigger
+returns the operation's own parameters — an `inout` no behavior of the step wrote going back as the
+caller passed it, since §8.5.9's `CallEventExecution` holds the argument as that parameter's value
+until a behavior writes it — and under every name the step returned when the trigger
 names no declared operation; a call the run left queued or deferred is `ErrCallNotReturned`,
 since its caller would still be waiting, and an unhandled call returns nothing, as PSSM's
 discarded occurrence does (`state_call_trigger_results`; `TestRuntimeRobustnessCallResults`:
 held, recalled, untaken, empty, repeated and erroring calls, the caller released ahead of the
 completion step and the timer its step set up, a declared operation returning its own
-parameters alone).
+parameters alone and an `inout` argument as passed, as written and not at all when nothing takes
+the call).
 **agrees.**
 
 **A15. One firing per token, or one performance per node.** fUML §8.9.1 and §8.10.1

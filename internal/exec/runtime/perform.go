@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // QueuedEvent is one occurrence a driven state performance queues before it
@@ -48,22 +49,26 @@ func (e *StateExecutor) Enqueue(event QueuedEvent) error {
 var ErrCallNotReturned = errors.New("call not returned")
 
 // pendingCall is the synchronous call Call is waiting on, the outputs the
-// machine has returned to its caller so far and the names the operation's
-// declaration lets out (nil when the machine's owner declares no such operation).
+// machine has returned to its caller so far, the names the operation's
+// declaration lets out (nil when the machine's owner declares no such operation)
+// and the inout arguments a taken call returns as they are until a behavior
+// writes them.
 type pendingCall struct {
 	id      int64
 	outputs map[string]Value
 	returns map[string]bool
+	inouts  map[string]Value
+	taken   bool
 }
 
 // Call queues the call event, runs the machine through the run-to-completion
 // step dispatching it and releases the caller with the outputs the behaviors that
-// step fired returned, by name (PSSM 8.5.9): the operation's out parameters when
-// the machine's owner declares it, every output otherwise. Events that step
-// queued and timers it armed stay for the machine's later runs; the clock does
-// not move.
+// step fired returned, by name (PSSM 8.5.9): the operation's out and inout
+// parameters when the machine's owner declares it, an inout unwritten by the step
+// as the caller passed it, every output otherwise. Events that step queued and
+// timers it armed stay for the machine's later runs; the clock does not move.
 func (e *StateExecutor) Call(operation string, args map[string]Value) (map[string]Value, error) {
-	call := &pendingCall{id: e.nextEventID, outputs: make(map[string]Value), returns: e.callReturns(operation)}
+	call := e.newPendingCall(operation, args)
 	e.pendingCall = call
 	defer func() { e.pendingCall = nil }()
 	e.InvokeOperation(operation, args)
@@ -95,10 +100,12 @@ func (e *StateExecutor) callReleased() bool {
 	return e.pendingCall != nil && e.eventDisposition(e.pendingCall.id) == ""
 }
 
-// callReturns is the set of out and inout parameters the operation declares as a
-// member of the machine's owner (of the machine itself when it stands alone);
-// nil when no member of that name states a behavior.
-func (e *StateExecutor) callReturns(operation string) map[string]bool {
+// newPendingCall reads the operation's declaration as a member of the machine's
+// owner (of the machine itself when it stands alone) for the out and inout
+// parameters it returns and the inout arguments the call carries in; an operation
+// no member of that name declares as a behavior returns every output.
+func (e *StateExecutor) newPendingCall(operation string, args map[string]Value) *pendingCall {
+	call := &pendingCall{id: e.nextEventID, outputs: make(map[string]Value)}
 	owner := e.stateMachine
 	if e.self != nil && e.self.Type != nil {
 		owner = e.self.Type
@@ -107,14 +114,39 @@ func (e *StateExecutor) callReturns(operation string) map[string]bool {
 		if member.Name != operation || !isActionSymbol(member) {
 			continue
 		}
-		_, out := parameterNames(e.ctx.actionParametersOf(member))
-		returns := make(map[string]bool, len(out))
-		for _, name := range out {
-			returns[name] = true
+		call.returns = make(map[string]bool)
+		for _, param := range e.ctx.actionParametersOf(member) {
+			switch param.Direction {
+			case ast.DirOut:
+				call.returns[param.Name] = true
+			case ast.DirInOut:
+				call.returns[param.Name] = true
+				if value, ok := args[param.Name]; ok {
+					if call.inouts == nil {
+						call.inouts = make(map[string]Value)
+					}
+					call.inouts[param.Name] = value
+				}
+			}
 		}
-		return returns
+		break
 	}
-	return nil
+	return call
+}
+
+// callTaken notes that a transition fired on the pending call's event, so an inout
+// argument no behavior of the step wrote goes back to the caller as it came.
+func (e *StateExecutor) callTaken(event *Event) {
+	call := e.pendingCall
+	if call == nil || call.taken || event == nil || event.ID != call.id {
+		return
+	}
+	call.taken = true
+	for name, value := range call.inouts {
+		if _, written := call.outputs[name]; !written {
+			call.outputs[name] = value
+		}
+	}
 }
 
 // recordCallOutput keeps an output a behavior returned to the machine while the
