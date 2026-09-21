@@ -1,0 +1,14 @@
+{
+	"type": "state",
+	"schedule": "reverse",
+	"events": [
+		{"signal": "Go", "args": null}
+	],
+	"finalState": "work+ridle",
+	"stateVisits": ["prep", "ridle", "work"],
+	"outputs": {
+		"entered": {"type": "Integer", "value": 1},
+		"exited": {"type": "Integer", "value": 0},
+		"worked": {"type": "Integer", "value": 1}
+	}
+}
