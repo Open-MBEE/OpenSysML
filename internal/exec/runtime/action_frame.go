@@ -304,29 +304,42 @@ func (e *performances) beginPerformance(
 	perf.features = pins.directions
 	perf.aliases = pins.aliases
 	perf.result = pins.result
-	if err := e.takeDeliveries(parent, node, perf); err != nil {
-		return nil, err
-	}
+	// The performance is ongoing before anything seeding it streams, so a value carried
+	// back to its node reaches it rather than waiting for a later performance.
 	if parent.subactions == nil {
 		parent.subactions = make(map[ast.Node]*actionFrame)
 	}
+	previous, hadPrevious := parent.subactions[node]
 	parent.subactions[node] = perf
+	if err := e.seedPerformance(parent, flow, node, perf); err != nil {
+		if hadPrevious {
+			parent.subactions[node] = previous
+		} else {
+			delete(parent.subactions, node)
+		}
+		return nil, err
+	}
+	return perf, nil
+}
 
+// seedPerformance seeds perf's pins from deliveries, then the arguments it passes its
+// callee, then input bindings, then its own declared defaults.
+func (e *performances) seedPerformance(parent *actionFrame, flow *lower.ActionGraph, node ast.Node, perf *actionFrame) error {
+	if err := e.takeDeliveries(parent, node, perf); err != nil {
+		return err
+	}
 	// The arguments, bindings and defaults are one evaluation: a calc usage two of them
 	// read answers once, and another performance evaluates it anew.
 	activation, endStep := e.ctx.beginStep()
 	defer endStep()
 	perf.began = activation
 	if err := e.bindArguments(perf, activation); err != nil {
-		return nil, err
+		return err
 	}
 	if err := e.bindInputPins(perf, activation); err != nil {
-		return nil, err
+		return err
 	}
-	if err := e.seedDeclaredValues(perf, flow.Features[node], activation); err != nil {
-		return nil, err
-	}
-	return perf, nil
+	return e.seedDeclaredValues(perf, flow.Features[node], activation)
 }
 
 // bindArguments writes the arguments a node passes its callee (`F(a = 3)`) to its pins,
