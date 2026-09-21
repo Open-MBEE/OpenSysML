@@ -1,39 +1,46 @@
 exit: idle
-stmt assign log
-    eval feature log -> ""
-    eval literal "T1(effect) " -> "T1(effect) "
-  eval operator + -> "T1(effect) "
+stmt action body
+  stmt assign log
+      eval feature log -> ""
+      eval literal "T1(effect) " -> "T1(effect) "
+    eval operator + -> "T1(effect) "
 enter: outer (entry action)
-stmt assign log
-    eval feature log -> "T1(effect) "
-    eval literal "outer(entry) " -> "outer(entry) "
-  eval operator + -> "T1(effect) outer(entry) "
+stmt action body
+  stmt assign log
+      eval feature log -> "T1(effect) "
+      eval literal "outer(entry) " -> "outer(entry) "
+    eval operator + -> "T1(effect) outer(entry) "
 choice fork split: next split->a(effect), split->b(effect) (unordered; took split->a(effect) first)
-stmt assign log
-    eval feature log -> "T1(effect) outer(entry) "
-    eval literal "T1.1(effect) " -> "T1.1(effect) "
-  eval operator + -> "T1(effect) outer(entry) T1.1(effect) "
+stmt action body
+  stmt assign log
+      eval feature log -> "T1(effect) outer(entry) "
+      eval literal "T1.1(effect) " -> "T1.1(effect) "
+    eval operator + -> "T1(effect) outer(entry) T1.1(effect) "
 choice fork split: next work(entry), split->b(effect) (unordered; took work(entry) first)
 enter: work (entry action)
-stmt assign log
-    eval feature log -> "T1(effect) outer(entry) T1.1(effect) "
-    eval literal "work(entry) " -> "work(entry) "
-  eval operator + -> "T1(effect) outer(entry) T1.1(effect) work(entry) "
+stmt action body
+  stmt assign log
+      eval feature log -> "T1(effect) outer(entry) T1.1(effect) "
+      eval literal "work(entry) " -> "work(entry) "
+    eval operator + -> "T1(effect) outer(entry) T1.1(effect) work(entry) "
 choice fork split: next a(entry), split->b(effect) (unordered; took a(entry) first)
 enter: a (entry action)
-stmt assign log
-    eval feature log -> "T1(effect) outer(entry) T1.1(effect) work(entry) "
-    eval literal "a(entry) " -> "a(entry) "
-  eval operator + -> "T1(effect) outer(entry) T1.1(effect) work(entry) a(entry) "
-stmt assign log
-    eval feature log -> "T1(effect) outer(entry) T1.1(effect) work(entry) a(entry) "
-    eval literal "T1.2(effect) " -> "T1.2(effect) "
-  eval operator + -> "T1(effect) outer(entry) T1.1(effect) work(entry) a(entry) T1.2(effect) "
+stmt action body
+  stmt assign log
+      eval feature log -> "T1(effect) outer(entry) T1.1(effect) work(entry) "
+      eval literal "a(entry) " -> "a(entry) "
+    eval operator + -> "T1(effect) outer(entry) T1.1(effect) work(entry) a(entry) "
+stmt action body
+  stmt assign log
+      eval feature log -> "T1(effect) outer(entry) T1.1(effect) work(entry) a(entry) "
+      eval literal "T1.2(effect) " -> "T1.2(effect) "
+    eval operator + -> "T1(effect) outer(entry) T1.1(effect) work(entry) a(entry) T1.2(effect) "
 enter: b (entry action)
-stmt assign log
-    eval feature log -> "T1(effect) outer(entry) T1.1(effect) work(entry) a(entry) T1.2(effect) "
-    eval literal "b(entry) " -> "b(entry) "
-  eval operator + -> "T1(effect) outer(entry) T1.1(effect) work(entry) a(entry) T1.2(effect) b(entry) "
+stmt action body
+  stmt assign log
+      eval feature log -> "T1(effect) outer(entry) T1.1(effect) work(entry) a(entry) T1.2(effect) "
+      eval literal "b(entry) " -> "b(entry) "
+    eval operator + -> "T1(effect) outer(entry) T1.1(effect) work(entry) a(entry) T1.2(effect) b(entry) "
 transition: idle -> split
 exit: a
 enter: done
@@ -49,9 +56,10 @@ enter: done
 transition: work -> done
 exit: done
 exit: outer
-stmt assign log
-    eval feature log -> "T1(effect) outer(entry) T1.1(effect) work(entry) a(entry) T1.2(effect) b(entry) "
-    eval literal "T2(effect) " -> "T2(effect) "
-  eval operator + -> "T1(effect) outer(entry) T1.1(effect) work(entry) a(entry) T1.2(effect) b(entry) T2(effect) "
+stmt action body
+  stmt assign log
+      eval feature log -> "T1(effect) outer(entry) T1.1(effect) work(entry) a(entry) T1.2(effect) b(entry) "
+      eval literal "T2(effect) " -> "T2(effect) "
+    eval operator + -> "T1(effect) outer(entry) T1.1(effect) work(entry) a(entry) T1.2(effect) b(entry) T2(effect) "
 enter: done
 transition: done -> done

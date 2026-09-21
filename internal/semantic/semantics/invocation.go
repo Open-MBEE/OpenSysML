@@ -157,6 +157,9 @@ const (
 	PerformsBehavior Performs = iota
 	// PerformsAction runs an action, as `action a = tag(x);` does: only actions answer.
 	PerformsAction
+	// PerformsOperation invokes a behavior by name on an object: every behavior
+	// answers alike, the arguments alone selecting among calcs and actions.
+	PerformsOperation
 )
 
 // CallSite is the kind of call site a reference is: an action performance when

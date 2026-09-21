@@ -1,105 +1,124 @@
 exit: idle
 enter: inner (entry action)
-stmt assign log
-    eval feature log -> "outer(entry);idle(entry);b(entry);"
-    eval literal "inner(entry);" -> "inner(entry);"
-  eval operator + -> "outer(entry);idle(entry);b(entry);inner(entry);"
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);idle(entry);b(entry);"
+      eval literal "inner(entry);" -> "inner(entry);"
+    eval operator + -> "outer(entry);idle(entry);b(entry);inner(entry);"
 choice entering inner: next a(entry), c(entry) (unordered; took a(entry) first)
 enter: a (entry action)
-stmt assign log
-    eval feature log -> "outer(entry);idle(entry);b(entry);inner(entry);"
-    eval literal "a(entry);" -> "a(entry);"
-  eval operator + -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);"
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);idle(entry);b(entry);inner(entry);"
+      eval literal "a(entry);" -> "a(entry);"
+    eval operator + -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);"
 enter: c (entry action)
-stmt assign log
-    eval feature log -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);"
-    eval literal "c(entry);" -> "c(entry);"
-  eval operator + -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);"
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);"
+      eval literal "c(entry);" -> "c(entry);"
+    eval operator + -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);"
 transition: idle -> inner (event: accept Go)
 exit: b (exit action)
-stmt assign log
-    eval feature log -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);"
-    eval literal "b(exit);" -> "b(exit);"
-  eval operator + -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);"
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);"
+      eval literal "b(exit);" -> "b(exit);"
+    eval operator + -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);"
 enter: d (entry action)
-stmt assign log
-    eval feature log -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);"
-    eval literal "d(entry);" -> "d(entry);"
-  eval operator + -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);"
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);"
+      eval literal "d(entry);" -> "d(entry);"
+    eval operator + -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);"
 transition: b -> d (event: accept Next)
 exit: a (exit action)
-stmt assign log
-    eval feature log -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);"
-    eval literal "a(exit);" -> "a(exit);"
-  eval operator + -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);"
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);"
+      eval literal "a(exit);" -> "a(exit);"
+    eval operator + -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);"
 exit: c (exit action)
-stmt assign log
-    eval feature log -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);"
-    eval literal "c(exit);" -> "c(exit);"
-  eval operator + -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);"
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);"
+      eval literal "c(exit);" -> "c(exit);"
+    eval operator + -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);"
 exit: inner (exit action)
-stmt assign log
-    eval feature log -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);"
-    eval literal "inner(exit);" -> "inner(exit);"
-  eval operator + -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);"
-stmt assign log
-    eval feature log -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);"
-    eval literal "up(effect);" -> "up(effect);"
-  eval operator + -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);up(effect);"
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);"
+      eval literal "inner(exit);" -> "inner(exit);"
+    eval operator + -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);"
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);"
+      eval literal "up(effect);" -> "up(effect);"
+    eval operator + -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);up(effect);"
 transition: a -> outer (event: accept Up)
 exit: d (exit action)
-stmt assign log
-    eval feature log -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);up(effect);"
-    eval literal "d(exit);" -> "d(exit);"
-  eval operator + -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);up(effect);d(exit);"
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);up(effect);"
+      eval literal "d(exit);" -> "d(exit);"
+    eval operator + -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);up(effect);d(exit);"
 exit: outer (exit action)
-stmt assign log
-    eval feature log -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);up(effect);d(exit);"
-    eval literal "outer(exit);" -> "outer(exit);"
-  eval operator + -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);up(effect);d(exit);outer(exit);"
-stmt assign log
-    eval feature log -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);up(effect);d(exit);outer(exit);"
-    eval literal "leave(effect);" -> "leave(effect);"
-  eval operator + -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);up(effect);d(exit);outer(exit);leave(effect);"
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);up(effect);d(exit);"
+      eval literal "outer(exit);" -> "outer(exit);"
+    eval operator + -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);up(effect);d(exit);outer(exit);"
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);up(effect);d(exit);outer(exit);"
+      eval literal "leave(effect);" -> "leave(effect);"
+    eval operator + -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);up(effect);d(exit);outer(exit);leave(effect);"
 enter: away (entry action)
-stmt assign log
-    eval feature log -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);up(effect);d(exit);outer(exit);leave(effect);"
-    eval literal "away(entry);" -> "away(entry);"
-  eval operator + -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);up(effect);d(exit);outer(exit);leave(effect);away(entry);"
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);up(effect);d(exit);outer(exit);leave(effect);"
+      eval literal "away(entry);" -> "away(entry);"
+    eval operator + -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);up(effect);d(exit);outer(exit);leave(effect);away(entry);"
 transition: outer -> away (event: accept Leave)
 exit: away
-stmt assign log
-    eval feature log -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);up(effect);d(exit);outer(exit);leave(effect);away(entry);"
-    eval literal "back(effect);" -> "back(effect);"
-  eval operator + -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);up(effect);d(exit);outer(exit);leave(effect);away(entry);back(effect);"
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);up(effect);d(exit);outer(exit);leave(effect);away(entry);"
+      eval literal "back(effect);" -> "back(effect);"
+    eval operator + -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);up(effect);d(exit);outer(exit);leave(effect);away(entry);back(effect);"
 enter: outer (entry action)
-stmt assign log
-    eval feature log -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);up(effect);d(exit);outer(exit);leave(effect);away(entry);back(effect);"
-    eval literal "outer(entry);" -> "outer(entry);"
-  eval operator + -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);up(effect);d(exit);outer(exit);leave(effect);away(entry);back(effect);outer(entry);"
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);up(effect);d(exit);outer(exit);leave(effect);away(entry);back(effect);"
+      eval literal "outer(entry);" -> "outer(entry);"
+    eval operator + -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);up(effect);d(exit);outer(exit);leave(effect);away(entry);back(effect);outer(entry);"
 choice entering outer: next idle(entry), d(entry) (unordered; took idle(entry) first)
 enter: idle (entry action)
-stmt assign log
-    eval feature log -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);up(effect);d(exit);outer(exit);leave(effect);away(entry);back(effect);outer(entry);"
-    eval literal "idle(entry);" -> "idle(entry);"
-  eval operator + -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);up(effect);d(exit);outer(exit);leave(effect);away(entry);back(effect);outer(entry);idle(entry);"
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);up(effect);d(exit);outer(exit);leave(effect);away(entry);back(effect);outer(entry);"
+      eval literal "idle(entry);" -> "idle(entry);"
+    eval operator + -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);up(effect);d(exit);outer(exit);leave(effect);away(entry);back(effect);outer(entry);idle(entry);"
 enter: d (entry action)
-stmt assign log
-    eval feature log -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);up(effect);d(exit);outer(exit);leave(effect);away(entry);back(effect);outer(entry);idle(entry);"
-    eval literal "d(entry);" -> "d(entry);"
-  eval operator + -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);up(effect);d(exit);outer(exit);leave(effect);away(entry);back(effect);outer(entry);idle(entry);d(entry);"
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);up(effect);d(exit);outer(exit);leave(effect);away(entry);back(effect);outer(entry);idle(entry);"
+      eval literal "d(entry);" -> "d(entry);"
+    eval operator + -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);up(effect);d(exit);outer(exit);leave(effect);away(entry);back(effect);outer(entry);idle(entry);d(entry);"
 transition: away -> outer (event: accept Back)
 choice exiting outer: next idle(exit), d(exit) (unordered; took idle(exit) first)
 exit: idle
 exit: d (exit action)
-stmt assign log
-    eval feature log -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);up(effect);d(exit);outer(exit);leave(effect);away(entry);back(effect);outer(entry);idle(entry);d(entry);"
-    eval literal "d(exit);" -> "d(exit);"
-  eval operator + -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);up(effect);d(exit);outer(exit);leave(effect);away(entry);back(effect);outer(entry);idle(entry);d(entry);d(exit);"
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);up(effect);d(exit);outer(exit);leave(effect);away(entry);back(effect);outer(entry);idle(entry);d(entry);"
+      eval literal "d(exit);" -> "d(exit);"
+    eval operator + -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);up(effect);d(exit);outer(exit);leave(effect);away(entry);back(effect);outer(entry);idle(entry);d(entry);d(exit);"
 exit: outer (exit action)
-stmt assign log
-    eval feature log -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);up(effect);d(exit);outer(exit);leave(effect);away(entry);back(effect);outer(entry);idle(entry);d(entry);d(exit);"
-    eval literal "outer(exit);" -> "outer(exit);"
-  eval operator + -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);up(effect);d(exit);outer(exit);leave(effect);away(entry);back(effect);outer(entry);idle(entry);d(entry);d(exit);outer(exit);"
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);up(effect);d(exit);outer(exit);leave(effect);away(entry);back(effect);outer(entry);idle(entry);d(entry);d(exit);"
+      eval literal "outer(exit);" -> "outer(exit);"
+    eval operator + -> "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);up(effect);d(exit);outer(exit);leave(effect);away(entry);back(effect);outer(entry);idle(entry);d(entry);d(exit);outer(exit);"
 enter: done
 transition: outer -> done (event: accept Finish)

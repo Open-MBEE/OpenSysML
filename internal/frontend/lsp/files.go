@@ -119,7 +119,11 @@ func (s *Server) loadFolders(ctx context.Context) {
 
 // loadFolder reads the model sources one folder holds, skipping hidden and
 // vendored directories and passing over entries it cannot read.
-func (s *Server) loadFolder(folder string) {
+func (s *Server) loadFolder(folder string) { s.scanFolder(folder, -1) }
+
+// scanFolder is loadFolder over at most budget directories, every directory
+// when budget is negative; a walk that runs out of budget stops where it is.
+func (s *Server) scanFolder(folder string, budget int) {
 	if folder == "" {
 		return
 	}
@@ -134,6 +138,10 @@ func (s *Server) loadFolder(folder string) {
 			if path != folder && skipDir(d.Name()) {
 				return fs.SkipDir
 			}
+			if budget == 0 {
+				return fs.SkipAll
+			}
+			budget--
 			return nil
 		}
 		if !model.IsModelSource(path) {
@@ -213,9 +221,76 @@ func (s *Server) DidChangeWorkspaceFolders(ctx context.Context, params *protocol
 		for _, folder := range params.Event.Added {
 			s.addFolder(uriToName(protocol.DocumentURI(folder.URI)))
 		}
+		// A document whose folder was just removed is now a lone file.
+		for _, name := range s.ws.OpenNames() {
+			s.indexOpenedDirectory(name)
+		}
 	})
 	s.refreshOpenDiagnostics(ctx, "")
 	return nil
+}
+
+// maxOpenedDirs bounds the directories the scan for an opened document's
+// siblings visits: the document's directory was not chosen as a workspace, and
+// may be a home directory or the filesystem root.
+const maxOpenedDirs = 2000
+
+// indexOpenedDirectory indexes the directory of a document opened outside every
+// folder, so sibling imports resolve; it is rescanned once all its documents close.
+func (s *Server) indexOpenedDirectory(name string) {
+	if !filepath.IsAbs(name) {
+		return
+	}
+	dir := filepath.Dir(name)
+	s.mu.Lock()
+	if underAnyFolder(name, s.folders) || s.openDirs[dir] {
+		s.mu.Unlock()
+		return
+	}
+	if s.openDirs == nil {
+		s.openDirs = map[string]bool{}
+	}
+	s.openDirs[dir] = true
+	s.mu.Unlock()
+	s.scanFolder(dir, maxOpenedDirs)
+}
+
+// releaseOpenedDirectories forgets every indexed directory no open document lies
+// under any more, with the siblings only it contributed, so the next document
+// opened there is scanned afresh and a deleted sibling does not linger. The
+// document just closed stays indexed, as one closed under a folder does.
+func (s *Server) releaseOpenedDirectories(closed string) {
+	open := s.ws.OpenNames()
+	s.mu.Lock()
+	var released, kept []string
+	for dir := range s.openDirs {
+		if underAnyOpen(dir, open) {
+			kept = append(kept, dir)
+		} else {
+			released = append(released, dir)
+			delete(s.openDirs, dir)
+		}
+	}
+	folders := append(kept, s.folders...)
+	s.mu.Unlock()
+	if len(released) == 0 {
+		return
+	}
+	for _, name := range s.ws.DocumentNames() {
+		if name != closed && underAnyFolder(name, released) && !underAnyFolder(name, folders) && !s.ws.IsOpen(name) {
+			s.ws.DeleteOnDisk(name)
+		}
+	}
+}
+
+// underAnyOpen reports whether one of the open documents lies inside dir.
+func underAnyOpen(dir string, open []string) bool {
+	for _, name := range open {
+		if underFolder(name, dir) {
+			return true
+		}
+	}
+	return false
 }
 
 // addFolder records a folder and indexes the model sources under it.

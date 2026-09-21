@@ -192,6 +192,14 @@ func (h *calcStmtHost) performNode(engine *stmtEngine, graph *lower.ActionGraph,
 	return engine.run(graph.Bodies[node])
 }
 
+func (h *calcStmtHost) runBlockFlow(engine *stmtEngine, block lower.Block) (stmtFlow, error) {
+	if h.perfs != nil {
+		return h.perfs.performBlockFlow(h.perfs.root, engine, block)
+	}
+	return flowNext, fmt.Errorf("%w: %s: the flow a body states in a calculation is not executable",
+		ErrStatementNotExecutable, h.describe())
+}
+
 // setFeature writes a feature the case's performance holds; it holds none of its
 // own, so the write reaches the body's values.
 func (h *calcStmtHost) setFeature(name string, value Value) error {

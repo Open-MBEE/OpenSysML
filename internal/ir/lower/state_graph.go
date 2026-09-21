@@ -513,7 +513,7 @@ func (g *StateGraph) lowerBehaviorsFor(state *ast.StateNode, actions []ast.Node,
 		if inherited := g.behaviorScope[actual]; inherited != nil {
 			declared = inherited
 		}
-		behavior := lowerStateBehavior(actual, declared, g.resolver)
+		behavior := lowerStateBehavior(actual, nil, declared, g.resolver)
 		behavior.Owner = state
 		behaviors = append(behaviors, behavior)
 	}
@@ -1496,7 +1496,7 @@ func lowerTransitionEdge(graph *StateGraph, edge *ast.TransitionEdge, owner ast.
 		Target:    target,
 		Trigger:   edge.Trigger,
 		Guard:     edge.Guard,
-		Effect:    LowerBehaviors(edge.Effect, scope, graph.resolver),
+		Effect:    LowerBehaviors(edge.Effect, nil, scope, graph.resolver),
 		Scope:     scope,
 		BodyScope: scope,
 	}, nil
@@ -1560,10 +1560,11 @@ func lowerTransitionMember(graph *StateGraph, member *ast.TransitionMember, body
 
 // transitionEffects are the behaviors a transition performs: those written with
 // `do`, then the steps its body states (SysML.xtext:1863, where TransitionUsage
-// ends in ActionBody).
+// ends in ActionBody). The body's steps are one block, the transition's own.
 func transitionEffects(member *ast.TransitionMember, scope *symbols.Scope, resolver *resolve.Resolver) []StateBehavior {
-	effects := LowerBehaviors(member.Effect, scope, resolver)
-	return append(effects, LowerBehaviors(BodyStatementMembers(member.Members), scope, resolver)...)
+	effects := LowerBehaviors(member.Effect, nil, scope, resolver)
+	body := LowerBehaviors(BodyStatementMembers(member.Members), member, scope, resolver)
+	return append(effects, body...)
 }
 
 // isEntrySubaction reports whether member is the entry subaction of the body a

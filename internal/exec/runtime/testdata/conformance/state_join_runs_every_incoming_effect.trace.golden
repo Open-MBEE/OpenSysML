@@ -18,19 +18,21 @@ stmt assign log
   eval operator + -> "left(effect) right(effect) "
 exit: Work
 exit: Outer (exit action)
-stmt assign log
-    eval feature log -> "left(effect) right(effect) "
-    eval literal "outer(exit) " -> "outer(exit) "
-  eval operator + -> "left(effect) right(effect) outer(exit) "
+stmt action body
+  stmt assign log
+      eval feature log -> "left(effect) right(effect) "
+      eval literal "outer(exit) " -> "outer(exit) "
+    eval operator + -> "left(effect) right(effect) outer(exit) "
 stmt assign log
     eval feature log -> "left(effect) right(effect) outer(exit) "
     eval literal "sync(effect) " -> "sync(effect) "
   eval operator + -> "left(effect) right(effect) outer(exit) sync(effect) "
 enter: Rest (entry action)
-stmt assign log
-    eval feature log -> "left(effect) right(effect) outer(exit) sync(effect) "
-    eval literal "rest(entry)" -> "rest(entry)"
-  eval operator + -> "left(effect) right(effect) outer(exit) sync(effect) rest(entry)"
+stmt action body
+  stmt assign log
+      eval feature log -> "left(effect) right(effect) outer(exit) sync(effect) "
+      eval literal "rest(entry)" -> "rest(entry)"
+    eval operator + -> "left(effect) right(effect) outer(exit) sync(effect) rest(entry)"
 transition: Work -> Rest
 exit: Rest
 enter: done

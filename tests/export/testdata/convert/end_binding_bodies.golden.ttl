@@ -1914,7 +1914,7 @@ elmt:Bodies__Ctx__Machine___403
     sysx:transitionSyntax "first" ;
     sysml:sourceFeature elmt:Bodies__Ctx__Machine__on ;
     sysml:targetFeature elmt:Bodies__Ctx__Machine__off ;
-    sysx:bracedEffect "false"^^xsd:boolean ;
+    sysx:hasEffect "true"^^xsd:boolean ;
     sysx:effectMember elmt:Bodies__Ctx__Machine___403___400 ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Bodies__Ctx__Machine___403___400 ;
@@ -1993,7 +1993,7 @@ elmt:Bodies__Ctx__Machine___404
     sysx:transitionSyntax "first" ;
     sysml:sourceFeature elmt:Bodies__Ctx__Machine__off ;
     sysml:targetFeature elmt:Bodies__Ctx__Machine__on ;
-    sysx:bracedEffect "true"^^xsd:boolean ;
+    sysx:hasEffect "true"^^xsd:boolean ;
     sysx:effectMember elmt:Bodies__Ctx__Machine___404___400 ;
     sysx:bodyMember elmt:Bodies__Ctx__Machine___404__w ;
     sysx:hasBody "true"^^xsd:boolean ;
@@ -2022,7 +2022,7 @@ elmt:Bodies__Ctx__Machine___404_om
     sysml:owningType elmt:Bodies__Ctx__Machine .
 
 elmt:Bodies__Ctx__Machine___404___400
-    a sysml:AssignmentActionUsage ;
+    a sysml:ActionUsage ;
     sysml:qualifiedName "Bodies::Ctx::Machine::@4::@0" ;
     sysml:elementId "Bodies__Ctx__Machine___404___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
@@ -2030,9 +2030,13 @@ elmt:Bodies__Ctx__Machine___404___400
     sysml:owner elmt:Bodies__Ctx__Machine___404 ;
     sysml:owningRelationship elmt:Bodies__Ctx__Machine___404___400_om ;
     sysml:owningMembership elmt:Bodies__Ctx__Machine___404___400_om ;
-    sysx:declaredKeyword "assign" ;
-    sysx:target expr:Bodies__Ctx__Machine___404___400_ptarget ;
-    sysml:value expr:Bodies__Ctx__Machine___404___400_pvalue .
+    sysx:isKindImplicit "true"^^xsd:boolean ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:Bodies__Ctx__Machine___404___400___400 ;
+    sysml:ownedMembership elmt:Bodies__Ctx__Machine___404___400___400_om ;
+    sysml:ownedRelationship elmt:Bodies__Ctx__Machine___404___400___400_om ;
+    sysml:ownedFeature elmt:Bodies__Ctx__Machine___404___400___400 ;
+    sysml:ownedFeatureMembership elmt:Bodies__Ctx__Machine___404___400___400_om .
 
 elmt:Bodies__Ctx__Machine___404___400_om
     a sysml:FeatureMembership ;
@@ -2046,24 +2050,50 @@ elmt:Bodies__Ctx__Machine___404___400_om
     sysml:ownedMemberFeature elmt:Bodies__Ctx__Machine___404___400 ;
     sysml:owningType elmt:Bodies__Ctx__Machine___404 .
 
-expr:Bodies__Ctx__Machine___404___400_ptarget
+elmt:Bodies__Ctx__Machine___404___400___400
+    a sysml:AssignmentActionUsage ;
+    sysml:qualifiedName "Bodies::Ctx::Machine::@4::@0::@0" ;
+    sysml:elementId "Bodies__Ctx__Machine___404___400___400" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:Bodies__Ctx__Machine___404___400 ;
+    sysml:owner elmt:Bodies__Ctx__Machine___404___400 ;
+    sysml:owningRelationship elmt:Bodies__Ctx__Machine___404___400___400_om ;
+    sysml:owningMembership elmt:Bodies__Ctx__Machine___404___400___400_om ;
+    sysx:declaredKeyword "assign" ;
+    sysx:target expr:Bodies__Ctx__Machine___404___400___400_ptarget ;
+    sysml:value expr:Bodies__Ctx__Machine___404___400___400_pvalue ;
+    sysx:sourceText "                assign x.a := 2;\n" .
+
+elmt:Bodies__Ctx__Machine___404___400___400_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Bodies__Ctx__Machine___404___400___400_om" ;
+    sysml:owner elmt:Bodies__Ctx__Machine___404___400 ;
+    sysml:memberElement elmt:Bodies__Ctx__Machine___404___400___400 ;
+    sysml:ownedMemberElement elmt:Bodies__Ctx__Machine___404___400___400 ;
+    sysml:ownedRelatedElement elmt:Bodies__Ctx__Machine___404___400___400 ;
+    sysml:owningRelatedElement elmt:Bodies__Ctx__Machine___404___400 ;
+    sysml:membershipOwningNamespace elmt:Bodies__Ctx__Machine___404___400 ;
+    sysml:ownedMemberFeature elmt:Bodies__Ctx__Machine___404___400___400 ;
+    sysml:owningType elmt:Bodies__Ctx__Machine___404___400 .
+
+expr:Bodies__Ctx__Machine___404___400___400_ptarget
     a sysml:FeatureChainExpression ;
     sysx:sourceText "x.a" ;
-    sysml:elementId "Bodies__Ctx__Machine___404___400_ptarget" ;
-    sysml:argument expr:Bodies__Ctx__Machine___404___400_ptarget_pa0 ;
+    sysml:elementId "Bodies__Ctx__Machine___404___400___400_ptarget" ;
+    sysml:argument expr:Bodies__Ctx__Machine___404___400___400_ptarget_pa0 ;
     sysml:targetFeature elmt:Bodies__A__a .
 
-expr:Bodies__Ctx__Machine___404___400_ptarget_pa0
+expr:Bodies__Ctx__Machine___404___400___400_ptarget_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "x" ;
-    sysml:elementId "Bodies__Ctx__Machine___404___400_ptarget_pa0" ;
+    sysml:elementId "Bodies__Ctx__Machine___404___400___400_ptarget_pa0" ;
     sysml:referent elmt:Bodies__Ctx__x ;
     sysx:argumentIndex "0"^^xsd:integer .
 
-expr:Bodies__Ctx__Machine___404___400_pvalue
+expr:Bodies__Ctx__Machine___404___400___400_pvalue
     a sysml:LiteralInteger ;
     sysx:sourceText "2" ;
-    sysml:elementId "Bodies__Ctx__Machine___404___400_pvalue" ;
+    sysml:elementId "Bodies__Ctx__Machine___404___400___400_pvalue" ;
     sysml:value "2"^^xsd:integer .
 
 elmt:Bodies__Ctx__Machine___404__w

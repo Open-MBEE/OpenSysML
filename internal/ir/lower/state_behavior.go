@@ -29,6 +29,10 @@ type StateBehavior struct {
 	// Owner is the state whose attributes the behavior reads and writes: the
 	// state it belongs to, or the source of the transition it is an effect of.
 	Owner *ast.StateNode
+	// Block is the transition whose body the behavior is one step of, shared by
+	// the steps of that body and by no other: a `terminate` in one ends them all.
+	// Every other behavior is a performance of its own and has none (nil).
+	Block ast.Node
 }
 
 // StateBehaviors are the lowered entry, do and exit behaviors of one state, each
@@ -40,16 +44,18 @@ type StateBehaviors struct {
 }
 
 // LowerBehaviors lowers the actions of an entry, do or exit member, or the
-// effects of a transition, in the scope they were declared in. resolver is the
-// name-resolution tier's, by which a body's Probability metadata is read (ToActionGraphWith).
-func LowerBehaviors(actions []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) []StateBehavior {
+// effects of a transition, in the scope they were declared in; block is the
+// transition whose body they are the steps of, nil for any other. resolver is
+// the name-resolution tier's, by which a body's Probability metadata is read
+// (ToActionGraphWith).
+func LowerBehaviors(actions []ast.Node, block ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) []StateBehavior {
 	if len(actions) == 0 {
 		return nil
 	}
 	behaviors := make([]StateBehavior, 0, len(actions))
 	for _, action := range actions {
 		if actual := unwrapMembership(action); actual != nil {
-			behaviors = append(behaviors, lowerStateBehavior(actual, scope, resolver))
+			behaviors = append(behaviors, lowerStateBehavior(actual, block, scope, resolver))
 		}
 	}
 	return behaviors
@@ -57,8 +63,8 @@ func LowerBehaviors(actions []ast.Node, scope *symbols.Scope, resolver *resolve.
 
 // lowerStateBehavior lowers one behavior into the statements it states: the
 // statements of an inline action body, or the one statement every other form is.
-func lowerStateBehavior(action ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) StateBehavior {
-	behavior := StateBehavior{Node: action, Scope: scope}
+func lowerStateBehavior(action ast.Node, block ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) StateBehavior {
+	behavior := StateBehavior{Node: action, Scope: scope, Block: block}
 	switch node := action.(type) {
 	case *ast.Usage:
 		behavior.Name, _ = ast.EffectiveName(node)

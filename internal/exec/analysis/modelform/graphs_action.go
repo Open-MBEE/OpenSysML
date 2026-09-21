@@ -104,9 +104,11 @@ type EdgeForm struct {
 	Decl        SpanForm  `json:"decl"`
 }
 
-// ObjectFlowForm is a data flow from a pin of Source to a pin of Target.
+// ObjectFlowForm is a data flow from a pin of Source to a pin of Target. Kind is
+// how it carries its values: "streaming" (a plain `flow`) or "succession".
 type ObjectFlowForm struct {
 	Name      string   `json:"name,omitempty"`
+	Kind      string   `json:"kind"`
 	Source    int      `json:"source"`
 	SourcePin string   `json:"sourcePin,omitempty"`
 	Target    int      `json:"target"`
@@ -404,6 +406,7 @@ func (x *graphsExporter) actionGraph(graph *lower.ActionGraph) (*ActionForm, err
 		for _, flow := range graph.DataFlows[node] {
 			form.Flows = append(form.Flows, ObjectFlowForm{
 				Name:      flow.Name,
+				Kind:      flowKindForm(flow.Kind),
 				Source:    id,
 				SourcePin: flow.SourcePin,
 				Target:    ids.add(flow.Target),
@@ -844,4 +847,12 @@ func orScope(scope, enclosing *symbols.Scope) *symbols.Scope {
 		return scope
 	}
 	return enclosing
+}
+
+// flowKindForm spells a flow's kind in the form.
+func flowKindForm(kind lower.FlowKind) string {
+	if kind == lower.FlowSuccession {
+		return "succession"
+	}
+	return "streaming"
 }

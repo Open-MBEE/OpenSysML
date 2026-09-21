@@ -9,6 +9,7 @@ choice choice pick: transitions 1->low, 2->high (unordered; took 2->high)
   eval literal 7 -> 7
 eval operator > -> true
 enter: high (entry action)
-stmt assign route
-  eval literal 2 -> 2
+stmt action body
+  stmt assign route
+    eval literal 2 -> 2
 transition: idle -> high (event: accept Go)

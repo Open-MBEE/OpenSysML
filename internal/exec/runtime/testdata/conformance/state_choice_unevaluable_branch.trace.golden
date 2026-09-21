@@ -6,6 +6,7 @@ stmt assign level
 eval operator > -> true
 unevaluable guard choice pick: transition 2->high: eval guard of transition pick -> high: division by zero (not selected)
 enter: low (entry action)
-stmt assign route
-  eval literal 1 -> 1
+stmt action body
+  stmt assign route
+    eval literal 1 -> 1
 transition: idle -> low (event: accept Go)

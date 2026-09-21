@@ -10,7 +10,10 @@ import (
 
 // LoadPaths loads model files into the session. Each path names a file, a
 // directory to walk for .sysml/.kerml files, a glob pattern, or standard input
-// as a lone "-", whose contents are reported as <stdin>. Every file is
+// as a lone "-", whose contents are reported as <stdin>. A root namespace the
+// files import but none of them or the library declares is looked for in the
+// model files beside and below them, and each file declaring it is loaded too,
+// its own imports followed the same way. Every file is
 // accepted before the buffer is analyzed, so the order files are loaded in does
 // not affect name resolution: a file may reference a declaration another file
 // loaded after it makes. Diagnostics name the file they belong to and count
@@ -50,6 +53,7 @@ func (s *Session) loadPathsReport(paths []string) (LoadReport, error) {
 	if err != nil {
 		return LoadReport{}, err
 	}
+	files = s.withDependencies(files)
 	srcs := make([]SourceFile, 0, len(files))
 	names := make([]string, 0, len(files))
 	for _, file := range files {
@@ -83,6 +87,12 @@ func ExpandPaths(paths []string) ([]string, error) {
 		return nil, errors.New("no model files to load")
 	}
 	return files, nil
+}
+
+// withDependencies appends to files the model files beside and below them that
+// declare a root namespace they import and neither they nor the library declare.
+func (s *Session) withDependencies(files []string) []string {
+	return append(files, project.Dependencies(files, s.ws.IsLibraryRoot)...)
 }
 
 // expandHomes expands a leading ~ in every path.

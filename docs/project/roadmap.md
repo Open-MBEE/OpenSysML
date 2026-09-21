@@ -322,7 +322,7 @@ like R4, not engineering.
 ## R3 — Homebrew: install it on a real Mac
 
 Everything about the tap is automated and verified on Linux (install, `brew test`,
-`brew audit --strict --online`), and the manual pages (#699, `man/man1/*.1`, generated from
+`brew audit --strict --online`), and the manual pages (#699, `packaging/man/man1/*.1`, generated from
 `internal/frontend/usage` and drift-gated by `make man-check`) are in the bundles the formula installs. The
 one thing never done is running the darwin bottle on macOS: the darwin archives' checksums match
 the release manifest and nothing more.
@@ -1209,7 +1209,10 @@ segments fire with their own trigger bound, and a refused join is undone whole) 
 bucket is retired, and the baseline is 46 `pass` / 17 `fail` / 38 `not-expressible` /
 2 `differs-by-design` — *Terminate 003* passes, *Terminate 001* and *002* fail on the
 region-entry order the same open finding already covers. E2–E7 have not moved; the referee's
-17 `fail` are their measurement on the state side.
+17 `fail` are their measurement on the state side. The object-model item E7 waits on then
+landed: a run creates objects by `new T(…)` and destroys them by `destroy`, a context holds
+several objects of one usage, and a destroyed object is released from `all T` with the behaviors
+it performed terminated (below, *Dynamic object creation and destruction*).
 
 ## E1 — `terminate` in a body (landed)
 
@@ -1300,89 +1303,137 @@ bullet removed and the `entry`/`do`/`exit` row in the State Machine map re-state
 statements — until then the documented spelling (`do { … }` as one action per statement) gives
 the same result.
 
-## E3 — concurrent per-element performance ("expansion regions")
+## E3 — concurrent per-element performance ("expansion regions") (closed)
 
-**Today.** SysML v2 has no expansion-region notation. Its iterative half is the `for` loop
-(§7.17.12, `Actions::ForLoopAction`), which the runtime executes in every body position
-(`runtime/action_statements.go`, `runtime/statements.go` `forLoop`), one iteration after the
-other, with the step budget bounding it. Its parallel half — the body performed once per element
-of a collection, all performances ongoing at once — has no spelling the runtime refuses, because
-no spelling for it has been established here: a `for` is sequential by definition
-(`ForLoopAction` walks `seq` by an `index`), and a `fork` duplicates control, not a collection.
+**Closed** by its design record, [expansion-regions.md](expansion-regions.md): **the iterative
+form is `for`; the parallel form is not SysML v2.** SysML v2 has no expansion-region notation.
+Its iterative half is the `for` loop (§7.17.12, `Actions::ForLoopAction`), which the runtime
+executes in every body position (`runtime/action_statements.go`, `runtime/statements.go`
+`forLoop`), one iteration after the other, with the step budget bounding it — sequential by
+definition, `ForLoopAction` walking `seq` by an `index`. Its parallel half — the body performed
+once per element of a collection, all performances ongoing at once — has no standard spelling.
+The record adjudicates the candidate the item asked about, a multiplicity on a performed action
+usage with a `flow` delivering the collection to its input, against the pinned specifications,
+the bundled library, the four OMG corpora and the pilot, and finds every source silent on it:
+§7.17.2 gives a usage's multiplicity no meaning beyond a count of performances, which KerML
+§7.4.7 and Annex A.3.6 fix by the connectors attached to the step and never by a value's
+elements; a `Transfer` delivers its whole payload to one target and partitions nothing;
+`Performances.kerml`'s `performances`/`subperformances` are `[0..*]` and unordered; the corpora
+write `[*]` for "any number of times over a lifetime" (`perform action takePicture[*]`) and `for`
+for "once per element"; the pinned pilot performs no actions. Adopting the reading would be an
+extension with nothing to adjudicate its rules against, so the runtime stays as it is: one
+performance per token, a `fork` duplicating control and not a collection, and a collection
+delivered to a one-valued pin the `ErrMultiplicityViolation` it is.
 
-**Target.** To be settled before any executor work, in a design record under `docs/project/`
-like the others: whether SysML v2 §7.17.2's multiplicity on a performed action usage, with a
-`flow` delivering the collection to its input, is the standard spelling of concurrent per-element
-performance, and what `Performances.kerml` then says about the ordering of those performances.
-If the reading is that no such spelling exists, the item closes as "the iterative form is `for`;
-the parallel form is not SysML v2" and the bullet is re-worded to say so.
-
-**Work.** The record first; then, if there is a spelling, one performance per element with its
-own token and pins, joined when all complete, on top of the concurrency the fork/join executor
-already has — and the interaction with E4 (a streaming consumer of the elements) decided with it.
-No other item depends on this one.
-
-**Proof.** Conformance for a collection of three performed concurrently with per-element outputs
-collected; a trace golden for the interleaving; robustness for an empty collection and a body
-that fails on one element. **Prioritize when** someone needs it: a model with a per-element
-behavior whose sequential `for` result is wrong or too slow.
+**No executor work follows.** The per-element performance, join on completion, ordering and
+streaming interaction the item listed *if a spelling exists* are not designed, and the proof
+fixtures it named (three elements performed concurrently with outputs collected, the interleaving
+golden, the empty collection, a body failing on one element) are not written, since there is no
+rule for them to prove. A model that needs per-element concurrency today writes the elements as
+distinct nodes under a `fork`, or accepts the sequential `for`. Should someone need more — a
+per-element behavior whose `for` result is wrong or too slow — the record's option (a) is the
+starting point, as an explicitly non-standard extension the compliance mapping would have to flag,
+or a later specification revision re-adjudicates the record. No other item depends on this one.
 
 ## E4 — streaming flows ("streaming pins")
 
-**Today.** A `flow` between two action parameters executes as a *succession* flow: the value
-at the source pin is moved to the target pin when the source node completes
-(`runtime/action_executor.go` `applyDataFlows`, called from the node-completion paths), so the
-target reads it when its own token arrives. SysML v2 §7.16 draws the distinction the runtime does
-not: "the input and output parameters are streaming unless designated as succession flows" — a
-streaming `flow` "can be ongoing while both the source and target action are being performed",
-while a `succession flow` "cannot begin until the source completes". The parser keeps the
-distinction (`ast.Usage.IsSuccessionFlow`, used by the control-node succession rule), but
-`lower.ObjectFlow` carries no kind and no position refuses anything — both spellings run, both as
-the succession reading. That is a wrong
-result only for a model whose target reads before its source completes, and no conformance
-fixture writes one.
+**Landed.** A `flow` between two action parameters is a *streaming* flow, and only the
+`succession flow` spelling moves its value when the source completes. SysML v2 §7.16: "the input
+and output parameters are streaming unless designated as succession flows" — a streaming `flow`
+"can be ongoing while both the source and target action are being performed", while a
+`succession flow` "cannot begin until the source completes" (`Flows::Flow :> Message,
+FlowTransfer`; `Flows::SuccessionFlow :> Flow, FlowTransferBefore`). The parser had kept the
+distinction (`ast.Usage.IsSuccessionFlow`) and the lowering lost it: `lower.ObjectFlow` now
+carries it as `Kind` (`FlowStreaming`, the default, or `FlowSuccession`), `lowerFlow` sets it and
+`succeedFlow` reads it for the succession edge a `succession flow` also states, so the runtime
+re-derives nothing from the declaration.
 
-**Target.** `Flows::Flow :> Message, FlowTransfer` for a streaming flow and
-`Flows::SuccessionFlow :> Flow, FlowTransferBefore` for the succession form (`Systems
-Library/Flows.sysml`, `Kernel Semantic Library/Transfers.kerml`): a streaming flow transfers each
-value the source parameter takes while both performances are ongoing; a succession flow transfers
-after the source completes. What runs today is the second, applied to both.
+*Streaming* (`runtime/action_frame.go` `streamFrom`, `streamFlow`): each write to the source
+pin — an assignment in the source's body, a nested node's output carried back into it — is
+carried at once along the streaming flows out of the node to the pin of every ongoing
+performance of the target, found by E1's `ongoing`; a target that reads its pin between two
+writes sees each. A value written while no performance of the target is under way waits at the
+target's pin as a flow's value always has (`pending`), and a further write from the same source
+performance replaces it (`stage`, `actionFrame.staged`), so a target that begins after the
+source reads the pin as the source left it; the writes of distinct source performances wait one
+per target performance, oldest first, so a stream inside a loop body — the value of one pass
+taken by that pass's target — and fork/join around the two nodes all read what was written for them.
+The source completing carries nothing more for a pin it streamed (`actionFrame.streamed`), so
+no value arrives twice; a source that completes with the pin never written is `ErrFlowSource`.
+A write after the target's last performance ended reaches no performance: it waits, the target's
+next performance takes it (`takeDeliveries`), and the enclosing performance completing with it
+still waiting is `ErrStreamUnreceived` (`actionFrame.unreceived`, `checkStreamsReceived`); a
+stream to a pin the ongoing target does not declare is `ErrNodePin` at the write. *Succession*
+(`runtime/action_executor.go` `applyDataFlows` → `deliverFlow`): unchanged — the value the pin
+holds at completion moves, and the target begins after the source.
 
-**Work.** Carry the kind from the AST (`ast.Usage.IsSuccessionFlow`) through
-`lower.ObjectFlow` to the executor; keep the succession behavior for the `succession flow`
-spelling; for a plain `flow`, deliver on each write to the source parameter while the target is
-ongoing, which needs a node to be readable while it still holds a token — the same notion of an
-ongoing performance E1 and E2 introduce. Depends on E1 for that notion; E3's parallel form would
-feed it.
+**Proof.** `lower/action_flow_kind_test.go` (the kind follows the spelling; only the succession
+kind orders); conformance `action_flow_streaming_producer_consumer` (a producer loop writing 1, 2,
+3 beside a consumer loop reading each: total 6) with its trace golden showing the writes and
+reads interleaved, `action_flow_succession_producer_consumer` (the same nodes in sequence: the
+consumer reads 3 three times, total 9) with its trace golden, `action_flow_streaming_before_target_begins`,
+`action_flow_streaming_in_loop_body`; `robustness_streaming_flow_test.go` (a source that never
+writes, a target over before its source wrote, a stream to an undeclared pin). The
+`spec-compliance.md` Actions map's object-flow row is split by kind and "Streaming pins" leaves
+the not-implemented list.
 
-**Proof.** Conformance: a producer loop writing three values to an `out` streamed to a consumer
-that accumulates them, with the `succession flow` variant of the same model receiving only the
-last; a trace golden for the interleaving; robustness for a stream whose source never writes.
-`spec-compliance.md`: the Actions map's object-flow rows split by kind and the bullet leaves the
-list. **Prioritize when** a model's result differs between the two readings — a consumer that
-reads before its producer completes.
+**What it leaves.** A source whose body writes its pin several times before any target
+performance is under way leaves the target the pin's value — its latest write — as a target
+performing beside each write would read; only a target performance under way sees every write.
+E3's parallel form, when it has a spelling, decides the streaming consumer of its elements with it.
 
-## E5 — protocol state machines
+## E5 — protocol state machines (design record landed)
 
-**Today.** No SysML v2 notation exists for a protocol state machine (UML 2.5.1 §14.4), so nothing
-is parsed, lowered or refused; the bullet in `spec-compliance.md` is the whole record. What SysML
-v2 does have is a state machine exhibited by an occurrence (§7.18.4 `exhibit`), which the runtime
-runs during materialization of an object of the exhibiting type (the Classifier Behaviors map).
+**Design record landed**, [protocol-state-machines.md](protocol-state-machines.md); **the item
+stays open** for the runtime follow-up it specifies. No SysML v2 notation exists for a protocol
+state machine (UML 2.5.1 §14.4) and none should be invented; the record establishes, from
+§7.17.8, §7.18.3–4 and the Kernel Semantic Library (`StatePerformances`, `Transfers`,
+`Occurrences`), that the half of the idea SysML v2 can express — the legal order of *receptions*
+on a port or part — is an ordinary exhibited behavior state machine, which OpenSysML lowers,
+starts with the exhibiting object and fires in the declared order on a part with
+`accept … via <port>` (the corpora's spelling; conformance `state_transition_accept_via_port`).
+What SysML v2 cannot spell — ordering *operation calls*, post-conditions, `ProtocolConformance`,
+static sequence checking — is a UML feature the language dropped, not an OpenSysML gap.
 
-**Target.** None is stated, and none should be invented here: a UML protocol state machine
-constrains the order of operation calls on an interface, and the SysML v2 rendering of that
-constraint is a design question — an exhibited state machine on a port definition, with an
-out-of-order message refused as a typed error, is the obvious candidate — to be settled in a design
-record if the need arises.
+**What it leaves.** The order the machine declares is enforced only for events a debugger injects
+directly (`StateExecutor.SendSignal` → dispatched, dropped, reported in `AdvanceReport.Dropped`;
+the REPL's `%send` refuses one by machine and state). A message a *model* sends that the active
+state neither accepts nor defers is not dropped: it waits on the context-wide bus and is taken by
+the first later state that accepts it, so an out-of-order `Read` before `Open` is counted as if it
+had come after (the record's second probe: `reads = 2`, nothing reported). A machine exhibited by a
+**port definition** runs and answers the debugger's messages to the port object, but does not
+take a model's messages routed to that port. The follow-up specified in the record: a message
+addressed to a performer whose started machines all refuse it is taken off the bus and dispatched as
+a non-firing dispatch, so it is reported as the direct path reports it; a port definition's machine
+takes the messages routed to its port; optionally, an opt-in policy that makes the drop a typed error.
+No IR change; proof fixtures written in the record; two routing points to settle first.
+**Prioritize when** a model relies on an exhibited machine to refuse an arrival, or on a port
+definition's machine at all.
 
-**Work.** The record; then whatever it concludes. Independent of every other item.
+## E6 — operation invocation with positional arguments (landed)
 
-**Proof.** Set by the record. **Prioritize when** a user brings a model that needs the order of
-messages on a port checked at run time; until then the bullet stays as it is.
+**Landed.** `Context.InvokeOperationWith(inst, name, OperationArguments{Positional, Named})`
+(`runtime/invoke_operation.go`) takes the ordered list; `InvokeOperation` keeps the named map and
+delegates to it. A positional list binds to the operation's effective input parameters —
+`semantics.Model.SignatureParametersOf`, the `in`/`inout` parameters `signatureOf` gives an
+invocation expression in signature order, `out` and result excluded — so a trailing defaulted
+parameter may be omitted, an `inout` parameter takes a position and comes back as a result, and an
+`out` parameter takes none. Among same-named members, `operationOf` selects through
+`semantics.Model.SelectAmongArguments`, the overload selection the expression evaluator uses, in
+its `PerformsOperation` mode — every behavior admitted alike, an expression's preference for a
+calc set aside — so two calcs of one name are told apart by arity, an action and a calc of one
+name by the arguments' types, and a list none takes is refused. A surplus is
+`ErrOperationArity` (`operation … takes N input parameter(s), got M argument(s)`), a list mixing
+the two forms is `ErrMixedArguments`, and a required parameter left unbound is still
+`ErrUnboundParameter`. The REPL's `%invoke <object> <op>` takes bare expressions or `<p>=<expr>`
+pairs (`repl/meta.go` `parseInvokeArguments`), refusing a mixed list and a parameter named twice
+before the object is reached. Proof: `runtime/classifier_behavior_test.go`
+`TestInvokeOperationWithPositionalArguments`, `runtime/robustness_positional_invoke_test.go`,
+`repl/classifier_behavior_test.go` `TestInvokeBindsPositionalArguments` and
+`TestInvokeReportsItsFailureModes`; the bullet left the compliance list. The gRPC surface exposes
+no operation invocation, so nothing there changed.
 
-## E6 — operation invocation with positional arguments
-
-**Today.** `Context.InvokeOperation(inst, name, args map[string]Value)`
+**Before it landed.** `Context.InvokeOperation(inst, name, args map[string]Value)`
 (`runtime/invoke_operation.go`) runs a member of an object's type with the object as performer,
 whichever behavior the member is — an action through `ExecuteActionPerformedBy`, a calc through
 the calc invocation with the object as its featuring object, a constraint through condition
@@ -1419,6 +1470,42 @@ positional, mixed and surplus cases; `robustness_test.go` the arity failure; the
 list. **Prioritize when** a REPL or API user asks for it — it is the smallest item in the track
 and the one most likely to be done on demand.
 
+## Dynamic object creation and destruction (landed)
+
+**Landed** in one change set. Before it an object was materialized once, from its declaration,
+and nothing destroyed it: `new T(…)` built a message-shaped value for `send`, an object written
+into a feature was classified by it but owned by nothing, `destroy` refused an object whose state
+machine was under way (`ErrOccurrenceLifetime`), and a destroyed object stayed in `all T`. Now an
+object created while a behavior runs is a first-class occurrence of the run
+(`runtime/signal.go` `evalConstructor` → `EvalContext.constructObject`): it has an identity of its own,
+begins its life where it is made, is classified by the type it is created as, and starts the
+behaviors its type exhibits or performs as an object materialized from a declaration does. The
+spellings are the specifications': KerML §7.4.9's instantiation expression `new T(args)`, in any
+expression position — an assignment, a feature value, an argument, `send new Data(…)` — and the
+library's `create`/`addNew`/`addNewAt`; SysML v2 defines no other textual constructor for an
+occurrence of a definition, and the compliance record says so. Writing an object into a feature
+holds it (`runtime/classify.go` `holdWritten`, from `SetFeatureValue`): the feature's type
+classifies it and, where the feature is composite and the object owns no whole yet, the object
+becomes a portion of the owner, so `assign cars := (cars, new Car(n))` in a loop leaves the fleet
+holding one car per iteration, each a distinct object `all Car`, feature chains, `%features`,
+`isDuring`/`istype` and routing reach. `destroy` (`runtime/lifetimes.go`) ends the occurrence and
+its portions, terminates the state machine it exhibits and the actions it performs where they
+stand (`occurrence_terminate.go` `endBehaviorsWith`), and releases it from the extent
+(`extent.go` `objectsOf`); a feature still naming it keeps the value and reading through it is
+`ErrOccurrenceDestroyed`, the library declaring `destroy` over the occurrence and not over what
+refers to it. Under `explore` creation and destruction are ordinary moves — identities are
+allotted in run order, so every linearization of two creating branches reaches one outcome and a
+destroy racing a read reaches exactly two — and a snapshot carries created objects, a destroyed
+one with its behaviors terminated. Proof: conformance `object_created_by_constructor` and
+`object_destroyed_at_runtime` with trace goldens, `robustness_object_lifecycle_test.go`
+`TestRuntimeRobustnessObjectLifecycle`, `TestDestroyEndsTheMachinePerformed`; the compliance
+record's *Dynamic object creation* row and its `create`/`destroy` row, and the "not supported"
+bullet gone.
+
+**What it leaves.** E7 itself: `send … to <expr>` still resolves a target that is a usage name to
+the occurrence the context holds for it, so the second object of a usage is addressed only through
+a feature that holds it. The RDF mapping is of the model and exports no run's objects.
+
 ## E7 — an addressed send to a second object of one usage
 
 **Today.** A `send … to <target>` resolves its target through `runtime/signal.go`
@@ -1442,16 +1529,15 @@ from.
 
 **Work.** Address by value rather than by usage: evaluate the `to` expression to an object
 reference and post to that object's identity (`objectID`), with the by-usage resolution kept for a
-target that is a name. That is only meaningful once a context can hold more than one object of one
-usage, which is the "dynamic object creation/destruction" bullet beside this one in the compliance
-list and outside this track: an object materialized by `new` or held in a feature the sender
-reads. Depends on that object-model item; independent of E1–E6.
+target that is a name. That is meaningful now that a context can hold more than one object of one
+usage — an object materialized by `new` or held in a feature the sender reads (*Dynamic object
+creation and destruction*, landed, above); the send side is what remains. Independent of E1–E6.
 
 **Proof.** Conformance: two objects of one usage, a send addressed to the second, only the second's
 accept fires (with the `via` form of the same model); a trace golden; robustness for a target
 expression yielding no object. `spec-compliance.md`: the Known Limitations bullet and the "not
-supported" bullet both leave. **Prioritize when** the object-model item lands, since without it
-there is no second object to address.
+supported" bullet both leave. The object-model item has landed, so the second object to address
+exists; this is ready to take up.
 
 ## E8 — `isRunToCompletion` and `runToCompletionScope` redefinitions
 
@@ -2971,8 +3057,12 @@ carried more than that list. By track, with the pull requests the tracks cite:
   document's several views (#349) and opens on demand (#348), writes layout into the document
   that declares the element across the workspace (#307), and reparents by drag (#305).
 - **Track E** — E1 landed (`terminate` runs in every position, the PSSM `terminate-gap` bucket
-  retired); E9 and E10 landed as conformance findings; E8's refusal landed (#229), the item
-  itself is open.
+  retired); E4 landed (a plain `flow` streams each write, a `succession flow` moves the value at
+  completion); E6 landed (a positional argument list on `InvokeOperationWith` and `%invoke`,
+  bound to the effective signature an invocation expression binds to); E9 and E10 landed as
+  conformance findings; E8's refusal landed (#229), the item itself is open; E3 closed by its
+  design record ([expansion-regions.md](expansion-regions.md): the iterative form is `for`, the
+  parallel form is not SysML v2), no executor work following.
 - **Track D** — D12 (the standard library's normative element ids) is done.
 - **Release follow-through** — R4's Windows installer is published by `v0.7.0` and `v0.8.0`
   alike; the release procedure runs git-flow (#151); `opensysml` 0.5.0 is on PyPI; the
@@ -2984,8 +3074,9 @@ The open items, by track, with the item that gates each where one does. Everythi
 is landed or is a track the previous baseline left as it stands (D, N, M, I, V, B, R2–R5);
 Tracks F, S, L and A are closed.
 
-- **Track E** — eligible and first: E2, then E4 (E1 landed), then E6 on request, E3/E5 behind
-  their design records, E7 behind its object-model item, E8 behind a model that needs it. The
+- **Track E** — eligible and first: E2 (E1 and E4 landed), with E6 landed; E3 closed by its
+  design record, E5 closed by its record (an optional follow-up waits on a model that needs it),
+  E7 behind its object-model item, E8 behind a model that needs it. The
   PSSM referee's 17 `fail` tests are the state side's measurement, every one attributed (#326):
   eleven wait on the region-order choice point whose design record #342 wrote and left at two
   maintainer decisions — the nine the record names to move `fail` → `pass`, plus *Terminate 001*
@@ -3015,7 +3106,7 @@ The release housekeeping the previous order opened with is done — #286 folded 
 `develop`, PyPI serves the Python client's 0.5.0 — and its steps 2 (L7, #292), 4's first half
 (Q2, #293) and 5 (A4, #296) landed on `develop`, so the order is shorter by three.
 
-1. **Track E** — E2, then E4, in the track's own order below; E1 landed. F and S landed and two
+1. **Track E** — E2, in the track's own order below; E1 and E4 landed. F and S landed and two
    releases shipped them, so the condition the previous baseline set is met; the loops E edits
    carry A5's clock and S2's choice points, and every E item is written against a named scheduling
    policy. The state-executor fixes since the tag (#295, #297, #311, #313–#315, #317, #318, #322,
@@ -3098,10 +3189,11 @@ an empty action end its performance. The decision is the release checklist's, re
 - **Track S.** Landed in the order agreed: S1 (#110), S2 (#123), S3 (#125), S4 (#134); #141 added
   the region-order choice point afterwards. Nothing remains in the track.
 - **Track E.** Eligible — step 1 above. **E1** (termination of an ongoing performance, which
-  **E2** and **E4** build on) is landed; the order is **E2**, then **E4**; **E6** whenever asked,
-  being a day's work; **E3** and **E5** only after their design records; **E7** after the
-  object-model item it depends on; **E8** when a model redefines run-to-completion, its refusal
-  (#229) standing until then; **E1**, **E9** and **E10** are landed.
+  **E2** and **E4** build on) is landed; the order is **E2**; **E4** is landed; **E6** is landed;
+  **E3**'s record is landed and closes the item; **E5**'s record is landed and closes the item,
+  its optional follow-up waiting on a model that needs it; **E7** after the object-model item it
+  depends on; **E8** when a model redefines run-to-completion, its refusal (#229) standing until
+  then; **E1**, **E9** and **E10** are landed; no work follows E3.
 - **Track X.** X2, X3, X4, X5, X6, X7's values and X8's typing landed (#164, #115, #113, #211,
   #122, #121, #112). What is left, in order: X8's harness halves (normalization and adjudication
   in the pilot differential, a standalone RDF expression-tree round trip) so every later X item is

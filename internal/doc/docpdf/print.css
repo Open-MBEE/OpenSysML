@@ -135,8 +135,8 @@
     overflow-wrap: anywhere;
   }
 
-  /* A diagram kept as source, in a form the PDF backend does not draw, says so
-     ahead of its source. */
+  /* A diagram kept as source because Graphviz or PlantUML was not found says so
+     ahead of its source, naming the variable to set. */
   .sysml-document .sysml-diagram pre.dot::before,
   .sysml-document .sysml-diagram pre.plantuml::before {
     display: block;
@@ -146,11 +146,11 @@
   }
 
   .sysml-document .sysml-diagram pre.dot::before {
-    content: "This diagram is written in Graphviz DOT, which the PDF backend does not draw; its source follows.";
+    content: "This diagram is written in Graphviz DOT, which the PDF backend did not draw: Graphviz was not found. Install it and point OPENSYSML_DOT at its dot to have the diagram drawn; its source follows.";
   }
 
   .sysml-document .sysml-diagram pre.plantuml::before {
-    content: "This diagram is written in PlantUML, which the PDF backend does not draw; its source follows.";
+    content: "This diagram is written in PlantUML, which the PDF backend did not draw: the PlantUML jar or java was not found. Point OPENSYSML_PLANTUML_JAR at the jar, and OPENSYSML_JAVA at a java that is not on PATH, to have the diagram drawn; its source follows.";
   }
 
   .sysml-document .sysml-formula .sysml-math {
