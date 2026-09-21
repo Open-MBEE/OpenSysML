@@ -221,7 +221,7 @@ func (m *migration) entryPointForm(v, owner *sysmlv1.Element) pointForm {
 	if len(out) == 0 {
 		note := "no transition leaves the entry point, so entering through it enters " + describe(owner) + " by its default entry; a transition to it is written to the state"
 		if without := regionsWithoutInitial(m.populatedRegions(owner)); len(without) > 0 {
-			note += "; the " + pluralRegion(len(without)) + " " + strings.Join(without, ", ") + " have no initial pseudostate, so the state is entered with them inactive, as v1 enters it"
+			note += "; no initial pseudostate starts the " + pluralRegion(len(without)) + " " + strings.Join(without, ", ") + ", which v1 too leaves inactive on entering the state"
 		}
 		return pointForm{defaultEntry: true, note: note}
 	}

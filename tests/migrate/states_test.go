@@ -1191,7 +1191,7 @@ func TestDefaultEntryPointOnOwnerWithoutInitialEntersTheState(t *testing.T) {
 	if strings.Contains(string(r.Notation), "junction via;") {
 		t.Errorf("an entry point no transition leaves was written as a junction:\n%s", r.Notation)
 	}
-	wantNote(t, r, "_dIn", migrate.Mapped, "the region 'r' have no initial pseudostate, so the state is entered with them inactive, as v1 enters it")
+	wantNote(t, r, "_dIn", migrate.Mapped, "no initial pseudostate starts the region 'r', which v1 too leaves inactive on entering the state")
 	wantNote(t, r, "_dT1", migrate.Mapped, "written to Work: no transition leaves the entry point 'via'")
 	s := session(t, r)
 	meta(t, s, "%instantiate Rig")
