@@ -3940,31 +3940,12 @@ func (p *Parser) parseConnectorEnds(u *ast.Usage, kw string) {
 		expectedKeyword = "to"
 	}
 
-	if p.atKeyword(expectedKeyword) && !p.peekIsKeyword(1, expectedKeyword) {
-		// The first end is missing: the keyword is the delimiter, not an end's
-		// name — unless a second keyword follows (`connect to to b`).
-		p.error(p.peek().Span, fmt.Sprintf("expected a connector end before '%s'", expectedKeyword))
-		p.advance()
-	} else {
-		from := p.parseConnectorEnd()
-		if from == nil {
-			return
-		}
+	from, ok := p.firstConnectorEnd(expectedKeyword)
+	if from != nil {
 		u.ConnectorEnds = append(u.ConnectorEnds, from)
-
-		// Check for optional "references" keyword after first end
-		// Pattern: end X references Y to end Z
-		if p.acceptKeyword("references") {
-			refTarget := p.parseRelationshipTarget()
-			if refTarget != nil {
-				from.Reference = refTarget
-			}
-		}
-
-		if !p.acceptKeyword(expectedKeyword) {
-			p.error(p.peek().Span, fmt.Sprintf("expected '%s' between connector ends", expectedKeyword))
-			return
-		}
+	}
+	if !ok {
+		return
 	}
 	to := p.parseConnectorEnd()
 	if to == nil {
@@ -3973,12 +3954,50 @@ func (p *Parser) parseConnectorEnds(u *ast.Usage, kw string) {
 	u.ConnectorEnds = append(u.ConnectorEnds, to)
 
 	// Check for optional "references" keyword after second end
+	p.acceptReferencesClause(to)
+}
+
+// acceptReferencesClause consumes an optional `references <target>` clause
+// after a connector end and records its target on the end.
+// Pattern: end X references Y to end Z
+func (p *Parser) acceptReferencesClause(ce *ast.ConnectorEnd) {
 	if p.acceptKeyword("references") {
 		refTarget := p.parseRelationshipTarget()
 		if refTarget != nil {
-			to.Reference = refTarget
+			ce.Reference = refTarget
 		}
 	}
+}
+
+// firstConnectorEnd parses the end before delimiter kw and consumes kw. When the
+// end is missing (the text starts with kw itself) it reports that and consumes kw.
+// The second result reports whether the caller should go on to the second end.
+func (p *Parser) firstConnectorEnd(kw string) (*ast.ConnectorEnd, bool) {
+	if p.atKeyword(kw) {
+		cp := p.checkpoint()
+		defer p.release()
+		from := p.parseConnectorEnd()
+		if from != nil {
+			p.acceptReferencesClause(from)
+			if p.acceptKeyword(kw) && len(p.Diagnostics) == cp.diagnosticLen {
+				return from, true
+			}
+		}
+		p.restore(cp)
+		p.error(p.peek().Span, fmt.Sprintf("expected a connector end before '%s'", kw))
+		p.advance()
+		return nil, true
+	}
+	from := p.parseConnectorEnd()
+	if from == nil {
+		return nil, false
+	}
+	p.acceptReferencesClause(from)
+	if !p.acceptKeyword(kw) {
+		p.error(p.peek().Span, fmt.Sprintf("expected '%s' between connector ends", kw))
+		return from, false
+	}
+	return from, true
 }
 
 // parseConnectorEnd parses one connector end and its optional reference subsetting.
@@ -4040,30 +4059,12 @@ func (p *Parser) parseConnectorFromTo(u *ast.Usage) {
 		return // Optional connector clause
 	}
 
-	if p.atKeyword("to") && !p.peekIsKeyword(1, "to") {
-		// The from end is missing: `to` is the delimiter, not an end's name —
-		// except where a second `to` follows, there the first is a genuine name.
-		p.error(p.peek().Span, "expected a connector end before 'to'")
-		p.advance()
-	} else {
-		from := p.parseConnectorEnd()
-		if from == nil {
-			return
-		}
+	from, ok := p.firstConnectorEnd("to")
+	if from != nil {
 		u.ConnectorEnds = append(u.ConnectorEnds, from)
-
-		// Check for optional "references" keyword after from end
-		if p.acceptKeyword("references") {
-			refTarget := p.parseRelationshipTarget()
-			if refTarget != nil {
-				from.Reference = refTarget
-			}
-		}
-
-		if !p.acceptKeyword("to") {
-			p.error(p.peek().Span, "expected 'to' between connector ends")
-			return
-		}
+	}
+	if !ok {
+		return
 	}
 
 	to := p.parseConnectorEnd()
@@ -4073,12 +4074,7 @@ func (p *Parser) parseConnectorFromTo(u *ast.Usage) {
 	u.ConnectorEnds = append(u.ConnectorEnds, to)
 
 	// Check for optional "references" keyword after to end
-	if p.acceptKeyword("references") {
-		refTarget := p.parseRelationshipTarget()
-		if refTarget != nil {
-			to.Reference = refTarget
-		}
-	}
+	p.acceptReferencesClause(to)
 }
 
 // declaresConnector reports whether a connector stated a declaration of its own

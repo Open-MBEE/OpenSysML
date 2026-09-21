@@ -59,3 +59,26 @@ func TestConnectorEndNamedToParses(t *testing.T) {
 		t.Fatalf("expected 2 ends, got %d", len(u.ConnectorEnds))
 	}
 }
+
+// A first end whose name starts with the delimiter keyword and continues past
+// it — a chain, a qualified name or a references clause — is an end, not the
+// delimiter: the try-parse tells it apart from a missing end.
+func TestConnectorFirstEndNamedKeywordParses(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		src  string
+	}{
+		{"chained end named to", "connection c connect to.port to target;"},
+		{"qualified end named to", "connection c connect to::p to b;"},
+		{"end named to with references clause", "connection c connect to references x to b;"},
+		{"from end named to chained", "connector c from to.p to q;"},
+		{"succession end named then", "action a { succession s first then.a then b; }"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, diags := parseOneMemberWithDiags(t, tc.src)
+			if len(diags) != 0 {
+				t.Fatalf("%q: diagnostics = %v, want none", tc.src, diags)
+			}
+		})
+	}
+}
