@@ -1399,10 +1399,7 @@ func (e *encoder) chainFeature(feature rdf.Term, segments []rdf.Term) {
 }
 
 func (e *encoder) endChainReferences(feature rdf.Term, target *ast.QualifiedName) error {
-	segments := make([]rdf.Term, 0, len(target.Parts))
-	for _, segment := range e.qualifiedChainReferences(target) {
-		segments = append(segments, segment)
-	}
+	segments := append([]rdf.Term(nil), e.qualifiedChainReferences(target)...)
 	e.chainFeature(feature, segments)
 	return nil
 }
