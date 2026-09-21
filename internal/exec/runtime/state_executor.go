@@ -2065,6 +2065,7 @@ func (e *StateExecutor) abandonMachine() []string {
 	}
 	clear(e.doActions)
 	e.doActions = e.doActions[:0]
+	e.clearEntryState()
 	e.activeConfig.simpleState = nil
 	e.activeConfig.regionStates = make(map[*ast.StateRegion]*ast.StateNode)
 	e.stateStack = nil
@@ -4422,11 +4423,19 @@ func (e *StateExecutor) exitMachine() error {
 		return nil
 	}
 	e.machineExited = true
+	e.clearEntryState()
 	e.stopDoAction(e.graph.Machine)
 	if err := e.executeBehaviors(e.behaviorsOf(e.graph.Machine).Exit); err != nil {
 		return fmt.Errorf("exit action: %w", err)
 	}
 	return nil
+}
+
+func (e *StateExecutor) clearEntryState() {
+	e.held = e.held[:0]
+	clear(e.entering)
+	e.enteringMachine = false
+	clear(e.activeAtEntry)
 }
 
 // descendantChain returns the states from ancestor's child down to leaf,

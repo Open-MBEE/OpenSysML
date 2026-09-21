@@ -442,7 +442,8 @@ giving `x = 1`; `declared` writes them the other way round, giving `x = 2`.
 Fixture: `state_run_to_completion_false_self_signal`,
 `state_run_to_completion_scope_sibling_region`, and
 `state_run_to_completion_scope_parent_transition`, and
-`state_run_to_completion_scope_qualified_source` (goldens, explored).
+`state_run_to_completion_scope_qualified_source`, and
+`state_run_to_completion_terminate_during_held_entry` (goldens, explored).
 
 An entry that does not run to completion and a dispatch due at the same instant
 may proceed in either order. Dispatching first exits the entered composite

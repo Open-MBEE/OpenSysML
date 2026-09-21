@@ -174,7 +174,6 @@ func (e *StateExecutor) settleEntered(leaf *ast.StateNode) error {
 func (e *StateExecutor) entryStep(progress *dueProgress) (bool, error) {
 	dispatch, free := e.dispatchFree(e.dueDispatch())
 	if !free && len(e.held) == 1 {
-		progress.steps++
 		item := e.held[0]
 		e.held = slices.Delete(e.held, 0, 1)
 		return true, e.performHeld(item)
@@ -192,7 +191,6 @@ func (e *StateExecutor) entryStep(progress *dueProgress) (bool, error) {
 			defer func() { e.dispatchAmong = nil }()
 			return e.dispatchOne(progress)
 		}
-		progress.steps++
 		item := e.held[0]
 		e.held = slices.Delete(e.held, 0, 1)
 		return true, e.performHeld(item)
@@ -218,7 +216,6 @@ func (e *StateExecutor) entryStep(progress *dueProgress) (bool, error) {
 	if free {
 		index--
 	}
-	progress.steps++
 	item := e.held[index]
 	e.held = slices.Delete(e.held, index, index+1)
 	return true, e.performHeld(item)
