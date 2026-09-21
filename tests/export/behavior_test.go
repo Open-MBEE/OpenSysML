@@ -375,7 +375,7 @@ func TestFirstThenLinksItsSourceLikeASuccession(t *testing.T) {
 	if n := strings.Count(string(turtle), "sysml:sourceFeature elmt:P__A__a"); n != 2 {
 		t.Fatalf("`first a then b` should link a as its source twice, found %d:\n%s", n, turtle)
 	}
-	if !strings.Contains(string(turtle), "sysml:references elmt:P__A__a") {
+	if !strings.Contains(string(turtle), "sysml:referencedFeature elmt:P__A__a") {
 		t.Fatalf("`succession first a then b` should link a through its end:\n%s", turtle)
 	}
 	if !strings.Contains(string(turtle), "sysml:sourceFeature <urn:sysmlv2:element:9a0d2905-0f9c-5bb4-af74-9780d6db1817>") {
@@ -390,6 +390,89 @@ func TestFirstThenLinksItsSourceLikeASuccession(t *testing.T) {
 	}
 	if string(back) != src {
 		t.Fatalf("the notation changed\n--- want ---\n%s\n--- got ---\n%s", src, back)
+	}
+}
+
+func TestTransitionEndpointRepresentationsAgreeWhenEqual(t *testing.T) {
+	src := `package P {
+	state def M {
+		state s1;
+		state s2;
+		transition first s1 then s2;
+	}
+}
+`
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	graph := string(turtle)
+	transition := strings.Index(graph, "a sysml:TransitionUsage ;")
+	if transition < 0 {
+		t.Fatalf("the graph has no TransitionUsage:\n%s", graph)
+	}
+	const marker = "sysml:target "
+	relative := strings.Index(graph[transition:], marker)
+	if relative < 0 {
+		t.Fatalf("the graph has no standard transition target:\n%s", turtle)
+	}
+	start := transition + relative
+	end := strings.Index(graph[start:], " ;")
+	if end < 0 {
+		t.Fatalf("the transition target has no Turtle terminator:\n%s", turtle)
+	}
+	target := strings.TrimSpace(graph[start+len(marker) : start+end])
+	needle := marker + target + " ;"
+	position := transition + strings.Index(graph[transition:], needle)
+	equal := string(turtle)[:position] +
+		needle + "\n    sysml:targetFeature " + target + " ;" +
+		string(turtle)[position+len(needle):]
+	if _, err := convert.Convert("m.ttl", withoutSourceText(t, []byte(equal)), convert.FormatTurtle, convert.FormatSysML); err != nil {
+		t.Fatalf("equal standard and legacy endpoints should import: %v\n%s", err, equal)
+	}
+}
+
+func TestTransitionEndpointRepresentationsDisagreeAreRefused(t *testing.T) {
+	src := `package P {
+	state def M {
+		state s1;
+		state s2;
+		transition first s1 then s2;
+	}
+}
+`
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	graph := string(turtle)
+	transition := strings.Index(graph, "a sysml:TransitionUsage ;")
+	if transition < 0 {
+		t.Fatalf("the graph has no TransitionUsage:\n%s", graph)
+	}
+	const marker = "sysml:target "
+	relative := strings.Index(graph[transition:], marker)
+	if relative < 0 {
+		t.Fatalf("the graph has no standard transition target:\n%s", graph)
+	}
+	start := transition + relative
+	end := strings.Index(graph[start:], " ;")
+	if end < 0 {
+		t.Fatalf("the transition target has no Turtle terminator:\n%s", graph)
+	}
+	target := strings.TrimSpace(graph[start+len(marker) : start+end])
+	needle := marker + target + " ;"
+	position := transition + strings.Index(graph[transition:], needle)
+	disagreeing := graph[:position] +
+		needle + "\n    sysml:targetFeature elmt:P__M__s1 ;" +
+		graph[position+len(needle):]
+	_, err = convert.Convert("m.ttl", withoutSourceText(t, []byte(disagreeing)), convert.FormatTurtle, convert.FormatSysML)
+	var unsupported *export.UnsupportedError
+	if !errors.As(err, &unsupported) {
+		t.Fatalf("want an UnsupportedError for disagreeing transition endpoints, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "sourceFeature") && !strings.Contains(err.Error(), "targetFeature") {
+		t.Fatalf("error should identify the legacy endpoint: %v", err)
 	}
 }
 

@@ -1152,7 +1152,9 @@ func (d *decoder) printBehavior(b *strings.Builder, el *element, indent string, 
 		// A transition carrying its ends as references is the one a state body
 		// declares; a transition usage whose head was kept verbatim never
 		// reaches here, since print() writes its source text.
-		if _, structural := d.transitionObject(el, pTarget); !structural {
+		if _, structural, err := d.transitionObject(el, pTarget); err != nil {
+			return false, err
+		} else if !structural {
 			return false, nil
 		}
 		text, body, err := d.transitionText(el, annotations, depth)
@@ -1400,10 +1402,8 @@ func (d *decoder) transitionText(el *element, annotations []string, depth int) (
 }
 
 // transitionObject reads a standard transition endpoint, then its legacy spelling.
-func (d *decoder) transitionObject(el *element, property string) (rdf.Term, bool) {
-	if term, ok := d.graph.Object(rdf.IRI(el.iri), rdf.SysML+property); ok {
-		return term, true
-	}
+func (d *decoder) transitionObject(el *element, property string) (rdf.Term, bool, error) {
+	standard, hasStandard := d.graph.Object(rdf.IRI(el.iri), rdf.SysML+property)
 	var legacy string
 	switch property {
 	case pSource:
@@ -1411,14 +1411,28 @@ func (d *decoder) transitionObject(el *element, property string) (rdf.Term, bool
 	case pTarget:
 		legacy = pTargetFeature
 	default:
-		return rdf.Term{}, false
+		return rdf.Term{}, false, nil
 	}
-	return d.graph.Object(rdf.IRI(el.iri), rdf.SysML+legacy)
+	legacyTerm, hasLegacy := d.graph.Object(rdf.IRI(el.iri), rdf.SysML+legacy)
+	if hasStandard && hasLegacy && standard != legacyTerm {
+		return rdf.Term{}, false, &UnsupportedError{
+			What: fmt.Sprintf("the transition <%s>", el.iri),
+			Note: fmt.Sprintf("its sysml:%s and sysml:%s endpoints disagree", property, legacy),
+		}
+	}
+	if hasStandard {
+		return standard, true, nil
+	}
+	return legacyTerm, hasLegacy, nil
 }
 
 // transitionReferenceText renders a standard endpoint, falling back to legacy RDF.
 func (d *decoder) transitionReferenceText(el *element, property, legacy string) (string, error) {
-	if _, ok := d.graph.Object(rdf.IRI(el.iri), rdf.SysML+property); ok {
+	_, standard, err := d.transitionObject(el, property)
+	if err != nil {
+		return "", err
+	}
+	if standard {
 		return d.referenceText(el, rdf.SysML+property)
 	}
 	return d.referenceText(el, rdf.SysML+legacy)
