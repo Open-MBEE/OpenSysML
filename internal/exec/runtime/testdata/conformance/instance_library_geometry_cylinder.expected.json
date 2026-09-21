@@ -15,10 +15,5 @@
     "cyl.vertices": {"error": "member vertices not found in instance"},
     "cyl.isSolid": {"type": "Boolean", "value": true},
     "cyl.voids": {"type": "Sequence", "elements": []}
-  },
-  "identical": [
-    ["cyl.faces.1", "cyl.af"],
-    ["cyl.faces.2", "cyl.base"],
-    ["cyl.faces.3", "cyl.cf"]
-  ]
+  }
 }

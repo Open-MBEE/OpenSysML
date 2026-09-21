@@ -7,9 +7,11 @@ import (
 )
 
 // The connector's own multiplicity states how many links a binding declares, so
-// `binding [1]` identifies at most one value of each end: an end whose feature
-// may — or must — hold more is only partially bound, and reading it through the
-// binding is the typed ErrBindingEnd rather than a whole-binding count check.
+// `binding [1]` identifies one value of each end: an end whose feature may — or
+// must — hold more is only partially bound, and so is the other end, which is
+// some unspecified value of it; reading either through the binding is the typed
+// ErrBindingEnd rather than a whole-binding count check. An end holding a value
+// of its own keeps it, the binding only relating it to the other end.
 func TestConnectorMultiplicityBoundsLinks(t *testing.T) {
 	ctx, idx := libraryShapeContext(t, `package test {
 		part def Thing;
@@ -17,6 +19,9 @@ func TestConnectorMultiplicityBoundsLinks(t *testing.T) {
 			part a { part xs : Thing [1]; }
 			part ys : Thing [2];
 			binding [1] bind [0..*] a.xs = [0..*] ys;
+			attribute own : Real [1] = 3;
+			attribute many : Real [2];
+			binding [1] bind [0..*] own = [0..*] many;
 		}
 		part rig : Rig;
 	}`)
@@ -25,21 +30,24 @@ func TestConnectorMultiplicityBoundsLinks(t *testing.T) {
 		t.Fatal("test package not indexed")
 	}
 
-	val, err := evalIn(t, ctx, pkg.Scope, "rig.a.xs")
-	if err != nil {
-		t.Fatalf("rig.a.xs: %v", err)
-	}
-	if val.Kind != ValInstance {
-		t.Errorf("rig.a.xs = %s, want one Instance", FormatValue(val))
+	for _, tc := range []struct{ expr, binding string }{
+		{"rig.ys", "binding [1] bind [0..*] a.xs = [0..*] ys"},
+		{"rig.a.xs", "binding [1] bind [0..*] a.xs = [0..*] ys"},
+		{"rig.many", "binding [1] bind [0..*] own = [0..*] many"},
+	} {
+		_, err := evalIn(t, ctx, pkg.Scope, tc.expr)
+		var undetermined *UndeterminedBindingError
+		if !errors.As(err, &undetermined) {
+			t.Fatalf("%s = %v, want an UndeterminedBindingError", tc.expr, err)
+		}
+		if !strings.Contains(err.Error(), tc.binding) {
+			t.Errorf("%s error %q does not name the binding", tc.expr, err.Error())
+		}
 	}
 
-	_, err = evalIn(t, ctx, pkg.Scope, "rig.ys")
-	var undetermined *UndeterminedBindingError
-	if !errors.As(err, &undetermined) {
-		t.Fatalf("rig.ys = %v, want an UndeterminedBindingError", err)
-	}
-	if !strings.Contains(err.Error(), "binding [1] bind [0..*] a.xs = [0..*] ys") {
-		t.Errorf("rig.ys error %q does not name the binding", err.Error())
+	val, err := evalIn(t, ctx, pkg.Scope, "rig.own")
+	if err != nil || FormatValue(val) != "3" {
+		t.Errorf("rig.own = %s, %v; want 3 with no error", FormatValue(val), err)
 	}
 }
 

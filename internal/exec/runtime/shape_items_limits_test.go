@@ -57,7 +57,7 @@ func TestShapeItemsUnsupportedExpressionsAreTypedErrors(t *testing.T) {
 	}
 
 	// `binding [1] bind [0..*] base.edges = [0..*] be` links one value of each end, so a face's
-	// `edges` resolves to the single `be` object rather than reading `be`'s own [2] whole.
+	// `edges` keeps the edge its own `= shape` gives it instead of being bound to `be` whole.
 	for _, expr := range []string{"cyl.base.edges", "cyl.af.edges"} {
 		val, err := evalIn(t, ctx, pkg.Scope, expr)
 		if err != nil {

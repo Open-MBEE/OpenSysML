@@ -47,18 +47,18 @@ func testPartialBindingUnderdeterminedEnd(t *testing.T) {
 }
 
 // A feature declaring a lower bound above the connector's link count can never
-// be linked whole: reading it is the typed error, while the other end resolves.
+// be linked whole: reading it is the typed error without reading its value, and
+// the other end, some unspecified value of it, is the same error.
 func testPartialBindingLowerBoundAboveLinks(t *testing.T) {
 	ctx, scope := rigScope(t, `part def Rig {
 		part a { part xs : Thing [1]; }
 		part ys3 : Thing [3..*];
 		binding [1] bind [0..*] a.xs = [0..*] ys3;
 	}`)
-	if _, err := evalIn(t, ctx, scope, "rig.ys3"); !errors.Is(err, ErrBindingEnd) {
-		t.Fatalf("rig.ys3 = %v, want ErrBindingEnd", err)
-	}
-	if _, err := evalIn(t, ctx, scope, "rig.a.xs"); err != nil {
-		t.Fatalf("rig.a.xs = %v, want a resolved value", err)
+	for _, expr := range []string{"rig.ys3", "rig.a.xs"} {
+		if _, err := evalIn(t, ctx, scope, expr); !errors.Is(err, ErrBindingEnd) {
+			t.Fatalf("%s = %v, want ErrBindingEnd", expr, err)
+		}
 	}
 }
 
