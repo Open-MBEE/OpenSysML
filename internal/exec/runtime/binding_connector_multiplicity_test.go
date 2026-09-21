@@ -117,6 +117,59 @@ func TestConnectorMultiplicityDeclaresLinkCount(t *testing.T) {
 	}
 }
 
+// A connector or end bound naming a valued feature is evaluated in the
+// binding's scope: `binding [links]` with `links = 1` declares one link, and
+// `binding [n]` with `n = 2` over two `[2]` ends is a whole binding.
+func TestConnectorMultiplicityNamesFeature(t *testing.T) {
+	ctx, idx := libraryShapeContext(t, `package test {
+		private import ScalarValues::*;
+		part def Thing;
+		part def Rig {
+			attribute links : Integer = 1;
+			part a : Thing [2];
+			part b : Thing [2];
+			binding [links] bind [0..*] a = [0..*] b;
+			attribute n : Integer = 2;
+			part c : Thing [2];
+			part d : Thing [2];
+			binding [n] bind [0..*] c = [0..*] d;
+		}
+		part rig : Rig;
+	}`)
+	pkg, ok := idx.DocumentRoot("<test>").LookupLocal("test")
+	if !ok || pkg.Scope == nil {
+		t.Fatal("test package not indexed")
+	}
+
+	// The diagnostic renders the bound's evaluated range, not the feature's name.
+	_, err := evalIn(t, ctx, pkg.Scope, "rig.b")
+	var undetermined *UndeterminedBindingError
+	if !errors.As(err, &undetermined) {
+		t.Fatalf("rig.b = %v, want an UndeterminedBindingError", err)
+	}
+	if !strings.Contains(err.Error(), "binding [1] bind [0..*] a = [0..*] b") {
+		t.Errorf("rig.b error %q does not name the binding", err.Error())
+	}
+
+	left, err := evalIn(t, ctx, pkg.Scope, "rig.c")
+	if err != nil {
+		t.Fatalf("rig.c: %v", err)
+	}
+	right, err := evalIn(t, ctx, pkg.Scope, "rig.d")
+	if err != nil {
+		t.Fatalf("rig.d: %v", err)
+	}
+	lv, rv := elementsOf(left), elementsOf(right)
+	if len(lv) != 2 || len(rv) != 2 {
+		t.Fatalf("rig.c = %s, rig.d = %s; want the same two objects", FormatValue(left), FormatValue(right))
+	}
+	for i := range lv {
+		if lv[i].Instance != rv[i].Instance {
+			t.Errorf("rig.c#(%d) and rig.d#(%d) are different objects", i+1, i+1)
+		}
+	}
+}
+
 // A connector declaring as many links as the ends' features hold is a whole
 // binding again: `binding [2]` binds q to the two objects p holds.
 func TestConnectorMultiplicityWideEnoughIsWhole(t *testing.T) {

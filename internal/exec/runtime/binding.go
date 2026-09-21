@@ -168,11 +168,11 @@ func (ctx *Context) bindingsForFeature(typeSym *symbols.Symbol, name string) []l
 // bindingLinksNothing reports a binding with an end or connector multiplicity of [0],
 // which links no value and so constrains neither feature (KerML 1.0 §7.4.9.2).
 func (ctx *Context) bindingLinksNothing(binding lower.Binding) bool {
-	if r, ok := ctx.model.semantics.RangeOf(binding.Multiplicity); ok && r.Upper.Known && !r.Upper.Infinite && r.Upper.Value == 0 {
+	if r, ok := ctx.model.semantics.RangeIn(binding.Scope, binding.Multiplicity); ok && r.Upper.Known && !r.Upper.Infinite && r.Upper.Value == 0 {
 		return true
 	}
 	for _, end := range binding.Ends {
-		if r, ok := ctx.model.semantics.RangeOf(end.Multiplicity); ok && r.Upper.Known && !r.Upper.Infinite && r.Upper.Value == 0 {
+		if r, ok := ctx.model.semantics.RangeIn(binding.Scope, end.Multiplicity); ok && r.Upper.Known && !r.Upper.Infinite && r.Upper.Value == 0 {
 			return true
 		}
 	}
@@ -390,9 +390,9 @@ func (ctx *Context) partialBinding(owner, targetInst *Instance, target *FeatureV
 		}
 		return true, endpoint.across(), nil
 	}
-	links, linksOK := ctx.model.semantics.RangeOf(binding.Multiplicity)
+	links, linksOK := ctx.model.semantics.RangeIn(binding.Scope, binding.Multiplicity)
 	for end := range binding.Ends {
-		stated, statedOK := ctx.model.semantics.RangeOf(binding.Ends[end].Multiplicity)
+		stated, statedOK := ctx.model.semantics.RangeIn(binding.Scope, binding.Ends[end].Multiplicity)
 		// The binding links at most the smaller finite upper bound of the end's own
 		// multiplicity and the connector's (`binding [1]` declares one link).
 		var upper int64
@@ -501,7 +501,7 @@ func (ctx *Context) ownEndpointValue(loc bindingLocation) (Value, bool, error) {
 func (ctx *Context) wholeBindingCounts(binding lower.Binding, val Value) error {
 	count := int64(len(elementsOf(val)))
 	for end := range binding.Ends {
-		stated, ok := ctx.model.semantics.RangeOf(binding.Ends[end].Multiplicity)
+		stated, ok := ctx.model.semantics.RangeIn(binding.Scope, binding.Ends[end].Multiplicity)
 		if !ok {
 			continue
 		}
@@ -511,7 +511,7 @@ func (ctx *Context) wholeBindingCounts(binding lower.Binding, val Value) error {
 		}
 	}
 	// The connector's own multiplicity states how many links the binding declares.
-	if links, ok := ctx.model.semantics.RangeOf(binding.Multiplicity); ok {
+	if links, ok := ctx.model.semantics.RangeIn(binding.Scope, binding.Multiplicity); ok {
 		if (links.Lower.Known && count < links.Lower.Value) ||
 			(links.Upper.Known && !links.Upper.Infinite && count > links.Upper.Value) {
 			return fmt.Errorf("%w: `%s` declares %s link(s) but identifies %d value(s)",
@@ -532,12 +532,12 @@ func (ctx *Context) bindingText(binding lower.Binding) string {
 	ends := make([]string, len(binding.Ends))
 	for i, end := range binding.Ends {
 		ends[i] = ctx.bindingEndpointText(binding, i)
-		if r, ok := ctx.model.semantics.RangeOf(end.Multiplicity); ok {
+		if r, ok := ctx.model.semantics.RangeIn(binding.Scope, end.Multiplicity); ok {
 			ends[i] = r.Text() + " " + ends[i]
 		}
 	}
 	text := "bind " + strings.Join(ends, " = ")
-	if r, ok := ctx.model.semantics.RangeOf(binding.Multiplicity); ok {
+	if r, ok := ctx.model.semantics.RangeIn(binding.Scope, binding.Multiplicity); ok {
 		text = "binding " + r.Text() + " " + text
 	}
 	return text
