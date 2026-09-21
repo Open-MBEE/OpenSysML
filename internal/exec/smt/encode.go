@@ -1264,7 +1264,7 @@ func (e *Encoding) perform(i, n int, node ast.Node, prev *State) (*nodeEffect, e
 }
 
 // begin starts a performance of node: each pin holds the delivery queued for
-// it, else the value its own declaration gives it, else none. Nothing has streamed yet.
+// it, else the value its own declaration gives it, else none, and streams what it holds.
 func (e *Encoding) begin(x *nodeEffect, node ast.Node, where string) error {
 	always := solve.BoolTerm(true)
 	label := e.Flow.label(node)
@@ -1312,9 +1312,9 @@ func (e *Encoding) begin(x *nodeEffect, node ast.Node, where string) error {
 		e.assert(eq(solve.VarTerm(v), value), "start of "+name)
 		x.env.values[name] = solve.VarTerm(v)
 		x.env.has[name] = has
-		// A declared value seeding the pin streams as the interpreter's does; a delivery does not.
-		if p.feature.Value != nil {
-			if err := e.stream(x, seeded, node, p.v, x.env.values[name], where); err != nil {
+		// The value the pin starts with, taken or declared, streams as the interpreter's does.
+		if queued || p.feature.Value != nil {
+			if err := e.stream(x, has, node, p.v, x.env.values[name], where); err != nil {
 				return err
 			}
 		}
