@@ -271,7 +271,12 @@ func compare(em *Emitted, x *runtime.Exploration, expected *ExpectedActivity) *E
 			errs[o.Outcome.Err.Error()] = true
 			continue
 		}
-		reached[renderOutputs(a, o.Outcome.Context(), o.Outcome.Outputs)] = true
+		rendered, err := renderOutputs(a, o.Outcome.Context(), o.Outcome.Outputs)
+		if err != nil {
+			errs[err.Error()] = true
+			continue
+		}
+		reached[rendered] = true
 		for _, n := range producingNodes(em, o.Outcome.Outputs) {
 			produced[n] = true
 		}

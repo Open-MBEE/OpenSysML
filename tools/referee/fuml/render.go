@@ -34,8 +34,9 @@ func renderExpected(a *Activity, x *ExpectedActivity) string {
 }
 
 // renderOutputs spells a run's output parameters as renderExpected does; the
-// objects they hold live in ctx.
-func renderOutputs(a *Activity, ctx *runtime.Context, outputs map[string]runtime.Value) string {
+// objects they hold live in ctx. A feature of one that cannot be read is an
+// error of the run, not a spelling to compare.
+func renderOutputs(a *Activity, ctx *runtime.Context, outputs map[string]runtime.Value) (string, error) {
 	g := newGraph(a.Model, ctx)
 	var lines []held
 	for _, p := range a.Outputs() {
@@ -45,7 +46,10 @@ func renderOutputs(a *Activity, ctx *runtime.Context, outputs map[string]runtime
 		}
 		lines = append(lines, held{p.Name, p.Multiplicity, values})
 	}
-	return g.spell(lines)
+	if g.err != nil {
+		return "", g.err
+	}
+	return g.spell(lines), nil
 }
 
 // value is one value the outputs reach on either side: a primitive's canonical
@@ -83,6 +87,8 @@ type graph struct {
 	order   []*entity
 	// filling is the entity of each run instance whose features are being read.
 	filling map[int64]*entity
+	// err is the first failure to read a run object's feature.
+	err error
 }
 
 func newGraph(model *Model, ctx *runtime.Context) *graph {
@@ -242,7 +248,9 @@ func (g *graph) runtimeObject(id int64) *entity {
 	for _, attr := range o.attrs {
 		fv, err := inst.GetFeatureValue(g.ctx, attr.Name)
 		if err != nil {
-			o.features = append(o.features, held{attr.Name, attr.Multiplicity, []value{{text: "<error: " + err.Error() + ">"}}})
+			if g.err == nil {
+				g.err = fmt.Errorf("read %s of %s: %w", attr.Name, inst.Type.Name, err)
+			}
 			continue
 		}
 		var values []value
@@ -273,12 +281,14 @@ func (g *graph) spell(lines []held) string {
 
 // number aliases the objects 1..n by type, features and holders, refined until the
 // classes settle; objects the refinement cannot tell apart keep first-mention order.
+// Each round splits the classes of the one before and never merges them, so the
+// partition is settled exactly when a round leaves their number unchanged.
 func (g *graph) number(lines []held) {
 	class := map[*entity]string{}
 	for _, o := range g.order {
 		class[o] = o.typeName
 	}
-	distinct := 0
+	distinct := len(ranks(class))
 	for range g.order {
 		next := g.refine(lines, class)
 		n := len(ranks(next))
@@ -299,8 +309,8 @@ func (g *graph) number(lines []held) {
 	}
 }
 
-// refine is one round: an object's new class is its type, the classes its features
-// hold and its holders' classes and features, compressed to a rank to stay bounded.
+// refine is one round: an object's new class is its class so far, the classes its
+// features hold and its holders' classes and features, compressed to a rank to stay bounded.
 func (g *graph) refine(lines []held, class map[*entity]string) map[*entity]string {
 	holders := map[*entity][]string{}
 	hold := func(holder string, fs []held) {
@@ -340,7 +350,7 @@ func (g *graph) refine(lines []held, class map[*entity]string) map[*entity]strin
 		}
 		in := holders[o]
 		sort.Strings(in)
-		next[o] = o.typeName + "{" + strings.Join(fs, ";") + "}<" + strings.Join(in, ",") + ">"
+		next[o] = class[o] + "{" + strings.Join(fs, ";") + "}<" + strings.Join(in, ",") + ">"
 	}
 	rank := ranks(next)
 	for o, c := range next {

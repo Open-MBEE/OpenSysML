@@ -1441,7 +1441,7 @@ func TestRenderSignalValues(t *testing.T) {
 		t.Fatal(err)
 	}
 	outputs := map[string]runtime.Value{"heard": {Kind: runtime.ValInstance, Instance: inst.ID}}
-	if got := renderOutputs(listener, ctx, outputs); got != want {
+	if got := rendered(t, listener, ctx, outputs); got != want {
 		t.Errorf("run side:\n%s\nwant\n%s", got, want)
 	}
 	// A signal is a value: one instance two outputs hold spells whole in each,
@@ -1460,7 +1460,7 @@ func TestRenderSignalValues(t *testing.T) {
 		t.Errorf("expected side, twice:\n%s\nwant\n%s", got, wantTwice)
 	}
 	shared := runtime.Value{Kind: runtime.ValInstance, Instance: inst.ID}
-	if got := renderOutputs(twice, ctx, map[string]runtime.Value{"first": shared, "second": shared}); got != wantTwice {
+	if got := rendered(t, twice, ctx, map[string]runtime.Value{"first": shared, "second": shared}); got != wantTwice {
 		t.Errorf("run side, twice:\n%s\nwant\n%s", got, wantTwice)
 	}
 	// A signal reached again while its own features are read is that signal, not
@@ -1485,8 +1485,72 @@ func TestRenderSignalValues(t *testing.T) {
 		t.Fatal(err)
 	}
 	const wantLoop = "link = Chain#1{next = #1}"
-	if got := renderOutputs(linker, ctx, map[string]runtime.Value{"link": {Kind: runtime.ValInstance, Instance: loop.ID}}); got != wantLoop {
+	if got := rendered(t, linker, ctx, map[string]runtime.Value{"link": {Kind: runtime.ValInstance, Instance: loop.ID}}); got != wantLoop {
 		t.Errorf("run side, cycle:\n%s\nwant\n%s", got, wantLoop)
+	}
+	// A feature the run's object cannot read is an error of the run, not a
+	// spelling for the record to differ from.
+	chainRef := TypeRef{ID: "Chain", Name: "Chain", Kind: "Class"}
+	wider := &Activity{
+		Model: &Model{Classes: []*Class{{ID: "Chain", Name: "Chain", Attributes: []*Property{
+			{Name: "next", Type: chainRef, Multiplicity: Multiplicity{Lower: 0, Upper: 1, Unique: true}},
+			{Name: "absent", Type: TypeRef{Name: "Integer"}, Multiplicity: Multiplicity{Lower: 1, Upper: 1, Unique: true}},
+		}}}},
+		Parameters: []*Parameter{{Name: "link", Direction: Out, Type: chainRef, Multiplicity: Multiplicity{Lower: 1, Upper: 1, Unique: true}}},
+	}
+	got, err := renderOutputs(wider, ctx, map[string]runtime.Value{"link": {Kind: runtime.ValInstance, Instance: loop.ID}})
+	if !errors.Is(err, runtime.ErrNoSuchFeature) || got != "" {
+		t.Errorf("renderOutputs on an unreadable feature = %q, %v; want the runtime's error", got, err)
+	}
+}
+
+// rendered is renderOutputs on a run whose objects read cleanly.
+func rendered(t *testing.T, a *Activity, ctx *runtime.Context, outputs map[string]runtime.Value) string {
+	t.Helper()
+	got, err := renderOutputs(a, ctx, outputs)
+	if err != nil {
+		t.Fatalf("renderOutputs: %v", err)
+	}
+	return got
+}
+
+// Objects the record and the run mention in opposite orders number the same once
+// their features and holders tell them apart: two rounds that keep the class count
+// while moving the objects between classes must not end the refinement early.
+func TestRenderNumbersObjectsByStructureNotArrival(t *testing.T) {
+	one := Multiplicity{Lower: 1, Upper: 1, Unique: true}
+	many := Multiplicity{Lower: 0, Upper: -1, Unique: true}
+	node := TypeRef{ID: "Node", Name: "Node", Kind: "Class"}
+	m := &Model{Classes: []*Class{{ID: "Node", Name: "Node", Attributes: []*Property{
+		{Name: "next", Type: node, Multiplicity: Multiplicity{Lower: 0, Upper: 1, Unique: true}},
+		{Name: "tag", Type: TypeRef{Name: "Integer"}, Multiplicity: one},
+	}}}}
+	a := &Activity{Model: m, Parameters: []*Parameter{{Name: "all", Direction: Out, Type: node, Multiplicity: many}}}
+	// A chain a -> b -> c, c tagged; mentioned forwards on one side, backwards on the other.
+	chain := func(ids ...string) []ExpectedValue {
+		byID := map[string]ExpectedValue{}
+		for i, id := range []string{"a", "b", "c"} {
+			v := ExpectedValue{Kind: "Object", ID: id, Types: []string{"Node"}}
+			if i < 2 {
+				v.Features = append(v.Features, ExpectedFeature{Feature: "next", Values: []ExpectedValue{{Kind: "Object", ID: []string{"a", "b", "c"}[i+1], Types: []string{"Node"}, Truncated: true}}})
+			}
+			tag := 0
+			if i == 2 {
+				tag = 1
+			}
+			v.Features = append(v.Features, feature("tag", tag))
+			byID[id] = v
+		}
+		var out []ExpectedValue
+		for _, id := range ids {
+			out = append(out, byID[id])
+		}
+		return out
+	}
+	forwards := executed(a, []ExpectedOutput{{Parameter: "all", Values: chain("a", "b", "c")}})
+	backwards := executed(a, []ExpectedOutput{{Parameter: "all", Values: chain("c", "b", "a")}})
+	if f, b := renderExpected(a, &forwards), renderExpected(a, &backwards); f != b {
+		t.Errorf("the same graph numbered by mention order:\n%s\nvs\n%s", f, b)
 	}
 }
 
