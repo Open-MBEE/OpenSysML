@@ -188,3 +188,27 @@ func TestLegacyConnectorAsUsageStillReads(t *testing.T) {
 		t.Errorf("legacy graph does not read back the connector\n%s", back)
 	}
 }
+
+// A metadata usage in a dependency's body links its type like any other, and
+// the structure alone carries it back: the name must resolve from the body.
+func TestDependencyBodyMetadataLinksItsType(t *testing.T) {
+	const src = `package Deps {
+    part def A;
+    part def B;
+    dependency A to B {
+        @ModelingMetadata::Refinement;
+    }
+}
+`
+	turtle, err := convert.Convert("deps.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(turtle), "sysml:type <urn:sysmlv2:element:") {
+		t.Fatalf("the metadata usage's type is not linked:\n%s", turtle)
+	}
+	back := structuralRoundTrip(t, "deps", turtle)
+	if !strings.Contains(string(back), "@ModelingMetadata::Refinement;") {
+		t.Errorf("the mapping alone did not bring the metadata usage back:\n%s", back)
+	}
+}

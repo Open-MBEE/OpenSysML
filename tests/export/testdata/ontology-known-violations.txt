@@ -34,14 +34,14 @@ domain-mismatch TransitionUsage targetFeature    # Connector_targetFeature: a tr
 domain-mismatch AttributeUsage visibility        # Membership_visibility: a declaration inside an expression body has no membership, so its visibility is written on the declaration
 
 # 2. Object properties carrying a name as a literal where the ontology's range is
-# an element (D7). A name that resolves — to an element of the graph or to a
+# an element. A name that resolves — to an element of the graph or to a
 # standard library element by its normative id — is linked; what remains here are
 # the fixtures' names that resolve to nothing, kept as written.
 literal-for-object-property AttributeUsage type                                  # Feature_type: a type the fixture never declares or imports (`Real` without ScalarValues, `Elsewhere::Missing`) is written as its name
 literal-for-object-property ReferenceUsage type                                  # Feature_type: a type the fixture never declares or imports is written as its name
 literal-for-object-property PartUsage type                                       # Feature_type: a type the fixture never declares or imports is written as its name
 literal-for-object-property FeatureReferenceExpression referent                   # FeatureReferenceExpression_referent: a name resolving outside the graph is written as a name, as every reference this tool cannot link is (D7)
-literal-for-object-property InvocationExpression function                         # Expression_function: a function the fixture never imports (`->collect` without ControlFunctions) is written as a name (D7)
+literal-for-object-property InvocationExpression function                         # Expression_function: a function the fixture never imports (`->collect` without ControlFunctions) is written as a name
 
 # 3. Metaclass names this tool writes into the SysML namespace that the 202407
 # rendering does not declare at all.
@@ -108,4 +108,4 @@ unknown-property EnumerationUsage isVariant                  # Usage::isVariant 
 unknown-property Connector isAll                              # Type::isSufficient (`connector all from a to b`), written under the notation's own name
 unknown-property AttributeUsage isAll                        # Type::isSufficient (`portion feature all slices`), written under the notation's own name
 unknown-property AttributeUsage isConstant                   # Feature::isReadOnly in the 202407 rendering, whose `readonly` the notation has since respelled `const`; written under the notation's own name
-literal-for-object-property FeatureChainExpression targetFeature                   # FeatureChainExpression_targetFeature: the `result` of an invocation is no element of the graph and is written as a name (D7)
+literal-for-object-property FeatureChainExpression targetFeature                   # FeatureChainExpression_targetFeature: the `result` of an invocation is no element of the graph and is written as a name

@@ -108,6 +108,9 @@ func (r *Resolver) resolveNamespaceDecl(scope *symbols.Scope, decl ast.Node) boo
 		for _, s := range d.Suppliers {
 			r.ResolveQualified(scope, s)
 		}
+		if child := r.childScope(scope, d); child != nil {
+			r.walkMembers(child, d.Body)
+		}
 		return true
 	case *ast.MultiplicityDecl:
 		r.resolveMultiplicity(scope, d.Range)
