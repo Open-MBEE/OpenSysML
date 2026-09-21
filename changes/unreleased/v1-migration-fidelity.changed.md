@@ -14,6 +14,12 @@
   branches only by the OMG SysML profile's «Probability», recognised by the namespace its
   application is serialised under as every standard stereotype is; a same-named stereotype from
   another profile weights nothing, and the report says which profile it comes from.
+- **A duration with no unit is in milliseconds.** The SysML v1 migration read a duration
+  constraint, time event or `SimulationConfig` step written as a bare number — `200`, `t = 1500`,
+  an expression naming no unit — in seconds; the simulation toolkit's default unit is the
+  millisecond, so such a duration is now scaled from milliseconds (`accept after 0.2 [SI::s]`,
+  `this.settle * 0.001`) and the report notes the reading. A duration with a unit is read as
+  before, and `m`, `wk`, `millisec`, `microsec` and `nsec` are read as the toolkit spells them.
 - **A run configuration is refused by name.** `-compare-results` refuses a configuration whose
   behavior was not migrated, or whose `durationSimulationMode` is no draw policy, or whose run
   fails, naming the configuration in the refusal, so the refusals of several configurations

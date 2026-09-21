@@ -207,35 +207,82 @@ type configurationValues struct {
 	clockStep float64
 }
 
-// clockStep is the step, in seconds, the tool's internal clock ticked by — stepSize (1.0
-// unless stated) in timeUnit, once startTime enables that clock — or 0 with a note on why not.
-func clockStep(read map[string]string) (step float64, note string) {
+// toolClock is the step, in seconds, of the tool's internal clock that startTime sets going — 0 with a
+// note when none is derived — and a note on a startTime other than 0; tags are the configuration's as written.
+func toolClock(read map[string]string, tags map[string][]string) (step float64, notes []string) {
 	if _, enabled := read["startTime"]; !enabled {
-		return 0, ""
+		return 0, nil
 	}
+	start, _ := strconv.ParseFloat(read["startTime"], 64) // finite: realSetting read it
 	step = 1
+	stepOf := "stepSize"
 	if v, ok := read["stepSize"]; ok {
-		step, _ = strconv.ParseFloat(v, 64) // finite: realSetting read it
-	}
-	if step <= 0 {
-		return 0, simConfig + "stepSize = " + semantics.FormatReal(step) + " is no step the clock can tick by, so the runs' clock is continuous"
+		step, _ = strconv.ParseFloat(v, 64)
+	} else if derived, note := stepOfSteps(start, tags); note != "" {
+		notes = append(notes, note)
+		if derived > 0 {
+			step, stepOf = derived, "the stepSize derived as (endTime - startTime) / numberOfSteps"
+		}
 	}
 	unit, stated := read["timeUnit"]
-	if !stated {
-		return step, simConfig + "timeUnit is unstated, so stepSize = " + semantics.FormatReal(step) + " is read in seconds, as the model's bare durations are, where the tool's default is the millisecond"
-	}
 	scale, ok := durationUnits[strings.ToLower(unit)]
-	if !ok || unit == "" {
-		return 0, simConfig + "timeUnit = " + strconv.Quote(unit) + " is no fixed number of seconds, so the clock's step is not derived and the runs' clock is continuous"
+	unitReadable := !stated || (ok && unit != "")
+	in := " in timeUnit = " + strconv.Quote(unit)
+	if !stated {
+		in = " in milliseconds, the tool's default for an unstated timeUnit,"
+	}
+	if start != 0 {
+		notes = append(notes, clockStartNote(start, start*scale, in, unitReadable))
+	}
+	if step <= 0 {
+		return 0, append(notes, simConfig+stepOf+" = "+semantics.FormatReal(step)+" is no step the clock can tick by, so the runs' clock is continuous")
+	}
+	if !unitReadable {
+		return 0, append(notes, simConfig+"timeUnit = "+strconv.Quote(unit)+" is no fixed number of seconds, so the clock's step is not derived and the runs' clock is continuous")
 	}
 	switch seconds := step * scale; {
 	case math.IsInf(seconds, 0):
-		return 0, simConfig + "stepSize = " + semantics.FormatReal(step) + " in timeUnit = " + strconv.Quote(unit) + " is more seconds than a number holds, so the clock's step is not derived and the runs' clock is continuous"
+		return 0, append(notes, simConfig+stepOf+" = "+semantics.FormatReal(step)+in+" is more seconds than a number holds, so the clock's step is not derived and the runs' clock is continuous")
 	case seconds == 0:
-		return 0, simConfig + "stepSize = " + semantics.FormatReal(step) + " in timeUnit = " + strconv.Quote(unit) + " is fewer seconds than a number tells from none, so the clock's step is not derived and the runs' clock is continuous"
+		return 0, append(notes, simConfig+stepOf+" = "+semantics.FormatReal(step)+in+" is fewer seconds than a number tells from none, so the clock's step is not derived and the runs' clock is continuous")
+	case !stated:
+		return seconds, append(notes, simConfig+"timeUnit is unstated, so "+stepOf+" = "+semantics.FormatReal(step)+" is read in milliseconds, the tool's default")
 	default:
-		return seconds, ""
+		return seconds, notes
 	}
+}
+
+// stepOfSteps is (endTime − start) / numberOfSteps, the step the tool derives for an unstated stepSize,
+// with the note reading it; 0 with the note when the two tell no step; neither when one is unstated.
+func stepOfSteps(start float64, tags map[string][]string) (step float64, note string) {
+	ends, counts := tags["endTime"], tags["numberOfSteps"]
+	if len(ends) != 1 || len(counts) != 1 {
+		return 0, ""
+	}
+	end, count := strings.TrimSpace(ends[0]), strings.TrimSpace(counts[0])
+	stated := simConfig + "stepSize is unstated, and endTime = " + end + " with numberOfSteps = " + count
+	e, err := strconv.ParseFloat(end, 64)
+	if err != nil || math.IsNaN(e) || math.IsInf(e, 0) || e <= start {
+		return 0, stated + " spans no time from startTime = " + semantics.FormatReal(start) + ", so the tool's default step, 1.0, stands"
+	}
+	n, err := strconv.ParseFloat(count, 64)
+	if err != nil || math.IsNaN(n) || math.IsInf(n, 0) || n != math.Trunc(n) || n <= 0 {
+		return 0, stated + " counts no steps, so the tool's default step, 1.0, stands"
+	}
+	step = (e - start) / n
+	return step, stated + " derive it as (endTime - startTime) / numberOfSteps = " + semantics.FormatReal(step)
+}
+
+// clockStartNote says the tool's clock started at start, not at 0 as a run's does, so an instant
+// read on the clock — an `at` trigger's, the clock variable's — is offset by it in a run.
+func clockStartNote(start, seconds float64, in string, unitReadable bool) string {
+	note := simConfig + "startTime = " + semantics.FormatReal(start) + in + " started the tool's clock "
+	if !unitReadable || math.IsInf(seconds, 0) {
+		note += "at an instant no number of seconds tells"
+	} else {
+		note += "at " + semantics.FormatReal(seconds) + " s"
+	}
+	return note + ", and a run's clock starts at 0, so an instant read on the clock — by an `at` trigger or the clock variable — is offset by that start here"
 }
 
 // configurationSettings writes the Simulation::Configuration attributes a
@@ -270,10 +317,9 @@ func (m *migration) configurationSettings(s *sysmlv1.Stereotype) (settings confi
 			settings.draws = strings.TrimPrefix(lit, "Simulation::DrawPolicy::")
 		}
 	}
-	var stepNote string
-	if settings.clockStep, stepNote = clockStep(read); stepNote != "" {
-		notes = append(notes, stepNote)
-	}
+	var clockNotes []string
+	settings.clockStep, clockNotes = toolClock(read, s.Tags)
+	notes = append(notes, clockNotes...)
 	for _, a := range activeObjectSettings {
 		recorded[a.tag] = true
 		vs := s.Tags[a.tag]

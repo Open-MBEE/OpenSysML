@@ -399,13 +399,13 @@ func (m *migration) translatedStatements(body, lang string, scope *sysmlv1.Eleme
 }
 
 // symbolicDuration reads a duration written as an expression, optionally
-// followed by a time unit (`ditSetup s`, `t * 2 min`), as seconds read at scope.
+// followed by a time unit (`ditSetup s`, `t * 2 min`; none is milliseconds), as seconds read at scope.
 func (m *migration) symbolicDuration(text, lang string, scope *sysmlv1.Element) (expr string, ok bool, note string) {
 	body := strings.TrimSpace(durationVariable.ReplaceAllString(strings.TrimSpace(text), ""))
-	scale := 1.0
+	scale, bare := durationUnits[""], true
 	if i := strings.LastIndexAny(body, " \t"); i >= 0 {
 		if s, known := durationUnits[strings.ToLower(body[i+1:])]; known {
-			body, scale = strings.TrimSpace(body[:i]), s
+			body, scale, bare = strings.TrimSpace(body[:i]), s, false
 		}
 	}
 	if body == "" {
@@ -421,7 +421,11 @@ func (m *migration) symbolicDuration(text, lang string, scope *sysmlv1.Element) 
 		}
 		expr += " * " + realLiteral(scale)
 	}
-	return expr, true, "the duration " + strconv.Quote(strings.TrimSpace(text)) + " is read as the expression " + expr + ", in seconds"
+	note = "the duration " + strconv.Quote(strings.TrimSpace(text)) + " is read as the expression " + expr + ", in seconds"
+	if bare {
+		note += "; the expression" + bareDurationNote
+	}
+	return expr, true, note
 }
 
 // parseStatement reports whether line parses, without diagnostics, as one

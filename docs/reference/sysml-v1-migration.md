@@ -162,7 +162,7 @@ returned over the service yet.
 | AcceptEventAction | `action x accept p : Sig;` (signal trigger), `accept after <d> [SI::s]` (relative TimeEvent), `accept when <cond>` (ChangeEvent) | mapped |
 | AcceptEventAction on an absolute TimeEvent (`when` is an instant, not a duration) | `accept at <instant>`, the instant a `Time::TimeInstantValue` attribute of the `action def` when `when` is a number with a time unit or an expression that resolves; otherwise a comment | approximated (the instant is read on the simulation clock, which starts at 0) / **unmapped** |
 | OpaqueAction, ValueSpecificationAction, ReadStructuralFeatureAction, AddStructuralFeatureValueAction | `assign`/`out result = …` when the body parses as a v2 expression whose names resolve, or is a JavaScript body of the [subset](#the-opaque-language-subset): `i = 1; GS_Found = true;` is a sequence of `assign` statements, `i += 1` an assignment of `i + 1`, `var t = 0` a local `attribute`; names resolve against the action's own pins first, then the swimlane's represented object, then the activity, then the owning block; otherwise the body as a comment inside `action x { }` naming the language and the token refused | mapped / approximated |
-| DurationConstraint on an action | a wait before the action: `accept after lo [SI::s]` when the interval is a point, `accept after RandomFunctions::uniform(lo, hi) [SI::s]` otherwise; `1s`, `0.5 s`, `80ms`, `2 min`, `1 h` and `t = 1 minute 30 seconds` literals are scaled to seconds; a symbolic bound (`ditSetup s`, `setup * 2 min`) is an expression whose names resolve like an action body's, `accept after this.tcs.ditSetup [SI::s]` | approximated (a tool's min/max/average/random mode is the run's `-draws` policy, which its configuration records) |
+| DurationConstraint on an action | a wait before the action: `accept after lo [SI::s]` when the interval is a point, `accept after RandomFunctions::uniform(lo, hi) [SI::s]` otherwise; `1s`, `0.5 s`, `80ms`, `2 min`, `1 h` and `t = 1 minute 30 seconds` literals are scaled to seconds, and a bare number (`200`, a LiteralInteger, `t = 1500`) is in the simulation toolkit's default unit, the millisecond, with a note; a symbolic bound (`ditSetup s`, `setup * 2 min`) is an expression whose names resolve like an action body's, `accept after this.tcs.ditSetup [SI::s]`, one with no unit scaled from milliseconds, `this.settle * 0.001` | approximated (a tool's min/max/average/random mode is the run's `-draws` policy, which its configuration records) |
 | DurationConstraint whose interval is open on one side (a min with no max, a max of `*`, a max with no min) | comment naming the bound it lacks | **unmapped** — every wait past the bound satisfies the interval, so no one delay stands for it; a MagicDraw document's min beside a max that is a duration with no expression is that tool's encoding of a one-valued `{60s}` and is written as its fixed wait, approximated |
 | DurationConstraint whose bounds name nothing the activity can read | comment | **unmapped** — the note names the unresolved name |
 | DurationObservation whose events are two nodes of one activity | an `attribute <name> : Real [0..1]` of the `action def`, stamped with `localClock.currentTime` when the first node starts and assigned the elapsed clock when the second ends (`assign T := localClock.currentTime - 'T start';`, guarded on the stamp having happened); one node observed is its own duration; an initial node's start is the activity's `start`, a flow final's or a control node no edge leaves the token's arrival before `done`; the attribute is one a run can `-observe`, and a run that does not reach both nodes leaves it without a value | mapped |
@@ -880,13 +880,17 @@ action def 'Group 0' {
   `timeUnit` and `parallelForks`: they describe the clock the tool ran on, and OpenSysML's clock
   is the run's own, so a run reads none of them. One of them the harness does apply: a
   configuration stating `startTime` ran on the tool's internal clock, which ticks by `stepSize`
-  (`1.0` unless stated) in `timeUnit` and notices a wait's end at the tick after it, so the sidecar
+  (`(endTime − startTime) / numberOfSteps` when those two are stated instead, else `1.0`) in
+  `timeUnit` and notices a wait's end at the tick after it, so the sidecar
   records that step in seconds as `clockStep` and `-compare-results` runs the configuration on a
   clock stepping by it (`-clock-step` overrides it). A `timeUnit` the migration cannot read as a
   fixed number of seconds, a `stepSize` of zero or less, or one that in its unit is more seconds
   than a number holds or fewer than it tells from none, leaves the step out with a note and
-  the runs on a continuous clock; an unstated `timeUnit` reads the step in seconds, as a bare
-  duration of the model is read, and notes that the tool's own default is the millisecond. A
+  the runs on a continuous clock; an unstated `timeUnit` is the tool's default, the millisecond,
+  as a bare duration of the model is read, and the reading is noted. The tool's clock started at
+  `startTime`; a run's starts at 0, so a `startTime` other than 0 is noted as an approximation —
+  an instant read on the clock, by an `at` trigger or the clock variable, is offset by that start
+  in a run — and the note reaches the sidecar and the comparison. A
   configuration without `startTime` ran on the tool's real-time clock and records no step. A mode
   that is none of the four policies,
   and a run count beyond what a Monte Carlo can make (a 64-bit count), are kept among the
