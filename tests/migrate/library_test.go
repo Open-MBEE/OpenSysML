@@ -208,6 +208,21 @@ func TestConcatWithoutAnArgument(t *testing.T) {
 		meta(t, s, "%instantiate Recorder")
 		wantValues(t, runValues(t, s, "Recorder::Label", "Recorder"), map[string]string{"concat.result": `"n=1"`})
 	})
+	t.Run("y names the sibling pin x", func(t *testing.T) {
+		r := migrateDocument(t, labeler(concatCall(behavior, `
+          <argument xmi:type="uml:ValuePin" xmi:id="_concatY" name="y">`+stringType+`
+            <value xmi:type="uml:OpaqueExpression" xmi:id="_concatYV">
+              <language>JavaScript</language>
+              <body>x</body>
+            </value>
+          </argument>`), "concat"), recorderBlock)
+		wantClean(t, "t.sysml", r)
+		wantNote(t, r, "_concat", migrate.Mapped, "calls fUML StringFunctions::Concat, which the v2 library computes")
+		wantLine(t, r.Notation, "in y : ScalarValues::String = x;")
+		s := session(t, r)
+		meta(t, s, "%instantiate Recorder")
+		wantValues(t, runValues(t, s, "Recorder::Label", "Recorder"), map[string]string{"concat.result": `"n=n="`})
+	})
 }
 
 // A value pin whose literal has no v2 expression — an unlimited natural of *, a
