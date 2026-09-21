@@ -148,12 +148,25 @@ func pointsOnly(r, owner *sysmlv1.Element) bool {
 // namePoints settles how each connection point of composite state v is written
 // and names those written as members of its body, whose names used lists.
 func (m *migration) namePoints(v *sysmlv1.Element, used map[string]bool) {
+	// seen holds the names of the body's other members; a written point that bears one yields.
+	seen := map[string]bool{}
+	for _, c := range namespaceMembers(v) {
+		if name := m.nameOf(c); name != "" {
+			seen[name] = true
+		}
+	}
 	for _, cp := range m.connectionPoints(v) {
 		f := m.statePointForm(cp, v)
 		m.points[cp] = f
-		if f.kw != "" {
-			m.nameVertex(cp, v, used)
+		if f.kw == "" {
+			continue
 		}
+		if name := m.nameOf(cp); name != "" && seen[name] {
+			m.names[cp] = m.distinct(v, seen, name)
+		} else if name != "" {
+			seen[name] = true
+		}
+		m.nameVertex(cp, v, used)
 	}
 }
 

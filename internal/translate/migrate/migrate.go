@@ -486,36 +486,43 @@ func (m *migration) distinguish(e *sysmlv1.Element) {
 			seen[c.Name] = true
 			continue
 		}
-		name := c.Name
-		for i := 2; seen[name] || m.nameTaken(e, name); i++ {
-			name = fmt.Sprintf("%s %d", c.Name, i)
-		}
-		seen[name] = true
-		m.names[c] = name
+		m.names[c] = m.distinct(e, seen, c.Name)
 	}
 }
 
+// distinct gives a member of e named name, which a sibling in seen already bears,
+// the first `name 2`, `name 3`, … no member of e has, and marks it seen.
+func (m *migration) distinct(e *sysmlv1.Element, seen map[string]bool, name string) string {
+	fresh := name
+	for i := 2; seen[fresh] || m.nameTaken(e, fresh); i++ {
+		fresh = fmt.Sprintf("%s %d", name, i)
+	}
+	seen[fresh] = true
+	return fresh
+}
+
 // namespaceMembers lists the children of e written as members of its v2 body: its
-// own, the named vertices of its one written region, which v2 puts beside them,
-// and a state's connection points whichever region a tool listed them in.
+// own, and the named vertices of its one written region, which v2 puts beside them.
+// A state's connection points are left to namePoints, which knows which are written.
 func namespaceMembers(e *sysmlv1.Element) []*sysmlv1.Element {
 	var members []*sysmlv1.Element
-	written := writtenRegions(e)
 	var inline *sysmlv1.Element
-	if len(written) == 1 {
+	if written := writtenRegions(e); len(written) == 1 {
 		inline = written[0]
 	}
 	for _, c := range e.Children {
 		switch {
 		case c.Role == "region":
+			if c != inline {
+				continue
+			}
 			for _, v := range c.Owned("subvertex") {
-				if vertexBase(v) != "" && (c == inline || memberOwner(v) == e) {
+				if vertexBase(v) != "" && memberOwner(v) != e {
 					members = append(members, v)
 				}
 			}
-			if c == inline {
-				members = append(members, c.Owned("transition")...)
-			}
+			members = append(members, c.Owned("transition")...)
+		case c.Role == "connectionPoint" && e.Type == "State":
 		case !ownerWritten(c.Role):
 			members = append(members, c)
 		}

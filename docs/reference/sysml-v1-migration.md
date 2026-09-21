@@ -134,7 +134,7 @@ returned over the service yet.
 | Comment, Documentation | `doc` (first) / `comment`, HTML tags stripped | mapped |
 | Custom-profile stereotypes and tags | preserved as `/* applied stereotype «Name»: tag = value */` | mapped |
 | SysML stereotype tags without a v2 form (`Block.isEncapsulated`, `ValueType.unit`, …) | preserved as `/* «Name» tags with no v2 form: tag = value */` | approximated |
-| Two members of one namespace with the same name (UML allows it, v2 does not) | the later one renamed `Name 2`, a state, pseudostate or history a machine's region puts beside its attributes included, as is a connection point of a state whichever region a tool listed it in; a connection end named like a member of its connection def renamed `name2` | approximated |
+| Two members of one namespace with the same name (UML allows it, v2 does not) | the later one renamed `Name 2`, a state, pseudostate or history a machine's region puts beside its attributes included, as is a written connection point of a state whichever region a tool listed it in, while one written as no member takes no name; a connection end named like a member of its connection def renamed `name2` | approximated |
 | Anonymous property with no v2 type | a `ref` named after its type, or `unnamed` | approximated |
 | Multiplicity bounds that are not natural numbers (a tool's `492x21` array dimensions) | omitted | approximated |
 | `NaN`/infinite real literals | comment | approximated |

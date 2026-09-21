@@ -1296,3 +1296,33 @@ func TestRegionListedPointKeepsClearOfTheStatesMembers(t *testing.T) {
 	wantNote(t, r, "_rBoth", migrate.Approximated, "written as Both 2 since a sibling is also named Both")
 	session(t, r)
 }
+
+// A connection point that is written as no member takes no name from the state's body:
+// an entry behavior named like an entry point nothing leaves keeps its name.
+func TestUnwrittenPointLeavesTheStatesMembersTheirNames(t *testing.T) {
+	xmi := regionListedPoints
+	for _, leaving := range []string{
+		`<transition xmi:type="uml:Transition" xmi:id="_raT1" source="_rBoth" target="_ra2"/>`,
+		`<transition xmi:type="uml:Transition" xmi:id="_rbT1" source="_rBoth" target="_rb2"/>`,
+	} {
+		xmi = strings.Replace(xmi, leaving, "", 1)
+	}
+	xmi = strings.Replace(xmi, `</region>
+          </subvertex>`, `</region>
+            <entry xmi:type="uml:OpaqueBehavior" xmi:id="_rSyncEntry" name="Both"/>
+          </subvertex>`, 1)
+	r := migrateDocument(t, xmi, regionListedPointsApplications)
+	for _, line := range []string{
+		"entry action Both",
+		"transition first Idle accept Go then Sync;",
+	} {
+		if !strings.Contains(string(r.Notation), line) {
+			t.Errorf("missing %q in:\n%s", line, r.Notation)
+		}
+	}
+	if strings.Contains(string(r.Notation), "Both 2") {
+		t.Errorf("a member is renamed for a connection point that is written as no member:\n%s", r.Notation)
+	}
+	wantNote(t, r, "_rBoth", migrate.Mapped, "no transition leaves the entry point")
+	session(t, r)
+}
