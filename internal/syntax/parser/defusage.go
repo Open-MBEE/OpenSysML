@@ -3930,20 +3930,6 @@ func (p *Parser) parseConnectorEnds(u *ast.Usage, kw string) {
 	if u.Kind == ast.UsageSuccession {
 		p.acceptKeyword("first") // optional "first" before first end
 	}
-	from := p.parseConnectorEnd()
-	if from == nil {
-		return
-	}
-	u.ConnectorEnds = append(u.ConnectorEnds, from)
-
-	// Check for optional "references" keyword after first end
-	// Pattern: end X references Y to end Z
-	if p.acceptKeyword("references") {
-		refTarget := p.parseRelationshipTarget()
-		if refTarget != nil {
-			from.Reference = refTarget
-		}
-	}
 
 	// Determine expected keyword based on usage kind
 	var expectedKeyword string
@@ -3954,9 +3940,32 @@ func (p *Parser) parseConnectorEnds(u *ast.Usage, kw string) {
 		expectedKeyword = "to"
 	}
 
-	if !p.acceptKeyword(expectedKeyword) {
-		p.error(p.peek().Span, fmt.Sprintf("expected '%s' between connector ends", expectedKeyword))
-		return
+	if p.atKeyword(expectedKeyword) && !p.peekIsKeyword(1, expectedKeyword) {
+		// The first end is missing and the keyword is read as the delimiter it
+		// is, not as the end's name — except where a second keyword follows,
+		// there the first is a genuine name (`connect to to b`).
+		p.error(p.peek().Span, fmt.Sprintf("expected a connector end before '%s'", expectedKeyword))
+		p.advance()
+	} else {
+		from := p.parseConnectorEnd()
+		if from == nil {
+			return
+		}
+		u.ConnectorEnds = append(u.ConnectorEnds, from)
+
+		// Check for optional "references" keyword after first end
+		// Pattern: end X references Y to end Z
+		if p.acceptKeyword("references") {
+			refTarget := p.parseRelationshipTarget()
+			if refTarget != nil {
+				from.Reference = refTarget
+			}
+		}
+
+		if !p.acceptKeyword(expectedKeyword) {
+			p.error(p.peek().Span, fmt.Sprintf("expected '%s' between connector ends", expectedKeyword))
+			return
+		}
 	}
 	to := p.parseConnectorEnd()
 	if to == nil {
@@ -4032,23 +4041,30 @@ func (p *Parser) parseConnectorFromTo(u *ast.Usage) {
 		return // Optional connector clause
 	}
 
-	from := p.parseConnectorEnd()
-	if from == nil {
-		return
-	}
-	u.ConnectorEnds = append(u.ConnectorEnds, from)
-
-	// Check for optional "references" keyword after from end
-	if p.acceptKeyword("references") {
-		refTarget := p.parseRelationshipTarget()
-		if refTarget != nil {
-			from.Reference = refTarget
+	if p.atKeyword("to") && !p.peekIsKeyword(1, "to") {
+		// The from end is missing: `to` is the delimiter, not an end's name —
+		// except where a second `to` follows, there the first is a genuine name.
+		p.error(p.peek().Span, "expected a connector end before 'to'")
+		p.advance()
+	} else {
+		from := p.parseConnectorEnd()
+		if from == nil {
+			return
 		}
-	}
+		u.ConnectorEnds = append(u.ConnectorEnds, from)
 
-	if !p.acceptKeyword("to") {
-		p.error(p.peek().Span, "expected 'to' between connector ends")
-		return
+		// Check for optional "references" keyword after from end
+		if p.acceptKeyword("references") {
+			refTarget := p.parseRelationshipTarget()
+			if refTarget != nil {
+				from.Reference = refTarget
+			}
+		}
+
+		if !p.acceptKeyword("to") {
+			p.error(p.peek().Span, "expected 'to' between connector ends")
+			return
+		}
 	}
 
 	to := p.parseConnectorEnd()
