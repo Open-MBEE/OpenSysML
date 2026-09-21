@@ -653,20 +653,21 @@ what the service's own commit path stores for the same model. It measures the ga
 asserting the fix, so every item below shows up as movement in
 `internal/translate/interop/flexo/testdata/interop_expected.txt`. Keep it out of `go test ./...`.
 
-What the current recording measures, for the identity-carrying fixture: **49 of 49 elements
-listed and 369 of 452 properties delivered** on the graph-load side, against 33 of 33 and 158 of
-158 for the same model posted through the service's own commit path; 9 of 49 read as roots, and 9
-have no owner in the model; every element is readable directly by id; no subject of the graph is
-outside the element namespace. **Every standard property is delivered, the 14 multi-valued ones
-included** — `ownedMember`, `ownedMembership`, `ownedRelationship` (3/3 each), `ownedFeature`,
-`ownedFeatureMembership` (2/2 each), `specializes` (1/1) — since D3.4 landed. The 83 lost
-properties are one thing:
+What the current recording measures, for the identity-carrying fixture: **59 of 59 elements
+listed and 505 of 582 properties delivered** on the graph-load side, against 33 of 33 and 158 of
+158 for the same model posted through the service's own commit path; 1 of 59 reads as a root, and
+1 has no owner in the model (expression nodes and connector ends are owned elements now); every
+element is readable directly by id; no subject of the graph is outside the element namespace.
+**Every standard property is delivered, the 26 multi-valued ones included** — `connectorEnd`,
+`ownedEndFeature`, `chainingFeature`, `relatedElement`, `ownedRelationship` (6/6), `ownedMembership`
+(4/4), `ownedFeature`, `ownedFeatureMembership`, `ownedMember` (3/3 each), `specializes` (1/1) —
+since D3.4 landed. The 77 lost properties are one thing:
 
-- **The remaining loss is annotation vocabulary in `sysx:`** — source text, notation spelling,
-  expression argument names and end-form details. Standard expression ownership and connector
-  end structure are now written as `sysml:` properties; the Flexo measurement has not been
-  rerun against the new shape, and the remaining `sysx:` annotations are intentionally
-  documented in D1 and D2 below.
+- **The remaining loss is annotation vocabulary in `sysx:`** — seven predicates: source text and
+  tail, notation spelling (`declaredKeyword`, `endForm`, `sourceLanguage`), body presence and
+  member order. `sysx:argumentIndex`, `sysx:endIndex` and `sysx:relatedFeature` no longer appear,
+  because operand order and end targets are standard `sysml:` structure; the remaining `sysx:`
+  annotations are intentionally documented in D1 and D2 below.
 
 The commit path delivers 6 of 6 of its own multi-valued properties, because it stores each array
 whole as a JSON annotation literal alongside the typed triples; the graph now carries the same
@@ -686,9 +687,9 @@ either spelling or both and refuses a graph whose two spellings disagree, and `r
 the literal in step when it mints ids. Re-recorded against the live stack, the multi-valued
 standard properties went from 0 of 14 to 14 of 14 delivered, and the total from 355/424 to 369/452
 (the denominator moved with the source-text properties the mapping added since the previous
-recording; connector-related features are now written as standard `sysml:relatedFeature`,
-but the Flexo measurement has not been rerun against the new shape; the remaining source and
-ordering limitations are recorded in D1 and D2).
+recording); the recording after D1 and D2 is 505/582, with the standard expression and end
+structure delivered in full and the remaining source and ordering limitations recorded in D1 and
+D2.
 
 ## D1 — expression trees have standard ownership and operand vocabulary
 
@@ -707,7 +708,6 @@ What remains:
   has no notation-level name on an argument occurrence;
 - source spelling and expression-body ordering remain annotations where the metamodel has no
   corresponding property; and
-- Flexo interoperability still needs a live-stack measurement with the updated shape.
 - ~~an expression standing as a body member~~ — done: a calc's trailing result expression is a
   `ResultExpressionMembership` owning the expression (#815, #835,
   [rdf-mapping.md § Result expressions](../reference/rdf-mapping.md#result-expressions)), and no
