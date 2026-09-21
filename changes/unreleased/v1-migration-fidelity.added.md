@@ -2,8 +2,10 @@
   whose target specializes MagicDraw's `MonteCarloAnalysis` records `N`, `Mean`, `Deviation` and
   `OutOfSpec` beside the observed values; the `-migration-results` sidecar now writes them as the
   snapshot's `statistics` of the observable the analysis binds its `Mean` to, standing for `N`
-  runs, rather than as one more run, and notes a summary that is incomplete, counts no runs, binds
-  no observable, or summarises another configuration's.
+  runs, rather than as one more run — `deviation` and `outOfSpec` only when the snapshot records
+  them, so a missing deviation is not a zero — and notes a summary that is incomplete, counts
+  no runs, binds no observable, states an `OutOfSpec` that is no count of its runs, or
+  summarises another configuration's.
 - **Every run configuration is compared.** `-compare-results` runs a configuration the tool
   stored no snapshot of and prints its statistics under a `tool (no stored result to compare)`
   row; runs one stating no `numberOfRuns` once, as the tool does, under a note saying so; counts
@@ -40,5 +42,6 @@
   the SysML v1 migration leaves it out of the translation, keeps the other statements of the body,
   and notes each print left out as an approximation; a body of prints alone is an empty action.
   A print whose argument assigns, counts or calls anything but a function of the table computing
-  a value could change the model, so it is refused rather than left out; a call not in the
-  table, or a print used as a value, is refused as before.
+  a value (a Java `equals` counts only on a receiver known to be a string; any other type's is
+  that type's own method) could change the model, so it is refused rather than left out; a call
+  not in the table, or a print used as a value, is refused as before.

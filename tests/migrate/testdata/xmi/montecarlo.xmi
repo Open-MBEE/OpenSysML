@@ -165,6 +165,27 @@
           <value xmi:type="uml:LiteralInteger" xmi:id="_halfNv" value="3"/>
         </slot>
       </packagedElement>
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_lean" name="analysis without a deviation" classifier="_analysis">
+        <slot xmi:type="uml:Slot" xmi:id="_leanT" definingFeature="_t">
+          <value xmi:type="uml:LiteralReal" xmi:id="_leanTv" value="7.0"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_leanN">
+          <definingFeature href="MD_customization_for_SysML.mdzip#_mcN">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::N" referentType="Property"/>
+            </xmi:Extension>
+          </definingFeature>
+          <value xmi:type="uml:LiteralInteger" xmi:id="_leanNv" value="2"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_leanMean">
+          <definingFeature href="MD_customization_for_SysML.mdzip#_mcMean">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::Mean" referentType="Property"/>
+            </xmi:Extension>
+          </definingFeature>
+          <value xmi:type="uml:LiteralReal" xmi:id="_leanMeanv" value="7.0"/>
+        </slot>
+      </packagedElement>
       <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_odd" name="analysis of two and a half runs" classifier="_analysis">
         <slot xmi:type="uml:Slot" xmi:id="_oddT" definingFeature="_t">
           <value xmi:type="uml:LiteralReal" xmi:id="_oddTv" value="4.0"/>

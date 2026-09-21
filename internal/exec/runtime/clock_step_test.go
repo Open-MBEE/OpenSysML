@@ -137,6 +137,14 @@ func TestClockStepAbsorbsRounding(t *testing.T) {
 	if got := onTick(1_000_000_000+1e-7, 1); got != 1_000_000_000 {
 		t.Errorf("onTick(1000000000+1e-7) = %v, want 1000000000", got)
 	}
+	for _, step := range []float64{1e-320, 1e-300, 1e-17} {
+		if got := onTick(2.3, step); got != 2.3 {
+			t.Errorf("onTick(2.3, %v) = %v, want 2.3: a step finer than a float64 tells apart leaves the instant", step, got)
+		}
+	}
+	if got := onTick(1e300, 1e-10); got != 1e300 {
+		t.Errorf("onTick(1e300, 1e-10) = %v, want 1e300", got)
+	}
 }
 
 // CheckClockStep admits every finite, non-negative step and refuses the rest

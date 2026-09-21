@@ -143,7 +143,7 @@ func (m *migration) slotValues(inst *sysmlv1.Element, snap *simresults.Snapshot,
 			case reason != "":
 				scan.unread[monteCarloAnalysisBlock+"::"+stat+" "+reason]++
 				unread = true
-			case stat != monteCarloOutOfSpec:
+			default:
 				summary[stat] = value
 			}
 			continue
@@ -308,9 +308,9 @@ func (m *migration) monteCarloSlot(slot *sysmlv1.Element) (stat string, value fl
 	return stat, scalar.number, ""
 }
 
-// monteCarloStatistics makes the statistics a snapshot's N, Mean and Deviation record
-// of the analysed observable, which the binding leaves holding the Mean; none when the
-// analysis left them blank, or when unread marks one holding no number. note says what
+// monteCarloStatistics makes the statistics a snapshot's N, Mean, Deviation and OutOfSpec
+// record of the analysed observable, which the binding leaves holding the Mean; none when
+// the analysis left them blank, or when unread marks one holding no number. note says what
 // is amiss; foreign marks a snapshot whose Mean another observable holds instead — of
 // an analysis of that one, so of another configuration.
 func monteCarloStatistics(observable string, summary map[string]float64, unread bool, values map[string]float64) (stats *simresults.Statistics, note string, foreign bool) {
@@ -330,8 +330,19 @@ func monteCarloStatistics(observable string, summary map[string]float64, unread 
 	case runs != math.Trunc(runs) || runs < 1:
 		return nil, "record a " + monteCarloAnalysisBlock + "::" + monteCarloRuns + " of " + strconv.FormatFloat(runs, 'g', -1, 64) + ", which is no count of runs, so they hold no statistics", false
 	}
+	outOfSpec, hasOutOfSpec := summary[monteCarloOutOfSpec]
+	if hasOutOfSpec && (outOfSpec != math.Trunc(outOfSpec) || outOfSpec < 0 || outOfSpec > runs) {
+		return nil, "record a " + monteCarloAnalysisBlock + "::" + monteCarloOutOfSpec + " of " + strconv.FormatFloat(outOfSpec, 'g', -1, 64) + " over " + strconv.FormatFloat(runs, 'g', -1, 64) + " runs, which is no count of them, so they hold no statistics", false
+	}
 	if value, recorded := values[observable]; recorded && value == mean {
-		return &simresults.Statistics{Observable: observable, Runs: int64(runs), Mean: mean, Deviation: summary[monteCarloDeviation]}, "", false
+		stats := &simresults.Statistics{Observable: observable, Runs: int64(runs), Mean: mean}
+		if deviation, recorded := summary[monteCarloDeviation]; recorded {
+			stats.Deviation = simresults.Real(deviation)
+		}
+		if hasOutOfSpec {
+			stats.OutOfSpec = simresults.Count(int64(outOfSpec))
+		}
+		return stats, "", false
 	}
 	var holders []string
 	for name, value := range values {

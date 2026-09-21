@@ -13,9 +13,9 @@ import (
 // MonteCarloAnalysis, whose binding connector wires its t to the pattern's Mean,
 // with a result package holding one snapshot of a run and several of the
 // pattern's statistics: a whole one, one holding the Mean as another feature,
-// one without a Mean, one with a fractional N, one holding no t, one whose Mean is a
-// string and Deviation NaN, and one the tool left blank. A second configuration
-// stores nothing, a third targets an analysis binding no feature.
+// one without a Mean, one recording no Deviation, one with a fractional N, one holding
+// no t, one whose Mean is a string and Deviation NaN, and one the tool left blank. A
+// second configuration stores nothing, a third targets an analysis binding no feature.
 func TestMonteCarloAnalysisSnapshotsAreSummaries(t *testing.T) {
 	r := migrateFixtureFile(t, "montecarlo")
 	if r.Results == nil || len(r.Results.Configurations) != 3 {
@@ -28,8 +28,10 @@ func TestMonteCarloAnalysisSnapshotsAreSummaries(t *testing.T) {
 		Snapshots: []simresults.Snapshot{
 			{ID: "_raw", Name: "run 1", Values: map[string]float64{"p": 0.5, "t": 2}},
 			{ID: "_sum", Name: "analysis of 4 runs", Values: map[string]float64{"t": 3.5},
-				Statistics: &simresults.Statistics{Observable: "t", Runs: 4, Mean: 3.5, Deviation: 0.5}},
+				Statistics: &simresults.Statistics{Observable: "t", Runs: 4, Mean: 3.5, Deviation: simresults.Real(0.5), OutOfSpec: simresults.Count(1)}},
 			{ID: "_half", Name: "half an analysis", Values: map[string]float64{"t": 6}},
+			{ID: "_lean", Name: "analysis without a deviation", Values: map[string]float64{"t": 7},
+				Statistics: &simresults.Statistics{Observable: "t", Runs: 2, Mean: 7}},
 			{ID: "_odd", Name: "analysis of two and a half runs", Values: map[string]float64{"t": 4}},
 			{ID: "_stray", Name: "analysis of nothing held", Values: map[string]float64{}},
 			{ID: "_garbled", Name: "analysis with a garbled mean", Values: map[string]float64{"t": 3}},
@@ -73,14 +75,14 @@ func TestMonteCarloAnalysisSnapshotsAreSummaries(t *testing.T) {
 	if values := group0.Values("t"); !reflect.DeepEqual(values, []float64{2, 6, 4, 3, 5}) {
 		t.Errorf("Values(t) = %v, want the runs stored one by one, without the summary's mean", values)
 	}
-	if runs := group0.StoredRuns(); runs != 10 {
-		t.Errorf("StoredRuns = %d, want 4 summarised and 6 stored one by one", runs)
+	if runs := group0.StoredRuns(); runs != 12 {
+		t.Errorf("StoredRuns = %d, want 6 summarised and 6 stored one by one", runs)
 	}
-	if got, want := r.Results.Summary(), "results of 3 run configuration(s): 2 with 8 stored snapshot(s) standing for 11 run(s)"; got != want {
+	if got, want := r.Results.Summary(), "results of 3 run configuration(s): 2 with 9 stored snapshot(s) standing for 13 run(s)"; got != want {
 		t.Errorf("Summary = %q, want %q", got, want)
 	}
 
-	wantLine(t, r.Notation, "/* results of the simulation tool: 7 snapshot(s) in Results standing for 10 run(s) analysing t holding p, t */")
+	wantLine(t, r.Notation, "/* results of the simulation tool: 8 snapshot(s) in Results standing for 12 run(s) analysing t holding p, t */")
 	wantLine(t, r.Notation, "/* results of the simulation tool: 0 snapshot(s) in Empty analysing t */")
 	wantLine(t, r.Notation, "/* results of the simulation tool: 1 snapshot(s) in Unbound Results holding t */")
 	wantNote(t, r, "_analysis", migrate.Approximated, "generalization of the simulation tool's MonteCarloAnalysis is not written: v2 has no analysis pattern for the statistics it computes over the runs, which the migration results read from the result snapshots")

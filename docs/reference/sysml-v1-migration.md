@@ -579,12 +579,12 @@ Expression Language`, `ECMAScript for XML`, `JSON`:
 | integer, real, Boolean and string literals | the same literal; a whole number is refused beyond what an `Integer` holds (2⁶³ − 1), and in a JavaScript body beyond 2⁵³ − 1, since the script would round it to a `Number` (a Java body's `long` is exact); a string's `\n` `\t` `\r` `\b` `\f` `\\` `\'` `\"` `\xHH` `\uHHHH` `\u{H…}` escapes and line continuations are decoded, a high and low surrogate escape pair as the one character they spell, while a legacy octal escape or a character the notation cannot spell (`\0`, `\v`, other control characters, a lone surrogate) is refused |
 | `a`, `a.b.c` naming features that resolve | `this.a`, `this.a.b.c` (through the swimlane's object when it has one) |
 | `+ - * / %`, comparisons, `&& \|\| !`, parentheses | `+ - * / %`, comparisons, `and or not`, parentheses; a Java body's `/` of two whole numbers drops the remainder, so it is `OpenSysMLMathFunctions::quotient(x, y)` (the exact Integer quotient truncated toward zero, refused at run time only for the least Integer by `-1`, whose quotient no Integer holds), and is refused when the operands' types cannot tell whether both are whole. Whole-number arithmetic is the exact arithmetic of a v2 `Integer`: a script that rounds a result beyond 2⁵³ to a `Number`, or a Java `int`/`long` that wraps past its range, computes something else there, which the translation does not reproduce — the translated feature holds the modeler's `Integer`, not a floating-point or fixed-width number |
-| Java's `a.equals(b)` / `"x".equals(b)` on strings | `a == b`, the comparison of their content; a Java body's `==` or `!=` with an operand known to be a string is refused, since Java compares strings there by identity, which no comparison of their values reproduces, and `equals` is refused where a side is known not to be a string or neither side's type is known (a script's `==` on strings compares their content and translates as it stands) |
+| Java's `a.equals(b)` / `"x".equals(b)` on strings | `a == b`, the comparison of their content; a Java body's `==` or `!=` with an operand known to be a string is refused, since Java compares strings there by identity, which no comparison of their values reproduces, and `equals` is translated only on a receiver known to be a string — a string literal, or a feature or local declared `String` — since any other type's `equals` is that type's own method, and is refused where the argument is known not to be a string (a script's `==` on strings compares their content and translates as it stands) |
 | `c ? a : b` | `if c ? a else b` when `a` and `b` are of one scalar type |
 | `Math.min` `Math.max` `Math.abs` `Math.floor` `Math.ceil` `Math.round` `Math.sqrt` `Math.pow`, `a ** b` | `RealFunctions::min` … `RealFunctions::sqrt`, `**`; `Math.min` and `Math.max` take any number of arguments in a script, folded pairwise (`max(max(a, b), c)`; one argument is that argument, none is refused as the infinity the script answers), and exactly two in a Java body, as Java's do; `Math.ceil(x)` is `OpenSysMLMathFunctions::ceiling(x)` (the extension library's `Integer` ceiling, so the least Integer is a value where `-floor(-x)` would overflow on its negation) and `Math.round(x)` is `RealFunctions::floor(x + 0.5)`, which rounds a half toward +∞ as JavaScript does. The three answer the library's `Integer` in a script, and in a Java body `Math.round` does where `Math.floor` and `Math.ceil` answer a `Real` as Java's answer a `double` (so a Java `/` after them is real division, not `quotient`); each result is exact up to the `Integer` range and a whole Real at or beyond 2⁶³ (or below −2⁶³), which the script would keep as a `Number` and Java's `Math.round` would clamp to a `long`, is a typed arithmetic-overflow error at run time, never a wrapped Integer; `-a ** b` is refused, as JavaScript rejects a unary operand of `**` without parentheses, and a Java body's `**` is refused, Java having no such operator |
 | `java.util.Collections.max(s)` / `.min(s)` | `RealFunctions::max(s)` / `RealFunctions::min(s)` over a collection |
 | the tool's time variable (`simtime`) | `localClock.currentTime` |
-| `print(…);` `println(…);` `System.out.print(…);` `System.out.println(…);` (also qualified `java.lang.System.out.…`) as a statement | nothing: the call writes to the tool's console and changes no value of the model, so it is left out of the translation, the other statements of the body stand, and the report notes each print left out as an approximation; a body of prints alone is an empty action. The arguments are read for what they could change: one that assigns (`print(i = 1)`), counts (`i++`) or calls anything but a function of this table computing a value (`Math.max`, `Collections.max`, a Java `equals`) could change the model, so that print is refused rather than left out; a print used as a value (`i = print(x)`) is a call outside the table |
+| `print(…);` `println(…);` `System.out.print(…);` `System.out.println(…);` (also qualified `java.lang.System.out.…`) as a statement | nothing: the call writes to the tool's console and changes no value of the model, so it is left out of the translation, the other statements of the body stand, and the report notes each print left out as an approximation; a body of prints alone is an empty action. The arguments are read for what they could change: one that assigns (`print(i = 1)`), counts (`i++`) or calls anything but a function of this table computing a value (`Math.max`, `Collections.max`, a Java `equals` on a receiver known to be a string — one on any other receiver may be that type's own method) could change the model, so that print is refused rather than left out; a print used as a value (`i = print(x)`) is a call outside the table |
 
 **English** (`language` English, natural language, text) is read as one Boolean expression:
 `TRUE` / `FALSE` / `true` / `false`; a property name, spaces and all; `not X`; `X and Y`;
@@ -716,16 +716,19 @@ action def 'Group 0' {
   classifier to match snapshots against are each noted in the configuration's `notes`.
 - A target whose classifier specializes MagicDraw's `MonteCarloAnalysis` (the analysis pattern
   of the SimulationProfile, recognised by provenance) summarises its runs rather than recording
-  each: a snapshot's `N`, `Mean`, `Deviation` and `OutOfSpec` slots are the count, mean and
-  standard deviation of the observable the analysis binds its `Mean` to, so they are kept out of
-  the observables and written as the snapshot's `"statistics"`, standing for `N` runs, and the
-  configuration's `"analysis"` names that observable, which the snapshot holds the same mean
-  for. An analysis binding its `Mean` to no feature, or to several, a snapshot recording `N`
-  without `Mean` or the reverse, an `N` that is no count, a statistic that is no number (a
-  string, `NaN`, two values in one slot; a blank literal is the tool's zero), or a `Mean` no
-  value of the observable holds is noted and the snapshot read as an ordinary run of the
-  numbers it does hold; one whose `Mean` another feature holds instead summarises an analysis of another
-  configuration and is set aside with a note.
+  each: a snapshot's `N`, `Mean`, `Deviation` and `OutOfSpec` slots are the count, mean,
+  standard deviation and out-of-specification count of the observable the analysis binds its
+  `Mean` to, so they are kept out of the observables and written as the snapshot's
+  `"statistics"` (`runs`, `mean`, and `deviation` and `outOfSpec` only when the snapshot
+  records them — a summary without a `Deviation` states none rather than a zero), standing for
+  `N` runs, and the configuration's `"analysis"` names that observable, which the snapshot
+  holds the same mean for. An analysis binding its `Mean` to no feature, or to several, a
+  snapshot recording `N` without `Mean` or the reverse, an `N` that is no count, an `OutOfSpec`
+  that is no count of the `N` runs, a statistic that is no number (a string, `NaN`, two values
+  in one slot; a blank literal is the tool's zero), or a `Mean` no value of the observable
+  holds is noted and the snapshot read as an ordinary run of the numbers it does hold; one
+  whose `Mean` another feature holds instead summarises an analysis of another configuration
+  and is set aside with a note.
 - A target whose classifiers, and their generals, have no classifier behavior but hold
   constraint properties — the parametric configurations a tool solves for values — performs
   nothing, since a v2 run checks a constraint and does not solve it; the note lists each

@@ -1,7 +1,7 @@
 # SysML v1 to v2 migration report: montecarlo.xmi
-# migrated 62 element(s): 39 mapped, 3 approximated, 20 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 66 element(s): 41 mapped, 3 approximated, 22 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
-## unmapped (20)
+## unmapped (22)
 Slot	Results::analysis left blank::<Slot>	_blankN	(the slot holds the simulation tool's MonteCarloAnalysis::N statistic of the runs, which is no value of the instance; the migration results read it)
 Slot	Results::analysis left blank::<Slot>	_blankMean	(the slot holds the simulation tool's MonteCarloAnalysis::Mean statistic of the runs, which is no value of the instance; the migration results read it)
 Slot	Results::analysis of 4 runs::<Slot>	_sumN	(the slot holds the simulation tool's MonteCarloAnalysis::N statistic of the runs, which is no value of the instance; the migration results read it)
@@ -17,6 +17,8 @@ Slot	Results::analysis of u::<Slot>	_forMean	(the slot holds the simulation tool
 Slot	Results::analysis with a garbled mean::<Slot>	_garbledN	(the slot holds the simulation tool's MonteCarloAnalysis::N statistic of the runs, which is no value of the instance; the migration results read it)
 Slot	Results::analysis with a garbled mean::<Slot>	_garbledMean	(the slot holds the simulation tool's MonteCarloAnalysis::Mean statistic of the runs, which is no value of the instance; the migration results read it)
 Slot	Results::analysis with a garbled mean::<Slot>	_garbledDev	(the slot holds the simulation tool's MonteCarloAnalysis::Deviation statistic of the runs, which is no value of the instance; the migration results read it)
+Slot	Results::analysis without a deviation::<Slot>	_leanN	(the slot holds the simulation tool's MonteCarloAnalysis::N statistic of the runs, which is no value of the instance; the migration results read it)
+Slot	Results::analysis without a deviation::<Slot>	_leanMean	(the slot holds the simulation tool's MonteCarloAnalysis::Mean statistic of the runs, which is no value of the instance; the migration results read it)
 Slot	Results::half an analysis::<Slot>	_halfN	(the slot holds the simulation tool's MonteCarloAnalysis::N statistic of the runs, which is no value of the instance; the migration results read it)
 Slot	Results::run 1::<Slot>	_rawN	(the slot holds the simulation tool's MonteCarloAnalysis::N statistic of the runs, which is no value of the instance; the migration results read it)
 Slot	Results::run 1::<Slot>	_rawMean	(the slot holds the simulation tool's MonteCarloAnalysis::Mean statistic of the runs, which is no value of the instance; the migration results read it)
@@ -28,7 +30,7 @@ Slot	Unbound Results::run 1::<Slot>	_ub1N	(the slot holds the simulation tool's 
 Activity	Timer::Tick	_act	-> Timer::Tick	(the classifier behavior is run by every object of Timer as its usage tick)
 «Block» Class	Unbound Analysis	_unbound	-> 'Unbound Analysis'	(generalization of the simulation tool's MonteCarloAnalysis is not written: v2 has no analysis pattern for the statistics it computes over the runs, which the migration results read from the result snapshots)
 
-## mapped (39)
+## mapped (41)
 Package	Empty	_empty	-> Empty
 «SimulationConfig» Class	Group 0	_g0	-> 'Group 0'
 «SimulationConfig» Class	Group 1	_g5	-> 'Group 1'
@@ -46,6 +48,8 @@ InstanceSpecification	Results::analysis of u	_foreign	-> Results::'analysis of u
 Slot	Results::analysis of u::<Slot>	_forU	-> Results::'analysis of u'::u
 InstanceSpecification	Results::analysis with a garbled mean	_garbled	-> Results::'analysis with a garbled mean'
 Slot	Results::analysis with a garbled mean::<Slot>	_garbledT	-> Results::'analysis with a garbled mean'::t
+InstanceSpecification	Results::analysis without a deviation	_lean	-> Results::'analysis without a deviation'
+Slot	Results::analysis without a deviation::<Slot>	_leanT	-> Results::'analysis without a deviation'::t
 InstanceSpecification	Results::half an analysis	_half	-> Results::'half an analysis'
 Slot	Results::half an analysis::<Slot>	_halfT	-> Results::'half an analysis'::t
 InstanceSpecification	Results::run 1	_raw	-> Results::'run 1'

@@ -136,13 +136,16 @@ func (e *ClockStepParseError) Error() string {
 
 func (e *ClockStepParseError) Unwrap() error { return ErrClockStep }
 
-// onTick is the first tick of a clock stepping by step not before the instant t: t itself
-// on a continuous clock, or when t is within rounding (at most a millionth of a tick) of a tick.
+// onTick is the first tick of a clock stepping by step not before the instant t: t itself on a
+// continuous clock, within rounding (at most a millionth of a tick) of a tick, or past what a float64 counts.
 func onTick(t, step float64) float64 {
 	if step == 0 {
 		return t
 	}
 	ticks := t / step
+	if math.IsInf(ticks, 0) || math.Abs(ticks) >= 1<<53 {
+		return t
+	}
 	nearest := math.Round(ticks)
 	tolerance := math.Min(1e-9*math.Max(1, math.Abs(ticks)), 1e-6)
 	if math.Abs(ticks-nearest) <= tolerance {
@@ -263,7 +266,7 @@ func (ctx *Context) dueInstant(t *ast.TimeEvent, val Value, what string) (float6
 		return 0, fmt.Errorf("%w: %s is infinite", ErrNegativeDuration, what)
 	}
 	if t.Absolute {
-		return onTick(math.Max(magnitude, ctx.clock.now), ctx.ClockStepTaken()), nil
+		return ctx.clock.tickOf(math.Max(magnitude, ctx.clock.now), ctx.ClockStepTaken(), what)
 	}
 	if magnitude < 0 {
 		return 0, fmt.Errorf("%w: %s %s is negative", ErrNegativeDuration, what, semantics.FormatReal(magnitude))
@@ -272,7 +275,18 @@ func (ctx *Context) dueInstant(t *ast.TimeEvent, val Value, what string) (float6
 	if err != nil {
 		return 0, err
 	}
-	return onTick(due, ctx.ClockStepTaken()), nil
+	return ctx.clock.tickOf(due, ctx.ClockStepTaken(), what)
+}
+
+// tickOf is the tick a wait for the finite instant due comes due on under step; one
+// past the last instant a float64 holds is refused, so the clock stays finite.
+func (c *Clock) tickOf(due, step float64, what string) (float64, error) {
+	tick := onTick(due, step)
+	if math.IsInf(tick, 0) {
+		return 0, fmt.Errorf("%w: %s at t=%s comes due on a tick of the clock stepping by %s past the last instant the clock can hold",
+			ErrNegativeDuration, what, semantics.FormatReal(due), semantics.FormatReal(step))
+	}
+	return tick, nil
 }
 
 // instantAfter is the instant a finite, non-negative duration from now leads to;

@@ -32,7 +32,7 @@ func TestSummarisedMigrationResultsThroughCLI(t *testing.T) {
 	if migrated.status != 0 {
 		t.Fatalf("migrating failed: %s", migrated.output())
 	}
-	if !strings.Contains(migrated.stderr, "(results of 3 run configuration(s): 2 with 8 stored snapshot(s) standing for 11 run(s))") {
+	if !strings.Contains(migrated.stderr, "(results of 3 run configuration(s): 2 with 9 stored snapshot(s) standing for 13 run(s))") {
 		t.Errorf("the sidecar summary counts no summarised runs:\n%s", migrated.output())
 	}
 	compared := runCommand(t, exec.Command(binary, model, "-compare-results", sidecar, "-seed", "1"))
@@ -40,12 +40,13 @@ func TestSummarisedMigrationResultsThroughCLI(t *testing.T) {
 		t.Fatalf("exit status = %d, want 0\n%s", compared.status, compared.output())
 	}
 	for _, want := range []string{
-		"compare 'Group 0' — 10 stored run(s) over 7 snapshot(s) in Results; 3 run(s) by OpenSysML, draws average, seed 1\n",
-		"p          | tool                 | 1    | 0.5   | 0.5                | 0.5   | 0.5   | 0.5",
-		"t          | tool                 | 9    |       | 3.7777777777777777 |       |       |",
-		"           | OpenSysML (target.t) | 3    | 3.0   | 3.0                | 3.0   | 3.0   | 3.0",
-		"           | difference           |      |       | -20.6%             |       |       |",
-		`note: "analysis of 4 runs" summarises 4 run(s) of t: mean 3.5, deviation 0.5`,
+		"compare 'Group 0' — 12 stored run(s) over 8 snapshot(s) in Results; 3 run(s) by OpenSysML, draws average, seed 1\n",
+		"p          | tool                 | 1    | 0.5   | 0.5               | 0.5   | 0.5   | 0.5",
+		"t          | tool                 | 11   |       | 4.363636363636363 |       |       |",
+		"           | OpenSysML (target.t) | 3    | 3.0   | 3.0               | 3.0   | 3.0   | 3.0",
+		"           | difference           |      |       | -31.2%            |       |       |",
+		`note: "analysis of 4 runs" summarises 4 run(s) of t: mean 3.5, deviation 0.5, 1 out of specification`,
+		`note: "analysis without a deviation" summarises 2 run(s) of t: mean 7.0` + "\n",
 		"note: the slot of MonteCarloAnalysis::Mean holds a LiteralString, which is no number in 1 snapshot(s), so it is not among the results",
 		"note: 1 snapshot(s) record a MonteCarloAnalysis statistic that is no number, so they hold no statistics",
 		"note: 1 snapshot(s) hold the MonteCarloAnalysis::Mean as u and not as t, which the analysis binds it to, so they are of an analysis of another configuration and not among the results",

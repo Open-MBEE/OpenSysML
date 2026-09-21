@@ -31,7 +31,7 @@ action def 'Group 0' {
     }
     part target : 'timer analysis';
     perform action run ::> target.tick;
-    /* results of the simulation tool: 7 snapshot(s) in Results standing for 10 run(s) analysing t holding p, t */
+    /* results of the simulation tool: 8 snapshot(s) in Results standing for 12 run(s) analysing t holding p, t */
 }
 action def 'Group 1' {
     @Simulation::Configuration {
@@ -72,6 +72,11 @@ package Results {
     individual part def 'half an analysis' :> 'Timer Analysis' {
         attribute :>> t = 6.0;
         /* not migrated: Slot (_halfN) — the slot holds the simulation tool's MonteCarloAnalysis::N statistic of the runs, which is no value of the instance; the migration results read it */
+    }
+    individual part def 'analysis without a deviation' :> 'Timer Analysis' {
+        attribute :>> t = 7.0;
+        /* not migrated: Slot (_leanN) — the slot holds the simulation tool's MonteCarloAnalysis::N statistic of the runs, which is no value of the instance; the migration results read it */
+        /* not migrated: Slot (_leanMean) — the slot holds the simulation tool's MonteCarloAnalysis::Mean statistic of the runs, which is no value of the instance; the migration results read it */
     }
     individual part def 'analysis of two and a half runs' :> 'Timer Analysis' {
         attribute :>> t = 4.0;

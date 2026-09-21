@@ -59,13 +59,32 @@ type Snapshot struct {
 }
 
 // Statistics are what a tool's Monte Carlo analysis records of one observable
-// over the runs of a snapshot: their count, mean and standard deviation.
+// over the runs of a snapshot: their count and mean, and when it recorded them,
+// their standard deviation and the count of runs out of specification.
 type Statistics struct {
-	Observable string  `json:"observable"`
-	Runs       int64   `json:"runs"`
-	Mean       float64 `json:"mean"`
-	Deviation  float64 `json:"deviation"`
+	Observable string   `json:"observable"`
+	Runs       int64    `json:"runs"`
+	Mean       float64  `json:"mean"`
+	Deviation  *float64 `json:"deviation,omitempty"`
+	OutOfSpec  *int64   `json:"outOfSpec,omitempty"`
 }
+
+// Real is v as an optional statistic.
+func Real(v float64) *float64 { return &v }
+
+// Count is n as an optional statistic.
+func Count(n int64) *int64 { return &n }
+
+// Equal reports whether s and o record the same statistics, an unrecorded one
+// equal only to an unrecorded one.
+func (s Statistics) Equal(o Statistics) bool {
+	return s.Observable == o.Observable && s.Runs == o.Runs && s.Mean == o.Mean &&
+		sameReal(s.Deviation, o.Deviation) && sameCount(s.OutOfSpec, o.OutOfSpec)
+}
+
+func sameReal(a, b *float64) bool { return a == nil && b == nil || a != nil && b != nil && *a == *b }
+
+func sameCount(a, b *int64) bool { return a == nil && b == nil || a != nil && b != nil && *a == *b }
 
 // Values are the numbers the snapshots hold for observable run by run, in snapshot
 // order; a snapshot summarising the observable holds its mean, which is no run's.
@@ -112,11 +131,12 @@ func (c *ConfigurationResults) Disagreeing(observable string) []Snapshot {
 
 // Disagrees reports whether s and o cannot summarise runs of one distribution:
 // their means lie more than three standard errors of their difference apart.
+// Without both deviations the standard error is unknown, so nothing disagrees.
 func (s Statistics) Disagrees(o Statistics) bool {
-	if s.Runs < 2 || o.Runs < 2 {
+	if s.Runs < 2 || o.Runs < 2 || s.Deviation == nil || o.Deviation == nil {
 		return false
 	}
-	se := math.Sqrt(s.Deviation*s.Deviation/float64(s.Runs) + o.Deviation*o.Deviation/float64(o.Runs))
+	se := math.Sqrt(*s.Deviation**s.Deviation/float64(s.Runs) + *o.Deviation**o.Deviation/float64(o.Runs))
 	return math.Abs(s.Mean-o.Mean) > 3*se
 }
 
@@ -161,7 +181,7 @@ func (r *Results) Repeats(i int) []string {
 // Repeats reports whether o stores the same summarised runs as s: the same name,
 // the same statistics, and no observable both hold a different number of.
 func (s Snapshot) Repeats(o Snapshot) bool {
-	if s.Name != o.Name || s.Statistics == nil || o.Statistics == nil || *s.Statistics != *o.Statistics {
+	if s.Name != o.Name || s.Statistics == nil || o.Statistics == nil || !s.Statistics.Equal(*o.Statistics) {
 		return false
 	}
 	for k, v := range s.Values {

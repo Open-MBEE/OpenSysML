@@ -8,14 +8,17 @@ import (
 
 // TestRuntimeRobustnessClockStep exercises what a stepped clock refuses or must
 // not change: a step that is no finite, non-negative number, a negative wait
-// under a step, a step changed while waits are pending, and an instant already
-// past. Each is a typed error or the continuous clock's rule, never a panic or a
-// wait that never comes due.
+// under a step, a step changed while waits are pending, an instant already past,
+// a step too fine for the instant, and a tick past the last instant. Each is a
+// typed error or the continuous clock's rule, never a panic or a wait that never
+// comes due.
 func TestRuntimeRobustnessClockStep(t *testing.T) {
 	t.Run("step_that_is_no_number_is_refused", testStepThatIsNoNumberIsRefused)
 	t.Run("negative_wait_is_refused_under_a_step", testNegativeWaitIsRefusedUnderAStep)
 	t.Run("step_set_mid_run_applies_to_the_waits_set_after_it", testStepSetMidRunAppliesToTheWaitsSetAfterIt)
 	t.Run("past_instant_fires_at_once_under_a_step", testPastInstantFiresAtOnceUnderAStep)
+	t.Run("step_too_fine_to_tell_apart_leaves_the_wait_finite", testStepTooFineToTellApartLeavesTheWaitFinite)
+	t.Run("tick_past_the_last_instant_is_refused", testTickPastTheLastInstantIsRefused)
 }
 
 // testStepThatIsNoNumberIsRefused: a negative, NaN or infinite step is ErrClockStep
@@ -119,5 +122,50 @@ func testPastInstantFiresAtOnceUnderAStep(t *testing.T) {
 	}
 	if now := ctx.Clock().Now(); now != 4.0 {
 		t.Errorf("the clock is at %v, want 4.0", now)
+	}
+}
+
+// testStepTooFineToTellApartLeavesTheWaitFinite: a positive step so small that the
+// instant counts more ticks than a float64 holds leaves the wait due at its instant,
+// never at infinity.
+func testStepTooFineToTellApartLeavesTheWaitFinite(t *testing.T) {
+	m := parseLibraryModel(t, steppedModel)
+	for _, step := range []float64{1e-320, 1e-300, 1e-17} {
+		ctx, out, err := runUnderStep(t, m, "Stepped", step)
+		if err != nil {
+			t.Fatalf("step %v: %v", step, err)
+		}
+		got := realOutputs(t, out, "t1", "t2", "t3")
+		for i, want := range []float64{2.3, 2.7, 6.0} {
+			if math.Abs(got[i]-want) > 1e-9 {
+				t.Errorf("step %v: t%d = %v, want %v", step, i+1, got[i], want)
+			}
+		}
+		if now := ctx.Clock().Now(); math.IsInf(now, 0) || math.IsNaN(now) {
+			t.Errorf("step %v: the clock is at %v, want a finite instant", step, now)
+		}
+	}
+}
+
+// testTickPastTheLastInstantIsRefused: an instant whose next tick lies past the
+// last float64 is refused as ErrNegativeDuration rather than waited for at infinity.
+func testTickPastTheLastInstantIsRefused(t *testing.T) {
+	m := parseLibraryModel(t, `
+		package test {
+			private import ScalarValues::*;
+			private import SI::*;
+			private import Time::*;
+			action def Far {
+				attribute last : TimeInstantValue = 1.79e308 [s];
+				action w accept at last;
+				then done;
+			}
+		}`)
+	ctx, _, err := runUnderStep(t, m, "Far", 1e307)
+	if !errors.Is(err, ErrNegativeDuration) {
+		t.Fatalf("err = %v, want ErrNegativeDuration", err)
+	}
+	if waits := ctx.Clock().Waits(); len(waits) != 0 {
+		t.Errorf("waits = %+v, want none queued", waits)
 	}
 }

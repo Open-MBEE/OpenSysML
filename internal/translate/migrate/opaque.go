@@ -801,28 +801,53 @@ var pureCalls = map[string]bool{
 	"java.util.Collections.max": true, "java.util.Collections.min": true, "Collections.max": true, "Collections.min": true,
 }
 
-// pureCall reports whether a call of fn changes nothing of the model: a function
-// of pureCalls, or in Java a string's equals.
-func (p *opaqueParser) pureCall(fn string) bool {
-	return pureCalls[fn] || (p.d == dialectJava && strings.HasSuffix(fn, ".equals"))
+// pureCall reports whether a call of the callee path changes nothing of the model:
+// a function of pureCalls, or in Java the equals of a string, which compares content;
+// onLiteral says a string literal is the receiver. Any other equals could be anything.
+func (p *opaqueParser) pureCall(path []string, onLiteral bool) bool {
+	if pureCalls[strings.Join(path, ".")] {
+		return true
+	}
+	if p.d != dialectJava || path[len(path)-1] != "equals" {
+		return false
+	}
+	if onLiteral {
+		return len(path) == 1
+	}
+	return len(path) > 1 && p.holdsString(path[:len(path)-1])
 }
 
-// calleeAt is the dotted name a `(` at index i is a call of, "" when no name precedes it.
-func (p *opaqueParser) calleeAt(i int) string {
+// holdsString reports whether the dotted name is known to hold a single string.
+func (p *opaqueParser) holdsString(path []string) bool {
+	if len(path) == 1 {
+		if l, ok := p.locals[path[0]]; ok {
+			return l.scalar == "String"
+		}
+	}
+	ref, err := p.sc.feature(path, false)
+	return err == nil && !ref.plural && ref.scalar == "String"
+}
+
+// calleeAt is the dotted name a `(` at index i is a call of, nil when no name
+// precedes it, and whether a string literal precedes that name as its receiver.
+func (p *opaqueParser) calleeAt(i int) (path []string, onLiteral bool) {
 	before := func(j int) int {
 		for j--; j >= 0 && p.toks[j].kind == tokNewline; j-- {
 		}
 		return j
 	}
-	var parts []string
-	for j := before(i); j >= 0 && p.toks[j].kind == tokIdent; j = before(j) {
-		parts = append(parts, p.toks[j].text)
-		if j = before(j); j < 0 || !p.toks[j].isPunct(".") {
-			break
+	j := before(i)
+	for j >= 0 && p.toks[j].kind == tokIdent {
+		path = append(path, p.toks[j].text)
+		dot := before(j)
+		if dot < 0 || !p.toks[dot].isPunct(".") {
+			slices.Reverse(path)
+			return path, false
 		}
+		j = before(dot)
 	}
-	slices.Reverse(parts)
-	return strings.Join(parts, ".")
+	slices.Reverse(path)
+	return path, len(path) > 0 && j >= 0 && p.toks[j].kind == tokString
 }
 
 // consolePrint reads past the arguments of a console print, which is written as no
@@ -839,7 +864,11 @@ func (p *opaqueParser) consolePrint(fn string) ([]string, *refusal) {
 			return nil, &refusal{kind: refusedSyntax, token: fn + "(", why: "the arguments are not closed"}
 		case tok.isPunct("("):
 			depth++
-			if callee := p.calleeAt(p.i - 1); callee != "" && !p.pureCall(callee) {
+			if path, onLiteral := p.calleeAt(p.i - 1); len(path) > 0 && !p.pureCall(path, onLiteral) {
+				callee := strings.Join(path, ".")
+				if p.d == dialectJava && path[len(path)-1] == "equals" {
+					return nil, &refusal{kind: refusedType, token: callee, why: "an argument of " + fn + " calls it on what is not known to be a string, an equals that could do anything, so the print is not left out"}
+				}
 				return nil, changing("calls " + callee)
 			}
 		case tok.isPunct(")"):
@@ -1572,19 +1601,21 @@ func (p *opaqueParser) literalMethod(lit translated) (translated, *refusal) {
 	return stringEquals(lit, fn, args[0])
 }
 
-// stringEquals writes Java's `a.equals(b)` on strings, the comparison of their
-// content, as `a == b`; a receiver or argument known not to be a string is refused.
+// stringEquals writes Java's `a.equals(b)` on a string, the comparison of its
+// content, as `a == b`; a receiver not known to be a string may be any equals, so
+// it is refused, as is an argument known not to be a string.
 func stringEquals(recv translated, fn string, arg translated) (translated, *refusal) {
-	for _, side := range []translated{recv, arg} {
-		switch {
-		case side.plural:
-			return translated{}, &refusal{kind: refusedType, token: fn, why: "equals is translated between strings, and this compares a collection"}
-		case side.held() != "" && side.scalar != "String":
-			return translated{}, &refusal{kind: refusedType, token: fn, why: "equals is translated between strings, and this compares a " + side.held()}
-		}
-	}
-	if recv.held() == "" && arg.held() == "" {
-		return translated{}, &refusal{kind: refusedType, token: fn, why: "equals is translated between strings, and neither side's type is known"}
+	switch {
+	case recv.plural:
+		return translated{}, &refusal{kind: refusedType, token: fn, why: "equals is translated on a string, and this is called on a collection"}
+	case recv.held() != "" && recv.scalar != "String":
+		return translated{}, &refusal{kind: refusedType, token: fn, why: "equals is translated on a string, and this is called on a " + recv.held()}
+	case recv.held() == "":
+		return translated{}, &refusal{kind: refusedType, token: fn, why: "equals is translated on a string, and the receiver's type is not known"}
+	case arg.plural:
+		return translated{}, &refusal{kind: refusedType, token: fn, why: "equals is translated between strings, and this compares a collection"}
+	case arg.held() != "" && arg.scalar != "String":
+		return translated{}, &refusal{kind: refusedType, token: fn, why: "equals is translated between strings, and this compares a " + arg.held()}
 	}
 	return binary(recv, "==", arg, looseEquality, "Boolean"), nil
 }

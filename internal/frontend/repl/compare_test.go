@@ -324,7 +324,7 @@ func TestCompareNotesSnapshotsStoredTwice(t *testing.T) {
 	seed := uint64(1)
 	summary := simresults.Snapshot{
 		ID: "_sum", Name: "analysis", Values: map[string]float64{"total": 10.0},
-		Statistics: &simresults.Statistics{Observable: "total", Runs: 8, Mean: 10.0, Deviation: 1.5},
+		Statistics: &simresults.Statistics{Observable: "total", Runs: 8, Mean: 10.0, Deviation: simresults.Real(1.5)},
 	}
 	results := compareResults("'Group 1'", 2)
 	results.Configurations[0].Snapshots = []simresults.Snapshot{summary}
@@ -382,7 +382,7 @@ func TestComparisonTablePoolsSummarisedResults(t *testing.T) {
 	cfg.Analysis = "total"
 	cfg.Snapshots = append(cfg.Snapshots, simresults.Snapshot{
 		ID: "_sum", Name: "analysis", Values: map[string]float64{"total": 10.0},
-		Statistics: &simresults.Statistics{Observable: "total", Runs: 8, Mean: 10.0, Deviation: 1.5},
+		Statistics: &simresults.Statistics{Observable: "total", Runs: 8, Mean: 10.0, Deviation: simresults.Real(1.5)},
 	})
 	if runs := cfg.StoredRuns(); runs != 10 {
 		t.Errorf("StoredRuns = %d, want 10: two stored one by one and eight summarised", runs)
@@ -417,8 +417,8 @@ func TestComparisonTablePoolsSummarisedResults(t *testing.T) {
 	// Summaries whose means lie further apart than sampling error allows are of
 	// other model states than one, and the table says so.
 	cfg.Snapshots = append(cfg.Snapshots,
-		simresults.Snapshot{ID: "_near", Name: "again", Values: map[string]float64{"total": 10.5}, Statistics: &simresults.Statistics{Observable: "total", Runs: 8, Mean: 10.5, Deviation: 1.5}},
-		simresults.Snapshot{ID: "_far", Name: "other", Values: map[string]float64{"total": 20.0}, Statistics: &simresults.Statistics{Observable: "total", Runs: 8, Mean: 20.0, Deviation: 1.5}},
+		simresults.Snapshot{ID: "_near", Name: "again", Values: map[string]float64{"total": 10.5}, Statistics: &simresults.Statistics{Observable: "total", Runs: 8, Mean: 10.5, Deviation: simresults.Real(1.5)}},
+		simresults.Snapshot{ID: "_far", Name: "other", Values: map[string]float64{"total": 20.0}, Statistics: &simresults.Statistics{Observable: "total", Runs: 8, Mean: 20.0, Deviation: simresults.Real(1.5)}},
 	)
 	got = strings.Join(comparisonTable(cfg, table, nil), "\n")
 	want := `note: the summaries "analysis", "again", "other" of total lie more than three standard errors apart, so they cannot be of runs of one and the same model, and the tool's mean of total blends them`

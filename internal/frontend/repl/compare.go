@@ -233,7 +233,14 @@ func comparisonTable(cfg *simresults.ConfigurationResults, table runtime.SweepTa
 			cells = append(cells, []string{name, "tool", fmt.Sprint(stored.Count), "", withUnit(drawnMean(stored), ""), "", "", ""})
 			for _, snap := range cfg.Summarised(name) {
 				st := snap.Statistics
-				notes = append(notes, fmt.Sprintf("note: %s summarises %d run(s) of %s: mean %s, deviation %s", orUnnamed(snap.Name), st.Runs, name, spell(st.Mean), spell(st.Deviation)))
+				note := fmt.Sprintf("note: %s summarises %d run(s) of %s: mean %s", orUnnamed(snap.Name), st.Runs, name, spell(st.Mean))
+				if st.Deviation != nil {
+					note += ", deviation " + spell(*st.Deviation)
+				}
+				if st.OutOfSpec != nil {
+					note += fmt.Sprintf(", %d out of specification", *st.OutOfSpec)
+				}
+				notes = append(notes, note)
 			}
 			if apart := cfg.Disagreeing(name); len(apart) > 0 {
 				names := make([]string, len(apart))
