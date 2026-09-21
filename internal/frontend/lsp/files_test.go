@@ -444,6 +444,41 @@ func TestDidChangeWorkspaceFoldersIndexesAddedFolder(t *testing.T) {
 	}
 }
 
+// A document left open when its folder is removed is a lone file from then on,
+// so its directory is indexed for it as though it had been opened that way.
+func TestRemovingFolderAroundOpenFileKeepsSiblingsIndexed(t *testing.T) {
+	s, fc, dir, lib, main := multiFileWorkspace(t)
+	ctx := context.Background()
+
+	openFile(t, s, main, mainSource)
+	if msgs := diagnosticsFor(fc, main); len(msgs) != 0 {
+		t.Fatalf("diagnostics for main = %v, want none", msgs)
+	}
+	if err := s.DidChangeWorkspaceFolders(ctx, &protocol.DidChangeWorkspaceFoldersParams{
+		Event: protocol.WorkspaceFoldersChangeEvent{
+			Removed: []protocol.WorkspaceFolder{{URI: string(uri.File(dir)), Name: "multi"}},
+		},
+	}); err != nil {
+		t.Fatalf("DidChangeWorkspaceFolders err = %v", err)
+	}
+	if s.ws.Document(lib) == nil {
+		t.Errorf("lib.sysml unindexed while main.sysml, which imports it, is still open")
+	}
+	if msgs := diagnosticsFor(fc, main); len(msgs) != 0 {
+		t.Errorf("diagnostics for main = %v, want none after its folder was removed", msgs)
+	}
+
+	// Closing the document releases the directory as for any lone file.
+	if err := s.DidClose(ctx, &protocol.DidCloseTextDocumentParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(main)},
+	}); err != nil {
+		t.Fatalf("DidClose err = %v", err)
+	}
+	if s.ws.Document(lib) != nil {
+		t.Errorf("lib.sysml still indexed after the last document under its directory closed")
+	}
+}
+
 func TestDidChangeWorkspaceFoldersKeepsOpenBuffer(t *testing.T) {
 	s, _, dir, lib, _ := multiFileWorkspace(t)
 
@@ -632,5 +667,221 @@ func TestInitializeFoldersFallsBackToRoot(t *testing.T) {
 	got = initializeFolders(&protocol.InitializeParams{RootPath: dir})
 	if len(got) != 1 || got[0] != dir {
 		t.Errorf("folders = %v, want [%s]", got, dir)
+	}
+}
+
+// A document opened under none of the session's folders has its own directory
+// indexed, so the sibling files it imports resolve as inside a folder.
+func TestOpeningFileOutsideFoldersIndexesItsDirectory(t *testing.T) {
+	dir := t.TempDir()
+	lib := filepath.Join(dir, "parts", "lib.sysml")
+	main := filepath.Join(dir, "main.sysml")
+	if err := os.MkdirAll(filepath.Dir(lib), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(lib, []byte(libSource), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(main, []byte(mainSource), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	s := NewServer(model.NewWorkspace())
+	fc := &fakeClient{}
+	s.client = fc
+	ctx := context.Background()
+	if _, err := s.Initialize(ctx, &protocol.InitializeParams{}); err != nil {
+		t.Fatalf("Initialize err = %v", err)
+	}
+	if err := s.Initialized(ctx, &protocol.InitializedParams{}); err != nil {
+		t.Fatalf("Initialized err = %v", err)
+	}
+
+	openFile(t, s, main, mainSource)
+	if msgs := diagnosticsFor(fc, main); len(msgs) != 0 {
+		t.Fatalf("diagnostics for main = %v, want none", msgs)
+	}
+	if s.ws.Document(lib) == nil {
+		t.Errorf("lib.sysml not indexed when its sibling was opened")
+	}
+	if s.ws.IsOpen(lib) {
+		t.Errorf("lib.sysml reported open; the scan records on-disk content only")
+	}
+}
+
+// The directory scan an open document triggers never overwrites another open
+// buffer, whose text the editor owns.
+func TestOpeningFileOutsideFoldersKeepsOpenBuffers(t *testing.T) {
+	dir := t.TempDir()
+	lib := filepath.Join(dir, "lib.sysml")
+	main := filepath.Join(dir, "main.sysml")
+	if err := os.WriteFile(lib, []byte("package Lib {\n}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(main, []byte(mainSource), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	s := NewServer(model.NewWorkspace())
+	fc := &fakeClient{}
+	s.client = fc
+	if _, err := s.Initialize(context.Background(), &protocol.InitializeParams{}); err != nil {
+		t.Fatalf("Initialize err = %v", err)
+	}
+
+	// The editor holds Widget in an unsaved buffer; the disk copy lacks it.
+	openFile(t, s, lib, libSource)
+	openFile(t, s, main, mainSource)
+	if msgs := diagnosticsFor(fc, main); len(msgs) != 0 {
+		t.Fatalf("diagnostics for main = %v, want none", msgs)
+	}
+	if !s.ws.IsOpen(lib) {
+		t.Errorf("lib.sysml no longer open after the sibling scan")
+	}
+}
+
+// No watcher reports edits outside the folders, so a lone file's directory is
+// scanned again when it is opened after every document under it was closed.
+func TestReopeningFileOutsideFoldersRescansItsDirectory(t *testing.T) {
+	dir := t.TempDir()
+	lib := filepath.Join(dir, "lib.sysml")
+	main := filepath.Join(dir, "main.sysml")
+	if err := os.WriteFile(lib, []byte(libSource), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(main, []byte(mainSource), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	s := NewServer(model.NewWorkspace())
+	fc := &fakeClient{}
+	s.client = fc
+	ctx := context.Background()
+	if _, err := s.Initialize(ctx, &protocol.InitializeParams{}); err != nil {
+		t.Fatalf("Initialize err = %v", err)
+	}
+
+	openFile(t, s, main, mainSource)
+	if msgs := diagnosticsFor(fc, main); len(msgs) != 0 {
+		t.Fatalf("diagnostics for main = %v, want none", msgs)
+	}
+	if err := s.DidClose(ctx, &protocol.DidCloseTextDocumentParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(main)},
+	}); err != nil {
+		t.Fatalf("DidClose err = %v", err)
+	}
+
+	// Widget is renamed on disk while nothing under dir is open.
+	if err := os.WriteFile(lib, []byte("package Lib {\n    part def Gadget;\n}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	openFile(t, s, main, mainSource)
+	if msgs := diagnosticsFor(fc, main); len(msgs) == 0 {
+		t.Errorf("main resolved Widget from a stale copy of lib.sysml after reopening")
+	}
+}
+
+// A sibling deleted while nothing under its directory is open is gone from the
+// index once the directory is released; a rescan never sees it to forget it.
+func TestClosingLastFileOutsideFoldersDropsDeletedSiblings(t *testing.T) {
+	dir := t.TempDir()
+	lib := filepath.Join(dir, "lib.sysml")
+	main := filepath.Join(dir, "main.sysml")
+	if err := os.WriteFile(lib, []byte(libSource), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(main, []byte(mainSource), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	s := NewServer(model.NewWorkspace())
+	fc := &fakeClient{}
+	s.client = fc
+	ctx := context.Background()
+	if _, err := s.Initialize(ctx, &protocol.InitializeParams{}); err != nil {
+		t.Fatalf("Initialize err = %v", err)
+	}
+
+	openFile(t, s, main, mainSource)
+	if msgs := diagnosticsFor(fc, main); len(msgs) != 0 {
+		t.Fatalf("diagnostics for main = %v, want none", msgs)
+	}
+	if err := s.DidClose(ctx, &protocol.DidCloseTextDocumentParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(main)},
+	}); err != nil {
+		t.Fatalf("DidClose err = %v", err)
+	}
+	if s.ws.Document(lib) != nil {
+		t.Errorf("lib.sysml still indexed after every document under its directory closed")
+	}
+	if s.ws.Document(main) == nil {
+		t.Errorf("main.sysml forgotten on close; a closed document keeps its on-disk content")
+	}
+
+	if err := os.Remove(lib); err != nil {
+		t.Fatal(err)
+	}
+	openFile(t, s, main, mainSource)
+	if msgs := diagnosticsFor(fc, main); len(msgs) == 0 {
+		t.Errorf("main resolved Widget from a deleted lib.sysml after reopening")
+	}
+}
+
+// A directory stays indexed while a document in a subdirectory is open, and is
+// released, along with the subdirectory, once that document closes too.
+func TestNestedFilesOutsideFoldersReleaseEveryDirectory(t *testing.T) {
+	dir := t.TempDir()
+	parts := filepath.Join(dir, "parts")
+	if err := os.Mkdir(parts, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	lib := filepath.Join(parts, "lib.sysml")
+	main := filepath.Join(dir, "main.sysml")
+	if err := os.WriteFile(lib, []byte(libSource), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(main, []byte(mainSource), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	s := NewServer(model.NewWorkspace())
+	fc := &fakeClient{}
+	s.client = fc
+	ctx := context.Background()
+	if _, err := s.Initialize(ctx, &protocol.InitializeParams{}); err != nil {
+		t.Fatalf("Initialize err = %v", err)
+	}
+	closeFile := func(path string) {
+		if err := s.DidClose(ctx, &protocol.DidCloseTextDocumentParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(path)},
+		}); err != nil {
+			t.Fatalf("DidClose err = %v", err)
+		}
+	}
+
+	openFile(t, s, main, mainSource)
+	openFile(t, s, lib, libSource)
+	closeFile(main)
+	s.mu.Lock()
+	dirs := len(s.openDirs)
+	s.mu.Unlock()
+	if dirs != 2 {
+		t.Errorf("indexed directories after closing main = %d, want dir and parts while lib is open", dirs)
+	}
+	closeFile(lib)
+	s.mu.Lock()
+	dirs = len(s.openDirs)
+	s.mu.Unlock()
+	if dirs != 0 {
+		t.Errorf("indexed directories after closing every document = %d, want none", dirs)
+	}
+
+	// Widget is renamed on disk while nothing under dir is open.
+	if err := os.WriteFile(lib, []byte("package Lib {\n    part def Gadget;\n}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	openFile(t, s, main, mainSource)
+	if msgs := diagnosticsFor(fc, main); len(msgs) == 0 {
+		t.Errorf("main resolved Widget from a stale copy of parts/lib.sysml after reopening")
 	}
 }

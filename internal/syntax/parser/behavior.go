@@ -1043,11 +1043,17 @@ func (p *Parser) parseWhileLoopAction(tok lexer.Token) ast.Node {
 		}
 		p.advance() // consume '{'
 
+		parsed := p.newBodyBuilder()
 		leave := p.pushBodyContext(bodyAction)
 		for !p.at(lexer.RBrace) && !p.atEOF() {
-			body = append(body, p.parseActionMember())
+			if parsed.atSuccession() {
+				parsed.takeSuccession()
+				continue
+			}
+			parsed.add(p.parseActionMember())
 		}
 		leave()
+		body = parsed.finish()
 
 		p.expect(lexer.RBrace, "expected '}' after while body")
 	}
@@ -1082,18 +1088,24 @@ func (p *Parser) parseLoopAction(tok lexer.Token) ast.Node {
 	var body []ast.Node
 
 	// The unbraced body is an ActionBodyParameter: `loop action [<name>] { … }`.
+	bodyParameter := !braced && p.atKeyword("action")
 	if !braced && p.atKeyword("action") {
 		body = p.parseActionBodyParameter()
 	}
 
 	// Parse loop body members until 'until' keyword or closing brace
+	parsed := p.newBodyBuilder()
 	leave := p.pushBodyContext(bodyAction)
 	for !p.atKeyword("until") && !p.at(lexer.RBrace) && !p.atEOF() {
 		before := p.peek().Span.Offset
+		if parsed.atSuccession() {
+			parsed.takeSuccession()
+			continue
+		}
 
 		// Try direction parameters first
 		if p.isDirectionKeyword() {
-			body = append(body, p.parseDirectionParameter())
+			parsed.add(p.parseDirectionParameter())
 			continue
 		}
 
@@ -1101,7 +1113,7 @@ func (p *Parser) parseLoopAction(tok lexer.Token) ast.Node {
 		if p.atDefUsageStart() {
 			m := p.parseBodyMember()
 			if m != nil {
-				body = append(body, m)
+				parsed.add(m)
 			}
 			// Check if no progress (prevent infinite loop)
 			if p.peek().Span.Offset == before {
@@ -1111,7 +1123,7 @@ func (p *Parser) parseLoopAction(tok lexer.Token) ast.Node {
 		}
 
 		// Parse behavioral statements
-		body = append(body, p.parseActionMember())
+		parsed.add(p.parseActionMember())
 
 		// Ensure progress
 		if p.peek().Span.Offset == before {
@@ -1119,6 +1131,12 @@ func (p *Parser) parseLoopAction(tok lexer.Token) ast.Node {
 		}
 	}
 	leave()
+	tail := parsed.finish()
+	if bodyParameter {
+		body = append(body, tail...)
+	} else {
+		body = tail
+	}
 
 	if braced {
 		p.expect(lexer.RBrace, "expected '}' after loop body")
@@ -1198,13 +1216,18 @@ func (p *Parser) parseForAction(tok lexer.Token) ast.Node {
 
 	// Parse body as mixed content (declarations + behavioral statements)
 	var body []ast.Node
+	parsed := p.newBodyBuilder()
 	leave := p.pushBodyContext(bodyAction)
 	for !p.at(lexer.RBrace) && !p.atEOF() {
 		before := p.peek().Span.Offset
+		if parsed.atSuccession() {
+			parsed.takeSuccession()
+			continue
+		}
 
 		// Try direction parameters
 		if p.isDirectionKeyword() {
-			body = append(body, p.parseDirectionParameter())
+			parsed.add(p.parseDirectionParameter())
 			continue
 		}
 
@@ -1212,7 +1235,7 @@ func (p *Parser) parseForAction(tok lexer.Token) ast.Node {
 		if p.atDefUsageStart() {
 			m := p.parseBodyMember()
 			if m != nil {
-				body = append(body, m)
+				parsed.add(m)
 			}
 			if p.peek().Span.Offset == before {
 				p.advance()
@@ -1221,7 +1244,7 @@ func (p *Parser) parseForAction(tok lexer.Token) ast.Node {
 		}
 
 		// Parse behavioral statements
-		body = append(body, p.parseActionMember())
+		parsed.add(p.parseActionMember())
 
 		// Ensure progress
 		if p.peek().Span.Offset == before {
@@ -1229,6 +1252,7 @@ func (p *Parser) parseForAction(tok lexer.Token) ast.Node {
 		}
 	}
 	leave()
+	body = parsed.finish()
 
 	p.expect(lexer.RBrace, "expected '}'")
 
@@ -1339,21 +1363,25 @@ func (p *Parser) parseIfAction(tok lexer.Token) ast.Node {
 // else branch). Both declarations and behavioral statements are accepted, so
 // `if <cond> { action x : Type { body }; first x then y; }` parses.
 func (p *Parser) parseIfBranch(kind ast.IfBranchKind, start int, closeMsg string) *ast.IfBranchNode {
-	var body []ast.Node
+	parsed := p.newBodyBuilder()
 	leave := p.pushBodyContext(bodyAction)
 	for !p.at(lexer.RBrace) && !p.atEOF() {
 		before := p.peek().Span.Offset
+		if parsed.atSuccession() {
+			parsed.takeSuccession()
+			continue
+		}
 
 		// Direction parameters first.
 		if p.isDirectionKeyword() {
-			body = append(body, p.parseDirectionParameter())
+			parsed.add(p.parseDirectionParameter())
 			continue
 		}
 
 		// Declarations (action/part/etc).
 		if p.atDefUsageStart() {
 			if m := p.parseBodyMember(); m != nil {
-				body = append(body, m)
+				parsed.add(m)
 			}
 			// No progress: advance to avoid an infinite loop.
 			if p.peek().Span.Offset == before {
@@ -1362,10 +1390,11 @@ func (p *Parser) parseIfBranch(kind ast.IfBranchKind, start int, closeMsg string
 			continue
 		}
 
-		body = append(body, p.parseActionMember())
+		parsed.add(p.parseActionMember())
 	}
 	leave()
 	p.expect(lexer.RBrace, closeMsg)
+	body := parsed.finish()
 
 	branch := &ast.IfBranchNode{Kind: kind, Body: body}
 	branch.NodeSpan = p.spanFrom(start)
@@ -2783,7 +2812,8 @@ func (p *Parser) parseExitMember(start int) ast.Node {
 // usage (`entry action warmUp;`), a behavioral statement (`entry assign x := 1;`)
 // or a reference to an action declared elsewhere (`entry warmUp;`), the last
 // being the reference-subsetting form of PerformActionUsageDeclaration. The
-// braced form (`entry { ... }`) is an OpenSysML extension over that grammar.
+// braced form (`entry { ... }`) is the inline action usage with its `action`
+// keyword left unwritten: one anonymous action whose body the braces hold.
 func (p *Parser) parseStateSubaction(start int, kind stateSubactionKind) ast.Node {
 	actions, err := p.parseStateSubactionActions(start, kind)
 	if err != nil {
@@ -2812,11 +2842,11 @@ func (p *Parser) parseStateSubactionActions(start int, kind stateSubactionKind) 
 
 	// `<kind> { ... }`, and the `entry do { ... }` spelling of it.
 	if p.at(lexer.LBrace) {
-		return p.parseStateSubactionBlock(kind), nil
+		return []ast.Node{p.parseBracedActionUsage(string(kind))}, nil
 	}
 	if kind != subactionDo && p.atKeyword("do") && p.peekN(1).Kind == lexer.LBrace {
 		p.advance() // consume 'do'
-		return p.parseStateSubactionBlock(kind), nil
+		return []ast.Node{p.parseBracedActionUsage(string(kind))}, nil
 	}
 
 	// An inline action usage or definition: `<kind> action warmUp : WarmUp;`.
@@ -2856,17 +2886,17 @@ func markStateSubaction(member ast.Node, kind stateSubactionKind) {
 	}
 }
 
-// parseStateSubactionBlock parses the braced action sequence of a subaction;
-// the '{' is at the cursor.
-func (p *Parser) parseStateSubactionBlock(kind stateSubactionKind) []ast.Node {
-	p.advance() // consume '{'
-	defer p.pushBodyContext(bodyAction)()
-	var actions []ast.Node
-	for !p.at(lexer.RBrace) && !p.atEOF() {
-		actions = append(actions, p.parseActionMember())
-	}
-	p.expect(lexer.RBrace, fmt.Sprintf("expected '}' after %s actions", kind))
-	return actions
+// parseBracedActionUsage parses a braced block written where the grammar takes
+// one action usage — a subaction's `entry { … }` or a transition's `do { … }` —
+// as that usage: the anonymous action `action { … }` declares, with its kind
+// keyword unwritten (Usage.Keyword is empty, as in `in x : Real;`). The '{' is
+// at the cursor; prefix is the subaction keyword introducing it, if any.
+func (p *Parser) parseBracedActionUsage(prefix string) ast.Node {
+	start := p.peek().Span.Offset
+	usage := p.parseUsage(start, ast.UsageAction, "", featureMods{prefixKeyword: prefix}, false)
+	member := &ast.Membership{Member: usage}
+	member.NodeSpan = p.spanFrom(start)
+	return member
 }
 
 // parseSubstateMember parses: state <name>;
@@ -3086,18 +3116,13 @@ func (p *Parser) parseTransitionTail(start int, name ast.NameSegment, source *as
 
 // parseTransitionEffect parses the effect of a transition, whose `do` is already
 // consumed: a single action (`do action alarm send Alert() to op`, `do assign
-// x := 1`) as SysML.xtext `TransitionUsage` states it, or a braced sequence,
-// which OpenSysML also accepts.
+// x := 1`) as SysML.xtext `TransitionUsage` states it, or the braced body of
+// an anonymous action (`do { … }`, EffectBehaviorUsage's `'{' ActionBodyItem* '}'`).
 func (p *Parser) parseTransitionEffect(start int) ([]ast.Node, ast.Node) {
 	if p.at(lexer.LBrace) {
-		p.advance() // consume '{'
-		defer p.pushBodyContext(bodyAction)()
-		var effect []ast.Node
-		for !p.at(lexer.RBrace) && !p.atEOF() {
-			effect = append(effect, p.parseActionMember())
-		}
-		p.expect(lexer.RBrace, "expected '}' after effect actions")
-		return effect, nil
+		leave := p.enterTransitionEffect()
+		defer leave()
+		return []ast.Node{p.parseBracedActionUsage("")}, nil
 	}
 	if p.atKeyword("action") || p.atKeyword("perform") {
 		leave := p.enterTransitionEffect()

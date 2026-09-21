@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"maps"
 	"slices"
 	"sort"
 	"strconv"
@@ -453,6 +454,24 @@ func (s *stateSpeller) frame(perf *actionFrame) string {
 	}
 	for _, node := range sortedNodes(perf.subactions) {
 		fmt.Fprintf(&b, " latest{%s = %s}", s.node(perf.graph, node), s.frameLabel(perf.subactions[node]))
+	}
+	streamed := slices.Sorted(maps.Keys(perf.streamed))
+	if len(streamed) > 0 {
+		fmt.Fprintf(&b, " streamed{%s}", strings.Join(streamed, ","))
+	}
+	for _, node := range sortedNodes(perf.staged) {
+		pins := perf.staged[node]
+		for _, pin := range slices.Sorted(maps.Keys(pins)) {
+			for _, staged := range pins[pin] {
+				fmt.Fprintf(&b, " staged{%s.%s[%d] by %s}", s.node(perf.graph, node), pin, staged.at, s.frameLabel(staged.source))
+			}
+		}
+	}
+	for _, node := range sortedNodes(perf.unreceived) {
+		for _, stream := range perf.unreceived[node] {
+			fmt.Fprintf(&b, " unreceived{%s.%s[%d] from %s.%s}", s.node(perf.graph, node), stream.pin, stream.at,
+				nodeKey(stream.source), orAnyPin(stream.flow.SourcePin))
+		}
 	}
 	return b.String()
 }

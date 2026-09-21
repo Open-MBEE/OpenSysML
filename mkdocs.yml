@@ -150,6 +150,7 @@ exclude_docs: |
   project/view-rendering-forms.md
   project/adjudications.md
   project/element-scoped-tier-gating.md
+  project/protocol-state-machines.md
   project/lossless-library-records.md
   project/errata-overlay.md
   project/oosem-library.md
@@ -218,6 +219,7 @@ nav:
       - project/README.md
       - Spec compliance: project/spec-compliance.md
       - Exact-rational evaluation: project/exact-rational-evaluation.md
+      - Expansion regions: project/expansion-regions.md
       - Pilot differential: project/pilot-differential.md
       - Roadmap: project/roadmap.md
       - Nightly snapshots: project/nightly.md

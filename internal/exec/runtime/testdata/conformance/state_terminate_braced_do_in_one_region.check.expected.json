@@ -1,0 +1,4 @@
+{
+	"verdict": "no violation, exhaustive",
+	"agreed": {"finalState": "ldone+rdone", "a": "1", "b": "3"}
+}

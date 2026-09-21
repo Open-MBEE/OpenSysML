@@ -52,17 +52,21 @@ func errorLines(lines []string, _ []NamedValue, err error) ([]string, bool, erro
 	return lines, false, nil
 }
 
-// LoadFile submits the contents of path to the session and returns the lines
-// `%load` prints. A lone "-" reads standard input. The error is the file it
-// could not read; a model that read but did not analyse cleanly is reported by
-// Diagnostics.
+// LoadFile submits path and the files beside and below it that declare a root
+// namespace it imports as one submission, returning the lines `%load` prints.
+// A lone "-" reads standard input; the error is a file it could not read.
 func (s *Session) LoadFile(path string) ([]string, error) {
 	defer s.enter()()
-	name, data, err := project.ReadFile(expandHome(path))
-	if err != nil {
-		return nil, readError(name, err)
+	paths := s.withDependencies([]string{expandHome(path)})
+	files := make([]SourceFile, 0, len(paths))
+	for _, p := range paths {
+		name, data, err := project.ReadFile(p)
+		if err != nil {
+			return nil, readError(name, err)
+		}
+		files = append(files, SourceFile{Name: name, Text: string(data)})
 	}
-	return renderResult(s.submit(name, string(data)), s.verbosity), nil
+	return renderResult(s.submitFiles(files), s.verbosity), nil
 }
 
 // LoadFileSummary submits the contents of path and returns only what it
@@ -75,11 +79,13 @@ func (s *Session) LoadFileSummary(path string) ([]string, error) {
 
 // LoadFilesSummary is LoadFileSummary over every path as one submission, indexed and
 // analyzed once, each file still summarized on its own; a read failure is a *ReadError.
+// Files beside and below the paths that declare an imported root namespace load too.
 func (s *Session) LoadFilesSummary(paths []string) ([]string, error) {
 	defer s.enter()()
+	paths = s.withDependencies(expandHomes(paths))
 	files := make([]SourceFile, 0, len(paths))
 	for _, path := range paths {
-		name, data, err := project.ReadFile(expandHome(path))
+		name, data, err := project.ReadFile(path)
 		if err != nil {
 			return nil, readError(name, err)
 		}

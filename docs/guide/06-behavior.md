@@ -346,7 +346,11 @@ and their bodies may hold whatever an action body holds: a flow of nodes joined 
 (`first start; then …` or, with one node no succession leads to, the flow starts there),
 forks, joins and decisions, timed and signal accepts, sends, nested action nodes with flows of
 their own, and typed usages with pin bindings (`do action poll : Poll { inout n = ticks; }`). A
-body stating no flow still runs its statements in declaration order. The three behaviors differ
+body stating no flow still runs its statements in declaration order. A braced block without the
+keyword — `entry { … }`, `do { … }`, `exit { … }`, and a transition's `do { … }` — is one
+anonymous action with that body, the same as `entry action { … }`: an attribute declared inside
+the block is local to it and shadows the state's, and a `terminate;` in it ends the whole block
+([below](#terminate-ending-an-action-early)). The three behaviors differ
 in *when* they run: entry and exit are performed whole at the instant the state is entered or
 left (as is a transition's `do` effect), so a body of theirs that waits on the clock is refused
 with `state behavior waits for the clock`; the `do` behavior runs while the state is active,
@@ -491,7 +495,9 @@ machine terminated` line and reports `state` as `<none>`, and an exploration or 
 the run as terminated (`Outcome.Terminated`, its final state empty) rather than as having
 reached `done`, so a model that can end either way has two outcomes. `%trace` records the transition into the usage, `terminate stop`, and each do
 behavior abandoned. A `terminate` written *inside* a state's `entry`, `do` or `exit` body is
-something else — it ends that behavior only ([below](#terminate-ending-an-action-early)).
+something else — it ends that behavior only, the whole braced block where the body is one
+(`do { assign d := 1; terminate; assign d := 9; }` leaves `d` at 1)
+([below](#terminate-ending-an-action-early)).
 
 **Action debugging commands:**
 - `%action <name> [<object>]` — Start an action debugging session, optionally performed by an instantiated object
@@ -2151,9 +2157,12 @@ that already ended is reported (`occurrence cannot be terminated`, `performance 
 ended`), never ignored; and a behavior started for an object that ended is refused. Inside a
 state's `entry`, `do` or `exit` body a `terminate` ends that behavior — the containing action
 of the statement — so the rest of the body does not run, the state stays active and the
-machine keeps dispatching; a transition to a terminate action ends the machine instead
-([above](#ending-a-state-machine-with-terminate)). A calculation is pure and refuses
-`terminate` as it refuses `send`.
+machine keeps dispatching; a braced body (`entry { assign e := 1; terminate; assign e := 9; }`,
+the same `do { … }`, `exit { … }` and a transition's `do { … }`) is one anonymous action, so
+the block is the action it ends and the statements after the `terminate` do not run either,
+while a named action beside the block (`entry action first { … }`) still does; a transition to
+a terminate action ends the machine instead ([above](#ending-a-state-machine-with-terminate)).
+A calculation is pure and refuses `terminate` as it refuses `send`.
 
 A run that stops early, whether through deadlock or by hitting a budget, is reported as an
 undecided check rather than a failure. The budgets are documented in

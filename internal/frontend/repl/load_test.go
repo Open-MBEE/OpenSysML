@@ -239,3 +239,60 @@ func TestACommentOnlyFileKeepsItsIdentity(t *testing.T) {
 		t.Fatalf("the comment file was deleted with the redeclaration: %v", got)
 	}
 }
+
+// A file whose import names a root namespace a sibling file declares loads that
+// sibling too, so the reference resolves as it does when the directory is named.
+func TestLoadingOneFilePullsInTheSiblingsItImports(t *testing.T) {
+	dir := t.TempDir()
+	main := writeFile(t, filepath.Join(dir, "main.sysml"), "package Main {\n    private import Lib::*;\n    part w : Widget;\n}\n")
+	writeFile(t, filepath.Join(dir, "parts", "lib.sysml"), "package Lib {\n    part def Widget;\n}\n")
+	writeFile(t, filepath.Join(dir, "broken.sysml"), "package Broken {\n    part b : Nowhere;\n}\n")
+
+	s := NewSession()
+	rep, err := s.LoadPathsReport([]string{main})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rep.Errors {
+		t.Errorf("load reported errors: %v", rep.Found)
+	}
+	if got := strings.Join(rep.Loaded, "\n"); !strings.Contains(got, "loaded 2 files:") || !strings.Contains(got, "lib.sysml") || strings.Contains(got, "broken.sysml") {
+		t.Errorf("loaded = %q, want main and lib only", got)
+	}
+	if _, _, err := s.lookupSymbol("Lib::Widget"); err != nil {
+		t.Errorf("Lib::Widget did not resolve: %v", err)
+	}
+
+	sum := NewSession()
+	if _, err := sum.LoadFilesSummary([]string{main}); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := sum.lookupSymbol("Lib::Widget"); err != nil {
+		t.Errorf("Lib::Widget did not resolve through LoadFilesSummary: %v", err)
+	}
+}
+
+func TestLoadFilePullsInTheSiblingsItImports(t *testing.T) {
+	dir := t.TempDir()
+	main := writeFile(t, filepath.Join(dir, "main.sysml"), "package Main {\n    private import Lib::*;\n    part w : Widget;\n}\n")
+	writeFile(t, filepath.Join(dir, "parts", "lib.sysml"), "package Lib {\n    part def Widget;\n}\n")
+	writeFile(t, filepath.Join(dir, "broken.sysml"), "package Broken {\n    part b : Nowhere;\n}\n")
+
+	s := NewSession()
+	out, err := s.LoadFile(main)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if diags := s.DiagnosticLines(); len(diags) != 0 {
+		t.Errorf("load reported diagnostics: %v", diags)
+	}
+	if got := strings.Join(out, "\n"); !strings.Contains(got, "Main") || !strings.Contains(got, "Lib") || strings.Contains(got, "Broken") {
+		t.Errorf("output = %q, want Main and Lib declared and not Broken", got)
+	}
+	if _, _, err := s.lookupSymbol("Lib::Widget"); err != nil {
+		t.Errorf("Lib::Widget did not resolve: %v", err)
+	}
+	if _, _, err := s.lookupSymbol("Broken"); err == nil {
+		t.Error("broken.sysml was loaded, want only main and lib")
+	}
+}

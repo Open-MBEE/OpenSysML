@@ -881,6 +881,29 @@ not exit any States", do activities "automatically aborted" — are these; the s
 in PSSM's own expected traces (the last step of *Terminate 001*'s admitted trace is the exit of
 the state whose completion transition reaches the pseudostate). **agrees**.
 
+*The braced block as the unit a `terminate` ends.* SysML.xtext reads `entry { … }`, `do { … }`,
+`exit { … }` and a transition's `do { … }` as one `ActionUsage` with an `ActionBody`, so a
+`terminate;` written in one names the performance of the whole block (`Performances.kerml`
+`TerminatePerformance`). The parser takes that reading: a braced block is one anonymous action
+usage whose body is the block's statements, the tree `entry action { … }` produces
+(`parser/behavior.go:parseBracedActionUsage`, reached from `parseStateSubactionBlock` and
+`parseTransitionEffect`; the usage's `Keyword` is empty where none was written, which is how
+the formatter and the converters keep the spelling). Everything downstream sees one action:
+the block is a namespace of its own whose declarations are local to it, lowering gives it one
+`lower.StateBehavior` whose `Body` is one `Block` (`lower/state_behavior.go:lowerStateBehavior`),
+the runtime runs it as it runs any inline body — one statement per do round, so orthogonal
+regions still interleave statement by statement and a do body still resumes between statements
+(`state_anonymous_do_atomic`, `state_concurrent_do`, `state_concurrent_inline_do_bodies`) — and a
+`terminate;` in it resolves to the block's own performance, ending the block and nothing beside
+it (conformance `state_terminate_braced_entry_do_exit_effect`, `state_terminate_braced_do_after_accept`,
+`state_terminate_braced_entry_among_named`, `state_terminate_braced_inherited_by_two_usages`,
+`state_terminate_braced_do_in_one_region`, `state_braced_block_local_attribute`). The one
+grouping left is a transition's own body, `then t { … }`, which is the transition usage's
+`ActionBody` rather than an `EffectBehaviorUsage` and still lowers one behavior per statement:
+`lower.StateBehavior.Block` names the `TransitionMember` those steps share, and a `terminate`
+in one of them ends the steps after it (`state_statements.go:StateExecutor.endedBefore`,
+conformance `state_terminate_transition_body`).
+
 #### Time and change events against the simulation clock
 
 PSSM restricts a transition's triggers to `CallEvent`s and `SignalEvent`s

@@ -48,20 +48,22 @@ stmt action body
       eval feature log -> "outer(entry);one(entry);outer(exit);outer(entry);one(entry);"
       eval literal "outer(exit);" -> "outer(exit);"
     eval operator + -> "outer(entry);one(entry);outer(exit);outer(entry);one(entry);outer(exit);"
-stmt assign log
-    eval feature log -> "outer(entry);one(entry);outer(exit);outer(entry);one(entry);outer(exit);"
-    eval literal "completion(effect);" -> "completion(effect);"
-  eval operator + -> "outer(entry);one(entry);outer(exit);outer(entry);one(entry);outer(exit);completion(effect);"
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);one(entry);outer(exit);outer(entry);one(entry);outer(exit);"
+      eval literal "completion(effect);" -> "completion(effect);"
+    eval operator + -> "outer(entry);one(entry);outer(exit);outer(entry);one(entry);outer(exit);completion(effect);"
 enter: outer (entry action)
 stmt action body
   stmt assign log
       eval feature log -> "outer(entry);one(entry);outer(exit);outer(entry);one(entry);outer(exit);completion(effect);"
       eval literal "outer(entry);" -> "outer(entry);"
     eval operator + -> "outer(entry);one(entry);outer(exit);outer(entry);one(entry);outer(exit);completion(effect);outer(entry);"
-stmt assign log
-    eval feature log -> "outer(entry);one(entry);outer(exit);outer(entry);one(entry);outer(exit);completion(effect);outer(entry);"
-    eval literal "default(effect);" -> "default(effect);"
-  eval operator + -> "outer(entry);one(entry);outer(exit);outer(entry);one(entry);outer(exit);completion(effect);outer(entry);default(effect);"
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);one(entry);outer(exit);outer(entry);one(entry);outer(exit);completion(effect);outer(entry);"
+      eval literal "default(effect);" -> "default(effect);"
+    eval operator + -> "outer(entry);one(entry);outer(exit);outer(entry);one(entry);outer(exit);completion(effect);outer(entry);default(effect);"
 enter: third (entry action)
 stmt action body
   stmt assign log

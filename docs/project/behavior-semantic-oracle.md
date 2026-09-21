@@ -1009,9 +1009,9 @@ policy, reported as `choice do round at t=0.0: states lwork, rwork react (unorde
 first)`: `declared` and `reverse` take region declaration order at both and the default golden
 pins that linearization (`124356`); `seed:<n>` draws both; `explore` varies both and must reach
 all eight values and no other. `state_anonymous_do_atomic` is the same machine with each body
-written as one inline action, `do action { … }`, of three statements: an inline body yields after
-each statement, so it interleaves as the one-action-per-statement form does and reaches the same
-eight values, not `123456`. `state_concurrent_inline_do_bodies` writes the left body as a `for`
+written as `do action { … }` rather than the braced `do { … }`; the two spellings are one
+anonymous inline action of three statements, and an inline body yields after each statement,
+so both interleave and reach the same eight values, not `123456`. `state_concurrent_inline_do_bodies` writes the left body as a `for`
 loop over 1..2 followed by a statement and the right one as a statement followed by an `if` block
 of two: an iteration and a statement of a nested block are each one step, so the same eight values
 and no other are reached.

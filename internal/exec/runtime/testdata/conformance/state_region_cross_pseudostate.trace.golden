@@ -19,6 +19,7 @@ exit: ridle
   eval literal 0 -> 0
 eval operator == -> true
 enter: rtarget (entry action)
-stmt assign crossed
-  eval literal 1 -> 1
+stmt action body
+  stmt assign crossed
+    eval literal 1 -> 1
 transition: lidle -> rtarget
