@@ -29,7 +29,7 @@ func TestStateMachineCrossRegionTransitionsAndPseudostates(t *testing.T) {
 		"state regions parallel {",
 		"transition first Work::Run accept Stop then Idle;",
 		"transition first Idle accept Resume then Work::Run;",
-		"transition first Pause accept Resume then Work::last;",
+		"transition first Pause accept Resume\n            do action log { }\n            then Work::last;",
 		"transition first Idle accept Enter then Cell::warmStart;",
 		"transition first Cell::spent then Idle;",
 		"transition first route if this.count < 2 then Work;",

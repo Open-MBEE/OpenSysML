@@ -211,5 +211,12 @@ func (a *activity) unbehaved(n *sysmlv1.Element) string {
 		}
 		note += ", yet has the pins " + strings.Join(names, ", ") + ", which nothing then computes"
 	}
+	if parts := a.m.allocated[n]; len(parts) > 0 {
+		var names []string
+		for _, p := range parts {
+			names = append(names, qualifiedName(p))
+		}
+		note += "; its «Allocate» to " + strings.Join(names, ", ") + " says where it runs, not what it does"
+	}
 	return joinNotes(a.m.dangling(n, "behavior"), note)
 }

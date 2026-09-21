@@ -459,7 +459,7 @@ func (e *ActionExecutor) tokensProgressed(countBefore int, locationsBefore []ast
 func (e *ActionExecutor) waitsOnClockAlone() bool {
 	for _, token := range e.tokens {
 		if token.pausedOnClock() {
-			if held := token.heldWaiter(); held != nil && held.dueWork() {
+			if w := token.pausedWaiter(e); w != nil && w.dueWork() {
 				return false
 			}
 			continue
@@ -717,7 +717,7 @@ func (e *ActionExecutor) awaitClock(perf *actionFrame, progress *dueProgress) (b
 // dueNow reports whether a parked token of perf's flow (the action's for nil) can
 // proceed now: its instant has come, its message is in flight, or its performed action has work due.
 func (e *ActionExecutor) dueNow(perf *actionFrame) bool {
-	return e.hasDueTimeWait(perf) || e.hasPendingSignal(perf) || e.hasDueHeldRun(perf)
+	return e.hasDueTimeWait(perf) || e.hasPendingSignal(perf) || e.hasDuePausedWork(perf)
 }
 
 // canProceed reports whether a parked token of perf's flow (the action's for nil)
@@ -749,11 +749,11 @@ func (e *ActionExecutor) changeWaitHolds(perf *actionFrame) bool {
 	return false
 }
 
-// hasDueHeldRun reports whether an action performed by the paused work of a token
-// of perf's flow (the action's for nil) has work due at this instant.
-func (e *ActionExecutor) hasDueHeldRun(perf *actionFrame) bool {
+// hasDuePausedWork reports whether an executor the paused work of a token of perf's
+// flow (the action's for nil) waits on has work due at this instant.
+func (e *ActionExecutor) hasDuePausedWork(perf *actionFrame) bool {
 	for _, token := range e.tokens {
-		if held := token.heldWaiter(); held != nil && token.inFlowOf(perf) && held.dueWork() {
+		if w := token.pausedWaiter(e); w != nil && token.inFlowOf(perf) && w.dueWork() {
 			return true
 		}
 	}
@@ -889,7 +889,7 @@ func (e *ActionExecutor) acceptTaking(m Message) ([]TakingAccept, error) {
 		return nil, err
 	}
 	for _, token := range e.tokens {
-		held, ok := token.heldWaiter().(messageAcceptor)
+		held, ok := token.pausedWaiter(e).(messageAcceptor)
 		if !ok {
 			continue
 		}
@@ -2452,14 +2452,14 @@ func (e *ActionExecutor) NextWait() (float64, bool) {
 }
 
 // TimeWaits describes the tokens parked on the clock, in token-ID order, then
-// those of the actions the paused work of its tokens performs.
+// those of the executors the paused work of its tokens waits on.
 func (e *ActionExecutor) TimeWaits() []string {
 	waits := e.timeWaits(nil)
 	out := make([]string, 0, len(waits))
 	for _, token := range waits {
 		out = append(out, token.Wait.String())
 	}
-	for _, held := range e.heldWaiters() {
+	for _, held := range e.pausedWaiters() {
 		for _, wait := range held.clockWaits() {
 			out = append(out, wait.What())
 		}
@@ -2474,27 +2474,42 @@ func (e *ActionExecutor) visibleWaits() []ClockWait {
 }
 
 // visibleArmedWaits lists, due or not, the waits that hold this action, earliest first:
-// its own and, through the paused work of its tokens, those of the actions it performs.
+// its tokens' and, through their paused work, those of the actions it performs and cases it runs.
 func (e *ActionExecutor) visibleArmedWaits() []ClockWait {
-	waits := e.armedWaits()
-	for _, held := range e.heldWaiters() {
-		waits = append(waits, held.visibleArmedWaits()...)
+	waits := e.tokenWaits()
+	for _, w := range e.pausedWaiters() {
+		waits = append(waits, w.visibleArmedWaits()...)
 	}
 	slices.SortStableFunc(waits, func(a, b ClockWait) int { return cmp.Compare(a.Due, b.Due) })
 	return waits
 }
 
-// heldWaiters lists the executors performing an action for the paused work of
-// this action's tokens, in token-ID order.
-func (e *ActionExecutor) heldWaiters() []clockWaiter {
-	tokens := slices.SortedFunc(slices.Values(e.tokens), func(a, b Token) int { return cmp.Compare(a.ID, b.ID) })
-	var held []clockWaiter
-	for _, token := range tokens {
-		if w := token.heldWaiter(); w != nil {
-			held = append(held, w)
+// pausedWaiters lists the executors the paused work of this action's tokens waits
+// on (performing an action for it, or the flow of a case it runs), in token-ID order.
+func (e *ActionExecutor) pausedWaiters() []clockWaiter {
+	var waiters []clockWaiter
+	for _, token := range e.tokensByID() {
+		if w := token.pausedWaiter(e); w != nil {
+			waiters = append(waiters, w)
 		}
 	}
-	return held
+	return waiters
+}
+
+// hostedFlows lists the flows of the cases the paused work of this action's tokens
+// runs, in token-ID order; the action lists their waits to the clock as its own.
+func (e *ActionExecutor) hostedFlows() []*ActionExecutor {
+	var flows []*ActionExecutor
+	for _, token := range e.tokensByID() {
+		if flow := token.hostedFlow(e); flow != nil {
+			flows = append(flows, flow)
+		}
+	}
+	return flows
+}
+
+func (e *ActionExecutor) tokensByID() []Token {
+	return slices.SortedFunc(slices.Values(e.tokens), func(a, b Token) int { return cmp.Compare(a.ID, b.ID) })
 }
 
 // dueLabel names the executor in a due-order choice.
@@ -2508,14 +2523,24 @@ func (e *ActionExecutor) clockWaits() []ClockWait {
 	return notYetDue(e.armedWaits(), e.ctx.clock.now)
 }
 
-// armedWaits lists the tokens parked on the clock, due or not, earliest first; an
-// action performed for a paused body lists its own to the clock.
+// armedWaits lists the waits this action holds on the clock, due or not, earliest
+// first: its tokens parked there and, as its own, those of the cases its paused work
+// runs; an action performed for a paused body lists its own to the clock.
 func (e *ActionExecutor) armedWaits() []ClockWait {
+	waits := e.tokenWaits()
+	for _, flow := range e.hostedFlows() {
+		waits = append(waits, flow.armedWaits()...)
+	}
+	slices.SortStableFunc(waits, func(a, b ClockWait) int { return cmp.Compare(a.Due, b.Due) })
+	return waits
+}
+
+// tokenWaits lists the action's tokens parked on the clock, due or not, in token-ID order.
+func (e *ActionExecutor) tokenWaits() []ClockWait {
 	var waits []ClockWait
 	for _, token := range e.timeWaits(nil) {
 		waits = append(waits, ClockWait{Due: token.Wait.Due, holder: e, what: token.Wait})
 	}
-	slices.SortStableFunc(waits, func(a, b ClockWait) int { return cmp.Compare(a.Due, b.Due) })
 	return waits
 }
 

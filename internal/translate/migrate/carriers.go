@@ -213,8 +213,8 @@ func (m *migration) carrierPair(a, p *sysmlv1.Element) string {
 	if a.Attrs["isOrdered"] != p.Attrs["isOrdered"] {
 		return "one is ordered and the other is not"
 	}
-	am, _ := m.multiplicity(a)
-	pm, _ := m.multiplicity(p)
+	am, _ := m.declaredMultiplicity(a)
+	pm, _ := m.declaredMultiplicity(p)
 	if am != pm {
 		return "their multiplicities differ"
 	}

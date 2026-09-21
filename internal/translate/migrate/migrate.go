@@ -68,6 +68,7 @@ func FromModel(name string, model *sysmlv1.Model) *Result {
 		opUsage:      map[*sysmlv1.Element]string{},
 		deciding:     map[*sysmlv1.Element]bool{},
 		bounded:      map[*sysmlv1.Element][]*sysmlv1.Element{},
+		allocated:    map[*sysmlv1.Element][]*sysmlv1.Element{},
 		triggered:    map[*sysmlv1.Element]bool{},
 		snapshots:    map[*sysmlv1.Element]snapshotTyping{},
 		contexts:     map[*sysmlv1.Element]*behaviorContext{},
@@ -76,6 +77,8 @@ func FromModel(name string, model *sysmlv1.Model) *Result {
 		invokers:     map[*sysmlv1.Element][]*sysmlv1.Element{},
 		unvalued:     map[*sysmlv1.Element]bool{},
 		dryOut:       map[*sysmlv1.Element]map[*sysmlv1.Element]bool{},
+		admitsNone:   map[*sysmlv1.Element]string{},
+		rules:        map[*sysmlv1.Element]ruleForm{},
 		carrierOf:    map[*sysmlv1.Element]*carrier{},
 		carrierNotes: map[*sysmlv1.Element]string{},
 		indexed:      map[string]int{},
@@ -186,6 +189,8 @@ type migration struct {
 	deciding map[*sysmlv1.Element]bool
 	// bounded lists the duration constraints constraining each element.
 	bounded map[*sysmlv1.Element][]*sysmlv1.Element
+	// allocated lists the suppliers of the «Allocate» dependencies each element is client of.
+	allocated map[*sysmlv1.Element][]*sysmlv1.Element
 	// triggered holds each event some trigger refers to, which is reported where it is.
 	triggered map[*sysmlv1.Element]bool
 	// contexts holds, once asked, the context each activity acts on through a
@@ -209,6 +214,9 @@ type migration struct {
 	// snapshots types each classifier-less instance under a run configuration's
 	// result location by what its slots prove it a snapshot of.
 	snapshots map[*sysmlv1.Element]snapshotTyping
+	// instanceNames indexes the document's classifiers by the default name of
+	// their instances, for namesakes; built on first use.
+	instanceNames map[string][]*sysmlv1.Element
 	// bound gives, while a transition's effect is written, the expression over
 	// the accepted signal each of its parameters is bound to.
 	bound map[*sysmlv1.Element]string
@@ -226,6 +234,9 @@ type migration struct {
 	unvalued map[*sysmlv1.Element]bool
 	// dryOut holds, per activity, the out parameters no value reaches; see dryOutputs.
 	dryOut map[*sysmlv1.Element]map[*sysmlv1.Element]bool
+	// admitsNone says, for each parameter and pin declared admitting no value, why
+	// a value may fail to reach it while v1 runs the action; see admitAbsent.
+	admitsNone map[*sysmlv1.Element]string
 	// indexed locates each element's report entry by id, so an element that
 	// several writers account for is reported once.
 	indexed map[string]int
@@ -240,6 +251,8 @@ type migration struct {
 	pins map[*sysmlv1.Element]pinDecl
 	// opaque memoizes what each opaque action's body translates to.
 	opaque map[*sysmlv1.Element]*opaqueResult
+	// rules memoizes how each constraint block's anonymous rule is written.
+	rules map[*sysmlv1.Element]ruleForm
 	// clocks memoizes the names a simulation configuration gives the clock.
 	clocks map[string]string
 	// observed memoizes, per observation, the durations and time expressions that read it.
@@ -371,6 +384,11 @@ func (m *migration) prepare() {
 					m.nameFor(r)
 				}
 			}
+			if has(e, "Allocate") {
+				for _, c := range m.model.Refs(e, "client") {
+					m.allocated[c] = append(m.allocated[c], m.model.Refs(e, "supplier")...)
+				}
+			}
 			m.placeDependency(e)
 		case "Operation":
 			if method := m.model.Ref(e, "method"); method != nil && method.Parent == e.Parent {
@@ -412,6 +430,7 @@ func (m *migration) prepare() {
 	for _, act := range laned {
 		m.prepareLanes(act)
 	}
+	m.admitAbsent(laned)
 }
 
 // exposeReached exposes the features a connector's ends or an instance's slots
@@ -783,6 +802,10 @@ func (m *migration) generals(e *sysmlv1.Element, cat category) (string, string) 
 			notes = append(notes, "the quantity value type "+qualifiedName(target)+" is written as ScalarValues::Real; its unit is not kept")
 			continue
 		}
+		if isMonteCarloAnalysis(target) {
+			notes = append(notes, "generalization of the simulation tool's "+monteCarloAnalysisBlock+" is not written: v2 has no analysis pattern for the statistics it computes over the runs, which the migration results read from the result snapshots")
+			continue
+		}
 		if target.IsProxy() || m.isLibrary(target) {
 			notes = append(notes, "generalization of library type "+qualifiedName(target)+" is not written")
 			continue
@@ -899,37 +922,67 @@ func (m *migration) requirementBody(e *sysmlv1.Element) {
 	m.scope = saved
 }
 
+// ruleForm is how a constraint block's anonymous rule is written: the result
+// expression when its specification has a v2 form, else the note saying why not.
+type ruleForm struct {
+	rule, spec *sysmlv1.Element
+	expr, note string
+	ok         bool
+}
+
+// constraintRule resolves, once, the anonymous rule of constraint block e;
+// rule is nil when the block has none.
+func (m *migration) constraintRule(e *sysmlv1.Element) ruleForm {
+	if f, ok := m.rules[e]; ok {
+		return f
+	}
+	var f ruleForm
+	for _, c := range e.Children {
+		if c.Role == "ownedRule" && c.Name == "" {
+			f.rule = c
+			break
+		}
+	}
+	if f.rule != nil {
+		f.spec = m.model.Ref(f.rule, "specification")
+		if f.spec == nil {
+			f.spec = firstOwned(f.rule, "specification")
+		}
+		if f.spec == nil {
+			f.note = "the constraint has no specification"
+		} else {
+			f.expr, f.ok, f.note = m.valueExprAs(f.spec, e, oneOf("Boolean", "the constraint yields"))
+		}
+	}
+	m.rules[e] = f
+	return f
+}
+
 // constraintBody writes a constraint block: its parameters, then its
 // anonymous rule as the result expression.
 func (m *migration) constraintBody(e *sysmlv1.Element) {
 	saved := m.scope
 	m.scope = e
 	m.comments(e)
-	var result *sysmlv1.Element
+	f := m.constraintRule(e)
 	for _, c := range e.Children {
-		if c.Role == "ownedRule" && c.Name == "" && result == nil {
-			result = c
-			continue
+		if c != f.rule {
+			m.member(c)
 		}
-		m.member(c)
 	}
 	for _, extra := range m.extras[e] {
 		extra()
 	}
 	m.stereotypeComments(e)
-	if result != nil {
-		spec := m.model.Ref(result, "specification")
-		if spec == nil {
-			spec = firstOwned(result, "specification")
-		}
-		if spec == nil {
-			m.unmapped(result, "the constraint has no specification")
-		} else if expr, ok, note := m.valueExprAs(spec, e, oneOf("Boolean", "the constraint yields")); ok {
-			m.w.line(expr)
-			m.add(result, verdictFor(note), m.v2Name(e), note)
-		} else {
-			m.unmappedExpr(result, spec, note)
-		}
+	switch {
+	case f.rule == nil:
+	case f.spec == nil:
+		m.unmapped(f.rule, f.note)
+	case f.ok:
+		m.w.line(f.expr)
+		m.add(f.rule, verdictFor(f.note), m.v2Name(e), f.note)
+	default:
+		m.unmappedExpr(f.rule, f.spec, f.note)
 	}
 	m.scope = saved
 }
@@ -977,6 +1030,9 @@ func (m *migration) individualBody(e *sysmlv1.Element) {
 // lines that write it and the notes on them; ok is false, and note says why,
 // when it has no v2 form.
 func (m *migration) slotForm(e, slot, f *sysmlv1.Element) (lines []string, note string, ok bool) {
+	if stat := monteCarloFeature(f); stat != "" {
+		return nil, "the slot holds the simulation tool's " + monteCarloAnalysisBlock + "::" + stat + " statistic of the runs, which is no value of the instance; the migration results read it", false
+	}
 	if f == nil || f.IsProxy() {
 		return nil, "the slot's defining feature is not in the document", false
 	}
@@ -1041,6 +1097,8 @@ func (m *migration) instanceSlot(e, slot, f *sysmlv1.Element, kw, prefix string)
 		switch {
 		case inst == nil:
 			return nil, slotValueSubject + "names no instance", false
+		case inst.Type == "EnumerationLiteral" && (kw == "constraint" || kw == "requirement"):
+			return nil, "the slot of " + kw + " " + f.Name + " holds the literal " + qualifiedName(inst) + ", the run's verdict on the " + kw + " rather than an instance of its type; an individual has no slot for a verdict", false
 		case inst.IsProxy():
 			return nil, slotValueSubject + qualifiedName(inst) + " is outside the document, so it has no individual to type " + f.Name + " by", false
 		}
@@ -1857,9 +1915,24 @@ func (m *migration) typeRef(t, scope *sysmlv1.Element) (string, string) {
 	return m.ref(t, scope), ""
 }
 
-// multiplicity writes a [lower..upper] multiplicity, or nothing for 1..1. A
-// bound that is not a natural number (or * above) is dropped with a note.
+// multiplicity writes a parameter's or pin's [lower..upper] multiplicity, with
+// the lower bound at 0 for one declared admitting no value; see admitAbsent.
 func (m *migration) multiplicity(p *sysmlv1.Element) (string, string) {
+	mult, note := m.declaredMultiplicity(p)
+	why, ok := m.admitsNone[p]
+	if !ok || note != "" {
+		return mult, note
+	}
+	upper := "1"
+	if uv := firstOwned(p, "upperValue"); uv != nil && boundValue(uv) != "" {
+		upper = boundValue(uv)
+	}
+	return "[0.." + upper + "]", "it is declared admitting no value: " + why
+}
+
+// declaredMultiplicity writes the [lower..upper] multiplicity v1 declares, or nothing
+// for 1..1. A bound that is not a natural number (or * above) is dropped with a note.
+func (m *migration) declaredMultiplicity(p *sysmlv1.Element) (string, string) {
 	lower, upper := "", ""
 	if lv := firstOwned(p, "lowerValue"); lv != nil {
 		lower = boundValue(lv)
@@ -1917,6 +1990,10 @@ func isNatural(s string) bool {
 // connector writes a connector: a binding or delegation connector as `bind`,
 // an assembly connector as `connect`, and an item flow it realizes as `flow`.
 func (m *migration) connector(c *sysmlv1.Element) {
+	if note := m.monteCarloBinding(c); note != "" {
+		m.unmappedConnector(c, note)
+		return
+	}
 	segs, note := m.connectorEnds(c, m.scope)
 	if note != "" {
 		m.unmappedConnector(c, note)

@@ -496,10 +496,9 @@ func TestCallsBindTheMethodsExtraParameters(t *testing.T) {
 	for _, line := range []string{
 		"action def Tilt {",
 		"in amount : ScalarValues::Real;",
-		"in extra : ScalarValues::Real;",
+		"in extra : ScalarValues::Real[0..1];",
 		"bind 'set reach'.value = extra;",
-		"action short {",
-		"/* not migrated: CallOperationAction 'short' — the call passes no argument for the parameter extra of Tilter::Tilt, which must hold a value; v1 runs the callee without it, which v2 does not admit, so the action carries the token and performs nothing */",
+		"action short : Tilt;",
 		"action full : Tilt;",
 		"flow ninety.result to short.amount;",
 		"flow seven.result to full.amount;",
@@ -509,10 +508,9 @@ func TestCallsBindTheMethodsExtraParameters(t *testing.T) {
 	} {
 		wantLine(t, r.Notation, line)
 	}
-	if strings.Contains(string(r.Notation), "action short : Tilt;") {
-		t.Errorf("a call lacking the method's required argument was written as the typed call:\n%s", r.Notation)
-	}
-	wantNote(t, r, "_short", migrate.Approximated, "the call passes no argument for the parameter extra of Tilter::Tilt, which must hold a value; v1 runs the callee without it, which v2 does not admit, so the action carries the token and performs nothing")
+	wantNoLine(t, r.Notation, "not migrated: CallOperationAction 'short'")
+	wantNote(t, r, "_short", migrate.Approximated, "the call passes no argument for the parameter extra of Tilter::Tilt; v1 runs the callee without the value, so the parameter is declared admitting none")
+	wantNote(t, r, "_tExtra", migrate.Approximated, "it is declared admitting no value: the call 'short' in Tilter::Aim passes no argument for it, and v1 runs the callee without one")
 	wantNote(t, r, "_full", migrate.Mapped, "")
 	wantNote(t, r, "_brief", migrate.Unmapped, "the message 'tilt' binds no argument to the parameter extra of Tilt, which must hold a value")
 	wantNote(t, r, "_wm", migrate.Mapped, "")

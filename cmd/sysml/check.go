@@ -31,6 +31,7 @@ type checks struct {
 	samples      sweepCount
 	seed         sweepSeed
 	draws        drawPolicy
+	clockStep    clockStep
 	runs         runCount
 	observe      stringSlice
 	compare      string
@@ -167,6 +168,25 @@ func (d *drawPolicy) Set(value string) error {
 		return err
 	}
 	d.value, d.text = policy, value
+	return nil
+}
+
+// clockStep is -clock-step as written: the step, in seconds, the clock of every
+// run ticks by; 0, the default, is a continuous clock.
+type clockStep struct {
+	value float64
+	text  string
+	given bool
+}
+
+func (c *clockStep) String() string { return c.text }
+
+func (c *clockStep) Set(value string) error {
+	step, err := runtime.ParseClockStep(value)
+	if err != nil {
+		return fmt.Errorf("-clock-step: %w", err)
+	}
+	c.value, c.text, c.given = step, value, true
 	return nil
 }
 
@@ -367,6 +387,10 @@ func (c *checks) compareOptions() repl.CompareOptions {
 	if flagGiven("draws") {
 		policy := c.draws.value
 		opts.Draws = &policy
+	}
+	if c.clockStep.given {
+		step := c.clockStep.value
+		opts.ClockStep = &step
 	}
 	for _, pair := range c.observe {
 		stored, feature, _ := strings.Cut(pair, "=")
