@@ -433,3 +433,63 @@ func TestEncodeStreamsConditionalWrite(t *testing.T) {
 		t.Errorf("seen disagrees with the branch taken: %v, want unsat", got)
 	}
 }
+
+// TestEncodeStreamsBackToOwnPin: a plain flow from one pin of a node to another
+// reaches the performance under way, whatever order the pins are declared in and
+// whether the value it carries is the pin's declared one or a write in the body.
+func TestEncodeStreamsBackToOwnPin(t *testing.T) {
+	solver := requireSolver(t)
+	const k = 8
+	cases := []struct {
+		name, node string
+		want       int64
+	}{
+		{"target declared first", `action n { in back : Integer; out value : Integer = 5; assign seen := back; }`, 5},
+		{"source declared first", `action n { out value : Integer = 5; in back : Integer = 0; assign seen := back; }`, 5},
+		{"written in the body", `action n { in back : Integer; out value : Integer = 5; assign value := 7; assign seen := back; }`, 7},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			ctx, action, graph, held := loweredDocument(t, "own_pin_test.sysml", `package test {
+	private import ScalarValues::*;
+	action outer {
+		attribute seen : Integer = -1;
+		first start;
+		`+c.node+`
+		done;
+		succession first start then n;
+		succession first n then done;
+		flow n.value to n.back;
+	}
+}`, "test::outer")
+			exploration := explore(t, runtime.DefaultExploreBudget, func() (*runtime.Context, error) {
+				return runtime.NewContext(ctx.Model(), 10000), nil
+			}, action)
+			if !exploration.Complete() {
+				t.Fatalf("exploration %s", exploration.Status())
+			}
+			for _, o := range exploration.Outcomes {
+				if o.Outcome.Err != nil || o.Outcome.Outputs["seen"].Const.Int != c.want {
+					t.Fatalf("the interpreter: err=%v seen=%s, want %d", o.Outcome.Err, runtime.FormatValue(o.Outcome.Outputs["seen"]), c.want)
+				}
+			}
+			enc, err := Encode(ctx, action, graph, held, nil, k, DefaultUnroll)
+			if err != nil {
+				t.Fatalf("encode: %v", err)
+			}
+			last := enc.States[k]
+			failed := solve.VarTerm(last.Failed)
+			seen := last.Values["test::outer::seen"]
+			if seen == nil {
+				t.Fatalf("no feature seen among %v", names(enc.Features))
+			}
+			is := eq(solve.VarTerm(seen), solve.IntTerm(c.want))
+			if got := status(t, solver, enc, k, solve.And(solve.Not(failed), is)); got != solve.StatusSat {
+				t.Errorf("seen = %d on unfailed completion: %v, want sat", c.want, got)
+			}
+			if got := status(t, solver, enc, k, solve.Or(failed, solve.Not(is))); got != solve.StatusUnsat {
+				t.Errorf("fails or seen != %d: %v, want unsat", c.want, got)
+			}
+		})
+	}
+}

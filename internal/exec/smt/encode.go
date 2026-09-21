@@ -1264,7 +1264,8 @@ func (e *Encoding) perform(i, n int, node ast.Node, prev *State) (*nodeEffect, e
 }
 
 // begin starts a performance of node: each pin holds the delivery queued for
-// it, else the value its own declaration gives it, else none, and streams what it holds.
+// it, else the value its own declaration gives it, else none; then each pin's value
+// streams, a stream back to a pin of the node standing over what it began with.
 func (e *Encoding) begin(x *nodeEffect, node ast.Node, where string) error {
 	always := solve.BoolTerm(true)
 	label := e.Flow.label(node)
@@ -1281,6 +1282,7 @@ func (e *Encoding) begin(x *nodeEffect, node ast.Node, where string) error {
 		}
 		x.env.has[streamedName(source.Name)] = solve.BoolTerm(false)
 	}
+	var started []*solve.Var
 	for _, p := range e.pins[node] {
 		name := p.v.Name
 		value, has := x.env.values[name], solve.BoolTerm(false)
@@ -1312,11 +1314,13 @@ func (e *Encoding) begin(x *nodeEffect, node ast.Node, where string) error {
 		e.assert(eq(solve.VarTerm(v), value), "start of "+name)
 		x.env.values[name] = solve.VarTerm(v)
 		x.env.has[name] = has
-		// The value the pin starts with, taken or declared, streams as the interpreter's does.
 		if queued || p.feature.Value != nil {
-			if err := e.stream(x, has, node, p.v, x.env.values[name], where); err != nil {
-				return err
-			}
+			started = append(started, p.v)
+		}
+	}
+	for _, pin := range started {
+		if err := e.stream(x, x.env.has[pin.Name], node, pin, x.env.values[pin.Name], where); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -1350,9 +1354,22 @@ func (e *Encoding) stream(x *nodeEffect, cond *solve.Term, node ast.Node, pin *s
 			streamed = or(held, cond)
 		}
 		x.env.has[streamedName(pin.Name)] = streamed
+		if flow.Target == node {
+			e.place(x, cond, target, value, where)
+			continue
+		}
 		e.carry(x, cond, flow, pin, target, value, where)
 	}
 	return nil
+}
+
+// place writes a flow's payload to the pin of the performance under way that reads it,
+// where cond holds: a stream back to the node's own pin reaches this performance.
+func (e *Encoding) place(x *nodeEffect, cond *solve.Term, target *solve.Var, value *solve.Term, where string) {
+	if domain := e.domain(target.Name, value); domain != nil {
+		x.fail(cond, domain)
+	}
+	e.settle(x, cond, target, value, where)
 }
 
 // performedName is the feature set once a node in a frame of its own has performed.
@@ -1387,6 +1404,11 @@ func (e *Encoding) carry(x *nodeEffect, cond *solve.Term, flow lower.ObjectFlow,
 		x.overflow = append(x.overflow, and(cond, full))
 		target = pending
 	}
+	e.settle(x, cond, target, value, where)
+}
+
+// settle writes value to target where cond holds, leaving it as it was elsewhere.
+func (e *Encoding) settle(x *nodeEffect, cond *solve.Term, target *solve.Var, value *solve.Term, where string) {
 	if cond.Op == solve.OpBool && cond.Bool {
 		e.write(x, cond, target, value, where)
 		return
