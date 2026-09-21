@@ -28,12 +28,12 @@ func (e *emitter) binding(bh *Behavior, where string) (*Binding, error) {
 
 // bindValues spells what each input reads: the accept's own parameters in the
 // accepting transition's effect, elsewhere the attributes it stored them in.
-func bindValues(binding *Binding) []string {
+func (e *emitter) bindValues(binding *Binding) []string {
 	values := make([]string, len(binding.Data))
 	for i, p := range binding.Data {
 		switch {
 		case binding.Direct == nil:
-			values[i] = carriedAttr(binding.Event, p)
+			values[i] = e.bindings.carriedAttr(binding.Event, p)
 		case binding.Event.Kind == EventSignal:
 			values[i] = spell(payloadParam(binding.Event.Signal.Name))
 		default:
@@ -46,13 +46,18 @@ func bindValues(binding *Binding) []string {
 // carryEventData declares an attribute per value of each event's data that a
 // bound behavior reads after the accepting transition's effect stored it.
 func (e *emitter) carryEventData() error {
+	declared := map[string]bool{}
 	for _, ev := range e.bindings.carriedEvents() {
 		data, _ := eventData(ev)
 		for _, p := range data {
-			attr := carriedAttr(ev, p)
+			attr := e.bindings.carriedAttr(ev, p)
 			if e.targetAttribute(attr) {
 				return e.fail("attribute "+attr, "the target declares the attribute the translation would carry the event's data in")
 			}
+			if declared[attr] {
+				return e.fail("attribute "+attr, "two carried values spell the same attribute name")
+			}
+			declared[attr] = true
 			decl := fmt.Sprintf("attribute %s : %s", attr, e.dataType(ev, p))
 			if ev.Kind == EventCall {
 				decl += " = " + zeroLiteral(scalarTypes[p.Type])
@@ -86,7 +91,7 @@ func (e *emitter) storeEventData(ev *Event, param string) []string {
 		if ev.Kind == EventSignal {
 			value = spell(param)
 		}
-		out = append(out, fmt.Sprintf("assign %s := %s;", carriedAttr(ev, p), value))
+		out = append(out, fmt.Sprintf("assign %s := %s;", e.bindings.carriedAttr(ev, p), value))
 	}
 	return out
 }
@@ -142,7 +147,7 @@ func (e *emitter) boundEffect(bh *Behavior, ind, where, base string) ([]string, 
 	}
 	scope, types := map[string]string{}, map[string]string{}
 	for i, p := range inputs(bh) {
-		scope[p.Name] = bindValues(binding)[i]
+		scope[p.Name] = e.bindValues(binding)[i]
 		types[p.Name] = p.Type
 	}
 	return scoped(e, scope, types, func() ([]string, error) {
@@ -154,7 +159,7 @@ func (e *emitter) boundEffect(bh *Behavior, ind, where, base string) ([]string, 
 // usage, `in p : T = <value>;`, with the scope that names them.
 func (e *emitter) declaredInputs(binding *Binding) (params []string, scope, types map[string]string) {
 	scope, types = map[string]string{}, map[string]string{}
-	values := bindValues(binding)
+	values := e.bindValues(binding)
 	for i, p := range inputs(binding.Behavior) {
 		scope[p.Name] = spell(p.Name)
 		types[p.Name] = p.Type
@@ -174,7 +179,7 @@ func (e *emitter) defUsage(binding *Binding, ind, where, base string) (string, e
 	fmt.Fprintf(&b, " : %s {\n%s    inout log = log;\n", name, ind)
 	for i, p := range inputs(binding.Behavior) {
 		dir, name := inputSpelling(binding, p)
-		fmt.Fprintf(&b, "%s    %s %s = %s;\n", ind, dir, name, bindValues(binding)[i])
+		fmt.Fprintf(&b, "%s    %s %s = %s;\n", ind, dir, name, e.bindValues(binding)[i])
 	}
 	fmt.Fprintf(&b, "%s}", ind)
 	return b.String(), nil

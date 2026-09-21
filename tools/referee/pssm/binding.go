@@ -2,6 +2,7 @@ package pssm
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 )
 
@@ -32,6 +33,8 @@ type Bindings struct {
 	// Carry maps each triggered transition whose event data a bound behavior
 	// reads after the transition's effect to that event.
 	Carry map[*Transition]*Event
+	// overloads numbers each operation another call trigger's shares a name with.
+	overloads map[*Operation]int
 }
 
 // Refusal is a behavior with parameters no binding holds for, and why.
@@ -61,6 +64,7 @@ func BindBehaviors(m *StateMachine) *Bindings {
 		memo: map[*Transition]triggerSet{},
 	}
 	b.regions(m.Regions)
+	b.out.numberOverloads(b.all)
 	return b.out
 }
 
@@ -431,28 +435,70 @@ func outputNames(bh *Behavior, ev *Event) ([]string, string) {
 }
 
 // carriedAttr names the attribute a triggered transition stores one value of
-// its event's data in, for the behaviors bound from it to read.
-func carriedAttr(ev *Event, p Param) string {
+// its event's data in, for the behaviors bound from it to read: the signal's
+// name for a payload, the operation's and the input's for a call, a same-named
+// operation's carrying its place among the machine's call triggers.
+func (b *Bindings) carriedAttr(ev *Event, p Param) string {
 	if ev.Kind == EventSignal {
 		return "trigger_" + identifier(ev.Signal.Name)
 	}
-	return "trigger_" + identifier(ev.Operation.Name) + "_" + identifier(p.Name)
+	name := identifier(ev.Operation.Name)
+	if tag := b.overloads[ev.Operation]; tag > 0 {
+		name = fmt.Sprintf("%s_%d", name, tag)
+	}
+	return "trigger_" + name + "_" + identifier(p.Name)
 }
 
-// carriedEvents lists the events some triggered transition carries, by name.
+// carrierKey tells the events whose data is carried apart: a signal by name,
+// an operation by identity, so same-named overloads keep their own carriers.
+func carrierKey(ev *Event) string {
+	if ev.Kind == EventCall && ev.Operation != nil {
+		return ev.Operation.Signature() + " " + ev.Operation.ID
+	}
+	return ev.Describe()
+}
+
+// carriedEvents lists the events some triggered transition carries, one per
+// signal or operation, in a fixed order.
 func (b *Bindings) carriedEvents() []*Event {
-	byName := map[string]*Event{}
+	byKey := map[string]*Event{}
 	for _, ev := range b.Carry {
-		byName[ev.Describe()] = ev
+		byKey[carrierKey(ev)] = ev
 	}
-	names := make([]string, 0, len(byName))
-	for n := range byName {
-		names = append(names, n)
+	keys := make([]string, 0, len(byKey))
+	for k := range byKey {
+		keys = append(keys, k)
 	}
-	sort.Strings(names)
-	out := make([]*Event, len(names))
-	for i, n := range names {
-		out[i] = byName[n]
+	sort.Strings(keys)
+	out := make([]*Event, len(keys))
+	for i, k := range keys {
+		out[i] = byKey[k]
 	}
 	return out
+}
+
+// numberOverloads gives each operation sharing its name with another call
+// trigger's a number, its place among them in document order, 1 first.
+func (b *Bindings) numberOverloads(all []*Transition) {
+	b.overloads = map[*Operation]int{}
+	byName := map[string][]*Operation{}
+	for _, t := range all {
+		for _, trig := range t.Triggers {
+			ev := trig.Event
+			if ev == nil || ev.Kind != EventCall || ev.Operation == nil {
+				continue
+			}
+			if !slices.Contains(byName[ev.Operation.Name], ev.Operation) {
+				byName[ev.Operation.Name] = append(byName[ev.Operation.Name], ev.Operation)
+			}
+		}
+	}
+	for _, ops := range byName {
+		if len(ops) < 2 {
+			continue
+		}
+		for i, op := range ops {
+			b.overloads[op] = i + 1
+		}
+	}
 }

@@ -1753,6 +1753,21 @@ the classifier reports under *behavior parameter* (`TestParametersRefusals`):
   signal with several attributes, a transition with several triggers, and a do activity with
   outputs.
 
+Same-named operations are told apart by identity throughout, as a UML `CallEvent` names one
+`Operation`: the tester's call binds its arguments to the parameters of the one it targets
+(`stimulation.go`), `sameEvent` compares the operations, not their names, and each carries its
+own attributes — the overload's number among the machine's call triggers in document order joins
+the name, `trigger_bump_1_count` for `bump(inout count : Integer)` and `trigger_bump_2_flag` for
+`bump(in flag : Boolean)`, so one carrier never holds the other's value
+(`TestParametersOverloadsByIdentity`, `TestParametersOverloadsBindApart`,
+`TestParametersOverloadsCarryApart`). The trigger itself is where the notation runs out:
+`accept bump(count)` names the operation by name and parameter names, the emitted machine
+declares no operation for the runtime to select among, and a call of either overload binds a
+`count`, so two same-named operations one of whose input names cover the other's —
+`bump(inout count : Integer)` and `bump(in count : Boolean)` — have one accept spelling between
+them and a trigger naming either is refused (`emit.go:indistinctOverload`,
+`TestParametersOverloadsWithOneSpellingRefused`); no test of the suite has the shape.
+
 The classifier reports only the behaviors `binding.go` refuses, so *Entry 002-F*'s and
 *Standalone 002*'s entries bind and their reasons name their entry and exit points and, for the
 latter, its exits.

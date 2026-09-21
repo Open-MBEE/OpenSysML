@@ -811,13 +811,46 @@ func (e *emitter) trigger(trig *Trigger, where string) (accept, param string, er
 		if ev.Operation == nil {
 			return "", "", e.fail(where, "a call event without an operation")
 		}
-		var names []string
-		for _, p := range ev.Operation.Inputs() {
-			names = append(names, spell(p.Name))
+		if other := e.indistinctOverload(ev.Operation); other != nil {
+			return "", "", e.fail(where, fmt.Sprintf("a call of %s and one of %s are told apart by the operation they name; `accept %s` takes either", ev.Operation.Signature(), other.Signature(), acceptCall(ev.Operation)))
 		}
-		return fmt.Sprintf("%s(%s)", spell(ev.Operation.Name), strings.Join(names, ", ")), "", nil
+		return acceptCall(ev.Operation), "", nil
 	}
 	return "", "", e.fail(where, fmt.Sprintf("a %s trigger has no spelling", ev.Type))
+}
+
+// acceptCall spells the accept clause of a call trigger, `op(x, y)`.
+func acceptCall(op *Operation) string {
+	var names []string
+	for _, p := range op.Inputs() {
+		names = append(names, spell(p.Name))
+	}
+	return fmt.Sprintf("%s(%s)", spell(op.Name), strings.Join(names, ", "))
+}
+
+// indistinctOverload finds a same-named operation of the target whose calls
+// `accept op(inputs)` also takes: one with every input name of op's.
+func (e *emitter) indistinctOverload(op *Operation) *Operation {
+	if e.test.Target == nil {
+		return nil
+	}
+	for _, other := range e.test.Target.Operations {
+		if other == op || other.Name != op.Name {
+			continue
+		}
+		named := map[string]bool{}
+		for _, p := range other.Inputs() {
+			named[p.Name] = true
+		}
+		covered := true
+		for _, p := range op.Inputs() {
+			covered = covered && named[p.Name]
+		}
+		if covered {
+			return other
+		}
+	}
+	return nil
 }
 
 // alfGuard matches the Alf guard bodies the suite writes: comparisons of a
