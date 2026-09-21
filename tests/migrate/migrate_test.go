@@ -312,6 +312,7 @@ var constructFixtures = []string{
 	"tree_constraints",
 	"realized_interfaces",
 	"parking_usecases",
+	"report_views",
 }
 
 // migrateFixtureFile migrates testdata/xmi/<name>.xmi.

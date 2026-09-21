@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+
+    <packagedElement xmi:type="uml:Package" xmi:id="_sys" name="Pump System">
+      <packagedElement xmi:type="uml:Class" xmi:id="_pump" name="Pump">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_motor" name="motor" type="_motorCls" aggregation="composite"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_motorCls" name="Motor"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_safetyReq" name="Guard Fitted">
+        <ownedComment xmi:type="uml:Comment" xmi:id="_safetyReqDoc" annotatedElement="_safetyReq" body="The pump shall carry a guard."/>
+      </packagedElement>
+      <xmi:Extension extender="Example Modeler">
+        <modelExtension>
+          <ownedDiagram xmi:type="uml:Diagram" xmi:id="_bdd" name="Pump BDD"/>
+        </modelExtension>
+      </xmi:Extension>
+    </packagedElement>
+
+    <packagedElement xmi:type="uml:Package" xmi:id="_people" name="Stakeholders">
+      <packagedElement xmi:type="uml:Class" xmi:id="_operator" name="Operator"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_inspector" name="Safety Inspector"/>
+      <packagedElement xmi:type="uml:Actor" xmi:id="_maintainer" name="Maintainer"/>
+    </packagedElement>
+
+    <packagedElement xmi:type="uml:Package" xmi:id="_vps" name="Viewpoints">
+      <!-- A viewpoint with every tag the profile gives it. -->
+      <packagedElement xmi:type="uml:Class" xmi:id="_safetyVp" name="Safety Viewpoint">
+        <ownedComment xmi:type="uml:Comment" xmi:id="_safetyVpDoc" annotatedElement="_safetyVp" body="What the safety inspector must see."/>
+        <ownedComment xmi:type="uml:Comment" xmi:id="_hazardConcern" annotatedElement="_safetyVp" body="Which hazards does the pump control?"/>
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_collect" name="Collect Guards"/>
+      </packagedElement>
+      <!-- A viewpoint whose stakeholder is not written and whose method is a behavior. -->
+      <packagedElement xmi:type="uml:Class" xmi:id="_opsVp" name="Operations Viewpoint"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_notAViewpoint" name="Plain Block"/>
+    </packagedElement>
+
+    <packagedElement xmi:type="uml:Package" xmi:id="_views" name="Views">
+      <!-- A view conforming by generalization, exposing a package, an element, a
+           property, a diagram and an element outside the document. -->
+      <packagedElement xmi:type="uml:Class" xmi:id="_safetyView" name="Safety View">
+        <ownedComment xmi:type="uml:Comment" xmi:id="_safetyViewDoc" annotatedElement="_safetyView" body="Everything that keeps the pump safe."/>
+        <generalization xmi:type="uml:Generalization" xmi:id="_conformGen" general="_safetyVp"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_detail" name="detail" type="_detailView" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_appendices" name="appendices" type="_detailView" aggregation="composite">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_appLow" value="0"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_appUp" value="*"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_seeAlso" name="seeAlso" type="_opsView"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_detailView" name="Guard Detail"/>
+      <!-- A view conforming by «Conform» dependency and by its viewpoint tag, once. -->
+      <packagedElement xmi:type="uml:Class" xmi:id="_opsView" name="Operations View"/>
+      <!-- A «View» package holds its members. -->
+      <packagedElement xmi:type="uml:Package" xmi:id="_viewPkg" name="Handbook">
+        <packagedElement xmi:type="uml:Class" xmi:id="_chapter" name="Chapter"/>
+      </packagedElement>
+      <!-- A view conforming to a block, and one whose tag names an absent viewpoint. -->
+      <packagedElement xmi:type="uml:Class" xmi:id="_oddView" name="Odd View">
+        <generalization xmi:type="uml:Generalization" xmi:id="_oddGen" general="_notAViewpoint"/>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_exposeSys" client="_safetyView" supplier="_sys"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_exposeReq" client="_safetyView" supplier="_safetyReq _motor"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_exposeDiagram" client="_safetyView" supplier="_bdd"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_exposeGone" client="_safetyView" supplier="_nowhere"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_exposeExternal" client="_opsView">
+        <supplier xmi:type="uml:Class" href="Shared.xmi#_sharedBlock"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_exposeFromBlock" client="_pump" supplier="_motorCls"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_exposeViewpoint" client="_opsView" supplier="_safetyVp"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_conformDep" client="_opsView" supplier="_opsVp"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_conformToBlock" client="_detailView" supplier="_notAViewpoint"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_conformFromBlock" client="_pump" supplier="_safetyVp"/>
+    </packagedElement>
+  </uml:Model>
+  <sysml:Block xmi:id="_s1" base_Class="_pump"/>
+  <sysml:Block xmi:id="_s2" base_Class="_motorCls"/>
+  <sysml:Requirement xmi:id="_s3" base_Class="_safetyReq" id="R1" text="The pump shall carry a guard."/>
+  <sysml:Stakeholder xmi:id="_s4" base_Classifier="_operator" concern="Keep the pump running."/>
+  <sysml:Stakeholder xmi:id="_s5" base_Classifier="_inspector"/>
+  <sysml:Viewpoint xmi:id="_s6" base_Class="_safetyVp" stakeholder="_inspector _maintainer" purpose="Show what keeps the pump safe." concernList="_hazardConcern" language="English" presentation="table" method="_collect">
+    <concern>Is every moving part guarded?</concern>
+  </sysml:Viewpoint>
+  <sysml:Viewpoint xmi:id="_s7" base_Class="_opsVp" stakeholder="_operator _absentStakeholder" purpose="Show how the pump is run."/>
+  <sysml:Block xmi:id="_s8" base_Class="_notAViewpoint"/>
+  <sysml:View xmi:id="_s9" base_Class="_safetyView"/>
+  <sysml:View xmi:id="_s10" base_Class="_detailView"/>
+  <sysml:View xmi:id="_s11" base_Class="_opsView" viewpoint="_opsVp"/>
+  <sysml:View xmi:id="_s12" base_Package="_viewPkg"/>
+  <sysml:View xmi:id="_s13" base_Class="_oddView" viewpoint="_missingVp"/>
+  <sysml:Expose xmi:id="_s14" base_Dependency="_exposeSys"/>
+  <sysml:Expose xmi:id="_s15" base_Dependency="_exposeReq"/>
+  <sysml:Expose xmi:id="_s16" base_Dependency="_exposeDiagram"/>
+  <sysml:Expose xmi:id="_s17" base_Dependency="_exposeGone"/>
+  <sysml:Expose xmi:id="_s18" base_Dependency="_exposeExternal"/>
+  <sysml:Expose xmi:id="_s19" base_Dependency="_exposeFromBlock"/>
+  <sysml:Expose xmi:id="_s20" base_Dependency="_exposeViewpoint"/>
+  <sysml:Conform xmi:id="_s21" base_Dependency="_conformDep"/>
+  <sysml:Conform xmi:id="_s22" base_Dependency="_conformToBlock"/>
+  <sysml:Conform xmi:id="_s23" base_Dependency="_conformFromBlock"/>
+</xmi:XMI>

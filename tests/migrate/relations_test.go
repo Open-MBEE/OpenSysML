@@ -349,7 +349,7 @@ func TestShadowedReferencesAreGlobal(t *testing.T) {
 // on a reference. Each is written validly and every loss is reported.
 func TestUnwritableFeaturePartsAreDroppedWithNotes(t *testing.T) {
 	r := migrateDocument(t, `
-    <packagedElement xmi:type="uml:Class" xmi:id="_v" name="Intro"/>
+    <packagedElement xmi:type="uml:Artifact" xmi:id="_v" name="Intro"/>
     <packagedElement xmi:type="uml:Class" xmi:id="_h" name="H">
       <ownedAttribute xmi:type="uml:Property" xmi:id="_anon" type="_v" aggregation="composite"/>
       <ownedAttribute xmi:type="uml:Property" xmi:id="_grid" name="grid">
@@ -367,7 +367,6 @@ func TestUnwritableFeaturePartsAreDroppedWithNotes(t *testing.T) {
         <defaultValue xmi:type="uml:LiteralString" xmi:id="_d2" value="4"/>
       </ownedAttribute>
     </packagedElement>`, `
-  <sysml:View xmi:id="_s1" base_Class="_v"/>
   <sysml:Block xmi:id="_s2" base_Class="_h"/>`)
 	wantLine(t, r.Notation, "ref intro;")
 	wantLine(t, r.Notation, "ref grid;")

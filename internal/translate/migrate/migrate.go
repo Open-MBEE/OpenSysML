@@ -60,6 +60,8 @@ func FromModel(name string, model *sysmlv1.Model) *Result {
 		flows:        map[*sysmlv1.Element][]*sysmlv1.Element{},
 		outcomes:     map[*sysmlv1.Element]*flowOutcome{},
 		unplaced:     map[*sysmlv1.Element]*placement{},
+		satisfied:    map[*sysmlv1.Element]map[*sysmlv1.Element]bool{},
+		framed:       map[*sysmlv1.Element]bool{},
 		taken:        map[*sysmlv1.Element]map[string]bool{},
 		parallel:     map[*sysmlv1.Element]string{},
 		exposed:      map[*sysmlv1.Element]string{},
@@ -257,6 +259,10 @@ type migration struct {
 	// actors gives each association linking a use case to an actor the actor
 	// usage it is written as in the use case's body.
 	actors map[*sysmlv1.Element]*actorLink
+	// satisfied records, per view, the viewpoints its body satisfies so far.
+	satisfied map[*sysmlv1.Element]map[*sysmlv1.Element]bool
+	// framed marks the comments a viewpoint's concernList names, written as its concerns.
+	framed map[*sysmlv1.Element]bool
 	// clocks memoizes the names a simulation configuration gives the clock.
 	clocks map[string]string
 	// observed memoizes, per observation, the durations and time expressions that read it.
@@ -332,6 +338,7 @@ func (m *migration) prepare() {
 	var walk func(e *sysmlv1.Element)
 	walk = func(e *sysmlv1.Element) {
 		m.distinguish(e)
+		m.framedComments(e)
 		if simulationConfig(e) != nil {
 			configs = append(configs, e)
 		}
@@ -782,6 +789,12 @@ func (m *migration) classifierBody(e *sysmlv1.Element, cat category, header stri
 	case catUseCaseDef:
 		m.w.block(header, func() { m.useCaseBody(e) })
 		return
+	case catView:
+		m.w.block(header, func() { m.viewBody(e) })
+		return
+	case catViewpoint:
+		m.w.block(header, func() { m.viewpointBody(e) })
+		return
 	case catEnumDef:
 		m.w.block(header, func() {
 			m.comments(e)
@@ -833,6 +846,10 @@ func (m *migration) generals(e *sysmlv1.Element, cat category) (string, string) 
 		}
 		if target.IsProxy() || m.isLibrary(target) {
 			notes = append(notes, "generalization of library type "+qualifiedName(target)+" is not written")
+			continue
+		}
+		if cat == catView && m.conforms(g) {
+			// The view's body satisfies the viewpoint instead.
 			continue
 		}
 		if tc, _ := m.classify(target); tc != cat {
@@ -1385,7 +1402,7 @@ func (m *migration) associationEnd(e, end *sysmlv1.Element, used map[string]bool
 		decl += " " + writeName(endName)
 	}
 	if typ != "" {
-		decl += " : " + typ
+		decl += m.typing(t) + typ
 	}
 	mult, mnote := m.multiplicity(end)
 	decl += mult + collection(end) + ";"
@@ -1447,6 +1464,11 @@ func (m *migration) featureKeyword(p *sysmlv1.Element, owner category) (keyword,
 		// A property typed by a behavior holds a performance; only a perform
 		// or exhibit usage runs one, so the property is a reference.
 		return kw, "ref ", joinNotes(note, "a property typed by a behavior is written as a reference "+kw+" usage")
+	case "view", "viewpoint":
+		if p.Attrs["aggregation"] == "composite" {
+			return kw, "", note
+		}
+		return kw, "ref ", note
 	}
 	return kw, "", note
 }
@@ -1478,6 +1500,10 @@ func (m *migration) typeKeyword(t *sysmlv1.Element) (keyword, note string) {
 		return "calc", ""
 	case catUseCaseDef:
 		return "use case", ""
+	case catView:
+		return "view", ""
+	case catViewpoint:
+		return "viewpoint", ""
 	case catNone, catLibrary:
 		return "attribute", "typed by library element " + t.Name + " with no known v2 counterpart"
 	case catUnmapped:
@@ -1699,8 +1725,19 @@ func (m *migration) featureTyping(b *strings.Builder, p, ind *sysmlv1.Element, p
 		if p.Type == "Port" && p.Attrs["isConjugated"] == "true" {
 			typ = "~" + typ
 		}
-		b.WriteString(" : " + typ)
+		b.WriteString(m.typing(m.model.Ref(p, "type")) + typ)
 	}
+}
+
+// typing is the specialization a feature's type is written with: subsetting
+// when the type becomes a usage, as a view or viewpoint does, else typing.
+func (m *migration) typing(t *sysmlv1.Element) string {
+	if t != nil {
+		if cat, _ := m.classify(t); cat == catView || cat == catViewpoint {
+			return " :> "
+		}
+	}
+	return " : "
 }
 
 // featureShadow writes the redefinition an inherited member of the same name
@@ -1950,6 +1987,10 @@ func (m *migration) typeRef(t, scope *sysmlv1.Element) (string, string) {
 		return "", "library type " + qualifiedName(t) + " has no known v2 counterpart and is not written"
 	case catUnmapped, catNone:
 		return "", "type " + qualifiedName(t) + " is not migrated and is not written"
+	case catView, catViewpoint:
+		if note := m.featuredNote(t, scope); note != "" {
+			return "", note + "; the usage is not subset"
+		}
 	}
 	return m.ref(t, scope), ""
 }
@@ -2316,11 +2357,18 @@ type placement struct {
 	notes           []string
 }
 
-// placeDependency registers, ahead of writing, a Satisfy or Verify in the body
-// of the element each pair is written in, which may precede the dependency
-// itself; the dependency's report entry is written where it stands.
+// placeDependency registers, ahead of writing, a Satisfy, Verify, Expose or
+// Conform in the body of the element each pair is written in, which may precede
+// the dependency itself; the dependency's report entry is written where it stands.
 func (m *migration) placeDependency(d *sysmlv1.Element) {
-	if !has(d, "Satisfy", "Verify") {
+	switch {
+	case has(d, "Expose"):
+		m.placeExpose(d)
+		return
+	case has(d, "Conform"):
+		m.placeConform(d)
+		return
+	case !has(d, "Satisfy", "Verify"):
 		return
 	}
 	pl := &placement{}
@@ -2368,7 +2416,7 @@ func (m *migration) placedName(scope *sysmlv1.Element, name string) (string, str
 // dependency writes a dependency by the SysML stereotype it carries, one
 // relationship per client–supplier pair.
 func (m *migration) dependency(d *sysmlv1.Element) {
-	if has(d, "Satisfy", "Verify") {
+	if has(d, "Satisfy", "Verify", "Expose", "Conform") {
 		m.relationship(d, m.unplaced[d])
 		return
 	}
@@ -2609,6 +2657,9 @@ func (m *migration) comments(e *sysmlv1.Element) { m.writeComments(e, true) }
 // doc yet.
 func (m *migration) writeComments(e *sysmlv1.Element, first bool) {
 	for _, c := range e.Owned("ownedComment") {
+		if m.framed[c] {
+			continue
+		}
 		about := m.model.Refs(c, "annotatedElement")
 		missing := m.dangling(c, "annotatedElement")
 		others := false
@@ -2701,6 +2752,9 @@ var consumedTags = map[string]map[string]bool{
 	"FlowProperty":       {"direction": true},
 	"FlowPort":           {"direction": true},
 	"NestedConnectorEnd": {"propertyPath": true},
+	"View":               {"viewpoint": true, "viewPoint": true},
+	"Viewpoint": {"stakeholder": true, "purpose": true, "concern": true, "concernList": true,
+		"language": true, "method": true, "presentation": true},
 }
 
 // stereotypeComments keeps the stereotypes the mapping does not consume, and

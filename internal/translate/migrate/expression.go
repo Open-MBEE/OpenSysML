@@ -187,10 +187,14 @@ func identifier(s string) bool {
 func (l *treeLowering) instance(v *sysmlv1.Element) (string, *refusal) {
 	m := l.s.m
 	expr, ok, note := m.instanceValue(v, l.s.scope)
-	if !ok {
-		return "", &refusal{kind: refusedName, token: describeValue(v), why: note}
-	}
 	inst := m.model.Ref(v, "instance")
+	if !ok {
+		kind := refusedName
+		if inst == nil {
+			kind = refusedConstruct
+		}
+		return "", &refusal{kind: kind, token: describeValue(v), why: note}
+	}
 	typ := inst.Parent
 	if inst.Type != "EnumerationLiteral" {
 		typ = nil
