@@ -52,6 +52,10 @@ within these records and means nothing outside this repository.
   usage fed by a `flow` is SysML v2's spelling of concurrent per-element performance, adjudicated
   against the specifications, the library, the corpora and the pilot, and closed: the iterative
   form is `for`, the parallel form is not SysML v2
+- **[Exception handlers](exception-handlers.md)** — whether SysML v2 spells an exception handler
+  or exception propagation, adjudicated against the specifications, the library, the corpora and
+  the pilot, and closed as not a SysML v2 construct, with the idiom that covers the need — a
+  result routed by `decide`, or a failure signal accepted beside the work and a `terminate`
 - **[Exact-rational evaluation](exact-rational-evaluation.md)** — whether the evaluator should
   compute `Real`/`Rational` arithmetic exactly rather than in binary64, adjudicated against the
   pinned pilot and the specification text, and declined

@@ -2169,6 +2169,68 @@ A run that stops early, whether through deadlock or by hitting a budget, is repo
 undecided check rather than a failure. The budgets are documented in
 [reference/environment.md](../reference/environment.md).
 
+### Handling a failure: there is no `try`/`catch`
+
+SysML v2 has no exception handler and no `raise`: an action cannot end abnormally with a payload,
+and nothing propagates. A failure is modeled like any other fact, and handled with the nodes
+above. Two shapes cover what UML's exception handlers do. Where the failing step knows it failed,
+it reports so on an `out` parameter (`out ok : Boolean`, a status enum) and a `decide` after it
+routes on the report — the [conditional branching](#decision-and-else-conditional-branching)
+pattern. Where the failure has to interrupt work already under way, the step sends a signal, and
+a branch forked beside the work accepts it, terminates the work and handles the payload:
+
+```sysml
+attribute def Fault { attribute reason : String; }
+
+action bySignal {
+    out attribute progress : Integer = 0;
+    out attribute handled : String = "";
+
+    first start;
+    then fork split;
+        then work;
+        then caught;
+
+    action work {
+        first start;
+        then action step1 { assign progress := 1; }
+        then action raise send new Fault(reason = "sensor offline") to caught;
+        then action wait accept go : Integer;
+        then action step2 { assign progress := 99; }
+        then done;
+    }
+
+    action caught accept fault : Fault;
+    then action stop { terminate work; }
+    then action handle { assign handled := fault.reason; }
+    then sync;
+
+    join sync;
+    succession first work then sync;
+    succession first sync then done;
+}
+```
+
+```bash
+$ sysml -action FailureHandling::bySignal failure_handling.sysml
+✓ Action completed
+  Final state: Completed
+  Results:
+    fault = Instance(ID: 1)
+    handled = "sensor offline"
+    progress = 1
+```
+
+`work` was parked at `wait` when `stop` terminated it, so `step2` never ran and `progress` stays
+at 1; the join releases on the ended performance. This is §7.17.10's `MonitoredActivity` with the
+signal sent by the work itself, and it is the standard notation — every node in it is an ordinary
+`send`, `accept`, `terminate` or `fork`. A failure the model does *not* spell — a division by
+zero, an unbound parameter, an accept nothing can satisfy — is not silently skipped and not a
+crash: the run ends with a typed error naming it (`execution failed: … division by zero`), a
+check reports the standing `not covered`, and a verification case whose body fails is the verdict
+`error`. The adjudication behind this section is
+[project/exception-handlers.md](../project/exception-handlers.md).
+
 ---
 
 Next: [7. Saving, and converting to RDF](07-saving-and-rdf.md).
