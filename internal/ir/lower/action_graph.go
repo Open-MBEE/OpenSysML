@@ -62,6 +62,11 @@ type ActionGraph struct {
 	// completes only when that flow does (action_subflow.go).
 	Subflows map[ast.Node]*Subflow
 
+	// Enclosing and EnclosingNode are the graph and node a nested flow runs under,
+	// whose pins a write under the flow streams from; nil for the outermost flow.
+	Enclosing     *ActionGraph
+	EnclosingNode ast.Node
+
 	// InitialNode (required)
 	Initial ast.Node
 
@@ -558,6 +563,27 @@ type PinBinding struct {
 	FromValue bool
 }
 
+// FlowKind is how a data flow carries its values: streaming, as a `flow` is unless
+// designated otherwise (Flows::Flow), or as a succession flow (Flows::SuccessionFlow).
+type FlowKind int
+
+const (
+	// FlowStreaming delivers each value the source pin takes to the target's ongoing
+	// performances, or ahead of its next one while none is under way.
+	FlowStreaming FlowKind = iota
+	// FlowSuccession delivers the value the source pin holds once the source
+	// completes, and the target begins no sooner.
+	FlowSuccession
+)
+
+// String names the kind as the notation spells it.
+func (k FlowKind) String() string {
+	if k == FlowSuccession {
+		return "succession flow"
+	}
+	return "flow"
+}
+
 // ObjectFlow represents a data flow edge between pins.
 type ObjectFlow struct {
 	// Name is the flow's own name, when it was declared with one
@@ -567,6 +593,8 @@ type ObjectFlow struct {
 	SourcePin string
 	TargetPin string
 	Target    ast.Node
+	// Kind is how the flow carries its values, as its declaration designated.
+	Kind FlowKind
 	// Decl is the declaration the flow was written as, for a consumer that
 	// reports where it comes from.
 	Decl ast.Node
@@ -605,6 +633,7 @@ func ToActionGraphWith(actionDecl ast.Node, scope *symbols.Scope, resolver *reso
 		return nil, err
 	}
 	recordBlockNodes(graph)
+	encloseBlockFlows(graph)
 	return graph, nil
 }
 
@@ -734,6 +763,7 @@ func (l *actionEdgeLowerer) objectFlowEdge(n *ast.ObjectFlowEdge) error {
 		SourcePin: sourcePin,
 		TargetPin: targetPin,
 		Target:    targetNode,
+		Kind:      FlowStreaming,
 		Decl:      n,
 	})
 	return nil
@@ -1690,11 +1720,16 @@ func lowerFlow(nodes nodeLookup, flow *ast.Usage) (ast.Node, ObjectFlow, error) 
 		)
 	}
 
+	kind := FlowStreaming
+	if flow.IsSuccessionFlow() {
+		kind = FlowSuccession
+	}
 	return sourceNode, ObjectFlow{
 		Name:      name,
 		SourcePin: sourcePin,
 		TargetPin: targetPin,
 		Target:    targetNode,
+		Kind:      kind,
 		Decl:      flow,
 	}, nil
 }
@@ -1702,11 +1737,10 @@ func lowerFlow(nodes nodeLookup, flow *ast.Usage) (ast.Node, ObjectFlow, error) 
 // succeedFlow adds the succession a `succession flow` also states: the target
 // starts once the source completes and the value has moved.
 func succeedFlow(graph *ActionGraph, source ast.Node, flow ObjectFlow) {
-	u, ok := flow.Decl.(*ast.Usage)
-	if !ok || !u.IsSuccessionFlow() {
+	if flow.Kind != FlowSuccession {
 		return
 	}
-	graph.Edges[source] = append(graph.Edges[source], ActionEdge{Source: source, Target: flow.Target, Decl: u})
+	graph.Edges[source] = append(graph.Edges[source], ActionEdge{Source: source, Target: flow.Target, Decl: flow.Decl})
 }
 
 // flowEnd resolves one end of a flow to the node it belongs to and the pin it

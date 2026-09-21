@@ -1334,39 +1334,50 @@ or a later specification revision re-adjudicates the record. No other item depen
 
 ## E4 — streaming flows ("streaming pins")
 
-**Today.** A `flow` between two action parameters executes as a *succession* flow: the value
-at the source pin is moved to the target pin when the source node completes
-(`runtime/action_executor.go` `applyDataFlows`, called from the node-completion paths), so the
-target reads it when its own token arrives. SysML v2 §7.16 draws the distinction the runtime does
-not: "the input and output parameters are streaming unless designated as succession flows" — a
-streaming `flow` "can be ongoing while both the source and target action are being performed",
-while a `succession flow` "cannot begin until the source completes". The parser keeps the
-distinction (`ast.Usage.IsSuccessionFlow`, used by the control-node succession rule), but
-`lower.ObjectFlow` carries no kind and no position refuses anything — both spellings run, both as
-the succession reading. That is a wrong
-result only for a model whose target reads before its source completes, and no conformance
-fixture writes one.
+**Landed.** A `flow` between two action parameters is a *streaming* flow, and only the
+`succession flow` spelling moves its value when the source completes. SysML v2 §7.16: "the input
+and output parameters are streaming unless designated as succession flows" — a streaming `flow`
+"can be ongoing while both the source and target action are being performed", while a
+`succession flow` "cannot begin until the source completes" (`Flows::Flow :> Message,
+FlowTransfer`; `Flows::SuccessionFlow :> Flow, FlowTransferBefore`). The parser had kept the
+distinction (`ast.Usage.IsSuccessionFlow`) and the lowering lost it: `lower.ObjectFlow` now
+carries it as `Kind` (`FlowStreaming`, the default, or `FlowSuccession`), `lowerFlow` sets it and
+`succeedFlow` reads it for the succession edge a `succession flow` also states, so the runtime
+re-derives nothing from the declaration.
 
-**Target.** `Flows::Flow :> Message, FlowTransfer` for a streaming flow and
-`Flows::SuccessionFlow :> Flow, FlowTransferBefore` for the succession form (`Systems
-Library/Flows.sysml`, `Kernel Semantic Library/Transfers.kerml`): a streaming flow transfers each
-value the source parameter takes while both performances are ongoing; a succession flow transfers
-after the source completes. What runs today is the second, applied to both.
+*Streaming* (`runtime/action_frame.go` `streamFrom`, `streamFlow`): each write to the source
+pin — an assignment in the source's body, a nested node's output carried back into it — is
+carried at once along the streaming flows out of the node to the pin of every ongoing
+performance of the target, found by E1's `ongoing`; a target that reads its pin between two
+writes sees each. A value written while no performance of the target is under way waits at the
+target's pin as a flow's value always has (`pending`), and a further write from the same source
+performance replaces it (`stage`, `actionFrame.staged`), so a target that begins after the
+source reads the pin as the source left it; the writes of distinct source performances wait one
+per target performance, oldest first, so a stream inside a loop body — the value of one pass
+taken by that pass's target — and fork/join around the two nodes all read what was written for them.
+The source completing carries nothing more for a pin it streamed (`actionFrame.streamed`), so
+no value arrives twice; a source that completes with the pin never written is `ErrFlowSource`.
+A write after the target's last performance ended reaches no performance: it waits, the target's
+next performance takes it (`takeDeliveries`), and the enclosing performance completing with it
+still waiting is `ErrStreamUnreceived` (`actionFrame.unreceived`, `checkStreamsReceived`); a
+stream to a pin the ongoing target does not declare is `ErrNodePin` at the write. *Succession*
+(`runtime/action_executor.go` `applyDataFlows` → `deliverFlow`): unchanged — the value the pin
+holds at completion moves, and the target begins after the source.
 
-**Work.** Carry the kind from the AST (`ast.Usage.IsSuccessionFlow`) through
-`lower.ObjectFlow` to the executor; keep the succession behavior for the `succession flow`
-spelling; for a plain `flow`, deliver on each write to the source parameter while the target is
-ongoing, which needs a node to be readable while it still holds a token — the same notion of an
-ongoing performance E1 and E2 introduce. Depends on E1 for that notion; E3's parallel form, had
-it had a standard spelling, would have fed it — its record closed without one, so nothing feeds
-it but a producer's own writes.
+**Proof.** `lower/action_flow_kind_test.go` (the kind follows the spelling; only the succession
+kind orders); conformance `action_flow_streaming_producer_consumer` (a producer loop writing 1, 2,
+3 beside a consumer loop reading each: total 6) with its trace golden showing the writes and
+reads interleaved, `action_flow_succession_producer_consumer` (the same nodes in sequence: the
+consumer reads 3 three times, total 9) with its trace golden, `action_flow_streaming_before_target_begins`,
+`action_flow_streaming_in_loop_body`; `robustness_streaming_flow_test.go` (a source that never
+writes, a target over before its source wrote, a stream to an undeclared pin). The
+`spec-compliance.md` Actions map's object-flow row is split by kind and "Streaming pins" leaves
+the not-implemented list.
 
-**Proof.** Conformance: a producer loop writing three values to an `out` streamed to a consumer
-that accumulates them, with the `succession flow` variant of the same model receiving only the
-last; a trace golden for the interleaving; robustness for a stream whose source never writes.
-`spec-compliance.md`: the Actions map's object-flow rows split by kind and the bullet leaves the
-list. **Prioritize when** a model's result differs between the two readings — a consumer that
-reads before its producer completes.
+**What it leaves.** A source whose body writes its pin several times before any target
+performance is under way leaves the target the pin's value — its latest write — as a target
+performing beside each write would read; only a target performance under way sees every write.
+E3's parallel form, when it has a spelling, decides the streaming consumer of its elements with it.
 
 ## E5 — protocol state machines (design record landed)
 
@@ -3008,11 +3019,12 @@ carried more than that list. By track, with the pull requests the tracks cite:
   document's several views (#349) and opens on demand (#348), writes layout into the document
   that declares the element across the workspace (#307), and reparents by drag (#305).
 - **Track E** — E1 landed (`terminate` runs in every position, the PSSM `terminate-gap` bucket
-  retired); E6 landed (a positional argument list on `InvokeOperationWith` and `%invoke`, bound
-  to the effective signature an invocation expression binds to); E9 and E10 landed as conformance
-  findings; E8's refusal landed (#229), the item itself is open; E3 closed by its design record
-  ([expansion-regions.md](expansion-regions.md): the iterative form is `for`, the parallel form
-  is not SysML v2), no executor work following.
+  retired); E4 landed (a plain `flow` streams each write, a `succession flow` moves the value at
+  completion); E6 landed (a positional argument list on `InvokeOperationWith` and `%invoke`,
+  bound to the effective signature an invocation expression binds to); E9 and E10 landed as
+  conformance findings; E8's refusal landed (#229), the item itself is open; E3 closed by its
+  design record ([expansion-regions.md](expansion-regions.md): the iterative form is `for`, the
+  parallel form is not SysML v2), no executor work following.
 - **Track D** — D12 (the standard library's normative element ids) is done.
 - **Release follow-through** — R4's Windows installer is published by `v0.7.0` and `v0.8.0`
   alike; the release procedure runs git-flow (#151); `opensysml` 0.5.0 is on PyPI; the
@@ -3024,9 +3036,9 @@ The open items, by track, with the item that gates each where one does. Everythi
 is landed or is a track the previous baseline left as it stands (D, N, M, I, V, B, R2–R5);
 Tracks F, S, L and A are closed.
 
-- **Track E** — eligible and first: E2, then E4 (E1 and E6 landed), E3 closed by its design
-  record, E5 closed by its record (an optional follow-up waits on a model that needs it), E7
-  behind its object-model item, E8 behind a model that needs it. The
+- **Track E** — eligible and first: E2 (E1 and E4 landed), with E6 landed; E3 closed by its
+  design record, E5 closed by its record (an optional follow-up waits on a model that needs it),
+  E7 behind its object-model item, E8 behind a model that needs it. The
   PSSM referee's 17 `fail` tests are the state side's measurement, every one attributed (#326):
   eleven wait on the region-order choice point whose design record #342 wrote and left at two
   maintainer decisions — the nine the record names to move `fail` → `pass`, plus *Terminate 001*
@@ -3056,7 +3068,7 @@ The release housekeeping the previous order opened with is done — #286 folded 
 `develop`, PyPI serves the Python client's 0.5.0 — and its steps 2 (L7, #292), 4's first half
 (Q2, #293) and 5 (A4, #296) landed on `develop`, so the order is shorter by three.
 
-1. **Track E** — E2, then E4, in the track's own order below; E1 landed. F and S landed and two
+1. **Track E** — E2, in the track's own order below; E1 and E4 landed. F and S landed and two
    releases shipped them, so the condition the previous baseline set is met; the loops E edits
    carry A5's clock and S2's choice points, and every E item is written against a named scheduling
    policy. The state-executor fixes since the tag (#295, #297, #311, #313–#315, #317, #318, #322,
@@ -3139,7 +3151,7 @@ an empty action end its performance. The decision is the release checklist's, re
 - **Track S.** Landed in the order agreed: S1 (#110), S2 (#123), S3 (#125), S4 (#134); #141 added
   the region-order choice point afterwards. Nothing remains in the track.
 - **Track E.** Eligible — step 1 above. **E1** (termination of an ongoing performance, which
-  **E2** and **E4** build on) is landed; the order is **E2**, then **E4**; **E6** is landed;
+  **E2** and **E4** build on) is landed; the order is **E2**; **E4** is landed; **E6** is landed;
   **E3**'s record is landed and closes the item; **E5**'s record is landed and closes the item,
   its optional follow-up waiting on a model that needs it; **E7** after the object-model item it
   depends on; **E8** when a model redefines run-to-completion, its refusal (#229) standing until

@@ -289,6 +289,18 @@ var (
 	// action node does not declare, or the node's result where it has none.
 	ErrNodePin = errors.New("action node pin not declared")
 
+	// ErrFlowSource is returned when a flow's source completes with its pin holding
+	// no value to carry: a streaming source that never wrote, a succession source that produced nothing.
+	ErrFlowSource = errors.New("flow source produced no value")
+
+	// ErrStreamUnreceived is returned when a streaming flow carried a value after its
+	// target's last performance ended, so no performance of the target ever received it.
+	ErrStreamUnreceived = errors.New("streamed value reached no performance of its target")
+
+	// ErrStreamCycle is returned when streaming flows lead a value written to a pin back
+	// to that pin while the write is still being carried on.
+	ErrStreamCycle = errors.New("streaming flows form a cycle")
+
 	// ErrViolated is returned when an asserted constraint or a required
 	// condition evaluates to false. It is a verdict about the model, not a
 	// failure to evaluate, so callers can tell the two apart.

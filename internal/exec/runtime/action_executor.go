@@ -25,6 +25,9 @@ const actionLabelPrefix = "action "
 
 // ActionExecutor executes action bodies using token-flow semantics.
 type ActionExecutor struct {
+	// outputListeners, one per node of another action performing this one, take each
+	// write to an output of the action as it is made; empty when nothing is listening.
+	outputListeners []outputListener
 	// performances holds the action's own performance, root, and runs its nodes' as
 	// its subperformances; self is the object performing the action, whose
 	// connections route what it sends.
@@ -1130,6 +1133,9 @@ func (e *ActionExecutor) initializeAttributes() error {
 			}
 			if value := fv.HeldValue(); value.Kind != ValInvalid {
 				e.root.data[e.root.key(attr.Name)] = value
+				if err := e.streamInitialOutput(attr.Name, value); err != nil {
+					return err
+				}
 			}
 		}
 		return nil
@@ -1149,8 +1155,21 @@ func (e *ActionExecutor) initializeAttributes() error {
 			return fmt.Errorf("eval attribute default %s: %w", attr.Name, err)
 		}
 		e.root.data[e.root.key(attr.Name)] = value
+		if err := e.streamInitialOutput(attr.Name, value); err != nil {
+			return err
+		}
 	}
 
+	return nil
+}
+
+// streamInitialOutput carries the initial value of an output or inout to the listeners,
+// as a write to it would; other features are the performance's own.
+func (e *ActionExecutor) streamInitialOutput(name string, value Value) error {
+	switch e.root.features[e.root.key(name)] {
+	case ast.DirOut, ast.DirInOut:
+		return e.streamOutput(name, value)
+	}
 	return nil
 }
 
@@ -1200,6 +1219,37 @@ func (e *ActionExecutor) setFeature(name string, value Value) error {
 	}
 	e.root.data[e.root.key(name)] = value
 	e.moved = true
+	return e.streamOutput(name, value)
+}
+
+// outputListener is a node's ear on the outputs of the action it performs: perf is
+// the node's performance, take carries each write to its pins.
+type outputListener struct {
+	perf *actionFrame
+	take func(name string, value Value) error
+}
+
+// listen has perf take each later write to the action's outputs, replacing what it
+// listened through before.
+func (e *ActionExecutor) listen(perf *actionFrame, take func(string, Value) error) {
+	e.unlisten(perf)
+	e.outputListeners = append(e.outputListeners, outputListener{perf: perf, take: take})
+}
+
+// unlisten stops perf's listening; a performance a node joined outlives the node.
+func (e *ActionExecutor) unlisten(perf *actionFrame) {
+	e.outputListeners = slices.DeleteFunc(e.outputListeners, func(l outputListener) bool {
+		return l.perf == perf
+	})
+}
+
+// streamOutput carries a write to an output to every listener, in listening order.
+func (e *ActionExecutor) streamOutput(name string, value Value) error {
+	for _, l := range e.outputListeners {
+		if err := l.take(name, value); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -1876,6 +1926,9 @@ func (e *ActionExecutor) retireToken(tokenIdx int) error {
 	if frame == e.root && !frame.inBody {
 		e.removeToken(tokenIdx)
 		if len(e.tokens) == 0 {
+			if err := checkStreamsReceived(e.root); err != nil {
+				return err
+			}
 			e.state = StateCompleted
 			e.ctx.endPerformanceLife(e.occurrence)
 		}
@@ -2161,7 +2214,7 @@ func (e *ActionExecutor) leaveExecutionNode(tokenIdx int, frame *actionFrame, no
 	}
 
 	// Apply data flows: transfer data from this node's output pins to target input pins
-	if err := e.applyDataFlows(frame, frame.graph, node, frame.data); err != nil {
+	if err := e.applyDataFlows(frame, frame.graph, node, nil, frame.data, nil); err != nil {
 		return err
 	}
 
@@ -2283,7 +2336,7 @@ func (e *ActionExecutor) completeNode(tokenIdx int, perf *actionFrame) error {
 
 	// The flows out of this node carry what this performance produced to the
 	// pins the nodes downstream read.
-	if err := e.applyDataFlows(frame, frame.graph, node, perf.data); err != nil {
+	if err := e.applyDataFlows(frame, frame.graph, node, perf, perf.data, perf.streamed); err != nil {
 		return err
 	}
 
@@ -2575,16 +2628,29 @@ func statementNodeKeyword(node ast.Node) string {
 
 // applyDataFlows moves what the completed performance produced along graph's flows out
 // of sourceNode to the target pins; a source pin holding nothing is an error, not a no-op.
-func (e *performances) applyDataFlows(frame *actionFrame, graph *lower.ActionGraph, sourceNode ast.Node, produced map[string]Value) error {
+// A streaming flow from a pin in streamed carried its values as they were written;
+// perf is the performance that produced, nil for a node performed in frame itself.
+func (e *performances) applyDataFlows(
+	frame *actionFrame, graph *lower.ActionGraph, sourceNode ast.Node, perf *actionFrame, produced map[string]Value, streamed map[string]bool,
+) error {
 	for _, flow := range graph.DataFlows[sourceNode] {
+		if flow.Kind == lower.FlowStreaming && streamed[flow.SourcePin] {
+			continue
+		}
 		sourceData, ok := produced[flow.SourcePin]
 		if !ok {
 			return fmt.Errorf(
-				"%s: %s produced no value at %s",
-				flowDescription(flow), nodeDescription(sourceNode), orAnyPin(flow.SourcePin),
+				"%w: %s: %s produced no value at %s",
+				ErrFlowSource, flowDescription(flow), nodeDescription(sourceNode), orAnyPin(flow.SourcePin),
 			)
 		}
-		if err := e.deliverFlow(frame, graph, flow, sourceData); err != nil {
+		var err error
+		if flow.Kind == lower.FlowStreaming {
+			err = e.streamFlow(frame, graph, sourceNode, perf, flow, sourceData)
+		} else {
+			err = e.deliverFlow(frame, graph, flow, sourceData)
+		}
+		if err != nil {
 			return err
 		}
 	}
@@ -2603,14 +2669,14 @@ func (e *performances) deliverFlow(frame *actionFrame, graph *lower.ActionGraph,
 	return e.setFrameFeature(frame, flow.TargetPin, value)
 }
 
-// flowDescription names a data flow for a diagnostic: its own name when it was
-// declared with one, and the pins it joins otherwise.
+// flowDescription names a data flow for a diagnostic: its kind and its own name when it
+// was declared with one, and the pins it joins otherwise.
 func flowDescription(flow lower.ObjectFlow) string {
 	if flow.Name != "" {
-		return "flow " + flow.Name
+		return flow.Kind.String() + " " + flow.Name
 	}
 	return fmt.Sprintf(
-		"flow from %s to %s",
+		flow.Kind.String()+" from %s to %s",
 		orAnyPin(flow.SourcePin), orAnyPin(flow.TargetPin),
 	)
 }

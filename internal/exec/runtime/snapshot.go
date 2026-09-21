@@ -429,6 +429,7 @@ type actionCapture struct {
 	moved             bool
 	leftStanding      bool
 	awaiting          *actionFrame
+	outputListeners   []outputListener
 	firedBreakpoints  mapState[breakpointVisit, bool]
 	traversals        []Traversal
 	traversalBase     int
@@ -448,6 +449,7 @@ func (e *ActionExecutor) capture() actionCapture {
 		pausedAt: e.pausedAt, released: e.released, pauses: e.pauses,
 		steps: e.steps, stepsSpent: e.stepsSpent, inRun: e.inRun, held: e.held, moved: e.moved, awaiting: e.awaiting,
 		leftStanding:     e.leftStanding,
+		outputListeners:  slices.Clone(e.outputListeners),
 		firedBreakpoints: captureMap(e.firedBreakpoints),
 		traversals:       cloneTraversals(e.traversals),
 		traversalBase:    e.traversalBase,
@@ -467,6 +469,7 @@ func (c actionCapture) restore() {
 	e.pausedAt, e.released, e.pauses = c.pausedAt, c.released, c.pauses
 	e.steps, e.stepsSpent, e.inRun, e.held = c.steps, c.stepsSpent, c.inRun, c.held
 	e.moved, e.awaiting, e.leftStanding = c.moved, c.awaiting, c.leftStanding
+	e.outputListeners = slices.Clone(c.outputListeners)
 	e.firedBreakpoints = c.firedBreakpoints.restore()
 	e.traversals, e.traversalBase = cloneTraversals(c.traversals), c.traversalBase
 	e.driven.state = c.driven
@@ -527,7 +530,10 @@ func captureFrame(perf *actionFrame) frameCapture {
 	c.saved.outputs = slices.Clone(perf.outputs)
 	c.saved.subactions = maps.Clone(perf.subactions)
 	c.saved.pending = clonePending(perf.pending)
+	c.saved.staged = cloneStaged(perf.staged)
 	c.saved.nested = cloneNested(perf.nested)
+	c.saved.streamed = maps.Clone(perf.streamed)
+	c.saved.unreceived = cloneUnreceived(perf.unreceived)
 	c.saved.nodes = slices.Clone(perf.nodes)
 	return c
 }
@@ -547,7 +553,10 @@ func (c frameCapture) restore() {
 	perf.outputs = slices.Clone(c.saved.outputs)
 	perf.subactions = maps.Clone(c.saved.subactions)
 	perf.pending = clonePending(c.saved.pending)
+	perf.staged = cloneStaged(c.saved.staged)
 	perf.nested = cloneNested(c.saved.nested)
+	perf.streamed = maps.Clone(c.saved.streamed)
+	perf.unreceived = cloneUnreceived(c.saved.unreceived)
 	perf.nodes = slices.Clone(c.saved.nodes)
 }
 
@@ -560,6 +569,21 @@ func clonePending(pending map[ast.Node]map[string][]Value) map[ast.Node]map[stri
 		clonedPins := make(map[string][]Value, len(pins))
 		for pin, values := range pins {
 			clonedPins[pin] = slices.Clone(values)
+		}
+		cloned[node] = clonedPins
+	}
+	return cloned
+}
+
+func cloneStaged(staged map[ast.Node]map[string][]stagedStream) map[ast.Node]map[string][]stagedStream {
+	if staged == nil {
+		return nil
+	}
+	cloned := make(map[ast.Node]map[string][]stagedStream, len(staged))
+	for node, pins := range staged {
+		clonedPins := make(map[string][]stagedStream, len(pins))
+		for pin, entries := range pins {
+			clonedPins[pin] = slices.Clone(entries)
 		}
 		cloned[node] = clonedPins
 	}
