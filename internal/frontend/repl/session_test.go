@@ -456,7 +456,7 @@ func TestLoadingAFileReportsTheTypedDeclarationsItReplaces(t *testing.T) {
 
 	s := NewSession()
 	s.Submit("part def Z;\npackage M { part def B; }")
-	res := s.submit(path, "package M { part def A; }")
+	res := s.submitFiles([]SourceFile{{Name: path, Text: "package M { part def A; }"}})
 
 	if !hasNotice(res, "part def Z, part def B no longer declared") {
 		t.Errorf("notices = %v, want the typed declarations the load replaced", res.Notices)

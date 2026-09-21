@@ -1368,27 +1368,58 @@ last; a trace golden for the interleaving; robustness for a stream whose source 
 list. **Prioritize when** a model's result differs between the two readings — a consumer that
 reads before its producer completes.
 
-## E5 — protocol state machines
+## E5 — protocol state machines (design record landed)
 
-**Today.** No SysML v2 notation exists for a protocol state machine (UML 2.5.1 §14.4), so nothing
-is parsed, lowered or refused; the bullet in `spec-compliance.md` is the whole record. What SysML
-v2 does have is a state machine exhibited by an occurrence (§7.18.4 `exhibit`), which the runtime
-runs during materialization of an object of the exhibiting type (the Classifier Behaviors map).
+**Design record landed**, [protocol-state-machines.md](protocol-state-machines.md); **the item
+stays open** for the runtime follow-up it specifies. No SysML v2 notation exists for a protocol
+state machine (UML 2.5.1 §14.4) and none should be invented; the record establishes, from
+§7.17.8, §7.18.3–4 and the Kernel Semantic Library (`StatePerformances`, `Transfers`,
+`Occurrences`), that the half of the idea SysML v2 can express — the legal order of *receptions*
+on a port or part — is an ordinary exhibited behavior state machine, which OpenSysML lowers,
+starts with the exhibiting object and fires in the declared order on a part with
+`accept … via <port>` (the corpora's spelling; conformance `state_transition_accept_via_port`).
+What SysML v2 cannot spell — ordering *operation calls*, post-conditions, `ProtocolConformance`,
+static sequence checking — is a UML feature the language dropped, not an OpenSysML gap.
 
-**Target.** None is stated, and none should be invented here: a UML protocol state machine
-constrains the order of operation calls on an interface, and the SysML v2 rendering of that
-constraint is a design question — an exhibited state machine on a port definition, with an
-out-of-order message refused as a typed error, is the obvious candidate — to be settled in a design
-record if the need arises.
+**What it leaves.** The order the machine declares is enforced only for events a debugger injects
+directly (`StateExecutor.SendSignal` → dispatched, dropped, reported in `AdvanceReport.Dropped`;
+the REPL's `%send` refuses one by machine and state). A message a *model* sends that the active
+state neither accepts nor defers is not dropped: it waits on the context-wide bus and is taken by
+the first later state that accepts it, so an out-of-order `Read` before `Open` is counted as if it
+had come after (the record's second probe: `reads = 2`, nothing reported). A machine exhibited by a
+**port definition** runs and answers the debugger's messages to the port object, but does not
+take a model's messages routed to that port. The follow-up specified in the record: a message
+addressed to a performer whose started machines all refuse it is taken off the bus and dispatched as
+a non-firing dispatch, so it is reported as the direct path reports it; a port definition's machine
+takes the messages routed to its port; optionally, an opt-in policy that makes the drop a typed error.
+No IR change; proof fixtures written in the record; two routing points to settle first.
+**Prioritize when** a model relies on an exhibited machine to refuse an arrival, or on a port
+definition's machine at all.
 
-**Work.** The record; then whatever it concludes. Independent of every other item.
+## E6 — operation invocation with positional arguments (landed)
 
-**Proof.** Set by the record. **Prioritize when** a user brings a model that needs the order of
-messages on a port checked at run time; until then the bullet stays as it is.
+**Landed.** `Context.InvokeOperationWith(inst, name, OperationArguments{Positional, Named})`
+(`runtime/invoke_operation.go`) takes the ordered list; `InvokeOperation` keeps the named map and
+delegates to it. A positional list binds to the operation's effective input parameters —
+`semantics.Model.SignatureParametersOf`, the `in`/`inout` parameters `signatureOf` gives an
+invocation expression in signature order, `out` and result excluded — so a trailing defaulted
+parameter may be omitted, an `inout` parameter takes a position and comes back as a result, and an
+`out` parameter takes none. Among same-named members, `operationOf` selects through
+`semantics.Model.SelectAmongArguments`, the overload selection the expression evaluator uses, in
+its `PerformsOperation` mode — every behavior admitted alike, an expression's preference for a
+calc set aside — so two calcs of one name are told apart by arity, an action and a calc of one
+name by the arguments' types, and a list none takes is refused. A surplus is
+`ErrOperationArity` (`operation … takes N input parameter(s), got M argument(s)`), a list mixing
+the two forms is `ErrMixedArguments`, and a required parameter left unbound is still
+`ErrUnboundParameter`. The REPL's `%invoke <object> <op>` takes bare expressions or `<p>=<expr>`
+pairs (`repl/meta.go` `parseInvokeArguments`), refusing a mixed list and a parameter named twice
+before the object is reached. Proof: `runtime/classifier_behavior_test.go`
+`TestInvokeOperationWithPositionalArguments`, `runtime/robustness_positional_invoke_test.go`,
+`repl/classifier_behavior_test.go` `TestInvokeBindsPositionalArguments` and
+`TestInvokeReportsItsFailureModes`; the bullet left the compliance list. The gRPC surface exposes
+no operation invocation, so nothing there changed.
 
-## E6 — operation invocation with positional arguments
-
-**Today.** `Context.InvokeOperation(inst, name, args map[string]Value)`
+**Before it landed.** `Context.InvokeOperation(inst, name, args map[string]Value)`
 (`runtime/invoke_operation.go`) runs a member of an object's type with the object as performer,
 whichever behavior the member is — an action through `ExecuteActionPerformedBy`, a calc through
 the calc invocation with the object as its featuring object, a constraint through condition
@@ -2977,9 +3008,11 @@ carried more than that list. By track, with the pull requests the tracks cite:
   document's several views (#349) and opens on demand (#348), writes layout into the document
   that declares the element across the workspace (#307), and reparents by drag (#305).
 - **Track E** — E1 landed (`terminate` runs in every position, the PSSM `terminate-gap` bucket
-  retired); E9 and E10 landed as conformance findings; E8's refusal landed (#229), the item
-  itself is open; E3 closed by its design record ([expansion-regions.md](expansion-regions.md):
-  the iterative form is `for`, the parallel form is not SysML v2), no executor work following.
+  retired); E6 landed (a positional argument list on `InvokeOperationWith` and `%invoke`, bound
+  to the effective signature an invocation expression binds to); E9 and E10 landed as conformance
+  findings; E8's refusal landed (#229), the item itself is open; E3 closed by its design record
+  ([expansion-regions.md](expansion-regions.md): the iterative form is `for`, the parallel form
+  is not SysML v2), no executor work following.
 - **Track D** — D12 (the standard library's normative element ids) is done.
 - **Release follow-through** — R4's Windows installer is published by `v0.7.0` and `v0.8.0`
   alike; the release procedure runs git-flow (#151); `opensysml` 0.5.0 is on PyPI; the
@@ -2991,9 +3024,9 @@ The open items, by track, with the item that gates each where one does. Everythi
 is landed or is a track the previous baseline left as it stands (D, N, M, I, V, B, R2–R5);
 Tracks F, S, L and A are closed.
 
-- **Track E** — eligible and first: E2, then E4 (E1 landed), then E6 on request, E5 behind
-  its design record (E3's closed the item), E7 behind its object-model item, E8 behind a model
-  that needs it. The
+- **Track E** — eligible and first: E2, then E4 (E1 and E6 landed), E3 closed by its design
+  record, E5 closed by its record (an optional follow-up waits on a model that needs it), E7
+  behind its object-model item, E8 behind a model that needs it. The
   PSSM referee's 17 `fail` tests are the state side's measurement, every one attributed (#326):
   eleven wait on the region-order choice point whose design record #342 wrote and left at two
   maintainer decisions — the nine the record names to move `fail` → `pass`, plus *Terminate 001*
@@ -3106,11 +3139,11 @@ an empty action end its performance. The decision is the release checklist's, re
 - **Track S.** Landed in the order agreed: S1 (#110), S2 (#123), S3 (#125), S4 (#134); #141 added
   the region-order choice point afterwards. Nothing remains in the track.
 - **Track E.** Eligible — step 1 above. **E1** (termination of an ongoing performance, which
-  **E2** and **E4** build on) is landed; the order is **E2**, then **E4**; **E6** whenever asked,
-  being a day's work; **E5** only after its design record; **E7** after the
-  object-model item it depends on; **E8** when a model redefines run-to-completion, its refusal
-  (#229) standing until then; **E1**, **E9** and **E10** are landed; **E3** is closed by its
-  record, no work following.
+  **E2** and **E4** build on) is landed; the order is **E2**, then **E4**; **E6** is landed;
+  **E3**'s record is landed and closes the item; **E5**'s record is landed and closes the item,
+  its optional follow-up waiting on a model that needs it; **E7** after the object-model item it
+  depends on; **E8** when a model redefines run-to-completion, its refusal (#229) standing until
+  then; **E1**, **E9** and **E10** are landed; no work follows E3.
 - **Track X.** X2, X3, X4, X5, X6, X7's values and X8's typing landed (#164, #115, #113, #211,
   #122, #121, #112). What is left, in order: X8's harness halves (normalization and adjudication
   in the pilot differential, a standalone RDF expression-tree round trip) so every later X item is

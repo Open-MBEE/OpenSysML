@@ -3,8 +3,9 @@ stmt assign stepped
   eval literal 1 -> 1
 enter: beta
 enter: work (entry action)
-stmt assign marker
-  eval literal 2 -> 2
+stmt action body
+  stmt assign marker
+    eval literal 2 -> 2
 transition: start -> work
 exit: work
 exit: beta

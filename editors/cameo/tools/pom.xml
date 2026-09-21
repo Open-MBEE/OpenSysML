@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>org.openmbee</groupId>
+    <artifactId>opensysml-cameo-parent</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+  </parent>
+  <artifactId>opensysml-cameo-tools</artifactId>
+  <name>OpenSysML Cameo build tools</name>
+  <dependencies>
+    <dependency>
+      <groupId>org.openmbee</groupId>
+      <artifactId>opensysml-client</artifactId>
+      <version>${opensysml.client.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>

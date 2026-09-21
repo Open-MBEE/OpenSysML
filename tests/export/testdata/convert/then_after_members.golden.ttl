@@ -4397,7 +4397,6 @@ elmt:ThenAfterMembers__Switch___400
     sysml:owner elmt:ThenAfterMembers__Switch ;
     sysml:owningRelatedElement elmt:ThenAfterMembers__Switch ;
     sysx:subactionKind "entry" ;
-    sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        entry;\n" .
 
 elmt:ThenAfterMembers__Switch__pressed

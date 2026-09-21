@@ -45,6 +45,7 @@ jobs:
       java: ${{ steps.areas.outputs.java }}
       rust: ${{ steps.areas.outputs.rust }}
       vscode: ${{ steps.areas.outputs.vscode }}
+      cameo: ${{ steps.areas.outputs.cameo }}
       syson: ${{ steps.areas.outputs.syson }}
     steps:
       - name: Check out repository
@@ -516,6 +517,7 @@ jobs:
       needs.changes.outputs.python == 'true' ||
       needs.changes.outputs.java == 'true' ||
       needs.changes.outputs.rust == 'true' ||
+      needs.changes.outputs.cameo == 'true' ||
       needs.changes.outputs.syson == 'true'
     runs-on: ubuntu-latest
     permissions:
@@ -564,6 +566,7 @@ jobs:
     needs:
       - changes
       - build
+      - cameo-plugin
       - conformance-pkg
       - docs
       - java-test
@@ -584,6 +587,7 @@ jobs:
         env:
           CHANGES_RESULT: ${{ needs.changes.result }}
           BUILD_RESULT: ${{ needs.build.result }}
+          CAMEO_PLUGIN_RESULT: ${{ needs.cameo-plugin.result }}
           CONFORMANCE_PKG_RESULT: ${{ needs.conformance-pkg.result }}
           DOCS_RESULT: ${{ needs.docs.result }}
           JAVA_TEST_RESULT: ${{ needs.java-test.result }}
@@ -599,6 +603,7 @@ jobs:
           ok() { [ "$1" = success ] || [ "$1" = skipped ]; }
           if [ "$CHANGES_RESULT" != success ] ||
              ! ok "$BUILD_RESULT" ||
+             ! ok "$CAMEO_PLUGIN_RESULT" ||
              ! ok "$CONFORMANCE_PKG_RESULT" ||
              ! ok "$DOCS_RESULT" ||
              ! ok "$JAVA_TEST_RESULT" ||
@@ -612,6 +617,7 @@ jobs:
              ! ok "$VSCODE_EXTENSION_RESULT"; then
             echo "changes=$CHANGES_RESULT"
             echo "build=$BUILD_RESULT"
+            echo "cameo-plugin=$CAMEO_PLUGIN_RESULT"
             echo "conformance-pkg=$CONFORMANCE_PKG_RESULT"
             echo "docs=$DOCS_RESULT"
             echo "java-test=$JAVA_TEST_RESULT"
@@ -677,13 +683,14 @@ jobs:
           key: doc-pdf-toolchain-${{ runner.os }}-${{ hashFiles('scripts/download-doc-pdf-toolchain.sh') }}-py${{ steps.setup-python.outputs.python-version }}
 
       # WeasyPrint's venv links against the system's Pango, the browser
-      # mermaid-cli launches needs its shared libraries, and Graphviz's neato
-      # layout plugin needs GTS.
+      # mermaid-cli launches needs its shared libraries, Graphviz's neato
+      # layout plugin needs GTS; the tests read PDFs back with poppler-utils.
       - name: Install the toolchain's system libraries
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 \
-            libnss3 libatk-bridge2.0-0 libgbm1 libxkbcommon0 libasound2t64 fonts-dejavu-core libgts-0.7-5
+            libnss3 libatk-bridge2.0-0 libgbm1 libxkbcommon0 libasound2t64 fonts-dejavu-core libgts-0.7-5 \
+            poppler-utils
 
       - name: Provision the PDF toolchain
         run: ./scripts/download-doc-pdf-toolchain.sh
@@ -729,6 +736,40 @@ jobs:
           name: vscode-extension
           path: editors/vscode/opensysml-sysml.vsix
           if-no-files-found: error
+
+  cameo-plugin:
+    name: Cameo plugin
+    needs: [changes, build]
+    if: needs.changes.outputs.cameo == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: binaries
+          path: bin
+
+      # 17 is the plugin's compile target (the oldest supported Cameo runs on it).
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Make the service binary executable
+        run: chmod +x bin/sysml-grpc
+
+      - name: Install the Java client the plugin builds against
+        run: mvn -B -q -f client/java/pom.xml -pl opensysml-client -am install -DskipTests
+
+      # Compiles against the compile-only OpenAPI stubs and runs the unit tests plus
+      # the pipeline test against the freshly built service.
+      - name: Build and test the plugin
+        run: mvn -B -f editors/cameo/pom.xml verify -Dopensysml.requireService=true
 
   docs:
     name: Documentation site

@@ -1,0 +1,9 @@
+{
+    "type": "state",
+    "trace": true,
+    "finalState": "finished",
+    "outputs": {
+        "log": { "type": "Integer", "value": 321579 },
+        "k": { "type": "Integer", "value": 100 }
+    }
+}

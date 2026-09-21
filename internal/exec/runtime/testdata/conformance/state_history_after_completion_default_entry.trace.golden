@@ -7,10 +7,11 @@ enter: done
 transition: first -> done (event: accept Finish)
 exit: done
 exit: outer
-stmt assign completions
-    eval feature completions -> 0
-    eval literal 1 -> 1
-  eval operator + -> 1
+stmt action body
+  stmt assign completions
+      eval feature completions -> 0
+      eval literal 1 -> 1
+    eval operator + -> 1
 enter: away
 transition: done -> away
 exit: away

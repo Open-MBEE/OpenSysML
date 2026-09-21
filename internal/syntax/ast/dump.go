@@ -608,10 +608,8 @@ func dumpBehavior(b *strings.Builder, n Node, depth int) bool {
 		if v.Via != nil {
 			fmt.Fprintf(b, ` via=%q`, qnString(v.Via))
 		}
-		// Braces holding nothing leave no child to show them by.
-		if v.HasEffect && len(v.Effect) == 0 {
-			b.WriteString(` emptyEffect=true`)
-		}
+		// Body braces holding nothing leave no child to show them by; an
+		// effect's braces are the anonymous action they declare, shown as its child.
 		if v.HasBody && len(v.Members) == 0 {
 			b.WriteString(` emptyBody=true`)
 		}

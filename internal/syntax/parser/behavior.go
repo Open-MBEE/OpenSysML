@@ -2783,7 +2783,8 @@ func (p *Parser) parseExitMember(start int) ast.Node {
 // usage (`entry action warmUp;`), a behavioral statement (`entry assign x := 1;`)
 // or a reference to an action declared elsewhere (`entry warmUp;`), the last
 // being the reference-subsetting form of PerformActionUsageDeclaration. The
-// braced form (`entry { ... }`) is an OpenSysML extension over that grammar.
+// braced form (`entry { ... }`) is the inline action usage with its `action`
+// keyword left unwritten: one anonymous action whose body the braces hold.
 func (p *Parser) parseStateSubaction(start int, kind stateSubactionKind) ast.Node {
 	actions, err := p.parseStateSubactionActions(start, kind)
 	if err != nil {
@@ -2812,11 +2813,11 @@ func (p *Parser) parseStateSubactionActions(start int, kind stateSubactionKind) 
 
 	// `<kind> { ... }`, and the `entry do { ... }` spelling of it.
 	if p.at(lexer.LBrace) {
-		return p.parseStateSubactionBlock(kind), nil
+		return []ast.Node{p.parseBracedActionUsage(string(kind))}, nil
 	}
 	if kind != subactionDo && p.atKeyword("do") && p.peekN(1).Kind == lexer.LBrace {
 		p.advance() // consume 'do'
-		return p.parseStateSubactionBlock(kind), nil
+		return []ast.Node{p.parseBracedActionUsage(string(kind))}, nil
 	}
 
 	// An inline action usage or definition: `<kind> action warmUp : WarmUp;`.
@@ -2856,17 +2857,17 @@ func markStateSubaction(member ast.Node, kind stateSubactionKind) {
 	}
 }
 
-// parseStateSubactionBlock parses the braced action sequence of a subaction;
-// the '{' is at the cursor.
-func (p *Parser) parseStateSubactionBlock(kind stateSubactionKind) []ast.Node {
-	p.advance() // consume '{'
-	defer p.pushBodyContext(bodyAction)()
-	var actions []ast.Node
-	for !p.at(lexer.RBrace) && !p.atEOF() {
-		actions = append(actions, p.parseActionMember())
-	}
-	p.expect(lexer.RBrace, fmt.Sprintf("expected '}' after %s actions", kind))
-	return actions
+// parseBracedActionUsage parses a braced block written where the grammar takes
+// one action usage — a subaction's `entry { … }` or a transition's `do { … }` —
+// as that usage: the anonymous action `action { … }` declares, with its kind
+// keyword unwritten (Usage.Keyword is empty, as in `in x : Real;`). The '{' is
+// at the cursor; prefix is the subaction keyword introducing it, if any.
+func (p *Parser) parseBracedActionUsage(prefix string) ast.Node {
+	start := p.peek().Span.Offset
+	usage := p.parseUsage(start, ast.UsageAction, "", featureMods{prefixKeyword: prefix}, false)
+	member := &ast.Membership{Member: usage}
+	member.NodeSpan = p.spanFrom(start)
+	return member
 }
 
 // parseSubstateMember parses: state <name>;
@@ -3086,18 +3087,13 @@ func (p *Parser) parseTransitionTail(start int, name ast.NameSegment, source *as
 
 // parseTransitionEffect parses the effect of a transition, whose `do` is already
 // consumed: a single action (`do action alarm send Alert() to op`, `do assign
-// x := 1`) as SysML.xtext `TransitionUsage` states it, or a braced sequence,
-// which OpenSysML also accepts.
+// x := 1`) as SysML.xtext `TransitionUsage` states it, or the braced body of
+// an anonymous action (`do { … }`, EffectBehaviorUsage's `'{' ActionBodyItem* '}'`).
 func (p *Parser) parseTransitionEffect(start int) ([]ast.Node, ast.Node) {
 	if p.at(lexer.LBrace) {
-		p.advance() // consume '{'
-		defer p.pushBodyContext(bodyAction)()
-		var effect []ast.Node
-		for !p.at(lexer.RBrace) && !p.atEOF() {
-			effect = append(effect, p.parseActionMember())
-		}
-		p.expect(lexer.RBrace, "expected '}' after effect actions")
-		return effect, nil
+		leave := p.enterTransitionEffect()
+		defer leave()
+		return []ast.Node{p.parseBracedActionUsage("")}, nil
 	}
 	if p.atKeyword("action") || p.atKeyword("perform") {
 		leave := p.enterTransitionEffect()

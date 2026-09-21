@@ -26,5 +26,14 @@ package Obj {
 				assign count := count + n;
 			}
 		}
+
+		attribute label = "";
+		action setLabel {
+			in text;
+			first apply;
+			action apply {
+				assign label := text;
+			}
+		}
 	}
 }

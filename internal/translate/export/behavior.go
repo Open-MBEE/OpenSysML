@@ -64,7 +64,8 @@ const (
 	xTrigger          = "trigger"
 	xTriggerKeyword   = "triggerKeyword"
 	xEffectMember     = "effectMember"
-	xBracedEffect     = "bracedEffect"
+	xHasEffect        = "hasEffect"
+	xBracedEffect     = "bracedEffect" // an older mapping's flat braced effect, refused
 	xBodyMember       = "bodyMember"
 	xDeferredEvent    = "deferredEvent"
 	xAssignOperator   = "assignmentOperator"
@@ -314,8 +315,8 @@ func (e *encoder) encodeLoop(n *ast.WhileLoopActionNode, head func(rdf.Term), su
 }
 
 // encodeSubaction emits one of a state's entry/do/exit subactions. The kind is
-// the membership's, so the same three notations — empty, a braced sequence, a
-// single action — are told apart by the body rather than by the keyword.
+// the membership's; the action it performs, if any, is its one member, a braced
+// block being an anonymous action whose own body holds the statements.
 func (e *encoder) encodeSubaction(n ast.Node, actions []ast.Node, kind string, head func(rdf.Term), subject rdf.Term, fqn string) error {
 	head(rdf.SysMLTerm(mSubaction))
 	e.graph.Add(subject, e.sysx(xSubactionKind), rdf.String(kind))
@@ -324,7 +325,6 @@ func (e *encoder) encodeSubaction(n ast.Node, actions []ast.Node, kind string, h
 	if written := strings.Fields(withoutComments(e.text(n))); len(written) > 1 && bareWord(written[1]) == "do" && kind != "do" {
 		e.graph.Add(subject, e.sysx(xDeclaredKeyword), rdf.String(kind+" do"))
 	}
-	e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(e.bracedBody(n, actions)))
 	return e.encode(actions, fqn, subject)
 }
 
@@ -358,7 +358,7 @@ func (e *encoder) encodeTransition(n *ast.TransitionMember, head func(rdf.Term),
 		return err
 	}
 	if n.HasEffect {
-		e.graph.Add(subject, e.sysx(xBracedEffect), rdf.Bool(len(n.Effect) == 0 || e.bracedBody(n, n.Effect)))
+		e.graph.Add(subject, e.sysx(xHasEffect), rdf.Bool(true))
 	}
 	if err := e.transitionMemberLinks(n, subject, xEffectMember, n.Effect); err != nil {
 		return err
@@ -1227,23 +1227,28 @@ func (d *decoder) conditionalText(el *element, depth int) (string, error) {
 }
 
 // subactionText writes one of a state's entry/do/exit subactions in the shape it
-// was written: empty, a braced sequence, or a single action.
+// was written: empty, or the one action it performs — a braced block is an
+// anonymous action that writes its own braces.
 func (d *decoder) subactionText(el *element, depth int) (string, error) {
 	kind, ok := d.stringOf(el, rdf.OpenSysML+xSubactionKind)
 	if !ok {
 		return "", d.missing(el, "sysx:"+xSubactionKind, "a state subaction states whether it runs on entry, throughout or on exit")
 	}
 	keyword := d.keywordOr(el, kind)
-	braced := d.boolOf(el, rdf.OpenSysML+xHasBody)
-	if len(el.children) == 0 && !braced {
+	// A braced block is one anonymous action; a graph that wrote it as the
+	// statements it holds cannot be read back as that action.
+	if d.boolOf(el, rdf.OpenSysML+xHasBody) {
+		return "", &UnsupportedError{
+			What: fmt.Sprintf("the %s subaction %s", kind, el.iri),
+			Note: "its braced `" + kind + " { … }` block is written as its statements, not as the anonymous action the braces declare",
+		}
+	}
+	if len(el.children) == 0 {
 		return keyword + ";", nil
 	}
-	body, err := d.bodyText(el, depth)
+	body, err := d.membersText(el.children, false, depth)
 	if err != nil {
 		return "", err
-	}
-	if braced {
-		return keyword + " " + body, nil
 	}
 	// A performed action states the subaction's keyword itself
 	// (`entry warmUp;`), so writing the keyword again would declare it twice.
@@ -1317,11 +1322,18 @@ func (d *decoder) transitionText(el *element, annotations []string, depth int) (
 	inEffect := d.linked(el, xEffectMember)
 	inBody := d.linked(el, xBodyMember)
 	legacy := len(el.children) > 0 && len(inEffect) == 0 && len(inBody) == 0
-	braced := d.boolOf(el, rdf.OpenSysML+xBracedEffect)
-	hasEffect := d.graph.HasProperty(rdf.IRI(el.iri), rdf.OpenSysML+xBracedEffect)
+	hasEffect := d.boolOf(el, rdf.OpenSysML+xHasEffect)
 	hasBody := d.boolOf(el, rdf.OpenSysML+xHasBody)
+	// A braced effect is one anonymous action; a graph that wrote it as the
+	// statements it holds cannot be read back as that action.
+	if d.boolOf(el, rdf.OpenSysML+xBracedEffect) || (legacy && hasBody) {
+		return "", "", &UnsupportedError{
+			What: fmt.Sprintf("the transition %s", el.iri),
+			Note: "its braced `do { … }` effect is written as its statements, not as the anonymous action the braces declare",
+		}
+	}
 	if legacy {
-		braced, hasEffect, hasBody = hasBody, true, false
+		hasEffect, hasBody = true, false
 	}
 	var effect, body []*element
 	for _, child := range el.children {
@@ -1344,8 +1356,8 @@ func (d *decoder) transitionText(el *element, annotations []string, depth int) (
 	for iri := range inBody {
 		return "", "", transitionLinkError(el, iri, "is linked as a body member but is no member")
 	}
-	if hasEffect {
-		text, err := d.membersText(effect, braced, depth)
+	if hasEffect || len(effect) > 0 {
+		text, err := d.membersText(effect, false, depth)
 		if err != nil {
 			return "", "", err
 		}
