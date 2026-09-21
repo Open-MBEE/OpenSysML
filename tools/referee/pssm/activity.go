@@ -464,13 +464,17 @@ func (ar *activityReader) actionValue(n, pin *xmi.Element) Expr {
 	case typeClearStructuralFeatureAction:
 		return *deref(ar.pinValue(n.First("object")))
 	case typeCallBehaviorAction:
-		return Expr{Kind: ExprApply, Name: ar.behaviorName(n), Args: ar.args(n)}
+		return Expr{Kind: ExprApply, Name: ar.behaviorName(n), Library: ar.library(n), Args: ar.args(n)}
 	case typeCallOperationAction:
 		op := ar.r.doc.ByID(n.Attr("operation"))
 		if op == nil {
 			return Expr{Kind: ExprUnknown, Text: n.Describe() + " calls an operation the document does not define"}
 		}
-		return Expr{Kind: ExprCall, Name: op.Name(), Object: deref(ar.pinValue(n.First("target"))), Args: ar.args(n)}
+		result, ok := ar.resultParam(n, pin, op)
+		if !ok {
+			return Expr{Kind: ExprUnknown, Text: n.Describe() + " reads a result pin " + op.Name() + " has no output parameter for"}
+		}
+		return Expr{Kind: ExprCall, Name: op.Name(), Object: deref(ar.pinValue(n.First("target"))), Args: ar.args(n), Result: result, ID: n.ID}
 	case typeTestIdentityAction:
 		return Expr{Kind: ExprApply, Name: "==", Args: []Expr{*deref(ar.pinValue(n.First("first"))), *deref(ar.pinValue(n.First("second")))}}
 	case typeAcceptEventAction, typeAcceptCallAction:
@@ -479,6 +483,70 @@ func (ar *activityReader) actionValue(n, pin *xmi.Element) Expr {
 		return ar.passThrough(pin)
 	}
 	return Expr{Kind: ExprUnknown, Text: n.Describe() + " is a node kind the reader does not evaluate"}
+}
+
+// resultParam names the operation's output parameter a call's result pin
+// carries: the pins correspond to the out, inout and return parameters in
+// order (UML §16.3.3.1). It reports false when the pin is not among them.
+func (ar *activityReader) resultParam(call, pin, op *xmi.Element) (string, bool) {
+	for i, p := range call.Tagged("result") {
+		if p != pin {
+			continue
+		}
+		outputs := (&Operation{Params: ar.r.readParams(op)}).Outputs()
+		if i >= len(outputs) {
+			return "", false
+		}
+		return outputs[i].Name, true
+	}
+	return "", false
+}
+
+// library identifies the behavior a call behavior action applies when it is
+// one of a library: a fUML or Alf primitive the document references by href,
+// or an activity the suite's utility packages own. A class's own behavior is
+// not one, and nil says so.
+func (ar *activityReader) library(n *xmi.Element) *LibraryBehavior {
+	if id := n.Attr("behavior"); id != "" {
+		return packagedBehavior(ar.r.doc.ByID(id))
+	}
+	b := n.First("behavior")
+	if b == nil {
+		return nil
+	}
+	if href := b.Href(); href != "" {
+		return primitiveBehavior(href)
+	}
+	return packagedBehavior(ar.r.doc.ByID(b.Attr("idref")))
+}
+
+// packagedBehavior is the behavior when packages alone own it, by the
+// qualified name below the model; nil when a class owns it or it is absent.
+func packagedBehavior(b *xmi.Element) *LibraryBehavior {
+	if b == nil || b.Parent == nil || b.Parent.Type != "uml:Package" {
+		return nil
+	}
+	var path []string
+	for e := b; e != nil && e.Type != "uml:Model"; e = e.Parent {
+		path = append([]string{e.Name()}, path...)
+	}
+	return &LibraryBehavior{Name: b.Name(), Qualified: strings.Join(path, "::")}
+}
+
+// primitiveBehavior reads a standard-library reference such as
+// fUML_Library.xmi#PrimitiveBehaviors-StringFunctions-Concat or
+// Alf-Library.xmi#Alf-Library-PrimitiveBehaviors-SequenceFunctions-Size as the
+// primitive's qualified name below PrimitiveBehaviors.
+func primitiveBehavior(href string) *LibraryBehavior {
+	frag := href[strings.LastIndex(href, "#")+1:]
+	segments := strings.Split(frag, "-")
+	for i, s := range segments {
+		if s == "PrimitiveBehaviors" {
+			segments = segments[i+1:]
+			break
+		}
+	}
+	return &LibraryBehavior{Name: segments[len(segments)-1], Qualified: strings.Join(segments, "::")}
 }
 
 // readLiteral reads a literal specification element.

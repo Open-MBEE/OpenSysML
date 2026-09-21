@@ -35,7 +35,7 @@ try (Connection connection = Connection.open()) {      // starts a private sysml
   boolean holds = v.holds();                                        // false is an answer, not a failure
   Analysis study = model.runAnalysis("Trade::lightest");            // outputs, verdicts, case evaluations
   List<QueryElement> parts = model.query(
-      Query.all().where(Condition.equal("@type", List.of("PartUsage"))));
+      Query.all().where(Condition.equalTo("@type", List.of("PartUsage"))));
 
   connection.capabilities().require(Capabilities.FEATURE_VALUES);
 }

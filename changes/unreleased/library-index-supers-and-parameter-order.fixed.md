@@ -1,0 +1,2 @@
+- **Untyped usages now subset the standard-library base feature for their kind and derive their type from that feature, preserving inherited members through recorded library specialization edges.**
+- **Parameters of a step or calc typed by a standard-library behavior are redefined by position whether the library is parsed, restored from the on-disk cache, or loaded from the embedded snapshot; this is now covered by tests.**

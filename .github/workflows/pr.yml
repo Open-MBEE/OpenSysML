@@ -1248,7 +1248,7 @@ jobs:
       - name: Build and test the SysON frontend
         working-directory: editors/syson/frontend
         run: |
-          npm ci
+          npm ci --ignore-scripts
           npm run typecheck
           npm run format:check
           npm test

@@ -1302,7 +1302,7 @@ try (Connection connection = Connection.open()) {      // starts a private sysml
   Verification light = model.verifyConstraint("Demo::Vehicle::massLight", "Demo::sedan");
   Analysis study = model.runAnalysis("Trade::lightest");          // selected alternative, evaluations
   List<QueryElement> parts = model.query(
-      Query.all().where(Condition.equal("@type", List.of("PartUsage"))));
+      Query.all().where(Condition.equalTo("@type", List.of("PartUsage"))));
 }
 ```
 

@@ -27,6 +27,13 @@ type contextVisit struct {
 // object unless nothing it needs is one: v1 runs a called behavior on the caller's
 // object, whoever owns it, so such a behavior takes the object it acts on instead.
 // A cycle of calls settles at once, with everything its members name.
+
+// The note fragments the writer repeats.
+const (
+	actsOn       = "the behavior acts on a "
+	throughParam = " through its parameter "
+)
+
 func (m *migration) contextOf(b *sysmlv1.Element) *behaviorContext {
 	if b == nil || b.Type != "Activity" {
 		return nil
@@ -420,9 +427,9 @@ func (m *migration) contextBinding(c *behaviorContext, selfType *sysmlv1.Element
 	kind := qualifiedName(c.classifier)
 	switch {
 	case selfType == nil:
-		return "", "the behavior acts on a " + kind + " through its parameter " + c.name + ", which is left unbound: the caller acts on no object"
+		return "", actsOn + kind + throughParam + c.name + ", which is left unbound: the caller acts on no object"
 	case selfType == c.classifier || m.inherits(selfType, c.classifier):
-		return self, "the behavior acts on a " + kind + " through its parameter " + c.name + ", which is bound to " + self
+		return self, actsOn + kind + throughParam + c.name + ", which is bound to " + self
 	}
 	var parts []*sysmlv1.Element
 	for _, f := range m.attributesOf(selfType) {
@@ -435,11 +442,11 @@ func (m *migration) contextBinding(c *behaviorContext, selfType *sysmlv1.Element
 	}
 	if len(parts) == 1 {
 		part := self + "." + writeName(m.nameFor(parts[0]))
-		return part, "the behavior acts on a " + kind + " through its parameter " + c.name + ", which is bound to " + part + ", the caller's one part that is one"
+		return part, actsOn + kind + throughParam + c.name + ", which is bound to " + part + ", the caller's one part that is one"
 	}
 	why := "has no part that is one"
 	if len(parts) > 1 {
 		why = "has " + strconv.Itoa(len(parts)) + " parts that are one, so no one of them is chosen"
 	}
-	return "", "the behavior acts on a " + kind + " through its parameter " + c.name + ", which is left unbound: the caller is a " + qualifiedName(selfType) + ", which is no " + kind + " and " + why
+	return "", actsOn + kind + throughParam + c.name + ", which is left unbound: the caller is a " + qualifiedName(selfType) + ", which is no " + kind + " and " + why
 }

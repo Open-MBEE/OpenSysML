@@ -96,9 +96,11 @@ class ResultTypesTest {
     assertEquals(1, analysis.verdicts().size());
     assertEquals(List.of("total"), List.copyOf(analysis.outputs().keySet()));
     Value added = new Value.RealValue(2.0);
-    assertThrows(UnsupportedOperationException.class, () -> analysis.outputs().put("x", added));
+    Map<String, Value> analysisOutputs = analysis.outputs();
+    assertThrows(UnsupportedOperationException.class, () -> analysisOutputs.put("x", added));
     Verdict extra = verdict(false, "");
-    assertThrows(UnsupportedOperationException.class, () -> analysis.verdicts().add(extra));
+    List<Verdict> analysisVerdicts = analysis.verdicts();
+    assertThrows(UnsupportedOperationException.class, () -> analysisVerdicts.add(extra));
 
     Map<String, Value> context = new LinkedHashMap<>(Map.of("n", new Value.IntegerValue(1)));
     StateRun run =
@@ -258,12 +260,13 @@ class ResultTypesTest {
     assertTrue(options.explores());
     assertFalse(AnalysisOptions.defaults().explores());
     Value extra = new Value.RealValue(1.0);
-    assertThrows(UnsupportedOperationException.class, () -> options.arguments().add(extra));
+    List<Value> optionArguments = options.arguments();
+    assertThrows(UnsupportedOperationException.class, () -> optionArguments.add(extra));
   }
 
   @Test
   void aQueryIsBuiltUpAndItsConditionsNegate() {
-    Condition.Comparison parts = Condition.equal("@type", List.of("PartUsage", "PartDefinition"));
+    Condition.Comparison parts = Condition.equalTo("@type", List.of("PartUsage", "PartDefinition"));
     Condition.Comparison heavy = Condition.greater("mass", "1000");
     Query query =
         Query.all()
@@ -295,7 +298,8 @@ class ResultTypesTest {
     QueryElement element = new QueryElement("Demo::sedan", "PartUsage", properties);
     properties.clear();
     assertEquals(Map.of("name", "sedan"), element.properties());
-    assertThrows(UnsupportedOperationException.class, () -> element.properties().put("a", "b"));
+    Map<String, String> elementProperties = element.properties();
+    assertThrows(UnsupportedOperationException.class, () -> elementProperties.put("a", "b"));
   }
 
   @Test

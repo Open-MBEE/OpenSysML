@@ -346,7 +346,7 @@ class ResultProtosTest {
             .where(
                 Condition.all(
                     List.of(
-                        Condition.equal("@type", List.of("PartUsage", "PartDefinition")).negated(),
+                        Condition.equalTo("@type", List.of("PartUsage", "PartDefinition")).negated(),
                         Condition.any(
                             List.of(
                                 Condition.greater("mass", "1000"),

@@ -62,8 +62,17 @@ type ActionGraph struct {
 	// completes only when that flow does (action_subflow.go).
 	Subflows map[ast.Node]*Subflow
 
+	// Enclosing and EnclosingNode are the graph and node a nested flow runs under,
+	// whose pins a write under the flow streams from; nil for the outermost flow.
+	Enclosing     *ActionGraph
+	EnclosingNode ast.Node
+
 	// InitialNode (required)
 	Initial ast.Node
+
+	// Invalid is the error a stated body's flow failed to lower with,
+	// reported at initialize().
+	Invalid error
 
 	// FinalNodes (may be multiple)
 	Finals []ast.Node
@@ -176,6 +185,9 @@ type Send struct {
 	// TargetPath records that Target is a feature chain (`a.b`) reaching through
 	// the sender's features, rather than a name in a namespace (`R`, `P::R`).
 	TargetPath bool
+	// TargetExpr is the receiver expression of an addressed send as written; the
+	// runtime evaluates it to objects where Target carries no name or path.
+	TargetExpr ast.Node
 	IsVia      bool
 	// ViaSelf records a via path written from `this`, whose root is a feature of
 	// the sender even where the behavior binds that name to another object.
@@ -183,6 +195,9 @@ type Send struct {
 	// Receiver is the name addressed by a routed send, empty when omitted.
 	Receiver     string
 	ReceiverPath bool
+	// ReceiverExpr is the `to` expression of a routed send, likewise evaluated to
+	// objects where Receiver carries no name the sender resolves.
+	ReceiverExpr ast.Node
 	Scope        *symbols.Scope // the scope the statement was declared in
 }
 
@@ -558,6 +573,27 @@ type PinBinding struct {
 	FromValue bool
 }
 
+// FlowKind is how a data flow carries its values: streaming, as a `flow` is unless
+// designated otherwise (Flows::Flow), or as a succession flow (Flows::SuccessionFlow).
+type FlowKind int
+
+const (
+	// FlowStreaming delivers each value the source pin takes to the target's ongoing
+	// performances, or ahead of its next one while none is under way.
+	FlowStreaming FlowKind = iota
+	// FlowSuccession delivers the value the source pin holds once the source
+	// completes, and the target begins no sooner.
+	FlowSuccession
+)
+
+// String names the kind as the notation spells it.
+func (k FlowKind) String() string {
+	if k == FlowSuccession {
+		return "succession flow"
+	}
+	return "flow"
+}
+
 // ObjectFlow represents a data flow edge between pins.
 type ObjectFlow struct {
 	// Name is the flow's own name, when it was declared with one
@@ -567,6 +603,8 @@ type ObjectFlow struct {
 	SourcePin string
 	TargetPin string
 	Target    ast.Node
+	// Kind is how the flow carries its values, as its declaration designated.
+	Kind FlowKind
 	// Decl is the declaration the flow was written as, for a consumer that
 	// reports where it comes from.
 	Decl ast.Node
@@ -586,25 +624,38 @@ func ToActionGraph(actionDecl ast.Node, scope *symbols.Scope) (*ActionGraph, err
 // ToActionGraphWith is ToActionGraph reading the metadata the resolver identifies:
 // a succession's `@Probability { p = ...; }` becomes its edge's weight.
 func ToActionGraphWith(actionDecl ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) (*ActionGraph, error) {
-	graph, members, err := collectActionNodes(actionDecl, scope, resolver)
+	members, err := actionMembers(actionDecl)
 	if err != nil {
 		return nil, err
+	}
+	graph, err := lowerActionFlow(members, scope, resolver)
+	if err != nil {
+		return nil, err
+	}
+	return graph, nil
+}
+
+func lowerActionFlow(members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) (*ActionGraph, error) {
+	graph, err := collectActionNodes(members, scope, resolver)
+	if err != nil {
+		return graph, err
 	}
 	// The initial node is optional at graph construction time; the executor's
 	// initialize() reports its absence.
 	edges := &actionEdgeLowerer{graph: graph, scope: scope, weights: &probabilityReader{resolver: resolver, scope: scope}}
 	for _, member := range members {
 		if err := edges.member(unwrapMembership(member)); err != nil {
-			return nil, err
+			return graph, err
 		}
 	}
 	if err := lowerInheritedPinConnections(graph, scope); err != nil {
-		return nil, err
+		return graph, err
 	}
 	if err := checkProbabilities(graph); err != nil {
-		return nil, err
+		return graph, err
 	}
 	recordBlockNodes(graph)
+	encloseBlockFlows(graph)
 	return graph, nil
 }
 
@@ -734,6 +785,7 @@ func (l *actionEdgeLowerer) objectFlowEdge(n *ast.ObjectFlowEdge) error {
 		SourcePin: sourcePin,
 		TargetPin: targetPin,
 		Target:    targetNode,
+		Kind:      FlowStreaming,
 		Decl:      n,
 	})
 	return nil
@@ -1182,16 +1234,22 @@ func lowerStatement(member ast.Node, scope *symbols.Scope) Statement {
 				Scope:       scope,
 			}
 		}
+		var targetExpr ast.Node
+		if !m.IsVia {
+			targetExpr = m.Target
+		}
 		receiver, receiverPath := SendTarget(m.Receiver)
 		return Send{
 			Message:      message,
 			Target:       target,
 			TargetSym:    targetSym,
 			TargetPath:   isPath,
+			TargetExpr:   targetExpr,
 			IsVia:        m.IsVia,
 			ViaSelf:      viaSelf,
 			Receiver:     receiver,
 			ReceiverPath: receiverPath,
+			ReceiverExpr: m.Receiver,
 			Scope:        scope,
 		}
 	case *ast.AssignmentActionNode:
@@ -1316,6 +1374,9 @@ func redefinedNames(u *ast.Usage) []string {
 // is the node the block belongs to, which is the element that owns the block's
 // body-local namespace, and scope is the namespace it owns.
 func lowerBlock(owner ast.Node, members []ast.Node, scope *symbols.Scope) Block {
+	if statesOwnFlow(members) {
+		return lowerStatedBlock(owner, members, scope)
+	}
 	if blockNeedsFlow(members) {
 		return Block{Node: owner, Scope: scope, Graph: lowerBlockFlow(members, scope, false)}
 	}
@@ -1690,11 +1751,16 @@ func lowerFlow(nodes nodeLookup, flow *ast.Usage) (ast.Node, ObjectFlow, error) 
 		)
 	}
 
+	kind := FlowStreaming
+	if flow.IsSuccessionFlow() {
+		kind = FlowSuccession
+	}
 	return sourceNode, ObjectFlow{
 		Name:      name,
 		SourcePin: sourcePin,
 		TargetPin: targetPin,
 		Target:    targetNode,
+		Kind:      kind,
 		Decl:      flow,
 	}, nil
 }
@@ -1702,11 +1768,10 @@ func lowerFlow(nodes nodeLookup, flow *ast.Usage) (ast.Node, ObjectFlow, error) 
 // succeedFlow adds the succession a `succession flow` also states: the target
 // starts once the source completes and the value has moved.
 func succeedFlow(graph *ActionGraph, source ast.Node, flow ObjectFlow) {
-	u, ok := flow.Decl.(*ast.Usage)
-	if !ok || !u.IsSuccessionFlow() {
+	if flow.Kind != FlowSuccession {
 		return
 	}
-	graph.Edges[source] = append(graph.Edges[source], ActionEdge{Source: source, Target: flow.Target, Decl: u})
+	graph.Edges[source] = append(graph.Edges[source], ActionEdge{Source: source, Target: flow.Target, Decl: flow.Decl})
 }
 
 // flowEnd resolves one end of a flow to the node it belongs to and the pin it

@@ -6,14 +6,14 @@
     "url": "https://www.omg.org/spec/PSSM/20181101/PSSM_TestSuite.xmi",
     "suiteDigest": "c355b249c356774377a46b60345019d827af1ce417bde88e533aa5f39206ae07",
     "tests": 103,
-    "recorded": "2026-09-19",
-    "develop": "b36c7c0f0fd8069a11df862b185eb2b101478fb7"
+    "recorded": "2026-09-21",
+    "develop": "2a652735904510298960f56ab48d5e2713423f3f"
   },
   "buckets": {
     "differs-by-design": 1,
     "fail": 13,
-    "not-expressible": 38,
-    "pass": 51
+    "not-expressible": 37,
+    "pass": 52
   },
   "tests": [
     {
@@ -524,11 +524,15 @@
     {
       "name": "Event 019 A",
       "area": "Event",
-      "class": "not-expressible",
-      "bucket": "not-expressible",
-      "reasons": [
-        "tester trace this.testable.trace(\"End\")"
-      ]
+      "class": "standard",
+      "bucket": "pass",
+      "expected": [
+        "S1(exit)::Call(op)::End::S2(entry)"
+      ],
+      "reached": [
+        "S1(exit)::Call(op)::End::S2(entry)"
+      ],
+      "runs": 1
     },
     {
       "name": "Event 019 B",
@@ -554,7 +558,7 @@
       "class": "not-expressible",
       "bucket": "not-expressible",
       "reasons": [
-        "operation result T2; tester trace this.testable.trace(formatParameterValue(false, this.testable.op()))"
+        "operation result T2"
       ]
     },
     {
@@ -563,7 +567,7 @@
       "class": "not-expressible",
       "bucket": "not-expressible",
       "reasons": [
-        "behavior parameter S1.S1.1; behavior parameter S1.S2.1.S2.1.1; operation result T2; tester trace this.testable.trace(Concat(formatParameterValue(false, this.testable.or(true, true)), formatParameterValue(false, this.testable.or(true, true))))"
+        "behavior parameter S1.S1.1; behavior parameter S1.S2.1.S2.1.1; operation result T2"
       ]
     },
     {
@@ -872,7 +876,7 @@
       "class": "not-expressible",
       "bucket": "not-expressible",
       "reasons": [
-        "standalone state machine Standalone001_Test; exit point ExitPoint1; exit point ExitPoint1; entry point EntryPoint1"
+        "exit point ExitPoint1; exit point ExitPoint1; entry point EntryPoint1"
       ]
     },
     {
@@ -881,7 +885,7 @@
       "class": "not-expressible",
       "bucket": "not-expressible",
       "reasons": [
-        "standalone state machine Standalone002_Test; exit point ExitPoint1; entry point EntryPoint1; behavior parameter S2; behavior parameter S2; behavior parameter S2.S2.1; behavior parameter S2.S2.2"
+        "exit point ExitPoint1; entry point EntryPoint1; behavior parameter S2; behavior parameter S2; behavior parameter S2.S2.1; behavior parameter S2.S2.2"
       ]
     },
     {
@@ -890,7 +894,7 @@
       "class": "not-expressible",
       "bucket": "not-expressible",
       "reasons": [
-        "standalone state machine Standalone003_Test; behavior parameter S1.S1.1; behavior parameter S1.S2.1.S2.1.1; operation result T2; tester trace this.testable.trace(Concat(formatParameterValue(false, this.testable.or(true, true)), formatParameterValue(false, this.testable.or(true, true))))"
+        "behavior parameter S1.S1.1; behavior parameter S1.S2.1.S2.1.1; operation result T2"
       ]
     },
     {
@@ -1187,7 +1191,7 @@
       "class": "not-expressible",
       "bucket": "not-expressible",
       "reasons": [
-        "operation result T4; tester trace this.testable.trace(formatParameterValue(false, this.testable.op(true)))"
+        "operation result T4"
       ]
     },
     {

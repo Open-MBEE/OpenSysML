@@ -565,6 +565,29 @@ func (m *Model) IsConnectorUsage(sym *symbols.Symbol) bool {
 	return false
 }
 
+// IsConnectorObjectUsage reports whether sym is materialized as a connector
+// object from the features its ends name.
+func (m *Model) IsConnectorObjectUsage(sym *symbols.Symbol) bool {
+	if m.IsConnectorUsage(sym) {
+		return true
+	}
+	if sym == nil || !m.isConnectorLike(sym) {
+		return false
+	}
+	usage, ok := sym.Decl.(*ast.Usage)
+	if !ok {
+		return false
+	}
+	switch usage.Kind {
+	case ast.UsageBinding:
+		return len(usage.ConnectorEnds) == 2
+	case ast.UsageFlow:
+		return usage.Keyword != "message" && usage.FlowEnds != nil &&
+			usage.FlowEnds.From != nil && usage.FlowEnds.To != nil
+	}
+	return false
+}
+
 // ConnectorEndAttachment is one end of a connector usage as an object of that
 // usage carries it: the name of the end feature the position occupies, and the
 // node naming the feature the end attaches to. A connector end
@@ -619,21 +642,57 @@ func (m *Model) ConnectorEndAttachments(sym *symbols.Symbol) []ConnectorEndAttac
 		return nil
 	}
 	usage := sym.Decl.(*ast.Usage)
-	owned := ownedEnds(sym)
-
-	out := make([]ConnectorEndAttachment, 0, len(usage.ConnectorEnds))
-	for i, end := range usage.ConnectorEnds {
-		if end == nil {
-			continue
+	ends := make([]connectorEndInput, 0, len(usage.ConnectorEnds))
+	for _, end := range usage.ConnectorEnds {
+		if end != nil {
+			ends = append(ends, connectorEndInput{attachment: end.AttachedTarget(), end: end})
 		}
-		att := ConnectorEndAttachment{Attachment: end.AttachedTarget(), End: end}
+	}
+	return m.connectorEndAttachments(sym, ends)
+}
+
+// ConnectorObjectEnds returns the ends of any connector object usage in
+// declaration order: a connect clause, a binding, or a flow's from/to ends.
+func (m *Model) ConnectorObjectEnds(sym *symbols.Symbol) []ConnectorEndAttachment {
+	if !m.IsConnectorObjectUsage(sym) {
+		return nil
+	}
+	usage := sym.Decl.(*ast.Usage)
+	var ends []connectorEndInput
+	switch {
+	case m.IsConnectorUsage(sym), usage.Kind == ast.UsageBinding:
+		ends = make([]connectorEndInput, 0, len(usage.ConnectorEnds))
+		for _, end := range usage.ConnectorEnds {
+			if end != nil {
+				ends = append(ends, connectorEndInput{attachment: end.AttachedTarget(), end: end})
+			}
+		}
+	case usage.Kind == ast.UsageFlow:
+		ends = []connectorEndInput{
+			{attachment: usage.FlowEnds.From},
+			{attachment: usage.FlowEnds.To},
+		}
+	}
+	return m.connectorEndAttachments(sym, ends)
+}
+
+type connectorEndInput struct {
+	attachment ast.Node
+	end        *ast.ConnectorEnd
+}
+
+func (m *Model) connectorEndAttachments(sym *symbols.Symbol, ends []connectorEndInput) []ConnectorEndAttachment {
+	owned := ownedEnds(sym)
+	out := make([]ConnectorEndAttachment, 0, len(ends))
+	for i, end := range ends {
+		att := ConnectorEndAttachment{Attachment: end.attachment, End: end.end}
 		general := m.generalEndAt(sym, i)
 		switch {
 		case i < len(owned) && owned[i] != nil:
 			att.Name, att.EndFeature = leafName(owned[i].Name), owned[i]
 		case general != nil:
 			att.Name, att.EndFeature = leafName(general.Name), general
-		case len(usage.ConnectorEnds) == 2:
+		case len(ends) == 2:
 			att.Name = binaryConnectorEndNames[i]
 		}
 		out = append(out, att)

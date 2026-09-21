@@ -34,6 +34,7 @@ var metamodelTypeNames = map[symbols.SymbolKind]string{
 	symbols.SymbolEnumerationUsage: "EnumerationUsage", symbols.SymbolViewUsage: "ViewUsage",
 	symbols.SymbolViewpointUsage: "ViewpointUsage", symbols.SymbolRenderingUsage: "RenderingUsage",
 	symbols.SymbolConcernUsage: "ConcernUsage", symbols.SymbolConnectionUsage: "ConnectionUsage",
+	symbols.SymbolBindingUsage:    "BindingConnectorAsUsage",
 	symbols.SymbolSuccessionUsage: "SuccessionAsUsage", symbols.SymbolFlowUsage: "FlowUsage",
 	symbols.SymbolPortUsage: "PortUsage", symbols.SymbolInterfaceUsage: "InterfaceUsage",
 	symbols.SymbolAllocationUsage: "AllocationUsage", symbols.SymbolActionUsage: "ActionUsage",

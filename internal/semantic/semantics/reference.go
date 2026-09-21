@@ -248,9 +248,12 @@ func (m *Model) contributors(sym *symbols.Symbol) []*symbols.Symbol {
 
 func (m *Model) collectContributors(sym *symbols.Symbol) []*symbols.Symbol {
 	supers := m.DirectSupertypes(sym)
-	out := make([]*symbols.Symbol, 0, len(supers)+2)
+	out := make([]*symbols.Symbol, 0, len(supers)+3)
 	out = append(out, supers...)
 	if base := m.implicitBaseUsage(sym); base != nil {
+		out = append(out, base)
+	}
+	if base := m.implicitUsageBaseFeature(sym); base != nil {
 		out = append(out, base)
 	}
 	if base := m.implicitKerMLFeatureBase(sym); base != nil {

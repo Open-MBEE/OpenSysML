@@ -1198,7 +1198,47 @@ member of an object's type with the object as performer, synchronously, and retu
 (`state_call_trigger`, `state_call_trigger_guard`, `state_call_trigger_regions`). Arguments bind
 by name only; the roadmap's "operation invocation with positional arguments" entry under Track E
 holds the positional form. Both fUML calls and both runtime paths are synchronous and
-by-position versus by-name is notation, not semantics. **agrees.**
+by-position versus by-name is notation, not semantics. *The caller's return:* PSSM §8.5.9
+(`CallEventOccurrence`, `SM_ObjectActivation`) releases the caller of a synchronous call once the
+run-to-completion step (§8.5.10) the call event triggers is done, with the return values the triggered
+behaviors — the transition's effect, an entry or an exit — wrote to the operation's output
+parameters, the last write winning. `StateExecutor.Call` (`perform.go`) does the same: it queues
+the call event, runs the machine at the current instant through the step dispatching it and no
+further — a completion event that step queued or a timer it armed is the machine's next step,
+after the caller has resumed, as §8.5.10 makes each occurrence its own step, while a call a
+state defers holds its caller through the steps until the machine recalls and dispatches it, as
+§8.5.9's blocked caller waits for the deferred occurrence — collects what a
+behavior the event fires `return`s or assigns to an output parameter of that name, and hands the
+outputs back typed and by name — under the `out`/`inout` parameters the operation declares as a
+member of the machine's owner (or of the machine standing alone) when it declares one — among
+several so named, the one the call's arguments select as `InvokeOperation` would, and
+`ErrAmbiguousInvocation` before the call is queued when they select none; the arguments
+checked against the declaration's inputs as `InvokeOperation` checks them, so an unbound or
+unknown one is `ErrUnboundParameter` and one of the wrong type `ErrTypeMismatch` before the call
+is queued, and an input the caller omits carries its default, since §8.5.9's
+`CallEventExecution` holds a value for each of the operation's parameters; the call event carries
+the selected declaration (`Call.Declared`) and fires only the triggers naming it — a trigger
+`accept op(x)` naming the owner's `op` declarations with an input for each trigger parameter,
+those with exactly the trigger's parameters when any has, and all of several differing in
+their parameters' types alone, since the notation writes no types (`callTriggerOperations`), as
+a UML `CallEvent` names one `Operation` (UML §13.3.3) — so same-named overloads whose parameter
+names differ reach their own transitions — as §8.5.9
+returns the operation's own parameters — an `inout` no behavior of the step wrote going back as the
+caller passed it, since §8.5.9's `CallEventExecution` holds the argument as that parameter's value
+until a behavior writes it — and under every name the step returned when the trigger
+names no declared operation; a call the run left queued or deferred is `ErrCallNotReturned`,
+since its caller would still be waiting, and an unhandled call returns nothing, as PSSM's
+discarded occurrence does (`state_call_trigger_results`; `TestRuntimeRobustnessCallResults`:
+held, recalled, untaken, empty, repeated and erroring calls, the caller released ahead of the
+completion step and the timer its step set up, a declared operation returning its own
+parameters alone and an `inout` argument as passed, as written and not at all when nothing takes
+the call, a wrong-typed argument refused, a default filled in, an overload firing the trigger
+naming its declaration). Only a write to a behavior's own output parameter comes back — a nested action's
+`return` or its assignment to an `out`/`inout` (`state_statements.go:returnAround`) — because
+§8.5.9 collects the values of the triggered Behavior's output parameters and nothing else; an inline
+`assign` in an entry, exit or effect writes a feature of the machine's owner, not a parameter, so it
+stays state and is no result even when its name coincides with a declared `out`.
+**agrees.**
 
 **A15. One firing per token, or one performance per node.** fUML §8.9.1 and §8.10.1
 (`ActionActivation::fire`, `isReady`, `takeOfferedTokens`): an action whose input pin has
@@ -1456,8 +1496,8 @@ which supersede the hand count this section was first written with — the moves
 
 | Aspect of the suite | Verdict | Why |
 |---|---|---|
-| **Expressing the test model in SysML v2 textual notation** | **Can, for 65 of 103** (34 with standard notation, 31 with this project's extensions); **cannot, for 38** (30 use a construct v2 has no spelling for, 8 more use a behavior shape the notation cannot bind) | Every test's state machine is classified by the UML constructs it uses; the table below gives the construct-to-notation mapping and the per-area result |
-| **Driving the test** | **Can, with one normalization** | PSSM's `Tester` sends `Start` and the follow-up signals from its own behavior, interleaved with the target's steps by fUML's scheduling; the conformance harness queues a case's `events` before the first step (`conformance_test.go:injectEvents`). The two coincide when every send precedes the target's first reaction, which is what the tests' "received when in configuration ..." lists state; a test that needs a signal to arrive mid-run needs a tester `part` in the model instead |
+| **Expressing the test model in SysML v2 textual notation** | **Can, for 66 of 103** (35 with standard notation, 31 with this project's extensions); **cannot, for 37** (29 use a construct v2 has no spelling for, 8 more use a behavior shape the translation does not spell) | Every test's state machine is classified by the UML constructs it uses; the table below gives the construct-to-notation mapping and the per-area result |
+| **Driving the test** | **Can, in the tester's order** | PSSM's `Tester` sends `Start` and the follow-up signals from its own behavior, interleaved with the target's steps by fUML's scheduling, and blocks on each operation it calls until the call's run-to-completion step is done (§8.5.9, `CallEventOccurrence`). The referee's driver (`tools/referee/pssm/run.go:drive`) performs the tester's steps in that order: a send is queued where the tester sends it, a call is `StateExecutor.Call` and returns the operation's outputs, and a `trace(...)` of the tester's own is appended to the target's `log` where the tester makes it, once the call it embeds has returned. The sends coincide with the conformance harness's queued `events` when every send precedes the target's first reaction, which is what the tests' "received when in configuration ..." lists state; a test that needs a signal to arrive mid-run needs a tester `part` in the model instead |
 | **Comparing the expected trace** | **Can, on a model-level string; `%trace` is not the comparand** | PSSM's expected trace is built by the model — every entry, exit and effect behavior calls `trace("<state>(entry)")` on the `TraceBuilder` (501 call actions target the `trace` operation in the XMI). Its translation is an `assign log := log + "<state>(entry)"` in the corresponding `entry`/`exit`/`do` body, compared through the case's `slots`/`outputs`; the runtime's `%trace` and `TestExecutionTrace` goldens record steps, not segments, and would need a projection (enter/exit/effect lines to segments, everything else dropped) to be comparable at all |
 | **Alternative expected traces** | **Can, and exactly** | 36 tests declare more than one admissible trace. The conformance schema's `outcomes` with the `explore` policy replays a case once per linearization of its choice points (`ChoiceRegionOrder`, `ChoiceTransition`, `ChoiceDueOrder`) and fails when a listed outcome is unreachable or an unlisted one is reached — the same set-equality PSSM's alternatives ask for, and stricter than the single-run comparison the PSSM harness performs |
 | **The run-to-completion step table** | **Cannot compare** | Each test's "RTC steps" table lists the pool's contents and the fired transitions per step, including completion events (`CE(<state>)`). The runtime has no pool of completion occurrences (SM9) and the `%trace` records no pool; only the fired transitions and the final trace are comparable |
@@ -1479,9 +1519,10 @@ which supersede the hand count this section was first written with — the moves
 | Entry point, exit point (connection points and connection point references) | none | no spelling |
 | Local transition, internal transition | none (SM36, SM37) | no spelling |
 | State machine generalization: extended regions, redefined transitions | none | no spelling |
-| Entry, exit or do behavior with parameters (reading the triggering event's data) | none: the notation binds event data on the transition (`accept d : Data`), never on an `entry`/`exit`/`do` action | no translation |
-| Call event whose operation returns a value the tester traces | none: the runtime's call events carry no result back to the caller | no translation |
-| A `trace(...)` call in the tester's own behavior | none: only the target's behaviors append to the model's `log` | no translation |
+| Entry, exit or do behavior with parameters (reading the triggering event's data) | none written: the notation binds event data on the transition (`accept d : Data`, §7.18.2; `TransitionPerformances.kerml`'s `accepter`), never on an `entry`/`exit`/`do` action, so the payload has to be routed through the transition — the reading is recorded under [Behavior parameters](#behavior-parameters-operation-results-tester-traces-and-standalone-machines) below | no translation |
+| Call event whose operation returns a value the tester traces | the runtime returns the outputs the triggered behaviors wrote to the caller (A14, `StateExecutor.Call`) and the driver traces them where the tester does; none written for the behavior that produces the value — an effect, entry or exit with an `out`/`return` parameter, which the notation spells as an action's `out` parameter (§7.16.2) — see below | no translation |
+| A `trace(...)` call in the tester's own behavior | the tester is the referee's driver, not a model element: its trace is appended to the target's `log` where the tester makes it, once the call it embeds has returned (`run.go:drive`, `tracer.value`); a trace that embeds no call and does not follow one is refused, since the machine may still be running (`stimulation.go:traceStimulus`) | standard, driven |
+| The UML `StateMachine` as the class under test (a standalone machine with attributes, operations, a constructor) | `part def` with `attribute`s, `action def`s and `exhibit state`, as an owned machine's: the reader (`reader.go`) reads the machine as the `Target` whose `Machine` is itself, with its attributes, operations and their methods, and its constructor | standard |
 | A guard whose behavior acts on the model (calls `trace(...)` before returning its value) | none: a v2 guard is a Boolean expression (§7.18.3, `validateTransitionFeatureMembershipGuardExpression`; `bool guard[*]` in `TransitionPerformances.kerml`, the effect a separate `step`), and an expression has no spelling for an action. UML 2.5.1 §14.5.11 `Transition::guard` itself calls such a guard ill formed | no translation |
 | A guard whose behavior is an opaque behavior, not an activity | none: the reader follows an activity's nodes to tell whether the behavior acts, and does not read an opaque body, so the guard is refused rather than carried as its Boolean text alone. A `FunctionBehavior` is the exception — it accesses no object by UML's contract (§13.2.3.3) — and is translated as the expression it spells | no translation |
 | Fork into states of orthogonal regions that have no initial pseudostate | `parallel` regions spell the shape and the `fork` extension the fork; a region a fork enters needs no `entry; then` (finding 6 below, fixed) | extension |
@@ -1498,7 +1539,7 @@ area:
 |---|---:|---:|---:|---:|
 | Behavior | 5 | 4 | 0 | 1 |
 | Transition | 15 | 8 | 1 | 6 |
-| Event | 16 | 10 | 0 | 6 |
+| Event | 16 | 11 | 0 | 5 |
 | Entering | 5 | 4 | 0 | 1 |
 | Exiting | 5 | 4 | 0 | 1 |
 | Entry (entry points) | 6 | 0 | 0 | 6 |
@@ -1514,38 +1555,41 @@ area:
 | Redefinition | 6 | 0 | 0 | 6 |
 | Standalone | 3 | 0 | 0 | 3 |
 | Other | 1 | 0 | 0 | 1 |
-| **Total** | **103** | **34** | **31** | **38** |
+| **Total** | **103** | **35** | **31** | **37** |
 
-Of the 30 with no v2 spelling, 14 use an entry point, 12 an exit point, 9 a local transition, 2
-an internal transition and 6 the redefinition machinery (several use more than one). Of the 62
-expressible and runnable tests, 20 use orthogonal regions, 8 a do activity, 9 deferral, 8
-history, 6 a junction, 4 a choice and 5 a fork or join; no expressible test has a call event,
-since every test with one also traces its result from the tester.
+Of the 29 with no v2 spelling, 14 use an entry point, 12 an exit point, 9 a local transition, 2
+an internal transition and 6 the redefinition machinery (several use more than one). Of the
+expressible tests, 20 use orthogonal regions, 8 a do activity, 9 deferral, 8
+history, 6 a junction, 4 a choice and 5 a fork or join; one, *Event 019-A*, has a call event
+the tester calls synchronously and traces after. The other seven with a call event also trace
+its result, which the behavior that returns it has no spelling for yet.
 
 #### Moves from the hand count
 
 This section was first written with a hand count of 37 / 33 / 3 / 30, which classified by the
 state-machine constructs alone. Writing the emitter showed nine of those 73 tests to have no
 exact translation, for reasons the construct table did not list; two of the nine (*Fork 002*,
-*Join 001*) have one since the lowerer accepts a fork-entered region without an initial; adjudicating the failures
-found a tenth. Each is recorded here with the
-classifier's reason; the count ratchet in `docs/project/pssm-referee.md` is where a later
-translation moves them back.
+*Join 001*) have one since the lowerer accepts a fork-entered region without an initial, and a
+third (*Event 019-A*) since the driver performs the tester's calls and traces in the tester's
+order; adjudicating the failures found a tenth. Each is recorded here with the classifier's
+reason; the count ratchet in `docs/project/pssm-referee.md` is where a later translation moves
+them back.
 
 | Test | Was | Reason |
 |---|---|---|
 | *Event 017-B* | standard | the composite state and its substate have entry, exit and do behaviors with parameters, reading the triggering event's data; the notation binds event data on the transition only |
-| *Event 019-A* | standard | the tester itself calls `trace("End")` after the target's operation returns; only the target's behaviors write the model's `log` |
+| *Event 019-A* | standard | *translated since the driver performs the tester's steps in order:* the tester itself calls `trace("End")` after the target's operation returns; the driver now makes the call synchronously and appends the trace to `log` when it returns, reaching the one admitted trace: the source's exit, the call transition's effect, `End`, the next state's segment |
 | *Event 019-B* | standard | both top-level states have parameterised entry and exit behaviors |
 | *Event 019-C* | standard | the three nested states have parameterised entry, exit and do behaviors |
-| *Event 019-D* | standard | the call trigger's operation `T2` returns a value, which the tester traces; the runtime's call events return nothing to the caller |
-| *Event 019-E* | standard | parameterised behaviors in two substates, an operation result on the call trigger's `T2`, and a tester-side trace of it |
-| *Deferred 007* | extension | the deferred call trigger's operation `T4` returns a value the tester traces |
+| *Event 019-D* | standard | the call trigger's operation `op` returns a value that `T2`'s effect produces (`return "output"`) and the tester traces; the runtime returns it to the caller and the driver traces it, but the translation spells no effect with a `return` parameter |
+| *Event 019-E* | standard | parameterised behaviors in two substates, and an operation result on the call trigger's `T2` |
+| *Deferred 007* | extension | the deferred call trigger's operation `op` returns a value that `T4`'s effect produces from its `in` parameter (`return T4_effect(p)`) |
+| *Standalone 003* | standard | *the standalone machine is read as the target since the reader does so;* what remains are the parameterised entry behaviors of the two regions' substates, which also produce `or`'s result |
 | *Fork 002* | extension | *translated since finding 6 was fixed:* the fork enters the two regions of a nested composite state, which have no initial pseudostate; the lowerer used to refuse a `parallel` region with no `entry; then` — this project's gap, not v2's |
 | *Join 001* | extension | *translated since finding 6 was fixed:* the fork enters the two regions of the top-level composite state, which have no initial pseudostate; the same lowerer refusal |
 | *Choice 005* | extension | the guards of the junction's and the choice's four outgoing transitions each call `trace("T1.n(guard)")` and the admitted trace records the calls, to show when each guard is read; a v2 guard is an expression with no room for an action, so the translation keeps only the guard's value and cannot reach the trace, and is refused rather than run short |
 
-The last two were kept apart from the other seven and from the 30 with no spelling: UML allows
+The last two were kept apart from the other seven and from the 29 with no spelling: UML allows
 a fork to target states inside orthogonal regions that have no initial pseudostate, SysML v2
 `parallel` regions can spell the shape, and only the lowerer's check stood in the way. The
 lowerer now accepts a region a fork enters (finding 6), so the two run and the referee reports
@@ -1553,6 +1597,94 @@ them in its expressible buckets; a region with neither an entry transition nor a
 into it is still refused, and the classifier names that *lowerer refuses an orthogonal region
 with neither an entry transition nor a fork branch into it* (*Entry 002 E*, which is not
 expressible on other grounds too).
+
+#### Behavior parameters, operation results, tester traces and standalone machines
+
+Four of the reasons above are not a missing v2 spelling but a translation, driver or runtime
+that did not carry the construct. Each is read here against PSSM and against SysML v2/KerML,
+and either translated — the same behaviors in the same order, the suite's admitted traces the
+oracle — or left refused with what a spelling has to reach.
+
+**The tester's own `trace(...)`** — *translated, in the driver.* PSSM Clause 9.2: the tester is
+the test's second object; it sends signals to the target from its own behavior and, where it
+calls one of the target's operations, blocks until the call returns (§8.5.9
+`CallEventOccurrence`: the caller is released once the run-to-completion step the call event
+triggers is done), then goes on — in *Event 019-A*, to `this.testable.trace("End")`, which
+appends to the target's trace after the source's exit and the call transition's effect, and
+before the `Continue` it sends next makes the next segment. The tester is not a model element of the translation; it is the referee's
+driver, so its steps are performed by `run.go:drive` in the tester's order: a send is queued and
+not waited for, as the tester does not wait for a signal (the pool is FIFO, so every send before
+a call is dispatched before the call event, whatever the tester's and the target's relative
+speed), a call is `StateExecutor.Call` (A14) and returns the operation's outputs, and a trace is the value
+the tester computes appended to the target's `log` — the same store the target's own `trace`
+writes — where the tester makes it. The value is evaluated by `tracer.value` over the suite's test
+library read into the model (`library.go`: `Concat`, `ToString` for Boolean, Integer and
+UnlimitedNatural, `formatParameterValue` spelling `[in=v]`/`[out=v]` as `Util::Tracing` does),
+and a call the trace embeds is the same synchronous `Call`, made once per call action however
+many of its output pins the trace reads (*Event 019-E* reads `result` and `return` of one
+`or(true, true)`; `TestTracerMakesEachCallOnce`). The ordering is PSSM's under every
+scheduling policy because it is fixed by the call's return, not by a draw: nothing of the
+target's runs between the step's end and the tester's next action, and the referee's result is
+identical under `-jobs 1` and `-jobs 8`. A trace that embeds no call and does not directly follow
+one has no such anchor — the tester's `trace` and the target's steps would be interleaved by
+fUML's scheduling — and `stimulation.go:traceStimulus` refuses it rather than order it by fiat;
+no test of the suite is refused on that ground. *Event 019-A* moves from not expressible to
+`pass` on its one admitted trace, `End` third of four segments; `TestDriveTesterTraceAfterCallReturns`,
+`TestDriveRefusesATraceWhileTheMachineMayRun`, `TestDriveCallNotReturnedFails`.
+
+**The standalone machine** — *translated, in the reader.* UML 2.5.1 §13.2.3 and §14.2: a
+`StateMachine` is a `Behavior`, hence a `Class`; the suite's *Standalone* tests type the
+tester's `testable` by the machine itself and give it attributes, operations with method
+activities and a constructor. Its v2 reading is the one an owned
+machine already has: a `part def` with `attribute`s, `action def`s for the operations and
+`exhibit state` for the machine, since a `part def` is what the emitter spells a target class
+as and the machine's regions, states and transitions are read the same way whichever element
+owns them. `reader.go` reads the standalone machine as the `Target` whose `Machine` is itself,
+with the attributes, operations and their methods, and the constructor; the constructor's
+literal writes are the attributes' initial values, as for an owned class (the suite's
+standalone constructors call the base constructor and return `this`). The classifier therefore no longer refuses the
+kind; *Standalone 001* and *Standalone 002* are refused on their entry and exit points, and
+*Standalone 002* and *Standalone 003* on their parameterised behaviors, the reasons otherwise
+unchanged (`TestSuiteNoTranslationReasons`). `standalone_test.go` reads and runs a standalone
+machine with an attribute the constructor initialises and a method that writes it.
+
+**A call trigger whose operation returns a value** — *the runtime and driver carry it; the
+translation does not yet spell the behavior that produces it.* PSSM §8.5.9 `CallEventOccurrence`
+and `SM_ObjectActivation`: the call's arguments bind the operation's `in` parameters, the
+behaviors the occurrence fires may write the operation's `out`/`return` parameters, and the
+caller is released with those values once the step is done. In the suite the value is produced
+by a *behavior*: *Event 019-D*'s `T2` effect `return "output"`; *Deferred 007*'s `T4` effect
+`return T4_effect(p)` from the call's `in`; *Event 019-E*'s and *Standalone 003*'s entry
+behaviors of two orthogonal regions' substates, each returning its own value, the trace admitting
+either region's as the one the tester sees — the last write wins. The runtime side is A14:
+`StateExecutor.Call` returns what a fired behavior returned or assigned to an output parameter
+of the operation's name, typed and by name, and the driver traces it (above). The v2 reading of
+the producing behavior is an action with an `out` parameter (§7.16.2) whose value the
+transition's `accept op(...)` hands back to the caller; the emitter spells an effect, entry or
+exit as a parameterless action today, so the classifier keeps *operation result* as the reason
+for the four tests. What a spelling must reach is fixed by the traces: the effect's `return`
+before the same effect's `trace`, and for the two-region case one value per region's entry
+with the last returned.
+
+**Entry, exit or do behavior with parameters** — *not translated; the reading is recorded.*
+PSSM §8.5.5 (`StateActivation::enter`, `exit`, `getExecutionFor`): a state's behaviors are
+executed with the triggering occurrence's data — a signal's attribute values, a call's `in`
+arguments — bound to their parameters in order when the behavior declares them; a completion
+or a data-less occurrence binds nothing. *Event 019-B* traces the source's exit and
+the target's entry as `exit(p1, p2)` and `entry(p1, p2)` with the same two values the
+`Continue(p1, p2)` carried; *Event 017-B*,
+*019-C*, *019-E*, *Entry 002-F*, *Standalone 002* and *003* bind entry, exit and do behaviors
+the same way. In SysML v2 the data is the transition's: `accept d : Data` (§7.18.2) declares a
+payload the transition's guard and effect read, and KerML's `TransitionPerformance::accepter`
+holds the transfer, while `StatePerformance::entryAction`, `exitAction` and `doAction`
+(`StatePerformances.kerml`) are the state's, performed with no reference to the transfer that
+caused them. A faithful spelling must route the payload from the transition to the state's
+action with the same values, in the same step, and without a unit the trace could see; the
+suite's traces fix two ordering constraints on it — the *source's exit* reads the payload
+before the transition's effect runs (§7.18.3: exit, effect, entry), so an effect assigning a
+part attribute reaches the entry but not the exit — and the completion case must leave the
+parameters unbound rather than stale. No spelling meeting these is written, so the classifier
+keeps *behavior parameter* as the reason for the seven tests.
 
 ### What a translated test looks like
 

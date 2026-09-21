@@ -18,6 +18,8 @@ import org.openmbee.opensysml.SourceDocument;
 import org.openmbee.opensysml.syson.identity.ElementIndex;
 
 public class ProjectTextExporter implements ProjectExporter {
+    private static final String SYSML_EXTENSION = ".sysml";
+
     private final ElementSerializer serializer;
     private final IIdentityService identityService;
 
@@ -36,34 +38,47 @@ public class ProjectTextExporter implements ProjectExporter {
         for (Resource resource : context.getDomain().getResourceSet().getResources()) {
             String uri = resource.getURI() == null ? "" : resource.getURI().toString();
             if (uri.startsWith(ElementUtil.KERML_LIBRARY_SCHEME) || uri.startsWith(ElementUtil.SYSML_LIBRARY_SCHEME)) continue;
-            String base = resource.getURI() == null ? "" : resource.getURI().lastSegment();
-            if (base == null || base.isBlank()) base = "document-" + documentIndex;
-            if (!base.endsWith(".sysml")) base += ".sysml";
-            String name = base;
-            int suffix = 1;
-            while (containsDocument(documents, name)) {
-                name = base.replace(".sysml", "-" + suffix++ + ".sysml");
-            }
-            StringBuilder text = new StringBuilder();
-            for (EObject root : resource.getContents()) {
-                if (!(root instanceof Element element)) continue;
-                if (!text.isEmpty() && text.charAt(text.length() - 1) != '\n') text.append('\n');
-                int start = text.isEmpty() ? 1 : lineCount(text);
-                List<Status> statuses = new ArrayList<>();
-                String serialized = serializer.serialize(root, statuses::add);
-                if (serialized == null) serialized = "";
-                text.append(serialized);
-                int end = Math.max(start,
-                        lineCount(text) - (text.length() > 0 && text.charAt(text.length() - 1) == '\n' ? 1 : 0));
-                ranges.add(new ExportedProject.DocumentRange(name, start, end, element));
-                statuses.forEach(status -> messages.add(new ExportedProject.ExportMessage(ExportedProject.level(status),
-                        status.message())));
-                index(element, entries);
-            }
-            documents.add(SourceDocument.inline(name, text.toString()));
+            String name = documentName(resource, documents, documentIndex);
+            exportResource(resource, name, documents, messages, ranges, entries);
             documentIndex++;
         }
         return new ExportedProject(documents, new ElementIndex(entries), messages, ranges);
+    }
+
+    // Names one resource: its URI's last segment as a .sysml name, suffixed when taken.
+    private String documentName(Resource resource, List<SourceDocument> documents, int documentIndex) {
+        String base = resource.getURI() == null ? "" : resource.getURI().lastSegment();
+        if (base == null || base.isBlank()) base = "document-" + documentIndex;
+        if (!base.endsWith(SYSML_EXTENSION)) base += SYSML_EXTENSION;
+        String name = base;
+        int suffix = 1;
+        while (containsDocument(documents, name)) {
+            name = base.replace(SYSML_EXTENSION, "-" + suffix++ + SYSML_EXTENSION);
+        }
+        return name;
+    }
+
+    // Serializes a resource's roots into one document, recording its ranges, messages and index entries.
+    private void exportResource(Resource resource, String name, List<SourceDocument> documents,
+            List<ExportedProject.ExportMessage> messages, List<ExportedProject.DocumentRange> ranges,
+            Map<String, ElementIndex.IndexedElement> entries) {
+        StringBuilder text = new StringBuilder();
+        for (EObject root : resource.getContents()) {
+            if (!(root instanceof Element element)) continue;
+            if (!text.isEmpty() && text.charAt(text.length() - 1) != '\n') text.append('\n');
+            int start = text.isEmpty() ? 1 : lineCount(text);
+            List<Status> statuses = new ArrayList<>();
+            String serialized = serializer.serialize(root, statuses::add);
+            if (serialized == null) serialized = "";
+            text.append(serialized);
+            int end = Math.max(start,
+                    lineCount(text) - (text.length() > 0 && text.charAt(text.length() - 1) == '\n' ? 1 : 0));
+            ranges.add(new ExportedProject.DocumentRange(name, start, end, element));
+            statuses.forEach(status -> messages.add(new ExportedProject.ExportMessage(ExportedProject.level(status),
+                    status.message())));
+            index(element, entries);
+        }
+        documents.add(SourceDocument.inline(name, text.toString()));
     }
 
     private void index(Element root, Map<String, ElementIndex.IndexedElement> entries) {
@@ -90,6 +105,6 @@ public class ProjectTextExporter implements ProjectExporter {
     }
 
     private boolean containsDocument(List<SourceDocument> documents, String name) {
-        return documents.stream().anyMatch(document -> document.name().equals(name));
+        return documents.stream().anyMatch(document -> document.name().filter(name::equals).isPresent());
     }
 }

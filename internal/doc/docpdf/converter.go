@@ -6,7 +6,7 @@ package docpdf
 
 import (
 	"context"
-	_ "embed"
+	_ "embed" // for the //go:embed directives below
 	"fmt"
 	"io"
 	"os"

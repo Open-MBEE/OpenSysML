@@ -33,6 +33,10 @@ func (e *performances) subflowOf(graph *lower.ActionGraph, node ast.Node) (*lowe
 func (e *ActionExecutor) enterSubflow(tokenIdx int, perf *actionFrame) error {
 	token := &e.tokens[tokenIdx]
 	node := token.Location
+	if perf.graph != nil && perf.graph.Invalid != nil {
+		return fmt.Errorf("%w: action node %s: %w",
+			ErrInvalidActionFlow, ActionNodeName(node), perf.graph.Invalid)
+	}
 	if perf.graph == nil || perf.graph.Initial == nil {
 		return fmt.Errorf("%w: action node %s owns a flow that cannot be built",
 			ErrInvalidActionFlow, ActionNodeName(node))
@@ -110,6 +114,13 @@ func (e *ActionExecutor) runSubflow(perf *actionFrame) error {
 // node, with one token at its initial node.
 func (e *ActionExecutor) enterBodyFlow(perf *actionFrame) (*subflowFrame, error) {
 	node := perf.node
+	if perf.graph != nil && perf.graph.Invalid != nil {
+		return nil, fmt.Errorf("%w: %s: %w",
+			ErrInvalidActionFlow, perf.describe(), perf.graph.Invalid)
+	}
+	if err := e.checkNodeResultParameters(perf.graph); err != nil {
+		return nil, fmt.Errorf("%s: %w", perf.describe(), err)
+	}
 	if perf.graph == nil || perf.graph.Initial == nil {
 		return nil, fmt.Errorf("%w: %s owns a flow that cannot be built",
 			ErrInvalidActionFlow, perf.describe())
@@ -119,7 +130,7 @@ func (e *ActionExecutor) enterBodyFlow(perf *actionFrame) (*subflowFrame, error)
 	e.nextTokenID++
 	// The root performance, a case body's own flow, has no node and is traced by name.
 	name := ActionNodeName(node)
-	if node == nil {
+	if name == "" {
 		name = perf.describe()
 	}
 	if tr := e.trace(); tr != nil {
@@ -360,6 +371,9 @@ func (e *ActionExecutor) leaveSubflow(tokenIdx int) error {
 // graph's flow or in a block flow a body of it states. It runs at initialize(),
 // not at construction, per the error-timing contract.
 func (e *ActionExecutor) validateSubflows(graph *lower.ActionGraph) error {
+	if graph.Invalid != nil {
+		return fmt.Errorf("%w: %w", ErrInvalidActionFlow, graph.Invalid)
+	}
 	for _, node := range graph.Nodes {
 		if sub, owns := e.subflowOf(graph, node); owns {
 			if sub.Err != nil {
@@ -377,6 +391,10 @@ func (e *ActionExecutor) validateSubflows(graph *lower.ActionGraph) error {
 		for _, block := range lower.BlockFlows(graph.Bodies[node]) {
 			if err := e.validateSubflows(block); err != nil {
 				return err
+			}
+			if len(block.Nodes) > 0 && block.Initial == nil {
+				return fmt.Errorf("%w: no node starts the flow a body of action node %s states%s",
+					ErrInvalidActionFlow, ActionNodeName(node), noFlowStart(block))
 			}
 		}
 	}
