@@ -728,14 +728,16 @@ func testObjectLifecycleCompositeCycle(t *testing.T) {
 	}
 }
 
-// testObjectLifecycleForgetsMessages: the messages addressed to a destroyed object, which no
-// consumer of it can take, leave the bus with it, and come back when the destruction is rolled back.
+// testObjectLifecycleForgetsMessages: the messages addressed to a destroyed object, or routed to
+// a destroyed port of a live one, which no consumer can take, leave the bus with it, and come
+// back when the destruction is rolled back.
 func testObjectLifecycleForgetsMessages(t *testing.T) {
 	instantiate, _, ctx := lifetimeFixture(t, `
 		package test {
 			private import OccurrenceFunctions::*;
 			attribute def Ping;
-			part def Device;
+			port def Ear;
+			part def Device { port ear : Ear; }
 			part def Fleet { part units : Device[0..*]; }
 			part fleet : Fleet;
 			part other : Device;
@@ -764,6 +766,26 @@ func testObjectLifecycleForgetsMessages(t *testing.T) {
 	rollback()
 	if got := ctx.PendingMessages(); len(got) != 2 {
 		t.Errorf("pending after rolling the destruction back: %v; want both Pings", got)
+	}
+
+	ear, err := ctx.portInstanceID(other, "ear")
+	if err != nil {
+		t.Fatalf("portInstanceID(other.ear): %v", err)
+	}
+	ctx.PostMessage(Message{SignalType: "Ping", Object: other.ID, Port: "ear", PortID: ear, Delivery: DeliverPort})
+	if err := ctx.destroy(ctx.instances[ear]); err != nil {
+		t.Fatalf("destroy(other.ear): %v", err)
+	}
+	if l, _ := ctx.OccurrenceLife(other.ID); !l.Alive() {
+		t.Fatalf("OccurrenceLife(other) = %v after destroying its port; want alive", l)
+	}
+	for _, msg := range ctx.PendingMessages() {
+		if msg.PortID == ear {
+			t.Errorf("pending after destroying other.ear still routes to it: %v; want the Ping to the port gone", msg)
+		}
+	}
+	if got := ctx.PendingMessages(); len(got) != 2 {
+		t.Errorf("pending after destroying other.ear: %v; want the two Pings to the objects themselves", got)
 	}
 }
 
