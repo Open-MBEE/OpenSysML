@@ -164,15 +164,18 @@ Table 5 it does not fold.
   `eval_operator_test.go:TestUnimplementedOperatorReportsWhy`,
   `library_functions_test.go:TestUnevaluableLibraryFunctionsNameThemselves` and
   `invoke_calc_body_test.go:TestUnevaluableResultIsNotReportedAsMissing`.
-- **Checking.** Until this record, nothing warned. The type checker now reports every use of the
+- **Checking.** Until this record, nothing warned. A dedicated pass now reports every use of the
   operator, in a `.kerml` or a `.sysml` document, in a value, a condition, a filter or a
   multiplicity bound, as a warning under the code `undefined-operator`
-  (`passes/typecheck_operator.go` `exprChecker.checkUndefinedOperator`, reached from
-  `typecheck_expr.go` `operatorType` and from `checkOperatorRules`): `operator '~' invokes
-  DataFunctions::'~', which the Kernel Function Library declares abstract and leaves undefined; no
-  library the runtime applies defines it, so the expression has no value`. It is a warning in
-  strict conformance too, since the specification asks for a warning, not a rejection — the
-  notation is standard KerML. `typecheck_operator_test.go:TestUndefinedOperatorWarns` pins it.
+  (`passes/undefined_operator.go` `UndefinedOperatorPass`, walking the tree with `ast.Inspect`):
+  `operator '~' invokes DataFunctions::'~', which the Kernel Function Library declares abstract
+  and leaves undefined; no library the runtime applies defines it, so the expression has no
+  value`. It is a warning in strict conformance too, since the specification asks for a warning,
+  not a rejection — the notation is standard KerML. It runs at the syntax tier because the
+  written operator is all it reads: an unresolved name elsewhere in the document gates the type
+  tier but never this warning.
+  `undefined_operator_test.go:TestUndefinedOperatorWarns` pins it, and
+  `TestUndefinedOperatorSurvivesUnresolvedReference` pins the tier placement.
 
 ## Options
 

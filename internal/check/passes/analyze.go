@@ -20,6 +20,7 @@ func DefaultRegistry() *Registry {
 	reg.Register(SyntaxPass{})
 	reg.Register(GrammarViolationPass{})
 	reg.Register(NonstandardNotationPass{})
+	reg.Register(UndefinedOperatorPass{})
 	reg.Register(NameResolutionPass{})
 	reg.Register(behavior.StateTransitionPass{})
 	reg.Register(behavior.ActionEndpointPass{})

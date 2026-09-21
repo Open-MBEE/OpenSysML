@@ -6,21 +6,18 @@ import (
 )
 
 // Codes and messages of the pilot's three operator-expression rules
-// (validateOperatorExpression{BracketOperator,Quantity,CastConformance}), plus
-// the warning KerML 1.0 §8.2.5.8.1 asks a tool to give when `~` is used.
+// (validateOperatorExpression{BracketOperator,Quantity,CastConformance}).
 const (
-	codeBracketOperator   = "bracket-operator"
-	codeQuantityUnit      = "quantity-unit"
-	codeCastConformance   = "cast-conformance"
-	codeUndefinedOperator = "undefined-operator"
+	codeBracketOperator = "bracket-operator"
+	codeQuantityUnit    = "quantity-unit"
+	codeCastConformance = "cast-conformance"
 
-	msgBracketOperator   = "`x[i]` is not an index in KerML: `[` invokes BaseFunctions::'[', which the kernel library leaves abstract; index a sequence with `x#(i)`"
-	msgQuantityUnit      = "the unit of a quantity must be a measurement reference, found %s: write a unit such as `[m]` or name a feature typed by MeasurementUnit or another measurement reference"
-	msgCastConformance   = "cast argument is typed by %s, unrelated to the target %s: neither type specializes the other, so the cast selects no value"
-	msgUndefinedOperator = "operator '~' invokes DataFunctions::'~', which the Kernel Function Library declares abstract and leaves undefined; no library the runtime applies defines it, so the expression has no value"
+	msgBracketOperator = "`x[i]` is not an index in KerML: `[` invokes BaseFunctions::'[', which the kernel library leaves abstract; index a sequence with `x#(i)`"
+	msgQuantityUnit    = "the unit of a quantity must be a measurement reference, found %s: write a unit such as `[m]` or name a feature typed by MeasurementUnit or another measurement reference"
+	msgCastConformance = "cast argument is typed by %s, unrelated to the target %s: neither type specializes the other, so the cast selects no value"
 )
 
-// checkOperatorRules applies the four rules to every operator of an expression
+// checkOperatorRules applies the three rules to every operator of an expression
 // the scalar type checker does not walk: a filter condition or a multiplicity bound.
 func (ec *exprChecker) checkOperatorRules(scope *symbols.Scope, node ast.Node) {
 	switch e := node.(type) {
@@ -29,9 +26,6 @@ func (ec *exprChecker) checkOperatorRules(scope *symbols.Scope, node ast.Node) {
 	case *ast.OperatorExpr:
 		if e.Operator == ast.OpAs {
 			ec.checkCast(scope, e)
-		}
-		if e.Operator == ast.OpBitNot {
-			ec.checkUndefinedOperator(e)
 		}
 		for _, o := range e.Operands {
 			ec.checkOperatorRules(scope, o)
@@ -78,12 +72,6 @@ func (ec *exprChecker) checkOperatorRules(scope *symbols.Scope, node ast.Node) {
 	case *ast.CastExpr:
 		ec.checkBoundOperators(scope, e.Multiplicity)
 	}
-}
-
-// checkUndefinedOperator warns of `~x`, which KerML 1.0 §8.2.5.8.1 leaves
-// undefined: it maps to the abstract `DataFunctions::'~'` no library defines.
-func (ec *exprChecker) checkUndefinedOperator(e *ast.OperatorExpr) {
-	ec.warnCode(codeUndefinedOperator, e.Span(), msgUndefinedOperator)
 }
 
 // checkBoundOperators applies the operator rules to the bounds a multiplicity writes.

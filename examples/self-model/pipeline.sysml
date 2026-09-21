@@ -182,7 +182,7 @@ package OpenSysMLPipeline {
     #SemanticEngine part def PassRegistry :> Stage {
         attribute :>> goPackage = "internal/check/passes";
         attribute tierCount : Integer = 4;
-        attribute passCount : Integer = 56;
+        attribute passCount : Integer = 57;
         attribute sortsByLevel : Boolean = true;
         attribute skipsDocumentScopedAboveFailure : Boolean = true;
 
@@ -191,6 +191,9 @@ package OpenSysMLPipeline {
         part grammarViolations : SyntaxCheck { attribute :>> goType = "GrammarViolationPass"; }
         // Non-standard notation is a syntax-level warning, not a constraint.
         part notation : SyntaxCheck { attribute :>> goType = "NonstandardNotationPass"; }
+        // The undefined `~` reads only the written operator, so an unresolved
+        // name never hides the warning.
+        part undefinedOperator : SyntaxCheck { attribute :>> goType = "UndefinedOperatorPass"; }
         part nameResolution : NameResolutionCheck { attribute :>> goType = "NameResolutionPass"; }
         part stateTransitions : NameResolutionCheck { attribute :>> goType = "StateTransitionPass"; }
         part actionEndpoints : NameResolutionCheck {
