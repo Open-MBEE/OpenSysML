@@ -208,6 +208,11 @@ func (m *migration) exitPointForm(v, owner *sysmlv1.Element) pointForm {
 		return pointForm{kw: "junction", note: "written as a junction of its state; a transition leaving through it runs the transition into the junction, the state's exit behavior, then the transition leaving it"}
 	}
 	if len(regions) < len(in) {
+		for _, t := range in {
+			if regionWithin(m.model.Ref(t, "source"), owner) == nil {
+				return pointForm{why: "several regions of " + describe(owner) + " leave through the exit point, as through a join, but " + describe(t) + " comes from outside the state"}
+			}
+		}
 		return pointForm{why: "several regions of " + describe(owner) + " leave through the exit point, as through a join, but two of its incoming transitions leave the same region"}
 	}
 	for _, t := range in {

@@ -634,3 +634,104 @@ func TestEmptyTransitionEffectKeepsItsBraces(t *testing.T) {
 		t.Errorf("the transition with the empty effect did not fire:\n%s", out)
 	}
 }
+
+// joinShapesMachine has three orthogonal states whose exit point several regions reach, each
+// also reached in a way a join cannot take: twice from one region, from outside the state,
+// and from a junction.
+const joinShapesMachine = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_jgo" name="Go"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_jgoEv" signal="_jgo"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_jclass" name="Rig" classifierBehavior="_jsm">
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_jsm" name="Rigging">
+        <region xmi:type="uml:Region" xmi:id="_jr" name="main">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_jinit"/>
+          <subvertex xmi:type="uml:State" xmi:id="_jidle" name="Idle"/>
+          <subvertex xmi:type="uml:State" xmi:id="_jtwice" name="Twice">
+            <connectionPoint xmi:type="uml:Pseudostate" xmi:id="_jxTwice" name="out" kind="exitPoint"/>
+            <region xmi:type="uml:Region" xmi:id="_jta" name="a">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_jtaInit"/>
+              <subvertex xmi:type="uml:State" xmi:id="_jta1" name="A1"/>
+              <subvertex xmi:type="uml:State" xmi:id="_jta2" name="A2"/>
+              <transition xmi:type="uml:Transition" xmi:id="_jtaT0" source="_jtaInit" target="_jta1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_jtaT1" source="_jta1" target="_jxTwice">
+                <trigger xmi:type="uml:Trigger" xmi:id="_jtaTr1" event="_jgoEv"/>
+              </transition>
+              <transition xmi:type="uml:Transition" xmi:id="_jtaT2" source="_jta2" target="_jxTwice"/>
+            </region>
+            <region xmi:type="uml:Region" xmi:id="_jtb" name="b">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_jtbInit"/>
+              <subvertex xmi:type="uml:State" xmi:id="_jtb1" name="B1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_jtbT0" source="_jtbInit" target="_jtb1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_jtbT1" source="_jtb1" target="_jxTwice">
+                <trigger xmi:type="uml:Trigger" xmi:id="_jtbTr1" event="_jgoEv"/>
+              </transition>
+            </region>
+          </subvertex>
+          <subvertex xmi:type="uml:State" xmi:id="_jouter" name="Outer">
+            <connectionPoint xmi:type="uml:Pseudostate" xmi:id="_jxOuter" name="out" kind="exitPoint"/>
+            <region xmi:type="uml:Region" xmi:id="_joa" name="a">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_joaInit"/>
+              <subvertex xmi:type="uml:State" xmi:id="_joa1" name="A1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_joaT0" source="_joaInit" target="_joa1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_joaT1" source="_joa1" target="_jxOuter">
+                <trigger xmi:type="uml:Trigger" xmi:id="_joaTr1" event="_jgoEv"/>
+              </transition>
+            </region>
+            <region xmi:type="uml:Region" xmi:id="_job" name="b">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_jobInit"/>
+              <subvertex xmi:type="uml:State" xmi:id="_job1" name="B1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_jobT0" source="_jobInit" target="_job1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_jobT1" source="_job1" target="_jxOuter">
+                <trigger xmi:type="uml:Trigger" xmi:id="_jobTr1" event="_jgoEv"/>
+              </transition>
+            </region>
+          </subvertex>
+          <subvertex xmi:type="uml:State" xmi:id="_jpseudo" name="Pseudo">
+            <connectionPoint xmi:type="uml:Pseudostate" xmi:id="_jxPseudo" name="out" kind="exitPoint"/>
+            <region xmi:type="uml:Region" xmi:id="_jpa" name="a">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_jpaInit"/>
+              <subvertex xmi:type="uml:State" xmi:id="_jpa1" name="A1"/>
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_jpaJ" name="j" kind="junction"/>
+              <transition xmi:type="uml:Transition" xmi:id="_jpaT0" source="_jpaInit" target="_jpa1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_jpaT1" source="_jpa1" target="_jpaJ">
+                <trigger xmi:type="uml:Trigger" xmi:id="_jpaTr1" event="_jgoEv"/>
+              </transition>
+              <transition xmi:type="uml:Transition" xmi:id="_jpaT2" source="_jpaJ" target="_jxPseudo"/>
+            </region>
+            <region xmi:type="uml:Region" xmi:id="_jpb" name="b">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_jpbInit"/>
+              <subvertex xmi:type="uml:State" xmi:id="_jpb1" name="B1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_jpbT0" source="_jpbInit" target="_jpb1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_jpbT1" source="_jpb1" target="_jxPseudo">
+                <trigger xmi:type="uml:Trigger" xmi:id="_jpbTr1" event="_jgoEv"/>
+              </transition>
+            </region>
+          </subvertex>
+          <transition xmi:type="uml:Transition" xmi:id="_jt0" source="_jinit" target="_jidle"/>
+          <transition xmi:type="uml:Transition" xmi:id="_jtIn" source="_jidle" target="_jxOuter">
+            <trigger xmi:type="uml:Trigger" xmi:id="_jtrIn" event="_jgoEv"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_jtTwice" source="_jxTwice" target="_jidle"/>
+          <transition xmi:type="uml:Transition" xmi:id="_jtOuter" source="_jxOuter" target="_jidle"/>
+          <transition xmi:type="uml:Transition" xmi:id="_jtPseudo" source="_jxPseudo" target="_jidle"/>
+        </region>
+      </ownedBehavior>
+    </packagedElement>`
+
+const joinShapesApplications = `
+  <sysml:Block xmi:id="_j1" base_Class="_jclass"/>`
+
+// An exit point several regions reach is a join; one also reached twice from one region, from
+// outside its state, or from a pseudostate is refused with that shape named, its transitions with it.
+func TestExitPointJoinShapesAreRefusedPrecisely(t *testing.T) {
+	r := migrateDocument(t, joinShapesMachine, joinShapesApplications)
+	if strings.Contains(string(r.Notation), "join out;") {
+		t.Errorf("a refused exit point was written as a join:\n%s", r.Notation)
+	}
+	wantNote(t, r, "_jxTwice", migrate.Unmapped, "as through a join, but two of its incoming transitions leave the same region")
+	wantNote(t, r, "_jxOuter", migrate.Unmapped, "as through a join, but (_jtIn) comes from outside the state")
+	wantNote(t, r, "_jxPseudo", migrate.Unmapped, "as through a join, but (_jpaT2) leaves 'j', a Pseudostate rather than a state")
+	for _, id := range []string{"_jtaT1", "_jtaT2", "_jtbT1", "_jtTwice", "_joaT1", "_jobT1", "_jtIn", "_jtOuter", "_jpaT2", "_jpbT1", "_jtPseudo"} {
+		wantNote(t, r, id, migrate.Unmapped, "has no v2 form")
+	}
+}
