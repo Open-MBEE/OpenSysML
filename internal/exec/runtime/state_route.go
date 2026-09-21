@@ -711,11 +711,11 @@ func (e *StateExecutor) travelResolving(trans *lower.Transition, from *ast.State
 		if err != nil {
 			return err
 		}
-		if err := e.exitAhead(ends.certainExits()); err != nil {
+		certainExits, certainEntries := ends.certainExits(), ends.certainEntries()
+		if _, err := e.leaveAlong(r, certainExits, certainEntries, nil); err != nil {
 			return err
 		}
-		certainEntries := ends.certainEntries()
-		if err := e.runEffects(r.effects(e.graph), certainEntries); err != nil {
+		if err := e.exitAhead(certainExits); err != nil {
 			return err
 		}
 		if err := e.enterOwnerOf(r.choice, certainEntries); err != nil {
@@ -726,29 +726,116 @@ func (e *StateExecutor) travelResolving(trans *lower.Transition, from *ast.State
 			return err
 		}
 	}
+	var leaving, entering []*ast.StateNode
+	if r.terminate != nil {
+		leaving = e.expandExits(e.terminateExits(from, trans, r.terminate))
+		entering = e.terminateEntries(from, trans, r.terminate)
+	} else {
+		leaving, entering = e.expandExits(exits(r.target)), enters(r.target)
+	}
+	effects, err := e.leaveAlong(r, leaving, entering, r.segments[len(r.segments)-1])
+	if err != nil {
+		return err
+	}
 	e.noteFired(r.segments...)
 	if r.terminate != nil {
-		return e.terminateAlong(trans, from, r)
+		return e.terminateAlong(trans, from, r, effects)
 	}
-	return move(r.effects(e.graph), r.target)
+	return move(effects, r.target)
+}
+
+// leaveAlong runs the segments before upto, exiting what each has left before its effects
+// (UML 14.2.3.8.4), and returns the effects from upto on, which run after the move's exits.
+func (e *StateExecutor) leaveAlong(r route, leaving, entering []*ast.StateNode, upto *lower.Transition) ([]routeEffect, error) {
+	effects := r.effects(e.graph)
+	var left []*ast.StateNode
+	for _, seg := range r.segments {
+		if seg == upto {
+			break
+		}
+		left = append(left, e.leftBySegment(leaving, seg)...)
+		n := 0
+		for n < len(effects) && effects[n].segment == seg {
+			n++
+		}
+		if n == 0 {
+			continue
+		}
+		if err := e.exitAhead(left); err != nil {
+			return nil, err
+		}
+		left = nil
+		if err := e.runEffects(effects[:n], entering); err != nil {
+			return nil, err
+		}
+		effects = effects[n:]
+	}
+	return effects, nil
+}
+
+// leftBySegment lists, among the states the move leaves, those seg leaves: the ones from its
+// source up to its boundary and their contents; from the machine's body, all still to exit.
+func (e *StateExecutor) leftBySegment(leaving []*ast.StateNode, seg *lower.Transition) []*ast.StateNode {
+	source := e.vertexState(seg.Source)
+	if source == nil {
+		return leaving
+	}
+	boundary := e.segmentBoundary(seg)
+	if boundary != nil && e.isBelowOrEqual(boundary, source) {
+		return nil
+	}
+	top := source
+	for e.graph.ParentState[top] != boundary && e.graph.ParentState[top] != nil {
+		top = e.graph.ParentState[top]
+	}
+	var left []*ast.StateNode
+	for _, state := range leaving {
+		if e.isBelowOrEqual(state, top) {
+			left = append(left, state)
+		}
+	}
+	return left
+}
+
+// segmentBoundary is the state seg stays inside of: the LCA of its ends (a pseudostate standing
+// in its declaring state), or the parent of a source that encloses the target; nil is the body.
+func (e *StateExecutor) segmentBoundary(seg *lower.Transition) *ast.StateNode {
+	source, target := e.vertexState(seg.Source), e.vertexState(seg.Target)
+	if declared, isState := seg.Source.(*ast.StateNode); isState && e.encloses(declared, target) {
+		return e.graph.ParentState[declared]
+	}
+	return e.getLCA(source, target)
+}
+
+// vertexState is the state a transition end lies in; nil for the machine's body.
+func (e *StateExecutor) vertexState(end ast.Node) *ast.StateNode {
+	switch v := end.(type) {
+	case *ast.StateNode:
+		return v
+	case *ast.PseudostateNode:
+		return e.graph.PseudostateOwner[v]
+	case *ast.Usage:
+		return e.graph.TerminateOwner[v]
+	}
+	return nil
 }
 
 // terminateAlong finishes a transition at the terminate action its route reaches
 // (SysML v2 §7.18.3): the states the move leaves are exited and the ones down to
 // the action's owner entered, as for a state beside it, then the machine ends.
-func (e *StateExecutor) terminateAlong(trans *lower.Transition, from *ast.StateNode, r route) error {
+func (e *StateExecutor) terminateAlong(trans *lower.Transition, from *ast.StateNode, r route, effects []routeEffect) error {
 	if err := e.exitStates(e.terminateExits(from, trans, r.terminate)); err != nil {
 		return err
 	}
-	return e.terminateAt(trans, StateVertexName(from), r, e.terminateEntries(from, trans, r.terminate))
+	return e.terminateAt(trans, StateVertexName(from), r, effects, e.terminateEntries(from, trans, r.terminate))
 }
 
 // terminateAt ends the machine's performance at the terminate action r reaches,
 // the move's exits done: the effects run entering the chain down to the action's
 // owner, then no further state is exited, no exit behavior runs, and the do
 // behaviors still under way are abandoned where they stand.
-func (e *StateExecutor) terminateAt(trans *lower.Transition, fromName string, r route, entering []*ast.StateNode) error {
-	if err := e.runEffects(r.effects(e.graph), entering); err != nil {
+func (e *StateExecutor) terminateAt(trans *lower.Transition, fromName string, r route, effects []routeEffect, entering []*ast.StateNode) error {
+	if err := e.runEffects(effects, entering); err != nil {
 		return err
 	}
 	if err := e.enterAhead(entering); err != nil {
