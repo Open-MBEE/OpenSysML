@@ -9,8 +9,8 @@ import (
 	"testing"
 )
 
-// Of two time triggers tied at the head while a do step is due, the one whose dispatch
-// acts is drawn against the step by name, the dropped one waits; every witness replays.
+// Two same-spelled time triggers arm one timer, whose dispatch is drawn against a due
+// do step by name; every witness replays.
 func TestStepOrderDrawsTheActingTiedEventAlone(t *testing.T) {
 	text, err := os.ReadFile(filepath.Join("testdata", "conformance", "state_do_step_or_tied_dispatch.sysml"))
 	if err != nil {
@@ -31,12 +31,12 @@ func TestStepOrderDrawsTheActingTiedEventAlone(t *testing.T) {
 	}
 	for _, final := range report.Finals {
 		steps := slices.DeleteFunc(slices.Clone(final.Witness.Choices), func(c ChoiceTaken) bool { return c.Kind != ChoiceStepOrder })
-		if len(steps) != 1 || !slices.Equal(steps[0].Among, []string{"do top", "dispatch time top 2->idle"}) {
-			t.Fatalf("%s: step orders %v, want one between the step and the unguarded trigger alone", final.Outcome, steps)
+		if len(steps) != 1 || !slices.Equal(steps[0].Among, []string{"do top", "dispatch time top 1->idle"}) {
+			t.Fatalf("%s: step orders %v, want one between the step and the group's timer", final.Outcome, steps)
 		}
 		dispatched := slices.ContainsFunc(final.Witness.Choices, func(c ChoiceTaken) bool { return c.Kind == ChoiceDispatchOrder })
-		if (steps[0].Took != "do top") == dispatched {
-			t.Fatalf("%s: the dispatch order is drawn exactly when the step goes first, got %s", final.Outcome, FormatChoices(final.Witness.Choices))
+		if dispatched {
+			t.Fatalf("%s: one timer is one occurrence, no dispatch order drawn, got %s", final.Outcome, FormatChoices(final.Witness.Choices))
 		}
 		r := replayWitness(t, m, start, final.Witness, final.Outcome)
 		if got := r.Ctx.Trace().String(); got != final.Witness.Trace {

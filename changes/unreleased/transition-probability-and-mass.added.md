@@ -6,7 +6,8 @@
   dispatch for expressions. A weighted pick is drawn once among the enabled transitions, after
   triggers, guards and innermost-wins have run, and is recorded in the witness, so `%replay`
   reproduces it, `explore` enumerates every weighted alternative, and the trace prints the
-  drawn branch with its weight.
+  drawn branch with its weight. Transitions sharing a time-trigger spelling fire as one
+  occurrence drawn by weight, and a weight may read the trigger's bound arguments.
 - **`explore` and `check` report probabilities.** The explore outcome table gains a
   `probability` column — the product of the shares each linearization's picks resolved with (a
   weighted pick its stated weight's share, an unweighted choice the uniform `1/n` a seed takes

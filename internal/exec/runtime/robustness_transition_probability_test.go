@@ -431,3 +431,73 @@ func TestExploreWeighsTransitionsByTriggerArguments(t *testing.T) {
 		t.Errorf("a complete exploration's probabilities sum to %v, want 1 unbounded", x.Probability())
 	}
 }
+
+// Two transitions off one `after` spelling arm one timer: its expiry is the
+// single occurrence they compete for, drawn by weight — explore reports the
+// 0.9 branch nine times likelier than the 0.1 one.
+func TestExploreWeighsTimedTransitionsAsOneOccurrence(t *testing.T) {
+	m := parseLibraryModel(t, `package test {
+		private import ScalarValues::*;
+		private import SI::*;
+		private import Stochastic::*;
+		state def Machine {
+			entry; then a;
+			state a;
+			state b;
+			state c;
+			transition first a accept after 5 [s] then b { @Probability { p = 0.9; } }
+			transition first a accept after 5 [s] then c { @Probability { p = 0.1; } }
+		}
+	}`)
+	sym := m.state(t, "Machine")
+	x, err := Explore(context.Background(), mustPolicy(t, "explore"), m.fresh, func(ctx *Context) (Outcome, error) {
+		exec, err := ctx.CreateStateExecutor(sym)
+		if err != nil {
+			return Outcome{}, err
+		}
+		if err := exec.RunToCompletion(); err != nil {
+			return Outcome{}, err
+		}
+		return exec.Outcome(), nil
+	})
+	if err != nil || !x.Complete() || len(x.Outcomes) != 2 {
+		t.Fatalf("explore: %v, %v", x, err)
+	}
+	probs := map[string]float64{}
+	for _, o := range x.Outcomes {
+		probs[o.Outcome.FinalState] += o.Probability
+	}
+	if math.Abs(probs["b"]-0.9) > 1e-9 || math.Abs(probs["c"]-0.1) > 1e-9 {
+		t.Errorf("probabilities %v, want b=0.9, c=0.1", probs)
+	}
+}
+
+// A check of the grouped timer charges each violation the weight its member
+// was drawn at: the 0.1-weighted branch's failure carries mass 0.1.
+func TestCheckWeighsTimedTransitionsAsOneOccurrence(t *testing.T) {
+	m := parseLibraryModel(t, `package test {
+		private import ScalarValues::*;
+		private import SI::*;
+		private import Stochastic::*;
+		state def Machine {
+			entry; then a;
+			state a;
+			state bad;
+			state good;
+			transition first a accept after 5 [s] then bad { @Probability { p = 0.1; } }
+			transition first a accept after 5 [s] then good { @Probability { p = 0.9; } }
+		}
+	}`)
+	inv := invocationOf(nil, []*symbols.Symbol{m.state(t, "Machine")})
+	prop := CheckProperty{Name: "notBad", Holds: func(_ *Context, inv *Invocation) (bool, error) {
+		return inv.States[0].FinalStateName() != "bad", nil
+	}}
+	report, err := Check(context.Background(), m.fresh, inv, CheckBudget{}, CheckOptions{}, []CheckProperty{prop})
+	if err != nil || report.Verdict != CheckViolation || len(report.Violations) != 1 {
+		t.Fatalf("check: %v, %v", report, err)
+	}
+	v := report.Violations[0]
+	if v.Name != "notBad" || math.Abs(v.Mass-0.1) > 1e-9 {
+		t.Errorf("violation %s carries mass %v, want 0.1", v.Name, v.Mass)
+	}
+}

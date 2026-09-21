@@ -544,35 +544,55 @@ func (e *StateExecutor) completesAtEntry(state *ast.StateNode) bool {
 // scheduleTimeTransitions queues a time event per time-triggered transition out
 // of the state whose timer is not running yet, due at the clock's instant.
 func (e *StateExecutor) scheduleTimeTransitions(state *ast.StateNode) error {
-	for _, trans := range e.graph.Transitions[state] {
-		if e.timerScheduled[trans] {
+	transitions := e.graph.Transitions[state]
+	// Transitions sharing a trigger spelling compete for one occurrence, so a
+	// group of equal time triggers arms a single timer drawn among by weight.
+	for _, group := range lower.TransitionGroups(state, transitions) {
+		scheduled := false
+		for _, index := range group {
+			scheduled = scheduled || e.timerScheduled[transitions[index]]
+		}
+		if scheduled {
 			continue
 		}
-		if trans.Trigger == nil {
+		first := transitions[group[0]]
+		if first.Trigger == nil {
 			continue // a completion transition, scheduled once the do behavior ends
-		} else if timeEvent, ok := trans.Trigger.(*ast.TimeEvent); ok {
-			if err := e.checkTimeTriggerType(trans, timeEvent); err != nil {
+		}
+		timeEvent, ok := first.Trigger.(*ast.TimeEvent)
+		if !ok {
+			continue
+		}
+		for _, index := range group {
+			trans := transitions[index]
+			member, _ := trans.Trigger.(*ast.TimeEvent)
+			if member == nil {
+				continue
+			}
+			if err := e.checkTimeTriggerType(trans, member); err != nil {
 				return err
 			}
-			// Evaluate duration expression in the scope the transition was written
-			// in, the machine's data shadowing it.
-			durationVal, err := e.evalStepOf(trans.Source, timeEvent.Duration, trans.Scope)
-			if err != nil {
-				return fmt.Errorf("eval time duration: %w", err)
-			}
-			due, err := e.ctx.dueInstant(timeEvent, durationVal, "time duration")
-			if err != nil {
-				return err
-			}
+		}
+		// Evaluate duration expression in the scope the transition was written
+		// in, the machine's data shadowing it.
+		durationVal, err := e.evalStepOf(first.Source, timeEvent.Duration, first.Scope)
+		if err != nil {
+			return fmt.Errorf("eval time duration: %w", err)
+		}
+		due, err := e.ctx.dueInstant(timeEvent, durationVal, "time duration")
+		if err != nil {
+			return err
+		}
 
-			e.eventQueue.Push(Event{
-				ID:        e.nextEventID,
-				Type:      EventTime,
-				Timestamp: due,
-				Payload:   trans,
-			})
-			e.nextEventID++
-			e.timerScheduled[trans] = true
+		e.eventQueue.Push(Event{
+			ID:        e.nextEventID,
+			Type:      EventTime,
+			Timestamp: due,
+			Payload:   first,
+		})
+		e.nextEventID++
+		for _, index := range group {
+			e.timerScheduled[transitions[index]] = true
 		}
 	}
 
@@ -861,23 +881,39 @@ func (e *StateExecutor) dispatchEvent(event Event) (Dispatch, error) {
 				return dispatch, nil
 			}
 			var notes []RunNote
+			var err error
 			if lowerTrans.Trigger == nil && sourceState != nil {
-				var err error
 				if lowerTrans, notes, err = e.chooseCompletion(sourceState, lowerTrans); err != nil || lowerTrans == nil {
 					return dispatch, err
 				}
 			} else if lowerTrans.Trigger != nil {
-				// The timer selects its transition as a signal dispatch would: its
-				// guard holds and the join it may lead into is ready, or it fires nothing.
-				if enabled, err := e.transitionEnabled(lowerTrans, &event); err != nil || !enabled {
+				// The expiry is the one occurrence the trigger's group competes
+				// for: the weighted draw among the holding members picks it, as a
+				// signal dispatch would.
+				for _, groupMember := range e.graph.Transitions[sourceState] {
+					if sameTimerGroup(groupMember, lowerTrans) {
+						delete(e.timerScheduled, groupMember)
+					}
+				}
+				enabled, probeNotes, err := e.enabledTransitions(sourceState, &event)
+				if err != nil || len(enabled) == 0 {
 					return dispatch, err
 				}
+				notes = probeNotes
+				chosen, choiceNotes, err := e.chooseTransition(dispatchCandidate{
+					leaf: sourceState, source: sourceState,
+					enabled: enabled, notes: notes,
+				}, &event)
+				if err != nil || chosen == nil {
+					return dispatch, err
+				}
+				notes = choiceNotes
+				lowerTrans = chosen
 			}
 			// A transition out of a state inside an orthogonal region is region-local:
 			// it must not tear down the sibling regions unless its target lies outside
 			// the region set. The source may be a composite state enclosing the
 			// region's active state, so the region is resolved by containment.
-			var err error
 			dispatch.Fired, err = e.firingOn(&event, func() (bool, error) {
 				return e.resolveAndFire(sourceState, lowerTrans, notes)
 			})
@@ -1921,6 +1957,16 @@ func (e *StateExecutor) restoreSharedData(names []ast.NameSegment) func() {
 	}
 }
 
+// sameTimerGroup reports whether two transitions out of one source share a
+// trigger spelling, so a timer queued for one is the occurrence both compete
+// for. Completion transitions never share: each arms its own timer.
+func sameTimerGroup(a, b *lower.Transition) bool {
+	if _, timed := b.Trigger.(*ast.TimeEvent); !timed {
+		return false
+	}
+	return a.Source == b.Source && lower.TriggerKey(a) == lower.TriggerKey(b)
+}
+
 // matchesEvent checks if a transition matches the given event. Resolving the
 // port a `via` names may materialize it, which can fail.
 func (e *StateExecutor) matchesEvent(trans *lower.Transition, event *Event) (bool, error) {
@@ -1949,11 +1995,10 @@ func (e *StateExecutor) matchesEvent(trans *lower.Transition, event *Event) (boo
 		return e.transitionReached(trans, msg)
 
 	case EventTime:
-		// Time events carry the specific transition in Payload
-		// If matchesEvent is called for time events (shouldn't normally happen),
-		// match if this transition is the one in the payload
+		// A timer expiry is the one occurrence its whole same-spelled group
+		// competes for: the payload names the group's first member.
 		if transPayload, ok := event.Payload.(*lower.Transition); ok {
-			return trans == transPayload, nil
+			return trans == transPayload || sameTimerGroup(trans, transPayload), nil
 		}
 		return false, nil
 
@@ -3482,7 +3527,13 @@ func (e *StateExecutor) eventActs(event Event) (bool, error) {
 			return false, nil
 		}
 		if trans.Trigger != nil {
-			return e.transitionEnabled(trans, &event)
+			if source == nil {
+				return e.transitionEnabled(trans, &event)
+			}
+			// The expiry acts when any member of the payload's timer group
+			// holds, as dispatchEvent would draw among them.
+			enabled, _, err := e.enabledTransitions(source, &event)
+			return len(enabled) > 0, err
 		}
 		for _, completion := range e.graph.Transitions[source] {
 			if completion.Trigger != nil {
