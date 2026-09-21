@@ -67,6 +67,8 @@ func TestRuntimeRobustnessTransitionProbability(t *testing.T) {
 	t.Run("lone_enabled_zero_weight", testLoneEnabledZeroWeight)
 	t.Run("lone_enabled_weight_above_one", testLoneEnabledWeightAboveOne)
 	t.Run("trigger_argument_weight_out_of_range", testTriggerArgumentWeightOutOfRange)
+	t.Run("lone_completion_dynamic_weight_out_of_range", testLoneCompletionWeightOutOfRange)
+	t.Run("lone_completion_zero_weight", testLoneCompletionZeroWeight)
 }
 
 // testTransitionNegativeWeight: a probability is in [0, 1], so a constant
@@ -542,5 +544,30 @@ func TestDistinctInvocationTimersArmSeparately(t *testing.T) {
 	}
 	if timers[0].Timestamp == timers[1].Timestamp {
 		t.Errorf("both timers due at %v, want each at its own draw", timers[0].Timestamp)
+	}
+}
+
+// testLoneCompletionWeightOutOfRange: a lone completion transition draws
+// nothing, but its weight is still validated — a dynamic p of 1.5 refuses at
+// dispatch the same as beside a sibling.
+func testLoneCompletionWeightOutOfRange(t *testing.T) {
+	err := weightedStateRun(t, `
+		attribute w : Real = 1.5;
+		transition first a then b { @Probability { p = w; } }`, "")
+	if !errors.Is(err, ErrBranchWeights) ||
+		!strings.Contains(err.Error(), "not a probability in [0, 1]") {
+		t.Fatalf("error = %v, want ErrBranchWeights for the lone completion's 1.5", err)
+	}
+}
+
+// testLoneCompletionZeroWeight: a lone completion weighted zero has nothing
+// positive to hold it — refused at dispatch.
+func testLoneCompletionZeroWeight(t *testing.T) {
+	err := weightedStateRun(t, `
+		attribute w : Real = 0.0;
+		transition first a then b { @Probability { p = w; } }`, "")
+	if !errors.Is(err, ErrBranchWeights) ||
+		!strings.Contains(err.Error(), "sum to 0") {
+		t.Fatalf("error = %v, want ErrBranchWeights for the lone zero-weighted completion", err)
 	}
 }
