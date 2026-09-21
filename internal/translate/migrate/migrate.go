@@ -1078,6 +1078,8 @@ func (m *migration) instanceSlot(e, slot, f *sysmlv1.Element, kw, prefix string)
 		switch {
 		case inst == nil:
 			return nil, slotValueSubject + "names no instance", false
+		case inst.Type == "EnumerationLiteral" && (kw == "constraint" || kw == "requirement"):
+			return nil, "the slot of " + kw + " " + f.Name + " holds the literal " + qualifiedName(inst) + ", the run's verdict on the " + kw + " rather than an instance of its type; an individual has no slot for a verdict", false
 		case inst.IsProxy():
 			return nil, slotValueSubject + qualifiedName(inst) + " is outside the document, so it has no individual to type " + f.Name + " by", false
 		}
