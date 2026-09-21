@@ -439,8 +439,9 @@ giving `x = 1`; `declared` writes them the other way round, giving `x = 2`.
 
 ### Dispatch during an entry the model does not run to completion
 
-Fixture: `state_run_to_completion_false_self_signal` and
-`state_run_to_completion_scope_sibling_region` (goldens, explored).
+Fixture: `state_run_to_completion_false_self_signal`,
+`state_run_to_completion_scope_sibling_region`, and
+`state_run_to_completion_scope_parent_transition` (goldens, explored).
 
 An entry that does not run to completion and a dispatch due at the same instant
 may proceed in either order. Dispatching first exits the entered composite

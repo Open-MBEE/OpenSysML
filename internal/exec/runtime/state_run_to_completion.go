@@ -255,7 +255,7 @@ func (e *StateExecutor) dispatchFree(d dueDispatch) (dueDispatch, bool) {
 			return true
 		}
 		for _, candidate := range candidates {
-			if scopeContains(e.graph, scopes, candidate.source) {
+			if scopeContains(e.graph, scopes, e.graph.ParentState[candidate.source]) {
 				return true
 			}
 		}
