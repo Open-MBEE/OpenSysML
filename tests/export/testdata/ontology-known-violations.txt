@@ -1,4 +1,3 @@
-unknown-property ReferenceUsage references                   # references on non-connector reference usages remain interim
 # Known disagreements between the graphs this tool writes and the OMG SysML v2
 # metamodel as Open-MBEE/sysmlv2-rdf-ontology renders it (version 202407). Each
 # line is one violation key — `<kind> <metaclass> <property>` — and the reason it
@@ -86,6 +85,7 @@ unknown-property OccurrenceUsage redefines                   # redefinition is a
 unknown-property SubjectMembership redefines                 # redefinition is a Redefinition element, not a property
 unknown-property ActionUsage references                      # a referenced element is a ReferenceUsage or Membership, not a property
 unknown-property PartUsage references                        # a reference subsetting is a ReferenceSubsetting element, not a property
+unknown-property ReferenceUsage references                   # a `ref x ::> y` usage, written the same way
 unknown-property StateUsage references                       # the state an `exhibit` names, referenced the same way
 unknown-property EventOccurrenceUsage references             # the occurrence an `event m.start` names, standardly its eventOccurrence through a ReferenceSubsetting
 unknown-property AssertConstraintUsage references            # the constraint an `assert c` names, standardly its assertedConstraint through a ReferenceSubsetting
