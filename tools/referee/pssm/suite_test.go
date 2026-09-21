@@ -75,12 +75,12 @@ func TestSuiteClassification(t *testing.T) {
 	s := loadSuite(t)
 	type row struct{ std, ext, none int }
 	want := map[string]row{
-		"Behavior": {4, 0, 1}, "Transition": {8, 1, 6}, "Event": {11, 0, 5},
+		"Behavior": {4, 0, 1}, "Transition": {8, 1, 6}, "Event": {13, 0, 3},
 		"Entering": {4, 0, 1}, "Exiting": {4, 0, 1}, "Entry": {0, 0, 6},
 		"Exit": {0, 0, 3}, "Choice": {0, 4, 1}, "Junction": {0, 5, 1},
 		"Fork": {0, 1, 1}, "Join": {0, 3, 0}, "Final": {1, 0, 0},
-		"Terminate": {3, 0, 0}, "History": {0, 8, 0}, "Deferred": {0, 9, 1},
-		"Redefinition": {0, 0, 6}, "Standalone": {0, 0, 3}, "Other": {0, 0, 1},
+		"Terminate": {3, 0, 0}, "History": {0, 8, 0}, "Deferred": {0, 10, 0},
+		"Redefinition": {0, 0, 6}, "Standalone": {1, 0, 2}, "Other": {0, 0, 1},
 	}
 	got := map[string]row{}
 	var total row
@@ -125,42 +125,43 @@ func TestSuiteClassification(t *testing.T) {
 			t.Errorf("%s = %+v, want %+v", area, got[area], w)
 		}
 	}
-	if total != (row{35, 31, 37}) {
-		t.Errorf("total = %+v, want {35 31 37}", total)
+	if total != (row{38, 32, 33}) {
+		t.Errorf("total = %+v, want {38 32 33}", total)
 	}
 }
 
-// TestSuiteNoTranslationReasons pins the reasons left on the tests the driver
-// and reader lifted a construct from: a tester trace and a standalone machine
-// are no refusals, the rest of each list is byte-identical.
+// TestSuiteNoTranslationReasons pins the reasons left once tester traces, standalone
+// machines, operation results and bound parameters are no refusals; an exit with parameters stays one.
 func TestSuiteNoTranslationReasons(t *testing.T) {
 	s := loadSuite(t)
-	want := map[string]string{
-		"Event 019 A":    "standard notation only",
-		"Event 019 D":    "operation result T2",
-		"Event 019 E":    "behavior parameter S1.S1.1; behavior parameter S1.S2.1.S2.1.1; operation result T2",
-		"Deferred 007":   "operation result T4",
-		"Standalone 001": "exit point ExitPoint1; exit point ExitPoint1; entry point EntryPoint1",
-		"Standalone 002": "exit point ExitPoint1; entry point EntryPoint1; behavior parameter S2; behavior parameter S2; behavior parameter S2.S2.1; behavior parameter S2.S2.2",
-		"Standalone 003": "behavior parameter S1.S1.1; behavior parameter S1.S2.1.S2.1.1; operation result T2",
-		"Entry 002 F":    "behavior parameter S1; entry point EntryPoint1; behavior parameter S1.S1.1; behavior parameter S1.S1.2; local transition T1.1; local transition T1.2",
+	want := map[string]struct {
+		class  Expressibility
+		reason string
+	}{
+		"Event 017 B":    {NotExpressible, "behavior parameter S1.S1.1"},
+		"Event 019 A":    {Standard, "standard notation only"},
+		"Event 019 B":    {NotExpressible, "behavior parameter S1"},
+		"Event 019 C":    {NotExpressible, "behavior parameter S1.S1.1.S1.1.1"},
+		"Event 019 D":    {Standard, "standard notation only"},
+		"Event 019 E":    {Standard, "standard notation only"},
+		"Deferred 007":   {Extension, "defer S1"},
+		"Standalone 001": {NotExpressible, "exit point ExitPoint1; exit point ExitPoint1; entry point EntryPoint1"},
+		"Standalone 002": {NotExpressible, "exit point ExitPoint1; entry point EntryPoint1; behavior parameter S2"},
+		"Standalone 003": {Standard, "standard notation only"},
+		"Entry 002 F":    {NotExpressible, "entry point EntryPoint1; local transition T1.1; local transition T1.2"},
 	}
 	for _, tt := range s.Tests {
-		reason, ok := want[tt.Name]
+		w, ok := want[tt.Name]
 		if !ok {
 			continue
 		}
 		delete(want, tt.Name)
 		c := Classify(tt)
-		if c.Reason() != reason {
-			t.Errorf("%s: reason %q, want %q", tt.Name, c.Reason(), reason)
+		if c.Reason() != w.reason {
+			t.Errorf("%s: reason %q, want %q", tt.Name, c.Reason(), w.reason)
 		}
-		class := NotExpressible
-		if reason == "standard notation only" {
-			class = Standard
-		}
-		if c.Class != class {
-			t.Errorf("%s: %s, want %s", tt.Name, c.Class, class)
+		if c.Class != w.class {
+			t.Errorf("%s: %s, want %s", tt.Name, c.Class, w.class)
 		}
 	}
 	for name := range want {

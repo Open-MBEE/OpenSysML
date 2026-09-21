@@ -96,7 +96,7 @@ func Stimulation(s *Suite, t *Test) ([]Stimulus, error) {
 			if !isTarget(st.Receiver) {
 				reason = fmt.Sprintf("%s calls an object other than the target", st)
 			} else {
-				ev, reason = callStimulus(t.Target, st.Name, st.Args)
+				ev, reason = callStimulus(t.Target, st.OperationID, st.Name, st.Args)
 			}
 		default:
 			reason = fmt.Sprintf("%s has no translation as a queued event", st)
@@ -128,9 +128,10 @@ func sentStimulus(s *Suite, st *Statement) (Stimulus, string) {
 }
 
 // callStimulus reads an operation call on the target as a queued call with its
-// literal arguments bound to the operation's in parameters (UML 16.3.3.1).
-func callStimulus(target *Class, name string, args []Expr) (Stimulus, string) {
-	op := target.Operation(name)
+// literal arguments bound to the in parameters of the operation the call action
+// references by identity (UML 16.3.3.1), so same-named operations stay apart.
+func callStimulus(target *Class, id, name string, args []Expr) (Stimulus, string) {
+	op := target.Operation(id)
 	call := name + "(" + exprList(args) + ")"
 	if op == nil {
 		return Stimulus{}, fmt.Sprintf("this.testable.%s names no operation of the target", call)
@@ -197,7 +198,7 @@ func (tr *traceReader) value(x *Expr) string {
 		if !isTarget(x.Object) {
 			return fmt.Sprintf("%s calls an object other than the target", tr.st)
 		}
-		ev, reason := callStimulus(tr.target, x.Name, x.Args)
+		ev, reason := callStimulus(tr.target, x.OperationID, x.Name, x.Args)
 		if reason != "" {
 			return reason
 		}

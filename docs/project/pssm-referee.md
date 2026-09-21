@@ -61,9 +61,9 @@ note's [construct-to-notation table](../internals/design/precise-semantics-align
 
 | Class | Meaning | Count |
 |---|---|---:|
-| **standard** | every construct has a spelling in standard SysML v2 notation | 35 |
-| **extension** | spellable with this project's state-body extensions (`fork`, `join`, `junction`, `choice`, `history`, `defer`) | 31 |
-| **not-expressible** | uses a construct with no spelling (entry and exit points, local and internal transitions, state-machine redefinition), a behavior shape the translation does not spell, or a shape this project's lowerer refuses | 37 |
+| **standard** | every construct has a spelling in standard SysML v2 notation | 38 |
+| **extension** | spellable with this project's state-body extensions (`fork`, `join`, `junction`, `choice`, `history`, `defer`) | 32 |
+| **not-expressible** | uses a construct with no spelling (entry and exit points, local and internal transitions, state-machine redefinition), a behavior shape the translation does not spell, or a shape this project's lowerer refuses | 33 |
 
 A test using any construct with no spelling or no translation is not expressible whatever else
 it uses; otherwise the extensions win over standard. A terminate pseudostate is standard
@@ -74,30 +74,40 @@ The alignment note was first written with a hand count of 37 / 33 / 3 / 30; the 
 the record from now on, and the note's test-suite section carries its figures. Nine tests moved
 from the hand count when the emitter was written, two of them moved back when the lowerer
 learned to accept a fork-entered region, a third when the driver learned to perform the
-tester's calls and traces in the tester's order, and a tenth moved when its failure was
-adjudicated; each is listed with its reason in the note under
+tester's calls and traces in the tester's order, four more when the emitter learned to bind
+an entry's or effect's parameters and return its outputs, and a tenth moved when its failure
+was adjudicated; each is listed with its reason in the note under
 [Moves from the hand count](../internals/design/precise-semantics-alignment.md#moves-from-the-hand-count),
 and the four constructs the translation rather than the notation stood in the way of are read
 under [Behavior parameters, operation results, tester traces and standalone machines](../internals/design/precise-semantics-alignment.md#behavior-parameters-operation-results-tester-traces-and-standalone-machines):
 
-- **Entry, exit or do behaviors with parameters** that read the triggering event's data:
-  *Event 017-B*, *Event 019-B*, *Event 019-C*, *Event 019-E*, and among the tests not
-  expressible on other grounds *Entry 002-F*, *Standalone 002*, *Standalone 003*. The notation
-  binds event data on the transition (`accept d : Data`), never on an `entry`, `exit` or `do`
-  action, and no spelling routing it from the one to the other is written.
-- **An operation the tester calls and whose result it traces**: *Event 019-D*, *Event 019-E*,
-  *Deferred 007*, *Standalone 003*. The runtime returns the outputs the triggered behaviors
-  wrote to the caller (`StateExecutor.Call`, alignment row A14) and the driver traces them
-  where the tester does; the emitter spells no effect, entry or exit that returns a value.
+- **Entry or do behaviors and transition effects with parameters** that read the triggering
+  event's data are translated: the notation binds event data on the transition (`accept d :
+  Data`, `accept op(p1, p2)`), never on an `entry` or `do` action, so the accepting
+  transition's effect stores each value in an attribute of the machine and the action declares
+  its parameter bound to it (`in data : Data = trigger_Data;`); an effect reads the accept's
+  own parameters. The binding holds when every transition into the state accepts the one event
+  whose data conforms to the parameters (`binding.go`). **Exit behaviors with parameters** stay
+  refused: the exit runs before the leaving transition's effect, the first place the accepted
+  data is readable, and the entering occurrence's value would be the wrong one. *Event 017-B*,
+  *Event 019-B*, *Event 019-C* stay not expressible on such an exit and nothing else, as does
+  *Standalone 002* among the tests not expressible on other grounds; *Event 019-E* and
+  *Standalone 003* run and pass, and *Entry 002-F*'s entries bind.
+- **An operation the tester calls and whose result it traces** is translated: the runtime
+  returns the outputs the triggered behaviors wrote to the caller (`StateExecutor.Call`,
+  alignment row A14), the driver traces them where the tester does, and the emitter spells the
+  producing effect or entry as an `action def` with `out` parameters named as the operation's,
+  its `return` an assignment to them. *Event 019-D*, *Event 019-E*, *Deferred 007* and
+  *Standalone 003* run and pass on exactly their admitted traces.
 - **A `trace(...)` in the tester's own behavior** is translated: the driver performs the
   tester's steps in order and appends the trace to `log` once the call it follows has
   returned, so *Event 019-A* runs and passes. A trace embedding no call and not directly
   following one is refused, since the machine may still be running; no test is.
 - **A standalone state machine** as the class under test is translated: the reader reads the
   machine as the `Target` whose `Machine` is itself, with its attributes, operations and
-  constructor. *Standalone 001*, *002* and *003* stay not expressible on entry and exit points
-  and on parameterised behaviors, their other reasons byte-identical
-  (`TestSuiteNoTranslationReasons`).
+  constructor. *Standalone 001* and *002* stay not expressible on entry and exit points (and
+  *002* on its parameterised exits), their other reasons byte-identical
+  (`TestSuiteNoTranslationReasons`); *Standalone 003* runs and passes.
 - **A guard whose behavior acts on the model**: *Choice 005*, whose four guards each
   `trace("T1.n(guard)")` before returning, and whose admitted trace records the calls. A v2
   guard is a Boolean expression (`bool guard[*]` in `TransitionPerformances.kerml`, the effect a
@@ -204,7 +214,8 @@ send with no receiver) are not state-machine rows and no test in the suite reach
 
 ## Baseline
 
-Recorded **2026-09-21** on develop commit **`2a6527359`** with the tester's calls and traces
+Recorded **2026-09-21** on develop commit **`2a6527359`** with entry, do and effect behaviors
+bound to the triggering event's data and returning the call's outputs, the tester's calls and traces
 driven in the tester's order and standalone machines read as targets, with completion events queued in the
 order their sources are entered (the pool's order following the entry draw, finding 11's runtime
 part), the order of orthogonal
@@ -222,15 +233,46 @@ baseline — `go run -C tools ./cmd/pssm-referee` prints the current ones.
 
 | Bucket | Tests |
 |---|---:|
-| `pass` | 52 |
+| `pass` | 56 |
 | `fail` | 13 |
-| `not-expressible` | 37 |
+| `not-expressible` | 33 |
 | `differs-by-design` | 1 |
 | **Total** | **103** |
 
 ### Movements since the previous baseline
 
-Two counts moved since the previous baseline (develop `b36c7c0f0`, 2026-09-19), `not-expressible`
+Two counts moved since the previous baseline (develop `2a6527359`, 2026-09-21), `not-expressible`
+37 → 33 and `pass` 52 → 56, and four reasons shrank without moving a bucket. The emitter binds
+an entry, do or effect behavior's parameters to the triggering event's data — an effect reads
+the `accept`'s own parameters, an entry or do action declares `in p : T = trigger_…;` bound to
+an attribute the accepting transition's effect assigned from them (PSSM §8.5.5 `StateActivation`,
+UML §14.2.3.4.4) — and spells a behavior that produces the operation's result as an `action
+def` with `out` parameters the runtime returns to the caller; an exit behavior with parameters
+stays refused, since the exit runs before the leaving transition's effect, the first place the
+data is readable (the alignment note's section [Behavior parameters, operation results, tester
+traces and standalone
+machines](../internals/design/precise-semantics-alignment.md#behavior-parameters-operation-results-tester-traces-and-standalone-machines)).
+Every other test's result and reason is byte-identical to the previous baseline's, and the run
+is byte-identical under `-jobs 1` and `-jobs 8`.
+
+| Test | Construct | Movement | Adjudication |
+|---|---|---|---|
+| Event 019 D | operation result (translated) | `not-expressible` → `pass` | Expected. `T2`'s effect, `return "output"`, is spelled `action def T2_effect { inout log; out output : String; … assign output := "output"; }`, the call `this.testable.op()` returns `output` once the step is done, and the tester's `trace(formatParameterValue(false, …))` appends `[out=output]`. The one admitted trace `S1(entry)::T2(effect)[out=output]::[out=output]::S2(exit)` is reached and nothing else, in one run |
+| Event 019 E | operation result, behavior parameter (translated) | `not-expressible` → `pass` | Expected. `T2` accepts `'or'(left, right)` and stores both in `trigger_v_or_left` and `trigger_v_or_right`; the entries of `S1.1` and `S2.1.1` each declare `in left = trigger_v_or_left; in right = trigger_v_or_right;`, trace `[in=…][in=…][out=…][out=…]` and assign `left or right` (`xor` in `S2.1.1`) to the operation's two outputs, in the order the entry draw enters the two regions; the tester traces the values the entry performed last left. Both admitted orders are reached and nothing else (four runs) |
+| Standalone 003 | operation result, behavior parameter (translated) | `not-expressible` → `pass` | Expected. The same machine as *Event 019 E*, standalone: the class under test is the machine, read as a target since the previous baseline; the two admitted orders are reached and nothing else |
+| Deferred 007 | operation result, behavior parameter (translated) | `not-expressible` → `pass` | Expected. `S1` defers `op`; on `Continue`, `T3` fires and `S2` dispatches the deferred call, whose `T4` accepts `op(p1)` and performs `action def T4_effect { inout log; in p : Boolean; out 'return' : Boolean; … }` with `in p = p1`, its `return` an assignment of `not p`; the tester traces the returned `false`. The one admitted trace `S1(exit)::T3(effect)::T4(effect)[in=true][out=false]::[out=false]` is reached and nothing else, in one run |
+| Event 017 B | behavior parameter | `not-expressible` → `not-expressible`, reason shrank | Expected. `S1`'s and `S1.1`'s entries, `S1.1`'s do activity and the effects bind to the `Data` occurrence entering them; `S1.1`'s exit reads the second occurrence, the one firing `T1.2` out of it (`S1.1(exit)[in=false]` after `[in=true]`), and stays: `behavior parameter S1.S1.1` |
+| Event 019 B | behavior parameter | `not-expressible` → `not-expressible`, reason shrank | Expected. `T2`'s effect and `S2`'s entry bind to the `op(42, "input")` call; `S1`'s exit reads that call's arguments before `T2`'s effect, and stays: `behavior parameter S1` |
+| Event 019 C | behavior parameter | `not-expressible` → `not-expressible`, reason shrank | Expected. The three entries and `T1.1.2`'s effect bind; `S1.1.1`'s exit stays: `behavior parameter S1.S1.1.S1.1.1` |
+| Standalone 002 | behavior parameter | `not-expressible` → `not-expressible`, reason shrank | Expected. `S2`'s entry, the entries of `S2.1` and `S2.2` and the effects bind; `S2`'s exit stays, and the reason is otherwise byte-identical: `exit point ExitPoint1; entry point EntryPoint1; behavior parameter S2` |
+| Entry 002 F | behavior parameter | `not-expressible` → `not-expressible`, reason shrank | Expected. The three entries bind; `entry point EntryPoint1; local transition T1.1; local transition T1.2` remain, byte-identical |
+
+Of the eight tests the four constructs held out of the run, five run and pass; the three that
+need an exit behavior with parameters stay refused on exactly that reason.
+
+### Movements before that
+
+Two counts moved since the baseline before (develop `b36c7c0f0`, 2026-09-19), `not-expressible`
 38 → 37 and `pass` 51 → 52, and six reasons changed without moving a bucket. The driver
 performs the tester's steps in the tester's order, a synchronous call returning the operation's
 outputs after its run-to-completion step and a tester trace appended to `log` when the call it
@@ -529,18 +571,19 @@ short trace to a budget exhaustion: with SM11 its `S1` now completes and fires `
 history, and the history-record timing of finding 7 makes that re-enter `S1.1` without end. The
 remaining failures' reasons are byte-identical to the previous baseline's.
 
-### `pass` (52)
+### `pass` (56)
 
 Behavior 001, Behavior 002, Behavior 003 A, Behavior 003 B, Transition 001, Transition 007, Transition 011 C,
 Transition 015, Transition 016, Transition 020, Transition 022, Event 001, Event 002, Event 008, Event 009,
-Event 010, Event 015, Event 016 A (reports on SM11), Event 016 B, Event 017 A, Event 018, Event 019 A, Entering 004,
+Event 010, Event 015, Event 016 A (reports on SM11), Event 016 B, Event 017 A, Event 018, Event 019 A,
+Event 019 D, Event 019 E, Entering 004,
 Entering 005, Exiting 001, Exiting 003, Exiting 005, Fork 002, Choice 001 and Choice 002 (report on SM30), Choice 003,
 Choice 004, Final001 (reports on SM11), Deferred 001, Deferred 002, Deferred 003 (reports on
 SM7), Deferred 004 A and Deferred 004 B (report on SM7), Deferred 005, Deferred 006 A (reports
 on SM15: the runtime's rule and PSSM's agree on this variant), Deferred 006 C (reports on SM15:
-both do activities take the occurrence under either rule, and their order is drawn), History 001-A, History 001-B,
+both do activities take the occurrence under either rule, and their order is drawn), Deferred 007, History 001-A, History 001-B,
 History 001-D, History 002-A, History 002-C (reports on SM28), History 002-D, Join002, Junction 001,
-Junction 003, Terminate 001.
+Junction 003, Standalone 003, Terminate 001.
 
 ### `differs-by-design` (1)
 
@@ -587,7 +630,7 @@ quoted and the number given. The full sets are in the baseline file.
 Every reason in full — each extra trace, each missing trace, each error — is in the baseline
 file's `reasons`.
 
-### `not-expressible` (37)
+### `not-expressible` (33)
 
 By reason, as the classifier names them:
 
@@ -600,12 +643,11 @@ By reason, as the classifier names them:
   Entering 009, Entry 002 B, Entry 002 C, Entry 002 F, TransitionExecutionAlgorithm.
 - **redefined state machine, extended region, redefined transition** (no spelling):
   Redefinition 001 to 006.
-- **behavior parameter** (no translation: the emitter spells no entry, exit or do behavior
-  bound from the triggering event's data): Event 017 B, Event 019 B, Event 019 C, Event 019 E,
-  Standalone 003, and among the above Entry 002 F, Standalone 002.
-- **operation result** (no translation: the emitter spells no effect, entry or exit that
-  returns a value; the runtime carries the result and the driver traces it): Event 019 D,
-  Event 019 E, Deferred 007, Standalone 003.
+- **behavior parameter** (no translation: an exit behavior with parameters, which runs before
+  the leaving transition's effect, the first place the accepted data is readable): Event 017 B,
+  Event 019 B, Event 019 C, and among the above Standalone 002. Entry, do and effect behaviors
+  with parameters bind to the triggering event's data, and a behavior producing the operation's
+  result returns it, so Event 019 D, Event 019 E, Deferred 007 and Standalone 003 run and pass.
 - A standalone state machine is read as the target class, and a tester's `trace(...)` after a
   call is driven, so neither is a reason any longer; Event 019 A runs and passes.
 - **lowerer refuses an orthogonal region with neither an entry transition nor a fork branch

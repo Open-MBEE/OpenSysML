@@ -175,6 +175,15 @@ func (r *reader) typeName(e *xmi.Element) string {
 	return ""
 }
 
+// paramName names a parameter; a return parameter left unnamed, as UML
+// allows, is `return`, the name its value comes back under.
+func paramName(p *xmi.Element) string {
+	if name := p.Name(); name != "" || p.Attr("direction") != "return" {
+		return name
+	}
+	return "return"
+}
+
 func (r *reader) readParams(owner *xmi.Element) []Param {
 	var out []Param
 	for _, p := range owner.Tagged("ownedParameter") {
@@ -182,7 +191,7 @@ func (r *reader) readParams(owner *xmi.Element) []Param {
 		if dir == "" {
 			dir = "in"
 		}
-		out = append(out, Param{Name: p.Name(), Type: r.typeName(p), Direction: dir})
+		out = append(out, Param{Name: paramName(p), Type: r.typeName(p), Direction: dir})
 	}
 	return out
 }
