@@ -194,7 +194,7 @@ func TestMaterializationErrorsBoundsAWideModel(t *testing.T) {
 		if !hit {
 			t.Error("bounded = false, want the walk to report it stopped at its budget")
 		}
-	case <-time.After(30 * time.Second):
+	case <-watchdog(30 * time.Second):
 		t.Fatal("MaterializationErrors did not return, want a bounded walk")
 	}
 }
