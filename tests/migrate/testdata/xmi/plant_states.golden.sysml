@@ -56,7 +56,7 @@ part def Plant {
         transition first Idle accept Resume then Work::Run;
         transition first Work accept Hold then Pause;
         transition first Pause accept Resume
-            do action log
+            do action log { }
             then Work::last;
         transition first Idle accept Enter then Cell::warmStart;
         transition first Cell::spent then Idle;

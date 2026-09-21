@@ -137,7 +137,7 @@ func (m *Model) Lookup(id string) *Element {
 // child elements of that name carrying xmi:idref or href. Unresolvable ids are
 // dropped (Unresolved lists them); an href yields a proxy element.
 func (m *Model) Refs(e *Element, role string) []*Element {
-	ids := e.refIDs(role)
+	ids := e.RefIDs(role)
 	out := make([]*Element, 0, len(ids))
 	for _, id := range ids {
 		if target := m.Lookup(id); target != nil {
@@ -151,7 +151,7 @@ func (m *Model) Refs(e *Element, role string) []*Element {
 // defines, so a caller can tell a complete reference list from a dangling one.
 func (m *Model) Unresolved(e *Element, role string) []string {
 	var out []string
-	for _, id := range e.refIDs(role) {
+	for _, id := range e.RefIDs(role) {
 		if m.Lookup(id) == nil {
 			out = append(out, id)
 		}
@@ -159,8 +159,10 @@ func (m *Model) Unresolved(e *Element, role string) []string {
 	return out
 }
 
-// refIDs lists the raw ids a role of e refers to, attribute ids first.
-func (e *Element) refIDs(role string) []string {
+// RefIDs lists the raw ids a role of e refers to, attribute ids first: xmi:ids
+// within the document, or the hrefs of elements other documents hold, kept as
+// written even once such an href resolves to a bundled copy of its element.
+func (e *Element) RefIDs(role string) []string {
 	var ids []string
 	if v, ok := e.Attrs[role]; ok {
 		ids = append(ids, strings.Fields(v)...)
