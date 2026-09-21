@@ -244,6 +244,7 @@ func regionWithin(v, owner *sysmlv1.Element) *sysmlv1.Element {
 // forkBranchWhy says why transition t into tgt cannot be a fork's branch, which
 // enters a state with no trigger or guard of its own; "" when it can.
 func (m *migration) forkBranchWhy(t, tgt *sysmlv1.Element) string {
+	g := m.guardOf(t)
 	switch {
 	case tgt == nil:
 		return "lacks a target"
@@ -251,10 +252,28 @@ func (m *migration) forkBranchWhy(t, tgt *sysmlv1.Element) string {
 		return "enters " + describe(tgt) + ", a " + kindOf(tgt) + " rather than a state"
 	case len(t.Owned("trigger")) > 0:
 		return "has a trigger"
-	case firstOwned(t, "guard") != nil:
+	case g != nil && !trueLiteral(firstOwned(g, "specification")):
 		return "has a guard"
 	}
 	return ""
+}
+
+// guardOf returns transition t's guard: its guard child, or the owned rule its guard
+// reference names, which is how some exporters serialize the composite property.
+func (m *migration) guardOf(t *sysmlv1.Element) *sysmlv1.Element {
+	if g := firstOwned(t, "guard"); g != nil {
+		return g
+	}
+	if g := m.model.Ref(t, "guard"); g != nil && g.Type == "Constraint" {
+		return g
+	}
+	return nil
+}
+
+// trueLiteral reports whether spec is a LiteralBoolean holding true; a value the
+// serialization omits is the UML default, false.
+func trueLiteral(spec *sysmlv1.Element) bool {
+	return spec != nil && spec.Type == "LiteralBoolean" && (spec.Attrs["value"] == "true" || spec.Attrs["value"] == "1")
 }
 
 // populatedRegions returns the regions of a machine or state that hold a
@@ -519,7 +538,7 @@ func (s *stateRegion) initial(vertices, transitions []*sysmlv1.Element, entered 
 		note = "an initial transition takes no trigger; its triggers are dropped"
 		s.m.add(tr, Unmapped, "", "a trigger of an initial transition, which takes none, is dropped")
 	}
-	if g := firstOwned(t, "guard"); g != nil {
+	if g := s.m.guardOf(t); g != nil {
 		text := "the guard " + describe(g)
 		if spec := firstOwned(g, "specification"); spec != nil {
 			text = "[" + describeValue(spec) + "]"
@@ -1327,7 +1346,7 @@ func inParameters(b *sysmlv1.Element) []*sysmlv1.Element {
 // comment when it is not a v2 expression the state machine's owner resolves;
 // an else guard out of a choice or junction is the unguarded transition.
 func (s *stateRegion) guard(t, src *sysmlv1.Element) (string, string) {
-	g := firstOwned(t, "guard")
+	g := s.m.guardOf(t)
 	if g == nil {
 		return "", ""
 	}
@@ -1336,7 +1355,7 @@ func (s *stateRegion) guard(t, src *sysmlv1.Element) (string, string) {
 		s.m.add(g, Unmapped, "", "the guard has no specification")
 		return "", "the guard " + describe(g) + " has no specification and is dropped"
 	}
-	if spec.Type == "LiteralBoolean" && (spec.Attrs["value"] == "true" || spec.Attrs["value"] == "") {
+	if trueLiteral(spec) {
 		s.m.add(g, Mapped, "", "a true guard is not written")
 		return "", ""
 	}

@@ -1,5 +1,5 @@
 # SysML v1 to v2 migration report: station_points.xmi
-# migrated 122 element(s): 92 mapped, 26 approximated, 4 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 126 element(s): 96 mapped, 26 approximated, 4 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
 ## unmapped (4)
 SignalEvent	<SignalEvent>	_skipEv	(every trigger referring to the event is dropped: it belongs to a behavior that is not written, or to an initial transition)
@@ -35,7 +35,7 @@ OpaqueBehavior	Station::Cycle::main::Work::steps::Run::pace::<Transition>::<Opaq
 OpaqueBehavior	Station::Cycle::main::Work::steps::Run::pace::<Transition>::<OpaqueBehavior>	_backEff	-> Station::Cycle::Work::Run::unnamed2::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
 OpaqueBehavior	Station::Cycle::main::Work::steps::Run::pace::Fast::<OpaqueBehavior>	_fastEntry	-> Station::Cycle::Work::Run::Fast::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
 
-## mapped (92)
+## mapped (96)
 SignalEvent	<SignalEvent>	_backEv	(written where a trigger refers to it, as accept Back)
 SignalEvent	<SignalEvent>	_nextEv	(written where a trigger refers to it, as accept Next)
 SignalEvent	<SignalEvent>	_finishEv	(written where a trigger refers to it, as accept Finish)
@@ -63,6 +63,7 @@ Region	Station::Cycle::main	_main	(the one region is written as the body of its 
 Pseudostate	Station::Cycle::main::<Pseudostate>	_init0	(written as the entry of the region)
 Transition	Station::Cycle::main::<Transition>	_t0
 Transition	Station::Cycle::main::<Transition>	_tGo	(the target 'Start' lies in another region and is named by its path Work::Start)
+Transition	Station::Cycle::main::<Transition>	_tNever
 Transition	Station::Cycle::main::<Transition>	_tEnter	(written to Work: no transition leaves the entry point 'Plain', so entering through it enters the state by its default entry)
 Transition	Station::Cycle::main::<Transition>	_tDive	(the target 'Deep' lies in another region and is named by its path Work::Run::Deep)
 Transition	Station::Cycle::main::<Transition>	_tResume	(the target 'H' lies in another region and is named by its path Work::H)
@@ -72,12 +73,14 @@ Transition	Station::Cycle::main::<Transition>	_tPair
 Transition	Station::Cycle::main::<Transition>	_tSplit	(the target 'Both' lies in another region and is named by its path Sync::Both)
 Transition	Station::Cycle::main::<Transition>	_tGather	(the source 'Gather' lies in another region and is named by its path Sync::Gather)
 Trigger	Station::Cycle::main::<Transition>::<Trigger>	_trGo
+Trigger	Station::Cycle::main::<Transition>::<Trigger>	_trNever
 Trigger	Station::Cycle::main::<Transition>::<Trigger>	_trEnter
 Trigger	Station::Cycle::main::<Transition>::<Trigger>	_trDive
 Trigger	Station::Cycle::main::<Transition>::<Trigger>	_trResume
 Trigger	Station::Cycle::main::<Transition>::<Trigger>	_trStop
 Trigger	Station::Cycle::main::<Transition>::<Trigger>	_trPair
 Trigger	Station::Cycle::main::<Transition>::<Trigger>	_trSplit
+Constraint	Station::Cycle::main::<Transition>::never	_neverGuard
 State	Station::Cycle::main::Idle	_idle	-> Idle
 State	Station::Cycle::main::Sync	_sync	-> Sync
 Pseudostate	Station::Cycle::main::Sync::Both	_both	-> Both	(written as a fork of its state, whose branches start its regions; a transition entering through it runs the state's entry behavior, then the branches)
@@ -88,6 +91,7 @@ Transition	Station::Cycle::main::Sync::a::<Transition>	_tAi
 Transition	Station::Cycle::main::Sync::a::<Transition>	_tBothA	(the source 'Both' lies in another region and is named by its path Sync::Both)
 Transition	Station::Cycle::main::Sync::a::<Transition>	_tA
 Transition	Station::Cycle::main::Sync::a::<Transition>	_tAg	(the target 'Gather' lies in another region and is named by its path Sync::Gather)
+Constraint	Station::Cycle::main::Sync::a::<Transition>::<Constraint>	_bothAGuard	(a true guard is not written)
 Trigger	Station::Cycle::main::Sync::a::<Transition>::<Trigger>	_trA
 State	Station::Cycle::main::Sync::a::A0	_a0	-> A0
 State	Station::Cycle::main::Sync::a::A1	_a1	-> A1

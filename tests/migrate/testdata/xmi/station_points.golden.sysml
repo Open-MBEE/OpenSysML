@@ -134,6 +134,7 @@ part def Station {
                 assign this.trace := this.trace * 100 + 41;
             }
             then Work::Start;
+        transition first Idle accept Go if false then Work;
         transition first Idle accept Enter then Work;
         transition first Idle accept Dive
             do action {

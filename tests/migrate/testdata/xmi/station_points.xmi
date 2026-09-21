@@ -149,7 +149,11 @@
                 </exit>
               </subvertex>
               <transition xmi:type="uml:Transition" xmi:id="_tAi" source="_initA" target="_a0"/>
-              <transition xmi:type="uml:Transition" xmi:id="_tBothA" source="_both" target="_a1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_tBothA" guard="_bothAGuard" source="_both" target="_a1">
+                <ownedRule xmi:type="uml:Constraint" xmi:id="_bothAGuard">
+                  <specification xmi:type="uml:LiteralBoolean" xmi:id="_bothAGuardSpec" value="true"/>
+                </ownedRule>
+              </transition>
               <transition xmi:type="uml:Transition" xmi:id="_tA" source="_a0" target="_a1">
                 <trigger xmi:type="uml:Trigger" xmi:id="_trA" event="_bumpEv"/>
               </transition>
@@ -194,6 +198,12 @@
               <language>JavaScript</language>
               <body>trace = trace * 100 + 41;</body>
             </effect>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tNever" guard="_neverGuard" source="_idle" target="_work">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trNever" event="_goEv"/>
+            <ownedRule xmi:type="uml:Constraint" xmi:id="_neverGuard" name="never">
+              <specification xmi:type="uml:LiteralBoolean" xmi:id="_neverGuardSpec"/>
+            </ownedRule>
           </transition>
           <transition xmi:type="uml:Transition" xmi:id="_tEnter" source="_idle" target="_plain">
             <trigger xmi:type="uml:Trigger" xmi:id="_trEnter" event="_enterEv"/>
