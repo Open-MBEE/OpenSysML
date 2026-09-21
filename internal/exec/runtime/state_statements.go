@@ -443,6 +443,13 @@ func (h *stateStmtHost) assignAround(name string, value Value) (bool, error) {
 	return assignPerformerFeature(h.exec.ctx, h.exec.self, h.behavior.Scope, name, value)
 }
 
+// returnAround writes a returned output as assignAround does and keeps it for the
+// caller when a call event's transition is firing.
+func (h *stateStmtHost) returnAround(name string, value Value) (bool, error) {
+	h.exec.recordCallOutput(name, value)
+	return h.assignAround(name, value)
+}
+
 // pauseAt sets no breakpoint: a state behavior's nodes are not stepped.
 func (h *stateStmtHost) pauseAt([]ast.Node, ast.Node) error {
 	return nil

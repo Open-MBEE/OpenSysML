@@ -405,10 +405,10 @@ func TestPrintStylesheetContract(t *testing.T) {
 		t.Fatal(err)
 	}
 	def := strings.Index(page, "@layer opensysml {")
-	print := strings.Index(page, "@layer opensysml-print {")
+	printLayer := strings.Index(page, "@layer opensysml-print {")
 	reader := strings.Index(page, ".sysml-document { color: red }")
-	if def < 0 || print < def || reader < print {
-		t.Fatalf("stylesheet order default=%d print=%d reader=%d:\n%s", def, print, reader, page)
+	if def < 0 || printLayer < def || reader < printLayer {
+		t.Fatalf("stylesheet order default=%d printLayer=%d reader=%d:\n%s", def, printLayer, reader, page)
 	}
 	if strings.Count(page, "@layer opensysml-print {") != 1 {
 		t.Fatal("print stylesheet inlined more than once")
@@ -488,12 +488,12 @@ func TestPandocStylesheetSetsWideTablesLandscape(t *testing.T) {
 	wide := "table:has(thead > tr > th:nth-child(7))"
 	for _, want := range []string{
 		"@page wide { size: A4 landscape; }",
-		"body { page: main; }",
+		"body {\n  font-family: serif;\n  font-size: 11pt;\n  line-height: 1.45;\n  page: main;\n}",
 		wide + " { page: wide; font-size: 9pt; }",
 		"p:has(+ " + wide + "),",
 		"p:has(.caption):has(+ p:has(+ " + wide + ")),",
 		":is(h1, h2, h3, h4, h5, h6):has(+ p:has(.caption):has(+ p:has(+ " + wide + "))) { page: wide; }",
-		"th { overflow-wrap: normal; }",
+		"th {\n  background: #eeeeee;\n  overflow-wrap: normal;\n}",
 		"h1, h2, h3, h4, h5, h6 {\n  font-family: sans-serif;\n  line-height: 1.2;\n  break-after: avoid;",
 		"p:has(.caption) { break-after: avoid; page-break-after: avoid; }\np:has(+ table) { break-after: avoid; page-break-after: avoid; }",
 	} {

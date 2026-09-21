@@ -58,10 +58,10 @@ const (
 	ConstructRedefinedTransition Construct = "redefined transition"
 	ConstructRedefinedMachine    Construct = "redefined state machine"
 	ConstructSubmachine          Construct = "submachine state"
-	ConstructStandalone          Construct = "standalone state machine"
 	ConstructUnknownVertex       Construct = "unknown pseudostate kind"
 	ConstructNoMachine           Construct = "no state machine"
-	// No translation: the model's behaviors read what the notation cannot bind.
+	// No translation: the model's behaviors read what the notation cannot bind,
+	// or the tester computes what the driver cannot.
 	ConstructBehaviorParameter   Construct = "behavior parameter"
 	ConstructOperationResult     Construct = "operation result"
 	ConstructTesterTrace         Construct = "tester trace"
@@ -95,7 +95,6 @@ var constructClass = map[Construct]Expressibility{
 	ConstructRedefinedTransition:  NotExpressible,
 	ConstructRedefinedMachine:     NotExpressible,
 	ConstructSubmachine:           NotExpressible,
-	ConstructStandalone:           NotExpressible,
 	ConstructUnknownVertex:        NotExpressible,
 	ConstructNoMachine:            NotExpressible,
 	ConstructBehaviorParameter:    NotExpressible,
@@ -162,16 +161,13 @@ func Classify(t *Test) Classification {
 	if t.Machine == nil {
 		add(ConstructNoMachine, "")
 	} else {
-		if t.Target != nil && t.Target.Standalone {
-			add(ConstructStandalone, t.Machine.Name)
-		}
 		if t.Machine.Redefines != "" {
 			add(ConstructRedefinedMachine, t.Machine.Name)
 		}
 		w := &walker{add: add, reached: reachedVertices(t.Machine.Regions), forkEntered: forkEnteredRegions(t.Machine.Regions)}
 		w.connectionPoints(t.Machine.ConnectionPoints)
 		w.regions(t.Machine.Regions)
-		w.tester(t.Stimulation)
+		w.tester(t.Target, t.Stimulation)
 	}
 	class := Standard
 	for _, u := range uses {
@@ -380,8 +376,9 @@ func (w *walker) behavior(b *Behavior, where string) {
 	}
 }
 
-// operation records a call trigger whose operation returns a value: the
-// runtime's call events carry no result back to the caller.
+// operation records a call trigger whose operation returns a value: the driver
+// releases the caller with what the triggered behaviors return, but the
+// translation spells no behavior returning a value yet.
 func (w *walker) operation(op *Operation, where string) {
 	for _, p := range op.Params {
 		if p.Direction == "out" || p.Direction == "return" || p.Direction == "inout" {
@@ -391,16 +388,25 @@ func (w *walker) operation(op *Operation, where string) {
 	}
 }
 
-// tester records a tester that writes the trace itself: only the target's
-// behaviors append to the model's log.
-func (w *walker) tester(body *Body) {
+// tester records a tester trace the driver cannot perform: one traced while
+// the machine may still run, a value the library does not evaluate, or a call
+// the stimulation cannot bind. The driver appends every other tester trace to
+// the log once the calls it embeds have returned (see traceStimulus).
+func (w *walker) tester(target *Class, body *Body) {
 	if body == nil {
 		return
 	}
-	for _, st := range body.Statements {
+	var prev *Statement
+	for i := range body.Statements {
+		st := &body.Statements[i]
 		if st.Kind == StmtCall && st.Name == "trace" && isTarget(st.Receiver) {
-			w.add(ConstructTesterTrace, st.String())
+			if target == nil {
+				w.add(ConstructTesterTrace, st.String())
+			} else if _, reason := traceStimulus(target, prev, st); reason != "" {
+				w.add(ConstructTesterTrace, st.String())
+			}
 		}
+		prev = st
 	}
 }
 

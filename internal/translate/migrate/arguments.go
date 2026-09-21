@@ -12,82 +12,110 @@ import (
 func (a *activity) refusal(n *sysmlv1.Element) (why string, v Verdict, refused bool) {
 	switch n.Type {
 	case "ValueSpecificationAction":
-		v := firstOwned(n, "value")
-		if v == nil {
-			return "the action has no value", Unmapped, true
-		}
-		var ok bool
-		var note string
-		if results := n.Owned("result"); len(results) == 0 {
-			_, ok, note = a.m.behaviorValue(v, n)
-		} else {
-			_, ok, note = a.m.typedBehaviorValue(v, results[0], n)
-		}
-		if !ok {
-			return "the value " + describeValue(v) + " is not written: " + note, Approximated, true
-		}
+		return a.valueActionRefusal(n)
 	case "CallBehaviorAction":
-		b := a.m.model.Ref(n, "behavior")
-		if b == nil {
-			if a.leafStep(n) {
-				return "", Mapped, false
-			}
-			return a.unbehaved(n), Unmapped, true
-		}
-		if op := a.m.methodOf[b]; op != nil {
-			b = op
-		}
-		if !a.m.written(b) {
-			return "the behavior " + qualifiedName(b) + " it calls has no v2 declaration", Unmapped, true
-		}
-		switch cat, _ := a.m.classify(b); cat {
-		case catCalcDef:
-			return "", Mapped, false
-		case catActionDef:
-		default:
-			return "the behavior " + qualifiedName(b) + " is written as a " + cat.keyword() + ", which an action cannot call", Unmapped, true
-		}
-		if p, why := a.unarguedParameter(inputPins(n), b); p != nil {
-			return why, Approximated, true
-		}
-		if c := a.m.contextOf(b); c != nil {
-			if expr, cnote := a.callContext(n, c); expr == "" {
-				return a.uncontexted(b, cnote), Approximated, true
-			}
-		}
+		return a.behaviorCallRefusal(n)
 	case "CallOperationAction":
-		op := a.m.model.Ref(n, "operation")
-		if op == nil {
-			return joinNotes(a.m.dangling(n, "operation"), "the action calls no operation"), Unmapped, true
-		}
-		if !a.m.written(op) {
-			return "the operation " + qualifiedName(op) + " it calls has no v2 declaration", Unmapped, true
-		}
-		t := firstOwned(n, "target")
-		ins := slices.DeleteFunc(inputPins(n), func(p *sysmlv1.Element) bool { return p == t })
-		if p, why := a.unarguedParameter(ins, op); p != nil {
-			return why, Approximated, true
-		}
+		return a.operationCallRefusal(n)
 	case "SendSignalAction":
-		sig := a.m.model.Ref(n, "signal")
-		if sig == nil || !a.m.written(sig) {
+		return a.sendRefusal(n)
+	}
+	return "", Mapped, false
+}
+
+// valueActionRefusal reports whether a value specification action's value
+// cannot be written in v2.
+func (a *activity) valueActionRefusal(n *sysmlv1.Element) (why string, v Verdict, refused bool) {
+	val := firstOwned(n, "value")
+	if val == nil {
+		return "the action has no value", Unmapped, true
+	}
+	var ok bool
+	var note string
+	if results := n.Owned("result"); len(results) == 0 {
+		_, ok, note = a.m.behaviorValue(val, n)
+	} else {
+		_, ok, note = a.m.typedBehaviorValue(val, results[0], n)
+	}
+	if !ok {
+		return "the value " + describeValue(val) + " is not written: " + note, Approximated, true
+	}
+	return "", Mapped, false
+}
+
+// behaviorCallRefusal reports whether a call behavior action names a behavior
+// no action can call, with unbound arguments or no context to bind.
+func (a *activity) behaviorCallRefusal(n *sysmlv1.Element) (why string, v Verdict, refused bool) {
+	b := a.m.model.Ref(n, "behavior")
+	if b == nil {
+		if a.leafStep(n) {
 			return "", Mapped, false
 		}
-		attrs := a.m.signalAttributes(sig)
-		pins := n.Owned("argument")
-		for i, attr := range attrs {
-			if !requiresValue(attr) {
-				continue
-			}
-			if i >= len(pins) {
-				return a.unargued(sig, attr), Approximated, true
-			}
-			if dry := a.valueless(pins[i]); dry != nil {
-				return a.dryArgument(pins[i], sig, attr, dry), Approximated, true
-			}
-			if pt, at := a.misfit(pins[i], attr); pt != nil {
-				return a.misfitArgument(pins[i], sig, attr, pt, at), Approximated, true
-			}
+		return a.unbehaved(n), Unmapped, true
+	}
+	if op := a.m.methodOf[b]; op != nil {
+		b = op
+	}
+	if !a.m.written(b) {
+		return "the behavior " + qualifiedName(b) + " it calls has no v2 declaration", Unmapped, true
+	}
+	switch cat, _ := a.m.classify(b); cat {
+	case catCalcDef:
+		return "", Mapped, false
+	case catActionDef:
+	default:
+		return "the behavior " + qualifiedName(b) + " is written as a " + cat.keyword() + ", which an action cannot call", Unmapped, true
+	}
+	if p, why := a.unarguedParameter(inputPins(n), b); p != nil {
+		return why, Approximated, true
+	}
+	if c := a.m.contextOf(b); c != nil {
+		if expr, cnote := a.callContext(n, c); expr == "" {
+			return a.uncontexted(b, cnote), Approximated, true
+		}
+	}
+	return "", Mapped, false
+}
+
+// operationCallRefusal reports whether a call operation action's operation is
+// unwritten or an argument pin has no parameter.
+func (a *activity) operationCallRefusal(n *sysmlv1.Element) (why string, v Verdict, refused bool) {
+	op := a.m.model.Ref(n, "operation")
+	if op == nil {
+		return joinNotes(a.m.dangling(n, "operation"), "the action calls no operation"), Unmapped, true
+	}
+	if !a.m.written(op) {
+		return "the operation " + qualifiedName(op) + " it calls has no v2 declaration", Unmapped, true
+	}
+	t := firstOwned(n, "target")
+	ins := slices.DeleteFunc(inputPins(n), func(p *sysmlv1.Element) bool { return p == t })
+	if p, why := a.unarguedParameter(ins, op); p != nil {
+		return why, Approximated, true
+	}
+	return "", Mapped, false
+}
+
+// sendRefusal reports whether a send signal action's arguments cannot take the
+// signal's attributes.
+func (a *activity) sendRefusal(n *sysmlv1.Element) (why string, v Verdict, refused bool) {
+	sig := a.m.model.Ref(n, "signal")
+	if sig == nil || !a.m.written(sig) {
+		return "", Mapped, false
+	}
+	attrs := a.m.signalAttributes(sig)
+	pins := n.Owned("argument")
+	for i, attr := range attrs {
+		if !requiresValue(attr) {
+			continue
+		}
+		if i >= len(pins) {
+			return a.unargued(sig, attr), Approximated, true
+		}
+		if dry := a.valueless(pins[i]); dry != nil {
+			return a.dryArgument(pins[i], sig, attr, dry), Approximated, true
+		}
+		if pt, at := a.misfit(pins[i], attr); pt != nil {
+			return a.misfitArgument(pins[i], sig, attr, pt, at), Approximated, true
 		}
 	}
 	return "", Mapped, false

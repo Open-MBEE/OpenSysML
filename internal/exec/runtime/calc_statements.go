@@ -225,6 +225,11 @@ func (h *calcStmtHost) assignAround(name string, value Value) (bool, error) {
 	return false, nil
 }
 
+// returnAround writes a returned output as assignAround does: a case has no caller to keep it for.
+func (h *calcStmtHost) returnAround(name string, value Value) (bool, error) {
+	return h.assignAround(name, value)
+}
+
 // pauseAt sets no breakpoint: a case's steps are not stepped interactively.
 func (h *calcStmtHost) pauseAt([]ast.Node, ast.Node) error {
 	return nil

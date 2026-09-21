@@ -18,6 +18,13 @@ import (
 
 // valueExpr writes a UML value specification as a v2 expression. ok is false
 // when it has no v2 form; note explains an approximation or the refusal.
+
+// The note fragments the writer repeats.
+const (
+	notValueOf = " is not a value of "
+	whichNote  = ", which "
+)
+
 func (m *migration) valueExpr(v, scope *sysmlv1.Element) (expr string, ok bool, note string) {
 	return m.valueExprAs(v, scope, wanted{})
 }
@@ -42,7 +49,7 @@ func (m *migration) valueExprAs(v, scope *sysmlv1.Element, want wanted) (expr st
 				return expr, ok, note
 			}
 		}
-		return "", false, "the " + kind + " " + qualifiedName(inst) + " is not a value of " + want.scalar + ", which " + want.holder
+		return "", false, "the " + kind + " " + qualifiedName(inst) + notValueOf + want.scalar + whichNote + want.holder
 	}
 	kind, text := literalKind(v, expr)
 	if kind == "" {
@@ -84,7 +91,7 @@ func literalAs(kind, expr, text string, want wanted) (value string, ok bool, not
 	value, spelled := scalarLiteral(kind, expr, text, want.scalar)
 	switch {
 	case !spelled:
-		return "", false, "the " + kind + " " + expr + " is not a value of " + want.scalar + ", which " + want.holder
+		return "", false, "the " + kind + " " + expr + notValueOf + want.scalar + whichNote + want.holder
 	case value != expr:
 		return value, true, "the " + kind + " " + expr + " is written as the " + want.scalar + " " + want.holder
 	}
@@ -130,47 +137,59 @@ func (m *migration) directValue(v, scope *sysmlv1.Element, want wanted) (expr st
 	case "LiteralNull":
 		return "null", true, ""
 	case "InstanceValue":
-		inst := m.model.Ref(v, "instance")
-		if inst == nil {
-			return "", false, "instance value refers to nothing in the document"
-		}
-		if inst.Type == "EnumerationLiteral" && inst.Parent != nil {
-			return m.ref(inst.Parent, scope) + "::" + writeName(inst.Name), true, ""
-		}
-		switch cat, _ := m.classify(inst); cat {
-		case catValue:
-			return m.ref(inst, scope), true, ""
-		case catIndividualDef:
-			return "", false, individualSubject + qualifiedName(inst) + " is a definition, which is not a v2 value"
-		}
-		return "", false, "instance value of a " + inst.Type + " has no v2 expression"
+		return m.instanceValue(v, scope)
 	case "OpaqueExpression":
-		body, lang := opaqueBody(v)
-		if body == "" {
-			return "", false, "opaque expression has no body"
-		}
-		if dialectOf(lang) != dialectNone {
-			expr, note, refused := m.translatedExpr(body, lang, scope, want)
-			if refused == nil {
-				m.noted(valueOwner(v, scope), note)
-				return expr, true, ""
-			}
-			if refused.final(lang) {
-				return "", false, refused.note()
-			}
-		}
-		refs, ok := exprRefs(body)
-		if !ok {
-			return "", false, "opaque expression is not v2 expression syntax" + langNote(lang)
-		}
-		if problem := m.invisible(refs, scope); problem != "" {
-			return "", false, "opaque expression " + problem + langNote(lang)
-		}
-		return body, true, "opaque expression copied verbatim" + langNote(lang)
+		return m.opaqueValue(v, scope, want)
 	case "Expression", "TimeExpression", "Duration", "Interval", "StringExpression":
 		return "", false, "a UML " + v.Type + " tree has no v2 form"
 	}
 	return "", false, "no v2 form for a UML " + v.Type
+}
+
+// instanceValue writes an instance value: an enumeration literal by qualified
+// name, a value by reference, nothing else.
+func (m *migration) instanceValue(v, scope *sysmlv1.Element) (expr string, ok bool, note string) {
+	inst := m.model.Ref(v, "instance")
+	if inst == nil {
+		return "", false, "instance value refers to nothing in the document"
+	}
+	if inst.Type == "EnumerationLiteral" && inst.Parent != nil {
+		return m.ref(inst.Parent, scope) + "::" + writeName(inst.Name), true, ""
+	}
+	switch cat, _ := m.classify(inst); cat {
+	case catValue:
+		return m.ref(inst, scope), true, ""
+	case catIndividualDef:
+		return "", false, individualSubject + qualifiedName(inst) + " is a definition, which is not a v2 value"
+	}
+	return "", false, "instance value of a " + inst.Type + " has no v2 expression"
+}
+
+// opaqueValue writes an opaque expression: translated when its language is a
+// known dialect, else copied verbatim once its references are visible.
+func (m *migration) opaqueValue(v, scope *sysmlv1.Element, want wanted) (expr string, ok bool, note string) {
+	body, lang := opaqueBody(v)
+	if body == "" {
+		return "", false, "opaque expression has no body"
+	}
+	if dialectOf(lang) != dialectNone {
+		expr, note, refused := m.translatedExpr(body, lang, scope, want)
+		if refused == nil {
+			m.noted(valueOwner(v, scope), note)
+			return expr, true, ""
+		}
+		if refused.final(lang) {
+			return "", false, refused.note()
+		}
+	}
+	refs, ok := exprRefs(body)
+	if !ok {
+		return "", false, "opaque expression is not v2 expression syntax" + langNote(lang)
+	}
+	if problem := m.invisible(refs, scope); problem != "" {
+		return "", false, "opaque expression " + problem + langNote(lang)
+	}
+	return body, true, "opaque expression copied verbatim" + langNote(lang)
 }
 
 func langNote(lang string) string {
@@ -240,14 +259,14 @@ func (m *migration) featureValue(v, f, scope *sysmlv1.Element) (expr string, ok 
 	if v.Type == "InstanceValue" && t != nil {
 		inst := m.model.Ref(v, "instance")
 		if inst.Type == "InstanceSpecification" && !m.instanceOf(m.model.Refs(inst, "classifier"), t) {
-			return "", false, "the instance " + qualifiedName(inst) + " is not a " + qualifiedName(t) + ", which " + featureHolds
+			return "", false, "the instance " + qualifiedName(inst) + " is not a " + qualifiedName(t) + whichNote + featureHolds
 		}
 		if inst.Type == "EnumerationLiteral" && inst.Parent != t && m.written(t) {
-			return "", false, "the literal " + qualifiedName(inst) + " is not a " + qualifiedName(t) + ", which " + featureHolds
+			return "", false, "the literal " + qualifiedName(inst) + " is not a " + qualifiedName(t) + whichNote + featureHolds
 		}
 	}
 	if m.scalarBase(t) == "" && strings.HasPrefix(v.Type, "Literal") && v.Type != "LiteralNull" && (m.structuredValueType(t) || m.written(t)) {
-		return "", false, "the literal " + expr + " is not a value of " + qualifiedName(t) + ", which has no scalar base"
+		return "", false, "the literal " + expr + notValueOf + qualifiedName(t) + ", which has no scalar base"
 	}
 	return expr, ok, note
 }

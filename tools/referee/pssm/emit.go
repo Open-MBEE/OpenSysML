@@ -28,53 +28,6 @@ type Model struct {
 	Events []Stimulus
 }
 
-// Stimulus is one event the tester sends the target: a signal, with its scalar
-// payload when the signal carries one, or an operation call with its arguments.
-type Stimulus struct {
-	Signal string
-	Call   string
-	// Value is the scalar payload of a signal, nil for a plain signal.
-	Value *Literal
-	// Args are the call's arguments in parameter order.
-	Args []Argument
-}
-
-// Argument is one argument of a queued operation call.
-type Argument struct {
-	Name  string
-	Value *Literal
-}
-
-// String spells the stimulus for a report.
-func (s Stimulus) String() string {
-	if s.Call != "" {
-		parts := make([]string, len(s.Args))
-		for i, a := range s.Args {
-			parts[i] = a.Value.String()
-		}
-		return s.Call + "(" + strings.Join(parts, ", ") + ")"
-	}
-	if s.Value != nil {
-		return s.Signal + "(" + s.Value.String() + ")"
-	}
-	return s.Signal
-}
-
-// TranslateError reports a construct of a test the emitter has no exact
-// translation for. It never drops the construct instead.
-type TranslateError struct {
-	Test   string
-	Where  string
-	Reason string
-}
-
-func (e *TranslateError) Error() string {
-	if e.Where == "" {
-		return fmt.Sprintf("%s: %s", e.Test, e.Reason)
-	}
-	return fmt.Sprintf("%s: %s: %s", e.Test, e.Where, e.Reason)
-}
-
 // scalarTypes maps the UML primitive types the suite uses to ScalarValues.
 var scalarTypes = map[string]string{
 	"Boolean":          "Boolean",
@@ -96,9 +49,14 @@ func Emit(s *Suite, t *Test) (*Model, error) {
 	if err := e.machine(&body); err != nil {
 		return nil, err
 	}
-	events, err := e.stimulation()
+	events, err := Stimulation(s, t)
 	if err != nil {
 		return nil, err
+	}
+	for _, ev := range events {
+		if ev.Signal != "" {
+			e.signals[ev.Signal] = true
+		}
 	}
 	var text strings.Builder
 	fmt.Fprintf(&text, "package %s {\n", t.ID)
@@ -1156,112 +1114,10 @@ func (e *emitter) literal(l *Literal) (string, error) {
 	return "", e.fail("", fmt.Sprintf("literal %s has no spelling", l))
 }
 
-// stimulation reads the tester's behavior as the events to queue: Start when
-// the machine reacts to it, then each send or operation call to the target.
-func (e *emitter) stimulation() ([]Stimulus, error) {
-	var events []Stimulus
-	if e.signals["Start"] {
-		events = append(events, Stimulus{Signal: "Start"})
-	}
-	if e.test.Stimulation == nil {
-		return events, nil
-	}
-	where := "tester"
-	if len(e.test.Stimulation.Unsupported) > 0 {
-		return nil, e.fail(where, "activity nodes with no translation: "+strings.Join(e.test.Stimulation.Unsupported, "; "))
-	}
-	for _, st := range e.test.Stimulation.Statements {
-		var ev Stimulus
-		var err error
-		switch st.Kind {
-		case StmtAccept:
-			continue
-		case StmtSend:
-			ev, err = e.sentStimulus(st, where)
-		case StmtCall:
-			ev, err = e.calledStimulus(st, where)
-		default:
-			err = e.fail(where, fmt.Sprintf("%s has no translation as a queued event", st))
-		}
-		if err != nil {
-			return nil, err
-		}
-		events = append(events, ev)
-	}
-	return events, nil
-}
-
-// sentStimulus reads a send to the target as a queued signal, with its scalar
-// payload when it carries one.
-func (e *emitter) sentStimulus(st Statement, where string) (Stimulus, error) {
-	if !isTarget(st.Receiver) {
-		return Stimulus{}, e.fail(where, fmt.Sprintf("%s addresses an object other than the target", st))
-	}
-	sig := e.suite.Signals[st.Name]
-	ev := Stimulus{Signal: st.Name}
-	if len(st.Args) > 0 {
-		if sig == nil || len(sig.Attributes) != 1 || len(st.Args) != 1 || st.Args[0].Kind != ExprLiteral {
-			return Stimulus{}, e.fail(where, fmt.Sprintf("%s carries a payload the translation cannot bind", st))
-		}
-		ev.Value = st.Args[0].Literal
-	}
-	e.signals[st.Name] = true
-	return ev, nil
-}
-
-// calledStimulus reads an operation call on the target as a queued call with
-// its literal arguments bound to the operation's in parameters.
-func (e *emitter) calledStimulus(st Statement, where string) (Stimulus, error) {
-	if !isTarget(st.Receiver) {
-		return Stimulus{}, e.fail(where, fmt.Sprintf("%s calls an object other than the target", st))
-	}
-	op := e.operation(st.Name)
-	if op == nil {
-		return Stimulus{}, e.fail(where, fmt.Sprintf("%s names no operation of the target", st))
-	}
-	ev := Stimulus{Call: st.Name}
-	var ins []Param
-	for _, p := range op.Params {
-		if p.Direction == "return" || p.Direction == "out" || p.Direction == "inout" {
-			return Stimulus{}, e.fail(where, fmt.Sprintf("%s returns a value the tester would observe", st))
-		}
-		ins = append(ins, p)
-	}
-	if len(ins) != len(st.Args) {
-		return Stimulus{}, e.fail(where, fmt.Sprintf("%s passes %d arguments to %d parameters", st, len(st.Args), len(ins)))
-	}
-	for i, a := range st.Args {
-		if a.Kind != ExprLiteral {
-			return Stimulus{}, e.fail(where, fmt.Sprintf("%s passes an argument that is not a literal", st))
-		}
-		ev.Args = append(ev.Args, Argument{Name: ins[i].Name, Value: a.Literal})
-	}
-	return ev, nil
-}
-
-func (e *emitter) operation(name string) *Operation {
-	if e.test.Target == nil {
-		return nil
-	}
-	for _, op := range e.test.Target.Operations {
-		if op.Name == name {
-			return op
-		}
-	}
-	return nil
-}
-
-func isSelf(x *Expr) bool { return x != nil && x.Kind == ExprSelf }
-
 // isHarness reports a reference to the test's own bookkeeping objects: the
 // tester and the semantic test that receives the End signal.
 func isHarness(x *Expr) bool {
 	return x != nil && x.Kind == ExprRead && isSelf(x.Object) && (x.Name == "test" || x.Name == "tester")
-}
-
-// isTarget reports the tester's reference to the class under test.
-func isTarget(x *Expr) bool {
-	return x != nil && x.Kind == ExprRead && isSelf(x.Object) && x.Name == "testable"
 }
 
 func writeStmts(b *strings.Builder, ind string, stmts []string) {

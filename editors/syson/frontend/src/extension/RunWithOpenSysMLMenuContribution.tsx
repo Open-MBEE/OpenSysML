@@ -20,31 +20,13 @@ type GQLTreeItem = {
   selectable: boolean;
 };
 
+// The props of Sirius' TreeItemContextMenuComponentProps this menu uses; the
+// rest are optional to it and unused here.
 type TreeItemContextMenuComponentProps = {
   editingContextId: string;
   treeId: string;
   item: GQLTreeItem;
-  entry: {
-    id: string;
-    label: string;
-    iconURL: string[];
-    keyBindings: {
-      isCtrl: boolean;
-      isMeta: boolean;
-      isAlt: boolean;
-      key: string;
-    }[];
-    __typename: string;
-  } | null;
-  readOnly: boolean;
-  expandItem: () => void;
-  selectTreeItems: (selectedTreeItemIds: string[]) => void;
-  onExpandedElementChange: (expanded: string[], maxDepth: number) => void;
   onClose: () => void;
-  key: string;
-  expanded: string[];
-  maxDepth: number;
-  selectedTreeItemIds: string[];
 };
 
 export const RunWithOpenSysMLMenuContribution = forwardRef<HTMLLIElement, TreeItemContextMenuComponentProps>(

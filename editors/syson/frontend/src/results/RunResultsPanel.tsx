@@ -14,7 +14,7 @@ import TableCell from '@mui/material/TableCell';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Typography from '@mui/material/Typography';
-import { GQLRunOperation, GQLOpenSysMLRunResult } from '../graphql/runWithOpenSysML';
+import { GQLRunOperation, GQLOpenSysMLRunOutcome, GQLOpenSysMLRunResult } from '../graphql/runWithOpenSysML';
 
 export interface RunResultsPanelProps {
   result: GQLOpenSysMLRunResult;
@@ -48,6 +48,23 @@ const verdictColor = (result: GQLOpenSysMLRunResult): 'success' | 'error' | 'war
 
 const verdictLabel = (result: GQLOpenSysMLRunResult): string => result.verdict ?? (result.ok ? 'completed' : 'failed');
 
+const outcomeKeys = (outcomes: GQLOpenSysMLRunOutcome[]): string[] => {
+  const seen = new Map<string, number>();
+  return outcomes.map((outcome) => {
+    const base = JSON.stringify(outcome);
+    const count = seen.get(base) ?? 0;
+    seen.set(base, count + 1);
+    return count === 0 ? base : `${base}#${count}`;
+  });
+};
+
+const verdictIcon = (verdict: GQLOpenSysMLRunResult['verdicts'][number]) => {
+  if (!verdict.decided) {
+    return <Chip label="undecided" size="small" />;
+  }
+  return verdict.holds ? <CheckIcon color="success" /> : <ClearIcon color="error" />;
+};
+
 const diagnosticIcon = (severity: string) => {
   switch (severity.toLowerCase()) {
     case 'error':
@@ -61,6 +78,7 @@ const diagnosticIcon = (severity: string) => {
 
 export const RunResultsPanel = ({ result, onSelectElement }: RunResultsPanelProps) => {
   const status = verdictLabel(result);
+  const keys = outcomeKeys(result.outcomes);
   return (
     <div>
       <Typography component="div" variant="subtitle1">
@@ -113,7 +131,7 @@ export const RunResultsPanel = ({ result, onSelectElement }: RunResultsPanelProp
         <section>
           <Typography variant="subtitle2">Outcomes ({result.outcomes.length})</Typography>
           {result.outcomes.map((outcome, index) => (
-            <div key={index}>
+            <div key={keys[index]}>
               {outcome.outputs.length > 0 && (
                 <Typography variant="body2">
                   outputs: {outcome.outputs.map((output) => `${output.name} = ${output.value}`).join(', ')}
@@ -146,15 +164,7 @@ export const RunResultsPanel = ({ result, onSelectElement }: RunResultsPanelProp
               {result.verdicts.map((verdict, index) => {
                 const content = (
                   <>
-                    {verdict.subject} {verdict.kind}{' '}
-                    {!verdict.decided ? (
-                      <Chip label="undecided" size="small" />
-                    ) : verdict.holds ? (
-                      <CheckIcon color="success" />
-                    ) : (
-                      <ClearIcon color="error" />
-                    )}{' '}
-                    {verdict.detail ?? ''}
+                    {verdict.subject} {verdict.kind} {verdictIcon(verdict)} {verdict.detail ?? ''}
                   </>
                 );
                 return (
@@ -164,15 +174,7 @@ export const RunResultsPanel = ({ result, onSelectElement }: RunResultsPanelProp
                     onClick={() => verdict.siriusId && onSelectElement?.(verdict.siriusId)}>
                     <TableCell>{verdict.subject}</TableCell>
                     <TableCell>{verdict.kind}</TableCell>
-                    <TableCell>
-                      {!verdict.decided ? (
-                        <Chip label="undecided" size="small" />
-                      ) : verdict.holds ? (
-                        <CheckIcon color="success" />
-                      ) : (
-                        <ClearIcon color="error" />
-                      )}
-                    </TableCell>
+                    <TableCell>{verdictIcon(verdict)}</TableCell>
                     <TableCell>{content}</TableCell>
                   </TableRow>
                 );
@@ -213,11 +215,12 @@ export const RunResultsPanel = ({ result, onSelectElement }: RunResultsPanelProp
         ) : (
           <List dense>
             {result.diagnostics.map((diagnostic, index) => {
-              const text = `${diagnostic.message}${
+              const location =
                 diagnostic.documentName && diagnostic.line !== null
                   ? ` (${diagnostic.documentName}:${diagnostic.line})`
-                  : ''
-              }${diagnostic.qualifiedName ? ` [${diagnostic.qualifiedName}]` : ''}`;
+                  : '';
+              const qualified = diagnostic.qualifiedName ? ` [${diagnostic.qualifiedName}]` : '';
+              const text = `${diagnostic.message}${location}${qualified}`;
               const primary = (
                 <>
                   {diagnosticIcon(diagnostic.severity)} {text}

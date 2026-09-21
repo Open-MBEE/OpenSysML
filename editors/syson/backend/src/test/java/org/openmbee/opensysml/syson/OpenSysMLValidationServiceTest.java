@@ -13,6 +13,7 @@ import org.openmbee.opensysml.syson.run.RunResult.MappedDiagnostic;
 import org.openmbee.opensysml.syson.validation.OpenSysMLValidationService;
 
 class OpenSysMLValidationServiceTest {
+    private static final String PKG_A = "Pkg::A";
     @Test
     void emptyValidationHasNoDiagnostics() {
         assertThat(new OpenSysMLValidationService(new RunResultStore()).validate(new Object(), null)).isEmpty();
@@ -21,31 +22,27 @@ class OpenSysMLValidationServiceTest {
     @Test
     void storesDiagnosticsByEditingContext() {
         RunResultStore store = new RunResultStore();
-        store.put("ctx", new RunResult("", RunOperation.INSTANTIATE, "Pkg::A", false, null, null, null,
-                List.of(), List.of(), null,
-                List.of(), List.of(), List.of(new MappedDiagnostic(
-                        new RunDiagnostic("error", "bad", "x", null, null, null, null, null), null))));
-        assertThat(new OpenSysMLValidationService(store).validate(new org.eclipse.sirius.components.core.api.IEditingContext() {
-            public String getId() { return "ctx"; }
-        })).hasSize(1);
+        store.put("ctx", RunResult.builder().operation(RunOperation.INSTANTIATE).target(PKG_A)
+                .mappedDiagnostics(List.of(new MappedDiagnostic(
+                        new RunDiagnostic("error", "bad", "x", null, null, null, null, null), null))).build());
+        assertThat(new OpenSysMLValidationService(store)
+                .validate((org.eclipse.sirius.components.core.api.IEditingContext) () -> "ctx")).hasSize(1);
     }
 
     @Test
     void preservesMappedAndUnmappedDiagnostics() {
         RunResultStore store = new RunResultStore();
-        FakeElement element = new FakeElement("Pkg::A");
-        RunDiagnostic mapped = new RunDiagnostic("error", "mapped", "x", null, null, "Pkg::A", "id-Pkg::A",
+        FakeElement element = new FakeElement(PKG_A);
+        RunDiagnostic mapped = new RunDiagnostic("error", "mapped", "x", null, null, PKG_A, "id-Pkg::A",
                 "sirius://a");
         RunDiagnostic unmapped = new RunDiagnostic("warning", "unmapped", "y", null, null, null, null, null);
-        RunResult result = new RunResult("", RunOperation.INSTANTIATE, "Pkg::A", false, null, null, null,
-                List.of(), List.of(), null, List.of(), List.of(),
-                List.of(new MappedDiagnostic(mapped, element), new MappedDiagnostic(unmapped, null)));
+        RunResult result = RunResult.builder().operation(RunOperation.INSTANTIATE).target(PKG_A)
+                .mappedDiagnostics(List.of(new MappedDiagnostic(mapped, element), new MappedDiagnostic(unmapped, null)))
+                .build();
         store.put("ctx", result);
 
         List<Object> diagnostics = new OpenSysMLValidationService(store).validate(
-                new org.eclipse.sirius.components.core.api.IEditingContext() {
-                    public String getId() { return "ctx"; }
-                });
+                (org.eclipse.sirius.components.core.api.IEditingContext) () -> "ctx");
 
         assertThat(diagnostics).hasSize(2);
         assertThat(((org.eclipse.emf.common.util.BasicDiagnostic) diagnostics.get(0)).getData()).hasSize(1);
