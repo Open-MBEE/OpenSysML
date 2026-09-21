@@ -58,6 +58,9 @@ type Encoding struct {
 	// false at the start; waiting are those flagging a streamed value unreceived.
 	marks   map[string]*solve.Var
 	waiting []*solve.Var
+	// streaming are the pins whose value is being carried over streaming flows, so
+	// a flow leading it back to one of them is the interpreter's cycle error.
+	streaming map[*solve.Var]bool
 	// results are the features an inline expression node writes its value to.
 	results map[ast.Node]*solve.Var
 	// held are the values the performance holds at its start, ahead of its defaults;
@@ -1333,6 +1336,11 @@ func streamedName(pin string) string { return "streamed(" + pin + ")" }
 // stream carries a value written to pin of node over its streaming flows where
 // cond holds, at the write rather than at completion as the interpreter does.
 func (e *Encoding) stream(x *nodeEffect, cond *solve.Term, node ast.Node, pin *solve.Var, value *solve.Term, where string) error {
+	if e.streaming == nil {
+		e.streaming = make(map[*solve.Var]bool)
+	}
+	e.streaming[pin] = true
+	defer delete(e.streaming, pin)
 	label := e.Flow.label(node)
 	for _, flow := range e.Flow.graphOf(node).DataFlows[node] {
 		if flow.Kind != lower.FlowStreaming {
@@ -1355,7 +1363,9 @@ func (e *Encoding) stream(x *nodeEffect, cond *solve.Term, node ast.Node, pin *s
 		}
 		x.env.has[streamedName(pin.Name)] = streamed
 		if flow.Target == node {
-			e.place(x, cond, target, value, where)
+			if err := e.place(x, cond, node, target, value, where); err != nil {
+				return err
+			}
 			continue
 		}
 		e.carry(x, cond, flow, pin, target, value, where)
@@ -1364,12 +1374,18 @@ func (e *Encoding) stream(x *nodeEffect, cond *solve.Term, node ast.Node, pin *s
 }
 
 // place writes a flow's payload to the pin of the performance under way that reads it,
-// where cond holds: a stream back to the node's own pin reaches this performance.
-func (e *Encoding) place(x *nodeEffect, cond *solve.Term, target *solve.Var, value *solve.Term, where string) {
+// where cond holds, and streams it on from there; a pin it is already streaming from
+// is a cycle, which fails the action as the interpreter's does.
+func (e *Encoding) place(x *nodeEffect, cond *solve.Term, node ast.Node, target *solve.Var, value *solve.Term, where string) error {
+	if e.streaming[target] {
+		x.fail(cond, solve.BoolTerm(false))
+		return nil
+	}
 	if domain := e.domain(target.Name, value); domain != nil {
 		x.fail(cond, domain)
 	}
 	e.settle(x, cond, target, value, where)
+	return e.stream(x, cond, node, target, value, where)
 }
 
 // performedName is the feature set once a node in a frame of its own has performed.
