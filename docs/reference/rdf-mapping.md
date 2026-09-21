@@ -909,23 +909,39 @@ legacy literals, foreign trees, unsupported shapes, round-trip exactness),
 
 ### Set and tensor values
 
-The mapping states a model, not an evaluation of it, so a value the runtime
-holds as a set (a `Collections::Set`'s `elements`, any unique, unordered
-collection) or as a tensor of any rank (`Quantities::TensorQuantityValue`)
-has **no literal form** in RDF. What the graph carries is the expression the
-feature is written with — the `(3, 1, 2, 2, 3)` valuing `elements`, the
-`TensorCalculations::'['(…, cubeRef)` building the tensor, the `cube#(2, 1, 2)`
-indexing it — as the typed tree above, and evaluating the model read back gives
-the same set or tensor, in the runtime's canonical order. No `xsd` datatype or
-`sysx:` vocabulary encodes an evaluated collection or a tensor's shape, and the
-RDF conversion never evaluates: a graph that wanted to state a set's members or a
-tensor's components would have to state the expression that yields them. The
-gRPC service is where evaluated values travel (the `set` and `tensorQuantity`
-arms of [the wire contract](wire-contract.md)).
+The mapping states a model, not an evaluation of it, and that holds for every
+value kind: an `Array`, a vector, a vector quantity and a scalar quantity with a
+unit are each written as the expression valuing the feature, never as the value
+the runtime computes, and the conversion never reaches the runtime (the layering
+test forbids `internal/translate/export` importing it). So a value the runtime
+holds as a set (the `elements` of a `Collections::Set`, `UniqueCollection` or
+`Map` — any unique, unordered collection) or as a tensor of any rank
+(`Quantities::TensorQuantityValue` over a `TensorMeasurementReference` with
+three, four or more `dimensions`) has **no literal form** in RDF, and needs
+none. What the graph carries is the expression the feature is written with — the
+`(3, 1, 2, 2, 3)` valuing `elements` as an `OperatorExpression` with
+`operator ","` over `LiteralInteger` arguments, the
+`TensorCalculations::'['(…, cubeRef)` building the tensor as an
+`InvocationExpression` whose second argument is a `FeatureReferenceExpression`,
+the `cube#(2, 1, 2)` indexing it — as the typed tree above, under the feature's
+`sysml:type` (`Set`, `TensorMeasurementReference`, …). Evaluating the model read
+back gives the same set — equal to one whose members were written in another
+order, as the runtime already treats them — and the same tensor, shape and
+components. No `xsd` datatype or `sysx:` vocabulary encodes an evaluated
+collection or a tensor's shape: the `sysx:` predicates on these trees are exactly
+those every other expression uses (`sysx:argumentIndex`, the source-text
+triples). A graph that wanted to state a set's members or a tensor's components
+states the expression that yields them. The gRPC service is where evaluated
+values travel (the `set` and `tensorQuantity` arms of [the wire contract](wire-contract.md)).
 
-Tests: `set_tensor_rdf_test.go` (exactness with and without the source text,
-the expression trees a set-valued and a tensor-valued feature state, the
-absence of any evaluated form).
+Tests: `set_tensor_rdf_test.go` — exactness with and without the source text
+for `Set`, `UniqueCollection` and `Map` features and rank-3 and rank-4 tensors;
+the graph's shapes are the standard expression classes and no set- or
+tensor-specific term; removing the load-bearing structural predicates
+(`sysml:operator`, `sysml:argument`, `sysml:function`, `sysml:referent`)
+breaks the round trip, while `sysx:argumentIndex` is an ordering annotation and
+its removal does not; and the model read back evaluates to order-insensitive
+set equality and the same tensor shape and components as the original.
 
 ### Result expressions
 

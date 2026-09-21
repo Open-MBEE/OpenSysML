@@ -1546,8 +1546,8 @@ quantities (X7's value half, #121) and the static type of a collection body (X8'
 a bare feature reference, an untyped collection body and an argument of unknown type statically
 (#174, #213, #241). What follows is
 measured against `runtime/eval.go` and `bin/sysml` at this baseline: each landed item is stated
-with what it leaves, and what is still open in the track is X7's RDF literal form and native
-layout, and X8's two harness halves.
+with what it leaves, and what is still open in the track is X7's native layout, and X8's
+two harness halves.
 
 ## X1 — constructors: `new Pt(1, 2)` as a value (landed)
 
@@ -1649,7 +1649,7 @@ compilation refuses a calc that binds or applies a function value with a typed e
 against `bin/sysml -compile` at this baseline). It is not an arbitrary closure over statements,
 and was not meant to be.
 
-## X7 — tensors and set-producing expressions (values landed; RDF literal and native layout open)
+## X7 — tensors and set-producing expressions (values and RDF landed; native layout open)
 
 The representation decisions are all taken. Since #883 a `Collections::Array` is a `ValArray`
 with its dimensions and row-major elements, a `NumericalVectorValue` a `ValVector`, and a
@@ -1664,11 +1664,21 @@ operation consumes it; what the library declares ordered or nonunique is unchang
 index, a component count off the flattened size and arithmetic between two shapes each a typed
 error; the shape survives `+`, `-` and the scalar multiplications. Both cross gRPC whole on `set`
 and `tensor_quantity` arms under the `set_values` and `tensor_values` capabilities, decoded by the
-five clients into native types that check their own invariants. **What remains open**, as #121
-states it: neither value has an RDF literal form — the mapping writes the model's expressions,
-which round trip exactly (`TestSetAndTensorValuesRoundTripAsExpressions`) — and neither compiles
-natively: `sysml -compile` refuses a calc that uses one with a typed error naming the type
-(confirmed at this baseline). Still last in the track, and now only those two halves.
+five clients into native types that check their own invariants. The **RDF half is resolved by
+design**: the mapping states a model, never an evaluation of it, for every value kind — an `Array`,
+a vector, a quantity with a unit and a scalar alike are written as the expression that values the
+feature, and `internal/translate/export` does not reach the runtime at all
+(`tests/hygiene/layering_test.go` forbids the import) — so a set or a tensor needs no literal form
+either. A `Set`-, `UniqueCollection`- or `Map`-typed feature's `elements` and a rank-3 or rank-4
+`TensorMeasurementReference` export as standard `OperatorExpression`/`LiteralExpression`/
+`FeatureReferenceExpression`/`InvocationExpression` trees under `sysml:type`, round trip exactly
+with `sysx:sourceText` stripped, the structural predicates carry the round trip (each removed alone
+breaks it except the ordering annotation `sysx:argumentIndex`), the model read back evaluates to
+sets equal regardless of the order their members were written in and to tensors of the same shape
+and components, and no `sysx:` term beyond what every other expression already uses appears
+(`set_tensor_rdf_test.go`). **What remains open** is the native half only: neither value compiles
+natively — `sysml -compile` refuses a calc that uses one with a typed error naming the type
+(confirmed at this baseline). Still last in the track, and now only that half.
 
 ## X8 — static element types through collection bodies (landed), and the two harnesses (open)
 
@@ -2964,7 +2974,7 @@ Tracks F, S, L and A are closed.
   *differs, v2 silent* alignment row.
 - **Track Q** — Q3, unblocked by A5 and by Q2's object rows, not started; Q1 is written and Q2
   and Q4 are done.
-- **Track X** — X7's RDF literal form and native layout for sets and tensors; X8's two harness
+- **Track X** — X7's native layout for sets and tensors; X8's two harness
   halves (pilot-differential numeric normalization with an adjudication file, and a standalone
   RDF expression-tree round trip).
 - **Track W** — richer DOT/PlantUML node shapes and compartments, PDF rasterization of both forms
@@ -2999,9 +3009,9 @@ design record. Its remaining design notes do not add an open Track E item.
    end structure, then the authenticated push and the branch read (the collection JSON annotations,
    D3.4, landed in #850). Push and read depend on the vocabulary quality, which is why they come
    last in the step; re-record the live-stack harness after D1/D2.
-4. **X8's harness halves, then X7's RDF and native layout** — normalization and adjudication in
+4. **X8's harness halves, then X7's native layout** — normalization and adjudication in
    the pilot differential and a standalone RDF expression-tree round trip, so every later
-   expression item is measured; the set and tensor layouts when something needs them.
+   expression item is measured; the set and tensor native layouts when something needs them.
 5. **B1, then B2** — the binding vocabulary, then the provider contract in the runtime and Go
    API. The two items depend on nothing outstanding (the wire contract is landed, the dispatch and
    materialization seams exist) and touch only the metadata library, one pass and the runtime's
@@ -3067,8 +3077,8 @@ an empty action end its performance. The decision is the release checklist's, re
 - **Track X.** X2, X3, X4, X5, X6, X7's values and X8's typing landed (#164, #115, #113, #211,
   #122, #121, #112). What is left, in order: X8's harness halves (normalization and adjudication
   in the pilot differential, a standalone RDF expression-tree round trip) so every later X item is
-  measured; X7's RDF literal form and native layout for sets and tensors last, when something
-  needs them — step 5 above.
+  measured; X7's native layout for sets and tensors last, when something needs them — step 5
+  above.
 - **Track A.** A6, A2, A3 and A5 landed (#117, #133, #118, #136); A7 (#263) and A4 (#296) landed
   on `develop` after the tag, A7's carrier walk shared with Q2's query side (#267), and #344 gave
   A3's Monte Carlo the modeled randomness it had refused by name. Nothing remains in the track.
