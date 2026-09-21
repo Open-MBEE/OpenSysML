@@ -9,7 +9,7 @@
     "jarDigest": "4e78a194bdd15ed4ee30b26828a91d3b2bd32e57cd397667e32b21eb4de1f06e",
     "activities": 55,
     "recorded": "2026-09-21",
-    "develop": "3461e87a95f6e7bd6e6e1b12b1a57b9a2a4bb40a"
+    "develop": "e6e49c3d3e2dc55bb31b391a8d8de73266f3eeee"
   },
   "buckets": {
     "differs-by-design": 4,
@@ -89,14 +89,16 @@
       "bucket": "differs-by-design",
       "reasons": [
         "per-token action re-firing (fUML fires an action once per object token on a multiplicity-1 pin; SysML v2 performs the node once with every delivery): ForkMergeData.Action_B fired 2 times",
-        "run error: execute action: unbound parameter: action fuml::Copier: input parameter input is bound by no argument"
+        "the run agrees with the implementation"
       ],
       "expected": [
         "output = 0, 0"
       ],
-      "runs": 14,
-      "status": "complete (14 runs)",
-      "fired": "fired by the implementation only: Action_A, Action_B"
+      "reached": [
+        "output = 0, 0"
+      ],
+      "runs": 20,
+      "status": "complete (20 runs)"
     },
     {
       "name": "TestClassIdentityTester",

@@ -70,6 +70,7 @@ type imagedFrame struct {
 type imagedStaged struct {
 	source int
 	pin    string
+	flow   ast.Node
 	at     int
 }
 
@@ -271,7 +272,7 @@ func (t *imaging) frame(perf *actionFrame, at func(*actionFrame) int) (imagedFra
 			f.staged[node] = make(map[string][]imagedStaged, len(pins))
 			for pin, entries := range pins {
 				for _, s := range entries {
-					f.staged[node][pin] = append(f.staged[node][pin], imagedStaged{source: at(s.source), pin: s.pin, at: s.at})
+					f.staged[node][pin] = append(f.staged[node][pin], imagedStaged{source: at(s.source), pin: s.pin, flow: s.flow, at: s.at})
 				}
 			}
 		}
@@ -580,7 +581,7 @@ func (m *materializing) frame(perf *actionFrame, img imagedFrame, frameAt func(i
 			perf.staged[node] = make(map[string][]stagedStream, len(pins))
 			for pin, entries := range pins {
 				for _, s := range entries {
-					perf.staged[node][pin] = append(perf.staged[node][pin], stagedStream{source: frameAt(s.source), pin: s.pin, at: s.at})
+					perf.staged[node][pin] = append(perf.staged[node][pin], stagedStream{source: frameAt(s.source), pin: s.pin, flow: s.flow, at: s.at})
 				}
 			}
 		}
