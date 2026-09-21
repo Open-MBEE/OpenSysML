@@ -684,6 +684,8 @@ func (ec *exprChecker) operatorType(scope *symbols.Scope, e *ast.OperatorExpr) s
 		return ec.checkConditional(scope, e)
 	case ast.OpAs:
 		ec.checkCast(scope, e)
+	case ast.OpBitNot:
+		ec.checkUndefinedOperator(e)
 	}
 	// Operators outside the scalar lattice (casts, classification, ranges,
 	// indexing): still walk operands so nested errors surface.

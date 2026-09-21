@@ -1,0 +1,1 @@
+- **The type checker warns (`undefined-operator`) on every use of the unary `~` operator.** KerML 1.0 §8.2.5.8.1 leaves `~` abstract and undefined, asking a tool for exactly this warning; the runtime keeps refusing it with a typed error, and the design record `docs/project/bitwise-complement.md` explains why no value is given.
