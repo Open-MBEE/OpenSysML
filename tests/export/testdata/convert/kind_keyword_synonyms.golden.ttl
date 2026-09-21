@@ -204,10 +204,14 @@ elmt:Synonyms___407
     sysml:owningRelationship elmt:Synonyms___407_om ;
     sysml:owningMembership elmt:Synonyms___407_om ;
     sysx:relatedFeature expr:Synonyms___407_pend0, expr:Synonyms___407_pend1 ;
+    sysml:ownedRelationship expr:Synonyms___407_pend0_om, expr:Synonyms___407_pend1_om ;
+    sysml:ownedMembership expr:Synonyms___407_pend0_om, expr:Synonyms___407_pend1_om ;
     sysx:endForm "to" ;
     sysx:declaredKeyword "allocate" ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysx:sourceText "    allocate reading to base;\n" .
+    sysx:sourceText "    allocate reading to base;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Synonyms___407_pend0_om\"},{\"@id\":\"Synonyms___407_pend1_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Synonyms___407_pend0_om\"},{\"@id\":\"Synonyms___407_pend1_om\"}]" .
 
 elmt:Synonyms___407_om
     a sysml:OwningMembership ;
@@ -224,14 +228,40 @@ expr:Synonyms___407_pend0
     sysx:sourceText "reading" ;
     sysml:elementId "Synonyms___407_pend0" ;
     sysml:referent elmt:Synonyms__reading ;
+    sysml:owner elmt:Synonyms___407 ;
+    sysml:owningRelationship expr:Synonyms___407_pend0_om ;
+    sysml:owningMembership expr:Synonyms___407_pend0_om ;
     sysx:endIndex "0"^^xsd:integer .
+
+expr:Synonyms___407_pend0_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Synonyms___407_pend0_om" ;
+    sysml:owner elmt:Synonyms___407 ;
+    sysml:memberElement expr:Synonyms___407_pend0 ;
+    sysml:ownedMemberElement expr:Synonyms___407_pend0 ;
+    sysml:ownedRelatedElement expr:Synonyms___407_pend0 ;
+    sysml:owningRelatedElement elmt:Synonyms___407 ;
+    sysml:membershipOwningNamespace elmt:Synonyms___407 .
 
 expr:Synonyms___407_pend1
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "base" ;
     sysml:elementId "Synonyms___407_pend1" ;
     sysml:referent elmt:Synonyms__base ;
+    sysml:owner elmt:Synonyms___407 ;
+    sysml:owningRelationship expr:Synonyms___407_pend1_om ;
+    sysml:owningMembership expr:Synonyms___407_pend1_om ;
     sysx:endIndex "1"^^xsd:integer .
+
+expr:Synonyms___407_pend1_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Synonyms___407_pend1_om" ;
+    sysml:owner elmt:Synonyms___407 ;
+    sysml:memberElement expr:Synonyms___407_pend1 ;
+    sysml:ownedMemberElement expr:Synonyms___407_pend1 ;
+    sysml:ownedRelatedElement expr:Synonyms___407_pend1 ;
+    sysml:owningRelatedElement elmt:Synonyms___407 ;
+    sysml:membershipOwningNamespace elmt:Synonyms___407 .
 
 elmt:Synonyms__Drive
     a sysml:UseCaseDefinition ;

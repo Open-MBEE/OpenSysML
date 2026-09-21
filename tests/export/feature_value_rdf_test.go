@@ -111,3 +111,46 @@ func TestFeatureValueFlagsWithoutAValueOrStatedTwiceAreReported(t *testing.T) {
 		}
 	}
 }
+
+func TestFeatureValueCanBeStatedOnlyOnItsMembership(t *testing.T) {
+	src := `package P {
+    attribute a : Integer;
+    attribute total : Integer = a * 2;
+}`
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	blocks := strings.Split(string(turtle), "\n\n")
+	for i, block := range blocks {
+		if strings.HasPrefix(block, "elmt:P__total\n") {
+			blocks[i] = strings.Replace(block, "    sysml:value expr:P__total_pvalue ;\n", "", 1)
+		}
+	}
+	out, err := convert.Convert("m.ttl", []byte(strings.Join(blocks, "\n\n")), convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("feature-value-only conversion: %v", err)
+	}
+	if !strings.Contains(string(out), "attribute total : Integer = a * 2;") {
+		t.Fatalf("feature-value-only graph lost the value:\n%s", out)
+	}
+}
+
+func TestConflictingUsageAndFeatureValueAreRefused(t *testing.T) {
+	src := `package P {
+    attribute a : Integer;
+    attribute total : Integer = a * 2;
+}`
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	mutated := strings.Replace(string(turtle),
+		"    sysml:featureWithValue elmt:P__total ;\n    sysml:value expr:P__total_pvalue .",
+		"    sysml:featureWithValue elmt:P__total ;\n    sysml:value expr:P__total_pvalue_pa0 .", 1)
+	_, err = convert.Convert("m.ttl", []byte(mutated), convert.FormatTurtle, convert.FormatSysML)
+	var unsupported *export.UnsupportedError
+	if !errors.As(err, &unsupported) || !strings.Contains(err.Error(), "usage and FeatureValue state different expressions") {
+		t.Fatalf("expected a conflicting FeatureValue error, got %v", err)
+	}
+}

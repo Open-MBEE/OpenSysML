@@ -48,7 +48,8 @@ type element struct {
 	declaredID bool
 	// local marks a declaration inside an expression body: no member of a
 	// namespace, so it has no qualified name and its id is its position.
-	local bool
+	local         bool
+	bodyParameter bool
 	// ProjectRef provenance of a scope root, written back as an annotation.
 	projectID, branch, org string
 	// scope is the qualified name of the namespace this element is declared
@@ -144,6 +145,9 @@ func newDecoder(graph *rdf.Graph, metaclasses map[rdf.Term]string, names *nameCh
 		dupID:            map[string]bool{},
 		memberships:      map[string]membership{},
 		owningMembership: map[string]membership{},
+		nodeMemberships:  map[string]membership{},
+		nodeMembership:   map[string]bool{},
+		expressionNodes:  map[string]bool{},
 		prefixed:         map[*element]bool{},
 		names:            names,
 		wanted:           newWanted(),
@@ -382,13 +386,27 @@ func checkValueFlags(graph *rdf.Graph) error {
 		if predicate != rdf.SysML+pIsDefault && predicate != rdf.SysML+pIsInitial {
 			continue
 		}
-		if graph.HasProperty(triple.Subject, rdf.SysML+pValue) {
+		if graph.HasProperty(triple.Subject, rdf.SysML+pValue) ||
+			graph.Type(triple.Subject) == rdf.SysML+"FeatureValue" {
 			continue
 		}
-		return &UnsupportedError{
-			What: fmt.Sprintf("the subject <%s>", triple.Subject.Value),
-			Note: fmt.Sprintf("it states %s without a sysml:value, and the flag is the operator of a feature value, so there is nothing to write it on", curie(predicate)),
+		for _, subject := range graph.Subjects() {
+			if graph.Type(subject) != rdf.SysML+"FeatureValue" {
+				continue
+			}
+			feature, ok := graph.Object(subject, rdf.SysML+pFeatureWithValue)
+			if ok && feature == triple.Subject && graph.HasProperty(subject, rdf.SysML+pValue) {
+				goto nextFlag
+			}
 		}
+		{
+			return &UnsupportedError{
+				What: fmt.Sprintf("the subject <%s>", triple.Subject.Value),
+				Note: fmt.Sprintf("it states %s without a sysml:value, and the flag is the operator of a feature value, so there is nothing to write it on", curie(predicate)),
+			}
+		}
+	nextFlag:
+		continue
 	}
 	return nil
 }
@@ -572,6 +590,9 @@ type decoder struct {
 	// the member each one owns.
 	memberships      map[string]membership
 	owningMembership map[string]membership
+	nodeMemberships  map[string]membership
+	nodeMembership   map[string]bool
+	expressionNodes  map[string]bool
 	// prefixed marks the elements whose head wrote their `#M` annotations.
 	prefixed map[*element]bool
 	// names is the spelling chosen for each reference; while nil, references are
@@ -607,7 +628,7 @@ type decoder struct {
 func (d *decoder) newline() string {
 	crlf, lf := 0, 0
 	for _, subject := range d.graph.Subjects() {
-		if d.isExpressionNode(subject) {
+		if d.isExpressionNode(subject) || d.nodeMembership[subject.Value] || d.isNodeMembership(subject) {
 			continue
 		}
 		for _, property := range []string{xSourceText, xSourceTail} {
@@ -718,8 +739,42 @@ func (d *decoder) build() ([]*element, error) {
 // a name, such as a state's entry membership, is written as the member it is.
 func (d *decoder) isMembership(subject rdf.Term) bool {
 	metaclass := d.metaclass(subject)
-	return metaclass != "" && ontology.IsAncestorOrSelf(metaclass, mOwningMembership) &&
+	return metaclass != "" && (metaclass == "FeatureValue" || metaclass == "ParameterMembership" ||
+		ontology.IsAncestorOrSelf(metaclass, mOwningMembership)) &&
 		!d.graph.HasProperty(subject, rdf.SysML+pQualifiedName)
+}
+
+func (d *decoder) isNodeMembership(subject rdf.Term) bool {
+	if d.nodeMembership[subject.Value] {
+		return true
+	}
+	metaclass := d.metaclass(subject)
+	if metaclass == mResultExpressionMembership {
+		return false
+	}
+	member, _, _ := d.agreedObject(subject, "the node membership", "member",
+		pMemberElement, pOwnedMemberElement, pOwnedMemberFeature, pOwnedMemberParameter, pOwnedRelatedElement, pOwnedResultExpression)
+	if d.isExpressionIRI(member) {
+		return true
+	}
+	if metaclass == "FeatureValue" {
+		return true
+	}
+	if metaclass != "ParameterMembership" {
+		return false
+	}
+	owner, _, _ := d.agreedObject(subject, "the parameter membership", "owner",
+		pMembershipOwningNamespace, pOwningRelatedElement)
+	return d.isExpressionIRI(member) || d.expressionOwner(owner)
+}
+
+func (d *decoder) isExpressionIRI(term rdf.Term) bool {
+	return term.IsIRI() && strings.HasPrefix(term.Value, rdf.Expression)
+}
+
+func (d *decoder) expressionOwner(term rdf.Term) bool {
+	return d.isExpressionIRI(term) || expressionMetaclasses[d.metaclass(term)] &&
+		!d.graph.HasProperty(term, rdf.SysML+pQualifiedName)
 }
 
 // readMembership records the ownership edge an OwningMembership stands for. Both
@@ -745,6 +800,11 @@ func (d *decoder) readMembership(subject rdf.Term) error {
 		}
 	}
 	m := membership{iri: subject.Value, owner: owner.Value, member: member.Value}
+	if d.isNodeMembership(subject) {
+		d.nodeMemberships[m.member] = m
+		d.nodeMembership[m.iri] = true
+		return nil
+	}
 	if other, claimed := d.owningMembership[m.member]; claimed && other.iri != m.iri {
 		return &UnsupportedError{
 			What: fmt.Sprintf("the membership <%s>", subject.Value),
@@ -885,6 +945,10 @@ var referenceProperties = func() map[string]bool {
 func (d *decoder) checkReferences() error {
 	for _, triple := range d.graph.Triples() {
 		if triple.Object.Kind != rdf.TermIRI || !referenceProperties[triple.Predicate.Value] {
+			continue
+		}
+		if ownershipPredicates[triple.Predicate.Value] &&
+			(d.isExpressionNode(triple.Subject) || d.nodeMembership[triple.Subject.Value]) {
 			continue
 		}
 		if _, err := d.referencedElement(triple.Object.Value); err != nil {
@@ -2738,6 +2802,9 @@ func (d *decoder) referenceName(term rdf.Term, el *element) (string, error) {
 		return "", err
 	}
 	spelled := d.spelledName(target)
+	if el.bodyParameter {
+		return qualifiedNameText(relativeName(spelled, el.scope)), nil
+	}
 	key := nameKey{member: el.qname, target: target.qname}
 	written := spelled
 	if d.names != nil {
@@ -2926,7 +2993,23 @@ func (d *decoder) stringOf(el *element, property string) (string, bool) {
 }
 
 func (d *decoder) boolOf(el *element, property string) bool {
-	return d.graph.BoolValue(rdf.IRI(el.iri), property)
+	subject := rdf.IRI(el.iri)
+	if d.graph.BoolValue(subject, property) {
+		return true
+	}
+	if property != rdf.SysML+pIsDefault && property != rdf.SysML+pIsInitial {
+		return false
+	}
+	for _, value := range d.graph.Subjects() {
+		if d.metaclass(value) != "FeatureValue" {
+			continue
+		}
+		feature, ok := d.graph.Object(value, rdf.SysML+pFeatureWithValue)
+		if ok && feature == subject && d.graph.BoolValue(value, property) {
+			return true
+		}
+	}
+	return false
 }
 
 // declaresUsage reports whether el is a usage declaration rather than a body

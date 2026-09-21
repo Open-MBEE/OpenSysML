@@ -496,10 +496,14 @@ elmt:Shadowing__Bus__link
     sysml:owningMembership elmt:Shadowing__Bus__link_om ;
     sysml:declaredName "link" ;
     sysx:relatedFeature expr:Shadowing__Bus__link_pend0, expr:Shadowing__Bus__link_pend1 ;
+    sysml:ownedRelationship expr:Shadowing__Bus__link_pend0_om, expr:Shadowing__Bus__link_pend1_om ;
+    sysml:ownedMembership expr:Shadowing__Bus__link_pend0_om, expr:Shadowing__Bus__link_pend1_om ;
     sysx:endForm "to" ;
     sysx:endVerb "connect" ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysx:sourceText "        connection link connect wrapped.payload to Shadowing::payload;\n" .
+    sysx:sourceText "        connection link connect wrapped.payload to Shadowing::payload;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Shadowing__Bus__link_pend0_om\"},{\"@id\":\"Shadowing__Bus__link_pend1_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Shadowing__Bus__link_pend0_om\"},{\"@id\":\"Shadowing__Bus__link_pend1_om\"}]" .
 
 elmt:Shadowing__Bus__link_om
     a sysml:FeatureMembership ;
@@ -518,7 +522,16 @@ expr:Shadowing__Bus__link_pend0
     sysx:sourceText "wrapped.payload" ;
     sysml:elementId "Shadowing__Bus__link_pend0" ;
     sysml:argument expr:Shadowing__Bus__link_pend0_pa0 ;
+    sysml:ownedRelationship expr:Shadowing__Bus__link_pend0_pin0_om ;
+    sysml:ownedMembership expr:Shadowing__Bus__link_pend0_pin0_om ;
+    sysml:ownedFeatureMembership expr:Shadowing__Bus__link_pend0_pin0_om ;
+    sysml:ownedFeature expr:Shadowing__Bus__link_pend0_pin0 ;
+    sysml:parameter expr:Shadowing__Bus__link_pend0_pin0 ;
+    sysml:input expr:Shadowing__Bus__link_pend0_pin0 ;
     sysml:targetFeature elmt:Shadowing__Packet__payload ;
+    sysml:owner elmt:Shadowing__Bus__link ;
+    sysml:owningRelationship expr:Shadowing__Bus__link_pend0_om ;
+    sysml:owningMembership expr:Shadowing__Bus__link_pend0_om ;
     sysx:endIndex "0"^^xsd:integer .
 
 expr:Shadowing__Bus__link_pend0_pa0
@@ -526,14 +539,73 @@ expr:Shadowing__Bus__link_pend0_pa0
     sysx:sourceText "wrapped" ;
     sysml:elementId "Shadowing__Bus__link_pend0_pa0" ;
     sysml:referent elmt:Shadowing__Bus__wrapped ;
-    sysx:argumentIndex "0"^^xsd:integer .
+    sysml:owner expr:Shadowing__Bus__link_pend0_pin0 ;
+    sysml:owningRelationship expr:Shadowing__Bus__link_pend0_pa0_om ;
+    sysml:owningMembership expr:Shadowing__Bus__link_pend0_pa0_om .
+
+expr:Shadowing__Bus__link_pend0_pin0
+    a sysml:Feature ;
+    sysml:elementId "Shadowing__Bus__link_pend0_pin0" ;
+    sysml:direction "in" ;
+    sysml:owner expr:Shadowing__Bus__link_pend0 ;
+    sysml:owningRelationship expr:Shadowing__Bus__link_pend0_pin0_om ;
+    sysml:owningMembership expr:Shadowing__Bus__link_pend0_pin0_om ;
+    sysml:ownedRelationship expr:Shadowing__Bus__link_pend0_pa0_om ;
+    sysml:ownedMembership expr:Shadowing__Bus__link_pend0_pa0_om .
+
+expr:Shadowing__Bus__link_pend0_pin0_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Shadowing__Bus__link_pend0_pin0_om" ;
+    sysml:owner expr:Shadowing__Bus__link_pend0 ;
+    sysml:memberElement expr:Shadowing__Bus__link_pend0_pin0 ;
+    sysml:ownedMemberElement expr:Shadowing__Bus__link_pend0_pin0 ;
+    sysml:ownedRelatedElement expr:Shadowing__Bus__link_pend0_pin0 ;
+    sysml:owningRelatedElement expr:Shadowing__Bus__link_pend0 ;
+    sysml:membershipOwningNamespace expr:Shadowing__Bus__link_pend0 ;
+    sysml:ownedMemberFeature expr:Shadowing__Bus__link_pend0_pin0 ;
+    sysml:ownedMemberParameter expr:Shadowing__Bus__link_pend0_pin0 .
+
+expr:Shadowing__Bus__link_pend0_pa0_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Shadowing__Bus__link_pend0_pa0_om" ;
+    sysml:owner expr:Shadowing__Bus__link_pend0_pin0 ;
+    sysml:memberElement expr:Shadowing__Bus__link_pend0_pa0 ;
+    sysml:ownedMemberElement expr:Shadowing__Bus__link_pend0_pa0 ;
+    sysml:ownedRelatedElement expr:Shadowing__Bus__link_pend0_pa0 ;
+    sysml:owningRelatedElement expr:Shadowing__Bus__link_pend0_pin0 ;
+    sysml:membershipOwningNamespace expr:Shadowing__Bus__link_pend0_pin0 ;
+    sysml:featureWithValue expr:Shadowing__Bus__link_pend0_pin0 ;
+    sysml:value expr:Shadowing__Bus__link_pend0_pa0 .
+
+expr:Shadowing__Bus__link_pend0_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Shadowing__Bus__link_pend0_om" ;
+    sysml:owner elmt:Shadowing__Bus__link ;
+    sysml:memberElement expr:Shadowing__Bus__link_pend0 ;
+    sysml:ownedMemberElement expr:Shadowing__Bus__link_pend0 ;
+    sysml:ownedRelatedElement expr:Shadowing__Bus__link_pend0 ;
+    sysml:owningRelatedElement elmt:Shadowing__Bus__link ;
+    sysml:membershipOwningNamespace elmt:Shadowing__Bus__link .
 
 expr:Shadowing__Bus__link_pend1
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "Shadowing::payload" ;
     sysml:elementId "Shadowing__Bus__link_pend1" ;
     sysml:referent elmt:Shadowing__payload ;
+    sysml:owner elmt:Shadowing__Bus__link ;
+    sysml:owningRelationship expr:Shadowing__Bus__link_pend1_om ;
+    sysml:owningMembership expr:Shadowing__Bus__link_pend1_om ;
     sysx:endIndex "1"^^xsd:integer .
+
+expr:Shadowing__Bus__link_pend1_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Shadowing__Bus__link_pend1_om" ;
+    sysml:owner elmt:Shadowing__Bus__link ;
+    sysml:memberElement expr:Shadowing__Bus__link_pend1 ;
+    sysml:ownedMemberElement expr:Shadowing__Bus__link_pend1 ;
+    sysml:ownedRelatedElement expr:Shadowing__Bus__link_pend1 ;
+    sysml:owningRelatedElement elmt:Shadowing__Bus__link ;
+    sysml:membershipOwningNamespace elmt:Shadowing__Bus__link .
 
 elmt:Shadowing__Bus__Budget
     a sysml:RequirementDefinition ;
@@ -801,6 +873,8 @@ elmt:Shadowing__deeper__load
     sysml:owningMembership elmt:Shadowing__deeper__load_om ;
     sysml:declaredName "load" ;
     sysml:value expr:Shadowing__deeper__load_pvalue ;
+    sysml:ownedRelationship expr:Shadowing__deeper__load_pvalue_om ;
+    sysml:ownedMembership expr:Shadowing__deeper__load_pvalue_om ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        attribute load = vehicle.cargo;\n" .
 
@@ -821,14 +895,71 @@ expr:Shadowing__deeper__load_pvalue
     sysx:sourceText "vehicle.cargo" ;
     sysml:elementId "Shadowing__deeper__load_pvalue" ;
     sysml:argument expr:Shadowing__deeper__load_pvalue_pa0 ;
-    sysml:targetFeature elmt:Shadowing__Bus__cargo .
+    sysml:ownedRelationship expr:Shadowing__deeper__load_pvalue_pin0_om ;
+    sysml:ownedMembership expr:Shadowing__deeper__load_pvalue_pin0_om ;
+    sysml:ownedFeatureMembership expr:Shadowing__deeper__load_pvalue_pin0_om ;
+    sysml:ownedFeature expr:Shadowing__deeper__load_pvalue_pin0 ;
+    sysml:parameter expr:Shadowing__deeper__load_pvalue_pin0 ;
+    sysml:input expr:Shadowing__deeper__load_pvalue_pin0 ;
+    sysml:targetFeature elmt:Shadowing__Bus__cargo ;
+    sysml:owner elmt:Shadowing__deeper__load ;
+    sysml:owningRelationship expr:Shadowing__deeper__load_pvalue_om ;
+    sysml:owningMembership expr:Shadowing__deeper__load_pvalue_om .
 
 expr:Shadowing__deeper__load_pvalue_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "vehicle" ;
     sysml:elementId "Shadowing__deeper__load_pvalue_pa0" ;
     sysml:referent elmt:Shadowing__study___400 ;
-    sysx:argumentIndex "0"^^xsd:integer .
+    sysml:owner expr:Shadowing__deeper__load_pvalue_pin0 ;
+    sysml:owningRelationship expr:Shadowing__deeper__load_pvalue_pa0_om ;
+    sysml:owningMembership expr:Shadowing__deeper__load_pvalue_pa0_om .
+
+expr:Shadowing__deeper__load_pvalue_pin0
+    a sysml:Feature ;
+    sysml:elementId "Shadowing__deeper__load_pvalue_pin0" ;
+    sysml:direction "in" ;
+    sysml:owner expr:Shadowing__deeper__load_pvalue ;
+    sysml:owningRelationship expr:Shadowing__deeper__load_pvalue_pin0_om ;
+    sysml:owningMembership expr:Shadowing__deeper__load_pvalue_pin0_om ;
+    sysml:ownedRelationship expr:Shadowing__deeper__load_pvalue_pa0_om ;
+    sysml:ownedMembership expr:Shadowing__deeper__load_pvalue_pa0_om .
+
+expr:Shadowing__deeper__load_pvalue_pin0_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Shadowing__deeper__load_pvalue_pin0_om" ;
+    sysml:owner expr:Shadowing__deeper__load_pvalue ;
+    sysml:memberElement expr:Shadowing__deeper__load_pvalue_pin0 ;
+    sysml:ownedMemberElement expr:Shadowing__deeper__load_pvalue_pin0 ;
+    sysml:ownedRelatedElement expr:Shadowing__deeper__load_pvalue_pin0 ;
+    sysml:owningRelatedElement expr:Shadowing__deeper__load_pvalue ;
+    sysml:membershipOwningNamespace expr:Shadowing__deeper__load_pvalue ;
+    sysml:ownedMemberFeature expr:Shadowing__deeper__load_pvalue_pin0 ;
+    sysml:ownedMemberParameter expr:Shadowing__deeper__load_pvalue_pin0 .
+
+expr:Shadowing__deeper__load_pvalue_pa0_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Shadowing__deeper__load_pvalue_pa0_om" ;
+    sysml:owner expr:Shadowing__deeper__load_pvalue_pin0 ;
+    sysml:memberElement expr:Shadowing__deeper__load_pvalue_pa0 ;
+    sysml:ownedMemberElement expr:Shadowing__deeper__load_pvalue_pa0 ;
+    sysml:ownedRelatedElement expr:Shadowing__deeper__load_pvalue_pa0 ;
+    sysml:owningRelatedElement expr:Shadowing__deeper__load_pvalue_pin0 ;
+    sysml:membershipOwningNamespace expr:Shadowing__deeper__load_pvalue_pin0 ;
+    sysml:featureWithValue expr:Shadowing__deeper__load_pvalue_pin0 ;
+    sysml:value expr:Shadowing__deeper__load_pvalue_pa0 .
+
+expr:Shadowing__deeper__load_pvalue_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Shadowing__deeper__load_pvalue_om" ;
+    sysml:owner elmt:Shadowing__deeper__load ;
+    sysml:memberElement expr:Shadowing__deeper__load_pvalue ;
+    sysml:ownedMemberElement expr:Shadowing__deeper__load_pvalue ;
+    sysml:ownedRelatedElement expr:Shadowing__deeper__load_pvalue ;
+    sysml:owningRelatedElement elmt:Shadowing__deeper__load ;
+    sysml:membershipOwningNamespace elmt:Shadowing__deeper__load ;
+    sysml:featureWithValue elmt:Shadowing__deeper__load ;
+    sysml:value expr:Shadowing__deeper__load_pvalue .
 
 elmt:Shadowing__Frame
     a sysml:PartDefinition ;

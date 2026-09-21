@@ -432,8 +432,12 @@ elmt:ActionNodes__Drive___4012
     sysml:owningMembership elmt:ActionNodes__Drive___4012_om ;
     sysx:declaredKeyword "assign" ;
     sysx:target expr:ActionNodes__Drive___4012_ptarget ;
+    sysml:ownedRelationship expr:ActionNodes__Drive___4012_ptarget_om, expr:ActionNodes__Drive___4012_pvalue_om ;
+    sysml:ownedMembership expr:ActionNodes__Drive___4012_ptarget_om, expr:ActionNodes__Drive___4012_pvalue_om ;
     sysml:value expr:ActionNodes__Drive___4012_pvalue ;
-    sysx:sourceText "        assign log := speed;\n" .
+    sysx:sourceText "        assign log := speed;\n" ;
+    json:ownedRelationship "[{\"@id\":\"ActionNodes__Drive___4012_ptarget_om\"},{\"@id\":\"ActionNodes__Drive___4012_pvalue_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"ActionNodes__Drive___4012_ptarget_om\"},{\"@id\":\"ActionNodes__Drive___4012_pvalue_om\"}]" .
 
 elmt:ActionNodes__Drive___4012_om
     a sysml:FeatureMembership ;
@@ -451,13 +455,41 @@ expr:ActionNodes__Drive___4012_ptarget
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "log" ;
     sysml:elementId "ActionNodes__Drive___4012_ptarget" ;
-    sysml:referent elmt:ActionNodes__Drive__log .
+    sysml:referent elmt:ActionNodes__Drive__log ;
+    sysml:owner elmt:ActionNodes__Drive___4012 ;
+    sysml:owningRelationship expr:ActionNodes__Drive___4012_ptarget_om ;
+    sysml:owningMembership expr:ActionNodes__Drive___4012_ptarget_om .
+
+expr:ActionNodes__Drive___4012_ptarget_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ActionNodes__Drive___4012_ptarget_om" ;
+    sysml:owner elmt:ActionNodes__Drive___4012 ;
+    sysml:memberElement expr:ActionNodes__Drive___4012_ptarget ;
+    sysml:ownedMemberElement expr:ActionNodes__Drive___4012_ptarget ;
+    sysml:ownedRelatedElement expr:ActionNodes__Drive___4012_ptarget ;
+    sysml:owningRelatedElement elmt:ActionNodes__Drive___4012 ;
+    sysml:membershipOwningNamespace elmt:ActionNodes__Drive___4012 .
 
 expr:ActionNodes__Drive___4012_pvalue
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "speed" ;
     sysml:elementId "ActionNodes__Drive___4012_pvalue" ;
-    sysml:referent elmt:ActionNodes__Drive__speed .
+    sysml:referent elmt:ActionNodes__Drive__speed ;
+    sysml:owner elmt:ActionNodes__Drive___4012 ;
+    sysml:owningRelationship expr:ActionNodes__Drive___4012_pvalue_om ;
+    sysml:owningMembership expr:ActionNodes__Drive___4012_pvalue_om .
+
+expr:ActionNodes__Drive___4012_pvalue_om
+    a sysml:FeatureValue ;
+    sysml:elementId "ActionNodes__Drive___4012_pvalue_om" ;
+    sysml:owner elmt:ActionNodes__Drive___4012 ;
+    sysml:memberElement expr:ActionNodes__Drive___4012_pvalue ;
+    sysml:ownedMemberElement expr:ActionNodes__Drive___4012_pvalue ;
+    sysml:ownedRelatedElement expr:ActionNodes__Drive___4012_pvalue ;
+    sysml:owningRelatedElement elmt:ActionNodes__Drive___4012 ;
+    sysml:membershipOwningNamespace elmt:ActionNodes__Drive___4012 ;
+    sysml:featureWithValue elmt:ActionNodes__Drive___4012 ;
+    sysml:value expr:ActionNodes__Drive___4012_pvalue .
 
 elmt:ActionNodes__Drive___4013
     a sysml:SendActionUsage ;
@@ -469,8 +501,12 @@ elmt:ActionNodes__Drive___4013
     sysml:owningRelationship elmt:ActionNodes__Drive___4013_om ;
     sysml:owningMembership elmt:ActionNodes__Drive___4013_om ;
     sysx:payload expr:ActionNodes__Drive___4013_ppayload ;
+    sysml:ownedRelationship expr:ActionNodes__Drive___4013_ppayload_om, expr:ActionNodes__Drive___4013_preceiver_om ;
+    sysml:ownedMembership expr:ActionNodes__Drive___4013_ppayload_om, expr:ActionNodes__Drive___4013_preceiver_om ;
     sysx:receiver expr:ActionNodes__Drive___4013_preceiver ;
-    sysx:sourceText "        send new Command() to antenna;\n" .
+    sysx:sourceText "        send new Command() to antenna;\n" ;
+    json:ownedRelationship "[{\"@id\":\"ActionNodes__Drive___4013_ppayload_om\"},{\"@id\":\"ActionNodes__Drive___4013_preceiver_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"ActionNodes__Drive___4013_ppayload_om\"},{\"@id\":\"ActionNodes__Drive___4013_preceiver_om\"}]" .
 
 elmt:ActionNodes__Drive___4013_om
     a sysml:FeatureMembership ;
@@ -489,13 +525,39 @@ expr:ActionNodes__Drive___4013_ppayload
     sysx:sourceText "new Command()" ;
     sysml:elementId "ActionNodes__Drive___4013_ppayload" ;
     sysx:isConstructor "true"^^xsd:boolean ;
-    sysml:function elmt:ActionNodes__Command .
+    sysml:function elmt:ActionNodes__Command ;
+    sysml:owner elmt:ActionNodes__Drive___4013 ;
+    sysml:owningRelationship expr:ActionNodes__Drive___4013_ppayload_om ;
+    sysml:owningMembership expr:ActionNodes__Drive___4013_ppayload_om .
+
+expr:ActionNodes__Drive___4013_ppayload_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ActionNodes__Drive___4013_ppayload_om" ;
+    sysml:owner elmt:ActionNodes__Drive___4013 ;
+    sysml:memberElement expr:ActionNodes__Drive___4013_ppayload ;
+    sysml:ownedMemberElement expr:ActionNodes__Drive___4013_ppayload ;
+    sysml:ownedRelatedElement expr:ActionNodes__Drive___4013_ppayload ;
+    sysml:owningRelatedElement elmt:ActionNodes__Drive___4013 ;
+    sysml:membershipOwningNamespace elmt:ActionNodes__Drive___4013 .
 
 expr:ActionNodes__Drive___4013_preceiver
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "antenna" ;
     sysml:elementId "ActionNodes__Drive___4013_preceiver" ;
-    sysml:referent elmt:ActionNodes__Drive__antenna .
+    sysml:referent elmt:ActionNodes__Drive__antenna ;
+    sysml:owner elmt:ActionNodes__Drive___4013 ;
+    sysml:owningRelationship expr:ActionNodes__Drive___4013_preceiver_om ;
+    sysml:owningMembership expr:ActionNodes__Drive___4013_preceiver_om .
+
+expr:ActionNodes__Drive___4013_preceiver_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ActionNodes__Drive___4013_preceiver_om" ;
+    sysml:owner elmt:ActionNodes__Drive___4013 ;
+    sysml:memberElement expr:ActionNodes__Drive___4013_preceiver ;
+    sysml:ownedMemberElement expr:ActionNodes__Drive___4013_preceiver ;
+    sysml:ownedRelatedElement expr:ActionNodes__Drive___4013_preceiver ;
+    sysml:owningRelatedElement elmt:ActionNodes__Drive___4013 ;
+    sysml:membershipOwningNamespace elmt:ActionNodes__Drive___4013 .
 
 elmt:ActionNodes__Drive___4014
     a sysml:SendActionUsage ;
@@ -507,9 +569,13 @@ elmt:ActionNodes__Drive___4014
     sysml:owningRelationship elmt:ActionNodes__Drive___4014_om ;
     sysml:owningMembership elmt:ActionNodes__Drive___4014_om ;
     sysx:payload expr:ActionNodes__Drive___4014_ppayload ;
+    sysml:ownedRelationship expr:ActionNodes__Drive___4014_ppayload_om, expr:ActionNodes__Drive___4014_preceiver_om ;
+    sysml:ownedMembership expr:ActionNodes__Drive___4014_ppayload_om, expr:ActionNodes__Drive___4014_preceiver_om ;
     sysx:receiver expr:ActionNodes__Drive___4014_preceiver ;
     sysx:isVia "true"^^xsd:boolean ;
-    sysx:sourceText "        send new Command() via antenna;\n" .
+    sysx:sourceText "        send new Command() via antenna;\n" ;
+    json:ownedRelationship "[{\"@id\":\"ActionNodes__Drive___4014_ppayload_om\"},{\"@id\":\"ActionNodes__Drive___4014_preceiver_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"ActionNodes__Drive___4014_ppayload_om\"},{\"@id\":\"ActionNodes__Drive___4014_preceiver_om\"}]" .
 
 elmt:ActionNodes__Drive___4014_om
     a sysml:FeatureMembership ;
@@ -528,13 +594,39 @@ expr:ActionNodes__Drive___4014_ppayload
     sysx:sourceText "new Command()" ;
     sysml:elementId "ActionNodes__Drive___4014_ppayload" ;
     sysx:isConstructor "true"^^xsd:boolean ;
-    sysml:function elmt:ActionNodes__Command .
+    sysml:function elmt:ActionNodes__Command ;
+    sysml:owner elmt:ActionNodes__Drive___4014 ;
+    sysml:owningRelationship expr:ActionNodes__Drive___4014_ppayload_om ;
+    sysml:owningMembership expr:ActionNodes__Drive___4014_ppayload_om .
+
+expr:ActionNodes__Drive___4014_ppayload_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ActionNodes__Drive___4014_ppayload_om" ;
+    sysml:owner elmt:ActionNodes__Drive___4014 ;
+    sysml:memberElement expr:ActionNodes__Drive___4014_ppayload ;
+    sysml:ownedMemberElement expr:ActionNodes__Drive___4014_ppayload ;
+    sysml:ownedRelatedElement expr:ActionNodes__Drive___4014_ppayload ;
+    sysml:owningRelatedElement elmt:ActionNodes__Drive___4014 ;
+    sysml:membershipOwningNamespace elmt:ActionNodes__Drive___4014 .
 
 expr:ActionNodes__Drive___4014_preceiver
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "antenna" ;
     sysml:elementId "ActionNodes__Drive___4014_preceiver" ;
-    sysml:referent elmt:ActionNodes__Drive__antenna .
+    sysml:referent elmt:ActionNodes__Drive__antenna ;
+    sysml:owner elmt:ActionNodes__Drive___4014 ;
+    sysml:owningRelationship expr:ActionNodes__Drive___4014_preceiver_om ;
+    sysml:owningMembership expr:ActionNodes__Drive___4014_preceiver_om .
+
+expr:ActionNodes__Drive___4014_preceiver_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ActionNodes__Drive___4014_preceiver_om" ;
+    sysml:owner elmt:ActionNodes__Drive___4014 ;
+    sysml:memberElement expr:ActionNodes__Drive___4014_preceiver ;
+    sysml:ownedMemberElement expr:ActionNodes__Drive___4014_preceiver ;
+    sysml:ownedRelatedElement expr:ActionNodes__Drive___4014_preceiver ;
+    sysml:owningRelatedElement elmt:ActionNodes__Drive___4014 ;
+    sysml:membershipOwningNamespace elmt:ActionNodes__Drive___4014 .
 
 elmt:ActionNodes__Drive___4015
     a sysml:ActionUsage ;
@@ -580,6 +672,8 @@ elmt:ActionNodes__Drive___4015___400
     sysml:isAccept "true"^^xsd:boolean ;
     sysml:direction "out" ;
     sysml:value expr:ActionNodes__Drive___4015___400_pvalue ;
+    sysml:ownedRelationship expr:ActionNodes__Drive___4015___400_pvalue_om ;
+    sysml:ownedMembership expr:ActionNodes__Drive___4015___400_pvalue_om ;
     sysx:hasBody "false"^^xsd:boolean .
 
 elmt:ActionNodes__Drive___4015___400_om
@@ -597,7 +691,22 @@ elmt:ActionNodes__Drive___4015___400_om
 expr:ActionNodes__Drive___4015___400_pvalue
     a sysml:Expression ;
     sysx:sourceText "when speed > 0" ;
-    sysml:elementId "ActionNodes__Drive___4015___400_pvalue" .
+    sysml:elementId "ActionNodes__Drive___4015___400_pvalue" ;
+    sysml:owner elmt:ActionNodes__Drive___4015___400 ;
+    sysml:owningRelationship expr:ActionNodes__Drive___4015___400_pvalue_om ;
+    sysml:owningMembership expr:ActionNodes__Drive___4015___400_pvalue_om .
+
+expr:ActionNodes__Drive___4015___400_pvalue_om
+    a sysml:FeatureValue ;
+    sysml:elementId "ActionNodes__Drive___4015___400_pvalue_om" ;
+    sysml:owner elmt:ActionNodes__Drive___4015___400 ;
+    sysml:memberElement expr:ActionNodes__Drive___4015___400_pvalue ;
+    sysml:ownedMemberElement expr:ActionNodes__Drive___4015___400_pvalue ;
+    sysml:ownedRelatedElement expr:ActionNodes__Drive___4015___400_pvalue ;
+    sysml:owningRelatedElement elmt:ActionNodes__Drive___4015___400 ;
+    sysml:membershipOwningNamespace elmt:ActionNodes__Drive___4015___400 ;
+    sysml:featureWithValue elmt:ActionNodes__Drive___4015___400 ;
+    sysml:value expr:ActionNodes__Drive___4015___400_pvalue .
 
 elmt:ActionNodes__Drive___4016
     a sysml:TerminateActionUsage ;
@@ -630,6 +739,8 @@ elmt:ActionNodes__Drive___4017
     sysml:owningRelationship elmt:ActionNodes__Drive___4017_om ;
     sysml:owningMembership elmt:ActionNodes__Drive___4017_om ;
     sysx:expression expr:ActionNodes__Drive___4017_pexpression ;
+    sysml:ownedRelationship expr:ActionNodes__Drive___4017_pexpression_om ;
+    sysml:ownedMembership expr:ActionNodes__Drive___4017_pexpression_om ;
     sysx:sourceText "        terminate brake;\n" .
 
 elmt:ActionNodes__Drive___4017_om
@@ -646,7 +757,20 @@ expr:ActionNodes__Drive___4017_pexpression
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "brake" ;
     sysml:elementId "ActionNodes__Drive___4017_pexpression" ;
-    sysml:referent elmt:ActionNodes__Drive__brake .
+    sysml:referent elmt:ActionNodes__Drive__brake ;
+    sysml:owner elmt:ActionNodes__Drive___4017 ;
+    sysml:owningRelationship expr:ActionNodes__Drive___4017_pexpression_om ;
+    sysml:owningMembership expr:ActionNodes__Drive___4017_pexpression_om .
+
+expr:ActionNodes__Drive___4017_pexpression_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ActionNodes__Drive___4017_pexpression_om" ;
+    sysml:owner elmt:ActionNodes__Drive___4017 ;
+    sysml:memberElement expr:ActionNodes__Drive___4017_pexpression ;
+    sysml:ownedMemberElement expr:ActionNodes__Drive___4017_pexpression ;
+    sysml:ownedRelatedElement expr:ActionNodes__Drive___4017_pexpression ;
+    sysml:owningRelatedElement elmt:ActionNodes__Drive___4017 ;
+    sysml:membershipOwningNamespace elmt:ActionNodes__Drive___4017 .
 
 elmt:ActionNodes__Drive___4018
     a sysx:FinalNode ;
@@ -679,10 +803,14 @@ elmt:ActionNodes__Drive___4019
     sysml:owningRelationship elmt:ActionNodes__Drive___4019_om ;
     sysml:owningMembership elmt:ActionNodes__Drive___4019_om ;
     sysx:relatedFeature expr:ActionNodes__Drive___4019_pend0, expr:ActionNodes__Drive___4019_pend1 ;
+    sysml:ownedRelationship expr:ActionNodes__Drive___4019_pend0_om, expr:ActionNodes__Drive___4019_pend1_om ;
+    sysml:ownedMembership expr:ActionNodes__Drive___4019_pend0_om, expr:ActionNodes__Drive___4019_pend1_om ;
     sysx:endForm "firstThen" ;
     sysx:endVerb "first" ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysx:sourceText "        succession first start then brake;\n" .
+    sysx:sourceText "        succession first start then brake;\n" ;
+    json:ownedRelationship "[{\"@id\":\"ActionNodes__Drive___4019_pend0_om\"},{\"@id\":\"ActionNodes__Drive___4019_pend1_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"ActionNodes__Drive___4019_pend0_om\"},{\"@id\":\"ActionNodes__Drive___4019_pend1_om\"}]" .
 
 elmt:ActionNodes__Drive___4019_om
     a sysml:FeatureMembership ;
@@ -701,14 +829,40 @@ expr:ActionNodes__Drive___4019_pend0
     sysx:sourceText "start" ;
     sysml:elementId "ActionNodes__Drive___4019_pend0" ;
     sysml:referent "start" ;
+    sysml:owner elmt:ActionNodes__Drive___4019 ;
+    sysml:owningRelationship expr:ActionNodes__Drive___4019_pend0_om ;
+    sysml:owningMembership expr:ActionNodes__Drive___4019_pend0_om ;
     sysx:endIndex "0"^^xsd:integer .
+
+expr:ActionNodes__Drive___4019_pend0_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ActionNodes__Drive___4019_pend0_om" ;
+    sysml:owner elmt:ActionNodes__Drive___4019 ;
+    sysml:memberElement expr:ActionNodes__Drive___4019_pend0 ;
+    sysml:ownedMemberElement expr:ActionNodes__Drive___4019_pend0 ;
+    sysml:ownedRelatedElement expr:ActionNodes__Drive___4019_pend0 ;
+    sysml:owningRelatedElement elmt:ActionNodes__Drive___4019 ;
+    sysml:membershipOwningNamespace elmt:ActionNodes__Drive___4019 .
 
 expr:ActionNodes__Drive___4019_pend1
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "brake" ;
     sysml:elementId "ActionNodes__Drive___4019_pend1" ;
     sysml:referent elmt:ActionNodes__Drive__brake ;
+    sysml:owner elmt:ActionNodes__Drive___4019 ;
+    sysml:owningRelationship expr:ActionNodes__Drive___4019_pend1_om ;
+    sysml:owningMembership expr:ActionNodes__Drive___4019_pend1_om ;
     sysx:endIndex "1"^^xsd:integer .
+
+expr:ActionNodes__Drive___4019_pend1_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ActionNodes__Drive___4019_pend1_om" ;
+    sysml:owner elmt:ActionNodes__Drive___4019 ;
+    sysml:memberElement expr:ActionNodes__Drive___4019_pend1 ;
+    sysml:ownedMemberElement expr:ActionNodes__Drive___4019_pend1 ;
+    sysml:ownedRelatedElement expr:ActionNodes__Drive___4019_pend1 ;
+    sysml:owningRelatedElement elmt:ActionNodes__Drive___4019 ;
+    sysml:membershipOwningNamespace elmt:ActionNodes__Drive___4019 .
 
 elmt:ActionNodes__Drive___4020
     a sysml:SuccessionAsUsage ;
@@ -720,10 +874,14 @@ elmt:ActionNodes__Drive___4020
     sysml:owningRelationship elmt:ActionNodes__Drive___4020_om ;
     sysml:owningMembership elmt:ActionNodes__Drive___4020_om ;
     sysx:relatedFeature expr:ActionNodes__Drive___4020_pend0, expr:ActionNodes__Drive___4020_pend1 ;
+    sysml:ownedRelationship expr:ActionNodes__Drive___4020_pend0_om, expr:ActionNodes__Drive___4020_pend1_om ;
+    sysml:ownedMembership expr:ActionNodes__Drive___4020_pend0_om, expr:ActionNodes__Drive___4020_pend1_om ;
     sysx:endForm "firstThen" ;
     sysx:endVerb "first" ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysx:sourceText "        succession first brake then done;\n" .
+    sysx:sourceText "        succession first brake then done;\n" ;
+    json:ownedRelationship "[{\"@id\":\"ActionNodes__Drive___4020_pend0_om\"},{\"@id\":\"ActionNodes__Drive___4020_pend1_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"ActionNodes__Drive___4020_pend0_om\"},{\"@id\":\"ActionNodes__Drive___4020_pend1_om\"}]" .
 
 elmt:ActionNodes__Drive___4020_om
     a sysml:FeatureMembership ;
@@ -742,11 +900,37 @@ expr:ActionNodes__Drive___4020_pend0
     sysx:sourceText "brake" ;
     sysml:elementId "ActionNodes__Drive___4020_pend0" ;
     sysml:referent elmt:ActionNodes__Drive__brake ;
+    sysml:owner elmt:ActionNodes__Drive___4020 ;
+    sysml:owningRelationship expr:ActionNodes__Drive___4020_pend0_om ;
+    sysml:owningMembership expr:ActionNodes__Drive___4020_pend0_om ;
     sysx:endIndex "0"^^xsd:integer .
+
+expr:ActionNodes__Drive___4020_pend0_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ActionNodes__Drive___4020_pend0_om" ;
+    sysml:owner elmt:ActionNodes__Drive___4020 ;
+    sysml:memberElement expr:ActionNodes__Drive___4020_pend0 ;
+    sysml:ownedMemberElement expr:ActionNodes__Drive___4020_pend0 ;
+    sysml:ownedRelatedElement expr:ActionNodes__Drive___4020_pend0 ;
+    sysml:owningRelatedElement elmt:ActionNodes__Drive___4020 ;
+    sysml:membershipOwningNamespace elmt:ActionNodes__Drive___4020 .
 
 expr:ActionNodes__Drive___4020_pend1
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "done" ;
     sysml:elementId "ActionNodes__Drive___4020_pend1" ;
     sysml:referent "done" ;
+    sysml:owner elmt:ActionNodes__Drive___4020 ;
+    sysml:owningRelationship expr:ActionNodes__Drive___4020_pend1_om ;
+    sysml:owningMembership expr:ActionNodes__Drive___4020_pend1_om ;
     sysx:endIndex "1"^^xsd:integer .
+
+expr:ActionNodes__Drive___4020_pend1_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ActionNodes__Drive___4020_pend1_om" ;
+    sysml:owner elmt:ActionNodes__Drive___4020 ;
+    sysml:memberElement expr:ActionNodes__Drive___4020_pend1 ;
+    sysml:ownedMemberElement expr:ActionNodes__Drive___4020_pend1 ;
+    sysml:ownedRelatedElement expr:ActionNodes__Drive___4020_pend1 ;
+    sysml:owningRelatedElement elmt:ActionNodes__Drive___4020 ;
+    sysml:membershipOwningNamespace elmt:ActionNodes__Drive___4020 .

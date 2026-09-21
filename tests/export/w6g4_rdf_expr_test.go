@@ -63,9 +63,29 @@ func TestExpressionValueIsATree(t *testing.T) {
 	if len(args) != 2 {
 		t.Fatalf("root has %d arguments, want 2: %v", len(args), args)
 	}
-	// Order is stated as well as written: an argument carries its index.
-	wantLexical(t, g, args[0].Value, rdf.OpenSysML+"argumentIndex", "0")
-	wantLexical(t, g, args[1].Value, rdf.OpenSysML+"argumentIndex", "1")
+	memberships := g.Objects(iri(root), rdf.SysML+"ownedFeatureMembership")
+	if len(memberships) != 2 {
+		t.Fatalf("root has %d parameter memberships, want 2: %v", len(memberships), memberships)
+	}
+	for _, membership := range memberships {
+		wantType(t, g, membership.Value, "ParameterMembership")
+		parameters := g.Objects(membership, rdf.SysML+"ownedMemberParameter")
+		if len(parameters) != 1 {
+			t.Fatalf("parameter membership %s has %d parameters", membership.Value, len(parameters))
+		}
+		wantType(t, g, parameters[0].Value, "Feature")
+		wantLexical(t, g, parameters[0].Value, rdf.SysML+"direction", "in")
+		values := g.Objects(parameters[0], rdf.SysML+"ownedMembership")
+		if len(values) != 1 {
+			t.Fatalf("parameter %s has %d owned memberships", parameters[0].Value, len(values))
+		}
+		wantType(t, g, values[0].Value, "FeatureValue")
+	}
+	for _, triple := range g.Triples() {
+		if triple.Predicate.Value == rdf.OpenSysML+"argumentIndex" {
+			t.Errorf("expression graph still emits sysx:argumentIndex: %v", triple)
+		}
+	}
 
 	wantType(t, g, args[0].Value, "FeatureReferenceExpression")
 	if got := g.Objects(args[0], rdf.SysML+"referent"); len(got) != 1 ||
@@ -81,6 +101,61 @@ func TestExpressionValueIsATree(t *testing.T) {
 	}
 	wantType(t, g, nested[1].Value, "LiteralInteger")
 	wantLexical(t, g, nested[1].Value, rdf.SysML+"value", "2")
+}
+
+func TestExpressionStructureSurvivesWithoutTextAndArguments(t *testing.T) {
+	src := `package P {
+    attribute a : Integer;
+    attribute total : Integer = a * 2;
+}`
+	data, err := convert.Convert("structure.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	for _, property := range []string{"sysx:sourceText", "sysx:sourceTail", "sysml:argument", "json:argument"} {
+		data = withoutTriples(t, data, property)
+	}
+	out, err := convert.Convert("structure.ttl", data, convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("structure-only conversion: %v", err)
+	}
+	if got := strings.Join(strings.Fields(string(out)), " "); !strings.Contains(got, "attribute total : Integer = a * 2;") {
+		t.Fatalf("structure-only conversion lost the expression: %s", out)
+	}
+}
+
+func TestExpressionParameterMembershipAnnotationRestoresOrder(t *testing.T) {
+	src := `package P {
+    attribute a : Integer;
+    attribute b : Integer;
+    attribute total : Integer = a - b;
+}`
+	data, err := convert.Convert("reversed.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	blocks := strings.Split(string(data), "\n\n")
+	var first, second int
+	for i, block := range blocks {
+		switch {
+		case strings.HasPrefix(block, "expr:P__total_pvalue_pin0_om\n"):
+			first = i
+		case strings.HasPrefix(block, "expr:P__total_pvalue_pin1_om\n"):
+			second = i
+		}
+	}
+	blocks[first], blocks[second] = blocks[second], blocks[first]
+	data = []byte(strings.Join(blocks, "\n\n"))
+	for _, property := range []string{"sysx:sourceText", "sysx:sourceTail", "sysml:argument", "json:argument"} {
+		data = withoutTriples(t, data, property)
+	}
+	out, err := convert.Convert("reversed.ttl", data, convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("reversed membership conversion: %v", err)
+	}
+	if got := strings.Join(strings.Fields(string(out)), " "); !strings.Contains(got, "attribute total : Integer = a - b;") {
+		t.Fatalf("annotation did not preserve operand order: %s", out)
+	}
 }
 
 // Every expression-valued position emits a tree, not only a feature's value:
@@ -142,7 +217,11 @@ func TestExpressionIdentityIsPerPosition(t *testing.T) {
 	types := map[string]int{}
 	for _, triple := range g.Triples() {
 		if triple.Predicate.Value == rdf.RDFNS+"type" &&
-			strings.HasPrefix(triple.Subject.Value, rdf.Expression) {
+			strings.HasPrefix(triple.Subject.Value, rdf.Expression) &&
+			triple.Object.Value != rdf.SysML+"Feature" &&
+			triple.Object.Value != rdf.SysML+"FeatureValue" &&
+			triple.Object.Value != rdf.SysML+"ParameterMembership" &&
+			triple.Object.Value != rdf.SysML+"OwningMembership" {
 			types[triple.Subject.Value]++
 		}
 	}

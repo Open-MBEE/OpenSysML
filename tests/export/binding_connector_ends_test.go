@@ -21,9 +21,18 @@ func TestBindingConnectorEndsAreStatedLikeSuccessionEnds(t *testing.T) {
 	graph := string(turtle)
 	for _, want := range []string{
 		"elmt:P__Car___402\n    a sysml:BindingConnectorAsUsage ;",
-		"sysx:relatedFeature expr:P__Car___402_pend0, expr:P__Car___402_pend1 ;\n    sysx:endForm \"equals\" ;\n    sysx:declaredKeyword \"bind\" ;",
-		"expr:P__Car___402_pend0\n    a sysml:FeatureReferenceExpression ;\n    sysx:sourceText \"a\" ;\n    sysml:elementId \"P__Car___402_pend0\" ;\n    sysml:referent elmt:P__Car__a ;\n    sysx:endIndex \"0\"^^xsd:integer ;\n    sysx:endName \"e3\" .",
-		"expr:P__Car___402_pend1\n    a sysml:FeatureReferenceExpression ;\n    sysx:sourceText \"b\" ;\n    sysml:elementId \"P__Car___402_pend1\" ;\n    sysml:referent elmt:P__Car__b ;\n    sysx:endIndex \"1\"^^xsd:integer .",
+		"sysx:relatedFeature expr:P__Car___402_pend0, expr:P__Car___402_pend1 ;",
+		"sysx:endForm \"equals\" ;",
+		"sysx:declaredKeyword \"bind\" ;",
+		"expr:P__Car___402_pend0\n    a sysml:FeatureReferenceExpression ;\n    sysx:sourceText \"a\" ;",
+		"sysml:elementId \"P__Car___402_pend0\" ;",
+		"sysml:referent elmt:P__Car__a ;",
+		"sysx:endIndex \"0\"^^xsd:integer ;",
+		"sysx:endName \"e3\" .",
+		"expr:P__Car___402_pend1\n    a sysml:FeatureReferenceExpression ;\n    sysx:sourceText \"b\" ;",
+		"sysml:elementId \"P__Car___402_pend1\" ;",
+		"sysml:referent elmt:P__Car__b ;",
+		"sysx:endIndex \"1\"^^xsd:integer .",
 		"sysx:endIndex \"0\"^^xsd:integer ;\n    sysx:endName \"s1\" .",
 	} {
 		if !strings.Contains(graph, want) {
@@ -87,8 +96,10 @@ func TestKerMLBindingConnectorEndsCarryTheRoundTripWithoutSourceText(t *testing.
 			t.Errorf("a binding took its end %s as its name\n%s", name, graph)
 		}
 	}
-	if strings.Contains(graph, "sysml:value expr:") {
-		t.Errorf("a binding end is not the connector's value\n%s", graph)
+	for _, block := range strings.Split(graph, "\n\n") {
+		if strings.Contains(block, "sysx:relatedFeature") && strings.Contains(block, "sysml:value expr:") {
+			t.Errorf("a binding end is not the connector's value\n%s", block)
+		}
 	}
 	back := string(structuralRoundTrip(t, "corpus.kerml", turtle))
 	for _, want := range []string{

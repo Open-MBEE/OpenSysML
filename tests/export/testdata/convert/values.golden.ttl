@@ -188,6 +188,8 @@ elmt:Values__Sized__size
     sysml:declaredName "size" ;
     sysml:type "Real" ;
     sysml:value expr:Values__Sized__size_pvalue ;
+    sysml:ownedRelationship expr:Values__Sized__size_pvalue_om ;
+    sysml:ownedMembership expr:Values__Sized__size_pvalue_om ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        attribute size : Real = 4.5;\n" .
 
@@ -207,7 +209,22 @@ expr:Values__Sized__size_pvalue
     a sysml:LiteralRational ;
     sysx:sourceText "4.5" ;
     sysml:elementId "Values__Sized__size_pvalue" ;
-    sysml:value "4.5"^^xsd:decimal .
+    sysml:value "4.5"^^xsd:decimal ;
+    sysml:owner elmt:Values__Sized__size ;
+    sysml:owningRelationship expr:Values__Sized__size_pvalue_om ;
+    sysml:owningMembership expr:Values__Sized__size_pvalue_om .
+
+expr:Values__Sized__size_pvalue_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Values__Sized__size_pvalue_om" ;
+    sysml:owner elmt:Values__Sized__size ;
+    sysml:memberElement expr:Values__Sized__size_pvalue ;
+    sysml:ownedMemberElement expr:Values__Sized__size_pvalue ;
+    sysml:ownedRelatedElement expr:Values__Sized__size_pvalue ;
+    sysml:owningRelatedElement elmt:Values__Sized__size ;
+    sysml:membershipOwningNamespace elmt:Values__Sized__size ;
+    sysml:featureWithValue elmt:Values__Sized__size ;
+    sysml:value expr:Values__Sized__size_pvalue .
 
 elmt:Values__Sized__label
     a sysml:AttributeUsage ;
@@ -221,6 +238,8 @@ elmt:Values__Sized__label
     sysml:declaredName "label" ;
     sysml:type "String" ;
     sysml:value expr:Values__Sized__label_pvalue ;
+    sysml:ownedRelationship expr:Values__Sized__label_pvalue_om ;
+    sysml:ownedMembership expr:Values__Sized__label_pvalue_om ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        attribute label : String = \"front\";\n" .
 
@@ -240,7 +259,22 @@ expr:Values__Sized__label_pvalue
     a sysml:LiteralString ;
     sysx:sourceText "\"front\"" ;
     sysml:elementId "Values__Sized__label_pvalue" ;
-    sysml:value "front" .
+    sysml:value "front" ;
+    sysml:owner elmt:Values__Sized__label ;
+    sysml:owningRelationship expr:Values__Sized__label_pvalue_om ;
+    sysml:owningMembership expr:Values__Sized__label_pvalue_om .
+
+expr:Values__Sized__label_pvalue_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Values__Sized__label_pvalue_om" ;
+    sysml:owner elmt:Values__Sized__label ;
+    sysml:memberElement expr:Values__Sized__label_pvalue ;
+    sysml:ownedMemberElement expr:Values__Sized__label_pvalue ;
+    sysml:ownedRelatedElement expr:Values__Sized__label_pvalue ;
+    sysml:owningRelatedElement elmt:Values__Sized__label ;
+    sysml:membershipOwningNamespace elmt:Values__Sized__label ;
+    sysml:featureWithValue elmt:Values__Sized__label ;
+    sysml:value expr:Values__Sized__label_pvalue .
 
 elmt:Values__Sized__total
     a sysml:AttributeUsage ;
@@ -254,6 +288,8 @@ elmt:Values__Sized__total
     sysml:declaredName "total" ;
     sysml:type "Real" ;
     sysml:value expr:Values__Sized__total_pvalue ;
+    sysml:ownedRelationship expr:Values__Sized__total_pvalue_om ;
+    sysml:ownedMembership expr:Values__Sized__total_pvalue_om ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        attribute total : Real = 1.0 + 2.0;\n" .
 
@@ -275,18 +311,117 @@ expr:Values__Sized__total_pvalue
     sysml:elementId "Values__Sized__total_pvalue" ;
     sysml:operator "+" ;
     sysml:argument expr:Values__Sized__total_pvalue_pa0, expr:Values__Sized__total_pvalue_pa1 ;
-    json:argument "[{\"@id\":\"Values__Sized__total_pvalue_pa0\"},{\"@id\":\"Values__Sized__total_pvalue_pa1\"}]" .
+    sysml:ownedRelationship expr:Values__Sized__total_pvalue_pin0_om, expr:Values__Sized__total_pvalue_pin1_om ;
+    sysml:ownedMembership expr:Values__Sized__total_pvalue_pin0_om, expr:Values__Sized__total_pvalue_pin1_om ;
+    sysml:ownedFeatureMembership expr:Values__Sized__total_pvalue_pin0_om, expr:Values__Sized__total_pvalue_pin1_om ;
+    sysml:ownedFeature expr:Values__Sized__total_pvalue_pin0, expr:Values__Sized__total_pvalue_pin1 ;
+    sysml:parameter expr:Values__Sized__total_pvalue_pin0, expr:Values__Sized__total_pvalue_pin1 ;
+    sysml:input expr:Values__Sized__total_pvalue_pin0, expr:Values__Sized__total_pvalue_pin1 ;
+    sysml:owner elmt:Values__Sized__total ;
+    sysml:owningRelationship expr:Values__Sized__total_pvalue_om ;
+    sysml:owningMembership expr:Values__Sized__total_pvalue_om ;
+    json:argument "[{\"@id\":\"Values__Sized__total_pvalue_pa0\"},{\"@id\":\"Values__Sized__total_pvalue_pa1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Values__Sized__total_pvalue_pin0_om\"},{\"@id\":\"Values__Sized__total_pvalue_pin1_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Values__Sized__total_pvalue_pin0_om\"},{\"@id\":\"Values__Sized__total_pvalue_pin1_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Values__Sized__total_pvalue_pin0_om\"},{\"@id\":\"Values__Sized__total_pvalue_pin1_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Values__Sized__total_pvalue_pin0\"},{\"@id\":\"Values__Sized__total_pvalue_pin1\"}]" ;
+    json:parameter "[{\"@id\":\"Values__Sized__total_pvalue_pin0\"},{\"@id\":\"Values__Sized__total_pvalue_pin1\"}]" ;
+    json:input "[{\"@id\":\"Values__Sized__total_pvalue_pin0\"},{\"@id\":\"Values__Sized__total_pvalue_pin1\"}]" .
 
 expr:Values__Sized__total_pvalue_pa0
     a sysml:LiteralRational ;
     sysx:sourceText "1.0" ;
     sysml:elementId "Values__Sized__total_pvalue_pa0" ;
     sysml:value "1.0"^^xsd:decimal ;
-    sysx:argumentIndex "0"^^xsd:integer .
+    sysml:owner expr:Values__Sized__total_pvalue_pin0 ;
+    sysml:owningRelationship expr:Values__Sized__total_pvalue_pa0_om ;
+    sysml:owningMembership expr:Values__Sized__total_pvalue_pa0_om .
+
+expr:Values__Sized__total_pvalue_pin0
+    a sysml:Feature ;
+    sysml:elementId "Values__Sized__total_pvalue_pin0" ;
+    sysml:direction "in" ;
+    sysml:owner expr:Values__Sized__total_pvalue ;
+    sysml:owningRelationship expr:Values__Sized__total_pvalue_pin0_om ;
+    sysml:owningMembership expr:Values__Sized__total_pvalue_pin0_om ;
+    sysml:ownedRelationship expr:Values__Sized__total_pvalue_pa0_om ;
+    sysml:ownedMembership expr:Values__Sized__total_pvalue_pa0_om .
+
+expr:Values__Sized__total_pvalue_pin0_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Values__Sized__total_pvalue_pin0_om" ;
+    sysml:owner expr:Values__Sized__total_pvalue ;
+    sysml:memberElement expr:Values__Sized__total_pvalue_pin0 ;
+    sysml:ownedMemberElement expr:Values__Sized__total_pvalue_pin0 ;
+    sysml:ownedRelatedElement expr:Values__Sized__total_pvalue_pin0 ;
+    sysml:owningRelatedElement expr:Values__Sized__total_pvalue ;
+    sysml:membershipOwningNamespace expr:Values__Sized__total_pvalue ;
+    sysml:ownedMemberFeature expr:Values__Sized__total_pvalue_pin0 ;
+    sysml:ownedMemberParameter expr:Values__Sized__total_pvalue_pin0 .
+
+expr:Values__Sized__total_pvalue_pa0_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Values__Sized__total_pvalue_pa0_om" ;
+    sysml:owner expr:Values__Sized__total_pvalue_pin0 ;
+    sysml:memberElement expr:Values__Sized__total_pvalue_pa0 ;
+    sysml:ownedMemberElement expr:Values__Sized__total_pvalue_pa0 ;
+    sysml:ownedRelatedElement expr:Values__Sized__total_pvalue_pa0 ;
+    sysml:owningRelatedElement expr:Values__Sized__total_pvalue_pin0 ;
+    sysml:membershipOwningNamespace expr:Values__Sized__total_pvalue_pin0 ;
+    sysml:featureWithValue expr:Values__Sized__total_pvalue_pin0 ;
+    sysml:value expr:Values__Sized__total_pvalue_pa0 .
 
 expr:Values__Sized__total_pvalue_pa1
     a sysml:LiteralRational ;
     sysx:sourceText "2.0" ;
     sysml:elementId "Values__Sized__total_pvalue_pa1" ;
     sysml:value "2.0"^^xsd:decimal ;
-    sysx:argumentIndex "1"^^xsd:integer .
+    sysml:owner expr:Values__Sized__total_pvalue_pin1 ;
+    sysml:owningRelationship expr:Values__Sized__total_pvalue_pa1_om ;
+    sysml:owningMembership expr:Values__Sized__total_pvalue_pa1_om .
+
+expr:Values__Sized__total_pvalue_pin1
+    a sysml:Feature ;
+    sysml:elementId "Values__Sized__total_pvalue_pin1" ;
+    sysml:direction "in" ;
+    sysml:owner expr:Values__Sized__total_pvalue ;
+    sysml:owningRelationship expr:Values__Sized__total_pvalue_pin1_om ;
+    sysml:owningMembership expr:Values__Sized__total_pvalue_pin1_om ;
+    sysml:ownedRelationship expr:Values__Sized__total_pvalue_pa1_om ;
+    sysml:ownedMembership expr:Values__Sized__total_pvalue_pa1_om .
+
+expr:Values__Sized__total_pvalue_pin1_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Values__Sized__total_pvalue_pin1_om" ;
+    sysml:owner expr:Values__Sized__total_pvalue ;
+    sysml:memberElement expr:Values__Sized__total_pvalue_pin1 ;
+    sysml:ownedMemberElement expr:Values__Sized__total_pvalue_pin1 ;
+    sysml:ownedRelatedElement expr:Values__Sized__total_pvalue_pin1 ;
+    sysml:owningRelatedElement expr:Values__Sized__total_pvalue ;
+    sysml:membershipOwningNamespace expr:Values__Sized__total_pvalue ;
+    sysml:ownedMemberFeature expr:Values__Sized__total_pvalue_pin1 ;
+    sysml:ownedMemberParameter expr:Values__Sized__total_pvalue_pin1 .
+
+expr:Values__Sized__total_pvalue_pa1_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Values__Sized__total_pvalue_pa1_om" ;
+    sysml:owner expr:Values__Sized__total_pvalue_pin1 ;
+    sysml:memberElement expr:Values__Sized__total_pvalue_pa1 ;
+    sysml:ownedMemberElement expr:Values__Sized__total_pvalue_pa1 ;
+    sysml:ownedRelatedElement expr:Values__Sized__total_pvalue_pa1 ;
+    sysml:owningRelatedElement expr:Values__Sized__total_pvalue_pin1 ;
+    sysml:membershipOwningNamespace expr:Values__Sized__total_pvalue_pin1 ;
+    sysml:featureWithValue expr:Values__Sized__total_pvalue_pin1 ;
+    sysml:value expr:Values__Sized__total_pvalue_pa1 .
+
+expr:Values__Sized__total_pvalue_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Values__Sized__total_pvalue_om" ;
+    sysml:owner elmt:Values__Sized__total ;
+    sysml:memberElement expr:Values__Sized__total_pvalue ;
+    sysml:ownedMemberElement expr:Values__Sized__total_pvalue ;
+    sysml:ownedRelatedElement expr:Values__Sized__total_pvalue ;
+    sysml:owningRelatedElement elmt:Values__Sized__total ;
+    sysml:membershipOwningNamespace elmt:Values__Sized__total ;
+    sysml:featureWithValue elmt:Values__Sized__total ;
+    sysml:value expr:Values__Sized__total_pvalue .

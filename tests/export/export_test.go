@@ -290,7 +290,7 @@ func TestCastTypeIsSpelledForItsScope(t *testing.T) {
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
-	if want := "sysx:typeArgument elmt:P__T ."; !strings.Contains(string(graph), want) {
+	if want := "sysx:typeArgument elmt:P__T"; !strings.Contains(string(graph), want) {
 		t.Fatalf("graph does not record %q\n%s", want, graph)
 	}
 	notation := structuralRoundTrip(t, "cast_type", graph)
@@ -298,7 +298,7 @@ func TestCastTypeIsSpelledForItsScope(t *testing.T) {
 		t.Errorf("notation does not write %q\n%s", want, notation)
 	}
 	structural := withoutTriples(t, graph, "sysx:sourceText")
-	relinkedGraph := relinked(t, structural, "sysx:typeArgument elmt:P__T .", "sysx:typeArgument elmt:P__H__T .")
+	relinkedGraph := relinked(t, structural, "sysx:typeArgument elmt:P__T", "sysx:typeArgument elmt:P__H__T")
 	back, err := convert.Convert("cast_type.ttl", relinkedGraph, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation: %v\n%s", err, relinkedGraph)
@@ -425,6 +425,28 @@ func relinked(t *testing.T, graph []byte, link, to string) []byte {
 	return []byte(strings.Replace(string(graph), link, to, 1))
 }
 
+func relinkedProperty(t *testing.T, graph []byte, subject, property, from, to string) []byte {
+	t.Helper()
+	blocks := strings.Split(string(graph), "\n\n")
+	needle := "sysml:" + property + " " + from
+	replacement := "sysml:" + property + " " + to
+	found := 0
+	for i, block := range blocks {
+		if !strings.Contains(block, subject+"\n") {
+			continue
+		}
+		if strings.Count(block, needle) != 1 {
+			continue
+		}
+		blocks[i] = strings.Replace(block, needle, replacement, 1)
+		found++
+	}
+	if found != 1 {
+		t.Fatalf("subject %q has property %q %d times, want once\n%s", subject, property, found, graph)
+	}
+	return []byte(strings.Join(blocks, "\n\n"))
+}
+
 // refusedAsUnsupported requires a graph to be refused rather than written as
 // notation that would read back as a different graph.
 func refusedAsUnsupported(t *testing.T, name string, graph []byte, why string) {
@@ -524,14 +546,13 @@ func TestChainSegmentIsSpelledToReachTheGraphsTarget(t *testing.T) {
 	structural := withoutTriples(t, graph, "sysx:sourceText")
 	// The value's chain `a.x` relinked to B::x is written `a.B::x`, as is the
 	// connector's first end, whether or not the notation is kept with the graph.
-	value := "    sysml:argument expr:P__v_pvalue_pa0 ;\n    sysml:targetFeature elmt:P__A__x ."
-	relinkedValue := relinked(t, structural, value, strings.Replace(value, "A__x", "B__x", 1))
+	relinkedValue := relinkedProperty(t, structural, "expr:P__v_pvalue", "targetFeature", "elmt:P__A__x", "elmt:P__B__x")
 	if back := backFromTheGraphAlone(t, string(relinkedValue)); !strings.Contains(back, "attribute v = a.B::x;") {
 		t.Errorf("the relinked value should be written qualified\n%s", back)
 	}
-	end := "    sysml:argument expr:P___406_pend0_pa0 ;\n    sysml:targetFeature elmt:P__A__x ;"
 	for name, g := range map[string][]byte{"structure": structural, "notation": graph} {
-		back, err := convert.Convert("chain-"+name+".ttl", relinked(t, g, end, strings.Replace(end, "A__x", "B__x", 1)), convert.FormatTurtle, convert.FormatSysML)
+		relinkedEnd := relinkedProperty(t, g, "expr:P___406_pend0", "targetFeature", "elmt:P__A__x", "elmt:P__B__x")
+		back, err := convert.Convert("chain-"+name+".ttl", relinkedEnd, convert.FormatTurtle, convert.FormatSysML)
 		if err != nil {
 			t.Fatalf("back to notation (%s): %v", name, err)
 		}
@@ -540,18 +561,16 @@ func TestChainSegmentIsSpelledToReachTheGraphsTarget(t *testing.T) {
 		}
 	}
 	// A target no chain from a can name — the package itself — is refused.
-	refusedAsUnsupported(t, "chain-package", relinked(t, structural, value, strings.Replace(value, "P__A__x", "P", 1)),
+	refusedAsUnsupported(t, "chain-package", relinkedProperty(t, structural, "expr:P__v_pvalue", "targetFeature", "elmt:P__A__x", "elmt:P"),
 		"no spelling of the segment reads as the element the graph names from the operand")
 	// The sum repeats `a.x`: the occurrence still reaching A::x must not vouch
 	// for the one relinked to B::x, which is spelled to reach its own element.
-	second := "    sysml:argument expr:P__w_pvalue_pa1_pa0 ;\n    sysml:targetFeature elmt:P__A__x ;"
-	repeated := relinked(t, structural, second, strings.Replace(second, "A__x", "B__x", 1))
+	repeated := relinkedProperty(t, structural, "expr:P__w_pvalue_pa1", "targetFeature", "elmt:P__A__x", "elmt:P__B__x")
 	if back := backFromTheGraphAlone(t, string(repeated)); !strings.Contains(back, "attribute w = a.x + a.B::x;") {
 		t.Errorf("each repeated chain should be spelled for its own element\n%s", back)
 	}
 	// Both relinked, neither occurrence reads as A::x any more.
-	first := "    sysml:argument expr:P__w_pvalue_pa0_pa0 ;\n    sysml:targetFeature elmt:P__A__x ;"
-	both := relinked(t, repeated, first, strings.Replace(first, "A__x", "B__x", 1))
+	both := relinkedProperty(t, repeated, "expr:P__w_pvalue_pa0", "targetFeature", "elmt:P__A__x", "elmt:P__B__x")
 	if back := backFromTheGraphAlone(t, string(both)); !strings.Contains(back, "attribute w = a.B::x + a.B::x;") {
 		t.Errorf("both relinked chains should be spelled qualified\n%s", back)
 	}
@@ -579,6 +598,7 @@ func TestSharedChainIsCheckedInEveryDeclaration(t *testing.T) {
 	// w's value is v's chain: its root, linked to P::a, is spelled to reach it
 	// from both declarations, so both state A::x.
 	shared := relinked(t, structural, "sysml:value expr:P__H__w_pvalue ;", "sysml:value expr:P__v_pvalue ;")
+	shared = relinkedProperty(t, shared, "expr:P__H__w_pvalue_om", "value", "expr:P__H__w_pvalue", "expr:P__v_pvalue")
 	back, err := convert.Convert("shared.ttl", shared, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation: %v\n%s", err, shared)
@@ -597,6 +617,7 @@ func TestSharedChainIsCheckedInEveryDeclaration(t *testing.T) {
 	}
 	// The same with w's chain shared into v, so the qualifying owner is the other one.
 	shared = relinked(t, structural, "sysml:value expr:P__v_pvalue ;", "sysml:value expr:P__H__w_pvalue ;")
+	shared = relinkedProperty(t, shared, "expr:P__v_pvalue_om", "value", "expr:P__v_pvalue", "expr:P__H__w_pvalue")
 	byName = relinked(t, shared, "sysml:referent elmt:P__H__a ;", `sysml:referent "a" ;`)
 	if back := toNotation(t, byName); !strings.Contains(back, "attribute v = a.B::x;") {
 		t.Errorf("v should reach B::x through a qualified segment\n%s", back)
@@ -1745,7 +1766,7 @@ func TestConditionWithAnUnsupportedKeywordIsReported(t *testing.T) {
 	}
 	// `require C;` reads as an inline condition naming C; the reference form is
 	// what a graph states through sysml:references.
-	const inline = `sysx:condition expr:P__R___402_pcondition .`
+	const inline = `sysx:condition expr:P__R___402_pcondition`
 	if !strings.Contains(structural, inline) {
 		t.Fatalf("the inline require member was not found in the graph:\n%s", structural)
 	}
@@ -1757,7 +1778,7 @@ func TestConditionWithAnUnsupportedKeywordIsReported(t *testing.T) {
 		{"bodied assume", strings.Replace(structural, declared, assert, 1), "assume"},
 		{"bodyless require", secondDeclared, "require"},
 		{"inline require", strings.Replace(structural, inline, `sysx:declaredKeyword "verify" ;`+"\n    "+inline, 1), "require"},
-		{"reference-form require", strings.Replace(structural, inline, `sysx:declaredKeyword "verify" ;`+"\n    "+`sysml:references elmt:P__C .`, 1), "require"},
+		{"reference-form require", strings.Replace(structural, inline, `sysx:declaredKeyword "verify" ;`+"\n    "+`sysml:references elmt:P__C`, 1), "require"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if tc.edited == structural {
@@ -1797,7 +1818,7 @@ func TestInlineConditionWithDeclarationFactsIsReported(t *testing.T) {
 		t.Fatalf("to turtle: %v", err)
 	}
 	structural := string(withoutTriples(t, turtle, "sysx:sourceText"))
-	const require, assert = `sysx:condition expr:P__R___400_pcondition .`, `sysx:condition expr:P__q___400_pcondition .`
+	const require, assert = `sysx:condition expr:P__R___400_pcondition`, `sysx:condition expr:P__q___400_pcondition`
 	for _, inline := range []string{require, assert} {
 		if !strings.Contains(structural, inline) {
 			t.Fatalf("%s was not found in the graph:\n%s", inline, structural)
@@ -2344,12 +2365,12 @@ func TestKerMLConnectorEndMultiplicitiesAreStatedAsStructure(t *testing.T) {
 		},
 		{
 			head:        "binding [1] of a = b;",
-			bounds:      []string{"sysml:upperBound expr:P__C___402_pupperBound ;\n    sysx:relatedFeature"},
+			bounds:      []string{"sysml:upperBound expr:P__C___402_pupperBound", "sysx:relatedFeature"},
 			onConnector: true,
 		},
 		{
 			head:        "succession [1] first a then b;",
-			bounds:      []string{"sysml:upperBound expr:P__C___402_pupperBound ;\n    sysx:relatedFeature"},
+			bounds:      []string{"sysml:upperBound expr:P__C___402_pupperBound", "sysx:relatedFeature"},
 			onConnector: true,
 		},
 	}
@@ -2423,7 +2444,8 @@ func TestEndBindingBodiesComeBackFromTheGraphAlone(t *testing.T) {
 		"sysx:memberIndex \"0\"^^xsd:integer ;\n    sysml:owningNamespace elmt:R89__Ctx__seam ;",
 		"sysml:ownedMember elmt:R89__Ctx__seam__coupling ;",
 		"sysml:ownedFeature elmt:R89__Ctx__seam__coupling ;",
-		"sysml:ownedMembership elmt:R89__Ctx__seam__coupling_om ;",
+		"sysml:ownedMembership ",
+		"elmt:R89__Ctx__seam__coupling_om",
 		"elmt:R89__Ctx__seam__coupling_om\n    a sysml:FeatureMembership ;",
 		"sysx:sourceText \"        interface seam connect w.outp to r.inp {\\n\" ;",
 	} {
@@ -2979,6 +3001,12 @@ func TestFixtureElementIDsRoundTrip(t *testing.T) {
 			t.Fatalf("%s: %v", path, err)
 		}
 		for _, subject := range graph.Subjects() {
+			if strings.HasPrefix(subject.Value, rdf.Expression) && strings.HasSuffix(subject.Value, "_om") {
+				if _, ok := graph.Object(subject, rdf.SysML+"memberElement"); !ok {
+					t.Errorf("%s: expression membership %s has no member", path, subject.Value)
+				}
+				continue
+			}
 			if strings.HasPrefix(subject.Value, rdf.Expression) {
 				// An expression node is named for the element and slot it
 				// belongs to, not by a qualified name of its own.
@@ -3477,13 +3505,13 @@ func TestLinkedReferencesCarryTheRoundTripWithoutSourceText(t *testing.T) {
 	for _, want := range []string{
 		"sysml:type elmt:OtherPkg__BudgetLedger ;",
 		"sysml:type elmt:OtherPkg__Tempo ;",
-		"sysml:referent elmt:OtherPkg__Tempo__operative .",
+		"sysml:referent elmt:OtherPkg__Tempo__operative",
 		"sysml:references elmt:OtherPkg__spare ;",
-		"sysml:targetFeature elmt:OtherPkg__Inner__Wheel__size .",
+		"sysml:targetFeature elmt:OtherPkg__Inner__Wheel__size",
 		"sysml:redefines elmt:R90__G2__x ;",
-		"sysml:targetFeature elmt:R90__Done__done .",
+		"sysml:targetFeature elmt:R90__Done__done",
 		`sysml:type "Elsewhere::Missing" ;`,
-		"sysx:typeArgument elmt:Meta__Safety .",
+		"sysx:typeArgument elmt:Meta__Safety",
 		"sysml:type elmt:Meta__Tagged ;",
 	} {
 		if !strings.Contains(turtle, want) {
@@ -3539,10 +3567,13 @@ func TestKerMLBinaryConnectorEndsCarryTheRoundTripWithoutSourceText(t *testing.T
 	graph := string(turtle)
 	for _, want := range []string{
 		"sysx:relatedFeature expr:Corpus__Vehicle___406_pend0, expr:Corpus__Vehicle___406_pend1 ;",
-		"expr:Corpus__Vehicle___406_pend0\n    a sysml:FeatureReferenceExpression ;\n    sysx:sourceText \"eng\" ;\n    sysml:elementId \"Corpus__Vehicle___406_pend0\" ;\n    sysml:referent elmt:Corpus__Vehicle__eng ;",
+		"expr:Corpus__Vehicle___406_pend0\n    a sysml:FeatureReferenceExpression ;\n    sysx:sourceText \"eng\" ;\n    sysml:elementId \"Corpus__Vehicle___406_pend0\" ;\n    sysml:referent elmt:Corpus__Vehicle__eng",
 		"expr:Corpus__Vehicle___407_pend0\n    a sysml:FeatureChainExpression ;\n    sysx:sourceText \"a.x\" ;",
-		"sysml:targetFeature elmt:Corpus__A__x ;\n    sysx:endIndex \"0\"^^xsd:integer ;\n    sysx:endName \"a\" .",
-		"sysml:referent elmt:Corpus__Vehicle__transitionLink ;\n    sysx:endIndex \"0\"^^xsd:integer ;\n    sysml:lowerBound expr:Corpus__Vehicle___408_pend0_plowerBound ;",
+		"sysml:targetFeature elmt:Corpus__A__x",
+		"sysx:endIndex \"0\"^^xsd:integer",
+		"sysx:endName \"a\"",
+		"sysml:referent elmt:Corpus__Vehicle__transitionLink",
+		"sysml:lowerBound expr:Corpus__Vehicle___408_pend0_plowerBound",
 	} {
 		if !strings.Contains(graph, want) {
 			t.Errorf("the graph should carry %q\n%s", want, graph)
@@ -3682,9 +3713,9 @@ func TestMachineEndpointsLinkAcrossRegionsAndNesting(t *testing.T) {
 func TestBodyParametersShadowOnlyInsideTheirBody(t *testing.T) {
 	turtle := toTurtle(t, filepath.Join("testdata", "convert", "body_scopes.sysml"))
 	for _, want := range []string{
-		`sysml:referent "limit" .`,
-		`sysml:referent "Gauge" .`,
-		"sysml:referent elmt:Lib__limit .",
+		`sysml:referent "limit"`,
+		`sysml:referent "Gauge"`,
+		"sysml:referent elmt:Lib__limit",
 		"sysml:type elmt:Lib__Gauge ;",
 	} {
 		if !strings.Contains(turtle, want) {
@@ -3720,7 +3751,7 @@ func TestShadowingParametersStayNames(t *testing.T) {
 	// A body declaring its parameter is written from its notation alone, so
 	// that fixture is checked in the graph only.
 	body := toTurtle(t, filepath.Join("testdata", "convert", "shadowing_body.sysml"))
-	if want := "sysml:referent elmt:ShadowBody__Sensor__readings ."; !strings.Contains(body, want) {
+	if want := "sysml:referent elmt:ShadowBody__Sensor__readings"; !strings.Contains(body, want) {
 		t.Errorf("the graph should carry %q\n%s", want, body)
 	}
 	if wrong := "sysml:referent elmt:ShadowBody__Sensor__value"; strings.Contains(body, wrong) {
@@ -3733,9 +3764,9 @@ func TestShadowingParametersStayNames(t *testing.T) {
 	turtle := toTurtle(t, filepath.Join("testdata", "convert", "shadowing_parameters.sysml"))
 	for _, want := range []string{
 		`sysml:referent "value" ;`,
-		`sysml:referent "value" .`,
+		`sysml:referent "value"`,
 		`sysml:referent "w" ;`,
-		"sysml:referent elmt:Shadows__Sweep__items .",
+		"sysml:referent elmt:Shadows__Sweep__items",
 	} {
 		if !strings.Contains(turtle, want) {
 			t.Errorf("the graph should carry %q\n%s", want, turtle)
@@ -3769,9 +3800,9 @@ func TestShadowingParametersStayNames(t *testing.T) {
 func TestChainMembersAreQualifiedOnlyWhereTheirNameReadsAsAnother(t *testing.T) {
 	turtle := toTurtle(t, filepath.Join("testdata", "convert", "chain_scopes.sysml"))
 	for _, want := range []string{
-		"sysml:targetFeature elmt:Gen__G1__x .",
-		"sysml:targetFeature elmt:Gen__G2__x .",
-		"sysml:targetFeature elmt:Gen__G1__y .",
+		"sysml:targetFeature elmt:Gen__G1__x",
+		"sysml:targetFeature elmt:Gen__G2__x",
+		"sysml:targetFeature elmt:Gen__G1__y",
 	} {
 		if !strings.Contains(turtle, want) {
 			t.Errorf("the graph should carry %q\n%s", want, turtle)

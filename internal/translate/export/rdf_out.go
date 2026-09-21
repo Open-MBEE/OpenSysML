@@ -40,6 +40,8 @@ const (
 	pOwningType                = "owningType"
 	pOwnedFeature              = "ownedFeature"
 	pOwnedFeatureMembership    = "ownedFeatureMembership"
+	pOwnedMemberParameter      = "ownedMemberParameter"
+	pFeatureWithValue          = "featureWithValue"
 	pVariant                   = "variant"
 	pVariantMembership         = "variantMembership"
 	pOwnedVariantUsage         = "ownedVariantUsage"
@@ -1053,10 +1055,6 @@ func (e *encoder) owningMembership(node ast.Node, member, owner rdf.Term, member
 			Note: fmt.Sprintf("its id lands on the same IRI as %s, and merging two elements into one subject would be a different model", prior),
 		}
 	}
-	e.graph.Add(member, e.sysml(pOwner), owner)
-	e.graph.Add(member, e.sysml(pOwningRelationship), membership)
-	e.graph.Add(member, e.sysml(pOwningMembership), membership)
-
 	// A variant is a member of its variation, not a feature of it: the metamodel
 	// owns it through a VariantMembership, which is an OwningMembership. An end's
 	// cross feature (KerML.xtext OwnedCrossingFeatureMember) and a `member`
@@ -1073,17 +1071,9 @@ func (e *encoder) owningMembership(node ast.Node, member, owner rdf.Term, member
 	case feature:
 		metaclass = mFeatureMembership
 	}
-	e.graph.Add(membership, rdf.IRI(rdf.RDFType), e.sysml(metaclass))
-	e.graph.Add(membership, e.sysml(pElementID), rdf.String(rdf.LocalName(membership.Value)))
-	// The namespace owns the membership too, so it is not read as a root.
-	e.graph.Add(membership, e.sysml(pOwner), owner)
-	e.graph.Add(membership, e.sysml(pMemberElement), member)
-	e.graph.Add(membership, e.sysml(pOwnedMemberElement), member)
-	e.graph.Add(membership, e.sysml(pOwnedRelatedElement), member)
-	e.graph.Add(membership, e.sysml(pOwningRelatedElement), owner)
+	e.emitMembershipCore(membership, member, owner, metaclass, !isRelationship(ownerClass))
 	// Only a namespace has members; a relationship owner just owns the membership.
 	if !isRelationship(ownerClass) {
-		e.graph.Add(membership, e.sysml(pMembershipOwningNamespace), owner)
 		e.graph.Add(owner, e.sysml(pOwnedMember), member)
 		e.graph.Add(owner, e.sysml(pOwnedMembership), membership)
 	}
@@ -1104,6 +1094,22 @@ func (e *encoder) owningMembership(node ast.Node, member, owner rdf.Term, member
 		}
 	}
 	return membership
+}
+
+func (e *encoder) emitMembershipCore(membership, member, owner rdf.Term, metaclass string, namespace bool) {
+	e.graph.Add(member, e.sysml(pOwner), owner)
+	e.graph.Add(member, e.sysml(pOwningRelationship), membership)
+	e.graph.Add(member, e.sysml(pOwningMembership), membership)
+	e.graph.Add(membership, rdf.IRI(rdf.RDFType), e.sysml(metaclass))
+	e.graph.Add(membership, e.sysml(pElementID), rdf.String(rdf.LocalName(membership.Value)))
+	e.graph.Add(membership, e.sysml(pOwner), owner)
+	e.graph.Add(membership, e.sysml(pMemberElement), member)
+	e.graph.Add(membership, e.sysml(pOwnedMemberElement), member)
+	e.graph.Add(membership, e.sysml(pOwnedRelatedElement), member)
+	e.graph.Add(membership, e.sysml(pOwningRelatedElement), owner)
+	if namespace {
+		e.graph.Add(membership, e.sysml(pMembershipOwningNamespace), owner)
+	}
 }
 
 // variantMember reports whether node is a variant of its owner: a usage declared
@@ -1346,13 +1352,13 @@ func (e *encoder) featureValue(subject rdf.Term, owner string, value ast.Node, i
 	if value == nil {
 		return nil
 	}
-	if err := e.expression(subject, e.sysml(pValue), pValue, owner, value); err != nil {
-		return err
-	}
 	e.flags(subject, []boolProperty{
 		{pIsDefault, isDefault},
 		{pIsInitial, isInitial},
 	})
+	if err := e.expression(subject, e.sysml(pValue), pValue, owner, value); err != nil {
+		return err
+	}
 	return nil
 }
 

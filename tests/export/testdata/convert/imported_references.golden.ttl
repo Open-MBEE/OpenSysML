@@ -394,6 +394,8 @@ elmt:R90__A__t
     sysml:declaredName "t" ;
     sysml:type elmt:OtherPkg__Tempo ;
     sysml:value expr:R90__A__t_pvalue ;
+    sysml:ownedRelationship expr:R90__A__t_pvalue_om ;
+    sysml:ownedMembership expr:R90__A__t_pvalue_om ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        attribute t : Tempo = Tempo::operative;\n" .
 
@@ -413,7 +415,22 @@ expr:R90__A__t_pvalue
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "Tempo::operative" ;
     sysml:elementId "R90__A__t_pvalue" ;
-    sysml:referent elmt:OtherPkg__Tempo__operative .
+    sysml:referent elmt:OtherPkg__Tempo__operative ;
+    sysml:owner elmt:R90__A__t ;
+    sysml:owningRelationship expr:R90__A__t_pvalue_om ;
+    sysml:owningMembership expr:R90__A__t_pvalue_om .
+
+expr:R90__A__t_pvalue_om
+    a sysml:FeatureValue ;
+    sysml:elementId "R90__A__t_pvalue_om" ;
+    sysml:owner elmt:R90__A__t ;
+    sysml:memberElement expr:R90__A__t_pvalue ;
+    sysml:ownedMemberElement expr:R90__A__t_pvalue ;
+    sysml:ownedRelatedElement expr:R90__A__t_pvalue ;
+    sysml:owningRelatedElement elmt:R90__A__t ;
+    sysml:membershipOwningNamespace elmt:R90__A__t ;
+    sysml:featureWithValue elmt:R90__A__t ;
+    sysml:value expr:R90__A__t_pvalue .
 
 elmt:R90__A__b2
     a sysml:ItemUsage ;
@@ -558,6 +575,8 @@ elmt:R90__A__s
     sysml:owningMembership elmt:R90__A__s_om ;
     sysml:declaredName "s" ;
     sysml:value expr:R90__A__s_pvalue ;
+    sysml:ownedRelationship expr:R90__A__s_pvalue_om ;
+    sysml:ownedMembership expr:R90__A__s_pvalue_om ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        attribute s = w.size;\n" .
 
@@ -578,14 +597,71 @@ expr:R90__A__s_pvalue
     sysx:sourceText "w.size" ;
     sysml:elementId "R90__A__s_pvalue" ;
     sysml:argument expr:R90__A__s_pvalue_pa0 ;
-    sysml:targetFeature elmt:OtherPkg__Inner__Wheel__size .
+    sysml:ownedRelationship expr:R90__A__s_pvalue_pin0_om ;
+    sysml:ownedMembership expr:R90__A__s_pvalue_pin0_om ;
+    sysml:ownedFeatureMembership expr:R90__A__s_pvalue_pin0_om ;
+    sysml:ownedFeature expr:R90__A__s_pvalue_pin0 ;
+    sysml:parameter expr:R90__A__s_pvalue_pin0 ;
+    sysml:input expr:R90__A__s_pvalue_pin0 ;
+    sysml:targetFeature elmt:OtherPkg__Inner__Wheel__size ;
+    sysml:owner elmt:R90__A__s ;
+    sysml:owningRelationship expr:R90__A__s_pvalue_om ;
+    sysml:owningMembership expr:R90__A__s_pvalue_om .
 
 expr:R90__A__s_pvalue_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "w" ;
     sysml:elementId "R90__A__s_pvalue_pa0" ;
     sysml:referent elmt:R90__A__w ;
-    sysx:argumentIndex "0"^^xsd:integer .
+    sysml:owner expr:R90__A__s_pvalue_pin0 ;
+    sysml:owningRelationship expr:R90__A__s_pvalue_pa0_om ;
+    sysml:owningMembership expr:R90__A__s_pvalue_pa0_om .
+
+expr:R90__A__s_pvalue_pin0
+    a sysml:Feature ;
+    sysml:elementId "R90__A__s_pvalue_pin0" ;
+    sysml:direction "in" ;
+    sysml:owner expr:R90__A__s_pvalue ;
+    sysml:owningRelationship expr:R90__A__s_pvalue_pin0_om ;
+    sysml:owningMembership expr:R90__A__s_pvalue_pin0_om ;
+    sysml:ownedRelationship expr:R90__A__s_pvalue_pa0_om ;
+    sysml:ownedMembership expr:R90__A__s_pvalue_pa0_om .
+
+expr:R90__A__s_pvalue_pin0_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "R90__A__s_pvalue_pin0_om" ;
+    sysml:owner expr:R90__A__s_pvalue ;
+    sysml:memberElement expr:R90__A__s_pvalue_pin0 ;
+    sysml:ownedMemberElement expr:R90__A__s_pvalue_pin0 ;
+    sysml:ownedRelatedElement expr:R90__A__s_pvalue_pin0 ;
+    sysml:owningRelatedElement expr:R90__A__s_pvalue ;
+    sysml:membershipOwningNamespace expr:R90__A__s_pvalue ;
+    sysml:ownedMemberFeature expr:R90__A__s_pvalue_pin0 ;
+    sysml:ownedMemberParameter expr:R90__A__s_pvalue_pin0 .
+
+expr:R90__A__s_pvalue_pa0_om
+    a sysml:FeatureValue ;
+    sysml:elementId "R90__A__s_pvalue_pa0_om" ;
+    sysml:owner expr:R90__A__s_pvalue_pin0 ;
+    sysml:memberElement expr:R90__A__s_pvalue_pa0 ;
+    sysml:ownedMemberElement expr:R90__A__s_pvalue_pa0 ;
+    sysml:ownedRelatedElement expr:R90__A__s_pvalue_pa0 ;
+    sysml:owningRelatedElement expr:R90__A__s_pvalue_pin0 ;
+    sysml:membershipOwningNamespace expr:R90__A__s_pvalue_pin0 ;
+    sysml:featureWithValue expr:R90__A__s_pvalue_pin0 ;
+    sysml:value expr:R90__A__s_pvalue_pa0 .
+
+expr:R90__A__s_pvalue_om
+    a sysml:FeatureValue ;
+    sysml:elementId "R90__A__s_pvalue_om" ;
+    sysml:owner elmt:R90__A__s ;
+    sysml:memberElement expr:R90__A__s_pvalue ;
+    sysml:ownedMemberElement expr:R90__A__s_pvalue ;
+    sysml:ownedRelatedElement expr:R90__A__s_pvalue ;
+    sysml:owningRelatedElement elmt:R90__A__s ;
+    sysml:membershipOwningNamespace elmt:R90__A__s ;
+    sysml:featureWithValue elmt:R90__A__s ;
+    sysml:value expr:R90__A__s_pvalue .
 
 elmt:R90__A__unresolved
     a sysml:PartUsage ;
@@ -1144,6 +1220,7 @@ elmt:Filtered___400
     sysml:importedNamespace elmt:Meta ;
     sysx:isNamespaceImport "true"^^xsd:boolean ;
     sysx:filter expr:Filtered___400_pfilter ;
+    sysml:ownedRelatedElement expr:Filtered___400_pfilter ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "    public import Meta::*[@Safety];\n" .
 
@@ -1152,7 +1229,9 @@ expr:Filtered___400_pfilter
     sysx:sourceText "@Safety" ;
     sysml:elementId "Filtered___400_pfilter" ;
     sysml:operator "@" ;
-    sysx:typeArgument elmt:Meta__Safety .
+    sysx:typeArgument elmt:Meta__Safety ;
+    sysml:owner elmt:Filtered___400 ;
+    sysml:owningRelationship elmt:Filtered___400 .
 
 elmt:Filtered__C
     a sysml:PartDefinition ;
@@ -1222,6 +1301,8 @@ elmt:Filtered__C___401
     sysml:owningRelationship elmt:Filtered__C___401_om ;
     sysml:owningMembership elmt:Filtered__C___401_om ;
     sysx:filter expr:Filtered__C___401_pfilter ;
+    sysml:ownedRelationship expr:Filtered__C___401_pfilter_om ;
+    sysml:ownedMembership expr:Filtered__C___401_pfilter_om ;
     sysx:sourceText "        filter @Safety;\n" .
 
 elmt:Filtered__C___401_om
@@ -1239,4 +1320,17 @@ expr:Filtered__C___401_pfilter
     sysx:sourceText "@Safety" ;
     sysml:elementId "Filtered__C___401_pfilter" ;
     sysml:operator "@" ;
-    sysx:typeArgument elmt:Meta__Safety .
+    sysx:typeArgument elmt:Meta__Safety ;
+    sysml:owner elmt:Filtered__C___401 ;
+    sysml:owningRelationship expr:Filtered__C___401_pfilter_om ;
+    sysml:owningMembership expr:Filtered__C___401_pfilter_om .
+
+expr:Filtered__C___401_pfilter_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Filtered__C___401_pfilter_om" ;
+    sysml:owner elmt:Filtered__C___401 ;
+    sysml:memberElement expr:Filtered__C___401_pfilter ;
+    sysml:ownedMemberElement expr:Filtered__C___401_pfilter ;
+    sysml:ownedRelatedElement expr:Filtered__C___401_pfilter ;
+    sysml:owningRelatedElement elmt:Filtered__C___401 ;
+    sysml:membershipOwningNamespace elmt:Filtered__C___401 .
