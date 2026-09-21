@@ -937,6 +937,7 @@ public final class Protos {
               outcome.getStatesVisitedList(),
               present(outcome.getError()),
               outcome.getLinearizations(),
+              outcome.getProbability(),
               outcome.getWitnessList(),
               diagnostics(outcome.getDiagnosticsList())));
     }
@@ -946,7 +947,8 @@ public final class Protos {
         status.getRuns(),
         status.getBudgetsHitList(),
         status.getRunsBudget(),
-        status.getDepthBudget());
+        status.getDepthBudget(),
+        status.getProbabilitiesLowerBound());
   }
 
   /**

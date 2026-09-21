@@ -35,8 +35,10 @@ such as `Mission::mission.vehicle`, made anew for the run. `ExploreAction`,
 `ExploreState` and `ExploreAnalysis` answer every run: they take the `explore` policy — the
 default when none is given, or `explore:runs=N,depth=D` to set its budget — and report an
 `Exploration`, one `Outcome` per distinct result with the number of linearizations that reached
-it and one run's choices as its `Witness`, plus whether the search was `Complete` or which
-`BudgetsHit` ended it (`Status()` renders it as the `sysml` command does). A run that fails under
+it, the `Probability` of the runs reaching it (a lower bound while the search is incomplete)
+and one run's choices as its `Witness`, plus whether the search was `Complete` or which
+`BudgetsHit` ended it (`ProbabilitiesLowerBound` records that the probabilities are bounds;
+`Status()` renders it as the `sysml` command does). A run that fails under
 some order is an `Outcome` whose `Error` is set, not a failure of the call. The two families
 refuse each other's policies with `CodeInvalidArgument`, and exploring requires the
 `schedule_explore` capability alongside `schedule`.

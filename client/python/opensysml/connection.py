@@ -1473,6 +1473,7 @@ class Connection:
             budgets_hit=status.budgets_hit,
             runs_budget=status.runs_budget,
             depth_budget=status.depth_budget,
+            probabilities_lower_bound=status.probabilities_lower_bound,
         )
 
     def _outcome_of(self, pb):
@@ -1483,6 +1484,7 @@ class Connection:
             states_visited=pb.states_visited,
             error=pb.error,
             linearizations=pb.linearizations,
+            probability=pb.probability,
             witness=pb.witness,
             diagnostics=[Diagnostic(d) for d in pb.diagnostics],
         )
