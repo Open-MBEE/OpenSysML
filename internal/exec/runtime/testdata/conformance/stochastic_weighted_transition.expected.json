@@ -1,0 +1,11 @@
+{
+	"type": "state",
+	"libraries": true,
+	"trace": true,
+	"modelSeed": 7,
+	"events": [{"signal": "go"}],
+	"finalState": "fast",
+	"outputs": {
+		"log": {"type": "Integer", "value": 2}
+	}
+}

@@ -326,7 +326,7 @@ func (e *ActionExecutor) chooseBranch(ec *EvalContext, frame *actionFrame, node 
 		Span:         node.Span(),
 		Weights:      weights,
 	}
-	if err := e.ctx.scheduling().chooseWeighted(&choice); err != nil {
+	if err := e.ctx.scheduling().chooseWeighted(&choice, nil); err != nil {
 		return nil, 0, err
 	}
 	return &choice, choice.Taken, nil

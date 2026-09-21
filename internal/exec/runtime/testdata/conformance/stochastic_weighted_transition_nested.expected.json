@@ -1,0 +1,8 @@
+{
+	"type": "state",
+	"libraries": true,
+	"trace": true,
+	"modelSeed": 7,
+	"events": [{"signal": "go"}],
+	"finalState": "l3+r2"
+}

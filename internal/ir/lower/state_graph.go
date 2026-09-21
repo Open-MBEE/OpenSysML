@@ -265,6 +265,10 @@ type Transition struct {
 	// Scope, except for a call trigger, whose parameters are visible to the guard
 	// and effect and nowhere else (`accept setSpeed(v) if v > 0`).
 	BodyScope *symbols.Scope
+
+	// Probability is the weight `@Probability { p = ...; }` states for the
+	// transition, read where its guard is; nil when the transition is unweighted.
+	Probability *Probability
 }
 
 // declaringState is the state whose body owner is; nil is the machine's body.
@@ -370,6 +374,10 @@ func ToStateGraphWithEndpoints(stateMachineDecl ast.Node, scope *symbols.Scope, 
 	}
 
 	graph.ownTransitionEffects()
+
+	if err := checkTransitionProbabilities(graph); err != nil {
+		return nil, err
+	}
 
 	return graph, nil
 }
@@ -1566,23 +1574,25 @@ func lowerTransitionMember(graph *StateGraph, member *ast.TransitionMember, body
 	// A trigger's parameters are members of a scope of the transition's own, which
 	// its guard and effect resolve in (symbols/bodyscopes.go).
 	bodyScope := symbols.TriggerScope(scope, member)
-	if err := refuseTransitionProbability(graph, member, scope); err != nil {
+	probability, err := (&probabilityReader{resolver: graph.resolver, scope: scope}).read(member.Members)
+	if err != nil {
 		return nil, err
 	}
 	via, viaSelf := ViaPortPath(member.Via)
 	return &Transition{
-		Name:      member.Name,
-		Decl:      member,
-		Source:    source,
-		Target:    target,
-		Owner:     graph.declaringState(owner),
-		Trigger:   classifyTrigger(member.Trigger),
-		Guard:     member.Guard,
-		Effect:    transitionEffects(member, bodyScope, graph.resolver),
-		Via:       via,
-		ViaSelf:   viaSelf,
-		Scope:     scope,
-		BodyScope: bodyScope,
+		Name:        member.Name,
+		Decl:        member,
+		Source:      source,
+		Target:      target,
+		Owner:       graph.declaringState(owner),
+		Trigger:     classifyTrigger(member.Trigger),
+		Guard:       member.Guard,
+		Effect:      transitionEffects(member, bodyScope, graph.resolver),
+		Via:         via,
+		ViaSelf:     viaSelf,
+		Scope:       scope,
+		BodyScope:   bodyScope,
+		Probability: probability,
 	}, nil
 }
 
@@ -1792,20 +1802,32 @@ func collectTransitions(graph *StateGraph, body transitionBody) error {
 }
 
 // addCompletion records the completion transition `source then target`
-// declared by decl in scope.
-func (graph *StateGraph) addCompletion(decl, source, target, owner ast.Node, scope *symbols.Scope) {
-	trans := &Transition{
-		Decl:      decl,
-		Source:    source,
-		Target:    target,
-		Owner:     graph.declaringState(owner),
-		Trigger:   nil, // Completion transition
-		Guard:     nil,
-		Effect:    nil,
-		Scope:     scope,
-		BodyScope: scope,
+// declared by decl in scope, reading the weight its body may state.
+func (graph *StateGraph) addCompletion(decl, source, target, owner ast.Node, scope *symbols.Scope) error {
+	var members []ast.Node
+	switch d := decl.(type) {
+	case *ast.Usage:
+		members = d.Members
+	case *ast.SuccessionEdge:
+		members = d.Members
 	}
-	graph.addTransition(trans)
+	probability, err := (&probabilityReader{resolver: graph.resolver, scope: scope}).read(members)
+	if err != nil {
+		return err
+	}
+	graph.addTransition(&Transition{
+		Decl:        decl,
+		Source:      source,
+		Target:      target,
+		Owner:       graph.declaringState(owner),
+		Trigger:     nil, // Completion transition
+		Guard:       nil,
+		Effect:      nil,
+		Scope:       scope,
+		BodyScope:   scope,
+		Probability: probability,
+	})
+	return nil
 }
 
 // collectUsageTransitions lowers a succession usage as a completion transition
@@ -1836,7 +1858,7 @@ func collectUsageTransitions(graph *StateGraph, n *ast.Usage, body transitionBod
 			}
 		}
 		if sourceVertex != nil && targetVertex != nil {
-			graph.addCompletion(n, sourceVertex, targetVertex, body.owner, scope)
+			return graph.addCompletion(n, sourceVertex, targetVertex, body.owner, scope)
 		}
 	case ast.UsageState:
 		// A state usage carries the transitions its own body declares and
@@ -1875,7 +1897,7 @@ func collectSuccessionEdge(graph *StateGraph, n *ast.SuccessionEdge, body transi
 	}
 
 	if sourceVertex != nil && targetVertex != nil {
-		graph.addCompletion(n, sourceVertex, targetVertex, body.owner, scope)
+		return graph.addCompletion(n, sourceVertex, targetVertex, body.owner, scope)
 	}
 	return nil
 }

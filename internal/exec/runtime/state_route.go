@@ -296,7 +296,20 @@ func (e *StateExecutor) pickBranch(ps *ast.PseudostateNode, outgoing []*lower.Tr
 	if !ok {
 		return 0, nil
 	}
-	pick := e.ctx.scheduling().choose(point, nil)
+	weights, err := e.transitionWeights(ps, outgoing, enabled)
+	if err != nil {
+		return 0, err
+	}
+	var pick int
+	if weights != nil {
+		point.Weights = weights
+		if err := e.ctx.scheduling().chooseWeighted(&point, nil); err != nil {
+			return 0, err
+		}
+		pick = point.Taken
+	} else {
+		pick = e.ctx.scheduling().choose(point, nil)
+	}
 	if err := e.ctx.scheduling().refusal(); err != nil {
 		return 0, err
 	}

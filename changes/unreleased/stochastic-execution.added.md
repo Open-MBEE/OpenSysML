@@ -3,8 +3,7 @@
   (`first d then fast { @Probability { p = 0.7; } }`), and `RandomFunctions` declares `uniform`,
   `uniformInteger`, `triangular` and `normal`, so `attribute d : Real = uniform(0.0, 1.0);` and
   `accept after uniform(1, 80) [s]` run. The weights are validated at lowering — every succession
-  out of a decision weighted or none, each in `[0, 1]`, constant weights summing to one — and a
-  `Probability` on a state transition is refused rather than ignored. The flow among an analysis or verification case's steps reads the same weights, and the exported action graph carries each weight beside its edge. Modeled randomness is a
+  out of a decision weighted or none, each in `[0, 1]`, constant weights summing to one. The flow among an analysis or verification case's steps reads the same weights, and the exported action graph carries each weight beside its edge. Modeled randomness is a
   stream of its own, apart from the token-shuffle stream: `-seed <n>` and `%seed <n>` fix it
   whatever the scheduling policy, `seed:<n>` seeds it too when no model seed is set, an unseeded
   weighted decision under `declared` or `reverse` takes its most probable branch, and an

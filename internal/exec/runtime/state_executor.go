@@ -1221,7 +1221,11 @@ func (e *StateExecutor) chooseTransitions(candidates []dispatchCandidate, event 
 		if e.losesToNestedTransition(candidates, candidate) {
 			continue
 		}
-		candidate.chosen, candidate.notes = e.chooseTransition(candidate)
+		var err error
+		candidate.chosen, candidate.notes, err = e.chooseTransition(candidate)
+		if err != nil {
+			return nil, err
+		}
 		route, err := e.resolveRouteFor(candidate.chosen, event)
 		if err != nil {
 			return nil, fmt.Errorf("transition out of %s: %w", candidate.source.Name, err)
@@ -1247,19 +1251,44 @@ func (e *StateExecutor) resolveRouteFor(trans *lower.Transition, event *Event) (
 }
 
 // chooseTransition resolves which of the candidate's enabled transitions fires,
-// with the choice point it makes ahead of the candidate's notes.
-func (e *StateExecutor) chooseTransition(candidate dispatchCandidate) (*lower.Transition, []RunNote) {
+// with the choice point it makes ahead of the candidate's notes: a weighted
+// enabled set is drawn by the weights its transitions state.
+func (e *StateExecutor) chooseTransition(candidate dispatchCandidate) (*lower.Transition, []RunNote, error) {
 	transitions := e.graph.Transitions[candidate.source]
 	notes := candidate.notes
 	pick := 0
 	if choice, ok := e.transitionChoice(candidate.source, transitions, candidate.enabled); ok {
 		whereOf := func(i int) string { return transitionWhere(candidate.source, transitions[candidate.enabled[i]]) }
-		pick = e.ctx.scheduling().choose(choice, whereOf)
-		choice.Taken, choice.Where = pick, whereOf(pick)
+		weights, err := e.transitionWeights(candidate.source, transitions, candidate.enabled)
+		if err != nil {
+			return nil, nil, err
+		}
+		pick, err = e.drawTransition(&choice, whereOf, weights)
+		if err != nil {
+			return nil, nil, err
+		}
 		choice.File, choice.Span = e.transitionLocation(candidate.source, transitions[candidate.enabled[pick]])
 		notes = append([]RunNote{choice}, notes...)
 	}
-	return transitions[candidate.enabled[pick]], notes
+	return transitions[candidate.enabled[pick]], notes, nil
+}
+
+// drawTransition resolves the choice point to the alternative taken: among the
+// enabled weights where the set is weighted, by the policy where it is not;
+// Where names the transition taken.
+func (e *StateExecutor) drawTransition(choice *ChoicePoint, whereOf func(i int) string, weights []float64) (int, error) {
+	if weights == nil {
+		pick := e.ctx.scheduling().choose(*choice, whereOf)
+		choice.Taken, choice.Where = pick, whereOf(pick)
+		return pick, nil
+	}
+	choice.Weights = weights
+	choice.Where = whereOf(0)
+	if err := e.ctx.scheduling().chooseWeighted(choice, whereOf); err != nil {
+		return 0, err
+	}
+	choice.Where = whereOf(choice.Taken)
+	return choice.Taken, nil
 }
 
 // regionOrderChoice is the choice among the states of several regions acting on
@@ -1499,8 +1528,14 @@ func (e *StateExecutor) chooseCompletion(source *ast.StateNode, dispatched *lowe
 		return transitions[enabled[0]], notes, nil
 	}
 	whereOf := func(i int) string { return transitionWhere(source, transitions[enabled[i]]) }
-	pick := e.ctx.scheduling().choose(choice, whereOf)
-	choice.Taken, choice.Where = pick, whereOf(pick)
+	weights, err := e.transitionWeights(source, transitions, enabled)
+	if err != nil {
+		return nil, nil, err
+	}
+	pick, err := e.drawTransition(&choice, whereOf, weights)
+	if err != nil {
+		return nil, nil, err
+	}
 	choice.File, choice.Span = e.transitionLocation(source, transitions[enabled[pick]])
 	if err := e.ctx.scheduling().refusal(); err != nil {
 		return nil, nil, err
@@ -1651,6 +1686,103 @@ func (e *StateExecutor) transitionChoice(state *ast.StateNode, transitions []*lo
 		alts[i] = transitionName(transitions, pos)
 	}
 	return ChoicePoint{Kind: ChoiceTransition, Alternatives: alts}, true
+}
+
+// transitionWeights evaluates the weight each transition out of source states
+// for itself, read where its guard is, nil when none of the enabled is
+// weighted: an unweighted set draws as it always has. A weighted transition
+// enabled beside an unweighted one, an evaluated weight that is no probability,
+// a group whose weights do not sum to 1 or no enabled weight positive at all is
+// the typed error, mirroring what a decision reports. Every transition of a
+// group an enabled transition belongs to is weighed, not only the enabled.
+func (e *StateExecutor) transitionWeights(source ast.Node, transitions []*lower.Transition, enabled []int) ([]float64, error) {
+	firstWeighted := -1
+	for _, pos := range enabled {
+		if transitions[pos].Probability != nil {
+			firstWeighted = pos
+			break
+		}
+	}
+	if firstWeighted < 0 {
+		return nil, nil
+	}
+	evalWeight := func(pos int) (float64, error) {
+		trans := transitions[pos]
+		val, err := e.evalStepOf(trans.Source, trans.Probability.Expr, trans.BodyScope)
+		if err != nil {
+			return 0, fmt.Errorf("%w: %s: weight of %s: %v",
+				ErrBranchWeights, weightWhere(source, transitions, pos), transitionName(transitions, pos), err)
+		}
+		val = soleElement(val)
+		if val.Kind != ValConst || !val.Const.IsNumeric() {
+			return 0, fmt.Errorf("%w: %s: weight of %s is %s, not a number",
+				ErrBranchWeights, weightWhere(source, transitions, pos), transitionName(transitions, pos), describeValue(val))
+		}
+		return asReal(val.Const), nil
+	}
+	unweighted := func(pos int) error {
+		return fmt.Errorf("%w: %s: %s is unweighted while %s carries a weight",
+			ErrBranchWeights, weightWhere(source, transitions, pos),
+			transitionName(transitions, pos), transitionName(transitions, firstWeighted))
+	}
+	// The whole distribution of a group is checked, as a decision's is: every
+	// member's weight is a probability and they sum to 1, the enabled or not.
+	evaluated := make(map[int]float64)
+	for _, group := range lower.TransitionGroups(source, transitions) {
+		inSet := false
+		for _, pos := range group {
+			if slices.Contains(enabled, pos) {
+				inSet = true
+				break
+			}
+		}
+		if !inSet {
+			continue
+		}
+		total := 0.0
+		for _, pos := range group {
+			if transitions[pos].Probability == nil {
+				return nil, unweighted(pos)
+			}
+			w, err := evalWeight(pos)
+			if err != nil {
+				return nil, err
+			}
+			if !lower.WeightInRange(w) {
+				return nil, fmt.Errorf("%w: %s: weight of %s is %s, not a probability in [0, 1]",
+					ErrBranchWeights, weightWhere(source, transitions, pos), transitionName(transitions, pos), formatWeight(w))
+			}
+			evaluated[pos] = w
+			total += w
+		}
+		if math.Abs(total-1) > lower.ProbabilityTolerance {
+			return nil, fmt.Errorf("%w: %s: the weights of its transitions sum to %s, not 1.0",
+				ErrBranchWeights, weightWhere(source, transitions, group[0]), formatWeight(total))
+		}
+	}
+	weights := make([]float64, len(enabled))
+	for i, pos := range enabled {
+		if transitions[pos].Probability == nil {
+			return nil, unweighted(pos)
+		}
+		weights[i] = evaluated[pos]
+	}
+	if _, err := checkWeights(weightWhere(source, transitions, enabled[0]), weights); err != nil {
+		return nil, err
+	}
+	return weights, nil
+}
+
+// weightWhere names the state and the event the transition at pos reacts to,
+// or the pseudostate its branches leave, for a message about its weight.
+func weightWhere(source ast.Node, transitions []*lower.Transition, pos int) string {
+	switch s := source.(type) {
+	case *ast.StateNode:
+		return transitionWhere(s, transitions[pos])
+	case *ast.PseudostateNode:
+		return pseudostateWhere(s)
+	}
+	return "transitions"
 }
 
 // unevaluableTransition is the transition at position pos out of state, probed

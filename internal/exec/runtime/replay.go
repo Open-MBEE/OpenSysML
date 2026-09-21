@@ -1228,9 +1228,9 @@ func (r *replayRun) choose(c ChoicePoint, whereOf func(i int) string) int {
 
 // chooseWeighted follows the witness's move at a weighted decision, the run's choice
 // carrying the draw the witness records where one selected the branch.
-func (r *replayRun) chooseWeighted(c *ChoicePoint) int {
+func (r *replayRun) chooseWeighted(c *ChoicePoint, whereOf func(i int) string) int {
 	w, unbound := r.current()
-	taken := r.choose(*c, nil)
+	taken := r.choose(*c, whereOf)
 	if unbound == nil && r.refused == nil && w.Drawn {
 		c.Drew, c.Drawn = w.Drew, true
 	}
