@@ -142,7 +142,9 @@ func (m *migration) simulationConfig(e *sysmlv1.Element, header, note string) {
 	target := m.configurationTarget(s)
 	notes = append(notes, target.notes...)
 	results := simresults.ConfigurationResults{ID: e.ID, Name: m.v2Name(e), Runs: settings.runs, Draws: settings.draws, ClockStep: settings.clockStep, Observables: []string{}, Snapshots: []simresults.Snapshot{}, Notes: append([]string(nil), notes...)}
-	notes = append(notes, m.resultSnapshots(&results, s, target)...)
+	lost := m.resultSnapshots(&results, s, target)
+	results.Notes = append(results.Notes, lost...)
+	notes = append(notes, lost...)
 	note = joinNotes(note, strings.Join(notes, "; "))
 	m.add(e, verdictFor(note), m.v2Name(e), note)
 	m.w.block(header, func() {

@@ -11,3 +11,10 @@
   performed (`entry action hello;`, `do action log`) was refused at run time as performing no
   action; it now executes as nothing, as a bodyless nested action of an action body does
   (`state_behavior_action_of_no_content`).
+- **A binding end at a performed action's node reads the body's names.** A `bind` written at a
+  node of a `perform action` resolved a simple name to the performing part's feature before the
+  enclosing action's same-named parameter, so a parameter given no value read the part's value
+  instead of being empty; the name now resolves in the body's scope first, as an expression of
+  the body does. A pin valued by its own name (`inout log = log`) reads the feature it masks
+  around the usage owning the pin rather than itself, which was refused as a cyclic feature
+  value (`performed_action_binding_end_names_parameter`).

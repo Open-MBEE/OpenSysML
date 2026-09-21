@@ -587,8 +587,8 @@ func TestResultSnapshotsReportWhatIsNotRead(t *testing.T) {
 	if len(configs) != 3 {
 		t.Fatalf("results index %d configuration(s), want 3", len(configs))
 	}
-	if configs[0].Location != "" || len(configs[0].Snapshots) != 0 || len(configs[0].Notes) != 0 {
-		t.Errorf("a location outside the document indexes %+v", configs[0])
+	if want := []string{`the result location "_elsewhere" is outside the document, so its snapshots are not read`}; configs[0].Location != "" || len(configs[0].Snapshots) != 0 || !reflect.DeepEqual(configs[0].Notes, want) {
+		t.Errorf("a location outside the document indexes %+v, want the note %q", configs[0], want)
 	}
 	if want := []string{"the result location Empty holds no snapshot of the target's classifier"}; !reflect.DeepEqual(configs[1].Notes, want) {
 		t.Errorf("an empty location notes %q, want %q", configs[1].Notes, want)

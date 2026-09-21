@@ -1187,7 +1187,16 @@ func namesPerformerFeature(ctx *Context, self *Instance, scope *symbols.Scope, n
 		return false
 	}
 	sym, ok := ctx.lookupName(scope, name)
-	if !ok || sym == nil {
+	if !ok {
+		return false
+	}
+	return performerHoldsFeature(ctx, self, sym)
+}
+
+// performerHoldsFeature reports whether a resolved feature is one the object
+// performing the behavior holds under any of its types.
+func performerHoldsFeature(ctx *Context, self *Instance, sym *symbols.Symbol) bool {
+	if ctx == nil || self == nil || sym == nil {
 		return false
 	}
 	for _, typ := range self.types() {

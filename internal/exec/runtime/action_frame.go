@@ -1026,6 +1026,45 @@ func (e *performances) evalContextAround(perf *actionFrame, scope *symbols.Scope
 	return ec
 }
 
+// bindingEndContext evaluates the other end of a binding at a pin as written around
+// the node, with that pin known to be the one being valued.
+func (e *performances) bindingEndContext(end boundEnd) *EvalContext {
+	ec := e.evalContextAround(end.at, end.Scope)
+	ec.valuing = pinSymbol(end)
+	return ec
+}
+
+// pinSymbol is the declaration of the pin an end is at: the pin valued by its own
+// value, or the member of the node's body the end names; nil when none is found.
+func pinSymbol(end boundEnd) *symbols.Symbol {
+	holder := end.Scope
+	if holder == nil {
+		return nil
+	}
+	if end.FromValue {
+		if sym := holder.MemberDeclaring(end.Decl); sym != nil {
+			return sym
+		}
+	}
+	if holder.Node() != end.Node {
+		holder = holder.ChildFor(end.Node)
+	}
+	for _, node := range end.Path {
+		if holder == nil {
+			return nil
+		}
+		holder = holder.ChildFor(node)
+	}
+	if holder == nil {
+		return nil
+	}
+	if end.FromValue {
+		return holder.MemberDeclaring(end.Decl)
+	}
+	sym, _ := holder.LookupLocal(end.Pin)
+	return sym
+}
+
 // lexicalValues merges the values a performance and the frames around it hold,
 // the innermost winning, for a caller reading them as one map.
 func lexicalValues(perf *actionFrame) map[string]Value {
@@ -1174,7 +1213,7 @@ func (e *performances) bindOutputPins(perf *actionFrame) error {
 			continue
 		}
 		if end.OtherChain != nil {
-			ec := e.evalContextAround(end.at, end.Scope)
+			ec := e.bindingEndContext(end)
 			if err := writeThroughChain(ec, end.OtherChain, end.OtherFeature, value); err != nil {
 				return fmt.Errorf("%w: %s is bound to %s: %w",
 					ErrBindingEnd, end.pinText(), bindingEndText(end.Other), err)
@@ -1314,7 +1353,7 @@ func (e *performances) bindingOtherValue(perf *actionFrame, end boundEnd, activa
 		}
 		return value, nil
 	}
-	ec := e.evalContextAround(end.at, end.Scope)
+	ec := e.bindingEndContext(end)
 	ec.activation = activation
 	value, err := ec.Eval(end.Other)
 	if err != nil {
@@ -1336,10 +1375,10 @@ func (e *performances) otherEndHeld(perf *actionFrame, end boundEnd) (Value, boo
 		return value, held
 	}
 	if name := simpleEndName(end.Other); name != "" {
-		return e.evalContextAround(end.at, end.Scope).Lookup(name)
+		return e.bindingEndContext(end).Lookup(name)
 	}
 	if end.OtherChain != nil {
-		value, err := e.evalContextAround(end.at, end.Scope).Eval(end.Other)
+		value, err := e.bindingEndContext(end).Eval(end.Other)
 		return value, err == nil
 	}
 	return Value{}, false
@@ -1356,7 +1395,7 @@ func (e *performances) unheldEnd(end boundEnd, err error) bool {
 	if end.OtherNode != nil || name == "" {
 		return false
 	}
-	_, valued := e.evalContextAround(end.at, end.Scope).Lookup(name)
+	_, valued := e.bindingEndContext(end).Lookup(name)
 	_, _, holds := enclosingHolder(end.at, name)
 	return !valued && holds
 }
