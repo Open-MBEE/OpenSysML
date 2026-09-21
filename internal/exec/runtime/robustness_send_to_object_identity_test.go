@@ -75,7 +75,7 @@ func instantiateBounded(t *testing.T, src, fqn string) error {
 	select {
 	case err := <-done:
 		return err
-	case <-time.After(30 * time.Second):
+	case <-watchdog(30 * time.Second):
 		t.Fatalf("Instantiate(%s) did not return within 30s", fqn)
 		return nil
 	}

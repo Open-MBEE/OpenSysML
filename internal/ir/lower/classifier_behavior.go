@@ -45,7 +45,7 @@ type ClassifierBehavior struct {
 	// NamesBehavior reports whether Decl names the element holding the body: the
 	// reference form (`perform a;`, `exhibit m;`), a `references`/`::>` clause
 	// or a typing. A declaration naming none is the body itself
-	// (SysML v2 §8.3.16, eventOccurrence).
+	// (SysML v2 §8.3.16, eventOccurrence; §8.3.17, performedAction/exhibitedState).
 	NamesBehavior bool
 	// Arguments are the values the declaration binds to the behavior's
 	// parameters (`exhibit m { in controller = vehicleController; }`), in
