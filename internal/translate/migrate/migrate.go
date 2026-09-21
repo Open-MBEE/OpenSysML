@@ -496,22 +496,26 @@ func (m *migration) distinguish(e *sysmlv1.Element) {
 }
 
 // namespaceMembers lists the children of e written as members of its v2 body: its
-// own, and the named vertices of its one region, which v2 puts beside them.
+// own, the named vertices of its one written region, which v2 puts beside them,
+// and a state's connection points whichever region a tool listed them in.
 func namespaceMembers(e *sysmlv1.Element) []*sysmlv1.Element {
 	var members []*sysmlv1.Element
-	inline := len(e.Owned("region")) == 1
+	written := writtenRegions(e)
+	var inline *sysmlv1.Element
+	if len(written) == 1 {
+		inline = written[0]
+	}
 	for _, c := range e.Children {
 		switch {
 		case c.Role == "region":
-			if !inline {
-				continue
-			}
 			for _, v := range c.Owned("subvertex") {
-				if vertexBase(v) != "" {
+				if vertexBase(v) != "" && (c == inline || memberOwner(v) == e) {
 					members = append(members, v)
 				}
 			}
-			members = append(members, c.Owned("transition")...)
+			if c == inline {
+				members = append(members, c.Owned("transition")...)
+			}
 		case !ownerWritten(c.Role):
 			members = append(members, c)
 		}

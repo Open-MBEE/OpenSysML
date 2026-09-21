@@ -1275,3 +1275,24 @@ func TestExitPointReachedFromOutsideIsRefused(t *testing.T) {
 	wantNote(t, r, "_oT3", migrate.Approximated, "a local transition is written external: the composite state Self exits and re-enters")
 	wantNote(t, r, "_oT4", migrate.Mapped, "")
 }
+
+// An entry point a tool lists in a region of an orthogonal state is a member of the state's
+// body, so it is renamed when the body has a member of its name, as a sibling would be.
+func TestRegionListedPointKeepsClearOfTheStatesMembers(t *testing.T) {
+	entry := `<subvertex xmi:type="uml:State" xmi:id="_rSync" name="Sync">
+            <entry xmi:type="uml:OpaqueBehavior" xmi:id="_rSyncEntry" name="Both"/>`
+	xmi := strings.Replace(regionListedPoints, `<subvertex xmi:type="uml:State" xmi:id="_rSync" name="Sync">`, entry, 1)
+	r := migrateDocument(t, xmi, regionListedPointsApplications)
+	for _, line := range []string{
+		"entry action Both",
+		"fork 'Both 2';",
+		"transition first Idle accept Go then Sync::'Both 2';",
+		"transition first Sync::'Both 2' then A2;",
+	} {
+		if !strings.Contains(string(r.Notation), line) {
+			t.Errorf("missing %q in:\n%s", line, r.Notation)
+		}
+	}
+	wantNote(t, r, "_rBoth", migrate.Approximated, "written as Both 2 since a sibling is also named Both")
+	session(t, r)
+}

@@ -184,10 +184,10 @@ func pointOwner(v *sysmlv1.Element) *sysmlv1.Element {
 	return owner
 }
 
-// memberOwner is the element whose body vertex v is written in: the owner of a
-// connection point, however a tool listed it, else v's parent.
+// memberOwner is the element whose body vertex v is written in: the state whose
+// connection point it is, however a tool listed it, else v's parent.
 func memberOwner(v *sysmlv1.Element) *sysmlv1.Element {
-	if owner := pointOwner(v); owner != nil {
+	if owner := pointOwner(v); owner != nil && owner.Type == "State" {
 		return owner
 	}
 	return v.Parent
@@ -357,18 +357,27 @@ func trueLiteral(spec *sysmlv1.Element) bool {
 	return spec != nil && spec.Type == "LiteralBoolean" && (spec.Attrs["value"] == "true" || spec.Attrs["value"] == "1")
 }
 
-// populatedRegions returns the regions of a machine or state that hold a vertex
-// of their own; an empty one, or one listing only its state's connection points,
-// has nothing to enter, so it is skipped rather than written as a sub-state no entry starts.
+// populatedRegions returns writtenRegions and reports the regions it leaves out: an
+// empty one, or one listing only its state's connection points, has nothing to
+// enter, so it is skipped rather than written as a sub-state no entry starts.
 func (m *migration) populatedRegions(owner *sysmlv1.Element) []*sysmlv1.Element {
-	var out []*sysmlv1.Element
 	for _, r := range owner.Owned("region") {
 		switch {
 		case len(r.Owned("subvertex")) == 0:
 			m.add(r, Skipped, "", unreferencedNote+": the region holds no vertex, so nothing enters it and no state is written for it")
 		case pointsOnly(r, owner):
 			m.add(r, Skipped, "", unreferencedNote+": the region lists only connection points of its state, which are written in the state's body, so nothing enters it and no state is written for it")
-		default:
+		}
+	}
+	return writtenRegions(owner)
+}
+
+// writtenRegions lists the regions of a machine or state a body is written for:
+// those holding a vertex of their own.
+func writtenRegions(owner *sysmlv1.Element) []*sysmlv1.Element {
+	var out []*sysmlv1.Element
+	for _, r := range owner.Owned("region") {
+		if len(r.Owned("subvertex")) > 0 && !pointsOnly(r, owner) {
 			out = append(out, r)
 		}
 	}
