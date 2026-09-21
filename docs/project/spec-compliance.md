@@ -2399,16 +2399,16 @@ are tracked here):
 
 ### Major Features Not Implemented (UML-referenced; no SysML v2 notation or KerML performance)
 
-The behavior-execution entries below — interruptible regions, expansion regions — each have a stated scope, dependency order and acceptance gate as [Track E of the roadmap](roadmap.md#track-e--behavior-execution); none is near-term.
+The remaining entries below are genuine implementation work or deliberate language/design
+boundaries; the landed Track E behavior is recorded in the execution rows and the roadmap.
 
 **Actions (Advanced):**
-- Interruptible regions
 - Expansion regions — closed, not to be implemented ([design record](expansion-regions.md)): the iterative form is `for` (§7.17.12, `Actions::ForLoopAction`), which runs in every body position; the parallel form is not SysML v2 — a multiplicity on a performed action usage with a `flow` delivering a collection to its input is not a standard spelling of per-element concurrent performance (SysML v2 §7.17.2, §8.4.13.2; KerML §7.4.7, Annex A.3.6; `Performances.kerml`, `Transfers.kerml`), no OMG corpus model writes one, and the pinned pilot performs no actions. The runtime performs such a node once per token (`runtime/action_frame.go` `beginPerformance`) and refuses a collection delivered to a one-valued pin (`runtime/write_conformance.go` `checkTargetAs`, `ErrMultiplicityViolation`); per-element concurrency is written as distinct nodes under a `fork`
 - Exception handlers
 - Structured activities with pin connectors
 
 **State Machines (Advanced):**
-- Protocol state machines — **not a SysML v2 construct**; see
+- Protocol state machines — **closed by design record and not a SysML v2 construct**; see
   [protocol-state-machines.md](protocol-state-machines.md). The order of *receptions* on a port
   or part is an ordinary exhibited state machine (§7.18.4, `accept … via` §7.17.8), which runs
   today on parts (*Classifier Behaviors*, `state_transition_accept_via_port`). ⚠️ The order it
@@ -2417,8 +2417,8 @@ The behavior-execution entries below — interruptible regions, expansion region
   that the active state neither accepts nor defers stays on the context-wide bus
   (`state_executor.go:takesMessage`) and is taken by the first later state that accepts it, and a
   machine exhibited by a port definition does not take a model's messages routed to that port.
-  The record specifies the follow-up (discard-and-report on the bus path; port-machine routing;
-  an optional typed error). UML's post-conditions, `ProtocolConformance`, static sequence checking
+  The optional runtime follow-up is not a specification gap (discard-and-report on the bus path;
+  port-machine routing; an optional typed error). UML's post-conditions, `ProtocolConformance`, static sequence checking
   and the gating of *operation calls* by state have no SysML v2 spelling and are not tracked as
   missing.
 
@@ -2443,7 +2443,6 @@ The behavior-execution entries below — interruptible regions, expansion region
 - Allocation execution - SysML v2 §9.2.4: syntax defined, execution semantics not normative
 
 **Implementable But Not Yet Done:**
-- Interruptible regions (spec exists, needs token cancellation)
 - Exception handlers (spec exists, needs exception propagation)
 
 **No External Referee Exists (the limit of the evidence, not of the implementation):**
