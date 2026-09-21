@@ -242,7 +242,10 @@ expr:Synonyms___407_pend0
     sysml:owningRelationship expr:Synonyms___407_pend0_om ;
     sysml:owningMembership expr:Synonyms___407_pend0_om ;
     sysx:sourceText "reading" ;
-    sysml:references elmt:Synonyms__reading .
+    sysml:ownedReferenceSubsetting expr:Synonyms___407_pend0_prs ;
+    sysml:ownedSubsetting expr:Synonyms___407_pend0_prs ;
+    sysml:ownedSpecialization expr:Synonyms___407_pend0_prs ;
+    sysml:ownedRelationship expr:Synonyms___407_pend0_prs .
 
 expr:Synonyms___407_pend0_om
     a sysml:EndFeatureMembership ;
@@ -254,6 +257,24 @@ expr:Synonyms___407_pend0_om
     sysml:owningRelatedElement elmt:Synonyms___407 ;
     sysml:membershipOwningNamespace elmt:Synonyms___407 .
 
+expr:Synonyms___407_pend0_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "Synonyms___407_pend0_prs" ;
+    sysml:referencingFeature expr:Synonyms___407_pend0 ;
+    sysml:subsettingFeature expr:Synonyms___407_pend0 ;
+    sysml:specific expr:Synonyms___407_pend0 ;
+    sysml:source expr:Synonyms___407_pend0 ;
+    sysml:owningFeature expr:Synonyms___407_pend0 ;
+    sysml:owningType expr:Synonyms___407_pend0 ;
+    sysml:referencedFeature elmt:Synonyms__reading ;
+    sysml:subsettedFeature elmt:Synonyms__reading ;
+    sysml:general elmt:Synonyms__reading ;
+    sysml:target elmt:Synonyms__reading ;
+    sysml:relatedElement expr:Synonyms___407_pend0, elmt:Synonyms__reading ;
+    sysml:owner expr:Synonyms___407_pend0 ;
+    sysml:owningRelatedElement expr:Synonyms___407_pend0 ;
+    json:relatedElement "[{\"@id\":\"Synonyms___407_pend0\"},{\"@id\":\"Synonyms__reading\"}]" .
+
 expr:Synonyms___407_pend1
     a sysml:ReferenceUsage ;
     sysml:elementId "Synonyms___407_pend1" ;
@@ -262,7 +283,10 @@ expr:Synonyms___407_pend1
     sysml:owningRelationship expr:Synonyms___407_pend1_om ;
     sysml:owningMembership expr:Synonyms___407_pend1_om ;
     sysx:sourceText "base" ;
-    sysml:references elmt:Synonyms__base .
+    sysml:ownedReferenceSubsetting expr:Synonyms___407_pend1_prs ;
+    sysml:ownedSubsetting expr:Synonyms___407_pend1_prs ;
+    sysml:ownedSpecialization expr:Synonyms___407_pend1_prs ;
+    sysml:ownedRelationship expr:Synonyms___407_pend1_prs .
 
 expr:Synonyms___407_pend1_om
     a sysml:EndFeatureMembership ;
@@ -273,6 +297,24 @@ expr:Synonyms___407_pend1_om
     sysml:ownedRelatedElement expr:Synonyms___407_pend1 ;
     sysml:owningRelatedElement elmt:Synonyms___407 ;
     sysml:membershipOwningNamespace elmt:Synonyms___407 .
+
+expr:Synonyms___407_pend1_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "Synonyms___407_pend1_prs" ;
+    sysml:referencingFeature expr:Synonyms___407_pend1 ;
+    sysml:subsettingFeature expr:Synonyms___407_pend1 ;
+    sysml:specific expr:Synonyms___407_pend1 ;
+    sysml:source expr:Synonyms___407_pend1 ;
+    sysml:owningFeature expr:Synonyms___407_pend1 ;
+    sysml:owningType expr:Synonyms___407_pend1 ;
+    sysml:referencedFeature elmt:Synonyms__base ;
+    sysml:subsettedFeature elmt:Synonyms__base ;
+    sysml:general elmt:Synonyms__base ;
+    sysml:target elmt:Synonyms__base ;
+    sysml:relatedElement expr:Synonyms___407_pend1, elmt:Synonyms__base ;
+    sysml:owner expr:Synonyms___407_pend1 ;
+    sysml:owningRelatedElement expr:Synonyms___407_pend1 ;
+    json:relatedElement "[{\"@id\":\"Synonyms___407_pend1\"},{\"@id\":\"Synonyms__base\"}]" .
 
 elmt:Synonyms__Drive
     a sysml:UseCaseDefinition ;

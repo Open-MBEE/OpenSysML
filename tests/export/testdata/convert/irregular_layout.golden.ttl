@@ -672,7 +672,10 @@ expr:IrregularLayout__Rover___407_pend0
     sysml:owningRelationship expr:IrregularLayout__Rover___407_pend0_om ;
     sysml:owningMembership expr:IrregularLayout__Rover___407_pend0_om ;
     sysx:sourceText "wheels" ;
-    sysml:references elmt:IrregularLayout__Rover__wheels .
+    sysml:ownedReferenceSubsetting expr:IrregularLayout__Rover___407_pend0_prs ;
+    sysml:ownedSubsetting expr:IrregularLayout__Rover___407_pend0_prs ;
+    sysml:ownedSpecialization expr:IrregularLayout__Rover___407_pend0_prs ;
+    sysml:ownedRelationship expr:IrregularLayout__Rover___407_pend0_prs .
 
 expr:IrregularLayout__Rover___407_pend0_om
     a sysml:EndFeatureMembership ;
@@ -684,6 +687,24 @@ expr:IrregularLayout__Rover___407_pend0_om
     sysml:owningRelatedElement elmt:IrregularLayout__Rover___407 ;
     sysml:membershipOwningNamespace elmt:IrregularLayout__Rover___407 .
 
+expr:IrregularLayout__Rover___407_pend0_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "IrregularLayout__Rover___407_pend0_prs" ;
+    sysml:referencingFeature expr:IrregularLayout__Rover___407_pend0 ;
+    sysml:subsettingFeature expr:IrregularLayout__Rover___407_pend0 ;
+    sysml:specific expr:IrregularLayout__Rover___407_pend0 ;
+    sysml:source expr:IrregularLayout__Rover___407_pend0 ;
+    sysml:owningFeature expr:IrregularLayout__Rover___407_pend0 ;
+    sysml:owningType expr:IrregularLayout__Rover___407_pend0 ;
+    sysml:referencedFeature elmt:IrregularLayout__Rover__wheels ;
+    sysml:subsettedFeature elmt:IrregularLayout__Rover__wheels ;
+    sysml:general elmt:IrregularLayout__Rover__wheels ;
+    sysml:target elmt:IrregularLayout__Rover__wheels ;
+    sysml:relatedElement expr:IrregularLayout__Rover___407_pend0, elmt:IrregularLayout__Rover__wheels ;
+    sysml:owner expr:IrregularLayout__Rover___407_pend0 ;
+    sysml:owningRelatedElement expr:IrregularLayout__Rover___407_pend0 ;
+    json:relatedElement "[{\"@id\":\"IrregularLayout__Rover___407_pend0\"},{\"@id\":\"IrregularLayout__Rover__wheels\"}]" .
+
 expr:IrregularLayout__Rover___407_pend1
     a sysml:ReferenceUsage ;
     sysml:elementId "IrregularLayout__Rover___407_pend1" ;
@@ -692,7 +713,10 @@ expr:IrregularLayout__Rover___407_pend1
     sysml:owningRelationship expr:IrregularLayout__Rover___407_pend1_om ;
     sysml:owningMembership expr:IrregularLayout__Rover___407_pend1_om ;
     sysx:sourceText "axle" ;
-    sysml:references elmt:IrregularLayout__Rover__axle .
+    sysml:ownedReferenceSubsetting expr:IrregularLayout__Rover___407_pend1_prs ;
+    sysml:ownedSubsetting expr:IrregularLayout__Rover___407_pend1_prs ;
+    sysml:ownedSpecialization expr:IrregularLayout__Rover___407_pend1_prs ;
+    sysml:ownedRelationship expr:IrregularLayout__Rover___407_pend1_prs .
 
 expr:IrregularLayout__Rover___407_pend1_om
     a sysml:EndFeatureMembership ;
@@ -703,6 +727,24 @@ expr:IrregularLayout__Rover___407_pend1_om
     sysml:ownedRelatedElement expr:IrregularLayout__Rover___407_pend1 ;
     sysml:owningRelatedElement elmt:IrregularLayout__Rover___407 ;
     sysml:membershipOwningNamespace elmt:IrregularLayout__Rover___407 .
+
+expr:IrregularLayout__Rover___407_pend1_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "IrregularLayout__Rover___407_pend1_prs" ;
+    sysml:referencingFeature expr:IrregularLayout__Rover___407_pend1 ;
+    sysml:subsettingFeature expr:IrregularLayout__Rover___407_pend1 ;
+    sysml:specific expr:IrregularLayout__Rover___407_pend1 ;
+    sysml:source expr:IrregularLayout__Rover___407_pend1 ;
+    sysml:owningFeature expr:IrregularLayout__Rover___407_pend1 ;
+    sysml:owningType expr:IrregularLayout__Rover___407_pend1 ;
+    sysml:referencedFeature elmt:IrregularLayout__Rover__axle ;
+    sysml:subsettedFeature elmt:IrregularLayout__Rover__axle ;
+    sysml:general elmt:IrregularLayout__Rover__axle ;
+    sysml:target elmt:IrregularLayout__Rover__axle ;
+    sysml:relatedElement expr:IrregularLayout__Rover___407_pend1, elmt:IrregularLayout__Rover__axle ;
+    sysml:owner expr:IrregularLayout__Rover___407_pend1 ;
+    sysml:owningRelatedElement expr:IrregularLayout__Rover___407_pend1 ;
+    json:relatedElement "[{\"@id\":\"IrregularLayout__Rover___407_pend1\"},{\"@id\":\"IrregularLayout__Rover__axle\"}]" .
 
 elmt:IrregularLayout__Rover__bounds
     a sysml:ConstraintUsage ;

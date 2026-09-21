@@ -959,17 +959,18 @@ func (d *decoder) ownerOf(el *element) (*element, error) {
 // which must be graph subjects carrying sysml:qualifiedName.
 var referenceProperties = func() map[string]bool {
 	set := map[string]bool{
-		rdf.SysML + pOwningNamespace:  true,
-		rdf.SysML + pOwner:            true,
-		rdf.SysML + pOwnedMember:      true,
-		rdf.SysML + pSourceFeature:    true,
-		rdf.SysML + pTargetFeature:    true,
-		rdf.SysML + pSource:           true,
-		rdf.SysML + pTarget:           true,
-		rdf.SysML + pClient:           true,
-		rdf.SysML + pSupplier:         true,
-		rdf.SysML + pAliasFor:         true,
-		rdf.SysML + pAnnotatedElement: true,
+		rdf.SysML + pOwningNamespace:   true,
+		rdf.SysML + pOwner:             true,
+		rdf.SysML + pOwnedMember:       true,
+		rdf.SysML + pSourceFeature:     true,
+		rdf.SysML + pTargetFeature:     true,
+		rdf.SysML + pSource:            true,
+		rdf.SysML + pTarget:            true,
+		rdf.SysML + pClient:            true,
+		rdf.SysML + pSupplier:          true,
+		rdf.SysML + pAliasFor:          true,
+		rdf.SysML + pAnnotatedElement:  true,
+		rdf.SysML + pReferencedFeature: true,
 		// The ends a succession reaches by position, which are elements of the
 		// graph rather than names a reference could be written from.
 		rdf.OpenSysML + xSourceMember: true,
@@ -994,6 +995,15 @@ func (d *decoder) checkReferences() error {
 		}
 		if triple.Predicate.Value == rdf.SysML+pReferences &&
 			d.graph.HasProperty(triple.Object, rdf.SysML+pChainingFeature) {
+			continue
+		}
+		if triple.Predicate.Value == rdf.SysML+pReferencedFeature &&
+			d.graph.HasProperty(triple.Object, rdf.SysML+pChainingFeature) {
+			continue
+		}
+		if d.metaclass(triple.Subject) == mReferenceSubsetting &&
+			(triple.Predicate.Value == rdf.SysML+pSource ||
+				triple.Predicate.Value == rdf.SysML+pTarget) {
 			continue
 		}
 		if _, err := d.referencedElement(triple.Object.Value); err != nil {
@@ -1165,10 +1175,11 @@ func (d *decoder) printElement(b *strings.Builder, el *element, depth int) error
 		return nil
 	}
 	d.rebuilt[el] = true
-	if handled, err := d.printBehavior(b, el, lead, depth); handled {
-		if err != nil {
-			return err
-		}
+	handled, err := d.printBehavior(b, el, lead, depth)
+	if err != nil {
+		return err
+	}
+	if handled {
 		// The behavioral writer prints a whole declaration with no place for `member`.
 		if d.typeFeatureMember(el) {
 			return d.typeFeatureUnwritable(el, "its notation is written whole by the behavioral mapping")
@@ -2872,8 +2883,20 @@ func (d *decoder) boundText(node rdf.Term, property string, in *element) (string
 // qualified name it encodes, a literal is the name as written.
 func (d *decoder) referenceText(el *element, property string) (string, error) {
 	list, err := d.referenceList(el, property)
-	if err != nil || len(list) == 0 {
+	if err != nil {
 		return "", err
+	}
+	if len(list) == 0 && property == rdf.SysML+pReferences {
+		target, ok, err := d.standardEndTarget(rdf.IRI(el.iri), el)
+		if err != nil {
+			return "", err
+		}
+		if ok {
+			return d.referenceName(target, el)
+		}
+	}
+	if len(list) == 0 {
+		return "", nil
 	}
 	return list[0], nil
 }
@@ -2886,6 +2909,20 @@ func (d *decoder) referenceList(el *element, property string) ([]string, error) 
 			return nil, err
 		}
 		out = append(out, name)
+	}
+	if len(out) == 0 && property == rdf.SysML+pReferences &&
+		d.boolOf(el, rdf.SysML+"isEnd") {
+		target, ok, err := d.standardEndTarget(rdf.IRI(el.iri), el)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			name, err := d.referenceName(target, el)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, name)
+		}
 	}
 	return out, nil
 }

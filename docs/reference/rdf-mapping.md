@@ -1246,9 +1246,15 @@ expr:P__Car___402_pend0
     a sysml:ReferenceUsage ;
     sysml:elementId "P__Car___402_pend0" ;
     sysml:isEnd true ;
-    sysml:references elmt:P__Car__left ;
+    sysml:ownedReferenceSubsetting expr:P__Car___402_pend0_prs ;
     sysml:owner elmt:P__Car___402 ;
     sysml:owningMembership expr:P__Car___402_pend0_om .
+
+expr:P__Car___402_pend0_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:referencingFeature expr:P__Car___402_pend0 ;
+    sysml:referencedFeature elmt:P__Car__left ;
+    sysml:relatedElement expr:P__Car___402_pend0, elmt:P__Car__left .
 
 expr:P__Car___402_pend0_om
     a sysml:EndFeatureMembership ;
@@ -1257,9 +1263,9 @@ expr:P__Car___402_pend0_om
 ```
 
 `sysml:connectorEnd` is ordered by its `json:connectorEnd` annotation. Each end
-is a `ReferenceUsage` with `sysml:isEnd`, an `EndFeatureMembership`, and
-`sysml:references` to the linked feature (or a literal when the name is not
-resolved). Named ends carry `sysml:declaredName` and `sysml:name`; multiplicity
+is a `ReferenceUsage` with `sysml:isEnd`, an `EndFeatureMembership`, and an
+owned `ReferenceSubsetting` whose `sysml:referencedFeature` names the linked
+feature (or a literal when the name is not resolved). Named ends carry `sysml:declaredName` and `sysml:name`; multiplicity
 bounds are on the end. A qualified target such as `rover.telemetry` is an
 owned `sysml:Feature` whose ordered `sysml:chainingFeature` values are the
 segments, and the end references that chain feature:
@@ -1270,11 +1276,15 @@ expr:P__Car___402_pend0
     sysml:isEnd true ;
     sysml:declaredName "bead" ;
     sysml:name "bead" ;
-    sysml:references expr:P__Car___402_pend0_chain .
+    sysml:ownedReferenceSubsetting expr:P__Car___402_pend0_prs .
 
 expr:P__Car___402_pend0_chain
     a sysml:Feature ;
     sysml:chainingFeature elmt:P__rover, elmt:P__telemetry .
+
+expr:P__Car___402_pend0_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:referencedFeature expr:P__Car___402_pend0_chain .
 ```
 
 For a binary connector, `sysml:sourceFeature` and `sysml:targetFeature`
@@ -1287,11 +1297,13 @@ the legacy transition spelling accepted on import.
 
 ### Compatibility with earlier end graphs
 
-Graphs written by earlier releases still import, including
-`sysx:relatedFeature` with `sysx:endIndex`, `sysx:endRole` and `sysx:endName`,
-and transitions using `sysml:sourceFeature`/`sysml:targetFeature`. When both
-standard and legacy end shapes are present, the decoder compares their ordered
-ends and refuses a graph whose count or text disagrees. Non-name end targets
+Graphs written by earlier releases still import, including direct
+`sysml:references` on an end, `sysx:relatedFeature` with `sysx:endIndex`,
+`sysx:endRole` and `sysx:endName`, and transitions using
+`sysml:sourceFeature`/`sysml:targetFeature`. When both a
+`ReferenceSubsetting` and interim `sysml:references` are present, or when both
+standard and legacy end shapes are present, the decoder refuses a graph whose
+targets disagree. Non-name end targets
 that cannot be represented as a linked feature remain `sysx:Expression` typed
 literals, preserving the expression text rather than inventing an IRI.
 
@@ -1301,13 +1313,13 @@ and `sysml:upperBound` expression nodes, the way a feature carries its own; the
 decoder writes them back ahead of the end. A binding's two ends are two such
 nodes like a succession's or a connector's — `bind a = b` relates `end0` for `a`
 and `end1` for `b` — and neither is the connector's `sysml:value`: a binding
-states no value and no `sysml:references` of its own
+states no value and no `sysml:ownedReferenceSubsetting` of its own
 (`export_test.go:TestBindingEndMultiplicitiesAreStatedAsStructure`,
 `binding_connector_ends_test.go`). An end that
 declares a name of its own and reference-subsets the feature it attaches to
 (`connect bead ::> t.bead to …`, KerML `connector a ::> a.x to b;`,
 `bind e1 ::> a = e2 references b;`) relates that
-feature — the end's `sysml:references` names `t.bead`, a chain feature when
+feature — the end's `ReferenceSubsetting` names `t.bead`, a chain feature when
 the target is qualified, not `bead` —
 and carries the name as `sysml:declaredName` and `sysml:name` on the same node, with
 `sysx:endReferencesKeyword "references"` where the source spelled the word; the

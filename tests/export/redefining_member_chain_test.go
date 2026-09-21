@@ -65,6 +65,13 @@ func chainTargets(t *testing.T, graph *rdf.Graph, owner rdf.Term, text string) [
 						}
 					}
 				}
+				if len(targets) == 0 {
+					for _, relationship := range graph.Objects(triple.Subject, rdf.SysML+"ownedReferenceSubsetting") {
+						if referenced := graph.Objects(relationship, rdf.SysML+"referencedFeature"); len(referenced) > 0 {
+							targets = append(targets, referenced...)
+						}
+					}
+				}
 				break
 			}
 		}

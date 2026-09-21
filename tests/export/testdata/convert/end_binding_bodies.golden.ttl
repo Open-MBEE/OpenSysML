@@ -411,9 +411,12 @@ expr:R89__Ctx__seam_pend0
     sysml:owningRelationship expr:R89__Ctx__seam_pend0_om ;
     sysml:owningMembership expr:R89__Ctx__seam_pend0_om ;
     sysx:sourceText "w.outp" ;
-    sysml:ownedRelationship expr:R89__Ctx__seam_pend0_pchain_om ;
+    sysml:ownedRelationship expr:R89__Ctx__seam_pend0_pchain_om, expr:R89__Ctx__seam_pend0_prs ;
     sysml:ownedMembership expr:R89__Ctx__seam_pend0_pchain_om ;
-    sysml:references expr:R89__Ctx__seam_pend0_pchain .
+    sysml:ownedReferenceSubsetting expr:R89__Ctx__seam_pend0_prs ;
+    sysml:ownedSubsetting expr:R89__Ctx__seam_pend0_prs ;
+    sysml:ownedSpecialization expr:R89__Ctx__seam_pend0_prs ;
+    json:ownedRelationship "[{\"@id\":\"R89__Ctx__seam_pend0_pchain_om\"},{\"@id\":\"R89__Ctx__seam_pend0_prs\"}]" .
 
 expr:R89__Ctx__seam_pend0_om
     a sysml:EndFeatureMembership ;
@@ -444,6 +447,24 @@ expr:R89__Ctx__seam_pend0_pchain_om
     sysml:owningRelatedElement expr:R89__Ctx__seam_pend0 ;
     sysml:membershipOwningNamespace expr:R89__Ctx__seam_pend0 .
 
+expr:R89__Ctx__seam_pend0_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "R89__Ctx__seam_pend0_prs" ;
+    sysml:referencingFeature expr:R89__Ctx__seam_pend0 ;
+    sysml:subsettingFeature expr:R89__Ctx__seam_pend0 ;
+    sysml:specific expr:R89__Ctx__seam_pend0 ;
+    sysml:source expr:R89__Ctx__seam_pend0 ;
+    sysml:owningFeature expr:R89__Ctx__seam_pend0 ;
+    sysml:owningType expr:R89__Ctx__seam_pend0 ;
+    sysml:referencedFeature expr:R89__Ctx__seam_pend0_pchain ;
+    sysml:subsettedFeature expr:R89__Ctx__seam_pend0_pchain ;
+    sysml:general expr:R89__Ctx__seam_pend0_pchain ;
+    sysml:target expr:R89__Ctx__seam_pend0_pchain ;
+    sysml:relatedElement expr:R89__Ctx__seam_pend0, expr:R89__Ctx__seam_pend0_pchain ;
+    sysml:owner expr:R89__Ctx__seam_pend0 ;
+    sysml:owningRelatedElement expr:R89__Ctx__seam_pend0 ;
+    json:relatedElement "[{\"@id\":\"R89__Ctx__seam_pend0\"},{\"@id\":\"R89__Ctx__seam_pend0_pchain\"}]" .
+
 expr:R89__Ctx__seam_pend1
     a sysml:ReferenceUsage ;
     sysml:elementId "R89__Ctx__seam_pend1" ;
@@ -452,9 +473,12 @@ expr:R89__Ctx__seam_pend1
     sysml:owningRelationship expr:R89__Ctx__seam_pend1_om ;
     sysml:owningMembership expr:R89__Ctx__seam_pend1_om ;
     sysx:sourceText "r.inp" ;
-    sysml:ownedRelationship expr:R89__Ctx__seam_pend1_pchain_om ;
+    sysml:ownedRelationship expr:R89__Ctx__seam_pend1_pchain_om, expr:R89__Ctx__seam_pend1_prs ;
     sysml:ownedMembership expr:R89__Ctx__seam_pend1_pchain_om ;
-    sysml:references expr:R89__Ctx__seam_pend1_pchain .
+    sysml:ownedReferenceSubsetting expr:R89__Ctx__seam_pend1_prs ;
+    sysml:ownedSubsetting expr:R89__Ctx__seam_pend1_prs ;
+    sysml:ownedSpecialization expr:R89__Ctx__seam_pend1_prs ;
+    json:ownedRelationship "[{\"@id\":\"R89__Ctx__seam_pend1_pchain_om\"},{\"@id\":\"R89__Ctx__seam_pend1_prs\"}]" .
 
 expr:R89__Ctx__seam_pend1_om
     a sysml:EndFeatureMembership ;
@@ -484,6 +508,24 @@ expr:R89__Ctx__seam_pend1_pchain_om
     sysml:ownedRelatedElement expr:R89__Ctx__seam_pend1_pchain ;
     sysml:owningRelatedElement expr:R89__Ctx__seam_pend1 ;
     sysml:membershipOwningNamespace expr:R89__Ctx__seam_pend1 .
+
+expr:R89__Ctx__seam_pend1_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "R89__Ctx__seam_pend1_prs" ;
+    sysml:referencingFeature expr:R89__Ctx__seam_pend1 ;
+    sysml:subsettingFeature expr:R89__Ctx__seam_pend1 ;
+    sysml:specific expr:R89__Ctx__seam_pend1 ;
+    sysml:source expr:R89__Ctx__seam_pend1 ;
+    sysml:owningFeature expr:R89__Ctx__seam_pend1 ;
+    sysml:owningType expr:R89__Ctx__seam_pend1 ;
+    sysml:referencedFeature expr:R89__Ctx__seam_pend1_pchain ;
+    sysml:subsettedFeature expr:R89__Ctx__seam_pend1_pchain ;
+    sysml:general expr:R89__Ctx__seam_pend1_pchain ;
+    sysml:target expr:R89__Ctx__seam_pend1_pchain ;
+    sysml:relatedElement expr:R89__Ctx__seam_pend1, expr:R89__Ctx__seam_pend1_pchain ;
+    sysml:owner expr:R89__Ctx__seam_pend1 ;
+    sysml:owningRelatedElement expr:R89__Ctx__seam_pend1 ;
+    json:relatedElement "[{\"@id\":\"R89__Ctx__seam_pend1\"},{\"@id\":\"R89__Ctx__seam_pend1_pchain\"}]" .
 
 elmt:R89__Ctx__seam__coupling
     a sysml:AttributeUsage ;
@@ -955,9 +997,12 @@ expr:Bodies__Ctx__c_pend0
     sysml:owningRelationship expr:Bodies__Ctx__c_pend0_om ;
     sysml:owningMembership expr:Bodies__Ctx__c_pend0_om ;
     sysx:sourceText "x.p" ;
-    sysml:ownedRelationship expr:Bodies__Ctx__c_pend0_pchain_om ;
+    sysml:ownedRelationship expr:Bodies__Ctx__c_pend0_pchain_om, expr:Bodies__Ctx__c_pend0_prs ;
     sysml:ownedMembership expr:Bodies__Ctx__c_pend0_pchain_om ;
-    sysml:references expr:Bodies__Ctx__c_pend0_pchain .
+    sysml:ownedReferenceSubsetting expr:Bodies__Ctx__c_pend0_prs ;
+    sysml:ownedSubsetting expr:Bodies__Ctx__c_pend0_prs ;
+    sysml:ownedSpecialization expr:Bodies__Ctx__c_pend0_prs ;
+    json:ownedRelationship "[{\"@id\":\"Bodies__Ctx__c_pend0_pchain_om\"},{\"@id\":\"Bodies__Ctx__c_pend0_prs\"}]" .
 
 expr:Bodies__Ctx__c_pend0_om
     a sysml:EndFeatureMembership ;
@@ -988,6 +1033,24 @@ expr:Bodies__Ctx__c_pend0_pchain_om
     sysml:owningRelatedElement expr:Bodies__Ctx__c_pend0 ;
     sysml:membershipOwningNamespace expr:Bodies__Ctx__c_pend0 .
 
+expr:Bodies__Ctx__c_pend0_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "Bodies__Ctx__c_pend0_prs" ;
+    sysml:referencingFeature expr:Bodies__Ctx__c_pend0 ;
+    sysml:subsettingFeature expr:Bodies__Ctx__c_pend0 ;
+    sysml:specific expr:Bodies__Ctx__c_pend0 ;
+    sysml:source expr:Bodies__Ctx__c_pend0 ;
+    sysml:owningFeature expr:Bodies__Ctx__c_pend0 ;
+    sysml:owningType expr:Bodies__Ctx__c_pend0 ;
+    sysml:referencedFeature expr:Bodies__Ctx__c_pend0_pchain ;
+    sysml:subsettedFeature expr:Bodies__Ctx__c_pend0_pchain ;
+    sysml:general expr:Bodies__Ctx__c_pend0_pchain ;
+    sysml:target expr:Bodies__Ctx__c_pend0_pchain ;
+    sysml:relatedElement expr:Bodies__Ctx__c_pend0, expr:Bodies__Ctx__c_pend0_pchain ;
+    sysml:owner expr:Bodies__Ctx__c_pend0 ;
+    sysml:owningRelatedElement expr:Bodies__Ctx__c_pend0 ;
+    json:relatedElement "[{\"@id\":\"Bodies__Ctx__c_pend0\"},{\"@id\":\"Bodies__Ctx__c_pend0_pchain\"}]" .
+
 expr:Bodies__Ctx__c_pend1
     a sysml:ReferenceUsage ;
     sysml:elementId "Bodies__Ctx__c_pend1" ;
@@ -996,9 +1059,12 @@ expr:Bodies__Ctx__c_pend1
     sysml:owningRelationship expr:Bodies__Ctx__c_pend1_om ;
     sysml:owningMembership expr:Bodies__Ctx__c_pend1_om ;
     sysx:sourceText "y.q" ;
-    sysml:ownedRelationship expr:Bodies__Ctx__c_pend1_pchain_om ;
+    sysml:ownedRelationship expr:Bodies__Ctx__c_pend1_pchain_om, expr:Bodies__Ctx__c_pend1_prs ;
     sysml:ownedMembership expr:Bodies__Ctx__c_pend1_pchain_om ;
-    sysml:references expr:Bodies__Ctx__c_pend1_pchain .
+    sysml:ownedReferenceSubsetting expr:Bodies__Ctx__c_pend1_prs ;
+    sysml:ownedSubsetting expr:Bodies__Ctx__c_pend1_prs ;
+    sysml:ownedSpecialization expr:Bodies__Ctx__c_pend1_prs ;
+    json:ownedRelationship "[{\"@id\":\"Bodies__Ctx__c_pend1_pchain_om\"},{\"@id\":\"Bodies__Ctx__c_pend1_prs\"}]" .
 
 expr:Bodies__Ctx__c_pend1_om
     a sysml:EndFeatureMembership ;
@@ -1028,6 +1094,24 @@ expr:Bodies__Ctx__c_pend1_pchain_om
     sysml:ownedRelatedElement expr:Bodies__Ctx__c_pend1_pchain ;
     sysml:owningRelatedElement expr:Bodies__Ctx__c_pend1 ;
     sysml:membershipOwningNamespace expr:Bodies__Ctx__c_pend1 .
+
+expr:Bodies__Ctx__c_pend1_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "Bodies__Ctx__c_pend1_prs" ;
+    sysml:referencingFeature expr:Bodies__Ctx__c_pend1 ;
+    sysml:subsettingFeature expr:Bodies__Ctx__c_pend1 ;
+    sysml:specific expr:Bodies__Ctx__c_pend1 ;
+    sysml:source expr:Bodies__Ctx__c_pend1 ;
+    sysml:owningFeature expr:Bodies__Ctx__c_pend1 ;
+    sysml:owningType expr:Bodies__Ctx__c_pend1 ;
+    sysml:referencedFeature expr:Bodies__Ctx__c_pend1_pchain ;
+    sysml:subsettedFeature expr:Bodies__Ctx__c_pend1_pchain ;
+    sysml:general expr:Bodies__Ctx__c_pend1_pchain ;
+    sysml:target expr:Bodies__Ctx__c_pend1_pchain ;
+    sysml:relatedElement expr:Bodies__Ctx__c_pend1, expr:Bodies__Ctx__c_pend1_pchain ;
+    sysml:owner expr:Bodies__Ctx__c_pend1 ;
+    sysml:owningRelatedElement expr:Bodies__Ctx__c_pend1 ;
+    json:relatedElement "[{\"@id\":\"Bodies__Ctx__c_pend1\"},{\"@id\":\"Bodies__Ctx__c_pend1_pchain\"}]" .
 
 elmt:Bodies__Ctx__c__w
     a sysml:AttributeUsage ;
@@ -1103,9 +1187,12 @@ expr:Bodies__Ctx___403_pend0
     sysml:owningRelationship expr:Bodies__Ctx___403_pend0_om ;
     sysml:owningMembership expr:Bodies__Ctx___403_pend0_om ;
     sysx:sourceText "x.p" ;
-    sysml:ownedRelationship expr:Bodies__Ctx___403_pend0_pchain_om ;
+    sysml:ownedRelationship expr:Bodies__Ctx___403_pend0_pchain_om, expr:Bodies__Ctx___403_pend0_prs ;
     sysml:ownedMembership expr:Bodies__Ctx___403_pend0_pchain_om ;
-    sysml:references expr:Bodies__Ctx___403_pend0_pchain .
+    sysml:ownedReferenceSubsetting expr:Bodies__Ctx___403_pend0_prs ;
+    sysml:ownedSubsetting expr:Bodies__Ctx___403_pend0_prs ;
+    sysml:ownedSpecialization expr:Bodies__Ctx___403_pend0_prs ;
+    json:ownedRelationship "[{\"@id\":\"Bodies__Ctx___403_pend0_pchain_om\"},{\"@id\":\"Bodies__Ctx___403_pend0_prs\"}]" .
 
 expr:Bodies__Ctx___403_pend0_om
     a sysml:EndFeatureMembership ;
@@ -1136,6 +1223,24 @@ expr:Bodies__Ctx___403_pend0_pchain_om
     sysml:owningRelatedElement expr:Bodies__Ctx___403_pend0 ;
     sysml:membershipOwningNamespace expr:Bodies__Ctx___403_pend0 .
 
+expr:Bodies__Ctx___403_pend0_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "Bodies__Ctx___403_pend0_prs" ;
+    sysml:referencingFeature expr:Bodies__Ctx___403_pend0 ;
+    sysml:subsettingFeature expr:Bodies__Ctx___403_pend0 ;
+    sysml:specific expr:Bodies__Ctx___403_pend0 ;
+    sysml:source expr:Bodies__Ctx___403_pend0 ;
+    sysml:owningFeature expr:Bodies__Ctx___403_pend0 ;
+    sysml:owningType expr:Bodies__Ctx___403_pend0 ;
+    sysml:referencedFeature expr:Bodies__Ctx___403_pend0_pchain ;
+    sysml:subsettedFeature expr:Bodies__Ctx___403_pend0_pchain ;
+    sysml:general expr:Bodies__Ctx___403_pend0_pchain ;
+    sysml:target expr:Bodies__Ctx___403_pend0_pchain ;
+    sysml:relatedElement expr:Bodies__Ctx___403_pend0, expr:Bodies__Ctx___403_pend0_pchain ;
+    sysml:owner expr:Bodies__Ctx___403_pend0 ;
+    sysml:owningRelatedElement expr:Bodies__Ctx___403_pend0 ;
+    json:relatedElement "[{\"@id\":\"Bodies__Ctx___403_pend0\"},{\"@id\":\"Bodies__Ctx___403_pend0_pchain\"}]" .
+
 expr:Bodies__Ctx___403_pend1
     a sysml:ReferenceUsage ;
     sysml:elementId "Bodies__Ctx___403_pend1" ;
@@ -1144,9 +1249,12 @@ expr:Bodies__Ctx___403_pend1
     sysml:owningRelationship expr:Bodies__Ctx___403_pend1_om ;
     sysml:owningMembership expr:Bodies__Ctx___403_pend1_om ;
     sysx:sourceText "y.q" ;
-    sysml:ownedRelationship expr:Bodies__Ctx___403_pend1_pchain_om ;
+    sysml:ownedRelationship expr:Bodies__Ctx___403_pend1_pchain_om, expr:Bodies__Ctx___403_pend1_prs ;
     sysml:ownedMembership expr:Bodies__Ctx___403_pend1_pchain_om ;
-    sysml:references expr:Bodies__Ctx___403_pend1_pchain .
+    sysml:ownedReferenceSubsetting expr:Bodies__Ctx___403_pend1_prs ;
+    sysml:ownedSubsetting expr:Bodies__Ctx___403_pend1_prs ;
+    sysml:ownedSpecialization expr:Bodies__Ctx___403_pend1_prs ;
+    json:ownedRelationship "[{\"@id\":\"Bodies__Ctx___403_pend1_pchain_om\"},{\"@id\":\"Bodies__Ctx___403_pend1_prs\"}]" .
 
 expr:Bodies__Ctx___403_pend1_om
     a sysml:EndFeatureMembership ;
@@ -1176,6 +1284,24 @@ expr:Bodies__Ctx___403_pend1_pchain_om
     sysml:ownedRelatedElement expr:Bodies__Ctx___403_pend1_pchain ;
     sysml:owningRelatedElement expr:Bodies__Ctx___403_pend1 ;
     sysml:membershipOwningNamespace expr:Bodies__Ctx___403_pend1 .
+
+expr:Bodies__Ctx___403_pend1_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "Bodies__Ctx___403_pend1_prs" ;
+    sysml:referencingFeature expr:Bodies__Ctx___403_pend1 ;
+    sysml:subsettingFeature expr:Bodies__Ctx___403_pend1 ;
+    sysml:specific expr:Bodies__Ctx___403_pend1 ;
+    sysml:source expr:Bodies__Ctx___403_pend1 ;
+    sysml:owningFeature expr:Bodies__Ctx___403_pend1 ;
+    sysml:owningType expr:Bodies__Ctx___403_pend1 ;
+    sysml:referencedFeature expr:Bodies__Ctx___403_pend1_pchain ;
+    sysml:subsettedFeature expr:Bodies__Ctx___403_pend1_pchain ;
+    sysml:general expr:Bodies__Ctx___403_pend1_pchain ;
+    sysml:target expr:Bodies__Ctx___403_pend1_pchain ;
+    sysml:relatedElement expr:Bodies__Ctx___403_pend1, expr:Bodies__Ctx___403_pend1_pchain ;
+    sysml:owner expr:Bodies__Ctx___403_pend1 ;
+    sysml:owningRelatedElement expr:Bodies__Ctx___403_pend1 ;
+    json:relatedElement "[{\"@id\":\"Bodies__Ctx___403_pend1\"},{\"@id\":\"Bodies__Ctx___403_pend1_pchain\"}]" .
 
 elmt:Bodies__Ctx___403__w
     a sysml:AttributeUsage ;
@@ -1249,9 +1375,12 @@ expr:Bodies__Ctx__f_pend0
     sysml:owningRelationship expr:Bodies__Ctx__f_pend0_om ;
     sysml:owningMembership expr:Bodies__Ctx__f_pend0_om ;
     sysx:sourceText "x.i" ;
-    sysml:ownedRelationship expr:Bodies__Ctx__f_pend0_pchain_om ;
+    sysml:ownedRelationship expr:Bodies__Ctx__f_pend0_pchain_om, expr:Bodies__Ctx__f_pend0_prs ;
     sysml:ownedMembership expr:Bodies__Ctx__f_pend0_pchain_om ;
-    sysml:references expr:Bodies__Ctx__f_pend0_pchain .
+    sysml:ownedReferenceSubsetting expr:Bodies__Ctx__f_pend0_prs ;
+    sysml:ownedSubsetting expr:Bodies__Ctx__f_pend0_prs ;
+    sysml:ownedSpecialization expr:Bodies__Ctx__f_pend0_prs ;
+    json:ownedRelationship "[{\"@id\":\"Bodies__Ctx__f_pend0_pchain_om\"},{\"@id\":\"Bodies__Ctx__f_pend0_prs\"}]" .
 
 expr:Bodies__Ctx__f_pend0_om
     a sysml:EndFeatureMembership ;
@@ -1282,6 +1411,24 @@ expr:Bodies__Ctx__f_pend0_pchain_om
     sysml:owningRelatedElement expr:Bodies__Ctx__f_pend0 ;
     sysml:membershipOwningNamespace expr:Bodies__Ctx__f_pend0 .
 
+expr:Bodies__Ctx__f_pend0_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "Bodies__Ctx__f_pend0_prs" ;
+    sysml:referencingFeature expr:Bodies__Ctx__f_pend0 ;
+    sysml:subsettingFeature expr:Bodies__Ctx__f_pend0 ;
+    sysml:specific expr:Bodies__Ctx__f_pend0 ;
+    sysml:source expr:Bodies__Ctx__f_pend0 ;
+    sysml:owningFeature expr:Bodies__Ctx__f_pend0 ;
+    sysml:owningType expr:Bodies__Ctx__f_pend0 ;
+    sysml:referencedFeature expr:Bodies__Ctx__f_pend0_pchain ;
+    sysml:subsettedFeature expr:Bodies__Ctx__f_pend0_pchain ;
+    sysml:general expr:Bodies__Ctx__f_pend0_pchain ;
+    sysml:target expr:Bodies__Ctx__f_pend0_pchain ;
+    sysml:relatedElement expr:Bodies__Ctx__f_pend0, expr:Bodies__Ctx__f_pend0_pchain ;
+    sysml:owner expr:Bodies__Ctx__f_pend0 ;
+    sysml:owningRelatedElement expr:Bodies__Ctx__f_pend0 ;
+    json:relatedElement "[{\"@id\":\"Bodies__Ctx__f_pend0\"},{\"@id\":\"Bodies__Ctx__f_pend0_pchain\"}]" .
+
 expr:Bodies__Ctx__f_pend1
     a sysml:ReferenceUsage ;
     sysml:elementId "Bodies__Ctx__f_pend1" ;
@@ -1290,9 +1437,12 @@ expr:Bodies__Ctx__f_pend1
     sysml:owningRelationship expr:Bodies__Ctx__f_pend1_om ;
     sysml:owningMembership expr:Bodies__Ctx__f_pend1_om ;
     sysx:sourceText "y.j" ;
-    sysml:ownedRelationship expr:Bodies__Ctx__f_pend1_pchain_om ;
+    sysml:ownedRelationship expr:Bodies__Ctx__f_pend1_pchain_om, expr:Bodies__Ctx__f_pend1_prs ;
     sysml:ownedMembership expr:Bodies__Ctx__f_pend1_pchain_om ;
-    sysml:references expr:Bodies__Ctx__f_pend1_pchain .
+    sysml:ownedReferenceSubsetting expr:Bodies__Ctx__f_pend1_prs ;
+    sysml:ownedSubsetting expr:Bodies__Ctx__f_pend1_prs ;
+    sysml:ownedSpecialization expr:Bodies__Ctx__f_pend1_prs ;
+    json:ownedRelationship "[{\"@id\":\"Bodies__Ctx__f_pend1_pchain_om\"},{\"@id\":\"Bodies__Ctx__f_pend1_prs\"}]" .
 
 expr:Bodies__Ctx__f_pend1_om
     a sysml:EndFeatureMembership ;
@@ -1322,6 +1472,24 @@ expr:Bodies__Ctx__f_pend1_pchain_om
     sysml:ownedRelatedElement expr:Bodies__Ctx__f_pend1_pchain ;
     sysml:owningRelatedElement expr:Bodies__Ctx__f_pend1 ;
     sysml:membershipOwningNamespace expr:Bodies__Ctx__f_pend1 .
+
+expr:Bodies__Ctx__f_pend1_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "Bodies__Ctx__f_pend1_prs" ;
+    sysml:referencingFeature expr:Bodies__Ctx__f_pend1 ;
+    sysml:subsettingFeature expr:Bodies__Ctx__f_pend1 ;
+    sysml:specific expr:Bodies__Ctx__f_pend1 ;
+    sysml:source expr:Bodies__Ctx__f_pend1 ;
+    sysml:owningFeature expr:Bodies__Ctx__f_pend1 ;
+    sysml:owningType expr:Bodies__Ctx__f_pend1 ;
+    sysml:referencedFeature expr:Bodies__Ctx__f_pend1_pchain ;
+    sysml:subsettedFeature expr:Bodies__Ctx__f_pend1_pchain ;
+    sysml:general expr:Bodies__Ctx__f_pend1_pchain ;
+    sysml:target expr:Bodies__Ctx__f_pend1_pchain ;
+    sysml:relatedElement expr:Bodies__Ctx__f_pend1, expr:Bodies__Ctx__f_pend1_pchain ;
+    sysml:owner expr:Bodies__Ctx__f_pend1 ;
+    sysml:owningRelatedElement expr:Bodies__Ctx__f_pend1 ;
+    json:relatedElement "[{\"@id\":\"Bodies__Ctx__f_pend1\"},{\"@id\":\"Bodies__Ctx__f_pend1_pchain\"}]" .
 
 elmt:Bodies__Ctx__f__w
     a sysml:AttributeUsage ;
@@ -1396,9 +1564,12 @@ expr:Bodies__Ctx__bd_pend0
     sysml:owningRelationship expr:Bodies__Ctx__bd_pend0_om ;
     sysml:owningMembership expr:Bodies__Ctx__bd_pend0_om ;
     sysx:sourceText "x.a" ;
-    sysml:ownedRelationship expr:Bodies__Ctx__bd_pend0_pchain_om ;
+    sysml:ownedRelationship expr:Bodies__Ctx__bd_pend0_pchain_om, expr:Bodies__Ctx__bd_pend0_prs ;
     sysml:ownedMembership expr:Bodies__Ctx__bd_pend0_pchain_om ;
-    sysml:references expr:Bodies__Ctx__bd_pend0_pchain .
+    sysml:ownedReferenceSubsetting expr:Bodies__Ctx__bd_pend0_prs ;
+    sysml:ownedSubsetting expr:Bodies__Ctx__bd_pend0_prs ;
+    sysml:ownedSpecialization expr:Bodies__Ctx__bd_pend0_prs ;
+    json:ownedRelationship "[{\"@id\":\"Bodies__Ctx__bd_pend0_pchain_om\"},{\"@id\":\"Bodies__Ctx__bd_pend0_prs\"}]" .
 
 expr:Bodies__Ctx__bd_pend0_om
     a sysml:EndFeatureMembership ;
@@ -1429,6 +1600,24 @@ expr:Bodies__Ctx__bd_pend0_pchain_om
     sysml:owningRelatedElement expr:Bodies__Ctx__bd_pend0 ;
     sysml:membershipOwningNamespace expr:Bodies__Ctx__bd_pend0 .
 
+expr:Bodies__Ctx__bd_pend0_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "Bodies__Ctx__bd_pend0_prs" ;
+    sysml:referencingFeature expr:Bodies__Ctx__bd_pend0 ;
+    sysml:subsettingFeature expr:Bodies__Ctx__bd_pend0 ;
+    sysml:specific expr:Bodies__Ctx__bd_pend0 ;
+    sysml:source expr:Bodies__Ctx__bd_pend0 ;
+    sysml:owningFeature expr:Bodies__Ctx__bd_pend0 ;
+    sysml:owningType expr:Bodies__Ctx__bd_pend0 ;
+    sysml:referencedFeature expr:Bodies__Ctx__bd_pend0_pchain ;
+    sysml:subsettedFeature expr:Bodies__Ctx__bd_pend0_pchain ;
+    sysml:general expr:Bodies__Ctx__bd_pend0_pchain ;
+    sysml:target expr:Bodies__Ctx__bd_pend0_pchain ;
+    sysml:relatedElement expr:Bodies__Ctx__bd_pend0, expr:Bodies__Ctx__bd_pend0_pchain ;
+    sysml:owner expr:Bodies__Ctx__bd_pend0 ;
+    sysml:owningRelatedElement expr:Bodies__Ctx__bd_pend0 ;
+    json:relatedElement "[{\"@id\":\"Bodies__Ctx__bd_pend0\"},{\"@id\":\"Bodies__Ctx__bd_pend0_pchain\"}]" .
+
 expr:Bodies__Ctx__bd_pend1
     a sysml:ReferenceUsage ;
     sysml:elementId "Bodies__Ctx__bd_pend1" ;
@@ -1437,9 +1626,12 @@ expr:Bodies__Ctx__bd_pend1
     sysml:owningRelationship expr:Bodies__Ctx__bd_pend1_om ;
     sysml:owningMembership expr:Bodies__Ctx__bd_pend1_om ;
     sysx:sourceText "y.b" ;
-    sysml:ownedRelationship expr:Bodies__Ctx__bd_pend1_pchain_om ;
+    sysml:ownedRelationship expr:Bodies__Ctx__bd_pend1_pchain_om, expr:Bodies__Ctx__bd_pend1_prs ;
     sysml:ownedMembership expr:Bodies__Ctx__bd_pend1_pchain_om ;
-    sysml:references expr:Bodies__Ctx__bd_pend1_pchain .
+    sysml:ownedReferenceSubsetting expr:Bodies__Ctx__bd_pend1_prs ;
+    sysml:ownedSubsetting expr:Bodies__Ctx__bd_pend1_prs ;
+    sysml:ownedSpecialization expr:Bodies__Ctx__bd_pend1_prs ;
+    json:ownedRelationship "[{\"@id\":\"Bodies__Ctx__bd_pend1_pchain_om\"},{\"@id\":\"Bodies__Ctx__bd_pend1_prs\"}]" .
 
 expr:Bodies__Ctx__bd_pend1_om
     a sysml:EndFeatureMembership ;
@@ -1469,6 +1661,24 @@ expr:Bodies__Ctx__bd_pend1_pchain_om
     sysml:ownedRelatedElement expr:Bodies__Ctx__bd_pend1_pchain ;
     sysml:owningRelatedElement expr:Bodies__Ctx__bd_pend1 ;
     sysml:membershipOwningNamespace expr:Bodies__Ctx__bd_pend1 .
+
+expr:Bodies__Ctx__bd_pend1_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "Bodies__Ctx__bd_pend1_prs" ;
+    sysml:referencingFeature expr:Bodies__Ctx__bd_pend1 ;
+    sysml:subsettingFeature expr:Bodies__Ctx__bd_pend1 ;
+    sysml:specific expr:Bodies__Ctx__bd_pend1 ;
+    sysml:source expr:Bodies__Ctx__bd_pend1 ;
+    sysml:owningFeature expr:Bodies__Ctx__bd_pend1 ;
+    sysml:owningType expr:Bodies__Ctx__bd_pend1 ;
+    sysml:referencedFeature expr:Bodies__Ctx__bd_pend1_pchain ;
+    sysml:subsettedFeature expr:Bodies__Ctx__bd_pend1_pchain ;
+    sysml:general expr:Bodies__Ctx__bd_pend1_pchain ;
+    sysml:target expr:Bodies__Ctx__bd_pend1_pchain ;
+    sysml:relatedElement expr:Bodies__Ctx__bd_pend1, expr:Bodies__Ctx__bd_pend1_pchain ;
+    sysml:owner expr:Bodies__Ctx__bd_pend1 ;
+    sysml:owningRelatedElement expr:Bodies__Ctx__bd_pend1 ;
+    json:relatedElement "[{\"@id\":\"Bodies__Ctx__bd_pend1\"},{\"@id\":\"Bodies__Ctx__bd_pend1_pchain\"}]" .
 
 elmt:Bodies__Ctx__bd__w
     a sysml:AttributeUsage ;
@@ -1544,9 +1754,12 @@ expr:Bodies__Ctx___406_pend0
     sysml:owningRelationship expr:Bodies__Ctx___406_pend0_om ;
     sysml:owningMembership expr:Bodies__Ctx___406_pend0_om ;
     sysx:sourceText "x.a" ;
-    sysml:ownedRelationship expr:Bodies__Ctx___406_pend0_pchain_om ;
+    sysml:ownedRelationship expr:Bodies__Ctx___406_pend0_pchain_om, expr:Bodies__Ctx___406_pend0_prs ;
     sysml:ownedMembership expr:Bodies__Ctx___406_pend0_pchain_om ;
-    sysml:references expr:Bodies__Ctx___406_pend0_pchain .
+    sysml:ownedReferenceSubsetting expr:Bodies__Ctx___406_pend0_prs ;
+    sysml:ownedSubsetting expr:Bodies__Ctx___406_pend0_prs ;
+    sysml:ownedSpecialization expr:Bodies__Ctx___406_pend0_prs ;
+    json:ownedRelationship "[{\"@id\":\"Bodies__Ctx___406_pend0_pchain_om\"},{\"@id\":\"Bodies__Ctx___406_pend0_prs\"}]" .
 
 expr:Bodies__Ctx___406_pend0_om
     a sysml:EndFeatureMembership ;
@@ -1577,6 +1790,24 @@ expr:Bodies__Ctx___406_pend0_pchain_om
     sysml:owningRelatedElement expr:Bodies__Ctx___406_pend0 ;
     sysml:membershipOwningNamespace expr:Bodies__Ctx___406_pend0 .
 
+expr:Bodies__Ctx___406_pend0_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "Bodies__Ctx___406_pend0_prs" ;
+    sysml:referencingFeature expr:Bodies__Ctx___406_pend0 ;
+    sysml:subsettingFeature expr:Bodies__Ctx___406_pend0 ;
+    sysml:specific expr:Bodies__Ctx___406_pend0 ;
+    sysml:source expr:Bodies__Ctx___406_pend0 ;
+    sysml:owningFeature expr:Bodies__Ctx___406_pend0 ;
+    sysml:owningType expr:Bodies__Ctx___406_pend0 ;
+    sysml:referencedFeature expr:Bodies__Ctx___406_pend0_pchain ;
+    sysml:subsettedFeature expr:Bodies__Ctx___406_pend0_pchain ;
+    sysml:general expr:Bodies__Ctx___406_pend0_pchain ;
+    sysml:target expr:Bodies__Ctx___406_pend0_pchain ;
+    sysml:relatedElement expr:Bodies__Ctx___406_pend0, expr:Bodies__Ctx___406_pend0_pchain ;
+    sysml:owner expr:Bodies__Ctx___406_pend0 ;
+    sysml:owningRelatedElement expr:Bodies__Ctx___406_pend0 ;
+    json:relatedElement "[{\"@id\":\"Bodies__Ctx___406_pend0\"},{\"@id\":\"Bodies__Ctx___406_pend0_pchain\"}]" .
+
 expr:Bodies__Ctx___406_pend1
     a sysml:ReferenceUsage ;
     sysml:elementId "Bodies__Ctx___406_pend1" ;
@@ -1585,9 +1816,12 @@ expr:Bodies__Ctx___406_pend1
     sysml:owningRelationship expr:Bodies__Ctx___406_pend1_om ;
     sysml:owningMembership expr:Bodies__Ctx___406_pend1_om ;
     sysx:sourceText "y.b" ;
-    sysml:ownedRelationship expr:Bodies__Ctx___406_pend1_pchain_om ;
+    sysml:ownedRelationship expr:Bodies__Ctx___406_pend1_pchain_om, expr:Bodies__Ctx___406_pend1_prs ;
     sysml:ownedMembership expr:Bodies__Ctx___406_pend1_pchain_om ;
-    sysml:references expr:Bodies__Ctx___406_pend1_pchain .
+    sysml:ownedReferenceSubsetting expr:Bodies__Ctx___406_pend1_prs ;
+    sysml:ownedSubsetting expr:Bodies__Ctx___406_pend1_prs ;
+    sysml:ownedSpecialization expr:Bodies__Ctx___406_pend1_prs ;
+    json:ownedRelationship "[{\"@id\":\"Bodies__Ctx___406_pend1_pchain_om\"},{\"@id\":\"Bodies__Ctx___406_pend1_prs\"}]" .
 
 expr:Bodies__Ctx___406_pend1_om
     a sysml:EndFeatureMembership ;
@@ -1617,6 +1851,24 @@ expr:Bodies__Ctx___406_pend1_pchain_om
     sysml:ownedRelatedElement expr:Bodies__Ctx___406_pend1_pchain ;
     sysml:owningRelatedElement expr:Bodies__Ctx___406_pend1 ;
     sysml:membershipOwningNamespace expr:Bodies__Ctx___406_pend1 .
+
+expr:Bodies__Ctx___406_pend1_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "Bodies__Ctx___406_pend1_prs" ;
+    sysml:referencingFeature expr:Bodies__Ctx___406_pend1 ;
+    sysml:subsettingFeature expr:Bodies__Ctx___406_pend1 ;
+    sysml:specific expr:Bodies__Ctx___406_pend1 ;
+    sysml:source expr:Bodies__Ctx___406_pend1 ;
+    sysml:owningFeature expr:Bodies__Ctx___406_pend1 ;
+    sysml:owningType expr:Bodies__Ctx___406_pend1 ;
+    sysml:referencedFeature expr:Bodies__Ctx___406_pend1_pchain ;
+    sysml:subsettedFeature expr:Bodies__Ctx___406_pend1_pchain ;
+    sysml:general expr:Bodies__Ctx___406_pend1_pchain ;
+    sysml:target expr:Bodies__Ctx___406_pend1_pchain ;
+    sysml:relatedElement expr:Bodies__Ctx___406_pend1, expr:Bodies__Ctx___406_pend1_pchain ;
+    sysml:owner expr:Bodies__Ctx___406_pend1 ;
+    sysml:owningRelatedElement expr:Bodies__Ctx___406_pend1 ;
+    json:relatedElement "[{\"@id\":\"Bodies__Ctx___406_pend1\"},{\"@id\":\"Bodies__Ctx___406_pend1_pchain\"}]" .
 
 elmt:Bodies__Ctx___406__w
     a sysml:AttributeUsage ;
@@ -1697,7 +1949,10 @@ expr:Bodies__Ctx__al_pend0
     sysml:owningRelationship expr:Bodies__Ctx__al_pend0_om ;
     sysml:owningMembership expr:Bodies__Ctx__al_pend0_om ;
     sysx:sourceText "x" ;
-    sysml:references elmt:Bodies__Ctx__x .
+    sysml:ownedReferenceSubsetting expr:Bodies__Ctx__al_pend0_prs ;
+    sysml:ownedSubsetting expr:Bodies__Ctx__al_pend0_prs ;
+    sysml:ownedSpecialization expr:Bodies__Ctx__al_pend0_prs ;
+    sysml:ownedRelationship expr:Bodies__Ctx__al_pend0_prs .
 
 expr:Bodies__Ctx__al_pend0_om
     a sysml:EndFeatureMembership ;
@@ -1709,6 +1964,24 @@ expr:Bodies__Ctx__al_pend0_om
     sysml:owningRelatedElement elmt:Bodies__Ctx__al ;
     sysml:membershipOwningNamespace elmt:Bodies__Ctx__al .
 
+expr:Bodies__Ctx__al_pend0_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "Bodies__Ctx__al_pend0_prs" ;
+    sysml:referencingFeature expr:Bodies__Ctx__al_pend0 ;
+    sysml:subsettingFeature expr:Bodies__Ctx__al_pend0 ;
+    sysml:specific expr:Bodies__Ctx__al_pend0 ;
+    sysml:source expr:Bodies__Ctx__al_pend0 ;
+    sysml:owningFeature expr:Bodies__Ctx__al_pend0 ;
+    sysml:owningType expr:Bodies__Ctx__al_pend0 ;
+    sysml:referencedFeature elmt:Bodies__Ctx__x ;
+    sysml:subsettedFeature elmt:Bodies__Ctx__x ;
+    sysml:general elmt:Bodies__Ctx__x ;
+    sysml:target elmt:Bodies__Ctx__x ;
+    sysml:relatedElement expr:Bodies__Ctx__al_pend0, elmt:Bodies__Ctx__x ;
+    sysml:owner expr:Bodies__Ctx__al_pend0 ;
+    sysml:owningRelatedElement expr:Bodies__Ctx__al_pend0 ;
+    json:relatedElement "[{\"@id\":\"Bodies__Ctx__al_pend0\"},{\"@id\":\"Bodies__Ctx__x\"}]" .
+
 expr:Bodies__Ctx__al_pend1
     a sysml:ReferenceUsage ;
     sysml:elementId "Bodies__Ctx__al_pend1" ;
@@ -1717,7 +1990,10 @@ expr:Bodies__Ctx__al_pend1
     sysml:owningRelationship expr:Bodies__Ctx__al_pend1_om ;
     sysml:owningMembership expr:Bodies__Ctx__al_pend1_om ;
     sysx:sourceText "y" ;
-    sysml:references elmt:Bodies__Ctx__y .
+    sysml:ownedReferenceSubsetting expr:Bodies__Ctx__al_pend1_prs ;
+    sysml:ownedSubsetting expr:Bodies__Ctx__al_pend1_prs ;
+    sysml:ownedSpecialization expr:Bodies__Ctx__al_pend1_prs ;
+    sysml:ownedRelationship expr:Bodies__Ctx__al_pend1_prs .
 
 expr:Bodies__Ctx__al_pend1_om
     a sysml:EndFeatureMembership ;
@@ -1728,6 +2004,24 @@ expr:Bodies__Ctx__al_pend1_om
     sysml:ownedRelatedElement expr:Bodies__Ctx__al_pend1 ;
     sysml:owningRelatedElement elmt:Bodies__Ctx__al ;
     sysml:membershipOwningNamespace elmt:Bodies__Ctx__al .
+
+expr:Bodies__Ctx__al_pend1_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "Bodies__Ctx__al_pend1_prs" ;
+    sysml:referencingFeature expr:Bodies__Ctx__al_pend1 ;
+    sysml:subsettingFeature expr:Bodies__Ctx__al_pend1 ;
+    sysml:specific expr:Bodies__Ctx__al_pend1 ;
+    sysml:source expr:Bodies__Ctx__al_pend1 ;
+    sysml:owningFeature expr:Bodies__Ctx__al_pend1 ;
+    sysml:owningType expr:Bodies__Ctx__al_pend1 ;
+    sysml:referencedFeature elmt:Bodies__Ctx__y ;
+    sysml:subsettedFeature elmt:Bodies__Ctx__y ;
+    sysml:general elmt:Bodies__Ctx__y ;
+    sysml:target elmt:Bodies__Ctx__y ;
+    sysml:relatedElement expr:Bodies__Ctx__al_pend1, elmt:Bodies__Ctx__y ;
+    sysml:owner expr:Bodies__Ctx__al_pend1 ;
+    sysml:owningRelatedElement expr:Bodies__Ctx__al_pend1 ;
+    json:relatedElement "[{\"@id\":\"Bodies__Ctx__al_pend1\"},{\"@id\":\"Bodies__Ctx__y\"}]" .
 
 elmt:Bodies__Ctx__al__w
     a sysml:AttributeUsage ;
@@ -1808,7 +2102,10 @@ expr:Bodies__Ctx__s_pend0
     sysml:owningRelationship expr:Bodies__Ctx__s_pend0_om ;
     sysml:owningMembership expr:Bodies__Ctx__s_pend0_om ;
     sysx:sourceText "x" ;
-    sysml:references elmt:Bodies__Ctx__x .
+    sysml:ownedReferenceSubsetting expr:Bodies__Ctx__s_pend0_prs ;
+    sysml:ownedSubsetting expr:Bodies__Ctx__s_pend0_prs ;
+    sysml:ownedSpecialization expr:Bodies__Ctx__s_pend0_prs ;
+    sysml:ownedRelationship expr:Bodies__Ctx__s_pend0_prs .
 
 expr:Bodies__Ctx__s_pend0_om
     a sysml:EndFeatureMembership ;
@@ -1820,6 +2117,24 @@ expr:Bodies__Ctx__s_pend0_om
     sysml:owningRelatedElement elmt:Bodies__Ctx__s ;
     sysml:membershipOwningNamespace elmt:Bodies__Ctx__s .
 
+expr:Bodies__Ctx__s_pend0_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "Bodies__Ctx__s_pend0_prs" ;
+    sysml:referencingFeature expr:Bodies__Ctx__s_pend0 ;
+    sysml:subsettingFeature expr:Bodies__Ctx__s_pend0 ;
+    sysml:specific expr:Bodies__Ctx__s_pend0 ;
+    sysml:source expr:Bodies__Ctx__s_pend0 ;
+    sysml:owningFeature expr:Bodies__Ctx__s_pend0 ;
+    sysml:owningType expr:Bodies__Ctx__s_pend0 ;
+    sysml:referencedFeature elmt:Bodies__Ctx__x ;
+    sysml:subsettedFeature elmt:Bodies__Ctx__x ;
+    sysml:general elmt:Bodies__Ctx__x ;
+    sysml:target elmt:Bodies__Ctx__x ;
+    sysml:relatedElement expr:Bodies__Ctx__s_pend0, elmt:Bodies__Ctx__x ;
+    sysml:owner expr:Bodies__Ctx__s_pend0 ;
+    sysml:owningRelatedElement expr:Bodies__Ctx__s_pend0 ;
+    json:relatedElement "[{\"@id\":\"Bodies__Ctx__s_pend0\"},{\"@id\":\"Bodies__Ctx__x\"}]" .
+
 expr:Bodies__Ctx__s_pend1
     a sysml:ReferenceUsage ;
     sysml:elementId "Bodies__Ctx__s_pend1" ;
@@ -1828,7 +2143,10 @@ expr:Bodies__Ctx__s_pend1
     sysml:owningRelationship expr:Bodies__Ctx__s_pend1_om ;
     sysml:owningMembership expr:Bodies__Ctx__s_pend1_om ;
     sysx:sourceText "y" ;
-    sysml:references elmt:Bodies__Ctx__y .
+    sysml:ownedReferenceSubsetting expr:Bodies__Ctx__s_pend1_prs ;
+    sysml:ownedSubsetting expr:Bodies__Ctx__s_pend1_prs ;
+    sysml:ownedSpecialization expr:Bodies__Ctx__s_pend1_prs ;
+    sysml:ownedRelationship expr:Bodies__Ctx__s_pend1_prs .
 
 expr:Bodies__Ctx__s_pend1_om
     a sysml:EndFeatureMembership ;
@@ -1839,6 +2157,24 @@ expr:Bodies__Ctx__s_pend1_om
     sysml:ownedRelatedElement expr:Bodies__Ctx__s_pend1 ;
     sysml:owningRelatedElement elmt:Bodies__Ctx__s ;
     sysml:membershipOwningNamespace elmt:Bodies__Ctx__s .
+
+expr:Bodies__Ctx__s_pend1_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "Bodies__Ctx__s_pend1_prs" ;
+    sysml:referencingFeature expr:Bodies__Ctx__s_pend1 ;
+    sysml:subsettingFeature expr:Bodies__Ctx__s_pend1 ;
+    sysml:specific expr:Bodies__Ctx__s_pend1 ;
+    sysml:source expr:Bodies__Ctx__s_pend1 ;
+    sysml:owningFeature expr:Bodies__Ctx__s_pend1 ;
+    sysml:owningType expr:Bodies__Ctx__s_pend1 ;
+    sysml:referencedFeature elmt:Bodies__Ctx__y ;
+    sysml:subsettedFeature elmt:Bodies__Ctx__y ;
+    sysml:general elmt:Bodies__Ctx__y ;
+    sysml:target elmt:Bodies__Ctx__y ;
+    sysml:relatedElement expr:Bodies__Ctx__s_pend1, elmt:Bodies__Ctx__y ;
+    sysml:owner expr:Bodies__Ctx__s_pend1 ;
+    sysml:owningRelatedElement expr:Bodies__Ctx__s_pend1 ;
+    json:relatedElement "[{\"@id\":\"Bodies__Ctx__s_pend1\"},{\"@id\":\"Bodies__Ctx__y\"}]" .
 
 elmt:Bodies__Ctx__s__w
     a sysml:AttributeUsage ;
@@ -2002,7 +2338,10 @@ expr:Bodies__Ctx__Act___402_pend0
     sysml:owningRelationship expr:Bodies__Ctx__Act___402_pend0_om ;
     sysml:owningMembership expr:Bodies__Ctx__Act___402_pend0_om ;
     sysx:sourceText "a1" ;
-    sysml:references elmt:Bodies__Ctx__Act__a1 .
+    sysml:ownedReferenceSubsetting expr:Bodies__Ctx__Act___402_pend0_prs ;
+    sysml:ownedSubsetting expr:Bodies__Ctx__Act___402_pend0_prs ;
+    sysml:ownedSpecialization expr:Bodies__Ctx__Act___402_pend0_prs ;
+    sysml:ownedRelationship expr:Bodies__Ctx__Act___402_pend0_prs .
 
 expr:Bodies__Ctx__Act___402_pend0_om
     a sysml:EndFeatureMembership ;
@@ -2014,6 +2353,24 @@ expr:Bodies__Ctx__Act___402_pend0_om
     sysml:owningRelatedElement elmt:Bodies__Ctx__Act___402 ;
     sysml:membershipOwningNamespace elmt:Bodies__Ctx__Act___402 .
 
+expr:Bodies__Ctx__Act___402_pend0_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "Bodies__Ctx__Act___402_pend0_prs" ;
+    sysml:referencingFeature expr:Bodies__Ctx__Act___402_pend0 ;
+    sysml:subsettingFeature expr:Bodies__Ctx__Act___402_pend0 ;
+    sysml:specific expr:Bodies__Ctx__Act___402_pend0 ;
+    sysml:source expr:Bodies__Ctx__Act___402_pend0 ;
+    sysml:owningFeature expr:Bodies__Ctx__Act___402_pend0 ;
+    sysml:owningType expr:Bodies__Ctx__Act___402_pend0 ;
+    sysml:referencedFeature elmt:Bodies__Ctx__Act__a1 ;
+    sysml:subsettedFeature elmt:Bodies__Ctx__Act__a1 ;
+    sysml:general elmt:Bodies__Ctx__Act__a1 ;
+    sysml:target elmt:Bodies__Ctx__Act__a1 ;
+    sysml:relatedElement expr:Bodies__Ctx__Act___402_pend0, elmt:Bodies__Ctx__Act__a1 ;
+    sysml:owner expr:Bodies__Ctx__Act___402_pend0 ;
+    sysml:owningRelatedElement expr:Bodies__Ctx__Act___402_pend0 ;
+    json:relatedElement "[{\"@id\":\"Bodies__Ctx__Act___402_pend0\"},{\"@id\":\"Bodies__Ctx__Act__a1\"}]" .
+
 expr:Bodies__Ctx__Act___402_pend1
     a sysml:ReferenceUsage ;
     sysml:elementId "Bodies__Ctx__Act___402_pend1" ;
@@ -2022,7 +2379,10 @@ expr:Bodies__Ctx__Act___402_pend1
     sysml:owningRelationship expr:Bodies__Ctx__Act___402_pend1_om ;
     sysml:owningMembership expr:Bodies__Ctx__Act___402_pend1_om ;
     sysx:sourceText "a2" ;
-    sysml:references elmt:Bodies__Ctx__Act__a2 .
+    sysml:ownedReferenceSubsetting expr:Bodies__Ctx__Act___402_pend1_prs ;
+    sysml:ownedSubsetting expr:Bodies__Ctx__Act___402_pend1_prs ;
+    sysml:ownedSpecialization expr:Bodies__Ctx__Act___402_pend1_prs ;
+    sysml:ownedRelationship expr:Bodies__Ctx__Act___402_pend1_prs .
 
 expr:Bodies__Ctx__Act___402_pend1_om
     a sysml:EndFeatureMembership ;
@@ -2033,6 +2393,24 @@ expr:Bodies__Ctx__Act___402_pend1_om
     sysml:ownedRelatedElement expr:Bodies__Ctx__Act___402_pend1 ;
     sysml:owningRelatedElement elmt:Bodies__Ctx__Act___402 ;
     sysml:membershipOwningNamespace elmt:Bodies__Ctx__Act___402 .
+
+expr:Bodies__Ctx__Act___402_pend1_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "Bodies__Ctx__Act___402_pend1_prs" ;
+    sysml:referencingFeature expr:Bodies__Ctx__Act___402_pend1 ;
+    sysml:subsettingFeature expr:Bodies__Ctx__Act___402_pend1 ;
+    sysml:specific expr:Bodies__Ctx__Act___402_pend1 ;
+    sysml:source expr:Bodies__Ctx__Act___402_pend1 ;
+    sysml:owningFeature expr:Bodies__Ctx__Act___402_pend1 ;
+    sysml:owningType expr:Bodies__Ctx__Act___402_pend1 ;
+    sysml:referencedFeature elmt:Bodies__Ctx__Act__a2 ;
+    sysml:subsettedFeature elmt:Bodies__Ctx__Act__a2 ;
+    sysml:general elmt:Bodies__Ctx__Act__a2 ;
+    sysml:target elmt:Bodies__Ctx__Act__a2 ;
+    sysml:relatedElement expr:Bodies__Ctx__Act___402_pend1, elmt:Bodies__Ctx__Act__a2 ;
+    sysml:owner expr:Bodies__Ctx__Act___402_pend1 ;
+    sysml:owningRelatedElement expr:Bodies__Ctx__Act___402_pend1 ;
+    json:relatedElement "[{\"@id\":\"Bodies__Ctx__Act___402_pend1\"},{\"@id\":\"Bodies__Ctx__Act__a2\"}]" .
 
 elmt:Bodies__Ctx__Act___402__w
     a sysml:AttributeUsage ;

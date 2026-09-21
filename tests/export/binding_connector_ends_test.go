@@ -25,11 +25,14 @@ func TestBindingConnectorEndsAreStatedLikeSuccessionEnds(t *testing.T) {
 		"expr:P__Car___402_pend0\n    a sysml:ReferenceUsage ;",
 		"sysml:elementId \"P__Car___402_pend0\" ;",
 		"sysml:isEnd \"true\"^^xsd:boolean ;",
-		"sysml:references elmt:P__Car__a",
+		"sysml:ownedReferenceSubsetting expr:P__Car___402_pend0_prs",
+		"expr:P__Car___402_pend0_prs\n    a sysml:ReferenceSubsetting ;",
+		"sysml:referencedFeature elmt:P__Car__a",
 		"sysml:declaredName \"e3\" ;",
 		"expr:P__Car___402_pend1\n    a sysml:ReferenceUsage ;",
 		"sysml:elementId \"P__Car___402_pend1\" ;",
-		"sysml:references elmt:P__Car__b",
+		"sysml:ownedReferenceSubsetting expr:P__Car___402_pend1_prs",
+		"sysml:referencedFeature elmt:P__Car__b",
 		"sysml:declaredName \"s1\" ;",
 	} {
 		if !strings.Contains(graph, want) {
@@ -144,21 +147,21 @@ func TestBindingEndsWithoutANotationAreRefused(t *testing.T) {
 		{
 			name: "named without a feature",
 			edit: func(g string) string {
-				return strings.Replace(g, "sysml:references elmt:P__Car__a", "sysml:references elmt:missing", 1)
+				return strings.Replace(g, "sysml:referencedFeature elmt:P__Car__a", "sysml:referencedFeature elmt:missing", 1)
 			},
 			want: []string{"reference"},
 		},
 		{
 			name: "unknown references keyword",
 			edit: func(g string) string {
-				return strings.Replace(g, "sysml:references elmt:P__Car__a", "sysml:references elmt:P__Car__a ;\n    sysx:endReferencesKeyword \"subsets\"", 1)
+				return strings.Replace(g, "sysml:isEnd \"true\"^^xsd:boolean ;", "sysml:isEnd \"true\"^^xsd:boolean ;\n    sysx:endReferencesKeyword \"subsets\" ;", 1)
 			},
 			want: []string{"ReferencesKeyword", "\"subsets\""},
 		},
 		{
 			name: "missing standard end",
 			edit: func(g string) string {
-				return strings.Replace(g, "sysml:references elmt:P__Car__a", "sysml:references elmt:missing", 1)
+				return strings.Replace(g, "sysml:referencedFeature elmt:P__Car__a", "sysml:referencedFeature elmt:missing", 1)
 			},
 			want: []string{"reference"},
 		},
@@ -180,5 +183,83 @@ func TestBindingEndsWithoutANotationAreRefused(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestConnectorEndsAcceptInterimReferencesOnly(t *testing.T) {
+	src := "package P {\n    part def Car {\n        attribute a : Integer;\n        attribute b : Integer;\n        bind e3 ::> a = b;\n    }\n}\n"
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	legacy := withoutTriples(t, []byte(turtle), "sysml:ownedReferenceSubsetting")
+	legacy = withoutTriples(t, legacy, "sysml:referencingFeature")
+	needle := "sysml:isEnd \"true\"^^xsd:boolean ;"
+	legacyText := string(legacy)
+	first := strings.Index(legacyText, needle)
+	if first < 0 {
+		t.Fatalf("legacy graph has no first end")
+	}
+	firstEnd := first + len(needle)
+	legacyText = legacyText[:firstEnd] + "\n    sysml:references elmt:P__Car__a ;" + legacyText[firstEnd:]
+	second := strings.Index(legacyText[firstEnd+len("\n    sysml:references elmt:P__Car__a ;"):], needle)
+	if second < 0 {
+		t.Fatalf("legacy graph has no second end")
+	}
+	second += firstEnd + len("\n    sysml:references elmt:P__Car__a ;")
+	secondEnd := second + len(needle)
+	legacy = []byte(legacyText[:secondEnd] + "\n    sysml:references elmt:P__Car__b ;" + legacyText[secondEnd:])
+	back, err := convert.Convert("m.ttl", legacy, convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("legacy end references should import: %v", err)
+	}
+	if !strings.Contains(string(back), "bind e3 ::> a = b;") {
+		t.Errorf("legacy end references changed the binding:\n%s", back)
+	}
+}
+
+func TestConnectorEndReferenceSubsettingDisagreementIsRefused(t *testing.T) {
+	src := "package P {\n    part def Car {\n        attribute a : Integer;\n        attribute b : Integer;\n        bind e3 ::> a = b;\n    }\n}\n"
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	disagreeing := []byte(strings.Replace(string(turtle),
+		"sysml:isEnd \"true\"^^xsd:boolean ;",
+		"sysml:isEnd \"true\"^^xsd:boolean ;\n    sysml:references elmt:P__Car__b ;", 1))
+	_, err = convert.Convert("m.ttl", disagreeing, convert.FormatTurtle, convert.FormatSysML)
+	var unsupported *export.UnsupportedError
+	if !errors.As(err, &unsupported) {
+		t.Fatalf("want an UnsupportedError for disagreeing end targets, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "ReferenceSubsetting") || !strings.Contains(err.Error(), "disagree") {
+		t.Fatalf("error should identify the disagreement: %v", err)
+	}
+}
+
+func TestOwnershipOnlyThreeEndedConnectorDecodesAllEnds(t *testing.T) {
+	src := `package P {
+	part def Car {
+		part a;
+		part b;
+		part c;
+		connect (a, b, c);
+	}
+}
+`
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	ownershipOnly := withoutTriples(t, turtle, "sysml:connectorEnd")
+	ownershipOnly = withoutTriples(t, ownershipOnly, "sysml:ownedFeatureMembership")
+	back, err := convert.Convert("m.ttl", ownershipOnly, convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("ownership-only connector ends should import: %v", err)
+	}
+	for _, want := range []string{"connect (a, b, c);", "a", "b", "c"} {
+		if !strings.Contains(string(back), want) {
+			t.Errorf("ownership-only connector lost %q:\n%s", want, back)
+		}
 	}
 }

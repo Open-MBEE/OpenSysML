@@ -252,7 +252,10 @@ expr:QuotedSuccessionEnds__provide_20power__s_pend0
     sysml:owningRelationship expr:QuotedSuccessionEnds__provide_20power__s_pend0_om ;
     sysml:owningMembership expr:QuotedSuccessionEnds__provide_20power__s_pend0_om ;
     sysx:sourceText "'amplify torque'" ;
-    sysml:references elmt:QuotedSuccessionEnds__provide_20power__amplify_20torque .
+    sysml:ownedReferenceSubsetting expr:QuotedSuccessionEnds__provide_20power__s_pend0_prs ;
+    sysml:ownedSubsetting expr:QuotedSuccessionEnds__provide_20power__s_pend0_prs ;
+    sysml:ownedSpecialization expr:QuotedSuccessionEnds__provide_20power__s_pend0_prs ;
+    sysml:ownedRelationship expr:QuotedSuccessionEnds__provide_20power__s_pend0_prs .
 
 expr:QuotedSuccessionEnds__provide_20power__s_pend0_om
     a sysml:EndFeatureMembership ;
@@ -264,6 +267,24 @@ expr:QuotedSuccessionEnds__provide_20power__s_pend0_om
     sysml:owningRelatedElement elmt:QuotedSuccessionEnds__provide_20power__s ;
     sysml:membershipOwningNamespace elmt:QuotedSuccessionEnds__provide_20power__s .
 
+expr:QuotedSuccessionEnds__provide_20power__s_pend0_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "QuotedSuccessionEnds__provide_20power__s_pend0_prs" ;
+    sysml:referencingFeature expr:QuotedSuccessionEnds__provide_20power__s_pend0 ;
+    sysml:subsettingFeature expr:QuotedSuccessionEnds__provide_20power__s_pend0 ;
+    sysml:specific expr:QuotedSuccessionEnds__provide_20power__s_pend0 ;
+    sysml:source expr:QuotedSuccessionEnds__provide_20power__s_pend0 ;
+    sysml:owningFeature expr:QuotedSuccessionEnds__provide_20power__s_pend0 ;
+    sysml:owningType expr:QuotedSuccessionEnds__provide_20power__s_pend0 ;
+    sysml:referencedFeature elmt:QuotedSuccessionEnds__provide_20power__amplify_20torque ;
+    sysml:subsettedFeature elmt:QuotedSuccessionEnds__provide_20power__amplify_20torque ;
+    sysml:general elmt:QuotedSuccessionEnds__provide_20power__amplify_20torque ;
+    sysml:target elmt:QuotedSuccessionEnds__provide_20power__amplify_20torque ;
+    sysml:relatedElement expr:QuotedSuccessionEnds__provide_20power__s_pend0, elmt:QuotedSuccessionEnds__provide_20power__amplify_20torque ;
+    sysml:owner expr:QuotedSuccessionEnds__provide_20power__s_pend0 ;
+    sysml:owningRelatedElement expr:QuotedSuccessionEnds__provide_20power__s_pend0 ;
+    json:relatedElement "[{\"@id\":\"QuotedSuccessionEnds__provide_20power__s_pend0\"},{\"@id\":\"QuotedSuccessionEnds__provide_20power__amplify_20torque\"}]" .
+
 expr:QuotedSuccessionEnds__provide_20power__s_pend1
     a sysml:ReferenceUsage ;
     sysml:elementId "QuotedSuccessionEnds__provide_20power__s_pend1" ;
@@ -272,7 +293,10 @@ expr:QuotedSuccessionEnds__provide_20power__s_pend1
     sysml:owningRelationship expr:QuotedSuccessionEnds__provide_20power__s_pend1_om ;
     sysml:owningMembership expr:QuotedSuccessionEnds__provide_20power__s_pend1_om ;
     sysx:sourceText "done" ;
-    sysml:references <urn:sysmlv2:element:0cdc3cd3-b06c-5c32-beda-0cf4ba164a64> .
+    sysml:ownedReferenceSubsetting expr:QuotedSuccessionEnds__provide_20power__s_pend1_prs ;
+    sysml:ownedSubsetting expr:QuotedSuccessionEnds__provide_20power__s_pend1_prs ;
+    sysml:ownedSpecialization expr:QuotedSuccessionEnds__provide_20power__s_pend1_prs ;
+    sysml:ownedRelationship expr:QuotedSuccessionEnds__provide_20power__s_pend1_prs .
 
 expr:QuotedSuccessionEnds__provide_20power__s_pend1_om
     a sysml:EndFeatureMembership ;
@@ -283,6 +307,24 @@ expr:QuotedSuccessionEnds__provide_20power__s_pend1_om
     sysml:ownedRelatedElement expr:QuotedSuccessionEnds__provide_20power__s_pend1 ;
     sysml:owningRelatedElement elmt:QuotedSuccessionEnds__provide_20power__s ;
     sysml:membershipOwningNamespace elmt:QuotedSuccessionEnds__provide_20power__s .
+
+expr:QuotedSuccessionEnds__provide_20power__s_pend1_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "QuotedSuccessionEnds__provide_20power__s_pend1_prs" ;
+    sysml:referencingFeature expr:QuotedSuccessionEnds__provide_20power__s_pend1 ;
+    sysml:subsettingFeature expr:QuotedSuccessionEnds__provide_20power__s_pend1 ;
+    sysml:specific expr:QuotedSuccessionEnds__provide_20power__s_pend1 ;
+    sysml:source expr:QuotedSuccessionEnds__provide_20power__s_pend1 ;
+    sysml:owningFeature expr:QuotedSuccessionEnds__provide_20power__s_pend1 ;
+    sysml:owningType expr:QuotedSuccessionEnds__provide_20power__s_pend1 ;
+    sysml:referencedFeature <urn:sysmlv2:element:0cdc3cd3-b06c-5c32-beda-0cf4ba164a64> ;
+    sysml:subsettedFeature <urn:sysmlv2:element:0cdc3cd3-b06c-5c32-beda-0cf4ba164a64> ;
+    sysml:general <urn:sysmlv2:element:0cdc3cd3-b06c-5c32-beda-0cf4ba164a64> ;
+    sysml:target <urn:sysmlv2:element:0cdc3cd3-b06c-5c32-beda-0cf4ba164a64> ;
+    sysml:relatedElement expr:QuotedSuccessionEnds__provide_20power__s_pend1, <urn:sysmlv2:element:0cdc3cd3-b06c-5c32-beda-0cf4ba164a64> ;
+    sysml:owner expr:QuotedSuccessionEnds__provide_20power__s_pend1 ;
+    sysml:owningRelatedElement expr:QuotedSuccessionEnds__provide_20power__s_pend1 ;
+    json:relatedElement "[{\"@id\":\"QuotedSuccessionEnds__provide_20power__s_pend1\"},{\"@id\":\"0cdc3cd3-b06c-5c32-beda-0cf4ba164a64\"}]" .
 
 elmt:QuotedSuccessionEnds__drive
     a sysml:ActionDefinition ;
@@ -444,7 +486,10 @@ expr:QuotedSuccessionEnds__drive___403_pend0
     sysml:owningRelationship expr:QuotedSuccessionEnds__drive___403_pend0_om ;
     sysml:owningMembership expr:QuotedSuccessionEnds__drive___403_pend0_om ;
     sysx:sourceText "'start engine'" ;
-    sysml:references elmt:QuotedSuccessionEnds__drive__start_20engine .
+    sysml:ownedReferenceSubsetting expr:QuotedSuccessionEnds__drive___403_pend0_prs ;
+    sysml:ownedSubsetting expr:QuotedSuccessionEnds__drive___403_pend0_prs ;
+    sysml:ownedSpecialization expr:QuotedSuccessionEnds__drive___403_pend0_prs ;
+    sysml:ownedRelationship expr:QuotedSuccessionEnds__drive___403_pend0_prs .
 
 expr:QuotedSuccessionEnds__drive___403_pend0_om
     a sysml:EndFeatureMembership ;
@@ -456,6 +501,24 @@ expr:QuotedSuccessionEnds__drive___403_pend0_om
     sysml:owningRelatedElement elmt:QuotedSuccessionEnds__drive___403 ;
     sysml:membershipOwningNamespace elmt:QuotedSuccessionEnds__drive___403 .
 
+expr:QuotedSuccessionEnds__drive___403_pend0_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "QuotedSuccessionEnds__drive___403_pend0_prs" ;
+    sysml:referencingFeature expr:QuotedSuccessionEnds__drive___403_pend0 ;
+    sysml:subsettingFeature expr:QuotedSuccessionEnds__drive___403_pend0 ;
+    sysml:specific expr:QuotedSuccessionEnds__drive___403_pend0 ;
+    sysml:source expr:QuotedSuccessionEnds__drive___403_pend0 ;
+    sysml:owningFeature expr:QuotedSuccessionEnds__drive___403_pend0 ;
+    sysml:owningType expr:QuotedSuccessionEnds__drive___403_pend0 ;
+    sysml:referencedFeature elmt:QuotedSuccessionEnds__drive__start_20engine ;
+    sysml:subsettedFeature elmt:QuotedSuccessionEnds__drive__start_20engine ;
+    sysml:general elmt:QuotedSuccessionEnds__drive__start_20engine ;
+    sysml:target elmt:QuotedSuccessionEnds__drive__start_20engine ;
+    sysml:relatedElement expr:QuotedSuccessionEnds__drive___403_pend0, elmt:QuotedSuccessionEnds__drive__start_20engine ;
+    sysml:owner expr:QuotedSuccessionEnds__drive___403_pend0 ;
+    sysml:owningRelatedElement expr:QuotedSuccessionEnds__drive___403_pend0 ;
+    json:relatedElement "[{\"@id\":\"QuotedSuccessionEnds__drive___403_pend0\"},{\"@id\":\"QuotedSuccessionEnds__drive__start_20engine\"}]" .
+
 expr:QuotedSuccessionEnds__drive___403_pend1
     a sysml:ReferenceUsage ;
     sysml:elementId "QuotedSuccessionEnds__drive___403_pend1" ;
@@ -464,7 +527,10 @@ expr:QuotedSuccessionEnds__drive___403_pend1
     sysml:owningRelationship expr:QuotedSuccessionEnds__drive___403_pend1_om ;
     sysml:owningMembership expr:QuotedSuccessionEnds__drive___403_pend1_om ;
     sysx:sourceText "'drive vehicle'" ;
-    sysml:references elmt:QuotedSuccessionEnds__drive__drive_20vehicle .
+    sysml:ownedReferenceSubsetting expr:QuotedSuccessionEnds__drive___403_pend1_prs ;
+    sysml:ownedSubsetting expr:QuotedSuccessionEnds__drive___403_pend1_prs ;
+    sysml:ownedSpecialization expr:QuotedSuccessionEnds__drive___403_pend1_prs ;
+    sysml:ownedRelationship expr:QuotedSuccessionEnds__drive___403_pend1_prs .
 
 expr:QuotedSuccessionEnds__drive___403_pend1_om
     a sysml:EndFeatureMembership ;
@@ -475,6 +541,24 @@ expr:QuotedSuccessionEnds__drive___403_pend1_om
     sysml:ownedRelatedElement expr:QuotedSuccessionEnds__drive___403_pend1 ;
     sysml:owningRelatedElement elmt:QuotedSuccessionEnds__drive___403 ;
     sysml:membershipOwningNamespace elmt:QuotedSuccessionEnds__drive___403 .
+
+expr:QuotedSuccessionEnds__drive___403_pend1_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "QuotedSuccessionEnds__drive___403_pend1_prs" ;
+    sysml:referencingFeature expr:QuotedSuccessionEnds__drive___403_pend1 ;
+    sysml:subsettingFeature expr:QuotedSuccessionEnds__drive___403_pend1 ;
+    sysml:specific expr:QuotedSuccessionEnds__drive___403_pend1 ;
+    sysml:source expr:QuotedSuccessionEnds__drive___403_pend1 ;
+    sysml:owningFeature expr:QuotedSuccessionEnds__drive___403_pend1 ;
+    sysml:owningType expr:QuotedSuccessionEnds__drive___403_pend1 ;
+    sysml:referencedFeature elmt:QuotedSuccessionEnds__drive__drive_20vehicle ;
+    sysml:subsettedFeature elmt:QuotedSuccessionEnds__drive__drive_20vehicle ;
+    sysml:general elmt:QuotedSuccessionEnds__drive__drive_20vehicle ;
+    sysml:target elmt:QuotedSuccessionEnds__drive__drive_20vehicle ;
+    sysml:relatedElement expr:QuotedSuccessionEnds__drive___403_pend1, elmt:QuotedSuccessionEnds__drive__drive_20vehicle ;
+    sysml:owner expr:QuotedSuccessionEnds__drive___403_pend1 ;
+    sysml:owningRelatedElement expr:QuotedSuccessionEnds__drive___403_pend1 ;
+    json:relatedElement "[{\"@id\":\"QuotedSuccessionEnds__drive___403_pend1\"},{\"@id\":\"QuotedSuccessionEnds__drive__drive_20vehicle\"}]" .
 
 elmt:QuotedSuccessionEnds__drive__drive_20vehicle
     a sysml:ActionUsage ;

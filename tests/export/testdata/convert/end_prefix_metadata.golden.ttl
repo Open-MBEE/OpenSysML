@@ -613,7 +613,10 @@ elmt:EndPrefixMetadata__context___402__r1
     sysml:declaredName "r1" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isEnd "true"^^xsd:boolean ;
-    sysml:references elmt:EndPrefixMetadata__context__req1 ;
+    sysml:ownedReferenceSubsetting expr:EndPrefixMetadata__context___402__r1_prs ;
+    sysml:ownedSubsetting expr:EndPrefixMetadata__context___402__r1_prs ;
+    sysml:ownedSpecialization expr:EndPrefixMetadata__context___402__r1_prs ;
+    sysml:ownedRelationship expr:EndPrefixMetadata__context___402__r1_prs ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "            end r1 ::> req1;\n" .
 
@@ -629,6 +632,24 @@ elmt:EndPrefixMetadata__context___402__r1_om
     sysml:ownedMemberFeature elmt:EndPrefixMetadata__context___402__r1 ;
     sysml:owningType elmt:EndPrefixMetadata__context___402 .
 
+expr:EndPrefixMetadata__context___402__r1_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "EndPrefixMetadata__context___402__r1_prs" ;
+    sysml:referencingFeature elmt:EndPrefixMetadata__context___402__r1 ;
+    sysml:subsettingFeature elmt:EndPrefixMetadata__context___402__r1 ;
+    sysml:specific elmt:EndPrefixMetadata__context___402__r1 ;
+    sysml:source elmt:EndPrefixMetadata__context___402__r1 ;
+    sysml:owningFeature elmt:EndPrefixMetadata__context___402__r1 ;
+    sysml:owningType elmt:EndPrefixMetadata__context___402__r1 ;
+    sysml:referencedFeature elmt:EndPrefixMetadata__context__req1 ;
+    sysml:subsettedFeature elmt:EndPrefixMetadata__context__req1 ;
+    sysml:general elmt:EndPrefixMetadata__context__req1 ;
+    sysml:target elmt:EndPrefixMetadata__context__req1 ;
+    sysml:relatedElement elmt:EndPrefixMetadata__context___402__r1, elmt:EndPrefixMetadata__context__req1 ;
+    sysml:owner elmt:EndPrefixMetadata__context___402__r1 ;
+    sysml:owningRelatedElement elmt:EndPrefixMetadata__context___402__r1 ;
+    json:relatedElement "[{\"@id\":\"EndPrefixMetadata__context___402__r1\"},{\"@id\":\"EndPrefixMetadata__context__req1\"}]" .
+
 elmt:EndPrefixMetadata__context___402__r1_5f1
     a sysml:ReferenceUsage ;
     sysml:qualifiedName "EndPrefixMetadata::context::@2::r1_1" ;
@@ -641,7 +662,10 @@ elmt:EndPrefixMetadata__context___402__r1_5f1
     sysml:declaredName "r1_1" ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isEnd "true"^^xsd:boolean ;
-    sysml:references elmt:EndPrefixMetadata__context__req1_5f1 ;
+    sysml:ownedReferenceSubsetting expr:EndPrefixMetadata__context___402__r1_5f1_prs ;
+    sysml:ownedSubsetting expr:EndPrefixMetadata__context___402__r1_5f1_prs ;
+    sysml:ownedSpecialization expr:EndPrefixMetadata__context___402__r1_5f1_prs ;
+    sysml:ownedRelationship expr:EndPrefixMetadata__context___402__r1_5f1_prs ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "            end r1_1 references req1_1;\n" .
 
@@ -656,3 +680,21 @@ elmt:EndPrefixMetadata__context___402__r1_5f1_om
     sysml:membershipOwningNamespace elmt:EndPrefixMetadata__context___402 ;
     sysml:ownedMemberFeature elmt:EndPrefixMetadata__context___402__r1_5f1 ;
     sysml:owningType elmt:EndPrefixMetadata__context___402 .
+
+expr:EndPrefixMetadata__context___402__r1_5f1_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "EndPrefixMetadata__context___402__r1_5f1_prs" ;
+    sysml:referencingFeature elmt:EndPrefixMetadata__context___402__r1_5f1 ;
+    sysml:subsettingFeature elmt:EndPrefixMetadata__context___402__r1_5f1 ;
+    sysml:specific elmt:EndPrefixMetadata__context___402__r1_5f1 ;
+    sysml:source elmt:EndPrefixMetadata__context___402__r1_5f1 ;
+    sysml:owningFeature elmt:EndPrefixMetadata__context___402__r1_5f1 ;
+    sysml:owningType elmt:EndPrefixMetadata__context___402__r1_5f1 ;
+    sysml:referencedFeature elmt:EndPrefixMetadata__context__req1_5f1 ;
+    sysml:subsettedFeature elmt:EndPrefixMetadata__context__req1_5f1 ;
+    sysml:general elmt:EndPrefixMetadata__context__req1_5f1 ;
+    sysml:target elmt:EndPrefixMetadata__context__req1_5f1 ;
+    sysml:relatedElement elmt:EndPrefixMetadata__context___402__r1_5f1, elmt:EndPrefixMetadata__context__req1_5f1 ;
+    sysml:owner elmt:EndPrefixMetadata__context___402__r1_5f1 ;
+    sysml:owningRelatedElement elmt:EndPrefixMetadata__context___402__r1_5f1 ;
+    json:relatedElement "[{\"@id\":\"EndPrefixMetadata__context___402__r1_5f1\"},{\"@id\":\"EndPrefixMetadata__context__req1_5f1\"}]" .

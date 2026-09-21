@@ -717,7 +717,7 @@ What remains:
 
 `connect`, `bind`, `flow`, `succession` and related heads now state their ends through
 `sysml:connectorEnd`, `EndFeatureMembership` and end `ReferenceUsage`s marked with
-`sysml:isEnd` and `sysml:references`. Chained targets use an owned `Feature` and ordered
+`sysml:isEnd`, whose targets use owned `ReferenceSubsetting` relationships. Chained targets use an owned `Feature` and ordered
 `sysml:chainingFeature`; binary connectors additionally carry `sysml:sourceFeature` and
 `sysml:targetFeature`, while `sysml:relatedFeature` identifies related features at every arity.
 `TransitionUsage` endpoints use `sysml:source` and `sysml:target`. The decoder still accepts the
@@ -727,9 +727,8 @@ What remains:
 
 - non-name end targets are retained as typed `sysx:Expression` literals rather than being
   fabricated as feature IRIs; and
-- `sysml:references` on `ReferenceUsage` is not an ontology property in the 202407 profile. The
-  standard indirect alternative is a `ReferenceSubsetting` with
-  `referencedFeature`/`referencingFeature`, which is not yet the emitted end shape.
+- the `ReferenceSubsetting` relationship is emitted for end targets, while
+  `sysml:references` remains accepted only for importing interim graphs.
 
 ## D7 — reference-valued properties are emitted as strings, and one metaclass is abstract (done)
 

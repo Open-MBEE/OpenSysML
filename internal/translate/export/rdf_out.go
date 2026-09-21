@@ -42,6 +42,17 @@ const (
 	pOwnedFeatureMembership    = "ownedFeatureMembership"
 	pOwnedMemberParameter      = "ownedMemberParameter"
 	pFeatureWithValue          = "featureWithValue"
+	pOwnedReferenceSubsetting  = "ownedReferenceSubsetting"
+	pOwnedSubsetting           = "ownedSubsetting"
+	pOwnedSpecialization       = "ownedSpecialization"
+	pReferencingFeature        = "referencingFeature"
+	pSubsettingFeature         = "subsettingFeature"
+	pSpecific                  = "specific"
+	pReferencedFeature         = "referencedFeature"
+	pSubsettedFeature          = "subsettedFeature"
+	pGeneral                   = "general"
+	pRelatedElement            = "relatedElement"
+	pOwningFeature             = "owningFeature"
 	pVariant                   = "variant"
 	pVariantMembership         = "variantMembership"
 	pOwnedVariantUsage         = "ownedVariantUsage"
@@ -862,7 +873,21 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		if portion := portionKeyword(n.Portion); portion != "" {
 			e.graph.Add(subject, e.sysml(pPortionKind), rdf.String(portion))
 		}
-		e.relationships(subject, owner, n.Relationships)
+		if n.IsEnd {
+			relationships := make([]*ast.Relationship, 0, len(n.Relationships))
+			for _, rel := range n.Relationships {
+				if rel != nil && rel.Kind == ast.RelReferences && rel.Target != nil {
+					if err := e.endReferences(subject, rel.Target); err != nil {
+						return err
+					}
+					continue
+				}
+				relationships = append(relationships, rel)
+			}
+			e.relationships(subject, owner, relationships)
+		} else {
+			e.relationships(subject, owner, n.Relationships)
+		}
 		if err := e.multiplicity(subject, within, n.Multiplicity); err != nil {
 			return err
 		}
@@ -1226,14 +1251,17 @@ func enumeratedValue(usage *ast.Usage, ownerClass string) bool {
 // element itself, so no membership is minted between them.
 func (e *encoder) relationshipOwnership(member, owner rdf.Term, ownerClass, memberClass string) {
 	e.graph.Add(member, e.sysml(pOwner), owner)
-	e.graph.Add(owner, e.sysml(pOwnedRelatedElement), member)
 	if isRelationship(memberClass) {
 		// A relationship states the element that owns it, not an owning
 		// relationship of its own.
+		if isRelationship(ownerClass) {
+			e.graph.Add(owner, e.sysml(pOwnedRelatedElement), member)
+		}
 		e.graph.Add(member, e.sysml(pOwningRelatedElement), owner)
 		e.graph.Add(owner, e.sysml(pOwnedRelationship), member)
 		return
 	}
+	e.graph.Add(owner, e.sysml(pOwnedRelatedElement), member)
 	e.graph.Add(member, e.sysml(pOwningRelationship), owner)
 	if ontology.IsAncestorOrSelf(ownerClass, "Membership") {
 		e.graph.Add(member, e.sysml(pOwningMembership), owner)
@@ -1449,7 +1477,7 @@ func (e *encoder) endReferences(feature rdf.Term, target ast.Node) error {
 		if qualifiedNameHasChain(target) {
 			return e.endChainReferences(feature, target)
 		}
-		e.graph.Add(feature, e.sysml(pReferences), e.reference(target))
+		e.referenceSubsetting(feature, e.reference(target))
 	case *ast.FeatureChainExpr:
 		segments := make([]rdf.Term, 0, len(featureChainSegments(target)))
 		for _, segment := range featureChainSegments(target) {
@@ -1457,9 +1485,29 @@ func (e *encoder) endReferences(feature rdf.Term, target ast.Node) error {
 		}
 		e.chainFeature(feature, segments)
 	default:
-		e.graph.Add(feature, e.sysml(pReferences), rdf.TypedLiteral(e.text(target), rdf.OpenSysML+dtExpression))
+		e.referenceSubsetting(feature, rdf.TypedLiteral(e.text(target), rdf.OpenSysML+dtExpression))
 	}
 	return nil
+}
+
+// referenceSubsetting writes the standard relationship that connects an end
+// feature to the feature or expression it references.
+func (e *encoder) referenceSubsetting(feature, target rdf.Term) {
+	subsetting := rdf.ExpressionIRI(feature, "rs")
+	e.typed(subsetting, mReferenceSubsetting)
+	e.graph.Add(subsetting, e.sysml(pElementID), rdf.String(rdf.LocalName(subsetting.Value)))
+	for _, property := range []string{pReferencingFeature, pSubsettingFeature, pSpecific, pSource, pOwningFeature, pOwningType} {
+		e.graph.Add(subsetting, e.sysml(property), feature)
+	}
+	for _, property := range []string{pReferencedFeature, pSubsettedFeature, pGeneral, pTarget} {
+		e.graph.Add(subsetting, e.sysml(property), target)
+	}
+	e.graph.Add(subsetting, e.sysml(pRelatedElement), feature)
+	e.graph.Add(subsetting, e.sysml(pRelatedElement), target)
+	e.graph.Add(feature, e.sysml(pOwnedReferenceSubsetting), subsetting)
+	e.graph.Add(feature, e.sysml(pOwnedSubsetting), subsetting)
+	e.graph.Add(feature, e.sysml(pOwnedSpecialization), subsetting)
+	e.relationshipOwnership(subsetting, feature, crossFeatureMetaclass(false), mReferenceSubsetting)
 }
 
 // chainFeature creates an owned structural Feature holding ordered chain segments.
@@ -1474,7 +1522,7 @@ func (e *encoder) chainFeature(feature rdf.Term, segments []rdf.Term) {
 	e.emitMembershipCore(membership, chain, feature, mOwningMembership, true)
 	e.graph.Add(feature, e.sysml(pOwnedRelationship), membership)
 	e.graph.Add(feature, e.sysml(pOwnedMembership), membership)
-	e.graph.Add(feature, e.sysml(pReferences), chain)
+	e.referenceSubsetting(feature, chain)
 }
 
 func (e *encoder) endChainReferences(feature rdf.Term, target *ast.QualifiedName) error {

@@ -1,3 +1,4 @@
 - **Expression roots and operands now use standard ownership vocabulary in RDF.** Roots are carried by `OwningMembership`/`FeatureValue` and operands by `ParameterMembership` input Features and FeatureValues, while legacy positional graphs remain importable.
 - **Connector ends now use standard `connectorEnd` ownership.** EndFeatureMembership and ReferenceUsage nodes carry end references and chains, with binary source/target features and transition source/target predicates.
 - **Legacy RDF shapes remain compatible.** Earlier argument, positional end, and transition endpoint predicates still import, while conflicting old and new representations are refused.
+- **Connector-end references use `ReferenceSubsetting`.** End targets are emitted through standard relationship ownership; interim `sysml:references` remains accepted on import.

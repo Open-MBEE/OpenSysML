@@ -843,7 +843,10 @@ expr:ActionNodes__Drive___4019_pend0
     sysml:owningRelationship expr:ActionNodes__Drive___4019_pend0_om ;
     sysml:owningMembership expr:ActionNodes__Drive___4019_pend0_om ;
     sysx:sourceText "start" ;
-    sysml:references <urn:sysmlv2:element:9a0d2905-0f9c-5bb4-af74-9780d6db1817> .
+    sysml:ownedReferenceSubsetting expr:ActionNodes__Drive___4019_pend0_prs ;
+    sysml:ownedSubsetting expr:ActionNodes__Drive___4019_pend0_prs ;
+    sysml:ownedSpecialization expr:ActionNodes__Drive___4019_pend0_prs ;
+    sysml:ownedRelationship expr:ActionNodes__Drive___4019_pend0_prs .
 
 expr:ActionNodes__Drive___4019_pend0_om
     a sysml:EndFeatureMembership ;
@@ -855,6 +858,24 @@ expr:ActionNodes__Drive___4019_pend0_om
     sysml:owningRelatedElement elmt:ActionNodes__Drive___4019 ;
     sysml:membershipOwningNamespace elmt:ActionNodes__Drive___4019 .
 
+expr:ActionNodes__Drive___4019_pend0_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "ActionNodes__Drive___4019_pend0_prs" ;
+    sysml:referencingFeature expr:ActionNodes__Drive___4019_pend0 ;
+    sysml:subsettingFeature expr:ActionNodes__Drive___4019_pend0 ;
+    sysml:specific expr:ActionNodes__Drive___4019_pend0 ;
+    sysml:source expr:ActionNodes__Drive___4019_pend0 ;
+    sysml:owningFeature expr:ActionNodes__Drive___4019_pend0 ;
+    sysml:owningType expr:ActionNodes__Drive___4019_pend0 ;
+    sysml:referencedFeature <urn:sysmlv2:element:9a0d2905-0f9c-5bb4-af74-9780d6db1817> ;
+    sysml:subsettedFeature <urn:sysmlv2:element:9a0d2905-0f9c-5bb4-af74-9780d6db1817> ;
+    sysml:general <urn:sysmlv2:element:9a0d2905-0f9c-5bb4-af74-9780d6db1817> ;
+    sysml:target <urn:sysmlv2:element:9a0d2905-0f9c-5bb4-af74-9780d6db1817> ;
+    sysml:relatedElement expr:ActionNodes__Drive___4019_pend0, <urn:sysmlv2:element:9a0d2905-0f9c-5bb4-af74-9780d6db1817> ;
+    sysml:owner expr:ActionNodes__Drive___4019_pend0 ;
+    sysml:owningRelatedElement expr:ActionNodes__Drive___4019_pend0 ;
+    json:relatedElement "[{\"@id\":\"ActionNodes__Drive___4019_pend0\"},{\"@id\":\"9a0d2905-0f9c-5bb4-af74-9780d6db1817\"}]" .
+
 expr:ActionNodes__Drive___4019_pend1
     a sysml:ReferenceUsage ;
     sysml:elementId "ActionNodes__Drive___4019_pend1" ;
@@ -863,7 +884,10 @@ expr:ActionNodes__Drive___4019_pend1
     sysml:owningRelationship expr:ActionNodes__Drive___4019_pend1_om ;
     sysml:owningMembership expr:ActionNodes__Drive___4019_pend1_om ;
     sysx:sourceText "brake" ;
-    sysml:references elmt:ActionNodes__Drive__brake .
+    sysml:ownedReferenceSubsetting expr:ActionNodes__Drive___4019_pend1_prs ;
+    sysml:ownedSubsetting expr:ActionNodes__Drive___4019_pend1_prs ;
+    sysml:ownedSpecialization expr:ActionNodes__Drive___4019_pend1_prs ;
+    sysml:ownedRelationship expr:ActionNodes__Drive___4019_pend1_prs .
 
 expr:ActionNodes__Drive___4019_pend1_om
     a sysml:EndFeatureMembership ;
@@ -874,6 +898,24 @@ expr:ActionNodes__Drive___4019_pend1_om
     sysml:ownedRelatedElement expr:ActionNodes__Drive___4019_pend1 ;
     sysml:owningRelatedElement elmt:ActionNodes__Drive___4019 ;
     sysml:membershipOwningNamespace elmt:ActionNodes__Drive___4019 .
+
+expr:ActionNodes__Drive___4019_pend1_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "ActionNodes__Drive___4019_pend1_prs" ;
+    sysml:referencingFeature expr:ActionNodes__Drive___4019_pend1 ;
+    sysml:subsettingFeature expr:ActionNodes__Drive___4019_pend1 ;
+    sysml:specific expr:ActionNodes__Drive___4019_pend1 ;
+    sysml:source expr:ActionNodes__Drive___4019_pend1 ;
+    sysml:owningFeature expr:ActionNodes__Drive___4019_pend1 ;
+    sysml:owningType expr:ActionNodes__Drive___4019_pend1 ;
+    sysml:referencedFeature elmt:ActionNodes__Drive__brake ;
+    sysml:subsettedFeature elmt:ActionNodes__Drive__brake ;
+    sysml:general elmt:ActionNodes__Drive__brake ;
+    sysml:target elmt:ActionNodes__Drive__brake ;
+    sysml:relatedElement expr:ActionNodes__Drive___4019_pend1, elmt:ActionNodes__Drive__brake ;
+    sysml:owner expr:ActionNodes__Drive___4019_pend1 ;
+    sysml:owningRelatedElement expr:ActionNodes__Drive___4019_pend1 ;
+    json:relatedElement "[{\"@id\":\"ActionNodes__Drive___4019_pend1\"},{\"@id\":\"ActionNodes__Drive__brake\"}]" .
 
 elmt:ActionNodes__Drive___4020
     a sysml:SuccessionAsUsage ;
@@ -925,7 +967,10 @@ expr:ActionNodes__Drive___4020_pend0
     sysml:owningRelationship expr:ActionNodes__Drive___4020_pend0_om ;
     sysml:owningMembership expr:ActionNodes__Drive___4020_pend0_om ;
     sysx:sourceText "brake" ;
-    sysml:references elmt:ActionNodes__Drive__brake .
+    sysml:ownedReferenceSubsetting expr:ActionNodes__Drive___4020_pend0_prs ;
+    sysml:ownedSubsetting expr:ActionNodes__Drive___4020_pend0_prs ;
+    sysml:ownedSpecialization expr:ActionNodes__Drive___4020_pend0_prs ;
+    sysml:ownedRelationship expr:ActionNodes__Drive___4020_pend0_prs .
 
 expr:ActionNodes__Drive___4020_pend0_om
     a sysml:EndFeatureMembership ;
@@ -937,6 +982,24 @@ expr:ActionNodes__Drive___4020_pend0_om
     sysml:owningRelatedElement elmt:ActionNodes__Drive___4020 ;
     sysml:membershipOwningNamespace elmt:ActionNodes__Drive___4020 .
 
+expr:ActionNodes__Drive___4020_pend0_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "ActionNodes__Drive___4020_pend0_prs" ;
+    sysml:referencingFeature expr:ActionNodes__Drive___4020_pend0 ;
+    sysml:subsettingFeature expr:ActionNodes__Drive___4020_pend0 ;
+    sysml:specific expr:ActionNodes__Drive___4020_pend0 ;
+    sysml:source expr:ActionNodes__Drive___4020_pend0 ;
+    sysml:owningFeature expr:ActionNodes__Drive___4020_pend0 ;
+    sysml:owningType expr:ActionNodes__Drive___4020_pend0 ;
+    sysml:referencedFeature elmt:ActionNodes__Drive__brake ;
+    sysml:subsettedFeature elmt:ActionNodes__Drive__brake ;
+    sysml:general elmt:ActionNodes__Drive__brake ;
+    sysml:target elmt:ActionNodes__Drive__brake ;
+    sysml:relatedElement expr:ActionNodes__Drive___4020_pend0, elmt:ActionNodes__Drive__brake ;
+    sysml:owner expr:ActionNodes__Drive___4020_pend0 ;
+    sysml:owningRelatedElement expr:ActionNodes__Drive___4020_pend0 ;
+    json:relatedElement "[{\"@id\":\"ActionNodes__Drive___4020_pend0\"},{\"@id\":\"ActionNodes__Drive__brake\"}]" .
+
 expr:ActionNodes__Drive___4020_pend1
     a sysml:ReferenceUsage ;
     sysml:elementId "ActionNodes__Drive___4020_pend1" ;
@@ -945,7 +1008,10 @@ expr:ActionNodes__Drive___4020_pend1
     sysml:owningRelationship expr:ActionNodes__Drive___4020_pend1_om ;
     sysml:owningMembership expr:ActionNodes__Drive___4020_pend1_om ;
     sysx:sourceText "done" ;
-    sysml:references <urn:sysmlv2:element:0cdc3cd3-b06c-5c32-beda-0cf4ba164a64> .
+    sysml:ownedReferenceSubsetting expr:ActionNodes__Drive___4020_pend1_prs ;
+    sysml:ownedSubsetting expr:ActionNodes__Drive___4020_pend1_prs ;
+    sysml:ownedSpecialization expr:ActionNodes__Drive___4020_pend1_prs ;
+    sysml:ownedRelationship expr:ActionNodes__Drive___4020_pend1_prs .
 
 expr:ActionNodes__Drive___4020_pend1_om
     a sysml:EndFeatureMembership ;
@@ -956,3 +1022,21 @@ expr:ActionNodes__Drive___4020_pend1_om
     sysml:ownedRelatedElement expr:ActionNodes__Drive___4020_pend1 ;
     sysml:owningRelatedElement elmt:ActionNodes__Drive___4020 ;
     sysml:membershipOwningNamespace elmt:ActionNodes__Drive___4020 .
+
+expr:ActionNodes__Drive___4020_pend1_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "ActionNodes__Drive___4020_pend1_prs" ;
+    sysml:referencingFeature expr:ActionNodes__Drive___4020_pend1 ;
+    sysml:subsettingFeature expr:ActionNodes__Drive___4020_pend1 ;
+    sysml:specific expr:ActionNodes__Drive___4020_pend1 ;
+    sysml:source expr:ActionNodes__Drive___4020_pend1 ;
+    sysml:owningFeature expr:ActionNodes__Drive___4020_pend1 ;
+    sysml:owningType expr:ActionNodes__Drive___4020_pend1 ;
+    sysml:referencedFeature <urn:sysmlv2:element:0cdc3cd3-b06c-5c32-beda-0cf4ba164a64> ;
+    sysml:subsettedFeature <urn:sysmlv2:element:0cdc3cd3-b06c-5c32-beda-0cf4ba164a64> ;
+    sysml:general <urn:sysmlv2:element:0cdc3cd3-b06c-5c32-beda-0cf4ba164a64> ;
+    sysml:target <urn:sysmlv2:element:0cdc3cd3-b06c-5c32-beda-0cf4ba164a64> ;
+    sysml:relatedElement expr:ActionNodes__Drive___4020_pend1, <urn:sysmlv2:element:0cdc3cd3-b06c-5c32-beda-0cf4ba164a64> ;
+    sysml:owner expr:ActionNodes__Drive___4020_pend1 ;
+    sysml:owningRelatedElement expr:ActionNodes__Drive___4020_pend1 ;
+    json:relatedElement "[{\"@id\":\"ActionNodes__Drive___4020_pend1\"},{\"@id\":\"0cdc3cd3-b06c-5c32-beda-0cf4ba164a64\"}]" .

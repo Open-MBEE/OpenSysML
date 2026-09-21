@@ -21,20 +21,21 @@ const literalStatesValue = "a literal expression states the value it evaluates t
 
 // Metaclasses of the expression nodes, as SysML v2 8.4 names them.
 const (
-	mExpression       = "Expression"
-	mLiteralBoolean   = "LiteralBoolean"
-	mLiteralInteger   = "LiteralInteger"
-	mLiteralRational  = "LiteralRational"
-	mLiteralString    = "LiteralString"
-	mLiteralInfinity  = "LiteralInfinity"
-	mNullExpression   = "NullExpression"
-	mFeatureReference = "FeatureReferenceExpression"
-	mFeatureChain     = "FeatureChainExpression"
-	mOperator         = "OperatorExpression"
-	mInvocation       = "InvocationExpression"
-	mCollect          = "CollectExpression"
-	mSelect           = "SelectExpression"
-	mMetadataAccess   = "MetadataAccessExpression"
+	mExpression          = "Expression"
+	mLiteralBoolean      = "LiteralBoolean"
+	mLiteralInteger      = "LiteralInteger"
+	mLiteralRational     = "LiteralRational"
+	mLiteralString       = "LiteralString"
+	mLiteralInfinity     = "LiteralInfinity"
+	mNullExpression      = "NullExpression"
+	mFeatureReference    = "FeatureReferenceExpression"
+	mFeatureChain        = "FeatureChainExpression"
+	mOperator            = "OperatorExpression"
+	mInvocation          = "InvocationExpression"
+	mCollect             = "CollectExpression"
+	mSelect              = "SelectExpression"
+	mMetadataAccess      = "MetadataAccessExpression"
+	mReferenceSubsetting = "ReferenceSubsetting"
 )
 
 // Properties of an expression node in the SysML vocabulary.
@@ -454,6 +455,7 @@ var ownershipPredicates = func() map[string]bool {
 		pOwnedRelatedElement, pOwningRelatedElement, pMembershipOwningNamespace,
 		pOwnedMemberFeature, pOwnedMemberParameter, pOwningType, pOwnedFeature,
 		pOwnedFeatureMembership, pFeatureWithValue,
+		pOwnedReferenceSubsetting, pOwnedSubsetting, pOwnedSpecialization,
 		pConnectorEnd, pOwnedEndFeature,
 	}
 	set := make(map[string]bool, len(properties))

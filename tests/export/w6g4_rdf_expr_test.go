@@ -482,9 +482,13 @@ func TestBindingEndsAreStatedAsStructure(t *testing.T) {
 	// A connect end names the port it connects; a flow end reaches through one.
 	connectEnd := rdf.Expression + rdf.ExpressionNodeID("P__Car___402", "end0")
 	wantType(t, g, connectEnd, "ReferenceUsage")
-	if got := g.Objects(iri(connectEnd), rdf.SysML+"references"); len(got) != 1 ||
+	relationships := g.Objects(iri(connectEnd), rdf.SysML+"ownedReferenceSubsetting")
+	if len(relationships) != 1 {
+		t.Fatalf("the first connect end has %d ReferenceSubsetting relationships, want 1", len(relationships))
+	}
+	if got := g.Objects(relationships[0], rdf.SysML+"referencedFeature"); len(got) != 1 ||
 		got[0].Value != "urn:sysmlv2:element:P__Car__left" {
-		t.Errorf("the first connect end reads %v, want the port P::Car::left", got)
+		t.Errorf("the first connect end references %v, want the port P::Car::left", got)
 	}
 	for _, subject := range g.Subjects() {
 		if g.Type(subject) != rdf.SysML+"FlowUsage" {
