@@ -335,10 +335,19 @@ func (e *StateExecutor) regionKeep(targetRegion *ast.StateRegion, trans *lower.T
 	if declared, isState := trans.Source.(*ast.StateNode); isState && e.encloses(declared, target) {
 		keep = e.graph.ParentState[declared]
 	}
-	if !e.regionContains(targetRegion, keep) {
+	if !e.regionKeeps(targetRegion, keep) {
 		keep = e.graph.RegionOwner[targetRegion]
 	}
 	return keep
+}
+
+// regionKeeps reports whether state stays active when a move happens within
+// region: a state inside it, or the graph-only owner standing for the region.
+func (e *StateExecutor) regionKeeps(region *ast.StateRegion, state *ast.StateNode) bool {
+	if state == nil {
+		return false
+	}
+	return e.regionContains(region, state) || e.graph.RegionState[region] == state
 }
 
 // regionExitPath lists the states exitRegionTo exits, innermost first: region's
