@@ -1609,7 +1609,7 @@ func (a *activity) callBehavior(n *sysmlv1.Element, name string) {
 
 // callPrimitive writes a call to a behavior of the fUML or Alf library as an action
 // whose output pins take the v2 library expressions over its input pins, in v1 order.
-func (a *activity) callPrimitive(n *sysmlv1.Element, name string, p *primitive) {
+func (a *activity) callPrimitive(n *sysmlv1.Element, name string, p *primitiveCall) {
 	a.settlePins(n)
 	args := make([]string, len(p.ins))
 	for i := range args {
@@ -1630,7 +1630,7 @@ func (a *activity) callPrimitive(n *sysmlv1.Element, name string, p *primitive) 
 	for _, pin := range outs[min(len(outs), len(p.outs)):] {
 		a.m.add(pin, Unmapped, "", p.qualified()+" gives "+strconv.Itoa(len(p.outs))+" result(s); the pin takes nothing")
 	}
-	a.m.add(n, p.verdict, name, joinNotes("calls "+p.qualified()+", which the v2 library computes", p.note))
+	a.m.add(n, p.verdict, name, joinNotes(joinNotes("calls "+p.qualified()+", which the v2 library computes", p.provenance), p.note))
 }
 
 // classifierOf returns the classifier a behavior belongs to: the nearest

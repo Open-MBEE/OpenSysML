@@ -100,9 +100,9 @@ func (a *activity) refusal(n *sysmlv1.Element) (why string, v Verdict, refused b
 // placeholder: the v2 library has no function for it, or a pin standing for a
 // parameter that must hold a value is dry, or may hold none and nothing fills it.
 // A pin that must hold a value and that nothing fills starves the action instead.
-func (a *activity) primitiveRefusal(n *sysmlv1.Element, p *primitive) (why string, v Verdict, refused bool) {
+func (a *activity) primitiveRefusal(n *sysmlv1.Element, p *primitiveCall) (why string, v Verdict, refused bool) {
 	if p.outs == nil {
-		return "the behavior " + p.qualified() + " it calls has no v2 library function: " + p.note, Unmapped, true
+		return joinNotes("the behavior "+p.qualified()+" it calls has no v2 library function: "+p.note, p.provenance), Unmapped, true
 	}
 	ins := inputPins(n)
 	for i, arg := range p.arguments() {

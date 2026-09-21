@@ -10,8 +10,8 @@ import (
 
 // primitive is how a call to a behavior of the fUML or Alf standard library is
 // written: each result pin takes a v2 library expression over the argument pins.
-// A behavior is known by the library document its href names and the fragment
-// within it, whatever date the URI carries.
+// A behavior is known by the library document its href names, whatever date the
+// URI carries, and its fragment or qualified name within it.
 type primitive struct {
 	lib      primitiveLib
 	family   string   // the v1 package holding the behavior
@@ -59,26 +59,89 @@ func primitiveAt(href string) *primitive {
 	return primitiveIndex[primitiveKey{lib, m[2]}]
 }
 
-// primitiveKey identifies a primitive by its library and the fragment naming it there.
+// primitiveKey identifies a primitive by its library and the fragment naming it
+// there, or its qualified name below the library's root package.
 type primitiveKey struct {
-	lib      primitiveLib
-	fragment string
+	lib primitiveLib
+	id  string
 }
 
-var primitiveIndex = indexPrimitives()
+var primitiveIndex, primitivePaths = indexPrimitives()
 
-func indexPrimitives() map[primitiveKey]*primitive {
-	index := make(map[primitiveKey]*primitive, len(primitives))
+func indexPrimitives() (byFragment, byPath map[primitiveKey]*primitive) {
+	byFragment = make(map[primitiveKey]*primitive, len(primitives))
+	byPath = make(map[primitiveKey]*primitive, len(primitives))
 	for i := range primitives {
 		p := &primitives[i]
-		index[primitiveKey{p.lib, p.fragment}] = p
+		byFragment[primitiveKey{p.lib, p.fragment}] = p
+		byPath[primitiveKey{p.lib, p.libraryPath()}] = p
 	}
-	return index
+	return byFragment, byPath
 }
 
 // qualified is the behavior's name as its library qualifies it, for notes.
 func (p *primitive) qualified() string {
 	return p.lib.String() + " " + p.family + "::" + p.name
+}
+
+// libraryPath is the behavior's qualified name below the library's root package:
+// families sit under PrimitiveBehaviors, BasicInputOutput and CollectionFunctions at the root.
+func (p *primitive) libraryPath() string {
+	switch p.family {
+	case "BasicInputOutput", "CollectionFunctions":
+		return p.family + "::" + p.name
+	}
+	return "PrimitiveBehaviors::" + p.family + "::" + p.name
+}
+
+// libraryIdentity is a library known by its folded document name (fUML_Library.xmi,
+// MagicDraw's fUML-Library.mdzip) and the root packages its copies hold the behaviors under.
+type libraryIdentity struct {
+	lib      primitiveLib
+	document string
+	roots    []string
+}
+
+var libraryIdentities = []libraryIdentity{
+	{fumlLib, "fumllibrary", []string{"FoundationalModelLibrary", "fUML_Library"}},
+	{alfLib, "alflibrary", []string{"Alf::Library"}},
+}
+
+// primitiveCall is a call to a primitive and how the behavior was known to be it, for the note.
+type primitiveCall struct {
+	*primitive
+	provenance string
+}
+
+// primitiveNamed returns the primitive an href into a library's own document names by its
+// target's qualified name: the bundled copy the href resolves to, or MagicDraw's referentPath.
+func primitiveNamed(href string, target *sysmlv1.Element) *primitiveCall {
+	i := strings.LastIndexByte(href, '#')
+	if i <= 0 || target == nil || (target.Type != "" && !isBehavior(target)) {
+		return nil
+	}
+	doc := fold(hrefDocument(href))
+	var path, how string
+	if target.IsProxy() {
+		path = target.QualifiedName
+		how = "the behavior is known by the referentPath " + path + " recorded beside its href into the library module " + href[:i]
+	} else {
+		path = strings.Join(target.Path(), "::")
+		how = "the behavior is known by the copy of the library the model bundles as " + href[:i] + ", which its href resolves to"
+	}
+	for _, lib := range libraryIdentities {
+		if lib.document != doc {
+			continue
+		}
+		for _, root := range lib.roots {
+			if rest, ok := strings.CutPrefix(path, root+"::"); ok {
+				if p := primitivePaths[primitiveKey{lib.lib, rest}]; p != nil {
+					return &primitiveCall{p, how}
+				}
+			}
+		}
+	}
+	return nil
 }
 
 // arguments lists the in parameters of the primitive with their names and
@@ -109,13 +172,14 @@ func (p *primitive) result(i int, args []string) string {
 	return expr
 }
 
-// primitiveCalled returns the standard-library primitive a call behavior action
-// calls, by the href of its behavior: a proxy for a document the model does not
-// bundle, or the raw href kept when the model bundles the library and the href
-// resolved to its copy. nil when the call names no primitive.
-func (m *migration) primitiveCalled(n *sysmlv1.Element) *primitive {
+// primitiveCalled returns the library primitive a call behavior action calls by the raw href
+// of its behavior: the OMG href by fragment, an href into the library's own module by target.
+func (m *migration) primitiveCalled(n *sysmlv1.Element) *primitiveCall {
 	for _, id := range n.RefIDs("behavior") {
 		if p := primitiveAt(id); p != nil {
+			return &primitiveCall{p, "the behavior is known by its OMG href " + id}
+		}
+		if p := primitiveNamed(id, m.model.Lookup(id)); p != nil {
 			return p
 		}
 	}

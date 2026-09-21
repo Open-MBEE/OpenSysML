@@ -50,7 +50,7 @@ part def Recorder {
             in seq : ScalarValues::String[0..*] ordered nonunique;
             in element : ScalarValues::String = "n=";
             out result : ScalarValues::Integer[0..1];
-            /* not migrated: CallBehaviorAction 'position' — the behavior Alf SequenceFunctions::IndexOf it calls has no v2 library function: the v2 library has no function giving the position of an element in a sequence */
+            /* not migrated: CallBehaviorAction 'position' — the behavior Alf SequenceFunctions::IndexOf it calls has no v2 library function: the v2 library has no function giving the position of an element in a sequence; the behavior is known by its OMG href http://www.omg.org/spec/ALF/20170201/Alf-Library.xmi#Alf-Library-PrimitiveBehaviors-SequenceFunctions-IndexOf */
         }
         first position then 'after';
         action 'after' {
@@ -64,7 +64,7 @@ part def Recorder {
         first join2 then print;
         action print {
             in value : ScalarValues::String;
-            /* not migrated: CallBehaviorAction 'print' — the behavior fUML BasicInputOutput::WriteLine it calls has no v2 library function: writes a line to the standard output channel, which the v2 library has no function for */
+            /* not migrated: CallBehaviorAction 'print' — the behavior fUML BasicInputOutput::WriteLine it calls has no v2 library function: writes a line to the standard output channel, which the v2 library has no function for; the behavior is known by its OMG href http://www.omg.org/spec/FUML/20180501/fUML_Library.xmi#BasicInputOutput-WriteLine */
         }
         first print then final;
         action final terminate;

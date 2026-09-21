@@ -297,7 +297,7 @@ func TestRejectsNonXMI(t *testing.T) {
 
 // constructFixtures are the XMI documents under testdata/xmi that each exercise
 // one family of behavioral constructs; their notation and report are golden.
-var constructFixtures = []string{"plant_states", "rig_interactions", "heater_receptions", "ported_calls", "library_calls"}
+var constructFixtures = []string{"plant_states", "rig_interactions", "heater_receptions", "ported_calls", "library_calls", "bundled_library", "user_library"}
 
 // migrateFixtureFile migrates testdata/xmi/<name>.xmi.
 func migrateFixtureFile(t *testing.T, name string) *migrate.Result {

@@ -43,14 +43,14 @@ func TestLibraryCallsComputeThroughTheV2Library(t *testing.T) {
 		"out result : ScalarValues::String[0..*] ordered nonunique = SequenceFunctions::including(seq, element);",
 		"out result : ScalarValues::Integer = SequenceFunctions::size(seq);",
 		"out result : ScalarValues::String = BooleanFunctions::ToString(x);",
-		"/* not migrated: CallBehaviorAction 'position' — the behavior Alf SequenceFunctions::IndexOf it calls has no v2 library function: the v2 library has no function giving the position of an element in a sequence */",
-		"/* not migrated: CallBehaviorAction 'print' — the behavior fUML BasicInputOutput::WriteLine it calls has no v2 library function: writes a line to the standard output channel, which the v2 library has no function for */",
+		"/* not migrated: CallBehaviorAction 'position' — the behavior Alf SequenceFunctions::IndexOf it calls has no v2 library function: the v2 library has no function giving the position of an element in a sequence; the behavior is known by its OMG href http://www.omg.org/spec/ALF/20170201/Alf-Library.xmi#Alf-Library-PrimitiveBehaviors-SequenceFunctions-IndexOf */",
+		"/* not migrated: CallBehaviorAction 'print' — the behavior fUML BasicInputOutput::WriteLine it calls has no v2 library function: writes a line to the standard output channel, which the v2 library has no function for; the behavior is known by its OMG href http://www.omg.org/spec/FUML/20180501/fUML_Library.xmi#BasicInputOutput-WriteLine */",
 		"/* flow position.result to 'after'.x not written: 'position' is not migrated and produces no value */",
 	} {
 		wantLine(t, r.Notation, line)
 	}
-	wantNote(t, r, "_toString", migrate.Mapped, "calls fUML IntegerFunctions::ToString, which the v2 library computes")
-	wantNote(t, r, "_first", migrate.Mapped, "calls Alf SequenceFunctions::Including, which the v2 library computes")
+	wantNote(t, r, "_toString", migrate.Mapped, "calls fUML IntegerFunctions::ToString, which the v2 library computes; the behavior is known by its OMG href http://www.omg.org/spec/FUML/20180501/fUML_Library.xmi#PrimitiveBehaviors-IntegerFunctions-ToString")
+	wantNote(t, r, "_first", migrate.Mapped, "calls Alf SequenceFunctions::Including, which the v2 library computes; the behavior is known by its OMG href http://www.omg.org/spec/ALF/20170201/Alf-Library.xmi#Alf-Library-PrimitiveBehaviors-SequenceFunctions-Including")
 	wantNote(t, r, "_position", migrate.Unmapped, "has no v2 library function: the v2 library has no function giving the position of an element in a sequence")
 	wantNote(t, r, "_after", migrate.Approximated, "the pin 'x' it passes for the parameter x of fUML IntegerFunctions::plus, which must hold a value, receives none: 'position', which feeds it, produces no value; v1 never fires the call")
 
@@ -260,6 +260,60 @@ func TestLibraryCallsAreKeyedOnTheHref(t *testing.T) {
 		wantNoLine(t, r.Notation, "StringFunctions::'+'")
 		wantNote(t, r, "_concat", migrate.Unmapped, "has no v2 declaration")
 	})
+}
+
+// The bundled_library fixture calls the fUML library as MagicDraw exports it: by
+// href into the used project fUML-Library.mdzip with the referentPath recorded
+// beside it, ListSize and ListGet resolving to the bundled copy of the library,
+// ToString and Concat to the referentPath alone. Each is known by that
+// provenance, noted, and computes through the v2 library; WriteLine is refused
+// and the bundled copy is skipped as library content.
+func TestBundledLibraryCallsAreKnownByIdentity(t *testing.T) {
+	r := migrateFixtureFile(t, "bundled_library")
+	for _, line := range []string{
+		"out result : ScalarValues::String = IntegerFunctions::ToString(x);",
+		"out result : ScalarValues::String = StringFunctions::'+'(x, y);",
+		"out result : ScalarValues::Integer = SequenceFunctions::size(list);",
+		"out result : ScalarValues::String = SequenceFunctions::'#'(list, index);",
+		"/* not migrated: CallBehaviorAction 'print' — the behavior fUML BasicInputOutput::WriteLine it calls has no v2 library function: writes a line to the standard output channel, which the v2 library has no function for; the behavior is known by the referentPath fUML_Library::BasicInputOutput::WriteLine recorded beside its href into the library module fUML-Library.mdzip */",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNoLine(t, r.Notation, "package fUML_Library")
+	wantNote(t, r, "_size", migrate.Mapped, "calls fUML ListFunctions::ListSize, which the v2 library computes; the behavior is known by the copy of the library the model bundles as fUML-Library.mdzip, which its href resolves to")
+	wantNote(t, r, "_get", migrate.Approximated, "calls fUML ListFunctions::ListGet, which the v2 library computes; the behavior is known by the copy of the library the model bundles as fUML-Library.mdzip, which its href resolves to; v2 fails on an index outside 1..ListSize(list)")
+	wantNote(t, r, "_toString", migrate.Mapped, "calls fUML IntegerFunctions::ToString, which the v2 library computes; the behavior is known by the referentPath fUML_Library::PrimitiveBehaviors::IntegerFunctions::ToString recorded beside its href into the library module fUML-Library.mdzip")
+	wantNote(t, r, "_label", migrate.Approximated, "calls fUML StringFunctions::Concat, which the v2 library computes; the behavior is known by the referentPath fUML_Library::PrimitiveBehaviors::StringFunctions::Concat recorded beside its href into the library module fUML-Library.mdzip")
+	wantNote(t, r, "_fumlLibrary", migrate.Skipped, "profile or library content")
+
+	s := session(t, r)
+	meta(t, s, "%instantiate Recorder")
+	wantValues(t, runValues(t, s, "Recorder::Tally", "Recorder"), map[string]string{
+		"toString.result": `"3"`,
+		"label.result":    `"n=3"`,
+		"size.result":     "1",
+		"get.result":      `"n=3"`,
+	})
+}
+
+// The user_library fixture has a package of the model's own named fUML_Library
+// holding a ListSize under PrimitiveBehaviors::ListFunctions, and an href into
+// another used project whose referentPath reads like the library's ListGet.
+// Neither is the library's: the call to ListSize calls the model's action def,
+// and ListGet is refused as any behavior outside the document is.
+func TestUserPackageNamedLikeTheLibraryIsNotIt(t *testing.T) {
+	r := migrateFixtureFile(t, "user_library")
+	wantLine(t, r.Notation, "action size : fUML_Library::PrimitiveBehaviors::ListFunctions::ListSize;")
+	wantLine(t, r.Notation, "/* not migrated: CallBehaviorAction 'get' — the behavior fUML_Library::PrimitiveBehaviors::ListFunctions::ListGet it calls has no v2 declaration */")
+	wantNoLine(t, r.Notation, "SequenceFunctions::")
+	for _, id := range []string{"_size", "_get"} {
+		for _, e := range entriesFor(r, id) {
+			if strings.Contains(e.Note, "v2 library computes") || strings.Contains(e.Note, "known by") {
+				t.Errorf("%s is noted as the library's: %+v", id, e)
+			}
+		}
+	}
+	wantNote(t, r, "_get", migrate.Unmapped, "has no v2 declaration")
 }
 
 // A call passing more pins than the library behavior has parameters, or taking

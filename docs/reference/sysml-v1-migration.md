@@ -145,7 +145,7 @@ returned over the service yet.
 | InitialNode, ActivityFinalNode, FlowFinalNode | `first start then …`; `action x terminate;`; the token ends where a flow final does | mapped |
 | ForkNode, JoinNode, DecisionNode, MergeNode | `fork`, `join`, `decide`, `merge`; a node several edges leave or reach without a control node gets one written for it | mapped (implicit fork/join: approximated) |
 | CallBehaviorAction | `action x : Def;` with `bind`/`flow` for its pins; a call of no behavior whose only content is a duration is a leaf step, the wait written for it; a call of a state machine, of a behavior with no v2 declaration, or of no behavior with pins to feed | mapped (a leaf step: mapped, "a step with a duration and no further behavior") / **unmapped** |
-| CallBehaviorAction of an fUML or Alf library primitive (`fUML_Library.xmi#…`, `Alf-Library.xmi#…`, any date) | the action with its pins, each result pin valued by the v2 library expression over the arguments, `out result : ScalarValues::String = StringFunctions::'+'(x, y);`; see [the table](#calls-to-the-fuml-and-alf-libraries) | mapped / approximated (the note says where v2 differs) / **unmapped** (no v2 equivalent: the note says which) |
+| CallBehaviorAction of an fUML or Alf library primitive (`fUML_Library.xmi#…`, `Alf-Library.xmi#…`, any date; or MagicDraw's `fUML-Library.mdzip#…` with the bundled copy or `referentPath` under the library's own root package) | the action with its pins, each result pin valued by the v2 library expression over the arguments, `out result : ScalarValues::String = StringFunctions::'+'(x, y);`; see [the table](#calls-to-the-fuml-and-alf-libraries) | mapped / approximated (the note says where v2 differs) / **unmapped** (no v2 equivalent: the note says which) |
 | CallOperationAction | `perform action x ::> target.op;` when the target pin's value is an object whose type owns the operation, or when `onPort` names a port a connector of the caller's block joins to a part that owns it (a port of the target itself names it); otherwise `action x : Owner::Op;`, which runs in the caller's context | mapped / approximated (unresolved target: the reason names it) |
 | ControlFlow | `first a then b;`, `if <guard>` when the guard parses and resolves as a v2 expression or translates from JavaScript or English (`i >= Retries`, `GS_Found`, `not Found and i < 3`, `TRUE`) through the [subset](#the-opaque-language-subset); otherwise the guard text as a comment and the edge unguarded, the report naming the token refused | mapped / approximated |
 | «Probability» on the edges out of a decision, a number | `first d then x { @Stochastic::Probability { p = <value>; } }`; constants not summing to 1 are scaled by their sum; a value outside `[0, 1]` leaves the decision unweighted | mapped / approximated |
@@ -556,7 +556,20 @@ tool computes, not an activity the model holds. The migrator knows the behavior 
 the href names and the fragment within it — whatever date the URI carries, and whether or not
 the model bundles a copy of the library, whose copy is then read for the pins' types but never
 for the mapping — never by the behavior's bare name, so a model's own `Concat` is an ordinary
-call. The call is written with its pins, and each result pin takes the v2 library expression
+call. A tool that ships the library as a module of its own rather than pointing at the OMG
+document — MagicDraw and Cameo reference the used project `fUML-Library.mdzip`, by an href such
+as `fUML-Library.mdzip#_jJIy63OeEd2TgN94jve35g` with the element's qualified name recorded
+beside it as a `referentPath` — is known the same way, by the library's identity: the href must
+name the library's own document (`fUML-Library` or `fUML_Library`, `Alf-Library`, whatever its
+model extension or the path to it), and the behavior it resolves to — the bundled copy when the
+module's contents are in the archive, else the `referentPath` — must sit under the library's
+own root package (`fUML_Library` or `FoundationalModelLibrary`; `Alf::Library`), family and
+name: `fUML_Library::PrimitiveBehaviors::ListFunctions::ListSize`. Both are required, so a
+package of the model's own that happens to be named `fUML_Library`, referenced within the
+document or by an href into another module, is the model's, and its `ListSize` an ordinary
+call. The report says which provenance identified each call: the OMG href, the bundled copy the
+href resolves to, or the `referentPath` recorded beside the href into the library module.
+The call is written with its pins, and each result pin takes the v2 library expression
 over the argument pins, so the flows out of it carry the computed value:
 `out result : ScalarValues::String = StringFunctions::'+'(x, y);`. A sequence parameter may be
 passed nothing — the empty sequence — but a scalar parameter must hold a value: a call that

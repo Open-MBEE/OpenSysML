@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
 
 // documented is a behavior as its library document declares it.
@@ -204,6 +206,9 @@ var placeholder = regexp.MustCompile(`\$(\d+)`)
 // Unmapped with a reason, a mapping gives each result an expression over the
 // arguments it has, and an approximation says how it differs.
 func TestPrimitivesAreWellFormed(t *testing.T) {
+	if len(primitivePaths) != len(primitives) || len(primitiveIndex) != len(primitives) {
+		t.Errorf("%d primitives index as %d fragments and %d paths", len(primitives), len(primitiveIndex), len(primitivePaths))
+	}
 	for i := range primitives {
 		p := &primitives[i]
 		name := p.lib.String() + " " + p.fragment
@@ -277,6 +282,77 @@ func TestPrimitiveAt(t *testing.T) {
 		}
 		if got != want {
 			t.Errorf("primitiveAt(%q) = %q, want %q", href, got, want)
+		}
+	}
+}
+
+// nested builds an element chain from a qualified name, the last of the given type.
+func nested(typ, qualified string) *sysmlv1.Element {
+	var e *sysmlv1.Element
+	for _, name := range strings.Split(qualified, "::") {
+		e = &sysmlv1.Element{Type: "Package", Name: name, Parent: e}
+	}
+	e.Type = typ
+	return e
+}
+
+// proxy builds the proxy an href with a tool's referentPath resolves to when the
+// document is not bundled.
+func proxy(href, typ, qualified string) *sysmlv1.Element {
+	return &sysmlv1.Element{ID: href, Href: href, Type: typ, QualifiedName: qualified}
+}
+
+// TestPrimitiveNamed checks that an href into a library's own document names a
+// primitive by the qualified name of its target, bundled or recorded beside the
+// href, and that no other document does, whatever its packages are called.
+func TestPrimitiveNamed(t *testing.T) {
+	const (
+		listSize = "fUML_Library::PrimitiveBehaviors::ListFunctions::ListSize"
+		mdHref   = "fUML-Library.mdzip#_jJIy63OeEd2TgN94jve35g"
+	)
+	for _, tc := range []struct {
+		name       string
+		href       string
+		target     *sysmlv1.Element
+		want, prov string
+	}{
+		{"MagicDraw referentPath", mdHref, proxy(mdHref, "FunctionBehavior", listSize),
+			"fUML ListFunctions::ListSize", "the behavior is known by the referentPath " + listSize + " recorded beside its href into the library module fUML-Library.mdzip"},
+		{"MagicDraw referentPath under a path", "../modelLibraries/fUML-Library.mdzip#_x", proxy("../modelLibraries/fUML-Library.mdzip#_x", "", "fUML_Library::PrimitiveBehaviors::StringFunctions::Concat"),
+			"fUML StringFunctions::Concat", "the behavior is known by the referentPath fUML_Library::PrimitiveBehaviors::StringFunctions::Concat recorded beside its href into the library module ../modelLibraries/fUML-Library.mdzip"},
+		{"MagicDraw referentPath at the root", mdHref, proxy(mdHref, "Activity", "fUML_Library::BasicInputOutput::WriteLine"),
+			"fUML BasicInputOutput::WriteLine", ""},
+		{"bundled MagicDraw copy", mdHref, nested("FunctionBehavior", listSize),
+			"fUML ListFunctions::ListSize", "the behavior is known by the copy of the library the model bundles as fUML-Library.mdzip, which its href resolves to"},
+		{"bundled OMG document", "fUML_Library.xmi#PrimitiveBehaviors-IntegerFunctions-ToString", nested("FunctionBehavior", "FoundationalModelLibrary::PrimitiveBehaviors::IntegerFunctions::ToString"),
+			"fUML IntegerFunctions::ToString", ""},
+		{"bundled Alf document", "Alf-Library.xmi#Alf-Library-PrimitiveBehaviors-SequenceFunctions-Including", nested("FunctionBehavior", "Alf::Library::PrimitiveBehaviors::SequenceFunctions::Including"),
+			"Alf SequenceFunctions::Including", ""},
+		{"Alf referentPath", "Alf-Library.mdzip#_y", proxy("Alf-Library.mdzip#_y", "FunctionBehavior", "Alf::Library::CollectionFunctions::addAll"),
+			"Alf CollectionFunctions::addAll", ""},
+		// the name is exact
+		{"wrong case", mdHref, proxy(mdHref, "FunctionBehavior", "fUML_Library::PrimitiveBehaviors::ListFunctions::listSize"), "", ""},
+		{"family missing", mdHref, proxy(mdHref, "FunctionBehavior", "fUML_Library::PrimitiveBehaviors::ListSize"), "", ""},
+		{"root missing", mdHref, proxy(mdHref, "FunctionBehavior", "PrimitiveBehaviors::ListFunctions::ListSize"), "", ""},
+		{"no path", mdHref, proxy(mdHref, "FunctionBehavior", ""), "", ""},
+		{"Alf root under fUML", mdHref, proxy(mdHref, "FunctionBehavior", "Alf::Library::PrimitiveBehaviors::SequenceFunctions::Including"), "", ""},
+		{"no behavior", mdHref, proxy(mdHref, "Class", listSize), "", ""},
+		// the document must be the library's own
+		{"used project named like the library", "Helpers.mdzip#_x", proxy("Helpers.mdzip#_x", "FunctionBehavior", listSize), "", ""},
+		{"user package named like the library", "Model.mdzip#_x", nested("FunctionBehavior", listSize), "", ""},
+		{"user package named like the library, in the document", "_userListSize", nested("FunctionBehavior", "Model::"+listSize), "", ""},
+		{"Alf document naming a fUML root", "Alf-Library.mdzip#_x", proxy("Alf-Library.mdzip#_x", "FunctionBehavior", listSize), "", ""},
+		{"unresolved", mdHref, nil, "", ""},
+	} {
+		got, prov := "", ""
+		if p := primitiveNamed(tc.href, tc.target); p != nil {
+			got, prov = p.qualified(), p.provenance
+		}
+		if got != tc.want {
+			t.Errorf("%s: primitiveNamed(%q) = %q, want %q", tc.name, tc.href, got, tc.want)
+		}
+		if tc.prov != "" && prov != tc.prov {
+			t.Errorf("%s: provenance %q, want %q", tc.name, prov, tc.prov)
 		}
 	}
 }
