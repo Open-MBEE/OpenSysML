@@ -126,6 +126,25 @@
                     <scope>provided</scope>
                 </dependency>
             </dependencies>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>build-helper-maven-plugin</artifactId>
+                        <version>${build-helper.version}</version>
+                        <executions>
+                            <execution>
+                                <id>add-real-tests</id>
+                                <phase>generate-test-sources</phase>
+                                <goals><goal>add-test-source</goal></goals>
+                                <configuration>
+                                    <sources><source>src/test/real-java</source></sources>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
             <repositories>
                 <repository><id>github-sirius-web</id><url>https://maven.pkg.github.com/eclipse-sirius/sirius-web</url></repository>
                 <repository><id>github-sirius-emfjson</id><url>https://maven.pkg.github.com/eclipse-sirius/sirius-emf-json</url></repository>
