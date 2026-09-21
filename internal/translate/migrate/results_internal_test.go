@@ -23,6 +23,8 @@ func TestMonteCarloStatisticsCarryWhatIsRecorded(t *testing.T) {
 			&simresults.Statistics{Observable: "t", Runs: 4, Mean: 3.5, Deviation: simresults.Real(0)}, ""},
 		{"no deviation", map[string]float64{monteCarloRuns: 4, monteCarloMean: 3.5},
 			&simresults.Statistics{Observable: "t", Runs: 4, Mean: 3.5}, ""},
+		{"negative deviation", map[string]float64{monteCarloRuns: 4, monteCarloMean: 3.5, monteCarloDeviation: -0.5},
+			nil, "record a MonteCarloAnalysis::Deviation of -0.5, which is no standard deviation, so they hold no statistics"},
 		{"none out of specification", map[string]float64{monteCarloRuns: 4, monteCarloMean: 3.5, monteCarloOutOfSpec: 0},
 			&simresults.Statistics{Observable: "t", Runs: 4, Mean: 3.5, OutOfSpec: simresults.Count(0)}, ""},
 		{"more out of specification than runs", map[string]float64{monteCarloRuns: 4, monteCarloMean: 3.5, monteCarloOutOfSpec: 5},

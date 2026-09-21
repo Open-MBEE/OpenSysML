@@ -330,13 +330,17 @@ func monteCarloStatistics(observable string, summary map[string]float64, unread 
 	case runs != math.Trunc(runs) || runs < 1:
 		return nil, "record a " + monteCarloAnalysisBlock + "::" + monteCarloRuns + " of " + strconv.FormatFloat(runs, 'g', -1, 64) + ", which is no count of runs, so they hold no statistics", false
 	}
+	deviation, hasDeviation := summary[monteCarloDeviation]
+	if hasDeviation && deviation < 0 {
+		return nil, "record a " + monteCarloAnalysisBlock + "::" + monteCarloDeviation + " of " + strconv.FormatFloat(deviation, 'g', -1, 64) + ", which is no standard deviation, so they hold no statistics", false
+	}
 	outOfSpec, hasOutOfSpec := summary[monteCarloOutOfSpec]
 	if hasOutOfSpec && (outOfSpec != math.Trunc(outOfSpec) || outOfSpec < 0 || outOfSpec > runs) {
 		return nil, "record a " + monteCarloAnalysisBlock + "::" + monteCarloOutOfSpec + " of " + strconv.FormatFloat(outOfSpec, 'g', -1, 64) + " over " + strconv.FormatFloat(runs, 'g', -1, 64) + " runs, which is no count of them, so they hold no statistics", false
 	}
 	if value, recorded := values[observable]; recorded && value == mean {
 		stats := &simresults.Statistics{Observable: observable, Runs: int64(runs), Mean: mean}
-		if deviation, recorded := summary[monteCarloDeviation]; recorded {
+		if hasDeviation {
 			stats.Deviation = simresults.Real(deviation)
 		}
 		if hasOutOfSpec {

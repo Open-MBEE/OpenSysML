@@ -723,12 +723,12 @@ action def 'Group 0' {
   records them — a summary without a `Deviation` states none rather than a zero), standing for
   `N` runs, and the configuration's `"analysis"` names that observable, which the snapshot
   holds the same mean for. An analysis binding its `Mean` to no feature, or to several, a
-  snapshot recording `N` without `Mean` or the reverse, an `N` that is no count, an `OutOfSpec`
-  that is no count of the `N` runs, a statistic that is no number (a string, `NaN`, two values
-  in one slot; a blank literal is the tool's zero), or a `Mean` no value of the observable
-  holds is noted and the snapshot read as an ordinary run of the numbers it does hold; one
-  whose `Mean` another feature holds instead summarises an analysis of another configuration
-  and is set aside with a note.
+  snapshot recording `N` without `Mean` or the reverse, an `N` that is no count, a negative
+  `Deviation`, an `OutOfSpec` that is no count of the `N` runs, a statistic that is no number
+  (a string, `NaN`, two values in one slot; a blank literal is the tool's zero), or a `Mean` no
+  value of the observable holds is noted and the snapshot read as an ordinary run of the
+  numbers it does hold; one whose `Mean` another feature holds instead summarises an analysis
+  of another configuration and is set aside with a note.
 - A target whose classifiers, and their generals, have no classifier behavior but hold
   constraint properties — the parametric configurations a tool solves for values — performs
   nothing, since a v2 run checks a constraint and does not solve it; the note lists each
