@@ -127,13 +127,15 @@ func TestSimulationConfigReportsWhatItCannotRun(t *testing.T) {
 // that clock's step in the sidecar: stepSize, 1.0 unless stated, in timeUnit —
 // read in seconds, as the model's bare durations are, when the unit is unstated,
 // and not at all, the runs' clock continuous, when the step or the unit is no step
-// or the step in the unit is more seconds than a number holds. One without
+// or the step in the unit is more seconds than a number holds or fewer than it tells
+// from none. One without
 // startTime ran on the tool's real-time clock and records none.
 func TestSimulationConfigRecordsTheClockStepOfTheToolsInternalClock(t *testing.T) {
 	r := migrateDocument(t, runConfigurations+`
     <packagedElement xmi:type="uml:Class" xmi:id="_g4" name="Group 4"/>
     <packagedElement xmi:type="uml:Class" xmi:id="_g5" name="Group 5"/>
-    <packagedElement xmi:type="uml:Class" xmi:id="_g6" name="Group 6"/>`, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_g6" name="Group 6"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_g7" name="Group 7"/>`, `
   <sysml:Block xmi:id="_s1" base_Class="_chooser"/>
   <sysml:Block xmi:id="_s2" base_Class="_sure"/>
   <sysml:Block xmi:id="_s3" base_Class="_other"/>
@@ -150,11 +152,13 @@ func TestSimulationConfigRecordsTheClockStepOfTheToolsInternalClock(t *testing.T
   <SimulationProfile:SimulationConfig `+simulationProfile+` xmi:id="_c5" base_Class="_g5"
       executionTarget="_s0" numberOfRuns="2" stepSize="3.0" timeUnit="second"/>
   <SimulationProfile:SimulationConfig `+simulationProfile+` xmi:id="_c6" base_Class="_g6"
-      executionTarget="_s0" numberOfRuns="2" startTime="0" stepSize="1e308" timeUnit="week"/>`)
-	if r.Results == nil || len(r.Results.Configurations) != 7 {
-		t.Fatalf("results = %+v, want seven configurations", r.Results)
+      executionTarget="_s0" numberOfRuns="2" startTime="0" stepSize="1e308" timeUnit="week"/>
+  <SimulationProfile:SimulationConfig `+simulationProfile+` xmi:id="_c7" base_Class="_g7"
+      executionTarget="_s0" numberOfRuns="2" startTime="0" stepSize="5e-324" timeUnit="nanosecond"/>`)
+	if r.Results == nil || len(r.Results.Configurations) != 8 {
+		t.Fatalf("results = %+v, want eight configurations", r.Results)
 	}
-	for i, want := range []float64{30, 1, 2.5, 0, 0, 0, 0} {
+	for i, want := range []float64{30, 1, 2.5, 0, 0, 0, 0, 0} {
 		if got := r.Results.Configurations[i].ClockStep; got != want {
 			t.Errorf("configuration %d: clockStep = %v, want %v", i, got, want)
 		}
@@ -169,6 +173,7 @@ func TestSimulationConfigRecordsTheClockStepOfTheToolsInternalClock(t *testing.T
 	wantNote(t, r, "_g4", migrate.Approximated, `timeUnit = "tick" is no fixed number of seconds, so the clock's step is not derived and the runs' clock is continuous`)
 	wantNote(t, r, "_g5", migrate.Mapped, "")
 	wantNote(t, r, "_g6", migrate.Approximated, `stepSize = 1e+308 in timeUnit = "week" is more seconds than a number holds, so the clock's step is not derived and the runs' clock is continuous`)
+	wantNote(t, r, "_g7", migrate.Approximated, `stepSize = 5e-324 in timeUnit = "nanosecond" is fewer seconds than a number tells from none, so the clock's step is not derived and the runs' clock is continuous`)
 	if errs := errors(t, "t.sysml", r.Notation); len(errs) > 0 {
 		t.Errorf("the migrated configurations do not analyse clean: %v\n%s", errs, r.Notation)
 	}

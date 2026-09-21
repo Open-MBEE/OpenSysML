@@ -906,8 +906,9 @@ func (p *opaqueParser) calleeAt(i int) (path []string, onLiteral bool) {
 }
 
 // consolePrint reads past the arguments of a console print, which is written as no
-// statement, and notes it. An argument that assigns, counts or calls anything but a
-// function computing a value could change the model, so such a print is refused instead.
+// statement, and notes it. An argument that assigns, counts, deletes, constructs or
+// calls anything but a function computing a value could change the model, so such a
+// print is refused instead.
 func (p *opaqueParser) consolePrint(fn string) ([]string, *refusal) {
 	changing := func(what string) *refusal {
 		return &refusal{kind: refusedCall, token: fn, why: "an argument of " + fn + " " + what + ", which could change the model, so the print is not left out"}
@@ -930,6 +931,10 @@ func (p *opaqueParser) consolePrint(fn string) ([]string, *refusal) {
 			depth--
 		case tok.isPunct("++"), tok.isPunct("--"):
 			return nil, changing("counts with " + tok.text)
+		case tok.kind == tokIdent && tok.text == "delete" && p.reservedAt(tok, p.i):
+			return nil, changing("deletes with " + tok.text)
+		case tok.kind == tokIdent && tok.text == "new" && (p.d == dialectJava || p.reservedAt(tok, p.i)):
+			return nil, changing("constructs with " + tok.text)
 		case tok.isPunct("="), tok.isPunct("+="), tok.isPunct("-="), tok.isPunct("*="), tok.isPunct("/="), tok.isPunct("%="), tok.isPunct("**="):
 			return nil, changing("assigns with " + tok.text)
 		}

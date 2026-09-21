@@ -36,13 +36,13 @@
   and replays on it. A migrated «SimulationConfig» stating `startTime` ran on the tool's internal
   clock, so the `-migration-results` sidecar records its `stepSize` in `timeUnit` (`1.0` unless
   stated) as `clockStep`, in seconds, and `-compare-results` runs the configuration on it — a
-  unit of no fixed length, a step of zero or less, one of more seconds than a number holds and an
-  unstated unit are noted.
+  unit of no fixed length, a step of zero or less, one of more seconds than a number holds or
+  fewer than it tells from none, and an unstated unit are noted.
 - **A script's console print is left out.** A `print(…)`, `println(…)` or `System.out.println(…)`
   statement of an opaque body writes to the tool's console and changes nothing of the model, so
   the SysML v1 migration leaves it out of the translation, keeps the other statements of the body,
   and notes each print left out as an approximation; a body of prints alone is an empty action.
-  A print whose argument assigns, counts or calls anything but a function of the table computing
+  A print whose argument assigns, counts, deletes, constructs or calls anything but a function of the table computing
   a value (a Java `equals` counts only on a receiver known to be a string; any other type's is
   that type's own method) could change the model, so it is refused rather than left out; a call
   not in the table, or a print used as a value, is refused as before.

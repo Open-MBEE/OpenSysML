@@ -268,6 +268,7 @@ func TestTranslateStatements(t *testing.T) {
 		{"Java", "System.out.println(\"a\".equals(name)); i = 2", []string{"assign this.i := 2;"}},
 		{"Java", "System.out.println(tcs.name.equals(name)); i = 2", []string{"assign this.i := 2;"}},
 		{"Java", "var s = name; System.out.println(s.equals(\"a\")); i = 2", []string{"attribute s : ScalarValues::String;", "assign s := this.name;", "assign this.i := 2;"}},
+		{"JavaScript", "print(new); i = 2", []string{"assign this.i := 2;"}},
 	}
 	for _, c := range cases {
 		got, _, err := translateStatements(c.body, c.lang, testScope)
@@ -358,6 +359,9 @@ func TestTranslateRefusals(t *testing.T) {
 		{"JavaScript", "println(\"now \" + ALH.getCurrentTime())", true, refusedCall, "println"},
 		{"JavaScript", "println(\"state \" + tank.fill(1))", true, refusedCall, "println"},
 		{"JavaScript", "println(\"state \" + new Date())", true, refusedCall, "println"},
+		{"JavaScript", "println(\"at \" + new Date)", true, refusedCall, "println"},
+		{"JavaScript", "print(delete tank.level); i = 2", true, refusedCall, "print"},
+		{"Java", "System.out.println(new Object()); i = 2", true, refusedCall, "System.out.println"},
 		{"JavaScript", "println(name.equals(\"a\"))", true, refusedCall, "println"},
 		{"Java", "System.out.println(tank.equals(drum)); i = 2", true, refusedType, "tank.equals"},
 		{"Java", "System.out.println(mode.equals(\"a\")); i = 2", true, refusedType, "mode.equals"},
