@@ -721,15 +721,16 @@ const joinShapesMachine = `
 const joinShapesApplications = `
   <sysml:Block xmi:id="_j1" base_Class="_jclass"/>`
 
-// An exit point several regions reach is a join; one also reached twice from one region, from
-// outside its state, or from a pseudostate is refused with that shape named, its transitions with it.
+// An exit point several regions reach is a join; one also reached twice from one region or from
+// a pseudostate is refused with that shape named, one reached from outside its state with that
+// transition named, and their transitions with them.
 func TestExitPointJoinShapesAreRefusedPrecisely(t *testing.T) {
 	r := migrateDocument(t, joinShapesMachine, joinShapesApplications)
 	if strings.Contains(string(r.Notation), "join out;") {
 		t.Errorf("a refused exit point was written as a join:\n%s", r.Notation)
 	}
 	wantNote(t, r, "_jxTwice", migrate.Unmapped, "as through a join, but two of its incoming transitions leave the same region")
-	wantNote(t, r, "_jxOuter", migrate.Unmapped, "as through a join, but (_jtIn) comes from outside the state")
+	wantNote(t, r, "_jxOuter", migrate.Unmapped, "(_jtIn) leads to the exit point from outside the state, from 'Idle'")
 	wantNote(t, r, "_jxPseudo", migrate.Unmapped, "as through a join, but (_jpaT2) leaves 'j', a Pseudostate rather than a state")
 	for _, id := range []string{"_jtaT1", "_jtaT2", "_jtbT1", "_jtTwice", "_joaT1", "_jobT1", "_jtIn", "_jtOuter", "_jpaT2", "_jpbT1", "_jtPseudo"} {
 		wantNote(t, r, id, migrate.Unmapped, "has no v2 form")
@@ -1057,4 +1058,220 @@ func TestRegionListedPointsArePathedFromTheirState(t *testing.T) {
 	wantNote(t, r, "_rBoth", migrate.Mapped, "written as a fork of its state")
 	wantNote(t, r, "_rGather", migrate.Mapped, "written as a join of its state")
 	session(t, r)
+}
+
+// pointOnlyRegion has a state Sync with one region of its own, a, and a second, b, in which a
+// tool listed nothing but Sync's entry point Both and exit point Gather and the transition
+// leaving Both.
+const pointOnlyRegion = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_pgo" name="Go"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_pgoEv" signal="_pgo"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_pstop" name="Stop"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_pstopEv" signal="_pstop"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_pclass" name="Rig" classifierBehavior="_psm">
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_psm" name="Main">
+        <region xmi:type="uml:Region" xmi:id="_pr" name="main">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_pInit"/>
+          <subvertex xmi:type="uml:State" xmi:id="_pIdle" name="Idle"/>
+          <subvertex xmi:type="uml:State" xmi:id="_pSync" name="Sync">
+            <region xmi:type="uml:Region" xmi:id="_pa" name="a">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_paInit"/>
+              <subvertex xmi:type="uml:State" xmi:id="_pa1" name="A1"/>
+              <subvertex xmi:type="uml:State" xmi:id="_pa2" name="A2"/>
+              <transition xmi:type="uml:Transition" xmi:id="_paT0" source="_paInit" target="_pa1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_paT2" source="_pa2" target="_pGather">
+                <trigger xmi:type="uml:Trigger" xmi:id="_paTr2" event="_pstopEv"/>
+              </transition>
+            </region>
+            <region xmi:type="uml:Region" xmi:id="_pb" name="b">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_pBoth" name="Both" kind="entryPoint"/>
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_pGather" name="Gather" kind="exitPoint"/>
+              <transition xmi:type="uml:Transition" xmi:id="_pbT1" source="_pBoth" target="_pa2"/>
+            </region>
+          </subvertex>
+          <transition xmi:type="uml:Transition" xmi:id="_pT0" source="_pInit" target="_pIdle"/>
+          <transition xmi:type="uml:Transition" xmi:id="_pT1" source="_pIdle" target="_pBoth">
+            <trigger xmi:type="uml:Trigger" xmi:id="_pTr1" event="_pgoEv"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_pT2" source="_pGather" target="_pIdle"/>
+        </region>
+      </ownedBehavior>
+    </packagedElement>`
+
+const pointOnlyRegionApplications = `
+  <sysml:Block xmi:id="_p1" base_Class="_pclass"/>`
+
+// A region listing only its state's connection points holds nothing to enter: it is skipped, so the
+// state has one region and its points are junctions, not a fork and a join into a parallel state
+// with an empty branch; the transitions the region holds are written in the state's body.
+func TestPointOnlyRegionIsNotAParallelBranch(t *testing.T) {
+	r := migrateDocument(t, pointOnlyRegion, pointOnlyRegionApplications)
+	for _, line := range []string{
+		"junction Both;",
+		"junction Gather;",
+		"transition first Idle accept Go then Sync::Both;",
+		"transition first Sync::Both then A2;",
+		"transition first A2 accept Stop then Sync::Gather;",
+		"transition first Sync::Gather then Idle;",
+	} {
+		if !strings.Contains(string(r.Notation), line) {
+			t.Errorf("missing %q in:\n%s", line, r.Notation)
+		}
+	}
+	for _, bad := range []string{"parallel", "regions::", "fork ", "join "} {
+		if strings.Contains(string(r.Notation), bad) {
+			t.Errorf("the point-only region was written as a parallel branch (%q):\n%s", bad, r.Notation)
+		}
+	}
+	wantNote(t, r, "_pb", migrate.Skipped, "the region lists only connection points of its state, which are written in the state's body")
+	wantNote(t, r, "_pBoth", migrate.Mapped, "written as a junction of its state")
+	wantNote(t, r, "_pGather", migrate.Mapped, "written as a junction of its state")
+	wantNote(t, r, "_pbT1", migrate.Mapped, "")
+	s := session(t, r)
+	meta(t, s, "%instantiate Rig")
+	meta(t, s, "%state Rig::Main #1")
+	meta(t, s, "%send Go")
+	meta(t, s, "%step")
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: A2") {
+		t.Errorf("entering through Both did not reach A2:\n%s", out)
+	}
+	meta(t, s, "%send Stop")
+	meta(t, s, "%step")
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Idle") {
+		t.Errorf("leaving through Gather did not reach Idle:\n%s", out)
+	}
+}
+
+// noDefaultEntryMachine has a composite state Work whose region holds a state but no initial
+// pseudostate, and an entry point in that no transition leaves.
+const noDefaultEntryMachine = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_dgo" name="Go"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_dgoEv" signal="_dgo"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_dstop" name="Stop"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_dstopEv" signal="_dstop"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_dclass" name="Rig" classifierBehavior="_dsm">
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_dsm" name="Main">
+        <region xmi:type="uml:Region" xmi:id="_dr" name="main">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_dInit"/>
+          <subvertex xmi:type="uml:State" xmi:id="_dIdle" name="Idle"/>
+          <subvertex xmi:type="uml:State" xmi:id="_dWork" name="Work">
+            <connectionPoint xmi:type="uml:Pseudostate" xmi:id="_dIn" name="via" kind="entryPoint"/>
+            <region xmi:type="uml:Region" xmi:id="_dwr" name="r">
+              <subvertex xmi:type="uml:State" xmi:id="_dw1" name="W1"/>
+            </region>
+          </subvertex>
+          <transition xmi:type="uml:Transition" xmi:id="_dT0" source="_dInit" target="_dIdle"/>
+          <transition xmi:type="uml:Transition" xmi:id="_dT1" source="_dIdle" target="_dIn">
+            <trigger xmi:type="uml:Trigger" xmi:id="_dTr1" event="_dgoEv"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_dT2" source="_dWork" target="_dIdle">
+            <trigger xmi:type="uml:Trigger" xmi:id="_dTr2" event="_dstopEv"/>
+          </transition>
+        </region>
+      </ownedBehavior>
+    </packagedElement>`
+
+const noDefaultEntryApplications = `
+  <sysml:Block xmi:id="_d1" base_Class="_dclass"/>`
+
+// An entry point no transition leaves enters its state by the state's default entry, which, with no
+// initial pseudostate in the region, enters the state and leaves the region inactive in v1 and in
+// the runtime alike; the transition is written to the state and the report says so.
+func TestDefaultEntryPointOnOwnerWithoutInitialEntersTheState(t *testing.T) {
+	r := migrateDocument(t, noDefaultEntryMachine, noDefaultEntryApplications)
+	for _, line := range []string{
+		"transition first Idle accept Go then Work;",
+		"transition first Work accept Stop then Idle;",
+		"the region has no initial pseudostate: nothing enters it",
+	} {
+		if !strings.Contains(string(r.Notation), line) {
+			t.Errorf("missing %q in:\n%s", line, r.Notation)
+		}
+	}
+	if strings.Contains(string(r.Notation), "junction via;") {
+		t.Errorf("an entry point no transition leaves was written as a junction:\n%s", r.Notation)
+	}
+	wantNote(t, r, "_dIn", migrate.Mapped, "the region 'r' have no initial pseudostate, so the state is entered with them inactive, as v1 enters it")
+	wantNote(t, r, "_dT1", migrate.Mapped, "written to Work: no transition leaves the entry point 'via'")
+	s := session(t, r)
+	meta(t, s, "%instantiate Rig")
+	meta(t, s, "%state Rig::Main #1")
+	meta(t, s, "%send Go")
+	meta(t, s, "%step")
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Work") || strings.Contains(out, "W1") {
+		t.Errorf("entering Work by its default entry did not leave its region inactive:\n%s", out)
+	}
+	meta(t, s, "%send Stop")
+	meta(t, s, "%step")
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Idle") {
+		t.Errorf("Work was not left on Stop:\n%s", out)
+	}
+}
+
+// outsideExitMachine has two composite states with one exit point each: Work's is reached from
+// Idle, outside Work, besides from within; Self's by a local transition of Self itself.
+const outsideExitMachine = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_ogo" name="Go"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_ogoEv" signal="_ogo"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_oclass" name="Rig" classifierBehavior="_osm">
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_osm" name="Main">
+        <region xmi:type="uml:Region" xmi:id="_or" name="main">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_oInit"/>
+          <subvertex xmi:type="uml:State" xmi:id="_oIdle" name="Idle"/>
+          <subvertex xmi:type="uml:State" xmi:id="_oWork" name="Work">
+            <connectionPoint xmi:type="uml:Pseudostate" xmi:id="_oOut" name="leave" kind="exitPoint"/>
+            <region xmi:type="uml:Region" xmi:id="_owr" name="r">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_owInit"/>
+              <subvertex xmi:type="uml:State" xmi:id="_ow1" name="W1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_owT0" source="_owInit" target="_ow1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_owT1" source="_ow1" target="_oOut">
+                <trigger xmi:type="uml:Trigger" xmi:id="_owTr1" event="_ogoEv"/>
+              </transition>
+            </region>
+          </subvertex>
+          <subvertex xmi:type="uml:State" xmi:id="_oSelf" name="Self">
+            <connectionPoint xmi:type="uml:Pseudostate" xmi:id="_oSOut" name="leave" kind="exitPoint"/>
+            <region xmi:type="uml:Region" xmi:id="_osr" name="r">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_osInit"/>
+              <subvertex xmi:type="uml:State" xmi:id="_os1" name="S1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_osT0" source="_osInit" target="_os1"/>
+            </region>
+          </subvertex>
+          <transition xmi:type="uml:Transition" xmi:id="_oT0" source="_oInit" target="_oIdle"/>
+          <transition xmi:type="uml:Transition" xmi:id="_oT1" source="_oIdle" target="_oOut">
+            <trigger xmi:type="uml:Trigger" xmi:id="_oTr1" event="_ogoEv"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_oT2" source="_oOut" target="_oIdle"/>
+          <transition xmi:type="uml:Transition" xmi:id="_oT3" source="_oSelf" target="_oSOut" kind="local">
+            <trigger xmi:type="uml:Trigger" xmi:id="_oTr3" event="_ogoEv"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_oT4" source="_oSOut" target="_oIdle"/>
+        </region>
+      </ownedBehavior>
+    </packagedElement>`
+
+const outsideExitApplications = `
+  <sysml:Block xmi:id="_o1" base_Class="_oclass"/>`
+
+// An exit point one transition reaches from outside its state is refused with that transition named
+// however few transitions reach it: written as a junction, the runtime would enter the state to leave
+// it, running entry and exit behaviors v1 never runs. One a local transition of the state itself
+// reaches is a junction, the transition approximated as the local rule says.
+func TestExitPointReachedFromOutsideIsRefused(t *testing.T) {
+	r := migrateDocument(t, outsideExitMachine, outsideExitApplications)
+	if n := strings.Count(string(r.Notation), "junction leave;"); n != 1 {
+		t.Errorf("want Self's exit point alone written as a junction, got %d:\n%s", n, r.Notation)
+	}
+	for _, line := range []string{"transition first Self accept Go then Self::leave;", "transition first Self::leave then Idle;"} {
+		if !strings.Contains(string(r.Notation), line) {
+			t.Errorf("missing %q in:\n%s", line, r.Notation)
+		}
+	}
+	wantNote(t, r, "_oOut", migrate.Unmapped, "(_oT1) leads to the exit point from outside the state, from 'Idle'; v1 never enters the state, while the runtime would enter and leave it")
+	for _, id := range []string{"_owT1", "_oT1", "_oT2"} {
+		wantNote(t, r, id, migrate.Unmapped, "has no v2 form")
+	}
+	wantNote(t, r, "_oSOut", migrate.Mapped, "written as a junction of its state")
+	wantNote(t, r, "_oT3", migrate.Approximated, "a local transition is written external: the composite state Self exits and re-enters")
+	wantNote(t, r, "_oT4", migrate.Mapped, "")
 }

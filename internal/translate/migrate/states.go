@@ -106,6 +106,9 @@ func (m *migration) nameRegion(r, owner *sysmlv1.Element, used map[string]bool) 
 			inner := inheritedStateNamesSet()
 			m.namePoints(v, inner)
 			m.nameRegions(m.populatedRegions(v), v, inner)
+			for _, pr := range pointRegions(v) {
+				m.regionUsed[pr] = inner
+			}
 			continue
 		}
 		if pointOwner(v) != nil && pointOwner(v).Type == "State" {
@@ -114,6 +117,32 @@ func (m *migration) nameRegion(r, owner *sysmlv1.Element, used map[string]bool) 
 		}
 		m.nameVertex(v, owner, used)
 	}
+}
+
+// pointRegions lists the regions of state v holding nothing but connection points
+// of v, which a tool listed there: their transitions are written in v's body.
+func pointRegions(v *sysmlv1.Element) []*sysmlv1.Element {
+	var out []*sysmlv1.Element
+	for _, r := range v.Owned("region") {
+		if len(r.Owned("subvertex")) > 0 && pointsOnly(r, v) {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+// pointsOnly reports whether every vertex region r lists is a connection point of
+// the state owner, written in the state's body rather than the region's.
+func pointsOnly(r, owner *sysmlv1.Element) bool {
+	if owner.Type != "State" {
+		return false
+	}
+	for _, v := range r.Owned("subvertex") {
+		if pointOwner(v) != owner {
+			return false
+		}
+	}
+	return true
 }
 
 // namePoints settles how each connection point of composite state v is written
@@ -190,7 +219,11 @@ func (m *migration) statePointForm(v, owner *sysmlv1.Element) pointForm {
 func (m *migration) entryPointForm(v, owner *sysmlv1.Element) pointForm {
 	out := m.outgoing[v]
 	if len(out) == 0 {
-		return pointForm{defaultEntry: true, note: "no transition leaves the entry point, so entering through it enters " + describe(owner) + " by its default entry; a transition to it is written to the state"}
+		note := "no transition leaves the entry point, so entering through it enters " + describe(owner) + " by its default entry; a transition to it is written to the state"
+		if without := regionsWithoutInitial(m.populatedRegions(owner)); len(without) > 0 {
+			note += "; the " + pluralRegion(len(without)) + " " + strings.Join(without, ", ") + " have no initial pseudostate, so the state is entered with them inactive, as v1 enters it"
+		}
+		return pointForm{defaultEntry: true, note: note}
 	}
 	for _, t := range out {
 		if why := m.entryBranchWhy(t, owner); why != "" {
@@ -234,22 +267,37 @@ func (m *migration) entryBranchWhy(t, owner *sysmlv1.Element) string {
 }
 
 func (m *migration) exitPointForm(v, owner *sysmlv1.Element) pointForm {
-	in := m.incoming[v]
+	// in holds the transitions from within the state that shape the point; one from the
+	// state itself is its local transition, one from its entry point is refused with that.
+	var in, local []*sysmlv1.Element
+	for _, t := range m.incoming[v] {
+		src := m.model.Ref(t, "source")
+		switch {
+		case src == nil:
+			return pointForm{why: describe(t) + " leads to the exit point from no source"}
+		case src == owner:
+			local = append(local, t)
+		case pseudoKind(src) == "entryPoint" && pointOwner(src) == owner:
+		case regionWithin(src, owner) == nil:
+			return pointForm{why: describe(t) + " leads to the exit point from outside the state, from " + describe(src) + "; v1 never enters the state, while the runtime would enter and leave it, running its entry and exit behaviors"}
+		default:
+			in = append(in, t)
+		}
+	}
 	regions := m.regionsCrossed(in, owner, "source")
 	if len(in) < 2 || len(regions) < 2 {
 		return pointForm{kw: "junction", note: "written as a junction of its state; a transition leaving through it runs the transition into the junction, the state's exit behavior, then the transition leaving it"}
 	}
+	joinBut := "several regions of " + describe(owner) + " leave through the exit point, as through a join, but "
 	if len(regions) < len(in) {
-		for _, t := range in {
-			if regionWithin(m.model.Ref(t, "source"), owner) == nil {
-				return pointForm{why: "several regions of " + describe(owner) + " leave through the exit point, as through a join, but " + describe(t) + " comes from outside the state"}
-			}
-		}
-		return pointForm{why: "several regions of " + describe(owner) + " leave through the exit point, as through a join, but two of its incoming transitions leave the same region"}
+		return pointForm{why: joinBut + "two of its incoming transitions leave the same region"}
+	}
+	if len(local) > 0 {
+		return pointForm{why: joinBut + describe(local[0]) + " leaves the state itself, which a join does not wait for"}
 	}
 	for _, t := range in {
-		if src := m.model.Ref(t, "source"); src != nil && src.Type != "State" {
-			return pointForm{why: "several regions of " + describe(owner) + " leave through the exit point, as through a join, but " + describe(t) + " leaves " + describe(src) + ", a " + kindOf(src) + " rather than a state"}
+		if src := m.model.Ref(t, "source"); src.Type != "State" {
+			return pointForm{why: joinBut + describe(t) + " leaves " + describe(src) + ", a " + kindOf(src) + " rather than a state"}
 		}
 	}
 	return pointForm{kw: "join", note: "written as a join of its state, which its regions leave through together; the transitions into the join run, then the state's exit behavior, then the transition leaving it"}
@@ -309,17 +357,20 @@ func trueLiteral(spec *sysmlv1.Element) bool {
 	return spec != nil && spec.Type == "LiteralBoolean" && (spec.Attrs["value"] == "true" || spec.Attrs["value"] == "1")
 }
 
-// populatedRegions returns the regions of a machine or state that hold a
-// vertex; an empty one has nothing to enter, so it is skipped rather than
-// written as a sub-state no entry starts.
+// populatedRegions returns the regions of a machine or state that hold a vertex
+// of their own; an empty one, or one listing only its state's connection points,
+// has nothing to enter, so it is skipped rather than written as a sub-state no entry starts.
 func (m *migration) populatedRegions(owner *sysmlv1.Element) []*sysmlv1.Element {
 	var out []*sysmlv1.Element
 	for _, r := range owner.Owned("region") {
-		if len(r.Owned("subvertex")) == 0 {
+		switch {
+		case len(r.Owned("subvertex")) == 0:
 			m.add(r, Skipped, "", unreferencedNote+": the region holds no vertex, so nothing enters it and no state is written for it")
-			continue
+		case pointsOnly(r, owner):
+			m.add(r, Skipped, "", unreferencedNote+": the region lists only connection points of its state, which are written in the state's body, so nothing enters it and no state is written for it")
+		default:
+			out = append(out, r)
 		}
-		out = append(out, r)
 	}
 	return out
 }
@@ -712,7 +763,8 @@ func (s *stateRegion) state(v *sysmlv1.Element) {
 	entry, do, exit := s.m.stateBehavior(v, "entry"), s.m.stateBehavior(v, "doActivity"), s.m.stateBehavior(v, "exit")
 	inv := firstOwned(v, "stateInvariant")
 	points := s.m.connectionPoints(v)
-	if entry == nil && do == nil && exit == nil && inv == nil && len(regions) == 0 && len(defers) == 0 && s.m.writtenPoints(v) == 0 {
+	pointRegs := pointRegions(v)
+	if entry == nil && do == nil && exit == nil && inv == nil && len(regions) == 0 && len(defers) == 0 && s.m.writtenPoints(v) == 0 && !hasTransitions(pointRegs) {
 		s.m.w.line(head + ";")
 		s.m.statePoints(v)
 		return
@@ -737,10 +789,30 @@ func (s *stateRegion) state(v *sysmlv1.Element) {
 		}
 		if len(regions) == 0 {
 			between()
-			return
+		} else {
+			s.m.regions(v, regions, entered, between)
 		}
-		s.m.regions(v, regions, entered, between)
+		for _, pr := range pointRegs {
+			// Named from the state's one region when it has one, so its vertices need no path.
+			host := pr
+			if len(regions) == 1 {
+				host = regions[0]
+			}
+			for _, t := range pr.Owned("transition") {
+				s.m.region(host).transition(t)
+			}
+		}
 	})
+}
+
+// hasTransitions reports whether any of the regions owns a transition.
+func hasTransitions(regions []*sysmlv1.Element) bool {
+	for _, r := range regions {
+		if len(r.Owned("transition")) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // invariant keeps a state invariant, which v2 has no form for, as a comment.
