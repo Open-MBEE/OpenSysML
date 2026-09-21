@@ -46,6 +46,7 @@ coverage-node.lcov
 # Maven build output for the Java client and the Cameo plugin
 /client/java/**/target/
 /editors/cameo/**/target/
+/editors/syson/**/target/
 !/editors/cameo/dist/
 
 # Partial oracle record a failed `make fuml-expected` leaves for diagnosis

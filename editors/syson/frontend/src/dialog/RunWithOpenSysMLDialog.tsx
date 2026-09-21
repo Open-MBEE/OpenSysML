@@ -160,9 +160,7 @@ export const RunWithOpenSysMLDialog = ({
                   value={input.expression}
                   onChange={(event) => updateInput(index, 'expression', event.target.value)}
                 />
-                <Button
-                  aria-label={`Remove input ${index + 1}`}
-                  onClick={() => removeInput(index)}>
+                <Button aria-label={`Remove input ${index + 1}`} onClick={() => removeInput(index)}>
                   <DeleteIcon />
                 </Button>
               </div>
@@ -186,9 +184,7 @@ export const RunWithOpenSysMLDialog = ({
                   value={event}
                   onChange={(change) => updateEvent(index, change.target.value)}
                 />
-                <Button
-                  aria-label={`Remove event ${index + 1}`}
-                  onClick={() => removeEvent(index)}>
+                <Button aria-label={`Remove event ${index + 1}`} onClick={() => removeEvent(index)}>
                   <DeleteIcon />
                 </Button>
               </div>
@@ -210,9 +206,7 @@ export const RunWithOpenSysMLDialog = ({
                   value={argument}
                   onChange={(change) => updateArgument(index, change.target.value)}
                 />
-                <Button
-                  aria-label={`Remove argument ${index + 1}`}
-                  onClick={() => removeArgument(index)}>
+                <Button aria-label={`Remove argument ${index + 1}`} onClick={() => removeArgument(index)}>
                   <DeleteIcon />
                 </Button>
               </div>
