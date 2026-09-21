@@ -109,6 +109,8 @@ func TestImplicitUsageBaseTypes(t *testing.T) {
 		base string
 	}{
 		{"part x;", "Parts::Part", "Parts::parts"},
+		{"individual part x;", "Parts::Part", "Parts::parts"},
+		{"individual item x;", "Items::Item", "Items::items"},
 		{"attribute x;", "Base::DataValue", "Base::dataValues"},
 		{"item x;", "Items::Item", "Items::items"},
 		{"occurrence x;", "Occurrences::Occurrence", "Occurrences::occurrences"},
