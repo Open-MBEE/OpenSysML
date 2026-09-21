@@ -60,10 +60,9 @@ const (
 	ConstructSubmachine          Construct = "submachine state"
 	ConstructUnknownVertex       Construct = "unknown pseudostate kind"
 	ConstructNoMachine           Construct = "no state machine"
-	// No translation: the model's behaviors read what the notation cannot bind,
-	// or the tester computes what the driver cannot.
+	// No translation: the model's behaviors read what no transition's accept
+	// carries to them, or the tester computes what the driver cannot.
 	ConstructBehaviorParameter   Construct = "behavior parameter"
-	ConstructOperationResult     Construct = "operation result"
 	ConstructTesterTrace         Construct = "tester trace"
 	ConstructGuardSideEffect     Construct = "guard side effect"
 	ConstructGuardBehaviorUnread Construct = "guard behavior not read"
@@ -98,7 +97,6 @@ var constructClass = map[Construct]Expressibility{
 	ConstructUnknownVertex:        NotExpressible,
 	ConstructNoMachine:            NotExpressible,
 	ConstructBehaviorParameter:    NotExpressible,
-	ConstructOperationResult:      NotExpressible,
 	ConstructTesterTrace:          NotExpressible,
 	ConstructGuardSideEffect:      NotExpressible,
 	ConstructGuardBehaviorUnread:  NotExpressible,
@@ -164,7 +162,12 @@ func Classify(t *Test) Classification {
 		if t.Machine.Redefines != "" {
 			add(ConstructRedefinedMachine, t.Machine.Name)
 		}
-		w := &walker{add: add, reached: reachedVertices(t.Machine.Regions), forkEntered: forkEnteredRegions(t.Machine.Regions)}
+		w := &walker{
+			add:         add,
+			reached:     reachedVertices(t.Machine.Regions),
+			forkEntered: forkEnteredRegions(t.Machine.Regions),
+			unbound:     unboundBehaviors(BindBehaviors(t.Machine)),
+		}
 		w.connectionPoints(t.Machine.ConnectionPoints)
 		w.regions(t.Machine.Regions)
 		w.tester(t.Target, t.Stimulation)
@@ -283,6 +286,16 @@ type walker struct {
 	add         func(Construct, string)
 	reached     map[*Vertex]bool
 	forkEntered map[*Region]bool
+	// unbound are the behaviors with parameters no event binds.
+	unbound map[*Behavior]bool
+}
+
+func unboundBehaviors(b *Bindings) map[*Behavior]bool {
+	unbound := map[*Behavior]bool{}
+	for _, r := range b.Refused {
+		unbound[r.Behavior] = true
+	}
+	return unbound
 }
 
 // connectionPoints records a machine's or state's connection points. Entry and
@@ -311,11 +324,7 @@ func (w *walker) regions(regions []*Region) {
 		}
 		for _, tr := range r.Transitions {
 			w.guard(tr.Guard, tr.Name)
-			for _, trig := range tr.Triggers {
-				if trig.Event != nil && trig.Event.Kind == EventCall && trig.Event.Operation != nil {
-					w.operation(trig.Event.Operation, tr.Name)
-				}
-			}
+			w.behavior(tr.Effect, tr.Name)
 			switch tr.Kind {
 			case TransitionLocal:
 				w.add(ConstructLocalTransition, tr.Name)
@@ -368,23 +377,11 @@ func guardBehaviorUnread(g *Guard) bool {
 	return g != nil && g.Behavior != nil && g.Behavior.Body == nil && g.Behavior.Type != typeFunctionBehavior
 }
 
-// behavior records a state behavior with parameters: the notation binds event
-// data on the transition, never on an entry, exit or do action.
+// behavior records a behavior with parameters that no event binds: one some
+// path reaches without accepting data of its types first (see BindBehaviors).
 func (w *walker) behavior(b *Behavior, where string) {
-	if b != nil && len(b.Params) > 0 {
+	if w.unbound[b] {
 		w.add(ConstructBehaviorParameter, where)
-	}
-}
-
-// operation records a call trigger whose operation returns a value: the driver
-// releases the caller with what the triggered behaviors return, but the
-// translation spells no behavior returning a value yet.
-func (w *walker) operation(op *Operation, where string) {
-	for _, p := range op.Params {
-		if p.Direction == "out" || p.Direction == "return" || p.Direction == "inout" {
-			w.add(ConstructOperationResult, where)
-			return
-		}
 	}
 }
 

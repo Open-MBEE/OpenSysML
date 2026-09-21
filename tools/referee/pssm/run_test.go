@@ -10,11 +10,12 @@ import (
 	oreport "github.com/Open-MBEE/OpenSysML/tools/oracle/report"
 )
 
-// testerStep is one statement of a tester's behavior after it accepts Start:
-// a send of the signal to the target, a call of the target's operation, or a
-// trace of the literal string on the target.
+// testerStep is one statement of a tester's behavior after Start: a send, a call
+// (args as `uml:LiteralInteger=5`; traceResult traces its result) or a trace.
 type testerStep struct {
 	send, call, trace string
+	args              []string
+	traceResult       bool
 }
 
 // testerWith writes a Tester class whose classifier behavior accepts Start and
@@ -44,15 +45,45 @@ func testerWith(id string, steps ...testerStep) string {
 		case step.send != "":
 			b.WriteString(`        <node xmi:type="uml:SendSignalAction" xmi:id="` + s + `" name="Send" signal="` + step.send + `">
           <target xmi:type="uml:InputPin" xmi:id="` + s + `Target"/>
+` + argumentPins(s, step.args) + `        </node>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="` + s + `E2" source="` + s + `ReadOut" target="` + s + `Target"/>
+` + literalArguments(s, step.args))
+		case step.call != "" && step.traceResult:
+			b.WriteString(`        <node xmi:type="uml:CallOperationAction" xmi:id="` + s + `Call" name="Call" operation="` + step.call + `">
+          <target xmi:type="uml:InputPin" xmi:id="` + s + `Target"/>
+` + argumentPins(s, step.args) + `          <result xmi:type="uml:OutputPin" xmi:id="` + s + `Result"/>
         </node>
         <edge xmi:type="uml:ObjectFlow" xmi:id="` + s + `E2" source="` + s + `ReadOut" target="` + s + `Target"/>
+` + literalArguments(s, step.args) + `        <node xmi:type="uml:ValueSpecificationAction" xmi:id="` + s + `Dir">
+          <result xmi:type="uml:OutputPin" xmi:id="` + s + `DirOut"/>
+          <value xmi:type="uml:LiteralBoolean" xmi:id="` + s + `DirLit" value="false"/>
+        </node>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="` + s + `Fmt" behavior="fmtPV">
+          <argument xmi:type="uml:InputPin" xmi:id="` + s + `FmtA0"/>
+          <argument xmi:type="uml:InputPin" xmi:id="` + s + `FmtA1"/>
+          <result xmi:type="uml:OutputPin" xmi:id="` + s + `FmtOut"/>
+        </node>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="` + s + `E5" source="` + s + `DirOut" target="` + s + `FmtA0"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="` + s + `E6" source="` + s + `Result" target="` + s + `FmtA1"/>
+        <node xmi:type="uml:ReadSelfAction" xmi:id="` + s + `Self2"><result xmi:type="uml:OutputPin" xmi:id="` + s + `Self2Out"/></node>
+        <node xmi:type="uml:ReadStructuralFeatureAction" xmi:id="` + s + `Read2" structuralFeature="testerTestable">
+          <object xmi:type="uml:InputPin" xmi:id="` + s + `Read2Obj"/>
+          <result xmi:type="uml:OutputPin" xmi:id="` + s + `Read2Out"/>
+        </node>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="` + s + `E7" source="` + s + `Self2Out" target="` + s + `Read2Obj"/>
+        <node xmi:type="uml:CallOperationAction" xmi:id="` + s + `" name="Trace" operation="opTrace">
+          <target xmi:type="uml:InputPin" xmi:id="` + s + `Target2"/>
+          <argument xmi:type="uml:InputPin" xmi:id="` + s + `Arg"/>
+        </node>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="` + s + `E8" source="` + s + `Read2Out" target="` + s + `Target2"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="` + s + `E9" source="` + s + `FmtOut" target="` + s + `Arg"/>
 `)
 		case step.call != "":
 			b.WriteString(`        <node xmi:type="uml:CallOperationAction" xmi:id="` + s + `" name="Call" operation="` + step.call + `">
           <target xmi:type="uml:InputPin" xmi:id="` + s + `Target"/>
-        </node>
+` + argumentPins(s, step.args) + `        </node>
         <edge xmi:type="uml:ObjectFlow" xmi:id="` + s + `E2" source="` + s + `ReadOut" target="` + s + `Target"/>
-`)
+` + literalArguments(s, step.args))
 		default:
 			b.WriteString(`        <node xmi:type="uml:ValueSpecificationAction" xmi:id="` + s + `Val">
           <result xmi:type="uml:OutputPin" xmi:id="` + s + `ValOut"/>
@@ -71,6 +102,33 @@ func testerWith(id string, steps ...testerStep) string {
 		prev = s
 	}
 	b.WriteString("      </ownedBehavior>\n    </packagedElement>\n")
+	return b.String()
+}
+
+// argumentPins writes one argument pin per literal argument of action s.
+func argumentPins(s string, args []string) string {
+	var b strings.Builder
+	for i := range args {
+		b.WriteString(`          <argument xmi:type="uml:InputPin" xmi:id="` + s + `Arg` + itoa(i) + `"/>
+`)
+	}
+	return b.String()
+}
+
+// literalArguments writes the value specification feeding each argument pin of
+// action s.
+func literalArguments(s string, args []string) string {
+	var b strings.Builder
+	for i, arg := range args {
+		typ, value, _ := strings.Cut(arg, "=")
+		v := s + "Lit" + itoa(i)
+		b.WriteString(`        <node xmi:type="uml:ValueSpecificationAction" xmi:id="` + v + `">
+          <result xmi:type="uml:OutputPin" xmi:id="` + v + `Out"/>
+          <value xmi:type="` + typ + `" xmi:id="` + v + `Val" value="` + value + `"/>
+        </node>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="` + v + `E" source="` + v + `Out" target="` + s + `Arg` + itoa(i) + `"/>
+`)
+	}
 	return b.String()
 }
 

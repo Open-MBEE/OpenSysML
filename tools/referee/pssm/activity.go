@@ -306,7 +306,7 @@ func (ar *activityReader) readNode(n *xmi.Element) {
 		// A fed return parameter node is the body's return statement.
 		param := ar.r.doc.ByID(n.Attr("parameter"))
 		if param != nil && (param.Attr("direction") == "return" || param.Attr("direction") == "out") && len(ar.incoming[n.ID]) > 0 {
-			ar.emit(Statement{Kind: StmtReturn, Value: ar.pinValue(n)})
+			ar.emit(Statement{Kind: StmtReturn, Feature: param.Attr("name"), Value: ar.pinValue(n)})
 		}
 	case typeInitialNode, typeActivityFinalNode, typeFlowFinalNode, typeForkNode, typeJoinNode,
 		typeMergeNode, typeDecisionNode, typeExpansionNode:
@@ -527,7 +527,7 @@ func packagedBehavior(b *xmi.Element) *LibraryBehavior {
 		return nil
 	}
 	var path []string
-	for e := b; e != nil && e.Type != "uml:Model"; e = e.Parent {
+	for e := b; e != nil && e.Type != "uml:Model" && e.Tag != "Model"; e = e.Parent {
 		path = append([]string{e.Name()}, path...)
 	}
 	return &LibraryBehavior{Name: b.Name(), Qualified: strings.Join(path, "::")}
