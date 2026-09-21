@@ -87,7 +87,7 @@ func (s *Session) runsVerdict(action Behavior, count int64, seed *uint64, observ
 	if inv == nil {
 		return unresolved[0]
 	}
-	answered, table, err := s.runsTable(inv, count, seed, observables, s.draws)
+	answered, table, err := s.runsTable(inv, count, seed, observables, s.draws, s.clockStep)
 	if err != nil {
 		return standing(unresolvedVerdict(label, err.Error()), answered)
 	}
@@ -103,11 +103,11 @@ func (s *Session) runsVerdict(action Behavior, count int64, seed *uint64, observ
 	}, answered)
 }
 
-// runsTable makes the runs of a Monte Carlo of the invocation under the draw policy
-// and returns their table with the plan that answered, nil for a refusal made before
-// any engine ran. A seedless Monte Carlo under the random policy is refused: its
-// draws would have no source.
-func (s *Session) runsTable(inv *freshInvocation, count int64, seed *uint64, observables []string, draws runtime.DrawPolicy) (*analysis.Plan, runtime.SweepTable, error) {
+// runsTable makes the runs of a Monte Carlo of the invocation under the draw policy,
+// on a clock stepping by step, and returns their table with the plan that answered, nil
+// for a refusal made before any engine ran. A seedless Monte Carlo under the random
+// policy is refused: its draws would have no source.
+func (s *Session) runsTable(inv *freshInvocation, count int64, seed *uint64, observables []string, draws runtime.DrawPolicy, step float64) (*analysis.Plan, runtime.SweepTable, error) {
 	if _, replaying := s.drivenSchedule().Replay(); replaying {
 		return nil, runtime.SweepTable{}, ErrRunsReplay
 	}
@@ -142,7 +142,7 @@ func (s *Session) runsTable(inv *freshInvocation, count int64, seed *uint64, obs
 	}
 	model := s.freshModel()
 	s.state.Unlock()
-	answered, err := s.sweep(inv.subject(), model, plan, run, draws)
+	answered, err := s.sweep(inv.subject(), model, plan, run, draws, step)
 	s.state.Lock()
 	if err != nil {
 		return &answered, runtime.SweepTable{}, err

@@ -44,10 +44,13 @@ var testScope = fakeScope{
 	"drum":             {expr: "this.drum", object: []string{"Drum", "Tank"}},
 	"vat":              {expr: "this.vat", object: []string{"Vat", "Tank"}},
 	"tcs.i":            {expr: "this.tcs.i", scalar: "Integer"},
+	"tcs.name":         {expr: "this.tcs.name", scalar: "String"},
 	"Guide Star Found": {expr: "this.'Guide Star Found'", scalar: "Boolean"},
 	"Guide Star":       {expr: "this.'Guide Star'", object: []string{"Star"}},
 	"Stage 2 Ready":    {expr: "this.'Stage 2 Ready'", scalar: "Boolean"},
 	"Retry Count":      {expr: "this.'Retry Count'", scalar: "Integer"},
+	"new":              {expr: "this.'new'", scalar: "Real"},
+	"typeof":           {expr: "this.'typeof'", scalar: "Integer"},
 }
 
 func TestTranslateExpr(t *testing.T) {
@@ -61,6 +64,9 @@ func TestTranslateExpr(t *testing.T) {
 		{"JavaScript", "i < Retries && !GS_Found", "", "this.i < this.Retries and not this.GS_Found", "Boolean"},
 		{"JavaScript", "i == 1 || i === 2", "", "this.i == 1 or this.i == 2", "Boolean"},
 		{"JavaScript", "i != Retries", "", "this.i != this.Retries", "Boolean"},
+		{"JavaScript", "new = Math.max(t, t0)", "Boolean", "this.'new' == RealFunctions::max(this.t, this.t0)", "Boolean"},
+		{"JavaScript", "Math.max(t, new)", "", "RealFunctions::max(this.t, this.'new')", "Real"},
+		{"JavaScript", "typeof * 2", "", "this.'typeof' * 2", "Integer"},
 		{"JavaScript", "(t - t0) * 2", "", "(this.t - this.t0) * 2", "Real"},
 		{"JavaScript", "t / 2 + i % 3", "", "this.t / 2 + this.i % 3", "Real"},
 		{"JavaScript", "t - (t0 - 1)", "", "this.t - (this.t0 - 1)", "Real"},
@@ -132,7 +138,7 @@ func TestTranslateExpr(t *testing.T) {
 		{"Java", `name.equals("ready")`, "", `this.name == "ready"`, "Boolean"},
 		{"Java", `"ready".equals(name)`, "", `"ready" == this.name`, "Boolean"},
 		{"Java", `!name.equals("ready")`, "", `not (this.name == "ready")`, "Boolean"},
-		{"Java", `mode.equals(name)`, "", `this.mode == this.name`, "Boolean"},
+		{"Java", `name.equals(mode)`, "", `this.name == this.mode`, "Boolean"},
 		{"Java", "i == Retries", "", "this.i == this.Retries", "Boolean"},
 		{"Java", "mode == OFF", "", "this.mode == Modes::OFF", "Boolean"},
 		{"Java 8", "i / 2", "", "OpenSysMLMathFunctions::quotient(this.i, 2)", "Integer"},
@@ -223,6 +229,8 @@ func TestTranslateStatements(t *testing.T) {
 		{"JavaScript", "t -= 2; t *= 3;\nt /= 4", []string{
 			"assign this.t := this.t - 2;", "assign this.t := this.t * 3;", "assign this.t := this.t / 4;"}},
 		{"JavaScript", "GS_Found = true", []string{"assign this.GS_Found := true;"}},
+		{"JavaScript", "new = t", []string{"assign this.'new' := this.t;"}},
+		{"JavaScript", "typeof++", []string{"assign this.'typeof' := this.'typeof' + 1;"}},
 		{"JavaScript", "i = 2.0", []string{"assign this.i := 2;"}},
 		{"JavaScript", "state = ON", []string{"assign this.state := States::ON;"}},
 		{"JavaScript", "state = mode", []string{"assign this.state := this.mode;"}},
@@ -251,9 +259,19 @@ func TestTranslateStatements(t *testing.T) {
 		{"JavaScript", "const n = 2; i = i * n", []string{
 			"attribute n : ScalarValues::Integer;", "assign n := 2;", "assign this.i := this.i * n;"}},
 		{"", "GS_Found = i >= Retries", []string{"assign this.GS_Found := this.i >= this.Retries;"}},
+		{"JavaScript", "t = clock; print(\"t: \" + (t - 1));", []string{"assign this.t := " + clockRead + ";"}},
+		{"JavaScript", "println (\"start\")\ni = 1\nSystem.out.println(i);", []string{"assign this.i := 1;"}},
+		{"JavaScript", "print(\"done\")", nil},
+		{"Java", "java.lang.System.out.print(\"i=\" + i); i = 2", []string{"assign this.i := 2;"}},
+		{"JavaScript", "println(\"max \" + Math.max(i, 1) + \" of \" + xs[0] + (i == 1 ? \"one\" : \"more\"))\ni = 2", []string{"assign this.i := 2;"}},
+		{"Java", "System.out.println(name.equals(\"a\") + \"\"); i = 2", []string{"assign this.i := 2;"}},
+		{"Java", "System.out.println(\"a\".equals(name)); i = 2", []string{"assign this.i := 2;"}},
+		{"Java", "System.out.println(tcs.name.equals(name)); i = 2", []string{"assign this.i := 2;"}},
+		{"Java", "var s = name; System.out.println(s.equals(\"a\")); i = 2", []string{"attribute s : ScalarValues::String;", "assign s := this.name;", "assign this.i := 2;"}},
+		{"JavaScript", "print(new); i = 2", []string{"assign this.i := 2;"}},
 	}
 	for _, c := range cases {
-		got, err := translateStatements(c.body, c.lang, testScope)
+		got, _, err := translateStatements(c.body, c.lang, testScope)
 		if err != nil {
 			t.Errorf("%s %q: refused: %s", c.lang, c.body, err.note())
 			continue
@@ -266,6 +284,23 @@ func TestTranslateStatements(t *testing.T) {
 				t.Errorf("%s %q: line %q does not parse in an action body", c.lang, c.body, line)
 			}
 		}
+	}
+}
+
+func TestTranslateStatementsNotesConsolePrints(t *testing.T) {
+	_, notes, err := translateStatements("print(\"t\"); i = 1\nprintln(i)", "JavaScript", testScope)
+	if err != nil {
+		t.Fatalf("refused: %s", err.note())
+	}
+	want := []string{
+		"the console print print(…) is left out, as it writes to the tool's console and changes nothing of the model",
+		"the console print println(…) is left out, as it writes to the tool's console and changes nothing of the model",
+	}
+	if strings.Join(notes, "\n") != strings.Join(want, "\n") {
+		t.Errorf("notes:\n got  %q\n want %q", notes, want)
+	}
+	if _, notes, err = translateStatements("i = 1", "JavaScript", testScope); err != nil || len(notes) != 0 {
+		t.Errorf("a body without a print: notes %q, refusal %v", notes, err)
 	}
 }
 
@@ -296,6 +331,8 @@ func TestTranslateRefusals(t *testing.T) {
 		{"Java", "name.equals(i)", false, refusedType, "name.equals"},
 		{"Java", "i.equals(1)", false, refusedType, "i.equals"},
 		{"Java", "mode.equals(OFF)", false, refusedType, "mode.equals"},
+		{"Java", "mode.equals(name)", false, refusedType, "mode.equals"},
+		{"Java", "tank.equals(drum)", false, refusedType, "tank.equals"},
 		{"Java", "xs.equals(name)", false, refusedType, "xs.equals"},
 		{"Java", `name.equals("a", "b")`, false, refusedCall, "name.equals"},
 		{"Java", `"a".equals()`, false, refusedCall, `"a".equals`},
@@ -312,8 +349,25 @@ func TestTranslateRefusals(t *testing.T) {
 		{"JavaScript", "var n = 1; const n = 2", true, refusedConstruct, "const n"},
 		{"JavaScript", "var done = 1", true, refusedConstruct, "var done"},
 		{"JavaScript", "var start = 0; i = start", true, refusedConstruct, "var start"},
-		{"JavaScript", "print(\"done\")", true, refusedCall, "print"},
-		{"JavaScript", "t = clock; print(\"t: \" + t);", true, refusedCall, "print"},
+		{"JavaScript", "log(\"done\")", true, refusedCall, "log"},
+		{"JavaScript", "i = print(\"done\")", true, refusedCall, "print"},
+		{"JavaScript", "t = clock; print(\"t: \" + (t);", true, refusedSyntax, "print("},
+		{"JavaScript", "print(\"a\") i = 1", true, refusedSyntax, "i"},
+		{"JavaScript", "print(i = i + 1); t = i", true, refusedCall, "print"},
+		{"JavaScript", "print(\"i: \" + i++); t = i", true, refusedCall, "print"},
+		{"JavaScript", "println(\"i: \" + (i += 1))", true, refusedCall, "println"},
+		{"JavaScript", "println(\"now \" + ALH.getCurrentTime())", true, refusedCall, "println"},
+		{"JavaScript", "println(\"state \" + tank.fill(1))", true, refusedCall, "println"},
+		{"JavaScript", "println(\"state \" + new Date())", true, refusedCall, "println"},
+		{"JavaScript", "println(\"at \" + new Date)", true, refusedCall, "println"},
+		{"JavaScript", "print(delete tank.level); i = 2", true, refusedCall, "print"},
+		{"Java", "System.out.println(new Object()); i = 2", true, refusedCall, "System.out.println"},
+		{"JavaScript", "println(name.equals(\"a\"))", true, refusedCall, "println"},
+		{"Java", "System.out.println(tank.equals(drum)); i = 2", true, refusedType, "tank.equals"},
+		{"Java", "System.out.println(mode.equals(\"a\")); i = 2", true, refusedType, "mode.equals"},
+		{"Java", "System.out.println(i.equals(1)); i = 2", true, refusedType, "i.equals"},
+		{"Java", "System.out.println(nobody.equals(name)); i = 2", true, refusedType, "nobody.equals"},
+		{"Java", "System.out.println((name).equals(\"a\")); i = 2", true, refusedType, "equals"},
 		{"JavaScript", "i = Math.random()", true, refusedCall, "Math.random"},
 		{"JavaScript", "i = Math.max()", true, refusedCall, "Math.max"},
 		{"JavaScript", "t = Math.min()", true, refusedCall, "Math.min"},
@@ -322,6 +376,13 @@ func TestTranslateRefusals(t *testing.T) {
 		{"Java", "t = Math.max(t, t0, 1.0)", true, refusedCall, "Math.max"},
 		{"Java", "i = Math.min(i)", true, refusedCall, "Math.min"},
 		{"JavaScript", "i = new Date()", true, refusedConstruct, "new"},
+		{"JavaScript", "new Date()", false, refusedConstruct, "new"},
+		{"JavaScript", "new (Date)()", false, refusedConstruct, "new"},
+		{"JavaScript", "typeof i", false, refusedConstruct, "typeof"},
+		{"JavaScript", "typeof -i", false, refusedConstruct, "typeof"},
+		{"JavaScript", "delete tank", true, refusedConstruct, "delete"},
+		{"JavaScript", "void 0", false, refusedConstruct, "void"},
+		{"JavaScript", "in = 1", true, refusedConstruct, "in"},
 		{"JavaScript", `name = "\v"`, true, refusedConstruct, `\v`},
 		{"JavaScript", `name = "\0"`, true, refusedConstruct, `\0`},
 		{"JavaScript", `name = "\101"`, true, refusedConstruct, `\1`},
@@ -452,7 +513,7 @@ func TestTranslateRefusals(t *testing.T) {
 			want = oneOf("", featureHolds)
 		}
 		if c.statements {
-			_, err = translateStatements(c.body, c.lang, testScope)
+			_, _, err = translateStatements(c.body, c.lang, testScope)
 		} else {
 			_, err = translateExpr(c.body, c.lang, testScope, want)
 		}

@@ -239,6 +239,194 @@ func TestComparisonTableRefusesRunsMissingTheObservable(t *testing.T) {
 	}
 }
 
+// A configuration whose tool stored no snapshot is run all the same: its table
+// has the runs' row under one saying there is no stored result, over every
+// numeric feature the runs produced, or over the observable its analysis
+// summarises when it has one; none is skipped.
+func TestCompareRunsConfigurationsWithoutStoredResults(t *testing.T) {
+	s := compareSession(t)
+	seed := uint64(1)
+	results := compareResults("'Group 1'", 3)
+	results.Configurations[0].Snapshots = nil
+	results.Configurations[0].Observables = nil
+	results.Configurations[0].Location = "Empty"
+
+	got := s.CompareResults(results, CompareOptions{Seed: &seed})
+	if len(got) != 1 || !got[0].Holds() {
+		t.Fatalf("a configuration without stored results = %+v, want it run", got)
+	}
+	lines := strings.Join(got[0].Lines, "\n")
+	for _, want := range []string{
+		"compare Cfg::'Group 1' — no stored run in Empty; 3 run(s) by OpenSysML",
+		"clock      | tool (no stored result to compare) | 0    |",
+		"           | OpenSysML (clock)                  | 3    | 0.0 [s] | 0.0 [s] | 0.0 [s] | 0.0 [s] | 0.0 [s]",
+		"total      | tool (no stored result to compare) | 0    |",
+		"           | OpenSysML (target.total)           | 3    | 4.0     | 4.0     | 4.0     | 4.0     | 4.0",
+	} {
+		if !strings.Contains(lines, want) {
+			t.Errorf("the table lacks %q:\n%s", want, lines)
+		}
+	}
+	if strings.Contains(lines, "difference") {
+		t.Errorf("a difference is given against no stored result:\n%s", lines)
+	}
+
+	results.Configurations[0].Analysis = "total"
+	got = s.CompareResults(results, CompareOptions{Seed: &seed})
+	if len(got) != 1 || !got[0].Holds() {
+		t.Fatalf("a configuration analysing total = %+v, want it run", got)
+	}
+	lines = strings.Join(got[0].Lines, "\n")
+	if !strings.Contains(lines, "total      | tool (no stored result to compare)") {
+		t.Errorf("the analysed observable is not compared:\n%s", lines)
+	}
+	results.Configurations[0].Analysis = "elapsed"
+	got = s.CompareResults(results, CompareOptions{Seed: &seed})
+	lines = strings.Join(got[0].Lines, "\n")
+	if !strings.Contains(lines, "elapsed    | tool (no stored result to compare)") || strings.Contains(lines, "\ntotal ") {
+		t.Errorf("the analysed observable alone is not compared:\n%s", lines)
+	}
+	if !strings.Contains(lines, "note: no completed run produced target.elapsed, which answers elapsed") {
+		t.Errorf("an analysed observable the runs never produce is not noted:\n%s", lines)
+	}
+}
+
+// A configuration stating no numberOfRuns is run once, as its tool runs it, and
+// the table says so; -runs overrides that as it does a stated count.
+func TestCompareDefaultsToOneRun(t *testing.T) {
+	s := compareSession(t)
+	seed := uint64(1)
+	results := compareResults("'Group 1'", 0)
+
+	got := s.CompareResults(results, CompareOptions{Seed: &seed})
+	if len(got) != 1 || !got[0].Holds() {
+		t.Fatalf("a configuration without numberOfRuns = %+v, want one run", got)
+	}
+	lines := strings.Join(got[0].Lines, "\n")
+	if !strings.Contains(lines, "2 stored run(s) in Results; 1 run(s) by OpenSysML") {
+		t.Errorf("one run is not made:\n%s", lines)
+	}
+	if !strings.Contains(lines, "note: the configuration states no numberOfRuns, so one run is made, as its tool makes without one; -runs <number> makes more") {
+		t.Errorf("the default is not noted:\n%s", lines)
+	}
+
+	got = s.CompareResults(results, CompareOptions{Seed: &seed, Runs: 5})
+	lines = strings.Join(got[0].Lines, "\n")
+	if !strings.Contains(lines, "5 run(s) by OpenSysML") || strings.Contains(lines, "states no numberOfRuns") {
+		t.Errorf("-runs does not override the default:\n%s", lines)
+	}
+}
+
+// A summarising snapshot two configurations store alike is noted under each as a
+// likely copy, naming the other configuration and its result location.
+func TestCompareNotesSnapshotsStoredTwice(t *testing.T) {
+	s := compareSession(t)
+	seed := uint64(1)
+	summary := simresults.Snapshot{
+		ID: "_sum", Name: "analysis", Values: map[string]float64{"total": 10.0},
+		Statistics: &simresults.Statistics{Observable: "total", Runs: 8, Mean: 10.0, Deviation: simresults.Real(1.5)},
+	}
+	results := compareResults("'Group 1'", 2)
+	results.Configurations[0].Snapshots = []simresults.Snapshot{summary}
+	twin := results.Configurations[0]
+	twin.ID, twin.Name, twin.Location = "_d", "Cfg::'Sub::Group'", "'Other Results'"
+	results.Configurations = append(results.Configurations, twin)
+
+	got := s.CompareResults(results, CompareOptions{Seed: &seed})
+	if len(got) != 2 || !got[0].Holds() || !got[1].Holds() {
+		t.Fatalf("CompareResults = %+v, want both to hold", got)
+	}
+	for i, want := range []string{
+		`note: the snapshot "analysis" bears the name and the statistics of total of a snapshot of the configuration Cfg::'Sub::Group' (in 'Other Results'), so one may be a copy of the other`,
+		`note: the snapshot "analysis" bears the name and the statistics of total of a snapshot of the configuration Cfg::'Group 1' (in Results), so one may be a copy of the other`,
+	} {
+		if lines := strings.Join(got[i].Lines, "\n"); !strings.Contains(lines, want) {
+			t.Errorf("verdict %d lacks %q:\n%s", i, want, lines)
+		}
+	}
+}
+
+// A configuration whose behavior was not migrated is refused naming it, so a
+// refusal printed among other failures to run still says which configuration
+// it is about, with the sidecar's notes saying why.
+func TestCompareNamesTheConfigurationItRefuses(t *testing.T) {
+	s := compareSession(t)
+	seed := uint64(1)
+	results := compareResults("'Group 1'", 2)
+	results.Configurations[0].Behavior = ""
+	results.Configurations[0].Notes = []string{"the configuration names no execution target, so it runs no behavior"}
+
+	got := s.CompareResults(results, CompareOptions{Seed: &seed})
+	if len(got) != 1 || got[0].Status != VerdictUnresolved {
+		t.Fatalf("a configuration without behavior = %+v, want a refusal", got)
+	}
+	lines := strings.Join(got[0].Lines, "\n")
+	want := "error: the configuration Cfg::'Group 1' performs no migrated behavior; the configuration names no execution target, so it runs no behavior"
+	if lines != want {
+		t.Errorf("refusal:\n%s\nwant:\n%s", lines, want)
+	}
+}
+
+// An observable the tool summarised — a snapshot holding the mean of several
+// runs, not one run's value — is compared by count and mean alone, pooled with
+// the runs stored one by one; the statistics the tool did not keep stay blank,
+// and each summary is noted with what it recorded.
+func TestComparisonTablePoolsSummarisedResults(t *testing.T) {
+	number := func(n float64) runtime.Value {
+		return runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValReal, Real: n}}
+	}
+	row := func(n float64) runtime.SweepRow {
+		return runtime.SweepRow{Outputs: []runtime.CalcOutputValue{{Name: "target.total", Value: number(n)}}}
+	}
+	cfg := &compareResults("'Group 1'", 2).Configurations[0]
+	cfg.Analysis = "total"
+	cfg.Snapshots = append(cfg.Snapshots, simresults.Snapshot{
+		ID: "_sum", Name: "analysis", Values: map[string]float64{"total": 10.0},
+		Statistics: &simresults.Statistics{Observable: "total", Runs: 8, Mean: 10.0, Deviation: simresults.Real(1.5)},
+	})
+	if runs := cfg.StoredRuns(); runs != 10 {
+		t.Errorf("StoredRuns = %d, want 10: two stored one by one and eight summarised", runs)
+	}
+	if got := storedRuns(cfg); got != "10 stored run(s) over 3 snapshot(s)" {
+		t.Errorf("storedRuns = %q", got)
+	}
+
+	table := runtime.SweepTable{Target: "Cfg::'Group 1'", Rows: []runtime.SweepRow{row(8), row(10)}}
+	got := strings.Join(comparisonTable(cfg, table, nil), "\n")
+	for _, want := range []string{
+		"total      | tool                     | 10   |     | 9.0   |     |      |",
+		"           | OpenSysML (target.total) | 2    | 8.0 | 9.0   | 8.0 | 10.0 | 10.0",
+		"           | difference               |      |     | +0.0% |     |      |",
+		`note: "analysis" summarises 8 run(s) of total: mean 10.0, deviation 1.5`,
+		"note: target.total came to a deviation of 1.4142135623730951 over the 2 completed run(s)",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("the pooled table lacks %q:\n%s", want, got)
+		}
+	}
+
+	cfg.Snapshots = cfg.Snapshots[2:]
+	got = strings.Join(comparisonTable(cfg, table, nil), "\n")
+	if !strings.Contains(got, "| tool                     | 8    |     | 10.0   |") || !strings.Contains(got, "| -10.0% |") {
+		t.Errorf("a summary alone is not compared by count and mean:\n%s", got)
+	}
+	if strings.Contains(got, "standard errors apart") {
+		t.Errorf("a summary alone is said to disagree:\n%s", got)
+	}
+
+	// Summaries whose means lie further apart than sampling error allows are of
+	// other model states than one, and the table says so.
+	cfg.Snapshots = append(cfg.Snapshots,
+		simresults.Snapshot{ID: "_near", Name: "again", Values: map[string]float64{"total": 10.5}, Statistics: &simresults.Statistics{Observable: "total", Runs: 8, Mean: 10.5, Deviation: simresults.Real(1.5)}},
+		simresults.Snapshot{ID: "_far", Name: "other", Values: map[string]float64{"total": 20.0}, Statistics: &simresults.Statistics{Observable: "total", Runs: 8, Mean: 20.0, Deviation: simresults.Real(1.5)}},
+	)
+	got = strings.Join(comparisonTable(cfg, table, nil), "\n")
+	want := `note: the summaries "analysis", "again", "other" of total lie more than three standard errors apart, so they cannot be of runs of one and the same model, and the tool's mean of total blends them`
+	if !strings.Contains(got, want) {
+		t.Errorf("disagreeing summaries are not noted:\n%s", got)
+	}
+}
+
 // A simple name naming configurations of several packages compares none of them
 // and says which it could name; an id or a qualified name compares its one.
 func TestCompareRefusesAnAmbiguousName(t *testing.T) {

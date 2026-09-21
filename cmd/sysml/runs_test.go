@@ -229,3 +229,40 @@ func TestRunsRefusesAnUnheldObservableThroughCLI(t *testing.T) {
 		t.Errorf("report is\n%s\nwant the observable refused", got.output())
 	}
 }
+
+// TestClockStepThroughCLI checks -clock-step ticks the clock of every run: the
+// waits of a -runs table come due on the ticks, 0 leaves it continuous, and a
+// step that is no finite, non-negative number is refused at parse time.
+func TestClockStepThroughCLI(t *testing.T) {
+	binary := buildCLI(t)
+
+	made := func(args ...string) string {
+		got := check(t, binary, runsCLIModel, append([]string{"-action", "MC::route", "-runs", "2", "-seed", "7", "-observe", "clock"}, args...)...)
+		if got.status != 0 {
+			t.Fatalf("exit status = %d, want 0\n%s", got.status, got.output())
+		}
+		return sweepTable(got.output())
+	}
+	stepped := made("-clock-step", "1")
+	for _, want := range []string{"| 46.0 [s]", "| 19.0 [s]"} {
+		if !strings.Contains(stepped, want) {
+			t.Errorf("under -clock-step 1 the report is\n%s\nwant it to carry %q", stepped, want)
+		}
+	}
+	if continuous, plain := made("-clock-step", "0"), made(); continuous != plain {
+		t.Errorf("-clock-step 0 made\n%s\nwant the continuous clock's\n%s", continuous, plain)
+	}
+
+	for _, tc := range []struct{ step, wants string }{
+		{"-1", "invalid value \"-1\" for flag -clock-step: -clock-step: invalid clock step: a clock steps by a finite, non-negative number of seconds, not -1.0"},
+		{"soon", "-clock-step: invalid clock step: \"soon\" is not a number of seconds"},
+	} {
+		got := check(t, binary, runsCLIModel, "-action", "MC::route", "-runs", "2", "-seed", "7", "-clock-step", tc.step)
+		if got.status != 2 {
+			t.Errorf("-clock-step %s: exit status = %d, want 2\n%s", tc.step, got.status, got.output())
+		}
+		if !strings.Contains(got.output(), tc.wants) {
+			t.Errorf("-clock-step %s: report is\n%s\nwant it to name %q", tc.step, got.output(), tc.wants)
+		}
+	}
+}

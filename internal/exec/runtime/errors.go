@@ -163,6 +163,11 @@ var (
 	// the usage itself: bound once, it would run itself without end.
 	ErrCalcUsageRecursion = errors.New("a calc usage runs itself")
 
+	// ErrCaseReadWaits is returned when an analysis or verification case whose
+	// outputs an expression reads waits on the clock or for a message: the read
+	// takes the case whole, and only a case performed as a step pauses the body.
+	ErrCaseReadWaits = errors.New("a case read as a feature waits")
+
 	// ErrReturnOutsideCalc is returned when a `return` is executed by a host that
 	// has no result to return, an action node's body.
 	ErrReturnOutsideCalc = errors.New("'return' outside a calculation body")

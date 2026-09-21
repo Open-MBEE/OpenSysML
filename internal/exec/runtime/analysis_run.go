@@ -343,25 +343,15 @@ func (ctx *Context) undecidedVerdicts(sym *symbols.Symbol, scope *symbols.Scope,
 // body once, unmemoized: arguments make it an invocation of its own, not the
 // evaluation the case's outputs answer from when read as features.
 func (ctx *Context) analysisRun(shape *calcShape, reader *EvalContext, calcArgs calcArgs) (*calcRun, error) {
-	if err := ctx.enterCalc(shape.Name); err != nil {
-		return nil, err
-	}
-	defer ctx.leaveCalc()
-
 	key := calcUsageKey{sym: shape.Sym}
 	if reader.self != nil {
 		key.instance = reader.self.ID
 	}
-	leave, err := ctx.enterCalcUsage(shape, key)
+	start, err := ctx.startCalcUsage(shape, key, reader, calcArgs)
 	if err != nil {
 		return nil, err
 	}
-	defer leave()
-	ec, nested, env, err := ctx.bindCalcUsage(shape, reader, calcArgs)
-	if err != nil {
-		return nil, err
-	}
-	return ctx.runCalcUsage(shape, ec, nested, env, reader)
+	return ctx.runCalcUsage(start)
 }
 
 // analysisArgs spells the run's arguments as bindings by parameter name: the

@@ -431,9 +431,10 @@ func (m *migration) statements(body, lang string, scope *sysmlv1.Element) (lines
 		return nil, false, "the body is empty"
 	}
 	if dialectOf(lang).script() {
-		lines, note, refused := m.translatedStatements(body, lang, scope)
+		lines, note, otherwise, refused := m.translatedStatements(body, lang, scope)
 		if refused == nil {
 			m.noted(scope, note)
+			m.notedAs(scope, Approximated, otherwise)
 			return lines, true, ""
 		}
 		if refused.final(lang) {
@@ -505,49 +506,65 @@ func (m *migration) assignable(name string, scope *sysmlv1.Element) (string, boo
 	return writeName(name), true
 }
 
-// durationUnits scales each unit a v1 duration literal may carry to seconds.
+// durationUnits scales a v1 duration's unit to seconds, spelled as the simulation toolkit
+// spells the units of fixed length (plus `secs`, `mins`, `us`); none is its default, the millisecond.
 var durationUnits = map[string]float64{
-	"": 1, "s": 1, "sec": 1, "secs": 1, "second": 1, "seconds": 1,
-	"ms": 1e-3, "millisecond": 1e-3, "milliseconds": 1e-3,
-	"us": 1e-6, "µs": 1e-6, "microsecond": 1e-6, "microseconds": 1e-6,
-	"min": 60, "mins": 60, "minute": 60, "minutes": 60,
+	"": 1e-3, "ms": 1e-3, "millisec": 1e-3, "millisecond": 1e-3, "milliseconds": 1e-3,
+	"s": 1, "sec": 1, "secs": 1, "second": 1, "seconds": 1,
+	"us": 1e-6, "µs": 1e-6, "microsec": 1e-6, "microsecond": 1e-6, "microseconds": 1e-6,
+	"ns": 1e-9, "nsec": 1e-9, "nanosecond": 1e-9, "nanoseconds": 1e-9,
+	"m": 60, "min": 60, "mins": 60, "minute": 60, "minutes": 60,
 	"h": 3600, "hr": 3600, "hrs": 3600, "hour": 3600, "hours": 3600,
 	"d": 86400, "day": 86400, "days": 86400,
+	"wk": 604800, "week": 604800, "weeks": 604800,
 }
+
+// bareDurationNote says how a duration with no unit is read.
+const bareDurationNote = " carries no unit and is read in milliseconds, the simulation toolkit's default"
 
 var (
 	durationTerm     = regexp.MustCompile(`^([0-9]*\.?[0-9]+(?:[eE][-+]?[0-9]+)?)\s*([\p{L}µ]*)`)
 	durationVariable = regexp.MustCompile(`^[\p{L}_][\p{L}\p{N}_]*\s*=\s*`)
 )
 
-// parseDuration reads a duration literal such as `1s`, `0.5 s`, `80ms`, `2 min` or
-// `t = 1 minute 30 seconds` as a number of seconds written as a v2 real literal.
-func parseDuration(text string) (seconds string, ok bool) {
+// parseDuration reads a duration literal such as `1s`, `0.5 s`, `80ms`, `2 min`, `200`
+// (bare: milliseconds) or `t = 1 minute 30 seconds` as seconds written as a v2 real literal.
+func parseDuration(text string) (seconds string, bare, ok bool) {
 	rest := durationVariable.ReplaceAllString(strings.TrimSpace(text), "")
 	if rest == "" {
-		return "", false
+		return "", false, false
 	}
 	var total float64
 	for terms := 0; rest != ""; terms++ {
 		mt := durationTerm.FindStringSubmatch(rest)
 		if mt == nil {
-			return "", false
+			return "", false, false
 		}
 		v, err := strconv.ParseFloat(mt[1], 64)
 		if err != nil {
-			return "", false
+			return "", false, false
 		}
 		scale, known := durationUnits[strings.ToLower(mt[2])]
 		if !known || (mt[2] == "" && terms > 0) {
-			return "", false
+			return "", false, false
 		}
+		bare = mt[2] == ""
 		total += v * scale
 		rest = strings.TrimSpace(rest[len(mt[0]):])
 	}
 	if math.IsInf(total, 0) || math.IsNaN(total) {
-		return "", false
+		return "", false, false
 	}
-	return realLiteral(total), true
+	return computedLiteral(total), bare, true
+}
+
+// computedLiteral writes the result of arithmetic as a v2 real literal at 15
+// significant digits, so the binary rounding noise of the arithmetic is not written.
+func computedLiteral(v float64) string {
+	if rounded, err := strconv.ParseFloat(strconv.FormatFloat(v, 'g', 15, 64), 64); err == nil {
+		v = rounded
+	}
+	return realLiteral(v)
 }
 
 // realLiteral writes a float as a v2 real literal, with a decimal point.
@@ -626,8 +643,8 @@ func (m *migration) durationExpr(v, scope *sysmlv1.Element) (expr string, ok boo
 	}
 	switch v.Type {
 	case "LiteralString":
-		if s, ok := parseDuration(v.Attrs["value"]); ok {
-			return s, true, ""
+		if s, bare, ok := parseDuration(v.Attrs["value"]); ok {
+			return s, true, literalDurationNote(v.Attrs["value"], bare)
 		}
 		expr, ok, note := m.symbolicDuration(v.Attrs["value"], "", scope)
 		if !ok {
@@ -642,14 +659,14 @@ func (m *migration) durationExpr(v, scope *sysmlv1.Element) (expr string, ok boo
 		if !ok {
 			return "", false, note
 		}
-		if s, ok := parseDuration(expr); ok {
-			return s, true, durNote + expr + " carries no unit and is taken as seconds"
+		if s, _, ok := parseDuration(expr); ok {
+			return s, true, durNote + expr + bareDurationNote
 		}
 		return "", false, durNote + expr + " is not a finite number"
 	case "OpaqueExpression":
 		body, lang := opaqueBody(v)
-		if s, ok := parseDuration(body); ok {
-			return s, true, ""
+		if s, bare, ok := parseDuration(body); ok {
+			return s, true, literalDurationNote(body, bare)
 		}
 		expr, ok, note := m.symbolicDuration(body, lang, scope)
 		if !ok {
@@ -658,6 +675,14 @@ func (m *migration) durationExpr(v, scope *sysmlv1.Element) (expr string, ok boo
 		return expr, true, note
 	}
 	return "", false, "a UML " + v.Type + " has no v2 duration form"
+}
+
+// literalDurationNote notes a duration literal read with no unit; a unit needs none.
+func literalDurationNote(text string, bare bool) string {
+	if !bare {
+		return ""
+	}
+	return durNote + strconv.Quote(strings.TrimSpace(text)) + bareDurationNote
 }
 
 // calcExpr returns the result expression of an opaque or function behavior,

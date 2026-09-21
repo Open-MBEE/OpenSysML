@@ -212,6 +212,53 @@ func TestProbabilitiesAreWrittenOnlyWhenTheyAreSound(t *testing.T) {
 		wantLine(t, r.Notation, "first 'decide' then c { @Stochastic::Probability { p = 0.5; } }")
 		wantNote(t, r, "_ea", migrate.Approximated, "sum to 0.8, not 1: each is scaled by the sum")
 	})
+	t.Run("valueless tag", func(t *testing.T) {
+		r := migrateDocument(t, probabilityBranches, `
+  <sysml:Probability xmi:id="_p1" base_ActivityEdge="_ea" probability="0.0"/>
+  <sysml:Probability xmi:id="_p2" base_ActivityEdge="_eb"/>`)
+		wantLine(t, r.Notation, "first 'decide' then a { @Stochastic::Probability { p = 0.0; } }")
+		wantLine(t, r.Notation, "first 'decide' then b { @Stochastic::Probability { p = 0.5; } }")
+		wantLine(t, r.Notation, "first 'decide' then c { @Stochastic::Probability { p = 0.5; } }")
+		wantNote(t, r, "_eb", migrate.Approximated, "the «Probability» on the edge has no value, so it is weighted as one carrying none: it is weighted 0.5")
+		wantNote(t, r, "_ec", migrate.Approximated, "the edge carries no «Probability»: it is weighted 0.5")
+		s := session(t, r)
+		meta(t, s, "%seed 1")
+		wantVerdict(t, s.RunAction("Choose"))
+	})
+	t.Run("only valueless tags", func(t *testing.T) {
+		r := migrateDocument(t, probabilityBranches, `
+  <sysml:Probability xmi:id="_p1" base_ActivityEdge="_ea"/>`)
+		if strings.Contains(string(r.Notation), "p = 0.0") {
+			t.Errorf("a weight was written from a «Probability» without a value:\n%s", r.Notation)
+		}
+		wantNote(t, r, "_ea", migrate.Approximated, "the «Probability» on the edge has no value, and no branch of the decision has one, so the guards decide")
+		wantNote(t, r, "_decide", migrate.Approximated, "several branches leave the decision unconditionally, so one is drawn at random with the model seed")
+	})
+	t.Run("user profile's same-named stereotype", func(t *testing.T) {
+		r := migrateDocument(t, probabilityBranches, `
+  <sysml:Probability xmi:id="_p1" base_ActivityEdge="_ea" probability="0.5"/>
+  <custom:Probability xmlns:custom="http://example.com/tool/profile" xmi:id="_p2" base_ActivityEdge="_eb" probability="0.4"/>
+  <custom:Probability xmlns:custom="http://example.com/tool/profile" xmi:id="_p3" base_ActivityEdge="_ec" probability="0.1"/>`)
+		wantLine(t, r.Notation, "first 'decide' then a { @Stochastic::Probability { p = 0.5; } }")
+		wantLine(t, r.Notation, "first 'decide' then b { @Stochastic::Probability { p = 0.25; } }")
+		wantLine(t, r.Notation, "first 'decide' then c { @Stochastic::Probability { p = 0.25; } }")
+		wantNoLine(t, r.Notation, "p = 0.4")
+		wantNoLine(t, r.Notation, "p = 0.1")
+		wantNote(t, r, "_eb", migrate.Approximated, "«Probability» from http://example.com/tool/profile is not the SysML profile's; its probability is not read")
+		wantNote(t, r, "_eb", migrate.Approximated, "the edge carries no «Probability»: it is weighted 0.25")
+		wantNote(t, r, "_ec", migrate.Approximated, "«Probability» from http://example.com/tool/profile is not the SysML profile's; its probability is not read")
+		s := session(t, r)
+		meta(t, s, "%seed 1")
+		wantVerdict(t, s.RunAction("Choose"))
+	})
+	t.Run("only a user profile's stereotypes", func(t *testing.T) {
+		r := migrateDocument(t, probabilityBranches, `
+  <custom:Probability xmlns:custom="http://example.com/tool/profile" xmi:id="_p1" base_ActivityEdge="_ea" probability="0.5"/>
+  <custom:Probability xmlns:custom="http://example.com/tool/profile" xmi:id="_p2" base_ActivityEdge="_eb" probability="0.5"/>`)
+		wantNoLine(t, r.Notation, "p = 0.5")
+		wantNote(t, r, "_ea", migrate.Approximated, "«Probability» from http://example.com/tool/profile is not the SysML profile's; its probability is not read")
+		wantNote(t, r, "_decide", migrate.Approximated, "several branches leave the decision unconditionally, so one is drawn at random with the model seed")
+	})
 	t.Run("out of range", func(t *testing.T) {
 		r := migrateDocument(t, probabilityBranches, `
   <sysml:Probability xmi:id="_p1" base_ActivityEdge="_ea" probability="1.5"/>
@@ -223,6 +270,24 @@ func TestProbabilitiesAreWrittenOnlyWhenTheyAreSound(t *testing.T) {
 		wantNote(t, r, "_ea", migrate.Approximated, "no «Probability» is written on the decision's branches: the probability 1.5 on")
 		wantNote(t, r, "_decide", migrate.Approximated, "several branches leave the decision unconditionally, so one is drawn at random with the model seed")
 	})
+}
+
+// testdata/xmi/weighted_decision.xmi: a decision whose branches carry the SysML
+// profile's «Probability» — one naming a property, one a number — and a
+// same-named stereotype from a user profile, which is not read.
+func TestWeightedDecisionReadsOnlyTheSysMLProfilesProbability(t *testing.T) {
+	r := migrateFixtureFile(t, "weighted_decision")
+	wantLine(t, r.Notation, "first 'decide' then left { @Stochastic::Probability { p = bias; } }")
+	wantLine(t, r.Notation, "first 'decide' then right { @Stochastic::Probability { p = 0.3; } }")
+	wantLine(t, r.Notation, "first 'decide' then reject { @Stochastic::Probability { p = 1.0 - (bias + 0.3); } }")
+	wantNoLine(t, r.Notation, "p = 0.9")
+	wantNote(t, r, "_eLeft", migrate.Mapped, "the probability reads the property bias of the object performing the action")
+	wantNote(t, r, "_eRight", migrate.Mapped, "")
+	wantNote(t, r, "_eReject", migrate.Approximated, "«Probability» from http://example.com/routing/profile is not the SysML profile's; its probability is not read")
+	wantNote(t, r, "_eReject", migrate.Approximated, "the edge carries no «Probability»: it is weighted 1.0 - (bias + 0.3)")
+	s := session(t, r)
+	meta(t, s, "%seed 1")
+	wantVerdict(t, s.RunAction("Sorter::Route"))
 }
 
 // weightedChooser is a block whose value properties hold the probabilities the
@@ -737,8 +802,7 @@ func TestActivityWithSendAcceptAndOperationCalls(t *testing.T) {
 		"action park : Park;",
 		"perform action point ::> tel.point;",
 		"* var t = java.lang.System.currentTimeMillis();",
-		"action log {",
-		"/* not migrated: CallBehaviorAction 'log' — the pin 't' it passes for the parameter t of Station::Logging, which must hold a value, receives none: 'compute', which feeds it, produces no value; v1 runs the callee without it, which v2 does not admit, so the action carries the token and performs nothing */",
+		"action log : Logging;",
 		"first log then final;",
 		"flow 'read tel'.result to 'send Go'.target;",
 		"flow ninety.result to point.az;",
@@ -746,16 +810,17 @@ func TestActivityWithSendAcceptAndOperationCalls(t *testing.T) {
 	} {
 		wantLine(t, r.Notation, line)
 	}
-	if strings.Contains(string(r.Notation), "bind log.t") || strings.Contains(string(r.Notation), "flow compute.t to log.t;") || strings.Contains(string(r.Notation), "action log : Logging") {
+	if strings.Contains(string(r.Notation), "bind log.t") || strings.Contains(string(r.Notation), "flow compute.t to log.t;") {
 		t.Errorf("a flow from an action that produces no value was written:\n%s", r.Notation)
 	}
+	wantNoLine(t, r.Notation, "not migrated: CallBehaviorAction 'log'")
 	wantNote(t, r, "_pointing", migrate.Mapped, "written as the body of the operation Telescope::Point, whose method it is")
 	wantNote(t, r, "_park", migrate.Mapped, "")
 	wantNote(t, r, "_twice", migrate.Mapped, "")
 	wantNote(t, r, "_tr", migrate.Approximated, "the return parameter is written as an out parameter")
 	wantNote(t, r, "_rcv", migrate.Approximated, "the reception has no method, so it only accepts the signal")
 	wantNote(t, r, "_js", migrate.Approximated, "the body is kept as a comment")
-	wantNote(t, r, "_log", migrate.Approximated, "the pin 't' it passes for the parameter t of Station::Logging, which must hold a value, receives none: 'compute', which feeds it, produces no value; v1 runs the callee without it, which v2 does not admit, so the action carries the token and performs nothing")
+	wantNote(t, r, "_log", migrate.Approximated, "the pin 't' it passes for the parameter t of Station::Logging receives none: 'compute', which feeds it, produces no value; v1 runs the callee without the value, so the parameter is declared admitting none")
 	wantNote(t, r, "_point", migrate.Mapped, "its owner's usage point performs it")
 	wantNote(t, r, "_callTgt", migrate.Mapped, "the call performs the usage point of the target this.tel")
 	wantNote(t, r, "_call", migrate.Approximated, "several edges lead to the node, which waits for all of them through the join 'join'")

@@ -534,23 +534,61 @@ func (ctx *Context) CalcUsageOutputs(sym *symbols.Symbol, scope *symbols.Scope, 
 // activation, so every output read of one usage within one activation answers
 // from one execution of its body, while another activation gets its own.
 func (ctx *Context) calcUsageRun(reader *EvalContext, sym *symbols.Symbol) (*calcRun, error) {
+	start, run, err := ctx.beginCalcUsage(reader, sym)
+	if err != nil || run != nil {
+		return run, err
+	}
+	run, err = ctx.finishCalcUsage(start)
+	if paused(err) && ctx.body.paused.onWait {
+		return nil, ctx.caseReadWaits(start)
+	}
+	return run, err
+}
+
+// caseReadWaits refuses the wait a case's body paused the body on the stack for
+// while an expression read the case's outputs: the read takes the case whole.
+func (ctx *Context) caseReadWaits(start *calcUsageStart) error {
+	wait := ctx.body.paused.wait
+	ctx.body.paused = bodyPause{}
+	what := "the clock"
+	if wait.onMessage {
+		what = "a message"
+	}
+	err := fmt.Errorf("%w: %s waits for %s (%s) while its outputs are read, which only a case performed as a step may",
+		ErrCaseReadWaits, start.shape.Label, what, wait.exec.describeWaits(wait.perf))
+	if start.ec.trace != nil {
+		start.ec.trace.RecordCalculationExitError(start.shape.Kind, start.shape.Name, err)
+	}
+	return calcFrame(start.shape.Kind, start.shape.Name, err)
+}
+
+// calcUsageStart is an evaluation of a calc usage under way: its inputs bound and
+// its body about to run, or paused part-way for a wait, as a case's steps may.
+type calcUsageStart struct {
+	shape              *calcShape
+	key                calcUsageKey
+	ec, nested, reader *EvalContext
+	env                frame
+	host               *calcStmtHost
+	engine             *stmtEngine
+}
+
+// beginCalcUsage binds the usage's inputs and makes ready to run its body; the
+// run is answered instead, with no start, where this activation evaluated the
+// usage already.
+func (ctx *Context) beginCalcUsage(reader *EvalContext, sym *symbols.Symbol) (*calcUsageStart, *calcRun, error) {
 	if !isCalcUsageSymbol(sym) {
-		return nil, fmt.Errorf(
+		return nil, nil, fmt.Errorf(
 			"%w: %s does not evaluate output features", ErrNotACalcUsage, ctx.qualifiedSymbolName(sym),
 		)
 	}
 	if err := ctx.checkCalcTyping(sym); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	shape, err := ctx.calcShapeOf(sym)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-
-	if err := ctx.enterCalc(shape.Name); err != nil {
-		return nil, err
-	}
-	defer ctx.leaveCalc()
 
 	// The evaluation is looked up before the inputs are bound, so a usage already
 	// evaluated in this activation is not re-bound: its outputs all answer from
@@ -561,34 +599,77 @@ func (ctx *Context) calcUsageRun(reader *EvalContext, sym *symbols.Symbol) (*cal
 	}
 	// A binding of the usage that reads the usage itself reads this same evaluation.
 	if run := reader.calcRun; run != nil && run.shape.reads(sym) {
-		return run, nil
+		return nil, run, nil
 	}
 	if run, ok := ctx.run.calcUsageRuns[reader.activation][key]; ok {
 		if ctx.trace != nil {
 			ctx.trace.RecordCalcUsageReuse(shape.Kind, shape.Name)
 		}
-		return run, nil
+		return nil, run, nil
 	}
 
-	leave, err := ctx.enterCalcUsage(shape, key)
+	start, err := ctx.startCalcUsage(shape, key, reader, calcArgs{})
+	if err != nil {
+		return nil, nil, err
+	}
+	return start, nil, nil
+}
+
+// startCalcUsage binds the usage's inputs from args and makes its body ready to run.
+func (ctx *Context) startCalcUsage(shape *calcShape, key calcUsageKey, reader *EvalContext, args calcArgs) (*calcUsageStart, error) {
+	leave, err := ctx.enterCalcUsageRun(shape, key)
 	if err != nil {
 		return nil, err
 	}
 	defer leave()
-	ec, nested, env, err := ctx.bindCalcUsage(shape, reader, calcArgs{})
+	start := &calcUsageStart{shape: shape, key: key, reader: reader}
+	start.ec, start.nested, start.env, err = ctx.bindCalcUsage(shape, reader, args)
 	if err != nil {
 		return nil, err
 	}
-	run, err := ctx.runCalcUsage(shape, ec, nested, env, reader)
+	start.host = &calcStmtHost{ctx: ctx, shape: shape, self: reader.self}
+	// A usage nested in a behavior body computes over that body's bindings, as
+	// an invocation of it does.
+	var enclosing []frame
+	if start.nested != nil {
+		enclosing = shape.bodyEnclosing(start.nested.enclosingRun(shape))
+	}
+	start.engine = newStmtEngineIn(ctx, start.host, start.env, enclosing)
+	start.host.attachPerformances(start.engine)
+	return start, nil
+}
+
+// enterCalcUsageRun spends the calc depth on the usage and marks it running for the
+// call under way (binding its inputs, or running its body until it ends or pauses).
+func (ctx *Context) enterCalcUsageRun(shape *calcShape, key calcUsageKey) (leave func(), err error) {
+	if err := ctx.enterCalc(shape.Name); err != nil {
+		return nil, err
+	}
+	leaveUsage, err := ctx.enterCalcUsage(shape, key)
+	if err != nil {
+		ctx.leaveCalc()
+		return nil, err
+	}
+	return func() {
+		leaveUsage()
+		ctx.leaveCalc()
+	}, nil
+}
+
+// finishCalcUsage runs the started usage's body to its end and records the run for
+// this activation; a body that pauses for a wait answers the pause, to be
+// finished again once the wait is over.
+func (ctx *Context) finishCalcUsage(start *calcUsageStart) (*calcRun, error) {
+	run, err := ctx.runCalcUsage(start)
 	if err != nil {
 		return nil, err
 	}
-	runs, ok := ctx.run.calcUsageRuns[reader.activation]
+	runs, ok := ctx.run.calcUsageRuns[start.reader.activation]
 	if !ok {
 		runs = make(map[calcUsageKey]*calcRun)
-		ctx.run.calcUsageRuns[reader.activation] = runs
+		ctx.run.calcUsageRuns[start.reader.activation] = runs
 	}
-	runs[key] = run
+	runs[start.key] = run
 	return run, nil
 }
 
@@ -764,20 +845,24 @@ func (ctx *Context) checkCalcTyping(sym *symbols.Symbol) error {
 // runCalcUsage runs a calc usage's computation once over its bound inputs,
 // keeping the environment the computation ends with so the usage's outputs can
 // be evaluated against it.
-func (ctx *Context) runCalcUsage(
-	shape *calcShape, ec, nested *EvalContext, env frame, reader *EvalContext,
-) (*calcRun, error) {
-	host := &calcStmtHost{ctx: ctx, shape: shape, self: reader.self}
-	// A usage nested in a behavior body computes over that body's bindings, as
-	// an invocation of it does.
-	var enclosing []frame
-	if nested != nil {
-		enclosing = shape.bodyEnclosing(nested.enclosingRun(shape))
+func (ctx *Context) runCalcUsage(start *calcUsageStart) (*calcRun, error) {
+	shape, ec, nested, env, reader, host, engine := start.shape, start.ec, start.nested, start.env, start.reader, start.host, start.engine
+	leave, err := ctx.enterCalcUsageRun(shape, start.key)
+	if err != nil {
+		return nil, err
 	}
-	engine := newStmtEngineIn(ctx, host, env, enclosing)
-	host.attachPerformances(engine)
+	defer leave()
+	// With no body to pause, a case's flow drives the clock itself, so it is on the
+	// clock for the run as a top-level executor is; a body performing the case lists it.
+	if flow := host.flow; flow != nil && ctx.body == nil {
+		ctx.clock.attach(flow)
+		defer ctx.clock.detach(flow)
+	}
 	result, returned, err := runCalcSteps(engine, host, shape)
 	if err != nil {
+		if paused(err) {
+			return nil, err
+		}
 		if ec.trace != nil {
 			ec.trace.RecordCalculationExitError(shape.Kind, shape.Name, err)
 		}

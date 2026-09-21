@@ -42,6 +42,10 @@ type EvalContext struct {
 	// object performing it only through names that resolve to its features.
 	inBehaviorBody bool
 
+	// valuing is the pin whose value the expression states, so `inout log = log`
+	// written at that pin reads the log around it rather than the pin itself.
+	valuing *symbols.Symbol
+
 	// activation identifies the execution of the body this evaluation belongs to,
 	// so every output read of one calc usage within it comes from one evaluation
 	// of that usage. It is zero outside a body, where nothing can change between
@@ -93,7 +97,7 @@ func (ec *EvalContext) evalIn(scope *symbols.Scope) *EvalContext {
 	return &EvalContext{
 		ctx: ec.ctx, scope: scope, self: ec.self, frames: ec.frames, trace: ec.trace,
 		features: ec.features, resolving: ec.resolving, calcRun: ec.calcRun,
-		activation: ec.activation, inBehaviorBody: ec.inBehaviorBody,
+		activation: ec.activation, inBehaviorBody: ec.inBehaviorBody, valuing: ec.valuing,
 	}
 }
 
@@ -189,8 +193,40 @@ func (ec *EvalContext) over(scope *symbols.Scope, frames []frame) *EvalContext {
 	return &EvalContext{
 		ctx: ec.ctx, scope: scope, self: ec.self, frames: frames, trace: ec.trace,
 		features: ec.features, resolving: ec.resolving, calcRun: ec.calcRun,
-		activation: ec.activation, inBehaviorBody: ec.inBehaviorBody,
+		activation: ec.activation, inBehaviorBody: ec.inBehaviorBody, valuing: ec.valuing,
 	}
+}
+
+// lookupName resolves a simple name where the expression was written. A name
+// resolving to the pin being valued, or to a parameter that pin redefines, names
+// what the pin masks: the feature of that name around the usage owning the pin.
+func (ec *EvalContext) lookupName(name string) (*symbols.Symbol, bool) {
+	sym, ok := ec.ctx.lookupName(ec.scope, name)
+	if !ok || !ec.namesValuedPin(sym) {
+		return sym, ok
+	}
+	sym, ok = ec.ctx.lookupNameExcluding(ec.scope, name, ec.valuing)
+	if !ok || !ec.namesValuedPin(sym) || ec.valuing.OwnerScope == nil {
+		return sym, ok
+	}
+	return ec.ctx.lookupName(ec.valuing.OwnerScope.Parent(), name)
+}
+
+// namesValuedPin reports whether sym is the pin being valued or a feature it
+// redefines, which the pin is the same feature as.
+func (ec *EvalContext) namesValuedPin(sym *symbols.Symbol) bool {
+	if sym == nil || ec.valuing == nil {
+		return false
+	}
+	if sym == ec.valuing {
+		return true
+	}
+	for _, redefined := range ec.ctx.model.semantics.AllRedefinedFeatures(ec.valuing) {
+		if redefined == sym {
+			return true
+		}
+	}
+	return false
 }
 
 // Push adds a new frame to the stack (on calc invocation, lambda entry).
@@ -223,7 +259,7 @@ func (ec *EvalContext) lookupSubaction(name string) (perf *actionFrame, declared
 	}
 	var decl ast.Node
 	if ec.ctx.model.resolver != nil {
-		if sym, ok := ec.ctx.lookupName(ec.scope, name); ok && sym != nil {
+		if sym, ok := ec.lookupName(name); ok && sym != nil {
 			if usage, ok := sym.Decl.(*ast.Usage); ok && usage.Kind != ast.UsageAction && !lower.IsCaseNode(usage) {
 				return nil, false, nil
 			}
@@ -656,7 +692,7 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName) (Value, error) {
 		// evaluated in the scope it was declared in, so the imports in force there
 		// — rather than the ones in force here — answer the names it uses.
 		if ec.scope != nil && !ec.resolving[name] {
-			if sym, ok := ec.ctx.lookupName(ec.scope, name); ok && sym != nil {
+			if sym, ok := ec.lookupName(name); ok && sym != nil {
 				// An inherited expression reads the feature as the running behavior
 				// inherits it: through the redefinition, when it states one.
 				sym = ec.ctx.inheritedFeature(ec.runningBehavior(), sym)
@@ -1080,7 +1116,7 @@ func (ec *EvalContext) namesSelf(name string) bool {
 	if ec.scope == nil {
 		return false
 	}
-	sym, ok := ec.ctx.lookupName(ec.scope, name)
+	sym, ok := ec.lookupName(name)
 	return ok && ec.ctx.model.semantics.IsSelf(sym)
 }
 
@@ -1090,7 +1126,7 @@ func (ec *EvalContext) namesOccurrenceThis(name string) bool {
 	if ec.scope == nil {
 		return false
 	}
-	sym, ok := ec.ctx.lookupName(ec.scope, name)
+	sym, ok := ec.lookupName(name)
 	return ok && ec.ctx.model.resolver.IsOccurrenceThis(sym)
 }
 
@@ -1115,7 +1151,11 @@ func (ec *EvalContext) selfFeatureInScope(name string) bool {
 	if !ec.inBehaviorBody {
 		return true
 	}
-	return namesPerformerFeature(ec.ctx, ec.self, ec.scope, name)
+	if ec.ctx == nil || ec.ctx.model.resolver == nil || ec.scope == nil {
+		return false
+	}
+	sym, ok := ec.lookupName(name)
+	return ok && performerHoldsFeature(ec.ctx, ec.self, sym)
 }
 
 // selfFeatureValue reads the named feature value of the bound instance. Reports whether the

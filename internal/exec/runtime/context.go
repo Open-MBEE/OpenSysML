@@ -227,6 +227,12 @@ type Context struct {
 	// messages are the signals in flight, oldest first. The bus is context-wide,
 	// so a message one behavior sends can be accepted in another.
 	messages []Message
+	// bus counts what changed the messages in flight; writes counts the feature
+	// values written or restored. A machine's poll of the bus is memoized on them.
+	bus    busSerials
+	writes uint64
+	// polling, while a machine scans the bus, notes what the scan read beyond it.
+	polling *pendingMemo
 	// mail, while a state's do behavior runs, is where its accepts look in place
 	// of the bus: the message its machine dispatched to it, none between dispatches.
 	mail *[]Message
@@ -704,6 +710,10 @@ type executorRun struct {
 	// a callee's executor was begun under, whose performance encloses it.
 	exec   endable
 	caller *executorRun
+	// serial counts the calls into the executor and into those begun under it;
+	// active is how many of them are under way.
+	serial uint64
+	active int
 }
 
 // endable is an executor whose performance an occurrence's end may end.
@@ -733,6 +743,7 @@ func (ctx *Context) beginExecutorRun(run *executorRun) func() {
 			run.state, run.owned = ctx.newRunState(), true
 		}
 	}
+	run.stir(1)
 	ctx.onStack = append(ctx.onStack, run)
 	leave := ctx.enterRun(run.state)
 	// A call into an executor whose performer ended in between finds its performance over.
@@ -742,8 +753,23 @@ func (ctx *Context) beginExecutorRun(run *executorRun) func() {
 	return func() {
 		leave()
 		ctx.onStack = ctx.onStack[:len(ctx.onStack)-1]
+		run.stir(-1)
 	}
 }
+
+// stir counts a change of what the run's executor holds, from a call into it or
+// into one begun under it (entered +1, left -1) or a restore (0); a memo over the
+// executor's state keys on the count and stands only while no call is under way.
+func (run *executorRun) stir(entering int) {
+	for r := run; r != nil; r = r.caller {
+		r.serial++
+		r.active += entering
+	}
+}
+
+// settled reports whether no call into the run's executor, or into one begun
+// under it, is under way.
+func (run *executorRun) settled() bool { return run.active == 0 }
 
 // innermostRun is the run of the executor whose call is under way, nil outside any.
 func (ctx *Context) innermostRun() *executorRun {
@@ -873,6 +899,7 @@ type journalWrite struct {
 // noteProbeWrite records a feature value about to change, for the probe or
 // transaction under way to restore; outside one it records nothing.
 func (ctx *Context) noteProbeWrite(fv *FeatureValue) {
+	ctx.writes++
 	if ctx.journals == 0 {
 		return
 	}

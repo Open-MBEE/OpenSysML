@@ -152,6 +152,7 @@ returned over the service yet.
 | «Probability» naming a property (by name or `xmi:id`) visible from the activity — its own, or one of the block whose classifier behavior it is, inherited included — typed by a numeric value type and holding one value | `p = <property>;`, a reference the run reads from the object performing the action when the decision is reached, checking then that it lies in `[0, 1]` and the branches sum to 1 | mapped |
 | «Probability» naming a property that is not visible, private to another block, not numeric, or of a multiplicity other than one; naming an element that is no property; or no property or number at all | the decision is written unweighted; the note says what the tag names and why it is no weight | approximated |
 | Edge out of a weighted decision carrying no «Probability» | weighted with its share of what the marked edges leave of 1 — a constant, or `1.0 - <property>` read when the decision is reached | approximated |
+| «Probability» from a profile other than the OMG SysML profile (recognised by its namespace, as every standard stereotype is) | no weight is read from it: the edge is treated as one carrying no «Probability»; the note names the profile the stereotype comes from | approximated |
 | «SimulationConfig» (MagicDraw's SimulationProfile) | `action def` holding `@Simulation::Configuration { runs = …; draws = …; timeVariable = …; startTime = …; stepSize = …; timeUnit = …; parallelForks = …; }`, `part target : <the migrated executionTarget>;` and `perform action run ::> target.<its classifier behavior>;` (see [Run configurations](#run-configurations)); its remaining tags a comment | mapped |
 | «SimulationConfig» whose `executionTarget` is absent, several, outside the document, not migrated, or written as something no part can be typed by; whose target has no classifier behavior, or one that is a state machine | the `action def` with its metadata and, where the target is written, its `target` part, performing nothing; the note says why | approximated |
 | «SimulationConfig» `durationSimulationMode` that is none of `min`, `max`, `average`, `random` | kept among the tags in the comment | approximated |
@@ -161,7 +162,7 @@ returned over the service yet.
 | AcceptEventAction | `action x accept p : Sig;` (signal trigger), `accept after <d> [SI::s]` (relative TimeEvent), `accept when <cond>` (ChangeEvent) | mapped |
 | AcceptEventAction on an absolute TimeEvent (`when` is an instant, not a duration) | `accept at <instant>`, the instant a `Time::TimeInstantValue` attribute of the `action def` when `when` is a number with a time unit or an expression that resolves; otherwise a comment | approximated (the instant is read on the simulation clock, which starts at 0) / **unmapped** |
 | OpaqueAction, ValueSpecificationAction, ReadStructuralFeatureAction, AddStructuralFeatureValueAction | `assign`/`out result = …` when the body parses as a v2 expression whose names resolve, or is a JavaScript body of the [subset](#the-opaque-language-subset): `i = 1; GS_Found = true;` is a sequence of `assign` statements, `i += 1` an assignment of `i + 1`, `var t = 0` a local `attribute`; names resolve against the action's own pins first, then the swimlane's represented object, then the activity, then the owning block; otherwise the body as a comment inside `action x { }` naming the language and the token refused | mapped / approximated |
-| DurationConstraint on an action | a wait before the action: `accept after lo [SI::s]` when the interval is a point, `accept after RandomFunctions::uniform(lo, hi) [SI::s]` otherwise; `1s`, `0.5 s`, `80ms`, `2 min`, `1 h` and `t = 1 minute 30 seconds` literals are scaled to seconds; a symbolic bound (`ditSetup s`, `setup * 2 min`) is an expression whose names resolve like an action body's, `accept after this.tcs.ditSetup [SI::s]` | approximated (a tool's min/max/average/random mode is the run's `-draws` policy, which its configuration records) |
+| DurationConstraint on an action | a wait before the action: `accept after lo [SI::s]` when the interval is a point, `accept after RandomFunctions::uniform(lo, hi) [SI::s]` otherwise; `1s`, `0.5 s`, `80ms`, `2 min`, `1 h` and `t = 1 minute 30 seconds` literals are scaled to seconds, and a bare number (`200`, a LiteralInteger, `t = 1500`) is in the simulation toolkit's default unit, the millisecond, with a note; a symbolic bound (`ditSetup s`, `setup * 2 min`) is an expression whose names resolve like an action body's, `accept after this.tcs.ditSetup [SI::s]`, one with no unit scaled from milliseconds, `this.settle * 0.001` | approximated (a tool's min/max/average/random mode is the run's `-draws` policy, which its configuration records) |
 | DurationConstraint whose interval is open on one side (a min with no max, a max of `*`, a max with no min) | comment naming the bound it lacks | **unmapped** — every wait past the bound satisfies the interval, so no one delay stands for it; a MagicDraw document's min beside a max that is a duration with no expression is that tool's encoding of a one-valued `{60s}` and is written as its fixed wait, approximated |
 | DurationConstraint whose bounds name nothing the activity can read | comment | **unmapped** — the note names the unresolved name |
 | DurationObservation whose events are two nodes of one activity | an `attribute <name> : Real [0..1]` of the `action def`, stamped with `localClock.currentTime` when the first node starts and assigned the elapsed clock when the second ends (`assign T := localClock.currentTime - 'T start';`, guarded on the stamp having happened); one node observed is its own duration; an initial node's start is the activity's `start`, a flow final's or a control node no edge leaves the token's arrival before `done`; the attribute is one a run can `-observe`, and a run that does not reach both nodes leaves it without a value | mapped |
@@ -348,24 +349,33 @@ which of its parameters the caller has to value. A call whose target pin is fed 
 the context block, or from the activity's `context` parameter, performs the callee on that
 object, `perform action x ::> drive.motor.spin;`.
 
-**Values that never arrive.** v1 lets a call or a signal send fire holding no value for a
-parameter or attribute that must have one; v2 does not admit a typed perform or `send new
-Sig(x)` with an input unbound, so such a step keeps its place in the flow but performs nothing:
-it is written as an empty action carrying the token, with the reason in its comment and in the
-report. The reasons are the ones the model itself decides: the call passes no argument for a
-required parameter (one with no default and a lower bound above zero; `out` and `return`
-parameters and the operation's target pin are not arguments), the send passes no argument for a
-required attribute of its signal, inherited ones included, or the pin it passes is fed only
-by flows no value travels — from a parameter nothing values, from an action that is not
-migrated (an opaque action's result, or a value specification action whose literal is no value
-of its result's type), from a call whose callee gives that `out` parameter no value, judged
-by the same analysis of the callee's own activity, through any depth of nesting, or from a
-call's result pin past the callee's `out` parameters, which stands for none. Every such object flow is kept as a comment naming its source, never written as a
-`flow` from a feature that will hold nothing, and the receiving action's report line says which
-input receives no value. A call whose callee acts on an object the caller does not hold — the
-method reads ports of its block, and the caller is a behavior of another block with no part of
-that type — is refused the same way, since running it on the caller's object would go through
-ports it lacks.
+**Values that never arrive.** v1 lets a call fire holding no value for a parameter that must
+have one — the callee runs with the parameter empty — so the call is performed all the same,
+and the parameter, and every pin and `out` parameter it feeds through any depth of nesting, is
+declared admitting no value: its lower bound is written as zero, its upper bound kept, and the
+report says on each why a value may fail to reach it (`declared admitting no value: …`). The
+reasons are the ones the model itself decides: the call passes no argument for a required
+parameter (one with no default and a lower bound above zero; `out` and `return` parameters and
+the operation's target pin are not arguments), or the pin it passes is fed only by flows no value
+travels — from a parameter nothing values, from an action that is not migrated (an opaque
+action's result, or a value specification action whose literal is no value of its result's
+type), from a call whose callee gives that `out` parameter no value, judged by the same analysis
+of the callee's own activity, or from a call's result pin past the callee's `out` parameters,
+which stands for none. Such a flow into a call is bound as any other; one from a source that
+will hold nothing is kept as a comment naming it, never written as a `flow` from that feature.
+A write of such a value to a feature requiring one is guarded, `if x->SequenceFunctions::notEmpty()
+{ assign … }`, so the run neither invents a value nor fails the feature's multiplicity where v1
+left it untouched. A signal send is the exception: v2 does not admit `send new Sig(x)` with a
+required attribute unbound, so a send passing no argument, or a valueless pin, for a required
+attribute of its signal, inherited ones included, keeps its place in the flow but performs
+nothing, written as an empty action carrying the token, with the reason in its comment and in the
+report. A call whose callee acts on an object the caller does not hold — the method reads
+ports of its block, and the caller is a behavior of another block with no part of that type —
+is refused the same way, since running it on the caller's object would go through ports it lacks.
+So is a call behavior action that names no behavior yet has pins: nothing in the model says
+what it performs, and no v1 relation it stands in names it — an «Allocate» from the action to
+a part says where it runs, not what it does, and the report says so — so the action is written
+empty with its pins, which nothing computes, and no behavior or value is made up for it.
 
 **Control nodes carrying data.** A fork, join, merge, decision or buffer node that lies on no
 control path and whose every outgoing edge leads to an action's pin routes values, not control:
@@ -788,11 +798,12 @@ Expression Language`, `ECMAScript for XML`, `JSON`:
 | integer, real, Boolean and string literals | the same literal; a whole number is refused beyond what an `Integer` holds (2⁶³ − 1), and in a JavaScript body beyond 2⁵³ − 1, since the script would round it to a `Number` (a Java body's `long` is exact); a string's `\n` `\t` `\r` `\b` `\f` `\\` `\'` `\"` `\xHH` `\uHHHH` `\u{H…}` escapes and line continuations are decoded, a high and low surrogate escape pair as the one character they spell, while a legacy octal escape or a character the notation cannot spell (`\0`, `\v`, other control characters, a lone surrogate) is refused |
 | `a`, `a.b.c` naming features that resolve | `this.a`, `this.a.b.c` (through the swimlane's object when it has one) |
 | `+ - * / %`, comparisons, `&& \|\| !`, parentheses | `+ - * / %`, comparisons, `and or not`, parentheses; a Java body's `/` of two whole numbers drops the remainder, so it is `OpenSysMLMathFunctions::quotient(x, y)` (the exact Integer quotient truncated toward zero, refused at run time only for the least Integer by `-1`, whose quotient no Integer holds), and is refused when the operands' types cannot tell whether both are whole. Whole-number arithmetic is the exact arithmetic of a v2 `Integer`: a script that rounds a result beyond 2⁵³ to a `Number`, or a Java `int`/`long` that wraps past its range, computes something else there, which the translation does not reproduce — the translated feature holds the modeler's `Integer`, not a floating-point or fixed-width number |
-| Java's `a.equals(b)` / `"x".equals(b)` on strings | `a == b`, the comparison of their content; a Java body's `==` or `!=` with an operand known to be a string is refused, since Java compares strings there by identity, which no comparison of their values reproduces, and `equals` is refused where a side is known not to be a string or neither side's type is known (a script's `==` on strings compares their content and translates as it stands) |
+| Java's `a.equals(b)` / `"x".equals(b)` on strings | `a == b`, the comparison of their content; a Java body's `==` or `!=` with an operand known to be a string is refused, since Java compares strings there by identity, which no comparison of their values reproduces, and `equals` is translated only on a receiver known to be a string — a string literal, or a feature or local declared `String` — since any other type's `equals` is that type's own method, and is refused where the argument is known not to be a string (a script's `==` on strings compares their content and translates as it stands) |
 | `c ? a : b` | `if c ? a else b` when `a` and `b` are of one scalar type |
 | `Math.min` `Math.max` `Math.abs` `Math.floor` `Math.ceil` `Math.round` `Math.sqrt` `Math.pow`, `a ** b` | `RealFunctions::min` … `RealFunctions::sqrt`, `**`; `Math.min` and `Math.max` take any number of arguments in a script, folded pairwise (`max(max(a, b), c)`; one argument is that argument, none is refused as the infinity the script answers), and exactly two in a Java body, as Java's do; `Math.ceil(x)` is `OpenSysMLMathFunctions::ceiling(x)` (the extension library's `Integer` ceiling, so the least Integer is a value where `-floor(-x)` would overflow on its negation) and `Math.round(x)` is `RealFunctions::floor(x + 0.5)`, which rounds a half toward +∞ as JavaScript does. The three answer the library's `Integer` in a script, and in a Java body `Math.round` does where `Math.floor` and `Math.ceil` answer a `Real` as Java's answer a `double` (so a Java `/` after them is real division, not `quotient`); each result is exact up to the `Integer` range and a whole Real at or beyond 2⁶³ (or below −2⁶³), which the script would keep as a `Number` and Java's `Math.round` would clamp to a `long`, is a typed arithmetic-overflow error at run time, never a wrapped Integer; `-a ** b` is refused, as JavaScript rejects a unary operand of `**` without parentheses, and a Java body's `**` is refused, Java having no such operator |
 | `java.util.Collections.max(s)` / `.min(s)` | `RealFunctions::max(s)` / `RealFunctions::min(s)` over a collection |
 | the tool's time variable (`simtime`) | `localClock.currentTime` |
+| `print(…);` `println(…);` `System.out.print(…);` `System.out.println(…);` (also qualified `java.lang.System.out.…`) as a statement | nothing: the call writes to the tool's console and changes no value of the model, so it is left out of the translation, the other statements of the body stand, and the report notes each print left out as an approximation; a body of prints alone is an empty action. The arguments are read for what they could change: one that assigns (`print(i = 1)`), counts (`i++`), deletes (`delete x`), constructs (`new Date`) or calls anything but a function of this table computing a value (`Math.max`, `Collections.max`, a Java `equals` on a receiver known to be a string — one on any other receiver may be that type's own method) could change the model, so that print is refused rather than left out; a print used as a value (`i = print(x)`) is a call outside the table |
 
 **English** (`language` English, natural language, text) is read as one Boolean expression:
 `TRUE` / `FALSE` / `true` / `false`; a property name, spaces and all; `not X`; `X and Y`;
@@ -807,7 +818,7 @@ that caused it: a language not in the table (`the language "Groovy" is not trans
 that is not expression syntax, a construct outside the subset (`for`, `while`, `if` statements,
 `new`, `function`, a declaration of several names or of a name a feature already has, an
 assignment to a `const`, to an `in` parameter or to an input pin, a string method, a regular expression, an expression that assigns nothing, text
-after the one expression a guard or default is), a call not in the table (`the call "print" is not in the
+after the one expression a guard or default is), a call not in the table (`the call "log" is not in the
 translated function table`), a name that resolves to nothing readable (`this.` in a context with
 no object, a property of no v2 type, a name no scope defines), or types that disagree (an
 `Integer` guard, a `Boolean` added to a `Real`, a plural where a scalar is wanted, a feature
@@ -867,7 +878,21 @@ action def 'Group 0' {
   read from the model but the harness below applies. `timeVariableName`, `startTime`, `stepSize`,
   `timeUnit` and `runForksInParallel` are recorded as `timeVariable`, `startTime`, `stepSize`,
   `timeUnit` and `parallelForks`: they describe the clock the tool ran on, and OpenSysML's clock
-  is the run's own, so they are recorded, not applied. A mode that is none of the four policies,
+  is the run's own, so a run reads none of them. One of them the harness does apply: a
+  configuration stating `startTime` ran on the tool's internal clock, which ticks by `stepSize`
+  (`(endTime − startTime) / numberOfSteps` when those two are stated instead, else `1.0`) in
+  `timeUnit` and notices a wait's end at the tick after it, so the sidecar
+  records that step in seconds as `clockStep` and `-compare-results` runs the configuration on a
+  clock stepping by it (`-clock-step` overrides it). A `timeUnit` the migration cannot read as a
+  fixed number of seconds, a `stepSize` of zero or less, or one that in its unit is more seconds
+  than a number holds or fewer than it tells from none, leaves the step out with a note and
+  the runs on a continuous clock; an unstated `timeUnit` is the tool's default, the millisecond,
+  as a bare duration of the model is read, and the reading is noted. The tool's clock started at
+  `startTime`; a run's starts at 0, so a `startTime` other than 0 is noted as an approximation —
+  an instant read on the clock, by an `at` trigger or the clock variable, is offset by that start
+  in a run — and the note reaches the sidecar and the comparison. A
+  configuration without `startTime` ran on the tool's real-time clock and records no step. A mode
+  that is none of the four policies,
   and a run count beyond what a Monte Carlo can make (a 64-bit count), are kept among the
   tool's other tags in the trailing comment, as are `animationSpeed`,
   `silent` and every setting with no v2 meaning; `autostartActiveObjects` and
@@ -885,7 +910,7 @@ action def 'Group 0' {
 
   ```json
   {"source": "model.xmi", "configurations": [
-    {"id": "_g0", "name": "Group 0", "runs": 1000, "draws": "random",
+    {"id": "_g0", "name": "Group 0", "runs": 1000, "draws": "random", "clockStep": 1.0,
      "target": "target", "behavior": "run", "resultLocation": "Analysis::Results::Group 0",
      "observables": ["Time_Acq_Total", "Time_Dither"],
      "snapshots": [{"id": "_s1", "name": "Acq 1", "values": {"Time_Acq_Total": 80.228, "Time_Dither": 0.0}}],
@@ -913,9 +938,31 @@ action def 'Group 0' {
   there, so it also records no other value than the target configures and does not put the
   snapshot out), and a target with no
   classifier to match snapshots against are each noted in the configuration's `notes`.
+- A target whose classifier specializes MagicDraw's `MonteCarloAnalysis` (the analysis pattern
+  of the SimulationProfile, recognised by provenance) summarises its runs rather than recording
+  each: a snapshot's `N`, `Mean`, `Deviation` and `OutOfSpec` slots are the count, mean,
+  standard deviation and out-of-specification count of the observable the analysis binds its
+  `Mean` to, so they are kept out of the observables and written as the snapshot's
+  `"statistics"` (`runs`, `mean`, and `deviation` and `outOfSpec` only when the snapshot
+  records them — a summary without a `Deviation` states none rather than a zero), standing for
+  `N` runs, and the configuration's `"analysis"` names that observable, which the snapshot
+  holds the same mean for. An analysis binding its `Mean` to no feature, or to several, a
+  snapshot recording `N` without `Mean` or the reverse, an `N` that is no count, a negative
+  `Deviation`, an `OutOfSpec` that is no count of the `N` runs, a statistic that is no one number
+  (a string, `NaN`, two values in one slot, one statistic over two slots; a blank literal is the
+  tool's zero), or a `Mean` no
+  value of the observable holds is noted and the snapshot read as an ordinary run of the
+  numbers it does hold; one whose `Mean` another feature holds instead summarises an analysis
+  of another configuration and is set aside with a note.
+- A target whose classifiers, and their generals, have no classifier behavior but hold
+  constraint properties — the parametric configurations a tool solves for values — performs
+  nothing, since a v2 run checks a constraint and does not solve it; the note lists each
+  constraint property the target holds, through its parts, with its constraint block and whether
+  the block's rule is migrated as a constraint or, for an opaque rule the translated function
+  table lacks, which call stops it.
 
 `sysml model.sysml -compare-results results.json` then runs every configuration the sidecar
-indexes — with its `runs` and `draws`, or the `-runs` and `-draws` given, seeded from `-seed` —
+indexes — with its `runs`, `draws` and `clockStep`, or the `-runs`, `-draws` and `-clock-step` given, seeded from `-seed` —
 and prints, per observable, the tool's and OpenSysML's min, mean, p50, p90 and max with their
 relative difference; see
 [Comparing a migrated configuration with the tool's results](cli.md#comparing-a-migrated-configuration-with-the-tools-results).

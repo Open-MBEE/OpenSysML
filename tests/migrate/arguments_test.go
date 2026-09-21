@@ -80,21 +80,24 @@ const unarguedCalls = `
 const unarguedApplications = `
   <sysml:Block xmi:id="_b1" base_Class="_ctl"/>`
 
-// A call passing no argument for a parameter the callee requires stands in for
-// the call and is reported, and so does one whose argument only such a call
-// produces; one whose parameter admits no value or has a default is written as
-// the typed call, and the activity runs through all of them.
-func TestCallsWithoutRequiredArgumentsAreReported(t *testing.T) {
+// A call passing no argument for a parameter the callee requires is written as the
+// typed call, and the parameter is declared admitting no value, as v1 runs the callee
+// without one; so is one whose argument only a call producing none feeds. A parameter
+// that admits no value or has a default is left as declared. The activity runs through them all.
+func TestCallsWithoutRequiredArgumentsAdmitNone(t *testing.T) {
 	r := migrateDocument(t, unarguedCalls, unarguedApplications)
 	for _, line := range []string{
-		"action find {",
-		"/* not migrated: CallBehaviorAction 'find' — the call passes no argument for the parameter image of Ctl::Needs, which must hold a value; v1 runs the callee without it, which v2 does not admit, so the action carries the token and performs nothing */",
-		"action refind {",
-		"/* not migrated: CallBehaviorAction 'refind' — the pin 'image' it passes for the parameter image of Ctl::Needs, which must hold a value, receives none: 'find', which feeds it, produces no value; v1 runs the callee without it, which v2 does not admit, so the action carries the token and performs nothing */",
+		"action def Needs {",
+		"in image : ScalarValues::Integer[0..1];",
+		"action def Tune {",
+		"in gain : ScalarValues::Integer[0..1];",
+		"in image : ScalarValues::Integer default = 3;",
+		"action find : Needs;",
+		"action refind : Needs;",
 		"action peek : Admits;",
 		"action settle : Defaults;",
-		"action tune {",
-		"/* not migrated: CallOperationAction 'tune' — the call passes no argument for the parameter gain of Ctl::Tune, which must hold a value; v1 runs the callee without it, which v2 does not admit, so the action carries the token and performs nothing */",
+		"action tune : Tune;",
+		"/* flow find.found to refind.image not written: nothing in the called Ctl::Needs gives its parameter found a value */",
 		"first find then refind;",
 		"first refind then peek;",
 		"first peek then settle;",
@@ -103,14 +106,21 @@ func TestCallsWithoutRequiredArgumentsAreReported(t *testing.T) {
 	} {
 		wantLine(t, r.Notation, line)
 	}
-	if strings.Contains(string(r.Notation), "action find : Needs;") || strings.Contains(string(r.Notation), "action tune : Ctl::Tune;") {
-		t.Errorf("a call lacking a required argument was written as the typed call:\n%s", r.Notation)
-	}
-	wantNote(t, r, "_callNeeds", migrate.Approximated, "the call passes no argument for the parameter image of Ctl::Needs, which must hold a value; v1 runs the callee without it, which v2 does not admit, so the action carries the token and performs nothing")
-	wantNote(t, r, "_callOp", migrate.Approximated, "the call passes no argument for the parameter gain of Ctl::Tune, which must hold a value; v1 runs the callee without it, which v2 does not admit, so the action carries the token and performs nothing")
-	wantNote(t, r, "_callAgain", migrate.Approximated, "the pin 'image' it passes for the parameter image of Ctl::Needs, which must hold a value, receives none: 'find', which feeds it, produces no value; v1 runs the callee without it, which v2 does not admit, so the action carries the token and performs nothing")
+	wantNoLine(t, r.Notation, "not migrated: CallBehaviorAction")
+	wantNoLine(t, r.Notation, "not migrated: CallOperationAction")
+	absent := "; v1 runs the callee without the value, so the parameter is declared admitting none"
+	wantNote(t, r, "_callNeeds", migrate.Approximated, "the call passes no argument for the parameter image of Ctl::Needs"+absent)
+	wantNote(t, r, "_callOp", migrate.Approximated, "the call passes no argument for the parameter gain of Ctl::Tune"+absent)
+	wantNote(t, r, "_callAgain", migrate.Approximated, "the pin 'image' it passes for the parameter image of Ctl::Needs receives none: 'find', which feeds it, produces no value"+absent)
+	wantNote(t, r, "_needsIn", migrate.Approximated, "it is declared admitting no value: the call 'find' in Ctl::Run passes no argument for it, and v1 runs the callee without one")
+	wantNote(t, r, "_opGain", migrate.Approximated, "it is declared admitting no value: the call 'tune' in Ctl::Run passes no argument for it, and v1 runs the callee without one")
 	wantNote(t, r, "_callAdmits", migrate.Mapped, "")
 	wantNote(t, r, "_callDefaults", migrate.Mapped, "")
+	wantNote(t, r, "_admitsIn", migrate.Mapped, "")
+	wantNote(t, r, "_defaultsIn", migrate.Mapped, "")
+	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
+		t.Errorf("%v", diags)
+	}
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Ctl")
@@ -121,6 +131,59 @@ func TestCallsWithoutRequiredArgumentsAreReported(t *testing.T) {
 	if out := meta(t, s, "%eval in #1 : seen"); !strings.Contains(out, "= 3") {
 		t.Errorf("the call with a defaulted parameter did not run its body: %s", out)
 	}
+}
+
+// allocatedCalls is a block whose activity has two call behavior actions
+// naming no behavior: one with a result pin, «Allocate»d to a part of the block,
+// and one with no pins, so it is a bare step.
+const allocatedCalls = `
+    <packagedElement xmi:type="uml:Class" xmi:id="_sensor" name="Sensor"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_ctl" name="Ctl">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_eye" name="eye" type="_sensor" aggregation="composite"/>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_run" name="Run">
+        <node xmi:type="uml:InitialNode" xmi:id="_init"/>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_measure" name="measure">
+          <result xmi:type="uml:OutputPin" xmi:id="_measureOut" name="reading">
+            <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+          </result>
+        </node>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_settle" name="settle"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_final"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e1" source="_init" target="_measure"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e2" source="_measure" target="_settle"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e3" source="_settle" target="_final"/>
+      </ownedBehavior>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Abstraction" xmi:id="_alloc">
+      <client xmi:idref="_measure"/>
+      <supplier xmi:idref="_eye"/>
+    </packagedElement>`
+
+const allocatedApplications = `
+  <sysml:Block xmi:id="_b1" base_Class="_sensor"/>
+  <sysml:Block xmi:id="_b2" base_Class="_ctl"/>
+  <sysml:Allocate xmi:id="_s1" base_Abstraction="_alloc"/>`
+
+// A call behavior action naming no behavior is not given one: an «Allocate» from
+// the action to a part places it on the structure, but names nothing to perform,
+// so an action with pins is unmapped saying so, keeping its place in the flow, and
+// no value is made up for its result. One without pins is a bare step.
+func TestAllocatedCallsWithoutBehaviorStayUnresolved(t *testing.T) {
+	r := migrateDocument(t, allocatedCalls, allocatedApplications)
+	wantNote(t, r, "_measure", migrate.Unmapped, "the action calls no behavior, yet has the pins 'reading', which nothing then computes; its «Allocate» to Ctl::eye says where it runs, not what it does")
+	wantNote(t, r, "_settle", migrate.Approximated, "a step with no behavior and no duration; it passes the token on")
+	for _, line := range []string{
+		"action measure {",
+		"out reading : ScalarValues::Real;",
+		"/* not migrated: CallBehaviorAction 'measure' — the action calls no behavior",
+		"first measure then settle;",
+		"action settle;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNoLine(t, r.Notation, "eye.")
+	wantNoLine(t, r.Notation, "reading :=")
+	wantClean(t, "t.sysml", r)
 }
 
 // dryOutputs is a Cache whose Fetch gives its out parameter only what an opaque
@@ -187,14 +250,19 @@ const dryOutputs = `
 const dryOutputsApplications = `
   <sysml:Block xmi:id="_b1" base_Class="_cache"/>`
 
-// A call's result that its callee gives no value is not flowed on, and a call or
-// send requiring that value stands in for itself; the caller still runs through.
+// A call's result that its callee gives no value is not flowed on: a call requiring
+// that value runs with its parameter declared admitting none, and so does the pin the
+// parameter feeds in the callee; a send requiring it stands in for itself. The caller runs through.
 func TestResultsTheCalleeNeverProducesAreNotFlowedOn(t *testing.T) {
 	r := migrateDocument(t, dryOutputs, dryOutputsApplications)
 	for _, line := range []string{
 		"action fetch : Fetch;",
-		"action apply {",
-		"/* not migrated: CallBehaviorAction 'apply' — the pin 'image' it passes for the parameter image of Cache::Use, which must hold a value, receives none: 'fetch', which feeds it, produces no value; v1 runs the callee without it, which v2 does not admit, so the action carries the token and performs nothing */",
+		"in image : ScalarValues::Integer[0..1];",
+		"in value[0..1];",
+		"if value->SequenceFunctions::notEmpty() {",
+		"assign this.seen := value;",
+		"bind 'set seen'.value = image;",
+		"action apply : Use;",
 		"/* flow fetch.image to apply.image not written: nothing in the called Cache::Fetch gives its parameter image a value */",
 		"first fetch then apply;",
 		"first apply then notify;",
@@ -207,7 +275,10 @@ func TestResultsTheCalleeNeverProducesAreNotFlowedOn(t *testing.T) {
 	wantNoLine(t, r.Notation, "flow fetch.image to apply.image;")
 	wantNoLine(t, r.Notation, "send new Fresh(image);")
 	wantNote(t, r, "_notify", migrate.Approximated, "the pin 'image' it passes for the attribute image of Fresh, which must hold a value, receives none: 'fetch', which feeds it, produces no value; v1 sends the signal without it, which v2 does not admit, so the action carries the token and performs nothing")
-	wantNote(t, r, "_callUse", migrate.Approximated, "the pin 'image' it passes for the parameter image of Cache::Use, which must hold a value, receives none: 'fetch', which feeds it, produces no value; v1 runs the callee without it, which v2 does not admit, so the action carries the token and performs nothing")
+	wantNote(t, r, "_callUse", migrate.Approximated, "the pin 'image' it passes for the parameter image of Cache::Use receives none: 'fetch', which feeds it, produces no value; v1 runs the callee without the value, so the parameter is declared admitting none")
+	wantNote(t, r, "_useIn", migrate.Approximated, "it is declared admitting no value: the pin 'image' the call 'apply' in Cache::Run passes for it receives none: 'fetch', which feeds it, produces no value, and v1 runs the callee without one")
+	wantNote(t, r, "_uSetVal", migrate.Approximated, "it is declared admitting no value: the parameter image of Cache::Use, which feeds it, admits no value")
+	wantNote(t, r, "_uSet", migrate.Approximated, "the pin 'value' admits no value, which the feature cannot hold: it is written only when the pin holds one")
 	wantNote(t, r, "_of1", migrate.Approximated, "the flow is kept as a comment: nothing in the called Cache::Fetch gives its parameter image a value, so none reaches 'image'")
 	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
 		t.Errorf("%v", diags)
@@ -281,14 +352,15 @@ const surplusResult = `
     </packagedElement>`
 
 // A call's result pin past the callee's out parameters stands for none and so
-// carries no value: the flows from it are kept as comments, a call or send
-// requiring that value stands in for itself, and the caller still runs through.
+// carries no value: the flows from it are kept as comments, a call requiring that
+// value runs with its parameter declared admitting none, a send requiring it stands
+// in for itself, and the caller still runs through.
 func TestResultPinsBeyondTheCalleesParametersCarryNoValue(t *testing.T) {
 	r := migrateDocument(t, surplusResult, dryOutputsApplications)
 	for _, line := range []string{
 		"action fetch : Fetch;",
-		"action apply {",
-		"/* not migrated: CallBehaviorAction 'apply' — the pin 'image' it passes for the parameter image of Cache::Use, which must hold a value, receives none: 'fetch', which feeds it, produces no value; v1 runs the callee without it, which v2 does not admit, so the action carries the token and performs nothing */",
+		"in image : ScalarValues::Integer[0..1];",
+		"action apply : Use;",
 		"/* flow 'extra' to apply.image not written: the pin 'extra' of 'fetch' stands for no out parameter of the called Cache::Fetch, so it carries no value */",
 		"first fetch then apply;",
 		"first apply then notify;",
@@ -298,12 +370,12 @@ func TestResultPinsBeyondTheCalleesParametersCarryNoValue(t *testing.T) {
 	} {
 		wantLine(t, r.Notation, line)
 	}
-	wantNoLine(t, r.Notation, "action apply : Use;")
+	wantNoLine(t, r.Notation, "not migrated: CallBehaviorAction 'apply'")
 	wantNoLine(t, r.Notation, "send new Fresh(image);")
 	wantNote(t, r, "_callFetchOut", migrate.Mapped, "the pin stands for the parameter image of the definition, which the flows name")
 	wantNote(t, r, "_callFetchExtra", migrate.Unmapped, "the definition has no out parameter for the pin; a flow into it has nowhere to go")
 	wantNote(t, r, "_of1", migrate.Approximated, "the flow is kept as a comment: the pin 'extra' of 'fetch' stands for no out parameter of the called Cache::Fetch, so it carries no value, and none reaches 'image'")
-	wantNote(t, r, "_callUse", migrate.Approximated, "the pin 'image' it passes for the parameter image of Cache::Use, which must hold a value, receives none: 'fetch', which feeds it, produces no value; v1 runs the callee without it, which v2 does not admit, so the action carries the token and performs nothing")
+	wantNote(t, r, "_callUse", migrate.Approximated, "the pin 'image' it passes for the parameter image of Cache::Use receives none: 'fetch', which feeds it, produces no value; v1 runs the callee without the value, so the parameter is declared admitting none")
 	wantNote(t, r, "_notify", migrate.Approximated, "the pin 'image' it passes for the attribute image of Fresh, which must hold a value, receives none: 'fetch', which feeds it, produces no value; v1 sends the signal without it, which v2 does not admit, so the action carries the token and performs nothing")
 	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
 		t.Errorf("%v", diags)
@@ -566,25 +638,26 @@ const unwrittenValueApplications = `
   <sysml:Block xmi:id="_b1" base_Class="_sky"/>
   <sysml:ValueType xmi:id="_vt1" base_DataType="_coords"/>`
 
-// A value action whose value is not written produces none, so a call requiring
-// that value stands in for itself, whichever of the two the model lists first.
+// A value action whose value is not written produces none, so a call requiring that
+// value runs with its parameter declared admitting none, whichever of the two the model lists first.
 func TestUnwrittenValuesAreNotPassedToCalls(t *testing.T) {
 	r := migrateDocument(t, unwrittenValue, unwrittenValueApplications)
 	for _, line := range []string{
 		"action zero {",
 		"/* not migrated: ValueSpecificationAction 'zero' — the value 0 is not written: the literal \"0\" is not a value of Coords, which has no scalar base */",
-		"action aim {",
-		"/* not migrated: CallBehaviorAction 'aim' — the pin 'target' it passes for the parameter target of Sky::Aim, which must hold a value, receives none: 'zero', which feeds it, produces no value; v1 runs the callee without it, which v2 does not admit, so the action carries the token and performs nothing */",
+		"in target : Coords[0..1];",
+		"action aim : Aim;",
 		"/* flow zero.result to aim.target not written: 'zero' is not migrated and produces no value */",
 		"first zero then aim;",
 		"first aim then final;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
-	wantNoLine(t, r.Notation, "action aim : Aim;")
+	wantNoLine(t, r.Notation, "not migrated: CallBehaviorAction 'aim'")
 	wantNoLine(t, r.Notation, "flow zero.result to aim.target;")
 	wantNote(t, r, "_zero", migrate.Approximated, "the value 0 is not written: the literal \"0\" is not a value of Coords, which has no scalar base")
-	wantNote(t, r, "_callAim", migrate.Approximated, "the pin 'target' it passes for the parameter target of Sky::Aim, which must hold a value, receives none: 'zero', which feeds it, produces no value; v1 runs the callee without it, which v2 does not admit, so the action carries the token and performs nothing")
+	wantNote(t, r, "_callAim", migrate.Approximated, "the pin 'target' it passes for the parameter target of Sky::Aim receives none: 'zero', which feeds it, produces no value; v1 runs the callee without the value, so the parameter is declared admitting none")
+	wantNote(t, r, "_aimIn", migrate.Approximated, "it is declared admitting no value: the pin 'target' the call 'aim' in Sky::Run passes for it receives none: 'zero', which feeds it, produces no value, and v1 runs the callee without one")
 	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
 		t.Errorf("%v", diags)
 	}

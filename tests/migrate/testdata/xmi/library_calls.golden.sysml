@@ -54,7 +54,7 @@ part def Recorder {
         }
         first position then 'after';
         action 'after' {
-            in x : ScalarValues::Integer;
+            in x : ScalarValues::Integer[0..1];
             in y : ScalarValues::Integer = 1;
             out result : ScalarValues::Integer;
             /* not migrated: CallBehaviorAction 'after' — the pin 'x' it passes for the parameter x of fUML IntegerFunctions::plus, which must hold a value, receives none: 'position', which feeds it, produces no value; v1 never fires the call, so the action carries the token and performs nothing */

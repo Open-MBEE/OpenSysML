@@ -164,6 +164,57 @@ func isMagicDrawCustomization(ns string) bool {
 		strings.HasPrefix(strings.ToLower(u.Path), "/spec/customization/")
 }
 
+// The analysis patterns of MagicDraw's SysML customization module, which its simulation
+// toolkit fills: a block inherits MonteCarloAnalysis and binds Mean to the value it analyses.
+const (
+	magicDrawCustomizationModule = "md customization for sysml.mdzip"
+	analysisPatternsPackage      = "analysis patterns"
+	monteCarloAnalysisBlock      = "MonteCarloAnalysis"
+	monteCarloRuns               = "N"
+	monteCarloMean               = "Mean"
+	monteCarloDeviation          = "Deviation"
+	monteCarloOutOfSpec          = "OutOfSpec"
+)
+
+// analysisPatternPath is the path under the module's analysis patterns of the element
+// a proxy stands for ("MonteCarloAnalysis::Mean"); "" for a proxy of anything else.
+func analysisPatternPath(e *sysmlv1.Element) string {
+	if e == nil || !e.IsProxy() {
+		return ""
+	}
+	doc := e.Href
+	if i := strings.IndexByte(doc, '#'); i >= 0 {
+		doc = doc[:i]
+	}
+	if i := strings.LastIndexAny(doc, "/\\"); i >= 0 {
+		doc = doc[i+1:]
+	}
+	if !strings.EqualFold(strings.ReplaceAll(doc, "_", " "), magicDrawCustomizationModule) {
+		return ""
+	}
+	marker := "::" + analysisPatternsPackage + "::"
+	i := strings.Index(e.QualifiedName, marker)
+	if i < 0 {
+		return ""
+	}
+	return e.QualifiedName[i+len(marker):]
+}
+
+// isMonteCarloAnalysis reports whether e is a proxy for the module's MonteCarloAnalysis block.
+func isMonteCarloAnalysis(e *sysmlv1.Element) bool {
+	return analysisPatternPath(e) == monteCarloAnalysisBlock
+}
+
+// monteCarloFeature names the MonteCarloAnalysis feature e is a proxy for, "" for none.
+func monteCarloFeature(e *sysmlv1.Element) string {
+	path := analysisPatternPath(e)
+	prefix := monteCarloAnalysisBlock + "::"
+	if !strings.HasPrefix(path, prefix) || strings.Contains(path[len(prefix):], "::") {
+		return ""
+	}
+	return path[len(prefix):]
+}
+
 // stereo returns e's application of the named standard-profile stereotype, or nil.
 func stereo(e *sysmlv1.Element, name string) *sysmlv1.Stereotype {
 	for _, s := range e.Stereotypes {
