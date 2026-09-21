@@ -16,7 +16,8 @@ type documented struct {
 	outs     int    // the out, inout and return parameters
 }
 
-// fumlDocument lists the behaviors the fUML_Library.xmi document holds: fragment, in and inout parameters in order, and how many out, inout and return parameters they have.
+// fumlDocument lists the behaviors the fUML_Library.xmi document holds, plus ListConcat from
+// fUML 1.5 Table 9.7: fragment, in and inout parameters in order, and how many out, inout and return parameters they have.
 var fumlDocument = []documented{
 	{"PrimitiveBehaviors-IntegerFunctions-ToInteger", "x", 1},
 	{"PrimitiveBehaviors-IntegerFunctions-lt", "x y", 1},
@@ -74,6 +75,7 @@ var fumlDocument = []documented{
 	{"PrimitiveBehaviors-StringFunctions-Substring", "x lower upper", 1},
 	{"PrimitiveBehaviors-ListFunctions-ListSize", "list", 1},
 	{"PrimitiveBehaviors-ListFunctions-ListGet", "list index", 1},
+	{"PrimitiveBehaviors-ListFunctions-ListConcat", "list1 list2", 1},
 	{"BasicInputOutput-WriteLine", "value", 1},
 	{"BasicInputOutput-ReadLine", "", 2},
 }

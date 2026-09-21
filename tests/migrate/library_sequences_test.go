@@ -314,3 +314,33 @@ func TestFUMLFunctionsCompute(t *testing.T) {
 		})
 	}
 }
+
+// The fUML list functions (fUML 1.5 Table 9.7) take their lists as sequences,
+// index from 1, and ListConcat keeps every value of both lists in order.
+func TestFUMLListFunctionsCompute(t *testing.T) {
+	for _, c := range []struct {
+		fragment string
+		pins     []seqPin
+		result   string
+		many     bool
+		want     string
+		verdict  migrate.Verdict
+		note     string
+	}{
+		{"ListSize", []seqPin{seq("list", aba...)}, integerType, false, "3", migrate.Mapped, ""},
+		{"ListSize", []seqPin{seq("list")}, integerType, false, "0", migrate.Mapped, ""},
+		{"ListGet", []seqPin{seq("list", aba...), num("index", "2")}, stringType, false, `"b"`, migrate.Approximated, "v2 fails on an index outside 1..ListSize(list)"},
+		{"ListConcat", []seqPin{seq("list1", aba...), seq("list2", bc...)}, stringType, true, `["a", "b", "a", "b", "c"]`, migrate.Mapped, ""},
+		{"ListConcat", []seqPin{seq("list1", aba...), seq("list2")}, stringType, true, `["a", "b", "a"]`, migrate.Mapped, ""},
+	} {
+		name := c.fragment + " " + strings.ReplaceAll(c.want, " ", "")
+		t.Run(name, func(t *testing.T) {
+			r := migrateDocument(t, libraryCall(fuml+"ListFunctions-"+c.fragment, c.pins, c.result, c.many, false), recorderBlock)
+			wantClean(t, "t.sysml", r)
+			wantNote(t, r, "_call", joined(c.pins, c.verdict), c.note)
+			s := session(t, r)
+			meta(t, s, "%instantiate Recorder")
+			wantValues(t, runValues(t, s, "Recorder::Label", "Recorder"), map[string]string{"call.result": c.want})
+		})
+	}
+}

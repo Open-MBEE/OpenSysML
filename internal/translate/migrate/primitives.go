@@ -335,9 +335,10 @@ var primitives = []primitive{
 	fumlP("StringFunctions", "Size", argX, "StringFunctions::Length($1)", Mapped, ""),
 	fumlP("StringFunctions", "Substring", []string{"x", "lower", "upper"}, "StringFunctions::Substring($1, $2, $3)", Approximated, "v2 fails on bounds outside 1..Size(x) or a lower bound above the upper"+noResultOnFailure),
 
-	// fUML ListFunctions (fUML 1.5 §9.3.7): the library document holds these two
+	// fUML ListFunctions (fUML 1.5 §9.3.6, Table 9.7); the 2018 library document omits ListConcat.
 	fumlP("ListFunctions", "ListSize", []string{"*list"}, "SequenceFunctions::size($1)", Mapped, ""),
 	fumlP("ListFunctions", "ListGet", []string{"*list", "index"}, "SequenceFunctions::'#'($1, $2)", Approximated, "v2 fails on an index outside 1..ListSize(list)"+noResultOnFailure),
+	fumlP("ListFunctions", "ListConcat", []string{"*list1", "*list2"}, "SequenceFunctions::union($1, $2)", Mapped, ""),
 
 	// fUML BasicInputOutput (fUML 1.5 §9.4): activities over the standard channels
 	fumlNo("BasicInputOutput-WriteLine", "BasicInputOutput", "WriteLine", []string{"value"}, "writes a line to the standard output channel, which the v2 library has no function for"),

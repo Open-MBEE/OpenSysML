@@ -568,17 +568,25 @@ name: `fUML_Library::PrimitiveBehaviors::ListFunctions::ListSize`. Both are requ
 package of the model's own that happens to be named `fUML_Library`, referenced within the
 document or by an href into another module, is the model's, and its `ListSize` an ordinary
 call. The report says which provenance identified each call: the OMG href, the bundled copy the
-href resolves to, or the `referentPath` recorded beside the href into the library module.
+href resolves to, or the `referentPath` recorded beside the href into the library module. The
+boundary is the module's name: a module file literally named `fUML-Library` or `Alf-Library`
+is trusted as the library, whatever project it came from, since the migrator reads neither the
+used-project URI nor the module's read-only marker.
 The call is written with its pins, and each result pin takes the v2 library expression
 over the argument pins, so the flows out of it carry the computed value:
-`out result : ScalarValues::String = StringFunctions::'+'(x, y);`. A sequence parameter may be
+`out result : ScalarValues::String = StringFunctions::'+'(x, y);`. The pins bind to the
+primitive's parameters by position, as v1 orders them, and their types and multiplicities are
+not checked against the primitive's signature — v1 requires a pin to conform to its parameter,
+so a call whose pins do not is ill-formed, and is written as it stands. A sequence parameter may be
 passed nothing — the empty sequence — but a scalar parameter must hold a value: a call that
 passes no argument for one, or whose pin only flows from something that produces none, never
 fires in v1, and is written as an empty action carrying the token, as any starved call is.
 Where the v2 function differs from the v1 behavior — an index outside the sequence fails in v2
 where v1 gives no result; `ToBoolean` reads `TRUE` in v1 and only `true` in v2 — the call is
 approximated and the note says how; where the v2 library has no equivalent, the call is
-refused with the reason, and its result flows are comments. The mapping, as the tests pin it:
+refused with the reason, and its result flows are comments. The table holds every behavior of
+both library documents, and `ListConcat`, which fUML 1.5 Table 9.7 lists but the 2018
+`fUML_Library.xmi` omits. The mapping, as the tests pin it:
 
 | v1 behavior (arguments in v1 order) | v2 expression per result, in v1 order | Verdict |
 |---|---|---|
@@ -638,6 +646,7 @@ refused with the reason, and its result flows are comments. The mapping, as the 
 | `fUML StringFunctions::Substring(x, lower, upper)` | `StringFunctions::Substring(x, lower, upper)` | approximated: v2 fails on bounds outside 1..Size(x) or a lower bound above the upper where v1 gives no result |
 | `fUML ListFunctions::ListSize(list)` | `SequenceFunctions::size(list)` | mapped |
 | `fUML ListFunctions::ListGet(list, index)` | `SequenceFunctions::'#'(list, index)` | approximated: v2 fails on an index outside 1..ListSize(list) where v1 gives no result |
+| `fUML ListFunctions::ListConcat(list1, list2)` | `SequenceFunctions::union(list1, list2)` | mapped |
 | `fUML BasicInputOutput::WriteLine(value)` | — | unmapped: writes a line to the standard output channel, which the v2 library has no function for |
 | `fUML BasicInputOutput::ReadLine()` | — | unmapped: reads a line from the standard input channel, which the v2 library has no function for |
 | `Alf IntegerFunctions::ToNatural(x)` | `NaturalFunctions::ToNatural(x)` | approximated: v2 reads decimal text only, where v1 also reads the 0b, 0o and 0x forms of a natural literal, and fails on other text where v1 gives no result |
