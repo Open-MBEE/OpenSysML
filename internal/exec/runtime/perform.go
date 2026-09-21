@@ -68,7 +68,10 @@ type pendingCall struct {
 // as the caller passed it, every output otherwise. Events that step queued and
 // timers it armed stay for the machine's later runs; the clock does not move.
 func (e *StateExecutor) Call(operation string, args map[string]Value) (map[string]Value, error) {
-	call := e.newPendingCall(operation, args)
+	call, err := e.newPendingCall(operation, args)
+	if err != nil {
+		return nil, err
+	}
 	e.pendingCall = call
 	defer func() { e.pendingCall = nil }()
 	e.InvokeOperation(operation, args)
@@ -101,37 +104,39 @@ func (e *StateExecutor) callReleased() bool {
 }
 
 // newPendingCall reads the operation's declaration as a member of the machine's
-// owner (of the machine itself when it stands alone) for the out and inout
-// parameters it returns and the inout arguments the call carries in; an operation
-// no member of that name declares as a behavior returns every output.
-func (e *StateExecutor) newPendingCall(operation string, args map[string]Value) *pendingCall {
+// owner (of the machine itself when it stands alone) — among several so named,
+// the one the arguments select as a call in the model would — for the out and
+// inout parameters it returns and the inout arguments the call carries in; an
+// operation no member of that name declares as a behavior returns every output.
+func (e *StateExecutor) newPendingCall(operation string, args map[string]Value) (*pendingCall, error) {
 	call := &pendingCall{id: e.nextEventID, outputs: make(map[string]Value)}
 	owner := e.stateMachine
 	if e.self != nil && e.self.Type != nil {
 		owner = e.self.Type
 	}
-	for _, member := range e.ctx.model.semantics.MembersOf(owner) {
-		if member.Name != operation || !isActionSymbol(member) {
-			continue
-		}
-		call.returns = make(map[string]bool)
-		for _, param := range e.ctx.actionParametersOf(member) {
-			switch param.Direction {
-			case ast.DirOut:
-				call.returns[param.Name] = true
-			case ast.DirInOut:
-				call.returns[param.Name] = true
-				if value, ok := args[param.Name]; ok {
-					if call.inouts == nil {
-						call.inouts = make(map[string]Value)
-					}
-					call.inouts[param.Name] = value
+	member, err := e.ctx.memberCalled(owner, e.self, operation, OperationArguments{Named: args})
+	if err != nil {
+		return nil, err
+	}
+	if !isActionSymbol(member) {
+		return call, nil
+	}
+	call.returns = make(map[string]bool)
+	for _, param := range e.ctx.actionParametersOf(member) {
+		switch param.Direction {
+		case ast.DirOut:
+			call.returns[param.Name] = true
+		case ast.DirInOut:
+			call.returns[param.Name] = true
+			if value, ok := args[param.Name]; ok {
+				if call.inouts == nil {
+					call.inouts = make(map[string]Value)
 				}
+				call.inouts[param.Name] = value
 			}
 		}
-		break
 	}
-	return call
+	return call, nil
 }
 
 // callTaken notes that a transition fired on the pending call's event, so an inout

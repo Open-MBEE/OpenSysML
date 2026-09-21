@@ -21,6 +21,7 @@ func TestRuntimeRobustnessCallResults(t *testing.T) {
 	t.Run("queued_signal_is_dispatched_before_the_call", testCallResultsQueuedSignalFirst)
 	t.Run("declared_operation_returns_its_parameters_only", testCallResultsDeclaredReturns)
 	t.Run("inout_argument_returns_as_passed_unless_written", testCallResultsInoutArgument)
+	t.Run("overloaded_operation_returns_the_selected_declaration", testCallResultsOverloaded)
 }
 
 const callResultsModel = `package test {
@@ -144,9 +145,70 @@ const callOwnerModel = `package P {
 	part owner : Owner;
 }`
 
+// callOverloadedModel: the owner sees two operations named `compute`, told apart
+// by their input's type and declaring different outputs; the step answering the
+// call writes both outputs.
+const callOverloadedModel = `package P {
+	private import ScalarValues::*;
+	part def Owner {
+		action def compute { in x : Integer; out n : Integer; }
+		action def compute { in x : String; out s : String; }
+		action def Both {
+			out n : Integer;
+			out s : String;
+			first start;
+			action writing { assign n := 1; assign s := "one"; }
+			done;
+			succession first start then writing;
+			succession first writing then done;
+		}
+		exhibit state sm {
+			entry; then idle;
+			state idle;
+			transition first idle accept compute(x) do perform Both then idle;
+		}
+	}
+	part owner : Owner;
+}`
+
+// testCallResultsOverloaded: a call of an overloaded operation releases the
+// outputs of the declaration its arguments select, and one telling the
+// declarations apart by nothing is refused as ambiguous before it is queued.
+func testCallResultsOverloaded(t *testing.T) {
+	exec := callMachineOwnedBy(t, callOverloadedModel)
+	got, err := exec.Call("compute", map[string]Value{"x": strValue("text")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s, ok := got["s"]; !ok || s.Str() != "one" || len(got) != 1 {
+		t.Errorf("compute(\"text\") returned %v, want s = \"one\" alone", got)
+	}
+	got, err = exec.Call("compute", map[string]Value{"x": constInt(3)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n, ok := got["n"]; !ok || n.Const.Int != 1 || len(got) != 1 {
+		t.Errorf("compute(3) returned %v, want n = 1 alone", got)
+	}
+	got, err = exec.Call("compute", nil)
+	if !errors.Is(err, ErrAmbiguousInvocation) {
+		t.Fatalf("compute() = %v, %v; want ErrAmbiguousInvocation", got, err)
+	}
+	if n := exec.eventQueue.Len(); n != 0 {
+		t.Errorf("%d event(s) queued, want the ambiguous call refused before it is queued", n)
+	}
+}
+
 // callOwnerMachine creates an executor of callOwnerModel's machine on its owner.
 func callOwnerMachine(t *testing.T) *StateExecutor {
-	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, callOwnerModel))
+	t.Helper()
+	return callMachineOwnedBy(t, callOwnerModel)
+}
+
+// callMachineOwnedBy creates an executor of `P::Owner::sm` on `P::owner` of model.
+func callMachineOwnedBy(t *testing.T, model string) *StateExecutor {
+	t.Helper()
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, model))
 	owner, err := ctx.Instantiate(oneSymbol(t, idx, "P::owner"))
 	if err != nil {
 		t.Fatalf("instantiate owner: %v", err)

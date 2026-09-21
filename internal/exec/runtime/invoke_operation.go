@@ -95,32 +95,13 @@ func (ctx *Context) InvokeOperationWith(inst *Instance, name string, args Operat
 // several so named, the one the arguments' values select as a call in the model
 // would — and reports a member that states no executable behavior.
 func (ctx *Context) operationOf(inst *Instance, name string, args OperationArguments) (*symbols.Symbol, error) {
-	var candidates []*symbols.Symbol
-	for _, candidate := range ctx.model.semantics.MembersOf(inst.Type) {
-		if candidate.Name == name {
-			candidates = append(candidates, candidate)
-		}
+	member, err := ctx.memberCalled(inst.Type, inst, name, args)
+	if err != nil {
+		return nil, err
 	}
-	if len(candidates) == 0 {
+	if member == nil {
 		return nil, fmt.Errorf("%w: %s of object #%d (type %s)",
 			ErrNoSuchBehavior, name, inst.ID, symbolText(inst.Type))
-	}
-	member := candidates[0]
-	if len(candidates) > 1 {
-		scope := DeclScope(inst.Type)
-		ec := NewEvalContextIn(ctx, scope, inst)
-		typed := make([]semantics.Argument, 0, len(args.Positional)+len(args.Named))
-		for _, value := range args.Positional {
-			typed = append(typed, ec.valueArgument(value, nil))
-		}
-		for _, param := range slices.Sorted(maps.Keys(args.Named)) {
-			typed = append(typed, ec.valueArgument(args.Named[param], ast.QualifiedNameOf(param)))
-		}
-		sel := ctx.model.semantics.SelectAmongArguments(scope, candidates, typed, semantics.PerformsOperation)
-		if sel.Ambiguous || sel.Called() == nil {
-			return nil, ambiguousInvocationError(name, sel.Tied)
-		}
-		member = sel.Called()
 	}
 	switch member.Kind {
 	case symbols.SymbolActionDef, symbols.SymbolActionUsage:
@@ -135,6 +116,38 @@ func (ctx *Context) operationOf(inst *Instance, name string, args OperationArgum
 		return nil, fmt.Errorf("%w: %s of %s is a %s",
 			ErrNotABehavior, name, symbolText(inst.Type), member.Kind)
 	}
+}
+
+// memberCalled is the member of owner that a call of name with args denotes:
+// among several so named, the one the arguments' values select as a call in
+// the model would, evaluated as self; nil when none is so named.
+func (ctx *Context) memberCalled(owner *symbols.Symbol, self *Instance, name string, args OperationArguments) (*symbols.Symbol, error) {
+	var candidates []*symbols.Symbol
+	for _, candidate := range ctx.model.semantics.MembersOf(owner) {
+		if candidate.Name == name {
+			candidates = append(candidates, candidate)
+		}
+	}
+	switch len(candidates) {
+	case 0:
+		return nil, nil
+	case 1:
+		return candidates[0], nil
+	}
+	scope := DeclScope(owner)
+	ec := NewEvalContextIn(ctx, scope, self)
+	typed := make([]semantics.Argument, 0, len(args.Positional)+len(args.Named))
+	for _, value := range args.Positional {
+		typed = append(typed, ec.valueArgument(value, nil))
+	}
+	for _, param := range slices.Sorted(maps.Keys(args.Named)) {
+		typed = append(typed, ec.valueArgument(args.Named[param], ast.QualifiedNameOf(param)))
+	}
+	sel := ctx.model.semantics.SelectAmongArguments(scope, candidates, typed, semantics.PerformsOperation)
+	if sel.Ambiguous || sel.Called() == nil {
+		return nil, ambiguousInvocationError(name, sel.Tied)
+	}
+	return sel.Called(), nil
 }
 
 func isConstraintSymbol(sym *symbols.Symbol) bool {

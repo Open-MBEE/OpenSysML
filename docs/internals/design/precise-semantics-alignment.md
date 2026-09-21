@@ -1210,7 +1210,9 @@ state defers holds its caller through the steps until the machine recalls and di
 §8.5.9's blocked caller waits for the deferred occurrence — collects what a
 behavior the event fires `return`s or assigns to an output parameter of that name, and hands the
 outputs back typed and by name — under the `out`/`inout` parameters the operation declares as a
-member of the machine's owner (or of the machine standing alone) when it declares one, as §8.5.9
+member of the machine's owner (or of the machine standing alone) when it declares one — among
+several so named, the one the call's arguments select as `InvokeOperation` would, and
+`ErrAmbiguousInvocation` before the call is queued when they select none — as §8.5.9
 returns the operation's own parameters — an `inout` no behavior of the step wrote going back as the
 caller passed it, since §8.5.9's `CallEventExecution` holds the argument as that parameter's value
 until a behavior writes it — and under every name the step returned when the trigger
