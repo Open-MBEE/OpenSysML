@@ -403,6 +403,7 @@ func (d *decoder) relatedEnds(el *element) (ends []string, payload string, err e
 	return legacy, legacyPayload, nil
 }
 
+// standardEnds reads connectorEnd features in graph order, with ownership fallbacks.
 func (d *decoder) standardEnds(el *element) ([]string, bool, error) {
 	terms := d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pConnectorEnd)
 	if len(terms) == 0 {
@@ -439,6 +440,7 @@ func (d *decoder) standardEnds(el *element) ([]string, bool, error) {
 	return ends, true, nil
 }
 
+// standardEndText renders one owned connector end from its structural target.
 func (d *decoder) standardEndText(end rdf.Term, in *element) (string, error) {
 	target, ok := d.graph.Object(end, rdf.SysML+pReferences)
 	if !ok {
@@ -458,7 +460,7 @@ func (d *decoder) standardEndText(end rdf.Term, in *element) (string, error) {
 		text = target.Value
 	} else {
 		var err error
-		text, err = d.endReferenceText(target, in)
+		text, err = d.referenceName(target, in)
 		if err != nil {
 			return "", err
 		}
@@ -480,6 +482,7 @@ func (d *decoder) standardEndText(end rdf.Term, in *element) (string, error) {
 	return text, nil
 }
 
+// standardChainText resolves and renders the ordered segments of a chain feature.
 func (d *decoder) standardChainText(chain rdf.Term, in *element) ([]string, error) {
 	segments := d.graph.Objects(chain, rdf.SysML+pChainingFeature)
 	parts := make([]string, 0, len(segments))
@@ -507,13 +510,7 @@ func (d *decoder) standardChainText(chain rdf.Term, in *element) ([]string, erro
 	return parts, nil
 }
 
-func (d *decoder) endReferenceText(target rdf.Term, in *element) (string, error) {
-	if target.IsLiteral() {
-		return d.referenceName(target, in)
-	}
-	return d.referenceName(target, in)
-}
-
+// standardEndName renders an end's declared name and ReferencesKeyword.
 func (d *decoder) standardEndName(end rdf.Term, in *element) (string, error) {
 	names := d.graph.Objects(end, rdf.SysML+pDeclaredName)
 	if len(names) == 0 {
@@ -542,6 +539,7 @@ func (d *decoder) standardEndName(end rdf.Term, in *element) (string, error) {
 	return nameText(name) + " " + keyword, nil
 }
 
+// legacyEnds reads the positional sysx connector-end representation.
 func (d *decoder) legacyEnds(el *element) (ends []string, payload string, err error) {
 	type end struct {
 		index int
@@ -634,15 +632,19 @@ func (d *decoder) statesEnds(el *element) bool {
 	return len(d.graph.Objects(rdf.IRI(el.iri), rdf.OpenSysML+xRelatedFeature)) > 0
 }
 
+// inferredEndForm selects the notation form implied by a usage metaclass and arity.
 func (d *decoder) inferredEndForm(el *element) string {
 	switch el.metaclass {
-	case "BindingConnectorAsUsage":
+	case usageMetaclass[ast.UsageBinding]:
 		return formEquals
-	case "SuccessionAsUsage":
+	case usageMetaclass[ast.UsageSuccession]:
 		return formFirstThen
-	case "FlowUsage":
+	case usageMetaclass[ast.UsageFlow]:
 		return formFromTo
-	case "ConnectionUsage", "InterfaceUsage", "AllocationUsage", "ConnectorAsUsage":
+	case usageMetaclass[ast.UsageConnection],
+		usageMetaclass[ast.UsageInterface],
+		usageMetaclass[ast.UsageAllocation],
+		usageMetaclass[ast.UsageConnector]:
 		if terms := d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pConnectorEnd); len(terms) > 2 {
 			return formNary
 		}

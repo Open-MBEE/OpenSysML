@@ -1278,12 +1278,19 @@ func verbatimUsage(n *ast.Usage) bool {
 // bindingEnds states the features a binding head relates as structure beside the
 // text it is kept as, so a consumer reads the ends without reading notation.
 func (e *encoder) bindingEnds(subject rdf.Term, owner string, n *ast.Usage) error {
+	endCount := len(n.ConnectorEnds)
 	for i, end := range n.ConnectorEnds {
 		if end == nil {
 			continue
 		}
 		slot := fmt.Sprintf("end%d", i)
-		if err := e.connectorEnd(subject, owner, slot, i, end); err != nil {
+		name := ""
+		keyword := ""
+		if declared, named := end.DeclaredName(); named {
+			name = declared.Name
+			keyword = e.referencesKeyword(end)
+		}
+		if err := e.connectorEnd(subject, owner, slot, i, endCount, end.AttachedTarget(), end.Multiplicity, name, keyword); err != nil {
 			return err
 		}
 	}
@@ -1294,7 +1301,7 @@ func (e *encoder) bindingEnds(subject rdf.Term, owner string, n *ast.Usage) erro
 		if target == nil {
 			continue
 		}
-		if err := e.flowEnd(subject, owner, fmt.Sprintf("end%d", i), i, target); err != nil {
+		if err := e.connectorEnd(subject, owner, fmt.Sprintf("end%d", i), i, 2, target, nil, "", ""); err != nil {
 			return err
 		}
 	}
@@ -1307,15 +1314,14 @@ func (e *encoder) bindingEnds(subject rdf.Term, owner string, n *ast.Usage) erro
 }
 
 // connectorEnd emits a standard ConnectorEnd feature and its EndFeatureMembership.
-func (e *encoder) connectorEnd(subject rdf.Term, owner, slot string, index int, end *ast.ConnectorEnd) error {
-	target := end.AttachedTarget()
+func (e *encoder) connectorEnd(subject rdf.Term, owner, slot string, index, endCount int, target ast.Node, mult *ast.Multiplicity, name, keyword string) error {
 	if target == nil {
 		return nil
 	}
 	feature := rdf.ExpressionIRI(subject, slot)
 	membership := rdf.OwningMembershipIRIOf(feature)
 	e.graph.Prefixes[rdf.ExpressionPrefix] = rdf.Expression
-	e.typed(feature, "ReferenceUsage")
+	e.typed(feature, crossFeatureMetaclass(false))
 	e.graph.Add(feature, e.sysml(pElementID), rdf.String(rdf.LocalName(feature.Value)))
 	e.graph.Add(feature, e.sysml(pIsEnd), rdf.Bool(true))
 	e.graph.Add(subject, e.sysml(pConnectorEnd), feature)
@@ -1323,39 +1329,32 @@ func (e *encoder) connectorEnd(subject rdf.Term, owner, slot string, index int, 
 	e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
 	e.graph.Add(subject, e.sysml(pOwnedFeatureMembership), membership)
 	e.graph.Add(subject, e.sysml(pOwnedFeature), feature)
-	if len(ontology.LookupProperty(pOwnedEndFeature)) > 0 {
-		e.graph.Add(subject, e.sysml(pOwnedEndFeature), feature)
-	}
-	if reference, ok := e.endReferenceIRI(end); ok {
+	e.graph.Add(subject, e.sysml(pOwnedEndFeature), feature)
+	if reference, ok := e.endReferenceIRI(target); ok {
 		e.graph.Add(subject, e.sysml(pRelatedFeature), reference)
-		if index == 0 {
+		if endCount == 2 && index == 0 {
 			e.graph.Add(subject, e.sysml(pSourceFeature), reference)
-		} else if index == 1 {
+		} else if endCount == 2 && index == 1 {
 			e.graph.Add(subject, e.sysml(pTargetFeature), reference)
 		}
 	}
 	e.emitMembershipCore(membership, feature, subject, mEndFeatureMembership, true)
 	e.graph.Add(feature, e.sysx(xSourceText), rdf.String(e.text(target)))
-	if name, named := end.DeclaredName(); named {
-		e.graph.Add(feature, e.sysml(pDeclaredName), rdf.String(name.Name))
-		e.graph.Add(feature, e.sysml(pName), rdf.String(name.Name))
-		if keyword := e.referencesKeyword(end); keyword != referencesSymbol {
+	if name != "" {
+		e.graph.Add(feature, e.sysml(pDeclaredName), rdf.String(name))
+		e.graph.Add(feature, e.sysml(pName), rdf.String(name))
+		if keyword != "" && keyword != referencesSymbol {
 			e.graph.Add(feature, e.sysx(xEndReferencesKeyword), rdf.String(keyword))
 		}
 	}
-	if err := e.endReferences(feature, subject, owner, target); err != nil {
+	if err := e.endReferences(feature, target); err != nil {
 		return err
 	}
-	return e.multiplicity(feature, owner, end.Multiplicity)
+	return e.multiplicity(feature, owner, mult)
 }
 
-func (e *encoder) flowEnd(subject rdf.Term, owner, slot string, index int, target ast.Node) error {
-	end := &ast.ConnectorEnd{Target: target}
-	return e.connectorEnd(subject, owner, slot, index, end)
-}
-
-func (e *encoder) endReferenceIRI(end *ast.ConnectorEnd) (rdf.Term, bool) {
-	target := end.AttachedTarget()
+// endReferenceIRI returns a linked simple-name target, excluding chains.
+func (e *encoder) endReferenceIRI(target ast.Node) (rdf.Term, bool) {
 	name, ok := target.(*ast.QualifiedName)
 	if !ok || qualifiedNameHasChain(name) {
 		return rdf.Term{}, false
@@ -1364,14 +1363,8 @@ func (e *encoder) endReferenceIRI(end *ast.ConnectorEnd) (rdf.Term, bool) {
 	return reference, reference.IsIRI()
 }
 
-func (e *encoder) referenceNode(node ast.Node) rdf.Term {
-	if name, ok := node.(*ast.QualifiedName); ok {
-		return e.reference(name)
-	}
-	return rdf.TypedLiteral(e.text(node), rdf.OpenSysML+dtExpression)
-}
-
-func (e *encoder) endReferences(feature rdf.Term, subject rdf.Term, owner string, target ast.Node) error {
+// endReferences writes a simple reference, structural chain, or expression target.
+func (e *encoder) endReferences(feature rdf.Term, target ast.Node) error {
 	switch target := target.(type) {
 	case *ast.QualifiedName:
 		if qualifiedNameHasChain(target) {
@@ -1379,28 +1372,23 @@ func (e *encoder) endReferences(feature rdf.Term, subject rdf.Term, owner string
 		}
 		e.graph.Add(feature, e.sysml(pReferences), e.reference(target))
 	case *ast.FeatureChainExpr:
-		chain := rdf.ExpressionIRI(feature, "chain")
-		e.typed(chain, mFeature)
-		e.graph.Add(chain, e.sysml(pElementID), rdf.String(rdf.LocalName(chain.Value)))
+		segments := make([]rdf.Term, 0, len(featureChainSegments(target)))
 		for _, segment := range featureChainSegments(target) {
-			e.graph.Add(chain, e.sysml(pChainingFeature), e.reference(segment))
+			segments = append(segments, e.reference(segment))
 		}
-		membership := rdf.OwningMembershipIRIOf(chain)
-		e.emitMembershipCore(membership, chain, feature, mOwningMembership, true)
-		e.graph.Add(feature, e.sysml(pOwnedRelationship), membership)
-		e.graph.Add(feature, e.sysml(pOwnedMembership), membership)
-		e.graph.Add(feature, e.sysml(pReferences), chain)
+		e.chainFeature(feature, segments)
 	default:
 		e.graph.Add(feature, e.sysml(pReferences), rdf.TypedLiteral(e.text(target), rdf.OpenSysML+dtExpression))
 	}
 	return nil
 }
 
-func (e *encoder) endChainReferences(feature rdf.Term, target *ast.QualifiedName) error {
+// chainFeature creates an owned structural Feature holding ordered chain segments.
+func (e *encoder) chainFeature(feature rdf.Term, segments []rdf.Term) {
 	chain := rdf.ExpressionIRI(feature, "chain")
 	e.typed(chain, mFeature)
 	e.graph.Add(chain, e.sysml(pElementID), rdf.String(rdf.LocalName(chain.Value)))
-	for _, segment := range e.qualifiedChainReferences(target) {
+	for _, segment := range segments {
 		e.graph.Add(chain, e.sysml(pChainingFeature), segment)
 	}
 	membership := rdf.OwningMembershipIRIOf(chain)
@@ -1408,9 +1396,18 @@ func (e *encoder) endChainReferences(feature rdf.Term, target *ast.QualifiedName
 	e.graph.Add(feature, e.sysml(pOwnedRelationship), membership)
 	e.graph.Add(feature, e.sysml(pOwnedMembership), membership)
 	e.graph.Add(feature, e.sysml(pReferences), chain)
+}
+
+func (e *encoder) endChainReferences(feature rdf.Term, target *ast.QualifiedName) error {
+	segments := make([]rdf.Term, 0, len(target.Parts))
+	for _, segment := range e.qualifiedChainReferences(target) {
+		segments = append(segments, segment)
+	}
+	e.chainFeature(feature, segments)
 	return nil
 }
 
+// qualifiedNameHasChain reports whether a qualified name contains a chained segment.
 func qualifiedNameHasChain(name *ast.QualifiedName) bool {
 	for _, part := range name.Parts {
 		if part.Chained {
@@ -1420,21 +1417,15 @@ func qualifiedNameHasChain(name *ast.QualifiedName) bool {
 	return false
 }
 
+// qualifiedChainReferences resolves each linked segment of a qualified chain.
 func (e *encoder) qualifiedChainReferences(name *ast.QualifiedName) []rdf.Term {
 	var terms []rdf.Term
 	start := 0
-	for i, part := range name.Parts {
-		if !part.Chained && i != 0 {
-			continue
+	for i := 1; i < len(name.Parts); i++ {
+		if name.Parts[i].Chained {
+			terms = append(terms, e.qualifiedNamePartReference(name, start, i))
+			start = i
 		}
-		if i == 0 {
-			continue
-		}
-		if !part.Chained {
-			continue
-		}
-		terms = append(terms, e.qualifiedNamePartReference(name, start, i))
-		start = i
 	}
 	if start < len(name.Parts) {
 		terms = append(terms, e.qualifiedNamePartReference(name, start, len(name.Parts)))
@@ -1442,12 +1433,14 @@ func (e *encoder) qualifiedChainReferences(name *ast.QualifiedName) []rdf.Term {
 	return terms
 }
 
+// qualifiedNamePartReference resolves one contiguous qualified-name chain segment.
 func (e *encoder) qualifiedNamePartReference(name *ast.QualifiedName, start, end int) rdf.Term {
 	part := &ast.QualifiedName{Parts: append([]ast.NameSegment(nil), name.Parts[start:end]...)}
 	sym, ok := e.res.PartSymbol(name, end-1)
 	return e.linkOrText(part, sym, ok)
 }
 
+// featureChainSegments returns the ordered qualified-name segments of a feature chain.
 func featureChainSegments(node *ast.FeatureChainExpr) []*ast.QualifiedName {
 	var segments []*ast.QualifiedName
 	var walk func(ast.Node)

@@ -406,6 +406,7 @@ func checkValueFlags(graph *rdf.Graph) error {
 	return nil
 }
 
+// featureValueIndex maps each feature to its typed FeatureValue membership.
 func featureValueIndex(graph *rdf.Graph, metaclasses map[rdf.Term]string) map[string]rdf.Term {
 	index := map[string]rdf.Term{}
 	classOf := func(subject rdf.Term) string {
@@ -1518,10 +1519,10 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		if inferred := d.inferredEndForm(el); inferred != "" {
 			endForm, hasEnds = inferred, true
 		}
-	}
-	if !hasEnds && d.statesEnds(el) {
-		return "", d.missing(el, "sysx:"+xEndForm,
-			"the ends it relates are written in the form the head states")
+		if !hasEnds {
+			return "", d.missing(el, "sysx:"+xEndForm,
+				"the ends it relates are written in the form the head states")
+		}
 	}
 	var words []string
 	if keyword := d.visibility(el); keyword != "" {
@@ -2548,7 +2549,7 @@ func (d *decoder) bodyChildren(el *element) []*element {
 // ownedCrossFeature is the kindless feature an end owns through a plain OwningMembership,
 // written in its head (KerML.xtext OwnedCrossingFeature); a keyworded one is a body `member`.
 func (d *decoder) ownedCrossFeature(el *element) *element {
-	if !d.boolOf(el, rdf.SysML+"isEnd") || !ontology.IsAncestorOrSelf(el.metaclass, mFeature) {
+	if !d.boolOf(el, rdf.SysML+pIsEnd) || !ontology.IsAncestorOrSelf(el.metaclass, mFeature) {
 		return nil
 	}
 	for _, child := range el.children {

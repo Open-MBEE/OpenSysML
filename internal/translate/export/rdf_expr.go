@@ -538,6 +538,7 @@ func (d *decoder) noteSegments(parents map[string][]rdf.Term) error {
 		object, ok := d.graph.Object(node, rdf.SysML+pTargetFeature)
 		owners := d.expressionOwners(node, parents)
 		if len(owners) == 0 && len(segments) > 0 {
+			// Structural end chains walk from chain feature to end to connector.
 			if end, ok := d.graph.Object(node, rdf.SysML+pOwner); ok {
 				if subject, ok := d.graph.Object(end, rdf.SysML+pOwner); ok {
 					if owner, ok := d.byIRI[subject.Value]; ok {

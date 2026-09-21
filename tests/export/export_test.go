@@ -3648,6 +3648,32 @@ func TestEndVerbsInCommentsAreNotVerbs(t *testing.T) {
 	}
 }
 
+func TestNaryConnectorEndsDoNotStateBinaryEndpoints(t *testing.T) {
+	src := `package P {
+	part def Car {
+		part eng;
+		part trans;
+		part wheels;
+		connect (eng, trans, wheels);
+	}
+}
+`
+	turtle, err := convert.Convert("nary.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	graph := string(turtle)
+	if !strings.Contains(graph, `sysx:endForm "nary"`) {
+		t.Fatalf("the n-ary connector should state its form:\n%s", graph)
+	}
+	if strings.Contains(graph, "sysml:sourceFeature") || strings.Contains(graph, "sysml:targetFeature") {
+		t.Fatalf("an n-ary connector must not state binary endpoint predicates:\n%s", graph)
+	}
+	if !strings.Contains(graph, "sysml:relatedFeature elmt:P__Car__eng, elmt:P__Car__trans, elmt:P__Car__wheels") {
+		t.Fatalf("the n-ary connector should retain all related features:\n%s", graph)
+	}
+}
+
 // backFromTheGraphAlone writes turtle back to notation without its source text,
 // and checks that notation yields the same structural graph again. The notation
 // is canonical spelling, so the graphs are compared as sets of triples.

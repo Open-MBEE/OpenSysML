@@ -1399,17 +1399,24 @@ func (d *decoder) transitionText(el *element, annotations []string, depth int) (
 	return strings.Join(words, " "), bodyText, nil
 }
 
+// transitionObject reads a standard transition endpoint, then its legacy spelling.
 func (d *decoder) transitionObject(el *element, property string) (rdf.Term, bool) {
 	if term, ok := d.graph.Object(rdf.IRI(el.iri), rdf.SysML+property); ok {
 		return term, true
 	}
-	legacy := map[string]string{pSource: pSourceFeature, pTarget: pTargetFeature}[property]
-	if legacy == "" {
+	var legacy string
+	switch property {
+	case pSource:
+		legacy = pSourceFeature
+	case pTarget:
+		legacy = pTargetFeature
+	default:
 		return rdf.Term{}, false
 	}
 	return d.graph.Object(rdf.IRI(el.iri), rdf.SysML+legacy)
 }
 
+// transitionReferenceText renders a standard endpoint, falling back to legacy RDF.
 func (d *decoder) transitionReferenceText(el *element, property, legacy string) (string, error) {
 	if _, ok := d.graph.Object(rdf.IRI(el.iri), rdf.SysML+property); ok {
 		return d.referenceText(el, rdf.SysML+property)

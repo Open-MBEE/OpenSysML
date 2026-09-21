@@ -1306,7 +1306,6 @@ elmt:ConnectorEnds__Vehicle___4015
     sysml:ownedFeature expr:ConnectorEnds__Vehicle___4015_pend0, expr:ConnectorEnds__Vehicle___4015_pend1, expr:ConnectorEnds__Vehicle___4015_pend2 ;
     sysml:ownedEndFeature expr:ConnectorEnds__Vehicle___4015_pend0, expr:ConnectorEnds__Vehicle___4015_pend1, expr:ConnectorEnds__Vehicle___4015_pend2 ;
     sysml:relatedFeature elmt:ConnectorEnds__Vehicle__eng, elmt:ConnectorEnds__Vehicle__trigger ;
-    sysml:sourceFeature elmt:ConnectorEnds__Vehicle__eng ;
     sysx:endForm "nary" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        connector (eng, tanks.main, trigger);\n" ;
