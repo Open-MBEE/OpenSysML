@@ -116,6 +116,10 @@ type imagedState struct {
 	firingNotes        []RunNote
 	changeRearmed      map[*lower.Transition]bool
 	changeWaits        []changeWait
+	held               []heldEntry
+	entering           map[*ast.StateNode]bool
+	enteringMachine    bool
+	activeAtEntry      map[*ast.StateNode]bool
 }
 
 // behavior takes one behavior's execution.
@@ -315,6 +319,10 @@ func (t *imaging) stateExecutor(e *StateExecutor) (*imagedState, error) {
 		firingNotes:        slices.Clone(e.firingNotes),
 		changeRearmed:      maps.Clone(e.changeRearmed),
 		changeWaits:        slices.Clone(e.changeWaits),
+		held:               cloneHeldEntries(e.held),
+		entering:           maps.Clone(e.entering),
+		enteringMachine:    e.enteringMachine,
+		activeAtEntry:      maps.Clone(e.activeAtEntry),
 	}
 	var err error
 	if img.run, err = t.run(e.driven.state); err != nil {
@@ -641,6 +649,13 @@ func (m *materializing) stateExecutor(e *StateExecutor, img *imagedState) error 
 	e.firingChange, e.firingNotes = img.firingChange, slices.Clone(img.firingNotes)
 	e.changeRearmed = maps.Clone(img.changeRearmed)
 	e.changeWaits = slices.Clone(img.changeWaits)
+	e.held = cloneHeldEntries(img.held)
+	clear(e.entering)
+	for state, entering := range img.entering {
+		e.entering[state] = entering
+	}
+	e.enteringMachine = img.enteringMachine
+	e.activeAtEntry = maps.Clone(img.activeAtEntry)
 	return nil
 }
 
