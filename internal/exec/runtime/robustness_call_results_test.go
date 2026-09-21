@@ -7,10 +7,7 @@ import (
 )
 
 // TestRuntimeRobustnessCallResults exercises the failure modes of a synchronous
-// call on a state machine (StateExecutor.Call): a call the run leaves held is
-// refused with a typed error rather than returned, a call no transition takes or
-// whose effect returns nothing releases the caller empty-handed, results never
-// carry over between calls, and an error the dispatch raises reaches the caller.
+// call (StateExecutor.Call): held, untaken, empty, repeated and erroring calls.
 func TestRuntimeRobustnessCallResults(t *testing.T) {
 	t.Run("call_left_deferred", testCallResultsLeftDeferred)
 	t.Run("call_left_queued_behind_termination", testCallResultsLeftQueued)

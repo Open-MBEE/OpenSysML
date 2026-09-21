@@ -43,9 +43,8 @@ func (e *StateExecutor) Enqueue(event QueuedEvent) error {
 	return nil
 }
 
-// ErrCallNotReturned is the typed error Call returns for an invocation the
-// machine ran to completion without dispatching: it is still queued or deferred,
-// so a synchronous caller would still be waiting on it.
+// ErrCallNotReturned reports a call the run left queued or deferred, so a
+// synchronous caller would still be waiting on it.
 var ErrCallNotReturned = errors.New("call not returned")
 
 // pendingCall is the synchronous call Call is waiting on and the outputs the
@@ -55,12 +54,8 @@ type pendingCall struct {
 	outputs map[string]Value
 }
 
-// Call invokes operation on the machine as a synchronous caller does: the call
-// event is queued, the machine runs to completion, and the caller is released
-// with the outputs the behaviors the event triggered (effects, entries, exits,
-// do actions) returned to the machine, by name, the last returned under a name
-// being its value (PSSM EventTriggeredExecution). A call the run left queued or
-// deferred reports ErrCallNotReturned.
+// Call queues the call event, runs the machine to completion and releases the
+// caller with the outputs the triggered behaviors returned, by name (PSSM 8.5.4).
 func (e *StateExecutor) Call(operation string, args map[string]Value) (map[string]Value, error) {
 	call := &pendingCall{id: e.nextEventID, outputs: make(map[string]Value)}
 	e.pendingCall = call
@@ -79,10 +74,8 @@ func (e *StateExecutor) Call(operation string, args map[string]Value) (map[strin
 // machine declares no attribute for.
 var ErrNoSuchAttribute = errors.New("no such attribute")
 
-// WriteAttribute writes a value to an attribute the machine declares, as an
-// object outside the machine does between its steps: a driver appending to a
-// log the machine's own behaviors also write. The write is the same one an
-// assignment in the machine's behavior makes, so the value is checked the same way.
+// WriteAttribute assigns an attribute the machine declares from outside it,
+// between its steps, with the checks an assignment in its behavior gets.
 func (e *StateExecutor) WriteAttribute(name string, value Value) error {
 	if !e.declaresAttribute(name) {
 		return fmt.Errorf("%w: state machine %s declares no attribute %q", ErrNoSuchAttribute, symbolText(e.stateMachine), name)

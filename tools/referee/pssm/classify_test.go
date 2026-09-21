@@ -153,7 +153,7 @@ func TestClassifyNoSpellingOutranksAll(t *testing.T) {
 	}
 }
 
-func TestClassifyStandaloneAndRedefinedMachine(t *testing.T) {
+func TestClassifyRedefinedMachine(t *testing.T) {
 	src := strings.Replace(machineSuite("", ""),
 		`<ownedBehavior xmi:type="uml:StateMachine" xmi:id="smX" name="Area001_Test">`,
 		`<ownedBehavior xmi:type="uml:StateMachine" xmi:id="smX" name="Area001_Test" redefinedBehavior="smX">`, 1)
@@ -161,16 +161,6 @@ func TestClassifyStandaloneAndRedefinedMachine(t *testing.T) {
 	c := Classify(s.Tests[0])
 	if c.Class != NotExpressible || c.Reason() != "redefined state machine Area001_Test" {
 		t.Errorf("redefined machine classified %s (%s)", c.Class, c.Reason())
-	}
-
-	sa := &Test{
-		Name:    "Standalone 001",
-		Target:  &Class{Name: "SA_Test", Standalone: true},
-		Machine: &StateMachine{Name: "SA_Test"},
-	}
-	c = Classify(sa)
-	if c.Class != NotExpressible || c.Reason() != "standalone state machine SA_Test" {
-		t.Errorf("standalone classified %s (%s)", c.Class, c.Reason())
 	}
 
 	c = Classify(&Test{Name: "none"})

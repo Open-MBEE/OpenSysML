@@ -77,9 +77,9 @@ func (x *Execution) Reasons() []string {
 	return reasons
 }
 
-// Execute builds the model's runtime, drives its machine through the queued
-// events once per linearization within budget, jobs at a time, and compares the
-// traces reached against expected. An error is a model that builds no runtime or
+// Execute builds the model's runtime, drives its machine through the tester's
+// stimulation once per linearization within budget, jobs at a time, and compares
+// the traces reached against expected. An error is a model that builds no runtime or
 // an exploration that could not be trusted; a run that fails is recorded, not returned.
 func Execute(stop context.Context, m *Model, expected []string, budget runtime.ExploreBudget, jobs int) (*Execution, error) {
 	budgets, err := runBudgets()
@@ -90,7 +90,7 @@ func Execute(stop context.Context, m *Model, expected []string, budget runtime.E
 	if err != nil {
 		return nil, err
 	}
-	events, err := queuedEvents(m.Events)
+	steps, err := driverSteps(m.Events)
 	if err != nil {
 		return nil, err
 	}
@@ -99,8 +99,12 @@ func Execute(stop context.Context, m *Model, expected []string, budget runtime.E
 		return nil, err
 	}
 	run := func(ctx *runtime.Context) (runtime.Outcome, error) {
-		exec, err := ctx.PerformState(machine, nil, events)
+		exec, err := ctx.CreateStateExecutorFor(machine, nil)
 		if err != nil {
+			return runtime.Outcome{}, err
+		}
+		if err := drive(exec, steps); err != nil {
+			exec.Release()
 			return runtime.Outcome{}, err
 		}
 		return exec.Outcome(), nil
@@ -206,31 +210,139 @@ func compare(x *runtime.Exploration, expected []string) *Execution {
 	return ex
 }
 
-// queuedEvents spells the tester's stimulation as the events the driver queues.
-func queuedEvents(stimuli []Stimulus) ([]runtime.QueuedEvent, error) {
-	events := make([]runtime.QueuedEvent, 0, len(stimuli))
+// driverStep is one stimulus with its literals as runtime values.
+type driverStep struct {
+	event runtime.QueuedEvent
+	trace *Expr
+	calls map[string]runtime.QueuedEvent
+	text  string
+}
+
+// driverSteps spells the tester's stimulation as the steps the driver performs.
+func driverSteps(stimuli []Stimulus) ([]driverStep, error) {
+	steps := make([]driverStep, 0, len(stimuli))
 	for _, s := range stimuli {
-		q := runtime.QueuedEvent{Signal: s.Signal, Call: s.Call}
+		step := driverStep{event: runtime.QueuedEvent{Signal: s.Signal, Call: s.Call}, trace: s.Trace, text: s.String()}
 		if s.Value != nil {
 			v, err := literalValue(s.Value)
 			if err != nil {
 				return nil, fmt.Errorf("%s: %w", s, err)
 			}
-			q.Value = &v
+			step.event.Value = &v
 		}
 		if len(s.Args) > 0 {
-			q.Args = make(map[string]runtime.Value, len(s.Args))
-			for _, a := range s.Args {
-				v, err := literalValue(a.Value)
-				if err != nil {
-					return nil, fmt.Errorf("%s: argument %s: %w", s, a.Name, err)
-				}
-				q.Args[a.Name] = v
+			args, err := argumentValues(s.Args)
+			if err != nil {
+				return nil, fmt.Errorf("%s: %w", s, err)
 			}
+			step.event.Args = args
 		}
-		events = append(events, q)
+		for id, call := range s.Calls {
+			args, err := argumentValues(call.Args)
+			if err != nil {
+				return nil, fmt.Errorf("%s: %s: %w", s, call, err)
+			}
+			if step.calls == nil {
+				step.calls = map[string]runtime.QueuedEvent{}
+			}
+			step.calls[id] = runtime.QueuedEvent{Call: call.Call, Args: args}
+		}
+		steps = append(steps, step)
 	}
-	return events, nil
+	return steps, nil
+}
+
+// argumentValues binds a call's literal arguments by parameter name.
+func argumentValues(args []Argument) (map[string]runtime.Value, error) {
+	values := make(map[string]runtime.Value, len(args))
+	for _, a := range args {
+		v, err := literalValue(a.Value)
+		if err != nil {
+			return nil, fmt.Errorf("argument %s: %w", a.Name, err)
+		}
+		values[a.Name] = v
+	}
+	return values, nil
+}
+
+// drive performs the steps in the tester's order: signals are queued as sent, a
+// call returns once its run-to-completion step is done, a trace is logged there.
+func drive(exec *runtime.StateExecutor, steps []driverStep) error {
+	for _, step := range steps {
+		var err error
+		switch {
+		case step.trace != nil:
+			var value runtime.Value
+			if value, err = traceValue(exec, step.trace, step.calls); err == nil {
+				err = appendLog(exec, value)
+			}
+		case step.event.Call != "":
+			_, err = exec.Call(step.event.Call, step.event.Args)
+		default:
+			err = exec.Enqueue(step.event)
+		}
+		if err != nil {
+			return fmt.Errorf("%s: %w", step.text, err)
+		}
+	}
+	return exec.RunToCompletion()
+}
+
+// appendLog appends a traced segment to the machine's log as the emitted
+// machine's own trace statement does: "::"-joined after what is logged already.
+func appendLog(exec *runtime.StateExecutor, segment runtime.Value) error {
+	if segment.Kind != runtime.ValString {
+		return fmt.Errorf("traces a %s, not a String", valueKind(segment))
+	}
+	log := exec.StateData()[LogAttribute]
+	if log.Kind != runtime.ValString {
+		return fmt.Errorf("%s holds a %s, not a String", LogAttribute, valueKind(log))
+	}
+	text := segment.Str()
+	if log.Str() != "" {
+		text = log.Str() + "::" + text
+	}
+	return exec.WriteAttribute(LogAttribute, runtime.NewStringValue(text))
+}
+
+// traceValue evaluates a traced value: literals, library behaviors and the
+// calls it embeds, made in order; an output never returned is empty.
+func traceValue(exec *runtime.StateExecutor, x *Expr, calls map[string]runtime.QueuedEvent) (runtime.Value, error) {
+	switch x.Kind {
+	case ExprLiteral:
+		return literalValue(x.Literal)
+	case ExprCall:
+		call, ok := calls[x.ID]
+		if !ok {
+			return runtime.Value{}, fmt.Errorf("%s is not a call the stimulation bound", x)
+		}
+		outputs, err := exec.Call(call.Call, call.Args)
+		if err != nil {
+			return runtime.Value{}, fmt.Errorf("%s: %w", x, err)
+		}
+		if v, ok := outputs[x.Result]; ok {
+			return v, nil
+		}
+		return runtime.Value{Kind: runtime.ValNull}, nil
+	case ExprApply:
+		if x.Library == nil {
+			return runtime.Value{}, fmt.Errorf("%s is not a library behavior", x.Name)
+		}
+		fn, ok := libraryBehaviors[x.Library.Qualified]
+		if !ok || len(x.Args) != fn.arity {
+			return runtime.Value{}, fmt.Errorf("%s applied to %d arguments has no evaluation", x.Library.Qualified, len(x.Args))
+		}
+		args := make([]runtime.Value, len(x.Args))
+		for i := range x.Args {
+			v, err := traceValue(exec, &x.Args[i], calls)
+			if err != nil {
+				return runtime.Value{}, err
+			}
+			args[i] = v
+		}
+		return fn.eval(args)
+	}
+	return runtime.Value{}, fmt.Errorf("%s has no evaluation", x)
 }
 
 // literalValue is the runtime value of a UML literal.
