@@ -382,6 +382,167 @@ func (d *decoder) endWords(el *element, form string, declared bool) (string, err
 // behind the multiplicity it states, with the payload of a flow kept apart: it
 // is written ahead of them, after `of`.
 func (d *decoder) relatedEnds(el *element) (ends []string, payload string, err error) {
+	standard, hasStandard, err := d.standardEnds(el)
+	if err != nil {
+		return nil, "", err
+	}
+	legacy, legacyPayload, err := d.legacyEnds(el)
+	if err != nil {
+		return nil, "", err
+	}
+	if hasStandard {
+		if len(legacy) > 0 && (!slices.Equal(standard, legacy) || legacyPayload != "") {
+			return nil, "", &UnsupportedError{
+				What: fmt.Sprintf("the connector ends of <%s>", el.iri),
+				Note: "its standard sysml:connectorEnd and legacy sysx:relatedFeature shapes disagree",
+			}
+		}
+		payload, _ = d.stringOf(el, rdf.OpenSysML+xPayload)
+		return standard, payload, nil
+	}
+	return legacy, legacyPayload, nil
+}
+
+func (d *decoder) standardEnds(el *element) ([]string, bool, error) {
+	terms := d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pConnectorEnd)
+	if len(terms) == 0 {
+		for _, membership := range d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pOwnedFeatureMembership) {
+			if d.metaclass(membership) != mEndFeatureMembership {
+				continue
+			}
+			if member, ok := d.graph.Object(membership, rdf.SysML+pMemberElement); ok {
+				terms = append(terms, member)
+			}
+		}
+	}
+	if len(terms) == 0 {
+		for _, feature := range d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pOwnedFeature) {
+			for _, membership := range d.graph.Objects(feature, rdf.SysML+pOwningMembership) {
+				if d.metaclass(membership) == mEndFeatureMembership {
+					terms = append(terms, feature)
+					break
+				}
+			}
+		}
+	}
+	if len(terms) == 0 {
+		return nil, false, nil
+	}
+	ends := make([]string, 0, len(terms))
+	for _, term := range terms {
+		text, err := d.standardEndText(term, el)
+		if err != nil {
+			return nil, true, err
+		}
+		ends = append(ends, text)
+	}
+	return ends, true, nil
+}
+
+func (d *decoder) standardEndText(end rdf.Term, in *element) (string, error) {
+	target, ok := d.graph.Object(end, rdf.SysML+pReferences)
+	if !ok {
+		return "", &UnsupportedError{
+			What: fmt.Sprintf("the connector end <%s> of <%s>", end.Value, in.iri),
+			Note: "it has no sysml:references target",
+		}
+	}
+	var text string
+	if d.graph.HasProperty(target, rdf.SysML+pChainingFeature) {
+		parts, err := d.standardChainText(target, in)
+		if err != nil {
+			return "", err
+		}
+		text = strings.Join(parts, ".")
+	} else if target.IsLiteral() {
+		text = target.Value
+	} else {
+		var err error
+		text, err = d.endReferenceText(target, in)
+		if err != nil {
+			return "", err
+		}
+	}
+	name, err := d.standardEndName(end, in)
+	if err != nil {
+		return "", err
+	}
+	if name != "" {
+		text = name + " " + text
+	}
+	mult, err := d.endMultiplicity(end, in)
+	if err != nil {
+		return "", err
+	}
+	if mult != "" {
+		text = mult + " " + text
+	}
+	return text, nil
+}
+
+func (d *decoder) standardChainText(chain rdf.Term, in *element) ([]string, error) {
+	segments := d.graph.Objects(chain, rdf.SysML+pChainingFeature)
+	parts := make([]string, 0, len(segments))
+	operand := ""
+	for _, segment := range segments {
+		if segment.IsLiteral() {
+			parts = append(parts, qualifiedNameText(segment.Value))
+			operand = ""
+			continue
+		}
+		target, name, err := d.namedMember(segment)
+		if err != nil {
+			return nil, err
+		}
+		spelling := nameText(name)
+		if d.names != nil {
+			key := segmentKey{member: in.qname, operand: operand, name: name, target: target.qname}
+			if chosen, ok := d.names.segments[key]; ok {
+				spelling = qualifiedNameText(chosen)
+			}
+		}
+		parts = append(parts, spelling)
+		operand = target.qname
+	}
+	return parts, nil
+}
+
+func (d *decoder) endReferenceText(target rdf.Term, in *element) (string, error) {
+	if target.IsLiteral() {
+		return d.referenceName(target, in)
+	}
+	return d.referenceName(target, in)
+}
+
+func (d *decoder) standardEndName(end rdf.Term, in *element) (string, error) {
+	names := d.graph.Objects(end, rdf.SysML+pDeclaredName)
+	if len(names) == 0 {
+		names = d.graph.Objects(end, rdf.SysML+pName)
+	}
+	if len(names) == 0 {
+		return "", nil
+	}
+	if len(names) > 1 {
+		return "", &UnsupportedError{
+			What: fmt.Sprintf("the connector end <%s> of <%s>", end.Value, in.iri),
+			Note: "it declares more than one end name",
+		}
+	}
+	name := names[0].Value
+	keyword := referencesSymbol
+	if spelled, ok := d.graph.Lexical(end, rdf.OpenSysML+xEndReferencesKeyword); ok {
+		if spelled != referencesSymbol && spelled != referencesWord {
+			return "", &UnsupportedError{
+				What: fmt.Sprintf("the connector end <%s> of <%s>", end.Value, in.iri),
+				Note: fmt.Sprintf("it spells its ReferencesKeyword as %q", spelled),
+			}
+		}
+		keyword = spelled
+	}
+	return nameText(name) + " " + keyword, nil
+}
+
+func (d *decoder) legacyEnds(el *element) (ends []string, payload string, err error) {
 	type end struct {
 		index int
 		text  string
@@ -462,5 +623,30 @@ func (d *decoder) endMultiplicity(end rdf.Term, in *element) (string, error) {
 // statesEnds reports whether an element relates ends of its own, the shape that
 // needs a form to be written back.
 func (d *decoder) statesEnds(el *element) bool {
+	if len(d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pConnectorEnd)) > 0 {
+		return true
+	}
+	for _, membership := range d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pOwnedFeatureMembership) {
+		if d.metaclass(membership) == mEndFeatureMembership {
+			return true
+		}
+	}
 	return len(d.graph.Objects(rdf.IRI(el.iri), rdf.OpenSysML+xRelatedFeature)) > 0
+}
+
+func (d *decoder) inferredEndForm(el *element) string {
+	switch el.metaclass {
+	case "BindingConnectorAsUsage":
+		return formEquals
+	case "SuccessionAsUsage":
+		return formFirstThen
+	case "FlowUsage":
+		return formFromTo
+	case "ConnectionUsage", "InterfaceUsage", "AllocationUsage", "ConnectorAsUsage":
+		if terms := d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pConnectorEnd); len(terms) > 2 {
+			return formNary
+		}
+		return formTo
+	}
+	return ""
 }

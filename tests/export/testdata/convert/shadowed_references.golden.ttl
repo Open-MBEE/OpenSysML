@@ -495,15 +495,24 @@ elmt:Shadowing__Bus__link
     sysml:owningRelationship elmt:Shadowing__Bus__link_om ;
     sysml:owningMembership elmt:Shadowing__Bus__link_om ;
     sysml:declaredName "link" ;
-    sysx:relatedFeature expr:Shadowing__Bus__link_pend0, expr:Shadowing__Bus__link_pend1 ;
+    sysml:connectorEnd expr:Shadowing__Bus__link_pend0, expr:Shadowing__Bus__link_pend1 ;
     sysml:ownedRelationship expr:Shadowing__Bus__link_pend0_om, expr:Shadowing__Bus__link_pend1_om ;
     sysml:ownedMembership expr:Shadowing__Bus__link_pend0_om, expr:Shadowing__Bus__link_pend1_om ;
+    sysml:ownedFeatureMembership expr:Shadowing__Bus__link_pend0_om, expr:Shadowing__Bus__link_pend1_om ;
+    sysml:ownedFeature expr:Shadowing__Bus__link_pend0, expr:Shadowing__Bus__link_pend1 ;
+    sysml:ownedEndFeature expr:Shadowing__Bus__link_pend0, expr:Shadowing__Bus__link_pend1 ;
+    sysml:relatedFeature elmt:Shadowing__payload ;
+    sysml:targetFeature elmt:Shadowing__payload ;
     sysx:endForm "to" ;
     sysx:endVerb "connect" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        connection link connect wrapped.payload to Shadowing::payload;\n" ;
+    json:connectorEnd "[{\"@id\":\"Shadowing__Bus__link_pend0\"},{\"@id\":\"Shadowing__Bus__link_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Shadowing__Bus__link_pend0_om\"},{\"@id\":\"Shadowing__Bus__link_pend1_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Shadowing__Bus__link_pend0_om\"},{\"@id\":\"Shadowing__Bus__link_pend1_om\"}]" .
+    json:ownedMembership "[{\"@id\":\"Shadowing__Bus__link_pend0_om\"},{\"@id\":\"Shadowing__Bus__link_pend1_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Shadowing__Bus__link_pend0_om\"},{\"@id\":\"Shadowing__Bus__link_pend1_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Shadowing__Bus__link_pend0\"},{\"@id\":\"Shadowing__Bus__link_pend1\"}]" ;
+    json:ownedEndFeature "[{\"@id\":\"Shadowing__Bus__link_pend0\"},{\"@id\":\"Shadowing__Bus__link_pend1\"}]" .
 
 elmt:Shadowing__Bus__link_om
     a sysml:FeatureMembership ;
@@ -518,67 +527,19 @@ elmt:Shadowing__Bus__link_om
     sysml:owningType elmt:Shadowing__Bus .
 
 expr:Shadowing__Bus__link_pend0
-    a sysml:FeatureChainExpression ;
-    sysx:sourceText "wrapped.payload" ;
+    a sysml:ReferenceUsage ;
     sysml:elementId "Shadowing__Bus__link_pend0" ;
-    sysml:argument expr:Shadowing__Bus__link_pend0_pa0 ;
-    sysml:ownedRelationship expr:Shadowing__Bus__link_pend0_pin0_om ;
-    sysml:ownedMembership expr:Shadowing__Bus__link_pend0_pin0_om ;
-    sysml:ownedFeatureMembership expr:Shadowing__Bus__link_pend0_pin0_om ;
-    sysml:ownedFeature expr:Shadowing__Bus__link_pend0_pin0 ;
-    sysml:parameter expr:Shadowing__Bus__link_pend0_pin0 ;
-    sysml:input expr:Shadowing__Bus__link_pend0_pin0 ;
-    sysml:targetFeature elmt:Shadowing__Packet__payload ;
+    sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:Shadowing__Bus__link ;
     sysml:owningRelationship expr:Shadowing__Bus__link_pend0_om ;
     sysml:owningMembership expr:Shadowing__Bus__link_pend0_om ;
-    sysx:endIndex "0"^^xsd:integer .
-
-expr:Shadowing__Bus__link_pend0_pa0
-    a sysml:FeatureReferenceExpression ;
-    sysx:sourceText "wrapped" ;
-    sysml:elementId "Shadowing__Bus__link_pend0_pa0" ;
-    sysml:referent elmt:Shadowing__Bus__wrapped ;
-    sysml:owner expr:Shadowing__Bus__link_pend0_pin0 ;
-    sysml:owningRelationship expr:Shadowing__Bus__link_pend0_pa0_om ;
-    sysml:owningMembership expr:Shadowing__Bus__link_pend0_pa0_om .
-
-expr:Shadowing__Bus__link_pend0_pin0
-    a sysml:Feature ;
-    sysml:elementId "Shadowing__Bus__link_pend0_pin0" ;
-    sysml:direction "in" ;
-    sysml:owner expr:Shadowing__Bus__link_pend0 ;
-    sysml:owningRelationship expr:Shadowing__Bus__link_pend0_pin0_om ;
-    sysml:owningMembership expr:Shadowing__Bus__link_pend0_pin0_om ;
-    sysml:ownedRelationship expr:Shadowing__Bus__link_pend0_pa0_om ;
-    sysml:ownedMembership expr:Shadowing__Bus__link_pend0_pa0_om .
-
-expr:Shadowing__Bus__link_pend0_pin0_om
-    a sysml:ParameterMembership ;
-    sysml:elementId "Shadowing__Bus__link_pend0_pin0_om" ;
-    sysml:owner expr:Shadowing__Bus__link_pend0 ;
-    sysml:memberElement expr:Shadowing__Bus__link_pend0_pin0 ;
-    sysml:ownedMemberElement expr:Shadowing__Bus__link_pend0_pin0 ;
-    sysml:ownedRelatedElement expr:Shadowing__Bus__link_pend0_pin0 ;
-    sysml:owningRelatedElement expr:Shadowing__Bus__link_pend0 ;
-    sysml:membershipOwningNamespace expr:Shadowing__Bus__link_pend0 ;
-    sysml:ownedMemberFeature expr:Shadowing__Bus__link_pend0_pin0 ;
-    sysml:ownedMemberParameter expr:Shadowing__Bus__link_pend0_pin0 .
-
-expr:Shadowing__Bus__link_pend0_pa0_om
-    a sysml:FeatureValue ;
-    sysml:elementId "Shadowing__Bus__link_pend0_pa0_om" ;
-    sysml:owner expr:Shadowing__Bus__link_pend0_pin0 ;
-    sysml:memberElement expr:Shadowing__Bus__link_pend0_pa0 ;
-    sysml:ownedMemberElement expr:Shadowing__Bus__link_pend0_pa0 ;
-    sysml:ownedRelatedElement expr:Shadowing__Bus__link_pend0_pa0 ;
-    sysml:owningRelatedElement expr:Shadowing__Bus__link_pend0_pin0 ;
-    sysml:membershipOwningNamespace expr:Shadowing__Bus__link_pend0_pin0 ;
-    sysml:featureWithValue expr:Shadowing__Bus__link_pend0_pin0 ;
-    sysml:value expr:Shadowing__Bus__link_pend0_pa0 .
+    sysx:sourceText "wrapped.payload" ;
+    sysml:ownedRelationship expr:Shadowing__Bus__link_pend0_pchain_om ;
+    sysml:ownedMembership expr:Shadowing__Bus__link_pend0_pchain_om ;
+    sysml:references expr:Shadowing__Bus__link_pend0_pchain .
 
 expr:Shadowing__Bus__link_pend0_om
-    a sysml:OwningMembership ;
+    a sysml:EndFeatureMembership ;
     sysml:elementId "Shadowing__Bus__link_pend0_om" ;
     sysml:owner elmt:Shadowing__Bus__link ;
     sysml:memberElement expr:Shadowing__Bus__link_pend0 ;
@@ -587,18 +548,37 @@ expr:Shadowing__Bus__link_pend0_om
     sysml:owningRelatedElement elmt:Shadowing__Bus__link ;
     sysml:membershipOwningNamespace elmt:Shadowing__Bus__link .
 
+expr:Shadowing__Bus__link_pend0_pchain
+    a sysml:Feature ;
+    sysml:elementId "Shadowing__Bus__link_pend0_pchain" ;
+    sysml:chainingFeature elmt:Shadowing__Bus__wrapped, elmt:Shadowing__Packet__payload ;
+    sysml:owner expr:Shadowing__Bus__link_pend0 ;
+    sysml:owningRelationship expr:Shadowing__Bus__link_pend0_pchain_om ;
+    sysml:owningMembership expr:Shadowing__Bus__link_pend0_pchain_om ;
+    json:chainingFeature "[{\"@id\":\"Shadowing__Bus__wrapped\"},{\"@id\":\"Shadowing__Packet__payload\"}]" .
+
+expr:Shadowing__Bus__link_pend0_pchain_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Shadowing__Bus__link_pend0_pchain_om" ;
+    sysml:owner expr:Shadowing__Bus__link_pend0 ;
+    sysml:memberElement expr:Shadowing__Bus__link_pend0_pchain ;
+    sysml:ownedMemberElement expr:Shadowing__Bus__link_pend0_pchain ;
+    sysml:ownedRelatedElement expr:Shadowing__Bus__link_pend0_pchain ;
+    sysml:owningRelatedElement expr:Shadowing__Bus__link_pend0 ;
+    sysml:membershipOwningNamespace expr:Shadowing__Bus__link_pend0 .
+
 expr:Shadowing__Bus__link_pend1
-    a sysml:FeatureReferenceExpression ;
-    sysx:sourceText "Shadowing::payload" ;
+    a sysml:ReferenceUsage ;
     sysml:elementId "Shadowing__Bus__link_pend1" ;
-    sysml:referent elmt:Shadowing__payload ;
+    sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:Shadowing__Bus__link ;
     sysml:owningRelationship expr:Shadowing__Bus__link_pend1_om ;
     sysml:owningMembership expr:Shadowing__Bus__link_pend1_om ;
-    sysx:endIndex "1"^^xsd:integer .
+    sysx:sourceText "Shadowing::payload" ;
+    sysml:references elmt:Shadowing__payload .
 
 expr:Shadowing__Bus__link_pend1_om
-    a sysml:OwningMembership ;
+    a sysml:EndFeatureMembership ;
     sysml:elementId "Shadowing__Bus__link_pend1_om" ;
     sysml:owner elmt:Shadowing__Bus__link ;
     sysml:memberElement expr:Shadowing__Bus__link_pend1 ;

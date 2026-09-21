@@ -632,15 +632,26 @@ elmt:IrregularLayout__Rover___407
     sysml:owner elmt:IrregularLayout__Rover ;
     sysml:owningRelationship elmt:IrregularLayout__Rover___407_om ;
     sysml:owningMembership elmt:IrregularLayout__Rover___407_om ;
-    sysx:relatedFeature expr:IrregularLayout__Rover___407_pend0, expr:IrregularLayout__Rover___407_pend1 ;
+    sysml:connectorEnd expr:IrregularLayout__Rover___407_pend0, expr:IrregularLayout__Rover___407_pend1 ;
     sysml:ownedRelationship expr:IrregularLayout__Rover___407_pend0_om, expr:IrregularLayout__Rover___407_pend1_om ;
     sysml:ownedMembership expr:IrregularLayout__Rover___407_pend0_om, expr:IrregularLayout__Rover___407_pend1_om ;
+    sysml:ownedFeatureMembership expr:IrregularLayout__Rover___407_pend0_om, expr:IrregularLayout__Rover___407_pend1_om ;
+    sysml:ownedFeature expr:IrregularLayout__Rover___407_pend0, expr:IrregularLayout__Rover___407_pend1 ;
+    sysml:ownedEndFeature expr:IrregularLayout__Rover___407_pend0, expr:IrregularLayout__Rover___407_pend1 ;
+    sysml:relatedFeature elmt:IrregularLayout__Rover__wheels, elmt:IrregularLayout__Rover__axle ;
+    sysml:sourceFeature elmt:IrregularLayout__Rover__wheels ;
+    sysml:targetFeature elmt:IrregularLayout__Rover__axle ;
     sysx:endForm "to" ;
     sysx:declaredKeyword "connect" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        connect wheels\n            to axle;\n" ;
+    json:connectorEnd "[{\"@id\":\"IrregularLayout__Rover___407_pend0\"},{\"@id\":\"IrregularLayout__Rover___407_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"IrregularLayout__Rover___407_pend0_om\"},{\"@id\":\"IrregularLayout__Rover___407_pend1_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"IrregularLayout__Rover___407_pend0_om\"},{\"@id\":\"IrregularLayout__Rover___407_pend1_om\"}]" .
+    json:ownedMembership "[{\"@id\":\"IrregularLayout__Rover___407_pend0_om\"},{\"@id\":\"IrregularLayout__Rover___407_pend1_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"IrregularLayout__Rover___407_pend0_om\"},{\"@id\":\"IrregularLayout__Rover___407_pend1_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"IrregularLayout__Rover___407_pend0\"},{\"@id\":\"IrregularLayout__Rover___407_pend1\"}]" ;
+    json:ownedEndFeature "[{\"@id\":\"IrregularLayout__Rover___407_pend0\"},{\"@id\":\"IrregularLayout__Rover___407_pend1\"}]" ;
+    json:relatedFeature "[{\"@id\":\"IrregularLayout__Rover__wheels\"},{\"@id\":\"IrregularLayout__Rover__axle\"}]" .
 
 elmt:IrregularLayout__Rover___407_om
     a sysml:FeatureMembership ;
@@ -655,17 +666,17 @@ elmt:IrregularLayout__Rover___407_om
     sysml:owningType elmt:IrregularLayout__Rover .
 
 expr:IrregularLayout__Rover___407_pend0
-    a sysml:FeatureReferenceExpression ;
-    sysx:sourceText "wheels" ;
+    a sysml:ReferenceUsage ;
     sysml:elementId "IrregularLayout__Rover___407_pend0" ;
-    sysml:referent elmt:IrregularLayout__Rover__wheels ;
+    sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:IrregularLayout__Rover___407 ;
     sysml:owningRelationship expr:IrregularLayout__Rover___407_pend0_om ;
     sysml:owningMembership expr:IrregularLayout__Rover___407_pend0_om ;
-    sysx:endIndex "0"^^xsd:integer .
+    sysx:sourceText "wheels" ;
+    sysml:references elmt:IrregularLayout__Rover__wheels .
 
 expr:IrregularLayout__Rover___407_pend0_om
-    a sysml:OwningMembership ;
+    a sysml:EndFeatureMembership ;
     sysml:elementId "IrregularLayout__Rover___407_pend0_om" ;
     sysml:owner elmt:IrregularLayout__Rover___407 ;
     sysml:memberElement expr:IrregularLayout__Rover___407_pend0 ;
@@ -675,17 +686,17 @@ expr:IrregularLayout__Rover___407_pend0_om
     sysml:membershipOwningNamespace elmt:IrregularLayout__Rover___407 .
 
 expr:IrregularLayout__Rover___407_pend1
-    a sysml:FeatureReferenceExpression ;
-    sysx:sourceText "axle" ;
+    a sysml:ReferenceUsage ;
     sysml:elementId "IrregularLayout__Rover___407_pend1" ;
-    sysml:referent elmt:IrregularLayout__Rover__axle ;
+    sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:IrregularLayout__Rover___407 ;
     sysml:owningRelationship expr:IrregularLayout__Rover___407_pend1_om ;
     sysml:owningMembership expr:IrregularLayout__Rover___407_pend1_om ;
-    sysx:endIndex "1"^^xsd:integer .
+    sysx:sourceText "axle" ;
+    sysml:references elmt:IrregularLayout__Rover__axle .
 
 expr:IrregularLayout__Rover___407_pend1_om
-    a sysml:OwningMembership ;
+    a sysml:EndFeatureMembership ;
     sysml:elementId "IrregularLayout__Rover___407_pend1_om" ;
     sysml:owner elmt:IrregularLayout__Rover___407 ;
     sysml:memberElement expr:IrregularLayout__Rover___407_pend1 ;
@@ -2353,8 +2364,8 @@ elmt:IrregularLayout__Ops___404
     sysml:owningRelationship elmt:IrregularLayout__Ops___404_om ;
     sysml:owningMembership elmt:IrregularLayout__Ops___404_om ;
     sysx:transitionSyntax "first" ;
-    sysml:sourceFeature elmt:IrregularLayout__Ops__off ;
-    sysml:targetFeature elmt:IrregularLayout__Ops__on ;
+    sysml:source elmt:IrregularLayout__Ops__off ;
+    sysml:target elmt:IrregularLayout__Ops__on ;
     sysx:guard expr:IrregularLayout__Ops___404_pguard ;
     sysml:ownedRelationship expr:IrregularLayout__Ops___404_pguard_om ;
     sysml:ownedMembership expr:IrregularLayout__Ops___404_pguard_om .

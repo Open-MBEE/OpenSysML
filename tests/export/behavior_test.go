@@ -83,7 +83,7 @@ func TestStateMachineMetaclasses(t *testing.T) {
 		"sysml:StateUsage", "sysml:StateSubactionMembership", "sysml:TransitionUsage",
 		"sysx:Pseudostate", "sysx:DeferMember",
 		"sysx:subactionKind", "sysx:trigger", "sysx:guard",
-		"sysml:sourceFeature", "sysml:targetFeature",
+		"sysml:source", "sysml:target",
 	} {
 		if !strings.Contains(turtle, want) {
 			t.Errorf("the graph should carry %s:\n%s", want, turtle)
@@ -371,10 +371,10 @@ func TestFirstThenLinksItsSourceLikeASuccession(t *testing.T) {
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
-	if n := strings.Count(string(turtle), "sysml:sourceFeature elmt:P__A__a"); n != 1 {
-		t.Fatalf("`first a then b` should link a as its source once, found %d:\n%s", n, turtle)
+	if n := strings.Count(string(turtle), "sysml:sourceFeature elmt:P__A__a"); n != 2 {
+		t.Fatalf("`first a then b` should link a as its source twice, found %d:\n%s", n, turtle)
 	}
-	if !strings.Contains(string(turtle), "sysml:referent elmt:P__A__a") {
+	if !strings.Contains(string(turtle), "sysml:references elmt:P__A__a") {
 		t.Fatalf("`succession first a then b` should link a through its end:\n%s", turtle)
 	}
 	if !strings.Contains(string(turtle), `sysml:sourceFeature "start"`) {
@@ -481,13 +481,10 @@ func TestChainedSuccessionEndLinksItsRootAsAVertex(t *testing.T) {
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
-	if n := strings.Count(string(turtle), "sysml:referent elmt:P__M__outer__inner ;"); n != 2 {
+	if n := strings.Count(string(turtle), "sysml:chainingFeature elmt:P__M__outer__inner, elmt:P__M__outer__inner__deep"); n != 2 {
 		t.Errorf("want the root of both chained ends linked to the nested state, found %d:\n%s", n, turtle)
 	}
-	if n := strings.Count(string(turtle), "sysml:targetFeature elmt:P__M__outer__inner__deep ;"); n != 2 {
-		t.Errorf("want both chained ends linked to the deep state, found %d:\n%s", n, turtle)
-	}
-	if strings.Contains(string(turtle), `sysml:referent "`) {
+	if strings.Contains(string(turtle), `sysml:chainingFeature "`) {
 		t.Errorf("no end segment should be carried as text:\n%s", turtle)
 	}
 	back, err := convert.Convert("m.ttl", withoutSourceText(t, turtle), convert.FormatTurtle, convert.FormatSysML)

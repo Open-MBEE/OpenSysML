@@ -83,8 +83,7 @@ func TestConvertedNotationParses(t *testing.T) {
 // textOnlyFixtures are the models whose graph the mapping cannot write back
 // without its source text, by the refusal it must keep reporting for them.
 var textOnlyFixtures = map[string]string{
-	"action_nodes":               "this expression states no notation and no structure",
-	"payload_declaration_bodies": "it has no sysx:endForm",
+	"action_nodes": "this expression states no notation and no structure",
 }
 
 // TestRoundTripIsLossless is the fidelity contract: converting the notation a
@@ -120,6 +119,12 @@ func TestRoundTripIsLossless(t *testing.T) {
 				var unsupported *export.UnsupportedError
 				if !errors.As(err, &unsupported) || !strings.Contains(err.Error(), textOnly) {
 					t.Fatalf("the mapping alone should still refuse %s (%s), got: %v", name, textOnly, err)
+				}
+				return
+			}
+			if name == "payload_declaration_bodies" {
+				if _, err := convert.Convert(name+".ttl", withoutTriples(t, first, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML); err != nil {
+					t.Fatalf("the mapping alone should infer flow end forms: %v", err)
 				}
 				return
 			}
@@ -216,8 +221,8 @@ func TestWrittenReferencesResolveWhereWritten(t *testing.T) {
 		"sysml:type elmt:Shadowing__Frame",
 		"sysml:type elmt:Shadowing__Frame__Frame",
 		"sysml:type elmt:Shadowing__Field",
-		"sysml:targetFeature elmt:Shadowing__Packet__payload",
-		"sysml:referent elmt:Shadowing__payload",
+		"sysml:chainingFeature elmt:Shadowing__Bus__wrapped, elmt:Shadowing__Packet__payload",
+		"sysml:references elmt:Shadowing__payload",
 		"sysml:importedNamespace elmt:Shadowing__Lib__Cell",
 		"sysml:importedNamespace elmt:Shadowing__Lib",
 		"sysml:type elmt:Shadowing__Lib__Cell",
@@ -476,7 +481,10 @@ func TestChainReachingAUsageNamedByAChainWritesItsEffectiveName(t *testing.T) {
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
-	for _, want := range []string{"sysml:targetFeature elmt:P__generator___400", "sysml:targetFeature elmt:P__train__engine___400"} {
+	for _, want := range []string{
+		"sysml:chainingFeature elmt:P__generator, elmt:P__generator___400",
+		"sysml:chainingFeature elmt:P__train, elmt:P__train__engine, elmt:P__train__engine___400",
+	} {
 		if !strings.Contains(string(graph), want) {
 			t.Errorf("graph does not link %q\n%s", want, graph)
 		}
@@ -537,7 +545,10 @@ func TestChainSegmentIsSpelledToReachTheGraphsTarget(t *testing.T) {
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
-	for _, want := range []string{"sysml:targetFeature elmt:P__A__x", "sysml:targetFeature elmt:P__B__x"} {
+	for _, want := range []string{
+		"sysml:targetFeature elmt:P__A__x",
+		"sysml:chainingFeature elmt:P__b, elmt:P__B__x",
+	} {
 		if !strings.Contains(string(graph), want) {
 			t.Errorf("graph does not link %q\n%s", want, graph)
 		}
@@ -551,7 +562,10 @@ func TestChainSegmentIsSpelledToReachTheGraphsTarget(t *testing.T) {
 		t.Errorf("the relinked value should be written qualified\n%s", back)
 	}
 	for name, g := range map[string][]byte{"structure": structural, "notation": graph} {
-		relinkedEnd := relinkedProperty(t, g, "expr:P___406_pend0", "targetFeature", "elmt:P__A__x", "elmt:P__B__x")
+		relinkedEnd := relinkedProperty(t, g, "expr:P___406_pend0_pchain", "chainingFeature", "elmt:P__a, elmt:P__A__x", "elmt:P__a, elmt:P__B__x")
+		relinkedEnd = []byte(strings.Replace(string(relinkedEnd),
+			`json:chainingFeature "[{\"@id\":\"P__a\"},{\"@id\":\"P__A__x\"}]"`,
+			`json:chainingFeature "[{\"@id\":\"P__a\"},{\"@id\":\"P__B__x\"}]"`, 1))
 		back, err := convert.Convert("chain-"+name+".ttl", relinkedEnd, convert.FormatTurtle, convert.FormatSysML)
 		if err != nil {
 			t.Fatalf("back to notation (%s): %v", name, err)
@@ -2295,10 +2309,10 @@ func TestBindingEndMultiplicitiesAreStatedAsStructure(t *testing.T) {
 	}
 	graph := string(turtle)
 	for _, triple := range []string{
-		"sysx:relatedFeature expr:P__Car___402_pend0, expr:P__Car___402_pend1 ;",
-		"expr:P__Car___402_pend0\n    a sysml:FeatureReferenceExpression ;\n    sysx:sourceText \"a\" ;",
-		"sysx:endIndex \"0\"^^xsd:integer ;\n    sysml:lowerBound expr:P__Car___402_pend0_plowerBound ;\n    sysml:upperBound expr:P__Car___402_pend0_pupperBound .",
-		"sysx:endIndex \"1\"^^xsd:integer ;\n    sysml:lowerBound expr:P__Car___402_pend1_plowerBound ;\n    sysml:upperBound expr:P__Car___402_pend1_pupperBound .",
+		"sysml:connectorEnd expr:P__Car___402_pend0, expr:P__Car___402_pend1 ;",
+		"expr:P__Car___402_pend0\n    a sysml:ReferenceUsage ;\n    sysml:elementId \"P__Car___402_pend0\" ;\n    sysml:isEnd \"true\"^^xsd:boolean ;",
+		"sysml:references elmt:P__Car__a ;\n    sysml:lowerBound expr:P__Car___402_pend0_plowerBound ;\n    sysml:upperBound expr:P__Car___402_pend0_pupperBound .",
+		"sysml:references elmt:P__Car__b ;\n    sysml:lowerBound expr:P__Car___402_pend1_plowerBound ;\n    sysml:upperBound expr:P__Car___402_pend1_pupperBound .",
 		"expr:P__Car___402_pend0_plowerBound\n    a sysml:LiteralInteger ;\n    sysx:sourceText \"0\" ;",
 		"expr:P__Car___402_pend1_pupperBound\n    a sysml:LiteralInteger ;\n    sysx:sourceText \"1\" ;",
 	} {
@@ -2306,7 +2320,7 @@ func TestBindingEndMultiplicitiesAreStatedAsStructure(t *testing.T) {
 			t.Errorf("the graph should state %q:\n%s", triple, graph)
 		}
 	}
-	for _, legacy := range []string{"sysml:value expr:", "sysml:references", "_pvalue"} {
+	for _, legacy := range []string{"sysml:value expr:", "_pvalue"} {
 		if strings.Contains(graph, legacy) {
 			t.Errorf("a binding's ends are connector ends, not a reference and a value (%s):\n%s", legacy, graph)
 		}
@@ -2328,7 +2342,7 @@ func TestBindingEndMultiplicitiesAreStatedAsStructure(t *testing.T) {
 // A KerML connector written without `of`/`first` has no declaration, so a leading
 // multiplicity is the first end's: bounds on the end node, not the connector.
 func TestKerMLConnectorEndMultiplicitiesAreStatedAsStructure(t *testing.T) {
-	const endNodes = "sysx:relatedFeature expr:P__C___402_pend0, expr:P__C___402_pend1 ;"
+	const endNodes = "sysml:connectorEnd expr:P__C___402_pend0, expr:P__C___402_pend1 ;"
 	cases := []struct {
 		// head is the connector as written; bare is how it reads without bounds.
 		head, bare string
@@ -2341,8 +2355,8 @@ func TestKerMLConnectorEndMultiplicitiesAreStatedAsStructure(t *testing.T) {
 			head: "binding [1] a = [0..1] b;",
 			bare: "binding a = b;",
 			bounds: []string{
-				"sysx:endIndex \"0\"^^xsd:integer ;\n    sysml:upperBound expr:P__C___402_pend0_pupperBound .",
-				"sysx:endIndex \"1\"^^xsd:integer ;\n    sysml:lowerBound expr:P__C___402_pend1_plowerBound ;\n    sysml:upperBound expr:P__C___402_pend1_pupperBound .",
+				"sysml:references elmt:P__C__a ;\n    sysml:upperBound expr:P__C___402_pend0_pupperBound .",
+				"sysml:references elmt:P__C__b ;\n    sysml:lowerBound expr:P__C___402_pend1_plowerBound ;\n    sysml:upperBound expr:P__C___402_pend1_pupperBound .",
 				"expr:P__C___402_pend0_pupperBound\n    a sysml:LiteralInteger ;\n    sysx:sourceText \"1\" ;",
 				"expr:P__C___402_pend1_plowerBound\n    a sysml:LiteralInteger ;\n    sysx:sourceText \"0\" ;",
 			},
@@ -2351,26 +2365,26 @@ func TestKerMLConnectorEndMultiplicitiesAreStatedAsStructure(t *testing.T) {
 			head: "binding [1] a = b;",
 			bare: "binding a = b;",
 			bounds: []string{
-				"sysx:endIndex \"0\"^^xsd:integer ;\n    sysml:upperBound expr:P__C___402_pend0_pupperBound .",
+				"sysml:references elmt:P__C__a ;\n    sysml:upperBound expr:P__C___402_pend0_pupperBound .",
 			},
 		},
 		{
 			head: "succession [1] a then [*] b;",
 			bare: "succession a then b;",
 			bounds: []string{
-				"sysx:endIndex \"0\"^^xsd:integer ;\n    sysml:upperBound expr:P__C___402_pend0_pupperBound .",
-				"sysx:endIndex \"1\"^^xsd:integer ;\n    sysml:upperBound expr:P__C___402_pend1_pupperBound .",
+				"sysml:references elmt:P__C__a ;\n    sysml:upperBound expr:P__C___402_pend0_pupperBound .",
+				"sysml:references elmt:P__C__b ;\n    sysml:upperBound expr:P__C___402_pend1_pupperBound .",
 				"expr:P__C___402_pend1_pupperBound\n    a sysml:LiteralInfinity ;\n    sysx:sourceText \"*\" ;",
 			},
 		},
 		{
 			head:        "binding [1] of a = b;",
-			bounds:      []string{"sysml:upperBound expr:P__C___402_pupperBound", "sysx:relatedFeature"},
+			bounds:      []string{"sysml:upperBound expr:P__C___402_pupperBound", "sysml:connectorEnd"},
 			onConnector: true,
 		},
 		{
 			head:        "succession [1] first a then b;",
-			bounds:      []string{"sysml:upperBound expr:P__C___402_pupperBound", "sysx:relatedFeature"},
+			bounds:      []string{"sysml:upperBound expr:P__C___402_pupperBound", "sysml:connectorEnd"},
 			onConnector: true,
 		},
 	}
@@ -2443,7 +2457,7 @@ func TestEndBindingBodiesComeBackFromTheGraphAlone(t *testing.T) {
 		"sysml:declaredName \"coupling\" ;",
 		"sysx:memberIndex \"0\"^^xsd:integer ;\n    sysml:owningNamespace elmt:R89__Ctx__seam ;",
 		"sysml:ownedMember elmt:R89__Ctx__seam__coupling ;",
-		"sysml:ownedFeature elmt:R89__Ctx__seam__coupling ;",
+		"sysml:ownedFeature expr:R89__Ctx__seam_pend0, expr:R89__Ctx__seam_pend1, elmt:R89__Ctx__seam__coupling ;",
 		"sysml:ownedMembership ",
 		"elmt:R89__Ctx__seam__coupling_om",
 		"elmt:R89__Ctx__seam__coupling_om\n    a sysml:FeatureMembership ;",
@@ -2789,8 +2803,7 @@ func TestEndFormsSurviveIrregularLayout(t *testing.T) {
 	}
 }
 
-// A graph that relates ends but states no form for them is refused: the ends
-// alone do not say which keyword and notation the head was written in.
+// A graph that relates standard ends can infer the head form from its metaclass.
 func TestEndsWithoutTheirFormAreReported(t *testing.T) {
 	src := "package P {\n\tpart def Car {\n\t\tpart left;\n\t\tpart right;\n\t\tconnect left to right;\n\t}\n}"
 	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
@@ -2798,12 +2811,12 @@ func TestEndsWithoutTheirFormAreReported(t *testing.T) {
 		t.Fatalf("to turtle: %v", err)
 	}
 	stripped := withoutTriples(t, withoutTriples(t, turtle, "sysx:sourceText"), "sysx:endForm")
-	_, err = convert.Convert("m.ttl", stripped, convert.FormatTurtle, convert.FormatSysML)
-	if err == nil {
-		t.Fatal("a head whose form the graph does not state should be reported")
+	back, err := convert.Convert("m.ttl", stripped, convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("standard ends should infer the form: %v", err)
 	}
-	if !strings.Contains(err.Error(), "sysx:endForm") {
-		t.Errorf("the report should name the property it needs: %v", err)
+	if !strings.Contains(string(back), "connect left to right;") {
+		t.Errorf("unexpected notation from inferred form:\n%s", back)
 	}
 }
 
@@ -3509,7 +3522,7 @@ func TestLinkedReferencesCarryTheRoundTripWithoutSourceText(t *testing.T) {
 		"sysml:references elmt:OtherPkg__spare ;",
 		"sysml:targetFeature elmt:OtherPkg__Inner__Wheel__size",
 		"sysml:redefines elmt:R90__G2__x ;",
-		"sysml:targetFeature elmt:R90__Done__done",
+		"sysml:target elmt:R90__Done__done",
 		`sysml:type "Elsewhere::Missing" ;`,
 		"sysx:typeArgument elmt:Meta__Safety",
 		"sysml:type elmt:Meta__Tagged ;",
@@ -3566,13 +3579,12 @@ func TestKerMLBinaryConnectorEndsCarryTheRoundTripWithoutSourceText(t *testing.T
 	}
 	graph := string(turtle)
 	for _, want := range []string{
-		"sysx:relatedFeature expr:Corpus__Vehicle___406_pend0, expr:Corpus__Vehicle___406_pend1 ;",
-		"expr:Corpus__Vehicle___406_pend0\n    a sysml:FeatureReferenceExpression ;\n    sysx:sourceText \"eng\" ;\n    sysml:elementId \"Corpus__Vehicle___406_pend0\" ;\n    sysml:referent elmt:Corpus__Vehicle__eng",
-		"expr:Corpus__Vehicle___407_pend0\n    a sysml:FeatureChainExpression ;\n    sysx:sourceText \"a.x\" ;",
-		"sysml:targetFeature elmt:Corpus__A__x",
-		"sysx:endIndex \"0\"^^xsd:integer",
-		"sysx:endName \"a\"",
-		"sysml:referent elmt:Corpus__Vehicle__transitionLink",
+		"sysml:connectorEnd expr:Corpus__Vehicle___406_pend0, expr:Corpus__Vehicle___406_pend1 ;",
+		"expr:Corpus__Vehicle___406_pend0\n    a sysml:ReferenceUsage ;",
+		"sysml:references elmt:Corpus__Vehicle__eng",
+		"expr:Corpus__Vehicle___407_pend0\n    a sysml:ReferenceUsage ;",
+		"sysml:chainingFeature elmt:Corpus__Vehicle__a, elmt:Corpus__A__x",
+		"sysml:references elmt:Corpus__Vehicle__transitionLink",
 		"sysml:lowerBound expr:Corpus__Vehicle___408_pend0_plowerBound",
 	} {
 		if !strings.Contains(graph, want) {
@@ -3693,15 +3705,16 @@ func TestMachineEndpointsLinkAcrossRegionsAndNesting(t *testing.T) {
 	turtle := toTurtle(t, filepath.Join("testdata", "convert", "endpoint_scopes.sysml"))
 	for _, want := range []string{
 		"sysml:targetFeature elmt:Machines__Lamp__on__heat__warm .",
-		"sysml:targetFeature elmt:Machines__Lamp__on__light__bright .",
-		"sysml:targetFeature elmt:Machines__Lamp__on__heat__hot .",
-		"sysml:sourceFeature elmt:Machines__Lamp__on__heat__hot ;",
+		"sysml:target elmt:Machines__Lamp__on__light__bright .",
+		"sysml:target elmt:Machines__Lamp__on__heat__hot .",
+		"sysml:source elmt:Machines__Lamp__on__heat__hot ;",
 	} {
 		if !strings.Contains(turtle, want) {
 			t.Errorf("the graph should carry %q\n%s", want, turtle)
 		}
 	}
-	if strings.Contains(turtle, `sysml:sourceFeature "`) || strings.Contains(turtle, `sysml:targetFeature "`) {
+	if strings.Contains(turtle, `sysml:source "`) || strings.Contains(turtle, `sysml:target "`) ||
+		strings.Contains(turtle, `sysml:sourceFeature "`) || strings.Contains(turtle, `sysml:targetFeature "`) {
 		t.Errorf("every endpoint names a vertex of the machine, so none should stay a literal\n%s", turtle)
 	}
 	backFromTheGraphAlone(t, turtle)

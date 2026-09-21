@@ -439,8 +439,7 @@ func TestExpressionTreesKeepTheRoundTripExact(t *testing.T) {
 	}
 }
 
-// A binding head is kept as source text, but the features it relates are stated
-// as structure beside it, so a consumer reads the ends without parsing notation.
+// A binding head states its connector ends through standard ownership.
 func TestBindingEndsAreStatedAsStructure(t *testing.T) {
 	g := turtleOf(t, "ends", `package P {
     port def Bus;
@@ -458,7 +457,7 @@ func TestBindingEndsAreStatedAsStructure(t *testing.T) {
 }`)
 	ends := map[string][]string{}
 	for _, triple := range g.Triples() {
-		if triple.Predicate.Value == rdf.OpenSysML+"relatedFeature" {
+		if triple.Predicate.Value == rdf.SysML+"connectorEnd" {
 			ends[triple.Subject.Value] = append(ends[triple.Subject.Value], triple.Object.Value)
 		}
 	}
@@ -470,23 +469,34 @@ func TestBindingEndsAreStatedAsStructure(t *testing.T) {
 			t.Errorf("<%s> relates %d features, want 2", subject, len(related))
 			continue
 		}
-		// The head keeps its notation, and every end says where it is written.
+		// The head keeps its notation, and every end is an owned end feature.
 		if _, ok := g.Lexical(iri(subject), rdf.OpenSysML+"sourceText"); !ok {
 			t.Errorf("<%s> states no source text", subject)
 		}
-		wantLexical(t, g, related[0], rdf.OpenSysML+"endIndex", "0")
-		wantLexical(t, g, related[1], rdf.OpenSysML+"endIndex", "1")
+		wantType(t, g, related[0], "ReferenceUsage")
+		wantType(t, g, related[1], "ReferenceUsage")
+		if !g.BoolValue(iri(related[0]), rdf.SysML+"isEnd") || !g.BoolValue(iri(related[1]), rdf.SysML+"isEnd") {
+			t.Errorf("<%s> does not mark both ends with sysml:isEnd", subject)
+		}
 	}
 	// A connect end names the port it connects; a flow end reaches through one.
 	connectEnd := rdf.Expression + rdf.ExpressionNodeID("P__Car___402", "end0")
-	wantType(t, g, connectEnd, "FeatureReferenceExpression")
-	if got := g.Objects(iri(connectEnd), rdf.SysML+"referent"); len(got) != 1 ||
+	wantType(t, g, connectEnd, "ReferenceUsage")
+	if got := g.Objects(iri(connectEnd), rdf.SysML+"references"); len(got) != 1 ||
 		got[0].Value != "urn:sysmlv2:element:P__Car__left" {
 		t.Errorf("the first connect end reads %v, want the port P::Car::left", got)
 	}
-	source := rdf.Expression + rdf.ExpressionNodeID("P__I___402", "flowSource")
-	wantType(t, g, source, "FeatureChainExpression")
-	wantLexical(t, g, source, rdf.OpenSysML+"endRole", "source")
-	wantLexical(t, g, rdf.Expression+rdf.ExpressionNodeID("P__I___402", "flowTarget"),
-		rdf.OpenSysML+"endRole", "target")
+	for _, subject := range g.Subjects() {
+		if g.Type(subject) != rdf.SysML+"FlowUsage" {
+			continue
+		}
+		flowEnds := g.Objects(subject, rdf.SysML+"connectorEnd")
+		if len(flowEnds) != 2 {
+			t.Errorf("flow usage <%s> has %d connector ends, want 2", subject.Value, len(flowEnds))
+			continue
+		}
+		for _, end := range flowEnds {
+			wantType(t, g, end.Value, "ReferenceUsage")
+		}
+	}
 }

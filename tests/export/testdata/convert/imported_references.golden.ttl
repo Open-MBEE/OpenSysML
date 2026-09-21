@@ -1010,8 +1010,8 @@ elmt:R90__Run___403
     sysml:owningRelationship elmt:R90__Run___403_om ;
     sysml:owningMembership elmt:R90__Run___403_om ;
     sysx:transitionSyntax "source" ;
-    sysml:sourceFeature elmt:R90__Run__idle ;
-    sysml:targetFeature elmt:R90__Done__done .
+    sysml:source elmt:R90__Run__idle ;
+    sysml:target elmt:R90__Done__done .
 
 elmt:R90__Run___403_om
     a sysml:FeatureMembership ;

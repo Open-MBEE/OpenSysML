@@ -454,6 +454,7 @@ var ownershipPredicates = func() map[string]bool {
 		pOwnedRelatedElement, pOwningRelatedElement, pMembershipOwningNamespace,
 		pOwnedMemberFeature, pOwnedMemberParameter, pOwningType, pOwnedFeature,
 		pOwnedFeatureMembership, pFeatureWithValue,
+		pConnectorEnd, pOwnedEndFeature,
 	}
 	set := make(map[string]bool, len(properties))
 	for _, property := range properties {
@@ -469,6 +470,10 @@ func (d *decoder) resolveExpressions() error {
 	valueTargets := map[string]string{}
 	for _, triple := range d.graph.Triples() {
 		if ownershipPredicates[triple.Predicate.Value] || d.nodeMembership[triple.Object.Value] {
+			continue
+		}
+		if triple.Predicate.Value == rdf.SysML+pReferences &&
+			d.graph.BoolValue(triple.Subject, rdf.SysML+pIsEnd) {
 			continue
 		}
 		if !d.isExpressionNode(triple.Object) {
@@ -526,24 +531,49 @@ func (d *decoder) resolveExpressions() error {
 // notation included, so chooseNames checks the segment reads as it there.
 func (d *decoder) noteSegments(parents map[string][]rdf.Term) error {
 	for _, node := range d.graph.Subjects() {
-		if d.metaclass(node) != mFeatureChain {
+		segments := d.graph.Objects(node, rdf.SysML+pChainingFeature)
+		if d.metaclass(node) != mFeatureChain && len(segments) == 0 {
 			continue
 		}
 		object, ok := d.graph.Object(node, rdf.SysML+pTargetFeature)
-		if !ok || !object.IsIRI() {
-			continue
-		}
 		owners := d.expressionOwners(node, parents)
+		if len(owners) == 0 && len(segments) > 0 {
+			if end, ok := d.graph.Object(node, rdf.SysML+pOwner); ok {
+				if subject, ok := d.graph.Object(end, rdf.SysML+pOwner); ok {
+					if owner, ok := d.byIRI[subject.Value]; ok {
+						owners = []*element{owner}
+					}
+				}
+			}
+		}
 		if len(owners) == 0 {
 			continue
 		}
-		target, name, err := d.namedMember(object)
-		if err != nil {
-			return err
+		if ok && object.IsIRI() {
+			target, name, err := d.namedMember(object)
+			if err != nil {
+				return err
+			}
+			operand := d.operandElement(node)
+			for _, in := range owners {
+				d.wanted.segments[segmentKey{member: in.qname, operand: operand, name: name, target: target.qname}] = true
+			}
+			continue
 		}
-		operand := d.operandElement(node)
-		for _, in := range owners {
-			d.wanted.segments[segmentKey{member: in.qname, operand: operand, name: name, target: target.qname}] = true
+		operand := ""
+		for _, segment := range segments {
+			if segment.IsLiteral() {
+				operand = ""
+				continue
+			}
+			target, name, err := d.namedMember(segment)
+			if err != nil {
+				return err
+			}
+			for _, in := range owners {
+				d.wanted.segments[segmentKey{member: in.qname, operand: operand, name: name, target: target.qname}] = true
+			}
+			operand = target.qname
 		}
 	}
 	return nil

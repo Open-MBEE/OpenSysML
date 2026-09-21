@@ -25,11 +25,6 @@ domain-mismatch AttributeUsage upperBound        # MultiplicityRange_upperBound:
 domain-mismatch SubjectMembership upperBound     # MultiplicityRange_upperBound: same collapse on a subject membership
 domain-mismatch OperatorExpression lowerBound    # MultiplicityRange_lowerBound: a cast's `(as T[m])` multiplicity is written on the operator expression
 domain-mismatch OperatorExpression upperBound    # MultiplicityRange_upperBound: same collapse on a cast's multiplicity
-domain-mismatch FeatureReferenceExpression lowerBound # MultiplicityRange_lowerBound: a connector end's `[0..1] a` multiplicity is written on the end's expression node
-domain-mismatch FeatureReferenceExpression upperBound # MultiplicityRange_upperBound: same collapse on a connector end
-domain-mismatch FeatureChainExpression upperBound     # MultiplicityRange_upperBound: same collapse on a connector end written as a chain
-domain-mismatch TransitionUsage sourceFeature    # Connector_sourceFeature: a transition's ends are written on the transition, not on a Connector
-domain-mismatch TransitionUsage targetFeature    # Connector_targetFeature: a transition's ends are written on the transition, not on a Connector
 domain-mismatch Import importedNamespace         # NamespaceImport_importedNamespace: the import is typed sysml:Import, not NamespaceImport (D7)
 domain-mismatch AttributeUsage visibility        # Membership_visibility: a declaration inside an expression body has no membership, so its visibility is written on the declaration
 

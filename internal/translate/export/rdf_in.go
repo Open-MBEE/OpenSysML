@@ -958,6 +958,8 @@ var referenceProperties = func() map[string]bool {
 		rdf.SysML + pOwnedMember:      true,
 		rdf.SysML + pSourceFeature:    true,
 		rdf.SysML + pTargetFeature:    true,
+		rdf.SysML + pSource:           true,
+		rdf.SysML + pTarget:           true,
 		rdf.SysML + pClient:           true,
 		rdf.SysML + pSupplier:         true,
 		rdf.SysML + pAliasFor:         true,
@@ -982,6 +984,10 @@ func (d *decoder) checkReferences() error {
 		}
 		if ownershipPredicates[triple.Predicate.Value] &&
 			(d.isExpressionNode(triple.Subject) || d.nodeMembership[triple.Subject.Value]) {
+			continue
+		}
+		if triple.Predicate.Value == rdf.SysML+pReferences &&
+			d.graph.HasProperty(triple.Object, rdf.SysML+pChainingFeature) {
 			continue
 		}
 		if _, err := d.referencedElement(triple.Object.Value); err != nil {
@@ -1507,6 +1513,11 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	// a relatedFeature end, so its form states no ends.
 	if endForm == formSatisfy {
 		hasEnds = false
+	}
+	if !hasEnds && d.statesEnds(el) {
+		if inferred := d.inferredEndForm(el); inferred != "" {
+			endForm, hasEnds = inferred, true
+		}
 	}
 	if !hasEnds && d.statesEnds(el) {
 		return "", d.missing(el, "sysx:"+xEndForm,

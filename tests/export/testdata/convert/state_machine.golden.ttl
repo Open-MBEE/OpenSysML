@@ -369,7 +369,7 @@ elmt:StateMachine__VehicleStates__active___401
     sysml:owningRelationship elmt:StateMachine__VehicleStates__active___401_om ;
     sysml:owningMembership elmt:StateMachine__VehicleStates__active___401_om ;
     sysx:transitionSyntax "accept" ;
-    sysml:targetFeature elmt:StateMachine__VehicleStates__off ;
+    sysml:target elmt:StateMachine__VehicleStates__off ;
     sysx:trigger "sig : Signal" ;
     sysx:triggerKeyword "accept" ;
     sysx:sourceText "            accept sig : Signal then off;\n" .
@@ -397,8 +397,8 @@ elmt:StateMachine__VehicleStates__off_5fto_5fstart
     sysml:owningMembership elmt:StateMachine__VehicleStates__off_5fto_5fstart_om ;
     sysml:declaredName "off_to_start" ;
     sysx:transitionSyntax "first" ;
-    sysml:sourceFeature elmt:StateMachine__VehicleStates__off ;
-    sysml:targetFeature elmt:StateMachine__VehicleStates__starting ;
+    sysml:source elmt:StateMachine__VehicleStates__off ;
+    sysml:target elmt:StateMachine__VehicleStates__starting ;
     sysx:trigger "sig : Signal" ;
     sysx:triggerKeyword "accept" ;
     sysx:sourceText "        transition off_to_start first off accept sig : Signal then starting;\n" .
@@ -425,8 +425,8 @@ elmt:StateMachine__VehicleStates___405
     sysml:owningRelationship elmt:StateMachine__VehicleStates___405_om ;
     sysml:owningMembership elmt:StateMachine__VehicleStates___405_om ;
     sysx:transitionSyntax "first" ;
-    sysml:sourceFeature elmt:StateMachine__VehicleStates__starting ;
-    sysml:targetFeature elmt:StateMachine__VehicleStates__active ;
+    sysml:source elmt:StateMachine__VehicleStates__starting ;
+    sysml:target elmt:StateMachine__VehicleStates__active ;
     sysx:guard expr:StateMachine__VehicleStates___405_pguard ;
     sysml:ownedRelationship expr:StateMachine__VehicleStates___405_pguard_om ;
     sysml:ownedMembership expr:StateMachine__VehicleStates___405_pguard_om ;
@@ -474,8 +474,8 @@ elmt:StateMachine__VehicleStates__active_5fto_5foff
     sysml:owningMembership elmt:StateMachine__VehicleStates__active_5fto_5foff_om ;
     sysml:declaredName "active_to_off" ;
     sysx:transitionSyntax "first" ;
-    sysml:sourceFeature elmt:StateMachine__VehicleStates__active ;
-    sysml:targetFeature elmt:StateMachine__VehicleStates__off ;
+    sysml:source elmt:StateMachine__VehicleStates__active ;
+    sysml:target elmt:StateMachine__VehicleStates__off ;
     sysx:trigger "sig : Signal" ;
     sysx:triggerKeyword "accept" ;
     sysml:via elmt:StateMachine__VehicleStates__lane ;

@@ -203,15 +203,26 @@ elmt:Synonyms___407
     sysml:owner elmt:Synonyms ;
     sysml:owningRelationship elmt:Synonyms___407_om ;
     sysml:owningMembership elmt:Synonyms___407_om ;
-    sysx:relatedFeature expr:Synonyms___407_pend0, expr:Synonyms___407_pend1 ;
+    sysml:connectorEnd expr:Synonyms___407_pend0, expr:Synonyms___407_pend1 ;
     sysml:ownedRelationship expr:Synonyms___407_pend0_om, expr:Synonyms___407_pend1_om ;
     sysml:ownedMembership expr:Synonyms___407_pend0_om, expr:Synonyms___407_pend1_om ;
+    sysml:ownedFeatureMembership expr:Synonyms___407_pend0_om, expr:Synonyms___407_pend1_om ;
+    sysml:ownedFeature expr:Synonyms___407_pend0, expr:Synonyms___407_pend1 ;
+    sysml:ownedEndFeature expr:Synonyms___407_pend0, expr:Synonyms___407_pend1 ;
+    sysml:relatedFeature elmt:Synonyms__reading, elmt:Synonyms__base ;
+    sysml:sourceFeature elmt:Synonyms__reading ;
+    sysml:targetFeature elmt:Synonyms__base ;
     sysx:endForm "to" ;
     sysx:declaredKeyword "allocate" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "    allocate reading to base;\n" ;
+    json:connectorEnd "[{\"@id\":\"Synonyms___407_pend0\"},{\"@id\":\"Synonyms___407_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Synonyms___407_pend0_om\"},{\"@id\":\"Synonyms___407_pend1_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Synonyms___407_pend0_om\"},{\"@id\":\"Synonyms___407_pend1_om\"}]" .
+    json:ownedMembership "[{\"@id\":\"Synonyms___407_pend0_om\"},{\"@id\":\"Synonyms___407_pend1_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Synonyms___407_pend0_om\"},{\"@id\":\"Synonyms___407_pend1_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Synonyms___407_pend0\"},{\"@id\":\"Synonyms___407_pend1\"}]" ;
+    json:ownedEndFeature "[{\"@id\":\"Synonyms___407_pend0\"},{\"@id\":\"Synonyms___407_pend1\"}]" ;
+    json:relatedFeature "[{\"@id\":\"Synonyms__reading\"},{\"@id\":\"Synonyms__base\"}]" .
 
 elmt:Synonyms___407_om
     a sysml:OwningMembership ;
@@ -224,17 +235,17 @@ elmt:Synonyms___407_om
     sysml:membershipOwningNamespace elmt:Synonyms .
 
 expr:Synonyms___407_pend0
-    a sysml:FeatureReferenceExpression ;
-    sysx:sourceText "reading" ;
+    a sysml:ReferenceUsage ;
     sysml:elementId "Synonyms___407_pend0" ;
-    sysml:referent elmt:Synonyms__reading ;
+    sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:Synonyms___407 ;
     sysml:owningRelationship expr:Synonyms___407_pend0_om ;
     sysml:owningMembership expr:Synonyms___407_pend0_om ;
-    sysx:endIndex "0"^^xsd:integer .
+    sysx:sourceText "reading" ;
+    sysml:references elmt:Synonyms__reading .
 
 expr:Synonyms___407_pend0_om
-    a sysml:OwningMembership ;
+    a sysml:EndFeatureMembership ;
     sysml:elementId "Synonyms___407_pend0_om" ;
     sysml:owner elmt:Synonyms___407 ;
     sysml:memberElement expr:Synonyms___407_pend0 ;
@@ -244,17 +255,17 @@ expr:Synonyms___407_pend0_om
     sysml:membershipOwningNamespace elmt:Synonyms___407 .
 
 expr:Synonyms___407_pend1
-    a sysml:FeatureReferenceExpression ;
-    sysx:sourceText "base" ;
+    a sysml:ReferenceUsage ;
     sysml:elementId "Synonyms___407_pend1" ;
-    sysml:referent elmt:Synonyms__base ;
+    sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:Synonyms___407 ;
     sysml:owningRelationship expr:Synonyms___407_pend1_om ;
     sysml:owningMembership expr:Synonyms___407_pend1_om ;
-    sysx:endIndex "1"^^xsd:integer .
+    sysx:sourceText "base" ;
+    sysml:references elmt:Synonyms__base .
 
 expr:Synonyms___407_pend1_om
-    a sysml:OwningMembership ;
+    a sysml:EndFeatureMembership ;
     sysml:elementId "Synonyms___407_pend1_om" ;
     sysml:owner elmt:Synonyms___407 ;
     sysml:memberElement expr:Synonyms___407_pend1 ;

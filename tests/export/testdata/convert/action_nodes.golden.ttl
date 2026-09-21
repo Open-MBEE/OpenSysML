@@ -802,15 +802,24 @@ elmt:ActionNodes__Drive___4019
     sysml:owner elmt:ActionNodes__Drive ;
     sysml:owningRelationship elmt:ActionNodes__Drive___4019_om ;
     sysml:owningMembership elmt:ActionNodes__Drive___4019_om ;
-    sysx:relatedFeature expr:ActionNodes__Drive___4019_pend0, expr:ActionNodes__Drive___4019_pend1 ;
+    sysml:connectorEnd expr:ActionNodes__Drive___4019_pend0, expr:ActionNodes__Drive___4019_pend1 ;
     sysml:ownedRelationship expr:ActionNodes__Drive___4019_pend0_om, expr:ActionNodes__Drive___4019_pend1_om ;
     sysml:ownedMembership expr:ActionNodes__Drive___4019_pend0_om, expr:ActionNodes__Drive___4019_pend1_om ;
+    sysml:ownedFeatureMembership expr:ActionNodes__Drive___4019_pend0_om, expr:ActionNodes__Drive___4019_pend1_om ;
+    sysml:ownedFeature expr:ActionNodes__Drive___4019_pend0, expr:ActionNodes__Drive___4019_pend1 ;
+    sysml:ownedEndFeature expr:ActionNodes__Drive___4019_pend0, expr:ActionNodes__Drive___4019_pend1 ;
+    sysml:relatedFeature elmt:ActionNodes__Drive__brake ;
+    sysml:targetFeature elmt:ActionNodes__Drive__brake ;
     sysx:endForm "firstThen" ;
     sysx:endVerb "first" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        succession first start then brake;\n" ;
+    json:connectorEnd "[{\"@id\":\"ActionNodes__Drive___4019_pend0\"},{\"@id\":\"ActionNodes__Drive___4019_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ActionNodes__Drive___4019_pend0_om\"},{\"@id\":\"ActionNodes__Drive___4019_pend1_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"ActionNodes__Drive___4019_pend0_om\"},{\"@id\":\"ActionNodes__Drive___4019_pend1_om\"}]" .
+    json:ownedMembership "[{\"@id\":\"ActionNodes__Drive___4019_pend0_om\"},{\"@id\":\"ActionNodes__Drive___4019_pend1_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"ActionNodes__Drive___4019_pend0_om\"},{\"@id\":\"ActionNodes__Drive___4019_pend1_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"ActionNodes__Drive___4019_pend0\"},{\"@id\":\"ActionNodes__Drive___4019_pend1\"}]" ;
+    json:ownedEndFeature "[{\"@id\":\"ActionNodes__Drive___4019_pend0\"},{\"@id\":\"ActionNodes__Drive___4019_pend1\"}]" .
 
 elmt:ActionNodes__Drive___4019_om
     a sysml:FeatureMembership ;
@@ -825,17 +834,17 @@ elmt:ActionNodes__Drive___4019_om
     sysml:owningType elmt:ActionNodes__Drive .
 
 expr:ActionNodes__Drive___4019_pend0
-    a sysml:FeatureReferenceExpression ;
-    sysx:sourceText "start" ;
+    a sysml:ReferenceUsage ;
     sysml:elementId "ActionNodes__Drive___4019_pend0" ;
-    sysml:referent "start" ;
+    sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:ActionNodes__Drive___4019 ;
     sysml:owningRelationship expr:ActionNodes__Drive___4019_pend0_om ;
     sysml:owningMembership expr:ActionNodes__Drive___4019_pend0_om ;
-    sysx:endIndex "0"^^xsd:integer .
+    sysx:sourceText "start" ;
+    sysml:references "start" .
 
 expr:ActionNodes__Drive___4019_pend0_om
-    a sysml:OwningMembership ;
+    a sysml:EndFeatureMembership ;
     sysml:elementId "ActionNodes__Drive___4019_pend0_om" ;
     sysml:owner elmt:ActionNodes__Drive___4019 ;
     sysml:memberElement expr:ActionNodes__Drive___4019_pend0 ;
@@ -845,17 +854,17 @@ expr:ActionNodes__Drive___4019_pend0_om
     sysml:membershipOwningNamespace elmt:ActionNodes__Drive___4019 .
 
 expr:ActionNodes__Drive___4019_pend1
-    a sysml:FeatureReferenceExpression ;
-    sysx:sourceText "brake" ;
+    a sysml:ReferenceUsage ;
     sysml:elementId "ActionNodes__Drive___4019_pend1" ;
-    sysml:referent elmt:ActionNodes__Drive__brake ;
+    sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:ActionNodes__Drive___4019 ;
     sysml:owningRelationship expr:ActionNodes__Drive___4019_pend1_om ;
     sysml:owningMembership expr:ActionNodes__Drive___4019_pend1_om ;
-    sysx:endIndex "1"^^xsd:integer .
+    sysx:sourceText "brake" ;
+    sysml:references elmt:ActionNodes__Drive__brake .
 
 expr:ActionNodes__Drive___4019_pend1_om
-    a sysml:OwningMembership ;
+    a sysml:EndFeatureMembership ;
     sysml:elementId "ActionNodes__Drive___4019_pend1_om" ;
     sysml:owner elmt:ActionNodes__Drive___4019 ;
     sysml:memberElement expr:ActionNodes__Drive___4019_pend1 ;
@@ -873,15 +882,24 @@ elmt:ActionNodes__Drive___4020
     sysml:owner elmt:ActionNodes__Drive ;
     sysml:owningRelationship elmt:ActionNodes__Drive___4020_om ;
     sysml:owningMembership elmt:ActionNodes__Drive___4020_om ;
-    sysx:relatedFeature expr:ActionNodes__Drive___4020_pend0, expr:ActionNodes__Drive___4020_pend1 ;
+    sysml:connectorEnd expr:ActionNodes__Drive___4020_pend0, expr:ActionNodes__Drive___4020_pend1 ;
     sysml:ownedRelationship expr:ActionNodes__Drive___4020_pend0_om, expr:ActionNodes__Drive___4020_pend1_om ;
     sysml:ownedMembership expr:ActionNodes__Drive___4020_pend0_om, expr:ActionNodes__Drive___4020_pend1_om ;
+    sysml:ownedFeatureMembership expr:ActionNodes__Drive___4020_pend0_om, expr:ActionNodes__Drive___4020_pend1_om ;
+    sysml:ownedFeature expr:ActionNodes__Drive___4020_pend0, expr:ActionNodes__Drive___4020_pend1 ;
+    sysml:ownedEndFeature expr:ActionNodes__Drive___4020_pend0, expr:ActionNodes__Drive___4020_pend1 ;
+    sysml:relatedFeature elmt:ActionNodes__Drive__brake ;
+    sysml:sourceFeature elmt:ActionNodes__Drive__brake ;
     sysx:endForm "firstThen" ;
     sysx:endVerb "first" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        succession first brake then done;\n" ;
+    json:connectorEnd "[{\"@id\":\"ActionNodes__Drive___4020_pend0\"},{\"@id\":\"ActionNodes__Drive___4020_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ActionNodes__Drive___4020_pend0_om\"},{\"@id\":\"ActionNodes__Drive___4020_pend1_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"ActionNodes__Drive___4020_pend0_om\"},{\"@id\":\"ActionNodes__Drive___4020_pend1_om\"}]" .
+    json:ownedMembership "[{\"@id\":\"ActionNodes__Drive___4020_pend0_om\"},{\"@id\":\"ActionNodes__Drive___4020_pend1_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"ActionNodes__Drive___4020_pend0_om\"},{\"@id\":\"ActionNodes__Drive___4020_pend1_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"ActionNodes__Drive___4020_pend0\"},{\"@id\":\"ActionNodes__Drive___4020_pend1\"}]" ;
+    json:ownedEndFeature "[{\"@id\":\"ActionNodes__Drive___4020_pend0\"},{\"@id\":\"ActionNodes__Drive___4020_pend1\"}]" .
 
 elmt:ActionNodes__Drive___4020_om
     a sysml:FeatureMembership ;
@@ -896,17 +914,17 @@ elmt:ActionNodes__Drive___4020_om
     sysml:owningType elmt:ActionNodes__Drive .
 
 expr:ActionNodes__Drive___4020_pend0
-    a sysml:FeatureReferenceExpression ;
-    sysx:sourceText "brake" ;
+    a sysml:ReferenceUsage ;
     sysml:elementId "ActionNodes__Drive___4020_pend0" ;
-    sysml:referent elmt:ActionNodes__Drive__brake ;
+    sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:ActionNodes__Drive___4020 ;
     sysml:owningRelationship expr:ActionNodes__Drive___4020_pend0_om ;
     sysml:owningMembership expr:ActionNodes__Drive___4020_pend0_om ;
-    sysx:endIndex "0"^^xsd:integer .
+    sysx:sourceText "brake" ;
+    sysml:references elmt:ActionNodes__Drive__brake .
 
 expr:ActionNodes__Drive___4020_pend0_om
-    a sysml:OwningMembership ;
+    a sysml:EndFeatureMembership ;
     sysml:elementId "ActionNodes__Drive___4020_pend0_om" ;
     sysml:owner elmt:ActionNodes__Drive___4020 ;
     sysml:memberElement expr:ActionNodes__Drive___4020_pend0 ;
@@ -916,17 +934,17 @@ expr:ActionNodes__Drive___4020_pend0_om
     sysml:membershipOwningNamespace elmt:ActionNodes__Drive___4020 .
 
 expr:ActionNodes__Drive___4020_pend1
-    a sysml:FeatureReferenceExpression ;
-    sysx:sourceText "done" ;
+    a sysml:ReferenceUsage ;
     sysml:elementId "ActionNodes__Drive___4020_pend1" ;
-    sysml:referent "done" ;
+    sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:ActionNodes__Drive___4020 ;
     sysml:owningRelationship expr:ActionNodes__Drive___4020_pend1_om ;
     sysml:owningMembership expr:ActionNodes__Drive___4020_pend1_om ;
-    sysx:endIndex "1"^^xsd:integer .
+    sysx:sourceText "done" ;
+    sysml:references "done" .
 
 expr:ActionNodes__Drive___4020_pend1_om
-    a sysml:OwningMembership ;
+    a sysml:EndFeatureMembership ;
     sysml:elementId "ActionNodes__Drive___4020_pend1_om" ;
     sysml:owner elmt:ActionNodes__Drive___4020 ;
     sysml:memberElement expr:ActionNodes__Drive___4020_pend1 ;

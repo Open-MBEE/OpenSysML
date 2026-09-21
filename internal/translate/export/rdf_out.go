@@ -53,6 +53,13 @@ const (
 	pValue                     = "value"
 	pIsDefault                 = "isDefault"
 	pIsInitial                 = "isInitial"
+	pIsEnd                     = "isEnd"
+	pName                      = "name"
+	pReferences                = "references"
+	pConnectorEnd              = "connectorEnd"
+	pRelatedFeature            = "relatedFeature"
+	pChainingFeature           = "chainingFeature"
+	pOwnedEndFeature           = "ownedEndFeature"
 	pImportedNamespace         = "importedNamespace"
 	pAliasFor                  = "aliasedElement"
 	pClient                    = "client"
@@ -64,6 +71,8 @@ const (
 	pIsImportAll               = "isImportAll"
 	pSourceFeature             = "sourceFeature"
 	pTargetFeature             = "targetFeature"
+	pSource                    = "source"
+	pTarget                    = "target"
 	pPortionKind               = "portionKind"
 )
 
@@ -131,12 +140,13 @@ const dtExpression = "Expression"
 // through a VariantMembership, and every other namespace member is owned
 // through an OwningMembership. All three are concrete.
 const (
-	mOwningMembership    = "OwningMembership"
-	mFeatureMembership   = "FeatureMembership"
-	mVariantMembership   = "VariantMembership"
-	mFeatureValue        = "FeatureValue"
-	mParameterMembership = "ParameterMembership"
-	mFeature             = "Feature"
+	mOwningMembership     = "OwningMembership"
+	mFeatureMembership    = "FeatureMembership"
+	mVariantMembership    = "VariantMembership"
+	mFeatureValue         = "FeatureValue"
+	mParameterMembership  = "ParameterMembership"
+	mFeature              = "Feature"
+	mEndFeatureMembership = "EndFeatureMembership"
 	// The membership a body owns its result expression through, which states
 	// the expression as sysml:ownedResultExpression.
 	mResultExpressionMembership = "ResultExpressionMembership"
@@ -1268,65 +1278,192 @@ func verbatimUsage(n *ast.Usage) bool {
 // bindingEnds states the features a binding head relates as structure beside the
 // text it is kept as, so a consumer reads the ends without reading notation.
 func (e *encoder) bindingEnds(subject rdf.Term, owner string, n *ast.Usage) error {
-	// A named end (`connect bead ::> t.bead`) relates the feature it attaches
-	// to and carries its own name beside it.
 	for i, end := range n.ConnectorEnds {
 		if end == nil {
 			continue
 		}
 		slot := fmt.Sprintf("end%d", i)
-		if err := e.endNode(subject, owner, slot, i, "", end.AttachedTarget(), end.Multiplicity); err != nil {
+		if err := e.connectorEnd(subject, owner, slot, i, end); err != nil {
 			return err
-		}
-		if id, named := end.DeclaredName(); named {
-			node := rdf.ExpressionIRI(subject, slot)
-			e.graph.Add(node, e.sysx(xEndName), rdf.String(id.Name))
-			if keyword := e.referencesKeyword(end); keyword != referencesSymbol {
-				e.graph.Add(node, e.sysx(xEndReferencesKeyword), rdf.String(keyword))
-			}
 		}
 	}
 	if n.FlowEnds == nil {
 		return nil
 	}
-	for _, end := range []struct {
-		slot   string
-		index  int
-		role   string
-		target ast.Node
-	}{
-		{"flowSource", 0, "source", n.FlowEnds.From},
-		{"flowTarget", 1, "target", n.FlowEnds.To},
-		{"flowPayload", -1, "payload", n.FlowEnds.Payload},
-	} {
-		if err := e.endNode(subject, owner, end.slot, end.index, end.role, end.target, nil); err != nil {
+	for i, target := range []ast.Node{n.FlowEnds.From, n.FlowEnds.To} {
+		if target == nil {
+			continue
+		}
+		if err := e.flowEnd(subject, owner, fmt.Sprintf("end%d", i), i, target); err != nil {
+			return err
+		}
+	}
+	if n.FlowEnds.Payload != nil {
+		if err := e.expression(subject, e.sysx(xPayload), xPayload, owner, n.FlowEnds.Payload); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// endNode emits one end as an expression node, tagged with its position.
-func (e *encoder) endNode(subject rdf.Term, owner, slot string, index int, role string, target ast.Node, mult *ast.Multiplicity) error {
+// connectorEnd emits a standard ConnectorEnd feature and its EndFeatureMembership.
+func (e *encoder) connectorEnd(subject rdf.Term, owner, slot string, index int, end *ast.ConnectorEnd) error {
+	target := end.AttachedTarget()
 	if target == nil {
 		return nil
 	}
-	if err := e.expression(subject, e.sysx(xRelatedFeature), slot, owner, target); err != nil {
+	feature := rdf.ExpressionIRI(subject, slot)
+	membership := rdf.OwningMembershipIRIOf(feature)
+	e.graph.Prefixes[rdf.ExpressionPrefix] = rdf.Expression
+	e.typed(feature, "ReferenceUsage")
+	e.graph.Add(feature, e.sysml(pElementID), rdf.String(rdf.LocalName(feature.Value)))
+	e.graph.Add(feature, e.sysml(pIsEnd), rdf.Bool(true))
+	e.graph.Add(subject, e.sysml(pConnectorEnd), feature)
+	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
+	e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
+	e.graph.Add(subject, e.sysml(pOwnedFeatureMembership), membership)
+	e.graph.Add(subject, e.sysml(pOwnedFeature), feature)
+	if len(ontology.LookupProperty(pOwnedEndFeature)) > 0 {
+		e.graph.Add(subject, e.sysml(pOwnedEndFeature), feature)
+	}
+	if reference, ok := e.endReferenceIRI(end); ok {
+		e.graph.Add(subject, e.sysml(pRelatedFeature), reference)
+		if index == 0 {
+			e.graph.Add(subject, e.sysml(pSourceFeature), reference)
+		} else if index == 1 {
+			e.graph.Add(subject, e.sysml(pTargetFeature), reference)
+		}
+	}
+	e.emitMembershipCore(membership, feature, subject, mEndFeatureMembership, true)
+	e.graph.Add(feature, e.sysx(xSourceText), rdf.String(e.text(target)))
+	if name, named := end.DeclaredName(); named {
+		e.graph.Add(feature, e.sysml(pDeclaredName), rdf.String(name.Name))
+		e.graph.Add(feature, e.sysml(pName), rdf.String(name.Name))
+		if keyword := e.referencesKeyword(end); keyword != referencesSymbol {
+			e.graph.Add(feature, e.sysx(xEndReferencesKeyword), rdf.String(keyword))
+		}
+	}
+	if err := e.endReferences(feature, subject, owner, target); err != nil {
 		return err
 	}
-	return e.endMarks(rdf.ExpressionIRI(subject, slot), owner, index, role, mult)
+	return e.multiplicity(feature, owner, end.Multiplicity)
 }
 
-// endMarks tags an end node with its position, role and the bounds of the
-// multiplicity written ahead of it (`connect [1] a to [0..1] b`).
-func (e *encoder) endMarks(end rdf.Term, owner string, index int, role string, mult *ast.Multiplicity) error {
-	if index >= 0 {
-		e.graph.Add(end, e.sysx(xEndIndex), rdf.Int(index))
+func (e *encoder) flowEnd(subject rdf.Term, owner, slot string, index int, target ast.Node) error {
+	end := &ast.ConnectorEnd{Target: target}
+	return e.connectorEnd(subject, owner, slot, index, end)
+}
+
+func (e *encoder) endReferenceIRI(end *ast.ConnectorEnd) (rdf.Term, bool) {
+	target := end.AttachedTarget()
+	name, ok := target.(*ast.QualifiedName)
+	if !ok || qualifiedNameHasChain(name) {
+		return rdf.Term{}, false
 	}
-	if role != "" {
-		e.graph.Add(end, e.sysx(xEndRole), rdf.String(role))
+	reference := e.reference(name)
+	return reference, reference.IsIRI()
+}
+
+func (e *encoder) referenceNode(node ast.Node) rdf.Term {
+	if name, ok := node.(*ast.QualifiedName); ok {
+		return e.reference(name)
 	}
-	return e.multiplicity(end, owner, mult)
+	return rdf.TypedLiteral(e.text(node), rdf.OpenSysML+dtExpression)
+}
+
+func (e *encoder) endReferences(feature rdf.Term, subject rdf.Term, owner string, target ast.Node) error {
+	switch target := target.(type) {
+	case *ast.QualifiedName:
+		if qualifiedNameHasChain(target) {
+			return e.endChainReferences(feature, target)
+		}
+		e.graph.Add(feature, e.sysml(pReferences), e.reference(target))
+	case *ast.FeatureChainExpr:
+		chain := rdf.ExpressionIRI(feature, "chain")
+		e.typed(chain, mFeature)
+		e.graph.Add(chain, e.sysml(pElementID), rdf.String(rdf.LocalName(chain.Value)))
+		for _, segment := range featureChainSegments(target) {
+			e.graph.Add(chain, e.sysml(pChainingFeature), e.reference(segment))
+		}
+		membership := rdf.OwningMembershipIRIOf(chain)
+		e.emitMembershipCore(membership, chain, feature, mOwningMembership, true)
+		e.graph.Add(feature, e.sysml(pOwnedRelationship), membership)
+		e.graph.Add(feature, e.sysml(pOwnedMembership), membership)
+		e.graph.Add(feature, e.sysml(pReferences), chain)
+	default:
+		e.graph.Add(feature, e.sysml(pReferences), rdf.TypedLiteral(e.text(target), rdf.OpenSysML+dtExpression))
+	}
+	return nil
+}
+
+func (e *encoder) endChainReferences(feature rdf.Term, target *ast.QualifiedName) error {
+	chain := rdf.ExpressionIRI(feature, "chain")
+	e.typed(chain, mFeature)
+	e.graph.Add(chain, e.sysml(pElementID), rdf.String(rdf.LocalName(chain.Value)))
+	for _, segment := range e.qualifiedChainReferences(target) {
+		e.graph.Add(chain, e.sysml(pChainingFeature), segment)
+	}
+	membership := rdf.OwningMembershipIRIOf(chain)
+	e.emitMembershipCore(membership, chain, feature, mOwningMembership, true)
+	e.graph.Add(feature, e.sysml(pOwnedRelationship), membership)
+	e.graph.Add(feature, e.sysml(pOwnedMembership), membership)
+	e.graph.Add(feature, e.sysml(pReferences), chain)
+	return nil
+}
+
+func qualifiedNameHasChain(name *ast.QualifiedName) bool {
+	for _, part := range name.Parts {
+		if part.Chained {
+			return true
+		}
+	}
+	return false
+}
+
+func (e *encoder) qualifiedChainReferences(name *ast.QualifiedName) []rdf.Term {
+	var terms []rdf.Term
+	start := 0
+	for i, part := range name.Parts {
+		if !part.Chained && i != 0 {
+			continue
+		}
+		if i == 0 {
+			continue
+		}
+		if !part.Chained {
+			continue
+		}
+		terms = append(terms, e.qualifiedNamePartReference(name, start, i))
+		start = i
+	}
+	if start < len(name.Parts) {
+		terms = append(terms, e.qualifiedNamePartReference(name, start, len(name.Parts)))
+	}
+	return terms
+}
+
+func (e *encoder) qualifiedNamePartReference(name *ast.QualifiedName, start, end int) rdf.Term {
+	part := &ast.QualifiedName{Parts: append([]ast.NameSegment(nil), name.Parts[start:end]...)}
+	sym, ok := e.res.PartSymbol(name, end-1)
+	return e.linkOrText(part, sym, ok)
+}
+
+func featureChainSegments(node *ast.FeatureChainExpr) []*ast.QualifiedName {
+	var segments []*ast.QualifiedName
+	var walk func(ast.Node)
+	walk = func(node ast.Node) {
+		switch node := node.(type) {
+		case *ast.QualifiedName:
+			segments = append(segments, node)
+		case *ast.FeatureReference:
+			segments = append(segments, node.Name)
+		case *ast.FeatureChainExpr:
+			walk(node.Operand)
+			segments = append(segments, node.Member)
+		}
+	}
+	walk(node)
+	return segments
 }
 
 func (e *encoder) sysml(name string) rdf.Term { return rdf.SysMLTerm(name) }

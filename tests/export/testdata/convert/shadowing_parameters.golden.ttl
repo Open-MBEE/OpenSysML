@@ -403,8 +403,8 @@ elmt:Shadows__Governor___404
     sysml:owningRelationship elmt:Shadows__Governor___404_om ;
     sysml:owningMembership elmt:Shadows__Governor___404_om ;
     sysx:transitionSyntax "source" ;
-    sysml:sourceFeature elmt:Shadows__Governor__idle ;
-    sysml:targetFeature elmt:Shadows__Governor__fast ;
+    sysml:source elmt:Shadows__Governor__idle ;
+    sysml:target elmt:Shadows__Governor__fast ;
     sysx:trigger "setSpeed(value)" ;
     sysx:triggerKeyword "accept" ;
     sysx:guard expr:Shadows__Governor___404_pguard ;
@@ -553,8 +553,8 @@ elmt:Shadows__Governor___405
     sysml:owningRelationship elmt:Shadows__Governor___405_om ;
     sysml:owningMembership elmt:Shadows__Governor___405_om ;
     sysx:transitionSyntax "source" ;
-    sysml:sourceFeature elmt:Shadows__Governor__fast ;
-    sysml:targetFeature elmt:Shadows__Governor__idle ;
+    sysml:source elmt:Shadows__Governor__fast ;
+    sysml:target elmt:Shadows__Governor__idle ;
     sysx:trigger "w : Speed" ;
     sysx:triggerKeyword "accept" ;
     sysx:guard expr:Shadows__Governor___405_pguard ;

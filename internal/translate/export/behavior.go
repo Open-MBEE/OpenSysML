@@ -337,7 +337,7 @@ func (e *encoder) encodeTransition(n *ast.TransitionMember, head func(rdf.Term),
 	e.graph.Add(subject, e.sysx(xTransitionSyntax), rdf.String(e.transitionSyntax(n)))
 	e.transitionKeyword(subject, n)
 	if qualifiedText(n.Source) != "" {
-		e.graph.Add(subject, e.sysml(pSourceFeature), e.edgeReference(n.Source))
+		e.graph.Add(subject, e.sysml(pSource), e.edgeReference(n.Source))
 	}
 	if qualifiedText(n.Target) == "" {
 		return &UnsupportedError{
@@ -345,7 +345,7 @@ func (e *encoder) encodeTransition(n *ast.TransitionMember, head func(rdf.Term),
 			Note: "it names no target state, so the edge it declares cannot be written back",
 		}
 	}
-	e.graph.Add(subject, e.sysml(pTargetFeature), e.edgeReference(n.Target))
+	e.graph.Add(subject, e.sysml(pTarget), e.edgeReference(n.Target))
 	if n.Trigger != nil {
 		e.graph.Add(subject, e.sysx(xTrigger), rdf.String(e.text(n.Trigger)))
 		e.graph.Add(subject, e.sysx(xTriggerKeyword), rdf.String(e.introducer(n, n.Trigger)))
@@ -1152,7 +1152,7 @@ func (d *decoder) printBehavior(b *strings.Builder, el *element, indent string, 
 		// A transition carrying its ends as references is the one a state body
 		// declares; a transition usage whose head was kept verbatim never
 		// reaches here, since print() writes its source text.
-		if _, structural := d.graph.Object(rdf.IRI(el.iri), rdf.SysML+pTargetFeature); !structural {
+		if _, structural := d.transitionObject(el, pTarget); !structural {
 			return false, nil
 		}
 		text, body, err := d.transitionText(el, annotations, depth)
@@ -1290,7 +1290,7 @@ func (d *decoder) subactionText(el *element, depth int) (string, error) {
 // written in, with its trigger, guard and effect; the body it ends in, if any,
 // is returned separately, its identity annotations ahead of its members.
 func (d *decoder) transitionText(el *element, annotations []string, depth int) (string, string, error) {
-	target, err := d.referenceText(el, rdf.SysML+pTargetFeature)
+	target, err := d.transitionReferenceText(el, pTarget, pTargetFeature)
 	if err != nil {
 		return "", "", err
 	}
@@ -1303,7 +1303,7 @@ func (d *decoder) transitionText(el *element, annotations []string, depth int) (
 	case "accept":
 		// The transition of a state body that states only its trigger.
 	default:
-		source, err := d.referenceText(el, rdf.SysML+pSourceFeature)
+		source, err := d.transitionReferenceText(el, pSource, pSourceFeature)
 		if err != nil {
 			return "", "", err
 		}
@@ -1397,6 +1397,24 @@ func (d *decoder) transitionText(el *element, annotations []string, depth int) (
 		}
 	}
 	return strings.Join(words, " "), bodyText, nil
+}
+
+func (d *decoder) transitionObject(el *element, property string) (rdf.Term, bool) {
+	if term, ok := d.graph.Object(rdf.IRI(el.iri), rdf.SysML+property); ok {
+		return term, true
+	}
+	legacy := map[string]string{pSource: pSourceFeature, pTarget: pTargetFeature}[property]
+	if legacy == "" {
+		return rdf.Term{}, false
+	}
+	return d.graph.Object(rdf.IRI(el.iri), rdf.SysML+legacy)
+}
+
+func (d *decoder) transitionReferenceText(el *element, property, legacy string) (string, error) {
+	if _, ok := d.graph.Object(rdf.IRI(el.iri), rdf.SysML+property); ok {
+		return d.referenceText(el, rdf.SysML+property)
+	}
+	return d.referenceText(el, rdf.SysML+legacy)
 }
 
 // transitionLinkError refuses a transition whose effect and body links do not
