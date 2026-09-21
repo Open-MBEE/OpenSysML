@@ -60,6 +60,30 @@ func TestConnectorEndNamedToParses(t *testing.T) {
 	}
 }
 
+// Trivia lexed while speculatively parsing a discarded first end is replayed
+// by restore, so a comment before `to` still lands in the tree.
+func TestConnectorFirstEndMissingKeepsTrivia(t *testing.T) {
+	member, diags := parseOneMemberWithDiags(t, "package P { connection c connect /* keep */ to b; }")
+	if len(diags) != 1 || diags[0].Message != "expected a connector end before 'to'" {
+		t.Fatalf("diagnostics = %v, want the missing end reported at 'to'", diags)
+	}
+	pkg, ok := member.(*ast.Package)
+	if !ok || len(pkg.Members) != 1 {
+		t.Fatalf("expected *ast.Package with 1 member, got %T", member)
+	}
+	u, ok := pkg.Members[0].(*ast.Membership).Member.(*ast.Usage)
+	if !ok {
+		t.Fatalf("expected *ast.Usage, got %T", pkg.Members[0])
+	}
+	if len(u.ConnectorEnds) != 1 {
+		t.Fatalf("expected 1 end, got %d", len(u.ConnectorEnds))
+	}
+	triv := u.ConnectorEnds[0].Target.LeadingTrivia()
+	if len(triv) != 1 || triv[0].Kind != ast.TriviaComment {
+		t.Fatalf("end target trivia = %v, want the kept comment", triv)
+	}
+}
+
 // A first end whose name starts with the delimiter keyword and continues past
 // it — a chain, a qualified name or a references clause — is an end, not the
 // delimiter: the try-parse tells it apart from a missing end.
