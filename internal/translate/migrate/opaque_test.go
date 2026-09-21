@@ -258,6 +258,10 @@ func TestTranslateStatements(t *testing.T) {
 		{"JavaScript", "const n = 2; i = i * n", []string{
 			"attribute n : ScalarValues::Integer;", "assign n := 2;", "assign this.i := this.i * n;"}},
 		{"", "GS_Found = i >= Retries", []string{"assign this.GS_Found := this.i >= this.Retries;"}},
+		{"JavaScript", "t = clock; print(\"t: \" + (t - 1));", []string{"assign this.t := " + clockRead + ";"}},
+		{"JavaScript", "println (\"start\")\ni = 1\nSystem.out.println(i);", []string{"assign this.i := 1;"}},
+		{"JavaScript", "print(\"done\")", nil},
+		{"Java", "java.lang.System.out.print(\"i=\" + i); i = 2", []string{"assign this.i := 2;"}},
 	}
 	for _, c := range cases {
 		got, _, err := translateStatements(c.body, c.lang, testScope)
@@ -273,6 +277,23 @@ func TestTranslateStatements(t *testing.T) {
 				t.Errorf("%s %q: line %q does not parse in an action body", c.lang, c.body, line)
 			}
 		}
+	}
+}
+
+func TestTranslateStatementsNotesConsolePrints(t *testing.T) {
+	_, notes, err := translateStatements("print(\"t\"); i = 1\nprintln(i)", "JavaScript", testScope)
+	if err != nil {
+		t.Fatalf("refused: %s", err.note())
+	}
+	want := []string{
+		"the console print print(…) is left out, as it writes to the tool's console and changes nothing of the model",
+		"the console print println(…) is left out, as it writes to the tool's console and changes nothing of the model",
+	}
+	if strings.Join(notes, "\n") != strings.Join(want, "\n") {
+		t.Errorf("notes:\n got  %q\n want %q", notes, want)
+	}
+	if _, notes, err = translateStatements("i = 1", "JavaScript", testScope); err != nil || len(notes) != 0 {
+		t.Errorf("a body without a print: notes %q, refusal %v", notes, err)
 	}
 }
 
@@ -319,8 +340,10 @@ func TestTranslateRefusals(t *testing.T) {
 		{"JavaScript", "var n = 1; const n = 2", true, refusedConstruct, "const n"},
 		{"JavaScript", "var done = 1", true, refusedConstruct, "var done"},
 		{"JavaScript", "var start = 0; i = start", true, refusedConstruct, "var start"},
-		{"JavaScript", "print(\"done\")", true, refusedCall, "print"},
-		{"JavaScript", "t = clock; print(\"t: \" + t);", true, refusedCall, "print"},
+		{"JavaScript", "log(\"done\")", true, refusedCall, "log"},
+		{"JavaScript", "i = print(\"done\")", true, refusedCall, "print"},
+		{"JavaScript", "t = clock; print(\"t: \" + (t);", true, refusedSyntax, "print("},
+		{"JavaScript", "print(\"a\") i = 1", true, refusedSyntax, "i"},
 		{"JavaScript", "i = Math.random()", true, refusedCall, "Math.random"},
 		{"JavaScript", "i = Math.max()", true, refusedCall, "Math.max"},
 		{"JavaScript", "t = Math.min()", true, refusedCall, "Math.min"},

@@ -425,10 +425,10 @@ func (m *migration) statements(body, lang string, scope *sysmlv1.Element) (lines
 		return nil, false, "the body is empty"
 	}
 	if dialectOf(lang).script() {
-		lines, note, guarded, refused := m.translatedStatements(body, lang, scope)
+		lines, note, otherwise, refused := m.translatedStatements(body, lang, scope)
 		if refused == nil {
 			m.noted(scope, note)
-			m.notedAs(scope, Approximated, guarded)
+			m.notedAs(scope, Approximated, otherwise)
 			return lines, true, ""
 		}
 		if refused.final(lang) {
@@ -544,15 +544,20 @@ func parseDuration(text string) (seconds string, ok bool) {
 	if math.IsInf(total, 0) || math.IsNaN(total) {
 		return "", false
 	}
-	return realLiteral(total), true
+	return computedLiteral(total), true
 }
 
-// realLiteral writes a float as a v2 real literal, with a decimal point, at 15
-// significant digits so binary rounding noise of the arithmetic behind it is not written.
-func realLiteral(v float64) string {
+// computedLiteral writes the result of arithmetic as a v2 real literal at 15
+// significant digits, so the binary rounding noise of the arithmetic is not written.
+func computedLiteral(v float64) string {
 	if rounded, err := strconv.ParseFloat(strconv.FormatFloat(v, 'g', 15, 64), 64); err == nil {
 		v = rounded
 	}
+	return realLiteral(v)
+}
+
+// realLiteral writes a float as a v2 real literal, with a decimal point.
+func realLiteral(v float64) string {
 	s := strconv.FormatFloat(v, 'f', -1, 64)
 	if !strings.ContainsAny(s, ".eE") {
 		s += ".0"

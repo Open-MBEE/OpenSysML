@@ -269,9 +269,10 @@ func translateExpr(body, lang string, sc opaqueScope, want wanted) (translated, 
 }
 
 // translateStatements translates body as a sequence of script statements into
-// the lines of a v2 action body: local declarations and assignments. guarded
-// notes the assignments made only when a value read admitting none holds one.
-func translateStatements(body, lang string, sc opaqueScope) (lines, guarded []string, err *refusal) {
+// the lines of a v2 action body: local declarations and assignments. notes tells
+// the assignments made only when a value read admitting none holds one, and the
+// console prints left out.
+func translateStatements(body, lang string, sc opaqueScope) (lines, notes []string, err *refusal) {
 	d := dialectOf(lang)
 	switch d {
 	case dialectNone:
@@ -295,13 +296,13 @@ func wholeExprIn(body string, d dialect, sc opaqueScope) (translated, *refusal) 
 }
 
 // statementsIn parses body as statements of dialect d, its names answered by sc.
-func statementsIn(body string, d dialect, sc opaqueScope) (lines, guarded []string, err *refusal) {
+func statementsIn(body string, d dialect, sc opaqueScope) (lines, notes []string, err *refusal) {
 	p, err := newOpaqueParser(body, d, sc)
 	if err != nil {
 		return nil, nil, err
 	}
 	lines, err = p.statements()
-	return lines, p.guarded, err
+	return lines, p.notes, err
 }
 
 // anyScope answers every name with an unknown type, so a body's shape is judged
@@ -605,7 +606,8 @@ type opaqueParser struct {
 	locals  map[string]local // names a `var`, `let` or `const` declared
 	assigns bool             // whether `=` assigns (a statement) rather than compares
 	absent  []string         // the names admitting no value the statement being read reads
-	guarded []string         // notes on the assignments made only when such a name holds a value
+	notes   []string         // notes on statements written otherwise than they read: guarded or left out
+	printed int              // console prints left out
 }
 
 func newOpaqueParser(body string, d dialect, sc opaqueScope) (*opaqueParser, *refusal) {
@@ -735,7 +737,7 @@ func (p *opaqueParser) statements() ([]string, *refusal) {
 			return nil, &refusal{kind: refusedSyntax, token: end.text, why: "a statement ends at `;` or a newline"}
 		}
 	}
-	if len(lines) == 0 {
+	if len(lines) == 0 && p.printed == 0 {
 		return nil, &refusal{kind: refusedSyntax, token: "", why: "the body has no statements"}
 	}
 	return lines, nil
@@ -772,11 +774,42 @@ func (p *opaqueParser) statement() ([]string, *refusal) {
 			p.next(false)
 			return p.step(path, op.text)
 		case op.isPunct("("):
-			return nil, &refusal{kind: refusedCall, token: strings.Join(path, "."), why: "a call is not a statement of the subset"}
+			fn := strings.Join(path, ".")
+			if consolePrints[fn] {
+				p.next(false)
+				return p.consolePrint(fn)
+			}
+			return nil, &refusal{kind: refusedCall, token: fn, why: "a call is not a statement of the subset"}
 		}
 		return nil, &refusal{kind: refusedConstruct, token: strings.Join(path, "."), why: "an expression that assigns nothing is not a statement of the subset"}
 	}
 	return nil, &refusal{kind: refusedSyntax, token: tok.text, why: "a statement starts with a name"}
+}
+
+// consolePrints are the calls a script writes text to the tool's console with,
+// which change nothing of the model; a statement of one is left out.
+var consolePrints = map[string]bool{
+	"print": true, "println": true,
+	"System.out.print": true, "System.out.println": true,
+	"java.lang.System.out.print": true, "java.lang.System.out.println": true,
+}
+
+// consolePrint reads past the arguments of a console print, which is written
+// as no statement, and notes it.
+func (p *opaqueParser) consolePrint(fn string) ([]string, *refusal) {
+	for depth := 1; depth > 0; {
+		switch tok := p.next(true); {
+		case tok.kind == tokEOF:
+			return nil, &refusal{kind: refusedSyntax, token: fn + "(", why: "the arguments are not closed"}
+		case tok.isPunct("("):
+			depth++
+		case tok.isPunct(")"):
+			depth--
+		}
+	}
+	p.printed++
+	p.notes = append(p.notes, "the console print "+fn+"(…) is left out, as it writes to the tool's console and changes nothing of the model")
+	return nil, nil
 }
 
 // declaration reads `var x = e` as a local attribute of the action assigned e.
@@ -890,7 +923,7 @@ func (p *opaqueParser) guardedAssign(target opaqueRef, value string) []string {
 	for i, name := range p.absent {
 		holds[i] = name + "->SequenceFunctions::notEmpty()"
 	}
-	p.guarded = append(p.guarded, target.expr+" must hold a value, so it is assigned only when "+strings.Join(p.absent, " and ")+", which may hold none, holds one")
+	p.notes = append(p.notes, target.expr+" must hold a value, so it is assigned only when "+strings.Join(p.absent, " and ")+", which may hold none, holds one")
 	return []string{"if " + strings.Join(holds, " and ") + " { " + assign + " }"}
 }
 

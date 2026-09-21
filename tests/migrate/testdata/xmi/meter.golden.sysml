@@ -88,7 +88,13 @@ part def Meter {
             in m : ScalarValues::Integer = 2;
             assign this.count := n + m;
         }
-        first judge then final;
+        first judge then log;
+        action log {
+            assign this.ticks := this.ticks + 1;
+        }
+        first log then shout;
+        action shout;
+        first shout then final;
         action final terminate;
         flow sense.y to record.v;
     }

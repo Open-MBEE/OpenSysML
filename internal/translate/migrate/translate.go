@@ -330,11 +330,11 @@ func (m *migration) translatedExpr(body, lang string, scope *sysmlv1.Element, wa
 }
 
 // translatedStatements translates an opaque body as the statements of an action
-// body read at scope, each checked to parse; guarded notes the assignments made
-// only when a value read admitting none holds one.
-func (m *migration) translatedStatements(body, lang string, scope *sysmlv1.Element) (lines []string, note, guarded string, err *refusal) {
+// body read at scope, each checked to parse; otherwise notes the assignments made
+// only when a value read admitting none holds one and the console prints left out.
+func (m *migration) translatedStatements(body, lang string, scope *sysmlv1.Element) (lines []string, note, otherwise string, err *refusal) {
 	s := m.bodyScope(scope)
-	lines, guards, err := translateStatements(body, lang, s)
+	lines, notes, err := translateStatements(body, lang, s)
 	if err != nil {
 		return nil, "", "", err
 	}
@@ -346,7 +346,7 @@ func (m *migration) translatedStatements(body, lang string, scope *sysmlv1.Eleme
 	if note = s.note(lang); note == "" {
 		note = "the body is translated to v2"
 	}
-	return lines, note, strings.Join(guards, "; "), nil
+	return lines, note, strings.Join(notes, "; "), nil
 }
 
 // symbolicDuration reads a duration written as an expression, optionally

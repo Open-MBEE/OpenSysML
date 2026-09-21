@@ -612,9 +612,14 @@ func (m *migration) inlineBehavior(kw string, b, owner *sysmlv1.Element) bool {
 		}
 		header += " " + writeName(name)
 	}
+	// A transition's effect is followed by `then`, so an empty one ends with no `;`.
+	alone := header + ";"
+	if owner.Type == "Transition" {
+		alone = header
+	}
 	switch b.Type {
 	case "Activity":
-		m.w.block(header, func() {
+		m.w.blockOr(header, alone, func() {
 			m.comments(b)
 			m.parameters(b, b)
 			m.activityBody(b, b)
@@ -624,7 +629,7 @@ func (m *migration) inlineBehavior(kw string, b, owner *sysmlv1.Element) bool {
 	case "OpaqueBehavior", "FunctionBehavior":
 		body, lang := opaqueBody(b)
 		lines, ok, note := m.statements(body, lang, b)
-		m.w.block(header, func() {
+		m.w.blockOr(header, alone, func() {
 			m.comments(b)
 			m.parameters(b, b)
 			if ok {

@@ -1,7 +1,7 @@
 # SysML v1 to v2 migration report: meter.xmi
-# migrated 130 element(s): 95 mapped, 35 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 134 element(s): 97 mapped, 37 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
-## approximated (35)
+## approximated (37)
 ControlFlow	Meter::Arm::<ControlFlow>	_a2	(the guard [{JavaScript} ready and enabled] is kept as a comment and the edge written unguarded: the text "and" is not expression syntax: text follows the expression)
 Parameter	Meter::Arm::armed	_armed	-> Meter::Arm::armed	(default value not migrated: the types at "Math.sqrt(total)" disagree: the expression is a Real, not the Boolean wanted)
 OpaqueAction	Meter::Arm::fuse	_fuse	-> fuse	(the body is kept as a comment: the text "and" is not expression syntax: a statement ends at `;` or a newline)
@@ -13,6 +13,8 @@ OpaqueAction	Meter::Flip::narrow	_narrow	-> narrow	(the body is kept as a commen
 OpaqueAction	Meter::Flip::pick	_pick	-> pick	(the body is kept as a comment: the types at "count =" disagree: a Mode is assigned to the Integer count holds)
 OpaqueAction	Meter::Measure::cc	_cc	-> cc	(the JavaCC body is written as v2 assignments)
 ValuePin	Meter::Measure::judge::ok	_judgeok	-> Meter::Measure::judge.ok	(the value pin's value {JavaScript} Math.sqrt(total) is not written: the types at "Math.sqrt(total)" disagree: the expression is a Real, not the Boolean wanted)
+OpaqueAction	Meter::Measure::log	_log	-> log	(the JavaScript body is translated to v2; the console print print(…) is left out, as it writes to the tool's console and changes nothing of the model; the console print println(…) is left out, as it writes to the tool's console and changes nothing of the model)
+OpaqueAction	Meter::Measure::shout	_shout	-> shout	(the JavaScript body is translated to v2; the console print println(…) is left out, as it writes to the tool's console and changes nothing of the model)
 ObjectFlow	Meter::Skip::<ObjectFlow>	_o2	(the flow is kept as a comment: the body of 'idle' never assigns 'z', so no value leaves it)
 ObjectFlow	Meter::Skip::<ObjectFlow>	_o3	(the flow is kept as a comment: its source 'dark' is not migrated, so no value reaches 'q')
 OpaqueAction	Meter::Skip::dark	_dark	-> dark	(the body is kept as a comment: the statement assigns q, which nothing visible from Meter::Skip::dark is called (language Python))
@@ -38,7 +40,7 @@ Property	Meter::square	_square	-> Meter::square	(default value not migrated: the
 Property	Meter::tag	_tag	-> Meter::tag	(default value not migrated: the construct "+" is outside the translated subset: string concatenation has no v2 form in the subset)
 Property	Meter::top	_top	-> Meter::top	(default value not migrated: the types at "cells.reading" disagree: the expression is a collection, not the one value wanted)
 
-## mapped (95)
+## mapped (97)
 «Block» Class	Bank	_bank	-> Bank
 Property	Bank::level	_level	-> Bank::level
 «Block» Class	Gauge	_gauge	-> Gauge
@@ -75,6 +77,8 @@ ControlFlow	Meter::Measure::<ControlFlow>	_c3
 ControlFlow	Meter::Measure::<ControlFlow>	_c3b
 ControlFlow	Meter::Measure::<ControlFlow>	_c3c
 ControlFlow	Meter::Measure::<ControlFlow>	_c4
+ControlFlow	Meter::Measure::<ControlFlow>	_c5
+ControlFlow	Meter::Measure::<ControlFlow>	_c6
 InitialNode	Meter::Measure::<InitialNode>	_init	-> start
 ObjectFlow	Meter::Measure::<ObjectFlow>	_o1
 OpaqueAction	Meter::Measure::judge	_judge	-> judge	(the JavaScript body is translated to v2)
