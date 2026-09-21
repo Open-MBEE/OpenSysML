@@ -273,7 +273,8 @@ func drive(exec *runtime.StateExecutor, steps []driverStep) error {
 		switch {
 		case step.trace != nil:
 			var value runtime.Value
-			if value, err = traceValue(exec, step.trace, step.calls); err == nil {
+			tr := &tracer{exec: exec, calls: step.calls, outputs: map[string]map[string]runtime.Value{}}
+			if value, err = tr.value(step.trace); err == nil {
 				err = appendLog(exec, value)
 			}
 		case step.event.Call != "":
@@ -305,20 +306,37 @@ func appendLog(exec *runtime.StateExecutor, segment runtime.Value) error {
 	return exec.WriteAttribute(LogAttribute, runtime.NewStringValue(text))
 }
 
-// traceValue evaluates a traced value: literals, library behaviors and the
-// calls it embeds, made in order; an output never returned is empty.
-func traceValue(exec *runtime.StateExecutor, x *Expr, calls map[string]runtime.QueuedEvent) (runtime.Value, error) {
+// tracer evaluates one traced expression: each call action it embeds is made
+// once, in reading order, and every output read of it comes from that one call.
+type tracer struct {
+	exec    caller
+	calls   map[string]runtime.QueuedEvent
+	outputs map[string]map[string]runtime.Value
+}
+
+// caller makes a synchronous call on the machine under test and returns its outputs.
+type caller interface {
+	Call(operation string, args map[string]runtime.Value) (map[string]runtime.Value, error)
+}
+
+// value evaluates a traced value: literals, library behaviors and the calls it
+// embeds; an output never returned is empty.
+func (tr *tracer) value(x *Expr) (runtime.Value, error) {
 	switch x.Kind {
 	case ExprLiteral:
 		return literalValue(x.Literal)
 	case ExprCall:
-		call, ok := calls[x.ID]
+		outputs, ok := tr.outputs[x.ID]
 		if !ok {
-			return runtime.Value{}, fmt.Errorf("%s is not a call the stimulation bound", x)
-		}
-		outputs, err := exec.Call(call.Call, call.Args)
-		if err != nil {
-			return runtime.Value{}, fmt.Errorf("%s: %w", x, err)
+			call, bound := tr.calls[x.ID]
+			if !bound {
+				return runtime.Value{}, fmt.Errorf("%s is not a call the stimulation bound", x)
+			}
+			var err error
+			if outputs, err = tr.exec.Call(call.Call, call.Args); err != nil {
+				return runtime.Value{}, fmt.Errorf("%s: %w", x, err)
+			}
+			tr.outputs[x.ID] = outputs
 		}
 		if v, ok := outputs[x.Result]; ok {
 			return v, nil
@@ -334,7 +352,7 @@ func traceValue(exec *runtime.StateExecutor, x *Expr, calls map[string]runtime.Q
 		}
 		args := make([]runtime.Value, len(x.Args))
 		for i := range x.Args {
-			v, err := traceValue(exec, &x.Args[i], calls)
+			v, err := tr.value(&x.Args[i])
 			if err != nil {
 				return runtime.Value{}, err
 			}

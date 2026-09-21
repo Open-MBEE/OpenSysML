@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	oreport "github.com/Open-MBEE/OpenSysML/tools/oracle/report"
 )
 
@@ -212,4 +214,52 @@ func TestDriveCallNotReturnedFails(t *testing.T) {
 		t.Fatalf("bucket %s, reasons %q; want fail", row.Bucket, row.Reasons)
 	}
 	wantReasons(t, row, "op(): ", "call not returned")
+}
+
+// countingCaller returns fixed outputs and counts the calls made of each operation.
+type countingCaller struct {
+	made    map[string]int
+	outputs map[string]runtime.Value
+}
+
+func (c *countingCaller) Call(operation string, _ map[string]runtime.Value) (map[string]runtime.Value, error) {
+	c.made[operation]++
+	return c.outputs, nil
+}
+
+// One call action whose outputs the tester reads twice is one call of the
+// machine: both reads come from the outputs that call returned.
+func TestTracerMakesEachCallOnce(t *testing.T) {
+	boolean := func(b bool) runtime.Value {
+		return runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValBool, Bool: b}}
+	}
+	exec := &countingCaller{
+		made:    map[string]int{},
+		outputs: map[string]runtime.Value{"result": boolean(false), "return": boolean(true)},
+	}
+	format := &LibraryBehavior{Qualified: "Util::Tracing::formatParameterValue"}
+	concat := &LibraryBehavior{Qualified: "StringFunctions::Concat"}
+	read := func(result string) Expr {
+		return Expr{Kind: ExprApply, Name: "formatParameterValue", Library: format, Args: []Expr{
+			{Kind: ExprLiteral, Literal: &Literal{Kind: LiteralBoolean, Text: "false", Present: true}},
+			{Kind: ExprCall, Name: "or", ID: "call-or", Result: result},
+		}}
+	}
+	x := &Expr{Kind: ExprApply, Name: "Concat", Library: concat, Args: []Expr{read("return"), read("result")}}
+	tr := &tracer{exec: exec, calls: map[string]runtime.QueuedEvent{"call-or": {Call: "or"}}, outputs: map[string]map[string]runtime.Value{}}
+	v, err := tr.value(x)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v.Kind != runtime.ValString || v.Str() != "[out=true][out=false]" {
+		t.Errorf("traced %v, want [out=true][out=false]", v)
+	}
+	if exec.made["or"] != 1 {
+		t.Errorf("or called %d times, want once", exec.made["or"])
+	}
+
+	tr = &tracer{exec: exec, calls: map[string]runtime.QueuedEvent{}, outputs: map[string]map[string]runtime.Value{}}
+	if _, err := tr.value(x); err == nil || !strings.Contains(err.Error(), "not a call the stimulation bound") {
+		t.Errorf("unbound call err = %v", err)
+	}
 }

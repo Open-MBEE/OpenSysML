@@ -1491,7 +1491,7 @@ which supersede the hand count this section was first written with — the moves
 | State machine generalization: extended regions, redefined transitions | none | no spelling |
 | Entry, exit or do behavior with parameters (reading the triggering event's data) | none written: the notation binds event data on the transition (`accept d : Data`, §7.18.2; `TransitionPerformances.kerml`'s `accepter`), never on an `entry`/`exit`/`do` action, so the payload has to be routed through the transition — the reading is recorded under [Behavior parameters](#behavior-parameters-operation-results-tester-traces-and-standalone-machines) below | no translation |
 | Call event whose operation returns a value the tester traces | the runtime returns the outputs the triggered behaviors wrote to the caller (A14, `StateExecutor.Call`) and the driver traces them where the tester does; none written for the behavior that produces the value — an effect, entry or exit with an `out`/`return` parameter, which the notation spells as an action's `out` parameter (§7.16.2) — see below | no translation |
-| A `trace(...)` call in the tester's own behavior | the tester is the referee's driver, not a model element: its trace is appended to the target's `log` where the tester makes it, once the call it embeds has returned (`run.go:drive`, `traceValue`); a trace that embeds no call and does not follow one is refused, since the machine may still be running (`stimulation.go:traceStimulus`) | standard, driven |
+| A `trace(...)` call in the tester's own behavior | the tester is the referee's driver, not a model element: its trace is appended to the target's `log` where the tester makes it, once the call it embeds has returned (`run.go:drive`, `tracer.value`); a trace that embeds no call and does not follow one is refused, since the machine may still be running (`stimulation.go:traceStimulus`) | standard, driven |
 | The UML `StateMachine` as the class under test (a standalone machine with attributes, operations, a constructor) | `part def` with `attribute`s, `action def`s and `exhibit state`, as an owned machine's: the reader (`reader.go`) reads the machine as the `Target` whose `Machine` is itself, with its attributes, operations and their methods, and its constructor | standard |
 | A guard whose behavior acts on the model (calls `trace(...)` before returning its value) | none: a v2 guard is a Boolean expression (§7.18.3, `validateTransitionFeatureMembershipGuardExpression`; `bool guard[*]` in `TransitionPerformances.kerml`, the effect a separate `step`), and an expression has no spelling for an action. UML 2.5.1 §14.5.11 `Transition::guard` itself calls such a guard ill formed | no translation |
 | A guard whose behavior is an opaque behavior, not an activity | none: the reader follows an activity's nodes to tell whether the behavior acts, and does not read an opaque body, so the guard is refused rather than carried as its Boolean text alone. A `FunctionBehavior` is the exception — it accesses no object by UML's contract (§13.2.3.3) — and is translated as the expression it spells | no translation |
@@ -1587,10 +1587,12 @@ not waited for, as the tester does not wait for a signal (the pool is FIFO, so e
 a call is dispatched before the call event, whatever the tester's and the target's relative
 speed), a call is `StateExecutor.Call` (A14) and returns the operation's outputs, and a trace is the value
 the tester computes appended to the target's `log` — the same store the target's own `trace`
-writes — where the tester makes it. The value is evaluated by `traceValue` over the suite's test
+writes — where the tester makes it. The value is evaluated by `tracer.value` over the suite's test
 library read into the model (`library.go`: `Concat`, `ToString` for Boolean, Integer and
 UnlimitedNatural, `formatParameterValue` spelling `[in=v]`/`[out=v]` as `Util::Tracing` does),
-and a call the trace embeds is the same synchronous `Call`. The ordering is PSSM's under every
+and a call the trace embeds is the same synchronous `Call`, made once per call action however
+many of its output pins the trace reads (*Event 019-E* reads `result` and `return` of one
+`or(true, true)`; `TestTracerMakesEachCallOnce`). The ordering is PSSM's under every
 scheduling policy because it is fixed by the call's return, not by a draw: nothing of the
 target's runs between the step's end and the tester's next action, and the referee's result is
 identical under `-jobs 1` and `-jobs 8`. A trace that embeds no call and does not directly follow
