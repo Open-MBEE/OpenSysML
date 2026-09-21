@@ -90,7 +90,7 @@ func (m *migration) instanceSnapshot(r *simresults.ConfigurationResults, inst *s
 		return
 	}
 	if !m.isSnapshotOf(inst, target.classifiers, scan.typed) {
-		if ran := m.ranOnOther(inst, s, scan.typed); ran != nil && len(m.model.Refs(inst, "classifier")) == 0 {
+		if ran := m.ranOnOther(inst, target.classifiers, scan.typed, m.mostSpecial(m.slotOwners(inst))); ran != nil && len(m.model.Refs(inst, "classifier")) == 0 {
 			scan.seenInstance[inst] = true
 			scan.ranOn[ranOnOtherNote(inst, ran)]++
 		}
@@ -111,12 +111,9 @@ func (m *migration) instanceSnapshot(r *simresults.ConfigurationResults, inst *s
 		}
 	}
 	if scan.analysed != nil {
-		stats, note, foreign := monteCarloStatistics(scan.analysed.Name, summary, unread, snap.Values)
+		stats, note := monteCarloStatistics(scan.analysed.Name, summary, unread, snap.Values)
 		if note != "" {
 			scan.statistics[note]++
-		}
-		if foreign {
-			return
 		}
 		if stats != nil {
 			snap.Statistics = stats
@@ -310,57 +307,47 @@ func (m *migration) monteCarloSlot(slot *sysmlv1.Element) (stat string, value fl
 
 // monteCarloStatistics makes the statistics a snapshot's N, Mean, Deviation and OutOfSpec
 // record of the analysed observable, which the binding leaves holding the Mean; none when
-// the analysis left them blank, or when unread marks one holding no number. note says what
-// is amiss; foreign marks a snapshot whose Mean another observable holds instead — of
-// an analysis of that one, so of another configuration.
-func monteCarloStatistics(observable string, summary map[string]float64, unread bool, values map[string]float64) (stats *simresults.Statistics, note string, foreign bool) {
+// the analysis left them blank, when unread marks one holding no number, or when the
+// observable does not hold the Mean. note says what is amiss. Another value equal to the
+// Mean is a coincidence of numbers and no evidence of the run's configuration.
+func monteCarloStatistics(observable string, summary map[string]float64, unread bool, values map[string]float64) (stats *simresults.Statistics, note string) {
 	switch {
 	case unread:
-		return nil, "record a " + monteCarloAnalysisBlock + " statistic that is no number, so they hold no statistics", false
+		return nil, "record a " + monteCarloAnalysisBlock + " statistic that is no number, so they hold no statistics"
 	case len(summary) == 0:
-		return nil, "", false
+		return nil, ""
 	}
 	runs, hasRuns := summary[monteCarloRuns]
 	mean, hasMean := summary[monteCarloMean]
 	switch {
 	case !hasRuns || !hasMean:
-		return nil, "record no " + monteCarloAnalysisBlock + "::" + monteCarloRuns + " and " + monteCarloMean + " together, so they hold no statistics", false
+		return nil, "record no " + monteCarloAnalysisBlock + "::" + monteCarloRuns + " and " + monteCarloMean + " together, so they hold no statistics"
 	case runs == 0 && mean == 0:
-		return nil, "", false
+		return nil, ""
 	case runs != math.Trunc(runs) || runs < 1:
-		return nil, "record a " + monteCarloAnalysisBlock + "::" + monteCarloRuns + " of " + strconv.FormatFloat(runs, 'g', -1, 64) + ", which is no count of runs, so they hold no statistics", false
+		return nil, "record a " + monteCarloAnalysisBlock + "::" + monteCarloRuns + " of " + strconv.FormatFloat(runs, 'g', -1, 64) + ", which is no count of runs, so they hold no statistics"
 	case runs >= math.Ldexp(1, 63):
-		return nil, "record a " + monteCarloAnalysisBlock + "::" + monteCarloRuns + " of " + strconv.FormatFloat(runs, 'g', -1, 64) + ", which is more runs than a count holds, so they hold no statistics", false
+		return nil, "record a " + monteCarloAnalysisBlock + "::" + monteCarloRuns + " of " + strconv.FormatFloat(runs, 'g', -1, 64) + ", which is more runs than a count holds, so they hold no statistics"
 	}
 	deviation, hasDeviation := summary[monteCarloDeviation]
 	if hasDeviation && deviation < 0 {
-		return nil, "record a " + monteCarloAnalysisBlock + "::" + monteCarloDeviation + " of " + strconv.FormatFloat(deviation, 'g', -1, 64) + ", which is no standard deviation, so they hold no statistics", false
+		return nil, "record a " + monteCarloAnalysisBlock + "::" + monteCarloDeviation + " of " + strconv.FormatFloat(deviation, 'g', -1, 64) + ", which is no standard deviation, so they hold no statistics"
 	}
 	outOfSpec, hasOutOfSpec := summary[monteCarloOutOfSpec]
 	if hasOutOfSpec && (outOfSpec != math.Trunc(outOfSpec) || outOfSpec < 0 || outOfSpec > runs) {
-		return nil, "record a " + monteCarloAnalysisBlock + "::" + monteCarloOutOfSpec + " of " + strconv.FormatFloat(outOfSpec, 'g', -1, 64) + " over " + strconv.FormatFloat(runs, 'g', -1, 64) + " runs, which is no count of them, so they hold no statistics", false
+		return nil, "record a " + monteCarloAnalysisBlock + "::" + monteCarloOutOfSpec + " of " + strconv.FormatFloat(outOfSpec, 'g', -1, 64) + " over " + strconv.FormatFloat(runs, 'g', -1, 64) + " runs, which is no count of them, so they hold no statistics"
 	}
-	if value, recorded := values[observable]; recorded && value == mean {
-		stats := &simresults.Statistics{Observable: observable, Runs: int64(runs), Mean: mean}
-		if hasDeviation {
-			stats.Deviation = simresults.Real(deviation)
-		}
-		if hasOutOfSpec {
-			stats.OutOfSpec = simresults.Count(int64(outOfSpec))
-		}
-		return stats, "", false
+	if value, recorded := values[observable]; !recorded || value != mean {
+		return nil, "record " + monteCarloAnalysisBlock + " statistics whose " + monteCarloMean + " no value of " + observable + " holds, though the analysis binds the two, so the statistics are not read"
 	}
-	var holders []string
-	for name, value := range values {
-		if value == mean {
-			holders = append(holders, name)
-		}
+	stats = &simresults.Statistics{Observable: observable, Runs: int64(runs), Mean: mean}
+	if hasDeviation {
+		stats.Deviation = simresults.Real(deviation)
 	}
-	sort.Strings(holders)
-	if len(holders) > 0 {
-		return nil, "hold the " + monteCarloAnalysisBlock + "::" + monteCarloMean + " as " + strings.Join(holders, ", ") + " and not as " + observable + ", which the analysis binds it to, so they are of an analysis of another configuration and not among the results", true
+	if hasOutOfSpec {
+		stats.OutOfSpec = simresults.Count(int64(outOfSpec))
 	}
-	return nil, "record " + monteCarloAnalysisBlock + " statistics whose " + monteCarloMean + " no value of " + observable + " holds, though the analysis binds the two, so the statistics are not read", false
+	return stats, ""
 }
 
 // configuredValues is the scalar the target sets each of its features to — by a
@@ -507,7 +494,7 @@ func (m *migration) indexSnapshots(configs []*sysmlv1.Element) {
 				if len(m.model.Refs(inst, "classifier")) > 0 {
 					continue
 				}
-				typing := m.snapshotTyping(inst, cfg, typed)
+				typing := m.snapshotTyping(inst, cfg, classifiers, typed)
 				if prev, ok := m.snapshots[inst]; ok && (prev.classifiers != nil || typing.classifiers == nil) {
 					continue
 				}
@@ -518,16 +505,14 @@ func (m *migration) indexSnapshots(configs []*sysmlv1.Element) {
 }
 
 // snapshotTyping types inst by the owners of its slots' features when they are one
-// lineage ending in one of typed (cfg's target classifiers and their generals), else says why not.
-func (m *migration) snapshotTyping(inst, cfg *sysmlv1.Element, typed map[*sysmlv1.Element]bool) snapshotTyping {
+// lineage ending in one of typed (cfg's target classifiers, targets, and their generals), else says why
+// not. A name after a special of that lineage says the run was on the special instead.
+func (m *migration) snapshotTyping(inst, cfg *sysmlv1.Element, targets []*sysmlv1.Element, typed map[*sysmlv1.Element]bool) snapshotTyping {
 	owners := m.slotOwners(inst)
 	if len(owners) == 0 {
 		return snapshotTyping{config: cfg}
 	}
 	where := " under the result location of the run configuration " + describe(cfg)
-	if ran := m.ranOnOther(inst, simulationConfig(cfg), typed); ran != nil {
-		return snapshotTyping{config: cfg, note: ranOnOtherNote(inst, ran) + where}
-	}
 	names := make([]string, len(owners))
 	for i, o := range owners {
 		names[i] = qualifiedName(o)
@@ -539,29 +524,32 @@ func (m *migration) snapshotTyping(inst, cfg *sysmlv1.Element, typed map[*sysmlv
 	case !typed[special]:
 		return snapshotTyping{config: cfg, note: "its slots are of features of " + strings.Join(names, ", ") + ", neither a classifier of the configuration's target nor a general of one, so it is no snapshot of a run on it" + where}
 	}
+	if ran := m.ranOnOther(inst, targets, typed, special); ran != nil {
+		return snapshotTyping{config: cfg, note: ranOnOtherNote(inst, ran) + where}
+	}
 	return snapshotTyping{classifiers: []*sysmlv1.Element{special}, config: cfg}
 }
 
-// ranOnOther is the classifier inst's name says its run was on, when that is neither s's
-// target, a general (typed) nor a special of it; nil when the name names no other classifier.
-func (m *migration) ranOnOther(inst *sysmlv1.Element, s *sysmlv1.Stereotype, typed map[*sysmlv1.Element]bool) *sysmlv1.Element {
-	named := m.namesakes(inst.Name)
-	if len(named) == 0 {
-		return nil
-	}
-	targets := s.IDs("executionTarget")
-	for _, c := range named {
-		if typed[c] || (len(targets) == 1 && c.ID == targets[0]) {
+// ranOnOther is the classifier inst's name says its run was on, when that is none of the
+// target's classifiers (targets), a general (typed) or a special of one, and it inherits the
+// features inst's slots prove (owned by proved, nil when they prove no classifier); nil otherwise.
+func (m *migration) ranOnOther(inst *sysmlv1.Element, targets []*sysmlv1.Element, typed map[*sysmlv1.Element]bool, proved *sysmlv1.Element) *sysmlv1.Element {
+	var other *sysmlv1.Element
+	for _, c := range m.namesakes(inst.Name) {
+		if typed[c] {
 			return nil
 		}
 		closure := m.classifierClosure([]*sysmlv1.Element{c})
-		for t := range typed {
+		for _, t := range targets {
 			if closure[t] {
 				return nil
 			}
 		}
+		if other == nil && (proved == nil || closure[proved]) {
+			other = c
+		}
 	}
-	return named[0]
+	return other
 }
 
 // ranOnOtherNote says that inst, by its name, is the result of a run on ran.

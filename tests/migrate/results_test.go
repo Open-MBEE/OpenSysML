@@ -254,6 +254,62 @@ func TestSiblingClassifiersShareNoResultSnapshots(t *testing.T) {
 	wantClean(t, "t.sysml", r)
 }
 
+// A classifier-less snapshot is typed by the features its slots are of before its
+// name is read: one whose slots are of the target's general and whose name is a
+// sibling special's — which inherits those features — is a run on the sibling, set
+// aside with a note, while one named after a classifier inheriting none of them keeps
+// its typing, the name being no evidence of what it ran, and one whose slots are of the
+// target's own features is the target's whatever it is named.
+func TestResultSnapshotNamesYieldToTheirSlots(t *testing.T) {
+	r := migrateDocument(t, storedResults+`
+    <packagedElement xmi:type="uml:Class" xmi:id="_rash" name="Rash">
+      <generalization xmi:type="uml:Generalization" xmi:id="_rash_g" general="_chooser"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_poll" name="Poll"/>
+    <packagedElement xmi:type="uml:Package" xmi:id="_named" name="Named">
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_rash3" name="rash3">
+        <slot xmi:type="uml:Slot" xmi:id="_rash3b" definingFeature="_pb">
+          <value xmi:type="uml:LiteralReal" xmi:id="_rash3bv" value="0.5"/>
+        </slot>
+      </packagedElement>
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_other2" name="other2">
+        <slot xmi:type="uml:Slot" xmi:id="_other2b" definingFeature="_pb">
+          <value xmi:type="uml:LiteralReal" xmi:id="_other2bv" value="0.5"/>
+        </slot>
+      </packagedElement>
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_poll1" name="poll1">
+        <slot xmi:type="uml:Slot" xmi:id="_poll1a" definingFeature="_pa2">
+          <value xmi:type="uml:LiteralReal" xmi:id="_poll1av" value="1.0"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_poll1b" definingFeature="_pb">
+          <value xmi:type="uml:LiteralReal" xmi:id="_poll1bv" value="0.5"/>
+        </slot>
+      </packagedElement>
+    </packagedElement>`, `
+  <sysml:Block xmi:id="_s1" base_Class="_chooser"/>
+  <sysml:Block xmi:id="_s2" base_Class="_sure"/>
+  <sysml:Block xmi:id="_s3" base_Class="_other"/>
+  <sysml:Block xmi:id="_s4" base_Class="_rash"/>
+  <sysml:Block xmi:id="_s5" base_Class="_poll"/>
+  <SimulationProfile:SimulationConfig `+simulationProfile+` xmi:id="_c0" base_Class="_g0"
+      executionTarget="_s0" resultLocation="_named"/>`)
+	configs := r.Results.Configurations
+	if len(configs) != 1 {
+		t.Fatalf("results index %d configuration(s), want 1", len(configs))
+	}
+	if got, want := snapshotIDs(configs[0]), []string{"_other2", "_poll1"}; !slices.Equal(got, want) {
+		t.Errorf("snapshots indexed %v, want %v: the two whose names say nothing of a run on another classifier", got, want)
+	}
+	ran := `it is named "rash3" after Rash, which is neither the configuration's target nor a general or special of it, and the tool names a result after the classifier it ran, so it is a snapshot of a run on that classifier stored`
+	if want := "1 snapshot(s) are not among the results: " + ran + " in the result location"; !slices.Contains(configs[0].Notes, want) {
+		t.Errorf("the configuration notes %q, want %q among them", configs[0].Notes, want)
+	}
+	wantNote(t, r, "_rash3", migrate.Unmapped, ran+" under the result location of the run configuration 'Group 0'")
+	wantNote(t, r, "_other2", migrate.Approximated, "classified by Chooser, the owner of its slots' defining features, since it names no classifier")
+	wantNote(t, r, "_poll1", migrate.Approximated, "classified by Sure, the owner of its slots' defining features, since it names no classifier")
+	wantClean(t, "t.sysml", r)
+}
+
 // A slot of the target outranks the defaults of its classifiers: a Sure whose slot
 // sets pA back to 0.25 has the snapshots recording no pA, not those recording Sure's
 // 1.0 under either the redefining property or the redefined one.

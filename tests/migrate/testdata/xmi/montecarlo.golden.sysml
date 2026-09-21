@@ -31,7 +31,7 @@ action def 'Group 0' {
     }
     part target : 'timer analysis';
     perform action run ::> target.tick;
-    /* results of the simulation tool: 9 snapshot(s) in Results standing for 13 run(s) analysing t holding p, t */
+    /* results of the simulation tool: 10 snapshot(s) in Results standing for 14 run(s) analysing t holding p, t, u */
 }
 action def 'Group 1' {
     @Simulation::Configuration {
