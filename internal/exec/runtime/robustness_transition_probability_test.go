@@ -66,6 +66,7 @@ func TestRuntimeRobustnessTransitionProbability(t *testing.T) {
 	t.Run("holding_total_zero_at_dispatch", testTransitionHoldingTotalZero)
 	t.Run("lone_enabled_zero_weight", testLoneEnabledZeroWeight)
 	t.Run("lone_enabled_weight_above_one", testLoneEnabledWeightAboveOne)
+	t.Run("trigger_argument_weight_out_of_range", testTriggerArgumentWeightOutOfRange)
 }
 
 // testTransitionNegativeWeight: a probability is in [0, 1], so a constant
@@ -371,5 +372,62 @@ func testLoneEnabledWeightAboveOne(t *testing.T) {
 	if !errors.Is(err, ErrBranchWeights) ||
 		!strings.Contains(err.Error(), "not a probability in [0, 1]") {
 		t.Fatalf("error = %v, want ErrBranchWeights for the lone enabled weight 1.5", err)
+	}
+}
+
+// testTriggerArgumentWeightOutOfRange: a weight reading the call's bound
+// argument is judged by the value the invocation carried — 1.5 is a typed
+// error, the same as a literal out of range.
+func testTriggerArgumentWeightOutOfRange(t *testing.T) {
+	m := parseLibraryModel(t, weightedMachine(`
+		transition first a accept route(priority) then b { @Probability { p = priority; } }
+		transition first a accept route(priority) then c { @Probability { p = 1.0 - priority; } }`))
+	ctx, err := m.fresh()
+	if err != nil {
+		t.Fatal(err)
+	}
+	exec, err := ctx.CreateStateExecutor(m.state(t, "Machine"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	exec.InvokeOperation("route", map[string]Value{"priority": constReal(1.5)})
+	err = exec.RunToCompletion()
+	if !errors.Is(err, ErrBranchWeights) ||
+		!strings.Contains(err.Error(), "not a probability in [0, 1]") {
+		t.Fatalf("error = %v, want ErrBranchWeights for the bound weight 1.5", err)
+	}
+}
+
+// TestExploreWeighsTransitionsByTriggerArguments: the weight expressions read
+// the arguments the triggering call carried — a route at priority 0.25 draws
+// the 0.75 branch three times as often, which explore reports back.
+func TestExploreWeighsTransitionsByTriggerArguments(t *testing.T) {
+	m := parseLibraryModel(t, weightedMachine(`
+		transition first a accept route(priority) then b { @Probability { p = priority; } }
+		transition first a accept route(priority) then c { @Probability { p = 1.0 - priority; } }`))
+	sym := m.state(t, "Machine")
+	x, err := Explore(context.Background(), mustPolicy(t, "explore"), m.fresh, func(ctx *Context) (Outcome, error) {
+		exec, err := ctx.CreateStateExecutor(sym)
+		if err != nil {
+			return Outcome{}, err
+		}
+		exec.InvokeOperation("route", map[string]Value{"priority": constReal(0.25)})
+		if err := exec.RunToCompletion(); err != nil {
+			return Outcome{}, err
+		}
+		return exec.Outcome(), nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	probs := make(map[string]float64)
+	for _, o := range x.Outcomes {
+		probs[o.Outcome.FinalState] = o.Probability
+	}
+	if math.Abs(probs["b"]-0.25) > 1e-9 || math.Abs(probs["c"]-0.75) > 1e-9 {
+		t.Errorf("probabilities %v, want b=0.25 c=0.75 from the call's priority", probs)
+	}
+	if math.Abs(x.Probability()-1) > 1e-9 || x.ProbabilitiesBounded() {
+		t.Errorf("a complete exploration's probabilities sum to %v, want 1 unbounded", x.Probability())
 	}
 }

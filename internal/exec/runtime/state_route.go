@@ -294,7 +294,7 @@ func (e *StateExecutor) enabledBranches(ps *ast.PseudostateNode, outgoing []*low
 func (e *StateExecutor) pickBranch(ps *ast.PseudostateNode, outgoing []*lower.Transition, enabled []int, note func(RunNote)) (int, error) {
 	// Weights are validated for a lone enabled branch too, even though it
 	// records no choice point and is taken with probability 1.
-	weights, err := e.transitionWeights(ps, outgoing, enabled)
+	weights, err := e.transitionWeights(ps, outgoing, enabled, nil)
 	if err != nil {
 		return 0, err
 	}

@@ -1222,7 +1222,7 @@ func (e *StateExecutor) chooseTransitions(candidates []dispatchCandidate, event 
 			continue
 		}
 		var err error
-		candidate.chosen, candidate.notes, err = e.chooseTransition(candidate)
+		candidate.chosen, candidate.notes, err = e.chooseTransition(candidate, event)
 		if err != nil {
 			return nil, err
 		}
@@ -1252,14 +1252,16 @@ func (e *StateExecutor) resolveRouteFor(trans *lower.Transition, event *Event) (
 
 // chooseTransition resolves which of the candidate's enabled transitions fires,
 // with the choice point it makes ahead of the candidate's notes: a weighted
-// enabled set is drawn by the weights its transitions state.
-func (e *StateExecutor) chooseTransition(candidate dispatchCandidate) (*lower.Transition, []RunNote, error) {
+// enabled set is drawn by the weights its transitions state, the trigger's
+// arguments bound for them as they are for a guard. event is nil for a
+// completion, a change poll or a route's branch.
+func (e *StateExecutor) chooseTransition(candidate dispatchCandidate, event *Event) (*lower.Transition, []RunNote, error) {
 	transitions := e.graph.Transitions[candidate.source]
 	notes := candidate.notes
 	pick := 0
 	// Weights are validated for a lone enabled transition too, even though it
 	// records no choice point and fires with probability 1.
-	weights, err := e.transitionWeights(candidate.source, transitions, candidate.enabled)
+	weights, err := e.transitionWeights(candidate.source, transitions, candidate.enabled, event)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1524,7 +1526,7 @@ func (e *StateExecutor) chooseCompletion(source *ast.StateNode, dispatched *lowe
 		drain()
 		return nil, nil, nil
 	}
-	weights, err := e.transitionWeights(source, transitions, enabled)
+	weights, err := e.transitionWeights(source, transitions, enabled, nil)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1697,7 +1699,7 @@ func (e *StateExecutor) transitionChoice(state *ast.StateNode, transitions []*lo
 // a group whose weights do not sum to 1 or no enabled weight positive at all is
 // the typed error, mirroring what a decision reports. Every transition of a
 // group an enabled transition belongs to is weighed, not only the enabled.
-func (e *StateExecutor) transitionWeights(source ast.Node, transitions []*lower.Transition, enabled []int) ([]float64, error) {
+func (e *StateExecutor) transitionWeights(source ast.Node, transitions []*lower.Transition, enabled []int, event *Event) ([]float64, error) {
 	firstWeighted := -1
 	for _, pos := range enabled {
 		if transitions[pos].Probability != nil {
@@ -1710,6 +1712,14 @@ func (e *StateExecutor) transitionWeights(source ast.Node, transitions []*lower.
 	}
 	evalWeight := func(pos int) (float64, error) {
 		trans := transitions[pos]
+		if event != nil && trans.Trigger != nil {
+			unbind, err := e.bindTriggerArguments(trans, event)
+			defer unbind()
+			if err != nil {
+				return 0, fmt.Errorf("%w: %s: weight of %s: %v",
+					ErrBranchWeights, weightWhere(source, transitions, pos), transitionName(transitions, pos), err)
+			}
+		}
 		val, err := e.evalStepOf(trans.Source, trans.Probability.Expr, trans.BodyScope)
 		if err != nil {
 			return 0, fmt.Errorf("%w: %s: weight of %s: %v",
