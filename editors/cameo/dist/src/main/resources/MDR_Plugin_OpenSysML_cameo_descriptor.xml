@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<resource-manager-plugin id="org.openmbee.opensysml.cameo"
+    name="OpenSysML" version="${opensysml.version}">
+  <resource plugin-id="org.openmbee.opensysml.cameo"/>
+</resource-manager-plugin>
