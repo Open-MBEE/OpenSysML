@@ -307,18 +307,19 @@ type replay struct {
 	ask    *CheckAsk
 	seed   ModelSeed
 	draws  runtime.DrawPolicy
+	step   float64
 	free   []enginewire.FreeInput
 	inputs []runtime.InputTaken
 }
 
 // fresh is a context of a replay's own on the plan's worker for job, seeded and drawing as the question's runs are.
 func (r replay) fresh(model *Model, job int, budget Budget) (*runtime.Context, error) {
-	return Question{ModelSeed: r.seed, Draws: r.draws}.fresh(model, job, budget)
+	return Question{ModelSeed: r.seed, Draws: r.draws, ClockStep: r.step}.fresh(model, job, budget)
 }
 
 // witness is the runtime witness of one schedule of the wire witness.
 func (r replay) witness(choices []runtime.ChoiceTaken) runtime.Witness {
-	return runtime.Witness{Inputs: r.inputs, DrawPolicy: r.draws, Choices: choices}
+	return runtime.Witness{Inputs: r.inputs, DrawPolicy: r.draws, ClockStep: r.step, Choices: choices}
 }
 
 // reported is the witness a replayed schedule stands as: the engine's choices with the
@@ -337,7 +338,7 @@ func (e externalEngine) replayable(model *Model, q Question, budget Budget, w en
 	if q.Check == nil || q.Check.Start == nil {
 		return replay{}, &NoReplayError{Engine: e.Name(), Kind: q.Kind}
 	}
-	out := replay{ask: q.Check, seed: q.ModelSeed, draws: q.Draws}
+	out := replay{ask: q.Check, seed: q.ModelSeed, draws: q.Draws, step: q.ClockStep}
 	if len(w.Inputs) == 0 {
 		return out, nil
 	}

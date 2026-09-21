@@ -64,7 +64,7 @@ func TestSummarisedMigrationResultsThroughCLI(t *testing.T) {
 // -compare-results reads: the configuration's runs and draws, its target and
 // behavior, and the numbers of every snapshot; then that the migrated model is
 // run against it — under the configured count and policy, and under -runs,
-// -seed, -draws, -observe and -action instead — and that misuse is refused.
+// -seed, -draws, -clock-step, -observe and -action instead — and that misuse is refused.
 func TestMigrationResultsThroughCLI(t *testing.T) {
 	binary := buildCLI(t)
 	dir := t.TempDir()
@@ -119,12 +119,12 @@ func TestMigrationResultsThroughCLI(t *testing.T) {
 		t.Errorf("-compare-results left a prompt:\n%s", configured.output())
 	}
 
-	overridden := compare("-runs", "3", "-seed", "5", "-draws", "random", "-observe", "pA", "-observe", "pB=target.pA", "-action", "Group 0")
+	overridden := compare("-runs", "3", "-seed", "5", "-draws", "random", "-clock-step", "0.5", "-observe", "pA", "-observe", "pB=target.pA", "-action", "Group 0")
 	if overridden.status != 0 {
 		t.Fatalf("exit status = %d, want 0\n%s", overridden.status, overridden.output())
 	}
 	for _, want := range []string{
-		"compare 'Group 0' — 4 stored run(s) in Results; 3 run(s) by OpenSysML, draws random, seed 5\n",
+		"compare 'Group 0' — 4 stored run(s) in Results; 3 run(s) by OpenSysML, draws random, seed 5, clock step 0.5 s\n",
 		"           | OpenSysML (target.pA) | 3    | 1.0       | 1.0   | 1.0     | 1.0    | 1.0",
 		"pB         | tool                  | 4    | 0.0       | 1.0   | 0.25    | 3.0    | 3.0",
 		"           | difference            |      | +1 (of 0) | +0.0% | +300.0% | -66.7% | -66.7%",

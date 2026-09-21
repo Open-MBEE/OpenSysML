@@ -505,9 +505,11 @@ var durationUnits = map[string]float64{
 	"": 1, "s": 1, "sec": 1, "secs": 1, "second": 1, "seconds": 1,
 	"ms": 1e-3, "millisecond": 1e-3, "milliseconds": 1e-3,
 	"us": 1e-6, "µs": 1e-6, "microsecond": 1e-6, "microseconds": 1e-6,
+	"ns": 1e-9, "nanosecond": 1e-9, "nanoseconds": 1e-9,
 	"min": 60, "mins": 60, "minute": 60, "minutes": 60,
 	"h": 3600, "hr": 3600, "hrs": 3600, "hour": 3600, "hours": 3600,
 	"d": 86400, "day": 86400, "days": 86400,
+	"w": 604800, "week": 604800, "weeks": 604800,
 }
 
 var (

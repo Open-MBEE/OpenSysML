@@ -30,6 +30,9 @@ type ConfigurationResults struct {
 	// Runs is numberOfRuns (0 for none); Draws is durationSimulationMode as a draw policy ("" for none).
 	Runs  int64  `json:"runs,omitempty"`
 	Draws string `json:"draws,omitempty"`
+	// ClockStep is the step, in seconds, the tool's internal simulation clock ticked by
+	// (stepSize in timeUnit, once startTime enables the clock); 0 for the built-in clock.
+	ClockStep float64 `json:"clockStep,omitempty"`
 	// Target is the part holding the execution target, Behavior the action usage performing it; "" for none.
 	Target   string `json:"target,omitempty"`
 	Behavior string `json:"behavior,omitempty"`

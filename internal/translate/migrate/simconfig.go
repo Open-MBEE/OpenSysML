@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/simresults"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
@@ -140,7 +141,7 @@ func (m *migration) simulationConfig(e *sysmlv1.Element, header, note string) {
 	settings, unread, notes := m.configurationSettings(s)
 	target := m.configurationTarget(s)
 	notes = append(notes, target.notes...)
-	results := simresults.ConfigurationResults{ID: e.ID, Name: m.v2Name(e), Runs: settings.runs, Draws: settings.draws, Observables: []string{}, Snapshots: []simresults.Snapshot{}, Notes: append([]string(nil), notes...)}
+	results := simresults.ConfigurationResults{ID: e.ID, Name: m.v2Name(e), Runs: settings.runs, Draws: settings.draws, ClockStep: settings.clockStep, Observables: []string{}, Snapshots: []simresults.Snapshot{}, Notes: append([]string(nil), notes...)}
 	notes = append(notes, m.resultSnapshots(&results, s, target)...)
 	note = joinNotes(note, strings.Join(notes, "; "))
 	m.add(e, verdictFor(note), m.v2Name(e), note)
@@ -196,11 +197,36 @@ func resultsComment(r simresults.ConfigurationResults) string {
 }
 
 // configurationValues are the Simulation::Configuration attributes a
-// configuration sets, as written, with the two a harness runs it under.
+// configuration sets, as written, with the three a harness runs it under.
 type configurationValues struct {
-	lines []string
-	runs  int64
-	draws string
+	lines     []string
+	runs      int64
+	draws     string
+	clockStep float64
+}
+
+// clockStep is the step, in seconds, the tool's internal clock ticked by — stepSize (1.0
+// unless stated) in timeUnit, once startTime enables that clock — or 0 with a note on why not.
+func clockStep(read map[string]string) (step float64, note string) {
+	if _, enabled := read["startTime"]; !enabled {
+		return 0, ""
+	}
+	step = 1
+	if v, ok := read["stepSize"]; ok {
+		step, _ = strconv.ParseFloat(v, 64) // finite: realSetting read it
+	}
+	if step <= 0 {
+		return 0, simConfig + "stepSize = " + semantics.FormatReal(step) + " is no step the clock can tick by, so the runs' clock is continuous"
+	}
+	unit, stated := read["timeUnit"]
+	if !stated {
+		return step, simConfig + "timeUnit is unstated, so stepSize = " + semantics.FormatReal(step) + " is read in seconds, as the model's bare durations are, where the tool's default is the millisecond"
+	}
+	scale, ok := durationUnits[strings.ToLower(unit)]
+	if !ok || unit == "" {
+		return 0, simConfig + "timeUnit = " + strconv.Quote(unit) + " is no fixed number of seconds, so the clock's step is not derived and the runs' clock is continuous"
+	}
+	return step * scale, ""
 }
 
 // configurationSettings writes the Simulation::Configuration attributes a
@@ -208,6 +234,7 @@ type configurationValues struct {
 // and notes the tags with no v2 form.
 func (m *migration) configurationSettings(s *sysmlv1.Stereotype) (settings configurationValues, unread, notes []string) {
 	recorded := map[string]bool{"executionTarget": true, "resultLocation": true}
+	read := map[string]string{}
 	for _, c := range configurationSettings {
 		recorded[c.tag] = true
 		vs := s.Tags[c.tag]
@@ -226,12 +253,17 @@ func (m *migration) configurationSettings(s *sysmlv1.Stereotype) (settings confi
 			continue
 		}
 		settings.lines = append(settings.lines, c.attribute+" = "+lit+";")
+		read[c.tag] = strings.TrimSpace(vs[0])
 		switch c.tag {
 		case "numberOfRuns":
 			settings.runs, _ = strconv.ParseInt(lit, 10, 64)
 		case "durationSimulationMode":
 			settings.draws = strings.TrimPrefix(lit, "Simulation::DrawPolicy::")
 		}
+	}
+	var stepNote string
+	if settings.clockStep, stepNote = clockStep(read); stepNote != "" {
+		notes = append(notes, stepNote)
 	}
 	for _, a := range activeObjectSettings {
 		recorded[a.tag] = true

@@ -657,7 +657,16 @@ action def 'Group 0' {
   read from the model but the harness below applies. `timeVariableName`, `startTime`, `stepSize`,
   `timeUnit` and `runForksInParallel` are recorded as `timeVariable`, `startTime`, `stepSize`,
   `timeUnit` and `parallelForks`: they describe the clock the tool ran on, and OpenSysML's clock
-  is the run's own, so they are recorded, not applied. A mode that is none of the four policies,
+  is the run's own, so a run reads none of them. One of them the harness does apply: a
+  configuration stating `startTime` ran on the tool's internal clock, which ticks by `stepSize`
+  (`1.0` unless stated) in `timeUnit` and notices a wait's end at the tick after it, so the sidecar
+  records that step in seconds as `clockStep` and `-compare-results` runs the configuration on a
+  clock stepping by it (`-clock-step` overrides it). A `timeUnit` the migration cannot read as a
+  fixed number of seconds, or a `stepSize` of zero or less, leaves the step out with a note and
+  the runs on a continuous clock; an unstated `timeUnit` reads the step in seconds, as a bare
+  duration of the model is read, and notes that the tool's own default is the millisecond. A
+  configuration without `startTime` ran on the tool's real-time clock and records no step. A mode
+  that is none of the four policies,
   and a run count beyond what a Monte Carlo can make (a 64-bit count), are kept among the
   tool's other tags in the trailing comment, as are `animationSpeed`,
   `silent` and every setting with no v2 meaning; `autostartActiveObjects` and
@@ -675,7 +684,7 @@ action def 'Group 0' {
 
   ```json
   {"source": "model.xmi", "configurations": [
-    {"id": "_g0", "name": "Group 0", "runs": 1000, "draws": "random",
+    {"id": "_g0", "name": "Group 0", "runs": 1000, "draws": "random", "clockStep": 1.0,
      "target": "target", "behavior": "run", "resultLocation": "Analysis::Results::Group 0",
      "observables": ["Time_Acq_Total", "Time_Dither"],
      "snapshots": [{"id": "_s1", "name": "Acq 1", "values": {"Time_Acq_Total": 80.228, "Time_Dither": 0.0}}],
@@ -722,7 +731,7 @@ action def 'Group 0' {
   table lacks, which call stops it.
 
 `sysml model.sysml -compare-results results.json` then runs every configuration the sidecar
-indexes — with its `runs` and `draws`, or the `-runs` and `-draws` given, seeded from `-seed` —
+indexes — with its `runs`, `draws` and `clockStep`, or the `-runs`, `-draws` and `-clock-step` given, seeded from `-seed` —
 and prints, per observable, the tool's and OpenSysML's min, mean, p50, p90 and max with their
 relative difference; see
 [Comparing a migrated configuration with the tool's results](cli.md#comparing-a-migrated-configuration-with-the-tools-results).

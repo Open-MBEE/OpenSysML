@@ -22,6 +22,8 @@ type CompareOptions struct {
 	Seed *uint64
 	// Draws replaces every configuration's durationSimulationMode when set.
 	Draws *runtime.DrawPolicy
+	// ClockStep replaces every configuration's clock step when set; 0 is a continuous clock.
+	ClockStep *float64
 	// Observe names the stored observables compared, each with the feature of the run that answers
 	// it; without any, every stored observable is read from the target's feature of its own name.
 	Observe []ObservablePair
@@ -141,13 +143,20 @@ func (s *Session) compareVerdict(cfg *simresults.ConfigurationResults, opts Comp
 		}
 		policy = parsed
 	}
+	step := cfg.ClockStep
+	if opts.ClockStep != nil {
+		step = *opts.ClockStep
+	}
+	if err := runtime.CheckClockStep(step); err != nil {
+		return unresolvedVerdict(label, "the clock step of the configuration "+cfg.Name+" cannot be run on: "+err.Error())
+	}
 	inv, unresolved := s.resolveInvocation([]Behavior{{Name: cfg.Name}}, nil, nil)
 	if inv == nil {
 		v := unresolved[0]
 		v.Subject = label
 		return v
 	}
-	answered, table, err := s.runsTable(inv, count, opts.Seed, nil, policy)
+	answered, table, err := s.runsTable(inv, count, opts.Seed, nil, policy, step)
 	if err != nil {
 		return standing(unresolvedVerdict(label, "the configuration "+cfg.Name+" could not be run: "+err.Error()), answered)
 	}
@@ -164,6 +173,9 @@ func (s *Session) compareVerdict(cfg *simresults.ConfigurationResults, opts Comp
 		storedRuns(cfg), orNone(cfg.Location), completed, policy)
 	if !table.Seedless {
 		header += fmt.Sprintf(", seed %d", table.Seed)
+	}
+	if step > 0 {
+		header += ", clock step " + semantics.FormatReal(step) + " s"
 	}
 	lines := append(sweepTraces(table), header)
 	lines = append(lines, comparisonTable(cfg, table, opts.Observe)...)

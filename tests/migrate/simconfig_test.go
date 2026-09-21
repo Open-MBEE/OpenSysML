@@ -123,6 +123,52 @@ func TestSimulationConfigReportsWhatItCannotRun(t *testing.T) {
 	}
 }
 
+// A configuration whose startTime sets the tool's internal clock going records
+// that clock's step in the sidecar: stepSize, 1.0 unless stated, in timeUnit —
+// read in seconds, as the model's bare durations are, when the unit is unstated,
+// and not at all, the runs' clock continuous, when the step or the unit is no step.
+// One without startTime ran on the tool's real-time clock and records none.
+func TestSimulationConfigRecordsTheClockStepOfTheToolsInternalClock(t *testing.T) {
+	r := migrateDocument(t, runConfigurations+`
+    <packagedElement xmi:type="uml:Class" xmi:id="_g4" name="Group 4"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_g5" name="Group 5"/>`, `
+  <sysml:Block xmi:id="_s1" base_Class="_chooser"/>
+  <sysml:Block xmi:id="_s2" base_Class="_sure"/>
+  <sysml:Block xmi:id="_s3" base_Class="_other"/>
+  <SimulationProfile:SimulationConfig `+simulationProfile+` xmi:id="_c0" base_Class="_g0"
+      executionTarget="_s0" numberOfRuns="2" startTime="0" stepSize="0.5" timeUnit="minute"/>
+  <SimulationProfile:SimulationConfig `+simulationProfile+` xmi:id="_c1" base_Class="_g1"
+      executionTarget="_s0" numberOfRuns="2" startTime="0" timeUnit="second"/>
+  <SimulationProfile:SimulationConfig `+simulationProfile+` xmi:id="_c2" base_Class="_g2"
+      executionTarget="_s0" numberOfRuns="2" startTime="0" stepSize="2.5"/>
+  <SimulationProfile:SimulationConfig `+simulationProfile+` xmi:id="_c3" base_Class="_g3"
+      executionTarget="_s0" numberOfRuns="2" startTime="0" stepSize="0" timeUnit="second"/>
+  <SimulationProfile:SimulationConfig `+simulationProfile+` xmi:id="_c4" base_Class="_g4"
+      executionTarget="_s0" numberOfRuns="2" startTime="0" stepSize="1.0" timeUnit="tick"/>
+  <SimulationProfile:SimulationConfig `+simulationProfile+` xmi:id="_c5" base_Class="_g5"
+      executionTarget="_s0" numberOfRuns="2" stepSize="3.0" timeUnit="second"/>`)
+	if r.Results == nil || len(r.Results.Configurations) != 6 {
+		t.Fatalf("results = %+v, want six configurations", r.Results)
+	}
+	for i, want := range []float64{30, 1, 2.5, 0, 0, 0} {
+		if got := r.Results.Configurations[i].ClockStep; got != want {
+			t.Errorf("configuration %d: clockStep = %v, want %v", i, got, want)
+		}
+	}
+	for _, line := range []string{"stepSize = 0.5;", `timeUnit = "minute";`, "stepSize = 0.0;", `timeUnit = "tick";`, "stepSize = 3.0;"} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNote(t, r, "_g0", migrate.Mapped, "")
+	wantNote(t, r, "_g1", migrate.Mapped, "")
+	wantNote(t, r, "_g2", migrate.Approximated, "timeUnit is unstated, so stepSize = 2.5 is read in seconds, as the model's bare durations are, where the tool's default is the millisecond")
+	wantNote(t, r, "_g3", migrate.Approximated, "stepSize = 0.0 is no step the clock can tick by, so the runs' clock is continuous")
+	wantNote(t, r, "_g4", migrate.Approximated, `timeUnit = "tick" is no fixed number of seconds, so the clock's step is not derived and the runs' clock is continuous`)
+	wantNote(t, r, "_g5", migrate.Mapped, "")
+	if errs := errors(t, "t.sysml", r.Notation); len(errs) > 0 {
+		t.Errorf("the migrated configurations do not analyse clean: %v\n%s", errs, r.Notation)
+	}
+}
+
 // Only MagicDraw's own simulation profile, at its schemas path on either of the
 // vendor's hosts, makes a «SimulationConfig» a run configuration; a stereotype
 // of that name from a profile elsewhere — a custom one under the vendor's host

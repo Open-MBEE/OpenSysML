@@ -267,6 +267,7 @@ written in, so the verdicts are about that object:
 | `-seed <s>` | The seed the model's own draws come from in every run the invocation makes, whatever `-schedule` — the branch a `@Probability`-weighted decision takes, the value a `RandomFunctions` call returns — and the seed `-samples` and `-runs` draw from, required with those two: the same seed draws the same run or table on every platform. Without it a run that must draw is refused naming the call and the flag, and a weighted decision takes its most probable branch. See [Running an action many times](#running-an-action-many-times) |
 | `-runs <n>` | Runs the one `-action` to completion `n` times, each on a fresh context with a model seed of its own derived from `-seed` and the run number, and tables what each run's `-observe` features came to with a distribution of each; needs exactly one `-action` and `-seed` — unless `-draws` is `min`, `max` or `average`, under which the runs draw nothing at random and the seed may be left out — and is refused with `-sweep`, `-samples`, `-advance`, `-state` or the checker's flags. See [Running an action many times](#running-an-action-many-times) |
 | `-draws <policy>` | How every run the invocation makes resolves the draws of `RandomFunctions` — `uniform`, `uniformInteger`, `triangular`, `normal`: `random` (the default) draws each call from `-seed`; `min`, `max` and `average` take each call's least, greatest or mean value instead and need no seed (`min` and `max` read a bounded call's interval closed at both ends, so `uniform(lo, hi)` is `lo` or `hi`); `normal` with a positive deviation has no least or greatest value, so a run that calls it under `min` or `max` stops with an error (`normal(m, 0)` is `m` under every policy, `random` included, and needs no seed). Weighted decisions are not durations: they draw from `-seed` under every policy, and unseeded take their most probable branch. Every witness records the policy as `draws by <policy>`, and `-schedule replay:<file>` follows it. See [Running an action many times](#running-an-action-many-times) |
+| `-clock-step <seconds>` | The step the clock of every run the invocation makes ticks by, as a simulation tool's fixed-step clock does: a wait (`accept after`, `accept at`, a state's timer, a case's timed step) comes due at the first multiple of the step not before the instant it ends, so under `-clock-step 1` a wait of `2.3 [s]` set at `t=0` comes due at `t=3.0`; `0` (the default) is a continuous clock, on which a wait comes due exactly when it ends. A step that is no finite, non-negative number is refused before anything runs. Every witness of a stepped run records it as `clock steps by <seconds>`, and `-schedule replay:<file>` follows it. With `-compare-results`, replaces every configuration's recorded `stepSize`. See [Running an action many times](#running-an-action-many-times) |
 | `-observe <feature>` | A feature of the `-runs` action to table, or `clock` for the simulation time each run completed at (the clock's name, never a feature's); repeatable; default every feature the action holds and the clock. A name the action does not hold, or one named twice, is refused; the flag without `-runs` or `-compare-results` is refused. With `-compare-results`, a stored observable to compare, read from the target's feature of the same name (`target.<observable>`), or `-observe <observable>=<feature>` to read it from another feature of the run (`Time_Acq_Total=clock`); default every stored observable |
 | `-compare-results <file>` | Reads the JSON sidecar `-migration-results` wrote and, for each run configuration it indexes — every one, or those `-action` names — runs the migrated configuration with its recorded `numberOfRuns` and `durationSimulationMode` (or the `-runs` and `-draws` given), seeded from `-seed`, and tables the tool's and OpenSysML's min, mean, p50, p90 and max of each observable with their relative difference. A check of its own: refused with `-convert`, `-render*`, a query flag, `-eval`, `-compile` or `-sync`. See [Comparing a migrated configuration with the tool's results](#comparing-a-migrated-configuration-with-the-tools-results) |
 | `-schedule <policy>` | The scheduling policy every run this invocation starts — `-action`, `-state`, `-analysis`; a calc's body performs nothing, so `-calc` has no choice to make — resolves its [choice points](../guide/06-behavior.md) under: `reverse` (the default: reverse token order, first holding guard, first enabled transition), `declared` (spawn and declaration order), `seed:<n>` (a pseudo-random order the non-negative integer `n` fixes, the same on every platform) `explore[:runs=N,depth=D]` (every linearization within the budget, tabled by distinct outcome — see [Exploring every linearization](#exploring-every-linearization)) or `replay:<file>` (the `input <feature> = <value>` lines of a witness, which pin those features before the run starts, then its choice lines, one per line up to the first blank line, followed move for move and then `reverse`'s picks one token a step — a header of `no choice points`, as the checker writes for a run that met none, follows the one run there is; a move the run cannot make — a pick not offered, a step already passed, a line left over at the end — is `replay refused: move <n> (<the choice>): <what the run faced>`, an input line naming a feature the action does not have is refused naming it, and the check is *not covered*; see [Running one witness again](../guide/06-behavior.md#running-one-witness-again)). Every choice point the run reaches is reported and the `took …` in each is what the policy took; another policy's run may reach other choice points, so their count is not fixed across policies. A spelling naming no policy — an unknown name, `seed` or `seed:` without a number, `seed:-1`, `seed:abc`, `explore:` with nothing after the colon, `explore:runs=0`, `explore:depth=-1`, an option named twice, `replay` or `replay:` without a file, a replay file that cannot be read, is empty or has a line spelling no choice — is refused before anything runs |
@@ -1035,6 +1036,21 @@ witness naming a fixed policy and recording no draw leaves them to it, each call
 to the policy's point as the run did, while one recording some but not all is refused. A
 `-draws` spelling that is none of the four is refused before anything runs.
 
+**Clock step.** `-clock-step <seconds>` is the fourth knob: the step the clock of every run
+ticks by. A simulation tool's fixed-step clock observes the run at its ticks alone, so a wait
+ending between two ticks is noticed at the later one: under `-clock-step 1` a wait of `2.3 [s]`
+set at `t=0` comes due at `t=3.0`, one of `2.0 [s]` at `t=2.0`, and an `accept at` an instant
+off the grid at the first tick after it. The step is read when the wait is set, so a wait
+queued before the step changed keeps the instant it was given. `0`, the default, is a
+continuous clock, on which every wait comes due exactly when it ends; a step that is no finite,
+non-negative number is refused before anything runs. The step is recorded in every witness the
+checker writes for a stepped run, as a `clock steps by <seconds>` line after the draw policy
+and ahead of the draws (a continuous run's witness carries no such line, so one written before
+reads as before; a line naming `0`, a negative step, or a step twice is refused), and
+`-schedule replay:<file>` runs on the recorded clock whatever `-clock-step` says. A configuration
+migrated from a tool whose `startTime` set its clock going carries the tool's `stepSize` as its
+own step, which `-compare-results` runs it under; see below.
+
 ```bash
 $ sysml -action Sys::align -runs 3 -draws max -observe clock m.sysml
 runs Sys::align — 3 run(s), no seed
@@ -1066,7 +1082,7 @@ the configured classifier, with the tool's `numberOfRuns` and `durationSimulatio
 `@Simulation::Configuration` metadata — and, in its result packages, the snapshots the tool
 stored of each run. `-convert sysml -migration-results <file>` writes both as a JSON sidecar:
 one entry per configuration with its `name` (the qualified name of the generated `action def`,
-which `-action` names), `runs`, `draws`, `target`, `behavior`, `resultLocation`, the
+which `-action` names), `runs`, `draws`, `clockStep` (the tool's internal clock's step in seconds, once its `startTime` set it going), `target`, `behavior`, `resultLocation`, the
 `observables` its snapshots hold, one `snapshots` row per stored run with its numeric slot
 values, and `notes` stating every slot left out and why (a value that is no number, a defining
 feature the document does not hold, a feature two slots of one snapshot hold numbers for, a
@@ -1080,7 +1096,7 @@ the notation is, so `'Sub::Group'` is one name and `-action Sub::Group` or `-act
 selects it; a `::` inside its quotes is no qualification), an
 `-action` no configuration bears (`no configuration is named Group 9`) or several do (`2
 configurations are named Group 1 (…)`) failing the check on its own beside the ones compared — under its recorded
-count and policy, or the `-runs`, `-draws` and `-seed` given, and tables the tool's and
+count, policy and clock step, or the `-runs`, `-draws`, `-clock-step` and `-seed` given, and tables the tool's and
 OpenSysML's distributions side by side:
 
 ```bash
@@ -1108,7 +1124,10 @@ tool stored no snapshot of is run all the same, its table holding a `tool (no st
 compare)` row of zero runs over OpenSysML's statistics of the observable its analysis summarises,
 or of every feature the runs produced a number for; one stating no `numberOfRuns` is run once, as
 its tool runs it, under a note saying so (`-runs` makes more); one whose behavior was not migrated
-is undecided naming it, with the sidecar's notes. A run that fails is an `error:` line under the
+is undecided naming it, with the sidecar's notes. A configuration whose tool ran it on a stepped
+clock — a `startTime` set, so the tool's clock was going, its `stepSize` (`1.0` when unstated) the
+step — is run under that step, named in the header as `clock step <seconds> s`; `-clock-step`
+replaces it for every configuration, `-clock-step 0` running them all on a continuous clock. A run that fails is an `error:` line under the
 table and fails the comparison (exit status `1`), as it fails a `-runs` table: the statistics
 are of the completed runs only, so they are not passed off as the configuration's. The statistics
 are nearest-rank on both sides,

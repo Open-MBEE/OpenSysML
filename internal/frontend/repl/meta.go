@@ -169,6 +169,7 @@ var metaCommandTable = []metaCommand{
 	{name: "%schedule", group: groupSettings, args: "[<policy>]", desc: "show or set the scheduling policy runs started from here on resolve choice points under: declared, reverse or seed:<n>"},
 	{name: "%seed", group: groupSettings, args: "[<n>|off]", desc: "show or set the seed runs started from here on draw their modeled randomness from — Probability-weighted decisions, RandomFunctions — whatever the schedule; off leaves it to the schedule's seed:<n>"},
 	{name: "%draws", group: groupSettings, args: "[<policy>]", desc: "show or set how runs started from here on resolve RandomFunctions draws: random (from the seed), min, max or average of each call's distribution; min, max and average need no seed"},
+	{name: "%clock-step", group: groupSettings, args: "[<seconds>]", desc: "show or set the step the clock of runs started from here on ticks by: a wait comes due at the first multiple of it not before the wait ends; 0 (the default) is a continuous clock"},
 	{name: "%budget", group: groupSettings, desc: "show the bounds one run may spend, and the variable raising each"},
 	{name: "%jobs", group: groupSettings, args: "[<n>]", desc: "show or set how many runs of one check go concurrently: an exploration's linearizations, the engines all consults"},
 
@@ -372,6 +373,8 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 		return metaOut(s.doSeed(fields[1:]), false, nil), true
 	case "%draws":
 		return metaOut(s.doDraws(fields[1:]), false, nil), true
+	case "%clock-step":
+		return metaOut(s.doClockStep(fields[1:]), false, nil), true
 	case "%budget":
 		return metaOut(s.doBudget(), false, nil), true
 	case "%jobs":

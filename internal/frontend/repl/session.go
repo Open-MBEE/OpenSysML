@@ -145,6 +145,9 @@ type Session struct {
 	// draws is how runs started from here on resolve their RandomFunctions draws.
 	draws runtime.DrawPolicy
 
+	// clockStep is the step, in seconds, the clock of runs started from here on ticks by; 0 is continuous.
+	clockStep float64
+
 	// jobs is how many runs of one plan go concurrently.
 	jobs int
 
