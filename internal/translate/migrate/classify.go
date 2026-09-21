@@ -110,19 +110,21 @@ var hostScalars = map[string]string{
 	"boolean": "Boolean",
 }
 
-// libraryRoots are the names of the SysML and UML profile and model library
+// libraryRoots are the names of the SysML, UML and fUML profile and model library
 // packages an export carries alongside the user's model.
 var libraryRoots = map[string]bool{
-	"SysML":                true,
-	"StandardProfile":      true,
-	"UML Standard Profile": true,
-	"QUDV":                 true,
-	"ISO-80000":            true,
-	"SI Definitions":       true,
-	"SIDefinitions":        true,
-	"PrimitiveTypes":       true,
-	"PrimitiveValueTypes":  true,
-	"Libraries":            true,
+	"SysML":                    true,
+	"StandardProfile":          true,
+	"UML Standard Profile":     true,
+	"QUDV":                     true,
+	"ISO-80000":                true,
+	"SI Definitions":           true,
+	"SIDefinitions":            true,
+	"PrimitiveTypes":           true,
+	"PrimitiveValueTypes":      true,
+	"Libraries":                true,
+	"FoundationalModelLibrary": true,
+	"fUML_Library":             true,
 }
 
 // isStandard reports whether s comes from a standard profile rather than a
