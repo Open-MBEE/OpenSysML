@@ -194,6 +194,12 @@ func (act *doAction) finished() bool {
 	return act.run == nil && len(act.pending) == 0
 }
 
+// midStep reports a do behavior paused between two moves of its flow, its step of
+// the round not over.
+func (act *doAction) midStep() bool {
+	return act.run != nil && act.run.body.paused.tokenStep
+}
+
 // historyRecord is the configuration one composite state was last left in.
 type historyRecord struct {
 	// child is the substate that was active, whether it was declared directly or
@@ -3230,28 +3236,29 @@ func (e *StateExecutor) dueRound() []*doAction {
 
 // stepRound runs one do action's step or, drawn against the steps under ChoiceStepOrder
 // while a dispatch that acts is due, the dispatch; the round closes once each has stepped.
+// A step made one token move at a time keeps its action in the round until it is over.
 func (e *StateExecutor) stepRound(progress *dueProgress) (bool, error) {
 	var next int
+	due := e.round
 	if dispatch := e.dueDispatch(); dispatch.acts {
-		pick, err := e.chooseStepOrder(e.round, dispatch.step)
+		pick, err := e.chooseStepOrder(due, dispatch.step)
 		if err != nil {
 			return false, err
 		}
-		if pick == len(e.round) {
+		if pick == len(due) {
 			e.dispatchAmong = dispatch.among
 			defer func() { e.dispatchAmong = nil }()
 			return e.dispatchOne(progress)
 		}
 		next = pick
 	} else {
-		pick, err := e.chooseDoAction(e.round)
+		pick, err := e.chooseDoAction(due)
 		if err != nil {
 			return false, err
 		}
 		next = pick
 	}
-	act := e.round[next]
-	e.round = slices.Delete(e.round, next, next+1)
+	act := due[next]
 	if err := e.stepDoAction(act, func(run *doRun) (*doRun, error) { return run.resume(e.ctx) }); err != nil {
 		return false, err
 	}
@@ -3261,6 +3268,10 @@ func (e *StateExecutor) stepRound(progress *dueProgress) (bool, error) {
 			fmt.Sprintf("state machine exceeded max do action steps (%d steps; raise %s to allow more), possible non-terminating do behavior",
 				e.ctx.maxDoSteps, MaxDoStepsEnvVar))
 	}
+	if act.midStep() {
+		return true, nil
+	}
+	e.round = slices.DeleteFunc(e.round, func(a *doAction) bool { return a == act })
 	if len(e.round) == 0 {
 		e.roundDone = true
 		return true, e.settleDoActions()

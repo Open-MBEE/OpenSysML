@@ -177,6 +177,11 @@ func (e *ActionExecutor) driveSubflow(f *subflowFrame) error {
 					return err
 				}
 			}
+			if e.ctx.stepsTokens() && e.flowMovesNow(perf) {
+				if err := e.ctx.tokenStepBody(); err != nil {
+					return err
+				}
+			}
 			continue
 		}
 		if e.waitsOnClock(perf) && !e.hasDueTimeWait(perf) && !e.hasDuePausedWork(perf) {
@@ -224,7 +229,6 @@ func (e *ActionExecutor) stepSubflow(perf *actionFrame) (moved, performed bool, 
 	}
 	candidates := e.stepCandidates(&order, eligible)
 	schedule := e.ctx.scheduling().scheduleStep(candidates)
-	var acted []int64
 	for id, ok := schedule.Next(); ok; id, ok = schedule.Next() {
 		i := e.tokenIndex(id)
 		if i < 0 || e.moving(e.tokens[i]) || !e.tokens[i].inFlowOf(perf) {
@@ -233,16 +237,10 @@ func (e *ActionExecutor) stepSubflow(perf *actionFrame) (moved, performed bool, 
 		}
 		var did bool
 		did, err = e.stepTokenNoting(i, &order)
-		if did {
-			acted = append(acted, id)
-		}
 		schedule.Acted(id, did)
 		if err != nil {
 			break
 		}
-	}
-	if oneMove && candidates.leftReady(acted) {
-		e.leftStanding = true
 	}
 	endWrites()
 	e.noteTokenOrder(e.stepCount+1, order, schedule)
@@ -292,6 +290,18 @@ func (e *ActionExecutor) performingTokens(perf *actionFrame) map[int64]bool {
 // next step performs.
 func (e *ActionExecutor) nextStepPerforms(perf *actionFrame) bool {
 	return len(e.performingTokens(perf)) > 0
+}
+
+// flowMovesNow reports whether a token of perf's flow would act were one stepped
+// now, so a run going one move at a time has a next move to pause before.
+func (e *ActionExecutor) flowMovesNow(perf *actionFrame) bool {
+	order := e.beginStepOrder()
+	candidates := e.stepCandidates(&order, func(t Token) bool {
+		return t.inFlowOf(perf) && (t.body == nil || t.resumable())
+	})
+	return slices.ContainsFunc(candidates.ids, func(id int64) bool {
+		return !candidates.held[id] && candidates.enabled(id)
+	})
 }
 
 // performs reports a node a token's step performs — an action or a statement node

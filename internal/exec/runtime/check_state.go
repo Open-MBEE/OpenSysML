@@ -248,9 +248,6 @@ func (s *stateSpeller) machine(e *StateExecutor) {
 		}
 		if act.run != nil {
 			fmt.Fprintf(&s.out, ", paused{%s}", s.body(act.run.body))
-			if act.run.host.flow.leftStanding {
-				s.out.WriteString(", left standing")
-			}
 		}
 		s.out.WriteString("}")
 	}
