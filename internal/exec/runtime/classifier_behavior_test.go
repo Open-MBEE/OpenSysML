@@ -516,6 +516,163 @@ func TestInvokeOperationPerformedByTheObject(t *testing.T) {
 	}
 }
 
+// positionalInvokeFixture owns operations a positional argument list exercises:
+// a defaulted trailing parameter, an `out` and an `inout` parameter, and two
+// calcs of one name told apart by arity.
+const positionalInvokeFixture = `
+	package test {
+		private import ScalarValues::*;
+		part def Tank {
+			attribute level : Integer = 2;
+			action fillBy { in n : Integer; in times : Integer = 1; out filled : Integer;
+				first apply; action apply { assign level := level + n * times; assign filled := level; } }
+			action drainInto { in n : Integer; inout sink : Integer; out drained : Integer;
+				first apply; action apply { assign level := level - n; assign sink := sink + n; assign drained := n; } }
+			calc scaled { in factor : Integer; return : Integer = level * factor; }
+			calc scaled { in factor : Integer; in offset : Integer; return : Integer = level * factor + offset; }
+			attribute label : String = "";
+			action run { in x : String; first apply; action apply { assign label := x; } }
+			calc run { in x : Integer; return : Integer = level + x; }
+			action countUp : Count { inout redefines tally;
+				first apply; action apply { assign tally := tally + by; assign level := level + by; } }
+		}
+		action def Count { inout tally : Integer; in by : Integer = 1; }
+	}
+`
+
+// A positional argument list binds the operation's `in` and `inout` parameters in
+// declaration order, leaves a trailing defaulted parameter to its default, skips an
+// `out` parameter, and selects among same-named operations by arity and by type —
+// an action and a calc of one name each answering the arguments that fit it.
+func TestInvokeOperationWithPositionalArguments(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, positionalInvokeFixture))
+	tank := findSymbolByName(idx.DocumentRoot("<test>"), "Tank", ast.DefPart)
+	if tank == nil {
+		t.Fatal("Tank not found")
+	}
+	inst, err := ctx.Instantiate(tank)
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	positional := func(values ...Value) OperationArguments {
+		return OperationArguments{Positional: values}
+	}
+
+	results, err := ctx.InvokeOperationWith(inst, "fillBy", positional(intArgument(3)))
+	if err != nil {
+		t.Fatalf("fillBy(3): %v", err)
+	}
+	wantResult(t, results, "filled", 5)
+	results, err = ctx.InvokeOperationWith(inst, "fillBy", positional(intArgument(3), intArgument(2)))
+	if err != nil {
+		t.Fatalf("fillBy(3, 2): %v", err)
+	}
+	wantResult(t, results, "filled", 11)
+
+	results, err = ctx.InvokeOperationWith(inst, "drainInto", positional(intArgument(4), intArgument(10)))
+	if err != nil {
+		t.Fatalf("drainInto(4, 10): %v", err)
+	}
+	wantResult(t, results, "sink", 14)
+	wantResult(t, results, "drained", 4)
+	if fv, err := inst.GetFeatureValue(ctx, "level"); err != nil || fv.HeldValue().Const.Int != 7 {
+		t.Errorf("level = %v, %v, want 7", fv, err)
+	}
+
+	results, err = ctx.InvokeOperationWith(inst, "scaled", positional(intArgument(2)))
+	if err != nil {
+		t.Fatalf("scaled(2): %v", err)
+	}
+	wantResult(t, results, "result", 14)
+	results, err = ctx.InvokeOperationWith(inst, "scaled", positional(intArgument(2), intArgument(1)))
+	if err != nil {
+		t.Fatalf("scaled(2, 1): %v", err)
+	}
+	wantResult(t, results, "result", 15)
+	results, err = ctx.InvokeOperationWith(inst, "scaled", OperationArguments{Named: map[string]Value{"factor": intArgument(3), "offset": intArgument(1)}})
+	if err != nil {
+		t.Fatalf("scaled(factor=3, offset=1): %v", err)
+	}
+	wantResult(t, results, "result", 22)
+
+	results, err = ctx.InvokeOperationWith(inst, "run", positional(intArgument(3)))
+	if err != nil {
+		t.Fatalf("run(3): %v", err)
+	}
+	wantResult(t, results, "result", 10)
+	if _, err = ctx.InvokeOperationWith(inst, "run", positional(NewStringValue("go"))); err != nil {
+		t.Fatalf(`run("go"): %v`, err)
+	}
+	if fv, err := inst.GetFeatureValue(ctx, "label"); err != nil || fv.HeldValue().Str() != "go" {
+		t.Errorf("label = %v, %v, want go", fv, err)
+	}
+	if _, err = ctx.InvokeOperationWith(inst, "run", OperationArguments{Named: map[string]Value{"x": NewStringValue("named")}}); err != nil {
+		t.Fatalf(`run(x="named"): %v`, err)
+	}
+	if fv, err := inst.GetFeatureValue(ctx, "label"); err != nil || fv.HeldValue().Str() != "named" {
+		t.Errorf("label = %v, %v, want named", fv, err)
+	}
+
+	for _, tc := range []struct {
+		name string
+		op   string
+		args OperationArguments
+		want error
+	}{
+		{"fewer than required", "fillBy", positional(), ErrUnboundParameter},
+		{"more than declared", "fillBy", positional(intArgument(1), intArgument(2), intArgument(3)), ErrOperationArity},
+		{"out parameter counted", "drainInto", positional(intArgument(1), intArgument(2), intArgument(3)), ErrOperationArity},
+		{"positional and named mixed", "fillBy", OperationArguments{Positional: []Value{intArgument(1)}, Named: map[string]Value{"n": intArgument(1)}}, ErrMixedArguments},
+		{"out parameter named", "drainInto", OperationArguments{Named: map[string]Value{"n": intArgument(1), "sink": intArgument(1), "drained": intArgument(1)}}, ErrUnboundParameter},
+		{"no arity fits", "scaled", positional(intArgument(1), intArgument(2), intArgument(3)), ErrOperationArity},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, err := ctx.InvokeOperationWith(inst, tc.op, tc.args); !errors.Is(err, tc.want) {
+				t.Fatalf("error = %v, want %v", err, tc.want)
+			}
+		})
+	}
+}
+
+// An unnamed `inout redefines` parameter is bound and returned under the name it
+// inherits, positionally or by name, the defaulted trailing input left out.
+func TestInvokeOperationReturnsRedefinedInout(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, positionalInvokeFixture))
+	tank := findSymbolByName(idx.DocumentRoot("<test>"), "Tank", ast.DefPart)
+	if tank == nil {
+		t.Fatal("Tank not found")
+	}
+	inst, err := ctx.Instantiate(tank)
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	results, err := ctx.InvokeOperationWith(inst, "countUp", OperationArguments{Positional: []Value{intArgument(10), intArgument(4)}})
+	if err != nil {
+		t.Fatalf("countUp(10, 4): %v", err)
+	}
+	wantResult(t, results, "tally", 14)
+	results, err = ctx.InvokeOperationWith(inst, "countUp", OperationArguments{Named: map[string]Value{"tally": intArgument(10)}})
+	if err != nil {
+		t.Fatalf("countUp(tally=10): %v", err)
+	}
+	wantResult(t, results, "tally", 11)
+	if len(results) != 1 {
+		t.Errorf("results = %v, want tally alone", results)
+	}
+	if fv, err := inst.GetFeatureValue(ctx, "level"); err != nil || fv.HeldValue().Const.Int != 7 {
+		t.Errorf("level = %v, %v, want 7", fv, err)
+	}
+}
+
+// wantResult checks that an operation answered name with the integer want.
+func wantResult(t *testing.T, results map[string]Value, name string, want int64) {
+	t.Helper()
+	got, ok := results[name]
+	if !ok || got.Kind != ValConst || got.Const.Int != want {
+		t.Errorf("%s = %v, want %d", name, results, want)
+	}
+}
+
 // An operation invocation counts its own calc or constraint cost against the
 // step budget, while separate invocations receive separate budgets.
 func TestInvokeOperationCountsItsOwnCostAgainstBudget(t *testing.T) {
