@@ -404,19 +404,43 @@ func exprKey(node ast.Node) (string, bool) {
 		}
 		return "", false
 	case *ast.OperatorExpr:
-		return "(" + n.Operator.String() + exprKeyList(n.Operands) + exprKeyRef(n.TypeRef) + ")", true
+		operands, ok := exprKeyList(n.Operands)
+		if !ok {
+			return "", false
+		}
+		return "(" + n.Operator.String() + operands + exprKeyRef(n.TypeRef) + ")", true
 	case *ast.IndexExpr:
+		pair, ok := exprKeyList([]ast.Node{n.Operand, n.Index})
+		if !ok {
+			return "", false
+		}
 		kind := "#"
 		if n.Bracket {
 			kind = "[]"
 		}
-		return "(" + kind + exprKeyList([]ast.Node{n.Operand, n.Index}) + ")", true
+		return "(" + kind + pair + ")", true
 	case *ast.InvocationExpr:
-		return "(call" + exprKeyRef(n.Type) + exprKeyOperand(n.Operand) + exprKeyArgs(n.Args, n.NamedArgs) + ")", true
+		operand, ok := exprKeyOperand(n.Operand)
+		if !ok {
+			return "", false
+		}
+		args, ok := exprKeyArgs(n.Args, n.NamedArgs)
+		if !ok {
+			return "", false
+		}
+		return "(call" + exprKeyRef(n.Type) + operand + args + ")", true
 	case *ast.ConstructorExpr:
-		return "(new" + exprKeyRef(n.Type) + exprKeyArgs(n.Args, n.NamedArgs) + ")", true
+		args, ok := exprKeyArgs(n.Args, n.NamedArgs)
+		if !ok {
+			return "", false
+		}
+		return "(new" + exprKeyRef(n.Type) + args + ")", true
 	case *ast.SequenceExpr:
-		return "(seq" + exprKeyList(n.Elements) + ")", true
+		elements, ok := exprKeyList(n.Elements)
+		if !ok {
+			return "", false
+		}
+		return "(seq" + elements + ")", true
 	case *ast.CollectExpr:
 		return exprKeyBodyForm("collect", n.Operand, n.Body)
 	case *ast.SelectExpr:
@@ -433,20 +457,19 @@ func exprKey(node ast.Node) (string, bool) {
 	}
 }
 
-// exprKeyList renders nodes space-separated; an unrenderable one marks its
-// position "?" — the node's span is a child position, so it cannot stand in
-// here, and the shape the siblings leave is still distinct.
-func exprKeyList(nodes []ast.Node) string {
+// exprKeyList renders nodes space-separated; an unrenderable one fails the
+// whole list, so its parent falls back to a unique span key rather than
+// collapsing with a shape differing only inside it.
+func exprKeyList(nodes []ast.Node) (string, bool) {
 	var out string
 	for _, node := range nodes {
 		key, ok := exprKey(node)
 		if !ok {
-			span := node.Span()
-			key = fmt.Sprintf("?%d+%d", span.Offset, span.Len)
+			return "", false
 		}
 		out += " " + key
 	}
-	return out
+	return out, true
 }
 
 // exprKeyBodyForm keys a collect/select: operand plus the body's parameters and
@@ -482,15 +505,15 @@ func exprKeyBodyForm(kind string, operand, body ast.Node) (string, bool) {
 }
 
 // exprKeyOperand renders an optional receiver position.
-func exprKeyOperand(operand ast.Node) string {
+func exprKeyOperand(operand ast.Node) (string, bool) {
 	if operand == nil {
-		return ""
+		return "", true
 	}
 	key, ok := exprKey(operand)
 	if !ok {
-		return " ?"
+		return "", false
 	}
-	return " " + key
+	return " " + key, true
 }
 
 // exprKeyRef renders a named type position.
@@ -501,17 +524,21 @@ func exprKeyRef(ref *ast.QualifiedName) string {
 	return " " + ast.QualifiedText(ref)
 }
 
-// exprKeyArgs renders positional then named arguments in written order.
-func exprKeyArgs(args []ast.Node, named []ast.NamedArg) string {
-	out := exprKeyList(args)
+// exprKeyArgs renders positional then named arguments in written order; an
+// unrenderable value fails the whole list.
+func exprKeyArgs(args []ast.Node, named []ast.NamedArg) (string, bool) {
+	out, ok := exprKeyList(args)
+	if !ok {
+		return "", false
+	}
 	for _, arg := range named {
 		key, ok := exprKey(arg.Value)
 		if !ok {
-			key = "?"
+			return "", false
 		}
 		out += " " + ast.QualifiedText(arg.Name) + "=" + key
 	}
-	return out
+	return out, true
 }
 
 // TransitionGroups returns the positions of the transitions out of source that

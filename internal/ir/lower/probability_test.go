@@ -257,3 +257,43 @@ func TestTriggerKeyDistinguishesInvocations(t *testing.T) {
 		t.Errorf("via p and via this.p keyed alike: %v", viaTransitions)
 	}
 }
+
+// A cast keeps its operand in the key, and a trigger whose expression has an
+// unrenderable part falls back to a key unique to its own spelling rather than
+// collapsing with another.
+func TestTriggerKeyCastAndUnrenderableFallback(t *testing.T) {
+	graph, err := ToStateGraph(stateUsageIn(t, `state m {
+		attribute width;
+		attribute height;
+		entry; then a;
+		state a;
+		state b;
+		state c;
+		transition t1 first a accept after (width as ScalarValues::Real) then b;
+		transition t2 first a accept after (height as ScalarValues::Real) then c;
+	}`), nil)
+	if err != nil {
+		t.Fatalf("ToStateGraph: %v", err)
+	}
+	transitions := graph.Transitions[stateNamed(graph, "a")]
+	if len(transitions) != 2 || TriggerKey(transitions[0]) == TriggerKey(transitions[1]) {
+		t.Errorf("casts of different operands keyed alike: %v", transitions)
+	}
+
+	unkeyed, err := ToStateGraph(stateUsageIn(t, `state m {
+		entry; then a;
+		state a;
+		state b;
+		state c;
+		transition t1 first a accept after f(n = { in x : Real; x }) then b;
+		transition t2 first a accept after f(n = { in x : Real; x }) then c;
+	}`), nil)
+	if err != nil {
+		t.Fatalf("ToStateGraph(unkeyed): %v", err)
+	}
+	unkeyedTransitions := unkeyed.Transitions[stateNamed(unkeyed, "a")]
+	if len(unkeyedTransitions) != 2 ||
+		TriggerKey(unkeyedTransitions[0]) == TriggerKey(unkeyedTransitions[1]) {
+		t.Errorf("unrenderable named-arg values keyed alike: %v", unkeyedTransitions)
+	}
+}
