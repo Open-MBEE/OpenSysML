@@ -1054,9 +1054,7 @@ func (ctx *Context) classifierBehaviorChain(decl classifierBehaviorDecl) ([]*sym
 			if sym != decl.member {
 				return chain, nil
 			}
-			// A performed action naming nothing is its own body: the
-			// EventOccurrenceUsage is itself the event occurrence
-			// (SysML v2 §8.3.16, eventOccurrence).
+			// A performed action naming nothing is its own body (SysML v2 §8.3.16, eventOccurrence).
 			if decl.behavior.Kind == lower.PerformedAction && !decl.behavior.NamesBehavior {
 				return chain, nil
 			}

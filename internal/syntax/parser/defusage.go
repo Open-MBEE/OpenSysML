@@ -3941,9 +3941,8 @@ func (p *Parser) parseConnectorEnds(u *ast.Usage, kw string) {
 	}
 
 	if p.atKeyword(expectedKeyword) && !p.peekIsKeyword(1, expectedKeyword) {
-		// The first end is missing and the keyword is read as the delimiter it
-		// is, not as the end's name — except where a second keyword follows,
-		// there the first is a genuine name (`connect to to b`).
+		// The first end is missing: the keyword is the delimiter, not an end's
+		// name — unless a second keyword follows (`connect to to b`).
 		p.error(p.peek().Span, fmt.Sprintf("expected a connector end before '%s'", expectedKeyword))
 		p.advance()
 	} else {
