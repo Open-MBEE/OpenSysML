@@ -842,7 +842,7 @@ func TestExecuteUnorderedObjects(t *testing.T) {
 	forward := executed(pairing, []ExpectedOutput{{Parameter: "both", Values: []ExpectedValue{first, second}}})
 	backward := executed(pairing, []ExpectedOutput{{Parameter: "both", Values: []ExpectedValue{second, first}}})
 	want := "both = Item#1{n = 1; opt = -; set = -; xs = -}, Item#2{n = 2; opt = -; set = -; xs = -}"
-	if got := renderExpected(pairing, &backward); got != want {
+	if got := renderExpected(emitted(t, s, "Pairing"), &backward); got != want {
 		t.Errorf("renderExpected(backward) = %q, want %q", got, want)
 	}
 	for name, x := range map[string]ExpectedActivity{"forward": forward, "backward": backward} {
@@ -871,7 +871,7 @@ func TestExecuteIdenticalObjectsNumberByReference(t *testing.T) {
 	forward, backward := record(lone, picked), record(picked, lone)
 	want := "both = Item#1{n = -; opt = -; set = -; xs = -}, Item#2{n = -; opt = -; set = -; xs = -}\npick = #1"
 	for name, x := range map[string]ExpectedActivity{"forward": forward, "backward": backward} {
-		if got := renderExpected(twins, &x); got != want {
+		if got := renderExpected(emitted(t, s, "Twins"), &x); got != want {
 			t.Errorf("renderExpected(%s) = %q, want %q", name, got, want)
 		}
 		ex, err := Execute(context.Background(), emitted(t, s, "Twins"), &x, DefaultBudget, 1)
@@ -1441,6 +1441,91 @@ func TestEmitActivityNamesakeOfPrimitive(t *testing.T) {
 	}
 }
 
+// classifierNamesakeModel declares a class, a signal and an activity all named
+// Worker; only the activity holds a queue and a badge. Hire creates the
+// activity's object; Ledger is given one and reads its queue.
+const classifierNamesakeModel = `<?xml version="1.0" encoding="UTF-8"?>
+<uml:Model xmi:version="20131001" xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmlns:uml="http://www.eclipse.org/uml2/5.0.0/UML" xmi:id="m" name="ClassifierNamesakes">
+  <packagedElement xmi:type="uml:Class" xmi:id="workerClass" name="Worker">
+    <ownedAttribute xmi:type="uml:Property" xmi:id="workerRank" name="rank">` + integerType + `</ownedAttribute>
+  </packagedElement>
+  <packagedElement xmi:type="uml:Signal" xmi:id="workerSignal" name="Worker">
+    <ownedAttribute xmi:type="uml:Property" xmi:id="workerUrgency" name="urgency">` + integerType + `</ownedAttribute>
+  </packagedElement>
+  <packagedElement xmi:type="uml:Class" xmi:id="badge" name="Badge">
+    <ownedAttribute xmi:type="uml:Property" xmi:id="badgeCode" name="code">` + integerType + `</ownedAttribute>
+  </packagedElement>
+  <packagedElement xmi:type="uml:Activity" xmi:id="workerAct" name="Worker">
+    <ownedAttribute xmi:type="uml:Property" xmi:id="workerQueue" name="queue">` + integerType + `</ownedAttribute>
+    <ownedAttribute xmi:type="uml:Property" xmi:id="workerBadge" name="badge" type="badge"/>
+    <node xmi:type="uml:InitialNode" xmi:id="workerInit" name="Initial"/>
+  </packagedElement>
+  <packagedElement xmi:type="uml:Activity" xmi:id="hire" name="Hire">
+    <ownedParameter xmi:type="uml:Parameter" xmi:id="hireMade" name="made" direction="out" type="workerAct"/>
+    <node xmi:type="uml:CreateObjectAction" xmi:id="createWorker" name="Create(Worker)" classifier="workerAct">
+      <result xmi:type="uml:OutputPin" xmi:id="createWorkerR" name="result" type="workerAct"/>
+    </node>
+    <node xmi:type="uml:ActivityParameterNode" xmi:id="hireMadeNode" name="Parameter(made)" parameter="hireMade"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="hf1" source="createWorkerR" target="hireMadeNode"/>
+  </packagedElement>
+  <packagedElement xmi:type="uml:Activity" xmi:id="ledger" name="Ledger">
+    <ownedParameter xmi:type="uml:Parameter" xmi:id="ledgerIn" name="worker" direction="in" type="workerAct"/>
+    <ownedParameter xmi:type="uml:Parameter" xmi:id="ledgerQueue" name="queue" direction="out">` + integerType + `</ownedParameter>
+    <ownedParameter xmi:type="uml:Parameter" xmi:id="ledgerSame" name="same" direction="out" type="workerAct"/>
+    <node xmi:type="uml:ActivityParameterNode" xmi:id="ledgerInNode" name="Parameter(worker)" parameter="ledgerIn"/>
+    <node xmi:type="uml:ForkNode" xmi:id="ledgerFork" name="Fork"/>
+    <node xmi:type="uml:ReadStructuralFeatureAction" xmi:id="readQueue" name="Read(queue)" structuralFeature="workerQueue">
+      <object xmi:type="uml:InputPin" xmi:id="readQueueO" name="object" type="workerAct"/>
+      <result xmi:type="uml:OutputPin" xmi:id="readQueueR" name="result">` + integerType + `</result>
+    </node>
+    <node xmi:type="uml:ActivityParameterNode" xmi:id="ledgerQueueNode" name="Parameter(queue)" parameter="ledgerQueue"/>
+    <node xmi:type="uml:ActivityParameterNode" xmi:id="ledgerSameNode" name="Parameter(same)" parameter="ledgerSame"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="lf1" source="ledgerInNode" target="ledgerFork"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="lf2" source="ledgerFork" target="readQueueO"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="lf3" source="ledgerFork" target="ledgerSameNode"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="lf4" source="readQueueR" target="ledgerQueueNode"/>
+  </packagedElement>
+</uml:Model>
+`
+
+// An object of an activity that shares its name with a class and a signal is
+// spelled with the activity's features on both sides, and defaults as the
+// implementation defaults a structured value: a fresh object whose attributes,
+// the object-valued one included, hold their types' defaults.
+func TestExecuteActivityClassifierNamesakes(t *testing.T) {
+	s := fixtureSuite(t, classifierNamesakeModel)
+	hire := fixtureActivity(t, s, "Hire")
+	made := object("w", "Worker", ExpectedFeature{Feature: "queue"}, ExpectedFeature{Feature: "badge"})
+	x := executed(hire, []ExpectedOutput{{Parameter: "made", Values: []ExpectedValue{made}}})
+	em := emitted(t, s, "Hire")
+	wantLines(t, em, "\tpart def Worker {\n\t\tattribute queue : Integer;\n\t\tref part badge : Badge;\n")
+	if strings.Contains(em.Text, "rank") || strings.Contains(em.Text, "urgency") {
+		t.Errorf("Hire declares a namesake's feature:\n%s", em.Text)
+	}
+	const wantMade = "made = Worker#1{badge = -; queue = -}"
+	if got := renderExpected(em, &x); got != wantMade {
+		t.Errorf("renderExpected(Hire) = %q, want %q", got, wantMade)
+	}
+	ex, err := Execute(context.Background(), em, &x, DefaultBudget, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ex.Passed() || strings.Join(ex.Reached, "|") != wantMade {
+		t.Errorf("Hire: %+v", ex)
+	}
+
+	ledger := fixtureActivity(t, s, "Ledger")
+	given := object("w", "Worker", feature("queue", 0), ExpectedFeature{Feature: "badge", Values: []ExpectedValue{object("b", "Badge", feature("code", 0))}})
+	x = executed(ledger, []ExpectedOutput{integers("queue", 0), {Parameter: "same", Values: []ExpectedValue{given}}})
+	ex, err = Execute(context.Background(), emitted(t, s, "Ledger"), &x, DefaultBudget, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ex.Passed() || strings.Join(ex.Reached, "|") != "queue = 0; same = Worker#2{badge = Badge#1{code = 0}; queue = 0}" {
+		t.Errorf("Ledger: %+v", ex)
+	}
+}
+
 // nameNamesakeModel declares a class and a signal both named Notice: Hear
 // accepts the signal and hands it out, touching the class nowhere.
 const nameNamesakeModel = `<?xml version="1.0" encoding="UTF-8"?>
@@ -1596,7 +1681,7 @@ func TestRenderSignalValues(t *testing.T) {
 	heard := ExpectedValue{Kind: "Signal", Types: []string{"Ping"}, Features: []ExpectedFeature{feature("level", 8)}}
 	x := executed(listener, []ExpectedOutput{{Parameter: "heard", Values: []ExpectedValue{heard}}})
 	const want = "heard = Ping#1{level = 8}"
-	if got := renderExpected(listener, &x); got != want {
+	if got := renderExpected(em, &x); got != want {
 		t.Errorf("expected side:\n%s\nwant\n%s", got, want)
 	}
 	budgets, err := runBudgets()
@@ -1622,17 +1707,17 @@ func TestRenderSignalValues(t *testing.T) {
 		t.Fatal(err)
 	}
 	outputs := map[string]runtime.Value{"heard": {Kind: runtime.ValInstance, Instance: inst.ID}}
-	if got := rendered(t, listener, ctx, outputs); got != want {
+	if got := rendered(t, em, ctx, outputs); got != want {
 		t.Errorf("run side:\n%s\nwant\n%s", got, want)
 	}
 	// A signal is a value: one instance two outputs hold spells whole in each,
 	// as the record's two mentions do, never as an alias of the first.
-	pingRef := TypeRef{ID: "Ping", Name: "Ping", Kind: "Signal"}
-	twice := &Activity{Model: listener.Model, Parameters: []*Parameter{
+	pingRef := TypeRef{ID: "ping", Name: "Ping", Kind: "Signal"}
+	twice := translated(t, &Activity{Name: "Twice", Model: listener.Model, Parameters: []*Parameter{
 		{Name: "first", Direction: Out, Type: pingRef, Multiplicity: Multiplicity{Lower: 1, Upper: 1, Unique: true}},
 		{Name: "second", Direction: Out, Type: pingRef, Multiplicity: Multiplicity{Lower: 1, Upper: 1, Unique: true}},
-	}}
-	x = executed(twice, []ExpectedOutput{
+	}})
+	x = executed(twice.Activity, []ExpectedOutput{
 		{Parameter: "first", Values: []ExpectedValue{heard}},
 		{Parameter: "second", Values: []ExpectedValue{heard}},
 	})
@@ -1646,7 +1731,6 @@ func TestRenderSignalValues(t *testing.T) {
 	}
 	// A signal reached again while its own features are read is that signal, not
 	// a copy: a cycle through a feature spells as an alias of the one being filled.
-	linker := fixtureActivity(t, s, "Linker")
 	em = emitted(t, s, "Linker")
 	action, _, fresh, err = build(em, budgets)
 	if err != nil {
@@ -1666,19 +1750,20 @@ func TestRenderSignalValues(t *testing.T) {
 		t.Fatal(err)
 	}
 	const wantLoop = "link = Chain#1{next = #1}"
-	if got := rendered(t, linker, ctx, map[string]runtime.Value{"link": {Kind: runtime.ValInstance, Instance: loop.ID}}); got != wantLoop {
+	if got := rendered(t, em, ctx, map[string]runtime.Value{"link": {Kind: runtime.ValInstance, Instance: loop.ID}}); got != wantLoop {
 		t.Errorf("run side, cycle:\n%s\nwant\n%s", got, wantLoop)
 	}
 	// A feature the run's object cannot read is an error of the run, not a
 	// spelling for the record to differ from.
-	chainRef := TypeRef{ID: "Chain", Name: "Chain", Kind: "Class"}
-	wider := &Activity{
-		Model: &Model{Classes: []*Class{{ID: "Chain", Name: "Chain", Attributes: []*Property{
+	chainRef := TypeRef{Name: "Chain", Kind: "Class"}
+	wider := translated(t, &Activity{
+		Name: "Wider",
+		Model: &Model{Classes: []*Class{{Name: "Chain", Attributes: []*Property{
 			{Name: "next", Type: chainRef, Multiplicity: Multiplicity{Lower: 0, Upper: 1, Unique: true}},
 			{Name: "absent", Type: TypeRef{Name: "Integer"}, Multiplicity: Multiplicity{Lower: 1, Upper: 1, Unique: true}},
 		}}}},
 		Parameters: []*Parameter{{Name: "link", Direction: Out, Type: chainRef, Multiplicity: Multiplicity{Lower: 1, Upper: 1, Unique: true}}},
-	}
+	})
 	got, err := renderOutputs(wider, ctx, map[string]runtime.Value{"link": {Kind: runtime.ValInstance, Instance: loop.ID}})
 	if !errors.Is(err, runtime.ErrNoSuchFeature) || got != "" {
 		t.Errorf("renderOutputs on an unreadable feature = %q, %v; want the runtime's error", got, err)
@@ -1686,13 +1771,23 @@ func TestRenderSignalValues(t *testing.T) {
 }
 
 // rendered is renderOutputs on a run whose objects read cleanly.
-func rendered(t *testing.T, a *Activity, ctx *runtime.Context, outputs map[string]runtime.Value) string {
+func rendered(t *testing.T, em *Emitted, ctx *runtime.Context, outputs map[string]runtime.Value) string {
 	t.Helper()
-	got, err := renderOutputs(a, ctx, outputs)
+	got, err := renderOutputs(em, ctx, outputs)
 	if err != nil {
 		t.Fatalf("renderOutputs: %v", err)
 	}
 	return got
+}
+
+// translated is the translation of a hand-built activity.
+func translated(t *testing.T, a *Activity) *Emitted {
+	t.Helper()
+	em, err := Emit(a)
+	if err != nil {
+		t.Fatalf("Emit(%s): %v", a.Name, err)
+	}
+	return em
 }
 
 // Objects the record and the run mention in opposite orders number the same once
@@ -1701,12 +1796,13 @@ func rendered(t *testing.T, a *Activity, ctx *runtime.Context, outputs map[strin
 func TestRenderNumbersObjectsByStructureNotArrival(t *testing.T) {
 	one := Multiplicity{Lower: 1, Upper: 1, Unique: true}
 	many := Multiplicity{Lower: 0, Upper: -1, Unique: true}
-	node := TypeRef{ID: "Node", Name: "Node", Kind: "Class"}
-	m := &Model{Classes: []*Class{{ID: "Node", Name: "Node", Attributes: []*Property{
+	node := TypeRef{Name: "Node", Kind: "Class"}
+	m := &Model{Classes: []*Class{{Name: "Node", Attributes: []*Property{
 		{Name: "next", Type: node, Multiplicity: Multiplicity{Lower: 0, Upper: 1, Unique: true}},
 		{Name: "tag", Type: TypeRef{Name: "Integer"}, Multiplicity: one},
 	}}}}
-	a := &Activity{Model: m, Parameters: []*Parameter{{Name: "all", Direction: Out, Type: node, Multiplicity: many}}}
+	a := &Activity{Name: "All", Model: m, Parameters: []*Parameter{{Name: "all", Direction: Out, Type: node, Multiplicity: many}}}
+	em := translated(t, a)
 	// A chain a -> b -> c, c tagged; mentioned forwards on one side, backwards on the other.
 	chain := func(ids ...string) []ExpectedValue {
 		byID := map[string]ExpectedValue{}
@@ -1730,7 +1826,7 @@ func TestRenderNumbersObjectsByStructureNotArrival(t *testing.T) {
 	}
 	forwards := executed(a, []ExpectedOutput{{Parameter: "all", Values: chain("a", "b", "c")}})
 	backwards := executed(a, []ExpectedOutput{{Parameter: "all", Values: chain("c", "b", "a")}})
-	if f, b := renderExpected(a, &forwards), renderExpected(a, &backwards); f != b {
+	if f, b := renderExpected(em, &forwards), renderExpected(em, &backwards); f != b {
 		t.Errorf("the same graph numbered by mention order:\n%s\nvs\n%s", f, b)
 	}
 }

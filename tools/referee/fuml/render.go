@@ -14,16 +14,16 @@ import (
 
 // renderExpected spells the implementation's outputs one parameter per line,
 // in the activity's parameter order.
-func renderExpected(a *Activity, x *ExpectedActivity) string {
+func renderExpected(em *Emitted, x *ExpectedActivity) string {
 	byName := map[string]ExpectedOutput{}
 	if x != nil {
 		for _, o := range x.Outputs {
 			byName[o.Parameter] = o
 		}
 	}
-	g := newGraph(a.Model, nil)
+	g := newGraph(em.closure, nil)
 	var lines []held
-	for _, p := range a.Outputs() {
+	for _, p := range em.Activity.Outputs() {
 		var values []value
 		for _, v := range byName[p.Name].Values {
 			values = append(values, g.expected(v))
@@ -36,10 +36,10 @@ func renderExpected(a *Activity, x *ExpectedActivity) string {
 // renderOutputs spells a run's output parameters as renderExpected does; the
 // objects they hold live in ctx. A feature of one that cannot be read is an
 // error of the run, not a spelling to compare.
-func renderOutputs(a *Activity, ctx *runtime.Context, outputs map[string]runtime.Value) (string, error) {
-	g := newGraph(a.Model, ctx)
+func renderOutputs(em *Emitted, ctx *runtime.Context, outputs map[string]runtime.Value) (string, error) {
+	g := newGraph(em.closure, ctx)
 	var lines []held
-	for _, p := range a.Outputs() {
+	for _, p := range em.Activity.Outputs() {
 		var values []value
 		if v, ok := outputs[p.Name]; ok {
 			values = g.runtime(v)
@@ -60,7 +60,7 @@ type value struct {
 }
 
 // entity is one object or signal the outputs reach and the features its type
-// declares; known is false when the model declares no class or signal of its type.
+// declares; known is false when the emitted model declares no definition of its type.
 type entity struct {
 	typeName string
 	attrs    []*Property
@@ -79,9 +79,11 @@ type held struct {
 }
 
 // graph collects the objects either side's outputs reach, keyed by that side's
-// own identity, so that neither side's object ids show in the spelling.
+// own identity, so that neither side's object ids show in the spelling. Their
+// types are the definitions the emitted model declares, found by name, which
+// the package gives to one classifier each.
 type graph struct {
-	model   *Model
+	cl      *closure
 	ctx     *runtime.Context
 	objects map[string]*entity
 	order   []*entity
@@ -91,8 +93,8 @@ type graph struct {
 	err error
 }
 
-func newGraph(model *Model, ctx *runtime.Context) *graph {
-	return &graph{model: model, ctx: ctx, objects: map[string]*entity{}, filling: map[int64]*entity{}}
+func newGraph(cl *closure, ctx *runtime.Context) *graph {
+	return &graph{cl: cl, ctx: ctx, objects: map[string]*entity{}, filling: map[int64]*entity{}}
 }
 
 // at is the object of a side's identity key, added at its first mention.
@@ -107,17 +109,14 @@ func (g *graph) at(key, typeName string) (*entity, bool) {
 	return o, true
 }
 
-// attributesOf is the own and inherited attributes, in name order, of the class,
-// signal or activity the model declares under typeName.
+// attributesOf is the own and inherited attributes, in name order, of the
+// part or attribute definition the emitted model declares under typeName.
 func (g *graph) attributesOf(typeName string) ([]*Property, bool) {
 	var attrs []*Property
-	ref := TypeRef{Name: typeName}
-	if c := g.model.ClassOf(ref); c != nil {
-		attrs = c.AllAttributes()
-	} else if s := g.model.SignalOf(ref); s != nil {
-		attrs = s.AllAttributes()
-	} else if a := g.model.ActivityOf(ref); a != nil {
-		attrs = a.Attributes
+	if o := g.cl.objectNamed(typeName); o != nil {
+		attrs = o.allAttributes()
+	} else if sg := g.cl.signalNamed(typeName); sg != nil {
+		attrs = sg.AllAttributes()
 	} else {
 		return nil, false
 	}
@@ -126,10 +125,9 @@ func (g *graph) attributesOf(typeName string) ([]*Property, bool) {
 	return attrs, true
 }
 
-// signalType reports whether typeName is a signal of the model and no class.
+// signalType reports whether typeName is a signal the emitted model declares.
 func (g *graph) signalType(typeName string) bool {
-	ref := TypeRef{Name: typeName}
-	return g.model.ClassOf(ref) == nil && g.model.SignalOf(ref) != nil
+	return g.cl.signalNamed(typeName) != nil
 }
 
 // expected converts a recorded value.

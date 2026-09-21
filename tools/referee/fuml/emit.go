@@ -39,6 +39,9 @@ type Emitted struct {
 	// Produces maps each action node of the activity's own flow to the keys
 	// (`node.pin`) its output pins have among a run's outputs.
 	Produces map[string][]string
+	// closure is what the model declares: the classifiers a run's objects and
+	// the record's are typed by, each under a name of its own.
+	closure *closure
 }
 
 // Emit translates an activity and the activities it transitively calls into
@@ -77,7 +80,7 @@ func Emit(a *Activity) (*Emitted, error) {
 	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "package %s {\n\tprivate import ScalarValues::*;\n\tprivate import SequenceFunctions::*;\n\tprivate import ControlFunctions::*;\n", Package)
-	em := &Emitted{Name: a.Name + ".sysml", Qualified: Package + "::" + a.Name, Activity: a}
+	em := &Emitted{Name: a.Name + ".sysml", Qualified: Package + "::" + a.Name, Activity: a, closure: cl}
 	for _, sg := range cl.signals {
 		text, err := cl.emitSignal(sg)
 		if err != nil {
@@ -144,6 +147,48 @@ type objectDef struct {
 	// class or activity is the classifier spelled.
 	class    *Class
 	activity *Activity
+}
+
+// allAttributes are the attributes objects of the definition hold, inherited ones included.
+func (o *objectDef) allAttributes() []*Property {
+	if o.class != nil {
+		return o.class.AllAttributes()
+	}
+	return o.activity.Attributes
+}
+
+// objectNamed is the part definition the package declares under name, or nil.
+func (cl *closure) objectNamed(name string) *objectDef {
+	for _, o := range cl.objects {
+		if o.name == name {
+			return o
+		}
+	}
+	return nil
+}
+
+// signalNamed is the attribute definition the package declares under name, or nil.
+func (cl *closure) signalNamed(name string) *Signal {
+	for _, sg := range cl.signals {
+		if sg.Name == name {
+			return sg
+		}
+	}
+	return nil
+}
+
+// signalOf is the attribute definition signals of the type are created of, or nil.
+func (cl *closure) signalOf(t TypeRef) *Signal {
+	sg := cl.m.SignalOf(t)
+	if sg == nil {
+		return nil
+	}
+	for _, declared := range cl.signals {
+		if declared == sg {
+			return sg
+		}
+	}
+	return nil
 }
 
 // objectOf is the part definition objects of the type are created of, or nil.

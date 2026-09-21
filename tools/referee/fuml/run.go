@@ -69,11 +69,11 @@ func Execute(stop context.Context, em *Emitted, x *ExpectedActivity, budget runt
 	if err != nil {
 		return nil, err
 	}
-	action, classes, fresh, err := build(em, budgets)
+	action, defs, fresh, err := build(em, budgets)
 	if err != nil {
 		return nil, err
 	}
-	if _, err := defaultInputs(nil, em, classes); err != nil {
+	if _, err := defaultInputs(nil, em, defs); err != nil {
 		return nil, err
 	}
 	policy, err := runtime.ExplorePolicy(budget)
@@ -81,7 +81,7 @@ func Execute(stop context.Context, em *Emitted, x *ExpectedActivity, budget runt
 		return nil, err
 	}
 	run := func(ctx *runtime.Context) (runtime.Outcome, error) {
-		inputs, err := defaultInputs(ctx, em, classes)
+		inputs, err := defaultInputs(ctx, em, defs)
 		if err != nil {
 			return runtime.Outcome{}, err
 		}
@@ -104,13 +104,12 @@ func runBudgets() (runtime.Budgets, error) {
 	return runtime.BudgetsFromEnv()
 }
 
-// classLookup resolves a class of the model to the definition the emitted model
-// declares for it.
-type classLookup func(c *Class) (*symbols.Symbol, error)
+// definitionLookup resolves a definition the emitted model declares, by name.
+type definitionLookup func(name string) (*symbols.Symbol, error)
 
 // build parses the emitted model, resolves its action definition and the
-// classes' definitions, and prepares a fresh context per exploration job.
-func build(em *Emitted, budgets runtime.Budgets) (*symbols.Symbol, classLookup, func(int) (*runtime.Context, error), error) {
+// definitions of its package, and prepares a fresh context per exploration job.
+func build(em *Emitted, budgets runtime.Budgets) (*symbols.Symbol, definitionLookup, func(int) (*runtime.Context, error), error) {
 	src := source.New(em.Name, []byte(em.Text))
 	p := parser.New(src)
 	file := p.ParseFile()
@@ -131,7 +130,7 @@ func build(em *Emitted, budgets runtime.Budgets) (*symbols.Symbol, classLookup, 
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	classes := func(c *Class) (*symbols.Symbol, error) { return lookup(Package + "::" + c.Name) }
+	defs := func(name string) (*symbols.Symbol, error) { return lookup(Package + "::" + name) }
 	text := source.TextOf(map[string]*source.SourceFile{em.Name: src}, nil)
 	var mu sync.Mutex
 	models := map[int]*runtime.Model{}
@@ -153,18 +152,19 @@ func build(em *Emitted, budgets runtime.Budgets) (*symbols.Symbol, classLookup, 
 		}
 		return ctx, nil
 	}
-	return action, classes, fresh, nil
+	return action, defs, fresh, nil
 }
 
 // defaultInputs is what the implementation passes for each input parameter when
 // a test runs an activity: the type's default value (0, false, "", 0.0), and for
-// a class a fresh object of it whose every attribute holds its type's default.
-// The objects live in ctx; with none, only whether the defaults exist is checked.
-func defaultInputs(ctx *runtime.Context, em *Emitted, classes classLookup) (map[string]runtime.Value, error) {
+// a class, an instantiated activity or a signal a fresh instance of it whose
+// every attribute holds its type's default. The instances live in ctx; with
+// none, only whether the defaults exist is checked.
+func defaultInputs(ctx *runtime.Context, em *Emitted, defs definitionLookup) (map[string]runtime.Value, error) {
 	a := em.Activity
 	inputs := map[string]runtime.Value{}
 	for _, p := range a.Inputs() {
-		v, err := defaultValue(ctx, em, classes, p.Type, "parameter "+p.Name, nil)
+		v, err := defaultValue(ctx, em, defs, p.Type, "parameter "+p.Name, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -174,9 +174,9 @@ func defaultInputs(ctx *runtime.Context, em *Emitted, classes classLookup) (map[
 }
 
 // defaultValue is the implementation's default value of a type; an untyped
-// attribute defaults as a String does. making holds the classes whose object
-// is under construction, so a class holding one of itself is refused.
-func defaultValue(ctx *runtime.Context, em *Emitted, classes classLookup, t TypeRef, where string, making map[*Class]bool) (runtime.Value, error) {
+// attribute defaults as a String does. making names the definitions whose
+// instance is under construction, so one holding one of itself is refused.
+func defaultValue(ctx *runtime.Context, em *Emitted, defs definitionLookup, t TypeRef, where string, making map[string]bool) (runtime.Value, error) {
 	a := em.Activity
 	switch a.Model.primitive(t) {
 	case "Integer":
@@ -191,22 +191,26 @@ func defaultValue(ctx *runtime.Context, em *Emitted, classes classLookup, t Type
 	if t.Zero() {
 		return runtime.NewStringValue(""), nil
 	}
-	c := a.Model.ClassOf(t)
-	if c == nil {
+	var name string
+	var attrs []*Property
+	if o := em.closure.objectOf(t); o != nil {
+		name, attrs = o.name, o.allAttributes()
+	} else if sg := em.closure.signalOf(t); sg != nil {
+		name, attrs = sg.Name, sg.AllAttributes()
+	} else {
 		return runtime.Value{}, &TranslateError{a.Name, where, "has no default value of type " + t.String()}
 	}
-	if making[c] {
-		return runtime.Value{}, &TranslateError{a.Name, where, "defaults a " + c.Name + " holding a " + c.Name + " without end"}
+	if making[name] {
+		return runtime.Value{}, &TranslateError{a.Name, where, "defaults a " + name + " holding a " + name + " without end"}
 	}
-	making = withClass(making, c)
-	attrs := c.AllAttributes()
+	making = withName(making, name)
 	defaults := make([]runtime.Value, len(attrs))
 	for i, attr := range attrs {
-		at := where + ", attribute " + c.Name + "." + attr.Name
+		at := where + ", attribute " + name + "." + attr.Name
 		if attr.Association != nil {
 			return runtime.Value{}, &TranslateError{a.Name, at, "an association end is not translated by the pilot emitter"}
 		}
-		v, err := defaultValue(ctx, em, classes, attr.Type, at, making)
+		v, err := defaultValue(ctx, em, defs, attr.Type, at, making)
 		if err != nil {
 			return runtime.Value{}, err
 		}
@@ -215,7 +219,7 @@ func defaultValue(ctx *runtime.Context, em *Emitted, classes classLookup, t Type
 	if ctx == nil {
 		return runtime.Value{}, nil
 	}
-	sym, err := classes(c)
+	sym, err := defs(name)
 	if err != nil {
 		return runtime.Value{}, err
 	}
@@ -233,13 +237,13 @@ func defaultValue(ctx *runtime.Context, em *Emitted, classes classLookup, t Type
 	return runtime.Value{Kind: runtime.ValInstance, Instance: inst.ID}, nil
 }
 
-// withClass is making with c added, leaving making as it was.
-func withClass(making map[*Class]bool, c *Class) map[*Class]bool {
-	out := make(map[*Class]bool, len(making)+1)
+// withName is making with name added, leaving making as it was.
+func withName(making map[string]bool, name string) map[string]bool {
+	out := make(map[string]bool, len(making)+1)
 	for k := range making {
 		out[k] = true
 	}
-	out[c] = true
+	out[name] = true
 	return out
 }
 
@@ -262,7 +266,7 @@ func producingNodes(em *Emitted, outputs map[string]runtime.Value) []string {
 // only the outcomes the exploration kept count, never a discarded speculative run.
 func compare(em *Emitted, x *runtime.Exploration, expected *ExpectedActivity) *Execution {
 	a := em.Activity
-	want := renderExpected(a, expected)
+	want := renderExpected(em, expected)
 	reached := map[string]bool{}
 	errs := map[string]bool{}
 	produced := map[string]bool{}
@@ -271,7 +275,7 @@ func compare(em *Emitted, x *runtime.Exploration, expected *ExpectedActivity) *E
 			errs[o.Outcome.Err.Error()] = true
 			continue
 		}
-		rendered, err := renderOutputs(a, o.Outcome.Context(), o.Outcome.Outputs)
+		rendered, err := renderOutputs(em, o.Outcome.Context(), o.Outcome.Outputs)
 		if err != nil {
 			errs[err.Error()] = true
 			continue
