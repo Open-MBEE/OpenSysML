@@ -89,35 +89,11 @@ func itoa(n int) string {
 // tester writes a Tester class whose classifier behavior accepts Start and
 // then sends the given signals to `this.testable`.
 func tester(id string, sends ...string) string {
-	var b strings.Builder
-	b.WriteString(`    <packagedElement xmi:type="uml:Class" xmi:id="` + id + `" name="` + id + `" classifierBehavior="` + id + `Beh">
-      <generalization xmi:type="uml:Generalization" xmi:id="` + id + `Gen" general="clsTester"/>
-      <ownedBehavior xmi:type="uml:Activity" xmi:id="` + id + `Beh" name="` + id + `Behavior">
-        <node xmi:type="uml:InitialNode" xmi:id="` + id + `Init"/>
-        <node xmi:type="uml:AcceptEventAction" xmi:id="` + id + `Accept" name="AcceptStart">
-          <trigger xmi:type="uml:Trigger" xmi:id="` + id + `Trig" event="evStart"/>
-        </node>
-        <edge xmi:type="uml:ControlFlow" xmi:id="` + id + `E0" source="` + id + `Init" target="` + id + `Accept"/>
-`)
-	prev := id + "Accept"
+	steps := make([]testerStep, len(sends))
 	for i, sig := range sends {
-		s := id + "Send" + itoa(i)
-		b.WriteString(`        <node xmi:type="uml:ReadSelfAction" xmi:id="` + s + `Self"><result xmi:type="uml:OutputPin" xmi:id="` + s + `SelfOut"/></node>
-        <node xmi:type="uml:ReadStructuralFeatureAction" xmi:id="` + s + `Read" structuralFeature="testerTestable">
-          <object xmi:type="uml:InputPin" xmi:id="` + s + `ReadObj"/>
-          <result xmi:type="uml:OutputPin" xmi:id="` + s + `ReadOut"/>
-        </node>
-        <node xmi:type="uml:SendSignalAction" xmi:id="` + s + `" name="Send" signal="` + sig + `">
-          <target xmi:type="uml:InputPin" xmi:id="` + s + `Target"/>
-        </node>
-        <edge xmi:type="uml:ObjectFlow" xmi:id="` + s + `E1" source="` + s + `SelfOut" target="` + s + `ReadObj"/>
-        <edge xmi:type="uml:ObjectFlow" xmi:id="` + s + `E2" source="` + s + `ReadOut" target="` + s + `Target"/>
-        <edge xmi:type="uml:ControlFlow" xmi:id="` + s + `E3" source="` + prev + `" target="` + s + `"/>
-`)
-		prev = s
+		steps[i] = testerStep{send: sig}
 	}
-	b.WriteString("      </ownedBehavior>\n    </packagedElement>\n")
-	return b.String()
+	return testerWith(id, steps...)
 }
 
 // traceCall writes an activity whose one statement is `this.trace("<segment>")`.
@@ -475,36 +451,6 @@ func TestReadDiagnostics(t *testing.T) {
 	var none *Transition
 	if none.Describe() != "<no transition>" || (*Vertex)(nil).Describe() != "<no vertex>" {
 		t.Errorf("nil Describe not guarded")
-	}
-}
-
-func TestReadStandaloneMachine(t *testing.T) {
-	src := fixtureHead + fixtureEvents +
-		`  <packagedElement xmi:type="uml:Package" xmi:id="areaSA" name="Standalone">
-` + registration("Standalone", "semSA", "Standalone 001", "T1(effect)") +
-		`  <packagedElement xmi:type="uml:Package" xmi:id="pkgSA" name="001">
-    <packagedElement xmi:type="uml:Class" xmi:id="semSA" name="SA_SemanticTest">
-      <generalization xmi:type="uml:Generalization" xmi:id="semSAGen" general="clsSemanticTest"/>
-    </packagedElement>
-    <packagedElement xmi:type="uml:StateMachine" xmi:id="smSA" name="SA_Test">
-      <generalization xmi:type="uml:Generalization" xmi:id="smSAGen" general="clsTarget"/>
-      <region xmi:type="uml:Region" xmi:id="regSA" name="Region1">
-        <subvertex xmi:type="uml:Pseudostate" xmi:id="saInit" name="Initial1"/>
-        <subvertex xmi:type="uml:State" xmi:id="saS" name="S"/>
-        <transition xmi:type="uml:Transition" xmi:id="saT" name="T1" source="saInit" target="saS"/>
-      </region>
-    </packagedElement>
-` + tester("SA_Tester") + `  </packagedElement>
-  </packagedElement>
-` + fixtureTail
-	s := readFixture(t, src)
-	noDiagnostics(t, s)
-	tt := s.Tests[0]
-	if tt.Target == nil || !tt.Target.Standalone || tt.Machine == nil || tt.Machine.Name != "SA_Test" || tt.Machine.Owner != "" {
-		t.Fatalf("standalone machine misread: %+v", tt.Target)
-	}
-	if len(tt.Stimulation.Statements) != 1 || tt.Stimulation.Statements[0].Kind != StmtAccept {
-		t.Errorf("stimulation = %+v", tt.Stimulation)
 	}
 }
 

@@ -64,6 +64,9 @@ const (
 	SymbolConcernUsage
 	// Tier B usages.
 	SymbolConnectionUsage
+	// SymbolBindingUsage classifies a binding usage: a BindingConnectorAsUsage
+	// (SysML v2 §8.3.13).
+	SymbolBindingUsage
 	// SymbolSuccessionUsage classifies a succession usage: a SuccessionAsUsage
 	// (SysML v2 §8.3.13.7), a ConnectorAsUsage that is not a ConnectionUsage.
 	SymbolSuccessionUsage
@@ -153,6 +156,7 @@ var symbolKindNames = map[SymbolKind]string{
 	SymbolRenderingUsage:          "renderingUsage",
 	SymbolConcernUsage:            "concernUsage",
 	SymbolConnectionUsage:         "connectionUsage",
+	SymbolBindingUsage:            "bindingUsage",
 	SymbolSuccessionUsage:         "successionUsage",
 	SymbolFlowUsage:               "flowUsage",
 	SymbolPortUsage:               "portUsage",
@@ -196,7 +200,7 @@ func (k SymbolKind) IsFeature() bool {
 	case SymbolPartUsage, SymbolAttributeUsage, SymbolItemUsage, SymbolOccurrenceUsage,
 		SymbolIndividualUsage, SymbolMetadataUsage, SymbolEnumerationUsage, SymbolViewUsage,
 		SymbolViewpointUsage, SymbolRenderingUsage, SymbolConcernUsage, SymbolConnectionUsage,
-		SymbolSuccessionUsage, SymbolFlowUsage, SymbolPortUsage, SymbolInterfaceUsage,
+		SymbolBindingUsage, SymbolSuccessionUsage, SymbolFlowUsage, SymbolPortUsage, SymbolInterfaceUsage,
 		SymbolAllocationUsage, SymbolActionUsage, SymbolStateUsage, SymbolCalcUsage,
 		SymbolConstraintUsage, SymbolRequirementUsage, SymbolSatisfyRequirementUsage,
 		SymbolCaseUsage, SymbolAnalysisCaseUsage, SymbolVerificationCaseUsage, SymbolUseCaseUsage,

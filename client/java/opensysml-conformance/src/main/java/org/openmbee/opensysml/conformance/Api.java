@@ -32,7 +32,6 @@ import org.openmbee.opensysml.Satisfaction;
 import org.openmbee.opensysml.ServiceException;
 import org.openmbee.opensysml.SourceDocument;
 import org.openmbee.opensysml.StateRun;
-import org.openmbee.opensysml.Sweep;
 import org.openmbee.opensysml.SweepOptions;
 import org.openmbee.opensysml.SweepRange;
 import org.openmbee.opensysml.Symbol;
@@ -814,7 +813,7 @@ final class Api {
         Condition.Comparison comparison =
             switch (primitive.getOperator()) {
               case PRIMITIVE_OPERATOR_EQUAL ->
-                  Condition.equal(primitive.getProperty(), primitive.getValueList());
+                  Condition.equalTo(primitive.getProperty(), primitive.getValueList());
               case PRIMITIVE_OPERATOR_GREATER ->
                   Condition.greater(primitive.getProperty(), soleValue(primitive));
               case PRIMITIVE_OPERATOR_LESS ->

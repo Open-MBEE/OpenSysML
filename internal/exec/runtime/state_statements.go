@@ -373,6 +373,10 @@ func (h *stateStmtHost) performNode(engine *stmtEngine, graph *lower.ActionGraph
 	return h.perfs.performNode(h.perfs.root, engine, graph, node)
 }
 
+func (h *stateStmtHost) runBlockFlow(engine *stmtEngine, block lower.Block) (stmtFlow, error) {
+	return h.perfs.performBlockFlow(h.perfs.root, engine, block)
+}
+
 // runFlow runs the token flow an inline body states with its successions and
 // control nodes, as the behavior's own performance: the body's attributes are
 // the performance's, initialized as a standalone action's are.
@@ -437,6 +441,13 @@ func (h *stateStmtHost) assignAround(name string, value Value) (bool, error) {
 		return true, nil
 	}
 	return assignPerformerFeature(h.exec.ctx, h.exec.self, h.behavior.Scope, name, value)
+}
+
+// returnAround writes a returned output as assignAround does and keeps it for the
+// caller when a call event's transition is firing.
+func (h *stateStmtHost) returnAround(name string, value Value) (bool, error) {
+	h.exec.recordCallOutput(name, value)
+	return h.assignAround(name, value)
 }
 
 // pauseAt sets no breakpoint: a state behavior's nodes are not stepped.

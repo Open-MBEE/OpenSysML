@@ -22,44 +22,40 @@ const (
 	assocStructKw   = "assoc struct"
 )
 
-// implicitUsageBases maps a usage kind to the qualified name of the standard
-// library definition that every usage of that kind is implicitly typed by
-// (SysML v2 §7: each usage specializes the base feature of its kind, which is
-// itself typed by the base definition listed here). A usage that declares no
-// type or specialization of its own gets this base, so members inherited from
-// it — `done` on a state, `startShot` on an action — resolve through it.
+// implicitUsageBases maps each usage kind to the standard-library base feature
+// specified by SysML v2 §7 and the corresponding library package.
 var implicitUsageBases = map[ast.UsageKind]string{
-	ast.UsagePart:             partFQN,
-	ast.UsageAttribute:        dataValueFQN,
-	ast.UsageEnumeration:      dataValueFQN,
-	ast.UsageItem:             "Items::Item",
-	ast.UsageOccurrence:       occurrenceFQN,
+	ast.UsagePart:             "Parts::parts",
+	ast.UsageAttribute:        "Base::dataValues",
+	ast.UsageEnumeration:      "Base::dataValues",
+	ast.UsageItem:             "Items::items",
+	ast.UsageOccurrence:       "Occurrences::occurrences",
 	ast.UsageIndividual:       "Occurrences::Life",
-	ast.UsageMetadata:         "Metadata::MetadataItem",
-	ast.UsageView:             "Views::View",
-	ast.UsageViewpoint:        "Views::ViewpointCheck",
-	ast.UsageRendering:        renderingFQN,
-	ast.UsageViewRendering:    renderingFQN,
-	ast.UsageConcern:          concernCheckFQN,
-	ast.UsageFramedConcern:    concernCheckFQN,
-	ast.UsageActor:            partFQN,
-	ast.UsageStakeholder:      partFQN,
-	ast.UsageConnection:       "Connections::Connection",
-	ast.UsagePort:             "Ports::Port",
-	ast.UsageInterface:        "Interfaces::Interface",
-	ast.UsageAllocation:       "Allocations::Allocation",
-	ast.UsageAction:           "Actions::Action",
-	ast.UsageState:            "States::StateAction",
-	ast.UsageTransition:       "Actions::TransitionAction",
-	ast.UsageStep:             performanceFQN,
-	ast.UsageCalc:             "Calculations::Calculation",
-	ast.UsageExpr:             "Performances::Evaluation",
-	ast.UsageConstraint:       "Constraints::ConstraintCheck",
-	ast.UsageRequirement:      "Requirements::RequirementCheck",
-	ast.UsageCase:             "Cases::Case",
-	ast.UsageAnalysisCase:     "AnalysisCases::AnalysisCase",
-	ast.UsageVerificationCase: "VerificationCases::VerificationCase",
-	ast.UsageUseCase:          "UseCases::UseCase",
+	ast.UsageMetadata:         "Metadata::metadataItems",
+	ast.UsageView:             "Views::views",
+	ast.UsageViewpoint:        "Views::viewpointChecks",
+	ast.UsageRendering:        "Views::renderings",
+	ast.UsageViewRendering:    "Views::renderings",
+	ast.UsageConcern:          "Requirements::concernChecks",
+	ast.UsageFramedConcern:    "Requirements::concernChecks",
+	ast.UsageActor:            "Parts::parts",
+	ast.UsageStakeholder:      "Parts::parts",
+	ast.UsageConnection:       "Connections::connections",
+	ast.UsagePort:             "Ports::ports",
+	ast.UsageInterface:        "Interfaces::interfaces",
+	ast.UsageAllocation:       "Allocations::allocations",
+	ast.UsageAction:           "Actions::actions",
+	ast.UsageState:            "States::stateActions",
+	ast.UsageTransition:       "Actions::transitionActions",
+	ast.UsageStep:             "Performances::performances",
+	ast.UsageCalc:             "Calculations::calculations",
+	ast.UsageExpr:             "Performances::evaluations",
+	ast.UsageConstraint:       "Constraints::constraintChecks",
+	ast.UsageRequirement:      "Requirements::requirementChecks",
+	ast.UsageCase:             "Cases::cases",
+	ast.UsageAnalysisCase:     "AnalysisCases::analysisCases",
+	ast.UsageVerificationCase: "VerificationCases::verificationCases",
+	ast.UsageUseCase:          "UseCases::useCases",
 }
 
 // implicitDefinitionBases maps a definition kind to the qualified name of the
@@ -172,7 +168,7 @@ var implicitKerMLFeatureBases = map[string]string{
 // kind conforms to, implicitly or through its declared chain: one for most
 // kinds, an association and a behavior base for an interaction.
 func (m *Model) KindBaseFQNs(sym *symbols.Symbol, isKerML bool) []string {
-	return m.kindBaseFQNs(sym, isKerML)
+	return m.kindBaseDefinitionFQNs(sym, isKerML)
 }
 
 // DeclaresKerMLClassifier reports whether sym is a KerML classifier declaration
@@ -189,9 +185,8 @@ func (m *Model) DeclaresKerMLClassifier(sym *symbols.Symbol) bool {
 	return ok
 }
 
-// FeatureBaseFQN returns the standard-library element a feature declaration
-// takes its type from when it declares none: the base feature its kind implies,
-// or the base definition a SysML usage of that kind is typed by.
+// FeatureBaseFQN returns the standard-library base feature a feature declaration
+// or usage kind subsets when it declares none.
 func (m *Model) FeatureBaseFQN(sym *symbols.Symbol) (string, bool) {
 	if sym == nil {
 		return "", false
@@ -200,12 +195,11 @@ func (m *Model) FeatureBaseFQN(sym *symbols.Symbol) (string, bool) {
 		return typed, true
 	}
 	if !m.isKerMLDoc(sym) {
-		usage, ok := sym.Decl.(*ast.Usage)
-		if !ok {
-			return "", false
-		}
-		if fqn, ok := implicitUsageBases[usage.Kind]; ok {
+		if fqn, ok := m.usageBaseFeatureFQN(sym); ok {
 			return fqn, true
+		}
+		if usage, ok := sym.Decl.(*ast.Usage); !ok || usage.IsIndividual {
+			return "", false
 		}
 		// A usage of no particular kind still subsets the base feature every
 		// usage does, which is what types it (SysML v2 §7.3.2).
@@ -244,6 +238,39 @@ func (m *Model) kindBaseFQNs(sym *symbols.Symbol, isKerML bool) []string {
 	return out
 }
 
+// kindBaseDefinitionFQNs returns definition qualified names for sym's implicit
+// kind bases, deriving definitions from feature bases when necessary.
+func (m *Model) kindBaseDefinitionFQNs(sym *symbols.Symbol, isKerML bool) []string {
+	names := m.kindBaseFQNs(sym, isKerML)
+	if m.resolver == nil || m.resolver.Index() == nil {
+		return names
+	}
+	var out []string
+	for _, fqn := range names {
+		found := false
+		for _, base := range m.resolver.Index().LookupQualified(fqn) {
+			if base == nil {
+				continue
+			}
+			found = true
+			if base.IsFeature() {
+				for _, typ := range m.baseFeatureTypes(base, nil) {
+					if typ != nil {
+						out = append(out, m.resolver.Index().GetFQN(typ))
+					}
+				}
+			} else {
+				out = append(out, fqn)
+			}
+			break
+		}
+		if !found {
+			out = append(out, fqn)
+		}
+	}
+	return out
+}
+
 // kindBaseFQN returns the base a declaration of sym's kind specializes for the
 // kind itself; kindBaseFQNs adds the further bases a kind with two facets has.
 // A KerML association is binary by its effective ends, a SysML connection,
@@ -266,19 +293,14 @@ func (m *Model) kindBaseFQN(sym *symbols.Symbol, isKerML bool) (string, bool) {
 		if d.Keyword == "" && d.Kind == ast.UsageAttribute {
 			return anythingFQN, true
 		}
-		if len(ownedEnds(sym)) == 2 {
-			switch d.Kind {
-			case ast.UsageConnection:
-				return "Connections::BinaryConnection", true
-			case ast.UsageInterface:
-				return "Interfaces::BinaryInterface", true
-			}
-		}
 		if d.IsIndividual && d.Kind == ast.UsageOccurrence {
 			// An individual occurrence is a life, not an arbitrary occurrence
 			// (SysML v2 §7.9.4), however the modifier is spelled.
 			fqn, ok := implicitUsageBases[ast.UsageIndividual]
 			return fqn, ok
+		}
+		if fqn, ok := m.usageBaseFeatureFQN(sym); ok {
+			return fqn, true
 		}
 		fqn, ok := implicitUsageBases[d.Kind]
 		return fqn, ok
@@ -329,6 +351,41 @@ func (m *Model) kindBaseFQN(sym *symbols.Symbol, isKerML bool) (string, bool) {
 	return "", false
 }
 
+// usageBaseFeatureFQN returns the SysML base feature selected by a usage kind,
+// or false when the kind has no feature base or names a definition instead.
+func (m *Model) usageBaseFeatureFQN(sym *symbols.Symbol) (string, bool) {
+	if sym == nil || m.isKerMLDoc(sym) {
+		return "", false
+	}
+	switch d := sym.Decl.(type) {
+	case *ast.Usage:
+		if len(ownedEnds(sym)) == 2 {
+			switch d.Kind {
+			case ast.UsageConnection:
+				return "Connections::binaryConnections", true
+			case ast.UsageInterface:
+				return "Interfaces::binaryInterfaces", true
+			}
+		}
+		fqn, ok := implicitUsageBases[d.Kind]
+		if !ok || fqn == "Occurrences::Life" {
+			return "", false
+		}
+		return fqn, true
+	case *ast.SubstateMember:
+		fqn, ok := implicitUsageBases[ast.UsageState]
+		return fqn, ok
+	case *ast.TransitionMember:
+		fqn, ok := implicitUsageBases[ast.UsageTransition]
+		return fqn, ok
+	case *ast.AssumeMember, *ast.RequireMember:
+		fqn, ok := implicitUsageBases[ast.UsageConstraint]
+		return fqn, ok
+	default:
+		return "", false
+	}
+}
+
 // isKerMLDoc reports whether sym is declared by a KerML document, as recorded
 // by the index rather than inferred from the document name.
 func (m *Model) isKerMLDoc(sym *symbols.Symbol) bool {
@@ -365,7 +422,7 @@ func (m *Model) computeImplicitBases(sym *symbols.Symbol) []*symbols.Symbol {
 		return nil
 	}
 	var out []*symbols.Symbol
-	for _, fqn := range m.kindBaseFQNs(sym, m.isKerMLDoc(sym)) {
+	for _, fqn := range m.kindBaseDefinitionFQNs(sym, m.isKerMLDoc(sym)) {
 		// A declaration keeps its kind's base unless a declared chain already
 		// reaches it — the same rule for a usage and in either language (KerML §8.4.2).
 		if m.declaredGeneralizationReaches(sym, fqn, nil) {
@@ -379,6 +436,59 @@ func (m *Model) computeImplicitBases(sym *symbols.Symbol) []*symbols.Symbol {
 		}
 	}
 	return out
+}
+
+// baseFeatureTypes returns the definition types supplied by a feature and all
+// feature bases it subsets, retaining first-seen most-specific types.
+func (m *Model) baseFeatureTypes(base *symbols.Symbol, visiting map[*symbols.Symbol]bool) []*symbols.Symbol {
+	if base == nil {
+		return nil
+	}
+	if visiting == nil {
+		visiting = make(map[*symbols.Symbol]bool)
+	}
+	if visiting[base] {
+		return nil
+	}
+	visiting[base] = true
+	defer delete(visiting, base)
+
+	var types, features []*symbols.Symbol
+	for _, sup := range m.DirectSupertypes(base) {
+		if sup.IsFeature() {
+			features = append(features, sup)
+		} else {
+			types = append(types, sup)
+		}
+	}
+	for _, feature := range features {
+		types = append(types, m.baseFeatureTypes(feature, visiting)...)
+	}
+
+	var out []*symbols.Symbol
+	for _, typ := range types {
+		if typ == nil || slices.Contains(out, typ) {
+			continue
+		}
+		out = append(out, typ)
+	}
+	pruned := out[:0]
+	for i, typ := range out {
+		redundant := false
+		for j, other := range out {
+			if i == j {
+				continue
+			}
+			if m.Conforms(other, typ) && !m.Conforms(typ, other) {
+				redundant = true
+				break
+			}
+		}
+		if !redundant {
+			pruned = append(pruned, typ)
+		}
+	}
+	return pruned
 }
 
 // declaresConjugation reports whether sym conjugates a type.
@@ -420,7 +530,9 @@ func (m *Model) declaredGeneralizationReaches(sym *symbols.Symbol, want string, 
 			// declared or implicit, so reaching one of the same kind suffices —
 			// except back through a cycle, which reaches nothing new, or a
 			// conjugated one, whose supertypes come from what it conjugates.
-			if slices.Contains(m.kindBaseFQNs(target, m.isKerMLDoc(target)), want) && !declaresConjugation(target) && !m.declaredReaches(target, sym, nil) {
+			if (slices.Contains(m.kindBaseFQNs(target, m.isKerMLDoc(target)), want) ||
+				slices.Contains(m.kindBaseDefinitionFQNs(target, m.isKerMLDoc(target)), want)) &&
+				!declaresConjugation(target) && !m.declaredReaches(target, sym, nil) {
 				sameBase = true
 			}
 		}
@@ -502,6 +614,35 @@ func (m *Model) implicitKerMLFeatureBase(sym *symbols.Symbol) *symbols.Symbol {
 	return nil
 }
 
+// implicitUsageBaseFeature returns a usage's standard-library base feature as
+// a contributor and implicit general, never as a DirectSupertypes entry.
+func (m *Model) implicitUsageBaseFeature(sym *symbols.Symbol) *symbols.Symbol {
+	if sym == nil || m.resolver == nil || m.resolver.Index() == nil || m.isKerMLDoc(sym) {
+		return nil
+	}
+	if declaresConjugation(sym) {
+		return nil
+	}
+	if m.computingUsageBase[sym] {
+		return nil
+	}
+	m.computingUsageBase[sym] = true
+	defer delete(m.computingUsageBase, sym)
+	fqn, ok := m.usageBaseFeatureFQN(sym)
+	if !ok {
+		return nil
+	}
+	if fqn == "" || m.declaredGeneralizationReaches(sym, fqn, nil) {
+		return nil
+	}
+	for _, base := range m.resolver.Index().LookupQualified(fqn) {
+		if base != nil && base != sym && !enclosedBy(sym, base) {
+			return base
+		}
+	}
+	return nil
+}
+
 // declaredTypeFeatureBase returns the base feature implied by the kind of the
 // type sym is declared to have, if it declares one that is a KerML type.
 func (m *Model) declaredTypeFeatureBase(sym *symbols.Symbol) (string, bool) {
@@ -578,7 +719,11 @@ func (m *Model) ImplicitGenerals(sym *symbols.Symbol) []*symbols.Symbol {
 		return nil
 	}
 	var out []*symbols.Symbol
-	for _, base := range slices.Concat(m.implicitBases(sym), []*symbols.Symbol{m.implicitBaseUsage(sym), m.implicitKerMLFeatureBase(sym)}) {
+	for _, base := range slices.Concat(m.implicitBases(sym), []*symbols.Symbol{
+		m.implicitBaseUsage(sym),
+		m.implicitUsageBaseFeature(sym),
+		m.implicitKerMLFeatureBase(sym),
+	}) {
 		if base != nil && base != sym {
 			out = append(out, base)
 		}

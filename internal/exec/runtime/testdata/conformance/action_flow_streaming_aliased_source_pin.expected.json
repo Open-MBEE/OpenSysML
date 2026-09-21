@@ -1,0 +1,8 @@
+{
+	"libraries": true,
+	"type": "action",
+	"evaluate": "test::stream",
+	"outputs": {
+		"received": {"type": "Integer", "value": 1}
+	}
+}

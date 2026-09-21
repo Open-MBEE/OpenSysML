@@ -21,6 +21,7 @@ import org.openmbee.opensysml.syson.identity.ElementIndex;
 import org.openmbee.opensysml.syson.run.RunWithOpenSysMLService.ResultParts;
 
 class RunVerdictSummaryTest {
+    private static final String UNDECIDED = "undecided";
     private static final ExportedProject PROJECT = new ExportedProject(List.of(), new ElementIndex(java.util.Map.of()),
             List.of(), List.of());
     private static final Standing STANDING = Standing.none();
@@ -32,7 +33,7 @@ class RunVerdictSummaryTest {
         assertThat(ResultParts.satisfaction(new Satisfaction(List.of(verdict(false, false)), List.of(), List.of(),
                 List.of()), PROJECT).verdict()).isEqualTo("fail");
         assertThat(ResultParts.satisfaction(new Satisfaction(List.of(verdict(false, true)), List.of(), List.of(),
-                List.of()), PROJECT).verdict()).isEqualTo("undecided");
+                List.of()), PROJECT).verdict()).isEqualTo(UNDECIDED);
     }
 
     @Test
@@ -42,7 +43,7 @@ class RunVerdictSummaryTest {
         assertThat(ResultParts.validation(new Validation(verdict(false, false), List.of(), List.of(), List.of(),
                 List.of(), true), PROJECT).verdict()).isEqualTo("violated");
         assertThat(ResultParts.validation(new Validation(verdict(false, true), List.of(), List.of(), List.of(),
-                List.of(), true), PROJECT).verdict()).isEqualTo("undecided");
+                List.of(), true), PROJECT).verdict()).isEqualTo(UNDECIDED);
     }
 
     @Test
@@ -55,7 +56,7 @@ class RunVerdictSummaryTest {
         assertThat(ResultParts.analysis(new Analysis(java.util.Map.of(), List.of(verdict(false, false)), List.of(),
                 List.of(), List.of(), List.of(), STANDING), PROJECT).verdict()).isEqualTo("violated");
         assertThat(ResultParts.analysis(new Analysis(java.util.Map.of(), List.of(verdict(false, true)), List.of(),
-                List.of(), List.of(), List.of(), STANDING), PROJECT).verdict()).isEqualTo("undecided");
+                List.of(), List.of(), List.of(), STANDING), PROJECT).verdict()).isEqualTo(UNDECIDED);
     }
 
     @Test

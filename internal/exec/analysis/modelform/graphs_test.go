@@ -127,8 +127,14 @@ const graphsFixture = `package test {
 // and returns a runtime model over it with the document registered.
 func graphsModel(t *testing.T) (*runtime.Model, *symbols.Index) {
 	t.Helper()
+	return graphsModelOf(t, graphsFixture)
+}
+
+// graphsModelOf is graphsModel over the given fixture text.
+func graphsModelOf(t *testing.T, fixture string) (*runtime.Model, *symbols.Index) {
+	t.Helper()
 	const path = "graphs.sysml"
-	sf := source.New(path, []byte(graphsFixture))
+	sf := source.New(path, []byte(fixture))
 	p := parser.New(sf)
 	file := p.ParseFile()
 	if len(p.Diagnostics) > 0 {
@@ -455,6 +461,46 @@ func TestGraphsActionCarriesTheEdgeProbabilities(t *testing.T) {
 			if e.Probability != nil {
 				t.Errorf("%s: edge %d->%d carries a probability the model does not state", a.Name, e.Source, e.Target)
 			}
+		}
+	}
+}
+
+// A flow is exported with its kind, so an engine tells a streaming `flow` from a
+// `succession flow` the way the runtime does.
+func TestGraphsActionCarriesTheFlowKind(t *testing.T) {
+	model, idx := graphsModelOf(t, `package test {
+	private import ScalarValues::*;
+
+	action stream {
+		action producer { out value : Integer; assign value := 1; }
+		action consumer { in value : Integer; }
+		action last { in value : Integer; }
+
+		succession first start then producer;
+		succession first producer then consumer;
+		succession first consumer then last;
+		succession first last then done;
+
+		flow producer.value to consumer.value;
+		succession flow producer.value to last.value;
+	}
+}
+`)
+	g, data := exportGraphs(t, model, idx, "test::stream")
+	if len(g.Actions) != 1 || g.Actions[0].Error != "" {
+		t.Fatalf("actions %+v, want the subject lowered", g.Actions)
+	}
+	stream := g.Actions[0]
+	kinds := map[string]string{}
+	for _, f := range stream.Flows {
+		kinds[stream.Nodes[f.Target].Name] = f.Kind
+	}
+	if want := map[string]string{"consumer": "streaming", "last": "succession"}; !maps.Equal(kinds, want) {
+		t.Errorf("flow kinds %v, want %v", kinds, want)
+	}
+	for _, want := range []string{`"kind":"streaming"`, `"kind":"succession"`} {
+		if !strings.Contains(string(data), want) {
+			t.Errorf("marshalled form lacks %s", want)
 		}
 	}
 }

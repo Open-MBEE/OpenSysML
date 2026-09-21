@@ -30,8 +30,7 @@ class RunResultStoreTest {
         when(provider.getIfAvailable()).thenReturn(registry);
 
         RunResultStore store = new RunResultStore(provider);
-        RunResult result = new RunResult("", RunOperation.INSTANTIATE, "A", true, null, null, null,
-                List.of(), List.of(), null, List.of(), List.of(), List.of());
+        RunResult result = RunResult.builder().operation(RunOperation.INSTANTIATE).target("A").ok(true).build();
 
         store.put("ctx", result);
         assertThat(store.latest("ctx")).contains(result);

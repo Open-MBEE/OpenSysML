@@ -66,10 +66,17 @@ type ExpectedEvaluation struct {
 // ExpectedEvent represents an event to inject during state machine execution:
 // either a signal (`signal`) or an operation invocation (`call`).
 type ExpectedEvent struct {
-	Signal string                   `json:"signal,omitempty"` // Signal type name
-	Call   string                   `json:"call,omitempty"`   // Invoked operation name
-	Args   map[string]ExpectedValue `json:"args,omitempty"`   // Signal feature bindings or call arguments
-	Value  *ExpectedValue           `json:"value,omitempty"`  // The one bare value a signal carries
+	Signal  string                   `json:"signal,omitempty"`  // Signal type name
+	Call    string                   `json:"call,omitempty"`    // Invoked operation name
+	Args    map[string]ExpectedValue `json:"args,omitempty"`    // Signal feature bindings or call arguments
+	Value   *ExpectedValue           `json:"value,omitempty"`   // The one bare value a signal carries
+	Results map[string]ExpectedValue `json:"results,omitempty"` // Outputs a synchronous call returns its caller
+}
+
+// returnsResults reports whether a case observes what a call returns, so its
+// events are performed one at a time as a synchronous caller performs them.
+func returnsResults(events []ExpectedEvent) bool {
+	return slices.ContainsFunc(events, func(event ExpectedEvent) bool { return event.Results != nil })
 }
 
 // Performer is one object performing the case's behavior, and the outcome
@@ -391,6 +398,10 @@ func loadKnownFailures(t *testing.T, conformanceDir string) map[string]bool {
 // runConformanceCase executes a single conformance test case under policy, or
 // under the policy the case pins if it pins one.
 func runConformanceCase(t *testing.T, conformanceDir, caseName string, policy SchedulePolicy) {
+	runConformanceCaseWithOwned(t, conformanceDir, caseName, policy, false)
+}
+
+func runConformanceCaseWithOwned(t *testing.T, conformanceDir, caseName string, policy SchedulePolicy, forceOwned bool) {
 	// Load .sysml file
 	sysmlPath := filepath.Join(conformanceDir, caseName+".sysml")
 	sysmlData, err := os.ReadFile(sysmlPath)
@@ -439,9 +450,12 @@ func runConformanceCase(t *testing.T, conformanceDir, caseName string, policy Sc
 	// Dispatch based on type
 	switch expected.Type {
 	case "action":
+		if forceOwned {
+			t.Skip("no object owns connectors before execution")
+		}
 		runActionConformance(t, ctx, idx, sysmlPath, expected)
 	case "state":
-		runStateConformance(t, ctx, idx, sysmlPath, expected)
+		runStateConformance(t, ctx, idx, sysmlPath, expected, forceOwned)
 	case "calc":
 		runCalcConformance(t, ctx, idx, sysmlPath, expected)
 	case "calcUsage":
@@ -455,10 +469,16 @@ func runConformanceCase(t *testing.T, conformanceDir, caseName string, policy Sc
 	case "analysis":
 		runAnalysisConformance(t, ctx, idx, sysmlPath, expected)
 	case "verification":
+		if forceOwned {
+			t.Skip("no object owns connectors before execution")
+		}
 		runVerificationConformance(t, ctx, idx, sysmlPath, expected)
 	case "instance":
-		runInstanceConformance(t, ctx, idx, sysmlPath, expected)
+		runInstanceConformance(t, ctx, idx, sysmlPath, expected, forceOwned)
 	default:
+		if forceOwned {
+			t.Skip("no object owns connectors before execution")
+		}
 		t.Fatalf("unknown test type: %s", expected.Type)
 	}
 	// Exploration is the same under any policy, so the default suite does it once.
@@ -908,10 +928,13 @@ func runActionConformance(t *testing.T, ctx *Context, idx *symbols.Index, path s
 // runStateConformance executes a state machine and validates the final state. A
 // case naming performers runs the machine once per object performing it, each
 // against the outcome that object expects.
-func runStateConformance(t *testing.T, ctx *Context, idx *symbols.Index, path string, expected ExpectedOutcome) {
+func runStateConformance(t *testing.T, ctx *Context, idx *symbols.Index, path string, expected ExpectedOutcome, forceOwned bool) {
 	rootScope := idx.DocumentRoot(path)
 	stateSym := namedOrFoundSymbol(t, idx, expected.Evaluate, rootScope, ast.DefState, ast.UsageState)
 	if len(expected.Performers) == 0 {
+		if forceOwned {
+			t.Skip("no object owns connectors before execution")
+		}
 		runOneStatePerformance(t, ctx, stateSym, nil, expected)
 		return
 	}
@@ -919,6 +942,11 @@ func runStateConformance(t *testing.T, ctx *Context, idx *symbols.Index, path st
 		self, err := ctx.Instantiate(oneSymbol(t, idx, performer.Object))
 		if err != nil {
 			t.Fatalf("instantiate %s: %v", performer.Object, err)
+		}
+		if forceOwned {
+			if err := forceOwnedConnectors(ctx, self); err != nil {
+				t.Fatalf("OwnedConnectors(%s) failed before execution: %v", performer.Object, err)
+			}
 		}
 		t.Run(performer.Object, func(t *testing.T) {
 			runOneStatePerformance(t, ctx, stateSym, self, ExpectedOutcome{
@@ -930,6 +958,33 @@ func runStateConformance(t *testing.T, ctx *Context, idx *symbols.Index, path st
 			})
 		})
 	}
+}
+
+func forceOwnedConnectors(ctx *Context, root *Instance) error {
+	visited := make(map[int64]bool)
+	var walk func(*Instance) error
+	walk = func(inst *Instance) error {
+		if inst == nil || visited[inst.ID] {
+			return nil
+		}
+		visited[inst.ID] = true
+		if _, err := inst.OwnedConnectors(ctx); err != nil {
+			return err
+		}
+		for _, feature := range ctx.FeaturesOfObject(inst) {
+			fv, err := inst.GetFeatureValue(ctx, feature.Name)
+			if err != nil {
+				continue
+			}
+			for _, child := range heldInstances(ctx, fv) {
+				if err := walk(child); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}
+	return walk(root)
 }
 
 // queuedEvents converts the events a case declares into the events the runtime
@@ -967,7 +1022,13 @@ func injectEvents(t *testing.T, exec *StateExecutor, events []ExpectedEvent) {
 func runOneStatePerformance(t *testing.T, ctx *Context, stateSym *symbols.Symbol, self *Instance, expected ExpectedOutcome) {
 	// The executor's own loop drives the run: a harness-local copy drifts from
 	// the semantics under test.
-	exec, err := ctx.PerformState(stateSym, self, queuedEvents(t, expected.Events))
+	var exec *StateExecutor
+	var err error
+	if returnsResults(expected.Events) {
+		exec, err = callingPerformance(t, ctx, stateSym, self, expected.Events)
+	} else {
+		exec, err = ctx.PerformState(stateSym, self, queuedEvents(t, expected.Events))
+	}
 	if err != nil {
 		t.Fatalf("state machine: %v", err)
 	}
@@ -983,6 +1044,43 @@ func runOneStatePerformance(t *testing.T, ctx *Context, stateSym *symbols.Symbol
 			validateStateOutcome(r, ctx, exec, outcome)
 		})
 	}
+}
+
+// callingPerformance performs a machine as a caller does, one event per step:
+// a call is performed synchronously and what it returns checked against the
+// results the case states for it, every other event queued and run.
+func callingPerformance(t *testing.T, ctx *Context, stateSym *symbols.Symbol, self *Instance, events []ExpectedEvent) (*StateExecutor, error) {
+	t.Helper()
+	exec, err := ctx.CreateStateExecutorFor(stateSym, self)
+	if err != nil {
+		return nil, err
+	}
+	for i, event := range events {
+		queued := queuedEvents(t, events[i:i+1])[0]
+		if event.Results == nil {
+			if err := exec.Enqueue(queued); err != nil {
+				exec.Release()
+				return nil, err
+			}
+			if err := exec.RunToCompletion(); err != nil {
+				exec.Release()
+				return nil, err
+			}
+			continue
+		}
+		results, err := exec.Call(queued.Call, queued.Args)
+		if err != nil {
+			exec.Release()
+			return nil, fmt.Errorf("call %d %s: %w", i, queued.Call, err)
+		}
+		validateOutputs(t, ctx, event.Results, results)
+		for name := range results {
+			if _, ok := event.Results[name]; !ok {
+				t.Errorf("call %d %s returned %s, which the case does not expect", i, queued.Call, name)
+			}
+		}
+	}
+	return exec, nil
 }
 
 // validateStateOutcome checks a state performance against one outcome.
@@ -1477,7 +1575,7 @@ func runSatisfyConformance(t *testing.T, ctx *Context, idx *symbols.Index, path 
 // runInstanceConformance instantiates a type and validates the values its feature values
 // hold, including derived defaults, plus the verdict of each constraint the
 // instance carries.
-func runInstanceConformance(t *testing.T, ctx *Context, idx *symbols.Index, path string, expected ExpectedOutcome) {
+func runInstanceConformance(t *testing.T, ctx *Context, idx *symbols.Index, path string, expected ExpectedOutcome, forceOwned bool) {
 	if expected.Instantiate == "" {
 		t.Fatalf("instance case declares no \"instantiate\" type")
 	}
@@ -1494,6 +1592,11 @@ func runInstanceConformance(t *testing.T, ctx *Context, idx *symbols.Index, path
 	}
 	if err != nil {
 		t.Fatalf("Instantiate(%s) failed: %v", expected.Instantiate, err)
+	}
+	if forceOwned {
+		if err := forceOwnedConnectors(ctx, inst); err != nil {
+			t.Fatalf("OwnedConnectors(%s) failed before execution: %v", expected.Instantiate, err)
+		}
 	}
 
 	for name, expectedVal := range expected.FeatureValues {
