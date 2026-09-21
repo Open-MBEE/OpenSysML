@@ -39,7 +39,7 @@ const setTensorModel = `package P {
 		:>> mRefs = (Pa, Pa, Pa, Pa, Pa, Pa, Pa, Pa);
 	}
 	attribute hyper : TensorQuantityValue = TensorCalculations::'['((1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0), hyperRef);
-	attribute hyperCorner : Real = hyper#(2, 1, 1, 2);
+	attribute hyperCorner : Real = hyper#(2, 1, 2, 1);
 	attribute cubeRef : TensorMeasurementReference {
 		:>> dimensions = (2, 2, 2);
 		:>> mRefs = (Pa, Pa, Pa, Pa, Pa, Pa, Pa, Pa);
@@ -63,7 +63,7 @@ func TestSetAndTensorValuesRoundTripAsExpressions(t *testing.T) {
 		`sysml:function "TensorCalculations::["`,
 		`sysx:sourceText "cube#(2, 1, 2)"`,
 		`sysx:sourceText "(2, 1, 2, 2)"`,
-		`sysx:sourceText "hyper#(2, 1, 1, 2)"`,
+		`sysx:sourceText "hyper#(2, 1, 2, 1)"`,
 		`sysml:type "Set"`,
 		`sysml:type "UniqueCollection"`,
 		`sysml:type "Map"`,
@@ -92,7 +92,7 @@ func TestSetAndTensorValuesRoundTripAsExpressions(t *testing.T) {
 		"redefines dimensions = (2, 1, 2, 2);",
 		"= TensorCalculations::'['((1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0), cubeRef);",
 		"= cube#(2, 1, 2);",
-		"= hyper#(2, 1, 1, 2);",
+		"= hyper#(2, 1, 2, 1);",
 		"redefines elements = (2, 3, 2, 1);",
 		"redefines elements = (kv2, kv1, kv2);",
 	} {
@@ -124,6 +124,7 @@ func TestSetAndTensorGraphsAreStandardShaped(t *testing.T) {
 		}
 	}
 	seen := map[rdf.Term]bool{}
+	seenClasses := map[string]int{}
 	for len(roots) > 0 {
 		n := roots[0]
 		roots = roots[1:]
@@ -139,8 +140,17 @@ func TestSetAndTensorGraphsAreStandardShaped(t *testing.T) {
 			continue
 		}
 		seen[n] = true
+		seenClasses[typ]++
 		for _, p := range []string{rdf.SysML + "argument", rdf.SysML + "value", rdf.SysML + "referent"} {
 			roots = append(roots, graph.Objects(n, p)...)
+		}
+	}
+	if len(seen) == 0 {
+		t.Fatal("no expression nodes walked")
+	}
+	for _, class := range []string{"InvocationExpression", "OperatorExpression", "FeatureReferenceExpression"} {
+		if seenClasses[class] == 0 {
+			t.Errorf("expression graph walked no %s node", class)
 		}
 	}
 	for _, tr := range graph.Triples() {
@@ -186,6 +196,7 @@ func rdfMustParse(t *testing.T, turtle []byte) *rdf.Graph {
 
 func TestSetAndTensorStructuralPredicatesCarryTheRoundTrip(t *testing.T) {
 	stripped := withoutSourceText(t, idTurtle(t, setTensorModel))
+	intact := toNotation(t, stripped)
 	for _, tc := range []struct {
 		pred, spelling string
 		degrades       bool
@@ -193,7 +204,7 @@ func TestSetAndTensorStructuralPredicatesCarryTheRoundTrip(t *testing.T) {
 		{"sysml:operator", "(3, 1, 2, 2, 3)", true},
 		{"sysx:argumentIndex", "(3, 1, 2, 2, 3)", false},
 		{"sysml:function", "TensorCalculations::'['(", true},
-		{"sysml:referent", "cubeRef", true},
+		{"sysml:referent", ", cubeRef)", true},
 		{"sysml:argument", "TensorCalculations::'['(", true},
 	} {
 		mutated := withoutTriples(t, stripped, tc.pred)
@@ -202,8 +213,20 @@ func TestSetAndTensorStructuralPredicatesCarryTheRoundTrip(t *testing.T) {
 		}
 		back, err := convert.Convert("m.ttl", mutated, convert.FormatTurtle, convert.FormatSysML)
 		if tc.degrades {
-			if err == nil && strings.Contains(string(back), tc.spelling) {
+			if err != nil {
+				t.Logf("removing %s: conversion refused: %v", tc.pred, err)
+				continue
+			}
+			if strings.Contains(string(back), tc.spelling) {
 				t.Errorf("removing %s preserved %q", tc.pred, tc.spelling)
+				continue
+			}
+			kept, dropped := strings.Split(intact, "\n"), strings.Split(string(back), "\n")
+			for i := 0; i < len(kept) && i < len(dropped); i++ {
+				if kept[i] != dropped[i] {
+					t.Logf("removing %s: first differing line\n  intact: %s\n  degraded: %s", tc.pred, kept[i], dropped[i])
+					break
+				}
 			}
 		} else if err != nil || !strings.Contains(string(back), tc.spelling) {
 			t.Errorf("removing non-load-bearing %s unexpectedly degraded notation: %v\n%s", tc.pred, err, back)
@@ -245,27 +268,31 @@ func TestSetOrderAndTensorShapeSurviveTheHop(t *testing.T) {
 	originalCtx, originalScope := runtimeModel(t, setTensorModel)
 	back := toNotation(t, withoutSourceText(t, idTurtle(t, setTensorModel)))
 	hoppedCtx, hoppedScope := runtimeModel(t, back)
-	for _, expr := range []string{"s == sameAsS", "s == notS"} {
-		before := evalExportExpr(t, originalCtx, originalScope, expr)
-		after := evalExportExpr(t, hoppedCtx, hoppedScope, expr)
-		if runtime.FormatTraceValue(before) != runtime.FormatTraceValue(after) {
-			t.Errorf("%s changed: %s -> %s", expr, runtime.FormatTraceValue(before), runtime.FormatTraceValue(after))
+	for _, tc := range []struct{ expr, want, prefix string }{
+		{expr: "s == sameAsS", want: "true"},
+		{expr: "s == notS", want: "false"},
+		{expr: "s->size()", want: "3"},
+		{expr: "m.elements->size()", want: "2"},
+		{expr: "cube#(2, 1, 2)", prefix: "6.0"},
+		{expr: "hyper#(2, 1, 2, 1)", prefix: "7.0"},
+		{expr: "hyper", prefix: "Tensor(2, 1, 2, 2)"},
+	} {
+		before := runtime.FormatTraceValue(evalExportExpr(t, originalCtx, originalScope, tc.expr))
+		after := runtime.FormatTraceValue(evalExportExpr(t, hoppedCtx, hoppedScope, tc.expr))
+		if before != after {
+			t.Errorf("%s changed: %s -> %s", tc.expr, before, after)
+		}
+		t.Logf("%s = %s (before) / %s (after)", tc.expr, before, after)
+		if tc.want != "" && after != tc.want {
+			t.Errorf("%s = %s, want %s", tc.expr, after, tc.want)
+		}
+		if tc.prefix != "" && !strings.HasPrefix(after, tc.prefix) {
+			t.Errorf("%s = %s, want prefix %s", tc.expr, after, tc.prefix)
 		}
 	}
-	for _, expr := range []string{"s->size()", "m.elements->size()", "cube#(2, 1, 2)", "hyper#(2, 1, 1, 2)", "hyper"} {
-		before := evalExportExpr(t, originalCtx, originalScope, expr)
-		after := evalExportExpr(t, hoppedCtx, hoppedScope, expr)
-		if runtime.FormatTraceValue(before) != runtime.FormatTraceValue(after) {
-			t.Errorf("%s changed: %s -> %s", expr, runtime.FormatTraceValue(before), runtime.FormatTraceValue(after))
+	for _, written := range []string{"(3, 1, 2, 2, 3)", "(2, 3, 1)"} {
+		if !strings.Contains(back, written) {
+			t.Errorf("reconstructed model lost written order %q", written)
 		}
-		if expr == "hyper" && !strings.HasPrefix(runtime.FormatTraceValue(after), "Tensor(2, 1, 2, 2)") {
-			t.Errorf("hyper has wrong shape: %s", runtime.FormatTraceValue(after))
-		}
-	}
-	if strings.Contains(string(idTurtle(t, setTensorModel)), `sysx:sourceText "(3, 1, 2, 2, 3)"`) == false {
-		t.Fatal("set source text missing")
-	}
-	if strings.Contains(string(idTurtle(t, setTensorModel)), `sysx:sourceText "(2, 3, 1)"`) == false {
-		t.Fatal("same-order set source text missing")
 	}
 }

@@ -1320,7 +1320,8 @@ the flat sequence of its elements:
   the mapping writes the model, never an evaluation, so a tensor-valued feature of any
   rank is its `TensorCalculations::'['` invocation and an indexing its `#` tree, standard
   expression shapes that round trip exactly with the source text stripped and whose
-  structural predicates each carry the round trip
+  load-bearing structural predicates (`operator`, `argument`, `function`,
+  `referent`) carry the round trip
   ([the mapping](../reference/rdf-mapping.md#expressions)).
   Conformance `instance_tensor_quantity`, `instance_tensor_quantity_failures`,
   `instance_tensor_rank_three`, `instance_tensor_rank_three_failures`;
