@@ -1214,8 +1214,15 @@ member of the machine's owner (or of the machine standing alone) when it declare
 several so named, the one the call's arguments select as `InvokeOperation` would, and
 `ErrAmbiguousInvocation` before the call is queued when they select none; the arguments
 checked against the declaration's inputs as `InvokeOperation` checks them, so an unbound or
-unknown one is `ErrUnboundParameter` before the call is queued, since §8.5.9's
-`CallEventExecution` holds a value for each of the operation's parameters — as §8.5.9
+unknown one is `ErrUnboundParameter` and one of the wrong type `ErrTypeMismatch` before the call
+is queued, and an input the caller omits carries its default, since §8.5.9's
+`CallEventExecution` holds a value for each of the operation's parameters; the call event carries
+the selected declaration (`Call.Declared`) and fires only the triggers naming it — a trigger
+`accept op(x)` naming the owner's `op` declarations with an input for each trigger parameter,
+those with exactly the trigger's parameters when any has, and all of several differing in
+their parameters' types alone, since the notation writes no types (`callTriggerOperations`), as
+a UML `CallEvent` names one `Operation` (UML §13.3.3) — so same-named overloads whose parameter
+names differ reach their own transitions — as §8.5.9
 returns the operation's own parameters — an `inout` no behavior of the step wrote going back as the
 caller passed it, since §8.5.9's `CallEventExecution` holds the argument as that parameter's value
 until a behavior writes it — and under every name the step returned when the trigger
@@ -1225,7 +1232,8 @@ discarded occurrence does (`state_call_trigger_results`; `TestRuntimeRobustnessC
 held, recalled, untaken, empty, repeated and erroring calls, the caller released ahead of the
 completion step and the timer its step set up, a declared operation returning its own
 parameters alone and an `inout` argument as passed, as written and not at all when nothing takes
-the call). Only a write to a behavior's own output parameter comes back — a nested action's
+the call, a wrong-typed argument refused, a default filled in, an overload firing the trigger
+naming its declaration). Only a write to a behavior's own output parameter comes back — a nested action's
 `return` or its assignment to an `out`/`inout` (`state_statements.go:returnAround`) — because
 §8.5.9 collects the values of the triggered Behavior's output parameters and nothing else; an inline
 `assign` in an entry, exit or effect writes a feature of the machine's owner, not a parameter, so it

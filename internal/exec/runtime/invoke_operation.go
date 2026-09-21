@@ -73,14 +73,7 @@ func (ctx *Context) InvokeOperationWith(inst *Instance, name string, args Operat
 		if err != nil {
 			return nil, fmt.Errorf("invoke %s on object #%d: %w", name, inst.ID, err)
 		}
-		key := "result"
-		for _, output := range shape.Outputs {
-			if output.IsResult && output.Name != "" {
-				key = output.Name
-				break
-			}
-		}
-		return map[string]Value{key: result}, nil
+		return map[string]Value{shape.resultName(): result}, nil
 	case isConstraintSymbol(sym):
 		holds, err := ctx.evaluateConstraintInvocation(sym, DeclScope(sym), inst, inputs)
 		if err != nil {
@@ -89,6 +82,17 @@ func (ctx *Context) InvokeOperationWith(inst *Instance, name string, args Operat
 		return map[string]Value{"result": boolValue(holds)}, nil
 	}
 	return nil, fmt.Errorf("%w: %s of %s", ErrNotABehavior, name, symbolText(inst.Type))
+}
+
+// resultName is the name an invocation returns the calc's result under: its
+// named result parameter, else `result`.
+func (shape *calcShape) resultName() string {
+	for _, output := range shape.Outputs {
+		if output.IsResult && output.Name != "" {
+			return output.Name
+		}
+	}
+	return "result"
 }
 
 // operationOf resolves the member of the object's type that name invokes — among

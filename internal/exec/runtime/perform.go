@@ -3,6 +3,7 @@ package runtime
 import (
 	"errors"
 	"fmt"
+	"maps"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -32,7 +33,11 @@ func (e *StateExecutor) Enqueue(event QueuedEvent) error {
 	case event.Value != nil && event.Signal == "":
 		return fmt.Errorf("%w: event carries a bare value but declares no signal", ErrMalformedEvent)
 	case event.Call != "":
-		e.InvokeOperation(event.Call, event.Args)
+		payload, err := e.callPayload(event.Call, event.Args)
+		if err != nil {
+			return err
+		}
+		e.queueCall(payload)
 	case event.Value != nil:
 		value := *event.Value
 		e.enqueueSignal(Message{SignalType: event.Signal, Value: &value})
@@ -61,6 +66,16 @@ type pendingCall struct {
 	taken   bool
 }
 
+// clone copies the call where it stands, its maps by value, for a capture.
+func (call *pendingCall) clone() *pendingCall {
+	if call == nil {
+		return nil
+	}
+	copied := *call
+	copied.outputs, copied.returns, copied.inouts = maps.Clone(call.outputs), maps.Clone(call.returns), maps.Clone(call.inouts)
+	return &copied
+}
+
 // Call queues the call event, runs the machine through the run-to-completion
 // step dispatching it and releases the caller with the outputs the behaviors that
 // step fired returned, by name (PSSM 8.5.9): the operation's out and inout
@@ -68,18 +83,26 @@ type pendingCall struct {
 // as the caller passed it, every output otherwise. Events that step queued and
 // timers it armed stay for the machine's later runs; the clock does not move.
 func (e *StateExecutor) Call(operation string, args map[string]Value) (map[string]Value, error) {
-	call, err := e.newPendingCall(operation, args)
+	payload, err := e.callPayload(operation, args)
+	if err != nil {
+		return nil, err
+	}
+	call, err := e.newPendingCall(payload)
 	if err != nil {
 		return nil, err
 	}
 	e.pendingCall = call
 	defer func() { e.pendingCall = nil }()
-	e.InvokeOperation(operation, args)
+	e.queueCall(payload)
 	if err := e.RunToQuiescence(); err != nil {
 		return nil, err
 	}
 	if held := e.eventDisposition(call.id); held != "" {
 		return nil, fmt.Errorf("%w: %s is still %s", ErrCallNotReturned, operation, held)
+	}
+	// A step undone within the run restored the call as it stood when captured.
+	if e.pendingCall != nil {
+		call = e.pendingCall
 	}
 	return call.outputs, nil
 }
@@ -103,48 +126,164 @@ func (e *StateExecutor) callReleased() bool {
 	return e.pendingCall != nil && e.eventDisposition(e.pendingCall.id) == ""
 }
 
-// newPendingCall reads the operation's declaration as a member of the machine's
-// owner (of the machine itself when it stands alone) — among several so named,
-// the one the arguments select as a call in the model would — checks the
-// arguments bind its inputs as an invocation's must, and takes the out and inout
-// parameters it returns and the inout arguments the call carries in; an
-// operation no member of that name declares as a behavior returns every output.
-func (e *StateExecutor) newPendingCall(operation string, args map[string]Value) (*pendingCall, error) {
-	call := &pendingCall{id: e.nextEventID, outputs: make(map[string]Value)}
-	owner := e.stateMachine
+// callOwner is the type whose members a called operation is looked up among: the
+// machine's owner, the machine itself when it stands alone.
+func (e *StateExecutor) callOwner() *symbols.Symbol {
 	if e.self != nil && e.self.Type != nil {
-		owner = e.self.Type
+		return e.self.Type
 	}
-	member, err := e.ctx.memberCalled(owner, e.self, operation, OperationArguments{Named: args})
+	return e.stateMachine
+}
+
+// callTriggerOperations reads the declared operations a call trigger names, as a
+// UML call event names one: the owner's behavior members of the trigger's name
+// declaring an input for each trigger parameter — those declaring exactly the
+// trigger's parameters when any does — memoized per trigger.
+func (e *StateExecutor) callTriggerOperations(trigger *ast.CallEvent) []*symbols.Symbol {
+	if named, memoized := e.callTriggers[trigger]; memoized {
+		return named
+	}
+	name := ast.SimpleName(trigger.Operation)
+	var loose, exact []*symbols.Symbol
+	for _, member := range e.ctx.model.semantics.MembersOf(e.callOwner()) {
+		if member.Name != name || !isActionSymbol(member) && !isCalcSymbol(member) && !isConstraintSymbol(member) {
+			continue
+		}
+		inputs := make(map[string]bool)
+		for _, param := range e.ctx.model.semantics.SignatureParametersOf(member) {
+			inputs[param.Name] = true
+		}
+		declared := 0
+		for _, param := range trigger.Parameters {
+			if inputs[param.Text] {
+				declared++
+			}
+		}
+		if declared < len(trigger.Parameters) {
+			continue
+		}
+		loose = append(loose, member)
+		if len(inputs) == len(trigger.Parameters) {
+			exact = append(exact, member)
+		}
+	}
+	named := loose
+	if len(exact) > 0 {
+		named = exact
+	}
+	if e.callTriggers == nil {
+		e.callTriggers = make(map[*ast.CallEvent][]*symbols.Symbol)
+	}
+	e.callTriggers[trigger] = named
+	return named
+}
+
+// callPayload builds the call event's payload: the operation's declaration as a
+// behavior member of the machine's owner — among several so named, the one the
+// arguments select as a call in the model would — and the arguments bound to its
+// inputs as an invocation binds them; an operation no member of that name
+// declares as a behavior carries the arguments as given and no declaration.
+func (e *StateExecutor) callPayload(operation string, args map[string]Value) (Call, error) {
+	member, err := e.ctx.memberCalled(e.callOwner(), e.self, operation, OperationArguments{Named: args})
 	if err != nil {
-		return nil, err
+		return Call{}, err
 	}
-	if !isActionSymbol(member) && !isCalcSymbol(member) {
-		return call, nil
+	if !isActionSymbol(member) && !isCalcSymbol(member) && !isConstraintSymbol(member) {
+		return Call{Operation: operation, Args: args}, nil
 	}
-	params := e.ctx.model.semantics.SignatureParametersOf(member)
-	if _, err := operationInputs(params, operation, OperationArguments{Named: args}); err != nil {
-		return nil, err
+	inputs, err := e.callInputs(member, operation, args)
+	if err != nil {
+		return Call{}, err
 	}
-	if !isActionSymbol(member) {
+	return Call{Operation: operation, Declared: member, Args: inputs}, nil
+}
+
+// newPendingCall takes the names the call returns: an action's out and inout
+// parameters, with the inout values the call carries in, a calc's or constraint's
+// result; a call of no declared operation returns every output.
+func (e *StateExecutor) newPendingCall(payload Call) (*pendingCall, error) {
+	call := &pendingCall{id: e.nextEventID, outputs: make(map[string]Value)}
+	member, inputs := payload.Declared, payload.Args
+	if member == nil {
 		return call, nil
 	}
 	call.returns = make(map[string]bool)
-	for _, param := range e.ctx.actionParametersOf(member) {
-		switch param.Direction {
-		case ast.DirOut:
-			call.returns[param.Name] = true
-		case ast.DirInOut:
-			call.returns[param.Name] = true
-			if value, ok := args[param.Name]; ok {
-				if call.inouts == nil {
-					call.inouts = make(map[string]Value)
+	switch {
+	case isActionSymbol(member):
+		for _, param := range e.ctx.actionParametersOf(member) {
+			switch param.Direction {
+			case ast.DirOut:
+				call.returns[param.Name] = true
+			case ast.DirInOut:
+				call.returns[param.Name] = true
+				if value, ok := inputs[param.Name]; ok {
+					if call.inouts == nil {
+						call.inouts = make(map[string]Value)
+					}
+					call.inouts[param.Name] = value
 				}
-				call.inouts[param.Name] = value
 			}
 		}
+	case isCalcSymbol(member):
+		shape, err := e.ctx.calcShapeOf(member)
+		if err != nil {
+			return nil, err
+		}
+		call.returns[shape.resultName()] = true
+	default:
+		call.returns["result"] = true
 	}
 	return call, nil
+}
+
+// callInputs binds the arguments to the operation's inputs as InvokeOperation
+// binds them — by name, each value checked against its parameter's declaration, a
+// parameter no argument binds holding its default — so the event carries a value
+// for each parameter, as PSSM 8.5.9's call event execution does.
+func (e *StateExecutor) callInputs(member *symbols.Symbol, operation string, args map[string]Value) (map[string]Value, error) {
+	ctx := e.ctx
+	inputs, err := operationInputs(ctx.model.semantics.SignatureParametersOf(member), operation, OperationArguments{Named: args})
+	if err != nil {
+		return nil, err
+	}
+	scope := DeclScope(member)
+	ec := NewEvalContextIn(ctx, scope, e.self)
+	defer ec.beginStep()()
+	if isCalcSymbol(member) {
+		shape, err := ctx.calcShapeOf(member)
+		if err != nil {
+			return nil, err
+		}
+		bound := mapFrame(make(map[string]Value, len(shape.Params)))
+		ec.frames = []frame{bound}
+		if err := ctx.bindCalcParameters(shape, ec, calcArgs{named: inputs}, scope, bound, nil); err != nil {
+			return nil, err
+		}
+		return bound.vars, nil
+	}
+	ec.frames = []frame{mapFrame(inputs)}
+	where := "call " + operation
+	for _, param := range ctx.model.semantics.BehaviorParametersOf(member) {
+		if param.Symbol == nil || param.Direction != ast.DirIn && param.Direction != ast.DirInOut {
+			continue
+		}
+		name := param.Symbol.Name
+		value, bound := inputs[name]
+		if !bound {
+			expr, declared := ctx.model.semantics.ParameterDefault(param.Symbol)
+			if expr == nil {
+				continue
+			}
+			if value, err = ec.evalIn(declared).Eval(expr); err != nil {
+				return nil, fmt.Errorf("%s: eval default of %s: %w", where, name, err)
+			}
+		}
+		if err := ctx.checkNamedWrite(scope, where, name, &value); err != nil {
+			return nil, err
+		}
+		inputs[name] = value
+	}
+	return inputs, nil
 }
 
 // callTaken notes that a transition fired on the pending call's event, so an inout

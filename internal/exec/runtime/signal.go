@@ -79,9 +79,12 @@ const (
 	DeliverObject
 )
 
-// Call is the payload of an EventCall: the operation invoked and its arguments.
+// Call is the payload of an EventCall: the operation invoked, its declaration as
+// a behavior member of the machine's owner (nil when it declares none) and the
+// arguments.
 type Call struct {
 	Operation string
+	Declared  *symbols.Symbol
 	Args      map[string]Value
 }
 

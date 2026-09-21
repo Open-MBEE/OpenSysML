@@ -23,6 +23,11 @@ func TestRuntimeRobustnessCallResults(t *testing.T) {
 	t.Run("inout_argument_returns_as_passed_unless_written", testCallResultsInoutArgument)
 	t.Run("overloaded_operation_returns_the_selected_declaration", testCallResultsOverloaded)
 	t.Run("arguments_must_bind_the_declared_inputs", testCallResultsArguments)
+	t.Run("overload_fires_the_trigger_naming_its_declaration", testCallResultsOverloadDispatch)
+	t.Run("arguments_must_conform_to_their_parameters", testCallResultsArgumentTypes)
+	t.Run("omitted_input_carries_its_default", testCallResultsDefaults)
+	t.Run("calc_and_constraint_return_their_result_only", testCallResultsCalcConstraint)
+	t.Run("undone_move_restores_the_call", testCallResultsMoveRollback)
 }
 
 const callResultsModel = `package test {
@@ -244,6 +249,212 @@ func testCallResultsArguments(t *testing.T) {
 	}
 	if n, ok := got["n"]; !ok || n.Const.Int != 1 || len(got) != 1 {
 		t.Errorf("compute(3) returned %v, want n = 1 alone", got)
+	}
+}
+
+// callDispatchModel: two `compute` overloads, and a trigger for each; the
+// one-parameter trigger is declared first and would take any call carrying `x`
+// were the call matched by its arguments alone.
+const callDispatchModel = `package P {
+	private import ScalarValues::*;
+	part def Owner {
+		action def compute { in x : Integer; out n : Integer; }
+		action def compute { in x : Integer; in y : Integer; out n : Integer; }
+		action def One {
+			out n : Integer;
+			first start;
+			action writing { assign n := 1; }
+			done;
+			succession first start then writing;
+			succession first writing then done;
+		}
+		action def Two {
+			out n : Integer;
+			first start;
+			action writing { assign n := 2; }
+			done;
+			succession first start then writing;
+			succession first writing then done;
+		}
+		exhibit state sm {
+			entry; then idle;
+			state idle;
+			transition first idle accept compute(x) do perform One then idle;
+			transition first idle accept compute(x, y) do perform Two then idle;
+		}
+	}
+	part owner : Owner;
+}`
+
+// testCallResultsOverloadDispatch: a call fires the trigger naming the
+// declaration its arguments selected, not the first trigger its arguments would
+// bind, so same-named overloads reach their own transitions.
+func testCallResultsOverloadDispatch(t *testing.T) {
+	exec := callMachineOwnedBy(t, callDispatchModel)
+	for _, tc := range []struct {
+		args map[string]Value
+		want int64
+	}{
+		{map[string]Value{"x": constInt(3), "y": constInt(4)}, 2},
+		{map[string]Value{"x": constInt(3)}, 1},
+	} {
+		got, err := exec.Call("compute", tc.args)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if n, ok := got["n"]; !ok || n.Const.Int != tc.want || len(got) != 1 {
+			t.Errorf("compute%v returned %v, want n = %d alone", tc.args, got, tc.want)
+		}
+	}
+	if n := exec.eventQueue.Len(); n != 0 {
+		t.Errorf("%d event(s) left queued, want every call dispatched", n)
+	}
+}
+
+// callTypedModel: `compute` takes an Integer `x` and a `y` defaulting to 7 and
+// answers with `y`; `half` and `even` are a calc and a constraint answered by a
+// helper writing a same-named result beside an `extra` output.
+const callTypedModel = `package P {
+	private import ScalarValues::*;
+	part def Owner {
+		action def compute { in x : Integer; in y : Integer = 7; out n : Integer; }
+		calc def half { in x : Integer; return : Integer = x / 2; }
+		constraint def even { in x : Integer; x == 2 * (x / 2) }
+		action def Echo {
+			in y : Integer;
+			out n : Integer;
+			first start;
+			action echoing { assign n := y; }
+			done;
+			succession first start then echoing;
+			succession first echoing then done;
+		}
+		action def Answer {
+			out result : Integer;
+			out extra : Integer;
+			first start;
+			action answering { assign result := 2; assign extra := 9; }
+			done;
+			succession first start then answering;
+			succession first answering then done;
+		}
+		action def Verdict {
+			out result : Boolean;
+			out extra : Integer;
+			first start;
+			action judging { assign result := true; assign extra := 9; }
+			done;
+			succession first start then judging;
+			succession first judging then done;
+		}
+		exhibit state sm {
+			entry; then idle;
+			state idle;
+			transition first idle accept compute(x, y) do action : Echo { in y = y; } then idle;
+			transition first idle accept half(x) do perform Answer then idle;
+			transition first idle accept even(x) do perform Verdict then idle;
+		}
+	}
+	part owner : Owner;
+}`
+
+// testCallResultsArgumentTypes: a value of the wrong type for a declared input is
+// refused as an invocation refuses it, before the call is queued, for an action,
+// a calc and a constraint alike.
+func testCallResultsArgumentTypes(t *testing.T) {
+	exec := callMachineOwnedBy(t, callTypedModel)
+	for _, operation := range []string{"compute", "half", "even"} {
+		got, err := exec.Call(operation, map[string]Value{"x": strValue("three")})
+		if !errors.Is(err, ErrTypeMismatch) {
+			t.Errorf("%s(\"three\") = %v, %v; want ErrTypeMismatch", operation, got, err)
+		}
+		if n := exec.eventQueue.Len(); n != 0 {
+			t.Errorf("%d event(s) queued after %s, want the call refused before it is queued", n, operation)
+		}
+	}
+	if got, err := exec.Call("compute", map[string]Value{"x": constInt(3)}); err != nil || len(got) != 1 {
+		t.Errorf("compute(3) = %v, %v after the refusals, want one output", got, err)
+	}
+}
+
+// testCallResultsDefaults: an input the call leaves unbound carries its default
+// in the event, where the trigger binds it and the effect reads it.
+func testCallResultsDefaults(t *testing.T) {
+	exec := callMachineOwnedBy(t, callTypedModel)
+	got, err := exec.Call("compute", map[string]Value{"x": constInt(3)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n, ok := got["n"]; !ok || n.Const.Int != 7 || len(got) != 1 {
+		t.Errorf("compute(3) returned %v, want n = 7 from y's default alone", got)
+	}
+	got, err = exec.Call("compute", map[string]Value{"x": constInt(3), "y": constInt(5)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n, ok := got["n"]; !ok || n.Const.Int != 5 || len(got) != 1 {
+		t.Errorf("compute(3, 5) returned %v, want n = 5 alone", got)
+	}
+}
+
+// testCallResultsCalcConstraint: a call of a calc or a constraint returns the
+// result alone; a helper's other outputs stay the machine's.
+func testCallResultsCalcConstraint(t *testing.T) {
+	exec := callMachineOwnedBy(t, callTypedModel)
+	got, err := exec.Call("half", map[string]Value{"x": constInt(4)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r, ok := got["result"]; !ok || r.Const.Int != 2 || len(got) != 1 {
+		t.Errorf("half(4) returned %v, want result = 2 alone", got)
+	}
+	got, err = exec.Call("even", map[string]Value{"x": constInt(4)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r, ok := got["result"]; !ok || !r.Const.Bool || len(got) != 1 {
+		t.Errorf("even(4) returned %v, want result = true alone", got)
+	}
+}
+
+// callRollbackModel: the transition answering `ask` writes `result` and then
+// fails its second effect, so the move is undone and `idle` remains.
+const callRollbackModel = `package P {
+	private import ScalarValues::*;
+	part def Owner {
+		attribute divisor : Integer = 0;
+		action def ask { out result : Integer; }
+		action def Answer {
+			out result : Integer;
+			first start;
+			action answering { assign result := 42; }
+			done;
+			succession first start then answering;
+			succession first answering then done;
+		}
+		exhibit state sm {
+			entry; then idle;
+			state idle;
+			state answered;
+			transition first idle accept ask() do action { perform Answer; assign divisor := divisor / divisor; } then answered;
+		}
+	}
+	part owner : Owner;
+}`
+
+// testCallResultsMoveRollback: a move undone after the call's outputs were
+// written restores the call as it stood, so a failed step returns nothing.
+func testCallResultsMoveRollback(t *testing.T) {
+	exec := callMachineOwnedBy(t, callRollbackModel)
+	got, err := exec.Call("ask", nil)
+	if err == nil {
+		t.Fatalf("ask() = %v, nil; want the failing effect's error", got)
+	}
+	if len(got) != 0 {
+		t.Errorf("ask() returned %v with its error, want nothing", got)
+	}
+	if exec.pendingCall != nil {
+		t.Errorf("a call is still pending after the failed step")
 	}
 }
 
