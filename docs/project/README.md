@@ -15,6 +15,8 @@ within these records and means nothing outside this repository.
   corpora, ratcheted in CI
 - **[RDF corpus round-trip gate](rdf-corpus-roundtrip.md)** — the notation → Turtle → notation →
   Turtle verdict of every model under `examples/`, ratcheted per file in CI
+- **[PSSM migration gate](pssm-migration.md)** — the SysML v1 migrator over the OMG PSSM test
+  suite: the notation asserted to parse, the report's verdict totals ratcheted in CI
 - **[Pilot differential](pilot-differential.md)** — OpenSysML diagnostics compared against the OMG
   pilot implementation, advisory
 - **[Pilot execution referee](pilot-execution-referee.md)** — how far the pinned pilot's
