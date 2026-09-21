@@ -437,6 +437,17 @@ sweep ordinary tokens before paused bodies, so each takes `direct` first, then s
 writes in its own order in the next step: `reverse` (and `seed:1`) writes `x := 2` then `x := 1`,
 giving `x = 1`; `declared` writes them the other way round, giving `x = 2`.
 
+### Dispatch during an entry the model does not run to completion
+
+Fixture: `state_run_to_completion_false_self_signal` and
+`state_run_to_completion_scope_sibling_region` (goldens, explored).
+
+An entry that does not run to completion and a dispatch due at the same instant
+may proceed in either order. Dispatching first exits the entered composite
+before its unfinished entry reaches the nested state; completing the entry first
+visits that nested state before the dispatch exits the composite. Both traces
+are valid linearizations of the same instant.
+
 ### A decision inside a loop: every pass is its own open choice
 
 Fixture: `action_explore_decision_in_loop` (golden, explored).

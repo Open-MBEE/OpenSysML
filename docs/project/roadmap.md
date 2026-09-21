@@ -1144,8 +1144,7 @@ parking a token in an action body, `due order` as a choice point), so every E it
 against a named scheduling policy and a shared clock, not an implicit order. Each item below ends
 with what would move it forward; until that happens, the honest status is the "not supported"
 bullet or the refusal. E8–E10 are the three findings about the runtime's own conformance in
-`docs/internals/design/precise-semantics-alignment.md` that concern state machines: E8 is open,
-E9 and E10 landed with the change set that decided the note's open decisions.
+`docs/internals/design/precise-semantics-alignment.md` that concern state machines: E8, E9 and E10 landed with the change set that decided the note's open decisions.
 
 Two things about the list's own terms. First, four of the seven items — interruptible regions,
 expansion regions, streaming pins, protocol state machines — are UML 2.5.1 concepts that SysML v2
@@ -1552,7 +1551,18 @@ trace goldens, `send_to_object_held_in_feature`, `send_to_object_through_chain`,
 compliance record's send rows updated, the Known Limitations bullet and the "not supported" bullet
 gone.
 
-## E8 — `isRunToCompletion` and `runToCompletionScope` redefinitions
+## E8 — `isRunToCompletion` and `runToCompletionScope` redefinitions (landed)
+
+**Landed.** Effective values and scopes are lowered into `StateGraph`; the state executor applies
+held-entry boundaries, exposes the `entry step` choice point, and carries it through checking,
+exploration, replay and snapshots. Conformance fixtures cover state, scoped and machine
+redefinitions, with default twins preserving the default path; the two remaining invalid cases
+are typed refusals for a missing occurrence scope and a scope that is not an ancestor of the
+redefining state.
+
+**Known limitations.** Fork/shared-path `enterLazily` entries are not split. The boundary applies
+only to entry cascades; exit and effect sequences are unchanged. The pre-existing re-run of a
+parallel machine's region-state entry action on an intra-region transition is unchanged.
 
 **Today.** `Kernel Semantic Library/Occurrences.kerml` declares, on every `Occurrence`,
 `isRunToCompletion: Boolean [1] default true` — "determines whether transition performances might
@@ -1597,9 +1607,9 @@ trace golden unchanged. Independent of E1–E7; touches the loop E1 and E2 also 
 **Proof.** The refusal is pinned: conformance `state_run_to_completion_redefined_false`,
 `_scope_narrowed`, `_inherited_redefinition`, `_region_redefinition`, `_unverified` and
 `_alias_redefinition` expect the typed error, `_defaults_restated` and `_default_restored` run,
-`robustness_test.go` `run_to_completion_*` match it with `errors.As`, and
-the state rendering (`view/render_test.go`) and the REPL's `%state` (`repl/runtime_commands_test.go`)
-show the same message. The implementation adds:
+`robustness_test.go` `run_to_completion_*` match it with `errors.As`, and the state rendering
+(`view/render_test.go`) and the REPL's `%state` (`repl/runtime_commands_test.go`) show the same
+message. The implementation adds:
 conformance for a redefinition to `false` on a composite whose entry sends a signal the composite
 itself accepts, pinning that the transition fires during the entry where the default holds it
 until after; a narrowed scope with a sibling region's transition firing during the scoped state's
@@ -3073,7 +3083,7 @@ carried more than that list. By track, with the pull requests the tracks cite:
   retired); E4 landed (a plain `flow` streams each write, a `succession flow` moves the value at
   completion); E6 landed (a positional argument list on `InvokeOperationWith` and `%invoke`,
   bound to the effective signature an invocation expression binds to); E9 and E10 landed as
-  conformance findings; E8's refusal landed (#229), the item itself is open; E3 closed by its
+  conformance findings; E8 landed; E3 closed by its
   design record ([expansion-regions.md](expansion-regions.md): the iterative form is `for`, the
   parallel form is not SysML v2), no executor work following.
 - **Track D** — D12 (the standard library's normative element ids) is done.
@@ -3089,7 +3099,7 @@ Tracks F, S, L and A are closed.
 
 - **Track E** — eligible and first: E2 (E1 and E4 landed), with E6 landed; E3 closed by its
   design record, E5 closed by its record (an optional follow-up waits on a model that needs it),
-  E7 landed, E8 behind a model that needs it. The
+  E7 landed, E8 landed. The
   PSSM referee's 17 `fail` tests are the state side's measurement, every one attributed (#326):
   eleven wait on the region-order choice point whose design record #342 wrote and left at two
   maintainer decisions — the nine the record names to move `fail` → `pass`, plus *Terminate 001*
@@ -3204,8 +3214,8 @@ an empty action end its performance. The decision is the release checklist's, re
 - **Track E.** Eligible — step 1 above. **E1** (termination of an ongoing performance, which
   **E2** and **E4** build on) is landed; the order is **E2**; **E4** is landed; **E6** is landed;
   **E3**'s record is landed and closes the item; **E5**'s record is landed and closes the item,
-  its optional follow-up waiting on a model that needs it; **E7** is landed; **E8** when a model redefines run-to-completion, its refusal (#229) standing until
-  then; **E1**, **E9** and **E10** are landed; no work follows E3.
+  its optional follow-up waiting on a model that needs it; **E7** is landed; **E8** is landed: effective run-to-completion values and scopes are lowered and entry-step
+  scheduling is exposed to execution, checking, exploration and replay; **E1**, **E9** and **E10** are landed; no work follows E3.
 - **Track X.** X2, X3, X4, X5, X6, X7's values and X8's typing landed (#164, #115, #113, #211,
   #122, #121, #112). What is left, in order: X8's harness halves (normalization and adjudication
   in the pilot differential, a standalone RDF expression-tree round trip) so every later X item is

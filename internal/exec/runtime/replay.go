@@ -605,6 +605,8 @@ func parseOrderChoice(fail func(string) (ChoiceTaken, error), step int, first, m
 			c.Kind = ChoiceEntryOrder
 		case strings.HasPrefix(first, exitingWherePrefix):
 			c.Kind = ChoiceExitOrder
+		case strings.HasPrefix(first, entryStepWherePrefix):
+			c.Kind = ChoiceEntryStep
 		case strings.HasPrefix(first, stepWherePrefix):
 			c.Kind = ChoiceStepOrder
 		}

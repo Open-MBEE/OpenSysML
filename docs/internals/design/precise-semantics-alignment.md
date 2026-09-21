@@ -140,10 +140,10 @@ their end, entry behaviors included, before the next occurrence is looked at
 (`state_executor.go:enterStateInto` runs the entry body synchronously); the resulting completion
 transitions are *queued* (SM9) and dispatched by a later step, never inside the entry.
 `state_composite_orthogonal_exit` and its trace golden pin one whole step; `state_completion_done`
-pins that the completion step follows the entering step. The runtime never reads a redefinition
-of `isRunToCompletion`, so it implements the library default only; a model redefining it away
-from the default is refused by lowering (noted under *Findings*, as an unsupported v2 feature
-rather than a PSSM question). **agrees.**
+pins that the completion step follows the entering step. The lowered graph carries effective `isRunToCompletion` and `runToCompletionScope` values;
+`state_run_to_completion.go:holdEntry` and `entryStep` split entry cascades at scoped boundaries,
+while free dispatch alternatives remain available at the same instant. The default retains one
+whole-machine step, and the scoped fixtures cover both admissible orders. **agrees.**
 
 **SM3. One occurrence, one dispatch, possibly several transitions.** PSSM §8.5.2 (`select`) builds
 "the set of transitions that can be fired using the proposed event occurrence"; UML 14.2.3.9.4
@@ -1801,29 +1801,17 @@ and says what a fix takes.
    source completion (`action_frame.go:applyDataFlows`) and `lower.ObjectFlow` carries no flow
    kind. Roadmap Track E, "streaming flows", "concurrent per-element performance",
    "interrupting an ongoing performance". Recorded there; not re-scoped here.
-3. **`isRunToCompletion` and `runToCompletionScope` redefinitions are not read** (SM1).
-   `Occurrences.kerml` declares both as redefinable features with defaults; the runtime
-   implements the defaults (one occurrence per step, the whole machine as scope) and never
-   consults a model's redefinition. A model that redefines them was accepted and run under the
-   defaults without a diagnostic. *Refused since the release after 0.7.0:*
-   `lower/run_to_completion.go:refuseRunToCompletionRedefinitions`, applied to the machine's own
-   and inherited members by `lower/state_graph.go:ToStateGraphWithEndpoints` and to every
-   substate's by `lower/state_graph.go:stateNodeFromUsage`, returns the typed
-   `lower.RunToCompletionRedefinition` (an `ErrUnsupportedStateContent`) for `false`, for a scope
-   narrowed to a substate, and for a value lowering cannot read as the default; a redefinition
-   restating the default (`= true`, `= self` on the machine) runs. Only the redefinition a body
-   makes effective is judged — the last one with a value, a specialization's masking the
-   redefinition it inherits as `keptAttributes` masks an attribute — so a machine restating the
-   default over a specialized definition's `false` runs. The target is resolved to its symbol
-   (`resolve.Resolver.RedefinitionTarget`, aliases followed, redefinition chains walked), so an
-   alias of the library feature is refused and the spelling decides only where the target does
-   not resolve; the state rendering (`view/behavior.go:renderStates`) lowers with the same
-   resolver, so it refuses what the runtime refuses. Pinned by the conformance cases
-   `state_run_to_completion_redefined_false`, `_scope_narrowed`, `_inherited_redefinition`,
-   `_region_redefinition`, `_unverified`, `_alias_redefinition`, the positive
-   `_defaults_restated` and `_default_restored`, `view/render_test.go:TestStateRenderingRefusesWhatTheRuntimeRefuses`, and
-   `robustness_test.go:run_to_completion_*`. Unsupported v2 feature still: the refusal implements
-   neither a non-run-to-completion scheduling nor a narrowed scope.
+3. **Run-to-completion values and scopes are lowered and applied** (SM1).
+   `Occurrences.kerml` declares both features with defaults. `lower/run_to_completion.go:resolveRunToCompletion`
+   records each state's effective Boolean value and ancestor scope in `StateGraph`; literal values
+   avoid evaluator traces, while dynamic values use the lowered evaluation scope and report typed
+   failures. `state_run_to_completion.go:holdEntry` identifies the entering chain and
+   `entryStep` exposes free dispatch versus held entry as one scheduling choice, with checker,
+   exploration and replay support. The conformance fixtures
+   `state_run_to_completion_false_self_signal`, `state_run_to_completion_scope_sibling_region`
+   and `state_run_to_completion_false_machine` exercise state, scoped and machine redefinitions;
+   sibling and missing scopes remain typed lowering refusals. **agrees.**
+
 4. **A composite state's completion ends the machine and never fires the composite's own
    completion transition** (SM11). SysML v2 §7.18.3 says a transition to `done` completes "the
    containing state performance" and that the containing state "does not necessarily terminate

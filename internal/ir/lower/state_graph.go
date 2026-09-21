@@ -14,6 +14,10 @@ import (
 
 // StateGraph is the execution IR for state machines.
 type StateGraph struct {
+	// RunToCompletion contains effective RTC values for each state and the
+	// machine under the nil key.
+	RunToCompletion map[*ast.StateNode]RunToCompletion
+
 	// Scope is the scope the machine's own body was declared in, in which the
 	// expressions written directly among its members resolve their names.
 	Scope *symbols.Scope
@@ -76,6 +80,10 @@ type StateGraph struct {
 
 	// endpoints resolves what a transition endpoint names.
 	endpoints EndpointResolver
+	// machineDecl is the declaration whose body supplies the machine configuration.
+	machineDecl ast.Node
+	// runToCompletionDecls records effective RTC declarations by body.
+	runToCompletionDecls map[*ast.StateNode]map[string]runToCompletionDecl
 	// resolver is the name-resolution tier's behind endpoints, nil for none, by
 	// which the Probability metadata of a behavior's body is read.
 	resolver *resolve.Resolver
@@ -294,9 +302,8 @@ func ToStateGraphWithEndpoints(stateMachineDecl ast.Node, scope *symbols.Scope, 
 		return nil, err
 	}
 	body := append(append([]inheritedMember{}, inherited...), ownMembers(members, scope)...)
-	if err := graph.refuseRunToCompletionRedefinitions(body, DescribeMember(stateMachineDecl), true); err != nil {
-		return nil, err
-	}
+	graph.machineDecl = stateMachineDecl
+	graph.recordRunToCompletion(nil, body, DescribeMember(stateMachineDecl))
 
 	graph.Connections = lowerConnections(members, OwnerBehavior, scope)
 	graph.Attributes = keptAttributes(lowerStateAttributes(graph, inherited), lowerStateAttributes(graph, ownMembers(members, scope)))
@@ -313,6 +320,9 @@ func ToStateGraphWithEndpoints(stateMachineDecl ast.Node, scope *symbols.Scope, 
 	}
 
 	graph.collectRegions(body)
+	if err := graph.resolveRunToCompletion(); err != nil {
+		return nil, err
+	}
 
 	// Record the triggers each state defers, once every state is collected.
 	for _, state := range graph.States {
@@ -542,9 +552,7 @@ func stateNodeFromUsage(graph *StateGraph, usage *ast.Usage, scope *symbols.Scop
 	}
 
 	body := append(append([]inheritedMember{}, inherited...), ownMembers(usage.Members, bodyScope)...)
-	if err := graph.refuseRunToCompletionRedefinitions(body, "the state "+name, false); err != nil {
-		return nil, err
-	}
+	graph.recordRunToCompletion(state, body, "the state "+name)
 
 	base := &stateContent{node: &ast.StateNode{Name: name}}
 	if len(inherited) > 0 {
@@ -581,42 +589,44 @@ func stateNodeFromUsage(graph *StateGraph, usage *ast.Usage, scope *symbols.Scop
 // whose endpoints resolve through endpoints.
 func newStateGraph(scope *symbols.Scope, endpoints EndpointResolver) *StateGraph {
 	return &StateGraph{
-		Scope:               scope,
-		vertexOf:            make(map[ast.Node]ast.Node),
-		stateByDecl:         make(map[ast.Node]*ast.StateNode),
-		completing:          make(map[*ast.StateNode]bool),
-		StateAttributes:     make(map[*ast.StateNode][]Attribute),
-		instanceOf:          make(map[*ast.StateNode]*stateInstance),
-		materializing:       make(map[ast.Node]bool),
-		scopeOf:             make(map[*ast.StateNode]*symbols.Scope),
-		regionScopeOf:       make(map[*ast.StateRegion]*symbols.Scope),
-		declaredIn:          make(map[ast.Node]*symbols.Scope),
-		copiedFrom:          make(map[ast.Node]ast.Node),
-		behaviorScope:       make(map[ast.Node]*symbols.Scope),
-		attributeScope:      make(map[ast.Node]*symbols.Scope),
-		bodyOf:              make(map[*ast.StateNode][]inheritedMember),
-		parallelState:       make(map[*ast.StateNode]bool),
-		completionOf:        make(map[ast.Node]*ast.StateNode),
-		endpoints:           endpoints,
-		StateScopes:         make(map[*ast.StateNode]*symbols.Scope),
-		Behaviors:           make(map[*ast.StateNode]*StateBehaviors),
-		HiddenStates:        make(map[*ast.StateNode]bool),
-		HiddenRegionOf:      make(map[*ast.StateNode]*ast.StateRegion),
-		RegionState:         make(map[*ast.StateRegion]*ast.StateNode),
-		declOf:              make(map[*ast.StateNode]ast.Node),
-		States:              make([]*ast.StateNode, 0),
-		Pseudostates:        make([]*ast.PseudostateNode, 0),
-		PseudostateOwner:    make(map[*ast.PseudostateNode]*ast.StateNode),
-		TerminateOwner:      make(map[*ast.Usage]*ast.StateNode),
-		Transitions:         make(map[ast.Node][]*Transition),
-		CompositeStates:     make(map[*ast.StateNode][]*ast.StateRegion),
-		CompositeStateOrder: make([]*ast.StateNode, 0),
-		RegionInitials:      make(map[*ast.StateRegion]*ast.StateNode),
-		ParentState:         make(map[*ast.StateNode]*ast.StateNode),
-		RegionOwner:         make(map[*ast.StateRegion]*ast.StateNode),
-		RegionOf:            make(map[*ast.StateNode]*ast.StateRegion),
-		Deferred:            make(map[*ast.StateNode][]ast.Node),
-		regionDecl:          make(map[*ast.StateRegion]ast.Node),
+		Scope:                scope,
+		RunToCompletion:      make(map[*ast.StateNode]RunToCompletion),
+		runToCompletionDecls: make(map[*ast.StateNode]map[string]runToCompletionDecl),
+		vertexOf:             make(map[ast.Node]ast.Node),
+		stateByDecl:          make(map[ast.Node]*ast.StateNode),
+		completing:           make(map[*ast.StateNode]bool),
+		StateAttributes:      make(map[*ast.StateNode][]Attribute),
+		instanceOf:           make(map[*ast.StateNode]*stateInstance),
+		materializing:        make(map[ast.Node]bool),
+		scopeOf:              make(map[*ast.StateNode]*symbols.Scope),
+		regionScopeOf:        make(map[*ast.StateRegion]*symbols.Scope),
+		declaredIn:           make(map[ast.Node]*symbols.Scope),
+		copiedFrom:           make(map[ast.Node]ast.Node),
+		behaviorScope:        make(map[ast.Node]*symbols.Scope),
+		attributeScope:       make(map[ast.Node]*symbols.Scope),
+		bodyOf:               make(map[*ast.StateNode][]inheritedMember),
+		parallelState:        make(map[*ast.StateNode]bool),
+		completionOf:         make(map[ast.Node]*ast.StateNode),
+		endpoints:            endpoints,
+		StateScopes:          make(map[*ast.StateNode]*symbols.Scope),
+		Behaviors:            make(map[*ast.StateNode]*StateBehaviors),
+		HiddenStates:         make(map[*ast.StateNode]bool),
+		HiddenRegionOf:       make(map[*ast.StateNode]*ast.StateRegion),
+		RegionState:          make(map[*ast.StateRegion]*ast.StateNode),
+		declOf:               make(map[*ast.StateNode]ast.Node),
+		States:               make([]*ast.StateNode, 0),
+		Pseudostates:         make([]*ast.PseudostateNode, 0),
+		PseudostateOwner:     make(map[*ast.PseudostateNode]*ast.StateNode),
+		TerminateOwner:       make(map[*ast.Usage]*ast.StateNode),
+		Transitions:          make(map[ast.Node][]*Transition),
+		CompositeStates:      make(map[*ast.StateNode][]*ast.StateRegion),
+		CompositeStateOrder:  make([]*ast.StateNode, 0),
+		RegionInitials:       make(map[*ast.StateRegion]*ast.StateNode),
+		ParentState:          make(map[*ast.StateNode]*ast.StateNode),
+		RegionOwner:          make(map[*ast.StateRegion]*ast.StateNode),
+		RegionOf:             make(map[*ast.StateNode]*ast.StateRegion),
+		Deferred:             make(map[*ast.StateNode][]ast.Node),
+		regionDecl:           make(map[*ast.StateRegion]ast.Node),
 
 		designatedInitials: make(map[*ast.StateNode]bool),
 		EntryTransitions:   make(map[ast.Node][]*EntryTransition),

@@ -640,6 +640,14 @@ type stateCapture struct {
 	firingNotes        []RunNote
 	changeRearmed      mapState[*lower.Transition, bool]
 	changeWaits        []changeWait
+	// held contains entry cascades paused at RTC boundaries.
+	held []heldEntry
+	// entering marks states entered during the captured entry unit.
+	entering map[*ast.StateNode]bool
+	// enteringMachine reports whether the captured entry unit includes the machine.
+	enteringMachine bool
+	// activeAtEntry records states active before the captured entry unit.
+	activeAtEntry map[*ast.StateNode]bool
 }
 
 // doActionCapture is one do action's progress: the behaviors it has still to run
@@ -683,6 +691,10 @@ func (e *StateExecutor) capture() stateCapture {
 		firingNotes:        slices.Clone(e.firingNotes),
 		changeRearmed:      captureMap(e.changeRearmed),
 		changeWaits:        slices.Clone(e.changeWaits),
+		held:               cloneHeldEntries(e.held),
+		entering:           maps.Clone(e.entering),
+		enteringMachine:    e.enteringMachine,
+		activeAtEntry:      maps.Clone(e.activeAtEntry),
 	}
 	if e.eventQueue != nil {
 		c.events = slices.Clone(e.eventQueue.events)
@@ -738,6 +750,30 @@ func (c stateCapture) restore() {
 	e.firingChange, e.firingNotes = c.firingChange, slices.Clone(c.firingNotes)
 	e.changeRearmed = c.changeRearmed.restore()
 	e.changeWaits = slices.Clone(c.changeWaits)
+	e.held = cloneHeldEntries(c.held)
+	clear(e.entering)
+	for state, entering := range c.entering {
+		e.entering[state] = entering
+	}
+	e.enteringMachine = c.enteringMachine
+	e.activeAtEntry = maps.Clone(c.activeAtEntry)
+}
+
+func cloneHeldEntries(entries []heldEntry) []heldEntry {
+	if entries == nil {
+		return nil
+	}
+	cloned := make([]heldEntry, len(entries))
+	for i, entry := range entries {
+		cloned[i] = heldEntry{
+			owner:    entry.owner,
+			regions:  slices.Clone(entry.regions),
+			branches: maps.Clone(entry.branches),
+			chain:    slices.Clone(entry.chain),
+			machine:  entry.machine,
+		}
+	}
+	return cloned
 }
 
 func cloneConfiguration(config *StateConfiguration) *StateConfiguration {

@@ -1,0 +1,24 @@
+exit: prep
+enter: work (entry action)
+stmt action body
+  stmt send
+transition: prep -> work (event: accept Start)
+choice entry at t=0.0: next dispatch accept Go, work(entry) (unordered; took dispatch accept Go first)
+exit: a
+enter: b (entry action)
+stmt action body
+  stmt assign order
+        eval feature order -> 0
+        eval literal 10 -> 10
+      eval operator * -> 0
+      eval literal 2 -> 2
+    eval operator + -> 2
+transition: a -> b (event: accept Go)
+enter: inner (entry action)
+stmt action body
+  stmt assign order
+        eval feature order -> 2
+        eval literal 10 -> 10
+      eval operator * -> 20
+      eval literal 1 -> 1
+    eval operator + -> 21

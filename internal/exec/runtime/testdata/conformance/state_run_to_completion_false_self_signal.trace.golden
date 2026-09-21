@@ -1,0 +1,9 @@
+exit: start
+enter: working (entry action)
+stmt action body
+  stmt send
+transition: start -> working
+choice entry at t=0.0: next dispatch accept Ping, working(entry) (unordered; took dispatch accept Ping first)
+exit: working
+enter: done
+transition: working -> done (event: accept Ping)

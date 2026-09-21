@@ -44,6 +44,9 @@ const (
 	// ChoiceStepOrder: a do behavior had a step due while an event was due for
 	// dispatch, and one of them went first.
 	ChoiceStepOrder
+	// ChoiceEntryStep: an event due for dispatch and a held entry could proceed,
+	// and one of them went first.
+	ChoiceEntryStep
 )
 
 // String is the kind as a trace or diagnostic names it.
@@ -69,6 +72,8 @@ func (k ChoiceKind) String() string {
 		return "exit order"
 	case ChoiceStepOrder:
 		return "step order"
+	case ChoiceEntryStep:
+		return "entry step"
 	}
 	return fmt.Sprintf("ChoiceKind(%d)", int(k))
 }
@@ -155,7 +160,7 @@ func (c ChoicePoint) Describe() string {
 		return fmt.Sprintf("at %s: due %s (unordered; ran %s first)", c.Where, alts, taken)
 	case ChoiceDispatchOrder:
 		return fmt.Sprintf("%s: %s (unordered; dispatched %s first)", c.Where, alts, taken)
-	case ChoiceEntryOrder, ChoiceExitOrder, ChoiceStepOrder:
+	case ChoiceEntryOrder, ChoiceExitOrder, ChoiceStepOrder, ChoiceEntryStep:
 		return fmt.Sprintf("%s: next %s (unordered; took %s first)", c.Where, alts, taken)
 	}
 	return fmt.Sprintf("%s: %s (unordered; took %s)", c.Kind, alts, taken)

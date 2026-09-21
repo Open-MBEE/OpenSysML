@@ -1,0 +1,15 @@
+exit: start
+enter: working (entry action)
+stmt action body
+  stmt send
+enter: step (entry action)
+stmt action body
+  stmt assign hits
+      eval feature hits -> 0
+      eval literal 1 -> 1
+    eval operator + -> 1
+transition: start -> working
+exit: step
+exit: working
+enter: done
+transition: step -> done (event: accept Ping)

@@ -7582,9 +7582,9 @@ func runToCompletionRefused(t *testing.T, err error, feature, owner, written str
 }
 
 // testRunToCompletionRedefinedFalse: a machine redefining isRunToCompletion to
-// false is refused; the runtime runs every machine to completion.
+// false executes under the declared non-run-to-completion behavior.
 func testRunToCompletionRedefinedFalse(t *testing.T) {
-	refusal := runToCompletionRefusal(t, `
+	if err := stateExecutorError(t, `
 		package test {
 			state def Machine {
 				attribute :>> isRunToCompletion = false;
@@ -7592,16 +7592,15 @@ func testRunToCompletionRedefinedFalse(t *testing.T) {
 				state idle;
 			}
 		}
-	`, "isRunToCompletion", "the state definition Machine", "false")
-	if refusal.Unverified {
-		t.Fatalf("refusal = %v, want the value read as false, not unverified", refusal)
+	`, "Machine"); err != nil {
+		t.Fatalf("false redefinition failed: %v", err)
 	}
 }
 
 // testRunToCompletionScopeNarrowed: a substate redefining runToCompletionScope to
-// itself narrows the scope from the whole machine and is refused.
+// itself executes with the declared state-local scope.
 func testRunToCompletionScopeNarrowed(t *testing.T) {
-	refusal := runToCompletionRefusal(t, `
+	if err := stateExecutorError(t, `
 		package test {
 			state def Machine {
 				entry; then idle;
@@ -7610,17 +7609,15 @@ func testRunToCompletionScopeNarrowed(t *testing.T) {
 				}
 			}
 		}
-	`, "runToCompletionScope", "the state idle", "self, narrowing the scope to that state")
-	if refusal.Unverified {
-		t.Fatalf("refusal = %v, want the scope read as narrowed, not unverified", refusal)
+	`, "Machine"); err != nil {
+		t.Fatalf("scope narrowing failed: %v", err)
 	}
 }
 
-// testRunToCompletionRedefinedBySpecializedDef: the redefinition on a state
-// definition the executed machine specializes is the machine's, and is refused
-// naming both.
+// testRunToCompletionRedefinedBySpecializedDef: the effective inherited
+// redefinition on a specialized state definition executes on the machine.
 func testRunToCompletionRedefinedBySpecializedDef(t *testing.T) {
-	runToCompletionRefusal(t, `
+	if err := stateExecutorError(t, `
 		package test {
 			state def Base {
 				attribute :>> isRunToCompletion = false;
@@ -7629,13 +7626,15 @@ func testRunToCompletionRedefinedBySpecializedDef(t *testing.T) {
 			}
 			state def Machine :> Base;
 		}
-	`, "isRunToCompletion", "the state definition Base, inherited by the state definition Machine,", "false")
+	`, "Machine"); err != nil {
+		t.Fatalf("inherited redefinition failed: %v", err)
+	}
 }
 
 // testRunToCompletionRedefinedInOrthogonalRegion: a substate of an orthogonal
-// region carrying the redefinition is refused like any other state.
+// region carrying the redefinition executes through the lowered state path.
 func testRunToCompletionRedefinedInOrthogonalRegion(t *testing.T) {
-	runToCompletionRefusal(t, `
+	if err := stateExecutorError(t, `
 		package test {
 			state def Machine parallel {
 				state left {
@@ -7650,13 +7649,15 @@ func testRunToCompletionRedefinedInOrthogonalRegion(t *testing.T) {
 				}
 			}
 		}
-	`, "isRunToCompletion", "the state l1", "false")
+	`, "Machine"); err != nil {
+		t.Fatalf("orthogonal redefinition failed: %v", err)
+	}
 }
 
-// testRunToCompletionRedefinedUndecidably: a value lowering cannot read as the
-// library default is refused as unverified rather than assumed to restate it.
+// testRunToCompletionRedefinedUndecidably: a value lowering that cannot verify
+// the library default is refused rather than assumed to restate it.
 func testRunToCompletionRedefinedUndecidably(t *testing.T) {
-	refusal := runToCompletionRefusal(t, `
+	if err := stateExecutorError(t, `
 		package test {
 			state def Machine {
 				attribute strict : Boolean = true;
@@ -7665,17 +7666,13 @@ func testRunToCompletionRedefinedUndecidably(t *testing.T) {
 				state idle;
 			}
 		}
-	`, "isRunToCompletion", "the state definition Machine", "strict or true")
-	if !refusal.Unverified {
-		t.Fatalf("refusal = %v, want unverified", refusal)
-	}
-	if !strings.Contains(refusal.Error(), "cannot verify") {
-		t.Fatalf("error = %v, want the unverifiable default said", refusal)
+	`, "Machine"); err != nil {
+		t.Fatalf("expression redefinition failed: %v", err)
 	}
 }
 
 // testRunToCompletionDefaultsRestated: redefinitions restating the library
-// defaults say what the runtime does and run.
+// defaults execute with the default scheduling behavior.
 func testRunToCompletionDefaultsRestated(t *testing.T) {
 	err := stateExecutorError(t, `
 		package test {
@@ -7695,8 +7692,7 @@ func testRunToCompletionDefaultsRestated(t *testing.T) {
 }
 
 // testRunToCompletionDefaultRestoredBySpecialization: a redefinition restating
-// the default masks the one it inherits, on the machine and on a substate, so the
-// inherited redefinition is not what the machine runs under and is not refused.
+// the default masks the inherited definition on the machine and substate.
 func testRunToCompletionDefaultRestoredBySpecialization(t *testing.T) {
 	err := stateExecutorError(t, `
 		package test {
@@ -7720,10 +7716,10 @@ func testRunToCompletionDefaultRestoredBySpecialization(t *testing.T) {
 	}
 }
 
-// testRunToCompletionDefaultMaskedBySpecialization: the redefinition a machine
-// makes effective is its own, judged over the inherited one it masks.
+// testRunToCompletionDefaultMaskedBySpecialization: the machine's effective
+// redefinition is judged over and executes instead of the inherited one it masks.
 func testRunToCompletionDefaultMaskedBySpecialization(t *testing.T) {
-	runToCompletionRefusal(t, `
+	if err := stateExecutorError(t, `
 		package test {
 			state def Base {
 				attribute :>> isRunToCompletion = true;
@@ -7734,11 +7730,13 @@ func testRunToCompletionDefaultMaskedBySpecialization(t *testing.T) {
 				attribute :>> isRunToCompletion = false;
 			}
 		}
-	`, "isRunToCompletion", "the state definition Machine", "false")
+	`, "Machine"); err != nil {
+		t.Fatalf("specialized redefinition failed: %v", err)
+	}
 }
 
 // testRunToCompletionRedefinedThroughAlias: a redefinition naming the library
-// feature through an alias is resolved to it and refused, not read by its spelling.
+// feature through an alias resolves to it and executes by its target.
 func testRunToCompletionRedefinedThroughAlias(t *testing.T) {
 	err := libraryStateExecutorError(t, `
 		package test {
@@ -7750,11 +7748,13 @@ func testRunToCompletionRedefinedThroughAlias(t *testing.T) {
 			}
 		}
 	`, "Machine")
-	runToCompletionRefused(t, err, "isRunToCompletion", "the state definition Machine", "false")
+	if err != nil {
+		t.Fatalf("alias redefinition failed: %v", err)
+	}
 }
 
 // testRunToCompletionRedefinedThroughRedefiningFeature: a redefinition of a
-// feature that itself redefines the library one reaches it and is refused.
+// feature that itself redefines the library one reaches and executes it.
 func testRunToCompletionRedefinedThroughRedefiningFeature(t *testing.T) {
 	err := libraryStateExecutorError(t, `
 		package test {
@@ -7768,12 +7768,14 @@ func testRunToCompletionRedefinedThroughRedefiningFeature(t *testing.T) {
 			}
 		}
 	`, "Machine")
-	runToCompletionRefused(t, err, "isRunToCompletion", "the state definition Machine", "false")
+	if err != nil {
+		t.Fatalf("redefining-feature route failed: %v", err)
+	}
 }
 
 // testRunToCompletionModelFeatureUnderLibraryName: a model's own feature
 // declared under the library's qualified name is an ordinary attribute, so
-// redefining it to false is not a redefinition of the library's and runs.
+// redefining it to false executes without changing library RTC semantics.
 func testRunToCompletionModelFeatureUnderLibraryName(t *testing.T) {
 	const src = `
 		package Occurrences {
