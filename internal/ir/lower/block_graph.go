@@ -8,10 +8,7 @@ import (
 )
 
 // A block — a loop body or a branch of a conditional — whose members include an
-// action node (a nested action declaration, a `perform`) is lowered to a token
-// flow of its own: an ActionGraph whose nodes are the block's steps in
-// declaration order, each succeeded by the next, a maximal run of plain
-// statements being one step.
+// action node is lowered to a token flow of its own.
 
 // Steps returns the statements the block runs, wherever they live: its statement
 // list, or the bodies of the nodes of its own token flow, in declaration order.
@@ -26,9 +23,8 @@ func (block Block) Steps() []Statement {
 	return steps
 }
 
-// blockNeedsFlow reports whether a block's members make it a token flow of its
-// own: some member is an action node, and none states a flow only an action body
-// declares.
+// blockNeedsFlow reports whether a block's members make it a declaration-order
+// token flow of its own.
 func blockNeedsFlow(members []ast.Node) bool {
 	flow := false
 	for _, member := range members {
@@ -73,10 +69,7 @@ func recordNodeScope(graph *ActionGraph, node ast.Node, scope *symbols.Scope) {
 	graph.Scopes[node] = scope
 }
 
-// outsideBlockFlow reports whether a member states a flow only an action body
-// declares — an edge, a fork, a join, a decision, a start or an end. A block
-// declaring one keeps its statement form, so it is reported rather than
-// half-executed.
+// outsideBlockFlow reports whether a member states an action or block flow edge.
 func outsideBlockFlow(member ast.Node) bool {
 	switch m := member.(type) {
 	case *ast.InitialNode, *ast.FinalNode, *ast.SuccessionEdge, *ast.ControlFlowEdge,
@@ -97,6 +90,21 @@ func lowerBlockFlow(members []ast.Node, scope *symbols.Scope, nodeBody bool) *Ac
 	return lowerBlockFlowWith(members, scope, func(graph *ActionGraph, nodes []ast.Node, member ast.Node) (Statement, bool) {
 		return blockStep(graph, nodes, member, scope, nodeBody)
 	})
+}
+
+// lowerStatedBlock lowers a loop or branch body stating a flow of its own.
+func lowerStatedBlock(owner ast.Node, members []ast.Node, scope *symbols.Scope) Block {
+	graph, err := lowerActionFlow(members, scope, nil)
+	if err != nil {
+		if graph == nil {
+			graph = newActionGraph(scope)
+		}
+		graph.Invalid = err
+		StartFlow(graph)
+		return Block{Node: owner, Scope: scope, Graph: graph, Stated: true}
+	}
+	StartFlow(graph)
+	return Block{Node: owner, Scope: scope, Graph: graph, Stated: true}
 }
 
 // blockStepLowering lowers a member of a block's flow that is not a node of it,

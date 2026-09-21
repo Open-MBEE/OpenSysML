@@ -373,6 +373,10 @@ func (h *stateStmtHost) performNode(engine *stmtEngine, graph *lower.ActionGraph
 	return h.perfs.performNode(h.perfs.root, engine, graph, node)
 }
 
+func (h *stateStmtHost) runBlockFlow(engine *stmtEngine, block lower.Block) (stmtFlow, error) {
+	return h.perfs.performBlockFlow(h.perfs.root, engine, block)
+}
+
 // runFlow runs the token flow an inline body states with its successions and
 // control nodes, as the behavior's own performance: the body's attributes are
 // the performance's, initialized as a standalone action's are.

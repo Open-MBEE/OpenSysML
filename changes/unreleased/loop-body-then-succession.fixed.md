@@ -1,0 +1,1 @@
+- **Loop and branch bodies now preserve member-attached `then` successions.** These flows are retained when parsed and exported instead of silently losing their positional edge.

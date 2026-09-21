@@ -167,6 +167,8 @@ type stmtHost interface {
 	// runFlow runs the token flow a body states of its own (lower.Block.Stated):
 	// its successions and control nodes, as the host's own performance.
 	runFlow(block lower.Block) (stmtFlow, error)
+	// runBlockFlow runs the token flow a loop or branch body states of its own.
+	runBlockFlow(engine *stmtEngine, block lower.Block) (stmtFlow, error)
 	// performer is the object running the behavior, nil when it runs outside any
 	// object: what the body's names read and write through.
 	performer() *Instance
@@ -532,8 +534,10 @@ func (e *stmtEngine) runBlock(block lower.Block) (stmtFlow, error) {
 	switch {
 	case block.Graph == nil:
 		return e.run(block.Statements)
-	case block.Stated:
+	case block.Stated && block.Own:
 		return e.host.runFlow(block)
+	case block.Stated:
+		return e.host.runBlockFlow(e, block)
 	}
 	return e.blockFlow(block)
 }

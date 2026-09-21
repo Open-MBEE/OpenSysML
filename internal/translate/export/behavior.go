@@ -905,6 +905,20 @@ func (d *decoder) positionalSuccessions(children []*element) ([]*element, error)
 		}
 		return nil
 	}
+	sourceBeforeMember := func(member *element) *element {
+		for i, keptMember := range kept {
+			if keptMember != member {
+				continue
+			}
+			for i--; i >= 0; i-- {
+				if isSuccessionSource(kept[i]) {
+					return kept[i]
+				}
+			}
+			return nil
+		}
+		return nil
+	}
 	for _, child := range children {
 		if child.metaclass != mSuccession {
 			kept = append(kept, child)
@@ -919,14 +933,24 @@ func (d *decoder) positionalSuccessions(children []*element) ([]*element, error)
 			kept = append(kept, child)
 			continue
 		}
-		if d.sequencesTo(child, last()) && (positionalTarget || d.keywordOr(child, "then") == "then") {
+		target := last()
+		if positionalTarget {
+			if term, ok := d.graph.Object(rdf.IRI(child.iri), rdf.OpenSysML+xTargetMember); ok {
+				target = d.byIRI[term.Value]
+			}
+		}
+		if d.sequencesTo(child, target) && (positionalTarget || d.keywordOr(child, "then") == "then") {
 			// The target is the member written just before, which this form
 			// introduces: `then` is written ahead of that member's declaration.
-			if err := d.attachable(child, sourceBefore(1)); err != nil {
+			from := sourceBefore(1)
+			if positionalTarget {
+				from = sourceBeforeMember(target)
+			}
+			if err := d.attachable(child, from); err != nil {
 				return nil, err
 			}
-			last().prefix = "then "
-			d.folded[child] = last()
+			target.prefix = "then "
+			d.folded[child] = target
 			continue
 		}
 		// The target is a member elsewhere in the body, so the succession
@@ -949,7 +973,9 @@ func isSuccessionSource(el *element) bool {
 		return !kind.IsEdge()
 	}
 	switch el.metaclass {
-	case mSubaction:
+	case mInitialNode, mFinalNode, mActionExecution, mFork, mJoin, mMerge, mDecision,
+		mPerform, mAssignment, mSend, mTerminate, mWhileLoop, mForLoop, mIfAction,
+		mSubaction, mStateUsage:
 		return true
 	case mAlias, mFilter, mMultiplicity, mDeferMember:
 		return false
@@ -1394,7 +1420,11 @@ func (d *decoder) linked(el *element, property string) map[string]bool {
 // bodyText writes the members of an element: braced when the notation was, and
 // as the members alone when it stated them without braces.
 func (d *decoder) bodyText(el *element, depth int) (string, error) {
-	return d.membersText(el.children, d.boolOf(el, rdf.OpenSysML+xHasBody), depth)
+	children, err := d.bodyMembers(el)
+	if err != nil {
+		return "", err
+	}
+	return d.membersText(children, d.boolOf(el, rdf.OpenSysML+xHasBody), depth)
 }
 
 // membersText writes members one per line, in braces when braced, any lead

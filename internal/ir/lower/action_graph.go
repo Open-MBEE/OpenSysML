@@ -70,6 +70,10 @@ type ActionGraph struct {
 	// InitialNode (required)
 	Initial ast.Node
 
+	// Invalid is the error a stated body's flow failed to lower with,
+	// reported at initialize().
+	Invalid error
+
 	// FinalNodes (may be multiple)
 	Finals []ast.Node
 
@@ -614,23 +618,35 @@ func ToActionGraph(actionDecl ast.Node, scope *symbols.Scope) (*ActionGraph, err
 // ToActionGraphWith is ToActionGraph reading the metadata the resolver identifies:
 // a succession's `@Probability { p = ...; }` becomes its edge's weight.
 func ToActionGraphWith(actionDecl ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) (*ActionGraph, error) {
-	graph, members, err := collectActionNodes(actionDecl, scope, resolver)
+	members, err := actionMembers(actionDecl)
 	if err != nil {
 		return nil, err
+	}
+	graph, err := lowerActionFlow(members, scope, resolver)
+	if err != nil {
+		return nil, err
+	}
+	return graph, nil
+}
+
+func lowerActionFlow(members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) (*ActionGraph, error) {
+	graph, err := collectActionNodes(members, scope, resolver)
+	if err != nil {
+		return graph, err
 	}
 	// The initial node is optional at graph construction time; the executor's
 	// initialize() reports its absence.
 	edges := &actionEdgeLowerer{graph: graph, scope: scope, weights: &probabilityReader{resolver: resolver, scope: scope}}
 	for _, member := range members {
 		if err := edges.member(unwrapMembership(member)); err != nil {
-			return nil, err
+			return graph, err
 		}
 	}
 	if err := lowerInheritedPinConnections(graph, scope); err != nil {
-		return nil, err
+		return graph, err
 	}
 	if err := checkProbabilities(graph); err != nil {
-		return nil, err
+		return graph, err
 	}
 	recordBlockNodes(graph)
 	encloseBlockFlows(graph)
@@ -1346,6 +1362,9 @@ func redefinedNames(u *ast.Usage) []string {
 // is the node the block belongs to, which is the element that owns the block's
 // body-local namespace, and scope is the namespace it owns.
 func lowerBlock(owner ast.Node, members []ast.Node, scope *symbols.Scope) Block {
+	if statesOwnFlow(members) {
+		return lowerStatedBlock(owner, members, scope)
+	}
 	if blockNeedsFlow(members) {
 		return Block{Node: owner, Scope: scope, Graph: lowerBlockFlow(members, scope, false)}
 	}

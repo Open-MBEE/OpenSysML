@@ -137,6 +137,10 @@ func (h *actionStmtHost) runFlow(lower.Block) (stmtFlow, error) {
 		ErrStatementNotExecutable, h.describe())
 }
 
+func (h *actionStmtHost) runBlockFlow(engine *stmtEngine, block lower.Block) (stmtFlow, error) {
+	return h.exec.performBlockFlow(h.perf, engine, block)
+}
+
 // performNode performs node, which a block of parent's body declares, as a subperformance
 // of parent with the block-locals entered around it in reach; a node owning a flow runs it
 // to completion here. A breakpoint on the node pauses the run before it performs.
@@ -219,6 +223,89 @@ func (f *performFrame) abandon(*Context) {
 }
 
 func (f *performFrame) clone() bodyFrame { c := *f; return &c }
+
+// blockFlowFrame resumes a transparent performance for a stated body flow.
+type blockFlowFrame struct {
+	perf   *actionFrame
+	levels int
+}
+
+func (f *blockFlowFrame) abandon(*Context) {
+	if f.perf != nil {
+		f.perf.ended, f.perf.live = true, 0
+	}
+}
+
+func (f *blockFlowFrame) clone() bodyFrame { c := *f; return &c }
+
+// performBlockFlow runs the flow a loop or branch body states as a performance
+// of its own, a subperformance of parent with engine's block-locals in reach.
+func (e *performances) performBlockFlow(parent *actionFrame, engine *stmtEngine, block lower.Block) (stmtFlow, error) {
+	f, resumed, err := popFrame[*blockFlowFrame](e.ctx)
+	if err != nil {
+		return flowNext, err
+	}
+	if !resumed {
+		f = &blockFlowFrame{levels: e.ctx.bodyLevels()}
+	}
+	if f.perf == nil {
+		scope := block.Scope
+		if scope == nil {
+			scope = parent.scope
+		}
+		f.perf = &actionFrame{
+			node:        block.Node,
+			graph:       block.Graph,
+			flow:        block.Graph,
+			scope:       scope,
+			parent:      parent,
+			locals:      slices.Clone(engine.env.frames),
+			connections: joinConnections(parent.connections, block.Graph.Connections),
+			data:        make(map[string]Value),
+			features:    make(map[string]ast.FeatureDirection),
+			subactions:  make(map[ast.Node]*actionFrame),
+			run:         e.ctx.newRun(),
+			live:        1,
+			body:        true,
+		}
+		switch block.Node.(type) {
+		case *ast.WhileLoopActionNode:
+			f.perf.label = "loop body of " + parent.describe()
+		case *ast.IfBranchNode:
+			f.perf.label = "branch body of " + parent.describe()
+		}
+		features := make([]lower.Feature, 0, len(block.Graph.Attributes))
+		for _, attr := range block.Graph.Attributes {
+			f.perf.features[attr.Name] = attr.Direction
+			features = append(features, lower.Feature{
+				Name: attr.Name, Direction: attr.Direction, IsResult: attr.IsResult,
+				Value: attr.Value, Node: attr.Node, Scope: block.Scope,
+			})
+		}
+		activation, endStep := e.ctx.beginStep()
+		f.perf.began = activation
+		if err := e.seedDeclaredValues(f.perf, features, activation); err != nil {
+			endStep()
+			return flowNext, err
+		}
+		endStep()
+	}
+	err = e.owner.runOwnFlow(f.perf)
+	if err != nil {
+		if ended := unwound(err); ended != nil && ended.perf != f.perf {
+			e.flow.dropTokensIn(f.perf, 0)
+			f.perf.live = 0
+			f.perf.ended = true
+			return flowNext, ended
+		}
+		if paused(err) {
+			return flowNext, e.ctx.pausing(f, err)
+		}
+		return flowNext, err
+	}
+	f.perf.ended = true
+	return flowNext, nil
+}
 
 // performPhase is how far a node's performance has come.
 type performPhase int

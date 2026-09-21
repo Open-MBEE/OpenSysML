@@ -1,0 +1,7 @@
+{
+	"type": "action",
+	"outputs": {
+		"sum": {"type": "Integer", "value": 106},
+		"log": {"type": "Integer", "value": 123}
+	}
+}

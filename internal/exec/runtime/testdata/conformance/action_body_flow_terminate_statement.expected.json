@@ -1,0 +1,8 @@
+{
+	"type": "action",
+	"outputs": {
+		"sum": {"type": "Integer", "value": 1},
+		"after": {"type": "Integer", "value": 0},
+		"completed": {"type": "Integer", "value": 1}
+	}
+}
