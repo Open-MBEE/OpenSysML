@@ -207,6 +207,27 @@
           <value xmi:type="uml:LiteralReal" xmi:id="_oddMeanv" value="4.0"/>
         </slot>
       </packagedElement>
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_vast" name="analysis of more runs than a count holds" classifier="_analysis">
+        <slot xmi:type="uml:Slot" xmi:id="_vastT" definingFeature="_t">
+          <value xmi:type="uml:LiteralReal" xmi:id="_vastTv" value="4.0"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_vastN">
+          <definingFeature href="MD_customization_for_SysML.mdzip#_mcN">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::N" referentType="Property"/>
+            </xmi:Extension>
+          </definingFeature>
+          <value xmi:type="uml:LiteralReal" xmi:id="_vastNv" value="9223372036854775808"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_vastMean">
+          <definingFeature href="MD_customization_for_SysML.mdzip#_mcMean">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::Mean" referentType="Property"/>
+            </xmi:Extension>
+          </definingFeature>
+          <value xmi:type="uml:LiteralReal" xmi:id="_vastMeanv" value="4.0"/>
+        </slot>
+      </packagedElement>
       <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_stray" name="analysis of nothing held" classifier="_analysis">
         <slot xmi:type="uml:Slot" xmi:id="_strayN">
           <definingFeature href="MD_customization_for_SysML.mdzip#_mcN">

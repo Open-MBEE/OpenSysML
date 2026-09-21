@@ -4,8 +4,8 @@
   snapshot's `statistics` of the observable the analysis binds its `Mean` to, standing for `N`
   runs, rather than as one more run — `deviation` and `outOfSpec` only when the snapshot records
   them, so a missing deviation is not a zero — and notes a summary that is incomplete, counts
-  no runs, binds no observable, states an `OutOfSpec` that is no count of its runs, or
-  summarises another configuration's.
+  no runs or more than a count holds, binds no observable, states an `OutOfSpec` that is no
+  count of its runs, or summarises another configuration's.
 - **Every run configuration is compared.** `-compare-results` runs a configuration the tool
   stored no snapshot of and prints its statistics under a `tool (no stored result to compare)`
   row; runs one stating no `numberOfRuns` once, as the tool does, under a note saying so; counts
@@ -36,7 +36,8 @@
   and replays on it. A migrated «SimulationConfig» stating `startTime` ran on the tool's internal
   clock, so the `-migration-results` sidecar records its `stepSize` in `timeUnit` (`1.0` unless
   stated) as `clockStep`, in seconds, and `-compare-results` runs the configuration on it — a
-  unit of no fixed length, a step of zero or less and an unstated unit are noted.
+  unit of no fixed length, a step of zero or less, one of more seconds than a number holds and an
+  unstated unit are noted.
 - **A script's console print is left out.** A `print(…)`, `println(…)` or `System.out.println(…)`
   statement of an opaque body writes to the tool's console and changes nothing of the model, so
   the SysML v1 migration leaves it out of the translation, keeps the other statements of the body,

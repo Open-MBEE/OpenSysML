@@ -228,6 +228,9 @@ func clockStep(read map[string]string) (step float64, note string) {
 	if !ok || unit == "" {
 		return 0, simConfig + "timeUnit = " + strconv.Quote(unit) + " is no fixed number of seconds, so the clock's step is not derived and the runs' clock is continuous"
 	}
+	if math.IsInf(step*scale, 0) {
+		return 0, simConfig + "stepSize = " + semantics.FormatReal(step) + " in timeUnit = " + strconv.Quote(unit) + " is more seconds than a number holds, so the clock's step is not derived and the runs' clock is continuous"
+	}
 	return step * scale, ""
 }
 

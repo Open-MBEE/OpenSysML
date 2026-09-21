@@ -17,6 +17,7 @@ func TestRuntimeRobustnessClockStep(t *testing.T) {
 	t.Run("negative_wait_is_refused_under_a_step", testNegativeWaitIsRefusedUnderAStep)
 	t.Run("step_set_mid_run_applies_to_the_waits_set_after_it", testStepSetMidRunAppliesToTheWaitsSetAfterIt)
 	t.Run("past_instant_fires_at_once_under_a_step", testPastInstantFiresAtOnceUnderAStep)
+	t.Run("past_instant_fires_at_once_off_the_grid", testPastInstantFiresAtOnceOffTheGrid)
 	t.Run("step_too_fine_to_tell_apart_leaves_the_wait_finite", testStepTooFineToTellApartLeavesTheWaitFinite)
 	t.Run("tick_past_the_last_instant_is_refused", testTickPastTheLastInstantIsRefused)
 }
@@ -122,6 +123,57 @@ func testPastInstantFiresAtOnceUnderAStep(t *testing.T) {
 	}
 	if now := ctx.Clock().Now(); now != 4.0 {
 		t.Errorf("the clock is at %v, want 4.0", now)
+	}
+}
+
+// testPastInstantFiresAtOnceOffTheGrid: a step set once the clock stands between
+// two of its ticks does not put a passed absolute instant off to the next tick;
+// only the waits for instants ahead come due on the grid.
+func testPastInstantFiresAtOnceOffTheGrid(t *testing.T) {
+	m := parseLibraryModel(t, `
+		package test {
+			private import ScalarValues::*;
+			private import SI::*;
+			private import Time::*;
+			action def Past {
+				out at : Real;
+				out onward : Real;
+				attribute early : TimeInstantValue = 1.0 [s];
+				attribute later : TimeInstantValue = 2.5 [s];
+				action w1 accept after 2.3 [s];
+				then action w2 accept at early;
+				then action r1 { assign at := localClock.currentTime; }
+				then action w3 accept at later;
+				then action r2 { assign onward := localClock.currentTime; }
+			}
+		}`)
+	ctx, _ := m.fresh()
+	exec, err := newActionExecutor(ctx, m.action(t, "Past"), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := exec.initialize(); err != nil {
+		t.Fatal(err)
+	}
+	for len(ctx.Clock().Waits()) == 0 {
+		if err := exec.Step(); err != nil && len(ctx.Clock().Waits()) == 0 {
+			t.Fatal(err)
+		}
+	}
+	if err := ctx.SetClockStep(1.0); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ctx.Advance(10); err != nil {
+		t.Fatal(err)
+	}
+	if !exec.State().Ended() {
+		t.Fatalf("the run is %v after 10 s, want ended", exec.State())
+	}
+	got := realOutputs(t, exec.Results(), "at", "onward")
+	for i, want := range []float64{2.3, 3.0} {
+		if math.Abs(got[i]-want) > 1e-9 {
+			t.Errorf("%s = %v, want %v: the passed instant 1.0 waits no further at 2.3, and 2.5 ahead rounds up to the tick 3.0", []string{"at", "onward"}[i], got[i], want)
+		}
 	}
 }
 

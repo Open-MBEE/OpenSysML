@@ -266,7 +266,10 @@ func (ctx *Context) dueInstant(t *ast.TimeEvent, val Value, what string) (float6
 		return 0, fmt.Errorf("%w: %s is infinite", ErrNegativeDuration, what)
 	}
 	if t.Absolute {
-		return ctx.clock.tickOf(math.Max(magnitude, ctx.clock.now), ctx.ClockStepTaken(), what)
+		if magnitude <= ctx.clock.now {
+			return ctx.clock.now, nil
+		}
+		return ctx.clock.tickOf(magnitude, ctx.ClockStepTaken(), what)
 	}
 	if magnitude < 0 {
 		return 0, fmt.Errorf("%w: %s %s is negative", ErrNegativeDuration, what, semantics.FormatReal(magnitude))

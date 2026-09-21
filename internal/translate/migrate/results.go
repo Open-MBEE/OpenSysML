@@ -329,6 +329,8 @@ func monteCarloStatistics(observable string, summary map[string]float64, unread 
 		return nil, "", false
 	case runs != math.Trunc(runs) || runs < 1:
 		return nil, "record a " + monteCarloAnalysisBlock + "::" + monteCarloRuns + " of " + strconv.FormatFloat(runs, 'g', -1, 64) + ", which is no count of runs, so they hold no statistics", false
+	case runs >= math.Ldexp(1, 63):
+		return nil, "record a " + monteCarloAnalysisBlock + "::" + monteCarloRuns + " of " + strconv.FormatFloat(runs, 'g', -1, 64) + ", which is more runs than a count holds, so they hold no statistics", false
 	}
 	deviation, hasDeviation := summary[monteCarloDeviation]
 	if hasDeviation && deviation < 0 {

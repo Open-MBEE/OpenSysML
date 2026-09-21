@@ -31,7 +31,7 @@ action def 'Group 0' {
     }
     part target : 'timer analysis';
     perform action run ::> target.tick;
-    /* results of the simulation tool: 8 snapshot(s) in Results standing for 12 run(s) analysing t holding p, t */
+    /* results of the simulation tool: 9 snapshot(s) in Results standing for 13 run(s) analysing t holding p, t */
 }
 action def 'Group 1' {
     @Simulation::Configuration {
@@ -82,6 +82,11 @@ package Results {
         attribute :>> t = 4.0;
         /* not migrated: Slot (_oddN) — the slot holds the simulation tool's MonteCarloAnalysis::N statistic of the runs, which is no value of the instance; the migration results read it */
         /* not migrated: Slot (_oddMean) — the slot holds the simulation tool's MonteCarloAnalysis::Mean statistic of the runs, which is no value of the instance; the migration results read it */
+    }
+    individual part def 'analysis of more runs than a count holds' :> 'Timer Analysis' {
+        attribute :>> t = 4.0;
+        /* not migrated: Slot (_vastN) — the slot holds the simulation tool's MonteCarloAnalysis::N statistic of the runs, which is no value of the instance; the migration results read it */
+        /* not migrated: Slot (_vastMean) — the slot holds the simulation tool's MonteCarloAnalysis::Mean statistic of the runs, which is no value of the instance; the migration results read it */
     }
     individual part def 'analysis of nothing held' :> 'Timer Analysis' {
         /* not migrated: Slot (_strayN) — the slot holds the simulation tool's MonteCarloAnalysis::N statistic of the runs, which is no value of the instance; the migration results read it */
