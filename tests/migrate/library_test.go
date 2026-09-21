@@ -210,6 +210,37 @@ func TestConcatWithoutAnArgument(t *testing.T) {
 	})
 }
 
+// A value pin whose literal has no v2 expression — an unlimited natural of *, a
+// real that is not a finite number — supplies a value v1 computes on and v2
+// cannot spell, so the call carries the token and computes nothing, with the
+// reason in its note, rather than running on a pin holding no value.
+func TestLibraryCallOnAnUnwritableLiteral(t *testing.T) {
+	for _, c := range []struct{ name, family, typ, literal, note string }{
+		{"unlimited natural *", "UnlimitedNaturalFunctions", naturalType, `<value xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_xV" value="*"/>`,
+			"the pin 'x' it passes for the parameter x of fUML UnlimitedNaturalFunctions::ToString holds the value *, which has no v2 expression: an unlimited natural value has no v2 expression outside a multiplicity; v1 computes on it, so the action carries the token and performs nothing"},
+		{"real NaN", "RealFunctions", realType, `<value xmi:type="uml:LiteralReal" xmi:id="_xV" value="NaN"/>`,
+			`the pin 'x' it passes for the parameter x of fUML RealFunctions::ToString holds the value NaN, which has no v2 expression: real literal "NaN" is not a finite number; v1 computes on it, so the action carries the token and performs nothing`},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			r := migrateDocument(t, labeler(`
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_text" name="text">
+          <behavior xmi:type="uml:FunctionBehavior" href="http://www.omg.org/spec/FUML/20180501/fUML_Library.xmi#PrimitiveBehaviors-`+c.family+`-ToString"/>
+          <argument xmi:type="uml:ValuePin" xmi:id="_textX" name="x">`+c.typ+`
+            `+c.literal+`
+          </argument>
+          <result xmi:type="uml:OutputPin" xmi:id="_textOut" name="result">`+stringType+`</result>
+        </node>`, "text"), recorderBlock)
+			wantClean(t, "t.sysml", r)
+			wantNote(t, r, "_text", migrate.Approximated, c.note)
+			wantLine(t, r.Notation, "/* not migrated: CallBehaviorAction 'text' — "+c.note+" */")
+			wantNoLine(t, r.Notation, "Functions::ToString(x)")
+			s := session(t, r)
+			meta(t, s, "%instantiate Recorder")
+			wantValues(t, runValues(t, s, "Recorder::Label", "Recorder"), map[string]string{"text.result": ""})
+		})
+	}
+}
+
 // A library behavior is known by the href of its library document and its
 // fragment, whatever date the document's URI carries — not by name: a model's
 // own behavior named Concat is not the library's, while the library's Concat is
