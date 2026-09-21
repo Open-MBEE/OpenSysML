@@ -15,8 +15,7 @@ package test {
 			state step {
 				entry action count { assign hits := hits + 1; }
 			}
-			entry { send Ping to Machine; }
-			entry; then step;
+			entry action { send new Ping() to Machine; } then step;
 		}
 		state done;
 		transition first working accept Ping then done;

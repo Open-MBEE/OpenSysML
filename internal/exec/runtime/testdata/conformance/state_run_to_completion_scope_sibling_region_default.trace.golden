@@ -2,6 +2,7 @@ exit: prep
 enter: work (entry action)
 stmt action body
   stmt send
+materialize: Go #1
 enter: inner (entry action)
 stmt action body
   stmt assign order

@@ -2,6 +2,7 @@ exit: start
 enter: working (entry action)
 stmt action body
   stmt send
+materialize: Ping #1
 enter: step (entry action)
 stmt action body
   stmt assign hits

@@ -7,7 +7,7 @@ package test {
 	item def Start;
 	item def Go;
 
-	state def Machine parallel {
+	state Machine parallel {
 		attribute order : Integer = 0;
 		state left {
 			entry; then prep;
@@ -17,8 +17,7 @@ package test {
 				state inner {
 					entry action { assign order := order * 10 + 1; }
 				}
-				entry { send Go to Machine; }
-				entry; then inner;
+				entry action { send new Go() to Machine; } then inner;
 			}
 			transition first prep accept Start then work;
 		}

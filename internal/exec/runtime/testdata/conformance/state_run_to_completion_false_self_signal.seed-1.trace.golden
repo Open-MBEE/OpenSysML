@@ -2,6 +2,7 @@ exit: start
 enter: working (entry action)
 stmt action body
   stmt send
+materialize: Ping #1
 transition: start -> working
 choice entry at t=0.0: next dispatch accept Ping, working(entry) (unordered; took working(entry) first)
 enter: step (entry action)

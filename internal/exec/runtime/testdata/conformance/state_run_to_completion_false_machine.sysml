@@ -8,8 +8,7 @@ package test {
 	state Machine {
 		attribute :>> isRunToCompletion = false;
 		attribute hits : Integer = 0;
-		entry { send Go to Machine; }
-		entry; then working;
+		entry action { send new Go() to Machine; } then working;
 		state working {
 			state step {
 				entry action count { assign hits := hits + 1; }
