@@ -410,6 +410,21 @@ func TestComparisonTablePoolsSummarisedResults(t *testing.T) {
 	if !strings.Contains(got, "| tool                     | 8    |     | 10.0   |") || !strings.Contains(got, "| -10.0% |") {
 		t.Errorf("a summary alone is not compared by count and mean:\n%s", got)
 	}
+	if strings.Contains(got, "standard errors apart") {
+		t.Errorf("a summary alone is said to disagree:\n%s", got)
+	}
+
+	// Summaries whose means lie further apart than sampling error allows are of
+	// other model states than one, and the table says so.
+	cfg.Snapshots = append(cfg.Snapshots,
+		simresults.Snapshot{ID: "_near", Name: "again", Values: map[string]float64{"total": 10.5}, Statistics: &simresults.Statistics{Observable: "total", Runs: 8, Mean: 10.5, Deviation: 1.5}},
+		simresults.Snapshot{ID: "_far", Name: "other", Values: map[string]float64{"total": 20.0}, Statistics: &simresults.Statistics{Observable: "total", Runs: 8, Mean: 20.0, Deviation: 1.5}},
+	)
+	got = strings.Join(comparisonTable(cfg, table, nil), "\n")
+	want := `note: the summaries "analysis", "again", "other" of total lie more than three standard errors apart, so they cannot be of runs of one and the same model, and the tool's mean of total blends them`
+	if !strings.Contains(got, want) {
+		t.Errorf("disagreeing summaries are not noted:\n%s", got)
+	}
 }
 
 // A simple name naming configurations of several packages compares none of them

@@ -235,6 +235,13 @@ func comparisonTable(cfg *simresults.ConfigurationResults, table runtime.SweepTa
 				st := snap.Statistics
 				notes = append(notes, fmt.Sprintf("note: %s summarises %d run(s) of %s: mean %s, deviation %s", orUnnamed(snap.Name), st.Runs, name, spell(st.Mean), spell(st.Deviation)))
 			}
+			if apart := cfg.Disagreeing(name); len(apart) > 0 {
+				names := make([]string, len(apart))
+				for i, snap := range apart {
+					names[i] = orUnnamed(snap.Name)
+				}
+				notes = append(notes, fmt.Sprintf("note: the summaries %s of %s lie more than three standard errors apart, so they cannot be of runs of one and the same model, and the tool's mean of %s blends them", strings.Join(names, ", "), name, name))
+			}
 		} else {
 			cells = append(cells, statisticsRow(name, "tool", stored, ""))
 		}

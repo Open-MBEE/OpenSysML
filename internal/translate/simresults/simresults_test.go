@@ -106,3 +106,36 @@ func TestRepeatsNoteSummariesStoredTwice(t *testing.T) {
 		}
 	}
 }
+
+// Summaries of one observable whose means lie more than three standard errors
+// apart disagree, so they cannot be of one and the same model; ones within
+// sampling error of each other, or of a single run, do not.
+func TestDisagreeingSummaries(t *testing.T) {
+	summary := func(name string, runs int64, mean, dev float64) Snapshot {
+		return Snapshot{ID: "_" + name, Name: name, Values: map[string]float64{"t": mean}, Statistics: &Statistics{Observable: "t", Runs: runs, Mean: mean, Deviation: dev}}
+	}
+	c := ConfigurationResults{Snapshots: []Snapshot{
+		summary("a", 1000, 13.26, 8.28),
+		summary("b", 1000, 13.5, 8.5),
+		summary("c", 1000, 21.3, 14.5),
+		summary("d", 1, 40.0, 0),
+		{ID: "_run", Values: map[string]float64{"t": 50}},
+	}}
+	var got []string
+	for _, s := range c.Disagreeing("t") {
+		got = append(got, s.Name)
+	}
+	if want := []string{"a", "b", "c"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("Disagreeing = %q, want %q", got, want)
+	}
+	if got := c.Disagreeing("p"); got != nil {
+		t.Errorf("Disagreeing of an observable not summarised = %v, want none", got)
+	}
+	c.Snapshots = c.Snapshots[:2]
+	if got := c.Disagreeing("t"); got != nil {
+		t.Errorf("summaries within sampling error disagree: %v", got)
+	}
+	if !(Statistics{Runs: 3, Mean: 1}).Disagrees(Statistics{Runs: 3, Mean: 2}) {
+		t.Error("constant runs of different values do not disagree")
+	}
+}

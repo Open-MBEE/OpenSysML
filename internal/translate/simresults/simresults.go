@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"strings"
 )
 
@@ -91,6 +92,32 @@ func (c *ConfigurationResults) Summarised(observable string) []Snapshot {
 		}
 	}
 	return out
+}
+
+// Disagreeing are the summaries of observable whose mean lies more than three
+// standard errors from another's, so they cannot be of one model; in snapshot order.
+func (c *ConfigurationResults) Disagreeing(observable string) []Snapshot {
+	summarised := c.Summarised(observable)
+	var out []Snapshot
+	for i, s := range summarised {
+		for j, o := range summarised {
+			if i != j && s.Statistics.Disagrees(*o.Statistics) {
+				out = append(out, s)
+				break
+			}
+		}
+	}
+	return out
+}
+
+// Disagrees reports whether s and o cannot summarise runs of one distribution:
+// their means lie more than three standard errors of their difference apart.
+func (s Statistics) Disagrees(o Statistics) bool {
+	if s.Runs < 2 || o.Runs < 2 {
+		return false
+	}
+	se := math.Sqrt(s.Deviation*s.Deviation/float64(s.Runs) + o.Deviation*o.Deviation/float64(o.Runs))
+	return math.Abs(s.Mean-o.Mean) > 3*se
 }
 
 // StoredRuns are the runs the snapshots stand for: each summarised snapshot
