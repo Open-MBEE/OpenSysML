@@ -543,11 +543,13 @@ func (m *migration) inlineBehavior(kw string, b, owner *sysmlv1.Element) bool {
 		if !m.written(b) {
 			m.w.lines(commentLines(kw + " " + qualifiedName(b) + " has no v2 declaration"))
 			m.add(b, Unmapped, "", "the behavior is not written; "+describe(owner)+" names it as its "+kw)
+			m.add(owner, Approximated, "", "its "+kw+" "+qualifiedName(b)+" is not run: it has no v2 declaration")
 			return false
 		}
 		if cat, _ := m.classify(b); cat != catActionDef {
 			m.w.lines(commentLines(kw + " " + qualifiedName(b) + " is written as a " + cat.keyword() + ", which no state runs"))
 			m.downgrade(b, describe(owner)+" names it as its "+kw+", which a "+cat.keyword()+" cannot be")
+			m.add(owner, Approximated, "", "its "+kw+" "+qualifiedName(b)+" is not run: it is written as a "+cat.keyword())
 			return false
 		}
 		var ins []string

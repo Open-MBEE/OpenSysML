@@ -8,11 +8,15 @@
          activity whose every node is refused, and an opaque behavior in a
          language the translator does not read, each as a state's entry, do
          and exit, as the effect of a triggered transition and as the effect of
-         a completion transition; and a behavior the block owns, referred to
-         by a triggered and by a completion transition as their effect. -->
+         a completion transition; a behavior the block owns, referred to by a
+         triggered and by a completion transition as their effect; and a state
+         machine the block owns, which a state names as its entry and a
+         transition as its effect, and which no state can run. -->
 
     <packagedElement xmi:type="uml:Signal" xmi:id="_go" name="Go"/>
     <packagedElement xmi:type="uml:SignalEvent" xmi:id="_goEv" signal="_go"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_stop" name="Stop"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_stopEv" signal="_stop"/>
     <packagedElement xmi:type="uml:Class" xmi:id="_log" name="Log"/>
     <packagedElement xmi:type="uml:Class" xmi:id="_gate" name="Gate" classifierBehavior="_cycle">
       <ownedAttribute xmi:type="uml:Property" xmi:id="_count" name="count">
@@ -20,6 +24,13 @@
         <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_count0" value="0"/>
       </ownedAttribute>
       <ownedBehavior xmi:type="uml:Activity" xmi:id="_reset" name="Reset"/>
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_blink" name="Blink">
+        <region xmi:type="uml:Region" xmi:id="_blinkMain" name="main">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_blinkInit"/>
+          <subvertex xmi:type="uml:State" xmi:id="_blinkOn" name="On"/>
+          <transition xmi:type="uml:Transition" xmi:id="_tBlink0" source="_blinkInit" target="_blinkOn"/>
+        </region>
+      </ownedBehavior>
       <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_cycle" name="Cycle">
         <region xmi:type="uml:Region" xmi:id="_main" name="main">
           <subvertex xmi:type="uml:Pseudostate" xmi:id="_init"/>
@@ -54,7 +65,7 @@
               <node xmi:type="uml:CreateObjectAction" xmi:id="_coolSealNew" name="new log" classifier="_log"/>
             </exit>
           </subvertex>
-          <subvertex xmi:type="uml:State" xmi:id="_warm" name="Warm"/>
+          <subvertex xmi:type="uml:State" xmi:id="_warm" name="Warm" entry="_blink"/>
           <subvertex xmi:type="uml:State" xmi:id="_cold" name="Cold"/>
           <subvertex xmi:type="uml:State" xmi:id="_off" name="Off"/>
           <subvertex xmi:type="uml:State" xmi:id="_hot" name="Hot"/>
@@ -94,6 +105,9 @@
             <trigger xmi:type="uml:Trigger" xmi:id="_trGoHot" event="_goEv"/>
           </transition>
           <transition xmi:type="uml:Transition" xmi:id="_tHotIdle" source="_hot" target="_idle" effect="_reset"/>
+          <transition xmi:type="uml:Transition" xmi:id="_tStopOff" source="_idle" target="_off" effect="_blink">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trStopOff" event="_stopEv"/>
+          </transition>
         </region>
       </ownedBehavior>
     </packagedElement>

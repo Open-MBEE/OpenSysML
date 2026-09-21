@@ -1,8 +1,13 @@
 item def Go;
+item def Stop;
 part def Log;
 part def Gate {
     attribute count : ScalarValues::Integer default = 0;
     action def Reset;
+    state def Blink {
+        entry; then On;
+        state On;
+    }
     state def Cycle {
         entry; then Idle;
         state Idle {
@@ -53,7 +58,9 @@ part def Gate {
                 }
             }
         }
-        state Warm;
+        state Warm {
+            /* entry action Gate::Blink is written as a state def, which no state runs */
+        }
         state Cold;
         state Off;
         state Hot;
@@ -99,6 +106,9 @@ part def Gate {
         transition first Hot
             do action : Reset
             then Idle;
+        transition first Idle accept Stop
+            /* do action Gate::Blink is written as a state def, which no state runs */
+            then Off;
     }
     exhibit state cycle : Cycle;
 }
