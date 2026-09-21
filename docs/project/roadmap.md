@@ -2025,9 +2025,10 @@ against the code and the corpus (#900, whose gate now also checks that the funct
 exists and that each cited case belongs to its row). With #900 the census read **148 of 217
 reported — 137 faithful, 11 approximate — 6 not implemented, 0 deliberate, 0 known failure and 63
 unknown**, against 143 / 133 / 10 / 68 at the tag; the adjudication of the unknown KerML rows then
-moved it to 156 reported, and the census at this baseline reads **162 of 217 reported — 156
-faithful, 6 approximate — 1 not implemented, 1 deliberate, 0 known failure and 53 unknown**, each
-remaining unknown row citing why the pilot never reports it.
+moved it to 156 reported, and the census now reads **163 of 217 reported — 157 faithful, 6
+approximate, 0 not implemented, 1 deliberate, 0 known failure and 53 unknown**, with the last
+not-implemented row, `validateFeatureMultiplicityDomain`, now landed and each remaining unknown row
+citing why the pilot never reports it.
 The oracle at the other end agrees: of 285
 self-authored invalid models, the pinned pilot and we both reject 276 (3 of them only in strict
 mode, by design), the pilot alone rejects 0, and of the 9 only we reject eight are control-node
@@ -3017,8 +3018,8 @@ design record. Its remaining design notes do not add an open Track E item.
    after M1 fixes what an embedded entry point looks like, so a stable native/embedded calling
    contract exists to design against rather than three.
 
-Beside the order, whenever a session has room: Track V's census rows (1 *not implemented*, 53
-*unknown*), the PDF path onto the HTML backend (about one session, independent of every track),
+Beside the order, whenever a session has room: Track V's census rows (53 *unknown*), the PDF path
+onto the HTML backend (about one session, independent of every track),
 Track W's remaining writer and rasterization work, and the large-model design's next steps in its
 own sequence (#308, #309 and #312 are the open ones). Two releases are in view. `release/0.8.1`
 (#347, open against `main`) is a patch cut from `v0.8.0` by cherry-pick, carrying the bug fixes
@@ -3075,8 +3076,8 @@ an empty action end its performance. The decision is the release checklist's, re
 - **Track Q.** Q4 is done; Q2's expression half landed with X5 and its query side in #267, #289
   and #293 on `develop` after the tag, which closes Q2; Q1 is written; Q3 is step 2 above.
 - **Track V.** Everything queued has landed (#822, #900, #831, #817, the rule pull requests, #811
-  reconciled with #907, #909); work the census's 1 *not implemented* and 53 *unknown* rows,
-  negative case first, each change moving its row.
+  reconciled with #907, #909); work the census's 53 *unknown* rows, negative case first, each
+  change moving its row.
 - **Track B.** B1, B2, then B3 — step 6 above; nothing holds B1 or B2 back; B4's file and HTTP
   providers whenever asked, its Flexo provider after D9.2; B5 with Q1.
 - **Track W.** W1 (`dot`), W2 (`plantuml`) and W3's plumbing for both have landed. What is left
