@@ -265,6 +265,9 @@ func (e *StateExecutor) dispatchFree(d dueDispatch) (dueDispatch, bool) {
 		return false
 	}
 	if len(d.among) == 0 {
+		if d.event != nil && held(*d.event) {
+			return d, false
+		}
 		if trans, risen := e.risenChange(); risen && trans != nil && held(Event{Payload: trans}) {
 			return d, false
 		}

@@ -3265,6 +3265,7 @@ type dueDispatch struct {
 	due   bool
 	label string  // the dispatch as dispatchOne makes it; dispatchTiedLabel over tied events
 	step  string  // the dispatch as a step order offers it: bare over the acting tied events, else one
+	event *Event  // the queued event at the head, when dispatching one
 	tied  []Event // the events tied at the head, the dispatch being the draw among them
 	among []Event // the tied events whose dispatch acts: what a step order draws among
 	acts  bool    // whether the dispatch takes its occurrence (eventActs)
@@ -3296,7 +3297,9 @@ func (e *StateExecutor) dueDispatch() dueDispatch {
 		return d
 	}
 	head := queue.Peek()
-	return one(dispatchPrefix+e.eventLabel(head), len(e.actingEvents([]Event{head})) > 0)
+	d := one(dispatchPrefix+e.eventLabel(head), len(e.actingEvents([]Event{head})) > 0)
+	d.event = &head
+	return d
 }
 
 // actingEvents previews which of the events a dispatch now would take (eventActs), in
