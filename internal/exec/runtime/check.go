@@ -397,11 +397,13 @@ type checkFrame struct {
 	full bool
 	// cut is set once the depth bound cut a schedule through the state.
 	cut bool
-	// mass is the probability of the schedule reaching the state, and units how
-	// many distinct units its moves span; violated names the properties false on
-	// the path to it, so each is credited once per path.
+	// mass is the probability of the schedule reaching the state; units maps each
+	// executor a move belongs to to the units of its own the moves span, so a
+	// move's share weighs the owner pick and the unit pick as a run draws them.
+	// violated names the properties false on the path to it, so each is credited
+	// once per path.
 	mass     float64
-	units    int
+	units    map[checkedExecutor]int
 	violated []string
 }
 
@@ -594,9 +596,10 @@ func (c *checker) take(f *checkFrame, m searchMove) error {
 	c.moves++
 	c.maxDepth = max(c.maxDepth, depth)
 	f.reveal(m, drawn)
-	// The move's mass is its frame's over the units, times the share of every
-	// choice point it faced — scripted picks and drawn ones alike.
-	mass := f.mass / float64(max(f.units, 1))
+	// The move's mass is its frame's shared among the owners a run draws between,
+	// then among the units of its own, times the share of every choice point it
+	// faced — scripted picks and drawn ones alike.
+	mass := f.mass / float64(max(len(f.units), 1)) / float64(max(f.units[m.Owner], 1))
 	if check := c.run.checking(); check != nil {
 		for _, choice := range check.faced {
 			mass *= shareOf(choice, choice.Taken)
@@ -720,7 +723,7 @@ func (c *checker) enter(depth int, sleep []searchMove, mass float64, violated []
 	all := c.movesOf(form)
 	f := &checkFrame{turn: c.run.turn, key: key, depth: depth, all: all, sleep: sleep,
 		mass:     mass,
-		units:    countUnits(all),
+		units:    ownerUnits(all),
 		violated: slices.Concat(violated, seen.violated),
 	}
 	f.moves = c.persistent(all, sleep)
@@ -851,14 +854,24 @@ func (c *checker) properties(depth int, mass float64, violated []string, seen *v
 	}
 }
 
-// countUnits is the number of distinct units — executor, token and node — the
-// moves span; a move's share of its frame's mass is one of them.
-func countUnits(moves []searchMove) int {
-	units := make(map[tokenKey]bool)
+// ownerUnits maps each executor a move belongs to to the units of its own the
+// moves span; a move's share of its frame's mass is one owner's times one of
+// its units — the two draws a run makes where both wait.
+func ownerUnits(moves []searchMove) map[checkedExecutor]int {
+	tokens := make(map[checkedExecutor]map[int64]bool)
 	for _, m := range moves {
-		units[m.unit()] = true
+		set := tokens[m.Owner]
+		if set == nil {
+			set = make(map[int64]bool)
+			tokens[m.Owner] = set
+		}
+		set[m.Token] = true
 	}
-	return len(units)
+	counts := make(map[checkedExecutor]int, len(tokens))
+	for owner, set := range tokens {
+		counts[owner] = len(set)
+	}
+	return counts
 }
 
 // evaluate asks the property of the state under a probe: what evaluating it
