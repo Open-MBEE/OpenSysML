@@ -21,7 +21,7 @@ const tracingLibrary = `  <packagedElement xmi:type="uml:Package" xmi:id="utilT"
 `
 
 // param is one parameter of a fixture behavior: typ is a primitive type name
-// or the id of a signal.
+// or the id of a signal; an empty name leaves the parameter unnamed.
 type param struct{ name, dir, typ string }
 
 func (p param) decl(id string) string {
@@ -29,7 +29,10 @@ func (p param) decl(id string) string {
 	if strings.HasPrefix(p.typ, "sig") {
 		typ, attr = "", ` type="`+p.typ+`"`
 	}
-	return `  <ownedParameter xmi:type="uml:Parameter" xmi:id="` + id + `" name="` + p.name + `" direction="` + p.dir + `"` + attr + `>` + typ + `</ownedParameter>
+	if p.name != "" {
+		attr = ` name="` + p.name + `"` + attr
+	}
+	return `  <ownedParameter xmi:type="uml:Parameter" xmi:id="` + id + `" direction="` + p.dir + `"` + attr + `>` + typ + `</ownedParameter>
   <node xmi:type="uml:ActivityParameterNode" xmi:id="` + id + `Node" parameter="` + id + `"/>
 `
 }
@@ -133,6 +136,17 @@ const orOperation = `      <ownedOperation xmi:type="uml:Operation" xmi:id="opOr
 
 var orParams = []param{{"left", "in", "Boolean"}, {"right", "in", "Boolean"}, {"result", "out", "Boolean"}, {"return", "return", "Boolean"}}
 
+// eitherOperation is `either(in left, in right): Boolean`, its return parameter
+// unnamed as the suite's operations leave theirs.
+const eitherOperation = `      <ownedOperation xmi:type="uml:Operation" xmi:id="opEither" name="either">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="opEitherL" name="left" direction="in"><type href="` + primitiveTypes + `Boolean"/></ownedParameter>
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="opEitherR" name="right" direction="in"><type href="` + primitiveTypes + `Boolean"/></ownedParameter>
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="opEitherRet" direction="return"><type href="` + primitiveTypes + `Boolean"/></ownedParameter>
+      </ownedOperation>
+`
+
+var eitherParams = []param{{"left", "in", "Boolean"}, {"right", "in", "Boolean"}, {"", "return", "Boolean"}}
+
 // bumpOperation is `bump(inout count : Integer)`, with its call event.
 const bumpOperation = `      <ownedOperation xmi:type="uml:Operation" xmi:id="opBump" name="bump">
         <ownedParameter xmi:type="uml:Parameter" xmi:id="opBumpC" name="count" direction="inout"><type href="` + primitiveTypes + `Integer"/></ownedParameter>
@@ -195,6 +209,7 @@ func parameterSuite(operations, body string, expected []string, steps ...testerS
   <packagedElement xmi:type="uml:CallEvent" xmi:id="evSwap" operation="opSwap"/>
   <packagedElement xmi:type="uml:CallEvent" xmi:id="evBumpFlag" operation="opBumpFlag"/>
   <packagedElement xmi:type="uml:CallEvent" xmi:id="evBumpBool" operation="opBumpBool"/>
+  <packagedElement xmi:type="uml:CallEvent" xmi:id="evEither" operation="opEither"/>
   <packagedElement xmi:type="uml:Package" xmi:id="areaX" name="Area">
 ` + registration("Area", "semX", "Area 001", expected...) +
 		`  <packagedElement xmi:type="uml:Package" xmi:id="pkgX" name="001">
@@ -334,6 +349,61 @@ func TestParametersCallBindsInputsAndReturnsOutputs(t *testing.T) {
 			t.Errorf("emitted text lacks %q:\n%s", want, m.Text)
 		}
 	}
+}
+
+// An unnamed return parameter, the operation's and the entry's alike, returns
+// under the name `return`, so the tester reads the result the call carries.
+func TestParametersUnnamedReturnIsRead(t *testing.T) {
+	body := `
+          <subvertex xmi:type="uml:State" xmi:id="xS1" name="S1">
+            ` + paramTrace("entry", "xS1entry", "S1(entry)", eitherParams...) + `
+          </subvertex>
+          <transition xmi:type="uml:Transition" xmi:id="xT2" name="T2" source="xWait" target="xS1">
+            <trigger xmi:type="uml:Trigger" xmi:id="xT2trig" event="evEither"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="xT3" name="T3" source="xS1" target="xFin">
+            <trigger xmi:type="uml:Trigger" xmi:id="xT3trig" event="evContinue"/>
+          </transition>`
+	call := testerStep{call: "opEither", args: []string{"uml:LiteralBoolean=false", "uml:LiteralBoolean=true"}}
+	report, s := refereeParameterSuite(t, eitherOperation, body,
+		[]string{"S1(entry)[in=false][in=true][out=true]::[out=true]"},
+		call.tracingResult(), sendContinue)
+	wantPass(t, report.Tests[0])
+	stimuli, err := Stimulation(s, s.Tests[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	var results []string
+	for _, st := range stimuli {
+		if st.Trace != nil {
+			results = append(results, callResults(st.Trace)...)
+		}
+	}
+	if strings.Join(results, ",") != "return" {
+		t.Errorf("the tester's traces read results %q; want the unnamed return as `return`", results)
+	}
+	m, err := Emit(s, s.Tests[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "out 'return' : Boolean;"; !strings.Contains(m.Text, want) {
+		t.Errorf("emitted text lacks %q:\n%s", want, m.Text)
+	}
+}
+
+// callResults lists the results the operation calls within x read, in order.
+func callResults(x *Expr) []string {
+	var out []string
+	if x.Kind == ExprCall {
+		out = append(out, x.Result)
+	}
+	if x.Object != nil {
+		out = append(out, callResults(x.Object)...)
+	}
+	for i := range x.Args {
+		out = append(out, callResults(&x.Args[i])...)
+	}
+	return out
 }
 
 // The tester's call and the machine's trigger name an overload by identity, not

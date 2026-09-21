@@ -309,7 +309,7 @@ func (ar *activityReader) readNode(n *xmi.Element) {
 			return
 		}
 		if dir := param.Attr("direction"); dir == "return" || dir == "out" || dir == "inout" {
-			ar.emit(Statement{Kind: StmtReturn, Feature: param.Attr("name"), Value: ar.pinValue(n)})
+			ar.emit(Statement{Kind: StmtReturn, Feature: paramName(param), Value: ar.pinValue(n)})
 		}
 	case typeInitialNode, typeActivityFinalNode, typeFlowFinalNode, typeForkNode, typeJoinNode,
 		typeMergeNode, typeDecisionNode, typeExpansionNode:
@@ -409,7 +409,7 @@ func (ar *activityReader) value(id string) Expr {
 			return Expr{Kind: ExprUnknown, Text: e.Describe() + " names no parameter"}
 		}
 		if dir := param.Attr("direction"); dir == "in" || dir == "inout" || dir == "" {
-			return Expr{Kind: ExprParam, Name: param.Name()}
+			return Expr{Kind: ExprParam, Name: paramName(param)}
 		}
 		return ar.passThrough(e)
 	}
@@ -496,7 +496,11 @@ func (ar *activityReader) resultParam(call, pin, op *xmi.Element) (string, bool)
 		if p != pin {
 			continue
 		}
-		outputs := (&Operation{Params: ar.r.readParams(op)}).Outputs()
+		read := ar.r.ops[op.ID]
+		if read == nil {
+			return "", false
+		}
+		outputs := read.Outputs()
 		if i >= len(outputs) {
 			return "", false
 		}

@@ -423,12 +423,9 @@ func outputNames(bh *Behavior, ev *Event) ([]string, string) {
 			names = append(names, p.Name)
 		}
 	}
-	for i, p := range outs {
+	for _, p := range outs {
 		if scalarTypes[p.Type] == "" {
 			return nil, fmt.Sprintf("parameter %s has type %s, which has no ScalarValues counterpart", p.Name, p.Type)
-		}
-		if names[i] == "" {
-			names[i] = "return"
 		}
 	}
 	return names, ""

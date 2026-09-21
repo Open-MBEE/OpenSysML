@@ -1666,8 +1666,10 @@ either region's as the one the tester sees — the last write wins. The runtime 
 `StateExecutor.Call` returns what a fired behavior returned or assigned to an output parameter
 of the operation's name, typed and by name, and the driver traces it (above). The producing
 behavior is an `action def` with `out` parameters named as the operation's outputs (§7.16.2), a
-nameless `return` spelled `out 'return'`, and its `return` statement an assignment to that
-parameter; the effect or entry is a usage of it, its inputs bound as the next paragraph says:
+nameless `return` named `return` by the reader wherever the parameter appears (the operation's,
+the behavior's and the tester's read of the result alike) and spelled `out 'return'`, and its
+`return` statement an assignment to that parameter; the effect or entry is a usage of it, its
+inputs bound as the next paragraph says:
 
 ```sysml
 action def T2_effect {

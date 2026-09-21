@@ -447,7 +447,7 @@ func (e *emitter) inline(out *stepList, bh *Behavior, x *Expr, where string, dep
 			return nil, e.fail(inner, "activity nodes with no translation: "+strings.Join(bh.Body.Unsupported, "; "))
 		}
 		for _, st := range bh.Body.Statements {
-			if st.Kind == StmtReturn && (st.Feature == outs[0].Name || st.Feature == "") {
+			if st.Kind == StmtReturn && st.Feature == outs[0].Name {
 				if value != "" {
 					return nil, e.fail(inner, "returns twice")
 				}
