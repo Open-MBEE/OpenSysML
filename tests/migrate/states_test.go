@@ -735,3 +735,168 @@ func TestExitPointJoinShapesAreRefusedPrecisely(t *testing.T) {
 		wantNote(t, r, id, migrate.Unmapped, "has no v2 form")
 	}
 }
+
+// entryShapesMachine has four composite states whose entry point leaves by a route a junction
+// cannot take: out of the state, on into the state's history, to no target, and back to the state.
+const entryShapesMachine = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_ego" name="Go"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_egoEv" signal="_ego"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_eclass" name="Rig" classifierBehavior="_esm">
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_esm" name="Rigging">
+        <region xmi:type="uml:Region" xmi:id="_er" name="main">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_einit"/>
+          <subvertex xmi:type="uml:State" xmi:id="_eidle" name="Idle"/>
+          <subvertex xmi:type="uml:State" xmi:id="_eaway" name="Away">
+            <connectionPoint xmi:type="uml:Pseudostate" xmi:id="_eaIn" name="in" kind="entryPoint"/>
+            <region xmi:type="uml:Region" xmi:id="_ear" name="r">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_earInit"/>
+              <subvertex xmi:type="uml:State" xmi:id="_ear1" name="A1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_earT0" source="_earInit" target="_ear1"/>
+            </region>
+          </subvertex>
+          <subvertex xmi:type="uml:State" xmi:id="_eback" name="Back">
+            <connectionPoint xmi:type="uml:Pseudostate" xmi:id="_ebIn" name="in" kind="entryPoint"/>
+            <region xmi:type="uml:Region" xmi:id="_ebr" name="r">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_ebrInit"/>
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_ebH" name="H" kind="shallowHistory"/>
+              <subvertex xmi:type="uml:State" xmi:id="_ebr1" name="B1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_ebrT0" source="_ebrInit" target="_ebr1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_ebrT1" source="_ebIn" target="_ebH"/>
+            </region>
+          </subvertex>
+          <subvertex xmi:type="uml:State" xmi:id="_ebare" name="Bare">
+            <connectionPoint xmi:type="uml:Pseudostate" xmi:id="_ecIn" name="in" kind="entryPoint"/>
+            <region xmi:type="uml:Region" xmi:id="_ecr" name="r">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_ecrInit"/>
+              <subvertex xmi:type="uml:State" xmi:id="_ecr1" name="C1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_ecrT0" source="_ecrInit" target="_ecr1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_ecrT1" source="_ecIn" target="_egone"/>
+            </region>
+          </subvertex>
+          <subvertex xmi:type="uml:State" xmi:id="_eself" name="Self">
+            <connectionPoint xmi:type="uml:Pseudostate" xmi:id="_edIn" name="in" kind="entryPoint"/>
+            <region xmi:type="uml:Region" xmi:id="_edr" name="r">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_edrInit"/>
+              <subvertex xmi:type="uml:State" xmi:id="_edr1" name="D1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_edrT0" source="_edrInit" target="_edr1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_edrT1" kind="local" source="_edIn" target="_eself"/>
+            </region>
+          </subvertex>
+          <transition xmi:type="uml:Transition" xmi:id="_et0" source="_einit" target="_eidle"/>
+          <transition xmi:type="uml:Transition" xmi:id="_etSelf" source="_eidle" target="_edIn">
+            <trigger xmi:type="uml:Trigger" xmi:id="_etrSelf" event="_egoEv"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_etAway" source="_eidle" target="_eaIn">
+            <trigger xmi:type="uml:Trigger" xmi:id="_etrAway" event="_egoEv"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_etOut" source="_eaIn" target="_eidle"/>
+          <transition xmi:type="uml:Transition" xmi:id="_etBack" source="_eidle" target="_ebIn">
+            <trigger xmi:type="uml:Trigger" xmi:id="_etrBack" event="_egoEv"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_etBare" source="_eidle" target="_ecIn">
+            <trigger xmi:type="uml:Trigger" xmi:id="_etrBare" event="_egoEv"/>
+          </transition>
+        </region>
+      </ownedBehavior>
+    </packagedElement>`
+
+const entryShapesApplications = `
+  <sysml:Block xmi:id="_e1" base_Class="_eclass"/>`
+
+// An entry point whose route leaves the state, runs on into a history, reaches no target or leads
+// back to the state is refused with that route named, the transitions through it with it, and no
+// junction is written.
+func TestEntryPointRoutesAreRefusedPrecisely(t *testing.T) {
+	r := migrateDocument(t, entryShapesMachine, entryShapesApplications)
+	if strings.Contains(string(r.Notation), "junction in;") {
+		t.Errorf("a refused entry point was written as a junction:\n%s", r.Notation)
+	}
+	wantNote(t, r, "_eaIn", migrate.Unmapped, "(_etOut) leads from the entry point out of the state, to 'Idle'")
+	wantNote(t, r, "_ebIn", migrate.Unmapped, "(_ebrT1) leads from the entry point on into the history pseudostate 'H', which the runtime does not follow from a junction")
+	wantNote(t, r, "_ecIn", migrate.Unmapped, "(_ecrT1) leads from the entry point to no target")
+	wantNote(t, r, "_edIn", migrate.Unmapped, "(_edrT1) leads from the entry point back to the state itself, which v1 enters by its default entry while the runtime would leave and re-enter it")
+	for _, id := range []string{"_etAway", "_etOut", "_etBack", "_etBare", "_etSelf", "_edrT1"} {
+		wantNote(t, r, id, migrate.Unmapped, "has no v2 form")
+	}
+	wantNote(t, r, "_ebrT1", migrate.Unmapped, "does not follow a transition from a entryPoint pseudostate on into the history pseudostate")
+	wantNote(t, r, "_ecrT1", migrate.Unmapped, "lacks an end")
+}
+
+// nestedMachines has a machine Front whose submachine state enters Outer through a connection
+// point reference, so Outer is named before it is written, and a machine Inner nested in Outer
+// whose composite state Par has an entry point forking into its two regions.
+const nestedMachines = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_ngo" name="Go"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_ngoEv" signal="_ngo"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_nclass" name="Rig" classifierBehavior="_nfront">
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_nfront" name="Front">
+        <region xmi:type="uml:Region" xmi:id="_nfr" name="main">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_nfInit"/>
+          <subvertex xmi:type="uml:State" xmi:id="_nfIdle" name="Idle"/>
+          <subvertex xmi:type="uml:State" xmi:id="_nfSub" name="Sub" submachine="_nouter">
+            <connection xmi:type="uml:ConnectionPointReference" xmi:id="_nfRef" name="viaStart" entry="_noStart"/>
+          </subvertex>
+          <transition xmi:type="uml:Transition" xmi:id="_nfT0" source="_nfInit" target="_nfIdle"/>
+          <transition xmi:type="uml:Transition" xmi:id="_nfT1" source="_nfIdle" target="_nfRef">
+            <trigger xmi:type="uml:Trigger" xmi:id="_nfTr1" event="_ngoEv"/>
+          </transition>
+        </region>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_nouter" name="Outer">
+        <connectionPoint xmi:type="uml:Pseudostate" xmi:id="_noStart" name="start" kind="entryPoint"/>
+        <nestedClassifier xmi:type="uml:StateMachine" xmi:id="_ninner" name="Inner">
+          <region xmi:type="uml:Region" xmi:id="_nir" name="main">
+            <subvertex xmi:type="uml:Pseudostate" xmi:id="_niInit"/>
+            <subvertex xmi:type="uml:State" xmi:id="_niIdle" name="Idle"/>
+            <subvertex xmi:type="uml:State" xmi:id="_niPar" name="Par">
+              <connectionPoint xmi:type="uml:Pseudostate" xmi:id="_niIn" name="split" kind="entryPoint"/>
+              <region xmi:type="uml:Region" xmi:id="_nia" name="a">
+                <subvertex xmi:type="uml:Pseudostate" xmi:id="_niaInit"/>
+                <subvertex xmi:type="uml:State" xmi:id="_nia1" name="A1"/>
+                <subvertex xmi:type="uml:State" xmi:id="_nia2" name="A2"/>
+                <transition xmi:type="uml:Transition" xmi:id="_niaT0" source="_niaInit" target="_nia1"/>
+                <transition xmi:type="uml:Transition" xmi:id="_niaT1" source="_niIn" target="_nia2"/>
+              </region>
+              <region xmi:type="uml:Region" xmi:id="_nib" name="b">
+                <subvertex xmi:type="uml:Pseudostate" xmi:id="_nibInit"/>
+                <subvertex xmi:type="uml:State" xmi:id="_nib1" name="B1"/>
+                <subvertex xmi:type="uml:State" xmi:id="_nib2" name="B2"/>
+                <transition xmi:type="uml:Transition" xmi:id="_nibT0" source="_nibInit" target="_nib1"/>
+                <transition xmi:type="uml:Transition" xmi:id="_nibT1" source="_niIn" target="_nib2"/>
+              </region>
+            </subvertex>
+            <transition xmi:type="uml:Transition" xmi:id="_niT0" source="_niInit" target="_niIdle"/>
+            <transition xmi:type="uml:Transition" xmi:id="_niT1" source="_niIdle" target="_niIn">
+              <trigger xmi:type="uml:Trigger" xmi:id="_niTr1" event="_ngoEv"/>
+            </transition>
+          </region>
+        </nestedClassifier>
+        <region xmi:type="uml:Region" xmi:id="_nor" name="main">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_noInit"/>
+          <subvertex xmi:type="uml:State" xmi:id="_noWait" name="Wait"/>
+          <subvertex xmi:type="uml:State" xmi:id="_noRun" name="Run" submachine="_ninner"/>
+          <transition xmi:type="uml:Transition" xmi:id="_noT0" source="_noInit" target="_noWait"/>
+          <transition xmi:type="uml:Transition" xmi:id="_noT1" source="_noStart" target="_noRun"/>
+        </region>
+      </ownedBehavior>
+    </packagedElement>`
+
+const nestedMachinesApplications = `
+  <sysml:Block xmi:id="_n1" base_Class="_nclass"/>`
+
+// A machine nested in another is indexed once however early the outer one is named, so the
+// entry point of its composite state still forks into two regions rather than four transitions.
+func TestNestedMachineTransitionsAreIndexedOnce(t *testing.T) {
+	r := migrateDocument(t, nestedMachines, nestedMachinesApplications)
+	for _, line := range []string{
+		"fork split;",
+		"transition first Par::split then A2;",
+		"transition first Par::split then B2;",
+		"transition first Idle accept Go then Par::split;",
+	} {
+		if !strings.Contains(string(r.Notation), line) {
+			t.Errorf("missing %q in:\n%s", line, r.Notation)
+		}
+	}
+	wantNote(t, r, "_niIn", migrate.Mapped, "written as a fork of its state")
+}

@@ -179,7 +179,7 @@ returned over the service yet.
 | Pseudostate entryPoint, exitPoint on a state machine | a `state` of the submachine's `state def`; a transition into an entry point continues by the entry point's own transition, a transition out of an exit point leaves the submachine state | mapped |
 | Pseudostate entryPoint on a composite State (`State.connectionPoint`) | `junction x;` of the state, a transition into it written `then Work::x` by path; the runtime runs the state's entry behavior, then the junction's outgoing transition, then the target's entries, in one run-to-completion step. One whose outgoing transitions each start a different orthogonal region is `fork x;`; one no transition leaves is the state's default entry, and the transition is written to the state | mapped |
 | Pseudostate exitPoint on a composite State | `junction x;` of the state, a transition out of it written `first Work::x` by path; the runtime runs the transition into it (its source's exits, its effect), the state's exit behavior, then the outgoing transition. One reached from several orthogonal regions is `join x;`, left through when every region's transition has fired | mapped |
-| Entry point leading straight to an exit point of the same state; an entry point whose outgoing transitions leave the state, or several of which start the same region; an exit point several regions reach that is also reached twice from one region, from outside the state, or from a pseudostate; a connection point route into a history pseudostate | refused with the shape named | unmapped |
+| Entry point leading straight to an exit point of the same state, back to the state itself, out of the state, into a history pseudostate or to no target, or several of whose outgoing transitions start the same region; an exit point several regions reach that is also reached twice from one region, from outside the state, or from a pseudostate; a connection point route into a history pseudostate | refused with the shape named | unmapped |
 | Pseudostate exitPoint on a region, terminate | a transition into it is written to `done` | approximated |
 | ConnectionPointReference on a submachine state | the transition is written to `s.<entryPoint>` / from `s.<exitPoint>`, the submachine's state named by its path | mapped |
 | Transition between regions or nesting levels (source or target not a sibling) | the transition names the far end by its path, `Work::Run`; a local transition into a substate of its source is written external, so the composite state exits and re-enters | mapped (local into own substate: approximated) |
@@ -468,9 +468,10 @@ orthogonal state is a `fork`, an exit point its regions reach from each side a `
 point no transition leaves is the state's default entry, and the transition is written to the
 state. An entry point that leads straight to an exit point of the same state, so the state is
 crossed without settling in it, is refused: the runtime would run neither its entry nor its exit
-behavior; so is a route from a connection point on into a history pseudostate, and any point
-whose transitions do not form one of the shapes above. An internal transition is a self
-transition, faithful when re-entering the state is not observable (no entry, exit, do or
+behavior; so is an entry point whose transition leads back to the state itself (v1 enters it by
+its default entry where the runtime would leave and re-enter it), out of the state, on into a
+history pseudostate or to no target, and any point whose transitions do not form one of the
+shapes above. An internal transition is a self transition, faithful when re-entering the state is not observable (no entry, exit, do or
 substates) and reported otherwise; one written with no target stays in its source, one that
 targets another vertex or leaves a pseudostate is refused, and one without a trigger is a
 comment, as a self transition would fire again on every re-entry. A transition into an exit point of a

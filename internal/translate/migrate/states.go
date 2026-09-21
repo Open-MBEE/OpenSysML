@@ -51,12 +51,15 @@ func (m *migration) nameMachine(sm *sysmlv1.Element) map[string]bool {
 	return used
 }
 
-// indexTransitions lists the transitions into and out of every vertex of a
-// machine, so a connection point's shape can be read before it is written.
+// indexTransitions lists the transitions into and out of every vertex of a machine, so a
+// connection point's shape can be read before it is written; a machine nested in it indexes its own.
 func (m *migration) indexTransitions(sm *sysmlv1.Element) {
 	var walk func(e *sysmlv1.Element)
 	walk = func(e *sysmlv1.Element) {
 		for _, c := range e.Children {
+			if c.Type == "StateMachine" {
+				continue
+			}
 			if c.Role == "transition" {
 				if src := m.model.Ref(c, "source"); src != nil {
 					m.outgoing[src] = append(m.outgoing[src], c)
@@ -181,9 +184,8 @@ func (m *migration) entryPointForm(v, owner *sysmlv1.Element) pointForm {
 		return pointForm{defaultEntry: true, note: "no transition leaves the entry point, so entering through it enters " + describe(owner) + " by its default entry; a transition to it is written to the state"}
 	}
 	for _, t := range out {
-		tgt := m.model.Ref(t, "target")
-		if tgt != nil && pseudoKind(tgt) == "exitPoint" && pointOwner(tgt) == owner {
-			return pointForm{why: describe(t) + " leads from the entry point straight to the exit point " + describe(tgt) + " of the same state, crossing it without settling in it; the runtime would then run neither its entry nor its exit behavior"}
+		if why := m.entryBranchWhy(t, owner); why != "" {
+			return pointForm{why: describe(t) + " leads from the entry point " + why}
 		}
 	}
 	regions := m.regionsCrossed(out, owner, "target")
@@ -199,6 +201,25 @@ func (m *migration) entryPointForm(v, owner *sysmlv1.Element) pointForm {
 		}
 	}
 	return pointForm{kw: "fork", note: "written as a fork of its state, whose branches start its regions; a transition entering through it runs the state's entry behavior, then the branches"}
+}
+
+// entryBranchWhy says why transition t, leaving an entry point of owner, keeps the point from
+// being written: its target is missing, owner itself or outside it, a history, or an exit point of owner.
+func (m *migration) entryBranchWhy(t, owner *sysmlv1.Element) string {
+	tgt := m.model.Ref(t, "target")
+	switch {
+	case tgt == nil:
+		return "to no target"
+	case tgt == owner:
+		return "back to the state itself, which v1 enters by its default entry while the runtime would leave and re-enter it"
+	case pseudoKind(tgt) == "exitPoint" && pointOwner(tgt) == owner:
+		return "straight to the exit point " + describe(tgt) + " of the same state, crossing it without settling in it; the runtime would then run neither its entry nor its exit behavior"
+	case pseudoKind(tgt) == "shallowHistory" || pseudoKind(tgt) == "deepHistory":
+		return "on into the history pseudostate " + describe(tgt) + ", which the runtime does not follow from a junction"
+	case regionWithin(tgt, owner) == nil:
+		return "out of the state, to " + describe(tgt)
+	}
+	return ""
 }
 
 func (m *migration) exitPointForm(v, owner *sysmlv1.Element) pointForm {
