@@ -12,6 +12,9 @@ import (
 // entryStepWherePrefix names entry-step choices at an instant.
 const entryStepWherePrefix = "entry at t=" // #nosec G101 -- a trace label, not a credential
 
+// HoldsEntry reports whether an entry cascade is waiting for its next step.
+func (e *StateExecutor) HoldsEntry() bool { return len(e.held) > 0 }
+
 // heldEntry is the unfinished portion of a state entry cascade.
 type heldEntry struct {
 	// owner is the composite body whose entry is paused.
