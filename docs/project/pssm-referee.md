@@ -214,7 +214,7 @@ send with no receiver) are not state-machine rows and no test in the suite reach
 
 ## Baseline
 
-Recorded **2026-09-21** on develop commit **`921cda365`** with entry, do and effect behaviors
+Recorded **2026-09-21** on develop commit **`e6e49c3d3`** with entry, do and effect behaviors
 bound to the triggering event's data and returning the call's outputs, the tester's calls and traces
 driven in the tester's order and standalone machines read as targets, with completion events queued in the
 order their sources are entered (the pool's order following the entry draw, finding 11's runtime

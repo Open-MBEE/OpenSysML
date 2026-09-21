@@ -7,7 +7,7 @@
     "suiteDigest": "c355b249c356774377a46b60345019d827af1ce417bde88e533aa5f39206ae07",
     "tests": 103,
     "recorded": "2026-09-21",
-    "develop": "921cda365de7f2690a641d0b2c74cb40ff020584"
+    "develop": "e6e49c3d3e2dc55bb31b391a8d8de73266f3eeee"
   },
   "buckets": {
     "differs-by-design": 1,
