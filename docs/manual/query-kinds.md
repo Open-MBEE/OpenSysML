@@ -95,6 +95,9 @@ outside one) and `enclosing` the composite states active with it, outermost
 first; `WhereName` reads `name`, and the row answers the state declaration's
 own properties too. It prints as `lamp1.lp in on.run`. An object exhibiting
 no state machine is a typed `no-state-machine` error, not an empty row set.
+A machine that has terminated has no active state and so contributes no row,
+while a machine that has completed reports its final state; an object the run
+destroyed is a typed `object-destroyed` refusal, for `Events` too.
 
 **`InState(name)`** is the inverse: the objects the session holds whose
 machine is in the state named — a leaf or a state enclosing one, by name or

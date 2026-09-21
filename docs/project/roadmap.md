@@ -5,7 +5,7 @@ Baseline: `v0.8.0` (`238aed650`, `Merge pull request #277 from Open-MBEE/release
 `v0.7.0` (`e0fbfea5b`, 2026-09-09) and `v0.6.0` (`30f103bb9`, 2026-09-07). The integration branch
 `develop` (`fcfb0a7b9`, #352) carries 64 pull requests past the tag and nothing else is counted
 ahead of it: every status below is what the tag carries unless the text names one of those as
-having moved it — #267, #289 and #293 (Q2), #263 (A7), #286 (the release fold-back), #291
+having moved it — #267, #289 and #293 (Q2), #359 (Q3), #263 (A7), #286 (the release fold-back), #291
 (the generated test figures), #292 (L7), #296 (A4), #335 and #352 (E1), #344 (modeled
 randomness beside A3), #300 and #316 (the large-model design and its first step, under
 "Proposed"), #319, #321 and #334 (the fUML referee for actions, under "Proposed"), #350 (R4's
@@ -1712,7 +1712,8 @@ solver's `solve`. Two of the four answer from the runtime: `Evaluate`/`-eval`/`%
 they hold now, and whose parameters bind to a held object from the REPL, the CLI and gRPC alike.
 The API `Query` reads the *model* alone; the solver decides satisfiability rather than reading
 what holds, though `%solve` pins the values a matching held object has before synthesising the
-rest. No surface reaches the trace `-trace` prints. That is the rest of the track.
+rest. The document query reaches the state a session's objects are in and the trace `-trace` prints
+since #359 (Q3). Nothing of the track is open.
 
 ## Q1 — say which query is which (done)
 
@@ -1768,18 +1769,39 @@ the Python client with `ObjectRef`, both decoding the object cell, and the Node,
 clients carry the regenerated stubs. Nothing of Q2 is left; the rows in `spec-compliance.md` say
 so.
 
-## Q3 — state and event queries
+## Q3 — state and event queries (landed)
 
 "Which state is `#1.lp` in?", "which objects are in `run`?", "what did `#1` accept between
-`t = 1 [s]` and `t = 2.5 [s]`?" — the state executor and the trace have the answers
-(`StateExecutor.getCurrentState`, the event log `-trace` prints) and no query reads them. Q3 is a runtime
-query vocabulary over current state and over the trace as a time-ordered relation, with the same
-filter forms as Q2, so the trace stops being something one reads by eye. Its prerequisite on the
-trace side is met: A5 landed (#136), so the clock Q3 reads is `Context.Clock()`, shared by every
-executor in a context, and the trace now carries `choice` lines (S2) and `due order` draws that a
-query over it would need to see; the representation Q3 would read is the one at the tag, not one
-in flight. "Which objects are in `run`" has its population (X5) and its object rows (Q2, #267).
-Unblocked; not started.
+`t = 1 [s]` and `t = 2.5 [s]`?" — the state executor and the trace had the answers
+(`StateExecutor.ActiveStates`, the event log `-trace` prints) and no query read them. Q3 is a
+runtime query vocabulary over current state and over the trace as a time-ordered relation, with the
+same filter forms as Q2, so the trace stops being something one reads by eye. **Landed** in #359 on
+`develop` after the tag, as three operations of `DocumentQueries` beside Q2's `Objects` and
+`Verdicts`. `States(source)` answers **state rows**: one per active leaf of each source object's
+machine, every orthogonal region included, with the object, the `machine`, the leaf's `name`, its
+dotted `statePath` under the machine, the `region` it is active in and the `enclosing` composite
+states, read from `StateExecutor.ActiveLeaves` as the configuration stands now. `InState(name)` is
+the inverse — the held objects whose machine is in the named state, by leaf, by enclosing state or
+by dotted path — over the same population `all T` and `Objects` read (X5, Q2). `Events(source,
+kind, since, before)` answers **event rows**: the trace in the order the run made it — accepts,
+sends, transitions, state entry, exit and do steps, `choice` draws with their alternatives and the
+one taken (region order and due order among them), unevaluable guards — each with its instant on
+`Context.Clock()` (A5), its object and machine, the states it touches, its payload and the line
+`-trace` prints; `kind` keeps one or several kinds and `[since, before)` is inclusive at the start,
+exclusive at the end, in the clock's unit or as a duration. The representation queried is the one
+the runtime records: `runtime.TraceRecorder` keeps a typed `TraceRecord` per event and the printer
+writes `-trace`'s lines from those records, so the two cannot disagree and the printed trace is
+unchanged. `WhereFeature`, `WhereName`, `WhereType`, `Project`, `OrderBy` and `Column` read state
+and event rows as they read object and verdict rows; a model-only operation given one, an object
+exhibiting no machine, a state no machine declares, a session recording no trace, a bound that is
+no instant, an empty or backwards interval, and an interval reaching records a bounded trace has
+dropped are each a typed error. The rows cross every surface Q2 has: `%run-query` and `-run-query`
+(which runs after `-state`, `-action` and `-advance`, so it reads the run's end), the Markdown, HTML
+(`span.sysml-state`, `span.sysml-event`) and PDF renderers, and `RunDocumentQuery` as the `state`
+and `event` arms of `DocumentValue`, decoded by the Go and Python clients and carried by the Node,
+Java and Rust stubs; `OPENSYSML_GRPC_MAX_HELD_EVENTS` bounds the trace a served population keeps.
+The manual's [Which query is which](../manual/query-kinds.md) and the query cookbook teach the
+forms; the rows in `spec-compliance.md` carry the status. Nothing of Q3 is left.
 
 ## Q4 — document-query parameter defaults evaluate (done)
 
@@ -1937,7 +1959,7 @@ enumerated by `explore` (S4) and one executor alone due is no choice and is not 
 every single-behavior result and trace unchanged. `ExecuteActionResponse` and
 `ExecuteStateResponse` report `final_time` under the `final_time` capability. What it leaves:
 A4's runner is not yet on the clock, since it does not exist; Q3's queries over the trace it
-changed are unblocked.
+changed landed in #359.
 
 ## A6 — verification cases give verdicts from their bodies (landed)
 
@@ -2962,8 +2984,8 @@ Tracks F, S, L and A are closed.
   and *002*, which E1 added at the same region-entry site; *Transition 017* is the record's second
   decision (two admitted traces no reading of the model produces); the remaining five cite a
   *differs, v2 silent* alignment row.
-- **Track Q** — Q3, unblocked by A5 and by Q2's object rows, not started; Q1 is written and Q2
-  and Q4 are done.
+- **Track Q** — complete: Q1 is written, Q2 and Q4 are done, and Q3 landed in #359 on `develop`
+  after the tag.
 - **Track X** — X7's RDF literal form and native layout for sets and tensors; X8's two harness
   halves (pilot-differential numeric normalization with an adjudication file, and a standalone
   RDF expression-tree round trip).
@@ -2988,11 +3010,11 @@ The release housekeeping the previous order opened with is done — #286 folded 
 **Track E** — complete: E1, E2, E4, E6, E7, E8, E9 and E10 landed; E3 and E5 closed by
 design record. Its remaining design notes do not add an open Track E item.
 
-1. **Q3** — state and event queries, on A5's clock and Q2's object rows. Q1, the page that says
-   which query is which, is written in the document-generation manual now that the set is
-   complete (#267, #289 and #293 closed Q2 on `develop`); Q4 (#849) landed independently ahead
-   of it.
-2. **I2, I3, then I4's client** — the shared fixtures, the thin R, Julia and MATLAB packages, the
+**Track Q** — complete: Q3 (#359) landed on `develop` after the tag, on A5's clock and Q2's
+object rows; Q1, the page that says which query is which, is written in the document-generation
+manual; #267, #289 and #293 closed Q2; Q4 (#849) landed independently ahead of them.
+
+1. **I2, I3, then I4's client** — the shared fixtures, the thin R, Julia and MATLAB packages, the
    C client, each derived from the wire contract (I1, landed in #848); the C *ABI* half of I4 is
    not here — it is step 7.
 3. **D2 and D1, then D9.1 and D9.2** — Flexo: the standard vocabulary for expression trees and
@@ -3025,7 +3047,7 @@ own sequence (#308, #309 and #312 are the open ones). Two releases are in view. 
 since the tag and the three VS Code extension fixes, and deliberately none of the state-executor
 series or the features; it moves no roadmap item, and once tagged `main` is folded back into
 `develop` as after `v0.8.0`. The next cut from `develop` carries everything else that landed
-since the tag — Q2 closed, L7, A4, E1, the generated figures, modeled randomness, the fUML
+since the tag — Q2 and Q3 closed, L7, A4, E1, the generated figures, modeled randomness, the fUML
 referee, the state-executor fixes and the workspace's persistent semantic model — and by
 `CONTRIBUTING.md` § Versioning it bumps the minor segment, not the patch: features are patch
 material there, but #302 refuses a construct `v0.8.0` accepted (a body inside a nested definition
@@ -3073,7 +3095,8 @@ an empty action end its performance. The decision is the release checklist's, re
   on `develop` after the tag, A7's carrier walk shared with Q2's query side (#267), and #344 gave
   A3's Monte Carlo the modeled randomness it had refused by name. Nothing remains in the track.
 - **Track Q.** Q4 is done; Q2's expression half landed with X5 and its query side in #267, #289
-  and #293 on `develop` after the tag, which closes Q2; Q1 is written; Q3 is step 2 above.
+  and #293 on `develop` after the tag, which closes Q2; Q1 is written; Q3 landed in #359. Nothing
+  remains in the track.
 - **Track V.** Everything queued has landed (#822, #900, #831, #817, the rule pull requests, #811
   reconciled with #907, #909); work the census's 1 *not implemented* and 53 *unknown* rows,
   negative case first, each change moving its row.
