@@ -99,6 +99,7 @@ type imagedFeature struct {
 	bindingDerived bool
 	dependents     []imagedFeatureRef
 	reads          []imagedFeatureRef
+	readsLives     bool // derived from the lives: which objects there are, and when each began and ended
 }
 
 // imagedFeatureRef names a feature value of the image: an object's, by position.
@@ -470,6 +471,7 @@ func (t *imaging) finish() {
 			fv := inst.FeatureValues[img.objects[i].features[j].names[0]]
 			img.objects[i].features[j].dependents = t.edges(fv.dependents)
 			img.objects[i].features[j].reads = t.edges(fv.reads)
+			img.objects[i].features[j].readsLives = slices.Contains(fv.reads, &ctx.lifetimes)
 		}
 	}
 	// A usage's occurrences are imaged whole: an image holding some of them holds none.
@@ -624,6 +626,7 @@ type materializeMark struct {
 	activations, runs int64
 	clock             float64
 	clockRun          *runState
+	readLives         int
 }
 
 func (ctx *Context) materializeMark() materializeMark {
@@ -632,6 +635,7 @@ func (ctx *Context) materializeMark() materializeMark {
 		nextID: ctx.ids.next, tookHigh: ctx.took.high, ids: ctx.ids,
 		activations: ctx.activations, runs: ctx.runs,
 		clock: ctx.clock.now, clockRun: ctx.clockRun.state,
+		readLives: len(ctx.lifetimes.dependents),
 	}
 }
 
@@ -647,6 +651,7 @@ func (mark materializeMark) rollBack(ctx *Context) {
 	ctx.activations, ctx.runs = mark.activations, mark.runs
 	ctx.clock.now = mark.clock
 	ctx.clockRun.state = mark.clockRun
+	ctx.lifetimes.dependents = ctx.lifetimes.dependents[:mark.readLives]
 }
 
 // materializing builds one context's objects for an image.
@@ -810,7 +815,7 @@ func (m *materializing) feature(inst *Instance, f EffectiveFeature) *EffectiveFe
 }
 
 // edges links the feature values of one object made to the ones they read and
-// that read them, within the image.
+// that read them, within the image, and to dst's lives where they read the lives.
 func (m *materializing) edges(obj imagedObject) {
 	inst := m.made[obj.id]
 	for _, f := range obj.features {
@@ -820,6 +825,10 @@ func (m *materializing) edges(obj imagedObject) {
 		}
 		for _, ref := range f.reads {
 			fv.reads = append(fv.reads, m.featureAt(ref))
+		}
+		if f.readsLives {
+			fv.reads = append(fv.reads, &m.dst.lifetimes)
+			m.dst.lifetimes.dependents = append(m.dst.lifetimes.dependents, fv)
 		}
 	}
 }

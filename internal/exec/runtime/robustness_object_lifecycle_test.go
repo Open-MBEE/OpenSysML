@@ -31,9 +31,12 @@ func TestRuntimeRobustnessObjectLifecycle(t *testing.T) {
 	t.Run("a_failed_constructor_revives_what_its_behaviors_destroyed_whole", testObjectLifecycleFailedConstructorDestroy)
 	t.Run("a_part_declared_or_bound_to_a_new_object_ends_with_the_whole", testObjectLifecycleDeclaredPart)
 	t.Run("an_object_two_wholes_hold_composite_ends_with_either", testObjectLifecycleSharedPortion)
+	t.Run("an_object_its_home_drops_is_rehomed_to_the_whole_still_holding_it", testObjectLifecycleSharedPortionRehomed)
 	t.Run("a_composite_write_making_the_holder_its_own_portion_is_refused", testObjectLifecycleCompositeCycle)
+	t.Run("a_composite_write_giving_an_ended_whole_a_live_portion_is_refused", testObjectLifecycleEndedWholeAdoptsNothing)
 	t.Run("destroying_an_object_forgets_the_messages_addressed_to_it", testObjectLifecycleForgetsMessages)
 	t.Run("derivations_that_read_lifetimes_derive_again_when_they_change", testObjectLifecycleDerivationsFollowLives)
+	t.Run("an_imaged_derivation_that_read_lifetimes_follows_the_lives_where_materialized", testObjectLifecycleImagedDerivationsFollowLives)
 	t.Run("behaviors_a_write_starts_run_once_the_feature_holds_the_object", testObjectLifecycleStartsAfterStore)
 	t.Run("behaviors_a_constructor_argument_starts_run_once_every_argument_is_stored", testObjectLifecycleConstructorStartsAfterStores)
 	t.Run("behaviors_a_bound_default_starts_run_once_the_feature_holds_the_object", testObjectLifecycleBoundDefaultStartsAfterStore)
@@ -586,6 +589,98 @@ func testObjectLifecycleSharedPortion(t *testing.T) {
 	}
 }
 
+// testObjectLifecycleSharedPortionRehomed: when the home of an object two wholes hold drops it,
+// the other whole still holding it becomes its home, so the object keeps its way to its whole.
+func testObjectLifecycleSharedPortionRehomed(t *testing.T) {
+	instantiate, _, ctx := lifetimeFixture(t, `
+		package test {
+			part def Car;
+			part def Garage { part slot : Car[0..1]; }
+			part a : Garage;
+			part b : Garage;
+		}`)
+	a, b := instantiate("a"), instantiate("b")
+	_, scope := calcByName(t, ctx.model.resolver.Index().DocumentRoot("<test>"), "test", "Garage")
+	car, err := evalIn(t, ctx, scope, "new Car()")
+	if err != nil {
+		t.Fatalf("new Car(): %v", err)
+	}
+	for _, g := range []*Instance{a, b} {
+		if err := g.SetFeatureValue(ctx, "slot", car); err != nil {
+			t.Fatalf("#%d.slot := car: %v", g.ID, err)
+		}
+	}
+	id, _ := car.Object()
+	inst := ctx.instances[id]
+	_, rollback := ctx.beginJournal()
+	if err := a.SetFeatureValue(ctx, "slot", nullValue()); err != nil {
+		t.Fatalf("a.slot := null: %v", err)
+	}
+	if inst.owner != b || inst.ownerFeature != "slot" {
+		t.Errorf("car's home after a drops it = %v.%s; want b.slot, still holding it", inst.owner, inst.ownerFeature)
+	}
+	rollback()
+	if inst.owner != a || inst.ownerFeature != "slot" {
+		t.Errorf("car's home after rolling the drop back = %v.%s; want a.slot", inst.owner, inst.ownerFeature)
+	}
+	if err := a.SetFeatureValue(ctx, "slot", nullValue()); err != nil {
+		t.Fatalf("a.slot := null: %v", err)
+	}
+	if err := b.SetFeatureValue(ctx, "slot", nullValue()); err != nil {
+		t.Fatalf("b.slot := null: %v", err)
+	}
+	if inst.owner != nil {
+		t.Errorf("car's home after both drop it = %v; want none", inst.owner)
+	}
+}
+
+// testObjectLifecycleEndedWholeAdoptsNothing: a composite write giving an ended whole a live portion
+// is refused with ErrOccurrenceLifetime and holds nothing; a reference to it, and an ended portion, are held.
+func testObjectLifecycleEndedWholeAdoptsNothing(t *testing.T) {
+	instantiate, _, ctx := lifetimeFixture(t, `
+		package test {
+			private import OccurrenceFunctions::*;
+			part def Car;
+			part def Garage { part slot : Car[0..1]; ref part seen : Car[0..1]; }
+			part garage : Garage;
+			part shed : Garage;
+		}`)
+	garage, shed := instantiate("garage"), instantiate("shed")
+	_, scope := calcByName(t, ctx.model.resolver.Index().DocumentRoot("<test>"), "test", "Garage")
+	car, err := evalIn(t, ctx, scope, "new Car()")
+	if err != nil {
+		t.Fatalf("new Car(): %v", err)
+	}
+	if _, err := ctx.endOccurrence(garage); err != nil {
+		t.Fatalf("endOccurrence(garage): %v", err)
+	}
+	if err := garage.SetFeatureValue(ctx, "slot", car); !errors.Is(err, ErrOccurrenceLifetime) {
+		t.Fatalf("ended garage.slot := live car = %v; want ErrOccurrenceLifetime", err)
+	}
+	id, _ := car.Object()
+	if owner := ctx.instances[id].owner; owner != nil {
+		t.Errorf("the car's home after the refused write = %v; want none", owner)
+	}
+	if fv, err := garage.GetFeatureValue(ctx, "slot"); err != nil || len(heldObjects(fv.HeldValue())) != 0 {
+		t.Errorf("ended garage.slot = %s, %v; want no object, the write refused", FormatValue(fv.HeldValue()), err)
+	}
+	if l, _ := ctx.OccurrenceLife(id); !l.Alive() {
+		t.Errorf("OccurrenceLife(car) = %v; want alive, the refused write ended nothing", l)
+	}
+	if err := garage.SetFeatureValue(ctx, "seen", car); err != nil {
+		t.Errorf("ended garage.seen := live car = %v; want held, a reference makes no portion", err)
+	}
+	if err := shed.SetFeatureValue(ctx, "slot", car); err != nil {
+		t.Fatalf("shed.slot := car: %v", err)
+	}
+	if _, err := ctx.endOccurrence(shed); err != nil {
+		t.Fatalf("endOccurrence(shed): %v", err)
+	}
+	if err := garage.SetFeatureValue(ctx, "slot", car); err != nil {
+		t.Errorf("ended garage.slot := ended car = %v; want held, its life within the whole's", err)
+	}
+}
+
 // testObjectLifecycleCompositeCycle: a composite write that would make the holder a portion of
 // itself — holding itself, or a whole it is a portion of — is refused with ErrOccurrenceLifetime and
 // holds nothing, so destroying the would-be portion cannot end its whole.
@@ -740,6 +835,71 @@ func testObjectLifecycleDerivationsFollowLives(t *testing.T) {
 	}
 	if got, err := read("cars"); err != nil || got != "1" {
 		t.Errorf("garage.cars after scrapping the car = %s, %v; want 1, the spare", got, err)
+	}
+}
+
+// testObjectLifecycleImagedDerivationsFollowLives: an image carries that a `=` value read the
+// lives, so where it is materialized the value derives again once a car is created or destroyed.
+func testObjectLifecycleImagedDerivationsFollowLives(t *testing.T) {
+	instantiate, _, ctx := lifetimeFixture(t, `
+		package test {
+			private import ScalarValues::*;
+			private import OccurrenceFunctions::*;
+			private import SequenceFunctions::*;
+			part def Car;
+			part def Garage {
+				part slot : Car[0..1];
+				attribute cars : Natural = (all Car)->size();
+				attribute slotAlive : Boolean = isDuring(slot);
+			}
+			part garage : Garage;
+			calc def Scrap { in c : Car; return : Car[0..1] = destroy(c); }
+		}`)
+	garage := instantiate("garage")
+	_, scope := calcByName(t, ctx.model.resolver.Index().DocumentRoot("<test>"), "test", "Garage")
+	car, err := evalIn(t, ctx, scope, "new Car()")
+	if err != nil {
+		t.Fatalf("new Car(): %v", err)
+	}
+	if err := garage.SetFeatureValue(ctx, "slot", car); err != nil {
+		t.Fatalf("garage.slot := car: %v", err)
+	}
+	read := func(ctx *Context, garage *Instance, name string) (string, error) {
+		fv, err := garage.GetFeatureValue(ctx, name)
+		if err != nil {
+			return "", err
+		}
+		return FormatValue(fv.HeldValue()), nil
+	}
+	if got, err := read(ctx, garage, "cars"); err != nil || got != "1" {
+		t.Fatalf("garage.cars = %s, %v; want 1", got, err)
+	}
+	if got, err := read(ctx, garage, "slotAlive"); err != nil || got != "true" {
+		t.Fatalf("garage.slotAlive = %s, %v; want true", got, err)
+	}
+
+	dst := imageInto(t, ctx, garage)
+	copied, _ := dst.Instance(garage.ID)
+	if got, err := read(dst, copied, "cars"); err != nil || got != "1" {
+		t.Fatalf("copy.cars as imaged = %s, %v; want 1", got, err)
+	}
+	if _, err := evalIn(t, dst, scope, "new Car()"); err != nil {
+		t.Fatalf("new Car() in the destination: %v", err)
+	}
+	if got, err := read(dst, copied, "cars"); err != nil || got != "2" {
+		t.Errorf("copy.cars after new Car() in the destination = %s, %v; want 2, derived again", got, err)
+	}
+	if _, err := evalIn(t, dst, scope, "Scrap(garage.slot)"); err != nil {
+		t.Fatalf("Scrap(garage.slot) in the destination: %v", err)
+	}
+	if got, err := read(dst, copied, "slotAlive"); err != nil || got != "false" {
+		t.Errorf("copy.slotAlive after scrapping its car = %s, %v; want false, derived again", got, err)
+	}
+	if got, err := read(dst, copied, "cars"); err != nil || got != "1" {
+		t.Errorf("copy.cars after scrapping its car = %s, %v; want 1", got, err)
+	}
+	if got, err := read(ctx, garage, "cars"); err != nil || got != "1" {
+		t.Errorf("garage.cars in the source after the destination's moves = %s, %v; want 1, untouched", got, err)
 	}
 }
 

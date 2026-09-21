@@ -134,17 +134,29 @@ func (ctx *Context) ownsHeld(feat *EffectiveFeature) bool {
 // adoptWritten makes inst the home (Instance.owner) of the ownerless objects a write to its composite
 // feature holds, releasing the ones it drops; each change is noted for the journal under way to undo.
 // Being a portion of inst does not depend on it: portionsOf reads the composite features themselves,
-// so a write that would make inst a portion of itself is refused before anything is held.
+// so a write that would make inst a portion of itself is refused before anything is held; so is one
+// that would give an ended inst a live portion, a portion's life lying within its whole's.
 func (ctx *Context) adoptWritten(inst *Instance, fv *FeatureValue, val Value) error {
 	if !ctx.ownsHeld(fv.Feature) {
 		return nil
 	}
+	whole := ctx.lives[inst.ID]
 	for _, el := range elementsOf(val) {
-		if id, ok := el.Object(); ok {
-			if child, found := ctx.instances[id]; found && ctx.isPortionOf(inst, child) {
-				return fmt.Errorf("%w: %s #%d would hold %s #%d, a whole it is a portion of, as a portion of itself",
-					ErrOccurrenceLifetime, symbolText(inst.Type), inst.ID, symbolText(child.Type), child.ID)
-			}
+		id, ok := el.Object()
+		if !ok {
+			continue
+		}
+		child, found := ctx.instances[id]
+		if !found {
+			continue
+		}
+		if ctx.isPortionOf(inst, child) {
+			return fmt.Errorf("%w: %s #%d would hold %s #%d, a whole it is a portion of, as a portion of itself",
+				ErrOccurrenceLifetime, symbolText(inst.Type), inst.ID, symbolText(child.Type), child.ID)
+		}
+		if whole.ended != 0 && ctx.lives[id].ended == 0 {
+			return fmt.Errorf("%w: %s #%d ended at %d and cannot hold live %s #%d as a portion of itself",
+				ErrOccurrenceLifetime, symbolText(inst.Type), inst.ID, whole.ended, symbolText(child.Type), child.ID)
 		}
 	}
 	ctx.releaseDropped(inst, fv, val)
@@ -163,8 +175,9 @@ func (ctx *Context) adoptWritten(inst *Instance, fv *FeatureValue, val Value) er
 	return nil
 }
 
-// releaseDropped frees an object the composite feature owned and the write no longer holds,
-// so the feature it is written into next may own it; each release is noted for the journal.
+// releaseDropped moves the home of an object the composite feature owned and the write no longer
+// holds: to another composite feature still holding it, else free for the next feature written
+// into to own it; each move is noted for the journal.
 func (ctx *Context) releaseDropped(inst *Instance, fv *FeatureValue, val Value) {
 	kept := map[int64]bool{}
 	for _, el := range elementsOf(val) {
@@ -182,9 +195,31 @@ func (ctx *Context) releaseDropped(inst *Instance, fv *FeatureValue, val Value) 
 			continue
 		}
 		feature := child.ownerFeature
-		child.owner, child.ownerFeature = nil, ""
+		child.owner, child.ownerFeature = ctx.otherHomeOf(child, fv)
 		ctx.noteProbeUndo(func() { child.owner, child.ownerFeature = inst, feature })
 	}
+}
+
+// otherHomeOf is the composite feature still holding child besides dropped — the lowest object's,
+// its first feature by name, so the choice is the same on every run — or none.
+func (ctx *Context) otherHomeOf(child *Instance, dropped *FeatureValue) (*Instance, string) {
+	ids := slices.Sorted(maps.Keys(ctx.instances))
+	for _, id := range ids {
+		whole := ctx.instances[id]
+		if whole == child || ctx.lives[id].destroyed {
+			continue
+		}
+		for _, name := range slices.Sorted(maps.Keys(whole.FeatureValues)) {
+			fv := whole.FeatureValues[name]
+			if fv == dropped || fv.Feature == nil || fv.Feature.Name != name || !ctx.ownsHeld(fv.Feature) {
+				continue
+			}
+			if slices.ContainsFunc(elementsOf(fv.HeldValue()), func(el Value) bool { id, ok := el.Object(); return ok && id == child.ID }) {
+				return whole, name
+			}
+		}
+	}
+	return nil, ""
 }
 
 // isPortionOf reports whether inst is whole itself or one of the portions whole holds, transitively.
