@@ -2,6 +2,7 @@ package parser
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 
@@ -24,6 +25,9 @@ type Parser struct {
 	// checkpoints counts the outstanding checkpoints; they pin the window.
 	checkpoints int
 	triv        []ast.Trivia // trivia pending attachment to the next node
+	// trivLog logs every trivia appended to triv while a checkpoint is open,
+	// so restore can replay what the abandoned attempt consumed.
+	trivLog []ast.Trivia
 	// Diagnostics are syntax errors: input the parser could not read as
 	// well-formed SysML.
 	Diagnostics []Diagnostic
@@ -116,8 +120,12 @@ type parseCheckpoint struct {
 	pos           int
 	diagnosticLen int
 	warningLen    int
-	pendingSpan   source.Span
-	hadPending    bool
+	// triv is a copy of the pending trivia at the checkpoint; trivLogLen is
+	// how much of trivLog was already lexed then.
+	triv        []ast.Trivia
+	trivLogLen  int
+	pendingSpan source.Span
+	hadPending  bool
 }
 
 // tokenWindow is how many consumed tokens the buffer keeps before compacting.
@@ -139,6 +147,9 @@ func (p *Parser) fill(n int) {
 		for tok.IsTrivia() || tok.Kind == lexer.RegularComment {
 			if tr, ok := triviaOf(tok); ok {
 				p.triv = append(p.triv, tr)
+				if p.checkpoints > 0 {
+					p.trivLog = append(p.trivLog, tr)
+				}
 			}
 			if tok.Unterminated {
 				// Everything after the opener is inside it, so the declarations
@@ -489,27 +500,31 @@ func (p *Parser) checkpoint() parseCheckpoint {
 		pos:           p.pos,
 		diagnosticLen: len(p.Diagnostics),
 		warningLen:    len(p.Warnings),
+		triv:          slices.Clone(p.triv),
+		trivLogLen:    len(p.trivLog),
 		pendingSpan:   p.pendingComment,
 		hadPending:    p.hasPendingComment,
 	}
 }
 
 // restore rewinds parser to a previous checkpoint, un-consuming the tokens the
-// abandoned attempt read and dropping the findings it reported. Used for
-// try-parse patterns.
-//
-// Trivia collected during the attempt is deliberately kept: the lexer yields
-// each trivia token once, so dropping it would lose a comment from the tree.
+// abandoned attempt read and dropping the findings it reported. Pending trivia
+// becomes what was pending at the checkpoint plus what the attempt lexed —
+// the lexer yields each trivia once, so it must be replayed, not dropped.
 func (p *Parser) restore(cp parseCheckpoint) {
 	p.pos = cp.pos
 	p.Diagnostics = p.Diagnostics[:cp.diagnosticLen]
 	p.Warnings = p.Warnings[:cp.warningLen]
 	p.pendingComment = cp.pendingSpan
 	p.hasPendingComment = cp.hadPending
+	p.triv = append(cp.triv, p.trivLog[cp.trivLogLen:]...)
 }
 
 // release ends a checkpoint's hold on the token buffer; a try-parse defers it
 // right after taking the checkpoint.
 func (p *Parser) release() {
 	p.checkpoints--
+	if p.checkpoints == 0 {
+		p.trivLog = p.trivLog[:0]
+	}
 }

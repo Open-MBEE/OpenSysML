@@ -309,7 +309,8 @@ download script first (each is idempotent and refuses to report success over an 
 | `OPENSYSML_REQUIRE_TRAINING_CORPUS` | `./scripts/download-training-examples.sh` → `examples/sysml-v2-training/` | `TestTrainingExamples*` in `tests/corpus` |
 | `OPENSYSML_REQUIRE_PILOT_CORPORA` | `./scripts/download-pilot-corpora.sh` → `examples/pilot-corpora/` | `TestPilotCorpora*` in `tests/corpus` |
 | `OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI` | `./scripts/download-pilot-library-xmi.sh` → `build/pilot-library-xmi/` | `TestPilotLibraryXMI` in `internal/semantic/identity` |
+| `OPENSYSML_REQUIRE_PSSM_SUITE` | `./scripts/download-pssm-suite.sh` → `build/pssm/` | `TestPSSMSuiteMigration` in `tests/corpus`, and the referee's gates in `tools/referee/pssm` |
 | `OPENSYSML_REQUIRE_PDF_TOOLCHAIN` | `./scripts/download-doc-pdf-toolchain.sh` → `build/doc-pdf/` (WeasyPrint, pandoc, Mermaid CLI, KaTeX, Graphviz, the PlantUML jar; Java from the host) | `Test*Installed*` in `internal/doc/docpdf`, which draw a real PDF through each tool |
 
-CI sets all four — the PDF one in its `pdf-toolchain` job, with the script's exports set; see [pilot-corpora.md](../project/pilot-corpora.md) for the pin the downloads
+CI sets all five — the PDF one in its `pdf-toolchain` job, with the script's exports set; see [pilot-corpora.md](../project/pilot-corpora.md) for the pin the downloads
 share and what the gates measure.

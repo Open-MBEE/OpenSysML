@@ -694,6 +694,11 @@ func newSession() *repl.Session {
 		sess.SetModelSeed(modelChecks.seed.value)
 	}
 	sess.SetDraws(modelChecks.draws.value)
+	if err := sess.SetClockStep(modelChecks.clockStep.value); err != nil {
+		// Unreachable: -clock-step was validated when parsed.
+		fmt.Fprintln(os.Stderr, errPrefix, err)
+		os.Exit(2)
+	}
 	if err := sess.SetEngine(engine.text); err != nil {
 		// Unreachable: the selection was validated against the same engines when parsed.
 		fmt.Fprintln(os.Stderr, errPrefix, err)

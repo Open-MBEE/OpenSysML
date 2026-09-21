@@ -35,6 +35,7 @@ func (ec *EvalContext) viaHolder(path string, viaSelf bool, self *Instance) (*In
 	if viaSelf {
 		return self, path, nil
 	}
+	ec.ctx.notePollReadsData()
 	held, bound, err := ec.boundHolders(root, path)
 	if err != nil || !bound {
 		return self, path, err

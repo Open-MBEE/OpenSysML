@@ -1,0 +1,64 @@
+# SysML v1 to v2 migration report: library_calls.xmi
+# migrated 56 element(s): 49 mapped, 5 approximated, 2 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## unmapped (2)
+CallBehaviorAction	Recorder::Label::position	_position	-> position	(several edges lead to the node, which waits for all of them through the join 'join'; the behavior Alf SequenceFunctions::IndexOf it calls has no v2 library function: the v2 library has no function giving the position of an element in a sequence; the behavior is known by its OMG href http://www.omg.org/spec/ALF/20170201/Alf-Library.xmi#Alf-Library-PrimitiveBehaviors-SequenceFunctions-IndexOf)
+CallBehaviorAction	Recorder::Label::print	_print	-> print	(several edges lead to the node, which waits for all of them through the join join2; the behavior fUML BasicInputOutput::WriteLine it calls has no v2 library function: writes a line to the standard output channel, which the v2 library has no function for; the behavior is known by its OMG href http://www.omg.org/spec/FUML/20180501/fUML_Library.xmi#BasicInputOutput-WriteLine)
+
+## approximated (5)
+ObjectFlow	Recorder::Label::<ObjectFlow>	_o7	(the flow is kept as a comment: its source 'position' is not migrated, so no value reaches 'result')
+CallBehaviorAction	Recorder::Label::after	_after	-> 'after'	(the pin 'x' it passes for the parameter x of fUML IntegerFunctions::plus, which must hold a value, receives none: 'position', which feeds it, produces no value; v1 never fires the call, so the action carries the token and performs nothing)
+InputPin	Recorder::Label::after::x	_afterX	-> Recorder::Label::'after'.x	(it is declared admitting no value: 'position', which feeds it, produces no value)
+CallBehaviorAction	Recorder::Label::concat	_concat	-> concat	(calls fUML StringFunctions::Concat, which the v2 library computes; the behavior is known by its OMG href http://www.omg.org/spec/FUML/20180501/fUML_Library.xmi#PrimitiveBehaviors-StringFunctions-Concat; several edges leave the node, which a fork fork carries)
+CallBehaviorAction	Recorder::Label::second	_second	-> second	(calls Alf SequenceFunctions::Including, which the v2 library computes; the behavior is known by its OMG href http://www.omg.org/spec/ALF/20170201/Alf-Library.xmi#Alf-Library-PrimitiveBehaviors-SequenceFunctions-Including; several edges leave the node, which a fork fork2 carries)
+
+## mapped (49)
+Model	Model	_m	(the root model's members are written at the top level)
+«Block» Class	Recorder	_recorder	-> Recorder
+Activity	Recorder::Label	_label	-> Recorder::Label
+ActivityFinalNode	Recorder::Label::<ActivityFinalNode>	_final	-> final
+ControlFlow	Recorder::Label::<ControlFlow>	_c2
+ControlFlow	Recorder::Label::<ControlFlow>	_c3
+ControlFlow	Recorder::Label::<ControlFlow>	_c4
+ControlFlow	Recorder::Label::<ControlFlow>	_c5
+ControlFlow	Recorder::Label::<ControlFlow>	_c6
+ControlFlow	Recorder::Label::<ControlFlow>	_c7
+ControlFlow	Recorder::Label::<ControlFlow>	_c8
+ControlFlow	Recorder::Label::<ControlFlow>	_c9
+ControlFlow	Recorder::Label::<ControlFlow>	_c10
+ControlFlow	Recorder::Label::<ControlFlow>	_c11
+InitialNode	Recorder::Label::<InitialNode>	_init	-> start
+ObjectFlow	Recorder::Label::<ObjectFlow>	_o8	(the action waits for the value as well as for the control flow into it, as its pin did)
+ObjectFlow	Recorder::Label::<ObjectFlow>	_o6	(the action waits for the value as well as for the control flow into it, as its pin did)
+ObjectFlow	Recorder::Label::<ObjectFlow>	_o1	(the action waits for the value as well as for the control flow into it, as its pin did)
+ObjectFlow	Recorder::Label::<ObjectFlow>	_o2	(the action waits for the value as well as for the control flow into it, as its pin did)
+ObjectFlow	Recorder::Label::<ObjectFlow>	_o3	(the action waits for the value as well as for the control flow into it, as its pin did)
+ObjectFlow	Recorder::Label::<ObjectFlow>	_o4	(the action waits for the value as well as for the control flow into it, as its pin did)
+ObjectFlow	Recorder::Label::<ObjectFlow>	_o5	(the action waits for the value as well as for the control flow into it, as its pin did)
+OutputPin	Recorder::Label::after::result	_afterOut	-> Recorder::Label::'after'.result
+ValuePin	Recorder::Label::after::y	_afterY	-> Recorder::Label::'after'.y
+OutputPin	Recorder::Label::concat::result	_concatOut	-> Recorder::Label::concat.result
+ValuePin	Recorder::Label::concat::x	_concatX	-> Recorder::Label::concat.x
+InputPin	Recorder::Label::concat::y	_concatY	-> Recorder::Label::concat.y
+ValueSpecificationAction	Recorder::Label::count	_count	-> count
+OutputPin	Recorder::Label::count::result	_countOut	-> Recorder::Label::count.result
+CallBehaviorAction	Recorder::Label::first	_first	-> 'first'	(calls Alf SequenceFunctions::Including, which the v2 library computes; the behavior is known by its OMG href http://www.omg.org/spec/ALF/20170201/Alf-Library.xmi#Alf-Library-PrimitiveBehaviors-SequenceFunctions-Including)
+InputPin	Recorder::Label::first::element	_firstEl	-> Recorder::Label::'first'.element
+OutputPin	Recorder::Label::first::result	_firstOut	-> Recorder::Label::'first'.result
+InputPin	Recorder::Label::first::seq	_firstSeq	-> Recorder::Label::'first'.seq
+CallBehaviorAction	Recorder::Label::flag	_flag	-> flag	(calls fUML BooleanFunctions::ToString, which the v2 library computes; the behavior is known by its OMG href http://www.omg.org/spec/FUML/20180501/fUML_Library.xmi#PrimitiveBehaviors-BooleanFunctions-ToString)
+OutputPin	Recorder::Label::flag::result	_flagOut	-> Recorder::Label::flag.result
+ValuePin	Recorder::Label::flag::x	_flagX	-> Recorder::Label::flag.x
+ValuePin	Recorder::Label::position::element	_positionEl	-> Recorder::Label::position.element
+OutputPin	Recorder::Label::position::result	_positionOut	-> Recorder::Label::position.result
+InputPin	Recorder::Label::position::seq	_positionSeq	-> Recorder::Label::position.seq
+InputPin	Recorder::Label::print::value	_printValue	-> Recorder::Label::print.value
+ValuePin	Recorder::Label::second::element	_secondEl	-> Recorder::Label::second.element
+OutputPin	Recorder::Label::second::result	_secondOut	-> Recorder::Label::second.result
+InputPin	Recorder::Label::second::seq	_secondSeq	-> Recorder::Label::second.seq
+CallBehaviorAction	Recorder::Label::size	_size	-> size	(calls Alf SequenceFunctions::Size, which the v2 library computes; the behavior is known by its OMG href http://www.omg.org/spec/ALF/20170201/Alf-Library.xmi#Alf-Library-PrimitiveBehaviors-SequenceFunctions-Size)
+OutputPin	Recorder::Label::size::result	_sizeOut	-> Recorder::Label::size.result
+InputPin	Recorder::Label::size::seq	_sizeSeq	-> Recorder::Label::size.seq
+CallBehaviorAction	Recorder::Label::toString	_toString	-> toString	(calls fUML IntegerFunctions::ToString, which the v2 library computes; the behavior is known by its OMG href http://www.omg.org/spec/FUML/20180501/fUML_Library.xmi#PrimitiveBehaviors-IntegerFunctions-ToString)
+OutputPin	Recorder::Label::toString::result	_toStringOut	-> Recorder::Label::toString.result
+InputPin	Recorder::Label::toString::x	_toStringX	-> Recorder::Label::toString.x

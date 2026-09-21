@@ -83,9 +83,10 @@ func lowerFirst(s string) string {
 // segments returns the v2 qualified-name segments of an element: the names
 // from the top-level declaration down, the root Model not being written. A
 // lone region is its owner's body; one of several is a sub-state of a parallel state.
+// A connection point is a member of its owner, whichever region a tool listed it in.
 func (m *migration) segments(e *sysmlv1.Element) []string {
 	var segs []string
-	for cur := e; cur != nil; cur = cur.Parent {
+	for cur := e; cur != nil; cur = memberOwner(cur) {
 		if cur.Parent == nil && cur.Type == "Model" {
 			break
 		}

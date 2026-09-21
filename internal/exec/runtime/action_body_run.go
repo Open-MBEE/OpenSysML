@@ -105,12 +105,16 @@ func (w bodyWait) goesOn() bool {
 	return e.waitsOnClock(w.perf)
 }
 
-// heldWaiter is the executor the wait holds, nil for none.
-func (w bodyWait) heldWaiter() clockWaiter {
-	if w.held == nil {
-		return nil
+// waiter is the executor the paused work waits on, nil for none: the action it
+// holds, or the flow of a case it runs, which is not own, the flow of the body's executor.
+func (w bodyWait) waiter(own *ActionExecutor) clockWaiter {
+	if w.held != nil {
+		return w.held
 	}
-	return w.held
+	if w.exec != nil && w.exec != own {
+		return w.exec
+	}
+	return nil
 }
 
 // resume lets the work go on to its next pause, reported as true with why, or to
@@ -574,13 +578,24 @@ func (t Token) resumable() bool {
 	return t.body != nil && (!t.body.paused.onWait || !t.body.paused.wait.goesOn())
 }
 
-// heldWaiter returns the executor performing an action for the token's paused
-// work, whose wait on the clock the work waits for; nil for none.
-func (t Token) heldWaiter() clockWaiter {
+// pausedWaiter returns the executor the token's paused work waits on (the action it
+// performs or the flow of a case it runs), nil for none; own is the token's executor.
+func (t Token) pausedWaiter(own *ActionExecutor) clockWaiter {
 	if t.body == nil {
 		return nil
 	}
-	return t.body.paused.wait.heldWaiter()
+	return t.body.paused.wait.waiter(own)
+}
+
+// hostedFlow returns the flow of a case the token's paused work runs, nil for none.
+func (t Token) hostedFlow(own *ActionExecutor) *ActionExecutor {
+	if t.body == nil {
+		return nil
+	}
+	if w := t.body.paused.wait; w.held == nil && w.exec != nil && w.exec != own {
+		return w.exec
+	}
+	return nil
 }
 
 // drivenByBody reports whether the token runs in a flow a body statement runs

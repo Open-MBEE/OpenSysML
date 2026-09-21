@@ -1,0 +1,12 @@
+{
+	"type": "action",
+	"libraries": true,
+	"evaluate": "test::Stepped",
+	"clockStep": 1.0,
+	"trace": true,
+	"outputs": {
+		"t1": {"type": "Real", "value": 3.0},
+		"t2": {"type": "Real", "value": 4.0},
+		"t3": {"type": "Real", "value": 6.0}
+	}
+}
