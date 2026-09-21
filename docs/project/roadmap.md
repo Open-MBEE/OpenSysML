@@ -1368,23 +1368,33 @@ last; a trace golden for the interleaving; robustness for a stream whose source 
 list. **Prioritize when** a model's result differs between the two readings — a consumer that
 reads before its producer completes.
 
-## E5 — protocol state machines
+## E5 — protocol state machines (design record landed)
 
-**Today.** No SysML v2 notation exists for a protocol state machine (UML 2.5.1 §14.4), so nothing
-is parsed, lowered or refused; the bullet in `spec-compliance.md` is the whole record. What SysML
-v2 does have is a state machine exhibited by an occurrence (§7.18.4 `exhibit`), which the runtime
-runs during materialization of an object of the exhibiting type (the Classifier Behaviors map).
+**Design record landed**, [protocol-state-machines.md](protocol-state-machines.md); **the item
+stays open** for the runtime follow-up it specifies. No SysML v2 notation exists for a protocol
+state machine (UML 2.5.1 §14.4) and none should be invented; the record establishes, from
+§7.17.8, §7.18.3–4 and the Kernel Semantic Library (`StatePerformances`, `Transfers`,
+`Occurrences`), that the half of the idea SysML v2 can express — the legal order of *receptions*
+on a port or part — is an ordinary exhibited behavior state machine, which OpenSysML lowers,
+starts with the exhibiting object and fires in the declared order on a part with
+`accept … via <port>` (the corpora's spelling; conformance `state_transition_accept_via_port`).
+What SysML v2 cannot spell — ordering *operation calls*, post-conditions, `ProtocolConformance`,
+static sequence checking — is a UML feature the language dropped, not an OpenSysML gap.
 
-**Target.** None is stated, and none should be invented here: a UML protocol state machine
-constrains the order of operation calls on an interface, and the SysML v2 rendering of that
-constraint is a design question — an exhibited state machine on a port definition, with an
-out-of-order message refused as a typed error, is the obvious candidate — to be settled in a design
-record if the need arises.
-
-**Work.** The record; then whatever it concludes. Independent of every other item.
-
-**Proof.** Set by the record. **Prioritize when** a user brings a model that needs the order of
-messages on a port checked at run time; until then the bullet stays as it is.
+**What it leaves.** The order the machine declares is enforced only for events a debugger injects
+directly (`StateExecutor.SendSignal` → dispatched, dropped, reported in `AdvanceReport.Dropped`;
+the REPL's `%send` refuses one by machine and state). A message a *model* sends that the active
+state neither accepts nor defers is not dropped: it waits on the context-wide bus and is taken by
+the first later state that accepts it, so an out-of-order `Read` before `Open` is counted as if it
+had come after (the record's second probe: `reads = 2`, nothing reported). A machine exhibited by a
+**port definition** runs and answers the debugger's messages to the port object, but does not
+take a model's messages routed to that port. The follow-up specified in the record: a message
+addressed to a performer whose started machines all refuse it is taken off the bus and dispatched as
+a non-firing dispatch, so it is reported as the direct path reports it; a port definition's machine
+takes the messages routed to its port; optionally, an opt-in policy that makes the drop a typed error.
+No IR change; proof fixtures written in the record; two routing points to settle first.
+**Prioritize when** a model relies on an exhibited machine to refuse an arrival, or on a port
+definition's machine at all.
 
 ## E6 — operation invocation with positional arguments
 
@@ -2991,9 +3001,9 @@ The open items, by track, with the item that gates each where one does. Everythi
 is landed or is a track the previous baseline left as it stands (D, N, M, I, V, B, R2–R5);
 Tracks F, S, L and A are closed.
 
-- **Track E** — eligible and first: E2, then E4 (E1 landed), then E6 on request, E5 behind
-  its design record (E3's closed the item), E7 behind its object-model item, E8 behind a model
-  that needs it. The
+- **Track E** — eligible and first: E2, then E4 (E1 landed), then E6 on request, E3 closed by
+  its design record, E5 closed by its record (an optional follow-up waits on a model that needs
+  it), E7 behind its object-model item, E8 behind a model that needs it. The
   PSSM referee's 17 `fail` tests are the state side's measurement, every one attributed (#326):
   eleven wait on the region-order choice point whose design record #342 wrote and left at two
   maintainer decisions — the nine the record names to move `fail` → `pass`, plus *Terminate 001*
@@ -3107,7 +3117,8 @@ an empty action end its performance. The decision is the release checklist's, re
   the region-order choice point afterwards. Nothing remains in the track.
 - **Track E.** Eligible — step 1 above. **E1** (termination of an ongoing performance, which
   **E2** and **E4** build on) is landed; the order is **E2**, then **E4**; **E6** whenever asked,
-  being a day's work; **E5** only after its design record; **E7** after the
+  being a day's work; **E3**'s record is landed and closes the item; **E5**'s record is landed and
+  closes the item, its optional follow-up waiting on a model that needs it; **E7** after the
   object-model item it depends on; **E8** when a model redefines run-to-completion, its refusal
   (#229) standing until then; **E1**, **E9** and **E10** are landed; **E3** is closed by its
   record, no work following.
