@@ -916,7 +916,7 @@ func (a *activity) arbitraryChoice(n *sysmlv1.Element, outs []*sysmlv1.Element, 
 			written++
 		}
 	}
-	share := realLiteral(1 / float64(written))
+	share := computedLiteral(1 / float64(written))
 	weights := make([]string, len(outs))
 	var dropped []string
 	for i, e := range outs {
@@ -1025,25 +1025,49 @@ func guardIsValue(g *sysmlv1.Element) bool {
 	return false
 }
 
+// probability is the SysML profile's «Probability» applied to e, or nil: only it
+// weights the edge; a same-named stereotype from another profile carries no weight.
+func probability(e *sysmlv1.Element) *sysmlv1.Stereotype {
+	return stereo(e, "Probability")
+}
+
+// foreignProbabilities notes each «Probability» on e from a profile other than
+// SysML's, whose probability is not read.
+func (a *activity) foreignProbabilities(e *sysmlv1.Element) {
+	for _, s := range e.Stereotypes {
+		if s.Name == "Probability" && !isStandard(s) {
+			a.m.add(e, Approximated, "", "«Probability» from "+s.Namespace+" is not the SysML profile's; its probability is not read")
+		}
+	}
+}
+
 // probabilities weights each branch of a decision carrying a «Probability»: a
 // number is a constant, a property is a reference the run reads, unmarked branches
-// share the remainder to 1, constant sums other than 1 are scaled; nil when none.
+// and «Probability» tags without a value share the remainder to 1, constant sums
+// other than 1 are scaled; nil when none has a value.
 func (a *activity) probabilities(outs []*sysmlv1.Element, tos []string) []string {
 	weights := make([]probabilityWeight, len(outs))
-	var unmarked []int
+	var unmarked, valueless []int
 	sum, marked, dynamic := 0.0, false, false
 	var notes []string
 	for i, e := range outs {
 		if tos[i] == "" {
 			notes = append(notes, "the edge "+describe(e)+" leads to "+describe(ownerNode(a.m.model.Ref(e, "target")))+", "+a.unwritableTarget(e))
 		}
-		s := e.Stereotype("Probability")
+		a.foreignProbabilities(e)
+		s := probability(e)
 		if s == nil {
 			unmarked = append(unmarked, i)
 			continue
 		}
+		text := strings.TrimSpace(s.Tag("probability"))
+		if text == "" {
+			unmarked = append(unmarked, i)
+			valueless = append(valueless, i)
+			continue
+		}
 		marked = true
-		w, note := a.branchWeight(e, s)
+		w, note := a.branchWeight(e, text)
 		if note != "" {
 			notes = append(notes, note)
 			continue
@@ -1057,6 +1081,9 @@ func (a *activity) probabilities(outs []*sysmlv1.Element, tos []string) []string
 		weights[i] = w
 	}
 	if !marked {
+		for _, i := range valueless {
+			a.m.add(outs[i], Approximated, "", "the «Probability» on the edge has no value, and no branch of the decision has one, so the guards decide")
+		}
 		return nil
 	}
 	remainder := 1 - sum
@@ -1064,14 +1091,14 @@ func (a *activity) probabilities(outs []*sysmlv1.Element, tos []string) []string
 	case len(notes) > 0:
 	case dynamic:
 	case len(unmarked) > 0 && remainder < -probabilityTolerance:
-		notes = append(notes, "the probabilities out of the decision sum to "+realLiteral(sum)+", leaving nothing for the "+strconv.Itoa(len(unmarked))+" branch(es) without one")
+		notes = append(notes, "the probabilities out of the decision sum to "+computedLiteral(sum)+", leaving nothing for the "+strconv.Itoa(len(unmarked))+" branch(es) without one")
 	case len(unmarked) == 0 && sum <= 0:
 		notes = append(notes, "the probabilities out of the decision sum to 0")
 	}
 	if len(notes) > 0 {
 		note := "no «Probability» is written on the decision's branches: " + strings.Join(notes, "; ")
 		for _, e := range outs {
-			if e.Stereotype("Probability") != nil {
+			if probability(e) != nil {
 				a.m.add(e, Approximated, "", note)
 			}
 		}
@@ -1080,13 +1107,9 @@ func (a *activity) probabilities(outs []*sysmlv1.Element, tos []string) []string
 	return a.weightExprs(outs, weights, unmarked, sum, dynamic)
 }
 
-// branchWeight reads the «Probability» of one marked edge: the weight it is
+// branchWeight reads the «Probability» text of one marked edge: the weight it is
 // weighted with, or the note why none is read.
-func (a *activity) branchWeight(e *sysmlv1.Element, s *sysmlv1.Stereotype) (w probabilityWeight, note string) {
-	text := s.Tag("probability")
-	if text == "" {
-		return w, "the «Probability» on " + describe(e) + " has no probability value"
-	}
+func (a *activity) branchWeight(e *sysmlv1.Element, text string) (w probabilityWeight, note string) {
 	w, reason := a.probability(text)
 	if reason != "" {
 		return w, "the probability " + strconv.Quote(text) + " on " + describe(e) + " " + reason
@@ -1106,18 +1129,18 @@ func (a *activity) weightExprs(outs []*sysmlv1.Element, weights []probabilityWei
 		share := a.dynamicRemainder(weights, len(unmarked))
 		for _, i := range unmarked {
 			weights[i] = probabilityWeight{expr: share}
-			a.m.add(outs[i], Approximated, "", "the edge carries no «Probability»: it is weighted "+share+", its share of what the marked branches leave of 1, read when the decision is reached")
+			a.m.add(outs[i], Approximated, "", unmarkedNote(outs[i])+": it is weighted "+share+", its share of what the marked branches leave of 1, read when the decision is reached")
 		}
 	case len(unmarked) > 0:
 		share := math.Max(remainder, 0) / float64(len(unmarked))
 		for _, i := range unmarked {
-			weights[i] = probabilityWeight{expr: realLiteral(share), value: share}
-			a.m.add(outs[i], Approximated, "", "the edge carries no «Probability»: it is weighted "+realLiteral(share)+", its share of what the marked branches leave of 1")
+			weights[i] = probabilityWeight{expr: computedLiteral(share), value: share}
+			a.m.add(outs[i], Approximated, "", unmarkedNote(outs[i])+": it is weighted "+computedLiteral(share)+", its share of what the marked branches leave of 1")
 		}
 	case !dynamic && math.Abs(remainder) > probabilityTolerance:
 		for i, e := range outs {
-			weights[i] = probabilityWeight{expr: realLiteral(weights[i].value / sum), value: weights[i].value / sum}
-			a.m.add(e, Approximated, "", "the probabilities out of the decision sum to "+realLiteral(sum)+", not 1: each is scaled by the sum")
+			weights[i] = probabilityWeight{expr: computedLiteral(weights[i].value / sum), value: weights[i].value / sum}
+			a.m.add(e, Approximated, "", "the probabilities out of the decision sum to "+computedLiteral(sum)+", not 1: each is scaled by the sum")
 		}
 	}
 	exprs := make([]string, len(outs))
@@ -1128,6 +1151,15 @@ func (a *activity) weightExprs(outs []*sysmlv1.Element, weights []probabilityWei
 		}
 	}
 	return exprs
+}
+
+// unmarkedNote says why an edge has no probability of its own: it carries no
+// «Probability», or one whose tag holds no value.
+func unmarkedNote(e *sysmlv1.Element) string {
+	if probability(e) != nil {
+		return "the «Probability» on the edge has no value, so it is weighted as one carrying none"
+	}
+	return "the edge carries no «Probability»"
 }
 
 // probabilityWeight is the weight of one branch: the v2 expression written for
@@ -1549,6 +1581,15 @@ func (a *activity) objectFlowTarget(e, tgt *sysmlv1.Element) {
 	a.m.add(e, Approximated, "", "an object flow into "+describe(tgt)+" is written as a succession")
 }
 
+// starve notes on a pin's action that a flow brings the pin no value, unless the
+// pin is declared admitting none, whose own entry says so.
+func (a *activity) starve(pin *sysmlv1.Element, to, why string) {
+	if nodeKind(pin) != nodePin || a.m.lacksValue(pin) {
+		return
+	}
+	a.m.add(pin.Parent, Approximated, "", "its input "+to+" receives no value, since "+why+"; the action cannot be performed until one is bound")
+}
+
 // objectFlowSource writes the flow e's one source s carries into the pin or
 // parameter to, as a bind at a parameter or a flow between pins.
 func (a *activity) objectFlowSource(e, s, tgt *sysmlv1.Element, to string) {
@@ -1556,9 +1597,7 @@ func (a *activity) objectFlowSource(e, s, tgt *sysmlv1.Element, to string) {
 		why := "the pin " + describe(s) + " of " + describe(s.Parent) + " stands for no out parameter of the called " + qualifiedName(callee) + ", so it carries no value"
 		a.m.w.line(flowNote + describe(s) + " to " + to + notWritten + why + " */")
 		a.m.add(e, Approximated, "", "the flow is kept as a comment: "+why+", and none reaches "+describe(tgt))
-		if nodeKind(tgt) == nodePin {
-			a.m.add(tgt.Parent, Approximated, "", itsInput+to+noValueSince+why)
-		}
+		a.starve(tgt, to, why)
 		return
 	}
 	from, ok := a.pinRef(s)
@@ -1574,34 +1613,26 @@ func (a *activity) objectFlowSource(e, s, tgt *sysmlv1.Element, to string) {
 	if nodeKind(s) == nodeParam && a.m.unvalued[a.m.model.Ref(s, "parameter")] {
 		a.m.w.line(flowNote + from + " to " + to + " not written: the parameter " + from + " takes no value */")
 		a.m.add(e, Approximated, "", "the flow is kept as a comment: its source, the parameter "+from+", takes no value, so none reaches "+describe(tgt))
-		if nodeKind(tgt) == nodePin {
-			a.m.add(tgt.Parent, Approximated, "", itsInput+to+" receives no value, since the parameter "+from+" takes none")
-		}
+		a.starve(tgt, to, "the parameter "+from+" takes none")
 		return
 	}
 	if a.inert[s.Parent] {
 		a.m.w.line(flowNote + from + " to " + to + notWritten + describe(s.Parent) + " is not migrated and produces no value */")
 		a.m.add(e, Approximated, "", "the flow is kept as a comment: its source "+describe(s.Parent)+" is not migrated, so no value reaches "+describe(s))
-		if nodeKind(tgt) == nodePin {
-			a.m.add(tgt.Parent, Approximated, "", itsInput+to+noValueSince+describe(s.Parent)+" is not migrated; the action cannot be performed until one is bound")
-		}
+		a.starve(tgt, to, describe(s.Parent)+" is not migrated")
 		return
 	}
 	if a.unassigned(s) {
 		a.m.w.line(flowNote + from + " to " + to + " not written: the body of " + describe(s.Parent) + neverAssigns + from + " */")
 		a.m.add(e, Approximated, "", "the flow is kept as a comment: the body of "+describe(s.Parent)+neverAssigns+describe(s)+", so no value leaves it")
-		if nodeKind(tgt) == nodePin {
-			a.m.add(tgt.Parent, Approximated, "", itsInput+to+" receives no value, since the body of "+describe(s.Parent)+neverAssigns+from+"; the action cannot be performed until one is bound")
-		}
+		a.starve(tgt, to, "the body of "+describe(s.Parent)+" never assigns "+from)
 		return
 	}
 	if callee, p := a.calleeOutput(s); p != nil && a.m.dryOutputs(callee)[p] {
 		why := "nothing in the called " + qualifiedName(callee) + " gives its parameter " + a.m.nameFor(p) + " a value"
 		a.m.w.line(flowNote + from + " to " + to + notWritten + why + " */")
 		a.m.add(e, Approximated, "", "the flow is kept as a comment: "+why+", so none reaches "+describe(tgt))
-		if nodeKind(tgt) == nodePin {
-			a.m.add(tgt.Parent, Approximated, "", itsInput+to+noValueSince+why)
-		}
+		a.starve(tgt, to, why)
 		return
 	}
 	st, tt := a.endType(s), a.endType(tgt)
@@ -1657,6 +1688,7 @@ func (a *activity) callBehavior(n *sysmlv1.Element, name string) {
 			a.m.w.line("bind " + name + "." + writeName(c.name) + " = " + expr + ";")
 			a.m.add(n, Mapped, name, cnote)
 		}
+		note = joinNotes(note, a.absentArguments(inputPins(n), b))
 		a.m.add(n, verdictFor(note), name, note)
 		return
 	}
@@ -1757,6 +1789,7 @@ func (a *activity) callOperation(n *sysmlv1.Element, name string) {
 		a.m.w.line(actionKw + name + " : " + a.m.ref(op, a.def) + ";")
 	}
 	a.declarePins(n, ins, outs, true, a.m.actionParameters(op))
+	note = joinNotes(note, a.absentArguments(ins, op))
 	a.m.add(n, verdictFor(note), name, note)
 }
 
@@ -2002,13 +2035,19 @@ func (a *activity) writeFeature(n *sysmlv1.Element, name string) {
 		a.placeholder(n, name, "the action has no value pin", Unmapped)
 		return
 	}
+	note := ""
 	a.m.w.block(actionKw+name, func() {
 		a.pins(n, false, nil)
-		a.m.w.line("assign " + target + "." + writeName(a.m.nameOf(f)) + " := " + writeName(a.names[val]) + ";")
+		assign := "assign " + target + "." + writeName(a.m.nameOf(f)) + " := " + writeName(a.names[val]) + ";"
+		if !a.m.lacksValue(val) {
+			a.m.w.line(assign)
+			return
+		}
+		a.m.w.lines([]string{"if " + writeName(a.names[val]) + "->SequenceFunctions::notEmpty() {", "    " + assign, "}"})
+		note = "the pin " + describe(val) + " admits no value, which the feature cannot hold: it is written only when the pin holds one"
 	})
-	note := ""
 	if mult, _ := a.m.multiplicity(f); mult != "" && n.Attrs["isReplaceAll"] != "true" {
-		note = "the value replaces the feature's; adding to a collection is not written"
+		note = joinNotes(note, "the value replaces the feature's; adding to a collection is not written")
 	}
 	a.m.add(n, verdictFor(note), name, note)
 }

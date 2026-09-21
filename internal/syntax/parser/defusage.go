@@ -3930,20 +3930,6 @@ func (p *Parser) parseConnectorEnds(u *ast.Usage, kw string) {
 	if u.Kind == ast.UsageSuccession {
 		p.acceptKeyword("first") // optional "first" before first end
 	}
-	from := p.parseConnectorEnd()
-	if from == nil {
-		return
-	}
-	u.ConnectorEnds = append(u.ConnectorEnds, from)
-
-	// Check for optional "references" keyword after first end
-	// Pattern: end X references Y to end Z
-	if p.acceptKeyword("references") {
-		refTarget := p.parseRelationshipTarget()
-		if refTarget != nil {
-			from.Reference = refTarget
-		}
-	}
 
 	// Determine expected keyword based on usage kind
 	var expectedKeyword string
@@ -3954,8 +3940,11 @@ func (p *Parser) parseConnectorEnds(u *ast.Usage, kw string) {
 		expectedKeyword = "to"
 	}
 
-	if !p.acceptKeyword(expectedKeyword) {
-		p.error(p.peek().Span, fmt.Sprintf("expected '%s' between connector ends", expectedKeyword))
+	from, ok := p.firstConnectorEnd(expectedKeyword)
+	if from != nil {
+		u.ConnectorEnds = append(u.ConnectorEnds, from)
+	}
+	if !ok {
 		return
 	}
 	to := p.parseConnectorEnd()
@@ -3965,12 +3954,50 @@ func (p *Parser) parseConnectorEnds(u *ast.Usage, kw string) {
 	u.ConnectorEnds = append(u.ConnectorEnds, to)
 
 	// Check for optional "references" keyword after second end
+	p.acceptReferencesClause(to)
+}
+
+// acceptReferencesClause consumes an optional `references <target>` clause
+// after a connector end and records its target on the end.
+// Pattern: end X references Y to end Z
+func (p *Parser) acceptReferencesClause(ce *ast.ConnectorEnd) {
 	if p.acceptKeyword("references") {
 		refTarget := p.parseRelationshipTarget()
 		if refTarget != nil {
-			to.Reference = refTarget
+			ce.Reference = refTarget
 		}
 	}
+}
+
+// firstConnectorEnd parses the end before delimiter kw and consumes kw. When the
+// end is missing (the text starts with kw itself) it reports that and consumes kw.
+// The second result reports whether the caller should go on to the second end.
+func (p *Parser) firstConnectorEnd(kw string) (*ast.ConnectorEnd, bool) {
+	if p.atKeyword(kw) {
+		cp := p.checkpoint()
+		defer p.release()
+		from := p.parseConnectorEnd()
+		if from != nil {
+			p.acceptReferencesClause(from)
+			if p.acceptKeyword(kw) && len(p.Diagnostics) == cp.diagnosticLen {
+				return from, true
+			}
+		}
+		p.restore(cp)
+		p.error(p.peek().Span, fmt.Sprintf("expected a connector end before '%s'", kw))
+		p.advance()
+		return nil, true
+	}
+	from := p.parseConnectorEnd()
+	if from == nil {
+		return nil, false
+	}
+	p.acceptReferencesClause(from)
+	if !p.acceptKeyword(kw) {
+		p.error(p.peek().Span, fmt.Sprintf("expected '%s' between connector ends", kw))
+		return from, false
+	}
+	return from, true
 }
 
 // parseConnectorEnd parses one connector end and its optional reference subsetting.
@@ -4032,22 +4059,11 @@ func (p *Parser) parseConnectorFromTo(u *ast.Usage) {
 		return // Optional connector clause
 	}
 
-	from := p.parseConnectorEnd()
-	if from == nil {
-		return
+	from, ok := p.firstConnectorEnd("to")
+	if from != nil {
+		u.ConnectorEnds = append(u.ConnectorEnds, from)
 	}
-	u.ConnectorEnds = append(u.ConnectorEnds, from)
-
-	// Check for optional "references" keyword after from end
-	if p.acceptKeyword("references") {
-		refTarget := p.parseRelationshipTarget()
-		if refTarget != nil {
-			from.Reference = refTarget
-		}
-	}
-
-	if !p.acceptKeyword("to") {
-		p.error(p.peek().Span, "expected 'to' between connector ends")
+	if !ok {
 		return
 	}
 
@@ -4058,12 +4074,7 @@ func (p *Parser) parseConnectorFromTo(u *ast.Usage) {
 	u.ConnectorEnds = append(u.ConnectorEnds, to)
 
 	// Check for optional "references" keyword after to end
-	if p.acceptKeyword("references") {
-		refTarget := p.parseRelationshipTarget()
-		if refTarget != nil {
-			to.Reference = refTarget
-		}
-	}
+	p.acceptReferencesClause(to)
 }
 
 // declaresConnector reports whether a connector stated a declaration of its own

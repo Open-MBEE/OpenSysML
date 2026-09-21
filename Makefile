@@ -280,9 +280,10 @@ proto-lint: ## Lint the protobuf schema
 
 proto-breaking: ## Check the protobuf schema for wire-breaking changes against develop
 	@# An archive, not the .git directory: buf would clone that, which a blobless (CI) checkout cannot serve.
+	@# The subtree as the tree-ish, not a pathspec: a pathspec walks the whole tree and lazily fetches its blobs.
 	baseline=$$(mktemp -t proto-baseline.XXXXXX) && trap 'rm -f "$$baseline"' EXIT && \
-	git archive --format=tar -o "$$baseline" '$(BUF_BREAKING_REF)' api/proto && \
-	$(BUF) breaking api/proto --against "$$baseline#format=tar,subdir=api/proto"
+	git archive --format=tar -o "$$baseline" '$(BUF_BREAKING_REF):api/proto' && \
+	$(BUF) breaking api/proto --against "$$baseline#format=tar"
 	@echo "✓ No breaking schema changes"
 
 python-install: ## Install the Python client in editable mode

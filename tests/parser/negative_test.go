@@ -132,6 +132,11 @@ func TestNegative(t *testing.T) {
 		{"call_trigger_missing_param_name", "state s { accept op(,) then t; }"},
 		{"perform_no_reference", "action a { perform ; }"},
 		{"perform_dangling_chain", "action a { perform b.; }"},
+		// A connector clause whose first end is missing reports the gap at the
+		// `to`/`then` delimiter, not the delimiter misread as the end's name.
+		{"connection_first_end_missing", "part def C { connection c : I connect to ; }"},
+		{"then_no_target", "action a { then; }"},
+		{"satisfy_dangling_by", "requirement r { assert satisfy x by; }"},
 		{"allocate_missing_target", "package q { allocate a to ; }"},
 		// `allocate` is one keyword with one role, and it must be followed by a
 		// ConnectorPart (D1, SysML.xtext:1219-1222).

@@ -127,6 +127,12 @@ func (ctx *Context) scopeOf(key scopeKey) *symbols.Scope {
 	return nil
 }
 
+// recordingReads reports whether a binding is being made, so its reads are recorded;
+// outside one, rendering what a lookup denoted would be wasted work on every hot path.
+func (ctx *Context) recordingReads() bool {
+	return len(ctx.bindingStack) > 0
+}
+
 // readsUnderWay is the record of the innermost binding being made, nil outside one.
 func (ctx *Context) readsUnderWay() (*bindingReads, *symbols.Symbol) {
 	if len(ctx.bindingStack) == 0 {
@@ -179,6 +185,7 @@ func (ctx *Context) noteOpaqueRead() {
 }
 
 // noteNameRead records what a lookup denoted, keyed so a later context can make it again.
+// Callers render the read only while recordingReads, which this relies on.
 func (ctx *Context) noteNameRead(scope *symbols.Scope, read nameRead, denoted string, ok bool) {
 	reads, _ := ctx.readsUnderWay()
 	if reads == nil {
@@ -225,17 +232,21 @@ func (ctx *Context) denotations(syms []*symbols.Symbol) (string, bool) {
 // lookupName is the resolver's LookupName, recorded for the binding being made.
 func (ctx *Context) lookupName(scope *symbols.Scope, name string) (*symbols.Symbol, bool) {
 	sym, ok := ctx.model.resolver.LookupName(scope, name)
-	denoted, renders := ctx.denotation(sym, ok)
-	ctx.noteNameRead(scope, nameRead{query: queryName, name: spelledName{parts: name}}, denoted, renders)
+	if ctx.recordingReads() {
+		denoted, renders := ctx.denotation(sym, ok)
+		ctx.noteNameRead(scope, nameRead{query: queryName, name: spelledName{parts: name}}, denoted, renders)
+	}
 	return sym, ok
 }
 
 // lookupNameExcluding is the resolver's LookupNameExcluding with excluding's own binding hidden.
 func (ctx *Context) lookupNameExcluding(scope *symbols.Scope, name string, excluding *symbols.Symbol) (*symbols.Symbol, bool) {
 	sym, ok := ctx.model.resolver.LookupNameExcluding(scope, name, excluding.Decl)
-	denoted, renders := ctx.denotation(sym, ok)
-	read := nameRead{query: queryNameExcluding, name: spelledName{parts: name}, excluding: excluding}
-	ctx.noteNameRead(scope, read, denoted, renders)
+	if ctx.recordingReads() {
+		denoted, renders := ctx.denotation(sym, ok)
+		read := nameRead{query: queryNameExcluding, name: spelledName{parts: name}, excluding: excluding}
+		ctx.noteNameRead(scope, read, denoted, renders)
+	}
 	return sym, ok
 }
 
@@ -277,9 +288,11 @@ func (ctx *Context) resolveReferenceTarget(scope *symbols.Scope, decl, target as
 // constructed type, recorded for the binding being made.
 func (ctx *Context) resolveConstructorLabel(scope *symbols.Scope, typeRef, qn *ast.QualifiedName) (*symbols.Symbol, bool) {
 	sym, ok := ctx.model.resolver.ResolveReference(resolve.Reference{Scope: scope, QN: qn, Constructed: typeRef})
-	denoted, renders := ctx.denotation(sym, ok)
-	read := nameRead{query: queryConstructed, name: spell(qn), against: spell(typeRef)}
-	ctx.noteNameRead(scope, read, denoted, renders)
+	if ctx.recordingReads() {
+		denoted, renders := ctx.denotation(sym, ok)
+		read := nameRead{query: queryConstructed, name: spell(qn), against: spell(typeRef)}
+		ctx.noteNameRead(scope, read, denoted, renders)
+	}
 	return sym, ok
 }
 
@@ -292,7 +305,7 @@ func (ctx *Context) resolveAliasTarget(sym *symbols.Symbol) (*symbols.Symbol, bo
 // selectInvocation is the checker's selection of the declaration e calls, recorded by the
 // candidates the call chose among and what each of them declares.
 func (ctx *Context) selectInvocation(scope *symbols.Scope, e *ast.InvocationExpr, performs semantics.Performs) (*semantics.InvocationSelection, error) {
-	if reads, _ := ctx.readsUnderWay(); reads != nil {
+	if ctx.recordingReads() {
 		ctx.noteInvocationRead(scope, e.Type, ctx.model.resolver.InvocationCandidates(scope, e.Type))
 	}
 	return ctx.model.selectCall(scope, e, performs)
@@ -300,7 +313,7 @@ func (ctx *Context) selectInvocation(scope *symbols.Scope, e *ast.InvocationExpr
 
 // noteInvocationRead records the candidates a call of qn chose among and what each declares.
 func (ctx *Context) noteInvocationRead(scope *symbols.Scope, qn *ast.QualifiedName, candidates []*symbols.Symbol) {
-	if reads, _ := ctx.readsUnderWay(); reads == nil {
+	if !ctx.recordingReads() {
 		return
 	}
 	denoted, renders := ctx.denotations(candidates)
@@ -312,6 +325,9 @@ func (ctx *Context) noteInvocationRead(scope *symbols.Scope, qn *ast.QualifiedNa
 
 // noteQualifiedRead records what a qualified name written in scope denoted.
 func (ctx *Context) noteQualifiedRead(scope *symbols.Scope, qn *ast.QualifiedName, sym *symbols.Symbol, ok bool) {
+	if !ctx.recordingReads() {
+		return
+	}
 	denoted, renders := ctx.denotation(sym, ok)
 	ctx.noteNameRead(scope, nameRead{query: queryQualified, name: spell(qn)}, denoted, renders)
 }

@@ -816,3 +816,34 @@ func TestIndividualTakesTheKindOfItsClassifier(t *testing.T) {
 	wantNote(t, r, "_pf", migrate.Approximated, "the instance's classifier Bus is not written: an individual part def cannot specialize a port def")
 	wantClean(t, "kinds.sysml", r)
 }
+
+// A simulation tool records its verdict on a constraint property in the
+// result instance's slot for it, as a literal of a verdict enumeration outside
+// the document; an individual has no slot for a verdict, and the note says
+// that is what the slot holds rather than that the literal is out of reach.
+func TestConstraintSlotHoldingAVerdictIsUnmappedAsOne(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_fits" name="Fits">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_x" name="x">`+realHref+`</ownedAttribute>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_an" name="Analysis">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_c" name="fits" type="_fits" aggregation="composite"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_a1" name="analysis 1" classifier="_an">
+      <slot xmi:type="uml:Slot" xmi:id="_sl1" definingFeature="_c">
+        <value xmi:type="uml:InstanceValue" xmi:id="_v1">
+          <instance href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.VerdictKind.pass">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="SysML::Requirements::VerdictKind::pass" referentType="EnumerationLiteral"/>
+            </xmi:Extension>
+          </instance>
+        </value>
+      </slot>
+    </packagedElement>`, `
+  <sysml:ConstraintBlock xmi:id="_s1" base_Class="_fits"/>
+  <sysml:Block xmi:id="_s2" base_Class="_an"/>`)
+	wantLine(t, r.Notation, "individual part def 'analysis 1' :> Analysis {")
+	wantNoLine(t, r.Notation, ":>> fits")
+	wantNote(t, r, "_sl1", migrate.Unmapped, "the slot of constraint fits holds the literal SysML::Requirements::VerdictKind::pass, the run's verdict on the constraint rather than an instance of its type; an individual has no slot for a verdict")
+	wantClean(t, "verdict-slot.sysml", r)
+}

@@ -127,6 +127,9 @@ type ExpectedOutcome struct {
 	// Draws fixes the policy the case's RandomFunctions calls resolve under, as
 	// ParseDrawPolicy reads it: min, max or average; empty draws at random.
 	Draws string `json:"draws,omitempty"`
+	// ClockStep pins the step, in seconds, the case's clock ticks by, as
+	// Context.SetClockStep reads it; 0 or absent is a continuous clock.
+	ClockStep float64 `json:"clockStep,omitempty"`
 	// ExploreBudget raises the budget the harness explores the case's outcomes
 	// under, for a case whose choice tree the default budget does not cover.
 	ExploreBudget *ExpectedExploreBudget `json:"exploreBudget,omitempty"`
@@ -516,12 +519,15 @@ func indexCaseDocuments(t *testing.T, conformanceDir string, src *source.SourceF
 	return idx, sources
 }
 
-// applyCaseDraws gives ctx the model seed and draw policy the case states, as
-// -seed and -draws would. A draws pin that names no policy is a schema error.
+// applyCaseDraws gives ctx the model seed, clock step and draw policy the case states,
+// as -seed, -clock-step and -draws would. A pin that names none is a schema error.
 func applyCaseDraws(t *testing.T, ctx *Context, expected ExpectedOutcome) {
 	t.Helper()
 	if expected.ModelSeed != nil {
 		ctx.SetModelSeed(*expected.ModelSeed)
+	}
+	if err := ctx.SetClockStep(expected.ClockStep); err != nil {
+		t.Fatalf("clockStep: %v", err)
 	}
 	if expected.Draws == "" {
 		return

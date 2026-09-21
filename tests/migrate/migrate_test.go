@@ -307,6 +307,8 @@ var constructFixtures = []string{
 	"library_calls",
 	"bundled_library",
 	"user_library",
+	"montecarlo",
+	"weighted_decision",
 }
 
 // migrateFixtureFile migrates testdata/xmi/<name>.xmi.

@@ -254,14 +254,19 @@ type bodyCapture struct {
 }
 
 // captureBody captures the run and, into the set, the executors its paused work
-// performs: the action it holds, and a do behavior's own flow.
+// performs: the action it holds, the flow of a case it runs, and a do behavior's own flow.
 func (s *executorCaptures) captureBody(run *bodyRun) *bodyCapture {
 	c := &bodyCapture{run: run, saved: *run}
 	c.saved.work, c.saved.cursor, c.saved.resuming = run.work.clone(), nil, nil
 	for _, f := range run.cursor {
 		c.frames = append(c.frames, f.clone())
-		if callee, ok := f.(*calleeFrame); ok {
-			s.captureAction(callee.exec)
+		switch f := f.(type) {
+		case *calleeFrame:
+			s.captureAction(f.exec)
+		case *caseStepFrame:
+			if f.run == nil {
+				s.captureAction(f.start.host.flow)
+			}
 		}
 	}
 	if held := run.paused.wait.held; held != nil {
@@ -325,6 +330,8 @@ func (ctx *Context) rollbackJournal(mark journalMark) {
 	}
 	ctx.journalUndos = ctx.journalUndos[:mark.undos]
 	ctx.messages = slices.Clone(mark.messages)
+	ctx.bus.cuts++
+	ctx.writes++
 	ctx.abandonCreationSince(mark.created, mark.attached)
 	ctx.clock.now, ctx.clock.waiters = mark.clockNow, slices.Clone(mark.clockWaiters)
 	mark.traced.restore(mark.trace)
@@ -478,6 +485,7 @@ func (c actionCapture) restore() {
 	e.firedBreakpoints = c.firedBreakpoints.restore()
 	e.traversals, e.traversalBase = cloneTraversals(c.traversals), c.traversalBase
 	e.driven.state = c.driven
+	e.driven.stir(0)
 	e.dynamics = c.dynamics.clone()
 	for _, perf := range c.frames {
 		perf.restore()
@@ -746,6 +754,7 @@ func (c stateCapture) restore() {
 	}
 	e.round, e.roundDone = slices.Clone(c.round), c.roundDone
 	e.machineExited, e.driven.state, e.inRun, e.moved = c.machineExited, c.driven, c.inRun, c.moved
+	e.driven.stir(0)
 	e.timerScheduled = c.timerScheduled.restore()
 	e.timeTriggerVerdict = c.timeTriggerVerdict.restore()
 	e.changeFired = c.changeFired.restore()
