@@ -6,12 +6,10 @@ orbs:
   sonarcloud: sonarsource/sonarcloud@4.0.0
 
 executors:
-  # 4 vCPU: the -race suite needs them to finish inside the per-package 30m
-  # timeout; the smaller jobs it shares this executor with are not harmed.
   go-executor:
     docker:
       - image: cimg/go:1.25
-    resource_class: large
+    resource_class: medium
   
   python-executor:
     docker:
@@ -284,10 +282,11 @@ jobs:
               client/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto
 
   # The race-enabled suite. It is the longest single step in the pipeline, so
-  # it gets the larger class and a job to itself.
+  # it gets the larger class and four executors, one package shard each.
   go-race-test:
     executor: go-executor
     resource_class: large
+    parallelism: 4
     steps:
       - checkout
       - go/load-cache
@@ -296,13 +295,17 @@ jobs:
       - install-solvers
       - download-corpora
 
-      # Per-package timeout: under -race, passes and model exceed go's 10m default
-      # on this executor. Matches `make test` and the GitHub Actions PR workflow.
-      # no_output_timeout: go test buffers a package's output until it finishes,
-      # so a >10m package looks silent and trips CircleCI's 10m default.
+      # Sharded by package: the suite's slowest packages run near the 30m
+      # per-package timeout when they share one executor.
       - run:
           name: Run Go race tests
-          command: make test
+          command: |
+            set -o pipefail
+            pkgs=$(go list ./... | circleci tests split --split-by=name)
+            go test -v -race -pgo=off -timeout 30m $pkgs
+            if [ "$CIRCLE_NODE_INDEX" = "0" ]; then
+              go test -C tools -v -race -pgo=off -timeout 30m ./...
+            fi
           no_output_timeout: 30m
           environment:
             # Turns "corpus absent" into a failure rather than a skip, as the
@@ -319,6 +322,8 @@ jobs:
   # with -coverpkg, which is too slow to instrument under -race.
   go-coverage:
     executor: go-executor
+    # 4 vCPU: the instrumented suite takes ~39 min on medium.
+    resource_class: large
     steps:
       - checkout
       - go/load-cache
