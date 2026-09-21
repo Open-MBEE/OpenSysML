@@ -664,8 +664,9 @@ properties are one thing:
 
 - **The remaining loss is annotation vocabulary in `sysx:`** — source text, notation spelling,
   expression argument names and end-form details. Standard expression ownership and connector
-  end structure now survive as `sysml:` properties; the remaining `sysx:` annotations are
-  intentionally documented in D1 and D2 below.
+  end structure are now written as `sysml:` properties; the Flexo measurement has not been
+  rerun against the new shape, and the remaining `sysx:` annotations are intentionally
+  documented in D1 and D2 below.
 
 The commit path delivers 6 of 6 of its own multi-valued properties, because it stores each array
 whole as a JSON annotation literal alongside the typed triples; the graph now carries the same
@@ -685,8 +686,9 @@ either spelling or both and refuses a graph whose two spellings disagree, and `r
 the literal in step when it mints ids. Re-recorded against the live stack, the multi-valued
 standard properties went from 0 of 14 to 14 of 14 delivered, and the total from 355/424 to 369/452
 (the denominator moved with the source-text properties the mapping added since the previous
-recording; connector-related features are now carried as standard `sysml:relatedFeature`,
-while the remaining source and ordering limitations are recorded in D1 and D2).
+recording; connector-related features are now written as standard `sysml:relatedFeature`,
+but the Flexo measurement has not been rerun against the new shape; the remaining source and
+ordering limitations are recorded in D1 and D2).
 
 ## D1 — expression trees have standard ownership and operand vocabulary
 
@@ -723,7 +725,6 @@ earlier `sysx:` end shape and legacy transition predicates.
 
 What remains:
 
-- named-argument redefinition remains an annotation-level limitation shared with D1;
 - non-name end targets are retained as typed `sysx:Expression` literals rather than being
   fabricated as feature IRIs; and
 - `sysml:references` on `ReferenceUsage` is not an ontology property in the 202407 profile. The

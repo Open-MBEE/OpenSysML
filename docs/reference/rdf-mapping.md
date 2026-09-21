@@ -440,7 +440,6 @@ The `sysx:` properties:
 | `sysx:declaredPrefix` | The keyword qualifying the kind keyword after it — the `assume` of `assume constraint c : C`. It says what the declaration is for, and the AST kind alone does not carry it. The `assert` of `assert constraint c : C` is not written here: that usage is a `sysml:AssertConstraintUsage`, and the metaclass states it; a graph stating both with another prefix is refused. |
 | `sysx:endForm` | The notation an end-binding head writes its ends in — `to`, `nary`, `equals`, `firstThen`, `fromTo`, `flowTo`, `satisfy`, `then` — so the head is rebuilt from the graph rather than read back from its text. See [End-binding heads](#end-binding-heads). |
 | `sysx:endVerb` | The verb a head writes ahead of its ends when its own keyword is the noun form (`connection c connect a to b`, `connector c from a to b`). Without it the verb would be missing or doubled. |
-| `sysml:declaredName`, `sysml:name` on an end | The name a connector end declares for itself ahead of the feature it reference-subsets (`connect bead ::> t.bead to …`, `connector a ::> a.x to b;`, `bind e1 ::> a = e2 ::> b;`). The end's standard `ReferenceUsage` relates the feature; without the name the end would come back as the bare feature. See [End-binding heads](#end-binding-heads). |
 | `sysx:endReferencesKeyword` | On a named end, the ReferencesKeyword written between the name and the feature when it is the word `references` (`bind e1 references a = …`). Absent, the end is written with `::>`; a value other than the two spellings is refused. |
 | `sysx:sourceMember`, `sysx:targetMember` | The member a succession sequences from or to where the notation names no end (`then b;`, or a `then` beside an unnamed member), or where the name the notation supplies for an end links no element (a `then` after `action redefines walk;` whose `walk` is inherited). The end is the element itself rather than only a name, so a same-named member elsewhere cannot be mistaken for it. |
 | `sysx:condition` | The condition a condition member states, as its notation. |
@@ -457,15 +456,18 @@ no property; they are annotations, not replacements for the standard shape:
 
 | Terms | Why the annotation remains |
 |-------|----------------------------|
-| `sourceText`, `sourceTail`, `sourceLanguage` | Preserve source spelling, trivia, closing text and the grammar used for respelling. |
-| `argumentName` | Preserve a named argument's spelling; the metamodel has parameter ownership but no notation-level argument-name property. |
-| `typeArgument`, `isConstructor` | Preserve constructor syntax and a type argument on expression nodes where the metamodel has no corresponding notation flag. |
-| `hasBody`, `resultExpression`, `bodyParameter`, `bodyMember`, `memberIndex` | Describe expression-body presence, result placement, body declarations and their source order. |
-| `declaredID`, `declaredKeyword`, `declaredPrefix`, `implicitKind`, `projectID`, `org` | Preserve explicit identity, keyword synonyms, prefixes, implicit kinds and project provenance that the node's metaclass alone cannot distinguish. |
-| `endForm`, `endVerb`, `endReferencesKeyword` | Reconstruct the selected end-binding notation, noun-form verb and the optional `references` spelling. |
-| `payload` | Carry a flow's payload expression; it is not a connector end. |
-| `condition`, `filter`, `guard`, `expression`, `target`, `receiver`, `collection`, `whileCondition`, `untilCondition` | Identify behavioral expression-valued positions for which the metamodel has no single corresponding predicate in this mapping. |
-| `branch`, `assignmentOperator`, `isVia`, `isElse`, `branchKind`, `deferredEvent`, `loopVariable`, `pseudostateKind`, `subactionKind`, `transitionSyntax`, `trigger`, `triggerKeyword`, `hasEffect` | Preserve behavioral notation flags and statement parts not represented by the selected standard metaclasses. |
+| `sourceText`, `sourceTail` | Preserve source spelling, trivia and closing text when present; both are optional annotations and the decoder does not need them for the structural expression or end shapes. |
+| `argumentName` | Preserve a named argument's spelling; the metamodel has parameter ownership but no notation-level name on an argument occurrence. |
+| `typeArgument`, `isConstructor` | Preserve constructor syntax and a type argument on expression nodes where the metamodel has no corresponding notation flags. |
+| `hasBody` | Distinguish an explicitly empty expression body from one with no body; the metamodel does not preserve that source distinction. |
+| `resultExpression` | Identify the expression ending a body; the result expression's membership is structural, but the metamodel has no notation-level result marker for rebuilding the body form. |
+| `bodyParameter`, `bodyMember` | Preserve expression-body parameter/member roles and their source placement, which are not represented by a single standard predicate in this mapping. |
+| `memberIndex` | Preserve source order among expression-body parameters and members; RDF collections are unordered and the standard ownership graph does not carry this notation order. |
+| `endForm` | Reconstruct the selected end-binding head form (`to`, `nary`, `equals`, `firstThen`, `fromTo`, `flowTo`, `satisfy` or `then`), which the standard end relationships do not identify. |
+| `endVerb` | Preserve the noun-form head's explicit verb (`connect` or `from`), which the connector metaclass does not distinguish. |
+| `endReferencesKeyword` | Preserve whether a named end used the `references` keyword rather than `::>`, a notation choice not represented by the end's standard reference relationship. |
+| `sourceMember`, `targetMember` | Preserve the members named by positional `then` succession ends when no standard end name or resolvable element carries that notation. |
+| `payload` | Preserve a flow payload as an expression; the 202407 ontology table has no direct `payloadFeature` property for this graph shape. The metamodel models the payload as a feature/`ItemFlowEnd`, while this mapping keeps the payload expression rather than materializing that feature structure. |
 
 Metaclass names with no counterpart in the OMG vocabulary are typed in the
 `sysx:` namespace rather than `sysml:`, so a consumer can tell them from the
@@ -1172,7 +1174,7 @@ A second conversion of the notation written back gives the same graph. The
 optional `sysx:sourceText` annotation preserves source spelling and trivia, but
 the decoder does not need it when the structural expression shape is present.
 
-### Compatibility
+### Compatibility with earlier expression graphs
 
 Graphs written by earlier releases still import. This includes the legacy
 `sysml:argument` plus `sysx:argumentIndex` operand shape and expression roots
@@ -1252,7 +1254,7 @@ expression, not an additional connector end. Transitions use
 `sysml:source` and `sysml:target`; `sourceFeature` and `targetFeature` remain
 the legacy transition spelling accepted on import.
 
-### Compatibility
+### Compatibility with earlier end graphs
 
 Graphs written by earlier releases still import, including
 `sysx:relatedFeature` with `sysx:endIndex`, `sysx:endRole` and `sysx:endName`,
@@ -1274,7 +1276,8 @@ states no value and no `sysml:references` of its own
 declares a name of its own and reference-subsets the feature it attaches to
 (`connect bead ::> t.bead to …`, KerML `connector a ::> a.x to b;`,
 `bind e1 ::> a = e2 references b;`) relates that
-feature — `sysml:referent` or `sysml:targetFeature` is `t.bead`, not `bead` —
+feature — the end's `sysml:references` names `t.bead`, a chain feature when
+the target is qualified, not `bead` —
 and carries the name as `sysml:declaredName` and `sysml:name` on the same node, with
 `sysx:endReferencesKeyword "references"` where the source spelled the word; the
 decoder writes it back as `<name> ::> <feature>` unless that spelling is recorded
@@ -1542,17 +1545,21 @@ would be refused as a duplicate.
   term of that datatype, so it is reported rather than read as the text it
   spells, as is an `xsd:int` outside its 32-bit value space. `owl:real`, which
   names no lexical forms of its own, takes a finite `xsd:double`'s
-- a `sysx:` index (`sysx:memberIndex`, `sysx:argumentIndex`, `sysx:endIndex`)
-  that is negative or too large for the platform's `int`: it is a position the
-  writer orders by, and one it cannot hold would otherwise be read as 0 and
-  move the member to the front
+- a current `sysx:memberIndex` that is negative or too large for the platform's
+  `int`: it is a position the writer orders by, and one it cannot hold would
+  otherwise be read as 0 and move the member to the front. The older
+  `sysx:argumentIndex`, `sysx:endIndex`, `sysx:endRole` and `sysx:endName`
+  terms are legacy-only and are no longer written; current `connectorEnd` and
+  `ownedFeatureMembership` order comes from their `json:` collection
+  annotations
 - a subject stating a single-valued property twice with different objects —
   a body with two `sysx:resultExpression`s, an element with two
   `sysx:memberIndex`es, two `sysx:isNamespaceImport` flags or a
   `sysml:isDefault` stated both true and false: only one could be written, so
   the graph is refused naming both rather than the first being kept. Every
   `sysx:` property is single-valued but the members and parameters of a body,
-  `sysx:relatedFeature`, `sysx:deferredEvent` and `sysx:prefixMetadata`; of
+  `sysx:deferredEvent` and `sysx:prefixMetadata`; the legacy
+  `sysx:relatedFeature` end collection is no longer written; of
   the `sysml:` properties, the boolean `is…` flags and `sysml:portionKind`
   are. A triple stated twice is one triple to the graph, so only differing
   objects are a conflict
