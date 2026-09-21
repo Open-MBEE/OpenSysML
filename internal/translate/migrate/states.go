@@ -291,6 +291,15 @@ func (m *migration) entryBranchWhy(t, owner *sysmlv1.Element) string {
 }
 
 func (m *migration) exitPointForm(v, owner *sysmlv1.Element) pointForm {
+	out := m.outgoing[v]
+	if len(out) == 0 {
+		return pointForm{why: "no transition leaves the exit point, so a transition into it leaves " + describe(owner) + " for nowhere; the runtime would halt at the junction"}
+	}
+	for _, t := range out {
+		if why := m.exitBranchWhy(t, owner); why != "" {
+			return pointForm{why: describe(t) + " leads from the exit point " + why}
+		}
+	}
 	// in holds the transitions from within the state that shape the point; one from the
 	// state itself is its local transition, one from its entry point is refused with that.
 	var in, local []*sysmlv1.Element
@@ -325,6 +334,25 @@ func (m *migration) exitPointForm(v, owner *sysmlv1.Element) pointForm {
 		}
 	}
 	return pointForm{kw: "join", note: "written as a join of its state, which its regions leave through together; the transitions into the join run, then the state's exit behavior, then the transition leaving it"}
+}
+
+// exitBranchWhy says why transition t, leaving an exit point of owner, keeps the point from
+// being written: it has a trigger, or its target is missing, a history, or owner or a vertex within it.
+func (m *migration) exitBranchWhy(t, owner *sysmlv1.Element) string {
+	tgt := m.model.Ref(t, "target")
+	switch {
+	case len(t.Owned("trigger")) > 0:
+		return "with a trigger, which no transition out of a pseudostate takes; the runtime would follow it without waiting for the event"
+	case tgt == nil:
+		return "to no target"
+	case tgt == owner:
+		return "back to the state itself, which v1 leaves and re-enters by its default entry while the runtime, moving from a member of the state to the state, would stay in it, running neither its exit nor its entry"
+	case pseudoKind(tgt) == "shallowHistory" || pseudoKind(tgt) == "deepHistory":
+		return "on into the history pseudostate " + describe(tgt) + ", which the runtime does not follow from a junction"
+	case regionWithin(tgt, owner) != nil || pointOwner(tgt) == owner:
+		return "back into the state, to " + describe(tgt) + ", which v1 leaves and re-enters while the runtime, moving between members of the state, would stay in it"
+	}
+	return ""
 }
 
 // regionsCrossed lists the distinct regions of owner the given ends of the

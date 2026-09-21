@@ -1208,6 +1208,128 @@ func TestDefaultEntryPointOnOwnerWithoutInitialEntersTheState(t *testing.T) {
 	}
 }
 
+// exitShapesMachine has six composite states with one exit point each, every one reached from a
+// state within by a triggered transition: Wait's leaves by a triggered transition, Bare's to no
+// target, Back's into a history, Self's to Self itself, Inner's back to a state within, Dead's not at all.
+const exitShapesMachine = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_xgo" name="Go"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_xgoEv" signal="_xgo"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_xclass" name="Rig" classifierBehavior="_xsm">
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_xsm" name="Main">
+        <region xmi:type="uml:Region" xmi:id="_xr" name="main">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_xInit"/>
+          <subvertex xmi:type="uml:State" xmi:id="_xIdle" name="Idle"/>
+          <subvertex xmi:type="uml:State" xmi:id="_xKeep" name="Keep">
+            <region xmi:type="uml:Region" xmi:id="_xkr" name="r">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_xkInit"/>
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_xkH" name="H" kind="shallowHistory"/>
+              <subvertex xmi:type="uml:State" xmi:id="_xk1" name="K1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_xkT0" source="_xkInit" target="_xk1"/>
+            </region>
+          </subvertex>
+          <subvertex xmi:type="uml:State" xmi:id="_xWait" name="Wait">
+            <connectionPoint xmi:type="uml:Pseudostate" xmi:id="_xaOut" name="leave" kind="exitPoint"/>
+            <region xmi:type="uml:Region" xmi:id="_xar" name="r">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_xaInit"/>
+              <subvertex xmi:type="uml:State" xmi:id="_xa1" name="A1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_xaT0" source="_xaInit" target="_xa1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_xaT1" source="_xa1" target="_xaOut">
+                <trigger xmi:type="uml:Trigger" xmi:id="_xaTr1" event="_xgoEv"/>
+              </transition>
+            </region>
+          </subvertex>
+          <subvertex xmi:type="uml:State" xmi:id="_xBare" name="Bare">
+            <connectionPoint xmi:type="uml:Pseudostate" xmi:id="_xbOut" name="leave" kind="exitPoint"/>
+            <region xmi:type="uml:Region" xmi:id="_xbr" name="r">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_xbInit"/>
+              <subvertex xmi:type="uml:State" xmi:id="_xb1" name="B1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_xbT0" source="_xbInit" target="_xb1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_xbT1" source="_xb1" target="_xbOut">
+                <trigger xmi:type="uml:Trigger" xmi:id="_xbTr1" event="_xgoEv"/>
+              </transition>
+            </region>
+          </subvertex>
+          <subvertex xmi:type="uml:State" xmi:id="_xBack" name="Back">
+            <connectionPoint xmi:type="uml:Pseudostate" xmi:id="_xcOut" name="leave" kind="exitPoint"/>
+            <region xmi:type="uml:Region" xmi:id="_xcr" name="r">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_xcInit"/>
+              <subvertex xmi:type="uml:State" xmi:id="_xc1" name="C1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_xcT0" source="_xcInit" target="_xc1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_xcT1" source="_xc1" target="_xcOut">
+                <trigger xmi:type="uml:Trigger" xmi:id="_xcTr1" event="_xgoEv"/>
+              </transition>
+            </region>
+          </subvertex>
+          <subvertex xmi:type="uml:State" xmi:id="_xSelf" name="Self">
+            <connectionPoint xmi:type="uml:Pseudostate" xmi:id="_xdOut" name="leave" kind="exitPoint"/>
+            <region xmi:type="uml:Region" xmi:id="_xdr" name="r">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_xdInit"/>
+              <subvertex xmi:type="uml:State" xmi:id="_xd1" name="D1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_xdT0" source="_xdInit" target="_xd1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_xdT1" source="_xd1" target="_xdOut">
+                <trigger xmi:type="uml:Trigger" xmi:id="_xdTr1" event="_xgoEv"/>
+              </transition>
+            </region>
+          </subvertex>
+          <subvertex xmi:type="uml:State" xmi:id="_xInner" name="Inner">
+            <connectionPoint xmi:type="uml:Pseudostate" xmi:id="_xeOut" name="leave" kind="exitPoint"/>
+            <region xmi:type="uml:Region" xmi:id="_xer" name="r">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_xeInit"/>
+              <subvertex xmi:type="uml:State" xmi:id="_xe1" name="E1"/>
+              <subvertex xmi:type="uml:State" xmi:id="_xe2" name="E2"/>
+              <transition xmi:type="uml:Transition" xmi:id="_xeT0" source="_xeInit" target="_xe1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_xeT1" source="_xe1" target="_xeOut">
+                <trigger xmi:type="uml:Trigger" xmi:id="_xeTr1" event="_xgoEv"/>
+              </transition>
+              <transition xmi:type="uml:Transition" xmi:id="_xeT2" source="_xeOut" target="_xe2"/>
+            </region>
+          </subvertex>
+          <subvertex xmi:type="uml:State" xmi:id="_xDead" name="Dead">
+            <connectionPoint xmi:type="uml:Pseudostate" xmi:id="_xfOut" name="leave" kind="exitPoint"/>
+            <region xmi:type="uml:Region" xmi:id="_xfr" name="r">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_xfInit"/>
+              <subvertex xmi:type="uml:State" xmi:id="_xf1" name="F1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_xfT0" source="_xfInit" target="_xf1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_xfT1" source="_xf1" target="_xfOut">
+                <trigger xmi:type="uml:Trigger" xmi:id="_xfTr1" event="_xgoEv"/>
+              </transition>
+            </region>
+          </subvertex>
+          <transition xmi:type="uml:Transition" xmi:id="_xT0" source="_xInit" target="_xIdle"/>
+          <transition xmi:type="uml:Transition" xmi:id="_xT1" source="_xaOut" target="_xIdle">
+            <trigger xmi:type="uml:Trigger" xmi:id="_xTr1" event="_xgoEv"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_xT2" source="_xbOut"/>
+          <transition xmi:type="uml:Transition" xmi:id="_xT3" source="_xcOut" target="_xkH"/>
+          <transition xmi:type="uml:Transition" xmi:id="_xT4" source="_xdOut" target="_xSelf"/>
+        </region>
+      </ownedBehavior>
+    </packagedElement>`
+
+const exitShapesApplications = `
+  <sysml:Block xmi:id="_x1" base_Class="_xclass"/>`
+
+// An exit point whose outgoing route waits on a trigger, reaches no target, runs on into a
+// history, leads back to the state or into it, or that no transition leaves is refused with that
+// route named, the transitions through it with it, and no junction is written.
+func TestExitPointRoutesAreRefusedPrecisely(t *testing.T) {
+	r := migrateDocument(t, exitShapesMachine, exitShapesApplications)
+	if strings.Contains(string(r.Notation), "junction leave;") {
+		t.Errorf("a refused exit point was written as a junction:\n%s", r.Notation)
+	}
+	wantNote(t, r, "_xaOut", migrate.Unmapped, "(_xT1) leads from the exit point with a trigger, which no transition out of a pseudostate takes; the runtime would follow it without waiting for the event")
+	wantNote(t, r, "_xbOut", migrate.Unmapped, "(_xT2) leads from the exit point to no target")
+	wantNote(t, r, "_xcOut", migrate.Unmapped, "(_xT3) leads from the exit point on into the history pseudostate 'H', which the runtime does not follow from a junction")
+	wantNote(t, r, "_xdOut", migrate.Unmapped, "(_xT4) leads from the exit point back to the state itself, which v1 leaves and re-enters by its default entry while the runtime, moving from a member of the state to the state, would stay in it, running neither its exit nor its entry")
+	wantNote(t, r, "_xeOut", migrate.Unmapped, "(_xeT2) leads from the exit point back into the state, to 'E2', which v1 leaves and re-enters while the runtime, moving between members of the state, would stay in it")
+	wantNote(t, r, "_xfOut", migrate.Unmapped, "no transition leaves the exit point, so a transition into it leaves 'Dead' for nowhere; the runtime would halt at the junction")
+	for _, id := range []string{"_xaT1", "_xT1", "_xbT1", "_xcT1", "_xdT1", "_xT4", "_xeT1", "_xeT2", "_xfT1"} {
+		wantNote(t, r, id, migrate.Unmapped, "has no v2 form")
+	}
+	wantNote(t, r, "_xT2", migrate.Unmapped, "lacks an end")
+	wantNote(t, r, "_xT3", migrate.Unmapped, "does not follow a transition from a exitPoint pseudostate on into the history pseudostate")
+}
+
 // outsideExitMachine has two composite states with one exit point each: Work's is reached from
 // Idle, outside Work, besides from within; Self's by a local transition of Self itself.
 const outsideExitMachine = `
