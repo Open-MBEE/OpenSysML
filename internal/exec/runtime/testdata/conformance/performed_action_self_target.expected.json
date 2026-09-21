@@ -1,0 +1,9 @@
+{
+  "type": "instance",
+  "instantiate": "test::Host",
+  "slots": {
+    "level": {"type": "Integer", "value": 3},
+    "boost": {"type": "Instance"}
+  },
+  "materialization": {}
+}

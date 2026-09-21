@@ -386,6 +386,25 @@ establish, because SysON was not built, is how OpenSysML fares on text SysON's s
 produces from a project edited graphically — the `Status` gaps in §2.3 predict warnings on
 models with the listed expression kinds. That is the first measurement of phase 1.
 
+### 2.9 Known SysON export gaps
+
+The textual export SysON produces from a project edited graphically — SysON's
+`SysMLElementSerializer` (v2026.9.0), seen on the Batmobile template — drops
+pieces of the model rather than serializing them, and OpenSysML reports each as
+a syntax error where the gap lands. These are serializer gaps, not parser gaps:
+
+- **Feature-chained connector ends are dropped.** A connection whose ends are
+  feature chains serializes both ends as nothing:
+  `connection bat2eng : PowerInterface connect  to ;`. OpenSysML reports
+  `expected a connector end before 'to'` at the `to` and `expected a name` at
+  the `;`.
+- **A succession to an anonymous decision node is split.** `then decide;` is
+  serialized as two members, `then;` followed by `decide ;`: the `then;` is a
+  syntax error (`expected a name`), while `decide ;` — an anonymous decision
+  node — is valid on its own and reports nothing.
+- **A satisfy with no subject serializes a dangling `by`.**
+  `assert satisfy 'system components' by;` reports `expected a name` at the `;`.
+
 ## 3. Architecture of `editors/syson/`
 
 ### 3.1 Layout
