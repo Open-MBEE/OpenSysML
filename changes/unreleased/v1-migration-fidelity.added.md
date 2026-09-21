@@ -10,7 +10,9 @@
   the runs a summary stands for and pools raw values with summary means; shows only the
   statistics a summary holds; and notes a summarising snapshot another configuration stores under
   the same name with the same statistics as a likely copy, naming that configuration and its
-  result location.
+  result location; and notes summaries of one observable whose means lie more than three
+  standard errors apart, which cannot be of runs of one and the same model, so the pooled mean
+  they are compared by blends them.
 - **A run configuration resolves to an inherited classifier behavior.** The `executionTarget`'s
   classifier behavior is looked up through its generalizations, nearest first, and a test-case
   behavior is performed where its scenario is migrated. A target with no classifier behavior at
@@ -33,3 +35,8 @@
   clock, so the `-migration-results` sidecar records its `stepSize` in `timeUnit` (`1.0` unless
   stated) as `clockStep`, in seconds, and `-compare-results` runs the configuration on it — a
   unit of no fixed length, a step of zero or less and an unstated unit are noted.
+- **A script's console print is left out.** A `print(…)`, `println(…)` or `System.out.println(…)`
+  statement of an opaque body writes to the tool's console and changes nothing of the model, so
+  the SysML v1 migration leaves it out of the translation, keeps the other statements of the body,
+  and notes each print left out as an approximation; a body of prints alone is an empty action.
+  A call not in the table, or a print used as a value, is refused as before.

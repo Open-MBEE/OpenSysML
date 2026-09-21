@@ -1128,7 +1128,10 @@ is undecided naming it, with the sidecar's notes. A summarising snapshot another
 repeats — the same name and the same statistics (count, mean and deviation), no observable both
 hold a different number of — is noted under each as a likely copy naming the other configuration
 and its result location, since a Monte Carlo does not come out alike twice, and compared all the
-same. A configuration whose tool ran it on a stepped
+same. Summaries of one observable whose means lie more than three standard errors apart cannot
+be of runs of one and the same model — the tool ran them under other values than the snapshots
+record — so they are noted by name under the table, and the pooled mean they are compared by is
+said to blend them. A configuration whose tool ran it on a stepped
 clock — a `startTime` set, so the tool's clock was going, its `stepSize` (`1.0` when unstated) the
 step — is run under that step, named in the header as `clock step <seconds> s`; `-clock-step`
 replaces it for every configuration, `-clock-step 0` running them all on a continuous clock. A run that fails is an `error:` line under the

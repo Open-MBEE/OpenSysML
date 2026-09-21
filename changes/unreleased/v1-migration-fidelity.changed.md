@@ -10,6 +10,10 @@
   call behavior action that names no behavior yet has pins stays unresolved with its pins and
   the reason; an «Allocate» from the action to a part is named in it as saying where the action
   runs, not what it does, and no behavior or value is made up for it.
+- **«Probability» is read by provenance.** The SysML v1 migration weights a decision's
+  branches only by the OMG SysML profile's «Probability», recognised by the namespace its
+  application is serialised under as every standard stereotype is; a same-named stereotype from
+  another profile weights nothing, and the report says which profile it comes from.
 - **A run configuration is refused by name.** `-compare-results` refuses a configuration whose
   behavior was not migrated, or whose `durationSimulationMode` is no draw policy, or whose run
   fails, naming the configuration in the refusal, so the refusals of several configurations
