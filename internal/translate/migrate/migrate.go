@@ -81,6 +81,9 @@ func FromModel(name string, model *sysmlv1.Model) *Result {
 		indexed:      map[string]int{},
 		regionUsed:   map[*sysmlv1.Element]map[string]bool{},
 		vertexNames:  map[*sysmlv1.Element]string{},
+		points:       map[*sysmlv1.Element]pointForm{},
+		incoming:     map[*sysmlv1.Element][]*sysmlv1.Element{},
+		outgoing:     map[*sysmlv1.Element][]*sysmlv1.Element{},
 		instant:      map[*sysmlv1.Element]map[*sysmlv1.Element]instantValue{},
 		self:         "this",
 		lanes:        map[*sysmlv1.Element]*lanes{},
@@ -245,6 +248,11 @@ type migration struct {
 	regionUsed map[*sysmlv1.Element]map[string]bool
 	// vertexNames gives the v2 name of every vertex a state machine writes.
 	vertexNames map[*sysmlv1.Element]string
+	// points says how each connection point of a composite state is written.
+	points map[*sysmlv1.Element]pointForm
+	// incoming and outgoing list the transitions into and out of each vertex
+	// of the machines named so far.
+	incoming, outgoing map[*sysmlv1.Element][]*sysmlv1.Element
 	// instant names, per state machine, the TimeInstantValue attribute each
 	// absolute time event its transitions accept is written as.
 	instant map[*sysmlv1.Element]map[*sysmlv1.Element]instantValue
@@ -478,32 +486,43 @@ func (m *migration) distinguish(e *sysmlv1.Element) {
 			seen[c.Name] = true
 			continue
 		}
-		name := c.Name
-		for i := 2; seen[name] || m.nameTaken(e, name); i++ {
-			name = fmt.Sprintf("%s %d", c.Name, i)
-		}
-		seen[name] = true
-		m.names[c] = name
+		m.names[c] = distinct(seen, func(n string) bool { return m.nameTaken(e, n) }, c.Name)
 	}
 }
 
+// distinct gives a member named name, which a sibling in seen already bears, the
+// first `name 2`, `name 3`, … neither seen nor taken, and marks it seen.
+func distinct(seen map[string]bool, taken func(string) bool, name string) string {
+	fresh := name
+	for i := 2; seen[fresh] || taken(fresh); i++ {
+		fresh = fmt.Sprintf("%s %d", name, i)
+	}
+	seen[fresh] = true
+	return fresh
+}
+
 // namespaceMembers lists the children of e written as members of its v2 body: its
-// own, and the named vertices of its one region, which v2 puts beside them.
+// own, and the named vertices of its one written region, which v2 puts beside them.
+// A state's connection points are left to namePoints, which knows which are written.
 func namespaceMembers(e *sysmlv1.Element) []*sysmlv1.Element {
 	var members []*sysmlv1.Element
-	inline := len(e.Owned("region")) == 1
+	var inline *sysmlv1.Element
+	if written := writtenRegions(e); len(written) == 1 {
+		inline = written[0]
+	}
 	for _, c := range e.Children {
 		switch {
 		case c.Role == "region":
-			if !inline {
+			if c != inline {
 				continue
 			}
 			for _, v := range c.Owned("subvertex") {
-				if vertexBase(v) != "" {
+				if vertexBase(v) != "" && memberOwner(v) != e {
 					members = append(members, v)
 				}
 			}
 			members = append(members, c.Owned("transition")...)
+		case c.Role == "connectionPoint" && e.Type == "State":
 		case !ownerWritten(c.Role):
 			members = append(members, c)
 		}

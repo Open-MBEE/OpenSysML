@@ -134,7 +134,7 @@ returned over the service yet.
 | Comment, Documentation | `doc` (first) / `comment`, HTML tags stripped | mapped |
 | Custom-profile stereotypes and tags | preserved as `/* applied stereotype «Name»: tag = value */` | mapped |
 | SysML stereotype tags without a v2 form (`Block.isEncapsulated`, `ValueType.unit`, …) | preserved as `/* «Name» tags with no v2 form: tag = value */` | approximated |
-| Two members of one namespace with the same name (UML allows it, v2 does not) | the later one renamed `Name 2`, a state, pseudostate or history a machine's region puts beside its attributes included; a connection end named like a member of its connection def renamed `name2` | approximated |
+| Two members of one namespace with the same name (UML allows it, v2 does not) | the later one renamed `Name 2`, a state, pseudostate or history a machine's region puts beside its attributes included, as is a written connection point of a state whichever region a tool listed it in, while one written as no member takes no name; a connection end named like a member of its connection def renamed `name2` | approximated |
 | Anonymous property with no v2 type | a `ref` named after its type, or `unnamed` | approximated |
 | Multiplicity bounds that are not natural numbers (a tool's `492x21` array dimensions) | omitted | approximated |
 | `NaN`/infinite real literals | comment | approximated |
@@ -145,6 +145,7 @@ returned over the service yet.
 | InitialNode, ActivityFinalNode, FlowFinalNode | `first start then …`; `action x terminate;`; the token ends where a flow final does | mapped |
 | ForkNode, JoinNode, DecisionNode, MergeNode | `fork`, `join`, `decide`, `merge`; a node several edges leave or reach without a control node gets one written for it | mapped (implicit fork/join: approximated) |
 | CallBehaviorAction | `action x : Def;` with `bind`/`flow` for its pins; a call of no behavior whose only content is a duration is a leaf step, the wait written for it; a call of a state machine, of a behavior with no v2 declaration, or of no behavior with pins to feed | mapped (a leaf step: mapped, "a step with a duration and no further behavior") / **unmapped** |
+| CallBehaviorAction of an fUML or Alf library primitive (`fUML_Library.xmi#…`, `Alf-Library.xmi#…`, any date; or MagicDraw's `fUML-Library.mdzip#…` with the bundled copy or `referentPath` under the library's own root package) | the action with its pins, each result pin valued by the v2 library expression over the arguments, `out result : ScalarValues::String = StringFunctions::'+'(x, y);`; see [the table](#calls-to-the-fuml-and-alf-libraries) | mapped / approximated (the note says where v2 differs) / **unmapped** (no v2 equivalent: the note says which) |
 | CallOperationAction | `perform action x ::> target.op;` when the target pin's value is an object whose type owns the operation, or when `onPort` names a port a connector of the caller's block joins to a part that owns it (a port of the target itself names it); otherwise `action x : Owner::Op;`, which runs in the caller's context | mapped / approximated (unresolved target: the reason names it) |
 | ControlFlow | `first a then b;`, `if <guard>` when the guard parses and resolves as a v2 expression or translates from JavaScript or English (`i >= Retries`, `GS_Found`, `not Found and i < 3`, `TRUE`) through the [subset](#the-opaque-language-subset); otherwise the guard text as a comment and the edge unguarded, the report naming the token refused | mapped / approximated |
 | «Probability» on the edges out of a decision, a number | `first d then x { @Stochastic::Probability { p = <value>; } }`; constants not summing to 1 are scaled by their sum; a value outside `[0, 1]` leaves the decision unweighted | mapped / approximated |
@@ -177,11 +178,19 @@ returned over the service yet.
 | Pseudostate fork, join | `fork x;` / `join x;` — the transitions out of a fork enter the states of several regions of a `parallel` state, those into a join leave them | mapped |
 | Pseudostate shallowHistory, deepHistory | `history x;` / `deep history x;` in the composite state; a transition targeting it re-enters the substate (the innermost substates) active when the state was last left, the history's own outgoing transition being its default | mapped |
 | Pseudostate entryPoint, exitPoint on a state machine | a `state` of the submachine's `state def`; a transition into an entry point continues by the entry point's own transition, a transition out of an exit point leaves the submachine state | mapped |
+| Pseudostate entryPoint on a composite State (`State.connectionPoint`) | `junction x;` of the state, a transition into it written `then Work::x` by path; the runtime runs the state's entry behavior, then the junction's outgoing transition, then the target's entries, in one run-to-completion step. One whose outgoing transitions each start a different orthogonal region is `fork x;`; one no transition leaves is the state's default entry, and the transition is written to the state | mapped |
+| Pseudostate exitPoint on a composite State | `junction x;` of the state, a transition out of it written `first Work::x` by path; the runtime runs the transition into it (its source's exits, its effect), the state's exit behavior, then the outgoing transition. One reached from several orthogonal regions is `join x;`, left through when every region's transition has fired. A connection point a tool lists among a region's vertices belongs to the state all the same; a region listing nothing else is skipped, not written as a region of a `parallel` state | mapped |
+| Entry point leading straight to an exit point of the same state, back to the state itself, out of the state, into a history pseudostate or to no target, or whose outgoing transition has a trigger, or several of whose outgoing transitions start the same region; an exit point reached from outside its state, one no transition leaves or whose outgoing transition has a trigger, leads back to the state or into it, into a history pseudostate or to no target, or one several regions reach that is also reached twice from one region, from the state's own local transition, or from a pseudostate; a connection point route into a history pseudostate | refused with the shape named | unmapped |
 | Pseudostate exitPoint on a region, terminate | a transition into it is written to `done` | approximated |
 | ConnectionPointReference on a submachine state | the transition is written to `s.<entryPoint>` / from `s.<exitPoint>`, the submachine's state named by its path | mapped |
 | Transition between regions or nesting levels (source or target not a sibling) | the transition names the far end by its path, `Work::Run`; a local transition into a substate of its source is written external, so the composite state exits and re-enters | mapped (local into own substate: approximated) |
 | `entry`, `doActivity`, `exit` behaviors | `entry action { … }` / `do action { … }` / `exit action { … }` inline when the behavior is owned by the state, `entry x;` / `do x : Def;` by reference otherwise | mapped |
-| Transition | `transition first s accept Sig if <guard> do <effect> then t;`; several triggers are several transitions; a completion transition is `transition first s then t;` | mapped (several triggers: approximated) |
+| Transition | `transition first s accept Sig if <guard> do <effect> then t;`; several triggers are several transitions; a completion transition is `transition first s then t;`; the guard is the transition's `guard` child or the owned rule its `guard` reference names, and a `LiteralBoolean` guard whose value the file omits is `false`, the UML default | mapped (several triggers: approximated) |
+| `entry`, `doActivity`, `exit` behavior or transition `effect` that is an Activity with no nodes | an empty action: `entry action x;` in a state, `do action x { }` on a transition, whose target follows on the next line | mapped (the note says the action is empty) |
+| `entry`, `doActivity`, `exit` behavior or transition `effect` that is an Activity whose every action node is refused | the action, holding the flow and a comment for each refused node; the behavior runs nothing | approximated (each node: **unmapped**) |
+| `entry`, `doActivity`, `exit` behavior or transition `effect` that is an OpaqueBehavior in a language the mapping cannot write | the action, holding the body as a comment | approximated |
+| Transition `effect` referring to a behavior owned elsewhere | `do action : Def` on the transition, the target following on the next line; the behavior's own `action def` is written once where it is owned | mapped |
+| `entry`, `doActivity`, `exit` behavior or transition `effect` referring to a behavior that is not written, or is written as something no state runs (a StateMachine, for one) | comment in the state's body or before the transition's target; the state or transition is written without it | approximated (the state or transition: "its … is not run"; a behavior not written: **unmapped**) |
 | Transition `effect` with `in` parameters | the accepted signal is named, `accept sig : Sig`, and each parameter typed by the signal (or a general of it), or the sole untyped one, is bound to it: `in p : Sig = sig;`; a parameter of another type takes no value | mapped (an unbound parameter: approximated) |
 | State `deferrableTrigger` on a SignalEvent | `defer Sig;` in the state's body — the OpenSysML `defer` extension (see [Behavior](../guide/06-behavior.md)), which the runtime executes and the validator reports as non-standard notation | approximated |
 | Internal transition (`kind = internal`) | a self transition of the state; faithful when the state has no entry, exit or do behavior and no substates (re-entry is not observable), otherwise the exit and entry run where v1 stayed in the state; one without a trigger is a comment, as a self transition would fire again on every re-entry | mapped / approximated / **unmapped** |
@@ -454,8 +463,30 @@ chains, `fork`/`join` to enter and leave the regions of an orthogonal state, `hi
 history` to re-enter what was active when the state was last left. An entry or exit point of a
 state machine is a `state` of its `state def` whose own transition continues into the machine,
 and a submachine state's connection point references address them by path,
-`then Cell::warmStart;` / `first Cell::spent then Idle;`. An internal transition is a self
-transition, faithful when re-entering the state is not observable (no entry, exit, do or
+`then Cell::warmStart;` / `first Cell::spent then Idle;`. An entry or exit point of a composite
+state (UML `State.connectionPoint`) is a `junction` of that state — its transient node, so a
+transition in from outside, `then Work::start;`, runs the state's entry behavior, then the
+junction's own transition and the target's entries in the same step, and a transition out,
+`first Work::leave then Idle;`, runs the inner transition's exits and effect, the state's exit
+behavior, then the outgoing effect and the target's entry — the order UML 2.5.1 §14.2.3.4.5 and
+PSSM give connection points. An entry point whose transitions each start a region of an
+orthogonal state is a `fork`, an exit point its regions reach from each side a `join`; an entry
+point no transition leaves is the state's default entry, and the transition is written to the
+state. An entry point that leads straight to an exit point of the same state, so the state is
+crossed without settling in it, is refused: the runtime would run neither its entry nor its exit
+behavior; so is an entry point whose transition leads back to the state itself (v1 enters it by
+its default entry where the runtime would leave and re-enter it), out of the state, on into a
+history pseudostate or to no target, one whose transition has a trigger (a junction's transition
+is followed at once, not on an event), and any point whose transitions do not form one of the
+shapes above. An exit point's outgoing transition is held to the same: one with a trigger, to
+no target, into a history, back to the state or to a vertex within it refuses the point, as does
+an exit point no transition leaves, since the runtime would halt at the junction. A guard on that transition is kept: UML evaluates a junction's guards with the
+rest of the compound transition's before it fires, not after entering the state, and the
+runtime evaluates the junction's guard when it selects the transition; where UML leaves the
+compound transition disabled by a false guard, the runtime reports it, as at any junction.
+A connection point a tool lists among a region's vertices rather than as the state's
+`connectionPoint` is still the state's, and is named through the state, not the region. An
+internal transition is a self transition, faithful when re-entering the state is not observable (no entry, exit, do or
 substates) and reported otherwise; one written with no target stays in its source, one that
 targets another vertex or leaves a pseudostate is refused, and one without a trigger is a
 comment, as a self transition would fire again on every re-entry. A transition into an exit point of a
@@ -545,6 +576,194 @@ mean, max, p50 and p90 with a histogram, and `sysml model.sysml -action <name> -
 does the same from the command line. An attribute the migrated body assigns from the clock is
 observed beside it with `-observe this.Time_Acq_Total`; an action that reads its performer's
 features (the `this.tcs.i` of a swimlane) is run through the performer, `-action "'Block' 'Action'"`.
+
+### Calls to the fUML and Alf libraries
+
+A `CallBehaviorAction` whose behavior is an element of the
+fUML library document (`http://www.omg.org/spec/FUML/<date>/fUML_Library.xmi`) or the Alf
+library document (`http://www.omg.org/spec/ALF/<date>/Alf-Library.xmi`) calls a primitive the
+tool computes, not an activity the model holds. The migrator knows the behavior by the document
+the href names and the fragment within it — whatever date the URI carries, and whether or not
+the model bundles a copy of the library, whose copy is then read for the pins' types but never
+for the mapping — never by the behavior's bare name, so a model's own `Concat` is an ordinary
+call. A tool that ships the library as a module of its own rather than pointing at the OMG
+document — MagicDraw and Cameo reference the used project `fUML-Library.mdzip`, by an href such
+as `fUML-Library.mdzip#_jJIy63OeEd2TgN94jve35g` with the element's qualified name recorded
+beside it as a `referentPath` — is known the same way, by the library's identity: the href must
+name the library's own document (`fUML-Library` or `fUML_Library`, `Alf-Library`, whatever its
+model extension or the path to it), and the behavior it resolves to — the bundled copy when the
+module's contents are in the archive, else the `referentPath` — must sit under the library's
+own root package (`fUML_Library` or `FoundationalModelLibrary`; `Alf::Library`), family and
+name: `fUML_Library::PrimitiveBehaviors::ListFunctions::ListSize`. Both are required, so a
+package of the model's own that happens to be named `fUML_Library`, referenced within the
+document or by an href into another module, is the model's, and its `ListSize` an ordinary
+call. The report says which provenance identified each call: the OMG href, the bundled copy the
+href resolves to, or the `referentPath` recorded beside the href into the library module. The
+boundary is the module's name: a module file literally named `fUML-Library` or `Alf-Library`
+is trusted as the library, whatever project it came from, since the migrator reads neither the
+used-project URI nor the module's read-only marker.
+The call is written with its pins, and each result pin takes the v2 library expression
+over the argument pins, so the flows out of it carry the computed value:
+`out result : ScalarValues::String = StringFunctions::'+'(x, y);`. The pins bind to the
+primitive's parameters by position, as v1 orders them, and their types and multiplicities are
+not checked against the primitive's signature — v1 requires a pin to conform to its parameter,
+so a call whose pins do not is ill-formed, and is written as it stands. A sequence parameter may be
+passed nothing — the empty sequence — but a scalar parameter must hold a value: a call that
+passes no argument for one, or whose pin only flows from something that produces none, never
+fires in v1, and is written as an empty action carrying the token, as any starved call is.
+So is a call whose value pin holds a value v2 cannot spell — an unlimited natural `*`, a real
+that is not a finite number — since v1 computes on a value the written call would lack; the note
+says which value and why.
+Where the v2 function differs from the v1 behavior — an index outside the sequence fails in v2
+where v1 gives no result; `ToBoolean` reads `TRUE` in v1 and only `true` in v2 — the call is
+approximated and the note says how; where the v2 library has no equivalent, the call is
+refused with the reason, and its result flows are comments. The table holds every behavior of
+both library documents, and `ListConcat`, which fUML 1.5 Table 9.7 lists but the 2018
+`fUML_Library.xmi` omits. The mapping, as the tests pin it:
+
+| v1 behavior (arguments in v1 order) | v2 expression per result, in v1 order | Verdict |
+|---|---|---|
+| `fUML IntegerFunctions::Neg(x)` | `IntegerFunctions::'-'(x)` | mapped |
+| `fUML IntegerFunctions::Abs(x)` | `IntegerFunctions::abs(x)` | mapped |
+| `fUML IntegerFunctions::plus(x, y)` | `IntegerFunctions::'+'(x, y)` | mapped |
+| `fUML IntegerFunctions::minus(x, y)` | `IntegerFunctions::'-'(x, y)` | mapped |
+| `fUML IntegerFunctions::times(x, y)` | `IntegerFunctions::'*'(x, y)` | mapped |
+| `fUML IntegerFunctions::divide(x, y)` | `RealFunctions::'/'(x, y)` | approximated: v2 fails on a divisor of 0 where v1 gives no result |
+| `fUML IntegerFunctions::Div(x, y)` | `RealFunctions::ToInteger(IntegerFunctions::'/'(x, y))` | approximated: the quotient is truncated toward zero, as in v1; v2 fails on a divisor of 0 where v1 gives no result |
+| `fUML IntegerFunctions::Mod(x, y)` | `IntegerFunctions::'%'(x, y)` | approximated: v2 fails on a divisor of 0, which v1 leaves undefined |
+| `fUML IntegerFunctions::Max(x, y)` | `IntegerFunctions::max(x, y)` | mapped |
+| `fUML IntegerFunctions::Min(x, y)` | `IntegerFunctions::min(x, y)` | mapped |
+| `fUML IntegerFunctions::lt(x, y)` | `IntegerFunctions::'<'(x, y)` | mapped |
+| `fUML IntegerFunctions::gt(x, y)` | `IntegerFunctions::'>'(x, y)` | mapped |
+| `fUML IntegerFunctions::le(x, y)` | `IntegerFunctions::'<='(x, y)` | mapped |
+| `fUML IntegerFunctions::ge(x, y)` | `IntegerFunctions::'>='(x, y)` | mapped |
+| `fUML IntegerFunctions::ToString(x)` | `IntegerFunctions::ToString(x)` | mapped |
+| `fUML IntegerFunctions::ToUnlimitedNatural(x)` | `IntegerFunctions::ToNatural(x)` | approximated: v2 fails on a negative argument where v1 gives no result |
+| `fUML IntegerFunctions::ToInteger(x)` | `IntegerFunctions::ToInteger(x)` | approximated: v2 fails on text that is no decimal integer where v1 gives no result |
+| `fUML RealFunctions::Neg(x)` | `RealFunctions::'-'(x)` | mapped |
+| `fUML RealFunctions::Abs(x)` | `RealFunctions::abs(x)` | mapped |
+| `fUML RealFunctions::Inv(x)` | `RealFunctions::'/'(1.0, x)` | approximated: v2 fails on an argument of 0.0 where v1 gives no result |
+| `fUML RealFunctions::Floor(x)` | `RealFunctions::floor(x)` | mapped |
+| `fUML RealFunctions::Round(x)` | `RealFunctions::floor(RealFunctions::'+'(x, 0.5))` | mapped: a half rounds to the larger integer, as in v1 (-2.5 to -2); the v2 round would round it away from zero |
+| `fUML RealFunctions::plus(x, y)` | `RealFunctions::'+'(x, y)` | mapped |
+| `fUML RealFunctions::minus(x, y)` | `RealFunctions::'-'(x, y)` | mapped |
+| `fUML RealFunctions::times(x, y)` | `RealFunctions::'*'(x, y)` | mapped |
+| `fUML RealFunctions::divide(x, y)` | `RealFunctions::'/'(x, y)` | approximated: v2 fails on a divisor of 0.0 where v1 gives no result |
+| `fUML RealFunctions::Max(x, y)` | `RealFunctions::max(x, y)` | mapped |
+| `fUML RealFunctions::Min(x, y)` | `RealFunctions::min(x, y)` | mapped |
+| `fUML RealFunctions::lt(x, y)` | `RealFunctions::'<'(x, y)` | mapped |
+| `fUML RealFunctions::gt(x, y)` | `RealFunctions::'>'(x, y)` | mapped |
+| `fUML RealFunctions::le(x, y)` | `RealFunctions::'<='(x, y)` | mapped |
+| `fUML RealFunctions::ge(x, y)` | `RealFunctions::'>='(x, y)` | mapped |
+| `fUML RealFunctions::ToString(x)` | `RealFunctions::ToString(x)` | approximated: v1 leaves the text of a real unspecified beyond reading back as the same value; v2 writes the shortest such text, with an exponent for large or small magnitudes (1e+21) |
+| `fUML RealFunctions::ToInteger(x)` | `RealFunctions::ToInteger(x)` | mapped |
+| `fUML RealFunctions::ToReal(x)` | `RealFunctions::ToReal(x)` | approximated: v2 fails on text that is no real number where v1 gives no result |
+| `fUML UnlimitedNaturalFunctions::Max(x, y)` | `NaturalFunctions::max(x, y)` | approximated: v2 Natural has no unbounded value, so an argument of * has no v2 rendering; bounded values compare as in v1 |
+| `fUML UnlimitedNaturalFunctions::Min(x, y)` | `NaturalFunctions::min(x, y)` | approximated: v2 Natural has no unbounded value, so an argument of * has no v2 rendering; bounded values compare as in v1 |
+| `fUML UnlimitedNaturalFunctions::lt(x, y)` | `NaturalFunctions::'<'(x, y)` | approximated: v2 Natural has no unbounded value, so an argument of * has no v2 rendering; bounded values compare as in v1 |
+| `fUML UnlimitedNaturalFunctions::gt(x, y)` | `NaturalFunctions::'>'(x, y)` | approximated: v2 Natural has no unbounded value, so an argument of * has no v2 rendering; bounded values compare as in v1 |
+| `fUML UnlimitedNaturalFunctions::le(x, y)` | `NaturalFunctions::'<='(x, y)` | approximated: v2 Natural has no unbounded value, so an argument of * has no v2 rendering; bounded values compare as in v1 |
+| `fUML UnlimitedNaturalFunctions::ge(x, y)` | `NaturalFunctions::'>='(x, y)` | approximated: v2 Natural has no unbounded value, so an argument of * has no v2 rendering; bounded values compare as in v1 |
+| `fUML UnlimitedNaturalFunctions::ToString(x)` | `NaturalFunctions::ToString(x)` | approximated: v2 Natural has no unbounded value, so an argument of * has no v2 rendering, where v1 writes "*" |
+| `fUML UnlimitedNaturalFunctions::ToInteger(x)` | `x` | approximated: a v2 Natural is an Integer and passes through unchanged; v2 has no unbounded value, for which v1 gives no result |
+| `fUML UnlimitedNaturalFunctions::ToUnlimitedNatural(x)` | `NaturalFunctions::ToNatural(x)` | approximated: v2 fails on text that is no decimal natural, "*" included, where v1 gives no result |
+| `fUML BooleanFunctions::Or(x, y)` | `BooleanFunctions::'|'(x, y)` | mapped |
+| `fUML BooleanFunctions::Xor(x, y)` | `BooleanFunctions::xor(x, y)` | mapped |
+| `fUML BooleanFunctions::And(x, y)` | `BooleanFunctions::'&'(x, y)` | mapped |
+| `fUML BooleanFunctions::Implies(x, y)` | `ControlFunctions::implies(x, y)` | mapped |
+| `fUML BooleanFunctions::Not(x)` | `BooleanFunctions::not(x)` | mapped |
+| `fUML BooleanFunctions::ToString(x)` | `BooleanFunctions::ToString(x)` | mapped |
+| `fUML BooleanFunctions::ToBoolean(x)` | `BooleanFunctions::ToBoolean(x)` | approximated: v2 reads "true" and "false" only, where v1 reads them in any letter case, and fails on other text where v1 gives no result |
+| `fUML StringFunctions::Concat(x, y)` | `StringFunctions::'+'(x, y)` | mapped |
+| `fUML StringFunctions::Size(x)` | `StringFunctions::Length(x)` | mapped |
+| `fUML StringFunctions::Substring(x, lower, upper)` | `StringFunctions::Substring(x, lower, upper)` | approximated: v2 fails on bounds outside 1..Size(x) or a lower bound above the upper where v1 gives no result |
+| `fUML ListFunctions::ListSize(list)` | `SequenceFunctions::size(list)` | mapped |
+| `fUML ListFunctions::ListGet(list, index)` | `SequenceFunctions::'#'(list, index)` | approximated: v2 fails on an index outside 1..ListSize(list) where v1 gives no result |
+| `fUML ListFunctions::ListConcat(list1, list2)` | `SequenceFunctions::union(list1, list2)` | mapped |
+| `fUML BasicInputOutput::WriteLine(value)` | — | unmapped: writes a line to the standard output channel, which the v2 library has no function for |
+| `fUML BasicInputOutput::ReadLine()` | — | unmapped: reads a line from the standard input channel, which the v2 library has no function for |
+| `Alf IntegerFunctions::ToNatural(x)` | `NaturalFunctions::ToNatural(x)` | approximated: v2 reads decimal text only, where v1 also reads the 0b, 0o and 0x forms of a natural literal, and fails on other text where v1 gives no result |
+| `Alf BitStringFunctions::IsSet(b, n)` | — | unmapped: v2 has no BitString type: no library function performs bitwise operations |
+| `Alf BitStringFunctions::BitLength()` | — | unmapped: v2 has no BitString type: no library function performs bitwise operations |
+| `Alf BitStringFunctions::ToBitString(n)` | — | unmapped: v2 has no BitString type: no library function performs bitwise operations |
+| `Alf BitStringFunctions::ToInteger(b)` | — | unmapped: v2 has no BitString type: no library function performs bitwise operations |
+| `Alf BitStringFunctions::ToHexString(b)` | — | unmapped: v2 has no BitString type: no library function performs bitwise operations |
+| `Alf BitStringFunctions::ToOctalString(b)` | — | unmapped: v2 has no BitString type: no library function performs bitwise operations |
+| `Alf BitStringFunctions::~(b)` | — | unmapped: v2 has no BitString type: no library function performs bitwise operations |
+| `Alf BitStringFunctions::&(b1, b2)` | — | unmapped: v2 has no BitString type: no library function performs bitwise operations |
+| `Alf BitStringFunctions::^(b1, b2)` | — | unmapped: v2 has no BitString type: no library function performs bitwise operations |
+| `Alf BitStringFunctions::|(b1, b2)` | — | unmapped: v2 has no BitString type: no library function performs bitwise operations |
+| `Alf BitStringFunctions::<<(b, n)` | — | unmapped: v2 has no BitString type: no library function performs bitwise operations |
+| `Alf BitStringFunctions::>>(b, n)` | — | unmapped: v2 has no BitString type: no library function performs bitwise operations |
+| `Alf BitStringFunctions::>>>(b, n)` | — | unmapped: v2 has no BitString type: no library function performs bitwise operations |
+| `Alf SequenceFunctions::Size(seq)` | `SequenceFunctions::size(seq)` | mapped |
+| `Alf SequenceFunctions::Includes(seq, element)` | `SequenceFunctions::includes(seq, element)` | mapped |
+| `Alf SequenceFunctions::Excludes(seq, element)` | `SequenceFunctions::excludes(seq, element)` | mapped |
+| `Alf SequenceFunctions::Count(seq, element)` | `IntegerFunctions::'-'(SequenceFunctions::size(seq), SequenceFunctions::size(SequenceFunctions::excluding(seq, element)))` | mapped |
+| `Alf SequenceFunctions::IsEmpty(seq)` | `SequenceFunctions::isEmpty(seq)` | mapped |
+| `Alf SequenceFunctions::NotEmpty(seq)` | `SequenceFunctions::notEmpty(seq)` | mapped |
+| `Alf SequenceFunctions::IncludesAll(seq1, seq2)` | `SequenceFunctions::includes(seq1, seq2)` | mapped |
+| `Alf SequenceFunctions::ExcludesAll(seq1, seq2)` | `SequenceFunctions::excludes(seq1, seq2)` | mapped |
+| `Alf SequenceFunctions::Equals(seq1, seq2)` | `SequenceFunctions::equals(seq1, seq2)` | mapped |
+| `Alf SequenceFunctions::At(seq, index)` | `SequenceFunctions::'#'(seq, index)` | approximated: v2 fails on an index outside 1..Size(seq) where v1 gives no result |
+| `Alf SequenceFunctions::IndexOf(seq, element)` | — | unmapped: the v2 library has no function giving the position of an element in a sequence |
+| `Alf SequenceFunctions::First(seq)` | `SequenceFunctions::head(seq)` | mapped |
+| `Alf SequenceFunctions::Last(seq)` | `SequenceFunctions::last(seq)` | mapped |
+| `Alf SequenceFunctions::Union(seq1, seq2)` | `SequenceFunctions::union(seq1, seq2)` | mapped |
+| `Alf SequenceFunctions::Intersection(seq1, seq2)` | `SequenceFunctions::intersection(seq1, seq2)` | mapped |
+| `Alf SequenceFunctions::Difference(seq1, seq2)` | `SequenceFunctions::excluding(seq1, seq2)` | mapped |
+| `Alf SequenceFunctions::Including(seq, element)` | `SequenceFunctions::including(seq, element)` | mapped |
+| `Alf SequenceFunctions::IncludeAt(seq, element, index)` | `SequenceFunctions::includingAt(seq, element, index)` | approximated: v2 fails on an index outside 1..Size(seq)+1, where v1 gives seq unchanged |
+| `Alf SequenceFunctions::InsertAt(seq, element, index)` | `SequenceFunctions::includingAt(seq, element, index)` | approximated: v2 fails on an index outside 1..Size(seq)+1, where v1 gives seq unchanged |
+| `Alf SequenceFunctions::IncludeAllAt(seq1, seq2, index)` | `SequenceFunctions::includingAt(seq1, seq2, index)` | approximated: v2 fails on an index outside 1..Size(seq)+1, where v1 gives seq unchanged |
+| `Alf SequenceFunctions::Excluding(seq, element)` | `SequenceFunctions::excluding(seq, element)` | mapped |
+| `Alf SequenceFunctions::ExcludingOne(seq, element)` | — | unmapped: the v2 library removes every occurrence of an element from a sequence (excluding); none removes the first alone |
+| `Alf SequenceFunctions::ExcludeAt(seq, index)` | `SequenceFunctions::excludingAt(seq, index)` | approximated: v2 fails on an index outside 1..Size(seq), where v1 gives seq unchanged |
+| `Alf SequenceFunctions::Replacing(seq, element, newElement)` | — | unmapped: the v2 library has no function replacing the occurrences of an element in a sequence |
+| `Alf SequenceFunctions::ReplacingAt(seq, index, element)` | `SequenceFunctions::includingAt(SequenceFunctions::excludingAt(seq, index), element, index)` | approximated: v2 fails on an index outside 1..Size(seq), which v1 requires |
+| `Alf SequenceFunctions::ReplacingOne(seq, element, newElement)` | — | unmapped: the v2 library has no function replacing the first occurrence of an element in a sequence |
+| `Alf SequenceFunctions::Subsequence(seq, lower, upper)` | `SequenceFunctions::subsequence(seq, IntegerFunctions::max(lower, 1), IntegerFunctions::min(upper, SequenceFunctions::size(seq)))` | approximated: the bounds are clamped to 1..Size(seq) as in v1; v2 fails on a lower bound above Size(seq), which v1 leaves undefined |
+| `Alf SequenceFunctions::ToOrderedSet(seq)` | — | unmapped: the v2 library has no function removing the repeated elements of a sequence |
+| `Alf CollectionFunctions::size(seq)` | `SequenceFunctions::size(seq)` | mapped |
+| `Alf CollectionFunctions::includes(seq, element)` | `SequenceFunctions::includes(seq, element)` | mapped |
+| `Alf CollectionFunctions::excludes(seq, element)` | `SequenceFunctions::excludes(seq, element)` | mapped |
+| `Alf CollectionFunctions::count(seq, element)` | `IntegerFunctions::'-'(SequenceFunctions::size(seq), SequenceFunctions::size(SequenceFunctions::excluding(seq, element)))` | mapped |
+| `Alf CollectionFunctions::isEmpty(seq)` | `SequenceFunctions::isEmpty(seq)` | mapped |
+| `Alf CollectionFunctions::notEmpty(seq)` | `SequenceFunctions::notEmpty(seq)` | mapped |
+| `Alf CollectionFunctions::includesAll(seq1, seq2)` | `SequenceFunctions::includes(seq1, seq2)` | mapped |
+| `Alf CollectionFunctions::excludesAll(seq1, seq2)` | `SequenceFunctions::excludes(seq1, seq2)` | mapped |
+| `Alf CollectionFunctions::equals(seq1, seq2)` | `SequenceFunctions::equals(seq1, seq2)` | mapped |
+| `Alf CollectionFunctions::at(seq, index)` | `SequenceFunctions::'#'(seq, index)` | approximated: v2 fails on an index outside 1..Size(seq) where v1 gives no result |
+| `Alf CollectionFunctions::indexOf(seq, element)` | — | unmapped: the v2 library has no function giving the position of an element in a sequence |
+| `Alf CollectionFunctions::first(seq)` | `SequenceFunctions::head(seq)` | mapped |
+| `Alf CollectionFunctions::last(seq)` | `SequenceFunctions::last(seq)` | mapped |
+| `Alf CollectionFunctions::union(seq1, seq2)` | `SequenceFunctions::union(seq1, seq2)` | mapped |
+| `Alf CollectionFunctions::intersection(seq1, seq2)` | `SequenceFunctions::intersection(seq1, seq2)` | mapped |
+| `Alf CollectionFunctions::difference(seq1, seq2)` | `SequenceFunctions::excluding(seq1, seq2)` | mapped |
+| `Alf CollectionFunctions::including(seq, element)` | `SequenceFunctions::including(seq, element)` | mapped |
+| `Alf CollectionFunctions::includeAt(seq, element, index)` | `SequenceFunctions::includingAt(seq, element, index)` | approximated: v2 fails on an index outside 1..Size(seq)+1, where v1 gives seq unchanged |
+| `Alf CollectionFunctions::insertAt(seq, element, index)` | `SequenceFunctions::includingAt(seq, element, index)` | approximated: v2 fails on an index outside 1..Size(seq)+1, where v1 gives seq unchanged |
+| `Alf CollectionFunctions::includeAllAt(seq1, seq2, index)` | `SequenceFunctions::includingAt(seq1, seq2, index)` | approximated: v2 fails on an index outside 1..Size(seq)+1, where v1 gives seq unchanged |
+| `Alf CollectionFunctions::excluding(seq, element)` | `SequenceFunctions::excluding(seq, element)` | mapped |
+| `Alf CollectionFunctions::excludingOne(seq, element)` | — | unmapped: the v2 library removes every occurrence of an element from a sequence (excluding); none removes the first alone |
+| `Alf CollectionFunctions::excludeAt(seq, index)` | `SequenceFunctions::excludingAt(seq, index)` | approximated: v2 fails on an index outside 1..Size(seq), where v1 gives seq unchanged |
+| `Alf CollectionFunctions::replacing(seq, element, newElement)` | — | unmapped: the v2 library has no function replacing the occurrences of an element in a sequence |
+| `Alf CollectionFunctions::replacingAt(seq, index, element)` | `SequenceFunctions::includingAt(SequenceFunctions::excludingAt(seq, index), element, index)` | approximated: v2 fails on an index outside 1..Size(seq), which v1 requires |
+| `Alf CollectionFunctions::replacingOne(seq, element, newElement)` | — | unmapped: the v2 library has no function replacing the first occurrence of an element in a sequence |
+| `Alf CollectionFunctions::subsequence(seq, lower, upper)` | `SequenceFunctions::subsequence(seq, IntegerFunctions::max(lower, 1), IntegerFunctions::min(upper, SequenceFunctions::size(seq)))` | approximated: the bounds are clamped to 1..Size(seq) as in v1; v2 fails on a lower bound above Size(seq), which v1 leaves undefined |
+| `Alf CollectionFunctions::toOrderedSet(seq)` | — | unmapped: the v2 library has no function removing the repeated elements of a sequence |
+| `Alf CollectionFunctions::add(seq, element)` | `SequenceFunctions::including(seq, element)`; `SequenceFunctions::including(seq, element)` | approximated: the sequence the inout parameter hands back and the result are one value in v2, as the in-place function assigns them in v1 |
+| `Alf CollectionFunctions::addAll(seq1, seq2, index)` | `SequenceFunctions::union(seq1, seq2)` | approximated: the library document declares addAll with the in parameters seq1, seq2 and an unused index, and one result: seq1 with seq2 appended |
+| `Alf CollectionFunctions::addAt(seq, element, index)` | `SequenceFunctions::includingAt(seq, element, index)`; `SequenceFunctions::includingAt(seq, element, index)` | approximated: v2 fails on an index outside 1..Size(seq)+1, where v1 gives seq unchanged; the sequence the inout parameter hands back and the result are one value in v2, as the in-place function assigns them in v1 |
+| `Alf CollectionFunctions::addAllAt(seq1, seq2, index)` | `SequenceFunctions::includingAt(seq1, seq2, index)`; `SequenceFunctions::includingAt(seq1, seq2, index)` | approximated: v2 fails on an index outside 1..Size(seq)+1, where v1 gives seq unchanged; the sequence the inout parameter hands back and the result are one value in v2, as the in-place function assigns them in v1 |
+| `Alf CollectionFunctions::remove(seq, element)` | `SequenceFunctions::excluding(seq, element)`; `SequenceFunctions::excluding(seq, element)` | approximated: the sequence the inout parameter hands back and the result are one value in v2, as the in-place function assigns them in v1 |
+| `Alf CollectionFunctions::removeAll(seq1, seq2)` | `SequenceFunctions::excluding(seq1, seq2)`; `SequenceFunctions::excluding(seq1, seq2)` | approximated: the sequence the inout parameter hands back and the result are one value in v2, as the in-place function assigns them in v1 |
+| `Alf CollectionFunctions::removeOne(seq, element)` | — | unmapped: the v2 library removes every occurrence of an element from a sequence (excluding); none removes the first alone |
+| `Alf CollectionFunctions::removeAt(seq, index)` | `SequenceFunctions::excludingAt(seq, index)`; `SequenceFunctions::excludingAt(seq, index)` | approximated: v2 fails on an index outside 1..Size(seq), where v1 gives seq unchanged; the sequence the inout parameter hands back and the result are one value in v2, as the in-place function assigns them in v1 |
+| `Alf CollectionFunctions::replace(seq, element, newElement)` | — | unmapped: the v2 library has no function replacing the occurrences of an element in a sequence |
+| `Alf CollectionFunctions::replaceOne(seq, element, newElement)` | — | unmapped: the v2 library has no function replacing the first occurrence of an element in a sequence |
+| `Alf CollectionFunctions::replaceAt(seq, index, element)` | `SequenceFunctions::includingAt(SequenceFunctions::excludingAt(seq, index), element, index)`; `SequenceFunctions::includingAt(SequenceFunctions::excludingAt(seq, index), element, index)` | approximated: v2 fails on an index outside 1..Size(seq), which v1 requires; the sequence the inout parameter hands back and the result are one value in v2, as the in-place function assigns them in v1 |
+| `Alf CollectionFunctions::clear(seq)` | `()` | mapped: the inout parameter hands back the empty sequence, as v1 assigns null to it |
 
 ## The opaque-language subset
 
