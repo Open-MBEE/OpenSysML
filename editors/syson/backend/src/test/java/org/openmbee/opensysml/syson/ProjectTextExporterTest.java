@@ -108,6 +108,22 @@ class ProjectTextExporterTest {
         assertThat(result.messages().get(0).message()).isEqualTo("warning");
     }
 
+    @Test
+    void disambiguatesDuplicateDocumentNames() {
+        ResourceSet set = new ResourceSetImpl();
+        set.getResources().add(new ResourceImpl(URI.createURI("sirius:///a/foo")));
+        set.getResources().get(0).getContents().add(new FakeElement("First"));
+        set.getResources().add(new ResourceImpl(URI.createURI("sirius:///b/foo")));
+        set.getResources().get(1).getContents().add(new FakeElement("Second"));
+        IEMFEditingContext context = context(set);
+        ElementSerializer serializer = (element, report) -> "part def X;";
+
+        var result = new ProjectTextExporter(serializer, mock(IIdentityService.class)).export(context);
+
+        assertThat(result.documents()).extracting(document -> document.name().orElseThrow())
+                .containsExactly("foo.sysml", "foo-1.sysml");
+    }
+
     private static IEMFEditingContext context(ResourceSet set) {
         AdapterFactoryEditingDomain domain = new AdapterFactoryEditingDomain(new ComposedAdapterFactory(),
                 new BasicCommandStack(), set);

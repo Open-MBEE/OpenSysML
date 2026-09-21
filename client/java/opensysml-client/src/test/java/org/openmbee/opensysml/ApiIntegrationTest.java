@@ -665,19 +665,15 @@ class ApiIntegrationTest {
     ModelException failed =
         assertThrows(ModelException.class, () -> model.executeAction("Test::noStart"));
     assertFalse(failed.getMessage().isBlank());
+    ExecutionOptions seeded = ExecutionOptions.defaults().withSchedule("seed:abc");
     ServiceException refused =
         assertThrows(
-            ServiceException.class,
-            () ->
-                model.executeAction(
-                    "Test::race", Map.of(), ExecutionOptions.defaults().withSchedule("seed:abc")));
+            ServiceException.class, () -> model.executeAction("Test::race", Map.of(), seeded));
     assertEquals(StatusCode.INVALID_ARGUMENT, refused.status());
     assertTrue(refused.getMessage().contains("seed:abc"));
+    ExecutionOptions declared = ExecutionOptions.defaults().withSchedule("declared");
     assertThrows(
-        IllegalArgumentException.class,
-        () ->
-            model.exploreAction(
-                "Test::race", Map.of(), ExecutionOptions.defaults().withSchedule("declared")));
+        IllegalArgumentException.class, () -> model.exploreAction("Test::race", Map.of(), declared));
   }
 
   @Test
@@ -771,7 +767,7 @@ class ApiIntegrationTest {
     assertFalse(wrongKind.verdict().decided());
     assertFalse(wrongKind.holds());
     assertEquals(FailureReason.WRONG_KIND, wrongKind.verdict().failureReason());
-    assertTrue(wrongKind.verdict().error().orElseThrow().length() > 0);
+    assertFalse(wrongKind.verdict().error().orElseThrow().isEmpty());
   }
 
   @Test
@@ -900,13 +896,10 @@ class ApiIntegrationTest {
         List.of(Optional.of(new Value.RealValue(10.0)), Optional.of(new Value.RealValue(10.0))),
         three.evaluations().stream().map(org.openmbee.opensysml.CaseEvaluation::result).toList());
 
+    AnalysisOptions arguments =
+        AnalysisOptions.defaults().withArguments(List.of(new Value.IntegerValue(4)));
     AnalysisException failed =
-        assertThrows(
-            AnalysisException.class,
-            () ->
-                model.runAnalysis(
-                    "Trade::perOffset",
-                    AnalysisOptions.defaults().withArguments(List.of(new Value.IntegerValue(4)))));
+        assertThrows(AnalysisException.class, () -> model.runAnalysis("Trade::perOffset", arguments));
     assertTrue(failed.getMessage().contains("division by zero"));
     assertEquals(FailureReason.EVALUATION, failed.failureReason());
     Analysis partial = failed.partial().orElseThrow();
@@ -956,7 +949,7 @@ class ApiIntegrationTest {
     assertTrue(all.containsAll(List.of("Demo", "Demo::Vehicle", "Demo::vehicle::wheels", "Demo::spare")));
 
     List<QueryElement> parts =
-        model.query(Query.all().where(Condition.equal("@type", List.of("PartUsage"))));
+        model.query(Query.all().where(Condition.equalTo("@type", List.of("PartUsage"))));
     assertEquals(
         List.of("Demo::spare", "Demo::vehicle", "Demo::vehicle::wheels"),
         parts.stream().map(QueryElement::id).sorted().toList());
@@ -969,7 +962,7 @@ class ApiIntegrationTest {
         model.query(
             Query.all()
                 .withSelect(List.of("name", "owner"))
-                .where(Condition.equal("qualifiedName", List.of("Demo::vehicle::wheels"))));
+                .where(Condition.equalTo("qualifiedName", List.of("Demo::vehicle::wheels"))));
     assertEquals(
         List.of(
             new QueryElement(
@@ -980,10 +973,9 @@ class ApiIntegrationTest {
 
     assertEquals(
         3, model.queryOslc("oslc.where=rdf:type=\"PartUsage\"&oslc.select=sysml:name").size());
+    Query missingScope = Query.all().withScope(List.of("Demo::Missing"));
     ServiceException refused =
-        assertThrows(
-            ServiceException.class,
-            () -> model.query(Query.all().withScope(List.of("Demo::Missing"))));
+        assertThrows(ServiceException.class, () -> model.query(missingScope));
     assertEquals(StatusCode.INVALID_ARGUMENT, refused.status());
   }
 
@@ -1025,16 +1017,14 @@ class ApiIntegrationTest {
 
   @Test
   void parseSourcesRefusesTwoDocumentsOfOneName() throws Exception {
+    String librarySource = Files.readString(fixture("engine_library.sysml"));
+    String userSource = Files.readString(fixture("engine_user.sysml"));
+    List<SourceDocument> documents =
+        List.of(
+            SourceDocument.inline("same.sysml", librarySource),
+            SourceDocument.inline("same.sysml", userSource));
     ServiceException refused =
-        assertThrows(
-            ServiceException.class,
-            () ->
-                connection.parseSources(
-                    List.of(
-                        SourceDocument.inline(
-                            "same.sysml", Files.readString(fixture("engine_library.sysml"))),
-                        SourceDocument.inline(
-                            "same.sysml", Files.readString(fixture("engine_user.sysml"))))));
+        assertThrows(ServiceException.class, () -> connection.parseSources(documents));
     assertEquals(StatusCode.INVALID_ARGUMENT, refused.status());
   }
 
@@ -1057,12 +1047,10 @@ class ApiIntegrationTest {
   @Test
   void convertOfUnreadableNotationIsAModelFailure() throws Exception {
     String source = Files.readString(fixture("syntax_error.sysml"));
+    ConversionOptions convertOptions = ConversionOptions.defaults().withFromFormat("sysml");
     ModelException failed =
         assertThrows(
-            ModelException.class,
-            () ->
-                connection.convert(
-                    source, "sysml", ConversionOptions.defaults().withFromFormat("sysml")));
+            ModelException.class, () -> connection.convert(source, "sysml", convertOptions));
     assertFalse(failed.diagnostics().isEmpty());
   }
 
@@ -1080,10 +1068,9 @@ class ApiIntegrationTest {
   @Test
   void applyEditsRefusesAnUnknownTargetByKind() {
     Model model = connection.load(fixture("editable.sysml"));
+    List<Edit> edits = List.of(new Edit.SetValue("Demo::SC::nope", "1.0"));
     EditException refused =
-        assertThrows(
-            EditException.class,
-            () -> model.applyEdits(List.of(new Edit.SetValue("Demo::SC::nope", "1.0"))));
+        assertThrows(EditException.class, () -> model.applyEdits(edits));
     assertEquals(EditFailure.UNKNOWN_TARGET, refused.failure());
     assertEquals("EDIT_FAILURE_UNKNOWN_TARGET", refused.failureName());
   }
@@ -1111,15 +1098,14 @@ class ApiIntegrationTest {
   void runSweepOfAnotherKindIsAModelFailure() {
     Model model = connection.load(fixture("sweep.sysml"));
     ModelException failed =
-        assertThrows(
+    List<org.openmbee.opensysml.SweepRange> ranges =
+        List.of(
+            org.openmbee.opensysml.SweepRange.of(
+                    "limit", new Value.RealValue(0.0), new Value.RealValue(4.0))
+                .withStep(new Value.RealValue(2.0)));
+    assertThrows(
             ModelException.class,
-            () ->
-                model.runSweep(
-                    "Sw::barge",
-                    List.of(
-                        org.openmbee.opensysml.SweepRange.of(
-                                "limit", new Value.RealValue(0.0), new Value.RealValue(4.0))
-                            .withStep(new Value.RealValue(2.0)))));
+            () -> model.runSweep("Sw::barge", ranges));
     assertEquals(FailureReason.WRONG_KIND, failed.failureReason());
   }
 

@@ -18,6 +18,8 @@ import org.openmbee.opensysml.SourceDocument;
 import org.openmbee.opensysml.syson.identity.ElementIndex;
 
 public class ProjectTextExporter implements ProjectExporter {
+    private static final String SYSML_EXTENSION = ".sysml";
+
     private final ElementSerializer serializer;
     private final IIdentityService identityService;
 
@@ -38,11 +40,11 @@ public class ProjectTextExporter implements ProjectExporter {
             if (uri.startsWith(ElementUtil.KERML_LIBRARY_SCHEME) || uri.startsWith(ElementUtil.SYSML_LIBRARY_SCHEME)) continue;
             String base = resource.getURI() == null ? "" : resource.getURI().lastSegment();
             if (base == null || base.isBlank()) base = "document-" + documentIndex;
-            if (!base.endsWith(".sysml")) base += ".sysml";
+            if (!base.endsWith(SYSML_EXTENSION)) base += SYSML_EXTENSION;
             String name = base;
             int suffix = 1;
             while (containsDocument(documents, name)) {
-                name = base.replace(".sysml", "-" + suffix++ + ".sysml");
+                name = base.replace(SYSML_EXTENSION, "-" + suffix++ + SYSML_EXTENSION);
             }
             StringBuilder text = new StringBuilder();
             for (EObject root : resource.getContents()) {
@@ -90,6 +92,6 @@ public class ProjectTextExporter implements ProjectExporter {
     }
 
     private boolean containsDocument(List<SourceDocument> documents, String name) {
-        return documents.stream().anyMatch(document -> document.name().equals(name));
+        return documents.stream().anyMatch(document -> document.name().filter(name::equals).isPresent());
     }
 }
