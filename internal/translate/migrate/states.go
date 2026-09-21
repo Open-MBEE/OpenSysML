@@ -155,6 +155,15 @@ func pointOwner(v *sysmlv1.Element) *sysmlv1.Element {
 	return owner
 }
 
+// memberOwner is the element whose body vertex v is written in: the owner of a
+// connection point, however a tool listed it, else v's parent.
+func memberOwner(v *sysmlv1.Element) *sysmlv1.Element {
+	if owner := pointOwner(v); owner != nil {
+		return owner
+	}
+	return v.Parent
+}
+
 // pointForm says how a composite state's entry or exit point is written: as
 // the pseudostate kw of the state's body, or not at all.
 type pointForm struct {
@@ -203,11 +212,13 @@ func (m *migration) entryPointForm(v, owner *sysmlv1.Element) pointForm {
 	return pointForm{kw: "fork", note: "written as a fork of its state, whose branches start its regions; a transition entering through it runs the state's entry behavior, then the branches"}
 }
 
-// entryBranchWhy says why transition t, leaving an entry point of owner, keeps the point from
-// being written: its target is missing, owner itself or outside it, a history, or an exit point of owner.
+// entryBranchWhy says why transition t, leaving an entry point of owner, keeps the point from being
+// written: it has a trigger, or its target is missing, owner itself or outside it, a history, or an exit point of owner.
 func (m *migration) entryBranchWhy(t, owner *sysmlv1.Element) string {
 	tgt := m.model.Ref(t, "target")
 	switch {
+	case len(t.Owned("trigger")) > 0:
+		return "with a trigger, which no transition out of a pseudostate takes; the runtime would follow it without waiting for the event"
 	case tgt == nil:
 		return "to no target"
 	case tgt == owner:
@@ -267,17 +278,13 @@ func regionWithin(v, owner *sysmlv1.Element) *sysmlv1.Element {
 	return nil
 }
 
-// forkBranchWhy says why transition t into tgt cannot be a fork's branch, which
-// enters a state with no trigger or guard of its own; "" when it can.
+// forkBranchWhy says why transition t into tgt, a route entryBranchWhy passed, cannot be a
+// fork's branch, which enters a state with no guard of its own; "" when it can.
 func (m *migration) forkBranchWhy(t, tgt *sysmlv1.Element) string {
 	g := m.guardOf(t)
 	switch {
-	case tgt == nil:
-		return "lacks a target"
 	case tgt.Type != "State":
 		return "enters " + describe(tgt) + ", a " + kindOf(tgt) + " rather than a state"
-	case len(t.Owned("trigger")) > 0:
-		return "has a trigger"
 	case g != nil && !trueLiteral(firstOwned(g, "specification")):
 		return "has a guard"
 	}
@@ -915,7 +922,7 @@ func (s *stateRegion) path(v *sysmlv1.Element) (string, bool) {
 	if !ok || machineOf(v) != s.machine {
 		return "", false
 	}
-	if v.Parent == s.r || v.Parent == s.machine {
+	if owner := memberOwner(v); owner == s.r || owner == s.machine {
 		return writeName(name), true
 	}
 	segs := s.m.segments(v)
@@ -929,7 +936,7 @@ func (s *stateRegion) endpoint(t, v *sysmlv1.Element, role string) (string, bool
 	if !ok {
 		return "", false
 	}
-	if v.Parent != s.r && v.Parent != s.machine {
+	if owner := memberOwner(v); owner != s.r && owner != s.machine {
 		s.m.add(t, Mapped, "", "the "+role+" "+describe(v)+" lies in another region and is named by its path "+p)
 	}
 	return p, true
