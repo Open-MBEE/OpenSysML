@@ -56,7 +56,7 @@
     "format": "prettier --write src",
     "format:check": "prettier --check src",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "install:syson": "npm install --no-save @eclipse-sirius/sirius-components-core@2026.9.0 @eclipse-sirius/sirius-components-trees@2026.9.0",
+    "install:syson": "npm install --no-save --ignore-scripts @eclipse-sirius/sirius-components-core@2026.9.0 @eclipse-sirius/sirius-components-trees@2026.9.0",
     "build:syson": "OPENSYSML_SYSON_REAL=1 vite build && tsc -p tsconfig.syson.json"
   }
 }

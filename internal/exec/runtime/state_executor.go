@@ -60,6 +60,10 @@ type StateExecutor struct {
 	// deferred holds, in arrival order, the events an active state defers and no
 	// transition of the active configuration handled.
 	deferred []Event
+	// pendingCall is the synchronous Call the machine is running, if any.
+	pendingCall *pendingCall
+	// callTriggers memoizes the declared operations each call trigger names.
+	callTriggers map[*ast.CallEvent][]*symbols.Symbol
 	// lastDispatch is what became of the event the last step took off the queue,
 	// lastEventAt the instant it was dispatched at.
 	lastDispatch *Dispatch
@@ -1059,7 +1063,11 @@ func (e *StateExecutor) firingOn(event *Event, fire func() (bool, error)) (bool,
 	saved := e.firingEvent
 	e.firingEvent = event
 	defer func() { e.firingEvent = saved }()
-	return fire()
+	fired, err := fire()
+	if fired {
+		e.callTaken(event)
+	}
+	return fired, err
 }
 
 // dispatchInOrder fires the candidates as queues of one front, drawing which firing's next
@@ -1856,7 +1864,8 @@ func (e *StateExecutor) triggerMatches(trigger ast.Node, scope *symbols.Scope, e
 				return false
 			}
 		}
-		return true
+		// A call of a declared operation fires only the triggers naming that one.
+		return call.Declared == nil || slices.Contains(e.callTriggerOperations(callEvent), call.Declared)
 
 	case EventChange:
 		// Re-evaluate condition (pollChangeEvents is the primary driver); here we
@@ -3043,6 +3052,9 @@ func (e *StateExecutor) runCounting(atCurrentTime bool, progress *dueProgress) (
 		}
 		if stepped {
 			progress.unsettle()
+			if e.callReleased() {
+				return nil
+			}
 			continue
 		}
 		if atCurrentTime {
@@ -3856,15 +3868,21 @@ func (e *StateExecutor) SendSignal(signalType string, args map[string]Value) {
 	e.enqueueSignal(Message{SignalType: signalType, Payload: args})
 }
 
-// InvokeOperation injects a call event for the named operation. Transitions
-// triggered by that operation fire; transitions triggered by another do not.
+// InvokeOperation injects a call event for the named operation, as given and
+// bound to no declaration. Transitions triggered by that operation fire;
+// transitions triggered by another do not.
 func (e *StateExecutor) InvokeOperation(operation string, args map[string]Value) {
+	e.queueCall(Call{Operation: operation, Args: args})
+}
+
+// queueCall queues a call event carrying the payload.
+func (e *StateExecutor) queueCall(payload Call) {
 	e.moved = true
 	e.eventQueue.Push(Event{
 		ID:        e.nextEventID,
 		Type:      EventCall,
 		Timestamp: e.ctx.clock.now,
-		Payload:   Call{Operation: operation, Args: args},
+		Payload:   payload,
 	})
 	e.nextEventID++
 }
@@ -4680,6 +4698,7 @@ func (e *StateExecutor) invokeNested(inv actionInvocation) error {
 		return err
 	}
 	for _, name := range slices.Sorted(maps.Keys(outputs)) {
+		e.recordCallOutput(name, outputs[name])
 		if err := e.writeStateValue(name, outputs[name]); err != nil {
 			return err
 		}

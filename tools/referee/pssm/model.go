@@ -113,12 +113,49 @@ type Attribute struct {
 	Default *Literal
 }
 
+// Operation returns the class's own operation of the given name, nil for none.
+func (c *Class) Operation(name string) *Operation {
+	if c == nil {
+		return nil
+	}
+	for _, op := range c.Operations {
+		if op.Name == name {
+			return op
+		}
+	}
+	return nil
+}
+
 // Operation is a class operation with its parameters and method.
 type Operation struct {
 	ID     string
 	Name   string
 	Params []Param
 	Method *Behavior
+}
+
+// Outputs are the operation's out, inout and return parameters in order: the
+// ones a call's result pins correspond to (UML §16.3.3.1).
+func (op *Operation) Outputs() []Param {
+	var out []Param
+	for _, p := range op.Params {
+		if p.Direction == "out" || p.Direction == "inout" || p.Direction == "return" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// Inputs are the operation's in and inout parameters in order: the ones a
+// call's argument pins correspond to.
+func (op *Operation) Inputs() []Param {
+	var in []Param
+	for _, p := range op.Params {
+		if p.Direction == "in" || p.Direction == "inout" {
+			in = append(in, p)
+		}
+	}
+	return in
 }
 
 // Param is a behavior or operation parameter: its name, type and direction
@@ -530,16 +567,33 @@ type Expr struct {
 	// the feature read on Object.
 	Name   string
 	Object *Expr
-	// Apply: the behavior applied, by its library name (Concat, ToString, Not,
-	// ...), and its arguments in parameter order. Call: the operation called on
-	// Object, with its result used as a value. New: the classifier instantiated,
-	// by Name and TypeID, and ID the create action, one per object the behavior
-	// creates.
-	Args   []Expr
-	ID     string
-	TypeID string
+	// Apply: the behavior applied by short name, Library when a library owns it,
+	// Args in parameter order. Call: Result is the output read, ID the call action.
+	// New: the classifier instantiated by Name and TypeID, ID the create action.
+	Args    []Expr
+	Library *LibraryBehavior
+	Result  string
+	ID      string
+	TypeID  string
 	// Unknown: what the reader could not follow, for the diagnostic.
 	Text string
+}
+
+// LibraryBehavior is a behavior of a library an activity applies for a value:
+// a fUML or Alf primitive the document references by href, or an activity of
+// the suite's own utility packages (Util::Tracing::formatParameterValue).
+type LibraryBehavior struct {
+	Name string
+	// Qualified is the behavior's qualified name in its library
+	// (StringFunctions::Concat, Util::Tracing::formatParameterValue).
+	Qualified string
+}
+
+func isSelf(x *Expr) bool { return x != nil && x.Kind == ExprSelf }
+
+// isTarget reports the tester's reference to the class under test.
+func isTarget(x *Expr) bool {
+	return x != nil && x.Kind == ExprRead && isSelf(x.Object) && x.Name == "testable"
 }
 
 // ExprKind is the kind of an Expr.

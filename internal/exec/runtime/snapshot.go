@@ -648,6 +648,7 @@ type stateCapture struct {
 	enteringMachine bool
 	// activeAtEntry records states active before the captured entry unit.
 	activeAtEntry map[*ast.StateNode]bool
+	pendingCall   *pendingCall
 }
 
 // doActionCapture is one do action's progress: the behaviors it has still to run
@@ -695,6 +696,7 @@ func (e *StateExecutor) capture() stateCapture {
 		entering:           maps.Clone(e.entering),
 		enteringMachine:    e.enteringMachine,
 		activeAtEntry:      maps.Clone(e.activeAtEntry),
+		pendingCall:        e.pendingCall.clone(),
 	}
 	if e.eventQueue != nil {
 		c.events = slices.Clone(e.eventQueue.events)
@@ -757,6 +759,7 @@ func (c stateCapture) restore() {
 	}
 	e.enteringMachine = c.enteringMachine
 	e.activeAtEntry = maps.Clone(c.activeAtEntry)
+	e.pendingCall = c.pendingCall.clone()
 }
 
 func cloneHeldEntries(entries []heldEntry) []heldEntry {

@@ -120,6 +120,7 @@ type imagedState struct {
 	entering           map[*ast.StateNode]bool
 	enteringMachine    bool
 	activeAtEntry      map[*ast.StateNode]bool
+	pendingCall        *pendingCall
 }
 
 // behavior takes one behavior's execution.
@@ -323,6 +324,7 @@ func (t *imaging) stateExecutor(e *StateExecutor) (*imagedState, error) {
 		entering:           maps.Clone(e.entering),
 		enteringMachine:    e.enteringMachine,
 		activeAtEntry:      maps.Clone(e.activeAtEntry),
+		pendingCall:        e.pendingCall.clone(),
 	}
 	var err error
 	if img.run, err = t.run(e.driven.state); err != nil {
@@ -330,6 +332,14 @@ func (t *imaging) stateExecutor(e *StateExecutor) (*imagedState, error) {
 	}
 	if err := t.values(e.stateData); err != nil {
 		return nil, err
+	}
+	if call := e.pendingCall; call != nil {
+		if err := t.values(call.outputs); err != nil {
+			return nil, fmt.Errorf("call: %w", err)
+		}
+		if err := t.values(call.inouts); err != nil {
+			return nil, fmt.Errorf("call: %w", err)
+		}
 	}
 	for node, attrs := range e.stateAttrs {
 		if err := t.values(attrs); err != nil {
@@ -656,6 +666,24 @@ func (m *materializing) stateExecutor(e *StateExecutor, img *imagedState) error 
 	}
 	e.enteringMachine = img.enteringMachine
 	e.activeAtEntry = maps.Clone(img.activeAtEntry)
+	return m.pendingCall(e, img.pendingCall)
+}
+
+// pendingCall gives e the imaged call, its values carried as dst's own.
+func (m *materializing) pendingCall(e *StateExecutor, call *pendingCall) error {
+	if call == nil {
+		e.pendingCall = nil
+		return nil
+	}
+	carried := call.clone()
+	var err error
+	if carried.outputs, err = m.values(call.outputs); err != nil {
+		return err
+	}
+	if carried.inouts, err = m.values(call.inouts); err != nil {
+		return err
+	}
+	e.pendingCall = carried
 	return nil
 }
 
@@ -674,7 +702,7 @@ func (m *materializing) event(event Event) (Event, error) {
 		if err != nil {
 			return Event{}, fmt.Errorf("call %s: %w", payload.Operation, err)
 		}
-		out.Payload = Call{Operation: payload.Operation, Args: args}
+		out.Payload = Call{Operation: payload.Operation, Declared: payload.Declared, Args: args}
 	}
 	return out, nil
 }

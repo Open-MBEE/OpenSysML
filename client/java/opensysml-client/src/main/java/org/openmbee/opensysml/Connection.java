@@ -51,6 +51,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * }</pre>
  */
 public final class Connection implements AutoCloseable {
+  private static final String NAME_OPTIONS = "options";
+  private static final String NAME_CONTENT = "content";
 
   private final ConnectTransport transport;
   private final String address;
@@ -92,7 +94,7 @@ public final class Connection implements AutoCloseable {
    * @throws TransportException if the service could not be reached
    */
   public static Connection open(ConnectionOptions options) {
-    Objects.requireNonNull(options, "options");
+    Objects.requireNonNull(options, NAME_OPTIONS);
     Optional<String> external = externalAddress(options);
     if (external.isPresent()) {
       String address = external.get();
@@ -217,7 +219,7 @@ public final class Connection implements AutoCloseable {
    * @throws ModelException if the source could not be parsed at all
    */
   public Model parse(String content) {
-    Objects.requireNonNull(content, "content");
+    Objects.requireNonNull(content, NAME_CONTENT);
     return parsed(ParseFileRequest.newBuilder().setContent(content).build());
   }
 
@@ -229,7 +231,7 @@ public final class Connection implements AutoCloseable {
    * @return the parsed model
    */
   public Model parse(String content, ParseOptions options) {
-    Objects.requireNonNull(content, "content");
+    Objects.requireNonNull(content, NAME_CONTENT);
     return parsed(request(options).setContent(content).build());
   }
 
@@ -267,7 +269,7 @@ public final class Connection implements AutoCloseable {
    */
   public Model parseSources(List<SourceDocument> documents, ParseOptions options) {
     Objects.requireNonNull(documents, "documents");
-    Objects.requireNonNull(options, "options");
+    Objects.requireNonNull(options, NAME_OPTIONS);
     capabilities.require(Capabilities.PARSE_SOURCES);
     if (options.strictConformance()) {
       capabilities.require(Capabilities.STRICT_CONFORMANCE);
@@ -321,7 +323,7 @@ public final class Connection implements AutoCloseable {
    * @throws CapabilityException if the service does not advertise {@code convert}
    */
   public Conversion convert(String content, String toFormat, ConversionOptions options) {
-    Objects.requireNonNull(content, "content");
+    Objects.requireNonNull(content, NAME_CONTENT);
     return converted(ConvertRequest.newBuilder().setContent(content), toFormat, options);
   }
 
@@ -420,7 +422,7 @@ public final class Connection implements AutoCloseable {
   private Conversion converted(
       ConvertRequest.Builder request, String toFormat, ConversionOptions options) {
     Objects.requireNonNull(toFormat, "toFormat");
-    Objects.requireNonNull(options, "options");
+    Objects.requireNonNull(options, NAME_OPTIONS);
     capabilities.require(Capabilities.CONVERT);
     request.setToFormat(toFormat).setTolerateSyntaxErrors(options.tolerateSyntaxErrors());
     options.fromFormat().ifPresent(request::setFromFormat);
@@ -434,7 +436,7 @@ public final class Connection implements AutoCloseable {
   }
 
   private static ParseFileRequest.Builder request(ParseOptions options) {
-    Objects.requireNonNull(options, "options");
+    Objects.requireNonNull(options, NAME_OPTIONS);
     return ParseFileRequest.newBuilder()
         .setLanguage(options.language().wireName())
         .setStrictConformance(options.strictConformance());

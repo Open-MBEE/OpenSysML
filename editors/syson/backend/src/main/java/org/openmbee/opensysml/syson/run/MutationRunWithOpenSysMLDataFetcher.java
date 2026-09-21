@@ -36,19 +36,8 @@ public class MutationRunWithOpenSysMLDataFetcher implements IDataFetcherWithFiel
         Map<String, Object> argument = environment.getArgument("input");
         // GraphQL represents named inputs as a list; the input record uses a map.
         Map<String, String> values = new LinkedHashMap<>();
-        String inputError = null;
-        for (Map<String, String> value : (List<Map<String, String>>) argument.getOrDefault("inputs", List.of())) {
-            String name = value.get("name");
-            if (name == null || name.isBlank()) {
-                inputError = "input name must not be blank";
-                break;
-            }
-            if (values.containsKey(name)) {
-                inputError = "duplicate input name: " + name;
-                break;
-            }
-            values.put(name, value.get("expression"));
-        }
+        String inputError = collectInputs(
+                (List<Map<String, String>>) argument.getOrDefault("inputs", List.of()), values);
         Map<String, Object> convertedArgument = new LinkedHashMap<>(argument);
         convertedArgument.put("inputs", values);
         RunWithOpenSysMLInput converted = objectMapper.convertValue(convertedArgument, RunWithOpenSysMLInput.class);
@@ -62,5 +51,19 @@ public class MutationRunWithOpenSysMLDataFetcher implements IDataFetcherWithFiel
         }
         return exceptionWrapper.wrapMono(() -> editingContextDispatcher.dispatchMutation(input.editingContextId(), input),
                 input).toFuture();
+    }
+
+    private static String collectInputs(List<Map<String, String>> inputs, Map<String, String> values) {
+        for (Map<String, String> value : inputs) {
+            String name = value.get("name");
+            if (name == null || name.isBlank()) {
+                return "input name must not be blank";
+            }
+            if (values.containsKey(name)) {
+                return "duplicate input name: " + name;
+            }
+            values.put(name, value.get("expression"));
+        }
+        return null;
     }
 }

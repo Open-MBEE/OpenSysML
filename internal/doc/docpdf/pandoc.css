@@ -16,6 +16,7 @@ body {
   font-family: serif;
   font-size: 11pt;
   line-height: 1.45;
+  page: main;
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -64,8 +65,10 @@ th, td {
   overflow-wrap: anywhere;
 }
 
-th { background: #eeeeee; }
-th { overflow-wrap: normal; }
+th {
+  background: #eeeeee;
+  overflow-wrap: normal;
+}
 
 /* A caption and the paragraph leading into a table stay with what follows. */
 p:has(.caption) { break-after: avoid; page-break-after: avoid; }
@@ -74,7 +77,6 @@ p:has(+ table) { break-after: avoid; page-break-after: avoid; }
 /* A table of seven or more columns goes on a landscape page in smaller type with
    the heading, caption and group key ahead of it; :has() nests since cssselect2 misreads "+ p + table". */
 @page wide { size: A4 landscape; }
-body { page: main; }
 table:has(thead > tr > th:nth-child(7)) { page: wide; font-size: 9pt; }
 p:has(+ table:has(thead > tr > th:nth-child(7))),
 p:has(.caption):has(+ p:has(+ table:has(thead > tr > th:nth-child(7)))),

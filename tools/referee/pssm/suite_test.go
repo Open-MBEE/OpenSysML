@@ -75,7 +75,7 @@ func TestSuiteClassification(t *testing.T) {
 	s := loadSuite(t)
 	type row struct{ std, ext, none int }
 	want := map[string]row{
-		"Behavior": {4, 0, 1}, "Transition": {8, 1, 6}, "Event": {10, 0, 6},
+		"Behavior": {4, 0, 1}, "Transition": {8, 1, 6}, "Event": {11, 0, 5},
 		"Entering": {4, 0, 1}, "Exiting": {4, 0, 1}, "Entry": {0, 0, 6},
 		"Exit": {0, 0, 3}, "Choice": {0, 4, 1}, "Junction": {0, 5, 1},
 		"Fork": {0, 1, 1}, "Join": {0, 3, 0}, "Final": {1, 0, 0},
@@ -125,7 +125,45 @@ func TestSuiteClassification(t *testing.T) {
 			t.Errorf("%s = %+v, want %+v", area, got[area], w)
 		}
 	}
-	if total != (row{34, 31, 38}) {
-		t.Errorf("total = %+v, want {34 31 38}", total)
+	if total != (row{35, 31, 37}) {
+		t.Errorf("total = %+v, want {35 31 37}", total)
+	}
+}
+
+// TestSuiteNoTranslationReasons pins the reasons left on the tests the driver
+// and reader lifted a construct from: a tester trace and a standalone machine
+// are no refusals, the rest of each list is byte-identical.
+func TestSuiteNoTranslationReasons(t *testing.T) {
+	s := loadSuite(t)
+	want := map[string]string{
+		"Event 019 A":    "standard notation only",
+		"Event 019 D":    "operation result T2",
+		"Event 019 E":    "behavior parameter S1.S1.1; behavior parameter S1.S2.1.S2.1.1; operation result T2",
+		"Deferred 007":   "operation result T4",
+		"Standalone 001": "exit point ExitPoint1; exit point ExitPoint1; entry point EntryPoint1",
+		"Standalone 002": "exit point ExitPoint1; entry point EntryPoint1; behavior parameter S2; behavior parameter S2; behavior parameter S2.S2.1; behavior parameter S2.S2.2",
+		"Standalone 003": "behavior parameter S1.S1.1; behavior parameter S1.S2.1.S2.1.1; operation result T2",
+		"Entry 002 F":    "behavior parameter S1; entry point EntryPoint1; behavior parameter S1.S1.1; behavior parameter S1.S1.2; local transition T1.1; local transition T1.2",
+	}
+	for _, tt := range s.Tests {
+		reason, ok := want[tt.Name]
+		if !ok {
+			continue
+		}
+		delete(want, tt.Name)
+		c := Classify(tt)
+		if c.Reason() != reason {
+			t.Errorf("%s: reason %q, want %q", tt.Name, c.Reason(), reason)
+		}
+		class := NotExpressible
+		if reason == "standard notation only" {
+			class = Standard
+		}
+		if c.Class != class {
+			t.Errorf("%s: %s, want %s", tt.Name, c.Class, class)
+		}
+	}
+	for name := range want {
+		t.Errorf("%s: not in the suite", name)
 	}
 }

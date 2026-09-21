@@ -5741,7 +5741,7 @@ func testSendAddressedToAnObjectThatCannotBeBuilt(t *testing.T) {
 
 	ctx.maxSteps = 0
 	send := lower.Send{Target: "alpha.inPort", TargetPath: true, Scope: scope}
-	err := ctx.post(nil, nil, Message{SignalType: "Integer"}, send, nil, nil)
+	err := ctx.post(nil, nil, Message{SignalType: "Integer"}, send, nil, nil, nil)
 	if !errors.Is(err, ErrStepLimitExceeded) {
 		t.Errorf("budget exhausted while building alpha: %v, want ErrStepLimitExceeded", err)
 	}
@@ -5752,7 +5752,7 @@ func testSendAddressedToAnObjectThatCannotBeBuilt(t *testing.T) {
 	ctx.maxSteps = DefaultMaxSteps
 	alpha := instanceOfUsage(t, ctx, idx, "test::alpha")
 	send = lower.Send{Target: "a.inPort", TargetPath: true, Scope: scope}
-	err = ctx.post(nil, nil, Message{SignalType: "Integer"}, send, alpha, nil)
+	err = ctx.post(nil, nil, Message{SignalType: "Integer"}, send, nil, alpha, nil)
 	if !errors.Is(err, ErrCyclicFeatureValue) {
 		t.Errorf("walking through a cyclic derived feature value: %v, want ErrCyclicFeatureValue", err)
 	}
