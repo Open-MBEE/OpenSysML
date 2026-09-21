@@ -89,6 +89,9 @@ func lowerStateBehavior(action ast.Node, block ast.Node, scope *symbols.Scope, r
 			// The body is a namespace of its own, so its locals are declared in the
 			// block's frame rather than in the state machine's data.
 			behavior.Body = []Statement{lowerBehaviorBody(node, childScope(scope, node), resolver)}
+		case node.Kind == ast.UsageAction && !performsAction(node):
+			// `do action log;` names an action of no content, which executes as nothing.
+			behavior.Body = []Statement{}
 		default:
 			behavior.Body = []Statement{Effect{Kind: EffectPerform, Node: node, Scope: scope}}
 		}

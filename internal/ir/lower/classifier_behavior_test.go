@@ -134,6 +134,54 @@ func TestClassifierBehaviorOutMemberIsNotAnArgument(t *testing.T) {
 	}
 }
 
+// A binding names the element holding the body by the reference form
+// (`perform a;`, `exhibit m;`), a `references`/`::>` clause, or a typing; one
+// naming none is the body itself (SysML v2 §8.3.16, eventOccurrence).
+func TestClassifierBehaviorNamesBehavior(t *testing.T) {
+	behaviors := classifierBehaviorsIn(t, `
+		package test {
+			action def A;
+			action b;
+			state m;
+
+			part def P {
+				perform action a { in x = 1; }
+				perform action typed : A;
+				perform action ref ::> b;
+				perform b;
+				exhibit m;
+			}
+		}
+	`)
+
+	if len(behaviors) != 5 {
+		t.Fatalf("expected the type to bind 5 behaviors, got %d", len(behaviors))
+	}
+	for _, tc := range []struct {
+		name string
+		want bool
+	}{
+		{"a", false},
+		{"typed", true},
+		{"ref", true},
+		{"b", true},
+		{"m", true},
+	} {
+		var got *ClassifierBehavior
+		for i := range behaviors {
+			if behaviors[i].Name == tc.name {
+				got = &behaviors[i]
+			}
+		}
+		if got == nil {
+			t.Fatalf("no behavior named %q", tc.name)
+		}
+		if got.NamesBehavior != tc.want {
+			t.Errorf("NamesBehavior of %q = %v, want %v", tc.name, got.NamesBehavior, tc.want)
+		}
+	}
+}
+
 // classifierBehaviorsIn parses src and reports the behaviors the first part
 // definition in it binds to its objects.
 func classifierBehaviorsIn(t *testing.T, src string) []ClassifierBehavior {

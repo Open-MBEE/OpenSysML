@@ -383,14 +383,22 @@ func TestTranslatedOutputPinsFeedTheirFlows(t *testing.T) {
 	wantNote(t, r, "_quarterly", migrate.Mapped, "the Java 1.8.0_202 body is translated to v2")
 	wantNote(t, r, "_cc", migrate.Approximated, "the JavaCC body is written as v2 assignments")
 	wantNote(t, r, "_o2", migrate.Approximated, "the flow is kept as a comment: the body of 'idle' never assigns 'z', so no value leaves it")
-	wantNote(t, r, "_sink", migrate.Approximated, "its input sink.w receives no value, since the body of 'idle' never assigns idle.z; the action cannot be performed until one is bound")
+	wantNote(t, r, "_sinkw", migrate.Approximated, "it is declared admitting no value: 'idle', which feeds it, produces no value")
+	wantNote(t, r, "_sink", migrate.Approximated, "this.total must hold a value, so it is assigned only when w, which may hold none, holds one")
+	wantLine(t, r.Notation, "if w->SequenceFunctions::notEmpty() { assign this.total := w; }")
 	wantNote(t, r, "_o3", migrate.Approximated, "the flow is kept as a comment: its source 'dark' is not migrated, so no value reaches 'q'")
+	// A console print is left out of a translated body, and a body of prints alone is an empty action.
+	wantNote(t, r, "_log", migrate.Approximated, "the JavaScript body is translated to v2; the console print print(…) is left out, as it writes to the tool's console and changes nothing of the model; the console print println(…) is left out, as it writes to the tool's console and changes nothing of the model")
+	wantNote(t, r, "_shout", migrate.Approximated, "the JavaScript body is translated to v2; the console print println(…) is left out, as it writes to the tool's console and changes nothing of the model")
+	wantLine(t, r.Notation, "assign this.ticks := this.ticks + 1;")
+	wantLine(t, r.Notation, "action shout;")
+	wantNoLine(t, r.Notation, "print(")
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Meter")
 	wantVerdict(t, s.RunAction("Meter::Measure", "Meter"))
-	runs := strings.Join(s.RunRuns("Meter::Measure", []string{"Meter"}, 1, seedOf(1), []string{"this.total", "this.peak", "this.half", "this.ratio", "this.floored", "this.rounded", "this.quarter", "this.eighth"}).Lines, "\n")
-	for _, want := range []string{"this.total: 1 run(s), min 4.0", "this.peak: 1 run(s), min 3.0", "this.half: 1 run(s), min 3", "this.ratio: 1 run(s), min 2.0", "this.floored: 1 run(s), min 0.5", "this.rounded: 1 run(s), min 0", "this.quarter: 1 run(s), min 1", "this.eighth: 1 run(s), min 0.875"} {
+	runs := strings.Join(s.RunRuns("Meter::Measure", []string{"Meter"}, 1, seedOf(1), []string{"this.total", "this.peak", "this.half", "this.ratio", "this.floored", "this.rounded", "this.quarter", "this.eighth", "this.ticks"}).Lines, "\n")
+	for _, want := range []string{"this.total: 1 run(s), min 4.0", "this.peak: 1 run(s), min 3.0", "this.half: 1 run(s), min 3", "this.ratio: 1 run(s), min 2.0", "this.floored: 1 run(s), min 0.5", "this.rounded: 1 run(s), min 0", "this.quarter: 1 run(s), min 1", "this.eighth: 1 run(s), min 0.875", "this.ticks: 1 run(s), min 8"} {
 		if !strings.Contains(runs, want) {
 			t.Errorf("runs lack %q:\n%s", want, runs)
 		}

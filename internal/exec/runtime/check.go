@@ -499,7 +499,7 @@ func shareOf(c ChoicePoint, i int) float64 {
 
 // witness is the schedule so far: the choices the run noted and its trace.
 func (c *checker) witness() Witness {
-	w := Witness{DrawPolicy: c.ctx.DrawPolicyTaken(), Draws: c.ctx.DrawsTaken(), Choices: c.ctx.ChoicesTaken()}
+	w := Witness{DrawPolicy: c.ctx.DrawPolicyTaken(), ClockStep: c.ctx.ClockStepTaken(), Draws: c.ctx.DrawsTaken(), Choices: c.ctx.ChoicesTaken()}
 	w.Objects = c.ctx.objectsNamed(w.Choices)
 	if tr := c.ctx.Trace(); tr != nil {
 		w.Trace = tr.String()

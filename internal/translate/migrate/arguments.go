@@ -2,6 +2,7 @@ package migrate
 
 import (
 	"slices"
+	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
@@ -14,6 +15,9 @@ func (a *activity) refusal(n *sysmlv1.Element) (why string, v Verdict, refused b
 	case "ValueSpecificationAction":
 		return a.valueActionRefusal(n)
 	case "CallBehaviorAction":
+		if p := a.m.primitiveCalled(n); p != nil {
+			return a.primitiveRefusal(n, p)
+		}
 		return a.behaviorCallRefusal(n)
 	case "CallOperationAction":
 		return a.operationCallRefusal(n)
@@ -66,9 +70,6 @@ func (a *activity) behaviorCallRefusal(n *sysmlv1.Element) (why string, v Verdic
 	default:
 		return "the behavior " + qualifiedName(b) + " is written as a " + cat.keyword() + ", which an action cannot call", Unmapped, true
 	}
-	if p, why := a.unarguedParameter(inputPins(n), b); p != nil {
-		return why, Approximated, true
-	}
 	if c := a.m.contextOf(b); c != nil {
 		if expr, cnote := a.callContext(n, c); expr == "" {
 			return a.uncontexted(b, cnote), Approximated, true
@@ -86,11 +87,6 @@ func (a *activity) operationCallRefusal(n *sysmlv1.Element) (why string, v Verdi
 	}
 	if !a.m.written(op) {
 		return "the operation " + qualifiedName(op) + " it calls has no v2 declaration", Unmapped, true
-	}
-	t := firstOwned(n, "target")
-	ins := slices.DeleteFunc(inputPins(n), func(p *sysmlv1.Element) bool { return p == t })
-	if p, why := a.unarguedParameter(ins, op); p != nil {
-		return why, Approximated, true
 	}
 	return "", Mapped, false
 }
@@ -119,6 +115,65 @@ func (a *activity) sendRefusal(n *sysmlv1.Element) (why string, v Verdict, refus
 		}
 	}
 	return "", Mapped, false
+}
+
+// primitiveRefusal says why a call to a behavior of the fUML or Alf library is a
+// placeholder: the v2 library has no function for it, a value pin holds a value
+// v2 cannot spell, or a pin standing for a parameter that must hold a value is
+// dry, or may hold none and nothing fills it. A pin that must hold a value and
+// that nothing fills starves the action instead.
+func (a *activity) primitiveRefusal(n *sysmlv1.Element, p *primitiveCall) (why string, v Verdict, refused bool) {
+	if p.outs == nil {
+		return joinNotes("the behavior "+p.qualified()+" it calls has no v2 library function: "+p.note, p.provenance), Unmapped, true
+	}
+	a.settlePins(n)
+	ins := inputPins(n)
+	for i, arg := range p.arguments() {
+		if i < len(ins) {
+			if v, vnote := a.unwritten(n, ins[i]); v != nil {
+				return "the pin " + describe(ins[i]) + " it passes for the parameter " + arg.name + " of " + p.qualified() + " holds the value " + describeValue(v) + ", which has no v2 expression: " + vnote + "; v1 computes on it, so the action carries the token and performs nothing", Approximated, true
+			}
+		}
+		if !arg.required {
+			continue
+		}
+		if i >= len(ins) {
+			return "the call passes no argument for the parameter " + arg.name + " of " + p.qualified() + ", which must hold a value; v1 leaves the call undefined without it, so the action carries the token and performs nothing", Approximated, true
+		}
+		if dry := a.valueless(ins[i]); dry != nil {
+			return "the pin " + describe(ins[i]) + " it passes for the parameter " + arg.name + " of " + p.qualified() + ", which must hold a value, receives none: " + describe(dry) + ", which feeds it, produces no value; v1 never fires the call, so the action carries the token and performs nothing", Approximated, true
+		}
+		if a.holdsNone(ins[i]) {
+			return "the pin " + describe(ins[i]) + " it passes for the parameter " + arg.name + " of " + p.qualified() + ", which must hold a value, may hold none and nothing fills it; v1 leaves the call undefined without it, so the action carries the token and performs nothing", Approximated, true
+		}
+	}
+	return "", Mapped, false
+}
+
+// unwritten returns the value of a value pin of n that has no v2 expression, and
+// why; nil for another pin or a value that is written. n's pins must be settled
+// first, so a value naming a sibling pin reads it.
+func (a *activity) unwritten(n, pin *sysmlv1.Element) (*sysmlv1.Element, string) {
+	v := firstOwned(pin, "value")
+	if v == nil || pin.Type != "ValuePin" {
+		return nil, ""
+	}
+	if _, ok, note := a.m.typedBehaviorValue(v, pin, n); !ok {
+		return v, note
+	}
+	return nil, ""
+}
+
+// holdsNone reports whether an input pin admitting no value (lower bound 0) is
+// sure to hold none: it is no value pin, and nothing producing a value flows into it.
+func (a *activity) holdsNone(pin *sysmlv1.Element) bool {
+	if pin.Type == "ValuePin" && firstOwned(pin, "value") != nil || a.selfFed[pin] {
+		return false
+	}
+	if lv := firstOwned(pin, "lowerValue"); lv == nil || boundValue(lv) != "0" {
+		return false
+	}
+	return len(a.sources[pin]) == 0 || a.unvaluedSources(pin)
 }
 
 // deaden marks the nodes written as placeholders, whose result pins carry no
@@ -158,6 +213,9 @@ func (a *activity) producesAt(pin *sysmlv1.Element) bool {
 	if n.Type == "OpaqueAction" {
 		return a.opaqueOf(n).assigned[pin]
 	}
+	if p := a.m.primitiveCalled(n); p != nil {
+		return slices.Index(outputPins(n), pin) < len(p.outs)
+	}
 	callee, p := a.calleeOutput(pin)
 	if callee != nil && p == nil {
 		return false
@@ -180,7 +238,7 @@ func (a *activity) calleeOutput(pin *sysmlv1.Element) (callee, param *sysmlv1.El
 	if callee == nil || callee.Type != "Activity" {
 		return nil, nil
 	}
-	i := slices.Index(append(n.Owned("result"), n.Owned("outputValue")...), pin)
+	i := slices.Index(outputPins(n), pin)
 	for _, p := range callee.Owned("ownedParameter") {
 		switch p.Attrs["direction"] {
 		case "out", "return", "inout":
@@ -279,27 +337,35 @@ func (a *activity) valueless(pin *sysmlv1.Element) *sysmlv1.Element {
 	return dry
 }
 
-// unarguedParameter returns the first in or inout parameter the action def of a
-// called behavior or operation declares that must hold a value (no default, lower
-// bound above 0) but that no argument pin of the call stands for, or whose pin no
-// value reaches, and says which; nil when every such parameter is served.
-func (a *activity) unarguedParameter(args []*sysmlv1.Element, callee *sysmlv1.Element) (*sysmlv1.Element, string) {
+// absentArguments notes which in or inout parameters of a called behavior or
+// operation that must hold a value (no default, lower bound above 0) the call passes
+// no argument pin for, or a pin no value or possibly none reaches; each such
+// parameter is declared admitting none. "" when every one is served.
+func (a *activity) absentArguments(args []*sysmlv1.Element, callee *sysmlv1.Element) string {
+	var notes []string
 	i := 0
 	for _, p := range a.m.actionParameters(callee) {
-		if dir, _ := parameterDirection(p); dir == "out" || dir == "return" {
+		if dir, _ := parameterDirection(p); dir == "out" {
 			continue
 		}
 		if requiresValue(p) {
+			of := " for the parameter " + a.m.nameFor(p) + " of " + qualifiedName(callee)
 			if i >= len(args) {
-				return p, a.unargued(callee, p)
-			}
-			if dry := a.valueless(args[i]); dry != nil {
-				return p, a.dryArgument(args[i], callee, p, dry)
+				notes = append(notes, "the call passes no argument"+of)
+			} else if why, marked := a.m.admitsNone[args[i]]; marked {
+				holds := " may hold none: "
+				if a.valueless(args[i]) != nil {
+					holds = " receives none: "
+				}
+				notes = append(notes, "the pin "+describe(args[i])+" it passes"+of+holds+why)
 			}
 		}
 		i++
 	}
-	return nil, ""
+	if len(notes) == 0 {
+		return ""
+	}
+	return strings.Join(notes, "; ") + "; v1 runs the callee without the value, so the parameter is declared admitting none"
 }
 
 // requiresValue reports whether a parameter or property must hold a value: it
@@ -312,24 +378,16 @@ func requiresValue(p *sysmlv1.Element) bool {
 	return lv == nil || boundValue(lv) != "0"
 }
 
-// unargued says why a call or send is a placeholder: the callee or signal requires
-// an argument the action never passes, where v1 would run it holding no value.
-func (a *activity) unargued(callee, p *sysmlv1.Element) string {
-	who, what, does := "call", "parameter", "runs the callee"
-	if callee.Type == "Signal" {
-		who, what, does = "send", "attribute", "sends the signal"
-	}
-	return "the " + who + " passes no argument for the " + what + " " + a.m.nameFor(p) + " of " + qualifiedName(callee) + ", which must hold a value; v1 " + does + " without it, which v2 does not admit, so the action carries the token and performs nothing"
+// unargued says why a send is a placeholder: the signal requires an attribute the
+// action never passes, where v1 would send it holding no value.
+func (a *activity) unargued(sig, attr *sysmlv1.Element) string {
+	return "the send passes no argument for the attribute " + a.m.nameFor(attr) + " of " + qualifiedName(sig) + ", which must hold a value; v1 sends the signal without it, which v2 does not admit, so the action carries the token and performs nothing"
 }
 
-// dryArgument says why a call or send is a placeholder: the pin it passes for a
-// required parameter or signal attribute is fed by flows no value travels.
-func (a *activity) dryArgument(pin, callee, p, dry *sysmlv1.Element) string {
-	what, does := "parameter", "runs the callee"
-	if callee.Type == "Signal" {
-		what, does = "attribute", "sends the signal"
-	}
-	return "the pin " + describe(pin) + " it passes for the " + what + " " + a.m.nameFor(p) + " of " + qualifiedName(callee) + ", which must hold a value, receives none: " + describe(dry) + ", which feeds it, produces no value; v1 " + does + " without it, which v2 does not admit, so the action carries the token and performs nothing"
+// dryArgument says why a send is a placeholder: the pin it passes for a required
+// signal attribute is fed by flows no value travels.
+func (a *activity) dryArgument(pin, sig, attr, dry *sysmlv1.Element) string {
+	return "the pin " + describe(pin) + " it passes for the attribute " + a.m.nameFor(attr) + " of " + qualifiedName(sig) + ", which must hold a value, receives none: " + describe(dry) + ", which feeds it, produces no value; v1 sends the signal without it, which v2 does not admit, so the action carries the token and performs nothing"
 }
 
 // misfit returns the types of an argument pin and of the signal attribute it stands

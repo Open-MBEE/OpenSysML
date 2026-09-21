@@ -1099,6 +1099,16 @@ a recorded draw the policy could not have made (a witness that names a fixed pol
 records no draw leaves them to the policy). A simulation tool's *duration simulation mode*
 is this knob; see [Behaviors migrated from SysML v1](#behaviors-migrated-from-sysml-v1).
 
+The clock the durations run on is a setting of the run too. By default it is continuous: a
+wait comes due exactly when it ends. `-clock-step <seconds>` at the command line and
+`%clock-step <seconds>` at the prompt make it tick instead, as a simulation tool's fixed-step
+clock does, so a wait comes due at the first tick not before its end — under a step of `1`, a
+wait of `2.3 [s]` set at `t=0` comes due at `t=3.0` — and a workflow's total is a whole number of
+steps. `0` restores the continuous clock. A witness of a stepped run records `clock steps by
+<seconds>` and replays on it; a migrated run configuration records the tool's step, which
+`-compare-results` applies (see [Comparing a migrated
+configuration](../reference/cli.md#comparing-a-migrated-configuration-with-the-tools-results)).
+
 ### Seeds: where the draws come from
 
 A run that reaches a weighted decision or a `RandomFunctions` call needs a *model seed*. Given

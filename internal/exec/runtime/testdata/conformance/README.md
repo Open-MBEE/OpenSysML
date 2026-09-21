@@ -215,6 +215,11 @@ a fixed policy takes the point of each call's distribution it names and needs no
 `modelSeed`, and the trace records the value taken as `draw <call> = <value>`
 (the `stochastic_draws_*` cases). Omitted or `"random"` draws from the seed.
 
+A case may pin the step its clock ticks by with `"clockStep": <seconds>`, as
+`%clock-step`/`-clock-step` would set it; every wait then comes due at the first
+multiple of the step not before its end (the `clock_step_*` cases). Omitted or `0`
+is the continuous clock.
+
 `TestExecutionConformanceUnderPolicies` runs every case under `declared` and
 under `seed:1`. A case pinning no policy was recorded under the default, so its
 stated result, or one of its `outcomes`, must hold under any policy; one that

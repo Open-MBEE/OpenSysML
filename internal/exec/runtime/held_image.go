@@ -743,6 +743,7 @@ func (m *materializing) run() error {
 	}
 	// Nothing below fails: what names the objects made is installed once they all stand.
 	dst.messages = append(dst.messages, messages...)
+	dst.bus.posts += uint64(len(messages))
 	for sym, ids := range img.occurrences {
 		dst.occurrences[sym] = slices.Clone(ids)
 	}

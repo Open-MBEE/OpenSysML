@@ -128,6 +128,12 @@ type Model struct {
 	// the machines it exhibits and the actions it performs.
 	classifierBehaviors map[*symbols.Symbol][]classifierBehaviorDecl
 
+	// triggerTypes memoizes the definition an accept's type reference denotes in the
+	// scope it is written in, and signalMatches whether a signal conforms to one; a
+	// machine judges every message in flight against every trigger it holds each step.
+	triggerTypes  map[triggerTypeKey]*symbols.Symbol
+	signalMatches map[signalMatchKey]bool
+
 	// sources holds the text of the files the model was read from, by name, so an
 	// error about a declaration can say where it was written. A file no caller
 	// registered is reported by name and byte offset instead.
@@ -201,6 +207,8 @@ func NewModel(sem *semantics.Model, resolver *resolve.Resolver) *Model {
 		bindingIR:           make(map[*symbols.Symbol][]lower.Binding),
 		bindingFeatures:     make(map[*symbols.Symbol]map[string][]lower.Binding),
 		classifierBehaviors: make(map[*symbols.Symbol][]classifierBehaviorDecl),
+		triggerTypes:        make(map[triggerTypeKey]*symbols.Symbol),
+		signalMatches:       make(map[signalMatchKey]bool),
 		sources:             make(map[string]*source.SourceFile),
 	}
 }

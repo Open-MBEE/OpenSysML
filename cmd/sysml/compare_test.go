@@ -15,11 +15,61 @@ import (
 // the snapshots a simulation tool stored of its runs.
 var simconfigXMI = filepath.Join("..", "..", "tests", "migrate", "testdata", "xmi", "simconfig.xmi")
 
+// montecarloXMI is a v1 model whose target inherits the MagicDraw customization's
+// MonteCarloAnalysis: its result package holds runs one by one and summarised.
+var montecarloXMI = filepath.Join("..", "..", "tests", "migrate", "testdata", "xmi", "montecarlo.xmi")
+
+// TestSummarisedMigrationResultsThroughCLI checks a configuration whose tool
+// summarised runs is compared by the count and mean the summary kept, pooled with
+// the runs stored one by one; that one storing no run is run and told so; and
+// that one stating no numberOfRuns is run once.
+func TestSummarisedMigrationResultsThroughCLI(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	model, sidecar := filepath.Join(dir, "model.sysml"), filepath.Join(dir, "results.json")
+
+	migrated := runCommand(t, exec.Command(binary, montecarloXMI, "-convert", "sysml", "-o", model, "-migration-results", sidecar))
+	if migrated.status != 0 {
+		t.Fatalf("migrating failed: %s", migrated.output())
+	}
+	if !strings.Contains(migrated.stderr, "(results of 3 run configuration(s): 2 with 12 stored snapshot(s) standing for 16 run(s))") {
+		t.Errorf("the sidecar summary counts no summarised runs:\n%s", migrated.output())
+	}
+	compared := runCommand(t, exec.Command(binary, model, "-compare-results", sidecar, "-seed", "1"))
+	if compared.status != 0 {
+		t.Fatalf("exit status = %d, want 0\n%s", compared.status, compared.output())
+	}
+	for _, want := range []string{
+		"compare 'Group 0' — 15 stored run(s) over 11 snapshot(s) in Results; 3 run(s) by OpenSysML, draws average, seed 1\n",
+		"p          | tool                 | 1    | 0.5   | 0.5               | 0.5   | 0.5   | 0.5",
+		"t          | tool                 | 13   |       | 4.615384615384615 |       |       |",
+		"           | OpenSysML (target.t) | 3    | 3.0   | 3.0               | 3.0   | 3.0   | 3.0",
+		"           | difference           |      |       | -35.0%            |       |       |",
+		`note: "analysis of 4 runs" summarises 4 run(s) of t: mean 3.5, deviation 0.5, 1 out of specification`,
+		`note: "analysis without a deviation" summarises 2 run(s) of t: mean 7.0` + "\n",
+		"note: the slot of MonteCarloAnalysis::Mean holds a LiteralString, which is no number in 1 snapshot(s), so it is not among the results",
+		"note: the slot of MonteCarloAnalysis::N holds 2 numbers over as many slots, and a statistic is one number in 1 snapshot(s), so it is not among the results",
+		"note: 2 snapshot(s) record a MonteCarloAnalysis statistic that is no one number, so they hold no statistics",
+		"u          | tool                 | 1    | 9.0   | 9.0               | 9.0   | 9.0   | 9.0",
+		"note: 2 snapshot(s) record MonteCarloAnalysis statistics whose Mean no value of t holds, though the analysis binds the two, so the statistics are not read",
+		"compare 'Group 1' — no stored run in Empty; 1 run(s) by OpenSysML, draws average, seed 1\n",
+		"t          | tool (no stored result to compare) | 0    |     |      |     |     |",
+		"           | OpenSysML (target.t)               | 1    | 3.0 | 3.0  | 3.0 | 3.0 | 3.0",
+		"note: the configuration states no numberOfRuns, so one run is made, as its tool makes without one; -runs <number> makes more",
+		"compare 'Group 2' — 1 stored run(s) in Unbound Results; 1 run(s) by OpenSysML, draws average, seed 1\n",
+		"note: 'Unbound Analysis' inherits MonteCarloAnalysis but binds its Mean to no feature, so its statistics summarise no observable",
+	} {
+		if !strings.Contains(compared.stdout, want) {
+			t.Errorf("the comparison lacks %q:\n%s", want, compared.output())
+		}
+	}
+}
+
 // TestMigrationResultsThroughCLI checks -migration-results writes the sidecar
 // -compare-results reads: the configuration's runs and draws, its target and
 // behavior, and the numbers of every snapshot; then that the migrated model is
 // run against it — under the configured count and policy, and under -runs,
-// -seed, -draws, -observe and -action instead — and that misuse is refused.
+// -seed, -draws, -clock-step, -observe and -action instead — and that misuse is refused.
 func TestMigrationResultsThroughCLI(t *testing.T) {
 	binary := buildCLI(t)
 	dir := t.TempDir()
@@ -74,12 +124,12 @@ func TestMigrationResultsThroughCLI(t *testing.T) {
 		t.Errorf("-compare-results left a prompt:\n%s", configured.output())
 	}
 
-	overridden := compare("-runs", "3", "-seed", "5", "-draws", "random", "-observe", "pA", "-observe", "pB=target.pA", "-action", "Group 0")
+	overridden := compare("-runs", "3", "-seed", "5", "-draws", "random", "-clock-step", "0.5", "-observe", "pA", "-observe", "pB=target.pA", "-action", "Group 0")
 	if overridden.status != 0 {
 		t.Fatalf("exit status = %d, want 0\n%s", overridden.status, overridden.output())
 	}
 	for _, want := range []string{
-		"compare 'Group 0' — 4 stored run(s) in Results; 3 run(s) by OpenSysML, draws random, seed 5\n",
+		"compare 'Group 0' — 4 stored run(s) in Results; 3 run(s) by OpenSysML, draws random, seed 5, clock step 0.5 s\n",
 		"           | OpenSysML (target.pA) | 3    | 1.0       | 1.0   | 1.0     | 1.0    | 1.0",
 		"pB         | tool                  | 4    | 0.0       | 1.0   | 0.25    | 3.0    | 3.0",
 		"           | difference            |      | +1 (of 0) | +0.0% | +300.0% | -66.7% | -66.7%",
