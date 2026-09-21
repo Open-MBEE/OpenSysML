@@ -39,6 +39,22 @@ func (m *migration) activityBody(act, def *sysmlv1.Element) {
 	a.rules()
 }
 
+// nodesRefused counts, once act's body is written, the actions among its
+// nodes reported unmapped, and those actions in all; control nodes structure
+// the flow and are left out.
+func (m *migration) nodesRefused(act *sysmlv1.Element) (refused, total int) {
+	for _, n := range act.Owned("node") {
+		if nodeKind(n) != nodeAction {
+			continue
+		}
+		total++
+		if i, ok := m.indexed[n.ID]; ok && m.report.Entries[i].Verdict == Unmapped {
+			refused++
+		}
+	}
+	return refused, total
+}
+
 // activity writes one node graph: an activity's, or a structured node's.
 type activity struct {
 	m   *migration

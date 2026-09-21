@@ -1,0 +1,12 @@
+# Migrating the pinned OMG PSSM test suite (build/pssm/PSSM_TestSuite.xmi) to
+# SysML v2 notation: the migration report's totals by verdict and the number
+# of error diagnostics the written notation analyses with, as "<count>\t<figure>".
+# The notation parsing clean is asserted, not recorded; these figures are a
+# ratchet whose every movement is adjudicated. See docs/project/pssm-migration.md.
+# Regenerate with:
+#   go test ./tests/corpus -run TestPSSMSuiteMigration -update-pssm-migration
+13681	approximated
+23731	mapped
+6	skipped
+10242	unmapped
+21	validation-errors

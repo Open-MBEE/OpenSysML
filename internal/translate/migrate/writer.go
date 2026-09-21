@@ -8,8 +8,6 @@ import "strings"
 type writer struct {
 	bufs   []*strings.Builder
 	indent int
-	// braces is the buffer depth whose empty blocks keep their braces; 0 for none.
-	braces int
 }
 
 func (w *writer) buf() *strings.Builder {
@@ -37,10 +35,21 @@ func (w *writer) lines(ls []string) {
 }
 
 // block writes header with a brace-delimited body, or as `header;` when the
-// body writes nothing, unless braced asked for the braces to be kept.
+// body writes nothing.
 func (w *writer) block(header string, body func()) {
+	w.enclose(header, ";", body)
+}
+
+// braced writes header with a brace-delimited body, `header { }` when the body
+// writes nothing: for a clause the grammar continues after, which `;` would end.
+func (w *writer) braced(header string, body func()) {
+	w.enclose(header, " { }", body)
+}
+
+// enclose writes header with a brace-delimited body, or header followed by
+// empty when the body writes nothing.
+func (w *writer) enclose(header, empty string, body func()) {
 	w.buf()
-	depth := len(w.bufs)
 	w.bufs = append(w.bufs, &strings.Builder{})
 	w.indent++
 	body()
@@ -48,26 +57,12 @@ func (w *writer) block(header string, body func()) {
 	inner := w.bufs[len(w.bufs)-1].String()
 	w.bufs = w.bufs[:len(w.bufs)-1]
 	if inner == "" {
-		if w.braces == depth {
-			w.line(header + " { }")
-		} else {
-			w.line(header + ";")
-		}
+		w.line(header + empty)
 		return
 	}
 	w.line(header + " {")
 	_, _ = w.buf().WriteString(inner)
 	w.line("}")
-}
-
-// braced runs body with its blocks at the current depth keeping their braces when empty,
-// for a clause a `;` would end, as a transition's do action that `then` must follow.
-func (w *writer) braced(body func()) {
-	saved := w.braces
-	w.buf()
-	w.braces = len(w.bufs)
-	body()
-	w.braces = saved
 }
 
 // indented writes body one level deeper, for a clause continued on the next lines.

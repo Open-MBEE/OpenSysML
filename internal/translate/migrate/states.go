@@ -691,7 +691,7 @@ func (s *stateRegion) initial(vertices, transitions []*sysmlv1.Element, entered 
 		note = joinNotes(note, "an initial transition takes no guard; "+text+" is dropped")
 		s.m.add(g, Unmapped, "", "a guard of an initial transition, which takes none, is dropped")
 	}
-	switch eff := firstOwned(t, "effect"); {
+	switch eff := s.m.behaviorIn(t, "effect"); {
 	case eff == nil:
 		s.m.w.line(entryThen(entered, to))
 	case entered:
@@ -821,7 +821,7 @@ func (s *stateRegion) state(v *sysmlv1.Element) {
 		s.m.add(v, Mapped, name, "")
 	}
 	regions := s.m.populatedRegions(v)
-	entry, do, exit := s.m.stateBehavior(v, "entry"), s.m.stateBehavior(v, "doActivity"), s.m.stateBehavior(v, "exit")
+	entry, do, exit := s.m.behaviorIn(v, "entry"), s.m.behaviorIn(v, "doActivity"), s.m.behaviorIn(v, "exit")
 	inv := firstOwned(v, "stateInvariant")
 	points := s.m.connectionPoints(v)
 	pointRegs := pointRegions(v)
@@ -965,22 +965,40 @@ func (m *migration) inlineBehavior(kw string, b, owner *sysmlv1.Element) bool {
 	return m.writeInlineBody(kw, b, owner, header)
 }
 
+// effectClause reports whether kw is a transition's effect, which its target
+// follows on the next line, so no `;` may end it; a state's action stands alone.
+func effectClause(kw string, owner *sysmlv1.Element) bool {
+	return owner.Type == "Transition" && kw == doAction
+}
+
 // writeInlineBody writes an inline behavior's block by its kind: an activity's
 // full body, an opaque body's statements or a comment, nothing otherwise.
 func (m *migration) writeInlineBody(kw string, b, owner *sysmlv1.Element, header string) bool {
+	enclose := m.w.block
+	if effectClause(kw, owner) {
+		enclose = m.w.braced
+	}
 	switch b.Type {
 	case "Activity":
-		m.w.block(header, func() {
+		enclose(header, func() {
 			m.comments(b)
 			m.parameters(b, b)
 			m.activityBody(b, b)
 		})
-		m.add(b, Mapped, m.v2Name(b), "written as the "+kw+" of "+describe(owner))
+		note := "written as the " + kw + " of " + describe(owner)
+		switch refused, total := m.nodesRefused(b); {
+		case len(b.Owned("node")) == 0:
+			note = joinNotes(note, "the activity has no nodes, so the action is empty")
+		case refused > 0 && refused == total:
+			m.add(b, Approximated, m.v2Name(b), joinNotes(note, "none of its "+count(total, "action")+" is migrated, so it runs nothing"))
+			return true
+		}
+		m.add(b, Mapped, m.v2Name(b), note)
 		return true
 	case "OpaqueBehavior", "FunctionBehavior":
 		body, lang := opaqueBody(b)
 		lines, ok, note := m.statements(body, lang, b)
-		m.w.block(header, func() {
+		enclose(header, func() {
 			m.comments(b)
 			m.parameters(b, b)
 			if ok {
@@ -1010,11 +1028,13 @@ func (m *migration) referencedBehavior(kw string, b, owner *sysmlv1.Element) boo
 	if !m.written(b) {
 		m.w.lines(commentLines(kw + " " + qualifiedName(b) + " has no v2 declaration"))
 		m.add(b, Unmapped, "", "the behavior is not written; "+describe(owner)+" names it as its "+kw)
+		m.add(owner, Approximated, "", "its "+kw+" "+qualifiedName(b)+notRun+"it has no v2 declaration")
 		return false
 	}
 	if cat, _ := m.classify(b); cat != catActionDef {
 		m.w.lines(commentLines(kw + " " + qualifiedName(b) + " is written as a " + cat.keyword() + ", which no state runs"))
 		m.downgrade(b, describe(owner)+" names it as its "+kw+", which a "+cat.keyword()+" cannot be")
+		m.add(owner, Approximated, "", "its "+kw+" "+qualifiedName(b)+notRun+"it is written as a "+cat.keyword())
 		return false
 	}
 	var ins []string
@@ -1037,11 +1057,14 @@ func (m *migration) referencedBehavior(kw string, b, owner *sysmlv1.Element) boo
 			return false
 		}
 	}
-	if len(ins) > 0 {
-		m.w.line(kw + " : " + m.ref(b, owner) + " { " + strings.Join(ins, "; ") + "; }")
-	} else {
-		m.w.block(kw+" : "+m.ref(b, owner), func() {})
+	line := kw + " : " + m.ref(b, owner)
+	switch {
+	case len(ins) > 0:
+		line += " { " + strings.Join(ins, "; ") + "; }"
+	case !effectClause(kw, owner):
+		line += ";"
 	}
+	m.w.line(line)
 	m.downgrade(b, note)
 	return true
 }
@@ -1268,7 +1291,7 @@ func (s *stateRegion) transition(t *sysmlv1.Element) {
 		return
 	}
 	guard, gnote := s.guard(t, src)
-	eff := firstOwned(t, "effect")
+	eff := s.m.behaviorIn(t, "effect")
 	if gnote != "" {
 		notes = append(notes, gnote)
 	}
@@ -1418,15 +1441,15 @@ func (m *migration) reentryObservable(v *sysmlv1.Element) bool {
 	if v.Type != "State" {
 		return true
 	}
-	if m.stateBehavior(v, "entry") != nil || m.stateBehavior(v, "exit") != nil || m.stateBehavior(v, "doActivity") != nil {
+	if m.behaviorIn(v, "entry") != nil || m.behaviorIn(v, "exit") != nil || m.behaviorIn(v, "doActivity") != nil {
 		return true
 	}
 	return len(v.Owned("region")) > 0 || m.model.Ref(v, "submachine") != nil || len(v.Owned("deferrableTrigger")) > 0
 }
 
-// stateBehavior gives the behavior a state runs in a role, whether it owns it
-// or refers to one owned elsewhere.
-func (m *migration) stateBehavior(v *sysmlv1.Element, role string) *sysmlv1.Element {
+// behaviorIn gives the behavior a state or transition runs in a role, whether
+// it owns it or refers to one owned elsewhere.
+func (m *migration) behaviorIn(v *sysmlv1.Element, role string) *sysmlv1.Element {
 	if b := firstOwned(v, role); b != nil {
 		return b
 	}
@@ -1469,16 +1492,14 @@ func (s *stateRegion) writeTransitionEffect(t, eff *sysmlv1.Element, accept acce
 	}
 	s.m.w.line(line)
 	s.m.w.indented(func() {
-		s.m.w.braced(func() {
-			if eff == nil {
-				s.m.w.block(doAction, func() { s.m.w.line(accept.keeping) })
-				return
-			}
+		if eff == nil {
+			s.m.w.braced(doAction, func() { s.m.w.line(accept.keeping) })
+		} else {
 			saved, savedKeep := s.m.bound, s.m.keeping
 			s.m.bound, s.m.keeping = accept.bound, accept.keeping
 			s.m.inlineBehavior(doAction, eff, t)
 			s.m.bound, s.m.keeping = saved, savedKeep
-		})
+		}
 		s.m.w.line("then " + to + ";")
 	})
 }
