@@ -1130,8 +1130,7 @@ The runtime executes actions, state machines, calculations and constraints again
 IR (`internal/ir/lower` `ActionGraph`/`StateGraph`, `internal/exec/runtime`), and
 `docs/project/spec-compliance.md` § "What We Don't (Yet) Support" lists what it does not
 execute: interruptible regions, expansion regions, streaming pins, protocol state machines,
-operation invocation with positional arguments, and routing a send to a second object of one
-usage; a `terminate` inside a body is refused by the runtime with a typed error and appears in no
+and operation invocation with positional arguments; a `terminate` inside a body is refused by the runtime with a typed error and appears in no
 list. The behavior-execution review after `v0.4.3` found nothing missing beyond those, and this
 track records each as work with a stated scope, dependency order and acceptance gate rather than
 as a bullet or an error message alone. **Eligible: the next executor track.** The condition was
@@ -1502,9 +1501,8 @@ one with its behaviors terminated. Proof: conformance `object_created_by_constru
 record's *Dynamic object creation* row and its `create`/`destroy` row, and the "not supported"
 bullet gone.
 
-**What it leaves.** E7 itself: `send … to <expr>` still resolves a target that is a usage name to
-the occurrence the context holds for it, so the second object of a usage is addressed only through
-a feature that holds it. The RDF mapping is of the model and exports no run's objects.
+**What it leaves.** The RDF mapping is of the model and exports no run's objects. E7, the send
+side, has landed (below).
 
 ## E7 — an addressed send to a second object of one usage
 
@@ -1536,8 +1534,23 @@ creation and destruction*, landed, above); the send side is what remains. Indepe
 **Proof.** Conformance: two objects of one usage, a send addressed to the second, only the second's
 accept fires (with the `via` form of the same model); a trace golden; robustness for a target
 expression yielding no object. `spec-compliance.md`: the Known Limitations bullet and the "not
-supported" bullet both leave. The object-model item has landed, so the second object to address
-exists; this is ready to take up.
+supported" bullet both leave.
+
+**Landed.** `lower.Send` carries the `to` expression (`TargetExpr`, `ReceiverExpr`) beside the
+name it reduces to; a target that is neither a name nor a feature chain — `cars#(2)`,
+`garage.cars#(2)`, `new Car()` — is evaluated in the sending performance
+(`runtime/signal.go` `valuedTargetAddresses`, `receiverObjects`) and the message is addressed to
+the identity of every live object it yields, while a plain name still resolves by usage as before.
+In the `via` form a `to` that names no receiving node of the sender is evaluated the same way and
+the routed copies are kept only where they reach one of those objects (`routedReceiverObjects`).
+A receiver yielding no object or a data value is `ErrSendTargetNotObject`, a destroyed one
+`ErrOccurrenceDestroyed`, a routed receiver no connection reaches `ErrUnreachableSendReceiver`.
+Proof: conformance `send_to_second_object_of_usage` and `send_via_to_second_object_of_usage` with
+trace goldens, `send_to_object_held_in_feature`, `send_to_object_through_chain`,
+`signal_test.go` `TestSendToConstructedObjectReachesIt`,
+`robustness_send_to_object_identity_test.go` `TestRuntimeRobustnessSendToObjectIdentity`; the
+compliance record's send rows updated, the Known Limitations bullet and the "not supported" bullet
+gone.
 
 ## E8 — `isRunToCompletion` and `runToCompletionScope` redefinitions
 
@@ -3076,7 +3089,7 @@ Tracks F, S, L and A are closed.
 
 - **Track E** — eligible and first: E2 (E1 and E4 landed), with E6 landed; E3 closed by its
   design record, E5 closed by its record (an optional follow-up waits on a model that needs it),
-  E7 behind its object-model item, E8 behind a model that needs it. The
+  E7 landed, E8 behind a model that needs it. The
   PSSM referee's 17 `fail` tests are the state side's measurement, every one attributed (#326):
   eleven wait on the region-order choice point whose design record #342 wrote and left at two
   maintainer decisions — the nine the record names to move `fail` → `pass`, plus *Terminate 001*
@@ -3191,8 +3204,7 @@ an empty action end its performance. The decision is the release checklist's, re
 - **Track E.** Eligible — step 1 above. **E1** (termination of an ongoing performance, which
   **E2** and **E4** build on) is landed; the order is **E2**; **E4** is landed; **E6** is landed;
   **E3**'s record is landed and closes the item; **E5**'s record is landed and closes the item,
-  its optional follow-up waiting on a model that needs it; **E7** after the object-model item it
-  depends on; **E8** when a model redefines run-to-completion, its refusal (#229) standing until
+  its optional follow-up waiting on a model that needs it; **E7** is landed; **E8** when a model redefines run-to-completion, its refusal (#229) standing until
   then; **E1**, **E9** and **E10** are landed; no work follows E3.
 - **Track X.** X2, X3, X4, X5, X6, X7's values and X8's typing landed (#164, #115, #113, #211,
   #122, #121, #112). What is left, in order: X8's harness halves (normalization and adjudication

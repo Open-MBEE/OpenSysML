@@ -1695,8 +1695,8 @@ func TestRelationshipsComeFromEveryTypeOfTheObject(t *testing.T) {
 	if strings.Join(conns, ",") != "p-q,q-r" {
 		t.Fatalf("connections = %v, want Base's p-q then Wide's q-r, each once", conns)
 	}
-	if anon := ctx.anonymousConnectorsOf(raw.types()); len(anon) != 2 {
-		t.Fatalf("anonymous connectors = %d, want Base's and Wide's", len(anon))
+	if anon := ctx.anonymousConnectorsOf(raw.types()); len(anon) != 4 {
+		t.Fatalf("anonymous connectors = %d, want Base's and Wide's bindings and connections", len(anon))
 	}
 }
 

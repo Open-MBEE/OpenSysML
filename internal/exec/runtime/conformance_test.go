@@ -391,6 +391,10 @@ func loadKnownFailures(t *testing.T, conformanceDir string) map[string]bool {
 // runConformanceCase executes a single conformance test case under policy, or
 // under the policy the case pins if it pins one.
 func runConformanceCase(t *testing.T, conformanceDir, caseName string, policy SchedulePolicy) {
+	runConformanceCaseWithOwned(t, conformanceDir, caseName, policy, false)
+}
+
+func runConformanceCaseWithOwned(t *testing.T, conformanceDir, caseName string, policy SchedulePolicy, forceOwned bool) {
 	// Load .sysml file
 	sysmlPath := filepath.Join(conformanceDir, caseName+".sysml")
 	sysmlData, err := os.ReadFile(sysmlPath)
@@ -439,9 +443,12 @@ func runConformanceCase(t *testing.T, conformanceDir, caseName string, policy Sc
 	// Dispatch based on type
 	switch expected.Type {
 	case "action":
+		if forceOwned {
+			t.Skip("no object owns connectors before execution")
+		}
 		runActionConformance(t, ctx, idx, sysmlPath, expected)
 	case "state":
-		runStateConformance(t, ctx, idx, sysmlPath, expected)
+		runStateConformance(t, ctx, idx, sysmlPath, expected, forceOwned)
 	case "calc":
 		runCalcConformance(t, ctx, idx, sysmlPath, expected)
 	case "calcUsage":
@@ -455,10 +462,16 @@ func runConformanceCase(t *testing.T, conformanceDir, caseName string, policy Sc
 	case "analysis":
 		runAnalysisConformance(t, ctx, idx, sysmlPath, expected)
 	case "verification":
+		if forceOwned {
+			t.Skip("no object owns connectors before execution")
+		}
 		runVerificationConformance(t, ctx, idx, sysmlPath, expected)
 	case "instance":
-		runInstanceConformance(t, ctx, idx, sysmlPath, expected)
+		runInstanceConformance(t, ctx, idx, sysmlPath, expected, forceOwned)
 	default:
+		if forceOwned {
+			t.Skip("no object owns connectors before execution")
+		}
 		t.Fatalf("unknown test type: %s", expected.Type)
 	}
 	// Exploration is the same under any policy, so the default suite does it once.
@@ -908,10 +921,13 @@ func runActionConformance(t *testing.T, ctx *Context, idx *symbols.Index, path s
 // runStateConformance executes a state machine and validates the final state. A
 // case naming performers runs the machine once per object performing it, each
 // against the outcome that object expects.
-func runStateConformance(t *testing.T, ctx *Context, idx *symbols.Index, path string, expected ExpectedOutcome) {
+func runStateConformance(t *testing.T, ctx *Context, idx *symbols.Index, path string, expected ExpectedOutcome, forceOwned bool) {
 	rootScope := idx.DocumentRoot(path)
 	stateSym := namedOrFoundSymbol(t, idx, expected.Evaluate, rootScope, ast.DefState, ast.UsageState)
 	if len(expected.Performers) == 0 {
+		if forceOwned {
+			t.Skip("no object owns connectors before execution")
+		}
 		runOneStatePerformance(t, ctx, stateSym, nil, expected)
 		return
 	}
@@ -919,6 +935,11 @@ func runStateConformance(t *testing.T, ctx *Context, idx *symbols.Index, path st
 		self, err := ctx.Instantiate(oneSymbol(t, idx, performer.Object))
 		if err != nil {
 			t.Fatalf("instantiate %s: %v", performer.Object, err)
+		}
+		if forceOwned {
+			if err := forceOwnedConnectors(ctx, self); err != nil {
+				t.Fatalf("OwnedConnectors(%s) failed before execution: %v", performer.Object, err)
+			}
 		}
 		t.Run(performer.Object, func(t *testing.T) {
 			runOneStatePerformance(t, ctx, stateSym, self, ExpectedOutcome{
@@ -930,6 +951,33 @@ func runStateConformance(t *testing.T, ctx *Context, idx *symbols.Index, path st
 			})
 		})
 	}
+}
+
+func forceOwnedConnectors(ctx *Context, root *Instance) error {
+	visited := make(map[int64]bool)
+	var walk func(*Instance) error
+	walk = func(inst *Instance) error {
+		if inst == nil || visited[inst.ID] {
+			return nil
+		}
+		visited[inst.ID] = true
+		if _, err := inst.OwnedConnectors(ctx); err != nil {
+			return err
+		}
+		for _, feature := range ctx.FeaturesOfObject(inst) {
+			fv, err := inst.GetFeatureValue(ctx, feature.Name)
+			if err != nil {
+				continue
+			}
+			for _, child := range heldInstances(ctx, fv) {
+				if err := walk(child); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}
+	return walk(root)
 }
 
 // queuedEvents converts the events a case declares into the events the runtime
@@ -1477,7 +1525,7 @@ func runSatisfyConformance(t *testing.T, ctx *Context, idx *symbols.Index, path 
 // runInstanceConformance instantiates a type and validates the values its feature values
 // hold, including derived defaults, plus the verdict of each constraint the
 // instance carries.
-func runInstanceConformance(t *testing.T, ctx *Context, idx *symbols.Index, path string, expected ExpectedOutcome) {
+func runInstanceConformance(t *testing.T, ctx *Context, idx *symbols.Index, path string, expected ExpectedOutcome, forceOwned bool) {
 	if expected.Instantiate == "" {
 		t.Fatalf("instance case declares no \"instantiate\" type")
 	}
@@ -1494,6 +1542,11 @@ func runInstanceConformance(t *testing.T, ctx *Context, idx *symbols.Index, path
 	}
 	if err != nil {
 		t.Fatalf("Instantiate(%s) failed: %v", expected.Instantiate, err)
+	}
+	if forceOwned {
+		if err := forceOwnedConnectors(ctx, inst); err != nil {
+			t.Fatalf("OwnedConnectors(%s) failed before execution: %v", expected.Instantiate, err)
+		}
 	}
 
 	for name, expectedVal := range expected.FeatureValues {

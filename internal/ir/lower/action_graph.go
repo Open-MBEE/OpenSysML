@@ -185,6 +185,9 @@ type Send struct {
 	// TargetPath records that Target is a feature chain (`a.b`) reaching through
 	// the sender's features, rather than a name in a namespace (`R`, `P::R`).
 	TargetPath bool
+	// TargetExpr is the receiver expression of an addressed send as written; the
+	// runtime evaluates it to objects where Target carries no name or path.
+	TargetExpr ast.Node
 	IsVia      bool
 	// ViaSelf records a via path written from `this`, whose root is a feature of
 	// the sender even where the behavior binds that name to another object.
@@ -192,6 +195,9 @@ type Send struct {
 	// Receiver is the name addressed by a routed send, empty when omitted.
 	Receiver     string
 	ReceiverPath bool
+	// ReceiverExpr is the `to` expression of a routed send, likewise evaluated to
+	// objects where Receiver carries no name the sender resolves.
+	ReceiverExpr ast.Node
 	Scope        *symbols.Scope // the scope the statement was declared in
 }
 
@@ -1238,16 +1244,22 @@ func lowerStatement(member ast.Node, scope *symbols.Scope) Statement {
 				Scope:       scope,
 			}
 		}
+		var targetExpr ast.Node
+		if !m.IsVia {
+			targetExpr = m.Target
+		}
 		receiver, receiverPath := SendTarget(m.Receiver)
 		return Send{
 			Message:      message,
 			Target:       target,
 			TargetSym:    targetSym,
 			TargetPath:   isPath,
+			TargetExpr:   targetExpr,
 			IsVia:        m.IsVia,
 			ViaSelf:      viaSelf,
 			Receiver:     receiver,
 			ReceiverPath: receiverPath,
+			ReceiverExpr: m.Receiver,
 			Scope:        scope,
 		}
 	case *ast.AssignmentActionNode:

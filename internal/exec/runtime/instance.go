@@ -845,13 +845,13 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 	// An abstract feature has no values of its own (KerML 1.0 §7.3.3.1) and an
 	// optional one demands none: each, a connector included, holds only contributions —
 	// unless the declaration's body binds a feature of the one object it then holds.
-	if fv.Feature.HoldsOnlyContributions() && !ctx.bodyBindsAFeature(fv.Feature) && (ctx.model.semantics.IsConnectorUsage(fv.Feature.Symbol) || ctx.CompositeTypeOf(fv.Feature) != nil) {
+	if fv.Feature.HoldsOnlyContributions() && !ctx.bodyBindsAFeature(fv.Feature) && (ctx.model.semantics.IsConnectorObjectUsage(fv.Feature.Symbol) || ctx.CompositeTypeOf(fv.Feature) != nil) {
 		return inst.holdContributions(ctx, fv, name)
 	}
 
 	// A connector holds the features it connects at its ends rather than objects
 	// of its own, so it is materialized from what the `connect` clause names.
-	if ctx.model.semantics.IsConnectorUsage(fv.Feature.Symbol) {
+	if ctx.model.semantics.IsConnectorObjectUsage(fv.Feature.Symbol) {
 		if err := ctx.materializeConnectorFeatureValue(inst, fv, name); err != nil {
 			return nil, err
 		}

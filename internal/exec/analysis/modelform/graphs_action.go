@@ -233,10 +233,12 @@ type StatementForm struct {
 	Target       string    `json:"target,omitempty"`
 	TargetSymbol string    `json:"targetSymbol,omitempty"`
 	TargetPath   bool      `json:"targetPath,omitempty"`
+	TargetExpr   *ExprForm `json:"targetExpr,omitempty"`
 	Via          bool      `json:"via,omitempty"`
 	ViaSelf      bool      `json:"viaSelf,omitempty"`
 	Receiver     string    `json:"receiver,omitempty"`
 	ReceiverPath bool      `json:"receiverPath,omitempty"`
+	ReceiverExpr *ExprForm `json:"receiverExpr,omitempty"`
 	// assign, declare, declare usage
 	Name  string     `json:"name,omitempty"`
 	Chain *ChainForm `json:"chain,omitempty"`
@@ -560,6 +562,13 @@ func (x *graphsExporter) statement(enclosing *symbols.Scope, s lower.Statement) 
 	switch s := s.(type) {
 	case lower.Send:
 		scope := orScope(s.Scope, enclosing)
+		var targetExpr, receiverExpr *ExprForm
+		if s.Target == "" && s.TargetExpr != nil {
+			targetExpr = x.expr(scope, s.TargetExpr)
+		}
+		if s.Receiver == "" && s.ReceiverExpr != nil {
+			receiverExpr = x.expr(scope, s.ReceiverExpr)
+		}
 		return StatementForm{
 			Kind:         "send",
 			Span:         x.span(scope, s.Message),
@@ -568,10 +577,12 @@ func (x *graphsExporter) statement(enclosing *symbols.Scope, s lower.Statement) 
 			Target:       s.Target,
 			TargetSymbol: symbols.FQNOf(s.TargetSym),
 			TargetPath:   s.TargetPath,
+			TargetExpr:   targetExpr,
 			Via:          s.IsVia,
 			ViaSelf:      s.ViaSelf,
 			Receiver:     s.Receiver,
 			ReceiverPath: s.ReceiverPath,
+			ReceiverExpr: receiverExpr,
 		}, nil
 	case lower.Assign:
 		scope := orScope(s.Scope, enclosing)

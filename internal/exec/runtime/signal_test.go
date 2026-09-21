@@ -2385,3 +2385,62 @@ func TestStateSendCallsFunctionImportedByNestedBlock(t *testing.T) {
 	}
 	assertVisits(t, visits, "start", "waiting", "done")
 }
+
+// A send addressed to a constructor expression delivers to the object the
+// expression built: that new occurrence's machine accepts the ping, while the
+// declared part's — accepting the same signal — stays waiting.
+func TestSendToConstructedObjectReachesIt(t *testing.T) {
+	ctx, fleet, err := instantiateWithLibraries(t, `package test {
+		item def Ping;
+		part def Car {
+			exhibit state listening {
+				entry; then waiting;
+				state waiting;
+				accept Ping then heard;
+				state heard;
+			}
+		}
+		part def Fleet {
+			part car : Car;
+			perform action build {
+				first start;
+				then action ping { send new Ping() to new Car(); }
+				then done;
+			}
+		}
+	}`, "test::Fleet")
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	declared, held, err := ctx.fvObject(fleet, "car")
+	if err != nil || !held {
+		t.Fatalf("fleet.car: %v, %v", held, err)
+	}
+	var constructed *Instance
+	for _, inst := range ctx.instances {
+		if inst.Type == nil || inst.Type.Name != "Car" {
+			continue
+		}
+		b, ok := inst.Behavior("listening")
+		if !ok || b.State == nil {
+			t.Fatalf("Car #%d runs no machine listening", inst.ID)
+		}
+		if inst.ID == declared.ID {
+			if got := b.State.FinalStateName(); got != "waiting" {
+				t.Errorf("declared car's machine = %s, want waiting", got)
+			}
+			continue
+		}
+		if constructed != nil {
+			t.Fatalf("a second constructed Car: #%d and #%d", constructed.ID, inst.ID)
+		}
+		constructed = inst
+	}
+	if constructed == nil {
+		t.Fatal("no Car constructed by the send's target")
+	}
+	b, _ := constructed.Behavior("listening")
+	if got := b.State.FinalStateName(); got != "heard" {
+		t.Errorf("constructed car's machine = %s, want heard", got)
+	}
+}
