@@ -15,8 +15,7 @@ interface ExtensionRegistry {
 const contribution: TreeItemContextMenuOverrideContribution = {
   canHandle: (entry: GQLTreeItemContextMenuEntry) => entry.id === RUN_WITH_OPENSYSML_TOOL_ID,
   // The menu uses only four of Sirius' props; the contribution type wants the full set.
-  component:
-    RunWithOpenSysMLMenuContribution as unknown as TreeItemContextMenuOverrideContribution['component'],
+  component: RunWithOpenSysMLMenuContribution as unknown as TreeItemContextMenuOverrideContribution['component'],
 };
 
 export const opensysmlExtensionRegistry: ExtensionRegistry = new SiriusExtensionRegistry();
