@@ -64,6 +64,8 @@ func TestRuntimeRobustnessTransitionProbability(t *testing.T) {
 	t.Run("non_constant_weights_not_summing_at_dispatch", testTransitionWeightsNotSummingAtDispatch)
 	t.Run("non_numeric_weight", testTransitionWeightOfNonNumericType)
 	t.Run("holding_total_zero_at_dispatch", testTransitionHoldingTotalZero)
+	t.Run("lone_enabled_zero_weight", testLoneEnabledZeroWeight)
+	t.Run("lone_enabled_weight_above_one", testLoneEnabledWeightAboveOne)
 }
 
 // testTransitionNegativeWeight: a probability is in [0, 1], so a constant
@@ -341,5 +343,33 @@ func TestCheckWeightsViolationMass(t *testing.T) {
 	}
 	if !bounded.MassBounded || len(bounded.BoundsHit) == 0 {
 		t.Errorf("a depth cut reports massLowerBound=%v bounds=%v, want the bound hit", bounded.MassBounded, bounded.BoundsHit)
+	}
+}
+
+// testLoneEnabledZeroWeight: a guard leaving only a zero-weighted transition
+// enabled leaves the draw nothing to take — a typed error even though no choice
+// point is recorded.
+func testLoneEnabledZeroWeight(t *testing.T) {
+	err := weightedStateRun(t, `
+		attribute w : Real = 1.0;
+		transition first a accept go if w < 0.5 then b { @Probability { p = w; } }
+		transition first a accept go then c { @Probability { p = 1.0 - w; } }`, "go")
+	if !errors.Is(err, ErrBranchWeights) ||
+		!strings.Contains(err.Error(), "no holding branch has a positive weight") {
+		t.Fatalf("error = %v, want ErrBranchWeights for the lone enabled zero weight", err)
+	}
+}
+
+// testLoneEnabledWeightAboveOne: a lone enabled transition is validated too —
+// a dynamic weight outside [0, 1] is a typed error, not a transition taken at
+// face value.
+func testLoneEnabledWeightAboveOne(t *testing.T) {
+	err := weightedStateRun(t, `
+		attribute w : Real = 1.5;
+		transition first a accept go if w < 1.0 then b { @Probability { p = 2.0 - w; } }
+		transition first a accept go then c { @Probability { p = w; } }`, "go")
+	if !errors.Is(err, ErrBranchWeights) ||
+		!strings.Contains(err.Error(), "not a probability in [0, 1]") {
+		t.Fatalf("error = %v, want ErrBranchWeights for the lone enabled weight 1.5", err)
 	}
 }

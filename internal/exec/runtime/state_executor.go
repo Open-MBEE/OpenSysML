@@ -1257,12 +1257,14 @@ func (e *StateExecutor) chooseTransition(candidate dispatchCandidate) (*lower.Tr
 	transitions := e.graph.Transitions[candidate.source]
 	notes := candidate.notes
 	pick := 0
+	// Weights are validated for a lone enabled transition too, even though it
+	// records no choice point and fires with probability 1.
+	weights, err := e.transitionWeights(candidate.source, transitions, candidate.enabled)
+	if err != nil {
+		return nil, nil, err
+	}
 	if choice, ok := e.transitionChoice(candidate.source, transitions, candidate.enabled); ok {
 		whereOf := func(i int) string { return transitionWhere(candidate.source, transitions[candidate.enabled[i]]) }
-		weights, err := e.transitionWeights(candidate.source, transitions, candidate.enabled)
-		if err != nil {
-			return nil, nil, err
-		}
 		pick, err = e.drawTransition(&choice, whereOf, weights)
 		if err != nil {
 			return nil, nil, err
@@ -1522,16 +1524,16 @@ func (e *StateExecutor) chooseCompletion(source *ast.StateNode, dispatched *lowe
 		drain()
 		return nil, nil, nil
 	}
+	weights, err := e.transitionWeights(source, transitions, enabled)
+	if err != nil {
+		return nil, nil, err
+	}
 	choice, ok := e.transitionChoice(source, transitions, enabled)
 	if !ok {
 		drain()
 		return transitions[enabled[0]], notes, nil
 	}
 	whereOf := func(i int) string { return transitionWhere(source, transitions[enabled[i]]) }
-	weights, err := e.transitionWeights(source, transitions, enabled)
-	if err != nil {
-		return nil, nil, err
-	}
 	pick, err := e.drawTransition(&choice, whereOf, weights)
 	if err != nil {
 		return nil, nil, err
