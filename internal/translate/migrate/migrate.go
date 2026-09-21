@@ -627,6 +627,9 @@ func (m *migration) member(e *sysmlv1.Element) {
 	case "InformationFlow":
 		m.informationFlow(e)
 		return
+	case "InterfaceRealization":
+		m.interfaceRealization(e)
+		return
 	case "Comment":
 		// A comment in a non-ownedComment role is still a comment.
 		m.comment(e)
@@ -816,6 +819,7 @@ func (m *migration) generals(e *sysmlv1.Element, cat category) (string, string) 
 		}
 		refs = append(refs, m.ref(target, m.scope))
 	}
+	refs = append(refs, m.realizedGenerals(e, refs)...)
 	if cat == catAttributeDef && len(refs) == 0 && quantity(e) {
 		refs = append(refs, "ScalarValues::Real")
 		notes = append(notes, "a value type with a unit or quantity kind and no base type is written as ScalarValues::Real")
@@ -2788,6 +2792,9 @@ func describeValue(v *sysmlv1.Element) string {
 			return "{" + lang + "} " + body
 		}
 		return body
+	}
+	if v.Type == "Expression" || v.Type == "StringExpression" {
+		return treeText(v)
 	}
 	if val, ok := v.Attrs["value"]; ok {
 		return val
