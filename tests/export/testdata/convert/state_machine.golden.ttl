@@ -135,7 +135,6 @@ elmt:StateMachine__VehicleStates___400
     sysml:owner elmt:StateMachine__VehicleStates ;
     sysml:owningRelatedElement elmt:StateMachine__VehicleStates ;
     sysx:subactionKind "entry" ;
-    sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        entry;\n" .
 
 elmt:StateMachine__VehicleStates__off
@@ -174,7 +173,6 @@ elmt:StateMachine__VehicleStates__off___400
     sysml:owner elmt:StateMachine__VehicleStates__off ;
     sysml:owningRelatedElement elmt:StateMachine__VehicleStates__off ;
     sysx:subactionKind "entry" ;
-    sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedRelatedElement elmt:StateMachine__VehicleStates__off___400___400 ;
     sysml:memberElement elmt:StateMachine__VehicleStates__off___400___400 ;
     sysml:ownedMemberElement elmt:StateMachine__VehicleStates__off___400___400 ;
@@ -230,7 +228,6 @@ elmt:StateMachine__VehicleStates__starting___400
     sysml:owner elmt:StateMachine__VehicleStates__starting ;
     sysml:owningRelatedElement elmt:StateMachine__VehicleStates__starting ;
     sysx:subactionKind "entry" ;
-    sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedRelatedElement elmt:StateMachine__VehicleStates__starting___400__ready ;
     sysml:memberElement elmt:StateMachine__VehicleStates__starting___400__ready ;
     sysml:ownedMemberElement elmt:StateMachine__VehicleStates__starting___400__ready ;
@@ -258,7 +255,6 @@ elmt:StateMachine__VehicleStates__starting___401
     sysml:owner elmt:StateMachine__VehicleStates__starting ;
     sysml:owningRelatedElement elmt:StateMachine__VehicleStates__starting ;
     sysx:subactionKind "do" ;
-    sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedRelatedElement elmt:StateMachine__VehicleStates__starting___401__running ;
     sysml:memberElement elmt:StateMachine__VehicleStates__starting___401__running ;
     sysml:ownedMemberElement elmt:StateMachine__VehicleStates__starting___401__running ;
@@ -286,7 +282,6 @@ elmt:StateMachine__VehicleStates__starting___402
     sysml:owner elmt:StateMachine__VehicleStates__starting ;
     sysml:owningRelatedElement elmt:StateMachine__VehicleStates__starting ;
     sysx:subactionKind "exit" ;
-    sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedRelatedElement elmt:StateMachine__VehicleStates__starting___402___400 ;
     sysml:memberElement elmt:StateMachine__VehicleStates__starting___402___400 ;
     sysml:ownedMemberElement elmt:StateMachine__VehicleStates__starting___402___400 ;
@@ -346,7 +341,6 @@ elmt:StateMachine__VehicleStates__active___400
     sysml:owner elmt:StateMachine__VehicleStates__active ;
     sysml:owningRelatedElement elmt:StateMachine__VehicleStates__active ;
     sysx:subactionKind "do" ;
-    sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedRelatedElement elmt:StateMachine__VehicleStates__active___400__monitor ;
     sysml:memberElement elmt:StateMachine__VehicleStates__active___400__monitor ;
     sysml:ownedMemberElement elmt:StateMachine__VehicleStates__active___400__monitor ;
@@ -471,7 +465,7 @@ elmt:StateMachine__VehicleStates__active_5fto_5foff
     sysx:triggerKeyword "accept" ;
     sysml:via elmt:StateMachine__VehicleStates__lane ;
     sysx:guard expr:StateMachine__VehicleStates__active_5fto_5foff_pguard ;
-    sysx:bracedEffect "false"^^xsd:boolean ;
+    sysx:hasEffect "true"^^xsd:boolean ;
     sysx:effectMember elmt:StateMachine__VehicleStates__active_5fto_5foff__stop ;
     sysml:ownedMember elmt:StateMachine__VehicleStates__active_5fto_5foff__stop ;
     sysml:ownedMembership elmt:StateMachine__VehicleStates__active_5fto_5foff__stop_om ;
@@ -645,7 +639,6 @@ elmt:StateMachine__Nested__idle__substate___400
     sysml:owner elmt:StateMachine__Nested__idle__substate ;
     sysml:owningRelatedElement elmt:StateMachine__Nested__idle__substate ;
     sysx:subactionKind "entry" ;
-    sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedRelatedElement elmt:StateMachine__Nested__idle__substate___400___400 ;
     sysml:memberElement elmt:StateMachine__Nested__idle__substate___400___400 ;
     sysml:ownedMemberElement elmt:StateMachine__Nested__idle__substate___400___400 ;
@@ -707,7 +700,6 @@ elmt:StateMachine__Composite___400
     sysml:owner elmt:StateMachine__Composite ;
     sysml:owningRelatedElement elmt:StateMachine__Composite ;
     sysx:subactionKind "entry" ;
-    sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        entry;\n" .
 
 elmt:StateMachine__Composite___401
@@ -794,7 +786,6 @@ elmt:StateMachine__Composite___404
     sysml:owner elmt:StateMachine__Composite ;
     sysml:owningRelatedElement elmt:StateMachine__Composite ;
     sysx:subactionKind "entry" ;
-    sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedRelatedElement elmt:StateMachine__Composite___404___400 ;
     sysml:memberElement elmt:StateMachine__Composite___404___400 ;
     sysml:ownedMemberElement elmt:StateMachine__Composite___404___400 ;

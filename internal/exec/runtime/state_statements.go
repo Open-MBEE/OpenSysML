@@ -28,9 +28,9 @@ type stateStmtHost struct {
 }
 
 // executeBehaviors runs behaviors in order, each to its end at the instant. One a
-// `terminate` ends takes the rest of its block with it; other blocks run as written.
+// `terminate` ends takes the rest of its block with it; the others run as written.
 func (e *StateExecutor) executeBehaviors(behaviors []lower.StateBehavior) error {
-	var ended []lower.BehaviorBlock
+	var ended []ast.Node
 	for _, behavior := range behaviors {
 		if e.endedBefore(ended, behavior) {
 			continue
@@ -63,27 +63,14 @@ func (e *StateExecutor) executeBehavior(behavior lower.StateBehavior) (bool, err
 
 // endedBefore reports whether a `terminate` ended behavior's block already: the
 // behavior then ends before it begins, which the trace records.
-func (e *StateExecutor) endedBefore(ended []lower.BehaviorBlock, behavior lower.StateBehavior) bool {
-	if !slices.ContainsFunc(ended, behavior.Block.Same) {
+func (e *StateExecutor) endedBefore(ended []ast.Node, behavior lower.StateBehavior) bool {
+	if behavior.Block == nil || !slices.Contains(ended, behavior.Block) {
 		return false
 	}
 	if tr := e.trace(); tr != nil {
 		tr.RecordActionTerminatePending(describeBehavior(behavior), false)
 	}
 	return true
-}
-
-// endBlockPending ends, before they begin, the pending do behaviors of a block a
-// `terminate` ended; the other behaviors keep their order.
-func (e *StateExecutor) endBlockPending(pending []lower.StateBehavior, block lower.BehaviorBlock) []lower.StateBehavior {
-	ended := []lower.BehaviorBlock{block}
-	kept := make([]lower.StateBehavior, 0, len(pending))
-	for _, behavior := range pending {
-		if !e.endedBefore(ended, behavior) {
-			kept = append(kept, behavior)
-		}
-	}
-	return kept
 }
 
 // behaviorHost prepares one execution of a behavior: its performance over the

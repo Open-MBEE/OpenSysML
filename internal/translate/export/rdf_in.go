@@ -480,7 +480,7 @@ func literalDatatypes(metaclass, predicate string) []string {
 	switch {
 	case isIndexProperty(predicate):
 		return integerLiterals
-	case strings.HasPrefix(name, "is"), name == xHasBody, name == xDeclaredID, name == xBracedEffect:
+	case strings.HasPrefix(name, "is"), name == xHasBody, name == xDeclaredID, name == xHasEffect, name == xBracedEffect:
 		return booleanLiterals
 	case strings.HasPrefix(predicate, rdf.SysML) && (name == pLowerBound || name == pUpperBound):
 		// A feature's bound is an Expression the notation also states as a bare number.

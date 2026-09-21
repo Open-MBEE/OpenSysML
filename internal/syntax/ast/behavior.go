@@ -694,24 +694,29 @@ func DeclNamingFeature(decl Node) *Relationship {
 // Phase C4: State Body Members
 
 // EntryMember represents entry behavior in a state body.
-// Syntax: entry { <actions> }
+// Syntax: entry <action>; — `entry action a;`, `entry assign x := 1;`,
+// `entry a;` or `entry { … }` (SysML.xtext StateActionUsage).
+//
+// Actions holds the one action the subaction performs, or nothing for `entry;`.
+// A braced block is one anonymous action usage whose Members are the block's
+// items and whose Keyword is empty, as no `action` keyword was written.
 type EntryMember struct {
 	NodeBase
-	Actions []Node // action sequence
+	Actions []Node
 }
 
 // DoMember represents an ongoing do action in a state body.
-// Syntax: do { <actions> }
+// Syntax: do <action>; — see EntryMember for the forms Actions holds.
 type DoMember struct {
 	NodeBase
-	Actions []Node // action sequence
+	Actions []Node
 }
 
 // ExitMember represents exit behavior in a state body.
-// Syntax: exit { <actions> }
+// Syntax: exit <action>; — see EntryMember for the forms Actions holds.
 type ExitMember struct {
 	NodeBase
-	Actions []Node // action sequence
+	Actions []Node
 }
 
 // DeferMember represents the events a state defers while it is active.
@@ -746,9 +751,12 @@ type TransitionMember struct {
 	// TriggerSpan spans the accepter the trigger keyword introduces
 	// (`accept A`), which is the element the accepter rules are about.
 	TriggerSpan source.Span
-	Guard       Node   // optional guard expression
-	Effect      []Node // optional effect actions
-	HasEffect   bool   // a `do` was written, even one whose braces hold nothing
+	Guard       Node // optional guard expression
+	// Effect holds the one action the `do` performs (SysML.xtext
+	// EffectBehaviorUsage): a declaration, a statement, or for `do { … }` the
+	// anonymous action usage whose Members are the block's items.
+	Effect    []Node
+	HasEffect bool // a `do` was written, even one whose braces hold nothing
 	// Via is the port the trigger's message must arrive at
 	// (`accept :> ping via commPort`), nil when the trigger named none.
 	Via *QualifiedName

@@ -897,7 +897,7 @@ func (e *StateExecutor) dispatchEvent(event Event) (Dispatch, error) {
 				Target:  targetState,
 				Trigger: edge.Trigger,
 				Guard:   edge.Guard,
-				Effect:  lower.LowerBehaviors(edge.Effect, lower.BehaviorBlock{Member: edge}, e.stateMachine.Scope, e.ctx.Resolver()),
+				Effect:  lower.LowerBehaviors(edge.Effect, nil, e.stateMachine.Scope, e.ctx.Resolver()),
 			}
 			var err error
 			dispatch.Fired, err = e.fireTransition(lowerTrans, route{segments: []*lower.Transition{lowerTrans}, target: targetState})
@@ -3569,8 +3569,7 @@ func (e *StateExecutor) runDoRound() (int, error) {
 }
 
 // stepDoAction performs one action of a do behavior: the behavior under way goes
-// on as told, else the next behavior begins. One a `terminate` ends takes the
-// rest of its block with it; the do behavior goes on with the next block's.
+// on as told, else the next behavior begins.
 func (e *StateExecutor) stepDoAction(act *doAction, goOn func(*doRun) (*doRun, error)) error {
 	e.moved = true
 	if e.trace() != nil {
@@ -3589,9 +3588,6 @@ func (e *StateExecutor) stepDoAction(act *doAction, goOn func(*doRun) (*doRun, e
 	act.run, err = goOn(run)
 	if err != nil {
 		return fmt.Errorf("do action in state %s: %w", act.state.Name, err)
-	}
-	if act.run == nil && run.host.terminated {
-		act.pending = e.endBlockPending(act.pending, run.host.behavior.Block)
 	}
 	return nil
 }

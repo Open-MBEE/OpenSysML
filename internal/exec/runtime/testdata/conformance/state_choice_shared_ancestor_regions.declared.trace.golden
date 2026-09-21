@@ -10,6 +10,7 @@ exit: a1
 exit: b1
 exit: work
 enter: low (entry action)
-stmt assign route
-  eval literal 1 -> 1
+stmt action body
+  stmt assign route
+    eval literal 1 -> 1
 transition: work -> low (event: accept Go)
