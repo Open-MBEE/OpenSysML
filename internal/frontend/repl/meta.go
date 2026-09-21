@@ -3087,7 +3087,7 @@ func (s *Session) stateStep(exec *runtime.StateExecutor) (string, error) {
 	if fired {
 		return "Change event dispatched", nil
 	}
-	if exec.EventQueue().Len() > 0 || exec.HasPendingSignal() {
+	if exec.EventQueue().Len() > 0 || exec.HasPendingSignal() || exec.HasPendingWork() {
 		if err := exec.ProcessNextEvent(); err != nil {
 			return "", fmt.Errorf("event processing failed: %w", err)
 		}

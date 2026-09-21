@@ -302,6 +302,9 @@ func (e *StateExecutor) PollChangeEvents() (dispatched bool, err error) {
 	defer e.ctx.beginExecutorRun(&e.driven)()
 	defer e.completedWhole(&err)
 
+	if len(e.held) > 0 {
+		return false, nil
+	}
 	return e.pollChangeEvents()
 }
 

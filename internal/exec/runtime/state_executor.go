@@ -5012,10 +5012,15 @@ func (e *StateExecutor) ProcessNextEvent() (err error) {
 	defer e.completedWhole(&err)
 
 	e.lastDispatch = nil
+	var progress dueProgress
+	e.resetEntering()
+	if len(e.held) > 0 {
+		_, err := e.entryStep(&progress)
+		return err
+	}
 	if e.completionDue {
 		return e.completeMachine()
 	}
-	var progress dueProgress
 	for {
 		ran, err := e.runDoRound()
 		if err != nil {
@@ -5088,7 +5093,7 @@ func (e *StateExecutor) HasDueEvent() bool {
 // an event is queued, a signal this machine accepts is in flight, or a state's
 // do behavior has actions left to run.
 func (e *StateExecutor) HasPendingWork() bool {
-	return e.completionDue || e.eventQueue.Len() > 0 || len(e.doActions) > 0 || e.hasPendingSignal()
+	return e.completionDue || len(e.held) > 0 || e.eventQueue.Len() > 0 || len(e.doActions) > 0 || e.hasPendingSignal()
 }
 
 // RunDoRound advances every active state's do behavior by one action, without
@@ -5097,6 +5102,9 @@ func (e *StateExecutor) RunDoRound() (ran int, err error) {
 	defer e.ctx.beginExecutorRun(&e.driven)()
 	defer e.completedWhole(&err)
 
+	if len(e.held) > 0 {
+		return 0, nil
+	}
 	return e.runDoRound()
 }
 

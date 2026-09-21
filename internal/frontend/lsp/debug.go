@@ -756,7 +756,7 @@ func (sess *debugSession) stepMachine() error {
 	if fired {
 		return nil
 	}
-	if exec.EventQueue().Len() > 0 || exec.HasPendingSignal() {
+	if exec.EventQueue().Len() > 0 || exec.HasPendingSignal() || exec.HasPendingWork() {
 		if err := exec.ProcessNextEvent(); err != nil {
 			return fmt.Errorf("event processing failed: %w", err)
 		}

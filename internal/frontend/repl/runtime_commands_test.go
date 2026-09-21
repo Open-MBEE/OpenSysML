@@ -1071,6 +1071,25 @@ func TestStateDebuggerRefusesRunToCompletionRedefinition(t *testing.T) {
 	}
 }
 
+func TestStateDebuggerStepsRunToCompletionEntryChoice(t *testing.T) {
+	s := loadFixture(t, "testdata/state_run_to_completion_false_self_signal.sysml")
+	run(t, s, "%trace on")
+	wants(t, run(t, s, "%state test::Machine"), "Current state: start")
+	first := run(t, s, "%step")
+	second := run(t, s, "%step")
+	wants(t, first+"\n"+second, "choice entry at t=0.0")
+	wants(t, run(t, s, "%current"), "hits = 0")
+}
+
+func TestStateDebuggerStepsRunToCompletionEntryChoiceWithSeed(t *testing.T) {
+	s := loadFixture(t, "testdata/state_run_to_completion_false_self_signal.sysml")
+	wants(t, run(t, s, "%schedule seed:1"), "schedule: seed:1")
+	wants(t, run(t, s, "%state test::Machine"), "Current state: start")
+	run(t, s, "%step")
+	run(t, s, "%step")
+	wants(t, run(t, s, "%current"), "hits = 1")
+}
+
 // A behavior performed by nothing routes over its own connections only, and an
 // object named for a behavior that was never instantiated is reported.
 func TestStateDebuggerReportsAnUninstantiatedPerformer(t *testing.T) {
