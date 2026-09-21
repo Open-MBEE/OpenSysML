@@ -546,7 +546,12 @@ func exprKeyArgs(args []ast.Node, named []ast.NamedArg) (string, bool) {
 // completion transitions and the transitions of each trigger spelling, each
 // group in declaration order.
 func TransitionGroups(source ast.Node, transitions []*Transition) [][]int {
-	if _, pseudostate := source.(*ast.PseudostateNode); pseudostate {
+	if pseudo, pseudostate := source.(*ast.PseudostateNode); pseudostate {
+		// Only choice and junction pick one branch: a fork fires all of them and
+		// join, history and the rest have no pick, so no group weighs them.
+		if pseudo.Kind != ast.PseudostateChoice && pseudo.Kind != ast.PseudostateJunction {
+			return nil
+		}
 		all := make([]int, len(transitions))
 		for i := range transitions {
 			all[i] = i
@@ -605,7 +610,18 @@ func (g *StateGraph) transitionSources() []ast.Node {
 func checkTransitionProbabilities(graph *StateGraph) error {
 	for _, source := range graph.transitionSources() {
 		transitions := graph.Transitions[source]
-		for _, group := range TransitionGroups(source, transitions) {
+		groups := TransitionGroups(source, transitions)
+		if pseudo, pseudostate := source.(*ast.PseudostateNode); pseudostate && len(groups) == 0 {
+			// A weight on a branch no pick draws among is refused outright.
+			for _, trans := range transitions {
+				if trans.Probability != nil {
+					return &ProbabilityError{Node: trans.Probability.Node, Reason: fmt.Sprintf(
+						"a transition out of a %s cannot be weighted; Probability weights the branches of a choice or junction, a state's completion transitions, or the transitions on one trigger",
+						pseudo.Kind)}
+				}
+			}
+		}
+		for _, group := range groups {
 			if err := checkTransitionGroup(source, transitions, group); err != nil {
 				return err
 			}

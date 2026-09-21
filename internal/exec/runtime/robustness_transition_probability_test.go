@@ -70,6 +70,7 @@ func TestRuntimeRobustnessTransitionProbability(t *testing.T) {
 	t.Run("lone_completion_dynamic_weight_out_of_range", testLoneCompletionWeightOutOfRange)
 	t.Run("lone_completion_zero_weight", testLoneCompletionZeroWeight)
 	t.Run("lone_completion_guarded_off_skips_weight", testLoneCompletionGuardedOffSkipsWeightCheck)
+	t.Run("fork_branch_weight_refused", testForkBranchWeightRefused)
 }
 
 // testTransitionNegativeWeight: a probability is in [0, 1], so a constant
@@ -594,5 +595,35 @@ func testLoneCompletionGuardedOffSkipsWeightCheck(t *testing.T) {
 	}
 	if got := exec.Outcome().FinalState; got != "a" {
 		t.Fatalf("final state %q, want a — the weighted completion never enabled", got)
+	}
+}
+
+// testForkBranchWeightRefused: a fork fires every branch — no pick weighs them,
+// so a weight there is a typed lowering refusal, never silently ignored.
+func testForkBranchWeightRefused(t *testing.T) {
+	m := parseLibraryModel(t, `package test {
+		private import ScalarValues::*;
+		private import Stochastic::*;
+		state def Machine {
+			entry; then a;
+			state a;
+			state work parallel {
+				state left { entry; then x; state x; }
+				state right { entry; then y; state y; }
+			}
+			fork split;
+			transition first a then split;
+			transition first split then x { @Probability { p = 0.5; } }
+			transition first split then y { @Probability { p = 0.5; } }
+		}
+	}`)
+	ctx, err := m.fresh()
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = ctx.CreateStateExecutor(m.state(t, "Machine"))
+	if !errors.Is(err, lower.ErrProbability) ||
+		!strings.Contains(err.Error(), "out of a fork cannot be weighted") {
+		t.Fatalf("error = %v, want ErrProbability naming the fork branch", err)
 	}
 }

@@ -297,3 +297,82 @@ func TestTriggerKeyCastAndUnrenderableFallback(t *testing.T) {
 		t.Errorf("unrenderable named-arg values keyed alike: %v", unkeyedTransitions)
 	}
 }
+
+// weightedStateGraph lowers state usage m of a model importing Stochastic
+// through the name-resolution tier, the way the runtime does.
+func weightedStateGraph(t *testing.T, body string) (*StateGraph, error) {
+	t.Helper()
+	src := "package M {\n import Stochastic::*;\n state m {\n" + body + "\n }\n}\n"
+	p := parser.New(source.New("m.sysml", []byte(src)))
+	root := p.ParseFile()
+	if len(p.Diagnostics) > 0 {
+		t.Fatalf("parse errors: %v", p.Diagnostics)
+	}
+	idx := libs.NewModelIndex()
+	idx.AddDocument("m.sysml", root)
+	idx.ExpandWildcardImports()
+	pkg, ok := idx.DocumentRoot("m.sysml").LookupLocal("M")
+	if !ok {
+		t.Fatal("package M not indexed")
+	}
+	u, ok := pkg.Scope.LookupLocal("m")
+	if !ok {
+		t.Fatal("state m not indexed")
+	}
+	return ToStateGraphWithEndpoints(u.Decl, u.Scope, NewLibraryStateTypes(resolve.New(idx)))
+}
+
+// A weight on a branch no pick draws among — out of a fork, a join or a
+// history — is refused outright: Probability weights the branches of a choice
+// or junction only.
+func TestProbabilityOnPseudostateBranchRefused(t *testing.T) {
+	cases := []struct {
+		name, body, want string
+	}{
+		{"fork", `
+			state work parallel {
+				state left { state x; }
+				state right { state y; }
+			}
+			fork split;
+			transition first a then split;
+			transition first split then x { @Probability { p = 0.5; } }
+			transition first split then y { @Probability { p = 0.5; } }`, "out of a fork cannot be weighted"},
+		{"join", `
+			state work parallel {
+				state left { entry; then x; state x; }
+				state right { entry; then y; state y; }
+			}
+			join meet;
+			transition first x then meet;
+			transition first y then meet;
+			transition first meet then b { @Probability { p = 1.0; } }
+			state b;`, "out of a join cannot be weighted"},
+		{"history", `
+			state work {
+				state x;
+				state y;
+				entry; then x;
+				history back;
+			}
+			transition first back then b { @Probability { p = 1.0; } }
+			state b;`, "out of a shallow history cannot be weighted"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := weightedStateGraph(t, `
+				entry; then a;
+				state a;
+			`+tc.body)
+			if err == nil {
+				t.Fatal("lowering accepted the model")
+			}
+			if !errors.Is(err, ErrProbability) {
+				t.Fatalf("error %v is not an ErrProbability", err)
+			}
+			if !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("error = %q, want it to mention %q", err, tc.want)
+			}
+		})
+	}
+}
