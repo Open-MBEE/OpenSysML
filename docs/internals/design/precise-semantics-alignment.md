@@ -1212,7 +1212,10 @@ behavior the event fires `return`s or assigns to an output parameter of that nam
 outputs back typed and by name — under the `out`/`inout` parameters the operation declares as a
 member of the machine's owner (or of the machine standing alone) when it declares one — among
 several so named, the one the call's arguments select as `InvokeOperation` would, and
-`ErrAmbiguousInvocation` before the call is queued when they select none — as §8.5.9
+`ErrAmbiguousInvocation` before the call is queued when they select none; the arguments
+checked against the declaration's inputs as `InvokeOperation` checks them, so an unbound or
+unknown one is `ErrUnboundParameter` before the call is queued, since §8.5.9's
+`CallEventExecution` holds a value for each of the operation's parameters — as §8.5.9
 returns the operation's own parameters — an `inout` no behavior of the step wrote going back as the
 caller passed it, since §8.5.9's `CallEventExecution` holds the argument as that parameter's value
 until a behavior writes it — and under every name the step returned when the trigger

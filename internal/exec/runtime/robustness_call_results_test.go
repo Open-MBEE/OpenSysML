@@ -22,6 +22,7 @@ func TestRuntimeRobustnessCallResults(t *testing.T) {
 	t.Run("declared_operation_returns_its_parameters_only", testCallResultsDeclaredReturns)
 	t.Run("inout_argument_returns_as_passed_unless_written", testCallResultsInoutArgument)
 	t.Run("overloaded_operation_returns_the_selected_declaration", testCallResultsOverloaded)
+	t.Run("arguments_must_bind_the_declared_inputs", testCallResultsArguments)
 }
 
 const callResultsModel = `package test {
@@ -196,6 +197,53 @@ func testCallResultsOverloaded(t *testing.T) {
 	}
 	if n := exec.eventQueue.Len(); n != 0 {
 		t.Errorf("%d event(s) queued, want the ambiguous call refused before it is queued", n)
+	}
+}
+
+const callArgumentsModel = `package P {
+	private import ScalarValues::*;
+	part def Owner {
+		action def compute { in x : Integer; out n : Integer; }
+		action def One {
+			out n : Integer;
+			first start;
+			action writing { assign n := 1; }
+			done;
+			succession first start then writing;
+			succession first writing then done;
+		}
+		exhibit state sm {
+			entry; then idle;
+			state idle;
+			transition first idle accept compute() do perform One then idle;
+		}
+	}
+	part owner : Owner;
+}`
+
+// testCallResultsArguments: a call of a declared operation is checked against
+// its inputs as an invocation is — an unbound or unknown argument is refused
+// before the call is queued, even where a trigger would accept the bare call.
+func testCallResultsArguments(t *testing.T) {
+	exec := callMachineOwnedBy(t, callArgumentsModel)
+	for name, args := range map[string]map[string]Value{
+		"none":    nil,
+		"unknown": {"x": constInt(3), "y": constInt(4)},
+	} {
+		got, err := exec.Call("compute", args)
+		if !errors.Is(err, ErrUnboundParameter) {
+			t.Errorf("compute with %s argument(s) = %v, %v; want ErrUnboundParameter", name, got, err)
+		}
+		if n := exec.eventQueue.Len(); n != 0 {
+			t.Errorf("%d event(s) queued after the %s call, want it refused before it is queued", n, name)
+		}
+	}
+	got, err := exec.Call("compute", map[string]Value{"x": constInt(3)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n, ok := got["n"]; !ok || n.Const.Int != 1 || len(got) != 1 {
+		t.Errorf("compute(3) returned %v, want n = 1 alone", got)
 	}
 }
 

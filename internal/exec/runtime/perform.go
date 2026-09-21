@@ -105,8 +105,9 @@ func (e *StateExecutor) callReleased() bool {
 
 // newPendingCall reads the operation's declaration as a member of the machine's
 // owner (of the machine itself when it stands alone) — among several so named,
-// the one the arguments select as a call in the model would — for the out and
-// inout parameters it returns and the inout arguments the call carries in; an
+// the one the arguments select as a call in the model would — checks the
+// arguments bind its inputs as an invocation's must, and takes the out and inout
+// parameters it returns and the inout arguments the call carries in; an
 // operation no member of that name declares as a behavior returns every output.
 func (e *StateExecutor) newPendingCall(operation string, args map[string]Value) (*pendingCall, error) {
 	call := &pendingCall{id: e.nextEventID, outputs: make(map[string]Value)}
@@ -116,6 +117,13 @@ func (e *StateExecutor) newPendingCall(operation string, args map[string]Value) 
 	}
 	member, err := e.ctx.memberCalled(owner, e.self, operation, OperationArguments{Named: args})
 	if err != nil {
+		return nil, err
+	}
+	if !isActionSymbol(member) && !isCalcSymbol(member) {
+		return call, nil
+	}
+	params := e.ctx.model.semantics.SignatureParametersOf(member)
+	if _, err := operationInputs(params, operation, OperationArguments{Named: args}); err != nil {
 		return nil, err
 	}
 	if !isActionSymbol(member) {
