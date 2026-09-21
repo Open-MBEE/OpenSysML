@@ -20,6 +20,12 @@ var defaultCSS string
 
 // DefaultStylesheet is the default document stylesheet: one cascade layer of
 // declarations, every value taken from a --sysml-* token on .sysml-document.
+
+// The note fragments the writer repeats.
+const (
+	spanClose = "</span>"
+)
+
 func DefaultStylesheet() string { return defaultCSS }
 
 // themeFS holds the bundled themes, one <name>.css each, written against the
@@ -527,7 +533,7 @@ func (w *htmlWriter) writeValue(value queryexec.Value) {
 		classes += " sysml-event"
 	}
 	w.b.WriteString("<span class=\"" + classes + "\"" + attr("data-value-kind", string(value.Kind())) +
-		elementAttrs(value) + quantityAttrs(value) + ">" + htmlText(valueText(value)) + "</span>")
+		elementAttrs(value) + quantityAttrs(value) + ">" + htmlText(valueText(value)) + spanClose)
 }
 
 // quantityAttrs carries a quantity's magnitude and unit apart, so a theme or a
@@ -717,9 +723,9 @@ func (w *htmlWriter) runHTML(run docir.TextRun) string {
 		return "<code>" + htmlText(run.Text()) + "</code>"
 	case docir.RunMath:
 		if typeset, ok := w.opts.Math[inlineFormula(run.Text())]; ok {
-			return "<span class=\"sysml-math\">" + typeset + "</span>"
+			return "<span class=\"sysml-math\">" + typeset + spanClose
 		}
-		return "<span class=\"sysml-math\">" + inlineMathHTML(run.Text()) + "</span>"
+		return "<span class=\"sysml-math\">" + inlineMathHTML(run.Text()) + spanClose
 	case docir.RunLink:
 		if target, ok := navigableURL(run.Target()); ok {
 			return "<a class=\"sysml-link\"" + attr("href", target) + ">" + htmlText(run.Text()) + "</a>"
