@@ -16,6 +16,7 @@ func TestRuntimeRobustnessSendToObjectIdentity(t *testing.T) {
 	t.Run("target_expression_yielding_a_data_value", testSendToDataValue)
 	t.Run("target_expression_yielding_a_destroyed_object", testSendToDestroyedObject)
 	t.Run("via_receiver_object_no_connection_reaches", testSendViaUnreachedReceiver)
+	t.Run("via_constructed_receiver_abandoned_on_failure", testSendViaConstructedReceiverAbandoned)
 }
 
 // sendToObjectModel is a fleet whose build action creates two cars and then runs
@@ -141,5 +142,51 @@ func testSendViaUnreachedReceiver(t *testing.T) {
 	err := instantiateBounded(t, model, "test::Fleet")
 	if !errors.Is(err, ErrUnreachableSendReceiver) {
 		t.Fatalf("error = %v, want %v", err, ErrUnreachableSendReceiver)
+	}
+}
+
+// A routed send whose receiver expression constructs an object and whose port is
+// joined to nothing abandons that object and its behaviors with the failed send.
+func testSendViaConstructedReceiverAbandoned(t *testing.T) {
+	model := `package test {
+		item def Ping;
+		port def PingPort { in item ping : Ping; }
+		part def Car {
+			port p : PingPort;
+			exhibit state listening {
+				entry; then waiting;
+				state waiting;
+				accept Ping via p then heard;
+				state heard;
+			}
+		}
+		part def Fleet {
+			port out : ~PingPort;
+			action ping {
+				first start;
+				then action go {
+					send new Ping() via out to new Car();
+				}
+				then done;
+			}
+		}
+		part fleet : Fleet;
+	}`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, model))
+	fleet, err := ctx.Instantiate(oneSymbol(t, idx, "test::fleet"))
+	if err != nil {
+		t.Fatalf("Instantiate(test::fleet): %v", err)
+	}
+	before, beforeBehaviors := len(ctx.created), len(ctx.objectBehaviors)
+	exec, err := ctx.CreateActionExecutorFor(oneSymbol(t, idx, "test::Fleet::ping"), fleet)
+	if err != nil {
+		t.Fatalf("CreateActionExecutorFor(test::Fleet::ping): %v", err)
+	}
+	if err := exec.RunToCompletion(); !errors.Is(err, ErrUnroutableSend) {
+		t.Fatalf("error = %v, want %v", err, ErrUnroutableSend)
+	}
+	if len(ctx.created) != before || len(ctx.objectBehaviors) != beforeBehaviors {
+		t.Errorf("after the failed send: %d objects, %d behaviors; want the %d and %d before it",
+			len(ctx.created), len(ctx.objectBehaviors), before, beforeBehaviors)
 	}
 }

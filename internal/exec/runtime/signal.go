@@ -363,7 +363,7 @@ func (ctx *Context) portInstanceID(holder *Instance, port string) (int64, error)
 // there, where an addressed receiver is a node of that holder. A send that
 // reaches none of them is delivered nowhere, which is a typed error rather than
 // a message quietly dropped.
-func (ctx *Context) postVia(ec *EvalContext, conns []lower.Connection, msg Message, send lower.Send, self *Instance, behavior *symbols.Symbol) error {
+func (ctx *Context) postVia(ec *EvalContext, conns []lower.Connection, msg Message, send lower.Send, receivers []*Instance, self *Instance, behavior *symbols.Symbol) error {
 	routed, holder, err := ec.viaSender(send, self)
 	if err != nil {
 		return err
@@ -400,12 +400,8 @@ func (ctx *Context) postVia(ec *EvalContext, conns []lower.Connection, msg Messa
 			}
 			receiver = addr.Name
 		}
-	} else if send.ReceiverExpr != nil {
-		objects, err := ec.receiverObjects(send.ReceiverExpr)
-		if err != nil {
-			return err
-		}
-		receiverObjects = objectSet(objects)
+	} else if receivers != nil {
+		receiverObjects = objectSet(receivers)
 	}
 	typed := receiver != ""
 	own, outbound, typeMismatch, err := ctx.connectedDeliveries(
@@ -1056,8 +1052,9 @@ func isPerformanceEvent(sym *symbols.Symbol) bool {
 	return isBehaviorSymbol(owner)
 }
 
-// send builds and posts the message a send statement describes; a message the
-// send cannot build or deliver leaves nothing building it created behind.
+// send builds and posts the message a send statement describes; a send that
+// cannot deliver leaves nothing its payload or receiver expression created
+// behind, while whatever posting itself materialized survives.
 func (ctx *Context) send(ec *EvalContext, scope *symbols.Scope, conns []lower.Connection, s lower.Send, self *Instance, behavior *symbols.Symbol) error {
 	mark, attached := len(ctx.created), len(ctx.objectBehaviors)
 	msg, err := ec.buildMessage(scope, s)
@@ -1065,41 +1062,50 @@ func (ctx *Context) send(ec *EvalContext, scope *symbols.Scope, conns []lower.Co
 		ctx.abandonCreationSince(mark, attached)
 		return err
 	}
+	receivers, err := ec.valuedReceivers(s)
+	if err != nil {
+		ctx.abandonCreationSince(mark, attached)
+		return err
+	}
 	built, started := len(ctx.created), len(ctx.objectBehaviors)
-	if err := ctx.postFor(ec, conns, msg, s, self, behavior); err != nil {
+	if err := ctx.postFor(ec, conns, msg, s, receivers, self, behavior); err != nil {
 		ctx.abandonCreationBetween(mark, built, attached, started)
 		return err
 	}
 	return nil
 }
 
+// valuedReceivers evaluates the bare receiver expression of a send — its `to`
+// clause that is no name or path — to the objects it denotes, nil where the
+// send carries none.
+func (ec *EvalContext) valuedReceivers(s lower.Send) ([]*Instance, error) {
+	switch {
+	case !s.IsVia && s.Target == "" && s.TargetExpr != nil:
+		return ec.receiverObjects(s.TargetExpr)
+	case s.IsVia && s.Receiver == "" && s.ReceiverExpr != nil:
+		return ec.receiverObjects(s.ReceiverExpr)
+	}
+	return nil, nil
+}
+
 // postFor posts a message as its send addressed it: to the objects a target
 // bound in ec or valued by its receiver expression holds, else as post routes it.
-func (ctx *Context) postFor(ec *EvalContext, conns []lower.Connection, msg Message, s lower.Send, self *Instance, behavior *symbols.Symbol) error {
+// receivers is what valuedReceivers evaluated, nil where the send carried none.
+func (ctx *Context) postFor(ec *EvalContext, conns []lower.Connection, msg Message, s lower.Send, receivers []*Instance, self *Instance, behavior *symbols.Symbol) error {
 	if addrs, bound, err := ec.boundTargetAddresses(s); bound {
 		if err != nil {
 			return err
 		}
 		return ctx.postAt(msg, addrs, self, behavior)
 	}
-	if !s.IsVia && s.Target == "" && s.TargetExpr != nil {
-		addrs, err := ec.valuedTargetAddresses(s)
+	if receivers != nil && !s.IsVia {
+		addrs, err := ctx.addressesFrom(receivers, nil)
 		if err != nil {
 			return err
 		}
 		return ctx.postAt(msg, addrs, self, behavior)
 	}
-	return ctx.post(ec, conns, msg, s, self, behavior)
-}
-
-// valuedTargetAddresses evaluates a receiver expression to the objects it yields,
-// one address per live object; no object, a non-object value or a destroyed object is a typed error.
-func (ec *EvalContext) valuedTargetAddresses(send lower.Send) ([]messageAddress, error) {
-	objects, err := ec.receiverObjects(send.TargetExpr)
-	if err != nil {
-		return nil, err
-	}
-	return ec.ctx.addressesFrom(objects, nil)
+	return ctx.post(ec, conns, msg, s, receivers, self, behavior)
 }
 
 // receiverObjects evaluates node to the objects it yields: every element it
@@ -1113,8 +1119,9 @@ func (ec *EvalContext) receiverObjects(node ast.Node) ([]*Instance, error) {
 	}
 	var out []*Instance
 	for _, held := range heldElements(value) {
-		inst, ok := ec.ctx.instances[held.Instance]
-		if held.Kind != ValInstance || !ok {
+		id, isObject := held.Object()
+		inst, ok := ec.ctx.instances[id]
+		if !isObject || !ok {
 			return nil, &SendReceiverValueError{Receiver: text, Value: FormatValue(value)}
 		}
 		if err := ec.ctx.checkNotDestroyed(inst); err != nil {
@@ -1207,9 +1214,9 @@ func exprText(node ast.Node) string {
 // object performing the behavior that sent it, nil for a behavior no object
 // performs; behavior is that behavior, which the trace names; ec holds the
 // behavior's bindings, nil where it has none.
-func (ctx *Context) post(ec *EvalContext, conns []lower.Connection, msg Message, send lower.Send, self *Instance, behavior *symbols.Symbol) error {
+func (ctx *Context) post(ec *EvalContext, conns []lower.Connection, msg Message, send lower.Send, receivers []*Instance, self *Instance, behavior *symbols.Symbol) error {
 	if send.IsVia {
-		return ctx.postVia(ec, conns, msg, send, self, behavior)
+		return ctx.postVia(ec, conns, msg, send, receivers, self, behavior)
 	}
 	return ctx.postTo(msg, send, self, behavior)
 }
