@@ -78,6 +78,83 @@ func imageInto(t *testing.T, ctx *Context, objects ...*Instance) *Context {
 	return dst
 }
 
+// A held entry survives a portable image: the copy remains at the same entry
+// boundary and finishes with the same result as the source.
+func TestHeldImageCarriesAnEntryBoundary(t *testing.T) {
+	const source = `
+		private import ScalarValues::*;
+		item def Ping;
+		state Machine {
+			attribute hits : Integer = 0;
+			entry; then start;
+			state start;
+			state working {
+				attribute :>> isRunToCompletion = false;
+				state step {
+					entry action count { assign hits := hits + 1; }
+				}
+				entry action { send new Ping() to Machine; } then step;
+			}
+			state done;
+			transition first working accept Ping then done;
+			succession first start then working;
+		}
+		part def Host { exhibit state machine : Machine; }
+	`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "held-entry.sysml", parseAndBuild(t, source))
+	hostSym := resolveSymbol(t, idx.DocumentRoot("held-entry.sysml"), "Host")
+	host, err := ctx.materialize(hostSym, 0, nil, "")
+	if err != nil {
+		t.Fatalf("materialize: %v", err)
+	}
+	decls := ctx.classifierBehaviorsOf(hostSym)
+	if len(decls) != 1 {
+		t.Fatalf("Host has %d classifier behaviors, want one", len(decls))
+	}
+	behavior, err := ctx.attachClassifierBehavior(host, decls[0])
+	if err != nil {
+		t.Fatalf("attachClassifierBehavior: %v", err)
+	}
+	behavior.binding = 0
+	host.behaviors = append(host.behaviors, behavior)
+	ctx.objectBehaviors = append(ctx.objectBehaviors, behavior)
+	state, ok := host.ExhibitedState()
+	if !ok {
+		t.Fatal("Host exhibits no state machine")
+	}
+	if err := state.State.ProcessNextEvent(); err != nil {
+		t.Fatalf("ProcessNextEvent: %v", err)
+	}
+	if !state.State.HoldsEntry() {
+		t.Fatal("source did not stop at an entry boundary")
+	}
+
+	dst := imageInto(t, ctx, host)
+	copied, ok := dst.Instance(host.ID)
+	if !ok {
+		t.Fatalf("destination has no Host #%d", host.ID)
+	}
+	copiedBehavior, ok := copied.ExhibitedState()
+	if !ok {
+		t.Fatal("copy exhibits no state machine")
+	}
+	if !copiedBehavior.State.HoldsEntry() {
+		t.Fatal("imaged copy lost its held entry")
+	}
+	if err := copiedBehavior.State.RunToQuiescence(); err != nil {
+		t.Fatalf("RunToQuiescence(copy): %v", err)
+	}
+	if err := state.State.RunToQuiescence(); err != nil {
+		t.Fatalf("RunToQuiescence(source): %v", err)
+	}
+	if got, want := FormatValue(copiedBehavior.State.StateData()["hits"]), FormatValue(state.State.StateData()["hits"]); got != want {
+		t.Fatalf("copy hits = %s, source hits = %s", got, want)
+	}
+	if got, want := copiedBehavior.State.stateVisits, state.State.stateVisits; !slices.Equal(got, want) {
+		t.Fatalf("copy visits = %v, source visits = %v", got, want)
+	}
+}
+
 // A state machine that fired a transition is imaged as it stands: the copy is the
 // same object under the same identity in the other context, in the same state,
 // and goes on from there as the original does — while neither sees the other's moves.

@@ -1,0 +1,16 @@
+{
+	"type": "state",
+	"events": [{"signal": "Start"}],
+	"outcomes": [
+		{
+			"terminated": true,
+			"outputs": {"hits": {"type": "Integer", "value": 0}}
+		},
+		{
+			"terminated": true,
+			"outputs": {"hits": {"type": "Integer", "value": 1}}
+		}
+	],
+	"admissible": "Dispatch during an entry the model does not run to completion",
+	"trace": true
+}

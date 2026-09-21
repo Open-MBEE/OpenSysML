@@ -79,6 +79,9 @@ func (e *StateExecutor) enterToward(lca, target *ast.StateNode, branches map[*as
 		}
 	}
 	if enter != target {
+		if e.heldOwner(enter) != nil {
+			return enter, enter, nil
+		}
 		// Entering enter's regions entered target and its start; record the deepest.
 		return enter, e.activeConfig.regionStates[e.enclosingRegion(target)], nil
 	}
@@ -98,6 +101,9 @@ func (e *StateExecutor) activeLeavesBelow(state *ast.StateNode) []*ast.StateNode
 	for _, region := range regions {
 		active, ok := e.activeConfig.regionStates[region]
 		if !ok || active == state {
+			if !ok {
+				return []*ast.StateNode{state}
+			}
 			continue
 		}
 		leaves = append(leaves, e.activeLeavesBelow(active)...)

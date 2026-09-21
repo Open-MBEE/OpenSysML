@@ -1,6 +1,5 @@
-// A redefinition whose value lowering cannot read as the library default is
-// refused as unverified rather than assumed to restate it: the message says the
-// runtime cannot verify the default.
+// A nonliteral redefinition is evaluated in its lowered scope; this expression
+// resolves to true and proves dynamic values do not add a literal-evaluation trace.
 package test {
 	private import ScalarValues::*;
 

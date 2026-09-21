@@ -34,6 +34,8 @@ const (
 	moveDispatch
 	// moveDoStep runs one due do behavior of a state machine one unit.
 	moveDoStep
+	// moveEntry continues a held state entry.
+	moveEntry
 )
 
 func (k moveKind) String() string {
@@ -54,6 +56,8 @@ func (k moveKind) String() string {
 		return "dispatch"
 	case moveDoStep:
 		return "do"
+	case moveEntry:
+		return "entry"
 	}
 	return fmt.Sprintf("moveKind(%d)", int(k))
 }
@@ -199,6 +203,28 @@ func (e *StateExecutor) enabledMoves() []enabledMove {
 	defer e.ctx.beginExecutorRun(&e.driven)()
 	if e.state != StateRunning && e.state != StateSuspended {
 		return nil
+	}
+	if len(e.held) > 0 {
+		dispatch, free := e.dispatchFree(e.dueDispatch())
+		var moves []enabledMove
+		if free {
+			for _, move := range e.dispatchMoves(dispatch, true) {
+				move.Picks = slices.Concat([]int{0}, move.Picks)
+				moves = append(moves, move)
+			}
+		}
+		for i, item := range e.held {
+			picks := []int(nil)
+			if free || len(e.held) > 1 {
+				pick := i
+				if free {
+					pick++
+				}
+				picks = []int{pick}
+			}
+			moves = append(moves, enabledMove{Owner: e, Node: item.owner, Label: e.entryLabel(item.owner), Kind: moveEntry, Picks: picks})
+		}
+		return moves
 	}
 	dispatch := e.dueDispatch()
 	if e.roundDone && dispatch.due {
