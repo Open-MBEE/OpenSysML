@@ -1,6 +1,7 @@
 package queryexec
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
@@ -118,7 +119,10 @@ func (e *executor) objectArgument(expression queryplan.Expression, name string) 
 	}
 	var result sequence
 	for _, item := range value.values {
-		if _, _, ok := item.Object(); ok {
+		if inst, label, ok := item.Object(); ok {
+			if at, destroyed := e.context.Runtime.Destroyed(inst); destroyed {
+				return sequence{}, e.objectDestroyedError(expression, name, label, at)
+			}
 			result.values = append(result.values, item)
 			continue
 		}
@@ -146,9 +150,28 @@ func (e *executor) objectArgument(expression queryplan.Expression, name string) 
 				Origin:    expression.Origin(),
 			}
 		}
+		for _, row := range objects {
+			inst, label, _ := row.Object()
+			if at, destroyed := e.context.Runtime.Destroyed(inst); destroyed {
+				return sequence{}, e.objectDestroyedError(expression, name, label, at)
+			}
+		}
 		result.values = append(result.values, objects...)
 	}
 	return result, nil
+}
+
+// objectDestroyedError reports a source object the run destroyed.
+func (e *executor) objectDestroyedError(expression queryplan.Expression, name, label string, at int64) error {
+	return &Error{
+		Kind:      ErrorObjectDestroyed,
+		Query:     e.definition.Name(),
+		Operation: expression.Operation(),
+		Parameter: name,
+		Target:    label,
+		Actual:    strconv.FormatInt(at, 10),
+		Origin:    expression.Origin(),
+	}
 }
 
 // objectsDeclaredBy lists the session's objects an element declares: those it
