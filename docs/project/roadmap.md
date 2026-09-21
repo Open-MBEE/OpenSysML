@@ -1123,7 +1123,7 @@ afresh after each move, and `complete` covers every interleaving at body granula
 sweep, so no default trace moved, and the oracle's run counts were re-derived at the new
 granularity (`action_merge_fork_branch_and_loop` now needs `explore:runs=10000` to complete).
 
-The track's last mile, landed on `develop` after the tag: the open picks can now carry the odds
+The track's last mile: the open picks carry the odds
 a model states. `Stochastic::Probability` weights a transition the way it already weighted a
 decision's succession — one more choice-point kind drawn by weight under `seed:<n>`, enumerated
 by `explore`, followed by `replay:` — among the transitions otherwise equally eligible for one
