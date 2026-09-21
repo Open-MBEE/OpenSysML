@@ -1274,7 +1274,7 @@ func (d *decoder) declarationHead(el *element) (string, error) {
 	switch el.metaclass {
 	case "Package", "Namespace":
 		return d.namespaceHead(el)
-	case mNamespaceImport, mMembershipImport, mImport:
+	case mNamespaceImport, mMembershipImport, mNamespaceExpose, mMembershipExpose, mImport:
 		return d.importHead(el)
 	case mAlias:
 		return d.aliasHead(el)
@@ -1984,8 +1984,9 @@ func (d *decoder) missing(el *element, property, why string) error {
 func (d *decoder) importHead(el *element) (string, error) {
 	var words []string
 	// An expose is always protected and always imports all (SysML v2 8.3.26.2),
-	// so its keyword states both: writing them as well does not parse.
-	expose := d.boolOf(el, rdf.OpenSysML+xExpose)
+	// so its keyword states both: writing them as well does not parse. An older
+	// graph states an expose as a flag on an abstract sysml:Import.
+	expose := el.metaclass == mNamespaceExpose || el.metaclass == mMembershipExpose || d.boolOf(el, rdf.OpenSysML+xExpose)
 	if keyword := d.visibility(el); keyword != "" && !expose {
 		words = append(words, keyword)
 	}
@@ -2007,7 +2008,7 @@ func (d *decoder) importHead(el *element) (string, error) {
 	// `P::*::**` imports the members of P recursively; `P::**` imports P itself
 	// and, recursively, its members. An older graph states the kind of an
 	// abstract sysml:Import as a flag.
-	if el.metaclass == mNamespaceImport || d.boolOf(el, rdf.OpenSysML+"isNamespaceImport") {
+	if el.metaclass == mNamespaceImport || el.metaclass == mNamespaceExpose || d.boolOf(el, rdf.OpenSysML+"isNamespaceImport") {
 		imported += "::*"
 	}
 	if d.boolOf(el, rdf.OpenSysML+xRecursive) {

@@ -9,8 +9,8 @@ import (
 
 // referenceFixture declares the shapes whose reference-valued properties the
 // graph links: a type, a `first` start, a `then` source, a chain target, a
-// referent, a function, a library metadata definition, both import kinds, and
-// names nothing declares.
+// referent, a function, a library metadata definition, both import kinds, both
+// expose kinds, and names nothing declares.
 const referenceFixture = `package Refs {
     private import ScalarValues::*;
     private import ISQ::MassValue;
@@ -35,6 +35,11 @@ const referenceFixture = `package Refs {
         private import Refs::Vehicle::**;
         private import Nowhere::Nothing;
         private import Nowhere::*;
+    }
+    view def Overview;
+    view v : Overview {
+        expose Vehicle::**;
+        expose Wheels::*;
     }
 }`
 
@@ -83,9 +88,12 @@ func TestReferencePropertiesLinkElements(t *testing.T) {
 		"sysml:targetFeature elmt:Refs__Engine__power",
 		"a sysml:NamespaceImport",
 		"a sysml:MembershipImport",
+		"a sysml:NamespaceExpose",
+		"a sysml:MembershipExpose",
 		"sysml:importedMembership elmt:Refs__Vehicle_om ;",
-		// An import written through an alias imports the alias.
-		"sysml:importedMembership elmt:Refs__Motor ;",
+		"sysml:importedNamespace elmt:Refs__Wheels ;",
+		// An import written through an alias imports the alias's membership.
+		"sysml:importedMembership elmt:Refs__Motor_om ;",
 		// Names nothing declares are carried as written.
 		`sysml:type "Missing::Kind"`,
 		`sysml:importedNamespace "Nowhere"`,
@@ -98,6 +106,8 @@ func TestReferencePropertiesLinkElements(t *testing.T) {
 	for _, reject := range []string{
 		"a sysml:Import ;",
 		"sysx:isNamespaceImport",
+		"sysx:isExpose",
+		"sysml:importedMembership elmt:Refs__Motor ;",
 		`sysml:type "MassValue"`,
 		`sysml:type "Engine"`,
 		`sysml:importedNamespace "ScalarValues"`,
@@ -111,8 +121,8 @@ func TestReferencePropertiesLinkElements(t *testing.T) {
 }
 
 // TestLegacyReferenceGraphsStillRead covers the graphs earlier releases wrote:
-// references as name literals and imports as an abstract sysml:Import whose
-// kind is a flag. Both read back as the notation that produced them.
+// references as name literals and imports and exposes as an abstract
+// sysml:Import whose kind is a flag. All read back as the notation that produced them.
 func TestLegacyReferenceGraphsStillRead(t *testing.T) {
 	graph, err := convert.Convert("refs.sysml", []byte(referenceFixture), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
@@ -125,10 +135,15 @@ func TestLegacyReferenceGraphsStillRead(t *testing.T) {
 		{link("sysml:sourceFeature", actionStartID), `sysml:sourceFeature "start"`},
 		{link("sysml:importedNamespace", scalarValuesID), `sysml:importedNamespace "ScalarValues"`},
 		{link("sysml:importedMembership", massValueMembershipID), `sysml:importedNamespace "ISQ::MassValue"`},
-		{"sysml:importedMembership elmt:Refs__Motor", `sysml:importedNamespace "Motor"`},
+		{"sysml:importedMembership elmt:Refs__Motor_om", `sysml:importedNamespace "Motor"`},
 		{"a sysml:NamespaceImport ;", `a sysml:Import ;
     sysx:isNamespaceImport "true"^^xsd:boolean ;`},
 		{"a sysml:MembershipImport ;", "a sysml:Import ;"},
+		{"a sysml:NamespaceExpose ;", `a sysml:Import ;
+    sysx:isExpose "true"^^xsd:boolean ;
+    sysx:isNamespaceImport "true"^^xsd:boolean ;`},
+		{"a sysml:MembershipExpose ;", `a sysml:Import ;
+    sysx:isExpose "true"^^xsd:boolean ;`},
 	} {
 		if !strings.Contains(legacy, edit[0]) {
 			t.Fatalf("graph does not record %q\n%s", edit[0], legacy)
@@ -150,6 +165,8 @@ func TestLegacyReferenceGraphsStillRead(t *testing.T) {
 		"private import Vehicle::**;",
 		"private import Nowhere::Nothing;",
 		"private import Nowhere::*;",
+		"expose Vehicle::**;",
+		"expose Wheels::*;",
 	} {
 		if !strings.Contains(string(back), want) {
 			t.Errorf("legacy graph does not read back %q\n%s", want, back)
@@ -210,5 +227,19 @@ func TestDependencyBodyMetadataLinksItsType(t *testing.T) {
 	back := structuralRoundTrip(t, "deps", turtle)
 	if !strings.Contains(string(back), "@ModelingMetadata::Refinement;") {
 		t.Errorf("the mapping alone did not bring the metadata usage back:\n%s", back)
+	}
+}
+
+// TestLibraryIDCollisionIsRefused pins that an element declaring the id the
+// norm fixes for a library element it refers to is refused, not merged with it.
+func TestLibraryIDCollisionIsRefused(t *testing.T) {
+	const src = `package Clash {
+    private import ScalarValues::Real;
+    part def Impostor { @IdentityMetadata::ElementId { id = "` + realID + `"; } }
+    attribute x : Real;
+}`
+	_, err := convert.Convert("clash.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err == nil || !strings.Contains(err.Error(), "same IRI") {
+		t.Fatalf("a document id landing on a library element's IRI should be refused, got %v", err)
 	}
 }

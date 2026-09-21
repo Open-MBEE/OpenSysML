@@ -666,7 +666,7 @@ elmt:FlowsAndViews__vehicleView_om
     sysml:membershipOwningNamespace elmt:FlowsAndViews .
 
 elmt:FlowsAndViews__vehicleView___400
-    a sysml:MembershipImport ;
+    a sysml:MembershipExpose ;
     sysml:qualifiedName "FlowsAndViews::vehicleView::@0" ;
     sysml:elementId "FlowsAndViews__vehicleView___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
@@ -677,6 +677,5 @@ elmt:FlowsAndViews__vehicleView___400
     sysml:visibility "protected" ;
     sysml:isImportAll "true"^^xsd:boolean ;
     sysx:isRecursive "true"^^xsd:boolean ;
-    sysx:isExpose "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:importedMembership elmt:FlowsAndViews__vehicle_om .

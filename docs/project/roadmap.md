@@ -771,7 +771,8 @@ abstractness (see D8), so every metaclass the encoder writes (`kinds.go` and the
 `rdf_out.go`/`rdf_expr.go`) was checked by hand against the abstract classes of the pilot's
 `SysML.ecore` and `kerml.ecore` — `ConnectorAsUsage`, `ControlNode`, `Element`, `Expose`,
 `Import`, `InstantiationExpression`, `LoopActionUsage`, `Relationship`. Two were written:
-`Import`, now `NamespaceImport` / `MembershipImport`, and `ConnectorAsUsage` for a KerML
+`Import`, now `NamespaceImport` / `MembershipImport` and, for an `expose`, `NamespaceExpose` /
+`MembershipExpose` in place of an `sysx:isExpose` flag, and `ConnectorAsUsage` for a KerML
 `connector`, now `Connector`. The decoder still accepts both abstract classes from older graphs.
 The ratchets did not move: every model under `examples/` still round-trips, and the Flexo hop
 still delivers every `type`, `referent` and `targetFeature` of its fixture.

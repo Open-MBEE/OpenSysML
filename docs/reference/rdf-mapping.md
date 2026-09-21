@@ -295,10 +295,12 @@ triples come); a set of classes with no such member is refused, naming the subje
   `InstantiationExpression`, `LoopActionUsage`, `Relationship`), since the
   SysML v2 API never returns an abstract one. So an import is a
   `sysml:NamespaceImport` (`import P::*`, `P::**`) or a `sysml:MembershipImport`
-  (`import P::M`, `P::M::**`), and a KerML `connector` is a `sysml:Connector`.
-  Reading, the abstract `sysml:Import` earlier releases wrote is still accepted,
-  told apart by its `sysx:isNamespaceImport` flag or its imported property, as
-  is `sysml:ConnectorAsUsage`; both are written back as the concrete class on
+  (`import P::M`, `P::M::**`), a view's `expose` likewise a
+  `sysml:NamespaceExpose` or a `sysml:MembershipExpose`, and a KerML
+  `connector` is a `sysml:Connector`. Reading, the abstract `sysml:Import`
+  earlier releases wrote is still accepted, told apart by its
+  `sysx:isNamespaceImport` and `sysx:isExpose` flags or its imported property,
+  as is `sysml:ConnectorAsUsage`; all are written back as the concrete class on
   the next hop.
 - `sysml:declaredName`, `sysml:declaredShortName`, `sysml:qualifiedName` —
   on a requirement's `subject`, `assume constraint` and `require constraint`
@@ -359,7 +361,7 @@ triples come); a set of classes with no such member is refused, naming the subje
   `MembershipImport` `importedMembership`, which links the imported element's
   **owning membership** (the metamodel's range), a library member's by its
   normative membership id; an import written through an alias imports the
-  alias. The same rule links a succession's `sourceFeature` (an implied `first
+  alias's owning membership. The same rule links a succession's `sourceFeature` (an implied `first
   start then a` names the `start` the owner inherits from `Actions::Action`),
   a feature chain's `targetFeature`, a feature reference's `referent` and an
   invocation's `function`. A literal carries the name itself,
