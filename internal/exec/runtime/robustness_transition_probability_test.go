@@ -501,3 +501,46 @@ func TestCheckWeighsTimedTransitionsAsOneOccurrence(t *testing.T) {
 		t.Errorf("violation %s carries mass %v, want 0.1", v.Name, v.Mass)
 	}
 }
+
+// Two differently-spelled invocation timers arm two timers — the duration
+// spellings key the groups, so a `uniform` and a `normal` each get their own
+// occurrence rather than collapsing into the first member's.
+func TestDistinctInvocationTimersArmSeparately(t *testing.T) {
+	m := parseLibraryModel(t, `package test {
+		private import ScalarValues::*;
+		private import SI::*;
+		private import RandomFunctions::*;
+		state def Machine {
+			entry; then a;
+			state a;
+			state b;
+			state c;
+			transition first a accept after uniform(1.0, 2.0) [s] then b;
+			transition first a accept after normal(10.0, 1.0) [s] then c;
+		}
+	}`)
+	ctx, err := m.fresh()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx.SetModelSeed(7)
+	exec, err := ctx.CreateStateExecutor(m.state(t, "Machine"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := exec.initialize(); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+	var timers []Event
+	for _, event := range exec.eventQueue.events {
+		if event.Type == EventTime {
+			timers = append(timers, event)
+		}
+	}
+	if len(timers) != 2 {
+		t.Fatalf("%d timers armed, want one per spelling: %v", len(timers), timers)
+	}
+	if timers[0].Timestamp == timers[1].Timestamp {
+		t.Errorf("both timers due at %v, want each at its own draw", timers[0].Timestamp)
+	}
+}

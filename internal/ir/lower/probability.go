@@ -6,6 +6,7 @@ import (
 	"math"
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
@@ -345,12 +346,16 @@ func TriggerKey(trans *Transition) string {
 		if t.Absolute {
 			keyword = "at"
 		}
-		key = "accept " + keyword + " " + writtenValue(t.Duration)
+		key = "accept " + keyword + " " + exprKeyOrUnique(t.Duration)
 	case *ast.ChangeEvent:
-		key = "accept when " + writtenValue(t.Condition)
+		key = "accept when " + exprKeyOrUnique(t.Condition)
 	}
 	if trans.Via != "" {
-		key += " via " + trans.Via
+		if trans.ViaSelf {
+			key += " via this." + trans.Via
+		} else {
+			key += " via " + trans.Via
+		}
 	}
 	return key
 }
@@ -361,6 +366,152 @@ func triggerOperand(node ast.Node) string {
 		return path
 	}
 	return writtenValue(node)
+}
+
+// exprKeyOrUnique renders a trigger's expression losslessly, or falls back to
+// the node's source span so an unrenderable trigger spells a key no other
+// transition's can collapse into.
+func exprKeyOrUnique(node ast.Node) string {
+	if key, ok := exprKey(node); ok {
+		return key
+	}
+	span := node.Span()
+	return fmt.Sprintf("#%d+%d", span.Offset, span.Len)
+}
+
+// exprKey renders an expression structurally for identity — distinct from
+// writtenValue, which renders for diagnostics and collapses whole node kinds to
+// "an expression". ok is false for a kind exprKey does not cover.
+func exprKey(node ast.Node) (string, bool) {
+	switch n := node.(type) {
+	case nil:
+		return "", true
+	case *ast.LiteralBool:
+		return "bool:" + strconv.FormatBool(n.Value), true
+	case *ast.LiteralInteger:
+		return "int:" + n.Value, true
+	case *ast.LiteralReal:
+		return "real:" + n.Value, true
+	case *ast.LiteralString:
+		return "str:" + strconv.Quote(n.Value), true
+	case *ast.LiteralInfinity:
+		return "inf", true
+	case *ast.NullExpr:
+		return "null", true
+	case *ast.FeatureReference, *ast.QualifiedName, *ast.FeatureChainExpr:
+		if path := FeaturePath(node); path != "" {
+			return "ref:" + path, true
+		}
+		return "", false
+	case *ast.OperatorExpr:
+		return "(" + n.Operator.String() + exprKeyList(n.Operands) + exprKeyRef(n.TypeRef) + ")", true
+	case *ast.IndexExpr:
+		kind := "#"
+		if n.Bracket {
+			kind = "[]"
+		}
+		return "(" + kind + exprKeyList([]ast.Node{n.Operand, n.Index}) + ")", true
+	case *ast.InvocationExpr:
+		return "(call" + exprKeyRef(n.Type) + exprKeyOperand(n.Operand) + exprKeyArgs(n.Args, n.NamedArgs) + ")", true
+	case *ast.ConstructorExpr:
+		return "(new" + exprKeyRef(n.Type) + exprKeyArgs(n.Args, n.NamedArgs) + ")", true
+	case *ast.SequenceExpr:
+		return "(seq" + exprKeyList(n.Elements) + ")", true
+	case *ast.CollectExpr:
+		return exprKeyBodyForm("collect", n.Operand, n.Body)
+	case *ast.SelectExpr:
+		return exprKeyBodyForm("select", n.Operand, n.Body)
+	case *ast.MetadataAccessExpr:
+		return "(meta " + ast.QualifiedText(n.Ref) + ")", true
+	case *ast.CastExpr:
+		if n.Multiplicity != nil {
+			return "", false
+		}
+		return "(as " + ast.QualifiedText(n.TargetType) + ")", true
+	default:
+		return "", false
+	}
+}
+
+// exprKeyList renders nodes space-separated; an unrenderable one marks its
+// position "?" — the node's span is a child position, so it cannot stand in
+// here, and the shape the siblings leave is still distinct.
+func exprKeyList(nodes []ast.Node) string {
+	var out string
+	for _, node := range nodes {
+		key, ok := exprKey(node)
+		if !ok {
+			span := node.Span()
+			key = fmt.Sprintf("?%d+%d", span.Offset, span.Len)
+		}
+		out += " " + key
+	}
+	return out
+}
+
+// exprKeyBodyForm keys a collect/select: operand plus the body's parameters and
+// result; a body with declared members stays unkeyed.
+func exprKeyBodyForm(kind string, operand, body ast.Node) (string, bool) {
+	operandKey, ok := exprKey(operand)
+	if !ok {
+		return "", false
+	}
+	lambda, isBody := body.(*ast.BodyExpr)
+	if !isBody {
+		bodyKey, ok := exprKey(body)
+		if !ok {
+			return "", false
+		}
+		return "(" + kind + " " + operandKey + " " + bodyKey + ")", true
+	}
+	if len(lambda.Members) > 0 {
+		return "", false
+	}
+	params := make([]string, len(lambda.Params))
+	for i, param := range lambda.Params {
+		if param.Type != nil || param.Multiplicity != nil || param.Value != nil || param.IsReference || len(param.Members) > 0 || len(param.Relationships) > 0 {
+			return "", false
+		}
+		params[i] = param.Name
+	}
+	result, ok := exprKey(lambda.Result)
+	if !ok {
+		return "", false
+	}
+	return "(" + kind + " " + operandKey + " {" + strings.Join(params, ",") + " " + result + "})", true
+}
+
+// exprKeyOperand renders an optional receiver position.
+func exprKeyOperand(operand ast.Node) string {
+	if operand == nil {
+		return ""
+	}
+	key, ok := exprKey(operand)
+	if !ok {
+		return " ?"
+	}
+	return " " + key
+}
+
+// exprKeyRef renders a named type position.
+func exprKeyRef(ref *ast.QualifiedName) string {
+	if ref == nil {
+		return ""
+	}
+	return " " + ast.QualifiedText(ref)
+}
+
+// exprKeyArgs renders positional then named arguments in written order.
+func exprKeyArgs(args []ast.Node, named []ast.NamedArg) string {
+	out := exprKeyList(args)
+	for _, arg := range named {
+		key, ok := exprKey(arg.Value)
+		if !ok {
+			key = "?"
+		}
+		out += " " + ast.QualifiedText(arg.Name) + "=" + key
+	}
+	return out
 }
 
 // TransitionGroups returns the positions of the transitions out of source that

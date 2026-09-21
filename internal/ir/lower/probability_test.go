@@ -208,3 +208,52 @@ func TestProbability_Refusals(t *testing.T) {
 		})
 	}
 }
+
+// Two differently-spelled invocation timers are different groups — the key is a
+// lossless rendering, not writtenValue's "an expression" — while identical
+// spellings group together, and `via this.p` does not collide with `via p`.
+func TestTriggerKeyDistinguishesInvocations(t *testing.T) {
+	graph, err := ToStateGraph(stateUsageIn(t, `state m {
+		entry; then a;
+		state a;
+		state b;
+		state c;
+		state d;
+		transition t1 first a accept after uniform(1, 2) then b;
+		transition t2 first a accept after normal(10, 1) then c;
+		transition t3 first a accept after uniform(1, 2) then d;
+	}`), nil)
+	if err != nil {
+		t.Fatalf("ToStateGraph: %v", err)
+	}
+	transitions := graph.Transitions[stateNamed(graph, "a")]
+	if len(transitions) != 3 {
+		t.Fatalf("a has %d transitions, want 3", len(transitions))
+	}
+	if TriggerKey(transitions[0]) == TriggerKey(transitions[1]) {
+		t.Errorf("uniform(1, 2) and normal(10, 1) share a key %q", TriggerKey(transitions[0]))
+	}
+	if TriggerKey(transitions[0]) != TriggerKey(transitions[2]) {
+		t.Errorf("identical spellings differ: %q vs %q", TriggerKey(transitions[0]), TriggerKey(transitions[2]))
+	}
+	groups := TransitionGroups(stateNamed(graph, "a"), transitions)
+	if len(groups) != 2 {
+		t.Errorf("groups = %v, want two (the uniform pair and normal alone)", groups)
+	}
+
+	viaGraph, err := ToStateGraph(stateUsageIn(t, `state m {
+		attribute p;
+		entry; then a;
+		state a;
+		state b;
+		transition t1 first a accept go via p then b;
+		transition t2 first a accept go via this.p then b;
+	}`), nil)
+	if err != nil {
+		t.Fatalf("ToStateGraph(via): %v", err)
+	}
+	viaTransitions := viaGraph.Transitions[stateNamed(viaGraph, "a")]
+	if len(viaTransitions) != 2 || TriggerKey(viaTransitions[0]) == TriggerKey(viaTransitions[1]) {
+		t.Errorf("via p and via this.p keyed alike: %v", viaTransitions)
+	}
+}

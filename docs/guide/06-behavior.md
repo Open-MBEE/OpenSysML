@@ -1024,7 +1024,9 @@ at which no holding branch weighs more than zero is refused.
 `@Probability` on a **state transition** weights it by the same rules, within the *group* it
 competes in: every transition out of one `choice` or `junction` pseudostate is a group; the
 transitions out of one state are grouped by what they wait on — all completion transitions
-together, and the ones on one trigger spelling (`accept go` apart from `accept other`)
+together, and the ones on the same trigger spelling (structurally identical expression, same
+`via` receiver — `accept go` apart from `accept other`, `after uniform(1, 2)` apart from
+`after normal(10, 1)`, `via p` apart from `via this.p`)
 together. Transitions sharing a time-trigger spelling (`accept after 5 [s]` twice out of one
 state) arm a single timer: the expiry is one occurrence, drawn among them by weight rather than
 ordered as separate events, and a weight expression may read the trigger's bound arguments —
