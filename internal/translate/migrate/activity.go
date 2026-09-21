@@ -840,7 +840,7 @@ func (a *activity) arbitraryChoice(n *sysmlv1.Element, outs []*sysmlv1.Element, 
 			written++
 		}
 	}
-	share := realLiteral(1 / float64(written))
+	share := computedLiteral(1 / float64(written))
 	weights := make([]string, len(outs))
 	var dropped []string
 	for i, e := range outs {
@@ -949,6 +949,22 @@ func guardIsValue(g *sysmlv1.Element) bool {
 	return false
 }
 
+// probability is the SysML profile's «Probability» applied to e, or nil: only it
+// weights the edge; a same-named stereotype from another profile carries no weight.
+func probability(e *sysmlv1.Element) *sysmlv1.Stereotype {
+	return stereo(e, "Probability")
+}
+
+// foreignProbabilities notes each «Probability» on e from a profile other than
+// SysML's, whose probability is not read.
+func (a *activity) foreignProbabilities(e *sysmlv1.Element) {
+	for _, s := range e.Stereotypes {
+		if s.Name == "Probability" && !isStandard(s) {
+			a.m.add(e, Approximated, "", "«Probability» from "+s.Namespace+" is not the SysML profile's; its probability is not read")
+		}
+	}
+}
+
 // probabilities weights each branch of a decision carrying a «Probability»: a
 // number is a constant, a property is a reference the run reads, unmarked branches
 // and «Probability» tags without a value share the remainder to 1, constant sums
@@ -962,7 +978,8 @@ func (a *activity) probabilities(outs []*sysmlv1.Element, tos []string) []string
 		if tos[i] == "" {
 			notes = append(notes, "the edge "+describe(e)+" leads to "+describe(ownerNode(a.m.model.Ref(e, "target")))+", "+a.unwritableTarget(e))
 		}
-		s := e.Stereotype("Probability")
+		a.foreignProbabilities(e)
+		s := probability(e)
 		if s == nil {
 			unmarked = append(unmarked, i)
 			continue
@@ -998,14 +1015,14 @@ func (a *activity) probabilities(outs []*sysmlv1.Element, tos []string) []string
 	case len(notes) > 0:
 	case dynamic:
 	case len(unmarked) > 0 && remainder < -probabilityTolerance:
-		notes = append(notes, "the probabilities out of the decision sum to "+realLiteral(sum)+", leaving nothing for the "+strconv.Itoa(len(unmarked))+" branch(es) without one")
+		notes = append(notes, "the probabilities out of the decision sum to "+computedLiteral(sum)+", leaving nothing for the "+strconv.Itoa(len(unmarked))+" branch(es) without one")
 	case len(unmarked) == 0 && sum <= 0:
 		notes = append(notes, "the probabilities out of the decision sum to 0")
 	}
 	if len(notes) > 0 {
 		note := "no «Probability» is written on the decision's branches: " + strings.Join(notes, "; ")
 		for _, e := range outs {
-			if e.Stereotype("Probability") != nil {
+			if probability(e) != nil {
 				a.m.add(e, Approximated, "", note)
 			}
 		}
@@ -1041,13 +1058,13 @@ func (a *activity) weightExprs(outs []*sysmlv1.Element, weights []probabilityWei
 	case len(unmarked) > 0:
 		share := math.Max(remainder, 0) / float64(len(unmarked))
 		for _, i := range unmarked {
-			weights[i] = probabilityWeight{expr: realLiteral(share), value: share}
-			a.m.add(outs[i], Approximated, "", unmarkedNote(outs[i])+": it is weighted "+realLiteral(share)+", its share of what the marked branches leave of 1")
+			weights[i] = probabilityWeight{expr: computedLiteral(share), value: share}
+			a.m.add(outs[i], Approximated, "", unmarkedNote(outs[i])+": it is weighted "+computedLiteral(share)+", its share of what the marked branches leave of 1")
 		}
 	case !dynamic && math.Abs(remainder) > probabilityTolerance:
 		for i, e := range outs {
-			weights[i] = probabilityWeight{expr: realLiteral(weights[i].value / sum), value: weights[i].value / sum}
-			a.m.add(e, Approximated, "", "the probabilities out of the decision sum to "+realLiteral(sum)+", not 1: each is scaled by the sum")
+			weights[i] = probabilityWeight{expr: computedLiteral(weights[i].value / sum), value: weights[i].value / sum}
+			a.m.add(e, Approximated, "", "the probabilities out of the decision sum to "+computedLiteral(sum)+", not 1: each is scaled by the sum")
 		}
 	}
 	exprs := make([]string, len(outs))
@@ -1063,7 +1080,7 @@ func (a *activity) weightExprs(outs []*sysmlv1.Element, weights []probabilityWei
 // unmarkedNote says why an edge has no probability of its own: it carries no
 // «Probability», or one whose tag holds no value.
 func unmarkedNote(e *sysmlv1.Element) string {
-	if e.Stereotype("Probability") != nil {
+	if probability(e) != nil {
 		return "the «Probability» on the edge has no value, so it is weighted as one carrying none"
 	}
 	return "the edge carries no «Probability»"
