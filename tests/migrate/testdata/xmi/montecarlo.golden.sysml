@@ -31,7 +31,7 @@ action def 'Group 0' {
     }
     part target : 'timer analysis';
     perform action run ::> target.tick;
-    /* results of the simulation tool: 5 snapshot(s) in Results standing for 8 run(s) analysing t holding p, t */
+    /* results of the simulation tool: 7 snapshot(s) in Results standing for 10 run(s) analysing t holding p, t */
 }
 action def 'Group 1' {
     @Simulation::Configuration {
@@ -81,6 +81,17 @@ package Results {
     individual part def 'analysis of nothing held' :> 'Timer Analysis' {
         /* not migrated: Slot (_strayN) — the slot holds the simulation tool's MonteCarloAnalysis::N statistic of the runs, which is no value of the instance; the migration results read it */
         /* not migrated: Slot (_strayMean) — the slot holds the simulation tool's MonteCarloAnalysis::Mean statistic of the runs, which is no value of the instance; the migration results read it */
+    }
+    individual part def 'analysis with a garbled mean' :> 'Timer Analysis' {
+        attribute :>> t = 3.0;
+        /* not migrated: Slot (_garbledN) — the slot holds the simulation tool's MonteCarloAnalysis::N statistic of the runs, which is no value of the instance; the migration results read it */
+        /* not migrated: Slot (_garbledMean) — the slot holds the simulation tool's MonteCarloAnalysis::Mean statistic of the runs, which is no value of the instance; the migration results read it */
+        /* not migrated: Slot (_garbledDev) — the slot holds the simulation tool's MonteCarloAnalysis::Deviation statistic of the runs, which is no value of the instance; the migration results read it */
+    }
+    individual part def 'analysis left blank' :> 'Timer Analysis' {
+        attribute :>> t = 5.0;
+        /* not migrated: Slot (_blankN) — the slot holds the simulation tool's MonteCarloAnalysis::N statistic of the runs, which is no value of the instance; the migration results read it */
+        /* not migrated: Slot (_blankMean) — the slot holds the simulation tool's MonteCarloAnalysis::Mean statistic of the runs, which is no value of the instance; the migration results read it */
     }
 }
 package Empty;

@@ -584,7 +584,7 @@ Expression Language`, `ECMAScript for XML`, `JSON`:
 | `Math.min` `Math.max` `Math.abs` `Math.floor` `Math.ceil` `Math.round` `Math.sqrt` `Math.pow`, `a ** b` | `RealFunctions::min` … `RealFunctions::sqrt`, `**`; `Math.min` and `Math.max` take any number of arguments in a script, folded pairwise (`max(max(a, b), c)`; one argument is that argument, none is refused as the infinity the script answers), and exactly two in a Java body, as Java's do; `Math.ceil(x)` is `OpenSysMLMathFunctions::ceiling(x)` (the extension library's `Integer` ceiling, so the least Integer is a value where `-floor(-x)` would overflow on its negation) and `Math.round(x)` is `RealFunctions::floor(x + 0.5)`, which rounds a half toward +∞ as JavaScript does. The three answer the library's `Integer` in a script, and in a Java body `Math.round` does where `Math.floor` and `Math.ceil` answer a `Real` as Java's answer a `double` (so a Java `/` after them is real division, not `quotient`); each result is exact up to the `Integer` range and a whole Real at or beyond 2⁶³ (or below −2⁶³), which the script would keep as a `Number` and Java's `Math.round` would clamp to a `long`, is a typed arithmetic-overflow error at run time, never a wrapped Integer; `-a ** b` is refused, as JavaScript rejects a unary operand of `**` without parentheses, and a Java body's `**` is refused, Java having no such operator |
 | `java.util.Collections.max(s)` / `.min(s)` | `RealFunctions::max(s)` / `RealFunctions::min(s)` over a collection |
 | the tool's time variable (`simtime`) | `localClock.currentTime` |
-| `print(…);` `println(…);` `System.out.print(…);` `System.out.println(…);` (also qualified `java.lang.System.out.…`) as a statement | nothing: the call writes to the tool's console and changes no value of the model, so it is left out of the translation, the other statements of the body stand, and the report notes each print left out as an approximation; a body of prints alone is an empty action. The arguments are not read, so a string concatenation there refuses nothing; a print used as a value (`i = print(x)`) is a call outside the table |
+| `print(…);` `println(…);` `System.out.print(…);` `System.out.println(…);` (also qualified `java.lang.System.out.…`) as a statement | nothing: the call writes to the tool's console and changes no value of the model, so it is left out of the translation, the other statements of the body stand, and the report notes each print left out as an approximation; a body of prints alone is an empty action. The arguments are read for what they could change: one that assigns (`print(i = 1)`), counts (`i++`) or calls anything but a function of this table computing a value (`Math.max`, `Collections.max`, a Java `equals`) could change the model, so that print is refused rather than left out; a print used as a value (`i = print(x)`) is a call outside the table |
 
 **English** (`language` English, natural language, text) is read as one Boolean expression:
 `TRUE` / `FALSE` / `true` / `false`; a property name, spaces and all; `not X`; `X and Y`;
@@ -721,9 +721,10 @@ action def 'Group 0' {
   the observables and written as the snapshot's `"statistics"`, standing for `N` runs, and the
   configuration's `"analysis"` names that observable, which the snapshot holds the same mean
   for. An analysis binding its `Mean` to no feature, or to several, a snapshot recording `N`
-  without `Mean` or the reverse, an `N` that is no count, or a `Mean` no value of the
-  observable holds is noted and the snapshot read as an ordinary run of the numbers it does
-  hold; one whose `Mean` another feature holds instead summarises an analysis of another
+  without `Mean` or the reverse, an `N` that is no count, a statistic that is no number (a
+  string, `NaN`, two values in one slot; a blank literal is the tool's zero), or a `Mean` no
+  value of the observable holds is noted and the snapshot read as an ordinary run of the
+  numbers it does hold; one whose `Mean` another feature holds instead summarises an analysis of another
   configuration and is set aside with a note.
 - A target whose classifiers, and their generals, have no classifier behavior but hold
   constraint properties — the parametric configurations a tool solves for values — performs

@@ -32,7 +32,7 @@ func TestSummarisedMigrationResultsThroughCLI(t *testing.T) {
 	if migrated.status != 0 {
 		t.Fatalf("migrating failed: %s", migrated.output())
 	}
-	if !strings.Contains(migrated.stderr, "(results of 3 run configuration(s): 2 with 6 stored snapshot(s) standing for 9 run(s))") {
+	if !strings.Contains(migrated.stderr, "(results of 3 run configuration(s): 2 with 8 stored snapshot(s) standing for 11 run(s))") {
 		t.Errorf("the sidecar summary counts no summarised runs:\n%s", migrated.output())
 	}
 	compared := runCommand(t, exec.Command(binary, model, "-compare-results", sidecar, "-seed", "1"))
@@ -40,12 +40,14 @@ func TestSummarisedMigrationResultsThroughCLI(t *testing.T) {
 		t.Fatalf("exit status = %d, want 0\n%s", compared.status, compared.output())
 	}
 	for _, want := range []string{
-		"compare 'Group 0' — 8 stored run(s) over 5 snapshot(s) in Results; 3 run(s) by OpenSysML, draws average, seed 1\n",
+		"compare 'Group 0' — 10 stored run(s) over 7 snapshot(s) in Results; 3 run(s) by OpenSysML, draws average, seed 1\n",
 		"p          | tool                 | 1    | 0.5   | 0.5                | 0.5   | 0.5   | 0.5",
-		"t          | tool                 | 7    |       | 3.7142857142857144 |       |       |",
+		"t          | tool                 | 9    |       | 3.7777777777777777 |       |       |",
 		"           | OpenSysML (target.t) | 3    | 3.0   | 3.0                | 3.0   | 3.0   | 3.0",
-		"           | difference           |      |       | -19.2%             |       |       |",
+		"           | difference           |      |       | -20.6%             |       |       |",
 		`note: "analysis of 4 runs" summarises 4 run(s) of t: mean 3.5, deviation 0.5`,
+		"note: the slot of MonteCarloAnalysis::Mean holds a LiteralString, which is no number in 1 snapshot(s), so it is not among the results",
+		"note: 1 snapshot(s) record a MonteCarloAnalysis statistic that is no number, so they hold no statistics",
 		"note: 1 snapshot(s) hold the MonteCarloAnalysis::Mean as u and not as t, which the analysis binds it to, so they are of an analysis of another configuration and not among the results",
 		"compare 'Group 1' — no stored run in Empty; 1 run(s) by OpenSysML, draws average, seed 1\n",
 		"t          | tool (no stored result to compare) | 0    |     |      |     |     |",

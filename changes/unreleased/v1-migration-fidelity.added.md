@@ -39,4 +39,6 @@
   statement of an opaque body writes to the tool's console and changes nothing of the model, so
   the SysML v1 migration leaves it out of the translation, keeps the other statements of the body,
   and notes each print left out as an approximation; a body of prints alone is an empty action.
-  A call not in the table, or a print used as a value, is refused as before.
+  A print whose argument assigns, counts or calls anything but a function of the table computing
+  a value could change the model, so it is refused rather than left out; a call not in the
+  table, or a print used as a value, is refused as before.

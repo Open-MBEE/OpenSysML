@@ -794,17 +794,60 @@ var consolePrints = map[string]bool{
 	"java.lang.System.out.print": true, "java.lang.System.out.println": true,
 }
 
-// consolePrint reads past the arguments of a console print, which is written
-// as no statement, and notes it.
+// pureCalls are the functions call writes, which compute a value and change nothing.
+var pureCalls = map[string]bool{
+	"Math.max": true, "Math.min": true, "Math.abs": true, "Math.floor": true, "Math.round": true,
+	"Math.ceil": true, "Math.sqrt": true, "Math.pow": true,
+	"java.util.Collections.max": true, "java.util.Collections.min": true, "Collections.max": true, "Collections.min": true,
+}
+
+// pureCall reports whether a call of fn changes nothing of the model: a function
+// of pureCalls, or in Java a string's equals.
+func (p *opaqueParser) pureCall(fn string) bool {
+	return pureCalls[fn] || (p.d == dialectJava && strings.HasSuffix(fn, ".equals"))
+}
+
+// calleeAt is the dotted name a `(` at index i is a call of, "" when no name precedes it.
+func (p *opaqueParser) calleeAt(i int) string {
+	before := func(j int) int {
+		for j--; j >= 0 && p.toks[j].kind == tokNewline; j-- {
+		}
+		return j
+	}
+	var parts []string
+	for j := before(i); j >= 0 && p.toks[j].kind == tokIdent; j = before(j) {
+		parts = append(parts, p.toks[j].text)
+		if j = before(j); j < 0 || !p.toks[j].isPunct(".") {
+			break
+		}
+	}
+	slices.Reverse(parts)
+	return strings.Join(parts, ".")
+}
+
+// consolePrint reads past the arguments of a console print, which is written as no
+// statement, and notes it. An argument that assigns, counts or calls anything but a
+// function computing a value could change the model, so such a print is refused instead.
 func (p *opaqueParser) consolePrint(fn string) ([]string, *refusal) {
+	changing := func(what string) *refusal {
+		return &refusal{kind: refusedCall, token: fn, why: "an argument of " + fn + " " + what + ", which could change the model, so the print is not left out"}
+	}
 	for depth := 1; depth > 0; {
-		switch tok := p.next(true); {
+		tok := p.next(true)
+		switch {
 		case tok.kind == tokEOF:
 			return nil, &refusal{kind: refusedSyntax, token: fn + "(", why: "the arguments are not closed"}
 		case tok.isPunct("("):
 			depth++
+			if callee := p.calleeAt(p.i - 1); callee != "" && !p.pureCall(callee) {
+				return nil, changing("calls " + callee)
+			}
 		case tok.isPunct(")"):
 			depth--
+		case tok.isPunct("++"), tok.isPunct("--"):
+			return nil, changing("counts with " + tok.text)
+		case tok.isPunct("="), tok.isPunct("+="), tok.isPunct("-="), tok.isPunct("*="), tok.isPunct("/="), tok.isPunct("%="), tok.isPunct("**="):
+			return nil, changing("assigns with " + tok.text)
 		}
 	}
 	p.printed++

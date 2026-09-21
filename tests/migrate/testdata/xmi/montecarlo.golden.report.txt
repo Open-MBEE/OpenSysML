@@ -1,7 +1,9 @@
 # SysML v1 to v2 migration report: montecarlo.xmi
-# migrated 53 element(s): 35 mapped, 3 approximated, 15 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 62 element(s): 39 mapped, 3 approximated, 20 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
-## unmapped (15)
+## unmapped (20)
+Slot	Results::analysis left blank::<Slot>	_blankN	(the slot holds the simulation tool's MonteCarloAnalysis::N statistic of the runs, which is no value of the instance; the migration results read it)
+Slot	Results::analysis left blank::<Slot>	_blankMean	(the slot holds the simulation tool's MonteCarloAnalysis::Mean statistic of the runs, which is no value of the instance; the migration results read it)
 Slot	Results::analysis of 4 runs::<Slot>	_sumN	(the slot holds the simulation tool's MonteCarloAnalysis::N statistic of the runs, which is no value of the instance; the migration results read it)
 Slot	Results::analysis of 4 runs::<Slot>	_sumMean	(the slot holds the simulation tool's MonteCarloAnalysis::Mean statistic of the runs, which is no value of the instance; the migration results read it)
 Slot	Results::analysis of 4 runs::<Slot>	_sumDev	(the slot holds the simulation tool's MonteCarloAnalysis::Deviation statistic of the runs, which is no value of the instance; the migration results read it)
@@ -12,6 +14,9 @@ Slot	Results::analysis of two and a half runs::<Slot>	_oddN	(the slot holds the 
 Slot	Results::analysis of two and a half runs::<Slot>	_oddMean	(the slot holds the simulation tool's MonteCarloAnalysis::Mean statistic of the runs, which is no value of the instance; the migration results read it)
 Slot	Results::analysis of u::<Slot>	_forN	(the slot holds the simulation tool's MonteCarloAnalysis::N statistic of the runs, which is no value of the instance; the migration results read it)
 Slot	Results::analysis of u::<Slot>	_forMean	(the slot holds the simulation tool's MonteCarloAnalysis::Mean statistic of the runs, which is no value of the instance; the migration results read it)
+Slot	Results::analysis with a garbled mean::<Slot>	_garbledN	(the slot holds the simulation tool's MonteCarloAnalysis::N statistic of the runs, which is no value of the instance; the migration results read it)
+Slot	Results::analysis with a garbled mean::<Slot>	_garbledMean	(the slot holds the simulation tool's MonteCarloAnalysis::Mean statistic of the runs, which is no value of the instance; the migration results read it)
+Slot	Results::analysis with a garbled mean::<Slot>	_garbledDev	(the slot holds the simulation tool's MonteCarloAnalysis::Deviation statistic of the runs, which is no value of the instance; the migration results read it)
 Slot	Results::half an analysis::<Slot>	_halfN	(the slot holds the simulation tool's MonteCarloAnalysis::N statistic of the runs, which is no value of the instance; the migration results read it)
 Slot	Results::run 1::<Slot>	_rawN	(the slot holds the simulation tool's MonteCarloAnalysis::N statistic of the runs, which is no value of the instance; the migration results read it)
 Slot	Results::run 1::<Slot>	_rawMean	(the slot holds the simulation tool's MonteCarloAnalysis::Mean statistic of the runs, which is no value of the instance; the migration results read it)
@@ -23,13 +28,15 @@ Slot	Unbound Results::run 1::<Slot>	_ub1N	(the slot holds the simulation tool's 
 Activity	Timer::Tick	_act	-> Timer::Tick	(the classifier behavior is run by every object of Timer as its usage tick)
 «Block» Class	Unbound Analysis	_unbound	-> 'Unbound Analysis'	(generalization of the simulation tool's MonteCarloAnalysis is not written: v2 has no analysis pattern for the statistics it computes over the runs, which the migration results read from the result snapshots)
 
-## mapped (35)
+## mapped (39)
 Package	Empty	_empty	-> Empty
 «SimulationConfig» Class	Group 0	_g0	-> 'Group 0'
 «SimulationConfig» Class	Group 1	_g5	-> 'Group 1'
 «SimulationConfig» Class	Group 2	_g6	-> 'Group 2'
 Model	Model	_m	(the root model's members are written at the top level)
 Package	Results	_results	-> Results
+InstanceSpecification	Results::analysis left blank	_blank	-> Results::'analysis left blank'
+Slot	Results::analysis left blank::<Slot>	_blankT	-> Results::'analysis left blank'::t
 InstanceSpecification	Results::analysis of 4 runs	_sum	-> Results::'analysis of 4 runs'
 Slot	Results::analysis of 4 runs::<Slot>	_sumT	-> Results::'analysis of 4 runs'::t
 InstanceSpecification	Results::analysis of nothing held	_stray	-> Results::'analysis of nothing held'
@@ -37,6 +44,8 @@ InstanceSpecification	Results::analysis of two and a half runs	_odd	-> Results::
 Slot	Results::analysis of two and a half runs::<Slot>	_oddT	-> Results::'analysis of two and a half runs'::t
 InstanceSpecification	Results::analysis of u	_foreign	-> Results::'analysis of u'
 Slot	Results::analysis of u::<Slot>	_forU	-> Results::'analysis of u'::u
+InstanceSpecification	Results::analysis with a garbled mean	_garbled	-> Results::'analysis with a garbled mean'
+Slot	Results::analysis with a garbled mean::<Slot>	_garbledT	-> Results::'analysis with a garbled mean'::t
 InstanceSpecification	Results::half an analysis	_half	-> Results::'half an analysis'
 Slot	Results::half an analysis::<Slot>	_halfT	-> Results::'half an analysis'::t
 InstanceSpecification	Results::run 1	_raw	-> Results::'run 1'

@@ -136,15 +136,16 @@ func (e *ClockStepParseError) Error() string {
 
 func (e *ClockStepParseError) Unwrap() error { return ErrClockStep }
 
-// onTick is the first tick of a clock stepping by step not before the instant t:
-// t itself on a continuous clock, or when t is within floating-point rounding of a tick.
+// onTick is the first tick of a clock stepping by step not before the instant t: t itself
+// on a continuous clock, or when t is within rounding (at most a millionth of a tick) of a tick.
 func onTick(t, step float64) float64 {
 	if step == 0 {
 		return t
 	}
 	ticks := t / step
 	nearest := math.Round(ticks)
-	if math.Abs(ticks-nearest) <= 1e-9*math.Max(1, math.Abs(ticks)) {
+	tolerance := math.Min(1e-9*math.Max(1, math.Abs(ticks)), 1e-6)
+	if math.Abs(ticks-nearest) <= tolerance {
 		return nearest * step
 	}
 	return math.Ceil(ticks) * step

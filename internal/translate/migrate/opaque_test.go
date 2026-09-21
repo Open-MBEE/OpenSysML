@@ -262,6 +262,8 @@ func TestTranslateStatements(t *testing.T) {
 		{"JavaScript", "println (\"start\")\ni = 1\nSystem.out.println(i);", []string{"assign this.i := 1;"}},
 		{"JavaScript", "print(\"done\")", nil},
 		{"Java", "java.lang.System.out.print(\"i=\" + i); i = 2", []string{"assign this.i := 2;"}},
+		{"JavaScript", "println(\"max \" + Math.max(i, 1) + \" of \" + xs[0] + (i == 1 ? \"one\" : \"more\"))\ni = 2", []string{"assign this.i := 2;"}},
+		{"Java", "System.out.println(name.equals(\"a\") + \"\"); i = 2", []string{"assign this.i := 2;"}},
 	}
 	for _, c := range cases {
 		got, _, err := translateStatements(c.body, c.lang, testScope)
@@ -344,6 +346,13 @@ func TestTranslateRefusals(t *testing.T) {
 		{"JavaScript", "i = print(\"done\")", true, refusedCall, "print"},
 		{"JavaScript", "t = clock; print(\"t: \" + (t);", true, refusedSyntax, "print("},
 		{"JavaScript", "print(\"a\") i = 1", true, refusedSyntax, "i"},
+		{"JavaScript", "print(i = i + 1); t = i", true, refusedCall, "print"},
+		{"JavaScript", "print(\"i: \" + i++); t = i", true, refusedCall, "print"},
+		{"JavaScript", "println(\"i: \" + (i += 1))", true, refusedCall, "println"},
+		{"JavaScript", "println(\"now \" + ALH.getCurrentTime())", true, refusedCall, "println"},
+		{"JavaScript", "println(\"state \" + tank.fill(1))", true, refusedCall, "println"},
+		{"JavaScript", "println(\"state \" + new Date())", true, refusedCall, "println"},
+		{"JavaScript", "println(name.equals(\"a\"))", true, refusedCall, "println"},
 		{"JavaScript", "i = Math.random()", true, refusedCall, "Math.random"},
 		{"JavaScript", "i = Math.max()", true, refusedCall, "Math.max"},
 		{"JavaScript", "t = Math.min()", true, refusedCall, "Math.min"},

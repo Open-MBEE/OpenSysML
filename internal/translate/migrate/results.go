@@ -103,7 +103,7 @@ func (m *migration) instanceSnapshot(r *simresults.ConfigurationResults, inst *s
 	}
 	snap := simresults.Snapshot{ID: inst.ID, Name: inst.Name, Values: map[string]float64{}}
 	held := map[string]int{}
-	summary := m.slotValues(inst, &snap, held, scan)
+	summary, unread := m.slotValues(inst, &snap, held, scan)
 	for name, n := range held {
 		if n > 1 {
 			delete(snap.Values, name)
@@ -111,7 +111,7 @@ func (m *migration) instanceSnapshot(r *simresults.ConfigurationResults, inst *s
 		}
 	}
 	if scan.analysed != nil {
-		stats, note, foreign := monteCarloStatistics(scan.analysed.Name, summary, snap.Values)
+		stats, note, foreign := monteCarloStatistics(scan.analysed.Name, summary, unread, snap.Values)
 		if note != "" {
 			scan.statistics[note]++
 		}
@@ -131,14 +131,18 @@ func (m *migration) instanceSnapshot(r *simresults.ConfigurationResults, inst *s
 
 // slotValues reads each slot of inst into snap.Values; a slot whose name, kind
 // or number is no result is counted in scan.unread under its reason. The slots of
-// the analysis's own statistics are returned instead, by statistic.
-func (m *migration) slotValues(inst *sysmlv1.Element, snap *simresults.Snapshot, held map[string]int, scan *snapshotScan) map[string]float64 {
-	summary := map[string]float64{}
+// the analysis's own statistics are returned instead, by statistic; unread marks
+// one of them holding no number.
+func (m *migration) slotValues(inst *sysmlv1.Element, snap *simresults.Snapshot, held map[string]int, scan *snapshotScan) (summary map[string]float64, unread bool) {
+	summary = map[string]float64{}
 	for _, slot := range inst.Owned("slot") {
-		if stat, value, ok := m.monteCarloSlot(slot); ok {
+		if stat, value, reason := m.monteCarloSlot(slot); stat != "" {
 			switch {
 			case scan.analysed == nil:
 				scan.unread[monteCarloAnalysisBlock+"::"+stat+" holds a statistic of no observable the target analyses"]++
+			case reason != "":
+				scan.unread[monteCarloAnalysisBlock+"::"+stat+" "+reason]++
+				unread = true
 			case stat != monteCarloOutOfSpec:
 				summary[stat] = value
 			}
@@ -161,7 +165,7 @@ func (m *migration) slotValues(inst *sysmlv1.Element, snap *simresults.Snapshot,
 		snap.Values[name] = value.number
 		held[name]++
 	}
-	return summary
+	return summary, unread
 }
 
 // snapshotNotes records on r the scan's observables and its notes.
@@ -277,31 +281,43 @@ func (m *migration) monteCarloBinding(c *sysmlv1.Element) string {
 }
 
 // monteCarloSlot reads a snapshot slot of the analysis's own features as the number it
-// holds, a blank one as zero; ok is false for a slot of anything else.
-func (m *migration) monteCarloSlot(slot *sysmlv1.Element) (stat string, value float64, ok bool) {
+// holds, a blank numeric literal as zero; stat is "" for a slot of anything else, and
+// reason says why the slot holds no number.
+func (m *migration) monteCarloSlot(slot *sysmlv1.Element) (stat string, value float64, reason string) {
 	f := m.model.Ref(slot, "definingFeature")
 	switch stat = monteCarloFeature(f); stat {
 	case monteCarloRuns, monteCarloMean, monteCarloDeviation, monteCarloOutOfSpec:
 	default:
-		return "", 0, false
+		return "", 0, ""
 	}
 	values := slot.Owned("value")
-	if len(values) != 1 || blankLiteral(values[0]) {
-		return stat, 0, true
+	switch len(values) {
+	case 0:
+		return stat, 0, "holds no value"
+	case 1:
+	default:
+		return stat, 0, holdsNote + strconv.Itoa(len(values)) + " values, and a statistic is one number"
 	}
 	scalar, reason := m.literalScalar(values[0])
-	if reason != "" || scalar.kind != kindNumber {
-		return stat, 0, true
+	switch {
+	case reason != "":
+		return stat, 0, reason
+	case scalar.kind != kindNumber:
+		return stat, 0, "holds a " + scalar.spec + ", which is no number"
 	}
-	return stat, scalar.number, true
+	return stat, scalar.number, ""
 }
 
 // monteCarloStatistics makes the statistics a snapshot's N, Mean and Deviation record
 // of the analysed observable, which the binding leaves holding the Mean; none when the
-// analysis left them blank. note says what is amiss; foreign marks a snapshot whose Mean
-// another observable holds instead — of an analysis of that one, so of another configuration.
-func monteCarloStatistics(observable string, summary, values map[string]float64) (stats *simresults.Statistics, note string, foreign bool) {
-	if len(summary) == 0 {
+// analysis left them blank, or when unread marks one holding no number. note says what
+// is amiss; foreign marks a snapshot whose Mean another observable holds instead — of
+// an analysis of that one, so of another configuration.
+func monteCarloStatistics(observable string, summary map[string]float64, unread bool, values map[string]float64) (stats *simresults.Statistics, note string, foreign bool) {
+	switch {
+	case unread:
+		return nil, "record a " + monteCarloAnalysisBlock + " statistic that is no number, so they hold no statistics", false
+	case len(summary) == 0:
 		return nil, "", false
 	}
 	runs, hasRuns := summary[monteCarloRuns]
