@@ -1532,8 +1532,16 @@ func (e *StateExecutor) chooseCompletion(source *ast.StateNode, dispatched *lowe
 	transitions := e.graph.Transitions[source]
 	if completionCount(transitions) < 2 {
 		// Nothing to choose among: firing reads the one guard, and a lone
-		// weighted completion still has its weight validated.
+		// weighted completion has its weight validated only once its guard holds.
 		if dispatched.Probability != nil {
+			ok, err := e.completionEnabled(dispatched)
+			if err != nil {
+				return nil, nil, fmt.Errorf("eval completion guard: %w", err)
+			}
+			if !ok {
+				drain()
+				return nil, nil, nil
+			}
 			if _, err := e.transitionWeights(source, transitions, []int{slices.Index(transitions, dispatched)}, nil); err != nil {
 				return nil, nil, err
 			}

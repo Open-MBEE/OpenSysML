@@ -69,6 +69,7 @@ func TestRuntimeRobustnessTransitionProbability(t *testing.T) {
 	t.Run("trigger_argument_weight_out_of_range", testTriggerArgumentWeightOutOfRange)
 	t.Run("lone_completion_dynamic_weight_out_of_range", testLoneCompletionWeightOutOfRange)
 	t.Run("lone_completion_zero_weight", testLoneCompletionZeroWeight)
+	t.Run("lone_completion_guarded_off_skips_weight", testLoneCompletionGuardedOffSkipsWeightCheck)
 }
 
 // testTransitionNegativeWeight: a probability is in [0, 1], so a constant
@@ -569,5 +570,29 @@ func testLoneCompletionZeroWeight(t *testing.T) {
 	if !errors.Is(err, ErrBranchWeights) ||
 		!strings.Contains(err.Error(), "sum to 0") {
 		t.Fatalf("error = %v, want ErrBranchWeights for the lone zero-weighted completion", err)
+	}
+}
+
+// testLoneCompletionGuardedOffSkipsWeightCheck: a lone completion whose guard
+// does not hold fires nothing — its weight is never evaluated, so a dynamic p
+// of 1.5 is no error and the state stays put.
+func testLoneCompletionGuardedOffSkipsWeightCheck(t *testing.T) {
+	m := parseLibraryModel(t, weightedMachine(`
+		attribute flag : Boolean = false;
+		attribute w : Real = 1.5;
+		transition first a if flag then b { @Probability { p = w; } }`))
+	ctx, err := m.fresh()
+	if err != nil {
+		t.Fatal(err)
+	}
+	exec, err := ctx.CreateStateExecutor(m.state(t, "Machine"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("guarded-off lone completion: %v", err)
+	}
+	if got := exec.Outcome().FinalState; got != "a" {
+		t.Fatalf("final state %q, want a — the weighted completion never enabled", got)
 	}
 }
