@@ -10,7 +10,7 @@ import (
 )
 
 // entryStepWherePrefix names entry-step choices at an instant.
-const entryStepWherePrefix = "entry at t="
+const entryStepWherePrefix = "entry at t=" // #nosec G101 -- a trace label, not a credential
 
 // heldEntry is the unfinished portion of a state entry cascade.
 type heldEntry struct {

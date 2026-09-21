@@ -7548,39 +7548,6 @@ func testStateUsageInheritsUnsupportedMember(t *testing.T) {
 	}
 }
 
-// runToCompletionRefusal builds the state executor for Machine in src and checks
-// that creating it refuses a run-to-completion redefinition: the typed error,
-// naming feature, declaring body and the value written.
-func runToCompletionRefusal(t *testing.T, src, feature, owner, written string) *lower.RunToCompletionRedefinition {
-	t.Helper()
-	return runToCompletionRefused(t, stateExecutorError(t, src, "Machine"), feature, owner, written)
-}
-
-// runToCompletionRefused checks that err, from creating a state executor, is
-// the typed run-to-completion refusal naming feature, owner and the value written.
-func runToCompletionRefused(t *testing.T, err error, feature, owner, written string) *lower.RunToCompletionRedefinition {
-	t.Helper()
-	if err == nil {
-		t.Fatalf("redefinition of %s ran under the library default", feature)
-	}
-	if !errors.Is(err, lower.ErrUnsupportedStateContent) {
-		t.Fatalf("error = %v, want unsupported state content", err)
-	}
-	var refusal *lower.RunToCompletionRedefinition
-	if !errors.As(err, &refusal) {
-		t.Fatalf("error = %v, want a run-to-completion redefinition", err)
-	}
-	if refusal.Feature != feature || refusal.Decl == nil {
-		t.Fatalf("refusal = %+v, want feature %s and its declaration", refusal, feature)
-	}
-	for _, want := range []string{feature, owner, "= " + written} {
-		if !strings.Contains(err.Error(), want) {
-			t.Fatalf("error = %v, want %q named", err, want)
-		}
-	}
-	return refusal
-}
-
 // testRunToCompletionRedefinedFalse: a machine redefining isRunToCompletion to
 // false executes under the declared non-run-to-completion behavior.
 func testRunToCompletionRedefinedFalse(t *testing.T) {
