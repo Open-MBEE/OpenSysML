@@ -3587,10 +3587,10 @@ func TestKerMLBinaryConnectorEndsCarryTheRoundTripWithoutSourceText(t *testing.T
 	for _, want := range []string{
 		"sysml:connectorEnd expr:Corpus__Vehicle___406_pend0, expr:Corpus__Vehicle___406_pend1 ;",
 		"expr:Corpus__Vehicle___406_pend0\n    a sysml:ReferenceUsage ;",
-		"sysml:references elmt:Corpus__Vehicle__eng",
+		"sysml:referencedFeature elmt:Corpus__Vehicle__eng",
 		"expr:Corpus__Vehicle___407_pend0\n    a sysml:ReferenceUsage ;",
 		"sysml:chainingFeature elmt:Corpus__Vehicle__a, elmt:Corpus__A__x",
-		"sysml:references elmt:Corpus__Vehicle__transitionLink",
+		"sysml:referencedFeature elmt:Corpus__Vehicle__transitionLink",
 		"sysml:lowerBound expr:Corpus__Vehicle___408_pend0_plowerBound",
 	} {
 		if !strings.Contains(graph, want) {
