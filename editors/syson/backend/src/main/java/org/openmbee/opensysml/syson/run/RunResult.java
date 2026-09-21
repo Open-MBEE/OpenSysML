@@ -45,7 +45,7 @@ public final class RunResult {
     }
 
     public static final class Builder {
-        private String modelHash;
+        private String modelHash = "";
         private RunOperation operation;
         private String target;
         private boolean ok;

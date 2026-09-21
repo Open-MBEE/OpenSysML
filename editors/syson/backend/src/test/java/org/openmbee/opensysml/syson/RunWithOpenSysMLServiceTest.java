@@ -19,6 +19,7 @@ import org.openmbee.opensysml.syson.export.ExportedProject;
 import org.openmbee.opensysml.syson.export.ProjectTextExporter;
 import org.openmbee.opensysml.syson.identity.ElementIndex;
 import org.openmbee.opensysml.syson.run.RunOperation;
+import org.openmbee.opensysml.syson.run.RunResult;
 import org.openmbee.opensysml.syson.run.RunResultStore;
 import org.openmbee.opensysml.syson.run.RunWithOpenSysMLInput;
 import org.openmbee.opensysml.syson.run.RunWithOpenSysMLService;
@@ -102,5 +103,30 @@ class RunWithOpenSysMLServiceTest {
         assertThat(result.diagnostics().get(0).message())
                 .isEqualTo("selected element has no qualified name in the export");
         org.mockito.Mockito.verifyNoInteractions(connection);
+    }
+
+    @Test
+    void handledFailureKeepsModelHashNonNull() {
+        Connection connection = org.mockito.Mockito.mock(Connection.class);
+        Element target = org.mockito.Mockito.mock(Element.class);
+        org.mockito.Mockito.when(target.getQualifiedName()).thenReturn(VEHICLE);
+        org.mockito.Mockito.when(target.getElementId()).thenReturn(VEHICLE_ID);
+        org.mockito.Mockito.when(connection.parseSources(org.mockito.ArgumentMatchers.any()))
+                .thenThrow(new IllegalArgumentException("unparsable"));
+        ExportedProject project = new ExportedProject(List.of(SourceDocument.inline("vehicle.sysml", "part def ;")),
+                new ElementIndex(Map.of(VEHICLE, new ElementIndex.IndexedElement(VEHICLE, VEHICLE_ID,
+                        "sirius-id", target))),
+                List.of(), List.of());
+        IEMFEditingContext context = org.mockito.Mockito.mock(IEMFEditingContext.class);
+        org.mockito.Mockito.when(context.getId()).thenReturn("ctx");
+        RunWithOpenSysMLService service = new RunWithOpenSysMLService(connection, ignored -> project,
+                new RunResultStore(), new OpenSysMLProperties());
+
+        RunResult result = service.run(context, target, new RunWithOpenSysMLInput(UUID.randomUUID(), "ctx",
+                VEHICLE_ID, RunOperation.INSTANTIATE, Map.of(), List.of(), List.of(), null, null));
+
+        assertThat(result.ok()).isFalse();
+        assertThat(result.modelHash()).isEqualTo("");
+        assertThat(result.diagnostics()).isNotEmpty();
     }
 }

@@ -89,7 +89,7 @@ public class RunWithOpenSysMLService {
             mappedDiagnostics.forEach(value -> resultDiagnostics.add(
                     new RunResult.MappedDiagnostic(value.diagnostic(), value.element())));
             resultDiagnostics.add(new RunResult.MappedDiagnostic(diagnostic, selected.element()));
-            RunResult result = RunResult.builder().operation(input.operation()).target(targetName)
+            RunResult result = RunResult.builder().modelHash("").operation(input.operation()).target(targetName)
                     .mappedDiagnostics(resultDiagnostics).build();
             store.put(context.getId(), result);
             return result;
