@@ -230,6 +230,24 @@ func TestDependencyBodyMetadataLinksItsType(t *testing.T) {
 	}
 }
 
+// TestImportNamingTwoElementsIsRefused pins that an import stating both an
+// importedMembership and an importedNamespace is refused, not read as one of them.
+func TestImportNamingTwoElementsIsRefused(t *testing.T) {
+	graph, err := convert.Convert("refs.sysml", []byte(referenceFixture), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	const one = "sysml:importedMembership elmt:Refs__Motor_om ;"
+	if !strings.Contains(string(graph), one) {
+		t.Fatalf("graph does not record %q\n%s", one, graph)
+	}
+	two := strings.Replace(string(graph), one, one+"\n    sysml:importedNamespace elmt:Refs__Wheels ;", 1)
+	_, err = convert.Convert("two.ttl", []byte(two), convert.FormatTurtle, convert.FormatSysML)
+	if err == nil || !strings.Contains(err.Error(), "names one element") {
+		t.Fatalf("an import naming two elements should be refused, got %v", err)
+	}
+}
+
 // TestLibraryIDCollisionIsRefused pins that an element declaring the id the
 // norm fixes for a library element it refers to is refused, not merged with it.
 func TestLibraryIDCollisionIsRefused(t *testing.T) {

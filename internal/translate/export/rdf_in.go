@@ -2025,10 +2025,20 @@ func (d *decoder) importHead(el *element) (string, error) {
 // membership import's membership — the member it owns, an alias, or the name
 // as written — and, from an older graph, the namespace an abstract import states.
 func (d *decoder) importedName(el *element) (string, error) {
-	term, ok := d.graph.Object(rdf.IRI(el.iri), rdf.SysML+pImportedMembership)
-	if !ok {
+	subject := rdf.IRI(el.iri)
+	memberships := d.graph.Objects(subject, rdf.SysML+pImportedMembership)
+	namespaces := d.graph.Objects(subject, rdf.SysML+pImportedNamespace)
+	if len(memberships)+len(namespaces) > 1 {
+		return "", &UnsupportedError{
+			What: fmt.Sprintf("the import <%s>", el.iri),
+			Note: fmt.Sprintf("an import names one element, and it states %d across %s, so all but one would be dropped",
+				len(memberships)+len(namespaces), curieList([]string{pImportedMembership, pImportedNamespace})),
+		}
+	}
+	if len(memberships) == 0 {
 		return d.referenceText(el, rdf.SysML+pImportedNamespace)
 	}
+	term := memberships[0]
 	if term.IsLiteral() {
 		return d.referenceName(term, el)
 	}
