@@ -1697,8 +1697,9 @@ to, triple for triple. An `@id` is resolved within the subject's project scope, 
 by the `<qualifier>:<id>` it spells; an id in the expression grammar
 ([Expressions](#expressions)) whose parent is a document element, carrying no
 `qualifiedName`, is an `expr:` node when its metaclass is one the mapping mints
-directly under a declaration — an expression class, or the end feature of a
-connector — or when its parent is itself an `expr:` node. A membership id
+directly under a declaration — an expression class, the end feature of a
+connector, or a reference subsetting — or when its parent is itself an `expr:`
+node or an expression-class element. A membership id
 (`_om`) follows the node it owns, and any other element spelled that way is an
 ordinary element. The form carries no namespace of its own, so this is a reading
 of the id.
