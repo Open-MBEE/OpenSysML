@@ -501,8 +501,7 @@ func (d *decoder) recordValueTarget(valueTargets map[string]string, owner, value
 }
 
 // valueOwner is the feature a FeatureValue triple's value belongs to; skip
-// reports the triple is not a resolving FeatureValue's, or its direct value
-// already records it.
+// reports a non-resolving FeatureValue or one its direct value already records.
 func (d *decoder) valueOwner(triple rdf.Triple, valueTargets map[string]string, directValues map[string]rdf.Term) (owner rdf.Term, skip bool, err error) {
 	if d.metaclass(triple.Subject) != mFeatureValue ||
 		triple.Predicate.Value != rdf.SysML+pValue {
