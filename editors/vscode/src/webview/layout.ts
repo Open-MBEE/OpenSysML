@@ -12,6 +12,7 @@ import {
   type RenderPoint,
   type RenderResult,
 } from "../protocol";
+import type { AutoLayout } from "./autolayout";
 
 export interface Box {
   x: number;
@@ -69,7 +70,7 @@ export interface CanvasLayout {
 }
 
 /** The rendering kinds whose renderers position nodes and route edges from DiagramLayout. */
-const PLACEABLE_KINDS = new Set(["tree", "interconnection", "state", "action"]);
+export const PLACEABLE_KINDS = new Set(["tree", "interconnection", "state", "action"]);
 
 /** Geometry a gesture in progress shows in place of the model's, before the model says so. */
 export interface Overrides {
@@ -95,7 +96,7 @@ const MIN_WIDTH = 96;
 const MIN_HEIGHT = 40;
 /** Between slots of one grid, and between a container's border and its slots. */
 export const GAP = 32;
-const CONTAINER_PAD = 16;
+export const CONTAINER_PAD = 16;
 /** The canvas's margin around the outermost boxes. */
 export const MARGIN = 24;
 const POINT_SIZE = 12;
@@ -114,8 +115,12 @@ export function snap(value: number): number {
   return Math.round(value);
 }
 
-/** layoutCanvas places every node and routes every edge of the rendering. */
-export function layoutCanvas(result: RenderResult, overrides: Overrides = {}): CanvasLayout {
+/**
+ * layoutCanvas places every node and routes every edge of the rendering. `auto`
+ * is what ELK laid out for the same rendering: it places a node the model does
+ * not, without pinning it, and routes an edge whose ends are not placed.
+ */
+export function layoutCanvas(result: RenderResult, overrides: Overrides = {}, auto?: AutoLayout): CanvasLayout {
   const placed = new Map<string, PlacedNode>();
   const roots: PlacedNode[] = [];
   for (const node of result.nodes ?? []) {
@@ -143,13 +148,19 @@ export function layoutCanvas(result: RenderResult, overrides: Overrides = {}): C
   if (result.kind === "sequence") {
     return layoutSequence(result, roots, placed);
   }
-  const geometry = (entry: PlacedNode): LayoutGeometry | undefined => {
+  const geometry = (entry: PlacedNode): NodeGeometry => {
     const override = overrides.nodes?.get(entry.node.id);
     if (override) {
-      return override;
+      return { stated: override, pinned: true };
     }
     const { x, y, width, height, collapsed } = entry.node;
-    return x !== undefined && y !== undefined ? { x, y, width, height, collapsed } : undefined;
+    if (x !== undefined && y !== undefined) {
+      return { stated: { x, y, width, height, collapsed }, pinned: true };
+    }
+    // The auto layout's geometry is stated but not pinned: it is a guess, so
+    // the node keeps a grid slot for a layout that runs without it.
+    const laid = auto?.nodes.get(entry.node.id);
+    return laid !== undefined ? { stated: { ...laid, collapsed }, pinned: false } : { pinned: false };
   };
   placeGrid(roots, { x: MARGIN, y: MARGIN }, geometry);
 
@@ -169,7 +180,7 @@ export function layoutCanvas(result: RenderResult, overrides: Overrides = {}): C
     reach(entry.box.x, entry.box.y);
     reach(entry.box.x + entry.box.width, entry.box.y + entry.box.height);
   }
-  const edges = (result.edges ?? []).map((edge, index) => routeEdge(edge, index, placed, overrides.routes));
+  const edges = (result.edges ?? []).map((edge, index) => routeEdge(edge, index, placed, overrides.routes, auto));
   for (const edge of edges) {
     if (edge.hidden) {
       continue;
@@ -233,7 +244,13 @@ function headHeight(roots: PlacedNode[]): number {
   return roots.reduce((max, root) => Math.max(max, labelSize(root.lines).height), 0);
 }
 
-type Geometry = (entry: PlacedNode) => LayoutGeometry | undefined;
+/** Where a node goes and whether the model or a gesture, rather than a guess, states it. */
+interface NodeGeometry {
+  stated?: LayoutGeometry;
+  pinned: boolean;
+}
+
+type Geometry = (entry: PlacedNode) => NodeGeometry;
 
 // placeGrid puts entries in a near-square grid from origin, in order, each column
 // as wide and each row as tall as its widest and tallest entry. An unsized box's
@@ -275,8 +292,8 @@ function spread(lanes: PlacedNode[][], start: number, placeAt: (entry: PlacedNod
 // model's width, else its label's, widened to hold every child shown. The columns
 // of its children are settled first, from inside its padding.
 function placeAcross(entry: PlacedNode, slot: number, geometry: Geometry): number {
-  const stated = geometry(entry);
-  entry.pinned = stated !== undefined;
+  const { stated, pinned } = geometry(entry);
+  entry.pinned = pinned;
   entry.collapsed = stated?.collapsed === true;
   if (entry.collapsed) {
     hide(entry.children);
@@ -300,7 +317,7 @@ function placeAcross(entry: PlacedNode, slot: number, geometry: Geometry): numbe
 // placeDown settles a node's y and height as placeAcross does its x and width;
 // the rows of its children start below its label.
 function placeDown(entry: PlacedNode, slot: number, geometry: Geometry): number {
-  const stated = geometry(entry);
+  const { stated } = geometry(entry);
   entry.box.y = stated?.y ?? slot;
   const shown = shownChildren(entry, stated);
   const columns = Math.max(1, Math.ceil(Math.sqrt(shown.length)));
@@ -356,7 +373,7 @@ function labelHead(node: RenderNode): string {
 }
 
 // labelSize is the box a label needs, its head in bold glyphs.
-function labelSize(lines: string[]): { width: number; height: number } {
+export function labelSize(lines: string[]): { width: number; height: number } {
   let width = 0;
   lines.forEach((line, i) => {
     width = Math.max(width, [...line].length * (i === 0 ? BOLD_GLYPH_WIDTH : GLYPH_WIDTH));
@@ -393,7 +410,7 @@ export function shapeOf(kind: string): Shape {
 }
 
 // symbolSize is a symbol's fixed size; undefined for a label box.
-function symbolSize(shape: Shape): { width: number; height: number } | undefined {
+export function symbolSize(shape: Shape): { width: number; height: number } | undefined {
   switch (shape) {
     case "point":
       return { width: POINT_SIZE, height: POINT_SIZE };
@@ -411,15 +428,33 @@ function symbolSize(shape: Shape): { width: number; height: number } | undefined
 
 // routeEdge is an edge's polyline: from the border of its source, through the
 // route's waypoints, to the border of its target; a self-loop swings out to the right.
+// The auto layout's route applies only where neither end is placed, since an end
+// the model or a gesture moved is where the route was computed around it.
 function routeEdge(
   edge: RenderEdge,
   index: number,
   placed: Map<string, PlacedNode>,
   routes: Map<number, RenderPoint[] | undefined> | undefined,
+  auto?: AutoLayout,
 ): PlacedEdge {
-  const route = (routes?.has(index) ? routes.get(index) : edge.route) ?? [];
+  const stated = routes?.has(index) ? routes.get(index) : edge.route;
   const source = placed.get(edge.from);
   const target = placed.get(edge.to);
+  const routed =
+    stated === undefined && source?.pinned === false && target?.pinned === false ? auto?.routes.get(index) : undefined;
+  if (routed !== undefined && routed.length >= 2) {
+    // ELK's anchors already lie on the boxes' borders, so its polyline is drawn
+    // verbatim and a drag edits only the inner waypoints.
+    return {
+      edge,
+      index,
+      points: routed,
+      route: routed.slice(1, -1),
+      label: midpoint(routed),
+      hidden: source?.hidden === true || target?.hidden === true,
+    };
+  }
+  const route = stated ?? [];
   const from = source?.box ?? { x: 0, y: 0, width: 0, height: 0 };
   const to = target?.box ?? { x: 0, y: 0, width: 0, height: 0 };
   let inner = route;
