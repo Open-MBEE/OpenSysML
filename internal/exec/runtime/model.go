@@ -109,6 +109,11 @@ type Model struct {
 	// behavingFeatures memoizes behavingParts and redefGroups redefinitionGroups, per type.
 	behavingFeatures map[*symbols.Symbol][]int
 	redefGroups      map[*symbols.Symbol][][]string
+	// subsetters memoizes, per type, the features subsetting each named feature of it
+	// under any of its redefinition names; callers read the shared slice.
+	subsetters map[*symbols.Symbol]map[string][]EffectiveFeature
+	// subsetted memoizes subsettedNames per feature of a type; callers read the shared slice.
+	subsetted map[featureOfType][]string
 
 	// toolExecutions memoizes toolExecutionOf per action; toolUnits the units tool
 	// answers spell, per scope they are read in.
@@ -127,6 +132,12 @@ type Model struct {
 	// classifierBehaviors memoizes the behaviors each type binds to its objects:
 	// the machines it exhibits and the actions it performs.
 	classifierBehaviors map[*symbols.Symbol][]classifierBehaviorDecl
+
+	// triggerTypes memoizes the definition an accept's type reference denotes in the
+	// scope it is written in, and signalMatches whether a signal conforms to one; a
+	// machine judges every message in flight against every trigger it holds each step.
+	triggerTypes  map[triggerTypeKey]*symbols.Symbol
+	signalMatches map[signalMatchKey]bool
 
 	// sources holds the text of the files the model was read from, by name, so an
 	// error about a declaration can say where it was written. A file no caller
@@ -195,12 +206,16 @@ func NewModel(sem *semantics.Model, resolver *resolve.Resolver) *Model {
 		behaving:            make(map[*symbols.Symbol]bool),
 		behavingFeatures:    make(map[*symbols.Symbol][]int),
 		redefGroups:         make(map[*symbols.Symbol][][]string),
+		subsetters:          make(map[*symbols.Symbol]map[string][]EffectiveFeature),
+		subsetted:           make(map[featureOfType][]string),
 		toolExecutions:      make(map[*symbols.Symbol]*toolExecution),
 		toolUnits:           make(map[toolUnitKey]semantics.Unit),
 		objectConns:         make(map[*symbols.Symbol][]lower.Connection),
 		bindingIR:           make(map[*symbols.Symbol][]lower.Binding),
 		bindingFeatures:     make(map[*symbols.Symbol]map[string][]lower.Binding),
 		classifierBehaviors: make(map[*symbols.Symbol][]classifierBehaviorDecl),
+		triggerTypes:        make(map[triggerTypeKey]*symbols.Symbol),
+		signalMatches:       make(map[signalMatchKey]bool),
 		sources:             make(map[string]*source.SourceFile),
 	}
 }

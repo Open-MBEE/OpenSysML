@@ -1,0 +1,1 @@
+- **`.sysml` and `.kerml` files are recognized in VS Code Restricted Mode.** The extension now declares limited untrusted-workspace support, so files are no longer opened as Plain Text when the folder is untrusted; looking up `bin/sysml-lsp` inside the workspace requires a trusted workspace.

@@ -2,6 +2,7 @@ package migrate
 
 import (
 	"math"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode"
@@ -86,10 +87,11 @@ func (r *refusal) final(lang string) bool {
 // it is known to hold followed by every type that generalizes it (nil when a
 // scalar or unknown), plural for a collection.
 type opaqueRef struct {
-	expr   string
-	scalar string
-	object []string
-	plural bool
+	expr     string
+	scalar   string
+	object   []string
+	plural   bool
+	optional bool // the feature is declared admitting no value
 }
 
 // value is the ref read as an expression.
@@ -275,17 +277,19 @@ func translateExpr(body, lang string, sc featureResolver, want wanted) (translat
 }
 
 // translateStatements translates body as a sequence of script statements into
-// the lines of a v2 action body: local declarations and assignments.
-func translateStatements(body, lang string, sc featureResolver) ([]string, *refusal) {
+// the lines of a v2 action body: local declarations and assignments. notes tells
+// the assignments made only when a value read admitting none holds one, and the
+// console prints left out.
+func translateStatements(body, lang string, sc featureResolver) (lines, notes []string, err *refusal) {
 	d := dialectOf(lang)
 	switch d {
 	case dialectNone:
-		return nil, &refusal{kind: refusedLanguage, token: lang}
+		return nil, nil, &refusal{kind: refusedLanguage, token: lang}
 	case dialectEnglish:
-		return nil, &refusal{kind: refusedLanguage, token: lang, why: "prose has no statements to write"}
+		return nil, nil, &refusal{kind: refusedLanguage, token: lang, why: "prose has no statements to write"}
 	}
-	if _, err := statementsIn(body, d, anyScope{}); err != nil && err.kind != refusedType {
-		return nil, err
+	if _, _, err := statementsIn(body, d, anyScope{}); err != nil && err.kind != refusedType {
+		return nil, nil, err
 	}
 	return statementsIn(body, d, sc)
 }
@@ -300,12 +304,13 @@ func wholeExprIn(body string, d dialect, sc featureResolver) (translated, *refus
 }
 
 // statementsIn parses body as statements of dialect d, its names answered by sc.
-func statementsIn(body string, d dialect, sc featureResolver) ([]string, *refusal) {
+func statementsIn(body string, d dialect, sc featureResolver) (lines, notes []string, err *refusal) {
 	p, err := newOpaqueParser(body, d, sc)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return p.statements()
+	lines, err = p.statements()
+	return lines, p.notes, err
 }
 
 // anyScope answers every name with an unknown type, so a body's shape is judged
@@ -655,6 +660,9 @@ type opaqueParser struct {
 	sc      featureResolver
 	locals  map[string]local // names a `var`, `let` or `const` declared
 	assigns bool             // whether `=` assigns (a statement) rather than compares
+	absent  []string         // the names admitting no value the statement being read reads
+	notes   []string         // notes on statements written otherwise than they read: guarded or left out
+	printed int              // console prints left out
 }
 
 func newOpaqueParser(body string, d dialect, sc featureResolver) (*opaqueParser, *refusal) {
@@ -670,6 +678,7 @@ func newOpaqueParser(body string, d dialect, sc featureResolver) (*opaqueParser,
 type local struct {
 	scalar   string
 	constant bool
+	optional bool // declared from a value admitting none, so admitting none too
 }
 
 // peek returns the next token, skipping newlines when skipNL is set.
@@ -710,6 +719,38 @@ var scriptReserved = map[string]bool{
 	"NaN": true, "Infinity": true,
 }
 
+// operatorWords are the reserved words that prefix an operand (`new Date()`,
+// `typeof x`); a model names its features freely, so one that no operand
+// follows is a name, as a parameter called `new` in `new = max(old, current)`.
+var operatorWords = map[string]bool{"new": true, "typeof": true, "delete": true, "void": true}
+
+// reservedAt reports whether tok, at the position of a name, opens a construct
+// the subset leaves out rather than naming a feature.
+func (p *opaqueParser) reservedAt(tok token, i int) bool {
+	if !p.d.script() || !scriptReserved[tok.text] {
+		return false
+	}
+	if !operatorWords[tok.text] {
+		return true
+	}
+	for p.toks[i].kind == tokNewline {
+		i++
+	}
+	return p.startsOperand(p.toks[i])
+}
+
+// startsOperand reports whether tok can open an operand: a literal, a name, a
+// parenthesis, an object or array literal, or a unary operator.
+func (p *opaqueParser) startsOperand(tok token) bool {
+	switch tok.kind {
+	case tokNumber, tokString, tokIdent:
+		return true
+	case tokPunct:
+		return tok.text == "(" || tok.text == "[" || tok.text == "{" || p.unaryPrefix(tok)
+	}
+	return false
+}
+
 // wholeExpr reads the body as one expression, which must reach its end.
 func (p *opaqueParser) wholeExpr() (translated, *refusal) {
 	t, err := p.expr()
@@ -738,6 +779,7 @@ func (p *opaqueParser) statements() ([]string, *refusal) {
 		if tok.kind == tokEOF {
 			break
 		}
+		p.absent = nil
 		written, err := p.statement()
 		if err != nil {
 			return nil, err
@@ -750,7 +792,7 @@ func (p *opaqueParser) statements() ([]string, *refusal) {
 			return nil, &refusal{kind: refusedSyntax, token: end.text, why: "a statement ends at `;` or a newline"}
 		}
 	}
-	if len(lines) == 0 {
+	if len(lines) == 0 && p.printed == 0 {
 		return nil, &refusal{kind: refusedSyntax, token: "", why: "the body has no statements"}
 	}
 	return lines, nil
@@ -762,7 +804,7 @@ func (p *opaqueParser) statement() ([]string, *refusal) {
 	switch {
 	case tok.kind == tokIdent && (tok.text == "var" || tok.text == "let" || tok.text == "const"):
 		return p.declaration()
-	case tok.kind == tokIdent && scriptReserved[tok.text]:
+	case p.reservedAt(tok, p.i+1):
 		return nil, &refusal{kind: refusedConstruct, token: tok.text}
 	case tok.isPunct("{"):
 		return nil, &refusal{kind: refusedConstruct, token: "{", why: "a block is not a statement of the subset"}
@@ -787,11 +829,119 @@ func (p *opaqueParser) statement() ([]string, *refusal) {
 			p.next(false)
 			return p.step(path, op.text)
 		case op.isPunct("("):
-			return nil, &refusal{kind: refusedCall, token: strings.Join(path, "."), why: "a call is not a statement of the subset"}
+			fn := strings.Join(path, ".")
+			if consolePrints[fn] {
+				p.next(false)
+				return p.consolePrint(fn)
+			}
+			return nil, &refusal{kind: refusedCall, token: fn, why: "a call is not a statement of the subset"}
 		}
 		return nil, &refusal{kind: refusedConstruct, token: strings.Join(path, "."), why: "an expression that assigns nothing is not a statement of the subset"}
 	}
 	return nil, &refusal{kind: refusedSyntax, token: tok.text, why: "a statement starts with a name"}
+}
+
+// consolePrints are the calls a script writes text to the tool's console with,
+// which change nothing of the model; a statement of one is left out.
+var consolePrints = map[string]bool{
+	"print": true, "println": true,
+	"System.out.print": true, "System.out.println": true,
+	"java.lang.System.out.print": true, "java.lang.System.out.println": true,
+}
+
+// pureCalls are the functions call writes, which compute a value and change nothing.
+var pureCalls = map[string]bool{
+	"Math.max": true, "Math.min": true, "Math.abs": true, "Math.floor": true, "Math.round": true,
+	"Math.ceil": true, "Math.sqrt": true, "Math.pow": true,
+	"java.util.Collections.max": true, "java.util.Collections.min": true, "Collections.max": true, "Collections.min": true,
+}
+
+// pureCall reports whether a call of the callee path changes nothing of the model:
+// a function of pureCalls, or in Java the equals of a string, which compares content;
+// onLiteral says a string literal is the receiver. Any other equals could be anything.
+func (p *opaqueParser) pureCall(path []string, onLiteral bool) bool {
+	if pureCalls[strings.Join(path, ".")] {
+		return true
+	}
+	if p.d != dialectJava || path[len(path)-1] != "equals" {
+		return false
+	}
+	if onLiteral {
+		return len(path) == 1
+	}
+	return len(path) > 1 && p.holdsString(path[:len(path)-1])
+}
+
+// holdsString reports whether the dotted name is known to hold a single string.
+func (p *opaqueParser) holdsString(path []string) bool {
+	if len(path) == 1 {
+		if l, ok := p.locals[path[0]]; ok {
+			return l.scalar == "String"
+		}
+	}
+	ref, err := p.sc.feature(path, false)
+	return err == nil && !ref.plural && ref.scalar == "String"
+}
+
+// calleeAt is the dotted name a `(` at index i is a call of, nil when no name
+// precedes it, and whether a string literal precedes that name as its receiver.
+func (p *opaqueParser) calleeAt(i int) (path []string, onLiteral bool) {
+	before := func(j int) int {
+		for j--; j >= 0 && p.toks[j].kind == tokNewline; j-- {
+		}
+		return j
+	}
+	j := before(i)
+	for j >= 0 && p.toks[j].kind == tokIdent {
+		path = append(path, p.toks[j].text)
+		dot := before(j)
+		if dot < 0 || !p.toks[dot].isPunct(".") {
+			slices.Reverse(path)
+			return path, false
+		}
+		j = before(dot)
+	}
+	slices.Reverse(path)
+	return path, len(path) > 0 && j >= 0 && p.toks[j].kind == tokString
+}
+
+// consolePrint reads past the arguments of a console print, which is written as no
+// statement, and notes it. An argument that assigns, counts, deletes, constructs or
+// calls anything but a function computing a value could change the model, so such a
+// print is refused instead.
+func (p *opaqueParser) consolePrint(fn string) ([]string, *refusal) {
+	changing := func(what string) *refusal {
+		return &refusal{kind: refusedCall, token: fn, why: "an argument of " + fn + " " + what + ", which could change the model, so the print is not left out"}
+	}
+	for depth := 1; depth > 0; {
+		tok := p.next(true)
+		switch {
+		case tok.kind == tokEOF:
+			return nil, &refusal{kind: refusedSyntax, token: fn + "(", why: "the arguments are not closed"}
+		case tok.isPunct("("):
+			depth++
+			if path, onLiteral := p.calleeAt(p.i - 1); len(path) > 0 && !p.pureCall(path, onLiteral) {
+				callee := strings.Join(path, ".")
+				if p.d == dialectJava && path[len(path)-1] == "equals" {
+					return nil, &refusal{kind: refusedType, token: callee, why: "an argument of " + fn + " calls it on what is not known to be a string, an equals that could do anything, so the print is not left out"}
+				}
+				return nil, changing("calls " + callee)
+			}
+		case tok.isPunct(")"):
+			depth--
+		case tok.isPunct("++"), tok.isPunct("--"):
+			return nil, changing("counts with " + tok.text)
+		case tok.kind == tokIdent && tok.text == "delete" && p.reservedAt(tok, p.i):
+			return nil, changing("deletes with " + tok.text)
+		case tok.kind == tokIdent && tok.text == "new" && (p.d == dialectJava || p.reservedAt(tok, p.i)):
+			return nil, changing("constructs with " + tok.text)
+		case tok.isPunct("="), tok.isPunct("+="), tok.isPunct("-="), tok.isPunct("*="), tok.isPunct("/="), tok.isPunct("%="), tok.isPunct("**="):
+			return nil, changing("assigns with " + tok.text)
+		}
+	}
+	p.printed++
+	p.notes = append(p.notes, "the console print "+fn+"(…) is left out, as it writes to the tool's console and changes nothing of the model")
+	return nil, nil
 }
 
 // declaration reads `var x = e` as a local attribute of the action assigned e.
@@ -821,10 +971,14 @@ func (p *opaqueParser) declaration() ([]string, *refusal) {
 		}
 		return nil, &refusal{kind: refusedType, token: kw.text + " " + name.text, why: why}
 	}
-	p.locals[name.text] = local{scalar: value.scalar, constant: kw.text == "const"}
+	p.locals[name.text] = local{scalar: value.scalar, constant: kw.text == "const", optional: len(p.absent) > 0}
 	target := writeName(name.text)
+	mult := ""
+	if len(p.absent) > 0 {
+		mult = "[0..1]"
+	}
 	return []string{
-		"attribute " + target + " : ScalarValues::" + value.scalar + ";",
+		"attribute " + target + " : ScalarValues::" + value.scalar + mult + ";",
 		assignKw + target + " := " + value.expr + ";",
 	}, nil
 }
@@ -887,7 +1041,22 @@ func (p *opaqueParser) assignment(path []string, op string) ([]string, *refusal)
 	if held.held() != "" && value.held() != "" && !assignableTo(held, value) {
 		return nil, &refusal{kind: refusedType, token: name + " " + op, why: "a " + value.held() + " is assigned to the " + held.held() + " " + name + " holds"}
 	}
-	return []string{assignKw + target.expr + " := " + spellFor(target.scalar, value) + ";"}, nil
+	return p.guardedAssign(target, spellFor(target.scalar, value)), nil
+}
+
+// guardedAssign writes the assignment of value to target; one reading a name
+// admitting no value, into a feature admitting none, is made only when it holds one.
+func (p *opaqueParser) guardedAssign(target opaqueRef, value string) []string {
+	assign := assignKw + target.expr + " := " + value + ";"
+	if len(p.absent) == 0 || target.optional {
+		return []string{assign}
+	}
+	holds := make([]string, len(p.absent))
+	for i, name := range p.absent {
+		holds[i] = name + "->SequenceFunctions::notEmpty()"
+	}
+	p.notes = append(p.notes, target.expr+" must hold a value, so it is assigned only when "+strings.Join(p.absent, " and ")+", which may hold none, holds one")
+	return []string{"if " + strings.Join(holds, " and ") + " { " + assign + " }"}
 }
 
 // target resolves the feature an assignment writes.
@@ -897,7 +1066,7 @@ func (p *opaqueParser) target(path []string) (opaqueRef, *refusal) {
 			if l.constant {
 				return opaqueRef{}, &refusal{kind: refusedConstruct, token: path[0], why: "a const is not assigned again"}
 			}
-			return opaqueRef{expr: writeName(path[0]), scalar: l.scalar}, nil
+			return opaqueRef{expr: writeName(path[0]), scalar: l.scalar, optional: l.optional}, nil
 		}
 	}
 	return p.sc.feature(path, true)
@@ -1275,7 +1444,7 @@ func (p *opaqueParser) primaryIdent(tok token) (translated, *refusal) {
 			return translated{}, &refusal{kind: refusedName, token: tok.text, why: "a script spells its Booleans in lower case"}
 		}
 		return translated{expr: strings.ToLower(tok.text), scalar: "Boolean", atomic: true, lit: "boolean"}, nil
-	case p.d.script() && scriptReserved[tok.text]:
+	case p.reservedAt(tok, p.i):
 		return translated{}, &refusal{kind: refusedConstruct, token: tok.text}
 	}
 	p.i--
@@ -1321,6 +1490,7 @@ func (p *opaqueParser) primaryPunct(tok token) (translated, *refusal) {
 func (p *opaqueParser) name(path []string) (translated, *refusal) {
 	if len(path) == 1 {
 		if l, ok := p.locals[path[0]]; ok {
+			p.readAbsent(writeName(path[0]), l.optional)
 			return translated{expr: writeName(path[0]), scalar: l.scalar, atomic: true}, nil
 		}
 	}
@@ -1328,7 +1498,15 @@ func (p *opaqueParser) name(path []string) (translated, *refusal) {
 	if err != nil {
 		return translated{}, err
 	}
+	p.readAbsent(ref.expr, ref.optional)
 	return ref.value(), nil
+}
+
+// readAbsent records that the statement reads name, when it admits no value.
+func (p *opaqueParser) readAbsent(name string, optional bool) {
+	if optional && !slices.Contains(p.absent, name) {
+		p.absent = append(p.absent, name)
+	}
 }
 
 // call reads the arguments of a call and writes the library function the table maps it to.
@@ -1520,19 +1698,21 @@ func (p *opaqueParser) literalMethod(lit translated) (translated, *refusal) {
 	return stringEquals(lit, fn, args[0])
 }
 
-// stringEquals writes Java's `a.equals(b)` on strings, the comparison of their
-// content, as `a == b`; a receiver or argument known not to be a string is refused.
+// stringEquals writes Java's `a.equals(b)` on a string, the comparison of its
+// content, as `a == b`; a receiver not known to be a string may be any equals, so
+// it is refused, as is an argument known not to be a string.
 func stringEquals(recv translated, fn string, arg translated) (translated, *refusal) {
-	for _, side := range []translated{recv, arg} {
-		switch {
-		case side.plural:
-			return translated{}, &refusal{kind: refusedType, token: fn, why: "equals is translated between strings, and this compares a collection"}
-		case side.held() != "" && side.scalar != "String":
-			return translated{}, &refusal{kind: refusedType, token: fn, why: "equals is translated between strings, and this compares a " + side.held()}
-		}
-	}
-	if recv.held() == "" && arg.held() == "" {
-		return translated{}, &refusal{kind: refusedType, token: fn, why: "equals is translated between strings, and neither side's type is known"}
+	switch {
+	case recv.plural:
+		return translated{}, &refusal{kind: refusedType, token: fn, why: "equals is translated on a string, and this is called on a collection"}
+	case recv.held() != "" && recv.scalar != "String":
+		return translated{}, &refusal{kind: refusedType, token: fn, why: "equals is translated on a string, and this is called on a " + recv.held()}
+	case recv.held() == "":
+		return translated{}, &refusal{kind: refusedType, token: fn, why: "equals is translated on a string, and the receiver's type is not known"}
+	case arg.plural:
+		return translated{}, &refusal{kind: refusedType, token: fn, why: "equals is translated between strings, and this compares a collection"}
+	case arg.held() != "" && arg.scalar != "String":
+		return translated{}, &refusal{kind: refusedType, token: fn, why: "equals is translated between strings, and this compares a " + arg.held()}
 	}
 	return binary(recv, "==", arg, looseEquality, "Boolean"), nil
 }

@@ -86,7 +86,7 @@ func (sf *SourceFile) Text(sp Span) string {
 // conversion is an LSP-layer concern (Plan 06), not the source package.
 func (sf *SourceFile) Lines() *LineIndex {
 	sf.lines.Do(func() {
-		sf.index = newLineIndex(sf.content)
+		sf.index = NewLineIndex(sf.content)
 	})
 	return sf.index
 }

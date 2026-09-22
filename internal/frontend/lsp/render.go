@@ -346,7 +346,7 @@ func (s *Server) renderNodes(out *renderResult, snapshot *model.Snapshot, nodes 
 					declared = append(declared, declaredNode{node.ID, sym.Decl})
 				}
 			} else {
-				decl := spanToRange(declaring.Content, sym.DeclSpan)
+				decl := positionsOf(declaring).rangeOf(sym.DeclSpan)
 				n.Declaration = &decl
 			}
 		}
@@ -381,7 +381,7 @@ func (s *Server) renderEdges(out *renderResult, snapshot *model.Snapshot, edges 
 			if _, ok := nodeOwners(sym); ok {
 				e.FQN = notationName(sym)
 			} else {
-				decl := spanToRange(declaring.Content, sym.DeclSpan)
+				decl := positionsOf(declaring).rangeOf(sym.DeclSpan)
 				e.Declaration = &decl
 			}
 		}
@@ -462,9 +462,10 @@ func (s *Server) originOf(doc *model.Document, o view.Origin) *renderOrigin {
 	if doc == nil {
 		return nil
 	}
-	out := &renderOrigin{URI: s.documentURI(o.Doc), Range: spanToRange(doc.Content, o.Span), Digest: doc.Digest()}
+	pos := positionsOf(doc)
+	out := &renderOrigin{URI: s.documentURI(o.Doc), Range: pos.rangeOf(o.Span), Digest: doc.Digest()}
 	if o.Name.Len > 0 {
-		name := spanToRange(doc.Content, o.Name)
+		name := pos.rangeOf(o.Name)
 		out.SelectionRange = &name
 	}
 	return out

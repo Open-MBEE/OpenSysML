@@ -40,7 +40,6 @@ type imagedAction struct {
 	pauses            int64
 	steps, stepsSpent int64
 	inRun, moved      bool
-	leftStanding      bool
 	awaiting          int
 	breakpoints       map[string]bool
 	breakpointNodes   []NodeBreakpoint
@@ -162,7 +161,6 @@ func (t *imaging) actionExecutor(e *ActionExecutor) (*imagedAction, error) {
 		graph: e.graph, state: e.state, nextTokenID: e.nextTokenID, stepCount: e.stepCount,
 		sweep: e.sweep, sweeps: e.sweeps, pausedAt: e.pausedAt, released: e.released,
 		pauses: e.pauses, steps: e.steps, stepsSpent: e.stepsSpent, inRun: e.inRun, moved: e.moved,
-		leftStanding:     e.leftStanding,
 		awaiting:         at(e.awaiting),
 		breakpoints:      maps.Clone(e.breakpoints),
 		breakpointNodes:  cloneBreakpoints(e.breakpointNodes),
@@ -491,7 +489,6 @@ func (m *materializing) actionExecutor(e *ActionExecutor, img *imagedAction) err
 	e.state, e.nextTokenID, e.stepCount, e.sweep, e.sweeps = img.state, img.nextTokenID, img.stepCount, img.sweep, img.sweeps
 	e.pausedAt, e.released, e.pauses = img.pausedAt, img.released, img.pauses
 	e.steps, e.stepsSpent, e.inRun, e.moved = img.steps, img.stepsSpent, img.inRun, img.moved
-	e.leftStanding = img.leftStanding
 	e.awaiting = frameAt(img.awaiting)
 	e.breakpoints = maps.Clone(img.breakpoints)
 	if e.breakpoints == nil {

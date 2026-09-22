@@ -98,6 +98,11 @@ from \-seed; min, max and average take each call's least, greatest or mean
 value and need no seed; weighted decisions draw from \-seed whatever the
 policy
 .TP
+.BR \-clock\-step " \fIseconds\fP"
+The step, in seconds, the clock of every run ticks by: a wait comes due at the
+first multiple of it not before the wait ends; 0 (default) is a continuous
+clock. With \-compare\-results, replaces every configuration's stepSize
+.TP
 .BR \-runs " \fIn\fP"
 Run the \-action this many times, each run seeded from \-seed, and table the
 \-observe features; needs \-seed unless \-draws is min, max or average

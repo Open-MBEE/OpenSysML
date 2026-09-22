@@ -56,18 +56,18 @@ func TestSetAndTensorValuesRoundTripAsExpressions(t *testing.T) {
 	turtle := roundTripsExactly(t, setTensorModel)
 	text := string(turtle)
 	for _, want := range []string{
-		`sysml:redefines "elements"`,
+		`sysml:redefines <urn:sysmlv2:element:1a996431-c5cc-56a5-9150-8dbb661e85ee>`,
 		"a sysml:OperatorExpression ;\n    sysx:sourceText \"(3, 1, 2, 2, 3)\"",
 		`sysx:sourceText "()"`,
 		"a sysml:InvocationExpression ;\n    sysx:sourceText \"TensorCalculations::'['((1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0), cubeRef)\"",
-		`sysml:function "TensorCalculations::["`,
+		`sysml:function <urn:sysmlv2:element:911214e1-b9f1-517c-9ff0-7c0d743cdd16>`,
 		`sysx:sourceText "cube#(2, 1, 2)"`,
 		`sysx:sourceText "(2, 1, 2, 2)"`,
 		`sysx:sourceText "hyper#(2, 1, 2, 1)"`,
-		`sysml:type "Set"`,
-		`sysml:type "UniqueCollection"`,
-		`sysml:type "Map"`,
-		`sysml:type "TensorMeasurementReference"`,
+		`sysml:type <urn:sysmlv2:element:0952ca13-db10-59d6-b664-f7d47ea9582e>`,
+		`sysml:type <urn:sysmlv2:element:7750f71b-b65d-5e8d-8ded-dbbec8101cff>`,
+		`sysml:type <urn:sysmlv2:element:2c58ca66-ecf2-5b88-a0e7-1b9e07cc885e>`,
+		`sysml:type elmt:f75921a3-7a53-5cb4-9b57-0fb94b63f89f`,
 	} {
 		if !strings.Contains(text, want) {
 			t.Errorf("graph lacks %q:\n%s", want, text)
@@ -158,7 +158,7 @@ func TestSetAndTensorGraphsAreStandardShaped(t *testing.T) {
 			continue
 		}
 		name := strings.ToLower(rdf.LocalName(tr.Predicate.Value))
-		for _, forbidden := range []string{"set", "tensor", "member", "component", "rank", "shape"} {
+		for _, forbidden := range []string{"set", "tensor", "component", "rank", "shape", "dimension"} {
 			if strings.Contains(name, forbidden) {
 				t.Errorf("expression graph uses value-specific predicate %s", tr.Predicate.Value)
 			}
@@ -198,18 +198,22 @@ func TestSetAndTensorStructuralPredicatesCarryTheRoundTrip(t *testing.T) {
 	stripped := withoutSourceText(t, idTurtle(t, setTensorModel))
 	intact := toNotation(t, stripped)
 	for _, tc := range []struct {
-		pred, spelling string
-		degrades       bool
+		pred     string
+		also     []string
+		spelling string
+		degrades bool
 	}{
-		{"sysml:operator", "(3, 1, 2, 2, 3)", true},
-		{"sysx:argumentIndex", "(3, 1, 2, 2, 3)", false},
-		{"sysml:function", "TensorCalculations::'['(", true},
-		{"sysml:referent", ", cubeRef)", true},
-		{"sysml:argument", "TensorCalculations::'['(", true},
+		{pred: "sysml:operator", spelling: "(3, 1, 2, 2, 3)", degrades: true},
+		{pred: "sysml:function", spelling: "TensorCalculations::'['(", degrades: true},
+		{pred: "sysml:referent", spelling: ", cubeRef)", degrades: true},
+		// Operands travel two ways, standard ParameterMembership and legacy argument; either alone suffices.
+		{pred: "sysml:argument", also: []string{"json:argument"}, spelling: "TensorCalculations::'['("},
+		{pred: "sysml:ownedFeatureMembership", also: []string{"json:ownedFeatureMembership"}, spelling: "TensorCalculations::'['("},
+		{pred: "sysml:argument", also: []string{"json:argument", "sysml:ownedFeatureMembership", "json:ownedFeatureMembership"}, spelling: "(1.0, 2.0, 3.0", degrades: true},
 	} {
 		mutated := withoutTriples(t, stripped, tc.pred)
-		if tc.pred == "sysml:argument" {
-			mutated = withoutTriples(t, mutated, "json:argument")
+		for _, p := range tc.also {
+			mutated = withoutTriples(t, mutated, p)
 		}
 		back, err := convert.Convert("m.ttl", mutated, convert.FormatTurtle, convert.FormatSysML)
 		if tc.degrades {
@@ -229,7 +233,7 @@ func TestSetAndTensorStructuralPredicatesCarryTheRoundTrip(t *testing.T) {
 				}
 			}
 		} else if err != nil || !strings.Contains(string(back), tc.spelling) {
-			t.Errorf("removing non-load-bearing %s unexpectedly degraded notation: %v\n%s", tc.pred, err, back)
+			t.Errorf("removing %s (one of two operand routes) unexpectedly degraded notation: %v\n%s", tc.pred, err, back)
 		}
 	}
 }

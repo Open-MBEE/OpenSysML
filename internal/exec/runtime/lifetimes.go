@@ -116,6 +116,15 @@ func (l OccurrenceLife) String() string {
 	}
 }
 
+// Destroyed reports the activation at which inst was destroyed, and whether it
+// was; an object the context holds without a lifetime or one merely ended is not.
+func (ctx *Context) Destroyed(inst *Instance) (at int64, ok bool) {
+	if l, held := ctx.lives[inst.ID]; held && l.destroyed {
+		return l.ended, true
+	}
+	return 0, false
+}
+
 // OccurrenceLife answers the lifetime of the occurrence an instance identity
 // denotes, and false for an identity the context never registered.
 func (ctx *Context) OccurrenceLife(id int64) (OccurrenceLife, bool) {
@@ -339,9 +348,9 @@ func (ctx *Context) forgetLives(abandoned map[int64]bool) {
 // checkNotDestroyed reports a destroyed object as such, so nothing reads it as
 // one still holding values.
 func (ctx *Context) checkNotDestroyed(inst *Instance) error {
-	if l, ok := ctx.lives[inst.ID]; ok && l.destroyed {
+	if at, destroyed := ctx.Destroyed(inst); destroyed {
 		return fmt.Errorf("%w: object #%d (%s) was destroyed at %d",
-			ErrOccurrenceDestroyed, inst.ID, symbolText(inst.Type), l.ended)
+			ErrOccurrenceDestroyed, inst.ID, symbolText(inst.Type), at)
 	}
 	return nil
 }

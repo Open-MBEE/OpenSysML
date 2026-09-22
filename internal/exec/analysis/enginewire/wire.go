@@ -125,6 +125,9 @@ type Question struct {
 	// Draws is the policy the runs' RandomFunctions draws resolve under, as -draws
 	// spells it (min, max, average); absent draws at random.
 	Draws string `json:"draws,omitempty"`
+	// ClockStep is the step the runs' clock ticks by, in seconds, on which their waits
+	// come due, as -clock-step spells it; absent is a continuous clock.
+	ClockStep float64 `json:"clockStep,omitempty"`
 	// Free is what the question leaves open: "schedule", "inputs".
 	Free []string `json:"free"`
 	// Condition is the requirement or constraint a holds question asks about; absent asks

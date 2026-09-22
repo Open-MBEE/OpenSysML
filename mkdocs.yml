@@ -136,6 +136,7 @@ exclude_docs: |
   project/training-examples.md
   project/pilot-corpora.md
   project/rdf-corpus-roundtrip.md
+  project/pssm-migration.md
   project/pilot-xpect.md
   project/pilot-rejection.md
   project/pilot-execution-referee.md
@@ -220,6 +221,7 @@ nav:
       - Spec compliance: project/spec-compliance.md
       - Exact-rational evaluation: project/exact-rational-evaluation.md
       - Expansion regions: project/expansion-regions.md
+      - Exception handlers: project/exception-handlers.md
       - Pilot differential: project/pilot-differential.md
       - Roadmap: project/roadmap.md
       - Nightly snapshots: project/nightly.md

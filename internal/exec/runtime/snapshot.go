@@ -254,14 +254,19 @@ type bodyCapture struct {
 }
 
 // captureBody captures the run and, into the set, the executors its paused work
-// performs: the action it holds, and a do behavior's own flow.
+// performs: the action it holds, the flow of a case it runs, and a do behavior's own flow.
 func (s *executorCaptures) captureBody(run *bodyRun) *bodyCapture {
 	c := &bodyCapture{run: run, saved: *run}
 	c.saved.work, c.saved.cursor, c.saved.resuming = run.work.clone(), nil, nil
 	for _, f := range run.cursor {
 		c.frames = append(c.frames, f.clone())
-		if callee, ok := f.(*calleeFrame); ok {
-			s.captureAction(callee.exec)
+		switch f := f.(type) {
+		case *calleeFrame:
+			s.captureAction(f.exec)
+		case *caseStepFrame:
+			if f.run == nil {
+				s.captureAction(f.start.host.flow)
+			}
 		}
 	}
 	if held := run.paused.wait.held; held != nil {
@@ -325,6 +330,8 @@ func (ctx *Context) rollbackJournal(mark journalMark) {
 	}
 	ctx.journalUndos = ctx.journalUndos[:mark.undos]
 	ctx.messages = slices.Clone(mark.messages)
+	ctx.bus.cuts++
+	ctx.writes++
 	ctx.abandonCreationSince(mark.created, mark.attached)
 	ctx.clock.now, ctx.clock.waiters = mark.clockNow, slices.Clone(mark.clockWaiters)
 	mark.traced.restore(mark.trace)
@@ -432,7 +439,6 @@ type actionCapture struct {
 	steps, stepsSpent int64
 	inRun, held       bool
 	moved             bool
-	leftStanding      bool
 	awaiting          *actionFrame
 	outputListeners   []outputListener
 	firedBreakpoints  mapState[breakpointVisit, bool]
@@ -453,7 +459,6 @@ func (e *ActionExecutor) capture() actionCapture {
 		nextTokenID: e.nextTokenID, stepCount: e.stepCount, sweep: e.sweep, sweeps: e.sweeps,
 		pausedAt: e.pausedAt, released: e.released, pauses: e.pauses,
 		steps: e.steps, stepsSpent: e.stepsSpent, inRun: e.inRun, held: e.held, moved: e.moved, awaiting: e.awaiting,
-		leftStanding:     e.leftStanding,
 		outputListeners:  slices.Clone(e.outputListeners),
 		firedBreakpoints: captureMap(e.firedBreakpoints),
 		traversals:       cloneTraversals(e.traversals),
@@ -473,11 +478,12 @@ func (c actionCapture) restore() {
 	e.state, e.nextTokenID, e.stepCount, e.sweep, e.sweeps = c.state, c.nextTokenID, c.stepCount, c.sweep, c.sweeps
 	e.pausedAt, e.released, e.pauses = c.pausedAt, c.released, c.pauses
 	e.steps, e.stepsSpent, e.inRun, e.held = c.steps, c.stepsSpent, c.inRun, c.held
-	e.moved, e.awaiting, e.leftStanding = c.moved, c.awaiting, c.leftStanding
+	e.moved, e.awaiting = c.moved, c.awaiting
 	e.outputListeners = slices.Clone(c.outputListeners)
 	e.firedBreakpoints = c.firedBreakpoints.restore()
 	e.traversals, e.traversalBase = cloneTraversals(c.traversals), c.traversalBase
 	e.driven.state = c.driven
+	e.driven.stir(0)
 	e.dynamics = c.dynamics.clone()
 	for _, perf := range c.frames {
 		perf.restore()
@@ -628,8 +634,6 @@ type stateCapture struct {
 	lastDispatch       *Dispatch
 	lastEventAt        float64
 	doActions          []doActionCapture
-	round              []*doAction
-	roundDone          bool
 	machineExited      bool
 	driven             *runState
 	inRun, moved       bool
@@ -679,8 +683,6 @@ func (e *StateExecutor) capture() stateCapture {
 		deferred:           slices.Clone(e.deferred),
 		lastDispatch:       cloneDispatch(e.lastDispatch),
 		lastEventAt:        e.lastEventAt,
-		round:              slices.Clone(e.round),
-		roundDone:          e.roundDone,
 		machineExited:      e.machineExited,
 		driven:             e.driven.state,
 		inRun:              e.inRun,
@@ -744,8 +746,8 @@ func (c stateCapture) restore() {
 			act.body.restore()
 		}
 	}
-	e.round, e.roundDone = slices.Clone(c.round), c.roundDone
 	e.machineExited, e.driven.state, e.inRun, e.moved = c.machineExited, c.driven, c.inRun, c.moved
+	e.driven.stir(0)
 	e.timerScheduled = c.timerScheduled.restore()
 	e.timeTriggerVerdict = c.timeTriggerVerdict.restore()
 	e.changeFired = c.changeFired.restore()

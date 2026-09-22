@@ -5,6 +5,29 @@ description: How to build, drive, and record end-to-end tests of the OpenSysML s
 
 # Testing the `sysml` REPL end-to-end
 
+## State/event document queries and lifetime diagnostics
+
+- Build query fixtures with `DocumentQueries::*`, `KerML::Root::Element`,
+  `ScalarValues::*`, and `SI::*` imports. The parallel lamp in
+  `internal/frontend/repl/docquery_states_test.go` is a validating REPL model;
+  the timer-driven fixture in `cmd/sysml/run_query_test.go` also works through
+  `-trace -instantiate lamp -state "lp lamp" -advance 4 -run-query ...`.
+- Turn `%trace on` on before the behaviors whose events are needed. Starting
+  tracing after instantiation omits initial entry records. A posted signal is
+  dispatched at the current clock instant when `%advance` runs, not at its
+  destination time: send at 1, advance to 2, and query `[1 [s], 2 [s])` to
+  include that signal while excluding a subsequent signal sent at 2.
+- `%state lp lamp1` attaches to the exhibited machine; parallel `States` rows
+  show one leaf per region. `InState(name="on")` returns the object once, not
+  once per active leaf.
+- Lifetime diagnostics (`destroyed at N`) use an **execution-order activation
+  mark**, not simulation-clock seconds. Cross-check N against `%features obj`
+  after `%eval in obj : OccurrenceFunctions::destroy(this)`; do not assert that
+  N equals the last `%advance` time. Error kind identity is not visible at the
+  REPL: report verification of the public diagnostic, not of a Go error type.
+- Distinguish termination (States returns zero rows and Events remains readable)
+  from destruction (both refuse). Completion reports the final `done` leaf.
+
 ## Dynamic object lifecycle through the REPL
 
 - `%instantiate <PartDef>` already runs the classifier actions the definition

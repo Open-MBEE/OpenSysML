@@ -1,0 +1,1 @@
+- **Feature-owned multiplicities now report invalid featuring types.** A `featuring` relationship that gives a feature's owned multiplicity a featuring type outside the feature's featuring contexts is diagnosed.

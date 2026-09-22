@@ -28,8 +28,14 @@ func (s *Server) References(ctx context.Context, params *protocol.ReferenceParam
 
 	var out []protocol.Location
 	seen := map[protocol.Location]bool{}
+	posOf := map[string]positions{}
 	add := func(docName string, content []byte, span source.Span) {
-		loc := protocol.Location{URI: s.documentURI(docName), Range: spanToRange(content, span)}
+		pos, ok := posOf[docName]
+		if !ok {
+			pos = positionsFor(content)
+			posOf[docName] = pos
+		}
+		loc := protocol.Location{URI: s.documentURI(docName), Range: pos.rangeOf(span)}
 		if seen[loc] {
 			return
 		}
