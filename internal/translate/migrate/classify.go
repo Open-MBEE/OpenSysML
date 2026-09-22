@@ -438,7 +438,7 @@ func (m *migration) classify(e *sysmlv1.Element) (category, string) {
 	}
 	switch e.Type {
 	case "Model", "Package", "Profile":
-		if e.Type == "Package" && has(e, "View") {
+		if has(e, "View") && (e.Type != "Model" || e.Parent != nil) {
 			return catView, "a «View» package is written as a view usage holding its members"
 		}
 		return catPackage, ""

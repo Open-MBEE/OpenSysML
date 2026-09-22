@@ -118,6 +118,12 @@ func TestViewForms(t *testing.T) {
 			 </packagedElement>`,
 			`<sysml:View xmi:id="_s1" base_Package="_v"/>`,
 			[]string{"view Handbook {\n    part def Chapter;\n}"}, "_v", Approximated},
+		{"a nested view model holds its members and satisfies its viewpoint",
+			`<packagedElement xmi:type="uml:Model" xmi:id="_v" name="Handbook">
+			   <packagedElement xmi:type="uml:Class" xmi:id="_ch" name="Chapter"/>
+			 </packagedElement>`,
+			`<sysml:View xmi:id="_s1" base_Package="_v" viewpoint="_vp"/>`,
+			[]string{"view Handbook {\n    satisfy Ops;\n    part def Chapter;\n}"}, "_v", Approximated},
 		{"an instance of a view or viewpoint has no definition to specialize",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_v" name="Overview"/>
 			 <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_i" name="snapshot" classifier="_v _vp"/>`,

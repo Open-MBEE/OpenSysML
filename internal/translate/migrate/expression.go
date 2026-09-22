@@ -240,7 +240,7 @@ func (l *treeLowering) opaque(body, lang string) (string, *refusal) {
 	if err != nil {
 		return "", err
 	}
-	ref := opaqueRef{expr: t.expr, scalar: t.scalar, object: t.object, plural: t.plural, loose: t.loose}
+	ref := opaqueRef{expr: t.expr, scalar: t.scalar, object: t.object, plural: t.plural, loose: t.loose, lit: t.lit}
 	if !t.atomic && t.loose == 0 {
 		ref.expr = "(" + t.expr + ")"
 	}
