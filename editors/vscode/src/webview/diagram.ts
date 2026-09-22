@@ -14,6 +14,7 @@ import { type DiagramStyle, pilotLook, STYLE_LABELS, STYLES, styleOf } from "../
 import { MenuCommand, MenuItem, nodeMenu, paletteItems } from "./actions";
 import { cssEscape, drawCanvas, liftNode } from "./canvas";
 import { dragHint, Drop, dropOn } from "./drop";
+import { tableOf } from "./table";
 import {
   CanvasLayout,
   insertedWaypoint,
@@ -119,6 +120,18 @@ window.addEventListener("keyup", (event) => {
 });
 // A right-click off a node offers nothing; the browser's own menu offers less.
 diagram.addEventListener("contextmenu", (event) => event.preventDefault());
+
+// A table has no gestures; a click on a row holding a declaration opens it as a
+// node click does.
+diagram.addEventListener("click", (event) => {
+  if (layout || !last?.rows) {
+    return;
+  }
+  const row = (event.target as Element | null)?.closest?.<HTMLTableRowElement>("tr.located[data-opensysml-row]");
+  if (row?.dataset.opensysmlRow !== undefined) {
+    vscode.postMessage({ type: "revealRow", row: Number(row.dataset.opensysmlRow), drawn });
+  }
+});
 
 window.addEventListener("message", (event: MessageEvent<ToWebview>) => {
   // The extension posts into this frame, so its messages carry the frame's own
@@ -230,12 +243,9 @@ function draw(result: RenderResult): boolean {
       layout = layoutCanvas(result);
       show(layout);
     } else {
-      // A table is written as Markdown rather than drawn, so it is shown as the
-      // artifact it is.
+      // A table is not drawn as geometry: it is drawn as a table from its rows.
       layout = undefined;
-      const pre = document.createElement("pre");
-      pre.textContent = result.artifact;
-      diagram.replaceChildren(pre);
+      diagram.replaceChildren(tableOf(result));
     }
     diagram.classList.remove("stale");
     showStatus("");
@@ -654,6 +664,10 @@ function highlight(id: string | undefined): void {
     marked.classList.remove("opensysml-selected");
   }
   if (!id) {
+    return;
+  }
+  if (!layout && id.startsWith("row:")) {
+    diagram.querySelector(`tr[data-opensysml-row="${cssEscape(id.slice(4))}"]`)?.classList.add("opensysml-selected");
     return;
   }
   const element = diagram.querySelector(`[data-opensysml-id="${cssEscape(id)}"]`);

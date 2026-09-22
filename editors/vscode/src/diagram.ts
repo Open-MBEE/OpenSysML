@@ -45,6 +45,7 @@ import {
   RENDER_PALETTE_CAPABILITY,
   RenderChangedParams,
   RenderNode,
+  RenderOrigin,
   RenderParams,
   RenderResult,
   ToWebview,
@@ -784,6 +785,7 @@ class DiagramPanel {
         view: result.view,
         version: result.version,
         palette: result.palette,
+        rows: result.rows,
       };
       this.drawn += 1;
       this.post({
@@ -806,9 +808,26 @@ class DiagramPanel {
     this.refresh();
   }
 
-  /** highlightAt marks the node whose declaration contains the cursor. */
+  /** highlightAt marks the node or table row whose declaration contains the cursor. */
   highlightAt(at: vscode.Position): void {
-    this.post({ type: "highlight", id: this.nodeAt(this.rendering, at)?.id });
+    const node = this.nodeAt(this.rendering, at);
+    if (node) {
+      this.post({ type: "highlight", id: node.id });
+      return;
+    }
+    const rows = this.rendering.rows;
+    if (rows?.length) {
+      const index = rows.findIndex(
+        (row) => row.origin !== undefined
+          && vscode.Uri.parse(row.origin.uri).toString() === this.docURI.toString()
+          && toRange(row.origin.range).contains(at),
+      );
+      if (index >= 0) {
+        this.post({ type: "highlight", id: `row:${index}` });
+        return;
+      }
+    }
+    this.post({ type: "highlight", id: undefined });
   }
 
   private highlightActive(): void {
@@ -856,6 +875,9 @@ class DiagramPanel {
       case "reveal":
         void this.revealSource(message.id, message.drawn);
         return;
+      case "revealRow":
+        void this.revealRow(message.row, message.drawn);
+        return;
       case "edit":
         void this.edit(message.action, message.drawn);
         return;
@@ -877,7 +899,20 @@ class DiagramPanel {
       void vscode.window.showWarningMessage(REDRAWN_MESSAGE);
       return;
     }
-    const origin = this.node(this.rendering, id)?.origin;
+    await this.revealOrigin(this.node(this.rendering, id)?.origin);
+  }
+
+  // revealRow opens the declaration of the element a table row lists; the row indexes the drawing it was clicked on.
+  private async revealRow(row: number, drawn: number): Promise<void> {
+    if (!offeredOn(this.drawn, drawn)) {
+      void vscode.window.showWarningMessage(REDRAWN_MESSAGE);
+      return;
+    }
+    await this.revealOrigin(this.rendering.rows?.[row]?.origin);
+  }
+
+  // revealOrigin opens the document and selects the identifier an origin locates.
+  private async revealOrigin(origin: RenderOrigin | undefined): Promise<void> {
     if (!origin) {
       return;
     }
@@ -1397,6 +1432,13 @@ function html(
       #diagram .opensysml-selected > .shape, #diagram .opensysml-selected > g.shape > circle {
         stroke: var(--vscode-focusBorder); stroke-width: 3px;
       }
+      #diagram table.opensysml-table { border-collapse: collapse; font-size: 0.9em; }
+      #diagram .opensysml-table th, #diagram .opensysml-table td { text-align: left; padding: 0.25rem 0.75rem; border-bottom: 1px solid var(--vscode-widget-border, var(--vscode-editorWidget-border)); white-space: nowrap; }
+      #diagram .opensysml-table th { font-weight: 600; position: sticky; top: 0; background: var(--vscode-editor-background); }
+      #diagram .opensysml-table tr.located { cursor: pointer; }
+      #diagram .opensysml-table tr.located:hover { background: var(--vscode-list-hoverBackground); }
+      #diagram .opensysml-table tr.opensysml-selected { background: var(--vscode-list-activeSelectionBackground); color: var(--vscode-list-activeSelectionForeground); }
+      #diagram .empty { opacity: 0.8; }
       /* The pilot visualizer's Standard B&W, as the DOT and PlantUML forms draw it; a palette's fills ride on each shape. */
       #diagram.pilot { background: white; color: black; }
       #diagram.pilot svg { font-family: Arial, Helvetica, "Liberation Sans", sans-serif; }
@@ -1424,6 +1466,10 @@ function html(
       #diagram.pilot .opensysml-selected > .shape, #diagram.pilot .opensysml-selected > g.shape > circle {
         stroke: var(--vscode-focusBorder); stroke-width: 3px;
       }
+      #diagram.pilot .opensysml-table th, #diagram.pilot .opensysml-table td { border-color: #181818; }
+      #diagram.pilot .opensysml-table th { background: white; }
+      #diagram.pilot .opensysml-table tr.located:hover { background: #eee; }
+      #diagram.pilot .opensysml-table tr.opensysml-selected { background: #dbe9ff; color: black; }
       details { margin-top: 0.75rem; font-size: 0.9em; }
       pre { white-space: pre-wrap; }
     </style>
