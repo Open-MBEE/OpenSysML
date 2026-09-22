@@ -214,13 +214,14 @@ send with no receiver) are not state-machine rows and no test in the suite reach
 
 ## Baseline
 
-Recorded **2026-09-21** on develop commit **`2a6527359`** with entry, do and effect behaviors
+Recorded **2026-09-21** on develop commit **`e6e49c3d3`** with entry, do and effect behaviors
 bound to the triggering event's data and returning the call's outputs, the tester's calls and traces
 driven in the tester's order and standalone machines read as targets, with completion events queued in the
 order their sources are entered (the pool's order following the entry draw, finding 11's runtime
 part), the order of orthogonal
 regions drawn as choice points at finding 9's four sites (region entry, region exit,
-the units of the firings one occurrence selects, a due do step against the dispatch), `terminate` executing
+the units of the firings one occurrence selects, a due do step against the dispatch, drawn per
+token move of the do flow), `terminate` executing
 (alignment finding 1, SM38), the fork-entered-region fix
 (finding 6), the active-ancestor fix, the completion-choice fix, the guard-side-effect
 classification, the join incoming-effects fix, the junction branch-choice fix (finding 8) and
@@ -241,7 +242,25 @@ baseline — `go run -C tools ./cmd/pssm-referee` prints the current ones.
 
 ### Movements since the previous baseline
 
-Two counts moved since the previous baseline (develop `2a6527359`, 2026-09-21), `not-expressible`
+No count and no reason moved since the previous baseline (develop `92ac11846`, 2026-09-21): the
+do-step site of finding 9 is now drawn per token move of a due do behavior's flow rather than
+per action of it — after every move the machine may dispatch the acting occurrence or move the
+do flow again, under `check`, `replay` and `explore`; the fixed policies finish the whole round
+first as before — and every do behavior the suite's tests log is a single action, whose one move
+was already the draw. One row's run count moved: *Deferred 006 C*, whose two do activities are
+the only pair stepped together, explores 368 runs where it explored 24, the one-token moves of
+the two flows interleaved, and reaches its two admitted traces and nothing else. *Exiting 002*
+still reaches `S1(exit)` alone beside the admitted trace, so the suite-defect record stands;
+*Terminate 002* and *Transition 017* keep their reasons byte for byte. The run is
+byte-identical under `-jobs 1` and `-jobs 8`.
+
+| Test | Construct | Movement | Adjudication |
+|---|---|---|---|
+| Deferred 006 C | two do activities, one token move a draw | `pass` → `pass`, 24 → 368 runs | Expected. `S1.1`'s and `S1.2`'s do activities — each an `accept Continue` then the logging step — are due together; each token move of one is now drawn against the other's and against the dispatch of the `Continue` both accept, and every linearization ends in `S1.1(doActivity)::S1.2(doActivity)` or the reverse, the two traces the suite admits |
+
+### Movements before that
+
+Two counts moved since the baseline before (develop `2a6527359`, 2026-09-21), `not-expressible`
 37 → 33 and `pass` 52 → 56, and four reasons shrank without moving a bucket. The emitter binds
 an entry, do or effect behavior's parameters to the triggering event's data — an effect reads
 the `accept`'s own parameters, an entry or do action declares `in p : T = trigger_…;` bound to
@@ -595,10 +614,14 @@ Junction 003, Standalone 003, Terminate 001.
 
 Every failure is attributed. Five cite a *differs, v2 silent* row of the alignment note through
 the committed table: the suite's second opinion on a tool choice, which the row records and the
-test does not overturn. Seven cite an open finding against this project — a gap of the runtime's,
-recorded [below](#findings-about-our-own-conformance) and in the alignment note, that a change
-of its own will close, moving the tests with it; one cites a defect of the suite's alone. None is a translation defect: each translated
-model was read against the test's UML, and every construct the test uses reaches the run.
+test does not overturn. Seven cite a finding recorded [below](#findings-about-our-own-conformance)
+and in the alignment note: one a gap of the runtime's still open (*Terminate 002*, whose one
+missing trace a change of its own will reach), three a translation limit adjudicated under
+finding 11 (*Entering 010*, *Entering 011*, *Junction 005*), three a defect of the suite's
+recorded in [`omg-issues.md`](omg-issues.md) (*Transition 017*, *History 001-C*, *History 002-B*);
+one, *Exiting 002*, cites a defect of the suite's alone (the trailing table names it). None is a
+translation defect: each translated model was read against the test's UML, and every construct
+the test uses reaches the run.
 
 #### Citing a note row (5)
 
@@ -662,10 +685,12 @@ test's constructs in its `reasons`.
 ## Findings about our own conformance
 
 The referee's classifier and runs surfaced six gaps that are this project's rather than SysML
-v2's. Four — the first two found when the referee was added, the third by its exploration, the
-fourth by attributing the failures that remained — are fixed, each in a change of its own; one
-is fixed at three of its four sites, and one, found while fixing it, is open. The tests that
-reach an open site stay `fail` citing it until a change of its own closes it:
+v2's. Five — the first two found when the referee was added, the third by its exploration, the
+fourth by attributing the failures that remained, the fifth at all four of its sites — are
+fixed, each in a change of its own; the sixth, found while fixing the fifth, is adjudicated: a
+translation limit on three tests, the suite's defect on two, and one site of the runtime's still
+open (*Terminate 002*'s do step on the entry front). The tests that reach an open site stay
+`fail` citing it until a change of its own closes it:
 
 - **The lowerer refused a fork into orthogonal regions that have no initial pseudostate**
   (*Fork 002*, *Join 001*; alignment finding 6). UML lets a fork's outgoing transitions enter
@@ -724,7 +749,7 @@ reach an open site stay `fail` citing it until a change of its own closes it:
   `state_history_default_through_junction`, `explore_test.go:TestExploreStaticJunctionBranches`).
   The test passes; the movements table above adjudicates it.
 - **The order in which orthogonal regions are entered, exited and stepped was not a recorded
-  choice point** (alignment finding 9; fixed at three of its four sites, the fourth designed).
+  choice point** (alignment finding 9; fixed at all four of its sites).
   Thirteen tests reached only traces the suite admits and failed on admitted traces they never
   reached, because four sites ordered what PSSM leaves concurrent and recorded no choice for
   `explore` to vary. Not a defect of behavior — SysML v2 §7.18.1 leaves parallel substates and a
@@ -750,20 +775,22 @@ reach an open site stay `fail` citing it until a change of its own closes it:
   *Transition 019* is reached, leaving SM34 alone (the movements tables above adjudicate each).
   The fourth site — a due do step against the dispatch the machine would make at the same
   instant — is drawn under `check`, `replay` and `explore` (`ChoiceStepOrder`, `state_executor.go:oneUnit`):
-  one move is one action of a state's do behavior (`stepDoAction`) or the dispatch, "dispatch it
-  now" against "keep moving the do flow"; the fixed policies finish the do round before they
+  one move is one token move of a state's do behavior (`stepDoAction`) or the dispatch, "dispatch it
+  now" against "keep moving the do flow", drawn again after every move while a do behavior is
+  due; the fixed policies finish the whole do round before they
   dispatch as they always did, so no default trace moved. A dispatch that would drop or defer its
   occurrence is not drawn ahead of a due do step — neither is an acceptance, and the do step may
-  be the `accept` that takes it — so it waits for the round to close. Moved: *Behavior 003 A* to
+  be the `accept` that takes it — so it waits until no do move is due. Moved: *Behavior 003 A* to
   `pass`; *Terminate 002* and *Transition 017* reach every admitted trace of the do step's
-  placement and stay `fail` on finding 11's (and, *Transition 017*, on the suite's two anomalous
+  placement against a dispatch and stay `fail` on finding 11's (and, *Transition 017*, on the suite's two anomalous
   traces, recorded in
   [`omg-issues.md`](omg-issues.md#pssm-transition-017-admits-a-parents-completion-before-its-regions));
   *Exiting 002* reaches the order the suite registers for *Behavior 003 A* and not for it, the
-  suite's defect. A round closes once each due do action has stepped, and the dispatch it owes
-  goes before another opens, the fixed policies' rhythm; where a step left a token of its body
-  standing the sweep-then-dispatch run of the fixed policies is still the checker's bounded
-  verdict (`notEnumerated`), not yet a move of its own.
+  suite's defect. The token grain moves no bucket: the do behaviors the suite's tests log are
+  single actions, so their one move was already the draw, and *Deferred 006 C*'s two do
+  activities alone gain linearizations (24 to 368, all reaching its two admitted traces); the
+  whole-round run of the fixed policies is one path of the enumeration, so `check` no longer
+  reports a run left out.
 - **A completion transition's firing is not drawn against the entry front it completes in**
   (*Entering 010*, *Entering 011*, *Junction 005*, *History 001-C*, *History 002-B*; alignment
   finding 11, adjudicated). Found while implementing finding 9's entry site: every admitted

@@ -122,10 +122,12 @@ type checkMove struct {
 // beginStep resolves the step as a replayed one resolves a witness move: the
 // selected token alone when two or more are able to act, else — one at most
 // able to act — that one first and the rest after, as a settling step tries them.
+// A step of a do flow within the machine's move picks its token as a choice point
+// of the move (ChoiceTokenOrder); any other nested step goes in declared order.
 func (r *checkRun) beginStep(tokens stepTokens) *checkMove {
 	m := &checkMove{run: r, step: tokens.step, taken: -1, selected: r.script.token != 0}
 	if tokens.owner != r.script.owner {
-		m.nested, m.selected = true, false
+		m.nested, m.selected = !tokens.stepped, false
 	}
 	r.move = m
 	var enabled, rest, held []int64
@@ -149,6 +151,16 @@ func (r *checkRun) beginStep(tokens stepTokens) *checkMove {
 		if m.selected && id == r.script.token {
 			m.taken = i
 		}
+	}
+	if tokens.stepped && tokens.owner != r.script.owner {
+		if len(enabled) >= 2 {
+			m.taken = r.choose(ChoicePoint{Kind: ChoiceTokenOrder, Step: tokens.step, Alternatives: m.enabled}, nil)
+			m.selected = true
+			m.order = []int64{enabled[m.taken]}
+		} else {
+			m.order = slices.Concat(enabled, rest, held)
+		}
+		return m
 	}
 	if !m.selected {
 		m.order = slices.Concat(enabled, rest, held)

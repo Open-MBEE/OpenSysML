@@ -43,7 +43,7 @@ func (r *Resolver) resolveTarget(scope *symbols.Scope, target ast.Node, hide *re
 		if !ok || t.Member == nil {
 			return nil, false
 		}
-		return r.memberChain(owner, t.Member, t)
+		return r.memberChain(r.chainedFrom(scope, owner), t.Member, t)
 	default:
 		return nil, false
 	}
@@ -413,6 +413,7 @@ func (r *Resolver) resolveChainSegment(ref Reference, hide *refFilter) (*symbols
 	if !ok {
 		return nil, false
 	}
+	owner = r.chainedFrom(ref.Scope, owner)
 	// A qualified segment the owner has no member for reads outward, as
 	// resolveFeatureChain does.
 	if len(ref.QN.Parts) > 1 {

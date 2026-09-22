@@ -38,8 +38,9 @@ func TestResultExpressionIsAResultExpressionMembership(t *testing.T) {
 	for _, want := range []string{
 		"elmt:Results__AfterMembers___403\n    a sysml:OperatorExpression ;",
 		"sysx:memberIndex \"3\"^^xsd:integer ;\n    sysml:owningNamespace elmt:Results__AfterMembers ;",
-		"sysml:operator \"*\" ;\n    sysml:argument expr:Results__AfterMembers___403_pa0, expr:Results__AfterMembers___403_pa1 ;\n    sysx:sourceText \"        y * y\\n\" ;",
-		"json:argument \"[{\\\"@id\\\":\\\"Results__AfterMembers___403_pa0\\\"},{\\\"@id\\\":\\\"Results__AfterMembers___403_pa1\\\"}]\" .",
+		"sysml:operator \"*\" ;\n    sysml:argument expr:Results__AfterMembers___403_pa0, expr:Results__AfterMembers___403_pa1 ;",
+		"sysx:sourceText \"        y * y\\n\" ;",
+		"json:argument \"[{\\\"@id\\\":\\\"Results__AfterMembers___403_pa0\\\"},{\\\"@id\\\":\\\"Results__AfterMembers___403_pa1\\\"}]\"",
 		"elmt:Results__AfterMembers___403_om\n    a sysml:ResultExpressionMembership ;",
 		"sysml:ownedMemberElement elmt:Results__AfterMembers___403 ;",
 		"sysml:ownedMemberFeature elmt:Results__AfterMembers___403 ;",
@@ -246,12 +247,17 @@ func TestMalformedMembershipEndsAreRefused(t *testing.T) {
 // dropped.
 func TestResultExpressionWithoutAnExpressionIsRefused(t *testing.T) {
 	turtle := string(withoutTriples(t, convertFixture(t, "result_expressions"), "sysx:sourceText"))
-	const operands = "    sysml:operator \"*\" ;\n    sysml:argument expr:Results__AfterMembers___403_pa0, expr:Results__AfterMembers___403_pa1 ;\n" +
-		"    json:argument \"[{\\\"@id\\\":\\\"Results__AfterMembers___403_pa0\\\"},{\\\"@id\\\":\\\"Results__AfterMembers___403_pa1\\\"}]\" .\n"
-	if !strings.Contains(turtle, operands) {
+	const argument = "    sysml:argument expr:Results__AfterMembers___403_pa0, expr:Results__AfterMembers___403_pa1 ;"
+	const annotation = "    json:argument \"[{\\\"@id\\\":\\\"Results__AfterMembers___403_pa0\\\"},{\\\"@id\\\":\\\"Results__AfterMembers___403_pa1\\\"}]\" ;"
+	const featureMembership = "    sysml:ownedFeatureMembership expr:Results__AfterMembers___403_pin0_om, expr:Results__AfterMembers___403_pin1_om ;"
+	const featureMembershipAnnotation = "    json:ownedFeatureMembership \"[{\\\"@id\\\":\\\"Results__AfterMembers___403_pin0_om\\\"},{\\\"@id\\\":\\\"Results__AfterMembers___403_pin1_om\\\"}]\" ;"
+	if !strings.Contains(turtle, argument) || !strings.Contains(turtle, annotation) || !strings.Contains(turtle, featureMembership) || !strings.Contains(turtle, featureMembershipAnnotation) {
 		t.Fatalf("expected the operands of the AfterMembers result in the graph:\n%s", turtle)
 	}
-	turtle = strings.Replace(turtle, operands, "    sysml:operator \"*\" .\n", 1)
+	turtle = strings.Replace(turtle, argument+"\n", "", 1)
+	turtle = strings.Replace(turtle, annotation+"\n", "", 1)
+	turtle = strings.Replace(turtle, featureMembership+"\n", "", 1)
+	turtle = strings.Replace(turtle, featureMembershipAnnotation+"\n", "", 1)
 	_, err := convert.Convert("m.ttl", []byte(turtle), convert.FormatTurtle, convert.FormatSysML)
 	var unsupported *export.UnsupportedError
 	if !errors.As(err, &unsupported) {
@@ -448,8 +454,9 @@ func TestIndexesOutsideIntAreRefused(t *testing.T) {
 	}
 }
 
-// A body has one result, a subject one index and an import one kind, so a
-// graph stating a second is refused by name rather than one being dropped.
+// A body has one result, a subject one index and an older graph's abstract
+// import one kind flag, so a graph stating a second is refused by name rather
+// than one being dropped.
 func TestRepeatedSingleValuedPropertiesAreRefused(t *testing.T) {
 	for _, tc := range []struct{ fixture, from, to, want string }{
 		{
@@ -472,8 +479,9 @@ func TestRepeatedSingleValuedPropertiesAreRefused(t *testing.T) {
 		},
 		{
 			"imports",
-			`sysx:isNamespaceImport "true"^^xsd:boolean ;`,
-			`sysx:isNamespaceImport "true"^^xsd:boolean , "false"^^xsd:boolean ;`,
+			`a sysml:NamespaceImport ;`,
+			`a sysml:Import ;
+    sysx:isNamespaceImport "true"^^xsd:boolean , "false"^^xsd:boolean ;`,
 			`it states sysx:isNamespaceImport twice, as "true"^^xsd:boolean and "false"^^xsd:boolean`,
 		},
 		{

@@ -22,6 +22,13 @@
     "onLanguage:kerml",
     "onWebviewPanel:opensysml.diagram"
   ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "In Restricted Mode the language server is only started from `opensysml.server.path` or `PATH`, never from the workspace's own `bin/` directory, and the server settings are read from user settings only.",
+      "restrictedConfigurations": ["opensysml.server.path", "opensysml.server.args"]
+    }
+  },
   "contributes": {
     "languages": [
       {

@@ -67,7 +67,7 @@ elmt:Vehicles__Vehicle__mass
     sysml:owningRelationship elmt:Vehicles__Vehicle__mass_om ;
     sysml:owningMembership elmt:Vehicles__Vehicle__mass_om ;
     sysml:declaredName "mass" ;
-    sysml:type "ISQ::MassValue" ;
+    sysml:type <urn:sysmlv2:element:9cd0e404-efee-50e5-a59b-681065bd188c> ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        attribute mass : ISQ::MassValue;\n" .
 
@@ -95,6 +95,8 @@ elmt:Vehicles__Vehicle__engine
     sysml:declaredName "engine" ;
     sysml:type elmt:Vehicles__Engine ;
     sysml:upperBound expr:Vehicles__Vehicle__engine_pupperBound ;
+    sysml:ownedRelationship expr:Vehicles__Vehicle__engine_pupperBound_om ;
+    sysml:ownedMembership expr:Vehicles__Vehicle__engine_pupperBound_om ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        part engine : Engine[1];\n" .
 
@@ -114,7 +116,20 @@ expr:Vehicles__Vehicle__engine_pupperBound
     a sysml:LiteralInteger ;
     sysx:sourceText "1" ;
     sysml:elementId "Vehicles__Vehicle__engine_pupperBound" ;
-    sysml:value "1"^^xsd:integer .
+    sysml:value "1"^^xsd:integer ;
+    sysml:owner elmt:Vehicles__Vehicle__engine ;
+    sysml:owningRelationship expr:Vehicles__Vehicle__engine_pupperBound_om ;
+    sysml:owningMembership expr:Vehicles__Vehicle__engine_pupperBound_om .
+
+expr:Vehicles__Vehicle__engine_pupperBound_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Vehicles__Vehicle__engine_pupperBound_om" ;
+    sysml:owner elmt:Vehicles__Vehicle__engine ;
+    sysml:memberElement expr:Vehicles__Vehicle__engine_pupperBound ;
+    sysml:ownedMemberElement expr:Vehicles__Vehicle__engine_pupperBound ;
+    sysml:ownedRelatedElement expr:Vehicles__Vehicle__engine_pupperBound ;
+    sysml:owningRelatedElement elmt:Vehicles__Vehicle__engine ;
+    sysml:membershipOwningNamespace elmt:Vehicles__Vehicle__engine .
 
 elmt:Vehicles__Engine
     a sysml:PartDefinition ;

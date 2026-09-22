@@ -743,24 +743,17 @@ table is followed by the trace of each outcome's witness run (`trace of outcome 
 
 <a id="a-do-behavior-under-explore-and-check"></a>
 A state's `do` behavior is stepped the same way under `explore` and `check`: one token at a time —
-each due `do` behavior moves one token, then the machine dispatches the event at the head of its
-pool. Under the fixed policies (`reverse`, `declared`, `seed:<n>`) a do behavior's flow instead
-advances every steppable token once a round, and the machine dispatches only between rounds. The
-run a fixed policy makes — the whole round, then the dispatch — is therefore an interleaving
-with a value under `reverse` that `check` does not table. The fixed-policy `check` enumeration
-does not contain the interleaving where a transition interrupts a `do` behavior mid-round; the
-runtime does support that interruption. A check that reaches such a state — a
-machine owing a dispatch after a `do` step that left a token able to act standing, one ready
-beside the token moved or one its move freed, where a fixed policy's round would have moved it too
-— therefore does not report
-*exhaustive*: its verdict is `no violation within bounds` (or `divergent`, when the schedules it
-did search disagree) with `not enumerated: do round before dispatch` naming the run it left out,
-and the standing is *bounded*. Whether the dispatch waits for the round or cuts it becomes a
-recorded choice point — drawn per token move of the `do` flow — as the one site of the
-region-order scheduling work still open ([design
-note](../internals/design/region-order-scheduling.md)); until then, run a fixed policy beside the
-checker when a `do` behavior loops through timed waits. The witnesses such a check writes replay
-as any other: the search is short of a run, not wrong about the ones it made.
+a due `do` behavior moves one token, and after each move the machine either dispatches the event
+at the head of its pool or moves the `do` flow again, a recorded choice (`at t=…: next do
+<state>, dispatch accept <signal> (unordered; took … first)` in the witness). Under the fixed
+policies (`reverse`, `declared`, `seed:<n>`) a `do` behavior's flow instead advances every
+steppable token once a round, and the machine dispatches only between rounds — one of the
+interleavings `check` and `explore` table, so the exhaustive set is a superset of every fixed
+policy's outcome, and a transition that interrupts a `do` behavior after any of its token moves
+is another. A `do` body parked at an `accept` offers no move until its occurrence is dispatched,
+and a `do` flow that never rests against a queued dispatch ends each run at the dispatch or at
+the do-step budget. The witnesses such a check writes replay as any other ([design
+note](../internals/design/region-order-scheduling.md)).
 
 The order of executors due at one instant of the clock is explored like any other choice:
 `sysml -schedule explore -instantiate Demo::beacon -action Demo::watcher -state
@@ -2178,6 +2171,68 @@ A calculation is pure and refuses `terminate` as it refuses `send`.
 A run that stops early, whether through deadlock or by hitting a budget, is reported as an
 undecided check rather than a failure. The budgets are documented in
 [reference/environment.md](../reference/environment.md).
+
+### Handling a failure: there is no `try`/`catch`
+
+SysML v2 has no exception handler and no `raise`: an action cannot end abnormally with a payload,
+and nothing propagates. A failure is modeled like any other fact, and handled with the nodes
+above. Two shapes cover what UML's exception handlers do. Where the failing step knows it failed,
+it reports so on an `out` parameter (`out ok : Boolean`, a status enum) and a `decide` after it
+routes on the report — the [conditional branching](#decision-and-else-conditional-branching)
+pattern. Where the failure has to interrupt work already under way, the step sends a signal, and
+a branch forked beside the work accepts it, terminates the work and handles the payload:
+
+```sysml
+attribute def Fault { attribute reason : String; }
+
+action bySignal {
+    out attribute progress : Integer = 0;
+    out attribute handled : String = "";
+
+    first start;
+    then fork split;
+        then work;
+        then caught;
+
+    action work {
+        first start;
+        then action step1 { assign progress := 1; }
+        then action raise send new Fault(reason = "sensor offline") to caught;
+        then action wait accept go : Integer;
+        then action step2 { assign progress := 99; }
+        then done;
+    }
+
+    action caught accept fault : Fault;
+    then action stop { terminate work; }
+    then action handle { assign handled := fault.reason; }
+    then sync;
+
+    join sync;
+    succession first work then sync;
+    succession first sync then done;
+}
+```
+
+```bash
+$ sysml -action FailureHandling::bySignal failure_handling.sysml
+✓ Action completed
+  Final state: Completed
+  Results:
+    fault = Instance(ID: 1)
+    handled = "sensor offline"
+    progress = 1
+```
+
+`work` was parked at `wait` when `stop` terminated it, so `step2` never ran and `progress` stays
+at 1; the join releases on the ended performance. This is §7.17.10's `MonitoredActivity` with the
+signal sent by the work itself, and it is the standard notation — every node in it is an ordinary
+`send`, `accept`, `terminate` or `fork`. A failure the model does *not* spell — a division by
+zero, an unbound parameter, an accept nothing can satisfy — is not silently skipped and not a
+crash: the run ends with a typed error naming it (`execution failed: … division by zero`), a
+check reports the standing `not covered`, and a verification case whose body fails is the verdict
+`error`. The adjudication behind this section is
+[project/exception-handlers.md](../project/exception-handlers.md).
 
 ---
 

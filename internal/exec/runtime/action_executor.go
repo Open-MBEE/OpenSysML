@@ -93,9 +93,6 @@ type ActionExecutor struct {
 	// moved is set once a token acted — a failed step included — or the body wrote a
 	// feature, and cleared when the start that attached the execution to its object settles.
 	moved bool
-	// leftStanding marks the body's latest one-token step as leaving a token able to
-	// act, one a sweep moving each token once would have moved after the one picked.
-	leftStanding bool
 	// awaiting is the subflow whose parked tokens a run waits on the clock for,
 	// nil for the action's own.
 	awaiting *actionFrame
@@ -612,12 +609,25 @@ func (e *ActionExecutor) run(atCurrentTime bool) error {
 			}
 			break
 		}
+		if err := e.pauseAfterMove(); err != nil {
+			e.held = true
+			return err
+		}
 	}
 	if e.state == StateWaiting && !atCurrentTime {
 		e.endPausedBodies()
 		return e.deadlockError(nil)
 	}
 	return nil
+}
+
+// pauseAfterMove pauses the body performing this action after one token move where
+// its run goes one move at a time and another move is open now; nil else.
+func (e *ActionExecutor) pauseAfterMove() error {
+	if !e.ctx.stepsTokens() || e.state != StateRunning || !e.canAct(nil) {
+		return nil
+	}
+	return e.ctx.tokenStepBody()
 }
 
 // StepToBreakpoint is Step with the breakpoints a run stops at: a token sitting
@@ -1762,12 +1772,13 @@ func oneMoveEligible(t Token) bool { return !t.drivenByBody() && (t.body == nil 
 // stepCandidates lists the tokens a step may move, as the policy is handed them.
 func (e *ActionExecutor) stepCandidates(order *stepOrder, eligible func(Token) bool) stepTokens {
 	tokens := stepTokens{
-		owner:  e,
-		step:   e.stepCount + 1,
-		ids:    make([]int64, 0, len(e.tokens)),
-		parked: make(map[int64]bool),
-		held:   make(map[int64]bool),
-		label:  e.tokenLabel,
+		owner:   e,
+		step:    e.stepCount + 1,
+		ids:     make([]int64, 0, len(e.tokens)),
+		parked:  make(map[int64]bool),
+		held:    make(map[int64]bool),
+		label:   e.tokenLabel,
+		stepped: e.ctx.stepsTokens(),
 	}
 	tokens.enabled = func(id int64) bool { return e.enabled(id, eligible) }
 	for i, t := range e.tokens {

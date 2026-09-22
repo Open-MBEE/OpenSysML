@@ -296,6 +296,8 @@ elmt:AnonymousFeatures__v___402
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:redefines elmt:AnonymousFeatures__Part__engine ;
     sysml:value expr:AnonymousFeatures__v___402_pvalue ;
+    sysml:ownedRelationship expr:AnonymousFeatures__v___402_pvalue_om ;
+    sysml:ownedMembership expr:AnonymousFeatures__v___402_pvalue_om ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "\t\tcomposite :>> engine = e;\n" .
 
@@ -315,7 +317,22 @@ expr:AnonymousFeatures__v___402_pvalue
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "e" ;
     sysml:elementId "AnonymousFeatures__v___402_pvalue" ;
-    sysml:referent elmt:AnonymousFeatures__e .
+    sysml:referent elmt:AnonymousFeatures__e ;
+    sysml:owner elmt:AnonymousFeatures__v___402 ;
+    sysml:owningRelationship expr:AnonymousFeatures__v___402_pvalue_om ;
+    sysml:owningMembership expr:AnonymousFeatures__v___402_pvalue_om .
+
+expr:AnonymousFeatures__v___402_pvalue_om
+    a sysml:FeatureValue ;
+    sysml:elementId "AnonymousFeatures__v___402_pvalue_om" ;
+    sysml:owner elmt:AnonymousFeatures__v___402 ;
+    sysml:memberElement expr:AnonymousFeatures__v___402_pvalue ;
+    sysml:ownedMemberElement expr:AnonymousFeatures__v___402_pvalue ;
+    sysml:ownedRelatedElement expr:AnonymousFeatures__v___402_pvalue ;
+    sysml:owningRelatedElement elmt:AnonymousFeatures__v___402 ;
+    sysml:membershipOwningNamespace elmt:AnonymousFeatures__v___402 ;
+    sysml:featureWithValue elmt:AnonymousFeatures__v___402 ;
+    sysml:value expr:AnonymousFeatures__v___402_pvalue .
 
 elmt:AnonymousFeatures__v___403
     a sysml:AttributeUsage ;

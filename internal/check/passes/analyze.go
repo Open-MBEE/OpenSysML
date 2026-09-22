@@ -51,6 +51,7 @@ func DefaultRegistry() *Registry {
 	reg.Register(AnnotationOwnershipPass{})
 	reg.Register(W8DOccurrenceTypingPass{})
 	reg.Register(W8DConnectorFeaturingPass{})
+	reg.Register(MultiplicityDomainPass{})
 	reg.Register(W8DFlowEndPass{})
 	reg.Register(W8DVariabilityPass{})
 	reg.Register(W10BRelatedElementsPass{})

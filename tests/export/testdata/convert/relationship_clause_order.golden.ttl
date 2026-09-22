@@ -24,7 +24,7 @@ elmt:ClauseOrder
     json:ownedMembership "[{\"@id\":\"ClauseOrder__Quantity_om\"},{\"@id\":\"ClauseOrder__Ratio_om\"},{\"@id\":\"ClauseOrder__Ctx_om\"},{\"@id\":\"ClauseOrder__Mission_om\"}]" .
 
 elmt:ClauseOrder___400
-    a sysml:Import ;
+    a sysml:NamespaceImport ;
     sysml:qualifiedName "ClauseOrder::@0" ;
     sysml:elementId "ClauseOrder___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
@@ -33,8 +33,7 @@ elmt:ClauseOrder___400
     sysml:owningRelatedElement elmt:ClauseOrder ;
     sysml:importOwningNamespace elmt:ClauseOrder ;
     sysml:visibility "private" ;
-    sysml:importedNamespace "ScalarValues" ;
-    sysx:isNamespaceImport "true"^^xsd:boolean ;
+    sysml:importedNamespace <urn:sysmlv2:element:40bb440c-5036-58e1-8675-5afccb8b8f1d> ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "    private import ScalarValues::*;\n" .
 
@@ -76,7 +75,7 @@ elmt:ClauseOrder__Quantity__num
     sysml:owningRelationship elmt:ClauseOrder__Quantity__num_om ;
     sysml:owningMembership elmt:ClauseOrder__Quantity__num_om ;
     sysml:declaredName "num" ;
-    sysml:type "ScalarValues::Real" ;
+    sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
     sysx:hasBody "false"^^xsd:boolean .
 
 elmt:ClauseOrder__Quantity__num_om
@@ -129,7 +128,7 @@ elmt:ClauseOrder__Ratio___400
     sysml:owner elmt:ClauseOrder__Ratio ;
     sysml:owningRelationship elmt:ClauseOrder__Ratio___400_om ;
     sysml:owningMembership elmt:ClauseOrder__Ratio___400_om ;
-    sysml:type "ScalarValues::Real" ;
+    sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
     sysml:redefines elmt:ClauseOrder__Quantity__num ;
     sysx:hasBody "false"^^xsd:boolean .
 
