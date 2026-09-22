@@ -1,19 +1,21 @@
 # SysML v1 to v2 migration report: diagrams.xmi
 # exported by Example UML Tool
-# migrated 35 element(s): 26 mapped, 9 approximated, 0 unmapped (2 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 42 element(s): 31 mapped, 11 approximated, 0 unmapped (2 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
-## approximated (9)
+## approximated (11)
 Diagram	Behavior::Drive::Drive Flow	_diag_act	-> Behavior::Drive::'Drive Flow'	(a SysML Activity Diagram written as a view rendered asTextualNotation; none of the 5 shown elements is written; the view exposes nothing; 5 of 5 shown elements are not written and not exposed)
 OpaqueAction	Behavior::Drive::start engine	_act_start	-> 'start engine'	(the body is kept as a comment: the name "running" resolves to nothing readable: nothing visible from Behavior::Drive::start engine is called running)
 Diagram	Behavior::Drive::start engine	_diag_act_node	-> Behavior::Drive::'start engine 2'	(a SysML Activity Diagram written as a view rendered asTextualNotation; written as start engine 2 since a member of its owner is also named start engine; none of the 1 shown elements is written; the view exposes nothing; 1 of 1 shown elements are not written and not exposed)
 Diagram	Behavior::Modes::<Region>::Idle	_diag_stm	-> Behavior::Modes::'Idle 2'	(a SysML State Machine Diagram written as a view rendered asTextualNotation; its owner Region Behavior::Modes::<Region> has no v2 body; written in state def Behavior::Modes; written as Idle 2 since a member of its owner is also named Idle; none of the 3 shown elements is written; the view exposes nothing; 3 of 3 shown elements are not written and not exposed)
+«Expose» Dependency	Reports::<Dependency>	_expose_fleet	(written as 2 relationships, one per client–supplier pair)
+Diagram	Reports::Fleet	_diag_fleet	-> Reports::'Fleet 2'	(a SysML Package Diagram written as a view rendered asTreeDiagram; written as Fleet 2 since a member of its owner is also named Fleet)
 Diagram	Structure::Engine	_diag_custom	-> Structure::'Engine 2'	(a Team Review Diagram written as a view rendered asTextualNotation; written as Engine 2 since a member of its owner is also named Engine)
 Diagram	Structure::Vehicle Structure	_diag_bdd	-> Structure::'Vehicle Structure'	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; 2 of 10 shown elements are not written and not exposed)
 Diagram	Structure::Vehicle Structure	_diag_pkg	-> Structure::'Vehicle Structure 2'	(a SysML Package Diagram written as a view rendered asTreeDiagram; written as Vehicle Structure 2 since a member of its owner is also named Vehicle Structure)
 Diagram	Structure::Vehicle::Vehicle Internals	_diag_ibd	-> Structure::Vehicle::'Vehicle Internals'	(a SysML Internal Block Diagram written as a view rendered asInterconnectionDiagram; 1 of 5 shown elements are not written and not exposed)
 Diagram	Structure::Vehicle::engine::Engine Matrix	_diag_matrix	-> Structure::Vehicle::'Engine Matrix'	(a Dependency Matrix written as a view rendered asElementTable; its owner Property Structure::Vehicle::engine has no v2 body; written in part def Structure::Vehicle)
 
-## mapped (26)
+## mapped (31)
 Package	Behavior	_pkg_behavior	-> Behavior
 Activity	Behavior::Drive	_act_drive	-> Behavior::Drive
 ActivityFinalNode	Behavior::Drive::<ActivityFinalNode>	_final	-> final
@@ -28,6 +30,11 @@ State	Behavior::Modes::<Region>::Idle	_st_idle	-> Idle
 State	Behavior::Modes::<Region>::Running	_st_running	-> Running
 Diagram	Block Table	_diag_table	-> 'Block Table'	(a Generic Table written as a view rendered asElementTable)
 Model	Model	_m	(the root model's members are written at the top level)
+Package	Reports	_pkg_views	-> Reports
+«Expose» Dependency	Reports::<Dependency>	_expose_own	-> Reports::'Vehicle Overview'
+«View» Class	Reports::Fleet	_view_fleet	-> Reports::Fleet
+«View» Class	Reports::Vehicle Overview	_view_overview	-> Reports::'Vehicle Overview'
+Diagram	Reports::Vehicle Overview::Vehicle Overview	_diag_overview	-> Reports::'Vehicle Overview'::'Vehicle Overview'	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram)
 Package	Structure	_pkg_structure	-> Structure
 Association	Structure::<Association>	_assoc_drives	(the anonymous association is written as its member-end properties)
 Comment	Structure::<Comment>	_cmt_structure

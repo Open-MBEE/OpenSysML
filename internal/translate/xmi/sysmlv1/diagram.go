@@ -102,6 +102,19 @@ func (m *Model) linkDiagrams() {
 	}
 }
 
+// Diagram finds the diagram with xmi:id id; nil when no diagram has it.
+func (m *Model) Diagram(id string) *Diagram {
+	if id == "" {
+		return nil
+	}
+	for i := range m.Diagrams {
+		if m.Diagrams[i].ID == id {
+			return &m.Diagrams[i]
+		}
+	}
+	return nil
+}
+
 // shown resolves the id of a shown element: an xmi:id of the read documents,
 // an href into one of them, or an href another document's proxy stands for.
 func (m *Model) shown(id string) *Element {

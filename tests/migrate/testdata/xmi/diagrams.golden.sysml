@@ -70,6 +70,23 @@ package Behavior {
         transition first Idle then Running;
     }
 }
+package Reports {
+    view 'Vehicle Overview' {
+        expose 'Vehicle Overview';
+        view 'Vehicle Overview' {
+            expose Structure::Vehicle;
+            render Views::asTreeDiagram;
+        }
+    }
+    view Fleet {
+        expose 'Fleet 2';
+        expose Structure::Vehicle::'Vehicle Internals';
+    }
+    view 'Fleet 2' {
+        expose Structure;
+        render Views::asTreeDiagram;
+    }
+}
 view 'Block Table' {
     expose Structure::Vehicle;
     expose Structure::Engine;

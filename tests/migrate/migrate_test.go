@@ -309,6 +309,10 @@ var constructFixtures = []string{
 	"user_library",
 	"montecarlo",
 	"weighted_decision",
+	"tree_constraints",
+	"realized_interfaces",
+	"parking_usecases",
+	"report_views",
 	"diagrams",
 	"malformed_diagrams",
 }

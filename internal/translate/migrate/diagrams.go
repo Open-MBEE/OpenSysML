@@ -198,6 +198,56 @@ func (m *migration) views(host *sysmlv1.Element) {
 	}
 }
 
+// diagramViewNote says why an «Expose» of a diagram cannot name its view: no
+// body takes the view; "" when the view is written.
+func (m *migration) diagramViewNote(d *sysmlv1.Diagram) string {
+	if host, note := m.viewHost(d); host == nil {
+		return "the exposed Diagram '" + d.Name + "' is not written as a view: " + note
+	}
+	return ""
+}
+
+// viewRef writes a reference to a diagram's view from inside scope's body: its
+// name alone where that resolves to it, else its name under its host's, as
+// ref writes the host; the two are joined as a chain when the host is a usage.
+func (m *migration) viewRef(v *view, scope *sysmlv1.Element) string {
+	name := writeName(v.name)
+	chain := scopeChain(scope)
+	host := v.host
+	if isTopLevel(host) {
+		host = nil
+	}
+	for i, s := range chain {
+		if s == host {
+			if !m.shadows(chain[:i], v.name) {
+				return name
+			}
+			break
+		}
+	}
+	if host == nil {
+		if m.shadows(chain, v.name) {
+			return "$::" + name
+		}
+		return name
+	}
+	sep := "::"
+	if m.isUsage(host) {
+		sep = "."
+	}
+	return m.ref(host, scope) + sep + name
+}
+
+// shadows reports whether one of scopes declares a member named name.
+func (m *migration) shadows(scopes []*sysmlv1.Element, name string) bool {
+	for _, s := range scopes {
+		if m.nameTaken(s, name) {
+			return true
+		}
+	}
+	return false
+}
+
 // exposures sorts what a diagram shows into the elements its view exposes,
 // deduplicated in shown order, and the counts of what it cannot.
 type exposures struct {
@@ -310,10 +360,8 @@ func (m *migration) exposable(e *sysmlv1.Element) *sysmlv1.Element {
 // shadowsLibrary reports whether a member named like a standard library
 // package hides it from scope: one of a scope on the chain, or a top-level one.
 func (m *migration) shadowsLibrary(lib string, scope *sysmlv1.Element) bool {
-	for _, s := range scopeChain(scope) {
-		if m.nameTaken(s, lib) {
-			return true
-		}
+	if m.shadows(scopeChain(scope), lib) {
+		return true
 	}
 	for _, r := range m.model.Roots {
 		if r.Type == "Model" {

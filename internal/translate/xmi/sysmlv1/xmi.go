@@ -110,7 +110,8 @@ type Model struct {
 	proxies  map[string]*Element
 }
 
-// Extension records one skipped xmi:Extension: who wrote it and what it held.
+// Extension records one skipped xmi:Extension: who wrote it and what it held,
+// less the ElementValue operands read into the model (see adoptValues).
 type Extension struct {
 	// Extender is the tool named by the block's extender attribute.
 	Extender string
@@ -462,18 +463,23 @@ func (m *Model) special(raw *xmi.Element, owner, ref *Element) {
 		}
 	case "Extension":
 		ext := Extension{Extender: raw.Attr("extender"), Owner: owner}
-		m.extensionContent(raw, &ext, ref)
+		adopted := m.adoptValues(raw, owner, ref)
+		m.extensionContent(raw, &ext, ref, adopted)
 		m.Extensions = append(m.Extensions, ext)
 	}
 }
 
 // extensionContent records what an extension block holds, in document order:
-// a diagram as a Diagram, any other typed element, a diagram's own included, as skipped.
-func (m *Model) extensionContent(raw *xmi.Element, ext *Extension, ref *Element) {
+// a diagram as a Diagram, any other typed element not adopted into the model,
+// a diagram's own included, as skipped.
+func (m *Model) extensionContent(raw *xmi.Element, ext *Extension, ref *Element, adopted map[*xmi.Element]bool) {
 	for _, child := range raw.Children {
+		if adopted[child] {
+			continue
+		}
 		if isDiagram(child) {
 			m.diagram(child, ext)
-			m.extensionContent(child, ext, ref)
+			m.extensionContent(child, ext, ref, adopted)
 			continue
 		}
 		if child.Type != "" {
@@ -484,8 +490,34 @@ func (m *Model) extensionContent(raw *xmi.Element, ext *Extension, ref *Element)
 		if ref != nil && child.Tag == "referenceExtension" {
 			m.describeReference(ref, child)
 		}
-		m.extensionContent(child, ext, ref)
+		m.extensionContent(child, ext, ref, adopted)
 	}
+}
+
+// adoptValues reads the value specifications a tool keeps in an extension block
+// because UML has no metaclass for them — an ElementValue operand, referring to
+// an element — as owned elements of the block's owner, in document order.
+// It returns the raw elements adopted, so the block does not also list them.
+func (m *Model) adoptValues(raw *xmi.Element, owner, ref *Element) map[*xmi.Element]bool {
+	adopted := map[*xmi.Element]bool{}
+	if owner == nil || ref != nil {
+		return adopted
+	}
+	for _, block := range raw.Children {
+		for _, child := range block.Children {
+			if local(child.Type) != "ElementValue" {
+				continue
+			}
+			e := m.newElement(child, owner)
+			owner.Children = append(owner.Children, e)
+			m.children(child, e, nil)
+			adopted[child] = true
+			for _, d := range child.Descendants() {
+				adopted[d] = true
+			}
+		}
+	}
+	return adopted
 }
 
 func (m *Model) describeReference(ref *Element, raw *xmi.Element) {

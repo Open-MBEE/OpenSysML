@@ -139,6 +139,50 @@ func TestStereotypeExtensionIsRecorded(t *testing.T) {
 	}
 }
 
+func TestExtensionElementValuesAreOwned(t *testing.T) {
+	src := `<?xml version="1.0"?>
+<xmi:XMI xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="M">
+    <packagedElement xmi:type="uml:Class" xmi:id="_c" name="C">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_p" name="p"/>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_r">
+        <specification xmi:type="uml:Expression" xmi:id="_e" symbol="Power">
+          <xmi:Extension extender="MagicDraw UML">
+            <modelExtension>
+              <operand xmi:type="uml:ElementValue" xmi:id="_ev" element="_p"/>
+              <ownedDiagram xmi:type="uml:Diagram" xmi:id="_d" name="D"/>
+            </modelExtension>
+          </xmi:Extension>
+          <operand xmi:type="uml:LiteralInteger" xmi:id="_two" value="2"/>
+        </specification>
+      </ownedRule>
+    </packagedElement>
+  </uml:Model>
+</xmi:XMI>`
+	m, err := Parse([]byte(src))
+	if err != nil {
+		t.Fatal(err)
+	}
+	e := m.Lookup("_e")
+	operands := e.Owned("operand")
+	if len(operands) != 2 || operands[0].ID != "_ev" || operands[0].Type != "ElementValue" || operands[0].Parent != e || operands[1].ID != "_two" {
+		t.Fatalf("operands = %+v", operands)
+	}
+	if got := m.Ref(operands[0], "element"); got == nil || got.ID != "_p" {
+		t.Errorf("element ref = %+v", got)
+	}
+	if len(m.Extensions) != 1 || len(m.Extensions[0].Elements) != 0 {
+		t.Errorf("extensions = %+v", m.Extensions)
+	}
+	if len(m.Diagrams) != 1 || m.Diagrams[0].ID != "_d" || m.Diagrams[0].Holder != e {
+		t.Errorf("diagrams = %+v", m.Diagrams)
+	}
+	if m.Lookup("_d") != nil {
+		t.Error("the diagram in the extension was read as a model element")
+	}
+}
+
 func TestStereotypeIgnoresXMIMetadata(t *testing.T) {
 	src := `<?xml version="1.0"?>
 <xmi:XMI xmlns:xmi="http://www.omg.org/spec/XMI/20131001"

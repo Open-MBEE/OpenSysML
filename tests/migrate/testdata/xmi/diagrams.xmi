@@ -53,8 +53,37 @@
       </packagedElement>
     </packagedElement>
 
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_views" name="Reports">
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_overview" name="Vehicle Overview"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_fleet" name="Fleet"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_own" client="_view_overview" supplier="_diag_overview"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_fleet" client="_view_fleet" supplier="_diag_fleet _diag_ibd"/>
+    </packagedElement>
+
     <xmi:Extension extender="Example UML Tool 1.0">
       <modelExtension>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_overview" name="Vehicle Overview" ownerOfDiagram="_view_overview">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Block Definition Diagram" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_blk_vehicle</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_fleet" name="Fleet" ownerOfDiagram="_pkg_views">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Package Diagram" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_pkg_structure</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
         <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_bdd" name="Vehicle Structure" ownerOfDiagram="_pkg_structure">
           <ownedComment xmi:type="uml:Comment" xmi:id="_note_bdd" body="A note on the canvas."/>
           <xmi:Extension extender="Example UML Tool 1.0">
@@ -187,4 +216,8 @@
   <sysml:Block xmi:id="_s_vehicle" base_Class="_blk_vehicle"/>
   <sysml:Block xmi:id="_s_engine" base_Class="_blk_engine"/>
   <sysml:Block xmi:id="_s_wheel" base_Class="_blk_wheel"/>
+  <sysml:View xmi:id="_s_overview" base_Class="_view_overview"/>
+  <sysml:View xmi:id="_s_fleet" base_Class="_view_fleet"/>
+  <sysml:Expose xmi:id="_s_expose_own" base_Dependency="_expose_own"/>
+  <sysml:Expose xmi:id="_s_expose_fleet" base_Dependency="_expose_fleet"/>
 </xmi:XMI>
