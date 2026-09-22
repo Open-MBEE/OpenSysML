@@ -935,9 +935,9 @@ func joinNotes(a, b string) string {
 }
 
 // requirementID reads the requirement's id tag in the profile's spelling or
-// the capitalized one some tools write.
+// the capitalized one some tools write, as one line of plain text.
 func requirementID(e *sysmlv1.Element) string {
-	return requirementTag(e, "Id", "id", "ID")
+	return strings.Join(strings.Fields(commentText(requirementTag(e, "Id", "id", "ID"))), " ")
 }
 
 func requirementText(e *sysmlv1.Element) string {
