@@ -244,20 +244,21 @@ func TestPushRefusesAPreconditionWhoseLocationNamesAnotherCommit(t *testing.T) {
 	}
 }
 
-func TestPushRefusesACommittedAnswerWhoseHeadMovedPast(t *testing.T) {
+func TestPushReportsACommitTheHeadMovedPast(t *testing.T) {
 	client, fake := stack(t, sparqlFixture)
-	// The write proves a commit by ETag and Location alike, but the head the
-	// branch serves is still another's: it is refused, nothing is recorded.
-	fake.refusePut = &putRefusal{etag: "c-other", location: "http://layer1.test/orgs/o/repos/p/commits/c-other"}
+	// The write proves commit c-1 by ETag and Location alike, but the head the
+	// branch serves is c-2: the commit landed, yet nothing can be recorded.
+	fake.head = "c-2"
+	fake.refusePut = &putRefusal{etag: "c-1", location: "http://layer1.test/orgs/o/repos/p/commits/c-1"}
 	repo := client.Repository("p", "b")
 
 	_, err := repo.Push(context.Background(), []byte("<s> <p> <o> ."), "a push")
-	var stale *StaleBranchError
-	if !errors.As(err, &stale) || stale.Seen != "c-0" || stale.Head != "c-0" {
-		t.Fatalf("want a StaleBranchError, got %v", err)
+	var superseded *SupersededPushError
+	if !errors.As(err, &superseded) || superseded.Commit != "c-1" || superseded.Head != "c-2" {
+		t.Fatalf("want a SupersededPushError for c-1 under head c-2, got %v", err)
 	}
 	if repo.Seen() != "" {
-		t.Errorf("the refusal moved what was seen to %q", repo.Seen())
+		t.Errorf("a superseded push moved what was seen to %q", repo.Seen())
 	}
 }
 

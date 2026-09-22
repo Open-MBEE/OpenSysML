@@ -32,18 +32,19 @@ type fakePut struct {
 // service does (payload replaces whole, null removes), the Layer 1 branch
 // resource serving its etag and taking conditional whole-graph writes.
 type fakeStack struct {
-	mu        sync.Mutex
-	graph     *rdf.Graph
-	head      string
-	versions  map[string]*rdf.Graph
-	commits   []json.RawMessage
-	puts      []fakePut
-	foreign   int
-	refuse    bool
-	drift     bool // every graph read is followed by someone else's commit
-	unread    bool // every read fails
-	noPutETag bool // a graph write answers 2xx without an ETag, as a service that names no commit does
-	server    *httptest.Server
+	mu           sync.Mutex
+	graph        *rdf.Graph
+	head         string
+	versions     map[string]*rdf.Graph
+	commits      []json.RawMessage
+	puts         []fakePut
+	foreign      int
+	refuse       bool
+	drift        bool // every graph read is followed by someone else's commit
+	unread       bool // every read fails
+	noPutETag    bool // a graph write answers 2xx without an ETag, as a service that names no commit does
+	supersede412 bool // a graph write answers 412 proving a commit the head is not at
+	server       *httptest.Server
 }
 
 func newFakeStack(t *testing.T, graph *rdf.Graph) *fakeStack {
@@ -104,6 +105,12 @@ func (s *fakeStack) serve(w http.ResponseWriter, r *http.Request) {
 			body:        body,
 		})
 		ifMatch := r.Header.Get("If-Match")
+		if s.supersede412 {
+			w.Header().Set("ETag", "c-elsewhere")
+			w.Header().Set("Location", "http://layer1.test/orgs/sysmlv2/repos/proj-1/commits/c-elsewhere")
+			w.WriteHeader(http.StatusPreconditionFailed)
+			return
+		}
 		if s.refuse || (ifMatch != "*" && ifMatch != `"`+s.head+`"`) {
 			w.WriteHeader(http.StatusPreconditionFailed)
 			return

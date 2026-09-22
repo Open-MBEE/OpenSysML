@@ -176,6 +176,22 @@ func TestConvertPushReportsAWriteNoCommitWasNamedFor(t *testing.T) {
 	}
 }
 
+func TestConvertPushReportsACommitTheHeadMovedPast(t *testing.T) {
+	binary := buildCLI(t)
+	stack := newFakeStack(t, liveGraph(t, syncedModel))
+	stack.supersede412 = true
+	dir := t.TempDir()
+	model := writeModel(t, dir, "model.sysml", renamedModel)
+
+	out, code := exitCode(t, branchCommand(stack, binary, model, "-convert", "ttl", "-o", "flexo://proj-1/main"))
+	if code != 1 || len(stack.puts) != 1 || !strings.Contains(out, "committed to proj-1/main as c-elsewhere") {
+		t.Fatalf("a push the head moved past: exit %d, %d write(s):\n%s", code, len(stack.puts), out)
+	}
+	if _, err := os.Stat(model + ".sync.json"); !os.IsNotExist(err) {
+		t.Errorf("a superseded push still wrote %s", model+".sync.json")
+	}
+}
+
 func TestConvertAcceptsTheConfiguredEndpointSpelledDifferently(t *testing.T) {
 	binary := buildCLI(t)
 	stack := newFakeStack(t, liveGraph(t, syncedModel))

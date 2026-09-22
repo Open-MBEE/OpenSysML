@@ -304,11 +304,12 @@ func pushBranch(input string, to convert.Format, ref flexo.BranchRef) (int, erro
 	if err != nil {
 		var stale *flexo.StaleBranchError
 		var unrecorded *flexo.UnrecordedPushError
+		var superseded *flexo.SupersededPushError
 		switch {
 		case errors.As(err, &stale):
 			fmt.Fprintf(os.Stderr, "%srefused to push: %v\n", commandPrefix, err)
 			return exitFailed, nil
-		case errors.As(err, &unrecorded):
+		case errors.As(err, &unrecorded), errors.As(err, &superseded):
 			fmt.Fprintf(os.Stderr, "%s%v\n", commandPrefix, err)
 			return exitFailed, nil
 		}

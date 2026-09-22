@@ -54,6 +54,18 @@ func (e *UnrecordedPushError) Error() string {
 		e.Project, e.Branch)
 }
 
+// SupersededPushError is a graph write the branch committed, named by its
+// Location, whose head has since moved to another commit: the write landed,
+// but the recorded baseline can only come from reading the branch again.
+type SupersededPushError struct {
+	Project, Branch, Commit, Head string
+}
+
+func (e *SupersededPushError) Error() string {
+	return fmt.Sprintf("the graph was committed to %s/%s as %s but the branch has since moved to %s; read it again before the next push",
+		e.Project, e.Branch, e.Commit, e.Head)
+}
+
 // Head is the branch's current head commit.
 func (r *Repository) Head(ctx context.Context) (string, error) {
 	branch, err := r.client.Branch(ctx, r.project, r.branch)
@@ -120,9 +132,12 @@ func (r *Repository) Push(ctx context.Context, turtle []byte, message string) (s
 			}
 			// A committed write answers 412 too; its Location proves the commit,
 			// and only a head still at it counts it as ours.
-			if c := committedFrom(res); c != "" && c == current {
-				r.seen = c
-				return c, nil
+			if c := committedFrom(res); c != "" {
+				if c == current {
+					r.seen = c
+					return c, nil
+				}
+				return "", &SupersededPushError{Project: r.project, Branch: r.branch, Commit: c, Head: current}
 			}
 			return "", &StaleBranchError{Project: r.project, Branch: r.branch, Seen: head, Head: current}
 		}
