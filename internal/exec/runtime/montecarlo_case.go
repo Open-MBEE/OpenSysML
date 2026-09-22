@@ -432,7 +432,8 @@ func (r *MonteCarloRun) bindStatistic(feature string, value Value) error {
 }
 
 // returnResults runs the deferred results over the run's frame with the statistics
-// bound, as the body's end would: a `return` on any path, nested or not, yields the result.
+// bound, as the body's end would: a `return` on any path, nested or not, yields the
+// result, read over the steps the run performed.
 func (r *MonteCarloRun) returnResults() error {
 	ctx, run := r.ctx, r.run
 	host := &calcStmtHost{ctx: ctx, shape: run.shape, self: run.self}
@@ -442,7 +443,7 @@ func (r *MonteCarloRun) returnResults() error {
 	}
 	engine := newStmtEngineIn(ctx, host, run.env, enclosing)
 	defer engine.finish()
-	host.attachPerformances(engine)
+	host.readPerformance(engine, run.perf)
 	result, returned, err := runCalcSteps(engine, host, r.results)
 	if err != nil {
 		return calcFrame(run.shape.Kind, run.shape.Name, fmt.Errorf("result: %w", err))

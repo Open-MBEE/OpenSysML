@@ -379,12 +379,12 @@ func storedDistribution(cfg *simresults.ConfigurationResults, observable string)
 	if len(summarised) == 0 {
 		return runtime.Distribute(reals(values)), false
 	}
-	weighted := make([]runtime.Spread, 0, len(values)+len(summarised))
+	weighted := make([]runtime.Counted, 0, len(values)+len(summarised))
 	for _, v := range values {
-		weighted = append(weighted, runtime.Spread{Weight: 1, Value: v})
+		weighted = append(weighted, runtime.Counted{Count: 1, Value: v})
 	}
 	for _, s := range summarised {
-		weighted = append(weighted, runtime.Spread{Weight: float64(s.Statistics.Runs), Value: s.Statistics.Mean})
+		weighted = append(weighted, runtime.Counted{Count: s.Statistics.Runs, Value: s.Statistics.Mean})
 	}
 	mean, runs := runtime.WeightedMean(weighted)
 	if runs == 0 {

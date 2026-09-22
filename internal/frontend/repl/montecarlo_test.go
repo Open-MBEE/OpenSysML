@@ -101,6 +101,14 @@ const monteCarloModel = `package MC {
 		}
 		return Statistic : Real = mean;
 	}
+	action def Measure { in p : Probe; out reading : Real = p.t * 10.0; }
+	analysis def Stepped :> Simulation::MonteCarlo {
+		subject analysed : Probe;
+		perform action run ::> analysed.settle;
+		action measure : Measure { in p = analysed; }
+		attribute :>> observed : Real = analysed.t;
+		return Offset : Real = measure.reading + mean;
+	}
 	analysis def Plain { subject analysed : Probe; return k : Integer = 1; }
 }`
 
@@ -204,6 +212,28 @@ func TestRunsConcludeAnOutputTheChecksReadOverTheResults(t *testing.T) {
 	mean := statistic(t, out, "mean")
 	if got := statistic(t, out, "Scaled"); got != 2*mean {
 		t.Errorf("Scaled = %v, want %v: twice the mean, as the result's branch scales it", got, 2*mean)
+	}
+}
+
+// A deferred result reads the steps the run performed: the conclusion evaluates it over
+// the last run's performance, not a fresh one that performed nothing.
+func TestRunsConcludeAResultReadingAStepOfTheRun(t *testing.T) {
+	s := monteCarloSession(t)
+	out := run(t, s, "%runs 3 7 MC::Stepped MC::probe")
+	wants(t, out, "✓ MC::Stepped over 3 run(s)")
+	mean := statistic(t, out, "mean")
+	var last float64
+	for _, line := range strings.Split(out, "\n") {
+		fields := strings.Split(line, "|")
+		if len(fields) < 2 {
+			continue
+		}
+		if v, err := strconv.ParseFloat(strings.TrimSpace(fields[1]), 64); err == nil {
+			last = v
+		}
+	}
+	if got, want := statistic(t, out, "Offset"), last*10+mean; math.Abs(got-want) > 1e-9 {
+		t.Errorf("Offset = %v, want %v: the last run's reading of %v plus the mean", got, want, last)
 	}
 }
 

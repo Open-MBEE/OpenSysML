@@ -622,3 +622,38 @@ func TestComparisonTableComparesTheDeclaredStatistics(t *testing.T) {
 		t.Errorf("the one run's deviation is compared as 0:\n%s", got)
 	}
 }
+
+// A summary's run count is pooled exactly: one a Real cannot hold is neither rounded
+// in the pooled count nor in the table's N.
+func TestComparisonTablePoolsRunCountsExactly(t *testing.T) {
+	const runs = int64(1<<53) + 1
+	cfg := &compareResults("'Group 1'", 2).Configurations[0]
+	cfg.Analysis = "total"
+	cfg.AnalysisCase = "'Probe Monte Carlo'"
+	cfg.Statistics = []string{simresults.StatisticMean, simresults.StatisticRuns}
+	cfg.Snapshots = []simresults.Snapshot{
+		{ID: "_sum", Statistics: &simresults.Statistics{Observable: "total", Runs: runs, Mean: 10.0}},
+		{ID: "_r1", Values: map[string]float64{"total": 10.0}},
+		{ID: "_r2", Values: map[string]float64{"total": 10.0}},
+	}
+	want := runs + 2
+	if runs == int64(float64(runs)) || want == int64(float64(want)) {
+		t.Fatalf("%d rounds to itself as a Real; the count under test must not", want)
+	}
+	if d, pooled := storedDistribution(cfg, "total"); !pooled || int64(d.Count) != want || d.Mean != 10.0 {
+		t.Errorf("storedDistribution = %+v, %v; want %d runs with a mean of 10.0", d, pooled, want)
+	}
+	table := runtime.SweepTable{Target: "Cfg::'Group 1'", Rows: []runtime.SweepRow{{
+		Outputs: []runtime.CalcOutputValue{{Name: "target.total", Value: runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValReal, Real: 10.0}}}},
+	}}}
+	got := strings.Join(comparisonTable(cfg, table, nil), "\n")
+	for _, line := range []string{
+		fmt.Sprintf("total      | tool                     | %d |", want),
+		fmt.Sprintf("note: an unnamed snapshot summarises %d run(s) of total", runs),
+		fmt.Sprintf("N         | return N    | %d | 1                        |", want),
+	} {
+		if !strings.Contains(got, line) {
+			t.Errorf("the table lacks the exact count %q:\n%s", line, got)
+		}
+	}
+}

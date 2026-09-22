@@ -172,28 +172,35 @@ func distributeReals(numbers []semantics.Value) *Distribution {
 // meanOf is the mean of values, exact until it rounds to a Real; a value that is
 // no finite number carries into the mean as Real arithmetic would carry it.
 func meanOf(values []float64) float64 {
-	spreads := make([]Spread, len(values))
+	counted := make([]Counted, len(values))
 	for i, v := range values {
-		spreads[i] = Spread{Weight: 1, Value: v}
+		counted[i] = Counted{Count: 1, Value: v}
 	}
-	mean, _ := WeightedMean(spreads)
+	mean, _ := WeightedMean(counted)
 	return mean
 }
 
+// Counted is one term of a weighted mean: Value, over Count runs; the count is
+// exact, as the runs a tool summarises are.
+type Counted struct {
+	Count int64
+	Value float64
+}
+
 // WeightedMean is the mean of the values weighted by their counts, exact until it
-// rounds to a Real, with the total count; a value that is no finite number carries
-// into the mean as Real arithmetic would carry it.
-func WeightedMean(weighted []Spread) (mean float64, count int64) {
+// rounds to a Real, with the exact total count; a value that is no finite number
+// carries into the mean as Real arithmetic would carry it.
+func WeightedMean(weighted []Counted) (mean float64, count int64) {
 	sum := new(big.Rat)
 	var realSum float64
 	exact := true
 	for _, w := range weighted {
-		count += int64(w.Weight)
-		realSum += w.Weight * w.Value
+		count += w.Count
+		realSum += float64(w.Count) * w.Value
 		if math.IsInf(w.Value, 0) || math.IsNaN(w.Value) {
 			exact = false
 		} else if exact {
-			sum.Add(sum, new(big.Rat).Mul(new(big.Rat).SetFloat64(w.Weight), new(big.Rat).SetFloat64(w.Value)))
+			sum.Add(sum, new(big.Rat).Mul(big.NewRat(w.Count, 1), new(big.Rat).SetFloat64(w.Value)))
 		}
 	}
 	if count == 0 {
