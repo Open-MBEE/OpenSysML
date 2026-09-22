@@ -242,9 +242,9 @@ type Context struct {
 	clock    Clock
 	clockRun executorRun
 	// work counts the changes that can leave an attached behavior holding work;
-	// quiescentAt is the work value a full scan last found them all idle at, 0 none.
-	work        uint64
-	quiescentAt uint64
+	// quiescent is the memo a full scan leaves when it finds them all idle.
+	work      uint64
+	quiescent quiescence
 	// onStack lists the runs of the executors whose calls are under way, outermost first.
 	onStack []*executorRun
 

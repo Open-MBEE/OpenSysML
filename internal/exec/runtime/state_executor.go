@@ -4437,6 +4437,9 @@ func (e *StateExecutor) pendingSignal() (Message, bool) {
 	memo := &e.pending
 	if memo.holds(e) {
 		if memo.ok || memo.bus.posts == e.ctx.bus.posts {
+			if memo.readsData {
+				e.ctx.notePollReadsData()
+			}
 			return memo.msg, memo.ok
 		}
 		// The bus only grew since a negative answer: the messages added are examined.

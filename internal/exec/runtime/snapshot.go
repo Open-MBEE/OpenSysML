@@ -332,6 +332,7 @@ func (ctx *Context) rollbackJournal(mark journalMark) {
 	ctx.messages = slices.Clone(mark.messages)
 	ctx.bus.cuts++
 	ctx.writes++
+	ctx.workChanged()
 	ctx.abandonCreationSince(mark.created, mark.attached)
 	ctx.clock.now, ctx.clock.waiters = mark.clockNow, slices.Clone(mark.clockWaiters)
 	mark.traced.restore(mark.trace)
@@ -370,6 +371,7 @@ func (c runCapture) restore(ctx *Context) {
 	ctx.pendingBehaviors = slices.Clone(c.pendingBehaviors)
 	ctx.heldBehaviors = c.heldBehaviors.restore()
 	ctx.clockRun.state = c.clockRun
+	ctx.workChanged()
 }
 
 // captureRunState captures a run's state once, however many executors share it.
