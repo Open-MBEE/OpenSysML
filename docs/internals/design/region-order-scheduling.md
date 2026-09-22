@@ -839,7 +839,12 @@ part with its own home:
   fifth admitted trace and nothing else, `fail` → `pass`; *Deferred 006 C* explores 552 runs
   where it explored 368 and *Transition 017* — whose target composite has a do activity and
   a substate whose entry logs nothing — 28 where it explored 18, each reaching what it
-  reached; no other row moved.
+  reached; no other row moved. One order stays the fixed one: a composite entered ahead of
+  the move for the guards of a choice or junction declared inside it (`enterAhead`) performs
+  its entry there but begins its do behavior when the move reaches it (`enterStateInto`,
+  `activatedAhead`), after the route's remaining segment effects, so a due do step is not
+  drawn against those effects. No admitted trace the referee misses has the shape; the site
+  is recorded here, not closed.
 
 The exploration model has no new choice kind and no new `Where`: the do step is a new unit
 of the existing fronts, offered under the entry unit's labels, and every draw the front
