@@ -370,20 +370,18 @@ func storedDistribution(cfg *simresults.ConfigurationResults, observable string)
 	if len(summarised) == 0 {
 		return runtime.Distribute(reals(values)), false
 	}
-	var runs int64
-	var sum float64
+	weighted := make([]runtime.Spread, 0, len(values)+len(summarised))
 	for _, v := range values {
-		runs++
-		sum += v
+		weighted = append(weighted, runtime.Spread{Weight: 1, Value: v})
 	}
 	for _, s := range summarised {
-		runs += s.Statistics.Runs
-		sum += float64(s.Statistics.Runs) * s.Statistics.Mean
+		weighted = append(weighted, runtime.Spread{Weight: float64(s.Statistics.Runs), Value: s.Statistics.Mean})
 	}
+	mean, runs := runtime.WeightedMean(weighted)
 	if runs == 0 {
 		return nil, true
 	}
-	return &runtime.Distribution{Count: int(runs), Mean: sum / float64(runs)}, true
+	return &runtime.Distribution{Count: int(runs), Mean: mean}, true
 }
 
 // storedDeviation pools the tool's sample deviation of observable over stored runs and
@@ -393,9 +391,9 @@ func storedDeviation(cfg *simresults.ConfigurationResults, observable string) (f
 	if pooled == nil || pooled.Count < 2 {
 		return 0, false
 	}
-	var sum float64
+	var spreads []runtime.Spread
 	for _, v := range cfg.Values(observable) {
-		sum += (v - pooled.Mean) * (v - pooled.Mean)
+		spreads = append(spreads, runtime.Spread{Weight: 1, Value: v - pooled.Mean})
 	}
 	for _, s := range cfg.Summarised(observable) {
 		st := s.Statistics
@@ -403,9 +401,9 @@ func storedDeviation(cfg *simresults.ConfigurationResults, observable string) (f
 			return 0, false
 		}
 		n := float64(st.Runs)
-		sum += (n-1)**st.Deviation**st.Deviation + n*(st.Mean-pooled.Mean)*(st.Mean-pooled.Mean)
+		spreads = append(spreads, runtime.Spread{Weight: n - 1, Value: *st.Deviation}, runtime.Spread{Weight: n, Value: st.Mean - pooled.Mean})
 	}
-	return math.Sqrt(sum / float64(pooled.Count-1)), true
+	return runtime.PooledDeviation(spreads, pooled.Count-1), true
 }
 
 // runRows appends the runs' row of one observable — and the difference from the

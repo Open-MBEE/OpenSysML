@@ -2,6 +2,7 @@ package repl
 
 import (
 	"fmt"
+	"math"
 	"strings"
 	"sync"
 	"testing"
@@ -557,6 +558,28 @@ func TestComparisonTableComparesTheDeclaredStatistics(t *testing.T) {
 	cfg.Snapshots = append(cfg.Snapshots, simresults.Snapshot{ID: "_r1", Values: map[string]float64{"total": 14.0}})
 	if dev, ok := storedDeviation(cfg, "total"); !ok || spell(dev) != "2.581988897471611" {
 		t.Errorf("storedDeviation = %v, %v; want sqrt(20/3) over the four pooled runs", dev, ok)
+	}
+
+	// The pooled mean and deviation stay finite while the runs are, however far apart:
+	// the squares of the offsets and of the summaries' deviations are never taken raw.
+	huge := &compareResults("'Group 1'", 2).Configurations[0]
+	huge.Analysis = "total"
+	huge.Snapshots = []simresults.Snapshot{
+		{ID: "_r1", Values: map[string]float64{"total": -1e200}},
+		{ID: "_r2", Values: map[string]float64{"total": 1e200}},
+	}
+	if dev, ok := storedDeviation(huge, "total"); !ok || math.Abs(dev-math.Sqrt2*1e200) > 1e185 {
+		t.Errorf("storedDeviation over ±1e200 = %v, %v; want %v", dev, ok, math.Sqrt2*1e200)
+	}
+	huge.Snapshots = []simresults.Snapshot{
+		{ID: "_s1", Statistics: &simresults.Statistics{Observable: "total", Runs: 2, Mean: -1e200, Deviation: simresults.Real(1e200)}},
+		{ID: "_s2", Statistics: &simresults.Statistics{Observable: "total", Runs: 2, Mean: 1e200, Deviation: simresults.Real(1e200)}},
+	}
+	if d, pooled := storedDistribution(huge, "total"); !pooled || d.Count != 4 || d.Mean != 0 {
+		t.Errorf("storedDistribution over summaries at ±1e200 = %+v, %v; want four runs with a mean of 0", d, pooled)
+	}
+	if dev, ok := storedDeviation(huge, "total"); !ok || math.Abs(dev-math.Sqrt2*1e200) > 1e185 {
+		t.Errorf("storedDeviation over summaries at ±1e200 = %v, %v; want %v", dev, ok, math.Sqrt2*1e200)
 	}
 
 	// A summary that kept no deviation leaves the tool's blank and says so.

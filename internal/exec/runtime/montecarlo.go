@@ -172,36 +172,76 @@ func distributeReals(numbers []semantics.Value) *Distribution {
 // meanOf is the mean of values, exact until it rounds to a Real; a value that is
 // no finite number carries into the mean as Real arithmetic would carry it.
 func meanOf(values []float64) float64 {
-	sum := new(big.Rat)
-	for _, v := range values {
-		if math.IsInf(v, 0) || math.IsNaN(v) {
-			return realSum(values) / float64(len(values))
-		}
-		sum.Add(sum, new(big.Rat).SetFloat64(v))
+	spreads := make([]Spread, len(values))
+	for i, v := range values {
+		spreads[i] = Spread{Weight: 1, Value: v}
 	}
-	mean, _ := sum.Quo(sum, big.NewRat(int64(len(values)), 1)).Float64()
+	mean, _ := WeightedMean(spreads)
 	return mean
 }
 
-// deviationOf is the sample standard deviation of values about their mean, 0 for fewer than
-// two; the deviations are scaled by the largest before squaring, so a finite sample stays finite.
+// WeightedMean is the mean of the values weighted by their counts, exact until it
+// rounds to a Real, with the total count; a value that is no finite number carries
+// into the mean as Real arithmetic would carry it.
+func WeightedMean(weighted []Spread) (mean float64, count int64) {
+	sum := new(big.Rat)
+	var realSum float64
+	exact := true
+	for _, w := range weighted {
+		count += int64(w.Weight)
+		realSum += w.Weight * w.Value
+		if math.IsInf(w.Value, 0) || math.IsNaN(w.Value) {
+			exact = false
+		} else if exact {
+			sum.Add(sum, new(big.Rat).Mul(new(big.Rat).SetFloat64(w.Weight), new(big.Rat).SetFloat64(w.Value)))
+		}
+	}
+	if count == 0 {
+		return 0, 0
+	}
+	if !exact {
+		return realSum / float64(count), count
+	}
+	mean, _ = sum.Quo(sum, big.NewRat(count, 1)).Float64()
+	return mean, count
+}
+
+// deviationOf is the sample standard deviation of values about their mean, 0 for fewer than two.
 func deviationOf(values []float64, mean float64) float64 {
-	if len(values) < 2 {
+	spreads := make([]Spread, len(values))
+	for i, v := range values {
+		spreads[i] = Spread{Weight: 1, Value: v - mean}
+	}
+	return PooledDeviation(spreads, len(values)-1)
+}
+
+// Spread is one term of a pooled sum of squares: Weight times the square of Value.
+type Spread struct {
+	Weight, Value float64
+}
+
+// PooledDeviation is the root of the weighted squares of spreads over dof degrees of
+// freedom, 0 for none. The spreads are scaled by the power of two below the largest
+// before squaring, which rounds nothing, so a finite pool has a finite deviation however large.
+func PooledDeviation(spreads []Spread, dof int) float64 {
+	if dof < 1 {
 		return 0
 	}
-	var scale float64
-	for _, v := range values {
-		scale = math.Max(scale, math.Abs(v-mean))
+	var largest float64
+	for _, s := range spreads {
+		largest = math.Max(largest, math.Abs(s.Value))
 	}
-	if scale == 0 || math.IsInf(scale, 0) || math.IsNaN(scale) {
-		return scale
+	if largest == 0 || math.IsInf(largest, 0) || math.IsNaN(largest) {
+		return largest
 	}
+	_, exp := math.Frexp(largest)
+	scale := math.Ldexp(1, exp-1)
 	var sum float64
-	for _, v := range values {
-		d := (v - mean) / scale
-		sum += d * d
+	for _, s := range spreads {
+		d := s.Value / scale
+		sum += s.Weight * d * d
 	}
-	return scale * math.Sqrt(sum/float64(len(values)-1))
+	return scale * math.Sqrt(sum/float64(dof))
 }
 
 // intDeviationOf is the sample standard deviation of Integers about their exact mean,
