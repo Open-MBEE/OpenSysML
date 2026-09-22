@@ -374,9 +374,7 @@ func apiJSONCollection(graph *rdf.Graph, subject rdf.Term, predicate rdf.Term, s
 		}
 		graph.Add(subject, predicate, member)
 	}
-	// Mirror AnnotateCollections: the annotation marks a collection of at
-	// least two members, so a one-member array — a multi-valued property's
-	// ordinary spelling — reads back to the same graph Turtle produces.
+	// Like AnnotateCollections, only a collection of two or more is annotated.
 	if sysmlKey != "" && len(members) >= 2 {
 		*annotations = append(*annotations, apiJSONAnnotation{subject: subject, key: sysmlKey, members: members})
 	}

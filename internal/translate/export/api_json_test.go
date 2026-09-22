@@ -52,3 +52,23 @@ func TestReadAPIJSONRefusesOtherObjects(t *testing.T) {
 		}
 	}
 }
+
+// A sysx:-typed element has no metamodel class, so a property name is an
+// array when every declaration of it agrees the property is unbounded.
+func TestWriteAPIJSONExtensionManyIsAnArray(t *testing.T) {
+	g := rdf.NewGraph()
+	subject := rdf.ElementIRIForID("X")
+	g.Add(subject, rdf.IRI(rdf.RDFType), rdf.OpenSysMLTerm("RequireMember"))
+	g.Add(subject, rdf.SysMLTerm("ownedRelationship"), rdf.ElementIRIForID("M"))
+	g.Add(subject, rdf.SysMLTerm("owningRelationship"), rdf.ElementIRIForID("M"))
+	out, err := WriteAPIJSON(g)
+	if err != nil {
+		t.Fatalf("WriteAPIJSON: %v", err)
+	}
+	if !strings.Contains(string(out), `"ownedRelationship": [`) {
+		t.Errorf("ownedRelationship was not written as an array:\n%s", out)
+	}
+	if strings.Contains(string(out), `"owningRelationship": [`) {
+		t.Errorf("owningRelationship was written as an array:\n%s", out)
+	}
+}

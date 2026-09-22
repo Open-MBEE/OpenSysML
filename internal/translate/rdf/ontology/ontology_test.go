@@ -37,3 +37,25 @@ func TestPropertyOf(t *testing.T) {
 		t.Error("PropertyOf(Package, nonsense) found, want not found")
 	}
 }
+
+// TestManyAgreed checks the agreement fallback an extension element needs:
+// consensus names report their shared multiplicity, ambiguous or undeclared
+// names report none.
+func TestManyAgreed(t *testing.T) {
+	cases := []struct {
+		name       string
+		wantMany   bool
+		wantAgreed bool
+	}{
+		{"ownedRelationship", true, true},
+		{"type", false, false},
+		{"nonsense", false, false},
+	}
+	for _, c := range cases {
+		many, agreed := ontology.ManyAgreed(c.name)
+		if many != c.wantMany || agreed != c.wantAgreed {
+			t.Errorf("ManyAgreed(%q) = (%t, %t), want (%t, %t)",
+				c.name, many, agreed, c.wantMany, c.wantAgreed)
+		}
+	}
+}

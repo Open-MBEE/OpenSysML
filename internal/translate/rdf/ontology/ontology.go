@@ -117,6 +117,22 @@ func PropertyOf(metaclass, name string) (Property, bool) {
 	return best, found
 }
 
+// ManyAgreed reports whether every declaration of an unqualified property name
+// agrees on Many, and that agreed value; it reports no agreement when the name
+// is undeclared or the declarations disagree.
+func ManyAgreed(name string) (many, agreed bool) {
+	decls := LookupProperty(name)
+	if len(decls) == 0 {
+		return false, false
+	}
+	for _, p := range decls[1:] {
+		if p.Many != decls[0].Many {
+			return false, false
+		}
+	}
+	return decls[0].Many, true
+}
+
 // AmbiguousNames returns the unqualified names more than one metaclass declares.
 func AmbiguousNames() []string {
 	index()

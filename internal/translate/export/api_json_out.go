@@ -181,19 +181,26 @@ func apiJSONSysMLValue(graph *rdf.Graph, subject rdf.Term, predicate, key, metac
 		return raw, nil
 	}
 	// A property the metamodel declares unbounded is always an array, in
-	// triple order; the json: annotation only ever re-states that order.
+	// triple order; the json: annotation only ever re-states that order. A
+	// sysx: element has no metaclass, so the declarations of the name must
+	// agree before its multiplicity applies.
+	many := false
 	if metaclass != "" {
-		if property, ok := ontology.PropertyOf(metaclass, key); ok && property.Many {
-			values := make([]any, 0, len(objects))
-			for _, object := range objects {
-				value, err := apiJSONScalar(subject, key, object)
-				if err != nil {
-					return nil, err
-				}
-				values = append(values, value)
+		property, ok := ontology.PropertyOf(metaclass, key)
+		many = ok && property.Many
+	} else {
+		many, _ = ontology.ManyAgreed(key)
+	}
+	if many {
+		values := make([]any, 0, len(objects))
+		for _, object := range objects {
+			value, err := apiJSONScalar(subject, key, object)
+			if err != nil {
+				return nil, err
 			}
-			return values, nil
+			values = append(values, value)
 		}
+		return values, nil
 	}
 	if len(objects) > 1 {
 		return nil, &UnsupportedError{
