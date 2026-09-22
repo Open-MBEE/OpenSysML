@@ -206,42 +206,44 @@ func apiJSONScalar(subject rdf.Term, key string, object rdf.Term) (any, error) {
 			Note: "the API element form has no language tags",
 		}
 	}
-	refuse := func() error {
+	refuse := func(note string) error {
 		return &UnsupportedError{
 			What: fmt.Sprintf("the literal %s of <%s>", object, subject.Value),
-			Note: "the API element form carries no datatype, and the reader would read " +
-				"this value back as " + apiJSONRestoredType(object),
+			Note: note,
 		}
 	}
+	retyped := "the API element form carries no datatype, and the reader would read " +
+		"this value back as " + apiJSONRestoredType(object)
+	unspellable := "its lexical form is not the JSON spelling the reader restores it from"
 	switch object.Datatype {
 	case rdf.XSD + "boolean":
 		if object.Value != "true" && object.Value != "false" {
-			return nil, refuse()
+			return nil, refuse(unspellable)
 		}
 		return object.Value == "true", nil
 	case rdf.XSD + "integer":
 		if !apiJSONInteger.MatchString(object.Value) {
-			return nil, refuse()
+			return nil, refuse(unspellable)
 		}
 		return json.Number(object.Value), nil
 	case rdf.XSD + "decimal", rdf.XSD + "double":
-		if realDatatype(object.Value) != object.Datatype {
-			return nil, refuse()
-		}
 		number := json.Number(apiJSONRealLexical(object.Value))
 		if _, err := json.Marshal(number); err != nil {
-			return nil, refuse()
+			return nil, refuse(unspellable)
+		}
+		if realDatatype(object.Value) != object.Datatype {
+			return nil, refuse(retyped)
 		}
 		return number, nil
 	case "":
 		return object.Value, nil
 	case rdf.OpenSysML + dtExpression:
 		if !apiJSONIsExpressionText(key, object.Value) {
-			return nil, refuse()
+			return nil, refuse(retyped)
 		}
 		return object.Value, nil
 	}
-	return nil, refuse()
+	return nil, refuse(retyped)
 }
 
 // apiJSONRestoredType names the datatype apiJSONScalarOf would give a
