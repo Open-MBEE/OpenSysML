@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:Org_Profile="http://www.magicdraw.com/schemas/Org_Profile.xmi"
+         xmlns:Review="http://example.com/schemas/Review.xmi"
+         xmlns:Legacy="http://example.com/schemas/Legacy.xmi">
+  <xmi:Documentation exporter="Example UML Tool" exporterVersion="1.0"/>
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+    <packagedElement xmi:type="uml:Profile" xmi:id="_org" name="Org Profile" URI="http://www.magicdraw.com/schemas/Org_Profile.xmi">
+      <ownedComment xmi:type="uml:Comment" xmi:id="_org_doc" body="The organisation's tailoring of SysML."/>
+      <packagedElement xmi:type="uml:Enumeration" xmi:id="_criticality" name="Criticality">
+        <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="_crit_high" name="high"/>
+        <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="_crit_low" name="low"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_st_req" name="Org Requirement">
+        <ownedComment xmi:type="uml:Comment" xmi:id="_st_req_doc" body="A requirement with the organisation's rationale."/>
+        <generalization xmi:type="uml:Generalization" xmi:id="_st_req_gen">
+          <general xmi:type="uml:Stereotype" href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#Requirement">
+            <xmi:Extension extender="Example UML Tool">
+              <referenceExtension referentPath="SysML::Requirements::Requirement" referentType="Stereotype"/>
+            </xmi:Extension>
+          </general>
+        </generalization>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_st_req_base" name="base_Class" association="_ext_req">
+          <type xmi:type="uml:Class" href="http://www.omg.org/spec/UML/20131001/UML.xmi#Class"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_st_req_rationale" name="Rationale">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_st_req_crit" name="criticality" type="_criticality"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_st_req_weight" name="weight">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_st_req_owner" name="owner">
+          <type xmi:type="uml:Class" href="http://www.omg.org/spec/UML/20131001/UML.xmi#Element"/>
+        </ownedAttribute>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Extension" xmi:id="_ext_req" memberEnd="_st_req_base _ext_req_end">
+        <ownedEnd xmi:type="uml:ExtensionEnd" xmi:id="_ext_req_end" name="extension_Org_Requirement" type="_st_req" aggregation="composite"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_st_key" name="Key Requirement">
+        <generalization xmi:type="uml:Generalization" xmi:id="_st_key_gen" general="_st_req"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_st_key_rank" name="rank">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        </ownedAttribute>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_st_blk" name="Org Block">
+        <generalization xmi:type="uml:Generalization" xmi:id="_st_blk_gen">
+          <general xmi:type="uml:Stereotype" href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#Block"/>
+        </generalization>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_st_blk_base" name="base_Class" association="_ext_blk">
+          <type xmi:type="uml:Class" href="http://www.omg.org/spec/UML/20131001/UML.xmi#Class"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_st_blk_partno" name="partNumber">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_st_blk_supplier" name="supplier">
+          <type xmi:type="uml:Class" href="http://www.omg.org/spec/UML/20131001/UML.xmi#Class"/>
+        </ownedAttribute>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Extension" xmi:id="_ext_blk" memberEnd="_st_blk_base _ext_blk_end">
+        <ownedEnd xmi:type="uml:ExtensionEnd" xmi:id="_ext_blk_end" name="extension_Org_Block" type="_st_blk" aggregation="composite"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_st_val" name="Org Value">
+        <generalization xmi:type="uml:Generalization" xmi:id="_st_val_gen">
+          <general xmi:type="uml:Stereotype" href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#ValueType"/>
+        </generalization>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_st_val_base" name="base_DataType" association="_ext_val">
+          <type xmi:type="uml:Class" href="http://www.omg.org/spec/UML/20131001/UML.xmi#DataType"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_st_val_precision" name="precision">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        </ownedAttribute>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Extension" xmi:id="_ext_val" memberEnd="_st_val_base _ext_val_end">
+        <ownedEnd xmi:type="uml:ExtensionEnd" xmi:id="_ext_val_end" name="extension_Org_Value" type="_st_val" aggregation="composite"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_st_sat" name="Org Satisfy">
+        <generalization xmi:type="uml:Generalization" xmi:id="_st_sat_gen">
+          <general xmi:type="uml:Stereotype" href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#Satisfy"/>
+        </generalization>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_st_sat_base" name="base_Abstraction" association="_ext_sat">
+          <type xmi:type="uml:Class" href="http://www.omg.org/spec/UML/20131001/UML.xmi#Abstraction"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_st_sat_verified" name="verified">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Boolean"/>
+        </ownedAttribute>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Extension" xmi:id="_ext_sat" memberEnd="_st_sat_base _ext_sat_end">
+        <ownedEnd xmi:type="uml:ExtensionEnd" xmi:id="_ext_sat_end" name="extension_Org_Satisfy" type="_st_sat" aggregation="composite"/>
+      </packagedElement>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Profile" xmi:id="_review" name="Review" URI="http://example.com/schemas/Review.xmi">
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_st_reviewed" name="Reviewed">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_st_reviewed_base_e" name="base_Element" association="_ext_reviewed">
+          <type xmi:type="uml:Class" href="http://www.omg.org/spec/UML/20131001/UML.xmi#Element"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_st_reviewed_by" name="reviewer">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_st_reviewed_round" name="round">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_st_reviewed_ok" name="approved">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Boolean"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_st_reviewed_notes" name="notes">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_st_reviewed_notes_l" value="0"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_st_reviewed_notes_u" value="*"/>
+        </ownedAttribute>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Extension" xmi:id="_ext_reviewed" memberEnd="_st_reviewed_base_e _ext_reviewed_end">
+        <ownedEnd xmi:type="uml:ExtensionEnd" xmi:id="_ext_reviewed_end" name="extension_Reviewed" type="_st_reviewed" aggregation="composite"/>
+      </packagedElement>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Profile" xmi:id="_legacy" name="Legacy" URI="http://example.com/schemas/Legacy.xmi">
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_st_legacy_req" name="Requirement">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_st_legacy_base" name="base_Class" association="_ext_legacy">
+          <type xmi:type="uml:Class" href="http://www.omg.org/spec/UML/20131001/UML.xmi#Class"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_st_legacy_text" name="Text">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
+        </ownedAttribute>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Extension" xmi:id="_ext_legacy" memberEnd="_st_legacy_base _ext_legacy_end">
+        <ownedEnd xmi:type="uml:ExtensionEnd" xmi:id="_ext_legacy_end" name="extension_Requirement" type="_st_legacy_req" aggregation="composite"/>
+      </packagedElement>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Package" xmi:id="_system" name="Pump System">
+      <profileApplication xmi:type="uml:ProfileApplication" xmi:id="_pa_org" appliedProfile="_org"/>
+      <profileApplication xmi:type="uml:ProfileApplication" xmi:id="_pa_review" appliedProfile="_review"/>
+      <packagedElement xmi:type="uml:DataType" xmi:id="_flow" name="FlowRate"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_req_flow" name="Flow Requirement"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_req_safe" name="Safety Requirement"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_acme" name="Acme"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_pump" name="Pump">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_pump_rate" name="rate" type="_flow"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_pump_motor" name="motor" type="_motor" aggregation="composite"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_motor" name="Motor"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_note" name="Design Note"/>
+      <packagedElement xmi:type="uml:Abstraction" xmi:id="_sat" client="_pump" supplier="_req_flow"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_dep" name="derivedFrom" client="_motor" supplier="_pump"/>
+    </packagedElement>
+  </uml:Model>
+  <Org_Profile:Org_Requirement xmi:id="_a_req_flow" base_Class="_req_flow" Text="&lt;html&gt;&lt;body&gt;&lt;p&gt;The pump shall deliver 10 l/s.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;" Id="REQ-1" Rationale="&lt;html&gt;&lt;body&gt;&lt;p&gt;Sized for the &lt;b&gt;peak&lt;/b&gt; load.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;" criticality="_crit_high" weight="2">
+    <owner xmi:idref="_acme"/>
+  </Org_Profile:Org_Requirement>
+  <Org_Profile:Key_Requirement xmi:id="_a_req_safe" base_Class="_req_safe" Text="The pump shall stop on overpressure." Id="REQ-2" rank="1" criticality="_crit_low"/>
+  <Org_Profile:Org_Block xmi:id="_a_pump" base_Class="_pump" partNumber="P-100" supplier="_acme"/>
+  <sysml:Block xmi:id="_a_motor" base_Class="_motor"/>
+  <sysml:Block xmi:id="_a_acme" base_Class="_acme"/>
+  <Org_Profile:Org_Value xmi:id="_a_flow" base_DataType="_flow" precision="3"/>
+  <Org_Profile:Org_Satisfy xmi:id="_a_sat" base_Abstraction="_sat" verified="true"/>
+  <Review:Reviewed xmi:id="_a_rev_pump" base_Element="_pump" reviewer="QA" round="2" approved="true">
+    <notes>First pass.</notes>
+    <notes>Second pass.</notes>
+  </Review:Reviewed>
+  <Review:Reviewed xmi:id="_a_rev_rate" base_Element="_pump_rate" reviewer="QA" round="1" approved="false"/>
+  <Review:Reviewed xmi:id="_a_rev_dep" base_Element="_dep" reviewer="Lead" approved="true"/>
+  <Legacy:Requirement xmi:id="_a_note" base_Class="_note" Text="Kept for reference only."/>
+</xmi:XMI>
