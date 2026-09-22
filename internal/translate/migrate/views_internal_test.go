@@ -130,6 +130,12 @@ func TestViewForms(t *testing.T) {
 			 </packagedElement>`,
 			`<sysml:View xmi:id="_s1" base_Package="_v"/>`,
 			[]string{"view Handbook {\n    part def Chapter;\n}"}, "_v", Approximated},
+		{"a nested view model holds its members and satisfies its viewpoint",
+			`<packagedElement xmi:type="uml:Model" xmi:id="_v" name="Handbook">
+			   <packagedElement xmi:type="uml:Class" xmi:id="_ch" name="Chapter"/>
+			 </packagedElement>`,
+			`<sysml:View xmi:id="_s1" base_Package="_v" viewpoint="_vp"/>`,
+			[]string{"view Handbook {\n    satisfy Ops;\n    part def Chapter;\n}"}, "_v", Approximated},
 		{"a concernList naming a block frames nothing and leaves the block mapped",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_vp2" name="Safety"/>`,
 			`<sysml:Viewpoint xmi:id="_sv2" base_Class="_vp2" concernList="_pump"/>`,

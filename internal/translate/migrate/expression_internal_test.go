@@ -132,6 +132,26 @@ func TestExpressionTreeLowering(t *testing.T) {
 	}
 }
 
+// TestTreeOpaqueLiteralDefault gives an Integer attribute a tree default whose one
+// operand is a script literal: the whole real is spelled as the integer held.
+func TestTreeOpaqueLiteralDefault(t *testing.T) {
+	model := strings.Replace(treeModel(``),
+		`<ownedAttribute xmi:type="uml:Property" xmi:id="_mm" name="m" type="_mode"/>`,
+		`<ownedAttribute xmi:type="uml:Property" xmi:id="_n" name="n">
+		   <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Integer"/>
+		   <defaultValue xmi:type="uml:Expression" xmi:id="_d">
+		     <operand xmi:type="uml:OpaqueExpression" xmi:id="_o"><body>2.0</body><language>JavaScript</language></operand>
+		   </defaultValue>
+		 </ownedAttribute>`, 1)
+	r, err := Migrate("tree.xmi", []byte(model))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "attribute n : ScalarValues::Integer default = 2;"; !strings.Contains(string(r.Notation), want) {
+		t.Errorf("notation lacks %q:\n%s", want, r.Notation)
+	}
+}
+
 // TestTreePlaceholderShadowing reads a feature and an enumeration literal of
 // one name in one tree: the feature keeps its reading.
 func TestTreePlaceholderShadowing(t *testing.T) {
