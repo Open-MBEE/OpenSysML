@@ -122,3 +122,43 @@ test("autoLayout lays an interconnection out left to right", async () => {
   assert.ok(laid);
   assert.ok(boxOf(laid, "a").x < boxOf(laid, "b").x);
 });
+
+test("autoLayout moves an unplaced subtree with the container the model places", async () => {
+  const result = rendering(
+    [node("p", "p", { x: 500, y: 400, width: 300, height: 200 }), node("a", "a", { parent: "p" }), node("b", "b", { parent: "p" })],
+    [edge("a", "b")],
+    { kind: "interconnection" },
+  );
+  const laid = await autoLayout(result);
+  assert.ok(laid);
+  const p = boxOf(laid, "p");
+  assert.deepEqual(p, { x: 500, y: 400, width: 300, height: 200 });
+  for (const child of [boxOf(laid, "a"), boxOf(laid, "b")]) {
+    assert.ok(child.x >= p.x && child.x + child.width <= p.x + p.width);
+    assert.ok(child.y >= p.y && child.y + child.height <= p.y + p.height);
+  }
+  for (const point of laid.routes.get(0)!) {
+    assert.ok(point.x >= p.x && point.x <= p.x + p.width && point.y >= p.y && point.y <= p.y + p.height);
+  }
+});
+
+test("autoLayout grows an unplaced container around a child the model places elsewhere", async () => {
+  const result = rendering([node("q", "q"), node("a", "a", { parent: "q", x: 700, y: 50 })]);
+  const laid = await autoLayout(result);
+  assert.ok(laid);
+  const q = boxOf(laid, "q");
+  const a = boxOf(laid, "a");
+  assert.deepEqual([a.x, a.y], [700, 50]);
+  assert.ok(a.x >= q.x && a.x + a.width <= q.x + q.width);
+  assert.ok(a.y >= q.y && a.y + a.height <= q.y + q.height);
+});
+
+test("autoLayout drops the route of an edge crossing a placed container's border", async () => {
+  const result = rendering(
+    [node("p", "p", { x: 500, y: 400, width: 300, height: 200 }), node("a", "a", { parent: "p" }), node("c", "c")],
+    [edge("a", "c")],
+  );
+  const laid = await autoLayout(result);
+  assert.ok(laid);
+  assert.equal(laid.routes.has(0), false);
+});

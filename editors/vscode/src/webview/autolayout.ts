@@ -143,7 +143,106 @@ async function layOut(result: RenderResult): Promise<AutoLayout> {
       routes.set(index, points.map((point) => ({ x: snap(point.x + MARGIN), y: snap(point.y + MARGIN) })));
     }
   }
+  reconcile(result, children, placed, routes);
   return { nodes: placed, routes };
+}
+
+// reconcile puts ELK's picture and the model's geometry together: the subtree
+// under a node the model places shifts to the model's place (a stated
+// descendant keeps its own stated place on its turn, outermost first), an edge
+// within the subtree moves with it, and one crossing its border loses the route
+// so it is drawn straight. Then an unplaced container grows — never shrinks —
+// to cover shown children a placed sibling carried away; a route at a grown
+// border may sit slightly off the edge it hugged, which reads fine.
+function reconcile(
+  result: RenderResult,
+  children: Map<string | undefined, RenderNode[]>,
+  placed: Map<string, LayoutGeometry>,
+  routes: Map<number, RenderPoint[]>,
+): void {
+  const nodes = result.nodes ?? [];
+  const byId = new Map(nodes.map((node) => [node.id, node]));
+  const depth = (node: RenderNode): number => {
+    let d = 0;
+    let at = node;
+    while (at.parent !== undefined && at.parent !== at.id && byId.has(at.parent)) {
+      d++;
+      at = byId.get(at.parent)!;
+    }
+    return d;
+  };
+  const subtree = (id: string): Set<string> => {
+    const inside = new Set([id]);
+    const stack = [id];
+    while (stack.length > 0) {
+      for (const child of children.get(stack.pop()!) ?? []) {
+        if (placed.has(child.id) && !inside.has(child.id)) {
+          inside.add(child.id);
+          stack.push(child.id);
+        }
+      }
+    }
+    return inside;
+  };
+  for (const node of nodes
+    .filter((n) => n.x !== undefined && n.y !== undefined && placed.has(n.id))
+    .sort((a, b) => depth(a) - depth(b))) {
+    const geometry = placed.get(node.id)!;
+    const dx = node.x! - geometry.x;
+    const dy = node.y! - geometry.y;
+    const inside = subtree(node.id);
+    for (const id of inside) {
+      if (id === node.id) {
+        continue;
+      }
+      const moved = placed.get(id)!;
+      moved.x += dx;
+      moved.y += dy;
+    }
+    geometry.x = node.x!;
+    geometry.y = node.y!;
+    if (node.width !== undefined) {
+      geometry.width = node.width;
+    }
+    if (node.height !== undefined) {
+      geometry.height = node.height;
+    }
+    for (const [index, points] of [...routes]) {
+      const edge = result.edges![index];
+      const from = inside.has(edge.from);
+      const to = inside.has(edge.to);
+      if (from && to) {
+        routes.set(index, points.map((point) => ({ x: snap(point.x + dx), y: snap(point.y + dy) })));
+      } else if (from || to) {
+        routes.delete(index);
+      }
+    }
+  }
+  for (const node of nodes
+    .filter((n) => placed.has(n.id) && (n.x === undefined || n.y === undefined) && !n.collapsed)
+    .sort((a, b) => depth(b) - depth(a))) {
+    const kids = (children.get(node.id) ?? []).filter((child) => placed.has(child.id));
+    if (kids.length === 0) {
+      continue;
+    }
+    const geometry = placed.get(node.id)!;
+    const header = symbolSize(shapeOf(node.kind)) ?? labelSize(labelLines(node));
+    let left = geometry.x;
+    let top = geometry.y;
+    let right = geometry.x + (geometry.width ?? 0);
+    let bottom = geometry.y + (geometry.height ?? 0);
+    for (const child of kids) {
+      const box = placed.get(child.id)!;
+      left = Math.min(left, box.x - CONTAINER_PAD);
+      top = Math.min(top, box.y - header.height);
+      right = Math.max(right, box.x + (box.width ?? 0) + CONTAINER_PAD);
+      bottom = Math.max(bottom, box.y + (box.height ?? 0) + CONTAINER_PAD);
+    }
+    geometry.x = left;
+    geometry.y = top;
+    geometry.width = right - left;
+    geometry.height = bottom - top;
+  }
 }
 
 // spacingOptions is shared by the root and every compound node so nested
