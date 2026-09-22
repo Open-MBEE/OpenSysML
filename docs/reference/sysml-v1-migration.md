@@ -315,7 +315,8 @@ and `umlType` (`Class Diagram`) together — by the first family below a word of
 | block definition, class, package, object, component, deployment, profile and other structure diagrams | `Views::asTreeDiagram` |
 | behavior diagrams (activity, state machine, sequence, use case), requirement, content and free-form diagrams, a tool's own kinds, a diagram naming no kind | `Views::asTextualNotation` |
 
-The rendering is written `$::Views::…` where a member named `Views` would shadow the library.
+The rendering is written `$::Views::…` where a member named `Views` would shadow the library, and a
+shown primitive is exposed as `$::ScalarValues::…` where a member named `ScalarValues` would.
 
 The mapping has been run over the XMI of the [OpenMBEE TMT SysML model](https://github.com/Open-MBEE/TMT-SysML-Model)
 (27 MB; 44,600 elements once the nodes and edges of its behaviors are counted): it writes 7 MB

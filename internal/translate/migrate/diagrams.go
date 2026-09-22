@@ -339,6 +339,9 @@ func (m *migration) exposures(d *sysmlv1.Diagram, host *sysmlv1.Element) exposur
 // maps to, or the declaration exposable names. It is "" when nothing does.
 func (m *migration) exposure(e, scope *sysmlv1.Element) string {
 	if sv := m.scalarValue(e); sv != "" {
+		if m.shadowsLibrary("ScalarValues", scope) {
+			return "$::" + scalarValuesPrefix + sv
+		}
 		return scalarValuesPrefix + sv
 	}
 	if link := m.actorLinkOf(e); link != nil {
