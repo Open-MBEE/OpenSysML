@@ -241,6 +241,10 @@ type Context struct {
 	// clockRun the run an advance of it draws its due-order choices from.
 	clock    Clock
 	clockRun executorRun
+	// work counts the changes that can leave an attached behavior holding work;
+	// quiescentAt is the work value a full scan last found them all idle at, 0 none.
+	work        uint64
+	quiescentAt uint64
 	// onStack lists the runs of the executors whose calls are under way, outermost first.
 	onStack []*executorRun
 
@@ -746,6 +750,7 @@ func (ctx *Context) beginExecutorRun(run *executorRun) func() {
 	run.stir(1)
 	ctx.onStack = append(ctx.onStack, run)
 	leave := ctx.enterRun(run.state)
+	ctx.workChanged()
 	// A call into an executor whose performer ended in between finds its performance over.
 	if run.exec != nil && run.exec.performerEnded() {
 		run.exec.endTerminated()
@@ -754,6 +759,7 @@ func (ctx *Context) beginExecutorRun(run *executorRun) func() {
 		leave()
 		ctx.onStack = ctx.onStack[:len(ctx.onStack)-1]
 		run.stir(-1)
+		ctx.workChanged()
 	}
 }
 
@@ -806,7 +812,8 @@ func (ctx *Context) previewExecutorRun(run *executorRun) func() {
 	} else {
 		ctx.run = ctx.newRunState()
 	}
-	return func() { ctx.run = saved }
+	ctx.workChanged()
+	return func() { ctx.run = saved; ctx.workChanged() }
 }
 
 // endExecutorRun brackets the release of a call-by-call driven run: its leftovers

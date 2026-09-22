@@ -662,10 +662,21 @@ func (ctx *Context) startBehaviorsOf(inst *Instance) error {
 			inst.behaviors = append(inst.behaviors, behavior)
 			ctx.pendingBehaviors = append(ctx.pendingBehaviors, behavior)
 			ctx.objectBehaviors = append(ctx.objectBehaviors, behavior)
+			ctx.workChanged()
 		}
 	}
 
 	return ctx.runAttachedBehaviors()
+}
+
+// workChanged counts a change that can leave an attached behavior holding work:
+// a message posted, the clock moved, an event queued, an executor run or left.
+func (ctx *Context) workChanged() { ctx.work++ }
+
+// setClock moves the shared clock, the work due on it moving with it.
+func (ctx *Context) setClock(now float64) {
+	ctx.clock.now = now
+	ctx.workChanged()
 }
 
 // holdDrivenWork marks, at an outermost start, the behaviors already holding
@@ -676,13 +687,20 @@ func (ctx *Context) holdDrivenWork() func() {
 		return func() { /* an outer start already holds them */ }
 	}
 	held := make(map[*ObjectBehavior]bool)
-	ctx.behaviorRunDepth++
-	for _, behavior := range ctx.objectBehaviors {
-		if behavior.hasPendingWork() {
-			held[behavior] = true
+	if ctx.quiescentAt != 0 && ctx.quiescentAt == ctx.work {
+		// Nothing woke a behavior since a full scan found them all idle.
+	} else {
+		ctx.behaviorRunDepth++
+		for _, behavior := range ctx.objectBehaviors {
+			if behavior.hasPendingWork() {
+				held[behavior] = true
+			}
+		}
+		ctx.behaviorRunDepth--
+		if len(held) == 0 {
+			ctx.quiescentAt = ctx.work
 		}
 	}
-	ctx.behaviorRunDepth--
 	ctx.heldBehaviors = held
 	attached := len(ctx.objectBehaviors)
 	return func() {
@@ -771,6 +789,7 @@ func (ctx *Context) forgetBehaviors(behaviors []*ObjectBehavior) {
 	}
 	ctx.objectBehaviors = behaviorsExcept(ctx.objectBehaviors, dropped)
 	ctx.pendingBehaviors = behaviorsExcept(ctx.pendingBehaviors, dropped)
+	ctx.workChanged()
 }
 
 // leaveClock releases the behavior's execution, ending the work it left paused
@@ -838,10 +857,17 @@ func (ctx *Context) nextRunnableBehavior() (*ObjectBehavior, bool) {
 			return behavior, true
 		}
 	}
+	// A context a full scan found idle, unchanged since, holds no runnable behavior.
+	if ctx.quiescentAt != 0 && ctx.quiescentAt == ctx.work {
+		return nil, false
+	}
 	for _, behavior := range ctx.objectBehaviors[attached:] {
 		if !ctx.heldBehaviors[behavior] && behavior.hasPendingWork() {
 			return behavior, true
 		}
+	}
+	if attached == 0 && len(ctx.heldBehaviors) == 0 {
+		ctx.quiescentAt = ctx.work
 	}
 	return nil, false
 }
