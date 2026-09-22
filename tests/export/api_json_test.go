@@ -221,6 +221,10 @@ func TestReadAPIJSONRejectsNonElements(t *testing.T) {
 		"nested array":                     `[{"@type": "Package", "@id": "X", "ownedMember": [[{"@id": "Y"}]]}]`,
 		"null member":                      `[{"@type": "Package", "@id": "X", "ownedMember": [null]}]`,
 		"prefixed key":                     `[{"@type": "Package", "@id": "X", "sysml:name": "n"}]`,
+		"empty sysx: @type":                `{"@type": "sysx:", "@id": "X"}`,
+		"empty sysx: key":                  `{"@type": "Package", "@id": "X", "sysx:": true}`,
+		"empty scope qualifier":            `{"@type": "Package", "@id": ":X"}`,
+		"equivalent ids":                   `[{"@type": "Package", "@id": "X"}, {"@type": "Package", "@id": ":X"}]`,
 		"trailing JSON":                    `[{"@type": "Package", "@id": "X"}] 42`,
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -284,16 +288,20 @@ func TestReadAPIJSONValueForms(t *testing.T) {
 	}
 }
 
-// A scoped @id writes a scoped element IRI, and a single object document reads
-// like a one-element array.
+// A scoped @id writes a scoped element IRI, which does not collide with the
+// bare id it spells.
 func TestReadAPIJSONScopedAndSingle(t *testing.T) {
-	graph, err := export.ReadAPIJSON([]byte(`{"@type": "Package", "@id": "org.proj:X"}`))
+	graph, err := export.ReadAPIJSON([]byte(`[{"@type": "Package", "@id": "org.proj:X"}, {"@type": "PartUsage", "@id": "X"}]`))
 	if err != nil {
 		t.Fatalf("ReadAPIJSON: %v", err)
 	}
-	subject := rdf.ScopedElementIRIForID("org.proj", "X")
-	if !graph.Has(rdf.Triple{Subject: subject, Predicate: rdf.IRI(rdf.RDFType), Object: rdf.SysMLTerm("Package")}) {
-		t.Errorf("the scoped element is not a subject:\n%s", rdf.WriteTurtle(graph))
+	for _, subject := range []rdf.Term{rdf.ScopedElementIRIForID("org.proj", "X"), rdf.ElementIRIForID("X")} {
+		if len(graph.Predicates(subject)) == 0 {
+			t.Errorf("%s is not a subject:\n%s", subject.Value, rdf.WriteTurtle(graph))
+		}
+	}
+	if !graph.Has(rdf.Triple{Subject: rdf.ScopedElementIRIForID("org.proj", "X"), Predicate: rdf.IRI(rdf.RDFType), Object: rdf.SysMLTerm("Package")}) {
+		t.Errorf("the scoped element is not a Package:\n%s", rdf.WriteTurtle(graph))
 	}
 }
 

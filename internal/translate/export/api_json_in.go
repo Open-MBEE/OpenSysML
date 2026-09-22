@@ -115,9 +115,13 @@ func parseAPIJSON(data []byte) ([]apiJSONElementData, map[string]bool, error) {
 	}
 	ids := map[string]bool{}
 	types := map[string]string{}
+	subjects := map[string]string{}
 	for _, object := range objects {
 		if object.id == "" {
 			return nil, nil, fmt.Errorf("an element object needs a non-empty string \"@id\"")
+		}
+		if strings.HasPrefix(object.id, ":") {
+			return nil, nil, fmt.Errorf("the id %q has an empty scope qualifier; an element's own id names its scope or none", object.id)
 		}
 		if object.typ == "" {
 			return nil, nil, fmt.Errorf("element %q needs a string \"@type\"", object.id)
@@ -127,6 +131,11 @@ func parseAPIJSON(data []byte) ([]apiJSONElementData, map[string]bool, error) {
 		}
 		ids[object.id] = true
 		types[object.id] = object.typ
+		resolved := rdf.ReferenceIRI(rdf.Term{}, object.id).Value
+		if earlier, seen := subjects[resolved]; seen {
+			return nil, nil, fmt.Errorf("the ids %q and %q name the same element", earlier, object.id)
+		}
+		subjects[resolved] = object.id
 	}
 	// Classify the expression namespace to a fixpoint: a node is an expression
 	// when its metaclass is one the encoder mints directly under a declaration,
@@ -260,6 +269,9 @@ func apiJSONValueOf(dec *json.Decoder) (any, error) {
 // class, the sysx: CURIE an extension class; anything else cannot be named.
 func apiJSONTypeIRI(typ string) (rdf.Term, error) {
 	if name, ok := strings.CutPrefix(typ, "sysx:"); ok {
+		if name == "" {
+			return rdf.Term{}, fmt.Errorf("the \"@type\" %q has no metaclass name", typ)
+		}
 		return rdf.OpenSysMLTerm(name), nil
 	}
 	if strings.Contains(typ, ":") {
@@ -272,6 +284,9 @@ func apiJSONTypeIRI(typ string) (rdf.Term, error) {
 // local name for the collection annotation it may carry.
 func apiJSONPredicate(key string) (rdf.Term, string, error) {
 	if name, ok := strings.CutPrefix(key, "sysx:"); ok {
+		if name == "" {
+			return rdf.Term{}, "", fmt.Errorf("the key %q has no property name", key)
+		}
 		return rdf.OpenSysMLTerm(name), "", nil
 	}
 	if strings.Contains(key, ":") {
