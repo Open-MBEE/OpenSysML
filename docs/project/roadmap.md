@@ -2635,8 +2635,9 @@ project holds exactly the layer the migration lacks. The proposal is to read it 
 model's structure and behavior, and an optional `-layout <mtip-export.xml>` supplies presentation
 only. The reader takes the diagram/presentation layer of the HUDS file and nothing else, joins
 each record to the migrated view and the exposed element or connector by the element identifier
-MTIP records, which the design must first confirm on a real export is the `xmi:id` the migration
-already resolves, and writes
+MTIP records. MTIP has an export setting for that identifier (`local`, its default, or `cloud`);
+the join needs the local form, which the design must first confirm on a real export is the
+`xmi:id` the migration already resolves. The reader then writes
 the geometry the way [diagram-layout-annotations.md](diagram-layout-annotations.md) already
 carries it — `metadata Layout about … { x; y; width; height; }` and `metadata Route about … {
 points = (…); }` in the view usage's body, with `@Canvas` for the diagram's extent — so the
