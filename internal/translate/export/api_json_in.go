@@ -140,6 +140,7 @@ func parseAPIJSON(data []byte) ([]apiJSONElementData, map[string]bool, error) {
 // — returning "@type"/"@id" extracted and the other members in written order.
 func apiJSONObjectOf(dec *json.Decoder) (apiJSONElementData, error) {
 	var object apiJSONElementData
+	seen := map[string]bool{}
 	for dec.More() {
 		token, err := dec.Token()
 		if err != nil {
@@ -149,6 +150,10 @@ func apiJSONObjectOf(dec *json.Decoder) (apiJSONElementData, error) {
 		if !ok {
 			return object, fmt.Errorf("an element object's member key is a string, not %v", token)
 		}
+		if seen[key] {
+			return object, fmt.Errorf("element object states %q twice", key)
+		}
+		seen[key] = true
 		var value any
 		if err := dec.Decode(&value); err != nil {
 			return object, fmt.Errorf("%s: %w", key, err)
