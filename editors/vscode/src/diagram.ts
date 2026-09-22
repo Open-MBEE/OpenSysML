@@ -815,17 +815,10 @@ class DiagramPanel {
       this.post({ type: "highlight", id: node.id });
       return;
     }
-    const rows = this.rendering.rows;
-    if (rows?.length) {
-      const index = rows.findIndex(
-        (row) => row.origin !== undefined
-          && vscode.Uri.parse(row.origin.uri).toString() === this.docURI.toString()
-          && toRange(row.origin.range).contains(at),
-      );
-      if (index >= 0) {
-        this.post({ type: "highlight", id: `row:${index}` });
-        return;
-      }
+    const row = this.rowAt(this.rendering, at);
+    if (row !== undefined) {
+      this.post({ type: "highlight", id: `row:${row}` });
+      return;
     }
     this.post({ type: "highlight", id: undefined });
   }
@@ -853,6 +846,26 @@ class DiagramPanel {
       }
       if (!foundRange || foundRange.contains(range)) {
         found = node;
+        foundRange = range;
+      }
+    }
+    return found;
+  }
+
+  // rowAt is the index of the innermost located table row whose declaration contains at.
+  private rowAt(rendering: Rendering, at: vscode.Position): number | undefined {
+    let found: number | undefined;
+    let foundRange: vscode.Range | undefined;
+    for (const [index, row] of (rendering.rows ?? []).entries()) {
+      if (!row.origin || vscode.Uri.parse(row.origin.uri).toString() !== this.docURI.toString()) {
+        continue;
+      }
+      const range = toRange(row.origin.range);
+      if (!range.contains(at)) {
+        continue;
+      }
+      if (!foundRange || foundRange.contains(range)) {
+        found = index;
         foundRange = range;
       }
     }
