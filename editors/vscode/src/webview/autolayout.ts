@@ -73,6 +73,7 @@ async function layOut(result: RenderResult): Promise<AutoLayout> {
     }
     return false;
   };
+  const options = spacingOptions(result.kind);
   const elkNode = (node: RenderNode): ElkNode => {
     const size = symbolSize(shapeOf(node.kind)) ?? labelSize(labelLines(node));
     const kids = node.collapsed ? [] : (children.get(node.id) ?? []);
@@ -81,6 +82,7 @@ async function layOut(result: RenderResult): Promise<AutoLayout> {
       out.children = kids.map(elkNode);
       // A container's label sits above its children, so the top padding is its height.
       out.layoutOptions = {
+        ...options,
         "elk.padding": `[top=${size.height},left=${CONTAINER_PAD},bottom=${CONTAINER_PAD},right=${CONTAINER_PAD}]`,
         "elk.nodeSize.constraints": "MINIMUM_SIZE",
         "elk.nodeSize.minimum": `(${size.width},${size.height})`,
@@ -98,15 +100,9 @@ async function layOut(result: RenderResult): Promise<AutoLayout> {
   const laid = await elk.layout({
     id: "__root__",
     layoutOptions: {
+      ...options,
       "elk.algorithm": "layered",
       "elk.hierarchyHandling": "INCLUDE_CHILDREN",
-      "elk.edgeRouting": "ORTHOGONAL",
-      "elk.direction": result.kind === "tree" || result.kind === "action" ? "DOWN" : "RIGHT",
-      "elk.spacing.nodeNode": `${GAP}`,
-      "elk.layered.spacing.nodeNodeBetweenLayers": `${GAP * 1.5}`,
-      "elk.spacing.edgeNode": `${GAP / 2}`,
-      "elk.layered.spacing.edgeNodeBetweenLayers": `${GAP / 2}`,
-      "elk.spacing.componentComponent": `${GAP}`,
       // Edge section coordinates come back relative to the root, like a node's
       // geometry relative to its parent, so they read as canvas coordinates.
       "org.eclipse.elk.json.edgeCoords": "ROOT",
@@ -148,4 +144,18 @@ async function layOut(result: RenderResult): Promise<AutoLayout> {
     }
   }
   return { nodes: placed, routes };
+}
+
+// spacingOptions is shared by the root and every compound node so nested
+// layers have the same direction, edge routing, and label-friendly gaps.
+function spacingOptions(kind: string): Record<string, string> {
+  return {
+    "elk.edgeRouting": "ORTHOGONAL",
+    "elk.direction": kind === "tree" || kind === "action" ? "DOWN" : "RIGHT",
+    "elk.spacing.nodeNode": `${GAP}`,
+    "elk.layered.spacing.nodeNodeBetweenLayers": `${GAP * 2}`,
+    "elk.spacing.edgeNode": `${GAP / 2}`,
+    "elk.layered.spacing.edgeNodeBetweenLayers": `${GAP / 2}`,
+    "elk.spacing.componentComponent": `${GAP}`,
+  };
 }

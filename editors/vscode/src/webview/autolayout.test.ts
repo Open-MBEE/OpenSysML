@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import type { RenderEdge, RenderNode, RenderPoint, RenderResult } from "../protocol";
 import { AUTO_LAYOUT_LIMIT, autoLayout, type AutoLayout } from "./autolayout";
-import type { Box } from "./layout";
+import { GAP, type Box } from "./layout";
 
 const origin = { uri: "file:///m.sysml", range: { start: { line: 0, character: 0 }, end: { line: 0, character: 4 } }, digest: "d0" };
 
@@ -88,6 +88,9 @@ test("autoLayout holds a container's children inside it and reports absolute edg
     assert.ok(child.x >= p.x && child.x + child.width <= p.x + p.width);
     assert.ok(child.y >= p.y && child.y + child.height <= p.y + p.height);
   }
+  const horizontalGap = Math.max(b.x - (a.x + a.width), a.x - (b.x + b.width));
+  const verticalGap = Math.max(b.y - (a.y + a.height), a.y - (b.y + b.height));
+  assert.ok(horizontalGap >= GAP || verticalGap >= GAP);
   // The routes are absolute canvas coordinates: they end on c's border directly.
   for (const route of [laid.routes.get(0)!, laid.routes.get(1)!]) {
     assert.ok(onBorder(route.at(-1)!, c));
