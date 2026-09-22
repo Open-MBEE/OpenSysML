@@ -36,7 +36,7 @@ Property	Use Cases::<Association>::<Property>	_ePW2	-> 'Use Cases'::unnamed::'wa
 Property	Use Cases::<Association>::driver	_eDriver	-> 'Use Cases'::'Park Car'::driver
 UseCase	Use Cases::Authorise Payment	_authorise	-> 'Use Cases'::'Authorise Payment'	(v2 places the subject before the actors, so an anonymous subject is declared)
 Property	Use Cases::Authorise Payment::bank	_authBank	-> 'Use Cases'::'Authorise Payment'::bank
-«HyperlinkOwner» UseCase	Use Cases::Leave Garage	_leave	-> 'Use Cases'::'Leave Garage'
+«HyperlinkOwner» UseCase	Use Cases::Leave Garage	_leave	-> 'Use Cases'::'Leave Garage'	(«HyperlinkOwner» from http://www.example.org/profiles/Custom is applied from a profile the document does not define; the application is kept as a comment)
 UseCase	Use Cases::Park Car	_park	-> 'Use Cases'::'Park Car'
 Comment	Use Cases::Park Car::<Comment>	_parkDoc
 Include	Use Cases::Park Car::<Include>	_incPay	-> 'Use Cases'::'Park Car'::'pay Fee'

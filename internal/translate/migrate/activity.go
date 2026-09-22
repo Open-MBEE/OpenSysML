@@ -246,16 +246,19 @@ func (a *activity) name(n *sysmlv1.Element, base string) string {
 	if s, ok := a.names[n]; ok {
 		return s
 	}
-	name := a.m.nameOf(n)
-	if name == "" || a.used[name] || a.m.taken[a.def][name] {
-		if name == "" {
-			name = base
+	name, fixed := a.m.nodeNames[n]
+	if !fixed {
+		name = a.m.nameOf(n)
+		if name == "" || a.used[name] || a.m.taken[a.def][name] {
+			if name == "" {
+				name = base
+			}
+			name = a.fresh(name)
 		}
-		name = a.fresh(name)
 	}
 	a.used[name] = true
 	a.m.take(a.def, name)
-	a.names[n] = name
+	a.names[n], a.m.nodeNames[n] = name, name
 	return name
 }
 
@@ -1031,11 +1034,11 @@ func probability(e *sysmlv1.Element) *sysmlv1.Stereotype {
 	return stereo(e, "Probability")
 }
 
-// foreignProbabilities notes each «Probability» on e from a profile other than
-// SysML's, whose probability is not read.
+// foreignProbabilities notes each «Probability» on e that neither is SysML's
+// nor specializes it, whose probability is not read.
 func (a *activity) foreignProbabilities(e *sysmlv1.Element) {
 	for _, s := range e.Stereotypes {
-		if s.Name == "Probability" && !isStandard(s) {
+		if s.Name == "Probability" && !appliesStandard(s, "Probability") {
 			a.m.add(e, Approximated, "", "«Probability» from "+s.Namespace+" is not the SysML profile's; its probability is not read")
 		}
 	}
@@ -1327,8 +1330,9 @@ func (a *activity) declareNode(n *sysmlv1.Element, name string) {
 // graph while its behavior is kept as a comment.
 func (a *activity) placeholder(n *sysmlv1.Element, name, note string, v Verdict) {
 	a.inert[n] = true
+	a.m.placeholders[n] = true
 	a.m.w.block(actionKw+name, func() {
-		a.pins(n, false, nil)
+		a.pins(n, nil)
 		a.m.w.lines(commentLines("not migrated: " + kindOf(n) + " " + describe(n) + " — " + note))
 	})
 	a.m.add(n, v, name, note)
@@ -1354,14 +1358,18 @@ func outputPins(n *sysmlv1.Element) []*sysmlv1.Element {
 }
 
 // pins declares an untyped action usage's pins as its parameters and records how a
-// flow refers to each; a typed usage's pins stand for params, its definition's, in order.
-func (a *activity) pins(n *sysmlv1.Element, typed bool, params []*sysmlv1.Element) {
-	a.declarePins(n, inputPins(n), outputPins(n), typed, params)
+// flow refers to each; the pins of a usage typed by callee stand for its parameters, in order.
+func (a *activity) pins(n, callee *sysmlv1.Element) {
+	a.declarePins(n, inputPins(n), outputPins(n), callee)
 }
 
 // declarePins declares the given input and output pins of n; see pins.
-func (a *activity) declarePins(n *sysmlv1.Element, ins, outs []*sysmlv1.Element, typed bool, params []*sysmlv1.Element) {
-	var inParams, outParams []*sysmlv1.Element
+func (a *activity) declarePins(n *sysmlv1.Element, ins, outs []*sysmlv1.Element, callee *sysmlv1.Element) {
+	typed := callee != nil
+	var params, inParams, outParams []*sysmlv1.Element
+	if typed {
+		params = a.m.actionParameters(callee)
+	}
 	for _, p := range params {
 		switch p.Attrs["direction"] {
 		case "out", "return":
@@ -1383,7 +1391,7 @@ func (a *activity) declarePins(n *sysmlv1.Element, ins, outs []*sysmlv1.Element,
 				a.m.add(pin, Mapped, a.m.v2Name(n)+"."+pname, "the pin stands for the parameter "+pname+" of the definition, which the flows name")
 				return
 			}
-			a.m.add(pin, Unmapped, "", "the definition has no "+dir+" parameter for the pin; a flow into it has nowhere to go")
+			a.m.add(pin, Unmapped, "", a.unparametered(pin, dir, callee, byPos))
 			return
 		}
 		pname := a.settlePin(n, pin, dir, used).name
@@ -1417,6 +1425,26 @@ func (a *activity) declarePins(n *sysmlv1.Element, ins, outs []*sysmlv1.Element,
 	for i, pin := range outs {
 		declare(pin, "out", outParams, i)
 	}
+}
+
+// unparametered says why a pin past the called behavior's parameters of its direction
+// is not written: the call keeps its declaration, so no parameter can be added for the pin.
+func (a *activity) unparametered(pin *sysmlv1.Element, dir string, callee *sysmlv1.Element, byPos []*sysmlv1.Element) string {
+	note := "the called " + qualifiedName(callee) + " has no " + dir + " parameter for the pin"
+	if len(byPos) == 0 {
+		note += ", declaring none of that direction"
+	} else {
+		var names []string
+		for _, p := range byPos {
+			names = append(names, a.m.nameFor(p))
+		}
+		note += ", its " + dir + " parameters being " + strings.Join(names, ", ")
+	}
+	way := "a flow into it has nowhere to go"
+	if dir == "out" {
+		way = "a flow from it carries no value"
+	}
+	return note + "; the call is written with the parameters it declares, so " + way
 }
 
 // settlePin fixes how an untyped node's pin is declared, once: named as in v1
@@ -1646,6 +1674,14 @@ func (a *activity) objectFlowSource(e, s, tgt *sysmlv1.Element, to string) {
 	} else {
 		a.m.w.line("flow " + from + " to " + to + ";")
 	}
+	if a.stubSource(s) {
+		note := "the flow is written, but " + describe(s.Parent) + " calls no behavior and computes nothing, so no value travels it"
+		if nodeKind(tgt) == nodePin {
+			note += ", and " + describe(tgt.Parent) + " does not wait for one"
+		}
+		a.m.add(e, Approximated, "", note)
+		return
+	}
 	a.m.add(e, Mapped, "", "")
 }
 
@@ -1662,7 +1698,11 @@ func (a *activity) callBehavior(n *sysmlv1.Element, name string) {
 	}
 	b := a.m.model.Ref(n, "behavior")
 	if b == nil {
-		a.writeLeafStep(n, name)
+		if a.leafStep(n) {
+			a.writeLeafStep(n, name)
+		} else {
+			a.writeStubStep(n, name)
+		}
 		return
 	}
 	if op := a.m.methodOf[b]; op != nil {
@@ -1682,7 +1722,7 @@ func (a *activity) callBehavior(n *sysmlv1.Element, name string) {
 			}
 			note = joinNotes(why, note)
 		}
-		a.pins(n, true, a.m.actionParameters(b))
+		a.pins(n, b)
 		if c != nil {
 			expr, cnote := a.callContext(n, c)
 			a.m.w.line("bind " + name + "." + writeName(c.name) + " = " + expr + ";")
@@ -1693,7 +1733,7 @@ func (a *activity) callBehavior(n *sysmlv1.Element, name string) {
 		return
 	}
 	a.m.w.block(actionKw+name, func() {
-		a.pins(n, false, nil)
+		a.pins(n, nil)
 		var args []string
 		for _, pin := range n.Owned("argument") {
 			args = append(args, writeName(a.names[pin]))
@@ -1728,7 +1768,7 @@ func (a *activity) callPrimitive(n *sysmlv1.Element, name string, p *primitiveCa
 	for i, pin := range outs[:min(len(outs), len(p.outs))] {
 		a.computed[pin] = p.result(i, args)
 	}
-	a.m.w.block(actionKw+name, func() { a.pins(n, false, nil) })
+	a.m.w.block(actionKw+name, func() { a.pins(n, nil) })
 	for _, pin := range ins[min(len(ins), len(args)):] {
 		a.m.add(pin, Unmapped, "", p.qualified()+" takes "+strconv.Itoa(len(args))+" argument(s); the pin passes nothing")
 	}
@@ -1788,7 +1828,7 @@ func (a *activity) callOperation(n *sysmlv1.Element, name string) {
 	default:
 		a.m.w.line(actionKw + name + " : " + a.m.ref(op, a.def) + ";")
 	}
-	a.declarePins(n, ins, outs, true, a.m.actionParameters(op))
+	a.declarePins(n, ins, outs, op)
 	note = joinNotes(note, a.absentArguments(ins, op))
 	a.m.add(n, verdictFor(note), name, note)
 }
@@ -1857,7 +1897,7 @@ func (a *activity) unassigned(pin *sysmlv1.Element) bool {
 func (a *activity) opaqueAction(n *sysmlv1.Element, name string) {
 	r := a.opaqueOf(n)
 	a.m.w.block(actionKw+name, func() {
-		a.pins(n, false, nil)
+		a.pins(n, nil)
 		if !r.ok {
 			a.inert[n] = true
 			body, lang := opaqueBody(n)
@@ -1984,7 +2024,7 @@ func (a *activity) readFeature(n *sysmlv1.Element, name string) {
 			if _, _, ok := a.objectOf(obj); !ok {
 				// UML types the object pin by the classifier that owns the feature.
 				a.pinType[obj] = f.Parent
-				a.declarePins(n, inputPins(n), nil, false, nil)
+				a.declarePins(n, inputPins(n), nil, nil)
 			}
 		}
 		expr, why := a.featureOn(obj, f)
@@ -1993,6 +2033,7 @@ func (a *activity) readFeature(n *sysmlv1.Element, name string) {
 				why = "the object whose " + a.m.nameOf(f) + " is read has no v2 name"
 			}
 			a.inert[n] = true
+			a.m.placeholders[n] = true
 			a.m.w.lines(commentLines("not migrated: " + why))
 			a.m.add(n, Unmapped, name, why)
 			return
@@ -2037,7 +2078,7 @@ func (a *activity) writeFeature(n *sysmlv1.Element, name string) {
 	}
 	note := ""
 	a.m.w.block(actionKw+name, func() {
-		a.pins(n, false, nil)
+		a.pins(n, nil)
 		assign := "assign " + target + "." + writeName(a.m.nameOf(f)) + " := " + writeName(a.names[val]) + ";"
 		if !a.m.lacksValue(val) {
 			a.m.w.line(assign)
@@ -2066,7 +2107,7 @@ func (a *activity) sendSignal(n *sysmlv1.Element, name string) {
 	}
 	var note string
 	a.m.w.block(actionKw+name, func() {
-		a.pins(n, false, nil)
+		a.pins(n, nil)
 		args, anote := a.signalArguments(n, sig)
 		note = anote
 		line := "send new " + a.m.ref(sig, a.def) + "(" + strings.Join(args, ", ") + ")"
@@ -2240,7 +2281,7 @@ func (a *activity) structured(n *sysmlv1.Element, name string) {
 		note = "the node's clauses are written as one graph; their tests are not"
 	}
 	a.m.w.block(actionKw+name, func() {
-		a.pins(n, false, nil)
+		a.pins(n, nil)
 		for _, v := range n.Owned("variable") {
 			a.m.add(v, Unmapped, "", "a structured node's variable is not written")
 		}

@@ -72,7 +72,8 @@ type Element struct {
 	Line       int
 }
 
-// Namespace resolves a prefix declared on e or an ancestor, or "" when none.
+// Namespace resolves a prefix to the URI declared for it on this element or
+// the nearest ancestor, or "" when none declares it.
 func (e *Element) Namespace(prefix string) string {
 	for cur := e; cur != nil; cur = cur.Parent {
 		if uri, ok := cur.Namespaces[prefix]; ok {
@@ -283,10 +284,9 @@ func newElement(t xml.StartElement) *Element {
 	return e
 }
 
-// declare records one xmlns declaration.
 func (e *Element) declare(prefix, uri string) {
 	if e.Namespaces == nil {
-		e.Namespaces = make(map[string]string)
+		e.Namespaces = map[string]string{}
 	}
 	e.Namespaces[prefix] = uri
 }

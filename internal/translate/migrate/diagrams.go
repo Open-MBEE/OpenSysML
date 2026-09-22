@@ -112,12 +112,13 @@ func (m *migration) viewName(host *sysmlv1.Element, name string) string {
 }
 
 // viewHost finds the element whose body a diagram's view is written in: its
-// owner when that hosts views, else the owner's nearest ancestor that does;
-// for a diagram naming no owner the element whose extension holds it, and
-// failing that the document's top level. note says why the host is not the
-// owner; host is nil when nothing written can hold the view.
+// owner when that hosts views — the operation, for a behavior written as the
+// operation's method — else the owner's nearest ancestor that does; for a
+// diagram naming no owner the element whose extension holds it, and failing
+// that the document's top level. note says why the host is not the owner;
+// host is nil when nothing written can hold the view.
 func (m *migration) viewHost(d *sysmlv1.Diagram) (host *sysmlv1.Element, note string) {
-	from := d.Owner
+	from := m.viewOwner(d)
 	switch {
 	case d.Owner != nil:
 	case d.OwnerID != "":
@@ -140,7 +141,7 @@ func (m *migration) viewHost(d *sysmlv1.Diagram) (host *sysmlv1.Element, note st
 			continue
 		}
 		switch {
-		case cur == d.Owner:
+		case cur == from && d.Owner != nil:
 		case d.Owner != nil:
 			note = "its owner " + kindOf(d.Owner) + " " + qualifiedName(d.Owner) + " has no v2 body; " + m.writtenIn(cur)
 		default:
@@ -152,6 +153,15 @@ func (m *migration) viewHost(d *sysmlv1.Diagram) (host *sysmlv1.Element, note st
 		return nil, "neither its owner " + kindOf(d.Owner) + " " + qualifiedName(d.Owner) + " nor any ancestor of it is written"
 	}
 	return nil, joinNotes(note, "and neither "+kindOf(from)+" "+qualifiedName(from)+", which holds it, nor any ancestor of it is written")
+}
+
+// viewOwner is the element whose v2 body stands for a diagram's owner: the
+// operation a method behavior is written as the body of, else the owner itself.
+func (m *migration) viewOwner(d *sysmlv1.Diagram) *sysmlv1.Element {
+	if op := m.methodOf[d.Owner]; op != nil {
+		return op
+	}
+	return d.Owner
 }
 
 // hostsViews reports whether e is written with a body a view can be a member
@@ -266,6 +276,9 @@ func (m *migration) writeView(v *view) {
 	render := rendering(d)
 	kind := diagramKind(d)
 	note := article(strings.ToLower(kind)) + kind + " written as a view rendered " + render
+	if host != d.Owner && host == m.viewOwner(d) {
+		note = joinNotes(note, "its owner "+kindOf(d.Owner)+" "+qualifiedName(d.Owner)+" is written as the body of "+m.hostName(host)+", whose method it is")
+	}
 	note = joinNotes(note, v.note)
 	prefix := viewsPrefix
 	if m.shadowsLibrary("Views", host) {
@@ -341,6 +354,9 @@ func (m *migration) exposures(d *sysmlv1.Diagram, host *sysmlv1.Element) exposur
 // maps to, or the declaration exposable names. It is "" when nothing does.
 func (m *migration) exposure(e, scope *sysmlv1.Element) string {
 	if sv := m.scalarValue(e); sv != "" {
+		if m.shadowsLibrary("ScalarValues", scope) {
+			return "$::" + scalarValuesPrefix + sv
+		}
 		return scalarValuesPrefix + sv
 	}
 	if link := m.actorLinkOf(e); link != nil {
@@ -370,8 +386,9 @@ func (m *migration) actorLinkOf(e *sysmlv1.Element) *actorLink {
 }
 
 // exposable is the declaration written for e that a view can expose: its own,
-// or the operation a behavior is the method of. It is nil when nothing written
-// stands for e: library and tool content, and what a body leaves out.
+// or the operation a behavior is the method of, or that one's parameter. It is
+// nil when nothing written stands for e: library and tool content, and what a
+// body leaves out.
 func (m *migration) exposable(e *sysmlv1.Element) *sysmlv1.Element {
 	if e == nil || m.scalarValue(e) != "" {
 		return nil

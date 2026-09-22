@@ -75,7 +75,7 @@ func TestSuiteClassification(t *testing.T) {
 	s := loadSuite(t)
 	type row struct{ std, ext, none int }
 	want := map[string]row{
-		"Behavior": {4, 0, 1}, "Transition": {8, 1, 6}, "Event": {13, 0, 3},
+		"Behavior": {4, 0, 1}, "Transition": {8, 1, 6}, "Event": {16, 0, 0},
 		"Entering": {4, 0, 1}, "Exiting": {4, 0, 1}, "Entry": {0, 0, 6},
 		"Exit": {0, 0, 3}, "Choice": {0, 4, 1}, "Junction": {0, 5, 1},
 		"Fork": {0, 1, 1}, "Join": {0, 3, 0}, "Final": {1, 0, 0},
@@ -125,28 +125,28 @@ func TestSuiteClassification(t *testing.T) {
 			t.Errorf("%s = %+v, want %+v", area, got[area], w)
 		}
 	}
-	if total != (row{38, 32, 33}) {
-		t.Errorf("total = %+v, want {38 32 33}", total)
+	if total != (row{41, 32, 30}) {
+		t.Errorf("total = %+v, want {41 32 30}", total)
 	}
 }
 
 // TestSuiteNoTranslationReasons pins the reasons left once tester traces, standalone
-// machines, operation results and bound parameters are no refusals; an exit with parameters stays one.
+// machines, operation results and bound parameters, the exit's included, are no refusals.
 func TestSuiteNoTranslationReasons(t *testing.T) {
 	s := loadSuite(t)
 	want := map[string]struct {
 		class  Expressibility
 		reason string
 	}{
-		"Event 017 B":    {NotExpressible, "behavior parameter S1.S1.1"},
+		"Event 017 B":    {Standard, "standard notation only"},
 		"Event 019 A":    {Standard, "standard notation only"},
-		"Event 019 B":    {NotExpressible, "behavior parameter S1"},
-		"Event 019 C":    {NotExpressible, "behavior parameter S1.S1.1.S1.1.1"},
+		"Event 019 B":    {Standard, "standard notation only"},
+		"Event 019 C":    {Standard, "standard notation only"},
 		"Event 019 D":    {Standard, "standard notation only"},
 		"Event 019 E":    {Standard, "standard notation only"},
 		"Deferred 007":   {Extension, "defer S1"},
 		"Standalone 001": {NotExpressible, "exit point ExitPoint1; exit point ExitPoint1; entry point EntryPoint1"},
-		"Standalone 002": {NotExpressible, "exit point ExitPoint1; entry point EntryPoint1; behavior parameter S2"},
+		"Standalone 002": {NotExpressible, "exit point ExitPoint1; entry point EntryPoint1"},
 		"Standalone 003": {Standard, "standard notation only"},
 		"Entry 002 F":    {NotExpressible, "entry point EntryPoint1; local transition T1.1; local transition T1.2"},
 	}

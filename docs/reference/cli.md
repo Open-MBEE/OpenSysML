@@ -213,7 +213,7 @@ reported, so a script that reads it takes the output from the first `{`.
 | `--quiet` | | Report errors only, suppressing warnings |
 | `--strict` | | Judge the model as conforming SysML v2: notation no pinned production admits is an error, not a warning (see [Strict conformance](../guide/03-command-line.md#strict-conformance)) |
 | `--trace` | | Report each execution step: expression evaluation, calc invocation, action tokens, state transitions, each `choice` the executor made among alternatives the library leaves unordered, naming the alternatives and the one taken, and each `unevaluable guard` it read only to report one and could not evaluate ([Choice points](../guide/06-behavior.md)). Under `-schedule explore` the table is printed first, then the trace of one witness run per distinct outcome, each under a `trace of outcome <n>'s witness (run <r>):` heading ([Exploring every linearization](#exploring-every-linearization)) |
-| `--convert <format>` | | Convert the model instead of running it: `sysml`, `kerml`, `ttl`, `turtle` or `rdf`. RDF is [experimental](rdf-mapping.md#status-experimental) and every run that converts it says so on stderr (see [the RDF mapping](rdf-mapping.md)) |
+| `--convert <format>` | | Convert the model instead of running it: `sysml`, `kerml`, `ttl`, `turtle`, `rdf`, `api-json` or `json`. `ttl` writes the RDF graph in Turtle, `api-json` the same graph as the API's JSON element objects; both are [experimental](rdf-mapping.md#status-experimental) and every run that converts either says so on stderr (see [the RDF mapping](rdf-mapping.md)). The model argument may be a Flexo MMS project branch URL — `http(s)://host[:port][/base]/projects/{project}/branches/{branch}` or `flexo://{project}/{branch}` — both naming the endpoint `FLEXO_SYSMLV2_URL` configures — which is read as its head commit's RDF graph; see [Reading and pushing a repository branch](#reading-and-pushing-a-repository-branch) |
 | `--from <format>` | | Input format for `--convert`: the `--convert` formats, or `xmi`/`uml`/`mdzip` for a SysML v1 model to migrate (experimental; default: from the input's extension; `.xmi`, `.uml` and `.mdzip` are recognized) — see [SysML v1 migration](sysml-v1-migration.md) |
 | `--migration-report <file>` | | With `--convert` from `xmi`: write the element-by-element migration report to this file, JSON when it ends in `.json`, text otherwise. Without it the one-line summary goes to stderr |
 | `--migration-results <file>` | | With `--convert` from `xmi`: write the simulation tool's run configurations (`SimulationProfile:SimulationConfig`) and the result snapshots it stored for each of them to this JSON file — the sidecar `-compare-results` reads against the migrated model. See [Comparing a migrated configuration with the tool's results](#comparing-a-migrated-configuration-with-the-tools-results) |
@@ -239,7 +239,7 @@ reported, so a script that reads it takes the output from the first `{`.
 | `--pdf-title-page` | | Former name of `--doc-title-page` |
 | `--pdf-toc` | | Former name of `--doc-toc` |
 | `--pdf-number-sections` | | Former name of `--doc-number-sections` |
-| `--output <file>` | `-o` | Write the conversion, the rendering or the rendered document to a file instead of stdout |
+| `--output <file>` | `-o` | Write the conversion, the rendering or the rendered document to a file instead of stdout; with `-convert ttl` a branch URL (the same two forms) replaces the branch's model graph with the converted Turtle — see [Reading and pushing a repository branch](#reading-and-pushing-a-repository-branch) |
 | `--version` | `-v` | Show version information |
 | `--help` | `-h` | Show usage information |
 | `--man` | | Write this command's manual page, in roff, to stdout (see [Installing](../guide/01-install.md)) |
@@ -265,7 +265,7 @@ written in, so the verdicts are about that object:
 | `-sweep <param>=<from>..<to>[:<step>]` | Runs the `-analysis` case or `-calc` once per value of the range, rather than once, and reports the runs as a table. `<from>`, `<to>` and `<step>` are written as an argument is, units included (`0.0 [SI::m]..10.0 [SI::m]:2.0 [SI::m]`); the parameter is one the case or calc declares and the arguments do not bind, and the values are produced in its declared type (`1..4:1` over a `Real` binds `1.0`, `2.0`, …). Repeatable: several ranges run their cartesian product, the first flag given varying slowest. See [Sweeping a parameter](#sweeping-a-parameter) |
 | `-samples <n>` | Draws `n` values for each `-sweep` range instead of running every value of it, uniformly over the range from the seed `-seed` names — Integers inclusively for a parameter taking Integers, reals in `[<from>, <to>)` for one taking reals |
 | `-seed <s>` | The seed the model's own draws come from in every run the invocation makes, whatever `-schedule` — the branch a `@Probability`-weighted decision takes, the value a `RandomFunctions` call returns — and the seed `-samples` and `-runs` draw from, required with those two: the same seed draws the same run or table on every platform. Without it a run that must draw is refused naming the call and the flag, and a weighted decision takes its most probable branch. See [Running an action many times](#running-an-action-many-times) |
-| `-runs <n>` | Runs the one `-action` to completion `n` times, each on a fresh context with a model seed of its own derived from `-seed` and the run number, and tables what each run's `-observe` features came to with a distribution of each; needs exactly one `-action` and `-seed` — unless `-draws` is `min`, `max` or `average`, under which the runs draw nothing at random and the seed may be left out — and is refused with `-sweep`, `-samples`, `-advance`, `-state` or the checker's flags. See [Running an action many times](#running-an-action-many-times) |
+| `-runs <n>` | Runs the one `-action` to completion `n` times, each on a fresh context with a model seed of its own derived from `-seed` and the run number, and tables what each run's `-observe` features came to with a distribution of each; or runs the one `-analysis` that specializes `Simulation::MonteCarlo` `n` times the same way, tabling what each run observed and concluding the case once over the sample; needs exactly one `-action` or `-analysis` and `-seed` — unless `-draws` is `min`, `max` or `average`, under which the runs draw nothing at random and the seed may be left out — and is refused with `-sweep`, `-samples`, `-advance`, `-state` or the checker's flags. See [Running an action many times](#running-an-action-many-times) |
 | `-draws <policy>` | How every run the invocation makes resolves the draws of `RandomFunctions` — `uniform`, `uniformInteger`, `triangular`, `normal`: `random` (the default) draws each call from `-seed`; `min`, `max` and `average` take each call's least, greatest or mean value instead and need no seed (`min` and `max` read a bounded call's interval closed at both ends, so `uniform(lo, hi)` is `lo` or `hi`); `normal` with a positive deviation has no least or greatest value, so a run that calls it under `min` or `max` stops with an error (`normal(m, 0)` is `m` under every policy, `random` included, and needs no seed). Weighted decisions are not durations: they draw from `-seed` under every policy, and unseeded take their most probable branch. Every witness records the policy as `draws by <policy>`, and `-schedule replay:<file>` follows it. See [Running an action many times](#running-an-action-many-times) |
 | `-clock-step <seconds>` | The step the clock of every run the invocation makes ticks by, as a simulation tool's fixed-step clock does: a wait (`accept after`, `accept at`, a state's timer, a case's timed step) comes due at the first multiple of the step not before the instant it ends, so under `-clock-step 1` a wait of `2.3 [s]` set at `t=0` comes due at `t=3.0`; `0` (the default) is a continuous clock, on which a wait comes due exactly when it ends. A step that is no finite, non-negative number is refused before anything runs. Every witness of a stepped run records it as `clock steps by <seconds>`, and `-schedule replay:<file>` follows it. With `-compare-results`, replaces every configuration's recorded `stepSize`. See [Running an action many times](#running-an-action-many-times) |
 | `-observe <feature>` | A feature of the `-runs` action to table, or `clock` for the simulation time each run completed at (the clock's name, never a feature's); repeatable; default every feature the action holds and the clock. A name the action does not hold, or one named twice, is refused; the flag without `-runs` or `-compare-results` is refused. With `-compare-results`, a stored observable to compare, read from the target's feature of the same name (`target.<observable>`), or `-observe <observable>=<feature>` to read it from another feature of the run (`Time_Acq_Total=clock`); default every stored observable |
@@ -294,6 +294,7 @@ Other modes, each described in full by `sysml -help` and the manual page:
 | `-compile <name>` | Compiles the named `calc def` to a native executable named by `-o`; `-target c` (default) or `go` picks the backend, and `-source` writes the generated source to `-o` instead of building it. What else compiles is in [Native compilation](../project/native-compilation.md) |
 | `-sync-diff <repo>` | Shows the change set between the model and a repository — a graph file (`.ttl`) or a SysML v2 API endpoint URL — keyed by effective element id, and never writes. `-sync-base <file>` names the repository graph at the last-seen commit so repository changes since then surface as conflicts; `-sync-confirm-deletes` confirms repository-side deletes, which the diff otherwise reports but refuses to apply; `-sync-mint-ids` mints a UUID for each unannotated element being created, and `-sync-annotate <file>` writes the model with each minted id declared as an `@ElementId` annotation |
 | `-sync-apply <url>` | Applies the change set to the model's project branch at the SysML v2 API endpoint, refusing one the dry run would have flagged, then records the commit in the sync state (`-sync-state <file>`, default `<model>.sync.json` beside the model). The token comes from `FLEXO_INTEROP_TOKEN` |
+| `-sync-state <file>` | The sync state file a live sync or a `-convert` over a branch URL reads and records the last-seen commit in; the defaults are `<model>.sync.json` on `-sync-apply` and a push, and `<output>.sync.json` on a branch read written to `-o`. A stdout branch read records nothing unless `-sync-state` names a file |
 | `-memstats`, `-cpuprofile <file>`, `-memprofile <file>` | Report on stderr what the run cost — wall time, memory allocated, memory taken from the OS — or write a CPU or heap profile for `go tool pprof` |
 | `-to <format>` | Replaced by `-convert`, which names the output format |
 
@@ -1051,6 +1052,55 @@ reads as before; a line naming `0`, a negative step, or a step twice is refused)
 migrated from a tool whose `startTime` set its clock going carries the tool's `stepSize` as its
 own step, which `-compare-results` runs it under; see below.
 
+**A Monte Carlo analysis case.** `-runs <n>` also runs the one `-analysis` that specializes
+`Simulation::MonteCarlo`, the OpenSysML library's analysis of repeated runs (the form a SysML v1
+migration gives a simulation tool's Monte Carlo pattern; see
+[Monte Carlo analyses](sysml-v1-migration.md#monte-carlo-analyses)). Each run performs the
+case's steps on a fresh object of its subject, seeded as an action's run is, and reads the value
+the case binds as `observed`; the table has one row per run with that value and its distribution
+beneath, and then the case is concluded once over the sample: `runs`, `mean`, `deviation` (the
+sample standard deviation, none under two runs) and `outOfSpec` (the runs in which a check of
+the case did not hold) are bound and the case's own outputs evaluated over them, a failed run
+failing the table. A check any run decides on its own — one of `observed`, say, or of `observed`
+and a statistic both — is a check of the runs: once the sample is in, each run's is settled over
+it and tabled in the run's row, and the runs it did not hold in are counted as `outOfSpec`, whichever
+run came last; a check every run leaves to the sample, one of `mean` or another statistic alone,
+is decided once at the conclusion and an unsatisfied one fails the verdict. A count of runs the
+sweep budget does not allow is refused
+before any run is made. An
+`observed` that is a quantity is sampled by its magnitude in the first run's unit — a later run
+in a commensurable unit is converted, one of another dimension refuses the sample — and `mean`
+and `deviation` are quantities in that unit; the sample is of numbers or of quantities, never
+both. The table stands whatever the sample: when every run failed, each run's row and error
+are tabled and the case is reported unconcluded rather than refused as a sample of nothing, and
+a run observing no number is refused naming the run and what it observed, under the table; a
+failed run fails the case whatever comes of the sample, so only a table of completed runs is left
+unresolved by a sample or a conclusion that cannot be made. The sample deviation of Reals is
+scaled before it is squared, so a finite sample has a finite deviation however large. The runs
+make their objects from their declarations, so a subject named by `#id` alone is refused, and
+`-observe` belongs to an action's runs, not a case's. Run once, without `-runs`, such a case
+leaves its statistics unbound, so a return of one of them is refused naming `-runs`.
+
+```bash
+$ sysml out.sysml -instantiate "'settling analysis'" \
+    -analysis "'Settling Analysis Monte Carlo' 'settling analysis'" -runs 2 -seed 7
+runs Settling Analysis Monte Carlo — 2 run(s), seed 7
+run | observed           | time
+----+--------------------+--------
+1   | 2.4280365013180862 | 3.736ms
+2   | 3.3645571860689465 | 3.492ms
+observed: 2 run(s), min 2.4280365013180862, mean 2.8962968436935164, max 3.3645571860689465, p50 2.4280365013180862, p90 3.3645571860689465
+  …
+✓ 'Settling Analysis Monte Carlo' over 2 run(s)
+  runs = 2
+  mean = 2.8962968436935164
+  deviation = 0.6622201269088022
+  outOfSpec = 0
+  Mean = 2.8962968436935164
+  Deviation = 0.6622201269088022
+  OutOfSpec = 0
+```
+
 ```bash
 $ sysml -action Sys::align -runs 3 -draws max -observe clock m.sysml
 runs Sys::align — 3 run(s), no seed
@@ -1131,7 +1181,15 @@ and its result location, since a Monte Carlo does not come out alike twice, and 
 same. Summaries of one observable whose means lie more than three standard errors apart cannot
 be of runs of one and the same model — the tool ran them under other values than the snapshots
 record — so they are noted by name under the table, and the pooled mean they are compared by is
-said to blend them. A configuration whose tool ran it on a stepped
+said to blend them. An observable a migrated Monte Carlo analysis def was written for
+(the sidecar's `analysisCase` and `statistics`) is followed by a table of the case's
+statistics — its declared returns first (`return Mean`), then the outputs of
+`Simulation::MonteCarlo` the tool stored without a return (`out deviation`), the case computing
+them all: the tool's `Mean` and `Deviation` pooled over its summaries, the
+runs' by the same aggregation (the arithmetic mean, the sample standard deviation) and their
+relative difference; `N` side by side, undifferenced, each side's count being its own choice;
+`OutOfSpec` the tool's alone, noted as its own criterion, which no migrated check evaluates. A
+summary that kept no deviation leaves the tool's `Deviation` blank with a note. A configuration whose tool ran it on a stepped
 clock — a `startTime` set, so the tool's clock was going, its `stepSize` (`1.0` when unstated) the
 step — is run under that step, named in the header as `clock step <seconds> s`; `-clock-step`
 replaces it for every configuration, `-clock-step 0` running them all on a continuous clock. A run that fails is an `error:` line under the
@@ -1757,6 +1815,41 @@ answers it beside `smt` under `-engine all`.
 With `-json` the `smt` engine's `results[]` entry carries the pair as `witness` and `contrast`,
 each with its `schedule`, `choices`, `inputs[]` and the `path` `-check-witness` wrote, and the
 verdict's `reason` names the two values and the parting move.
+
+## Reading and pushing a repository branch
+
+A `-convert` run may name a Flexo MMS project branch on either side, in one of two URL forms:
+`http(s)://host[:port][/base]/projects/{project}/branches/{branch}` — the SysML v2 API's own
+branch resource, where everything before `/projects/` is the endpoint and must be the
+one `FLEXO_SYSMLV2_URL` configures — a URL for another endpoint is refused, since the
+read and the push go through `FLEXO_LAYER1_URL` — or `flexo://{project}/{branch}`, the
+shorthand for that configured endpoint (default `http://localhost:8083`). Both need the
+bearer token `FLEXO_INTEROP_TOKEN`, and a plaintext `http://` endpoint off this machine
+is refused unless `FLEXO_ALLOW_PLAIN_HTTP=1`.
+
+As the model argument the branch is **read** as its head commit's RDF graph — the same read
+`-sync-diff` makes through Layer 1 — so `-convert sysml` writes it back as notation and
+`-convert ttl` as normalized Turtle, and `-from` accepts only the RDF spellings (`ttl`,
+`turtle`, `rdf`). As `-o` the branch is **pushed**: `-convert ttl` replaces the branch's whole
+model graph with the converted Turtle, conditional on the branch's etag (`If-Match` against
+Layer 1), so a head the sync state says has moved is refused with exit 1 and nothing is
+written; `-convert sysml -o <url>` is refused, since a branch holds a graph, not notation.
+A run takes one side as a URL — reading a branch into a branch is refused — and `-o` naming
+the same file `-sync-state` does is refused, since the model would replace the recorded commit.
+
+```bash
+sysml flexo://demo/main -convert sysml                       # branch to notation on stdout
+sysml flexo://demo/main -convert sysml -o model.sysml        # ...to a file, recording the head
+sysml model.sysml -convert ttl -o flexo://demo/main          # replace the branch's model graph
+sysml model.sysml -convert ttl -o https://mms.example.com/projects/demo/branches/main
+# ...when FLEXO_SYSMLV2_URL and FLEXO_LAYER1_URL point at that same stack
+```
+
+The head commit a read or push stood at is recorded in the sync state — `-sync-state <file>`,
+or `<output>.sync.json` beside a `-o` file on a read and `<model>.sync.json` on a push — so a
+later push is refused rather than silently overwriting another writer's commit, exactly the
+moved-head refusal `-sync-apply` gives. A stdout-only read records nothing unless `-sync-state`
+names a file.
 
 ## Output Format
 

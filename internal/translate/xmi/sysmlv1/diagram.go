@@ -58,21 +58,23 @@ func isDiagram(raw *xmi.Element) bool {
 
 // diagram reads one serialized diagram: its kind from the representation
 // object's type and umlType attributes, its contents from the usedElements ids
-// and usedObjects hrefs beneath that object. Owner and shown elements are
-// resolved by linkDiagrams once every document is read, since a diagram may
+// and usedObjects hrefs beneath that object; without a representation object
+// nothing is shown, whatever other tool content lists. Owner and shown elements
+// are resolved by linkDiagrams once every document is read, since a diagram may
 // precede what it names.
 func (m *Model) diagram(raw *xmi.Element, ext *Extension) {
 	d := Diagram{
 		ID: raw.ID, Name: raw.Name(), OwnerID: raw.Attr("ownerOfDiagram"),
 		Holder: ext.Owner, Extender: ext.Extender,
 	}
-	contents := raw
-	if rep := representation(raw); rep != nil {
-		d.Kind, d.UMLKind = rep.Attrs["type"], rep.Attrs["umlType"]
-		contents = rep
+	rep := representation(raw)
+	if rep == nil {
+		m.Diagrams = append(m.Diagrams, d)
+		return
 	}
+	d.Kind, d.UMLKind = rep.Attrs["type"], rep.Attrs["umlType"]
 	seen := map[string]bool{}
-	walkDiagram(contents, func(n *xmi.Element) {
+	walkDiagram(rep, func(n *xmi.Element) {
 		if n.Tag != "usedElements" && n.Tag != "usedObjects" {
 			return
 		}
@@ -88,18 +90,32 @@ func (m *Model) diagram(raw *xmi.Element, ext *Extension) {
 	m.Diagrams = append(m.Diagrams, d)
 }
 
-// representation finds the diagram's representation object: the first element
-// beneath raw that states a diagram type in a plain type or umlType attribute.
-// An xmi:type names an element's metaclass, never a diagram kind, so typed
-// children such as comments are passed over. Nil when the tool wrote none.
+// representation finds the diagram's representation object by how it is held or
+// tagged, else by a umlType; a plain type names a UML type, never a diagram kind.
 func representation(raw *xmi.Element) *xmi.Element {
-	var rep *xmi.Element
+	var structural, typed *xmi.Element
 	walkDiagram(raw, func(n *xmi.Element) {
-		if rep == nil && n != raw && (n.Attrs["type"] != "" || n.Attrs["umlType"] != "") {
-			rep = n
+		if n == raw {
+			return
+		}
+		if structural == nil && isRepresentationObject(n) {
+			structural = n
+		}
+		if typed == nil && n.Attrs["umlType"] != "" {
+			typed = n
 		}
 	})
-	return rep
+	if structural != nil {
+		return structural
+	}
+	return typed
+}
+
+// isRepresentationObject reports whether n is serialized as a diagram's
+// representation object: by its tag, or by the diagramRepresentation holding it.
+func isRepresentationObject(n *xmi.Element) bool {
+	return n.Tag == "DiagramRepresentationObject" ||
+		n.Parent != nil && n.Parent.Tag == "diagramRepresentation"
 }
 
 // walkDiagram visits root and its descendants in document order, staying out
@@ -125,8 +141,12 @@ func (m *Model) linkDiagrams() {
 	}
 }
 
-// Diagram finds the diagram with xmi:id id; nil when no diagram has it.
+// Diagram finds the diagram with xmi:id id, or the one an href's fragment
+// names; nil when no diagram has it.
 func (m *Model) Diagram(id string) *Diagram {
+	if i := strings.LastIndexByte(id, '#'); i >= 0 {
+		id = id[i+1:]
+	}
 	if id == "" {
 		return nil
 	}

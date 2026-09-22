@@ -78,6 +78,69 @@ func TestDiagramViews(t *testing.T) {
 		{"a diagram named like a member of its package is renamed past it",
 			``, diagram("_d", "Pump", "_sys", "SysML Block Definition Diagram", "_pump"),
 			[]string{"view 'Pump 2' {\n        expose Pump;\n        render Views::asTreeDiagram;\n    }"}, Approximated, "written as Pump 2 since a member of its owner is also named Pump"},
+		{"a diagram of an activity that is an operation's method is written in the operation's body",
+			`<packagedElement xmi:type="uml:Class" xmi:id="_valve" name="Valve">
+			   <ownedOperation xmi:type="uml:Operation" xmi:id="_open" name="Open" method="_opening"/>
+			   <ownedBehavior xmi:type="uml:Activity" xmi:id="_opening" name="Opening" specification="_open">
+			     <node xmi:type="uml:InitialNode" xmi:id="_o_init"/>
+			   </ownedBehavior>
+			 </packagedElement>`,
+			diagram("_d", "Opening", "_opening", "SysML Activity Diagram", "_opening", "_pump"),
+			[]string{"action def Open {\n        view Opening {\n            expose Open;\n            expose Sys::Pump;\n            render Views::asTextualNotation;\n        }\n    }"}, Mapped,
+			"its owner Activity Valve::Opening is written as the body of action def Valve::Open, whose method it is"},
+		{"a diagram of an opaque behavior that is an operation's method is written in the operation's body",
+			`<packagedElement xmi:type="uml:Class" xmi:id="_valve" name="Valve">
+			   <ownedOperation xmi:type="uml:Operation" xmi:id="_shut" name="Shut" method="_shutting"/>
+			   <ownedBehavior xmi:type="uml:OpaqueBehavior" xmi:id="_shutting" name="Shutting" specification="_shut">
+			     <language>JavaScript</language><body>1;</body>
+			   </ownedBehavior>
+			 </packagedElement>`,
+			diagram("_d", "Shutting", "_shutting", "SysML Activity Diagram", "_pump"),
+			[]string{"action def Shut {\n        view Shutting {\n            expose Sys::Pump;\n            render Views::asTextualNotation;\n        }\n        /* body not migrated"}, Mapped,
+			"its owner OpaqueBehavior Valve::Shutting is written as the body of action def Valve::Shut, whose method it is"},
+		{"a member of a method behavior is exposed under the operation that holds its body",
+			`<packagedElement xmi:type="uml:Class" xmi:id="_valve" name="Valve">
+			   <ownedOperation xmi:type="uml:Operation" xmi:id="_open" name="Open" method="_opening"/>
+			   <ownedBehavior xmi:type="uml:Activity" xmi:id="_opening" name="Opening" specification="_open">
+			     <ownedAttribute xmi:type="uml:Property" xmi:id="_status" name="status"/>
+			     <node xmi:type="uml:InitialNode" xmi:id="_o_init"/>
+			   </ownedBehavior>
+			 </packagedElement>`,
+			diagram("_d", "Valves", "_sys", "SysML Block Definition Diagram", "_status"),
+			[]string{"action def Open {\n        ref status;", "view Valves {\n        expose Valve::Open::status;\n        render Views::asTreeDiagram;\n    }"}, Mapped, ""},
+		{"a shown association end is exposed under the name its connection def declares",
+			`<packagedElement xmi:type="uml:Class" xmi:id="_tank" name="Tank">
+			   <ownedAttribute xmi:type="uml:Property" xmi:id="_t_end" name="pump" type="_pump" association="_feeds"/>
+			 </packagedElement>
+			 <packagedElement xmi:type="uml:Association" xmi:id="_feeds" name="Feeds" memberEnd="_t_end _a_end">
+			   <ownedEnd xmi:type="uml:Property" xmi:id="_a_end" type="_pump" association="_feeds"/>
+			 </packagedElement>`,
+			diagram("_d", "Feeding", "_sys", "SysML Block Definition Diagram", "_a_end"),
+			[]string{"connection def Feeds {\n    end pump2 : Sys::Pump;\n    end pump : Sys::Pump;\n}", "view Feeding {\n        expose Feeds::pump;\n        render Views::asTreeDiagram;\n    }"}, Mapped, ""},
+		{"a shown primitive is exposed past a member named like its library package",
+			`<packagedElement xmi:type="uml:Class" xmi:id="_svs" name="ScalarValues"/>
+			 <packagedElement xmi:type="uml:Class" xmi:id="_tank" name="Tank">
+			   <ownedAttribute xmi:type="uml:Property" xmi:id="_level" name="level">
+			     <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+			   </ownedAttribute>
+			 </packagedElement>`,
+			diagram("_d", "Levels", "_tank", "SysML Block Definition Diagram", "_level",
+				"http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"),
+			[]string{"view Levels {\n        expose level;\n        expose $::ScalarValues::Real;\n        render Views::asTreeDiagram;\n    }"}, Mapped, ""},
+		{"a diagram of a user stereotype is written in its metadata def",
+			`<packagedElement xmi:type="uml:Profile" xmi:id="_marks" name="Marks">
+			   <packagedElement xmi:type="uml:Stereotype" xmi:id="_review" name="Review">
+			     <ownedAttribute xmi:type="uml:Property" xmi:id="_status" name="status"/>
+			   </packagedElement>
+			 </packagedElement>`,
+			diagram("_d", "Reviews", "_review", "Profile Diagram", "_status", "_pump"),
+			[]string{"metadata def Review {\n        attribute status;\n        view Reviews {\n            expose status;\n            expose Sys::Pump;\n            render Views::asTreeDiagram;\n        }\n    }"}, Mapped, ""},
+		{"a diagram without a representation exposes nothing, whatever other tool content lists",
+			``, `<ownedDiagram xmi:type="uml:Diagram" xmi:id="_d" name="Bare" ownerOfDiagram="_sys"><xmi:Extension>
+			   <legend type="_pump"><usedElements>_rate</usedElements></legend><history><usedObjects href="#_pump"/></history>
+			 </xmi:Extension></ownedDiagram>`,
+			[]string{"view Bare {\n        render Views::asTextualNotation;\n    }"}, Approximated,
+			"no diagram representation is serialized: what the diagram is and shows is unknown, and the view exposes nothing"},
 		{"a diagram named like an earlier diagram of its owner is numbered",
 			``, diagram("_d1", "Overview", "_sys", "SysML Package Diagram") + diagram("_d", "Overview", "_sys", "SysML Package Diagram"),
 			[]string{"view Overview {", "view 'Overview 2' {"}, Approximated, "written as Overview 2"},
@@ -114,13 +177,14 @@ func TestDiagramViews(t *testing.T) {
 }
 
 // TestDiagramWithoutHost covers a diagram nothing written can hold: its owner
-// is a profile, which the migrator skips, and so is every ancestor.
+// is the modeling tool's own profile, which the migrator skips, and so is every ancestor.
 func TestDiagramWithoutHost(t *testing.T) {
 	src := `<?xml version="1.0" encoding="UTF-8"?>
 <xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
          xmlns:uml="http://www.omg.org/spec/UML/20161101"
          xmlns:diagram="http://example.org/diagram">
-  <uml:Profile xmi:type="uml:Profile" xmi:id="_p" name="Custom">
+  <uml:Profile xmi:type="uml:Profile" xmi:id="_p" name="Customization"
+               URI="http://www.magicdraw.com/spec/Customization/190/UML">
     <packagedElement xmi:type="uml:Stereotype" xmi:id="_st" name="Marked"/>
     <xmi:Extension extender="Tool">` + diagram("_d", "Profile Diagram", "_p", "Profile Diagram", "_st") + `</xmi:Extension>
   </uml:Profile>
@@ -165,7 +229,8 @@ func TestExposeOfUnhostedDiagramFailsPerClient(t *testing.T) {
     <packagedElement xmi:type="uml:Class" xmi:id="_v2" name="Detail"/>
     <packagedElement xmi:type="uml:Dependency" xmi:id="_d" client="_v1 _v2" supplier="_pump _pd"/>
   </uml:Model>
-  <uml:Profile xmi:type="uml:Profile" xmi:id="_p" name="Custom">
+  <uml:Profile xmi:type="uml:Profile" xmi:id="_p" name="Customization"
+               URI="http://www.magicdraw.com/spec/Customization/190/UML">
     <packagedElement xmi:type="uml:Stereotype" xmi:id="_st" name="Marked"/>
     <xmi:Extension extender="Tool">` + diagram("_pd", "Profile Diagram", "_p", "Profile Diagram", "_st") + `</xmi:Extension>
   </uml:Profile>

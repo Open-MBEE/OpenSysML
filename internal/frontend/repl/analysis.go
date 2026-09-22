@@ -43,7 +43,7 @@ func splitAnalysisArgs(tail string) (analysisInvocation, error) {
 	if rest == "" {
 		return inv, nil
 	}
-	if strings.ContainsAny(rest, " \t") {
+	if indexOutsideName(rest, " \t") >= 0 {
 		return analysisInvocation{}, fmt.Errorf("%q does not name one object; arguments are written in parentheses after the case's name", rest)
 	}
 	inv.object = rest
@@ -129,13 +129,7 @@ func (s *Session) analysisVerdict(inv analysisInvocation) Verdict {
 			status = s
 		}
 	}
-	mark := "✓"
-	switch status {
-	case VerdictFails:
-		mark = "✗"
-	case VerdictUnresolved:
-		mark = "?"
-	}
+	mark := statusMark(status)
 	on := ""
 	if subject != nil {
 		on = " on " + objectMention(subject, subjectLabel)
@@ -156,7 +150,11 @@ func (s *Session) analysisVerdict(inv analysisInvocation) Verdict {
 // the case's calcs — a trade study's alternatives in subject order, the
 // selected one marked, and those evaluating alike marked tied.
 func (s *Session) reportCaseRun(verdict *Verdict, result runtime.AnalysisResult) {
-	ctx := s.rtCtx
+	reportCaseRunIn(s.rtCtx, verdict, result)
+}
+
+// reportCaseRunIn reports a case run made in ctx, which its values are read through.
+func reportCaseRunIn(ctx *runtime.Context, verdict *Verdict, result runtime.AnalysisResult) {
 	for _, out := range result.Outputs {
 		text := objectText(ctx, out.Value)
 		verdict.Lines = append(verdict.Lines, fmt.Sprintf("  %s = %s", out.Name, text))

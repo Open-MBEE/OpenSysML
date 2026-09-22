@@ -87,6 +87,13 @@ func (a *activity) admitAbsentNode(n *sysmlv1.Element) (changed bool) {
 	if a.dead[n] {
 		return changed
 	}
+	if n.Type == "CallBehaviorAction" && a.m.model.Ref(n, "behavior") == nil && a.stubStep(n) {
+		for _, pin := range outputPins(n) {
+			if a.m.admitNone(pin, stubComputesNothing) {
+				changed = true
+			}
+		}
+	}
 	callee, args := a.callArguments(n)
 	if callee == nil {
 		return changed
@@ -193,7 +200,8 @@ func (a *activity) absentResult(p *sysmlv1.Element) string {
 }
 
 // mayLack says why a producer may yield no value: it is the node of a parameter
-// admitting none, or an output pin of a call whose callee's out parameter does.
+// admitting none, an output pin declared admitting none, or one of a call whose
+// callee's out parameter does.
 func (a *activity) mayLack(s *sysmlv1.Element) string {
 	switch nodeKind(s) {
 	case nodeParam:
@@ -202,6 +210,9 @@ func (a *activity) mayLack(s *sysmlv1.Element) string {
 			return "the parameter " + a.m.nameFor(p) + " of " + qualifiedName(a.act) + ", which feeds it, admits no value"
 		}
 	case nodePin:
+		if why, ok := a.m.admitsNone[s]; ok {
+			return "the pin " + describe(s) + " of " + describe(s.Parent) + ", which feeds it, admits no value: " + why
+		}
 		if !a.producesAt(s) {
 			return ""
 		}

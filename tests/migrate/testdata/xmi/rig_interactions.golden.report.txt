@@ -38,12 +38,12 @@ ControlFlow	Motor::Spinning::<ControlFlow>	_cfSet
 ObjectFlow	Motor::Spinning::<ObjectFlow>	_ofRpm
 ObjectFlow	Motor::Spinning::<ObjectFlow>	_ofRes
 ReadStructuralFeatureAction	Motor::Spinning::read speed	_read	-> 'read speed'
-OutputPin	Motor::Spinning::read speed::result	_readOut	-> Motor::Spinning::'read speed'.result
+OutputPin	Motor::Spinning::read speed::result	_readOut	-> Motor::Spin::'read speed'.result
 Parameter	Motor::Spinning::result	_spRes2	-> Motor::Spin::result	(stands for the operation's parameter result at the same position, which is written once)
-ActivityParameterNode	Motor::Spinning::result	_apnRes	-> Motor::Spinning::result	(the flows to and from the node name the parameter result)
+ActivityParameterNode	Motor::Spinning::result	_apnRes	-> Motor::Spin::result	(the flows to and from the node name the parameter result)
 Parameter	Motor::Spinning::rpm	_spRpm2	-> Motor::Spin::rpm	(stands for the operation's parameter rpm at the same position, which is written once)
-ActivityParameterNode	Motor::Spinning::rpm	_apnRpm	-> Motor::Spinning::rpm	(the flows to and from the node name the parameter rpm)
-InputPin	Motor::Spinning::set speed::value	_setVal	-> Motor::Spinning::'set speed'.value
+ActivityParameterNode	Motor::Spinning::rpm	_apnRpm	-> Motor::Spin::rpm	(the flows to and from the node name the parameter rpm)
+InputPin	Motor::Spinning::set speed::value	_setVal	-> Motor::Spin::'set speed'.value
 Parameter	Motor::Spinning::times	_spTimes2	-> Motor::Spin::times	(stands for the operation's parameter times at the same position, which is written once)
 Property	Motor::speed	_speed	-> Motor::speed
 «Block» Class	Other	_other	-> Other

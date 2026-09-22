@@ -96,8 +96,8 @@ func TestFormatRemedyNamesBothSurfaces(t *testing.T) {
 		t.Fatal("expected an unknown-format error")
 	}
 	advised := convert.Advise(err, "pass -from, or "+convert.ExtensionAdvice)
-	want := `cannot tell the format of "model.txt": expected .sysml, .kerml or .ttl, ` +
-		"so pass -from, or name the file with a .sysml, .kerml or .ttl extension"
+	want := `cannot tell the format of "model.txt": expected .sysml, .kerml, .ttl or .json, ` +
+		"so pass -from, or name the file with a .sysml, .kerml, .ttl or .json extension"
 	if advised.Error() != want {
 		t.Errorf("err = %q; want %q", advised.Error(), want)
 	}

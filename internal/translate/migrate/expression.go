@@ -38,10 +38,14 @@ func treeOperator(table map[string]string, symbol string) (string, bool) {
 }
 
 // treeLowering lowers one tree read at scope; operands script text cannot spell
-// — an instance value — are stood for by placeholder names it answers itself.
+// — an instance value, an opaque body in its own language — are stood for by
+// placeholder names it answers itself.
 type treeLowering struct {
 	s      *bodyScope
 	leaves map[string]opaqueRef
+	// spelled holds every word the tree's own symbols and opaque bodies spell,
+	// which no placeholder may shadow.
+	spelled map[string]bool
 }
 
 // feature answers a placeholder for an instance operand, else asks the scope.
@@ -55,7 +59,7 @@ func (l *treeLowering) feature(path []string, write bool) (opaqueRef, *refusal) 
 // expressionTree writes a UML Expression tree as a v2 expression yielding what
 // want asks for. ok is false when a node has no v2 form; note says why.
 func (m *migration) expressionTree(v, scope *sysmlv1.Element, want wanted) (expr string, ok bool, note string) {
-	l := &treeLowering{s: m.bodyScope(scope), leaves: map[string]opaqueRef{}}
+	l := &treeLowering{s: m.bodyScope(scope), leaves: map[string]opaqueRef{}, spelled: treeWords(v)}
 	text, err := l.lower(v)
 	if err == nil {
 		expr, err = m.translateIn(text, "", l, want)
@@ -88,10 +92,10 @@ func (l *treeLowering) lower(v *sysmlv1.Element) (string, *refusal) {
 		if body == "" {
 			return "", &refusal{kind: refusedSyntax, token: "", why: "an opaque operand has no body"}
 		}
-		if dialectOf(lang) != dialectScript {
+		if !dialectOf(lang).script() {
 			return "", &refusal{kind: refusedLanguage, token: lang, why: "an opaque operand is read only in a script language"}
 		}
-		return "(" + body + ")", nil
+		return l.opaque(body, lang)
 	}
 	return "", &refusal{kind: refusedConstruct, token: "<" + v.Type + ">", why: "a UML " + v.Type + " has no v2 expression"}
 }
@@ -140,7 +144,8 @@ func (l *treeLowering) node(v *sysmlv1.Element) (string, *refusal) {
 		why: "no operator of that symbol over " + strconv.Itoa(len(operands)) + " operand(s) is in the translated subset"}
 }
 
-// fold writes the operands joined by op, left to right.
+// fold writes the operands joined by op, left to right; v2 groups `**` to the
+// right, so a longer power parenthesizes what is folded so far.
 func (l *treeLowering) fold(op string, operands []*sysmlv1.Element) (string, *refusal) {
 	parts := make([]string, len(operands))
 	for i, o := range operands {
@@ -150,7 +155,17 @@ func (l *treeLowering) fold(op string, operands []*sysmlv1.Element) (string, *re
 		}
 		parts[i] = x
 	}
-	return strings.Join(parts, " "+op+" "), nil
+	if op != "**" {
+		return strings.Join(parts, " "+op+" "), nil
+	}
+	x := parts[0]
+	for i, p := range parts[1:] {
+		if i > 0 {
+			x = "(" + x + ")"
+		}
+		x += " ** " + p
+	}
+	return x, nil
 }
 
 // operand writes v as the operand of an operator: a nested node in parentheses.
@@ -229,6 +244,22 @@ func (l *treeLowering) instance(v *sysmlv1.Element) (string, *refusal) {
 	return name, nil
 }
 
+// opaque translates an opaque operand in its own language and writes it through
+// a placeholder answering the translation, so a Java body keeps Java's reading.
+func (l *treeLowering) opaque(body, lang string) (string, *refusal) {
+	t, err := translateExpr(body, lang, l, wanted{})
+	if err != nil {
+		return "", err
+	}
+	ref := opaqueRef{expr: t.expr, scalar: t.scalar, object: t.object, plural: t.plural, loose: t.loose, lit: t.lit}
+	if !t.atomic && t.loose == 0 {
+		ref.expr = "(" + t.expr + ")"
+	}
+	name := l.placeholder("operand")
+	l.leaves[name] = ref
+	return name, nil
+}
+
 // element writes an element value operand — a tool's reference to a feature —
 // through a placeholder that answers what the feature's name reads from the
 // scope, refusing a feature that name does not reach from there.
@@ -263,7 +294,33 @@ func (l *treeLowering) element(v *sysmlv1.Element) (string, *refusal) {
 	return placeholder, nil
 }
 
-// placeholder derives an unused identifier from name for an instance operand.
+// treeWords collects the words the symbols and opaque bodies under v spell.
+func treeWords(v *sysmlv1.Element) map[string]bool {
+	words := map[string]bool{}
+	spell := func(text string) {
+		for _, w := range strings.FieldsFunc(text, func(r rune) bool {
+			return !(unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_' || r == '$')
+		}) {
+			words[w] = true
+		}
+	}
+	var walk func(e *sysmlv1.Element)
+	walk = func(e *sysmlv1.Element) {
+		spell(e.Attrs["symbol"])
+		if e.Type == "OpaqueExpression" {
+			body, _ := opaqueBody(e)
+			spell(body)
+		}
+		for _, c := range e.Children {
+			walk(c)
+		}
+	}
+	walk(v)
+	return words
+}
+
+// placeholder derives from name an identifier that no word of the tree and no
+// earlier placeholder spells, for an instance or element operand.
 func (l *treeLowering) placeholder(name string) string {
 	base := strings.Map(func(r rune) rune {
 		if unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_' {
@@ -276,7 +333,7 @@ func (l *treeLowering) placeholder(name string) string {
 	}
 	candidate := base
 	for i := 2; ; i++ {
-		if _, taken := l.leaves[candidate]; !taken {
+		if _, taken := l.leaves[candidate]; !taken && !l.spelled[candidate] {
 			return candidate
 		}
 		candidate = base + strconv.Itoa(i)

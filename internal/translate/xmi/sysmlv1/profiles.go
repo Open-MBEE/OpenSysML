@@ -66,7 +66,9 @@ type stereotypeName struct {
 
 // indexStereotypes reads one stereotypesHREFS table: each entry names a
 // stereotype "prefix:Name" and its href, the prefix bound by an xmlns
-// declaration in scope. Entries whose prefix is unbound are skipped.
+// declaration in scope. Entries whose prefix is unbound are skipped. The
+// first href recorded for a namespace and name is the one applications
+// resolve their definition through.
 func (m *Model) indexStereotypes(raw *xmi.Element) {
 	for _, entry := range raw.Children {
 		if entry.Tag != "stereotype" {
@@ -83,6 +85,10 @@ func (m *Model) indexStereotypes(raw *xmi.Element) {
 		}
 		if m.stereotypeNames == nil {
 			m.stereotypeNames = map[string]stereotypeName{}
+		}
+		key := stereotypeKey{namespace, name}
+		if _, dup := m.stereotypeHrefs[key]; !dup {
+			m.stereotypeHrefs[key] = href
 		}
 		known := stereotypeName{name: name, namespace: namespace}
 		m.stereotypeNames[href] = known

@@ -256,9 +256,9 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object fromFormat_ = "";
   /**
    * <pre>
-   * "sysml", "kerml", "text", "ttl", "turtle" or "rdf". Empty infers from
-   * file_path's extension, and is notation for a model_hash, since that is what
-   * parse reads; inline content has neither, so it must say.
+   * "sysml", "kerml", "text", "ttl", "turtle", "rdf", "api-json" or "json".
+   * Empty infers from file_path's extension, and is notation for a model_hash,
+   * since that is what parse reads; inline content has neither, so it must say.
    * </pre>
    *
    * <code>string from_format = 3 [json_name = "fromFormat"];</code>
@@ -279,9 +279,9 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * "sysml", "kerml", "text", "ttl", "turtle" or "rdf". Empty infers from
-   * file_path's extension, and is notation for a model_hash, since that is what
-   * parse reads; inline content has neither, so it must say.
+   * "sysml", "kerml", "text", "ttl", "turtle", "rdf", "api-json" or "json".
+   * Empty infers from file_path's extension, and is notation for a model_hash,
+   * since that is what parse reads; inline content has neither, so it must say.
    * </pre>
    *
    * <code>string from_format = 3 [json_name = "fromFormat"];</code>
@@ -1112,9 +1112,9 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object fromFormat_ = "";
     /**
      * <pre>
-     * "sysml", "kerml", "text", "ttl", "turtle" or "rdf". Empty infers from
-     * file_path's extension, and is notation for a model_hash, since that is what
-     * parse reads; inline content has neither, so it must say.
+     * "sysml", "kerml", "text", "ttl", "turtle", "rdf", "api-json" or "json".
+     * Empty infers from file_path's extension, and is notation for a model_hash,
+     * since that is what parse reads; inline content has neither, so it must say.
      * </pre>
      *
      * <code>string from_format = 3 [json_name = "fromFormat"];</code>
@@ -1134,9 +1134,9 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * "sysml", "kerml", "text", "ttl", "turtle" or "rdf". Empty infers from
-     * file_path's extension, and is notation for a model_hash, since that is what
-     * parse reads; inline content has neither, so it must say.
+     * "sysml", "kerml", "text", "ttl", "turtle", "rdf", "api-json" or "json".
+     * Empty infers from file_path's extension, and is notation for a model_hash,
+     * since that is what parse reads; inline content has neither, so it must say.
      * </pre>
      *
      * <code>string from_format = 3 [json_name = "fromFormat"];</code>
@@ -1157,9 +1157,9 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * "sysml", "kerml", "text", "ttl", "turtle" or "rdf". Empty infers from
-     * file_path's extension, and is notation for a model_hash, since that is what
-     * parse reads; inline content has neither, so it must say.
+     * "sysml", "kerml", "text", "ttl", "turtle", "rdf", "api-json" or "json".
+     * Empty infers from file_path's extension, and is notation for a model_hash,
+     * since that is what parse reads; inline content has neither, so it must say.
      * </pre>
      *
      * <code>string from_format = 3 [json_name = "fromFormat"];</code>
@@ -1176,9 +1176,9 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * "sysml", "kerml", "text", "ttl", "turtle" or "rdf". Empty infers from
-     * file_path's extension, and is notation for a model_hash, since that is what
-     * parse reads; inline content has neither, so it must say.
+     * "sysml", "kerml", "text", "ttl", "turtle", "rdf", "api-json" or "json".
+     * Empty infers from file_path's extension, and is notation for a model_hash,
+     * since that is what parse reads; inline content has neither, so it must say.
      * </pre>
      *
      * <code>string from_format = 3 [json_name = "fromFormat"];</code>
@@ -1192,9 +1192,9 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * "sysml", "kerml", "text", "ttl", "turtle" or "rdf". Empty infers from
-     * file_path's extension, and is notation for a model_hash, since that is what
-     * parse reads; inline content has neither, so it must say.
+     * "sysml", "kerml", "text", "ttl", "turtle", "rdf", "api-json" or "json".
+     * Empty infers from file_path's extension, and is notation for a model_hash,
+     * since that is what parse reads; inline content has neither, so it must say.
      * </pre>
      *
      * <code>string from_format = 3 [json_name = "fromFormat"];</code>

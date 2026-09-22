@@ -4,6 +4,7 @@ import (
 	"math"
 	"math/big"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -42,6 +43,7 @@ func (m *migration) resultSnapshots(r *simresults.ConfigurationResults, s *sysml
 	if scan.analysed != nil {
 		r.Analysis = scan.analysed.Name
 	}
+	m.recordAnalysis(r, target.classifiers)
 	seenLocation := map[*sysmlv1.Element]bool{}
 	var locations []string
 	for _, id := range ids {
@@ -213,19 +215,16 @@ func sortedKeys(counts map[string]int) []string {
 	return keys
 }
 
-// monteCarloObservable is the feature the MonteCarloAnalysis a target classifier inherits
-// binds its Mean to; note says why the analysis names none. Both empty without the analysis.
+// monteCarloObservable is the value the MonteCarloAnalysis a target classifier inherits
+// binds its Mean to, a value of the binding connector's owner reached directly; note says
+// why the analysis names none. Both empty without the analysis. The nearest classifiers
+// binding Mean decide: a special's binding rebinds the Mean its generals bound.
 func (m *migration) monteCarloObservable(classifiers []*sysmlv1.Element) (observable *sysmlv1.Element, note string) {
-	order := m.classifierOrder(classifiers)
+	levels := m.classifierLevels(classifiers)
 	var analysing *sysmlv1.Element
-	for _, c := range order {
-		for _, g := range c.Owned("generalization") {
-			if isMonteCarloAnalysis(m.model.Ref(g, "general")) {
-				analysing = c
-				break
-			}
-		}
-		if analysing != nil {
+	for _, c := range slices.Concat(levels...) {
+		if m.generalizesMonteCarlo(c) {
+			analysing = c
 			break
 		}
 	}
@@ -234,27 +233,23 @@ func (m *migration) monteCarloObservable(classifiers []*sysmlv1.Element) (observ
 	}
 	var bound []*sysmlv1.Element
 	seen := map[*sysmlv1.Element]bool{}
-	for _, c := range order {
-		for _, conn := range c.Owned("ownedConnector") {
-			ends := conn.Owned("end")
-			if len(ends) != 2 {
-				continue
-			}
-			for i, end := range ends {
-				if monteCarloFeature(m.model.Ref(end, "role")) != monteCarloMean {
-					continue
-				}
-				if f := m.model.Ref(ends[1-i], "role"); f != nil && !f.IsProxy() && f.Type == "Property" && !seen[f] {
+	for _, level := range levels {
+		for _, c := range level {
+			for _, conn := range c.Owned("ownedConnector") {
+				if stat, f, _ := m.monteCarloBound(c, conn); stat == monteCarloMean && f != nil && !seen[f] {
 					seen[f] = true
 					bound = append(bound, f)
 				}
 			}
 		}
+		if len(bound) > 0 {
+			break
+		}
 	}
 	subject := describe(analysing) + " inherits " + monteCarloAnalysisBlock
 	switch len(bound) {
 	case 0:
-		return nil, subject + " but binds its " + monteCarloMean + " to no feature, so its statistics summarise no observable"
+		return nil, subject + " but binds its " + monteCarloMean + " to no value of its own, so its statistics summarise no observable"
 	case 1:
 		return bound[0], ""
 	}
@@ -263,27 +258,6 @@ func (m *migration) monteCarloObservable(classifiers []*sysmlv1.Element) (observ
 		names[i] = f.Name
 	}
 	return nil, subject + " and binds its " + monteCarloMean + " to " + strings.Join(names, ", ") + " alike, so its statistics summarise no one observable"
-}
-
-// monteCarloBinding says why a connector with an end on a MonteCarloAnalysis feature
-// has no v2 form: it wires the tool's statistic, which the migration results carry;
-// "" for a connector on no such feature.
-func (m *migration) monteCarloBinding(c *sysmlv1.Element) string {
-	ends := c.Owned("end")
-	for i, end := range ends {
-		stat := monteCarloFeature(m.model.Ref(end, "role"))
-		if stat == "" {
-			continue
-		}
-		note := "the connector wires the simulation tool's " + monteCarloAnalysisBlock + "::" + stat + ", a statistic it computes over the runs, which v2 has no analysis pattern for"
-		if len(ends) == 2 {
-			if f := m.model.Ref(ends[1-i], "role"); f != nil && !f.IsProxy() {
-				note = "the connector binds " + f.Name + " to the simulation tool's " + monteCarloAnalysisBlock + "::" + stat + ", the statistic it computes of " + f.Name + " over the runs, which v2 has no analysis pattern for"
-			}
-		}
-		return note + "; the migration results read the statistic from the result snapshots"
-	}
-	return ""
 }
 
 // monteCarloSlot reads a snapshot slot of the analysis's own features as the number it
@@ -441,24 +415,39 @@ func (m *migration) classifierClosure(classifiers []*sysmlv1.Element) map[*sysml
 // classifierOrder is the classifiers and every general of theirs, each special
 // before its generals.
 func (m *migration) classifierOrder(classifiers []*sysmlv1.Element) []*sysmlv1.Element {
-	seen := map[*sysmlv1.Element]bool{}
 	var order []*sysmlv1.Element
-	queue := append([]*sysmlv1.Element(nil), classifiers...)
-	for len(queue) > 0 {
-		c := queue[0]
-		queue = queue[1:]
-		if c == nil || seen[c] {
-			continue
-		}
-		seen[c] = true
-		order = append(order, c)
-		for _, g := range c.Owned("generalization") {
-			if general := m.model.Ref(g, "general"); general != nil && !general.IsProxy() {
-				queue = append(queue, general)
-			}
-		}
+	for _, level := range m.classifierLevels(classifiers) {
+		order = append(order, level...)
 	}
 	return order
+}
+
+// classifierLevels is the classifiers and every general of theirs by distance: the
+// classifiers themselves, then their generals, then those generals' generals, each once.
+func (m *migration) classifierLevels(classifiers []*sysmlv1.Element) [][]*sysmlv1.Element {
+	seen := map[*sysmlv1.Element]bool{}
+	var levels [][]*sysmlv1.Element
+	next := append([]*sysmlv1.Element(nil), classifiers...)
+	for len(next) > 0 {
+		var level, generals []*sysmlv1.Element
+		for _, c := range next {
+			if c == nil || seen[c] {
+				continue
+			}
+			seen[c] = true
+			level = append(level, c)
+			for _, g := range c.Owned("generalization") {
+				if general := m.model.Ref(g, "general"); general != nil && !general.IsProxy() {
+					generals = append(generals, general)
+				}
+			}
+		}
+		if len(level) > 0 {
+			levels = append(levels, level)
+		}
+		next = generals
+	}
+	return levels
 }
 
 // descendantInstances lists the instance specifications under pkg at any depth, in document order.

@@ -103,6 +103,12 @@ func TestViewForms(t *testing.T) {
 			 <xmi:Extension extender="Tool"><ownedDiagram xmi:type="uml:Diagram" xmi:id="_bdd" name="Pump BDD" ownerOfDiagram="_sys"/></xmi:Extension>`,
 			`<sysml:View xmi:id="_s1" base_Class="_v"/><sysml:Expose xmi:id="_s2" base_Dependency="_d"/>`,
 			[]string{"view Overview {\n    expose Sys::'Pump BDD';\n}", "view 'Pump BDD' {\n        render Views::asTextualNotation;\n    }"}, "_d", Mapped},
+		{"an expose whose supplier is an href to a diagram exposes the diagram's view",
+			`<packagedElement xmi:type="uml:Class" xmi:id="_v" name="Overview"/>
+			 <packagedElement xmi:type="uml:Dependency" xmi:id="_d" client="_v"><supplier href="#_bdd"/></packagedElement>
+			 <xmi:Extension extender="Tool"><ownedDiagram xmi:type="uml:Diagram" xmi:id="_bdd" name="Pump BDD" ownerOfDiagram="_sys"/></xmi:Extension>`,
+			`<sysml:View xmi:id="_s1" base_Class="_v"/><sysml:Expose xmi:id="_s2" base_Dependency="_d"/>`,
+			[]string{"view Overview {\n    expose Sys::'Pump BDD';\n}"}, "_d", Mapped},
 		{"an expose of a diagram held by an unwritten owner names the view where it is written",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_v" name="Overview"/>
 			 <packagedElement xmi:type="uml:Dependency" xmi:id="_d" client="_v" supplier="_bdd"/>
@@ -130,6 +136,12 @@ func TestViewForms(t *testing.T) {
 			 </packagedElement>`,
 			`<sysml:View xmi:id="_s1" base_Package="_v"/>`,
 			[]string{"view Handbook {\n    part def Chapter;\n}"}, "_v", Approximated},
+		{"a nested view model holds its members and satisfies its viewpoint",
+			`<packagedElement xmi:type="uml:Model" xmi:id="_v" name="Handbook">
+			   <packagedElement xmi:type="uml:Class" xmi:id="_ch" name="Chapter"/>
+			 </packagedElement>`,
+			`<sysml:View xmi:id="_s1" base_Package="_v" viewpoint="_vp"/>`,
+			[]string{"view Handbook {\n    satisfy Ops;\n    part def Chapter;\n}"}, "_v", Approximated},
 		{"a concernList naming a block frames nothing and leaves the block mapped",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_vp2" name="Safety"/>`,
 			`<sysml:Viewpoint xmi:id="_sv2" base_Class="_vp2" concernList="_pump"/>`,
@@ -138,6 +150,11 @@ func TestViewForms(t *testing.T) {
 			`<packagedElement xmi:type="uml:Class" xmi:id="_vp2" name="Safety"/>`,
 			`<sysml:Viewpoint xmi:id="_sv2" base_Class="_vp2" concernList="_pump"/>`,
 			[]string{"viewpoint Safety;"}, "_vp2", Approximated},
+		{"an instance of a view or viewpoint has no definition to specialize",
+			`<packagedElement xmi:type="uml:Class" xmi:id="_v" name="Overview"/>
+			 <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_i" name="snapshot" classifier="_v _vp"/>`,
+			`<sysml:View xmi:id="_s1" base_Class="_v"/>`,
+			[]string{"the instance's classifier Overview is written as a view usage, which an individual cannot specialize; the instance's classifier Ops is written as a viewpoint usage, which an individual cannot specialize"}, "_i", Unmapped},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			r, err := Migrate("views.xmi", []byte(viewModel(tc.members, tc.stereotypes)))
@@ -165,6 +182,9 @@ func TestViewForms(t *testing.T) {
 			}
 			if !found {
 				t.Errorf("%s is missing from the report", tc.id)
+			}
+			if strings.Contains(got, "individual view") || strings.Contains(got, "individual viewpoint") {
+				t.Errorf("an individual specializes a usage:\n%s", got)
 			}
 		})
 	}

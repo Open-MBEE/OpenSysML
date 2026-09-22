@@ -132,3 +132,28 @@ func TestExpressionNodeIDRoundTripsAndCannotCollide(t *testing.T) {
 		}
 	}
 }
+
+// The longest claimed `_p` prefix is the node's parent.
+func TestExpressionNodeOwner(t *testing.T) {
+	for _, test := range []struct {
+		id   string
+		ids  []string
+		want string
+		ok   bool
+	}{
+		{"A_pvalue_pa0", []string{"A", "A_pvalue"}, "A_pvalue", true},
+		{"A_pvalue_pa0", []string{"A"}, "A", true},
+		{"A_pfoo", []string{"B"}, "", false},
+		{"X__pvalue", []string{"X"}, "", false},
+	} {
+		ids := map[string]bool{}
+		for _, id := range test.ids {
+			ids[id] = true
+		}
+		owner, ok := ExpressionNodeOwner(test.id, func(prefix string) bool { return ids[prefix] })
+		if ok != test.ok || owner != test.want {
+			t.Errorf("ExpressionNodeOwner(%q, %v) = %q, %v, want %q, %v",
+				test.id, test.ids, owner, ok, test.want, test.ok)
+		}
+	}
+}

@@ -23,6 +23,9 @@ type stateStmtHost struct {
 	// attrs are the attributes of the state the behavior belongs to and of the
 	// states enclosing it, innermost first.
 	attrs []map[string]Value
+	// firing is the transition the behavior reads as being taken: the one under way
+	// for an entry, exit or effect, the one that entered the state for a do behavior.
+	firing *firing
 	// terminated: the run ended by a `terminate` of the behavior's own performance.
 	terminated bool
 }
@@ -53,7 +56,7 @@ func (e *StateExecutor) executeBehavior(behavior lower.StateBehavior) (bool, err
 	if len(behavior.Body) == 0 {
 		return false, nil
 	}
-	host := e.behaviorHost(behavior)
+	host := e.behaviorHost(behavior, e.currentFiring())
 	defer e.ctx.holdClock(host.describe())()
 	if err := host.run(); err != nil {
 		return false, err
@@ -74,9 +77,9 @@ func (e *StateExecutor) endedBefore(ended []ast.Node, behavior lower.StateBehavi
 }
 
 // behaviorHost prepares one execution of a behavior: its performance over the
-// machine's data and the attributes of the states around it.
-func (e *StateExecutor) behaviorHost(behavior lower.StateBehavior) *stateStmtHost {
-	host := &stateStmtHost{exec: e, behavior: behavior, attrs: e.attrFramesFor(behavior.Owner)}
+// machine's data and the attributes of the states around it, within firing.
+func (e *StateExecutor) behaviorHost(behavior lower.StateBehavior, firing *firing) *stateStmtHost {
+	host := &stateStmtHost{exec: e, behavior: behavior, attrs: e.attrFramesFor(behavior.Owner), firing: firing}
 	host.flow = &ActionExecutor{
 		performances:     performances{ctx: e.ctx, self: e.self, root: host.rootFrame(host.attrs), owner: host, behavior: e.stateMachine},
 		action:           behaviorSymbol(behavior),
@@ -92,11 +95,31 @@ func (e *StateExecutor) behaviorHost(behavior lower.StateBehavior) *stateStmtHos
 	return host
 }
 
+// currentFiring is the transition being taken with its payload copied, so a
+// behavior performed or resumed after the firing still reads them.
+func (e *StateExecutor) currentFiring() *firing {
+	f := &firing{taken: e.firingTrans}
+	if t := e.firingTrans; t != nil && len(t.Accepted) > 0 {
+		f.payload = make(map[string]Value, len(t.Accepted))
+		for _, name := range t.Accepted {
+			if v, ok := e.stateData[name]; ok {
+				f.payload[name] = v
+			}
+		}
+	}
+	return f
+}
+
+// dataFrame is the machine's data as the behavior reads it, within its firing.
+func (h *stateStmtHost) dataFrame() frame {
+	return frame{vars: h.exec.stateData, firing: h.firing}
+}
+
 // run executes the behavior's statements; a do behavior's pause where they wait
 // and are re-entered (perform).
 func (h *stateStmtHost) run() error {
 	_, err := h.exec.ctx.runStatements(func() *stmtEngine {
-		engine := newStmtEngineOver(h.exec.ctx, h, h.exec.stateData, h.attrs)
+		engine := newStmtEngineOver(h.exec.ctx, h, h.dataFrame(), h.attrs)
 		engine.env.perf = h.perfs.root
 		return engine
 	}, h.behavior.Body)
@@ -149,13 +172,13 @@ type doRun struct {
 	mail []Message
 }
 
-// newDoRun prepares a do behavior to run, its first statement yet to be performed;
-// nil for a behavior with no statement to run.
-func (e *StateExecutor) newDoRun(behavior lower.StateBehavior) *doRun {
+// newDoRun prepares a do behavior to run within the firing that entered its state,
+// its first statement yet to be performed; nil for a behavior with no statement to run.
+func (e *StateExecutor) newDoRun(behavior lower.StateBehavior, firing *firing) *doRun {
 	if len(behavior.Body) == 0 {
 		return nil
 	}
-	host := e.behaviorHost(behavior)
+	host := e.behaviorHost(behavior, firing)
 	body := &bodyRun{work: host, awaitsMessages: true, yields: true, steps: e.ctx.scheduling().oneMove()}
 	return &doRun{host: host, body: body}
 }
@@ -251,7 +274,7 @@ func (h *stateStmtHost) rootFrame(attrs []map[string]Value) *actionFrame {
 		subactions:  make(map[ast.Node]*actionFrame),
 		nodes:       h.behavior.Nodes,
 		label:       h.describe(),
-		outer:       []frame{mapFrame(h.exec.stateData)},
+		outer:       []frame{h.dataFrame()},
 		run:         h.exec.ctx.newRun(),
 	}
 	if root.scope == nil {

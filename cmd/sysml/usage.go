@@ -235,6 +235,7 @@ func doc() usage.Doc {
 				usage.Ex(`sysml -action Acquire -seed 7 m.sysml`, "One run, its draws seeded"),
 				usage.Ex(`sysml -action Acquire -draws max m.sysml`, "Durations at their max"),
 				usage.Ex(`sysml -action A -runs 9 -seed 7 -draws average m.sysml`, "Mean durations"),
+				usage.Ex(`sysml -analysis "Mc obj" -runs 100 -seed 7 m.sysml`, "A MonteCarlo analysis case"),
 			},
 			Paragraphs: []string{
 				"-runs runs one -action to completion that many times, each run on a " +
@@ -263,6 +264,17 @@ func doc() usage.Doc {
 					"completed runs: min, mean, max, the nearest-rank p50 and p90, and " +
 					"a histogram; a non-numeric one is counted by value. A feature the " +
 					"action does not hold is refused.",
+				"-runs also runs an -analysis that specializes Simulation::MonteCarlo, " +
+					"the OpenSysML library's analysis of repeated runs: each run performs " +
+					"the case's steps on a fresh subject, seeded as an action's run is, and " +
+					"reads the value the case binds as observed; the table has one row per " +
+					"run with that value, and beneath its distribution the case is concluded " +
+					"once over the sample — runs, mean, deviation (the sample standard " +
+					"deviation) and outOfSpec (the runs in which a check of the case did not " +
+					"hold) bound, and the case's own outputs and checks evaluated over them. " +
+					"Each run makes its objects from their declarations, so a subject named " +
+					"by `#id` alone is refused. Run once, without -runs, such a case leaves " +
+					"its statistics unbound. -observe belongs to an action's runs, not a case's.",
 			},
 		}, {
 			Title: "Conversion",
@@ -271,15 +283,28 @@ func doc() usage.Doc {
 				usage.Ex("sysml model.ttl -convert sysml", "RDF Turtle to SysML notation"),
 				usage.Ex("sysml model.sysml -convert ttl -o m.ttl", "Write the conversion to a file"),
 				usage.Ex("sysml in.txt -convert ttl -from sysml", "Name the input format explicitly"),
+				usage.Ex("sysml flexo://demo/main -convert sysml", "A Flexo branch as notation"),
+				usage.Ex("sysml model.sysml -convert ttl -o flexo://demo/main", "Push the graph to the branch"),
 			},
 			Paragraphs: []string{
 				"The input format is taken from the file extension (.sysml, .kerml, " +
-					".ttl) unless -from names it: sysml, kerml, ttl, turtle, rdf, or " +
-					"xmi, uml or mdzip for a SysML v1 model to migrate, whose " +
+					".ttl, .json) unless -from names it: sysml, kerml, ttl, turtle, " +
+					"rdf, api-json, or xmi, uml or mdzip for a SysML v1 model to " +
+					"migrate, whose " +
 					"element-by-element report -migration-report writes out. " +
 					"Converting to the format it is " +
 					"already in rewrites the input: notation is reformatted, Turtle " +
 					"is normalized.",
+				"Either side may name a Flexo MMS project branch instead of a file: " +
+					"http(s)://host[:port][/base]/projects/{project}/branches/{branch}, " +
+					"or flexo://{project}/{branch}, both naming the endpoint " +
+					"FLEXO_SYSMLV2_URL configures. A branch input is read as its head " +
+					"commit's RDF graph; a branch -o takes the -convert ttl output as " +
+					"the branch's whole model graph, conditional on the branch's etag, " +
+					"and refuses a head the sync state says has moved. Both need the " +
+					"bearer token in FLEXO_INTEROP_TOKEN and record the head commit " +
+					"in the sync state (-sync-state, or <output>.sync.json on a read / " +
+					"<model>.sync.json on a push).",
 				// Printed rather than restated, so the help cannot drift from what a
 				// conversion reports.
 				convert.ExperimentalNotice,
@@ -515,7 +540,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.Var(&modelChecks.seed, "seed", "Seed the model's own draws — weighted decisions, random functions — and those of -samples and -runs; the same seed draws the same run or table")
 	fs.Var(&modelChecks.draws, "draws", "How every run resolves the draws of RandomFunctions: random (default) draws from -seed; min, max and average take each call's least, greatest or mean value and need no seed; weighted decisions draw from -seed whatever the policy")
 	fs.Var(&modelChecks.clockStep, "clock-step", "The step, in seconds, the clock of every run ticks by: a wait comes due at the first multiple of it not before the wait ends; 0 (default) is a continuous clock. With -compare-results, replaces every configuration's stepSize")
-	fs.Var(&modelChecks.runs, "runs", "Run the -action this many times, each run seeded from -seed, and table the -observe features; needs -seed unless -draws is min, max or average")
+	fs.Var(&modelChecks.runs, "runs", "Run the -action, or the Simulation::MonteCarlo -analysis, this many times, each run seeded from -seed, and table the -observe features or the case's observed value; needs -seed unless -draws is min, max or average")
 	fs.Var(&modelChecks.observe, "observe", "Report this feature of the -runs action, or clock for the time it completed at; default every feature it holds and the clock. With -compare-results, the stored observable to compare, or <observable>=<feature> to read it from another feature of the run (repeatable)")
 	fs.Var(&modelChecks.sweeps, "sweep", "Run the -analysis or -calc once per value of this range, as -sweep \"n=1..8:2\"; several ranges run their cartesian product (repeatable)")
 	fs.Var(&modelChecks.samples, "samples", "Draw this many values uniformly from each -sweep range instead of stepping through it; needs -seed")
@@ -536,10 +561,10 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.Var(&modelChecks.checker.unroll, checkUnrollFlag, "Under smt, the most iterations of one loop the solver unrolls before it stops (default 4)")
 	fs.Var(&modelChecks.checker.timeout, "check-timeout", "The time the check's plan may run for, as 30s or 2m, and the time each smt solver query may take in place of OPENSYSML_SMT_TIMEOUT")
 
-	fs.StringVar(&convertFormat, "convert", "", "Convert the model to this format instead of running it: sysml, kerml, ttl, turtle or rdf (RDF is experimental)")
-	fs.StringVar(&fromFormat, "from", "", "Input format for -convert: sysml, kerml, ttl, turtle, rdf, or xmi, uml or mdzip for a SysML v1 model to migrate (experimental); default the input's extension")
-	fs.StringVar(&outputPath, "output", "", "Write what -convert, -compile, -render or -render-document produces to this file instead of stdout")
-	fs.StringVar(&outputPath, "o", "", "Write what -convert, -compile, -render or -render-document produces to this file instead of stdout")
+	fs.StringVar(&convertFormat, "convert", "", "Convert the model to this format instead of running it: sysml, kerml, ttl, turtle, rdf or api-json (RDF and the API element form are experimental). The input may be a Flexo branch URL (host[:port][/base]/projects/{p}/branches/{b} of the FLEXO_SYSMLV2_URL endpoint, or flexo://{p}/{b}), read as its RDF graph")
+	fs.StringVar(&fromFormat, "from", "", "Input format for -convert: sysml, kerml, ttl, turtle, rdf, api-json, or xmi, uml or mdzip for a SysML v1 model to migrate (experimental); default the input's extension")
+	fs.StringVar(&outputPath, "output", "", "Write what -convert, -compile, -render or -render-document produces to this file instead of stdout; with -convert ttl, a Flexo branch URL pushes the graph to the branch")
+	fs.StringVar(&outputPath, "o", "", "Write what -convert, -compile, -render or -render-document produces to this file instead of stdout; with -convert ttl, a Flexo branch URL pushes the graph to the branch")
 	fs.StringVar(&migrationReport, "migration-report", "", "With -convert from xmi, write the element-by-element migration report to this file: JSON when it ends in .json, text otherwise")
 	fs.StringVar(&migrationResults, "migration-results", "", "With -convert from xmi, write the run configurations and the result snapshots the simulation tool stored for them to this JSON file, for -compare-results to read against the migrated model")
 	fs.StringVar(&modelChecks.compare, "compare-results", "", "Run every configuration this -migration-results file indexes — or those -action names — with its recorded runs and duration mode, or the -runs and -draws given, seeded from -seed, and table the tool's and OpenSysML's min, mean, p50, p90 and max of each observable with their relative difference")

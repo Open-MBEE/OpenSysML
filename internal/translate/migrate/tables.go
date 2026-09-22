@@ -395,7 +395,7 @@ func (m *migration) columnKey(c sysmlv1.Column, host *sysmlv1.Element) (key stri
 			return "", nil, "the column " + c.ID + " names no property of the document"
 		case !m.written(f):
 			return "", nil, "the column's " + kindOf(f) + " " + qualifiedName(f) + " is not migrated"
-		case f.Parent == nil || f.Type != "Property" || !isClassifier(m, f.Parent):
+		case f.Parent == nil || f.Type != "Property" || !m.isDefinition(f.Parent):
 			return "", nil, "the column's " + kindOf(f) + " " + qualifiedName(f) + " is not a property of a classifier"
 		}
 		return m.nameOf(f), f, ""
@@ -440,8 +440,8 @@ func (m *migration) sorted(rows qx, t *sysmlv1.Table, host *sysmlv1.Element, l *
 	return rows
 }
 
-// isClassifier reports whether e migrates to a definition a feature can belong to.
-func isClassifier(m *migration, e *sysmlv1.Element) bool {
+// isDefinition reports whether e migrates to a definition a feature can belong to.
+func (m *migration) isDefinition(e *sysmlv1.Element) bool {
 	cat, _ := m.classify(e)
 	return cat.keyword() != "" && cat != catPackage
 }

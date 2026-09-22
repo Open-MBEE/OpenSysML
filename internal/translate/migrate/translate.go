@@ -498,11 +498,12 @@ func (m *migration) simulationConfigs() (configs []*sysmlv1.Element, profiled bo
 	var walk func(e *sysmlv1.Element)
 	walk = func(e *sysmlv1.Element) {
 		for _, s := range e.Stereotypes {
-			if isSimulationProfile(s.Namespace) {
+			switch {
+			case isSimulationConfig(s):
 				profiled = true
-				if isSimulationConfig(s) {
-					configs = append(configs, e)
-				}
+				configs = append(configs, e)
+			case isSimulationProfile(s.Namespace):
+				profiled = true
 			}
 		}
 		for _, c := range e.Children {

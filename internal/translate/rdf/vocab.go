@@ -89,7 +89,7 @@ func OwningMembershipIRI(qualifiedName string) Term {
 // OwningMembershipIRIOf derives the membership IRI from the member's own
 // subject IRI, so it inherits the member's effective id and scope qualifier.
 func OwningMembershipIRIOf(member Term) Term {
-	return IRI(member.Value + owningMembershipSuffix)
+	return IRI(member.Value + OwningMembershipSuffix)
 }
 
 // ExpressionPrefix is the prefix label bound to the expression namespace. It is
@@ -104,13 +104,26 @@ func ExpressionIRI(owner Term, path string) Term {
 	return IRI(Expression + ExpressionNodeID(ownerID(owner.Value), path))
 }
 
+// SubjectID returns the id part of an element or expression subject IRI,
+// scope qualifier included (`id`, or `qualifier:id` for a scoped element), and
+// whether the term is an IRI in either identity namespace.
+func SubjectID(term Term) (string, bool) {
+	if !term.IsIRI() {
+		return "", false
+	}
+	if id, ok := strings.CutPrefix(term.Value, Element); ok {
+		return id, true
+	}
+	if id, ok := strings.CutPrefix(term.Value, Expression); ok {
+		return id, true
+	}
+	return "", false
+}
+
 // ownerID is the id part of an element or expression IRI, scope qualifier
 // included, so a node under a scoped element stays in that scope's id space.
 func ownerID(iri string) string {
-	if id, ok := strings.CutPrefix(iri, Element); ok {
-		return id
-	}
-	if id, ok := strings.CutPrefix(iri, Expression); ok {
+	if id, ok := SubjectID(IRI(iri)); ok {
 		return id
 	}
 	return LocalName(iri)

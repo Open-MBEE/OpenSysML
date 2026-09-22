@@ -29,6 +29,9 @@ type heldEntry struct {
 	scopes []*ast.StateNode
 	// machine reports that the machine body is part of this cascade.
 	machine bool
+	// firing is the transition whose entry the cascade is, with the payload it
+	// bound; the entries and do behaviors performed on resumption read it.
+	firing *firing
 }
 
 // RunToCompletionValueError reports an unevaluable or non-Boolean RTC value.
@@ -113,6 +116,7 @@ func (e *StateExecutor) holdEntry(owner *ast.StateNode, regions []*ast.StateRegi
 	e.held = append(e.held, heldEntry{
 		owner: owner, regions: regions, branches: branches,
 		chain: chain, scopes: scopes, machine: machine,
+		firing: e.currentFiring(),
 	})
 	return true, nil
 }
@@ -126,8 +130,9 @@ func (e *StateExecutor) heldOwner(state *ast.StateNode) *heldEntry {
 	return nil
 }
 
-// performHeld resumes one held entry cascade.
+// performHeld resumes one held entry cascade within the firing that began it.
 func (e *StateExecutor) performHeld(item heldEntry) (err error) {
+	defer e.resumeFiring(item.firing)()
 	clear(e.entering)
 	for _, state := range item.chain {
 		e.entering[state] = true
@@ -154,6 +159,25 @@ func (e *StateExecutor) performHeld(item heldEntry) (err error) {
 		}
 	}
 	return err
+}
+
+// resumeFiring puts the executor back within a firing whose entry cascade was
+// held, its payload bound again; the function returned takes both out.
+func (e *StateExecutor) resumeFiring(f *firing) func() {
+	if f == nil || f.taken == nil {
+		return func() { /* the cascade began outside a firing */ }
+	}
+	untake := e.taking(f.taken, e.firingNotes)
+	unbind := e.restoreData(f.taken.Accepted)
+	for _, name := range f.taken.Accepted {
+		if value, ok := f.payload[name]; ok {
+			e.bindData(name, value)
+		}
+	}
+	return func() {
+		unbind()
+		untake()
+	}
 }
 
 // settleEntered records the active configuration and schedules its transitions.

@@ -196,6 +196,61 @@ func TestDiagramRepresentationIsNotATypedChild(t *testing.T) {
 	}
 }
 
+func TestDiagramRepresentationIsNotAPlainlyTypedChild(t *testing.T) {
+	// A child carrying a plain type attribute ahead of the representation
+	// object — a legend keyed to a classifier, a typed property — names a
+	// UML type, not a diagram kind, and what it lists is not shown.
+	m := parseDiagrams(t, `
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_d" name="Typed" ownerOfDiagram="_p">
+          <ownedAttribute xmi:type="uml:Property" xmi:id="_d_p" name="frame" type="_b"/>
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <legend type="_a"><usedElements>_b</usedElements></legend>
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="Generic Table">
+                <diagramContents><usedElements>_a</usedElements></diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>`)
+	if d := m.Diagrams[0]; d.Kind != "Generic Table" || d.UMLKind != "" || ids(d.Shown) != "_a" {
+		t.Errorf("diagram = %+v", d)
+	}
+}
+
+func TestDiagramRepresentationByUMLTypeAlone(t *testing.T) {
+	// A tool that serializes the representation under its own tags is read
+	// by the umlType it states; a plainly typed child ahead of it is not.
+	m := parseDiagrams(t, `
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_d" name="Foreign" ownerOfDiagram="_p">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <canvas type="_a"><usedElements>_b</usedElements></canvas>
+            <notation:View type="Custom Table" umlType="Class Diagram">
+              <children><usedElements>_a</usedElements></children>
+            </notation:View>
+          </xmi:Extension>
+        </ownedDiagram>`)
+	d := m.Diagrams[0]
+	if d.Kind != "Custom Table" || d.UMLKind != "Class Diagram" || ids(d.Shown) != "_a" {
+		t.Errorf("diagram = %+v", d)
+	}
+}
+
+func TestDiagramWithoutRepresentationShowsNothing(t *testing.T) {
+	// Without a representation object or a UML diagram type, a plainly typed
+	// child gives the diagram no kind, and what such tool content lists is not
+	// shown: only the representation's contents are.
+	m := parseDiagrams(t, `
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_d" name="Bare" ownerOfDiagram="_p">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <legend type="_a"><usedElements>_b</usedElements></legend>
+            <history><usedObjects href="#_a"/></history>
+          </xmi:Extension>
+        </ownedDiagram>`)
+	if d := m.Diagrams[0]; d.Represented() || d.Kind != "" || d.UMLKind != "" || len(d.Shown) != 0 {
+		t.Errorf("diagram = %+v", d)
+	}
+}
+
 func TestNestedDiagramKeepsItsOwnRepresentation(t *testing.T) {
 	// A diagram serialized inside another is read as a diagram of its own;
 	// its kind and contents are not the outer diagram's.
@@ -227,6 +282,12 @@ func TestNestedDiagramKeepsItsOwnRepresentation(t *testing.T) {
 	}
 	if inner.Kind != "SysML Internal Block Diagram" || ids(inner.Shown) != "_a_b" {
 		t.Errorf("inner = %+v", inner)
+	}
+	if m.Diagram("#_inner") != inner || m.Diagram("model.xml#_outer") != outer {
+		t.Error("an href's fragment does not find its diagram")
+	}
+	if m.Diagram("_gone") != nil || m.Diagram("model.xml#") != nil || m.Diagram("") != nil {
+		t.Error("an id no diagram has finds one")
 	}
 }
 

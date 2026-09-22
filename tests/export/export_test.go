@@ -3070,6 +3070,7 @@ func TestFormatDetection(t *testing.T) {
 		"Model.xmi":        convert.FormatXMI,
 		"Model.uml":        convert.FormatXMI,
 		"Model.mdzip":      convert.FormatXMI,
+		"model.json":       convert.FormatAPIJSON,
 	}
 	for path, want := range cases {
 		got, err := convert.FormatOfPath(path)
@@ -3080,13 +3081,13 @@ func TestFormatDetection(t *testing.T) {
 			t.Errorf("%s: got %v, want %v", path, got, want)
 		}
 	}
-	if _, err := convert.FormatOfPath("model.json"); err == nil {
+	if _, err := convert.FormatOfPath("model.bak"); err == nil {
 		t.Error("expected an error for an unknown extension")
 	}
 	if _, err := convert.FormatOfPath("model"); err == nil {
 		t.Error("expected an error for a missing extension")
 	}
-	for _, name := range []string{"sysml", "SysML", "kerml", "ttl", " turtle ", "rdf", "xmi", "uml", "mdzip"} {
+	for _, name := range []string{"sysml", "SysML", "kerml", "ttl", " turtle ", "rdf", "api-json", "json", "xmi", "uml", "mdzip"} {
 		if _, err := convert.ParseFormat(name); err != nil {
 			t.Errorf("ParseFormat(%q): %v", name, err)
 		}

@@ -41,6 +41,12 @@ func TestUseCaseForms(t *testing.T) {
 		{"a second subject is a reference usage",
 			`<packagedElement xmi:type="uml:UseCase" xmi:id="_uc" name="Buy" subject="_shop _user"/>`, "",
 			[]string{"subject shop : Shop;\n    ref part user : User;"}, "_uc", Approximated},
+		{"subjects written as usages are subset, not typed",
+			`<packagedElement xmi:type="uml:UseCase" xmi:id="_uc" name="Review" subject="_ov _sv"/>
+			 <packagedElement xmi:type="uml:Class" xmi:id="_ov" name="Overview"/>
+			 <packagedElement xmi:type="uml:Class" xmi:id="_sv" name="Safety"/>`,
+			`<sysml:View xmi:id="_st1" base_Class="_ov"/><sysml:Viewpoint xmi:id="_st2" base_Class="_sv"/>`,
+			[]string{"subject overview :> Overview;\n    ref viewpoint safety :> Safety;"}, "_uc", Approximated},
 		{"an association-owned actor end is an actor of the use case",
 			`<packagedElement xmi:type="uml:UseCase" xmi:id="_uc" name="Buy"/>
 			 <packagedElement xmi:type="uml:Association" xmi:id="_a" memberEnd="_e1 _e2">

@@ -43,7 +43,10 @@ const (
 	// catValue is an instance of a value type: an attribute usage holding its
 	// slot values, since an individual cannot specialize an attribute def.
 	catValue
-	// catLibrary marks profile and bundled-library content that is not migrated.
+	// catMetadataDef is a user profile's stereotype, written as a metadata def.
+	catMetadataDef
+	// catLibrary marks standard-profile, bundled-library and modeling-tool
+	// content that is not migrated.
 	catLibrary
 	// catUnmapped marks a classifier this migration has no v2 form for.
 	catUnmapped
@@ -90,6 +93,8 @@ func (c category) keyword() string {
 		return "action def"
 	case catValue:
 		return "attribute"
+	case catMetadataDef:
+		return "metadata def"
 	}
 	return ""
 }
@@ -138,12 +143,6 @@ var libraryRoots = map[string]bool{
 	"Libraries":                true,
 	"FoundationalModelLibrary": true,
 	"fUML_Library":             true,
-}
-
-// isStandard reports whether s comes from a standard profile rather than a
-// user's own, whose same-named stereotypes carry no SysML meaning.
-func isStandard(s *sysmlv1.Stereotype) bool {
-	return isStandardNamespace(s.Namespace)
 }
 
 // isStandardNamespace matches, by host and path, the OMG SysML and UML profiles,
@@ -228,32 +227,13 @@ func monteCarloFeature(e *sysmlv1.Element) string {
 	return path[len(prefix):]
 }
 
-// stereo returns e's application of the named standard-profile stereotype, or nil.
-func stereo(e *sysmlv1.Element, name string) *sysmlv1.Stereotype {
-	for _, s := range e.Stereotypes {
-		if s.Name == name && isStandard(s) {
-			return s
-		}
-	}
-	return nil
-}
-
-// has reports whether any of the named standard-profile stereotypes applies to e.
-func has(e *sysmlv1.Element, names ...string) bool {
-	for _, n := range names {
-		if stereo(e, n) != nil {
-			return true
-		}
-	}
-	return false
-}
-
 // isLibrary reports whether e sits in profile or bundled-library content: a
-// profile, a package the model marks as a library or auxiliary resource, or a
-// document root with a library name that sits beside the user's Model.
+// standard or modeling-tool profile (a user's profile is migrated, see
+// userProfile), a package the model marks as a library or auxiliary resource,
+// or a document root with a library name that sits beside the user's Model.
 func (m *migration) isLibrary(e *sysmlv1.Element) bool {
 	for cur := e; cur != nil; cur = cur.Parent {
-		if cur.Type == "Profile" || has(cur, "ModelLibrary", "modelLibrary", "auxiliaryResource") {
+		if (cur.Type == "Profile" && !m.userProfile(cur)) || has(cur, "ModelLibrary", "modelLibrary", "auxiliaryResource") {
 			return true
 		}
 		if cur.Parent == nil && cur.Type != "Model" && libraryRoots[cur.Name] && m.besideUserModel(cur) {
@@ -451,16 +431,21 @@ func (m *migration) classify(e *sysmlv1.Element) (category, string) {
 		return catNone, ""
 	}
 	if m.isLibrary(e) {
-		return catLibrary, ""
+		return catLibrary, m.libraryReason(e)
+	}
+	if reason := toolContent(e); reason != "" {
+		return catLibrary, reason
 	}
 	switch e.Type {
-	case "Model", "Package":
-		if has(e, "View") && !m.flattened(e) {
+	case "Model", "Package", "Profile":
+		if has(e, "View") && (e.Type != "Model" || e.Parent != nil) {
 			return catView, "a «View» package is written as a view usage holding its members"
 		}
 		return catPackage, ""
-	case "Profile":
-		return catLibrary, ""
+	case "Stereotype":
+		return catMetadataDef, ""
+	case "Extension":
+		return catLibrary, "an extension binds a stereotype to the metaclass it extends; v2 metadata applies to any element"
 	case "Class", "Component":
 		switch {
 		case simulationConfig(e) != nil:
@@ -597,6 +582,8 @@ func (m *migration) instanceClassifiers(e *sysmlv1.Element) (occurrences, values
 			notes = append(notes, classifierSubject+qualifiedName(c)+" is not migrated")
 		case cc == catAttributeDef, cc == catEnumDef:
 			values = append(values, c)
+		case cc == catView, cc == catViewpoint:
+			notes = append(notes, classifierSubject+qualifiedName(c)+" is written as a "+cc.keyword()+" usage, which an individual cannot specialize")
 		default:
 			occurrences = append(occurrences, c)
 		}

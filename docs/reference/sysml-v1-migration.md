@@ -54,20 +54,29 @@ returned over the service yet.
   and Cameo write (`diagramRepresentation` → `DiagramRepresentationObject` with its `type`,
   `umlType` and the `usedElements` it shows), is read as a tool-neutral diagram record: its
   name, kind, `ownerOfDiagram` and shown elements, and is written as a `view` (see
-  [Diagrams](#diagrams)). Layout and the rest of the extension — tool-internal state, a
-  Papyrus `.notation` file — are skipped; the report says so once per skipped profile or
-  library package. A package is library content
-  when it is a profile, is marked «ModelLibrary» or «auxiliaryResource», or is a document root
+  [Diagrams](#diagrams)). The representation object is found by how it is held or tagged, or
+  failing that by the `umlType` it states; a child with a plain `type` (a comment, a legend, a
+  property) is not it, and what it lists is not shown; a diagram without a representation shows
+  nothing, whatever else the tool lists inside it. Layout and the rest of the extension —
+  tool-internal state, a Papyrus `.notation` file — are skipped; the report says so once per
+  skipped profile or library package. A package is library content
+  when it is a standard or tool profile (a user profile is written, see
+  [Profiles and stereotypes](#profiles-and-stereotypes)), is marked «ModelLibrary» or
+  «auxiliaryResource», or is a document root
   beside the user's Model or package bearing a standard library name; a user package named
   `SysML` or `Libraries` inside the model, or standing alone as the document's only root, is
   migrated like any other.
 - The one extension content read is a `uml:ElementValue` a tool keeps there because UML has
   no such metaclass (MagicDraw's reference to a property from inside an Expression tree): it
-  is an operand of the element owning the extension, in document order.
+  is an operand of the element owning the extension, in document order, however the tool
+  wraps it; one inside a serialized diagram is the diagram's content, not an operand.
 - Only stereotypes from the OMG SysML and UML standard profiles, in the OMG namespaces or
-  Papyrus' `…/papyrus/sysml/…` ones, classify elements; any other profile's «Block» or
-  «Requirement» — a user's own, a tool's customization layer over SysML, or another profile
-  Papyrus hosts — is preserved as an applied-stereotype comment like any other.
+  Papyrus' `…/papyrus/sysml/…` ones, classify elements — applied directly, or through a user
+  stereotype that specializes one (see [Profiles and stereotypes](#profiles-and-stereotypes)).
+  Any other profile's «Block» or «Requirement» with no standard general — a user's own, a
+  tool's customization layer over SysML, or another profile Papyrus hosts — carries no SysML
+  meaning: it is written as metadata when the document defines it, and preserved as an
+  applied-stereotype comment otherwise.
 - A requirement's `id` and `text` tags are read in the profile's spelling and in the
   capitalized `Id`/`Text` some exporters write.
 - Multiplicity follows UML's defaults: an omitted bound is 1, and a bound element without a
@@ -136,11 +145,16 @@ returned over the service yet.
 | «Satisfy» | `satisfy requirement … by …` in the satisfying usage's owner | mapped |
 | «Verify» from a test case | `verify` in the verification def | mapped |
 | «DeriveReqt» | `connection … :> RequirementDerivation::Derivation` | mapped |
-| «Allocate» | `allocate a to b`, or `allocation name allocate a to b` when named | mapped |
+| «Allocate» | `allocate a to b`, or `allocation name allocate a to b` when named; an end that is an activity node is named under the `action def` the activity is written as (the operation, for a method), so an allocation to a call action written as a declared stub is written too | mapped |
+| «Allocate», or another dependency, whose end is an activity node written only as a placeholder (a call that is not migrated) | the relationship is written to the placeholder; the pair ending there counts as failed when its end is not migrated, so the note gives the final tally of pairs written and names the end | approximated when another pair is written, **unmapped** when none is |
 | «Refine» | `dependency` carrying `@ModelingMetadata::Refinement` | mapped |
 | «Trace», «Copy», other stereotyped dependencies | plain `dependency` with the stereotype as a comment; named relationships keep their name | approximated |
+| A user stereotype specializing a standard one («Org Requirement» :> «Requirement», or one specializing «Block», «ValueType», «Satisfy», «Verify», «Refine», «Trace», «DeriveReqt», «Allocate», …) | the standard stereotype's v2 form above, its tags read as the standard ones (`Id`, `Text`, …), plus a `@Profile::'Org Requirement' { … }` usage holding the user-added tags | as the standard form |
 | Comment, Documentation | `doc` (first) / `comment`, HTML tags stripped | mapped |
-| Custom-profile stereotypes and tags | preserved as `/* applied stereotype «Name»: tag = value */` | mapped |
+| User profile | `package` holding its stereotypes and the enumerations and value types they use | mapped |
+| User stereotype | `metadata def`, `:>` the defs of the user stereotypes it specializes; tag definitions `attribute name : String|Integer|Real|Boolean|<enum def>` or `ref name` for element-typed ones, with the v1 multiplicity; `base_*` extension ends and the `Extension`s written as nothing | mapped (a general outside the document, or closing a cycle: approximated) |
+| User stereotype application, on an element, property or relationship the document defines the stereotype of | `@Profile::Name { tag = value; }` in the element's body (`@Profile::Name;` without tags); strings, numbers and booleans as literals, enumeration literals by name, element references by the written element's name, HTML-bodied text as plain text; a tag the stereotype does not define, or a value not of the tag's type, a comment | mapped (a value kept as a comment: approximated) |
+| Stereotype applied from a profile the document does not define (a used project not in the archive, an unknown namespace) | preserved as `/* applied stereotype «Name»: tag = value */`; the report names the namespace | mapped, noted |
 | SysML stereotype tags without a v2 form (`Block.isEncapsulated`, `ValueType.unit`, …) | preserved as `/* «Name» tags with no v2 form: tag = value */` | approximated |
 | Two members of one namespace with the same name (UML allows it, v2 does not) | the later one renamed `Name 2`, a state, pseudostate or history a machine's region puts beside its attributes included, as is a written connection point of a state whichever region a tool listed it in, while one written as no member takes no name; a connection end named like a member of its connection def renamed `name2` | approximated |
 | Anonymous property with no v2 type | a `ref` named after its type, or `unnamed` | approximated |
@@ -148,7 +162,7 @@ returned over the service yet.
 | `NaN`/infinite real literals | comment | approximated |
 | References to ids the document does not define | the resolvable ends are written; the missing ids are named in the report | approximated |
 | OpaqueExpression defaults and constraints | copied verbatim when it parses as a v2 expression and every name it uses is a written element visible where it is written (a parameter, an inherited feature, an enclosing member); a JavaScript or English body is translated through the [opaque-language subset](#the-opaque-language-subset) when every name resolves the same way (`V = R * i` → `V == R * i`, `java.util.Collections.max(s)` → `RealFunctions::max(s)`); a body outside the subset stays a `comment` and the report names the offending token | mapped / approximated |
-| UML Expression, StringExpression (a constraint's specification, a default, a slot value) | the operator tree lowered to a v2 expression: arithmetic (`+ - * / %`, unary minus), comparison, `and`/`or`/`not` — each spelled as its sign or its name in any case (`Plus`, `Equal`, `Not`) — a literal, an enumeration literal or instance the scope can name, a feature reference (a bare symbol, or an ElementValue naming a feature the scope reads under that name), and a call whose symbol is in the [opaque-language subset](#the-opaque-language-subset)'s function table (`max` → `RealFunctions::max`, `Power` → `**`); an opaque operand is read through the same subset | mapped |
+| UML Expression, StringExpression (a constraint's specification, a default, a slot value) | the operator tree lowered to a v2 expression: arithmetic (`+ - * / %`, unary minus), comparison, `and`/`or`/`not` — each spelled as its sign or its name in any case (`Plus`, `Equal`, `Not`) — a literal, an enumeration literal or instance the scope can name, a feature reference (a bare symbol, or an ElementValue naming a feature the scope reads under that name), and a call whose symbol is in the [opaque-language subset](#the-opaque-language-subset)'s function table (`max` → `RealFunctions::max`, `Power` → `**`); a JavaScript or Java opaque operand is read through the same subset in its own language | mapped |
 | UML Expression with an operator outside that set (`xor`, string concatenation, a call not in the table, an operand in a language the subset does not read, an ElementValue naming nothing or an element the scope does not read under its name) | comment naming the tree and the construct refused | **unmapped** |
 | UML Interface | `port def` | mapped |
 | InterfaceRealization from a block | a `port` of the `part def` typed by the interface's `port def` — reused when the block already owns one so typed, otherwise added under the interface's name; a `part def` cannot specialize a `port def` | approximated |
@@ -163,7 +177,7 @@ returned over the service yet.
 | «View» Package | `view <Name>` usage holding the package's members | approximated |
 | «View» whose `viewpoint` tag or «Conform» names a viewpoint that is not written, or a view a nested view's feature of an inaccessible definition | the view without that `satisfy`/subsetting, the reason in the report | approximated |
 | «Expose» Dependency | `expose <Supplier>;` in the client view — `expose <Package>::**;` for a package, since v1 exposes its contents | mapped |
-| «Expose» whose supplier is a diagram | `expose <View>;` naming the view the diagram is written as (see [Diagrams](#diagrams)), qualified from the client view's body | mapped |
+| «Expose» whose supplier is a diagram, by id or by an `href` whose fragment is the diagram's id | `expose <View>;` naming the view the diagram is written as (see [Diagrams](#diagrams)), qualified from the client view's body | mapped |
 | «Expose» whose supplier is outside the document or not written (a diagram no written element can hold included), or whose client is not a view | comment | **unmapped** |
 | «Conform» Generalization, Dependency | `satisfy <Viewpoint>;` in the view | mapped |
 | «Conform» whose client is not a view or whose supplier is not a viewpoint | comment | **unmapped** |
@@ -173,7 +187,9 @@ returned over the service yet.
 | Parameter, ActivityParameterNode | `in`/`out`/`inout` parameter of the `action def`; a `return` parameter is `out`; the parameter node's flows bind the parameter | mapped (return: approximated) |
 | InitialNode, ActivityFinalNode, FlowFinalNode | `first start then …`; `action x terminate;`; the token ends where a flow final does | mapped |
 | ForkNode, JoinNode, DecisionNode, MergeNode | `fork`, `join`, `decide`, `merge`; a node several edges leave or reach without a control node gets one written for it | mapped (implicit fork/join: approximated) |
-| CallBehaviorAction | `action x : Def;` with `bind`/`flow` for its pins; a call of no behavior whose only content is a duration is a leaf step, the wait written for it; a call of a state machine, of a behavior with no v2 declaration, or of no behavior with pins to feed | mapped (a leaf step: mapped, "a step with a duration and no further behavior") / **unmapped** |
+| CallBehaviorAction | `action x : Def;` with `bind`/`flow` for its pins; a call of no behavior whose only content is a duration is a leaf step, the wait written for it; a call of a state machine or of a behavior with no v2 declaration | mapped (a leaf step: mapped, "a step with a duration and no further behavior") / **unmapped** |
+| CallBehaviorAction naming no behavior, with pins | a declared stub, `action x { in a : T; out r : U[0..1]; }` — its pins its parameters, typed and bounded as the pins are, in the same successions, forks and joins as a bare step; the flows into and out of them are written; each output pin is declared admitting no value, since nothing computes it; the note says the action computes nothing. A call whose `behavior` reference resolves to nothing in the document is not a stub: it stays a placeholder | approximated (unresolved behavior: **unmapped**) |
+| InputPin / OutputPin of a call, past the called behavior's parameters of its direction | the call keeps the parameters its callee declares, so no parameter is added for the pin, which is dropped with the flows through it; the note names the called behavior and its parameters of that direction. Only a stub naming no behavior declares parameters for its pins, having no parameter list of its own | **unmapped** (the pin and its flows; the call itself stays mapped) |
 | CallBehaviorAction of an fUML or Alf library primitive (`fUML_Library.xmi#…`, `Alf-Library.xmi#…`, any date; or MagicDraw's `fUML-Library.mdzip#…` with the bundled copy or `referentPath` under the library's own root package) | the action with its pins, each result pin valued by the v2 library expression over the arguments, `out result : ScalarValues::String = StringFunctions::'+'(x, y);`; see [the table](#calls-to-the-fuml-and-alf-libraries) | mapped / approximated (the note says where v2 differs) / **unmapped** (no v2 equivalent: the note says which) |
 | CallOperationAction | `perform action x ::> target.op;` when the target pin's value is an object whose type owns the operation, or when `onPort` names a port a connector of the caller's block joins to a part that owns it (a port of the target itself names it); otherwise `action x : Owner::Op;`, which runs in the caller's context | mapped / approximated (unresolved target: the reason names it) |
 | ControlFlow | `first a then b;`, `if <guard>` when the guard parses and resolves as a v2 expression or translates from JavaScript or English (`i >= Retries`, `GS_Found`, `not Found and i < 3`, `TRUE`) through the [subset](#the-opaque-language-subset); otherwise the guard text as a comment and the edge unguarded, the report naming the token refused | mapped / approximated |
@@ -186,6 +202,10 @@ returned over the service yet.
 | «SimulationConfig» whose `executionTarget` is absent, several, outside the document, not migrated, or written as something no part can be typed by; whose target has no classifier behavior, or one that is a state machine | the `action def` with its metadata and, where the target is written, its `target` part, performing nothing; the note says why | approximated |
 | «SimulationConfig» `durationSimulationMode` that is none of `min`, `max`, `average`, `random` | kept among the tags in the comment | approximated |
 | Result snapshots of a «SimulationConfig» (the instances under its `resultLocation` packages classified — by name or by their slots — by its target's classifiers, recording no other values of the features the target's slots set) | the individuals above, and one row per snapshot in the JSON `-migration-results` writes, its numeric slots by defining feature; a slot holding no one finite number a float64 spells exactly, and a feature two slots hold numbers for, are counted in the configuration's notes | mapped |
+| Generalization of MagicDraw's `MonteCarloAnalysis` (the analysis pattern of the SysML customization module, recognised by the module's provenance — a user's own block of that name is an ordinary block) | the block's `part def` without that general, and beside it `analysis def '<Block> Monte Carlo' :> Simulation::MonteCarlo` with the part def as `subject`, `perform action run ::> <subject>.<its classifier behavior>` and `attribute :>> observed = <subject>.<the value bound to Mean>` (see [Monte Carlo analyses](#monte-carlo-analyses)) | approximated: the block is split into a part def and an analysis def |
+| «BindingConnector» of a value property to `MonteCarloAnalysis::Mean`, `::Deviation`, `::N` or `::OutOfSpec` (the connector's owner inheriting the pattern) | the analysis def's `observed` (from the `Mean` binding) and one `return`/`out` per statistic — `return Mean : Real = mean;`, `out Deviation : Real[0..1] = deviation;`, `out N : Natural = runs;`, `out OutOfSpec : Natural = outOfSpec;` — `Real` for `Mean` and `Deviation`, the bound value's scalar for `N` and `OutOfSpec`; a note says when that is not the value's own type | mapped / approximated |
+| «BindingConnector» to another statistic of `MonteCarloAnalysis`, to a value of no numeric type, one of several binding the same statistic, one whose owner does not inherit the pattern, or to a statistic other than `Mean` where nothing is bound to `Mean` | comment naming the statistic and the reason | **unmapped** |
+| Slots of `MonteCarloAnalysis::N`, `::Mean`, `::Deviation`, `::OutOfSpec` in a result snapshot | `analysis 'Monte Carlo' : '<Block> Monte Carlo' { subject :>> <subject> : '<the snapshot>'; out :>> runs = …; out :>> mean = …; … }` in the snapshot's individual, and the snapshot's `"statistics"` in the sidecar | mapped |
 | ObjectFlow | `flow a.out to b.in;`, or `bind` to a parameter; each producer-pin pair is written once however many edges carry it; a flow from or to an action that is not migrated, or from an output pin a translated opaque body never assigns, is a comment | mapped / approximated |
 | SendSignalAction | `action x send new Sig(args) to <target>;`, `via <port>` when `onPort` is set; the target is read from the target pin's flow: `this`, `this.part` where a structural read feeds the pin, else the pin itself (`in target;` bound to what feeds it, an activity parameter or another node's output), which the runtime evaluates to the object it holds | mapped / approximated |
 | AcceptEventAction | `action x accept p : Sig;` (signal trigger), `accept after <d> [SI::s]` (relative TimeEvent), `accept when <cond>` (ChangeEvent) | mapped |
@@ -255,9 +275,10 @@ returned over the service yet.
 | Diagram whose owner has no v2 body (a region, a property, an enumeration, an activity that is inlined), names no owner, or names an id the document does not define | the view is written in the body of the nearest ancestor that has one — the state def a region belongs to, the part def a property is of, the package, or the document's top level — and the note says where | approximated |
 | Diagram some of whose shown elements are not written (results, tool content, elements nothing refers to, states and action nodes, ids the document does not define), or that shows nothing | the written ones are exposed and the rest dropped, the note counting them; a view exposing nothing is still written, `view 'Name' { render …; }`, which validates | approximated |
 | Diagram named like a member of the body it is written in — a «View» class's `view` usage of the same name in the same package, a state, an action | renamed `Name 2`, `Name 3`… past the taken names | approximated |
-| Diagram with no representation serialized, or one naming no diagram type | a view of unknown kind, rendered `asTextualNotation`, exposing what the representation lists | approximated |
+| Diagram with no representation serialized, or one naming no diagram type | a view of unknown kind, rendered `asTextualNotation`, exposing what the representation lists — nothing when there is none | approximated |
 | Diagram no written element can hold: every ancestor is library content or otherwise unwritten | comment | **unmapped** |
-| Profiles, the SysML/UML libraries themselves | — | skipped |
+| The standard profiles, the SysML/UML libraries themselves | — | skipped |
+| The modeling tool's own profiles and their content, by exact namespace path: MagicDraw's SysML customization (`…/spec/Customization/…`), `DSL_Customization.xmi` («Customization» classes, «derivedPropertySpecification» properties and their structured-expression bodies), `UI_Prototyping_Profile.xmi` («Label», «Button», «GroupBox», … mockups), `SimulationProfile.xmi` classes other than run configurations («SequenceDiagramGeneratorConfig», …); a marked classifier with a standard stereotype or a behavior of its own is model content and migrates as such | — ; the reason names what the content configures | skipped |
 
 The v1 element's `xmi:id` is kept as the reason a report line can be found in the source
 model; the notation itself carries no IDs. Stable identity annotations for a re-migration are
@@ -270,11 +291,13 @@ quoted (`'Vehicle Design'`).
 
 A diagram is a v2 `view`: what it shows is exposed, how it is drawn is not migrated (a layout
 has no v2 form). The view is named after the diagram and written in the body of the v2
-element `ownerOfDiagram` names — a `package`, or the `part def`, `state def`, `action def`…
-written for a classifier — and exposes, by qualified name, every shown element the document
-writes; a shown element that is not written (a result snapshot, tool content, an element
-nothing refers to, a state or an action node, which have no name of their own outside their
-body) is dropped and counted in the note. A diagram showing nothing writable is still a view,
+element `ownerOfDiagram` names — a `package`, or the `part def`, `state def`, `action def`,
+`metadata def`… written for a classifier; for a behavior that is the method of an operation, the
+operation's definition, whose body the behavior is written as, so the behavior's members are
+exposed under the operation's name — and exposes, by qualified name, every shown element the
+document writes; a shown element that is not written (a result snapshot,
+tool content, an element nothing refers to, a state or an action node, which have no name of
+their own outside their body) is dropped and counted in the note. A diagram showing nothing writable is still a view,
 with no `expose`, so the model's inventory of diagrams is complete. Each `expose` names one
 shown element by the qualified name the migrator writes elsewhere — `Package::Def::feature`,
 never a package's `::**` — so a diagram of a package exposes the members it pictures, not
@@ -298,7 +321,8 @@ and `umlType` (`Class Diagram`) together — by the first family below a word of
 | block definition, class, package, object, component, deployment, profile and other structure diagrams | `Views::asTreeDiagram` |
 | behavior diagrams (activity, state machine, sequence, use case), requirement, content and free-form diagrams, a tool's own kinds, a diagram naming no kind | `Views::asTextualNotation` |
 
-The rendering is written `$::Views::…` where a member named `Views` would shadow the library.
+The rendering is written `$::Views::…` where a member named `Views` would shadow the library, and a
+shown primitive is exposed as `$::ScalarValues::…` where a member named `ScalarValues` would.
 
 The mapping has been run over the XMI of the [OpenMBEE TMT SysML model](https://github.com/Open-MBEE/TMT-SysML-Model)
 (27 MB; 44,600 elements once the nodes and edges of its behaviors are counted): it writes 7 MB
@@ -306,6 +330,79 @@ of notation that passes the gate below in a few seconds, and its Turtle in a few
 elements in six map or are approximated; the unmapped rest is dominated by absolute and
 unparseable time events, call actions that call no behavior, simulation verdicts stored in
 slots of constraint properties, and dependencies whose other end is outside the document.
+
+## Profiles and stereotypes
+
+A v1 model's profile layer — the `uml:Profile`s it defines, the `uml:Stereotype`s in them and
+the applications (`<Org:Org_Requirement base_Class="…" Rationale="…"/>`) — is read as three
+kinds of provenance, each written differently.
+
+**Standard profiles** (OMG SysML and UML, in the OMG or Papyrus namespaces, and the copies a
+tool bundles under `SysML`/`UML Standard Profile` roots) classify: «Block» makes a `part def`,
+«Requirement» a `requirement def`, and so on through the mapping table. The profiles themselves
+are skipped; v2 has the constructs.
+
+**The modeling tool's own profiles**, recognised by exact namespace path under
+`magicdraw.com`/`nomagic.com` — `/spec/Customization/…`, `/schemas/DSL_Customization.xmi`,
+`/schemas/UI_Prototyping_Profile.xmi`, `/schemas/SimulationProfile.xmi` — configure the tool,
+not the model. Their profiles are skipped, and so is the content they mark, with a reason naming
+what it is: specification-dialog customization («Customization» classes and
+«derivedPropertySpecification» properties, whose structured-expression bodies are not
+translated), UI prototyping mockups, or simulation-tool configuration other than the
+«SimulationConfig» run configurations, which [migrate](#run-configurations). A classifier
+the tool also draws as a mockup but that is the model's — one with a standard stereotype, or
+one that is active, names a classifier behavior or owns a behavior — migrates as such, its
+tool marker an applied-stereotype comment. A host alone decides nothing: Cameo gives every locally defined profile a
+`http://www.magicdraw.com/schemas/<Name>.xmi` namespace, so a profile there that is not one of
+the known paths is a user profile.
+
+**User profiles** — every other profile the document defines, on any host — are written as
+packages of `metadata def`s, at the place the profile sits in the model, because that is what a
+user stereotype is in v2. The package is written like any other: its enumerations become
+`enum def`s and its comments `doc`s. Each stereotype becomes a `metadata def` whose tag
+definitions are the stereotype's owned attributes: an `attribute` typed `ScalarValues::String`,
+`Integer`, `Real` or `Boolean`, or by the `enum def` or `attribute def` the attribute's type
+becomes; a `ref` when the type is a metaclass, a block or any other element, with the v1
+multiplicity (`[0..*]`) and collection (`ordered`, `nonunique`). The `base_*` attributes and
+`uml:Extension`s that bind the stereotype to the metaclass it extends are skipped with that
+reason: v2 metadata applies to any element, and the migrated model applies it where v1 did.
+The "profile or library content" skip covers the standard and tool profiles only; a user
+profile is model content, so everything else in it — enumerations, value types, comments,
+nested packages — migrates as it would anywhere in the model.
+
+Generalization between stereotypes is followed, transitively, through every general, whether
+the general is in the document, in the OMG XMI (`href="…/SysML.xmi#SysML.Requirement"`, with or
+without MagicDraw's `referentPath`), in a Papyrus pathmap
+(`pathmap://SysML_PROFILES/SysML.profile.uml#…`), or in a tool's bundled module. It decides
+two things:
+
+- **What an application means.** An application of a user stereotype applies every standard
+  stereotype among the definition's generals too: a class stereotyped «Org Requirement» :>
+  «Requirement» is a `requirement def`, its `Id`/`Text` (in either spelling) the short name and
+  `doc`, exactly as a direct «Requirement» is; an `Abstraction` stereotyped «Checked By» :>
+  «Verify» is a `verify`; a «Probability» descendant weights its edge. The user-added tags —
+  those the standard general does not define — become the metadata usage `@Profile::'Org
+  Requirement' { Rationale = "…"; }` in the same body, so nothing is written twice and nothing
+  is lost. Diamonds and multiple generals all apply; a cycle is walked once. A same-named
+  stereotype with no standard general («Requirement» in `Legacy`) means nothing standard: the
+  class is a `part def` with a `@Legacy::Requirement { Text = "…"; }` usage.
+- **What a metadata def specializes.** A user stereotype specializing another user stereotype
+  in the document writes `metadata def B :> A`; one with no user general writes no `:>`, since
+  every `metadata def` specializes `Metadata::MetadataItem` implicitly; a standard general is
+  carried by the applications instead and adds nothing to the def; a general the document does not define
+  (an `href` into a used project not in the archive, or an id the document lacks) is not
+  written and the report says so; the edge closing a generalization cycle is not written
+  either, since v2 forbids the cycle, and the report names it.
+
+An application is written as metadata only when the document defines its stereotype: an
+application from a profile that lives in a used project the archive does not bundle, or from an
+unknown namespace, stays an applied-stereotype comment, and the report notes once per element
+that the profile is outside the document. Tag values are written by the tag's type — a string,
+integer, real or boolean literal, an enumeration literal by name, an element reference by the
+shortest name resolving where the usage sits — and a value that does not fit (an unknown
+literal, a reference to an element not written, a tag the stereotype does not define) is kept as
+a comment inside the usage, approximating the element with the reason. Rich text a tool stores
+as `<html><body>…</body></html>` becomes plain text, as a requirement's `Text` does.
 
 ## Behaviors
 
@@ -441,10 +538,17 @@ nothing, written as an empty action carrying the token, with the reason in its c
 report. A call whose callee acts on an object the caller does not hold — the method reads
 ports of its block, and the caller is a behavior of another block with no part of that type —
 is refused the same way, since running it on the caller's object would go through ports it lacks.
-So is a call behavior action that names no behavior yet has pins: nothing in the model says
-what it performs, and no v1 relation it stands in names it — an «Allocate» from the action to
-a part says where it runs, not what it does, and the report says so — so the action is written
-empty with its pins, which nothing computes, and no behavior or value is made up for it.
+A call behavior action that names no behavior yet has pins is written as a declared stub,
+`action x { in a : T; out r : U[0..1]; }`: nothing in the model says what it performs, and no v1
+relation it stands in names it — an «Allocate» from the action to a part says where it runs, not
+what it does, and the report says so — so its pins are declared as its parameters, typed and
+bounded as they are, no behavior or value is made up for it, and each output is declared admitting
+no value, since nothing computes it. The flows into and out of it are written as for any action;
+at run time a flow out of an unassigned output carries nothing, so its target reads the parameter
+empty, and a required parameter it feeds is reported as holding no value rather than made up. A
+call that does name a behavior keeps the parameters the behavior declares: a pin the behavior has
+no parameter for is ill-formed v1, so the pin and its flows are dropped, the reason naming the
+behavior and its parameters of that direction, while the call itself stays.
 
 **Control nodes carrying data.** A fork, join, merge, decision or buffer node that lies on no
 control path and whose every outgoing edge leads to an action's pin routes values, not control:
@@ -1008,14 +1112,17 @@ action def 'Group 0' {
   snapshot out), and a target with no
   classifier to match snapshots against are each noted in the configuration's `notes`.
 - A target whose classifier specializes MagicDraw's `MonteCarloAnalysis` (the analysis pattern
-  of the SimulationProfile, recognised by provenance) summarises its runs rather than recording
+  of the SysML customization module, recognised by the module's provenance) summarises its runs
+  rather than recording
   each: a snapshot's `N`, `Mean`, `Deviation` and `OutOfSpec` slots are the count, mean,
   standard deviation and out-of-specification count of the observable the analysis binds its
   `Mean` to, so they are kept out of the observables and written as the snapshot's
   `"statistics"` (`runs`, `mean`, and `deviation` and `outOfSpec` only when the snapshot
   records them — a summary without a `Deviation` states none rather than a zero), standing for
   `N` runs, and the configuration's `"analysis"` names that observable, which the snapshot
-  holds the same mean for. An analysis binding its `Mean` to no feature, or to several, a
+  holds the same mean for; `"analysisCase"` names the `analysis def` written for the target
+  (see [Monte Carlo analyses](#monte-carlo-analyses)) and `"statistics"` on the configuration
+  lists the statistics it returns, in order, as the tool names them (`["Mean", "Deviation"]`). An analysis binding its `Mean` to no feature, or to several, a
   snapshot recording `N` without `Mean` or the reverse, an `N` that is no count, a negative
   `Deviation`, an `OutOfSpec` that is no count of the `N` runs, a statistic that is no one number
   (a string, `NaN`, two values in one slot, one statistic over two slots; a blank literal is the
@@ -1037,12 +1144,63 @@ relative difference; see
 [Comparing a migrated configuration with the tool's results](cli.md#comparing-a-migrated-configuration-with-the-tools-results).
 A stored observable is read off the target by default (`Time_Acq_Total` beside
 `target.Time_Acq_Total`), or off the feature `-observe Time_Acq_Total=clock` names, so a total
-the tool read from its time variable is set beside the run's clock. An observable the completed
+the tool read from its time variable is set beside the run's clock. The observable a Monte
+Carlo analysis summarises is compared statistic by statistic, one row per `return` the
+analysis def declares and one per output of `Simulation::MonteCarlo` the tool stored without
+a return: the tool's `Mean` and `Deviation`, pooled over its summaries, against the
+runs' by the same aggregation (the arithmetic mean and the sample standard deviation), `N`
+side by side, and `OutOfSpec` shown but not compared, being the tool's own criterion. An observable the completed
 runs produce in more than one unit (a quantity in some, a bare number or another unit in others)
 has no one distribution to set beside the tool's and is noted, not pooled; so is one some completed
 runs produce as no number, with the count of those runs. The numbers are printed
 as they are: a difference is a fact about the migration's fidelity, to be read against the
 report's approximations, not tuned away.
+
+### Monte Carlo analyses
+
+MagicDraw's SysML customization module ships an analysis pattern the Simulation Toolkit
+fills: a user block generalizes its `MonteCarloAnalysis`, owns the value it analyses, and a
+«BindingConnector» binds that value to the pattern's `Mean` (or `Deviation`, `N`,
+`OutOfSpec`); after `N` runs the tool writes the four statistics into the result instance. The
+pattern is recognised by the module's provenance alone — the generalization's `general` is the
+module's `MonteCarloAnalysis` — so a user's own block named `MonteCarloAnalysis` is an ordinary
+block, and so is everything generalizing or binding to it.
+
+The block is written as its `part def` (the pattern's generalization left out, the report saying
+so) and, beside it, an `analysis def` specializing `Simulation::MonteCarlo`, the OpenSysML
+library's analysis of repeated runs, whose `subject` is the part def, whose one run performs the
+block's classifier behavior, whose `observed` is the value bound to `Mean`, and whose returns
+are the statistics the block's connectors bind:
+
+```sysml
+part def 'Timer Analysis' :> Timer { attribute t : Real; }
+analysis def 'Timer Analysis Monte Carlo' :> Simulation::MonteCarlo {
+    subject analysed : 'Timer Analysis';
+    perform action run ::> analysed.tick;
+    attribute :>> observed : Real = analysed.t;
+    return Mean : Real = mean;
+    out Deviation : Real[0..1] = deviation;
+}
+```
+
+`Mean` and `Deviation` are returned as `Real`, `N` and `OutOfSpec` as the scalar of the value
+bound to them, and a note says when that is not the value's own type (a value type over
+`Integer`, say); a binding of a value of no numeric type, of a statistic the pattern
+is not known to have, a second binding of one statistic, or a binding to a statistic other
+than `Mean` with nothing bound to `Mean` (a statistic of nothing) is a comment naming the
+reason. A block specializing such a block has an analysis def of its own when it binds a
+statistic itself, returning what its own connectors bind and then what it inherits and does not
+rebind (a general's `Deviation` beside its own `N`, say). A snapshot's four statistic slots
+become a recorded `analysis` of that def in the snapshot's individual, with the snapshot as its
+subject and the statistics as its outputs.
+
+`sysml out.sysml -analysis "'Timer Analysis Monte Carlo' <object>" -runs 100 -seed 7` then
+runs the case: each run on a fresh subject seeded from the seed and the run number, its
+observation tabled, and the case concluded once over the sample — `runs`, `mean`,
+`deviation` (the sample standard deviation, none under two runs) and `outOfSpec` (the runs in
+which a check of the case did not hold) bound and the declared returns evaluated over them; see
+[Running an action many times](cli.md#running-an-action-many-times). Run once, without
+`-runs`, the statistics stay unbound: an analysis of one run is not passed off as one of many.
 
 ## The report
 
@@ -1053,9 +1211,12 @@ one of four verdicts:
 - **approximated** — written, but not one-to-one; the note says what was lost or changed.
 - **unmapped** — no v2 form was written. The element appears in the notation as a comment at
   the place it would have gone, so a reader of the migrated model can see the gap.
-- **skipped** — profile and library content that is not part of the user's model, and the
-  user's own elements nothing in the model refers to (an event no trigger names), which no v2
-  form would represent; the summary counts the two apart.
+- **skipped** — the standard profiles and libraries, the modeling tool's own profiles and the
+  content they mark (specification-dialog customization, UI mockups, simulation-tool
+  configuration; the reason names which), and the user's own elements nothing in the model
+  refers to (an event no trigger names), which no v2 form would represent; the summary counts
+  the profile and library content apart from the unreferenced elements. A user's profile is
+  not skipped: its stereotypes are mapped to `metadata def`s.
 
 The text form (default) groups by verdict, unmapped first, one line per element: kind with its
 stereotypes, qualified v1 name, `xmi:id`, the v2 name it became, and a note. The JSON form

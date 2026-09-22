@@ -571,6 +571,9 @@ type calcUsageStart struct {
 	env                frame
 	host               *calcStmtHost
 	engine             *stmtEngine
+	// deferResults leaves the results ending the steps unrun, for a Monte Carlo to
+	// evaluate over its sample once the run's observation is in.
+	deferResults bool
 }
 
 // beginCalcUsage binds the usage's inputs and makes ready to run its body; the
@@ -858,7 +861,11 @@ func (ctx *Context) runCalcUsage(start *calcUsageStart) (*calcRun, error) {
 		ctx.clock.attach(flow)
 		defer ctx.clock.detach(flow)
 	}
-	result, returned, err := runCalcSteps(engine, host, shape)
+	steps := shape.Steps
+	if start.deferResults {
+		steps, _ = shape.observationSteps()
+	}
+	result, returned, err := runCalcSteps(engine, host, steps)
 	if err != nil {
 		if paused(err) {
 			return nil, err

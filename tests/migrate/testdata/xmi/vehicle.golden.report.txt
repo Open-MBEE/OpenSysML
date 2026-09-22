@@ -49,7 +49,7 @@ Property	Vehicle Design::Drives::vehicle	_ae_vehicle_3	-> 'Vehicle Design'::Driv
 «Block» Class	Vehicle Design::Electric Vehicle	_blk_ev	-> 'Vehicle Design'::'Electric Vehicle'
 Property	Vehicle Design::Electric Vehicle::engine	_prop_ev_engine	-> 'Vehicle Design'::'Electric Vehicle'::engine
 Property	Vehicle Design::Electric Vehicle::spare	_prop_ev_spare	-> 'Vehicle Design'::'Electric Vehicle'::spare
-«Block» Class	Vehicle Design::Engine	_blk_engine	-> 'Vehicle Design'::Engine
+«Block» Class	Vehicle Design::Engine	_blk_engine	-> 'Vehicle Design'::Engine	(«Critical» from http://example.com/profiles/Safety is applied from a profile the document does not define; the application is kept as a comment)
 «ProxyPort» Port	Vehicle Design::Engine::fuelPort	_port_engine_fuel	-> 'Vehicle Design'::Engine::fuelPort
 Property	Vehicle Design::Engine::mass	_prop_engine_mass	-> 'Vehicle Design'::Engine::mass
 Property	Vehicle Design::Engine::piston	_prop_piston	-> 'Vehicle Design'::Engine::piston

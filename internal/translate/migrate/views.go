@@ -167,8 +167,7 @@ func (m *migration) placeConform(d *sysmlv1.Element) {
 			pl.notes = append(pl.notes, n)
 			continue
 		}
-		pl.written++
-		pl.target = m.v2Name(p.client)
+		pl.write(m.v2Name(p.client))
 		view, vp := p.client, p.supplier
 		m.extras[view] = append(m.extras[view], func() { m.satisfyViewpoint(view, vp) })
 	}
@@ -190,41 +189,52 @@ func (m *migration) placeExpose(d *sysmlv1.Element) {
 	for _, id := range lostClients {
 		pl.notes = append(pl.notes, "the exposing element "+id+" is not in the document")
 	}
+	// A diagram is no model element: an id or href naming one resolves to nothing,
+	// or to a proxy, and stands for the view written for it.
 	var diagrams []*sysmlv1.Diagram
+	var elements []*sysmlv1.Element
+	shown := func(d *sysmlv1.Diagram) {
+		if note := m.diagramViewNote(d); note != "" {
+			pl.notes = append(pl.notes, note)
+			return
+		}
+		diagrams = append(diagrams, d)
+	}
 	for _, id := range lostSuppliers {
 		if d := m.model.Diagram(id); d != nil {
-			if note := m.diagramViewNote(d); note != "" {
-				pl.notes = append(pl.notes, note)
-				continue
-			}
-			diagrams = append(diagrams, d)
+			shown(d)
 			continue
 		}
 		pl.notes = append(pl.notes, m.absentNote(id))
+	}
+	for _, s := range suppliers {
+		if d := m.model.Diagram(s.Href); s.IsProxy() && d != nil {
+			shown(d)
+			continue
+		}
+		elements = append(elements, s)
 	}
 	for _, c := range clients {
 		if cat, _ := m.classify(c); cat != catView {
 			pl.notes = append(pl.notes, "the client "+qualifiedName(c)+" is not a view: v2 exposes elements from a view alone")
 			continue
 		}
-		for _, s := range suppliers {
+		for _, s := range elements {
 			if note := m.exposeNote(s); note != "" {
 				pl.notes = append(pl.notes, note)
 				continue
 			}
-			pl.written++
-			pl.target = m.v2Name(c)
+			pl.write(m.v2Name(c))
 			view, exposed := c, s
 			m.extras[view] = append(m.extras[view], func() { m.w.line("expose " + m.exposeRef(view, exposed) + ";") })
 		}
 		for _, d := range diagrams {
-			pl.written++
-			pl.target = m.v2Name(c)
+			pl.write(m.v2Name(c))
 			view, shown := c, d
 			m.extras[view] = append(m.extras[view], func() { m.w.line("expose " + m.viewRef(m.viewOf[shown], view) + ";") })
 		}
 	}
-	pl.failed = total - pl.written
+	pl.failed = total - len(pl.targets)
 }
 
 // exposeNote says why a view cannot expose s: it is external or not migrated;
