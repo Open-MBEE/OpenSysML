@@ -68,6 +68,15 @@ const monteCarloModel = `package MC {
 		return Mean : Real = mean;
 		out OutOfSpec : Natural = outOfSpec;
 	}
+	analysis def Branching :> Simulation::MonteCarlo {
+		subject analysed : Probe;
+		perform action run ::> analysed.settle;
+		attribute :>> observed : Real = analysed.t;
+		if mean < 3.0 {
+			out Statistic : Real = 0.0 - mean;
+		}
+		return Statistic : Real = mean;
+	}
 	analysis def Plain { subject analysed : Probe; return k : Integer = 1; }
 }`
 
@@ -140,6 +149,25 @@ func TestRunsConcludesAMonteCarloCaseOverItsSample(t *testing.T) {
 	}
 	if again := run(t, s, "%runs 4 7 MC::Mc MC::probe"); statistic(t, again, "Mean") != mean {
 		t.Errorf("the same seed concluded another Mean:\n%s", again)
+	}
+}
+
+// A result reached inside a branch is a result, not a step of every run: the branch
+// reads the sample's mean once, at the conclusion, as the ordinary body's end would.
+func TestRunsConcludeAResultNestedInABranch(t *testing.T) {
+	s := monteCarloSession(t)
+	out := run(t, s, "%runs 4 7 MC::Branching MC::probe")
+	wants(t, out, "✓ MC::Branching over 4 run(s)")
+	if strings.Contains(out, "error") {
+		t.Fatalf("a run evaluated the branch over the unbound mean:\n%s", out)
+	}
+	mean := statistic(t, out, "mean")
+	want := mean
+	if mean < 3.0 {
+		want = -mean
+	}
+	if got := statistic(t, out, "Statistic"); got != want {
+		t.Errorf("Statistic = %v over a mean of %v, want %v", got, mean, want)
 	}
 }
 

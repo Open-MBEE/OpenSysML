@@ -7,7 +7,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // A Simulation::MonteCarlo case is an analysis of repeated runs, each on a fresh subject
@@ -310,7 +309,8 @@ func (r *MonteCarloRun) concludingVerdicts(concluded []AnalysisVerdict) []Analys
 }
 
 // bindStatistic gives the library's output feature its value, under the name the
-// case binds it, checked against the declaration as a binding's value is.
+// case binds it, checked against the declaration as a binding's value is. The run's
+// frame holds it too, so the results read it as they read any value the body bound.
 func (r *MonteCarloRun) bindStatistic(feature string, value Value) error {
 	name, ok := r.ctx.monteCarloMember(r.run.shape, feature)
 	if !ok {
@@ -327,31 +327,35 @@ func (r *MonteCarloRun) bindStatistic(feature string, value Value) error {
 		return err
 	}
 	r.run.outputs[name] = value
+	r.run.env.set(name, value)
 	return nil
 }
 
-// returnResults evaluates the returns the run deferred: a `return expr` yields the
-// result as the body would have; a bound result parameter is read as an output.
+// returnResults runs the deferred results over the run's frame with the statistics
+// bound, as the body's end would: a `return` on any path, nested or not, yields the result.
 func (r *MonteCarloRun) returnResults() error {
-	for _, stmt := range r.results {
-		ret := stmt.(lower.Return)
-		if _, bound := ret.Node.(*ast.Usage); bound {
-			continue
-		}
-		value, err := r.run.bindingEnv(r.ctx, r.run.shape.BodyOwner).Eval(ret.Value)
-		if err != nil {
-			return calcFrame(r.run.shape.Kind, r.run.shape.Name, fmt.Errorf("result: %w", err))
-		}
-		if out := r.run.shape.resultOutput(); out != nil {
-			if err := out.Decl.check(r.ctx, &value, func() string { return "result" }); err != nil {
-				return err
-			}
-			if out.Name != "" {
-				r.run.outputs[out.Name] = value
-			}
-		}
-		r.run.result, r.run.returned = value, true
+	ctx, run := r.ctx, r.run
+	host := &calcStmtHost{ctx: ctx, shape: run.shape, self: run.self}
+	var enclosing []frame
+	if run.outer != nil {
+		enclosing = run.shape.bodyEnclosing(run.outer.enclosingRun(run.shape))
 	}
+	engine := newStmtEngineIn(ctx, host, run.env, enclosing)
+	defer engine.finish()
+	host.attachPerformances(engine)
+	result, returned, err := runCalcSteps(engine, host, r.results)
+	if err != nil {
+		return calcFrame(run.shape.Kind, run.shape.Name, fmt.Errorf("result: %w", err))
+	}
+	if !returned {
+		return nil
+	}
+	if out := run.shape.resultOutput(); out != nil && out.Name != "" {
+		run.outputs[out.Name] = result
+	} else if _, anonymous := run.shape.anonymousResult(); anonymous {
+		run.outputs[resultOutputName] = result
+	}
+	run.result, run.returned = result, true
 	return nil
 }
 

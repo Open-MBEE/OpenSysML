@@ -820,14 +820,11 @@ func runCalcSteps(engine *stmtEngine, host *calcStmtHost, steps []lower.Statemen
 	return host.result, flow == flowReturn, nil
 }
 
-// observationSteps splits Steps at the results ending them: the steps a run of a
-// Monte Carlo case performs, then the results evaluated over its sample.
+// observationSteps splits Steps at the results ending them (lower.IsResult): the
+// steps a run of a Monte Carlo case performs, then the results run over its sample.
 func (shape *calcShape) observationSteps() (steps, results []lower.Statement) {
 	end := len(shape.Steps)
-	for end > 0 {
-		if _, isResult := shape.Steps[end-1].(lower.Return); !isResult {
-			break
-		}
+	for end > 0 && lower.IsResult(shape.Steps[end-1]) {
 		end--
 	}
 	return shape.Steps[:end], shape.Steps[end:]

@@ -25,10 +25,11 @@ func PerformsSteps(decl ast.Node) bool {
 }
 
 // caseSteps lowers a body whose steps are action nodes: the locals it declares, one
-// Block over the flow the steps state, then its results. A body stating successions
-// or control nodes is the token flow an action body is (ToActionGraph); one stating
-// none runs its steps in declaration order. The resolver reads the flow's
-// `@Probability` annotations; nil reads none.
+// Block over the flow the steps state, then its results — every statement that
+// returns on some path, a `return` in the control flow around it included, in
+// declaration order. A body stating successions or control nodes is the token flow
+// an action body is (ToActionGraph); one stating none runs its steps in declaration
+// order. The resolver reads the flow's `@Probability` annotations; nil reads none.
 func caseSteps(owner ast.Node, body []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) []Statement {
 	if !statesOwnFlow(body) {
 		var results []Statement
@@ -42,7 +43,7 @@ func caseSteps(owner ast.Node, body []ast.Node, scope *symbols.Scope, resolver *
 			if !states {
 				return nil, false
 			}
-			if _, isResult := stmt.(Return); isResult {
+			if IsResult(stmt) {
 				results = append(results, stmt)
 				return nil, false
 			}
@@ -64,7 +65,7 @@ func caseSteps(owner ast.Node, body []ast.Node, scope *symbols.Scope, resolver *
 		if !states {
 			continue
 		}
-		if _, isResult := stmt.(Return); isResult {
+		if IsResult(stmt) {
 			results = append(results, stmt)
 			continue
 		}
@@ -82,6 +83,12 @@ func caseSteps(owner ast.Node, body []ast.Node, scope *symbols.Scope, resolver *
 	StartFlow(graph)
 	flow := Block{Node: owner, Scope: scope, Graph: graph, Own: true, Stated: true}
 	return append(append(locals, flow), results...)
+}
+
+// IsResult reports a statement of a case body that states a result: one returning
+// a value on some path through it. The results end the lowered body, after its steps.
+func IsResult(stmt Statement) bool {
+	return Returns([]Statement{stmt})
 }
 
 // stepName names a step of a case body for a diagnostic.
