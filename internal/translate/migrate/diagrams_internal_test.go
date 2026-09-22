@@ -330,3 +330,22 @@ func TestExposeOfUnhostedDiagramFailsPerClient(t *testing.T) {
 		t.Errorf("_d is missing from the report")
 	}
 }
+
+func TestLayoutClauseWording(t *testing.T) {
+	for _, tc := range []struct {
+		written, unexposed, dangling, total int
+		want                                string
+	}{
+		{1, 0, 0, 1, "1 of 1 connectors routed"},
+		{1, 1, 1, 3, "1 of 3 connectors routed (1 of an unwritten element, 1 resolving to no element)"},
+		{0, 2, 0, 2, "0 of 2 connectors routed (2 of unwritten elements)"},
+	} {
+		got := layoutClause(tc.written, tc.unexposed, tc.dangling, tc.total, "connectors routed", "of an unwritten element", "resolving to no element")
+		if got != tc.want {
+			t.Errorf("layoutClause = %q, want %q", got, tc.want)
+		}
+	}
+	if got := layoutClause(0, 2, 0, 2, "shown elements positioned", "not exposed", "resolving to no element"); got != "0 of 2 shown elements positioned (2 not exposed)" {
+		t.Errorf("layoutClause = %q", got)
+	}
+}

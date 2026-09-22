@@ -615,7 +615,7 @@ func layoutClause(written, unexposed, dangling, total int, what, unexposedWhy, d
 // pluralWhy turns "of an unwritten element" into "of unwritten elements" and
 // leaves "not exposed" alone.
 func pluralWhy(why string) string {
-	return strings.Replace(why, "an unwritten element", "of unwritten elements", 1)
+	return strings.Replace(why, "an unwritten element", "unwritten elements", 1)
 }
 
 // layoutNumber writes a coordinate in its shortest exact form.
