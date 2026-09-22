@@ -406,9 +406,25 @@ func (t *imaging) stateExecutor(e *StateExecutor) (*imagedState, error) {
 			return nil, fmt.Errorf("%w: do behavior of state %s of %s", ErrSnapshotPausedBody,
 				StateVertexName(act.state), symbolText(e.stateMachine))
 		}
-		img.doActions = append(img.doActions, doActionCapture{act: &doAction{state: act.state}, pending: slices.Clone(act.pending)})
+		if err := t.firing(act.firing); err != nil {
+			return nil, fmt.Errorf("do behavior of state %s: %w", StateVertexName(act.state), err)
+		}
+		img.doActions = append(img.doActions, doActionCapture{act: &doAction{state: act.state}, pending: slices.Clone(act.pending), firing: act.firing.snapshot()})
+	}
+	for _, item := range img.held {
+		if err := t.firing(item.firing); err != nil {
+			return nil, fmt.Errorf("held entry of %s: %w", StateVertexName(item.owner), err)
+		}
 	}
 	return img, nil
+}
+
+// firing checks that the payload a firing bound carries.
+func (t *imaging) firing(f *firing) error {
+	if f == nil {
+		return nil
+	}
+	return t.values(f.payload)
 }
 
 // event checks that an event's payload carries, reaching what it names.
@@ -707,7 +723,11 @@ func (m *materializing) stateExecutor(e *StateExecutor, img *imagedState) error 
 	}
 	e.lastEventAt = img.lastEventAt
 	for _, act := range img.doActions {
-		e.doActions = append(e.doActions, &doAction{state: act.act.state, pending: slices.Clone(act.pending)})
+		carried, err := m.firing(act.firing)
+		if err != nil {
+			return fmt.Errorf("do behavior of state %s: %w", StateVertexName(act.act.state), err)
+		}
+		e.doActions = append(e.doActions, &doAction{state: act.act.state, pending: slices.Clone(act.pending), firing: carried})
 	}
 	e.machineExited, e.inRun, e.moved = img.machineExited, img.inRun, img.moved
 	e.driven.state = m.runOf(img.run)
@@ -718,6 +738,11 @@ func (m *materializing) stateExecutor(e *StateExecutor, img *imagedState) error 
 	e.changeRearmed = maps.Clone(img.changeRearmed)
 	e.changeWaits = slices.Clone(img.changeWaits)
 	e.held = cloneHeldEntries(img.held)
+	for i := range e.held {
+		if e.held[i].firing, err = m.firing(img.held[i].firing); err != nil {
+			return fmt.Errorf("held entry of %s: %w", StateVertexName(e.held[i].owner), err)
+		}
+	}
 	clear(e.entering)
 	for state, entering := range img.entering {
 		e.entering[state] = entering
@@ -743,6 +768,18 @@ func (m *materializing) pendingCall(e *StateExecutor, call *pendingCall) error {
 	}
 	e.pendingCall = carried
 	return nil
+}
+
+// firing is a firing as dst carries it, the payload it bound as dst's own values.
+func (m *materializing) firing(f *firing) (*firing, error) {
+	if f == nil {
+		return nil, nil
+	}
+	payload, err := m.values(f.payload)
+	if err != nil {
+		return nil, err
+	}
+	return &firing{taken: f.taken, payload: payload}, nil
 }
 
 // event is an event as dst carries it.
