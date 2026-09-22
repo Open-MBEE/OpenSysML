@@ -244,6 +244,23 @@ func TestPushRefusesAPreconditionWhoseLocationNamesAnotherCommit(t *testing.T) {
 	}
 }
 
+func TestPushRefusesACommittedAnswerWhoseHeadMovedPast(t *testing.T) {
+	client, fake := stack(t, sparqlFixture)
+	// The write proves a commit by ETag and Location alike, but the head the
+	// branch serves is still another's: it is refused, nothing is recorded.
+	fake.refusePut = &putRefusal{etag: "c-other", location: "http://layer1.test/orgs/o/repos/p/commits/c-other"}
+	repo := client.Repository("p", "b")
+
+	_, err := repo.Push(context.Background(), []byte("<s> <p> <o> ."), "a push")
+	var stale *StaleBranchError
+	if !errors.As(err, &stale) || stale.Seen != "c-0" || stale.Head != "c-0" {
+		t.Fatalf("want a StaleBranchError, got %v", err)
+	}
+	if repo.Seen() != "" {
+		t.Errorf("the refusal moved what was seen to %q", repo.Seen())
+	}
+}
+
 func TestPushRefusesAFailedPrecondition(t *testing.T) {
 	client, fake := stack(t, sparqlFixture)
 	fake.race412 = true

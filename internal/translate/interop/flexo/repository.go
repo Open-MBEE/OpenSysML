@@ -114,14 +114,15 @@ func (r *Repository) Push(ctx context.Context, turtle []byte, message string) (s
 	res, err := r.client.PutGraph(ctx, r.project, r.branch, turtle, message, etag)
 	if err != nil {
 		if Status(err) == http.StatusPreconditionFailed {
-			// A committed write also answers 412; its Location is the proof.
-			if c := committedFrom(res); c != "" {
-				r.seen = c
-				return c, nil
-			}
 			current, readErr := r.Head(ctx)
 			if readErr != nil {
 				return "", fmt.Errorf("the branch answered 412 and its head could not be re-read: %w", readErr)
+			}
+			// A committed write answers 412 too; its Location proves the commit,
+			// and only a head still at it counts it as ours.
+			if c := committedFrom(res); c != "" && c == current {
+				r.seen = c
+				return c, nil
 			}
 			return "", &StaleBranchError{Project: r.project, Branch: r.branch, Seen: head, Head: current}
 		}
