@@ -235,16 +235,18 @@ func TestDiagramRepresentationByUMLTypeAlone(t *testing.T) {
 	}
 }
 
-func TestDiagramWithoutRepresentationHasNoKind(t *testing.T) {
+func TestDiagramWithoutRepresentationShowsNothing(t *testing.T) {
 	// Without a representation object or a UML diagram type, a plainly typed
-	// child gives the diagram no kind; the elements it lists are still shown.
+	// child gives the diagram no kind, and what such tool content lists is not
+	// shown: only the representation's contents are.
 	m := parseDiagrams(t, `
         <ownedDiagram xmi:type="uml:Diagram" xmi:id="_d" name="Bare" ownerOfDiagram="_p">
           <xmi:Extension extender="Example UML Tool 1.0">
             <legend type="_a"><usedElements>_b</usedElements></legend>
+            <history><usedObjects href="#_a"/></history>
           </xmi:Extension>
         </ownedDiagram>`)
-	if d := m.Diagrams[0]; d.Kind != "" || d.UMLKind != "" || ids(d.Shown) != "_b" {
+	if d := m.Diagrams[0]; d.Represented() || d.Kind != "" || d.UMLKind != "" || len(d.Shown) != 0 {
 		t.Errorf("diagram = %+v", d)
 	}
 }

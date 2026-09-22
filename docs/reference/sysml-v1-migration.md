@@ -56,7 +56,8 @@ returned over the service yet.
   name, kind, `ownerOfDiagram` and shown elements, and is written as a `view` (see
   [Diagrams](#diagrams)). The representation object is found by how it is held or tagged, or
   failing that by the `umlType` it states; a child with a plain `type` (a comment, a legend, a
-  property) is not it, and what it lists is not shown. Layout and the rest of the extension —
+  property) is not it, and what it lists is not shown; a diagram without a representation shows
+  nothing, whatever else the tool lists inside it. Layout and the rest of the extension —
   tool-internal state, a Papyrus `.notation` file — are skipped; the report says so once per
   skipped profile or library package. A package is library content
   when it is a standard or tool profile (a user profile is written, see
@@ -271,7 +272,7 @@ returned over the service yet.
 | Diagram whose owner has no v2 body (a region, a property, an enumeration, an activity that is inlined), names no owner, or names an id the document does not define | the view is written in the body of the nearest ancestor that has one — the state def a region belongs to, the part def a property is of, the package, or the document's top level — and the note says where | approximated |
 | Diagram some of whose shown elements are not written (results, tool content, elements nothing refers to, states and action nodes, ids the document does not define), or that shows nothing | the written ones are exposed and the rest dropped, the note counting them; a view exposing nothing is still written, `view 'Name' { render …; }`, which validates | approximated |
 | Diagram named like a member of the body it is written in — a «View» class's `view` usage of the same name in the same package, a state, an action | renamed `Name 2`, `Name 3`… past the taken names | approximated |
-| Diagram with no representation serialized, or one naming no diagram type | a view of unknown kind, rendered `asTextualNotation`, exposing what the representation lists | approximated |
+| Diagram with no representation serialized, or one naming no diagram type | a view of unknown kind, rendered `asTextualNotation`, exposing what the representation lists — nothing when there is none | approximated |
 | Diagram no written element can hold: every ancestor is library content or otherwise unwritten | comment | **unmapped** |
 | The standard profiles, the SysML/UML libraries themselves | — | skipped |
 | The modeling tool's own profiles and their content, by exact namespace path: MagicDraw's SysML customization (`…/spec/Customization/…`), `DSL_Customization.xmi` («Customization» classes, «derivedPropertySpecification» properties and their structured-expression bodies), `UI_Prototyping_Profile.xmi` («Label», «Button», «GroupBox», … mockups), `SimulationProfile.xmi` classes other than run configurations («SequenceDiagramGeneratorConfig», …); a marked classifier with a standard stereotype or a behavior of its own is model content and migrates as such | — ; the reason names what the content configures | skipped |

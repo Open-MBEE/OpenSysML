@@ -58,21 +58,23 @@ func isDiagram(raw *xmi.Element) bool {
 
 // diagram reads one serialized diagram: its kind from the representation
 // object's type and umlType attributes, its contents from the usedElements ids
-// and usedObjects hrefs beneath that object. Owner and shown elements are
-// resolved by linkDiagrams once every document is read, since a diagram may
+// and usedObjects hrefs beneath that object; without a representation object
+// nothing is shown, whatever other tool content lists. Owner and shown elements
+// are resolved by linkDiagrams once every document is read, since a diagram may
 // precede what it names.
 func (m *Model) diagram(raw *xmi.Element, ext *Extension) {
 	d := Diagram{
 		ID: raw.ID, Name: raw.Name(), OwnerID: raw.Attr("ownerOfDiagram"),
 		Holder: ext.Owner, Extender: ext.Extender,
 	}
-	contents := raw
-	if rep := representation(raw); rep != nil {
-		d.Kind, d.UMLKind = rep.Attrs["type"], rep.Attrs["umlType"]
-		contents = rep
+	rep := representation(raw)
+	if rep == nil {
+		m.Diagrams = append(m.Diagrams, d)
+		return
 	}
+	d.Kind, d.UMLKind = rep.Attrs["type"], rep.Attrs["umlType"]
 	seen := map[string]bool{}
-	walkDiagram(contents, func(n *xmi.Element) {
+	walkDiagram(rep, func(n *xmi.Element) {
 		if n.Tag != "usedElements" && n.Tag != "usedObjects" {
 			return
 		}

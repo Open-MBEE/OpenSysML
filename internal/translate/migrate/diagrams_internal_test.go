@@ -135,6 +135,12 @@ func TestDiagramViews(t *testing.T) {
 			 </packagedElement>`,
 			diagram("_d", "Reviews", "_review", "Profile Diagram", "_status", "_pump"),
 			[]string{"metadata def Review {\n        attribute status;\n        view Reviews {\n            expose status;\n            expose Sys::Pump;\n            render Views::asTreeDiagram;\n        }\n    }"}, Mapped, ""},
+		{"a diagram without a representation exposes nothing, whatever other tool content lists",
+			``, `<ownedDiagram xmi:type="uml:Diagram" xmi:id="_d" name="Bare" ownerOfDiagram="_sys"><xmi:Extension>
+			   <legend type="_pump"><usedElements>_rate</usedElements></legend><history><usedObjects href="#_pump"/></history>
+			 </xmi:Extension></ownedDiagram>`,
+			[]string{"view Bare {\n        render Views::asTextualNotation;\n    }"}, Approximated,
+			"no diagram representation is serialized: what the diagram is and shows is unknown, and the view exposes nothing"},
 		{"a diagram named like an earlier diagram of its owner is numbered",
 			``, diagram("_d1", "Overview", "_sys", "SysML Package Diagram") + diagram("_d", "Overview", "_sys", "SysML Package Diagram"),
 			[]string{"view Overview {", "view 'Overview 2' {"}, Approximated, "written as Overview 2"},
