@@ -225,9 +225,13 @@ elmt:ReferenceSubsets__design__fleet
     sysml:isReference "true"^^xsd:boolean ;
     sysml:subsets elmt:ReferenceSubsets__vehicle_5fc1 ;
     sysml:lowerBound expr:ReferenceSubsets__design__fleet_plowerBound ;
+    sysml:ownedRelationship expr:ReferenceSubsets__design__fleet_plowerBound_om, expr:ReferenceSubsets__design__fleet_pupperBound_om ;
+    sysml:ownedMembership expr:ReferenceSubsets__design__fleet_plowerBound_om, expr:ReferenceSubsets__design__fleet_pupperBound_om ;
     sysml:upperBound expr:ReferenceSubsets__design__fleet_pupperBound ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysx:sourceText "        ref fleet[0..*] :> vehicle_c1;\n" .
+    sysx:sourceText "        ref fleet[0..*] :> vehicle_c1;\n" ;
+    json:ownedRelationship "[{\"@id\":\"ReferenceSubsets__design__fleet_plowerBound_om\"},{\"@id\":\"ReferenceSubsets__design__fleet_pupperBound_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"ReferenceSubsets__design__fleet_plowerBound_om\"},{\"@id\":\"ReferenceSubsets__design__fleet_pupperBound_om\"}]" .
 
 elmt:ReferenceSubsets__design__fleet_om
     a sysml:FeatureMembership ;
@@ -245,12 +249,38 @@ expr:ReferenceSubsets__design__fleet_plowerBound
     a sysml:LiteralInteger ;
     sysx:sourceText "0" ;
     sysml:elementId "ReferenceSubsets__design__fleet_plowerBound" ;
-    sysml:value "0"^^xsd:integer .
+    sysml:value "0"^^xsd:integer ;
+    sysml:owner elmt:ReferenceSubsets__design__fleet ;
+    sysml:owningRelationship expr:ReferenceSubsets__design__fleet_plowerBound_om ;
+    sysml:owningMembership expr:ReferenceSubsets__design__fleet_plowerBound_om .
+
+expr:ReferenceSubsets__design__fleet_plowerBound_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ReferenceSubsets__design__fleet_plowerBound_om" ;
+    sysml:owner elmt:ReferenceSubsets__design__fleet ;
+    sysml:memberElement expr:ReferenceSubsets__design__fleet_plowerBound ;
+    sysml:ownedMemberElement expr:ReferenceSubsets__design__fleet_plowerBound ;
+    sysml:ownedRelatedElement expr:ReferenceSubsets__design__fleet_plowerBound ;
+    sysml:owningRelatedElement elmt:ReferenceSubsets__design__fleet ;
+    sysml:membershipOwningNamespace elmt:ReferenceSubsets__design__fleet .
 
 expr:ReferenceSubsets__design__fleet_pupperBound
     a sysml:LiteralInfinity ;
     sysx:sourceText "*" ;
-    sysml:elementId "ReferenceSubsets__design__fleet_pupperBound" .
+    sysml:elementId "ReferenceSubsets__design__fleet_pupperBound" ;
+    sysml:owner elmt:ReferenceSubsets__design__fleet ;
+    sysml:owningRelationship expr:ReferenceSubsets__design__fleet_pupperBound_om ;
+    sysml:owningMembership expr:ReferenceSubsets__design__fleet_pupperBound_om .
+
+expr:ReferenceSubsets__design__fleet_pupperBound_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ReferenceSubsets__design__fleet_pupperBound_om" ;
+    sysml:owner elmt:ReferenceSubsets__design__fleet ;
+    sysml:memberElement expr:ReferenceSubsets__design__fleet_pupperBound ;
+    sysml:ownedMemberElement expr:ReferenceSubsets__design__fleet_pupperBound ;
+    sysml:ownedRelatedElement expr:ReferenceSubsets__design__fleet_pupperBound ;
+    sysml:owningRelatedElement elmt:ReferenceSubsets__design__fleet ;
+    sysml:membershipOwningNamespace elmt:ReferenceSubsets__design__fleet .
 
 elmt:ReferenceSubsets__design__presidentOfCountry
     a sysml:ReferenceUsage ;
@@ -267,9 +297,13 @@ elmt:ReferenceSubsets__design__presidentOfCountry
     sysml:type elmt:ReferenceSubsets__Person ;
     sysml:subsets elmt:ReferenceSubsets__vehicle_5fc1 ;
     sysml:lowerBound expr:ReferenceSubsets__design__presidentOfCountry_plowerBound ;
+    sysml:ownedRelationship expr:ReferenceSubsets__design__presidentOfCountry_plowerBound_om, expr:ReferenceSubsets__design__presidentOfCountry_pupperBound_om ;
+    sysml:ownedMembership expr:ReferenceSubsets__design__presidentOfCountry_plowerBound_om, expr:ReferenceSubsets__design__presidentOfCountry_pupperBound_om ;
     sysml:upperBound expr:ReferenceSubsets__design__presidentOfCountry_pupperBound ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysx:sourceText "        ref presidentOfCountry[0..1] : Person :> vehicle_c1;\n" .
+    sysx:sourceText "        ref presidentOfCountry[0..1] : Person :> vehicle_c1;\n" ;
+    json:ownedRelationship "[{\"@id\":\"ReferenceSubsets__design__presidentOfCountry_plowerBound_om\"},{\"@id\":\"ReferenceSubsets__design__presidentOfCountry_pupperBound_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"ReferenceSubsets__design__presidentOfCountry_plowerBound_om\"},{\"@id\":\"ReferenceSubsets__design__presidentOfCountry_pupperBound_om\"}]" .
 
 elmt:ReferenceSubsets__design__presidentOfCountry_om
     a sysml:FeatureMembership ;
@@ -287,10 +321,36 @@ expr:ReferenceSubsets__design__presidentOfCountry_plowerBound
     a sysml:LiteralInteger ;
     sysx:sourceText "0" ;
     sysml:elementId "ReferenceSubsets__design__presidentOfCountry_plowerBound" ;
-    sysml:value "0"^^xsd:integer .
+    sysml:value "0"^^xsd:integer ;
+    sysml:owner elmt:ReferenceSubsets__design__presidentOfCountry ;
+    sysml:owningRelationship expr:ReferenceSubsets__design__presidentOfCountry_plowerBound_om ;
+    sysml:owningMembership expr:ReferenceSubsets__design__presidentOfCountry_plowerBound_om .
+
+expr:ReferenceSubsets__design__presidentOfCountry_plowerBound_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ReferenceSubsets__design__presidentOfCountry_plowerBound_om" ;
+    sysml:owner elmt:ReferenceSubsets__design__presidentOfCountry ;
+    sysml:memberElement expr:ReferenceSubsets__design__presidentOfCountry_plowerBound ;
+    sysml:ownedMemberElement expr:ReferenceSubsets__design__presidentOfCountry_plowerBound ;
+    sysml:ownedRelatedElement expr:ReferenceSubsets__design__presidentOfCountry_plowerBound ;
+    sysml:owningRelatedElement elmt:ReferenceSubsets__design__presidentOfCountry ;
+    sysml:membershipOwningNamespace elmt:ReferenceSubsets__design__presidentOfCountry .
 
 expr:ReferenceSubsets__design__presidentOfCountry_pupperBound
     a sysml:LiteralInteger ;
     sysx:sourceText "1" ;
     sysml:elementId "ReferenceSubsets__design__presidentOfCountry_pupperBound" ;
-    sysml:value "1"^^xsd:integer .
+    sysml:value "1"^^xsd:integer ;
+    sysml:owner elmt:ReferenceSubsets__design__presidentOfCountry ;
+    sysml:owningRelationship expr:ReferenceSubsets__design__presidentOfCountry_pupperBound_om ;
+    sysml:owningMembership expr:ReferenceSubsets__design__presidentOfCountry_pupperBound_om .
+
+expr:ReferenceSubsets__design__presidentOfCountry_pupperBound_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ReferenceSubsets__design__presidentOfCountry_pupperBound_om" ;
+    sysml:owner elmt:ReferenceSubsets__design__presidentOfCountry ;
+    sysml:memberElement expr:ReferenceSubsets__design__presidentOfCountry_pupperBound ;
+    sysml:ownedMemberElement expr:ReferenceSubsets__design__presidentOfCountry_pupperBound ;
+    sysml:ownedRelatedElement expr:ReferenceSubsets__design__presidentOfCountry_pupperBound ;
+    sysml:owningRelatedElement elmt:ReferenceSubsets__design__presidentOfCountry ;
+    sysml:membershipOwningNamespace elmt:ReferenceSubsets__design__presidentOfCountry .

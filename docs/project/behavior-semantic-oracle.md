@@ -1315,7 +1315,10 @@ is not a choice and is not reported.
 ### A do step and a dispatch due at one instant: which goes first is open
 
 Fixtures: `state_do_step_or_dispatch` (golden, explored), `state_do_step_among_completions`
-(golden, explored), `state_do_step_or_tied_dispatch` (golden, explored).
+(golden, explored), `state_do_step_or_tied_dispatch` (golden, explored),
+`state_do_step_cuts_typed_do` (golden, explored), `state_do_step_cuts_nested_perform` (golden,
+explored), `state_do_step_cuts_control_node_body` (golden, explored, checked),
+`state_do_action_loop_timed_exit` (explored, checked).
 
 ```
 state Machine { attribute log : String = "";
@@ -1350,16 +1353,35 @@ due. In the fixture `Stop` is in the pool as `top` is entered, so `log` ends `di
 
 Pinned outcome: the admissible set `{did stop , stop }`, stated as `outcomes` citing this section.
 Under `check`, `replay` and `explore` the order is a choice point reported as `choice at t=0.0:
-next do top, dispatch accept Stop (unordered; took do top first)`: one move is one action of a
-state's do behavior, drawn against the dispatch the machine would make now (`do <state>` per due
-state, then `dispatch <event>`), and once every due do behavior has acted the dispatch owed is made
-before another round opens. A dispatch that would drop or defer its occurrence is not drawn ahead
-of a due do step; it waits for the round to close, as under the fixed policies, so an occurrence a
+next do top, dispatch accept Stop (unordered; took do top first)`: one move is one token move of
+a state's do behavior — a statement of an inline body, a step of a do behavior given as an
+action, a token inside a nested perform — drawn against the dispatch the machine would make now
+(`do <state>` naming the due states, then `dispatch <event>`), and the draw is made again after
+every move while a do behavior is due, so the dispatch may cut the flow anywhere or wait for it
+to rest. A dispatch that would drop or defer its occurrence is not drawn ahead
+of a due do step; it waits until no do move is due, as under the fixed policies, so an occurrence a
 do behavior is about to accept — `Tick` in `state_join_completion_segment_waits_for_do_behavior`,
 `b1`'s timer in `state_join_completion_is_not_a_timers_expiry` — is not lost to the draw, and
-those fixtures keep their admissible sets. `declared`, `reverse` and `seed:<n>` run the do round to its end and
-dispatch after it, so their traces record no such choice and end `did stop `; `explore` must reach
-both outcomes and no other. `state_do_step_among_completions` is the shape with two regions'
+those fixtures keep their admissible sets. `declared`, `reverse` and `seed:<n>` run the whole do
+round — every due do behavior, each steppable token once — and dispatch after it, so their traces
+record no such choice and end `did stop `; `explore` must reach both outcomes and no other, and
+the fixed policies' run is always among the runs `check` tables. `state_do_step_cuts_typed_do`
+makes the do behavior a typed action of two steps whose `inout` writes back as it ends: the
+dispatch cuts it at either step (`count = 100`) or takes it after it ended (`111`).
+`state_do_step_cuts_nested_perform` performs that action from an inline do body between two
+assignments: `1000` (cut before the first), `1001` (after it, or inside the perform, whose
+write-back is lost), `1012` (after the perform), `1112` (after the body ended).
+`state_do_step_cuts_control_node_body` forks the do flow through a fork with a body of its own
+(`fork split { assign count := count + 1; }`): a control node's body is performed by the token
+passing through it, so it is a move the dispatch may fall before (`1000`) or after (`1001`, the
+fixed policies' run, whose sweep moves each token once and so ends at the fork), then after
+either branch (`1011`, `1101`) or both (`1111`) — five outcomes, exact under `check`. A control
+node with no body only routes control, and where between two moves it falls no other move
+observes, so it is not drawn.
+`state_do_action_loop_timed_exit` loops a forked do flow through timed waits against a timed
+exit due at the same instant: the exit may cut the flow before either branch writes, after one,
+or after both — the fixed policies' `left = right = 1` — four outcomes, exact under `check`.
+`state_do_step_among_completions` is the shape with two regions'
 completion effects for the dispatch: a region's do step and the other region's completion are
 each drawn at every instant both are due, and the order among the completions themselves is the
 entry draw's, which the pool follows (§8.5.9) — the do step falls before, between or after the

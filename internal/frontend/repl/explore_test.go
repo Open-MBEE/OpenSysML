@@ -321,7 +321,7 @@ func TestRunForExploresSiblingsOnOneRoot(t *testing.T) {
 	wantsInOrder(t, out, "✓ explored Comms::Ground::listen Comms::pair.ground, Comms::Craft::modes Comms::pair.craft: 2 outcomes",
 		"Comms::Craft::modes Comms::pair.craft.emitted = 4", "Comms::Ground::listen Comms::pair.ground.received = 1",
 		"Comms::Craft::modes Comms::pair.craft.emitted = 4", "Comms::Ground::listen Comms::pair.ground.received = 2",
-		"complete (3 runs)")
+		"complete (4 runs)")
 	if len(verdicts[0].Outcomes) != 2 {
 		t.Errorf("outcomes = %+v, want two", verdicts[0].Outcomes)
 	}

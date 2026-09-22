@@ -85,9 +85,9 @@ func testInnerOrderMixingTwoFlows(t *testing.T) {
 }
 
 // testWitnessEndingBeforeTheRunDoes: a witness cut short leaves the run to end on
-// its own as `reverse` picks, still one token a step — at the round both branches
-// and the exit are due, `b` alone writes before the exit — without a refusal or a
-// move left over.
+// its own as `reverse` picks, still one token a move — at the round both branches
+// and the exit are due, the flow keeps moving, `b` then `a`, before the exit — without
+// a refusal or a move left over.
 func testWitnessEndingBeforeTheRunDoes(t *testing.T) {
 	m := loopingDoModel(t, false)
 	sym := m.state(t, "Machine")
@@ -117,7 +117,7 @@ func testWitnessEndingBeforeTheRunDoes(t *testing.T) {
 		t.Fatalf("unfollowed: %v", err)
 	}
 	outcome := run.inv.Outcome()
-	want := "finalState heard+finished; visits waiting, looping, finished, heard; late = 1; left = 0; right = 1"
+	want := "finalState heard+finished; visits waiting, looping, finished, heard; late = 1; left = 1; right = 1"
 	if got := outcome.String(); got != want {
 		t.Errorf("outcome %s, want %s", got, want)
 	}

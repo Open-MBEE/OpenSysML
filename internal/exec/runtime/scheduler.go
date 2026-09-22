@@ -276,25 +276,14 @@ type stepTokens struct {
 	held    map[int64]bool
 	enabled func(id int64) bool
 	label   func(id int64) string
+	// stepped marks a step of a body run one token move at a time: a do flow's,
+	// whose order among the tokens able to act is the machine's to draw.
+	stepped bool
 }
 
 // has reports whether the step has a token the label names.
 func (t stepTokens) has(label string) bool {
 	return slices.ContainsFunc(t.ids, func(id int64) bool { return t.label(id) == label })
-}
-
-// leftReady reports, once the tokens in acted have, a token held by none that did
-// not act yet can now: one a sweep moving each token once would move this step.
-func (t stepTokens) leftReady(acted []int64) bool {
-	if len(acted) == 0 {
-		return false
-	}
-	for _, id := range t.ids {
-		if !t.held[id] && !slices.Contains(acted, id) && t.enabled(id) {
-			return true
-		}
-	}
-	return false
 }
 
 // hasAll reports whether the step has every token the labels name: the order

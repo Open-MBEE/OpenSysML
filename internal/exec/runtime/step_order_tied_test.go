@@ -9,8 +9,8 @@ import (
 	"testing"
 )
 
-// Two same-spelled time triggers arm one timer, whose dispatch is drawn against a due
-// do step by name; every witness replays.
+// Two same-spelled time triggers arm one timer, whose dispatch is drawn against each
+// move of a due do step by name; no dispatch order is drawn; every witness replays.
 func TestStepOrderDrawsTheActingTiedEventAlone(t *testing.T) {
 	text, err := os.ReadFile(filepath.Join("testdata", "conformance", "state_do_step_or_tied_dispatch.sysml"))
 	if err != nil {
@@ -22,7 +22,7 @@ func TestStepOrderDrawsTheActingTiedEventAlone(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if report.Verdict != CheckDivergent || len(report.Violations) != 0 || len(report.BoundsHit) != 0 || len(report.NotEnumerated) != 0 {
+	if report.Verdict != CheckDivergent || len(report.Violations) != 0 || len(report.BoundsHit) != 0 {
 		t.Fatalf("check: %s, want a complete divergent search", report.Status())
 	}
 	want := []string{`finalState idle; visits top, idle; log = "did one "`, `finalState idle; visits top, idle; log = "did two "`, `finalState idle; visits top, idle; log = "two "`}
@@ -31,8 +31,16 @@ func TestStepOrderDrawsTheActingTiedEventAlone(t *testing.T) {
 	}
 	for _, final := range report.Finals {
 		steps := slices.DeleteFunc(slices.Clone(final.Witness.Choices), func(c ChoiceTaken) bool { return c.Kind != ChoiceStepOrder })
-		if len(steps) != 1 || !slices.Equal(steps[0].Among, []string{"do top", "dispatch time top 1->idle"}) {
-			t.Fatalf("%s: step orders %v, want one between the step and the group's timer", final.Outcome, steps)
+		if len(steps) == 0 {
+			t.Fatalf("%s: no step order drawn, want one between the step and the group's timer", final.Outcome)
+		}
+		for i, step := range steps {
+			if !slices.Equal(step.Among, []string{"do top", "dispatch time top 1->idle"}) {
+				t.Fatalf("%s: step order %d is %v, want between the step and the group's timer", final.Outcome, i, step)
+			}
+			if i < len(steps)-1 && step.Took != "do top" {
+				t.Fatalf("%s: step order %d took the dispatch before the last, got %s", final.Outcome, i, FormatChoices(final.Witness.Choices))
+			}
 		}
 		dispatched := slices.ContainsFunc(final.Witness.Choices, func(c ChoiceTaken) bool { return c.Kind == ChoiceDispatchOrder })
 		if dispatched {

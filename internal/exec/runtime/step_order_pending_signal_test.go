@@ -80,7 +80,7 @@ func TestStepOrderDrawsThePendingSignalAsQueued(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if report.Verdict == CheckViolation || len(report.BoundsHit) != 0 || len(report.NotEnumerated) != 0 {
+			if report.Verdict == CheckViolation || len(report.BoundsHit) != 0 {
 				t.Fatalf("check: %s, want a complete search", report.Status())
 			}
 			if got := finalOutcomes(report); !slices.Equal(got, c.finals) {

@@ -34,7 +34,7 @@ func TestSimpleSelfTransitionThatNeverSettlesIsBounded(t *testing.T) {
 	var err error
 	select {
 	case err = <-done:
-	case <-time.After(30 * time.Second):
+	case <-watchdog(30 * time.Second):
 		t.Fatal("run to completion hangs on a simple state transitioning to itself")
 	}
 	if err == nil {

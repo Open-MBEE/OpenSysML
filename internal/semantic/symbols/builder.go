@@ -85,8 +85,12 @@ func buildNamespaceDecl(scope *Scope, decl ast.Node, vis ast.Visibility, trivia 
 		defineIdent(scope, d.Ident, sym)
 		return true
 	case *ast.Dependency:
-		sym := newSymbol(d.Ident, SymbolDependency, d, vis, nil, scope, trivia)
+		// A dependency owns the annotations of its body.
+		child := NewScope(scope, d)
+		sym := newSymbol(d.Ident, SymbolDependency, d, vis, child, scope, trivia)
 		defineIdent(scope, d.Ident, sym)
+		scope.AddChild(child)
+		buildMembers(child, d.Body)
 		return true
 	case *ast.MultiplicityDecl:
 		child := NewScope(scope, d)

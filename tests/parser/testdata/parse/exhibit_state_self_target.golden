@@ -1,0 +1,28 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="test" library=false standard=false
+      (Membership visibility="default"
+        (Definition kind="item" abstract=false variation=false name="EngineCommand"))
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Engine"
+          (Membership visibility="default"
+            (Usage kind="state" name="modes" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="exhibit state"
+              (Membership visibility="default"
+                (Usage kind="attribute" name="cmd" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="typing" target=EngineCommand
+                    (*ast.QualifiedName))
+                  (FeatureChainExpr member="cmd"
+                    (FeatureReference name="engineControl"))))
+              (EntryMember)
+              (SuccessionEdge source="@entry" target="a")
+              (SubstateMember name="a")
+              (SubstateMember name="b")
+              (TransitionMember source="a" target="b" trigger="EngineCommand")))
+          (Membership visibility="default"
+            (Usage kind="state" name="idle" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="exhibit state"))
+          (Membership visibility="default"
+            (Usage kind="port" name="engineControl" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Membership visibility="default"
+                (Usage kind="item" name="cmd" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="typing" target=EngineCommand
+                    (*ast.QualifiedName)))))))))))
