@@ -1746,13 +1746,20 @@ Two readings are decided by the graph rather than the JSON, and are worth knowin
   `memberElement`, the connector ends and their subsetting) a string that does not
   parse as a name is expression text; on every other property it is a name.
 
-Interchange with sysml-toolkit (the Open-MBEE Rust toolkit): the element form
-this section describes loads there in either direction. Its compact JSON reads
-into the graph here, but `-convert sysml` prints only the shapes this mapping
-covers — first-class `FeatureTyping`, `Subclassification` and `Redefinition`
-relationship elements have no home in the collapsed graph, and neither do an
-implied `ConjugatedPortDefinition` or an expression referent carried by an
-owned `Membership` — so a toolkit document may convert with elements unplaced.
+Interchange with sysml-toolkit (the Open-MBEE Rust toolkit) is partial in both
+directions, for one reason: the toolkit reads and writes the specialization and
+multiplicity relationships as first-class elements (`FeatureTyping`,
+`Subclassification`, `Redefinition`, `Subsetting`, `ReferenceSubsetting`,
+`MultiplicityRange`, `ConjugatedPortDefinition`/`PortConjugation`, the
+`Membership` an expression referent is carried by), where this mapping
+collapses them to properties of the element (`type`, `redefines`, `general`,
+`referent`, a bound under the feature) and to extension metaclasses
+(`sysx:RequireMember`, `sysx:ConstraintMember`). The toolkit loads every
+element this form writes but prints them without their typing, redefinition
+or subsetting, and refuses the extension metaclasses and the collapsed
+multiplicity and referent shapes. Its own JSON reads into the graph here, but
+`-convert sysml` refuses a document whose elements it cannot place, which any
+model beyond bare declarations is.
 
 The per-file ratchet over `examples/` runs for this form too:
 `TestCorpusAPIJSONRoundTrip` in `tests/corpus/roundtrip_test.go` converts each

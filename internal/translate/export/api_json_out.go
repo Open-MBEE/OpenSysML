@@ -180,10 +180,8 @@ func apiJSONSysMLValue(graph *rdf.Graph, subject rdf.Term, predicate, key, metac
 		}
 		return raw, nil
 	}
-	// A property the metamodel declares unbounded is always an array, in
-	// triple order; the json: annotation only ever re-states that order. A
-	// sysx: element has no metaclass, so the declarations of the name must
-	// agree before its multiplicity applies.
+	// An unbounded property is always an array, in triple order; a sysx:
+	// element has no metaclass, so the name's declarations must agree.
 	many := false
 	if metaclass != "" {
 		property, ok := ontology.PropertyOf(metaclass, key)
