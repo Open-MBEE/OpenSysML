@@ -968,7 +968,9 @@ materialization run nothing of it — and an explicit `StartObjectBehaviorAction
 `perform obj.beh.start;` (`lower.EffectStart`, `start_behavior.go:startBehaviorOn`), starts the
 classifier behavior as the object's own execution, `this` in it the object, a later message waking
 an accept it parks at, a second start of a running behavior starting nothing more, and a start
-that fails undone whole (`robustness_classifier_behavior_test.go`,
+that fails undone whole — the start's own work: an older parked behavior a message of the
+started one wakes is drained only after the start is kept (a run boundary, as a store's), so its
+move is never undone with a start (`robustness_classifier_behavior_test.go`,
 `TestStartedActionAwaitingAMessageIsWokenByASibling`). Lowering tells the start shot from a feature
 declared under that name through the scope tree (`action_graph.go:namesStartableBehavior`): `perform
 vehicle.start;` where `Vehicle` declares `action start : Launch;` performs that action

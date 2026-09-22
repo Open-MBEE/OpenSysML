@@ -24,6 +24,7 @@ func TestRuntimeRobustnessClassifierBehaviorStart(t *testing.T) {
 	t.Run("start_of_no_behavior_is_refused", testStartOfNoBehavior)
 	t.Run("an_action_declared_as_start_is_performed_not_started", testStartNamedActionPerformed)
 	t.Run("a_failing_start_is_undone_whole", testStartFailureRollsBack)
+	t.Run("a_behavior_woken_by_a_start_runs_once_the_start_stands", testStartWakesOlderBehaviorAfterCommit)
 	t.Run("start_is_traced_as_the_objects_own_execution", testStartTraced)
 }
 
@@ -284,6 +285,71 @@ func testStartFailureRollsBack(t *testing.T) {
 		if got := fv.HeldValue(); got.Kind == ValConst && got.Const.Int != 0 {
 			t.Errorf("n = %v after the failed start, want the write undone", FormatValue(got))
 		}
+	}
+}
+
+// testStartWakesOlderBehaviorAfterCommit: a message the started behavior sends wakes an
+// older parked behavior only once the start is kept, so the older one's failure is the
+// run's, not the start's: the start stands and the message is consumed, not restored.
+func testStartWakesOlderBehaviorAfterCommit(t *testing.T) {
+	src := `package test {
+		private import ScalarValues::*;
+		attribute def Tick;
+		part def Listener {
+			attribute seen : Integer = 0;
+			action def Listen {
+				first start;
+				then action heard accept t : Tick;
+				then action blow { assign seen := 1 / 0; }
+				then done;
+			}
+			action listen : Listen;
+		}
+		part def Pinger {
+			ref part peer : Listener;
+			action def Ping { first start; then action fire send new Tick() to peer; then done; }
+			action ping : Ping;
+		}
+		action def Starter {
+			action makeA { out result : Listener = new Listener(); }
+			action makeB { in target : Listener; out result : Pinger = new Pinger(peer = target); }
+			action kickA { in target : Listener; perform target.listen.start; }
+			action kickB { in target : Pinger; perform target.ping.start; }
+			flow makeA.result to makeB.target;
+			flow makeA.result to kickA.target;
+			flow makeB.result to kickB.target;
+			first start then makeA; first makeA then kickA; first kickA then makeB;
+			first makeB then kickB; first kickB then done;
+		}
+	}`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	sym := findSymbolByName(idx.DocumentRoot("<test>"), "Starter", ast.DefAction)
+	if sym == nil {
+		t.Fatal("action Starter not found")
+	}
+	_, err := ctx.ExecuteAction(sym)
+	if err == nil || !strings.Contains(err.Error(), "division by zero") {
+		t.Fatalf("error = %v, want the division by zero of the woken Listener", err)
+	}
+	for _, inst := range ctx.instances {
+		if inst.Type == nil {
+			continue
+		}
+		switch inst.Type.Name {
+		case "Pinger":
+			b, ok := inst.Behavior("ping")
+			if !ok || b.Action == nil || b.Action.state != StateCompleted {
+				t.Errorf("ping = %+v, %v; want the start kept and its behavior complete", b, ok)
+			}
+		case "Listener":
+			b, ok := inst.Behavior("listen")
+			if !ok || b.Action == nil || b.Action.state == StateWaiting {
+				t.Errorf("listen = %+v, %v; want the woken behavior past its accept", b, ok)
+			}
+		}
+	}
+	if n := len(ctx.messages); n != 0 {
+		t.Errorf("%d messages in flight, want the Tick consumed rather than restored", n)
 	}
 }
 

@@ -75,15 +75,19 @@ func (ctx *Context) startBehaviorOn(inst *Instance, member *symbols.Symbol) erro
 		return err
 	}
 	behavior.binding = ctx.bindingIndex(typ, decl.member)
+	// Older behaviors the start wakes run once it is kept: what they do is no part of it.
+	endBoundary := ctx.beginRunBoundary()
 	inst.behaviors = append(inst.behaviors, behavior)
 	ctx.pendingBehaviors = append(ctx.pendingBehaviors, behavior)
 	ctx.objectBehaviors = append(ctx.objectBehaviors, behavior)
-	if err := ctx.runAttachedBehaviors(); err != nil {
+	err = ctx.runAttachedBehaviors()
+	endBoundary()
+	if err != nil {
 		rollback()
 		return err
 	}
 	commit()
-	return nil
+	return ctx.runAttachedBehaviors()
 }
 
 // startableBehaviorOf is the behavior member binds on the object and the type of it
