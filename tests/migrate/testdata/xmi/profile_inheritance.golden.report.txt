@@ -1,0 +1,49 @@
+# SysML v1 to v2 migration report: profile_inheritance.xmi
+# exported by Example UML Tool
+# migrated 36 element(s): 29 mapped, 7 approximated, 0 unmapped (4 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## approximated (7)
+«Linked To» Abstraction	System::<Abstraction>	_trace	(a trace is written as a plain dependency)
+«Foreign» Class	System::Foreign Thing	_foreign	-> System::'Foreign Thing'	(a plain UML class without «Block» is written as a part def)
+«Lost» Class	System::Lost Thing	_lost	-> System::'Lost Thing'	(a plain UML class without «Block» is written as a part def)
+«TestCase» Activity	System::Torque Test::run	_test_act	-> System::'Torque Test'::run	(the test case's behavior is not migrated; only its verified requirements are)
+Stereotype	Tailoring::Foreign	_st_foreign	-> Tailoring::Foreign	(generalization of http://example.com/projects/Shared_Profile.xmi#_shared_req is not written: it is not a user stereotype defined in the document)
+Stereotype	Tailoring::Lost	_st_lost	-> Tailoring::Lost	(a generalization refers to nothing in the document)
+Stereotype	Tailoring::Ring B	_st_ring_b	-> Tailoring::'Ring B'	(generalization of Tailoring::Ring A is not written: it closes a cycle of generalizations)
+
+## mapped (29)
+Model	Model	_m	(the root model's members are written at the top level)
+Package	System	_sys	-> System
+«Checked By» Abstraction	System::<Abstraction>	_verify	-> System::'Torque Test'::run
+«Detailed By» Abstraction	System::<Abstraction>	_refine
+«Derived From» Abstraction	System::<Abstraction>	_derive	-> System::'Derive Speed Requirement'
+«Assigned To» Abstraction	System::<Abstraction>	_alloc
+«Diamond» Class	System::Gear	_gear	-> System::Gear
+«Right» Class	System::Shaft	_shaft	-> System::Shaft
+«Requirement» Class	System::Speed Requirement	_req_speed	-> System::'Speed Requirement'
+Activity	System::Spin	_spin	-> System::Spin
+«Ring A» DataType	System::Torque	_torque	-> System::Torque
+«Audited Requirement» Class	System::Torque Requirement	_req_torque	-> System::'Torque Requirement'
+«Block» Class	System::Torque Test	_test	-> System::'Torque Test'
+Profile	Tailoring	_tailoring	-> Tailoring
+Stereotype	Tailoring::Assigned To	_st_alloc	-> Tailoring::'Assigned To'
+Stereotype	Tailoring::Audited	_st_audited	-> Tailoring::Audited
+Stereotype	Tailoring::Audited Requirement	_st_audited_req	-> Tailoring::'Audited Requirement'
+Property	Tailoring::Audited::auditor	_st_audited_by	-> Tailoring::Audited::auditor
+Stereotype	Tailoring::Base	_st_base	-> Tailoring::Base
+Property	Tailoring::Base::origin	_st_base_origin	-> Tailoring::Base::origin
+Stereotype	Tailoring::Checked By	_st_verify	-> Tailoring::'Checked By'
+Stereotype	Tailoring::Derived From	_st_derive	-> Tailoring::'Derived From'
+Stereotype	Tailoring::Detailed By	_st_refine	-> Tailoring::'Detailed By'
+Stereotype	Tailoring::Diamond	_st_diamond	-> Tailoring::Diamond
+Stereotype	Tailoring::Left	_st_left	-> Tailoring::Left
+Stereotype	Tailoring::Linked To	_st_trace	-> Tailoring::'Linked To'
+Stereotype	Tailoring::Right	_st_right	-> Tailoring::Right
+Property	Tailoring::Right::side	_st_right_side	-> Tailoring::Right::side
+Stereotype	Tailoring::Ring A	_st_ring_a	-> Tailoring::'Ring A'
+
+## skipped (4)
+Extension	Tailoring::<Extension>	_ext_base	(an extension binds a stereotype to the metaclass it extends; v2 metadata applies to any element)
+Extension	Tailoring::<Extension>	_ext_audited	(an extension binds a stereotype to the metaclass it extends; v2 metadata applies to any element)
+Property	Tailoring::Audited::base_Element	_st_audited_base	(an extension end names the metaclass the stereotype extends; v2 metadata applies to any element)
+Property	Tailoring::Base::base_Class	_st_base_base	(an extension end names the metaclass the stereotype extends; v2 metadata applies to any element)

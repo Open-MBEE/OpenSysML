@@ -3,7 +3,6 @@ package migrate
 import (
 	"math"
 	"math/big"
-	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -37,24 +36,22 @@ func simulationConfig(e *sysmlv1.Element) *sysmlv1.Stereotype {
 	return nil
 }
 
-// isSimulationConfig recognises a «SimulationConfig» application by the
-// simulation profile's provenance, not by its name alone.
+var simulationProvenance = provenance{isSimulationProfile, simulationProfileDefinition}
+
+// isSimulationConfig recognises a «SimulationConfig» application, or one of a
+// stereotype specializing it, by the simulation profile's provenance, not by name alone.
 func isSimulationConfig(s *sysmlv1.Stereotype) bool {
-	return s.Name == "SimulationConfig" && isSimulationProfile(s.Namespace)
+	return simulationProvenance.applies(s, "SimulationConfig")
 }
 
-// isSimulationProfile matches, by host and path, MagicDraw's own SimulationProfile
-// (…magicdraw.com/schemas/SimulationProfile.xmi); a profile of that name elsewhere is not it.
-func isSimulationProfile(ns string) bool {
-	u, err := url.Parse(ns)
-	if err != nil {
-		return false
+// simulationProfileDefinition reports whether stereotype definition d belongs
+// to the simulation tool's profile, bundled in the document or referred to.
+func simulationProfileDefinition(d *sysmlv1.Element) bool {
+	if d.IsProxy() {
+		return fold(hrefDocument(d.Href)) == fold("SimulationProfile")
 	}
-	host := strings.TrimPrefix(strings.ToLower(u.Hostname()), "www.")
-	if host != "magicdraw.com" && host != "nomagic.com" {
-		return false
-	}
-	return strings.ToLower(u.Path) == "/schemas/simulationprofile.xmi"
+	p := enclosingProfile(d)
+	return p != nil && isSimulationProfile(p.Attrs["URI"])
 }
 
 // configurationSetting relates a «SimulationConfig» tag to the attribute of
@@ -177,7 +174,7 @@ func (m *migration) simulationConfig(e *sysmlv1.Element, header, note string) {
 		m.members(e)
 		m.scope = saved
 		m.classifierBehavior(e)
-		m.stereotypeComments(e)
+		m.stereotypeAnnotations(e)
 	})
 	m.results.Configurations = append(m.results.Configurations, results)
 }

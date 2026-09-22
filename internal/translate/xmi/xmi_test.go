@@ -76,6 +76,38 @@ func TestParseSeparatesXMIAttributes(t *testing.T) {
 	}
 }
 
+func TestNamespaceDeclarationsAreKept(t *testing.T) {
+	d, err := Parse(strings.NewReader(`<xmi:XMI xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmlns:p="http://example.com/p" xmlns="http://example.com/default">
+  <a xmlns:q="http://example.com/q"><b xmlns:p="http://example.com/inner"/></a>
+</xmi:XMI>`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := d.Root.Children[0]
+	b := a.Children[0]
+	for _, tc := range []struct {
+		e      *Element
+		prefix string
+		want   string
+	}{
+		{d.Root, "xmi", "http://www.omg.org/spec/XMI/20131001"},
+		{d.Root, "", "http://example.com/default"},
+		{a, "p", "http://example.com/p"},
+		{a, "q", "http://example.com/q"},
+		{b, "p", "http://example.com/inner"},
+		{b, "q", "http://example.com/q"},
+		{b, "", "http://example.com/default"},
+		{b, "none", ""},
+	} {
+		if got := tc.e.Namespace(tc.prefix); got != tc.want {
+			t.Errorf("<%s>.Namespace(%q) = %q, want %q", tc.e.Tag, tc.prefix, got, tc.want)
+		}
+	}
+	if _, ok := d.Root.Attrs["p"]; ok {
+		t.Error("an xmlns declaration was kept as an attribute")
+	}
+}
+
 func TestNamespaceHelpers(t *testing.T) {
 	for _, ns := range []string{
 		"http://schema.omg.org/spec/XMI/2.1",

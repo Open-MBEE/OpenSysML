@@ -52,14 +52,19 @@ returned over the service yet.
   proxies and are reported as unmapped where they are relationship ends.
 - `xmi:Extension` elements — diagrams, layout, tool-internal state — are skipped; the
   report says so once per skipped profile or library package. A package is library content
-  when it is a profile, is marked «ModelLibrary» or «auxiliaryResource», or is a document root
+  when it is a standard or tool profile (a user profile is written, see
+  [Profiles and stereotypes](#profiles-and-stereotypes)), is marked «ModelLibrary» or
+  «auxiliaryResource», or is a document root
   beside the user's Model or package bearing a standard library name; a user package named
   `SysML` or `Libraries` inside the model, or standing alone as the document's only root, is
   migrated like any other.
 - Only stereotypes from the OMG SysML and UML standard profiles, in the OMG namespaces or
-  Papyrus' `…/papyrus/sysml/…` ones, classify elements; any other profile's «Block» or
-  «Requirement» — a user's own, a tool's customization layer over SysML, or another profile
-  Papyrus hosts — is preserved as an applied-stereotype comment like any other.
+  Papyrus' `…/papyrus/sysml/…` ones, classify elements — applied directly, or through a user
+  stereotype that specializes one (see [Profiles and stereotypes](#profiles-and-stereotypes)).
+  Any other profile's «Block» or «Requirement» with no standard general — a user's own, a
+  tool's customization layer over SysML, or another profile Papyrus hosts — carries no SysML
+  meaning: it is written as metadata when the document defines it, and preserved as an
+  applied-stereotype comment otherwise.
 - A requirement's `id` and `text` tags are read in the profile's spelling and in the
   capitalized `Id`/`Text` some exporters write.
 - Multiplicity follows UML's defaults: an omitted bound is 1, and a bound element without a
@@ -131,8 +136,12 @@ returned over the service yet.
 | «Allocate» | `allocate a to b`, or `allocation name allocate a to b` when named | mapped |
 | «Refine» | `dependency` carrying `@ModelingMetadata::Refinement` | mapped |
 | «Trace», «Copy», other stereotyped dependencies | plain `dependency` with the stereotype as a comment; named relationships keep their name | approximated |
+| A user stereotype specializing a standard one («Org Requirement» :> «Requirement», or one specializing «Block», «ValueType», «Satisfy», «Verify», «Refine», «Trace», «DeriveReqt», «Allocate», …) | the standard stereotype's v2 form above, its tags read as the standard ones (`Id`, `Text`, …), plus a `@Profile::'Org Requirement' { … }` usage holding the user-added tags | as the standard form |
 | Comment, Documentation | `doc` (first) / `comment`, HTML tags stripped | mapped |
-| Custom-profile stereotypes and tags | preserved as `/* applied stereotype «Name»: tag = value */` | mapped |
+| User profile | `package` holding its stereotypes and the enumerations and value types they use | mapped |
+| User stereotype | `metadata def`, `:>` the defs of the user stereotypes it specializes; tag definitions `attribute name : String|Integer|Real|Boolean|<enum def>` or `ref name` for element-typed ones, with the v1 multiplicity; `base_*` extension ends and the `Extension`s written as nothing | mapped (a general outside the document, or closing a cycle: approximated) |
+| User stereotype application, on an element, property or relationship the document defines the stereotype of | `@Profile::Name { tag = value; }` in the element's body (`@Profile::Name;` without tags); strings, numbers and booleans as literals, enumeration literals by name, element references by the written element's name, HTML-bodied text as plain text; a tag the stereotype does not define, or a value not of the tag's type, a comment | mapped (a value kept as a comment: approximated) |
+| Stereotype applied from a profile the document does not define (a used project not in the archive, an unknown namespace) | preserved as `/* applied stereotype «Name»: tag = value */`; the report names the namespace | mapped, noted |
 | SysML stereotype tags without a v2 form (`Block.isEncapsulated`, `ValueType.unit`, …) | preserved as `/* «Name» tags with no v2 form: tag = value */` | approximated |
 | Two members of one namespace with the same name (UML allows it, v2 does not) | the later one renamed `Name 2`, a state, pseudostate or history a machine's region puts beside its attributes included, as is a written connection point of a state whichever region a tool listed it in, while one written as no member takes no name; a connection end named like a member of its connection def renamed `name2` | approximated |
 | Anonymous property with no v2 type | a `ref` named after its type, or `unnamed` | approximated |
@@ -222,7 +231,8 @@ returned over the service yet.
 | Reception without a method, or whose method is not an Activity | the same performed `action def`, accepting the signal and accepting again; the method is named in the report | approximated |
 | Reception whose signal is not written | comment | **unmapped** — the reason names the signal |
 | «Unit», «QuantityKind» instance specifications | comment placeholder | **unmapped** — use the `SI`/`ISQ` libraries |
-| Profiles, the SysML/UML libraries themselves | — | skipped |
+| The standard profiles, the SysML/UML libraries themselves | — | skipped |
+| The modeling tool's own profiles and their content, by exact namespace path: MagicDraw's SysML customization (`…/spec/Customization/…`), `DSL_Customization.xmi` («Customization» classes, «derivedPropertySpecification» properties and their structured-expression bodies), `UI_Prototyping_Profile.xmi` («Label», «Button», «GroupBox», … mockups), `SimulationProfile.xmi` classes other than run configurations («SequenceDiagramGeneratorConfig», …); a marked classifier with a standard stereotype or a behavior of its own is model content and migrates as such | — ; the reason names what the content configures | skipped |
 
 The v1 element's `xmi:id` is kept as the reason a report line can be found in the source
 model; the notation itself carries no IDs. Stable identity annotations for a re-migration are
@@ -237,6 +247,79 @@ of notation that passes the gate below in a few seconds, and its Turtle in a few
 elements in six map or are approximated; the unmapped rest is dominated by absolute and
 unparseable time events, call actions that call no behavior, simulation verdicts stored in
 slots of constraint properties, and views.
+
+## Profiles and stereotypes
+
+A v1 model's profile layer — the `uml:Profile`s it defines, the `uml:Stereotype`s in them and
+the applications (`<Org:Org_Requirement base_Class="…" Rationale="…"/>`) — is read as three
+kinds of provenance, each written differently.
+
+**Standard profiles** (OMG SysML and UML, in the OMG or Papyrus namespaces, and the copies a
+tool bundles under `SysML`/`UML Standard Profile` roots) classify: «Block» makes a `part def`,
+«Requirement» a `requirement def`, and so on through the mapping table. The profiles themselves
+are skipped; v2 has the constructs.
+
+**The modeling tool's own profiles**, recognised by exact namespace path under
+`magicdraw.com`/`nomagic.com` — `/spec/Customization/…`, `/schemas/DSL_Customization.xmi`,
+`/schemas/UI_Prototyping_Profile.xmi`, `/schemas/SimulationProfile.xmi` — configure the tool,
+not the model. Their profiles are skipped, and so is the content they mark, with a reason naming
+what it is: specification-dialog customization («Customization» classes and
+«derivedPropertySpecification» properties, whose structured-expression bodies are not
+translated), UI prototyping mockups, or simulation-tool configuration other than the
+«SimulationConfig» run configurations, which [migrate](#run-configurations). A classifier
+the tool also draws as a mockup but that is the model's — one with a standard stereotype, or
+one that is active, names a classifier behavior or owns a behavior — migrates as such, its
+tool marker an applied-stereotype comment. A host alone decides nothing: Cameo gives every locally defined profile a
+`http://www.magicdraw.com/schemas/<Name>.xmi` namespace, so a profile there that is not one of
+the known paths is a user profile.
+
+**User profiles** — every other profile the document defines, on any host — are written as
+packages of `metadata def`s, at the place the profile sits in the model, because that is what a
+user stereotype is in v2. The package is written like any other: its enumerations become
+`enum def`s and its comments `doc`s. Each stereotype becomes a `metadata def` whose tag
+definitions are the stereotype's owned attributes: an `attribute` typed `ScalarValues::String`,
+`Integer`, `Real` or `Boolean`, or by the `enum def` or `attribute def` the attribute's type
+becomes; a `ref` when the type is a metaclass, a block or any other element, with the v1
+multiplicity (`[0..*]`) and collection (`ordered`, `nonunique`). The `base_*` attributes and
+`uml:Extension`s that bind the stereotype to the metaclass it extends are skipped with that
+reason: v2 metadata applies to any element, and the migrated model applies it where v1 did.
+The "profile or library content" skip covers the standard and tool profiles only; a user
+profile is model content, so everything else in it — enumerations, value types, comments,
+nested packages — migrates as it would anywhere in the model.
+
+Generalization between stereotypes is followed, transitively, through every general, whether
+the general is in the document, in the OMG XMI (`href="…/SysML.xmi#SysML.Requirement"`, with or
+without MagicDraw's `referentPath`), in a Papyrus pathmap
+(`pathmap://SysML_PROFILES/SysML.profile.uml#…`), or in a tool's bundled module. It decides
+two things:
+
+- **What an application means.** An application of a user stereotype applies every standard
+  stereotype among the definition's generals too: a class stereotyped «Org Requirement» :>
+  «Requirement» is a `requirement def`, its `Id`/`Text` (in either spelling) the short name and
+  `doc`, exactly as a direct «Requirement» is; an `Abstraction` stereotyped «Checked By» :>
+  «Verify» is a `verify`; a «Probability» descendant weights its edge. The user-added tags —
+  those the standard general does not define — become the metadata usage `@Profile::'Org
+  Requirement' { Rationale = "…"; }` in the same body, so nothing is written twice and nothing
+  is lost. Diamonds and multiple generals all apply; a cycle is walked once. A same-named
+  stereotype with no standard general («Requirement» in `Legacy`) means nothing standard: the
+  class is a `part def` with a `@Legacy::Requirement { Text = "…"; }` usage.
+- **What a metadata def specializes.** A user stereotype specializing another user stereotype
+  in the document writes `metadata def B :> A`; one with no user general writes no `:>`, since
+  every `metadata def` specializes `Metadata::MetadataItem` implicitly; a standard general is
+  carried by the applications instead and adds nothing to the def; a general the document does not define
+  (an `href` into a used project not in the archive, or an id the document lacks) is not
+  written and the report says so; the edge closing a generalization cycle is not written
+  either, since v2 forbids the cycle, and the report names it.
+
+An application is written as metadata only when the document defines its stereotype: an
+application from a profile that lives in a used project the archive does not bundle, or from an
+unknown namespace, stays an applied-stereotype comment, and the report notes once per element
+that the profile is outside the document. Tag values are written by the tag's type — a string,
+integer, real or boolean literal, an enumeration literal by name, an element reference by the
+shortest name resolving where the usage sits — and a value that does not fit (an unknown
+literal, a reference to an element not written, a tag the stereotype does not define) is kept as
+a comment inside the usage, approximating the element with the reason. Rich text a tool stores
+as `<html><body>…</body></html>` becomes plain text, as a requirement's `Text` does.
 
 ## Behaviors
 
@@ -984,9 +1067,12 @@ one of four verdicts:
 - **approximated** — written, but not one-to-one; the note says what was lost or changed.
 - **unmapped** — no v2 form was written. The element appears in the notation as a comment at
   the place it would have gone, so a reader of the migrated model can see the gap.
-- **skipped** — profile and library content that is not part of the user's model, and the
-  user's own elements nothing in the model refers to (an event no trigger names), which no v2
-  form would represent; the summary counts the two apart.
+- **skipped** — the standard profiles and libraries, the modeling tool's own profiles and the
+  content they mark (specification-dialog customization, UI mockups, simulation-tool
+  configuration; the reason names which), and the user's own elements nothing in the model
+  refers to (an event no trigger names), which no v2 form would represent; the summary counts
+  the profile and library content apart from the unreferenced elements. A user's profile is
+  not skipped: its stereotypes are mapped to `metadata def`s.
 
 The text form (default) groups by verdict, unmapped first, one line per element: kind with its
 stereotypes, qualified v1 name, `xmi:id`, the v2 name it became, and a note. The JSON form
