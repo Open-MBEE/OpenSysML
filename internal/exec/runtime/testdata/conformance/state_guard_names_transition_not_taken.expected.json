@@ -1,0 +1,5 @@
+{
+  "type": "state",
+  "events": [{"signal": "Level", "value": {"type": "Integer", "value": 8}}],
+  "error": "eval guard of transition raise: type mismatch: operator '<' is not defined for null and an Integer"
+}

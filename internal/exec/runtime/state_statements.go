@@ -98,8 +98,14 @@ func (e *StateExecutor) behaviorHost(behavior lower.StateBehavior, firing *firin
 // currentFiring is the transition being taken with its payload copied, so a
 // behavior performed or resumed after the firing still reads them.
 func (e *StateExecutor) currentFiring() *firing {
-	f := &firing{taken: e.firingTrans}
-	if t := e.firingTrans; t != nil && len(t.Accepted) > 0 {
+	return e.firingOf(e.firingTrans)
+}
+
+// firingOf is the firing of t with the payload its trigger bound, copied from
+// the machine's data as it stands; nil t is a firing of no transition.
+func (e *StateExecutor) firingOf(t *lower.Transition) *firing {
+	f := &firing{taken: t}
+	if t != nil && len(t.Accepted) > 0 {
 		f.payload = make(map[string]Value, len(t.Accepted))
 		for _, name := range t.Accepted {
 			if v, ok := e.stateData[name]; ok {
