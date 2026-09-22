@@ -583,8 +583,8 @@ sysml \-action Acquire \-seed 7 m.sysml
 sysml \-action Acquire \-draws max m.sysml
 # Mean durations
 sysml \-action A \-runs 9 \-seed 7 \-draws average m.sysml
-# A Simulation::MonteCarlo case
-sysml \-analysis M::Mc M::obj \-runs 100 \-seed 7 m.sysml
+# A MonteCarlo analysis case
+sysml \-analysis "Mc obj" \-runs 100 \-seed 7 m.sysml
 .fi
 .RE
 .PP

@@ -71,10 +71,11 @@ library package Simulation {
 		 * -runs N (or the Configuration's runs) performs N such runs, each seeded
 		 * from -seed, and then binds the statistics of the N observations: runs is
 		 * N, mean their arithmetic mean, deviation their sample standard deviation
-		 * (unbound under two runs) and outOfSpec the number of runs in which a
-		 * required check of the case — an objective's condition or an assertion —
-		 * did not hold. The case's own outputs are evaluated once, over the
-		 * statistics. Run once, without -runs, the statistics stay unbound.
+		 * (empty under two runs, so a return of it is optional) and outOfSpec the
+		 * number of runs in which a required check of the case — an objective's
+		 * condition or an assertion — did not hold. The case's own outputs are
+		 * evaluated once, over the statistics. Run once, without -runs, the
+		 * statistics stay unbound, and a return of one of them is refused.
 		 *
 		 * A SysML v1 model migrated from a tool with a Monte Carlo analysis pattern
 		 * carries one specializing case per block of that pattern; the migration

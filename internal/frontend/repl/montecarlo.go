@@ -11,10 +11,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
-// A Simulation::MonteCarlo analysis case is run many times as an action is: one
-// run per row, each on a fresh subject seeded from the seed given, tabling what
-// each observed; then the case is concluded once over the sample, its statistics
-// bound and its outputs and checks evaluated over them.
+// A Simulation::MonteCarlo case runs as an action does under %runs: one seeded run per
+// row on a fresh subject, then the case concluded once over the sample.
 
 // monteCarloObservable names the column the runs' observations are tabled in.
 const monteCarloObservable = "observed"
@@ -31,11 +29,8 @@ func (s *Session) namesAnalysisCase(tail string) bool {
 	return err == nil && runtime.RequireAnalysis(sym) == nil
 }
 
-// RunMonteCarlo runs the analysis case the invocation names count times, each run
-// drawing its modeled randomness from a seed of its own derived from seed — the
-// session's when seed is nil, and none when it has none, as a fixed draw policy
-// allows — on a fresh object of the subject named, and reports the table of what
-// the runs observed, the distribution, then the case concluded over the sample.
+// RunMonteCarlo runs the named case count times on fresh subjects, each run seeded from
+// seed (the session's when nil), and reports the table, distribution and conclusion.
 func (s *Session) RunMonteCarlo(invocation string, count int64, seed *uint64) Verdict {
 	defer s.enter()()
 	inv, err := splitAnalysisArgs(invocation)
@@ -45,11 +40,8 @@ func (s *Session) RunMonteCarlo(invocation string, count int64, seed *uint64) Ve
 	return s.withTrace(s.monteCarloVerdict(inv, count, seed))
 }
 
-// monteCarloVerdict makes the runs and reports them as a Monte Carlo of an action
-// reports its table, the concluded case after the distribution. A run that failed
-// fails the table; a check the conclusion left unsatisfied fails it, an undecided
-// one leaves it unresolved. A check that did not hold in a run is counted, as
-// outOfSpec, not held against the table.
+// monteCarloVerdict reports the runs as an action's table with the concluded case after it;
+// a failed run or unsatisfied concluding check fails it, a failed in-run check only counts.
 func (s *Session) monteCarloVerdict(inv analysisInvocation, count int64, seed *uint64) Verdict {
 	label := "runs " + inv.name
 	if inv.argText != "" {
@@ -121,10 +113,8 @@ func (m *monteCarloRuns) conclude() (runtime.AnalysisResult, error) {
 	return m.last.Conclude(m.stats)
 }
 
-// monteCarloSample resolves the invocation once at the prompt and makes count runs of
-// it, each in a context of its own on objects made there from their declarations, and
-// takes the statistics of what the completed runs observed; the plan that answered is
-// returned beside a refusal made after an engine ran, nil for one made before.
+// monteCarloSample makes count runs of the invocation, each in its own context on objects
+// made from their declarations; the plan is returned beside a refusal made after an engine ran.
 func (s *Session) monteCarloSample(inv analysisInvocation, count int64, seed *uint64) (*monteCarloRuns, *analysis.Plan, error) {
 	doc := s.ws.Document(docName)
 	if doc == nil || doc.Scope == nil {

@@ -18,28 +18,28 @@ const (
 	monteCarloRecorded    = "Monte Carlo"
 )
 
-// monteCarloStatistic is a statistic of the simulation tool's MonteCarloAnalysis
-// and the member of Simulation::MonteCarlo that holds it, with the scalar it is of.
+// monteCarloStatistic maps a MonteCarloAnalysis statistic to the Simulation::MonteCarlo
+// member holding it and its scalar; optional when a sample may leave it unbound.
 type monteCarloStatistic struct {
-	member string
-	scalar string
+	member   string
+	scalar   string
+	optional bool
 }
 
 // monteCarloMembers maps the tool's statistics to the library analysis's members.
 var monteCarloMembers = map[string]monteCarloStatistic{
-	monteCarloRuns:      {"runs", "Natural"},
-	monteCarloMean:      {"mean", "Real"},
-	monteCarloDeviation: {"deviation", "Real"},
-	monteCarloOutOfSpec: {"outOfSpec", "Natural"},
+	monteCarloRuns:      {"runs", "Natural", false},
+	monteCarloMean:      {"mean", "Real", false},
+	monteCarloDeviation: {"deviation", "Real", true},
+	monteCarloOutOfSpec: {"outOfSpec", "Natural", false},
 }
 
 // numberScalars are the ScalarValues types a feature a statistic is bound to may be
 // of: those a count is a value of, and a Real statistic of a Real-valued feature.
 var numberScalars = map[string]bool{"Natural": true, "Integer": true, "Rational": true, "Real": true, "Number": true}
 
-// monteCarloCase is the analysis def written beside a block that inherits the
-// tool's MonteCarloAnalysis: its subject is the block's part def, one run performs
-// the block's classifier behavior, and the bound statistics are its returns.
+// monteCarloCase is the analysis def written beside a block inheriting the tool's
+// MonteCarloAnalysis: subject the part def, one run its behavior, returns the bound statistics.
 type monteCarloCase struct {
 	block    *sysmlv1.Element
 	name     string
@@ -53,9 +53,8 @@ type monteCarloCase struct {
 	bindings map[*sysmlv1.Element]monteCarloBinding
 }
 
-// monteCarloReturn is one statistic the analysis returns as the feature bound to it:
-// typed by the ScalarValues type the feature's values are, the note saying when that
-// is not the feature's own type.
+// monteCarloReturn is one statistic the analysis returns, typed by the ScalarValues
+// type of the bound feature; note says when that is not the feature's own type.
 type monteCarloReturn struct {
 	stat    string
 	feature *sysmlv1.Element
@@ -293,7 +292,12 @@ func (m *migration) monteCarloAnalysis(block *sysmlv1.Element) {
 			if i == 0 {
 				kw = "return "
 			}
-			m.w.line(kw + writeName(r.stat) + typing(r.typed) + " = " + monteCarloMembers[r.stat].member + ";")
+			member := monteCarloMembers[r.stat]
+			multiplicity := ""
+			if member.optional {
+				multiplicity = "[0..1]"
+			}
+			m.w.line(kw + writeName(r.stat) + typing(r.typed) + multiplicity + " = " + member.member + ";")
 		}
 	})
 }
@@ -361,9 +365,8 @@ func (m *migration) monteCarloConnector(c *sysmlv1.Element) bool {
 	return true
 }
 
-// monteCarloSlots reports the slots of an individual that hold the tool's statistics
-// and returns the other slots, with the writer of the recorded analysis the statistics
-// make, to follow the individual's values.
+// monteCarloSlots reports an individual's statistic slots and returns the other slots
+// with the writer of the recorded analysis, to follow the individual's values.
 func (m *migration) monteCarloSlots(e *sysmlv1.Element, slots []*sysmlv1.Element) (others []*sysmlv1.Element, recorded func()) {
 	type held struct {
 		slot *sysmlv1.Element

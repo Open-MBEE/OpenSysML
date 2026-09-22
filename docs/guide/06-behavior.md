@@ -1201,8 +1201,8 @@ second knob here too: every run resolves its concurrency choices under `-schedul
 - **Weights are drawn among the branches that hold.** A decision whose guards leave exactly one
   weighted branch holding takes it with probability one, whatever its `p`; the sum-to-one rule
   is checked over the branches as written.
-- **Monte Carlo runs are a REPL and CLI operation.** `%runs` and `-runs` run an action
-  repeatedly; the `RunSweep` RPC and the service clients take ranges and samples but no run
+- **Monte Carlo runs are a REPL and CLI operation.** `%runs` and `-runs` run an action, or an
+  analysis case specializing `Simulation::MonteCarlo`, repeatedly; the `RunSweep` RPC and the service clients take ranges and samples but no run
   count, and an external engine put a Monte Carlo answers with a claim, not the table of runs.
 - **A draw policy resolves `RandomFunctions` only.** `min`, `max` and `average` fix the
   durations and values the four functions return; a weighted decision draws from the seed under

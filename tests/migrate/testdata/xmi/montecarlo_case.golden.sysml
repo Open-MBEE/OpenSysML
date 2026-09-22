@@ -32,7 +32,7 @@ analysis def 'Settling Analysis Monte Carlo' :> Simulation::MonteCarlo {
     perform action run ::> analysed.settle;
     attribute :>> observed : ScalarValues::Real = analysed.settleTime;
     return Mean : ScalarValues::Real = mean;
-    out Deviation : ScalarValues::Real = deviation;
+    out Deviation : ScalarValues::Real[0..1] = deviation;
     out OutOfSpec : ScalarValues::Integer = outOfSpec;
 }
 individual part def 'settling analysis' :> 'Settling Analysis';

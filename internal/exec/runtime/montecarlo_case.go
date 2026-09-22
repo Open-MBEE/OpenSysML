@@ -10,9 +10,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
-// A Simulation::MonteCarlo case is an analysis of repeated runs: each run performs
-// the case's steps on a fresh subject and reads `observed`; the case's statistics
-// — runs, mean, deviation, outOfSpec — are of the sample, bound once it is complete.
+// A Simulation::MonteCarlo case is an analysis of repeated runs, each on a fresh subject
+// reading `observed`; runs, mean, deviation and outOfSpec are bound over the sample.
 
 // MonteCarloCaseFQN names the library analysis of repeated runs.
 const MonteCarloCaseFQN = "Simulation::MonteCarlo"
@@ -87,10 +86,8 @@ func (r *MonteCarloRun) OutOfSpec() bool {
 	return false
 }
 
-// ObserveMonteCarlo makes one run of a Simulation::MonteCarlo case as RunAnalysis
-// would, binding its subject and inputs from args, but reads `observed` and the
-// checks in place of the outputs: the statistics they read are of the whole
-// sample, which Conclude binds. self, when non-null, is the object a usage is a feature of.
+// ObserveMonteCarlo makes one run of a Simulation::MonteCarlo case as RunAnalysis would,
+// reading `observed` and the checks in place of the outputs, which Conclude evaluates.
 func (ctx *Context) ObserveMonteCarlo(sym *symbols.Symbol, args AnalysisArgs, scope *symbols.Scope, self *Instance) (*MonteCarloRun, error) {
 	defer ctx.beginRun()()
 
@@ -184,7 +181,7 @@ type MonteCarloStatistics struct {
 	Runs int64
 	// Mean is the arithmetic mean of the observations.
 	Mean float64
-	// Deviation is their sample standard deviation; unbound under two runs.
+	// Deviation is their sample standard deviation, which under two runs there is none of.
 	Deviation float64
 	// OutOfSpec is the number of runs a required check of the case did not hold in.
 	OutOfSpec int64
@@ -235,9 +232,8 @@ func describeObserved(value Value) string {
 	return value.Kind.String()
 }
 
-// Conclude binds the sample's statistics to the case's runs, mean, deviation and
-// outOfSpec, then reports the run as RunAnalysis reports one: every output the case
-// declares, evaluated over the statistics, and the verdict of each objective and assertion.
+// Conclude binds the sample's statistics (deviation empty under two runs), then reports
+// the case's outputs and the verdict of each objective and assertion as RunAnalysis does.
 func (r *MonteCarloRun) Conclude(stats MonteCarloStatistics) (AnalysisResult, error) {
 	ctx := r.ctx
 	defer ctx.beginRun()()
@@ -245,20 +241,20 @@ func (r *MonteCarloRun) Conclude(stats MonteCarloStatistics) (AnalysisResult, er
 	ctx.evaluations = r.log
 	defer ctx.endEvaluationLog(r.log)
 
+	deviation := Value{Kind: ValNull}
+	if stats.Runs >= 2 {
+		deviation = constValue(drawnReal(stats.Deviation))
+	}
 	bound := []struct {
 		feature string
 		value   Value
-		bind    bool
 	}{
-		{monteCarloRuns, constValue(drawnInt(stats.Runs)), true},
-		{monteCarloMean, constValue(drawnReal(stats.Mean)), true},
-		{monteCarloDeviation, constValue(drawnReal(stats.Deviation)), stats.Runs >= 2},
-		{monteCarloOutOfSpec, constValue(drawnInt(stats.OutOfSpec)), true},
+		{monteCarloRuns, constValue(drawnInt(stats.Runs))},
+		{monteCarloMean, constValue(drawnReal(stats.Mean))},
+		{monteCarloDeviation, deviation},
+		{monteCarloOutOfSpec, constValue(drawnInt(stats.OutOfSpec))},
 	}
 	for _, b := range bound {
-		if !b.bind {
-			continue
-		}
 		if err := r.bindStatistic(b.feature, b.value); err != nil {
 			return AnalysisResult{Case: r.Case, Subject: r.Subject}, err
 		}

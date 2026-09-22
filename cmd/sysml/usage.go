@@ -235,7 +235,7 @@ func doc() usage.Doc {
 				usage.Ex(`sysml -action Acquire -seed 7 m.sysml`, "One run, its draws seeded"),
 				usage.Ex(`sysml -action Acquire -draws max m.sysml`, "Durations at their max"),
 				usage.Ex(`sysml -action A -runs 9 -seed 7 -draws average m.sysml`, "Mean durations"),
-				usage.Ex(`sysml -analysis M::Mc M::obj -runs 100 -seed 7 m.sysml`, "A Simulation::MonteCarlo case"),
+				usage.Ex(`sysml -analysis "Mc obj" -runs 100 -seed 7 m.sysml`, "A MonteCarlo analysis case"),
 			},
 			Paragraphs: []string{
 				"-runs runs one -action to completion that many times, each run on a " +

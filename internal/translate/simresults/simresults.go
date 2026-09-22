@@ -42,9 +42,8 @@ type ConfigurationResults struct {
 	Location string `json:"resultLocation,omitempty"`
 	// Analysis is the observable the target's Monte Carlo analysis summarises, "" for none.
 	Analysis string `json:"analysis,omitempty"`
-	// AnalysisCase is the qualified v2 name of the Simulation::MonteCarlo analysis def written
-	// for the target, and Statistics the returns it declares, in order, each named as the
-	// tool names the statistic (Statistic*); none for no analysis.
+	// AnalysisCase names the Simulation::MonteCarlo analysis def written for the target and
+	// Statistics its declared returns, in order, as the tool names them (Statistic*).
 	AnalysisCase string   `json:"analysisCase,omitempty"`
 	Statistics   []string `json:"statistics,omitempty"`
 	// Observables are the properties the snapshots hold numbers for, sorted.

@@ -496,3 +496,59 @@ func TestSameNameSplitsOutsideQuotes(t *testing.T) {
 		t.Errorf("-action Group over a configuration named 'Sub::Group' = %+v, want a refusal", got)
 	}
 }
+
+// An observable the migrated analysis returns statistics of is compared statistic by
+// statistic: pooled mean and deviation differenced, counts side by side, OutOfSpec noted.
+func TestComparisonTableComparesTheDeclaredStatistics(t *testing.T) {
+	number := func(n float64) runtime.Value {
+		return runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValReal, Real: n}}
+	}
+	row := func(n float64) runtime.SweepRow {
+		return runtime.SweepRow{Outputs: []runtime.CalcOutputValue{{Name: "target.total", Value: number(n)}}}
+	}
+	cfg := &compareResults("'Group 1'", 2).Configurations[0]
+	cfg.Analysis = "total"
+	cfg.AnalysisCase = "'Probe Monte Carlo'"
+	cfg.Statistics = []string{simresults.StatisticMean, simresults.StatisticDeviation, simresults.StatisticRuns, simresults.StatisticOutOfSpec}
+	cfg.Snapshots = []simresults.Snapshot{{
+		ID: "_sum", Name: "analysis", Values: map[string]float64{"total": 10.0},
+		Statistics: &simresults.Statistics{Observable: "total", Runs: 3, Mean: 10.0, Deviation: simresults.Real(2.0), OutOfSpec: simresults.Count(1)},
+	}}
+	table := runtime.SweepTable{Target: "Cfg::'Group 1'", Rows: []runtime.SweepRow{row(8), row(10), row(12)}}
+	got := strings.Join(comparisonTable(cfg, table, nil), "\n")
+	for _, want := range []string{
+		"statistics of total returned by 'Probe Monte Carlo':",
+		"statistic | tool | OpenSysML (target.total) | difference",
+		"Mean      | 10.0 | 10.0                     | +0.0%",
+		"Deviation | 2.0  | 2.0                      | +0.0%",
+		"N         | 3    | 3                        |",
+		"OutOfSpec | 1    |                          |",
+		"note: OutOfSpec counts the runs the tool found out of specification by its own criterion, which no migrated check evaluates, so it is not compared",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("the statistics table lacks %q:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "came to a deviation of") {
+		t.Errorf("the deviation is noted in prose beside the statistic:\n%s", got)
+	}
+
+	// The tool's deviation pools the runs stored one by one with each summary's
+	// spread about its own mean and its mean's offset from the pooled one.
+	cfg.Snapshots = append(cfg.Snapshots, simresults.Snapshot{ID: "_r1", Values: map[string]float64{"total": 14.0}})
+	if dev, ok := storedDeviation(cfg, "total"); !ok || spell(dev) != "2.581988897471611" {
+		t.Errorf("storedDeviation = %v, %v; want sqrt(20/3) over the four pooled runs", dev, ok)
+	}
+
+	// A summary that kept no deviation leaves the tool's blank and says so.
+	cfg.Snapshots[0].Statistics.Deviation = nil
+	got = strings.Join(comparisonTable(cfg, table, nil), "\n")
+	for _, want := range []string{
+		"Deviation |      | 2.0                      |",
+		"note: a summary of total kept no deviation, so the tool's is not pooled and Deviation is not compared",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("the table without a stored deviation lacks %q:\n%s", want, got)
+		}
+	}
+}

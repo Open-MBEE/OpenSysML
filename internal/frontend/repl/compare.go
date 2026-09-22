@@ -289,9 +289,8 @@ type declared struct {
 	outOfSpec  *int64
 }
 
-// declaredStatistics are the returns of the analysis def written for cfg's target,
-// nil when it declares none, with the tool's deviation and out-of-specification
-// count pooled over the summaries of observable.
+// declaredStatistics are the analysis def's returns for cfg's target, nil for none,
+// with the tool's deviation and out-of-specification count pooled over observable.
 func declaredStatistics(cfg *simresults.ConfigurationResults, observable string) *declared {
 	if len(cfg.Statistics) == 0 {
 		return nil
@@ -339,10 +338,8 @@ func storedDistribution(cfg *simresults.ConfigurationResults, observable string)
 	return &runtime.Distribution{Count: int(runs), Mean: sum / float64(runs)}, true
 }
 
-// storedDeviation is the tool's sample standard deviation of observable pooled over
-// the runs its snapshots store one by one and the summaries, each contributing its
-// runs' spread about its mean and its mean's offset from the pooled mean; false
-// when a summary kept no deviation or fewer than two runs are stored.
+// storedDeviation pools the tool's sample deviation of observable over stored runs and
+// summaries (spread about each mean plus its offset); false when one kept no deviation.
 func storedDeviation(cfg *simresults.ConfigurationResults, observable string) (float64, bool) {
 	pooled, _ := storedDistribution(cfg, observable)
 	if pooled == nil || pooled.Count < 2 {
@@ -410,11 +407,8 @@ func runRows(cells [][]string, notes []string, name, feature string, table runti
 	return cells, notes
 }
 
-// statisticsTable is one row per statistic the analysis returns of name: the
-// tool's pooled value, the runs' by the same aggregation, and the relative
-// difference of the two where both are numbers of one thing. The run counts are
-// each side's own choice, so they are not differenced; out-of-specification runs
-// are the tool's criterion, which no migrated check evaluates.
+// statisticsTable is one row per declared statistic: the tool's pooled value, the runs'
+// by the same aggregation, and their difference; N and OutOfSpec are shown, not differenced.
 func statisticsTable(name, feature string, tool *comparison, d *runtime.Distribution) []string {
 	cells := [][]string{{"statistic", "tool", openSysMLLabel + feature + ")", "difference"}}
 	var notes []string

@@ -9,11 +9,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/simresults"
 )
 
-// montecarlo_case.xmi is a block inheriting the MagicDraw customization's
-// MonteCarloAnalysis whose connectors bind its settleTime to the pattern's Mean and
-// Deviation, a String to N, an Integer to OutOfSpec, and another value to a
-// statistic the pattern is not known to have; a block of no such inheritance binds
-// a value to Mean too. The tool's summary of five runs records every statistic.
+// montecarlo_case.xmi: a block inheriting the customization module's MonteCarloAnalysis
+// binds settleTime to Mean and Deviation, mismatched values to N/OutOfSpec, and an unknown statistic.
 func TestMonteCarloAnalysisIsAnAnalysisCase(t *testing.T) {
 	r := migrateFixtureFile(t, "montecarlo_case")
 	wantLine(t, r.Notation, "part def 'Settling Analysis' :> Sensor {")
@@ -22,7 +19,7 @@ func TestMonteCarloAnalysisIsAnAnalysisCase(t *testing.T) {
 	wantLine(t, r.Notation, "perform action run ::> analysed.settle;")
 	wantLine(t, r.Notation, "attribute :>> observed : ScalarValues::Real = analysed.settleTime;")
 	wantLine(t, r.Notation, "return Mean : ScalarValues::Real = mean;")
-	wantLine(t, r.Notation, "out Deviation : ScalarValues::Real = deviation;")
+	wantLine(t, r.Notation, "out Deviation : ScalarValues::Real[0..1] = deviation;")
 	wantLine(t, r.Notation, "out OutOfSpec : ScalarValues::Integer = outOfSpec;")
 	wantNoLine(t, r.Notation, "= runs;")
 	wantNoLine(t, r.Notation, "Median :")
@@ -59,9 +56,8 @@ func TestMonteCarloAnalysisIsAnAnalysisCase(t *testing.T) {
 	wantClean(t, "montecarlo_case.sysml", r)
 }
 
-// montecarlo_homonym.xmi has a user's own block named MonteCarloAnalysis with the
-// pattern's properties, which a block generalizes and binds a value to the Mean of:
-// without the customization module's provenance it is an ordinary block.
+// montecarlo_homonym.xmi: a user's own block named MonteCarloAnalysis, generalized and
+// bound to, is an ordinary block without the customization module's provenance.
 func TestUserBlockNamedMonteCarloAnalysisIsNoPattern(t *testing.T) {
 	r := migrateFixtureFile(t, "montecarlo_homonym")
 	wantLine(t, r.Notation, "part def MonteCarloAnalysis {")
@@ -110,9 +106,8 @@ func binding(id, role, other string) string {
 	return `<ownedConnector xmi:type="uml:Connector" xmi:id="` + id + `"><end xmi:type="uml:ConnectorEnd" xmi:id="` + id + `a" role="` + role + `"/><end xmi:type="uml:ConnectorEnd" xmi:id="` + id + `b">` + other + `</end></ownedConnector>`
 }
 
-// The pattern is the customization module's block alone: a reference into the
-// module whose path is cut short or missing, or the module's path in another
-// module, generalizes no analysis pattern.
+// The pattern is the customization module's block alone: a cut-short, missing or
+// other-module reference generalizes no analysis pattern.
 func TestMonteCarloAnalysisNeedsTheModulesProvenance(t *testing.T) {
 	cases := map[string]string{
 		"path cut short": `<general href="MD_customization_for_SysML.mdzip#_mc"><xmi:Extension extender="MagicDraw UML 2024x"><referenceExtension referentPath="MD Customization for SysML::analysis patterns::" referentType="Class"/></xmi:Extension></general>`,
