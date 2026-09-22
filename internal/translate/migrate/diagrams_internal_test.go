@@ -149,3 +149,60 @@ func TestDiagramWithoutHost(t *testing.T) {
 		t.Errorf("_d is missing from the report")
 	}
 }
+
+// TestExposeOfUnhostedDiagramFailsPerClient covers an «Expose» with two view
+// clients and two suppliers, one a block and one a diagram nothing written can
+// hold: the block is exposed from both views and every pair of the diagram fails.
+func TestExposeOfUnhostedDiagramFailsPerClient(t *testing.T) {
+	src := `<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:diagram="http://example.org/diagram">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+    <packagedElement xmi:type="uml:Class" xmi:id="_pump" name="Pump"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_v1" name="Overview"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_v2" name="Detail"/>
+    <packagedElement xmi:type="uml:Dependency" xmi:id="_d" client="_v1 _v2" supplier="_pump _pd"/>
+  </uml:Model>
+  <uml:Profile xmi:type="uml:Profile" xmi:id="_p" name="Custom">
+    <packagedElement xmi:type="uml:Stereotype" xmi:id="_st" name="Marked"/>
+    <xmi:Extension extender="Tool">` + diagram("_pd", "Profile Diagram", "_p", "Profile Diagram", "_st") + `</xmi:Extension>
+  </uml:Profile>
+  <sysml:Block xmi:id="_s0" base_Class="_pump"/>
+  <sysml:View xmi:id="_s1" base_Class="_v1"/>
+  <sysml:View xmi:id="_s2" base_Class="_v2"/>
+  <sysml:Expose xmi:id="_s3" base_Dependency="_d"/>
+</xmi:XMI>`
+	r, err := Migrate("expose.xmi", []byte(src))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(r.Notation)
+	for _, w := range []string{"view Overview {\n    expose Pump;\n}", "view Detail {\n    expose Pump;\n}"} {
+		if !strings.Contains(got, w) {
+			t.Errorf("notation lacks %q:\n%s", w, got)
+		}
+	}
+	if strings.Contains(got, "expose 'Profile Diagram'") || strings.Contains(got, "view 'Profile Diagram'") {
+		t.Errorf("the unhosted diagram is exposed or written:\n%s", got)
+	}
+	var found bool
+	for _, e := range r.Report.Entries {
+		if e.ID != "_d" {
+			continue
+		}
+		found = true
+		if e.Verdict != Approximated {
+			t.Errorf("verdict %s, want approximated (%s)", e.Verdict, e.Note)
+		}
+		for _, w := range []string{"2 of 4 relationships written", "the exposed Diagram 'Profile Diagram' is not written as a view"} {
+			if !strings.Contains(e.Note, w) {
+				t.Errorf("note %q lacks %q", e.Note, w)
+			}
+		}
+	}
+	if !found {
+		t.Errorf("_d is missing from the report")
+	}
+}
