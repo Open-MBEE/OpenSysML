@@ -3191,8 +3191,8 @@ Tracks F, S, L and A are closed.
 - **Release follow-through** — R2, R3, R5 (account- and hardware-gated), and nothing else: the
   `v0.8.0` post-tag checks are met and the test figures are generated.
 - **Tracks N, M, I, V, B** — as the tracks state them; nothing in them moved since `v0.6.0`
-  except D12 and the four `Value` arms Track I's clients carry (#113, #121, #122). Track D's
-  current status is stated above.
+  except the four `Value` arms Track I's clients carry (#113, #121, #122). Track D's current
+  status is stated above.
 - **Proposed** — scaling to very large models (the design and its first step landed, #300 and
   #316; #308, #309, #312 open). The PDF path onto the HTML backend (#358) and the fUML referee
   for actions with its emitter (#319, #321, #334, #413; the `not-expressible` rows left are typed
