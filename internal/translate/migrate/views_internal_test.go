@@ -138,6 +138,11 @@ func TestViewForms(t *testing.T) {
 			`<packagedElement xmi:type="uml:Class" xmi:id="_vp2" name="Safety"/>`,
 			`<sysml:Viewpoint xmi:id="_sv2" base_Class="_vp2" concernList="_pump"/>`,
 			[]string{"viewpoint Safety;"}, "_vp2", Approximated},
+		{"an instance of a view or viewpoint has no definition to specialize",
+			`<packagedElement xmi:type="uml:Class" xmi:id="_v" name="Overview"/>
+			 <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_i" name="snapshot" classifier="_v _vp"/>`,
+			`<sysml:View xmi:id="_s1" base_Class="_v"/>`,
+			[]string{"the instance's classifier Overview is written as a view usage, which an individual cannot specialize; the instance's classifier Ops is written as a viewpoint usage, which an individual cannot specialize"}, "_i", Unmapped},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			r, err := Migrate("views.xmi", []byte(viewModel(tc.members, tc.stereotypes)))
@@ -165,6 +170,9 @@ func TestViewForms(t *testing.T) {
 			}
 			if !found {
 				t.Errorf("%s is missing from the report", tc.id)
+			}
+			if strings.Contains(got, "individual view") || strings.Contains(got, "individual viewpoint") {
+				t.Errorf("an individual specializes a usage:\n%s", got)
 			}
 		})
 	}

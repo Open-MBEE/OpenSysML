@@ -96,11 +96,12 @@ type opaqueRef struct {
 	object   []string
 	plural   bool
 	optional bool // the feature is declared admitting no value
+	loose    int  // the precedence of expr's outermost operator; 0 when expr is atomic
 }
 
 // value is the ref read as an expression.
 func (r opaqueRef) value() translated {
-	return translated{expr: r.expr, scalar: r.scalar, object: r.object, plural: r.plural, atomic: true}
+	return translated{expr: r.expr, scalar: r.scalar, object: r.object, plural: r.plural, atomic: r.loose == 0, loose: r.loose}
 }
 
 // featureResolver answers what the names of an opaque body mean where it is read;

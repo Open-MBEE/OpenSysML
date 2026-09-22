@@ -75,6 +75,15 @@ func TestExpressionTreeLowering(t *testing.T) {
 			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="&gt;">` + leaf("a") +
 				`<operand xmi:type="uml:OpaqueExpression" xmi:id="_o"><body>b / 2</body><language>JavaScript</language></operand></specification>`,
 			"constraint r { a > b / 2 }"},
+		{"java operand inside a tree keeps its own reading",
+			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="&gt;">` + leaf("a") +
+				`<operand xmi:type="uml:OpaqueExpression" xmi:id="_o"><body>7 / 2</body><language>Java</language></operand></specification>`,
+			"constraint r { a > OpenSysMLMathFunctions::quotient(7, 2) }"},
+		{"a script operand's precedence is kept under the tree's operator",
+			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="&gt;">` + leaf("a") +
+				`<operand xmi:type="uml:Expression" xmi:id="_s1" symbol="*"><operand xmi:type="uml:OpaqueExpression" xmi:id="_o"><body>b + 2</body><language>JavaScript</language></operand>` +
+				`<operand xmi:type="uml:LiteralInteger" xmi:id="_l" value="2"/></operand></specification>`,
+			"constraint r { a > (b + 2) * 2 }"},
 		{"named operators and element values a tool keeps in an extension",
 			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="Equal">
 			   <operand xmi:type="uml:Expression" xmi:id="_s1" symbol="Plus">

@@ -38,7 +38,8 @@ func treeOperator(table map[string]string, symbol string) (string, bool) {
 }
 
 // treeLowering lowers one tree read at scope; operands script text cannot spell
-// — an instance value — are stood for by placeholder names it answers itself.
+// — an instance value, an opaque body in its own language — are stood for by
+// placeholder names it answers itself.
 type treeLowering struct {
 	s      *bodyScope
 	leaves map[string]opaqueRef
@@ -91,10 +92,10 @@ func (l *treeLowering) lower(v *sysmlv1.Element) (string, *refusal) {
 		if body == "" {
 			return "", &refusal{kind: refusedSyntax, token: "", why: "an opaque operand has no body"}
 		}
-		if dialectOf(lang) != dialectScript {
+		if !dialectOf(lang).script() {
 			return "", &refusal{kind: refusedLanguage, token: lang, why: "an opaque operand is read only in a script language"}
 		}
-		return "(" + body + ")", nil
+		return l.opaque(body, lang)
 	}
 	return "", &refusal{kind: refusedConstruct, token: "<" + v.Type + ">", why: "a UML " + v.Type + " has no v2 expression"}
 }
@@ -229,6 +230,22 @@ func (l *treeLowering) instance(v *sysmlv1.Element) (string, *refusal) {
 	}
 	name := l.placeholder(m.nameOf(inst))
 	l.leaves[name] = opaqueRef{expr: expr, scalar: m.scalarBase(typ), object: m.nonScalar(typ)}
+	return name, nil
+}
+
+// opaque translates an opaque operand in its own language and writes it through
+// a placeholder answering the translation, so a Java body keeps Java's reading.
+func (l *treeLowering) opaque(body, lang string) (string, *refusal) {
+	t, err := translateExpr(body, lang, l, wanted{})
+	if err != nil {
+		return "", err
+	}
+	ref := opaqueRef{expr: t.expr, scalar: t.scalar, object: t.object, plural: t.plural, loose: t.loose}
+	if !t.atomic && t.loose == 0 {
+		ref.expr = "(" + t.expr + ")"
+	}
+	name := l.placeholder("operand")
+	l.leaves[name] = ref
 	return name, nil
 }
 
