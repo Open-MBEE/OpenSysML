@@ -16,13 +16,14 @@ import (
 // MonteCarloCaseFQN names the library analysis of repeated runs.
 const MonteCarloCaseFQN = "Simulation::MonteCarlo"
 
-// The features Simulation::MonteCarlo declares, by the name each is declared under.
+// The features Simulation::MonteCarlo declares, by the name each is declared under;
+// the outputs are exported for the comparison of a case's statistics with a tool's.
 const (
-	monteCarloObserved  = "observed"
-	monteCarloRuns      = "runs"
-	monteCarloMean      = "mean"
-	monteCarloDeviation = "deviation"
-	monteCarloOutOfSpec = "outOfSpec"
+	monteCarloObserved        = "observed"
+	MonteCarloRunsOutput      = "runs"
+	MonteCarloMeanOutput      = "mean"
+	MonteCarloDeviationOutput = "deviation"
+	MonteCarloOutOfSpecOutput = "outOfSpec"
 )
 
 // ErrNotMonteCarlo reports repeating a case that is no Simulation::MonteCarlo analysis.
@@ -249,10 +250,10 @@ func (r *MonteCarloRun) Conclude(stats MonteCarloStatistics) (AnalysisResult, er
 		feature string
 		value   Value
 	}{
-		{monteCarloRuns, constValue(drawnInt(stats.Runs))},
-		{monteCarloMean, constValue(drawnReal(stats.Mean))},
-		{monteCarloDeviation, deviation},
-		{monteCarloOutOfSpec, constValue(drawnInt(stats.OutOfSpec))},
+		{MonteCarloRunsOutput, constValue(drawnInt(stats.Runs))},
+		{MonteCarloMeanOutput, constValue(drawnReal(stats.Mean))},
+		{MonteCarloDeviationOutput, deviation},
+		{MonteCarloOutOfSpecOutput, constValue(drawnInt(stats.OutOfSpec))},
 	}
 	for _, b := range bound {
 		if err := r.bindStatistic(b.feature, b.value); err != nil {

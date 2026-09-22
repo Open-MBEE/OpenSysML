@@ -977,7 +977,8 @@ A stored observable is read off the target by default (`Time_Acq_Total` beside
 `target.Time_Acq_Total`), or off the feature `-observe Time_Acq_Total=clock` names, so a total
 the tool read from its time variable is set beside the run's clock. The observable a Monte
 Carlo analysis summarises is compared statistic by statistic, one row per `return` the
-analysis def declares: the tool's `Mean` and `Deviation`, pooled over its summaries, against the
+analysis def declares and one per output of `Simulation::MonteCarlo` the tool stored without
+a return: the tool's `Mean` and `Deviation`, pooled over its summaries, against the
 runs' by the same aggregation (the arithmetic mean and the sample standard deviation), `N`
 side by side, and `OutOfSpec` shown but not compared, being the tool's own criterion. An observable the completed
 runs produce in more than one unit (a quantity in some, a bare number or another unit in others)

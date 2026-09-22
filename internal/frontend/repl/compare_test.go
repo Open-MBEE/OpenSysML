@@ -497,7 +497,7 @@ func TestSameNameSplitsOutsideQuotes(t *testing.T) {
 	}
 }
 
-// An observable the migrated analysis returns statistics of is compared statistic by
+// An observable a migrated analysis case is written for is compared statistic by
 // statistic: pooled mean and deviation differenced, counts side by side, OutOfSpec noted.
 func TestComparisonTableComparesTheDeclaredStatistics(t *testing.T) {
 	number := func(n float64) runtime.Value {
@@ -517,12 +517,12 @@ func TestComparisonTableComparesTheDeclaredStatistics(t *testing.T) {
 	table := runtime.SweepTable{Target: "Cfg::'Group 1'", Rows: []runtime.SweepRow{row(8), row(10), row(12)}}
 	got := strings.Join(comparisonTable(cfg, table, nil), "\n")
 	for _, want := range []string{
-		"statistics of total returned by 'Probe Monte Carlo':",
-		"statistic | tool | OpenSysML (target.total) | difference",
-		"Mean      | 10.0 | 10.0                     | +0.0%",
-		"Deviation | 2.0  | 2.0                      | +0.0%",
-		"N         | 3    | 3                        |",
-		"OutOfSpec | 1    |                          |",
+		"statistics of total by 'Probe Monte Carlo':",
+		"statistic | of the case      | tool | OpenSysML (target.total) | difference",
+		"Mean      | return Mean      | 10.0 | 10.0                     | +0.0%",
+		"Deviation | return Deviation | 2.0  | 2.0                      | +0.0%",
+		"N         | return N         | 3    | 3                        |",
+		"OutOfSpec | return OutOfSpec | 1    |                          |",
 		"note: OutOfSpec counts the runs the tool found out of specification by its own criterion, which no migrated check evaluates, so it is not compared",
 	} {
 		if !strings.Contains(got, want) {
@@ -532,6 +532,25 @@ func TestComparisonTableComparesTheDeclaredStatistics(t *testing.T) {
 	if strings.Contains(got, "came to a deviation of") {
 		t.Errorf("the deviation is noted in prose beside the statistic:\n%s", got)
 	}
+
+	// A case returning Mean alone still computes the other outputs; those the tool
+	// stored are compared as the case's outputs, after the return, in the case's order.
+	cfg.Statistics = []string{simresults.StatisticMean}
+	got = strings.Join(comparisonTable(cfg, table, nil), "\n")
+	for _, want := range []string{
+		"Mean      | return Mean   | 10.0 | 10.0                     | +0.0%\n" +
+			"N         | out runs      | 3    | 3                        |\n" +
+			"Deviation | out deviation | 2.0  | 2.0                      | +0.0%\n" +
+			"OutOfSpec | out outOfSpec | 1    |                          |",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("the table of a case returning Mean alone lacks %q:\n%s", want, got)
+		}
+	}
+	if len(cfg.Statistics) != 1 {
+		t.Errorf("the sidecar's declared returns grew to %v", cfg.Statistics)
+	}
+	cfg.Statistics = []string{simresults.StatisticMean, simresults.StatisticDeviation, simresults.StatisticRuns, simresults.StatisticOutOfSpec}
 
 	// The tool's deviation pools the runs stored one by one with each summary's
 	// spread about its own mean and its mean's offset from the pooled one.
@@ -544,7 +563,7 @@ func TestComparisonTableComparesTheDeclaredStatistics(t *testing.T) {
 	cfg.Snapshots[0].Statistics.Deviation = nil
 	got = strings.Join(comparisonTable(cfg, table, nil), "\n")
 	for _, want := range []string{
-		"Deviation |      | 2.0                      |",
+		"Deviation | return Deviation |      | 2.0                      |",
 		"note: a summary of total kept no deviation, so the tool's is not pooled and Deviation is not compared",
 	} {
 		if !strings.Contains(got, want) {

@@ -1165,9 +1165,11 @@ and its result location, since a Monte Carlo does not come out alike twice, and 
 same. Summaries of one observable whose means lie more than three standard errors apart cannot
 be of runs of one and the same model — the tool ran them under other values than the snapshots
 record — so they are noted by name under the table, and the pooled mean they are compared by is
-said to blend them. An observable a migrated Monte Carlo analysis def returns statistics of
-(the sidecar's `analysisCase` and `statistics`) is followed by a table of those statistics,
-one row per declared return: the tool's `Mean` and `Deviation` pooled over its summaries, the
+said to blend them. An observable a migrated Monte Carlo analysis def was written for
+(the sidecar's `analysisCase` and `statistics`) is followed by a table of the case's
+statistics — its declared returns first (`return Mean`), then the outputs of
+`Simulation::MonteCarlo` the tool stored without a return (`out deviation`), the case computing
+them all: the tool's `Mean` and `Deviation` pooled over its summaries, the
 runs' by the same aggregation (the arithmetic mean, the sample standard deviation) and their
 relative difference; `N` side by side, undifferenced, each side's count being its own choice;
 `OutOfSpec` the tool's alone, noted as its own criterion, which no migrated check evaluates. A

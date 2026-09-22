@@ -273,29 +273,51 @@ func comparisonTable(cfg *simresults.ConfigurationResults, table runtime.SweepTa
 
 // comparison is the tool's side of one observable: its distribution, pooled from
 // summaries (count and mean alone) or over the runs it stored one by one, and the
-// statistics the migrated analysis returns of it, when it declares any.
+// statistics of the migrated analysis case of it, when one was written.
 type comparison struct {
 	stored   *runtime.Distribution
 	pooled   bool
 	declared *declared
 }
 
-// declared are the statistics an analysis def returns of the observable it
-// analyses, with the tool's pooled value of each that its summaries fix.
+// declared are the statistics of a Simulation::MonteCarlo case of the observable it
+// analyses: the returns the case declares, then the outputs of the case the tool
+// stored a value of without a return; with the tool's pooled value of each.
 type declared struct {
 	analysis   string
 	statistics []string
+	returned   int
 	deviation  *float64
 	outOfSpec  *int64
 }
 
-// declaredStatistics are the analysis def's returns for cfg's target, nil for none,
-// with the tool's deviation and out-of-specification count pooled over observable.
+// caseOutputs are the outputs of Simulation::MonteCarlo by the tool's statistic each
+// is bound from, in the order the case declares them.
+var caseOutputs = []struct{ statistic, output string }{
+	{simresults.StatisticRuns, runtime.MonteCarloRunsOutput},
+	{simresults.StatisticMean, runtime.MonteCarloMeanOutput},
+	{simresults.StatisticDeviation, runtime.MonteCarloDeviationOutput},
+	{simresults.StatisticOutOfSpec, runtime.MonteCarloOutOfSpecOutput},
+}
+
+// caseOutput is the output of Simulation::MonteCarlo the tool's statistic is bound from.
+func caseOutput(statistic string) string {
+	for _, o := range caseOutputs {
+		if o.statistic == statistic {
+			return o.output
+		}
+	}
+	return ""
+}
+
+// declaredStatistics are the statistics of the analysis case written for cfg's
+// target, nil when none was: its declared returns, then the case's other outputs
+// the tool's summaries of observable stored, with the tool's values pooled.
 func declaredStatistics(cfg *simresults.ConfigurationResults, observable string) *declared {
-	if len(cfg.Statistics) == 0 {
+	if cfg.AnalysisCase == "" {
 		return nil
 	}
-	d := &declared{analysis: cfg.AnalysisCase, statistics: cfg.Statistics}
+	d := &declared{analysis: cfg.AnalysisCase, statistics: slices.Clone(cfg.Statistics), returned: len(cfg.Statistics)}
 	if dev, ok := storedDeviation(cfg, observable); ok {
 		d.deviation = &dev
 	}
@@ -310,7 +332,33 @@ func declaredStatistics(cfg *simresults.ConfigurationResults, observable string)
 	if counted {
 		d.outOfSpec = &out
 	}
+	for _, o := range caseOutputs {
+		if slices.Contains(d.statistics, o.statistic) || !storedStatistic(cfg, observable, o.statistic) {
+			continue
+		}
+		d.statistics = append(d.statistics, o.statistic)
+	}
 	return d
+}
+
+// storedStatistic reports whether a summary of observable stored statistic: the
+// count and mean always, a deviation or out-of-specification count only when recorded.
+func storedStatistic(cfg *simresults.ConfigurationResults, observable, statistic string) bool {
+	for _, s := range cfg.Summarised(observable) {
+		switch statistic {
+		case simresults.StatisticRuns, simresults.StatisticMean:
+			return true
+		case simresults.StatisticDeviation:
+			if s.Statistics.Deviation != nil {
+				return true
+			}
+		case simresults.StatisticOutOfSpec:
+			if s.Statistics.OutOfSpec != nil {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // storedDistribution is the tool's distribution of observable: over the numbers
@@ -407,30 +455,35 @@ func runRows(cells [][]string, notes []string, name, feature string, table runti
 	return cells, notes
 }
 
-// statisticsTable is one row per declared statistic: the tool's pooled value, the runs'
-// by the same aggregation, and their difference; N and OutOfSpec are shown, not differenced.
+// statisticsTable is one row per statistic of the case — a declared return, or an
+// output the tool stored — with the tool's pooled value, the runs' by the same
+// aggregation, and their difference; N and OutOfSpec are shown, not differenced.
 func statisticsTable(name, feature string, tool *comparison, d *runtime.Distribution) []string {
-	cells := [][]string{{"statistic", "tool", openSysMLLabel + feature + ")", "difference"}}
+	cells := [][]string{{"statistic", "of the case", "tool", openSysMLLabel + feature + ")", "difference"}}
 	var notes []string
-	for _, stat := range tool.declared.statistics {
+	for i, stat := range tool.declared.statistics {
+		of := "out " + caseOutput(stat)
+		if i < tool.declared.returned {
+			of = "return " + stat
+		}
 		switch stat {
 		case simresults.StatisticMean:
-			cells = append(cells, []string{stat, spell(tool.stored.Mean), spell(d.Mean), relative(drawnMean(tool.stored), drawnMean(d))})
+			cells = append(cells, []string{stat, of, spell(tool.stored.Mean), spell(d.Mean), relative(drawnMean(tool.stored), drawnMean(d))})
 		case simresults.StatisticDeviation:
 			if tool.declared.deviation == nil {
-				cells = append(cells, []string{stat, "", spell(d.Deviation), ""})
+				cells = append(cells, []string{stat, of, "", spell(d.Deviation), ""})
 				notes = append(notes, fmt.Sprintf("note: a summary of %s kept no deviation, so the tool's is not pooled and %s is not compared", name, stat))
 				continue
 			}
-			cells = append(cells, []string{stat, spell(*tool.declared.deviation), spell(d.Deviation), relative(realValue(*tool.declared.deviation), realValue(d.Deviation))})
+			cells = append(cells, []string{stat, of, spell(*tool.declared.deviation), spell(d.Deviation), relative(realValue(*tool.declared.deviation), realValue(d.Deviation))})
 		case simresults.StatisticRuns:
-			cells = append(cells, []string{stat, fmt.Sprint(tool.stored.Count), fmt.Sprint(d.Count), ""})
+			cells = append(cells, []string{stat, of, fmt.Sprint(tool.stored.Count), fmt.Sprint(d.Count), ""})
 		case simresults.StatisticOutOfSpec:
 			stored := ""
 			if tool.declared.outOfSpec != nil {
 				stored = fmt.Sprint(*tool.declared.outOfSpec)
 			}
-			cells = append(cells, []string{stat, stored, "", ""})
+			cells = append(cells, []string{stat, of, stored, "", ""})
 			notes = append(notes, fmt.Sprintf("note: %s counts the runs the tool found out of specification by its own criterion, which no migrated check evaluates, so it is not compared", stat))
 		}
 	}
@@ -440,7 +493,7 @@ func statisticsTable(name, feature string, tool *comparison, d *runtime.Distribu
 			widths[i] = max(widths[i], len([]rune(cell)))
 		}
 	}
-	lines := []string{fmt.Sprintf("statistics of %s returned by %s:", name, tool.declared.analysis), renderSweepRow(cells[0], widths, " | "), sweepRule(widths)}
+	lines := []string{fmt.Sprintf("statistics of %s by %s:", name, tool.declared.analysis), renderSweepRow(cells[0], widths, " | "), sweepRule(widths)}
 	for _, row := range cells[1:] {
 		lines = append(lines, renderSweepRow(row, widths, " | "))
 	}
