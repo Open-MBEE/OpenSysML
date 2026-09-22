@@ -62,7 +62,7 @@ func newRelationshipTables() *relationshipTables {
 type relationshipWalk struct {
 	kind      string
 	direction string
-	maxDepth  int64
+	maxDepth  depthLimit
 }
 
 func (e *executor) evaluateRelated(expression queryplan.Expression) (sequence, error) {
@@ -100,7 +100,7 @@ func (e *executor) relationshipArguments(expression queryplan.Expression) (relat
 	if err != nil {
 		return relationshipWalk{}, err
 	}
-	maxDepth, err := e.integerArgument(expression, "maxDepth")
+	maxDepth, err := e.depthArgument(expression)
 	if err != nil {
 		return relationshipWalk{}, err
 	}
@@ -140,7 +140,7 @@ func (e *executor) traverseRelated(
 	for len(queue) > 0 {
 		next := queue[0]
 		queue = queue[1:]
-		if next.depth >= walk.maxDepth {
+		if walk.maxDepth.reached(next.depth) {
 			continue
 		}
 		neighbors, err := e.relatedNeighbors(expression, walk.kind, walk.direction, next.sym)

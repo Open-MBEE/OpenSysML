@@ -886,6 +886,7 @@ answer.
 | `documentation` | The body text of the element's `doc` comment, delimiters and indentation removed; absent when undocumented. This single-valued record reports the first body of an element declaring several — a document query's `Project` carries every body | |
 | `owner` | Qualified name of the owning element; absent for a top-level element, whose owner is the document root | |
 | `isAbstract` | `true`/`false` for a definition or usage; absent for anything else, and for a standard-library element restored from cache, which carries no declaration | |
+| `isIndividual` | `true`/`false` for a definition or usage (the `individual` modifier); absent for anything else | |
 | `type` | Qualified name of the resolved type of a typed feature; absent when untyped or unresolved | |
 | `multiplicityLower` | Declared lower bound | ✅ |
 | `multiplicityUpper` | Declared upper bound, `*` when unbounded | ✅ |

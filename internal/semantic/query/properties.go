@@ -70,6 +70,13 @@ func (r *PropertyReader) Values(sym *symbols.Symbol, property string) ([]string,
 		case *ast.Definition:
 			return []string{strconv.FormatBool(decl.IsAbstract)}, true
 		}
+	case PropertyIsIndividual:
+		switch decl := sym.Decl.(type) {
+		case *ast.Usage:
+			return []string{strconv.FormatBool(decl.IsIndividual)}, true
+		case *ast.Definition:
+			return []string{strconv.FormatBool(decl.IsIndividual)}, true
+		}
 	case PropertyMultiplicityLower, PropertyMultiplicityUpper:
 		if r.semantics == nil {
 			return nil, false

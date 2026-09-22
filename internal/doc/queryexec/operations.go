@@ -92,12 +92,46 @@ func (e *executor) evaluateOwned(expression queryplan.Expression) (sequence, err
 	return result, nil
 }
 
+// depthLimit is a maxDepth argument: so many levels, or unbounded when the
+// argument is null or omitted.
+type depthLimit struct {
+	bounded bool
+	levels  int64
+}
+
+// reached reports whether a row at depth is not to be walked past.
+func (d depthLimit) reached(depth int64) bool { return d.bounded && depth >= d.levels }
+
+// depthArgument reads an operation's maxDepth: a non-negative integer, or
+// unbounded when null or omitted.
+func (e *executor) depthArgument(expression queryplan.Expression) (depthLimit, error) {
+	if !hasArgument(expression, "maxDepth") {
+		return depthLimit{}, nil
+	}
+	value, err := e.argument(expression, "maxDepth")
+	if err != nil {
+		return depthLimit{}, err
+	}
+	switch len(value.values) {
+	case 0:
+		return depthLimit{}, nil
+	case 1:
+	default:
+		return depthLimit{}, e.invalidArgument(expression, "maxDepth", strconv.Itoa(len(value.values)))
+	}
+	levels, ok := value.values[0].Integer()
+	if !ok || levels < 0 {
+		return depthLimit{}, e.invalidArgument(expression, "maxDepth", string(value.values[0].Kind()))
+	}
+	return depthLimit{bounded: true, levels: levels}, nil
+}
+
 func (e *executor) evaluateDescendants(expression queryplan.Expression) (sequence, error) {
 	source, err := e.ownershipArgument(expression, "source")
 	if err != nil {
 		return sequence{}, err
 	}
-	maxDepth, err := e.integerArgument(expression, "maxDepth")
+	maxDepth, err := e.depthArgument(expression)
 	if err != nil {
 		return sequence{}, err
 	}
@@ -115,7 +149,7 @@ func (e *executor) evaluateDescendants(expression queryplan.Expression) (sequenc
 	for len(queue) > 0 {
 		next := queue[0]
 		queue = queue[1:]
-		if next.depth >= maxDepth {
+		if maxDepth.reached(next.depth) {
 			continue
 		}
 		owned, err := e.ownedRows(expression, next.row)
@@ -143,7 +177,7 @@ func (e *executor) evaluateAncestors(expression queryplan.Expression) (sequence,
 	if err != nil {
 		return sequence{}, err
 	}
-	maxDepth, err := e.integerArgument(expression, "maxDepth")
+	maxDepth, err := e.depthArgument(expression)
 	if err != nil {
 		return sequence{}, err
 	}
@@ -161,7 +195,7 @@ func (e *executor) evaluateAncestors(expression queryplan.Expression) (sequence,
 	for len(queue) > 0 {
 		next := queue[0]
 		queue = queue[1:]
-		if next.depth >= maxDepth {
+		if maxDepth.reached(next.depth) {
 			continue
 		}
 		owner, ok := e.ownerRow(next.row)
@@ -670,6 +704,7 @@ func isQueryableProperty(property string) bool {
 		query.PropertyOwner,
 		query.PropertyElementType,
 		query.PropertyIsAbstract,
+		query.PropertyIsIndividual,
 		query.PropertyMultiplicityLower,
 		query.PropertyMultiplicityUpper:
 		return true
@@ -681,7 +716,7 @@ func isQueryableProperty(property string) bool {
 func typedPropertyValue(property, value string, sym *symbols.Symbol) Value {
 	var result Value
 	switch property {
-	case query.PropertyIsAbstract:
+	case query.PropertyIsAbstract, query.PropertyIsIndividual:
 		boolean, _ := strconv.ParseBool(value)
 		result = BooleanValue(boolean)
 	case query.PropertyMultiplicityLower, query.PropertyMultiplicityUpper:

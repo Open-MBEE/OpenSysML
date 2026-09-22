@@ -203,6 +203,37 @@ func TestExecuteRelatedColumnFollowsDepthAndDirection(t *testing.T) {
 	assertColumn(t, cellsByColumn(t, reach), "related", [][]string{{"false"}})
 }
 
+func TestExecuteRelatedColumnKeepsOnlyTargets(t *testing.T) {
+	fixture := loadExecutionFixtureFile(t, traceMatrixFixture)
+	result, err := fixture.execute(t, "Targeted", Bindings{
+		"root": {fixture.observatory(t)},
+		"targets": {
+			ElementValue(fixture.symbol(t, "mount")),
+			ElementValue(fixture.symbol(t, "groundStation")),
+		},
+	}, Options{})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	// telescope satisfies massRequirement but is not a target, so it is dropped.
+	assertColumn(t, cellsByColumn(t, result), "satisfiedBy", [][]string{
+		{"groundStation"},
+		{"mount"},
+		nil,
+	})
+}
+
+func TestExecuteRelatedColumnNullDepthIsUnbounded(t *testing.T) {
+	fixture := loadExecutionFixtureFile(t, traceMatrixFixture)
+	result, err := fixture.execute(t, "Unbounded", Bindings{
+		"root": {ElementValue(fixture.symbol(t, "MirrorAssembly"))},
+	}, Options{})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	assertColumn(t, cellsByColumn(t, result), "generals", [][]string{{"OpticalSubsystem", "Subsystem"}})
+}
+
 func TestExecuteRelatedColumnReportsItsColumnInErrors(t *testing.T) {
 	fixture := loadExecutionFixtureFile(t, traceMatrixFixture)
 	mirror := ElementValue(fixture.symbol(t, "MirrorAssembly"))

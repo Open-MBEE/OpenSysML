@@ -223,7 +223,9 @@ $ sysml cookbook.sysml -run-query "Cookbook::AllParts root=Cookbook::telescope"
   Row 5: Cookbook::telescope::dataPath
 ```
 
-`maxDepth` bounds the walk; each level is visited in declaration order.
+`maxDepth` bounds the walk; each level is visited in declaration order. Omit
+it (or pass `null`) to walk the whole subtree — `Ancestors` likewise walks to
+the root when unbounded.
 Note that the connections are still here: a `connection` usage *is* a
 `PartUsage` in the SysML metamodel (its metaclass conforms to it). Use
 a feature or name filter, or `type = "ConnectionUsage"`, to separate them —
@@ -467,6 +469,7 @@ are always projectable:
 | `@type` | The metamodel type (`PartUsage`, ...) |
 | `type` | The declared type's qualified name |
 | `isAbstract` | Boolean |
+| `isIndividual` | Boolean: whether a definition or usage carries the `individual` modifier |
 | `multiplicityLower`, `multiplicityUpper` | Integers, `*` as unbounded |
 
 ```sysml
@@ -742,15 +745,15 @@ RelatedElements(
 	                                // satisfaction, verification,
 	                                // derivation or refinement
 	direction = "<direction>",     // outgoing or incoming
-	maxDepth = <n>
+	maxDepth = <n>                 // omit, or null, for no bound
 )
 ```
 
 Direction is from the relationship's own point of view — `outgoing` follows
 it as declared, `incoming` follows it backwards. Traversal is breadth-first
-to `maxDepth`, deduplicated, in declaration order, and bounded by a visit
-budget so a pathological model terminates with a typed error rather than
-hanging.
+to `maxDepth` (unbounded when omitted or `null`), deduplicated, in
+declaration order, and bounded by a visit budget so a pathological model
+terminates with a typed error rather than hanging.
 
 ### Connections
 
@@ -1170,12 +1173,15 @@ as the last table of its report, [`requirements.md`](examples/requirements.md).
 `RelatedElements` answers one requirement at a time. To put every requirement
 in one table with its satisfiers and verifiers beside it, derive the columns
 from the relationships instead: a `RelatedColumn(name, relationshipKind,
-direction, maxDepth, aggregate = "list")` entry of `columns` traverses the
-named relationship from each row's element — the same kinds, directions and
-depth bound as `RelatedElements` — and fills a cell with what it reaches.
-The `aggregate` chooses the cell's shape: `"list"` (the default) holds the
-related elements, `"count"` how many there are, `"any"` whether there is at
-least one — an existence test that stops at the first element it reaches.
+direction, maxDepth, aggregate = "list", targets)` entry of `columns`
+traverses the named relationship from each row's element — the same kinds,
+directions and depth bound as `RelatedElements` — and fills a cell with what
+it reaches. The `aggregate` chooses the cell's shape: `"list"` (the default)
+holds the related elements, `"count"` how many there are, `"any"` whether
+there is at least one — an existence test that stops at the first element it
+reaches. `targets`, when given, keeps only the reached elements among them:
+a dependency matrix whose columns are one query and whose rows are another
+is `Project(source = <rows>, columns = (RelatedColumn(..., targets = <columns>)))`.
 
 The cookbook model's `Traceability` package holds three requirements, a
 `spacecraft` whose parts satisfy them and three verification cases, two of

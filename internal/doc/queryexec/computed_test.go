@@ -547,3 +547,38 @@ calc def Bad :> Query {
 		})
 	}
 }
+
+func TestExecuteWhereFeatureIsIndividualOverUnboundedDescendants(t *testing.T) {
+	fixture := loadExecutionFixture(t, `
+part def Wheel;
+part def SpareWheel :> Wheel;
+package Config {
+	package Nested {
+		individual part def FrontLeft :> Wheel;
+	}
+	individual part def Spare :> SpareWheel;
+}
+calc def Instances :> Query {
+	in root : Element;
+	Project(
+		source = WhereFeature(
+			source = WhereType(source = Descendants(source = root), type = "Wheel"),
+			'feature' = "isIndividual",
+			operator = "=",
+			value = "true"
+		),
+		properties = ("name")
+	)
+}`)
+	result, err := fixture.execute(t, "Instances", Bindings{
+		"root": {ElementValue(fixture.symbol(t, "Config"))},
+	}, Options{})
+	if err != nil {
+		t.Fatalf("execute Instances: %v", err)
+	}
+	// Nested is two levels down, so a bounded depth of 1 would miss FrontLeft;
+	// SpareWheel is a plain subdefinition and is not an individual.
+	if names := rowNames(result); !equalStrings(names, []string{"Observatory::Config::Spare", "Observatory::Config::Nested::FrontLeft"}) {
+		t.Fatalf("rows = %v", names)
+	}
+}

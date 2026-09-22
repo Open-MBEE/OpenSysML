@@ -63,6 +63,7 @@ bound predicate that is not in this table:
 | `sysml:documentation` | `documentation` |
 | `sysml:owner` | `owner` |
 | `sysml:isAbstract` | `isAbstract` |
+| `sysml:isIndividual` | `isIndividual` |
 | `sysml:type` | `type` |
 | `sysml:multiplicityLower` | `multiplicityLower` |
 | `sysml:multiplicityUpper` | `multiplicityUpper` |

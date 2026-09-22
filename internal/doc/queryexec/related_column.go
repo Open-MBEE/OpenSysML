@@ -8,11 +8,22 @@ import (
 )
 
 // relatedColumn is one decoded RelatedColumn of a projection: a relationship
-// traversal run from each row's declaration, reduced by aggregate.
+// traversal run from each row's declaration, kept to targets when given and
+// reduced by aggregate.
 type relatedColumn struct {
 	plan      queryplan.Expression
 	walk      relationshipWalk
 	aggregate string
+	targets   map[symbols.ElementKey]struct{}
+}
+
+// keeps reports whether a reached element counts for the column.
+func (c *relatedColumn) keeps(sym *symbols.Symbol) bool {
+	if c.targets == nil {
+		return true
+	}
+	_, ok := c.targets[symbols.KeyOf(sym)]
+	return ok
 }
 
 // relatedColumnOf evaluates a RelatedColumn's arguments once per projection
@@ -30,6 +41,17 @@ func (e *executor) relatedColumnOf(plan queryplan.Expression) (*relatedColumn, e
 	}
 	if !queryplan.RelatedAggregateSupported(column.aggregate) {
 		return nil, columnScoped(e.invalidArgument(plan, "aggregate", column.aggregate), plan.Target())
+	}
+	if hasArgument(plan, "targets") {
+		targets, err := e.elementArgument(plan, "targets")
+		if err != nil {
+			return nil, columnScoped(err, plan.Target())
+		}
+		column.targets = make(map[symbols.ElementKey]struct{}, len(targets.values))
+		for _, value := range targets.values {
+			sym, _ := value.Element()
+			column.targets[symbols.KeyOf(sym)] = struct{}{}
+		}
 	}
 	return column, nil
 }
@@ -50,7 +72,11 @@ func (e *executor) evaluateRelatedCell(column computedColumn, row Value) ([]Valu
 		}
 	}
 	if related.aggregate == queryplan.RelatedAggregateAny {
-		found, err := e.hasRelated(related.plan, related.walk, root)
+		found := false
+		err := e.traverseRelated(related.plan, related.walk, []*symbols.Symbol{root}, func(neighbor *symbols.Symbol) bool {
+			found = related.keeps(neighbor)
+			return !found
+		})
 		if err != nil {
 			return nil, columnScoped(err, column.name)
 		}
@@ -58,7 +84,9 @@ func (e *executor) evaluateRelatedCell(column computedColumn, row Value) ([]Valu
 	}
 	var values []Value
 	err := e.traverseRelated(related.plan, related.walk, []*symbols.Symbol{root}, func(neighbor *symbols.Symbol) bool {
-		values = append(values, ElementValue(neighbor))
+		if related.keeps(neighbor) {
+			values = append(values, ElementValue(neighbor))
+		}
 		return true
 	})
 	if err != nil {
