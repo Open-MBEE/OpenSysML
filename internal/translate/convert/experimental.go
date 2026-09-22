@@ -4,9 +4,10 @@ import "strings"
 
 // ExperimentalNotice is the wording every surface reports the RDF mapping's
 // status in, so the CLI, the REPL, the service and the docs agree.
-const ExperimentalNotice = "RDF conversion is experimental: the mapping covers model structure and the " +
-	"behavior its bodies state, refuses what it cannot write back, and its vocabulary may change " +
-	"without a compatibility path; see docs/reference/rdf-mapping.md § Status"
+const ExperimentalNotice = "RDF conversion — Turtle and the API's JSON element form alike — is " +
+	"experimental: the mapping covers model structure and the behavior its bodies state, refuses " +
+	"what it cannot write back, and its vocabulary may change without a compatibility path; see " +
+	"docs/reference/rdf-mapping.md § Status"
 
 // MigrationNotice is the wording every surface reports the SysML v1 migration's
 // status in.
@@ -18,7 +19,8 @@ const MigrationNotice = "SysML v1 migration is experimental: the mapping covers 
 // IsExperimental reports whether a conversion between these formats goes
 // through the RDF mapping or the SysML v1 migration. Notation to notation does not.
 func IsExperimental(from, to Format) bool {
-	return from == FormatTurtle || to == FormatTurtle || from == FormatXMI
+	return from == FormatTurtle || to == FormatTurtle ||
+		from == FormatAPIJSON || to == FormatAPIJSON || from == FormatXMI
 }
 
 // Notices lists the experimental notices a conversion between these formats
@@ -28,7 +30,7 @@ func Notices(from, to Format) []string {
 	if from == FormatXMI {
 		notices = append(notices, MigrationNotice)
 	}
-	if from == FormatTurtle || to == FormatTurtle {
+	if from == FormatTurtle || to == FormatTurtle || from == FormatAPIJSON || to == FormatAPIJSON {
 		notices = append(notices, ExperimentalNotice)
 	}
 	return notices

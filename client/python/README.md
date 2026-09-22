@@ -27,6 +27,7 @@ model.verify_satisfaction()                        # every assert satisfy … by
 model.verify_constraint("Demo::Vehicle::massOK", subject="Demo::sedan", engine="check")
 model.connection.list_engines()                    # what `sysml -engines` prints
 model.save("model.ttl")                            # RDF Turtle (experimental)
+model.save("model.json")                           # OMG API element JSON (experimental)
 ```
 
 A value arrives as the Python value of its kind — `Quantity`, `complex`, `Array`, `Vector`,

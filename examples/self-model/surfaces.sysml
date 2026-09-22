@@ -306,14 +306,15 @@ package OpenSysMLSurfaces {
         in item tree : DocumentTree;
     }
 
-    // Textual notation both ways, experimental RDF, and SysML v1 XMI read and
-    // migrated. Three formats, nine names: kerml and text are the notation,
-    // turtle and rdf are Turtle, uml is XMI as Eclipse UML2 writes it and
+    // Textual notation both ways, the experimental RDF and API element form,
+    // and SysML v1 XMI read and migrated. Four formats, eleven names: kerml
+    // and text are the notation, turtle and rdf are Turtle, api-json and json
+    // are the API's element form, uml is XMI as Eclipse UML2 writes it and
     // mdzip is XMI in a zip archive.
     part def Exporter :> CodeUnit {
         attribute :>> goPackage = "internal/translate/export";
-        attribute formats : String = "sysml, ttl, xmi";
-        attribute formatNames : String = "kerml, mdzip, rdf, sysml, text, ttl, turtle, uml, xmi";
+        attribute formats : String = "api-json, sysml, ttl, xmi";
+        attribute formatNames : String = "api-json, json, kerml, mdzip, rdf, sysml, text, ttl, turtle, uml, xmi";
         attribute roundTrips : Boolean = true;
         out item graph : RdfGraph;
     }

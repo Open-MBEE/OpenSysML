@@ -178,14 +178,14 @@ solver query may take in place of OPENSYSML_SMT_TIMEOUT
 .TP
 .BR \-convert " \fIformat\fP"
 Convert the model to this format instead of running it: sysml, kerml, ttl,
-turtle or rdf (RDF is experimental). The input may be a Flexo branch URL
-(host[:port][/base]/projects/{p}/branches/{b} of the FLEXO_SYSMLV2_URL
-endpoint, or flexo://{p}/{b}), read as its RDF graph
+turtle, rdf or api\-json (RDF and the API element form are experimental). The
+input may be a Flexo branch URL (host[:port][/base]/projects/{p}/branches/{b}
+of the FLEXO_SYSMLV2_URL endpoint, or flexo://{p}/{b}), read as its RDF graph
 .TP
 .BR \-from " \fIformat\fP"
-Input format for \-convert: sysml, kerml, ttl, turtle, rdf, or xmi, uml or
-mdzip for a SysML v1 model to migrate (experimental); default the input's
-extension
+Input format for \-convert: sysml, kerml, ttl, turtle, rdf, api\-json, or xmi,
+uml or mdzip for a SysML v1 model to migrate (experimental); default the
+input's extension
 .TP
 .BR \-o ", " \-output " \fIfile\fP"
 Write what \-convert, \-compile, \-render or \-render\-document produces to
@@ -647,11 +647,11 @@ sysml model.sysml \-convert ttl \-o flexo://demo/main
 .fi
 .RE
 .PP
-The input format is taken from the file extension (.sysml, .kerml, .ttl)
-unless \-from names it: sysml, kerml, ttl, turtle, rdf, or xmi, uml or mdzip
-for a SysML v1 model to migrate, whose element\-by\-element report
-\-migration\-report writes out. Converting to the format it is already in
-rewrites the input: notation is reformatted, Turtle is normalized.
+The input format is taken from the file extension (.sysml, .kerml, .ttl,
+\&.json) unless \-from names it: sysml, kerml, ttl, turtle, rdf, api\-json, or
+xmi, uml or mdzip for a SysML v1 model to migrate, whose element\-by\-element
+report \-migration\-report writes out. Converting to the format it is already
+in rewrites the input: notation is reformatted, Turtle is normalized.
 .PP
 Either side may name a Flexo MMS project branch instead of a file:
 http(s)://host[:port][/base]/projects/{project}/branches/{branch}, or
@@ -663,10 +663,10 @@ moved. Both need the bearer token in FLEXO_INTEROP_TOKEN and record the head
 commit in the sync state (\-sync\-state, or <output>.sync.json on a read /
 <model>.sync.json on a push).
 .PP
-RDF conversion is experimental: the mapping covers model structure and the
-behavior its bodies state, refuses what it cannot write back, and its
-vocabulary may change without a compatibility path; see
-docs/reference/rdf\-mapping.md \(sc Status
+RDF conversion \(em Turtle and the API's JSON element form alike \(em is
+experimental: the mapping covers model structure and the behavior its bodies
+state, refuses what it cannot write back, and its vocabulary may change
+without a compatibility path; see docs/reference/rdf\-mapping.md \(sc Status
 .PP
 SysML v1 migration is experimental: the mapping covers structure, ports and
 connectors, requirements, constraints, instances and allocations, reports

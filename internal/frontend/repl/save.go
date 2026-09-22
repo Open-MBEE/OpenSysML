@@ -16,7 +16,8 @@ import (
 const formatAdvice = convert.ExtensionAdvice + ", or pass -convert on the command line"
 
 // doSave writes the session's model to path. The format follows the file
-// extension: `.sysml`/`.kerml` writes the notation, `.ttl` writes RDF Turtle.
+// extension: `.sysml`/`.kerml` writes the notation, `.ttl` writes RDF Turtle,
+// `.json` the API element form.
 //
 // A session that does not fully parse is still saved as notation, with its
 // syntax errors reported as warnings: that save writes the user's own text back

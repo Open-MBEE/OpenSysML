@@ -26,7 +26,7 @@ func (s *Service) Convert(ctx context.Context, req *pb.ConvertRequest) (*pb.Conv
 		return nil, err
 	}
 	if req.ToFormat == "" {
-		return nil, statusError(connect.CodeInvalidArgument, "to_format is required: expected sysml, kerml, ttl, turtle or rdf")
+		return nil, statusError(connect.CodeInvalidArgument, "to_format is required: expected "+convert.FormatList)
 	}
 	to, err := convert.ParseFormat(req.ToFormat)
 	if err != nil {

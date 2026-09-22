@@ -19,6 +19,7 @@ import pytest
 from opensysml.capabilities import CAPABILITY_CONVERT, MissingCapabilityError
 from opensysml.connection import Connection
 from opensysml.conversion import (
+    FORMAT_API_JSON,
     FORMAT_SYSML,
     FORMAT_TURTLE,
     ExperimentalFeatureWarning,
@@ -121,8 +122,9 @@ def test_format_of_path_infers_and_refuses():
     assert format_of_path("model.KerML") == FORMAT_SYSML
     assert format_of_path("model.ttl") == FORMAT_TURTLE
     assert format_of_path("model.turtle") == FORMAT_TURTLE
+    assert format_of_path("model.json") == FORMAT_API_JSON
     with pytest.raises(ValueError, match="cannot tell the format"):
-        format_of_path("model.json")
+        format_of_path("model.bak")
 
 
 def test_is_experimental_names_the_rdf_mapping():
@@ -130,6 +132,8 @@ def test_is_experimental_names_the_rdf_mapping():
     assert is_experimental(FORMAT_SYSML, FORMAT_TURTLE)
     assert is_experimental(FORMAT_TURTLE, FORMAT_SYSML)
     assert is_experimental("turtle", "rdf")
+    assert is_experimental(FORMAT_API_JSON, FORMAT_SYSML)
+    assert is_experimental(FORMAT_SYSML, "json")
     assert is_experimental("xmi", FORMAT_SYSML)
     assert is_experimental("uml", FORMAT_TURTLE)
     assert is_experimental("mdzip", FORMAT_TURTLE)
@@ -284,7 +288,7 @@ def test_conversion_writes_a_file(fake_service, tmp_path):
 def test_saving_an_unknown_extension_is_refused(fake_service, tmp_path):
     """An extension naming no format is refused before anything is written."""
     port, _ = fake_service()
-    out = tmp_path / "out.json"
+    out = tmp_path / "out.bak"
     with Connection(port=port, auto_start=False) as conn:
         model = conn.load_from_content(MODEL)
         with pytest.raises(ValueError, match="cannot tell the format"):
