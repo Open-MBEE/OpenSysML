@@ -47,9 +47,10 @@ type monteCarloCase struct {
 	// observed is the feature bound to Mean; note says why there is none.
 	observed *sysmlv1.Element
 	note     string
-	// returns are the statistics the block's own connectors bind, in connector order.
+	// returns are the statistics the block's connectors bind, its own then the
+	// inherited ones a general binds and the block does not, in connector order.
 	returns []monteCarloReturn
-	// bindings settle each of the block's connectors on a MonteCarloAnalysis feature.
+	// bindings settle each of the block's own connectors on a MonteCarloAnalysis feature.
 	bindings map[*sysmlv1.Element]monteCarloBinding
 }
 
@@ -134,7 +135,8 @@ func (m *migration) monteCarloCaseOf(block *sysmlv1.Element) *monteCarloCase {
 	return cs
 }
 
-// newMonteCarloCase names the analysis of a block and settles its connectors.
+// newMonteCarloCase names the analysis of a block and settles its connectors: its own
+// first, then those it inherits, each returning its statistic unless already bound.
 func (m *migration) newMonteCarloCase(block *sysmlv1.Element) *monteCarloCase {
 	segs := m.segments(block)
 	name := m.freshName(block.Parent, segs[len(segs)-1]+monteCarloCaseSuffix)
@@ -150,53 +152,64 @@ func (m *migration) newMonteCarloCase(block *sysmlv1.Element) *monteCarloCase {
 			cs.observed, cs.note = nil, describe(block)+" binds "+monteCarloMean+" to "+r.note
 		}
 	}
-	for _, c := range block.Owned("ownedConnector") {
-		stat, f, end := m.monteCarloEnd(c)
-		if stat == "" {
-			continue
-		}
-		b := monteCarloBinding{stat: stat}
-		subject := "the connector binds the simulation tool's " + monteCarloAnalysisBlock + "::" + stat
-		member, known := monteCarloMembers[stat]
-		switch {
-		case len(c.Owned("end")) != 2:
-			b.note = "a connector with " + strconv.Itoa(len(c.Owned("end"))) + " ends is not migrated"
-		case !known:
-			b.note = subject + ", a statistic " + monteCarloLibraryCase + " has no counterpart for"
-		case f == nil:
-			b.note = subject + " to nothing in the document"
-		case f.IsProxy():
-			b.note = subject + " to " + qualifiedName(f) + ", which lives outside the document"
-		case !m.valueProperty(f):
-			b.note = subject + " to " + f.Name + ", which is no value property, and the statistic is of a number"
-		case stereo(end, "NestedConnectorEnd") != nil:
-			b.note = subject + " to " + f.Name + " through a nested path, and the statistic is of a value of the block itself"
-		case !m.hasFeature(block, f):
-			b.note = subject + " to " + qualifiedName(f) + ", which is no feature of " + qualifiedName(block)
-		case stat == monteCarloMean && cs.observed == nil:
-			b.note = cs.note + ", so the analysis reads no " + monteCarloObserved + " and returns no " + stat
-		case stat == monteCarloMean && f != cs.observed:
-			b.note = subject + " to " + f.Name + ", but the analysis reads " + cs.observed.Name + ", which a general of the block binds to it"
-		case cs.observed == nil:
-			b.note = subject + " to " + f.Name + ", but " + cs.note + ", so the statistic is of nothing and is not returned"
-		case bound[stat] != nil:
-			b.note = subject + " to " + f.Name + ", which another connector of the block already binds it to"
-		case stat == monteCarloMean:
-			b.member = monteCarloObserved
-			bound[stat] = f
-		default:
-			r, ok := m.monteCarloReturn(stat, f)
-			if !ok {
-				b.note = subject + " to " + r.note
-				break
+	for _, owner := range m.classifierOrder([]*sysmlv1.Element{block}) {
+		for _, c := range owner.Owned("ownedConnector") {
+			if b, ok := m.settleMonteCarloBinding(cs, bound, c); ok && owner == block {
+				cs.bindings[c] = b
 			}
-			b.member = member.member
-			bound[stat] = f
-			cs.returns = append(cs.returns, r)
 		}
-		cs.bindings[c] = b
 	}
 	return cs
+}
+
+// settleMonteCarloBinding returns the statistic a connector of cs.block, owned or
+// inherited, binds, unless bound already; ok only for a connector on a statistic.
+func (m *migration) settleMonteCarloBinding(cs *monteCarloCase, bound map[string]*sysmlv1.Element, c *sysmlv1.Element) (monteCarloBinding, bool) {
+	stat, f, end := m.monteCarloEnd(c)
+	if stat == "" {
+		return monteCarloBinding{}, false
+	}
+	block := cs.block
+	b := monteCarloBinding{stat: stat}
+	subject := "the connector binds the simulation tool's " + monteCarloAnalysisBlock + "::" + stat
+	member, known := monteCarloMembers[stat]
+	switch {
+	case len(c.Owned("end")) != 2:
+		b.note = "a connector with " + strconv.Itoa(len(c.Owned("end"))) + " ends is not migrated"
+	case !known:
+		b.note = subject + ", a statistic " + monteCarloLibraryCase + " has no counterpart for"
+	case f == nil:
+		b.note = subject + " to nothing in the document"
+	case f.IsProxy():
+		b.note = subject + " to " + qualifiedName(f) + ", which lives outside the document"
+	case !m.valueProperty(f):
+		b.note = subject + " to " + f.Name + ", which is no value property, and the statistic is of a number"
+	case stereo(end, "NestedConnectorEnd") != nil:
+		b.note = subject + " to " + f.Name + " through a nested path, and the statistic is of a value of the block itself"
+	case !m.hasFeature(block, f):
+		b.note = subject + " to " + qualifiedName(f) + ", which is no feature of " + qualifiedName(block)
+	case stat == monteCarloMean && cs.observed == nil:
+		b.note = cs.note + ", so the analysis reads no " + monteCarloObserved + " and returns no " + stat
+	case stat == monteCarloMean && f != cs.observed:
+		b.note = subject + " to " + f.Name + ", but the analysis reads " + cs.observed.Name + ", which a general of the block binds to it"
+	case cs.observed == nil:
+		b.note = subject + " to " + f.Name + ", but " + cs.note + ", so the statistic is of nothing and is not returned"
+	case bound[stat] != nil:
+		b.note = subject + " to " + f.Name + ", which another connector of the block already binds it to"
+	case stat == monteCarloMean:
+		b.member = monteCarloObserved
+		bound[stat] = f
+	default:
+		r, ok := m.monteCarloReturn(stat, f)
+		if !ok {
+			b.note = subject + " to " + r.note
+			break
+		}
+		b.member = member.member
+		bound[stat] = f
+		cs.returns = append(cs.returns, r)
+	}
+	return b, true
 }
 
 // monteCarloReturn types the return of stat bound to f by the ScalarValues type f's

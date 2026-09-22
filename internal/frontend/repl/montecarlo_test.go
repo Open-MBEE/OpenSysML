@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 )
 
 // monteCarloModel declares Simulation::MonteCarlo cases over a part whose behaviors
@@ -284,6 +286,36 @@ func TestRunsFailedRunsOutweighAnUnconcludedSample(t *testing.T) {
 	if v.Status != VerdictFails {
 		t.Errorf("status %v, want %v: run(s) failed\n%s", v.Status, VerdictFails, out)
 	}
+}
+
+// The sample names a refused observation by the number of the run that made it,
+// the row's own, not its place among the runs that completed after earlier ones failed.
+func TestRunsRefusedObservationNamesTheRunByItsRow(t *testing.T) {
+	s := monteCarloSession(t)
+	for seed := uint64(1); seed <= 64; seed++ {
+		v := s.RunMonteCarlo("MC::Flaky MC::probe", 6, &seed)
+		first := ""
+		for _, row := range v.Rows {
+			if row.Error == "" {
+				for _, in := range row.Inputs {
+					if in.Name == runtime.RunParam {
+						first = in.Value
+					}
+				}
+				break
+			}
+		}
+		if first == "" || first == "1" {
+			continue
+		}
+		out := strings.Join(v.Lines, "\n")
+		wants(t, out, "run "+first+" of MC::Flaky observed \"x\", not a number")
+		if strings.Contains(out, "run 1 of MC::Flaky") {
+			t.Errorf("the refusal numbers the completed run by its position:\n%s", out)
+		}
+		return
+	}
+	t.Fatal("no seed failed the first run before one completed")
 }
 
 // A count the sweep budget does not allow, or no count at all, is refused as the

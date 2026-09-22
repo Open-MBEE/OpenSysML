@@ -1019,8 +1019,11 @@ bound to them, and a note says when that is not the value's own type (a value ty
 `Integer`, say); a binding of a value of no numeric type, of a statistic the pattern
 is not known to have, a second binding of one statistic, or a binding to a statistic other
 than `Mean` with nothing bound to `Mean` (a statistic of nothing) is a comment naming the
-reason. A snapshot's four statistic slots become a recorded `analysis` of that def in the
-snapshot's individual, with the snapshot as its subject and the statistics as its outputs.
+reason. A block specializing such a block has an analysis def of its own when it binds a
+statistic itself, returning what its own connectors bind and then what it inherits and does not
+rebind (a general's `Deviation` beside its own `N`, say). A snapshot's four statistic slots
+become a recorded `analysis` of that def in the snapshot's individual, with the snapshot as its
+subject and the statistics as its outputs.
 
 `sysml out.sysml -analysis "'Timer Analysis Monte Carlo' <object>" -runs 100 -seed 7` then
 runs the case: each run on a fresh subject seeded from the seed and the run number, its

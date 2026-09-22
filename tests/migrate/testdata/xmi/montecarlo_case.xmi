@@ -129,6 +129,76 @@
     </packagedElement>
     <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_target" name="settling analysis" classifier="_analysis"/>
 
+    <!-- A block specializing the analysis inherits its bindings: it adds N and rebinds
+         OutOfSpec to a value of its own, keeping the inherited Mean and Deviation. -->
+    <packagedElement xmi:type="uml:Class" xmi:id="_retried" name="Retried Settling">
+      <generalization xmi:type="uml:Generalization" xmi:id="_g3" general="_analysis"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_retries" name="retries">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+      </ownedAttribute>
+      <ownedConnector xmi:type="uml:Connector" xmi:id="_bindRetriedN">
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_bindRetriedNRetries" role="_retries"/>
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_bindRetriedNStat">
+          <role href="MD_customization_for_SysML.mdzip#_mcN">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::N" referentType="Property"/>
+            </xmi:Extension>
+          </role>
+        </end>
+      </ownedConnector>
+      <ownedConnector xmi:type="uml:Connector" xmi:id="_bindRetriedOutOfSpec">
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_bindRetriedOutOfSpecRetries" role="_retries"/>
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_bindRetriedOutOfSpecStat">
+          <role href="MD_customization_for_SysML.mdzip#_mcOutOfSpec">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::OutOfSpec" referentType="Property"/>
+            </xmi:Extension>
+          </role>
+        </end>
+      </ownedConnector>
+    </packagedElement>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_retriedTarget" name="retried settling" classifier="_retried"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_retriedGroup" name="Retried Group"/>
+    <packagedElement xmi:type="uml:Package" xmi:id="_retriedResults" name="Retried Results">
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_retriedSummary" name="retried settling of 3 runs" classifier="_retried">
+        <slot xmi:type="uml:Slot" xmi:id="_rTime" definingFeature="_time">
+          <value xmi:type="uml:LiteralReal" xmi:id="_rTimeV" value="2.9"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_rN">
+          <definingFeature href="MD_customization_for_SysML.mdzip#_mcN">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::N" referentType="Property"/>
+            </xmi:Extension>
+          </definingFeature>
+          <value xmi:type="uml:LiteralInteger" xmi:id="_rNV" value="3"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_rMean">
+          <definingFeature href="MD_customization_for_SysML.mdzip#_mcMean">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::Mean" referentType="Property"/>
+            </xmi:Extension>
+          </definingFeature>
+          <value xmi:type="uml:LiteralReal" xmi:id="_rMeanV" value="2.9"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_rDeviation">
+          <definingFeature href="MD_customization_for_SysML.mdzip#_mcDeviation">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::Deviation" referentType="Property"/>
+            </xmi:Extension>
+          </definingFeature>
+          <value xmi:type="uml:LiteralReal" xmi:id="_rDeviationV" value="0.4"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_rOutOfSpec">
+          <definingFeature href="MD_customization_for_SysML.mdzip#_mcOutOfSpec">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::OutOfSpec" referentType="Property"/>
+            </xmi:Extension>
+          </definingFeature>
+          <value xmi:type="uml:LiteralInteger" xmi:id="_rOutOfSpecV" value="1"/>
+        </slot>
+      </packagedElement>
+    </packagedElement>
+
     <!-- A block binding a statistic of an analysis it does not inherit: refused. -->
     <packagedElement xmi:type="uml:Class" xmi:id="_stranger" name="Stranger">
       <ownedAttribute xmi:type="uml:Property" xmi:id="_x" name="x">
@@ -208,6 +278,11 @@
   <sysml:BindingConnector xmi:id="_s8" base_Connector="_bindGain"/>
   <sysml:BindingConnector xmi:id="_s9" base_Connector="_bindStranger"/>
   <sysml:BindingConnector xmi:id="_s10" base_Connector="_bindOutOfSpec"/>
+  <sysml:Block xmi:id="_s11" base_Class="_retried"/>
+  <sysml:BindingConnector xmi:id="_s12" base_Connector="_bindRetriedN"/>
+  <sysml:BindingConnector xmi:id="_s13" base_Connector="_bindRetriedOutOfSpec"/>
   <SimulationProfile:SimulationConfig xmi:id="_c0" base_Class="_group"
       executionTarget="_target" resultLocation="_results" numberOfRuns="5" durationSimulationMode="random" timeVariableName="simtime"/>
+  <SimulationProfile:SimulationConfig xmi:id="_c1" base_Class="_retriedGroup"
+      executionTarget="_retriedTarget" resultLocation="_retriedResults" numberOfRuns="3" durationSimulationMode="random" timeVariableName="simtime"/>
 </xmi:XMI>

@@ -9,8 +9,22 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/simresults"
 )
 
+// wantBlock asserts the notation holds the lines consecutively, in order, whatever indents them.
+func wantBlock(t *testing.T, notation []byte, lines ...string) {
+	t.Helper()
+	written := strings.Split(string(notation), "\n")
+	for i := range written {
+		written[i] = strings.TrimSpace(written[i])
+	}
+	joined := "\n" + strings.Join(written, "\n") + "\n"
+	if !strings.Contains(joined, "\n"+strings.Join(lines, "\n")+"\n") {
+		t.Errorf("notation lacks the block:\n%s\n\nin:\n%s", strings.Join(lines, "\n"), notation)
+	}
+}
+
 // montecarlo_case.xmi: a block inheriting the customization module's MonteCarloAnalysis
-// binds settleTime to Mean and Deviation, mismatched values to N/OutOfSpec, and an unknown statistic.
+// binds settleTime to Mean and Deviation, mismatched values to N/OutOfSpec, and an unknown
+// statistic; a block specializing it adds N and rebinds OutOfSpec, inheriting the rest.
 func TestMonteCarloAnalysisIsAnAnalysisCase(t *testing.T) {
 	r := migrateFixtureFile(t, "montecarlo_case")
 	wantLine(t, r.Notation, "part def 'Settling Analysis' :> Sensor {")
@@ -21,12 +35,24 @@ func TestMonteCarloAnalysisIsAnAnalysisCase(t *testing.T) {
 	wantLine(t, r.Notation, "return Mean : ScalarValues::Real = mean;")
 	wantLine(t, r.Notation, "out Deviation : ScalarValues::Real[0..1] = deviation;")
 	wantLine(t, r.Notation, "out OutOfSpec : ScalarValues::Integer = outOfSpec;")
-	wantNoLine(t, r.Notation, "= runs;")
+	wantBlock(t, r.Notation, "return Mean : ScalarValues::Real = mean;",
+		"out Deviation : ScalarValues::Real[0..1] = deviation;",
+		"out OutOfSpec : ScalarValues::Integer = outOfSpec;",
+		"}")
 	wantNoLine(t, r.Notation, "Median :")
 	wantNoLine(t, r.Notation, "= median")
 	wantLine(t, r.Notation, "analysis 'Monte Carlo' : 'Settling Analysis Monte Carlo' {")
 	wantLine(t, r.Notation, "subject :>> analysed : 'settling of 5 runs';")
 	wantLine(t, r.Notation, "out :>> deviation = 0.6;")
+	wantBlock(t, r.Notation, "analysis def 'Retried Settling Monte Carlo' :> Simulation::MonteCarlo {",
+		"subject analysed : 'Retried Settling';",
+		"perform action run ::> analysed.settle;",
+		"attribute :>> observed : ScalarValues::Real = analysed.settleTime;",
+		"return Mean : ScalarValues::Real = mean;",
+		"out N : ScalarValues::Integer = runs;",
+		"out OutOfSpec : ScalarValues::Integer = outOfSpec;",
+		"out Deviation : ScalarValues::Real[0..1] = deviation;",
+		"}")
 
 	wantNote(t, r, "_analysis", migrate.Approximated, "generalization of the simulation tool's MonteCarloAnalysis is written as the analysis def 'Settling Analysis Monte Carlo' :> Simulation::MonteCarlo beside the part def, which is its subject")
 	wantNote(t, r, "_bindMean", migrate.Approximated, "written in the analysis def 'Settling Analysis Monte Carlo' as the observed value, of which Mean is returned")
@@ -36,15 +62,24 @@ func TestMonteCarloAnalysisIsAnAnalysisCase(t *testing.T) {
 	wantNote(t, r, "_bindMedian", migrate.Unmapped, "the connector binds the simulation tool's MonteCarloAnalysis::Median, a statistic Simulation::MonteCarlo has no counterpart for")
 	wantNote(t, r, "_bindStranger", migrate.Unmapped, "a statistic of an analysis its owner does not inherit")
 	wantNote(t, r, "_bindGain", migrate.Mapped, "")
+	wantNote(t, r, "_bindRetriedN", migrate.Approximated, "written in the analysis def 'Retried Settling Monte Carlo' as the returned N, bound to runs")
+	wantNote(t, r, "_bindRetriedOutOfSpec", migrate.Approximated, "written in the analysis def 'Retried Settling Monte Carlo' as the returned OutOfSpec, bound to outOfSpec")
 	wantNote(t, r, "_sMean", migrate.Mapped, "")
 	wantNote(t, r, "_sMedian", migrate.Unmapped, "a statistic Simulation::MonteCarlo has no counterpart for")
 
-	if r.Results == nil || len(r.Results.Configurations) != 1 {
-		t.Fatalf("results = %+v, want one configuration", r.Results)
+	if r.Results == nil || len(r.Results.Configurations) != 2 {
+		t.Fatalf("results = %+v, want two configurations", r.Results)
 	}
-	cfg := r.Results.Configurations[0]
-	if cfg.Analysis != "settleTime" || cfg.AnalysisCase != "'Settling Analysis Monte Carlo'" {
-		t.Errorf("analysis = %q of %q, want settleTime by 'Settling Analysis Monte Carlo'", cfg.Analysis, cfg.AnalysisCase)
+	configured := map[string]simresults.ConfigurationResults{}
+	for _, cfg := range r.Results.Configurations {
+		if cfg.Analysis != "settleTime" {
+			t.Errorf("%s analyses %q, want settleTime", cfg.AnalysisCase, cfg.Analysis)
+		}
+		configured[cfg.AnalysisCase] = cfg
+	}
+	cfg, ok := configured["'Settling Analysis Monte Carlo'"]
+	if !ok {
+		t.Fatalf("configurations = %+v, want one by 'Settling Analysis Monte Carlo'", r.Results.Configurations)
 	}
 	if want := []string{simresults.StatisticMean, simresults.StatisticDeviation, simresults.StatisticOutOfSpec}; !reflect.DeepEqual(cfg.Statistics, want) {
 		t.Errorf("statistics = %v, want %v", cfg.Statistics, want)
@@ -52,6 +87,17 @@ func TestMonteCarloAnalysisIsAnAnalysisCase(t *testing.T) {
 	want := &simresults.Statistics{Observable: "settleTime", Runs: 5, Mean: 3.1, Deviation: simresults.Real(0.6), OutOfSpec: simresults.Count(0)}
 	if len(cfg.Snapshots) != 1 || !reflect.DeepEqual(cfg.Snapshots[0].Statistics, want) {
 		t.Errorf("snapshots = %+v, want one holding %+v", cfg.Snapshots, want)
+	}
+	retried, ok := configured["'Retried Settling Monte Carlo'"]
+	if !ok {
+		t.Fatalf("configurations = %+v, want one by 'Retried Settling Monte Carlo'", r.Results.Configurations)
+	}
+	if want := []string{simresults.StatisticMean, simresults.StatisticRuns, simresults.StatisticOutOfSpec, simresults.StatisticDeviation}; !reflect.DeepEqual(retried.Statistics, want) {
+		t.Errorf("statistics = %v, want the inherited ones too: %v", retried.Statistics, want)
+	}
+	want = &simresults.Statistics{Observable: "settleTime", Runs: 3, Mean: 2.9, Deviation: simresults.Real(0.4), OutOfSpec: simresults.Count(1)}
+	if len(retried.Snapshots) != 1 || !reflect.DeepEqual(retried.Snapshots[0].Statistics, want) {
+		t.Errorf("snapshots = %+v, want one holding %+v", retried.Snapshots, want)
 	}
 	wantClean(t, "montecarlo_case.sysml", r)
 }

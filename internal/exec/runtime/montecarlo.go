@@ -259,15 +259,6 @@ func intDeviationOf(values []int64, mean *big.Rat) float64 {
 	return math.Sqrt(variance)
 }
 
-// realSum is the sum of values in Real arithmetic.
-func realSum(values []float64) float64 {
-	sum := 0.0
-	for _, v := range values {
-		sum += v
-	}
-	return sum
-}
-
 // drawnInt is n as an Integer value.
 func drawnInt(n int64) semantics.Value {
 	return semantics.Value{Kind: semantics.ValInt, Int: n}

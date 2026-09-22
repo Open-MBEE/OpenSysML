@@ -227,7 +227,7 @@ func TestMonteCarloSampleTakesQuantitiesInTheFirstRunsUnit(t *testing.T) {
 	runs := func(observed ...Value) []*MonteCarloRun {
 		made := make([]*MonteCarloRun, len(observed))
 		for i, v := range observed {
-			made[i] = &MonteCarloRun{Case: "Mc", Observed: v}
+			made[i] = &MonteCarloRun{Case: "Mc", Number: int64(i + 1), Observed: v}
 		}
 		return made
 	}

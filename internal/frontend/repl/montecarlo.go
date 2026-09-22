@@ -233,6 +233,7 @@ func (s *Session) monteCarloSample(inv analysisInvocation, count int64, seed *ui
 		if err != nil {
 			return runtime.SweepRunResult{}, err
 		}
+		observed.Number = i
 		mu.Lock()
 		made[i] = observed
 		mu.Unlock()

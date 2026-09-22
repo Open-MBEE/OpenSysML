@@ -1,5 +1,5 @@
 # SysML v1 to v2 migration report: montecarlo_case.xmi
-# migrated 37 element(s): 27 mapped, 6 approximated, 4 unmapped (0 skipped as profile, library or notation-only content, 2 as model elements nothing refers to)
+# migrated 50 element(s): 38 mapped, 8 approximated, 4 unmapped (0 skipped as profile, library or notation-only content, 2 as model elements nothing refers to)
 
 ## unmapped (4)
 Slot	Results::settling of 5 runs::<Slot>	_sMedian	(the slot holds the simulation tool's MonteCarloAnalysis::Median, a statistic Simulation::MonteCarlo has no counterpart for)
@@ -7,7 +7,9 @@ Slot	Results::settling of 5 runs::<Slot>	_sMedian	(the slot holds the simulation
 «BindingConnector» Connector	Settling Analysis::<Connector>	_bindN	(the connector binds the simulation tool's MonteCarloAnalysis::N to label, which is of String, and the statistic is of a number; applied stereotypes «BindingConnector»)
 «BindingConnector» Connector	Stranger::<Connector>	_bindStranger	(the connector binds x to the simulation tool's MonteCarloAnalysis::Mean, a statistic of an analysis its owner does not inherit; applied stereotypes «BindingConnector»)
 
-## approximated (6)
+## approximated (8)
+«BindingConnector» Connector	Retried Settling::<Connector>	_bindRetriedN	-> 'Retried Settling Monte Carlo'::N	(the binding to the simulation tool's MonteCarloAnalysis::N is written in the analysis def 'Retried Settling Monte Carlo' as the returned N, bound to runs)
+«BindingConnector» Connector	Retried Settling::<Connector>	_bindRetriedOutOfSpec	-> 'Retried Settling Monte Carlo'::OutOfSpec	(the binding to the simulation tool's MonteCarloAnalysis::OutOfSpec is written in the analysis def 'Retried Settling Monte Carlo' as the returned OutOfSpec, bound to outOfSpec)
 Activity	Sensor::Settle	_settle	-> Sensor::Settle	(the classifier behavior is run by every object of Sensor as its usage settle)
 DurationConstraint	Sensor::Settle::settling	_dc	-> Sensor::Settle	(written as a wait drawn uniformly over [2.0, 4.0] s before 'settle'; a tool's fixed min or max mode is a run setting, not the model's)
 «Block» Class	Settling Analysis	_analysis	-> 'Settling Analysis'	(generalization of the simulation tool's MonteCarloAnalysis is written as the analysis def 'Settling Analysis Monte Carlo' :> Simulation::MonteCarlo beside the part def, which is its subject)
@@ -15,7 +17,7 @@ DurationConstraint	Sensor::Settle::settling	_dc	-> Sensor::Settle	(written as a 
 «BindingConnector» Connector	Settling Analysis::<Connector>	_bindDeviation	-> 'Settling Analysis Monte Carlo'::Deviation	(the binding to the simulation tool's MonteCarloAnalysis::Deviation is written in the analysis def 'Settling Analysis Monte Carlo' as the returned Deviation, bound to deviation)
 «BindingConnector» Connector	Settling Analysis::<Connector>	_bindOutOfSpec	-> 'Settling Analysis Monte Carlo'::OutOfSpec	(the binding to the simulation tool's MonteCarloAnalysis::OutOfSpec is written in the analysis def 'Settling Analysis Monte Carlo' as the returned OutOfSpec, bound to outOfSpec)
 
-## mapped (27)
+## mapped (38)
 Model	Model	_m	(the root model's members are written at the top level)
 Package	Results	_results	-> Results
 InstanceSpecification	Results::settling of 5 runs	_summary	-> Results::'settling of 5 runs'
@@ -24,6 +26,16 @@ Slot	Results::settling of 5 runs::<Slot>	_sMean	-> Results::'settling of 5 runs'
 Slot	Results::settling of 5 runs::<Slot>	_sDeviation	-> Results::'settling of 5 runs'::'Monte Carlo'::deviation
 Slot	Results::settling of 5 runs::<Slot>	_sOutOfSpec	-> Results::'settling of 5 runs'::'Monte Carlo'::outOfSpec
 Slot	Results::settling of 5 runs::<Slot>	_sTime	-> Results::'settling of 5 runs'::settleTime
+«SimulationConfig» Class	Retried Group	_retriedGroup	-> 'Retried Group'
+Package	Retried Results	_retriedResults	-> 'Retried Results'
+InstanceSpecification	Retried Results::retried settling of 3 runs	_retriedSummary	-> 'Retried Results'::'retried settling of 3 runs'
+Slot	Retried Results::retried settling of 3 runs::<Slot>	_rN	-> 'Retried Results'::'retried settling of 3 runs'::'Monte Carlo'::runs
+Slot	Retried Results::retried settling of 3 runs::<Slot>	_rMean	-> 'Retried Results'::'retried settling of 3 runs'::'Monte Carlo'::mean
+Slot	Retried Results::retried settling of 3 runs::<Slot>	_rDeviation	-> 'Retried Results'::'retried settling of 3 runs'::'Monte Carlo'::deviation
+Slot	Retried Results::retried settling of 3 runs::<Slot>	_rOutOfSpec	-> 'Retried Results'::'retried settling of 3 runs'::'Monte Carlo'::outOfSpec
+Slot	Retried Results::retried settling of 3 runs::<Slot>	_rTime	-> 'Retried Results'::'retried settling of 3 runs'::settleTime
+«Block» Class	Retried Settling	_retried	-> 'Retried Settling'
+Property	Retried Settling::retries	_retries	-> 'Retried Settling'::retries
 «Block» Class	Sensor	_sensor	-> Sensor
 ActivityFinalNode	Sensor::Settle::<ActivityFinalNode>	_final	-> final
 ControlFlow	Sensor::Settle::<ControlFlow>	_e2
@@ -31,8 +43,8 @@ ControlFlow	Sensor::Settle::<ControlFlow>	_e3
 ControlFlow	Sensor::Settle::<ControlFlow>	_e4
 InitialNode	Sensor::Settle::<InitialNode>	_init	-> start
 CallBehaviorAction	Sensor::Settle::settle	_wait	-> settle	(a step with a duration and no further behavior)
-OpaqueAction	Sensor::Settle::start timer	_start	-> 'start timer'	(the JavaScript body is translated to v2; the clock variable simtime, named by the configuration Settling Group, reads the local clock)
-OpaqueAction	Sensor::Settle::stop timer	_stop	-> 'stop timer'	(the JavaScript body is translated to v2; the clock variable simtime, named by the configuration Settling Group, reads the local clock)
+OpaqueAction	Sensor::Settle::start timer	_start	-> 'start timer'	(the JavaScript body is translated to v2; the clock variable simtime, named by 2 simulation configurations, reads the local clock)
+OpaqueAction	Sensor::Settle::stop timer	_stop	-> 'stop timer'	(the JavaScript body is translated to v2; the clock variable simtime, named by 2 simulation configurations, reads the local clock)
 Property	Sensor::gain	_gain	-> Sensor::gain
 Property	Sensor::label	_label	-> Sensor::label
 Property	Sensor::misses	_misses	-> Sensor::misses
@@ -42,6 +54,7 @@ Property	Sensor::settleTime	_time	-> Sensor::settleTime
 «SimulationConfig» Class	Settling Group	_group	-> 'Settling Group'
 «Block» Class	Stranger	_stranger	-> Stranger
 Property	Stranger::x	_x	-> Stranger::x
+InstanceSpecification	retried settling	_retriedTarget	-> 'retried settling'
 InstanceSpecification	settling analysis	_target	-> 'settling analysis'
 
 ## skipped (2)

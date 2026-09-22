@@ -65,6 +65,10 @@ type MonteCarloRun struct {
 	Case    string
 	Subject *Instance
 
+	// Number is the run's number in its Monte Carlo, the row it was drawn as; a
+	// sample names a run by it, whatever earlier runs failed.
+	Number int64
+
 	// Observed is the value the run's `observed` came to, null when the run left it unbound.
 	Observed Value
 
@@ -200,7 +204,7 @@ func (s MonteCarloStatistics) statistic(x float64) Value {
 
 // MonteCarloSample is the statistics of runs, each of which observed a number or a
 // quantity, the quantities expressed in the first run's unit; one observing none,
-// no number, or a quantity of another dimension refuses the sample.
+// no number, or a quantity of another dimension refuses the sample, named by its Number.
 func MonteCarloSample(runs []*MonteCarloRun) (MonteCarloStatistics, error) {
 	if len(runs) == 0 {
 		return MonteCarloStatistics{}, fmt.Errorf("%w: no run observed anything", ErrMonteCarloObserved)
@@ -208,12 +212,13 @@ func MonteCarloSample(runs []*MonteCarloRun) (MonteCarloStatistics, error) {
 	numbers := make([]semantics.Value, 0, len(runs))
 	var outOfSpec int64
 	var unit *Unit
+	first := runs[0]
 	for i, run := range runs {
 		observed := soleElement(run.Observed)
 		number, ok := MagnitudeValue(observed)
 		if !ok {
 			return MonteCarloStatistics{}, fmt.Errorf("%w: run %d of %s observed %s, not a number",
-				ErrMonteCarloObserved, i+1, run.Case, describeObserved(observed))
+				ErrMonteCarloObserved, run.Number, run.Case, describeObserved(observed))
 		}
 		q := observed.Quantity()
 		switch {
@@ -221,12 +226,12 @@ func MonteCarloSample(runs []*MonteCarloRun) (MonteCarloStatistics, error) {
 			u := q.Unit.Clone()
 			unit = &u
 		case (q == nil) != (unit == nil):
-			return MonteCarloStatistics{}, fmt.Errorf("%w: run %d of %s observed %s where run 1 observed %s; a sample is of numbers or of quantities, not both",
-				ErrMonteCarloObserved, i+1, run.Case, describeObserved(observed), describeObserved(soleElement(runs[0].Observed)))
+			return MonteCarloStatistics{}, fmt.Errorf("%w: run %d of %s observed %s where run %d observed %s; a sample is of numbers or of quantities, not both",
+				ErrMonteCarloObserved, run.Number, run.Case, describeObserved(observed), first.Number, describeObserved(soleElement(first.Observed)))
 		case q != nil:
 			magnitude, err := q.ConvertTo(*unit)
 			if err != nil {
-				return MonteCarloStatistics{}, fmt.Errorf("%w: run %d of %s: %w", ErrMonteCarloObserved, i+1, run.Case, err)
+				return MonteCarloStatistics{}, fmt.Errorf("%w: run %d of %s: %w", ErrMonteCarloObserved, run.Number, run.Case, err)
 			}
 			number = drawnReal(magnitude)
 		}
