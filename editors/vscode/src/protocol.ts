@@ -376,6 +376,8 @@ export interface EdgePlacement {
 export type FromWebview =
   | { type: "ready" }
   | { type: "reveal"; id: string; drawn: number }
+  /** A located table row opens its element; `row` indexes the drawing's rows. */
+  | { type: "revealRow"; row: number; drawn: number }
   | { type: "pick"; view: string }
   /** The user chose a look in the panel's toolbar; the extension keeps it as the setting. */
   | { type: "style"; style: DiagramStyle }
