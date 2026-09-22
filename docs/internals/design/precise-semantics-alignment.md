@@ -389,18 +389,16 @@ Behaviors associated with entering the State, such as the entry Behaviors of sub
 when the state is activated; a do action starts after the entry action completes and continues
 while the state is active"; `StatePerformances.kerml` `succession entry then do` and
 `succession entry then middle`, with substates in `middle`. *Runtime:*
-`state_executor.go:enterStateInto` runs the entry body to its end, then `enterRegionsInto`
-(each region in declaration order to its initial leaf, entry behaviors along the way), then
-`startDoAction` for the state; a substate's do action is likewise started by its own entry.
-`state_parallel_entry_behavior`, `state_nested_parallel_entry_exit_behavior`,
-`state_do_action_declaration_order`, `state_entry_exit_action_successions`. The one ordering difference — the runtime
-enters the regions *before* starting the composite's own do action, PSSM starts the do activity
-before entering the regions — leaves the trace as PSSM leaves it, "entry, region entries" in
-that order: the do action does not run until its state's queue has performed its entries, the
-substates' included (SM13, the do step on the entry front), and PSSM's do activity runs
-asynchronously as well. The one order PSSM admits and the runtime does not — a step of the
-composite's own do activity between its own substates' entries — no suite test observes.
-**agrees.**
+`state_executor.go:enterStateInto` runs the entry body to its end, then `startDoAction` for the
+state, then `enterRegionsInto` (each region in declaration order to its initial leaf, entry
+behaviors along the way); a substate's do action is likewise started by its own entry, before
+its own body. `state_parallel_entry_behavior`, `state_nested_parallel_entry_exit_behavior`,
+`state_do_action_declaration_order`, `state_entry_exit_action_successions`. The fixed policies
+leave the trace as PSSM leaves it, "entry, region entries" in that order, the do action's steps
+after the move; the one-move engines draw each due step of the composite's own do action
+against its substates' entries as well (SM13, the do step on the entry front:
+`state_do_step_before_own_substate_entries`, `state_do_step_before_own_body_entry`), the order
+PSSM admits with the do activity running asynchronously. **agrees.**
 
 **SM13. The do activity runs asynchronously, interleaved with the machine.** PSSM §8.5.6: the do
 activity executes on a `DoActivityContextObject` of its own, "asynchronously" to the state

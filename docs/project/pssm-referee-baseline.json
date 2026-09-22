@@ -225,7 +225,7 @@
         "T2(effect)::S1(entry)::T3.1.2(effect)::S3.1(doActivity)::T2.2(effect)::T3.2(effect)",
         "T2(effect)::S1(entry)::T3.1.2(effect)::T2.2(effect)::S3.1(doActivity)::T3.2(effect)"
       ],
-      "runs": 20
+      "runs": 28
     },
     {
       "name": "Transition 019",

@@ -12,8 +12,8 @@ the last at the grain of one token move of the do flow, on the entry front as we
 [the do-step site](#the-do-step-site)). The gap found while
 implementing the entry site, a completion's firing against the entry front (finding 11), turned
 out on reading the admitted sets not to be one gap of the runtime, and its last section records
-what it is instead — one part of it, a do step against a sibling's entry unit, being the
-runtime's and implemented.
+what it is instead — one part of it, a do step against the entry units left in the move (a
+sibling region's, and the entered state's own substates'), being the runtime's and implemented.
 The note extends [scheduling policies, choice points and exploration](scheduling.md), whose
 vocabulary it uses throughout.
 
@@ -31,7 +31,7 @@ admitted sets are quoted where they decide a design point.
 | Exiting a composite state's regions | each region's exits, innermost first, on a front under `ChoiceExitOrder`; then the composite's own exit | `state_region_transition.go`, `state_executor.go:exitState` → `performUnits` |
 | Firing the transitions one occurrence selects across regions | one queue per firing — source exit, effects, target entry — on a front under `ChoiceRegionOrder`, drawn one unit at a time | `state_executor.go:dispatchInOrder` → `openFront` |
 | A due do step against the dispatch at the head of the pool | under `check`, `replay` and `explore` the machine runs one unit at a time: one token move of one due do behavior (drawn among the due ones by `chooseDoAction`), or the dispatch due when it would take its occurrence, drawn against the move under `ChoiceStepOrder`. The fixed policies run the whole round first (`runDoRound`, every due do action one sweep of its tokens), then the change-trigger poll, then the dispatch | `state_executor.go:oneUnit` → `stepDue`, `chooseStepOrder`; `runStep` for the fixed policies |
-| A due do step against a sibling region's remaining entry units | under the one-move engines, once a queue of an entry front has performed its entries, each due token move of the do behaviors they started is a unit of that queue, `do <state>`, drawn against the sibling queues' units under the front's own kind while a sibling has a unit left; the fixed policies offer none and run the round after the move | `state_unit_front.go:offerDoSteps`, from `unitQueue.started` (`state_executor.go:startDoAction`) |
+| A due do step against the entry units left in the move | under the one-move engines, a do behavior begun in the move — at its state's entry, before the state's regions or serial body are entered — has each due token move drawn against the entry units still ahead: on a front, as a queue of its own, `do <state>`, under the front's own kind while another queue has a unit left; down a serial body no front orders, against each entry unit on the way under `ChoiceEntryOrder` at the owner's site. The fixed policies offer none and run the round after the move | `state_unit_front.go:offer` → `offerDoSteps`, `drawOnPath`; `state_executor.go:startDoAction`, `began` |
 
 The model checker mirrors the dispatch row: `check_moves.go:enabledMoves` offers the token moves of
 the due do behaviors and the dispatch that acts together, one move each, as `oneUnit` draws
@@ -212,7 +212,7 @@ Three kinds are added to `ChoiceKind`, and one existing kind draws at a finer gr
 
 | Kind | Site | `Where` | Alternatives, canonically | Taken |
 |------|------|---------|---------------------------|-------|
-| `ChoiceEntryOrder` | region entry, fork branch entry, history restore | `entering <state>` — the composite whose regions are entered; `fork <name>` for a fork's branches | the queues with a unit ready, in declaration order, each labelled by its next performing unit: `left(entry)`, `T2.1(effect)`, `split->a(effect)`; a queue whose entries are performed and whose do behavior is due, by the do-step site's label for it: `do left` | the queue advanced |
+| `ChoiceEntryOrder` | region entry, fork branch entry, history restore | `entering <state>` — the composite whose regions are entered; `fork <name>` for a fork's branches | the queues with a unit ready, in declaration order, each labelled by its next performing unit: `left(entry)`, `T2.1(effect)`, `split->a(effect)`; a do behavior the move began, due, by the do-step site's label for it: `do left`, `do work` for the composite's own; down a serial body, the next entry unit against the due do steps, under the owner's `entering <state>` (the machine's own name at the top level) | the unit performed |
 | `ChoiceExitOrder` | region exit | `exiting <state>` | the queues with a unit ready, in declaration order, each labelled by its next performing unit: `inner(exit)` | the queue advanced |
 | `ChoiceRegionOrder` (existing) | firing units across regions, and the entries and exits nested in a firing | `on accept <event>`, `on change` — as `dispatchInOrder` labels the occurrence | the firings with a unit ready, by source state in declaration order, each labelled by its next unit: `l1(exit)`, `l1->l2(effect)`, `l2(entry)` | the firing advanced |
 | `ChoiceStepOrder` | a due do step against the dispatch at the head of the pool | `at t=<instant>` | `do <state>` naming the due do behaviors in entry order, then `dispatch <event>` for the head of the pool once a message in flight is queued behind the events already there, so the message is named (`dispatch accept <signal>`) only when nothing is ahead of it (`dispatch change <condition>` for a change trigger risen, `dispatch` bare where two or more tied events whose dispatch acts leave the event to a draw of its own among them) | the unit run |
@@ -430,6 +430,10 @@ Conformance fixtures under `internal/exec/runtime/testdata/conformance/`, each w
 | `state_do_step_before_history_restore` | a deep history restoring two regions, one into a state with a do behavior; the step against the other's restored entry, and against its firing on the first occurrence: twelve outcomes |
 | `state_do_step_cut_by_sibling_completion` | a two-move do body against a sibling entry whose state completes out of the parallel state: cut before, between or after its moves: six outcomes |
 | `state_do_step_cut_by_sibling_terminate` | *Terminate 002*'s shape — a two-segment do body, the sibling completing into a `terminate`: the first segment before the sibling's entry, after it, or never, in either entry order: five outcomes |
+| `state_do_step_before_own_substate_entries` | a composite's own do step against its two regions' logged entries on the front entering them: six outcomes |
+| `state_do_step_before_own_body_entry` | a composite's own do step down its serial body, two nested entries deep: three outcomes, the step before, between or after them |
+| `state_do_step_machine_before_top_entries` | the machine's own do step against its top regions' entries: six outcomes |
+| `state_do_step_way_down_before_fork_branch` | a composite entered on the way down to a fork's branch, its do step against the other branch's effect and entry and its own substate's: six outcomes |
 
 `robustness_region_do_step_test.go` holds the step-order site's failure modes: a witness naming
 a state with no due do step, a dispatch not at the head of the pool or a draw at a unit offering
@@ -782,45 +786,60 @@ part with its own home:
   Behaviors associated with entering the State", *Entering 002*) — so a due do step of an
   entered state is a unit of its region's queue on the entry front, drawn against the sibling
   regions' remaining entry units as the do-step site draws it against the dispatch. The
-  runtime does this now: `startDoAction` registers the do behavior with the queue whose unit
-  started it (`unitQueue.started`), and once the queue's body has performed its entries —
-  the state's own and, for a composite, the substates below it, entered by the same body or
-  by nested queues it awaits — the queue offers each due token move of those behaviors as a
-  unit of its own (`unitFront.offerDoSteps`: `unitHead.doStep`, never silent, labelled
-  `do <state>`), for as long as a sibling queue has a unit left (`unitsPending`: neither done,
-  waiting on nested queues, void, nor itself offering a do step). Each draw performs one token
-  move (`stepDoAction`, `countDoStep` against the move's do-step budget, `settleDoActions`),
-  and the head is void the moment no sibling has a unit, so the remaining moves fall to the
-  do-step site after the move settles, drawn against the dispatch under `ChoiceStepOrder` as
-  before; two queues with nothing but do steps left offer none to each other, that order being
-  the do-step site's `chooseDoAction`. **Decision: no new choice kind.** The draw is the
-  front's own — `ChoiceEntryOrder` under `entering <state>` or `fork <name>`,
-  `ChoiceRegionOrder` under `on <event>` for an entry nested in a firing — with `do <state>`
-  as one alternative beside the entry labels (`entering work: next do l1, r1(entry)`): the
-  do step is a unit of a queue like any other, the draw is which queue advances, and a witness
-  names the alternative by the do-step site's label for the same behavior. A new kind would
-  have said the same thing under a second `Where`, and split the enumeration of one front over
-  two kinds. Only the one-move engines offer the unit (`scheduling().oneMove()`): `declared`,
-  `reverse` and `seed:<n>` run every entry whole and the do round after the move as they
-  always did, consume no random number for the alternative, and no default, `declared` or
-  `seed` golden moved; the fixed policies' run is the path that takes every entry first,
-  which the enumeration includes. `check`'s partial-order reduction footprints an entering
-  transition with the do behaviors of the states it enters as well as their entries
-  (`lower/state_footprint.go:enters`), since a do step may now run within the move. What is
-  drawn, in the fixtures of the test contract below: the do step against one sibling entry
-  and against several, against a sibling composite's nested entries and from a state nested in
-  a parallel start state against the outer sibling's entry, against a fork branch's effect and
-  entry, against a history restore's re-entries, a do behavior given as an `action def` as an
-  inline one, and a do behavior cut by the sibling's completion or `terminate` at any of its
-  moves. Not drawn, a bound this design records: a composite's own do step against the
-  entries of its *own* substates, which PSSM's *Entering 002* also admits interleaved — the
-  queue offers the composite's do steps only once its body has entered the way down, so that
-  order stays the fixed one under every engine. No suite test tells the two apart:
-  *Transition 017* is the one whose composite `deep` has a do activity and a substate, and its
-  substate's entry logs nothing, so its reached set is unchanged. On the suite, as predicted
-  and no more: *Terminate 002* reaches its fifth admitted trace and nothing else, `fail` →
-  `pass`; *Deferred 006 C* explores 552 runs where it explored 368 and *Transition 017* 20
-  where it explored 18, each reaching what it reached; no other row moved.
+  runtime does this now. A state's do behavior begins as its entry unit ends
+  (`startDoAction`, called from `enterStateInto` and `enterLazily` right after
+  `activateState`, before the state's regions or serial body are entered — the library's
+  `succession entry then middle`), and the move records it as one it began
+  (`StateExecutor.began`; `resumeEntering` adds the running do behaviors of the states a held
+  entry resumes below). Every entry site the move opens from then on draws the due token
+  moves of those behaviors against its entry units. On a front, the behavior is a queue of its
+  own (`unitFront.offer`, added before the running queue as a nested region's is), whose
+  units are the behavior's due steps (`offerDoSteps`: `unitHead.doStep`, never silent,
+  labelled `do <state>`), offered for as long as another queue has a unit left
+  (`unitsPending`: neither done, waiting on nested queues, void, nor itself offering a do
+  step); a front opened after the behavior began (`drawUnits`) offers the due behaviors the
+  move began before it. Down a serial body no front orders — a composite's `entry; then s1;`
+  chain, the machine's own — each entry unit on the way is a draw of its own against the due
+  steps (`drawOnPath`, from `unit`/`unitAhead` when no front of the kind is open; `pathDraw`
+  rides the path's silent units with the next performing one, as a queue does), under the
+  site the unit enters (`unitHead.site`: `entering <owner>`, or `entering <machine>` for the
+  top level). Each draw performs one token move (`moveDoStep`: `stepDoAction`, `countDoStep`
+  against the move's do-step budget, `settleDoActions`), and a do-step head is void the moment
+  no other queue has a unit, so the remaining moves fall to the do-step site after the move
+  settles, drawn against the dispatch under `ChoiceStepOrder` as before; two queues with
+  nothing but do steps left offer none to each other, that order being the do-step site's
+  `chooseDoAction`. A do behavior that ends while the body it runs beside is still ahead of
+  the move (`bodyAhead`: the state is being entered, has a body, and none of it is active)
+  completes nothing — the body's `done` completes the state (`completeIfDone`), the do
+  behavior having ended already — where the do behavior of a state whose body is running or
+  complete completes it as before. **Decision: no new choice kind.** The draw is the front's
+  own — `ChoiceEntryOrder` under `entering <state>` or `fork <name>`, `ChoiceRegionOrder`
+  under `on <event>` for an entry nested in a firing; a path's draw is `ChoiceEntryOrder`
+  under `entering <owner>` too — with `do <state>` as one alternative beside the entry labels
+  (`entering work: next do l1, r1(entry)`; `entering work: next do work, w1(entry)` for the
+  composite's own): the do step is a unit like any other, the draw is which unit performs, and
+  a witness names the alternative by the do-step site's label for the same behavior. A new
+  kind would have said the same thing under a second `Where`, and split the enumeration of one
+  site over two kinds. Only the one-move engines offer the unit (`scheduling().oneMove()`):
+  `declared`, `reverse` and `seed:<n>` run every entry whole and the do round after the move
+  as they always did, consume no random number for the alternative, and no default,
+  `declared` or `seed` golden moved; the fixed policies' run is the path that takes every
+  entry first, which the enumeration includes. `check`'s partial-order reduction footprints
+  an entering transition with the do behaviors of the states it enters as well as their
+  entries (`lower/state_footprint.go:enters`), since a do step may now run within the move.
+  What is drawn, in the fixtures of the test contract below: the do step against one sibling
+  entry and against several, against a sibling composite's nested entries and from a state
+  nested in a parallel start state against the outer sibling's entry, against a fork branch's
+  effect and entry, against a history restore's re-entries, a do behavior given as an
+  `action def` as an inline one, a do behavior cut by the sibling's completion or `terminate`
+  at any of its moves, and — the order PSSM's *Entering 002* also admits interleaved — a
+  composite's own do step against the entries of its *own* substates, on a front and down a
+  serial body, the machine's own against the top-level entries, and a composite's on the way
+  down to a fork's branch. On the suite, as predicted and no more: *Terminate 002* reaches its
+  fifth admitted trace and nothing else, `fail` → `pass`; *Deferred 006 C* explores 552 runs
+  where it explored 368 and *Transition 017* — whose target composite has a do activity and
+  a substate whose entry logs nothing — 28 where it explored 18, each reaching what it
+  reached; no other row moved.
 
 The exploration model has no new choice kind and no new `Where`: the do step is a new unit
 of the existing fronts, offered under the entry unit's labels, and every draw the front

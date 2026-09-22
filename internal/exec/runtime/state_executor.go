@@ -146,6 +146,10 @@ type StateExecutor struct {
 	// front is the site under way whose regions' units are drawn one at a time;
 	// it lives within one move, so no snapshot sees it.
 	front *unitFront
+	// began are the do behaviors the move under way started, whose due steps its entry sites
+	// draw against the entries left; path is the draw along an entry path no front orders.
+	began []*doAction
+	path  pathDraw
 	// progress is what the unit under way counts its do steps against, nil between units.
 	progress *dueProgress
 	// held contains entry cascades paused at RTC boundaries.
@@ -537,10 +541,13 @@ func (e *StateExecutor) scheduleCompletionTransitions(state *ast.StateNode) erro
 // completesAtEntry reports whether entering state as the end of an entry path queues
 // its completion at once: it has a completion transition and nothing below to enter.
 func (e *StateExecutor) completesAtEntry(state *ast.StateNode) bool {
-	if _, orthogonal := e.graph.CompositeStates[state]; orthogonal || len(e.graph.StartOf(state)) > 0 {
-		return false
-	}
-	return completionCount(e.graph.Transitions[state]) > 0
+	return !e.hasBody(state) && completionCount(e.graph.Transitions[state]) > 0
+}
+
+// hasBody reports whether state has substates to enter: orthogonal regions or a start.
+func (e *StateExecutor) hasBody(state *ast.StateNode) bool {
+	_, orthogonal := e.graph.CompositeStates[state]
+	return orthogonal || len(e.graph.StartOf(state)) > 0
 }
 
 // scheduleTimeTransitions queues a time event per time-triggered transition out
@@ -2217,6 +2224,11 @@ func (e *StateExecutor) stateCompleted(state *ast.StateNode) bool {
 	return !e.bodyRunning(state) || e.stateComplete(state)
 }
 
+// bodyAhead reports whether the move entering state has yet to enter its body.
+func (e *StateExecutor) bodyAhead(state *ast.StateNode) bool {
+	return e.entering[state] && e.hasBody(state) && !e.bodyRunning(state)
+}
+
 // bodyRunning reports whether a state nested in state is active.
 func (e *StateExecutor) bodyRunning(state *ast.StateNode) bool {
 	for _, active := range e.activeStates() {
@@ -3502,8 +3514,8 @@ func (e *StateExecutor) eventBudgetExceeded(maxStateEvents int64) error {
 }
 
 // startDoAction registers a state's do behavior as running. Re-entering a
-// state restarts its do behavior rather than resuming the abandoned one; a queue of
-// a front entering the state offers the behavior's due steps as units of its own.
+// state restarts its do behavior rather than resuming the abandoned one; the entry
+// site under way offers the behavior's due steps against the entries left in the move.
 func (e *StateExecutor) startDoAction(state *ast.StateNode) {
 	doBehaviors := e.behaviorsOf(state).Do
 	if len(doBehaviors) == 0 {
@@ -3515,8 +3527,19 @@ func (e *StateExecutor) startDoAction(state *ast.StateNode) {
 		pending: append([]lower.StateBehavior(nil), doBehaviors...),
 	}
 	e.doActions = append(e.doActions, act)
-	if q := e.runningQueue(); q != nil {
-		q.started = append(q.started, act)
+	e.began = append(e.began, act)
+	if e.inFront(ChoiceEntryOrder) {
+		e.front.offer(act)
+	}
+}
+
+// resumeEntering counts the running do behaviors of the states as begun by the move, which
+// goes on entering below them.
+func (e *StateExecutor) resumeEntering(states []*ast.StateNode) {
+	for _, act := range e.doActions {
+		if slices.Contains(states, act.state) && !slices.Contains(e.began, act) {
+			e.began = append(e.began, act)
+		}
 	}
 }
 
@@ -3820,10 +3843,11 @@ func (e *StateExecutor) settleDoActions() error {
 	}
 	e.doActions = kept
 
-	// A state completes once its do behavior has finished and its body, where
-	// it runs one, has reached `done`; completeIfDone schedules the latter case.
+	// A state completes once its do behavior has finished and its body, where it
+	// runs one, has reached `done`; completeIfDone schedules the latter case, and a
+	// body the move has yet to enter completes nothing.
 	for _, state := range finished {
-		if e.bodyRunning(state) && !e.stateComplete(state) {
+		if e.bodyAhead(state) || (e.bodyRunning(state) && !e.stateComplete(state)) {
 			continue
 		}
 		if err := e.scheduleCompletionTransitions(state); err != nil {
@@ -4555,21 +4579,21 @@ func (e *StateExecutor) enterStateInto(state *ast.StateNode, branches map[*ast.S
 	if err := e.activateState(state); err != nil {
 		return err
 	}
+
+	// The do behavior runs while the state is active, from its entry on: alongside the
+	// entries of its substates and the do behaviors of the states active with it.
+	e.startDoAction(state)
+
 	if regions, isComposite := e.graph.CompositeStates[state]; isComposite {
 		if held, err := e.holdEntry(state, regions, branches); err != nil {
 			return err
 		} else if held {
-			e.startDoAction(state)
 			return nil
 		}
 		if err := e.enterRegionsInto(state, regions, branches); err != nil {
 			return err
 		}
 	}
-
-	// The do behavior runs while the state is active, interleaved with the do
-	// behaviors of the states active alongside it, rather than at entry.
-	e.startDoAction(state)
 
 	// The completion goes into the pool behind those queued by the entries performed
 	// before this one (PSSM §8.5.9); time triggers are scheduled once the move settles.
@@ -4605,6 +4629,7 @@ func (e *StateExecutor) activateState(state *ast.StateNode) error {
 func (e *StateExecutor) resetEntering() {
 	e.entering = make(map[*ast.StateNode]bool)
 	e.enteringMachine = false
+	e.began, e.path = nil, pathDraw{}
 	e.activeAtEntry = make(map[*ast.StateNode]bool)
 	for _, active := range e.activeStates() {
 		for _, state := range e.getParentChain(active) {

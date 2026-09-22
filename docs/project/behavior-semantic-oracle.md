@@ -1465,6 +1465,50 @@ and the do activity's first segment falls before the sibling's entry, after it, 
 second — beyond an accept the terminate leaves unfed — never; with the two entry orders, five
 outcomes, PSSM's five admitted traces.
 
+### A composite's own do step and its substates' entries due inside its entry: which goes first is open
+
+Fixtures: `state_do_step_before_own_substate_entries` (golden, explored, checked),
+`state_do_step_before_own_body_entry` (golden, explored, checked),
+`state_do_step_way_down_before_fork_branch` (golden, explored, checked),
+`state_do_step_machine_before_top_entries` (golden, explored, checked).
+
+```
+idle ─ accept Go → work parallel { do { log += "did " }
+                                   left:  { entry; then l1 { entry { log += "l1(entry) " } } }
+                                   right: { entry; then r1 { entry { log += "r1(entry) " } } } }
+```
+
+Derived constraints:
+
+- `work`'s entry precedes its do behavior's start and its substates' entries alike
+  (`StatePerformances.kerml` `StatePerformance`, `succession [1] entry then [*] middle`: the do
+  behavior and the nested `StatePerformance`s are both `middle` steps), and PSSM §8.5.5 has the
+  do activity start after the entry behavior and run concurrently with what follows it — so
+  `work(entry) < did` and `work(entry) < l1(entry)`, `work(entry) < r1(entry)`.
+- No succession orders the do behavior's actions against the nested performances' entries: they
+  are concurrent `middle` steps of one `StatePerformance`, as the previous section has the
+  regions' chains concurrent with each other.
+- Every write appends to `log`, so `log` records the interleaving.
+
+Open: whether the do behavior's next action or a remaining substate entry goes first, at every
+draw where both are left. The fixture's `log` is `did ` before, between or after `l1(entry) ` and
+`r1(entry) ` in either of their orders.
+
+Pinned outcome: the six interleavings, stated as `outcomes` citing this section. The composite's
+do behavior begins as its own entry unit ends, before its regions are entered, and its due token
+move is drawn on the front entering them beside the regions' queues — the same `entering work`
+choice, the alternative labeled `do work` — for as long as a region has a unit left.
+`declared`, `reverse` and `seed:<n>` never take the alternative and end `l1(entry) r1(entry) did `
+(`reverse`: `r1(entry) l1(entry) did `); `check`, `replay` and `explore` reach the six and no other.
+`state_do_step_before_own_body_entry` gives the composite a serial body two states deep, whose
+entries no front orders: each entry on the way down is drawn against the step at its own
+`entering <owner>` choice, `did ` falling before `w1(entry) `, between it and `w2(entry) `, or
+after both, three outcomes. `state_do_step_way_down_before_fork_branch` reaches the substates
+through a fork: the first branch's way down enters the composite and starts its do behavior,
+which is drawn against the branches' remaining target entries, six outcomes.
+`state_do_step_machine_before_top_entries` is the same shape at the machine, whose do behavior
+begins before its top regions are entered: six outcomes.
+
 ## What the executor gets wrong
 
 Nothing, at present: every derivation above is met and carries a golden. The table this section

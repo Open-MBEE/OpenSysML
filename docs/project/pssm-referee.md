@@ -250,16 +250,20 @@ site's rule on the front. Once a region's queue on an entry front has performed 
 due token move of the do behaviors they started is a unit of that queue, drawn against the
 sibling queues' units under the front's own `entering <state>` draw (`do <state>` an alternative
 beside the entries; no new choice kind) while a sibling has a unit left, then against the dispatch
-after the move settles as before; the fixed policies enter every region whole and run the round
-after, as they always did. Three rows' run counts moved, one of them a bucket; every trace reached
-is admitted and no reason changed elsewhere. The run is byte-identical under `-jobs 1` and
-`-jobs 8`.
+after the move settles as before. A composite's own do behavior begins as its entry unit ends,
+before its substates are entered, so its due steps are drawn against those entries the same way —
+on the front when a front orders them, at each entry on the way down a serial body otherwise — and
+the machine's own do behavior against the top-level entries; a do behavior that ends before the
+body it runs beside is entered completes nothing, the body's `done` does. The fixed policies enter
+every region whole and run the round after, as they always did. Three rows' run counts moved, one
+of them a bucket; every trace reached is admitted and no reason changed elsewhere. The run is
+byte-identical under `-jobs 1` and `-jobs 8`.
 
 | Test | Construct | Movement | Adjudication |
 |---|---|---|---|
 | Terminate 002 | a do step against a sibling region's entry unit | `fail` → `pass`, 4 → 5 runs | Expected: the test the change was made for. `S1.1`'s do activity is started by its entry and its first segment is due while `S2.1`'s entry, the sibling region's one unit, is left, so `do S1.1` is drawn against `S2.1(entry)` at `entering S1` and the fifth admitted trace, `S1(entry)::S1.1(entry)::S1.1(doActivityPartI)::S2.1(entry)`, is reached. The four reached before are reached as before (the segment after both entries, drawn at `t=0.0` against the terminating completion's dispatch, or never), the second segment is in none — the terminate aborts the do activity before its `accept` is fed — and nothing the suite refuses is reached: five runs, five admitted traces |
 | Deferred 006 C | two do activities, one token move a draw | `pass` → `pass`, 368 → 552 runs | Expected. `S1.1`'s and `S1.2`'s do activities each begin with an `accept Continue`; the move that parks the first-entered state's body at its `accept` is due while the sibling's entry is left, so it is drawn before or after `S1.2(entry)` (or `S1.1(entry)`, in the other entry order), a fork the linearizations multiply through. Every run still ends in `S1.1(doActivity)::S1.2(doActivity)` or the reverse, the two traces the suite admits and nothing else |
-| Transition 017 | a do step against a sibling region's entry unit | `fail` → `fail`, 18 → 20 runs | Expected. `deep`'s do activity (`S3.1(doActivity)`) is due once region 3's queue has entered `S3.1` and its substate `S3.1.1`, while region 2's entry of `S2.1` — silent, but drawn since it generates a completion — is left, so the step is drawn before or after it; the entry logs nothing, so the two new linearizations reach the traces already reached. Six of the eight admitted traces as before; the two missing stay the suite's defect recorded in [`omg-issues.md`](omg-issues.md#pssm-transition-017-admits-a-parents-completion-before-its-regions), and the reason is byte-identical |
+| Transition 017 | a composite's do step against its own substate's and a sibling region's entry units | `fail` → `fail`, 18 → 28 runs | Expected. `S3.1`'s do activity (`S3.1(doActivity)`) begins as region 3's queue has entered `S3.1`, while that queue's entry of `S3.1`'s own substate `S3.1.1` and region 2's entry of `S2.1` — both silent, but drawn since each generates a completion — are left, so the step is drawn before, between or after them; the entries log nothing, so the new linearizations reach the traces already reached. Drawn ahead of `S3.1.1(entry)`, the ended do activity completes nothing: `S3.1` completes when its body reaches `done` by `T3.1.2`, so no run leaves `S1` with `T3.1.2(effect)` unfired, a trace the suite refuses. Six of the eight admitted traces as before; the two missing stay the suite's defect recorded in [`omg-issues.md`](omg-issues.md#pssm-transition-017-admits-a-parents-completion-before-its-regions), and the reason is byte-identical |
 
 ### Movements before that
 
