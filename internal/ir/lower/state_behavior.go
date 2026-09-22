@@ -93,7 +93,7 @@ func lowerStateBehavior(action ast.Node, block ast.Node, scope *symbols.Scope, r
 			// `do action log;` names an action of no content, which executes as nothing.
 			behavior.Body = []Statement{}
 		default:
-			behavior.Body = []Statement{Effect{Kind: EffectPerform, Node: node, Scope: scope}}
+			behavior.Body = []Statement{performEffect(node, scope)}
 		}
 	case *ast.ActionExecutionNode:
 		behavior.Name = node.Name

@@ -55,6 +55,32 @@ func TestActionNodeDeclaresItsOwnFeatures(t *testing.T) {
 	}
 }
 
+// An accept's message payload is the node's output pin; a trigger (`accept when`,
+// `accept after`) names a condition or a time, not a value the node produces.
+func TestAcceptNodePayloadIsItsOutputPin(t *testing.T) {
+	graph := actionGraphFor(t, `
+		attribute def Ping { attribute level : Integer; }
+		action test {
+			attribute ready : Boolean = true;
+			first start;
+			then action hear accept msg : Ping;
+			then action wait accept timer when ready;
+			then action pause accept delay after 2;
+			then done;
+		}
+	`)
+
+	hear := graph.Features[nodeNamed(t, graph, "hear")]
+	if len(hear) != 1 || hear[0].Name != "msg" || hear[0].Direction != ast.DirOut {
+		t.Errorf("hear declares features %+v, want its payload pin msg", hear)
+	}
+	for _, name := range []string{"wait", "pause"} {
+		if got := graph.Features[nodeNamed(t, graph, name)]; len(got) != 0 {
+			t.Errorf("%s declares features %+v, want none for a trigger", name, got)
+		}
+	}
+}
+
 // A binding connector at a node's pin is lowered to the node and pin it
 // addresses, with the other end kept as written; one with a node pin at each end
 // is lowered once per end.

@@ -9,13 +9,13 @@ do: top
       eval literal "did " -> "did "
     eval operator + -> "did "
 leave action node: state behavior mark
-choice events at t=2.0: time top 1->idle, time top 2->idle (unordered; dispatched time top 1->idle first)
   eval feature log -> "did "
   eval literal "" -> ""
 eval operator != -> true
   eval feature log -> "did "
   eval literal "" -> ""
 eval operator != -> true
+choice state top on time: transitions 1->idle, 2->idle (unordered; took 1->idle)
 exit: top
 stmt assign log
     eval feature log -> "did "

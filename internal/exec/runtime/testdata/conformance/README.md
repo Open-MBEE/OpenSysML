@@ -126,7 +126,11 @@ one:
 
 - `outcomes`: at least two complete results. Each entry carries the `outputs` of
   an action case, or the `finalState` / `stateVisits` / `outputs` of a state
-  case, with the meaning those keys have above. The observed run must match
+  case, with the meaning those keys have above, plus an optional `probability`:
+  the share of the schedule space the explore pass expects the linearizations
+  reaching that entry to carry (a weighted pick its stated weight's share, an
+  unweighted choice's uniform share), checked against the sum the exploration
+  reports for it within `1e-9`. The observed run must match
   exactly one entry: matching none fails the case as inadmissible, matching
   several fails it because the set is not distinct. `-v` output names the entry
   matched (`matched admissible outcome 1 of 2`).

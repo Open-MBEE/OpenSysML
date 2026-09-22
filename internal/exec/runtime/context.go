@@ -1621,10 +1621,22 @@ func (ctx *Context) runPerformance(exec *ActionExecutor, top bool) error {
 			return fmt.Errorf("execute action: %w", err)
 		}
 	}
+	if err := ctx.settledObjects(top); err != nil {
+		return fmt.Errorf("execute action: %w", err)
+	}
 	if err := ctx.followedWhole(top); err != nil {
 		return fmt.Errorf("execute action: %w", err)
 	}
 	return nil
+}
+
+// settledObjects runs, once a top-level run's own performance ended, the behaviors
+// of the objects it left with work: one it started, or woke with a message it sent.
+func (ctx *Context) settledObjects(top bool) error {
+	if !top {
+		return nil
+	}
+	return ctx.runAttachedBehaviors()
 }
 
 // followedWhole is the refusal of a top-level run that ended with witness moves

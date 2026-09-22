@@ -61,7 +61,7 @@
         "dir": "examples",
         "origin": "ours",
         "files": 43,
-        "digest": "sha256:cb9e23050121a2db3926693802d93da0e57fb49b3bf78f86f21dc1498def078f"
+        "digest": "sha256:ffe814c85ae8ee98aaf90bdc7282c511aa6f73ad780932c90ab09a436944a2a5"
       },
       {
         "name": "probes",
@@ -71,7 +71,7 @@
         "digest": "sha256:b0153c55bbfcdacabab911725dc44e0e7f4d3a501a281b1f3f2a13cda19737c6"
       }
     ],
-    "recorded": "2026-09-21"
+    "recorded": "2026-09-22"
   },
   "totals": {
     "files": 378,

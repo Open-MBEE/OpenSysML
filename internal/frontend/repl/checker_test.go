@@ -288,7 +288,7 @@ func TestReplayStepsAWitnessOfNoChoice(t *testing.T) {
 	run(t, s, "%instantiate Plant::tank")
 	witness := filepath.Join(dir, "Plant.Tank.overfill@Plant.tank.violation-1.witness")
 	wantVerdict(t, s.RunAction("Plant::Tank::overfill", "Plant::tank"), VerdictFails,
-		"violation: Plant::Tank::low is false after 2 moves (witness "+witness+")")
+		"violation: Plant::Tank::low is false after 2 moves (probability 1) (witness "+witness+")")
 	content, err := os.ReadFile(witness)
 	if err != nil {
 		t.Fatal(err)

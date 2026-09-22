@@ -471,6 +471,9 @@ message Outcome {
   // it could not evaluate, as RunAnalysisResponse.diagnostics reports them for
   // one run.
   repeated Diagnostic diagnostics = 7;
+  // The probability of the linearizations reaching this outcome, as explore
+  // computes it; a lower bound when the exploration is incomplete.
+  double probability = 8;
 }
 
 // ExplorationStatus is how an exploration ended: whether every linearization
@@ -486,6 +489,9 @@ message ExplorationStatus {
   // one run may resolve before the rest take their first alternative.
   int32 runs_budget = 4;
   int32 depth_budget = 5;
+  // True when the outcomes' probabilities are lower bounds: a budget kept some
+  // linearizations unexplored.
+  bool probabilities_lower_bound = 6;
 }
 
 // ListEnginesRequest asks for the analysis engines registered in this build.

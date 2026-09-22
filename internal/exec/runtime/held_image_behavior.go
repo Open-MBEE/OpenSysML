@@ -69,6 +69,7 @@ type imagedFrame struct {
 type imagedStaged struct {
 	source int
 	pin    string
+	flow   ast.Node
 	at     int
 }
 
@@ -269,7 +270,7 @@ func (t *imaging) frame(perf *actionFrame, at func(*actionFrame) int) (imagedFra
 			f.staged[node] = make(map[string][]imagedStaged, len(pins))
 			for pin, entries := range pins {
 				for _, s := range entries {
-					f.staged[node][pin] = append(f.staged[node][pin], imagedStaged{source: at(s.source), pin: s.pin, at: s.at})
+					f.staged[node][pin] = append(f.staged[node][pin], imagedStaged{source: at(s.source), pin: s.pin, flow: s.flow, at: s.at})
 				}
 			}
 		}
@@ -436,7 +437,8 @@ func (m *materializing) behavior(b imagedBehavior) error {
 	return nil
 }
 
-// declaration finds, among the behaviors the object's types bind, the one member declares.
+// declaration finds, among the behaviors the object's types bind or declare for a
+// start, the one member declares.
 func (m *materializing) declaration(inst *Instance, member *symbols.Symbol) (classifierBehaviorDecl, bool) {
 	for _, typ := range inst.types() {
 		for _, decl := range m.dst.classifierBehaviorsOf(typ) {
@@ -445,7 +447,7 @@ func (m *materializing) declaration(inst *Instance, member *symbols.Symbol) (cla
 			}
 		}
 	}
-	return classifierBehaviorDecl{}, false
+	return m.dst.startableDeclaration(inst, member)
 }
 
 // runOf is the run of dst's own made for an imaged run, nil for none.
@@ -576,7 +578,7 @@ func (m *materializing) frame(perf *actionFrame, img imagedFrame, frameAt func(i
 			perf.staged[node] = make(map[string][]stagedStream, len(pins))
 			for pin, entries := range pins {
 				for _, s := range entries {
-					perf.staged[node][pin] = append(perf.staged[node][pin], stagedStream{source: frameAt(s.source), pin: s.pin, at: s.at})
+					perf.staged[node][pin] = append(perf.staged[node][pin], stagedStream{source: frameAt(s.source), pin: s.pin, flow: s.flow, at: s.at})
 				}
 			}
 		}

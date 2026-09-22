@@ -1904,7 +1904,10 @@ type Outcome struct {
 	// What the witness run noted about itself: its choice points and the guards
 	// it could not evaluate, as RunAnalysisResponse.diagnostics reports them for
 	// one run.
-	Diagnostics   []*Diagnostic `protobuf:"bytes,7,rep,name=diagnostics,proto3" json:"diagnostics,omitempty"`
+	Diagnostics []*Diagnostic `protobuf:"bytes,7,rep,name=diagnostics,proto3" json:"diagnostics,omitempty"`
+	// The probability of the linearizations reaching this outcome, as explore
+	// computes it; a lower bound when the exploration is incomplete.
+	Probability   float64 `protobuf:"fixed64,8,opt,name=probability,proto3" json:"probability,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1988,6 +1991,13 @@ func (x *Outcome) GetDiagnostics() []*Diagnostic {
 	return nil
 }
 
+func (x *Outcome) GetProbability() float64 {
+	if x != nil {
+		return x.Probability
+	}
+	return 0
+}
+
 // ExplorationStatus is how an exploration ended: whether every linearization
 // within the budget was run, and which budget stopped it when not.
 type ExplorationStatus struct {
@@ -2000,10 +2010,13 @@ type ExplorationStatus struct {
 	BudgetsHit []string `protobuf:"bytes,3,rep,name=budgets_hit,json=budgetsHit,proto3" json:"budgets_hit,omitempty"`
 	// The budget the exploration ran under: runs it may make, and choice points
 	// one run may resolve before the rest take their first alternative.
-	RunsBudget    int32 `protobuf:"varint,4,opt,name=runs_budget,json=runsBudget,proto3" json:"runs_budget,omitempty"`
-	DepthBudget   int32 `protobuf:"varint,5,opt,name=depth_budget,json=depthBudget,proto3" json:"depth_budget,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	RunsBudget  int32 `protobuf:"varint,4,opt,name=runs_budget,json=runsBudget,proto3" json:"runs_budget,omitempty"`
+	DepthBudget int32 `protobuf:"varint,5,opt,name=depth_budget,json=depthBudget,proto3" json:"depth_budget,omitempty"`
+	// True when the outcomes' probabilities are lower bounds: a budget kept some
+	// linearizations unexplored.
+	ProbabilitiesLowerBound bool `protobuf:"varint,6,opt,name=probabilities_lower_bound,json=probabilitiesLowerBound,proto3" json:"probabilities_lower_bound,omitempty"`
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
 }
 
 func (x *ExplorationStatus) Reset() {
@@ -2069,6 +2082,13 @@ func (x *ExplorationStatus) GetDepthBudget() int32 {
 		return x.DepthBudget
 	}
 	return 0
+}
+
+func (x *ExplorationStatus) GetProbabilitiesLowerBound() bool {
+	if x != nil {
+		return x.ProbabilitiesLowerBound
+	}
+	return false
 }
 
 // ListEnginesRequest asks for the analysis engines registered in this build.
@@ -9114,7 +9134,7 @@ const file_sysml_proto_rawDesc = "" +
 	" \x03(\v2\x15.sysml.CaseEvaluationR\vevaluations\x12\x16\n" +
 	"\x06engine\x18\v \x01(\tR\x06engine\x12\x1a\n" +
 	"\bstrength\x18\f \x01(\tR\bstrength\x12$\n" +
-	"\x06bounds\x18\r \x03(\v2\f.sysml.BoundR\x06bounds\"\xdf\x02\n" +
+	"\x06bounds\x18\r \x03(\v2\f.sysml.BoundR\x06bounds\"\x81\x03\n" +
 	"\aOutcome\x125\n" +
 	"\aoutputs\x18\x01 \x03(\v2\x1b.sysml.Outcome.OutputsEntryR\aoutputs\x12\x1f\n" +
 	"\vfinal_state\x18\x02 \x01(\tR\n" +
@@ -9123,10 +9143,11 @@ const file_sysml_proto_rawDesc = "" +
 	"\x05error\x18\x04 \x01(\tR\x05error\x12&\n" +
 	"\x0elinearizations\x18\x05 \x01(\x05R\x0elinearizations\x12\x18\n" +
 	"\awitness\x18\x06 \x03(\tR\awitness\x123\n" +
-	"\vdiagnostics\x18\a \x03(\v2\x11.sysml.DiagnosticR\vdiagnostics\x1aH\n" +
+	"\vdiagnostics\x18\a \x03(\v2\x11.sysml.DiagnosticR\vdiagnostics\x12 \n" +
+	"\vprobability\x18\b \x01(\x01R\vprobability\x1aH\n" +
 	"\fOutputsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\"\n" +
-	"\x05value\x18\x02 \x01(\v2\f.sysml.ValueR\x05value:\x028\x01\"\xa8\x01\n" +
+	"\x05value\x18\x02 \x01(\v2\f.sysml.ValueR\x05value:\x028\x01\"\xe4\x01\n" +
 	"\x11ExplorationStatus\x12\x1a\n" +
 	"\bcomplete\x18\x01 \x01(\bR\bcomplete\x12\x12\n" +
 	"\x04runs\x18\x02 \x01(\x05R\x04runs\x12\x1f\n" +
@@ -9134,7 +9155,8 @@ const file_sysml_proto_rawDesc = "" +
 	"budgetsHit\x12\x1f\n" +
 	"\vruns_budget\x18\x04 \x01(\x05R\n" +
 	"runsBudget\x12!\n" +
-	"\fdepth_budget\x18\x05 \x01(\x05R\vdepthBudget\"\x14\n" +
+	"\fdepth_budget\x18\x05 \x01(\x05R\vdepthBudget\x12:\n" +
+	"\x19probabilities_lower_bound\x18\x06 \x01(\bR\x17probabilitiesLowerBound\"\x14\n" +
 	"\x12ListEnginesRequest\"\xfb\x02\n" +
 	"\n" +
 	"EngineInfo\x12\x12\n" +

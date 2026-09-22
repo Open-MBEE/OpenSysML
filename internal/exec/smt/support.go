@@ -582,6 +582,8 @@ func effectName(kind lower.EffectKind) string {
 		return "accept"
 	case lower.EffectTerminate:
 		return "terminate"
+	case lower.EffectStart:
+		return "start"
 	}
 	return fmt.Sprintf("effect %d", kind)
 }
