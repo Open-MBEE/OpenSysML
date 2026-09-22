@@ -171,8 +171,7 @@ type migration struct {
 	names     map[*sysmlv1.Element]string
 	nodeNames map[*sysmlv1.Element]string
 	// placeholders are the activity nodes written as inert placeholders, and nodeEnds
-	// the placements of the relationships with pairs ending at activity nodes, judged
-	// once all are written.
+	// the placements of the relationships ending at activity nodes, judged once all are written.
 	placeholders map[*sysmlv1.Element]bool
 	nodeEnds     map[*sysmlv1.Element]*placement
 	// extras are members other elements contribute to a body: a Satisfy is
@@ -2311,9 +2310,8 @@ func (m *migration) flushFlows() {
 	}
 }
 
-// placeholderEnds settles the relationships with a pair ending at an activity node
-// written only as a placeholder: the pair is migrated no better than that end, and
-// the relationship is unmapped only once none of its pairs is written any better.
+// placeholderEnds settles the pairs ending at a node written only as a placeholder:
+// each is migrated no better than its end, and the relationship no better than its pairs.
 func (m *migration) placeholderEnds() {
 	var rels []*sysmlv1.Element
 	for d := range m.nodeEnds {
@@ -2424,9 +2422,8 @@ func (m *migration) dependencyPairs(d *sysmlv1.Element) (pairs []pair, failed in
 	return pairs, total - len(pairs), missing
 }
 
-// placement is the outcome of placing a relationship: how many pairs were written,
-// where, why the others could not be, and the activity nodes at the ends of each
-// written pair, judged again once their graphs are written.
+// placement is the outcome of placing a relationship: how many pairs were written and
+// where, why the others could not be, and the activity nodes each written pair ends at.
 type placement struct {
 	written, failed int
 	target          string
@@ -2569,9 +2566,8 @@ func uniqueStrings(in []string) []string {
 	return out
 }
 
-// dependencyPair writes one client–supplier pair of a dependency, returning
-// the v2 target written, if any, whether it was written, and a note; the pair's
-// ends that are activity nodes are kept on pl for judging once their graphs are written.
+// dependencyPair writes one client–supplier pair of a dependency, returning the v2
+// target written, if any, whether it was written, and a note; pl keeps its node ends.
 func (m *migration) dependencyPair(d *sysmlv1.Element, pl *placement, name string, client, supplier *sysmlv1.Element) (string, bool, string) {
 	if has(d, "DeriveReqt") {
 		target, note := m.derive(d, name, client, supplier)
