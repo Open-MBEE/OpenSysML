@@ -58,36 +58,59 @@ func isDiagram(raw *xmi.Element) bool {
 
 // diagram reads one serialized diagram: its kind from the representation
 // object's type and umlType attributes, its contents from the usedElements ids
-// and usedObjects hrefs. Owner and shown elements are resolved by linkDiagrams
-// once every document is read, since a diagram may precede what it names.
+// and usedObjects hrefs beneath that object. Owner and shown elements are
+// resolved by linkDiagrams once every document is read, since a diagram may
+// precede what it names.
 func (m *Model) diagram(raw *xmi.Element, ext *Extension) {
 	d := Diagram{
 		ID: raw.ID, Name: raw.Name(), OwnerID: raw.Attr("ownerOfDiagram"),
 		Holder: ext.Owner, Extender: ext.Extender,
 	}
-	var rep *xmi.Element
+	contents := raw
+	if rep := representation(raw); rep != nil {
+		d.Kind, d.UMLKind = rep.Attrs["type"], rep.Attrs["umlType"]
+		contents = rep
+	}
 	seen := map[string]bool{}
-	raw.Walk(func(n *xmi.Element) bool {
-		switch {
-		case n == raw:
-		case n.Attr("umlType") != "" && rep.Attr("umlType") == "":
-			rep = n
-		case n.Attr("type") != "" && rep == nil:
-			rep = n
-		case n.Tag == "usedElements", n.Tag == "usedObjects":
-			id := strings.TrimSpace(n.Text)
-			if href := n.Href(); href != "" {
-				id = strings.TrimPrefix(href, "#")
-			}
-			if id != "" && !seen[id] {
-				seen[id] = true
-				d.Shown = append(d.Shown, ElementRef{ID: id})
-			}
+	walkDiagram(contents, func(n *xmi.Element) {
+		if n.Tag != "usedElements" && n.Tag != "usedObjects" {
+			return
 		}
-		return true
+		id := strings.TrimSpace(n.Text)
+		if href := n.Href(); href != "" {
+			id = strings.TrimPrefix(href, "#")
+		}
+		if id != "" && !seen[id] {
+			seen[id] = true
+			d.Shown = append(d.Shown, ElementRef{ID: id})
+		}
 	})
-	d.Kind, d.UMLKind = rep.Attr("type"), rep.Attr("umlType")
 	m.Diagrams = append(m.Diagrams, d)
+}
+
+// representation finds the diagram's representation object: the first element
+// beneath raw that states a diagram type in a plain type or umlType attribute.
+// An xmi:type names an element's metaclass, never a diagram kind, so typed
+// children such as comments are passed over. Nil when the tool wrote none.
+func representation(raw *xmi.Element) *xmi.Element {
+	var rep *xmi.Element
+	walkDiagram(raw, func(n *xmi.Element) {
+		if rep == nil && n != raw && (n.Attrs["type"] != "" || n.Attrs["umlType"] != "") {
+			rep = n
+		}
+	})
+	return rep
+}
+
+// walkDiagram visits root and its descendants in document order, staying out
+// of any diagram nested beneath it, which is read as a diagram of its own.
+func walkDiagram(root *xmi.Element, fn func(*xmi.Element)) {
+	fn(root)
+	for _, c := range root.Children {
+		if !isDiagram(c) {
+			walkDiagram(c, fn)
+		}
+	}
 }
 
 // linkDiagrams resolves each diagram's owner and shown elements to the elements

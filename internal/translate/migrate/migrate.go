@@ -592,12 +592,18 @@ func ownerWritten(role string) bool {
 // root writes a top-level element: a Model's members are written at the top
 // level, any other root as a declaration of its own.
 func (m *migration) root(e *sysmlv1.Element) {
-	if e.Type == "Model" && !m.isLibrary(e) {
+	if m.flattened(e) {
 		m.add(e, Mapped, "", "the root model's members are written at the top level")
 		m.body(e)
 		return
 	}
 	m.member(e)
+}
+
+// flattened reports whether e is a root Model whose members are written at the
+// top level in place of a declaration of its own.
+func (m *migration) flattened(e *sysmlv1.Element) bool {
+	return e.Parent == nil && e.Type == "Model" && !m.isLibrary(e)
 }
 
 // body writes the members of e's body, in document order, then what other

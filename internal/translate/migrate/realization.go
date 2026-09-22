@@ -41,7 +41,9 @@ func (m *migration) realization(ir *sysmlv1.Element) (form realizationForm, targ
 		return realizeRefused, nil, joinNotes("the realized interface is not in the document", d)
 	case contract.IsProxy() || m.isLibrary(contract):
 		return realizeRefused, contract, "the realized interface " + qualifiedName(contract) + " is library content, which is not written"
-	case client == nil || !m.written(client):
+	case client == nil:
+		return realizeRefused, contract, "no classifier owns the realization"
+	case !m.written(client):
 		return realizeRefused, contract, "the realizing classifier " + qualifiedName(client) + " is not migrated"
 	case !m.written(contract):
 		_, why := m.classify(contract)

@@ -130,6 +130,14 @@ func TestViewForms(t *testing.T) {
 			 </packagedElement>`,
 			`<sysml:View xmi:id="_s1" base_Package="_v"/>`,
 			[]string{"view Handbook {\n    part def Chapter;\n}"}, "_v", Approximated},
+		{"a concernList naming a block frames nothing and leaves the block mapped",
+			`<packagedElement xmi:type="uml:Class" xmi:id="_vp2" name="Safety"/>`,
+			`<sysml:Viewpoint xmi:id="_sv2" base_Class="_vp2" concernList="_pump"/>`,
+			[]string{"part def Pump;", "viewpoint Safety;"}, "_pump", Mapped},
+		{"a concernList naming a block is reported on the viewpoint",
+			`<packagedElement xmi:type="uml:Class" xmi:id="_vp2" name="Safety"/>`,
+			`<sysml:Viewpoint xmi:id="_sv2" base_Class="_vp2" concernList="_pump"/>`,
+			[]string{"viewpoint Safety;"}, "_vp2", Approximated},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			r, err := Migrate("views.xmi", []byte(viewModel(tc.members, tc.stereotypes)))
@@ -157,6 +165,47 @@ func TestViewForms(t *testing.T) {
 			}
 			if !found {
 				t.Errorf("%s is missing from the report", tc.id)
+			}
+		})
+	}
+}
+
+func TestRootViewPackage(t *testing.T) {
+	// A «View» package at the document root is a view like any other; a root
+	// Model is written at the top level whatever it is stereotyped.
+	for _, tc := range []struct {
+		name, root, want string
+		verdict          Verdict
+	}{
+		{"package", "uml:Package", "view Handbook {\n    part def Chapter;\n    view Overview {\n        expose Chapter;\n    }\n}", Approximated},
+		{"model", "uml:Model", "part def Chapter;\nview Overview {\n    expose Chapter;\n}", Mapped},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			src := `<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <` + tc.root + ` xmi:type="` + tc.root + `" xmi:id="_v" name="Handbook">
+    <packagedElement xmi:type="uml:Class" xmi:id="_ch" name="Chapter"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_ov" name="Overview"/>
+    <packagedElement xmi:type="uml:Dependency" xmi:id="_d" client="_ov" supplier="_ch"/>
+  </` + tc.root + `>
+  <sysml:View xmi:id="_s1" base_Package="_v"/>
+  <sysml:Block xmi:id="_s2" base_Class="_ch"/>
+  <sysml:View xmi:id="_s3" base_Class="_ov"/>
+  <sysml:Expose xmi:id="_s4" base_Dependency="_d"/>
+</xmi:XMI>`
+			r, err := Migrate("root.xmi", []byte(src))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := string(r.Notation); !strings.Contains(got, tc.want) {
+				t.Errorf("notation lacks %q:\n%s", tc.want, got)
+			}
+			for _, e := range r.Report.Entries {
+				if e.ID == "_v" && e.Verdict != tc.verdict {
+					t.Errorf("verdict %s, want %s (%s)", e.Verdict, tc.verdict, e.Note)
+				}
 			}
 		})
 	}

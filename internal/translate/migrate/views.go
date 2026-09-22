@@ -340,6 +340,10 @@ func (m *migration) framedComments(e *sysmlv1.Element) []*sysmlv1.Element {
 			m.downgrade(e, "the concernList tag names "+id+", which is not in the document")
 			continue
 		}
+		if c.Type != "Comment" {
+			m.downgrade(e, "the concernList tag names the "+kindOf(c)+" "+qualifiedName(c)+", which is not a comment and frames no concern")
+			continue
+		}
 		m.framed[c] = true
 		concerns = append(concerns, c)
 	}

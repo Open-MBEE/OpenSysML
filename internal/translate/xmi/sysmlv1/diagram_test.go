@@ -175,6 +175,61 @@ func TestDiagramKindFromTypeAlone(t *testing.T) {
 	}
 }
 
+func TestDiagramRepresentationIsNotATypedChild(t *testing.T) {
+	// A comment the diagram owns ahead of its representation object carries
+	// an xmi:type, which names no diagram kind; the contents the tool wrote
+	// outside the representation object show nothing.
+	m := parseDiagrams(t, `
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_d" name="Typed" ownerOfDiagram="_p">
+          <ownedComment xmi:type="uml:Comment" xmi:id="_d_note" body="layout note"/>
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <history><usedElements>_b</usedElements></history>
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="Generic Table">
+                <diagramContents><usedElements>_a</usedElements></diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>`)
+	if d := m.Diagrams[0]; d.Kind != "Generic Table" || d.UMLKind != "" || ids(d.Shown) != "_a" {
+		t.Errorf("diagram = %+v", d)
+	}
+}
+
+func TestNestedDiagramKeepsItsOwnRepresentation(t *testing.T) {
+	// A diagram serialized inside another is read as a diagram of its own;
+	// its kind and contents are not the outer diagram's.
+	m := parseDiagrams(t, `
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_outer" name="Outer" ownerOfDiagram="_p">
+          <ownedDiagram xmi:type="uml:Diagram" xmi:id="_inner" name="Inner" ownerOfDiagram="_a">
+            <xmi:Extension extender="Example UML Tool 1.0">
+              <diagramRepresentation>
+                <diagram:DiagramRepresentationObject type="SysML Internal Block Diagram" umlType="Composite Structure Diagram">
+                  <diagramContents><usedElements>_a_b</usedElements></diagramContents>
+                </diagram:DiagramRepresentationObject>
+              </diagramRepresentation>
+            </xmi:Extension>
+          </ownedDiagram>
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Package Diagram" umlType="Class Diagram">
+                <diagramContents><usedElements>_a</usedElements></diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>`)
+	if len(m.Diagrams) != 2 {
+		t.Fatalf("diagrams = %+v", m.Diagrams)
+	}
+	outer, inner := m.Diagram("_outer"), m.Diagram("_inner")
+	if outer.Kind != "SysML Package Diagram" || ids(outer.Shown) != "_a" {
+		t.Errorf("outer = %+v", outer)
+	}
+	if inner.Kind != "SysML Internal Block Diagram" || ids(inner.Shown) != "_a_b" {
+		t.Errorf("inner = %+v", inner)
+	}
+}
+
 func TestDiagramsInArchiveEntriesResolveAcrossDocuments(t *testing.T) {
 	main := diagramDocument(`
         <ownedDiagram xmi:type="uml:Diagram" xmi:id="_d" name="Across" ownerOfDiagram="_p">
