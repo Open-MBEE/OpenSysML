@@ -1,0 +1,11 @@
+{
+	"libraries": true,
+	"type": "action",
+	"evaluate": "test::stream",
+	"outputs": {
+		"total": {"type": "Sequence", "elements": [
+			{"type": "Integer", "value": 7},
+			{"type": "Integer", "value": 7}
+		]}
+	}
+}

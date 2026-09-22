@@ -460,10 +460,11 @@ func (s *scheduler) choose(c ChoicePoint, whereOf func(i int) string) int {
 // c.Taken and the draw: a weighted draw where the model can draw, the most probable
 // branch under an unseeded declared or reverse run, the witness's move, weighed and
 // drawn as the run weighs it; the exploration and the checker resolve it as every branch.
-func (s *scheduler) chooseWeighted(c *ChoicePoint) error {
+// whereOf, as for choose, is how the run reports Where once alternative i is taken.
+func (s *scheduler) chooseWeighted(c *ChoicePoint, whereOf func(i int) string) error {
 	n := len(c.Alternatives)
 	if n < 2 || len(c.Weights) != n {
-		c.Taken = s.choose(*c, nil)
+		c.Taken = s.choose(*c, whereOf)
 		return nil
 	}
 	total, err := checkWeights(c.Where, c.Weights)
@@ -472,11 +473,11 @@ func (s *scheduler) chooseWeighted(c *ChoicePoint) error {
 	}
 	switch s.policy.kind {
 	case scheduleExplore, scheduleCheck:
-		c.Taken = s.choose(*c, nil)
+		c.Taken = s.choose(*c, whereOf)
 		return nil
 	case scheduleReplay:
 		if s.replaying() {
-			c.Taken = s.replay.chooseWeighted(c)
+			c.Taken = s.replay.chooseWeighted(c, whereOf)
 			return nil
 		}
 	}

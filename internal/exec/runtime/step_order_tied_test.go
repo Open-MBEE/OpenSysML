@@ -9,9 +9,8 @@ import (
 	"testing"
 )
 
-// Of two time triggers tied at the head while a do step is due, the one whose dispatch
-// acts is drawn against each move of the step by name, the dropped one waits; once the
-// step's move wrote what guards the other, both act and the tie is drawn; every witness replays.
+// Two same-spelled time triggers arm one timer, whose dispatch is drawn against each
+// move of a due do step by name; no dispatch order is drawn; every witness replays.
 func TestStepOrderDrawsTheActingTiedEventAlone(t *testing.T) {
 	text, err := os.ReadFile(filepath.Join("testdata", "conformance", "state_do_step_or_tied_dispatch.sysml"))
 	if err != nil {
@@ -30,33 +29,22 @@ func TestStepOrderDrawsTheActingTiedEventAlone(t *testing.T) {
 	if got := finalOutcomes(report); !slices.Equal(got, want) {
 		t.Fatalf("finals %v, want the step first under either trigger and the unguarded trigger first", got)
 	}
-	unguarded := []string{"do top", "dispatch time top 2->idle"}
-	tied := []string{"do top", dispatchTiedLabel}
 	for _, final := range report.Finals {
 		steps := slices.DeleteFunc(slices.Clone(final.Witness.Choices), func(c ChoiceTaken) bool { return c.Kind != ChoiceStepOrder })
-		wrote := strings.Contains(final.Outcome, "did ")
-		if len(steps) == 0 || !slices.Equal(steps[0].Among, unguarded) {
-			t.Fatalf("%s: step orders %v, want the first between the step and the unguarded trigger alone", final.Outcome, steps)
+		if len(steps) == 0 {
+			t.Fatalf("%s: no step order drawn, want one between the step and the group's timer", final.Outcome)
 		}
-		firstTied := slices.IndexFunc(steps, func(c ChoiceTaken) bool { return slices.Equal(c.Among, tied) })
 		for i, step := range steps {
-			want := unguarded
-			if firstTied >= 0 && i >= firstTied {
-				want = tied
-			}
-			if !slices.Equal(step.Among, want) {
-				t.Fatalf("%s: step order %d is %v, want %v: the tie is drawn once the write made both act", final.Outcome, i, step, want)
+			if !slices.Equal(step.Among, []string{"do top", "dispatch time top 1->idle"}) {
+				t.Fatalf("%s: step order %d is %v, want between the step and the group's timer", final.Outcome, i, step)
 			}
 			if i < len(steps)-1 && step.Took != "do top" {
 				t.Fatalf("%s: step order %d took the dispatch before the last, got %s", final.Outcome, i, FormatChoices(final.Witness.Choices))
 			}
 		}
-		if wrote != (firstTied >= 0) {
-			t.Fatalf("%s: the tie is drawn exactly when the step wrote, got %s", final.Outcome, FormatChoices(final.Witness.Choices))
-		}
 		dispatched := slices.ContainsFunc(final.Witness.Choices, func(c ChoiceTaken) bool { return c.Kind == ChoiceDispatchOrder })
-		if wrote != dispatched {
-			t.Fatalf("%s: the dispatch order is drawn exactly when the step wrote before the dispatch, got %s", final.Outcome, FormatChoices(final.Witness.Choices))
+		if dispatched {
+			t.Fatalf("%s: one timer is one occurrence, no dispatch order drawn, got %s", final.Outcome, FormatChoices(final.Witness.Choices))
 		}
 		r := replayWitness(t, m, start, final.Witness, final.Outcome)
 		if got := r.Ctx.Trace().String(); got != final.Witness.Trace {
