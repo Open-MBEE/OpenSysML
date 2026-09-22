@@ -1060,10 +1060,12 @@ the case binds as `observed`; the table has one row per run with that value and 
 beneath, and then the case is concluded once over the sample: `runs`, `mean`, `deviation` (the
 sample standard deviation, none under two runs) and `outOfSpec` (the runs in which a check of
 the case did not hold) are bound and the case's own outputs evaluated over them, a failed run
-failing the table. A check of the case decided run by run — one of `observed`, say — counts the
-runs it did not hold in as `outOfSpec` and is not judged again at the conclusion; a check the
-runs left undecided, one of `mean` or another statistic, is decided over the sample and an
-unsatisfied one fails the verdict. A count of runs the sweep budget does not allow is refused
+failing the table. A check any run decides on its own — one of `observed`, say, or of `observed`
+and a statistic both — is a check of the runs: once the sample is in, each run's is settled over
+it and tabled in the run's row, and the runs it did not hold in are counted as `outOfSpec`, whichever
+run came last; a check every run leaves to the sample, one of `mean` or another statistic alone,
+is decided once at the conclusion and an unsatisfied one fails the verdict. A count of runs the
+sweep budget does not allow is refused
 before any run is made. An
 `observed` that is a quantity is sampled by its magnitude in the first run's unit — a later run
 in a commensurable unit is converted, one of another dimension refuses the sample — and `mean`

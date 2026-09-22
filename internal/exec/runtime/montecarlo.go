@@ -210,35 +210,45 @@ func WeightedMean(weighted []Spread) (mean float64, count int64) {
 func deviationOf(values []float64, mean float64) float64 {
 	spreads := make([]Spread, len(values))
 	for i, v := range values {
-		spreads[i] = Spread{Weight: 1, Value: v - mean}
+		spreads[i] = Spread{Weight: 1, Value: v, About: true}
 	}
-	return PooledDeviation(spreads, len(values)-1)
+	return PooledDeviation(mean, spreads, len(values)-1)
 }
 
-// Spread is one term of a pooled sum of squares: Weight times the square of Value.
+// Spread is one term of a pooled sum of squares: Weight times the square of Value,
+// or of Value's distance from the pool's mean when About it.
 type Spread struct {
 	Weight, Value float64
+	About         bool
 }
 
-// PooledDeviation is the root of the weighted squares of spreads over dof degrees of
-// freedom, 0 for none. The spreads are scaled by the power of two below the largest
-// before squaring, which rounds nothing, so a finite pool has a finite deviation however large.
-func PooledDeviation(spreads []Spread, dof int) float64 {
+// PooledDeviation is the root of the weighted squares of spreads, those About the mean
+// taken from it, over dof degrees of freedom, 0 for none. Values and mean are scaled
+// by the power of two below the largest before differencing and squaring, which rounds
+// nothing, so finite values however large or far apart pool to a finite deviation.
+func PooledDeviation(mean float64, spreads []Spread, dof int) float64 {
 	if dof < 1 {
 		return 0
 	}
 	var largest float64
 	for _, s := range spreads {
 		largest = math.Max(largest, math.Abs(s.Value))
+		if s.About {
+			largest = math.Max(largest, math.Abs(mean))
+		}
 	}
 	if largest == 0 || math.IsInf(largest, 0) || math.IsNaN(largest) {
 		return largest
 	}
 	_, exp := math.Frexp(largest)
 	scale := math.Ldexp(1, exp-1)
+	about := mean / scale
 	var sum float64
 	for _, s := range spreads {
 		d := s.Value / scale
+		if s.About {
+			d -= about
+		}
 		sum += s.Weight * d * d
 	}
 	return scale * math.Sqrt(sum/float64(dof))

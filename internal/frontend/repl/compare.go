@@ -393,7 +393,7 @@ func storedDeviation(cfg *simresults.ConfigurationResults, observable string) (f
 	}
 	var spreads []runtime.Spread
 	for _, v := range cfg.Values(observable) {
-		spreads = append(spreads, runtime.Spread{Weight: 1, Value: v - pooled.Mean})
+		spreads = append(spreads, runtime.Spread{Weight: 1, Value: v, About: true})
 	}
 	for _, s := range cfg.Summarised(observable) {
 		st := s.Statistics
@@ -401,9 +401,9 @@ func storedDeviation(cfg *simresults.ConfigurationResults, observable string) (f
 			return 0, false
 		}
 		n := float64(st.Runs)
-		spreads = append(spreads, runtime.Spread{Weight: n - 1, Value: *st.Deviation}, runtime.Spread{Weight: n, Value: st.Mean - pooled.Mean})
+		spreads = append(spreads, runtime.Spread{Weight: n - 1, Value: *st.Deviation}, runtime.Spread{Weight: n, Value: st.Mean, About: true})
 	}
-	return runtime.PooledDeviation(spreads, pooled.Count-1), true
+	return runtime.PooledDeviation(pooled.Mean, spreads, pooled.Count-1), true
 }
 
 // runRows appends the runs' row of one observable — and the difference from the

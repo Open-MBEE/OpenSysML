@@ -51,15 +51,17 @@ func (ctx *Context) RequireMonteCarloCase(sym *symbols.Symbol) error {
 }
 
 // MonteCarloRun is one run of a Simulation::MonteCarlo case: its steps performed
-// and `observed` read, its statistics unbound until Conclude binds the sample's.
+// and `observed` read, its statistics unbound until ConcludeMonteCarlo binds the sample's.
 type MonteCarloRun struct {
 	ctx   *Context
 	sym   *symbols.Symbol
 	scope *symbols.Scope
 	run   *calcRun
 	log   *evaluationLog
-	// results are the returns ending the case's steps, evaluated by Conclude.
+	// results are the returns ending the case's steps, evaluated by ConcludeMonteCarlo.
 	results []lower.Statement
+	// left marks the checks this run alone left undecided, for the sample to decide.
+	left []bool
 
 	// Case is the qualified name of the case that ran; Subject the object it ran on.
 	Case    string
@@ -72,26 +74,16 @@ type MonteCarloRun struct {
 	// Observed is the value the run's `observed` came to, null when the run left it unbound.
 	Observed Value
 
-	// Verdicts are the case's objectives and assertions checked over this run alone;
-	// one reading a statistic of the sample is undecided here and decided by Conclude.
+	// Verdicts are the case's checks over this run: on its own until ConcludeMonteCarlo
+	// settles them over the sample, which keeps the checks that are the sample's alone.
 	Verdicts []AnalysisVerdict
 }
 
 // Context is the context the run was made in, which its values are read through.
 func (r *MonteCarloRun) Context() *Context { return r.ctx }
 
-// OutOfSpec reports a run some required check of which did not hold.
-func (r *MonteCarloRun) OutOfSpec() bool {
-	for _, v := range r.Verdicts {
-		if v.Status == VerdictNotSatisfied {
-			return true
-		}
-	}
-	return false
-}
-
 // ObserveMonteCarlo makes one run of a Simulation::MonteCarlo case as RunAnalysis would,
-// reading `observed` and the checks in place of the outputs, which Conclude evaluates.
+// reading `observed` and the checks in place of the outputs, which ConcludeMonteCarlo evaluates.
 func (ctx *Context) ObserveMonteCarlo(sym *symbols.Symbol, args AnalysisArgs, scope *symbols.Scope, self *Instance) (*MonteCarloRun, error) {
 	defer ctx.beginRun()()
 
@@ -129,15 +121,20 @@ func (ctx *Context) ObserveMonteCarlo(sym *symbols.Symbol, args AnalysisArgs, sc
 	if err != nil {
 		return nil, err
 	}
-	// The run's environment outlives the invocation: Conclude reads it once the sample is in.
+	// The run's environment outlives the invocation: the conclusion reads it once the sample is in.
 	run = run.detached()
 	_, results := shape.observationSteps()
+	verdicts := ctx.analysisVerdicts(run, sym, scope)
+	left := make([]bool, len(verdicts))
+	for i, v := range verdicts {
+		left[i] = v.Status == VerdictUndecided
+	}
 	return &MonteCarloRun{
-		ctx: ctx, sym: sym, scope: scope, run: run, log: log, results: results,
+		ctx: ctx, sym: sym, scope: scope, run: run, log: log, results: results, left: left,
 		Case:     shape.Name,
 		Subject:  run.boundSubject(ctx),
 		Observed: observed,
-		Verdicts: ctx.analysisVerdicts(run, sym, scope),
+		Verdicts: verdicts,
 	}, nil
 }
 
@@ -187,7 +184,8 @@ type MonteCarloStatistics struct {
 	Mean float64
 	// Deviation is their sample standard deviation, which under two runs there is none of.
 	Deviation float64
-	// OutOfSpec is the number of runs a required check of the case did not hold in.
+	// OutOfSpec is the number of runs a check of the runs did not hold in, counted by
+	// ConcludeMonteCarlo once the runs' checks are settled; MonteCarloSample leaves it 0.
 	OutOfSpec int64
 	// Unit is the unit quantity observations were taken in, which Mean and Deviation
 	// are expressed in; nil when the observations were bare numbers.
@@ -210,7 +208,6 @@ func MonteCarloSample(runs []*MonteCarloRun) (MonteCarloStatistics, error) {
 		return MonteCarloStatistics{}, fmt.Errorf("%w: no run observed anything", ErrMonteCarloObserved)
 	}
 	numbers := make([]semantics.Value, 0, len(runs))
-	var outOfSpec int64
 	var unit *Unit
 	first := runs[0]
 	for i, run := range runs {
@@ -236,12 +233,9 @@ func MonteCarloSample(runs []*MonteCarloRun) (MonteCarloStatistics, error) {
 			number = drawnReal(magnitude)
 		}
 		numbers = append(numbers, number)
-		if run.OutOfSpec() {
-			outOfSpec++
-		}
 	}
 	d := Distribute(numbers)
-	return MonteCarloStatistics{Runs: int64(d.Count), Mean: d.Mean, Deviation: d.Deviation, OutOfSpec: outOfSpec, Unit: unit}, nil
+	return MonteCarloStatistics{Runs: int64(d.Count), Mean: d.Mean, Deviation: d.Deviation, Unit: unit}, nil
 }
 
 // describeObserved words an observation as the sample's refusal names it.
@@ -252,15 +246,52 @@ func describeObserved(value Value) string {
 	return FormatValue(value)
 }
 
-// Conclude binds the sample's statistics (deviation empty under two runs), then reports
-// the case's outputs and the verdict of each check the runs left to the sample to decide.
-func (r *MonteCarloRun) Conclude(stats MonteCarloStatistics) (AnalysisResult, error) {
+// ConcludeMonteCarlo settles every run's checks over the sample's runs, mean and deviation,
+// counts outOfSpec over them, and concludes the case in the last run with the sample's checks.
+func ConcludeMonteCarlo(runs []*MonteCarloRun, stats MonteCarloStatistics) (AnalysisResult, error) {
+	if len(runs) == 0 {
+		return AnalysisResult{}, fmt.Errorf("%w: no run to conclude", ErrMonteCarloObserved)
+	}
+	for _, r := range runs {
+		r.settle(stats)
+	}
+	sample := sampleChecks(runs)
+	for _, r := range runs {
+		r.Verdicts = verdictsOutside(r.Verdicts, sample)
+		if r.failsOwn() {
+			stats.OutOfSpec++
+		}
+	}
+	return runs[len(runs)-1].conclude(stats, sample)
+}
+
+// settle binds the statistics of the observations in the run and decides over them the
+// checks the run left to the sample; a statistic that cannot be bound leaves them undecided.
+func (r *MonteCarloRun) settle(stats MonteCarloStatistics) {
 	ctx := r.ctx
 	defer ctx.beginRun()()
 	r.log.enclosing = ctx.evaluations
 	ctx.evaluations = r.log
 	defer ctx.endEvaluationLog(r.log)
 
+	var settled []AnalysisVerdict
+	if err := r.bindObservationStatistics(stats); err != nil {
+		settled = ctx.undecidedVerdicts(r.sym, r.scope, err)
+	} else {
+		settled = ctx.analysisVerdicts(r.run, r.sym, r.scope)
+	}
+	if len(settled) != len(r.Verdicts) {
+		return
+	}
+	for i, v := range settled {
+		if r.left[i] {
+			r.Verdicts[i] = v
+		}
+	}
+}
+
+// bindObservationStatistics binds runs, mean and deviation (empty under two runs).
+func (r *MonteCarloRun) bindObservationStatistics(stats MonteCarloStatistics) error {
 	deviation := Value{Kind: ValNull}
 	if stats.Runs >= 2 {
 		deviation = stats.statistic(stats.Deviation)
@@ -272,45 +303,99 @@ func (r *MonteCarloRun) Conclude(stats MonteCarloStatistics) (AnalysisResult, er
 		{MonteCarloRunsOutput, constValue(drawnInt(stats.Runs))},
 		{MonteCarloMeanOutput, stats.statistic(stats.Mean)},
 		{MonteCarloDeviationOutput, deviation},
-		{MonteCarloOutOfSpecOutput, constValue(drawnInt(stats.OutOfSpec))},
 	}
 	for _, b := range bound {
 		if err := r.bindStatistic(b.feature, b.value); err != nil {
-			return AnalysisResult{Case: r.Case, Subject: r.Subject}, err
+			return err
 		}
 	}
+	return nil
+}
+
+// sampleChecks marks the checks that are the sample's: every run left them and settled
+// them alike. A check some run decided, or the runs settled apart, is a check of the runs.
+func sampleChecks(runs []*MonteCarloRun) []bool {
+	last := runs[len(runs)-1]
+	sample := make([]bool, len(last.Verdicts))
+	for i := range sample {
+		sample[i] = true
+		for _, r := range runs {
+			if len(r.Verdicts) != len(sample) || !r.left[i] || !sameVerdict(r.Verdicts[i], last.Verdicts[i]) {
+				sample[i] = false
+				break
+			}
+		}
+	}
+	return sample
+}
+
+func sameVerdict(a, b AnalysisVerdict) bool {
+	return a.Status == b.Status && a.Detail == b.Detail
+}
+
+// failsOwn reports a run some check of the runs did not hold in.
+func (r *MonteCarloRun) failsOwn() bool {
+	for _, v := range r.Verdicts {
+		if v.Status == VerdictNotSatisfied {
+			return true
+		}
+	}
+	return false
+}
+
+// verdictsOutside keeps the verdicts of the checks not marked, in order.
+func verdictsOutside(verdicts []AnalysisVerdict, marked []bool) []AnalysisVerdict {
+	kept := make([]AnalysisVerdict, 0, len(verdicts))
+	for i, v := range verdicts {
+		if i >= len(marked) || !marked[i] {
+			kept = append(kept, v)
+		}
+	}
+	return kept
+}
+
+// verdictsWithin keeps the verdicts of the checks marked, in order.
+func verdictsWithin(verdicts []AnalysisVerdict, marked []bool) []AnalysisVerdict {
+	kept := make([]AnalysisVerdict, 0, len(verdicts))
+	for i, v := range verdicts {
+		if i < len(marked) && marked[i] {
+			kept = append(kept, v)
+		}
+	}
+	return kept
+}
+
+// conclude binds outOfSpec over the settled run, then reports the case's outputs and
+// the verdicts of the sample's checks, judged over the results and all four statistics.
+func (r *MonteCarloRun) conclude(stats MonteCarloStatistics, sample []bool) (AnalysisResult, error) {
+	ctx := r.ctx
+	defer ctx.beginRun()()
+	r.log.enclosing = ctx.evaluations
+	ctx.evaluations = r.log
+	defer ctx.endEvaluationLog(r.log)
 
 	result := AnalysisResult{Case: r.Case, Subject: r.Subject}
+	if err := r.bindObservationStatistics(stats); err != nil {
+		return result, err
+	}
+	if err := r.bindStatistic(MonteCarloOutOfSpecOutput, constValue(drawnInt(stats.OutOfSpec))); err != nil {
+		return result, err
+	}
 	if err := r.returnResults(); err != nil {
-		result.Verdicts = ctx.undecidedVerdicts(r.sym, r.scope, err)
+		result.Verdicts = verdictsWithin(ctx.undecidedVerdicts(r.sym, r.scope, err), sample)
 		result.Evaluations = r.log.evaluations(Value{}, false)
 		return result, err
 	}
 	outputs, err := r.run.outputValues(ctx)
 	result.Outputs = outputs
 	if err != nil {
-		result.Verdicts = ctx.undecidedVerdicts(r.sym, r.scope, err)
+		result.Verdicts = verdictsWithin(ctx.undecidedVerdicts(r.sym, r.scope, err), sample)
 		result.Evaluations = r.log.evaluations(Value{}, false)
 		return result, err
 	}
-	result.Verdicts = r.concludingVerdicts(ctx.analysisVerdicts(r.run, r.sym, r.scope))
+	result.Verdicts = verdictsWithin(ctx.analysisVerdicts(r.run, r.sym, r.scope), sample)
 	result.Evaluations = r.log.evaluations(r.run.caseResult(r.run.bindingsFrame(ctx).vars))
 	return result, nil
-}
-
-// concludingVerdicts are the checks the sample decides: those this run alone left
-// undecided. A check decided run by run is counted in outOfSpec, not judged again here.
-func (r *MonteCarloRun) concludingVerdicts(concluded []AnalysisVerdict) []AnalysisVerdict {
-	if len(concluded) != len(r.Verdicts) {
-		return concluded
-	}
-	sample := make([]AnalysisVerdict, 0, len(concluded))
-	for i, v := range concluded {
-		if r.Verdicts[i].Status == VerdictUndecided {
-			sample = append(sample, v)
-		}
-	}
-	return sample
 }
 
 // bindStatistic gives the library's output feature its value, under the name the

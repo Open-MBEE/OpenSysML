@@ -51,6 +51,10 @@ func (s *Session) monteCarloVerdict(inv analysisInvocation, count int64, seed *u
 	if err != nil {
 		return standing(unresolvedVerdict(label, err.Error()), answered)
 	}
+	var concluded runtime.AnalysisResult
+	if sample.unconcluded == nil {
+		concluded, err = sample.conclude()
+	}
 	status, rows := sweepStatus(sample.table)
 	if status == VerdictFails && !failedRun(sample.table) {
 		status = VerdictHolds
@@ -59,18 +63,16 @@ func (s *Session) monteCarloVerdict(inv analysisInvocation, count int64, seed *u
 	lines = append(lines, distributionLines(sample.table)...)
 	verdict := Verdict{Subject: label, Status: status, Values: sweepValues(sample.table, rows), Rows: rows}
 	if sample.unconcluded != nil {
-		if sample.last != nil {
+		if len(sample.completed) > 0 {
 			verdict.Status = worsened(verdict.Status, VerdictUnresolved)
 		}
 		verdict.Lines = append(lines, fmt.Sprintf("%s %s: %s", statusMark(verdict.Status), inv.name, sample.unconcluded.Error()))
 		return standing(verdict, answered)
 	}
-
-	concluded, err := sample.conclude()
 	if err != nil {
 		verdict.Status = worsened(verdict.Status, VerdictUnresolved)
 		verdict.Lines = append(lines, fmt.Sprintf("%s %s: %s", statusMark(verdict.Status), inv.name, err.Error()))
-		reportCaseRunIn(sample.last.Context(), &verdict, concluded)
+		reportCaseRunIn(sample.last().Context(), &verdict, concluded)
 		return standing(verdict, answered)
 	}
 	for _, v := range concluded.Verdicts {
@@ -82,7 +84,7 @@ func (s *Session) monteCarloVerdict(inv analysisInvocation, count int64, seed *u
 		}
 	}
 	verdict.Lines = append(lines, fmt.Sprintf("%s %s over %d run(s)", statusMark(verdict.Status), inv.name, sample.stats.Runs))
-	reportCaseRunIn(sample.last.Context(), &verdict, concluded)
+	reportCaseRunIn(sample.last().Context(), &verdict, concluded)
 	return standing(verdict, answered)
 }
 
@@ -117,22 +119,37 @@ func failedRun(table runtime.SweepTable) bool {
 }
 
 // monteCarloRuns are the runs of a Monte Carlo case: the table of them, the
-// statistics of the completed ones, and the run the case is concluded in.
+// completed ones with the statistics of their sample, and the case's conclusion.
 type monteCarloRuns struct {
 	table runtime.SweepTable
 	stats runtime.MonteCarloStatistics
-	// last is the last completed run, whose context the conclusion is read through;
-	// nil when every run failed.
-	last *runtime.MonteCarloRun
+	// completed are the runs of the table's rows that completed, in row order; the
+	// case is concluded in the last of them.
+	completed []*runtime.MonteCarloRun
 	// unconcluded says why the case is not concluded over the table: no run completed,
 	// or the sample of the completed ones was refused.
 	unconcluded error
 }
 
-// conclude binds the statistics of the sample in the last completed run and
-// evaluates the case's outputs and checks over them.
+// last is the completed run the conclusion is read through.
+func (m *monteCarloRuns) last() *runtime.MonteCarloRun {
+	return m.completed[len(m.completed)-1]
+}
+
+// conclude settles every completed run's checks over the sample and concludes the case in
+// the last; each row then carries the run's settled checks, the sample's own left to the conclusion.
 func (m *monteCarloRuns) conclude() (runtime.AnalysisResult, error) {
-	return m.last.Conclude(m.stats)
+	concluded, err := runtime.ConcludeMonteCarlo(m.completed, m.stats)
+	byNumber := make(map[int64]*runtime.MonteCarloRun, len(m.completed))
+	for _, run := range m.completed {
+		byNumber[run.Number] = run
+	}
+	for k, row := range m.table.Rows {
+		if i, ok := runtime.RunNumber(row.Bindings); ok && byNumber[i] != nil {
+			m.table.Rows[k].Verdicts = byNumber[i].Verdicts
+		}
+	}
+	return concluded, err
 }
 
 // monteCarloSample makes count runs of the invocation, each in its own context on objects
@@ -261,12 +278,11 @@ func (s *Session) monteCarloSample(inv analysisInvocation, count int64, seed *ui
 	if len(completed) == 0 {
 		return &monteCarloRuns{table: table, unconcluded: errors.New("no run completed, so the case is not concluded")}, &answered, nil
 	}
-	last := completed[len(completed)-1]
 	stats, err := runtime.MonteCarloSample(completed)
 	if err != nil {
-		return &monteCarloRuns{table: table, last: last, unconcluded: err}, &answered, nil
+		return &monteCarloRuns{table: table, completed: completed, unconcluded: err}, &answered, nil
 	}
-	return &monteCarloRuns{table: table, stats: stats, last: last}, &answered, nil
+	return &monteCarloRuns{table: table, stats: stats, completed: completed}, &answered, nil
 }
 
 // declaredFresh makes the reference one each run makes from its declaration, as its
@@ -283,7 +299,7 @@ func declaredFresh(ref freshRef) (freshRef, error) {
 }
 
 // decidedVerdicts are the checks a run decided on its own; one reading a statistic
-// of the sample is undecided until the conclusion, which reports it.
+// of the sample is undecided until the sample is in, when the conclusion settles it.
 func decidedVerdicts(verdicts []runtime.AnalysisVerdict) []runtime.AnalysisVerdict {
 	decided := make([]runtime.AnalysisVerdict, 0, len(verdicts))
 	for _, v := range verdicts {

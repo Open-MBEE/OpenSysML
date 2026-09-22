@@ -170,6 +170,9 @@ func TestDistributeRealsAtTheEdgesOfTheRange(t *testing.T) {
 	if wide.Deviation != math.MaxFloat64 {
 		t.Errorf("deviation %v over the whole Real range, want %v", wide.Deviation, math.MaxFloat64)
 	}
+	if off := Distribute(reals(-math.MaxFloat64, math.MaxFloat64, math.MaxFloat64, math.MaxFloat64)); off.Deviation != math.MaxFloat64 {
+		t.Errorf("deviation %v about a mean of max/2, want %v: the distance from the mean overflows, the deviation does not", off.Deviation, math.MaxFloat64)
+	}
 	if huge.Deviation != 0 || !math.IsInf(inf.Deviation, 1) {
 		t.Errorf("deviation %v of equal values, want 0; %v where an observation is infinite, want +Inf", huge.Deviation, inf.Deviation)
 	}

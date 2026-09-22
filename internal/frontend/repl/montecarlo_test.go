@@ -70,6 +70,15 @@ const monteCarloModel = `package MC {
 		return Mean : Real = mean;
 		out OutOfSpec : Natural = outOfSpec;
 	}
+	analysis def Mixed :> Simulation::MonteCarlo {
+		subject analysed : Probe;
+		perform action run ::> analysed.settle;
+		attribute :>> observed : Real = analysed.t;
+		assert constraint { observed < 3.0 or mean > 4.0 }
+		assert constraint { mean > 0.0 }
+		return Mean : Real = mean;
+		out OutOfSpec : Natural = outOfSpec;
+	}
 	analysis def Branching :> Simulation::MonteCarlo {
 		subject analysed : Probe;
 		perform action run ::> analysed.settle;
@@ -210,6 +219,52 @@ func TestRunsCountPerRunChecksWithoutJudgingTheLastRunTwice(t *testing.T) {
 	}
 	if got := statistic(t, out, "OutOfSpec"); got != float64(failed) {
 		t.Errorf("OutOfSpec = %v, want the %d run(s) observing 3.0 or more", got, failed)
+	}
+}
+
+// A check some runs decide alone and others leave to the sample is the runs': each run's is
+// settled over the sample, tabled in its row and counted, whichever run came last.
+func TestRunsSettleAMixedCheckInEveryRun(t *testing.T) {
+	s := monteCarloSession(t)
+	for _, seed := range []string{"7", "10"} {
+		out := run(t, s, "%runs 5 "+seed+" MC::Mixed MC::probe")
+		wants(t, out, "✓ MC::Mixed over 5 run(s)", "assertion mean > 0.0: satisfied")
+		if strings.Contains(strings.SplitN(out, "✓ MC::Mixed", 2)[1], "observed < 3.0") {
+			t.Errorf("seed %s: the conclusion judges the runs' check:\n%s", seed, out)
+		}
+		var failed, rows int
+		var last bool
+		for _, line := range strings.Split(out, "\n") {
+			fields := strings.Split(line, "|")
+			if len(fields) < 3 {
+				continue
+			}
+			v, err := strconv.ParseFloat(strings.TrimSpace(fields[1]), 64)
+			if err != nil {
+				continue
+			}
+			rows++
+			last = v >= 3.0
+			if last {
+				failed++
+			}
+			want := "observed < 3.0 or mean > 4.0: satisfied"
+			if last {
+				want = "observed < 3.0 or mean > 4.0: not satisfied"
+			}
+			if got := strings.TrimSpace(fields[2]); got != want {
+				t.Errorf("seed %s: run observing %v tabled %q, want %q", seed, v, got, want)
+			}
+		}
+		if rows != 5 || failed == 0 || failed == 5 {
+			t.Fatalf("seed %s: the sample proves nothing: %d of %d run(s) out of spec:\n%s", seed, failed, rows, out)
+		}
+		if (seed == "7" && !last) || (seed == "10" && last) {
+			t.Fatalf("seed %s: the last run observed %v; the seeds must end on a run left to the sample and on one decided alone:\n%s", seed, last, out)
+		}
+		if got := statistic(t, out, "OutOfSpec"); got != float64(failed) {
+			t.Errorf("seed %s: OutOfSpec = %v, want the %d run(s) observing 3.0 or more", seed, got, failed)
+		}
 	}
 }
 
