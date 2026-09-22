@@ -1696,7 +1696,10 @@ written, so the graph read from the JSON form is the graph the Turtle form parse
 to, triple for triple. An `@id` is resolved within the subject's project scope, or
 by the `<qualifier>:<id>` it spells; an id in the expression grammar
 ([Expressions](#expressions)), owned through the document by an element it
-names and carrying no `qualifiedName`, is an `expr:` node.
+names and carrying no `qualifiedName`, is an `expr:` node. The form carries no
+namespace of its own, so this is a reading of the id: a foreign document whose
+ordinary element is spelled that way and states no `qualifiedName` is read as an
+expression node.
 
 Two readings are decided by the graph rather than the JSON, and are worth knowing:
 
