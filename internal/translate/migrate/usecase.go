@@ -113,6 +113,27 @@ func (m *migration) subjects(e *sysmlv1.Element) {
 		m.w.line("ref " + kw + " " + writeName(name) + " : " + m.ref(s, e) + ";")
 		m.downgrade(e, joinNotes("v2 admits one subject per case, so the subject "+qualifiedName(s)+" is written as the reference usage "+name, note))
 	}
+	if first && m.hasActors(e) {
+		m.w.line("subject;")
+		m.add(e, Mapped, "", subjectNote("actors"))
+	}
+}
+
+// hasActors reports whether an actor usage is written in the use case's body:
+// for an association reaching an actor, or for a property typed by one.
+func (m *migration) hasActors(useCase *sysmlv1.Element) bool {
+	for _, link := range m.actors {
+		if link.useCase == useCase {
+			return true
+		}
+	}
+	for _, p := range useCase.Owned("ownedAttribute") {
+		t := m.model.Ref(p, "type")
+		if p.Type != "Port" && t != nil && t.Type == "Actor" && m.written(t) {
+			return true
+		}
+	}
+	return false
 }
 
 // include writes a UML Include as an include use case usage of the including

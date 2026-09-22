@@ -33,6 +33,7 @@ package 'Use Cases' {
         actor bank : Context::Bank;
     }
     use case def 'Authorise Payment' {
+        subject;
         actor bank : Context::Bank;
     }
     use case def 'Wait For Space' {

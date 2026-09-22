@@ -147,12 +147,17 @@ func (m *migration) operationUsage(op *sysmlv1.Element) string {
 
 // operationFeature writes the action usage that makes an operation a feature of
 // its owner, as a v1 operation is; the classifier behavior's own performance is that usage.
+// In a port def, whose usages may not be composite, the action is referential.
 func (m *migration) operationFeature(op *sysmlv1.Element) {
 	if m.classifierBehaviorOperation(op.Parent) == op {
 		return
 	}
 	usage := m.operationUsage(op)
-	m.w.line(actionKw + writeName(usage) + " : " + m.ref(op, op.Parent) + ";")
+	kw := actionKw
+	if cat, _ := m.classify(op.Parent); cat == catPortDef {
+		kw = "ref " + actionKw
+	}
+	m.w.line(kw + writeName(usage) + " : " + m.ref(op, op.Parent) + ";")
 	m.add(op, Mapped, "", "its owner's usage "+usage+" performs it, as a call on an object does")
 }
 

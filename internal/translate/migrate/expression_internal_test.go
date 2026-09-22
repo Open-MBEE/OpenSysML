@@ -75,6 +75,28 @@ func TestExpressionTreeLowering(t *testing.T) {
 			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="&gt;">` + leaf("a") +
 				`<operand xmi:type="uml:OpaqueExpression" xmi:id="_o"><body>b / 2</body><language>JavaScript</language></operand></specification>`,
 			"constraint r { a > b / 2 }"},
+		{"named operators and element values a tool keeps in an extension",
+			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="Equal">
+			   <operand xmi:type="uml:Expression" xmi:id="_s1" symbol="Plus">
+			     <operand xmi:type="uml:Expression" xmi:id="_s2" symbol="Power">
+			       <xmi:Extension extender="MagicDraw UML"><modelExtension>
+			         <operand xmi:type="uml:ElementValue" xmi:id="_ev1" element="_a"/>
+			       </modelExtension></xmi:Extension>
+			       <operand xmi:type="uml:LiteralInteger" xmi:id="_l" value="2"/>
+			     </operand>
+			     <operand xmi:type="uml:Expression" xmi:id="_s3" symbol="Minus">
+			       <operand xmi:type="uml:ElementValue" xmi:id="_ev2" element="_b"/>
+			     </operand>
+			   </operand>
+			   <operand xmi:type="uml:LiteralReal" xmi:id="_r" value="4.0"/>
+			 </specification>`,
+			"constraint r { a ** 2 + -b == 4.0 }"},
+		{"element value of an element the scope does not read is refused",
+			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="==">` + leaf("a") + `<operand xmi:type="uml:ElementValue" xmi:id="_ev" element="_on"/></specification>`,
+			`the UML Expression tree has no v2 form: the name "On" resolves to nothing readable: nothing visible from Blk is called On`},
+		{"element value naming nothing is refused",
+			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="==">` + leaf("a") + `<operand xmi:type="uml:ElementValue" xmi:id="_ev"/></specification>`,
+			`the UML Expression tree has no v2 form: the construct "<ElementValue>" is outside the translated subset: the element value names no element`},
 		{"unknown operator symbol is refused",
 			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="implies">` + leaf("a") + leaf("b") + `</specification>`,
 			`not migrated: Constraint 'r' implies(a, b) — the UML Expression tree has no v2 form: the call "implies" is not in the translated function table`},

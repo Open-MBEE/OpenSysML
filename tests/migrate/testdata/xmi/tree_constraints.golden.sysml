@@ -24,6 +24,12 @@ package Tanks {
         in attribute level : ScalarValues::Real;
         /* not migrated: Constraint (_sRule) >(level, {English} the settling level) — the UML Expression tree has no v2 form: the language "English" is not translated: an opaque operand is read only in a script language */
     }
+    constraint def Diagonal {
+        in attribute width : ScalarValues::Real;
+        in attribute height : ScalarValues::Real;
+        in attribute span : ScalarValues::Real;
+        width ** 2 + height ** 2 == span ** 2
+    }
     individual part def dayTank :> Tank {
         attribute :>> level = 40 + 2.5;
         attribute :>> mode = Mode::Idle;

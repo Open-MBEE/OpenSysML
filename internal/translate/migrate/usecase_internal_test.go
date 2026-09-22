@@ -47,7 +47,7 @@ func TestUseCaseForms(t *testing.T) {
 			   <ownedEnd xmi:type="uml:Property" xmi:id="_e1" type="_user" association="_a"/>
 			   <ownedEnd xmi:type="uml:Property" xmi:id="_e2" type="_uc" association="_a"/>
 			 </packagedElement>`, "",
-			[]string{"use case def Buy {\n    actor user : User;\n}"}, "_a", Mapped},
+			[]string{"use case def Buy {\n    subject;\n    actor user : User;\n}"}, "_a", Mapped},
 		{"an actor end the use case owns is written once, as its actor",
 			`<packagedElement xmi:type="uml:UseCase" xmi:id="_uc" name="Buy">
 			   <ownedAttribute xmi:type="uml:Property" xmi:id="_p" name="customer" type="_user" association="_a"/>
@@ -55,7 +55,7 @@ func TestUseCaseForms(t *testing.T) {
 			 <packagedElement xmi:type="uml:Association" xmi:id="_a" memberEnd="_p _e2">
 			   <ownedEnd xmi:type="uml:Property" xmi:id="_e2" type="_uc" association="_a"/>
 			 </packagedElement>`, "",
-			[]string{"use case def Buy {\n    actor customer : User;\n}"}, "_p", Mapped},
+			[]string{"use case def Buy {\n    subject;\n    actor customer : User;\n}"}, "_p", Mapped},
 		{"an include is an include use case usage",
 			`<packagedElement xmi:type="uml:UseCase" xmi:id="_uc" name="Buy">
 			   <include xmi:type="uml:Include" xmi:id="_inc" includingCase="_uc" addition="_browse"/>

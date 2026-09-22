@@ -155,7 +155,10 @@ func (m *migration) directValue(v, scope *sysmlv1.Element, want wanted) (expr st
 func (m *migration) instanceValue(v, scope *sysmlv1.Element) (expr string, ok bool, note string) {
 	inst := m.model.Ref(v, "instance")
 	if inst == nil {
-		return "", false, "instance value refers to nothing in the document"
+		if len(v.RefIDs("instance")) == 0 {
+			return "", false, "the instance value names no instance"
+		}
+		return "", false, "the instance value refers to nothing in the document"
 	}
 	if inst.Type == "EnumerationLiteral" && inst.Parent != nil {
 		return m.ref(inst.Parent, scope) + "::" + writeName(inst.Name), true, ""

@@ -288,7 +288,13 @@ func (m *migration) viewpointTags(e *sysmlv1.Element, concerns []*sysmlv1.Elemen
 	if len(doc) > 0 {
 		m.w.lines(prefixFirst("doc ", commentLines(strings.Join(doc, "\n"))))
 	}
+	subject := false
 	for _, id := range vp.IDs("stakeholder") {
+		if !subject && m.stakeholderWritable(e, id) {
+			m.w.line("subject;")
+			m.add(e, Mapped, "", subjectNote("stakeholders"))
+			subject = true
+		}
 		m.stakeholder(e, id)
 	}
 	for _, concern := range vp.Tags["concern"] {
@@ -323,6 +329,22 @@ func (m *migration) framedComments(e *sysmlv1.Element) []*sysmlv1.Element {
 		concerns = append(concerns, c)
 	}
 	return concerns
+}
+
+// subjectNote explains the anonymous subject written before a case's or
+// viewpoint's other parameters, which v2 places after the subject.
+func subjectNote(params string) string {
+	return "v2 places the subject before the " + params + ", so an anonymous subject is declared"
+}
+
+// stakeholderWritable reports whether the stakeholder tag id becomes a usage.
+func (m *migration) stakeholderWritable(vp *sysmlv1.Element, id string) bool {
+	s := m.model.Lookup(id)
+	if s == nil || s.IsProxy() || !m.written(s) {
+		return false
+	}
+	cat, _ := m.classify(s)
+	return cat == catPartDef
 }
 
 // stakeholder writes one stakeholder usage of a viewpoint, typed by the part

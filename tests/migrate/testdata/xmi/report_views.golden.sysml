@@ -23,6 +23,7 @@ package Viewpoints {
          * method: Viewpoints::Safety Viewpoint::Collect Guards
          * presentation: table
          */
+        subject;
         stakeholder 'safety Inspector' : Stakeholders::'Safety Inspector';
         stakeholder maintainer : Stakeholders::Maintainer;
         frame concern {
@@ -35,6 +36,7 @@ package Viewpoints {
     }
     viewpoint 'Operations Viewpoint' {
         doc /* Show how the pump is run. */
+        subject;
         stakeholder operator : Stakeholders::Operator;
     }
     part def 'Plain Block';

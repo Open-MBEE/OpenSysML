@@ -13,7 +13,7 @@
 Actor	Stakeholders::Maintainer	_maintainer	-> Stakeholders::Maintainer	(a UML actor is written as a part def)
 «Stakeholder» Class	Stakeholders::Operator	_operator	-> Stakeholders::Operator	(a v1 «Stakeholder» is written as a part def; «Stakeholder» concern = Keep the pump running. has no v2 form)
 «Stakeholder» Class	Stakeholders::Safety Inspector	_inspector	-> Stakeholders::'Safety Inspector'	(a v1 «Stakeholder» is written as a part def)
-«Viewpoint» Class	Viewpoints::Operations Viewpoint	_opsVp	-> Viewpoints::'Operations Viewpoint'	(the stakeholder tag names _absentStakeholder, which is not in the document)
+«Viewpoint» Class	Viewpoints::Operations Viewpoint	_opsVp	-> Viewpoints::'Operations Viewpoint'	(v2 places the subject before the stakeholders, so an anonymous subject is declared; the stakeholder tag names _absentStakeholder, which is not in the document)
 «Expose» Dependency	Views::<Dependency>	_exposeReq	(written as 2 relationships, one per client–supplier pair)
 «View» Package	Views::Handbook	_viewPkg	-> Views::Handbook	(a «View» package is written as a view usage holding its members)
 Class	Views::Handbook::Chapter	_chapter	-> Views::Handbook::Chapter	(a plain UML class without «Block» is written as a part def)
@@ -30,7 +30,7 @@ Property	Pump System::Pump::motor	_motor	-> 'Pump System'::Pump::motor
 Package	Stakeholders	_people	-> Stakeholders
 Package	Viewpoints	_vps	-> Viewpoints
 «Block» Class	Viewpoints::Plain Block	_notAViewpoint	-> Viewpoints::'Plain Block'
-«Viewpoint» Class	Viewpoints::Safety Viewpoint	_safetyVp	-> Viewpoints::'Safety Viewpoint'
+«Viewpoint» Class	Viewpoints::Safety Viewpoint	_safetyVp	-> Viewpoints::'Safety Viewpoint'	(v2 places the subject before the stakeholders, so an anonymous subject is declared)
 Comment	Viewpoints::Safety Viewpoint::<Comment>	_safetyVpDoc
 Comment	Viewpoints::Safety Viewpoint::<Comment>	_hazardConcern
 Activity	Viewpoints::Safety Viewpoint::Collect Guards	_collect	-> Viewpoints::'Safety Viewpoint'::'Collect Guards'

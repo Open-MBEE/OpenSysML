@@ -1,11 +1,12 @@
 # SysML v1 to v2 migration report: tree_constraints.xmi
-# migrated 24 element(s): 16 mapped, 6 approximated, 2 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 29 element(s): 20 mapped, 7 approximated, 2 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
 ## unmapped (2)
 Constraint	Tanks::Settled::<Constraint>	_sRule	(the UML Expression tree has no v2 form: the language "English" is not translated: an opaque operand is read only in a script language)
 Constraint	Tanks::Tank::sealed	_sealedRule	(the UML Expression tree has no v2 form: the call "xor" is not in the translated function table)
 
-## approximated (6)
+## approximated (7)
+Constraint	Tanks::Diagonal::<Constraint>	_dRule	-> Tanks::Diagonal	(the UML Expression tree is written as a v2 expression)
 Constraint	Tanks::Tank::filling below capacity	_fillingRule	-> Tanks::Tank::'filling below capacity'	(the UML Expression tree is written as a v2 expression)
 Property	Tanks::Tank::label	_label	-> Tanks::Tank::label	(default value not migrated: the UML StringExpression tree has no v2 form: the construct "+" is outside the translated subset: string concatenation has no v2 form in the subset)
 Property	Tanks::Tank::reserve	_reserve	-> Tanks::Tank::reserve	(the UML Expression tree is written as a v2 expression)
@@ -13,9 +14,13 @@ Constraint	Tanks::WithinCapacity::<Constraint>	_wRule	-> Tanks::WithinCapacity	(
 Slot	Tanks::dayTank::<Slot>	_dayLevel	-> Tanks::dayTank::level	(the UML Expression tree is written as a v2 expression)
 Slot	Tanks::dayTank::<Slot>	_dayMode	-> Tanks::dayTank::mode	(the UML Expression tree is written as a v2 expression)
 
-## mapped (16)
+## mapped (20)
 Model	Model	_m	(the root model's members are written at the top level)
 Package	Tanks	_pkg	-> Tanks
+«ConstraintBlock» Class	Tanks::Diagonal	_diag	-> Tanks::Diagonal
+Property	Tanks::Diagonal::height	_dHeight	-> Tanks::Diagonal::height
+Property	Tanks::Diagonal::span	_dSpan	-> Tanks::Diagonal::span
+Property	Tanks::Diagonal::width	_dWidth	-> Tanks::Diagonal::width
 Enumeration	Tanks::Mode	_modeEnum	-> Tanks::Mode
 EnumerationLiteral	Tanks::Mode::Filling	_filling	-> Tanks::Mode::Filling
 EnumerationLiteral	Tanks::Mode::Idle	_idle	-> Tanks::Mode::Idle

@@ -1,7 +1,7 @@
 package Bus {
     port def Telemetry {
         abstract action def Report;
-        action report : Report;
+        ref action report : Report;
     }
     port def Command;
 }

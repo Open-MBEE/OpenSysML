@@ -56,6 +56,9 @@ returned over the service yet.
   beside the user's Model or package bearing a standard library name; a user package named
   `SysML` or `Libraries` inside the model, or standing alone as the document's only root, is
   migrated like any other.
+- The one extension content read is a `uml:ElementValue` a tool keeps there because UML has
+  no such metaclass (MagicDraw's reference to a property from inside an Expression tree): it
+  is an operand of the element owning the extension, in document order.
 - Only stereotypes from the OMG SysML and UML standard profiles, in the OMG namespaces or
   Papyrus' `…/papyrus/sysml/…` ones, classify elements; any other profile's «Block» or
   «Requirement» — a user's own, a tool's customization layer over SysML, or another profile
@@ -140,6 +143,26 @@ returned over the service yet.
 | `NaN`/infinite real literals | comment | approximated |
 | References to ids the document does not define | the resolvable ends are written; the missing ids are named in the report | approximated |
 | OpaqueExpression defaults and constraints | copied verbatim when it parses as a v2 expression and every name it uses is a written element visible where it is written (a parameter, an inherited feature, an enclosing member); a JavaScript or English body is translated through the [opaque-language subset](#the-opaque-language-subset) when every name resolves the same way (`V = R * i` → `V == R * i`, `java.util.Collections.max(s)` → `RealFunctions::max(s)`); a body outside the subset stays a `comment` and the report names the offending token | mapped / approximated |
+| UML Expression, StringExpression (a constraint's specification, a default, a slot value) | the operator tree lowered to a v2 expression: arithmetic (`+ - * / %`, unary minus), comparison, `and`/`or`/`not` — each spelled as its sign or its name in any case (`Plus`, `Equal`, `Not`) — a literal, an enumeration literal or instance the scope can name, a feature reference (a bare symbol, or an ElementValue naming a feature the scope reads under that name), and a call whose symbol is in the [opaque-language subset](#the-opaque-language-subset)'s function table (`max` → `RealFunctions::max`, `Power` → `**`); an opaque operand is read through the same subset | mapped |
+| UML Expression with an operator outside that set (`xor`, string concatenation, a call not in the table, an operand in a language the subset does not read, an ElementValue naming nothing or an element the scope does not read under its name) | comment naming the tree and the construct refused | **unmapped** |
+| UML Interface | `port def` | mapped |
+| InterfaceRealization from a block | a `port` of the `part def` typed by the interface's `port def` — reused when the block already owns one so typed, otherwise added under the interface's name; a `part def` cannot specialize a `port def` | approximated |
+| InterfaceRealization from an «InterfaceBlock» | `port def :> <Interface>` | mapped |
+| InterfaceRealization whose interface is not written (outside the document, library content) or whose client becomes neither a part def nor a port def | comment naming why | **unmapped** |
+| UseCase (whatever incidental stereotype a tool applies to it) | `use case def`; its UML `subject` is a `subject` usage (v2 admits one per case: a second is a `ref part` with a note); an anonymous association to an Actor is an `actor` of the use case typed by the actor's `part def`, with the association's multiplicity; a `classifierBehavior` is performed as in a block | mapped |
+| Include | `include use case <name> : <Included>;` | mapped |
+| Extend, ExtensionPoint | `dependency <Extending> to <Extended>;` in the extending case, the extension points and condition as a comment; v2 has no `extend` | approximated / **unmapped** (extension point) |
+| Include, Extend whose other case is not in the document | comment | **unmapped** |
+| Property typed by a UseCase | `ref use case x : <Case>;` | approximated |
+| «View» Class | package-level `view <Name>` usage (v2 admits `expose` in a usage alone): `satisfy <Viewpoint>` for its `viewpoint` tag and its «Conform» generalizations and dependencies; `expose` members for its «Expose» dependencies; its «View» property typed by another view a nested `view x :> <Other>;`, `ref` when not composite | mapped |
+| «View» Package | `view <Name>` usage holding the package's members | approximated |
+| «View» whose `viewpoint` tag or «Conform» names a viewpoint that is not written, or a view a nested view's feature of an inaccessible definition | the view without that `satisfy`/subsetting, the reason in the report | approximated |
+| «Expose» Dependency | `expose <Supplier>;` in the client view — `expose <Package>::**;` for a package, since v1 exposes its contents | mapped |
+| «Expose» whose supplier is a diagram (notation the tool keeps outside the model), outside the document, or not written, or whose client is not a view | comment | **unmapped** |
+| «Conform» Generalization, Dependency | `satisfy <Viewpoint>;` in the view | mapped |
+| «Conform» whose client is not a view or whose supplier is not a viewpoint | comment | **unmapped** |
+| «Viewpoint» Class | package-level `viewpoint <Name>` usage: `purpose`, `language`, `method` and `presentation` tags in a `doc`; each `stakeholder` tag a `stakeholder x : <Stakeholder>` usage; each `concern` tag and each `concernList` comment a `frame concern { doc /* … */ }`; a stakeholder or concern id that is not in the document is named in the report | mapped / approximated |
+| «Stakeholder» Class | `part def`; the OMG standard library bundled here defines no `Stakeholder` base definition, so nothing is specialized; the `concern` tag stays a comment | approximated |
 | Activity | `action def` (see [Behaviors](#behaviors)); a block's `classifierBehavior` is also performed by a `perform action` usage of the `part def` | mapped |
 | Parameter, ActivityParameterNode | `in`/`out`/`inout` parameter of the `action def`; a `return` parameter is `out`; the parameter node's flows bind the parameter | mapped (return: approximated) |
 | InitialNode, ActivityFinalNode, FlowFinalNode | `first start then …`; `action x terminate;`; the token ends where a flow final does | mapped |
@@ -236,7 +259,8 @@ The mapping has been run over the XMI of the [OpenMBEE TMT SysML model](https://
 of notation that passes the gate below in a few seconds, and its Turtle in a few more. Five
 elements in six map or are approximated; the unmapped rest is dominated by absolute and
 unparseable time events, call actions that call no behavior, simulation verdicts stored in
-slots of constraint properties, and views.
+slots of constraint properties, and exposes of diagrams, which are notation the tool keeps outside
+the model.
 
 ## Behaviors
 

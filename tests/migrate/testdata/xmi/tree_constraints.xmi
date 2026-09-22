@@ -110,6 +110,47 @@
           </specification>
         </ownedRule>
       </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_diag" name="Diagonal">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_dWidth" name="width">
+          <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_dHeight" name="height">
+          <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_dSpan" name="span">
+          <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+        </ownedAttribute>
+        <ownedRule xmi:type="uml:Constraint" xmi:id="_dRule" constrainedElement="_diag">
+          <specification xmi:type="uml:Expression" xmi:id="_dSpec" symbol="Equal">
+            <operand xmi:type="uml:Expression" xmi:id="_dSpec1" symbol="Plus">
+              <operand xmi:type="uml:Expression" xmi:id="_dSpec1a" symbol="Power">
+                <xmi:Extension extender="MagicDraw UML">
+                  <modelExtension>
+                    <operand xmi:type="uml:ElementValue" xmi:id="_dSpec1a1" element="_dWidth"/>
+                  </modelExtension>
+                </xmi:Extension>
+                <operand xmi:type="uml:LiteralInteger" xmi:id="_dSpec1a2" value="2"/>
+              </operand>
+              <operand xmi:type="uml:Expression" xmi:id="_dSpec1b" symbol="Power">
+                <xmi:Extension extender="MagicDraw UML">
+                  <modelExtension>
+                    <operand xmi:type="uml:ElementValue" xmi:id="_dSpec1b1" element="_dHeight"/>
+                  </modelExtension>
+                </xmi:Extension>
+                <operand xmi:type="uml:LiteralInteger" xmi:id="_dSpec1b2" value="2"/>
+              </operand>
+            </operand>
+            <operand xmi:type="uml:Expression" xmi:id="_dSpec2" symbol="Power">
+              <xmi:Extension extender="MagicDraw UML">
+                <modelExtension>
+                  <operand xmi:type="uml:ElementValue" xmi:id="_dSpec2a" element="_dSpan"/>
+                </modelExtension>
+              </xmi:Extension>
+              <operand xmi:type="uml:LiteralInteger" xmi:id="_dSpec2b" value="2"/>
+            </operand>
+          </specification>
+        </ownedRule>
+      </packagedElement>
       <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_day" name="dayTank" classifier="_tank">
         <slot xmi:type="uml:Slot" xmi:id="_dayLevel" definingFeature="_level">
           <value xmi:type="uml:Expression" xmi:id="_dayLevelV" symbol="+">
@@ -128,4 +169,5 @@
   <sysml:Block xmi:id="_s1" base_Class="_tank"/>
   <sysml:ConstraintBlock xmi:id="_s2" base_Class="_within"/>
   <sysml:ConstraintBlock xmi:id="_s3" base_Class="_settled"/>
+  <sysml:ConstraintBlock xmi:id="_s4" base_Class="_diag"/>
 </xmi:XMI>

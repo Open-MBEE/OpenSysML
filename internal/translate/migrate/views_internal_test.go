@@ -37,7 +37,7 @@ func TestViewForms(t *testing.T) {
 	}{
 		{"a viewpoint carries its purpose and stakeholders",
 			``, ``,
-			[]string{"viewpoint Ops {\n    doc /* Run the pump. */\n    stakeholder operator : Operator;\n}"}, "_vp", Mapped},
+			[]string{"viewpoint Ops {\n    doc /* Run the pump. */\n    subject;\n    stakeholder operator : Operator;\n}"}, "_vp", Mapped},
 		{"a concern tag frames a concern",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_vp2" name="Safety"/>`,
 			`<sysml:Viewpoint xmi:id="_sv2" base_Class="_vp2" concern="Is it safe?"/>`,
