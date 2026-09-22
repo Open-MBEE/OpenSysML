@@ -37,10 +37,8 @@ func (f *deprecatedFlag) Set(string) error { return errors.New(f.instead) }
 // A SysML v1 model (-from xmi, or a .xmi/.uml/.mdzip file) is migrated to v2 on the
 // way in; see writeMigrationReport for where its report goes.
 //
-// Either side may name a Flexo MMS project branch instead of a file: a branch
-// URL as the input is read as its RDF graph, a branch URL as -o is the place a
-// Turtle conversion is pushed. runConvertExit carries the run's exit status so
-// a repository refusal can exit 1 while a misuse still exits 2 through fail.
+// Either side may name a Flexo branch URL instead of a file: read as its RDF
+// graph, or the place a Turtle conversion is pushed.
 func runConvertExit(files []string) int {
 	status, err := runConvert(files)
 	if err != nil {
@@ -160,8 +158,7 @@ func writeConversion(path string, out []byte, to convert.Format) error {
 }
 
 // openBranch resolves a branch URL's repository: the endpoint it names, or the
-// configured one for the flexo:// shorthand, under the bearer token both
-// services share.
+// configured one, under the shared bearer token.
 func openBranch(ref flexo.BranchRef) (*flexo.Repository, error) {
 	cfg, err := flexo.ConfigFromEnv()
 	if err != nil {
@@ -176,9 +173,8 @@ func openBranch(ref flexo.BranchRef) (*flexo.Repository, error) {
 	return flexo.New(cfg).Repository(ref.Project, ref.Branch), nil
 }
 
-// readBranch converts a repository branch to the format -convert asks for: the
-// branch is read as its head commit's RDF graph, which notation and Turtle are
-// both written from.
+// readBranch converts a repository branch to -convert's format: the branch is
+// read as its head commit's RDF graph.
 func readBranch(ref flexo.BranchRef, to convert.Format) (int, error) {
 	if fromFormat != "" {
 		if f, err := convert.ParseFormat(fromFormat); err != nil {
@@ -215,9 +211,8 @@ func readBranch(ref flexo.BranchRef, to convert.Format) (int, error) {
 	} else if err := writeConversion(outputPath, out, to); err != nil {
 		return 0, err
 	}
-	// The head just read is the baseline the next push is refused past; record
-	// it beside the output file, or where -sync-state names, never on a
-	// stdout-only run.
+	// Record the head just read, beside the output file or where -sync-state
+	// names; a stdout-only run records nothing.
 	statePath := syncState
 	if statePath == "" && outputPath != "" {
 		statePath = reposync.StatePath(outputPath)
@@ -228,10 +223,8 @@ func readBranch(ref flexo.BranchRef, to convert.Format) (int, error) {
 	return recordBranchState(repo.Seen(), ref, statePath)
 }
 
-// pushBranch replaces a repository branch's model graph with the model
-// converted to Turtle, recording the commit it makes beside the model (or
-// where -sync-state names). A state that names a commit the branch moved past
-// is refused, so a pushed graph can never silently overwrite another writer's.
+// pushBranch replaces a branch's model graph with the model converted to
+// Turtle; a sync state the head moved past refuses the write.
 func pushBranch(input string, to convert.Format, ref flexo.BranchRef) (int, error) {
 	if to != convert.FormatTurtle {
 		return 0, fmt.Errorf("a repository branch holds a graph; convert to ttl to push, not %s", to)
@@ -302,9 +295,8 @@ func pushBranch(input string, to convert.Format, ref flexo.BranchRef) (int, erro
 	return exitHolds, nil
 }
 
-// recordBranchState writes the head commit a branch read or write stood at to
-// the sync state file, refusing one pinned to another project or branch and
-// leaving an up-to-date file untouched.
+// recordBranchState writes the head commit the run stood at to the sync state
+// file; one pinned to another project or branch is refused.
 func recordBranchState(head string, ref flexo.BranchRef, statePath string) (int, error) {
 	if head == "" {
 		return exitHolds, nil

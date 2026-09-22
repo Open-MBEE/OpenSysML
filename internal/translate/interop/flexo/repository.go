@@ -56,9 +56,8 @@ func (r *Repository) Head(ctx context.Context) (string, error) {
 // this repository wrote; empty before either.
 func (r *Repository) Seen() string { return r.seen }
 
-// Resume records the last-seen commit a saved sync state carries, so the next
-// write stands at it and a head that has since moved is refused instead of
-// silently written past.
+// Resume records the last-seen commit a saved sync state carries, so a head
+// that has since moved is refused instead of written past.
 func (r *Repository) Resume(commit string) { r.seen = commit }
 
 // Graph reads the branch as its head commit left it, so the read is of one
@@ -83,11 +82,7 @@ func (r *Repository) GraphAt(ctx context.Context, commit string) (*rdf.Graph, er
 }
 
 // Push replaces the branch's whole model graph with the given Turtle and
-// returns the commit Layer 1 made of it, which the branch then shows as head.
-// The write carries the branch's etag as its precondition: a head that moved
-// past what this repository last saw (read or resumed) is refused as a
-// StaleBranchError with nothing written, as is a head that moves between the
-// precondition read and the write.
+// returns the commit made; a head that moved past what was seen is refused.
 func (r *Repository) Push(ctx context.Context, turtle []byte, message string) (string, error) {
 	head, err := r.Head(ctx)
 	if err != nil {
@@ -103,10 +98,7 @@ func (r *Repository) Push(ctx context.Context, turtle []byte, message string) (s
 	committed, err := r.client.PutGraph(ctx, r.project, r.branch, turtle, message, etag)
 	if err != nil {
 		if Status(err) == http.StatusPreconditionFailed {
-			// A 412 is ambiguous on the deployed service: a mismatched etag
-			// writes nothing, but a matched one commits and still answers 412
-			// — its own response ETag is the commit it made. The new head
-			// tells the two apart.
+			// A committed write also answers 412; the new head tells them apart.
 			current, readErr := r.Head(ctx)
 			if readErr != nil {
 				return "", fmt.Errorf("the branch answered 412 and its head could not be re-read: %w", readErr)

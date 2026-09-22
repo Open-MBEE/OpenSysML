@@ -6,27 +6,19 @@ import (
 	"strings"
 )
 
-// BranchRef is one project branch of a running stack, as a command-line URL
-// names it. SysMLV2URL is the endpoint the URL spelled out, or empty when the
-// shorthand left it to the configured default.
+// BranchRef is one project branch as a command-line URL names it; SysMLV2URL
+// is the endpoint the URL spelled out, empty for the configured default.
 type BranchRef struct {
 	SysMLV2URL string
 	Project    string
 	Branch     string
 }
 
-// ParseBranchURL tells a project branch's URL from a file path, and resolves
-// the forms a command line accepts into the branch it names:
+// ParseBranchURL resolves the branch URL forms a command line accepts, and
+// reports ok=false for a string that is a file path rather than a URL:
 //
 //	http(s)://host[:port][/base]/projects/{project}/branches/{branch}
 //	flexo://{project}/{branch}
-//
-// The http(s) form names the endpoint itself — everything before /projects/
-// is the SysML v2 API base URL — while the flexo:// shorthand uses the
-// configured endpoint (FLEXO_SYSMLV2_URL, default http://localhost:8083).
-// A trailing slash is tolerated; anything else after the branch id is an
-// error, as is a URL of either scheme that names no branch. A string that is
-// not a URL at all reports ok=false and is left to be read as a file path.
 func ParseBranchURL(raw string) (ref BranchRef, ok bool, err error) {
 	if rest, found := strings.CutPrefix(raw, "flexo://"); found {
 		parts := strings.Split(strings.Trim(rest, "/"), "/")

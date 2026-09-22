@@ -98,8 +98,7 @@ func TestEntryPointErrors(t *testing.T) {
 }
 
 // FromGraph is the conversion a graph that was never parsed — one read from a
-// repository — gets: notation through the exporter, Turtle as the normalized
-// document, and the same refusal to write XMI any conversion gives.
+// repository — gets, refusals to write included.
 func TestFromGraphWritesNotationAndTurtle(t *testing.T) {
 	graph, err := convert.SysMLToRDF("p.sysml", []byte("package P { part def Vehicle; }"))
 	if err != nil {

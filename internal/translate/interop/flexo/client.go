@@ -276,24 +276,15 @@ func (c *Client) branchGraphURL(project, branch string) string {
 		c.cfg.Layer1URL, url.PathEscape(c.cfg.Org), url.PathEscape(project), url.PathEscape(branch))
 }
 
-// LoadTurtle replaces a branch's model graph with the given Turtle through
-// Layer 1's Graph Store Protocol endpoint, accepting whatever is there. It is
-// PutGraph with If-Match *, the precondition the measurement harness loads
-// under; a push that must refuse a moved head uses PutGraph with the branch's
-// etag instead.
+// LoadTurtle replaces a branch's model graph unconditionally: PutGraph with
+// If-Match *, the precondition the measurement harness loads under.
 func (c *Client) LoadTurtle(ctx context.Context, project, branch string, turtle []byte, message string) error {
 	_, err := c.PutGraph(ctx, project, branch, turtle, message, "*")
 	return err
 }
 
-// PutGraph replaces a branch's model graph with the given Turtle through Layer
-// 1's Graph Store Protocol endpoint, conditional on the branch etag: ifMatch is
-// the etag the branch must still carry, or "*" to accept whatever is there. A
-// branch that moved answers 412, which Status(err) reports. The response's own
-// ETag is returned either way: on a write that landed it is the commit made —
-// the deployed service re-checks the precondition against the etag it just
-// moved and so answers 412 even for a write it committed — which is how a
-// caller tells that answer apart from a refused one.
+// PutGraph replaces a branch's model graph, conditional on ifMatch ("*" = any).
+// The response ETag — the commit made — is returned: 412 also answers a committed write.
 func (c *Client) PutGraph(ctx context.Context, project, branch string, turtle []byte, message, ifMatch string) (string, error) {
 	target := c.branchGraphURL(project, branch)
 	if message != "" {
@@ -309,8 +300,7 @@ func (c *Client) PutGraph(ctx context.Context, project, branch string, turtle []
 }
 
 // BranchETag reads the etag Layer 1's branch resource carries — the entity tag
-// a conditional graph write quotes as its If-Match. A response without one is
-// an error: there is nothing to put a precondition on.
+// a conditional graph write quotes as its If-Match.
 func (c *Client) BranchETag(ctx context.Context, project, branch string) (string, error) {
 	target := fmt.Sprintf("%s/orgs/%s/repos/%s/branches/%s",
 		c.cfg.Layer1URL, url.PathEscape(c.cfg.Org), url.PathEscape(project), url.PathEscape(branch))
