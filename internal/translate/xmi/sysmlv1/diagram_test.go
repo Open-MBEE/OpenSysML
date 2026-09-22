@@ -281,6 +281,12 @@ func TestNestedDiagramKeepsItsOwnRepresentation(t *testing.T) {
 	if inner.Kind != "SysML Internal Block Diagram" || ids(inner.Shown) != "_a_b" {
 		t.Errorf("inner = %+v", inner)
 	}
+	if m.Diagram("#_inner") != inner || m.Diagram("model.xml#_outer") != outer {
+		t.Error("an href's fragment does not find its diagram")
+	}
+	if m.Diagram("_gone") != nil || m.Diagram("model.xml#") != nil || m.Diagram("") != nil {
+		t.Error("an id no diagram has finds one")
+	}
 }
 
 func TestDiagramsInArchiveEntriesResolveAcrossDocuments(t *testing.T) {

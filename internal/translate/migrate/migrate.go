@@ -67,6 +67,7 @@ func FromModel(name string, model *sysmlv1.Model) *Result {
 		parallel:     map[*sysmlv1.Element]string{},
 		exposed:      map[*sysmlv1.Element]string{},
 		methodOf:     map[*sysmlv1.Element]*sysmlv1.Element{},
+		endNames:     map[*sysmlv1.Element]string{},
 		realizes:     map[*sysmlv1.Element]*sysmlv1.Element{},
 		opUsage:      map[*sysmlv1.Element]string{},
 		deciding:     map[*sysmlv1.Element]bool{},
@@ -197,6 +198,8 @@ type migration struct {
 	scope *sysmlv1.Element
 	// methodOf maps each behavior that is the method of an operation to it.
 	methodOf map[*sysmlv1.Element]*sysmlv1.Element
+	// endNames holds the name a connection def declares each member end under.
+	endNames map[*sysmlv1.Element]string
 	// realizes maps a method's parameter to the operation's it stands for.
 	realizes map[*sysmlv1.Element]*sysmlv1.Element
 	// opUsage names, for each operation, the action usage of its owner that performs it.
@@ -373,7 +376,7 @@ func weaker(a, b Verdict) bool {
 // types the run configurations' result snapshots, and then exposes the
 // features the connectors and slots that will be written reach.
 func (m *migration) prepare() {
-	var reachers, configs, laned []*sysmlv1.Element
+	var reachers, configs, laned, associations []*sysmlv1.Element
 	var links []*actorLink
 	var walk func(e *sysmlv1.Element)
 	walk = func(e *sysmlv1.Element) {
@@ -465,9 +468,12 @@ func (m *migration) prepare() {
 			m.invoke(e, "effect")
 		case "Class", "Component", "Node", "Device", "ExecutionEnvironment", "UseCase":
 			m.invoke(e, "classifierBehavior")
-		case "Association":
-			if link := m.actorLink(e); link != nil {
-				links = append(links, link)
+		case "Association", "AssociationClass":
+			associations = append(associations, e)
+			if e.Type == "Association" {
+				if link := m.actorLink(e); link != nil {
+					links = append(links, link)
+				}
 			}
 		}
 		for _, c := range e.Children {
@@ -489,6 +495,9 @@ func (m *migration) prepare() {
 	}
 	m.admitAbsent(laned)
 	m.planViews()
+	for _, a := range associations {
+		m.nameEnds(a)
+	}
 }
 
 // exposeReached exposes the features a connector's ends or an instance's slots
@@ -1444,9 +1453,8 @@ func (m *migration) association(e *sysmlv1.Element) {
 		saved := m.scope
 		m.scope = e
 		m.comments(e)
-		used := map[string]bool{}
 		for _, end := range ends {
-			m.associationEnd(e, end, used)
+			m.associationEnd(e, end)
 		}
 		for _, c := range e.Children {
 			if c.Role != "ownedEnd" {
@@ -1462,24 +1470,40 @@ func (m *migration) association(e *sysmlv1.Element) {
 	})
 }
 
-// associationEnd writes one member end of a connection def, renaming it past
-// the ends and members already written.
-func (m *migration) associationEnd(e, end *sysmlv1.Element, used map[string]bool) {
+// nameEnds settles the names the connection def written for association e
+// declares its ends under: each past the ends before it, and one a classifier
+// owns past the def's members too. An owned end renamed is referred to by the new name.
+func (m *migration) nameEnds(e *sysmlv1.Element) {
+	if !m.written(e) {
+		return
+	}
+	used := map[string]bool{}
+	for _, end := range m.model.Refs(e, "memberEnd") {
+		name := m.nameOf(end)
+		if name == "" && m.model.Ref(end, "type") != nil {
+			name = m.nameFor(end)
+		}
+		clash := func(n string) bool { return used[n] || (end.Parent != e && m.nameTaken(e, n)) }
+		for base, i := name, 2; name != "" && clash(name); i++ {
+			name = fmt.Sprintf("%s%d", base, i)
+		}
+		if was := m.nameOf(end); was != "" && name != was {
+			m.downgrade(e, "end "+was+" is written as "+name+" so the ends and members stay distinct")
+			if end.Parent == e {
+				m.names[end] = name
+			}
+		}
+		used[name] = true
+		m.endNames[end] = name
+	}
+}
+
+// associationEnd writes one member end of a connection def under the name
+// nameEnds settled for it.
+func (m *migration) associationEnd(e, end *sysmlv1.Element) {
 	t := m.model.Ref(end, "type")
 	typ, tnote := m.typeRef(t, e)
-	endName := m.nameOf(end)
-	if endName == "" && t != nil {
-		endName = m.nameFor(end)
-	}
-	// An end named elsewhere yields to a member of the connection def.
-	clash := func(n string) bool { return used[n] || (end.Parent != e && m.nameTaken(e, n)) }
-	for base, i := endName, 2; endName != "" && clash(endName); i++ {
-		endName = fmt.Sprintf("%s%d", base, i)
-	}
-	if endName != m.nameOf(end) && m.nameOf(end) != "" {
-		m.downgrade(e, "end "+m.nameOf(end)+" is written as "+endName+" so the ends and members stay distinct")
-	}
-	used[endName] = true
+	endName := m.endNames[end]
 	decl := "end"
 	if endName != "" {
 		decl += " " + writeName(endName)

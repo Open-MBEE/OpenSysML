@@ -103,6 +103,12 @@ func TestViewForms(t *testing.T) {
 			 <xmi:Extension extender="Tool"><ownedDiagram xmi:type="uml:Diagram" xmi:id="_bdd" name="Pump BDD" ownerOfDiagram="_sys"/></xmi:Extension>`,
 			`<sysml:View xmi:id="_s1" base_Class="_v"/><sysml:Expose xmi:id="_s2" base_Dependency="_d"/>`,
 			[]string{"view Overview {\n    expose Sys::'Pump BDD';\n}", "view 'Pump BDD' {\n        render Views::asTextualNotation;\n    }"}, "_d", Mapped},
+		{"an expose whose supplier is an href to a diagram exposes the diagram's view",
+			`<packagedElement xmi:type="uml:Class" xmi:id="_v" name="Overview"/>
+			 <packagedElement xmi:type="uml:Dependency" xmi:id="_d" client="_v"><supplier href="#_bdd"/></packagedElement>
+			 <xmi:Extension extender="Tool"><ownedDiagram xmi:type="uml:Diagram" xmi:id="_bdd" name="Pump BDD" ownerOfDiagram="_sys"/></xmi:Extension>`,
+			`<sysml:View xmi:id="_s1" base_Class="_v"/><sysml:Expose xmi:id="_s2" base_Dependency="_d"/>`,
+			[]string{"view Overview {\n    expose Sys::'Pump BDD';\n}"}, "_d", Mapped},
 		{"an expose of a diagram held by an unwritten owner names the view where it is written",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_v" name="Overview"/>
 			 <packagedElement xmi:type="uml:Dependency" xmi:id="_d" client="_v" supplier="_bdd"/>

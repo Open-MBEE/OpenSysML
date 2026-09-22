@@ -99,10 +99,15 @@ type segment struct {
 	feature bool
 }
 
-// path returns the segments of e's qualified name, see segments.
+// path returns the segments of e's qualified name, see segments. A behavior
+// that is the method of an operation is written as that operation's body, so
+// it and its members are named under the operation.
 func (m *migration) path(e *sysmlv1.Element) []segment {
 	var segs []segment
 	for cur := e; cur != nil; cur = memberOwner(cur) {
+		if op := m.methodOf[cur]; op != nil {
+			cur = op
+		}
 		if cur.Parent == nil && cur.Type == "Model" {
 			break
 		}

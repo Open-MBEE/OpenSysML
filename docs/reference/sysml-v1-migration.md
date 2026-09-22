@@ -174,7 +174,7 @@ returned over the service yet.
 | «View» Package | `view <Name>` usage holding the package's members | approximated |
 | «View» whose `viewpoint` tag or «Conform» names a viewpoint that is not written, or a view a nested view's feature of an inaccessible definition | the view without that `satisfy`/subsetting, the reason in the report | approximated |
 | «Expose» Dependency | `expose <Supplier>;` in the client view — `expose <Package>::**;` for a package, since v1 exposes its contents | mapped |
-| «Expose» whose supplier is a diagram | `expose <View>;` naming the view the diagram is written as (see [Diagrams](#diagrams)), qualified from the client view's body | mapped |
+| «Expose» whose supplier is a diagram, by id or by an `href` whose fragment is the diagram's id | `expose <View>;` naming the view the diagram is written as (see [Diagrams](#diagrams)), qualified from the client view's body | mapped |
 | «Expose» whose supplier is outside the document or not written (a diagram no written element can hold included), or whose client is not a view | comment | **unmapped** |
 | «Conform» Generalization, Dependency | `satisfy <Viewpoint>;` in the view | mapped |
 | «Conform» whose client is not a view or whose supplier is not a viewpoint | comment | **unmapped** |
@@ -287,9 +287,10 @@ quoted (`'Vehicle Design'`).
 A diagram is a v2 `view`: what it shows is exposed, how it is drawn is not migrated (a layout
 has no v2 form). The view is named after the diagram and written in the body of the v2
 element `ownerOfDiagram` names — a `package`, or the `part def`, `state def`, `action def`,
-`metadata def`… written for a classifier; for a behavior that is the method of an operation, the operation's
-definition, whose body the behavior is written as — and exposes, by qualified name, every
-shown element the document writes; a shown element that is not written (a result snapshot,
+`metadata def`… written for a classifier; for a behavior that is the method of an operation, the
+operation's definition, whose body the behavior is written as, so the behavior's members are
+exposed under the operation's name — and exposes, by qualified name, every shown element the
+document writes; a shown element that is not written (a result snapshot,
 tool content, an element nothing refers to, a state or an action node, which have no name of
 their own outside their body) is dropped and counted in the note. A diagram showing nothing writable is still a view,
 with no `expose`, so the model's inventory of diagrams is complete. Each `expose` names one

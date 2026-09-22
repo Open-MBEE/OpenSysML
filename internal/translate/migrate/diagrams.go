@@ -371,8 +371,9 @@ func (m *migration) actorLinkOf(e *sysmlv1.Element) *actorLink {
 }
 
 // exposable is the declaration written for e that a view can expose: its own,
-// or the operation a behavior is the method of. It is nil when nothing written
-// stands for e: library and tool content, and what a body leaves out.
+// or the operation a behavior is the method of, or that one's parameter. It is
+// nil when nothing written stands for e: library and tool content, and what a
+// body leaves out.
 func (m *migration) exposable(e *sysmlv1.Element) *sysmlv1.Element {
 	if e == nil || m.scalarValue(e) != "" {
 		return nil

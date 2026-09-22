@@ -98,6 +98,25 @@ func TestDiagramViews(t *testing.T) {
 			diagram("_d", "Shutting", "_shutting", "SysML Activity Diagram", "_pump"),
 			[]string{"action def Shut {\n        view Shutting {\n            expose Sys::Pump;\n            render Views::asTextualNotation;\n        }\n        /* body not migrated"}, Mapped,
 			"its owner OpaqueBehavior Valve::Shutting is written as the body of action def Valve::Shut, whose method it is"},
+		{"a member of a method behavior is exposed under the operation that holds its body",
+			`<packagedElement xmi:type="uml:Class" xmi:id="_valve" name="Valve">
+			   <ownedOperation xmi:type="uml:Operation" xmi:id="_open" name="Open" method="_opening"/>
+			   <ownedBehavior xmi:type="uml:Activity" xmi:id="_opening" name="Opening" specification="_open">
+			     <ownedAttribute xmi:type="uml:Property" xmi:id="_status" name="status"/>
+			     <node xmi:type="uml:InitialNode" xmi:id="_o_init"/>
+			   </ownedBehavior>
+			 </packagedElement>`,
+			diagram("_d", "Valves", "_sys", "SysML Block Definition Diagram", "_status"),
+			[]string{"action def Open {\n        ref status;", "view Valves {\n        expose Valve::Open::status;\n        render Views::asTreeDiagram;\n    }"}, Mapped, ""},
+		{"a shown association end is exposed under the name its connection def declares",
+			`<packagedElement xmi:type="uml:Class" xmi:id="_tank" name="Tank">
+			   <ownedAttribute xmi:type="uml:Property" xmi:id="_t_end" name="pump" type="_pump" association="_feeds"/>
+			 </packagedElement>
+			 <packagedElement xmi:type="uml:Association" xmi:id="_feeds" name="Feeds" memberEnd="_t_end _a_end">
+			   <ownedEnd xmi:type="uml:Property" xmi:id="_a_end" type="_pump" association="_feeds"/>
+			 </packagedElement>`,
+			diagram("_d", "Feeding", "_sys", "SysML Block Definition Diagram", "_a_end"),
+			[]string{"connection def Feeds {\n    end pump2 : Sys::Pump;\n    end pump : Sys::Pump;\n}", "view Feeding {\n        expose Feeds::pump;\n        render Views::asTreeDiagram;\n    }"}, Mapped, ""},
 		{"a shown primitive is exposed past a member named like its library package",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_svs" name="ScalarValues"/>
 			 <packagedElement xmi:type="uml:Class" xmi:id="_tank" name="Tank">

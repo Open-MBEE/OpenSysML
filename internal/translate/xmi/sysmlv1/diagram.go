@@ -139,8 +139,12 @@ func (m *Model) linkDiagrams() {
 	}
 }
 
-// Diagram finds the diagram with xmi:id id; nil when no diagram has it.
+// Diagram finds the diagram with xmi:id id, or the one an href's fragment
+// names; nil when no diagram has it.
 func (m *Model) Diagram(id string) *Diagram {
+	if i := strings.LastIndexByte(id, '#'); i >= 0 {
+		id = id[i+1:]
+	}
 	if id == "" {
 		return nil
 	}
