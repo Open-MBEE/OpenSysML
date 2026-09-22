@@ -428,6 +428,30 @@ states left, right react`), explored like any other ([below](#when-a-model-has-m
 A do body that binds an `in` pin to nothing, or to a feature the state does not declare, is
 refused when the behavior starts, naming the pin.
 
+**An exit that reads what fired the transition.** A transition's accepted data — the `d` of
+`accept d : Dim`, the `p1` of `accept op(p1)` — is a feature of the transition, visible by its
+simple name to the transition's own guard and effect. The exit of the state the transition
+leaves runs before that effect, but as a step of the same transition performance, so it reads
+the data qualified by the transition's name, and an exit shared by several leaving transitions
+reads whichever is being taken with `??`, a transition not being taken reading as nothing:
+
+```sysml
+state idle {
+    exit action {
+        in level : Integer = warn.w ?? alarm.a;
+        assign exits := exits * 100 + level;
+    }
+}
+transition warn first idle accept w : Warning then warned;
+transition alarm first idle accept a : Alarm then alarmed;
+```
+
+A transition leaving a composite state binds the exits of the substates it leaves the same
+way, and a completion transition, or one whose trigger carries no data, binds nothing — the
+parameter keeps its default. A read of a transition not being taken, with no `??` to fall back
+on, leaves the parameter without a value and is refused when the exit runs, as is a payload of
+the wrong type.
+
 <a id="ending-a-state-machine-with-terminate"></a>
 **Ending a state machine with `terminate`.** A transition whose target is a terminate action
 usage — `transition first watching accept Abort then stop; action stop terminate;`, the

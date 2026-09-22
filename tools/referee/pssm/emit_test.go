@@ -286,11 +286,24 @@ func TestEmitFactoryInitializesAttributes(t *testing.T) {
 		t.Errorf("writing another class's feature: err = %v", err)
 	}
 
-	unread := strings.Replace(factoryWrite("tgtXValue", "uml:LiteralInteger", "15"),
-		`<edge xmi:type="uml:ObjectFlow" xmi:id="fE4" source="fFork" target="fWriteObj"/>`, "", 1)
-	_, err = emitWithTarget(t, factoryTarget(unread))
+	onSelf := strings.Replace(factoryWrite("tgtXValue", "uml:LiteralInteger", "15"),
+		`<edge xmi:type="uml:ObjectFlow" xmi:id="fE4" source="fFork" target="fWriteObj"/>`,
+		`<node xmi:type="uml:ReadSelfAction" xmi:id="fSelf"><result xmi:type="uml:OutputPin" xmi:id="fSelfOut"/></node>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="fE4" source="fSelfOut" target="fWriteObj"/>`, 1)
+	_, err = emitWithTarget(t, factoryTarget(onSelf))
 	if !errors.As(err, &te) || !strings.Contains(err.Error(), "is not a literal initialization of the new instance") {
 		t.Errorf("writing something other than the instance: err = %v", err)
+	}
+
+	// A write whose object pin nothing feeds never fires (fUML), so it initializes nothing.
+	unread := strings.Replace(factoryWrite("tgtXValue", "uml:LiteralInteger", "15"),
+		`<edge xmi:type="uml:ObjectFlow" xmi:id="fE4" source="fFork" target="fWriteObj"/>`, "", 1)
+	m, err = emitWithTarget(t, factoryTarget(unread))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(m.Text, "attribute value : Integer;") {
+		t.Errorf("a write nothing feeds left a value:\n%s", m.Text)
 	}
 
 	// A nested class's own `value` shares the name, not the identity.

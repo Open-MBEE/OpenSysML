@@ -163,6 +163,7 @@ type pathDraw struct {
 // mark, bound trigger arguments), kept aside while another queue's units run.
 type firingScope struct {
 	event        *Event
+	taken        *lower.Transition
 	change       *lower.Transition
 	notes        []RunNote
 	leftAhead    map[*ast.StateNode]bool
@@ -184,7 +185,7 @@ type dataSlot struct {
 // firing captures the firing the executor is in the middle of.
 func (e *StateExecutor) firing() firingScope {
 	return firingScope{
-		event: e.firingEvent, change: e.firingChange, notes: e.firingNotes,
+		event: e.firingEvent, taken: e.firingTrans, change: e.firingChange, notes: e.firingNotes,
 		leftAhead: e.leftAhead, exitingAhead: e.exitingAhead, enteredAhead: e.enteredAhead,
 		moving: e.moving,
 	}
@@ -193,7 +194,7 @@ func (e *StateExecutor) firing() firingScope {
 // setFiring puts the executor back in the middle of the firing, keeping what the
 // firing had bound as it is.
 func (e *StateExecutor) setFiring(s *firingScope) {
-	e.firingEvent, e.firingChange, e.firingNotes = s.event, s.change, s.notes
+	e.firingEvent, e.firingTrans, e.firingChange, e.firingNotes = s.event, s.taken, s.change, s.notes
 	e.leftAhead, e.exitingAhead, e.enteredAhead = s.leftAhead, s.exitingAhead, s.enteredAhead
 	e.moving = s.moving
 }
@@ -242,28 +243,28 @@ func (e *StateExecutor) bindData(name string, value Value) {
 
 // restoreData snapshots the named data entries and returns the function putting them back,
 // deleting the ones that were absent; a front swaps a firing's bindings in and out this way.
-func (e *StateExecutor) restoreData(names []ast.NameSegment) func() {
+func (e *StateExecutor) restoreData(names []string) func() {
 	q := e.runningQueue()
 	if q == nil {
 		return e.restoreSharedData(names)
 	}
 	s := &q.firing
 	for _, name := range names {
-		if _, bound := s.bound[name.Text]; bound {
+		if _, bound := s.bound[name]; bound {
 			continue
 		}
-		prior, held := e.stateData[name.Text]
-		s.shadowed[name.Text] = dataSlot{value: prior, held: held}
-		s.bound[name.Text] = prior
+		prior, held := e.stateData[name]
+		s.shadowed[name] = dataSlot{value: prior, held: held}
+		s.bound[name] = prior
 	}
 	return func() {
 		for _, name := range names {
-			if _, bound := s.bound[name.Text]; !bound {
+			if _, bound := s.bound[name]; !bound {
 				continue
 			}
-			s.restore(e, name.Text)
-			delete(s.bound, name.Text)
-			delete(s.shadowed, name.Text)
+			s.restore(e, name)
+			delete(s.bound, name)
+			delete(s.shadowed, name)
 		}
 	}
 }

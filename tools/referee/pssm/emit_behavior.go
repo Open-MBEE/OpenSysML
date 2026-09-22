@@ -27,20 +27,71 @@ func (e *emitter) binding(bh *Behavior, where string) (*Binding, error) {
 }
 
 // bindValues spells what each input reads: the accept's own parameters in the
-// accepting transition's effect, elsewhere the attributes it stored them in.
+// accepting transition's effect, the leaving transitions' payloads in an exit,
+// elsewhere the attributes the accepting transition's effect stored them in.
 func (e *emitter) bindValues(binding *Binding) []string {
 	values := make([]string, len(binding.Data))
 	for i, p := range binding.Data {
 		switch {
+		case binding.Exit:
+			values[i] = e.exitValue(binding, p)
 		case binding.Direct == nil:
 			values[i] = e.bindings.carriedAttr(binding.Event, p)
-		case binding.Event.Kind == EventSignal:
-			values[i] = spell(payloadParam(binding.Event.Signal.Name))
 		default:
-			values[i] = spell(p.Name)
+			values[i] = acceptedName(binding.Event, p)
 		}
 	}
 	return values
+}
+
+// acceptedName is the name a transition's accept binds one value of its event's
+// data to: the payload parameter for a signal, the input's own for a call.
+func acceptedName(ev *Event, p Param) string {
+	if ev.Kind == EventSignal {
+		return spell(payloadParam(ev.Signal.Name))
+	}
+	return spell(p.Name)
+}
+
+// exitValue spells one value an exit reads, `T.d`, off the transition being
+// taken: a transition not taken carries nothing, so `??` reaches the taken one.
+func (e *emitter) exitValue(binding *Binding, p Param) string {
+	reads := make([]string, len(binding.Triggers))
+	for i, t := range binding.Triggers {
+		reads[i] = spell(t.Name) + "." + acceptedName(binding.Event, p)
+	}
+	return strings.Join(reads, " ?? ")
+}
+
+// nameExitTriggers marks the transitions whose payload a bound exit reads, so
+// they are declared by name.
+func (e *emitter) nameExitTriggers() {
+	e.named = map[*Transition]bool{}
+	for _, binding := range e.bindings.Bound {
+		if binding.Exit {
+			for _, t := range binding.Triggers {
+				e.named[t] = true
+			}
+		}
+	}
+}
+
+// boundExit spells a state's bound exit as the text after `exit action`: like
+// an entry, once each transition it reads is named and declared in its sight.
+func (e *emitter) boundExit(state *Vertex, ind, where, base string) (string, error) {
+	binding, err := e.binding(state.Exit, where)
+	if err != nil {
+		return "", err
+	}
+	for _, t := range binding.Triggers {
+		if t.Name == "" {
+			return "", e.fail(where, fmt.Sprintf("%s leaves the state unnamed; the exit reads its payload by name", t.Describe()))
+		}
+		if scope := e.scopeOf[t]; scope != nil && scope.owner != nil && !inside(state, scope.owner) {
+			return "", e.fail(where, fmt.Sprintf("transition %s is declared in %s, out of the exit's sight", t.Name, scope.owner.Describe()))
+		}
+	}
+	return e.boundEntry(state.Exit, ind, where, base)
 }
 
 // carryEventData declares an attribute per value of each event's data that a

@@ -520,6 +520,57 @@ func TestReadActivityExpressions(t *testing.T) {
 	}
 }
 
+func TestReadStarvedActions(t *testing.T) {
+	// A trace whose segment is formatted from a parameter, beside a ToString
+	// whose input pin nothing feeds and a Concat fed by it alone: neither fires.
+	src := fixtureHead +
+		`  <packagedElement xmi:type="uml:Activity" xmi:id="actExit" name="exit">
+    <ownedParameter xmi:type="uml:Parameter" xmi:id="exitP1" name="p1" direction="in">
+      <type href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Boolean"/>
+    </ownedParameter>
+    <node xmi:type="uml:ActivityParameterNode" xmi:id="inP1" name="Input('p1')" parameter="exitP1"/>
+    <node xmi:type="uml:CallBehaviorAction" xmi:id="ts" name="call(ToString)">
+      <behavior href="http://www.omg.org/spec/FUML/20180501/fUML_Library.xmi#PrimitiveBehaviors-BooleanFunctions-ToString"/>
+      <argument xmi:type="uml:InputPin" xmi:id="tsX" name="x"/>
+      <result xmi:type="uml:OutputPin" xmi:id="tsOut" name="result"/>
+    </node>
+    <node xmi:type="uml:CallBehaviorAction" xmi:id="cc" name="call(concat)">
+      <behavior href="http://www.omg.org/spec/FUML/20180501/fUML_Library.xmi#PrimitiveBehaviors-StringFunctions-Concat"/>
+      <argument xmi:type="uml:InputPin" xmi:id="ccX" name="x"/>
+      <argument xmi:type="uml:InputPin" xmi:id="ccY" name="y"/>
+      <result xmi:type="uml:OutputPin" xmi:id="ccOut" name="result"/>
+    </node>
+    <node xmi:type="uml:CallBehaviorAction" xmi:id="fed" name="call(ToString)">
+      <behavior href="http://www.omg.org/spec/FUML/20180501/fUML_Library.xmi#PrimitiveBehaviors-BooleanFunctions-ToString"/>
+      <argument xmi:type="uml:InputPin" xmi:id="fedX" name="x"/>
+      <result xmi:type="uml:OutputPin" xmi:id="fedOut" name="result"/>
+    </node>
+    <node xmi:type="uml:ReadSelfAction" xmi:id="rs" name="this"><result xmi:type="uml:OutputPin" xmi:id="rsOut"/></node>
+    <node xmi:type="uml:CallOperationAction" xmi:id="tr" name="call(trace)" operation="opTrace">
+      <argument xmi:type="uml:InputPin" xmi:id="trSeg" name="segment"/>
+      <target xmi:type="uml:InputPin" xmi:id="trTarget" name="target"/>
+    </node>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="e1" source="inP1" target="fedX"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="e2" source="fedOut" target="trSeg"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="e3" source="rsOut" target="trTarget"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="e4" source="tsOut" target="ccX"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="e5" source="tsOut" target="ccY"/>
+  </packagedElement>
+` + fixtureTail
+	doc, err := xmi.Parse(strings.NewReader(src))
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := &reader{doc: doc, suite: &Suite{}, ops: map[string]*Operation{}, behaviors: map[string]*Behavior{}, events: map[string]*Event{}}
+	body := r.readActivity(doc.ByID("actExit"))
+	if len(body.Statements) != 1 || body.Statements[0].String() != "this.trace(ToString(p1))" {
+		t.Errorf("body = %+v", body.Statements)
+	}
+	if len(body.Unsupported) != 0 {
+		t.Errorf("unsupported = %q", body.Unsupported)
+	}
+}
+
 func TestReadUnsupportedNodes(t *testing.T) {
 	src := fixtureHead +
 		`  <packagedElement xmi:type="uml:Activity" xmi:id="actOdd" name="odd">

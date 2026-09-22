@@ -1,6 +1,9 @@
 package runtime
 
-import "github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+import (
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+)
 
 // frame is one level of local bindings an evaluation reads: a calc invocation's
 // parameter slots, a map of named values, or both.
@@ -25,6 +28,16 @@ type frame struct {
 	// merged are the behaviors whose runs' bindings the frame flattened into its
 	// own (flattenFrames), which it still answers for.
 	merged []*symbols.Symbol
+	// firing is the state machine firing the frame's values are read within, so
+	// `T.d` answers what the taken transition's trigger bound; nil outside a machine.
+	firing *firing
+}
+
+// firing is one transition being taken by a state machine, as the behaviors it
+// performs read it: the transition and the values its trigger bound, by name.
+type firing struct {
+	taken   *lower.Transition
+	payload map[string]Value
 }
 
 // canonical is the name aliases bind name under: its redefinition's, else its own.
@@ -99,7 +112,7 @@ func (f frame) performs() *symbols.Symbol {
 // withVars is the frame holding vars in place of its own, still answering for
 // the same run and performance.
 func (f frame) withVars(vars map[string]Value) frame {
-	return frame{vars: vars, aliases: f.aliases, perf: f.perf, owner: f.owner, performed: f.performed, run: f.run, merged: f.merged}
+	return frame{vars: vars, aliases: f.aliases, perf: f.perf, owner: f.owner, performed: f.performed, run: f.run, merged: f.merged, firing: f.firing}
 }
 
 // lookup finds name in the frame: a slot binding it, else the map.

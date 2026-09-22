@@ -92,11 +92,26 @@ func (e *StateExecutor) behaviorHost(behavior lower.StateBehavior) *stateStmtHos
 	return host
 }
 
+// dataFrame is the machine's data as a behavior reads it, within the firing under
+// way; the payload is copied so a do behavior resumed later still reads it.
+func (e *StateExecutor) dataFrame() frame {
+	f := &firing{taken: e.firingTrans}
+	if t := e.firingTrans; t != nil && len(t.Accepted) > 0 {
+		f.payload = make(map[string]Value, len(t.Accepted))
+		for _, name := range t.Accepted {
+			if v, ok := e.stateData[name]; ok {
+				f.payload[name] = v
+			}
+		}
+	}
+	return frame{vars: e.stateData, firing: f}
+}
+
 // run executes the behavior's statements; a do behavior's pause where they wait
 // and are re-entered (perform).
 func (h *stateStmtHost) run() error {
 	_, err := h.exec.ctx.runStatements(func() *stmtEngine {
-		engine := newStmtEngineOver(h.exec.ctx, h, h.exec.stateData, h.attrs)
+		engine := newStmtEngineOver(h.exec.ctx, h, h.exec.dataFrame(), h.attrs)
 		engine.env.perf = h.perfs.root
 		return engine
 	}, h.behavior.Body)
@@ -251,7 +266,7 @@ func (h *stateStmtHost) rootFrame(attrs []map[string]Value) *actionFrame {
 		subactions:  make(map[ast.Node]*actionFrame),
 		nodes:       h.behavior.Nodes,
 		label:       h.describe(),
-		outer:       []frame{mapFrame(h.exec.stateData)},
+		outer:       []frame{h.exec.dataFrame()},
 		run:         h.exec.ctx.newRun(),
 	}
 	if root.scope == nil {

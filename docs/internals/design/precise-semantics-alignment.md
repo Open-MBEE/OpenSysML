@@ -1547,7 +1547,7 @@ which supersede the hand count this section was first written with — the moves
 | Local transition, internal transition | none (SM36, SM37) | no spelling |
 | State machine generalization: extended regions, redefined transitions | none | no spelling |
 | Entry or do behavior with parameters, or a transition effect with parameters, reading the triggering event's data | the notation binds event data on the transition (`accept d : Data`, `accept op(p1, p2)`, §7.18.2; `TransitionPerformances.kerml`'s `accepter`), never on an `entry`/`do` action, so the accepting transition's effect stores each value in an attribute of the machine (`assign trigger_Data := data;`) and the action declares its parameter bound to it (`in data : Data = trigger_Data;`); an effect reads the `accept`'s own parameters. Holds when every transition entering the state accepts the one event whose data conforms to the parameters — the reading is recorded under [Behavior parameters](#behavior-parameters-operation-results-tester-traces-and-standalone-machines) below | standard |
-| Exit behavior with parameters | none: the exit runs before the effect of the transition leaving the state (§7.18.3: exit, effect, entry), the first place the notation makes the accepted data readable, and the suite's exits read that transition's data (*Event 017-B*'s nested exit traces `[in=false]`, the second `Data`, not the `true` that entered) — see below | no translation |
+| Exit behavior with parameters, reading the leaving transition's data | the exit's parameters are bound to the leaving transition's own payload, `exit action { in data : Data = 'T1.2'.data; }` — the transition's `accept d : Data` declares `d` a feature of the transition (§7.18.2, `StateTransitionAction::payload` bound to `accepter.payload`), the exit is a step of the transition performance that accepted it (`StatePerformances.kerml`: `accept then transitionLinkSource.exit`, `TransitionPerformances.kerml`: `transitionLinkSource then effect`), and a transition not being taken reads as nothing; an exit several transitions leave spells `T3.d ?? T4.d`, each binding on its own firing, and an outer transition's payload binds the nested exits it performs (PSSM §8.5.5 `exit`). Holds when every triggered transition leaving the state whose data the signature takes accepts the one event; a leaving path binding nothing (a completion, PSSM §8.5.5) binds nothing and leaves the parameter its default — see [Behavior parameters](#behavior-parameters-operation-results-tester-traces-and-standalone-machines) | standard |
 | Entry or do behavior with parameters reached by a completion transition, or by paths accepting different events | none: a completion binds nothing in UML (PSSM 8.5.5) while an attribute the last accepting transition stored would be stale, so the state's action cannot spell both; no test of the suite has the shape | no translation |
 | Call event whose operation returns a value the tester traces | the runtime returns the outputs the triggered behaviors wrote to the caller (A14, `StateExecutor.Call`) and the driver traces them where the tester does; the producing behavior — an effect or entry with an `out`/`return` parameter — is an `action def` with `out` parameters named as the operation's (§7.16.2), used by the effect or entry with its inputs bound as above, and the runtime returns what it assigned. A do activity with outputs has no caller left to return to when it runs — see below | standard |
 | A `trace(...)` call in the tester's own behavior | the tester is the referee's driver, not a model element: its trace is appended to the target's `log` where the tester makes it, once the call it embeds has returned (`run.go:drive`, `tracer.value`); a trace that embeds no call and does not follow one is refused, since the machine may still be running (`stimulation.go:traceStimulus`) | standard, driven |
@@ -1568,7 +1568,7 @@ area:
 |---|---:|---:|---:|---:|
 | Behavior | 5 | 4 | 0 | 1 |
 | Transition | 15 | 8 | 1 | 6 |
-| Event | 16 | 13 | 0 | 3 |
+| Event | 16 | 16 | 0 | 0 |
 | Entering | 5 | 4 | 0 | 1 |
 | Exiting | 5 | 4 | 0 | 1 |
 | Entry (entry points) | 6 | 0 | 0 | 6 |
@@ -1584,15 +1584,15 @@ area:
 | Redefinition | 6 | 0 | 0 | 6 |
 | Standalone | 3 | 1 | 0 | 2 |
 | Other | 1 | 0 | 0 | 1 |
-| **Total** | **103** | **38** | **32** | **33** |
+| **Total** | **103** | **41** | **32** | **30** |
 
 Of the 29 with no v2 spelling, 14 use an entry point, 12 an exit point, 9 a local transition, 2
 an internal transition and 6 the redefinition machinery (several use more than one). Of the
-expressible tests, 20 use orthogonal regions, 8 a do activity, 9 deferral, 8
-history, 6 a junction, 4 a choice and 5 a fork or join; five (*Event 019-A*, *019-D*, *019-E*,
-*Deferred 007*, *Standalone 003*) have a call event the tester calls synchronously and traces
-after, four of them tracing its result. Three with a call event (*Event 019-B*, *019-C*) or a
-signal (*Event 017-B*) stay refused on an exit behavior that reads the leaving transition's
+expressible tests, 20 use orthogonal regions, 9 a do activity, 9 deferral, 8
+history, 6 a junction, 4 a choice and 5 a fork or join; seven (*Event 019-A* to *019-E*,
+*Deferred 007*, *Standalone 003*) have a call event the tester calls synchronously, five of
+them tracing after it and four of those its result. Three with a call event (*Event 019-B*,
+*019-C*) or a signal (*Event 017-B*) have an exit behavior that reads the leaving transition's
 data.
 
 #### Moves from the hand count
@@ -1604,16 +1604,18 @@ exact translation, for reasons the construct table did not list; two of the nine
 third (*Event 019-A*) since the driver performs the tester's calls and traces in the tester's
 order, and four more (*Event 019-D*, *019-E*, *Deferred 007*, *Standalone 003*) since the
 emitter binds an entry's or effect's parameters from the accepted event's data and returns
-what the behavior assigns to its outputs; adjudicating the failures found a tenth. Each is
+what the behavior assigns to its outputs, and three more (*Event 017-B*, *019-B*, *019-C*)
+since an exit's parameters read the leaving transition's payload; adjudicating the failures
+found a tenth. Each is
 recorded here with the classifier's reason; the count ratchet in `docs/project/pssm-referee.md`
 is where a later translation moves them back.
 
 | Test | Was | Reason |
 |---|---|---|
-| *Event 017-B* | standard | the nested state's exit behavior `exit(data)` reads the data of the second `Data` occurrence, the one firing `T1.2` out of it (its exit traces `[in=false]` after an entry with `true`); the exit runs before `T1.2`'s effect, the first place the notation reads that occurrence, and an attribute the entering `T2` stored would give `[in=true]`, a trace the suite does not admit. The composite's and the nested state's entries and the nested do activity bind from `T2` and are spelled |
+| *Event 017-B* | standard | *translated since the exit reads the leaving transition's payload:* the nested state's exit behavior `exit(data)` reads the data of the second `Data` occurrence, the one firing `T1.2` out of it (its exit traces `[in=false]` after an entry with `true`); an attribute the entering `T2` stored would give `[in=true]`, a trace the suite does not admit, so the exit's parameter is bound to `'T1.2'.data`, the transition's own payload, read while `T1.2` is taken. The composite's and the nested state's entries and the nested do activity bind from `T2`; the two admitted traces, with and without the do activity's segment, are both reached and nothing else |
 | *Event 019-A* | standard | *translated since the driver performs the tester's steps in order:* the tester itself calls `trace("End")` after the target's operation returns; the driver now makes the call synchronously and appends the trace to `log` when it returns, reaching the one admitted trace: the source's exit, the call transition's effect, `End`, the next state's segment |
-| *Event 019-B* | standard | the source state's exit behavior `exit(p1, p2)` reads the arguments of the `op(42, "input")` call that fires `T2` out of it, before `T2`'s effect, and no transition entering the source (the initial's) carries them. `T2`'s effect and the target state's entry bind from the call and are spelled |
-| *Event 019-C* | standard | the innermost state's exit behavior `exit(p1 : Boolean)` reads the argument of the `op2(true)` call that fires `T1.1.2` out of it; the data entering it is `op1`'s `(42, "input")`, of other types. The three entries bind from `op1` and are spelled |
+| *Event 019-B* | standard | *translated since the exit reads the leaving transition's payload:* the source state's exit behavior `exit(p1, p2)` reads the arguments of the `op(42, "input")` call that fires `T2` out of it, and no transition entering the source (the initial's) carries them; its parameters are bound to `T2.p1`, `T2.p2`. `T2`'s effect and the target state's entry bind from the call; the one admitted trace is reached |
+| *Event 019-C* | standard | *translated since the exit reads the leaving transition's payload:* the innermost state's exit behavior `exit(p1 : Boolean)` reads the argument of the `op2(true)` call that fires `T1.1.2` out of it, bound to `'T1.1.2'.p1`; the data entering it is `op1`'s `(42, "input")`, of other types, and the three entries bind from `op1`. The exit activity's `ToString` call that nothing feeds is left out, as UML never executes it; the one admitted trace is reached |
 | *Event 019-D* | standard | *translated since the emitter spells a returning effect:* `T2`'s effect is an action with an `out` parameter named as `op`'s (`out output : String`), its `return "output"` an assignment to it; the runtime returns the assigned value to the caller and the driver traces it as the tester does, reaching the one admitted trace |
 | *Event 019-E* | standard | *translated since the emitter binds entry parameters and returns outputs:* `T2` accepts `'or'(left, right)` and stores both in `trigger_v_or_left`, `trigger_v_or_right`; the two regions' substate entries declare `in left = trigger_v_or_left; in right = trigger_v_or_right;` and assign the operation's two outputs (`out result`, `out 'return'`), each region's entry writing them in the order the regions are entered, so the caller receives the second region's values and the two admitted traces are both reached and nothing else |
 | *Deferred 007* | extension | *translated since the emitter spells a returning effect with inputs:* the deferred `op(p1)` call fires `T4` once the second state is active; `T4`'s effect is `action def T4_effect` with `in p` bound to the accept's `p1` and `out 'return'`, its `return` an assignment of `not p`; the one admitted trace, the first state's exit, `T3(effect)`, `T4(effect)[in=true][out=false]` and the tester's `[out=false]`, is reached |
@@ -1676,8 +1678,8 @@ owns them. `reader.go` reads the standalone machine as the `Target` whose `Machi
 with the attributes, operations and their methods, and the constructor; the constructor's
 literal writes are the attributes' initial values, as for an owned class (the suite's
 standalone constructors call the base constructor and return `this`). The classifier therefore no longer refuses the
-kind; *Standalone 001* and *Standalone 002* are refused on their entry and exit points, and
-*Standalone 002* on its parameterised exits too, the reasons otherwise unchanged
+kind; *Standalone 001* and *Standalone 002* are refused on their entry and exit points, the
+reasons otherwise unchanged
 (`TestSuiteNoTranslationReasons`); *Standalone 003* runs and passes. `standalone_test.go` reads and runs a standalone
 machine with an attribute the constructor initialises and a method that writes it.
 
@@ -1727,8 +1729,8 @@ tester after the effect's own `trace`, and in the two-region case each region's 
 the output in the order the regions are entered, the second's the value returned
 (`TestParametersCallBindsInputsAndReturnsOutputs`).
 
-**Entry, exit or do behavior with parameters** — *entry, do and effect translated; exit
-refused on ordering.* PSSM §8.5.5 (`StateActivation::enter`, `exit`, `getExecutionFor`): a
+**Entry, exit or do behavior with parameters** — *all translated; the exit reads the leaving
+transition's payload.* PSSM §8.5.5 (`StateActivation::enter`, `exit`, `getExecutionFor`): a
 state's behaviors are executed with the triggering occurrence's data — a signal's attribute
 values, a call's `in` arguments — bound to their parameters in order when the behavior's
 signature conforms to the data; a completion or a data-less occurrence binds nothing. In SysML
@@ -1770,17 +1772,45 @@ body would spend a do round on it, and a two-step body never finishes before the
 dispatched (`state_executor.go:oneUnit` dispatches after every closed round), so the admitted
 trace with the activity's segment would be unreachable. Each binding is re-read per occurrence
 (`TestParametersRebindPerOccurrence`); `TestParametersSignalBindsEffectAndEntries`,
-`TestParametersDoActivityBindsInputs` pin the two spellings. What is refused, with the reason
-the classifier reports under *behavior parameter* (`TestParametersRefusals`):
+`TestParametersDoActivityBindsInputs` pin the two spellings.
 
-- an *exit* whose data is the leaving transition's — the exit runs before that transition's
-  effect, the first place the notation reads the occurrence, and an attribute the *entering*
-  transition stored would give the entering occurrence's value (*Event 017-B*'s nested exit
-  traces `[in=false]` after an entry with `true`), a trace the suite does not admit;
-  *Event 017-B*, *019-B*, *019-C*, *Standalone 002* stay refused on this and nothing else new;
+An *exit* cannot read a carrier: it runs before the leaving transition's effect (§7.18.3:
+exit, effect, entry), so nothing the leaving transition stores is there yet, and the attribute
+the *entering* transition stored holds the entering occurrence's value — *Event 017-B*'s nested
+exit traces `[in=false]`, the second `Data`, after an entry with `true`. What the exit can read
+is the leaving transition's own payload, since it is a step of that transition's performance.
+Two spellings were weighed against the admitted traces of *Event 017 B*, *019 B* and *019 C*:
+
+| Candidate | The reading | Against the admitted traces |
+|---|---|---|
+| **Read the leaving transition's payload** — `exit action { in p1 : Integer = T2.p1; … }`, each leaving transition's `accept` naming the exit's `in` when it fires | The exit is performed *within* the transition performance that accepted the occurrence: `StateTransitionPerformance` (`StatePerformances.kerml`) orders `accept then transitionLinkSource.exit` and `TransitionPerformance` (`TransitionPerformances.kerml`) orders `transitionLinkSource then effect`, so the accepted transfer is held when the source's exit starts and released only after the effect; its `trigger` subsets `transitionLinkSource.accepted`, the source state performance's own `accepted` transfer (`StatePerformance::accepted`, `acceptable then exit`), so the exit reads a transfer of the performance it is a step of, not a stranger's. In notation `accept d : Data` (§7.18.2) declares `d` a feature of the transition usage — `StateTransitionAction` binds `payload = accepter.payload` (`States.sysml`) — and a feature chain from the transition's name reads it; the parser and name resolution accept `T2.p1` and `'T1.1.2'.p1` as they accept any qualified feature. A transition not being taken performs nothing, so the chain reads nothing then, and the exit shared by several leaving transitions spells the alternatives `T3.d ?? T4.d`, each binding on its own firing. Nested exits read the outer transition's payload the same way: PSSM §8.5.5 `exit` passes the same event to every state left | **translated.** *Event 017 B* reaches its 2 admitted traces and no other, *019 B* its 1, *019 C* its 1; *Standalone 002*'s behavior-parameter reason (its second state's exit) drops, its entry- and exit-point reasons stay; every other row byte-identical |
+| **Stage the value at accept time** — a machine attribute assigned as the transition accepts, before the exit | An `accept` is the transition's action and has no statement of its own; the assignment would be a statement of the effect (§7.18.3), which the library orders after `transitionLinkSource.exit` — so the store either runs after the exit (the exit reads the entering occurrence's value, the refused trace) or is moved ahead of the exit by no text of the specification | **not needed**: the first candidate reaches the admitted sets; recorded so the spelling is not revisited |
+
+The runtime binds the exit's parameters from the lowered transition, not from the notation:
+`lower.Transition.Accepted` names what the trigger binds (the signal payload, the operation's
+inputs, `state_graph.go:AcceptedNames`), the executor knows the transition it is taking before
+the exit runs (`state_executor.go:taking`, chosen by the RTC step's selection) and copies its
+payload into the frame every behavior of the firing reads (`state_statements.go:dataFrame`), and
+`T.d` evaluates against that frame (`transition_payload.go`): the taken transition's value, the
+null value for a transition not being taken, a `NoValueError` when the taken transition accepts
+`d` but bound nothing. The frame survives joins, queued events and nested exits
+(`state_exit_nested_reads_outer_transition`, `state_exit_shared_by_two_transitions`) and a
+completion firing binds nothing, leaving the parameter's default
+(`state_exit_completion_binds_nothing`); `TestRuntimeRobustnessExitParameters` pins the typed
+errors. The emitter (`emit_behavior.go:exitValue`) spells the exit's inputs as the chains; the
+reader (`activity.go:dry`) leaves out an activity node whose required input pin no token ever
+reaches, since UML never executes it (*Event 019 C*'s exit holds a `ToString` call nothing
+feeds and nothing reads; `TestReadStarvedActions`).
+`TestParametersExitBindsLeavingTransition` and `TestParametersExitSharedAndNested` pin the
+spelling. What is refused, with the reason the classifier
+reports under *behavior parameter* (`TestParametersRefusals`):
+
 - a site reached by a completion transition, from the machine's start, or by paths accepting
   different events: UML binds nothing or a different occurrence there while the carrier would
-  hold the last store;
+  hold the last store; an exit left *only* by paths binding nothing — completion, data-less
+  occurrences, data its signature does not take — is refused the same way, while one left by
+  such a path beside conforming ones binds on the conforming firings and nothing on the
+  others, as §8.5.5 reads (`bindsNothing`);
 - a signature that does not conform (arity, or a type with no `ScalarValues` counterpart), a
   signal with several attributes, a transition with several triggers, and a do activity with
   outputs.
@@ -1803,8 +1833,8 @@ them and a trigger naming either is refused (`emit.go:indistinctOverload`,
 `TestParametersOverloadsWithOneSpellingRefused`); no test of the suite has the shape.
 
 The classifier reports only the behaviors `binding.go` refuses, so *Entry 002-F*'s and
-*Standalone 002*'s entries bind and their reasons name their entry and exit points and, for the
-latter, its exits.
+*Standalone 002*'s entries and exits bind and their reasons name their entry and exit points
+alone.
 
 #### A guard whose behavior acts on the model
 

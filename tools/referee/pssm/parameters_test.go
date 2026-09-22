@@ -686,19 +686,106 @@ func TestParametersDoActivityBindsInputs(t *testing.T) {
 	}
 }
 
+// An exit's parameters bind from the payload of the transition leaving the
+// state: a signal's value, or a call's arguments, read from the transition itself.
+func TestParametersExitBindsLeavingTransition(t *testing.T) {
+	body := `
+          <subvertex xmi:type="uml:State" xmi:id="xS1" name="S1">
+            ` + paramTrace("entry", "xS1entry", "S1(entry)", integerData) + `
+            ` + paramTrace("exit", "xS1exit", "S1(exit)", integerData) + `
+          </subvertex>
+          <subvertex xmi:type="uml:State" xmi:id="xS2" name="S2">
+            ` + paramTrace("exit", "xS2exit", "S2(exit)", param{"flag", "in", "Boolean"}) + `
+          </subvertex>
+          <transition xmi:type="uml:Transition" xmi:id="xT2" name="T2" source="xWait" target="xS1">
+            <trigger xmi:type="uml:Trigger" xmi:id="xT2trig" event="evData"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="xT3" name="T3" source="xS1" target="xS2">
+            <trigger xmi:type="uml:Trigger" xmi:id="xT3trig" event="evData"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="xT4" name="T4" source="xS2" target="xFin">
+            <trigger xmi:type="uml:Trigger" xmi:id="xT4trig" event="evBumpFlag"/>
+          </transition>`
+	report, s := refereeParameterSuite(t, bumpFlagOperation, body,
+		[]string{"S1(entry)[in=5]::S1(exit)[in=7]::S2(exit)[in=true]"},
+		sendData("5"), sendData("7"), testerStep{call: "opBumpFlag", args: []string{"uml:LiteralBoolean=true"}})
+	wantPass(t, report.Tests[0])
+	m, err := Emit(s, s.Tests[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"in data : IntegerData = T3.integerData;",
+		"in flag : Boolean = T4.flag;",
+		"transition T3 first S1 accept integerData : IntegerData then S2;",
+		"transition T4 first S2 accept bump(flag) then done;",
+	} {
+		if !strings.Contains(m.Text, want) {
+			t.Errorf("emitted text lacks %q:\n%s", want, m.Text)
+		}
+	}
+}
+
+// A substate's exit binds from whichever transition leaves it when it fires:
+// its own, or an enclosing state's, which leaves the substate too (PSSM 8.5.5).
+func TestParametersExitSharedAndNested(t *testing.T) {
+	body := `
+          <subvertex xmi:type="uml:State" xmi:id="xS1" name="S1">
+            ` + paramTrace("entry", "xS1entry", "S1(entry)", integerData) + `
+            <region xmi:type="uml:Region" xmi:id="xS1r" name="R">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="xS1i" name="I"/>
+              <subvertex xmi:type="uml:State" xmi:id="xS11" name="S1.1">
+                ` + paramTrace("exit", "xS11exit", "S1.1(exit)", integerData) + `
+              </subvertex>
+              <subvertex xmi:type="uml:State" xmi:id="xS12" name="S1.2">
+                ` + paramTrace("exit", "xS12exit", "S1.2(exit)", integerData) + `
+              </subvertex>
+              <transition xmi:type="uml:Transition" xmi:id="xT11" name="T1.1" source="xS1i" target="xS11"/>
+              <transition xmi:type="uml:Transition" xmi:id="xT12" name="T1.2" source="xS11" target="xS12">
+                <trigger xmi:type="uml:Trigger" xmi:id="xT12trig" event="evData"/>
+              </transition>
+            </region>
+          </subvertex>
+          <transition xmi:type="uml:Transition" xmi:id="xT2" name="T2" source="xWait" target="xS1">
+            <trigger xmi:type="uml:Trigger" xmi:id="xT2trig" event="evData"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="xT3" name="T3" source="xS1" target="xFin">
+            <trigger xmi:type="uml:Trigger" xmi:id="xT3trig" event="evData"/>
+          </transition>`
+	report, s := refereeParameterSuite(t, "", body,
+		[]string{"S1(entry)[in=5]::S1.1(exit)[in=7]::S1.2(exit)[in=9]"},
+		sendData("5"), sendData("7"), sendData("9"))
+	wantPass(t, report.Tests[0])
+	m, err := Emit(s, s.Tests[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"in data : IntegerData = T3.integerData ?? 'T1.2'.integerData;",
+		"in data : IntegerData = T3.integerData;",
+	} {
+		if !strings.Contains(m.Text, want) {
+			t.Errorf("emitted text lacks %q:\n%s", want, m.Text)
+		}
+	}
+}
+
 // Behaviors whose parameters bind nothing the notation reaches stay refused,
 // each with its reason, and the classifier names the state.
 func TestParametersRefusals(t *testing.T) {
-	bound := `
+	// entered is S1, entered on Data; leaving is T9, taking S2 to the final state on Continue.
+	entered := `
           <subvertex xmi:type="uml:State" xmi:id="xS1" name="S1">
             ` + paramTrace("entry", "xS1entry", "S1(entry)", integerData) + `
           </subvertex>
           <transition xmi:type="uml:Transition" xmi:id="xT2" name="T2" source="xWait" target="xS1">
             <trigger xmi:type="uml:Trigger" xmi:id="xT2trig" event="evData"/>
-          </transition>
+          </transition>`
+	leaving := `
           <transition xmi:type="uml:Transition" xmi:id="xT9" name="T9" source="xS2" target="xFin">
             <trigger xmi:type="uml:Trigger" xmi:id="xT9trig" event="evContinue"/>
           </transition>`
+	bound := entered + leaving
 	cases := []struct {
 		name, body, where, reason string
 	}{
@@ -708,14 +795,27 @@ func TestParametersRefusals(t *testing.T) {
           </subvertex>
           <transition xmi:type="uml:Transition" xmi:id="xT3" name="T3" source="xS1" target="xS2"/>`,
 			"S2", "reached by the completion of state S1, which carries no event"},
-		{"exit", bound + `
+		{"exit left on another event", bound + `
           <subvertex xmi:type="uml:State" xmi:id="xS2" name="S2">
             ` + paramTrace("exit", "xS2exit", "S2(exit)", integerData) + `
           </subvertex>
           <transition xmi:type="uml:Transition" xmi:id="xT3" name="T3" source="xS1" target="xS2">
             <trigger xmi:type="uml:Trigger" xmi:id="xT3trig" event="evData"/>
           </transition>`,
-			"S2", "the exit runs before the effect of transition T9"},
+			"S2", "parameter data is a IntegerData but Continue carries a Continue there"},
+		{"exit left by completion", entered + `
+          <subvertex xmi:type="uml:State" xmi:id="xS2" name="S2">
+            ` + paramTrace("exit", "xS2exit", "S2(exit)", integerData) + `
+          </subvertex>
+          <subvertex xmi:type="uml:State" xmi:id="xS3" name="S3"/>
+          <transition xmi:type="uml:Transition" xmi:id="xT3" name="T3" source="xS1" target="xS2">
+            <trigger xmi:type="uml:Trigger" xmi:id="xT3trig" event="evData"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="xT4" name="T4" source="xS2" target="xS3"/>
+          <transition xmi:type="uml:Transition" xmi:id="xT9" name="T9" source="xS3" target="xFin">
+            <trigger xmi:type="uml:Trigger" xmi:id="xT9trig" event="evContinue"/>
+          </transition>`,
+			"S2", "reached by the completion of state S2, which carries no event"},
 		{"two events", bound + `
           <subvertex xmi:type="uml:State" xmi:id="xS2" name="S2">
             ` + paramTrace("entry", "xS2entry", "S2(entry)", integerData) + `

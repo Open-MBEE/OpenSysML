@@ -3,6 +3,7 @@ package pssm
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi"
@@ -25,17 +26,22 @@ type activityReader struct {
 	outgoing map[string][]*xmi.Element
 	body     *Body
 	visiting map[string]bool
+	// starvedNodes and dryNodes memoize starved and dry per element id.
+	starvedNodes map[string]bool
+	dryNodes     map[string]bool
 }
 
 // readActivity reads an activity element (uml:Activity) into a Body.
 func (r *reader) readActivity(act *xmi.Element) *Body {
 	ar := &activityReader{
-		r:        r,
-		activity: act,
-		incoming: make(map[string][]*xmi.Element),
-		outgoing: make(map[string][]*xmi.Element),
-		body:     &Body{},
-		visiting: make(map[string]bool),
+		r:            r,
+		activity:     act,
+		incoming:     make(map[string][]*xmi.Element),
+		outgoing:     make(map[string][]*xmi.Element),
+		body:         &Body{},
+		visiting:     make(map[string]bool),
+		starvedNodes: make(map[string]bool),
+		dryNodes:     make(map[string]bool),
 	}
 	act.Walk(func(e *xmi.Element) bool {
 		if e.Tag == "edge" {
@@ -63,6 +69,7 @@ const (
 	typeClearAssociationAction             = "uml:ClearAssociationAction"
 	typeClearStructuralFeatureAction       = "uml:ClearStructuralFeatureAction"
 	typeConditionalNode                    = "uml:ConditionalNode"
+	typeControlFlow                        = "uml:ControlFlow"
 	typeCreateLinkAction                   = "uml:CreateLinkAction"
 	typeCreateObjectAction                 = "uml:CreateObjectAction"
 	typeDecisionNode                       = "uml:DecisionNode"
@@ -78,6 +85,7 @@ const (
 	typeJoinNode                           = "uml:JoinNode"
 	typeLoopNode                           = "uml:LoopNode"
 	typeMergeNode                          = "uml:MergeNode"
+	typeOutputPin                          = "uml:OutputPin"
 	typeReadExtentAction                   = "uml:ReadExtentAction"
 	typeReadIsClassifiedObjectAction       = "uml:ReadIsClassifiedObjectAction"
 	typeReadLinkAction                     = "uml:ReadLinkAction"
@@ -106,6 +114,13 @@ var valueNodes = map[string]bool{
 	typeJoinNode: true, typeMergeNode: true, typeDecisionNode: true, typeExpansionNode: true,
 	typeStructuredActivityNode: true, typeSequenceNode: true, typeConditionalNode: true,
 	typeLoopNode: true, typeExpansionRegion: true,
+}
+
+// routingNodes carry tokens on without firing: they are fed when a flow into
+// them is (a join, when every flow is).
+var routingNodes = map[string]bool{
+	typeActivityParameterNode: true, typeForkNode: true, typeJoinNode: true, typeMergeNode: true,
+	typeDecisionNode: true, typeCentralBufferNode: true, typeExpansionNode: true,
 }
 
 // acts reports whether any node under the activity, at any depth, acts on the
@@ -246,6 +261,9 @@ func (ar *activityReader) consumed(n *xmi.Element) bool {
 }
 
 func (ar *activityReader) readNode(n *xmi.Element) {
+	if ar.starved(n) {
+		return
+	}
 	switch n.Type {
 	case typeStructuredActivityNode, typeSequenceNode:
 		ar.readBlock(n)
@@ -305,7 +323,7 @@ func (ar *activityReader) readNode(n *xmi.Element) {
 	case typeActivityParameterNode:
 		// A fed output parameter node is the body's return statement.
 		param := ar.r.doc.ByID(n.Attr("parameter"))
-		if param == nil || len(ar.incoming[n.ID]) == 0 {
+		if param == nil || len(ar.incoming[n.ID]) == 0 || ar.dry(n.ID) {
 			return
 		}
 		if dir := param.Attr("direction"); dir == "return" || dir == "out" || dir == "inout" {
@@ -327,6 +345,73 @@ func (ar *activityReader) readNode(n *xmi.Element) {
 	default:
 		ar.unsupported(n, "is a node kind the reader does not know")
 	}
+}
+
+// starved reports whether a node never fires: an input pin with a lower bound,
+// or an incoming control flow, that no token ever reaches (UML 16.2.3.4).
+func (ar *activityReader) starved(n *xmi.Element) bool {
+	if starved, ok := ar.starvedNodes[n.ID]; ok {
+		return starved
+	}
+	ar.starvedNodes[n.ID] = false
+	starved := false
+	for _, pin := range n.Children {
+		if pin.Type == typeInputPin && pinLower(pin) > 0 && ar.dry(pin.ID) {
+			starved = true
+		}
+	}
+	for _, edge := range ar.incoming[n.ID] {
+		if edge.Type == typeControlFlow && ar.dry(edge.Attr("source")) {
+			starved = true
+		}
+	}
+	ar.starvedNodes[n.ID] = starved
+	return starved
+}
+
+// dry reports whether no token ever leaves an element: a starved action's pin, a
+// join with a dry flow, or a pin or routing node fed by dry elements only.
+func (ar *activityReader) dry(id string) bool {
+	e := ar.r.doc.ByID(id)
+	if e == nil {
+		return false
+	}
+	switch {
+	case e.Type == typeOutputPin:
+		return e.Parent != nil && ar.starved(e.Parent)
+	case e.Tag == "node" && !routingNodes[e.Type]:
+		return ar.starved(e)
+	}
+	if dry, ok := ar.dryNodes[id]; ok {
+		return dry
+	}
+	ar.dryNodes[id] = false
+	edges := ar.incoming[id]
+	dry := e.Type != typeActivityParameterNode
+	for i, edge := range edges {
+		source := ar.dry(edge.Attr("source"))
+		if e.Type == typeJoinNode {
+			dry = i > 0 && dry || source
+		} else {
+			dry = (i == 0 || dry) && source
+		}
+	}
+	ar.dryNodes[id] = dry
+	return dry
+}
+
+// pinLower is a pin's lower multiplicity bound: its lowerValue, 1 when absent
+// (UML 7.5.3.2).
+func pinLower(pin *xmi.Element) int {
+	lower := pin.First("lowerValue")
+	if lower == nil {
+		return 1
+	}
+	n, err := strconv.Atoi(lower.Attr("value"))
+	if err != nil {
+		return 1
+	}
+	return n
 }
 
 func (ar *activityReader) emit(st Statement) {

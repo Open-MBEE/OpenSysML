@@ -21,6 +21,9 @@ type Binding struct {
 	// Direct is the accepting transition whose effect the behavior is; the
 	// effect reads the accept's own parameters and nothing is carried for it.
 	Direct *Transition
+	// Exit marks a state's exit, performed within the taking of one of Triggers:
+	// its inputs read that transition's own payload and nothing is carried.
+	Exit bool
 }
 
 // Bindings resolves each behavior with parameters to the one event bound on
@@ -91,30 +94,44 @@ func (b *binder) regions(regions []*Region) {
 		}
 		for _, t := range r.Transitions {
 			if hasParams(t.Effect) {
-				b.site(t.Effect, t.Name, b.triggersOf(t, nil), t)
+				b.site(t.Effect, t.Name, b.triggersOf(t, nil), siteEffect(t))
 			}
 		}
 	}
 }
 
-// state binds a state's entry and do activity from the transitions entering it;
-// its exit runs before the leaving transition's effect, so nothing binds it.
+// state binds a state's entry and do activity from the transitions entering it
+// and its exit from those leaving it, whose payload it reads while being taken.
 func (b *binder) state(v *Vertex) {
 	where := v.Path()
 	if hasParams(v.Entry) {
-		b.site(v.Entry, where, b.entering(v), nil)
+		b.site(v.Entry, where, b.entering(v), siteCarried)
 	}
 	if hasParams(v.Exit) {
-		b.refuse(v.Exit, where, b.exiting(v))
+		b.site(v.Exit, where, b.leaving(v), siteExit)
 	}
 	if hasParams(v.Do) {
 		if len(outputs(v.Do)) > 0 {
 			b.refuse(v.Do, where, "a do activity's outputs return to nobody: the step that dispatched the call ends while it runs")
 		} else {
-			b.site(v.Do, where, b.entering(v), nil)
+			b.site(v.Do, where, b.entering(v), siteCarried)
 		}
 	}
 }
+
+// siteKind is how a bound behavior reaches the event's data: carried in an attribute,
+// read as the accepting transition's own effect, or as an exit of the transition taking it.
+type siteKind struct {
+	effect *Transition
+	exit   bool
+}
+
+var (
+	siteCarried = siteKind{}
+	siteExit    = siteKind{exit: true}
+)
+
+func siteEffect(t *Transition) siteKind { return siteKind{effect: t} }
 
 func hasParams(bh *Behavior) bool { return bh != nil && len(bh.Params) > 0 }
 
@@ -122,14 +139,16 @@ func (b *binder) refuse(bh *Behavior, where, reason string) {
 	b.out.Refused = append(b.out.Refused, Refusal{Behavior: bh, Where: where, Reason: reason})
 }
 
-// site records the binding of one behavior from the triggers reaching it, or
-// its refusal; at is the transition whose effect the behavior is, if any.
-func (b *binder) site(bh *Behavior, where string, set triggerSet, at *Transition) {
-	if set.unbound != "" {
+// site records the binding of one behavior from the triggers reaching it, or its
+// refusal; a path binding nothing (PSSM 8.5.5) is left out of an exit, refused elsewhere.
+func (b *binder) site(bh *Behavior, where string, set triggerSet, kind siteKind) {
+	if set.unbound != "" && !kind.exit {
 		b.refuse(bh, where, set.unbound)
 		return
 	}
 	var event *Event
+	var bound []*Transition
+	nothing := set.unbound
 	for _, t := range set.triggers {
 		if len(t.Triggers) != 1 {
 			b.refuse(bh, where, fmt.Sprintf("transition %s accepts several events; which one's data binds the behavior is decided per occurrence", t.Name))
@@ -140,6 +159,12 @@ func (b *binder) site(bh *Behavior, where string, set triggerSet, at *Transition
 			b.refuse(bh, where, fmt.Sprintf("transition %s has a trigger without an event", t.Name))
 			return
 		}
+		if kind.exit {
+			if reason := bindsNothing(bh, trig.Event); reason != "" {
+				nothing = reason
+				continue
+			}
+		}
 		if event == nil {
 			event = trig.Event
 		} else if !sameEvent(event, trig.Event) {
@@ -147,6 +172,11 @@ func (b *binder) site(bh *Behavior, where string, set triggerSet, at *Transition
 			b.refuse(bh, where, fmt.Sprintf("bound from %s by one path and %s by another", first, second))
 			return
 		}
+		bound = append(bound, t)
+	}
+	if event == nil {
+		b.refuse(bh, where, nothing)
+		return
 	}
 	data, ok := eventData(event)
 	if !ok {
@@ -162,16 +192,43 @@ func (b *binder) site(bh *Behavior, where string, set triggerSet, at *Transition
 		b.refuse(bh, where, reason)
 		return
 	}
-	binding := &Binding{Behavior: bh, Event: event, Triggers: set.triggers, Data: data, Outputs: outputs}
-	if at != nil && len(at.Triggers) > 0 {
+	binding := &Binding{Behavior: bh, Event: event, Triggers: bound, Data: data, Outputs: outputs, Exit: kind.exit}
+	if at := kind.effect; at != nil && len(at.Triggers) > 0 {
 		binding.Direct = at
 	}
 	b.out.Bound[bh] = binding
-	for _, t := range set.triggers {
+	if binding.Exit {
+		return
+	}
+	for _, t := range bound {
 		if t != binding.Direct {
 			b.out.Carry[t] = event
 		}
 	}
+}
+
+// bindsNothing is why PSSM 8.5.5 executes the behavior with no input values on an
+// occurrence of ev: it carries no data, or data the signature does not take.
+func bindsNothing(bh *Behavior, ev *Event) string {
+	var data []Param
+	switch {
+	case ev.Kind == EventSignal && ev.Signal != nil:
+		data = []Param{{Type: ev.Signal.Name}}
+	case ev.Kind == EventCall && ev.Operation != nil:
+		data = ev.Operation.Inputs()
+	default:
+		return fmt.Sprintf("%s carries no data the notation binds", ev.Describe())
+	}
+	ins := inputs(bh)
+	if len(ins) != len(data) {
+		return fmt.Sprintf("%d input parameters, %s carries %d values", len(ins), ev.Describe(), len(data))
+	}
+	for i, p := range ins {
+		if p.Type != data[i].Type {
+			return fmt.Sprintf("parameter %s is a %s but %s carries a %s there", p.Name, p.Type, ev.Describe(), data[i].Type)
+		}
+	}
+	return ""
 }
 
 // entering collects the triggers of every transition entering state v: one
@@ -190,26 +247,20 @@ func (b *binder) entering(v *Vertex) triggerSet {
 	return set
 }
 
-// exiting is why state v's exit reads no event data: the exit precedes the
-// leaving transition's effect, or no path to v carries an event at all.
-func (b *binder) exiting(v *Vertex) string {
-	unbound := ""
+// leaving collects the triggers of every transition exiting state v: one whose
+// main source is v or encloses it.
+func (b *binder) leaving(v *Vertex) triggerSet {
+	var set triggerSet
 	for _, t := range b.all {
 		if t.Target == nil || t.Source == nil || !exits(v, t) {
 			continue
 		}
-		if set := b.triggersOf(t, nil); set.unbound != "" {
-			if unbound == "" {
-				unbound = set.unbound
-			}
-			continue
-		}
-		return fmt.Sprintf("the exit runs before the effect of transition %s, the first place the accepted data is readable; a state's exit action reads nothing of the transition leaving it", t.Name)
+		set = set.union(b.triggersOf(t, nil))
 	}
-	if unbound != "" {
-		return unbound
+	if len(set.triggers) == 0 && set.unbound == "" {
+		set.unbound = "no transition exits the state"
 	}
-	return "no transition exits the state"
+	return set
 }
 
 // triggersOf finds the triggered transitions whose event reaches t: t itself,

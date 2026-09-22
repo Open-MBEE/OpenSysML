@@ -132,6 +132,9 @@ type StateExecutor struct {
 	// firingEvent is the occurrence the transition being taken reacts to, for the
 	// other segments into a join it fires to bind their own trigger's arguments.
 	firingEvent *Event
+	// firingTrans is the transition being taken, within whose performance the
+	// exits, effect and entries it causes run and read what its trigger bound.
+	firingTrans *lower.Transition
 
 	// leftAhead are the states a compound transition under way left before its
 	// choice was resolved; exitingAhead is set while it leaves them. Both live
@@ -1500,13 +1503,19 @@ func lessPath(a, b []int) bool {
 // moves the machine's single active hierarchy. notes are recorded only if it fires;
 // r is the transition's route as resolveRoute settled it.
 func (e *StateExecutor) fireFrom(source *ast.StateNode, trans *lower.Transition, notes []RunNote, r route) (bool, error) {
-	saved := e.firingNotes
-	e.firingNotes = notes
-	defer func() { e.firingNotes = saved }()
+	defer e.taking(trans, notes)()
 	if region := e.activeRegionOf(source); region != nil {
 		return e.fireTransitionInRegion(region, trans, r)
 	}
 	return e.fireTransition(trans, r)
+}
+
+// taking puts the executor in the middle of taking trans, selected with notes,
+// and returns the function putting it back where it was.
+func (e *StateExecutor) taking(trans *lower.Transition, notes []RunNote) func() {
+	savedTrans, savedNotes := e.firingTrans, e.firingNotes
+	e.firingTrans, e.firingNotes = trans, notes
+	return func() { e.firingTrans, e.firingNotes = savedTrans, savedNotes }
 }
 
 // resolveAndFire takes a transition outside a dispatch, a timer come due, resolving
@@ -1519,9 +1528,7 @@ func (e *StateExecutor) resolveAndFire(source *ast.StateNode, trans *lower.Trans
 	if source != nil {
 		return e.fireFrom(source, trans, notes, r)
 	}
-	saved := e.firingNotes
-	e.firingNotes = notes
-	defer func() { e.firingNotes = saved }()
+	defer e.taking(trans, notes)()
 	return e.fireTransition(trans, r)
 }
 
@@ -1904,52 +1911,48 @@ func (e *StateExecutor) transitionLocation(vertex ast.Node, trans *lower.Transit
 // them. It returns the function restoring the machine's data to what it held
 // before, for the caller to run when the transition does not fire.
 func (e *StateExecutor) bindTriggerArguments(trans *lower.Transition, event *Event) (func(), error) {
-	if acceptEvent, ok := trans.Trigger.(*ast.AcceptEvent); ok {
-		return e.bindAcceptPayload(acceptEvent, event)
-	}
-
-	callEvent, ok := trans.Trigger.(*ast.CallEvent)
-	if !ok || len(callEvent.Parameters) == 0 {
+	if len(trans.Accepted) == 0 {
 		return func() { /* nothing was bound */ }, nil
 	}
-	unbind := e.restoreData(callEvent.Parameters)
+	unbind := e.restoreData(trans.Accepted)
+	if _, ok := trans.Trigger.(*ast.AcceptEvent); ok {
+		return unbind, e.bindAcceptPayload(trans.Accepted[0], event)
+	}
+	callEvent, ok := trans.Trigger.(*ast.CallEvent)
+	if !ok {
+		return unbind, fmt.Errorf("trigger binding %s: a %T trigger binds nothing", trans.Accepted[0], trans.Trigger)
+	}
 	call, ok := event.Payload.(Call)
 	if !ok {
 		return unbind, fmt.Errorf("call trigger %s: event carries %T, not an operation invocation",
 			ast.SimpleName(callEvent.Operation), event.Payload)
 	}
-	for _, param := range callEvent.Parameters {
-		value, ok := call.Args[param.Text]
+	for _, param := range trans.Accepted {
+		value, ok := call.Args[param]
 		if !ok {
 			return unbind, fmt.Errorf("call trigger %s: invocation carries no argument %q",
-				call.Operation, param.Text)
+				call.Operation, param)
 		}
-		e.bindData(param.Text, value)
+		e.bindData(param, value)
 	}
 	return unbind, nil
 }
 
 // bindAcceptPayload binds the name an accept gave its payload
 // (`accept msg : Warning`) to the value the accepted occurrence carries, for the
-// transition's guard and effect to read, and returns the function unbinding it.
-func (e *StateExecutor) bindAcceptPayload(acceptEvent *ast.AcceptEvent, event *Event) (func(), error) {
-	if acceptEvent.Payload == nil || acceptEvent.Payload.Ident.Name == "" {
-		return func() { /* nothing was bound */ }, nil
-	}
-	name := ast.NameSegment{Text: acceptEvent.Payload.Ident.Name}
-	unbind := e.restoreData([]ast.NameSegment{name})
+// transition's guard, effect and the behaviors its firing performs to read.
+func (e *StateExecutor) bindAcceptPayload(name string, event *Event) error {
 	msg, ok := event.Payload.(Message)
 	if !ok {
-		return unbind, fmt.Errorf("accept %s: event carries %T, not a message",
-			name.Text, event.Payload)
+		return fmt.Errorf("accept %s: event carries %T, not a message", name, event.Payload)
 	}
 	value, err := e.ctx.acceptedValue(&msg)
 	if err != nil {
-		return unbind, fmt.Errorf("accept %s: %w", name.Text, err)
+		return fmt.Errorf("accept %s: %w", name, err)
 	}
 	event.Payload = msg
-	e.bindData(name.Text, value)
-	return unbind, nil
+	e.bindData(name, value)
+	return nil
 }
 
 // orAnonymousSignal names the signal a message carries for a diagnostic.
@@ -1962,12 +1965,12 @@ func orAnonymousSignal(signalType string) string {
 
 // restoreSharedData snapshots the named entries of the machine's data and returns
 // the function putting them back, deleting the ones that were not there before.
-func (e *StateExecutor) restoreSharedData(names []ast.NameSegment) func() {
+func (e *StateExecutor) restoreSharedData(names []string) func() {
 	saved := make(map[string]Value, len(names))
 	held := make(map[string]bool, len(names))
 	for _, name := range names {
-		value, ok := e.stateData[name.Text]
-		saved[name.Text], held[name.Text] = value, ok
+		value, ok := e.stateData[name]
+		saved[name], held[name] = value, ok
 	}
 	return func() {
 		for name, wasHeld := range held {
@@ -3003,6 +3006,7 @@ func (e *StateExecutor) fireJoinIncoming(join *ast.PseudostateNode, plan *lower.
 // arguments its own trigger takes from the occurrence bound; it is recorded as taken.
 func (e *StateExecutor) fireJoinSegment(trans *lower.Transition, plan *lower.JoinPlan) error {
 	source := trans.Source.(*ast.StateNode)
+	defer e.taking(trans, e.firingNotes)()
 	if e.firingEvent != nil && trans.Trigger != nil {
 		unbind, err := e.bindTriggerArguments(trans, e.firingEvent)
 		if err != nil {
