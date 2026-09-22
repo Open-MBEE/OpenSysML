@@ -8,14 +8,16 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf/ontology"
 )
 
 // WriteAPIJSON serializes a graph as the SysML v2 API's element form: a JSON
 // array of objects carrying "@type", "@id" and the metamodel properties as
 // keys, the shape GET /projects/{p}/commits/{c}/elements serves. It is the same
 // mapping the Turtle writer spells: the subjects of the graph in order, their
-// sysml: and sysx: properties as values, and each collection as the array its
-// json: annotation states.
+// sysml: and sysx: properties as values, each collection as the array its
+// json: annotation states, and each multi-valued metamodel property as an
+// array even when no annotation states it.
 func WriteAPIJSON(graph *rdf.Graph) ([]byte, error) {
 	settled, err := rdf.ReconcileCollections(graph)
 	if err != nil {
@@ -103,6 +105,12 @@ func apiJSONElement(graph *rdf.Graph, subject rdf.Term) (apiJSONObject, error) {
 			Note: "an element's metaclass is a sysml: or sysx: term",
 		}
 	}
+	// The metaclass name for the ontology's multiplicity lookup, empty for a
+	// sysx: element the metamodel does not declare.
+	var metaclass string
+	if strings.HasPrefix(types[0].Value, rdf.SysML) {
+		metaclass = strings.TrimPrefix(types[0].Value, rdf.SysML)
+	}
 	for _, predicate := range graph.Predicates(subject) {
 		switch {
 		case predicate == rdf.RDFType:
@@ -113,7 +121,7 @@ func apiJSONElement(graph *rdf.Graph, subject rdf.Term) (apiJSONObject, error) {
 			continue
 		case strings.HasPrefix(predicate, rdf.SysML):
 			key := strings.TrimPrefix(predicate, rdf.SysML)
-			value, err := apiJSONSysMLValue(graph, subject, predicate, key)
+			value, err := apiJSONSysMLValue(graph, subject, predicate, key, metaclass)
 			if err != nil {
 				return nil, err
 			}
@@ -146,8 +154,9 @@ func apiJSONType(typ rdf.Term) string {
 }
 
 // apiJSONSysMLValue is the value a sysml: key carries: the collection its
-// json: annotation states, or its single object as a scalar.
-func apiJSONSysMLValue(graph *rdf.Graph, subject rdf.Term, predicate, key string) (any, error) {
+// json: annotation states, an array when the metamodel declares the property
+// multi-valued, or its single object as a scalar.
+func apiJSONSysMLValue(graph *rdf.Graph, subject rdf.Term, predicate, key, metaclass string) (any, error) {
 	objects := graph.Objects(subject, predicate)
 	if annotation, ok := graph.Object(subject, rdf.AnnotationJSON+key); ok {
 		if !annotation.IsLiteral() {
@@ -170,6 +179,21 @@ func apiJSONSysMLValue(graph *rdf.Graph, subject rdf.Term, predicate, key string
 			}
 		}
 		return raw, nil
+	}
+	// A property the metamodel declares unbounded is always an array, in
+	// triple order; the json: annotation only ever re-states that order.
+	if metaclass != "" {
+		if property, ok := ontology.PropertyOf(metaclass, key); ok && property.Many {
+			values := make([]any, 0, len(objects))
+			for _, object := range objects {
+				value, err := apiJSONScalar(subject, key, object)
+				if err != nil {
+					return nil, err
+				}
+				values = append(values, value)
+			}
+			return values, nil
+		}
 	}
 	if len(objects) > 1 {
 		return nil, &UnsupportedError{

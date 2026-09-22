@@ -2,6 +2,7 @@ package convert_test
 
 import (
 	"errors"
+	"os"
 	"strings"
 	"testing"
 
@@ -82,6 +83,25 @@ func TestAPIJSONConvertRoutes(t *testing.T) {
 	}
 	if string(again) != string(document) {
 		t.Errorf("api-json was not rewritten the same way:\n%s\n---\n%s", document, again)
+	}
+}
+
+// The compact element document sysml-toolkit writes — first-class membership
+// elements and one-member arrays on multi-valued properties — reads back to
+// notation.
+func TestAPIJSONToolkitCompactFixture(t *testing.T) {
+	data, err := os.ReadFile("testdata/toolkit_compact_package.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text, err := convert.Convert("toolkit_compact_package.json", data, convert.FormatAPIJSON, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("api-json to sysml: %v", err)
+	}
+	for _, want := range []string{"package P", "part def V"} {
+		if !strings.Contains(string(text), want) {
+			t.Errorf("the notation does not contain %q:\n%s", want, text)
+		}
 	}
 }
 
