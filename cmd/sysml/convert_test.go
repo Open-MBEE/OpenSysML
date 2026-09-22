@@ -299,6 +299,7 @@ func TestConvertMigratesXMI(t *testing.T) {
 
 	textReport := filepath.Join(dir, "report.txt")
 	jsonReport := filepath.Join(dir, "report.json")
+	layoutExport := filepath.Join(dir, "layout.xml")
 	turtle := filepath.Join(dir, "model.ttl")
 	run(t, binary, xmi, "-convert", "ttl", "-o", turtle, "-migration-report", textReport)
 	run(t, binary, xmi, "-from", "xmi", "-convert", "sysml", "-o", model, "-migration-report", jsonReport)
@@ -360,6 +361,11 @@ func TestConvertMigratesXMI(t *testing.T) {
 		"output over the input, spelled differently":   {[]string{v1, "-convert", "sysml", "-o", filepath.Join(dir, ".", "v1.xmi")}, "-o names the model being migrated"},
 		"output over the input through a link":         {[]string{v1, "-convert", "sysml", "-o", symlinkTo(t, dir, "v1-link", v1)}, "-o names the model being migrated"},
 		"output over the input through a hard link":    {[]string{v1, "-convert", "sysml", "-o", hardLink}, "-o names the model being migrated"},
+		"layout without convert":                       {[]string{model, "-layout", layoutExport}, "-layout accompanies -convert"},
+		"layout without xmi":                           {[]string{model, "-convert", "ttl", "-layout", layoutExport}, "-layout augments a SysML v1 migration"},
+		"layout over the model":                        {[]string{xmi, "-convert", "sysml", "-o", layoutExport, "-layout", layoutExport}, "-layout and -o both name"},
+		"layout over the report":                       {[]string{xmi, "-convert", "sysml", "-migration-report", layoutExport, "-layout", layoutExport}, "-layout and -migration-report both name"},
+		"layout over the input":                        {[]string{xmi, "-convert", "sysml", "-layout", xmi}, "names the model being migrated"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			out, err := exec.Command(binary, tc.args...).CombinedOutput()
@@ -436,4 +442,28 @@ func danglingLink(t *testing.T, dir, name, target string) string {
 		t.Skipf("cannot make a symbolic link: %v", err)
 	}
 	return link
+}
+
+// TestConvertLayoutAugment migrates the layout fixture with its MTIP export:
+// the views carry the export's geometry as DiagramLayout metadata.
+func TestConvertLayoutAugment(t *testing.T) {
+	binary := buildCLI(t)
+	xmi := filepath.Join("..", "..", "tests", "migrate", "testdata", "xmi", "layout.xmi")
+	layout := filepath.Join("..", "..", "tests", "migrate", "testdata", "xmi", "layout.layout.xml")
+	out := runCommand(t, exec.Command(binary, xmi, "-convert", "sysml", "-layout", layout))
+	if out.status != 0 {
+		t.Fatalf("migrating with -layout failed: %s%s", out.stdout, out.stderr)
+	}
+	for _, want := range []string{
+		"metadata DiagramLayout::Layout about engine { x = 20; y = 10; width = 100; height = 40; }",
+		"metadata DiagramLayout::Route about drive { points = (120, 30, 200, 30); }",
+		`@DiagramLayout::Canvas { unit = "px";`,
+	} {
+		if !strings.Contains(out.stdout, want) {
+			t.Errorf("migrated notation lacks %q:\n%s", want, out.stdout)
+		}
+	}
+	if !strings.Contains(out.stderr, "laid out 2 of 2 diagrams") {
+		t.Errorf("the layout summary belongs on stderr:\n%s", out.stderr)
+	}
 }
