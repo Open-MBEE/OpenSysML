@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.sun.net.httpserver.HttpServer;
+import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -12,7 +13,7 @@ import org.junit.jupiter.api.Test;
 
 class BinaryStagerTest {
   @Test
-  void stagesAllAssetsWithGoodDigests() throws Exception {
+  void stagesAllAssetsWithGoodDigests() throws IOException, InterruptedException {
     byte[] payload = "service".getBytes();
     String digest = BinaryStager.sha256(payload);
     StringBuilder json = new StringBuilder("{\"v1.2.3\":{");
@@ -34,7 +35,7 @@ class BinaryStagerTest {
   }
 
   @Test
-  void rejectsTamperedAsset() throws Exception {
+  void rejectsTamperedAsset() throws IOException, InterruptedException {
     byte[] payload = "service".getBytes();
     String json = "{\"v1.2.3\":{\"sysml-grpc-linux-amd64\":\"" + BinaryStager.sha256("different".getBytes()) + "\"}}";
     HttpServer server = server(payload);
@@ -48,13 +49,13 @@ class BinaryStagerTest {
   }
 
   @Test
-  void rejectsUnpinnedVersion() throws Exception {
+  void rejectsUnpinnedVersion() throws IOException, InterruptedException {
     Path pin = Files.createTempFile("digests", ".json");
     Files.writeString(pin, "{\"v1.2.3\":{}}");
     assertThrows(IllegalArgumentException.class, () -> BinaryStager.stage("v9.9.9", Files.createTempDirectory("staged"), "http://127.0.0.1", pin));
   }
 
-  private static HttpServer server(byte[] payload) throws Exception {
+  private static HttpServer server(byte[] payload) throws IOException {
     HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
     server.createContext("/", exchange -> {
       String path = exchange.getRequestURI().getPath();
