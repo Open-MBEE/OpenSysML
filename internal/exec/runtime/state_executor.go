@@ -95,11 +95,6 @@ type StateExecutor struct {
 	// entered. Concurrently active states interleave one action per round, so this
 	// order — not map iteration order — decides the interleaving.
 	doActions []*doAction
-	// round is the do round under way when the machine runs one unit at a time: the
-	// do actions whose sweep it has still to finish; roundDone marks a round closed,
-	// its dispatch owed.
-	round     []*doAction
-	roundDone bool
 	// dispatchAmong narrows the events nextEvent draws among to those a step order
 	// drew ahead of a due do step: the tied events whose dispatch acts.
 	dispatchAmong []Event
@@ -3190,8 +3185,9 @@ func (e *StateExecutor) runOne(progress *dueProgress) (moved bool, err error) {
 	return moved, err
 }
 
-// oneUnit runs one atomic unit at the current instant: the dispatch a closed round
-// owes, else one step of the round under way (stepRound); false when nothing was left.
+// oneUnit runs one atomic unit at the current instant: one token move of a due do
+// behavior, or the dispatch drawn against it (stepDue); the dispatch alone once no
+// do behavior is due; false when nothing was left.
 func (e *StateExecutor) oneUnit(progress *dueProgress) (moved bool, err error) {
 	e.resetEntering()
 	if len(e.held) > 0 {
@@ -3200,59 +3196,44 @@ func (e *StateExecutor) oneUnit(progress *dueProgress) (moved bool, err error) {
 	if e.completionDue {
 		return true, e.completeMachine()
 	}
-	if e.roundDone {
-		e.roundDone = false
-		if dispatched, err := e.dispatchOne(progress); err != nil || dispatched {
-			return dispatched, err
-		}
-	}
-	e.round = e.dueRound()
-	if len(e.round) == 0 {
+	due := e.dueDoActions()
+	if len(due) == 0 {
 		return e.dispatchOne(progress)
 	}
-	return e.stepRound(progress)
+	return e.stepDue(due, progress)
 }
 
-// dueRound lists the do actions the next step picks among: the round under way's
-// still registered, else a new round of the due ones, as runDoRound sweeps them.
-func (e *StateExecutor) dueRound() []*doAction {
-	round := slices.DeleteFunc(slices.Clone(e.round), func(act *doAction) bool { return !e.isRunningDoAction(act) })
-	if len(round) > 0 {
-		return round
-	}
+// dueDoActions lists the do actions due at the instant, in the order their states
+// were entered — as runDoRound sweeps them.
+func (e *StateExecutor) dueDoActions() []*doAction {
+	var due []*doAction
 	for _, act := range e.doActions {
 		if act.due(e.ctx) {
-			round = append(round, act)
+			due = append(due, act)
 		}
 	}
-	return round
+	return due
 }
 
-// stepRound runs one do action's step or, drawn against the steps under ChoiceStepOrder
-// while a dispatch that acts is due, the dispatch; the round closes once each has stepped.
-func (e *StateExecutor) stepRound(progress *dueProgress) (bool, error) {
-	var next int
+// stepDue moves one token of a due do behavior, drawn among the due ones, or — where
+// a dispatch that acts is due, drawn against the move under ChoiceStepOrder — dispatches.
+func (e *StateExecutor) stepDue(due []*doAction, progress *dueProgress) (bool, error) {
 	if dispatch := e.dueDispatch(); dispatch.acts {
-		pick, err := e.chooseStepOrder(e.round, dispatch.step)
+		dispatchNow, err := e.chooseStepOrder(due, dispatch.step)
 		if err != nil {
 			return false, err
 		}
-		if pick == len(e.round) {
+		if dispatchNow {
 			e.dispatchAmong = dispatch.among
 			defer func() { e.dispatchAmong = nil }()
 			return e.dispatchOne(progress)
 		}
-		next = pick
-	} else {
-		pick, err := e.chooseDoAction(e.round)
-		if err != nil {
-			return false, err
-		}
-		next = pick
 	}
-	act := e.round[next]
-	e.round = slices.Delete(e.round, next, next+1)
-	if err := e.stepDoAction(act, func(run *doRun) (*doRun, error) { return run.resume(e.ctx) }); err != nil {
+	next, err := e.chooseDoAction(due)
+	if err != nil {
+		return false, err
+	}
+	if err := e.stepDoAction(due[next], func(run *doRun) (*doRun, error) { return run.resume(e.ctx) }); err != nil {
 		return false, err
 	}
 	progress.doSteps++
@@ -3261,11 +3242,7 @@ func (e *StateExecutor) stepRound(progress *dueProgress) (bool, error) {
 			fmt.Sprintf("state machine exceeded max do action steps (%d steps; raise %s to allow more), possible non-terminating do behavior",
 				e.ctx.maxDoSteps, MaxDoStepsEnvVar))
 	}
-	if len(e.round) == 0 {
-		e.roundDone = true
-		return true, e.settleDoActions()
-	}
-	return true, nil
+	return true, e.settleDoActions()
 }
 
 // stepWherePrefix opens where a step order names its instant; dispatchTiedLabel is
@@ -3376,30 +3353,31 @@ func (e *StateExecutor) changeLabel(trans *lower.Transition) string {
 	return transitionDescription(trans)
 }
 
-// chooseStepOrder draws what goes first under ChoiceStepOrder — `do <state>` per due
-// action in round order, then the dispatch — returning the index taken, len(due) for the dispatch.
-func (e *StateExecutor) chooseStepOrder(due []*doAction, dispatch string) (int, error) {
-	alternatives := make([]string, 0, len(due)+1)
-	for _, name := range e.stateNames(statesOf(due)) {
-		alternatives = append(alternatives, "do "+name)
-	}
+// chooseStepOrder draws what goes first under ChoiceStepOrder — the move of a due do
+// behavior, or the dispatch — and reports whether the dispatch does.
+func (e *StateExecutor) chooseStepOrder(due []*doAction, dispatch string) (bool, error) {
 	choice := ChoicePoint{
 		Kind:         ChoiceStepOrder,
 		Where:        stepWherePrefix + semantics.FormatReal(e.ctx.clock.now),
-		Alternatives: append(alternatives, dispatch),
+		Alternatives: []string{doStepLabel(e.stateNames(statesOf(due))), dispatch},
 		File:         e.stateMachine.DocName,
 		Span:         e.stateMachine.DeclSpan,
 	}
 	scheduling := e.ctx.scheduling()
 	choice.Taken = scheduling.choose(choice, nil)
 	if err := scheduling.refusal(); err != nil {
-		return 0, err
+		return false, err
 	}
-	if choice.Taken < len(due) {
-		choice.Span = due[choice.Taken].state.Span()
+	if choice.Taken == 0 && len(due) == 1 {
+		choice.Span = due[0].state.Span()
 	}
 	e.noteChoice(choice)
-	return choice.Taken, nil
+	return choice.Taken == 1, nil
+}
+
+// doStepLabel names the move of one of the states' do behaviors as a step order's alternative.
+func doStepLabel(states []string) string {
+	return "do " + strings.Join(states, " or ")
 }
 
 // dispatchOne is runStep's dispatch phase: a risen change condition fires, else

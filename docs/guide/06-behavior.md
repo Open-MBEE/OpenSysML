@@ -743,24 +743,17 @@ table is followed by the trace of each outcome's witness run (`trace of outcome 
 
 <a id="a-do-behavior-under-explore-and-check"></a>
 A state's `do` behavior is stepped the same way under `explore` and `check`: one token at a time —
-each due `do` behavior moves one token, then the machine dispatches the event at the head of its
-pool. Under the fixed policies (`reverse`, `declared`, `seed:<n>`) a do behavior's flow instead
-advances every steppable token once a round, and the machine dispatches only between rounds. The
-run a fixed policy makes — the whole round, then the dispatch — is therefore an interleaving
-with a value under `reverse` that `check` does not table. The fixed-policy `check` enumeration
-does not contain the interleaving where a transition interrupts a `do` behavior mid-round; the
-runtime does support that interruption. A check that reaches such a state — a
-machine owing a dispatch after a `do` step that left a token able to act standing, one ready
-beside the token moved or one its move freed, where a fixed policy's round would have moved it too
-— therefore does not report
-*exhaustive*: its verdict is `no violation within bounds` (or `divergent`, when the schedules it
-did search disagree) with `not enumerated: do round before dispatch` naming the run it left out,
-and the standing is *bounded*. Whether the dispatch waits for the round or cuts it becomes a
-recorded choice point — drawn per token move of the `do` flow — as the one site of the
-region-order scheduling work still open ([design
-note](../internals/design/region-order-scheduling.md)); until then, run a fixed policy beside the
-checker when a `do` behavior loops through timed waits. The witnesses such a check writes replay
-as any other: the search is short of a run, not wrong about the ones it made.
+a due `do` behavior moves one token, and after each move the machine either dispatches the event
+at the head of its pool or moves the `do` flow again, a recorded choice (`at t=…: next do
+<state>, dispatch accept <signal> (unordered; took … first)` in the witness). Under the fixed
+policies (`reverse`, `declared`, `seed:<n>`) a `do` behavior's flow instead advances every
+steppable token once a round, and the machine dispatches only between rounds — one of the
+interleavings `check` and `explore` table, so the exhaustive set is a superset of every fixed
+policy's outcome, and a transition that interrupts a `do` behavior after any of its token moves
+is another. A `do` body parked at an `accept` offers no move until its occurrence is dispatched,
+and a `do` flow that never rests against a queued dispatch ends each run at the dispatch or at
+the do-step budget. The witnesses such a check writes replay as any other ([design
+note](../internals/design/region-order-scheduling.md)).
 
 The order of executors due at one instant of the clock is explored like any other choice:
 `sysml -schedule explore -instantiate Demo::beacon -action Demo::watcher -state

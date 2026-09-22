@@ -75,7 +75,7 @@ func TestDurationWithNoUnitIsInMilliseconds(t *testing.T) {
 	for _, line := range []string{
 		"action wait accept after 0.2 [SI::s];",
 		"action wait2 accept after 1.5 [SI::s];",
-		"action wait3 accept after this.settle * 0.001 [SI::s];",
+		"action wait3 accept after (this.settle * 0.001) [SI::s];",
 		"action wait4 accept after this.settle [SI::s];",
 	} {
 		wantLine(t, r.Notation, line)

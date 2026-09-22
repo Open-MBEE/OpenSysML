@@ -849,7 +849,9 @@ elmt:Prefixed__Braking___401___400
     sysml:owner elmt:Prefixed__Braking___401 ;
     sysml:owningRelationship elmt:Prefixed__Braking___401___400_om ;
     sysml:owningMembership elmt:Prefixed__Braking___401___400_om ;
-    sysx:condition expr:Prefixed__Braking___401___400_pcondition .
+    sysx:condition expr:Prefixed__Braking___401___400_pcondition ;
+    sysml:ownedRelationship expr:Prefixed__Braking___401___400_pcondition_om ;
+    sysml:ownedMembership expr:Prefixed__Braking___401___400_pcondition_om .
 
 elmt:Prefixed__Braking___401___400_om
     a sysml:OwningMembership ;
@@ -865,7 +867,20 @@ expr:Prefixed__Braking___401___400_pcondition
     a sysml:LiteralBoolean ;
     sysx:sourceText "true" ;
     sysml:elementId "Prefixed__Braking___401___400_pcondition" ;
-    sysml:value "true"^^xsd:boolean .
+    sysml:value "true"^^xsd:boolean ;
+    sysml:owner elmt:Prefixed__Braking___401___400 ;
+    sysml:owningRelationship expr:Prefixed__Braking___401___400_pcondition_om ;
+    sysml:owningMembership expr:Prefixed__Braking___401___400_pcondition_om .
+
+expr:Prefixed__Braking___401___400_pcondition_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Prefixed__Braking___401___400_pcondition_om" ;
+    sysml:owner elmt:Prefixed__Braking___401___400 ;
+    sysml:memberElement expr:Prefixed__Braking___401___400_pcondition ;
+    sysml:ownedMemberElement expr:Prefixed__Braking___401___400_pcondition ;
+    sysml:ownedRelatedElement expr:Prefixed__Braking___401___400_pcondition ;
+    sysml:owningRelatedElement elmt:Prefixed__Braking___401___400 ;
+    sysml:membershipOwningNamespace elmt:Prefixed__Braking___401___400 .
 
 elmt:Prefixed__Braking___402
     a sysx:RequireMember ;
@@ -928,7 +943,9 @@ elmt:Prefixed__Braking___402___400
     sysml:owner elmt:Prefixed__Braking___402 ;
     sysml:owningRelationship elmt:Prefixed__Braking___402___400_om ;
     sysml:owningMembership elmt:Prefixed__Braking___402___400_om ;
-    sysx:condition expr:Prefixed__Braking___402___400_pcondition .
+    sysx:condition expr:Prefixed__Braking___402___400_pcondition ;
+    sysml:ownedRelationship expr:Prefixed__Braking___402___400_pcondition_om ;
+    sysml:ownedMembership expr:Prefixed__Braking___402___400_pcondition_om .
 
 elmt:Prefixed__Braking___402___400_om
     a sysml:OwningMembership ;
@@ -944,7 +961,20 @@ expr:Prefixed__Braking___402___400_pcondition
     a sysml:LiteralBoolean ;
     sysx:sourceText "true" ;
     sysml:elementId "Prefixed__Braking___402___400_pcondition" ;
-    sysml:value "true"^^xsd:boolean .
+    sysml:value "true"^^xsd:boolean ;
+    sysml:owner elmt:Prefixed__Braking___402___400 ;
+    sysml:owningRelationship expr:Prefixed__Braking___402___400_pcondition_om ;
+    sysml:owningMembership expr:Prefixed__Braking___402___400_pcondition_om .
+
+expr:Prefixed__Braking___402___400_pcondition_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Prefixed__Braking___402___400_pcondition_om" ;
+    sysml:owner elmt:Prefixed__Braking___402___400 ;
+    sysml:memberElement expr:Prefixed__Braking___402___400_pcondition ;
+    sysml:ownedMemberElement expr:Prefixed__Braking___402___400_pcondition ;
+    sysml:ownedRelatedElement expr:Prefixed__Braking___402___400_pcondition ;
+    sysml:owningRelatedElement elmt:Prefixed__Braking___402___400 ;
+    sysml:membershipOwningNamespace elmt:Prefixed__Braking___402___400 .
 
 elmt:Prefixed__Braking__stopped
     a sysx:AssumeMember ;
@@ -1009,12 +1039,14 @@ elmt:Prefixed__Braking__braked
     sysml:declaredName "braked" ;
     sysx:declaredKeyword "constraint" ;
     sysml:ownedMember elmt:Prefixed__Braking__braked___400 ;
-    sysml:ownedMembership elmt:Prefixed__Braking__braked___400_om ;
-    sysml:ownedRelationship elmt:Prefixed__Braking__braked___400_om ;
+    sysml:ownedMembership elmt:Prefixed__Braking__braked___400_om, expr:Prefixed__Braking__braked_pupperBound_om, expr:Prefixed__Braking__braked_pvalue_om ;
+    sysml:ownedRelationship elmt:Prefixed__Braking__braked___400_om, expr:Prefixed__Braking__braked_pupperBound_om, expr:Prefixed__Braking__braked_pvalue_om ;
     sysml:upperBound expr:Prefixed__Braking__braked_pupperBound ;
     sysml:value expr:Prefixed__Braking__braked_pvalue ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysx:sourceText "        require #Safety constraint braked[1] = true;\n" .
+    sysx:sourceText "        require #Safety constraint braked[1] = true;\n" ;
+    json:ownedMembership "[{\"@id\":\"Prefixed__Braking__braked___400_om\"},{\"@id\":\"Prefixed__Braking__braked_pupperBound_om\"},{\"@id\":\"Prefixed__Braking__braked_pvalue_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Prefixed__Braking__braked___400_om\"},{\"@id\":\"Prefixed__Braking__braked_pupperBound_om\"},{\"@id\":\"Prefixed__Braking__braked_pvalue_om\"}]" .
 
 elmt:Prefixed__Braking__braked_om
     a sysml:OwningMembership ;
@@ -1053,10 +1085,38 @@ expr:Prefixed__Braking__braked_pupperBound
     a sysml:LiteralInteger ;
     sysx:sourceText "1" ;
     sysml:elementId "Prefixed__Braking__braked_pupperBound" ;
-    sysml:value "1"^^xsd:integer .
+    sysml:value "1"^^xsd:integer ;
+    sysml:owner elmt:Prefixed__Braking__braked ;
+    sysml:owningRelationship expr:Prefixed__Braking__braked_pupperBound_om ;
+    sysml:owningMembership expr:Prefixed__Braking__braked_pupperBound_om .
+
+expr:Prefixed__Braking__braked_pupperBound_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Prefixed__Braking__braked_pupperBound_om" ;
+    sysml:owner elmt:Prefixed__Braking__braked ;
+    sysml:memberElement expr:Prefixed__Braking__braked_pupperBound ;
+    sysml:ownedMemberElement expr:Prefixed__Braking__braked_pupperBound ;
+    sysml:ownedRelatedElement expr:Prefixed__Braking__braked_pupperBound ;
+    sysml:owningRelatedElement elmt:Prefixed__Braking__braked ;
+    sysml:membershipOwningNamespace elmt:Prefixed__Braking__braked .
 
 expr:Prefixed__Braking__braked_pvalue
     a sysml:LiteralBoolean ;
     sysx:sourceText "true" ;
     sysml:elementId "Prefixed__Braking__braked_pvalue" ;
-    sysml:value "true"^^xsd:boolean .
+    sysml:value "true"^^xsd:boolean ;
+    sysml:owner elmt:Prefixed__Braking__braked ;
+    sysml:owningRelationship expr:Prefixed__Braking__braked_pvalue_om ;
+    sysml:owningMembership expr:Prefixed__Braking__braked_pvalue_om .
+
+expr:Prefixed__Braking__braked_pvalue_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Prefixed__Braking__braked_pvalue_om" ;
+    sysml:owner elmt:Prefixed__Braking__braked ;
+    sysml:memberElement expr:Prefixed__Braking__braked_pvalue ;
+    sysml:ownedMemberElement expr:Prefixed__Braking__braked_pvalue ;
+    sysml:ownedRelatedElement expr:Prefixed__Braking__braked_pvalue ;
+    sysml:owningRelatedElement elmt:Prefixed__Braking__braked ;
+    sysml:membershipOwningNamespace elmt:Prefixed__Braking__braked ;
+    sysml:featureWithValue elmt:Prefixed__Braking__braked ;
+    sysml:value expr:Prefixed__Braking__braked_pvalue .

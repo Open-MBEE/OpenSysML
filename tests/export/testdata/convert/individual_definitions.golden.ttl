@@ -262,6 +262,8 @@ elmt:IndividualDefinitions__Mission__crew
     sysml:declaredName "crew" ;
     sysml:type elmt:IndividualDefinitions__Astronaut ;
     sysml:upperBound expr:IndividualDefinitions__Mission__crew_pupperBound ;
+    sysml:ownedRelationship expr:IndividualDefinitions__Mission__crew_pupperBound_om ;
+    sysml:ownedMembership expr:IndividualDefinitions__Mission__crew_pupperBound_om ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "\t\tpart crew : Astronaut[*];\n" .
 
@@ -280,7 +282,20 @@ elmt:IndividualDefinitions__Mission__crew_om
 expr:IndividualDefinitions__Mission__crew_pupperBound
     a sysml:LiteralInfinity ;
     sysx:sourceText "*" ;
-    sysml:elementId "IndividualDefinitions__Mission__crew_pupperBound" .
+    sysml:elementId "IndividualDefinitions__Mission__crew_pupperBound" ;
+    sysml:owner elmt:IndividualDefinitions__Mission__crew ;
+    sysml:owningRelationship expr:IndividualDefinitions__Mission__crew_pupperBound_om ;
+    sysml:owningMembership expr:IndividualDefinitions__Mission__crew_pupperBound_om .
+
+expr:IndividualDefinitions__Mission__crew_pupperBound_om
+    a sysml:OwningMembership ;
+    sysml:elementId "IndividualDefinitions__Mission__crew_pupperBound_om" ;
+    sysml:owner elmt:IndividualDefinitions__Mission__crew ;
+    sysml:memberElement expr:IndividualDefinitions__Mission__crew_pupperBound ;
+    sysml:ownedMemberElement expr:IndividualDefinitions__Mission__crew_pupperBound ;
+    sysml:ownedRelatedElement expr:IndividualDefinitions__Mission__crew_pupperBound ;
+    sysml:owningRelatedElement elmt:IndividualDefinitions__Mission__crew ;
+    sysml:membershipOwningNamespace elmt:IndividualDefinitions__Mission__crew .
 
 elmt:IndividualDefinitions__Mission__commander
     a sysml:PartUsage ;
