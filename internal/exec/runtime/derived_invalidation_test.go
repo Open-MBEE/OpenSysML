@@ -494,7 +494,7 @@ func TestSelfReferentialDerivedValueStaysACycle(t *testing.T) {
 			if !errors.Is(err, ErrCyclicFeatureValue) {
 				t.Fatalf("GetFeatureValue(x) error = %v, want ErrCyclicFeatureValue", err)
 			}
-		case <-time.After(5 * time.Second):
+		case <-watchdog(5 * time.Second):
 			t.Fatal("GetFeatureValue(x) hung")
 		}
 		if deps := loop.FeatureValues["x"].dependents; len(deps) != 0 {
