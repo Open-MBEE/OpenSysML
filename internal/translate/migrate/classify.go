@@ -438,7 +438,7 @@ func (m *migration) classify(e *sysmlv1.Element) (category, string) {
 	}
 	switch e.Type {
 	case "Model", "Package", "Profile":
-		if has(e, "View") && e.Parent != nil {
+		if e.Type == "Package" && has(e, "View") {
 			return catView, "a «View» package is written as a view usage holding its members"
 		}
 		return catPackage, ""
@@ -582,6 +582,8 @@ func (m *migration) instanceClassifiers(e *sysmlv1.Element) (occurrences, values
 			notes = append(notes, classifierSubject+qualifiedName(c)+" is not migrated")
 		case cc == catAttributeDef, cc == catEnumDef:
 			values = append(values, c)
+		case cc == catView, cc == catViewpoint:
+			notes = append(notes, classifierSubject+qualifiedName(c)+" is written as a "+cc.keyword()+" usage, which an individual cannot specialize")
 		default:
 			occurrences = append(occurrences, c)
 		}

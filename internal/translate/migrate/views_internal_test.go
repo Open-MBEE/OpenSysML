@@ -118,6 +118,11 @@ func TestViewForms(t *testing.T) {
 			 </packagedElement>`,
 			`<sysml:View xmi:id="_s1" base_Package="_v"/>`,
 			[]string{"view Handbook {\n    part def Chapter;\n}"}, "_v", Approximated},
+		{"an instance of a view or viewpoint has no definition to specialize",
+			`<packagedElement xmi:type="uml:Class" xmi:id="_v" name="Overview"/>
+			 <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_i" name="snapshot" classifier="_v _vp"/>`,
+			`<sysml:View xmi:id="_s1" base_Class="_v"/>`,
+			[]string{"the instance's classifier Overview is written as a view usage, which an individual cannot specialize; the instance's classifier Ops is written as a viewpoint usage, which an individual cannot specialize"}, "_i", Unmapped},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			r, err := Migrate("views.xmi", []byte(viewModel(tc.members, tc.stereotypes)))
@@ -146,6 +151,29 @@ func TestViewForms(t *testing.T) {
 			if !found {
 				t.Errorf("%s is missing from the report", tc.id)
 			}
+			if strings.Contains(got, "individual view") || strings.Contains(got, "individual viewpoint") {
+				t.Errorf("an individual specializes a usage:\n%s", got)
+			}
 		})
+	}
+}
+
+// TestRootViewPackage writes a «View» package that is the document root as a view.
+func TestRootViewPackage(t *testing.T) {
+	model := `<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <uml:Package xmi:type="uml:Package" xmi:id="_v" name="Handbook">
+    <packagedElement xmi:type="uml:Class" xmi:id="_ch" name="Chapter"/>
+  </uml:Package>
+  <sysml:View xmi:id="_s1" base_Package="_v"/>
+</xmi:XMI>`
+	r, err := Migrate("views.xmi", []byte(model))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "view Handbook {\n    part def Chapter;\n}"; !strings.Contains(string(r.Notation), want) {
+		t.Errorf("notation lacks %q:\n%s", want, r.Notation)
 	}
 }
