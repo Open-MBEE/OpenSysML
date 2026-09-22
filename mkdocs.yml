@@ -221,6 +221,7 @@ nav:
       - Spec compliance: project/spec-compliance.md
       - Exact-rational evaluation: project/exact-rational-evaluation.md
       - Expansion regions: project/expansion-regions.md
+      - Exception handlers: project/exception-handlers.md
       - Pilot differential: project/pilot-differential.md
       - Roadmap: project/roadmap.md
       - Nightly snapshots: project/nightly.md

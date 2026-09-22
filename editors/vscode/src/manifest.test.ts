@@ -131,6 +131,25 @@ test("the diagram opens on its own by default, and the setting that turns it off
   assert.ok(setting.description || setting.markdownDescription, "the setting is described");
 });
 
+test("Restricted Mode is supported, with only the executable-naming settings restricted", () => {
+  const { capabilities, contributes } = manifest as {
+    capabilities: {
+      untrustedWorkspaces: {
+        supported: string;
+        restrictedConfigurations: string[];
+      };
+    };
+    contributes: { configuration: { properties: Record<string, unknown> } };
+  };
+  assert.equal(capabilities.untrustedWorkspaces.supported, "limited");
+  const { properties } = contributes.configuration;
+  const executableSettings = Object.keys(properties).filter((name) => name === "opensysml.server.path" || name === "opensysml.server.args");
+  for (const name of capabilities.untrustedWorkspaces.restrictedConfigurations) {
+    assert.ok(properties[name], `${name} is not a declared setting`);
+  }
+  assert.deepEqual([...capabilities.untrustedWorkspaces.restrictedConfigurations].sort(), executableSettings.sort());
+});
+
 test("the style setting offers every look the panel does, each described, and follows the theme by default", () => {
   const { properties } = manifest.contributes.configuration as {
     properties: Record<string, { type: string; default: unknown; enum?: string[]; enumDescriptions?: string[]; markdownDescription?: string }>;
