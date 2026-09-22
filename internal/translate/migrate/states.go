@@ -28,6 +28,7 @@ const (
 )
 
 func (m *migration) stateMachineBody(sm *sysmlv1.Element) {
+	m.unwrittenMembers(sm, "observation")
 	m.parameters(sm, sm)
 	for _, c := range sm.Children {
 		switch c.Role {

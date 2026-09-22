@@ -115,8 +115,10 @@ type Model struct {
 	Exporter string
 	// Extensions are the tool-private xmi:Extension blocks that were skipped.
 	Extensions []Extension
-	byID       map[string]*Element
-	proxies    map[string]*Element
+	// Diagrams are the diagrams read out of those blocks, in document order.
+	Diagrams []Diagram
+	byID     map[string]*Element
+	proxies  map[string]*Element
 	// stereotypeHrefs are the definitions a tool's stereotypesHREFS table
 	// names for applied stereotypes, by namespace and name.
 	stereotypeHrefs map[stereotypeKey]string
@@ -134,7 +136,8 @@ type Extension struct {
 	Extender string
 	// Owner is the element the block sits in; nil at the document root.
 	Owner *Element
-	// Elements are the xmi:type and name of every typed element inside, e.g. "uml:Diagram Vehicle BDD".
+	// Elements are the xmi:type and name of every typed element inside, the
+	// diagrams excepted, which Model.Diagrams holds.
 	Elements []ExtensionElement
 }
 
@@ -526,50 +529,66 @@ func (m *Model) special(raw *xmi.Element, owner, ref *Element) {
 	case "Extension":
 		ext := Extension{Extender: raw.Attr("extender"), Owner: owner}
 		adopted := m.adoptValues(raw, owner, ref)
-		for _, child := range raw.Descendants() {
-			if adopted[child] {
-				continue
-			}
-			if child.Type != "" {
-				ext.Elements = append(ext.Elements, ExtensionElement{
-					ID: child.ID, Type: child.Type, Name: child.Name(),
-				})
-			}
-			if ref != nil && child.Tag == "referenceExtension" {
-				m.describeReference(ref, child)
-			}
-			if child.Tag == "stereotype" && child.Parent != nil && child.Parent.Tag == "stereotypesHREFS" {
-				m.recordStereotypeHref(child)
-			}
-		}
+		m.extensionContent(raw, &ext, ref, adopted)
 		m.Extensions = append(m.Extensions, ext)
 	}
 }
 
-// adoptValues reads the value specifications a tool keeps in an extension block
-// because UML has no metaclass for them — an ElementValue operand of an
-// Expression, referring to an element — as owned elements of the block's owner,
-// in document order. It returns the raw elements adopted, so the block does not
-// also list them; any other element of the block stays tool metadata.
+// extensionContent records what an extension block holds, in document order:
+// a diagram as a Diagram, any other typed element not adopted into the model,
+// a diagram's own included, as skipped.
+func (m *Model) extensionContent(raw *xmi.Element, ext *Extension, ref *Element, adopted map[*xmi.Element]bool) {
+	for _, child := range raw.Children {
+		if adopted[child] {
+			continue
+		}
+		if isDiagram(child) {
+			m.diagram(child, ext)
+			m.extensionContent(child, ext, ref, adopted)
+			continue
+		}
+		if child.Type != "" {
+			ext.Elements = append(ext.Elements, ExtensionElement{
+				ID: child.ID, Type: child.Type, Name: child.Name(),
+			})
+		}
+		if ref != nil && child.Tag == "referenceExtension" {
+			m.describeReference(ref, child)
+		}
+		if child.Tag == "stereotype" && child.Parent != nil && child.Parent.Tag == "stereotypesHREFS" {
+			m.recordStereotypeHref(child)
+		}
+		m.extensionContent(child, ext, ref, adopted)
+	}
+}
+
+// adoptValues reads the ElementValue operands of an Expression that a tool keeps in an
+// extension block, under any wrappers but not inside a diagram or a reference, as the
+// owner's elements, in document order. It returns those adopted; the rest stays metadata.
 func (m *Model) adoptValues(raw *xmi.Element, owner, ref *Element) map[*xmi.Element]bool {
 	adopted := map[*xmi.Element]bool{}
 	if owner == nil || ref != nil || (owner.Type != "Expression" && owner.Type != "StringExpression") {
 		return adopted
 	}
-	for _, block := range raw.Children {
+	var walk func(*xmi.Element)
+	walk = func(block *xmi.Element) {
 		for _, child := range block.Children {
-			if child.Tag != "operand" || local(child.Type) != "ElementValue" {
-				continue
-			}
-			e := m.newElement(child, owner)
-			owner.Children = append(owner.Children, e)
-			m.children(child, e, nil)
-			adopted[child] = true
-			for _, d := range child.Descendants() {
-				adopted[d] = true
+			switch {
+			case isDiagram(child) || child.Tag == "referenceExtension":
+			case child.Tag == "operand" && local(child.Type) == "ElementValue":
+				e := m.newElement(child, owner)
+				owner.Children = append(owner.Children, e)
+				m.children(child, e, nil)
+				adopted[child] = true
+				for _, d := range child.Descendants() {
+					adopted[d] = true
+				}
+			default:
+				walk(child)
 			}
 		}
 	}
+	walk(raw)
 	return adopted
 }
 
@@ -746,6 +765,7 @@ func (m *Model) link() {
 			}
 		}
 	}
+	m.linkDiagrams()
 	defs := m.stereotypeDefinitions()
 	for _, s := range m.Stereotypes {
 		if s.Definition = m.definitionOf(s, defs); s.Definition != nil {

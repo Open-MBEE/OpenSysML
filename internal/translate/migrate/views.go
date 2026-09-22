@@ -189,15 +189,37 @@ func (m *migration) placeExpose(d *sysmlv1.Element) {
 	for _, id := range lostClients {
 		pl.notes = append(pl.notes, "the exposing element "+id+" is not in the document")
 	}
+	// A diagram is no model element: an id or href naming one resolves to nothing,
+	// or to a proxy, and stands for the view written for it.
+	var diagrams []*sysmlv1.Diagram
+	var elements []*sysmlv1.Element
+	shown := func(d *sysmlv1.Diagram) {
+		if note := m.diagramViewNote(d); note != "" {
+			pl.notes = append(pl.notes, note)
+			return
+		}
+		diagrams = append(diagrams, d)
+	}
 	for _, id := range lostSuppliers {
+		if d := m.model.Diagram(id); d != nil {
+			shown(d)
+			continue
+		}
 		pl.notes = append(pl.notes, m.absentNote(id))
+	}
+	for _, s := range suppliers {
+		if d := m.model.Diagram(s.Href); s.IsProxy() && d != nil {
+			shown(d)
+			continue
+		}
+		elements = append(elements, s)
 	}
 	for _, c := range clients {
 		if cat, _ := m.classify(c); cat != catView {
 			pl.notes = append(pl.notes, "the client "+qualifiedName(c)+" is not a view: v2 exposes elements from a view alone")
 			continue
 		}
-		for _, s := range suppliers {
+		for _, s := range elements {
 			if note := m.exposeNote(s); note != "" {
 				pl.notes = append(pl.notes, note)
 				continue
@@ -205,6 +227,11 @@ func (m *migration) placeExpose(d *sysmlv1.Element) {
 			pl.write(m.v2Name(c))
 			view, exposed := c, s
 			m.extras[view] = append(m.extras[view], func() { m.w.line("expose " + m.exposeRef(view, exposed) + ";") })
+		}
+		for _, d := range diagrams {
+			pl.write(m.v2Name(c))
+			view, shown := c, d
+			m.extras[view] = append(m.extras[view], func() { m.w.line("expose " + m.viewRef(m.viewOf[shown], view) + ";") })
 		}
 	}
 	pl.failed = total - len(pl.targets)
@@ -226,7 +253,7 @@ func (m *migration) exposeNote(s *sysmlv1.Element) string {
 // exposeRef writes what a view exposes: a namespace with its contents, as v1
 // exposes a package's members with it, any other element by itself.
 func (m *migration) exposeRef(view, s *sysmlv1.Element) string {
-	ref := m.ref(s, view)
+	ref := m.memberRef(s, view)
 	switch s.Type {
 	case "Package", "Model":
 		return ref + "::**"
@@ -234,8 +261,8 @@ func (m *migration) exposeRef(view, s *sysmlv1.Element) string {
 	return ref
 }
 
-// absentNote says what an unresolved reference to id was: a diagram or other
-// notation the tool keeps outside the model, or nothing in the document.
+// absentNote says what an unresolved reference to id was: notation the tool
+// keeps outside the model, or nothing in the document.
 func (m *migration) absentNote(id string) string {
 	for _, ext := range m.model.Extensions {
 		for _, el := range ext.Elements {
@@ -321,6 +348,10 @@ func (m *migration) framedComments(e *sysmlv1.Element) []*sysmlv1.Element {
 		c := m.model.Lookup(id)
 		if c == nil {
 			m.downgrade(e, "the concernList tag names "+id+", which is not in the document")
+			continue
+		}
+		if c.Type != "Comment" {
+			m.downgrade(e, "the concernList tag names the "+kindOf(c)+" "+qualifiedName(c)+", which is not a comment and frames no concern")
 			continue
 		}
 		m.framed[c] = true

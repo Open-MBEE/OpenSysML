@@ -134,3 +134,6 @@ package Requirements {
     }
 }
 package 'Empty Package';
+view 'Vehicle BDD' {
+    render Views::asTextualNotation;
+}

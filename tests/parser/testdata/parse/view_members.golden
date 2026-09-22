@@ -46,6 +46,10 @@
               (Relationship kind="references" target=asTree
                 (*ast.QualifiedName))))
           (Membership visibility="default"
+            (Usage kind="render" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="references" target=$::ViewMembers::Base::asTree
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
             (Usage kind="render" name="r2" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
               (Relationship kind="typing" target=AsTree
                 (*ast.QualifiedName))))

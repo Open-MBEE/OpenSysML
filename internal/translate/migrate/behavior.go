@@ -3,6 +3,7 @@ package migrate
 import (
 	"math"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -64,11 +65,50 @@ func isBehavior(e *sysmlv1.Element) bool {
 	return false
 }
 
+// behaviorWritesMember reports whether the body of behavior b declares its member c: what the
+// owner writes for any behavior, else an activity's or a state machine's nested members and graph.
+func behaviorWritesMember(b, c *sysmlv1.Element) bool {
+	if ownerWritten(c.Role) {
+		return true
+	}
+	switch c.Role {
+	case "ownedBehavior", "nestedClassifier", "ownedAttribute", "ownedRule":
+		return b.Type == "Activity" || b.Type == "StateMachine"
+	case "node", "edge", "group":
+		return b.Type == "Activity"
+	case "ownedOperation", "connectionPoint":
+		return b.Type == "StateMachine"
+	}
+	return false
+}
+
+// unwrittenMembers reports the members of behavior b that its body neither declares nor
+// accounts for otherwise, as it does the accounted roles.
+func (m *migration) unwrittenMembers(b *sysmlv1.Element, accounted ...string) {
+	body := "parameters and code"
+	switch b.Type {
+	case "Interaction":
+		body = "parameters and scenario steps"
+	case "Activity":
+		body = "parameters and flow"
+	case "StateMachine":
+		body = "parameters and states"
+	}
+	for _, c := range b.Children {
+		if behaviorWritesMember(b, c) || slices.Contains(accounted, c.Role) {
+			continue
+		}
+		m.unmapped(c, "owned by a "+b.Type+", whose v2 body is its "+body+", not a place for a "+kindOf(c))
+	}
+}
+
 // behaviorBody writes the body of a behavior or operation declaration.
 func (m *migration) behaviorBody(e *sysmlv1.Element, cat category) {
 	saved := m.scope
 	m.scope = e
 	m.comments(e)
+	// Views open the body: a calc def's must end in its result expression.
+	m.views(e)
 	switch {
 	case e.Type == "Operation":
 		m.operationBody(e)
@@ -753,6 +793,7 @@ func (m *migration) resultRefusal(e *sysmlv1.Element) string {
 
 // calcBody writes an opaque or function behavior's parameters and result expression.
 func (m *migration) calcBody(e *sysmlv1.Element) {
+	m.unwrittenMembers(e)
 	m.parameters(e, e)
 	expr, _, _, translated := m.calcExprHow(e)
 	_, lang := opaqueBody(e)
@@ -765,6 +806,7 @@ func (m *migration) calcBody(e *sysmlv1.Element) {
 // opaqueBehaviorBody writes an opaque or function behavior's body that is no single
 // expression: as assignments when every statement is one, else as a comment.
 func (m *migration) opaqueBehaviorBody(e, scope *sysmlv1.Element) {
+	m.unwrittenMembers(e)
 	body, lang := opaqueBody(e)
 	lines, ok, note := m.statements(body, lang, scope)
 	if !ok {
@@ -839,11 +881,18 @@ func (m *migration) operationBody(op *sysmlv1.Element) {
 // abstractOperation reports whether an operation is written abstract: it has
 // no method of its own to become its body.
 func (m *migration) abstractOperation(op *sysmlv1.Element) bool {
+	return op.Type == "Operation" && m.bodyMethod(op) == nil
+}
+
+// bodyMethod is the behavior written as op's body: its method, owned beside it; nil otherwise.
+func (m *migration) bodyMethod(op *sysmlv1.Element) *sysmlv1.Element {
 	if op.Type != "Operation" {
-		return false
+		return nil
 	}
-	method := m.model.Ref(op, "method")
-	return method == nil || method.Parent != op.Parent
+	if method := m.model.Ref(op, "method"); method != nil && method.Parent == op.Parent {
+		return method
+	}
+	return nil
 }
 
 // operationConditions writes an operation's pre-, post- and body conditions

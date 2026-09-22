@@ -208,7 +208,7 @@ func TestReportAccountsForEveryElement(t *testing.T) {
 		"_dep_refine":       migrate.Mapped,
 		"_dep_verify_block": migrate.Unmapped,
 		"_lib_sysml":        migrate.Skipped,
-		"_diag_bdd":         migrate.Skipped,
+		"_diag_bdd":         migrate.Approximated,
 		"_pa_sysml":         migrate.Skipped,
 	}
 	for id, v := range want {
@@ -318,6 +318,8 @@ var constructFixtures = []string{
 	"org_profile",
 	"profile_inheritance",
 	"tool_profiles",
+	"diagrams",
+	"malformed_diagrams",
 	"stub_actions",
 }
 

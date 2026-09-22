@@ -1,0 +1,305 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:diagram="http://www.example.com/tool/diagram">
+  <xmi:Documentation exporter="Example UML Tool" exporterVersion="1.0"/>
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_structure" name="Structure">
+      <ownedComment xmi:type="uml:Comment" xmi:id="_cmt_structure" body="The rolling stock."/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_vehicle" name="Vehicle">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_engine" name="engine" type="_blk_engine" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_wheel" name="wheel" type="_blk_wheel" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_mass" name="mass">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedAttribute>
+        <ownedConnector xmi:type="uml:Connector" xmi:id="_conn_drive">
+          <end xmi:type="uml:ConnectorEnd" xmi:id="_ce_drive_1" role="_prop_engine"/>
+          <end xmi:type="uml:ConnectorEnd" xmi:id="_ce_drive_2" role="_prop_wheel"/>
+        </ownedConnector>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_engine" name="Engine">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_power" name="power">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_anon" type="_blk_wheel" aggregation="composite"/>
+        <ownedOperation xmi:type="uml:Operation" xmi:id="_op_crank" name="Crank" method="_act_cranking"/>
+        <ownedOperation xmi:type="uml:Operation" xmi:id="_op_halt" name="Halt" method="_ob_halting"/>
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_cranking" name="Cranking" specification="_op_crank">
+          <node xmi:type="uml:InitialNode" xmi:id="_crank_init"/>
+          <node xmi:type="uml:OpaqueAction" xmi:id="_crank_ignite" name="ignite">
+            <language>JavaScript</language>
+            <body>ignited = true;</body>
+          </node>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_crank_final"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_crank_f1" source="_crank_init" target="_crank_ignite"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_crank_f2" source="_crank_ignite" target="_crank_final"/>
+        </ownedBehavior>
+        <ownedBehavior xmi:type="uml:OpaqueBehavior" xmi:id="_ob_halting" name="Halting" specification="_op_halt">
+          <language>JavaScript</language>
+          <body>ignited = false;</body>
+        </ownedBehavior>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_wheel" name="Wheel"/>
+      <packagedElement xmi:type="uml:Association" xmi:id="_assoc_drives" memberEnd="_prop_engine _assoc_end">
+        <ownedEnd xmi:type="uml:Property" xmi:id="_assoc_end" type="_blk_vehicle" association="_assoc_drives"/>
+      </packagedElement>
+    </packagedElement>
+
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_behavior" name="Behavior">
+      <packagedElement xmi:type="uml:Activity" xmi:id="_act_drive" name="Drive">
+        <node xmi:type="uml:InitialNode" xmi:id="_init"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_act_start" name="start engine">
+          <language>JavaScript</language>
+          <body>running = true;</body>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_final"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_f1" source="_init" target="_act_start"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_f2" source="_act_start" target="_final"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:StateMachine" xmi:id="_sm_modes" name="Modes">
+        <region xmi:type="uml:Region" xmi:id="_sm_region">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_sm_init" kind="initial"/>
+          <subvertex xmi:type="uml:State" xmi:id="_st_idle" name="Idle"/>
+          <subvertex xmi:type="uml:State" xmi:id="_st_running" name="Running"/>
+          <transition xmi:type="uml:Transition" xmi:id="_t_init" source="_sm_init" target="_st_idle"/>
+          <transition xmi:type="uml:Transition" xmi:id="_t_run" source="_st_idle" target="_st_running"/>
+        </region>
+      </packagedElement>
+    </packagedElement>
+
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_usage" name="Usage">
+      <ownedComment xmi:type="uml:Comment" xmi:id="_cmt_drives" annotatedElement="_assoc_driver" body="The driver drives."/>
+      <packagedElement xmi:type="uml:Actor" xmi:id="_actor_driver" name="Driver"/>
+      <packagedElement xmi:type="uml:UseCase" xmi:id="_uc_drive" name="Drive Vehicle"/>
+      <packagedElement xmi:type="uml:Association" xmi:id="_assoc_driver" memberEnd="_end_driver _end_uc">
+        <ownedEnd xmi:type="uml:Property" xmi:id="_end_driver" name="driver" type="_actor_driver" association="_assoc_driver"/>
+        <ownedEnd xmi:type="uml:Property" xmi:id="_end_uc" type="_uc_drive" association="_assoc_driver"/>
+      </packagedElement>
+    </packagedElement>
+
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_views" name="Reports">
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_overview" name="Vehicle Overview"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_fleet" name="Fleet">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_summary" name="summary" type="_view_overview" aggregation="composite"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_own" client="_view_overview" supplier="_diag_overview"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_fleet" client="_view_fleet" supplier="_diag_fleet _diag_ibd"/>
+    </packagedElement>
+
+    <xmi:Extension extender="Example UML Tool 1.0">
+      <modelExtension>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_overview" name="Vehicle Overview" ownerOfDiagram="_view_overview">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Block Definition Diagram" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_blk_vehicle</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_fleet" name="Fleet" ownerOfDiagram="_pkg_views">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Package Diagram" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_pkg_structure</usedElements>
+                  <usedElements>_prop_summary</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_bdd" name="Vehicle Structure" ownerOfDiagram="_pkg_structure">
+          <ownedComment xmi:type="uml:Comment" xmi:id="_note_bdd" body="A note on the canvas."/>
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <legend type="_pkg_behavior"><usedElements>_pkg_behavior</usedElements></legend>
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Block Definition Diagram" umlType="Class Diagram">
+                <diagramContents>
+                  <usedObjects href="#_blk_vehicle"/>
+                  <usedElements>_blk_vehicle</usedElements>
+                  <usedElements>_blk_engine</usedElements>
+                  <usedElements>_blk_wheel</usedElements>
+                  <usedElements>_prop_engine</usedElements>
+                  <usedElements>_prop_mass</usedElements>
+                  <usedElements>_prop_anon</usedElements>
+                  <usedElements>_assoc_drives</usedElements>
+                  <usedElements>_cmt_structure</usedElements>
+                  <usedElements>_act_drive</usedElements>
+                  <usedElements>_blk_engine</usedElements>
+                  <usedObjects href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_pkg" name="Vehicle Structure" ownerOfDiagram="_pkg_structure">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Package Diagram" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_pkg_structure</usedElements>
+                  <usedElements>_pkg_behavior</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_ibd" name="Vehicle Internals" ownerOfDiagram="_blk_vehicle">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Internal Block Diagram" umlType="Composite Structure Diagram">
+                <diagramContents>
+                  <usedElements>_blk_vehicle</usedElements>
+                  <usedElements>_prop_engine</usedElements>
+                  <usedElements>_prop_wheel</usedElements>
+                  <usedElements>_conn_drive</usedElements>
+                  <usedElements>_prop_power</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_act" name="Drive Flow" ownerOfDiagram="_act_drive">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Activity Diagram" umlType="Activity Diagram">
+                <diagramContents>
+                  <usedElements>_init</usedElements>
+                  <usedElements>_act_start</usedElements>
+                  <usedElements>_final</usedElements>
+                  <usedElements>_f1</usedElements>
+                  <usedElements>_f2</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_act_node" name="start engine" ownerOfDiagram="_act_drive">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Activity Diagram" umlType="Activity Diagram">
+                <diagramContents>
+                  <usedElements>_act_start</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_cranking" name="Cranking" ownerOfDiagram="_act_cranking">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Activity Diagram" umlType="Activity Diagram">
+                <diagramContents>
+                  <usedElements>_act_cranking</usedElements>
+                  <usedElements>_crank_ignite</usedElements>
+                  <usedElements>_crank_f1</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_ignite" name="Ignition" ownerOfDiagram="_crank_ignite">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Activity Diagram" umlType="Activity Diagram">
+                <diagramContents>
+                  <usedElements>_crank_ignite</usedElements>
+                  <usedElements>_crank_f2</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_halting" name="Halting" ownerOfDiagram="_ob_halting">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Activity Diagram" umlType="Activity Diagram">
+                <diagramContents>
+                  <usedElements>_ob_halting</usedElements>
+                  <usedElements>_blk_engine</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_stm" name="Idle" ownerOfDiagram="_sm_region">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML State Machine Diagram" umlType="State Machine Diagram">
+                <diagramContents>
+                  <usedElements>_st_idle</usedElements>
+                  <usedElements>_st_running</usedElements>
+                  <usedElements>_t_run</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_table" name="Block Table" ownerOfDiagram="_m">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="Generic Table" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_blk_vehicle</usedElements>
+                  <usedElements>_blk_engine</usedElements>
+                  <usedElements>_prop_power</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_matrix" name="Engine Matrix" ownerOfDiagram="_prop_engine">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="Dependency Matrix" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_blk_engine</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_custom" name="Engine" ownerOfDiagram="_pkg_structure">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="Team Review Diagram" umlType="Use Case Diagram">
+                <diagramContents>
+                  <usedElements>_blk_engine</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_usage" name="Driving" ownerOfDiagram="_pkg_usage">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Use Case Diagram" umlType="Use Case Diagram">
+                <diagramContents>
+                  <usedElements>_actor_driver</usedElements>
+                  <usedElements>_uc_drive</usedElements>
+                  <usedElements>_assoc_driver</usedElements>
+                  <usedElements>_end_driver</usedElements>
+                  <usedElements>_end_uc</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <layout xmi:type="tool:DiagramLayout" xmi:id="_layout_bdd" name="Vehicle Structure"/>
+      </modelExtension>
+    </xmi:Extension>
+  </uml:Model>
+
+  <sysml:Block xmi:id="_s_vehicle" base_Class="_blk_vehicle"/>
+  <sysml:Block xmi:id="_s_engine" base_Class="_blk_engine"/>
+  <sysml:Block xmi:id="_s_wheel" base_Class="_blk_wheel"/>
+  <sysml:View xmi:id="_s_overview" base_Class="_view_overview"/>
+  <sysml:View xmi:id="_s_fleet" base_Class="_view_fleet"/>
+  <sysml:Expose xmi:id="_s_expose_own" base_Dependency="_expose_own"/>
+  <sysml:Expose xmi:id="_s_expose_fleet" base_Dependency="_expose_fleet"/>
+</xmi:XMI>

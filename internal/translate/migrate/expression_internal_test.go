@@ -104,6 +104,12 @@ func TestExpressionTreeLowering(t *testing.T) {
 			   <operand xmi:type="uml:LiteralReal" xmi:id="_r" value="4.0"/>
 			 </specification>`,
 			"constraint r { a ** 2 + -b == 4.0 }"},
+		{"a power over three operands folds left, as the other operators do",
+			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="==">
+			   <operand xmi:type="uml:Expression" xmi:id="_s1" symbol="**">` + leaf("a") + leaf("b") + `<operand xmi:type="uml:LiteralInteger" xmi:id="_l" value="2"/></operand>
+			   <operand xmi:type="uml:Expression" xmi:id="_s2" symbol="-">` + leaf("a") + leaf("b") + `<operand xmi:type="uml:LiteralInteger" xmi:id="_l2" value="2"/></operand>
+			 </specification>`,
+			"constraint r { (a ** b) ** 2 == a - b - 2 }"},
 		{"element value of an element the scope does not read is refused",
 			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="==">` + leaf("a") + `<operand xmi:type="uml:ElementValue" xmi:id="_ev" element="_on"/></specification>`,
 			`the UML Expression tree has no v2 form: the name "On" resolves to nothing readable: nothing visible from Blk is called On`},

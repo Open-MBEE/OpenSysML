@@ -97,12 +97,30 @@ func TestViewForms(t *testing.T) {
 			 </packagedElement>`,
 			`<sysml:View xmi:id="_s1" base_Class="_v"/><sysml:View xmi:id="_s2" base_Class="_v2"/><sysml:View xmi:id="_s3" base_Class="_v3"/>`,
 			[]string{"view detail :> Outer.Inner;"}, "_p", Mapped},
-		{"an expose of a diagram is refused as notation",
+		{"an expose of a diagram exposes the diagram's view",
+			`<packagedElement xmi:type="uml:Class" xmi:id="_v" name="Overview"/>
+			 <packagedElement xmi:type="uml:Dependency" xmi:id="_d" client="_v" supplier="_bdd"/>
+			 <xmi:Extension extender="Tool"><ownedDiagram xmi:type="uml:Diagram" xmi:id="_bdd" name="Pump BDD" ownerOfDiagram="_sys"/></xmi:Extension>`,
+			`<sysml:View xmi:id="_s1" base_Class="_v"/><sysml:Expose xmi:id="_s2" base_Dependency="_d"/>`,
+			[]string{"view Overview {\n    expose Sys::'Pump BDD';\n}", "view 'Pump BDD' {\n        render Views::asTextualNotation;\n    }"}, "_d", Mapped},
+		{"an expose whose supplier is an href to a diagram exposes the diagram's view",
+			`<packagedElement xmi:type="uml:Class" xmi:id="_v" name="Overview"/>
+			 <packagedElement xmi:type="uml:Dependency" xmi:id="_d" client="_v"><supplier href="#_bdd"/></packagedElement>
+			 <xmi:Extension extender="Tool"><ownedDiagram xmi:type="uml:Diagram" xmi:id="_bdd" name="Pump BDD" ownerOfDiagram="_sys"/></xmi:Extension>`,
+			`<sysml:View xmi:id="_s1" base_Class="_v"/><sysml:Expose xmi:id="_s2" base_Dependency="_d"/>`,
+			[]string{"view Overview {\n    expose Sys::'Pump BDD';\n}"}, "_d", Mapped},
+		{"an expose of a diagram held by an unwritten owner names the view where it is written",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_v" name="Overview"/>
 			 <packagedElement xmi:type="uml:Dependency" xmi:id="_d" client="_v" supplier="_bdd"/>
 			 <xmi:Extension extender="Tool"><ownedDiagram xmi:type="uml:Diagram" xmi:id="_bdd" name="Pump BDD"/></xmi:Extension>`,
 			`<sysml:View xmi:id="_s1" base_Class="_v"/><sysml:Expose xmi:id="_s2" base_Dependency="_d"/>`,
-			[]string{"the exposed Diagram 'Pump BDD' is notation the tool keeps outside the model"}, "_d", Unmapped},
+			[]string{"view Overview {\n    expose 'Pump BDD';\n}", "view 'Pump BDD' {\n    render Views::asTextualNotation;\n}"}, "_d", Mapped},
+		{"a diagram named like a view of its package is written beside it under another name",
+			`<packagedElement xmi:type="uml:Class" xmi:id="_v" name="Overview"/>
+			 <packagedElement xmi:type="uml:Dependency" xmi:id="_d" client="_v" supplier="_ov"/>
+			 <xmi:Extension extender="Tool"><ownedDiagram xmi:type="uml:Diagram" xmi:id="_ov" name="Overview" ownerOfDiagram="_m"/></xmi:Extension>`,
+			`<sysml:View xmi:id="_s1" base_Class="_v"/><sysml:Expose xmi:id="_s2" base_Dependency="_d"/>`,
+			[]string{"view Overview {\n    expose 'Overview 2';\n}", "view 'Overview 2' {\n    render Views::asTextualNotation;\n}"}, "_ov", Approximated},
 		{"an expose from a block is refused",
 			`<packagedElement xmi:type="uml:Dependency" xmi:id="_d" client="_pump" supplier="_sys"/>`,
 			`<sysml:Expose xmi:id="_s2" base_Dependency="_d"/>`,
@@ -124,6 +142,14 @@ func TestViewForms(t *testing.T) {
 			 </packagedElement>`,
 			`<sysml:View xmi:id="_s1" base_Package="_v" viewpoint="_vp"/>`,
 			[]string{"view Handbook {\n    satisfy Ops;\n    part def Chapter;\n}"}, "_v", Approximated},
+		{"a concernList naming a block frames nothing and leaves the block mapped",
+			`<packagedElement xmi:type="uml:Class" xmi:id="_vp2" name="Safety"/>`,
+			`<sysml:Viewpoint xmi:id="_sv2" base_Class="_vp2" concernList="_pump"/>`,
+			[]string{"part def Pump;", "viewpoint Safety;"}, "_pump", Mapped},
+		{"a concernList naming a block is reported on the viewpoint",
+			`<packagedElement xmi:type="uml:Class" xmi:id="_vp2" name="Safety"/>`,
+			`<sysml:Viewpoint xmi:id="_sv2" base_Class="_vp2" concernList="_pump"/>`,
+			[]string{"viewpoint Safety;"}, "_vp2", Approximated},
 		{"an instance of a view or viewpoint has no definition to specialize",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_v" name="Overview"/>
 			 <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_i" name="snapshot" classifier="_v _vp"/>`,
@@ -164,22 +190,43 @@ func TestViewForms(t *testing.T) {
 	}
 }
 
-// TestRootViewPackage writes a «View» package that is the document root as a view.
 func TestRootViewPackage(t *testing.T) {
-	model := `<?xml version="1.0" encoding="UTF-8"?>
+	// A «View» package at the document root is a view like any other; a root
+	// Model is written at the top level whatever it is stereotyped.
+	for _, tc := range []struct {
+		name, root, want string
+		verdict          Verdict
+	}{
+		{"package", "uml:Package", "view Handbook {\n    part def Chapter;\n    view Overview {\n        expose Chapter;\n    }\n}", Approximated},
+		{"model", "uml:Model", "part def Chapter;\nview Overview {\n    expose Chapter;\n}", Mapped},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			src := `<?xml version="1.0" encoding="UTF-8"?>
 <xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
          xmlns:uml="http://www.omg.org/spec/UML/20161101"
          xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
-  <uml:Package xmi:type="uml:Package" xmi:id="_v" name="Handbook">
+  <` + tc.root + ` xmi:type="` + tc.root + `" xmi:id="_v" name="Handbook">
     <packagedElement xmi:type="uml:Class" xmi:id="_ch" name="Chapter"/>
-  </uml:Package>
+    <packagedElement xmi:type="uml:Class" xmi:id="_ov" name="Overview"/>
+    <packagedElement xmi:type="uml:Dependency" xmi:id="_d" client="_ov" supplier="_ch"/>
+  </` + tc.root + `>
   <sysml:View xmi:id="_s1" base_Package="_v"/>
+  <sysml:Block xmi:id="_s2" base_Class="_ch"/>
+  <sysml:View xmi:id="_s3" base_Class="_ov"/>
+  <sysml:Expose xmi:id="_s4" base_Dependency="_d"/>
 </xmi:XMI>`
-	r, err := Migrate("views.xmi", []byte(model))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if want := "view Handbook {\n    part def Chapter;\n}"; !strings.Contains(string(r.Notation), want) {
-		t.Errorf("notation lacks %q:\n%s", want, r.Notation)
+			r, err := Migrate("root.xmi", []byte(src))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := string(r.Notation); !strings.Contains(got, tc.want) {
+				t.Errorf("notation lacks %q:\n%s", tc.want, got)
+			}
+			for _, e := range r.Report.Entries {
+				if e.ID == "_v" && e.Verdict != tc.verdict {
+					t.Errorf("verdict %s, want %s (%s)", e.Verdict, tc.verdict, e.Note)
+				}
+			}
+		})
 	}
 }

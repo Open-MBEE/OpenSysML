@@ -64,6 +64,10 @@ func TestInterfaceRealizationForms(t *testing.T) {
 			   <interfaceRealization xmi:type="uml:InterfaceRealization" xmi:id="_ir" client="_c" supplier="_gone" contract="_gone"/>
 			 </packagedElement>`, "",
 			[]string{"the realized interface is not in the document; 1 contract reference(s) resolve to nothing in the document (_gone)"}, Unmapped},
+		{"a realization at the document root has no classifier to realize for",
+			`<packagedElement xmi:type="uml:Class" xmi:id="_c" name="Node"/>`,
+			`<uml:InterfaceRealization xmi:type="uml:InterfaceRealization" xmi:id="_ir" client="_c" supplier="_link" contract="_link"/>`,
+			[]string{"not migrated: InterfaceRealization (_ir) — no classifier owns the realization"}, Unmapped},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			r, err := Migrate("realized.xmi", []byte(realizationModel(tc.members, tc.stereotype)))

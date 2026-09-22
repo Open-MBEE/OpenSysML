@@ -7,6 +7,9 @@ package 'Pump System' {
         doc /* The pump shall carry a guard. */
         comment /* The pump shall carry a guard. */
     }
+    view 'Pump BDD' {
+        render $::Views::asTextualNotation;
+    }
 }
 package Stakeholders {
     part def Operator {
@@ -51,6 +54,7 @@ package Views {
         expose 'Pump System'::**;
         expose 'Pump System'::'Guard Fitted';
         expose 'Pump System'::Pump::motor;
+        expose 'Pump System'::'Pump BDD';
     }
     view 'Guard Detail';
     view 'Operations View' {
@@ -61,7 +65,6 @@ package Views {
         part def Chapter;
     }
     view 'Odd View';
-    /* not migrated: «Expose» Dependency (_exposeDiagram) — the exposed Diagram 'Pump BDD' is notation the tool keeps outside the model, which v2 does not carry; applied stereotypes «Expose» */
     /* not migrated: «Expose» Dependency (_exposeGone) — the exposed element _nowhere is not in the document; applied stereotypes «Expose» */
     /* not migrated: «Expose» Dependency (_exposeExternal) — the exposed Shared.xmi#_sharedBlock lives outside the document and is not written; applied stereotypes «Expose» */
     /* not migrated: «Expose» Dependency (_exposeFromBlock) — the client Pump System::Pump is not a view: v2 exposes elements from a view alone; applied stereotypes «Expose» */

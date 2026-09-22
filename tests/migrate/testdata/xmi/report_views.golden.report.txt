@@ -1,15 +1,15 @@
 # SysML v1 to v2 migration report: report_views.xmi
-# migrated 40 element(s): 26 mapped, 8 approximated, 6 unmapped (1 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 41 element(s): 27 mapped, 9 approximated, 5 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
-## unmapped (6)
-«Expose» Dependency	Views::<Dependency>	_exposeDiagram	(the exposed Diagram 'Pump BDD' is notation the tool keeps outside the model, which v2 does not carry; applied stereotypes «Expose»)
+## unmapped (5)
 «Expose» Dependency	Views::<Dependency>	_exposeGone	(the exposed element _nowhere is not in the document; applied stereotypes «Expose»)
 «Expose» Dependency	Views::<Dependency>	_exposeExternal	(the exposed Shared.xmi#_sharedBlock lives outside the document and is not written; applied stereotypes «Expose»)
 «Expose» Dependency	Views::<Dependency>	_exposeFromBlock	(the client Pump System::Pump is not a view: v2 exposes elements from a view alone; applied stereotypes «Expose»)
 «Conform» Dependency	Views::<Dependency>	_conformToBlock	(Viewpoints::Plain Block becomes a part def, which a view cannot satisfy; applied stereotypes «Conform»)
 «Conform» Dependency	Views::<Dependency>	_conformFromBlock	(the client Pump System::Pump is not a view: v2 lets a view alone satisfy a viewpoint; applied stereotypes «Conform»)
 
-## approximated (8)
+## approximated (9)
+Diagram	Pump BDD	_bdd	-> 'Pump System'::'Pump BDD'	(a diagram of unknown kind written as a view rendered asTextualNotation; the diagram names no owner; written in package 'Pump System', which holds it; no diagram representation is serialized: what the diagram is and shows is unknown, and the view exposes nothing)
 Actor	Stakeholders::Maintainer	_maintainer	-> Stakeholders::Maintainer	(a UML actor is written as a part def)
 «Stakeholder» Class	Stakeholders::Operator	_operator	-> Stakeholders::Operator	(a v1 «Stakeholder» is written as a part def; «Stakeholder» concern = Keep the pump running. has no v2 form)
 «Stakeholder» Class	Stakeholders::Safety Inspector	_inspector	-> Stakeholders::'Safety Inspector'	(a v1 «Stakeholder» is written as a part def)
@@ -19,7 +19,7 @@ Actor	Stakeholders::Maintainer	_maintainer	-> Stakeholders::Maintainer	(a UML ac
 Class	Views::Handbook::Chapter	_chapter	-> Views::Handbook::Chapter	(a plain UML class without «Block» is written as a part def)
 «View» Class	Views::Odd View	_oddView	-> Views::'Odd View'	(generalization of Viewpoints::Plain Block is not written: it becomes a part def, not a view; the viewpoint tag names _missingVp, which is not in the document)
 
-## mapped (26)
+## mapped (27)
 Model	Model	_m	(the root model's members are written at the top level)
 Package	Pump System	_sys	-> 'Pump System'
 «Requirement» Class	Pump System::Guard Fitted	_safetyReq	-> 'Pump System'::'Guard Fitted'
@@ -36,6 +36,7 @@ Comment	Viewpoints::Safety Viewpoint::<Comment>	_hazardConcern
 Activity	Viewpoints::Safety Viewpoint::Collect Guards	_collect	-> Viewpoints::'Safety Viewpoint'::'Collect Guards'
 Package	Views	_views	-> Views
 «Expose» Dependency	Views::<Dependency>	_exposeSys	-> Views::'Safety View'
+«Expose» Dependency	Views::<Dependency>	_exposeDiagram	-> Views::'Safety View'
 «Expose» Dependency	Views::<Dependency>	_exposeViewpoint	-> Views::'Operations View'
 «Conform» Dependency	Views::<Dependency>	_conformDep	-> Views::'Operations View'
 «View» Class	Views::Guard Detail	_detailView	-> Views::'Guard Detail'
@@ -46,6 +47,3 @@ Generalization	Views::Safety View::<Generalization>	_conformGen	-> Views::'Safet
 Property	Views::Safety View::appendices	_appendices	-> Views::'Safety View'::appendices
 Property	Views::Safety View::detail	_detail	-> Views::'Safety View'::detail
 Property	Views::Safety View::seeAlso	_seeAlso	-> Views::'Safety View'::seeAlso
-
-## skipped (1)
-Diagram	Pump System::Pump BDD	_bdd	(tool-private xmi:Extension content written by Example Modeler)

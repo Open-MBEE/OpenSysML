@@ -71,6 +71,7 @@ func (m *migration) metadataBody(e *sysmlv1.Element) {
 	for _, extra := range m.extras[e] {
 		extra()
 	}
+	m.views(e)
 	m.stereotypeAnnotations(e)
 	m.scope = saved
 }

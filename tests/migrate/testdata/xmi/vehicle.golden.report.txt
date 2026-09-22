@@ -1,15 +1,16 @@
 # SysML v1 to v2 migration report: vehicle.xmi
 # exported by Example UML Tool
-# migrated 92 element(s): 78 mapped, 11 approximated, 3 unmapped (3 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 93 element(s): 78 mapped, 12 approximated, 3 unmapped (2 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
 ## unmapped (3)
 «Verify» Abstraction	Requirements::<Abstraction>	_dep_verify_block	(a verify whose client is not a test case has no v2 form; applied stereotypes «Verify»)
 «Unit» InstanceSpecification	Vehicle Design::Value Types::kilogram	_unit_kg	(units and quantity kinds are not migrated; use the SI and ISQ libraries; applied stereotypes «Unit» (quantityKind = Vehicle Design::Value Types::mass; symbol = kg))
 «QuantityKind» InstanceSpecification	Vehicle Design::Value Types::mass	_qk_mass	(units and quantity kinds are not migrated; use the SI and ISQ libraries; applied stereotypes «QuantityKind»)
 
-## approximated (11)
+## approximated (12)
 «Trace» Abstraction	Requirements::<Abstraction>	_dep_trace	(a trace is written as a plain dependency)
 «TestCase» Activity	Requirements::Mass Test	_tc_mass	-> Requirements::'Mass Test'	(the test case's behavior is not migrated; only its verified requirements are)
+Diagram	Vehicle BDD	_diag_bdd	-> 'Vehicle BDD'	(a diagram of unknown kind written as a view rendered asTextualNotation; the diagram names no owner; written at the top level, which holds it; no diagram representation is serialized: what the diagram is and shows is unknown, and the view exposes nothing)
 Actor	Vehicle Design::Driver	_actor_driver	-> 'Vehicle Design'::Driver	(a UML actor is written as a part def)
 «FlowPort» Port	Vehicle Design::Engine::speedIn	_port_speedIn	-> 'Vehicle Design'::Engine::speedIn	(a port typed by a DataType is written as a port holding one directed attribute)
 Class	Vehicle Design::Helper	_plain_helper	-> 'Vehicle Design'::Helper	(a plain UML class without «Block» is written as a part def)
@@ -100,7 +101,6 @@ InstanceSpecification	Vehicle Design::myCar	_inst_mycar	-> 'Vehicle Design'::myC
 Slot	Vehicle Design::myCar::<Slot>	_slot_mass	-> 'Vehicle Design'::myCar::mass
 Slot	Vehicle Design::myCar::<Slot>	_slot_color	-> 'Vehicle Design'::myCar::color
 
-## skipped (3)
+## skipped (2)
 ProfileApplication	<ProfileApplication>	_pa_sysml	(profile applications and element imports are not written)
 Package	SysML	_lib_sysml	(profile or library content)
-Diagram	Vehicle BDD	_diag_bdd	(tool-private xmi:Extension content written by Example UML Tool 1.0)

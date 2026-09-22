@@ -3429,7 +3429,7 @@ func (p *Parser) parseReferenceMemberUsage(start int, kind ast.UsageKind, kw, no
 	u.NodeBase.NodeSpan = p.spanFrom(start)
 
 	var target ast.Node
-	if p.atNameOrKeyword() {
+	if p.atNameOrKeyword() || p.at(lexer.Dollar) && p.peekN(1).Kind == lexer.ColonColon {
 		target = p.parseRelationshipTarget()
 	}
 	if target != nil {
