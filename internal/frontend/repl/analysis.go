@@ -129,13 +129,7 @@ func (s *Session) analysisVerdict(inv analysisInvocation) Verdict {
 			status = s
 		}
 	}
-	mark := "✓"
-	switch status {
-	case VerdictFails:
-		mark = "✗"
-	case VerdictUnresolved:
-		mark = "?"
-	}
+	mark := statusMark(status)
 	on := ""
 	if subject != nil {
 		on = " on " + objectMention(subject, subjectLabel)

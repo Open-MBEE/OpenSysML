@@ -183,17 +183,25 @@ func meanOf(values []float64) float64 {
 	return mean
 }
 
-// deviationOf is the sample standard deviation of values about their mean, 0 for fewer than two.
+// deviationOf is the sample standard deviation of values about their mean, 0 for fewer than
+// two; the deviations are scaled by the largest before squaring, so a finite sample stays finite.
 func deviationOf(values []float64, mean float64) float64 {
 	if len(values) < 2 {
 		return 0
 	}
+	var scale float64
+	for _, v := range values {
+		scale = math.Max(scale, math.Abs(v-mean))
+	}
+	if scale == 0 || math.IsInf(scale, 0) || math.IsNaN(scale) {
+		return scale
+	}
 	var sum float64
 	for _, v := range values {
-		d := v - mean
+		d := (v - mean) / scale
 		sum += d * d
 	}
-	return math.Sqrt(sum / float64(len(values)-1))
+	return scale * math.Sqrt(sum/float64(len(values)-1))
 }
 
 // intDeviationOf is the sample standard deviation of Integers about their exact mean,

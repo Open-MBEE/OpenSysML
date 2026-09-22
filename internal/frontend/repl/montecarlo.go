@@ -59,41 +59,51 @@ func (s *Session) monteCarloVerdict(inv analysisInvocation, count int64, seed *u
 	lines = append(lines, distributionLines(sample.table)...)
 	verdict := Verdict{Subject: label, Status: status, Values: sweepValues(sample.table, rows), Rows: rows}
 	if sample.unconcluded != nil {
-		mark := "✗"
 		if sample.last != nil {
-			verdict.Status, mark = VerdictUnresolved, "?"
+			verdict.Status = worsened(verdict.Status, VerdictUnresolved)
 		}
-		verdict.Lines = append(lines, fmt.Sprintf("%s %s: %s", mark, inv.name, sample.unconcluded.Error()))
+		verdict.Lines = append(lines, fmt.Sprintf("%s %s: %s", statusMark(verdict.Status), inv.name, sample.unconcluded.Error()))
 		return standing(verdict, answered)
 	}
 
 	concluded, err := sample.conclude()
 	if err != nil {
-		verdict.Status = VerdictUnresolved
-		verdict.Lines = append(lines, fmt.Sprintf("? %s: %s", inv.name, err.Error()))
+		verdict.Status = worsened(verdict.Status, VerdictUnresolved)
+		verdict.Lines = append(lines, fmt.Sprintf("%s %s: %s", statusMark(verdict.Status), inv.name, err.Error()))
 		reportCaseRunIn(sample.last.Context(), &verdict, concluded)
 		return standing(verdict, answered)
 	}
 	for _, v := range concluded.Verdicts {
 		switch v.Status {
 		case runtime.VerdictNotSatisfied:
-			if verdict.Status == VerdictHolds {
-				verdict.Status = VerdictFails
-			}
+			verdict.Status = worsened(verdict.Status, VerdictFails)
 		case runtime.VerdictUndecided:
-			verdict.Status = VerdictUnresolved
+			verdict.Status = worsened(verdict.Status, VerdictUnresolved)
 		}
 	}
-	mark := "✓"
-	switch verdict.Status {
-	case VerdictFails:
-		mark = "✗"
-	case VerdictUnresolved:
-		mark = "?"
-	}
-	verdict.Lines = append(lines, fmt.Sprintf("%s %s over %d run(s)", mark, inv.name, sample.stats.Runs))
+	verdict.Lines = append(lines, fmt.Sprintf("%s %s over %d run(s)", statusMark(verdict.Status), inv.name, sample.stats.Runs))
 	reportCaseRunIn(sample.last.Context(), &verdict, concluded)
 	return standing(verdict, answered)
+}
+
+// worsened is the table's status once the conclusion adds its own: a failed run
+// fails the table whatever the conclusion, and only a holding table is unsettled.
+func worsened(status, by VerdictStatus) VerdictStatus {
+	if status == VerdictHolds {
+		return by
+	}
+	return status
+}
+
+// statusMark is the mark a status's conclusion line opens with.
+func statusMark(status VerdictStatus) string {
+	switch status {
+	case VerdictFails:
+		return "✗"
+	case VerdictUnresolved:
+		return "?"
+	}
+	return "✓"
 }
 
 // failedRun reports whether any run of the table failed.

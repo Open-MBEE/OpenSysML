@@ -1070,7 +1070,10 @@ in a commensurable unit is converted, one of another dimension refuses the sampl
 and `deviation` are quantities in that unit; the sample is of numbers or of quantities, never
 both. The table stands whatever the sample: when every run failed, each run's row and error
 are tabled and the case is reported unconcluded rather than refused as a sample of nothing, and
-a run observing no number is refused naming the run and what it observed, under the table. The runs
+a run observing no number is refused naming the run and what it observed, under the table; a
+failed run fails the case whatever comes of the sample, so only a table of completed runs is left
+unresolved by a sample or a conclusion that cannot be made. The sample deviation of Reals is
+scaled before it is squared, so a finite sample has a finite deviation however large. The runs
 make their objects from their declarations, so a subject named by `#id` alone is refused, and
 `-observe` belongs to an action's runs, not a case's. Run once, without `-runs`, such a case
 leaves its statistics unbound, so a return of one of them is refused naming `-runs`.

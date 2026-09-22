@@ -147,7 +147,8 @@ func TestDistributeRealsAtTheEdgesOfTheRange(t *testing.T) {
 	if d := Distribute(reals(0.5, 0.25, 0.25)); d.Mean != 1.0/3 {
 		t.Errorf("mean %v, want 1/3 rounded once", d.Mean)
 	}
-	if inf := Distribute(reals(1, math.Inf(1))); !math.IsInf(inf.Mean, 1) {
+	inf := Distribute(reals(1, math.Inf(1)))
+	if !math.IsInf(inf.Mean, 1) {
 		t.Errorf("mean %v, want +Inf where an observation is", inf.Mean)
 	}
 	tiny := math.SmallestNonzeroFloat64
@@ -162,6 +163,15 @@ func TestDistributeRealsAtTheEdgesOfTheRange(t *testing.T) {
 	wide := Distribute(reals(-math.MaxFloat64, math.MaxFloat64, 0))
 	if len(wide.Histogram) != 1 || wide.Histogram[0].Count != 3 || wide.Mean != 0 {
 		t.Errorf("over the whole Real range: bins %v mean %v, want one bin and a mean of 0", wide.Histogram, wide.Mean)
+	}
+	if far := Distribute(reals(9e307, 1e308)); math.Abs(far.Deviation-5e306*math.Sqrt2) > 1e292 {
+		t.Errorf("deviation %v, want %v: the squared deviations overflow, the deviation does not", far.Deviation, 5e306*math.Sqrt2)
+	}
+	if wide.Deviation != math.MaxFloat64 {
+		t.Errorf("deviation %v over the whole Real range, want %v", wide.Deviation, math.MaxFloat64)
+	}
+	if huge.Deviation != 0 || !math.IsInf(inf.Deviation, 1) {
+		t.Errorf("deviation %v of equal values, want 0; %v where an observation is infinite, want +Inf", huge.Deviation, inf.Deviation)
 	}
 }
 

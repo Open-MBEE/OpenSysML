@@ -12,6 +12,7 @@ import (
 const monteCarloModel = `package MC {
 	private import ScalarValues::*;
 	private import RandomFunctions::*;
+	private import RealFunctions::floor;
 	private import ISQ::*;
 	private import SI::*;
 	part def Probe {
@@ -22,6 +23,7 @@ const monteCarloModel = `package MC {
 		action time { first start; then assign elapsed := uniform(1.0, 5.0) [s]; then done; }
 		action name { first start; then assign label := "x"; then done; }
 		action crash { first start; then assign t := 1.0 / 0.0; then done; }
+		action flake { first start; then assign t := 1.0 / floor(uniform(0.0, 2.0)); then assign label := "x"; then done; }
 	}
 	individual def probe :> Probe;
 	analysis def Mc :> Simulation::MonteCarlo {
@@ -50,6 +52,12 @@ const monteCarloModel = `package MC {
 		perform action run ::> analysed.crash;
 		attribute :>> observed : Real = analysed.t;
 		return Mean : Real = mean;
+	}
+	analysis def Flaky :> Simulation::MonteCarlo {
+		subject analysed : Probe;
+		perform action run ::> analysed.flake;
+		attribute :>> observed : String = analysed.label;
+		return Mean = mean;
 	}
 	analysis def Checked :> Simulation::MonteCarlo {
 		subject analysed : Probe;
@@ -224,6 +232,30 @@ func TestRunsObservingNoNumberKeepTheirRows(t *testing.T) {
 	s := monteCarloSession(t)
 	wants(t, run(t, s, "%runs 2 7 MC::Named MC::probe"), "run | observed", `| "x"`,
 		"? MC::Named: invalid observation: run 1 of MC::Named observed \"x\", not a number")
+}
+
+// A failed run fails the table whatever comes of the sample: a completed run observing
+// no number leaves the case unconcluded under the failed run's verdict, not in place of it.
+func TestRunsFailedRunsOutweighAnUnconcludedSample(t *testing.T) {
+	s := monteCarloSession(t)
+	seed := uint64(7)
+	v := s.RunMonteCarlo("MC::Flaky MC::probe", 4, &seed)
+	out := strings.Join(v.Lines, "\n")
+	var failed, completed int
+	for _, row := range v.Rows {
+		if row.Error != "" {
+			failed++
+		} else {
+			completed++
+		}
+	}
+	if failed == 0 || completed == 0 {
+		t.Fatalf("%d run(s) failed and %d completed; the sample proves nothing:\n%s", failed, completed, out)
+	}
+	wants(t, out, "division by zero", "✗ MC::Flaky: invalid observation", `observed "x", not a number`)
+	if v.Status != VerdictFails {
+		t.Errorf("status %v, want %v: run(s) failed\n%s", v.Status, VerdictFails, out)
+	}
 }
 
 // A count the sweep budget does not allow, or no count at all, is refused as the
