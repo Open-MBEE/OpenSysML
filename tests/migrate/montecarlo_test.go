@@ -66,7 +66,7 @@ func TestMonteCarloAnalysisSnapshotsAreSummaries(t *testing.T) {
 		Observables:  []string{"t"},
 		Snapshots:    []simresults.Snapshot{{ID: "_ub1", Name: "run 1", Values: map[string]float64{"t": 1}}},
 		Notes: []string{
-			"'Unbound Analysis' inherits MonteCarloAnalysis but binds its Mean to no feature, so its statistics summarise no observable",
+			"'Unbound Analysis' inherits MonteCarloAnalysis but binds its Mean to no value of its own, so its statistics summarise no observable",
 			"the slot of MonteCarloAnalysis::N holds a statistic of no observable the target analyses in 1 snapshot(s), so it is not among the results",
 		},
 	}}

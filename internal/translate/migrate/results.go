@@ -214,8 +214,9 @@ func sortedKeys(counts map[string]int) []string {
 	return keys
 }
 
-// monteCarloObservable is the feature the MonteCarloAnalysis a target classifier inherits
-// binds its Mean to; note says why the analysis names none. Both empty without the analysis.
+// monteCarloObservable is the value the MonteCarloAnalysis a target classifier inherits
+// binds its Mean to, a value of the binding connector's owner reached directly; note says
+// why the analysis names none. Both empty without the analysis.
 func (m *migration) monteCarloObservable(classifiers []*sysmlv1.Element) (observable *sysmlv1.Element, note string) {
 	order := m.classifierOrder(classifiers)
 	var analysing *sysmlv1.Element
@@ -237,25 +238,16 @@ func (m *migration) monteCarloObservable(classifiers []*sysmlv1.Element) (observ
 	seen := map[*sysmlv1.Element]bool{}
 	for _, c := range order {
 		for _, conn := range c.Owned("ownedConnector") {
-			ends := conn.Owned("end")
-			if len(ends) != 2 {
-				continue
-			}
-			for i, end := range ends {
-				if monteCarloFeature(m.model.Ref(end, "role")) != monteCarloMean {
-					continue
-				}
-				if f := m.model.Ref(ends[1-i], "role"); f != nil && !f.IsProxy() && f.Type == "Property" && !seen[f] {
-					seen[f] = true
-					bound = append(bound, f)
-				}
+			if stat, f, _ := m.monteCarloBound(c, conn); stat == monteCarloMean && f != nil && !seen[f] {
+				seen[f] = true
+				bound = append(bound, f)
 			}
 		}
 	}
 	subject := describe(analysing) + " inherits " + monteCarloAnalysisBlock
 	switch len(bound) {
 	case 0:
-		return nil, subject + " but binds its " + monteCarloMean + " to no feature, so its statistics summarise no observable"
+		return nil, subject + " but binds its " + monteCarloMean + " to no value of its own, so its statistics summarise no observable"
 	case 1:
 		return bound[0], ""
 	}

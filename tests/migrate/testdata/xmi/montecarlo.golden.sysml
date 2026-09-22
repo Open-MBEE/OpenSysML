@@ -30,7 +30,7 @@ part def 'Unbound Analysis' :> Timer;
 analysis def 'Unbound Analysis Monte Carlo' :> Simulation::MonteCarlo {
     subject analysed : 'Unbound Analysis';
     perform action run ::> analysed.tick;
-    /* 'Unbound Analysis' inherits MonteCarloAnalysis but binds its Mean to no feature, so its statistics summarise no observable, so observed is left unbound */
+    /* 'Unbound Analysis' inherits MonteCarloAnalysis but binds its Mean to no value of its own, so its statistics summarise no observable, so observed is left unbound */
 }
 individual part def 'unbound analysis' :> 'Unbound Analysis';
 action def 'Group 0' {

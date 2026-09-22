@@ -175,38 +175,52 @@ func TestMonteCarloAnalysisNeedsTheModulesProvenance(t *testing.T) {
 }
 
 // A binding the tool's pattern cannot be read from is refused with its reason,
-// and the analysis def written without it.
+// and the analysis def written without it, observing nothing it cannot reach.
 func TestMonteCarloBindingsRefusedWithReasons(t *testing.T) {
+	clock := `
+    <packagedElement xmi:type="uml:Class" xmi:id="_clock" name="Clock">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_v" name="v">` + realHref + `</ownedAttribute>
+    </packagedElement>`
 	cases := []struct {
 		name, connectors, id, note string
+		members, applications      string
 	}{
 		{"two features bound to Mean",
 			binding("_bind", "_t", monteCarloRole("Mean")) + binding("_bind2", "_u", monteCarloRole("Mean")), "_bind2",
-			"binds its Mean to t, u alike, so its statistics summarise no one observable, so the analysis reads no observed and returns no Mean"},
+			"binds its Mean to t, u alike, so its statistics summarise no one observable, so the analysis reads no observed and returns no Mean", "", ""},
 		{"one end",
 			`<ownedConnector xmi:type="uml:Connector" xmi:id="_bind"><end xmi:type="uml:ConnectorEnd" xmi:id="_e">` + monteCarloRole("Mean") + `</end></ownedConnector>`, "_bind",
-			"a connector with 1 ends is not migrated"},
+			"a connector with 1 ends is not migrated", "", ""},
 		{"no role at the other end",
 			`<ownedConnector xmi:type="uml:Connector" xmi:id="_bind"><end xmi:type="uml:ConnectorEnd" xmi:id="_e1"/><end xmi:type="uml:ConnectorEnd" xmi:id="_e2">` + monteCarloRole("Mean") + `</end></ownedConnector>`, "_bind",
-			"the connector binds the simulation tool's MonteCarloAnalysis::Mean to nothing in the document"},
+			"the connector binds the simulation tool's MonteCarloAnalysis::Mean to nothing in the document", "", ""},
 		{"a statistic of nothing observed",
 			binding("_bind", "_t", monteCarloRole("Deviation")), "_bind",
-			"the connector binds the simulation tool's MonteCarloAnalysis::Deviation to t, but 'Timer Analysis' inherits MonteCarloAnalysis but binds its Mean to no feature, so its statistics summarise no observable, so the statistic is of nothing and is not returned"},
+			"the connector binds the simulation tool's MonteCarloAnalysis::Deviation to t, but 'Timer Analysis' inherits MonteCarloAnalysis but binds its Mean to no value of its own, so its statistics summarise no observable, so the statistic is of nothing and is not returned", "", ""},
 		{"two statistics bound to each other",
 			binding("_bind", "_t", monteCarloRole("Mean")) + `<ownedConnector xmi:type="uml:Connector" xmi:id="_bind2"><end xmi:type="uml:ConnectorEnd" xmi:id="_e1">` + monteCarloRole("Deviation") + `</end><end xmi:type="uml:ConnectorEnd" xmi:id="_e2">` + monteCarloRole("OutOfSpec") + `</end></ownedConnector>`, "_bind2",
-			"which lives outside the document"},
+			"which lives outside the document", "", ""},
 		{"the pattern's block as a role",
 			binding("_bind", "_t", `<role href="MD_customization_for_SysML.mdzip#_mc"><xmi:Extension extender="MagicDraw UML 2024x"><referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis" referentType="Property"/></xmi:Extension></role>`), "_bind",
-			"which lives outside the document"},
+			"which lives outside the document", "", ""},
 		{"Deviation bound twice",
 			binding("_bind", "_t", monteCarloRole("Mean")) + binding("_bind2", "_t", monteCarloRole("Deviation")) + binding("_bind3", "_u", monteCarloRole("Deviation")), "_bind3",
-			"the connector binds the simulation tool's MonteCarloAnalysis::Deviation to u, which another connector of the block already binds it to"},
+			"the connector binds the simulation tool's MonteCarloAnalysis::Deviation to u, which another connector of the block already binds it to", "", ""},
+		{"Mean bound to a value of another block",
+			binding("_bind", "_v", monteCarloRole("Mean")), "_bind",
+			"the connector binds the simulation tool's MonteCarloAnalysis::Mean to Clock::v, which is no feature of Timer Analysis",
+			clock, `<sysml:Block xmi:id="_s7" base_Class="_clock"/>`},
+		{"Mean bound through a nested path",
+			`<ownedAttribute xmi:type="uml:Property" xmi:id="_part" name="clock" type="_clock" aggregation="composite"/>` + binding("_bind", "_v", monteCarloRole("Mean")), "_bind",
+			"the connector binds the simulation tool's MonteCarloAnalysis::Mean to v through a nested path, and the statistic is of a value of the block itself",
+			clock, `<sysml:Block xmi:id="_s7" base_Class="_clock"/><sysml:NestedConnectorEnd xmi:id="_s8" base_ConnectorEnd="_binda"><propertyPath xmi:idref="_part"/></sysml:NestedConnectorEnd>`},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			members, applications := monteCarloBlock(monteCarloGeneral, tc.connectors)
-			r := migrateDocument(t, members, applications)
+			r := migrateDocument(t, members+tc.members, applications+tc.applications)
 			wantLine(t, r.Notation, "analysis def 'Timer Analysis Monte Carlo' :> Simulation::MonteCarlo {")
+			wantNoLine(t, r.Notation, "analysed.v")
 			wantNote(t, r, tc.id, migrate.Unmapped, tc.note)
 			wantClean(t, "refused.sysml", r)
 		})
@@ -231,6 +245,6 @@ func TestMonteCarloSlotsOfNothingObservedAreRefused(t *testing.T) {
 	wantLine(t, r.Notation, "out :>> runs = 3;")
 	wantNoLine(t, r.Notation, "mean = 2.5")
 	wantNote(t, r, "_n", migrate.Mapped, "")
-	wantNote(t, r, "_mean", migrate.Unmapped, "the slot holds the simulation tool's MonteCarloAnalysis::Mean, but 'Timer Analysis' inherits MonteCarloAnalysis but binds its Mean to no feature, so its statistics summarise no observable, so the statistic is of nothing")
+	wantNote(t, r, "_mean", migrate.Unmapped, "the slot holds the simulation tool's MonteCarloAnalysis::Mean, but 'Timer Analysis' inherits MonteCarloAnalysis but binds its Mean to no value of its own, so its statistics summarise no observable, so the statistic is of nothing")
 	wantClean(t, "unobserved.sysml", r)
 }
