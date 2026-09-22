@@ -104,6 +104,10 @@ func (m *migration) subjects(e *sysmlv1.Element) {
 			m.downgrade(e, "the subject "+qualifiedName(s)+" is not migrated and is not written")
 			continue
 		}
+		if note := m.featuredNote(s, e); note != "" {
+			m.downgrade(e, "the subject is not written: "+note)
+			continue
+		}
 		name := m.freshName(e, lowerFirst(m.nameFor(s)))
 		if first {
 			m.w.line("subject " + writeName(name) + m.typing(s) + m.ref(s, e) + ";")
@@ -200,6 +204,9 @@ func (m *migration) extensionDetail(ext *sysmlv1.Element) string {
 	var points []string
 	for _, p := range m.model.Refs(ext, "extensionLocation") {
 		points = append(points, describe(p))
+	}
+	for _, id := range m.model.Unresolved(ext, "extensionLocation") {
+		points = append(points, id+" (not in the document)")
 	}
 	if len(points) > 0 {
 		parts = append(parts, "at extension point(s) "+strings.Join(points, ", "))

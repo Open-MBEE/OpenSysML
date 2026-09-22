@@ -231,6 +231,53 @@ func TestExtensionElementValuesAtAnyDepthAreOwned(t *testing.T) {
 	}
 }
 
+// TestExtensionElementValuesElsewhereStayMetadata keeps an ElementValue that is
+// not an Expression's operand — one a tool notes on a class, or under another
+// role of an Expression — out of the model, in the extension's accounting.
+func TestExtensionElementValuesElsewhereStayMetadata(t *testing.T) {
+	src := `<?xml version="1.0"?>
+<xmi:XMI xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="M">
+    <packagedElement xmi:type="uml:Class" xmi:id="_c" name="C">
+      <xmi:Extension extender="MagicDraw UML">
+        <modelExtension>
+          <operand xmi:type="uml:ElementValue" xmi:id="_cv" element="_c"/>
+        </modelExtension>
+      </xmi:Extension>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_p" name="p"/>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_r">
+        <specification xmi:type="uml:Expression" xmi:id="_e" symbol="Power">
+          <xmi:Extension extender="MagicDraw UML">
+            <modelExtension>
+              <binding xmi:type="uml:ElementValue" xmi:id="_bv" element="_p"/>
+            </modelExtension>
+          </xmi:Extension>
+          <operand xmi:type="uml:LiteralInteger" xmi:id="_two" value="2"/>
+        </specification>
+      </ownedRule>
+    </packagedElement>
+  </uml:Model>
+</xmi:XMI>`
+	m, err := Parse([]byte(src))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := m.Lookup("_c").Owned("operand"); len(got) != 0 {
+		t.Errorf("class operands = %+v", got)
+	}
+	if got := m.Lookup("_e").Owned("operand"); len(got) != 1 || got[0].ID != "_two" {
+		t.Errorf("expression operands = %+v", got)
+	}
+	if m.Lookup("_cv") != nil || m.Lookup("_bv") != nil {
+		t.Error("an element value outside an Expression's operands was read as a model element")
+	}
+	if len(m.Extensions) != 2 || len(m.Extensions[0].Elements) != 1 || m.Extensions[0].Elements[0].ID != "_cv" ||
+		len(m.Extensions[1].Elements) != 1 || m.Extensions[1].Elements[0].ID != "_bv" {
+		t.Errorf("extensions = %+v", m.Extensions)
+	}
+}
+
 func TestStereotypeIgnoresXMIMetadata(t *testing.T) {
 	src := `<?xml version="1.0"?>
 <xmi:XMI xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
