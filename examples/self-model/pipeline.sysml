@@ -182,7 +182,7 @@ package OpenSysMLPipeline {
     #SemanticEngine part def PassRegistry :> Stage {
         attribute :>> goPackage = "internal/check/passes";
         attribute tierCount : Integer = 4;
-        attribute passCount : Integer = 56;
+        attribute passCount : Integer = 57;
         attribute sortsByLevel : Boolean = true;
         attribute skipsDocumentScopedAboveFailure : Boolean = true;
 
@@ -263,6 +263,7 @@ package OpenSysMLPipeline {
         }
         part occurrenceTyping : TypeCheck { attribute :>> goType = "W8DOccurrenceTypingPass"; }
         part connectorFeaturing : ConstraintCheck { attribute :>> goType = "W8DConnectorFeaturingPass"; }
+        part multiplicityDomain : ConstraintCheck { attribute :>> goType = "MultiplicityDomainPass"; }
         part flowEnds : ConstraintCheck { attribute :>> goType = "W8DFlowEndPass"; }
         part variability : ConstraintCheck { attribute :>> goType = "W8DVariabilityPass"; }
         part variantOwners : ConstraintCheck {
