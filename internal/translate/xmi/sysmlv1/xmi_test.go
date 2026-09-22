@@ -127,11 +127,15 @@ func TestStereotypeExtensionIsRecorded(t *testing.T) {
 		t.Fatalf("extensions = %+v", m.Extensions)
 	}
 	ext := m.Extensions[0]
-	if ext.Extender != "MagicDraw" || ext.Owner != nil || len(ext.Elements) != 1 {
+	if ext.Extender != "MagicDraw" || ext.Owner != nil || len(ext.Elements) != 0 {
 		t.Fatalf("extension = %+v", ext)
 	}
-	if got := ext.Elements[0]; got.ID != "_d" || got.Type != "uml:Diagram" || got.Name != "D" {
-		t.Errorf("extension element = %+v", got)
+	// The diagram inside is read as a diagram, not as skipped content.
+	if len(m.Diagrams) != 1 {
+		t.Fatalf("diagrams = %+v", m.Diagrams)
+	}
+	if d := m.Diagrams[0]; d.ID != "_d" || d.Name != "D" || d.Holder != nil || d.Extender != "MagicDraw" || d.Represented() {
+		t.Errorf("diagram = %+v", d)
 	}
 }
 

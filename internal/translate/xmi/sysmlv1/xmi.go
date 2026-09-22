@@ -104,8 +104,10 @@ type Model struct {
 	Exporter string
 	// Extensions are the tool-private xmi:Extension blocks that were skipped.
 	Extensions []Extension
-	byID       map[string]*Element
-	proxies    map[string]*Element
+	// Diagrams are the diagrams read out of those blocks, in document order.
+	Diagrams []Diagram
+	byID     map[string]*Element
+	proxies  map[string]*Element
 }
 
 // Extension records one skipped xmi:Extension: who wrote it and what it held.
@@ -114,7 +116,8 @@ type Extension struct {
 	Extender string
 	// Owner is the element the block sits in; nil at the document root.
 	Owner *Element
-	// Elements are the xmi:type and name of every typed element inside, e.g. "uml:Diagram Vehicle BDD".
+	// Elements are the xmi:type and name of every typed element inside, the
+	// diagrams excepted, which Model.Diagrams holds.
 	Elements []ExtensionElement
 }
 
@@ -459,17 +462,29 @@ func (m *Model) special(raw *xmi.Element, owner, ref *Element) {
 		}
 	case "Extension":
 		ext := Extension{Extender: raw.Attr("extender"), Owner: owner}
-		for _, child := range raw.Descendants() {
-			if child.Type != "" {
-				ext.Elements = append(ext.Elements, ExtensionElement{
-					ID: child.ID, Type: child.Type, Name: child.Name(),
-				})
-			}
-			if ref != nil && child.Tag == "referenceExtension" {
-				m.describeReference(ref, child)
-			}
-		}
+		m.extensionContent(raw, &ext, ref)
 		m.Extensions = append(m.Extensions, ext)
+	}
+}
+
+// extensionContent records what an extension block holds, in document order:
+// a diagram as a Diagram, any other typed element, a diagram's own included, as skipped.
+func (m *Model) extensionContent(raw *xmi.Element, ext *Extension, ref *Element) {
+	for _, child := range raw.Children {
+		if isDiagram(child) {
+			m.diagram(child, ext)
+			m.extensionContent(child, ext, ref)
+			continue
+		}
+		if child.Type != "" {
+			ext.Elements = append(ext.Elements, ExtensionElement{
+				ID: child.ID, Type: child.Type, Name: child.Name(),
+			})
+		}
+		if ref != nil && child.Tag == "referenceExtension" {
+			m.describeReference(ref, child)
+		}
+		m.extensionContent(child, ext, ref)
 	}
 }
 
@@ -615,4 +630,5 @@ func (m *Model) link() {
 			}
 		}
 	}
+	m.linkDiagrams()
 }
