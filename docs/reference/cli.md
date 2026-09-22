@@ -1177,18 +1177,23 @@ is up is the run's error, as it is undecided under one policy.
 Runs that agree on what the harness compares — an action's outputs; a state machine's final state,
 the states it visited and its context's values; an analysis case's outputs and verdicts — are one
 *outcome*. The report is one row per distinct outcome, sorted by the outcome's rendering, with the
-number of linearizations that reached it and the choice sequence of one witness run, then a status
-line:
+number of linearizations that reached it, its *probability* and the choice sequence of one
+witness run, then a status line. A linearization's probability is the product of the shares its
+choice points resolved with: a [`@Probability`-weighted](../guide/06-behavior.md#when-a-model-states-its-own-odds) pick its stated weight's
+share of the weights drawn over, an unweighted one the uniform share `seed:<n>` takes each
+alternative with — so the column is the model's own probability where every choice point is
+weighted, and otherwise assumes the open scheduling choices are taken uniformly at random. The
+column sums to `1` over a complete exploration:
 
 ```bash
 $ sysml -schedule explore -action test::race three-writers.sysml
 ✓ package test
 ✓ explored test::race: 3 outcomes
-outcome                                      | linearizations | witness
----------------------------------------------+----------------+------------------------------------------------------------------
-aRan = true; bRan = true; cRan = true; x = 1 | 2              | step 3: 3@b first of 2@a, 3@b, 4@c; step 4: 4@c first of 2@a, 4@c
-aRan = true; bRan = true; cRan = true; x = 2 | 2              | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 4@c first of 3@b, 4@c
-aRan = true; bRan = true; cRan = true; x = 3 | 2              | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 3@b first of 3@b, 4@c
+outcome                                      | linearizations | probability        | witness
+---------------------------------------------+----------------+--------------------+------------------------------------------------------------------
+aRan = true; bRan = true; cRan = true; x = 1 | 2              | 0.3333333333333333 | step 3: 3@b first of 2@a, 3@b, 4@c; step 4: 4@c first of 2@a, 4@c
+aRan = true; bRan = true; cRan = true; x = 2 | 2              | 0.3333333333333333 | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 4@c first of 3@b, 4@c
+aRan = true; bRan = true; cRan = true; x = 3 | 2              | 0.3333333333333333 | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 3@b first of 3@b, 4@c
 complete (6 runs)
 ```
 
@@ -1203,10 +1208,11 @@ and two runs binding different objects under one id are two.
 **Budget.** `explore` alone runs at most 1024 runs and resolves at most 64 choice points per run;
 `explore:runs=N`, `explore:depth=D` and `explore:runs=N,depth=D` (in either order) set them. `N`
 is a decimal integer of at least 1 and `D` of at least 0. Hitting either budget is never silent:
-the status line becomes `incomplete: <budget> budget <limit> hit after N runs` (naming both, `runs`
-then `depth`, when both were hit), the outcomes reached so far are still tabled, the check is
-reported `?` rather than `✓`, and the exit status is `2` — the exploration could not answer whether
-other outcomes exist. `explore:depth=0` therefore explores a behavior with a choice point in one
+the status line becomes `incomplete: <budget> budget <limit> hit after N runs; probabilities are
+lower bounds` (naming both budgets, `runs` then `depth`, when both were hit), the probability column
+reads `≥` what an exhaustive search would reach, the outcomes reached so far are still tabled, the
+check is reported `?` rather than `✓`, and the exit status is `2` — the exploration could not answer
+whether other outcomes exist. `explore:depth=0` therefore explores a behavior with a choice point in one
 run and reports `incomplete: depth budget 0 hit after 1 runs`. A choice point met past `depth`
 takes its first alternative in every run and is never varied, however many runs remain: a run of
 more choice points than `depth` — the witness lists every one its run met — needs `depth` raised
@@ -1220,14 +1226,17 @@ outcome is what distinguishes the outcomes and the full set would repeat every p
 replay.
 
 With `-json` the check carries the rows as `outcomes` — each with its `values`, `linearizations`,
-`witness` (one choice per entry, in run order) and, for a failed run, its `error` — and how the
-exploration ended as `exploration` (`complete`, `runs`, `budgetsHit`):
+`probability` (the sum of the shares of the linearizations reaching it), `witness` (one choice per
+entry, in run order) and, for a failed run, its `error` — and how the exploration ended as
+`exploration` (`complete`, `runs`, `budgetsHit`), `probabilitiesLowerBound` added and true when the
+search was cut short:
 
 ```json
 {"checks": [{"subject": "Mission::race", "status": "unresolved",
   "outcomes": [{"values": [{"name": "x", "value": "2"}], "linearizations": 1,
+                "probability": 0.16666666666666666,
                 "witness": ["step 3: 2@left first of 2@left, 3@right"]}],
-  "exploration": {"complete": false, "runs": 1, "budgetsHit": ["runs"]}}]}
+  "exploration": {"complete": false, "runs": 1, "budgetsHit": ["runs"], "probabilitiesLowerBound": true}}]}
 ```
 
 The REPL's `%schedule` refuses `explore`, since its `%action` and `%state` debuggers step one run
@@ -1485,7 +1494,7 @@ schedule. The verdicts:
 |---------|-------|--------|
 | `no violation, exhaustive` | every schedule ended complete, no bound was hit and no property was false. The one verdict that is a proof — relative to the atomic step and the properties named — and the standing is *bounded over schedules*, never *proved*, because the checker's atomic step is coarser than the interpreter's; a machine's `do` behavior is stepped one token move at a time, the dispatch drawn against each move, so the fixed policies' whole round is one of the schedules searched ([the guide](../guide/06-behavior.md#a-do-behavior-under-explore-and-check)) | `0` |
 | `no violation within bounds` | no violation on the schedules searched, but a bound cut some of them, named after `bounds hit:`; the standing is *bounded* with the bound marked `(reached)` | `2` |
-| `violation` | a `-check-property` false at a reached state, a deadlock (`ErrActionDeadlock`, `ErrAcceptDeadlock` on that schedule), or a typed error a body raised — an unbound parameter, a dangling succession, a division by zero, an `accept` whose `via` port does not resolve — each with the schedule that reaches it; a budget the executor exhausts is a bound, not a violation | `1` |
+| `violation` | a `-check-property` false at a reached state, a deadlock (`ErrActionDeadlock`, `ErrAcceptDeadlock` on that schedule), or a typed error a body raised — an unbound parameter, a dangling succession, a division by zero, an `accept` whose `via` port does not resolve — each with the schedule that reaches it and a `(probability <mass>)` on its line: the share of the schedule space reaching it, `≥`-prefixed when the search was bounded, revisited a state or left a move out; a budget the executor exhausts is a bound, not a violation | `1` |
 | `divergent` | no violation, and a feature `-check-diverge` names (or, absent one, an attribute of a behavior or its performing object, a machine's `finalState`) ends with different values on different schedules; each value with one witness. The library admits the divergence; the model depends on a tool's choice | `1` |
 | `incomplete: time` | `-check-timeout` ended the plan before the search did; the states and depth it reached are named and the result is *not covered* | `2` |
 
@@ -1584,9 +1593,13 @@ search is an action's alone), and a bound that is no positive integer (`-check-d
 
 With `-json` the check's `results[]` entry for the `check` engine carries, beside `claim`,
 `strength`, `bounds` and `witness`, a `check` object: `verdict`, `states`, `moves`, `depth`,
-`boundsHit[]`, `violations[]` (each with its `kind`, `detail`, `witness` choices, the `draws`
-the run made when it drew, and file `path`), `divergent[]` (each `feature` with its `values[]`,
-each with `value`, `witness`, `draws` and `path`) and `outcomes[]`.
+`boundsHit[]`, `violations[]` (each with its `kind`, `detail`, `witness`
+choices, the `draws` the run made when it drew, and file `path`), `divergent[]` (each `feature`
+with its `values[]`, each with `value`, `witness`, `draws` and `path`) and `outcomes[]`. Each
+violation also carries `mass`: the sum of the path probabilities of the search paths reaching it —
+a weighted pick its stated share, an unweighted choice the uniform `1/n` a `seed:<n>` takes each
+alternative with — and the check object carries `massLowerBound`, true when a bound was hit, a state was reached again or the persistent-set reduction left a move
+out, since the masses then bound the true figure from below.
 
 ### Deciding a property over the inputs
 

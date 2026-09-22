@@ -24,6 +24,9 @@ type Outcome struct {
 	Error string
 	// Linearizations is how many runs within the budget reached this outcome.
 	Linearizations int
+	// Probability is the share of the schedule space the linearizations reaching
+	// this outcome carry; a lower bound while the exploration is incomplete.
+	Probability float64
 	// Witness is one run's choices in run order, one per choice point it
 	// resolved, each spelling the alternatives and the one taken.
 	Witness []string
@@ -50,6 +53,9 @@ type Exploration struct {
 	// may make, and choice points one run may resolve.
 	RunsBudget  int
 	DepthBudget int
+	// ProbabilitiesLowerBound reports the outcomes' probabilities are lower
+	// bounds: a budget kept some linearizations unexplored.
+	ProbabilitiesLowerBound bool
 }
 
 // Status renders how the exploration ended as the sysml command does:
@@ -66,7 +72,7 @@ func (e *Exploration) Status() string {
 		}
 		named[i] = fmt.Sprintf("%s budget %d", budget, limit)
 	}
-	return fmt.Sprintf("incomplete: %s hit after %d runs", strings.Join(named, " and "), e.Runs)
+	return fmt.Sprintf("incomplete: %s hit after %d runs; probabilities are lower bounds", strings.Join(named, " and "), e.Runs)
 }
 
 // explores reports a policy spelled as the explore schedule, with or without
@@ -253,6 +259,7 @@ func explorationFromProto(outcomes []*pb.Outcome, status *pb.ExplorationStatus) 
 			Visited:        append([]string(nil), outcome.StatesVisited...),
 			Error:          outcome.Error,
 			Linearizations: int(outcome.Linearizations),
+			Probability:    outcome.Probability,
 			Witness:        append([]string(nil), outcome.Witness...),
 			Diagnostics:    diagnosticsFromProto(outcome.Diagnostics),
 		})
@@ -263,6 +270,7 @@ func explorationFromProto(outcomes []*pb.Outcome, status *pb.ExplorationStatus) 
 		out.BudgetsHit = append([]string(nil), status.BudgetsHit...)
 		out.RunsBudget = int(status.RunsBudget)
 		out.DepthBudget = int(status.DepthBudget)
+		out.ProbabilitiesLowerBound = status.ProbabilitiesLowerBound
 	}
 	return out
 }

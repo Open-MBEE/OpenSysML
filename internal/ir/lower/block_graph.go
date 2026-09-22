@@ -310,7 +310,7 @@ func blockNodesIn(block Block, into []ast.Node) []ast.Node {
 func lowerFlowNode(graph *ActionGraph, node ast.Node, scope *symbols.Scope) {
 	switch n := node.(type) {
 	case *ast.PerformActionNode:
-		graph.Bodies[node] = []Statement{Effect{Kind: EffectPerform, Node: n, Scope: scope}}
+		graph.Bodies[node] = []Statement{performEffect(n, scope)}
 	case *ast.Usage:
 		// An accept node suspends the action it is a node of, which a block's flow
 		// has no token to park; it is lowered as unsupported so that reaching it is

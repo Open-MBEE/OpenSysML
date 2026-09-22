@@ -434,7 +434,7 @@
     {
       "name": "validateFeatureMultiplicityDomain",
       "source": "kerml",
-      "status": "not-implemented"
+      "status": "faithful"
     },
     {
       "name": "validateFeatureOwnedCrossSubsetting",

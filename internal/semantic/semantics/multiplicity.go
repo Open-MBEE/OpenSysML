@@ -85,6 +85,12 @@ func (m *Model) RangeOf(mult *ast.Multiplicity) (Range, bool) {
 	return m.multiplicityRange(mult)
 }
 
+// RangeIn is RangeOf evaluating bounds that name valued features in scope; a nil
+// scope evaluates constants only.
+func (m *Model) RangeIn(scope *symbols.Scope, mult *ast.Multiplicity) (Range, bool) {
+	return m.multiplicityRangeIn(scope, mult)
+}
+
 // MultiplicityOf returns the extracted multiplicity range of a usage symbol, a
 // subject or a requirement constraint included, or ok=false when the symbol is
 // not a usage or declares none.

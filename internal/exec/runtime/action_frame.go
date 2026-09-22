@@ -152,11 +152,12 @@ type unreceivedStream struct {
 	at     int
 }
 
-// stagedStream is where in a pending queue the latest value a streaming source
-// performance wrote to one of its pins waits: its next write to that pin replaces it.
+// stagedStream is where in a pending queue the latest value a streaming flow carried
+// from a source performance's pin waits: the flow's next value from that pin replaces it.
 type stagedStream struct {
 	source *actionFrame
 	pin    string
+	flow   ast.Node
 	at     int
 }
 
@@ -721,13 +722,13 @@ func (f *actionFrame) queue(node ast.Node, pin string, value Value) int {
 	return len(f.pending[node][pin]) - 1
 }
 
-// stage queues a value streamed from source's from pin (its key, so aliases share a
-// slot) ahead of node's next performance, or replaces the one an earlier write to from
-// left waiting at the pin; it reports whether a value was appended.
-func (f *actionFrame) stage(node ast.Node, pin string, source *actionFrame, from string, value Value) bool {
+// stage queues a value flow streamed from source's from pin ahead of node's next
+// performance, or replaces the one an earlier write to from left waiting there through
+// the same flow; two flows out of one pin each keep a place. Reports whether it appended.
+func (f *actionFrame) stage(node ast.Node, pin string, source *actionFrame, from string, flow ast.Node, value Value) bool {
 	queue := f.pending[node][pin]
 	for _, s := range f.staged[node][pin] {
-		if source != nil && s.source == source && s.pin == from && s.at < len(queue) {
+		if source != nil && s.source == source && s.pin == from && s.flow == flow && s.at < len(queue) {
 			queue[s.at] = value
 			return false
 		}
@@ -739,7 +740,7 @@ func (f *actionFrame) stage(node ast.Node, pin string, source *actionFrame, from
 	if f.staged[node] == nil {
 		f.staged[node] = make(map[string][]stagedStream)
 	}
-	f.staged[node][pin] = append(f.staged[node][pin], stagedStream{source: source, pin: from, at: at})
+	f.staged[node][pin] = append(f.staged[node][pin], stagedStream{source: source, pin: from, flow: flow, at: at})
 	return true
 }
 
@@ -914,7 +915,7 @@ func (e *performances) streamFlow(
 		if perf != nil {
 			from = perf.key(from)
 		}
-		appended := frame.stage(flow.Target, pin, perf, from, value)
+		appended := frame.stage(flow.Target, pin, perf, from, flow.Decl, value)
 		if latest := frame.subactions[flow.Target]; appended && latest != nil && latest.ended {
 			if frame.unreceived == nil {
 				frame.unreceived = make(map[ast.Node][]unreceivedStream)

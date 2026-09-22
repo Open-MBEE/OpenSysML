@@ -1103,6 +1103,11 @@ func (ctx *Context) CompositeTypeOf(feat *EffectiveFeature) *symbols.Symbol {
 	if isSubjectUsage(feat.Symbol) || isReferenceUsage(feat.Symbol) {
 		return nil
 	}
+	// A behavior's parameter is referential too (SysML v2 `validateUsageIsReferential`): an
+	// object flows into it, so it holds none of its own; a value-typed one keeps its placeholder.
+	if semantics.IsBehaviorParameter(feat.Symbol) && !ctx.model.semantics.IsDataType(feat.Type) {
+		return nil
+	}
 	if feat.Symbol != nil && (ctx.declaresFeatures(feat) || untypedOccurrenceUsage(feat)) {
 		return feat.Symbol
 	}

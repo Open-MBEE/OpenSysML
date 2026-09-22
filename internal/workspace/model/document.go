@@ -56,6 +56,11 @@ func (d *Document) Digest() string {
 	return d.digest
 }
 
+// Lines returns the document's line index, built once and cached.
+func (d *Document) Lines() *source.LineIndex {
+	return d.sf.Lines()
+}
+
 // digestOf is the first 16 bytes of the SHA-256 of content, in hex.
 func digestOf(content []byte) string {
 	sum := sha256.Sum256(content)

@@ -610,6 +610,7 @@ func TestMetadataAnnotationsNestedInAnnotationBodies(t *testing.T) {
 		"metadata-owning-type-feature on :>> g = 1;",
 		"metadata-value-not-evaluable on = ~3",
 		"typing on @N;",
+		"undefined-operator on ~3",
 	}
 	for name, src := range map[string]string{"nested.kerml": kerml, "nested.sysml": sysml} {
 		var got []string
@@ -658,6 +659,8 @@ func TestMetadataUsagesNestedInAnnotationBodies(t *testing.T) {
 		"metadata-value-not-evaluable on = ~4",
 		"name-conflict on :>> i = ~4;",
 		"name-conflict on i",
+		"undefined-operator on ~3",
+		"undefined-operator on ~4",
 	}
 	for name, src := range map[string]string{"nested.kerml": kerml, "nested.sysml": sysml} {
 		var got []string

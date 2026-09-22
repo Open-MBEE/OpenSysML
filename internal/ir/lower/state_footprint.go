@@ -106,6 +106,9 @@ func (b *stateFootprintBuilder) trigger(trans *Transition) {
 // and effects, then where it ends — a state, or on through a pseudostate.
 func (b *stateFootprintBuilder) segment(source *ast.StateNode, seg *Transition) {
 	b.reads(seg.BodyScope, seg.Guard)
+	if seg.Probability != nil {
+		b.reads(seg.BodyScope, seg.Probability.Expr)
+	}
 	for _, effect := range seg.Effect {
 		b.statements(effect.Body)
 	}

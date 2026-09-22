@@ -414,10 +414,10 @@ transitions (`settleDoActions`, SM8). `state_concurrent_do` records four admissi
 interleavings of two do actions under the scheduling policies; `TestCompletionWaitsForTheDoBehavior`.
 The step granularity (one action node per machine step) is a tool choice PSSM does not make
 either — its do activity runs in the fUML "as if concurrent" sense — so no trace admissible
-here is inadmissible there. The converse does not hold: the round always precedes the dispatch,
-so a do action that is due steps before the occurrence at the head of the pool is dispatched,
-and the interleavings where the dispatch comes first are not explored (finding 9's one site
-still open, designed per token move in
+here is inadmissible there. The converse holds under `check`, `replay` and `explore`, where a
+due do step and the dispatch at the head of the pool are drawn against each other per token move
+(finding 9's fourth site, `ChoiceStepOrder`; the fixed policies alone run the whole round before
+they dispatch, one path of that enumeration — see
 [recording the order of orthogonal regions](region-order-scheduling.md)). **agrees.**
 
 **SM14. Order of leaving a state.** PSSM §8.5.5 (`exit`) and requirements *Exiting 001–003*, *005*
@@ -955,12 +955,29 @@ on its result pin, and the behavior of an object nobody starts never runs — ea
 execution of its own, sharing the object's event pool; PSSM §8.5.1 makes a state machine such a
 classifier behavior. *v2/KerML:* §7.18.4 an
 `exhibit state` "must be carried out entirely within the lifetime of the performing occurrence";
-`Objects.kerml`/`Occurrences.kerml` `performances`. *Runtime:* `Context.Instantiate` →
-`classifier_behavior.go:runAttachedBehaviors` starts every exhibited state machine and performed action of a part as
-its own executor on the shared bus and clock (`TestInstantiateStartsExhibitedStateMachine`,
-`TestExhibitedMachinesOfTwoObjectsAreIndependent`, `TestExhibitedMachineWritesItsObjectsFeatureValues`
-in `classifier_behavior_test.go`). One pool per machine rather than per object (SM1) is the one
-structural difference, and it is the v2 one. **agrees.**
+`Objects.kerml`/`Occurrences.kerml` `performances`. *Runtime:* two paths, told apart by what the
+type declares. A behavior the type **exhibits or performs** is bound to every object of it, so
+`Context.Instantiate` → `classifier_behavior.go:runAttachedBehaviors` starts every exhibited state
+machine and performed action of a part as its own executor on the shared bus and clock
+(`TestInstantiateStartsExhibitedStateMachine`, `TestExhibitedMachinesOfTwoObjectsAreIndependent`,
+`TestExhibitedMachineWritesItsObjectsFeatureValues` in `classifier_behavior_test.go`) — the v2
+reading, where a performance a type declares is carried out within every occurrence's lifetime. A
+behavior the type **merely declares** (`action beh : Beh;` in a `part def`,
+`lower.StartableBehaviorOf`) is the fUML reading: construction is passive — `new T()` and a
+materialization run nothing of it — and an explicit `StartObjectBehaviorAction`, spelled
+`perform obj.beh.start;` (`lower.EffectStart`, `start_behavior.go:startBehaviorOn`), starts the
+classifier behavior as the object's own execution, `this` in it the object, a later message waking
+an accept it parks at, a second start of a running behavior starting nothing more, and a start
+that fails undone whole — the start's own work: an older parked behavior a message of the
+started one wakes is drained only after the start is kept (a run boundary, as a store's), so its
+move is never undone with a start (`robustness_classifier_behavior_test.go`,
+`TestStartedActionAwaitingAMessageIsWokenByASibling`). Lowering tells the start shot from a feature
+declared under that name through the scope tree (`action_graph.go:namesStartableBehavior`): `perform
+vehicle.start;` where `Vehicle` declares `action start : Launch;` performs that action
+(`TestPerformOfDeclaredStartActionStaysPerform`). The fUML referee's emitter takes the
+second path for an active class, so `ActiveClassBehaviorSender` runs the reference's order:
+create, start, send. One pool per machine rather than per object (SM1) is the one structural
+difference, and it is the v2 one. **agrees.**
 
 **SM44. The machine ends; the object does not.** fUML §8.8.1: a classifier behavior completing
 does not destroy its object; the object persists, receives occurrences, and handles them with
@@ -969,7 +986,11 @@ addressed to it are lost. *v2/KerML:* `done` ends the state performance, `Life` 
 separate. *Runtime:* `completeIfDone` ends the performance (`endPerformanceLife`) and the machine
 reports `StateCompleted`; the object remains, later messages to the machine are dropped
 (`robustness_test.go:state_event_after_completion`, `state_completion_rests_in_done`,
-`classifier_behavior_test.go:TestMessageLeftForACompletedMachineDoesNotBlockANewObject`). **agrees.**
+`classifier_behavior_test.go:TestMessageLeftForACompletedMachineDoesNotBlockANewObject`); a
+started classifier behavior completing preserves its owner the same way — the object, its feature
+values and the behavior's writes to them outlive the behavior, and an activity may still hand the
+object out through a parameter (`robustness_classifier_behavior_test.go:start_runs_the_behavior_as_the_object`,
+`TestStartedActionAwaitingAMessageIsWokenByASibling`). **agrees.**
 
 **SM45. Destroying the object.** fUML §8.7.2.4 `Object::destroy`: "Stop the object activation
 (if any), clear all types, clear all feature values and destroy the object" — a running
@@ -2004,8 +2025,9 @@ activity engine and does not become one.
 The rows below report the runtime differing from, or falling short of, SysML v2's or the Kernel
 Semantic Library's *own* text, or from this project's own design notes. They are bug reports and
 unsupported-feature records, not alignment questions: PSSM has nothing to do with them and they
-are not alignment questions. Each names its evidence; items 1, 4 to 8 and 10 are fixed, and
-say where; item 9 is fixed at three of its four sites and open at the fourth; item 11 is open,
+are not alignment questions. Each names its evidence; items 1, 4 to 10 are fixed, and say where;
+item 11 is adjudicated — a translation limit on three tests, the suite's defect on two, its pool
+order fixed — with one site of the runtime's still open, the do step drawn on the entry front,
 and says what a fix takes.
 
 1. **Terminate was parsed and lowered but not executed** (SM38). SysML v2 §7.17.10 and §7.18.3

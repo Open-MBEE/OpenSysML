@@ -614,10 +614,14 @@ Junction 003, Standalone 003, Terminate 001.
 
 Every failure is attributed. Five cite a *differs, v2 silent* row of the alignment note through
 the committed table: the suite's second opinion on a tool choice, which the row records and the
-test does not overturn. Seven cite an open finding against this project — a gap of the runtime's,
-recorded [below](#findings-about-our-own-conformance) and in the alignment note, that a change
-of its own will close, moving the tests with it; one cites a defect of the suite's alone. None is a translation defect: each translated
-model was read against the test's UML, and every construct the test uses reaches the run.
+test does not overturn. Seven cite a finding recorded [below](#findings-about-our-own-conformance)
+and in the alignment note: one a gap of the runtime's still open (*Terminate 002*, whose one
+missing trace a change of its own will reach), three a translation limit adjudicated under
+finding 11 (*Entering 010*, *Entering 011*, *Junction 005*), three a defect of the suite's
+recorded in [`omg-issues.md`](omg-issues.md) (*Transition 017*, *History 001-C*, *History 002-B*);
+one, *Exiting 002*, cites a defect of the suite's alone (the trailing table names it). None is a
+translation defect: each translated model was read against the test's UML, and every construct
+the test uses reaches the run.
 
 #### Citing a note row (5)
 
@@ -681,10 +685,12 @@ test's constructs in its `reasons`.
 ## Findings about our own conformance
 
 The referee's classifier and runs surfaced six gaps that are this project's rather than SysML
-v2's. Four — the first two found when the referee was added, the third by its exploration, the
-fourth by attributing the failures that remained — are fixed, each in a change of its own; one
-is fixed at three of its four sites, and one, found while fixing it, is open. The tests that
-reach an open site stay `fail` citing it until a change of its own closes it:
+v2's. Five — the first two found when the referee was added, the third by its exploration, the
+fourth by attributing the failures that remained, the fifth at all four of its sites — are
+fixed, each in a change of its own; the sixth, found while fixing the fifth, is adjudicated: a
+translation limit on three tests, the suite's defect on two, and one site of the runtime's still
+open (*Terminate 002*'s do step on the entry front). The tests that reach an open site stay
+`fail` citing it until a change of its own closes it:
 
 - **The lowerer refused a fork into orthogonal regions that have no initial pseudostate**
   (*Fork 002*, *Join 001*; alignment finding 6). UML lets a fork's outgoing transitions enter
@@ -743,7 +749,7 @@ reach an open site stay `fail` citing it until a change of its own closes it:
   `state_history_default_through_junction`, `explore_test.go:TestExploreStaticJunctionBranches`).
   The test passes; the movements table above adjudicates it.
 - **The order in which orthogonal regions are entered, exited and stepped was not a recorded
-  choice point** (alignment finding 9; fixed at three of its four sites, the fourth designed).
+  choice point** (alignment finding 9; fixed at all four of its sites).
   Thirteen tests reached only traces the suite admits and failed on admitted traces they never
   reached, because four sites ordered what PSSM leaves concurrent and recorded no choice for
   `explore` to vary. Not a defect of behavior — SysML v2 §7.18.1 leaves parallel substates and a

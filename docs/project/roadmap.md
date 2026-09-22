@@ -5,7 +5,7 @@ Baseline: `v0.8.0` (`238aed650`, `Merge pull request #277 from Open-MBEE/release
 `v0.7.0` (`e0fbfea5b`, 2026-09-09) and `v0.6.0` (`30f103bb9`, 2026-09-07). The integration branch
 `develop` (`fcfb0a7b9`, #352) carries 64 pull requests past the tag and nothing else is counted
 ahead of it: every status below is what the tag carries unless the text names one of those as
-having moved it — #267, #289 and #293 (Q2), #263 (A7), #286 (the release fold-back), #291
+having moved it — #267, #289 and #293 (Q2), #359 (Q3), #263 (A7), #286 (the release fold-back), #291
 (the generated test figures), #292 (L7), #296 (A4), #335 and #352 (E1), #344 (modeled
 randomness beside A3), #300 and #316 (the large-model design and its first step, under
 "Proposed"), #319, #321 and #334 (the fUML referee for actions, under "Proposed"), #350 (R4's
@@ -505,6 +505,25 @@ it, or what the value got wrong; the verdicts are committed to
 specializes them, and `Integrate`, the two event definitions and `StateSpaceDynamics` itself
 have no body of their own to run), and `AnalysisTooling` declares nothing callable. Nothing is
 left in the track; a verdict that moves is adjudicated in the change that moves it.
+
+## L8 — the Geometry domain library's derived shapes (landed, unreleased)
+
+`ShapeItems` defines a shape's faces, edges and vertices through `bind` connectors with
+multiplicities, and what those determine now evaluates. A `Box` answers `faces` (six), the
+per-face `edges` (four each, with `length`/`width`), `edges` (twenty-four) and the per-face
+`vertices` (eight); a `Cylinder` or `Cone` answers `faces` (three or two) and each `Disc`'s
+`edges`, the ellipse; a `Cylinder` nested as a `Box`'s `voids` answers the same and makes `isSolid`
+false. What made the curved shapes fail was the runtime reading `binding [1] bind [0..*]
+base.edges = [0..*] be` as a whole binding, so `be [2]` was bound to the one edge and every read
+through it was `ErrMultiplicityViolation`; a connector's own multiplicity is the number of links
+it declares, so that binding is partial — it relates the disc's edge to some value of `be` — and
+`runtime/binding.go` `partialBinding` now decides so from the declared bounds (`lower/binding.go`
+`Binding.Multiplicity`). What stays a typed error is what the library leaves open, not a runtime
+gap: the `[0..1]`-bound edge and vertex groups (`tfe`, `tflv`, and so `Box::vertices`), which no
+binding pins to a member, are `ErrBindingEnd` naming the binding; `be`/`ae` and `Cylinder::edges`/
+`vertices` reach `cf : Surface`, whose `edges`/`vertices` are the Kernel frame's, not the object's;
+and `matingOccurrences`/`spaceBoundary` are frame features of `Occurrences.kerml`. See the
+`ShapeItems` rows and Known Limitations in `spec-compliance.md` and the record in `omg-issues.md`.
 
 ---
 
@@ -1144,6 +1163,19 @@ afresh after each move, and `complete` covers every interleaving at body granula
 sweep, so no default trace moved, and the oracle's run counts were re-derived at the new
 granularity (`action_merge_fork_branch_and_loop` now needs `explore:runs=10000` to complete).
 
+The track's last mile: the open picks carry the odds
+a model states. `Stochastic::Probability` weights a transition the way it already weighted a
+decision's succession — one more choice-point kind drawn by weight under `seed:<n>`, enumerated
+by `explore`, followed by `replay:` — among the transitions otherwise equally eligible for one
+dispatch, so innermost-wins still resolves before any weighting. And where the table once
+stopped at the set, `explore` now reports each outcome's probability — a linearization carrying
+the product of its picks' shares, a weighted pick's stated weight's share and an unweighted
+choice's uniform `1/n`, `≥`-marked while the search is incomplete — and `check` the probability
+mass of the paths reaching each violation (`mass` beside `massLowerBound` in the JSON report,
+`Outcome.probability` / `ExplorationStatus.probabilities_lower_bound` on the wire, and an
+optional `probability` per `outcomes` entry in the conformance schema, exercised by the weighted
+transition fixture).
+
 ---
 
 # Track E — behavior execution
@@ -1151,18 +1183,20 @@ granularity (`action_merge_fork_branch_and_loop` now needs `explore:runs=10000` 
 The runtime executes actions, state machines, calculations and constraints against the lowered
 IR (`internal/ir/lower` `ActionGraph`/`StateGraph`, `internal/exec/runtime`). The behavior-execution
 items were once listed as unsupported or approximate; on this tree E1, E2, E4, E6, E7, E8, E9
-and E10 are landed, while E3 and E5 are closed by design record. The landed items have conformance
+and E10 are landed, while E3 and E5 are closed by design record, as is the compliance mapping's
+last UML-referenced action item, exception handlers. The landed items have conformance
 fixtures under `internal/exec/runtime/testdata/conformance/`, trace goldens, and robustness coverage;
 the design closures are recorded in
-[expansion-regions.md](expansion-regions.md) and [protocol-state-machines.md](protocol-state-machines.md).
+[expansion-regions.md](expansion-regions.md), [protocol-state-machines.md](protocol-state-machines.md)
+and [exception-handlers.md](exception-handlers.md).
 The track records how each item was decided against the SysML v2 notation, the Kernel Semantic
 Library, the Systems Library and the available execution evidence.
 
-The UML comparison remains useful for explaining the closures: SysML v2 has no expansion-region or
-protocol-state-machine notation, while its actions and states provide the corresponding `for`,
-flow, acceptance and exhibited-state-machine forms. The proof for landed execution items follows
-the four-layer contract in `AGENTS.md` §5.2, with the pinned pilot used for expression-level
-adjudication rather than action or state execution.
+The UML comparison remains useful for explaining the closures: SysML v2 has no expansion-region,
+protocol-state-machine or exception-handler notation, while its actions and states provide the
+corresponding `for`, flow, acceptance, `terminate` and exhibited-state-machine forms. The proof
+for landed execution items follows the four-layer contract in `AGENTS.md` §5.2, with the pinned
+pilot used for expression-level adjudication rather than action or state execution.
 
 **Landed ahead of E1–E7**, all merged: the one structural finding of the review
 — nested action nodes shared the enclosing action's flat feature space, so `p.v` and `q.v`
@@ -1542,6 +1576,27 @@ then seen` reaches `seen`), `state_choice_dynamic_conflict`, the three
 `robustness_test.go:state_choice_without_an_enabled_branch`; every other `state_choice_*` fixture
 kept its outcome.
 
+## Exception handlers (closed)
+
+**Closed** by its design record, [exception-handlers.md](exception-handlers.md): **not a SysML v2
+construct.** The compliance mapping had carried UML's `RaiseExceptionAction`/`ExceptionHandler`
+as "spec exists, needs exception propagation", the last UML-referenced action item still
+presented as implementable. The record finds no spelling for raising, catching or propagating in
+SysML v2 §7.17 (the action kinds are `send`, `accept`, `assign`, `terminate`, `if`, the loops and
+the control nodes), no metaclass in §8.3.17 or the reflective `SysML.sysml` metamodel, no base
+type in `Actions.sysml`, and in KerML a `Performance` that ends but never fails
+(`Performances.kerml`); no OMG corpus model writes one, and the pinned pilot's `SysML.ecore` (175
+classes) has no such class — which is also why the [fUML referee](fuml-referee.md) files fUML's
+exception model `not-expressible`. The need is met by constructs the runtime already executes: a
+step reports its failure on an `out` parameter and a `decide` routes on it, or the step `send`s a
+failure signal to an `accept` forked beside it whose branch `terminate`s the work — §7.17.10's
+`MonitoredActivity` — both run to completion under `bin/sysml` in the record; a failure the model
+does not spell is a typed error at the boundary (`ErrDivisionByZero`, `ErrAcceptDeadlock`,
+`ErrTerminateTarget`, …), never a panic, and an `error` verdict under a verification case.
+No AST, IR or runtime change follows; the behavior guide's *Terminate* section teaches the
+by-signal shape. A later SysML v2 revision adding an action kind for exceptions reopens the item
+with a spelling to implement.
+
 ---
 
 # Track X — expression forms the evaluator did not reach
@@ -1566,10 +1621,13 @@ arithmetic as the scalar (X2, for a feature's own value), 0.7.0 closed five more
 quantities (X7's value half, #121) and the static type of a collection body (X8's typing half,
 #112) — and 0.8.0 closed X2's chain-read half (#164), evaluated the `meta` cast (#212) and typed
 a bare feature reference, an untyped collection body and an argument of unknown type statically
-(#174, #213, #241). What follows is
+(#174, #213, #241), and the last operator the
+evaluator refused outright — the unary `~` — was adjudicated abstract-only rather than given a
+value, KerML 1.0 §8.2.5.8.1 marking it undefined and the checker now warning on its use
+([bitwise-complement.md](bitwise-complement.md)). What follows is
 measured against `runtime/eval.go` and `bin/sysml` at this baseline: each landed item is stated
-with what it leaves, and what is still open in the track is X7's RDF literal form and native
-layout, and X8's two harness halves.
+with what it leaves, and what is still open in the track is X7's native layout, and X8's
+two harness halves.
 
 ## X1 — constructors: `new Pt(1, 2)` as a value (landed)
 
@@ -1671,7 +1729,7 @@ compilation refuses a calc that binds or applies a function value with a typed e
 against `bin/sysml -compile` at this baseline). It is not an arbitrary closure over statements,
 and was not meant to be.
 
-## X7 — tensors and set-producing expressions (values landed; RDF literal and native layout open)
+## X7 — tensors and set-producing expressions (values and RDF landed; native layout open)
 
 The representation decisions are all taken. Since #883 a `Collections::Array` is a `ValArray`
 with its dimensions and row-major elements, a `NumericalVectorValue` a `ValVector`, and a
@@ -1686,11 +1744,22 @@ operation consumes it; what the library declares ordered or nonunique is unchang
 index, a component count off the flattened size and arithmetic between two shapes each a typed
 error; the shape survives `+`, `-` and the scalar multiplications. Both cross gRPC whole on `set`
 and `tensor_quantity` arms under the `set_values` and `tensor_values` capabilities, decoded by the
-five clients into native types that check their own invariants. **What remains open**, as #121
-states it: neither value has an RDF literal form — the mapping writes the model's expressions,
-which round trip exactly (`TestSetAndTensorValuesRoundTripAsExpressions`) — and neither compiles
-natively: `sysml -compile` refuses a calc that uses one with a typed error naming the type
-(confirmed at this baseline). Still last in the track, and now only those two halves.
+five clients into native types that check their own invariants. The **RDF half is resolved by
+design**: the mapping states a model, never an evaluation of it, for every value kind — an `Array`,
+a vector, a quantity with a unit and a scalar alike are written as the expression that values the
+feature, and `internal/translate/export` does not reach the runtime at all
+(`tests/hygiene/layering_test.go` forbids the import) — so a set or a tensor needs no literal form
+either. A `Set`-, `UniqueCollection`- or `Map`-typed feature's `elements` and a rank-3 or rank-4
+`TensorMeasurementReference` export as standard `OperatorExpression`/`LiteralExpression`/
+`FeatureReferenceExpression`/`InvocationExpression` trees under `sysml:type`, round trip exactly
+with `sysx:sourceText` stripped, the structural predicates carry the round trip (`operator`,
+`function` and `referent` each break it when removed, as do both operand routes together), the
+model read back evaluates to
+sets equal regardless of the order their members were written in and to tensors of the same shape
+and components, and no `sysx:` term beyond what every other expression already uses appears
+(`set_tensor_rdf_test.go`). **What remains open** is the native half only: neither value compiles
+natively — `sysml -compile` refuses a calc that uses one with a typed error naming the type
+(confirmed at this baseline). Still last in the track, and now only that half.
 
 ## X8 — static element types through collection bodies (landed), and the two harnesses (open)
 
@@ -1734,7 +1803,8 @@ solver's `solve`. Two of the four answer from the runtime: `Evaluate`/`-eval`/`%
 they hold now, and whose parameters bind to a held object from the REPL, the CLI and gRPC alike.
 The API `Query` reads the *model* alone; the solver decides satisfiability rather than reading
 what holds, though `%solve` pins the values a matching held object has before synthesising the
-rest. No surface reaches the trace `-trace` prints. That is the rest of the track.
+rest. The document query reaches the state a session's objects are in and the trace `-trace` prints
+since #359 (Q3). Nothing of the track is open.
 
 ## Q1 — say which query is which (done)
 
@@ -1790,18 +1860,39 @@ the Python client with `ObjectRef`, both decoding the object cell, and the Node,
 clients carry the regenerated stubs. Nothing of Q2 is left; the rows in `spec-compliance.md` say
 so.
 
-## Q3 — state and event queries
+## Q3 — state and event queries (landed)
 
 "Which state is `#1.lp` in?", "which objects are in `run`?", "what did `#1` accept between
-`t = 1 [s]` and `t = 2.5 [s]`?" — the state executor and the trace have the answers
-(`StateExecutor.getCurrentState`, the event log `-trace` prints) and no query reads them. Q3 is a runtime
-query vocabulary over current state and over the trace as a time-ordered relation, with the same
-filter forms as Q2, so the trace stops being something one reads by eye. Its prerequisite on the
-trace side is met: A5 landed (#136), so the clock Q3 reads is `Context.Clock()`, shared by every
-executor in a context, and the trace now carries `choice` lines (S2) and `due order` draws that a
-query over it would need to see; the representation Q3 would read is the one at the tag, not one
-in flight. "Which objects are in `run`" has its population (X5) and its object rows (Q2, #267).
-Unblocked; not started.
+`t = 1 [s]` and `t = 2.5 [s]`?" — the state executor and the trace had the answers
+(`StateExecutor.ActiveStates`, the event log `-trace` prints) and no query read them. Q3 is a
+runtime query vocabulary over current state and over the trace as a time-ordered relation, with the
+same filter forms as Q2, so the trace stops being something one reads by eye. **Landed** in #359 on
+`develop` after the tag, as three operations of `DocumentQueries` beside Q2's `Objects` and
+`Verdicts`. `States(source)` answers **state rows**: one per active leaf of each source object's
+machine, every orthogonal region included, with the object, the `machine`, the leaf's `name`, its
+dotted `statePath` under the machine, the `region` it is active in and the `enclosing` composite
+states, read from `StateExecutor.ActiveLeaves` as the configuration stands now. `InState(name)` is
+the inverse — the held objects whose machine is in the named state, by leaf, by enclosing state or
+by dotted path — over the same population `all T` and `Objects` read (X5, Q2). `Events(source,
+kind, since, before)` answers **event rows**: the trace in the order the run made it — accepts,
+sends, transitions, state entry, exit and do steps, `choice` draws with their alternatives and the
+one taken (region order and due order among them), unevaluable guards — each with its instant on
+`Context.Clock()` (A5), its object and machine, the states it touches, its payload and the line
+`-trace` prints; `kind` keeps one or several kinds and `[since, before)` is inclusive at the start,
+exclusive at the end, in the clock's unit or as a duration. The representation queried is the one
+the runtime records: `runtime.TraceRecorder` keeps a typed `TraceRecord` per event and the printer
+writes `-trace`'s lines from those records, so the two cannot disagree and the printed trace is
+unchanged. `WhereFeature`, `WhereName`, `WhereType`, `Project`, `OrderBy` and `Column` read state
+and event rows as they read object and verdict rows; a model-only operation given one, an object
+exhibiting no machine, a state no machine declares, a session recording no trace, a bound that is
+no instant, an empty or backwards interval, and an interval reaching records a bounded trace has
+dropped are each a typed error. The rows cross every surface Q2 has: `%run-query` and `-run-query`
+(which runs after `-state`, `-action` and `-advance`, so it reads the run's end), the Markdown, HTML
+(`span.sysml-state`, `span.sysml-event`) and PDF renderers, and `RunDocumentQuery` as the `state`
+and `event` arms of `DocumentValue`, decoded by the Go and Python clients and carried by the Node,
+Java and Rust stubs; `OPENSYSML_GRPC_MAX_HELD_EVENTS` bounds the trace a served population keeps.
+The manual's [Which query is which](../manual/query-kinds.md) and the query cookbook teach the
+forms; the rows in `spec-compliance.md` carry the status. Nothing of Q3 is left.
 
 ## Q4 — document-query parameter defaults evaluate (done)
 
@@ -1959,7 +2050,7 @@ enumerated by `explore` (S4) and one executor alone due is no choice and is not 
 every single-behavior result and trace unchanged. `ExecuteActionResponse` and
 `ExecuteStateResponse` report `final_time` under the `final_time` capability. What it leaves:
 A4's runner is not yet on the clock, since it does not exist; Q3's queries over the trace it
-changed are unblocked.
+changed landed in #359.
 
 ## A6 — verification cases give verdicts from their bodies (landed)
 
@@ -2047,9 +2138,10 @@ against the code and the corpus (#900, whose gate now also checks that the funct
 exists and that each cited case belongs to its row). With #900 the census read **148 of 217
 reported — 137 faithful, 11 approximate — 6 not implemented, 0 deliberate, 0 known failure and 63
 unknown**, against 143 / 133 / 10 / 68 at the tag; the adjudication of the unknown KerML rows then
-moved it to 156 reported, and the census at this baseline reads **162 of 217 reported — 156
-faithful, 6 approximate — 1 not implemented, 1 deliberate, 0 known failure and 53 unknown**, each
-remaining unknown row citing why the pilot never reports it.
+moved it to 156 reported, and the census now reads **163 of 217 reported — 157 faithful, 6
+approximate, 0 not implemented, 1 deliberate, 0 known failure and 53 unknown**, with the last
+not-implemented row, `validateFeatureMultiplicityDomain`, now landed and each remaining unknown row
+citing why the pilot never reports it.
 The oracle at the other end agrees: of 285
 self-authored invalid models, the pinned pilot and we both reject 276 (3 of them only in strict
 mode, by design), the pilot alone rejects 0, and of the 9 only we reject eight are control-node
@@ -2963,7 +3055,9 @@ carried more than that list. By track, with the pull requests the tracks cite:
   record; E6 landed; E7 landed; E8 landed; E9 landed; E10 landed. E3's record
   ([expansion-regions.md](expansion-regions.md)) closes the parallel per-element form because the
   iterative form is `for`; E5's record closes protocol state machines because they are not a
-  SysML v2 construct.
+  SysML v2 construct; the exception-handlers record ([exception-handlers.md](exception-handlers.md))
+  closes the compliance mapping's last UML-referenced action item the same way, leaving its
+  *Implementable But Not Yet Done* list empty.
 - **Track D** — D12 (the standard library's normative element ids) is done.
 - **Release follow-through** — R4's Windows installer is published by `v0.7.0` and `v0.8.0`
   alike; the release procedure runs git-flow (#151); `opensysml` 0.5.0 is on PyPI; the
@@ -2976,17 +3070,17 @@ is landed or is a track the previous baseline left as it stands (D, N, M, I, V, 
 Tracks F, S, L and A are closed.
 
 - **Track E** — complete: E1 landed; E2 landed; E3 closed by record; E4 landed; E5 closed by
-  record; E6 landed; E7 landed; E8 landed; E9 landed; E10 landed. Optional runtime follow-ups
-  are not SysML v2 specification gaps. The
+  record; E6 landed; E7 landed; E8 landed; E9 landed; E10 landed; exception handlers closed by
+  record. Optional runtime follow-ups are not SysML v2 specification gaps. The
   PSSM referee's 17 `fail` tests are the state side's measurement, every one attributed (#326):
   eleven wait on the region-order choice point whose design record #342 wrote and left at two
   maintainer decisions — the nine the record names to move `fail` → `pass`, plus *Terminate 001*
   and *002*, which E1 added at the same region-entry site; *Transition 017* is the record's second
   decision (two admitted traces no reading of the model produces); the remaining five cite a
   *differs, v2 silent* alignment row.
-- **Track Q** — Q3, unblocked by A5 and by Q2's object rows, not started; Q1 is written and Q2
-  and Q4 are done.
-- **Track X** — X7's RDF literal form and native layout for sets and tensors; X8's two harness
+- **Track Q** — complete: Q1 is written, Q2 and Q4 are done, and Q3 landed in #359 on `develop`
+  after the tag.
+- **Track X** — X7's native layout for sets and tensors; X8's two harness
   halves (pilot-differential numeric normalization with an adjudication file, and a standalone
   RDF expression-tree round trip).
 - **Track W** — richer DOT/PlantUML node shapes and compartments, PDF rasterization of both forms
@@ -3010,20 +3104,20 @@ The release housekeeping the previous order opened with is done — #286 folded 
 **Track E** — complete: E1, E2, E4, E6, E7, E8, E9 and E10 landed; E3 and E5 closed by
 design record. Its remaining design notes do not add an open Track E item.
 
-1. **Q3** — state and event queries, on A5's clock and Q2's object rows. Q1, the page that says
-   which query is which, is written in the document-generation manual now that the set is
-   complete (#267, #289 and #293 closed Q2 on `develop`); Q4 (#849) landed independently ahead
-   of it.
-2. **I2, I3, then I4's client** — the shared fixtures, the thin R, Julia and MATLAB packages, the
+**Track Q** — complete: Q3 (#359) landed on `develop` after the tag, on A5's clock and Q2's
+object rows; Q1, the page that says which query is which, is written in the document-generation
+manual; #267, #289 and #293 closed Q2; Q4 (#849) landed independently ahead of them.
+
+1. **I2, I3, then I4's client** — the shared fixtures, the thin R, Julia and MATLAB packages, the
    C client, each derived from the wire contract (I1, landed in #848); the C *ABI* half of I4 is
    not here — it is step 7.
 3. **D2 and D1** — Flexo: the standard vocabulary for expression trees and end structure (the
    collection JSON annotations, D3.4, landed in #850; the branch read and the authenticated
    whole-graph push, D9.1 and D9.2, landed with `-convert` over a branch URL). What the hop
    carries depends on the vocabulary quality; re-record the live-stack harness after D1/D2.
-4. **X8's harness halves, then X7's RDF and native layout** — normalization and adjudication in
+4. **X8's harness halves, then X7's native layout** — normalization and adjudication in
    the pilot differential and a standalone RDF expression-tree round trip, so every later
-   expression item is measured; the set and tensor layouts when something needs them.
+   expression item is measured; the set and tensor native layouts when something needs them.
 5. **B1, then B2** — the binding vocabulary, then the provider contract in the runtime and Go
    API. The two items depend on nothing outstanding (the wire contract is landed, the dispatch and
    materialization seams exist) and touch only the metadata library, one pass and the runtime's
@@ -3039,15 +3133,15 @@ design record. Its remaining design notes do not add an open Track E item.
    after M1 fixes what an embedded entry point looks like, so a stable native/embedded calling
    contract exists to design against rather than three.
 
-Beside the order, whenever a session has room: Track V's census rows (1 *not implemented*, 53
-*unknown*), the PDF path onto the HTML backend (about one session, independent of every track),
+Beside the order, whenever a session has room: Track V's census rows (53 *unknown*), the PDF path
+onto the HTML backend (about one session, independent of every track),
 Track W's remaining writer and rasterization work, and the large-model design's next steps in its
 own sequence (#308, #309 and #312 are the open ones). Two releases are in view. `release/0.8.1`
 (#347, open against `main`) is a patch cut from `v0.8.0` by cherry-pick, carrying the bug fixes
 since the tag and the three VS Code extension fixes, and deliberately none of the state-executor
 series or the features; it moves no roadmap item, and once tagged `main` is folded back into
 `develop` as after `v0.8.0`. The next cut from `develop` carries everything else that landed
-since the tag — Q2 closed, L7, A4, E1, the generated figures, modeled randomness, the fUML
+since the tag — Q2 and Q3 closed, L7, A4, E1, the generated figures, modeled randomness, the fUML
 referee, the state-executor fixes and the workspace's persistent semantic model — and by
 `CONTRIBUTING.md` § Versioning it bumps the minor segment, not the patch: features are patch
 material there, but #302 refuses a construct `v0.8.0` accepted (a body inside a nested definition
@@ -3089,16 +3183,17 @@ an empty action end its performance. The decision is the release checklist's, re
 - **Track X.** X2, X3, X4, X5, X6, X7's values and X8's typing landed (#164, #115, #113, #211,
   #122, #121, #112). What is left, in order: X8's harness halves (normalization and adjudication
   in the pilot differential, a standalone RDF expression-tree round trip) so every later X item is
-  measured; X7's RDF literal form and native layout for sets and tensors last, when something
-  needs them — step 5 above.
+  measured; X7's native layout for sets and tensors last, when something needs them — step 5
+  above.
 - **Track A.** A6, A2, A3 and A5 landed (#117, #133, #118, #136); A7 (#263) and A4 (#296) landed
   on `develop` after the tag, A7's carrier walk shared with Q2's query side (#267), and #344 gave
   A3's Monte Carlo the modeled randomness it had refused by name. Nothing remains in the track.
 - **Track Q.** Q4 is done; Q2's expression half landed with X5 and its query side in #267, #289
-  and #293 on `develop` after the tag, which closes Q2; Q1 is written; Q3 is step 2 above.
+  and #293 on `develop` after the tag, which closes Q2; Q1 is written; Q3 landed in #359. Nothing
+  remains in the track.
 - **Track V.** Everything queued has landed (#822, #900, #831, #817, the rule pull requests, #811
-  reconciled with #907, #909); work the census's 1 *not implemented* and 53 *unknown* rows,
-  negative case first, each change moving its row.
+  reconciled with #907, #909); work the census's 53 *unknown* rows, negative case first, each
+  change moving its row.
 - **Track B.** B1, B2, then B3 — step 6 above; nothing holds B1 or B2 back; B4's file and HTTP
   providers whenever asked, its Flexo provider after D9.2; B5 with Q1.
 - **Track W.** W1 (`dot`), W2 (`plantuml`) and W3's plumbing for both have landed. What is left

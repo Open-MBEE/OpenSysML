@@ -356,6 +356,12 @@ func (h *stateStmtHost) effect(engine *stmtEngine, s lower.Effect) error {
 	if s.Kind == lower.EffectTerminate {
 		return h.perfs.terminate(engine, h.perfs.root, s)
 	}
+	if s.Kind == lower.EffectStart {
+		if err := h.exec.ctx.startEffect(engine.evalIn(s.Scope), s, h.exec.self); err != nil {
+			return fmt.Errorf("%s: %w", h.describe(), err)
+		}
+		return nil
+	}
 	if s.Kind == lower.EffectPerform {
 		inv, ok := performedInvocation(s)
 		if !ok {

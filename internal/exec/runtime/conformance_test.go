@@ -97,6 +97,9 @@ type AdmittedOutcome struct {
 	FinalState  string                   `json:"finalState,omitempty"`
 	Terminated  bool                     `json:"terminated,omitempty"`
 	StateVisits []string                 `json:"stateVisits,omitempty"`
+	// Probability states the share the explore pass expects the linearizations
+	// reaching this outcome to carry, for a case whose open choices are drawn.
+	Probability *float64 `json:"probability,omitempty"`
 }
 
 // ExpectedOutcome represents expected execution result
@@ -573,6 +576,7 @@ func exploreConformanceCase(t *testing.T, fresh func() *Context, idx *symbols.In
 	}
 	ctx := fresh()
 	reached := make([]int, len(expected.Outcomes))
+	probs := make([]float64, len(expected.Outcomes))
 	for _, explored := range exploration.Outcomes {
 		witness := FormatChoices(explored.Witness)
 		if explored.Outcome.Err != nil {
@@ -585,6 +589,7 @@ func exploreConformanceCase(t *testing.T, fresh func() *Context, idx *symbols.In
 		switch len(matched) {
 		case 1:
 			reached[matched[0]-1] += explored.Linearizations
+			probs[matched[0]-1] += explored.Probability
 		case 0:
 			t.Errorf("exploration reached an outcome the case does not list: %s\n  witness: %s\n  %s",
 				explored.Outcome, witness, strings.Join(report, "\n  "))
@@ -597,6 +602,9 @@ func exploreConformanceCase(t *testing.T, fresh func() *Context, idx *symbols.In
 			t.Errorf("admissible outcome %d of %d is unreachable: none of %d runs reached it", i+1, len(expected.Outcomes), exploration.Runs)
 		} else {
 			t.Logf("admissible outcome %d reached by %d of %d runs", i+1, linearizations, exploration.Runs)
+		}
+		if want := expected.Outcomes[i].Probability; want != nil && math.Abs(probs[i]-*want) > 1e-9 {
+			t.Errorf("admissible outcome %d carries probability %v, want %v", i+1, probs[i], *want)
 		}
 	}
 	if !exploration.Complete() {
@@ -723,6 +731,9 @@ func admissibleSchemaProblems(expected ExpectedOutcome, oracleTitles map[string]
 	for i, outcome := range expected.Outcomes {
 		if outcome.Outputs == nil && outcome.FinalState == "" && outcome.StateVisits == nil && !outcome.Terminated {
 			problems = append(problems, fmt.Sprintf("outcome %d states nothing", i+1))
+		}
+		if p := outcome.Probability; p != nil && (*p < 0 || *p > 1) {
+			problems = append(problems, fmt.Sprintf("outcome %d states probability %v, not one of 0.0..1.0", i+1, *p))
 		}
 	}
 	switch {

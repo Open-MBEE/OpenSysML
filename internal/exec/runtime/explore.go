@@ -85,7 +85,7 @@ func (c ChoiceTaken) weightedTail() string {
 	}
 	tail := markAmong + weightedLabels(c.Among, c.Weights)
 	if c.Drawn {
-		tail += markDrew + formatWeight(c.Drew)
+		tail += markDrew + FormatWeight(c.Drew)
 	}
 	return tail
 }
@@ -94,7 +94,7 @@ func (c ChoiceTaken) weightedTail() string {
 func weightedLabels(among []string, weights []float64) string {
 	parts := make([]string, len(among))
 	for i, alt := range among {
-		parts[i] = choiceLabel(alt) + markWeight + formatWeight(weights[i])
+		parts[i] = choiceLabel(alt) + markWeight + FormatWeight(weights[i])
 	}
 	return strings.Join(parts, markList)
 }
@@ -112,11 +112,18 @@ func FormatChoices(choices []ChoiceTaken) string {
 }
 
 // ExploredOutcome is one distinct outcome an exploration reached: how many
-// linearizations reached it, and the choices of the first run that did.
+// linearizations reached it, the probability they carry, and the choices of
+// the first run that did.
 type ExploredOutcome struct {
 	Outcome        Outcome
 	Linearizations int
-	Witness        []ChoiceTaken
+	// Probability is the share of the schedule space reaching this outcome: the
+	// sum of its linearizations' probabilities, each the product of its choice
+	// points' shares — a weighted point's stated weight, an unweighted one's
+	// uniform share. It is the model's own probability when every point is
+	// weighted, and a lower bound while the exploration is incomplete.
+	Probability float64
+	Witness     []ChoiceTaken
 	// WitnessRun is the 1-based number of the run the witness is.
 	WitnessRun int
 }
@@ -135,6 +142,20 @@ type Exploration struct {
 // Complete reports whether every linearization was run.
 func (x *Exploration) Complete() bool { return len(x.BudgetsHit) == 0 }
 
+// Probability is the share of the schedule space the exploration covered: the
+// sum of its outcomes' probabilities, 1 for a complete one.
+func (x *Exploration) Probability() float64 {
+	total := 0.0
+	for _, o := range x.Outcomes {
+		total += o.Probability
+	}
+	return total
+}
+
+// ProbabilitiesBounded reports whether the outcomes' probabilities are lower
+// bounds: they are while a budget kept some linearizations unexplored.
+func (x *Exploration) ProbabilitiesBounded() bool { return !x.Complete() }
+
 // Status renders how the exploration ended: `complete (N runs)`, or which budget
 // was hit after how many runs.
 func (x *Exploration) Status() string {
@@ -149,7 +170,7 @@ func (x *Exploration) Status() string {
 		}
 		named[i] = fmt.Sprintf("%s budget %d", budget, limit)
 	}
-	return fmt.Sprintf("incomplete: %s hit after %d runs", strings.Join(named, " and "), x.Runs)
+	return fmt.Sprintf("incomplete: %s hit after %d runs; probabilities are lower bounds", strings.Join(named, " and "), x.Runs)
 }
 
 // Explore runs a behavior once per linearization within the policy's budget, one run
@@ -401,6 +422,35 @@ func (r *exploreRun) choices() []ChoiceTaken {
 		out[i] = slot.asChoice()
 	}
 	return out
+}
+
+// share is the probability the slot's draw resolved to the alternative taken:
+// the stated weight's share of the weights for a weighted pick, the uniform
+// share of its alternatives otherwise — what a seeded run takes each with.
+func (s exploreSlot) share() float64 {
+	if s.alternatives <= 0 {
+		return 1
+	}
+	if s.kind == slotPick && s.described && s.choice.Weighted() && s.taken < len(s.choice.Weights) {
+		total := 0.0
+		for _, w := range s.choice.Weights {
+			total += w
+		}
+		if total > 0 {
+			return s.choice.Weights[s.taken] / total
+		}
+	}
+	return 1 / float64(s.alternatives)
+}
+
+// probability is the linearization's share of the schedule space: the product
+// of its slots' shares, those past the depth budget contributing theirs.
+func (r *exploreRun) probability() float64 {
+	p := 1.0
+	for _, slot := range r.record {
+		p *= slot.share()
+	}
+	return p
 }
 
 // asChoice renders the slot as the choice the run took.

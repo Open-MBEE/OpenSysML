@@ -499,7 +499,6 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("weighted_decision_whose_weights_do_not_sum_to_one", testWeightedDecisionWhoseWeightsDoNotSumToOne)
 	t.Run("weighted_decision_with_a_weight_outside_zero_to_one", testWeightedDecisionWithAWeightOutsideZeroToOne)
 	t.Run("decision_mixing_weighted_and_unweighted_successions", testDecisionMixingWeightedAndUnweightedSuccessions)
-	t.Run("weighted_decision_on_a_state_transition", testWeightedDecisionOnAStateTransition)
 	t.Run("weighted_decision_whose_read_weight_is_no_probability", testWeightedDecisionWhoseReadWeightIsNoProbability)
 	t.Run("random_draw_without_a_seed", testRandomDrawWithoutASeed)
 	t.Run("random_bounds_reversed", testRandomBoundsReversed)
@@ -641,7 +640,7 @@ func testBindingMultipleCollectionContributors(t *testing.T) {
 		if !errors.Is(err, ErrBindingEnd) {
 			t.Fatalf("GetFeatureValue(edges) = %v, want ErrBindingEnd", err)
 		}
-		if got, want := err.Error(), "binding end cannot be resolved: Sys.edges is bound by `bind [0..1] edges = [0..1] leftEdge`, "+
+		if got, want := err.Error(), "binding end cannot be resolved: Sys.edges is bound by `binding [1] bind [0..1] edges = [0..1] leftEdge`, "+
 			"which makes some value of edges a value of leftEdge without saying which value of either; the model does not state what edges holds"; got != want {
 			t.Errorf("error = %q, want %q", got, want)
 		}
@@ -772,7 +771,7 @@ func testBindingMultipleCollectionContributors(t *testing.T) {
 							binding [1] bind `+ends+` edges = `+ends+` pair;
 						}
 					}`))
-					want := "multiplicity violation: `bind " + ends + " edges = " + ends + " pair` links " +
+					want := "multiplicity violation: `binding [1] bind " + ends + " edges = " + ends + " pair` links " +
 						ends + " of edges, which holds 1 value(s)"
 					for _, order := range [][]string{{"pair", "edges", "pair"}, {"edges", "pair", "edges"}} {
 						inst, err := ctx.Instantiate(oneSymbol(t, idx, "P::Sys"))
@@ -808,7 +807,7 @@ func testBindingMultipleCollectionContributors(t *testing.T) {
 				binding [1] bind [2] edges = [2] pair;
 			}
 		}`))
-		want := "multiplicity violation: `bind [2] edges = [2] pair` links [2] of pair, which holds 1 value(s)"
+		want := "multiplicity violation: `binding [1] bind [2] edges = [2] pair` links [2] of pair, which holds 1 value(s)"
 		for _, order := range [][]string{{"edges", "pair"}, {"pair", "edges"}} {
 			inst, err := ctx.Instantiate(oneSymbol(t, idx, "P::Sys"))
 			if err != nil {
@@ -853,7 +852,7 @@ func testBindingMultipleCollectionContributors(t *testing.T) {
 				binding [1] bind [1] a = [1] c;
 			}
 		}`))
-		want := "multiplicity violation: `bind [1] a = [1] b` links [1] of a, which holds 0 value(s)"
+		want := "multiplicity violation: `binding [1] bind [1] a = [1] b` links [1] of a, which holds 0 value(s)"
 		for _, order := range [][]string{{"a", "b"}, {"b", "a"}} {
 			inst, err := ctx.Instantiate(oneSymbol(t, idx, "P::Empty"))
 			if err != nil {
@@ -17114,25 +17113,6 @@ func testDecisionMixingWeightedAndUnweightedSuccessions(t *testing.T) {
 		action slow; then done;`)
 	if !errors.Is(err, lower.ErrProbability) || !strings.Contains(err.Error(), "weights 1 of its 2 successions") {
 		t.Fatalf("error = %v, want the mixed decision refused", err)
-	}
-}
-
-// testWeightedDecisionOnAStateTransition: the state machine draws no weighted
-// transition, so Probability on one is refused rather than read as unweighted.
-func testWeightedDecisionOnAStateTransition(t *testing.T) {
-	err := libraryStateExecutorError(t, `
-		package test {
-			private import ScalarValues::*;
-			private import Stochastic::*;
-			state def Machine {
-				entry; then a;
-				state a;
-				transition first a then b { @Probability { p = 1.0; } }
-				state b;
-			}
-		}`, "Machine")
-	if !errors.Is(err, lower.ErrProbability) || !strings.Contains(err.Error(), "a transition cannot be weighted") {
-		t.Fatalf("error = %v, want the weighted transition refused", err)
 	}
 }
 

@@ -418,6 +418,16 @@ func flowLabel(flow lower.ObjectFlow) string {
 	return fmt.Sprintf("flow from %s to %s", flow.SourcePin, flow.TargetPin)
 }
 
+// stagedSlot keys the queue place a streaming flow's values hold at target: two flows
+// out of one pin are two transfers, so each declaration keeps a place of its own.
+func stagedSlot(flow lower.ObjectFlow, source, target *solve.Var) string {
+	slot := target.Name + " from " + source.Name
+	if flow.Decl != nil {
+		slot += fmt.Sprintf(" by %d", flow.Decl.Span().Offset)
+	}
+	return slot
+}
+
 // collectBody translates a body's expressions and registers what it declares.
 func (e *Encoding) collectBody(body []lower.Statement, label string, declared map[string]bool) error {
 	for _, stmt := range body {
@@ -767,7 +777,7 @@ type nodeEffect struct {
 	failed   []*solve.Term
 	overflow []*solve.Term
 	loops    map[int]*solve.Term
-	// staged holds, per pin queue and resolved source pin this performance streamed from, when it did.
+	// staged holds, per pin queue, resolved source pin and flow this performance streamed along, when it did.
 	staged map[string]*solve.Term
 }
 
@@ -1397,8 +1407,8 @@ func unreceivedName(pin string) string { return "unreceived(" + pin + ")" }
 
 // carry puts a flow's payload where its target reads it, where cond holds: the pin
 // queue of a node in a frame of its own, else the action's feature. A queue holding a
-// value from another performance or source pin is an overflow; a streaming flow's own
-// earlier value it replaces, and a value queued after its target performed is unreceived.
+// value from another performance, source pin or flow is an overflow; a streaming flow's
+// own earlier value it replaces, and a value queued after its target performed is unreceived.
 func (e *Encoding) carry(x *nodeEffect, cond *solve.Term, flow lower.ObjectFlow, source, target *solve.Var, value *solve.Term, where string) {
 	if domain := e.domain(target.Name, value); domain != nil {
 		x.fail(cond, domain)
@@ -1406,7 +1416,7 @@ func (e *Encoding) carry(x *nodeEffect, cond *solve.Term, flow lower.ObjectFlow,
 	if pending, queued := e.pending[target.Name]; queued {
 		full := x.env.has[pending.Name]
 		if flow.Kind == lower.FlowStreaming {
-			slot := target.Name + " from " + source.Name
+			slot := stagedSlot(flow, source, target)
 			if staged := x.staged[slot]; staged != nil {
 				full = and(full, not(staged))
 				x.staged[slot] = or(staged, cond)
