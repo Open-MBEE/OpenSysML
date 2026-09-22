@@ -42,6 +42,7 @@ func (m *migration) resultSnapshots(r *simresults.ConfigurationResults, s *sysml
 	if scan.analysed != nil {
 		r.Analysis = scan.analysed.Name
 	}
+	m.recordAnalysis(r, target.classifiers)
 	seenLocation := map[*sysmlv1.Element]bool{}
 	var locations []string
 	for _, id := range ids {
@@ -263,27 +264,6 @@ func (m *migration) monteCarloObservable(classifiers []*sysmlv1.Element) (observ
 		names[i] = f.Name
 	}
 	return nil, subject + " and binds its " + monteCarloMean + " to " + strings.Join(names, ", ") + " alike, so its statistics summarise no one observable"
-}
-
-// monteCarloBinding says why a connector with an end on a MonteCarloAnalysis feature
-// has no v2 form: it wires the tool's statistic, which the migration results carry;
-// "" for a connector on no such feature.
-func (m *migration) monteCarloBinding(c *sysmlv1.Element) string {
-	ends := c.Owned("end")
-	for i, end := range ends {
-		stat := monteCarloFeature(m.model.Ref(end, "role"))
-		if stat == "" {
-			continue
-		}
-		note := "the connector wires the simulation tool's " + monteCarloAnalysisBlock + "::" + stat + ", a statistic it computes over the runs, which v2 has no analysis pattern for"
-		if len(ends) == 2 {
-			if f := m.model.Ref(ends[1-i], "role"); f != nil && !f.IsProxy() {
-				note = "the connector binds " + f.Name + " to the simulation tool's " + monteCarloAnalysisBlock + "::" + stat + ", the statistic it computes of " + f.Name + " over the runs, which v2 has no analysis pattern for"
-			}
-		}
-		return note + "; the migration results read the statistic from the result snapshots"
-	}
-	return ""
 }
 
 // monteCarloSlot reads a snapshot slot of the analysis's own features as the number it

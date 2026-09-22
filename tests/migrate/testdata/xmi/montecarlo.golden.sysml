@@ -18,11 +18,20 @@ part def Timer {
     }
     perform action tick : Tick;
 }
-part def 'Timer Analysis' :> Timer {
-    /* not migrated: «BindingConnector» Connector (_bind) — the connector binds t to the simulation tool's MonteCarloAnalysis::Mean, the statistic it computes of t over the runs, which v2 has no analysis pattern for; the migration results read the statistic from the result snapshots; applied stereotypes «BindingConnector» */
+part def 'Timer Analysis' :> Timer;
+analysis def 'Timer Analysis Monte Carlo' :> Simulation::MonteCarlo {
+    subject analysed : 'Timer Analysis';
+    perform action run ::> analysed.tick;
+    attribute :>> observed : ScalarValues::Real = analysed.t;
+    return Mean : ScalarValues::Real = mean;
 }
 individual part def 'timer analysis' :> 'Timer Analysis';
 part def 'Unbound Analysis' :> Timer;
+analysis def 'Unbound Analysis Monte Carlo' :> Simulation::MonteCarlo {
+    subject analysed : 'Unbound Analysis';
+    perform action run ::> analysed.tick;
+    /* 'Unbound Analysis' inherits MonteCarloAnalysis but binds its Mean to no feature, so its statistics summarise no observable, so observed is left unbound */
+}
 individual part def 'unbound analysis' :> 'Unbound Analysis';
 action def 'Group 0' {
     @Simulation::Configuration {
@@ -54,66 +63,98 @@ package Results {
     individual part def 'run 1' :> 'Timer Analysis' {
         attribute :>> t = 2.0;
         attribute :>> p = 0.5;
-        /* not migrated: Slot (_rawN) — the slot holds the simulation tool's MonteCarloAnalysis::N statistic of the runs, which is no value of the instance; the migration results read it */
-        /* not migrated: Slot (_rawMean) — the slot holds the simulation tool's MonteCarloAnalysis::Mean statistic of the runs, which is no value of the instance; the migration results read it */
+        analysis 'Monte Carlo' : 'Timer Analysis Monte Carlo' {
+            subject :>> analysed : 'run 1';
+        }
     }
     individual part def 'analysis of 4 runs' :> 'Timer Analysis' {
         attribute :>> t = 3.5;
-        /* not migrated: Slot (_sumN) — the slot holds the simulation tool's MonteCarloAnalysis::N statistic of the runs, which is no value of the instance; the migration results read it */
-        /* not migrated: Slot (_sumMean) — the slot holds the simulation tool's MonteCarloAnalysis::Mean statistic of the runs, which is no value of the instance; the migration results read it */
-        /* not migrated: Slot (_sumDev) — the slot holds the simulation tool's MonteCarloAnalysis::Deviation statistic of the runs, which is no value of the instance; the migration results read it */
-        /* not migrated: Slot (_sumOut) — the slot holds the simulation tool's MonteCarloAnalysis::OutOfSpec statistic of the runs, which is no value of the instance; the migration results read it */
+        analysis 'Monte Carlo' : 'Timer Analysis Monte Carlo' {
+            subject :>> analysed : 'analysis of 4 runs';
+            out :>> runs = 4;
+            out :>> mean = 3.5;
+            out :>> deviation = 0.5;
+            out :>> outOfSpec = 1;
+        }
     }
     individual part def 'analysis of u' :> 'Timer Analysis' {
         attribute :>> u = 9.0;
-        /* not migrated: Slot (_forN) — the slot holds the simulation tool's MonteCarloAnalysis::N statistic of the runs, which is no value of the instance; the migration results read it */
-        /* not migrated: Slot (_forMean) — the slot holds the simulation tool's MonteCarloAnalysis::Mean statistic of the runs, which is no value of the instance; the migration results read it */
+        analysis 'Monte Carlo' : 'Timer Analysis Monte Carlo' {
+            subject :>> analysed : 'analysis of u';
+            out :>> runs = 2;
+            out :>> mean = 9.0;
+        }
     }
     individual part def 'half an analysis' :> 'Timer Analysis' {
         attribute :>> t = 6.0;
-        /* not migrated: Slot (_halfN) — the slot holds the simulation tool's MonteCarloAnalysis::N statistic of the runs, which is no value of the instance; the migration results read it */
+        analysis 'Monte Carlo' : 'Timer Analysis Monte Carlo' {
+            subject :>> analysed : 'half an analysis';
+            out :>> runs = 3;
+        }
     }
     individual part def 'analysis without a deviation' :> 'Timer Analysis' {
         attribute :>> t = 7.0;
-        /* not migrated: Slot (_leanN) — the slot holds the simulation tool's MonteCarloAnalysis::N statistic of the runs, which is no value of the instance; the migration results read it */
-        /* not migrated: Slot (_leanMean) — the slot holds the simulation tool's MonteCarloAnalysis::Mean statistic of the runs, which is no value of the instance; the migration results read it */
+        analysis 'Monte Carlo' : 'Timer Analysis Monte Carlo' {
+            subject :>> analysed : 'analysis without a deviation';
+            out :>> runs = 2;
+            out :>> mean = 7.0;
+        }
     }
     individual part def 'analysis of two and a half runs' :> 'Timer Analysis' {
+        /* not migrated: Slot (_oddN) — the slot holds the simulation tool's MonteCarloAnalysis::N: the real 2.5 is not a value of Natural, which the statistic holds */
         attribute :>> t = 4.0;
-        /* not migrated: Slot (_oddN) — the slot holds the simulation tool's MonteCarloAnalysis::N statistic of the runs, which is no value of the instance; the migration results read it */
-        /* not migrated: Slot (_oddMean) — the slot holds the simulation tool's MonteCarloAnalysis::Mean statistic of the runs, which is no value of the instance; the migration results read it */
+        analysis 'Monte Carlo' : 'Timer Analysis Monte Carlo' {
+            subject :>> analysed : 'analysis of two and a half runs';
+            out :>> mean = 4.0;
+        }
     }
     individual part def 'analysis of more runs than a count holds' :> 'Timer Analysis' {
         attribute :>> t = 4.0;
-        /* not migrated: Slot (_vastN) — the slot holds the simulation tool's MonteCarloAnalysis::N statistic of the runs, which is no value of the instance; the migration results read it */
-        /* not migrated: Slot (_vastMean) — the slot holds the simulation tool's MonteCarloAnalysis::Mean statistic of the runs, which is no value of the instance; the migration results read it */
+        analysis 'Monte Carlo' : 'Timer Analysis Monte Carlo' {
+            subject :>> analysed : 'analysis of more runs than a count holds';
+            out :>> runs = 9223372036854775808;
+            out :>> mean = 4.0;
+        }
     }
     individual part def 'analysis of nothing held' :> 'Timer Analysis' {
-        /* not migrated: Slot (_strayN) — the slot holds the simulation tool's MonteCarloAnalysis::N statistic of the runs, which is no value of the instance; the migration results read it */
-        /* not migrated: Slot (_strayMean) — the slot holds the simulation tool's MonteCarloAnalysis::Mean statistic of the runs, which is no value of the instance; the migration results read it */
+        analysis 'Monte Carlo' : 'Timer Analysis Monte Carlo' {
+            subject :>> analysed : 'analysis of nothing held';
+            out :>> runs = 7;
+            out :>> mean = 7.0;
+        }
     }
     individual part def 'analysis with a garbled mean' :> 'Timer Analysis' {
+        /* not migrated: Slot (_garbledMean) — the slot holds the simulation tool's MonteCarloAnalysis::Mean: the string "n/a" is not a value of Real, which the statistic holds */
+        /* not migrated: Slot (_garbledDev) — the slot holds the simulation tool's MonteCarloAnalysis::Deviation: real literal "NaN" is not a finite number */
         attribute :>> t = 3.0;
-        /* not migrated: Slot (_garbledN) — the slot holds the simulation tool's MonteCarloAnalysis::N statistic of the runs, which is no value of the instance; the migration results read it */
-        /* not migrated: Slot (_garbledMean) — the slot holds the simulation tool's MonteCarloAnalysis::Mean statistic of the runs, which is no value of the instance; the migration results read it */
-        /* not migrated: Slot (_garbledDev) — the slot holds the simulation tool's MonteCarloAnalysis::Deviation statistic of the runs, which is no value of the instance; the migration results read it */
+        analysis 'Monte Carlo' : 'Timer Analysis Monte Carlo' {
+            subject :>> analysed : 'analysis with a garbled mean';
+            out :>> runs = 3;
+        }
     }
     individual part def 'analysis left blank' :> 'Timer Analysis' {
         attribute :>> t = 5.0;
-        /* not migrated: Slot (_blankN) — the slot holds the simulation tool's MonteCarloAnalysis::N statistic of the runs, which is no value of the instance; the migration results read it */
-        /* not migrated: Slot (_blankMean) — the slot holds the simulation tool's MonteCarloAnalysis::Mean statistic of the runs, which is no value of the instance; the migration results read it */
+        analysis 'Monte Carlo' : 'Timer Analysis Monte Carlo' {
+            subject :>> analysed : 'analysis left blank';
+        }
     }
     individual part def 'analysis counted twice' :> 'Timer Analysis' {
+        /* not migrated: Slot (_twiceN) — the slot holds the simulation tool's MonteCarloAnalysis::N, which 2 slots of the instance hold, and a statistic is one number */
+        /* not migrated: Slot (_twiceN2) — the slot holds the simulation tool's MonteCarloAnalysis::N, which 2 slots of the instance hold, and a statistic is one number */
         attribute :>> t = 8.0;
-        /* not migrated: Slot (_twiceN) — the slot holds the simulation tool's MonteCarloAnalysis::N statistic of the runs, which is no value of the instance; the migration results read it */
-        /* not migrated: Slot (_twiceN2) — the slot holds the simulation tool's MonteCarloAnalysis::N statistic of the runs, which is no value of the instance; the migration results read it */
-        /* not migrated: Slot (_twiceMean) — the slot holds the simulation tool's MonteCarloAnalysis::Mean statistic of the runs, which is no value of the instance; the migration results read it */
+        analysis 'Monte Carlo' : 'Timer Analysis Monte Carlo' {
+            subject :>> analysed : 'analysis counted twice';
+            out :>> mean = 8.0;
+        }
     }
 }
 package Empty;
 package 'Unbound Results' {
     individual part def 'run 1' :> 'Unbound Analysis' {
         attribute :>> t = 1.0;
-        /* not migrated: Slot (_ub1N) — the slot holds the simulation tool's MonteCarloAnalysis::N statistic of the runs, which is no value of the instance; the migration results read it */
+        analysis 'Monte Carlo' : 'Unbound Analysis Monte Carlo' {
+            subject :>> analysed : 'run 1';
+            out :>> runs = 5;
+        }
     }
 }

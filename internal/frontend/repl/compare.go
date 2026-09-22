@@ -252,7 +252,11 @@ func comparisonTable(cfg *simresults.ConfigurationResults, table runtime.SweepTa
 		} else {
 			cells = append(cells, statisticsRow(name, "tool", stored, ""))
 		}
-		cells, notes = runRows(cells, notes, name, feature, table, &comparison{stored: stored, pooled: pooled})
+		tool := &comparison{stored: stored, pooled: pooled}
+		if pooled && name == cfg.Analysis {
+			tool.declared = declaredStatistics(cfg, name)
+		}
+		cells, notes = runRows(cells, notes, name, feature, table, tool)
 	}
 	widths := make([]int, len(cells[0]))
 	for _, row := range cells {
@@ -268,10 +272,46 @@ func comparisonTable(cfg *simresults.ConfigurationResults, table runtime.SweepTa
 }
 
 // comparison is the tool's side of one observable: its distribution, pooled from
-// summaries (count and mean alone) or over the runs it stored one by one.
+// summaries (count and mean alone) or over the runs it stored one by one, and the
+// statistics the migrated analysis returns of it, when it declares any.
 type comparison struct {
-	stored *runtime.Distribution
-	pooled bool
+	stored   *runtime.Distribution
+	pooled   bool
+	declared *declared
+}
+
+// declared are the statistics an analysis def returns of the observable it
+// analyses, with the tool's pooled value of each that its summaries fix.
+type declared struct {
+	analysis   string
+	statistics []string
+	deviation  *float64
+	outOfSpec  *int64
+}
+
+// declaredStatistics are the returns of the analysis def written for cfg's target,
+// nil when it declares none, with the tool's deviation and out-of-specification
+// count pooled over the summaries of observable.
+func declaredStatistics(cfg *simresults.ConfigurationResults, observable string) *declared {
+	if len(cfg.Statistics) == 0 {
+		return nil
+	}
+	d := &declared{analysis: cfg.AnalysisCase, statistics: cfg.Statistics}
+	if dev, ok := storedDeviation(cfg, observable); ok {
+		d.deviation = &dev
+	}
+	var out int64
+	counted := false
+	for _, s := range cfg.Summarised(observable) {
+		if s.Statistics.OutOfSpec != nil {
+			out += *s.Statistics.OutOfSpec
+			counted = true
+		}
+	}
+	if counted {
+		d.outOfSpec = &out
+	}
+	return d
 }
 
 // storedDistribution is the tool's distribution of observable: over the numbers
@@ -297,6 +337,30 @@ func storedDistribution(cfg *simresults.ConfigurationResults, observable string)
 		return nil, true
 	}
 	return &runtime.Distribution{Count: int(runs), Mean: sum / float64(runs)}, true
+}
+
+// storedDeviation is the tool's sample standard deviation of observable pooled over
+// the runs its snapshots store one by one and the summaries, each contributing its
+// runs' spread about its mean and its mean's offset from the pooled mean; false
+// when a summary kept no deviation or fewer than two runs are stored.
+func storedDeviation(cfg *simresults.ConfigurationResults, observable string) (float64, bool) {
+	pooled, _ := storedDistribution(cfg, observable)
+	if pooled == nil || pooled.Count < 2 {
+		return 0, false
+	}
+	var sum float64
+	for _, v := range cfg.Values(observable) {
+		sum += (v - pooled.Mean) * (v - pooled.Mean)
+	}
+	for _, s := range cfg.Summarised(observable) {
+		st := s.Statistics
+		if st.Deviation == nil {
+			return 0, false
+		}
+		n := float64(st.Runs)
+		sum += (n-1)**st.Deviation**st.Deviation + n*(st.Mean-pooled.Mean)*(st.Mean-pooled.Mean)
+	}
+	return math.Sqrt(sum / float64(pooled.Count-1)), true
 }
 
 // runRows appends the runs' row of one observable — and the difference from the
@@ -335,29 +399,68 @@ func runRows(cells [][]string, notes []string, name, feature string, table runti
 	case tool == nil:
 	case tool.pooled:
 		cells = append(cells, []string{"", "difference", "", "", relative(drawnMean(tool.stored), drawnMean(d)), "", "", ""})
-		notes = append(notes, fmt.Sprintf("note: %s came to a deviation of %s over the %d completed run(s)", feature, spell(deviation(ran, d.Mean)), d.Count))
+		if tool.declared != nil {
+			notes = append(notes, statisticsTable(name, feature, tool, d)...)
+		} else {
+			notes = append(notes, fmt.Sprintf("note: %s came to a deviation of %s over the %d completed run(s)", feature, spell(d.Deviation), d.Count))
+		}
 	default:
 		cells = append(cells, differenceRow(tool.stored, d))
 	}
 	return cells, notes
 }
 
-// deviation is the sample standard deviation of values about their mean, 0 for fewer than two.
-func deviation(values []semantics.Value, mean float64) float64 {
-	if len(values) < 2 {
-		return 0
+// statisticsTable is one row per statistic the analysis returns of name: the
+// tool's pooled value, the runs' by the same aggregation, and the relative
+// difference of the two where both are numbers of one thing. The run counts are
+// each side's own choice, so they are not differenced; out-of-specification runs
+// are the tool's criterion, which no migrated check evaluates.
+func statisticsTable(name, feature string, tool *comparison, d *runtime.Distribution) []string {
+	cells := [][]string{{"statistic", "tool", openSysMLLabel + feature + ")", "difference"}}
+	var notes []string
+	for _, stat := range tool.declared.statistics {
+		switch stat {
+		case simresults.StatisticMean:
+			cells = append(cells, []string{stat, spell(tool.stored.Mean), spell(d.Mean), relative(drawnMean(tool.stored), drawnMean(d))})
+		case simresults.StatisticDeviation:
+			if tool.declared.deviation == nil {
+				cells = append(cells, []string{stat, "", spell(d.Deviation), ""})
+				notes = append(notes, fmt.Sprintf("note: a summary of %s kept no deviation, so the tool's is not pooled and %s is not compared", name, stat))
+				continue
+			}
+			cells = append(cells, []string{stat, spell(*tool.declared.deviation), spell(d.Deviation), relative(realValue(*tool.declared.deviation), realValue(d.Deviation))})
+		case simresults.StatisticRuns:
+			cells = append(cells, []string{stat, fmt.Sprint(tool.stored.Count), fmt.Sprint(d.Count), ""})
+		case simresults.StatisticOutOfSpec:
+			stored := ""
+			if tool.declared.outOfSpec != nil {
+				stored = fmt.Sprint(*tool.declared.outOfSpec)
+			}
+			cells = append(cells, []string{stat, stored, "", ""})
+			notes = append(notes, fmt.Sprintf("note: %s counts the runs the tool found out of specification by its own criterion, which no migrated check evaluates, so it is not compared", stat))
+		}
 	}
-	var sum float64
-	for _, v := range values {
-		d := realOf(v) - mean
-		sum += d * d
+	widths := make([]int, len(cells[0]))
+	for _, row := range cells {
+		for i, cell := range row {
+			widths[i] = max(widths[i], len([]rune(cell)))
+		}
 	}
-	return math.Sqrt(sum / float64(len(values)-1))
+	lines := []string{fmt.Sprintf("statistics of %s returned by %s:", name, tool.declared.analysis), renderSweepRow(cells[0], widths, " | "), sweepRule(widths)}
+	for _, row := range cells[1:] {
+		lines = append(lines, renderSweepRow(row, widths, " | "))
+	}
+	return append(lines, notes...)
 }
 
 // spell writes a statistic as the tool's numbers are written in the table.
 func spell(v float64) string {
-	return withUnit(semantics.Value{Kind: semantics.ValReal, Real: v}, "")
+	return withUnit(realValue(v), "")
+}
+
+// realValue wraps a statistic as the Real the tool wrote it as.
+func realValue(v float64) semantics.Value {
+	return semantics.Value{Kind: semantics.ValReal, Real: v}
 }
 
 func orUnnamed(name string) string {
@@ -471,7 +574,7 @@ func unitList(units []string) string {
 func reals(values []float64) []semantics.Value {
 	out := make([]semantics.Value, len(values))
 	for i, v := range values {
-		out[i] = semantics.Value{Kind: semantics.ValReal, Real: v}
+		out[i] = realValue(v)
 	}
 	return out
 }

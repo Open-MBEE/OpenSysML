@@ -1,0 +1,195 @@
+package migrate_test
+
+import (
+	"reflect"
+	"strings"
+	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/translate/migrate"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/simresults"
+)
+
+// montecarlo_case.xmi is a block inheriting the MagicDraw customization's
+// MonteCarloAnalysis whose connectors bind its settleTime to the pattern's Mean and
+// Deviation, a String to N, an Integer to OutOfSpec, and another value to a
+// statistic the pattern is not known to have; a block of no such inheritance binds
+// a value to Mean too. The tool's summary of five runs records every statistic.
+func TestMonteCarloAnalysisIsAnAnalysisCase(t *testing.T) {
+	r := migrateFixtureFile(t, "montecarlo_case")
+	wantLine(t, r.Notation, "part def 'Settling Analysis' :> Sensor {")
+	wantLine(t, r.Notation, "analysis def 'Settling Analysis Monte Carlo' :> Simulation::MonteCarlo {")
+	wantLine(t, r.Notation, "subject analysed : 'Settling Analysis';")
+	wantLine(t, r.Notation, "perform action run ::> analysed.settle;")
+	wantLine(t, r.Notation, "attribute :>> observed : ScalarValues::Real = analysed.settleTime;")
+	wantLine(t, r.Notation, "return Mean : ScalarValues::Real = mean;")
+	wantLine(t, r.Notation, "out Deviation : ScalarValues::Real = deviation;")
+	wantLine(t, r.Notation, "out OutOfSpec : ScalarValues::Integer = outOfSpec;")
+	wantNoLine(t, r.Notation, "= runs;")
+	wantNoLine(t, r.Notation, "Median :")
+	wantNoLine(t, r.Notation, "= median")
+	wantLine(t, r.Notation, "analysis 'Monte Carlo' : 'Settling Analysis Monte Carlo' {")
+	wantLine(t, r.Notation, "subject :>> analysed : 'settling of 5 runs';")
+	wantLine(t, r.Notation, "out :>> deviation = 0.6;")
+
+	wantNote(t, r, "_analysis", migrate.Approximated, "generalization of the simulation tool's MonteCarloAnalysis is written as the analysis def 'Settling Analysis Monte Carlo' :> Simulation::MonteCarlo beside the part def, which is its subject")
+	wantNote(t, r, "_bindMean", migrate.Approximated, "written in the analysis def 'Settling Analysis Monte Carlo' as the observed value, of which Mean is returned")
+	wantNote(t, r, "_bindDeviation", migrate.Approximated, "as the returned Deviation, bound to deviation")
+	wantNote(t, r, "_bindOutOfSpec", migrate.Approximated, "as the returned OutOfSpec, bound to outOfSpec")
+	wantNote(t, r, "_bindN", migrate.Unmapped, "the connector binds the simulation tool's MonteCarloAnalysis::N to label, which is of String, and the statistic is of a number")
+	wantNote(t, r, "_bindMedian", migrate.Unmapped, "the connector binds the simulation tool's MonteCarloAnalysis::Median, a statistic Simulation::MonteCarlo has no counterpart for")
+	wantNote(t, r, "_bindStranger", migrate.Unmapped, "a statistic of an analysis its owner does not inherit")
+	wantNote(t, r, "_bindGain", migrate.Mapped, "")
+	wantNote(t, r, "_sMean", migrate.Mapped, "")
+	wantNote(t, r, "_sMedian", migrate.Unmapped, "a statistic Simulation::MonteCarlo has no counterpart for")
+
+	if r.Results == nil || len(r.Results.Configurations) != 1 {
+		t.Fatalf("results = %+v, want one configuration", r.Results)
+	}
+	cfg := r.Results.Configurations[0]
+	if cfg.Analysis != "settleTime" || cfg.AnalysisCase != "'Settling Analysis Monte Carlo'" {
+		t.Errorf("analysis = %q of %q, want settleTime by 'Settling Analysis Monte Carlo'", cfg.Analysis, cfg.AnalysisCase)
+	}
+	if want := []string{simresults.StatisticMean, simresults.StatisticDeviation, simresults.StatisticOutOfSpec}; !reflect.DeepEqual(cfg.Statistics, want) {
+		t.Errorf("statistics = %v, want %v", cfg.Statistics, want)
+	}
+	want := &simresults.Statistics{Observable: "settleTime", Runs: 5, Mean: 3.1, Deviation: simresults.Real(0.6), OutOfSpec: simresults.Count(0)}
+	if len(cfg.Snapshots) != 1 || !reflect.DeepEqual(cfg.Snapshots[0].Statistics, want) {
+		t.Errorf("snapshots = %+v, want one holding %+v", cfg.Snapshots, want)
+	}
+	wantClean(t, "montecarlo_case.sysml", r)
+}
+
+// montecarlo_homonym.xmi has a user's own block named MonteCarloAnalysis with the
+// pattern's properties, which a block generalizes and binds a value to the Mean of:
+// without the customization module's provenance it is an ordinary block.
+func TestUserBlockNamedMonteCarloAnalysisIsNoPattern(t *testing.T) {
+	r := migrateFixtureFile(t, "montecarlo_homonym")
+	wantLine(t, r.Notation, "part def MonteCarloAnalysis {")
+	wantLine(t, r.Notation, "part def 'Gauge Analysis' :> Gauge, MonteCarloAnalysis {")
+	wantLine(t, r.Notation, "bind reading = Mean;")
+	wantLine(t, r.Notation, "attribute :>> Mean = 2.5;")
+	wantNoLine(t, r.Notation, "analysis def")
+	wantNoLine(t, r.Notation, "Monte Carlo")
+	wantNote(t, r, "_analysis", migrate.Mapped, "")
+	wantNote(t, r, "_bind", migrate.Mapped, "")
+	wantNote(t, r, "_runMean", migrate.Mapped, "")
+	if n := r.Report.Count()[migrate.Unmapped]; n != 0 {
+		t.Errorf("unmapped = %d, want none", n)
+	}
+	cfg := r.Results.Configurations[0]
+	if cfg.Analysis != "" || cfg.AnalysisCase != "" || cfg.Statistics != nil || cfg.Snapshots[0].Statistics != nil {
+		t.Errorf("configuration = %+v, want no analysis", cfg)
+	}
+	wantClean(t, "montecarlo_homonym.sysml", r)
+}
+
+const monteCarloGeneral = `<general href="MD_customization_for_SysML.mdzip#_mc"><xmi:Extension extender="MagicDraw UML 2024x"><referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis" referentType="Class"/></xmi:Extension></general>`
+
+// monteCarloRole is a connector end's role on the pattern's statistic stat.
+func monteCarloRole(stat string) string {
+	return `<role href="MD_customization_for_SysML.mdzip#_mc` + stat + `"><xmi:Extension extender="MagicDraw UML 2024x"><referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::` + stat + `" referentType="Property"/></xmi:Extension></role>`
+}
+
+// monteCarloBlock is a block Timer Analysis of the values t and u, generalizing
+// general and owning connectors, with the applications of its block stereotypes.
+func monteCarloBlock(general, connectors string) (members, applications string) {
+	return `
+    <packagedElement xmi:type="uml:Class" xmi:id="_timer" name="Timer">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_t" name="t">` + realHref + `</ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_u" name="u">` + realHref + `</ownedAttribute>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_analysis" name="Timer Analysis">
+      <generalization xmi:type="uml:Generalization" xmi:id="_g1" general="_timer"/>
+      <generalization xmi:type="uml:Generalization" xmi:id="_g2">` + general + `</generalization>` + connectors + `
+    </packagedElement>`, `<sysml:Block xmi:id="_s1" base_Class="_timer"/><sysml:Block xmi:id="_s2" base_Class="_analysis"/>
+  <sysml:BindingConnector xmi:id="_s4" base_Connector="_bind"/><sysml:BindingConnector xmi:id="_s5" base_Connector="_bind2"/><sysml:BindingConnector xmi:id="_s6" base_Connector="_bind3"/>`
+}
+
+// binding is a connector id binding the feature at role to the end other.
+func binding(id, role, other string) string {
+	return `<ownedConnector xmi:type="uml:Connector" xmi:id="` + id + `"><end xmi:type="uml:ConnectorEnd" xmi:id="` + id + `a" role="` + role + `"/><end xmi:type="uml:ConnectorEnd" xmi:id="` + id + `b">` + other + `</end></ownedConnector>`
+}
+
+// The pattern is the customization module's block alone: a reference into the
+// module whose path is cut short or missing, or the module's path in another
+// module, generalizes no analysis pattern.
+func TestMonteCarloAnalysisNeedsTheModulesProvenance(t *testing.T) {
+	cases := map[string]string{
+		"path cut short": `<general href="MD_customization_for_SysML.mdzip#_mc"><xmi:Extension extender="MagicDraw UML 2024x"><referenceExtension referentPath="MD Customization for SysML::analysis patterns::" referentType="Class"/></xmi:Extension></general>`,
+		"no path":        `<general href="MD_customization_for_SysML.mdzip#_mc"/>`,
+		"other module":   `<general href="My_Patterns.mdzip#_mc"><xmi:Extension extender="MagicDraw UML 2024x"><referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis" referentType="Class"/></xmi:Extension></general>`,
+	}
+	for name, general := range cases {
+		t.Run(name, func(t *testing.T) {
+			members, applications := monteCarloBlock(general, binding("_bind", "_t", monteCarloRole("Mean")))
+			r := migrateDocument(t, members, applications)
+			wantNoLine(t, r.Notation, "analysis def")
+			wantNote(t, r, "_analysis", migrate.Approximated, "generalization of library type")
+			if es := entriesFor(r, "_bind"); len(es) != 1 || es[0].Verdict != migrate.Unmapped || strings.Contains(es[0].Note, "Monte Carlo") {
+				t.Errorf("entries for _bind = %+v, want one unmapped entry of no analysis", es)
+			}
+			wantClean(t, "provenance.sysml", r)
+		})
+	}
+}
+
+// A binding the tool's pattern cannot be read from is refused with its reason,
+// and the analysis def written without it.
+func TestMonteCarloBindingsRefusedWithReasons(t *testing.T) {
+	cases := []struct {
+		name, connectors, id, note string
+	}{
+		{"two features bound to Mean",
+			binding("_bind", "_t", monteCarloRole("Mean")) + binding("_bind2", "_u", monteCarloRole("Mean")), "_bind2",
+			"binds its Mean to t, u alike, so its statistics summarise no one observable, so the analysis reads no observed and returns no Mean"},
+		{"one end",
+			`<ownedConnector xmi:type="uml:Connector" xmi:id="_bind"><end xmi:type="uml:ConnectorEnd" xmi:id="_e">` + monteCarloRole("Mean") + `</end></ownedConnector>`, "_bind",
+			"a connector with 1 ends is not migrated"},
+		{"no role at the other end",
+			`<ownedConnector xmi:type="uml:Connector" xmi:id="_bind"><end xmi:type="uml:ConnectorEnd" xmi:id="_e1"/><end xmi:type="uml:ConnectorEnd" xmi:id="_e2">` + monteCarloRole("Mean") + `</end></ownedConnector>`, "_bind",
+			"the connector binds the simulation tool's MonteCarloAnalysis::Mean to nothing in the document"},
+		{"a statistic of nothing observed",
+			binding("_bind", "_t", monteCarloRole("Deviation")), "_bind",
+			"the connector binds the simulation tool's MonteCarloAnalysis::Deviation to t, but 'Timer Analysis' inherits MonteCarloAnalysis but binds its Mean to no feature, so its statistics summarise no observable, so the statistic is of nothing and is not returned"},
+		{"two statistics bound to each other",
+			binding("_bind", "_t", monteCarloRole("Mean")) + `<ownedConnector xmi:type="uml:Connector" xmi:id="_bind2"><end xmi:type="uml:ConnectorEnd" xmi:id="_e1">` + monteCarloRole("Deviation") + `</end><end xmi:type="uml:ConnectorEnd" xmi:id="_e2">` + monteCarloRole("OutOfSpec") + `</end></ownedConnector>`, "_bind2",
+			"which lives outside the document"},
+		{"the pattern's block as a role",
+			binding("_bind", "_t", `<role href="MD_customization_for_SysML.mdzip#_mc"><xmi:Extension extender="MagicDraw UML 2024x"><referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis" referentType="Property"/></xmi:Extension></role>`), "_bind",
+			"which lives outside the document"},
+		{"Deviation bound twice",
+			binding("_bind", "_t", monteCarloRole("Mean")) + binding("_bind2", "_t", monteCarloRole("Deviation")) + binding("_bind3", "_u", monteCarloRole("Deviation")), "_bind3",
+			"the connector binds the simulation tool's MonteCarloAnalysis::Deviation to u, which another connector of the block already binds it to"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			members, applications := monteCarloBlock(monteCarloGeneral, tc.connectors)
+			r := migrateDocument(t, members, applications)
+			wantLine(t, r.Notation, "analysis def 'Timer Analysis Monte Carlo' :> Simulation::MonteCarlo {")
+			wantNote(t, r, tc.id, migrate.Unmapped, tc.note)
+			wantClean(t, "refused.sysml", r)
+		})
+	}
+}
+
+// A statistic slot of an analysis that observes nothing is refused, but for the
+// count of runs, which is of the runs themselves.
+func TestMonteCarloSlotsOfNothingObservedAreRefused(t *testing.T) {
+	members, applications := monteCarloBlock(monteCarloGeneral, "")
+	r := migrateDocument(t, members+`
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_run" name="run" classifier="_analysis">
+      <slot xmi:type="uml:Slot" xmi:id="_n">
+        <definingFeature href="MD_customization_for_SysML.mdzip#_mcN"><xmi:Extension extender="MagicDraw UML 2024x"><referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::N" referentType="Property"/></xmi:Extension></definingFeature>
+        <value xmi:type="uml:LiteralInteger" xmi:id="_nv" value="3"/>
+      </slot>
+      <slot xmi:type="uml:Slot" xmi:id="_mean">
+        <definingFeature href="MD_customization_for_SysML.mdzip#_mcMean"><xmi:Extension extender="MagicDraw UML 2024x"><referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::Mean" referentType="Property"/></xmi:Extension></definingFeature>
+        <value xmi:type="uml:LiteralReal" xmi:id="_meanv" value="2.5"/>
+      </slot>
+    </packagedElement>`, applications)
+	wantLine(t, r.Notation, "out :>> runs = 3;")
+	wantNoLine(t, r.Notation, "mean = 2.5")
+	wantNote(t, r, "_n", migrate.Mapped, "")
+	wantNote(t, r, "_mean", migrate.Unmapped, "the slot holds the simulation tool's MonteCarloAnalysis::Mean, but 'Timer Analysis' inherits MonteCarloAnalysis but binds its Mean to no feature, so its statistics summarise no observable, so the statistic is of nothing")
+	wantClean(t, "unobserved.sysml", r)
+}

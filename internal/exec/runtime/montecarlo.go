@@ -80,12 +80,15 @@ func RunNumber(bindings []SweepBinding) (int64, bool) {
 }
 
 // Distribution summarises one observable over the runs of a Monte Carlo: extremes,
-// mean, nearest-rank p50/p90 and a histogram, exact on Integers save the Real mean.
+// mean, sample standard deviation, nearest-rank p50/p90 and a histogram, exact on
+// Integers save the Real mean and deviation.
 type Distribution struct {
-	Count     int
-	Integral  bool
-	Min       semantics.Value
-	Mean      float64
+	Count    int
+	Integral bool
+	Min      semantics.Value
+	Mean     float64
+	// Deviation is the sample standard deviation about Mean, 0 for fewer than two runs.
+	Deviation float64
 	Max       semantics.Value
 	P50       semantics.Value
 	P90       semantics.Value
@@ -130,11 +133,16 @@ func distributeInts(values []int64) *Distribution {
 		sum.Add(sum, big.NewInt(v))
 	}
 	mean, _ := new(big.Rat).SetFrac(sum, big.NewInt(int64(n))).Float64()
+	reals := make([]float64, n)
+	for i, v := range sorted {
+		reals[i] = float64(v)
+	}
 	return &Distribution{
 		Count:     n,
 		Integral:  true,
 		Min:       drawnInt(sorted[0]),
 		Mean:      mean,
+		Deviation: deviationOf(reals, mean),
 		Max:       drawnInt(sorted[n-1]),
 		P50:       drawnInt(nearestRank(sorted, 0.5)),
 		P90:       drawnInt(nearestRank(sorted, 0.9)),
@@ -151,10 +159,12 @@ func distributeReals(numbers []semantics.Value) *Distribution {
 	}
 	slices.Sort(sorted)
 	n := len(sorted)
+	mean := meanOf(sorted)
 	return &Distribution{
 		Count:     n,
 		Min:       drawnReal(sorted[0]),
-		Mean:      meanOf(sorted),
+		Mean:      mean,
+		Deviation: deviationOf(sorted, mean),
 		Max:       drawnReal(sorted[n-1]),
 		P50:       drawnReal(nearestRank(sorted, 0.5)),
 		P90:       drawnReal(nearestRank(sorted, 0.9)),
@@ -174,6 +184,19 @@ func meanOf(values []float64) float64 {
 	}
 	mean, _ := sum.Quo(sum, big.NewRat(int64(len(values)), 1)).Float64()
 	return mean
+}
+
+// deviationOf is the sample standard deviation of values about their mean, 0 for fewer than two.
+func deviationOf(values []float64, mean float64) float64 {
+	if len(values) < 2 {
+		return 0
+	}
+	var sum float64
+	for _, v := range values {
+		d := v - mean
+		sum += d * d
+	}
+	return math.Sqrt(sum / float64(len(values)-1))
 }
 
 // realSum is the sum of values in Real arithmetic.

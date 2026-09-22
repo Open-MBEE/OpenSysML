@@ -152,7 +152,7 @@ func TestRunsMisuseThroughCLI(t *testing.T) {
 		args  []string
 		wants string
 	}{
-		{"no action", []string{"-runs", "3", "-seed", "1"}, "-runs runs an action; name one, as -action <name>"},
+		{"no action", []string{"-runs", "3", "-seed", "1"}, "-runs runs an action or a Simulation::MonteCarlo analysis case; name one, as -action <name> or -analysis <name>"},
 		{"two actions", []string{"-action", "MC::route", "-action", "MC::route", "-runs", "3", "-seed", "1"},
 			"name a single -action"},
 		{"a state machine", []string{"-action", "MC::route", "-state", "MC::route", "-runs", "3", "-seed", "1"},

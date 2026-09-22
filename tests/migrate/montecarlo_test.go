@@ -26,6 +26,7 @@ func TestMonteCarloAnalysisSnapshotsAreSummaries(t *testing.T) {
 	want := []simresults.ConfigurationResults{{
 		ID: "_g0", Name: "'Group 0'", Runs: 3, Draws: "average",
 		Target: "target", Behavior: "run", Location: "Results", Analysis: "t",
+		AnalysisCase: "'Timer Analysis Monte Carlo'", Statistics: []string{simresults.StatisticMean},
 		Observables: []string{"p", "t", "u"},
 		Snapshots: []simresults.Snapshot{
 			{ID: "_raw", Name: "run 1", Values: map[string]float64{"p": 0.5, "t": 2}},
@@ -55,13 +56,15 @@ func TestMonteCarloAnalysisSnapshotsAreSummaries(t *testing.T) {
 	}, {
 		ID: "_g5", Name: "'Group 1'", Draws: "average",
 		Target: "target", Behavior: "run", Location: "Empty", Analysis: "t",
+		AnalysisCase: "'Timer Analysis Monte Carlo'", Statistics: []string{simresults.StatisticMean},
 		Observables: []string{}, Snapshots: []simresults.Snapshot{},
 		Notes: []string{"the result location Empty holds no snapshot of the target's classifier"},
 	}, {
 		ID: "_g6", Name: "'Group 2'", Runs: 1, Draws: "average",
 		Target: "target", Behavior: "run", Location: "Unbound Results",
-		Observables: []string{"t"},
-		Snapshots:   []simresults.Snapshot{{ID: "_ub1", Name: "run 1", Values: map[string]float64{"t": 1}}},
+		AnalysisCase: "'Unbound Analysis Monte Carlo'",
+		Observables:  []string{"t"},
+		Snapshots:    []simresults.Snapshot{{ID: "_ub1", Name: "run 1", Values: map[string]float64{"t": 1}}},
 		Notes: []string{
 			"'Unbound Analysis' inherits MonteCarloAnalysis but binds its Mean to no feature, so its statistics summarise no observable",
 			"the slot of MonteCarloAnalysis::N holds a statistic of no observable the target analyses in 1 snapshot(s), so it is not among the results",
@@ -91,10 +94,10 @@ func TestMonteCarloAnalysisSnapshotsAreSummaries(t *testing.T) {
 	wantLine(t, r.Notation, "/* results of the simulation tool: 11 snapshot(s) in Results standing for 15 run(s) analysing t holding p, t, u */")
 	wantLine(t, r.Notation, "/* results of the simulation tool: 0 snapshot(s) in Empty analysing t */")
 	wantLine(t, r.Notation, "/* results of the simulation tool: 1 snapshot(s) in Unbound Results holding t */")
-	wantNote(t, r, "_analysis", migrate.Approximated, "generalization of the simulation tool's MonteCarloAnalysis is not written: v2 has no analysis pattern for the statistics it computes over the runs, which the migration results read from the result snapshots")
-	wantNote(t, r, "_bind", migrate.Unmapped, "the connector binds t to the simulation tool's MonteCarloAnalysis::Mean, the statistic it computes of t over the runs, which v2 has no analysis pattern for; the migration results read the statistic from the result snapshots")
-	wantNote(t, r, "_sumMean", migrate.Unmapped, "the slot holds the simulation tool's MonteCarloAnalysis::Mean statistic of the runs, which is no value of the instance; the migration results read it")
+	wantNote(t, r, "_analysis", migrate.Approximated, "generalization of the simulation tool's MonteCarloAnalysis is written as the analysis def 'Timer Analysis Monte Carlo' :> Simulation::MonteCarlo beside the part def, which is its subject")
+	wantNote(t, r, "_bind", migrate.Approximated, "the binding to the simulation tool's MonteCarloAnalysis::Mean is written in the analysis def 'Timer Analysis Monte Carlo' as the observed value, of which Mean is returned")
+	wantNote(t, r, "_sumMean", migrate.Mapped, "")
 	wantNote(t, r, "_sumT", migrate.Mapped, "")
-	wantNote(t, r, "_rawN", migrate.Unmapped, "the slot holds the simulation tool's MonteCarloAnalysis::N statistic of the runs, which is no value of the instance; the migration results read it")
+	wantNote(t, r, "_rawN", migrate.Approximated, "the tool left runs blank, so no value is written")
 	wantClean(t, "montecarlo.sysml", r)
 }

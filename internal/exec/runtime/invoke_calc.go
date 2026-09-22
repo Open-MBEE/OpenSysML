@@ -785,7 +785,7 @@ func (ctx *Context) runCalcBody(shape *calcShape, frame *invocationFrame, caller
 	frame.env = stmtEnv{data: frame.locals(), enclosing: shape.bodyEnclosing(enclosing)}
 	frame.engine = stmtEngine{ctx: ctx, host: &frame.host, env: &frame.env, activation: activation, frameBuf: frame.engine.frameBuf}
 	frame.host.attachPerformances(&frame.engine)
-	result, returned, err := runCalcSteps(&frame.engine, &frame.host, shape)
+	result, returned, err := runCalcSteps(&frame.engine, &frame.host, shape.Steps)
 	if err != nil {
 		return Value{}, err
 	}
@@ -809,15 +809,28 @@ func (ctx *Context) runCalcBody(shape *calcShape, frame *invocationFrame, caller
 	return run.value(ctx, out)
 }
 
-// runCalcSteps runs the calc's lowered computation on engine, whose data holds
-// the calc's parameters on the way in and its locals on the way out, reporting
+// runCalcSteps runs the calc's lowered steps on engine, whose data holds the
+// calc's parameters on the way in and its locals on the way out, reporting
 // the value host took from a `return` and whether the body returned one.
-func runCalcSteps(engine *stmtEngine, host *calcStmtHost, shape *calcShape) (Value, bool, error) {
-	flow, err := engine.run(shape.Steps)
+func runCalcSteps(engine *stmtEngine, host *calcStmtHost, steps []lower.Statement) (Value, bool, error) {
+	flow, err := engine.run(steps)
 	if err != nil {
 		return Value{}, false, err
 	}
 	return host.result, flow == flowReturn, nil
+}
+
+// observationSteps splits Steps at the results ending them: the steps a run of a
+// Monte Carlo case performs, then the results evaluated over its sample.
+func (shape *calcShape) observationSteps() (steps, results []lower.Statement) {
+	end := len(shape.Steps)
+	for end > 0 {
+		if _, isResult := shape.Steps[end-1].(lower.Return); !isResult {
+			break
+		}
+		end--
+	}
+	return shape.Steps[:end], shape.Steps[end:]
 }
 
 // checkArgs rejects an argument list that cannot bind to the parameters at all:
