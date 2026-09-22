@@ -506,6 +506,25 @@ specializes them, and `Integrate`, the two event definitions and `StateSpaceDyna
 have no body of their own to run), and `AnalysisTooling` declares nothing callable. Nothing is
 left in the track; a verdict that moves is adjudicated in the change that moves it.
 
+## L8 — the Geometry domain library's derived shapes (landed, unreleased)
+
+`ShapeItems` defines a shape's faces, edges and vertices through `bind` connectors with
+multiplicities, and what those determine now evaluates. A `Box` answers `faces` (six), the
+per-face `edges` (four each, with `length`/`width`), `edges` (twenty-four) and the per-face
+`vertices` (eight); a `Cylinder` or `Cone` answers `faces` (three or two) and each `Disc`'s
+`edges`, the ellipse; a `Cylinder` nested as a `Box`'s `voids` answers the same and makes `isSolid`
+false. What made the curved shapes fail was the runtime reading `binding [1] bind [0..*]
+base.edges = [0..*] be` as a whole binding, so `be [2]` was bound to the one edge and every read
+through it was `ErrMultiplicityViolation`; a connector's own multiplicity is the number of links
+it declares, so that binding is partial — it relates the disc's edge to some value of `be` — and
+`runtime/binding.go` `partialBinding` now decides so from the declared bounds (`lower/binding.go`
+`Binding.Multiplicity`). What stays a typed error is what the library leaves open, not a runtime
+gap: the `[0..1]`-bound edge and vertex groups (`tfe`, `tflv`, and so `Box::vertices`), which no
+binding pins to a member, are `ErrBindingEnd` naming the binding; `be`/`ae` and `Cylinder::edges`/
+`vertices` reach `cf : Surface`, whose `edges`/`vertices` are the Kernel frame's, not the object's;
+and `matingOccurrences`/`spaceBoundary` are frame features of `Occurrences.kerml`. See the
+`ShapeItems` rows and Known Limitations in `spec-compliance.md` and the record in `omg-issues.md`.
+
 ---
 
 # Track N — native compilation

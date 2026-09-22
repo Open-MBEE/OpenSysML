@@ -534,7 +534,7 @@ and `%features` alike (`runtime/binding.go` `UndeterminedBindingError`; conforma
 `instance_library_geometry_box`):
 
 ```text
-binding end cannot be resolved: box.tfe is bound by `bind [0..1] tf.edges = [0..1] tfe`, which makes some value of tfe a value of tf.edges without saying which value of either; the model does not state what tfe holds
+binding end cannot be resolved: box.tfe is bound by `binding [1] bind [0..1] tf.edges = [0..1] tfe`, which makes some value of tfe a value of tf.edges without saying which value of either; the model does not state what tfe holds
 ```
 
 The runtime reads each partial binding on its own and does not solve the conjunction of several, so a group two partial bindings *would*
