@@ -42,6 +42,9 @@ func treeOperator(table map[string]string, symbol string) (string, bool) {
 type treeLowering struct {
 	s      *bodyScope
 	leaves map[string]opaqueRef
+	// spelled holds every word the tree's own symbols and opaque bodies spell,
+	// which no placeholder may shadow.
+	spelled map[string]bool
 }
 
 // feature answers a placeholder for an instance operand, else asks the scope.
@@ -55,7 +58,7 @@ func (l *treeLowering) feature(path []string, write bool) (opaqueRef, *refusal) 
 // expressionTree writes a UML Expression tree as a v2 expression yielding what
 // want asks for. ok is false when a node has no v2 form; note says why.
 func (m *migration) expressionTree(v, scope *sysmlv1.Element, want wanted) (expr string, ok bool, note string) {
-	l := &treeLowering{s: m.bodyScope(scope), leaves: map[string]opaqueRef{}}
+	l := &treeLowering{s: m.bodyScope(scope), leaves: map[string]opaqueRef{}, spelled: treeWords(v)}
 	text, err := l.lower(v)
 	if err == nil {
 		expr, err = m.translateIn(text, "", l, want)
@@ -263,7 +266,33 @@ func (l *treeLowering) element(v *sysmlv1.Element) (string, *refusal) {
 	return placeholder, nil
 }
 
-// placeholder derives an unused identifier from name for an instance operand.
+// treeWords collects the words the symbols and opaque bodies under v spell.
+func treeWords(v *sysmlv1.Element) map[string]bool {
+	words := map[string]bool{}
+	spell := func(text string) {
+		for _, w := range strings.FieldsFunc(text, func(r rune) bool {
+			return !(unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_' || r == '$')
+		}) {
+			words[w] = true
+		}
+	}
+	var walk func(e *sysmlv1.Element)
+	walk = func(e *sysmlv1.Element) {
+		spell(e.Attrs["symbol"])
+		if e.Type == "OpaqueExpression" {
+			body, _ := opaqueBody(e)
+			spell(body)
+		}
+		for _, c := range e.Children {
+			walk(c)
+		}
+	}
+	walk(v)
+	return words
+}
+
+// placeholder derives from name an identifier that no word of the tree and no
+// earlier placeholder spells, for an instance or element operand.
 func (l *treeLowering) placeholder(name string) string {
 	base := strings.Map(func(r rune) rune {
 		if unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_' {
@@ -276,7 +305,7 @@ func (l *treeLowering) placeholder(name string) string {
 	}
 	candidate := base
 	for i := 2; ; i++ {
-		if _, taken := l.leaves[candidate]; !taken {
+		if _, taken := l.leaves[candidate]; !taken && !l.spelled[candidate] {
 			return candidate
 		}
 		candidate = base + strconv.Itoa(i)

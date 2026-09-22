@@ -92,7 +92,8 @@ func (m *migration) useCaseBody(e *sysmlv1.Element) {
 }
 
 // subjects writes a use case's subject; v2 admits one per case, so any further
-// subject is written as a reference usage of its kind.
+// subject is written as a reference usage of its kind. A subject that becomes
+// a usage, as a view does, is subset rather than typed.
 func (m *migration) subjects(e *sysmlv1.Element) {
 	if d := m.dangling(e, "subject"); d != "" {
 		m.downgrade(e, d)
@@ -105,12 +106,12 @@ func (m *migration) subjects(e *sysmlv1.Element) {
 		}
 		name := m.freshName(e, lowerFirst(m.nameFor(s)))
 		if first {
-			m.w.line("subject " + writeName(name) + " : " + m.ref(s, e) + ";")
+			m.w.line("subject " + writeName(name) + m.typing(s) + m.ref(s, e) + ";")
 			first = false
 			continue
 		}
 		kw, note := m.typeKeyword(s)
-		m.w.line("ref " + kw + " " + writeName(name) + " : " + m.ref(s, e) + ";")
+		m.w.line("ref " + kw + " " + writeName(name) + m.typing(s) + m.ref(s, e) + ";")
 		m.downgrade(e, joinNotes("v2 admits one subject per case, so the subject "+qualifiedName(s)+" is written as the reference usage "+name, note))
 	}
 	if first && m.hasActors(e) {
