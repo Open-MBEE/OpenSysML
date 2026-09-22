@@ -1854,10 +1854,37 @@ func (c *compiler) bindingValue(
 	case *ast.LiteralBool:
 		return BindingValue{kind: BindingBoolean, boolean: expression.Value, origin: origin}, nil
 	case *ast.OperatorExpr:
+		if expression.Operator == ast.OpMeta {
+			return c.metaCastBinding(content, member, entry, parameter, expression, origin)
+		}
 		return c.signedBinding(content, member, entry, parameter, expression, origin)
 	default:
 		return BindingValue{}, c.unsupportedBinding(content, member, entry, parameter)
 	}
+}
+
+// metaCastBinding compiles `Element meta Metaclass`, the KerML spelling of a
+// non-feature element (a package, a definition) as a value: it binds that element.
+func (c *compiler) metaCastBinding(
+	content *symbols.Symbol,
+	member *symbols.Symbol,
+	entry string,
+	parameter string,
+	expression *ast.OperatorExpr,
+	origin symbols.Origin,
+) (BindingValue, error) {
+	if len(expression.Operands) != 1 {
+		return BindingValue{}, c.unsupportedBinding(content, member, entry, parameter)
+	}
+	switch operand := expression.Operands[0].(type) {
+	case *ast.FeatureReference:
+		return c.elementBinding(content, member, entry, parameter, operand.Name, origin)
+	case *ast.QualifiedName:
+		return c.elementBinding(content, member, entry, parameter, operand, origin)
+	case *ast.FeatureChainExpr:
+		return c.chainBinding(content, member, entry, parameter, operand, origin)
+	}
+	return BindingValue{}, c.unsupportedBinding(content, member, entry, parameter)
 }
 
 // signedBinding compiles a unary-signed numeric literal binding.
