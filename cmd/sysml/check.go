@@ -316,8 +316,8 @@ func (c *checks) running() bool {
 }
 
 // runsMisuse reports why the flags a Monte Carlo was asked for with run none,
-// and "" when they run one: -runs needs a single -action and, under the random
-// draw policy, -seed; -observe names what the runs report.
+// and "" when they run one: -runs needs a single -action or -analysis and, under
+// the random draw policy, -seed; -observe names what the runs of an action report.
 func (c *checks) runsMisuse() string {
 	if c.compare != "" {
 		return c.compareMisuse()
@@ -328,10 +328,12 @@ func (c *checks) runsMisuse() string {
 	switch {
 	case !c.runs.given:
 		return "-observe names what -runs reports; ask for the runs, as -runs <number>"
-	case len(c.actions) == 0:
-		return "-runs runs an action; name one, as -action <name>"
-	case len(c.actions) > 1:
-		return "-runs runs one action; name a single -action"
+	case len(c.actions) == 0 && len(c.analyses) == 0:
+		return "-runs runs an action or a Simulation::MonteCarlo analysis case; name one, as -action <name> or -analysis <name>"
+	case len(c.actions)+len(c.analyses) > 1:
+		return "-runs runs one action or analysis case; name a single -action or -analysis"
+	case len(c.analyses) > 0 && len(c.observe) > 0:
+		return "-runs of an analysis case observes what the case declares as observed; -observe names the features of an -action"
 	case len(c.states) > 0:
 		return "-runs runs an action; a state machine is run once, as -state <name> without -runs"
 	case !c.seed.given && !c.draws.value.Fixed():
@@ -697,11 +699,14 @@ func runChecks(files []string, exprs []string, c checks) int {
 		rep.verdict(sess.RunCalc(invocation))
 	}
 	for _, invocation := range c.analyses {
-		if c.sweeping() {
+		switch {
+		case c.sweeping():
 			rep.verdict(c.sweep(sess, invocation))
-			continue
+		case c.runs.given:
+			rep.verdict(sess.RunMonteCarlo(invocation, c.runs.value, c.seed.seed()))
+		default:
+			rep.verdict(sess.RunAnalysis(invocation))
 		}
-		rep.verdict(sess.RunAnalysis(invocation))
 	}
 	// With -advance every behavior named is started first and the clock they share
 	// is moved once, so an action's signal reaches a machine that accepts it later;

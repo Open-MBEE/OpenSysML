@@ -1,14 +1,16 @@
 package lower
 
 import (
+	"slices"
+
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // Transition footprints are the static projection of what firing one transition
 // may touch, beside the action footprints: the reaction reads its guard, its
 // trigger's condition and the activity of its source; writes its effects' targets
-// and the activity of every state it may exit or enter, with those states' exit
-// and entry behaviors; sends; and queues the completion an entered state raises.
+// and the activity of every state it may exit or enter, with those states' exit,
+// entry and do behaviors; sends; and queues the completion an entered state raises.
 // A route through a choice or junction is followed along every branch, so the
 // footprint covers whichever branch fires.
 
@@ -255,13 +257,14 @@ func (b *stateFootprintBuilder) exits(state *ast.StateNode) {
 	}
 }
 
-// enters writes the activity of the state, adds its entry behaviors, and the
-// completion entering it may queue: its own completion transitions' guards
-// read on entry, or the region it completes.
+// enters writes the activity of the state, adds its entry behaviors and the do
+// behaviors it starts (a do step may run within the entering move), and the
+// completion entering it may queue: its own completion transitions' guards read on
+// entry, or the region it completes.
 func (b *stateFootprintBuilder) enters(state *ast.StateNode) {
 	b.write(b.graph.activity(state))
 	if behaviors := b.graph.Behaviors[state]; behaviors != nil {
-		for _, behavior := range behaviors.Entry {
+		for _, behavior := range slices.Concat(behaviors.Entry, behaviors.Do) {
 			b.merge(b.graph.behaviorFootprints[behavior.Node])
 		}
 	}

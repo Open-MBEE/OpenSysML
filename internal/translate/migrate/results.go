@@ -4,6 +4,7 @@ import (
 	"math"
 	"math/big"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -42,6 +43,7 @@ func (m *migration) resultSnapshots(r *simresults.ConfigurationResults, s *sysml
 	if scan.analysed != nil {
 		r.Analysis = scan.analysed.Name
 	}
+	m.recordAnalysis(r, target.classifiers)
 	seenLocation := map[*sysmlv1.Element]bool{}
 	var locations []string
 	for _, id := range ids {
@@ -107,7 +109,7 @@ func (m *migration) instanceSnapshot(r *simresults.ConfigurationResults, inst *s
 	for name, n := range held {
 		if n > 1 {
 			delete(snap.Values, name)
-			scan.unread[name+" holds "+strconv.Itoa(n)+" numbers over as many slots, and a result is one number"]++
+			scan.unread[name+holdsText+strconv.Itoa(n)+" numbers over as many slots, and a result is one number"]++
 		}
 	}
 	if scan.analysed != nil {
@@ -153,12 +155,12 @@ func (m *migration) slotValues(inst *sysmlv1.Element, snap *simresults.Snapshot,
 			continue
 		}
 		if value.kind != kindNumber {
-			scan.unread[name+" holds a "+value.spec+", which is no number"]++
+			scan.unread[name+" holds a "+value.spec+noNumber]++
 			continue
 		}
 		if !value.carried() {
 			held[name]++
-			scan.unread[name+" holds "+strconv.Quote(value.text)+", which no float64 spells exactly, and a result is a float64"]++
+			scan.unread[name+holdsText+strconv.Quote(value.text)+", which no float64 spells exactly, and a result is a float64"]++
 			continue
 		}
 		snap.Values[name] = value.number
@@ -167,7 +169,7 @@ func (m *migration) slotValues(inst *sysmlv1.Element, snap *simresults.Snapshot,
 	for stat, n := range statSlots {
 		if n > 1 {
 			delete(summary, stat)
-			scan.unread[monteCarloAnalysisBlock+"::"+stat+" holds "+strconv.Itoa(n)+" numbers over as many slots, and a statistic is one number"]++
+			scan.unread[monteCarloAnalysisBlock+"::"+stat+holdsText+strconv.Itoa(n)+" numbers over as many slots, and a statistic is one number"]++
 			unread = true
 		}
 	}
@@ -213,19 +215,16 @@ func sortedKeys(counts map[string]int) []string {
 	return keys
 }
 
-// monteCarloObservable is the feature the MonteCarloAnalysis a target classifier inherits
-// binds its Mean to; note says why the analysis names none. Both empty without the analysis.
+// monteCarloObservable is the value the MonteCarloAnalysis a target classifier inherits
+// binds its Mean to, a value of the binding connector's owner reached directly; note says
+// why the analysis names none. Both empty without the analysis. The nearest classifiers
+// binding Mean decide: a special's binding rebinds the Mean its generals bound.
 func (m *migration) monteCarloObservable(classifiers []*sysmlv1.Element) (observable *sysmlv1.Element, note string) {
-	order := m.classifierOrder(classifiers)
+	levels := m.classifierLevels(classifiers)
 	var analysing *sysmlv1.Element
-	for _, c := range order {
-		for _, g := range c.Owned("generalization") {
-			if isMonteCarloAnalysis(m.model.Ref(g, "general")) {
-				analysing = c
-				break
-			}
-		}
-		if analysing != nil {
+	for _, c := range slices.Concat(levels...) {
+		if m.generalizesMonteCarlo(c) {
+			analysing = c
 			break
 		}
 	}
@@ -234,27 +233,23 @@ func (m *migration) monteCarloObservable(classifiers []*sysmlv1.Element) (observ
 	}
 	var bound []*sysmlv1.Element
 	seen := map[*sysmlv1.Element]bool{}
-	for _, c := range order {
-		for _, conn := range c.Owned("ownedConnector") {
-			ends := conn.Owned("end")
-			if len(ends) != 2 {
-				continue
-			}
-			for i, end := range ends {
-				if monteCarloFeature(m.model.Ref(end, "role")) != monteCarloMean {
-					continue
-				}
-				if f := m.model.Ref(ends[1-i], "role"); f != nil && !f.IsProxy() && f.Type == "Property" && !seen[f] {
+	for _, level := range levels {
+		for _, c := range level {
+			for _, conn := range c.Owned("ownedConnector") {
+				if stat, f, _ := m.monteCarloBound(c, conn); stat == monteCarloMean && f != nil && !seen[f] {
 					seen[f] = true
 					bound = append(bound, f)
 				}
 			}
 		}
+		if len(bound) > 0 {
+			break
+		}
 	}
 	subject := describe(analysing) + " inherits " + monteCarloAnalysisBlock
 	switch len(bound) {
 	case 0:
-		return nil, subject + " but binds its " + monteCarloMean + " to no feature, so its statistics summarise no observable"
+		return nil, subject + " but binds its " + monteCarloMean + " to no value of its own, so its statistics summarise no observable"
 	case 1:
 		return bound[0], ""
 	}
@@ -263,27 +258,6 @@ func (m *migration) monteCarloObservable(classifiers []*sysmlv1.Element) (observ
 		names[i] = f.Name
 	}
 	return nil, subject + " and binds its " + monteCarloMean + " to " + strings.Join(names, ", ") + " alike, so its statistics summarise no one observable"
-}
-
-// monteCarloBinding says why a connector with an end on a MonteCarloAnalysis feature
-// has no v2 form: it wires the tool's statistic, which the migration results carry;
-// "" for a connector on no such feature.
-func (m *migration) monteCarloBinding(c *sysmlv1.Element) string {
-	ends := c.Owned("end")
-	for i, end := range ends {
-		stat := monteCarloFeature(m.model.Ref(end, "role"))
-		if stat == "" {
-			continue
-		}
-		note := "the connector wires the simulation tool's " + monteCarloAnalysisBlock + "::" + stat + ", a statistic it computes over the runs, which v2 has no analysis pattern for"
-		if len(ends) == 2 {
-			if f := m.model.Ref(ends[1-i], "role"); f != nil && !f.IsProxy() {
-				note = "the connector binds " + f.Name + " to the simulation tool's " + monteCarloAnalysisBlock + "::" + stat + ", the statistic it computes of " + f.Name + " over the runs, which v2 has no analysis pattern for"
-			}
-		}
-		return note + "; the migration results read the statistic from the result snapshots"
-	}
-	return ""
 }
 
 // monteCarloSlot reads a snapshot slot of the analysis's own features as the number it
@@ -309,7 +283,7 @@ func (m *migration) monteCarloSlot(slot *sysmlv1.Element) (stat string, value fl
 	case reason != "":
 		return stat, 0, reason
 	case scalar.kind != kindNumber:
-		return stat, 0, "holds a " + scalar.spec + ", which is no number"
+		return stat, 0, "holds a " + scalar.spec + noNumber
 	}
 	return stat, scalar.number, ""
 }
@@ -322,7 +296,7 @@ func (m *migration) monteCarloSlot(slot *sysmlv1.Element) (stat string, value fl
 func monteCarloStatistics(observable string, summary map[string]float64, unread bool, values map[string]float64) (stats *simresults.Statistics, note string) {
 	switch {
 	case unread:
-		return nil, "record a " + monteCarloAnalysisBlock + " statistic that is no one number, so they hold no statistics"
+		return nil, recordNote + monteCarloAnalysisBlock + " statistic that is no one number, so they hold no statistics"
 	case len(summary) == 0:
 		return nil, ""
 	}
@@ -334,17 +308,17 @@ func monteCarloStatistics(observable string, summary map[string]float64, unread 
 	case runs == 0 && mean == 0:
 		return nil, ""
 	case runs != math.Trunc(runs) || runs < 1:
-		return nil, "record a " + monteCarloAnalysisBlock + "::" + monteCarloRuns + " of " + strconv.FormatFloat(runs, 'g', -1, 64) + ", which is no count of runs, so they hold no statistics"
+		return nil, recordNote + monteCarloAnalysisBlock + "::" + monteCarloRuns + " of " + strconv.FormatFloat(runs, 'g', -1, 64) + ", which is no count of runs, so they hold no statistics"
 	case runs >= math.Ldexp(1, 63):
-		return nil, "record a " + monteCarloAnalysisBlock + "::" + monteCarloRuns + " of " + strconv.FormatFloat(runs, 'g', -1, 64) + ", which is more runs than a count holds, so they hold no statistics"
+		return nil, recordNote + monteCarloAnalysisBlock + "::" + monteCarloRuns + " of " + strconv.FormatFloat(runs, 'g', -1, 64) + ", which is more runs than a count holds, so they hold no statistics"
 	}
 	deviation, hasDeviation := summary[monteCarloDeviation]
 	if hasDeviation && deviation < 0 {
-		return nil, "record a " + monteCarloAnalysisBlock + "::" + monteCarloDeviation + " of " + strconv.FormatFloat(deviation, 'g', -1, 64) + ", which is no standard deviation, so they hold no statistics"
+		return nil, recordNote + monteCarloAnalysisBlock + "::" + monteCarloDeviation + " of " + strconv.FormatFloat(deviation, 'g', -1, 64) + ", which is no standard deviation, so they hold no statistics"
 	}
 	outOfSpec, hasOutOfSpec := summary[monteCarloOutOfSpec]
 	if hasOutOfSpec && (outOfSpec != math.Trunc(outOfSpec) || outOfSpec < 0 || outOfSpec > runs) {
-		return nil, "record a " + monteCarloAnalysisBlock + "::" + monteCarloOutOfSpec + " of " + strconv.FormatFloat(outOfSpec, 'g', -1, 64) + " over " + strconv.FormatFloat(runs, 'g', -1, 64) + " runs, which is no count of them, so they hold no statistics"
+		return nil, recordNote + monteCarloAnalysisBlock + "::" + monteCarloOutOfSpec + " of " + strconv.FormatFloat(outOfSpec, 'g', -1, 64) + " over " + strconv.FormatFloat(runs, 'g', -1, 64) + " runs, which is no count of them, so they hold no statistics"
 	}
 	if value, recorded := values[observable]; !recorded || value != mean {
 		return nil, "record " + monteCarloAnalysisBlock + " statistics whose " + monteCarloMean + " no value of " + observable + " holds, though the analysis binds the two, so the statistics are not read"
@@ -441,24 +415,39 @@ func (m *migration) classifierClosure(classifiers []*sysmlv1.Element) map[*sysml
 // classifierOrder is the classifiers and every general of theirs, each special
 // before its generals.
 func (m *migration) classifierOrder(classifiers []*sysmlv1.Element) []*sysmlv1.Element {
-	seen := map[*sysmlv1.Element]bool{}
 	var order []*sysmlv1.Element
-	queue := append([]*sysmlv1.Element(nil), classifiers...)
-	for len(queue) > 0 {
-		c := queue[0]
-		queue = queue[1:]
-		if c == nil || seen[c] {
-			continue
-		}
-		seen[c] = true
-		order = append(order, c)
-		for _, g := range c.Owned("generalization") {
-			if general := m.model.Ref(g, "general"); general != nil && !general.IsProxy() {
-				queue = append(queue, general)
-			}
-		}
+	for _, level := range m.classifierLevels(classifiers) {
+		order = append(order, level...)
 	}
 	return order
+}
+
+// classifierLevels is the classifiers and every general of theirs by distance: the
+// classifiers themselves, then their generals, then those generals' generals, each once.
+func (m *migration) classifierLevels(classifiers []*sysmlv1.Element) [][]*sysmlv1.Element {
+	seen := map[*sysmlv1.Element]bool{}
+	var levels [][]*sysmlv1.Element
+	next := append([]*sysmlv1.Element(nil), classifiers...)
+	for len(next) > 0 {
+		var level, generals []*sysmlv1.Element
+		for _, c := range next {
+			if c == nil || seen[c] {
+				continue
+			}
+			seen[c] = true
+			level = append(level, c)
+			for _, g := range c.Owned("generalization") {
+				if general := m.model.Ref(g, "general"); general != nil && !general.IsProxy() {
+					generals = append(generals, general)
+				}
+			}
+		}
+		if len(level) > 0 {
+			levels = append(levels, level)
+		}
+		next = generals
+	}
+	return levels
 }
 
 // descendantInstances lists the instance specifications under pkg at any depth, in document order.
@@ -746,6 +735,13 @@ func (v scalarValue) carried() bool {
 // holdsNote prefixes a reason a snapshot slot is no result.
 const holdsNote = "holds "
 
+// The note fragments the snapshot and statistic refusals repeat.
+const (
+	holdsText  = " holds "
+	noNumber   = ", which is no number"
+	recordNote = "record a "
+)
+
 const (
 	kindNumber      = "number"
 	kindBoolean     = "boolean"
@@ -785,7 +781,7 @@ func (m *migration) literalScalar(v *sysmlv1.Element) (value scalarValue, reason
 			value.kind, value.text = kindEnumLiteral, inst.ID
 			break
 		}
-		return scalarValue{}, "holds a " + v.Type + ", which is no number"
+		return scalarValue{}, "holds a " + v.Type + noNumber
 	}
 	if reason != "" {
 		return scalarValue{}, reason

@@ -1,18 +1,25 @@
 # OpenSysML — Roadmap
 
 Baseline: `v0.8.0` (`238aed650`, `Merge pull request #277 from Open-MBEE/release/0.8.0`,
-2026-09-13), verified locally with Go 1.25.0. It is the newest tag on `Open-MBEE/OpenSysML`, after
-`v0.7.0` (`e0fbfea5b`, 2026-09-09) and `v0.6.0` (`30f103bb9`, 2026-09-07). The integration branch
-`develop` (`fcfb0a7b9`, #352) carries 64 pull requests past the tag and nothing else is counted
+2026-09-13), verified locally with Go 1.25.0. The newest tag on `Open-MBEE/OpenSysML` is the patch
+`v0.8.1` (`e0ea34616`, `Merge pull request #347 from Open-MBEE/release/0.8.1`, 2026-09-16), cut
+from `v0.8.0` by cherry-pick and carrying bug fixes alone, so it moves no item and `v0.8.0` stays
+the baseline the statuses are read against; before them `v0.7.0` (`e0fbfea5b`, 2026-09-09) and
+`v0.6.0` (`30f103bb9`, 2026-09-07). The integration branch `develop` (`857dd48b0`, #517) carries
+216 pull requests past `v0.8.0` (#364 folded `v0.8.1` back into it) and nothing else is counted
 ahead of it: every status below is what the tag carries unless the text names one of those as
-having moved it — #267, #289 and #293 (Q2), #359 (Q3), #263 (A7), #286 (the release fold-back), #291
-(the generated test figures), #292 (L7), #296 (A4), #335 and #352 (E1), #344 (modeled
-randomness beside A3), #300 and #316 (the large-model design and its first step, under
-"Proposed"), #319, #321 and #334 (the fUML referee for actions, under "Proposed"), #350 (R4's
-installer wizard), #304 (the errata overlay over the bundled library, under "Upstream
-follow-through"), and the state-executor fixes and findings the PSSM referee adjudicated (#295,
-#297, #311, #313–#315, #317, #318, #322, #326, #336, #342; Track E) — and the pull requests open
-against `develop` at this baseline are named where they touch a roadmap item.
+having moved it — #267, #289 and #293 (Q2), #359 (Q1's page and Q3), #263 (A7), #286 (the release
+fold-back), #291 (the generated test figures), #292 (L7), #296 (A4), #335 and #352 (E1), #466 and
+#479 (a braced state block as one action), #362 (E2), #465 (E4), #468 (dynamic objects), #344
+(modeled randomness beside A3), #356 (W3's rasterization and export), #358 (the PDF path onto the
+HTML backend, under "Proposed"), #300 and #316 (the large-model design and its first step, under
+"Proposed"), #319, #321, #334 and #413 (the fUML referee for actions and its emitter, under
+"Proposed"), #350 (R4's installer wizard), #304 (the errata overlay over the bundled library, under
+"Upstream follow-through"), and the state-executor fixes and findings the PSSM referee adjudicated
+(#295, #297, #311, #313–#315, #317, #318, #322, #326, #336, #342, #384, #438, #486, #490, #513;
+Track E) — and
+the pull requests open against `develop` at this baseline are named where they touch a roadmap
+item.
 Read `AGENTS.md` first; it governs everything below.
 
 > **Labels.** This is an engineering record. The RDF items keep the `D` numbers (`D1`, `D2`,
@@ -37,9 +44,10 @@ Read `AGENTS.md` first; it governs everything below.
 > pull request yet. *Not started* means exactly that. A status is taken from the pull request
 > itself, never from a branch name or a commit message.
 
-`v0.8.0` is the newest tag on `Open-MBEE/OpenSysML` (`238aed650`, 2026-09-13), after `v0.7.0`
-(`e0fbfea5b`, 2026-09-09) and `v0.6.0` (`30f103bb9`, 2026-09-07). The tag's CircleCI `release`
-workflow succeeded: the release carries `sysml`, `sysml-lsp` and `sysml-grpc` for five platforms,
+`v0.8.0` (`238aed650`, 2026-09-13) follows `v0.7.0` (`e0fbfea5b`, 2026-09-09) and `v0.6.0`
+(`30f103bb9`, 2026-09-07); `v0.8.1` (`e0ea34616`, 2026-09-16) is the patch cut from it, whose
+`CHANGELOG.md` **0.8.1** section lists the fixes it carries and nothing else. `v0.8.0`'s
+CircleCI `release` workflow succeeded: the release carries `sysml`, `sysml-lsp` and `sysml-grpc` for five platforms,
 the Homebrew bundles, the cosign-signed manifest and — for the second release running — the
 Windows installer `opensysml-0.8.0-windows-amd64.msi` (R4). The Python client's `opensysml-v0.5.0`
 tag points at the same commit and PyPI serves `opensysml` 0.5.0 from it — its `release-python`
@@ -47,7 +55,8 @@ workflow failed twice in `Go coverage profile` and passed when rerun, so the pos
 `docs/project/releasing.md` are all met and nothing of the release step is left.
 `CHANGELOG.md`'s **0.8.0** section is the tag's content (#268 and #277 folded it), its **0.7.0**
 section is `v0.7.0`'s (#145, #154, #159), and `changes/unreleased/` on `develop` holds the
-fragments of the pull requests merged after the tag alone, #286 having carried the fold back.
+fragments of the pull requests merged after the tags alone, #286 and #364 having carried the
+fold-backs of `v0.8.0` and `v0.8.1`.
 Between releases `.github/workflows/nightly.yml` publishes the newest green `develop` as the
 prerelease `nightly` (#284), so an item landed after the tag is unreleased but not unbuilt.
 Since `v0.7.0` the repository works git-flow: `develop` is the integration branch, `main`
@@ -864,23 +873,33 @@ converted graph into a Layer 1 branch by `PUT` and measures what the service rea
 directions are refereed against the live stack, and both are element-keyed, which is what identity
 bought.
 
-What is missing is the round trip a modeller expects from a repository, and each piece is small
+The round trip a modeller expects from a repository is now in place; each piece landed small
 now that D3.4 is in:
 
-1. **Read a branch as notation.** `-sync-diff` reads a branch to compare it; nothing converts a
-   branch to `.sysml`. `sysml -convert sysml -from <endpoint or flexo:// URL>` is the decoder D3.4
-   completed, applied to the graph the service serves, and `-sync-state` already knows the branch
-   and the last commit.
-2. **Push a whole graph.** The harness's `PUT .../branches/{branch}/graph` with the ETag
-   precondition and `?message=` is the fast path for a first load or a re-baseline, where the
-   element-wise commit of `-sync-apply` is the wrong shape. Expose it as the write half of the
-   same flag, with the token from `flexo.EnvToken` as today.
+1. **Read a branch as notation** — landed. `sysml <branch-url> -convert sysml` (or `ttl`)
+   reads a Flexo MMS project branch as its head commit's RDF graph — the read `-sync-diff`
+   makes — and converts it through `convert.FromGraph`. The URL is the SysML v2 branch
+   resource (`http(s)://host[:port][/base]/projects/{p}/branches/{b}`) or the
+   `flexo://{p}/{b}` shorthand for the configured endpoint, parsed by
+   `flexo.ParseBranchURL`; the head commit is recorded in the sync state
+   (`-sync-state`, or `<output>.sync.json` beside `-o`).
+2. **Push a whole graph** — landed. `sysml model.sysml -convert ttl -o <branch-url>`
+   replaces the branch's model graph through Layer 1's `PUT .../branches/{b}/graph`
+   (`flexo.PutGraph`, conditioned on the branch etag `flexo.BranchETag` reads; the
+   harness's unconditional load stays as `LoadTurtle`), and `flexo.Repository.Push`
+   refuses a moved head — one the sync state's last-seen commit does not name, or one
+   that answers the write's `If-Match` with 412 — as `StaleBranchError` with nothing
+   written. The commit Layer 1 makes is recorded in `<model>.sync.json`; the token is
+   `flexo.EnvToken` as today.
 3. **What survives the hop.** D2 and D1 decide how much of a pushed model the read path gets
-   back; the harness's 369 of 452 is the number to move, and it is re-measured, not asserted,
-   after each.
+   back; the harness's figure is re-measured, not asserted, after each. Re-recorded with the
+   branch read and push in place: graph-load delivers 505 of 582 properties (59 of 59 elements
+   listed), the 77 undelivered all in the `sysx:` extension namespace, and the element-wise
+   apply now carries the `FeatureValue` memberships the standard vocabulary writes (17 of 17
+   elements read back on the initial commit).
 
-Nothing here is a new subsystem; the order is D9.1 → D9.2, and D9.3 is the RDF track's existing
-order applied to this use.
+Nothing here was a new subsystem; the order was D9.1 → D9.2, and D9.3 is the RDF track's
+existing order applied to this use.
 
 ## D10 — write-through from a view-only project to the projects it shows
 
@@ -1219,9 +1238,11 @@ unit, a conditional `when`) instead of running them (#833, #871); `send` argumen
 and `send new Def(args)` constructs the message it sends (#838, #875); and a message through a
 binding connector at a boundary port routes in both directions (#839).
 
-Since the tag, on `develop`, eight state-executor fixes adjudicated in the PSSM referee
+Since the tag, on `develop`, the state-executor fixes adjudicated in the PSSM referee
 ([pssm-referee.md](pssm-referee.md)) moved its baseline from 36 `pass` / 23 `fail` /
-39 `not-expressible` at the tag to 45 `pass` / 15 `fail` / 38 `not-expressible`, the 3
+39 `not-expressible` / 3 `terminate-gap` / 2 `differs-by-design` at the tag to 56 `pass` /
+13 `fail` / 33 `not-expressible` / 1 `differs-by-design` of the suite's 103 tests, pinned in
+`docs/project/pssm-referee-baseline.json`. The first eight moved it to 45 `pass`, the 3
 `terminate-gap` tests (E1's) and 2 `differs-by-design` unchanged: a fork may enter orthogonal
 regions that have no initial state (#297); a transition from a substate into its enclosing
 composite does not re-enter it (#311); several completion transitions out of one state are one
@@ -1229,16 +1250,35 @@ choice point (#313); a junction with several enabled branches draws one as a cho
 (#318); a join runs the effect of every incoming segment, their order a region-order choice
 (#317); a transition into a history pseudostate restores the configuration it is leaving (#295);
 the referee's translation carries the values a test's constructor writes (#314) and refuses a
-guard whose behavior acts on the model rather than dropping the call (#315). #322 (a join's
-segments fire with their own trigger bound, and a refused join is undone whole) is open against
-`develop`. E1 then landed: the referee translates the terminate pseudostate, its `terminate-gap`
-bucket is retired, and the baseline is 46 `pass` / 17 `fail` / 38 `not-expressible` /
-2 `differs-by-design` — *Terminate 003* passes, *Terminate 001* and *002* fail on the
-region-entry order the same open finding already covers. E2–E7 have not moved; the referee's
-17 `fail` are their measurement on the state side. The object-model item E7 waits on then
-landed: a run creates objects by `new T(…)` and destroys them by `destroy`, a context holds
-several objects of one usage, and a destroyed object is released from `all T` with the behaviors
-it performed terminated (below, *Dynamic object creation and destruction*).
+guard whose behavior acts on the model rather than dropping the call (#315); a join's segments
+fire with their own trigger bound, and a refused join is undone whole (#322). E1 then landed:
+the referee translates the terminate pseudostate, its `terminate-gap` bucket is retired, and the
+baseline was 46 `pass` / 17 `fail` / 38 `not-expressible` / 2 `differs-by-design` — *Terminate
+003* passes, *Terminate 001* and *002* failed on the region-entry order the open finding then
+covered. The region-order choice points closed that finding (#384, then #438 and #513): the
+order orthogonal regions are entered, exited and branch in, and a due `do` step against the
+dispatch due at the same instant, are recorded choice points the fixed policies resolve one way
+and `check`, `replay` and `explore` enumerate, which moved the baseline to 51 `pass` / 13 `fail`
+/ 38 `not-expressible` / 1 `differs-by-design` and *Terminate 001* into `pass`; the referee's
+own translation then moved five `not-expressible` rows into `pass` — the driver performs the
+tester's steps in the tester's order, a synchronous call returns the operation's outputs and a
+standalone state machine reads as the target class (#486); an entry, do or effect behavior's
+parameters bind to the triggering event's data and a behavior producing the operation's result
+is an `action def` with `out` parameters (#490) — giving the 56 / 13 / 33 / 1 above. The
+do-step draw is at the grain of one token move of the do flow (#513) but is drawn only once a
+region-entry move has settled, so a due `do` step is not yet drawn against a sibling region's
+remaining entry units — the one reason *Terminate 002* keeps, which #525 (open against
+`develop`) addresses ([region-order-scheduling.md](../internals/design/region-order-scheduling.md)).
+Every remaining `fail` is attributed in [pssm-referee.md](pssm-referee.md): five to a *differs,
+v2 silent* row of the alignment note; seven to a finding of the record — *Terminate 002*'s one
+missing trace, the
+runtime's last open gap there; *Entering 010*, *Entering 011* and *Junction 005* a translation
+limit; *Transition 017*, *History 001-C* and *History 002-B* defects of the suite recorded in
+[omg-issues.md](omg-issues.md) — and *Exiting 002* to a defect of the suite alone. The
+object-model item E7 waits on also landed: a run creates
+objects by `new T(…)` and destroys them by `destroy`, a context holds several objects of one
+usage, and a destroyed object is released from `all T` with the behaviors it performed
+terminated (below, *Dynamic object creation and destruction*).
 
 ## E1 — `terminate` in a body (landed)
 
@@ -1269,7 +1309,13 @@ every action or state executor running on it (`Context.endOccurrence`, `endBehav
 executor whose performer ended between two of its runs ends as terminated at its next,
 `performerEnded`). *States* (`runtime/state_statements.go`, `state_route.go` `terminateAt`,
 `state_executor.go` `terminateMachine`): a `terminate;` in an `entry`, `do` or `exit` body ends
-that behavior at the statement, the state stays active and dispatch goes on; a transition whose
+that behavior at the statement, the state stays active and dispatch goes on — and since #466 and
+#479 a braced `entry { … }`, `do { … }`, `exit { … }` or transition `do { … }` block is the one
+anonymous action usage SysML.xtext reads it as (the same tree as `entry action { … }`), so the
+`terminate;` ends the whole block rather than the one statement it was written in, a declaration
+inside the block is local to it, a `do` block still runs one statement a round, and the RDF
+mapping writes the block as that nested `ActionUsage` (a Turtle graph in the older
+statement-by-statement shape is refused as unsupported); a transition whose
 target is a terminate action usage (`accept Abort then stop; action stop terminate;`, §7.18.3)
 exits its source and runs its effect, then ends the machine's performance with no further exit,
 the running do behaviors abandoned (`abandonMachine`) and no state active — reached directly or
@@ -2408,24 +2454,29 @@ writer has a stable URL for an `Origin`.
 
 `dot` and `plantuml` join `text`, `markdown` and `mermaid` everywhere a form is chosen:
 `-render-form`, `%render`, the `opensysml/render` request (the VS Code panel keeps Mermaid, which
-it can draw in-process, and offers the others as *save as*), and the document renderer. **For
-`dot` this landed** with W1 and **for `plantuml` with W2**: `-render-form dot|plantuml`
+it can draw in-process, and offers the others as *save as*), and the document renderer. **Landed**
+— for `dot` with W1, for `plantuml` with W2, and the PDF rasterization and the panel's export in
+#356 on `develop` after the tag: `-render-form dot|plantuml`
 (`-render-all` writes `.dot` and `.puml` files), `%render <name> dot|plantuml [palette]`,
 `"form"` on `opensysml/render`, and `-diagram-form dot|plantuml` on `-render-document`
 (`%render-document <name> dot|plantuml`, `diagramForm` on `opensysml/renderDocument`), which
 writes every graph-shaped diagram block as a ` ```dot ` or ` ```plantuml ` fence in Markdown and
 `<pre class="dot">` or `<pre class="plantuml">` in HTML — a render-time choice, not a model
-attribute; the PDF backend keeps a DOT or PlantUML block as source under a notice and looks for
-no Graphviz or PlantUML tool. The form lists in the CLI help and man pages, the REPL's completion
+attribute. The form lists in the CLI help and man pages, the REPL's completion
 and the LSP's errors derive from `Forms()`, so the form reached every one. The gRPC
 surface has no view-render RPC — only `RenderDocument`, to Markdown — so
 the wire contract did not change; if one is added later it takes the form as a string the same
 way `-render-form` does.
 
-Still open: rasterizing a DOT or PlantUML block for PDF through `dot` or the PlantUML
-jar as Mermaid is rasterized through `mmdc` today — optional tools, located by environment
-variable, skipping the tests with the reason when absent, as the PDF toolchain is handled now —
-and the VS Code panel's *save as* for the non-Mermaid forms.
+The PDF backend draws a DOT block through Graphviz (`OPENSYSML_DOT`, `-Tsvg`, honoring the
+writer's `// layout:` line) and a PlantUML block through the jar (`OPENSYSML_PLANTUML_JAR`) as it
+draws Mermaid through `mmdc`: optional tools located by environment variable, a block kept as
+source under a notice when its tool is absent, the tests skipping with the reason where the tool
+is missing and CI's `pdf-toolchain` job running them with the toolchain installed and reading
+the rendered PDFs back (#477). The VS Code panel's *export* picks among the forms the server
+advertises, so `dot` and `plantuml` are saved as `.dot` and `.puml` beside Mermaid. Still open
+in the track is what [W1](#w1--a-dot-form) and [W2](#w2--a-plantuml-form) list as writer
+changes: richer node shapes and compartments in both writers.
 
 W1 landed first, being the smaller grammar and the one Graphviz-based pipelines want; W2 followed
 over the same node kinds and the sequence; W3 landed with each. Independent of every other track:
@@ -2500,20 +2551,28 @@ what M2 needs.
 
 ---
 
-# Proposed, not started
+# Proposed
 
-**The PDF path onto the HTML backend.** The backend
-[html-document-backend.md](html-document-backend.md) designs is now implemented: `docrender.HTML`
+Three pieces of work proposed outside the tracks. The first two are landed on `develop` after
+the tag; the third has its design and first step landed and three pull requests open.
+
+**The PDF path onto the HTML backend (landed, #358).** The backend
+[html-document-backend.md](html-document-backend.md) designs is implemented: `docrender.HTML`
 renders `-doc-form html` straight from the document IR, with the semantic structure, the `sysml-`
 classes and `data-` model facts, the default stylesheet in a cascade layer that reader CSS
 overrides without specificity fights, `-html-css`, `-html-no-default-css`, `-html-default-css`,
-`-html-fragment`, and linked HTML sets sharing one `sysml-document.css`. What remains is the
-migration designed alongside it: point the HTML-input PDF engines (`weasyprint`, `prince`) at that
-markup and retire `internal/doc/docpdf`'s Markdown re-parse and its own HTML writer, which splits the
-print styling out as a shared asset and moves the PDF goldens. Pandoc keeps reading the Markdown,
-and `-doc-form markdown` is unaffected. About one session, independent of every track above.
+`-html-fragment`, and linked HTML sets sharing one `sysml-document.css`. The migration designed
+alongside it landed in #358: `-doc-form pdf` hands WeasyPrint and Prince the same semantic HTML
+`-doc-form html` writes, under a shared `print.css` in its own cascade layer, so `-html-theme`,
+`-html-css` and `-html-no-default-css` reach the PDF and a relative `url()` or `@import` in a
+reader's sheet resolves for the PDF engines as it does for HTML; `internal/doc/docpdf`'s Markdown
+re-parse and its own HTML writer are gone. Pandoc keeps reading the Markdown (the caption marker
+it needed is a Lua filter now), and `-doc-form markdown` is unaffected. Prince is commercial and
+not provisioned by the PDF toolchain script, so its path is exercised only on the input prepared
+for it and its tests skip where the engine is absent.
 
-**The pilot as an execution referee.** [pilot-execution-referee.md](pilot-execution-referee.md)
+**The pilot as an execution referee (landed, #319, #321, #334, #413).**
+[pilot-execution-referee.md](pilot-execution-referee.md)
 established that the pinned pilot evaluates model-level expressions and nothing else, so
 `cmd/pilot-exec-diff` can adjudicate the expression rows of `spec-compliance.md` and no external
 implementation adjudicates actions or state machines. Widening that referee means finding one,
@@ -2523,13 +2582,21 @@ and all on `develop` after the tag: #319 provisions the pinned implementation an
 it computes over its own test models, #321 reads and classifies the activities, and #334
 translates every expressible one to a `fuml::<Activity>` action definition by rule, runs it
 under every schedule the explorer reaches and requires the values left in its output parameters
-to be the reference's. `cmd/fuml-referee` files 55 activities as 15 `pass` / 0 `fail` / 36
-`not-expressible` / 4 `differs-by-design` (an action the reference fires once per object token),
-pinned in `docs/project/fuml-referee-baseline.json` and checked in CI by
+to be the reference's. #413 then widened the emitter to the constructs the first cut refused:
+classes and generalizations, object creation, structural-feature actions, signals and
+`SendSignalAction`, `AcceptEventAction`, active classes with their classifier behavior and
+`StartObjectBehaviorAction` — and fixed the runtime and the SMT encoding it uncovered, where two
+`flow`s from one source pin were staged as one delivery (each `flow` declaration is its own
+transfer now, so a fork duplicating a token down two flows delivers two values). `cmd/fuml-referee`
+files 55 activities as 23 `pass` / 0 `fail` / 28 `not-expressible` / 4 `differs-by-design` (an
+action the reference fires once per object token), pinned in
+`docs/project/fuml-referee-baseline.json` and checked in CI by
 `go run -C tools ./cmd/fuml-referee -check`; [fuml-referee.md](fuml-referee.md) records the translation
-rules and every row. What remains is the `not-expressible` bucket, which is the emitter's, not
-the runtime's: object creation, structural-feature actions, accept-event actions and active
-classes have no translation yet, and each one added moves rows into `pass` or `fail`.
+rules and every row. What remains in the `not-expressible` bucket is recorded there: the rows
+the classifier files against constructs the translation does not spell, and the emitter's own
+typed refusals of an expressible activity — a `ReadSelfAction` in an activity performed on its
+own, a start passing arguments, an edge weight other than 1, an object-flow cycle through
+control nodes.
 
 **Scaling to very large models.** [large-model-scaling-design.md](large-model-scaling-design.md)
 (#300, on `develop` after the tag) starts from the satellite-network stress test's profiles
@@ -3005,17 +3072,21 @@ Two orders, because there are two kinds of item. The **track-local** orders say 
 inside a track; the **cross-cutting** order says which tracks' first items go first when a session
 must choose. The order agreed at the `v0.6.0` baseline had F and S first and A6/X6/A2 second, and
 owed X2's chain-read half; all of it landed and `v0.7.0` and `v0.8.0` shipped it, so both orders
-below are rewritten again around what remains. Of the 64 pull requests merged to `develop` after
-the tag, these move a roadmap item and are named where they do: #267, #289 and #293 (Q2, now
-closed), #263 (A7), #286 (the release fold-back), #291 (the generated test figures), #292 (L7,
-closing Track L), #296 (A4, closing Track A), #335 and #352 (E1), #344 (modeled randomness
-beside A3), #300 and #316 (the large-model design and its first step), #319, #321 and #334 (the
-fUML referee for actions), #350 (R4's installer wizard), #304 (the errata overlay, under
-"Upstream follow-through") and the state-executor fixes and findings the PSSM referee
-adjudicated (Track E). Open against `develop` and touching an item: #308, #309 and #312 (the
-large-model design's next steps) and #327 (the SysML v1 migration's remaining items, written as
-a Track D item). Open against `main`: #347, a `release/0.8.1` cut from `v0.8.0` by cherry-pick,
-carrying the bug fixes since the tag and nothing that moved a roadmap item.
+below are rewritten again around what remains. Of the 215 pull requests merged to `develop`
+after the tag, these move a roadmap item and are named where they do: #267, #289 and #293 (Q2,
+now closed), #359 (Q1's page and Q3, closing Track Q), #263 (A7), #286 and #364 (the release
+fold-backs), #291 (the generated test figures), #292 (L7, closing Track L), #296 (A4, closing
+Track A), #335 and #352 (E1), #466 and #479 (a braced state block as one action), #362 (E2),
+#465 (E4), #468 (E7's dynamic objects), #344 (modeled randomness beside A3), #356 (W3's
+rasterization and export), #358 (the PDF path onto the HTML backend), #300 and #316 (the
+large-model design and its first step), #319, #321, #334 and #413 (the fUML referee for actions
+and its emitter), #350 (R4's installer wizard), #304 (the errata overlay, under "Upstream
+follow-through") and the state-executor fixes and findings the PSSM referee adjudicated,
+#384, #438 and #513 (the region-order choice points) among them (Track E). Open against
+`develop` and touching an item: #308, #309 and #312 (the large-model design's next steps), #327
+(the SysML v1 migration's remaining items, written as a Track D item) and #525 (*Terminate
+002*'s do step against a sibling region's entry units). `release/0.8.1` (#347) is tagged
+`v0.8.1` and folded back.
 
 ## What `v0.7.0` and `v0.8.0` released
 
@@ -3036,8 +3107,9 @@ carried more than that list. By track, with the pull requests the tracks cite:
   is on `develop` after the tag and closes Q2.
 - **Track L** — landed: L3–L6; L7's measured table (#292) is on `develop` after the tag and
   closes the track.
-- **Track W** — landed: W1 (`dot`), W2 (`plantuml`) and W3's plumbing for both. The VS Code
-  diagram panel grew on `develop` after the tag without touching a form item: it runs the
+- **Track W** — landed: W1 (`dot`), W2 (`plantuml`) and W3's plumbing for both; W3's PDF
+  rasterization of both forms and the panel's export of them are on `develop` after the tag
+  (#356). The VS Code diagram panel also grew there without touching a form item: it runs the
   behavior it draws through the language server's `opensysml/debug/*` requests (#294), opens a
   document's several views (#349) and opens on demand (#348), writes layout into the document
   that declares the element across the workspace (#307), and reparents by drag (#305).
@@ -3062,28 +3134,30 @@ Tracks F, S, L and A are closed.
 - **Track E** — complete: E1 landed; E2 landed; E3 closed by record; E4 landed; E5 closed by
   record; E6 landed; E7 landed; E8 landed; E9 landed; E10 landed; exception handlers closed by
   record. Optional runtime follow-ups are not SysML v2 specification gaps. The
-  PSSM referee's 17 `fail` tests are the state side's measurement, every one attributed (#326):
-  eleven wait on the region-order choice point whose design record #342 wrote and left at two
-  maintainer decisions — the nine the record names to move `fail` → `pass`, plus *Terminate 001*
-  and *002*, which E1 added at the same region-entry site; *Transition 017* is the record's second
-  decision (two admitted traces no reading of the model produces); the remaining five cite a
-  *differs, v2 silent* alignment row.
+  PSSM referee's 13 `fail` tests are the state side's measurement, every one attributed
+  ([pssm-referee.md](pssm-referee.md)): five cite a *differs, v2 silent* alignment row; three
+  (*Entering 010*, *Entering 011*, *Junction 005*) a translation limit of the referee's; four
+  (*Transition 017*, *History 001-C*, *History 002-B*, *Exiting 002*) a defect of the suite
+  recorded in [omg-issues.md](omg-issues.md); and *Terminate 002* the runtime's one open gap in
+  the region-order work — a due `do` step is not drawn against a sibling region's remaining
+  entry units — which #525 (open) addresses.
 - **Track Q** — complete: Q1 is written, Q2 and Q4 are done, and Q3 landed in #359 on `develop`
   after the tag.
 - **Track X** — X7's native layout for sets and tensors; X8's two harness
   halves (pilot-differential numeric normalization with an adjudication file, and a standalone
   RDF expression-tree round trip).
-- **Track W** — richer DOT/PlantUML node shapes and compartments, PDF rasterization of both forms
-  through optional tools, and the VS Code panel's *save as* for the non-Mermaid forms.
+- **Track W** — richer DOT/PlantUML node shapes and compartments; W3's rasterization and export
+  landed in #356.
 - **Release follow-through** — R2, R3, R5 (account- and hardware-gated), and nothing else: the
   `v0.8.0` post-tag checks are met and the test figures are generated.
 - **Tracks D, N, M, I, V, B** — as the tracks state them; nothing in them moved since `v0.6.0`
   except D12 and the four `Value` arms Track I's clients carry (#113, #121, #122).
-- **Proposed** — the PDF path onto the HTML backend (not started); scaling to very large models
-  (the design and its first step landed, #300 and #316; #308, #309, #312 open); the fUML referee
-  for actions (landed, #319, #321, #334; its `not-expressible` bucket is the emitter's open
-  work); recording the order of orthogonal regions (the design record #342 landed, its two
-  decisions open, no code).
+- **Proposed** — scaling to very large models (the design and its first step landed, #300 and
+  #316; #308, #309, #312 open). The PDF path onto the HTML backend (#358) and the fUML referee
+  for actions with its emitter (#319, #321, #334, #413; the `not-expressible` rows left are typed
+  refusals recorded in [fuml-referee.md](fuml-referee.md)) are landed; the order of orthogonal
+  regions is a recorded choice point (#384, #438, #513), with *Terminate 002*'s one trace left
+  to #525.
 
 ## Cross-cutting order
 
@@ -3101,10 +3175,10 @@ manual; #267, #289 and #293 closed Q2; Q4 (#849) landed independently ahead of t
 1. **I2, I3, then I4's client** — the shared fixtures, the thin R, Julia and MATLAB packages, the
    C client, each derived from the wire contract (I1, landed in #848); the C *ABI* half of I4 is
    not here — it is step 7.
-3. **D2 and D1, then D9.1 and D9.2** — Flexo: the standard vocabulary for expression trees and
-   end structure, then the authenticated push and the branch read (the collection JSON annotations,
-   D3.4, landed in #850). Push and read depend on the vocabulary quality, which is why they come
-   last in the step; re-record the live-stack harness after D1/D2.
+3. **D2 and D1** — Flexo: the standard vocabulary for expression trees and end structure (the
+   collection JSON annotations, D3.4, landed in #850; the branch read and the authenticated
+   whole-graph push, D9.1 and D9.2, landed with `-convert` over a branch URL). What the hop
+   carries depends on the vocabulary quality; re-record the live-stack harness after D1/D2.
 4. **X8's harness halves, then X7's native layout** — normalization and adjudication in
    the pilot differential and a standalone RDF expression-tree round trip, so every later
    expression item is measured; the set and tensor native layouts when something needs them.
@@ -3123,22 +3197,26 @@ manual; #267, #289 and #293 closed Q2; Q4 (#849) landed independently ahead of t
    after M1 fixes what an embedded entry point looks like, so a stable native/embedded calling
    contract exists to design against rather than three.
 
-Beside the order, whenever a session has room: Track V's census rows (53 *unknown*), the PDF path
-onto the HTML backend (about one session, independent of every track),
-Track W's remaining writer and rasterization work, and the large-model design's next steps in its
-own sequence (#308, #309 and #312 are the open ones). Two releases are in view. `release/0.8.1`
-(#347, open against `main`) is a patch cut from `v0.8.0` by cherry-pick, carrying the bug fixes
-since the tag and the three VS Code extension fixes, and deliberately none of the state-executor
-series or the features; it moves no roadmap item, and once tagged `main` is folded back into
-`develop` as after `v0.8.0`. The next cut from `develop` carries everything else that landed
-since the tag — Q2 and Q3 closed, L7, A4, E1, the generated figures, modeled randomness, the fUML
-referee, the state-executor fixes and the workspace's persistent semantic model — and by
-`CONTRIBUTING.md` § Versioning it bumps the minor segment, not the patch: features are patch
-material there, but #302 refuses a construct `v0.8.0` accepted (a body inside a nested definition
-reaching the enclosing definition's features by their bare names, now `Must be an accessible
-feature`), the completion, junction and join fixes (#313, #318, #317) add `choice` lines to the
-traces of models that exercise them, and E1 makes a `terminate` statement that `v0.8.0` ran as
-an empty action end its performance. The decision is the release checklist's, recorded there.
+Beside the order, whenever a session has room: Track V's census rows (53 *unknown*), Track W's
+remaining writer work, and the large-model design's next steps in its own sequence (#308, #309
+and #312 are the open ones). One release is behind and one in view. `release/0.8.1` (#347) was
+a patch cut from `v0.8.0` by cherry-pick, carrying the bug fixes since the tag and the three VS
+Code extension fixes, and deliberately none of the state-executor series or the features; it is
+tagged `v0.8.1`, moved no roadmap item, and #364 folded `main` back into `develop` as after
+`v0.8.0`. The next cut from `develop` carries everything else that landed since the tag — Q1,
+Q2 and Q3 closing Track Q, L7, A4, E1 and E2, E4's streaming flows, E7's dynamic objects, the
+generated figures, modeled randomness, the fUML referee and its emitter, the region-order
+choice points and the state-executor fixes, W3's rasterization and export, the PDF path onto
+the HTML backend and the workspace's persistent semantic model — and by `CONTRIBUTING.md` §
+Versioning it bumps the minor segment, not the patch: features are patch material there, but
+#302 refuses a construct `v0.8.0` accepted (a body inside a nested definition reaching the
+enclosing definition's features by their bare names, now `Must be an accessible feature`), the
+completion, junction, join and region-order fixes (#313, #318, #317, #384, #438) add `choice`
+lines to the traces of models that exercise them, E1 makes a `terminate` statement that
+`v0.8.0` ran as an empty action end its performance, E2 leaves the rest of an inline `do` body
+unrun when the state is left, #479 reads a braced state block as one action and refuses the
+older shape of its Turtle graph, and #359's `-run-query` runs after the run rather than on the
+initial state. The decision is the release checklist's, recorded there.
 
 ## Track-local orders
 
@@ -3158,9 +3236,9 @@ an empty action end its performance. The decision is the release checklist's, re
   done (references are element IRIs, every metaclass written is concrete); the ontology modules (#774 on the
   previous repository) have to be re-proposed against this repository before **D8**'s profile,
   which only becomes conformant behind D1 and D2; **D12** (the standard library's normative
-  element ids) is done; **D11** (the API element form) after D1 and D2, and before D9.2 if the
-  branch read is to offer it; **D10** (write-through from a view-only project) after D9.1 and
-  D9.2, which it reads and writes through.
+  element ids) is done; **D11** (the API element form) after D1 and D2, when the branch read is
+  ready to offer it; **D9.1** and **D9.2** (the branch read and the whole-graph push) are done;
+  **D10** (write-through from a view-only project) reads and writes through them.
 - **Track F.** Closed. F1 and F2 landed together (#116) as the token-per-succession model, F3
   (#120) as the per-traversal merge on top of it; `known_failures.txt` has no line left to delete.
 - **Track S.** Landed in the order agreed: S1 (#110), S2 (#123), S3 (#125), S4 (#134); #141 added
@@ -3186,8 +3264,8 @@ an empty action end its performance. The decision is the release checklist's, re
   change moving its row.
 - **Track B.** B1, B2, then B3 — step 6 above; nothing holds B1 or B2 back; B4's file and HTTP
   providers whenever asked, its Flexo provider after D9.2; B5 with Q1.
-- **Track W.** W1 (`dot`), W2 (`plantuml`) and W3's plumbing for both have landed. What is left
-  — richer node shapes and compartments in both writers, DOT and PlantUML rasterized for PDF
-  through optional tools, the VS Code panel's *save as* — is independent of every other track and
-  runs beside any step above.
+- **Track W.** W1 (`dot`), W2 (`plantuml`) and W3 have landed, W3's PDF rasterization and
+  panel export in #356 on `develop` after the tag. What is left — richer node shapes and
+  compartments in both writers — is independent of every other track and runs beside any step
+  above.
 - **Track I, M.** Entirely given by the cross-cutting order above.

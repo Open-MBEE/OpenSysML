@@ -134,13 +134,14 @@ func TestDiagramViews(t *testing.T) {
 }
 
 // TestDiagramWithoutHost covers a diagram nothing written can hold: its owner
-// is a profile, which the migrator skips, and so is every ancestor.
+// is the modeling tool's own profile, which the migrator skips, and so is every ancestor.
 func TestDiagramWithoutHost(t *testing.T) {
 	src := `<?xml version="1.0" encoding="UTF-8"?>
 <xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
          xmlns:uml="http://www.omg.org/spec/UML/20161101"
          xmlns:diagram="http://example.org/diagram">
-  <uml:Profile xmi:type="uml:Profile" xmi:id="_p" name="Custom">
+  <uml:Profile xmi:type="uml:Profile" xmi:id="_p" name="Customization"
+               URI="http://www.magicdraw.com/spec/Customization/190/UML">
     <packagedElement xmi:type="uml:Stereotype" xmi:id="_st" name="Marked"/>
     <xmi:Extension extender="Tool">` + diagram("_d", "Profile Diagram", "_p", "Profile Diagram", "_st") + `</xmi:Extension>
   </uml:Profile>
@@ -185,7 +186,8 @@ func TestExposeOfUnhostedDiagramFailsPerClient(t *testing.T) {
     <packagedElement xmi:type="uml:Class" xmi:id="_v2" name="Detail"/>
     <packagedElement xmi:type="uml:Dependency" xmi:id="_d" client="_v1 _v2" supplier="_pump _pd"/>
   </uml:Model>
-  <uml:Profile xmi:type="uml:Profile" xmi:id="_p" name="Custom">
+  <uml:Profile xmi:type="uml:Profile" xmi:id="_p" name="Customization"
+               URI="http://www.magicdraw.com/spec/Customization/190/UML">
     <packagedElement xmi:type="uml:Stereotype" xmi:id="_st" name="Marked"/>
     <xmi:Extension extender="Tool">` + diagram("_pd", "Profile Diagram", "_p", "Profile Diagram", "_st") + `</xmi:Extension>
   </uml:Profile>

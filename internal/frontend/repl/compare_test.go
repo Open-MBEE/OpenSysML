@@ -2,6 +2,7 @@ package repl
 
 import (
 	"fmt"
+	"math"
 	"strings"
 	"sync"
 	"testing"
@@ -494,5 +495,165 @@ func TestSameNameSplitsOutsideQuotes(t *testing.T) {
 	got := s.CompareResults(results, CompareOptions{Seed: &seed, Only: []string{"Group"}})
 	if len(got) != 1 || got[0].Holds() || !strings.Contains(strings.Join(got[0].Lines, "\n"), "no configuration is named Group") {
 		t.Errorf("-action Group over a configuration named 'Sub::Group' = %+v, want a refusal", got)
+	}
+}
+
+// An observable a migrated analysis case is written for is compared statistic by
+// statistic: pooled mean and deviation differenced, counts side by side, OutOfSpec noted.
+func TestComparisonTableComparesTheDeclaredStatistics(t *testing.T) {
+	number := func(n float64) runtime.Value {
+		return runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValReal, Real: n}}
+	}
+	row := func(n float64) runtime.SweepRow {
+		return runtime.SweepRow{Outputs: []runtime.CalcOutputValue{{Name: "target.total", Value: number(n)}}}
+	}
+	cfg := &compareResults("'Group 1'", 2).Configurations[0]
+	cfg.Analysis = "total"
+	cfg.AnalysisCase = "'Probe Monte Carlo'"
+	cfg.Statistics = []string{simresults.StatisticMean, simresults.StatisticDeviation, simresults.StatisticRuns, simresults.StatisticOutOfSpec}
+	cfg.Snapshots = []simresults.Snapshot{{
+		ID: "_sum", Name: "analysis", Values: map[string]float64{"total": 10.0},
+		Statistics: &simresults.Statistics{Observable: "total", Runs: 3, Mean: 10.0, Deviation: simresults.Real(2.0), OutOfSpec: simresults.Count(1)},
+	}}
+	table := runtime.SweepTable{Target: "Cfg::'Group 1'", Rows: []runtime.SweepRow{row(8), row(10), row(12)}}
+	got := strings.Join(comparisonTable(cfg, table, nil), "\n")
+	for _, want := range []string{
+		"statistics of total by 'Probe Monte Carlo':",
+		"statistic | of the case      | tool | OpenSysML (target.total) | difference",
+		"Mean      | return Mean      | 10.0 | 10.0                     | +0.0%",
+		"Deviation | return Deviation | 2.0  | 2.0                      | +0.0%",
+		"N         | return N         | 3    | 3                        |",
+		"OutOfSpec | return OutOfSpec | 1    |                          |",
+		"note: OutOfSpec counts the runs the tool found out of specification by its own criterion, which no migrated check evaluates, so it is not compared",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("the statistics table lacks %q:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "came to a deviation of") {
+		t.Errorf("the deviation is noted in prose beside the statistic:\n%s", got)
+	}
+
+	// A case returning Mean alone still computes the other outputs; those the tool
+	// stored are compared as the case's outputs, after the return, in the case's order.
+	cfg.Statistics = []string{simresults.StatisticMean}
+	got = strings.Join(comparisonTable(cfg, table, nil), "\n")
+	for _, want := range []string{
+		"Mean      | return Mean   | 10.0 | 10.0                     | +0.0%\n" +
+			"N         | out runs      | 3    | 3                        |\n" +
+			"Deviation | out deviation | 2.0  | 2.0                      | +0.0%\n" +
+			"OutOfSpec | out outOfSpec | 1    |                          |",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("the table of a case returning Mean alone lacks %q:\n%s", want, got)
+		}
+	}
+	if len(cfg.Statistics) != 1 {
+		t.Errorf("the sidecar's declared returns grew to %v", cfg.Statistics)
+	}
+	cfg.Statistics = []string{simresults.StatisticMean, simresults.StatisticDeviation, simresults.StatisticRuns, simresults.StatisticOutOfSpec}
+
+	// The tool's deviation pools the runs stored one by one with each summary's
+	// spread about its own mean and its mean's offset from the pooled one.
+	cfg.Snapshots = append(cfg.Snapshots, simresults.Snapshot{ID: "_r1", Values: map[string]float64{"total": 14.0}})
+	if dev, ok := storedDeviation(cfg, "total"); !ok || spell(dev) != "2.581988897471611" {
+		t.Errorf("storedDeviation = %v, %v; want sqrt(20/3) over the four pooled runs", dev, ok)
+	}
+
+	// The pooled mean and deviation stay finite while the runs are, however far apart:
+	// the squares of the offsets and of the summaries' deviations are never taken raw.
+	huge := &compareResults("'Group 1'", 2).Configurations[0]
+	huge.Analysis = "total"
+	huge.Snapshots = []simresults.Snapshot{
+		{ID: "_r1", Values: map[string]float64{"total": -1e200}},
+		{ID: "_r2", Values: map[string]float64{"total": 1e200}},
+	}
+	if dev, ok := storedDeviation(huge, "total"); !ok || math.Abs(dev-math.Sqrt2*1e200) > 1e185 {
+		t.Errorf("storedDeviation over ±1e200 = %v, %v; want %v", dev, ok, math.Sqrt2*1e200)
+	}
+	huge.Snapshots = []simresults.Snapshot{
+		{ID: "_s1", Statistics: &simresults.Statistics{Observable: "total", Runs: 2, Mean: -1e200, Deviation: simresults.Real(1e200)}},
+		{ID: "_s2", Statistics: &simresults.Statistics{Observable: "total", Runs: 2, Mean: 1e200, Deviation: simresults.Real(1e200)}},
+	}
+	if d, pooled := storedDistribution(huge, "total"); !pooled || d.Count != 4 || d.Mean != 0 {
+		t.Errorf("storedDistribution over summaries at ±1e200 = %+v, %v; want four runs with a mean of 0", d, pooled)
+	}
+	if dev, ok := storedDeviation(huge, "total"); !ok || math.Abs(dev-math.Sqrt2*1e200) > 1e185 {
+		t.Errorf("storedDeviation over summaries at ±1e200 = %v, %v; want %v", dev, ok, math.Sqrt2*1e200)
+	}
+	// Nor is a run's or a summary's offset from the pooled mean taken raw: runs at
+	// the ends of the Real range are pooled to the deviation they have.
+	max := math.MaxFloat64
+	huge.Snapshots = []simresults.Snapshot{
+		{ID: "_r1", Values: map[string]float64{"total": -max}},
+		{ID: "_s1", Statistics: &simresults.Statistics{Observable: "total", Runs: 3, Mean: max, Deviation: simresults.Real(0)}},
+	}
+	if dev, ok := storedDeviation(huge, "total"); !ok || math.Abs(dev-max) > 1e293 {
+		t.Errorf("storedDeviation over -max and a summary at max = %v, %v; want %v", dev, ok, max)
+	}
+
+	// A summary that kept no deviation leaves the tool's blank and says so.
+	cfg.Snapshots[0].Statistics.Deviation = nil
+	got = strings.Join(comparisonTable(cfg, table, nil), "\n")
+	for _, want := range []string{
+		"Deviation | return Deviation |      | 2.0                      |",
+		"note: a summary of total kept no deviation, so the tool's is not pooled and Deviation is not compared",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("the table without a stored deviation lacks %q:\n%s", want, got)
+		}
+	}
+
+	// One completed run has no sample deviation: the runs' is left blank, not 0, and
+	// the tool's stands alone uncompared.
+	cfg.Snapshots[0].Statistics.Deviation = simresults.Real(2.0)
+	one := runtime.SweepTable{Target: "Cfg::'Group 1'", Rows: []runtime.SweepRow{row(10)}}
+	got = strings.Join(comparisonTable(cfg, one, nil), "\n")
+	for _, want := range []string{
+		"Deviation | return Deviation | 2.581988897471611 |                          |",
+		"N         | return N         | 4                 | 1                        |",
+		"note: target.total came to no deviation over the 1 completed run(s): fewer than two define none, so Deviation is not compared",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("the table over one run lacks %q:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "| 0.0 ") || strings.Contains(got, "-100.0%") {
+		t.Errorf("the one run's deviation is compared as 0:\n%s", got)
+	}
+}
+
+// A summary's run count is pooled exactly: one a Real cannot hold is neither rounded
+// in the pooled count nor in the table's N.
+func TestComparisonTablePoolsRunCountsExactly(t *testing.T) {
+	const runs = int64(1<<53) + 1
+	cfg := &compareResults("'Group 1'", 2).Configurations[0]
+	cfg.Analysis = "total"
+	cfg.AnalysisCase = "'Probe Monte Carlo'"
+	cfg.Statistics = []string{simresults.StatisticMean, simresults.StatisticRuns}
+	cfg.Snapshots = []simresults.Snapshot{
+		{ID: "_sum", Statistics: &simresults.Statistics{Observable: "total", Runs: runs, Mean: 10.0}},
+		{ID: "_r1", Values: map[string]float64{"total": 10.0}},
+		{ID: "_r2", Values: map[string]float64{"total": 10.0}},
+	}
+	want := runs + 2
+	if runs == int64(float64(runs)) || want == int64(float64(want)) {
+		t.Fatalf("%d rounds to itself as a Real; the count under test must not", want)
+	}
+	if d, pooled := storedDistribution(cfg, "total"); !pooled || int64(d.Count) != want || d.Mean != 10.0 {
+		t.Errorf("storedDistribution = %+v, %v; want %d runs with a mean of 10.0", d, pooled, want)
+	}
+	table := runtime.SweepTable{Target: "Cfg::'Group 1'", Rows: []runtime.SweepRow{{
+		Outputs: []runtime.CalcOutputValue{{Name: "target.total", Value: runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValReal, Real: 10.0}}}},
+	}}}
+	got := strings.Join(comparisonTable(cfg, table, nil), "\n")
+	for _, line := range []string{
+		fmt.Sprintf("total      | tool                     | %d |", want),
+		fmt.Sprintf("note: an unnamed snapshot summarises %d run(s) of total", runs),
+		fmt.Sprintf("N         | return N    | %d | 1                        |", want),
+	} {
+		if !strings.Contains(got, line) {
+			t.Errorf("the table lacks the exact count %q:\n%s", line, got)
+		}
 	}
 }

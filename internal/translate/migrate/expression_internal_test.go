@@ -94,6 +94,9 @@ func TestExpressionTreeLowering(t *testing.T) {
 		{"element value of an element the scope does not read is refused",
 			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="==">` + leaf("a") + `<operand xmi:type="uml:ElementValue" xmi:id="_ev" element="_on"/></specification>`,
 			`the UML Expression tree has no v2 form: the name "On" resolves to nothing readable: nothing visible from Blk is called On`},
+		{"a bare symbol is not captured by a like-named instance operand",
+			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="==">` + leaf("On") + `<operand xmi:type="uml:InstanceValue" xmi:id="_iv" instance="_on"/></specification>`,
+			`the UML Expression tree has no v2 form: the name "On" resolves to nothing readable: nothing visible from Blk is called On`},
 		{"element value naming nothing is refused",
 			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="==">` + leaf("a") + `<operand xmi:type="uml:ElementValue" xmi:id="_ev"/></specification>`,
 			`the UML Expression tree has no v2 form: the construct "<ElementValue>" is outside the translated subset: the element value names no element`},
@@ -120,8 +123,23 @@ func TestExpressionTreeLowering(t *testing.T) {
 	}
 }
 
+// TestTreePlaceholderShadowing reads a feature and an enumeration literal of
+// one name in one tree: the feature keeps its reading.
+func TestTreePlaceholderShadowing(t *testing.T) {
+	model := strings.Replace(treeModel(`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="==">`+leaf("On")+
+		`<operand xmi:type="uml:InstanceValue" xmi:id="_iv" instance="_on"/></specification>`),
+		`name="m" type="_mode"`, `name="On" type="_mode"`, 1)
+	r, err := Migrate("tree.xmi", []byte(model))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "constraint r { On == Mode::On }"; !strings.Contains(string(r.Notation), want) {
+		t.Errorf("notation lacks %q:\n%s", want, r.Notation)
+	}
+}
+
 func TestTreePlaceholderNames(t *testing.T) {
-	l := &treeLowering{leaves: map[string]opaqueRef{}}
+	l := &treeLowering{leaves: map[string]opaqueRef{}, spelled: map[string]bool{"Off": true}}
 	for name, want := range map[string]string{"On": "On", "new": "_new", "true": "_true", "3rd": "_3rd", "a-b": "a_b", "": "_"} {
 		if got := l.placeholder(name); got != want {
 			t.Errorf("placeholder(%q) = %q, want %q", name, got, want)
@@ -130,5 +148,8 @@ func TestTreePlaceholderNames(t *testing.T) {
 	}
 	if got := l.placeholder("On"); got != "On2" {
 		t.Errorf("second placeholder for On = %q, want On2", got)
+	}
+	if got := l.placeholder("Off"); got != "Off2" {
+		t.Errorf("placeholder for a word the tree spells = %q, want Off2", got)
 	}
 }

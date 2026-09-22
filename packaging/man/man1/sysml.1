@@ -104,8 +104,9 @@ first multiple of it not before the wait ends; 0 (default) is a continuous
 clock. With \-compare\-results, replaces every configuration's stepSize
 .TP
 .BR \-runs " \fIn\fP"
-Run the \-action this many times, each run seeded from \-seed, and table the
-\-observe features; needs \-seed unless \-draws is min, max or average
+Run the \-action, or the Simulation::MonteCarlo \-analysis, this many times,
+each run seeded from \-seed, and table the \-observe features or the case's
+observed value; needs \-seed unless \-draws is min, max or average
 .TP
 .BR \-observe " \fIfeature\fP"
 Report this feature of the \-runs action, or clock for the time it completed
@@ -177,7 +178,9 @@ solver query may take in place of OPENSYSML_SMT_TIMEOUT
 .TP
 .BR \-convert " \fIformat\fP"
 Convert the model to this format instead of running it: sysml, kerml, ttl,
-turtle or rdf (RDF is experimental)
+turtle or rdf (RDF is experimental). The input may be a Flexo branch URL
+(host[:port][/base]/projects/{p}/branches/{b} of the FLEXO_SYSMLV2_URL
+endpoint, or flexo://{p}/{b}), read as its RDF graph
 .TP
 .BR \-from " \fIformat\fP"
 Input format for \-convert: sysml, kerml, ttl, turtle, rdf, or xmi, uml or
@@ -186,7 +189,8 @@ extension
 .TP
 .BR \-o ", " \-output " \fIfile\fP"
 Write what \-convert, \-compile, \-render or \-render\-document produces to
-this file instead of stdout
+this file instead of stdout; with \-convert ttl, a Flexo branch URL pushes the
+graph to the branch
 .TP
 .BR \-migration\-report " \fIfile\fP"
 With \-convert from xmi, write the element\-by\-element migration report to
@@ -582,6 +586,8 @@ sysml \-action Acquire \-seed 7 m.sysml
 sysml \-action Acquire \-draws max m.sysml
 # Mean durations
 sysml \-action A \-runs 9 \-seed 7 \-draws average m.sysml
+# A MonteCarlo analysis case
+sysml \-analysis "Mc obj" \-runs 100 \-seed 7 m.sysml
 .fi
 .RE
 .PP
@@ -611,6 +617,18 @@ and the clock. Below it each numeric observable is summarised over the
 completed runs: min, mean, max, the nearest\-rank p50 and p90, and a
 histogram; a non\-numeric one is counted by value. A feature the action does
 not hold is refused.
+.PP
+\-runs also runs an \-analysis that specializes Simulation::MonteCarlo, the
+OpenSysML library's analysis of repeated runs: each run performs the case's
+steps on a fresh subject, seeded as an action's run is, and reads the value
+the case binds as observed; the table has one row per run with that value, and
+beneath its distribution the case is concluded once over the sample \(em runs,
+mean, deviation (the sample standard deviation) and outOfSpec (the runs in
+which a check of the case did not hold) bound, and the case's own outputs and
+checks evaluated over them. Each run makes its objects from their
+declarations, so a subject named by `#id` alone is refused. Run once, without
+\-runs, such a case leaves its statistics unbound. \-observe belongs to an
+action's runs, not a case's.
 .SH CONVERSION
 .RS 2
 .nf
@@ -622,6 +640,10 @@ sysml model.ttl \-convert sysml
 sysml model.sysml \-convert ttl \-o m.ttl
 # Name the input format explicitly
 sysml in.txt \-convert ttl \-from sysml
+# A Flexo branch as notation
+sysml flexo://demo/main \-convert sysml
+# Push the graph to the branch
+sysml model.sysml \-convert ttl \-o flexo://demo/main
 .fi
 .RE
 .PP
@@ -630,6 +652,16 @@ unless \-from names it: sysml, kerml, ttl, turtle, rdf, or xmi, uml or mdzip
 for a SysML v1 model to migrate, whose element\-by\-element report
 \-migration\-report writes out. Converting to the format it is already in
 rewrites the input: notation is reformatted, Turtle is normalized.
+.PP
+Either side may name a Flexo MMS project branch instead of a file:
+http(s)://host[:port][/base]/projects/{project}/branches/{branch}, or
+flexo://{project}/{branch}, both naming the endpoint FLEXO_SYSMLV2_URL
+configures. A branch input is read as its head commit's RDF graph; a branch
+\-o takes the \-convert ttl output as the branch's whole model graph,
+conditional on the branch's etag, and refuses a head the sync state says has
+moved. Both need the bearer token in FLEXO_INTEROP_TOKEN and record the head
+commit in the sync state (\-sync\-state, or <output>.sync.json on a read /
+<model>.sync.json on a push).
 .PP
 RDF conversion is experimental: the mapping covers model structure and the
 behavior its bodies state, refuses what it cannot write back, and its

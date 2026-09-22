@@ -52,6 +52,13 @@ func (h *calcStmtHost) attachPerformances(engine *stmtEngine) {
 	engine.env.perf = root
 }
 
+// readPerformance makes the host read the steps a completed performance of the case
+// holds, performing none of its own: the results of a body concluded after its runs.
+func (h *calcStmtHost) readPerformance(engine *stmtEngine, perf *actionFrame) {
+	h.env = engine.env
+	engine.env.perf = perf
+}
+
 // performance is the case's own performance, nil for a calculation.
 func (h *calcStmtHost) performance() *actionFrame {
 	if h.perfs == nil {

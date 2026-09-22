@@ -1,0 +1,17 @@
+{
+  "type": "state",
+  "libraries": true,
+  "events": [
+    {"signal": "Warning", "value": {"type": "Integer", "value": 3}},
+    {"signal": "Reset"},
+    {"signal": "Reset"},
+    {"signal": "Reset"},
+    {"signal": "Warning", "value": {"type": "Integer", "value": 7}}
+  ],
+  "finalState": "warned",
+  "stateVisits": ["idle", "warned", "idle", "warned", "idle", "warned"],
+  "outputs": {
+    "exits": {"type": "Integer", "value": 3},
+    "levels": {"type": "Integer", "value": 37}
+  }
+}

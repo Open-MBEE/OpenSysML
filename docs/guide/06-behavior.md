@@ -428,6 +428,33 @@ states left, right react`), explored like any other ([below](#when-a-model-has-m
 A do body that binds an `in` pin to nothing, or to a feature the state does not declare, is
 refused when the behavior starts, naming the pin.
 
+**An exit that reads what fired the transition.** A transition's accepted data — the `d` of
+`accept d : Dim`, the `p1` of `accept op(p1)` — is a feature of the transition, visible by its
+simple name to the transition's own guard and effect. The exit of the state the transition
+leaves runs before that effect, but as a step of the same transition performance, so it reads
+the data qualified by the transition's name, and an exit shared by several leaving transitions
+reads whichever is being taken with `??`, a transition not being taken reading as nothing:
+
+```sysml
+state idle {
+    exit action {
+        in level : Integer = warn.w ?? alarm.a;
+        assign exits := exits * 100 + level;
+    }
+}
+transition warn first idle accept w : Warning then warned;
+transition alarm first idle accept a : Alarm then alarmed;
+```
+
+A transition leaving a composite state binds the exits of the substates it leaves the same
+way, and a completion transition, or one whose trigger carries no data, binds nothing — the
+parameter keeps its default. A read of a transition not being taken, with no `??` to fall back
+on, leaves the parameter without a value and is refused when the exit runs, as is a payload of
+the wrong type. The entered state's `entry` and `do` read the transition that entered it the
+same way, the do behavior for its whole run (the state performance holds the transfer that
+triggered the transition into it, `StatePerformance::incomingTransitionTrigger`), whether its
+first step is drawn before or after the entries of the substates entered with it.
+
 <a id="ending-a-state-machine-with-terminate"></a>
 **Ending a state machine with `terminate`.** A transition whose target is a terminate action
 usage — `transition first watching accept Abort then stop; action stop terminate;`, the
@@ -760,8 +787,15 @@ interleavings `check` and `explore` table, so the exhaustive set is a superset o
 policy's outcome, and a transition that interrupts a `do` behavior after any of its token moves
 is another. A `do` body parked at an `accept` offers no move until its occurrence is dispatched,
 and a `do` flow that never rests against a queued dispatch ends each run at the dispatch or at
-the do-step budget. The witnesses such a check writes replay as any other ([design
-note](../internals/design/region-order-scheduling.md)).
+the do-step budget. A `do` behavior starts as its state's entry ends, before the state's
+substates are entered, and runs beside the entries still to come: each of its token moves is
+drawn against the sibling regions' remaining entry units and against the state's own substates'
+at the same `entering <state>` (or `fork <name>`) draw, `entering work: next do left, right(entry)
+(unordered; took do left first)` for a region's `do` against its sibling's entry, `entering work:
+next do work, w1(entry) (unordered; took do work first)` for a composite's own against its
+substate's, until no entry is left in the move; the fixed policies enter every state whole and
+run the `do` round after, as before. The witnesses such a check writes replay as any other
+([design note](../internals/design/region-order-scheduling.md)).
 
 The order of executors due at one instant of the clock is explored like any other choice:
 `sysml -schedule explore -instantiate Demo::beacon -action Demo::watcher -state
@@ -1233,8 +1267,8 @@ second knob here too: every run resolves its concurrency choices under `-schedul
 - **Weights are drawn among the branches that hold.** A decision whose guards leave exactly one
   weighted branch holding takes it with probability one, whatever its `p`; the sum-to-one rule
   is checked over the branches as written.
-- **Monte Carlo runs are a REPL and CLI operation.** `%runs` and `-runs` run an action
-  repeatedly; the `RunSweep` RPC and the service clients take ranges and samples but no run
+- **Monte Carlo runs are a REPL and CLI operation.** `%runs` and `-runs` run an action, or an
+  analysis case specializing `Simulation::MonteCarlo`, repeatedly; the `RunSweep` RPC and the service clients take ranges and samples but no run
   count, and an external engine put a Monte Carlo answers with a claim, not the table of runs.
 - **A draw policy resolves `RandomFunctions` only.** `min`, `max` and `average` fix the
   durations and values the four functions return; a weighted decision draws from the seed under

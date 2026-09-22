@@ -233,57 +233,91 @@ func (t *imaging) frame(perf *actionFrame, at func(*actionFrame) int) (imagedFra
 		return imagedFrame{}, err
 	}
 	f.data = maps.Clone(perf.data)
-	for _, outer := range perf.outer {
-		if outer.slots != nil || outer.owner != nil {
-			return imagedFrame{}, fmt.Errorf("%w: a frame of a calc around %s", ErrImageBound, perf.label)
-		}
-		if outer.perf != nil && at(outer.perf) < 0 {
-			return imagedFrame{}, fmt.Errorf("%w: a performance around %s the run no longer reaches", ErrImageBound, perf.label)
-		}
-		if err := t.values(outer.vars); err != nil {
-			return imagedFrame{}, err
-		}
-		f.outer = append(f.outer, imagedOuter{
-			vars: maps.Clone(outer.vars), aliases: maps.Clone(outer.aliases), perf: at(outer.perf),
-			performed: outer.performed, run: outer.run, merged: slices.Clone(outer.merged),
-		})
+	outer, err := t.outerFrames(perf, at)
+	if err != nil {
+		return imagedFrame{}, err
 	}
+	f.outer = outer
 	if perf.subactions != nil {
 		f.subactions = make(map[ast.Node]int, len(perf.subactions))
 		for node, sub := range perf.subactions {
 			f.subactions[node] = at(sub)
 		}
 	}
-	for _, pins := range perf.pending {
-		for _, values := range pins {
-			for _, v := range values {
-				if err := t.value(v); err != nil {
-					return imagedFrame{}, err
-				}
-			}
-		}
+	if err := t.nestedValues(perf.pending); err != nil {
+		return imagedFrame{}, err
 	}
 	f.pending = clonePending(perf.pending)
-	if perf.staged != nil {
-		f.staged = make(map[ast.Node]map[string][]imagedStaged, len(perf.staged))
-		for node, pins := range perf.staged {
-			f.staged[node] = make(map[string][]imagedStaged, len(pins))
-			for pin, entries := range pins {
-				for _, s := range entries {
-					f.staged[node][pin] = append(f.staged[node][pin], imagedStaged{source: at(s.source), pin: s.pin, flow: s.flow, at: s.at})
-				}
-			}
-		}
-	}
-	for _, deliveries := range perf.nested {
-		for _, d := range deliveries {
-			if err := t.value(d.value); err != nil {
-				return imagedFrame{}, err
-			}
-		}
+	f.staged = stagedImaged(perf.staged, at)
+	if err := t.deliveredValues(perf.nested); err != nil {
+		return imagedFrame{}, err
 	}
 	f.nested = cloneNested(perf.nested)
 	return f, nil
+}
+
+// outerFrames images the bindings around perf.
+func (t *imaging) outerFrames(perf *actionFrame, at func(*actionFrame) int) ([]imagedOuter, error) {
+	var outer []imagedOuter
+	for _, o := range perf.outer {
+		if o.slots != nil || o.owner != nil {
+			return nil, fmt.Errorf("%w: a frame of a calc around %s", ErrImageBound, perf.label)
+		}
+		if o.perf != nil && at(o.perf) < 0 {
+			return nil, fmt.Errorf("%w: a performance around %s the run no longer reaches", ErrImageBound, perf.label)
+		}
+		if err := t.values(o.vars); err != nil {
+			return nil, err
+		}
+		outer = append(outer, imagedOuter{
+			vars: maps.Clone(o.vars), aliases: maps.Clone(o.aliases), perf: at(o.perf),
+			performed: o.performed, run: o.run, merged: slices.Clone(o.merged),
+		})
+	}
+	return outer, nil
+}
+
+// nestedValues checks every value a pending table holds.
+func (t *imaging) nestedValues(pending map[ast.Node]map[string][]Value) error {
+	for _, pins := range pending {
+		for _, values := range pins {
+			for _, v := range values {
+				if err := t.value(v); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// deliveredValues checks every value a nested-delivery table holds.
+func (t *imaging) deliveredValues(nested map[ast.Node][]nestedDelivery) error {
+	for _, deliveries := range nested {
+		for _, d := range deliveries {
+			if err := t.value(d.value); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// stagedImaged images staged's sources by position.
+func stagedImaged(staged map[ast.Node]map[string][]stagedStream, at func(*actionFrame) int) map[ast.Node]map[string][]imagedStaged {
+	if staged == nil {
+		return nil
+	}
+	imaged := make(map[ast.Node]map[string][]imagedStaged, len(staged))
+	for node, pins := range staged {
+		imaged[node] = make(map[string][]imagedStaged, len(pins))
+		for pin, entries := range pins {
+			for _, s := range entries {
+				imaged[node][pin] = append(imaged[node][pin], imagedStaged{source: at(s.source), pin: s.pin, flow: s.flow, at: s.at})
+			}
+		}
+	}
+	return imaged
 }
 
 // stateExecutor takes a state executor's state.
@@ -372,9 +406,25 @@ func (t *imaging) stateExecutor(e *StateExecutor) (*imagedState, error) {
 			return nil, fmt.Errorf("%w: do behavior of state %s of %s", ErrSnapshotPausedBody,
 				StateVertexName(act.state), symbolText(e.stateMachine))
 		}
-		img.doActions = append(img.doActions, doActionCapture{act: &doAction{state: act.state}, pending: slices.Clone(act.pending)})
+		if err := t.firing(act.firing); err != nil {
+			return nil, fmt.Errorf("do behavior of state %s: %w", StateVertexName(act.state), err)
+		}
+		img.doActions = append(img.doActions, doActionCapture{act: &doAction{state: act.state}, pending: slices.Clone(act.pending), firing: act.firing.snapshot()})
+	}
+	for _, item := range img.held {
+		if err := t.firing(item.firing); err != nil {
+			return nil, fmt.Errorf("held entry of %s: %w", StateVertexName(item.owner), err)
+		}
 	}
 	return img, nil
+}
+
+// firing checks that the payload a firing bound carries.
+func (t *imaging) firing(f *firing) error {
+	if f == nil {
+		return nil
+	}
+	return t.values(f.payload)
 }
 
 // event checks that an event's payload carries, reaching what it names.
@@ -556,46 +606,71 @@ func (m *materializing) frame(perf *actionFrame, img imagedFrame, frameAt func(i
 			perf.subactions[node] = frameAt(at)
 		}
 	}
-	if img.pending != nil {
-		perf.pending = make(map[ast.Node]map[string][]Value, len(img.pending))
-		for node, pins := range img.pending {
-			carriedPins := make(map[string][]Value, len(pins))
-			for pin, values := range pins {
-				for _, v := range values {
-					carried, err := m.value(v)
-					if err != nil {
-						return err
-					}
-					carriedPins[pin] = append(carriedPins[pin], carried)
-				}
-			}
-			perf.pending[node] = carriedPins
-		}
+	if err := m.pending(perf, img.pending); err != nil {
+		return err
 	}
-	if img.staged != nil {
-		perf.staged = make(map[ast.Node]map[string][]stagedStream, len(img.staged))
-		for node, pins := range img.staged {
-			perf.staged[node] = make(map[string][]stagedStream, len(pins))
-			for pin, entries := range pins {
-				for _, s := range entries {
-					perf.staged[node][pin] = append(perf.staged[node][pin], stagedStream{source: frameAt(s.source), pin: s.pin, flow: s.flow, at: s.at})
-				}
-			}
-		}
+	perf.staged = stagedMaterialized(img.staged, frameAt)
+	if err := m.nested(perf, img.nested); err != nil {
+		return err
 	}
-	if img.nested != nil {
-		perf.nested = make(map[ast.Node][]nestedDelivery, len(img.nested))
-		for node, deliveries := range img.nested {
-			for _, d := range deliveries {
-				carried, err := m.value(d.value)
+	return nil
+}
+
+// pending fills perf's pending table from img's.
+func (m *materializing) pending(perf *actionFrame, pending map[ast.Node]map[string][]Value) error {
+	if pending == nil {
+		return nil
+	}
+	perf.pending = make(map[ast.Node]map[string][]Value, len(pending))
+	for node, pins := range pending {
+		carriedPins := make(map[string][]Value, len(pins))
+		for pin, values := range pins {
+			for _, v := range values {
+				carried, err := m.value(v)
 				if err != nil {
 					return err
 				}
-				perf.nested[node] = append(perf.nested[node], nestedDelivery{path: slices.Clone(d.path), pin: d.pin, value: carried})
+				carriedPins[pin] = append(carriedPins[pin], carried)
 			}
+		}
+		perf.pending[node] = carriedPins
+	}
+	return nil
+}
+
+// nested fills perf's nested-delivery table from img's.
+func (m *materializing) nested(perf *actionFrame, nested map[ast.Node][]nestedDelivery) error {
+	if nested == nil {
+		return nil
+	}
+	perf.nested = make(map[ast.Node][]nestedDelivery, len(nested))
+	for node, deliveries := range nested {
+		for _, d := range deliveries {
+			carried, err := m.value(d.value)
+			if err != nil {
+				return err
+			}
+			perf.nested[node] = append(perf.nested[node], nestedDelivery{path: slices.Clone(d.path), pin: d.pin, value: carried})
 		}
 	}
 	return nil
+}
+
+// stagedMaterialized materializes img's staged writes, their sources by position.
+func stagedMaterialized(staged map[ast.Node]map[string][]imagedStaged, frameAt func(int) *actionFrame) map[ast.Node]map[string][]stagedStream {
+	if staged == nil {
+		return nil
+	}
+	materialized := make(map[ast.Node]map[string][]stagedStream, len(staged))
+	for node, pins := range staged {
+		materialized[node] = make(map[string][]stagedStream, len(pins))
+		for pin, entries := range pins {
+			for _, s := range entries {
+				materialized[node][pin] = append(materialized[node][pin], stagedStream{source: frameAt(s.source), pin: s.pin, flow: s.flow, at: s.at})
+			}
+		}
+	}
+	return materialized
 }
 
 // stateExecutor puts an imaged machine's state on a fresh execution of dst's.
@@ -648,7 +723,11 @@ func (m *materializing) stateExecutor(e *StateExecutor, img *imagedState) error 
 	}
 	e.lastEventAt = img.lastEventAt
 	for _, act := range img.doActions {
-		e.doActions = append(e.doActions, &doAction{state: act.act.state, pending: slices.Clone(act.pending)})
+		carried, err := m.firing(act.firing)
+		if err != nil {
+			return fmt.Errorf("do behavior of state %s: %w", StateVertexName(act.act.state), err)
+		}
+		e.doActions = append(e.doActions, &doAction{state: act.act.state, pending: slices.Clone(act.pending), firing: carried})
 	}
 	e.machineExited, e.inRun, e.moved = img.machineExited, img.inRun, img.moved
 	e.driven.state = m.runOf(img.run)
@@ -659,6 +738,11 @@ func (m *materializing) stateExecutor(e *StateExecutor, img *imagedState) error 
 	e.changeRearmed = maps.Clone(img.changeRearmed)
 	e.changeWaits = slices.Clone(img.changeWaits)
 	e.held = cloneHeldEntries(img.held)
+	for i := range e.held {
+		if e.held[i].firing, err = m.firing(img.held[i].firing); err != nil {
+			return fmt.Errorf("held entry of %s: %w", StateVertexName(e.held[i].owner), err)
+		}
+	}
 	clear(e.entering)
 	for state, entering := range img.entering {
 		e.entering[state] = entering
@@ -684,6 +768,18 @@ func (m *materializing) pendingCall(e *StateExecutor, call *pendingCall) error {
 	}
 	e.pendingCall = carried
 	return nil
+}
+
+// firing is a firing as dst carries it, the payload it bound as dst's own values.
+func (m *materializing) firing(f *firing) (*firing, error) {
+	if f == nil {
+		return nil, nil
+	}
+	payload, err := m.values(f.payload)
+	if err != nil {
+		return nil, err
+	}
+	return &firing{taken: f.taken, payload: payload}, nil
 }
 
 // event is an event as dst carries it.

@@ -6,14 +6,14 @@
     "url": "https://www.omg.org/spec/PSSM/20181101/PSSM_TestSuite.xmi",
     "suiteDigest": "c355b249c356774377a46b60345019d827af1ce417bde88e533aa5f39206ae07",
     "tests": 103,
-    "recorded": "2026-09-21",
-    "develop": "e6e49c3d3e2dc55bb31b391a8d8de73266f3eeee"
+    "recorded": "2026-09-22",
+    "develop": "e3d17f5e5325051c893cbf81f500b110c346764c"
   },
   "buckets": {
     "differs-by-design": 1,
-    "fail": 13,
-    "not-expressible": 33,
-    "pass": 56
+    "fail": 12,
+    "not-expressible": 30,
+    "pass": 60
   },
   "tests": [
     {
@@ -225,7 +225,7 @@
         "T2(effect)::S1(entry)::T3.1.2(effect)::S3.1(doActivity)::T2.2(effect)::T3.2(effect)",
         "T2(effect)::S1(entry)::T3.1.2(effect)::T2.2(effect)::S3.1(doActivity)::T3.2(effect)"
       ],
-      "runs": 18
+      "runs": 28
     },
     {
       "name": "Transition 019",
@@ -502,11 +502,17 @@
     {
       "name": "Event 017 B",
       "area": "Event",
-      "class": "not-expressible",
-      "bucket": "not-expressible",
-      "reasons": [
-        "behavior parameter S1.S1.1"
-      ]
+      "class": "standard",
+      "bucket": "pass",
+      "expected": [
+        "S1(effect)[in=true]::S1.1(entry)[in=true]::S1.1(doActivity)[in=true]::S1.1(exit)[in=false]::T1.2(effect)[in=false]",
+        "S1(effect)[in=true]::S1.1(entry)[in=true]::S1.1(exit)[in=false]::T1.2(effect)[in=false]"
+      ],
+      "reached": [
+        "S1(effect)[in=true]::S1.1(entry)[in=true]::S1.1(doActivity)[in=true]::S1.1(exit)[in=false]::T1.2(effect)[in=false]",
+        "S1(effect)[in=true]::S1.1(entry)[in=true]::S1.1(exit)[in=false]::T1.2(effect)[in=false]"
+      ],
+      "runs": 3
     },
     {
       "name": "Event 018",
@@ -537,20 +543,28 @@
     {
       "name": "Event 019 B",
       "area": "Event",
-      "class": "not-expressible",
-      "bucket": "not-expressible",
-      "reasons": [
-        "behavior parameter S1"
-      ]
+      "class": "standard",
+      "bucket": "pass",
+      "expected": [
+        "S1(exit)[in=42][in=input]::T2(effect)[in=42][in=input]::S2(entry)[in=42][in=input]"
+      ],
+      "reached": [
+        "S1(exit)[in=42][in=input]::T2(effect)[in=42][in=input]::S2(entry)[in=42][in=input]"
+      ],
+      "runs": 1
     },
     {
       "name": "Event 019 C",
       "area": "Event",
-      "class": "not-expressible",
-      "bucket": "not-expressible",
-      "reasons": [
-        "behavior parameter S1.S1.1.S1.1.1"
-      ]
+      "class": "standard",
+      "bucket": "pass",
+      "expected": [
+        "S1(entry)[in=42][in=input]::S1.1(entry)[in=42][in=input]::S1.1.1(entry)[in=42][in=input]::S1.1.1(exit)[in=true]::T1.1.2(effect)[in=true]"
+      ],
+      "reached": [
+        "S1(entry)[in=42][in=input]::S1.1(entry)[in=42][in=input]::S1.1.1(entry)[in=42][in=input]::S1.1.1(exit)[in=true]::T1.1.2(effect)[in=true]"
+      ],
+      "runs": 1
     },
     {
       "name": "Event 019 D",
@@ -895,7 +909,7 @@
       "class": "not-expressible",
       "bucket": "not-expressible",
       "reasons": [
-        "exit point ExitPoint1; entry point EntryPoint1; behavior parameter S2"
+        "exit point ExitPoint1; entry point EntryPoint1"
       ]
     },
     {
@@ -1018,10 +1032,7 @@
       "name": "Terminate 002",
       "area": "Terminate",
       "class": "standard",
-      "bucket": "fail",
-      "reasons": [
-        "admitted trace not reached: S1(entry)::S1.1(entry)::S1.1(doActivityPartI)::S2.1(entry)"
-      ],
+      "bucket": "pass",
       "expected": [
         "S1(entry)::S1.1(entry)::S1.1(doActivityPartI)::S2.1(entry)",
         "S1(entry)::S1.1(entry)::S2.1(entry)",
@@ -1030,12 +1041,13 @@
         "S1(entry)::S2.1(entry)::S1.1(entry)::S1.1(doActivityPartI)"
       ],
       "reached": [
+        "S1(entry)::S1.1(entry)::S1.1(doActivityPartI)::S2.1(entry)",
         "S1(entry)::S1.1(entry)::S2.1(entry)",
         "S1(entry)::S1.1(entry)::S2.1(entry)::S1.1(doActivityPartI)",
         "S1(entry)::S2.1(entry)::S1.1(entry)",
         "S1(entry)::S2.1(entry)::S1.1(entry)::S1.1(doActivityPartI)"
       ],
-      "runs": 4
+      "runs": 5
     },
     {
       "name": "Terminate 003",
@@ -1199,7 +1211,7 @@
         "S1.1(doActivity)::S1.2(doActivity)",
         "S1.2(doActivity)::S1.1(doActivity)"
       ],
-      "runs": 368
+      "runs": 552
     },
     {
       "name": "Deferred 007",

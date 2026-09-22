@@ -3,7 +3,6 @@ package migrate
 import (
 	"math"
 	"math/big"
-	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -22,8 +21,9 @@ import (
 
 // The note prefixes the configuration findings repeat.
 const (
-	simConfig  = "«SimulationConfig» "
-	targetNote = "the execution target "
+	simConfig          = "«SimulationConfig» "
+	targetNote         = "the execution target "
+	classifierBehavior = "the classifier behavior of "
 )
 
 // simulationConfig returns e's «SimulationConfig» application, or nil.
@@ -36,24 +36,22 @@ func simulationConfig(e *sysmlv1.Element) *sysmlv1.Stereotype {
 	return nil
 }
 
-// isSimulationConfig recognises a «SimulationConfig» application by the
-// simulation profile's provenance, not by its name alone.
+var simulationProvenance = provenance{isSimulationProfile, simulationProfileDefinition}
+
+// isSimulationConfig recognises a «SimulationConfig» application, or one of a
+// stereotype specializing it, by the simulation profile's provenance, not by name alone.
 func isSimulationConfig(s *sysmlv1.Stereotype) bool {
-	return s.Name == "SimulationConfig" && isSimulationProfile(s.Namespace)
+	return simulationProvenance.applies(s, "SimulationConfig")
 }
 
-// isSimulationProfile matches, by host and path, MagicDraw's own SimulationProfile
-// (…magicdraw.com/schemas/SimulationProfile.xmi); a profile of that name elsewhere is not it.
-func isSimulationProfile(ns string) bool {
-	u, err := url.Parse(ns)
-	if err != nil {
-		return false
+// simulationProfileDefinition reports whether stereotype definition d belongs
+// to the simulation tool's profile, bundled in the document or referred to.
+func simulationProfileDefinition(d *sysmlv1.Element) bool {
+	if d.IsProxy() {
+		return fold(hrefDocument(d.Href)) == fold("SimulationProfile")
 	}
-	host := strings.TrimPrefix(strings.ToLower(u.Hostname()), "www.")
-	if host != "magicdraw.com" && host != "nomagic.com" {
-		return false
-	}
-	return strings.ToLower(u.Path) == "/schemas/simulationprofile.xmi"
+	p := enclosingProfile(d)
+	return p != nil && isSimulationProfile(p.Attrs["URI"])
 }
 
 // configurationSetting relates a «SimulationConfig» tag to the attribute of
@@ -176,7 +174,7 @@ func (m *migration) simulationConfig(e *sysmlv1.Element, header, note string) {
 		m.members(e)
 		m.scope = saved
 		m.classifierBehavior(e)
-		m.stereotypeComments(e)
+		m.stereotypeAnnotations(e)
 	})
 	m.results.Configurations = append(m.results.Configurations, results)
 }
@@ -405,18 +403,18 @@ func (m *migration) configurationTarget(s *sysmlv1.Stereotype) executionTarget {
 	if b == nil {
 		b = m.model.Ref(behavior, "classifierBehavior")
 		_, why := m.classify(b)
-		target.notes = []string{joinNotes("the classifier behavior of "+qualifiedName(behavior)+", "+describe(b)+", is not migrated, so no action is performed; the configuration only holds "+describe(t), why)}
+		target.notes = []string{joinNotes(classifierBehavior+qualifiedName(behavior)+", "+describe(b)+", is not migrated, so no action is performed; the configuration only holds "+describe(t), why)}
 		return target
 	}
 	switch bcat {
 	case catActionDef:
 		target.usage = usage
 	case catStateDef:
-		target.notes = []string{"the classifier behavior of " + qualifiedName(behavior) + " is a state machine, which a run performs as no action; the configuration only holds " + describe(t)}
+		target.notes = []string{classifierBehavior + qualifiedName(behavior) + " is a state machine, which a run performs as no action; the configuration only holds " + describe(t)}
 	case catVerificationDef:
 		target.testCase, target.subject, target.notes = m.targetTestCase(t, classifiers, b)
 	default:
-		target.notes = []string{"the classifier behavior of " + qualifiedName(behavior) + " is written as a " + bcat.keyword() + ", not an action def, so no action is performed"}
+		target.notes = []string{classifierBehavior + qualifiedName(behavior) + " is written as a " + bcat.keyword() + ", not an action def, so no action is performed"}
 	}
 	return target
 }
@@ -427,19 +425,19 @@ func (m *migration) configurationTarget(s *sysmlv1.Stereotype) executionTarget {
 // is written and the subject's block is one the target is typed by.
 func (m *migration) targetTestCase(t *sysmlv1.Element, classifiers []*sysmlv1.Element, b *sysmlv1.Element) (testCase *sysmlv1.Element, subject string, notes []string) {
 	if b.Type != "Interaction" {
-		return nil, "", []string{"the classifier behavior of " + qualifiedName(b.Parent) + " is a test case with no scenario to perform, so no action is performed; the configuration only holds " + describe(t)}
+		return nil, "", []string{classifierBehavior + qualifiedName(b.Parent) + " is a test case with no scenario to perform, so no action is performed; the configuration only holds " + describe(t)}
 	}
 	subject = m.subjectName(b)
 	s, note := m.scenario(b, subject)
 	if note != "" {
-		return nil, "", []string{"the classifier behavior of " + qualifiedName(b.Parent) + " is a test case whose scenario is not migrated, so no action is performed; the configuration only holds " + describe(t) + ": " + note}
+		return nil, "", []string{classifierBehavior + qualifiedName(b.Parent) + " is a test case whose scenario is not migrated, so no action is performed; the configuration only holds " + describe(t) + ": " + note}
 	}
 	for _, c := range classifiers {
 		if c == s.context || m.inherits(c, s.context) {
 			return b, subject, nil
 		}
 	}
-	return nil, "", []string{"the classifier behavior of " + qualifiedName(b.Parent) + " is a test case whose subject is " + describe(s.context) + ", which " + describe(t) + " is not typed by, so no action is performed; the configuration only holds " + describe(t)}
+	return nil, "", []string{classifierBehavior + qualifiedName(b.Parent) + " is a test case whose subject is " + describe(s.context) + ", which " + describe(t) + " is not typed by, so no action is performed; the configuration only holds " + describe(t)}
 }
 
 // constraintNetwork lists the constraint properties a target holds, through its

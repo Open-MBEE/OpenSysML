@@ -518,6 +518,9 @@ type Statement struct {
 	FeatureID string
 	Value     *Expr
 	Replace   bool
+	// Needs names the activity's input parameters without which the node never
+	// fires: a token from each must reach it, directly or through the nodes before it.
+	Needs []string
 }
 
 // StatementKind is the kind of a Statement.

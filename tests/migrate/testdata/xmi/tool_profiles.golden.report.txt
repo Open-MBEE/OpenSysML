@@ -1,0 +1,36 @@
+# SysML v1 to v2 migration report: tool_profiles.xmi
+# exported by Example UML Tool
+# migrated 19 element(s): 14 mapped, 5 approximated, 0 unmapped (8 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## approximated (5)
+«Frame» Component	Mockups::Clock	_ui_clock	-> Mockups::Clock	(a plain UML class without «Block» is written as a part def)
+StateMachine	Mockups::Clock::Ticking	_ui_clock_sm	-> Mockups::Clock::Ticking	(the classifier behavior is run by every object of Mockups::Clock as its usage ticking)
+Property	Mockups::Clock::ticks	_ui_clock_ticks	-> Mockups::Clock::ticks	(the untyped property is written as a reference usage)
+«SimulationConfig» Class	Runs::Run pump	_cfg	-> Runs::'Run pump'	(neither System::Pump nor any general of it has a classifier behavior, so the configuration only holds 'Pump')
+Property	System::Pump::mass	_pump_mass	-> System::Pump::mass	(the untyped property is written as a reference usage)
+
+## mapped (14)
+Package	Customizations	_cust	-> Customizations
+Package	Mockups	_ui	-> Mockups
+Region	Mockups::Clock::Ticking::main	_ui_clock_main	(the one region is written as the body of its owner)
+Pseudostate	Mockups::Clock::Ticking::main::<Pseudostate>	_ui_clock_init	(written as the entry of the region)
+Transition	Mockups::Clock::Ticking::main::<Transition>	_ui_clock_t0
+State	Mockups::Clock::Ticking::main::Running	_ui_clock_running	-> Running
+«Panel» Class	Mockups::Gauge	_ui_gauge	-> Mockups::Gauge
+Model	Model	_m	(the root model's members are written at the top level)
+Profile	My Profile	_my	-> 'My Profile'
+Stereotype	My Profile::Tracked	_st_tracked	-> 'My Profile'::Tracked
+Property	My Profile::Tracked::ticket	_st_tracked_ticket	-> 'My Profile'::Tracked::ticket
+Package	Runs	_sim	-> Runs
+Package	System	_sys	-> System
+«Block» Class	System::Pump	_pump	-> System::Pump
+
+## skipped (8)
+«Customization» Class	Customizations::Pump customization	_c_pump	(«Customization» marks the modeling tool's specification-dialog customization, which has no model meaning)
+«GroupBox» Class	Mockups::Control panel	_ui_group	(«GroupBox» marks the modeling tool's UI prototyping mockup, which has no model meaning)
+«Button» Class	Mockups::Start button	_ui_button	(«Button» marks the modeling tool's UI prototyping mockup, which has no model meaning)
+«Label» Component	Mockups::Status label	_ui_label	(«Label» marks the modeling tool's UI prototyping mockup, which has no model meaning)
+Extension	My Profile::<Extension>	_ext_tracked	(an extension binds a stereotype to the metaclass it extends; v2 metadata applies to any element)
+Property	My Profile::Tracked::base_Element	_st_tracked_base	(an extension end names the metaclass the stereotype extends; v2 metadata applies to any element)
+«SequenceDiagramGeneratorConfig» Class	Runs::Sequence generator	_seq	(«SequenceDiagramGeneratorConfig» marks the simulation tool's configuration, which has no model meaning)
+«derivedPropertySpecification» Property	System::Pump::owning system	_pump_owner	(«derivedPropertySpecification» marks the modeling tool's specification-dialog customization, which has no model meaning)

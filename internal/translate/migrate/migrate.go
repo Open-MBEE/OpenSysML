@@ -5,6 +5,7 @@ package migrate
 import (
 	"fmt"
 	"math/big"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -84,6 +85,9 @@ func FromModel(name string, model *sysmlv1.Model) *Result {
 		carrierOf:    map[*sysmlv1.Element]*carrier{},
 		carrierNotes: map[*sysmlv1.Element]string{},
 		indexed:      map[string]int{},
+		userProfiles: map[*sysmlv1.Element]bool{},
+		defsWritten:  map[*sysmlv1.Element]bool{},
+		pending:      map[*sysmlv1.Element]*pendingNotes{},
 		regionUsed:   map[*sysmlv1.Element]map[string]bool{},
 		vertexNames:  map[*sysmlv1.Element]string{},
 		points:       map[*sysmlv1.Element]pointForm{},
@@ -100,6 +104,7 @@ func FromModel(name string, model *sysmlv1.Model) *Result {
 		hosted:       map[*sysmlv1.Element][]*view{},
 		buried:       map[*sysmlv1.Element]bool{},
 		actors:       map[*sysmlv1.Element]*actorLink{},
+		monteCarlo:   map[*sysmlv1.Element]*monteCarloCase{},
 	}
 	m.prepare()
 	for _, root := range model.Roots {
@@ -252,6 +257,14 @@ type migration struct {
 	// indexed locates each element's report entry by id, so an element that
 	// several writers account for is reported once.
 	indexed map[string]int
+	// pending holds the notes on elements annotated before their report entry exists.
+	pending map[*sysmlv1.Element]*pendingNotes
+	// userProfiles memoizes which profiles are a user's own; see userProfile.
+	userProfiles map[*sysmlv1.Element]bool
+	// namespacesOf lists the XML namespaces each profile's stereotypes are applied under.
+	namespacesOf map[*sysmlv1.Element][]string
+	// defsWritten marks the user stereotypes whose metadata def is written so far.
+	defsWritten map[*sysmlv1.Element]bool
 	// lanes indexes each activity's partitions by the nodes and edges they hold.
 	lanes map[*sysmlv1.Element]*lanes
 	// routes memoizes, per classifier and target, the chains of composite parts between them.
@@ -263,6 +276,8 @@ type migration struct {
 	pins map[*sysmlv1.Element]pinDecl
 	// opaque memoizes what each opaque action's body translates to.
 	opaque map[*sysmlv1.Element]*opaqueResult
+	// monteCarlo memoizes the analysis def written beside each block; nil for one without.
+	monteCarlo map[*sysmlv1.Element]*monteCarloCase
 	// rules memoizes how each constraint block's anonymous rule is written.
 	rules map[*sysmlv1.Element]ruleForm
 	// actors gives each association linking a use case to an actor the actor
@@ -293,9 +308,25 @@ type migration struct {
 	self string
 }
 
+// pendingNotes are the notes on an element annotated before it is reported,
+// and whether they make its migration an approximation.
+type pendingNotes struct {
+	notes       []string
+	approximate bool
+}
+
 // add records e's verdict. An element reported before keeps one entry: the
 // weaker verdict, the target that was written, and every distinct note.
 func (m *migration) add(e *sysmlv1.Element, v Verdict, target, note string) {
+	if p, ok := m.pending[e]; ok {
+		delete(m.pending, e)
+		for _, n := range p.notes {
+			note = joinNotes(note, n)
+		}
+		if p.approximate && v == Mapped {
+			v = Approximated
+		}
+	}
 	if n, ok := m.names[e]; ok && e.Name != "" && n != e.Name && m.realizes[e] == nil {
 		if v == Mapped {
 			v = Approximated
@@ -712,7 +743,7 @@ func (m *migration) classifier(e *sysmlv1.Element) {
 	case catNone:
 		return
 	case catLibrary:
-		m.add(e, Skipped, "", "profile or library content")
+		m.add(e, Skipped, "", note)
 		return
 	case catUnmapped:
 		m.unmapped(e, note)
@@ -748,6 +779,9 @@ func (m *migration) classifier(e *sysmlv1.Element) {
 	}
 	m.add(e, verdict, m.v2Name(e), note)
 	m.classifierBody(e, cat, header)
+	if cat == catPartDef {
+		m.monteCarloAnalysis(e)
+	}
 }
 
 // classifierHeader builds the declaration line a classifier is written with:
@@ -771,7 +805,12 @@ func (m *migration) classifierHeader(e *sysmlv1.Element, cat category, name stri
 		}
 	}
 	b.WriteString(writeName(name))
-	gens, n := m.generals(e, cat)
+	var gens string
+	if cat == catMetadataDef {
+		gens, n = m.metadataGenerals(e)
+	} else {
+		gens, n = m.generals(e, cat)
+	}
 	if gens != "" {
 		if cat == catValue {
 			b.WriteString(" : " + gens)
@@ -812,6 +851,9 @@ func (m *migration) classifierBody(e *sysmlv1.Element, cat category, header stri
 	case catViewpoint:
 		m.w.block(header, func() { m.viewpointBody(e) })
 		return
+	case catMetadataDef:
+		m.w.block(header, func() { m.metadataBody(e) })
+		return
 	case catEnumDef:
 		m.w.block(header, func() {
 			m.comments(e)
@@ -819,7 +861,7 @@ func (m *migration) classifierBody(e *sysmlv1.Element, cat category, header stri
 				m.w.line(writeName(m.nameOf(lit)) + ";")
 				m.add(lit, Mapped, m.v2Name(lit), "")
 			}
-			m.stereotypeComments(e)
+			m.stereotypeAnnotations(e)
 		})
 		return
 	}
@@ -833,7 +875,7 @@ func (m *migration) classifierBody(e *sysmlv1.Element, cat category, header stri
 	m.w.block(header, func() {
 		m.body(e)
 		m.classifierBehavior(e)
-		m.stereotypeComments(e)
+		m.stereotypeAnnotations(e)
 	})
 }
 
@@ -858,7 +900,7 @@ func (m *migration) generals(e *sysmlv1.Element, cat category) (string, string) 
 			continue
 		}
 		if isMonteCarloAnalysis(target) {
-			notes = append(notes, "generalization of the simulation tool's "+monteCarloAnalysisBlock+" is not written: v2 has no analysis pattern for the statistics it computes over the runs, which the migration results read from the result snapshots")
+			notes = append(notes, m.monteCarloGeneralization(e))
 			continue
 		}
 		if target.IsProxy() || m.isLibrary(target) {
@@ -915,12 +957,32 @@ func (m *migration) dangling(e *sysmlv1.Element, roles ...string) string {
 
 // downgrade marks e's report entry approximated with a further note.
 func (m *migration) downgrade(e *sysmlv1.Element, note string) {
+	m.annotate(e, note, true)
+}
+
+// note adds a further note to e's report entry without changing its verdict.
+func (m *migration) note(e *sysmlv1.Element, note string) {
+	m.annotate(e, note, false)
+}
+
+// annotate adds a note to the report entry of e, approximating its verdict
+// when approximate says so; an element not yet reported keeps the note until add reports it.
+func (m *migration) annotate(e *sysmlv1.Element, note string, approximate bool) {
 	i, ok := m.indexed[e.ID]
 	if !ok {
+		p := m.pending[e]
+		if p == nil {
+			p = &pendingNotes{}
+			m.pending[e] = p
+		}
+		if !slices.Contains(p.notes, note) {
+			p.notes = append(p.notes, note)
+		}
+		p.approximate = p.approximate || approximate
 		return
 	}
 	en := &m.report.Entries[i]
-	if en.Verdict == Mapped {
+	if approximate && en.Verdict == Mapped {
 		en.Verdict = Approximated
 	}
 	if !strings.Contains(en.Note, note) {
@@ -939,20 +1001,20 @@ func joinNotes(a, b string) string {
 }
 
 // requirementID reads the requirement's id tag in the profile's spelling or
-// the capitalized one some tools write.
+// the capitalized one some tools write, as one line of plain text.
 func requirementID(e *sysmlv1.Element) string {
-	return requirementTag(e, "Id", "id", "ID")
+	return strings.Join(strings.Fields(commentText(requirementTag(e, "Id", "id", "ID"))), " ")
 }
 
 func requirementText(e *sysmlv1.Element) string {
 	return requirementTag(e, "Text", "text")
 }
 
-// requirementTag reads a tag from the standard requirement stereotypes only;
-// a custom stereotype's same-named tag stays in its comment.
+// requirementTag reads a tag from the applications carrying a standard requirement
+// stereotype's meaning; an unrelated stereotype's same-named tag stays with it.
 func requirementTag(e *sysmlv1.Element, tags ...string) string {
 	for _, s := range e.Stereotypes {
-		if !isStandard(s) || !isRequirementStereotype(s.Name) {
+		if !appliesAny(s, requirementStereotypes...) {
 			continue
 		}
 		for _, tag := range tags {
@@ -979,7 +1041,7 @@ func (m *migration) requirementBody(e *sysmlv1.Element) {
 		extra()
 	}
 	m.views(e)
-	m.stereotypeComments(e)
+	m.stereotypeAnnotations(e)
 	m.scope = saved
 }
 
@@ -1035,7 +1097,7 @@ func (m *migration) constraintBody(e *sysmlv1.Element) {
 		extra()
 	}
 	m.views(e)
-	m.stereotypeComments(e)
+	m.stereotypeAnnotations(e)
 	switch {
 	case f.rule == nil:
 	case f.spec == nil:
@@ -1069,7 +1131,8 @@ func (m *migration) individualBody(e *sysmlv1.Element) {
 	saved := m.scope
 	m.scope = e
 	m.comments(e)
-	for _, slot := range e.Owned("slot") {
+	slots, recorded := m.monteCarloSlots(e, e.Owned("slot"))
+	for _, slot := range slots {
 		f := m.model.Ref(slot, "definingFeature")
 		lines, note, ok := m.slotForm(e, slot, f)
 		if !ok {
@@ -1081,11 +1144,12 @@ func (m *migration) individualBody(e *sysmlv1.Element) {
 		}
 		m.add(slot, verdictFor(note), m.v2Name(e)+"::"+writeName(m.nameFor(f)), note)
 	}
+	recorded()
 	for _, extra := range m.extras[e] {
 		extra()
 	}
 	m.views(e)
-	m.stereotypeComments(e)
+	m.stereotypeAnnotations(e)
 	m.scope = saved
 }
 
@@ -1093,9 +1157,6 @@ func (m *migration) individualBody(e *sysmlv1.Element) {
 // lines that write it and the notes on them; ok is false, and note says why,
 // when it has no v2 form.
 func (m *migration) slotForm(e, slot, f *sysmlv1.Element) (lines []string, note string, ok bool) {
-	if stat := monteCarloFeature(f); stat != "" {
-		return nil, "the slot holds the simulation tool's " + monteCarloAnalysisBlock + "::" + stat + " statistic of the runs, which is no value of the instance; the migration results read it", false
-	}
 	if f == nil || f.IsProxy() {
 		return nil, "the slot's defining feature is not in the document", false
 	}
@@ -1325,7 +1386,7 @@ func (m *migration) verificationBody(e *sysmlv1.Element) {
 		}
 	}
 	m.views(e)
-	m.stereotypeComments(e)
+	m.stereotypeAnnotations(e)
 	m.scope = saved
 }
 
@@ -1396,7 +1457,7 @@ func (m *migration) association(e *sysmlv1.Element) {
 			extra()
 		}
 		m.views(e)
-		m.stereotypeComments(e)
+		m.stereotypeAnnotations(e)
 		m.scope = saved
 	})
 }
@@ -1559,6 +1620,10 @@ func (m *migration) featureDirection(p *sysmlv1.Element, owner category, kw stri
 
 // feature writes a property or port of the current scope.
 func (m *migration) feature(p *sysmlv1.Element) {
+	if reason := toolContent(p); reason != "" {
+		m.add(p, Skipped, "", reason)
+		return
+	}
 	ownerCat, _ := m.classify(m.scope)
 	kw, prefix, note := m.featureKeyword(p, ownerCat)
 	t := m.model.Ref(p, "type")
@@ -1623,7 +1688,7 @@ func (m *migration) feature(p *sysmlv1.Element) {
 		for _, extra := range m.extras[p] {
 			extra()
 		}
-		m.stereotypeComments(p)
+		m.stereotypeAnnotations(p)
 		m.scope = saved
 	})
 }
@@ -2132,8 +2197,7 @@ func isNatural(s string) bool {
 // connector writes a connector: a binding or delegation connector as `bind`,
 // an assembly connector as `connect`, and an item flow it realizes as `flow`.
 func (m *migration) connector(c *sysmlv1.Element) {
-	if note := m.monteCarloBinding(c); note != "" {
-		m.unmappedConnector(c, note)
+	if m.monteCarloConnector(c) {
 		return
 	}
 	segs, note := m.connectorEnds(c, m.scope)
@@ -2149,13 +2213,13 @@ func (m *migration) connector(c *sysmlv1.Element) {
 		}
 		paths[i] = strings.Join(parts, ".")
 	}
-	decl, kw := "connect "+paths[0]+" to "+paths[1]+";", "connection "
+	decl, kw := "connect "+paths[0]+" to "+paths[1], "connection "
 	note = ""
 	switch {
 	case has(c, "BindingConnector"):
-		decl, kw = "bind "+paths[0]+" = "+paths[1]+";", "binding "
+		decl, kw = "bind "+paths[0]+" = "+paths[1], "binding "
 	case delegates(segs):
-		decl, kw = "bind "+paths[0]+" = "+paths[1]+";", "binding "
+		decl, kw = "bind "+paths[0]+" = "+paths[1], "binding "
 		note = "the connector delegates the owner's port to the part's, so it is written as a binding, which relays a message either way"
 	}
 	target := ""
@@ -2163,7 +2227,7 @@ func (m *migration) connector(c *sysmlv1.Element) {
 		decl = kw + writeName(m.nameOf(c)) + " " + decl
 		target = m.v2Name(c)
 	}
-	m.w.line(decl)
+	m.w.block(decl, func() { m.metadataUsages(c) })
 	m.add(c, Mapped, target, note)
 	m.stereotypeComments(c)
 	for _, f := range m.flows[c] {
@@ -2445,9 +2509,9 @@ func (m *migration) placeDependency(d *sysmlv1.Element) {
 		var target, note string
 		var ok bool
 		if has(d, "Satisfy") {
-			target, note, ok = m.satisfy(p.client, p.supplier, name)
+			target, note, ok = m.satisfy(d, p.client, p.supplier, name)
 		} else {
-			target, note, ok = m.verify(p.client, p.supplier, name)
+			target, note, ok = m.verify(d, p.client, p.supplier, name)
 		}
 		if ok {
 			pl.written++
@@ -2584,25 +2648,29 @@ func (m *migration) dependencyPair(d *sysmlv1.Element, name string, client, supp
 	case has(d, "Refine"):
 		m.w.block(decl, func() {
 			m.w.line("@ModelingMetadata::Refinement;")
+			m.metadataUsages(d)
 		})
 		return target, true, ""
 	case has(d, "Allocate"):
-		alloc := "allocate " + from + " to " + to + ";"
+		alloc := "allocate " + from + " to " + to
 		if name != "" {
 			alloc = "allocation " + writeName(name) + " " + alloc
 		}
-		m.w.line(alloc)
+		m.w.block(alloc, func() { m.metadataUsages(d) })
 		return target, true, ""
 	case has(d, "Trace"):
-		m.w.line(decl + "; /* «Trace» */")
+		m.w.trailed(decl, "; /* «Trace» */", "/* «Trace» */", func() { m.metadataUsages(d) })
 		return target, true, "a trace is written as a plain dependency"
 	case has(d, "Copy"):
-		m.w.line(decl + "; /* «Copy» */")
+		m.w.trailed(decl, "; /* «Copy» */", "/* «Copy» */", func() { m.metadataUsages(d) })
 		return target, true, "a copy is written as a plain dependency; the text is not kept in step"
 	}
-	m.w.line(decl + ";")
+	m.w.block(decl, func() { m.metadataUsages(d) })
 	var names []string
 	for _, s := range d.Stereotypes {
+		if m.userStereotype(s.Definition) && !isStandard(s) {
+			continue
+		}
 		names = append(names, "«"+s.Name+"»")
 	}
 	if len(names) > 0 {
@@ -2614,7 +2682,7 @@ func (m *migration) dependencyPair(d *sysmlv1.Element, name string, client, supp
 // satisfy places `satisfy requirement` in the body of the satisfying block, or
 // of the block owning the satisfying property, returning the v2 name written,
 // a note, and whether it was written.
-func (m *migration) satisfy(client, req *sysmlv1.Element, name string) (string, string, bool) {
+func (m *migration) satisfy(d, client, req *sysmlv1.Element, name string) (string, string, bool) {
 	if rc, _ := m.classify(req); rc != catRequirementDef {
 		return "", "the supplier " + qualifiedName(req) + " is not a requirement", false
 	}
@@ -2632,7 +2700,7 @@ func (m *migration) satisfy(client, req *sysmlv1.Element, name string) (string, 
 		if by != "" {
 			decl += " by " + by
 		}
-		m.w.line(decl + ";")
+		m.w.block(decl, func() { m.metadataUsages(d) })
 	})
 	return m.placedTarget(scope, name), note, true
 }
@@ -2666,7 +2734,7 @@ func (m *migration) usageContext(client *sysmlv1.Element) (*sysmlv1.Element, str
 }
 
 // verify places `verify requirement` in the objective of the test case.
-func (m *migration) verify(client, req *sysmlv1.Element, name string) (string, string, bool) {
+func (m *migration) verify(d, client, req *sysmlv1.Element, name string) (string, string, bool) {
 	if rc, _ := m.classify(req); rc != catRequirementDef {
 		return "", "the supplier " + qualifiedName(req) + " is not a requirement", false
 	}
@@ -2679,7 +2747,7 @@ func (m *migration) verify(client, req *sysmlv1.Element, name string) (string, s
 		if name != "" {
 			decl += writeName(name) + " "
 		}
-		m.w.line(decl + ": " + m.ref(req, client) + ";")
+		m.w.block(decl+": "+m.ref(req, client), func() { m.metadataUsages(d) })
 	})
 	return m.placedTarget(client, name), note, true
 }
@@ -2703,6 +2771,7 @@ func (m *migration) derive(d *sysmlv1.Element, name string, derived, original *s
 	m.w.block("connection def "+writeName(name)+" :> RequirementDerivation::Derivation", func() {
 		m.w.line("end #RequirementDerivation::original originalRequirement : " + m.ref(original, d) + ";")
 		m.w.line("end #RequirementDerivation::derive derivedRequirement : " + m.ref(derived, d) + ";")
+		m.metadataUsages(d)
 	})
 	segs := append(m.segments(m.scope), name)
 	if m.scope == nil {
@@ -2819,22 +2888,56 @@ var consumedTags = map[string]map[string]bool{
 		"language": true, "method": true, "presentation": true},
 }
 
-// stereotypeComments keeps the stereotypes the mapping does not consume, and
-// the tags it does not read of those it does, as a comment in the element's
-// body; an unread tag makes the element's migration an approximation.
-func (m *migration) stereotypeComments(e *sysmlv1.Element) {
+// stereotypeAnnotations writes, in the body of e, what its applied stereotypes
+// leave to say: its metadata usages, then its comments.
+func (m *migration) stereotypeAnnotations(e *sysmlv1.Element) {
+	m.metadataUsages(e)
+	m.stereotypeComments(e)
+}
+
+// annotated lists the applications on e that the mapping does not consume
+// whole: the tool's own markers say nothing a v2 reader needs.
+func (m *migration) annotated(e *sysmlv1.Element) []*sysmlv1.Stereotype {
+	var out []*sysmlv1.Stereotype
 	for _, s := range e.Stereotypes {
-		classifying := isStandard(s) && classifyingStereotypes[s.Name]
-		consumed := consumedTags[s.Name]
 		if m.isConstraintParameterMarker(e, s) || isSimulationConfig(s) {
 			continue
 		}
-		if isStandard(s) && isRequirementStereotype(s.Name) {
-			if !classifying {
-				m.w.line("/* «" + s.Name + "» */")
-			}
-			classifying, consumed = true, requirementTags
+		out = append(out, s)
+	}
+	return out
+}
+
+// metadataApplied reports whether application s is written as a metadata
+// usage: a user stereotype the document defines, whose standard generals, if
+// any, classify the element instead.
+func (m *migration) metadataApplied(s *sysmlv1.Stereotype) bool {
+	return !isStandard(s) && m.userStereotype(s.Definition)
+}
+
+// metadataUsages writes, in the body of e, the applications of user
+// stereotypes as metadata usages carrying the tags no standard general consumes.
+func (m *migration) metadataUsages(e *sysmlv1.Element) {
+	for _, s := range m.annotated(e) {
+		if !m.metadataApplied(s) {
+			continue
 		}
+		_, consumed := m.consumes(s)
+		m.metadataUsage(e, s, consumed)
+	}
+}
+
+// stereotypeComments keeps as comments the tags a standard stereotype's v2
+// form cannot hold, which approximate the element, and the applications of
+// stereotypes the document does not define.
+func (m *migration) stereotypeComments(e *sysmlv1.Element) {
+	var outside []string
+	byNamespace := map[string][]string{}
+	for _, s := range m.annotated(e) {
+		if m.metadataApplied(s) {
+			continue
+		}
+		classifying, consumed := m.consumes(s)
 		var tags []string
 		for k, vs := range s.Tags {
 			if classifying && consumed[k] {
@@ -2856,7 +2959,45 @@ func (m *migration) stereotypeComments(e *sysmlv1.Element) {
 			text += ": " + strings.Join(tags, "; ")
 		}
 		m.w.lines(commentLines(text))
+		if s.Definition == nil && toolProfile(s.Namespace) == "" {
+			if byNamespace[s.Namespace] == nil {
+				outside = append(outside, s.Namespace)
+			}
+			byNamespace[s.Namespace] = append(byNamespace[s.Namespace], "«"+s.Name+"»")
+		}
 	}
+	if len(outside) == 0 {
+		return
+	}
+	var parts []string
+	for _, ns := range outside {
+		parts = append(parts, strings.Join(byNamespace[ns], " ")+" from "+ns)
+	}
+	verdict := " is applied from a profile the document does not define; the application is kept as a comment"
+	if len(outside) > 1 || len(byNamespace[outside[0]]) > 1 {
+		verdict = " are applied from profiles the document does not define; the applications are kept as comments"
+	}
+	m.note(e, strings.Join(parts, " and ")+verdict)
+}
+
+// consumes reports whether the mapping classifies an element by the standard
+// stereotypes application s carries, and the tags of those it reads.
+func (m *migration) consumes(s *sysmlv1.Stereotype) (classifying bool, consumed map[string]bool) {
+	consumed = map[string]bool{}
+	for _, n := range standardNames(s) {
+		if classifyingStereotypes[n] {
+			classifying = true
+		}
+		for k := range consumedTags[n] {
+			consumed[k] = true
+		}
+		if isRequirementStereotype(n) {
+			for k := range requirementTags {
+				consumed[k] = true
+			}
+		}
+	}
+	return classifying, consumed
 }
 
 // isConstraintParameterMarker recognises MagicDraw's «ConstraintParameter» marker,
