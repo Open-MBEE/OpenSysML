@@ -777,6 +777,52 @@ func TestParametersExitSharedAndNested(t *testing.T) {
 	}
 }
 
+// Two transitions sharing a name, one nested in the state the other leaves, are
+// declared apart: the inner exit reads the outer transition's payload through a
+// name the inner transition does not shadow.
+func TestParametersExitSameNamedNestedTransitions(t *testing.T) {
+	body := `
+          <subvertex xmi:type="uml:State" xmi:id="xS1" name="S1">
+            <region xmi:type="uml:Region" xmi:id="xS1r" name="R">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="xS1i" name="I"/>
+              <subvertex xmi:type="uml:State" xmi:id="xS11" name="S1.1">
+                ` + paramTrace("exit", "xS11exit", "S1.1(exit)", integerData) + `
+              </subvertex>
+              <subvertex xmi:type="uml:State" xmi:id="xS12" name="S1.2">
+                ` + paramTrace("exit", "xS12exit", "S1.2(exit)", integerData) + `
+              </subvertex>
+              <transition xmi:type="uml:Transition" xmi:id="xT11" name="T1.1" source="xS1i" target="xS11"/>
+              <transition xmi:type="uml:Transition" xmi:id="xT12" name="T" source="xS11" target="xS12">
+                <trigger xmi:type="uml:Trigger" xmi:id="xT12trig" event="evData"/>
+              </transition>
+            </region>
+          </subvertex>
+          <transition xmi:type="uml:Transition" xmi:id="xT2" name="T2" source="xWait" target="xS1">
+            <trigger xmi:type="uml:Trigger" xmi:id="xT2trig" event="evData"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="xT3" name="T" source="xS1" target="xFin">
+            <trigger xmi:type="uml:Trigger" xmi:id="xT3trig" event="evData"/>
+          </transition>`
+	report, s := refereeParameterSuite(t, "", body,
+		[]string{"S1.1(exit)[in=7]::S1.2(exit)[in=9]"},
+		sendData("5"), sendData("7"), sendData("9"))
+	wantPass(t, report.Tests[0])
+	m, err := Emit(s, s.Tests[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"in data : IntegerData = T.integerData ?? T_2.integerData;",
+		"in data : IntegerData = T.integerData;",
+		"transition T_2 first S1_S1_1 accept",
+		"transition T first S1 accept",
+	} {
+		if !strings.Contains(m.Text, want) {
+			t.Errorf("emitted text lacks %q:\n%s", want, m.Text)
+		}
+	}
+}
+
 // twoTraces writes an activity <tag> tracing `<segment>` first, then `<segment>`
 // and formatParameterValue of its one parameter: the second needs the input.
 func twoTraces(tag, id, segment string, p param) string {

@@ -58,22 +58,38 @@ func acceptedName(ev *Event, p Param) string {
 func (e *emitter) exitValue(binding *Binding, p Param) string {
 	reads := make([]string, len(binding.Triggers))
 	for i, t := range binding.Triggers {
-		reads[i] = spell(t.Name) + "." + acceptedName(binding.Event, p)
+		reads[i] = spell(e.named[t]) + "." + acceptedName(binding.Event, p)
 	}
 	return strings.Join(reads, " ?? ")
 }
 
-// nameExitTriggers marks the transitions whose payload a bound exit reads, so
-// they are declared by name.
+// nameExitTriggers names the transitions whose payload a bound exit reads, so
+// they are declared by name. Each name is unique in the machine, in region
+// order: a nested transition never shadows the one an outer exit reads.
 func (e *emitter) nameExitTriggers() {
-	e.named = map[*Transition]bool{}
+	read := map[*Transition]bool{}
 	for _, binding := range e.bindings.Bound {
 		if binding.Exit {
 			for _, t := range binding.Triggers {
-				e.named[t] = true
+				read[t] = true
 			}
 		}
 	}
+	e.named = map[*Transition]string{}
+	var visit func([]*Region)
+	visit = func(regions []*Region) {
+		for _, r := range regions {
+			for _, t := range r.Transitions {
+				if read[t] && t.Name != "" {
+					e.named[t] = e.take(t.Name)
+				}
+			}
+			for _, v := range r.Vertices {
+				visit(v.Regions)
+			}
+		}
+	}
+	visit(e.test.Machine.Regions)
 }
 
 // boundExit spells a state's bound exit as the text after `exit action`: like

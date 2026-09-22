@@ -1795,7 +1795,10 @@ payload into the frame every behavior of the firing reads (`state_statements.go:
 the taken transition's value, the null value for a transition not being taken, a `NoValueError`
 when the taken transition accepts `d` but bound nothing. The frame survives joins, queued
 events and nested exits (`state_exit_nested_reads_outer_transition`,
-`state_exit_shared_by_two_transitions`), a body snapshotted for a later read
+`state_exit_shared_by_two_transitions`; the transition is the one the name resolves to, so an
+outer transition a nested same-named one shadows is read qualified, `Machine::T.c`,
+`state_exit_shadowed_transition_name` — the emitter declares the transitions an exit reads by
+names unique in the machine instead), a body snapshotted for a later read
 (`frame.snapshot`, `state_exit_payload_deferred_read`) and the frames a predicate the state
 declares closes over (`invoke_predicate.go:flattenFrames`, `state_exit_payload_nested_predicate`),
 and a completion firing binds nothing, leaving the parameter's default

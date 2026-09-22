@@ -43,7 +43,7 @@ func Emit(s *Suite, t *Test) (*Model, error) {
 	if t.Machine == nil {
 		return nil, &TranslateError{Test: t.ID, Reason: "no state machine"}
 	}
-	e := &emitter{suite: s, test: t, names: map[*Vertex]string{}, signals: map[string]bool{}}
+	e := &emitter{suite: s, test: t, names: map[*Vertex]string{}, taken: map[string]bool{}, signals: map[string]bool{}}
 	e.nameVertices(t.Machine.Regions)
 	var body strings.Builder
 	if err := e.machine(&body); err != nil {
@@ -98,16 +98,19 @@ const machineName = "M"
 type emitter struct {
 	suite *Suite
 	test  *Test
-	// names are the emitted names of the machine's vertices, unique per machine.
+	// names are the emitted names of the machine's vertices, unique per machine;
+	// taken holds every emitted name, so a transition's collides with none.
 	names map[*Vertex]string
+	taken map[string]bool
 	// signals are the signals the model references, to be declared.
 	signals map[string]bool
 	// placed are transitions emitted in a scope other than their own region's;
 	// scopeOf is the region each transition is emitted in.
 	placed  map[*Region][]*Transition
 	scopeOf map[*Transition]*Region
-	// named are the transitions declared by name, for an exit to read their payload.
-	named map[*Transition]bool
+	// named are the emitted names of the transitions declared by name, for an
+	// exit to read their payload; unique per machine, so none shadows another.
+	named map[*Transition]string
 	// carried maps a triggered transition to the attribute its scalar payload is
 	// stored in, for a guard on a pseudostate downstream that reads it.
 	carried map[*Transition]string
@@ -139,7 +142,6 @@ func (e *emitter) fail(where, reason string) error {
 // suffixing a name two vertices share so each is one endpoint. An initial
 // pseudostate is named for the helper state startTarget may declare for it.
 func (e *emitter) nameVertices(regions []*Region) {
-	taken := map[string]bool{}
 	var visit func([]*Region)
 	visit = func(regions []*Region) {
 		for _, r := range regions {
@@ -151,17 +153,22 @@ func (e *emitter) nameVertices(regions []*Region) {
 				if v.Kind == VertexInitial {
 					base += "_start"
 				}
-				name := base
-				for n := 2; taken[name]; n++ {
-					name = fmt.Sprintf("%s_%d", base, n)
-				}
-				taken[name] = true
-				e.names[v] = name
+				e.names[v] = e.take(base)
 				visit(v.Regions)
 			}
 		}
 	}
 	visit(regions)
+}
+
+// take claims base as an emitted name, suffixed while an earlier name has it.
+func (e *emitter) take(base string) string {
+	name := base
+	for n := 2; e.taken[name]; n++ {
+		name = fmt.Sprintf("%s_%d", base, n)
+	}
+	e.taken[name] = true
+	return name
 }
 
 // identifier turns a vertex path such as "S1.S1.1" into a bare identifier,
@@ -783,8 +790,8 @@ func (e *emitter) transition(b *strings.Builder, ind string, t *Transition) erro
 			return err
 		}
 		name := ""
-		if e.named[t] {
-			name = spell(t.Name) + " "
+		if named := e.named[t]; named != "" {
+			name = spell(named) + " "
 		}
 		fmt.Fprintf(b, "%stransition %sfirst %s%s%s", ind, name, spell(source), accept, guard)
 		if len(effect) > 0 {

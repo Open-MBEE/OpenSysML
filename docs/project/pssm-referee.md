@@ -95,6 +95,9 @@ under [Behavior parameters, operation results, tester traces and standalone mach
   and `accept d : Data` declares `d` a feature of the transition, so the exit's parameter is
   bound to it by name — `exit action { in data : Data = 'T1.2'.data; }`, or `T3.d ?? T4.d` when
   several transitions leave the state, each reading as nothing while it is not the one taken.
+  The transitions an exit reads are declared by names unique in the machine, suffixed like
+  vertex names (`T`, `T_2`), so a nested transition never shadows the outer one a bare name
+  would otherwise reach first.
   The binding holds when every leaving transition whose data the signature takes accepts the one
   event; a completion or data-less path binds nothing, as PSSM §8.5.5 has it, and an exit left
   by such a path beside binding ones still runs on it: its inputs are declared `[0..1]` and only
