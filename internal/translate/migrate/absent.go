@@ -195,11 +195,11 @@ func (a *activity) mayLack(s *sysmlv1.Element) string {
 			return "the parameter " + a.m.nameFor(p) + " of " + qualifiedName(a.act) + ", which feeds it, admits no value"
 		}
 	case nodePin:
-		if !a.producesAt(s) {
-			return ""
-		}
 		if why, ok := a.m.admitsNone[s]; ok {
 			return "the pin " + describe(s) + " of " + describe(s.Parent) + ", which feeds it, admits no value: " + why
+		}
+		if !a.producesAt(s) {
+			return ""
 		}
 		if callee, p := a.calleeOutput(s); p != nil && a.m.lacksValue(p) {
 			return "the parameter " + a.m.nameFor(p) + " of " + qualifiedName(callee) + ", which feeds it through " + describe(s) + ", admits no value"

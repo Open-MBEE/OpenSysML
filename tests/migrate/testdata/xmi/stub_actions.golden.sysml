@@ -18,6 +18,7 @@ part def Rig {
         bind 'set last'.value = value;
     }
     action def Sampling {
+        out sample : ScalarValues::Real[0..1];
         first start then gain;
         action gain {
             out result = 2.5;
@@ -47,6 +48,7 @@ part def Rig {
         action final terminate;
         flow gain.result to measure.gain;
         flow measure.reading to record.value;
+        bind sample = measure.reading;
     }
 }
 allocate Rig::Sampling::measure to Rig::probe;

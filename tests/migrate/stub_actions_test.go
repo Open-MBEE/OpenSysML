@@ -66,6 +66,15 @@ func TestStubActionsInMethodsKeepTheirPinsAndAllocation(t *testing.T) {
 	wantClean(t, "t.sysml", r)
 }
 
+// An activity output fed only by a stub's output is declared admitting no value,
+// since the stub computes none, so the activity completes with it empty.
+func TestActivityOutputFedByStubAdmitsNoValue(t *testing.T) {
+	r := migrateFixtureFile(t, "stub_actions")
+	wantNote(t, r, "_sample", migrate.Approximated, "it is declared admitting no value: the pin 'reading' of 'measure', which feeds it, admits no value: the action calls no behavior, so nothing computes it")
+	wantLine(t, r.Notation, "out sample : ScalarValues::Real[0..1];")
+	wantLine(t, r.Notation, "bind sample = measure.reading;")
+}
+
 // danglingStubs is an activity whose call behavior actions are incompletely
 // serialized: one names a behavior the document has no element for, one owns a
 // pin typed by nothing the document resolves, and an object flow leaves a pin

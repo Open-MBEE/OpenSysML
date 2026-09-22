@@ -694,10 +694,7 @@ func (f *actionFrame) resultValue() (Value, error) {
 		return Value{}, fmt.Errorf("%w: %s declares no result to read it as a value by",
 			ErrNodePin, f.describe())
 	}
-	if value, ok := f.data[f.key(f.result)]; ok {
-		return value, nil
-	}
-	return Value{}, &NoValueError{Feature: f.path() + "." + f.result}
+	return f.pin(f.result)
 }
 
 // deliver stores a value at a pin of node, a node of flow in f, ahead of its next

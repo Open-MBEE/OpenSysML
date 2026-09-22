@@ -3,7 +3,8 @@
 // token on and leaves its `out reading [0..1]` empty. The flow from it carries
 // no value to `record.value`, which is declared admitting none, so `record`
 // runs with the parameter empty: the guarded assignment is skipped, `last` is
-// never written, and the activity completes rather than failing or waiting.
+// never written, and the activity completes rather than failing or waiting. Its
+// own `out sample [0..1]`, bound to the empty output, stays empty too.
 package test {
     private import ScalarValues::*;
     private import SequenceFunctions::*;
@@ -20,6 +21,7 @@ package test {
     }
 
     action def Sampling {
+        out sample : Real[0..1];
         attribute last : Real[0..1];
         attribute recorded : Boolean = false;
         attribute readings : Integer = 0;
@@ -42,5 +44,6 @@ package test {
 
         flow gain.result to measure.gain;
         flow measure.reading to record.value;
+        bind sample = measure.reading;
     }
 }

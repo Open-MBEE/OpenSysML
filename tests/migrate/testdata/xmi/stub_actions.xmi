@@ -29,8 +29,11 @@
         <edge xmi:type="uml:ObjectFlow" xmi:id="_rOf" source="_rApn" target="_rSetVal"/>
       </ownedBehavior>
 
-      <!-- Sampling feeds a gain to measure, which calls no behavior, and its reading to Record. -->
+      <!-- Sampling feeds a gain to measure, which calls no behavior, and its reading to Record and out as sample. -->
       <ownedBehavior xmi:type="uml:Activity" xmi:id="_sampling" name="Sampling">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_sample" name="sample" direction="out">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedParameter>
         <node xmi:type="uml:InitialNode" xmi:id="_init"/>
         <node xmi:type="uml:ValueSpecificationAction" xmi:id="_gain" name="gain">
           <value xmi:type="uml:LiteralReal" xmi:id="_gainVal" value="2.5"/>
@@ -52,6 +55,7 @@
           <argument xmi:type="uml:InputPin" xmi:id="_recordVal" name="value"/>
           <argument xmi:type="uml:InputPin" xmi:id="_recordStamp" name="stamp"/>
         </node>
+        <node xmi:type="uml:ActivityParameterNode" xmi:id="_sApn" name="sample" parameter="_sample"/>
         <node xmi:type="uml:ActivityFinalNode" xmi:id="_final"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_e1" source="_init" target="_gain"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_e2" source="_gain" target="_stamp"/>
@@ -61,6 +65,7 @@
         <edge xmi:type="uml:ObjectFlow" xmi:id="_of1" source="_gainOut" target="_measureIn"/>
         <edge xmi:type="uml:ObjectFlow" xmi:id="_of2" source="_measureOut" target="_recordVal"/>
         <edge xmi:type="uml:ObjectFlow" xmi:id="_of3" source="_stampOut" target="_recordStamp"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_of4" source="_measureOut" target="_sApn"/>
       </ownedBehavior>
     </packagedElement>
 
