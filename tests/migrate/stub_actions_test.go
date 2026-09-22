@@ -172,7 +172,7 @@ const mixedAllocation = `
         <edge xmi:type="uml:ControlFlow" xmi:id="_e3" source="_make" target="_final"/>
       </ownedBehavior>
     </packagedElement>
-    <packagedElement xmi:type="uml:Abstraction" xmi:id="_alloc">
+    <packagedElement xmi:type="uml:Abstraction" xmi:id="_alloc" name="wire">
       <client xmi:idref="_eye"/>
       <supplier xmi:idref="_scan"/>
       <supplier xmi:idref="_make"/>
@@ -183,15 +183,18 @@ const mixedAllocationApplications = `
   <sysml:Block xmi:id="_p2" base_Class="_rig"/>
   <sysml:Allocate xmi:id="_p3" base_Abstraction="_alloc"/>`
 
-// A pair ending at a placeholder counts against the relationship as one pair, not as
-// the whole: the pair to the written node keeps the «Allocate» approximated, and it
-// is unmapped only when every pair ends so.
+// A pair ending at a placeholder counts against the relationship as one failed pair,
+// not as the whole: the report says how many pairs were written and points at the
+// one that was, and the «Allocate» is unmapped only when every pair ends so.
 func TestPlaceholderEndFailsOnlyItsOwnPair(t *testing.T) {
 	r := migrateDocument(t, mixedAllocation, mixedAllocationApplications)
 	wantNote(t, r, "_make", migrate.Unmapped, "no v2 form for a UML CreateObjectAction")
-	wantNote(t, r, "_alloc", migrate.Approximated, "written as 2 relationships, one per client–supplier pair; its end Rig::Run::make is written only as a placeholder of a node that is not migrated")
-	wantLine(t, r.Notation, "allocate Rig::probe to Rig::Run::scan;")
-	wantLine(t, r.Notation, "allocate Rig::probe to Rig::Run::make;")
+	wantNote(t, r, "_alloc", migrate.Approximated, "1 of 2 relationships written; pair 2 is named wire 2 so the pairs stay distinct; its end Rig::Run::make is written only as a placeholder of a node that is not migrated")
+	if e := entriesFor(r, "_alloc"); len(e) != 1 || e[0].Target != "wire" {
+		t.Errorf("mixed allocation: got %+v, want target wire", e)
+	}
+	wantLine(t, r.Notation, "allocation wire allocate Rig::probe to Rig::Run::scan;")
+	wantLine(t, r.Notation, "allocation 'wire 2' allocate Rig::probe to Rig::Run::make;")
 	wantClean(t, "t.sysml", r)
 
 	only := strings.Replace(mixedAllocation, `<supplier xmi:idref="_scan"/>`, "", 1)

@@ -2310,8 +2310,8 @@ func (m *migration) flushFlows() {
 	}
 }
 
-// placeholderEnds settles the pairs ending at a node written only as a placeholder:
-// each is migrated no better than its end, and the relationship no better than its pairs.
+// placeholderEnds reports the relationships with activity-node ends once every node
+// is written: a pair ending at a placeholder is migrated no better than its end.
 func (m *migration) placeholderEnds() {
 	var rels []*sysmlv1.Element
 	for d := range m.nodeEnds {
@@ -2320,23 +2320,20 @@ func (m *migration) placeholderEnds() {
 	sort.Slice(rels, func(i, j int) bool { return rels[i].ID < rels[j].ID })
 	for _, d := range rels {
 		pl := m.nodeEnds[d]
-		for _, ends := range pl.nodePairs {
-			for _, end := range ends {
+		for _, p := range pl.nodePairs {
+			for _, end := range p.ends {
 				if !m.placeholders[end] {
 					continue
 				}
-				v := Approximated
 				if m.verdictOf(end) == Unmapped {
-					pl.written--
-					pl.failed++
-					if pl.written == 0 {
-						v = Unmapped
-					}
+					pl.fail(p.target)
 				}
-				m.add(d, v, "", "its end "+qualifiedName(end)+" is written only as a placeholder of a node that is not migrated")
+				pl.notes = append(pl.notes, "its end "+qualifiedName(end)+" is written only as a placeholder of a node that is not migrated")
 				break
 			}
 		}
+		v, target, note := pl.verdict()
+		m.add(d, v, target, note)
 	}
 }
 
@@ -2422,13 +2419,32 @@ func (m *migration) dependencyPairs(d *sysmlv1.Element) (pairs []pair, failed in
 	return pairs, total - len(pairs), missing
 }
 
-// placement is the outcome of placing a relationship: how many pairs were written and
-// where, why the others could not be, and the activity nodes each written pair ends at.
+// placement is the outcome of placing a relationship: the v2 target of each pair
+// written, how many pairs could not be and why, and the pairs ending at activity nodes.
 type placement struct {
-	written, failed int
-	target          string
-	notes           []string
-	nodePairs       [][]*sysmlv1.Element
+	targets   []string
+	failed    int
+	notes     []string
+	nodePairs []nodePair
+}
+
+// nodePair is a written pair with the activity nodes among its ends.
+type nodePair struct {
+	ends   []*sysmlv1.Element
+	target string
+}
+
+// write counts a pair written at target; fail retracts one written at target.
+func (pl *placement) write(target string) { pl.targets = append(pl.targets, target) }
+
+func (pl *placement) fail(target string) {
+	for i, t := range pl.targets {
+		if t == target {
+			pl.targets = append(pl.targets[:i], pl.targets[i+1:]...)
+			break
+		}
+	}
+	pl.failed++
 }
 
 // placeDependency registers, ahead of writing, a Satisfy or Verify in the body
@@ -2455,8 +2471,7 @@ func (m *migration) placeDependency(d *sysmlv1.Element) {
 			target, note, ok = m.verify(d, p.client, p.supplier, name)
 		}
 		if ok {
-			pl.written++
-			pl.target = target
+			pl.write(target)
 		} else {
 			pl.failed++
 		}
@@ -2504,8 +2519,7 @@ func (m *migration) dependency(d *sysmlv1.Element) {
 		}
 		target, written, note := m.dependencyPair(d, pl, name, p.client, p.supplier)
 		if written {
-			pl.written++
-			pl.target = target
+			pl.write(target)
 		} else {
 			pl.failed++
 		}
@@ -2513,12 +2527,13 @@ func (m *migration) dependency(d *sysmlv1.Element) {
 			pl.notes = append(pl.notes, note)
 		}
 	}
-	m.relationship(d, pl)
-	if pl.written > 0 {
-		m.stereotypeComments(d)
-	}
 	if len(pl.nodePairs) > 0 {
 		m.nodeEnds[d] = pl
+	} else {
+		m.relationship(d, pl)
+	}
+	if len(pl.targets) > 0 {
+		m.stereotypeComments(d)
 	}
 }
 
@@ -2533,23 +2548,34 @@ func (m *migration) freshName(owner *sysmlv1.Element, name string) string {
 	return name
 }
 
-// relationship appends the one report entry of a relationship: mapped when every
-// pair was written, approximated when some were, unmapped when none.
+// relationship appends the one report entry of a relationship, leaving a trace
+// comment where it stands when no pair was written.
 func (m *migration) relationship(d *sysmlv1.Element, pl *placement) {
-	note := strings.Join(uniqueStrings(pl.notes), "; ")
-	target := ""
-	if pl.written == 1 {
-		target = pl.target
+	v, target, note := pl.verdict()
+	if v == Unmapped {
+		m.unmapped(d, note)
+		return
+	}
+	m.add(d, v, target, note)
+}
+
+// verdict derives a relationship's report entry from its placement: mapped when
+// every pair was written, approximated when some were, unmapped when none.
+func (pl *placement) verdict() (v Verdict, target, note string) {
+	note = strings.Join(uniqueStrings(pl.notes), "; ")
+	written := len(pl.targets)
+	if written == 1 {
+		target = pl.targets[0]
 	}
 	switch {
-	case pl.written == 0:
-		m.unmapped(d, note)
+	case written == 0:
+		return Unmapped, "", note
 	case pl.failed > 0:
-		m.add(d, Approximated, target, fmt.Sprintf("%d of %d relationships written; %s", pl.written, pl.written+pl.failed, note))
-	case pl.written > 1:
-		m.add(d, Approximated, "", fmt.Sprintf("written as %d relationships, one per client–supplier pair", pl.written))
+		return Approximated, target, fmt.Sprintf("%d of %d relationships written; %s", written, written+pl.failed, note)
+	case written > 1:
+		return Approximated, "", joinNotes(fmt.Sprintf("written as %d relationships, one per client–supplier pair", written), note)
 	default:
-		m.add(d, verdictFor(note), target, note)
+		return verdictFor(note), target, note
 	}
 }
 
@@ -2582,13 +2608,13 @@ func (m *migration) dependencyPair(d *sysmlv1.Element, pl *placement, name strin
 			nodes = append(nodes, end)
 		}
 	}
-	if len(nodes) > 0 {
-		pl.nodePairs = append(pl.nodePairs, nodes)
-	}
 	from, to := m.ref(client, m.scope), m.ref(supplier, m.scope)
 	target := ""
 	if name != "" {
 		target = m.qualified(append(m.segments(m.scope), name))
+	}
+	if len(nodes) > 0 {
+		pl.nodePairs = append(pl.nodePairs, nodePair{nodes, target})
 	}
 	decl := "dependency "
 	if name != "" {
