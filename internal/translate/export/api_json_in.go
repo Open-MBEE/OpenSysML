@@ -170,7 +170,8 @@ func apiJSONObjectOf(dec *json.Decoder) (apiJSONElementData, error) {
 			return object, fmt.Errorf("the key %q is not a keyword this document carries", key)
 		default:
 			if key == "qualifiedName" {
-				object.qualifiedName = true
+				text, ok := value.(string)
+				object.qualifiedName = ok && text != ""
 			}
 			object.members = append(object.members, apiJSONMember{key: key, value: value})
 		}

@@ -299,13 +299,15 @@ func TestReadAPIJSONExpressionClassification(t *testing.T) {
 		{"@type": "LiteralRational", "@id": "X_pvalue", "value": 0.0},
 		{"@type": "OwningMembership", "@id": "X_pvalue_om", "memberElement": {"@id": "X_pvalue"}},
 		{"@type": "LiteralRational", "@id": "Y_pvalue", "qualifiedName": "Y::pvalue"},
-		{"@type": "PartUsage", "@id": "A_pfoo"}
+		{"@type": "PartUsage", "@id": "A_pfoo"},
+		{"@type": "AttributeUsage", "@id": "W", "value": {"@id": "X_p2"}},
+		{"@type": "LiteralRational", "@id": "X_p2", "qualifiedName": null, "value": 1.0}
 	]`
 	graph, err := export.ReadAPIJSON([]byte(document))
 	if err != nil {
 		t.Fatalf("ReadAPIJSON: %v", err)
 	}
-	for _, expr := range []string{"X_pvalue", "X_pvalue_om"} {
+	for _, expr := range []string{"X_pvalue", "X_pvalue_om", "X_p2"} {
 		subject := rdf.IRI(rdf.Expression + expr)
 		if len(graph.Predicates(subject)) == 0 {
 			t.Errorf("%q is not an expression-namespace subject:\n%s", expr, rdf.WriteTurtle(graph))
@@ -321,6 +323,11 @@ func TestReadAPIJSONExpressionClassification(t *testing.T) {
 	value, ok := graph.Object(owner, rdf.SysML+"value")
 	if !ok || value.Value != rdf.Expression+"X_pvalue" {
 		t.Errorf("X's reference to X_pvalue = %v, want the expression IRI", value)
+	}
+	w := rdf.ElementIRIForID("W")
+	value, ok = graph.Object(w, rdf.SysML+"value")
+	if !ok || value.Value != rdf.Expression+"X_p2" {
+		t.Errorf("W's reference to X_p2 = %v, want the expression IRI", value)
 	}
 }
 
