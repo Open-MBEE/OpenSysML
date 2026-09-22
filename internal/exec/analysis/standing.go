@@ -47,9 +47,6 @@ func (r Result) evidence() string {
 	}
 	if c := r.Check(); c != nil {
 		parts = append(parts, fmt.Sprintf("%s, %s searched", plural(c.Report.States, "state"), plural(c.Report.Moves, "move")))
-		if len(c.Report.NotEnumerated) > 0 {
-			parts = append(parts, "not enumerated: "+strings.Join(c.Report.NotEnumerated, ", "))
-		}
 	}
 	if w := r.Witness; w != nil && (len(w.Choices) > 0 || len(w.Draws) > 0 || len(w.Inputs) > 0) {
 		parts = append(parts, "witness of "+witnessSize(w)+" replayed")

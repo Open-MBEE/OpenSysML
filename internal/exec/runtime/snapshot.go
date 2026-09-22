@@ -439,7 +439,6 @@ type actionCapture struct {
 	steps, stepsSpent int64
 	inRun, held       bool
 	moved             bool
-	leftStanding      bool
 	awaiting          *actionFrame
 	outputListeners   []outputListener
 	firedBreakpoints  mapState[breakpointVisit, bool]
@@ -460,7 +459,6 @@ func (e *ActionExecutor) capture() actionCapture {
 		nextTokenID: e.nextTokenID, stepCount: e.stepCount, sweep: e.sweep, sweeps: e.sweeps,
 		pausedAt: e.pausedAt, released: e.released, pauses: e.pauses,
 		steps: e.steps, stepsSpent: e.stepsSpent, inRun: e.inRun, held: e.held, moved: e.moved, awaiting: e.awaiting,
-		leftStanding:     e.leftStanding,
 		outputListeners:  slices.Clone(e.outputListeners),
 		firedBreakpoints: captureMap(e.firedBreakpoints),
 		traversals:       cloneTraversals(e.traversals),
@@ -480,7 +478,7 @@ func (c actionCapture) restore() {
 	e.state, e.nextTokenID, e.stepCount, e.sweep, e.sweeps = c.state, c.nextTokenID, c.stepCount, c.sweep, c.sweeps
 	e.pausedAt, e.released, e.pauses = c.pausedAt, c.released, c.pauses
 	e.steps, e.stepsSpent, e.inRun, e.held = c.steps, c.stepsSpent, c.inRun, c.held
-	e.moved, e.awaiting, e.leftStanding = c.moved, c.awaiting, c.leftStanding
+	e.moved, e.awaiting = c.moved, c.awaiting
 	e.outputListeners = slices.Clone(c.outputListeners)
 	e.firedBreakpoints = c.firedBreakpoints.restore()
 	e.traversals, e.traversalBase = cloneTraversals(c.traversals), c.traversalBase
@@ -636,8 +634,6 @@ type stateCapture struct {
 	lastDispatch       *Dispatch
 	lastEventAt        float64
 	doActions          []doActionCapture
-	round              []*doAction
-	roundDone          bool
 	machineExited      bool
 	driven             *runState
 	inRun, moved       bool
@@ -687,8 +683,6 @@ func (e *StateExecutor) capture() stateCapture {
 		deferred:           slices.Clone(e.deferred),
 		lastDispatch:       cloneDispatch(e.lastDispatch),
 		lastEventAt:        e.lastEventAt,
-		round:              slices.Clone(e.round),
-		roundDone:          e.roundDone,
 		machineExited:      e.machineExited,
 		driven:             e.driven.state,
 		inRun:              e.inRun,
@@ -752,7 +746,6 @@ func (c stateCapture) restore() {
 			act.body.restore()
 		}
 	}
-	e.round, e.roundDone = slices.Clone(c.round), c.roundDone
 	e.machineExited, e.driven.state, e.inRun, e.moved = c.machineExited, c.driven, c.inRun, c.moved
 	e.driven.stir(0)
 	e.timerScheduled = c.timerScheduled.restore()

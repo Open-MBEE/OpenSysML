@@ -59,11 +59,10 @@ func nestedStateStarterOf(part, sym *symbols.Symbol, path string, horizon Horizo
 // Every witness of a check over a state whose `do` body loops through timed
 // waits replays to its trace: at the round the body's branches are due together
 // the timed exit is due too, and the moves the checker records there — the step
-// order between the body and the exit, then the token order — are the moves replay
-// makes, whether the machine runs at top level or on a part nested in another.
-// The check diverges over `left` (the exit before or after the step) and is not
-// exhaustive: the step moves one token, and the fixed policies' run — the round
-// finished first — is the interleaving it names as not enumerated.
+// order between the body and the exit after each token move, and the token order
+// — are the moves replay makes, whether the machine runs at top level or on a part
+// nested in another. The check diverges over `left` and `right`: the exit before
+// either branch wrote, after one, or after both.
 func TestCheckWitnessesOfALoopingDoRoundReplay(t *testing.T) {
 	for _, nested := range []bool{false, true} {
 		name := "top-level"
@@ -85,11 +84,15 @@ func TestCheckWitnessesOfALoopingDoRoundReplay(t *testing.T) {
 			if report.Verdict != CheckDivergent || len(report.Finals) == 0 || len(report.Violations) != 0 {
 				t.Fatalf("check: %s, want no violation, divergent, with finals", report.Status())
 			}
-			if len(report.BoundsHit) != 0 || !slices.Equal(report.NotEnumerated, []string{NotEnumeratedDoRound}) {
-				t.Fatalf("check: %s, want no bound hit and the do round before the dispatch not enumerated", report.Status())
+			if len(report.BoundsHit) != 0 {
+				t.Fatalf("check: %s, want no bound hit", report.Status())
 			}
-			if len(report.Divergent) != 1 || report.Divergent[0].Feature != "left" {
-				t.Fatalf("divergent %v, want left alone: the exit drawn before or after the step", report.Divergent)
+			features := make([]string, 0, len(report.Divergent))
+			for _, d := range report.Divergent {
+				features = append(features, d.Feature)
+			}
+			if !slices.Equal(features, []string{"left", "right"}) {
+				t.Fatalf("divergent %v, want left and right: the exit drawn before, between or after the branches' moves", report.Divergent)
 			}
 			for _, final := range report.Finals {
 				if final.Values["finalState"] != "heard+finished" || final.Values["late"] != "1" {

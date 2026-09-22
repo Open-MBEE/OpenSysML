@@ -241,6 +241,9 @@ func (c *refCollector) namespaceDecl(scope *symbols.Scope, decl ast.Node) bool {
 		for _, sp := range d.Suppliers {
 			c.add(scope, sp)
 		}
+		if child := c.childScope(scope, d); child != nil {
+			c.walkMembers(child, d.Body)
+		}
 		return true
 	case *ast.MultiplicityDecl:
 		c.multiplicity(scope, d.Range)

@@ -203,11 +203,26 @@ elmt:Synonyms___407
     sysml:owner elmt:Synonyms ;
     sysml:owningRelationship elmt:Synonyms___407_om ;
     sysml:owningMembership elmt:Synonyms___407_om ;
-    sysx:relatedFeature expr:Synonyms___407_pend0, expr:Synonyms___407_pend1 ;
+    sysml:connectorEnd expr:Synonyms___407_pend0, expr:Synonyms___407_pend1 ;
+    sysml:ownedRelationship expr:Synonyms___407_pend0_om, expr:Synonyms___407_pend1_om ;
+    sysml:ownedMembership expr:Synonyms___407_pend0_om, expr:Synonyms___407_pend1_om ;
+    sysml:ownedFeatureMembership expr:Synonyms___407_pend0_om, expr:Synonyms___407_pend1_om ;
+    sysml:ownedFeature expr:Synonyms___407_pend0, expr:Synonyms___407_pend1 ;
+    sysml:ownedEndFeature expr:Synonyms___407_pend0, expr:Synonyms___407_pend1 ;
+    sysml:relatedFeature elmt:Synonyms__reading, elmt:Synonyms__base ;
+    sysml:sourceFeature elmt:Synonyms__reading ;
+    sysml:targetFeature elmt:Synonyms__base ;
     sysx:endForm "to" ;
     sysx:declaredKeyword "allocate" ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysx:sourceText "    allocate reading to base;\n" .
+    sysx:sourceText "    allocate reading to base;\n" ;
+    json:connectorEnd "[{\"@id\":\"Synonyms___407_pend0\"},{\"@id\":\"Synonyms___407_pend1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Synonyms___407_pend0_om\"},{\"@id\":\"Synonyms___407_pend1_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Synonyms___407_pend0_om\"},{\"@id\":\"Synonyms___407_pend1_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Synonyms___407_pend0_om\"},{\"@id\":\"Synonyms___407_pend1_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Synonyms___407_pend0\"},{\"@id\":\"Synonyms___407_pend1\"}]" ;
+    json:ownedEndFeature "[{\"@id\":\"Synonyms___407_pend0\"},{\"@id\":\"Synonyms___407_pend1\"}]" ;
+    json:relatedFeature "[{\"@id\":\"Synonyms__reading\"},{\"@id\":\"Synonyms__base\"}]" .
 
 elmt:Synonyms___407_om
     a sysml:OwningMembership ;
@@ -220,18 +235,86 @@ elmt:Synonyms___407_om
     sysml:membershipOwningNamespace elmt:Synonyms .
 
 expr:Synonyms___407_pend0
-    a sysml:FeatureReferenceExpression ;
-    sysx:sourceText "reading" ;
+    a sysml:ReferenceUsage ;
     sysml:elementId "Synonyms___407_pend0" ;
-    sysml:referent elmt:Synonyms__reading ;
-    sysx:endIndex "0"^^xsd:integer .
+    sysml:isEnd "true"^^xsd:boolean ;
+    sysml:owner elmt:Synonyms___407 ;
+    sysml:owningRelationship expr:Synonyms___407_pend0_om ;
+    sysml:owningMembership expr:Synonyms___407_pend0_om ;
+    sysx:sourceText "reading" ;
+    sysml:ownedReferenceSubsetting expr:Synonyms___407_pend0_prs ;
+    sysml:ownedSubsetting expr:Synonyms___407_pend0_prs ;
+    sysml:ownedSpecialization expr:Synonyms___407_pend0_prs ;
+    sysml:ownedRelationship expr:Synonyms___407_pend0_prs .
+
+expr:Synonyms___407_pend0_om
+    a sysml:EndFeatureMembership ;
+    sysml:elementId "Synonyms___407_pend0_om" ;
+    sysml:owner elmt:Synonyms___407 ;
+    sysml:memberElement expr:Synonyms___407_pend0 ;
+    sysml:ownedMemberElement expr:Synonyms___407_pend0 ;
+    sysml:ownedRelatedElement expr:Synonyms___407_pend0 ;
+    sysml:owningRelatedElement elmt:Synonyms___407 ;
+    sysml:membershipOwningNamespace elmt:Synonyms___407 .
+
+expr:Synonyms___407_pend0_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "Synonyms___407_pend0_prs" ;
+    sysml:referencingFeature expr:Synonyms___407_pend0 ;
+    sysml:subsettingFeature expr:Synonyms___407_pend0 ;
+    sysml:specific expr:Synonyms___407_pend0 ;
+    sysml:source expr:Synonyms___407_pend0 ;
+    sysml:owningFeature expr:Synonyms___407_pend0 ;
+    sysml:owningType expr:Synonyms___407_pend0 ;
+    sysml:referencedFeature elmt:Synonyms__reading ;
+    sysml:subsettedFeature elmt:Synonyms__reading ;
+    sysml:general elmt:Synonyms__reading ;
+    sysml:target elmt:Synonyms__reading ;
+    sysml:relatedElement expr:Synonyms___407_pend0, elmt:Synonyms__reading ;
+    sysml:owner expr:Synonyms___407_pend0 ;
+    sysml:owningRelatedElement expr:Synonyms___407_pend0 ;
+    json:relatedElement "[{\"@id\":\"Synonyms___407_pend0\"},{\"@id\":\"Synonyms__reading\"}]" .
 
 expr:Synonyms___407_pend1
-    a sysml:FeatureReferenceExpression ;
-    sysx:sourceText "base" ;
+    a sysml:ReferenceUsage ;
     sysml:elementId "Synonyms___407_pend1" ;
-    sysml:referent elmt:Synonyms__base ;
-    sysx:endIndex "1"^^xsd:integer .
+    sysml:isEnd "true"^^xsd:boolean ;
+    sysml:owner elmt:Synonyms___407 ;
+    sysml:owningRelationship expr:Synonyms___407_pend1_om ;
+    sysml:owningMembership expr:Synonyms___407_pend1_om ;
+    sysx:sourceText "base" ;
+    sysml:ownedReferenceSubsetting expr:Synonyms___407_pend1_prs ;
+    sysml:ownedSubsetting expr:Synonyms___407_pend1_prs ;
+    sysml:ownedSpecialization expr:Synonyms___407_pend1_prs ;
+    sysml:ownedRelationship expr:Synonyms___407_pend1_prs .
+
+expr:Synonyms___407_pend1_om
+    a sysml:EndFeatureMembership ;
+    sysml:elementId "Synonyms___407_pend1_om" ;
+    sysml:owner elmt:Synonyms___407 ;
+    sysml:memberElement expr:Synonyms___407_pend1 ;
+    sysml:ownedMemberElement expr:Synonyms___407_pend1 ;
+    sysml:ownedRelatedElement expr:Synonyms___407_pend1 ;
+    sysml:owningRelatedElement elmt:Synonyms___407 ;
+    sysml:membershipOwningNamespace elmt:Synonyms___407 .
+
+expr:Synonyms___407_pend1_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "Synonyms___407_pend1_prs" ;
+    sysml:referencingFeature expr:Synonyms___407_pend1 ;
+    sysml:subsettingFeature expr:Synonyms___407_pend1 ;
+    sysml:specific expr:Synonyms___407_pend1 ;
+    sysml:source expr:Synonyms___407_pend1 ;
+    sysml:owningFeature expr:Synonyms___407_pend1 ;
+    sysml:owningType expr:Synonyms___407_pend1 ;
+    sysml:referencedFeature elmt:Synonyms__base ;
+    sysml:subsettedFeature elmt:Synonyms__base ;
+    sysml:general elmt:Synonyms__base ;
+    sysml:target elmt:Synonyms__base ;
+    sysml:relatedElement expr:Synonyms___407_pend1, elmt:Synonyms__base ;
+    sysml:owner expr:Synonyms___407_pend1 ;
+    sysml:owningRelatedElement expr:Synonyms___407_pend1 ;
+    json:relatedElement "[{\"@id\":\"Synonyms___407_pend1\"},{\"@id\":\"Synonyms__base\"}]" .
 
 elmt:Synonyms__Drive
     a sysml:UseCaseDefinition ;

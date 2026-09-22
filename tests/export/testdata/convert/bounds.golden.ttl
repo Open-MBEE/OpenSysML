@@ -92,6 +92,8 @@ elmt:Bounds__Fleet__exact
     sysml:declaredName "exact" ;
     sysml:type elmt:Bounds__Vehicle ;
     sysml:upperBound expr:Bounds__Fleet__exact_pupperBound ;
+    sysml:ownedRelationship expr:Bounds__Fleet__exact_pupperBound_om ;
+    sysml:ownedMembership expr:Bounds__Fleet__exact_pupperBound_om ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        part exact : Vehicle[3];\n" .
 
@@ -111,7 +113,20 @@ expr:Bounds__Fleet__exact_pupperBound
     a sysml:LiteralInteger ;
     sysx:sourceText "3" ;
     sysml:elementId "Bounds__Fleet__exact_pupperBound" ;
-    sysml:value "3"^^xsd:integer .
+    sysml:value "3"^^xsd:integer ;
+    sysml:owner elmt:Bounds__Fleet__exact ;
+    sysml:owningRelationship expr:Bounds__Fleet__exact_pupperBound_om ;
+    sysml:owningMembership expr:Bounds__Fleet__exact_pupperBound_om .
+
+expr:Bounds__Fleet__exact_pupperBound_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Bounds__Fleet__exact_pupperBound_om" ;
+    sysml:owner elmt:Bounds__Fleet__exact ;
+    sysml:memberElement expr:Bounds__Fleet__exact_pupperBound ;
+    sysml:ownedMemberElement expr:Bounds__Fleet__exact_pupperBound ;
+    sysml:ownedRelatedElement expr:Bounds__Fleet__exact_pupperBound ;
+    sysml:owningRelatedElement elmt:Bounds__Fleet__exact ;
+    sysml:membershipOwningNamespace elmt:Bounds__Fleet__exact .
 
 elmt:Bounds__Fleet__range
     a sysml:PartUsage ;
@@ -125,9 +140,13 @@ elmt:Bounds__Fleet__range
     sysml:declaredName "range" ;
     sysml:type elmt:Bounds__Vehicle ;
     sysml:lowerBound expr:Bounds__Fleet__range_plowerBound ;
+    sysml:ownedRelationship expr:Bounds__Fleet__range_plowerBound_om, expr:Bounds__Fleet__range_pupperBound_om ;
+    sysml:ownedMembership expr:Bounds__Fleet__range_plowerBound_om, expr:Bounds__Fleet__range_pupperBound_om ;
     sysml:upperBound expr:Bounds__Fleet__range_pupperBound ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysx:sourceText "        part range : Vehicle[1..4];\n" .
+    sysx:sourceText "        part range : Vehicle[1..4];\n" ;
+    json:ownedRelationship "[{\"@id\":\"Bounds__Fleet__range_plowerBound_om\"},{\"@id\":\"Bounds__Fleet__range_pupperBound_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Bounds__Fleet__range_plowerBound_om\"},{\"@id\":\"Bounds__Fleet__range_pupperBound_om\"}]" .
 
 elmt:Bounds__Fleet__range_om
     a sysml:FeatureMembership ;
@@ -145,13 +164,39 @@ expr:Bounds__Fleet__range_plowerBound
     a sysml:LiteralInteger ;
     sysx:sourceText "1" ;
     sysml:elementId "Bounds__Fleet__range_plowerBound" ;
-    sysml:value "1"^^xsd:integer .
+    sysml:value "1"^^xsd:integer ;
+    sysml:owner elmt:Bounds__Fleet__range ;
+    sysml:owningRelationship expr:Bounds__Fleet__range_plowerBound_om ;
+    sysml:owningMembership expr:Bounds__Fleet__range_plowerBound_om .
+
+expr:Bounds__Fleet__range_plowerBound_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Bounds__Fleet__range_plowerBound_om" ;
+    sysml:owner elmt:Bounds__Fleet__range ;
+    sysml:memberElement expr:Bounds__Fleet__range_plowerBound ;
+    sysml:ownedMemberElement expr:Bounds__Fleet__range_plowerBound ;
+    sysml:ownedRelatedElement expr:Bounds__Fleet__range_plowerBound ;
+    sysml:owningRelatedElement elmt:Bounds__Fleet__range ;
+    sysml:membershipOwningNamespace elmt:Bounds__Fleet__range .
 
 expr:Bounds__Fleet__range_pupperBound
     a sysml:LiteralInteger ;
     sysx:sourceText "4" ;
     sysml:elementId "Bounds__Fleet__range_pupperBound" ;
-    sysml:value "4"^^xsd:integer .
+    sysml:value "4"^^xsd:integer ;
+    sysml:owner elmt:Bounds__Fleet__range ;
+    sysml:owningRelationship expr:Bounds__Fleet__range_pupperBound_om ;
+    sysml:owningMembership expr:Bounds__Fleet__range_pupperBound_om .
+
+expr:Bounds__Fleet__range_pupperBound_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Bounds__Fleet__range_pupperBound_om" ;
+    sysml:owner elmt:Bounds__Fleet__range ;
+    sysml:memberElement expr:Bounds__Fleet__range_pupperBound ;
+    sysml:ownedMemberElement expr:Bounds__Fleet__range_pupperBound ;
+    sysml:ownedRelatedElement expr:Bounds__Fleet__range_pupperBound ;
+    sysml:owningRelatedElement elmt:Bounds__Fleet__range ;
+    sysml:membershipOwningNamespace elmt:Bounds__Fleet__range .
 
 elmt:Bounds__Fleet__many
     a sysml:PartUsage ;
@@ -165,9 +210,13 @@ elmt:Bounds__Fleet__many
     sysml:declaredName "many" ;
     sysml:type elmt:Bounds__Vehicle ;
     sysml:lowerBound expr:Bounds__Fleet__many_plowerBound ;
+    sysml:ownedRelationship expr:Bounds__Fleet__many_plowerBound_om, expr:Bounds__Fleet__many_pupperBound_om ;
+    sysml:ownedMembership expr:Bounds__Fleet__many_plowerBound_om, expr:Bounds__Fleet__many_pupperBound_om ;
     sysml:upperBound expr:Bounds__Fleet__many_pupperBound ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysx:sourceText "        part many : Vehicle[0..*];\n" .
+    sysx:sourceText "        part many : Vehicle[0..*];\n" ;
+    json:ownedRelationship "[{\"@id\":\"Bounds__Fleet__many_plowerBound_om\"},{\"@id\":\"Bounds__Fleet__many_pupperBound_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Bounds__Fleet__many_plowerBound_om\"},{\"@id\":\"Bounds__Fleet__many_pupperBound_om\"}]" .
 
 elmt:Bounds__Fleet__many_om
     a sysml:FeatureMembership ;
@@ -185,12 +234,38 @@ expr:Bounds__Fleet__many_plowerBound
     a sysml:LiteralInteger ;
     sysx:sourceText "0" ;
     sysml:elementId "Bounds__Fleet__many_plowerBound" ;
-    sysml:value "0"^^xsd:integer .
+    sysml:value "0"^^xsd:integer ;
+    sysml:owner elmt:Bounds__Fleet__many ;
+    sysml:owningRelationship expr:Bounds__Fleet__many_plowerBound_om ;
+    sysml:owningMembership expr:Bounds__Fleet__many_plowerBound_om .
+
+expr:Bounds__Fleet__many_plowerBound_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Bounds__Fleet__many_plowerBound_om" ;
+    sysml:owner elmt:Bounds__Fleet__many ;
+    sysml:memberElement expr:Bounds__Fleet__many_plowerBound ;
+    sysml:ownedMemberElement expr:Bounds__Fleet__many_plowerBound ;
+    sysml:ownedRelatedElement expr:Bounds__Fleet__many_plowerBound ;
+    sysml:owningRelatedElement elmt:Bounds__Fleet__many ;
+    sysml:membershipOwningNamespace elmt:Bounds__Fleet__many .
 
 expr:Bounds__Fleet__many_pupperBound
     a sysml:LiteralInfinity ;
     sysx:sourceText "*" ;
-    sysml:elementId "Bounds__Fleet__many_pupperBound" .
+    sysml:elementId "Bounds__Fleet__many_pupperBound" ;
+    sysml:owner elmt:Bounds__Fleet__many ;
+    sysml:owningRelationship expr:Bounds__Fleet__many_pupperBound_om ;
+    sysml:owningMembership expr:Bounds__Fleet__many_pupperBound_om .
+
+expr:Bounds__Fleet__many_pupperBound_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Bounds__Fleet__many_pupperBound_om" ;
+    sysml:owner elmt:Bounds__Fleet__many ;
+    sysml:memberElement expr:Bounds__Fleet__many_pupperBound ;
+    sysml:ownedMemberElement expr:Bounds__Fleet__many_pupperBound ;
+    sysml:ownedRelatedElement expr:Bounds__Fleet__many_pupperBound ;
+    sysml:owningRelatedElement elmt:Bounds__Fleet__many ;
+    sysml:membershipOwningNamespace elmt:Bounds__Fleet__many .
 
 elmt:Bounds__Fleet__loose
     a sysml:PartUsage ;
@@ -206,6 +281,8 @@ elmt:Bounds__Fleet__loose
     sysml:isNonunique "true"^^xsd:boolean ;
     sysml:type elmt:Bounds__Vehicle ;
     sysml:upperBound expr:Bounds__Fleet__loose_pupperBound ;
+    sysml:ownedRelationship expr:Bounds__Fleet__loose_pupperBound_om ;
+    sysml:ownedMembership expr:Bounds__Fleet__loose_pupperBound_om ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        part loose : Vehicle[*] ordered nonunique;\n" .
 
@@ -224,7 +301,20 @@ elmt:Bounds__Fleet__loose_om
 expr:Bounds__Fleet__loose_pupperBound
     a sysml:LiteralInfinity ;
     sysx:sourceText "*" ;
-    sysml:elementId "Bounds__Fleet__loose_pupperBound" .
+    sysml:elementId "Bounds__Fleet__loose_pupperBound" ;
+    sysml:owner elmt:Bounds__Fleet__loose ;
+    sysml:owningRelationship expr:Bounds__Fleet__loose_pupperBound_om ;
+    sysml:owningMembership expr:Bounds__Fleet__loose_pupperBound_om .
+
+expr:Bounds__Fleet__loose_pupperBound_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Bounds__Fleet__loose_pupperBound_om" ;
+    sysml:owner elmt:Bounds__Fleet__loose ;
+    sysml:memberElement expr:Bounds__Fleet__loose_pupperBound ;
+    sysml:ownedMemberElement expr:Bounds__Fleet__loose_pupperBound ;
+    sysml:ownedRelatedElement expr:Bounds__Fleet__loose_pupperBound ;
+    sysml:owningRelatedElement elmt:Bounds__Fleet__loose ;
+    sysml:membershipOwningNamespace elmt:Bounds__Fleet__loose .
 
 elmt:Bounds__Fleet__shared
     a sysml:PartUsage ;

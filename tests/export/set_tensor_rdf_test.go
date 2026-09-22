@@ -35,11 +35,11 @@ func TestSetAndTensorValuesRoundTripAsExpressions(t *testing.T) {
 	turtle := roundTripsExactly(t, setTensorModel)
 	text := string(turtle)
 	for _, want := range []string{
-		`sysml:redefines "elements"`,
+		`sysml:redefines <urn:sysmlv2:element:1a996431-c5cc-56a5-9150-8dbb661e85ee>`,
 		"a sysml:OperatorExpression ;\n    sysx:sourceText \"(3, 1, 2, 2, 3)\"",
 		`sysx:sourceText "()"`,
 		"a sysml:InvocationExpression ;\n    sysx:sourceText \"TensorCalculations::'['((1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0), cubeRef)\"",
-		`sysml:function "TensorCalculations::["`,
+		`sysml:function <urn:sysmlv2:element:911214e1-b9f1-517c-9ff0-7c0d743cdd16>`,
 		`sysx:sourceText "cube#(2, 1, 2)"`,
 	} {
 		if !strings.Contains(text, want) {

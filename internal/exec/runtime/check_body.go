@@ -25,12 +25,15 @@ func (s *stateSpeller) body(run *bodyRun) string {
 	return b.String()
 }
 
-// pause spells why a body paused: the statement boundary it yielded at, the
-// breakpoint it met, or the wait it is in — the callee held by its caller, whole,
-// else the performance whose flow waits.
+// pause spells why a body paused: the statement boundary it yielded at, the token
+// move it stepped, the breakpoint it met, or the wait it is in — the callee held by
+// its caller, whole, else the performance whose flow waits.
 func (s *stateSpeller) pause(p bodyPause) string {
 	if p.yielded {
 		return "yielded between statements"
+	}
+	if p.tokenStep {
+		return "paused between two moves of its flow"
 	}
 	if !p.onWait {
 		return fmt.Sprintf("at breakpoint %q", p.breakpoint)

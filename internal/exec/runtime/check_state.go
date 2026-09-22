@@ -243,19 +243,10 @@ func (s *stateSpeller) machine(e *StateExecutor) {
 	}
 	for _, act := range e.doActions {
 		fmt.Fprintf(&s.out, " do{%s: %d pending", e.statePath(act.state), len(act.pending))
-		if slices.Contains(e.round, act) {
-			s.out.WriteString(", in round")
-		}
 		if act.run != nil {
 			fmt.Fprintf(&s.out, ", paused{%s}", s.body(act.run.body))
-			if act.run.host.flow.leftStanding {
-				s.out.WriteString(", left standing")
-			}
 		}
 		s.out.WriteString("}")
-	}
-	if e.roundDone {
-		s.out.WriteString(" round done")
 	}
 	s.out.WriteByte('\n')
 }
@@ -688,10 +679,7 @@ func (s *stateSpeller) features(inst *Instance) string {
 }
 
 func (s *stateSpeller) feature(inst *Instance, name string) string {
-	fv, err := inst.GetFeatureValue(s.ctx, name)
-	if err != nil {
-		return "<error: " + err.Error() + ">"
-	}
+	fv := inst.FeatureValues[name]
 	if !fv.Feature.Scalar() {
 		if fv.Values.Kind == ValInvalid {
 			return "()"
