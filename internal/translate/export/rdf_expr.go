@@ -427,6 +427,15 @@ var expressionMetaclasses = map[string]bool{
 	mMetadataAccess: true,
 }
 
+// isExpressionRoot reports whether the encoder mints an expr: node of this
+// metaclass directly under a declared element: an expression class, the cross
+// feature a connector writes at its end, or its reference subsetting.
+func isExpressionRoot(metaclass string) bool {
+	return expressionMetaclasses[metaclass] || metaclass == mReferenceSubsetting ||
+		metaclass == crossFeatureMetaclass(true) ||
+		metaclass == crossFeatureMetaclass(false)
+}
+
 // isExpressionNode reports whether a subject is part of a declaration (an expression
 // node or a body declaration): unowned, in the expression namespace or an unnamed expression class.
 func (d *decoder) isExpressionNode(subject rdf.Term) bool {

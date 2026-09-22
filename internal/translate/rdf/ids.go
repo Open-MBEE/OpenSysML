@@ -90,25 +90,27 @@ func DecodeExpressionNodeID(id string) (string, []string, bool) {
 	return "", nil, false
 }
 
-// SplitExpressionNodeID reports whether id names an expression node: some
-// `_p`-separated prefix that isOwner claims, followed by well-formed encoded
-// positions. The owner is tested against the caller's id space rather than
-// decoded, so a scoped `qualifier:id` owner qualifies too.
-func SplitExpressionNodeID(id string, isOwner func(string) bool) bool {
+// ExpressionNodeOwner returns the longest `_p`-separated prefix of id that
+// isOwner claims and whose remainder decodes as positions — the node's
+// parent. The prefix is tested against the caller's id space rather than
+// decoded, so a scoped `qualifier:id` parent qualifies too.
+func ExpressionNodeOwner(id string, isOwner func(string) bool) (string, bool) {
+	owner := ""
+	found := false
 	for from := 0; from < len(id); {
 		next := strings.Index(id[from:], expressionPositionSeparator)
 		if next < 0 {
-			return false
+			break
 		}
 		at := from + next
 		if isOwner(id[:at]) {
 			if _, ok := decodeExpressionPositions(id[at+len(expressionPositionSeparator):]); ok {
-				return true
+				owner, found = id[:at], true
 			}
 		}
 		from = at + 1
 	}
-	return false
+	return owner, found
 }
 
 // decodeExpressionPositions decodes the separated positions under an owner id. A

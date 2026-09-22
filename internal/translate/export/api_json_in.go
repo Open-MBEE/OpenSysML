@@ -114,6 +114,7 @@ func parseAPIJSON(data []byte) ([]apiJSONElementData, map[string]bool, error) {
 		return nil, nil, fmt.Errorf("the API element document holds more than one JSON value")
 	}
 	ids := map[string]bool{}
+	types := map[string]string{}
 	for _, object := range objects {
 		if object.id == "" {
 			return nil, nil, fmt.Errorf("an element object needs a non-empty string \"@id\"")
@@ -125,12 +126,31 @@ func parseAPIJSON(data []byte) ([]apiJSONElementData, map[string]bool, error) {
 			return nil, nil, fmt.Errorf("the id %q names two element objects", object.id)
 		}
 		ids[object.id] = true
+		types[object.id] = object.typ
 	}
+	// Classify the expression namespace to a fixpoint: a node is an expression
+	// when its metaclass is one the encoder mints directly under a declaration,
+	// or when its parent is an expr: node or an expression-class element — a
+	// child may be listed before its parent.
 	expressionIDs := map[string]bool{}
-	for i, object := range objects {
-		if isExpressionID(object.id, ids, object.qualifiedName) {
-			objects[i].expression = true
-			expressionIDs[object.id] = true
+	for changed := true; changed; {
+		changed = false
+		for i := range objects {
+			object := &objects[i]
+			if object.expression || object.qualifiedName {
+				continue
+			}
+			expression := false
+			if base, isMembership := strings.CutSuffix(object.id, rdf.OwningMembershipSuffix); isMembership {
+				expression = ids[base] && expressionIDs[base]
+			} else if owner, ok := rdf.ExpressionNodeOwner(object.id, func(prefix string) bool { return ids[prefix] }); ok {
+				expression = expressionIDs[owner] || isExpressionRoot(object.typ) || expressionMetaclasses[types[owner]]
+			}
+			if expression {
+				object.expression = true
+				expressionIDs[object.id] = true
+				changed = true
+			}
 		}
 	}
 	return objects, expressionIDs, nil
@@ -246,18 +266,6 @@ func apiJSONTypeIRI(typ string) (rdf.Term, error) {
 		return rdf.Term{}, fmt.Errorf("the \"@type\" %q carries a prefix this mapping does not know", typ)
 	}
 	return rdf.SysMLTerm(typ), nil
-}
-
-// isExpressionID classifies an element id: an expression-namespace IRI is only
-// ever minted by ExpressionIRI(owner, position) from an owner that is itself a
-// subject, and expression nodes carry no qualifiedName; an element id never
-// ends in a lone '_', so a `_p` inside an encoded name never splits.
-func isExpressionID(id string, ids map[string]bool, hasQualifiedName bool) bool {
-	if hasQualifiedName {
-		return false
-	}
-	id, _ = strings.CutSuffix(id, rdf.OwningMembershipSuffix)
-	return rdf.SplitExpressionNodeID(id, func(owner string) bool { return ids[owner] })
 }
 
 // apiJSONPredicate maps a member key to its predicate IRI, reporting the sysml:

@@ -297,15 +297,25 @@ func TestReadAPIJSONScopedAndSingle(t *testing.T) {
 	}
 }
 
-// An id under `_p` with an owner in the document and no qualifiedName names an
-// expression node; every other shape names an element.
+// An id in the expression grammar names an expr: node when its metaclass is
+// one the mapping mints under a declaration or its parent is an expr: node; a
+// membership follows the node it owns, and every other shape is an element.
 func TestReadAPIJSONExpressionClassification(t *testing.T) {
 	document := `[
+		{"@type": "OwningMembership", "@id": "X_pvalue_pa0_om", "memberElement": {"@id": "X_pvalue_pa0"}},
+		{"@type": "LiteralInteger", "@id": "X_pvalue_pa0", "value": 3},
 		{"@type": "AttributeUsage", "@id": "X", "value": {"@id": "X_pvalue"}},
 		{"@type": "LiteralRational", "@id": "X_pvalue", "value": 0.0},
 		{"@type": "OwningMembership", "@id": "X_pvalue_om", "memberElement": {"@id": "X_pvalue"}},
+		{"@type": "AttributeUsage", "@id": "X_pvalue_pm0"},
+		{"@type": "FeatureValue", "@id": "X_pvalue_pm0_om"},
 		{"@type": "LiteralRational", "@id": "Y_pvalue", "qualifiedName": "Y::pvalue"},
 		{"@type": "PartUsage", "@id": "A_pfoo"},
+		{"@type": "PartUsage", "@id": "X_pbar"},
+		{"@type": "OwningMembership", "@id": "X_pbar_om", "memberElement": {"@id": "X_pbar"}},
+		{"@type": "ConnectionUsage", "@id": "C", "qualifiedName": "C"},
+		{"@type": "ReferenceSubsetting", "@id": "C_pend0_prs"},
+		{"@type": "ReferenceUsage", "@id": "C_pend0"},
 		{"@type": "AttributeUsage", "@id": "W", "value": {"@id": "X_p2"}},
 		{"@type": "LiteralRational", "@id": "X_p2", "qualifiedName": null, "value": 1.0}
 	]`
@@ -313,13 +323,13 @@ func TestReadAPIJSONExpressionClassification(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadAPIJSON: %v", err)
 	}
-	for _, expr := range []string{"X_pvalue", "X_pvalue_om", "X_p2"} {
+	for _, expr := range []string{"X_pvalue", "X_pvalue_om", "X_pvalue_pa0", "X_pvalue_pa0_om", "X_pvalue_pm0", "X_pvalue_pm0_om", "C_pend0", "C_pend0_prs", "X_p2"} {
 		subject := rdf.IRI(rdf.Expression + expr)
 		if len(graph.Predicates(subject)) == 0 {
 			t.Errorf("%q is not an expression-namespace subject:\n%s", expr, rdf.WriteTurtle(graph))
 		}
 	}
-	for _, element := range []string{"Y_pvalue", "A_pfoo"} {
+	for _, element := range []string{"Y_pvalue", "A_pfoo", "X_pbar", "X_pbar_om"} {
 		subject := rdf.ElementIRIForID(element)
 		if len(graph.Predicates(subject)) == 0 {
 			t.Errorf("%q is not an element-namespace subject:\n%s", element, rdf.WriteTurtle(graph))

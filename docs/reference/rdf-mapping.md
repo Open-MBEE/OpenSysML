@@ -1695,11 +1695,13 @@ the repeated triples and the collection annotation the Turtle path would have
 written, so the graph read from the JSON form is the graph the Turtle form parses
 to, triple for triple. An `@id` is resolved within the subject's project scope, or
 by the `<qualifier>:<id>` it spells; an id in the expression grammar
-([Expressions](#expressions)), owned through the document by an element it
-names and carrying no `qualifiedName`, is an `expr:` node. The form carries no
-namespace of its own, so this is a reading of the id: a foreign document whose
-ordinary element is spelled that way and states no `qualifiedName` is read as an
-expression node.
+([Expressions](#expressions)) whose parent is a document element, carrying no
+`qualifiedName`, is an `expr:` node when its metaclass is one the mapping mints
+directly under a declaration — an expression class, or the end feature of a
+connector — or when its parent is itself an `expr:` node. A membership id
+(`_om`) follows the node it owns, and any other element spelled that way is an
+ordinary element. The form carries no namespace of its own, so this is a reading
+of the id.
 
 Two readings are decided by the graph rather than the JSON, and are worth knowing:
 
