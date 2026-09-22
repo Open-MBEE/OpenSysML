@@ -383,6 +383,66 @@ func TestEmitFactoryInitializesAttributes(t *testing.T) {
 	}
 }
 
+// markOperation is a target operation `mark(s : String)` whose method traces
+// the given segment: a literal, or the parameter itself when segment is "s".
+func markOperation(id, segment string) string {
+	source := id + `ValOut`
+	value := `<node xmi:type="uml:ValueSpecificationAction" xmi:id="` + id + `Val">
+          <result xmi:type="uml:OutputPin" xmi:id="` + id + `ValOut"/>
+          <value xmi:type="uml:LiteralString" xmi:id="` + id + `Lit" value="` + segment + `"/>
+        </node>`
+	if segment == "s" {
+		source = id + `ParamNode`
+		value = `<node xmi:type="uml:ActivityParameterNode" xmi:id="` + id + `ParamNode" parameter="` + id + `MethodP"/>`
+	}
+	return `<ownedOperation xmi:type="uml:Operation" xmi:id="` + id + `" name="mark" method="` + id + `Method">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="` + id + `P" name="s">
+          <type href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
+        </ownedParameter>
+      </ownedOperation>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="` + id + `Method" name="mark$method" specification="` + id + `">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="` + id + `MethodP" name="s">
+          <type href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
+        </ownedParameter>
+        <node xmi:type="uml:ReadSelfAction" xmi:id="` + id + `Self"><result xmi:type="uml:OutputPin" xmi:id="` + id + `SelfOut"/></node>
+        ` + value + `
+        <node xmi:type="uml:CallOperationAction" xmi:id="` + id + `Trace" operation="opTrace">
+          <target xmi:type="uml:InputPin" xmi:id="` + id + `TraceTarget"/>
+          <argument xmi:type="uml:InputPin" xmi:id="` + id + `TraceArg"/>
+        </node>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="` + id + `E1" source="` + id + `SelfOut" target="` + id + `TraceTarget"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="` + id + `E2" source="` + source + `" target="` + id + `TraceArg"/>
+      </ownedBehavior>`
+}
+
+// TestEmitCallSelectsOperationByIdentity pins that a call inlines the method
+// of the operation it names, not the first operation sharing its name and arity.
+func TestEmitCallSelectsOperationByIdentity(t *testing.T) {
+	target := `<generalization xmi:type="uml:Generalization" xmi:id="tgtXGen" general="clsTarget"/>
+      ` + markOperation("opMarkFirst", "first") + `
+      ` + markOperation("opMarkSecond", "s")
+	entry := strings.Replace(traceCall("entry", "xS1entry", "second"), `operation="opTrace"`, `operation="opMarkSecond"`, 1)
+	src := strings.NewReplacer(
+		`<generalization xmi:type="uml:Generalization" xmi:id="tgtXGen" general="clsTarget"/>`, target,
+		traceCall("entry", "xS1entry", "S1(entry)"), entry,
+	).Replace(machineSuite("", ""))
+	s := readFixture(t, src)
+	noDiagnostics(t, s)
+	if len(s.Tests) != 1 {
+		t.Fatalf("tests = %d", len(s.Tests))
+	}
+	m, err := Emit(s, s.Tests[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(m.Text, `"second"`) || strings.Contains(m.Text, `"first"`) {
+		t.Errorf("the call inlined the wrong overload:\n%s", m.Text)
+	}
+	if problems := Validate(m); len(problems) > 0 {
+		t.Errorf("%s\n%s", strings.Join(problems, "\n"), m.Text)
+	}
+}
+
 // TestEmitRejects pins the typed error for constructs with no translation.
 func TestEmitRejects(t *testing.T) {
 	cases := []struct {

@@ -1137,7 +1137,7 @@ func (e *emitter) method(st Statement) *Behavior {
 		return nil
 	}
 	for _, op := range e.test.Target.Operations {
-		if op.Name == st.Name && len(op.Inputs()) == len(st.Args) && len(op.Outputs()) == 0 {
+		if op.ID == st.OperationID && len(op.Inputs()) == len(st.Args) && len(op.Outputs()) == 0 {
 			return op.Method
 		}
 	}

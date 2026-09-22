@@ -175,6 +175,22 @@ func (f frame) snapshot() frame {
 			out.aliases[name] = alias
 		}
 	}
+	out.firing = f.firing.snapshot()
+	return out
+}
+
+// snapshot copies the firing and its payload into independent storage.
+func (f *firing) snapshot() *firing {
+	if f == nil {
+		return nil
+	}
+	out := &firing{taken: f.taken}
+	if len(f.payload) > 0 {
+		out.payload = make(map[string]Value, len(f.payload))
+		for name, value := range f.payload {
+			out.payload[name] = value
+		}
+	}
 	return out
 }
 
