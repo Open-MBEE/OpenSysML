@@ -109,6 +109,51 @@ const danglingApplications = `
   <sysml:Block xmi:id="_b2" base_Class="_ctl"/>
   <sysml:Allocate xmi:id="_s1" base_Abstraction="_allocLost"/>`
 
+// earlyAllocation is an «Allocate» written before the activity whose anonymous
+// node it ends at, so that node is named ahead of its graph's writer; an anonymous
+// sibling of the same kind then competes for the same synthesized name.
+const earlyAllocation = `
+    <packagedElement xmi:type="uml:Abstraction" xmi:id="_alloc">
+      <client xmi:idref="_second"/>
+      <supplier xmi:idref="_eye"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_probe" name="Probe"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_rig" name="Rig">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_eye" name="probe" type="_probe" aggregation="composite"/>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_run" name="Run">
+        <node xmi:type="uml:InitialNode" xmi:id="_init"/>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_first"/>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_second"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_final"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e1" source="_init" target="_first"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e2" source="_first" target="_second"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e3" source="_second" target="_final"/>
+      </ownedBehavior>
+    </packagedElement>`
+
+const earlyAllocationApplications = `
+  <sysml:Block xmi:id="_p1" base_Class="_probe"/>
+  <sysml:Block xmi:id="_p2" base_Class="_rig"/>
+  <sysml:Allocate xmi:id="_p3" base_Abstraction="_alloc"/>`
+
+// A node named ahead of its graph's writer keeps that name, and the writer numbers
+// the sibling that would otherwise take it, so the allocation names the right node.
+func TestNodeNamedAheadOfItsWriterKeepsSiblingsDistinct(t *testing.T) {
+	r := migrateDocument(t, earlyAllocation, earlyAllocationApplications)
+	wantLine(t, r.Notation, "allocate Rig::Run::call to Rig::probe;")
+	wantLine(t, r.Notation, "first call2 then call;")
+	wantLine(t, r.Notation, "action call2;")
+	wantLine(t, r.Notation, "action call;")
+	wantNote(t, r, "_second", migrate.Approximated, "a step with no behavior and no duration; it passes the token on")
+	if e := entriesFor(r, "_second"); len(e) != 1 || e[0].Target != "call" {
+		t.Errorf("node named ahead of its writer: got %+v, want target call", e)
+	}
+	if e := entriesFor(r, "_first"); len(e) != 1 || e[0].Target != "call2" {
+		t.Errorf("its sibling: got %+v, want target call2", e)
+	}
+	wantClean(t, "t.sysml", r)
+}
+
 // A call whose behavior reference resolves to nothing is not a stub: it is left a
 // placeholder, and its allocation is migrated no better than it. A stub whose pin's
 // type resolves to nothing declares the pin untyped, and a flow from it to a missing
