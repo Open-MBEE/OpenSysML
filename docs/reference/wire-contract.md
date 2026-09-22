@@ -1776,14 +1776,14 @@ and lists engines with `Connection.list_engines()`.
 `Convert` writes a model out in another representation, and needs the `convert` capability. The
 request names its source in a `oneof`: a `filePath` the service reads afresh, `content` carried
 inline, or a `modelHash` whose parsed source is converted. `toFormat` is required and is one of
-`sysml`, `kerml`, `text` (SysML v2 notation) or `ttl`, `turtle`, `rdf` (RDF in Turtle).
-`fromFormat` takes the same names, plus `xmi`, `uml` or `mdzip` for a SysML v1 model — UML XMI
-2.5.1 with the SysML profile applied, an Eclipse UML2 `.uml` file, or a `.mdzip` archive — which
-is read and **migrated** to v2 on the way out. Omitted, `fromFormat` is inferred from `filePath`'s
-extension (`.sysml`, `.kerml`, `.ttl`, `.turtle`, `.xmi`, `.uml`, `.mdzip`), is notation for a
-`modelHash`, and is `invalid_argument` for inline `content`, which has no extension. Inline
-content is a proto `string`, so it carries XMI or `.uml` text; a `.mdzip` archive is binary and is
-named by `filePath`.
+`sysml`, `kerml`, `text` (SysML v2 notation), `ttl`, `turtle`, `rdf` (RDF in Turtle) or `api-json`,
+`json` (the API's JSON element form). `fromFormat` takes the same names, plus `xmi`, `uml` or
+`mdzip` for a SysML v1 model — UML XMI 2.5.1 with the SysML profile applied, an Eclipse UML2 `.uml`
+file, or a `.mdzip` archive — which is read and **migrated** to v2 on the way out. Omitted,
+`fromFormat` is inferred from `filePath`'s extension (`.sysml`, `.kerml`, `.ttl`, `.turtle`,
+`.json`, `.xmi`, `.uml`, `.mdzip`), is notation for a `modelHash`, and is `invalid_argument` for
+inline `content`, which has no extension. Inline content is a proto `string`, so it carries XMI or
+`.uml` text; a `.mdzip` archive is binary and is named by `filePath`.
 
 ```console
 $ … /Convert -d '{"filePath":"Vehicle.xmi","toFormat":"sysml"}'
@@ -1796,14 +1796,14 @@ $ … /Convert -d '{"filePath":"Vehicle.xmi","toFormat":"sysml"}'
 }
 ```
 
-`fromFormat` and `toFormat` come back **canonical** — `sysml`, `ttl` or `xmi` whichever alias
-was sent — so a client that let the format be inferred learns what it was read as.
-`experimental` is set, and `experimentalNotice` says why, when either format is RDF or the source
-is SysML v1; notation to notation leaves both unset. It is set on a refusal too, so read it before
-`error`. The Python client raises `ExperimentalFeatureWarning` from it. The migration report the
-`sysml` command writes with `-migration-report` is **not** on the wire: a client that needs the
-element-by-element account runs the command. What the migration maps, approximates and leaves
-behind is in [sysml-v1-migration.md](sysml-v1-migration.md).
+`fromFormat` and `toFormat` come back **canonical** — `sysml`, `ttl`, `api-json` or `xmi` whichever
+alias was sent — so a client that let the format be inferred learns what it was read as.
+`experimental` is set, and `experimentalNotice` says why, when either format is RDF or the API's
+JSON form or the source is SysML v1; notation to notation leaves both unset. It is set on a refusal
+too, so read it before `error`. The Python client raises `ExperimentalFeatureWarning` from it. The
+migration report the `sysml` command writes with `-migration-report` is **not** on the wire: a
+client that needs the element-by-element account runs the command. What the migration maps,
+approximates and leaves behind is in [sysml-v1-migration.md](sysml-v1-migration.md).
 
 A conversion that could not be done is HTTP 200 with `error` set and `content` absent; its
 `diagnostics` explain a syntax error in notation input, with spans. Malformed XMI is reported in

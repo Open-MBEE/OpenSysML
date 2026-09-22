@@ -127,11 +127,12 @@ public interface ConvertResponseOrBuilder extends
 
   /**
    * <pre>
-   * Set when either format is RDF, whose mapping is experimental: it covers
-   * model structure and the behavior its bodies state, refuses what it cannot
-   * write back, and its vocabulary may change without a compatibility path.
-   * Also set when the source is SysML v1, whose migration is experimental in
-   * the same sense. Notation to notation is stable and leaves this unset.
+   * Set when either format is RDF or the API's JSON element form, whose
+   * mapping is experimental: it covers model structure and the behavior its
+   * bodies state, refuses what it cannot write back, and its vocabulary may
+   * change without a compatibility path. Also set when the source is SysML v1,
+   * whose migration is experimental in the same sense. Notation to notation is
+   * stable and leaves this unset.
    * </pre>
    *
    * <code>bool experimental = 6 [json_name = "experimental"];</code>

@@ -2060,11 +2060,11 @@ export type ConvertRequest = Message<"sysml.ConvertRequest"> & {
   } | { case: undefined; value?: undefined };
 
   /**
-   * "sysml", "kerml", "text", "ttl", "turtle" or "rdf", or "xmi", "uml" or
-   * "mdzip" for a SysML v1 model, which is read and migrated to v2 and never
-   * written. Empty infers from file_path's extension, and is notation for a
-   * model_hash, since that is what parse reads; inline content has neither, so
-   * it must say.
+   * "sysml", "kerml", "text", "ttl", "turtle", "rdf", "api-json" or "json", or
+   * "xmi", "uml" or "mdzip" for a SysML v1 model, which is read and migrated to
+   * v2 and never written. Empty infers from file_path's extension, and is
+   * notation for a model_hash, since that is what parse reads; inline content
+   * has neither, so it must say.
    *
    * @generated from field: string from_format = 3;
    */
@@ -2136,11 +2136,12 @@ export type ConvertResponse = Message<"sysml.ConvertResponse"> & {
   diagnostics: Diagnostic[];
 
   /**
-   * Set when either format is RDF, whose mapping is experimental: it covers
-   * model structure and the behavior its bodies state, refuses what it cannot
-   * write back, and its vocabulary may change without a compatibility path.
-   * Also set when the source is SysML v1, whose migration is experimental in
-   * the same sense. Notation to notation is stable and leaves this unset.
+   * Set when either format is RDF or the API's JSON element form, whose
+   * mapping is experimental: it covers model structure and the behavior its
+   * bodies state, refuses what it cannot write back, and its vocabulary may
+   * change without a compatibility path. Also set when the source is SysML v1,
+   * whose migration is experimental in the same sense. Notation to notation is
+   * stable and leaves this unset.
    *
    * @generated from field: bool experimental = 6;
    */

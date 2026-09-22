@@ -6,7 +6,9 @@ represent. For saving and converting as a task, see [guide chapter 7](../guide/0
 ## Status: experimental
 
 RDF conversion (`sysml -convert ttl`, `%save model.ttl`, the service's `Convert`
-to or from `ttl`, and each in reverse) is **experimental** as of 0.1.0. Saving
+to or from `ttl`, and each in reverse) is **experimental** as of 0.1.0, and so is
+the [API element form](#the-api-element-form) (`api-json`, `.json`), which is the
+same graph written as JSON. Saving
 and converting notation (`.sysml`, `.kerml`) is stable; this mapping is not. Each
 of the following is a deliberate property of the mapping rather than a defect to
 report:
@@ -1647,14 +1649,112 @@ A graph that uses none of OpenSysML's `sysx:` properties (one produced by
 another tool) converts as far as the mapping allows and errors on the first
 element it cannot place, rather than emitting a model with elements missing.
 
+## The API element form
+
+`sysml -convert api-json` (`%save model.json`, the service's `Convert` to or from
+`api-json` or `json`) writes the graph above in the form the OMG SysML v2 API &
+Services specification serves from its `/elements` endpoints: a JSON array of
+element objects, one per graph subject in graph order, each with the metaclass as
+`@type`, the element id as `@id`, and the metamodel's properties as keys. It is
+not a second mapping. The Turtle path and this one build one graph (`ToRDF`) and
+read back into one graph (`ToSysML`), so everything the sections above say about
+metaclasses, identity, expressions, collections and limitations holds here
+unchanged, and `ttl` ↔ `api-json` converts through the graph without touching
+notation.
+
+```json
+[
+  {
+    "@type": "PartDefinition",
+    "@id": "Vehicles__Wheel",
+    "qualifiedName": "Vehicles::Wheel",
+    "elementId": "Vehicles__Wheel",
+    "sysx:memberIndex": 0,
+    "owningNamespace": { "@id": "Vehicles" },
+    "owner": { "@id": "Vehicles" },
+    "owningRelationship": { "@id": "Vehicles__Wheel_om" },
+    "owningMembership": { "@id": "Vehicles__Wheel_om" },
+    "declaredName": "Wheel",
+    "sysx:hasBody": true,
+    "ownedMember": [
+      { "@id": "Vehicles__Wheel__diameter" },
+      { "@id": "Vehicles__Wheel__mass" }
+    ],
+    "sysx:sourceText": "    part def Wheel {\n",
+    "sysx:sourceTail": "    }\n"
+  }
+]
+```
+
+How each part of the graph is spelled:
+
+| Graph | Element form |
+|-------|--------------|
+| `rdf:type sysml:PartDefinition` | `"@type": "PartDefinition"`; a metaclass of this project's own (`sysx:InitialNode`, …) keeps its prefix, `"@type": "sysx:InitialNode"` |
+| The subject's IRI | `"@id"`: the id after the final `:` of an `elmt:` or `expr:` IRI, with its project qualifier where the IRI has one (`Interop:Vehicles__Wheel`) — the same spelling the collection annotations use |
+| A `sysml:` property | the bare property name as key, in triple order |
+| A `sysx:` property | `"sysx:<name>"` as key |
+| The `urn:sysmlv2:annotation:json:` annotation of a collection | nothing of its own — it decides that the property it annotates is an array |
+| An IRI object | `{"@id": <id>}`, the id spelled from the subject as above |
+| An `xsd:boolean`, `xsd:integer`, `xsd:decimal`/`xsd:double` literal | a JSON boolean or number; a real whose lexical form JSON cannot spell is given the digits it needs (`.1` → `0.1`, `5.` → `5.0`), and `INF` or `NaN` is refused; a literal in another datatype (`xsd:float`, `xsd:int`, `owl:real`, a `xsd:double` without an exponent) is refused, since the form carries no datatype and the reader would restore a different one |
+| A plain literal (and, on the properties that carry it, expression text) | a JSON string; a literal in any other datatype is refused |
+| A `sysml:` property stated more than once | an array, in the order the annotation records; a repeated `sysml:` property with no annotation is refused, since the graph does not say which order the values have |
+| A `sysx:` property stated more than once | an array, in triple order |
+
+Reading is the inverse, and refuses rather than guesses: the document is one
+element object or an array of them; every object carries a non-empty `@id` and a
+`@type`, no `@id` occurs twice, no `@` key other than those two is accepted, no key
+or `@type` is in a prefix other than the bare `sysml:` names and `sysx:`, an object
+value is a reference `{"@id": …}` and nothing else, an array holds no array and no
+`null`. A `null` value states no triple. An array on a `sysml:` property becomes
+the repeated triples and the collection annotation the Turtle path would have
+written, so the graph read from the JSON form is the graph the Turtle form parses
+to, triple for triple. An `@id` is resolved within the subject's project scope, or
+by the `<qualifier>:<id>` it spells; an id in the expression grammar
+([Expressions](#expressions)) whose parent is a document element, carrying no
+`qualifiedName`, is an `expr:` node when its metaclass is one the mapping mints
+directly under a declaration — an expression class, the end feature of a
+connector, or a reference subsetting — or when its parent is itself an `expr:`
+node or an expression-class element. A membership id
+(`_om`) follows the node it owns, and any other element spelled that way is an
+ordinary element. The form carries no namespace of its own, so this is a reading
+of the id.
+
+Two readings are decided by the graph rather than the JSON, and are worth knowing:
+
+- **A collection of one member is an object, not an array.** The graph carries
+  no multiplicity, and the annotation that marks a collection is written from its
+  second member ([Collections](#collections)), so `ownedMember` with one value is
+  `{"@id": …}` here where the standard API would serve `[{"@id": …}]`. The
+  reader accepts both. What the SysML v2 API's own commit path serves back for
+  the elements this form posts is measured, not assumed: the opt-in
+  `TestFlexoInterop` harness posts them as `DataVersion` payloads and reports the
+  elements and properties the service returns beside those the Turtle graph-load
+  path returns (the same set on the reference fixture, the `sysx:` properties
+  excepted, which the service drops on both paths).
+- **A string on a reference-valued property is a name or an expression.** The
+  encoder writes an unresolved target as its name (`"type": "Real"`) and a
+  computed one as expression text; JSON has one string for both. On the
+  properties the encoder writes expression text on (`type`, `general`,
+  `memberElement`, the connector ends and their subsetting) a string that does not
+  parse as a name is expression text; on every other property it is a name.
+
+The per-file ratchet over `examples/` runs for this form too:
+`TestCorpusAPIJSONRoundTrip` in `tests/corpus/roundtrip_test.go` converts each
+model notation → `api-json` → notation → `api-json` and pins the verdict in
+`testdata/api_json_roundtrip_expected.txt`
+([rdf-corpus-roundtrip.md](../project/rdf-corpus-roundtrip.md)). Its verdicts
+are the Turtle gate's for every file but two, whose `.1` reals JSON respells as
+`0.1` (`graph-diff`).
+
 ## Where the code lives
 
 | Package | Role |
 |---------|------|
 | `internal/translate/rdf` | Triple/graph model, Turtle writer, Turtle parser |
-| `internal/translate/export` | `ToRDF` (AST → graph), `ToSysML` (graph → notation) |
+| `internal/translate/export` | `ToRDF` (AST → graph), `ToSysML` (graph → notation), `WriteAPIJSON`/`ReadAPIJSON` (graph ↔ the API element form) |
 | `internal/translate/convert` | The `Convert` entry point: format names, notation parsing, the SysML v1 migration |
-| `tests/corpus/roundtrip_test.go` | The per-file round-trip ratchet over every model under `examples/`, with its baseline in `testdata/corpus_roundtrip_expected.txt` ([rdf-corpus-roundtrip.md](../project/rdf-corpus-roundtrip.md)) |
+| `tests/corpus/roundtrip_test.go` | The per-file round-trip ratchets over every model under `examples/`, with their baselines in `testdata/corpus_roundtrip_expected.txt` (Turtle) and `testdata/api_json_roundtrip_expected.txt` (the API element form) ([rdf-corpus-roundtrip.md](../project/rdf-corpus-roundtrip.md)) |
 | `internal/frontend/repl` | `%save` |
 | `cmd/sysml` | `-convert`, `-from`, `-o` |
 

@@ -110,8 +110,8 @@ func TestMessageQuality(t *testing.T) {
 		decls: "part def Wheel;",
 		line:  "%save /tmp/opensysml-message-test.txt",
 		want: []string{
-			`error: cannot tell the format of "/tmp/opensysml-message-test.txt": expected .sysml, .kerml or .ttl, ` +
-				"so name the file with a .sysml, .kerml or .ttl extension, or pass -convert on the command line",
+			`error: cannot tell the format of "/tmp/opensysml-message-test.txt": expected .sysml, .kerml, .ttl or .json, ` +
+				"so name the file with a .sysml, .kerml, .ttl or .json extension, or pass -convert on the command line",
 		},
 	}}
 

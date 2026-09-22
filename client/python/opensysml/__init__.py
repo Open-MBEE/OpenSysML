@@ -40,7 +40,8 @@ from opensysml.document import (
     DocumentVerdict, ElementRef, INFINITY, ObjectRef,
 )
 from opensysml.conversion import (
-    FORMAT_SYSML, FORMAT_TURTLE, Conversion, ExperimentalFeatureWarning,
+    FORMAT_API_JSON, FORMAT_SYSML, FORMAT_TURTLE, Conversion,
+    ExperimentalFeatureWarning,
     format_of_path, is_experimental,
 )
 from opensysml.edit import AppliedEdit, EditedDocument, EditResult, Editor
@@ -67,7 +68,8 @@ __all__ = [
     "UNSET", "UnsetType", "Undetermined",
     "Array", "Vector", "VectorQuantity", "MeasurementRef", "Function", "Metaobject", "SetValue",
     "TensorQuantity", "InstanceRef",
-    "Conversion", "FORMAT_SYSML", "FORMAT_TURTLE", "format_of_path",
+    "Conversion", "FORMAT_API_JSON", "FORMAT_SYSML", "FORMAT_TURTLE",
+    "format_of_path",
     "ExperimentalFeatureWarning", "is_experimental",
     "Editor", "EditResult", "AppliedEdit", "EditedDocument", "Referrer",
     "Verdict", "CalcResult", "AnalysisResult", "CaseEvaluation", "SweepRow", "SweepTable",
@@ -234,7 +236,8 @@ def convert(to_format, file_path=None, content=None, model_hash=None,
     """Write a model out in another format (module-level convenience).
 
     Args:
-        to_format (str): 'sysml', 'kerml', 'text', 'ttl', 'turtle' or 'rdf'
+        to_format (str): 'sysml', 'kerml', 'text', 'ttl', 'turtle', 'rdf',
+            'api-json' or 'json'
         file_path (str, optional): Path the service reads the source from
         content (str, optional): Source carried inline
         model_hash (str, optional): Hash of a loaded model, whose parsed source

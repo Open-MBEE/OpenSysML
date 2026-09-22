@@ -231,7 +231,7 @@ func TestConvertRDFIsMarkedExperimental(t *testing.T) {
 	if to.status != 0 {
 		t.Fatalf("converting to Turtle failed: %s%s", to.stdout, to.stderr)
 	}
-	if !strings.Contains(to.stderr, "RDF conversion is experimental") {
+	if !strings.Contains(to.stderr, "RDF conversion — Turtle and the API's JSON element form alike — is experimental") {
 		t.Errorf("no experimental notice on stderr:\n%s", to.stderr)
 	}
 	if strings.Contains(to.stdout, "experimental") {
@@ -241,7 +241,7 @@ func TestConvertRDFIsMarkedExperimental(t *testing.T) {
 	turtle := filepath.Join(dir, "model.ttl")
 	run(t, binary, model, "-convert", "ttl", "-o", turtle)
 	from := runCommand(t, exec.Command(binary, turtle, "-convert", "sysml"))
-	if !strings.Contains(from.stderr, "RDF conversion is experimental") {
+	if !strings.Contains(from.stderr, "RDF conversion — Turtle and the API's JSON element form alike — is experimental") {
 		t.Errorf("reading RDF is experimental too, but was not marked:\n%s", from.stderr)
 	}
 
@@ -254,7 +254,7 @@ func TestConvertRDFIsMarkedExperimental(t *testing.T) {
 	if refused.status == 0 {
 		t.Fatalf("expected the mapping to refuse the duplicate declaration:\n%s", refused.stdout)
 	}
-	if !strings.Contains(refused.stderr, "RDF conversion is experimental") {
+	if !strings.Contains(refused.stderr, "RDF conversion — Turtle and the API's JSON element form alike — is experimental") {
 		t.Errorf("a refusal is the experimental behavior, but was not marked:\n%s", refused.stderr)
 	}
 }

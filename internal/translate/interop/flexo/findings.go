@@ -19,7 +19,7 @@ func findings(report *Report, graphWritten map[string]*writtenElement) []string 
 		found = append(found, fmt.Sprintf(format, args...))
 	}
 
-	load, reference := &report.Load, &report.Reference
+	load, reference, apiJSON := &report.Load, &report.Reference, &report.APIJSON
 
 	if !load.Accepted {
 		add("graph-load: Layer 1 refused the Turtle, so nothing below was measured")
@@ -32,6 +32,13 @@ func findings(report *Report, graphWritten map[string]*writtenElement) []string 
 	referenceWritten, referenceDelivered := reference.propertyTotals()
 	add("json-commit: %d of %d elements listed, %d of %d properties delivered",
 		reference.Listed, reference.Written, referenceDelivered, referenceWritten)
+	apiWritten, apiDelivered := apiJSON.propertyTotals()
+	add("api-json-commit: %d of %d elements listed, %d of %d properties delivered",
+		apiJSON.Listed, apiJSON.Written, apiDelivered, apiWritten)
+	if !apiJSON.Accepted {
+		add("api-json-commit: the commit was refused (%s), so nothing below was measured on it",
+			apiJSON.Refusal)
+	}
 
 	if count := load.propertyCount(func(p PropertyStat) bool {
 		return strings.HasPrefix(p.Property, "sysx:")
@@ -67,6 +74,8 @@ func findings(report *Report, graphWritten map[string]*writtenElement) []string 
 		load.Roots, load.Written, load.RootsInModel)
 	add("json-commit: the roots endpoint reports %d of %d elements as roots, %d in the payload",
 		reference.Roots, reference.Written, reference.RootsInModel)
+	add("api-json-commit: the roots endpoint reports %d of %d elements as roots, %d in the payload",
+		apiJSON.Roots, apiJSON.Written, apiJSON.RootsInModel)
 
 	if load.IgnoredPaging {
 		add("both: the element listing answered every element it has in %d response(s) at "+
@@ -82,6 +91,10 @@ func findings(report *Report, graphWritten map[string]*writtenElement) []string 
 		add("json-commit: %d properties came back in a different shape than they were posted "+
 			"(%s)", len(shapes), strings.Join(shapes, ", "))
 	}
+	if shapes := apiJSON.shapes(); len(shapes) > 0 {
+		add("api-json-commit: %d properties came back in a different shape than they were posted "+
+			"(%s)", len(shapes), strings.Join(shapes, ", "))
+	}
 
 	if multi, delivered := reference.multiValued(); multi > 0 {
 		add("json-commit: %d of %d multi-valued properties are delivered (%s), because the "+
@@ -89,10 +102,72 @@ func findings(report *Report, graphWritten map[string]*writtenElement) []string 
 			"typed triples",
 			delivered, multi, strings.Join(reference.multiValuedNames(), ", "))
 	}
+	if multi, delivered := apiJSON.multiValued(); multi > 0 {
+		add("api-json-commit: %d of %d multi-valued properties are delivered (%s)",
+			delivered, multi, strings.Join(apiJSON.multiValuedNames(), ", "))
+	}
+
+	if refused := apiJSON.refusedIDs(); len(refused) > 0 {
+		add("api-json-commit: %d elements cannot be read directly because their ids are not "+
+			"[a-zA-Z0-9_-]+, which requireValidId demands (%s)",
+			len(refused), strings.Join(refused, ", "))
+	}
+
+	if apiJSON.Accepted {
+		apiOnly, loadOnly := deliveredOnly(apiJSON, load)
+		add("api-json-commit vs graph-load: %d properties delivered on api-json only (%s), "+
+			"%d on graph-load only (%s)",
+			len(apiOnly), strings.Join(apiOnly, ", "), len(loadOnly), strings.Join(loadOnly, ", "))
+		if posted, delivered := apiJSON.sysxTotals(); posted > 0 {
+			add("api-json-commit: %d sysx: properties posted, %d delivered (%s)",
+				posted, delivered, strings.Join(apiJSON.propertyNames("sysx:"), ", "))
+		}
+	}
 
 	add("graph-load: %d of %d subjects of the graph are expression nodes or other subjects "+
 		"outside the element namespace", expressionNodes(graphWritten), len(graphWritten))
 	return found
+}
+
+// deliveredOnly names the delivered properties of a that b did not deliver,
+// and vice versa, normalized to the bare key both sides deliver them under.
+func deliveredOnly(a, b *SideReport) ([]string, []string) {
+	delivered := func(s *SideReport) map[string]bool {
+		names := map[string]bool{}
+		for _, p := range s.Properties {
+			if p.Delivered > 0 {
+				names[localName(p.Property)] = true
+			}
+		}
+		return names
+	}
+	aDelivered, bDelivered := delivered(a), delivered(b)
+	var aOnly, bOnly []string
+	for name := range aDelivered {
+		if !bDelivered[name] {
+			aOnly = append(aOnly, name)
+		}
+	}
+	for name := range bDelivered {
+		if !aDelivered[name] {
+			bOnly = append(bOnly, name)
+		}
+	}
+	sort.Strings(aOnly)
+	sort.Strings(bOnly)
+	return aOnly, bOnly
+}
+
+// sysxTotals sums the posted and delivered counts of a side's sysx: properties.
+func (s *SideReport) sysxTotals() (int, int) {
+	posted, delivered := 0, 0
+	for _, p := range s.Properties {
+		if strings.HasPrefix(p.Property, "sysx:") {
+			posted += p.Written
+			delivered += p.Delivered
+		}
+	}
+	return posted, delivered
 }
 
 // propertyTotals sums the per-property written and delivered counts of a side.

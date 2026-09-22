@@ -3743,11 +3743,11 @@ type ConvertRequest struct {
 	//	*ConvertRequest_Content
 	//	*ConvertRequest_ModelHash
 	Source isConvertRequest_Source `protobuf_oneof:"source"`
-	// "sysml", "kerml", "text", "ttl", "turtle" or "rdf", or "xmi", "uml" or
-	// "mdzip" for a SysML v1 model, which is read and migrated to v2 and never
-	// written. Empty infers from file_path's extension, and is notation for a
-	// model_hash, since that is what parse reads; inline content has neither, so
-	// it must say.
+	// "sysml", "kerml", "text", "ttl", "turtle", "rdf", "api-json" or "json", or
+	// "xmi", "uml" or "mdzip" for a SysML v1 model, which is read and migrated to
+	// v2 and never written. Empty infers from file_path's extension, and is
+	// notation for a model_hash, since that is what parse reads; inline content
+	// has neither, so it must say.
 	FromFormat string `protobuf:"bytes,3,opt,name=from_format,json=fromFormat,proto3" json:"from_format,omitempty"`
 	// Format to write, named as in from_format; the v1 names are refused, since
 	// a v2 model has no v1 form. Empty is rejected.
@@ -3880,11 +3880,12 @@ type ConvertResponse struct {
 	// Syntax errors tolerated under tolerate_syntax_errors, or those that failed
 	// the conversion.
 	Diagnostics []*Diagnostic `protobuf:"bytes,5,rep,name=diagnostics,proto3" json:"diagnostics,omitempty"`
-	// Set when either format is RDF, whose mapping is experimental: it covers
-	// model structure and the behavior its bodies state, refuses what it cannot
-	// write back, and its vocabulary may change without a compatibility path.
-	// Also set when the source is SysML v1, whose migration is experimental in
-	// the same sense. Notation to notation is stable and leaves this unset.
+	// Set when either format is RDF or the API's JSON element form, whose
+	// mapping is experimental: it covers model structure and the behavior its
+	// bodies state, refuses what it cannot write back, and its vocabulary may
+	// change without a compatibility path. Also set when the source is SysML v1,
+	// whose migration is experimental in the same sense. Notation to notation is
+	// stable and leaves this unset.
 	Experimental bool `protobuf:"varint,6,opt,name=experimental,proto3" json:"experimental,omitempty"`
 	// What is experimental about the conversion, in the wording every surface
 	// reports it in. Empty when experimental is false.

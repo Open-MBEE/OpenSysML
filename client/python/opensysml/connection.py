@@ -838,7 +838,7 @@ class Connection:
 
         Args:
             to_format (str): Format to write: 'sysml', 'kerml', 'text', 'ttl',
-                'turtle' or 'rdf'
+                'turtle', 'rdf', 'api-json' or 'json'
             file_path (str, optional): Path the service reads the source from
             content (str, optional): Source carried inline
             model_hash (str, optional): Hash of a loaded model, whose parsed

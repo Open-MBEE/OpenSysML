@@ -69,7 +69,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    timeout-minutes: 40
+    timeout-minutes: 50
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -445,6 +445,16 @@ jobs:
           grep -E 'corpus round trip: [0-9]+ files:' corpus-roundtrip-gate.log
           if grep -qE '^\s*--- SKIP' corpus-roundtrip-gate.log; then
             echo "error: the RDF corpus round-trip gate skipped" >&2
+            exit 1
+          fi
+
+      - name: Run api-json corpus round-trip gate
+        run: |
+          set -o pipefail
+          go test -count=1 -v ./tests/corpus -run 'TestCorpusAPIJSONRoundTrip' | tee api-json-roundtrip-gate.log
+          grep -E 'api-json corpus round trip: [0-9]+ files:' api-json-roundtrip-gate.log
+          if grep -qE '^\s*--- SKIP' api-json-roundtrip-gate.log; then
+            echo "error: the api-json corpus round-trip gate skipped" >&2
             exit 1
           fi
 
