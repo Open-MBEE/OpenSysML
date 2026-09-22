@@ -91,6 +91,26 @@ for _, doc := range result.Documents {
 }
 ```
 
+`Convert`, `ConvertFile` and `ConvertSource` write a model out in another `Format`: `FormatSysML`
+(aliases `FormatKerML`, `FormatText`) or `FormatTTL` (`FormatTurtle`, `FormatRDF`). `ConvertFile`
+infers the source format from the extension unless `WithFromFormat` names it, and `ConvertSource`
+requires it. A SysML v1 model — UML XMI, an Eclipse UML2 `.uml` file or a `.mdzip` archive — is
+`FormatXMI`, an input only: `ConvertFile(ctx, "Model.xmi", FormatSysML)` migrates it to v2
+notation, `FormatTTL` to RDF, and asking to write `FormatXMI` is `CodeInvalidArgument`. The
+`Conversion` reports the canonical `From` and `To`, and `Experimental` with its
+`ExperimentalNotice` when either side is RDF or the source is v1, both of which are experimental
+mappings. The service does not return the migration report the `sysml` command writes with
+`-migration-report`; what the migration covers is in
+[sysml-v1-migration.md](sysml-v1-migration.md).
+
+```go
+conversion, err := client.ConvertFile(ctx, "Vehicle.mdzip", opensysml.FormatSysML)
+if conversion.Experimental {
+	log.Println(conversion.ExperimentalNotice)
+}
+os.WriteFile("Vehicle.sysml", []byte(conversion.Content), 0o644)
+```
+
 Its errors, ownership rules, capability negotiation and v1 boundary are in
 [client/opensysml/README.md](../../client/opensysml/README.md), and the other client languages are on
 [client libraries](clients.md). A program with no client library that posts JSON to the service

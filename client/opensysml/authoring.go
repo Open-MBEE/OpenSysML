@@ -10,10 +10,10 @@ import (
 // Format is a representation a model is written in or read from.
 type Format string
 
-// The formats conversion accepts. There are two canonical ones, FormatSysML and
-// FormatTTL, and a Conversion answers by those names whichever alias was asked
-// for. RDF, in any spelling, is an experimental mapping, which a Conversion
-// reports.
+// The formats conversion accepts. There are two canonical ones that are written,
+// FormatSysML and FormatTTL, and a Conversion answers by those names whichever
+// alias was asked for. RDF, in any spelling, is an experimental mapping, which a
+// Conversion reports; so is migration from FormatXMI, which is only ever read.
 const (
 	FormatSysML Format = "sysml"
 	FormatTTL   Format = "ttl"
@@ -25,6 +25,9 @@ const (
 	// serialization written.
 	FormatTurtle Format = "turtle"
 	FormatRDF    Format = "rdf"
+	// FormatXMI is SysML v1 as UML XMI, an Eclipse UML2 .uml file or a .mdzip
+	// archive, migrated to v2 on the way in. Asking to write it is refused.
+	FormatXMI Format = "xmi"
 )
 
 // ConvertOption configures Convert and ConvertFile.
@@ -59,7 +62,7 @@ type Conversion struct {
 	From Format
 	To   Format
 	// Experimental is set when either format is RDF, whose vocabulary may change
-	// without a compatibility path.
+	// without a compatibility path, or the source is SysML v1, whose migration may.
 	Experimental bool
 	// ExperimentalNotice says what is experimental about the conversion, empty
 	// when it is not.

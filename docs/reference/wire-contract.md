@@ -1771,6 +1771,55 @@ $ … /VerifyConstraint -d '{"modelHash":"b4e0…ded9","symbolId":"Demo::Vehicle
 The Python client reads them as `Verdict.engine`, `Verdict.strength` and `Verdict.bounds`
 and lists engines with `Connection.list_engines()`.
 
+## Conversion: `Convert`
+
+`Convert` writes a model out in another representation, and needs the `convert` capability. The
+request names its source in a `oneof`: a `filePath` the service reads afresh, `content` carried
+inline, or a `modelHash` whose parsed source is converted. `toFormat` is required and is one of
+`sysml`, `kerml`, `text` (SysML v2 notation) or `ttl`, `turtle`, `rdf` (RDF in Turtle).
+`fromFormat` takes the same names, plus `xmi`, `uml` or `mdzip` for a SysML v1 model — UML XMI
+2.5.1 with the SysML profile applied, an Eclipse UML2 `.uml` file, or a `.mdzip` archive — which
+is read and **migrated** to v2 on the way out. Omitted, `fromFormat` is inferred from `filePath`'s
+extension (`.sysml`, `.kerml`, `.ttl`, `.turtle`, `.xmi`, `.uml`, `.mdzip`), is notation for a
+`modelHash`, and is `invalid_argument` for inline `content`, which has no extension. Inline
+content is a proto `string`, so it carries XMI or `.uml` text; a `.mdzip` archive is binary and is
+named by `filePath`.
+
+```console
+$ … /Convert -d '{"filePath":"Vehicle.xmi","toFormat":"sysml"}'
+{
+  "content": "doc /* Author: demo team\n * Created: 2026-09-05\n */\npackage 'Vehicle Design' {\n    doc /* Structural model of the demo v…",
+  "fromFormat": "xmi",
+  "toFormat": "sysml",
+  "experimental": true,
+  "experimentalNotice": "SysML v1 migration is experimental: the mapping covers structure, ports and connectors, requirements, constraints, instances and allocations, reports every element it approximates or leaves behind, and what it writes for a v1 element may change without a compatibility path; see docs/reference/sysml-v1-migration.md § Status"
+}
+```
+
+`fromFormat` and `toFormat` come back **canonical** — `sysml`, `ttl` or `xmi` whichever alias
+was sent — so a client that let the format be inferred learns what it was read as.
+`experimental` is set, and `experimentalNotice` says why, when either format is RDF or the source
+is SysML v1; notation to notation leaves both unset. It is set on a refusal too, so read it before
+`error`. The Python client raises `ExperimentalFeatureWarning` from it. The migration report the
+`sysml` command writes with `-migration-report` is **not** on the wire: a client that needs the
+element-by-element account runs the command. What the migration maps, approximates and leaves
+behind is in [sysml-v1-migration.md](sysml-v1-migration.md).
+
+A conversion that could not be done is HTTP 200 with `error` set and `content` absent; its
+`diagnostics` explain a syntax error in notation input, with spans. Malformed XMI is reported in
+`error` alone:
+
+```text
+{"fromFormat":"xmi","toFormat":"sysml","error":"<content>: the XMI document holds no model: expected a uml:Model or uml:Package under the xmi:XMI root","experimental":true,"experimentalNotice":"SysML v1 migration is experimental: …"}
+```
+
+A request the service will not attempt is a Connect error instead: `toFormat` naming a v1 format
+is `invalid_argument` with `cannot write xmi: SysML v1 XMI is read and migrated, never written;
+convert to sysml or ttl`, since a v2 model has no v1 form; an unknown format name and a missing
+`fromFormat` for inline content are `invalid_argument` too; an unreadable `filePath` is
+`not_found` with `file not found:`, and a stale `modelHash` is `not_found` as described under
+[the model hash](#how-long-a-hash-is-valid).
+
 ## Queries
 
 Two query surfaces exist and answer differently shaped tables. Their semantics — what may be

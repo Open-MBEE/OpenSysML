@@ -300,7 +300,8 @@ private static final long serialVersionUID = 0L;
    * Set when either format is RDF, whose mapping is experimental: it covers
    * model structure and the behavior its bodies state, refuses what it cannot
    * write back, and its vocabulary may change without a compatibility path.
-   * Notation to notation is stable and leaves this unset.
+   * Also set when the source is SysML v1, whose migration is experimental in
+   * the same sense. Notation to notation is stable and leaves this unset.
    * </pre>
    *
    * <code>bool experimental = 6 [json_name = "experimental"];</code>
@@ -1519,7 +1520,8 @@ private static final long serialVersionUID = 0L;
      * Set when either format is RDF, whose mapping is experimental: it covers
      * model structure and the behavior its bodies state, refuses what it cannot
      * write back, and its vocabulary may change without a compatibility path.
-     * Notation to notation is stable and leaves this unset.
+     * Also set when the source is SysML v1, whose migration is experimental in
+     * the same sense. Notation to notation is stable and leaves this unset.
      * </pre>
      *
      * <code>bool experimental = 6 [json_name = "experimental"];</code>
@@ -1534,7 +1536,8 @@ private static final long serialVersionUID = 0L;
      * Set when either format is RDF, whose mapping is experimental: it covers
      * model structure and the behavior its bodies state, refuses what it cannot
      * write back, and its vocabulary may change without a compatibility path.
-     * Notation to notation is stable and leaves this unset.
+     * Also set when the source is SysML v1, whose migration is experimental in
+     * the same sense. Notation to notation is stable and leaves this unset.
      * </pre>
      *
      * <code>bool experimental = 6 [json_name = "experimental"];</code>
@@ -1553,7 +1556,8 @@ private static final long serialVersionUID = 0L;
      * Set when either format is RDF, whose mapping is experimental: it covers
      * model structure and the behavior its bodies state, refuses what it cannot
      * write back, and its vocabulary may change without a compatibility path.
-     * Notation to notation is stable and leaves this unset.
+     * Also set when the source is SysML v1, whose migration is experimental in
+     * the same sense. Notation to notation is stable and leaves this unset.
      * </pre>
      *
      * <code>bool experimental = 6 [json_name = "experimental"];</code>
