@@ -717,21 +717,6 @@ func (e *executor) stringsArgument(expression queryplan.Expression, name string)
 	return texts, nil
 }
 
-func (e *executor) integerArgument(expression queryplan.Expression, name string) (int64, error) {
-	value, err := e.argument(expression, name)
-	if err != nil {
-		return 0, err
-	}
-	if len(value.values) != 1 {
-		return 0, e.invalidArgument(expression, name, strconv.Itoa(len(value.values)))
-	}
-	integer, ok := value.values[0].Integer()
-	if !ok || integer < 0 {
-		return 0, e.invalidArgument(expression, name, string(value.values[0].Kind()))
-	}
-	return integer, nil
-}
-
 func (e *executor) booleanArgument(expression queryplan.Expression, name string) (bool, error) {
 	value, err := e.argument(expression, name)
 	if err != nil {
