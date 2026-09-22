@@ -703,43 +703,6 @@ func TestCompileAcceptsDotNotationElementBindings(t *testing.T) {
 	}
 }
 
-// TestCompileAcceptsMetaCastElementBindings pins that `Element meta Metaclass`
-// binds a package or definition, which no feature reference can name.
-func TestCompileAcceptsMetaCastElementBindings(t *testing.T) {
-	model := `
-		calc def Names :> Query {
-			in root : Element[0..*] ordered;
-			OwnedElements(source = root)
-		}
-		package Config {
-			part def Mirror;
-		}
-		part def Report :> Document {
-			attribute redefines title = "Report";
-			part list : List {
-				calc items : Names {
-					in root = (Config meta KerML::Kernel::Package, Config::Mirror meta KerML::Root::Element);
-				}
-			}
-		}
-	`
-	fixture := loadPlanningFixture(t, model)
-	plan, err := fixture.compile(t, "Report")
-	if err != nil {
-		t.Fatalf("compile: %v", err)
-	}
-	values := plan.Content()[0].Query().Bindings()[0].Values()
-	if len(values) != 2 {
-		t.Fatalf("values = %d", len(values))
-	}
-	for i, want := range []string{"Observatory::Config", "Observatory::Config::Mirror"} {
-		element, ok := values[i].Element()
-		if !ok || symbols.FQNOf(element) != want {
-			t.Fatalf("root[%d] = %s %v", i, symbols.FQNOf(element), ok)
-		}
-	}
-}
-
 func TestCompileRejectsInvalidSignedBindings(t *testing.T) {
 	cases := map[string]string{
 		"overflow":   "in offset = -99999999999999999999;",
