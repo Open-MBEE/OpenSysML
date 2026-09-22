@@ -201,3 +201,28 @@ func TestQuiescenceInvalidatedByWritesOnlyWhenTheScanReadData(t *testing.T) {
 	}
 	_ = root
 }
+
+// A store on an object with nothing to run allocates no run bookkeeping: the
+// behavior scan it brackets finds no behaviors to scan.
+func TestIdleStoreAllocatesNoRunBookkeeping(t *testing.T) {
+	const doc = "idle_store.sysml"
+	const src = `
+		private import ScalarValues::*;
+		part def Box { attribute level : Integer = 0; }
+	`
+	idx, _, ctx := buildRuntimeWithLibraries(t, doc, parseAndBuild(t, src))
+	inst, err := ctx.Instantiate(resolveSymbol(t, idx.DocumentRoot(doc), "Box"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	vals := [2]Value{constInt(1), constInt(2)}
+	i := 0
+	if got := testing.AllocsPerRun(1000, func() {
+		i++
+		if err := inst.SetFeatureValue(ctx, "level", vals[i&1]); err != nil {
+			t.Fatal(err)
+		}
+	}); got > 9 {
+		t.Fatalf("%.0f allocations per idle store, want <= 9", got)
+	}
+}

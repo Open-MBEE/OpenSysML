@@ -124,6 +124,9 @@ type Context struct {
 	// heldBehaviors are the behaviors already holding work when the outermost
 	// start under way began: a driver put it in flight, and dispatches it.
 	heldBehaviors map[*ObjectBehavior]bool
+	// holdingDriven marks that hold however it came out, nil map included; a
+	// nested start leaves the driving to the outermost one.
+	holdingDriven bool
 
 	// objectBehaviors are every behavior an object of this context runs, so a
 	// drain to quiescence can re-run one a sibling's send woke.
@@ -306,8 +309,7 @@ func NewContext(model *Model, maxSteps int64) *Context {
 		compileCalcs: CalcCompileFromEnv(),
 
 		run: &runState{
-			calcUsageRuns:    make(map[int64]map[calcUsageKey]*calcRun),
-			extentCandidates: make(map[*symbols.Symbol]*extentCandidates),
+			calcUsageRuns: make(map[int64]map[calcUsageKey]*calcRun),
 		},
 		calcUsageRunning: make(map[calcUsageKey]*calcShape),
 
@@ -662,9 +664,8 @@ type runState struct {
 // newRunState is the state a run starts with, under the schedule policy set now.
 func (ctx *Context) newRunState() *runState {
 	return &runState{
-		scheduler:        ctx.newScheduler(),
-		calcUsageRuns:    make(map[int64]map[calcUsageKey]*calcRun),
-		extentCandidates: make(map[*symbols.Symbol]*extentCandidates),
+		scheduler:     ctx.newScheduler(),
+		calcUsageRuns: make(map[int64]map[calcUsageKey]*calcRun),
 	}
 }
 

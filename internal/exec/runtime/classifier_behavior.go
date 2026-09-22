@@ -698,12 +698,14 @@ func (ctx *Context) setClock(now float64) {
 // work: a driver put it in flight, so the start leaves it to that driver. Once
 // the start returns, the behaviors it attached are as their start left them.
 func (ctx *Context) holdDrivenWork() func() {
-	if ctx.behaviorRunDepth > 0 || ctx.heldBehaviors != nil {
+	if ctx.behaviorRunDepth > 0 || ctx.holdingDriven {
 		return func() { /* an outer start already holds them */ }
 	}
-	held := make(map[*ObjectBehavior]bool)
+	var held map[*ObjectBehavior]bool
 	if ctx.quiescent.holds(ctx) {
 		// Nothing woke a behavior since a full scan found them all idle.
+	} else if len(ctx.objectBehaviors) == 0 {
+		ctx.quiescent = quiescence{at: ctx.work, writes: ctx.writes}
 	} else {
 		memo := &pendingMemo{}
 		saved := ctx.polling
@@ -711,6 +713,9 @@ func (ctx *Context) holdDrivenWork() func() {
 		ctx.behaviorRunDepth++
 		for _, behavior := range ctx.objectBehaviors {
 			if behavior.hasPendingWork() {
+				if held == nil {
+					held = map[*ObjectBehavior]bool{}
+				}
 				held[behavior] = true
 			}
 		}
@@ -724,8 +729,10 @@ func (ctx *Context) holdDrivenWork() func() {
 		}
 	}
 	ctx.heldBehaviors = held
+	ctx.holdingDriven = true
 	attached := len(ctx.objectBehaviors)
 	return func() {
+		ctx.holdingDriven = false
 		ctx.heldBehaviors = nil
 		for _, behavior := range ctx.objectBehaviors[min(attached, len(ctx.objectBehaviors)):] {
 			behavior.settle()
@@ -881,6 +888,13 @@ func (ctx *Context) nextRunnableBehavior() (*ObjectBehavior, bool) {
 	}
 	// A context a full scan found idle, unchanged since, holds no runnable behavior.
 	if ctx.quiescent.holds(ctx) {
+		return nil, false
+	}
+	if attached >= len(ctx.objectBehaviors) {
+		// Every behavior pending is already held by a driver, or there are none.
+		if attached == 0 && len(ctx.heldBehaviors) == 0 {
+			ctx.quiescent = quiescence{at: ctx.work, writes: ctx.writes}
+		}
 		return nil, false
 	}
 	memo := &pendingMemo{}
