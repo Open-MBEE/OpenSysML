@@ -38,13 +38,14 @@ func (s *Server) CodeAction(ctx context.Context, params *protocol.CodeActionPara
 // quickFixes returns the fixes attached to the diagnostics overlapping want.
 func (s *Server) quickFixes(name string, doc *model.Document, want source.Span) []protocol.CodeAction {
 	uri := nameToURI(name)
+	pos := positionsOf(doc)
 	var out []protocol.CodeAction
 	for _, diag := range s.ws.Diagnostics(name) {
 		if len(diag.Fixes) == 0 || !overlaps(diag.Span, want) {
 			continue
 		}
 		reported := protocol.Diagnostic{
-			Range:    spanToRange(doc.Content, diag.Span),
+			Range:    pos.rangeOf(diag.Span),
 			Severity: protocol.DiagnosticSeverity(int(diag.Severity) + 1),
 			Message:  diag.Message,
 			Code:     diag.Code,
@@ -56,7 +57,7 @@ func (s *Server) quickFixes(name string, doc *model.Document, want source.Span) 
 				Kind:        protocol.QuickFix,
 				Diagnostics: []protocol.Diagnostic{reported},
 				IsPreferred: fix.Preferred,
-				Edit:        workspaceEdit(uri, doc.Content, fix.Edits),
+				Edit:        workspaceEdit(uri, pos, fix.Edits),
 			})
 		}
 	}
@@ -87,12 +88,12 @@ func overlaps(a, b source.Span) bool {
 }
 
 // workspaceEdit renders a fix's edits as an edit of the document it applies to.
-func workspaceEdit(uri protocol.DocumentURI, content []byte, edits []diag.Edit) *protocol.WorkspaceEdit {
+func workspaceEdit(uri protocol.DocumentURI, pos positions, edits []diag.Edit) *protocol.WorkspaceEdit {
 	out := make([]protocol.TextEdit, 0, len(edits))
 	for _, edit := range edits {
-		span, text := edit.Render(content)
+		span, text := edit.Render(pos.content)
 		out = append(out, protocol.TextEdit{
-			Range:   spanToRange(content, span),
+			Range:   pos.rangeOf(span),
 			NewText: text,
 		})
 	}

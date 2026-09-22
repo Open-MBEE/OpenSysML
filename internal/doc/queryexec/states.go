@@ -1,6 +1,7 @@
 package queryexec
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
@@ -80,6 +81,10 @@ func (e *executor) evaluateInState(expression queryplan.Expression) (sequence, e
 	declared := false
 	err = e.eachSessionObject(expression, func(row Value) {
 		inst, _, _ := row.Object()
+		// A destroyed object left the population; its executor may hold a stale configuration.
+		if _, gone := e.context.Runtime.Destroyed(inst); gone {
+			return
+		}
 		matched := false
 		for _, machine := range stateMachinesOf(inst) {
 			declared = declared || machineDeclaresState(machine.State, name)
@@ -118,7 +123,10 @@ func (e *executor) objectArgument(expression queryplan.Expression, name string) 
 	}
 	var result sequence
 	for _, item := range value.values {
-		if _, _, ok := item.Object(); ok {
+		if inst, label, ok := item.Object(); ok {
+			if at, destroyed := e.context.Runtime.Destroyed(inst); destroyed {
+				return sequence{}, e.objectDestroyedError(expression, name, label, at)
+			}
 			result.values = append(result.values, item)
 			continue
 		}
@@ -132,11 +140,16 @@ func (e *executor) objectArgument(expression queryplan.Expression, name string) 
 			return sequence{}, e.rowKindError(expression, name, ErrorEventRow, event.Label())
 		}
 		sym, _ := item.Element()
-		objects, err := e.objectsDeclaredBy(expression, sym)
+		live, destroyed, err := e.objectsDeclaredBy(expression, sym)
 		if err != nil {
 			return sequence{}, err
 		}
-		if len(objects) == 0 {
+		if len(live) == 0 {
+			if len(destroyed) > 0 {
+				inst, label, _ := destroyed[0].Object()
+				at, _ := e.context.Runtime.Destroyed(inst)
+				return sequence{}, e.objectDestroyedError(expression, name, label, at)
+			}
 			return sequence{}, &Error{
 				Kind:      ErrorNotHeld,
 				Query:     e.definition.Name(),
@@ -146,22 +159,40 @@ func (e *executor) objectArgument(expression queryplan.Expression, name string) 
 				Origin:    expression.Origin(),
 			}
 		}
-		result.values = append(result.values, objects...)
+		result.values = append(result.values, live...)
 	}
 	return result, nil
 }
 
+// objectDestroyedError reports a source object the run destroyed.
+func (e *executor) objectDestroyedError(expression queryplan.Expression, name, label string, at int64) error {
+	return &Error{
+		Kind:      ErrorObjectDestroyed,
+		Query:     e.definition.Name(),
+		Operation: expression.Operation(),
+		Parameter: name,
+		Target:    label,
+		Actual:    strconv.FormatInt(at, 10),
+		Origin:    expression.Origin(),
+	}
+}
+
 // objectsDeclaredBy lists the session's objects an element declares: those it
-// is the declaration of, or that are typed by it or a type conforming to it.
-func (e *executor) objectsDeclaredBy(expression queryplan.Expression, sym *symbols.Symbol) ([]Value, error) {
-	var out []Value
-	err := e.eachSessionObject(expression, func(row Value) {
+// is the declaration of, or that are typed by it or a type conforming to it,
+// split into the live ones and the ones the run destroyed.
+func (e *executor) objectsDeclaredBy(expression queryplan.Expression, sym *symbols.Symbol) (live, destroyed []Value, err error) {
+	err = e.eachSessionObject(expression, func(row Value) {
 		inst, _, _ := row.Object()
-		if symbols.SameElement(objectDeclaration(inst), sym) || e.objectConforms(inst, sym) {
-			out = append(out, row)
+		if !symbols.SameElement(objectDeclaration(inst), sym) && !e.objectConforms(inst, sym) {
+			return
 		}
+		if _, gone := e.context.Runtime.Destroyed(inst); gone {
+			destroyed = append(destroyed, row)
+			return
+		}
+		live = append(live, row)
 	})
-	return out, err
+	return live, destroyed, err
 }
 
 // stateMachinesOf lists the state machines an object exhibits, in its order.
