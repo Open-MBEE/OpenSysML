@@ -165,22 +165,27 @@ const allocatedApplications = `
   <sysml:Allocate xmi:id="_s1" base_Abstraction="_alloc"/>`
 
 // A call behavior action naming no behavior is not given one: an «Allocate» from
-// the action to a part places it on the structure, but names nothing to perform,
-// so an action with pins is unmapped saying so, keeping its place in the flow, and
-// no value is made up for its result. One without pins is a bare step.
-func TestAllocatedCallsWithoutBehaviorStayUnresolved(t *testing.T) {
+// the action to a part places it on the structure, but names nothing to perform.
+// An action with pins is written as an action declaring them as its parameters,
+// approximated as computing nothing, so its result is declared admitting no value
+// and none is made up for it; the allocation is then written to it. One without
+// pins is a bare step.
+func TestAllocatedCallsWithoutBehaviorDeclareTheirPins(t *testing.T) {
 	r := migrateDocument(t, allocatedCalls, allocatedApplications)
-	wantNote(t, r, "_measure", migrate.Unmapped, "the action calls no behavior, yet has the pins 'reading', which nothing then computes; its «Allocate» to Ctl::eye says where it runs, not what it does")
+	wantNote(t, r, "_measure", migrate.Approximated, "a step with no behavior and no duration, which passes the token on; its pins are declared as its parameters, but the action computes nothing, so its output 'reading' holds no value; its «Allocate» to Ctl::eye says where it runs, not what it does")
+	wantNote(t, r, "_measureOut", migrate.Approximated, "it is declared admitting no value: the action calls no behavior, so nothing computes it")
 	wantNote(t, r, "_settle", migrate.Approximated, "a step with no behavior and no duration; it passes the token on")
+	wantNote(t, r, "_alloc", migrate.Mapped, "")
 	for _, line := range []string{
 		"action measure {",
-		"out reading : ScalarValues::Real;",
-		"/* not migrated: CallBehaviorAction 'measure' — the action calls no behavior",
+		"out reading : ScalarValues::Real[0..1];",
 		"first measure then settle;",
 		"action settle;",
+		"allocate Ctl::Run::measure to Ctl::eye;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
+	wantNoLine(t, r.Notation, "not migrated: CallBehaviorAction 'measure'")
 	wantNoLine(t, r.Notation, "eye.")
 	wantNoLine(t, r.Notation, "reading :=")
 	wantClean(t, "t.sysml", r)
@@ -373,7 +378,7 @@ func TestResultPinsBeyondTheCalleesParametersCarryNoValue(t *testing.T) {
 	wantNoLine(t, r.Notation, "not migrated: CallBehaviorAction 'apply'")
 	wantNoLine(t, r.Notation, "send new Fresh(image);")
 	wantNote(t, r, "_callFetchOut", migrate.Mapped, "the pin stands for the parameter image of the definition, which the flows name")
-	wantNote(t, r, "_callFetchExtra", migrate.Unmapped, "the definition has no out parameter for the pin; a flow into it has nowhere to go")
+	wantNote(t, r, "_callFetchExtra", migrate.Unmapped, "the called Cache::Fetch has no out parameter for the pin, its out parameters being image; the call is written with the parameters it declares, so a flow from it carries no value")
 	wantNote(t, r, "_of1", migrate.Approximated, "the flow is kept as a comment: the pin 'extra' of 'fetch' stands for no out parameter of the called Cache::Fetch, so it carries no value, and none reaches 'image'")
 	wantNote(t, r, "_callUse", migrate.Approximated, "the pin 'image' it passes for the parameter image of Cache::Use receives none: 'fetch', which feeds it, produces no value; v1 runs the callee without the value, so the parameter is declared admitting none")
 	wantNote(t, r, "_notify", migrate.Approximated, "the pin 'image' it passes for the attribute image of Fresh, which must hold a value, receives none: 'fetch', which feeds it, produces no value; v1 sends the signal without it, which v2 does not admit, so the action carries the token and performs nothing")

@@ -82,6 +82,8 @@ type actionFrame struct {
 	features map[string]ast.FeatureDirection
 	// aliases map each name a held feature redefines to the feature's own name.
 	aliases map[string]string
+	// optional holds the held features whose multiplicity admits no value at all.
+	optional map[string]bool
 	// result names the parameter a value read of the performance stands for,
 	// "" when the action it performs states no result parameter.
 	result string
@@ -211,7 +213,7 @@ func (e *ActionExecutor) declareRootFeatures(root *actionFrame) {
 		}
 		e.ctx.aliasRedefinitions(&root.aliases, memberSymbol(scope, attr.Node), attr.Name)
 	}
-	e.addFeatureDirections(root.features, &root.aliases, e.action)
+	e.addFeatureDirections(root.features, &root.aliases, nil, e.action)
 }
 
 // declareAcceptPayloads gives root the payloads the graph's accepts name: each is a
@@ -225,9 +227,10 @@ func (e *ActionExecutor) declareAcceptPayloads(root *actionFrame) {
 }
 
 // addFeatureDirections adds the parameters and attributes an action holds, the
-// inherited ones included, to features by name, aliasing what each redefines.
+// inherited ones included, to features by name, aliasing what each redefines and
+// marking in optional, when it is not nil, each new one admitting no value.
 func (e *performances) addFeatureDirections(
-	features map[string]ast.FeatureDirection, aliases *map[string]string, action *symbols.Symbol,
+	features map[string]ast.FeatureDirection, aliases *map[string]string, optional map[string]bool, action *symbols.Symbol,
 ) {
 	if action == nil {
 		return
@@ -246,6 +249,9 @@ func (e *performances) addFeatureDirections(
 		}
 		if _, held := features[name]; !held {
 			features[name] = usage.Direction
+			if optional != nil && e.ctx.admitsNoValue(member) {
+				optional[name] = true
+			}
 		}
 		e.ctx.aliasRedefinitions(aliases, member, name)
 	}
@@ -309,6 +315,7 @@ func (e *performances) beginPerformance(
 	}
 	perf.features = pins.directions
 	perf.aliases = pins.aliases
+	perf.optional = pins.optional
 	perf.result = pins.result
 	// The performance is ongoing before anything seeding it streams, so a value carried
 	// back to its node reaches it rather than waiting for a later performance.
@@ -373,7 +380,7 @@ func (e *performances) bindArguments(perf *actionFrame, activation int64) error 
 	if err != nil {
 		return err
 	}
-	perf.features, perf.aliases, perf.result = pins.directions, pins.aliases, pins.result
+	perf.features, perf.aliases, perf.optional, perf.result = pins.directions, pins.aliases, pins.optional, pins.result
 	for name, value := range arguments {
 		if err := e.setFrameFeature(perf, name, value); err != nil {
 			return err
@@ -447,13 +454,21 @@ func checkStreamsReceived(frame *actionFrame) error {
 type nodePins struct {
 	directions map[string]ast.FeatureDirection
 	aliases    map[string]string
-	result     string
+	// optional holds the pins whose multiplicity admits no value at all.
+	optional map[string]bool
+	result   string
 }
 
 // declares reports whether the pins hold name, under its own name or as a redefinition.
 func (p nodePins) declares(name string) bool {
 	_, ok := p.directions[canonical(p.aliases, name)]
 	return ok
+}
+
+// admitsNoValueAt reports whether the performance's pin admits no value at all: a
+// flow out of it then carries nothing when the performance wrote it none.
+func (perf *actionFrame) admitsNoValueAt(pin string) bool {
+	return perf != nil && perf.optional[canonical(perf.aliases, pin)]
 }
 
 // nodePins returns the pins a performance of node holds. A call its arguments' values
@@ -486,10 +501,14 @@ func (e *performances) pinsOf(
 	settled *symbols.Symbol,
 	callees []*symbols.Symbol,
 ) (nodePins, error) {
-	pins := nodePins{directions: make(map[string]ast.FeatureDirection)}
+	pins := nodePins{directions: make(map[string]ast.FeatureDirection), optional: make(map[string]bool)}
 	for _, feature := range graph.Features[node] {
 		pins.directions[feature.Name] = feature.Direction
-		e.ctx.aliasRedefinitions(&pins.aliases, memberSymbol(feature.Scope, feature.Node), feature.Name)
+		sym := memberSymbol(feature.Scope, feature.Node)
+		if sym != nil && e.ctx.admitsNoValue(sym) {
+			pins.optional[feature.Name] = true
+		}
+		e.ctx.aliasRedefinitions(&pins.aliases, sym, feature.Name)
 		if feature.IsResult {
 			pins.result = feature.Name
 		}
@@ -502,7 +521,7 @@ func (e *performances) pinsOf(
 		if err != nil {
 			return nodePins{}, err
 		}
-		e.addFeatureDirections(pins.directions, &pins.aliases, held)
+		e.addFeatureDirections(pins.directions, &pins.aliases, pins.optional, held)
 		if callee != settled {
 			continue
 		}
@@ -653,13 +672,17 @@ func (f *actionFrame) subaction(name string, decl ast.Node) (perf *actionFrame, 
 	return perf, true, nil
 }
 
-// pin reads the value the performance's pin holds.
+// pin reads the value the performance's pin holds; a pin admitting no value that
+// holds none reads as the empty sequence, as its declaration does.
 func (f *actionFrame) pin(name string) (Value, error) {
 	value, ok := f.data[f.key(name)]
 	if ok {
 		return value, nil
 	}
 	if f.declares(name) {
+		if f.admitsNoValueAt(name) {
+			return sequenceOf(nil), nil
+		}
 		return Value{}, &NoValueError{Feature: f.path() + "." + name}
 	}
 	return Value{}, fmt.Errorf("%w: %s declares no %s", ErrNodePin, f.describe(), name)
@@ -672,10 +695,7 @@ func (f *actionFrame) resultValue() (Value, error) {
 		return Value{}, fmt.Errorf("%w: %s declares no result to read it as a value by",
 			ErrNodePin, f.describe())
 	}
-	if value, ok := f.data[f.key(f.result)]; ok {
-		return value, nil
-	}
-	return Value{}, &NoValueError{Feature: f.path() + "." + f.result}
+	return f.pin(f.result)
 }
 
 // deliver stores a value at a pin of node, a node of flow in f, ahead of its next
@@ -1191,8 +1211,11 @@ func (e *performances) bindOutputPins(perf *actionFrame) error {
 		switch dir {
 		case ast.DirOut, ast.DirInOut:
 			if !ok {
-				return fmt.Errorf("%w: %s produced no value at %s to bind %s to",
-					ErrBindingEnd, perf.describe(), end.Pin, bindingEndText(end.Other))
+				if !perf.admitsNoValueAt(end.Pin) {
+					return fmt.Errorf("%w: %s produced no value at %s to bind %s to",
+						ErrBindingEnd, perf.describe(), end.Pin, bindingEndText(end.Other))
+				}
+				value = sequenceOf(nil) // the binding holds the other end to the same absence
 			}
 		case ast.DirNone:
 			if !ok {

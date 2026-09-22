@@ -314,6 +314,7 @@ var constructFixtures = []string{
 	"org_profile",
 	"profile_inheritance",
 	"tool_profiles",
+	"stub_actions",
 }
 
 // migrateFixtureFile migrates testdata/xmi/<name>.xmi.
