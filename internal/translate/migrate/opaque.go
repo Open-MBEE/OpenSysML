@@ -891,8 +891,9 @@ func (p *opaqueParser) holdsString(path []string) bool {
 // precedes it, and whether a string literal precedes that name as its receiver.
 func (p *opaqueParser) calleeAt(i int) (path []string, onLiteral bool) {
 	before := func(j int) int {
-		for j--; j >= 0 && p.toks[j].kind == tokNewline; j-- {
-			// skip newline tokens
+		j--
+		for j >= 0 && p.toks[j].kind == tokNewline {
+			j--
 		}
 		return j
 	}
