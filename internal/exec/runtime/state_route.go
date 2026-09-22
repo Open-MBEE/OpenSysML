@@ -292,11 +292,26 @@ func (e *StateExecutor) enabledBranches(ps *ast.PseudostateNode, outgoing []*low
 // point taken; a draw the witness refuses is the refusal. The guards are not
 // read again: a junction's were read once, when its transition was selected.
 func (e *StateExecutor) pickBranch(ps *ast.PseudostateNode, outgoing []*lower.Transition, enabled []int, note func(RunNote)) (int, error) {
+	// Weights are validated for a lone enabled branch too, even though it
+	// records no choice point and is taken with probability 1.
+	weights, err := e.transitionWeights(ps, outgoing, enabled, nil)
+	if err != nil {
+		return 0, err
+	}
 	point, ok := e.branchPoint(ps, outgoing, enabled)
 	if !ok {
 		return 0, nil
 	}
-	pick := e.ctx.scheduling().choose(point, nil)
+	var pick int
+	if weights != nil {
+		point.Weights = weights
+		if err := e.ctx.scheduling().chooseWeighted(&point, nil); err != nil {
+			return 0, err
+		}
+		pick = point.Taken
+	} else {
+		pick = e.ctx.scheduling().choose(point, nil)
+	}
 	if err := e.ctx.scheduling().refusal(); err != nil {
 		return 0, err
 	}

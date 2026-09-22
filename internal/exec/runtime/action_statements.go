@@ -85,11 +85,18 @@ func (h *actionStmtHost) acceptReturn(Value, lower.Return) error {
 }
 
 // effect performs the action a `perform` in statement form names, where it
-// stands, or ends the performance a `terminate` names; any other effect is reported.
+// stands, starts the behavior a `perform obj.beh.start` names on its object, or
+// ends the performance a `terminate` names; any other effect is reported.
 func (h *actionStmtHost) effect(engine *stmtEngine, s lower.Effect) error {
 	env := engine.env
 	if s.Kind == lower.EffectTerminate {
 		return h.exec.terminate(engine, h.perf, s)
+	}
+	if s.Kind == lower.EffectStart {
+		if err := h.exec.ctx.startEffect(engine.evalIn(s.Scope), s, h.exec.self); err != nil {
+			return fmt.Errorf("%s: %w", h.describe(), err)
+		}
+		return nil
 	}
 	if s.Kind != lower.EffectPerform {
 		return fmt.Errorf("%s: '%s' in a body is not executable", h.describe(), s.Kind)

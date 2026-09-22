@@ -211,22 +211,32 @@ class ResultTypesTest {
             List.of(),
             Optional.empty(),
             2,
+            0.5,
             List.of("first of a, b, c: a"),
             List.of());
     Outcome failed =
         new Outcome(
-            Map.of(), Optional.empty(), List.of(), Optional.of("deadlock"), 1, List.of(), List.of());
+            Map.of(),
+            Optional.empty(),
+            List.of(),
+            Optional.of("deadlock"),
+            1,
+            0.0,
+            List.of(),
+            List.of());
     assertTrue(one.completed());
     assertFalse(failed.completed());
     assertEquals(
         "complete (6 runs)",
-        new Exploration(List.of(one), true, 6, List.of(), 1024, 64).status());
+        new Exploration(List.of(one), true, 6, List.of(), 1024, 64, false).status());
     assertEquals(
-        "incomplete: runs budget 100 hit after 100 runs",
-        new Exploration(List.of(one, failed), false, 100, List.of("runs"), 100, 64).status());
+        "incomplete: runs budget 100 hit after 100 runs; probabilities are lower bounds",
+        new Exploration(List.of(one, failed), false, 100, List.of("runs"), 100, 64, true)
+            .status());
     assertEquals(
-        "incomplete: runs budget 4 and depth budget 2 hit after 4 runs",
-        new Exploration(List.of(), false, 4, List.of("runs", "depth"), 4, 2).status());
+        "incomplete: runs budget 4 and depth budget 2 hit after 4 runs;"
+            + " probabilities are lower bounds",
+        new Exploration(List.of(), false, 4, List.of("runs", "depth"), 4, 2, true).status());
   }
 
   @Test

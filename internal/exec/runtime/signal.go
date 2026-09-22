@@ -1803,20 +1803,7 @@ func (e *EvalContext) constructorLabel(scope *symbols.Scope, signal *symbols.Sym
 // against goldens, so the text has to be stable: printing the trigger node
 // itself emits a pointer address.
 func triggerName(trigger ast.Node) string {
-	switch t := trigger.(type) {
-	case nil:
-		return ""
-	case *ast.AcceptEvent:
-		return "accept " + orAny(ast.SimpleName(t.SignalType))
-	case *ast.CallEvent:
-		return "call " + orAny(ast.SimpleName(t.Operation))
-	case *ast.TimeEvent:
-		return "time"
-	case *ast.ChangeEvent:
-		return "change"
-	default:
-		return fmt.Sprintf("%T", trigger)
-	}
+	return lower.TriggerName(trigger)
 }
 
 // eventName names a dispatched occurrence as triggerName names the triggers it

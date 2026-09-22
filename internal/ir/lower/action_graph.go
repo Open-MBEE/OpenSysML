@@ -383,6 +383,9 @@ const (
 	EffectPerform EffectKind = iota
 	EffectAccept
 	EffectTerminate
+	// EffectStart is `perform obj.beh.start;`: the behavior the chain names begins on
+	// its object and runs on its own, the statement done once it has started.
+	EffectStart
 )
 
 func (k EffectKind) String() string {
@@ -393,22 +396,85 @@ func (k EffectKind) String() string {
 		return "accept"
 	case EffectTerminate:
 		return "terminate"
+	case EffectStart:
+		return "start"
 	default:
 		return "effect"
 	}
 }
 
 // Effect is a statement acting on the world outside the body — perform, accept,
-// terminate — lowered so a host rejecting it (a calculation) can say so.
+// terminate, start — lowered so a host rejecting it (a calculation) can say so.
 type Effect struct {
 	Kind  EffectKind
 	Node  ast.Node
 	Scope *symbols.Scope // the scope the statement was declared in
 	// Terminates says what a terminate ends; Target is the action node it names
-	// (TerminateNode), TargetExpr the target as written, nil for none.
+	// (TerminateNode), TargetExpr the target as written, nil for none. For a
+	// start, Target is the behavior started (`obj.beh`) and TargetExpr its `start`.
 	Terminates TerminateTarget
 	Target     ast.Node
 	TargetExpr ast.Node
+}
+
+// performEffect lowers a `perform`: one naming the `start` of a behavior held by
+// an object (`perform obj.beh.start`) starts it, any other performs what it names.
+func performEffect(node ast.Node, scope *symbols.Scope) Effect {
+	if started, ref, ok := startedBehavior(node, scope); ok {
+		return Effect{Kind: EffectStart, Node: node, Scope: scope, Target: started, TargetExpr: ref}
+	}
+	return Effect{Kind: EffectPerform, Node: node, Scope: scope}
+}
+
+// startedBehavior reports the behavior a perform starts: the operand of a
+// reference chain ending in the `start` shot every behavior has, the operand
+// itself a behavior an object holds where the scope can say what it names.
+func startedBehavior(node ast.Node, scope *symbols.Scope) (started, ref ast.Node, ok bool) {
+	var target ast.Node
+	switch n := node.(type) {
+	case *ast.PerformActionNode:
+		target = n.ActionRef
+	case *ast.Usage:
+		for _, rel := range n.Relationships {
+			if rel != nil && rel.Kind == ast.RelReferences {
+				target = rel.Target
+				break
+			}
+		}
+	}
+	chain, isChain := target.(*ast.FeatureChainExpr)
+	if !isChain || chain.Member == nil || len(chain.Member.Parts) != 1 || chain.Member.Parts[0].Text != ast.StartFeature {
+		return nil, nil, false
+	}
+	switch chain.Operand.(type) {
+	case *ast.FeatureChainExpr, *ast.QualifiedName, *ast.FeatureReference:
+	default:
+		return nil, nil, false
+	}
+	if !namesStartableBehavior(chain.Operand, scope) {
+		return nil, nil, false
+	}
+	return chain.Operand, chain, true
+}
+
+// namesStartableBehavior reports whether the `start` of the feature a path names is
+// the shot every behavior has, not a `start` the feature's type declares itself; a
+// path the scope cannot follow is taken as written and left to the runtime to refuse.
+func namesStartableBehavior(operand ast.Node, scope *symbols.Scope) bool {
+	path := FeaturePath(operand)
+	if scope == nil || path == "" {
+		return true
+	}
+	segments := strings.Split(path, ".")
+	sym, ok := resolve.FeatureSymbolInScope(scope, segments)
+	if !ok || sym == nil || sym.Decl == nil {
+		return true
+	}
+	if _, startable := StartableBehaviorOf(sym.Decl); startable {
+		return true
+	}
+	_, declared := resolve.FeatureSymbolInScope(scope, append(segments, ast.StartFeature))
+	return !declared
 }
 
 // TerminateTarget is what a terminate names, settled where it was written.
@@ -1116,7 +1182,17 @@ func lowerFeatures(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) {
 	var features []Feature
 	for _, member := range node.Members {
 		m, ok := unwrapMembership(member).(*ast.Usage)
-		if !ok || !DeclaresNodeFeature(m) {
+		if !ok {
+			continue
+		}
+		if m.IsAccept {
+			// A message payload is the accept's output pin; `accept when/at/after` binds none.
+			if m.Value == nil && m.Ident.Name != "" {
+				features = append(features, Feature{Name: m.Ident.Name, Direction: ast.DirOut, Node: m, Scope: scope})
+			}
+			continue
+		}
+		if !DeclaresNodeFeature(m) {
 			continue
 		}
 		name, _ := ast.EffectiveName(m)
@@ -1295,7 +1371,7 @@ func lowerStatement(member ast.Node, scope *symbols.Scope) Statement {
 		}
 		return lowered
 	case *ast.PerformActionNode:
-		return Effect{Kind: EffectPerform, Node: m, Scope: scope}
+		return performEffect(m, scope)
 	case *ast.TerminateStatement:
 		target, terminates := terminateTarget(m, scope)
 		return Effect{Kind: EffectTerminate, Node: m, Scope: scope, Terminates: terminates, Target: target, TargetExpr: m.Target}
@@ -1315,7 +1391,7 @@ func lowerStatement(member ast.Node, scope *symbols.Scope) Statement {
 		// An action usage naming the action it performs is a performed action, which
 		// the host executes or rejects as its own purity demands.
 		if m.Kind == ast.UsageAction && performsAction(m) {
-			return Effect{Kind: EffectPerform, Node: m, Scope: scope}
+			return performEffect(m, scope)
 		}
 		return Unsupported{Description: usageDescription(m), Node: m, Scope: scope}
 	default:
