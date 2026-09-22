@@ -7,7 +7,8 @@
 #
 # A key names no element, so this list survives a change of element identity.
 # The ontology records no abstractness, so a subject typed by a metaclass that is
-# abstract in the metamodel (sysml:Import) is not among these findings.
+# abstract in the metamodel would not be among these findings; every metaclass
+# written is checked concrete against the pilot's ecore models by hand instead.
 
 # 1. Properties the metamodel declares on a relationship or membership element
 # that this tool collapses into the element itself. Ownership and visibility no
@@ -30,19 +31,17 @@ domain-mismatch FeatureReferenceExpression upperBound # MultiplicityRange_upperB
 domain-mismatch FeatureChainExpression upperBound     # MultiplicityRange_upperBound: same collapse on a connector end written as a chain
 domain-mismatch TransitionUsage sourceFeature    # Connector_sourceFeature: a transition's ends are written on the transition, not on a Connector
 domain-mismatch TransitionUsage targetFeature    # Connector_targetFeature: a transition's ends are written on the transition, not on a Connector
-domain-mismatch Import importedNamespace         # NamespaceImport_importedNamespace: the import is typed sysml:Import, not NamespaceImport (D7)
 domain-mismatch AttributeUsage visibility        # Membership_visibility: a declaration inside an expression body has no membership, so its visibility is written on the declaration
 
 # 2. Object properties carrying a name as a literal where the ontology's range is
-# an element (D7). D3.1 gives references stable IRIs to point at; emitting them is
-# D7's own work.
-literal-for-object-property AttributeUsage type                                  # Feature_type: the type is written as its name, not as an element IRI
-literal-for-object-property ReferenceUsage type                                  # Feature_type: the type is written as its name, not as an element IRI
-literal-for-object-property PartUsage type                                       # Feature_type: the type is written as its name, not as an element IRI
-literal-for-object-property urn:opensysml:sysml:InitialNode sourceFeature        # Connector_sourceFeature: a succession end is written as a name (D2)
-literal-for-object-property SuccessionAsUsage sourceFeature                       # Connector_sourceFeature: a `then` after `first start` sequences from the name start, which is no element of the graph (D2)
+# an element. A name that resolves — to an element of the graph or to a
+# standard library element by its normative id — is linked; what remains here are
+# the fixtures' names that resolve to nothing, kept as written.
+literal-for-object-property AttributeUsage type                                  # Feature_type: a type the fixture never declares or imports (`Real` without ScalarValues, `Elsewhere::Missing`) is written as its name
+literal-for-object-property ReferenceUsage type                                  # Feature_type: a type the fixture never declares or imports is written as its name
+literal-for-object-property PartUsage type                                       # Feature_type: a type the fixture never declares or imports is written as its name
 literal-for-object-property FeatureReferenceExpression referent                   # FeatureReferenceExpression_referent: a name resolving outside the graph is written as a name, as every reference this tool cannot link is (D7)
-literal-for-object-property InvocationExpression function                         # Expression_function: a library function such as collect resolves outside the graph and is written as a name (D7)
+literal-for-object-property InvocationExpression function                         # Expression_function: a function the fixture never imports (`->collect` without ControlFunctions) is written as a name
 
 # 3. Metaclass names this tool writes into the SysML namespace that the 202407
 # rendering does not declare at all.
@@ -106,7 +105,7 @@ unknown-property ReferenceUsage isResult                     # notation flag for
 unknown-property PartUsage isChain                           # notation flag for a feature chain, no metamodel property
 unknown-property PartUsage isVariant                         # Usage::isVariant, which the 202407 rendering omits; the metamodel derives it from the VariantMembership
 unknown-property EnumerationUsage isVariant                  # Usage::isVariant on an enumerated value, a variant of its enumeration definition; omitted the same way
-unknown-property ConnectorAsUsage isAll                      # Type::isSufficient (`connector all from a to b`), written under the notation's own name
+unknown-property Connector isAll                              # Type::isSufficient (`connector all from a to b`), written under the notation's own name
 unknown-property AttributeUsage isAll                        # Type::isSufficient (`portion feature all slices`), written under the notation's own name
 unknown-property AttributeUsage isConstant                   # Feature::isReadOnly in the 202407 rendering, whose `readonly` the notation has since respelled `const`; written under the notation's own name
-literal-for-object-property FeatureChainExpression targetFeature                   # FeatureChainExpression_targetFeature: a library feature such as an action's done resolves outside the graph and is written as a name (D7)
+literal-for-object-property FeatureChainExpression targetFeature                   # FeatureChainExpression_targetFeature: the `result` of an invocation is no element of the graph and is written as a name

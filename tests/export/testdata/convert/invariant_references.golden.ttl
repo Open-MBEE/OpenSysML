@@ -23,7 +23,7 @@ elmt:InvariantReferences
     json:ownedRelationship "[{\"@id\":\"InvariantReferences___400\"},{\"@id\":\"InvariantReferences__Tank_om\"}]" .
 
 elmt:InvariantReferences___400
-    a sysml:Import ;
+    a sysml:NamespaceImport ;
     sysml:qualifiedName "InvariantReferences::@0" ;
     sysml:elementId "InvariantReferences___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
@@ -32,8 +32,7 @@ elmt:InvariantReferences___400
     sysml:owningRelatedElement elmt:InvariantReferences ;
     sysml:importOwningNamespace elmt:InvariantReferences ;
     sysml:visibility "private" ;
-    sysml:importedNamespace "ScalarValues" ;
-    sysx:isNamespaceImport "true"^^xsd:boolean ;
+    sysml:importedNamespace <urn:sysmlv2:element:40bb440c-5036-58e1-8675-5afccb8b8f1d> ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "    private import ScalarValues::*;\n" .
 
@@ -82,7 +81,7 @@ elmt:InvariantReferences__Tank__ready
     sysml:owningMembership elmt:InvariantReferences__Tank__ready_om ;
     sysml:declaredName "ready" ;
     sysx:declaredKeyword "feature" ;
-    sysml:type "Boolean" ;
+    sysml:type elmt:d1e9242d-b2e3-5270-bf69-4f4fb0447193 ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        feature ready : Boolean;\n" .
 
@@ -109,7 +108,7 @@ elmt:InvariantReferences__Tank__sealed
     sysml:owningMembership elmt:InvariantReferences__Tank__sealed_om ;
     sysml:declaredName "sealed" ;
     sysx:declaredKeyword "feature" ;
-    sysml:type "Boolean" ;
+    sysml:type elmt:d1e9242d-b2e3-5270-bf69-4f4fb0447193 ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        feature sealed : Boolean;\n" .
 
@@ -136,7 +135,7 @@ elmt:InvariantReferences__Tank__level
     sysml:owningMembership elmt:InvariantReferences__Tank__level_om ;
     sysml:declaredName "level" ;
     sysx:declaredKeyword "feature" ;
-    sysml:type "Real" ;
+    sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        feature level : Real;\n" .
 

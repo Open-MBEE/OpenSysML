@@ -15,8 +15,11 @@ description: How to end-to-end test the `internal/translate/export` RDF mapping 
 - The outermost package has no owner or owning membership in this mapping. Check
   the package element ID and a child datatype's owning membership; do not demand
   the root package's membership UUID in a standalone document.
-- External library type references remain qualified-name literals, e.g.
-  `sysml:type "ScalarValues::Real"`; this is not an encoded element identity.
+- A reference to a library element is its normative IRI, e.g. `sysml:type
+  <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31>` for `ScalarValues::Real`,
+  whether or not the library is in the graph; only a name that resolves to nothing
+  (`Missing::Kind`) stays a literal. A metadata prefix written by short name (`#moe`)
+  comes back by the element's name (`#MeasureOfEffectiveness`) without source text.
 - Test both source-backed and source-text-stripped imports. Normative IDs must
   not become ElementId annotations; a user-declared `abc-123` must remain an
   annotation. A declaration without an enclosing ProjectRef can still exercise

@@ -10,11 +10,13 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf/ontology"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
 // sysmlPrefix qualifies a SysML vocabulary property as a diagnostic names it.
@@ -49,6 +51,9 @@ type element struct {
 	// local marks a declaration inside an expression body: no member of a
 	// namespace, so it has no qualified name and its id is its position.
 	local bool
+	// library marks a standard library element the graph refers to by its
+	// normative id without defining it; qname is the name the norm fixes.
+	library bool
 	// ProjectRef provenance of a scope root, written back as an annotation.
 	projectID, branch, org string
 	// scope is the qualified name of the namespace this element is declared
@@ -150,6 +155,7 @@ func newDecoder(graph *rdf.Graph, metaclasses map[rdf.Term]string, names *nameCh
 		demoted:          map[*element]bool{},
 		demotedExpr:      map[string]bool{},
 		folded:           map[*element]*element{},
+		libraryRefs:      map[string]*element{},
 	}
 	return d
 }
@@ -595,6 +601,8 @@ type decoder struct {
 	// library is the bundled library document the graph is a version of, if any;
 	// its notation is read in that document's place.
 	library string
+	// libraryRefs holds the library elements references reached by normative id.
+	libraryRefs map[string]*element
 	// written records where each element landed in this pass's notation, the
 	// members of one ahead of it.
 	written []writing
@@ -896,12 +904,18 @@ func (d *decoder) checkReferences() error {
 
 // referencedElement resolves a referenced IRI to the graph subject whose
 // sysml:qualifiedName names it: by IRI first, then by the element id the IRI
-// ends in. An id the graph does not define is a dangling reference.
+// ends in, then as the normative id of a standard library element. An id
+// neither defines is a dangling reference.
 func (d *decoder) referencedElement(iri string) (*element, error) {
 	target, ok := d.byIRI[iri]
 	if !ok {
 		id := rdf.LocalName(iri)
 		target, ok = d.byID[id]
+		if !ok {
+			if lib, found := d.libraryElement(iri, id); found {
+				return lib, nil
+			}
+		}
 		if !ok || d.dupID[id] {
 			return nil, &UnsupportedError{
 				What: fmt.Sprintf("the reference <%s>", iri),
@@ -916,6 +930,27 @@ func (d *decoder) referencedElement(iri string) (*element, error) {
 		}
 	}
 	return target, nil
+}
+
+// libraryElement is the standard library element whose normative id a reference
+// names, if the norm fixes id for one; the graph need not define it.
+func (d *decoder) libraryElement(iri, id string) (*element, bool) {
+	if el, ok := d.libraryRefs[iri]; ok {
+		return el, true
+	}
+	lib, ok := identity.LibraryCatalog(libs.NewModelIndex()).Element(id)
+	if !ok {
+		return nil, false
+	}
+	el := &element{iri: iri, qname: lib.FQN, elementID: lib.ID, library: true}
+	if lib.Symbol != nil {
+		el.metaclass = declaredMetaclass(lib.Symbol.Decl)
+	}
+	if i := strings.LastIndex(lib.FQN, "::"); i >= 0 {
+		el.scope = lib.FQN[:i]
+	}
+	d.libraryRefs[iri] = el
+	return el, true
 }
 
 // checkMembershipEnds refuses a membership whose end is no element of the graph:
@@ -1239,7 +1274,7 @@ func (d *decoder) declarationHead(el *element) (string, error) {
 	switch el.metaclass {
 	case "Package", "Namespace":
 		return d.namespaceHead(el)
-	case "Import":
+	case mNamespaceImport, mMembershipImport, mNamespaceExpose, mMembershipExpose, mImport:
 		return d.importHead(el)
 	case mAlias:
 		return d.aliasHead(el)
@@ -1949,8 +1984,9 @@ func (d *decoder) missing(el *element, property, why string) error {
 func (d *decoder) importHead(el *element) (string, error) {
 	var words []string
 	// An expose is always protected and always imports all (SysML v2 8.3.26.2),
-	// so its keyword states both: writing them as well does not parse.
-	expose := d.boolOf(el, rdf.OpenSysML+xExpose)
+	// so its keyword states both: writing them as well does not parse. An older
+	// graph states an expose as a flag on an abstract sysml:Import.
+	expose := el.metaclass == mNamespaceExpose || el.metaclass == mMembershipExpose || d.boolOf(el, rdf.OpenSysML+xExpose)
 	if keyword := d.visibility(el); keyword != "" && !expose {
 		words = append(words, keyword)
 	}
@@ -1962,16 +1998,17 @@ func (d *decoder) importHead(el *element) (string, error) {
 			words = append(words, "all")
 		}
 	}
-	imported, err := d.referenceText(el, rdf.SysML+pImportedNamespace)
+	imported, err := d.importedName(el)
 	if err != nil {
 		return "", err
 	}
 	if imported == "" {
-		return "", d.missing(el, sysmlPrefix+pImportedNamespace, "an import names the namespace it imports")
+		return "", d.missing(el, sysmlPrefix+pImportedNamespace, "an import names the namespace or membership it imports")
 	}
 	// `P::*::**` imports the members of P recursively; `P::**` imports P itself
-	// and, recursively, its members. Both flags may hold at once.
-	if d.boolOf(el, rdf.OpenSysML+xNamespaceImport) {
+	// and, recursively, its members. An older graph states the kind of an
+	// abstract sysml:Import as a flag.
+	if el.metaclass == mNamespaceImport || el.metaclass == mNamespaceExpose || d.boolOf(el, rdf.OpenSysML+"isNamespaceImport") {
 		imported += "::*"
 	}
 	if d.boolOf(el, rdf.OpenSysML+xRecursive) {
@@ -1982,6 +2019,51 @@ func (d *decoder) importHead(el *element) (string, error) {
 		words = append(words, "["+filter+"]")
 	}
 	return strings.Join(words, " "), nil
+}
+
+// importedName is the name an import writes: a namespace import's namespace, a
+// membership import's membership — the member it owns, an alias, or the name
+// as written — and, from an older graph, the namespace an abstract import states.
+func (d *decoder) importedName(el *element) (string, error) {
+	subject := rdf.IRI(el.iri)
+	memberships := d.graph.Objects(subject, rdf.SysML+pImportedMembership)
+	namespaces := d.graph.Objects(subject, rdf.SysML+pImportedNamespace)
+	if len(memberships)+len(namespaces) > 1 {
+		return "", &UnsupportedError{
+			What: fmt.Sprintf("the import <%s>", el.iri),
+			Note: fmt.Sprintf("an import names one element, and it states %d across %s, so all but one would be dropped",
+				len(memberships)+len(namespaces), curieList([]string{pImportedMembership, pImportedNamespace})),
+		}
+	}
+	// A concrete import class fixes which property names its target; the wrong
+	// one would be written with the other kind's syntax and import a different set.
+	namespaceClass := el.metaclass == mNamespaceImport || el.metaclass == mNamespaceExpose
+	membershipClass := el.metaclass == mMembershipImport || el.metaclass == mMembershipExpose
+	if (namespaceClass && len(memberships) > 0) || (membershipClass && len(namespaces) > 0) {
+		stated, wanted := pImportedMembership, pImportedNamespace
+		if membershipClass {
+			stated, wanted = pImportedNamespace, pImportedMembership
+		}
+		return "", &UnsupportedError{
+			What: fmt.Sprintf("the import <%s>", el.iri),
+			Note: fmt.Sprintf("a %s names its target with %s%s, and it states %s%s instead, so writing it as either kind would import a different set",
+				sysmlPrefix+el.metaclass, sysmlPrefix, wanted, sysmlPrefix, stated),
+		}
+	}
+	if len(memberships) == 0 {
+		return d.referenceText(el, rdf.SysML+pImportedNamespace)
+	}
+	term := memberships[0]
+	if term.IsLiteral() {
+		return d.referenceName(term, el)
+	}
+	if m, ok := d.memberships[term.Value]; ok {
+		return d.referenceName(rdf.IRI(m.member), el)
+	}
+	if lib, ok := identity.LibraryCatalog(libs.NewModelIndex()).OwningMembership(rdf.LocalName(term.Value)); ok {
+		return d.referenceName(rdf.ElementIRIForID(lib.ID), el)
+	}
+	return d.referenceName(term, el)
 }
 
 func (d *decoder) aliasHead(el *element) (string, error) {
@@ -2814,6 +2896,9 @@ func (d *decoder) effectiveName(el *element) (string, bool) {
 	seen := map[string]bool{}
 	for !seen[el.iri] {
 		seen[el.iri] = true
+		if el.library {
+			return el.qname[strings.LastIndex(el.qname, "::")+len("::"):], true
+		}
 		if name, ok := d.stringOf(el, rdf.SysML+pDeclaredName); ok {
 			return name, true
 		}

@@ -87,7 +87,7 @@ elmt:Scopes
     json:ownedRelationship "[{\"@id\":\"Scopes___400\"},{\"@id\":\"Scopes__D_om\"}]" .
 
 elmt:Scopes___400
-    a sysml:Import ;
+    a sysml:NamespaceImport ;
     sysml:qualifiedName "Scopes::@0" ;
     sysml:elementId "Scopes___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
@@ -97,7 +97,6 @@ elmt:Scopes___400
     sysml:importOwningNamespace elmt:Scopes ;
     sysml:visibility "public" ;
     sysml:importedNamespace elmt:Lib ;
-    sysx:isNamespaceImport "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "    public import Lib::*;\n" .
 

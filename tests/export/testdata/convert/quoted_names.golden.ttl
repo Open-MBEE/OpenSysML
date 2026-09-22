@@ -343,7 +343,7 @@ elmt:Consumer
     json:ownedRelationship "[{\"@id\":\"Consumer___400\"},{\"@id\":\"Consumer__r_om\"},{\"@id\":\"Consumer___402\"}]" .
 
 elmt:Consumer___400
-    a sysml:Import ;
+    a sysml:NamespaceImport ;
     sysml:qualifiedName "Consumer::@0" ;
     sysml:elementId "Consumer___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
@@ -353,7 +353,6 @@ elmt:Consumer___400
     sysml:importOwningNamespace elmt:Consumer ;
     sysml:visibility "private" ;
     sysml:importedNamespace elmt:Quoted_20Names ;
-    sysx:isNamespaceImport "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "    private import 'Quoted Names'::*;\n" .
 

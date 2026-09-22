@@ -346,7 +346,7 @@ elmt:ThenAfterMembers__AfterBind__k
     sysml:owningRelationship elmt:ThenAfterMembers__AfterBind__k_om ;
     sysml:owningMembership elmt:ThenAfterMembers__AfterBind__k_om ;
     sysml:declaredName "k" ;
-    sysml:type "ScalarValues::Integer" ;
+    sysml:type elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        attribute k : ScalarValues::Integer;\n" .
 
@@ -372,7 +372,7 @@ elmt:ThenAfterMembers__AfterBind__m
     sysml:owningRelationship elmt:ThenAfterMembers__AfterBind__m_om ;
     sysml:owningMembership elmt:ThenAfterMembers__AfterBind__m_om ;
     sysml:declaredName "m" ;
-    sysml:type "ScalarValues::Integer" ;
+    sysml:type elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        attribute m : ScalarValues::Integer;\n" .
 
@@ -1898,7 +1898,7 @@ elmt:ThenAfterMembers__AfterAttribute__k
     sysml:owningRelationship elmt:ThenAfterMembers__AfterAttribute__k_om ;
     sysml:owningMembership elmt:ThenAfterMembers__AfterAttribute__k_om ;
     sysml:declaredName "k" ;
-    sysml:type "ScalarValues::Integer" ;
+    sysml:type elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        attribute k : ScalarValues::Integer;\n" .
 
@@ -2347,7 +2347,7 @@ elmt:ThenAfterMembers__AfterImport__a_om
     sysml:owningType elmt:ThenAfterMembers__AfterImport .
 
 elmt:ThenAfterMembers__AfterImport___401
-    a sysml:Import ;
+    a sysml:NamespaceImport ;
     sysml:qualifiedName "ThenAfterMembers::AfterImport::@1" ;
     sysml:elementId "ThenAfterMembers__AfterImport___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
@@ -2357,7 +2357,6 @@ elmt:ThenAfterMembers__AfterImport___401
     sysml:importOwningNamespace elmt:ThenAfterMembers__AfterImport ;
     sysml:visibility "private" ;
     sysml:importedNamespace elmt:ThenAfterMembers__Library ;
-    sysx:isNamespaceImport "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        private import Library::*;\n" .
 
@@ -3068,7 +3067,7 @@ elmt:ThenAfterMembers__AfterSeveralNonFeatures__Inner_om
     sysml:membershipOwningNamespace elmt:ThenAfterMembers__AfterSeveralNonFeatures .
 
 elmt:ThenAfterMembers__AfterSeveralNonFeatures___403
-    a sysml:Import ;
+    a sysml:NamespaceImport ;
     sysml:qualifiedName "ThenAfterMembers::AfterSeveralNonFeatures::@3" ;
     sysml:elementId "ThenAfterMembers__AfterSeveralNonFeatures___403" ;
     sysx:memberIndex "3"^^xsd:integer ;
@@ -3078,7 +3077,6 @@ elmt:ThenAfterMembers__AfterSeveralNonFeatures___403
     sysml:importOwningNamespace elmt:ThenAfterMembers__AfterSeveralNonFeatures ;
     sysml:visibility "private" ;
     sysml:importedNamespace elmt:ThenAfterMembers__Library ;
-    sysx:isNamespaceImport "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        private import Library::*;\n" .
 
@@ -3697,7 +3695,7 @@ elmt:ThenAfterMembers__AfterFirstStart___400
     sysml:owner elmt:ThenAfterMembers__AfterFirstStart ;
     sysml:owningRelationship elmt:ThenAfterMembers__AfterFirstStart___400_om ;
     sysml:owningMembership elmt:ThenAfterMembers__AfterFirstStart___400_om ;
-    sysml:sourceFeature "start" ;
+    sysml:sourceFeature <urn:sysmlv2:element:9a0d2905-0f9c-5bb4-af74-9780d6db1817> ;
     sysx:sourceText "        first start;\n" .
 
 elmt:ThenAfterMembers__AfterFirstStart___400_om
@@ -3746,8 +3744,7 @@ elmt:ThenAfterMembers__AfterFirstStart___402
     sysml:owningRelationship elmt:ThenAfterMembers__AfterFirstStart___402_om ;
     sysml:owningMembership elmt:ThenAfterMembers__AfterFirstStart___402_om ;
     sysx:endForm "then" ;
-    sysml:sourceFeature "start" ;
-    sysx:sourceMember elmt:ThenAfterMembers__AfterFirstStart___400 ;
+    sysml:sourceFeature <urn:sysmlv2:element:9a0d2905-0f9c-5bb4-af74-9780d6db1817> ;
     sysml:targetFeature elmt:ThenAfterMembers__AfterFirstStart__a ;
     sysx:sourceText "" .
 
@@ -4214,7 +4211,7 @@ elmt:ThenAfterMembers__Lamp__level
     sysml:owningRelationship elmt:ThenAfterMembers__Lamp__level_om ;
     sysml:owningMembership elmt:ThenAfterMembers__Lamp__level_om ;
     sysml:declaredName "level" ;
-    sysml:type "ScalarValues::Integer" ;
+    sysml:type elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        attribute level : ScalarValues::Integer;\n" .
 
@@ -4409,7 +4406,7 @@ elmt:ThenAfterMembers__Switch__pressed
     sysml:owningRelationship elmt:ThenAfterMembers__Switch__pressed_om ;
     sysml:owningMembership elmt:ThenAfterMembers__Switch__pressed_om ;
     sysml:declaredName "pressed" ;
-    sysml:type "ScalarValues::Boolean" ;
+    sysml:type elmt:d1e9242d-b2e3-5270-bf69-4f4fb0447193 ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        attribute pressed : ScalarValues::Boolean;\n" .
 

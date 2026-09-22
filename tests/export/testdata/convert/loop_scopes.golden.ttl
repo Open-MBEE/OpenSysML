@@ -115,7 +115,7 @@ expr:Loops__Charge___401_puntilCondition
     sysx:sourceText "charging.done" ;
     sysml:elementId "Loops__Charge___401_puntilCondition" ;
     sysml:argument expr:Loops__Charge___401_puntilCondition_pa0 ;
-    sysml:targetFeature "done" .
+    sysml:targetFeature <urn:sysmlv2:element:0cdc3cd3-b06c-5c32-beda-0cf4ba164a64> .
 
 expr:Loops__Charge___401_puntilCondition_pa0
     a sysml:FeatureReferenceExpression ;
@@ -186,7 +186,7 @@ expr:Loops__Charge___402_pwhileCondition
     sysx:sourceText "prep.done" ;
     sysml:elementId "Loops__Charge___402_pwhileCondition" ;
     sysml:argument expr:Loops__Charge___402_pwhileCondition_pa0 ;
-    sysml:targetFeature "done" .
+    sysml:targetFeature <urn:sysmlv2:element:0cdc3cd3-b06c-5c32-beda-0cf4ba164a64> .
 
 expr:Loops__Charge___402_pwhileCondition_pa0
     a sysml:FeatureReferenceExpression ;
@@ -200,7 +200,7 @@ expr:Loops__Charge___402_puntilCondition
     sysx:sourceText "pace.done" ;
     sysml:elementId "Loops__Charge___402_puntilCondition" ;
     sysml:argument expr:Loops__Charge___402_puntilCondition_pa0 ;
-    sysml:targetFeature "done" .
+    sysml:targetFeature <urn:sysmlv2:element:0cdc3cd3-b06c-5c32-beda-0cf4ba164a64> .
 
 expr:Loops__Charge___402_puntilCondition_pa0
     a sysml:FeatureReferenceExpression ;

@@ -88,7 +88,7 @@ func TestMemberFeatureIsAnOwningMembership(t *testing.T) {
 	notation := string(back)
 	for _, want := range []string{
 		"        member feature x featured by CC1_snapshots {\n",
-		"            member feature CC1_snapshots redefines Occurrences::Occurrence::snapshots featured by CC1;\n",
+		"            member feature CC1_snapshots redefines snapshots featured by CC1;\n",
 		"        portion redefines startShot {\n",
 		"            member feature redefines x featured by CC1_startShot_snapshots = 0 {\n",
 		"        feature p;\n",

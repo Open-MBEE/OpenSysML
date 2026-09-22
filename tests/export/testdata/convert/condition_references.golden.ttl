@@ -25,7 +25,7 @@ elmt:ConditionReferences
     json:ownedMembership "[{\"@id\":\"ConditionReferences__Resistance_om\"},{\"@id\":\"ConditionReferences__Rover_om\"}]" .
 
 elmt:ConditionReferences___400
-    a sysml:Import ;
+    a sysml:NamespaceImport ;
     sysml:qualifiedName "ConditionReferences::@0" ;
     sysml:elementId "ConditionReferences___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
@@ -34,8 +34,7 @@ elmt:ConditionReferences___400
     sysml:owningRelatedElement elmt:ConditionReferences ;
     sysml:importOwningNamespace elmt:ConditionReferences ;
     sysml:visibility "private" ;
-    sysml:importedNamespace "ScalarValues" ;
-    sysx:isNamespaceImport "true"^^xsd:boolean ;
+    sysml:importedNamespace <urn:sysmlv2:element:40bb440c-5036-58e1-8675-5afccb8b8f1d> ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "    private import ScalarValues::*;\n" .
 
@@ -83,7 +82,7 @@ elmt:ConditionReferences__Resistance__structuralIntegrityMaintained
     sysml:owningRelationship elmt:ConditionReferences__Resistance__structuralIntegrityMaintained_om ;
     sysml:owningMembership elmt:ConditionReferences__Resistance__structuralIntegrityMaintained_om ;
     sysml:declaredName "structuralIntegrityMaintained" ;
-    sysml:type "Boolean" ;
+    sysml:type elmt:d1e9242d-b2e3-5270-bf69-4f4fb0447193 ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        attribute structuralIntegrityMaintained : Boolean;\n" .
 
@@ -109,7 +108,7 @@ elmt:ConditionReferences__Resistance__a
     sysml:owningRelationship elmt:ConditionReferences__Resistance__a_om ;
     sysml:owningMembership elmt:ConditionReferences__Resistance__a_om ;
     sysml:declaredName "a" ;
-    sysml:type "Boolean" ;
+    sysml:type elmt:d1e9242d-b2e3-5270-bf69-4f4fb0447193 ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        attribute a : Boolean;\n" .
 
@@ -135,7 +134,7 @@ elmt:ConditionReferences__Resistance__b
     sysml:owningRelationship elmt:ConditionReferences__Resistance__b_om ;
     sysml:owningMembership elmt:ConditionReferences__Resistance__b_om ;
     sysml:declaredName "b" ;
-    sysml:type "Boolean" ;
+    sysml:type elmt:d1e9242d-b2e3-5270-bf69-4f4fb0447193 ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        attribute b : Boolean;\n" .
 
@@ -161,7 +160,7 @@ elmt:ConditionReferences__Resistance__x
     sysml:owningRelationship elmt:ConditionReferences__Resistance__x_om ;
     sysml:owningMembership elmt:ConditionReferences__Resistance__x_om ;
     sysml:declaredName "x" ;
-    sysml:type "Boolean" ;
+    sysml:type elmt:d1e9242d-b2e3-5270-bf69-4f4fb0447193 ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        attribute x : Boolean;\n" .
 
@@ -809,7 +808,7 @@ elmt:ConditionReferences__Rover__ok
     sysml:owningRelationship elmt:ConditionReferences__Rover__ok_om ;
     sysml:owningMembership elmt:ConditionReferences__Rover__ok_om ;
     sysml:declaredName "ok" ;
-    sysml:type "Boolean" ;
+    sysml:type elmt:d1e9242d-b2e3-5270-bf69-4f4fb0447193 ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        attribute ok : Boolean;\n" .
 
@@ -835,7 +834,7 @@ elmt:ConditionReferences__Rover__n
     sysml:owningRelationship elmt:ConditionReferences__Rover__n_om ;
     sysml:owningMembership elmt:ConditionReferences__Rover__n_om ;
     sysml:declaredName "n" ;
-    sysml:type "Real" ;
+    sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        attribute n : Real;\n" .
 

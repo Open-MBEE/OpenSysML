@@ -158,7 +158,7 @@ elmt:NestedNamespaceImport__Pkg2_om
     sysml:membershipOwningNamespace elmt:NestedNamespaceImport .
 
 elmt:NestedNamespaceImport__Pkg2___400
-    a sysml:Import ;
+    a sysml:NamespaceImport ;
     sysml:qualifiedName "NestedNamespaceImport::Pkg2::@0" ;
     sysml:elementId "NestedNamespaceImport__Pkg2___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
@@ -168,12 +168,11 @@ elmt:NestedNamespaceImport__Pkg2___400
     sysml:importOwningNamespace elmt:NestedNamespaceImport__Pkg2 ;
     sysml:visibility "private" ;
     sysml:importedNamespace elmt:NestedNamespaceImport__Pkg1 ;
-    sysx:isNamespaceImport "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        private import Pkg1::*;\n" .
 
 elmt:NestedNamespaceImport__Pkg2___401
-    a sysml:Import ;
+    a sysml:MembershipImport ;
     sysml:qualifiedName "NestedNamespaceImport::Pkg2::@1" ;
     sysml:elementId "NestedNamespaceImport__Pkg2___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
@@ -182,13 +181,13 @@ elmt:NestedNamespaceImport__Pkg2___401
     sysml:owningRelatedElement elmt:NestedNamespaceImport__Pkg2 ;
     sysml:importOwningNamespace elmt:NestedNamespaceImport__Pkg2 ;
     sysml:visibility "public" ;
-    sysml:importedNamespace elmt:NestedNamespaceImport__Pkg1 ;
     sysx:isRecursive "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:importedMembership elmt:NestedNamespaceImport__Pkg1_om ;
     sysx:sourceText "        public import Pkg1::**;\n" .
 
 elmt:NestedNamespaceImport__Pkg2___402
-    a sysml:Import ;
+    a sysml:NamespaceImport ;
     sysml:qualifiedName "NestedNamespaceImport::Pkg2::@2" ;
     sysml:elementId "NestedNamespaceImport__Pkg2___402" ;
     sysx:memberIndex "2"^^xsd:integer ;
@@ -198,7 +197,6 @@ elmt:NestedNamespaceImport__Pkg2___402
     sysml:importOwningNamespace elmt:NestedNamespaceImport__Pkg2 ;
     sysml:visibility "private" ;
     sysml:importedNamespace elmt:NestedNamespaceImport__Pkg1 ;
-    sysx:isNamespaceImport "true"^^xsd:boolean ;
     sysx:isRecursive "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        private import Pkg1::*::**;\n" .

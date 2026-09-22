@@ -64,7 +64,7 @@ var usageMetaclass = map[ast.UsageKind]string{
 	ast.UsageConcern:          "ConcernUsage",
 	ast.UsageFramedConcern:    "FramedConcernMembership",
 	ast.UsageConnection:       "ConnectionUsage",
-	ast.UsageConnector:        "ConnectorAsUsage",
+	ast.UsageConnector:        "Connector",
 	ast.UsageSuccession:       "SuccessionAsUsage",
 	ast.UsageFlow:             "FlowUsage",
 	ast.UsagePort:             "PortUsage",
@@ -137,6 +137,21 @@ const (
 	mAssertConstraintUsage = "AssertConstraintUsage"
 )
 
+// declaredMetaclass gives the metaclass a declaration outside any metadata body
+// builds, or "" for a node that declares no element of its own.
+func declaredMetaclass(decl ast.Node) string {
+	switch n := decl.(type) {
+	case *ast.Namespace:
+		return "Namespace"
+	case *ast.Definition:
+		return definitionMetaclass[n.Kind]
+	case *ast.Usage:
+		m, _ := usageMetaclassOf(n, false)
+		return m
+	}
+	return ""
+}
+
 // usageMetaclassOf gives the metaclass a usage builds, reading the keyword where
 // the kind does not decide it; a kindless one is a DefaultReferenceUsage, as is
 // a kindless `name = value;` in a metadata body (SysML.xtext MetadataBodyUsage).
@@ -182,9 +197,14 @@ func portionKeyword(portion ast.PortionKind) string {
 	return ""
 }
 
+// legacyConnectorAsUsage is the abstract metaclass older graphs typed a
+// `connector` with; it is read, never written.
+const legacyConnectorAsUsage = "ConnectorAsUsage"
+
 // metaclassKeywordUsage reads the keyword-decided metaclasses back to the kind
-// the parser records for them.
+// the parser records for them, and legacy metaclasses to the kind they meant.
 var metaclassKeywordUsage = map[string]ast.UsageKind{
+	legacyConnectorAsUsage: ast.UsageConnector,
 	"DataType":             ast.UsageAttribute,
 	"Function":             ast.UsageCalc,
 	"ReferenceUsage":       ast.UsageAttribute,

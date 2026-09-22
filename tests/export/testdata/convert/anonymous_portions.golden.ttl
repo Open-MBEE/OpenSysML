@@ -170,7 +170,7 @@ elmt:AnonymousPortions__car___400
     sysx:declaredKeyword "snapshot" ;
     sysml:isPortion "true"^^xsd:boolean ;
     sysml:portionKind "snapshot" ;
-    sysml:redefines "start" ;
+    sysml:redefines elmt:ed80d442-d498-5236-96ae-71a8a52531d2 ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:AnonymousPortions__car___400___400 ;
     sysml:ownedMembership elmt:AnonymousPortions__car___400___400_om ;
@@ -234,7 +234,7 @@ elmt:AnonymousPortions__car___401
     sysx:declaredKeyword "timeslice" ;
     sysml:isPortion "true"^^xsd:boolean ;
     sysml:portionKind "timeslice" ;
-    sysml:redefines "portionOfLife" ;
+    sysml:redefines elmt:fa859d04-71c3-510a-bdb7-d35d7bc10bee ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:AnonymousPortions__car___401___400 ;
     sysml:ownedMembership elmt:AnonymousPortions__car___401___400_om ;
@@ -299,7 +299,7 @@ elmt:AnonymousPortions__car___402
     sysml:isPortion "true"^^xsd:boolean ;
     sysml:portionKind "snapshot" ;
     sysml:subsets elmt:AnonymousPortions__Vehicle__fuel ;
-    sysml:redefines "done" ;
+    sysml:redefines elmt:dd677401-a352-5fe3-846a-dad08d3eab06 ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:AnonymousPortions__car___402___400 ;
     sysml:ownedMembership elmt:AnonymousPortions__car___402___400_om ;
