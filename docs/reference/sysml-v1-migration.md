@@ -67,7 +67,8 @@ returned over the service yet.
   migrated like any other.
 - The one extension content read is a `uml:ElementValue` a tool keeps there because UML has
   no such metaclass (MagicDraw's reference to a property from inside an Expression tree): it
-  is an operand of the element owning the extension, in document order.
+  is an operand of the element owning the extension, in document order, however the tool
+  wraps it; one inside a serialized diagram is the diagram's content, not an operand.
 - Only stereotypes from the OMG SysML and UML standard profiles, in the OMG namespaces or
   Papyrus' `…/papyrus/sysml/…` ones, classify elements — applied directly, or through a user
   stereotype that specializes one (see [Profiles and stereotypes](#profiles-and-stereotypes)).

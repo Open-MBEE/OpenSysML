@@ -183,6 +183,54 @@ func TestExtensionElementValuesAreOwned(t *testing.T) {
 	}
 }
 
+func TestExtensionElementValuesAtAnyDepthAreOwned(t *testing.T) {
+	src := `<?xml version="1.0"?>
+<xmi:XMI xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="M">
+    <packagedElement xmi:type="uml:Class" xmi:id="_c" name="C">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_w" name="w"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_h" name="h"/>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_r">
+        <specification xmi:type="uml:Expression" xmi:id="_e" symbol="*">
+          <xmi:Extension extender="Some Tool">
+            <operand xmi:type="uml:ElementValue" xmi:id="_direct" element="_w"/>
+            <modelExtension>
+              <values>
+                <operand xmi:type="uml:ElementValue" xmi:id="_deep" element="_h"/>
+              </values>
+              <ownedDiagram xmi:type="uml:Diagram" xmi:id="_d" name="D">
+                <operand xmi:type="uml:ElementValue" xmi:id="_drawn" element="_w"/>
+              </ownedDiagram>
+            </modelExtension>
+          </xmi:Extension>
+        </specification>
+      </ownedRule>
+    </packagedElement>
+  </uml:Model>
+</xmi:XMI>`
+	m, err := Parse([]byte(src))
+	if err != nil {
+		t.Fatal(err)
+	}
+	e := m.Lookup("_e")
+	operands := e.Owned("operand")
+	if len(operands) != 2 || operands[0].ID != "_direct" || operands[1].ID != "_deep" {
+		t.Fatalf("operands = %+v", operands)
+	}
+	for i, want := range []string{"_w", "_h"} {
+		if got := m.Ref(operands[i], "element"); got == nil || got.ID != want {
+			t.Errorf("operand %d element = %+v, want %s", i, got, want)
+		}
+	}
+	if m.Lookup("_drawn") != nil {
+		t.Error("a value inside the diagram's own content was adopted")
+	}
+	if len(m.Extensions) != 1 || len(m.Extensions[0].Elements) != 1 || m.Extensions[0].Elements[0].ID != "_drawn" {
+		t.Errorf("extensions = %+v", m.Extensions)
+	}
+}
+
 func TestStereotypeIgnoresXMIMetadata(t *testing.T) {
 	src := `<?xml version="1.0"?>
 <xmi:XMI xmlns:xmi="http://www.omg.org/spec/XMI/20131001"

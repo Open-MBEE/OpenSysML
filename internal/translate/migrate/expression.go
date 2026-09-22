@@ -144,7 +144,8 @@ func (l *treeLowering) node(v *sysmlv1.Element) (string, *refusal) {
 		why: "no operator of that symbol over " + strconv.Itoa(len(operands)) + " operand(s) is in the translated subset"}
 }
 
-// fold writes the operands joined by op, left to right.
+// fold writes the operands joined by op, left to right; v2 groups `**` to the
+// right, so a longer power parenthesizes what is folded so far.
 func (l *treeLowering) fold(op string, operands []*sysmlv1.Element) (string, *refusal) {
 	parts := make([]string, len(operands))
 	for i, o := range operands {
@@ -154,7 +155,17 @@ func (l *treeLowering) fold(op string, operands []*sysmlv1.Element) (string, *re
 		}
 		parts[i] = x
 	}
-	return strings.Join(parts, " "+op+" "), nil
+	if op != "**" {
+		return strings.Join(parts, " "+op+" "), nil
+	}
+	x := parts[0]
+	for i, p := range parts[1:] {
+		if i > 0 {
+			x = "(" + x + ")"
+		}
+		x += " ** " + p
+	}
+	return x, nil
 }
 
 // operand writes v as the operand of an operator: a nested node in parentheses.

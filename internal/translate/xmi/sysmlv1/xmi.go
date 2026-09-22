@@ -562,29 +562,32 @@ func (m *Model) extensionContent(raw *xmi.Element, ext *Extension, ref *Element,
 	}
 }
 
-// adoptValues reads the value specifications a tool keeps in an extension block
-// because UML has no metaclass for them — an ElementValue operand, referring to
-// an element — as owned elements of the block's owner, in document order.
-// It returns the raw elements adopted, so the block does not also list them.
+// adoptValues reads the ElementValue operands a tool keeps in an extension block, under any
+// wrappers but not inside a diagram or a reference, as the owner's; it returns those adopted.
 func (m *Model) adoptValues(raw *xmi.Element, owner, ref *Element) map[*xmi.Element]bool {
 	adopted := map[*xmi.Element]bool{}
 	if owner == nil || ref != nil {
 		return adopted
 	}
-	for _, block := range raw.Children {
+	var walk func(*xmi.Element)
+	walk = func(block *xmi.Element) {
 		for _, child := range block.Children {
-			if local(child.Type) != "ElementValue" {
-				continue
-			}
-			e := m.newElement(child, owner)
-			owner.Children = append(owner.Children, e)
-			m.children(child, e, nil)
-			adopted[child] = true
-			for _, d := range child.Descendants() {
-				adopted[d] = true
+			switch {
+			case isDiagram(child) || child.Tag == "referenceExtension":
+			case local(child.Type) == "ElementValue":
+				e := m.newElement(child, owner)
+				owner.Children = append(owner.Children, e)
+				m.children(child, e, nil)
+				adopted[child] = true
+				for _, d := range child.Descendants() {
+					adopted[d] = true
+				}
+			default:
+				walk(child)
 			}
 		}
 	}
+	walk(raw)
 	return adopted
 }
 
