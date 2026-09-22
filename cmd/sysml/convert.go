@@ -160,10 +160,8 @@ func writeConversion(path string, out []byte, to convert.Format) error {
 	return nil
 }
 
-// openBranch resolves a branch URL's repository under the shared bearer token.
-// The http(s) form must name the configured endpoint: a URL pointing elsewhere
-// while Layer 1 writes still go to FLEXO_LAYER1_URL would push one stack's
-// model over another's.
+// openBranch resolves a branch URL's repository under the shared bearer token;
+// an http(s) form naming another endpoint would split reads and writes across stacks.
 func openBranch(ref flexo.BranchRef) (*flexo.Repository, flexo.Config, error) {
 	cfg, err := flexo.ConfigFromEnv()
 	if err != nil {
