@@ -59,7 +59,7 @@ func FromModel(name string, model *sysmlv1.Model) *Result {
 		names:        map[*sysmlv1.Element]string{},
 		nodeNames:    map[*sysmlv1.Element]string{},
 		placeholders: map[*sysmlv1.Element]bool{},
-		nodeEnds:     map[*sysmlv1.Element][]*sysmlv1.Element{},
+		nodeEnds:     map[*sysmlv1.Element]*placement{},
 		extras:       map[*sysmlv1.Element][]func(){},
 		flows:        map[*sysmlv1.Element][]*sysmlv1.Element{},
 		outcomes:     map[*sysmlv1.Element]*flowOutcome{},
@@ -171,9 +171,10 @@ type migration struct {
 	names     map[*sysmlv1.Element]string
 	nodeNames map[*sysmlv1.Element]string
 	// placeholders are the activity nodes written as inert placeholders, and nodeEnds
-	// the relationships whose ends are activity nodes, judged once all are written.
+	// the placements of the relationships with pairs ending at activity nodes, judged
+	// once all are written.
 	placeholders map[*sysmlv1.Element]bool
-	nodeEnds     map[*sysmlv1.Element][]*sysmlv1.Element
+	nodeEnds     map[*sysmlv1.Element]*placement
 	// extras are members other elements contribute to a body: a Satisfy is
 	// written inside the block that satisfies.
 	extras map[*sysmlv1.Element][]func()
@@ -2310,8 +2311,9 @@ func (m *migration) flushFlows() {
 	}
 }
 
-// placeholderEnds settles the relationships whose end is an activity node written
-// only as a placeholder: a relationship is migrated no better than its end.
+// placeholderEnds settles the relationships with a pair ending at an activity node
+// written only as a placeholder: the pair is migrated no better than that end, and
+// the relationship is unmapped only once none of its pairs is written any better.
 func (m *migration) placeholderEnds() {
 	var rels []*sysmlv1.Element
 	for d := range m.nodeEnds {
@@ -2319,17 +2321,33 @@ func (m *migration) placeholderEnds() {
 	}
 	sort.Slice(rels, func(i, j int) bool { return rels[i].ID < rels[j].ID })
 	for _, d := range rels {
-		for _, end := range m.nodeEnds[d] {
-			if !m.placeholders[end] {
-				continue
+		pl := m.nodeEnds[d]
+		for _, ends := range pl.nodePairs {
+			for _, end := range ends {
+				if !m.placeholders[end] {
+					continue
+				}
+				v := Approximated
+				if m.verdictOf(end) == Unmapped {
+					pl.written--
+					pl.failed++
+					if pl.written == 0 {
+						v = Unmapped
+					}
+				}
+				m.add(d, v, "", "its end "+qualifiedName(end)+" is written only as a placeholder of a node that is not migrated")
+				break
 			}
-			v := Unmapped
-			if i, ok := m.indexed[end.ID]; ok {
-				v = m.report.Entries[i].Verdict
-			}
-			m.add(d, v, "", "its end "+qualifiedName(end)+" is written only as a placeholder of a node that is not migrated")
 		}
 	}
+}
+
+// verdictOf is the verdict e was reported with; Unmapped for an element not reported.
+func (m *migration) verdictOf(e *sysmlv1.Element) Verdict {
+	if i, ok := m.indexed[e.ID]; ok {
+		return m.report.Entries[i].Verdict
+	}
+	return Unmapped
 }
 
 // flowProperty finds the flow property of a port's type carrying item.
@@ -2406,12 +2424,14 @@ func (m *migration) dependencyPairs(d *sysmlv1.Element) (pairs []pair, failed in
 	return pairs, total - len(pairs), missing
 }
 
-// placement is the outcome of placing a Satisfy or Verify: where each pair was
-// written, and why the others could not be.
+// placement is the outcome of placing a relationship: how many pairs were written,
+// where, why the others could not be, and the activity nodes at the ends of each
+// written pair, judged again once their graphs are written.
 type placement struct {
 	written, failed int
 	target          string
 	notes           []string
+	nodePairs       [][]*sysmlv1.Element
 }
 
 // placeDependency registers, ahead of writing, a Satisfy or Verify in the body
@@ -2485,7 +2505,7 @@ func (m *migration) dependency(d *sysmlv1.Element) {
 			name = m.freshName(m.scope, name)
 			pl.notes = append(pl.notes, fmt.Sprintf("pair %d is named %s so the pairs stay distinct", i+1, name))
 		}
-		target, written, note := m.dependencyPair(d, name, p.client, p.supplier)
+		target, written, note := m.dependencyPair(d, pl, name, p.client, p.supplier)
 		if written {
 			pl.written++
 			pl.target = target
@@ -2499,6 +2519,9 @@ func (m *migration) dependency(d *sysmlv1.Element) {
 	m.relationship(d, pl)
 	if pl.written > 0 {
 		m.stereotypeComments(d)
+	}
+	if len(pl.nodePairs) > 0 {
+		m.nodeEnds[d] = pl
 	}
 }
 
@@ -2547,19 +2570,24 @@ func uniqueStrings(in []string) []string {
 }
 
 // dependencyPair writes one client–supplier pair of a dependency, returning
-// the v2 target written, if any, whether it was written, and a note.
-func (m *migration) dependencyPair(d *sysmlv1.Element, name string, client, supplier *sysmlv1.Element) (string, bool, string) {
+// the v2 target written, if any, whether it was written, and a note; the pair's
+// ends that are activity nodes are kept on pl for judging once their graphs are written.
+func (m *migration) dependencyPair(d *sysmlv1.Element, pl *placement, name string, client, supplier *sysmlv1.Element) (string, bool, string) {
 	if has(d, "DeriveReqt") {
 		target, note := m.derive(d, name, client, supplier)
 		return target, target != "", note
 	}
+	var nodes []*sysmlv1.Element
 	for _, end := range []*sysmlv1.Element{client, supplier} {
 		if !m.written(end) {
 			return "", false, "its end " + qualifiedName(end) + " is not migrated"
 		}
 		if act, _ := m.nodeGraph(end); act != nil {
-			m.nodeEnds[d] = append(m.nodeEnds[d], end)
+			nodes = append(nodes, end)
 		}
+	}
+	if len(nodes) > 0 {
+		pl.nodePairs = append(pl.nodePairs, nodes)
 	}
 	from, to := m.ref(client, m.scope), m.ref(supplier, m.scope)
 	target := ""

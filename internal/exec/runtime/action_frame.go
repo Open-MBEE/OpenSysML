@@ -1211,11 +1211,11 @@ func (e *performances) bindOutputPins(perf *actionFrame) error {
 		switch dir {
 		case ast.DirOut, ast.DirInOut:
 			if !ok {
-				if perf.admitsNoValueAt(end.Pin) {
-					continue
+				if !perf.admitsNoValueAt(end.Pin) {
+					return fmt.Errorf("%w: %s produced no value at %s to bind %s to",
+						ErrBindingEnd, perf.describe(), end.Pin, bindingEndText(end.Other))
 				}
-				return fmt.Errorf("%w: %s produced no value at %s to bind %s to",
-					ErrBindingEnd, perf.describe(), end.Pin, bindingEndText(end.Other))
+				value = sequenceOf(nil) // the binding holds the other end to the same absence
 			}
 		case ast.DirNone:
 			if !ok {

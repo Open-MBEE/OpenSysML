@@ -1,6 +1,7 @@
 package migrate_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/migrate"
@@ -152,6 +153,50 @@ func TestNodeNamedAheadOfItsWriterKeepsSiblingsDistinct(t *testing.T) {
 		t.Errorf("its sibling: got %+v, want target call2", e)
 	}
 	wantClean(t, "t.sysml", r)
+}
+
+// mixedAllocation is an «Allocate» from a part to two nodes of an activity: a stub
+// call the migrator writes, and an action of a kind it has no v2 form for, which it
+// writes only as a placeholder.
+const mixedAllocation = `
+    <packagedElement xmi:type="uml:Class" xmi:id="_probe" name="Probe"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_rig" name="Rig">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_eye" name="probe" type="_probe" aggregation="composite"/>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_run" name="Run">
+        <node xmi:type="uml:InitialNode" xmi:id="_init"/>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_scan" name="scan"/>
+        <node xmi:type="uml:CreateObjectAction" xmi:id="_make" name="make" classifier="_probe"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_final"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e1" source="_init" target="_scan"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e2" source="_scan" target="_make"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e3" source="_make" target="_final"/>
+      </ownedBehavior>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Abstraction" xmi:id="_alloc">
+      <client xmi:idref="_eye"/>
+      <supplier xmi:idref="_scan"/>
+      <supplier xmi:idref="_make"/>
+    </packagedElement>`
+
+const mixedAllocationApplications = `
+  <sysml:Block xmi:id="_p1" base_Class="_probe"/>
+  <sysml:Block xmi:id="_p2" base_Class="_rig"/>
+  <sysml:Allocate xmi:id="_p3" base_Abstraction="_alloc"/>`
+
+// A pair ending at a placeholder counts against the relationship as one pair, not as
+// the whole: the pair to the written node keeps the «Allocate» approximated, and it
+// is unmapped only when every pair ends so.
+func TestPlaceholderEndFailsOnlyItsOwnPair(t *testing.T) {
+	r := migrateDocument(t, mixedAllocation, mixedAllocationApplications)
+	wantNote(t, r, "_make", migrate.Unmapped, "no v2 form for a UML CreateObjectAction")
+	wantNote(t, r, "_alloc", migrate.Approximated, "written as 2 relationships, one per client–supplier pair; its end Rig::Run::make is written only as a placeholder of a node that is not migrated")
+	wantLine(t, r.Notation, "allocate Rig::probe to Rig::Run::scan;")
+	wantLine(t, r.Notation, "allocate Rig::probe to Rig::Run::make;")
+	wantClean(t, "t.sysml", r)
+
+	only := strings.Replace(mixedAllocation, `<supplier xmi:idref="_scan"/>`, "", 1)
+	r = migrateDocument(t, only, mixedAllocationApplications)
+	wantNote(t, r, "_alloc", migrate.Unmapped, "its end Rig::Run::make is written only as a placeholder of a node that is not migrated")
 }
 
 // A call whose behavior reference resolves to nothing is not a stub: it is left a
