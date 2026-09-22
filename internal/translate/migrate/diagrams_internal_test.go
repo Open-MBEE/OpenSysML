@@ -131,6 +131,19 @@ func TestDiagramViews(t *testing.T) {
 			 </packagedElement>`,
 			diagram("_d", "Valves", "_sys", "SysML Block Definition Diagram", "_status"),
 			[]string{"action def Open {\n        ref status;", "view Valves {\n        expose Valve::Open::status;\n        render Views::asTreeDiagram;\n    }"}, Mapped, ""},
+		{"a diagram of a method activity named like one of its members is numbered, the member keeping its name",
+			`<packagedElement xmi:type="uml:Class" xmi:id="_valve" name="Valve">
+			   <ownedOperation xmi:type="uml:Operation" xmi:id="_open" name="Open" method="_opening"/>
+			   <ownedBehavior xmi:type="uml:Activity" xmi:id="_opening" name="Opening" specification="_open">
+			     <ownedAttribute xmi:type="uml:Property" xmi:id="_status" name="status"/>
+			     <node xmi:type="uml:InitialNode" xmi:id="_o_init"/>
+			     <node xmi:type="uml:OpaqueAction" xmi:id="_turn" name="turn"><language>JavaScript</language><body>1;</body></node>
+			     <edge xmi:type="uml:ControlFlow" xmi:id="_o_e" source="_o_init" target="_turn"/>
+			   </ownedBehavior>
+			 </packagedElement>`,
+			diagram("_d1", "status", "_opening", "SysML Activity Diagram", "_status") + diagram("_d", "turn", "_opening", "SysML Activity Diagram", "_turn"),
+			[]string{"action def Open {\n        view 'status 2' {\n            expose Valve::Open::status;", "view 'turn 2' {\n            expose Valve::Open::turn;", "ref status;", "action turn {"}, Approximated,
+			"written as turn 2"},
 		{"a shown association end is exposed under the name its connection def declares",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_tank" name="Tank">
 			   <ownedAttribute xmi:type="uml:Property" xmi:id="_t_end" name="pump" type="_pump" association="_feeds"/>

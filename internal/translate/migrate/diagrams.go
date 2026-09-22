@@ -90,14 +90,18 @@ func (m *migration) planViews() {
 
 // viewName reserves the name a view takes in host's body: name, or name with a
 // number when a member of the body has it — the vertices a state def writes
-// from its regions included, which are named ahead of it.
+// from its regions and the members of an operation's method included.
 func (m *migration) viewName(host *sysmlv1.Element, name string) string {
 	var used map[string]bool
 	if host.Type == "StateMachine" {
 		used = m.nameMachine(host)
 	}
+	method := m.bodyMethod(host)
+	taken := func(name string) bool {
+		return used[name] || m.nameTaken(host, name) || method != nil && m.nameTaken(method, name)
+	}
 	base := name
-	for i := 2; used[name] || m.nameTaken(host, name); i++ {
+	for i := 2; taken(name); i++ {
 		name = fmt.Sprintf("%s %d", base, i)
 	}
 	if used != nil {
