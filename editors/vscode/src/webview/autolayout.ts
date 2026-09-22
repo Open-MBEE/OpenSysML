@@ -147,13 +147,8 @@ async function layOut(result: RenderResult): Promise<AutoLayout> {
   return { nodes: placed, routes };
 }
 
-// reconcile puts ELK's picture and the model's geometry together: the subtree
-// under a node the model places shifts to the model's place (a stated
-// descendant keeps its own stated place on its turn, outermost first), an edge
-// within the subtree moves with it, and one crossing its border loses the route
-// so it is drawn straight. Then an unplaced container grows — never shrinks —
-// to cover shown children a placed sibling carried away; a route at a grown
-// border may sit slightly off the edge it hugged, which reads fine.
+// reconcile moves each placed node's subtree to the model's place (outermost first), keeps routes
+// inside it and drops those crossing its border; then unplaced containers grow to cover their children.
 function reconcile(
   result: RenderResult,
   children: Map<string | undefined, RenderNode[]>,
