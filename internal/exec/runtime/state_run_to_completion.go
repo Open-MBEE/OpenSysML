@@ -133,6 +133,11 @@ func (e *StateExecutor) performHeld(item heldEntry) (err error) {
 		e.entering[state] = true
 	}
 	e.enteringMachine = item.machine
+	begun := append(slices.Clone(item.chain), item.owner)
+	if item.machine {
+		begun = append(begun, e.graph.Machine)
+	}
+	e.resumeEntering(begun)
 	defer e.unfireOnError(len(e.fired), &err)
 	if item.regions != nil {
 		if e.activeConfig.simpleState == item.owner {

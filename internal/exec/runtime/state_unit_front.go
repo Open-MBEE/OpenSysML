@@ -71,7 +71,25 @@ func (e *StateExecutor) silentEntry(state *ast.StateNode) bool {
 // entryHead is the unit entering state; one queuing a completion (leaf) is observable through
 // the pool's order, so it is drawn even when the state performs nothing.
 func (e *StateExecutor) entryHead(state *ast.StateNode, leaf bool) unitHead {
-	return unitHead{label: e.entryLabel(state), at: state, silent: !leaf && e.silentEntry(state)}
+	var body ast.Node
+	if parent := e.graph.ParentState[state]; parent != nil {
+		body = parent
+	}
+	return unitHead{label: e.entryLabel(state), at: state, site: e.bodySite(body), silent: !leaf && e.silentEntry(state)}
+}
+
+// bodySite names the entry site of a body's units as a front entering it would: the state
+// whose body it is, or the machine.
+func (e *StateExecutor) bodySite(body ast.Node) string {
+	switch body := body.(type) {
+	case *ast.StateNode:
+		return enteringWherePrefix + body.Name
+	case *ast.StateRegion:
+		if owner := e.graph.RegionOwner[body]; owner != nil {
+			return enteringWherePrefix + owner.Name
+		}
+	}
+	return enteringWherePrefix + e.stateMachine.Name
 }
 
 // silentExit is silentEntry for leaving state.
@@ -117,15 +135,28 @@ type unitQueue struct {
 }
 
 // unitHead is a queue's next unit: shared (performed once, by the first drawn), waiting (until
-// holds), void (a disabled firing, run last performing nothing) or silent (rides with the next performing unit).
+// holds), void (a disabled firing, run last performing nothing), silent (rides with the next
+// performing unit) or a do step (one token move, offered while a sibling has a unit left).
+// site names the body the unit enters, the Where of its draw when no front orders it.
 type unitHead struct {
 	label   string
 	at      ast.Node
+	site    string
 	shared  *ast.StateNode
 	dropped func() bool
 	until   func() bool
 	void    func() bool
 	silent  bool
+	doStep  bool
+}
+
+// pathDraw is the draw along an entry path no front orders: once the path is drawn over the
+// due do steps it rides its silent units, as a front's queue does, until it has performed one.
+type pathDraw struct {
+	drawn     bool
+	performed bool
+	prepaid   bool
+	due       []*doAction
 }
 
 // firingScope is the state of a queue's firing (occurrence, what it left and entered ahead,
@@ -267,9 +298,16 @@ func (e *StateExecutor) performUnits(kind ChoiceKind, where string, bodies []fun
 	return e.drawUnits(kind, where, bodies)
 }
 
-// drawUnits performs the bodies as the queues of a front of their own.
+// drawUnits performs the bodies as the queues of a front of their own; an entry front also
+// offers the due steps of the do behaviors the move began before it opened.
 func (e *StateExecutor) drawUnits(kind ChoiceKind, where string, bodies []func() error) error {
 	f := e.openFront(kind, where)
+	if f.accepts(ChoiceEntryOrder) {
+		e.path = pathDraw{}
+		for _, act := range e.dueAmong(e.began) {
+			f.offer(act)
+		}
+	}
 	for _, body := range bodies {
 		f.spawn(body)
 	}
@@ -324,6 +362,22 @@ func (f *unitFront) spawnAt(head unitHead, body func() error) *unitQueue {
 	return q
 }
 
+// offer adds a queue drawing each due step of a do behavior begun in the move against the
+// other queues' units; a step is never silent, and only the one-move engines step this fine.
+func (f *unitFront) offer(act *doAction) {
+	if !f.exec.ctx.scheduling().oneMove() {
+		return
+	}
+	var q *unitQueue
+	q = f.spawnAt(f.doStepHead(act), func() error { return f.offerDoSteps(q, act) })
+	q.head.void = func() bool { return !f.offering(q, act) }
+}
+
+// doStepHead is the unit moving one token of the do behavior.
+func (f *unitFront) doStepHead(act *doAction) unitHead {
+	return unitHead{label: doStepLabel([]string{f.exec.stateName(act.state)}), at: act.state, doStep: true}
+}
+
 // add places a queue for body in the front, before the running queue.
 func (f *unitFront) add(body func() error) *unitQueue {
 	q := &unitQueue{front: f, body: body, firing: f.exec.firing()}
@@ -371,10 +425,13 @@ func (f *unitFront) resume(q *unitQueue, perform bool) {
 }
 
 // unit yields before a unit of the running queue and reports whether to perform it; a unit
-// no front of this kind orders is performed at once.
+// no front of this kind orders is performed at once, an entry drawn against the due do steps.
 func (e *StateExecutor) unit(kind ChoiceKind, head unitHead) (bool, error) {
 	f := e.front
 	if f == nil || !f.accepts(kind) || f.current == nil {
+		if kind == ChoiceEntryOrder {
+			return true, e.drawOnPath(head)
+		}
 		return true, nil
 	}
 	q := f.current
@@ -396,6 +453,13 @@ func (e *StateExecutor) unit(kind ChoiceKind, head unitHead) (bool, error) {
 func (e *StateExecutor) unitAhead(kind ChoiceKind, head unitHead) error {
 	f := e.front
 	if f == nil || !f.accepts(kind) || f.current == nil {
+		if kind != ChoiceEntryOrder {
+			return nil
+		}
+		if err := e.drawOnPath(head); err != nil {
+			return err
+		}
+		e.path.prepaid = true
 		return nil
 	}
 	if _, err := e.unit(kind, head); err != nil {
@@ -403,6 +467,56 @@ func (e *StateExecutor) unitAhead(kind ChoiceKind, head unitHead) error {
 	}
 	f.current.prepaid = true
 	return nil
+}
+
+// drawOnPath draws a unit of an entry path no front orders against the due do steps the move
+// began, moving the steps drawn until the unit is; a unit riding a drawn one is not drawn.
+func (e *StateExecutor) drawOnPath(head unitHead) error {
+	p := &e.path
+	if p.prepaid {
+		p.prepaid = false
+		return nil
+	}
+	if !e.ctx.scheduling().oneMove() {
+		return nil
+	}
+	for {
+		due := e.dueAmong(e.began)
+		if len(due) == 0 {
+			*p = pathDraw{}
+			return nil
+		}
+		if p.drawn && slices.Equal(due, p.due) && !(p.performed && !head.silent) {
+			p.performed = p.performed || !head.silent
+			return nil
+		}
+		alternatives := make([]string, 0, len(due)+1)
+		for _, act := range due {
+			alternatives = append(alternatives, doStepLabel([]string{e.stateName(act.state)}))
+		}
+		alternatives = append(alternatives, head.label)
+		choice := ChoicePoint{Kind: ChoiceEntryOrder, Where: head.site, Alternatives: alternatives, File: e.stateMachine.DocName}
+		pick := e.ctx.scheduling().choose(choice, nil)
+		if err := e.ctx.scheduling().refusal(); err != nil {
+			return err
+		}
+		choice.Taken = pick
+		at := head.at
+		if pick < len(due) {
+			at = due[pick].state
+		}
+		if at != nil {
+			choice.Span = at.Span()
+		}
+		e.noteChoice(choice)
+		if pick == len(due) {
+			*p = pathDraw{drawn: true, performed: !head.silent, due: due}
+			return nil
+		}
+		if err := e.moveDoStep(due[pick]); err != nil {
+			return err
+		}
+	}
 }
 
 // inFront reports whether a queue of a front of the given kind is running, so a
@@ -482,6 +596,56 @@ func (f *unitFront) advance(q *unitQueue) {
 			return
 		}
 	}
+}
+
+// offerDoSteps yields each due token move of the do behavior as a unit of q while a sibling has a
+// unit left.
+func (f *unitFront) offerDoSteps(q *unitQueue, act *doAction) error {
+	e := f.exec
+	for f.offering(q, act) {
+		head := f.doStepHead(act)
+		head.void = func() bool { return !f.offering(q, act) }
+		perform, err := e.unit(f.kind, head)
+		if err != nil || !perform {
+			return err
+		}
+		if err := e.moveDoStep(act); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// offering reports whether q still has a step of the do behavior to offer: the behavior is
+// running and due, and a sibling has a unit left.
+func (f *unitFront) offering(q *unitQueue, act *doAction) bool {
+	return len(f.exec.dueAmong([]*doAction{act})) > 0 && f.unitsPending(q)
+}
+
+// moveDoStep moves one token of the do behavior as a unit of an entry site does.
+func (e *StateExecutor) moveDoStep(act *doAction) error {
+	if err := e.stepDoAction(act, func(run *doRun) (*doRun, error) { return run.resume(e.ctx) }); err != nil {
+		return err
+	}
+	if err := e.countDoStep(); err != nil {
+		return err
+	}
+	return e.settleDoActions()
+}
+
+// unitsPending reports a queue other than q with a unit of its own left: neither done, waiting,
+// void, nor offering a do step.
+func (f *unitFront) unitsPending(q *unitQueue) bool {
+	for _, r := range f.queues {
+		if r == q || r.done || r.head.until != nil || r.head.doStep {
+			continue
+		}
+		if r.head.void != nil && r.head.void() {
+			continue
+		}
+		return true
+	}
+	return false
 }
 
 // readyExcept lists the ready queues other than q.

@@ -389,15 +389,16 @@ Behaviors associated with entering the State, such as the entry Behaviors of sub
 when the state is activated; a do action starts after the entry action completes and continues
 while the state is active"; `StatePerformances.kerml` `succession entry then do` and
 `succession entry then middle`, with substates in `middle`. *Runtime:*
-`state_executor.go:enterStateInto` runs the entry body to its end, then `enterRegionsInto`
-(each region in declaration order to its initial leaf, entry behaviors along the way), then
-`startDoAction` for the state; a substate's do action is likewise started by its own entry.
-`state_parallel_entry_behavior`, `state_nested_parallel_entry_exit_behavior`,
-`state_do_action_declaration_order`, `state_entry_exit_action_successions`. The one ordering difference — the runtime
-enters the regions *before* starting the composite's own do action, PSSM starts the do activity
-before entering the regions — is unobservable in the trace, because the do action does not run
-until the next do round (SM13) and PSSM's do activity runs asynchronously as well; both leave
-"entry, region entries" in that order. **agrees.**
+`state_executor.go:enterStateInto` runs the entry body to its end, then `startDoAction` for the
+state, then `enterRegionsInto` (each region in declaration order to its initial leaf, entry
+behaviors along the way); a substate's do action is likewise started by its own entry, before
+its own body. `state_parallel_entry_behavior`, `state_nested_parallel_entry_exit_behavior`,
+`state_do_action_declaration_order`, `state_entry_exit_action_successions`. The fixed policies
+leave the trace as PSSM leaves it, "entry, region entries" in that order, the do action's steps
+after the move; the one-move engines draw each due step of the composite's own do action
+against its substates' entries as well (SM13, the do step on the entry front:
+`state_do_step_before_own_substate_entries`, `state_do_step_before_own_body_entry`), the order
+PSSM admits with the do activity running asynchronously. **agrees.**
 
 **SM13. The do activity runs asynchronously, interleaved with the machine.** PSSM §8.5.6: the do
 activity executes on a `DoActivityContextObject` of its own, "asynchronously" to the state
@@ -416,7 +417,9 @@ The step granularity (one action node per machine step) is a tool choice PSSM do
 either — its do activity runs in the fUML "as if concurrent" sense — so no trace admissible
 here is inadmissible there. The converse holds under `check`, `replay` and `explore`, where a
 due do step and the dispatch at the head of the pool are drawn against each other per token move
-(finding 9's fourth site, `ChoiceStepOrder`; the fixed policies alone run the whole round before
+(finding 9's fourth site, `ChoiceStepOrder`), and a due do step of an entered state against the
+sibling regions' remaining entry units inside the entry front (the same site's rule on the
+front, under the front's own draw; the fixed policies alone run the whole round before
 they dispatch, one path of that enumeration — see
 [recording the order of orthogonal regions](region-order-scheduling.md)). **agrees.**
 
@@ -2075,9 +2078,8 @@ The rows below report the runtime differing from, or falling short of, SysML v2'
 Semantic Library's *own* text, or from this project's own design notes. They are bug reports and
 unsupported-feature records, not alignment questions: PSSM has nothing to do with them and they
 are not alignment questions. Each names its evidence; items 1, 4 to 10 are fixed, and say where;
-item 11 is adjudicated — a translation limit on three tests, the suite's defect on two, its pool
-order fixed — with one site of the runtime's still open, the do step drawn on the entry front,
-and says what a fix takes.
+item 11 is adjudicated — a translation limit on three tests, the suite's defect on two, its two
+sites of the runtime's fixed, the pool's order and the do step drawn on the entry front.
 
 1. **Terminate was parsed and lowered but not executed** (SM38). SysML v2 §7.17.10 and §7.18.3
    define `terminate`; `Performances.kerml` provides `TerminatePerformance`; the parser accepted
@@ -2265,7 +2267,14 @@ and says what a fix takes.
    the checker's enumeration. *Behavior 003 A* passes; *Transition 017* reaches every placement of
    its do step and stays `fail` on item 11's pool order and the suite's defect
    ([omg-issues](../../project/omg-issues.md#pssm-transition-017-admits-a-parents-completion-before-its-regions)),
-   *Terminate 002* on item 11 alone.
+   *Terminate 002* on item 11 alone. *Fixed on the entry front too*: once a state's entry
+   unit has performed and started its do behavior (`startDoAction`), each due token move of
+   that behavior is a unit of its region's queue on the entry front, drawn against the sibling
+   regions' remaining entry units under the front's own draw (`state_unit_front.go:offerDoSteps`,
+   `ChoiceEntryOrder`'s `entering <state>` with `do <state>` an alternative beside the
+   entries — no new choice kind) while a sibling has a unit left, then against the dispatch as
+   above; the fixed policies offer no such unit and no golden of theirs moved. *Terminate 002*
+   reaches its fifth admitted trace and passes; every site of this item is closed.
 10. **A segment leaving a junction inside a composite state runs its effect before the
     composite is entered.** PSSM *Junction 005* (§9.4.11): a transition from outside targets a
     junction that lies in one region of an orthogonal state, and the segment out of the
@@ -2369,22 +2378,24 @@ and says what a fix takes.
       firing splits around a restored entry. No runtime rule is chosen to reach either; the two
       stay `fail` citing the defect, and against the specification's own text neither can pass
       on the downloaded XMI.
-    - *Terminate 002*'s one remaining trace has this shape with a **do step** in place of the
+    - *Terminate 002*'s one remaining trace had this shape with a **do step** in place of the
       completion's firing: a due do step of the entered state drawn against a sibling's entry
-      unit, item 9's fourth site extended to the entry front, where that site draws it against
-      the dispatch alone; it stays `fail` citing this item for it. *Transition 017*'s three were
+      unit, item 9's fourth site extended to the entry front, where that site drew it against
+      the dispatch alone. Fixed (item 9): the step is a unit of its region's queue on the
+      front, and the test reaches the trace and passes. *Transition 017*'s three were
       the pool's order, now reached, beside the suite defect of its two anomalous traces.
 
-    No exploration model changes under this item; the pool's fix added a `ChoiceEntryOrder`
-    draw where a completing entry had ridden silently, and no `check` verdict moved. The five
-    tests stay `fail` in `docs/project/pssm-referee.md` with the reasons above.
+    No exploration model changes under this item: the pool's fix added a `ChoiceEntryOrder`
+    draw where a completing entry had ridden silently, the do step's fix a `do <state>`
+    alternative at the same draw, and no `check` verdict moved. The five tests of the first
+    two bullets stay `fail` in `docs/project/pssm-referee.md` with the reasons above.
 
 Item 3 has no fixture on `develop`; the first thing it needs is the conformance case that pins
 the behavior, then the fix, in a change set of its own — Track E of the roadmap holds its
 entry. Items 4 to 8 and 10 took that path in the change set that decided them, item 9 at three
 of its four sites, the fourth in the change set that drew the do step against the dispatch, and
-item 11's pool order in the change set that queued completions at entry; the do step against a
-sibling's entry unit waits for a runtime change of its own.
+item 11's pool order in the change set that queued completions at entry, and the do step against
+a sibling's entry unit in the change set that drew it on the entry front.
 
 ## Open decisions
 

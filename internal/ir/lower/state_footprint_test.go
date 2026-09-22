@@ -69,6 +69,40 @@ func TestTransitionFootprintsProjectGuardEffectAndActivity(t *testing.T) {
 	}
 }
 
+// Entering a state starts its do behavior, whose steps may run within the move: the
+// transition's footprint carries the do behavior's writes beside the entry's.
+func TestTransitionFootprintsCoverEnteredDoBehaviors(t *testing.T) {
+	graph, err := ToStateGraph(stateUsageIn(t, `
+		package test {
+			attribute def Go;
+			state Machine {
+				attribute x : Integer = 0;
+				attribute y : Integer = 0;
+				attribute z : Integer = 0;
+				entry; then idle;
+				state idle {
+					do action { assign z := z + 1; }
+				}
+				transition first idle accept Go then busy;
+				state busy {
+					entry action { assign x := x + 1; }
+					do action { assign y := y + 1; }
+				}
+			}
+		}
+	`), nil)
+	if err != nil {
+		t.Fatalf("ToStateGraph: %v", err)
+	}
+	go_ := graph.TransitionFootprints()[transitionOut(t, graph, "idle", 0)]
+	if !hasPlace(go_.Writes, "x") || !hasPlace(go_.Writes, "y") {
+		t.Fatalf("Go writes %v, want busy's entry x and its do behavior's y", placeNames(go_.Writes))
+	}
+	if hasPlace(go_.Writes, "z") || hasPlace(go_.Reads, "z") {
+		t.Fatalf("Go touches %v / %v, want nothing of the do behavior of the state it leaves", placeNames(go_.Reads), placeNames(go_.Writes))
+	}
+}
+
 // Transitions in two orthogonal regions keeping to their own states and data are
 // independent; one leaving the parallel composite writes every region's activity.
 func TestTransitionFootprintsKeepRegionsApart(t *testing.T) {
