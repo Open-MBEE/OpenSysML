@@ -1397,7 +1397,7 @@ func (e *encoder) bindingEnds(subject rdf.Term, owner string, n *ast.Usage) erro
 			name = declared.Name
 			keyword = e.referencesKeyword(end)
 		}
-		if err := e.connectorEnd(subject, owner, slot, i, endCount, end.AttachedTarget(), end.Multiplicity, name, keyword); err != nil {
+		if err := e.connectorEnd(subject, connectorEndSpec{owner: owner, slot: slot, index: i, ends: endCount, target: end.AttachedTarget(), mult: end.Multiplicity, name: name, keyword: keyword}); err != nil {
 			return err
 		}
 	}
@@ -1408,7 +1408,7 @@ func (e *encoder) bindingEnds(subject rdf.Term, owner string, n *ast.Usage) erro
 		if target == nil {
 			continue
 		}
-		if err := e.connectorEnd(subject, owner, fmt.Sprintf("end%d", i), i, 2, target, nil, "", ""); err != nil {
+		if err := e.connectorEnd(subject, connectorEndSpec{owner: owner, slot: fmt.Sprintf("end%d", i), index: i, ends: 2, target: target}); err != nil {
 			return err
 		}
 	}
@@ -1420,12 +1420,22 @@ func (e *encoder) bindingEnds(subject rdf.Term, owner string, n *ast.Usage) erro
 	return nil
 }
 
+// connectorEndSpec is one connector end to emit: which end it is, its target,
+// its multiplicity and the name and `references` keyword it was written with.
+type connectorEndSpec struct {
+	owner, slot   string
+	index, ends   int
+	target        ast.Node
+	mult          *ast.Multiplicity
+	name, keyword string
+}
+
 // connectorEnd emits a standard ConnectorEnd feature and its EndFeatureMembership.
-func (e *encoder) connectorEnd(subject rdf.Term, owner, slot string, index, endCount int, target ast.Node, mult *ast.Multiplicity, name, keyword string) error {
-	if target == nil {
+func (e *encoder) connectorEnd(subject rdf.Term, end connectorEndSpec) error {
+	if end.target == nil {
 		return nil
 	}
-	feature := rdf.ExpressionIRI(subject, slot)
+	feature := rdf.ExpressionIRI(subject, end.slot)
 	membership := rdf.OwningMembershipIRIOf(feature)
 	e.graph.Prefixes[rdf.ExpressionPrefix] = rdf.Expression
 	e.typed(feature, crossFeatureMetaclass(false))
@@ -1437,27 +1447,27 @@ func (e *encoder) connectorEnd(subject rdf.Term, owner, slot string, index, endC
 	e.graph.Add(subject, e.sysml(pOwnedFeatureMembership), membership)
 	e.graph.Add(subject, e.sysml(pOwnedFeature), feature)
 	e.graph.Add(subject, e.sysml(pOwnedEndFeature), feature)
-	if reference, ok := e.endReferenceIRI(target); ok {
+	if reference, ok := e.endReferenceIRI(end.target); ok {
 		e.graph.Add(subject, e.sysml(pRelatedFeature), reference)
-		if endCount == 2 && index == 0 {
+		if end.ends == 2 && end.index == 0 {
 			e.graph.Add(subject, e.sysml(pSourceFeature), reference)
-		} else if endCount == 2 && index == 1 {
+		} else if end.ends == 2 && end.index == 1 {
 			e.graph.Add(subject, e.sysml(pTargetFeature), reference)
 		}
 	}
 	e.emitMembershipCore(membership, feature, subject, mEndFeatureMembership, true)
-	e.graph.Add(feature, e.sysx(xSourceText), rdf.String(e.text(target)))
-	if name != "" {
-		e.graph.Add(feature, e.sysml(pDeclaredName), rdf.String(name))
-		e.graph.Add(feature, e.sysml(pName), rdf.String(name))
-		if keyword != "" && keyword != referencesSymbol {
-			e.graph.Add(feature, e.sysx(xEndReferencesKeyword), rdf.String(keyword))
+	e.graph.Add(feature, e.sysx(xSourceText), rdf.String(e.text(end.target)))
+	if end.name != "" {
+		e.graph.Add(feature, e.sysml(pDeclaredName), rdf.String(end.name))
+		e.graph.Add(feature, e.sysml(pName), rdf.String(end.name))
+		if end.keyword != "" && end.keyword != referencesSymbol {
+			e.graph.Add(feature, e.sysx(xEndReferencesKeyword), rdf.String(end.keyword))
 		}
 	}
-	if err := e.endReferences(feature, target); err != nil {
+	if err := e.endReferences(feature, end.target); err != nil {
 		return err
 	}
-	return e.multiplicity(feature, owner, mult)
+	return e.multiplicity(feature, end.owner, end.mult)
 }
 
 // endReferenceIRI returns a linked simple-name target, excluding chains.
