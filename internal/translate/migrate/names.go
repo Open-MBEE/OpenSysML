@@ -90,23 +90,51 @@ func lowerFirst(s string) string {
 // A connection point is a member of its owner, whichever region a tool listed it in;
 // a method is the body of its operation.
 func (m *migration) segments(e *sysmlv1.Element) []string {
-	var segs []string
+	path := m.path(e)
+	segs := make([]string, len(path))
+	for i, s := range path {
+		segs[i] = s.name
+	}
+	return segs
+}
+
+// segment is one step of a qualified name; feature marks a step that is a usage.
+type segment struct {
+	name    string
+	feature bool
+}
+
+// path returns the segments of e's qualified name, see segments.
+func (m *migration) path(e *sysmlv1.Element) []segment {
+	var segs []segment
 	for cur := e; cur != nil; cur = memberOwner(cur) {
 		if cur.Parent == nil && cur.Type == "Model" {
 			break
 		}
 		if cur.Type == "Region" && cur.Role == "region" {
 			if p, ok := m.parallel[cur]; ok {
-				segs = append([]string{p, m.nameFor(cur)}, segs...)
+				segs = append([]segment{{name: p}, {name: m.nameFor(cur)}}, segs...)
 			}
 			continue
 		}
 		if op := m.methodOf[cur]; op != nil {
 			cur = op
 		}
-		segs = append([]string{m.nameFor(cur)}, segs...)
+		segs = append([]segment{{name: m.nameFor(cur), feature: m.isUsage(cur)}}, segs...)
 	}
 	return segs
+}
+
+// isUsage says whether e is written as a usage whose members are features of
+// it: a view or viewpoint, or a property. A feature owned by one is reached by
+// a feature chain, not a qualified name.
+func (m *migration) isUsage(e *sysmlv1.Element) bool {
+	switch e.Type {
+	case "Property", "Port":
+		return true
+	}
+	cat, _ := m.classify(e)
+	return cat == catView || cat == catViewpoint
 }
 
 // scopeChain lists scope and its ancestors, innermost first, stopping at the
@@ -127,13 +155,13 @@ func scopeChain(scope *sysmlv1.Element) []*sysmlv1.Element {
 // name when target is a member of an enclosing scope no nearer scope shadows,
 // and the full qualified name otherwise.
 func (m *migration) ref(target, scope *sysmlv1.Element) string {
-	return m.refMember(target.Parent, m.nameOf(target), m.segments(target), scope)
+	return m.refMember(target.Parent, m.nameOf(target), m.path(target), scope)
 }
 
 // refMember writes a reference from inside scope's body to the member of owner
-// named name, whose qualified name is segs: a synthesized declaration written
+// named name, whose qualified name is path: a synthesized declaration written
 // beside owner's members refers like one of them.
-func (m *migration) refMember(owner *sysmlv1.Element, name string, segs []string, scope *sysmlv1.Element) string {
+func (m *migration) refMember(owner *sysmlv1.Element, name string, path []segment, scope *sysmlv1.Element) string {
 	if owner != nil && owner.Type == "Model" && owner.Parent == nil {
 		owner = nil
 	}
@@ -150,32 +178,54 @@ func (m *migration) refMember(owner *sysmlv1.Element, name string, segs []string
 			}
 		}
 		if !shadowed {
-			return writeName(segs[len(segs)-1])
+			return writeName(path[len(path)-1].name)
 		}
 	}
 	if owner == nil && len(chain) > 0 {
 		// A top-level declaration: visible everywhere unless shadowed.
 		for _, inner := range chain {
 			if name != "" && m.nameTaken(inner, name) {
-				return m.qualifiedFrom(segs, chain)
+				return m.qualifiedFrom(path, chain)
 			}
 		}
-		return writeName(segs[len(segs)-1])
+		return writeName(path[len(path)-1].name)
 	}
-	return m.qualifiedFrom(segs, chain)
+	return m.qualifiedFrom(path, chain)
 }
 
-// qualifiedFrom writes segs as a qualified name that resolves from inside the
+// namespaces is the path of a qualified name whose every segment is a namespace.
+func namespaces(segs []string) []segment {
+	path := make([]segment, len(segs))
+	for i, s := range segs {
+		path[i] = segment{name: s}
+	}
+	return path
+}
+
+// qualifiedFrom writes path, a qualified name, so it resolves from inside the
 // scopes of chain: from the global namespace ($::) when one of them declares a
 // member named like its first segment, which would shadow the relative path.
-func (m *migration) qualifiedFrom(segs []string, chain []*sysmlv1.Element) string {
-	q := m.qualified(segs)
+// A feature owned by a feature is reached by a chain: `Outer.inner`, since a
+// usage's members are not accessible by qualified name.
+func (m *migration) qualifiedFrom(path []segment, chain []*sysmlv1.Element) string {
+	var b strings.Builder
 	for _, s := range chain {
-		if m.nameTaken(s, segs[0]) {
-			return "$::" + q
+		if m.nameTaken(s, path[0].name) {
+			b.WriteString("$::")
+			break
 		}
 	}
-	return q
+	for i, s := range path {
+		switch {
+		case i == 0:
+		case s.feature && path[i-1].feature:
+			b.WriteString(".")
+		default:
+			b.WriteString("::")
+		}
+		b.WriteString(writeName(s.name))
+	}
+	return b.String()
 }
 
 func (m *migration) qualified(segs []string) string {

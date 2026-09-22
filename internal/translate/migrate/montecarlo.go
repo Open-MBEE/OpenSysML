@@ -446,7 +446,7 @@ func (m *migration) monteCarloSlots(e *sysmlv1.Element, slots []*sysmlv1.Element
 		return others, func() {}
 	}
 	return others, func() {
-		m.w.block("analysis "+writeName(monteCarloRecorded)+" : "+m.refMember(cs.block.Parent, cs.name, cs.segments, e), func() {
+		m.w.block("analysis "+writeName(monteCarloRecorded)+" : "+m.refMember(cs.block.Parent, cs.name, namespaces(cs.segments), e), func() {
 			m.w.line("subject :>> " + monteCarloSubject + " : " + m.ref(e, e) + ";")
 			m.w.lines(lines)
 		})

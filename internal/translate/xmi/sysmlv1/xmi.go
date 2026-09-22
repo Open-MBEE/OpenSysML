@@ -127,7 +127,8 @@ type Model struct {
 // serialized under and its local name.
 type stereotypeKey struct{ namespace, name string }
 
-// Extension records one skipped xmi:Extension: who wrote it and what it held.
+// Extension records one skipped xmi:Extension: who wrote it and what it held,
+// less the ElementValue operands read into the model (see adoptValues).
 type Extension struct {
 	// Extender is the tool named by the block's extender attribute.
 	Extender string
@@ -524,7 +525,11 @@ func (m *Model) special(raw *xmi.Element, owner, ref *Element) {
 		}
 	case "Extension":
 		ext := Extension{Extender: raw.Attr("extender"), Owner: owner}
+		adopted := m.adoptValues(raw, owner, ref)
 		for _, child := range raw.Descendants() {
+			if adopted[child] {
+				continue
+			}
 			if child.Type != "" {
 				ext.Elements = append(ext.Elements, ExtensionElement{
 					ID: child.ID, Type: child.Type, Name: child.Name(),
@@ -539,6 +544,33 @@ func (m *Model) special(raw *xmi.Element, owner, ref *Element) {
 		}
 		m.Extensions = append(m.Extensions, ext)
 	}
+}
+
+// adoptValues reads the value specifications a tool keeps in an extension block
+// because UML has no metaclass for them — an ElementValue operand of an
+// Expression, referring to an element — as owned elements of the block's owner,
+// in document order. It returns the raw elements adopted, so the block does not
+// also list them; any other element of the block stays tool metadata.
+func (m *Model) adoptValues(raw *xmi.Element, owner, ref *Element) map[*xmi.Element]bool {
+	adopted := map[*xmi.Element]bool{}
+	if owner == nil || ref != nil || (owner.Type != "Expression" && owner.Type != "StringExpression") {
+		return adopted
+	}
+	for _, block := range raw.Children {
+		for _, child := range block.Children {
+			if child.Tag != "operand" || local(child.Type) != "ElementValue" {
+				continue
+			}
+			e := m.newElement(child, owner)
+			owner.Children = append(owner.Children, e)
+			m.children(child, e, nil)
+			adopted[child] = true
+			for _, d := range child.Descendants() {
+				adopted[d] = true
+			}
+		}
+	}
+	return adopted
 }
 
 // recordStereotypeHref reads one row of MagicDraw's stereotypesHREFS table,

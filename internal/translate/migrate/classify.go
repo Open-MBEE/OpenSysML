@@ -30,6 +30,13 @@ const (
 	// catCalcDef is an opaque or function behavior computing a result.
 	catCalcDef
 	catStateDef
+	// catUseCaseDef is a UML use case, whatever incidental stereotype it carries.
+	catUseCaseDef
+	// catView is a v1 «View», written as a view usage: only a usage exposes
+	// elements and satisfies a viewpoint in standard v2.
+	catView
+	// catViewpoint is a v1 «Viewpoint», written as a viewpoint usage a view satisfies.
+	catViewpoint
 	// catSimConfig is a simulation tool's run configuration: an action def
 	// that instantiates its execution target and performs its behavior.
 	catSimConfig
@@ -76,6 +83,12 @@ func (c category) keyword() string {
 		return "calc def"
 	case catStateDef:
 		return "state def"
+	case catUseCaseDef:
+		return "use case def"
+	case catView:
+		return "view"
+	case catViewpoint:
+		return "viewpoint"
 	case catSimConfig:
 		return "action def"
 	case catValue:
@@ -425,6 +438,9 @@ func (m *migration) classify(e *sysmlv1.Element) (category, string) {
 	}
 	switch e.Type {
 	case "Model", "Package", "Profile":
+		if has(e, "View") && (e.Type != "Model" || e.Parent != nil) {
+			return catView, "a «View» package is written as a view usage holding its members"
+		}
 		return catPackage, ""
 	case "Stereotype":
 		return catMetadataDef, ""
@@ -445,9 +461,9 @@ func (m *migration) classify(e *sysmlv1.Element) (category, string) {
 		case has(e, "Stakeholder"):
 			return catPartDef, "a v1 «Stakeholder» is written as a part def"
 		case has(e, "View"):
-			return catUnmapped, "views are not migrated yet"
+			return catView, ""
 		case has(e, "Viewpoint"):
-			return catUnmapped, "viewpoints are not migrated yet"
+			return catViewpoint, ""
 		}
 		return catPartDef, "a plain UML class without «Block» is written as a part def"
 	case "Actor":
@@ -503,7 +519,7 @@ func (m *migration) classify(e *sysmlv1.Element) (category, string) {
 	case "Reception":
 		return catUnmapped, "a reception names the signal its owner accepts, which the owner's behaviors carry as accept"
 	case "UseCase":
-		return catUnmapped, "use cases are not migrated yet"
+		return catUseCaseDef, ""
 	case "Collaboration", "Node", "Device", "ExecutionEnvironment", "Artifact":
 		return catUnmapped, "no v2 form for a UML " + e.Type
 	case "DurationObservation", "TimeObservation":
@@ -566,6 +582,8 @@ func (m *migration) instanceClassifiers(e *sysmlv1.Element) (occurrences, values
 			notes = append(notes, classifierSubject+qualifiedName(c)+" is not migrated")
 		case cc == catAttributeDef, cc == catEnumDef:
 			values = append(values, c)
+		case cc == catView, cc == catViewpoint:
+			notes = append(notes, classifierSubject+qualifiedName(c)+" is written as a "+cc.keyword()+" usage, which an individual cannot specialize")
 		default:
 			occurrences = append(occurrences, c)
 		}

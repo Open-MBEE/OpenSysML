@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg" name="Tanks">
+      <packagedElement xmi:type="uml:Enumeration" xmi:id="_modeEnum" name="Mode">
+        <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="_idle" name="Idle"/>
+        <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="_filling" name="Filling"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_tank" name="Tank">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_level" name="level">
+          <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_capacity" name="capacity">
+          <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+          <defaultValue xmi:type="uml:LiteralReal" xmi:id="_capacityV" value="100.0"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_reserve" name="reserve">
+          <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+          <defaultValue xmi:type="uml:Expression" xmi:id="_reserveV" symbol="*">
+            <operand xmi:type="uml:LiteralReal" xmi:id="_reserveV1" value="0.1"/>
+            <operand xmi:type="uml:Expression" xmi:id="_reserveV2" symbol="capacity"/>
+          </defaultValue>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_mode" name="mode" type="_modeEnum"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_label" name="label">
+          <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#String"/>
+          <defaultValue xmi:type="uml:StringExpression" xmi:id="_labelV">
+            <subExpression xmi:type="uml:LiteralString" xmi:id="_labelV1" value="tank-"/>
+            <subExpression xmi:type="uml:LiteralString" xmi:id="_labelV2" value="A"/>
+          </defaultValue>
+        </ownedAttribute>
+        <ownedRule xmi:type="uml:Constraint" xmi:id="_fillingRule" name="filling below capacity" constrainedElement="_tank">
+          <specification xmi:type="uml:Expression" xmi:id="_fillingSpec" symbol="or">
+            <operand xmi:type="uml:Expression" xmi:id="_fillingSpec1" symbol="!=">
+              <operand xmi:type="uml:Expression" xmi:id="_fillingSpec1a" symbol="mode"/>
+              <operand xmi:type="uml:InstanceValue" xmi:id="_fillingSpec1b" instance="_filling"/>
+            </operand>
+            <operand xmi:type="uml:Expression" xmi:id="_fillingSpec2" symbol="&lt;">
+              <operand xmi:type="uml:Expression" xmi:id="_fillingSpec2a" symbol="level"/>
+              <operand xmi:type="uml:Expression" xmi:id="_fillingSpec2b" symbol="-">
+                <operand xmi:type="uml:Expression" xmi:id="_fillingSpec2b1" symbol="capacity"/>
+                <operand xmi:type="uml:Expression" xmi:id="_fillingSpec2b2" symbol="reserve"/>
+              </operand>
+            </operand>
+          </specification>
+        </ownedRule>
+        <ownedRule xmi:type="uml:Constraint" xmi:id="_sealedRule" name="sealed" constrainedElement="_tank">
+          <specification xmi:type="uml:Expression" xmi:id="_sealedSpec" symbol="xor">
+            <operand xmi:type="uml:Expression" xmi:id="_sealedSpec1" symbol="level"/>
+            <operand xmi:type="uml:Expression" xmi:id="_sealedSpec2" symbol="capacity"/>
+          </specification>
+        </ownedRule>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_within" name="WithinCapacity">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_wLevel" name="level">
+          <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_wCapacity" name="capacity">
+          <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_wMargin" name="margin">
+          <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+        </ownedAttribute>
+        <ownedRule xmi:type="uml:Constraint" xmi:id="_wRule" constrainedElement="_within">
+          <specification xmi:type="uml:Expression" xmi:id="_wSpec" symbol="and">
+            <operand xmi:type="uml:Expression" xmi:id="_wSpec1" symbol="&lt;=">
+              <operand xmi:type="uml:Expression" xmi:id="_wSpec1a" symbol="max">
+                <operand xmi:type="uml:Expression" xmi:id="_wSpec1a1" symbol="level"/>
+                <operand xmi:type="uml:LiteralReal" xmi:id="_wSpec1a2" value="0.0"/>
+              </operand>
+              <operand xmi:type="uml:Expression" xmi:id="_wSpec1b" symbol="capacity"/>
+            </operand>
+            <operand xmi:type="uml:Expression" xmi:id="_wSpec2" symbol="&gt;=">
+              <operand xmi:type="uml:Expression" xmi:id="_wSpec2a" symbol="%">
+                <operand xmi:type="uml:Expression" xmi:id="_wSpec2a1" symbol="*">
+                  <operand xmi:type="uml:Expression" xmi:id="_wSpec2a1a" symbol="margin"/>
+                  <operand xmi:type="uml:LiteralInteger" xmi:id="_wSpec2a1b" value="2"/>
+                </operand>
+                <operand xmi:type="uml:LiteralInteger" xmi:id="_wSpec2a2" value="7"/>
+              </operand>
+              <operand xmi:type="uml:Expression" xmi:id="_wSpec2b" symbol="-">
+                <operand xmi:type="uml:LiteralReal" xmi:id="_wSpec2b1" value="0.5"/>
+              </operand>
+            </operand>
+            <operand xmi:type="uml:Expression" xmi:id="_wSpec3" symbol="not">
+              <operand xmi:type="uml:Expression" xmi:id="_wSpec3a" symbol="==">
+                <operand xmi:type="uml:Expression" xmi:id="_wSpec3a1" symbol="level"/>
+                <operand xmi:type="uml:OpaqueExpression" xmi:id="_wSpec3a2">
+                  <body>capacity / 2</body>
+                  <language>JavaScript</language>
+                </operand>
+              </operand>
+            </operand>
+          </specification>
+        </ownedRule>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_settled" name="Settled">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_sLevel" name="level">
+          <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+        </ownedAttribute>
+        <ownedRule xmi:type="uml:Constraint" xmi:id="_sRule" constrainedElement="_settled">
+          <specification xmi:type="uml:Expression" xmi:id="_sSpec" symbol="&gt;">
+            <operand xmi:type="uml:Expression" xmi:id="_sSpec1" symbol="level"/>
+            <operand xmi:type="uml:OpaqueExpression" xmi:id="_sSpec2">
+              <body>the settling level</body>
+              <language>English</language>
+            </operand>
+          </specification>
+        </ownedRule>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_diag" name="Diagonal">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_dWidth" name="width">
+          <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_dHeight" name="height">
+          <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_dSpan" name="span">
+          <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+        </ownedAttribute>
+        <ownedRule xmi:type="uml:Constraint" xmi:id="_dRule" constrainedElement="_diag">
+          <specification xmi:type="uml:Expression" xmi:id="_dSpec" symbol="Equal">
+            <operand xmi:type="uml:Expression" xmi:id="_dSpec1" symbol="Plus">
+              <operand xmi:type="uml:Expression" xmi:id="_dSpec1a" symbol="Power">
+                <xmi:Extension extender="MagicDraw UML">
+                  <modelExtension>
+                    <operand xmi:type="uml:ElementValue" xmi:id="_dSpec1a1" element="_dWidth"/>
+                  </modelExtension>
+                </xmi:Extension>
+                <operand xmi:type="uml:LiteralInteger" xmi:id="_dSpec1a2" value="2"/>
+              </operand>
+              <operand xmi:type="uml:Expression" xmi:id="_dSpec1b" symbol="Power">
+                <xmi:Extension extender="MagicDraw UML">
+                  <modelExtension>
+                    <operand xmi:type="uml:ElementValue" xmi:id="_dSpec1b1" element="_dHeight"/>
+                  </modelExtension>
+                </xmi:Extension>
+                <operand xmi:type="uml:LiteralInteger" xmi:id="_dSpec1b2" value="2"/>
+              </operand>
+            </operand>
+            <operand xmi:type="uml:Expression" xmi:id="_dSpec2" symbol="Power">
+              <xmi:Extension extender="MagicDraw UML">
+                <modelExtension>
+                  <operand xmi:type="uml:ElementValue" xmi:id="_dSpec2a" element="_dSpan"/>
+                </modelExtension>
+              </xmi:Extension>
+              <operand xmi:type="uml:LiteralInteger" xmi:id="_dSpec2b" value="2"/>
+            </operand>
+          </specification>
+        </ownedRule>
+      </packagedElement>
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_day" name="dayTank" classifier="_tank">
+        <slot xmi:type="uml:Slot" xmi:id="_dayLevel" definingFeature="_level">
+          <value xmi:type="uml:Expression" xmi:id="_dayLevelV" symbol="+">
+            <operand xmi:type="uml:LiteralInteger" xmi:id="_dayLevelV1" value="40"/>
+            <operand xmi:type="uml:LiteralReal" xmi:id="_dayLevelV2" value="2.5"/>
+          </value>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_dayMode" definingFeature="_mode">
+          <value xmi:type="uml:Expression" xmi:id="_dayModeV">
+            <operand xmi:type="uml:InstanceValue" xmi:id="_dayModeV1" instance="_idle"/>
+          </value>
+        </slot>
+      </packagedElement>
+    </packagedElement>
+  </uml:Model>
+  <sysml:Block xmi:id="_s1" base_Class="_tank"/>
+  <sysml:ConstraintBlock xmi:id="_s2" base_Class="_within"/>
+  <sysml:ConstraintBlock xmi:id="_s3" base_Class="_settled"/>
+  <sysml:ConstraintBlock xmi:id="_s4" base_Class="_diag"/>
+</xmi:XMI>
