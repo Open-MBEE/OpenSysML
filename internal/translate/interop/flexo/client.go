@@ -1,7 +1,9 @@
 // Package flexo drives a running Flexo MMS stack — the Layer 1 service and the
 // SysML v2 API in front of it — so the RDF this project writes can be measured
-// against what that service can actually read back. It is a test-support
-// package: nothing in the compiler, the REPL or the LSP depends on it.
+// against what that service can actually read back, and so a project branch
+// can be read and written as a model's repository: `sysml -sync-diff` and
+// `-sync-apply` sync element-wise, `sysml -convert` reads a branch URL as
+// notation or pushes a whole Turtle graph to it.
 //
 // The stack is external and opt-in; see .agents/skills/flexo-interop for how to
 // bring it up and what the gate reports.
@@ -275,17 +277,52 @@ func (c *Client) branchGraphURL(project, branch string) string {
 }
 
 // LoadTurtle replaces a branch's model graph with the given Turtle through
-// Layer 1's Graph Store Protocol endpoint. ModelLoad.kt requires a precondition
-// on the branch etag: If-Match with the current etag, or If-Match * to accept
-// whatever is there.
+// Layer 1's Graph Store Protocol endpoint, accepting whatever is there. It is
+// PutGraph with If-Match *, the precondition the measurement harness loads
+// under; a push that must refuse a moved head uses PutGraph with the branch's
+// etag instead.
 func (c *Client) LoadTurtle(ctx context.Context, project, branch string, turtle []byte, message string) error {
+	_, err := c.PutGraph(ctx, project, branch, turtle, message, "*")
+	return err
+}
+
+// PutGraph replaces a branch's model graph with the given Turtle through Layer
+// 1's Graph Store Protocol endpoint, conditional on the branch etag: ifMatch is
+// the etag the branch must still carry, or "*" to accept whatever is there. A
+// branch that moved answers 412, which Status(err) reports. The response's own
+// ETag is returned either way: on a write that landed it is the commit made —
+// the deployed service re-checks the precondition against the etag it just
+// moved and so answers 412 even for a write it committed — which is how a
+// caller tells that answer apart from a refused one.
+func (c *Client) PutGraph(ctx context.Context, project, branch string, turtle []byte, message, ifMatch string) (string, error) {
 	target := c.branchGraphURL(project, branch)
 	if message != "" {
 		target += "?message=" + url.QueryEscape(message)
 	}
-	headers := map[string]string{"If-Match": "*"}
-	_, _, err := c.do(ctx, http.MethodPut, target, turtle, mediaTurtle, headers)
-	return err
+	// Layer 1 parses entity tags quoted; the star qualifier is sent bare.
+	if ifMatch != "*" {
+		ifMatch = "\"" + ifMatch + "\""
+	}
+	headers := map[string]string{"If-Match": ifMatch}
+	_, header, err := c.do(ctx, http.MethodPut, target, turtle, mediaTurtle, headers)
+	return strings.Trim(header.Get("ETag"), `"`), err
+}
+
+// BranchETag reads the etag Layer 1's branch resource carries — the entity tag
+// a conditional graph write quotes as its If-Match. A response without one is
+// an error: there is nothing to put a precondition on.
+func (c *Client) BranchETag(ctx context.Context, project, branch string) (string, error) {
+	target := fmt.Sprintf("%s/orgs/%s/repos/%s/branches/%s",
+		c.cfg.Layer1URL, url.PathEscape(c.cfg.Org), url.PathEscape(project), url.PathEscape(branch))
+	_, header, err := c.do(ctx, http.MethodGet, target, nil, "", map[string]string{"Accept": mediaTurtle})
+	if err != nil {
+		return "", err
+	}
+	etag := header.Get("ETag")
+	if etag == "" {
+		return "", fmt.Errorf("branch %s of %s answered without an ETag, so a conditional write cannot guard the head", branch, project)
+	}
+	return strings.Trim(etag, "\""), nil
 }
 
 // PostChanges commits SysML v2 JSON changes through the service's own commit

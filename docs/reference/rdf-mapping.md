@@ -42,6 +42,18 @@ report:
   `.agents/skills/flexo-interop`, and its committed report records what changes
   as the remaining work lands.
 
+The same stack is also a place a model is read from and pushed to: `-convert`
+names a project branch by URL (`host[:port][/base]/projects/{p}/branches/{b}`
+or `flexo://{p}/{b}`), reads the branch's head commit through Layer 1's SPARQL
+endpoint as the graph this document describes, and converts it as Turtle from
+there — `-convert sysml` writes the notation back, `-convert ttl` the
+normalized document. Pushed the other way, `-convert ttl -o <branch-url>`
+replaces the branch's whole model graph through Layer 1's graph endpoint,
+conditional on the branch's etag so a moved head is refused rather than
+overwritten. The bearer token is `FLEXO_INTEROP_TOKEN`; the head commit a read
+or push stood at is recorded in the sync state, so a later push refuses a
+branch another writer moved.
+
 Every surface reports this status where it is used: the command line writes a
 `note:` to stderr, `%save` prints one, and `ConvertResponse` carries `experimental`
 and `experimental_notice`, which the Python client raises as an
@@ -803,7 +815,8 @@ of references and primitives, is refused naming the subject and the key; so is
 an array that repeats a member, since a graph holds each triple once and could
 not give the repetition back.
 
-The sync (`-sync-diff`) compares the typed triples and treats the annotation as
+The sync (`-sync-diff`, and the branch read and graph push under `-convert`)
+compares and writes the typed triples and treats the annotation as
 their restatement, reconciling it first; the service's commit path regenerates
 it from the array the sync posts. Minting ids into a model rewrites the typed
 triples and restates each annotation from them, so the two cannot drift: a

@@ -500,8 +500,12 @@ func runCLI() int {
 		}
 		return runSyncDiff(args)
 	}
-	if syncBase != "" || syncState != "" || syncConfirmDeletes || syncMintIDs || syncAnnotate != "" {
-		fmt.Fprintln(os.Stderr, "sysml: -sync-base, -sync-state, -sync-confirm-deletes, -sync-mint-ids and -sync-annotate apply to -sync-diff or -sync-apply; name the repository to sync against")
+	if syncBase != "" || syncConfirmDeletes || syncMintIDs || syncAnnotate != "" {
+		fmt.Fprintln(os.Stderr, "sysml: -sync-base, -sync-confirm-deletes, -sync-mint-ids and -sync-annotate apply to -sync-diff or -sync-apply; name the repository to sync against")
+		return 2
+	}
+	if syncState != "" && convertFormat == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -sync-state applies to -sync-diff, -sync-apply, or a -convert that reads or pushes a repository branch")
 		return 2
 	}
 
@@ -572,10 +576,7 @@ func runCLI() int {
 			fmt.Fprintln(os.Stderr, "sysml: -convert, -render and -render-document each write a document out; ask for one per run")
 			return 2
 		}
-		if err := runConvert(args); err != nil {
-			return fail(err)
-		}
-		return exitHolds
+		return runConvertExit(args)
 	}
 
 	for _, path := range args {

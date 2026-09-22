@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -18,15 +19,25 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
 
+// fakePut is a whole-graph write the fake Layer 1 received.
+type fakePut struct {
+	url         string
+	ifMatch     string
+	contentType string
+	body        []byte
+}
+
 // fakeStack stands in for Layer 1 and the service: SPARQL answered from the
 // graph at the branch head or at any earlier commit, commits applied as the
-// service does (payload replaces whole, null removes).
+// service does (payload replaces whole, null removes), the Layer 1 branch
+// resource serving its etag and taking conditional whole-graph writes.
 type fakeStack struct {
 	mu       sync.Mutex
 	graph    *rdf.Graph
 	head     string
 	versions map[string]*rdf.Graph
 	commits  []json.RawMessage
+	puts     []fakePut
 	foreign  int
 	refuse   bool
 	drift    bool // every graph read is followed by someone else's commit
@@ -79,6 +90,29 @@ func (s *fakeStack) serve(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case s.unread:
 		http.Error(w, "the fake cannot be read", http.StatusBadGateway)
+	case strings.HasPrefix(r.URL.Path, "/orgs/") && strings.HasSuffix(r.URL.Path, "/branches/main") && r.Method == http.MethodGet:
+		// Layer 1's branch resource: the etag a conditional graph write quotes.
+		w.Header().Set("ETag", s.head)
+		fmt.Fprintln(w, `<> <urn:x:etag> "x" .`)
+	case strings.HasPrefix(r.URL.Path, "/orgs/") && strings.HasSuffix(r.URL.Path, "/graph") && r.Method == http.MethodPut:
+		body, _ := io.ReadAll(r.Body)
+		s.puts = append(s.puts, fakePut{
+			url:         r.URL.String(),
+			ifMatch:     r.Header.Get("If-Match"),
+			contentType: r.Header.Get("Content-Type"),
+			body:        body,
+		})
+		ifMatch := r.Header.Get("If-Match")
+		if s.refuse || (ifMatch != "*" && ifMatch != `"`+s.head+`"`) {
+			w.WriteHeader(http.StatusPreconditionFailed)
+			return
+		}
+		graph, err := rdf.ParseTurtle(body)
+		if err != nil {
+			http.Error(w, "unreadable turtle", http.StatusBadRequest)
+			return
+		}
+		s.advance(graph, fmt.Sprintf("commit-%d", len(s.commits)+len(s.puts)))
 	case strings.HasSuffix(r.URL.Path, "/branches/main") && r.Method == http.MethodGet:
 		fmt.Fprintf(w, `{"@id":"main","@type":"Branch","head":{"@id":%q}}`, s.head)
 	case strings.HasSuffix(r.URL.Path, "/query"):

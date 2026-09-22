@@ -151,17 +151,31 @@ func TestRepresentationCarriesWhatTheServiceStores(t *testing.T) {
 	}
 }
 
+// fakePut is a whole-graph write the fake Layer 1 received: the path it hit,
+// the entity tag it was preconditioned on, the media type and the Turtle body.
+type fakePut struct {
+	url         string
+	ifMatch     string
+	contentType string
+	body        []byte
+}
+
 // fakeStack fakes the two services for one repository: the branch path names
-// the head, the commit path records what it was sent and moves the head, the
-// query path answers any commit with a fixed result set.
+// the head, the Layer 1 branch path serves its etag, the graph path takes a
+// conditional whole-graph write, the commit path records what it was sent and
+// moves the head, the query path answers any commit with a fixed result set.
 type fakeStack struct {
-	head   string
-	posted [][]byte
+	head      string
+	etag      string
+	race412   bool // every graph write answers 412 without writing, as a moved branch does
+	commit412 bool // a graph write commits but still answers 412, as the deployed service does
+	posted    [][]byte
+	puts      []fakePut
 }
 
 func stack(t *testing.T, results string) (*Client, *fakeStack) {
 	t.Helper()
-	fake := &fakeStack{head: "c-0"}
+	fake := &fakeStack{head: "c-0", etag: "etag-0"}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") != "Bearer t" {
 			w.WriteHeader(http.StatusUnauthorized)
@@ -178,6 +192,35 @@ func stack(t *testing.T, results string) (*Client, *fakeStack) {
 			fake.posted = append(fake.posted, body)
 			fake.head = fmt.Sprintf("c-%d", len(fake.posted))
 			fmt.Fprintf(w, `{"@id":%q,"@type":"Commit"}`, fake.head)
+		case r.URL.Path == "/orgs/o/repos/p/branches/b" && r.Method == http.MethodGet:
+			if r.Header.Get("Accept") != mediaTurtle {
+				t.Errorf("branch read without a Turtle Accept: %q", r.Header.Get("Accept"))
+			}
+			w.Header().Set("ETag", fake.etag)
+			fmt.Fprintln(w, `<> <urn:x:etag> "x" .`)
+		case r.URL.Path == "/orgs/o/repos/p/branches/b/graph" && r.Method == http.MethodPut:
+			fake.puts = append(fake.puts, fakePut{
+				url:         r.URL.String(),
+				ifMatch:     r.Header.Get("If-Match"),
+				contentType: r.Header.Get("Content-Type"),
+				body:        body,
+			})
+			ifMatch := r.Header.Get("If-Match")
+			switch {
+			case fake.race412:
+				w.WriteHeader(http.StatusPreconditionFailed)
+			case ifMatch != "*" && ifMatch != `"`+fake.etag+`"`:
+				w.WriteHeader(http.StatusPreconditionFailed)
+			default:
+				fake.head = fmt.Sprintf("push-%d", len(fake.puts))
+				fake.etag = fake.head
+				if fake.commit412 {
+					// The deployed service answers 412 for a write it just
+					// committed; its response ETag is the commit made.
+					w.Header().Set("ETag", fake.head)
+					w.WriteHeader(http.StatusPreconditionFailed)
+				}
+			}
 		case strings.HasPrefix(r.URL.Path, "/orgs/o/repos/p/locks/Commit.") && strings.HasSuffix(r.URL.Path, "/query"):
 			if r.Header.Get("Accept") != "application/sparql-results+json" {
 				t.Errorf("query without a JSON results Accept: %q", r.Header.Get("Accept"))

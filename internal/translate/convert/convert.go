@@ -282,22 +282,31 @@ func convert(name string, data []byte, from, to Format, tolerateSyntaxErrors boo
 		}
 		return rdf.WriteTurtle(graph), nil, nil
 
-	case from == FormatTurtle && to == FormatSysML:
-		graph, err := rdf.ParseTurtle(data)
-		if err != nil {
-			return nil, nil, &SyntaxError{Name: name, Messages: []string{err.Error()}}
-		}
-		out, err := export.ToSysML(graph)
-		return out, nil, err
-
 	default:
-		// Turtle to Turtle: read and rewrite, which normalizes the document
-		// and reports anything the reader cannot represent.
+		// The input is a graph: Turtle parsed, or one read from a repository.
+		// Turtle to Turtle rewrites it, which normalizes the document and
+		// reports anything the reader cannot represent.
 		graph, err := rdf.ParseTurtle(data)
 		if err != nil {
 			return nil, nil, &SyntaxError{Name: name, Messages: []string{err.Error()}}
 		}
-		return rdf.WriteTurtle(graph), nil, nil
+		out, err := FromGraph(graph, to)
+		return out, nil, err
+	}
+}
+
+// FromGraph writes a graph in the to format: notation through the RDF
+// mapping's exporter, Turtle as the normalized document. It is how a graph
+// that did not come from a Turtle file — a repository branch read as RDF —
+// joins the same conversions a parsed one gets.
+func FromGraph(graph *rdf.Graph, to Format) ([]byte, error) {
+	switch {
+	case !to.Writable():
+		return nil, &NotWritableError{Format: to}
+	case to == FormatSysML:
+		return export.ToSysML(graph)
+	default:
+		return rdf.WriteTurtle(graph), nil
 	}
 }
 

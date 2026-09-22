@@ -177,7 +177,9 @@ solver query may take in place of OPENSYSML_SMT_TIMEOUT
 .TP
 .BR \-convert " \fIformat\fP"
 Convert the model to this format instead of running it: sysml, kerml, ttl,
-turtle or rdf (RDF is experimental)
+turtle or rdf (RDF is experimental). The input may be a Flexo branch URL
+(host[:port][/base]/projects/{p}/branches/{b} or flexo://{p}/{b}), read as its
+RDF graph
 .TP
 .BR \-from " \fIformat\fP"
 Input format for \-convert: sysml, kerml, ttl, turtle, rdf, or xmi, uml or
@@ -186,7 +188,8 @@ extension
 .TP
 .BR \-o ", " \-output " \fIfile\fP"
 Write what \-convert, \-compile, \-render or \-render\-document produces to
-this file instead of stdout
+this file instead of stdout; with \-convert ttl, a Flexo branch URL pushes the
+graph to the branch
 .TP
 .BR \-migration\-report " \fIfile\fP"
 With \-convert from xmi, write the element\-by\-element migration report to
@@ -622,6 +625,10 @@ sysml model.ttl \-convert sysml
 sysml model.sysml \-convert ttl \-o m.ttl
 # Name the input format explicitly
 sysml in.txt \-convert ttl \-from sysml
+# A Flexo branch as notation
+sysml flexo://demo/main \-convert sysml
+# Push the graph to the branch
+sysml model.sysml \-convert ttl \-o flexo://demo/main
 .fi
 .RE
 .PP
@@ -630,6 +637,16 @@ unless \-from names it: sysml, kerml, ttl, turtle, rdf, or xmi, uml or mdzip
 for a SysML v1 model to migrate, whose element\-by\-element report
 \-migration\-report writes out. Converting to the format it is already in
 rewrites the input: notation is reformatted, Turtle is normalized.
+.PP
+Either side may name a Flexo MMS project branch instead of a file:
+http(s)://host[:port][/base]/projects/{project}/branches/{branch}, or
+flexo://{project}/{branch} for the endpoint FLEXO_SYSMLV2_URL configures. A
+branch input is read as its head commit's RDF graph; a branch \-o takes the
+\-convert ttl output as the branch's whole model graph, conditional on the
+branch's etag, and refuses a head the sync state says has moved. Both need the
+bearer token in FLEXO_INTEROP_TOKEN and record the head commit in the sync
+state (\-sync\-state, or <output>.sync.json on a read / <model>.sync.json on a
+push).
 .PP
 RDF conversion is experimental: the mapping covers model structure and the
 behavior its bodies state, refuses what it cannot write back, and its

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/interop/reposync"
@@ -55,6 +56,11 @@ func (r *Repository) Head(ctx context.Context) (string, error) {
 // this repository wrote; empty before either.
 func (r *Repository) Seen() string { return r.seen }
 
+// Resume records the last-seen commit a saved sync state carries, so the next
+// write stands at it and a head that has since moved is refused instead of
+// silently written past.
+func (r *Repository) Resume(commit string) { r.seen = commit }
+
 // Graph reads the branch as its head commit left it, so the read is of one
 // commit rather than of a branch that may move under it.
 func (r *Repository) Graph(ctx context.Context) (*rdf.Graph, error) {
@@ -74,6 +80,51 @@ func (r *Repository) Graph(ctx context.Context) (*rdf.Graph, error) {
 // a diff needs to tell a repository change from its own.
 func (r *Repository) GraphAt(ctx context.Context, commit string) (*rdf.Graph, error) {
 	return r.client.CommitGraph(ctx, r.project, commit)
+}
+
+// Push replaces the branch's whole model graph with the given Turtle and
+// returns the commit Layer 1 made of it, which the branch then shows as head.
+// The write carries the branch's etag as its precondition: a head that moved
+// past what this repository last saw (read or resumed) is refused as a
+// StaleBranchError with nothing written, as is a head that moves between the
+// precondition read and the write.
+func (r *Repository) Push(ctx context.Context, turtle []byte, message string) (string, error) {
+	head, err := r.Head(ctx)
+	if err != nil {
+		return "", err
+	}
+	if r.seen != "" && head != r.seen {
+		return "", &StaleBranchError{Project: r.project, Branch: r.branch, Seen: r.seen, Head: head}
+	}
+	etag, err := r.client.BranchETag(ctx, r.project, r.branch)
+	if err != nil {
+		return "", err
+	}
+	committed, err := r.client.PutGraph(ctx, r.project, r.branch, turtle, message, etag)
+	if err != nil {
+		if Status(err) == http.StatusPreconditionFailed {
+			// A 412 is ambiguous on the deployed service: a mismatched etag
+			// writes nothing, but a matched one commits and still answers 412
+			// — its own response ETag is the commit it made. The new head
+			// tells the two apart.
+			current, readErr := r.Head(ctx)
+			if readErr != nil {
+				return "", fmt.Errorf("the branch answered 412 and its head could not be re-read: %w", readErr)
+			}
+			if committed != "" && committed == current {
+				r.seen = current
+				return current, nil
+			}
+			return "", &StaleBranchError{Project: r.project, Branch: r.branch, Seen: head, Head: current}
+		}
+		return "", err
+	}
+	head, err = r.Head(ctx)
+	if err != nil {
+		return "", err
+	}
+	r.seen = head
+	return head, nil
 }
 
 // Commit writes one batch as one SysML v2 commit. Creates and updates send
