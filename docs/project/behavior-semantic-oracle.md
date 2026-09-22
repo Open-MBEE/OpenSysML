@@ -1317,7 +1317,8 @@ is not a choice and is not reported.
 Fixtures: `state_do_step_or_dispatch` (golden, explored), `state_do_step_among_completions`
 (golden, explored), `state_do_step_or_tied_dispatch` (golden, explored),
 `state_do_step_cuts_typed_do` (golden, explored), `state_do_step_cuts_nested_perform` (golden,
-explored), `state_do_action_loop_timed_exit` (explored, checked).
+explored), `state_do_step_cuts_control_node_body` (golden, explored, checked),
+`state_do_action_loop_timed_exit` (explored, checked).
 
 ```
 state Machine { attribute log : String = "";
@@ -1370,6 +1371,13 @@ dispatch cuts it at either step (`count = 100`) or takes it after it ended (`111
 `state_do_step_cuts_nested_perform` performs that action from an inline do body between two
 assignments: `1000` (cut before the first), `1001` (after it, or inside the perform, whose
 write-back is lost), `1012` (after the perform), `1112` (after the body ended).
+`state_do_step_cuts_control_node_body` forks the do flow through a fork with a body of its own
+(`fork split { assign count := count + 1; }`): a control node's body is performed by the token
+passing through it, so it is a move the dispatch may fall before (`1000`) or after (`1001`, the
+fixed policies' run, whose sweep moves each token once and so ends at the fork), then after
+either branch (`1011`, `1101`) or both (`1111`) — five outcomes, exact under `check`. A control
+node with no body only routes control, and where between two moves it falls no other move
+observes, so it is not drawn.
 `state_do_action_loop_timed_exit` loops a forked do flow through timed waits against a timed
 exit due at the same instant: the exit may cut the flow before either branch writes, after one,
 or after both — the fixed policies' `left = right = 1` — four outcomes, exact under `check`.

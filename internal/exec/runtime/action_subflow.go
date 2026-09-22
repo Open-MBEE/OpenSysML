@@ -372,7 +372,7 @@ func (e *ActionExecutor) silentPass(perf *actionFrame) (moved bool, err error) {
 }
 
 // silentMove reports a token whose next move only routes control — through the
-// initial, a fork, join or merge, over unguarded, unweighted successions.
+// initial, a fork, join or merge without a body, over unguarded, unweighted successions.
 func (e *ActionExecutor) silentMove(t Token) bool {
 	if t.body != nil {
 		return false
@@ -382,7 +382,11 @@ func (e *ActionExecutor) silentMove(t Token) bool {
 	default:
 		return false
 	}
-	for _, edge := range e.graphOf(t.frame).Edges[t.Location] {
+	graph := e.graphOf(t.frame)
+	if len(graph.Bodies[t.Location]) > 0 {
+		return false
+	}
+	for _, edge := range graph.Edges[t.Location] {
 		if edge.Guard != nil || edge.Probability != nil {
 			return false
 		}

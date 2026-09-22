@@ -416,6 +416,7 @@ Conformance fixtures under `internal/exec/runtime/testdata/conformance/`, each w
 | `state_do_step_among_completions` | a region's do step against the other region's completion effects, in either order of the two completions; six outcomes |
 | `state_do_step_cuts_typed_do` | a do behavior given as a two-step action against a signal; the dispatch cuts it at either step or waits: two outcomes |
 | `state_do_step_cuts_nested_perform` | an inline do body performing that action between two assignments; the dispatch cuts at any of the four moves: four outcomes |
+| `state_do_step_cuts_control_node_body` | an inline do body forking through a fork with a body of its own; the fork's body is a move the dispatch may fall before or after, then either branch or both: five outcomes, the fixed policies' `1001` among them |
 | `state_do_action_loop_timed_exit` | a looping do forking to two timed branches against a timed exit; the fixed policies' `left = right = 1` among four outcomes, the check hitting no bound |
 
 `robustness_region_do_step_test.go` holds the step-order site's failure modes: a witness naming
@@ -488,7 +489,12 @@ behavior; a nested perform's flow inherits the stepping, so a token move inside 
 is a move of the outer do step too, and a body parked at an `accept` offers no move until its
 occurrence is dispatched. One move is the same thing for an inline do body, a do behavior given
 as an action, a loop's iteration, or a nested perform (`state_do_step_cuts_typed_do`,
-`state_do_step_cuts_nested_perform`, `state_do_action_loop_timed_exit`), and a run whose do
+`state_do_step_cuts_nested_perform`, `state_do_action_loop_timed_exit`). A move that only routes
+control — through the initial, a fork, join or merge with no body, over unguarded, unweighted
+successions — is not drawn: it settles around the drawn move (`settleSilentMoves`), since no other
+move observes where between two of them it falls; a control node with a body of its own performs
+that body as the token passes, so it is a move like any other and the dispatch is drawn on either
+side of it (`state_do_step_cuts_control_node_body`). A run whose do
 flow never rests against a queued dispatch ends at the dispatch or at the do-step budget
 (`robustness_do_step_token_grain_test.go`). Under the fixed policies a do step is one sweep
 (`stepSubflowSweep`) and nothing pauses within it.
