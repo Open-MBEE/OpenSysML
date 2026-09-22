@@ -154,8 +154,8 @@ func apiJSONObjectOf(dec *json.Decoder) (apiJSONElementData, error) {
 			return object, fmt.Errorf("element object states %q twice", key)
 		}
 		seen[key] = true
-		var value any
-		if err := dec.Decode(&value); err != nil {
+		value, err := apiJSONValueOf(dec)
+		if err != nil {
 			return object, fmt.Errorf("%s: %w", key, err)
 		}
 		switch {
@@ -185,6 +185,55 @@ func apiJSONObjectOf(dec *json.Decoder) (apiJSONElementData, error) {
 		return object, err
 	}
 	return object, nil
+}
+
+// apiJSONValueOf reads one value from the decoder — the same shapes a whole
+// document would decode to — refusing a repeated key in any object it builds.
+func apiJSONValueOf(dec *json.Decoder) (any, error) {
+	token, err := dec.Token()
+	if err != nil {
+		return nil, err
+	}
+	switch token {
+	case json.Delim('{'):
+		object := map[string]any{}
+		for dec.More() {
+			keyToken, err := dec.Token()
+			if err != nil {
+				return nil, err
+			}
+			key, ok := keyToken.(string)
+			if !ok {
+				return nil, fmt.Errorf("an object member key is a string, not %v", keyToken)
+			}
+			if _, seen := object[key]; seen {
+				return nil, fmt.Errorf("object states %q twice", key)
+			}
+			value, err := apiJSONValueOf(dec)
+			if err != nil {
+				return nil, fmt.Errorf("%s: %w", key, err)
+			}
+			object[key] = value
+		}
+		if _, err := dec.Token(); err != nil {
+			return nil, err
+		}
+		return object, nil
+	case json.Delim('['):
+		array := []any{}
+		for dec.More() {
+			value, err := apiJSONValueOf(dec)
+			if err != nil {
+				return nil, err
+			}
+			array = append(array, value)
+		}
+		if _, err := dec.Token(); err != nil {
+			return nil, err
+		}
+		return array, nil
+	}
+	return token, nil
 }
 
 // apiJSONTypeIRI maps a "@type" to its metaclass IRI: a bare name is a sysml:
