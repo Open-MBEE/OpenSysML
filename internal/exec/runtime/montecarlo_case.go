@@ -3,6 +3,7 @@ package runtime
 import (
 	"errors"
 	"fmt"
+	"maps"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
@@ -124,18 +125,27 @@ func (ctx *Context) ObserveMonteCarlo(sym *symbols.Symbol, args AnalysisArgs, sc
 	// The run's environment outlives the invocation: the conclusion reads it once the sample is in.
 	run = run.detached()
 	_, results := shape.observationSteps()
-	verdicts := ctx.analysisVerdicts(run, sym, scope)
-	left := make([]bool, len(verdicts))
-	for i, v := range verdicts {
-		left[i] = v.Status == VerdictUndecided
-	}
-	return &MonteCarloRun{
-		ctx: ctx, sym: sym, scope: scope, run: run, log: log, results: results, left: left,
+	r := &MonteCarloRun{
+		ctx: ctx, sym: sym, scope: scope, run: run, log: log, results: results,
 		Case:     shape.Name,
 		Subject:  run.boundSubject(ctx),
 		Observed: observed,
-		Verdicts: verdicts,
-	}, nil
+	}
+	r.Verdicts = r.checks()
+	r.left = make([]bool, len(r.Verdicts))
+	for i, v := range r.Verdicts {
+		r.left[i] = v.Status == VerdictUndecided
+	}
+	return r, nil
+}
+
+// checks decides the case's checks over the run as it stands. The outputs they read are
+// evaluated for them alone, not kept: the conclusion evaluates each once, over the sample.
+func (r *MonteCarloRun) checks() []AnalysisVerdict {
+	kept := r.run.outputs
+	r.run.outputs = maps.Clone(kept)
+	defer func() { r.run.outputs = kept }()
+	return r.ctx.analysisVerdicts(r.run, r.sym, r.scope)
 }
 
 // calcUsageObservation runs a case usage as calcUsageRun does, its results deferred.
@@ -278,7 +288,7 @@ func (r *MonteCarloRun) settle(stats MonteCarloStatistics) {
 	if err := r.bindObservationStatistics(stats); err != nil {
 		settled = ctx.undecidedVerdicts(r.sym, r.scope, err)
 	} else {
-		settled = ctx.analysisVerdicts(r.run, r.sym, r.scope)
+		settled = r.checks()
 	}
 	if len(settled) != len(r.Verdicts) {
 		return

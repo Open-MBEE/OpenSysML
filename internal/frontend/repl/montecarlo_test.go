@@ -88,6 +88,19 @@ const monteCarloModel = `package MC {
 		}
 		return Statistic : Real = mean;
 	}
+	analysis def Scaling :> Simulation::MonteCarlo {
+		subject analysed : Probe;
+		perform action run ::> analysed.settle;
+		attribute :>> observed : Real = analysed.t;
+		attribute scale : Real := 1.0;
+		out Scaled : Real = mean * scale;
+		assert constraint { Scaled >= 0.0 }
+		if mean < 10.0 {
+			assign scale := 2.0;
+			out Statistic : Real = mean;
+		}
+		return Statistic : Real = mean;
+	}
 	analysis def Plain { subject analysed : Probe; return k : Integer = 1; }
 }`
 
@@ -179,6 +192,18 @@ func TestRunsConcludeAResultNestedInABranch(t *testing.T) {
 	}
 	if got := statistic(t, out, "Statistic"); got != want {
 		t.Errorf("Statistic = %v over a mean of %v, want %v", got, mean, want)
+	}
+}
+
+// A run's checks read the outputs as they stand in the run; the conclusion evaluates
+// each once over the sample and the results, keeping none from any run, the last included.
+func TestRunsConcludeAnOutputTheChecksReadOverTheResults(t *testing.T) {
+	s := monteCarloSession(t)
+	out := run(t, s, "%runs 3 7 MC::Scaling MC::probe")
+	wants(t, out, "✓ MC::Scaling over 3 run(s)", "assertion Scaled >= 0.0: satisfied")
+	mean := statistic(t, out, "mean")
+	if got := statistic(t, out, "Scaled"); got != 2*mean {
+		t.Errorf("Scaled = %v, want %v: twice the mean, as the result's branch scales it", got, 2*mean)
 	}
 }
 

@@ -227,6 +227,24 @@ func TestMonteCarloBindingsRefusedWithReasons(t *testing.T) {
 	}
 }
 
+// A block specializing an analysis binds Mean to a value of its own: its analysis
+// observes that value, the general's its own, and neither is a Mean bound twice.
+func TestMonteCarloSpecialRebindsTheMean(t *testing.T) {
+	members, applications := monteCarloBlock(monteCarloGeneral, binding("_bind", "_t", monteCarloRole("Mean")))
+	r := migrateDocument(t, members+`
+    <packagedElement xmi:type="uml:Class" xmi:id="_retry" name="Timer Retry">
+      <generalization xmi:type="uml:Generalization" xmi:id="_g3" general="_analysis"/>`+binding("_bind2", "_u", monteCarloRole("Mean"))+`
+    </packagedElement>`, applications+`<sysml:Block xmi:id="_s7" base_Class="_retry"/>`)
+	wantBlock(t, r.Notation, "attribute :>> observed : ScalarValues::Real = analysed.t;", "return Mean : ScalarValues::Real = mean;", "}",
+		"part def 'Timer Retry' :> 'Timer Analysis';",
+		"analysis def 'Timer Retry Monte Carlo' :> Simulation::MonteCarlo {",
+		"subject analysed : 'Timer Retry';")
+	wantBlock(t, r.Notation, "attribute :>> observed : ScalarValues::Real = analysed.u;", "return Mean : ScalarValues::Real = mean;", "}")
+	wantNote(t, r, "_bind", migrate.Approximated, "written in the analysis def 'Timer Analysis Monte Carlo' as the observed value, of which Mean is returned")
+	wantNote(t, r, "_bind2", migrate.Approximated, "written in the analysis def 'Timer Retry Monte Carlo' as the observed value, of which Mean is returned")
+	wantClean(t, "rebound.sysml", r)
+}
+
 // A statistic slot of an analysis that observes nothing is refused, but for the
 // count of runs, which is of the runs themselves.
 func TestMonteCarloSlotsOfNothingObservedAreRefused(t *testing.T) {

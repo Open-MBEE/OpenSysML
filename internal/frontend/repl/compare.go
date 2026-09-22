@@ -442,9 +442,12 @@ func runRows(cells [][]string, notes []string, name, feature string, table runti
 	case tool == nil:
 	case tool.pooled:
 		cells = append(cells, []string{"", "difference", "", "", relative(drawnMean(tool.stored), drawnMean(d)), "", "", ""})
-		if tool.declared != nil {
+		switch {
+		case tool.declared != nil:
 			notes = append(notes, statisticsTable(name, feature, tool, d)...)
-		} else {
+		case d.Count < 2:
+			notes = append(notes, fmt.Sprintf("note: %s came to no deviation over the %d completed run(s): fewer than two define none", feature, d.Count))
+		default:
 			notes = append(notes, fmt.Sprintf("note: %s came to a deviation of %s over the %d completed run(s)", feature, spell(d.Deviation), d.Count))
 		}
 	default:
@@ -468,12 +471,20 @@ func statisticsTable(name, feature string, tool *comparison, d *runtime.Distribu
 		case simresults.StatisticMean:
 			cells = append(cells, []string{stat, of, spell(tool.stored.Mean), spell(d.Mean), relative(drawnMean(tool.stored), drawnMean(d))})
 		case simresults.StatisticDeviation:
-			if tool.declared.deviation == nil {
+			stored := ""
+			if tool.declared.deviation != nil {
+				stored = spell(*tool.declared.deviation)
+			}
+			switch {
+			case d.Count < 2:
+				cells = append(cells, []string{stat, of, stored, "", ""})
+				notes = append(notes, fmt.Sprintf("note: %s came to no deviation over the %d completed run(s): fewer than two define none, so %s is not compared", feature, d.Count, stat))
+			case tool.declared.deviation == nil:
 				cells = append(cells, []string{stat, of, "", spell(d.Deviation), ""})
 				notes = append(notes, fmt.Sprintf("note: a summary of %s kept no deviation, so the tool's is not pooled and %s is not compared", name, stat))
-				continue
+			default:
+				cells = append(cells, []string{stat, of, stored, spell(d.Deviation), relative(realValue(*tool.declared.deviation), realValue(d.Deviation))})
 			}
-			cells = append(cells, []string{stat, of, spell(*tool.declared.deviation), spell(d.Deviation), relative(realValue(*tool.declared.deviation), realValue(d.Deviation))})
 		case simresults.StatisticRuns:
 			cells = append(cells, []string{stat, of, fmt.Sprint(tool.stored.Count), fmt.Sprint(d.Count), ""})
 		case simresults.StatisticOutOfSpec:

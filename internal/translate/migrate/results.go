@@ -4,6 +4,7 @@ import (
 	"math"
 	"math/big"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -216,18 +217,14 @@ func sortedKeys(counts map[string]int) []string {
 
 // monteCarloObservable is the value the MonteCarloAnalysis a target classifier inherits
 // binds its Mean to, a value of the binding connector's owner reached directly; note says
-// why the analysis names none. Both empty without the analysis.
+// why the analysis names none. Both empty without the analysis. The nearest classifiers
+// binding Mean decide: a special's binding rebinds the Mean its generals bound.
 func (m *migration) monteCarloObservable(classifiers []*sysmlv1.Element) (observable *sysmlv1.Element, note string) {
-	order := m.classifierOrder(classifiers)
+	levels := m.classifierLevels(classifiers)
 	var analysing *sysmlv1.Element
-	for _, c := range order {
-		for _, g := range c.Owned("generalization") {
-			if isMonteCarloAnalysis(m.model.Ref(g, "general")) {
-				analysing = c
-				break
-			}
-		}
-		if analysing != nil {
+	for _, c := range slices.Concat(levels...) {
+		if m.generalizesMonteCarlo(c) {
+			analysing = c
 			break
 		}
 	}
@@ -236,12 +233,17 @@ func (m *migration) monteCarloObservable(classifiers []*sysmlv1.Element) (observ
 	}
 	var bound []*sysmlv1.Element
 	seen := map[*sysmlv1.Element]bool{}
-	for _, c := range order {
-		for _, conn := range c.Owned("ownedConnector") {
-			if stat, f, _ := m.monteCarloBound(c, conn); stat == monteCarloMean && f != nil && !seen[f] {
-				seen[f] = true
-				bound = append(bound, f)
+	for _, level := range levels {
+		for _, c := range level {
+			for _, conn := range c.Owned("ownedConnector") {
+				if stat, f, _ := m.monteCarloBound(c, conn); stat == monteCarloMean && f != nil && !seen[f] {
+					seen[f] = true
+					bound = append(bound, f)
+				}
 			}
+		}
+		if len(bound) > 0 {
+			break
 		}
 	}
 	subject := describe(analysing) + " inherits " + monteCarloAnalysisBlock
@@ -413,24 +415,39 @@ func (m *migration) classifierClosure(classifiers []*sysmlv1.Element) map[*sysml
 // classifierOrder is the classifiers and every general of theirs, each special
 // before its generals.
 func (m *migration) classifierOrder(classifiers []*sysmlv1.Element) []*sysmlv1.Element {
-	seen := map[*sysmlv1.Element]bool{}
 	var order []*sysmlv1.Element
-	queue := append([]*sysmlv1.Element(nil), classifiers...)
-	for len(queue) > 0 {
-		c := queue[0]
-		queue = queue[1:]
-		if c == nil || seen[c] {
-			continue
-		}
-		seen[c] = true
-		order = append(order, c)
-		for _, g := range c.Owned("generalization") {
-			if general := m.model.Ref(g, "general"); general != nil && !general.IsProxy() {
-				queue = append(queue, general)
-			}
-		}
+	for _, level := range m.classifierLevels(classifiers) {
+		order = append(order, level...)
 	}
 	return order
+}
+
+// classifierLevels is the classifiers and every general of theirs by distance: the
+// classifiers themselves, then their generals, then those generals' generals, each once.
+func (m *migration) classifierLevels(classifiers []*sysmlv1.Element) [][]*sysmlv1.Element {
+	seen := map[*sysmlv1.Element]bool{}
+	var levels [][]*sysmlv1.Element
+	next := append([]*sysmlv1.Element(nil), classifiers...)
+	for len(next) > 0 {
+		var level, generals []*sysmlv1.Element
+		for _, c := range next {
+			if c == nil || seen[c] {
+				continue
+			}
+			seen[c] = true
+			level = append(level, c)
+			for _, g := range c.Owned("generalization") {
+				if general := m.model.Ref(g, "general"); general != nil && !general.IsProxy() {
+					generals = append(generals, general)
+				}
+			}
+		}
+		if len(level) > 0 {
+			levels = append(levels, level)
+		}
+		next = generals
+	}
+	return levels
 }
 
 // descendantInstances lists the instance specifications under pkg at any depth, in document order.

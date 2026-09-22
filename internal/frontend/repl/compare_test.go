@@ -603,4 +603,22 @@ func TestComparisonTableComparesTheDeclaredStatistics(t *testing.T) {
 			t.Errorf("the table without a stored deviation lacks %q:\n%s", want, got)
 		}
 	}
+
+	// One completed run has no sample deviation: the runs' is left blank, not 0, and
+	// the tool's stands alone uncompared.
+	cfg.Snapshots[0].Statistics.Deviation = simresults.Real(2.0)
+	one := runtime.SweepTable{Target: "Cfg::'Group 1'", Rows: []runtime.SweepRow{row(10)}}
+	got = strings.Join(comparisonTable(cfg, one, nil), "\n")
+	for _, want := range []string{
+		"Deviation | return Deviation | 2.581988897471611 |                          |",
+		"N         | return N         | 4                 | 1                        |",
+		"note: target.total came to no deviation over the 1 completed run(s): fewer than two define none, so Deviation is not compared",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("the table over one run lacks %q:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "| 0.0 ") || strings.Contains(got, "-100.0%") {
+		t.Errorf("the one run's deviation is compared as 0:\n%s", got)
+	}
 }
