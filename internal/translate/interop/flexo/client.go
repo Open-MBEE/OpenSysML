@@ -283,9 +283,8 @@ func (c *Client) LoadTurtle(ctx context.Context, project, branch string, turtle 
 	return err
 }
 
-// PutResult is what a graph write's response says it did: the ETag it carries
-// and the Location it names — a committed write carries both, a refused 412
-// neither.
+// PutResult is the ETag and Location a graph write's response carries; a
+// committed write has both, a refused 412 neither.
 type PutResult struct {
 	Commit   string
 	Location string

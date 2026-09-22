@@ -42,9 +42,7 @@ func (e *StaleBranchError) Error() string {
 }
 
 // UnrecordedPushError is a graph write the branch accepted but whose response
-// named no commit: nothing can be recorded as the new baseline, and a later
-// head re-read might name another writer's commit, so the next push must read
-// the branch again.
+// named no commit; a later head read could be another writer's, so none is recorded.
 type UnrecordedPushError struct {
 	Project, Branch string
 }
@@ -54,9 +52,8 @@ func (e *UnrecordedPushError) Error() string {
 		e.Project, e.Branch)
 }
 
-// SupersededPushError is a graph write the branch committed, named by its
-// Location, whose head has since moved to another commit: the write landed,
-// but the recorded baseline can only come from reading the branch again.
+// SupersededPushError is a committed graph write, named by its Location, whose
+// branch head has since moved on; the baseline must come from reading the branch again.
 type SupersededPushError struct {
 	Project, Branch, Commit, Head string
 }
@@ -153,8 +150,7 @@ func (r *Repository) Push(ctx context.Context, turtle []byte, message string) (s
 }
 
 // committedFrom trusts an ETag only when the response's Location names the
-// same commit under /commits/, as a committed write's does; a refused 412
-// carries neither.
+// same commit under /commits/; a refused 412 carries neither.
 func committedFrom(res PutResult) string {
 	if res.Commit == "" {
 		return ""
