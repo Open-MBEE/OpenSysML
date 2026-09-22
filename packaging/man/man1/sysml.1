@@ -104,8 +104,9 @@ first multiple of it not before the wait ends; 0 (default) is a continuous
 clock. With \-compare\-results, replaces every configuration's stepSize
 .TP
 .BR \-runs " \fIn\fP"
-Run the \-action this many times, each run seeded from \-seed, and table the
-\-observe features; needs \-seed unless \-draws is min, max or average
+Run the \-action, or the Simulation::MonteCarlo \-analysis, this many times,
+each run seeded from \-seed, and table the \-observe features or the case's
+observed value; needs \-seed unless \-draws is min, max or average
 .TP
 .BR \-observe " \fIfeature\fP"
 Report this feature of the \-runs action, or clock for the time it completed
@@ -585,6 +586,8 @@ sysml \-action Acquire \-seed 7 m.sysml
 sysml \-action Acquire \-draws max m.sysml
 # Mean durations
 sysml \-action A \-runs 9 \-seed 7 \-draws average m.sysml
+# A MonteCarlo analysis case
+sysml \-analysis "Mc obj" \-runs 100 \-seed 7 m.sysml
 .fi
 .RE
 .PP
@@ -614,6 +617,18 @@ and the clock. Below it each numeric observable is summarised over the
 completed runs: min, mean, max, the nearest\-rank p50 and p90, and a
 histogram; a non\-numeric one is counted by value. A feature the action does
 not hold is refused.
+.PP
+\-runs also runs an \-analysis that specializes Simulation::MonteCarlo, the
+OpenSysML library's analysis of repeated runs: each run performs the case's
+steps on a fresh subject, seeded as an action's run is, and reads the value
+the case binds as observed; the table has one row per run with that value, and
+beneath its distribution the case is concluded once over the sample \(em runs,
+mean, deviation (the sample standard deviation) and outOfSpec (the runs in
+which a check of the case did not hold) bound, and the case's own outputs and
+checks evaluated over them. Each run makes its objects from their
+declarations, so a subject named by `#id` alone is refused. Run once, without
+\-runs, such a case leaves its statistics unbound. \-observe belongs to an
+action's runs, not a case's.
 .SH CONVERSION
 .RS 2
 .nf

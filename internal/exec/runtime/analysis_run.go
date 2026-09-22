@@ -289,9 +289,10 @@ func (ctx *Context) runCase(sym *symbols.Symbol, args AnalysisArgs, scope *symbo
 	if asUsage {
 		run, err = ctx.calcUsageRun(reader, sym)
 	} else {
-		run, err = ctx.analysisRun(shape, reader, calcArgs)
+		run, err = ctx.analysisRun(shape, reader, calcArgs, false)
 	}
 	if err != nil {
+		err = ctx.monteCarloUnconcluded(sym, err)
 		result := AnalysisResult{Case: shape.Name, Evaluations: log.evaluations(Value{}, false)}
 		result.Verdicts = ctx.undecidedVerdicts(sym, scope, err)
 		return nil, result, err
@@ -303,6 +304,7 @@ func (ctx *Context) runCase(sym *symbols.Symbol, args AnalysisArgs, scope *symbo
 	outputs, err := run.outputValues(ctx)
 	result.Outputs = outputs
 	if err != nil {
+		err = ctx.monteCarloUnconcluded(sym, err)
 		result.Verdicts = ctx.undecidedVerdicts(sym, scope, err)
 		result.Evaluations = log.evaluations(Value{}, false)
 		return nil, result, err
@@ -341,8 +343,9 @@ func (ctx *Context) undecidedVerdicts(sym *symbols.Symbol, scope *symbols.Scope,
 
 // analysisRun binds a case's parameters from the shaped arguments and runs its
 // body once, unmemoized: arguments make it an invocation of its own, not the
-// evaluation the case's outputs answer from when read as features.
-func (ctx *Context) analysisRun(shape *calcShape, reader *EvalContext, calcArgs calcArgs) (*calcRun, error) {
+// evaluation the case's outputs answer from when read as features. deferResults
+// leaves the results ending the body for a Monte Carlo to evaluate over its sample.
+func (ctx *Context) analysisRun(shape *calcShape, reader *EvalContext, calcArgs calcArgs, deferResults bool) (*calcRun, error) {
 	key := calcUsageKey{sym: shape.Sym}
 	if reader.self != nil {
 		key.instance = reader.self.ID
@@ -351,6 +354,7 @@ func (ctx *Context) analysisRun(shape *calcShape, reader *EvalContext, calcArgs 
 	if err != nil {
 		return nil, err
 	}
+	start.deferResults = deferResults
 	return ctx.runCalcUsage(start)
 }
 

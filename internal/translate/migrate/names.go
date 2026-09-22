@@ -119,8 +119,13 @@ func scopeChain(scope *sysmlv1.Element) []*sysmlv1.Element {
 // name when target is a member of an enclosing scope no nearer scope shadows,
 // and the full qualified name otherwise.
 func (m *migration) ref(target, scope *sysmlv1.Element) string {
-	segs := m.segments(target)
-	owner := target.Parent
+	return m.refMember(target.Parent, m.nameOf(target), m.segments(target), scope)
+}
+
+// refMember writes a reference from inside scope's body to the member of owner
+// named name, whose qualified name is segs: a synthesized declaration written
+// beside owner's members refers like one of them.
+func (m *migration) refMember(owner *sysmlv1.Element, name string, segs []string, scope *sysmlv1.Element) string {
 	if owner != nil && owner.Type == "Model" && owner.Parent == nil {
 		owner = nil
 	}
@@ -131,7 +136,7 @@ func (m *migration) ref(target, scope *sysmlv1.Element) string {
 		}
 		shadowed := false
 		for _, inner := range chain[:i] {
-			if n := m.nameOf(target); n != "" && m.nameTaken(inner, n) {
+			if name != "" && m.nameTaken(inner, name) {
 				shadowed = true
 				break
 			}
@@ -143,7 +148,7 @@ func (m *migration) ref(target, scope *sysmlv1.Element) string {
 	if owner == nil && len(chain) > 0 {
 		// A top-level declaration: visible everywhere unless shadowed.
 		for _, inner := range chain {
-			if n := m.nameOf(target); n != "" && m.nameTaken(inner, n) {
+			if name != "" && m.nameTaken(inner, name) {
 				return m.qualifiedFrom(segs, chain)
 			}
 		}

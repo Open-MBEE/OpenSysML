@@ -166,6 +166,10 @@ returned over the service yet.
 | «SimulationConfig» whose `executionTarget` is absent, several, outside the document, not migrated, or written as something no part can be typed by; whose target has no classifier behavior, or one that is a state machine | the `action def` with its metadata and, where the target is written, its `target` part, performing nothing; the note says why | approximated |
 | «SimulationConfig» `durationSimulationMode` that is none of `min`, `max`, `average`, `random` | kept among the tags in the comment | approximated |
 | Result snapshots of a «SimulationConfig» (the instances under its `resultLocation` packages classified — by name or by their slots — by its target's classifiers, recording no other values of the features the target's slots set) | the individuals above, and one row per snapshot in the JSON `-migration-results` writes, its numeric slots by defining feature; a slot holding no one finite number a float64 spells exactly, and a feature two slots hold numbers for, are counted in the configuration's notes | mapped |
+| Generalization of MagicDraw's `MonteCarloAnalysis` (the analysis pattern of the SysML customization module, recognised by the module's provenance — a user's own block of that name is an ordinary block) | the block's `part def` without that general, and beside it `analysis def '<Block> Monte Carlo' :> Simulation::MonteCarlo` with the part def as `subject`, `perform action run ::> <subject>.<its classifier behavior>` and `attribute :>> observed = <subject>.<the value bound to Mean>` (see [Monte Carlo analyses](#monte-carlo-analyses)) | approximated: the block is split into a part def and an analysis def |
+| «BindingConnector» of a value property to `MonteCarloAnalysis::Mean`, `::Deviation`, `::N` or `::OutOfSpec` (the connector's owner inheriting the pattern) | the analysis def's `observed` (from the `Mean` binding) and one `return`/`out` per statistic — `return Mean : Real = mean;`, `out Deviation : Real[0..1] = deviation;`, `out N : Natural = runs;`, `out OutOfSpec : Natural = outOfSpec;` — `Real` for `Mean` and `Deviation`, the bound value's scalar for `N` and `OutOfSpec`; a note says when that is not the value's own type | mapped / approximated |
+| «BindingConnector» to another statistic of `MonteCarloAnalysis`, to a value of no numeric type, one of several binding the same statistic, one whose owner does not inherit the pattern, or to a statistic other than `Mean` where nothing is bound to `Mean` | comment naming the statistic and the reason | **unmapped** |
+| Slots of `MonteCarloAnalysis::N`, `::Mean`, `::Deviation`, `::OutOfSpec` in a result snapshot | `analysis 'Monte Carlo' : '<Block> Monte Carlo' { subject :>> <subject> : '<the snapshot>'; out :>> runs = …; out :>> mean = …; … }` in the snapshot's individual, and the snapshot's `"statistics"` in the sidecar | mapped |
 | ObjectFlow | `flow a.out to b.in;`, or `bind` to a parameter; each producer-pin pair is written once however many edges carry it; a flow from or to an action that is not migrated, or from an output pin a translated opaque body never assigns, is a comment | mapped / approximated |
 | SendSignalAction | `action x send new Sig(args) to <target>;`, `via <port>` when `onPort` is set; the target is read from the target pin's flow: `this`, `this.part` where a structural read feeds the pin, else the pin itself (`in target;` bound to what feeds it, an activity parameter or another node's output), which the runtime evaluates to the object it holds | mapped / approximated |
 | AcceptEventAction | `action x accept p : Sig;` (signal trigger), `accept after <d> [SI::s]` (relative TimeEvent), `accept when <cond>` (ChangeEvent) | mapped |
@@ -1022,14 +1026,17 @@ action def 'Group 0' {
   snapshot out), and a target with no
   classifier to match snapshots against are each noted in the configuration's `notes`.
 - A target whose classifier specializes MagicDraw's `MonteCarloAnalysis` (the analysis pattern
-  of the SimulationProfile, recognised by provenance) summarises its runs rather than recording
+  of the SysML customization module, recognised by the module's provenance) summarises its runs
+  rather than recording
   each: a snapshot's `N`, `Mean`, `Deviation` and `OutOfSpec` slots are the count, mean,
   standard deviation and out-of-specification count of the observable the analysis binds its
   `Mean` to, so they are kept out of the observables and written as the snapshot's
   `"statistics"` (`runs`, `mean`, and `deviation` and `outOfSpec` only when the snapshot
   records them — a summary without a `Deviation` states none rather than a zero), standing for
   `N` runs, and the configuration's `"analysis"` names that observable, which the snapshot
-  holds the same mean for. An analysis binding its `Mean` to no feature, or to several, a
+  holds the same mean for; `"analysisCase"` names the `analysis def` written for the target
+  (see [Monte Carlo analyses](#monte-carlo-analyses)) and `"statistics"` on the configuration
+  lists the statistics it returns, in order, as the tool names them (`["Mean", "Deviation"]`). An analysis binding its `Mean` to no feature, or to several, a
   snapshot recording `N` without `Mean` or the reverse, an `N` that is no count, a negative
   `Deviation`, an `OutOfSpec` that is no count of the `N` runs, a statistic that is no one number
   (a string, `NaN`, two values in one slot, one statistic over two slots; a blank literal is the
@@ -1051,12 +1058,63 @@ relative difference; see
 [Comparing a migrated configuration with the tool's results](cli.md#comparing-a-migrated-configuration-with-the-tools-results).
 A stored observable is read off the target by default (`Time_Acq_Total` beside
 `target.Time_Acq_Total`), or off the feature `-observe Time_Acq_Total=clock` names, so a total
-the tool read from its time variable is set beside the run's clock. An observable the completed
+the tool read from its time variable is set beside the run's clock. The observable a Monte
+Carlo analysis summarises is compared statistic by statistic, one row per `return` the
+analysis def declares and one per output of `Simulation::MonteCarlo` the tool stored without
+a return: the tool's `Mean` and `Deviation`, pooled over its summaries, against the
+runs' by the same aggregation (the arithmetic mean and the sample standard deviation), `N`
+side by side, and `OutOfSpec` shown but not compared, being the tool's own criterion. An observable the completed
 runs produce in more than one unit (a quantity in some, a bare number or another unit in others)
 has no one distribution to set beside the tool's and is noted, not pooled; so is one some completed
 runs produce as no number, with the count of those runs. The numbers are printed
 as they are: a difference is a fact about the migration's fidelity, to be read against the
 report's approximations, not tuned away.
+
+### Monte Carlo analyses
+
+MagicDraw's SysML customization module ships an analysis pattern the Simulation Toolkit
+fills: a user block generalizes its `MonteCarloAnalysis`, owns the value it analyses, and a
+«BindingConnector» binds that value to the pattern's `Mean` (or `Deviation`, `N`,
+`OutOfSpec`); after `N` runs the tool writes the four statistics into the result instance. The
+pattern is recognised by the module's provenance alone — the generalization's `general` is the
+module's `MonteCarloAnalysis` — so a user's own block named `MonteCarloAnalysis` is an ordinary
+block, and so is everything generalizing or binding to it.
+
+The block is written as its `part def` (the pattern's generalization left out, the report saying
+so) and, beside it, an `analysis def` specializing `Simulation::MonteCarlo`, the OpenSysML
+library's analysis of repeated runs, whose `subject` is the part def, whose one run performs the
+block's classifier behavior, whose `observed` is the value bound to `Mean`, and whose returns
+are the statistics the block's connectors bind:
+
+```sysml
+part def 'Timer Analysis' :> Timer { attribute t : Real; }
+analysis def 'Timer Analysis Monte Carlo' :> Simulation::MonteCarlo {
+    subject analysed : 'Timer Analysis';
+    perform action run ::> analysed.tick;
+    attribute :>> observed : Real = analysed.t;
+    return Mean : Real = mean;
+    out Deviation : Real[0..1] = deviation;
+}
+```
+
+`Mean` and `Deviation` are returned as `Real`, `N` and `OutOfSpec` as the scalar of the value
+bound to them, and a note says when that is not the value's own type (a value type over
+`Integer`, say); a binding of a value of no numeric type, of a statistic the pattern
+is not known to have, a second binding of one statistic, or a binding to a statistic other
+than `Mean` with nothing bound to `Mean` (a statistic of nothing) is a comment naming the
+reason. A block specializing such a block has an analysis def of its own when it binds a
+statistic itself, returning what its own connectors bind and then what it inherits and does not
+rebind (a general's `Deviation` beside its own `N`, say). A snapshot's four statistic slots
+become a recorded `analysis` of that def in the snapshot's individual, with the snapshot as its
+subject and the statistics as its outputs.
+
+`sysml out.sysml -analysis "'Timer Analysis Monte Carlo' <object>" -runs 100 -seed 7` then
+runs the case: each run on a fresh subject seeded from the seed and the run number, its
+observation tabled, and the case concluded once over the sample — `runs`, `mean`,
+`deviation` (the sample standard deviation, none under two runs) and `outOfSpec` (the runs in
+which a check of the case did not hold) bound and the declared returns evaluated over them; see
+[Running an action many times](cli.md#running-an-action-many-times). Run once, without
+`-runs`, the statistics stay unbound: an analysis of one run is not passed off as one of many.
 
 ## The report
 

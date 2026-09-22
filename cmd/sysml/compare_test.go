@@ -57,7 +57,7 @@ func TestSummarisedMigrationResultsThroughCLI(t *testing.T) {
 		"           | OpenSysML (target.t)               | 1    | 3.0 | 3.0  | 3.0 | 3.0 | 3.0",
 		"note: the configuration states no numberOfRuns, so one run is made, as its tool makes without one; -runs <number> makes more",
 		"compare 'Group 2' — 1 stored run(s) in Unbound Results; 1 run(s) by OpenSysML, draws average, seed 1\n",
-		"note: 'Unbound Analysis' inherits MonteCarloAnalysis but binds its Mean to no feature, so its statistics summarise no observable",
+		"note: 'Unbound Analysis' inherits MonteCarloAnalysis but binds its Mean to no value of its own, so its statistics summarise no observable",
 	} {
 		if !strings.Contains(compared.stdout, want) {
 			t.Errorf("the comparison lacks %q:\n%s", want, compared.output())

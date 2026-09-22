@@ -98,6 +98,7 @@ func FromModel(name string, model *sysmlv1.Model) *Result {
 		usageOf:      map[*sysmlv1.Element]string{},
 		pins:         map[*sysmlv1.Element]pinDecl{},
 		opaque:       map[*sysmlv1.Element]*opaqueResult{},
+		monteCarlo:   map[*sysmlv1.Element]*monteCarloCase{},
 	}
 	m.prepare()
 	for _, root := range model.Roots {
@@ -263,6 +264,8 @@ type migration struct {
 	pins map[*sysmlv1.Element]pinDecl
 	// opaque memoizes what each opaque action's body translates to.
 	opaque map[*sysmlv1.Element]*opaqueResult
+	// monteCarlo memoizes the analysis def written beside each block; nil for one without.
+	monteCarlo map[*sysmlv1.Element]*monteCarloCase
 	// rules memoizes how each constraint block's anonymous rule is written.
 	rules map[*sysmlv1.Element]ruleForm
 	// clocks memoizes the names a simulation configuration gives the clock.
@@ -730,6 +733,9 @@ func (m *migration) classifier(e *sysmlv1.Element) {
 	}
 	m.add(e, verdict, m.v2Name(e), note)
 	m.classifierBody(e, cat, header)
+	if cat == catPartDef {
+		m.monteCarloAnalysis(e)
+	}
 }
 
 // classifierHeader builds the declaration line a classifier is written with:
@@ -839,7 +845,7 @@ func (m *migration) generals(e *sysmlv1.Element, cat category) (string, string) 
 			continue
 		}
 		if isMonteCarloAnalysis(target) {
-			notes = append(notes, "generalization of the simulation tool's "+monteCarloAnalysisBlock+" is not written: v2 has no analysis pattern for the statistics it computes over the runs, which the migration results read from the result snapshots")
+			notes = append(notes, m.monteCarloGeneralization(e))
 			continue
 		}
 		if target.IsProxy() || m.isLibrary(target) {
@@ -1063,7 +1069,8 @@ func (m *migration) individualBody(e *sysmlv1.Element) {
 	saved := m.scope
 	m.scope = e
 	m.comments(e)
-	for _, slot := range e.Owned("slot") {
+	slots, recorded := m.monteCarloSlots(e, e.Owned("slot"))
+	for _, slot := range slots {
 		f := m.model.Ref(slot, "definingFeature")
 		lines, note, ok := m.slotForm(e, slot, f)
 		if !ok {
@@ -1075,6 +1082,7 @@ func (m *migration) individualBody(e *sysmlv1.Element) {
 		}
 		m.add(slot, verdictFor(note), m.v2Name(e)+"::"+writeName(m.nameFor(f)), note)
 	}
+	recorded()
 	for _, extra := range m.extras[e] {
 		extra()
 	}
@@ -1086,9 +1094,6 @@ func (m *migration) individualBody(e *sysmlv1.Element) {
 // lines that write it and the notes on them; ok is false, and note says why,
 // when it has no v2 form.
 func (m *migration) slotForm(e, slot, f *sysmlv1.Element) (lines []string, note string, ok bool) {
-	if stat := monteCarloFeature(f); stat != "" {
-		return nil, "the slot holds the simulation tool's " + monteCarloAnalysisBlock + "::" + stat + " statistic of the runs, which is no value of the instance; the migration results read it", false
-	}
 	if f == nil || f.IsProxy() {
 		return nil, "the slot's defining feature is not in the document", false
 	}
@@ -2050,8 +2055,7 @@ func isNatural(s string) bool {
 // connector writes a connector: a binding or delegation connector as `bind`,
 // an assembly connector as `connect`, and an item flow it realizes as `flow`.
 func (m *migration) connector(c *sysmlv1.Element) {
-	if note := m.monteCarloBinding(c); note != "" {
-		m.unmappedConnector(c, note)
+	if m.monteCarloConnector(c) {
 		return
 	}
 	segs, note := m.connectorEnds(c, m.scope)

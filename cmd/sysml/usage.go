@@ -235,6 +235,7 @@ func doc() usage.Doc {
 				usage.Ex(`sysml -action Acquire -seed 7 m.sysml`, "One run, its draws seeded"),
 				usage.Ex(`sysml -action Acquire -draws max m.sysml`, "Durations at their max"),
 				usage.Ex(`sysml -action A -runs 9 -seed 7 -draws average m.sysml`, "Mean durations"),
+				usage.Ex(`sysml -analysis "Mc obj" -runs 100 -seed 7 m.sysml`, "A MonteCarlo analysis case"),
 			},
 			Paragraphs: []string{
 				"-runs runs one -action to completion that many times, each run on a " +
@@ -263,6 +264,17 @@ func doc() usage.Doc {
 					"completed runs: min, mean, max, the nearest-rank p50 and p90, and " +
 					"a histogram; a non-numeric one is counted by value. A feature the " +
 					"action does not hold is refused.",
+				"-runs also runs an -analysis that specializes Simulation::MonteCarlo, " +
+					"the OpenSysML library's analysis of repeated runs: each run performs " +
+					"the case's steps on a fresh subject, seeded as an action's run is, and " +
+					"reads the value the case binds as observed; the table has one row per " +
+					"run with that value, and beneath its distribution the case is concluded " +
+					"once over the sample — runs, mean, deviation (the sample standard " +
+					"deviation) and outOfSpec (the runs in which a check of the case did not " +
+					"hold) bound, and the case's own outputs and checks evaluated over them. " +
+					"Each run makes its objects from their declarations, so a subject named " +
+					"by `#id` alone is refused. Run once, without -runs, such a case leaves " +
+					"its statistics unbound. -observe belongs to an action's runs, not a case's.",
 			},
 		}, {
 			Title: "Conversion",
@@ -527,7 +539,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.Var(&modelChecks.seed, "seed", "Seed the model's own draws — weighted decisions, random functions — and those of -samples and -runs; the same seed draws the same run or table")
 	fs.Var(&modelChecks.draws, "draws", "How every run resolves the draws of RandomFunctions: random (default) draws from -seed; min, max and average take each call's least, greatest or mean value and need no seed; weighted decisions draw from -seed whatever the policy")
 	fs.Var(&modelChecks.clockStep, "clock-step", "The step, in seconds, the clock of every run ticks by: a wait comes due at the first multiple of it not before the wait ends; 0 (default) is a continuous clock. With -compare-results, replaces every configuration's stepSize")
-	fs.Var(&modelChecks.runs, "runs", "Run the -action this many times, each run seeded from -seed, and table the -observe features; needs -seed unless -draws is min, max or average")
+	fs.Var(&modelChecks.runs, "runs", "Run the -action, or the Simulation::MonteCarlo -analysis, this many times, each run seeded from -seed, and table the -observe features or the case's observed value; needs -seed unless -draws is min, max or average")
 	fs.Var(&modelChecks.observe, "observe", "Report this feature of the -runs action, or clock for the time it completed at; default every feature it holds and the clock. With -compare-results, the stored observable to compare, or <observable>=<feature> to read it from another feature of the run (repeatable)")
 	fs.Var(&modelChecks.sweeps, "sweep", "Run the -analysis or -calc once per value of this range, as -sweep \"n=1..8:2\"; several ranges run their cartesian product (repeatable)")
 	fs.Var(&modelChecks.samples, "samples", "Draw this many values uniformly from each -sweep range instead of stepping through it; needs -seed")

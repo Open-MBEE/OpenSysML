@@ -265,7 +265,7 @@ written in, so the verdicts are about that object:
 | `-sweep <param>=<from>..<to>[:<step>]` | Runs the `-analysis` case or `-calc` once per value of the range, rather than once, and reports the runs as a table. `<from>`, `<to>` and `<step>` are written as an argument is, units included (`0.0 [SI::m]..10.0 [SI::m]:2.0 [SI::m]`); the parameter is one the case or calc declares and the arguments do not bind, and the values are produced in its declared type (`1..4:1` over a `Real` binds `1.0`, `2.0`, …). Repeatable: several ranges run their cartesian product, the first flag given varying slowest. See [Sweeping a parameter](#sweeping-a-parameter) |
 | `-samples <n>` | Draws `n` values for each `-sweep` range instead of running every value of it, uniformly over the range from the seed `-seed` names — Integers inclusively for a parameter taking Integers, reals in `[<from>, <to>)` for one taking reals |
 | `-seed <s>` | The seed the model's own draws come from in every run the invocation makes, whatever `-schedule` — the branch a `@Probability`-weighted decision takes, the value a `RandomFunctions` call returns — and the seed `-samples` and `-runs` draw from, required with those two: the same seed draws the same run or table on every platform. Without it a run that must draw is refused naming the call and the flag, and a weighted decision takes its most probable branch. See [Running an action many times](#running-an-action-many-times) |
-| `-runs <n>` | Runs the one `-action` to completion `n` times, each on a fresh context with a model seed of its own derived from `-seed` and the run number, and tables what each run's `-observe` features came to with a distribution of each; needs exactly one `-action` and `-seed` — unless `-draws` is `min`, `max` or `average`, under which the runs draw nothing at random and the seed may be left out — and is refused with `-sweep`, `-samples`, `-advance`, `-state` or the checker's flags. See [Running an action many times](#running-an-action-many-times) |
+| `-runs <n>` | Runs the one `-action` to completion `n` times, each on a fresh context with a model seed of its own derived from `-seed` and the run number, and tables what each run's `-observe` features came to with a distribution of each; or runs the one `-analysis` that specializes `Simulation::MonteCarlo` `n` times the same way, tabling what each run observed and concluding the case once over the sample; needs exactly one `-action` or `-analysis` and `-seed` — unless `-draws` is `min`, `max` or `average`, under which the runs draw nothing at random and the seed may be left out — and is refused with `-sweep`, `-samples`, `-advance`, `-state` or the checker's flags. See [Running an action many times](#running-an-action-many-times) |
 | `-draws <policy>` | How every run the invocation makes resolves the draws of `RandomFunctions` — `uniform`, `uniformInteger`, `triangular`, `normal`: `random` (the default) draws each call from `-seed`; `min`, `max` and `average` take each call's least, greatest or mean value instead and need no seed (`min` and `max` read a bounded call's interval closed at both ends, so `uniform(lo, hi)` is `lo` or `hi`); `normal` with a positive deviation has no least or greatest value, so a run that calls it under `min` or `max` stops with an error (`normal(m, 0)` is `m` under every policy, `random` included, and needs no seed). Weighted decisions are not durations: they draw from `-seed` under every policy, and unseeded take their most probable branch. Every witness records the policy as `draws by <policy>`, and `-schedule replay:<file>` follows it. See [Running an action many times](#running-an-action-many-times) |
 | `-clock-step <seconds>` | The step the clock of every run the invocation makes ticks by, as a simulation tool's fixed-step clock does: a wait (`accept after`, `accept at`, a state's timer, a case's timed step) comes due at the first multiple of the step not before the instant it ends, so under `-clock-step 1` a wait of `2.3 [s]` set at `t=0` comes due at `t=3.0`; `0` (the default) is a continuous clock, on which a wait comes due exactly when it ends. A step that is no finite, non-negative number is refused before anything runs. Every witness of a stepped run records it as `clock steps by <seconds>`, and `-schedule replay:<file>` follows it. With `-compare-results`, replaces every configuration's recorded `stepSize`. See [Running an action many times](#running-an-action-many-times) |
 | `-observe <feature>` | A feature of the `-runs` action to table, or `clock` for the simulation time each run completed at (the clock's name, never a feature's); repeatable; default every feature the action holds and the clock. A name the action does not hold, or one named twice, is refused; the flag without `-runs` or `-compare-results` is refused. With `-compare-results`, a stored observable to compare, read from the target's feature of the same name (`target.<observable>`), or `-observe <observable>=<feature>` to read it from another feature of the run (`Time_Acq_Total=clock`); default every stored observable |
@@ -1052,6 +1052,55 @@ reads as before; a line naming `0`, a negative step, or a step twice is refused)
 migrated from a tool whose `startTime` set its clock going carries the tool's `stepSize` as its
 own step, which `-compare-results` runs it under; see below.
 
+**A Monte Carlo analysis case.** `-runs <n>` also runs the one `-analysis` that specializes
+`Simulation::MonteCarlo`, the OpenSysML library's analysis of repeated runs (the form a SysML v1
+migration gives a simulation tool's Monte Carlo pattern; see
+[Monte Carlo analyses](sysml-v1-migration.md#monte-carlo-analyses)). Each run performs the
+case's steps on a fresh object of its subject, seeded as an action's run is, and reads the value
+the case binds as `observed`; the table has one row per run with that value and its distribution
+beneath, and then the case is concluded once over the sample: `runs`, `mean`, `deviation` (the
+sample standard deviation, none under two runs) and `outOfSpec` (the runs in which a check of
+the case did not hold) are bound and the case's own outputs evaluated over them, a failed run
+failing the table. A check any run decides on its own — one of `observed`, say, or of `observed`
+and a statistic both — is a check of the runs: once the sample is in, each run's is settled over
+it and tabled in the run's row, and the runs it did not hold in are counted as `outOfSpec`, whichever
+run came last; a check every run leaves to the sample, one of `mean` or another statistic alone,
+is decided once at the conclusion and an unsatisfied one fails the verdict. A count of runs the
+sweep budget does not allow is refused
+before any run is made. An
+`observed` that is a quantity is sampled by its magnitude in the first run's unit — a later run
+in a commensurable unit is converted, one of another dimension refuses the sample — and `mean`
+and `deviation` are quantities in that unit; the sample is of numbers or of quantities, never
+both. The table stands whatever the sample: when every run failed, each run's row and error
+are tabled and the case is reported unconcluded rather than refused as a sample of nothing, and
+a run observing no number is refused naming the run and what it observed, under the table; a
+failed run fails the case whatever comes of the sample, so only a table of completed runs is left
+unresolved by a sample or a conclusion that cannot be made. The sample deviation of Reals is
+scaled before it is squared, so a finite sample has a finite deviation however large. The runs
+make their objects from their declarations, so a subject named by `#id` alone is refused, and
+`-observe` belongs to an action's runs, not a case's. Run once, without `-runs`, such a case
+leaves its statistics unbound, so a return of one of them is refused naming `-runs`.
+
+```bash
+$ sysml out.sysml -instantiate "'settling analysis'" \
+    -analysis "'Settling Analysis Monte Carlo' 'settling analysis'" -runs 2 -seed 7
+runs Settling Analysis Monte Carlo — 2 run(s), seed 7
+run | observed           | time
+----+--------------------+--------
+1   | 2.4280365013180862 | 3.736ms
+2   | 3.3645571860689465 | 3.492ms
+observed: 2 run(s), min 2.4280365013180862, mean 2.8962968436935164, max 3.3645571860689465, p50 2.4280365013180862, p90 3.3645571860689465
+  …
+✓ 'Settling Analysis Monte Carlo' over 2 run(s)
+  runs = 2
+  mean = 2.8962968436935164
+  deviation = 0.6622201269088022
+  outOfSpec = 0
+  Mean = 2.8962968436935164
+  Deviation = 0.6622201269088022
+  OutOfSpec = 0
+```
+
 ```bash
 $ sysml -action Sys::align -runs 3 -draws max -observe clock m.sysml
 runs Sys::align — 3 run(s), no seed
@@ -1132,7 +1181,15 @@ and its result location, since a Monte Carlo does not come out alike twice, and 
 same. Summaries of one observable whose means lie more than three standard errors apart cannot
 be of runs of one and the same model — the tool ran them under other values than the snapshots
 record — so they are noted by name under the table, and the pooled mean they are compared by is
-said to blend them. A configuration whose tool ran it on a stepped
+said to blend them. An observable a migrated Monte Carlo analysis def was written for
+(the sidecar's `analysisCase` and `statistics`) is followed by a table of the case's
+statistics — its declared returns first (`return Mean`), then the outputs of
+`Simulation::MonteCarlo` the tool stored without a return (`out deviation`), the case computing
+them all: the tool's `Mean` and `Deviation` pooled over its summaries, the
+runs' by the same aggregation (the arithmetic mean, the sample standard deviation) and their
+relative difference; `N` side by side, undifferenced, each side's count being its own choice;
+`OutOfSpec` the tool's alone, noted as its own criterion, which no migrated check evaluates. A
+summary that kept no deviation leaves the tool's `Deviation` blank with a note. A configuration whose tool ran it on a stepped
 clock — a `startTime` set, so the tool's clock was going, its `stepSize` (`1.0` when unstated) the
 step — is run under that step, named in the header as `clock step <seconds> s`; `-clock-step`
 replaces it for every configuration, `-clock-step 0` running them all on a continuous clock. A run that fails is an `error:` line under the

@@ -308,6 +308,8 @@ var constructFixtures = []string{
 	"bundled_library",
 	"user_library",
 	"montecarlo",
+	"montecarlo_case",
+	"montecarlo_homonym",
 	"weighted_decision",
 	"org_profile",
 	"profile_inheritance",
