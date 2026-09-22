@@ -50,12 +50,20 @@ returned over the service yet.
   namespace, with the SysML profile in `http://www.eclipse.org/papyrus/sysml/1.6/SysML/…`.
   Elements referenced by `href` into another resource are not read; they appear as external
   proxies and are reported as unmapped where they are relationship ends.
-- `xmi:Extension` elements — diagrams, layout, tool-internal state — are skipped; the
-  report says so once per skipped profile or library package. A package is library content
+- A `uml:Diagram` a tool's `xmi:Extension` holds, with the diagram representation MagicDraw
+  and Cameo write (`diagramRepresentation` → `DiagramRepresentationObject` with its `type`,
+  `umlType` and the `usedElements` it shows), is read as a tool-neutral diagram record: its
+  name, kind, `ownerOfDiagram` and shown elements, and is written as a `view` (see
+  [Diagrams](#diagrams)). Layout and the rest of the extension — tool-internal state, a
+  Papyrus `.notation` file — are skipped; the report says so once per skipped profile or
+  library package. A package is library content
   when it is a profile, is marked «ModelLibrary» or «auxiliaryResource», or is a document root
   beside the user's Model or package bearing a standard library name; a user package named
   `SysML` or `Libraries` inside the model, or standing alone as the document's only root, is
   migrated like any other.
+- The one extension content read is a `uml:ElementValue` a tool keeps there because UML has
+  no such metaclass (MagicDraw's reference to a property from inside an Expression tree): it
+  is an operand of the element owning the extension, in document order.
 - Only stereotypes from the OMG SysML and UML standard profiles, in the OMG namespaces or
   Papyrus' `…/papyrus/sysml/…` ones, classify elements; any other profile's «Block» or
   «Requirement» — a user's own, a tool's customization layer over SysML, or another profile
@@ -140,6 +148,27 @@ returned over the service yet.
 | `NaN`/infinite real literals | comment | approximated |
 | References to ids the document does not define | the resolvable ends are written; the missing ids are named in the report | approximated |
 | OpaqueExpression defaults and constraints | copied verbatim when it parses as a v2 expression and every name it uses is a written element visible where it is written (a parameter, an inherited feature, an enclosing member); a JavaScript or English body is translated through the [opaque-language subset](#the-opaque-language-subset) when every name resolves the same way (`V = R * i` → `V == R * i`, `java.util.Collections.max(s)` → `RealFunctions::max(s)`); a body outside the subset stays a `comment` and the report names the offending token | mapped / approximated |
+| UML Expression, StringExpression (a constraint's specification, a default, a slot value) | the operator tree lowered to a v2 expression: arithmetic (`+ - * / %`, unary minus), comparison, `and`/`or`/`not` — each spelled as its sign or its name in any case (`Plus`, `Equal`, `Not`) — a literal, an enumeration literal or instance the scope can name, a feature reference (a bare symbol, or an ElementValue naming a feature the scope reads under that name), and a call whose symbol is in the [opaque-language subset](#the-opaque-language-subset)'s function table (`max` → `RealFunctions::max`, `Power` → `**`); an opaque operand is read through the same subset | mapped |
+| UML Expression with an operator outside that set (`xor`, string concatenation, a call not in the table, an operand in a language the subset does not read, an ElementValue naming nothing or an element the scope does not read under its name) | comment naming the tree and the construct refused | **unmapped** |
+| UML Interface | `port def` | mapped |
+| InterfaceRealization from a block | a `port` of the `part def` typed by the interface's `port def` — reused when the block already owns one so typed, otherwise added under the interface's name; a `part def` cannot specialize a `port def` | approximated |
+| InterfaceRealization from an «InterfaceBlock» | `port def :> <Interface>` | mapped |
+| InterfaceRealization whose interface is not written (outside the document, library content) or whose client becomes neither a part def nor a port def | comment naming why | **unmapped** |
+| UseCase (whatever incidental stereotype a tool applies to it) | `use case def`; its UML `subject` is a `subject` usage (v2 admits one per case: a second is a `ref part` with a note); an anonymous association to an Actor is an `actor` of the use case typed by the actor's `part def`, with the association's multiplicity; a `classifierBehavior` is performed as in a block | mapped |
+| Include | `include use case <name> : <Included>;` | mapped |
+| Extend, ExtensionPoint | `dependency <Extending> to <Extended>;` in the extending case, the extension points and condition as a comment; v2 has no `extend` | approximated / **unmapped** (extension point) |
+| Include, Extend whose other case is not in the document | comment | **unmapped** |
+| Property typed by a UseCase | `ref use case x : <Case>;` | approximated |
+| «View» Class | package-level `view <Name>` usage (v2 admits `expose` in a usage alone): `satisfy <Viewpoint>` for its `viewpoint` tag and its «Conform» generalizations and dependencies; `expose` members for its «Expose» dependencies; its «View» property typed by another view a nested `view x :> <Other>;`, `ref` when not composite | mapped |
+| «View» Package | `view <Name>` usage holding the package's members | approximated |
+| «View» whose `viewpoint` tag or «Conform» names a viewpoint that is not written, or a view a nested view's feature of an inaccessible definition | the view without that `satisfy`/subsetting, the reason in the report | approximated |
+| «Expose» Dependency | `expose <Supplier>;` in the client view — `expose <Package>::**;` for a package, since v1 exposes its contents | mapped |
+| «Expose» whose supplier is a diagram | `expose <View>;` naming the view the diagram is written as (see [Diagrams](#diagrams)), qualified from the client view's body | mapped |
+| «Expose» whose supplier is outside the document or not written (a diagram no written element can hold included), or whose client is not a view | comment | **unmapped** |
+| «Conform» Generalization, Dependency | `satisfy <Viewpoint>;` in the view | mapped |
+| «Conform» whose client is not a view or whose supplier is not a viewpoint | comment | **unmapped** |
+| «Viewpoint» Class | package-level `viewpoint <Name>` usage: `purpose`, `language`, `method` and `presentation` tags in a `doc`; each `stakeholder` tag a `stakeholder x : <Stakeholder>` usage; each `concern` tag and each `concernList` comment a `frame concern { doc /* … */ }`; a stakeholder or concern id that is not in the document is named in the report | mapped / approximated |
+| «Stakeholder» Class | `part def`; the OMG standard library bundled here defines no `Stakeholder` base definition, so nothing is specialized; the `concern` tag stays a comment | approximated |
 | Activity | `action def` (see [Behaviors](#behaviors)); a block's `classifierBehavior` is also performed by a `perform action` usage of the `part def` | mapped |
 | Parameter, ActivityParameterNode | `in`/`out`/`inout` parameter of the `action def`; a `return` parameter is `out`; the parameter node's flows bind the parameter | mapped (return: approximated) |
 | InitialNode, ActivityFinalNode, FlowFinalNode | `first start then …`; `action x terminate;`; the token ends where a flow final does | mapped |
@@ -222,6 +251,12 @@ returned over the service yet.
 | Reception without a method, or whose method is not an Activity | the same performed `action def`, accepting the signal and accepting again; the method is named in the report | approximated |
 | Reception whose signal is not written | comment | **unmapped** — the reason names the signal |
 | «Unit», «QuantityKind» instance specifications | comment placeholder | **unmapped** — use the `SI`/`ISQ` libraries |
+| Diagram | `view 'Name' { expose …; render Views::as…; }` in the body of the v2 element written for `ownerOfDiagram`, one `expose` per shown element that is written, the rendering chosen by the diagram's kind (see [Diagrams](#diagrams)) | mapped |
+| Diagram whose owner has no v2 body (a region, a property, an enumeration, an activity that is inlined), names no owner, or names an id the document does not define | the view is written in the body of the nearest ancestor that has one — the state def a region belongs to, the part def a property is of, the package, or the document's top level — and the note says where | approximated |
+| Diagram some of whose shown elements are not written (results, tool content, elements nothing refers to, states and action nodes, ids the document does not define), or that shows nothing | the written ones are exposed and the rest dropped, the note counting them; a view exposing nothing is still written, `view 'Name' { render …; }`, which validates | approximated |
+| Diagram named like a member of the body it is written in — a «View» class's `view` usage of the same name in the same package, a state, an action | renamed `Name 2`, `Name 3`… past the taken names | approximated |
+| Diagram with no representation serialized, or one naming no diagram type | a view of unknown kind, rendered `asTextualNotation`, exposing what the representation lists | approximated |
+| Diagram no written element can hold: every ancestor is library content or otherwise unwritten | comment | **unmapped** |
 | Profiles, the SysML/UML libraries themselves | — | skipped |
 
 The v1 element's `xmi:id` is kept as the reason a report line can be found in the source
@@ -231,12 +266,46 @@ future work (see [element identity annotations](../project/element-identity-anno
 Names that are not v2 identifiers — with spaces, punctuation, or starting with a digit — are
 quoted (`'Vehicle Design'`).
 
+### Diagrams
+
+A diagram is a v2 `view`: what it shows is exposed, how it is drawn is not migrated (a layout
+has no v2 form). The view is named after the diagram and written in the body of the v2
+element `ownerOfDiagram` names — a `package`, or the `part def`, `state def`, `action def`…
+written for a classifier — and exposes, by qualified name, every shown element the document
+writes; a shown element that is not written (a result snapshot, tool content, an element
+nothing refers to, a state or an action node, which have no name of their own outside their
+body) is dropped and counted in the note. A diagram showing nothing writable is still a view,
+with no `expose`, so the model's inventory of diagrams is complete. Each `expose` names one
+shown element by the qualified name the migrator writes elsewhere — `Package::Def::feature`,
+never a package's `::**` — so a diagram of a package exposes the members it pictures, not
+the package.
+
+The view takes the diagram's name unless the body already has a member so named: a tool
+names a view's diagram after the «View» class, a state's after the state, and both are
+written in the same body, so the diagram's view is renamed `Name 2` (`Name 3`… past the taken
+names) and the note says so. An «Expose» whose supplier is a diagram exposes the diagram's
+view under that written name, qualified from the client view's body when the name alone would
+not resolve to it.
+
+The `render` names one of the standard `Views` library's renderings, chosen from the
+diagram's kind — the tool's `type` (`SysML Block Definition Diagram`, `Dependency Matrix`)
+and `umlType` (`Class Diagram`) together — by the first family below a word of either names:
+
+| Diagram kind | Rendering |
+|---|---|
+| a table or matrix: Generic, Instance and Requirement Tables, Dependency and Allocation Matrices, any kind named `… Table`/`… Matrix` | `Views::asElementTable` |
+| internal block, parametric, composite structure and interconnection diagrams | `Views::asInterconnectionDiagram` |
+| block definition, class, package, object, component, deployment, profile and other structure diagrams | `Views::asTreeDiagram` |
+| behavior diagrams (activity, state machine, sequence, use case), requirement, content and free-form diagrams, a tool's own kinds, a diagram naming no kind | `Views::asTextualNotation` |
+
+The rendering is written `$::Views::…` where a member named `Views` would shadow the library.
+
 The mapping has been run over the XMI of the [OpenMBEE TMT SysML model](https://github.com/Open-MBEE/TMT-SysML-Model)
 (27 MB; 44,600 elements once the nodes and edges of its behaviors are counted): it writes 7 MB
 of notation that passes the gate below in a few seconds, and its Turtle in a few more. Five
 elements in six map or are approximated; the unmapped rest is dominated by absolute and
 unparseable time events, call actions that call no behavior, simulation verdicts stored in
-slots of constraint properties, and views.
+slots of constraint properties, and dependencies whose other end is outside the document.
 
 ## Behaviors
 

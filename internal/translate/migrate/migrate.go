@@ -60,6 +60,8 @@ func FromModel(name string, model *sysmlv1.Model) *Result {
 		flows:        map[*sysmlv1.Element][]*sysmlv1.Element{},
 		outcomes:     map[*sysmlv1.Element]*flowOutcome{},
 		unplaced:     map[*sysmlv1.Element]*placement{},
+		satisfied:    map[*sysmlv1.Element]map[*sysmlv1.Element]bool{},
+		framed:       map[*sysmlv1.Element]bool{},
 		taken:        map[*sysmlv1.Element]map[string]bool{},
 		parallel:     map[*sysmlv1.Element]string{},
 		exposed:      map[*sysmlv1.Element]string{},
@@ -94,6 +96,10 @@ func FromModel(name string, model *sysmlv1.Model) *Result {
 		usageOf:      map[*sysmlv1.Element]string{},
 		pins:         map[*sysmlv1.Element]pinDecl{},
 		opaque:       map[*sysmlv1.Element]*opaqueResult{},
+		viewOf:       map[*sysmlv1.Diagram]*view{},
+		hosted:       map[*sysmlv1.Element][]*view{},
+		buried:       map[*sysmlv1.Element]bool{},
+		actors:       map[*sysmlv1.Element]*actorLink{},
 	}
 	m.prepare()
 	for _, root := range model.Roots {
@@ -101,6 +107,7 @@ func FromModel(name string, model *sysmlv1.Model) *Result {
 	}
 	m.flushFlows()
 	m.unwrittenEvents()
+	m.diagrams()
 	m.extensions()
 	return &Result{Notation: []byte(m.w.String()), Report: m.report, Results: m.results}
 }
@@ -162,6 +169,11 @@ type migration struct {
 	// extras are members other elements contribute to a body: a Satisfy is
 	// written inside the block that satisfies.
 	extras map[*sysmlv1.Element][]func()
+	// viewOf plans each diagram's view; hosted lists the views each body opens with.
+	viewOf map[*sysmlv1.Diagram]*view
+	hosted map[*sysmlv1.Element][]*view
+	// buried memoizes isBuried: whether an ancestor left out of the document takes e with it.
+	buried map[*sysmlv1.Element]bool
 	// flows lists the item flows each connector realizes.
 	flows map[*sysmlv1.Element][]*sysmlv1.Element
 	// outcomes accumulates each item flow's result over its realizing connectors.
@@ -253,6 +265,13 @@ type migration struct {
 	opaque map[*sysmlv1.Element]*opaqueResult
 	// rules memoizes how each constraint block's anonymous rule is written.
 	rules map[*sysmlv1.Element]ruleForm
+	// actors gives each association linking a use case to an actor the actor
+	// usage it is written as in the use case's body.
+	actors map[*sysmlv1.Element]*actorLink
+	// satisfied records, per view, the viewpoints its body satisfies so far.
+	satisfied map[*sysmlv1.Element]map[*sysmlv1.Element]bool
+	// framed marks the comments a viewpoint's concernList names, written as its concerns.
+	framed map[*sysmlv1.Element]bool
 	// clocks memoizes the names a simulation configuration gives the clock.
 	clocks map[string]string
 	// observed memoizes, per observation, the durations and time expressions that read it.
@@ -324,9 +343,11 @@ func weaker(a, b Verdict) bool {
 // features the connectors and slots that will be written reach.
 func (m *migration) prepare() {
 	var reachers, configs, laned []*sysmlv1.Element
+	var links []*actorLink
 	var walk func(e *sysmlv1.Element)
 	walk = func(e *sysmlv1.Element) {
 		m.distinguish(e)
+		m.framedComments(e)
 		if simulationConfig(e) != nil {
 			configs = append(configs, e)
 		}
@@ -411,8 +432,12 @@ func (m *migration) prepare() {
 			m.invoke(e, "entry", "doActivity", "exit")
 		case "Transition":
 			m.invoke(e, "effect")
-		case "Class", "Component", "Node", "Device", "ExecutionEnvironment":
+		case "Class", "Component", "Node", "Device", "ExecutionEnvironment", "UseCase":
 			m.invoke(e, "classifierBehavior")
+		case "Association":
+			if link := m.actorLink(e); link != nil {
+				links = append(links, link)
+			}
 		}
 		for _, c := range e.Children {
 			walk(c)
@@ -424,6 +449,7 @@ func (m *migration) prepare() {
 		}
 	}
 	m.indexSnapshots(configs)
+	m.placeActors(links)
 	for _, e := range reachers {
 		m.exposeReached(e)
 	}
@@ -431,6 +457,7 @@ func (m *migration) prepare() {
 		m.prepareLanes(act)
 	}
 	m.admitAbsent(laned)
+	m.planViews()
 }
 
 // exposeReached exposes the features a connector's ends or an instance's slots
@@ -565,12 +592,18 @@ func ownerWritten(role string) bool {
 // root writes a top-level element: a Model's members are written at the top
 // level, any other root as a declaration of its own.
 func (m *migration) root(e *sysmlv1.Element) {
-	if e.Type == "Model" && !m.isLibrary(e) {
+	if m.flattened(e) {
 		m.add(e, Mapped, "", "the root model's members are written at the top level")
 		m.body(e)
 		return
 	}
 	m.member(e)
+}
+
+// flattened reports whether e is a root Model whose members are written at the
+// top level in place of a declaration of its own.
+func (m *migration) flattened(e *sysmlv1.Element) bool {
+	return e.Parent == nil && e.Type == "Model" && !m.isLibrary(e)
 }
 
 // body writes the members of e's body, in document order, then what other
@@ -584,7 +617,7 @@ func (m *migration) body(e *sysmlv1.Element) {
 }
 
 // members writes the owned members of e, the current scope, then what other
-// elements contribute to its body.
+// elements contribute to its body, then the views of its diagrams.
 func (m *migration) members(e *sysmlv1.Element) {
 	for _, c := range e.Children {
 		m.member(c)
@@ -592,6 +625,7 @@ func (m *migration) members(e *sysmlv1.Element) {
 	for _, extra := range m.extras[e] {
 		extra()
 	}
+	m.views(e)
 }
 
 // member writes one owned element of the current scope.
@@ -626,6 +660,18 @@ func (m *migration) member(e *sysmlv1.Element) {
 		return
 	case "InformationFlow":
 		m.informationFlow(e)
+		return
+	case "InterfaceRealization":
+		m.interfaceRealization(e)
+		return
+	case "Include":
+		m.include(e)
+		return
+	case "Extend":
+		m.extend(e)
+		return
+	case "ExtensionPoint":
+		m.unmapped(e, "v2 has no extension points; an extending use case is written as a dependency on the extended one")
 		return
 	case "Comment":
 		// A comment in a non-ownedComment role is still a comment.
@@ -673,7 +719,7 @@ func (m *migration) classifier(e *sysmlv1.Element) {
 		return
 	}
 	name := m.nameOf(e)
-	if name == "" {
+	if e.Name == "" {
 		if cat == catConnectionDef {
 			m.association(e)
 			return
@@ -757,6 +803,15 @@ func (m *migration) classifierBody(e *sysmlv1.Element, cat category, header stri
 	case catRequirementDef:
 		m.w.block(header, func() { m.requirementBody(e) })
 		return
+	case catUseCaseDef:
+		m.w.block(header, func() { m.useCaseBody(e) })
+		return
+	case catView:
+		m.w.block(header, func() { m.viewBody(e) })
+		return
+	case catViewpoint:
+		m.w.block(header, func() { m.viewpointBody(e) })
+		return
 	case catEnumDef:
 		m.w.block(header, func() {
 			m.comments(e)
@@ -810,12 +865,17 @@ func (m *migration) generals(e *sysmlv1.Element, cat category) (string, string) 
 			notes = append(notes, "generalization of library type "+qualifiedName(target)+" is not written")
 			continue
 		}
+		if cat == catView && m.conforms(g) {
+			// The view's body satisfies the viewpoint instead.
+			continue
+		}
 		if tc, _ := m.classify(target); tc != cat {
 			notes = append(notes, "generalization of "+qualifiedName(target)+" is not written: it becomes a "+tc.keyword()+", not a "+cat.keyword())
 			continue
 		}
 		refs = append(refs, m.ref(target, m.scope))
 	}
+	refs = append(refs, m.realizedGenerals(e, refs)...)
 	if cat == catAttributeDef && len(refs) == 0 && quantity(e) {
 		refs = append(refs, "ScalarValues::Real")
 		notes = append(notes, "a value type with a unit or quantity kind and no base type is written as ScalarValues::Real")
@@ -918,6 +978,7 @@ func (m *migration) requirementBody(e *sysmlv1.Element) {
 	for _, extra := range m.extras[e] {
 		extra()
 	}
+	m.views(e)
 	m.stereotypeComments(e)
 	m.scope = saved
 }
@@ -973,6 +1034,7 @@ func (m *migration) constraintBody(e *sysmlv1.Element) {
 	for _, extra := range m.extras[e] {
 		extra()
 	}
+	m.views(e)
 	m.stereotypeComments(e)
 	switch {
 	case f.rule == nil:
@@ -1022,6 +1084,7 @@ func (m *migration) individualBody(e *sysmlv1.Element) {
 	for _, extra := range m.extras[e] {
 		extra()
 	}
+	m.views(e)
 	m.stereotypeComments(e)
 	m.scope = saved
 }
@@ -1261,6 +1324,7 @@ func (m *migration) verificationBody(e *sysmlv1.Element) {
 			s.write()
 		}
 	}
+	m.views(e)
 	m.stereotypeComments(e)
 	m.scope = saved
 }
@@ -1293,15 +1357,23 @@ func ownsEveryEnd(e *sysmlv1.Element, ends []*sysmlv1.Element) bool {
 // is already written as that property, so it writes nothing.
 func (m *migration) association(e *sysmlv1.Element) {
 	ends := m.model.Refs(e, "memberEnd")
-	name := m.nameOf(e)
+	name := e.Name
+	link := m.actors[e]
 	if name == "" {
 		missing := m.dangling(e, "memberEnd")
+		if link != nil {
+			m.add(e, Mapped, m.actorTarget(link), "the anonymous association to the actor is written as an actor of the use case")
+			return
+		}
 		if e.Type == "Association" && !ownsEveryEnd(e, ends) {
 			m.add(e, verdictFor(missing), "", joinNotes("the anonymous association is written as its member-end properties", missing))
 			return
 		}
 		name = m.nameFor(e)
 		m.add(e, Approximated, m.v2Name(e), joinNotes("the anonymous "+e.Type+" owns every end, so it is written as connection def "+name, missing))
+	}
+	if link != nil {
+		m.add(e, Mapped, m.v2Name(e), "the association is also written as the actor "+link.name+" of the use case "+m.v2Name(link.useCase))
 	}
 	header := "connection def " + writeName(name)
 	if gens, _ := m.generals(e, catConnectionDef); gens != "" {
@@ -1323,6 +1395,7 @@ func (m *migration) association(e *sysmlv1.Element) {
 		for _, extra := range m.extras[e] {
 			extra()
 		}
+		m.views(e)
 		m.stereotypeComments(e)
 		m.scope = saved
 	})
@@ -1351,7 +1424,7 @@ func (m *migration) associationEnd(e, end *sysmlv1.Element, used map[string]bool
 		decl += " " + writeName(endName)
 	}
 	if typ != "" {
-		decl += " : " + typ
+		decl += m.typing(t) + typ
 	}
 	mult, mnote := m.multiplicity(end)
 	decl += mult + collection(end) + ";"
@@ -1385,6 +1458,9 @@ func (m *migration) featureKeyword(p *sysmlv1.Element, owner category) (keyword,
 	if t == nil {
 		return "ref", "", "the untyped property is written as a reference usage"
 	}
+	if owner == catUseCaseDef && t.Type == "Actor" && m.written(t) {
+		return "actor", "", ""
+	}
 	kw, note := m.typeKeyword(t)
 	switch kw {
 	case "item":
@@ -1406,10 +1482,15 @@ func (m *migration) featureKeyword(p *sysmlv1.Element, owner category) (keyword,
 			return "part", "ref ", joinNotes(note, "shared aggregation is written as a reference part")
 		}
 		return "part", "ref ", note
-	case "action", "state", "calc":
+	case "action", "state", "calc", "use case":
 		// A property typed by a behavior holds a performance; only a perform
 		// or exhibit usage runs one, so the property is a reference.
 		return kw, "ref ", joinNotes(note, "a property typed by a behavior is written as a reference "+kw+" usage")
+	case "view", "viewpoint":
+		if p.Attrs["aggregation"] == "composite" {
+			return kw, "", note
+		}
+		return kw, "ref ", note
 	}
 	return kw, "", note
 }
@@ -1439,6 +1520,12 @@ func (m *migration) typeKeyword(t *sysmlv1.Element) (keyword, note string) {
 		return "state", ""
 	case catCalcDef:
 		return "calc", ""
+	case catUseCaseDef:
+		return "use case", ""
+	case catView:
+		return "view", ""
+	case catViewpoint:
+		return "viewpoint", ""
 	case catNone, catLibrary:
 		return "attribute", "typed by library element " + t.Name + " with no known v2 counterpart"
 	case catUnmapped:
@@ -1490,7 +1577,7 @@ func (m *migration) feature(p *sysmlv1.Element) {
 	b.WriteString(prefix)
 	b.WriteString(kw)
 	name := m.nameOf(p)
-	if name == "" && typ == "" {
+	if p.Name == "" && typ == "" {
 		// A usage needs a name or a type; an anonymous one with no written type gets a name.
 		name = m.nameFor(p)
 		note = joinNotes(note, "the anonymous property is named "+name+" as it has no v2 type")
@@ -1660,8 +1747,19 @@ func (m *migration) featureTyping(b *strings.Builder, p, ind *sysmlv1.Element, p
 		if p.Type == "Port" && p.Attrs["isConjugated"] == "true" {
 			typ = "~" + typ
 		}
-		b.WriteString(" : " + typ)
+		b.WriteString(m.typing(m.model.Ref(p, "type")) + typ)
 	}
+}
+
+// typing is the specialization a feature's type is written with: subsetting
+// when the type becomes a usage, as a view or viewpoint does, else typing.
+func (m *migration) typing(t *sysmlv1.Element) string {
+	if t != nil {
+		if cat, _ := m.classify(t); cat == catView || cat == catViewpoint {
+			return " :> "
+		}
+	}
+	return " : "
 }
 
 // featureShadow writes the redefinition an inherited member of the same name
@@ -1765,6 +1863,12 @@ func (m *migration) written(e *sysmlv1.Element) bool {
 	if e.Parent == nil && e.Type == "Model" {
 		return false
 	}
+	if p := e.Parent; p != nil && isBehavior(p) && !behaviorWritesMember(p, e) {
+		return false
+	}
+	if m.isBuried(e) {
+		return false
+	}
 	switch e.Type {
 	case "Property", "Port", "EnumerationLiteral":
 		return m.written(e.Parent)
@@ -1775,7 +1879,9 @@ func (m *migration) written(e *sysmlv1.Element) bool {
 		}
 		return m.written(p) || inlinedBehavior(p) && hasActionForm(p)
 	case "Association":
-		return e.Name != ""
+		// An anonymous association is a connection def only when it owns every
+		// end and is not written as an actor of a use case instead.
+		return e.Name != "" || m.actors[e] == nil && ownsEveryEnd(e, m.model.Refs(e, "memberEnd"))
 	}
 	if op := m.methodOf[e]; op != nil {
 		return m.written(op)
@@ -1785,6 +1891,38 @@ func (m *migration) written(e *sysmlv1.Element) bool {
 	}
 	cat, _ := m.classify(e)
 	return cat.keyword() != ""
+}
+
+// isBuried reports whether a package or classifier above e is left out of the
+// document, so nothing under it is written either.
+func (m *migration) isBuried(e *sysmlv1.Element) bool {
+	p := e.Parent
+	if p == nil || isTopLevel(p) {
+		return false
+	}
+	if b, ok := m.buried[e]; ok {
+		return b
+	}
+	b := m.isBuried(p)
+	if !b && declaresNamespace(p) {
+		cat, _ := m.classify(p)
+		b = cat == catLibrary || cat == catUnmapped
+	}
+	m.buried[e] = b
+	return b
+}
+
+// declaresNamespace reports whether e is a package or classifier whose
+// classification decides if its members reach the document.
+func declaresNamespace(e *sysmlv1.Element) bool {
+	switch e.Type {
+	case "Model", "Package", "Profile", "Class", "Component", "Actor", "AssociationClass",
+		"Association", "DataType", "PrimitiveType", "Enumeration", "Signal", "Interface",
+		"InstanceSpecification", "Operation", "UseCase", "Collaboration", "Node", "Device",
+		"ExecutionEnvironment", "Artifact":
+		return true
+	}
+	return isBehavior(e)
 }
 
 // inlinedBehavior reports whether e is a behavior a state or transition owns, written
@@ -1911,6 +2049,10 @@ func (m *migration) typeRef(t, scope *sysmlv1.Element) (string, string) {
 		return "", "library type " + qualifiedName(t) + " has no known v2 counterpart and is not written"
 	case catUnmapped, catNone:
 		return "", "type " + qualifiedName(t) + " is not migrated and is not written"
+	case catView, catViewpoint:
+		if note := m.featuredNote(t, scope); note != "" {
+			return "", note + "; the usage is not subset"
+		}
 	}
 	return m.ref(t, scope), ""
 }
@@ -2277,11 +2419,18 @@ type placement struct {
 	notes           []string
 }
 
-// placeDependency registers, ahead of writing, a Satisfy or Verify in the body
-// of the element each pair is written in, which may precede the dependency
-// itself; the dependency's report entry is written where it stands.
+// placeDependency registers, ahead of writing, a Satisfy, Verify, Expose or
+// Conform in the body of the element each pair is written in, which may precede
+// the dependency itself; the dependency's report entry is written where it stands.
 func (m *migration) placeDependency(d *sysmlv1.Element) {
-	if !has(d, "Satisfy", "Verify") {
+	switch {
+	case has(d, "Expose"):
+		m.placeExpose(d)
+		return
+	case has(d, "Conform"):
+		m.placeConform(d)
+		return
+	case !has(d, "Satisfy", "Verify"):
 		return
 	}
 	pl := &placement{}
@@ -2329,7 +2478,7 @@ func (m *migration) placedName(scope *sysmlv1.Element, name string) (string, str
 // dependency writes a dependency by the SysML stereotype it carries, one
 // relationship per client–supplier pair.
 func (m *migration) dependency(d *sysmlv1.Element) {
-	if has(d, "Satisfy", "Verify") {
+	if has(d, "Satisfy", "Verify", "Expose", "Conform") {
 		m.relationship(d, m.unplaced[d])
 		return
 	}
@@ -2570,6 +2719,9 @@ func (m *migration) comments(e *sysmlv1.Element) { m.writeComments(e, true) }
 // doc yet.
 func (m *migration) writeComments(e *sysmlv1.Element, first bool) {
 	for _, c := range e.Owned("ownedComment") {
+		if m.framed[c] {
+			continue
+		}
 		about := m.model.Refs(c, "annotatedElement")
 		missing := m.dangling(c, "annotatedElement")
 		others := false
@@ -2662,6 +2814,9 @@ var consumedTags = map[string]map[string]bool{
 	"FlowProperty":       {"direction": true},
 	"FlowPort":           {"direction": true},
 	"NestedConnectorEnd": {"propertyPath": true},
+	"View":               {"viewpoint": true, "viewPoint": true},
+	"Viewpoint": {"stakeholder": true, "purpose": true, "concern": true, "concernList": true,
+		"language": true, "method": true, "presentation": true},
 }
 
 // stereotypeComments keeps the stereotypes the mapping does not consume, and
@@ -2788,6 +2943,9 @@ func describeValue(v *sysmlv1.Element) string {
 			return "{" + lang + "} " + body
 		}
 		return body
+	}
+	if v.Type == "Expression" || v.Type == "StringExpression" {
+		return treeText(v)
 	}
 	if val, ok := v.Attrs["value"]; ok {
 		return val

@@ -140,8 +140,12 @@ func (m *migration) directValue(v, scope *sysmlv1.Element, want wanted) (expr st
 		return m.instanceValue(v, scope)
 	case "OpaqueExpression":
 		return m.opaqueValue(v, scope, want)
-	case "Expression", "TimeExpression", "Duration", "Interval", "StringExpression":
-		return "", false, "a UML " + v.Type + " tree has no v2 form"
+	case "Expression", "StringExpression":
+		return m.expressionTree(v, scope, want)
+	case "TimeExpression", "Duration":
+		return "", false, "a UML " + v.Type + " has no v2 form: v2 has no value bound to a time or duration observation"
+	case "Interval", "TimeInterval", "DurationInterval":
+		return "", false, "a UML " + v.Type + " has no v2 form: v2 has no interval value"
 	}
 	return "", false, "no v2 form for a UML " + v.Type
 }
@@ -151,7 +155,10 @@ func (m *migration) directValue(v, scope *sysmlv1.Element, want wanted) (expr st
 func (m *migration) instanceValue(v, scope *sysmlv1.Element) (expr string, ok bool, note string) {
 	inst := m.model.Ref(v, "instance")
 	if inst == nil {
-		return "", false, "instance value refers to nothing in the document"
+		if len(v.RefIDs("instance")) == 0 {
+			return "", false, "the instance value names no instance"
+		}
+		return "", false, "the instance value refers to nothing in the document"
 	}
 	if inst.Type == "EnumerationLiteral" && inst.Parent != nil {
 		return m.ref(inst.Parent, scope) + "::" + writeName(inst.Name), true, ""

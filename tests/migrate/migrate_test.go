@@ -208,7 +208,7 @@ func TestReportAccountsForEveryElement(t *testing.T) {
 		"_dep_refine":       migrate.Mapped,
 		"_dep_verify_block": migrate.Unmapped,
 		"_lib_sysml":        migrate.Skipped,
-		"_diag_bdd":         migrate.Skipped,
+		"_diag_bdd":         migrate.Approximated,
 		"_pa_sysml":         migrate.Skipped,
 	}
 	for id, v := range want {
@@ -309,6 +309,12 @@ var constructFixtures = []string{
 	"user_library",
 	"montecarlo",
 	"weighted_decision",
+	"tree_constraints",
+	"realized_interfaces",
+	"parking_usecases",
+	"report_views",
+	"diagrams",
+	"malformed_diagrams",
 }
 
 // migrateFixtureFile migrates testdata/xmi/<name>.xmi.

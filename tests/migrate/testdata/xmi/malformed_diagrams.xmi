@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:diagram="http://www.example.com/tool/diagram">
+  <xmi:Documentation exporter="Example UML Tool" exporterVersion="1.0"/>
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_views" name="Views">
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_pump" name="Pump">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_rate" name="rate">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_outlet" name="outlet" type="_blk_valve" association="_assoc_feeds"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_valve" name="Valve"/>
+      <packagedElement xmi:type="uml:Association" xmi:id="_assoc_feeds" memberEnd="_prop_outlet _assoc_end_pump">
+        <ownedEnd xmi:type="uml:Property" xmi:id="_assoc_end_pump" type="_blk_pump" association="_assoc_feeds"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Association" xmi:id="_assoc_supplies" name="Supplies" memberEnd="_supplies_pump _supplies_valve">
+        <ownedEnd xmi:type="uml:Property" xmi:id="_supplies_pump" name="source" type="_blk_pump" association="_assoc_supplies"/>
+        <ownedEnd xmi:type="uml:Property" xmi:id="_supplies_valve" name="sink" type="_blk_valve" association="_assoc_supplies"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Enumeration" xmi:id="_enum_mode" name="Mode">
+        <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="_lit_on" name="on"/>
+        <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="_lit_off" name="off"/>
+      </packagedElement>
+    </packagedElement>
+
+    <xmi:Extension extender="Example UML Tool 1.0">
+      <modelExtension>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_no_owner" name="Ownerless">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Block Definition Diagram" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_blk_pump</usedElements>
+                  <usedElements>_prop_rate</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_unknown_owner" name="Lost Owner" ownerOfDiagram="_gone">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Internal Block Diagram" umlType="Composite Structure Diagram">
+                <diagramContents>
+                  <usedElements>_blk_valve</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_dangling" name="Dangling" ownerOfDiagram="_pkg_views">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="Requirement Table" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_missing_1</usedElements>
+                  <usedElements>_missing_2</usedElements>
+                  <usedObjects href="#_missing_1"/>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_empty" name="Empty" ownerOfDiagram="_pkg_views">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Package Diagram" umlType="Class Diagram">
+                <diagramContents/>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_bare" name="Bare" ownerOfDiagram="_blk_pump"/>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_anonymous" ownerOfDiagram="_blk_pump">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Parametric Diagram" umlType="Composite Structure Diagram">
+                <diagramContents>
+                  <usedElements>_prop_rate</usedElements>
+                  <usedElements>_prop_rate</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_unwritten" name="Feeds" ownerOfDiagram="_assoc_feeds">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Block Definition Diagram" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_assoc_feeds</usedElements>
+                  <usedElements>_assoc_end_pump</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_supplies" name="Supplies" ownerOfDiagram="_assoc_supplies">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Block Definition Diagram" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_assoc_supplies</usedElements>
+                  <usedElements>_supplies_pump</usedElements>
+                  <usedElements>_prop_outlet</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_enum" name="Modes" ownerOfDiagram="_enum_mode">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="Generic Table" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_lit_on</usedElements>
+                  <usedElements>_lit_off</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_no_type" name="Untyped" ownerOfDiagram="_pkg_views">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject>
+                <diagramContents>
+                  <usedElements>_blk_valve</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+      </modelExtension>
+    </xmi:Extension>
+  </uml:Model>
+
+  <sysml:Block xmi:id="_s_pump" base_Class="_blk_pump"/>
+  <sysml:Block xmi:id="_s_valve" base_Class="_blk_valve"/>
+</xmi:XMI>

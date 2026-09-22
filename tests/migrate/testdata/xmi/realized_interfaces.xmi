@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+
+    <packagedElement xmi:type="uml:Package" xmi:id="_bus" name="Bus">
+      <packagedElement xmi:type="uml:Interface" xmi:id="_telemetry" name="Telemetry">
+        <ownedOperation xmi:type="uml:Operation" xmi:id="_report" name="Report"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Interface" xmi:id="_command" name="Command"/>
+    </packagedElement>
+
+    <!-- A block realizing one interface: the realization becomes a port. -->
+    <packagedElement xmi:type="uml:Class" xmi:id="_sensor" name="Sensor">
+      <interfaceRealization xmi:type="uml:InterfaceRealization" xmi:id="_sensorTel" client="_sensor" supplier="_telemetry" contract="_telemetry"/>
+    </packagedElement>
+
+    <!-- A block realizing several interfaces, one of them nested inside it. -->
+    <packagedElement xmi:type="uml:Class" xmi:id="_controller" name="Controller">
+      <interfaceRealization xmi:type="uml:InterfaceRealization" xmi:id="_ctlTel" client="_controller" supplier="_telemetry" contract="_telemetry"/>
+      <interfaceRealization xmi:type="uml:InterfaceRealization" xmi:id="_ctlCmd" client="_controller" supplier="_command" contract="_command"/>
+      <interfaceRealization xmi:type="uml:InterfaceRealization" xmi:id="_ctlDiag" client="_controller" supplier="_diagnostics" contract="_diagnostics"/>
+      <nestedClassifier xmi:type="uml:Interface" xmi:id="_diagnostics" name="Diagnostics"/>
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_telemetryPort" name="telemetry" type="_telemetry" aggregation="composite"/>
+    </packagedElement>
+
+    <!-- An interface block realizing an interface: both are port defs, so it specializes. -->
+    <packagedElement xmi:type="uml:Class" xmi:id="_fast" name="FastTelemetry">
+      <interfaceRealization xmi:type="uml:InterfaceRealization" xmi:id="_fastTel" client="_fast" supplier="_telemetry" contract="_telemetry"/>
+    </packagedElement>
+
+    <!-- A constraint block cannot carry a port nor specialize a port def. -->
+    <packagedElement xmi:type="uml:Class" xmi:id="_budget" name="Budget">
+      <interfaceRealization xmi:type="uml:InterfaceRealization" xmi:id="_budgetCmd" client="_budget" supplier="_command" contract="_command"/>
+    </packagedElement>
+
+    <!-- Realizations whose interface is outside the document or is a library type. -->
+    <packagedElement xmi:type="uml:Class" xmi:id="_gateway" name="Gateway">
+      <interfaceRealization xmi:type="uml:InterfaceRealization" xmi:id="_gwLost" client="_gateway" supplier="_lost" contract="_lost"/>
+      <interfaceRealization xmi:type="uml:InterfaceRealization" xmi:id="_gwLib" client="_gateway">
+        <contract xmi:type="uml:Interface" href="http://www.example.org/libraries/Comms.xmi#_remoteIf"/>
+      </interfaceRealization>
+    </packagedElement>
+
+  </uml:Model>
+  <sysml:Block xmi:id="_s1" base_Class="_sensor"/>
+  <sysml:Block xmi:id="_s2" base_Class="_controller"/>
+  <sysml:InterfaceBlock xmi:id="_s3" base_Class="_fast"/>
+  <sysml:ConstraintBlock xmi:id="_s4" base_Class="_budget"/>
+  <sysml:Block xmi:id="_s5" base_Class="_gateway"/>
+</xmi:XMI>
