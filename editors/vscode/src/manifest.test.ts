@@ -147,7 +147,7 @@ test("Restricted Mode is supported, with only the executable-naming settings res
   for (const name of capabilities.untrustedWorkspaces.restrictedConfigurations) {
     assert.ok(properties[name], `${name} is not a declared setting`);
   }
-  assert.deepEqual([...capabilities.untrustedWorkspaces.restrictedConfigurations].sort(), executableSettings.sort());
+  assert.deepEqual([...capabilities.untrustedWorkspaces.restrictedConfigurations].sort((a, b) => a.localeCompare(b)), [...executableSettings].sort((a, b) => a.localeCompare(b)));
 });
 
 test("the style setting offers every look the panel does, each described, and follows the theme by default", () => {

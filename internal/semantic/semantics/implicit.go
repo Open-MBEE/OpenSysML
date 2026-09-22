@@ -18,6 +18,11 @@ const (
 	concernCheckFQN = "Requirements::ConcernCheck"
 	linksFQN        = "Links::links"
 	linkFQN         = "Links::Link"
+	partsFQN        = "Parts::parts"
+	dataValuesFQN   = "Base::dataValues"
+	lifeFQN         = "Occurrences::Life"
+	performancesFQN = "Performances::performances"
+	evaluationsFQN  = "Performances::evaluations"
 	performanceFQN  = "Performances::Performance"
 	assocStructKw   = "assoc struct"
 )
@@ -25,12 +30,12 @@ const (
 // implicitUsageBases maps each usage kind to the standard-library base feature
 // specified by SysML v2 §7 and the corresponding library package.
 var implicitUsageBases = map[ast.UsageKind]string{
-	ast.UsagePart:             "Parts::parts",
-	ast.UsageAttribute:        "Base::dataValues",
-	ast.UsageEnumeration:      "Base::dataValues",
+	ast.UsagePart:             partsFQN,
+	ast.UsageAttribute:        dataValuesFQN,
+	ast.UsageEnumeration:      dataValuesFQN,
 	ast.UsageItem:             "Items::items",
 	ast.UsageOccurrence:       "Occurrences::occurrences",
-	ast.UsageIndividual:       "Occurrences::Life",
+	ast.UsageIndividual:       lifeFQN,
 	ast.UsageMetadata:         "Metadata::metadataItems",
 	ast.UsageView:             "Views::views",
 	ast.UsageViewpoint:        "Views::viewpointChecks",
@@ -38,8 +43,8 @@ var implicitUsageBases = map[ast.UsageKind]string{
 	ast.UsageViewRendering:    "Views::renderings",
 	ast.UsageConcern:          "Requirements::concernChecks",
 	ast.UsageFramedConcern:    "Requirements::concernChecks",
-	ast.UsageActor:            "Parts::parts",
-	ast.UsageStakeholder:      "Parts::parts",
+	ast.UsageActor:            partsFQN,
+	ast.UsageStakeholder:      partsFQN,
 	ast.UsageConnection:       "Connections::connections",
 	ast.UsagePort:             "Ports::ports",
 	ast.UsageInterface:        "Interfaces::interfaces",
@@ -47,9 +52,9 @@ var implicitUsageBases = map[ast.UsageKind]string{
 	ast.UsageAction:           "Actions::actions",
 	ast.UsageState:            "States::stateActions",
 	ast.UsageTransition:       "Actions::transitionActions",
-	ast.UsageStep:             "Performances::performances",
+	ast.UsageStep:             performancesFQN,
 	ast.UsageCalc:             "Calculations::calculations",
-	ast.UsageExpr:             "Performances::evaluations",
+	ast.UsageExpr:             evaluationsFQN,
 	ast.UsageConstraint:       "Constraints::constraintChecks",
 	ast.UsageRequirement:      "Requirements::requirementChecks",
 	ast.UsageCase:             "Cases::cases",
@@ -70,7 +75,7 @@ var implicitDefinitionBases = map[ast.DefinitionKind]string{
 	ast.DefEnumeration: dataValueFQN,
 	ast.DefItem:        "Items::Item",
 	ast.DefOccurrence:  occurrenceFQN,
-	ast.DefIndividual:  "Occurrences::Life",
+	ast.DefIndividual:  lifeFQN,
 	ast.DefMetaclass:   "Metaobjects::Metaobject",
 	ast.DefMetadata:    "Metadata::MetadataItem",
 	ast.DefView:        "Views::View",
@@ -144,7 +149,7 @@ var implicitKerMLFeatureBases = map[string]string{
 	"feature":     baseUsageFQN,
 	"class":       "Occurrences::occurrences",
 	"struct":      "Objects::objects",
-	"datatype":    "Base::dataValues",
+	"datatype":    dataValuesFQN,
 	"assoc":       linksFQN,
 	"association": linksFQN,
 	assocStructKw: "Objects::linkObjects",
@@ -152,10 +157,10 @@ var implicitKerMLFeatureBases = map[string]string{
 	"binding":     "Links::selfLinks",
 	"bind":        "Links::selfLinks",
 	"succession":  "Occurrences::happensBeforeLinks",
-	"behavior":    "Performances::performances",
-	"step":        "Performances::performances",
-	"function":    "Performances::evaluations",
-	"expr":        "Performances::evaluations",
+	"behavior":    performancesFQN,
+	"step":        performancesFQN,
+	"function":    evaluationsFQN,
+	"expr":        evaluationsFQN,
 	"predicate":   "Performances::booleanEvaluations",
 	"bool":        "Performances::booleanEvaluations",
 	"inv":         "Performances::trueEvaluations",
@@ -368,7 +373,7 @@ func (m *Model) usageBaseFeatureFQN(sym *symbols.Symbol) (string, bool) {
 			}
 		}
 		fqn, ok := implicitUsageBases[d.Kind]
-		if !ok || fqn == "Occurrences::Life" {
+		if !ok || fqn == lifeFQN {
 			return "", false
 		}
 		return fqn, true

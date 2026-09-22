@@ -760,8 +760,15 @@ interleavings `check` and `explore` table, so the exhaustive set is a superset o
 policy's outcome, and a transition that interrupts a `do` behavior after any of its token moves
 is another. A `do` body parked at an `accept` offers no move until its occurrence is dispatched,
 and a `do` flow that never rests against a queued dispatch ends each run at the dispatch or at
-the do-step budget. The witnesses such a check writes replay as any other ([design
-note](../internals/design/region-order-scheduling.md)).
+the do-step budget. A `do` behavior starts as its state's entry ends, before the state's
+substates are entered, and runs beside the entries still to come: each of its token moves is
+drawn against the sibling regions' remaining entry units and against the state's own substates'
+at the same `entering <state>` (or `fork <name>`) draw, `entering work: next do left, right(entry)
+(unordered; took do left first)` for a region's `do` against its sibling's entry, `entering work:
+next do work, w1(entry) (unordered; took do work first)` for a composite's own against its
+substate's, until no entry is left in the move; the fixed policies enter every state whole and
+run the `do` round after, as before. The witnesses such a check writes replay as any other
+([design note](../internals/design/region-order-scheduling.md)).
 
 The order of executors due at one instant of the clock is explored like any other choice:
 `sysml -schedule explore -instantiate Demo::beacon -action Demo::watcher -state

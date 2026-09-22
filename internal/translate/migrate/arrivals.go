@@ -6,6 +6,9 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
 
+// signalArrives opens the note a duplicate acceptance route carries.
+const signalArrives = "the signal arrives at the "
+
 // arrivals indexes the signals reaching each port over the document's connectors and
 // inward delegations; v1 hands a signal at any port to the owner, v2 accepts it only `via` the port.
 type arrivals struct {
@@ -428,7 +431,7 @@ func (m *migration) portRoutes(tr, c, sig *sysmlv1.Element) (ports []*sysmlv1.El
 func (m *migration) arrivalRoutes(c, sig *sysmlv1.Element, what string) (ports []*sysmlv1.Element, info string) {
 	ports = m.arrivalPorts(c, sig)
 	if len(ports) > 0 {
-		info = "the signal arrives at the " + m.portNames(ports) + " over the document's connectors or declarations, so the " + what + " is also written accepting via each"
+		info = signalArrives + m.portNames(ports) + " over the document's connectors or declarations, so the " + what + " is also written accepting via each"
 	}
 	if open := m.openPorts(c, sig); len(open) > 0 {
 		info = joinNotes(info, "nothing in the document declares or sends a signal to the "+m.portNames(open)+", so one arriving there is not accepted")
@@ -450,15 +453,15 @@ func (m *migration) actionRoute(clause string, tr, c, b *sysmlv1.Element, via st
 			"an action accepts through one route, so of the "+m.portNames(ports)+" the trigger names only the first is written")
 	case len(ports) == 1:
 		return clause + " via " + via + writeName(m.nameFor(ports[0])), joinNotes(note,
-			"the signal arrives at the "+m.portNames(ports)+" over the document's connectors or declarations, so the action accepts via it; an action accepts through one route, and one sent to the object itself is not taken")
+			signalArrives+m.portNames(ports)+" over the document's connectors or declarations, so the action accepts via it; an action accepts through one route, and one sent to the object itself is not taken")
 	}
 	if paired := m.pairedPorts(ports, b); len(paired) == 1 {
 		return clause + " via " + via + writeName(m.nameFor(paired[0])), joinNotes(note,
-			"the signal arrives at the "+m.portNames(ports)+" over the document's connectors or declarations; an action accepts through one route, so it accepts via "+
+			signalArrives+m.portNames(ports)+" over the document's connectors or declarations; an action accepts through one route, so it accepts via "+
 				writeName(m.nameFor(paired[0]))+", the port joined to a block the behavior sends to, and one arriving at another port or sent to the object itself is not taken")
 	}
 	return clause, joinNotes(note,
-		"the signal arrives at the "+m.portNames(ports)+" over the document's connectors or declarations; an action accepts through one route, so it takes one sent to the object itself, and one arriving at a port is not taken")
+		signalArrives+m.portNames(ports)+" over the document's connectors or declarations; an action accepts through one route, so it takes one sent to the object itself, and one arriving at a port is not taken")
 }
 
 // portNames writes "port p" or "ports p, q" with the v2 names of the ports.

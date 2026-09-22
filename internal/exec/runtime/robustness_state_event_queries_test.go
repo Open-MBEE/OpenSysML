@@ -64,7 +64,7 @@ func testCompletedMachineFinalState(t *testing.T) {
 	if len(leaves) != 1 || leaves[0].Name != "done" {
 		t.Fatalf("ActiveLeaves of a completed machine = %v, want [done]", leaves)
 	}
-	if got := exec.CurrentState(); got == nil {
+	if exec.CurrentState() == nil {
 		t.Fatalf("CurrentState of a completed machine = nil, want done")
 	}
 }
