@@ -864,8 +864,11 @@ now that D3.4 is in:
    written. The commit Layer 1 makes is recorded in `<model>.sync.json`; the token is
    `flexo.EnvToken` as today.
 3. **What survives the hop.** D2 and D1 decide how much of a pushed model the read path gets
-   back; the harness's 369 of 452 is the number to move, and it is re-measured, not asserted,
-   after each.
+   back; the harness's figure is re-measured, not asserted, after each. Re-recorded with the
+   branch read and push in place: graph-load delivers 505 of 582 properties (59 of 59 elements
+   listed), the 77 undelivered all in the `sysx:` extension namespace, and the element-wise
+   apply now carries the `FeatureValue` memberships the standard vocabulary writes (17 of 17
+   elements read back on the initial commit).
 
 Nothing here was a new subsystem; the order was D9.1 → D9.2, and D9.3 is the RDF track's
 existing order applied to this use.
