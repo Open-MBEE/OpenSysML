@@ -55,46 +55,8 @@ func isStructured(n *sysmlv1.Element) bool {
 // and bound as any node's are, so they are marked too; its call is not made.
 func (a *activity) admitAbsent() (changed bool) {
 	for _, n := range a.nodes {
-		if nodeKind(n) != nodeAction {
-			continue
-		}
-		for _, pin := range inputPins(n) {
-			if why := a.absentFeed(pin); why != "" && a.m.admitNone(pin, why) {
-				changed = true
-			}
-		}
-		if a.dead[n] {
-			continue
-		}
-		if n.Type == "CallBehaviorAction" && a.m.model.Ref(n, "behavior") == nil && a.stubStep(n) {
-			for _, pin := range outputPins(n) {
-				if a.m.admitNone(pin, stubComputesNothing) {
-					changed = true
-				}
-			}
-		}
-		callee, args := a.callArguments(n)
-		if callee == nil {
-			continue
-		}
-		i := 0
-		for _, p := range a.m.actionParameters(callee) {
-			if dir, _ := parameterDirection(p); dir == "out" {
-				continue
-			}
-			if requiresValue(p) {
-				why := ""
-				switch {
-				case i >= len(args):
-					why = "the call " + describe(n) + " in " + qualifiedName(a.act) + " passes no argument for it"
-				default:
-					why = a.absentArgument(args[i])
-				}
-				if why != "" && a.m.admitNone(p, why+", and v1 runs the callee without one") {
-					changed = true
-				}
-			}
-			i++
+		if a.admitAbsentNode(n) {
+			changed = true
 		}
 	}
 	if a.act.Type != "Activity" {
@@ -107,6 +69,59 @@ func (a *activity) admitAbsent() (changed bool) {
 		if why := a.absentResult(p); why != "" && a.m.admitNone(p, why) {
 			changed = true
 		}
+	}
+	return changed
+}
+
+// admitAbsentNode marks the pins and parameters of one call node whose value may
+// fail to reach while v1 still runs the action.
+func (a *activity) admitAbsentNode(n *sysmlv1.Element) (changed bool) {
+	if nodeKind(n) != nodeAction {
+		return false
+	}
+	for _, pin := range inputPins(n) {
+		if why := a.absentFeed(pin); why != "" && a.m.admitNone(pin, why) {
+			changed = true
+		}
+	}
+	if a.dead[n] {
+		return changed
+	}
+	if n.Type == "CallBehaviorAction" && a.m.model.Ref(n, "behavior") == nil && a.stubStep(n) {
+		for _, pin := range outputPins(n) {
+			if a.m.admitNone(pin, stubComputesNothing) {
+				changed = true
+			}
+		}
+	}
+	callee, args := a.callArguments(n)
+	if callee == nil {
+		return changed
+	}
+	return a.admitAbsentParams(n, callee, args) || changed
+}
+
+// admitAbsentParams marks the callee's parameters the call passes no value for
+// or one a value may fail to reach.
+func (a *activity) admitAbsentParams(n, callee *sysmlv1.Element, args []*sysmlv1.Element) (changed bool) {
+	i := 0
+	for _, p := range a.m.actionParameters(callee) {
+		if dir, _ := parameterDirection(p); dir == "out" {
+			continue
+		}
+		if requiresValue(p) {
+			why := ""
+			switch {
+			case i >= len(args):
+				why = "the call " + describe(n) + " in " + qualifiedName(a.act) + " passes no argument for it"
+			default:
+				why = a.absentArgument(args[i])
+			}
+			if why != "" && a.m.admitNone(p, why+", and v1 runs the callee without one") {
+				changed = true
+			}
+		}
+		i++
 	}
 	return changed
 }

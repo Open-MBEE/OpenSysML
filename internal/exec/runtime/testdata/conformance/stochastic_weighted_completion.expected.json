@@ -1,0 +1,9 @@
+{
+	"type": "state",
+	"libraries": true,
+	"modelSeed": 7,
+	"finalState": "right",
+	"outputs": {
+		"log": {"type": "Integer", "value": 14}
+	}
+}

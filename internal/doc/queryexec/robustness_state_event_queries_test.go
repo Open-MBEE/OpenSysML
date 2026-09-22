@@ -276,7 +276,7 @@ func testEventsWithDestroyedSibling(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Events with a destroyed sibling: %v", err)
 	}
-	if got := len(result.Rows()); got == 0 {
+	if len(result.Rows()) == 0 {
 		t.Fatalf("rows = 0, want the live object's records")
 	}
 }

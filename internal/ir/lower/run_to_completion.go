@@ -180,61 +180,72 @@ func (g *StateGraph) RunToCompletionOf(state *ast.StateNode) RunToCompletion {
 // resolveRunToCompletion resolves recorded RTC declarations after graph vertices exist.
 func (g *StateGraph) resolveRunToCompletion() error {
 	done := map[*ast.StateNode]bool{}
-	var resolve func(*ast.StateNode) error
-	resolve = func(state *ast.StateNode) error {
-		if done[state] {
-			return nil
-		}
-		if parent := g.ParentState[state]; parent != nil {
-			if err := resolve(parent); err != nil {
-				return err
-			}
-		}
-		r := RunToCompletion{}
-		if state != nil {
-			r = g.RunToCompletion[g.ParentState[state]]
-		}
-		if decl := g.runToCompletionDecls[state][isRunToCompletionFeature]; decl.usage != nil {
-			r.Value = decl.usage.Value
-			r.ValueScope = decl.scope
-			r.ValueOwner = state
-		}
-		if decl := g.runToCompletionDecls[state][runToCompletionScopeFeature]; decl.usage != nil {
-			if FeaturePath(decl.usage.Value) == "self" {
-				r.Scope = state
-			} else {
-				var err error
-				r.Scope, err = g.scopeState(state, decl)
-				if err != nil {
-					return err
-				}
-				if r.Scope != nil {
-					ancestor := false
-					for current := state; current != nil; current = g.ParentState[current] {
-						if current == r.Scope {
-							ancestor = true
-							break
-						}
-					}
-					if !ancestor {
-						return decl.refusal(true)
-					}
-				}
-			}
-		}
-		g.RunToCompletion[state] = r
-		done[state] = true
-		return nil
-	}
-	if err := resolve(nil); err != nil {
+	if err := g.resolveCompletionState(nil, done); err != nil {
 		return err
 	}
 	for _, state := range g.States {
-		if err := resolve(state); err != nil {
+		if err := g.resolveCompletionState(state, done); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// resolveCompletionState resolves one state's run-to-completion record after
+// its parent's, so an unset scope inherits what the parent resolved.
+func (g *StateGraph) resolveCompletionState(state *ast.StateNode, done map[*ast.StateNode]bool) error {
+	if done[state] {
+		return nil
+	}
+	if parent := g.ParentState[state]; parent != nil {
+		if err := g.resolveCompletionState(parent, done); err != nil {
+			return err
+		}
+	}
+	r := RunToCompletion{}
+	if state != nil {
+		r = g.RunToCompletion[g.ParentState[state]]
+	}
+	if decl := g.runToCompletionDecls[state][isRunToCompletionFeature]; decl.usage != nil {
+		r.Value = decl.usage.Value
+		r.ValueScope = decl.scope
+		r.ValueOwner = state
+	}
+	if decl := g.runToCompletionDecls[state][runToCompletionScopeFeature]; decl.usage != nil {
+		scope, err := g.declaredScope(state, decl)
+		if err != nil {
+			return err
+		}
+		r.Scope = scope
+	}
+	g.RunToCompletion[state] = r
+	done[state] = true
+	return nil
+}
+
+// declaredScope resolves a scope declaration: `self` is the state itself, any
+// other name must resolve to the machine or an ancestor state.
+func (g *StateGraph) declaredScope(state *ast.StateNode, decl runToCompletionDecl) (*ast.StateNode, error) {
+	if FeaturePath(decl.usage.Value) == "self" {
+		return state, nil
+	}
+	scope, err := g.scopeState(state, decl)
+	if err != nil {
+		return nil, err
+	}
+	if scope != nil {
+		ancestor := false
+		for current := state; current != nil; current = g.ParentState[current] {
+			if current == scope {
+				ancestor = true
+				break
+			}
+		}
+		if !ancestor {
+			return nil, decl.refusal(true)
+		}
+	}
+	return scope, nil
 }
 
 // scopeState resolves a scope declaration to the machine or a state vertex.

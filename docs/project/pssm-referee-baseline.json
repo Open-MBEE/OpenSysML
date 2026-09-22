@@ -6,14 +6,14 @@
     "url": "https://www.omg.org/spec/PSSM/20181101/PSSM_TestSuite.xmi",
     "suiteDigest": "c355b249c356774377a46b60345019d827af1ce417bde88e533aa5f39206ae07",
     "tests": 103,
-    "recorded": "2026-09-21",
-    "develop": "e6e49c3d3e2dc55bb31b391a8d8de73266f3eeee"
+    "recorded": "2026-09-22",
+    "develop": "4780bd5f9f66030a5328eb0c0f089aa19511f6cd"
   },
   "buckets": {
     "differs-by-design": 1,
-    "fail": 13,
+    "fail": 12,
     "not-expressible": 33,
-    "pass": 56
+    "pass": 57
   },
   "tests": [
     {
@@ -225,7 +225,7 @@
         "T2(effect)::S1(entry)::T3.1.2(effect)::S3.1(doActivity)::T2.2(effect)::T3.2(effect)",
         "T2(effect)::S1(entry)::T3.1.2(effect)::T2.2(effect)::S3.1(doActivity)::T3.2(effect)"
       ],
-      "runs": 18
+      "runs": 28
     },
     {
       "name": "Transition 019",
@@ -1018,10 +1018,7 @@
       "name": "Terminate 002",
       "area": "Terminate",
       "class": "standard",
-      "bucket": "fail",
-      "reasons": [
-        "admitted trace not reached: S1(entry)::S1.1(entry)::S1.1(doActivityPartI)::S2.1(entry)"
-      ],
+      "bucket": "pass",
       "expected": [
         "S1(entry)::S1.1(entry)::S1.1(doActivityPartI)::S2.1(entry)",
         "S1(entry)::S1.1(entry)::S2.1(entry)",
@@ -1030,12 +1027,13 @@
         "S1(entry)::S2.1(entry)::S1.1(entry)::S1.1(doActivityPartI)"
       ],
       "reached": [
+        "S1(entry)::S1.1(entry)::S1.1(doActivityPartI)::S2.1(entry)",
         "S1(entry)::S1.1(entry)::S2.1(entry)",
         "S1(entry)::S1.1(entry)::S2.1(entry)::S1.1(doActivityPartI)",
         "S1(entry)::S2.1(entry)::S1.1(entry)",
         "S1(entry)::S2.1(entry)::S1.1(entry)::S1.1(doActivityPartI)"
       ],
-      "runs": 4
+      "runs": 5
     },
     {
       "name": "Terminate 003",
@@ -1199,7 +1197,7 @@
         "S1.1(doActivity)::S1.2(doActivity)",
         "S1.2(doActivity)::S1.1(doActivity)"
       ],
-      "runs": 368
+      "runs": 552
     },
     {
       "name": "Deferred 007",

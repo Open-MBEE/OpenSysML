@@ -803,23 +803,7 @@ func (m *migration) writtenPoints(v *sysmlv1.Element) int {
 func (s *stateRegion) state(v *sysmlv1.Element) {
 	name := writeName(s.name(v))
 	defers := s.deferrals(v)
-	head := stateKw + name
-	if sub := s.m.model.Ref(v, "submachine"); sub != nil {
-		if s.m.written(sub) {
-			head += " : " + s.m.ref(sub, s.r)
-			s.m.add(v, Mapped, name, "")
-		} else {
-			for _, c := range v.Owned("connection") {
-				s.m.unmapped(c, "the submachine "+qualifiedName(sub)+" has no v2 declaration, so its connection points are not written")
-			}
-			s.m.add(v, Approximated, name, "its submachine "+qualifiedName(sub)+" has no v2 declaration; the state is written simple")
-		}
-	} else {
-		for _, c := range v.Owned("connection") {
-			s.m.unmapped(c, "the state has no submachine whose connection point the reference could name")
-		}
-		s.m.add(v, Mapped, name, "")
-	}
+	head := s.stateHead(v, name)
 	regions := s.m.populatedRegions(v)
 	entry, do, exit := s.m.behaviorIn(v, "entry"), s.m.behaviorIn(v, "doActivity"), s.m.behaviorIn(v, "exit")
 	inv := firstOwned(v, "stateInvariant")
@@ -837,33 +821,67 @@ func (s *stateRegion) state(v *sysmlv1.Element) {
 			s.m.invariant(inv)
 		}
 		entered := entry != nil && s.m.inlineBehavior("entry action", entry, v)
-		between := func() {
-			if do != nil {
-				s.m.inlineBehavior(doAction, do, v)
-			}
-			if exit != nil {
-				s.m.inlineBehavior(exitAction, exit, v)
-			}
-			if len(points) > 0 {
-				s.m.statePoints(v)
-			}
-		}
+		between := s.betweenActions(v, do, exit, points)
 		if len(regions) == 0 {
 			between()
 		} else {
 			s.m.regions(v, regions, entered, between)
 		}
-		for _, pr := range pointRegs {
-			// Named from the state's one region when it has one, so its vertices need no path.
-			host := pr
-			if len(regions) == 1 {
-				host = regions[0]
-			}
-			for _, t := range pr.Owned("transition") {
-				s.m.region(host).transition(t)
-			}
-		}
+		s.pointTransitions(regions, pointRegs)
 	})
+}
+
+// betweenActions is a state's block body after its entry action: its do and
+// exit actions and its connection points.
+func (s *stateRegion) betweenActions(v, do, exit *sysmlv1.Element, points []*sysmlv1.Element) func() {
+	return func() {
+		if do != nil {
+			s.m.inlineBehavior(doAction, do, v)
+		}
+		if exit != nil {
+			s.m.inlineBehavior(exitAction, exit, v)
+		}
+		if len(points) > 0 {
+			s.m.statePoints(v)
+		}
+	}
+}
+
+// stateHead writes a state's head: its name, typed by its submachine's state
+// def when one is written; the connection points an unwritten submachine or a
+// state without one leaves behind are marked unmapped.
+func (s *stateRegion) stateHead(v *sysmlv1.Element, name string) string {
+	head := stateKw + name
+	if sub := s.m.model.Ref(v, "submachine"); sub != nil {
+		if s.m.written(sub) {
+			s.m.add(v, Mapped, name, "")
+			return head + " : " + s.m.ref(sub, s.r)
+		}
+		for _, c := range v.Owned("connection") {
+			s.m.unmapped(c, "the submachine "+qualifiedName(sub)+" has no v2 declaration, so its connection points are not written")
+		}
+		s.m.add(v, Approximated, name, "its submachine "+qualifiedName(sub)+" has no v2 declaration; the state is written simple")
+		return head
+	}
+	for _, c := range v.Owned("connection") {
+		s.m.unmapped(c, "the state has no submachine whose connection point the reference could name")
+	}
+	s.m.add(v, Mapped, name, "")
+	return head
+}
+
+// pointTransitions writes the transitions each point region owns; a state with
+// one region names them from it, so its vertices need no path.
+func (s *stateRegion) pointTransitions(regions, pointRegs []*sysmlv1.Element) {
+	for _, pr := range pointRegs {
+		host := pr
+		if len(regions) == 1 {
+			host = regions[0]
+		}
+		for _, t := range pr.Owned("transition") {
+			s.m.region(host).transition(t)
+		}
+	}
 }
 
 // hasTransitions reports whether any of the regions owns a transition.

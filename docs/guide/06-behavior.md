@@ -715,19 +715,27 @@ varied twice, so a choice met early is varied by the second run however many cho
 $ sysml -schedule explore -action test::race action_explore_three_writers.sysml
 ✓ package test
 ✓ explored test::race: 3 outcomes
-outcome                                      | linearizations | witness
----------------------------------------------+----------------+------------------------------------------------------------------
-aRan = true; bRan = true; cRan = true; x = 1 | 2              | step 3: 3@b first of 2@a, 3@b, 4@c; step 4: 4@c first of 2@a, 4@c
-aRan = true; bRan = true; cRan = true; x = 2 | 2              | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 4@c first of 3@b, 4@c
-aRan = true; bRan = true; cRan = true; x = 3 | 2              | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 3@b first of 3@b, 4@c
+outcome                                      | linearizations | probability        | witness
+---------------------------------------------+----------------+--------------------+------------------------------------------------------------------
+aRan = true; bRan = true; cRan = true; x = 1 | 2              | 0.3333333333333333 | step 3: 3@b first of 2@a, 3@b, 4@c; step 4: 4@c first of 2@a, 4@c
+aRan = true; bRan = true; cRan = true; x = 2 | 2              | 0.3333333333333333 | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 4@c first of 3@b, 4@c
+aRan = true; bRan = true; cRan = true; x = 3 | 2              | 0.3333333333333333 | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 3@b first of 3@b, 4@c
 complete (6 runs)
 ```
 
 Runs that agree on what the conformance harness compares — an action's outputs; a state machine's
 final state, states visited and values; an analysis case's outputs and verdicts — are one
 *outcome*, and the table has one sorted row per distinct outcome: the outcome, how many
-linearizations reached it, and the choice sequence of one *witness* run (`3@b first of 2@a, 3@b,
-4@c` is the first pick, then `4@c first of 2@a, 4@c` among the two that remained). Six
+linearizations reached it, its *probability*, and the choice sequence of one *witness* run (`3@b first of 2@a, 3@b,
+4@c` is the first pick, then `4@c first of 2@a, 4@c` among the two that remained). A
+linearization's probability is the product of the shares its picks resolved with — a
+`@Probability`-weighted pick its stated weight's share of the weights drawn over, an unweighted
+choice point the uniform `1/n` a `seed:<n>` takes each alternative with — and an outcome's is the
+sum over its runs, so the column totals `1` when the exploration is complete: it is the model's
+own probability where every choice point is weighted, and where they are not it assumes the
+scheduling choices the library leaves open are taken uniformly at random. An incomplete
+exploration prefixes each figure `≥` and the status line adds `; probabilities are lower bounds`,
+since the runs not taken can only add. Six
 linearizations, three outcomes, two each; `complete (6 runs)` says every choice sequence was
 tried. Under `explore` an action step is one token advancing one node — not, as under the fixed
 policies, every steppable token moving once — so the picks fall in consecutive steps and a branch
@@ -738,8 +746,8 @@ fails under some order is an outcome of its own (`error: …`), not the end of t
 behavior with no choice point explores in exactly one run (`no choice points`
 in the witness column); the same model explores to the same table every time. With `-trace`, the
 table is followed by the trace of each outcome's witness run (`trace of outcome 1's witness
-(run 4):`). With `-json`, each check carries `outcomes` (values, `linearizations`, `witness`) and
-`exploration` (`complete`, `runs`, `budgetsHit`) beside the table's lines.
+(run 4):`). With `-json`, each check carries `outcomes` (values, `linearizations`, `probability`, `witness`) and
+`exploration` (`complete`, `runs`, `budgetsHit`, `probabilitiesLowerBound`) beside the table's lines.
 
 <a id="a-do-behavior-under-explore-and-check"></a>
 A state's `do` behavior is stepped the same way under `explore` and `check`: one token at a time —
@@ -752,8 +760,15 @@ interleavings `check` and `explore` table, so the exhaustive set is a superset o
 policy's outcome, and a transition that interrupts a `do` behavior after any of its token moves
 is another. A `do` body parked at an `accept` offers no move until its occurrence is dispatched,
 and a `do` flow that never rests against a queued dispatch ends each run at the dispatch or at
-the do-step budget. The witnesses such a check writes replay as any other ([design
-note](../internals/design/region-order-scheduling.md)).
+the do-step budget. A `do` behavior starts as its state's entry ends, before the state's
+substates are entered, and runs beside the entries still to come: each of its token moves is
+drawn against the sibling regions' remaining entry units and against the state's own substates'
+at the same `entering <state>` (or `fork <name>`) draw, `entering work: next do left, right(entry)
+(unordered; took do left first)` for a region's `do` against its sibling's entry, `entering work:
+next do work, w1(entry) (unordered; took do work first)` for a composite's own against its
+substate's, until no entry is left in the move; the fixed policies enter every state whole and
+run the `do` round after, as before. The witnesses such a check writes replay as any other
+([design note](../internals/design/region-order-scheduling.md)).
 
 The order of executors due at one instant of the clock is explored like any other choice:
 `sysml -schedule explore -instantiate Demo::beacon -action Demo::watcher -state
@@ -780,11 +795,11 @@ otherwise, and hitting it is never silent:
 $ sysml -schedule explore:runs=3 -action test::race action_explore_three_writers.sysml
 ✓ package test
 ? explored test::race: 2 outcomes
-outcome                                      | linearizations | witness
----------------------------------------------+----------------+------------------------------------------------------------------
-aRan = true; bRan = true; cRan = true; x = 2 | 1              | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 4@c first of 3@b, 4@c
-aRan = true; bRan = true; cRan = true; x = 3 | 2              | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 3@b first of 3@b, 4@c
-incomplete: runs budget 3 hit after 3 runs
+outcome                                      | linearizations | probability           | witness
+---------------------------------------------+----------------+-----------------------+------------------------------------------------------------------
+aRan = true; bRan = true; cRan = true; x = 2 | 1              | ≥ 0.16666666666666666 | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 4@c first of 3@b, 4@c
+aRan = true; bRan = true; cRan = true; x = 3 | 2              | ≥ 0.3333333333333333  | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 3@b first of 3@b, 4@c
+incomplete: runs budget 3 hit after 3 runs; probabilities are lower bounds
 $ echo $?
 2
 ```
@@ -1004,9 +1019,39 @@ enforces, each violation a typed error before anything runs:
 A branch whose guard does not hold at the decision is out of the draw, and the weights of the
 branches that do hold are renormalized among themselves: a `0.7` branch guarded by `if ready`
 against a `0.3` branch unguarded is the `0.3` branch alone when `ready` is false, and a decision
-at which no holding branch weighs more than zero is refused. A `Probability` on a state
-transition is refused with a typed lowering error: weighted transitions are not in this
-release (see [Known limitations](#known-limitations-of-modeled-randomness)).
+at which no holding branch weighs more than zero is refused.
+
+`@Probability` on a **state transition** weights it by the same rules, within the *group* it
+competes in: every transition out of one `choice` or `junction` pseudostate is a group — a
+weight on a transition out of a `fork`, `join`, `initial`, `entry`, `exit` or `history`
+pseudostate is refused, since no branch pick happens there; the
+transitions out of one state are grouped by what they wait on — all completion transitions
+together, and the ones on the same trigger (the resolved signal or operation definition
+together with a structurally identical expression and the same `via` receiver —
+`accept go` apart from `accept other`, `accept A::Go` apart from `accept B::Go`,
+`after uniform(1, 2)` apart from `after normal(10, 1)`, `via p` apart from `via this.p`)
+together. Transitions sharing a time-trigger spelling (`accept after 5 [s]` twice out of one
+state) arm a single timer: the expiry is one occurrence, drawn among them by weight rather than
+ordered as separate events, and a weight expression may read the trigger's bound arguments —
+`accept route(priority)` with `p = priority` weighs each transition by the priority the call
+carried. A group is weighted as a whole or not at all, and constant weights sum to `1.0`:
+
+```sysml
+state def Machine {
+	entry; then idle;
+	state idle;
+	state slow;
+	state fast;
+	transition first idle accept go then slow { @Probability { p = 0.3; } }
+	transition first idle accept go then fast { @Probability { p = 0.7; } }
+}
+```
+
+The weights pick among the transitions otherwise equally eligible — after the trigger matched,
+the guards read, and the innermost-wins rule between a substate and its enclosing state has run
+— so a substate's transition is never weighed against an enclosing one's, and the pick is drawn
+once, at dispatch. `explore` enumerates the alternatives as it does any choice point, and the
+outcome table's `probability` column reports each outcome's share (below).
 
 ### A random value: `RandomFunctions`
 
@@ -1183,12 +1228,13 @@ second knob here too: every run resolves its concurrency choices under `-schedul
 
 ### Known limitations of modeled randomness
 
-- **State transitions carry no weight.** `@Probability` on a `transition` is refused at lowering
-  with a typed error; only successions out of a decision node are weighted.
-- **`explore` and `check` do not accumulate probability.** The outcome table and the checker's
-  verdict enumerate the weighted branches as branches; the probability of an outcome (the product
-  of the weights along its linearization's decision picks) and the probability mass of the
-  schedules reaching a violation are not reported.
+- **A transition's weight is only its group's.** Weights pick among the transitions competing
+  for one dispatch — one trigger spelling out of one state, one completion set, one pseudostate's
+  branches — never between different events or different states, and a transition that loses to a
+  nested one fires nothing.
+- **Probabilities assume a uniform schedule.** `explore`'s column and `check`'s violation masses
+  are the model's own probabilities where every choice point is weighted; an unweighted point is
+  counted as if each alternative were equally likely, which is an assumption, not a measurement.
 - **Random functions are scalar.** A bound given as a quantity is refused; write the unit on the
   draw (`uniform(1, 80) [s]`).
 - **Weights are drawn among the branches that hold.** A decision whose guards leave exactly one

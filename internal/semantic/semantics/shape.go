@@ -391,6 +391,12 @@ func IsParameter(sym *symbols.Symbol) bool {
 	return ok && (usage.Direction != ast.DirNone || usage.IsResult)
 }
 
+// IsBehaviorParameter reports whether sym is a parameter a behavior or step owns; a
+// port's directed feature (`in item cmd`) is a flow item of the port, not a parameter.
+func IsBehaviorParameter(sym *symbols.Symbol) bool {
+	return IsParameter(sym) && behaviorLike(sym.Owner())
+}
+
 // IsSelf reports whether sym is a thing's `self` feature: Base::Anything::self or a
 // feature restating it, such as DataValue::self or a definition's own redefinition.
 func (m *Model) IsSelf(sym *symbols.Symbol) bool {

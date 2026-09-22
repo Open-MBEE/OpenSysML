@@ -2,11 +2,8 @@ package fuml
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"math"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -72,12 +69,11 @@ func Execute(stop context.Context, em *Emitted, x *ExpectedActivity, budget runt
 	if err != nil {
 		return nil, err
 	}
-	action, fresh, err := build(em, budgets)
+	action, defs, fresh, err := build(em, budgets)
 	if err != nil {
 		return nil, err
 	}
-	inputs, err := defaultInputs(em.Activity)
-	if err != nil {
+	if _, err := defaultInputs(nil, em, defs); err != nil {
 		return nil, err
 	}
 	policy, err := runtime.ExplorePolicy(budget)
@@ -85,6 +81,10 @@ func Execute(stop context.Context, em *Emitted, x *ExpectedActivity, budget runt
 		return nil, err
 	}
 	run := func(ctx *runtime.Context) (runtime.Outcome, error) {
+		inputs, err := defaultInputs(ctx, em, defs)
+		if err != nil {
+			return runtime.Outcome{}, err
+		}
 		outputs, err := ctx.ExecuteActionWithInputs(action, inputs)
 		if err != nil {
 			return runtime.Outcome{}, err
@@ -104,23 +104,33 @@ func runBudgets() (runtime.Budgets, error) {
 	return runtime.BudgetsFromEnv()
 }
 
-// build parses the emitted model, resolves its action definition and prepares
-// a fresh context per exploration job.
-func build(em *Emitted, budgets runtime.Budgets) (*symbols.Symbol, func(int) (*runtime.Context, error), error) {
+// definitionLookup resolves a definition the emitted model declares, by name.
+type definitionLookup func(name string) (*symbols.Symbol, error)
+
+// build parses the emitted model, resolves its action definition and the
+// definitions of its package, and prepares a fresh context per exploration job.
+func build(em *Emitted, budgets runtime.Budgets) (*symbols.Symbol, definitionLookup, func(int) (*runtime.Context, error), error) {
 	src := source.New(em.Name, []byte(em.Text))
 	p := parser.New(src)
 	file := p.ParseFile()
 	for _, d := range p.Diagnostics {
-		return nil, nil, fmt.Errorf("%s: parse: %s", em.Name, d.Message)
+		return nil, nil, nil, fmt.Errorf("%s: parse: %s", em.Name, d.Message)
 	}
 	idx := libs.NewModelIndex()
 	idx.AddDocument(em.Name, file)
 	idx.ExpandWildcardImports()
-	matches := idx.LookupQualified(em.Qualified)
-	if len(matches) != 1 {
-		return nil, nil, fmt.Errorf("%s: %d symbols named %s, want 1", em.Name, len(matches), em.Qualified)
+	lookup := func(qualified string) (*symbols.Symbol, error) {
+		matches := idx.LookupQualified(qualified)
+		if len(matches) != 1 {
+			return nil, fmt.Errorf("%s: %d symbols named %s, want 1", em.Name, len(matches), qualified)
+		}
+		return matches[0], nil
 	}
-	action := matches[0]
+	action, err := lookup(em.Qualified)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	defs := func(name string) (*symbols.Symbol, error) { return lookup(Package + "::" + name) }
 	text := source.TextOf(map[string]*source.SourceFile{em.Name: src}, nil)
 	var mu sync.Mutex
 	models := map[int]*runtime.Model{}
@@ -142,28 +152,99 @@ func build(em *Emitted, budgets runtime.Budgets) (*symbols.Symbol, func(int) (*r
 		}
 		return ctx, nil
 	}
-	return action, fresh, nil
+	return action, defs, fresh, nil
 }
 
 // defaultInputs is what the implementation passes for each input parameter when
-// a test runs an activity: the type's default value (0, false, "", 0.0).
-func defaultInputs(a *Activity) (map[string]runtime.Value, error) {
+// a test runs an activity: the type's default value (0, false, "", 0.0), and for
+// a class, an instantiated activity or a signal a fresh instance of it whose
+// every attribute holds its type's default. The instances live in ctx; with
+// none, only whether the defaults exist is checked.
+func defaultInputs(ctx *runtime.Context, em *Emitted, defs definitionLookup) (map[string]runtime.Value, error) {
+	a := em.Activity
 	inputs := map[string]runtime.Value{}
 	for _, p := range a.Inputs() {
-		switch p.Type.Name {
-		case "Integer":
-			inputs[p.Name] = runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValInt}}
-		case "Boolean":
-			inputs[p.Name] = runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValBool}}
-		case "Real":
-			inputs[p.Name] = runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValReal}}
-		case "String":
-			inputs[p.Name] = runtime.NewStringValue("")
-		default:
-			return nil, &TranslateError{a.Name, "parameter " + p.Name, "has no default value of type " + p.Type.String()}
+		v, err := defaultValue(ctx, em, defs, p.Type, "parameter "+p.Name, nil)
+		if err != nil {
+			return nil, err
 		}
+		inputs[p.Name] = v
 	}
 	return inputs, nil
+}
+
+// defaultValue is the implementation's default value of a type; an untyped
+// attribute defaults as a String does. making names the definitions whose
+// instance is under construction, so one holding one of itself is refused.
+func defaultValue(ctx *runtime.Context, em *Emitted, defs definitionLookup, t TypeRef, where string, making map[string]bool) (runtime.Value, error) {
+	a := em.Activity
+	switch a.Model.primitive(t) {
+	case "Integer":
+		return runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValInt}}, nil
+	case "Boolean":
+		return runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValBool}}, nil
+	case "Real":
+		return runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValReal}}, nil
+	case "String":
+		return runtime.NewStringValue(""), nil
+	}
+	if t.Zero() {
+		return runtime.NewStringValue(""), nil
+	}
+	var name string
+	var attrs []*Property
+	if o := em.closure.objectOf(t); o != nil {
+		name, attrs = o.name, o.allAttributes()
+	} else if sg := em.closure.signalOf(t); sg != nil {
+		name, attrs = sg.Name, sg.AllAttributes()
+	} else {
+		return runtime.Value{}, &TranslateError{a.Name, where, "has no default value of type " + t.String()}
+	}
+	if making[name] {
+		return runtime.Value{}, &TranslateError{a.Name, where, "defaults a " + name + " holding a " + name + " without end"}
+	}
+	making = withName(making, name)
+	defaults := make([]runtime.Value, len(attrs))
+	for i, attr := range attrs {
+		at := where + ", attribute " + name + "." + attr.Name
+		if attr.Association != nil {
+			return runtime.Value{}, &TranslateError{a.Name, at, "an association end is not translated by the pilot emitter"}
+		}
+		v, err := defaultValue(ctx, em, defs, attr.Type, at, making)
+		if err != nil {
+			return runtime.Value{}, err
+		}
+		defaults[i] = v
+	}
+	if ctx == nil {
+		return runtime.Value{}, nil
+	}
+	sym, err := defs(name)
+	if err != nil {
+		return runtime.Value{}, err
+	}
+	inst, err := ctx.InstantiateRead(sym, func(inst *runtime.Instance) error {
+		for i, attr := range attrs {
+			if err := inst.SetFeatureValue(ctx, attr.Name, defaults[i]); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return runtime.Value{}, err
+	}
+	return runtime.Value{Kind: runtime.ValInstance, Instance: inst.ID}, nil
+}
+
+// withName is making with name added, leaving making as it was.
+func withName(making map[string]bool, name string) map[string]bool {
+	out := make(map[string]bool, len(making)+1)
+	for k := range making {
+		out[k] = true
+	}
+	out[name] = true
+	return out
 }
 
 // producingNodes names the activity's own action nodes that hold a value at an
@@ -185,7 +266,7 @@ func producingNodes(em *Emitted, outputs map[string]runtime.Value) []string {
 // only the outcomes the exploration kept count, never a discarded speculative run.
 func compare(em *Emitted, x *runtime.Exploration, expected *ExpectedActivity) *Execution {
 	a := em.Activity
-	want := renderExpected(a, expected)
+	want := renderExpected(em, expected)
 	reached := map[string]bool{}
 	errs := map[string]bool{}
 	produced := map[string]bool{}
@@ -194,7 +275,12 @@ func compare(em *Emitted, x *runtime.Exploration, expected *ExpectedActivity) *E
 			errs[o.Outcome.Err.Error()] = true
 			continue
 		}
-		reached[renderOutputs(a, o.Outcome.Outputs)] = true
+		rendered, err := renderOutputs(em, o.Outcome.Context(), o.Outcome.Outputs)
+		if err != nil {
+			errs[err.Error()] = true
+			continue
+		}
+		reached[rendered] = true
 		for _, n := range producingNodes(em, o.Outcome.Outputs) {
 			produced[n] = true
 		}
@@ -218,113 +304,6 @@ func compare(em *Emitted, x *runtime.Exploration, expected *ExpectedActivity) *E
 		}
 	}
 	return ex
-}
-
-// renderExpected spells the implementation's outputs one parameter per line,
-// in the activity's parameter order.
-func renderExpected(a *Activity, x *ExpectedActivity) string {
-	byName := map[string]ExpectedOutput{}
-	if x != nil {
-		for _, o := range x.Outputs {
-			byName[o.Parameter] = o
-		}
-	}
-	var lines []string
-	for _, p := range a.Outputs() {
-		var values []string
-		for _, v := range byName[p.Name].Values {
-			values = append(values, renderExpectedValue(v))
-		}
-		lines = append(lines, renderLine(p, values))
-	}
-	return strings.Join(lines, "\n")
-}
-
-// renderOutputs spells a run's output parameters as renderExpected does.
-func renderOutputs(a *Activity, outputs map[string]runtime.Value) string {
-	var lines []string
-	for _, p := range a.Outputs() {
-		var values []string
-		if v, ok := outputs[p.Name]; ok {
-			values = renderRuntimeValues(v)
-		}
-		lines = append(lines, renderLine(p, values))
-	}
-	return strings.Join(lines, "\n")
-}
-
-// renderLine spells one parameter's values: absent as `-`, a multi-valued
-// unordered parameter's sorted so that runs agreeing as multisets render alike.
-func renderLine(p *Parameter, values []string) string {
-	if len(values) == 0 {
-		return p.Name + " = -"
-	}
-	if !p.Multiplicity.Ordered && p.Multiplicity.Upper != 1 {
-		sort.Strings(values)
-	}
-	return p.Name + " = " + strings.Join(values, ", ")
-}
-
-// renderExpectedValue spells a recorded primitive value canonically.
-func renderExpectedValue(v ExpectedValue) string {
-	switch v.Kind {
-	case "Integer", "Boolean", "String":
-		var raw any
-		if err := json.Unmarshal(v.Value, &raw); err == nil {
-			switch r := raw.(type) {
-			case float64:
-				return strconv.FormatInt(int64(r), 10)
-			case bool:
-				return strconv.FormatBool(r)
-			case string:
-				return strconv.Quote(r)
-			}
-		}
-	case "Real":
-		var s string
-		if err := json.Unmarshal(v.Value, &s); err == nil {
-			if f, err := strconv.ParseFloat(s, 64); err == nil {
-				return renderReal(f)
-			}
-		}
-	}
-	return v.Kind + string(v.Value)
-}
-
-// renderRuntimeValues spells a run's value, a sequence as its elements.
-func renderRuntimeValues(v runtime.Value) []string {
-	if seq := v.Sequence(); seq != nil {
-		var out []string
-		for _, e := range seq.Elements() {
-			out = append(out, renderRuntimeValues(e)...)
-		}
-		return out
-	}
-	switch v.Kind {
-	case runtime.ValNull:
-		return nil
-	case runtime.ValString:
-		return []string{strconv.Quote(v.Str())}
-	case runtime.ValConst:
-		switch v.Const.Kind {
-		case semantics.ValInt:
-			return []string{strconv.FormatInt(v.Const.Int, 10)}
-		case semantics.ValBool:
-			return []string{strconv.FormatBool(v.Const.Bool)}
-		case semantics.ValReal:
-			return []string{renderReal(v.Const.Real)}
-		}
-	}
-	return []string{runtime.FormatValue(v)}
-}
-
-// renderReal spells a real so that the implementation's and the runtime's agree
-// when they are the same number.
-func renderReal(f float64) string {
-	if math.IsInf(f, 0) || math.IsNaN(f) {
-		return fmt.Sprint(f)
-	}
-	return strconv.FormatFloat(f, 'g', 15, 64)
 }
 
 // firedAgreement compares, advisorily, the set of value-producing action nodes

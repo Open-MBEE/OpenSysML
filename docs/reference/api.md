@@ -35,8 +35,10 @@ such as `Mission::mission.vehicle`, made anew for the run. `ExploreAction`,
 `ExploreState` and `ExploreAnalysis` answer every run: they take the `explore` policy — the
 default when none is given, or `explore:runs=N,depth=D` to set its budget — and report an
 `Exploration`, one `Outcome` per distinct result with the number of linearizations that reached
-it and one run's choices as its `Witness`, plus whether the search was `Complete` or which
-`BudgetsHit` ended it (`Status()` renders it as the `sysml` command does). A run that fails under
+it, the `Probability` of the runs reaching it (a lower bound while the search is incomplete)
+and one run's choices as its `Witness`, plus whether the search was `Complete` or which
+`BudgetsHit` ended it (`ProbabilitiesLowerBound` records that the probabilities are bounds;
+`Status()` renders it as the `sysml` command does). A run that fails under
 some order is an `Outcome` whose `Error` is set, not a failure of the call. The two families
 refuse each other's policies with `CodeInvalidArgument`, and exploring requires the
 `schedule_explore` capability alongside `schedule`.
@@ -535,8 +537,12 @@ Execution runtime (Tiers 1-5: instances, expressions, behaviors).
     `assertion <name>` and `verdict <case>`
   - **`Exploration`** — `Budget`, `Runs`, the distinct `Outcomes` in canonical order and
     `BudgetsHit`, `runs` before `depth`, empty when `Complete()`. `Status()` renders
-    `complete (N runs)` or `incomplete: <budget> budget <limit> hit after N runs`
-  - **`ExploredOutcome`** — One `Outcome` with the `Linearizations` that reached it, the
+    `complete (N runs)` or `incomplete: <budget> budget <limit> hit after N runs`, suffixed
+    `; probabilities are lower bounds` when incomplete. `Probability()` sums the outcomes'
+    probabilities (`1` over a complete exploration); `ProbabilitiesBounded()` is `!Complete()`
+  - **`ExploredOutcome`** — One `Outcome` with the `Linearizations` that reached it, its
+    `Probability` (the sum of the shares its runs' picks resolved with — a weighted pick's
+    stated weight's share, an unweighted choice's uniform `1/n`), the
     `Witness` (one run's `ChoiceTaken` sequence, `FormatChoices` renders it) and `WitnessRun`
   - **`ChoiceTaken`** — One resolved choice point: its `Kind`, `Step`, `Where`, the
     `Alternatives` and `Among` it had and the `Taken`/`Took` it resolved to

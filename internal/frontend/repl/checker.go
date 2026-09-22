@@ -616,7 +616,11 @@ func checkedVerdict(subject, label string, result analysis.Result) Verdict {
 		v.Lines = append(v.Lines, fmt.Sprintf("? %s: %s", label, report.Status()))
 	}
 	for i, violation := range report.Violations {
-		v.Lines = append(v.Lines, "  violation: "+violation.String()+witnessPath(checked.Violations, i))
+		mass := runtime.FormatWeight(violation.Mass)
+		if report.MassBounded {
+			mass = "≥ " + mass
+		}
+		v.Lines = append(v.Lines, "  violation: "+violation.String()+" (probability "+mass+")"+witnessPath(checked.Violations, i))
 	}
 	for i, d := range report.Divergent {
 		v.Lines = append(v.Lines, "  divergent: "+d.String())

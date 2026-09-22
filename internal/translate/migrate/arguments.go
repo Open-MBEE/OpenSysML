@@ -7,6 +7,13 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
 
+// The note fragments the argument refusals repeat.
+const (
+	thePin       = "the pin "
+	theBehavior  = "the behavior "
+	forParameter = " it passes for the parameter "
+)
+
 // refusal says why a node is written as a placeholder that carries the token and
 // performs nothing, and with which verdict; refused is false when the node is
 // written. The writer asks, and so does the pass finding nodes that produce no value.
@@ -62,14 +69,14 @@ func (a *activity) behaviorCallRefusal(n *sysmlv1.Element) (why string, v Verdic
 		b = op
 	}
 	if !a.m.written(b) {
-		return "the behavior " + qualifiedName(b) + " it calls has no v2 declaration", Unmapped, true
+		return theBehavior + qualifiedName(b) + " it calls has no v2 declaration", Unmapped, true
 	}
 	switch cat, _ := a.m.classify(b); cat {
 	case catCalcDef:
 		return "", Mapped, false
 	case catActionDef:
 	default:
-		return "the behavior " + qualifiedName(b) + " is written as a " + cat.keyword() + ", which an action cannot call", Unmapped, true
+		return theBehavior + qualifiedName(b) + " is written as a " + cat.keyword() + ", which an action cannot call", Unmapped, true
 	}
 	if c := a.m.contextOf(b); c != nil {
 		if expr, cnote := a.callContext(n, c); expr == "" {
@@ -125,14 +132,14 @@ func (a *activity) sendRefusal(n *sysmlv1.Element) (why string, v Verdict, refus
 // that nothing fills starves the action instead.
 func (a *activity) primitiveRefusal(n *sysmlv1.Element, p *primitiveCall) (why string, v Verdict, refused bool) {
 	if p.outs == nil {
-		return joinNotes("the behavior "+p.qualified()+" it calls has no v2 library function: "+p.note, p.provenance), Unmapped, true
+		return joinNotes(theBehavior+p.qualified()+" it calls has no v2 library function: "+p.note, p.provenance), Unmapped, true
 	}
 	a.settlePins(n)
 	ins := inputPins(n)
 	for i, arg := range p.arguments() {
 		if i < len(ins) {
 			if v, vnote := a.unwritten(n, ins[i]); v != nil {
-				return "the pin " + describe(ins[i]) + " it passes for the parameter " + arg.name + " of " + p.qualified() + " holds the value " + describeValue(v) + ", which has no v2 expression: " + vnote + "; v1 computes on it, so the action carries the token and performs nothing", Approximated, true
+				return thePin + describe(ins[i]) + forParameter + arg.name + " of " + p.qualified() + " holds the value " + describeValue(v) + ", which has no v2 expression: " + vnote + "; v1 computes on it, so the action carries the token and performs nothing", Approximated, true
 			}
 		}
 		if !arg.required {
@@ -142,10 +149,10 @@ func (a *activity) primitiveRefusal(n *sysmlv1.Element, p *primitiveCall) (why s
 			return "the call passes no argument for the parameter " + arg.name + " of " + p.qualified() + ", which must hold a value; v1 leaves the call undefined without it, so the action carries the token and performs nothing", Approximated, true
 		}
 		if dry := a.valueless(ins[i]); dry != nil {
-			return "the pin " + describe(ins[i]) + " it passes for the parameter " + arg.name + " of " + p.qualified() + ", which must hold a value, receives none: " + describe(dry) + ", which feeds it, produces no value; v1 never fires the call, so the action carries the token and performs nothing", Approximated, true
+			return thePin + describe(ins[i]) + forParameter + arg.name + " of " + p.qualified() + ", which must hold a value, receives none: " + describe(dry) + ", which feeds it, produces no value; v1 never fires the call, so the action carries the token and performs nothing", Approximated, true
 		}
 		if a.holdsNone(ins[i]) {
-			return "the pin " + describe(ins[i]) + " it passes for the parameter " + arg.name + " of " + p.qualified() + ", which must hold a value, may hold none and nothing fills it; v1 leaves the call undefined without it, so the action carries the token and performs nothing", Approximated, true
+			return thePin + describe(ins[i]) + forParameter + arg.name + " of " + p.qualified() + ", which must hold a value, may hold none and nothing fills it; v1 leaves the call undefined without it, so the action carries the token and performs nothing", Approximated, true
 		}
 	}
 	return "", Mapped, false
@@ -368,7 +375,7 @@ func (a *activity) absentArguments(args []*sysmlv1.Element, callee *sysmlv1.Elem
 				if a.valueless(args[i]) != nil {
 					holds = " receives none: "
 				}
-				notes = append(notes, "the pin "+describe(args[i])+" it passes"+of+holds+why)
+				notes = append(notes, thePin+describe(args[i])+" it passes"+of+holds+why)
 			}
 		}
 		i++
@@ -398,7 +405,7 @@ func (a *activity) unargued(sig, attr *sysmlv1.Element) string {
 // dryArgument says why a send is a placeholder: the pin it passes for a required
 // signal attribute is fed by flows no value travels.
 func (a *activity) dryArgument(pin, sig, attr, dry *sysmlv1.Element) string {
-	return "the pin " + describe(pin) + " it passes for the attribute " + a.m.nameFor(attr) + " of " + qualifiedName(sig) + ", which must hold a value, receives none: " + describe(dry) + ", which feeds it, produces no value; v1 sends the signal without it, which v2 does not admit, so the action carries the token and performs nothing"
+	return thePin + describe(pin) + " it passes for the attribute " + a.m.nameFor(attr) + " of " + qualifiedName(sig) + ", which must hold a value, receives none: " + describe(dry) + ", which feeds it, produces no value; v1 sends the signal without it, which v2 does not admit, so the action carries the token and performs nothing"
 }
 
 // misfit returns the types of an argument pin and of the signal attribute it stands
@@ -414,7 +421,7 @@ func (a *activity) misfit(pin, attr *sysmlv1.Element) (pt, at *sysmlv1.Element) 
 // misfitArgument says why a send is a placeholder: the pin it passes for a
 // required signal attribute holds a type the attribute cannot take.
 func (a *activity) misfitArgument(pin, sig, attr, pt, at *sysmlv1.Element) string {
-	return "the pin " + describe(pin) + " it passes for the attribute " + a.m.nameFor(attr) + " of " + qualifiedName(sig) + ", which must hold a value, is a " + qualifiedName(pt) + ", which " + a.m.nameFor(attr) + " : " + qualifiedName(at) + " cannot take; v1 sends the signal without it, which v2 does not admit, so the action carries the token and performs nothing"
+	return thePin + describe(pin) + " it passes for the attribute " + a.m.nameFor(attr) + " of " + qualifiedName(sig) + ", which must hold a value, is a " + qualifiedName(pt) + ", which " + a.m.nameFor(attr) + " : " + qualifiedName(at) + " cannot take; v1 sends the signal without it, which v2 does not admit, so the action carries the token and performs nothing"
 }
 
 // uncontexted says why a call is a placeholder: the caller holds no object the

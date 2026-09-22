@@ -347,18 +347,21 @@ var libraryForms = map[string]struct {
 	"IntegerFunctions::le":                {2, "(%s <= %s)"},
 	"IntegerFunctions::gt":                {2, "(%s > %s)"},
 	"IntegerFunctions::ge":                {2, "(%s >= %s)"},
-	"IntegerFunctions::ToString":          {1, "ToString(%s)"},
-	"UnlimitedNaturalFunctions::ToString": {1, "ToString(%s)"},
+	"IntegerFunctions::ToString":          {1, toStringFormat},
+	"UnlimitedNaturalFunctions::ToString": {1, toStringFormat},
 	"BooleanFunctions::Not":               {1, "(not %s)"},
 	"BooleanFunctions::And":               {2, "(%s and %s)"},
 	"BooleanFunctions::Or":                {2, "(%s or %s)"},
 	"BooleanFunctions::Xor":               {2, "(%s xor %s)"},
-	"BooleanFunctions::ToString":          {1, "ToString(%s)"},
+	"BooleanFunctions::ToString":          {1, toStringFormat},
 	"StringFunctions::Concat":             {2, "(%s + %s)"},
 }
 
 // formatParameterValue is the suite's Util::Tracing::formatParameterValue.
 const formatParameterValueQualified = "Util::Tracing::formatParameterValue"
+
+// toStringFormat is the fUML ToString function's call template.
+const toStringFormat = "ToString(%s)"
 
 // apply spells an application: an owned behavior is inlined, a library one is
 // its expression, and formatParameterValue brackets as the suite's library does.

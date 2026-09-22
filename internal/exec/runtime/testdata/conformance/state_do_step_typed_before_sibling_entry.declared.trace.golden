@@ -1,0 +1,27 @@
+exit: idle
+enter: work
+choice entering work: next l1(entry), r1(entry) (unordered; took l1(entry) first)
+enter: l1
+enter: r1 (entry action)
+stmt action body
+  stmt assign count
+      eval feature count -> 0
+      eval literal 100 -> 100
+    eval operator + -> 100
+transition: idle -> work (event: accept Go)
+do: l1
+stmt action body
+  stmt node job
+    eval feature count -> 100
+step 1: token 1@a
+    stmt assign n
+        eval feature n -> 100
+        eval literal 1 -> 1
+      eval operator + -> 101
+step 2: token 1@b
+    stmt assign n
+        eval feature n -> 101
+        eval literal 10 -> 10
+      eval operator + -> 111
+step 3: token 1@done
+step 4: no active tokens

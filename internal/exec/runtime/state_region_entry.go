@@ -85,13 +85,7 @@ func (e *StateExecutor) enterForkBranches(fork *ast.PseudostateNode, plan *lower
 			return e.enterRegion(entry)
 		})
 	}
-	if err := e.drawUnits(ChoiceEntryOrder, forkWherePrefix+fork.Name, bodies); err != nil {
-		return err
-	}
-	for i := len(above.chain) - 1; i >= 0; i-- {
-		e.startDoAction(above.chain[i])
-	}
-	return nil
+	return e.drawUnits(ChoiceEntryOrder, forkWherePrefix+fork.Name, bodies)
 }
 
 // enterShared enters the rest of the way down the fork's branches share, each
@@ -168,7 +162,7 @@ func (e *StateExecutor) startHead(body ast.Node, above *ast.StateNode) unitHead 
 			}
 		}
 	}
-	return unitHead{label: "start of " + e.describeBody(body), at: body}
+	return unitHead{label: "start of " + e.describeBody(body), at: body, site: e.bodySite(body)}
 }
 
 // regionStart is the state a region starts in: the target it was given, the
@@ -190,15 +184,15 @@ func (e *StateExecutor) regionStart(w *regionEntry) (*ast.StateNode, error) {
 	return entry, nil
 }
 
-// enterLazily enters the way down as far as the first upto states of the chain.
-// A state on the way is activated without its do behavior; the region the chain passes
-// through is left to the states below, its other regions start as usual (drawn on a front).
+// enterLazily enters the way down as far as the first upto states of the chain, each do
+// behavior begun at its state's entry; the regions off the chain start as usual, on a front.
 func (e *StateExecutor) enterLazily(l *lazyEntry, upto int) error {
 	for ; l.next < upto; l.next++ {
 		state := l.chain[l.next]
 		if err := e.activateState(state); err != nil {
 			return fmt.Errorf("enter state %s: %w", state.Name, err)
 		}
+		e.startDoAction(state)
 		if state == l.owner {
 			continue
 		}

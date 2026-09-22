@@ -299,11 +299,13 @@ func (q *exploreQueue) fold() {
 			q.result.Outcomes = append(q.result.Outcomes, ExploredOutcome{
 				Outcome:        p.outcome,
 				Linearizations: 1,
+				Probability:    p.replay.probability(),
 				Witness:        p.replay.choices(),
 				WitnessRun:     q.frontier,
 			})
 		} else if !p.replay.duplicate {
 			q.result.Outcomes[i].Linearizations++
+			q.result.Outcomes[i].Probability += p.replay.probability()
 		}
 		p.release()
 	}

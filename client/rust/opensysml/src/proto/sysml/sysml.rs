@@ -477,6 +477,10 @@ pub struct Outcome {
     /// one run.
     #[prost(message, repeated, tag="7")]
     pub diagnostics: ::prost::alloc::vec::Vec<Diagnostic>,
+    /// The probability of the linearizations reaching this outcome, as explore
+    /// computes it; a lower bound when the exploration is incomplete.
+    #[prost(double, tag="8")]
+    pub probability: f64,
 }
 /// ExplorationStatus is how an exploration ended: whether every linearization
 /// within the budget was run, and which budget stopped it when not.
@@ -497,6 +501,10 @@ pub struct ExplorationStatus {
     pub runs_budget: i32,
     #[prost(int32, tag="5")]
     pub depth_budget: i32,
+    /// True when the outcomes' probabilities are lower bounds: a budget kept some
+    /// linearizations unexplored.
+    #[prost(bool, tag="6")]
+    pub probabilities_lower_bound: bool,
 }
 /// ListEnginesRequest asks for the analysis engines registered in this build.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
