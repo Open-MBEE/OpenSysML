@@ -94,6 +94,9 @@ func FromModel(name string, model *sysmlv1.Model) *Result {
 		usageOf:      map[*sysmlv1.Element]string{},
 		pins:         map[*sysmlv1.Element]pinDecl{},
 		opaque:       map[*sysmlv1.Element]*opaqueResult{},
+		viewOf:       map[*sysmlv1.Diagram]*view{},
+		hosted:       map[*sysmlv1.Element][]*view{},
+		buried:       map[*sysmlv1.Element]bool{},
 	}
 	m.prepare()
 	for _, root := range model.Roots {
@@ -101,6 +104,7 @@ func FromModel(name string, model *sysmlv1.Model) *Result {
 	}
 	m.flushFlows()
 	m.unwrittenEvents()
+	m.diagrams()
 	m.extensions()
 	return &Result{Notation: []byte(m.w.String()), Report: m.report, Results: m.results}
 }
@@ -162,6 +166,11 @@ type migration struct {
 	// extras are members other elements contribute to a body: a Satisfy is
 	// written inside the block that satisfies.
 	extras map[*sysmlv1.Element][]func()
+	// viewOf plans each diagram's view; hosted lists the views each body opens with.
+	viewOf map[*sysmlv1.Diagram]*view
+	hosted map[*sysmlv1.Element][]*view
+	// buried memoizes isBuried: whether an ancestor left out of the document takes e with it.
+	buried map[*sysmlv1.Element]bool
 	// flows lists the item flows each connector realizes.
 	flows map[*sysmlv1.Element][]*sysmlv1.Element
 	// outcomes accumulates each item flow's result over its realizing connectors.
@@ -431,6 +440,7 @@ func (m *migration) prepare() {
 		m.prepareLanes(act)
 	}
 	m.admitAbsent(laned)
+	m.planViews()
 }
 
 // exposeReached exposes the features a connector's ends or an instance's slots
@@ -584,7 +594,7 @@ func (m *migration) body(e *sysmlv1.Element) {
 }
 
 // members writes the owned members of e, the current scope, then what other
-// elements contribute to its body.
+// elements contribute to its body, then the views of its diagrams.
 func (m *migration) members(e *sysmlv1.Element) {
 	for _, c := range e.Children {
 		m.member(c)
@@ -592,6 +602,7 @@ func (m *migration) members(e *sysmlv1.Element) {
 	for _, extra := range m.extras[e] {
 		extra()
 	}
+	m.views(e)
 }
 
 // member writes one owned element of the current scope.
@@ -673,7 +684,7 @@ func (m *migration) classifier(e *sysmlv1.Element) {
 		return
 	}
 	name := m.nameOf(e)
-	if name == "" {
+	if e.Name == "" {
 		if cat == catConnectionDef {
 			m.association(e)
 			return
@@ -918,6 +929,7 @@ func (m *migration) requirementBody(e *sysmlv1.Element) {
 	for _, extra := range m.extras[e] {
 		extra()
 	}
+	m.views(e)
 	m.stereotypeComments(e)
 	m.scope = saved
 }
@@ -973,6 +985,7 @@ func (m *migration) constraintBody(e *sysmlv1.Element) {
 	for _, extra := range m.extras[e] {
 		extra()
 	}
+	m.views(e)
 	m.stereotypeComments(e)
 	switch {
 	case f.rule == nil:
@@ -1022,6 +1035,7 @@ func (m *migration) individualBody(e *sysmlv1.Element) {
 	for _, extra := range m.extras[e] {
 		extra()
 	}
+	m.views(e)
 	m.stereotypeComments(e)
 	m.scope = saved
 }
@@ -1261,6 +1275,7 @@ func (m *migration) verificationBody(e *sysmlv1.Element) {
 			s.write()
 		}
 	}
+	m.views(e)
 	m.stereotypeComments(e)
 	m.scope = saved
 }
@@ -1293,7 +1308,7 @@ func ownsEveryEnd(e *sysmlv1.Element, ends []*sysmlv1.Element) bool {
 // is already written as that property, so it writes nothing.
 func (m *migration) association(e *sysmlv1.Element) {
 	ends := m.model.Refs(e, "memberEnd")
-	name := m.nameOf(e)
+	name := e.Name
 	if name == "" {
 		missing := m.dangling(e, "memberEnd")
 		if e.Type == "Association" && !ownsEveryEnd(e, ends) {
@@ -1323,6 +1338,7 @@ func (m *migration) association(e *sysmlv1.Element) {
 		for _, extra := range m.extras[e] {
 			extra()
 		}
+		m.views(e)
 		m.stereotypeComments(e)
 		m.scope = saved
 	})
@@ -1490,7 +1506,7 @@ func (m *migration) feature(p *sysmlv1.Element) {
 	b.WriteString(prefix)
 	b.WriteString(kw)
 	name := m.nameOf(p)
-	if name == "" && typ == "" {
+	if p.Name == "" && typ == "" {
 		// A usage needs a name or a type; an anonymous one with no written type gets a name.
 		name = m.nameFor(p)
 		note = joinNotes(note, "the anonymous property is named "+name+" as it has no v2 type")
@@ -1765,6 +1781,12 @@ func (m *migration) written(e *sysmlv1.Element) bool {
 	if e.Parent == nil && e.Type == "Model" {
 		return false
 	}
+	if p := e.Parent; p != nil && isBehavior(p) && !behaviorWritesMember(p, e) {
+		return false
+	}
+	if m.isBuried(e) {
+		return false
+	}
 	switch e.Type {
 	case "Property", "Port", "EnumerationLiteral":
 		return m.written(e.Parent)
@@ -1775,7 +1797,8 @@ func (m *migration) written(e *sysmlv1.Element) bool {
 		}
 		return m.written(p) || inlinedBehavior(p) && hasActionForm(p)
 	case "Association":
-		return e.Name != ""
+		// An anonymous association is a connection def only when it owns every end.
+		return e.Name != "" || ownsEveryEnd(e, m.model.Refs(e, "memberEnd"))
 	}
 	if op := m.methodOf[e]; op != nil {
 		return m.written(op)
@@ -1785,6 +1808,38 @@ func (m *migration) written(e *sysmlv1.Element) bool {
 	}
 	cat, _ := m.classify(e)
 	return cat.keyword() != ""
+}
+
+// isBuried reports whether a package or classifier above e is left out of the
+// document, so nothing under it is written either.
+func (m *migration) isBuried(e *sysmlv1.Element) bool {
+	p := e.Parent
+	if p == nil || isTopLevel(p) {
+		return false
+	}
+	if b, ok := m.buried[e]; ok {
+		return b
+	}
+	b := m.isBuried(p)
+	if !b && declaresNamespace(p) {
+		cat, _ := m.classify(p)
+		b = cat == catLibrary || cat == catUnmapped
+	}
+	m.buried[e] = b
+	return b
+}
+
+// declaresNamespace reports whether e is a package or classifier whose
+// classification decides if its members reach the document.
+func declaresNamespace(e *sysmlv1.Element) bool {
+	switch e.Type {
+	case "Model", "Package", "Profile", "Class", "Component", "Actor", "AssociationClass",
+		"Association", "DataType", "PrimitiveType", "Enumeration", "Signal", "Interface",
+		"InstanceSpecification", "Operation", "UseCase", "Collaboration", "Node", "Device",
+		"ExecutionEnvironment", "Artifact":
+		return true
+	}
+	return isBehavior(e)
 }
 
 // inlinedBehavior reports whether e is a behavior a state or transition owns, written

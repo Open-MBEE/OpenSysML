@@ -64,19 +64,44 @@ func isBehavior(e *sysmlv1.Element) bool {
 	return false
 }
 
+// behaviorWritesMember reports whether the body of behavior b declares its member c:
+// activities and state machines write nested members, the other behaviors only parameters.
+func behaviorWritesMember(b, c *sysmlv1.Element) bool {
+	switch c.Role {
+	case "ownedBehavior", "nestedClassifier", "ownedAttribute":
+		return b.Type == "Activity" || b.Type == "StateMachine"
+	case "ownedOperation", "ownedPort":
+		return b.Type == "StateMachine"
+	}
+	return true
+}
+
+// unwrittenMembers reports the members of behavior b that its body has no place for.
+func (m *migration) unwrittenMembers(b *sysmlv1.Element) {
+	for _, c := range b.Children {
+		if !behaviorWritesMember(b, c) {
+			m.unmapped(c, "owned by a "+b.Type+", whose v2 body is its parameters and code, not a place for members")
+		}
+	}
+}
+
 // behaviorBody writes the body of a behavior or operation declaration.
 func (m *migration) behaviorBody(e *sysmlv1.Element, cat category) {
 	saved := m.scope
 	m.scope = e
 	m.comments(e)
+	// Views open the body: a calc def's must end in its result expression.
+	m.views(e)
 	switch {
 	case e.Type == "Operation":
 		m.operationBody(e)
 	case cat == catStateDef:
 		m.stateMachineBody(e)
 	case cat == catCalcDef:
+		m.unwrittenMembers(e)
 		m.calcBody(e)
 	case e.Type == "Interaction":
+		m.unwrittenMembers(e)
 		m.parameters(e, e)
 		m.interactionBody(e)
 	case e.Type == "Activity":
@@ -84,6 +109,7 @@ func (m *migration) behaviorBody(e *sysmlv1.Element, cat category) {
 		m.contextParameter(e)
 		m.activityBody(e, e)
 	default:
+		m.unwrittenMembers(e)
 		m.parameters(e, e)
 		m.opaqueBehaviorBody(e, e)
 	}
