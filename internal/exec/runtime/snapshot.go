@@ -655,11 +655,13 @@ type stateCapture struct {
 	pendingCall   *pendingCall
 }
 
-// doActionCapture is one do action's progress: the behaviors it has still to run
-// and the one paused under way, by identity, with its paused work by value.
+// doActionCapture is one do action's progress: the behaviors it has still to run,
+// the firing that entered its state, and the one paused under way, by identity,
+// with its paused work by value.
 type doActionCapture struct {
 	act     *doAction
 	pending []lower.StateBehavior
+	firing  *firing
 	run     *doRun
 	body    *bodyCapture
 }
@@ -710,7 +712,7 @@ func (e *StateExecutor) capture() stateCapture {
 		c.history[node] = historyRecord{child: record.child, regions: maps.Clone(record.regions)}
 	}
 	for _, act := range e.doActions {
-		c.doActions = append(c.doActions, doActionCapture{act: act, pending: slices.Clone(act.pending), run: act.run})
+		c.doActions = append(c.doActions, doActionCapture{act: act, pending: slices.Clone(act.pending), firing: act.firing.snapshot(), run: act.run})
 	}
 	return c
 }
@@ -740,7 +742,7 @@ func (c stateCapture) restore() {
 	e.deferred, e.lastDispatch, e.lastEventAt = slices.Clone(c.deferred), cloneDispatch(c.lastDispatch), c.lastEventAt
 	e.doActions = e.doActions[:0]
 	for _, act := range c.doActions {
-		act.act.pending, act.act.run = slices.Clone(act.pending), act.run
+		act.act.pending, act.act.firing, act.act.run = slices.Clone(act.pending), act.firing.snapshot(), act.run
 		e.doActions = append(e.doActions, act.act)
 		if act.body != nil {
 			act.body.restore()
@@ -777,6 +779,7 @@ func cloneHeldEntries(entries []heldEntry) []heldEntry {
 			chain:    slices.Clone(entry.chain),
 			scopes:   slices.Clone(entry.scopes),
 			machine:  entry.machine,
+			firing:   entry.firing.snapshot(),
 		}
 	}
 	return cloned

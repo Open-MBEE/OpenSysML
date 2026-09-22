@@ -22,8 +22,9 @@ import (
 
 // The note prefixes the configuration findings repeat.
 const (
-	simConfig  = "«SimulationConfig» "
-	targetNote = "the execution target "
+	simConfig          = "«SimulationConfig» "
+	targetNote         = "the execution target "
+	classifierBehavior = "the classifier behavior of "
 )
 
 // simulationConfig returns e's «SimulationConfig» application, or nil.
@@ -405,18 +406,18 @@ func (m *migration) configurationTarget(s *sysmlv1.Stereotype) executionTarget {
 	if b == nil {
 		b = m.model.Ref(behavior, "classifierBehavior")
 		_, why := m.classify(b)
-		target.notes = []string{joinNotes("the classifier behavior of "+qualifiedName(behavior)+", "+describe(b)+", is not migrated, so no action is performed; the configuration only holds "+describe(t), why)}
+		target.notes = []string{joinNotes(classifierBehavior+qualifiedName(behavior)+", "+describe(b)+", is not migrated, so no action is performed; the configuration only holds "+describe(t), why)}
 		return target
 	}
 	switch bcat {
 	case catActionDef:
 		target.usage = usage
 	case catStateDef:
-		target.notes = []string{"the classifier behavior of " + qualifiedName(behavior) + " is a state machine, which a run performs as no action; the configuration only holds " + describe(t)}
+		target.notes = []string{classifierBehavior + qualifiedName(behavior) + " is a state machine, which a run performs as no action; the configuration only holds " + describe(t)}
 	case catVerificationDef:
 		target.testCase, target.subject, target.notes = m.targetTestCase(t, classifiers, b)
 	default:
-		target.notes = []string{"the classifier behavior of " + qualifiedName(behavior) + " is written as a " + bcat.keyword() + ", not an action def, so no action is performed"}
+		target.notes = []string{classifierBehavior + qualifiedName(behavior) + " is written as a " + bcat.keyword() + ", not an action def, so no action is performed"}
 	}
 	return target
 }
@@ -427,19 +428,19 @@ func (m *migration) configurationTarget(s *sysmlv1.Stereotype) executionTarget {
 // is written and the subject's block is one the target is typed by.
 func (m *migration) targetTestCase(t *sysmlv1.Element, classifiers []*sysmlv1.Element, b *sysmlv1.Element) (testCase *sysmlv1.Element, subject string, notes []string) {
 	if b.Type != "Interaction" {
-		return nil, "", []string{"the classifier behavior of " + qualifiedName(b.Parent) + " is a test case with no scenario to perform, so no action is performed; the configuration only holds " + describe(t)}
+		return nil, "", []string{classifierBehavior + qualifiedName(b.Parent) + " is a test case with no scenario to perform, so no action is performed; the configuration only holds " + describe(t)}
 	}
 	subject = m.subjectName(b)
 	s, note := m.scenario(b, subject)
 	if note != "" {
-		return nil, "", []string{"the classifier behavior of " + qualifiedName(b.Parent) + " is a test case whose scenario is not migrated, so no action is performed; the configuration only holds " + describe(t) + ": " + note}
+		return nil, "", []string{classifierBehavior + qualifiedName(b.Parent) + " is a test case whose scenario is not migrated, so no action is performed; the configuration only holds " + describe(t) + ": " + note}
 	}
 	for _, c := range classifiers {
 		if c == s.context || m.inherits(c, s.context) {
 			return b, subject, nil
 		}
 	}
-	return nil, "", []string{"the classifier behavior of " + qualifiedName(b.Parent) + " is a test case whose subject is " + describe(s.context) + ", which " + describe(t) + " is not typed by, so no action is performed; the configuration only holds " + describe(t)}
+	return nil, "", []string{classifierBehavior + qualifiedName(b.Parent) + " is a test case whose subject is " + describe(s.context) + ", which " + describe(t) + " is not typed by, so no action is performed; the configuration only holds " + describe(t)}
 }
 
 // constraintNetwork lists the constraint properties a target holds, through its

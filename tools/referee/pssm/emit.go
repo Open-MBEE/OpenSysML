@@ -43,7 +43,7 @@ func Emit(s *Suite, t *Test) (*Model, error) {
 	if t.Machine == nil {
 		return nil, &TranslateError{Test: t.ID, Reason: "no state machine"}
 	}
-	e := &emitter{suite: s, test: t, names: map[*Vertex]string{}, signals: map[string]bool{}}
+	e := &emitter{suite: s, test: t, names: map[*Vertex]string{}, taken: map[string]bool{}, signals: map[string]bool{}}
 	e.nameVertices(t.Machine.Regions)
 	var body strings.Builder
 	if err := e.machine(&body); err != nil {
@@ -62,6 +62,9 @@ func Emit(s *Suite, t *Test) (*Model, error) {
 	fmt.Fprintf(&text, "package %s {\n", t.ID)
 	text.WriteString("    private import ScalarValues::*;\n")
 	text.WriteString("    private import BaseFunctions::*;\n")
+	if e.sequences {
+		text.WriteString("    private import SequenceFunctions::*;\n")
+	}
 	for _, name := range sortedKeys(e.signals) {
 		sig := s.Signals[name]
 		switch {
@@ -95,12 +98,19 @@ const machineName = "M"
 type emitter struct {
 	suite *Suite
 	test  *Test
-	// names are the emitted names of the machine's vertices, unique per machine.
+	// names are the emitted names of the machine's vertices, unique per machine;
+	// taken holds every emitted name, so a transition's collides with none.
 	names map[*Vertex]string
+	taken map[string]bool
 	// signals are the signals the model references, to be declared.
 	signals map[string]bool
-	// placed are transitions emitted in a scope other than their own region's.
-	placed map[*Region][]*Transition
+	// placed are transitions emitted in a scope other than their own region's;
+	// scopeOf is the region each transition is emitted in.
+	placed  map[*Region][]*Transition
+	scopeOf map[*Transition]*Region
+	// named are the emitted names of the transitions declared by name, for an
+	// exit to read their payload; unique per machine, so none shadows another.
+	named map[*Transition]string
 	// carried maps a triggered transition to the attribute its scalar payload is
 	// stored in, for a guard on a pseudostate downstream that reads it.
 	carried map[*Transition]string
@@ -118,6 +128,10 @@ type emitter struct {
 	scope       map[string]string
 	scopeTypes  map[string]string
 	scopeWrites map[string]string
+	// scopeEmpty names the inputs the firing may have left empty.
+	scopeEmpty map[string]bool
+	// sequences marks a model reading SequenceFunctions, to be imported.
+	sequences bool
 }
 
 func (e *emitter) fail(where, reason string) error {
@@ -128,7 +142,6 @@ func (e *emitter) fail(where, reason string) error {
 // suffixing a name two vertices share so each is one endpoint. An initial
 // pseudostate is named for the helper state startTarget may declare for it.
 func (e *emitter) nameVertices(regions []*Region) {
-	taken := map[string]bool{}
 	var visit func([]*Region)
 	visit = func(regions []*Region) {
 		for _, r := range regions {
@@ -140,17 +153,22 @@ func (e *emitter) nameVertices(regions []*Region) {
 				if v.Kind == VertexInitial {
 					base += "_start"
 				}
-				name := base
-				for n := 2; taken[name]; n++ {
-					name = fmt.Sprintf("%s_%d", base, n)
-				}
-				taken[name] = true
-				e.names[v] = name
+				e.names[v] = e.take(base)
 				visit(v.Regions)
 			}
 		}
 	}
 	visit(regions)
+}
+
+// take claims base as an emitted name, suffixed while an earlier name has it.
+func (e *emitter) take(base string) string {
+	name := base
+	for n := 2; e.taken[name]; n++ {
+		name = fmt.Sprintf("%s_%d", base, n)
+	}
+	e.taken[name] = true
+	return name
 }
 
 // identifier turns a vertex path such as "S1.S1.1" into a bare identifier,
@@ -183,11 +201,13 @@ func spell(name string) string {
 func (e *emitter) machine(b *strings.Builder) error {
 	m := e.test.Machine
 	e.placed = map[*Region][]*Transition{}
+	e.scopeOf = map[*Transition]*Region{}
 	if err := e.placeTransitions(m.Regions); err != nil {
 		return err
 	}
 	e.carryPayloads(m.Regions)
 	e.bindings = BindBehaviors(m)
+	e.nameExitTriggers()
 	e.defNames = map[*Behavior]string{}
 	if err := e.carryEventData(); err != nil {
 		return err
@@ -389,6 +409,7 @@ func (e *emitter) placeTransitions(regions []*Region) error {
 					scope = t.Target.Region
 				}
 				e.placed[scope] = append(e.placed[scope], t)
+				e.scopeOf[t] = scope
 			}
 			for _, v := range r.Vertices {
 				if err := visit(v.Regions); err != nil {
@@ -436,10 +457,8 @@ func (e *emitter) stateBody(b *strings.Builder, depth int, name, path string, st
 			return err
 		}
 	}
-	if len(parts.exit) > 0 {
-		fmt.Fprintf(b, "%sexit action {\n", inner)
-		writeStmts(b, inner+"    ", parts.exit)
-		fmt.Fprintf(b, "%s}\n", inner)
+	if parts.exit != "" {
+		fmt.Fprintf(b, "%sexit action%s\n", inner, parts.exit)
 	}
 	if err := e.writeDeferred(b, inner, parts.deferred, where); err != nil {
 		return err
@@ -473,6 +492,9 @@ func (e *emitter) startEntry(b *strings.Builder, inner string, region *Region, w
 // initialSuffix names the entry action a state's or region's path is suffixed with.
 const initialSuffix = ".initial"
 
+// entryLabel qualifies a `where` or path with the state's entry behavior.
+const entryLabel = " entry"
+
 // effectOf locates a transition's effect for a diagnostic.
 func effectOf(tr *Transition) string {
 	return tr.Describe() + " effect"
@@ -484,10 +506,10 @@ func regionWhere(name string) string {
 }
 
 // stateParts is what a state's own declaration contributes to its body: the
-// entry action's text after `action` ("" for none) and the exit's statements.
+// entry and exit actions' text after `action` ("" for none).
 type stateParts struct {
 	entry    string
-	exit     []string
+	exit     string
 	deferred []*Trigger
 }
 
@@ -500,29 +522,36 @@ func (e *emitter) stateParts(state *Vertex, ind, where string) (stateParts, erro
 	}
 	var err error
 	if hasParams(state.Entry) {
-		if parts.entry, err = e.boundEntry(state.Entry, ind, where+" entry", state.Path()+" entry"); err != nil {
-			return parts, err
-		}
+		parts.entry, err = e.boundEntry(state.Entry, ind, where+entryLabel, state.Path()+entryLabel)
 	} else {
-		stmts, err := e.plainBody(state.Entry, where+" entry")
-		if err != nil {
-			return parts, err
-		}
-		if len(stmts) > 0 {
-			var b strings.Builder
-			b.WriteString(" {\n")
-			writeStmts(&b, ind+"    ", stmts)
-			parts.entry = b.String() + ind + "}"
-		}
+		parts.entry, err = e.plainAction(state.Entry, ind, where+entryLabel)
 	}
-	if _, err := e.binding(state.Exit, where+" exit"); err != nil {
+	if err != nil {
 		return parts, err
 	}
-	if parts.exit, err = e.plainBody(state.Exit, where+" exit"); err != nil {
+	if hasParams(state.Exit) {
+		parts.exit, err = e.boundExit(state, ind, where+" exit", state.Path()+" exit")
+	} else {
+		parts.exit, err = e.plainAction(state.Exit, ind, where+" exit")
+	}
+	if err != nil {
 		return parts, err
 	}
 	parts.deferred = state.Deferred
 	return parts, nil
+}
+
+// plainAction spells a behavior without parameters as the text after `action`:
+// its statements in a block, "" when it has none.
+func (e *emitter) plainAction(bh *Behavior, ind, where string) (string, error) {
+	stmts, err := e.plainBody(bh, where)
+	if err != nil || len(stmts) == 0 {
+		return "", err
+	}
+	var b strings.Builder
+	b.WriteString(" {\n")
+	writeStmts(&b, ind+"    ", stmts)
+	return b.String() + ind + "}", nil
 }
 
 // writeEntry emits a state's entry: bare `entry; then`, or an entry action
@@ -760,7 +789,11 @@ func (e *emitter) transition(b *strings.Builder, ind string, t *Transition) erro
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(b, "%stransition first %s%s%s", ind, spell(source), accept, guard)
+		name := ""
+		if named := e.named[t]; named != "" {
+			name = spell(named) + " "
+		}
+		fmt.Fprintf(b, "%stransition %sfirst %s%s%s", ind, name, spell(source), accept, guard)
 		if len(effect) > 0 {
 			b.WriteString(" do {\n")
 			writeStmts(b, ind+"    ", effect)
@@ -986,11 +1019,39 @@ func (e *emitter) steps(body *Body, where string, depth int) ([]step, error) {
 	}
 	var out stepList
 	for _, st := range body.Statements {
-		if err := e.stmt(&out, st, where, depth); err != nil {
+		guards := e.guards(st)
+		if len(guards) == 0 {
+			if err := e.stmt(&out, st, where, depth); err != nil {
+				return nil, err
+			}
+			continue
+		}
+		if err := e.guarded(&out, st, guards, where, depth); err != nil {
 			return nil, err
 		}
 	}
 	return out, nil
+}
+
+// guarded translates a statement whose node fires only when the inputs it needs
+// hold a token, as UML starves it otherwise: `if notEmpty(p) { ... }`.
+func (e *emitter) guarded(out *stepList, st Statement, guards []string, where string, depth int) error {
+	var inner stepList
+	if err := e.stmt(&inner, st, where, depth); err != nil {
+		return err
+	}
+	var stmts []string
+	for _, s := range inner {
+		if s.accept != "" {
+			return e.fail(where, "an accept behind an input a firing may leave empty has no spelling")
+		}
+		stmts = append(stmts, s.stmts...)
+	}
+	if len(stmts) == 0 {
+		return nil
+	}
+	out.add(fmt.Sprintf("if %s { %s }", strings.Join(guards, " and "), strings.Join(stmts, " ")))
+	return nil
 }
 
 // stmt translates one statement into the steps.
@@ -1013,7 +1074,7 @@ func (e *emitter) stmt(out *stepList, st Statement, where string, depth int) err
 }
 
 // stepCall translates a call: a trace appends its segment to the log, any
-// other call inlines the method it names.
+// other call inlines the method it names, its parameters standing for the arguments.
 func (e *emitter) stepCall(out *stepList, st Statement, where string, depth int) error {
 	if st.Name == "trace" && isSelf(st.Receiver) && len(st.Args) == 1 {
 		seg, err := e.expr(out, &st.Args[0], where, depth)
@@ -1023,8 +1084,8 @@ func (e *emitter) stepCall(out *stepList, st Statement, where string, depth int)
 		out.add(fmt.Sprintf(`assign log := if log == "" ? %s else log + "::" + %s;`, seg, seg))
 		return nil
 	}
-	if len(st.Args) > 0 {
-		return e.fail(where, fmt.Sprintf("call %s passes arguments the translation cannot bind", st))
+	if depth > 8 {
+		return e.fail(where, "behaviors call each other too deeply to inline")
 	}
 	method := e.method(st)
 	if method == nil {
@@ -1033,7 +1094,22 @@ func (e *emitter) stepCall(out *stepList, st Statement, where string, depth int)
 	if method.Body == nil {
 		return e.fail(where, fmt.Sprintf("call %s names an opaque behavior", st))
 	}
-	inner, err := e.steps(method.Body, where+" > "+method.Name, depth+1)
+	ins := inputs(method)
+	if len(ins) != len(st.Args) {
+		return e.fail(where, fmt.Sprintf("call %s passes %d arguments to %d parameters", st, len(st.Args), len(ins)))
+	}
+	scope, types := map[string]string{}, map[string]string{}
+	for i, p := range ins {
+		a, err := e.expr(out, &st.Args[i], where, depth)
+		if err != nil {
+			return err
+		}
+		scope[p.Name] = a
+		types[p.Name] = p.Type
+	}
+	inner, err := scoped(e, scope, types, func() ([]step, error) {
+		return e.steps(method.Body, where+" > "+method.Name, depth+1)
+	})
 	if err != nil {
 		return err
 	}
@@ -1106,7 +1182,7 @@ func (e *emitter) method(st Statement) *Behavior {
 		return nil
 	}
 	for _, op := range e.test.Target.Operations {
-		if op.Name == st.Name && len(op.Params) == 0 {
+		if op.ID == st.OperationID && len(op.Inputs()) == len(st.Args) && len(op.Outputs()) == 0 {
 			return op.Method
 		}
 	}

@@ -132,6 +132,10 @@ type StateExecutor struct {
 	// firingEvent is the occurrence the transition being taken reacts to, for the
 	// other segments into a join it fires to bind their own trigger's arguments.
 	firingEvent *Event
+	// firingTrans is the transition being taken, within whose performance the
+	// exits, effect and entries it causes run and read what its trigger bound. It
+	// spans a compound transition: the segments past a pseudostate accept nothing.
+	firingTrans *lower.Transition
 
 	// leftAhead are the states a compound transition under way left before its
 	// choice was resolved; exitingAhead is set while it leaves them. Both live
@@ -146,6 +150,12 @@ type StateExecutor struct {
 	// front is the site under way whose regions' units are drawn one at a time;
 	// it lives within one move, so no snapshot sees it.
 	front *unitFront
+	// began are the do behaviors the move under way started, whose due steps its entry sites
+	// draw against the entries left; path is the draw along an entry path no front orders.
+	began []*doAction
+	path  pathDraw
+	// progress is what the unit under way counts its do steps against, nil between units.
+	progress *dueProgress
 	// held contains entry cascades paused at RTC boundaries.
 	held []heldEntry
 	// entering marks states entered during the current entry unit.
@@ -170,6 +180,9 @@ type StateExecutor struct {
 type doAction struct {
 	state   *ast.StateNode
 	pending []lower.StateBehavior
+	// firing is the transition that entered the state, whose payload the behavior
+	// reads for its whole run (`StatePerformance::incomingTransitionTrigger`).
+	firing *firing
 	// run is the behavior under way, paused between two statements or where its
 	// flow waits on the clock or for a message; nil between behaviors.
 	run *doRun
@@ -535,10 +548,13 @@ func (e *StateExecutor) scheduleCompletionTransitions(state *ast.StateNode) erro
 // completesAtEntry reports whether entering state as the end of an entry path queues
 // its completion at once: it has a completion transition and nothing below to enter.
 func (e *StateExecutor) completesAtEntry(state *ast.StateNode) bool {
-	if _, orthogonal := e.graph.CompositeStates[state]; orthogonal || len(e.graph.StartOf(state)) > 0 {
-		return false
-	}
-	return completionCount(e.graph.Transitions[state]) > 0
+	return !e.hasBody(state) && completionCount(e.graph.Transitions[state]) > 0
+}
+
+// hasBody reports whether state has substates to enter: orthogonal regions or a start.
+func (e *StateExecutor) hasBody(state *ast.StateNode) bool {
+	_, orthogonal := e.graph.CompositeStates[state]
+	return orthogonal || len(e.graph.StartOf(state)) > 0
 }
 
 // scheduleTimeTransitions queues a time event per time-triggered transition out
@@ -1491,13 +1507,19 @@ func lessPath(a, b []int) bool {
 // moves the machine's single active hierarchy. notes are recorded only if it fires;
 // r is the transition's route as resolveRoute settled it.
 func (e *StateExecutor) fireFrom(source *ast.StateNode, trans *lower.Transition, notes []RunNote, r route) (bool, error) {
-	saved := e.firingNotes
-	e.firingNotes = notes
-	defer func() { e.firingNotes = saved }()
+	defer e.taking(trans, notes)()
 	if region := e.activeRegionOf(source); region != nil {
 		return e.fireTransitionInRegion(region, trans, r)
 	}
 	return e.fireTransition(trans, r)
+}
+
+// taking puts the executor in the middle of taking trans, selected with notes,
+// and returns the function putting it back where it was.
+func (e *StateExecutor) taking(trans *lower.Transition, notes []RunNote) func() {
+	savedTrans, savedNotes := e.firingTrans, e.firingNotes
+	e.firingTrans, e.firingNotes = trans, notes
+	return func() { e.firingTrans, e.firingNotes = savedTrans, savedNotes }
 }
 
 // resolveAndFire takes a transition outside a dispatch, a timer come due, resolving
@@ -1510,9 +1532,7 @@ func (e *StateExecutor) resolveAndFire(source *ast.StateNode, trans *lower.Trans
 	if source != nil {
 		return e.fireFrom(source, trans, notes, r)
 	}
-	saved := e.firingNotes
-	e.firingNotes = notes
-	defer func() { e.firingNotes = saved }()
+	defer e.taking(trans, notes)()
 	return e.fireTransition(trans, r)
 }
 
@@ -1895,52 +1915,48 @@ func (e *StateExecutor) transitionLocation(vertex ast.Node, trans *lower.Transit
 // them. It returns the function restoring the machine's data to what it held
 // before, for the caller to run when the transition does not fire.
 func (e *StateExecutor) bindTriggerArguments(trans *lower.Transition, event *Event) (func(), error) {
-	if acceptEvent, ok := trans.Trigger.(*ast.AcceptEvent); ok {
-		return e.bindAcceptPayload(acceptEvent, event)
-	}
-
-	callEvent, ok := trans.Trigger.(*ast.CallEvent)
-	if !ok || len(callEvent.Parameters) == 0 {
+	if len(trans.Accepted) == 0 {
 		return func() { /* nothing was bound */ }, nil
 	}
-	unbind := e.restoreData(callEvent.Parameters)
+	unbind := e.restoreData(trans.Accepted)
+	if _, ok := trans.Trigger.(*ast.AcceptEvent); ok {
+		return unbind, e.bindAcceptPayload(trans.Accepted[0], event)
+	}
+	callEvent, ok := trans.Trigger.(*ast.CallEvent)
+	if !ok {
+		return unbind, fmt.Errorf("trigger binding %s: a %T trigger binds nothing", trans.Accepted[0], trans.Trigger)
+	}
 	call, ok := event.Payload.(Call)
 	if !ok {
 		return unbind, fmt.Errorf("call trigger %s: event carries %T, not an operation invocation",
 			ast.SimpleName(callEvent.Operation), event.Payload)
 	}
-	for _, param := range callEvent.Parameters {
-		value, ok := call.Args[param.Text]
+	for _, param := range trans.Accepted {
+		value, ok := call.Args[param]
 		if !ok {
 			return unbind, fmt.Errorf("call trigger %s: invocation carries no argument %q",
-				call.Operation, param.Text)
+				call.Operation, param)
 		}
-		e.bindData(param.Text, value)
+		e.bindData(param, value)
 	}
 	return unbind, nil
 }
 
 // bindAcceptPayload binds the name an accept gave its payload
 // (`accept msg : Warning`) to the value the accepted occurrence carries, for the
-// transition's guard and effect to read, and returns the function unbinding it.
-func (e *StateExecutor) bindAcceptPayload(acceptEvent *ast.AcceptEvent, event *Event) (func(), error) {
-	if acceptEvent.Payload == nil || acceptEvent.Payload.Ident.Name == "" {
-		return func() { /* nothing was bound */ }, nil
-	}
-	name := ast.NameSegment{Text: acceptEvent.Payload.Ident.Name}
-	unbind := e.restoreData([]ast.NameSegment{name})
+// transition's guard, effect and the behaviors its firing performs to read.
+func (e *StateExecutor) bindAcceptPayload(name string, event *Event) error {
 	msg, ok := event.Payload.(Message)
 	if !ok {
-		return unbind, fmt.Errorf("accept %s: event carries %T, not a message",
-			name.Text, event.Payload)
+		return fmt.Errorf("accept %s: event carries %T, not a message", name, event.Payload)
 	}
 	value, err := e.ctx.acceptedValue(&msg)
 	if err != nil {
-		return unbind, fmt.Errorf("accept %s: %w", name.Text, err)
+		return fmt.Errorf("accept %s: %w", name, err)
 	}
 	event.Payload = msg
-	e.bindData(name.Text, value)
-	return unbind, nil
+	e.bindData(name, value)
+	return nil
 }
 
 // orAnonymousSignal names the signal a message carries for a diagnostic.
@@ -1953,12 +1969,12 @@ func orAnonymousSignal(signalType string) string {
 
 // restoreSharedData snapshots the named entries of the machine's data and returns
 // the function putting them back, deleting the ones that were not there before.
-func (e *StateExecutor) restoreSharedData(names []ast.NameSegment) func() {
+func (e *StateExecutor) restoreSharedData(names []string) func() {
 	saved := make(map[string]Value, len(names))
 	held := make(map[string]bool, len(names))
 	for _, name := range names {
-		value, ok := e.stateData[name.Text]
-		saved[name.Text], held[name.Text] = value, ok
+		value, ok := e.stateData[name]
+		saved[name], held[name] = value, ok
 	}
 	return func() {
 		for name, wasHeld := range held {
@@ -2416,6 +2432,11 @@ func (e *StateExecutor) stateCompleted(state *ast.StateNode) bool {
 		return false
 	}
 	return !e.bodyRunning(state) || e.stateComplete(state)
+}
+
+// bodyAhead reports whether the move entering state has yet to enter its body.
+func (e *StateExecutor) bodyAhead(state *ast.StateNode) bool {
+	return e.entering[state] && e.hasBody(state) && !e.bodyRunning(state)
 }
 
 // bodyRunning reports whether a state nested in state is active.
@@ -2989,6 +3010,7 @@ func (e *StateExecutor) fireJoinIncoming(join *ast.PseudostateNode, plan *lower.
 // arguments its own trigger takes from the occurrence bound; it is recorded as taken.
 func (e *StateExecutor) fireJoinSegment(trans *lower.Transition, plan *lower.JoinPlan) error {
 	source := trans.Source.(*ast.StateNode)
+	defer e.taking(trans, e.firingNotes)()
 	if e.firingEvent != nil && trans.Trigger != nil {
 		unbind, err := e.bindTriggerArguments(trans, e.firingEvent)
 		if err != nil {
@@ -3392,6 +3414,7 @@ func (e *StateExecutor) runOne(progress *dueProgress) (moved bool, err error) {
 // behavior, or the dispatch drawn against it (stepDue); the dispatch alone once no
 // do behavior is due; false when nothing was left.
 func (e *StateExecutor) oneUnit(progress *dueProgress) (moved bool, err error) {
+	defer e.counting(progress)()
 	e.resetEntering()
 	if len(e.held) > 0 {
 		return e.entryStep(progress)
@@ -3409,13 +3432,36 @@ func (e *StateExecutor) oneUnit(progress *dueProgress) (moved bool, err error) {
 // dueDoActions lists the do actions due at the instant, in the order their states
 // were entered — as runDoRound sweeps them.
 func (e *StateExecutor) dueDoActions() []*doAction {
+	return e.dueAmong(e.doActions)
+}
+
+// dueAmong lists those of the do actions still registered and due at the instant.
+func (e *StateExecutor) dueAmong(acts []*doAction) []*doAction {
 	var due []*doAction
-	for _, act := range e.doActions {
-		if act.due(e.ctx) {
+	for _, act := range acts {
+		if act.due(e.ctx) && slices.Contains(e.doActions, act) {
 			due = append(due, act)
 		}
 	}
 	return due
+}
+
+// counting makes progress what the unit under way counts its do steps against.
+func (e *StateExecutor) counting(progress *dueProgress) func() {
+	prior := e.progress
+	e.progress = progress
+	return func() { e.progress = prior }
+}
+
+// countDoStep counts one token move of a do behavior against the run's do-step budget.
+func (e *StateExecutor) countDoStep() error {
+	e.progress.doSteps++
+	if e.progress.doSteps >= e.ctx.maxDoSteps {
+		return budgetExceeded(ErrDoStepLimitExceeded,
+			fmt.Sprintf("state machine exceeded max do action steps (%d steps; raise %s to allow more), possible non-terminating do behavior",
+				e.ctx.maxDoSteps, MaxDoStepsEnvVar))
+	}
+	return nil
 }
 
 // stepDue moves one token of a due do behavior, drawn among the due ones, or — where
@@ -3439,11 +3485,8 @@ func (e *StateExecutor) stepDue(due []*doAction, progress *dueProgress) (bool, e
 	if err := e.stepDoAction(due[next], func(run *doRun) (*doRun, error) { return run.resume(e.ctx) }); err != nil {
 		return false, err
 	}
-	progress.doSteps++
-	if progress.doSteps >= e.ctx.maxDoSteps {
-		return false, budgetExceeded(ErrDoStepLimitExceeded,
-			fmt.Sprintf("state machine exceeded max do action steps (%d steps; raise %s to allow more), possible non-terminating do behavior",
-				e.ctx.maxDoSteps, MaxDoStepsEnvVar))
+	if err := e.countDoStep(); err != nil {
+		return false, err
 	}
 	return true, e.settleDoActions()
 }
@@ -3688,17 +3731,34 @@ func (e *StateExecutor) eventBudgetExceeded(maxStateEvents int64) error {
 }
 
 // startDoAction registers a state's do behavior as running. Re-entering a
-// state restarts its do behavior rather than resuming the abandoned one.
+// state restarts its do behavior rather than resuming the abandoned one; the entry
+// site under way offers the behavior's due steps against the entries left in the move.
 func (e *StateExecutor) startDoAction(state *ast.StateNode) {
 	doBehaviors := e.behaviorsOf(state).Do
 	if len(doBehaviors) == 0 {
 		return
 	}
 	e.stopDoAction(state)
-	e.doActions = append(e.doActions, &doAction{
+	act := &doAction{
 		state:   state,
 		pending: append([]lower.StateBehavior(nil), doBehaviors...),
-	})
+		firing:  e.currentFiring(),
+	}
+	e.doActions = append(e.doActions, act)
+	e.began = append(e.began, act)
+	if e.inFront(ChoiceEntryOrder) {
+		e.front.offer(act)
+	}
+}
+
+// resumeEntering counts the running do behaviors of the states as begun by the move, which
+// goes on entering below them.
+func (e *StateExecutor) resumeEntering(states []*ast.StateNode) {
+	for _, act := range e.doActions {
+		if slices.Contains(states, act.state) && !slices.Contains(e.began, act) {
+			e.began = append(e.began, act)
+		}
+	}
 }
 
 // behaviorsOf returns the lowered entry, do and exit behaviors of a state, and
@@ -3788,7 +3848,7 @@ func (e *StateExecutor) stepDoAction(act *doAction, goOn func(*doRun) (*doRun, e
 	if run == nil {
 		behavior := act.pending[0]
 		act.pending = act.pending[1:]
-		if run = e.newDoRun(behavior); run == nil {
+		if run = e.newDoRun(behavior, act.firing); run == nil {
 			return nil
 		}
 		goOn = func(run *doRun) (*doRun, error) { return run.resume(e.ctx) }
@@ -4001,10 +4061,11 @@ func (e *StateExecutor) settleDoActions() error {
 	}
 	e.doActions = kept
 
-	// A state completes once its do behavior has finished and its body, where
-	// it runs one, has reached `done`; completeIfDone schedules the latter case.
+	// A state completes once its do behavior has finished and its body, where it
+	// runs one, has reached `done`; completeIfDone schedules the latter case, and a
+	// body the move has yet to enter completes nothing.
 	for _, state := range finished {
-		if e.bodyRunning(state) && !e.stateComplete(state) {
+		if e.bodyAhead(state) || (e.bodyRunning(state) && !e.stateComplete(state)) {
 			continue
 		}
 		if err := e.scheduleCompletionTransitions(state); err != nil {
@@ -4489,6 +4550,7 @@ func (e *StateExecutor) initialize() (err error) {
 	defer e.ctx.beginExecutorRun(&e.driven)()
 	defer e.completedWhole(&err)
 	defer e.unfireOnError(len(e.fired), &err)
+	defer e.counting(&dueProgress{})()
 	e.ctx.beginPerformanceLife(e.occurrence, e.ctx.newActivation())
 	e.resetEntering()
 	e.enteringMachine = true
@@ -4735,21 +4797,21 @@ func (e *StateExecutor) enterStateInto(state *ast.StateNode, branches map[*ast.S
 	if err := e.activateState(state); err != nil {
 		return err
 	}
+
+	// The do behavior runs while the state is active, from its entry on: alongside the
+	// entries of its substates and the do behaviors of the states active with it.
+	e.startDoAction(state)
+
 	if regions, isComposite := e.graph.CompositeStates[state]; isComposite {
 		if held, err := e.holdEntry(state, regions, branches); err != nil {
 			return err
 		} else if held {
-			e.startDoAction(state)
 			return nil
 		}
 		if err := e.enterRegionsInto(state, regions, branches); err != nil {
 			return err
 		}
 	}
-
-	// The do behavior runs while the state is active, interleaved with the do
-	// behaviors of the states active alongside it, rather than at entry.
-	e.startDoAction(state)
 
 	// The completion goes into the pool behind those queued by the entries performed
 	// before this one (PSSM §8.5.9); time triggers are scheduled once the move settles.
@@ -4785,6 +4847,7 @@ func (e *StateExecutor) activateState(state *ast.StateNode) error {
 func (e *StateExecutor) resetEntering() {
 	e.entering = make(map[*ast.StateNode]bool)
 	e.enteringMachine = false
+	e.began, e.path = nil, pathDraw{}
 	e.activeAtEntry = make(map[*ast.StateNode]bool)
 	for _, active := range e.activeStates() {
 		for _, state := range e.getParentChain(active) {
@@ -5302,6 +5365,7 @@ func (e *StateExecutor) ProcessNextEvent() (err error) {
 
 	e.lastDispatch = nil
 	var progress dueProgress
+	defer e.counting(&progress)()
 	e.resetEntering()
 	if len(e.held) > 0 {
 		_, err := e.entryStep(&progress)

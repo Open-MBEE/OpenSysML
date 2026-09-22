@@ -155,6 +155,71 @@ func TestHeldImageCarriesAnEntryBoundary(t *testing.T) {
 	}
 }
 
+// A held entry and a pending do action carry the transition that entered them
+// through a portable image: resumed in the copy, the substate's entry and the do
+// behaviors still read the payload the transition accepted.
+func TestHeldImageCarriesTheEnteringFiring(t *testing.T) {
+	const source = `
+		private import ScalarValues::*;
+		attribute def Level { attribute n : Integer; }
+		state def Machine {
+			attribute did : Integer = 0;
+			attribute entered : Integer = 0;
+			attribute innerDid : Integer = 0;
+			entry; then idle;
+			state idle;
+			state work {
+				attribute :>> isRunToCompletion = false;
+				do { in level : Integer = raise.l.n ?? 99; assign did := level; }
+				entry; then inner;
+				state inner {
+					entry action { in level : Integer = raise.l.n ?? 99; assign entered := level; }
+					do { in level : Integer = raise.l.n ?? 99; assign innerDid := level; }
+				}
+			}
+			transition raise first idle accept l : Level then work;
+		}
+		part def Host { exhibit state machine : Machine; }
+	`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "entering-firing.sysml", parseAndBuild(t, source))
+	root := idx.DocumentRoot("entering-firing.sysml")
+	host, err := ctx.Instantiate(resolveSymbol(t, root, "Host"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	dispatchTo(t, root, ctx, host, "Level", map[string]Value{"n": integerValue(7)})
+	machine := lampMachine(t, host)
+	if !machine.HoldsEntry() {
+		t.Fatal("source did not stop at work's entry boundary")
+	}
+	if len(machine.doActions) != 1 || machine.doActions[0].run != nil {
+		t.Fatalf("do actions %v, want work's do behavior pending", machine.doActions)
+	}
+
+	dst := imageInto(t, ctx, host)
+	copied, ok := dst.Instance(host.ID)
+	if !ok {
+		t.Fatalf("destination has no Host #%d", host.ID)
+	}
+	imaged := lampMachine(t, copied)
+	if !imaged.HoldsEntry() {
+		t.Fatal("imaged copy lost its held entry")
+	}
+	for name, exec := range map[string]*StateExecutor{"copy": imaged, "source": machine} {
+		if err := exec.RunToQuiescence(); err != nil {
+			t.Fatalf("RunToQuiescence(%s): %v", name, err)
+		}
+		if got := activeLeaf(exec); got != "inner" {
+			t.Errorf("%s is at %s, want inner", name, got)
+		}
+		for _, attr := range []string{"did", "entered", "innerDid"} {
+			if got := FormatValue(exec.StateData()[attr]); got != "7" {
+				t.Errorf("%s %s = %s, want 7: the entering transition's payload", name, attr, got)
+			}
+		}
+	}
+}
+
 // A state machine that fired a transition is imaged as it stands: the copy is the
 // same object under the same identity in the other context, in the same state,
 // and goes on from there as the original does — while neither sees the other's moves.

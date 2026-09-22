@@ -123,6 +123,7 @@ func opensName(sofar string, rest []rune) bool {
 const (
 	cmdQuery          = "%query"
 	cmdAnalysis       = "%analysis"
+	cmdInvoke         = "%invoke"
 	cmdSweep          = "%sweep"
 	cmdSamples        = "%samples"
 	cmdRuns           = "%runs"
@@ -193,7 +194,7 @@ var metaCommandTable = []metaCommand{
 	{name: "%eval", group: groupRuntime, args: "[in <name>|<path>|#<id> :] <expr>", desc: "evaluate an expression, in the named element or object when one is named"},
 	{name: "%features", group: groupRuntime, args: "<object> [all|depth <n>] [json]", desc: "show an object's feature values and what its behaviors are doing, bounded unless all or a depth is asked for; json writes the object graph as the API does; an object is named, #<id>, or a path such as car.fl or #1.wheels[2]"},
 	{name: "%instances", group: groupRuntime, desc: "list all instantiated objects"},
-	{name: "%invoke", group: groupRuntime, args: "<object> <op> [<expr>... | <p>=<expr>...]", desc: "invoke an operation of an object's type, performed by that object, with arguments by position or by name; an object is named, #<id>, or a path such as car.fl"},
+	{name: cmdInvoke, group: groupRuntime, args: "<object> <op> [<expr>... | <p>=<expr>...]", desc: "invoke an operation of an object's type, performed by that object, with arguments by position or by name; an object is named, #<id>, or a path such as car.fl"},
 
 	{name: "%calc", group: groupBehavioral, args: "<name> <args>", desc: "invoke a calculation with arguments"},
 	{name: cmdAnalysis, group: groupBehavioral, args: "<name>[(<args>)] [<object>]", desc: "run an analysis case and report its outputs and the verdict of its objective; arguments bind its inputs and an object is its subject"},
@@ -596,11 +597,11 @@ func (s *Session) metaDebugCommand(fields []string, line string) (metaResult, bo
 			return metaOut([]string{"usage: %state <name> [<object>]"}, false, nil), true
 		}
 		return metaOut(s.doStateMachine(fields[1], fields[2:])), true
-	case "%invoke":
+	case cmdInvoke:
 		if len(fields) < 3 {
 			return metaOut([]string{"usage: %invoke <object> <operation> [<expression> ... | <parameter>=<expression> ...]"}, false, nil), true
 		}
-		object, operation, args := splitInvokeLine(strings.TrimPrefix(strings.TrimSpace(line), "%invoke"))
+		object, operation, args := splitInvokeLine(strings.TrimPrefix(strings.TrimSpace(line), cmdInvoke))
 		return metaOut(s.doInvoke(object, operation, args)), true
 	case cmdQuery:
 		if len(fields) < 2 {

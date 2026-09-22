@@ -487,139 +487,177 @@ func (d *decoder) resolveExpressions() error {
 			}
 		}
 	}
-	recordValueTarget := func(owner rdf.Term, value rdf.Term) error {
-		key := owner.Value + "\x00" + rdf.SysML + pValue
-		if prior, exists := valueTargets[key]; exists && prior != value.Value {
-			return &UnsupportedError{
-				What: fmt.Sprintf("the feature value of <%s>", owner.Value),
-				Note: "its usage and FeatureValue state different expressions",
-			}
-		}
-		valueTargets[key] = value.Value
-		return nil
-	}
 	for _, triple := range d.graph.Triples() {
-		if ownershipPredicates[triple.Predicate.Value] || d.nodeMembership[triple.Object.Value] {
-			continue
-		}
-		if triple.Predicate.Value == rdf.SysML+pReferences &&
-			d.graph.BoolValue(triple.Subject, rdf.SysML+pIsEnd) {
-			continue
-		}
-		if !d.isExpressionNode(triple.Object) {
-			continue
-		}
-		var featureValueOwner rdf.Term
-		if d.metaclass(triple.Subject) == mFeatureValue &&
-			triple.Predicate.Value == rdf.SysML+pValue {
-			owner, ownerOK := d.graph.Object(triple.Subject, rdf.SysML+pFeatureWithValue)
-			if !ownerOK || d.featureValues[owner.Value] != triple.Subject {
-				continue
-			}
-			featureValueOwner = owner
-			if direct, hasDirect := directValues[owner.Value]; hasDirect {
-				if err := recordValueTarget(owner, triple.Object); err != nil {
-					return err
-				}
-				if direct == triple.Object {
-					continue
-				}
-			}
-		}
-		parents[triple.Object.Value] = append(parents[triple.Object.Value], triple.Subject)
-		el, ok := d.byIRI[triple.Subject.Value]
-		if !ok {
-			if featureValueOwner.Value != "" {
-				el, ok = d.byIRI[featureValueOwner.Value]
-				if !ok {
-					continue
-				}
-			} else {
-				continue
-			}
-		}
-		if d.isResultExpression(el) {
-			// The subject is an expression node; its parts are written with it.
-			continue
-		}
-		if triple.Predicate.Value == rdf.OpenSysML+xRelatedFeature {
-			// A connector end is refused as one before its feature is written.
-			if _, err := d.endNameText(triple.Object, el); err != nil {
-				return err
-			}
-		}
-		text, err := d.expressionOperand(triple.Object, el, positionBinding(strings.TrimPrefix(triple.Predicate.Value, rdf.SysML)))
-		if err != nil {
+		if err := d.resolveExpression(triple, parents, valueTargets, directValues); err != nil {
 			return err
 		}
-		if el.expressions == nil {
-			el.expressions = map[string]string{}
-		}
-		if triple.Predicate.Value == rdf.SysML+pValue {
-			owner := rdf.IRI(el.iri)
-			if featureValueOwner.Value != "" {
-				owner = featureValueOwner
-			}
-			if err := recordValueTarget(owner, triple.Object); err != nil {
-				return err
-			}
-		}
-		el.expressions[triple.Predicate.Value] = text
 	}
 	return d.noteSegments(parents)
+}
+
+// recordValueTarget notes the expression a feature value resolves to for owner;
+// a usage and a FeatureValue stating different expressions is refused.
+func (d *decoder) recordValueTarget(valueTargets map[string]string, owner, value rdf.Term) error {
+	key := owner.Value + "\x00" + rdf.SysML + pValue
+	if prior, exists := valueTargets[key]; exists && prior != value.Value {
+		return &UnsupportedError{
+			What: fmt.Sprintf("the feature value of <%s>", owner.Value),
+			Note: "its usage and FeatureValue state different expressions",
+		}
+	}
+	valueTargets[key] = value.Value
+	return nil
+}
+
+// valueOwner is the feature a FeatureValue triple's value belongs to; skip
+// reports a non-resolving FeatureValue or one its direct value already records.
+func (d *decoder) valueOwner(triple rdf.Triple, valueTargets map[string]string, directValues map[string]rdf.Term) (owner rdf.Term, skip bool, err error) {
+	if d.metaclass(triple.Subject) != mFeatureValue ||
+		triple.Predicate.Value != rdf.SysML+pValue {
+		return rdf.Term{}, false, nil
+	}
+	feature, ownerOK := d.graph.Object(triple.Subject, rdf.SysML+pFeatureWithValue)
+	if !ownerOK || d.featureValues[feature.Value] != triple.Subject {
+		return rdf.Term{}, true, nil
+	}
+	if direct, hasDirect := directValues[feature.Value]; hasDirect {
+		if err := d.recordValueTarget(valueTargets, feature, triple.Object); err != nil {
+			return rdf.Term{}, false, err
+		}
+		if direct == triple.Object {
+			return rdf.Term{}, true, nil
+		}
+	}
+	return feature, false, nil
+}
+
+// resolveExpression renders one triple's expression-valued property as notation
+// on the element it belongs to.
+func (d *decoder) resolveExpression(triple rdf.Triple, parents map[string][]rdf.Term, valueTargets map[string]string, directValues map[string]rdf.Term) error {
+	if ownershipPredicates[triple.Predicate.Value] || d.nodeMembership[triple.Object.Value] {
+		return nil
+	}
+	if triple.Predicate.Value == rdf.SysML+pReferences &&
+		d.graph.BoolValue(triple.Subject, rdf.SysML+pIsEnd) {
+		return nil
+	}
+	if !d.isExpressionNode(triple.Object) {
+		return nil
+	}
+	featureValueOwner, skip, err := d.valueOwner(triple, valueTargets, directValues)
+	if err != nil || skip {
+		return err
+	}
+	parents[triple.Object.Value] = append(parents[triple.Object.Value], triple.Subject)
+	el, ok := d.byIRI[triple.Subject.Value]
+	if !ok {
+		if featureValueOwner.Value != "" {
+			el, ok = d.byIRI[featureValueOwner.Value]
+			if !ok {
+				return nil
+			}
+		} else {
+			return nil
+		}
+	}
+	if d.isResultExpression(el) {
+		// The subject is an expression node; its parts are written with it.
+		return nil
+	}
+	if triple.Predicate.Value == rdf.OpenSysML+xRelatedFeature {
+		// A connector end is refused as one before its feature is written.
+		if _, err := d.endNameText(triple.Object, el); err != nil {
+			return err
+		}
+	}
+	text, err := d.expressionOperand(triple.Object, el, positionBinding(strings.TrimPrefix(triple.Predicate.Value, rdf.SysML)))
+	if err != nil {
+		return err
+	}
+	if el.expressions == nil {
+		el.expressions = map[string]string{}
+	}
+	if triple.Predicate.Value == rdf.SysML+pValue {
+		owner := rdf.IRI(el.iri)
+		if featureValueOwner.Value != "" {
+			owner = featureValueOwner
+		}
+		if err := d.recordValueTarget(valueTargets, owner, triple.Object); err != nil {
+			return err
+		}
+	}
+	el.expressions[triple.Predicate.Value] = text
+	return nil
 }
 
 // noteSegments records in wanted the element every feature chain reaches, kept
 // notation included, so chooseNames checks the segment reads as it there.
 func (d *decoder) noteSegments(parents map[string][]rdf.Term) error {
 	for _, node := range d.graph.Subjects() {
-		segments := d.graph.Objects(node, rdf.SysML+pChainingFeature)
-		if d.metaclass(node) != mFeatureChain && len(segments) == 0 {
-			continue
-		}
-		object, ok := d.graph.Object(node, rdf.SysML+pTargetFeature)
-		owners := d.expressionOwners(node, parents)
-		if len(owners) == 0 && len(segments) > 0 {
-			// Structural end chains walk from chain feature to end to connector.
-			if end, ok := d.graph.Object(node, rdf.SysML+pOwner); ok {
-				if subject, ok := d.graph.Object(end, rdf.SysML+pOwner); ok {
-					if owner, ok := d.byIRI[subject.Value]; ok {
-						owners = []*element{owner}
-					}
-				}
-			}
-		}
-		if len(owners) == 0 {
-			continue
-		}
-		if ok && object.IsIRI() {
-			target, name, err := d.namedMember(object)
-			if err != nil {
-				return err
-			}
-			operand := d.operandElement(node)
-			for _, in := range owners {
-				d.wanted.segments[segmentKey{member: in.qname, operand: operand, name: name, target: target.qname}] = true
-			}
-			continue
-		}
-		operand := ""
-		for _, segment := range segments {
-			if segment.IsLiteral() {
-				operand = ""
-				continue
-			}
-			target, name, err := d.namedMember(segment)
-			if err != nil {
-				return err
-			}
-			for _, in := range owners {
-				d.wanted.segments[segmentKey{member: in.qname, operand: operand, name: name, target: target.qname}] = true
-			}
-			operand = target.qname
+		if err := d.noteSegment(node, parents); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+// noteSegment records every feature chain segment node reaches in wanted.
+func (d *decoder) noteSegment(node rdf.Term, parents map[string][]rdf.Term) error {
+	segments := d.graph.Objects(node, rdf.SysML+pChainingFeature)
+	if d.metaclass(node) != mFeatureChain && len(segments) == 0 {
+		return nil
+	}
+	owners := d.segmentOwners(node, parents, segments)
+	if len(owners) == 0 {
+		return nil
+	}
+	object, ok := d.graph.Object(node, rdf.SysML+pTargetFeature)
+	if ok && object.IsIRI() {
+		target, name, err := d.namedMember(object)
+		if err != nil {
+			return err
+		}
+		d.recordSegment(d.operandElement(node), name, target.qname, owners)
+		return nil
+	}
+	operand := ""
+	for _, segment := range segments {
+		if segment.IsLiteral() {
+			operand = ""
+			continue
+		}
+		target, name, err := d.namedMember(segment)
+		if err != nil {
+			return err
+		}
+		d.recordSegment(operand, name, target.qname, owners)
+		operand = target.qname
+	}
+	return nil
+}
+
+// segmentOwners is the elements a chain is written in: its expression owners,
+// or the connector owning a structural end chain's end.
+func (d *decoder) segmentOwners(node rdf.Term, parents map[string][]rdf.Term, segments []rdf.Term) []*element {
+	owners := d.expressionOwners(node, parents)
+	if len(owners) > 0 || len(segments) == 0 {
+		return owners
+	}
+	if end, ok := d.graph.Object(node, rdf.SysML+pOwner); ok {
+		if subject, ok := d.graph.Object(end, rdf.SysML+pOwner); ok {
+			if owner, ok := d.byIRI[subject.Value]; ok {
+				owners = []*element{owner}
+			}
+		}
+	}
+	return owners
+}
+
+// recordSegment notes one chain segment in each owning element.
+func (d *decoder) recordSegment(operand, name, target string, owners []*element) {
+	for _, in := range owners {
+		d.wanted.segments[segmentKey{member: in.qname, operand: operand, name: name, target: target}] = true
+	}
 }
 
 // realValueText spells a number as a REAL_VALUE token (`3` becomes `3.0`);

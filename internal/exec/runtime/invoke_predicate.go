@@ -145,6 +145,9 @@ func flattenFrames(frames []frame) frame {
 		if f.perf != nil {
 			out.perf = f.perf
 		}
+		if f.firing != nil {
+			out.firing = f.firing
+		}
 		if run := f.running(); run != nil {
 			out.merged = append(out.merged, run)
 		}

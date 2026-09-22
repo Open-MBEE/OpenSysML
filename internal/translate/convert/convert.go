@@ -300,54 +300,39 @@ func convert(name string, data []byte, from, to Format, tolerateSyntaxErrors boo
 		out, err := export.WriteAPIJSON(graph)
 		return out, nil, err
 
-	case from == FormatAPIJSON && to == FormatSysML:
+	case from == FormatAPIJSON:
+		// The input is the API element form; api-json to api-json normalizes it
+		// as Turtle to Turtle does.
 		graph, err := readAPIJSON(name, data)
 		if err != nil {
 			return nil, nil, err
 		}
-		out, err := export.ToSysML(graph)
-		return out, nil, err
-
-	case from == FormatAPIJSON && to == FormatTurtle:
-		graph, err := readAPIJSON(name, data)
-		if err != nil {
-			return nil, nil, err
-		}
-		return rdf.WriteTurtle(graph), nil, nil
-
-	case from == FormatAPIJSON && to == FormatAPIJSON:
-		// Read and rewrite, which normalizes the document as Turtle to Turtle does.
-		graph, err := readAPIJSON(name, data)
-		if err != nil {
-			return nil, nil, err
-		}
-		out, err := export.WriteAPIJSON(graph)
-		return out, nil, err
-
-	case from == FormatTurtle && to == FormatAPIJSON:
-		graph, err := rdf.ParseTurtle(data)
-		if err != nil {
-			return nil, nil, &SyntaxError{Name: name, Messages: []string{err.Error()}}
-		}
-		out, err := export.WriteAPIJSON(graph)
-		return out, nil, err
-
-	case from == FormatTurtle && to == FormatSysML:
-		graph, err := rdf.ParseTurtle(data)
-		if err != nil {
-			return nil, nil, &SyntaxError{Name: name, Messages: []string{err.Error()}}
-		}
-		out, err := export.ToSysML(graph)
+		out, err := FromGraph(graph, to)
 		return out, nil, err
 
 	default:
-		// Turtle to Turtle: read and rewrite, which normalizes the document
-		// and reports anything the reader cannot represent.
+		// The input is a graph: Turtle parsed, or one read from a repository.
 		graph, err := rdf.ParseTurtle(data)
 		if err != nil {
 			return nil, nil, &SyntaxError{Name: name, Messages: []string{err.Error()}}
 		}
-		return rdf.WriteTurtle(graph), nil, nil
+		out, err := FromGraph(graph, to)
+		return out, nil, err
+	}
+}
+
+// FromGraph writes a graph in the to format, so a graph that did not come
+// from a Turtle file — a repository branch read as RDF — converts alike.
+func FromGraph(graph *rdf.Graph, to Format) ([]byte, error) {
+	switch {
+	case to == FormatSysML:
+		return export.ToSysML(graph)
+	case to == FormatTurtle:
+		return rdf.WriteTurtle(graph), nil
+	case to == FormatAPIJSON:
+		return export.WriteAPIJSON(graph)
+	default:
+		return nil, &NotWritableError{Format: to}
 	}
 }
 

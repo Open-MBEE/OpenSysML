@@ -481,8 +481,10 @@ In particular, none of `sysml`, `sysml-lsp` and `sysml-grpc` checks for updates,
 telemetry or downloads anything on its own. The only network activity any of them performs is
 what the operator asks for by name: `sysml-lsp` speaks only over its standard input and output,
 `sysml-grpc` serves the address it is started with and answers only the clients that connect to
-it, and `sysml -sync-diff` / `sysml -sync-apply` contact a SysML v2 API / Flexo MMS repository
-only when the operator names that endpoint's `http://` or `https://` URL on the command line.
+it, `sysml -sync-diff` / `sysml -sync-apply` contact a SysML v2 API / Flexo MMS repository
+only when the operator names that endpoint's `http://` or `https://` URL on the command line,
+and `sysml -convert` reads or pushes a Flexo MMS project branch only when the operator names
+its branch URL (`http(s)://…/projects/{p}/branches/{b}` or `flexo://{p}/{b}`) there.
 The OMG pilot corpora and reference tools used by the test suite are fetched by developer
 scripts under `scripts/`, which are not part of the shipped binaries.
 
