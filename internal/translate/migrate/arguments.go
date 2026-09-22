@@ -9,8 +9,8 @@ import (
 
 // The note fragments the argument refusals repeat.
 const (
-	thePin         = "the pin "
-	theBehavior    = "the behavior "
+	thePin       = "the pin "
+	theBehavior  = "the behavior "
 	forParameter = " it passes for the parameter "
 )
 
