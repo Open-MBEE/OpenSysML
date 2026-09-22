@@ -139,7 +139,9 @@ func (m *Model) Diagram(id string) *Diagram {
 }
 
 // shown resolves the id of a shown element: an xmi:id of the read documents,
-// an href into one of them, or an href another document's proxy stands for.
+// an href into one of them, an href another document's proxy stands for, or
+// the bare fragment of such an href, as a tool writes a module element's id
+// once it has referenced the element by href.
 func (m *Model) shown(id string) *Element {
 	if e := m.byID[id]; e != nil {
 		return e
@@ -149,5 +151,8 @@ func (m *Model) shown(id string) *Element {
 			return e
 		}
 	}
-	return m.proxies[id]
+	if p := m.proxies[id]; p != nil {
+		return p
+	}
+	return m.fragments[id]
 }

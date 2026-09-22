@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 	"strings"
+
+	"golang.org/x/net/html/charset"
 )
 
 // isXMI reports whether the attribute is in an XMI namespace of any version.
@@ -51,8 +53,9 @@ func isVersionSegment(s string) bool {
 }
 
 // Element is one XML element of an XMI document: its local tag, its xmi:type
-// and xmi:id, its non-XMI and XMI attributes by local name, and its children
-// in document order. A parsed document is never modified after Parse returns.
+// and xmi:id, its non-XMI and XMI attributes by local name, the namespaces it
+// declares, and its children in document order. A parsed document is never
+// modified after Parse returns.
 type Element struct {
 	Tag      string
 	Space    string
@@ -60,10 +63,23 @@ type Element struct {
 	ID       string
 	Attrs    map[string]string
 	XMIAttrs map[string]string
-	Text     string
-	Children []*Element
-	Parent   *Element
-	Line     int
+	// Namespaces are the xmlns declarations on this element, prefix to URI;
+	// the default namespace is under "".
+	Namespaces map[string]string
+	Text       string
+	Children   []*Element
+	Parent     *Element
+	Line       int
+}
+
+// Namespace resolves a prefix declared on e or an ancestor, or "" when none.
+func (e *Element) Namespace(prefix string) string {
+	for cur := e; cur != nil; cur = cur.Parent {
+		if uri, ok := cur.Namespaces[prefix]; ok {
+			return uri
+		}
+	}
+	return ""
 }
 
 // Attr returns the attribute named by its local name, or "" when absent.
@@ -200,6 +216,7 @@ func (d *Document) ByID(id string) *Element {
 // xmi:id declared twice, and never panics on unexpected content.
 func Parse(r io.Reader) (*Document, error) {
 	dec := xml.NewDecoder(r)
+	dec.CharsetReader = charset.NewReaderLabel
 	doc := &Document{byID: make(map[string]*Element)}
 	var stack []*Element
 	for {
@@ -238,8 +255,8 @@ func Parse(r io.Reader) (*Document, error) {
 	return doc, nil
 }
 
-// newElement reads a start tag: its xmi:type and xmi:id, then the remaining
-// attributes by local name, namespace declarations aside.
+// newElement reads a start tag: its xmi:type and xmi:id, its namespace
+// declarations, then the remaining attributes by local name.
 func newElement(t xml.StartElement) *Element {
 	e := &Element{
 		Tag:      t.Name.Local,
@@ -255,12 +272,23 @@ func newElement(t xml.StartElement) *Element {
 			e.ID = a.Value
 		case isXMI(a):
 			e.XMIAttrs[a.Name.Local] = a.Value
-		case a.Name.Space == "xmlns" || a.Name.Local == "xmlns":
+		case a.Name.Space == "xmlns":
+			e.declare(a.Name.Local, a.Value)
+		case a.Name.Local == "xmlns":
+			e.declare("", a.Value)
 		default:
 			e.Attrs[a.Name.Local] = a.Value
 		}
 	}
 	return e
+}
+
+// declare records one xmlns declaration.
+func (e *Element) declare(prefix, uri string) {
+	if e.Namespaces == nil {
+		e.Namespaces = make(map[string]string)
+	}
+	e.Namespaces[prefix] = uri
 }
 
 // place indexes e by id and files it under the open element, or as the root.

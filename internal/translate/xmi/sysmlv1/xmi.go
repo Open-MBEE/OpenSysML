@@ -73,6 +73,9 @@ type Stereotype struct {
 	// child elements as their text or idref, keyed by tag name. A multi-valued
 	// tag lists each value.
 	Tags map[string][]string
+	// attrValues counts, per tag, the leading Tags values that came from an
+	// attribute rather than a child element.
+	attrValues map[string]int
 }
 
 // Tag returns the first value of a tag, or "".
@@ -83,13 +86,17 @@ func (s *Stereotype) Tag(name string) string {
 	return ""
 }
 
-// IDs returns the ids a reference-valued tag lists, one per value when the
-// tool wrote child elements and split on whitespace when it wrote an IDREFS
-// attribute.
+// IDs returns the ids a reference-valued tag lists: an IDREFS attribute split
+// on whitespace, a child element's idref or href kept whole, since an href
+// into another archive entry may contain spaces.
 func (s *Stereotype) IDs(name string) []string {
 	var ids []string
-	for _, v := range s.Tags[name] {
-		ids = append(ids, strings.Fields(v)...)
+	for i, v := range s.Tags[name] {
+		if i < s.attrValues[name] {
+			ids = append(ids, strings.Fields(v)...)
+		} else {
+			ids = append(ids, v)
+		}
 	}
 	return ids
 }
@@ -106,8 +113,19 @@ type Model struct {
 	Extensions []Extension
 	// Diagrams are the diagrams read out of those blocks, in document order.
 	Diagrams []Diagram
-	byID     map[string]*Element
-	proxies  map[string]*Element
+	// Tables are the table, matrix and relation map definitions read out of
+	// the tool profile applications, in document order.
+	Tables []*Table
+	// Documents are the MDK DocGen documents, in document order.
+	Documents       []*DocGenDocument
+	byID            map[string]*Element
+	proxies         map[string]*Element
+	fragments       map[string]*Element
+	stereotypeNames map[string]stereotypeName
+	// moduleStereotypes are the stereotypes the archive's module snapshots
+	// declare, by id, for resolving ids the stereotype table does not name.
+	moduleStereotypes map[string]moduleStereotype
+	clients           map[*Element][]*Element
 }
 
 // Extension records one skipped xmi:Extension: who wrote it and what it held,
@@ -283,13 +301,15 @@ func documentEntry(name string) bool {
 // in an archive that has none, every XMI document among its .xmi/.xml/.uml
 // files; other XML there is metadata and is left alone.
 func parseArchive(zr *zip.Reader) (*Model, error) {
-	var project, documents []*zip.File
+	var project, modules, documents []*zip.File
 	names := make([]string, 0, len(zr.File))
 	for _, f := range zr.File {
 		names = append(names, f.Name)
 		switch {
 		case projectEntry(f.Name):
 			project = append(project, f)
+		case moduleEntry(f.Name):
+			modules = append(modules, f)
 		case documentEntry(f.Name):
 			documents = append(documents, f)
 		}
@@ -302,6 +322,13 @@ func parseArchive(zr *zip.Reader) (*Model, error) {
 				return nil, err
 			}
 			read++
+		}
+		for _, f := range modules {
+			content, err := readEntry(f)
+			if err != nil {
+				return nil, err
+			}
+			m.indexModule(content)
 		}
 	} else {
 		for _, f := range documents {
@@ -326,24 +353,33 @@ func parseArchive(zr *zip.Reader) (*Model, error) {
 	return model, nil
 }
 
-// parseEntry reads one archive entry as an XMI document.
-func (m *Model) parseEntry(f *zip.File) error {
+// readEntry reads one archive entry within the size bound.
+func readEntry(f *zip.File) ([]byte, error) {
 	if f.UncompressedSize64 > maxEntrySize {
-		return fmt.Errorf("archive entry %s: %d bytes exceeds the %d byte limit", f.Name, f.UncompressedSize64, maxEntrySize)
+		return nil, fmt.Errorf("archive entry %s: %d bytes exceeds the %d byte limit", f.Name, f.UncompressedSize64, maxEntrySize)
 	}
 	rc, err := f.Open()
 	if err != nil {
-		return fmt.Errorf("archive entry %s: %w", f.Name, err)
+		return nil, fmt.Errorf("archive entry %s: %w", f.Name, err)
 	}
 	content, err := io.ReadAll(io.LimitReader(rc, maxEntrySize+1))
 	if cerr := rc.Close(); err == nil {
 		err = cerr
 	}
 	if err != nil {
-		return fmt.Errorf("archive entry %s: %w", f.Name, err)
+		return nil, fmt.Errorf("archive entry %s: %w", f.Name, err)
 	}
 	if len(content) > maxEntrySize {
-		return fmt.Errorf("archive entry %s: exceeds the %d byte limit", f.Name, maxEntrySize)
+		return nil, fmt.Errorf("archive entry %s: exceeds the %d byte limit", f.Name, maxEntrySize)
+	}
+	return content, nil
+}
+
+// parseEntry reads one archive entry as an XMI document.
+func (m *Model) parseEntry(f *zip.File) error {
+	content, err := readEntry(f)
+	if err != nil {
+		return err
 	}
 	if err := m.parseDocument(content); err != nil {
 		return fmt.Errorf("archive entry %s: %w", f.Name, err)
@@ -352,7 +388,7 @@ func (m *Model) parseEntry(f *zip.File) error {
 }
 
 func newModel() *Model {
-	return &Model{byID: map[string]*Element{}, proxies: map[string]*Element{}}
+	return &Model{byID: map[string]*Element{}, proxies: map[string]*Element{}, fragments: map[string]*Element{}}
 }
 
 // local returns the local part of an "prefix:name" value.
@@ -477,6 +513,10 @@ func (m *Model) extensionContent(raw *xmi.Element, ext *Extension, ref *Element,
 		if adopted[child] {
 			continue
 		}
+		if child.Tag == "stereotypesHREFS" {
+			m.indexStereotypes(child)
+			continue
+		}
 		if isDiagram(child) {
 			m.diagram(child, ext)
 			m.extensionContent(child, ext, ref, adopted)
@@ -547,7 +587,7 @@ func stereotypeText(raw *xmi.Element) string {
 
 func (m *Model) newStereotype(raw *xmi.Element) *Stereotype {
 	s := &Stereotype{
-		ID: raw.ID, Name: raw.Tag, Namespace: raw.Space, Tags: map[string][]string{},
+		ID: raw.ID, Name: raw.Tag, Namespace: raw.Space, Tags: map[string][]string{}, attrValues: map[string]int{},
 	}
 	for name, value := range raw.Attrs {
 		switch {
@@ -555,6 +595,7 @@ func (m *Model) newStereotype(raw *xmi.Element) *Stereotype {
 			s.BaseID = value
 		default:
 			s.Tags[name] = append(s.Tags[name], value)
+			s.attrValues[name]++
 		}
 	}
 	for _, child := range raw.Children {
@@ -608,6 +649,9 @@ func (m *Model) proxy(href string) *Element {
 	p := &Element{ID: href, Href: href, Attrs: map[string]string{}, refs: map[string][]string{}}
 	if i := strings.LastIndexByte(href, '#'); i >= 0 {
 		p.Name = fragmentName(href[i+1:])
+		if frag := href[i+1:]; m.fragments[frag] == nil {
+			m.fragments[frag] = p
+		}
 	}
 	m.proxies[href] = p
 	return p
@@ -662,5 +706,8 @@ func (m *Model) link() {
 			}
 		}
 	}
+	m.bindModuleProfiles()
 	m.linkDiagrams()
+	m.readTables()
+	m.readDocuments()
 }

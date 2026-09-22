@@ -54,6 +54,9 @@ type view struct {
 	note string
 	// entry is the report row, filled when the view is written.
 	entry *Entry
+	// table is the table definition the diagram carries, written beside the
+	// view; nil for a diagram that defines none.
+	table *tableDoc
 }
 
 // planViews assigns every diagram the body its view is written in and reserves
@@ -86,6 +89,7 @@ func (m *migration) planViews() {
 		}
 		m.hosted[v.host] = append(m.hosted[v.host], v)
 	}
+	m.planTables()
 }
 
 // viewName reserves the name a view takes in host's body: name, or name with a
@@ -286,12 +290,21 @@ func (m *migration) writeView(v *view) {
 	if x.dangling > 0 {
 		note = joinNotes(note, fmt.Sprintf("%d of %d shown ids resolve to no element", x.dangling, shown))
 	}
+	if v.table != nil {
+		m.lowerTable(v.table)
+	}
 	m.w.block("view "+writeName(v.name), func() {
 		for _, ref := range x.refs {
 			m.w.line("expose " + ref + ";")
 		}
+		if v.table != nil && v.table.written() {
+			m.w.line("expose " + writeName(v.table.doc) + ";")
+		}
 		m.w.line("render " + prefix + render + ";")
 	})
+	if v.table != nil {
+		m.writeTable(v.table)
+	}
 	verdict := Mapped
 	if v.note != "" || untyped || shown == 0 || len(x.refs) == 0 || x.unwritten+x.dangling > 0 {
 		verdict = Approximated
@@ -436,4 +449,5 @@ func (m *migration) diagrams() {
 		}
 		m.report.Entries = append(m.report.Entries, *v.entry)
 	}
+	m.unplacedTables()
 }
