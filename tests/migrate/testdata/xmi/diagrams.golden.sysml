@@ -70,6 +70,20 @@ package Behavior {
         transition first Idle then Running;
     }
 }
+package Usage {
+    comment /* The driver drives. */
+    part def Driver;
+    use case def 'Drive Vehicle' {
+        subject;
+        actor driver : Driver;
+    }
+    view Driving {
+        expose Driver;
+        expose 'Drive Vehicle';
+        expose 'Drive Vehicle'::driver;
+        render Views::asTextualNotation;
+    }
+}
 package Reports {
     view 'Vehicle Overview' {
         expose 'Vehicle Overview';
@@ -79,11 +93,13 @@ package Reports {
         }
     }
     view Fleet {
+        view summary :> 'Vehicle Overview';
         expose 'Fleet 2';
         expose Structure::Vehicle::'Vehicle Internals';
     }
     view 'Fleet 2' {
         expose Structure;
+        expose Reports::Fleet::summary;
         render Views::asTreeDiagram;
     }
 }

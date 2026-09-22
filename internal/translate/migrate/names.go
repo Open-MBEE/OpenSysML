@@ -145,8 +145,19 @@ func scopeChain(scope *sysmlv1.Element) []*sysmlv1.Element {
 // ref writes a reference to target from inside scope's body (nil for the top
 // level): the shortest qualified name that resolves there, which is the simple
 // name when target is a member of an enclosing scope no nearer scope shadows,
-// and the full qualified name otherwise.
+// and the full qualified name otherwise. A feature of a feature is chained.
 func (m *migration) ref(target, scope *sysmlv1.Element) string {
+	return m.refBy(target, scope, true)
+}
+
+// memberRef writes a reference to target from inside scope's body as an import
+// or expose names its member: by qualified name alone, never a feature chain.
+func (m *migration) memberRef(target, scope *sysmlv1.Element) string {
+	return m.refBy(target, scope, false)
+}
+
+// refBy writes ref, chaining a feature of a feature when chained is set.
+func (m *migration) refBy(target, scope *sysmlv1.Element, chained bool) string {
 	segs := m.segments(target)
 	owner := target.Parent
 	if owner != nil && owner.Type == "Model" && owner.Parent == nil {
@@ -172,20 +183,21 @@ func (m *migration) ref(target, scope *sysmlv1.Element) string {
 		// A top-level declaration: visible everywhere unless shadowed.
 		for _, inner := range chain {
 			if n := m.nameOf(target); n != "" && m.nameTaken(inner, n) {
-				return m.qualifiedFrom(target, chain)
+				return m.qualifiedFrom(target, chain, chained)
 			}
 		}
 		return writeName(segs[len(segs)-1])
 	}
-	return m.qualifiedFrom(target, chain)
+	return m.qualifiedFrom(target, chain, chained)
 }
 
 // qualifiedFrom writes target's qualified name so it resolves from inside the
 // scopes of chain: from the global namespace ($::) when one of them declares a
 // member named like its first segment, which would shadow the relative path.
-// A feature owned by a feature is reached by a chain: `Outer.inner`, since a
-// usage's members are not accessible by qualified name.
-func (m *migration) qualifiedFrom(target *sysmlv1.Element, chain []*sysmlv1.Element) string {
+// When chained, a feature owned by a feature is reached by a chain: `Outer.inner`,
+// since a usage's members are not accessible by qualified name where a feature
+// is referred to; an import names them by qualified name alone.
+func (m *migration) qualifiedFrom(target *sysmlv1.Element, chain []*sysmlv1.Element, chained bool) string {
 	path := m.path(target)
 	var b strings.Builder
 	for _, s := range chain {
@@ -197,7 +209,7 @@ func (m *migration) qualifiedFrom(target *sysmlv1.Element, chain []*sysmlv1.Elem
 	for i, s := range path {
 		switch {
 		case i == 0:
-		case s.feature && path[i-1].feature:
+		case chained && s.feature && path[i-1].feature:
 			b.WriteString(".")
 		default:
 			b.WriteString("::")

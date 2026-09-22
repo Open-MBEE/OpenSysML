@@ -53,9 +53,21 @@
       </packagedElement>
     </packagedElement>
 
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_usage" name="Usage">
+      <ownedComment xmi:type="uml:Comment" xmi:id="_cmt_drives" annotatedElement="_assoc_driver" body="The driver drives."/>
+      <packagedElement xmi:type="uml:Actor" xmi:id="_actor_driver" name="Driver"/>
+      <packagedElement xmi:type="uml:UseCase" xmi:id="_uc_drive" name="Drive Vehicle"/>
+      <packagedElement xmi:type="uml:Association" xmi:id="_assoc_driver" memberEnd="_end_driver _end_uc">
+        <ownedEnd xmi:type="uml:Property" xmi:id="_end_driver" name="driver" type="_actor_driver" association="_assoc_driver"/>
+        <ownedEnd xmi:type="uml:Property" xmi:id="_end_uc" type="_uc_drive" association="_assoc_driver"/>
+      </packagedElement>
+    </packagedElement>
+
     <packagedElement xmi:type="uml:Package" xmi:id="_pkg_views" name="Reports">
       <packagedElement xmi:type="uml:Class" xmi:id="_view_overview" name="Vehicle Overview"/>
-      <packagedElement xmi:type="uml:Class" xmi:id="_view_fleet" name="Fleet"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_fleet" name="Fleet">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_summary" name="summary" type="_view_overview" aggregation="composite"/>
+      </packagedElement>
       <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_own" client="_view_overview" supplier="_diag_overview"/>
       <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_fleet" client="_view_fleet" supplier="_diag_fleet _diag_ibd"/>
     </packagedElement>
@@ -79,6 +91,7 @@
               <diagram:DiagramRepresentationObject type="SysML Package Diagram" umlType="Class Diagram">
                 <diagramContents>
                   <usedElements>_pkg_structure</usedElements>
+                  <usedElements>_prop_summary</usedElements>
                 </diagramContents>
               </diagram:DiagramRepresentationObject>
             </diagramRepresentation>
@@ -203,6 +216,21 @@
               <diagram:DiagramRepresentationObject type="Team Review Diagram" umlType="Use Case Diagram">
                 <diagramContents>
                   <usedElements>_blk_engine</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_usage" name="Driving" ownerOfDiagram="_pkg_usage">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Use Case Diagram" umlType="Use Case Diagram">
+                <diagramContents>
+                  <usedElements>_actor_driver</usedElements>
+                  <usedElements>_uc_drive</usedElements>
+                  <usedElements>_assoc_driver</usedElements>
+                  <usedElements>_end_driver</usedElements>
+                  <usedElements>_end_uc</usedElements>
                 </diagramContents>
               </diagram:DiagramRepresentationObject>
             </diagramRepresentation>

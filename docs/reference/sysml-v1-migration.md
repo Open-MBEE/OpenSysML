@@ -163,7 +163,8 @@ returned over the service yet.
 | «View» Package | `view <Name>` usage holding the package's members | approximated |
 | «View» whose `viewpoint` tag or «Conform» names a viewpoint that is not written, or a view a nested view's feature of an inaccessible definition | the view without that `satisfy`/subsetting, the reason in the report | approximated |
 | «Expose» Dependency | `expose <Supplier>;` in the client view — `expose <Package>::**;` for a package, since v1 exposes its contents | mapped |
-| «Expose» whose supplier is a diagram (notation the tool keeps outside the model), outside the document, or not written, or whose client is not a view | comment | **unmapped** |
+| «Expose» whose supplier is a diagram | `expose <View>;` naming the view the diagram is written as (see [Diagrams](#diagrams)), qualified from the client view's body | mapped |
+| «Expose» whose supplier is outside the document or not written (a diagram no written element can hold included), or whose client is not a view | comment | **unmapped** |
 | «Conform» Generalization, Dependency | `satisfy <Viewpoint>;` in the view | mapped |
 | «Conform» whose client is not a view or whose supplier is not a viewpoint | comment | **unmapped** |
 | «Viewpoint» Class | package-level `viewpoint <Name>` usage: `purpose`, `language`, `method` and `presentation` tags in a `doc`; each `stakeholder` tag a `stakeholder x : <Stakeholder>` usage; each `concern` tag and each `concernList` comment a `frame concern { doc /* … */ }`; a stakeholder or concern id that is not in the document is named in the report | mapped / approximated |
@@ -253,7 +254,7 @@ returned over the service yet.
 | Diagram | `view 'Name' { expose …; render Views::as…; }` in the body of the v2 element written for `ownerOfDiagram`, one `expose` per shown element that is written, the rendering chosen by the diagram's kind (see [Diagrams](#diagrams)) | mapped |
 | Diagram whose owner has no v2 body (a region, a property, an enumeration, an activity that is inlined), names no owner, or names an id the document does not define | the view is written in the body of the nearest ancestor that has one — the state def a region belongs to, the part def a property is of, the package, or the document's top level — and the note says where | approximated |
 | Diagram some of whose shown elements are not written (results, tool content, elements nothing refers to, states and action nodes, ids the document does not define), or that shows nothing | the written ones are exposed and the rest dropped, the note counting them; a view exposing nothing is still written, `view 'Name' { render …; }`, which validates | approximated |
-| Diagram named like a member of the body it is written in | renamed `Name 2` | approximated |
+| Diagram named like a member of the body it is written in — a «View» class's `view` usage of the same name in the same package, a state, an action | renamed `Name 2`, `Name 3`… past the taken names | approximated |
 | Diagram with no representation serialized, or one naming no diagram type | a view of unknown kind, rendered `asTextualNotation`, exposing what the representation lists | approximated |
 | Diagram no written element can hold: every ancestor is library content or otherwise unwritten | comment | **unmapped** |
 | Profiles, the SysML/UML libraries themselves | — | skipped |
@@ -274,7 +275,17 @@ written for a classifier — and exposes, by qualified name, every shown element
 writes; a shown element that is not written (a result snapshot, tool content, an element
 nothing refers to, a state or an action node, which have no name of their own outside their
 body) is dropped and counted in the note. A diagram showing nothing writable is still a view,
-with no `expose`, so the model's inventory of diagrams is complete.
+with no `expose`, so the model's inventory of diagrams is complete. Each `expose` names one
+shown element by the qualified name the migrator writes elsewhere — `Package::Def::feature`,
+never a package's `::**` — so a diagram of a package exposes the members it pictures, not
+the package.
+
+The view takes the diagram's name unless the body already has a member so named: a tool
+names a view's diagram after the «View» class, a state's after the state, and both are
+written in the same body, so the diagram's view is renamed `Name 2` (`Name 3`… past the taken
+names) and the note says so. An «Expose» whose supplier is a diagram exposes the diagram's
+view under that written name, qualified from the client view's body when the name alone would
+not resolve to it.
 
 The `render` names one of the standard `Views` library's renderings, chosen from the
 diagram's kind — the tool's `type` (`SysML Block Definition Diagram`, `Dependency Matrix`)
@@ -294,8 +305,7 @@ The mapping has been run over the XMI of the [OpenMBEE TMT SysML model](https://
 of notation that passes the gate below in a few seconds, and its Turtle in a few more. Five
 elements in six map or are approximated; the unmapped rest is dominated by absolute and
 unparseable time events, call actions that call no behavior, simulation verdicts stored in
-slots of constraint properties, and exposes of diagrams, which are notation the tool keeps outside
-the model.
+slots of constraint properties, and dependencies whose other end is outside the document.
 
 ## Behaviors
 

@@ -243,7 +243,7 @@ func (m *migration) exposeNote(s *sysmlv1.Element) string {
 // exposeRef writes what a view exposes: a namespace with its contents, as v1
 // exposes a package's members with it, any other element by itself.
 func (m *migration) exposeRef(view, s *sysmlv1.Element) string {
-	ref := m.ref(s, view)
+	ref := m.memberRef(s, view)
 	switch s.Type {
 	case "Package", "Model":
 		return ref + "::**"

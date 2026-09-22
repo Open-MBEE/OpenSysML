@@ -1873,8 +1873,9 @@ func (m *migration) written(e *sysmlv1.Element) bool {
 		}
 		return m.written(p) || inlinedBehavior(p) && hasActionForm(p)
 	case "Association":
-		// An anonymous association is a connection def only when it owns every end.
-		return e.Name != "" || ownsEveryEnd(e, m.model.Refs(e, "memberEnd"))
+		// An anonymous association is a connection def only when it owns every
+		// end and is not written as an actor of a use case instead.
+		return e.Name != "" || m.actors[e] == nil && ownsEveryEnd(e, m.model.Refs(e, "memberEnd"))
 	}
 	if op := m.methodOf[e]; op != nil {
 		return m.written(op)

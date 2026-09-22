@@ -208,8 +208,8 @@ func (m *migration) diagramViewNote(d *sysmlv1.Diagram) string {
 }
 
 // viewRef writes a reference to a diagram's view from inside scope's body: its
-// name alone where that resolves to it, else its name under its host's, as
-// ref writes the host; the two are joined as a chain when the host is a usage.
+// name alone where that resolves to it, else its name qualified under its
+// host's, as memberRef writes the host.
 func (m *migration) viewRef(v *view, scope *sysmlv1.Element) string {
 	name := writeName(v.name)
 	chain := scopeChain(scope)
@@ -231,11 +231,7 @@ func (m *migration) viewRef(v *view, scope *sysmlv1.Element) string {
 		}
 		return name
 	}
-	sep := "::"
-	if m.isUsage(host) {
-		sep = "."
-	}
-	return m.ref(host, scope) + sep + name
+	return m.memberRef(host, scope) + "::" + name
 }
 
 // shadows reports whether one of scopes declares a member named name.
@@ -332,10 +328,30 @@ func (m *migration) exposure(e, scope *sysmlv1.Element) string {
 	if sv := m.scalarValue(e); sv != "" {
 		return scalarValuesPrefix + sv
 	}
+	if link := m.actorLinkOf(e); link != nil {
+		return m.memberRef(link.useCase, scope) + "::" + writeName(link.name)
+	}
 	if x := m.exposable(e); x != nil {
-		return m.ref(x, scope)
+		return m.memberRef(x, scope)
 	}
 	return ""
+}
+
+// actorLinkOf is the actor usage that stands for e: an anonymous association to
+// an actor, or its end at the actor; nil when e is written by itself.
+func (m *migration) actorLinkOf(e *sysmlv1.Element) *actorLink {
+	if e == nil {
+		return nil
+	}
+	assoc := e
+	if e.Type == "Property" && e.Parent != nil && e.Parent.Type == "Association" {
+		assoc = e.Parent
+	}
+	link := m.actors[assoc]
+	if link == nil || assoc.Name != "" || assoc != e && link.end != e {
+		return nil
+	}
+	return link
 }
 
 // exposable is the declaration written for e that a view can expose: its own,
