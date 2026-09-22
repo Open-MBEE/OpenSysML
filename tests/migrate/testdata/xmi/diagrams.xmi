@@ -203,6 +203,18 @@
             </diagramRepresentation>
           </xmi:Extension>
         </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_ignite" name="Ignition" ownerOfDiagram="_crank_ignite">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Activity Diagram" umlType="Activity Diagram">
+                <diagramContents>
+                  <usedElements>_crank_ignite</usedElements>
+                  <usedElements>_crank_f2</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
         <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_halting" name="Halting" ownerOfDiagram="_ob_halting">
           <xmi:Extension extender="Example UML Tool 1.0">
             <diagramRepresentation>

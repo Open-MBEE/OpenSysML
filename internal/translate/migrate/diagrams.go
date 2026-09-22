@@ -133,17 +133,18 @@ func (m *migration) viewHost(d *sysmlv1.Diagram) (host *sysmlv1.Element, note st
 		return nil, joinNotes(note, "and nothing written holds it")
 	}
 	for cur := from; cur != nil; cur = cur.Parent {
-		if !m.hostsViews(cur) {
+		host := m.bodyOf(cur)
+		if !m.hostsViews(host) {
 			continue
 		}
 		switch {
-		case cur == from && d.Owner != nil:
+		case host == from && d.Owner != nil:
 		case d.Owner != nil:
-			note = "its owner " + kindOf(d.Owner) + " " + qualifiedName(d.Owner) + " has no v2 body; " + m.writtenIn(cur)
+			note = "its owner " + kindOf(d.Owner) + " " + qualifiedName(d.Owner) + " has no v2 body; " + m.writtenIn(host)
 		default:
-			note = joinNotes(note, m.writtenIn(cur)+", which holds it")
+			note = joinNotes(note, m.writtenIn(host)+", which holds it")
 		}
-		return cur, note
+		return host, note
 	}
 	if d.Owner != nil {
 		return nil, "neither its owner " + kindOf(d.Owner) + " " + qualifiedName(d.Owner) + " nor any ancestor of it is written"
@@ -151,18 +152,24 @@ func (m *migration) viewHost(d *sysmlv1.Diagram) (host *sysmlv1.Element, note st
 	return nil, joinNotes(note, "and neither "+kindOf(from)+" "+qualifiedName(from)+", which holds it, nor any ancestor of it is written")
 }
 
-// viewOwner is the element whose v2 body stands for a diagram's owner: the
-// operation a method behavior is written as the body of, else the owner itself.
+// viewOwner is the element whose v2 body stands for a diagram's owner.
 func (m *migration) viewOwner(d *sysmlv1.Diagram) *sysmlv1.Element {
-	if op := m.methodOf[d.Owner]; op != nil {
+	return m.bodyOf(d.Owner)
+}
+
+// bodyOf is the element whose v2 body stands for e: the operation a method
+// behavior is written as the body of, else e itself.
+func (m *migration) bodyOf(e *sysmlv1.Element) *sysmlv1.Element {
+	if op := m.methodOf[e]; op != nil {
 		return op
 	}
-	return d.Owner
+	return e
 }
 
 // hostsViews reports whether e is written with a body a view can be a member
 // of: the top level of the root model, or a declared package or definition
-// other than an enum def, whose members are its values.
+// other than an enum def, whose members are its values. An action node is
+// written as a usage of its graph's body, which holds no members of its own.
 func (m *migration) hostsViews(e *sysmlv1.Element) bool {
 	if isTopLevel(e) {
 		return !m.isLibrary(e)
@@ -171,7 +178,7 @@ func (m *migration) hostsViews(e *sysmlv1.Element) bool {
 	case "Property", "Port", "Parameter", "EnumerationLiteral":
 		return false
 	}
-	if m.methodOf[e] != nil || !m.written(e) {
+	if m.methodOf[e] != nil || isActionNode(e) || !m.written(e) {
 		return false
 	}
 	cat, _ := m.classify(e)

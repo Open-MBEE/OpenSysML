@@ -98,6 +98,27 @@ func TestDiagramViews(t *testing.T) {
 			diagram("_d", "Shutting", "_shutting", "SysML Activity Diagram", "_pump"),
 			[]string{"action def Shut {\n        view Shutting {\n            expose Sys::Pump;\n            render Views::asTextualNotation;\n        }\n        /* body not migrated"}, Mapped,
 			"its owner OpaqueBehavior Valve::Shutting is written as the body of action def Valve::Shut, whose method it is"},
+		{"a diagram owned by an action node is written in the body of the node's activity",
+			`<packagedElement xmi:type="uml:Activity" xmi:id="_fill" name="Fill">
+			   <node xmi:type="uml:InitialNode" xmi:id="_f_init"/>
+			   <node xmi:type="uml:OpaqueAction" xmi:id="_pour" name="pour"><language>JavaScript</language><body>1;</body></node>
+			   <edge xmi:type="uml:ControlFlow" xmi:id="_f_e" source="_f_init" target="_pour"/>
+			 </packagedElement>`,
+			diagram("_d", "Pouring", "_pour", "SysML Activity Diagram", "_pour", "_pump"),
+			[]string{"action def Fill {\n    view Pouring {\n        expose pour;\n        expose Sys::Pump;\n        render Views::asTextualNotation;\n    }"}, Approximated,
+			"its owner OpaqueAction Fill::pour has no v2 body; written in action def Fill"},
+		{"a diagram owned by a node of a method activity is written in the operation's body",
+			`<packagedElement xmi:type="uml:Class" xmi:id="_valve" name="Valve">
+			   <ownedOperation xmi:type="uml:Operation" xmi:id="_open" name="Open" method="_opening"/>
+			   <ownedBehavior xmi:type="uml:Activity" xmi:id="_opening" name="Opening" specification="_open">
+			     <node xmi:type="uml:InitialNode" xmi:id="_o_init"/>
+			     <node xmi:type="uml:OpaqueAction" xmi:id="_turn" name="turn"><language>JavaScript</language><body>1;</body></node>
+			     <edge xmi:type="uml:ControlFlow" xmi:id="_o_e" source="_o_init" target="_turn"/>
+			   </ownedBehavior>
+			 </packagedElement>`,
+			diagram("_d", "Turning", "_turn", "SysML Activity Diagram", "_turn"),
+			[]string{"action def Open {\n        view Turning {\n            expose Valve::Open::turn;\n            render Views::asTextualNotation;\n        }"}, Approximated,
+			"its owner OpaqueAction Valve::Opening::turn has no v2 body; written in action def Valve::Open"},
 		{"a member of a method behavior is exposed under the operation that holds its body",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_valve" name="Valve">
 			   <ownedOperation xmi:type="uml:Operation" xmi:id="_open" name="Open" method="_opening"/>
