@@ -200,8 +200,48 @@ func (a *activity) writeLeafStep(n *sysmlv1.Element, name string) {
 	}
 }
 
-// unbehaved says why a call behavior action that calls nothing and is no bare
-// step is not written: what it fails to resolve and the pins nothing computes.
+// stubStep reports whether a call behavior action that calls nothing is a step with
+// pins: it is written as an action declaring them as its parameters, computing nothing.
+func (a *activity) stubStep(n *sysmlv1.Element) bool {
+	return len(a.m.model.Unresolved(n, "behavior")) == 0 && !a.leafStep(n)
+}
+
+// writeStubStep writes such a step as an action whose parameters are its pins; the
+// action computes nothing, so its outputs hold no value.
+func (a *activity) writeStubStep(n *sysmlv1.Element, name string) {
+	a.m.w.block(actionKw+name, func() { a.pins(n, nil) })
+	a.m.add(n, Approximated, name, a.stubNote(n))
+}
+
+// stubNote says how a step with pins and no behavior is written.
+func (a *activity) stubNote(n *sysmlv1.Element) string {
+	note := "a step with no behavior and no duration, which passes the token on"
+	if _, ok := a.waits[n]; ok {
+		note = "a step with a duration and no further behavior"
+	}
+	note += "; its pins are declared as its parameters, but the action computes nothing"
+	if outs := outputPins(n); len(outs) > 0 {
+		var names []string
+		for _, p := range outs {
+			names = append(names, describe(p))
+		}
+		note += ", so its output " + strings.Join(names, ", ") + " holds no value"
+	}
+	if parts := a.m.allocated[n]; len(parts) > 0 {
+		var names []string
+		for _, p := range parts {
+			names = append(names, qualifiedName(p))
+		}
+		note += "; its «Allocate» to " + strings.Join(names, ", ") + " says where it runs, not what it does"
+	}
+	return note
+}
+
+// stubComputesNothing says why an output pin of such a step holds no value.
+const stubComputesNothing = "the action calls no behavior, so nothing computes it"
+
+// unbehaved says why a call behavior action whose behavior does not resolve is not
+// written: what it fails to resolve and the pins nothing computes.
 func (a *activity) unbehaved(n *sysmlv1.Element) string {
 	note := "the action calls no behavior"
 	if pins := append(inputPins(n), outputPins(n)...); len(pins) > 0 {

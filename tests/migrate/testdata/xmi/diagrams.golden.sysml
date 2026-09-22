@@ -23,6 +23,7 @@ package Structure {
         action def Crank {
             view Cranking {
                 expose Crank;
+                expose Structure::Engine::Crank::ignite;
                 render Views::asTextualNotation;
             }
             first start then ignite;
@@ -72,9 +73,11 @@ package Structure {
 package Behavior {
     action def Drive {
         view 'Drive Flow' {
+            expose 'start engine';
             render Views::asTextualNotation;
         }
         view 'start engine 2' {
+            expose 'start engine';
             render Views::asTextualNotation;
         }
         first start then 'start engine';

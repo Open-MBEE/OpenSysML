@@ -167,8 +167,7 @@ func (m *migration) placeConform(d *sysmlv1.Element) {
 			pl.notes = append(pl.notes, n)
 			continue
 		}
-		pl.written++
-		pl.target = m.v2Name(p.client)
+		pl.write(m.v2Name(p.client))
 		view, vp := p.client, p.supplier
 		m.extras[view] = append(m.extras[view], func() { m.satisfyViewpoint(view, vp) })
 	}
@@ -225,19 +224,17 @@ func (m *migration) placeExpose(d *sysmlv1.Element) {
 				pl.notes = append(pl.notes, note)
 				continue
 			}
-			pl.written++
-			pl.target = m.v2Name(c)
+			pl.write(m.v2Name(c))
 			view, exposed := c, s
 			m.extras[view] = append(m.extras[view], func() { m.w.line("expose " + m.exposeRef(view, exposed) + ";") })
 		}
 		for _, d := range diagrams {
-			pl.written++
-			pl.target = m.v2Name(c)
+			pl.write(m.v2Name(c))
 			view, shown := c, d
 			m.extras[view] = append(m.extras[view], func() { m.w.line("expose " + m.viewRef(m.viewOf[shown], view) + ";") })
 		}
 	}
-	pl.failed = total - pl.written
+	pl.failed = total - len(pl.targets)
 }
 
 // exposeNote says why a view cannot expose s: it is external or not migrated;

@@ -320,6 +320,7 @@ var constructFixtures = []string{
 	"tool_profiles",
 	"diagrams",
 	"malformed_diagrams",
+	"stub_actions",
 }
 
 // migrateFixtureFile migrates testdata/xmi/<name>.xmi.
