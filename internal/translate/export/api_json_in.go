@@ -283,6 +283,17 @@ func apiJSONCollection(graph *rdf.Graph, subject rdf.Term, predicate rdf.Term, s
 			return err
 		}
 		members = append(members, member)
+	}
+	for i, member := range members {
+		for _, earlier := range members[:i] {
+			if member.Equal(earlier) {
+				name := sysmlKey
+				if name == "" {
+					name = predicate.Value[strings.LastIndexAny(predicate.Value, ":#/")+1:]
+				}
+				return fmt.Errorf("the array on %s of <%s> repeats the member %s", name, subject.Value, member)
+			}
+		}
 		graph.Add(subject, predicate, member)
 	}
 	if sysmlKey != "" {

@@ -94,6 +94,10 @@ func TestAPIJSONSyntaxError(t *testing.T) {
 			t.Errorf("Convert to %s = %v, want a SyntaxError", to, err)
 		}
 	}
+	repeated := `[{"@type": "Package", "@id": "X", "ownedMember": [{"@id": "A"}, {"@id": "A"}]}]`
+	if _, err := convert.Convert("p.json", []byte(repeated), convert.FormatAPIJSON, convert.FormatTurtle); err == nil {
+		t.Error("a collection repeating a member converted to Turtle, want an error")
+	}
 }
 
 // The element form goes through the RDF mapping, so it carries the mapping's

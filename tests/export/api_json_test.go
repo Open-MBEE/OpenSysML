@@ -204,21 +204,22 @@ func TestAPIJSONShapeOnTheInteropModel(t *testing.T) {
 // The reader reports malformed documents and objects that are not elements.
 func TestReadAPIJSONRejectsNonElements(t *testing.T) {
 	for name, data := range map[string]string{
-		"malformed":          `{`,
-		"top-level string":   `"hello"`,
-		"missing @type":      `[{"@id": "X"}]`,
-		"missing @id":        `[{"@type": "Package"}]`,
-		"empty @id":          `[{"@type": "Package", "@id": ""}]`,
-		"duplicate @id":      `[{"@type": "Package", "@id": "X"}, {"@type": "PartUsage", "@id": "X"}]`,
-		"repeated @id key":   `[{"@type": "Package", "@id": "A", "@id": "B"}]`,
-		"repeated @type key": `[{"@type": "Package", "@type": "PartUsage", "@id": "X"}]`,
-		"repeated member key": `[{"@type": "Package", "@id": "X", "name": "a", "name": "b"}]`,
-		"unknown @key":       `[{"@type": "Package", "@id": "X", "@foo": 1}]`,
-		"object without @id": `[{"@type": "Package", "@id": "X", "ownedMember": {"@type": "Y"}}]`,
-		"nested array":       `[{"@type": "Package", "@id": "X", "ownedMember": [[{"@id": "Y"}]]}]`,
-		"null member":        `[{"@type": "Package", "@id": "X", "ownedMember": [null]}]`,
-		"prefixed key":       `[{"@type": "Package", "@id": "X", "sysml:name": "n"}]`,
-		"trailing JSON":      `[{"@type": "Package", "@id": "X"}] 42`,
+		"malformed":             `{`,
+		"top-level string":      `"hello"`,
+		"missing @type":         `[{"@id": "X"}]`,
+		"missing @id":           `[{"@type": "Package"}]`,
+		"empty @id":             `[{"@type": "Package", "@id": ""}]`,
+		"duplicate @id":         `[{"@type": "Package", "@id": "X"}, {"@type": "PartUsage", "@id": "X"}]`,
+		"repeated @id key":      `[{"@type": "Package", "@id": "A", "@id": "B"}]`,
+		"repeated @type key":    `[{"@type": "Package", "@type": "PartUsage", "@id": "X"}]`,
+		"repeated member key":   `[{"@type": "Package", "@id": "X", "name": "a", "name": "b"}]`,
+		"repeated array member": `[{"@type": "Package", "@id": "X", "ownedMember": [{"@id": "A"}, {"@id": "A"}]}]`,
+		"unknown @key":          `[{"@type": "Package", "@id": "X", "@foo": 1}]`,
+		"object without @id":    `[{"@type": "Package", "@id": "X", "ownedMember": {"@type": "Y"}}]`,
+		"nested array":          `[{"@type": "Package", "@id": "X", "ownedMember": [[{"@id": "Y"}]]}]`,
+		"null member":           `[{"@type": "Package", "@id": "X", "ownedMember": [null]}]`,
+		"prefixed key":          `[{"@type": "Package", "@id": "X", "sysml:name": "n"}]`,
+		"trailing JSON":         `[{"@type": "Package", "@id": "X"}] 42`,
 	} {
 		t.Run(name, func(t *testing.T) {
 			if _, err := export.ReadAPIJSON([]byte(data)); err == nil {
