@@ -1799,9 +1799,12 @@ events and nested exits (`state_exit_nested_reads_outer_transition`,
 outer transition a nested same-named one shadows is read qualified, `Machine::T.c`,
 `state_exit_shadowed_transition_name` — the emitter declares the transitions an exit reads by
 names unique in the machine instead), a body snapshotted for a later read
-(`frame.snapshot`, `state_exit_payload_deferred_read`) and the frames a predicate the state
-declares closes over (`invoke_predicate.go:flattenFrames`, `state_exit_payload_nested_predicate`),
-and a completion firing binds nothing, leaving the parameter's default
+(`frame.snapshot`, `state_exit_payload_deferred_read`), the frames a predicate the state
+declares closes over (`invoke_predicate.go:flattenFrames`, `state_exit_payload_nested_predicate`)
+and the whole of a compound transition — a segment past a choice or a junction declares no
+trigger, so its effect reads the accepting segment's payload by that segment's name, within
+whose performance it runs (`state_route_effect_reads_accepting_segment`) — and a completion
+firing binds nothing, leaving the parameter's default
 (`state_exit_completion_binds_nothing`) or, for an `in level : Integer[0..1]` bound to a
 transition not taken, no value at all (`state_exit_payload_optional_input`);
 `TestRuntimeRobustnessExitParameters` pins the typed errors. A do behavior reads the transition that entered its state for its whole

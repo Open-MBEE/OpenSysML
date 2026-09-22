@@ -133,7 +133,8 @@ type StateExecutor struct {
 	// other segments into a join it fires to bind their own trigger's arguments.
 	firingEvent *Event
 	// firingTrans is the transition being taken, within whose performance the
-	// exits, effect and entries it causes run and read what its trigger bound.
+	// exits, effect and entries it causes run and read what its trigger bound. It
+	// spans a compound transition: the segments past a pseudostate accept nothing.
 	firingTrans *lower.Transition
 
 	// leftAhead are the states a compound transition under way left before its
