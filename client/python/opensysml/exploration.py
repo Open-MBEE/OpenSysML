@@ -38,7 +38,7 @@ class Outcome:
     """
 
     def __init__(self, outputs, final_state, states_visited, error,
-                 linearizations, probability, witness, diagnostics):
+                 linearizations, witness, diagnostics, probability=0.0):
         self.outputs = dict(outputs or {})
         self.final_state = final_state
         self.states_visited = list(states_visited or [])

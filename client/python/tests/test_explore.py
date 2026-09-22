@@ -254,8 +254,9 @@ def test_an_outcome_renders_its_observables_sorted():
     )
     assert str(outcome) == "a = 1; b = 2"
     assert "linearizations=4" in repr(outcome)
-    empty = Outcome({}, "", [], "", 1, 0.0, [], [])
+    empty = Outcome({}, "", [], "", 1, [], [])
     assert str(empty) == "no outputs"
+    assert empty.probability == 0.0
 
 
 EXPLORE_MODEL = """
