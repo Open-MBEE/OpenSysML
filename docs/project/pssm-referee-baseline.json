@@ -7,13 +7,13 @@
     "suiteDigest": "c355b249c356774377a46b60345019d827af1ce417bde88e533aa5f39206ae07",
     "tests": 103,
     "recorded": "2026-09-22",
-    "develop": "4780bd5f9f66030a5328eb0c0f089aa19511f6cd"
+    "develop": "e3d17f5e5325051c893cbf81f500b110c346764c"
   },
   "buckets": {
     "differs-by-design": 1,
     "fail": 12,
-    "not-expressible": 33,
-    "pass": 57
+    "not-expressible": 30,
+    "pass": 60
   },
   "tests": [
     {
@@ -502,11 +502,17 @@
     {
       "name": "Event 017 B",
       "area": "Event",
-      "class": "not-expressible",
-      "bucket": "not-expressible",
-      "reasons": [
-        "behavior parameter S1.S1.1"
-      ]
+      "class": "standard",
+      "bucket": "pass",
+      "expected": [
+        "S1(effect)[in=true]::S1.1(entry)[in=true]::S1.1(doActivity)[in=true]::S1.1(exit)[in=false]::T1.2(effect)[in=false]",
+        "S1(effect)[in=true]::S1.1(entry)[in=true]::S1.1(exit)[in=false]::T1.2(effect)[in=false]"
+      ],
+      "reached": [
+        "S1(effect)[in=true]::S1.1(entry)[in=true]::S1.1(doActivity)[in=true]::S1.1(exit)[in=false]::T1.2(effect)[in=false]",
+        "S1(effect)[in=true]::S1.1(entry)[in=true]::S1.1(exit)[in=false]::T1.2(effect)[in=false]"
+      ],
+      "runs": 3
     },
     {
       "name": "Event 018",
@@ -537,20 +543,28 @@
     {
       "name": "Event 019 B",
       "area": "Event",
-      "class": "not-expressible",
-      "bucket": "not-expressible",
-      "reasons": [
-        "behavior parameter S1"
-      ]
+      "class": "standard",
+      "bucket": "pass",
+      "expected": [
+        "S1(exit)[in=42][in=input]::T2(effect)[in=42][in=input]::S2(entry)[in=42][in=input]"
+      ],
+      "reached": [
+        "S1(exit)[in=42][in=input]::T2(effect)[in=42][in=input]::S2(entry)[in=42][in=input]"
+      ],
+      "runs": 1
     },
     {
       "name": "Event 019 C",
       "area": "Event",
-      "class": "not-expressible",
-      "bucket": "not-expressible",
-      "reasons": [
-        "behavior parameter S1.S1.1.S1.1.1"
-      ]
+      "class": "standard",
+      "bucket": "pass",
+      "expected": [
+        "S1(entry)[in=42][in=input]::S1.1(entry)[in=42][in=input]::S1.1.1(entry)[in=42][in=input]::S1.1.1(exit)[in=true]::T1.1.2(effect)[in=true]"
+      ],
+      "reached": [
+        "S1(entry)[in=42][in=input]::S1.1(entry)[in=42][in=input]::S1.1.1(entry)[in=42][in=input]::S1.1.1(exit)[in=true]::T1.1.2(effect)[in=true]"
+      ],
+      "runs": 1
     },
     {
       "name": "Event 019 D",
@@ -895,7 +909,7 @@
       "class": "not-expressible",
       "bucket": "not-expressible",
       "reasons": [
-        "exit point ExitPoint1; entry point EntryPoint1; behavior parameter S2"
+        "exit point ExitPoint1; entry point EntryPoint1"
       ]
     },
     {

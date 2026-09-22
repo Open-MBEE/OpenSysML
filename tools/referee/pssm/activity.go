@@ -3,6 +3,7 @@ package pssm
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi"
@@ -25,6 +26,24 @@ type activityReader struct {
 	outgoing map[string][]*xmi.Element
 	body     *Body
 	visiting map[string]bool
+	// params are the activity's input parameter nodes, in document order.
+	params []*xmi.Element
+	// fed is the reading with every parameter fed; without, keyed by the id of an
+	// input parameter node, the reading with that node carrying nothing.
+	fed     *starvation
+	without map[string]*starvation
+}
+
+// starvation memoizes starved and dry per element id for one reading of the
+// activity: absent is the input parameter node carrying nothing, "" for none.
+type starvation struct {
+	absent  string
+	starved map[string]bool
+	dry     map[string]bool
+}
+
+func newStarvation(absent string) *starvation {
+	return &starvation{absent: absent, starved: map[string]bool{}, dry: map[string]bool{}}
 }
 
 // readActivity reads an activity element (uml:Activity) into a Body.
@@ -36,17 +55,35 @@ func (r *reader) readActivity(act *xmi.Element) *Body {
 		outgoing: make(map[string][]*xmi.Element),
 		body:     &Body{},
 		visiting: make(map[string]bool),
+		fed:      newStarvation(""),
+		without:  make(map[string]*starvation),
 	}
 	act.Walk(func(e *xmi.Element) bool {
 		if e.Tag == "edge" {
 			ar.incoming[e.Attr("target")] = append(ar.incoming[e.Attr("target")], e)
 			ar.outgoing[e.Attr("source")] = append(ar.outgoing[e.Attr("source")], e)
 		}
+		if e.Type == typeActivityParameterNode && r.inputParam(e) != nil {
+			ar.params = append(ar.params, e)
+		}
 		return true
 	})
 	ar.readBlock(act)
 	ar.body.Acts = r.acts(act, map[string]bool{})
 	return ar.body
+}
+
+// inputParam is the in or inout parameter an activity parameter node carries,
+// nil for an output's.
+func (r *reader) inputParam(n *xmi.Element) *xmi.Element {
+	param := r.doc.ByID(n.Attr("parameter"))
+	if param == nil {
+		return nil
+	}
+	if dir := param.Attr("direction"); dir == "in" || dir == "inout" || dir == "" {
+		return param
+	}
+	return nil
 }
 
 // The xmi:type of each activity node, behavior and pin the reader tells apart.
@@ -63,6 +100,7 @@ const (
 	typeClearAssociationAction             = "uml:ClearAssociationAction"
 	typeClearStructuralFeatureAction       = "uml:ClearStructuralFeatureAction"
 	typeConditionalNode                    = "uml:ConditionalNode"
+	typeControlFlow                        = "uml:ControlFlow"
 	typeCreateLinkAction                   = "uml:CreateLinkAction"
 	typeCreateObjectAction                 = "uml:CreateObjectAction"
 	typeDecisionNode                       = "uml:DecisionNode"
@@ -78,6 +116,7 @@ const (
 	typeJoinNode                           = "uml:JoinNode"
 	typeLoopNode                           = "uml:LoopNode"
 	typeMergeNode                          = "uml:MergeNode"
+	typeOutputPin                          = "uml:OutputPin"
 	typeReadExtentAction                   = "uml:ReadExtentAction"
 	typeReadIsClassifiedObjectAction       = "uml:ReadIsClassifiedObjectAction"
 	typeReadLinkAction                     = "uml:ReadLinkAction"
@@ -106,6 +145,13 @@ var valueNodes = map[string]bool{
 	typeJoinNode: true, typeMergeNode: true, typeDecisionNode: true, typeExpansionNode: true,
 	typeStructuredActivityNode: true, typeSequenceNode: true, typeConditionalNode: true,
 	typeLoopNode: true, typeExpansionRegion: true,
+}
+
+// routingNodes carry tokens on without firing: they are fed when a flow into
+// them is (a join, when every flow is).
+var routingNodes = map[string]bool{
+	typeActivityParameterNode: true, typeForkNode: true, typeJoinNode: true, typeMergeNode: true,
+	typeDecisionNode: true, typeCentralBufferNode: true, typeExpansionNode: true,
 }
 
 // acts reports whether any node under the activity, at any depth, acts on the
@@ -246,6 +292,9 @@ func (ar *activityReader) consumed(n *xmi.Element) bool {
 }
 
 func (ar *activityReader) readNode(n *xmi.Element) {
+	if ar.starved(n) {
+		return
+	}
 	switch n.Type {
 	case typeStructuredActivityNode, typeSequenceNode:
 		ar.readBlock(n)
@@ -262,19 +311,19 @@ func (ar *activityReader) readNode(n *xmi.Element) {
 			ar.unsupported(n, "calls an operation the document does not define")
 			return
 		}
-		ar.emit(Statement{Kind: StmtCall, Name: op.Name(), OperationID: op.ID, Receiver: ar.pinValue(n.First("target")), Args: ar.args(n)})
+		ar.emit(n, Statement{Kind: StmtCall, Name: op.Name(), OperationID: op.ID, Receiver: ar.pinValue(n.First("target")), Args: ar.args(n)})
 	case typeCallBehaviorAction:
 		if ar.consumed(n) {
 			return
 		}
-		ar.emit(Statement{Kind: StmtCall, Name: ar.behaviorName(n), BehaviorID: ar.behaviorID(n), Args: ar.args(n)})
+		ar.emit(n, Statement{Kind: StmtCall, Name: ar.behaviorName(n), BehaviorID: ar.behaviorID(n), Args: ar.args(n)})
 	case typeSendSignalAction:
 		sig := ar.r.doc.ByID(n.Attr("signal"))
 		if sig == nil {
 			ar.unsupported(n, "sends a signal the document does not define")
 			return
 		}
-		ar.emit(Statement{Kind: StmtSend, Name: sig.Name(), Receiver: ar.pinValue(n.First("target")), Args: ar.args(n)})
+		ar.emit(n, Statement{Kind: StmtSend, Name: sig.Name(), Receiver: ar.pinValue(n.First("target")), Args: ar.args(n)})
 	case typeAcceptEventAction, typeAcceptCallAction:
 		st := Statement{Kind: StmtAccept}
 		for _, trig := range n.Tagged("trigger") {
@@ -283,7 +332,7 @@ func (ar *activityReader) readNode(n *xmi.Element) {
 		if res := n.First("result"); res != nil && len(ar.outgoing[res.ID]) > 0 {
 			st.Result = res.Name()
 		}
-		ar.emit(st)
+		ar.emit(n, st)
 	case typeAddStructuralFeatureValueAction:
 		feature := ar.r.doc.ByID(n.Attr("structuralFeature"))
 		if feature == nil {
@@ -294,7 +343,7 @@ func (ar *activityReader) readNode(n *xmi.Element) {
 			ar.unsupported(n, "writes at a position")
 			return
 		}
-		ar.emit(Statement{
+		ar.emit(n, Statement{
 			Kind:      StmtAssign,
 			Receiver:  ar.pinValue(n.First("object")),
 			Feature:   feature.Name(),
@@ -305,11 +354,11 @@ func (ar *activityReader) readNode(n *xmi.Element) {
 	case typeActivityParameterNode:
 		// A fed output parameter node is the body's return statement.
 		param := ar.r.doc.ByID(n.Attr("parameter"))
-		if param == nil || len(ar.incoming[n.ID]) == 0 {
+		if param == nil || len(ar.incoming[n.ID]) == 0 || ar.dry(n.ID) {
 			return
 		}
 		if dir := param.Attr("direction"); dir == "return" || dir == "out" || dir == "inout" {
-			ar.emit(Statement{Kind: StmtReturn, Feature: paramName(param), Value: ar.pinValue(n)})
+			ar.emit(n, Statement{Kind: StmtReturn, Feature: paramName(param), Value: ar.pinValue(n)})
 		}
 	case typeInitialNode, typeActivityFinalNode, typeFlowFinalNode, typeForkNode, typeJoinNode,
 		typeMergeNode, typeDecisionNode, typeExpansionNode:
@@ -318,7 +367,7 @@ func (ar *activityReader) readNode(n *xmi.Element) {
 		typeCreateObjectAction:
 		// Values: read where a pin consumes them. An unconsumed one is dead.
 	case typeStartObjectBehaviorAction:
-		ar.emit(Statement{Kind: StmtStart, Receiver: ar.pinValue(n.First("object"))})
+		ar.emit(n, Statement{Kind: StmtStart, Receiver: ar.pinValue(n.First("object"))})
 	case typeDestroyObjectAction,
 		typeReadExtentAction, typeStartClassifierBehaviorAction, typeReduceAction,
 		typeRemoveStructuralFeatureValueAction, typeCreateLinkAction, typeDestroyLinkAction,
@@ -329,7 +378,103 @@ func (ar *activityReader) readNode(n *xmi.Element) {
 	}
 }
 
-func (ar *activityReader) emit(st Statement) {
+// starved reports whether a node never fires: an input pin with a lower bound,
+// or an incoming control flow, that no token ever reaches (UML 16.2.3.4).
+func (ar *activityReader) starved(n *xmi.Element) bool { return ar.starvedIn(ar.fed, n) }
+
+// dry reports whether no token ever leaves an element: a starved action's pin, a
+// join with a dry flow, or a pin or routing node fed by dry elements only.
+func (ar *activityReader) dry(id string) bool { return ar.dryIn(ar.fed, id) }
+
+// starvedIn is starved under one reading; a node within a starved structured
+// node is starved with it.
+func (ar *activityReader) starvedIn(s *starvation, n *xmi.Element) bool {
+	if starved, ok := s.starved[n.ID]; ok {
+		return starved
+	}
+	s.starved[n.ID] = false
+	starved := false
+	for _, pin := range n.Children {
+		if pin.Type == typeInputPin && pinLower(pin) > 0 && ar.dryIn(s, pin.ID) {
+			starved = true
+		}
+	}
+	for _, edge := range ar.incoming[n.ID] {
+		if edge.Type == typeControlFlow && ar.dryIn(s, edge.Attr("source")) {
+			starved = true
+		}
+	}
+	if p := n.Parent; p != nil && p.Tag == "node" && ar.starvedIn(s, p) {
+		starved = true
+	}
+	s.starved[n.ID] = starved
+	return starved
+}
+
+// dryIn is dry under one reading: the absent parameter node feeds nothing.
+func (ar *activityReader) dryIn(s *starvation, id string) bool {
+	e := ar.r.doc.ByID(id)
+	if e == nil {
+		return false
+	}
+	switch {
+	case e.Type == typeOutputPin:
+		return e.Parent != nil && ar.starvedIn(s, e.Parent)
+	case e.Tag == "node" && !routingNodes[e.Type]:
+		return ar.starvedIn(s, e)
+	}
+	if dry, ok := s.dry[id]; ok {
+		return dry
+	}
+	s.dry[id] = false
+	edges := ar.incoming[id]
+	dry := e.Type != typeActivityParameterNode || id == s.absent
+	for i, edge := range edges {
+		source := ar.dryIn(s, edge.Attr("source"))
+		if e.Type == typeJoinNode {
+			dry = i > 0 && dry || source
+		} else {
+			dry = (i == 0 || dry) && source
+		}
+	}
+	s.dry[id] = dry
+	return dry
+}
+
+// needs names the input parameters without which node n never fires: read with
+// that parameter's node carrying nothing, n is starved.
+func (ar *activityReader) needs(n *xmi.Element) []string {
+	var out []string
+	for _, p := range ar.params {
+		s := ar.without[p.ID]
+		if s == nil {
+			s = newStarvation(p.ID)
+			ar.without[p.ID] = s
+		}
+		if ar.starvedIn(s, n) {
+			out = append(out, paramName(ar.r.inputParam(p)))
+		}
+	}
+	return out
+}
+
+// pinLower is a pin's lower multiplicity bound: its lowerValue, 1 when absent
+// (UML 7.5.3.2).
+func pinLower(pin *xmi.Element) int {
+	lower := pin.First("lowerValue")
+	if lower == nil {
+		return 1
+	}
+	n, err := strconv.Atoi(lower.Attr("value"))
+	if err != nil {
+		return 1
+	}
+	return n
+}
+
+// emit records the statement node n reads as, with the inputs it needs.
+func (ar *activityReader) emit(n *xmi.Element, st Statement) {
+	st.Needs = ar.needs(n)
 	ar.body.Statements = append(ar.body.Statements, st)
 }
 

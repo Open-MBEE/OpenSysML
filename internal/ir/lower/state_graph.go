@@ -244,7 +244,10 @@ type Transition struct {
 	// Owner is the state whose body declares the transition, nil for the machine body.
 	Owner   *ast.StateNode
 	Trigger ast.Node // TimeEvent, ChangeEvent, SignalEvent, CallEvent, nil = completion
-	Guard   ast.Node // guard expression, nil = no guard
+	// Accepted names what the trigger binds when the transition fires — an accept's
+	// payload, a call's parameters — in declaration order; nil binds nothing.
+	Accepted []string
+	Guard    ast.Node // guard expression, nil = no guard
 	// Effect are the transition's effect behaviors, lowered the same way a state's
 	// entry, do and exit behaviors are.
 	Effect []StateBehavior
@@ -1534,6 +1537,7 @@ func lowerTransitionEdge(graph *StateGraph, edge *ast.TransitionEdge, owner ast.
 		Target:    target,
 		Owner:     graph.declaringState(owner),
 		Trigger:   edge.Trigger,
+		Accepted:  AcceptedNames(edge.Trigger),
 		Guard:     edge.Guard,
 		Effect:    LowerBehaviors(edge.Effect, nil, scope, graph.resolver),
 		Scope:     scope,
@@ -1585,13 +1589,15 @@ func lowerTransitionMember(graph *StateGraph, member *ast.TransitionMember, body
 		return nil, err
 	}
 	via, viaSelf := ViaPortPath(member.Via)
+	trigger := classifyTrigger(member.Trigger)
 	trans := &Transition{
 		Name:        member.Name,
 		Decl:        member,
 		Source:      source,
 		Target:      target,
 		Owner:       graph.declaringState(owner),
-		Trigger:     classifyTrigger(member.Trigger),
+		Trigger:     trigger,
+		Accepted:    AcceptedNames(trigger),
 		Guard:       member.Guard,
 		Effect:      transitionEffects(member, bodyScope, graph.resolver),
 		Via:         via,
@@ -1647,6 +1653,28 @@ func (g *StateGraph) startsAt(decl, guard ast.Node, body transitionBody, source,
 	}
 	g.addEntryTransition(body.entryOwner, &EntryTransition{Decl: decl, Guard: guard, Target: start, Scope: body.scope})
 	return true, nil
+}
+
+// AcceptedNames lists the names a classified trigger binds when it fires: the
+// payload an accept declares, or a call trigger's parameters, in order.
+func AcceptedNames(trigger ast.Node) []string {
+	switch t := trigger.(type) {
+	case *ast.AcceptEvent:
+		if t.Payload == nil || t.Payload.Ident.Name == "" {
+			return nil
+		}
+		return []string{t.Payload.Ident.Name}
+	case *ast.CallEvent:
+		if len(t.Parameters) == 0 {
+			return nil
+		}
+		names := make([]string, len(t.Parameters))
+		for i, p := range t.Parameters {
+			names[i] = p.Text
+		}
+		return names
+	}
+	return nil
 }
 
 // classifyTrigger converts a raw trigger expression into a typed TriggerEvent.
