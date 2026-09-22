@@ -104,9 +104,11 @@ func (m *migration) subjects(e *sysmlv1.Element) {
 			m.downgrade(e, "the subject "+qualifiedName(s)+" is not migrated and is not written")
 			continue
 		}
-		if note := m.featuredNote(s, e); note != "" {
-			m.downgrade(e, "the subject is not written: "+note)
-			continue
+		if m.isUsage(s) {
+			if note := m.featuredNote(s, e); note != "" {
+				m.downgrade(e, "the subject is not written: "+note)
+				continue
+			}
 		}
 		name := m.freshName(e, lowerFirst(m.nameFor(s)))
 		if first {
