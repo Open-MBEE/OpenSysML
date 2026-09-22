@@ -54,6 +54,10 @@ within these records and means nothing outside this repository.
   usage fed by a `flow` is SysML v2's spelling of concurrent per-element performance, adjudicated
   against the specifications, the library, the corpora and the pilot, and closed: the iterative
   form is `for`, the parallel form is not SysML v2
+- **[Bitwise complement](bitwise-complement.md)** — whether the unary `~` has a meaning a runtime
+  can give it, adjudicated against the specification, the Kernel Function Library, the corpora
+  and the pinned pilot, and closed abstract-only: the runtime keeps its typed refusal and the
+  checker warns on every use
 - **[Exception handlers](exception-handlers.md)** — whether SysML v2 spells an exception handler
   or exception propagation, adjudicated against the specifications, the library, the corpora and
   the pilot, and closed as not a SysML v2 construct, with the idiom that covers the need — a

@@ -1598,7 +1598,10 @@ arithmetic as the scalar (X2, for a feature's own value), 0.7.0 closed five more
 quantities (X7's value half, #121) and the static type of a collection body (X8's typing half,
 #112) — and 0.8.0 closed X2's chain-read half (#164), evaluated the `meta` cast (#212) and typed
 a bare feature reference, an untyped collection body and an argument of unknown type statically
-(#174, #213, #241). What follows is
+(#174, #213, #241), and the last operator the
+evaluator refused outright — the unary `~` — was adjudicated abstract-only rather than given a
+value, KerML 1.0 §8.2.5.8.1 marking it undefined and the checker now warning on its use
+([bitwise-complement.md](bitwise-complement.md)). What follows is
 measured against `runtime/eval.go` and `bin/sysml` at this baseline: each landed item is stated
 with what it leaves, and what is still open in the track is X7's RDF literal form and native
 layout, and X8's two harness halves.
