@@ -190,6 +190,19 @@ func (m *migration) primitiveCalled(n *sysmlv1.Element) *primitiveCall {
 // behaviors) and §9.4 (basic input and output); the Alf notes follow Alf 1.1,
 // §11.4 (primitive behaviors), §11.6 (collection functions) and Annex B.
 
+// The SequenceFunctions call templates the fUML and Alf tables repeat.
+const (
+	seqSize        = "SequenceFunctions::size($1)"
+	seqAt          = "SequenceFunctions::'#'($1, $2)"
+	seqUnion       = "SequenceFunctions::union($1, $2)"
+	seqIncludes    = "SequenceFunctions::includes($1, $2)"
+	seqExcludes    = "SequenceFunctions::excludes($1, $2)"
+	seqExcluding   = "SequenceFunctions::excluding($1, $2)"
+	seqIncluding   = "SequenceFunctions::including($1, $2)"
+	seqIncludingAt = "SequenceFunctions::includingAt($1, $2, $3)"
+	seqExcludingAt = "SequenceFunctions::excludingAt($1, $2)"
+)
+
 const (
 	unlimitedNote     = "v2 Natural has no unbounded value, so an argument of * has no v2 rendering; bounded values compare as in v1"
 	noResultOnFailure = " where v1 gives no result"
@@ -336,9 +349,9 @@ var primitives = []primitive{
 	fumlP("StringFunctions", "Substring", []string{"x", "lower", "upper"}, "StringFunctions::Substring($1, $2, $3)", Approximated, "v2 fails on bounds outside 1..Size(x) or a lower bound above the upper"+noResultOnFailure),
 
 	// fUML ListFunctions (fUML 1.5 §9.3.6, Table 9.7); the 2018 library document omits ListConcat.
-	fumlP("ListFunctions", "ListSize", []string{"*list"}, "SequenceFunctions::size($1)", Mapped, ""),
-	fumlP("ListFunctions", "ListGet", []string{"*list", "index"}, "SequenceFunctions::'#'($1, $2)", Approximated, "v2 fails on an index outside 1..ListSize(list)"+noResultOnFailure),
-	fumlP("ListFunctions", "ListConcat", []string{"*list1", "*list2"}, "SequenceFunctions::union($1, $2)", Mapped, ""),
+	fumlP("ListFunctions", "ListSize", []string{"*list"}, seqSize, Mapped, ""),
+	fumlP("ListFunctions", "ListGet", []string{"*list", "index"}, seqAt, Approximated, "v2 fails on an index outside 1..ListSize(list)"+noResultOnFailure),
+	fumlP("ListFunctions", "ListConcat", []string{"*list1", "*list2"}, seqUnion, Mapped, ""),
 
 	// fUML BasicInputOutput (fUML 1.5 §9.4): activities over the standard channels
 	fumlNo("BasicInputOutput-WriteLine", "BasicInputOutput", "WriteLine", []string{"value"}, "writes a line to the standard output channel, which the v2 library has no function for"),
@@ -363,29 +376,29 @@ var primitives = []primitive{
 	alfBits("gtgtgt", ">>>", []string{"b", "n"}),
 
 	// Alf SequenceFunctions (Alf 1.1 §11.4.8)
-	alfP("SequenceFunctions", "Size", argSeq, "SequenceFunctions::size($1)", Mapped, ""),
-	alfP("SequenceFunctions", "Includes", argSeqEl, "SequenceFunctions::includes($1, $2)", Mapped, ""),
-	alfP("SequenceFunctions", "Excludes", argSeqEl, "SequenceFunctions::excludes($1, $2)", Mapped, ""),
+	alfP("SequenceFunctions", "Size", argSeq, seqSize, Mapped, ""),
+	alfP("SequenceFunctions", "Includes", argSeqEl, seqIncludes, Mapped, ""),
+	alfP("SequenceFunctions", "Excludes", argSeqEl, seqExcludes, Mapped, ""),
 	alfP("SequenceFunctions", "Count", argSeqEl, countExpr, Mapped, ""),
 	alfP("SequenceFunctions", "IsEmpty", argSeq, "SequenceFunctions::isEmpty($1)", Mapped, ""),
 	alfP("SequenceFunctions", "NotEmpty", argSeq, "SequenceFunctions::notEmpty($1)", Mapped, ""),
-	alfP("SequenceFunctions", "IncludesAll", argSeqs, "SequenceFunctions::includes($1, $2)", Mapped, ""),
-	alfP("SequenceFunctions", "ExcludesAll", argSeqs, "SequenceFunctions::excludes($1, $2)", Mapped, ""),
+	alfP("SequenceFunctions", "IncludesAll", argSeqs, seqIncludes, Mapped, ""),
+	alfP("SequenceFunctions", "ExcludesAll", argSeqs, seqExcludes, Mapped, ""),
 	alfP("SequenceFunctions", "Equals", argSeqs, "SequenceFunctions::equals($1, $2)", Mapped, ""),
-	alfP("SequenceFunctions", "At", argSeqAt, "SequenceFunctions::'#'($1, $2)", Approximated, indexNote),
+	alfP("SequenceFunctions", "At", argSeqAt, seqAt, Approximated, indexNote),
 	alfNo("SequenceFunctions", "IndexOf", argSeqEl, indexOfNote),
 	alfP("SequenceFunctions", "First", argSeq, "SequenceFunctions::head($1)", Mapped, ""),
 	alfP("SequenceFunctions", "Last", argSeq, "SequenceFunctions::last($1)", Mapped, ""),
-	alfP("SequenceFunctions", "Union", argSeqs, "SequenceFunctions::union($1, $2)", Mapped, ""),
+	alfP("SequenceFunctions", "Union", argSeqs, seqUnion, Mapped, ""),
 	alfP("SequenceFunctions", "Intersection", argSeqs, "SequenceFunctions::intersection($1, $2)", Mapped, ""),
-	alfP("SequenceFunctions", "Difference", argSeqs, "SequenceFunctions::excluding($1, $2)", Mapped, ""),
-	alfP("SequenceFunctions", "Including", argSeqEl, "SequenceFunctions::including($1, $2)", Mapped, ""),
-	alfP("SequenceFunctions", "IncludeAt", argInsert, "SequenceFunctions::includingAt($1, $2, $3)", Approximated, insertIndexNote),
-	alfP("SequenceFunctions", "InsertAt", argInsert, "SequenceFunctions::includingAt($1, $2, $3)", Approximated, insertIndexNote),
-	alfP("SequenceFunctions", "IncludeAllAt", argInsAll, "SequenceFunctions::includingAt($1, $2, $3)", Approximated, insertIndexNote),
-	alfP("SequenceFunctions", "Excluding", argSeqEl, "SequenceFunctions::excluding($1, $2)", Mapped, ""),
+	alfP("SequenceFunctions", "Difference", argSeqs, seqExcluding, Mapped, ""),
+	alfP("SequenceFunctions", "Including", argSeqEl, seqIncluding, Mapped, ""),
+	alfP("SequenceFunctions", "IncludeAt", argInsert, seqIncludingAt, Approximated, insertIndexNote),
+	alfP("SequenceFunctions", "InsertAt", argInsert, seqIncludingAt, Approximated, insertIndexNote),
+	alfP("SequenceFunctions", "IncludeAllAt", argInsAll, seqIncludingAt, Approximated, insertIndexNote),
+	alfP("SequenceFunctions", "Excluding", argSeqEl, seqExcluding, Mapped, ""),
 	alfNo("SequenceFunctions", "ExcludingOne", argSeqEl, excludingOneNote),
-	alfP("SequenceFunctions", "ExcludeAt", argSeqAt, "SequenceFunctions::excludingAt($1, $2)", Approximated, removeIndexNote),
+	alfP("SequenceFunctions", "ExcludeAt", argSeqAt, seqExcludingAt, Approximated, removeIndexNote),
 	alfNo("SequenceFunctions", "Replacing", argRepl, replacingNote),
 	alfP("SequenceFunctions", "ReplacingAt", argReplAt, replacingAtExpr, Approximated, "v2 fails on an index outside 1..Size(seq), which v1 requires"),
 	alfNo("SequenceFunctions", "ReplacingOne", argRepl, replacingOneNote),
@@ -393,29 +406,29 @@ var primitives = []primitive{
 	alfNo("SequenceFunctions", "ToOrderedSet", argSeq, orderedSetNote),
 
 	// Alf CollectionFunctions (Alf 1.1 §11.6): the template versions of the sequence functions
-	alfC("size", argSeq, []string{"SequenceFunctions::size($1)"}, Mapped, ""),
-	alfC("includes", argSeqEl, []string{"SequenceFunctions::includes($1, $2)"}, Mapped, ""),
-	alfC("excludes", argSeqEl, []string{"SequenceFunctions::excludes($1, $2)"}, Mapped, ""),
+	alfC("size", argSeq, []string{seqSize}, Mapped, ""),
+	alfC("includes", argSeqEl, []string{seqIncludes}, Mapped, ""),
+	alfC("excludes", argSeqEl, []string{seqExcludes}, Mapped, ""),
 	alfC("count", argSeqEl, []string{countExpr}, Mapped, ""),
 	alfC("isEmpty", argSeq, []string{"SequenceFunctions::isEmpty($1)"}, Mapped, ""),
 	alfC("notEmpty", argSeq, []string{"SequenceFunctions::notEmpty($1)"}, Mapped, ""),
-	alfC("includesAll", argSeqs, []string{"SequenceFunctions::includes($1, $2)"}, Mapped, ""),
-	alfC("excludesAll", argSeqs, []string{"SequenceFunctions::excludes($1, $2)"}, Mapped, ""),
+	alfC("includesAll", argSeqs, []string{seqIncludes}, Mapped, ""),
+	alfC("excludesAll", argSeqs, []string{seqExcludes}, Mapped, ""),
 	alfC("equals", argSeqs, []string{"SequenceFunctions::equals($1, $2)"}, Mapped, ""),
-	alfC("at", argSeqAt, []string{"SequenceFunctions::'#'($1, $2)"}, Approximated, indexNote),
+	alfC("at", argSeqAt, []string{seqAt}, Approximated, indexNote),
 	alfC("indexOf", argSeqEl, nil, Unmapped, indexOfNote),
 	alfC("first", argSeq, []string{"SequenceFunctions::head($1)"}, Mapped, ""),
 	alfC("last", argSeq, []string{"SequenceFunctions::last($1)"}, Mapped, ""),
-	alfC("union", argSeqs, []string{"SequenceFunctions::union($1, $2)"}, Mapped, ""),
+	alfC("union", argSeqs, []string{seqUnion}, Mapped, ""),
 	alfC("intersection", argSeqs, []string{"SequenceFunctions::intersection($1, $2)"}, Mapped, ""),
-	alfC("difference", argSeqs, []string{"SequenceFunctions::excluding($1, $2)"}, Mapped, ""),
-	alfC("including", argSeqEl, []string{"SequenceFunctions::including($1, $2)"}, Mapped, ""),
-	alfC("includeAt", argInsert, []string{"SequenceFunctions::includingAt($1, $2, $3)"}, Approximated, insertIndexNote),
-	alfC("insertAt", argInsert, []string{"SequenceFunctions::includingAt($1, $2, $3)"}, Approximated, insertIndexNote),
-	alfC("includeAllAt", argInsAll, []string{"SequenceFunctions::includingAt($1, $2, $3)"}, Approximated, insertIndexNote),
-	alfC("excluding", argSeqEl, []string{"SequenceFunctions::excluding($1, $2)"}, Mapped, ""),
+	alfC("difference", argSeqs, []string{seqExcluding}, Mapped, ""),
+	alfC("including", argSeqEl, []string{seqIncluding}, Mapped, ""),
+	alfC("includeAt", argInsert, []string{seqIncludingAt}, Approximated, insertIndexNote),
+	alfC("insertAt", argInsert, []string{seqIncludingAt}, Approximated, insertIndexNote),
+	alfC("includeAllAt", argInsAll, []string{seqIncludingAt}, Approximated, insertIndexNote),
+	alfC("excluding", argSeqEl, []string{seqExcluding}, Mapped, ""),
 	alfC("excludingOne", argSeqEl, nil, Unmapped, excludingOneNote),
-	alfC("excludeAt", argSeqAt, []string{"SequenceFunctions::excludingAt($1, $2)"}, Approximated, removeIndexNote),
+	alfC("excludeAt", argSeqAt, []string{seqExcludingAt}, Approximated, removeIndexNote),
 	alfC("replacing", argRepl, nil, Unmapped, replacingNote),
 	alfC("replacingAt", argReplAt, []string{replacingAtExpr}, Approximated, "v2 fails on an index outside 1..Size(seq), which v1 requires"),
 	alfC("replacingOne", argRepl, nil, Unmapped, replacingOneNote),
@@ -423,14 +436,14 @@ var primitives = []primitive{
 	alfC("toOrderedSet", argSeq, nil, Unmapped, orderedSetNote),
 
 	// Alf CollectionFunctions in-place behaviors (Alf 1.1 §11.6, Table 11.9)
-	alfC("add", argSeqEl, inPlace("SequenceFunctions::including($1, $2)"), Approximated, inPlaceNote),
-	alfC("addAll", argInsAll, []string{"SequenceFunctions::union($1, $2)"}, Approximated, addAllNote),
-	alfC("addAt", argInsert, inPlace("SequenceFunctions::includingAt($1, $2, $3)"), Approximated, inPlaceInsertNote),
-	alfC("addAllAt", argInsAll, inPlace("SequenceFunctions::includingAt($1, $2, $3)"), Approximated, inPlaceInsertNote),
-	alfC("remove", argSeqEl, inPlace("SequenceFunctions::excluding($1, $2)"), Approximated, inPlaceNote),
-	alfC("removeAll", argSeqs, inPlace("SequenceFunctions::excluding($1, $2)"), Approximated, inPlaceNote),
+	alfC("add", argSeqEl, inPlace(seqIncluding), Approximated, inPlaceNote),
+	alfC("addAll", argInsAll, []string{seqUnion}, Approximated, addAllNote),
+	alfC("addAt", argInsert, inPlace(seqIncludingAt), Approximated, inPlaceInsertNote),
+	alfC("addAllAt", argInsAll, inPlace(seqIncludingAt), Approximated, inPlaceInsertNote),
+	alfC("remove", argSeqEl, inPlace(seqExcluding), Approximated, inPlaceNote),
+	alfC("removeAll", argSeqs, inPlace(seqExcluding), Approximated, inPlaceNote),
 	alfC("removeOne", argSeqEl, nil, Unmapped, excludingOneNote),
-	alfC("removeAt", argSeqAt, inPlace("SequenceFunctions::excludingAt($1, $2)"), Approximated, inPlaceIndexNote),
+	alfC("removeAt", argSeqAt, inPlace(seqExcludingAt), Approximated, inPlaceIndexNote),
 	alfC("replace", argRepl, nil, Unmapped, replacingNote),
 	alfC("replaceOne", argRepl, nil, Unmapped, replacingOneNote),
 	alfC("replaceAt", argReplAt, inPlace(replacingAtExpr), Approximated, replaceIndexNote),

@@ -244,43 +244,12 @@ func (e *StateExecutor) dispatchFree(d dueDispatch) (dueDispatch, bool) {
 	if len(scopes) == 0 {
 		return d, true
 	}
-	held := func(event Event) bool {
-		if trans, ok := event.Payload.(*lower.Transition); ok {
-			return scopeContains(e.graph, scopes, e.transitionOwner(trans))
-		}
-		var candidates []dispatchCandidate
-		var err error
-		e.preview(func() {
-			candidates, err = e.selectTransitions(&event)
-		})
-		if err != nil {
-			return true
-		}
-		for _, candidate := range candidates {
-			for _, index := range candidate.enabled {
-				if scopeContains(e.graph, scopes, e.graph.Transitions[candidate.source][index].Owner) {
-					return true
-				}
-			}
-		}
-		return false
-	}
 	if len(d.among) == 0 {
-		if d.event != nil && held(*d.event) {
-			return d, false
-		}
-		if risen, ok := e.risenChanges(); ok {
-			for _, trans := range risen {
-				if trans != nil && held(Event{Payload: trans}) {
-					return d, false
-				}
-			}
-		}
-		return d, true
+		return e.noAmongFree(d, scopes)
 	}
 	free := make([]Event, 0, len(d.among))
 	for _, event := range d.among {
-		if !held(event) {
+		if !e.eventHeld(scopes, event) {
 			free = append(free, event)
 		}
 	}
@@ -293,6 +262,46 @@ func (e *StateExecutor) dispatchFree(d dueDispatch) (dueDispatch, bool) {
 		d.step = d.label
 	}
 	return d, true
+}
+
+// noAmongFree reports whether a dispatch naming no candidate events may run:
+// its own event and every risen change must be free of the held scopes.
+func (e *StateExecutor) noAmongFree(d dueDispatch, scopes []*ast.StateNode) (dueDispatch, bool) {
+	if d.event != nil && e.eventHeld(scopes, *d.event) {
+		return d, false
+	}
+	if risen, ok := e.risenChanges(); ok {
+		for _, trans := range risen {
+			if trans != nil && e.eventHeld(scopes, Event{Payload: trans}) {
+				return d, false
+			}
+		}
+	}
+	return d, true
+}
+
+// eventHeld reports whether event's transitions fall inside a held scope;
+// a selection that fails to preview is held rather than risked.
+func (e *StateExecutor) eventHeld(scopes []*ast.StateNode, event Event) bool {
+	if trans, ok := event.Payload.(*lower.Transition); ok {
+		return scopeContains(e.graph, scopes, e.transitionOwner(trans))
+	}
+	var candidates []dispatchCandidate
+	var err error
+	e.preview(func() {
+		candidates, err = e.selectTransitions(&event)
+	})
+	if err != nil {
+		return true
+	}
+	for _, candidate := range candidates {
+		for _, index := range candidate.enabled {
+			if scopeContains(e.graph, scopes, e.graph.Transitions[candidate.source][index].Owner) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (e *StateExecutor) transitionOwner(trans *lower.Transition) *ast.StateNode {

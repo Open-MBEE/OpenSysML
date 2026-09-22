@@ -214,45 +214,7 @@ func comparisonTable(cfg *simresults.ConfigurationResults, table runtime.SweepTa
 	cells := [][]string{{"observable", "source", "runs", "min", "mean", "p50", "p90", "max"}}
 	var notes []string
 	for _, pair := range comparedObservables(cfg, table, observe) {
-		name, feature := pair.Stored, pair.Feature
-		if len(cfg.Snapshots) == 0 {
-			cells = append(cells, []string{name, "tool (no stored result to compare)", "0", "", "", "", "", ""})
-			cells, notes = runRows(cells, notes, name, feature, table, nil)
-			continue
-		}
-		if !slices.Contains(cfg.Observables, name) {
-			notes = append(notes, fmt.Sprintf("note: the tool stored no observable named %s, which %s was to answer", name, feature))
-			continue
-		}
-		stored, pooled := storedDistribution(cfg, name)
-		if stored == nil {
-			notes = append(notes, fmt.Sprintf("note: no snapshot holds a number for %s", name))
-			continue
-		}
-		if pooled {
-			cells = append(cells, []string{name, "tool", fmt.Sprint(stored.Count), "", withUnit(drawnMean(stored), ""), "", "", ""})
-			for _, snap := range cfg.Summarised(name) {
-				st := snap.Statistics
-				note := fmt.Sprintf("note: %s summarises %d run(s) of %s: mean %s", orUnnamed(snap.Name), st.Runs, name, spell(st.Mean))
-				if st.Deviation != nil {
-					note += ", deviation " + spell(*st.Deviation)
-				}
-				if st.OutOfSpec != nil {
-					note += fmt.Sprintf(", %d out of specification", *st.OutOfSpec)
-				}
-				notes = append(notes, note)
-			}
-			if apart := cfg.Disagreeing(name); len(apart) > 0 {
-				names := make([]string, len(apart))
-				for i, snap := range apart {
-					names[i] = orUnnamed(snap.Name)
-				}
-				notes = append(notes, fmt.Sprintf("note: the summaries %s of %s lie more than three standard errors apart, so they cannot be of runs of one and the same model, and the tool's mean of %s blends them", strings.Join(names, ", "), name, name))
-			}
-		} else {
-			cells = append(cells, statisticsRow(name, "tool", stored, ""))
-		}
-		cells, notes = runRows(cells, notes, name, feature, table, &comparison{stored: stored, pooled: pooled})
+		cells, notes = comparisonRows(cells, notes, cfg, table, pair)
 	}
 	widths := make([]int, len(cells[0]))
 	for _, row := range cells {
@@ -265,6 +227,53 @@ func comparisonTable(cfg *simresults.ConfigurationResults, table runtime.SweepTa
 		lines = append(lines, renderSweepRow(row, widths, " | "))
 	}
 	return append(lines, notes...)
+}
+
+// comparisonRows writes the table rows and notes one compared observable earns.
+func comparisonRows(cells [][]string, notes []string, cfg *simresults.ConfigurationResults, table runtime.SweepTable, pair ObservablePair) ([][]string, []string) {
+	name, feature := pair.Stored, pair.Feature
+	if len(cfg.Snapshots) == 0 {
+		cells = append(cells, []string{name, "tool (no stored result to compare)", "0", "", "", "", "", ""})
+		return runRows(cells, notes, name, feature, table, nil)
+	}
+	if !slices.Contains(cfg.Observables, name) {
+		return cells, append(notes, fmt.Sprintf("note: the tool stored no observable named %s, which %s was to answer", name, feature))
+	}
+	stored, pooled := storedDistribution(cfg, name)
+	if stored == nil {
+		return cells, append(notes, fmt.Sprintf("note: no snapshot holds a number for %s", name))
+	}
+	if pooled {
+		cells, notes = pooledRows(cells, notes, cfg, name, stored)
+	} else {
+		cells = append(cells, statisticsRow(name, "tool", stored, ""))
+	}
+	return runRows(cells, notes, name, feature, table, &comparison{stored: stored, pooled: pooled})
+}
+
+// pooledRows writes the tool's row for a pooled observable and the notes its
+// per-run summaries earn.
+func pooledRows(cells [][]string, notes []string, cfg *simresults.ConfigurationResults, name string, stored *runtime.Distribution) ([][]string, []string) {
+	cells = append(cells, []string{name, "tool", fmt.Sprint(stored.Count), "", withUnit(drawnMean(stored), ""), "", "", ""})
+	for _, snap := range cfg.Summarised(name) {
+		st := snap.Statistics
+		note := fmt.Sprintf("note: %s summarises %d run(s) of %s: mean %s", orUnnamed(snap.Name), st.Runs, name, spell(st.Mean))
+		if st.Deviation != nil {
+			note += ", deviation " + spell(*st.Deviation)
+		}
+		if st.OutOfSpec != nil {
+			note += fmt.Sprintf(", %d out of specification", *st.OutOfSpec)
+		}
+		notes = append(notes, note)
+	}
+	if apart := cfg.Disagreeing(name); len(apart) > 0 {
+		names := make([]string, len(apart))
+		for i, snap := range apart {
+			names[i] = orUnnamed(snap.Name)
+		}
+		notes = append(notes, fmt.Sprintf("note: the summaries %s of %s lie more than three standard errors apart, so they cannot be of runs of one and the same model, and the tool's mean of %s blends them", strings.Join(names, ", "), name, name))
+	}
+	return cells, notes
 }
 
 // comparison is the tool's side of one observable: its distribution, pooled from

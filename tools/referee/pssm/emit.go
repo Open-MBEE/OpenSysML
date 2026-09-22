@@ -478,6 +478,9 @@ func (e *emitter) startEntry(b *strings.Builder, inner string, region *Region, w
 // initialSuffix names the entry action a state's or region's path is suffixed with.
 const initialSuffix = ".initial"
 
+// entryLabel qualifies a `where` or path with the state's entry behavior.
+const entryLabel = " entry"
+
 // effectOf locates a transition's effect for a diagnostic.
 func effectOf(tr *Transition) string {
 	return tr.Describe() + " effect"
@@ -505,9 +508,9 @@ func (e *emitter) stateParts(state *Vertex, ind, where string) (stateParts, erro
 	}
 	var err error
 	if hasParams(state.Entry) {
-		parts.entry, err = e.boundEntry(state.Entry, ind, where+" entry", state.Path()+" entry")
+		parts.entry, err = e.boundEntry(state.Entry, ind, where+entryLabel, state.Path()+entryLabel)
 	} else {
-		parts.entry, err = e.plainAction(state.Entry, ind, where+" entry")
+		parts.entry, err = e.plainAction(state.Entry, ind, where+entryLabel)
 	}
 	if err != nil {
 		return parts, err

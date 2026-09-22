@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
 import java.util.List;
+import java.util.Map;
 
 import org.eclipse.emf.common.command.BasicCommandStack;
 import org.eclipse.emf.common.util.URI;
@@ -70,8 +71,8 @@ class ProjectTextExporterTest {
         resource.getContents().add(second);
         set.getResources().add(resource);
         IEMFEditingContext context = context(set);
-        ElementSerializer serializer = (element, report) -> element == first ? "part def A;\n"
-                : element == second ? "part def B;" : "";
+        Map<Object, String> texts = Map.of(first, "part def A;\n", second, "part def B;");
+        ElementSerializer serializer = (element, report) -> texts.getOrDefault(element, "");
 
         var result = new ProjectTextExporter(serializer, mock(IIdentityService.class)).export(context);
 

@@ -107,7 +107,7 @@ func (m *migration) instanceSnapshot(r *simresults.ConfigurationResults, inst *s
 	for name, n := range held {
 		if n > 1 {
 			delete(snap.Values, name)
-			scan.unread[name+" holds "+strconv.Itoa(n)+" numbers over as many slots, and a result is one number"]++
+			scan.unread[name+holdsText+strconv.Itoa(n)+" numbers over as many slots, and a result is one number"]++
 		}
 	}
 	if scan.analysed != nil {
@@ -153,12 +153,12 @@ func (m *migration) slotValues(inst *sysmlv1.Element, snap *simresults.Snapshot,
 			continue
 		}
 		if value.kind != kindNumber {
-			scan.unread[name+" holds a "+value.spec+", which is no number"]++
+			scan.unread[name+" holds a "+value.spec+noNumber]++
 			continue
 		}
 		if !value.carried() {
 			held[name]++
-			scan.unread[name+" holds "+strconv.Quote(value.text)+", which no float64 spells exactly, and a result is a float64"]++
+			scan.unread[name+holdsText+strconv.Quote(value.text)+", which no float64 spells exactly, and a result is a float64"]++
 			continue
 		}
 		snap.Values[name] = value.number
@@ -167,7 +167,7 @@ func (m *migration) slotValues(inst *sysmlv1.Element, snap *simresults.Snapshot,
 	for stat, n := range statSlots {
 		if n > 1 {
 			delete(summary, stat)
-			scan.unread[monteCarloAnalysisBlock+"::"+stat+" holds "+strconv.Itoa(n)+" numbers over as many slots, and a statistic is one number"]++
+			scan.unread[monteCarloAnalysisBlock+"::"+stat+holdsText+strconv.Itoa(n)+" numbers over as many slots, and a statistic is one number"]++
 			unread = true
 		}
 	}
@@ -309,7 +309,7 @@ func (m *migration) monteCarloSlot(slot *sysmlv1.Element) (stat string, value fl
 	case reason != "":
 		return stat, 0, reason
 	case scalar.kind != kindNumber:
-		return stat, 0, "holds a " + scalar.spec + ", which is no number"
+		return stat, 0, "holds a " + scalar.spec + noNumber
 	}
 	return stat, scalar.number, ""
 }
@@ -322,7 +322,7 @@ func (m *migration) monteCarloSlot(slot *sysmlv1.Element) (stat string, value fl
 func monteCarloStatistics(observable string, summary map[string]float64, unread bool, values map[string]float64) (stats *simresults.Statistics, note string) {
 	switch {
 	case unread:
-		return nil, "record a " + monteCarloAnalysisBlock + " statistic that is no one number, so they hold no statistics"
+		return nil, recordNote + monteCarloAnalysisBlock + " statistic that is no one number, so they hold no statistics"
 	case len(summary) == 0:
 		return nil, ""
 	}
@@ -334,17 +334,17 @@ func monteCarloStatistics(observable string, summary map[string]float64, unread 
 	case runs == 0 && mean == 0:
 		return nil, ""
 	case runs != math.Trunc(runs) || runs < 1:
-		return nil, "record a " + monteCarloAnalysisBlock + "::" + monteCarloRuns + " of " + strconv.FormatFloat(runs, 'g', -1, 64) + ", which is no count of runs, so they hold no statistics"
+		return nil, recordNote + monteCarloAnalysisBlock + "::" + monteCarloRuns + " of " + strconv.FormatFloat(runs, 'g', -1, 64) + ", which is no count of runs, so they hold no statistics"
 	case runs >= math.Ldexp(1, 63):
-		return nil, "record a " + monteCarloAnalysisBlock + "::" + monteCarloRuns + " of " + strconv.FormatFloat(runs, 'g', -1, 64) + ", which is more runs than a count holds, so they hold no statistics"
+		return nil, recordNote + monteCarloAnalysisBlock + "::" + monteCarloRuns + " of " + strconv.FormatFloat(runs, 'g', -1, 64) + ", which is more runs than a count holds, so they hold no statistics"
 	}
 	deviation, hasDeviation := summary[monteCarloDeviation]
 	if hasDeviation && deviation < 0 {
-		return nil, "record a " + monteCarloAnalysisBlock + "::" + monteCarloDeviation + " of " + strconv.FormatFloat(deviation, 'g', -1, 64) + ", which is no standard deviation, so they hold no statistics"
+		return nil, recordNote + monteCarloAnalysisBlock + "::" + monteCarloDeviation + " of " + strconv.FormatFloat(deviation, 'g', -1, 64) + ", which is no standard deviation, so they hold no statistics"
 	}
 	outOfSpec, hasOutOfSpec := summary[monteCarloOutOfSpec]
 	if hasOutOfSpec && (outOfSpec != math.Trunc(outOfSpec) || outOfSpec < 0 || outOfSpec > runs) {
-		return nil, "record a " + monteCarloAnalysisBlock + "::" + monteCarloOutOfSpec + " of " + strconv.FormatFloat(outOfSpec, 'g', -1, 64) + " over " + strconv.FormatFloat(runs, 'g', -1, 64) + " runs, which is no count of them, so they hold no statistics"
+		return nil, recordNote + monteCarloAnalysisBlock + "::" + monteCarloOutOfSpec + " of " + strconv.FormatFloat(outOfSpec, 'g', -1, 64) + " over " + strconv.FormatFloat(runs, 'g', -1, 64) + " runs, which is no count of them, so they hold no statistics"
 	}
 	if value, recorded := values[observable]; !recorded || value != mean {
 		return nil, "record " + monteCarloAnalysisBlock + " statistics whose " + monteCarloMean + " no value of " + observable + " holds, though the analysis binds the two, so the statistics are not read"
@@ -746,6 +746,13 @@ func (v scalarValue) carried() bool {
 // holdsNote prefixes a reason a snapshot slot is no result.
 const holdsNote = "holds "
 
+// The note fragments the snapshot and statistic refusals repeat.
+const (
+	holdsText  = " holds "
+	noNumber   = ", which is no number"
+	recordNote = "record a "
+)
+
 const (
 	kindNumber      = "number"
 	kindBoolean     = "boolean"
@@ -785,7 +792,7 @@ func (m *migration) literalScalar(v *sysmlv1.Element) (value scalarValue, reason
 			value.kind, value.text = kindEnumLiteral, inst.ID
 			break
 		}
-		return scalarValue{}, "holds a " + v.Type + ", which is no number"
+		return scalarValue{}, "holds a " + v.Type + noNumber
 	}
 	if reason != "" {
 		return scalarValue{}, reason
