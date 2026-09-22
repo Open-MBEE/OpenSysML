@@ -6,8 +6,9 @@ import (
 )
 
 // diagramModel wraps members beside package Sys (_sys) holding block Pump
-// (_pump) with attribute rate (_rate), and a tool extension holding diagrams.
-func diagramModel(members, diagrams string) string {
+// (_pump) with attribute rate (_rate), a tool extension holding diagrams, and
+// the stereotype applications applied.
+func diagramModel(members, diagrams string, applied ...string) string {
 	return `<?xml version="1.0" encoding="UTF-8"?>
 <xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
          xmlns:uml="http://www.omg.org/spec/UML/20161101"
@@ -23,6 +24,7 @@ func diagramModel(members, diagrams string) string {
     <xmi:Extension extender="Tool">` + diagrams + `</xmi:Extension>
   </uml:Model>
   <sysml:Block xmi:id="_sb" base_Class="_pump"/>
+  ` + strings.Join(applied, "\n  ") + `
 </xmi:XMI>`
 }
 
@@ -194,6 +196,29 @@ func TestDiagramViews(t *testing.T) {
 				t.Errorf("_d is reported %d times, want once", found)
 			}
 		})
+	}
+}
+
+// TestSimulationConfigurationDiagram covers a diagram whose owner is a run
+// configuration, written as an action def with its settings and target.
+func TestSimulationConfigurationDiagram(t *testing.T) {
+	r, err := Migrate("diagrams.xmi", []byte(diagramModel(
+		`<packagedElement xmi:type="uml:Class" xmi:id="_cfg" name="Trial"/>
+		 <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_rig" name="rig" classifier="_pump"/>`,
+		diagram("_d", "Setup", "_cfg", "Simulation Configuration Diagram", "_cfg", "_pump"),
+		`<SimulationProfile:SimulationConfig xmlns:SimulationProfile="http://www.magicdraw.com/schemas/SimulationProfile.xmi" xmi:id="_sc" base_Class="_cfg" executionTarget="_rig" numberOfRuns="2"/>`)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(r.Notation)
+	want := "action def Trial {\n    @Simulation::Configuration {\n        runs = 2;\n    }\n    part target : rig;\n    view Setup {\n        expose Trial;\n        expose Sys::Pump;\n        render Views::asTextualNotation;\n    }\n}"
+	if !strings.Contains(got, want) {
+		t.Errorf("notation lacks %q:\n%s", want, got)
+	}
+	for _, e := range r.Report.Entries {
+		if e.ID == "_d" && e.Verdict != Mapped {
+			t.Errorf("verdict %s (%s), want mapped", e.Verdict, e.Note)
+		}
 	}
 }
 
