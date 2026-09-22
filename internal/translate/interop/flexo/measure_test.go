@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
 
@@ -32,6 +33,11 @@ func TestReportTextIsDeterministic(t *testing.T) {
 				{Property: "sysml:declaredName", Written: 2, Delivered: 2},
 			},
 		},
+		APIJSONStats: APIJSONStats{Elements: 2, Bytes: 50},
+		APIJSON: SideReport{
+			Name: "api-json-commit", Accepted: false, Refusal: "bad payload", Written: 2,
+			Elements: []ElementStat{{ID: "<payload>", Direct: "write-refused(400)"}},
+		},
 		Findings: []string{"graph-load: 2 of 2 elements listed"},
 	}
 
@@ -46,6 +52,8 @@ func TestReportTextIsDeterministic(t *testing.T) {
 
 	for _, want := range []string{
 		"[graph-load]\naccepted\tyes\n",
+		"[api-json]\nelements\t2\nbytes\t50\n",
+		"[api-json-commit]\naccepted\tno\nrefusal\tbad payload\n",
 		"A\ttype=Package\tlisted=yes\tdirect=ok\tproperties=1/1\n",
 		"B\ttype=PartUsage\tlisted=yes\tdirect=refused(400)\tproperties=1/2\tlost=sysx:hasBody\tshape=sysml:type:reference-as-literal\n",
 		"sysml:declaredName\twritten=2\tdelivered=2\tmulti-valued=0/0\n",
@@ -109,19 +117,48 @@ func TestFixtureGraphCoversTheGaps(t *testing.T) {
 // service accepts: every change carries an @id and a @type.
 func TestReferenceFixtureIsAPostableCommit(t *testing.T) {
 	for _, f := range fixtures {
-		t.Run(f.name, func(t *testing.T) { checkPostableCommit(t, f.referencePath) })
+		t.Run(f.name, func(t *testing.T) {
+			fixture, err := os.ReadFile(f.referencePath)
+			if err != nil {
+				t.Fatalf("read %s: %v", f.referencePath, err)
+			}
+			changes, written, err := referencePayload(fixture)
+			if err != nil {
+				t.Fatalf("read the reference payload: %v", err)
+			}
+			checkPostableCommit(t, changes, written)
+		})
 	}
 }
 
-func checkPostableCommit(t *testing.T, referencePath string) {
-	fixture, err := os.ReadFile(referencePath)
+// The api-json side posts the element form of the same graph, so its commit
+// must be the same shape the reference fixture takes: a Commit of DataVersion
+// payloads, each with an @id and a @type.
+func TestAPIJSONPayloadIsAPostableCommit(t *testing.T) {
+	model, err := os.ReadFile(fixtures[0].fixturePath)
 	if err != nil {
-		t.Fatalf("read %s: %v", referencePath, err)
+		t.Fatalf("read %s: %v", fixtures[0].fixturePath, err)
 	}
-	changes, written, err := referencePayload(fixture)
+	graph, err := convert.SysMLToRDF("model.sysml", model)
 	if err != nil {
-		t.Fatalf("read the reference payload: %v", err)
+		t.Fatalf("convert the fixture: %v", err)
 	}
+	elements, err := export.WriteAPIJSON(graph)
+	if err != nil {
+		t.Fatalf("write the api element form: %v", err)
+	}
+	changes, written, err := apiJSONPayload(elements)
+	if err != nil {
+		t.Fatalf("build the api-json commit: %v", err)
+	}
+	checkPostableCommit(t, changes, written)
+	if len(written) != len(graph.Subjects()) {
+		t.Errorf("the commit posts %d elements for %d graph subjects", len(written), len(graph.Subjects()))
+	}
+}
+
+func checkPostableCommit(t *testing.T, changes []byte, written map[string]*writtenElement) {
+	t.Helper()
 
 	var request struct {
 		Type   string `json:"@type"`
@@ -141,6 +178,11 @@ func checkPostableCommit(t *testing.T, referencePath string) {
 	// The documentation in the fixture is for a reader and must not be posted.
 	if strings.Contains(string(changes), "requireValidId") {
 		t.Error("the posted request carries the fixture's documentation")
+	}
+	for _, change := range request.Change {
+		if change.Payload == nil {
+			t.Error("a change carries no payload object")
+		}
 	}
 
 	for _, change := range request.Change {

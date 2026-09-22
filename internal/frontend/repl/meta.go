@@ -159,7 +159,7 @@ var metaCommandTable = []metaCommand{
 	{name: "%clear", group: groupSession, desc: "reset the session"},
 	{name: "%load", group: groupSession, args: "<path>...", desc: "submit the contents of files, directories or globs"},
 	{name: "%print", group: groupSession, args: "[name]", desc: "print the session model as SysML notation, or just the named element"},
-	{name: "%save", group: groupSession, args: "<file>", desc: "write the session model to a file (.sysml notation, or .ttl RDF — experimental)"},
+	{name: "%save", group: groupSession, args: "<file>", desc: "write the session model to a file (.sysml notation, or .ttl/.json RDF — experimental)"},
 	{name: cmdQuery, group: groupSession, args: "<oslc-query>", desc: "identify model elements using OSLC Query text"},
 	{name: "%quit", group: groupSession, desc: "exit the REPL (also %exit)"},
 	{name: "%exit", group: groupSession, desc: "exit the REPL", alias: true},
@@ -351,7 +351,7 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 		return metaOut(s.doPrint(fields[1])), true
 	case "%save":
 		if len(fields) < 2 {
-			return metaOut([]string{"usage: %save <file.sysml|file.ttl>"}, false, nil), true
+			return metaOut([]string{"usage: %save <file.sysml|file.ttl|file.json>"}, false, nil), true
 		}
 		return metaOut(s.doSave(nameText(fields[1]))), true
 	case "%verbosity":

@@ -765,9 +765,9 @@ message ConvertRequest {
     string content = 2;
     string model_hash = 6;
   }
-  // "sysml", "kerml", "text", "ttl", "turtle" or "rdf". Empty infers from
-  // file_path's extension, and is notation for a model_hash, since that is what
-  // parse reads; inline content has neither, so it must say.
+  // "sysml", "kerml", "text", "ttl", "turtle", "rdf", "api-json" or "json".
+  // Empty infers from file_path's extension, and is notation for a model_hash,
+  // since that is what parse reads; inline content has neither, so it must say.
   string from_format = 3;
   // Format to write, named as in from_format. Empty is rejected.
   string to_format = 4;
@@ -789,10 +789,11 @@ message ConvertResponse {
   // Syntax errors tolerated under tolerate_syntax_errors, or those that failed
   // the conversion.
   repeated Diagnostic diagnostics = 5;
-  // Set when either format is RDF, whose mapping is experimental: it covers
-  // model structure and the behavior its bodies state, refuses what it cannot
-  // write back, and its vocabulary may change without a compatibility path.
-  // Notation to notation is stable and leaves this unset.
+  // Set when either format is RDF or the API's JSON element form, whose
+  // mapping is experimental: it covers model structure and the behavior its
+  // bodies state, refuses what it cannot write back, and its vocabulary may
+  // change without a compatibility path. Notation to notation is stable and
+  // leaves this unset.
   bool experimental = 6;
   // What is experimental about the conversion, in the wording every surface
   // reports it in. Empty when experimental is false.

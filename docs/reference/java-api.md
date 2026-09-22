@@ -38,7 +38,7 @@ try (Connection connection = Connection.open()) {          // private child serv
 | `load(Path)`, `load(Path, ParseOptions)` | parses a file the service can read |
 | `parse(String)`, `parse(String, ParseOptions)` | parses inline content |
 | `parseSources(List<SourceDocument>)`, `parseSources(List, ParseOptions)` | parses several documents as one model |
-| `convert(String content, String toFormat[, ConversionOptions])`, `convertFile(Path, ...)` | translates source between notations (`sysml`, `kerml`, `ttl`, `xmi`) |
+| `convert(String content, String toFormat[, ConversionOptions])`, `convertFile(Path, ...)` | translates source between notations (`sysml`, `kerml`, `ttl`, `api-json`, `xmi`) |
 | `model(String modelHash)` | adopts a model the service already holds |
 | `capabilities()` | what `GetServerInfo` reported, asked once at open |
 | `listEngines()` | the analysis engines the service can put a question to, as `EngineInfo` |
