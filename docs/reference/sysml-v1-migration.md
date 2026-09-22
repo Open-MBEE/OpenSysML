@@ -128,7 +128,8 @@ returned over the service yet.
 | «Satisfy» | `satisfy requirement … by …` in the satisfying usage's owner | mapped |
 | «Verify» from a test case | `verify` in the verification def | mapped |
 | «DeriveReqt» | `connection … :> RequirementDerivation::Derivation` | mapped |
-| «Allocate» | `allocate a to b`, or `allocation name allocate a to b` when named | mapped |
+| «Allocate» | `allocate a to b`, or `allocation name allocate a to b` when named; an end that is an activity node is named under the `action def` the activity is written as (the operation, for a method), so an allocation to a call action written as a declared stub is written too | mapped |
+| «Allocate», or another dependency, whose end is an activity node written only as a placeholder (a call that is not migrated) | the relationship is written to the placeholder, and reported no better than its end, the note naming it | **unmapped** / approximated (as the end is) |
 | «Refine» | `dependency` carrying `@ModelingMetadata::Refinement` | mapped |
 | «Trace», «Copy», other stereotyped dependencies | plain `dependency` with the stereotype as a comment; named relationships keep their name | approximated |
 | Comment, Documentation | `doc` (first) / `comment`, HTML tags stripped | mapped |
@@ -144,7 +145,9 @@ returned over the service yet.
 | Parameter, ActivityParameterNode | `in`/`out`/`inout` parameter of the `action def`; a `return` parameter is `out`; the parameter node's flows bind the parameter | mapped (return: approximated) |
 | InitialNode, ActivityFinalNode, FlowFinalNode | `first start then …`; `action x terminate;`; the token ends where a flow final does | mapped |
 | ForkNode, JoinNode, DecisionNode, MergeNode | `fork`, `join`, `decide`, `merge`; a node several edges leave or reach without a control node gets one written for it | mapped (implicit fork/join: approximated) |
-| CallBehaviorAction | `action x : Def;` with `bind`/`flow` for its pins; a call of no behavior whose only content is a duration is a leaf step, the wait written for it; a call of a state machine, of a behavior with no v2 declaration, or of no behavior with pins to feed | mapped (a leaf step: mapped, "a step with a duration and no further behavior") / **unmapped** |
+| CallBehaviorAction | `action x : Def;` with `bind`/`flow` for its pins; a call of no behavior whose only content is a duration is a leaf step, the wait written for it; a call of a state machine or of a behavior with no v2 declaration | mapped (a leaf step: mapped, "a step with a duration and no further behavior") / **unmapped** |
+| CallBehaviorAction naming no behavior, with pins | a declared stub, `action x { in a : T; out r : U[0..1]; }` — its pins its parameters, typed and bounded as the pins are, in the same successions, forks and joins as a bare step; the flows into and out of them are written; each output pin is declared admitting no value, since nothing computes it; the note says the action computes nothing. A call whose `behavior` reference resolves to nothing in the document is not a stub: it stays a placeholder | approximated (unresolved behavior: **unmapped**) |
+| InputPin / OutputPin of a call, past the called behavior's parameters of its direction | the call keeps the parameters its callee declares, so no parameter is added for the pin, which is dropped with the flows through it; the note names the called behavior and its parameters of that direction. Only a stub naming no behavior declares parameters for its pins, having no parameter list of its own | **unmapped** (the pin and its flows; the call itself stays mapped) |
 | CallBehaviorAction of an fUML or Alf library primitive (`fUML_Library.xmi#…`, `Alf-Library.xmi#…`, any date; or MagicDraw's `fUML-Library.mdzip#…` with the bundled copy or `referentPath` under the library's own root package) | the action with its pins, each result pin valued by the v2 library expression over the arguments, `out result : ScalarValues::String = StringFunctions::'+'(x, y);`; see [the table](#calls-to-the-fuml-and-alf-libraries) | mapped / approximated (the note says where v2 differs) / **unmapped** (no v2 equivalent: the note says which) |
 | CallOperationAction | `perform action x ::> target.op;` when the target pin's value is an object whose type owns the operation, or when `onPort` names a port a connector of the caller's block joins to a part that owns it (a port of the target itself names it); otherwise `action x : Owner::Op;`, which runs in the caller's context | mapped / approximated (unresolved target: the reason names it) |
 | ControlFlow | `first a then b;`, `if <guard>` when the guard parses and resolves as a v2 expression or translates from JavaScript or English (`i >= Retries`, `GS_Found`, `not Found and i < 3`, `TRUE`) through the [subset](#the-opaque-language-subset); otherwise the guard text as a comment and the edge unguarded, the report naming the token refused | mapped / approximated |
@@ -372,10 +375,17 @@ nothing, written as an empty action carrying the token, with the reason in its c
 report. A call whose callee acts on an object the caller does not hold — the method reads
 ports of its block, and the caller is a behavior of another block with no part of that type —
 is refused the same way, since running it on the caller's object would go through ports it lacks.
-So is a call behavior action that names no behavior yet has pins: nothing in the model says
-what it performs, and no v1 relation it stands in names it — an «Allocate» from the action to
-a part says where it runs, not what it does, and the report says so — so the action is written
-empty with its pins, which nothing computes, and no behavior or value is made up for it.
+A call behavior action that names no behavior yet has pins is written as a declared stub,
+`action x { in a : T; out r : U[0..1]; }`: nothing in the model says what it performs, and no v1
+relation it stands in names it — an «Allocate» from the action to a part says where it runs, not
+what it does, and the report says so — so its pins are declared as its parameters, typed and
+bounded as they are, no behavior or value is made up for it, and each output is declared admitting
+no value, since nothing computes it. The flows into and out of it are written as for any action;
+at run time a flow out of an unassigned output carries nothing, so its target reads the parameter
+empty, and a required parameter it feeds is reported as holding no value rather than made up. A
+call that does name a behavior keeps the parameters the behavior declares: a pin the behavior has
+no parameter for is ill-formed v1, so the pin and its flows are dropped, the reason naming the
+behavior and its parameters of that direction, while the call itself stays.
 
 **Control nodes carrying data.** A fork, join, merge, decision or buffer node that lies on no
 control path and whose every outgoing edge leads to an action's pin routes values, not control:

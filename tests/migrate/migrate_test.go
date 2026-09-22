@@ -309,6 +309,7 @@ var constructFixtures = []string{
 	"user_library",
 	"montecarlo",
 	"weighted_decision",
+	"stub_actions",
 }
 
 // migrateFixtureFile migrates testdata/xmi/<name>.xmi.

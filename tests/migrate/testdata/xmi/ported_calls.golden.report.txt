@@ -53,7 +53,7 @@ Parameter	Motor::Spin::rpm	_spinRpm	-> Motor::Spin::rpm
 Activity	Motor::Spinning	_spinning	-> Motor::Spin	(written as the body of the operation Motor::Spin, whose method it is)
 ObjectFlow	Motor::Spinning::<ObjectFlow>	_spOf
 Parameter	Motor::Spinning::rpm	_spRpm	-> Motor::Spin::rpm	(stands for the operation's parameter rpm at the same position, which is written once)
-ActivityParameterNode	Motor::Spinning::rpm	_spApn	-> Motor::Spinning::rpm	(the flows to and from the node name the parameter rpm)
-InputPin	Motor::Spinning::set speed::value	_setSpeedVal	-> Motor::Spinning::'set speed'.value
+ActivityParameterNode	Motor::Spinning::rpm	_spApn	-> Motor::Spin::rpm	(the flows to and from the node name the parameter rpm)
+InputPin	Motor::Spinning::set speed::value	_setSpeedVal	-> Motor::Spin::'set speed'.value
 Port	Motor::cmd	_cmd	-> Motor::cmd
 Property	Motor::speed	_speed	-> Motor::speed

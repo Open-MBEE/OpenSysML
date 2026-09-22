@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+
+    <packagedElement xmi:type="uml:Class" xmi:id="_probe" name="Probe"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_logger" name="Logger"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_rig" name="Rig">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_eye" name="probe" type="_probe" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_log" name="logger" type="_logger" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_last" name="last">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+      </ownedAttribute>
+
+      <!-- Record stores the value it is passed; a call may pass it a stamp it declares no parameter for. -->
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_record" name="Record">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_recordIn" name="value" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedParameter>
+        <node xmi:type="uml:InitialNode" xmi:id="_rInit"/>
+        <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="_rSet" name="set last" structuralFeature="_last" isReplaceAll="true">
+          <value xmi:type="uml:InputPin" xmi:id="_rSetVal" name="value"/>
+        </node>
+        <node xmi:type="uml:ActivityParameterNode" xmi:id="_rApn" name="value" parameter="_recordIn"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_rFinal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_rE1" source="_rInit" target="_rSet"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_rE2" source="_rSet" target="_rFinal"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_rOf" source="_rApn" target="_rSetVal"/>
+      </ownedBehavior>
+
+      <!-- Sampling feeds a gain to measure, which calls no behavior, and its reading to Record. -->
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_sampling" name="Sampling">
+        <node xmi:type="uml:InitialNode" xmi:id="_init"/>
+        <node xmi:type="uml:ValueSpecificationAction" xmi:id="_gain" name="gain">
+          <value xmi:type="uml:LiteralReal" xmi:id="_gainVal" value="2.5"/>
+          <result xmi:type="uml:OutputPin" xmi:id="_gainOut" name="result"/>
+        </node>
+        <node xmi:type="uml:ValueSpecificationAction" xmi:id="_stamp" name="stamp">
+          <value xmi:type="uml:LiteralInteger" xmi:id="_stampVal" value="7"/>
+          <result xmi:type="uml:OutputPin" xmi:id="_stampOut" name="result"/>
+        </node>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_measure" name="measure">
+          <argument xmi:type="uml:InputPin" xmi:id="_measureIn" name="gain">
+            <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+          </argument>
+          <result xmi:type="uml:OutputPin" xmi:id="_measureOut" name="reading">
+            <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+          </result>
+        </node>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_recordCall" name="record" behavior="_record">
+          <argument xmi:type="uml:InputPin" xmi:id="_recordVal" name="value"/>
+          <argument xmi:type="uml:InputPin" xmi:id="_recordStamp" name="stamp"/>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_final"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e1" source="_init" target="_gain"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e2" source="_gain" target="_stamp"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e3" source="_stamp" target="_measure"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e4" source="_measure" target="_recordCall"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e5" source="_recordCall" target="_final"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_of1" source="_gainOut" target="_measureIn"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_of2" source="_measureOut" target="_recordVal"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_of3" source="_stampOut" target="_recordStamp"/>
+      </ownedBehavior>
+    </packagedElement>
+
+    <!-- measure runs on the probe, record on the logger: one allocation of each form. -->
+    <packagedElement xmi:type="uml:Abstraction" xmi:id="_allocMeasure">
+      <client xmi:idref="_measure"/>
+      <supplier xmi:idref="_eye"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Dependency" xmi:id="_allocRecord">
+      <client xmi:idref="_recordCall"/>
+      <supplier xmi:idref="_log"/>
+    </packagedElement>
+  </uml:Model>
+
+  <sysml:Block xmi:id="_s1" base_Class="_probe"/>
+  <sysml:Block xmi:id="_s2" base_Class="_logger"/>
+  <sysml:Block xmi:id="_s3" base_Class="_rig"/>
+  <sysml:Allocate xmi:id="_s4" base_Abstraction="_allocMeasure"/>
+  <sysml:Allocate xmi:id="_s5" base_Dependency="_allocRecord"/>
+</xmi:XMI>
