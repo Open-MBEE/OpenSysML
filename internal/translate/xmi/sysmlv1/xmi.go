@@ -547,17 +547,18 @@ func (m *Model) special(raw *xmi.Element, owner, ref *Element) {
 }
 
 // adoptValues reads the value specifications a tool keeps in an extension block
-// because UML has no metaclass for them — an ElementValue operand, referring to
-// an element — as owned elements of the block's owner, in document order.
-// It returns the raw elements adopted, so the block does not also list them.
+// because UML has no metaclass for them — an ElementValue operand of an
+// Expression, referring to an element — as owned elements of the block's owner,
+// in document order. It returns the raw elements adopted, so the block does not
+// also list them; any other element of the block stays tool metadata.
 func (m *Model) adoptValues(raw *xmi.Element, owner, ref *Element) map[*xmi.Element]bool {
 	adopted := map[*xmi.Element]bool{}
-	if owner == nil || ref != nil {
+	if owner == nil || ref != nil || (owner.Type != "Expression" && owner.Type != "StringExpression") {
 		return adopted
 	}
 	for _, block := range raw.Children {
 		for _, child := range block.Children {
-			if local(child.Type) != "ElementValue" {
+			if child.Tag != "operand" || local(child.Type) != "ElementValue" {
 				continue
 			}
 			e := m.newElement(child, owner)
