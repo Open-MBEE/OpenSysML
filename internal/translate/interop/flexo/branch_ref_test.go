@@ -214,6 +214,36 @@ func TestPushTakesACommittedWritePastAnAmbiguousPreconditionAnswer(t *testing.T)
 	}
 }
 
+func TestPushRefusesARejectedPreconditionEvenWithAnETag(t *testing.T) {
+	client, fake := stack(t, sparqlFixture)
+	fake.refusePut = &putRefusal{etag: "etag-0"}
+	repo := client.Repository("p", "b")
+
+	_, err := repo.Push(context.Background(), []byte("<s> <p> <o> ."), "a push")
+	var stale *StaleBranchError
+	if !errors.As(err, &stale) {
+		t.Fatalf("want a StaleBranchError on a refused 412, got %v", err)
+	}
+	if repo.Seen() != "" {
+		t.Errorf("the refusal moved what was seen to %q", repo.Seen())
+	}
+}
+
+func TestPushRefusesAPreconditionWhoseLocationNamesAnotherCommit(t *testing.T) {
+	client, fake := stack(t, sparqlFixture)
+	fake.refusePut = &putRefusal{etag: "c-mine", location: "http://layer1.test/orgs/o/repos/p/commits/c-other"}
+	repo := client.Repository("p", "b")
+
+	_, err := repo.Push(context.Background(), []byte("<s> <p> <o> ."), "a push")
+	var stale *StaleBranchError
+	if !errors.As(err, &stale) {
+		t.Fatalf("want a StaleBranchError when the Location disagrees, got %v", err)
+	}
+	if repo.Seen() != "" {
+		t.Errorf("the refusal moved what was seen to %q", repo.Seen())
+	}
+}
+
 func TestPushRefusesAFailedPrecondition(t *testing.T) {
 	client, fake := stack(t, sparqlFixture)
 	fake.race412 = true

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/interop/reposync"
@@ -110,29 +111,47 @@ func (r *Repository) Push(ctx context.Context, turtle []byte, message string) (s
 	if r.seen != "" && head != r.seen {
 		return "", &StaleBranchError{Project: r.project, Branch: r.branch, Seen: r.seen, Head: head}
 	}
-	committed, err := r.client.PutGraph(ctx, r.project, r.branch, turtle, message, etag)
+	res, err := r.client.PutGraph(ctx, r.project, r.branch, turtle, message, etag)
 	if err != nil {
 		if Status(err) == http.StatusPreconditionFailed {
-			// A committed write also answers 412; the new head tells them apart.
+			// A committed write also answers 412; its Location is the proof.
+			if c := committedFrom(res); c != "" {
+				r.seen = c
+				return c, nil
+			}
 			current, readErr := r.Head(ctx)
 			if readErr != nil {
 				return "", fmt.Errorf("the branch answered 412 and its head could not be re-read: %w", readErr)
-			}
-			if committed != "" && committed == current {
-				r.seen = current
-				return current, nil
 			}
 			return "", &StaleBranchError{Project: r.project, Branch: r.branch, Seen: head, Head: current}
 		}
 		return "", err
 	}
 	// Trust the commit the write itself reported; the head may have moved on.
-	if committed != "" {
-		r.seen = committed
-		return committed, nil
+	if res.Commit != "" {
+		r.seen = res.Commit
+		return res.Commit, nil
 	}
 	r.seen = ""
 	return "", &UnrecordedPushError{Project: r.project, Branch: r.branch}
+}
+
+// committedFrom trusts an ETag only when the response's Location names the
+// same commit under /commits/, as a committed write's does; a refused 412
+// carries neither.
+func committedFrom(res PutResult) string {
+	if res.Commit == "" {
+		return ""
+	}
+	u, err := url.Parse(res.Location)
+	if err != nil {
+		return ""
+	}
+	parts := strings.Split(strings.Trim(u.Path, "/"), "/")
+	if len(parts) >= 2 && parts[len(parts)-2] == "commits" && parts[len(parts)-1] == res.Commit {
+		return res.Commit
+	}
+	return ""
 }
 
 // Commit writes one batch as one SysML v2 commit. Creates and updates send

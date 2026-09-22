@@ -283,9 +283,18 @@ func (c *Client) LoadTurtle(ctx context.Context, project, branch string, turtle 
 	return err
 }
 
+// PutResult is what a graph write's response says it did: the ETag it carries
+// and the Location it names — a committed write carries both, a refused 412
+// neither.
+type PutResult struct {
+	Commit   string
+	Location string
+}
+
 // PutGraph replaces a branch's model graph, conditional on ifMatch ("*" = any).
-// The response ETag — the commit made — is returned: 412 also answers a committed write.
-func (c *Client) PutGraph(ctx context.Context, project, branch string, turtle []byte, message, ifMatch string) (string, error) {
+// 412 also answers a committed write, so the response headers are returned
+// either way.
+func (c *Client) PutGraph(ctx context.Context, project, branch string, turtle []byte, message, ifMatch string) (PutResult, error) {
 	target := c.branchGraphURL(project, branch)
 	if message != "" {
 		target += "?message=" + url.QueryEscape(message)
@@ -296,7 +305,10 @@ func (c *Client) PutGraph(ctx context.Context, project, branch string, turtle []
 	}
 	headers := map[string]string{"If-Match": ifMatch}
 	_, header, err := c.do(ctx, http.MethodPut, target, turtle, mediaTurtle, headers)
-	return strings.Trim(header.Get("ETag"), `"`), err
+	return PutResult{
+		Commit:   strings.Trim(header.Get("ETag"), `"`),
+		Location: header.Get("Location"),
+	}, err
 }
 
 // BranchETag reads the etag Layer 1's branch resource carries — the entity tag
