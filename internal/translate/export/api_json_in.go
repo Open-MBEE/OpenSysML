@@ -289,7 +289,7 @@ func apiJSONCollection(graph *rdf.Graph, subject rdf.Term, predicate rdf.Term, s
 			if member.Equal(earlier) {
 				name := sysmlKey
 				if name == "" {
-					name = predicate.Value[strings.LastIndexAny(predicate.Value, ":#/")+1:]
+					name = rdf.LocalName(predicate.Value)
 				}
 				return fmt.Errorf("the array on %s of <%s> repeats the member %s", name, subject.Value, member)
 			}
