@@ -79,6 +79,9 @@ func runConvert(files []string) (int, error) {
 	case inputIsURL:
 		return readBranch(inputRef, to)
 	}
+	if syncState != "" {
+		return 0, fmt.Errorf("-sync-state records a repository branch's head; neither %s nor -o names a branch", input)
+	}
 
 	from, err := resolveFormat(fromFormat, input)
 	if err != nil {
@@ -157,20 +160,24 @@ func writeConversion(path string, out []byte, to convert.Format) error {
 	return nil
 }
 
-// openBranch resolves a branch URL's repository: the endpoint it names, or the
-// configured one, under the shared bearer token.
-func openBranch(ref flexo.BranchRef) (*flexo.Repository, error) {
+// openBranch resolves a branch URL's repository under the shared bearer token.
+// The http(s) form must name the configured endpoint: a URL pointing elsewhere
+// while Layer 1 writes still go to FLEXO_LAYER1_URL would push one stack's
+// model over another's.
+func openBranch(ref flexo.BranchRef) (*flexo.Repository, flexo.Config, error) {
 	cfg, err := flexo.ConfigFromEnv()
 	if err != nil {
-		return nil, fmt.Errorf("a repository branch needs its bearer token: %w", err)
+		return nil, flexo.Config{}, fmt.Errorf("a repository branch needs its bearer token: %w", err)
 	}
-	if ref.SysMLV2URL != "" {
-		cfg.SysMLV2URL = ref.SysMLV2URL
+	if ref.SysMLV2URL != "" &&
+		strings.TrimSuffix(ref.SysMLV2URL, "/") != strings.TrimSuffix(cfg.SysMLV2URL, "/") {
+		return nil, flexo.Config{}, fmt.Errorf("%s names a SysML v2 endpoint other than the configured %s (%s); point %s and %s at that stack together, or write flexo://%s/%s",
+			ref.SysMLV2URL, cfg.SysMLV2URL, flexo.EnvSysMLV2URL, flexo.EnvSysMLV2URL, flexo.EnvLayer1URL, ref.Project, ref.Branch)
 	}
 	if err := cfg.CheckTransport(); err != nil {
-		return nil, err
+		return nil, flexo.Config{}, err
 	}
-	return flexo.New(cfg).Repository(ref.Project, ref.Branch), nil
+	return flexo.New(cfg).Repository(ref.Project, ref.Branch), cfg, nil
 }
 
 // readBranch converts a repository branch to -convert's format: the branch is
@@ -192,7 +199,7 @@ func readBranch(ref flexo.BranchRef, to convert.Format) (int, error) {
 	if migrationResults != "" {
 		return 0, fmt.Errorf("-migration-results indexes the result snapshots of a SysML v1 migration, and a repository branch is not migrated; pass it with -from xmi or a .xmi/.uml/.mdzip file")
 	}
-	repo, err := openBranch(ref)
+	repo, cfg, err := openBranch(ref)
 	if err != nil {
 		return 0, err
 	}
@@ -220,7 +227,8 @@ func readBranch(ref flexo.BranchRef, to convert.Format) (int, error) {
 	if statePath == "" {
 		return exitHolds, nil
 	}
-	return recordBranchState(repo.Seen(), ref, statePath)
+	scope := reposync.Scope{Org: cfg.Org, ProjectID: ref.Project, Branch: ref.Branch}
+	return recordBranchState(repo.Seen(), scope, statePath)
 }
 
 // pushBranch replaces a branch's model graph with the model converted to
@@ -236,7 +244,20 @@ func pushBranch(input string, to convert.Format, ref flexo.BranchRef) (int, erro
 		}
 		statePath = reposync.StatePath(input)
 	}
-	scope := reposync.Scope{ProjectID: ref.Project, Branch: ref.Branch}
+	if migrationReport != "" && input != "-" && samePath(migrationReport, input) {
+		return 0, fmt.Errorf("-migration-report names the model being migrated, %s; the report would replace it", input)
+	}
+	if migrationReport != "" && samePath(migrationReport, statePath) {
+		return 0, fmt.Errorf("-migration-report and the sync state both name %s; the report would be replaced by the recorded commit", statePath)
+	}
+	if migrationResults != "" && samePath(migrationResults, statePath) {
+		return 0, fmt.Errorf("-migration-results and the sync state both name %s; the results would be replaced by the recorded commit", statePath)
+	}
+	repo, cfg, err := openBranch(ref)
+	if err != nil {
+		return 0, err
+	}
+	scope := reposync.Scope{Org: cfg.Org, ProjectID: ref.Project, Branch: ref.Branch}
 	state, err := reposync.LoadState(statePath)
 	if err != nil {
 		return 0, err
@@ -245,12 +266,6 @@ func pushBranch(input string, to convert.Format, ref flexo.BranchRef) (int, erro
 		if err := state.Check(scope); err != nil {
 			return 0, err
 		}
-	}
-	repo, err := openBranch(ref)
-	if err != nil {
-		return 0, err
-	}
-	if state != nil && state.LastSeenCommit != "" {
 		repo.Resume(state.LastSeenCommit)
 	}
 	from, err := resolveFormat(fromFormat, input)
@@ -286,7 +301,7 @@ func pushBranch(input string, to convert.Format, ref flexo.BranchRef) (int, erro
 	if state == nil {
 		state = &reposync.State{}
 	}
-	state.ProjectID, state.Branch, state.LastSeenCommit = ref.Project, ref.Branch, head
+	state.Org, state.ProjectID, state.Branch, state.LastSeenCommit = cfg.Org, ref.Project, ref.Branch, head
 	if err := state.Save(statePath); err != nil {
 		return 0, fmt.Errorf("pushed %d bytes of Turtle as commit %s, but could not record it: %w", len(out), head, err)
 	}
@@ -297,7 +312,7 @@ func pushBranch(input string, to convert.Format, ref flexo.BranchRef) (int, erro
 
 // recordBranchState writes the head commit the run stood at to the sync state
 // file; one pinned to another project or branch is refused.
-func recordBranchState(head string, ref flexo.BranchRef, statePath string) (int, error) {
+func recordBranchState(head string, scope reposync.Scope, statePath string) (int, error) {
 	if head == "" {
 		return exitHolds, nil
 	}
@@ -306,16 +321,16 @@ func recordBranchState(head string, ref flexo.BranchRef, statePath string) (int,
 		return 0, err
 	}
 	if state != nil {
-		if err := state.Check(reposync.Scope{ProjectID: ref.Project, Branch: ref.Branch}); err != nil {
+		if err := state.Check(scope); err != nil {
 			return 0, err
 		}
-		if state.ProjectID == ref.Project && state.Branch == ref.Branch && state.LastSeenCommit == head {
+		if state.Scope() == scope && state.LastSeenCommit == head {
 			return exitHolds, nil
 		}
 	} else {
 		state = &reposync.State{}
 	}
-	state.ProjectID, state.Branch, state.LastSeenCommit = ref.Project, ref.Branch, head
+	state.Org, state.ProjectID, state.Branch, state.LastSeenCommit = scope.Org, scope.ProjectID, scope.Branch, head
 	if err := state.Save(statePath); err != nil {
 		return 0, fmt.Errorf("could not record head commit %s: %w", head, err)
 	}

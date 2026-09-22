@@ -284,7 +284,7 @@ func doc() usage.Doc {
 					"is normalized.",
 				"Either side may name a Flexo MMS project branch instead of a file: " +
 					"http(s)://host[:port][/base]/projects/{project}/branches/{branch}, " +
-					"or flexo://{project}/{branch} for the endpoint " +
+					"or flexo://{project}/{branch}, both naming the endpoint " +
 					"FLEXO_SYSMLV2_URL configures. A branch input is read as its head " +
 					"commit's RDF graph; a branch -o takes the -convert ttl output as " +
 					"the branch's whole model graph, conditional on the branch's etag, " +
@@ -548,7 +548,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.Var(&modelChecks.checker.unroll, checkUnrollFlag, "Under smt, the most iterations of one loop the solver unrolls before it stops (default 4)")
 	fs.Var(&modelChecks.checker.timeout, "check-timeout", "The time the check's plan may run for, as 30s or 2m, and the time each smt solver query may take in place of OPENSYSML_SMT_TIMEOUT")
 
-	fs.StringVar(&convertFormat, "convert", "", "Convert the model to this format instead of running it: sysml, kerml, ttl, turtle or rdf (RDF is experimental). The input may be a Flexo branch URL (host[:port][/base]/projects/{p}/branches/{b} or flexo://{p}/{b}), read as its RDF graph")
+	fs.StringVar(&convertFormat, "convert", "", "Convert the model to this format instead of running it: sysml, kerml, ttl, turtle or rdf (RDF is experimental). The input may be a Flexo branch URL (host[:port][/base]/projects/{p}/branches/{b} of the FLEXO_SYSMLV2_URL endpoint, or flexo://{p}/{b}), read as its RDF graph")
 	fs.StringVar(&fromFormat, "from", "", "Input format for -convert: sysml, kerml, ttl, turtle, rdf, or xmi, uml or mdzip for a SysML v1 model to migrate (experimental); default the input's extension")
 	fs.StringVar(&outputPath, "output", "", "Write what -convert, -compile, -render or -render-document produces to this file instead of stdout; with -convert ttl, a Flexo branch URL pushes the graph to the branch")
 	fs.StringVar(&outputPath, "o", "", "Write what -convert, -compile, -render or -render-document produces to this file instead of stdout; with -convert ttl, a Flexo branch URL pushes the graph to the branch")

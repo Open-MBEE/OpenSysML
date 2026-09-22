@@ -28,7 +28,7 @@ func TestConvertReadsABranchAsNotationAndTurtle(t *testing.T) {
 	}
 
 	branchURL := stack.server.URL + "/projects/proj-1/branches/main"
-	out, code = exitCode(t, syncCommand(stack, binary, branchURL, "-convert", "ttl"))
+	out, code = exitCode(t, branchCommand(stack, binary, branchURL, "-convert", "ttl"))
 	if code != 0 || !strings.Contains(out, "sysml:PartDefinition") && !strings.Contains(out, "8f3a41d0") {
 		t.Fatalf("read a branch as Turtle: exit %d:\n%s", code, out)
 	}
@@ -39,7 +39,7 @@ func TestConvertReadsABranchIntoAFileAndRecordsTheHead(t *testing.T) {
 	stack := newFakeStack(t, liveGraph(t, syncedModel))
 	out_path := filepath.Join(t.TempDir(), "out.sysml")
 
-	out, code := exitCode(t, syncCommand(stack, binary, stack.server.URL+"/projects/proj-1/branches/main", "-convert", "sysml", "-o", out_path))
+	out, code := exitCode(t, branchCommand(stack, binary, stack.server.URL+"/projects/proj-1/branches/main", "-convert", "sysml", "-o", out_path))
 	if code != 0 {
 		t.Fatalf("read a branch to a file: exit %d:\n%s", code, out)
 	}
@@ -63,7 +63,7 @@ func TestConvertPushReplacesTheBranchGraph(t *testing.T) {
 	model := writeModel(t, dir, "model.sysml", renamedModel)
 	branchURL := stack.server.URL + "/projects/proj-1/branches/main"
 
-	out, code := exitCode(t, syncCommand(stack, binary, model, "-convert", "ttl", "-o", branchURL))
+	out, code := exitCode(t, branchCommand(stack, binary, model, "-convert", "ttl", "-o", branchURL))
 	if code != 0 {
 		t.Fatalf("push: exit %d:\n%s", code, out)
 	}
@@ -100,10 +100,10 @@ func TestConvertPushRefusesAHeadTheStateSaysMoved(t *testing.T) {
 	stack := newFakeStack(t, liveGraph(t, syncedModel))
 	dir := t.TempDir()
 	model := writeModel(t, dir, "model.sysml", renamedModel)
-	writeModel(t, dir, "model.sysml.sync.json", `{"projectId":"proj-1","branch":"main","lastSeenCommit":"commit-old"}`)
+	writeModel(t, dir, "model.sysml.sync.json", `{"org":"sysmlv2","projectId":"proj-1","branch":"main","lastSeenCommit":"commit-old"}`)
 	branchURL := stack.server.URL + "/projects/proj-1/branches/main"
 
-	out, code := exitCode(t, syncCommand(stack, binary, model, "-convert", "ttl", "-o", branchURL))
+	out, code := exitCode(t, branchCommand(stack, binary, model, "-convert", "ttl", "-o", branchURL))
 	if code != 1 || len(stack.puts) != 0 {
 		t.Fatalf("push against a moved head: exit %d, %d write(s):\n%s", code, len(stack.puts), out)
 	}
@@ -119,19 +119,85 @@ func TestConvertPushNeedsTurtleAndAUsefulState(t *testing.T) {
 	model := writeModel(t, dir, "model.sysml", renamedModel)
 	branchURL := stack.server.URL + "/projects/proj-1/branches/main"
 
-	out, code := exitCode(t, syncCommand(stack, binary, model, "-convert", "sysml", "-o", branchURL))
+	out, code := exitCode(t, branchCommand(stack, binary, model, "-convert", "sysml", "-o", branchURL))
 	if code != 2 || len(stack.puts) != 0 || !strings.Contains(out, "ttl") {
 		t.Fatalf("-convert sysml to a branch: exit %d:\n%s", code, out)
 	}
 
-	out, code = exitCode(t, syncCommand(stack, binary, "flexo://proj-1/main", "-convert", "ttl", "-o", branchURL))
+	out, code = exitCode(t, branchCommand(stack, binary, "flexo://proj-1/main", "-convert", "ttl", "-o", branchURL))
 	if code != 2 || len(stack.puts) != 0 {
 		t.Fatalf("branch input and branch output: exit %d:\n%s", code, out)
 	}
 
-	out, code = exitCode(t, syncCommand(stack, binary, branchURL, "-convert", "sysml", "-from", "sysml"))
+	out, code = exitCode(t, branchCommand(stack, binary, branchURL, "-convert", "sysml", "-from", "sysml"))
 	if code != 2 || !strings.Contains(out, "RDF graph") {
 		t.Fatalf("-from sysml on a branch read: exit %d:\n%s", code, out)
+	}
+}
+
+func TestConvertChecksTheStateAgainstTheConfiguredOrg(t *testing.T) {
+	binary := buildCLI(t)
+	stack := newFakeStack(t, liveGraph(t, syncedModel))
+	dir := t.TempDir()
+	model := writeModel(t, dir, "model.sysml", renamedModel)
+
+	// A state pinned to the configured org is accepted and the push lands.
+	writeModel(t, dir, "model.sysml.sync.json", `{"org":"acme","projectId":"proj-1","branch":"main","lastSeenCommit":"commit-0"}`)
+	cmd := branchCommand(stack, binary, model, "-convert", "ttl", "-o", "flexo://proj-1/main")
+	cmd.Env = append(cmd.Env, flexo.EnvOrg+"=acme")
+	if out, code := exitCode(t, cmd); code != 0 || len(stack.puts) != 1 {
+		t.Fatalf("push under the state's org: exit %d, %d write(s):\n%s", code, len(stack.puts), out)
+	}
+
+	// A state pinned to another org is refused before any write.
+	stack.head = "commit-0"
+	writeModel(t, dir, "model.sysml.sync.json", `{"org":"other","projectId":"proj-1","branch":"main","lastSeenCommit":"commit-0"}`)
+	cmd = branchCommand(stack, binary, model, "-convert", "ttl", "-o", "flexo://proj-1/main")
+	cmd.Env = append(cmd.Env, flexo.EnvOrg+"=acme")
+	out, code := exitCode(t, cmd)
+	if code != 2 || len(stack.puts) != 1 || !strings.Contains(out, "org other") {
+		t.Fatalf("push under another org: exit %d:\n%s", code, out)
+	}
+}
+
+func TestConvertRefusesAnEndpointOtherThanTheConfigured(t *testing.T) {
+	binary := buildCLI(t)
+	stack := newFakeStack(t, liveGraph(t, syncedModel))
+	// syncCommand leaves FLEXO_SYSMLV2_URL at its default, so the URL below
+	// names a different endpoint than the one Layer 1 is pointed at.
+	out, code := exitCode(t, syncCommand(stack, binary, stack.server.URL+"/projects/proj-1/branches/main", "-convert", "sysml"))
+	if code != 2 || !strings.Contains(out, "endpoint other than the configured") || !strings.Contains(out, "flexo://proj-1/main") {
+		t.Fatalf("a URL for another endpoint: exit %d:\n%s", code, out)
+	}
+}
+
+func TestConvertRefusesSyncStateWithoutABranch(t *testing.T) {
+	binary := buildCLI(t)
+	stack := newFakeStack(t, liveGraph(t, syncedModel))
+	model := writeModel(t, t.TempDir(), "model.sysml", renamedModel)
+
+	out, code := exitCode(t, syncCommand(stack, binary, model, "-convert", "ttl", "-sync-state", filepath.Join(t.TempDir(), "s.json")))
+	if code != 2 || !strings.Contains(out, "-sync-state records a repository branch's head") {
+		t.Fatalf("-sync-state on a plain conversion: exit %d:\n%s", code, out)
+	}
+}
+
+func TestConvertPushRefusesAMigrationReportOverTheInput(t *testing.T) {
+	binary := buildCLI(t)
+	stack := newFakeStack(t, liveGraph(t, syncedModel))
+	dir := t.TempDir()
+	source, err := os.ReadFile(filepath.Join("..", "..", "tests", "migrate", "testdata", "xmi", "vehicle.xmi"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	xmi := writeModel(t, dir, "v1.xmi", string(source))
+
+	out, code := exitCode(t, branchCommand(stack, binary, xmi, "-convert", "ttl", "-o", "flexo://proj-1/main", "-migration-report", xmi))
+	if code != 2 || !strings.Contains(out, "names the model being migrated") || len(stack.puts) != 0 {
+		t.Fatalf("-migration-report over the pushed model: exit %d, %d write(s):\n%s", code, len(stack.puts), out)
+	}
+	if after, _ := os.ReadFile(xmi); string(after) != string(source) {
+		t.Errorf("the refused push still replaced the input model")
 	}
 }
 

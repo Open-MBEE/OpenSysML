@@ -125,6 +125,24 @@ func TestPushRefusesAHeadThatMovedPastTheSyncState(t *testing.T) {
 	}
 }
 
+func TestPushRefusesAHeadThatMovedAfterTheEtagRead(t *testing.T) {
+	client, fake := stack(t, sparqlFixture)
+	repo := client.Repository("p", "b")
+	repo.Resume("c-0")
+	// The branch still serves c-0's etag but its head has already moved: the
+	// stale check after the etag read refuses, and no write is sent.
+	fake.head = "c-elsewhere"
+
+	_, err := repo.Push(context.Background(), []byte("<s> <p> <o> ."), "a push")
+	var stale *StaleBranchError
+	if !errors.As(err, &stale) || stale.Seen != "c-0" || stale.Head != "c-elsewhere" {
+		t.Fatalf("want a StaleBranchError from c-0 to c-elsewhere, got %v", err)
+	}
+	if len(fake.puts) != 0 {
+		t.Errorf("a stale push still wrote %d time(s)", len(fake.puts))
+	}
+}
+
 func TestPushTakesACommittedWritePastAnAmbiguousPreconditionAnswer(t *testing.T) {
 	client, fake := stack(t, sparqlFixture)
 	fake.commit412 = true

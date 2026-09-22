@@ -84,16 +84,18 @@ func (r *Repository) GraphAt(ctx context.Context, commit string) (*rdf.Graph, er
 // Push replaces the branch's whole model graph with the given Turtle and
 // returns the commit made; a head that moved past what was seen is refused.
 func (r *Repository) Push(ctx context.Context, turtle []byte, message string) (string, error) {
+	// The etag is read first: a head read after it can only race into a 412,
+	// never into a write past a moved head.
+	etag, err := r.client.BranchETag(ctx, r.project, r.branch)
+	if err != nil {
+		return "", err
+	}
 	head, err := r.Head(ctx)
 	if err != nil {
 		return "", err
 	}
 	if r.seen != "" && head != r.seen {
 		return "", &StaleBranchError{Project: r.project, Branch: r.branch, Seen: r.seen, Head: head}
-	}
-	etag, err := r.client.BranchETag(ctx, r.project, r.branch)
-	if err != nil {
-		return "", err
 	}
 	committed, err := r.client.PutGraph(ctx, r.project, r.branch, turtle, message, etag)
 	if err != nil {

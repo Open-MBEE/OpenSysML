@@ -213,7 +213,7 @@ reported, so a script that reads it takes the output from the first `{`.
 | `--quiet` | | Report errors only, suppressing warnings |
 | `--strict` | | Judge the model as conforming SysML v2: notation no pinned production admits is an error, not a warning (see [Strict conformance](../guide/03-command-line.md#strict-conformance)) |
 | `--trace` | | Report each execution step: expression evaluation, calc invocation, action tokens, state transitions, each `choice` the executor made among alternatives the library leaves unordered, naming the alternatives and the one taken, and each `unevaluable guard` it read only to report one and could not evaluate ([Choice points](../guide/06-behavior.md)). Under `-schedule explore` the table is printed first, then the trace of one witness run per distinct outcome, each under a `trace of outcome <n>'s witness (run <r>):` heading ([Exploring every linearization](#exploring-every-linearization)) |
-| `--convert <format>` | | Convert the model instead of running it: `sysml`, `kerml`, `ttl`, `turtle` or `rdf`. RDF is [experimental](rdf-mapping.md#status-experimental) and every run that converts it says so on stderr (see [the RDF mapping](rdf-mapping.md)). The model argument may be a Flexo MMS project branch URL — `http(s)://host[:port][/base]/projects/{project}/branches/{branch}` or `flexo://{project}/{branch}` for the endpoint `FLEXO_SYSMLV2_URL` configures — which is read as its head commit's RDF graph; see [Reading and pushing a repository branch](#reading-and-pushing-a-repository-branch) |
+| `--convert <format>` | | Convert the model instead of running it: `sysml`, `kerml`, `ttl`, `turtle` or `rdf`. RDF is [experimental](rdf-mapping.md#status-experimental) and every run that converts it says so on stderr (see [the RDF mapping](rdf-mapping.md)). The model argument may be a Flexo MMS project branch URL — `http(s)://host[:port][/base]/projects/{project}/branches/{branch}` or `flexo://{project}/{branch}` — both naming the endpoint `FLEXO_SYSMLV2_URL` configures — which is read as its head commit's RDF graph; see [Reading and pushing a repository branch](#reading-and-pushing-a-repository-branch) |
 | `--from <format>` | | Input format for `--convert`: the `--convert` formats, or `xmi`/`uml`/`mdzip` for a SysML v1 model to migrate (experimental; default: from the input's extension; `.xmi`, `.uml` and `.mdzip` are recognized) — see [SysML v1 migration](sysml-v1-migration.md) |
 | `--migration-report <file>` | | With `--convert` from `xmi`: write the element-by-element migration report to this file, JSON when it ends in `.json`, text otherwise. Without it the one-line summary goes to stderr |
 | `--migration-results <file>` | | With `--convert` from `xmi`: write the simulation tool's run configurations (`SimulationProfile:SimulationConfig`) and the result snapshots it stored for each of them to this JSON file — the sidecar `-compare-results` reads against the migrated model. See [Comparing a migrated configuration with the tool's results](#comparing-a-migrated-configuration-with-the-tools-results) |
@@ -1750,10 +1750,12 @@ verdict's `reason` names the two values and the parting move.
 
 A `-convert` run may name a Flexo MMS project branch on either side, in one of two URL forms:
 `http(s)://host[:port][/base]/projects/{project}/branches/{branch}` — the SysML v2 API's own
-branch resource, where everything before `/projects/` is the endpoint — or
-`flexo://{project}/{branch}`, which uses the endpoint `FLEXO_SYSMLV2_URL` configures
-(default `http://localhost:8083`). Both need the bearer token `FLEXO_INTEROP_TOKEN`, and a
-plaintext `http://` endpoint off this machine is refused unless `FLEXO_ALLOW_PLAIN_HTTP=1`.
+branch resource, where everything before `/projects/` is the endpoint and must be the
+one `FLEXO_SYSMLV2_URL` configures — a URL for another endpoint is refused, since the
+read and the push go through `FLEXO_LAYER1_URL` — or `flexo://{project}/{branch}`, the
+shorthand for that configured endpoint (default `http://localhost:8083`). Both need the
+bearer token `FLEXO_INTEROP_TOKEN`, and a plaintext `http://` endpoint off this machine
+is refused unless `FLEXO_ALLOW_PLAIN_HTTP=1`.
 
 As the model argument the branch is **read** as its head commit's RDF graph — the same read
 `-sync-diff` makes through Layer 1 — so `-convert sysml` writes it back as notation and
@@ -1769,6 +1771,7 @@ sysml flexo://demo/main -convert sysml                       # branch to notatio
 sysml flexo://demo/main -convert sysml -o model.sysml        # ...to a file, recording the head
 sysml model.sysml -convert ttl -o flexo://demo/main          # replace the branch's model graph
 sysml model.sysml -convert ttl -o https://mms.example.com/projects/demo/branches/main
+# ...when FLEXO_SYSMLV2_URL and FLEXO_LAYER1_URL point at that same stack
 ```
 
 The head commit a read or push stood at is recorded in the sync state — `-sync-state <file>`,

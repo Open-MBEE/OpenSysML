@@ -178,8 +178,8 @@ solver query may take in place of OPENSYSML_SMT_TIMEOUT
 .BR \-convert " \fIformat\fP"
 Convert the model to this format instead of running it: sysml, kerml, ttl,
 turtle or rdf (RDF is experimental). The input may be a Flexo branch URL
-(host[:port][/base]/projects/{p}/branches/{b} or flexo://{p}/{b}), read as its
-RDF graph
+(host[:port][/base]/projects/{p}/branches/{b} of the FLEXO_SYSMLV2_URL
+endpoint, or flexo://{p}/{b}), read as its RDF graph
 .TP
 .BR \-from " \fIformat\fP"
 Input format for \-convert: sysml, kerml, ttl, turtle, rdf, or xmi, uml or
@@ -640,13 +640,13 @@ rewrites the input: notation is reformatted, Turtle is normalized.
 .PP
 Either side may name a Flexo MMS project branch instead of a file:
 http(s)://host[:port][/base]/projects/{project}/branches/{branch}, or
-flexo://{project}/{branch} for the endpoint FLEXO_SYSMLV2_URL configures. A
-branch input is read as its head commit's RDF graph; a branch \-o takes the
-\-convert ttl output as the branch's whole model graph, conditional on the
-branch's etag, and refuses a head the sync state says has moved. Both need the
-bearer token in FLEXO_INTEROP_TOKEN and record the head commit in the sync
-state (\-sync\-state, or <output>.sync.json on a read / <model>.sync.json on a
-push).
+flexo://{project}/{branch}, both naming the endpoint FLEXO_SYSMLV2_URL
+configures. A branch input is read as its head commit's RDF graph; a branch
+\-o takes the \-convert ttl output as the branch's whole model graph,
+conditional on the branch's etag, and refuses a head the sync state says has
+moved. Both need the bearer token in FLEXO_INTEROP_TOKEN and record the head
+commit in the sync state (\-sync\-state, or <output>.sync.json on a read /
+<model>.sync.json on a push).
 .PP
 RDF conversion is experimental: the mapping covers model structure and the
 behavior its bodies state, refuses what it cannot write back, and its

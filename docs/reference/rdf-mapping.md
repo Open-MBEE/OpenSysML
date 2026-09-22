@@ -43,8 +43,11 @@ report:
   as the remaining work lands.
 
 The same stack is also a place a model is read from and pushed to: `-convert`
-names a project branch by URL (`host[:port][/base]/projects/{p}/branches/{b}`
-or `flexo://{p}/{b}`), reads the branch's head commit through Layer 1's SPARQL
+names a project branch of the configured stack by URL
+(`host[:port][/base]/projects/{p}/branches/{b}` of the `FLEXO_SYSMLV2_URL`
+endpoint — one naming another endpoint is refused, so a run cannot read one
+stack and write another — or `flexo://{p}/{b}`), reads the branch's head commit
+through Layer 1's SPARQL
 endpoint as the graph this document describes, and converts it as Turtle from
 there — `-convert sysml` writes the notation back, `-convert ttl` the
 normalized document. Pushed the other way, `-convert ttl -o <branch-url>`
