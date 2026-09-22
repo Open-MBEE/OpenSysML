@@ -1680,8 +1680,8 @@ How each part of the graph is spelled:
 | A `sysx:` property | `"sysx:<name>"` as key |
 | The `urn:sysmlv2:annotation:json:` annotation of a collection | nothing of its own — it decides that the property it annotates is an array |
 | An IRI object | `{"@id": <id>}`, the id spelled from the subject as above |
-| An `xsd:boolean`, `xsd:integer`, `xsd:decimal`/`xsd:double`/`xsd:float` literal | a JSON boolean or number; a real whose lexical form JSON cannot spell is given the digits it needs (`.1` → `0.1`, `5.` → `5.0`), and `INF` or `NaN` is refused |
-| Any other literal | a JSON string |
+| An `xsd:boolean`, `xsd:integer`, `xsd:decimal`/`xsd:double` literal | a JSON boolean or number; a real whose lexical form JSON cannot spell is given the digits it needs (`.1` → `0.1`, `5.` → `5.0`), and `INF` or `NaN` is refused; a literal in another datatype (`xsd:float`, `xsd:int`, `owl:real`, a `xsd:double` without an exponent) is refused, since the form carries no datatype and the reader would restore a different one |
+| A plain literal (and, on the properties that carry it, expression text) | a JSON string; a literal in any other datatype is refused |
 | A `sysml:` property stated more than once | an array, in the order the annotation records; a repeated `sysml:` property with no annotation is refused, since the graph does not say which order the values have |
 | A `sysx:` property stated more than once | an array, in triple order |
 

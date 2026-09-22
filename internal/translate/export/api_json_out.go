@@ -121,7 +121,7 @@ func apiJSONElement(graph *rdf.Graph, subject rdf.Term) (apiJSONObject, error) {
 		case strings.HasPrefix(predicate, rdf.OpenSysML):
 			key := "sysx:" + strings.TrimPrefix(predicate, rdf.OpenSysML)
 			objects := graph.Objects(subject, predicate)
-			value, err := apiJSONValues(subject, objects)
+			value, err := apiJSONValues(subject, "", objects)
 			if err != nil {
 				return nil, err
 			}
@@ -171,18 +171,19 @@ func apiJSONSysMLValue(graph *rdf.Graph, subject rdf.Term, predicate, key string
 			Note: "a sysml: collection states its members in the json: annotation, which is absent",
 		}
 	}
-	return apiJSONValues(subject, objects)
+	return apiJSONValues(subject, key, objects)
 }
 
 // apiJSONValues spells a property's objects as the key's value: one object a
-// scalar, several an array.
-func apiJSONValues(subject rdf.Term, objects []rdf.Term) (any, error) {
+// scalar, several an array. The key classifies expression text; sysx: keys
+// pass "".
+func apiJSONValues(subject rdf.Term, key string, objects []rdf.Term) (any, error) {
 	if len(objects) == 1 {
-		return apiJSONScalar(subject, objects[0])
+		return apiJSONScalar(subject, key, objects[0])
 	}
 	values := make([]any, 0, len(objects))
 	for _, object := range objects {
-		value, err := apiJSONScalar(subject, object)
+		value, err := apiJSONScalar(subject, key, object)
 		if err != nil {
 			return nil, err
 		}
@@ -193,7 +194,9 @@ func apiJSONValues(subject rdf.Term, objects []rdf.Term) (any, error) {
 
 // apiJSONScalar is the JSON spelling of one object: an IRI a {"@id": …}
 // reference, a boolean or number its JSON primitive, anything else a string.
-func apiJSONScalar(subject, object rdf.Term) (any, error) {
+// A literal the reader would restore in another datatype is refused: the
+// element form carries no datatype to spell it in.
+func apiJSONScalar(subject rdf.Term, key string, object rdf.Term) (any, error) {
 	if object.IsIRI() {
 		return apiJSONReference{ID: rdf.ReferenceID(subject, object)}, nil
 	}
@@ -203,23 +206,56 @@ func apiJSONScalar(subject, object rdf.Term) (any, error) {
 			Note: "the API element form has no language tags",
 		}
 	}
-	switch {
-	case slices.Contains(booleanLiterals, object.Datatype):
-		return object.Value == "true" || object.Value == "1", nil
-	case slices.Contains(integerLiterals, object.Datatype):
+	refuse := func() error {
+		return &UnsupportedError{
+			What: fmt.Sprintf("the literal %s of <%s>", object, subject.Value),
+			Note: "the API element form carries no datatype, and the reader would read " +
+				"this value back as " + apiJSONRestoredType(object),
+		}
+	}
+	switch object.Datatype {
+	case rdf.XSD + "boolean":
+		if object.Value != "true" && object.Value != "false" {
+			return nil, refuse()
+		}
+		return object.Value == "true", nil
+	case rdf.XSD + "integer":
+		if !apiJSONInteger.MatchString(object.Value) {
+			return nil, refuse()
+		}
 		return json.Number(object.Value), nil
-	case slices.Contains(realLiterals, object.Datatype):
-		lexical := apiJSONRealLexical(object.Value)
-		number := json.Number(lexical)
+	case rdf.XSD + "decimal", rdf.XSD + "double":
+		if realDatatype(object.Value) != object.Datatype {
+			return nil, refuse()
+		}
+		number := json.Number(apiJSONRealLexical(object.Value))
 		if _, err := json.Marshal(number); err != nil {
-			return nil, &UnsupportedError{
-				What: fmt.Sprintf("the literal %s of <%s>", object, subject.Value),
-				Note: "its lexical form is not a JSON number",
-			}
+			return nil, refuse()
 		}
 		return number, nil
+	case "":
+		return object.Value, nil
+	case rdf.OpenSysML + dtExpression:
+		if !apiJSONIsExpressionText(key, object.Value) {
+			return nil, refuse()
+		}
+		return object.Value, nil
 	}
-	return object.Value, nil
+	return nil, refuse()
+}
+
+// apiJSONRestoredType names the datatype apiJSONScalarOf would give a
+// literal's JSON spelling, for the refusal note.
+func apiJSONRestoredType(object rdf.Term) string {
+	switch {
+	case object.Datatype == rdf.XSD+"boolean":
+		return rdf.XSD + "boolean"
+	case object.Datatype == rdf.XSD+"integer", slices.Contains(integerLiterals, object.Datatype):
+		return rdf.XSD + "integer"
+	case slices.Contains(realLiterals, object.Datatype):
+		return realDatatype(object.Value)
+	}
+	return "a plain literal"
 }
 
 // apiJSONRealLexical respells an XSD real's lexical form as a JSON number

@@ -335,19 +335,24 @@ func TestReadAPIJSONExpressionClassification(t *testing.T) {
 // carry it; the exponent letter is kept so the Turtle round trip does not move.
 func TestWriteAPIJSONRealLexicals(t *testing.T) {
 	subject := rdf.ElementIRIForID("X")
-	for lexical, want := range map[string]string{
-		"1.5e3":  "1.5e3",
-		"8.0E-9": "8.0E-9",
-		".5":     "0.5",
-		"-.25":   "-0.25",
-		"+2.5":   "2.5",
-		"5.":     "5.0",
-		"2.E3":   "2.0E3",
-		"0.0":    "0.0",
+	for _, test := range []struct {
+		lexical  string
+		datatype string
+		want     string
+	}{
+		{"1.5e3", rdf.XSD + "double", "1.5e3"},
+		{"8.0E-9", rdf.XSD + "double", "8.0E-9"},
+		{"2.E3", rdf.XSD + "double", "2.0E3"},
+		{".5", rdf.XSD + "decimal", "0.5"},
+		{"-.25", rdf.XSD + "decimal", "-0.25"},
+		{"+2.5", rdf.XSD + "decimal", "2.5"},
+		{"5.", rdf.XSD + "decimal", "5.0"},
+		{"0.0", rdf.XSD + "decimal", "0.0"},
 	} {
+		lexical, want := test.lexical, test.want
 		g := rdf.NewGraph()
 		g.Add(subject, rdf.IRI(rdf.RDFType), rdf.SysMLTerm("Package"))
-		g.Add(subject, rdf.SysMLTerm("value"), rdf.TypedLiteral(lexical, rdf.XSD+"double"))
+		g.Add(subject, rdf.SysMLTerm("value"), rdf.TypedLiteral(lexical, test.datatype))
 		out, err := export.WriteAPIJSON(g)
 		if err != nil {
 			t.Fatalf("WriteAPIJSON(%q): %v", lexical, err)
@@ -397,6 +402,31 @@ func TestWriteAPIJSONRefuses(t *testing.T) {
 			g := typed(rdf.SysMLTerm("Package"))
 			g.Add(element, rdf.SysMLTerm("ownedMember"), rdf.ElementIRIForID("A"))
 			g.Add(element, rdf.SysMLTerm("ownedMember"), rdf.ElementIRIForID("B"))
+			return g
+		},
+		"xsd:float": func() *rdf.Graph {
+			g := typed(rdf.SysMLTerm("Package"))
+			g.Add(element, rdf.SysMLTerm("value"), rdf.TypedLiteral("1.5", rdf.XSD+"float"))
+			return g
+		},
+		"xsd:int": func() *rdf.Graph {
+			g := typed(rdf.SysMLTerm("Package"))
+			g.Add(element, rdf.SysMLTerm("value"), rdf.TypedLiteral("7", rdf.XSD+"int"))
+			return g
+		},
+		"xsd:boolean spelled 1": func() *rdf.Graph {
+			g := typed(rdf.SysMLTerm("Package"))
+			g.Add(element, rdf.SysMLTerm("value"), rdf.TypedLiteral("1", rdf.XSD+"boolean"))
+			return g
+		},
+		"xsd:double without exponent": func() *rdf.Graph {
+			g := typed(rdf.SysMLTerm("Package"))
+			g.Add(element, rdf.SysMLTerm("value"), rdf.TypedLiteral("1.5", rdf.XSD+"double"))
+			return g
+		},
+		"expression text on a sysx: key": func() *rdf.Graph {
+			g := typed(rdf.SysMLTerm("Package"))
+			g.Add(element, rdf.OpenSysMLTerm("sourceText"), rdf.TypedLiteral("a + b", rdf.OpenSysML+"Expression"))
 			return g
 		},
 	} {
