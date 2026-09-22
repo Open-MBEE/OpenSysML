@@ -51,6 +51,15 @@ const monteCarloModel = `package MC {
 		attribute :>> observed : Real = analysed.t;
 		return Mean : Real = mean;
 	}
+	analysis def Checked :> Simulation::MonteCarlo {
+		subject analysed : Probe;
+		perform action run ::> analysed.settle;
+		attribute :>> observed : Real = analysed.t;
+		assert constraint { observed < 3.0 }
+		assert constraint { mean > 0.0 }
+		return Mean : Real = mean;
+		out OutOfSpec : Natural = outOfSpec;
+	}
 	analysis def Plain { subject analysed : Probe; return k : Integer = 1; }
 }`
 
@@ -137,6 +146,35 @@ func TestRunsOfOneLeaveTheDeviationEmpty(t *testing.T) {
 	}
 }
 
+// A check decided run by run counts the runs it failed in as outOfSpec, the last run's
+// no more than the others'; only a check of the sample decides the conclusion.
+func TestRunsCountPerRunChecksWithoutJudgingTheLastRunTwice(t *testing.T) {
+	s := monteCarloSession(t)
+	out := run(t, s, "%runs 5 7 MC::Checked MC::probe")
+	wants(t, out, "✓ MC::Checked over 5 run(s)", "assertion mean > 0.0: satisfied")
+	if strings.Contains(strings.SplitN(out, "✓ MC::Checked", 2)[1], "observed < 3.0") {
+		t.Errorf("the conclusion judges the per-run check again:\n%s", out)
+	}
+	var last bool
+	var failed int
+	for _, line := range strings.Split(out, "\n") {
+		if fields := strings.Split(line, "|"); len(fields) > 1 {
+			if v, err := strconv.ParseFloat(strings.TrimSpace(fields[1]), 64); err == nil {
+				last = v >= 3.0
+				if last {
+					failed++
+				}
+			}
+		}
+	}
+	if !last || failed == 5 {
+		t.Fatalf("the sample proves nothing: %d run(s) out of spec, the last %v:\n%s", failed, last, out)
+	}
+	if got := statistic(t, out, "OutOfSpec"); got != float64(failed) {
+		t.Errorf("OutOfSpec = %v, want the %d run(s) observing 3.0 or more", got, failed)
+	}
+}
+
 // A case observing a quantity concludes in its unit: Mean and Deviation are quantities
 // over the magnitudes the runs observed.
 func TestRunsConcludeAQuantityObservedCaseInItsUnit(t *testing.T) {
@@ -186,6 +224,23 @@ func TestRunsObservingNoNumberKeepTheirRows(t *testing.T) {
 	s := monteCarloSession(t)
 	wants(t, run(t, s, "%runs 2 7 MC::Named MC::probe"), "run | observed", `| "x"`,
 		"? MC::Named: invalid observation: run 1 of MC::Named observed \"x\", not a number")
+}
+
+// A count the sweep budget does not allow, or no count at all, is refused as the
+// plan is validated, before any run is made or anything is sized by the count.
+func TestRunsRefusesACountBeyondTheBudget(t *testing.T) {
+	s := monteCarloSession(t)
+	seed := uint64(7)
+	beyond := s.RunMonteCarlo("MC::Mc MC::probe", math.MaxInt64, &seed)
+	if beyond.Status != VerdictUnresolved || !strings.Contains(strings.Join(beyond.Lines, "\n"), "run(s) per sweep") {
+		t.Errorf("%d runs: %v %q, want the sweep budget refused", int64(math.MaxInt64), beyond.Status, beyond.Lines)
+	}
+	for _, count := range []int64{0, -1} {
+		none := s.RunMonteCarlo("MC::Mc MC::probe", count, &seed)
+		if none.Status != VerdictUnresolved || !strings.Contains(strings.Join(none.Lines, "\n"), "runs nothing; ask for at least one") {
+			t.Errorf("%d runs: %v %q, want the count refused", count, none.Status, none.Lines)
+		}
+	}
 }
 
 // An analysis case that does not specialize Simulation::MonteCarlo is not run

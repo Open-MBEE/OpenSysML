@@ -132,17 +132,14 @@ func distributeInts(values []int64) *Distribution {
 	for _, v := range sorted {
 		sum.Add(sum, big.NewInt(v))
 	}
-	mean, _ := new(big.Rat).SetFrac(sum, big.NewInt(int64(n))).Float64()
-	reals := make([]float64, n)
-	for i, v := range sorted {
-		reals[i] = float64(v)
-	}
+	exactMean := new(big.Rat).SetFrac(sum, big.NewInt(int64(n)))
+	mean, _ := exactMean.Float64()
 	return &Distribution{
 		Count:     n,
 		Integral:  true,
 		Min:       drawnInt(sorted[0]),
 		Mean:      mean,
-		Deviation: deviationOf(reals, mean),
+		Deviation: intDeviationOf(sorted, exactMean),
 		Max:       drawnInt(sorted[n-1]),
 		P50:       drawnInt(nearestRank(sorted, 0.5)),
 		P90:       drawnInt(nearestRank(sorted, 0.9)),
@@ -197,6 +194,21 @@ func deviationOf(values []float64, mean float64) float64 {
 		sum += d * d
 	}
 	return math.Sqrt(sum / float64(len(values)-1))
+}
+
+// intDeviationOf is the sample standard deviation of Integers about their exact mean,
+// the squared deviations summed exactly so only the root rounds; 0 under two values.
+func intDeviationOf(values []int64, mean *big.Rat) float64 {
+	if len(values) < 2 {
+		return 0
+	}
+	sum := new(big.Rat)
+	for _, v := range values {
+		d := new(big.Rat).Sub(new(big.Rat).SetInt64(v), mean)
+		sum.Add(sum, d.Mul(d, d))
+	}
+	variance, _ := sum.Quo(sum, big.NewRat(int64(len(values)-1), 1)).Float64()
+	return math.Sqrt(variance)
 }
 
 // realSum is the sum of values in Real arithmetic.

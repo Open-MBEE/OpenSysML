@@ -166,7 +166,8 @@ func TestDistributeRealsAtTheEdgesOfTheRange(t *testing.T) {
 }
 
 // Integers beyond 2^53, which a Real cannot tell apart, stay distinct in every
-// statistic but the mean, and the whole Integer range bins without overflowing.
+// statistic but the mean — the deviation is of the exact Integers about their exact
+// mean, rounding once at the root — and the whole Integer range bins without overflowing.
 func TestDistributeKeepsLargeIntegersExact(t *testing.T) {
 	const big = int64(1) << 53
 	d := Distribute(ints(big+1, big))
@@ -175,6 +176,12 @@ func TestDistributeKeepsLargeIntegersExact(t *testing.T) {
 	}
 	if d.Mean != float64(big) {
 		t.Errorf("mean %v, want the nearest Real to %d.5", d.Mean, big)
+	}
+	if d.Deviation != math.Sqrt(0.5) {
+		t.Errorf("deviation %v, want %v: the sample deviation of two Integers one apart", d.Deviation, math.Sqrt(0.5))
+	}
+	if spread, want := Distribute(ints(math.MaxInt64, math.MinInt64)), math.Sqrt(0.5)*math.Ldexp(1, 64); math.Abs(spread.Deviation-want) > want*1e-15 {
+		t.Errorf("deviation over the Integer extremes %v, want %v", spread.Deviation, want)
 	}
 	want := []HistogramBin{{drawnInt(big), drawnInt(big), 1}, {drawnInt(big + 1), drawnInt(big + 1), 1}}
 	if !reflect.DeepEqual(d.Histogram, want) {

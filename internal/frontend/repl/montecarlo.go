@@ -189,9 +189,10 @@ func (s *Session) monteCarloSample(inv analysisInvocation, count int64, seed *ui
 		return nil, nil, fmt.Errorf("%w: the runs draw at random; name the seed they draw from, or fix the draws as %%draws min|max|average", runtime.ErrSweepRuns)
 	}
 
-	// The rows run concurrently; each keeps its run by number for the conclusion.
+	// The rows run concurrently; each keeps its run by number for the conclusion. The
+	// sweep validates the plan before the first row, so nothing is sized by count here.
 	var mu sync.Mutex
-	made := make([]*runtime.MonteCarloRun, count)
+	made := make(map[int64]*runtime.MonteCarloRun)
 	run := func(rt *runtime.Context, bindings []runtime.SweepBinding) (runtime.SweepRunResult, error) {
 		i, ok := runtime.RunNumber(bindings)
 		if !ok {
@@ -223,7 +224,7 @@ func (s *Session) monteCarloSample(inv analysisInvocation, count int64, seed *ui
 			return runtime.SweepRunResult{}, err
 		}
 		mu.Lock()
-		made[i-1] = observed
+		made[i] = observed
 		mu.Unlock()
 		return runtime.SweepRunResult{
 			Outputs:  []runtime.CalcOutputValue{{Name: monteCarloObservable, Value: observed.Observed}},
@@ -241,9 +242,9 @@ func (s *Session) monteCarloSample(inv analysisInvocation, count int64, seed *ui
 	}
 	table := answered.Result.Table()
 	completed := make([]*runtime.MonteCarloRun, 0, len(made))
-	for _, observed := range made {
-		if observed != nil {
-			completed = append(completed, observed)
+	for _, row := range table.Rows {
+		if i, ok := runtime.RunNumber(row.Bindings); ok && made[i] != nil {
+			completed = append(completed, made[i])
 		}
 	}
 	if len(completed) == 0 {

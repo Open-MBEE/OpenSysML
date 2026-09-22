@@ -249,7 +249,7 @@ func describeObserved(value Value) string {
 }
 
 // Conclude binds the sample's statistics (deviation empty under two runs), then reports
-// the case's outputs and the verdict of each objective and assertion as RunAnalysis does.
+// the case's outputs and the verdict of each check the runs left to the sample to decide.
 func (r *MonteCarloRun) Conclude(stats MonteCarloStatistics) (AnalysisResult, error) {
 	ctx := r.ctx
 	defer ctx.beginRun()()
@@ -289,9 +289,24 @@ func (r *MonteCarloRun) Conclude(stats MonteCarloStatistics) (AnalysisResult, er
 		result.Evaluations = r.log.evaluations(Value{}, false)
 		return result, err
 	}
-	result.Verdicts = ctx.analysisVerdicts(r.run, r.sym, r.scope)
+	result.Verdicts = r.concludingVerdicts(ctx.analysisVerdicts(r.run, r.sym, r.scope))
 	result.Evaluations = r.log.evaluations(r.run.caseResult(r.run.bindingsFrame(ctx).vars))
 	return result, nil
+}
+
+// concludingVerdicts are the checks the sample decides: those this run alone left
+// undecided. A check decided run by run is counted in outOfSpec, not judged again here.
+func (r *MonteCarloRun) concludingVerdicts(concluded []AnalysisVerdict) []AnalysisVerdict {
+	if len(concluded) != len(r.Verdicts) {
+		return concluded
+	}
+	sample := make([]AnalysisVerdict, 0, len(concluded))
+	for i, v := range concluded {
+		if r.Verdicts[i].Status == VerdictUndecided {
+			sample = append(sample, v)
+		}
+	}
+	return sample
 }
 
 // bindStatistic gives the library's output feature its value, under the name the
