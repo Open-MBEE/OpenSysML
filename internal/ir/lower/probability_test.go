@@ -208,3 +208,233 @@ func TestProbability_Refusals(t *testing.T) {
 		})
 	}
 }
+
+// Two differently-spelled invocation timers are different groups — the key is a
+// lossless rendering, not writtenValue's "an expression" — while identical
+// spellings group together, and `via this.p` does not collide with `via p`.
+func TestTriggerKeyDistinguishesInvocations(t *testing.T) {
+	graph, err := ToStateGraph(stateUsageIn(t, `state m {
+		entry; then a;
+		state a;
+		state b;
+		state c;
+		state d;
+		transition t1 first a accept after uniform(1, 2) then b;
+		transition t2 first a accept after normal(10, 1) then c;
+		transition t3 first a accept after uniform(1, 2) then d;
+	}`), nil)
+	if err != nil {
+		t.Fatalf("ToStateGraph: %v", err)
+	}
+	transitions := graph.Transitions[stateNamed(graph, "a")]
+	if len(transitions) != 3 {
+		t.Fatalf("a has %d transitions, want 3", len(transitions))
+	}
+	if TriggerKey(transitions[0]) == TriggerKey(transitions[1]) {
+		t.Errorf("uniform(1, 2) and normal(10, 1) share a key %q", TriggerKey(transitions[0]))
+	}
+	if TriggerKey(transitions[0]) != TriggerKey(transitions[2]) {
+		t.Errorf("identical spellings differ: %q vs %q", TriggerKey(transitions[0]), TriggerKey(transitions[2]))
+	}
+	groups := TransitionGroups(stateNamed(graph, "a"), transitions)
+	if len(groups) != 2 {
+		t.Errorf("groups = %v, want two (the uniform pair and normal alone)", groups)
+	}
+
+	viaGraph, err := ToStateGraph(stateUsageIn(t, `state m {
+		attribute p;
+		entry; then a;
+		state a;
+		state b;
+		transition t1 first a accept go via p then b;
+		transition t2 first a accept go via this.p then b;
+	}`), nil)
+	if err != nil {
+		t.Fatalf("ToStateGraph(via): %v", err)
+	}
+	viaTransitions := viaGraph.Transitions[stateNamed(viaGraph, "a")]
+	if len(viaTransitions) != 2 || TriggerKey(viaTransitions[0]) == TriggerKey(viaTransitions[1]) {
+		t.Errorf("via p and via this.p keyed alike: %v", viaTransitions)
+	}
+}
+
+// A cast keeps its operand in the key, and a trigger whose expression has an
+// unrenderable part falls back to a key unique to its own spelling rather than
+// collapsing with another.
+func TestTriggerKeyCastAndUnrenderableFallback(t *testing.T) {
+	graph, err := ToStateGraph(stateUsageIn(t, `state m {
+		attribute width;
+		attribute height;
+		entry; then a;
+		state a;
+		state b;
+		state c;
+		transition t1 first a accept after (width as ScalarValues::Real) then b;
+		transition t2 first a accept after (height as ScalarValues::Real) then c;
+	}`), nil)
+	if err != nil {
+		t.Fatalf("ToStateGraph: %v", err)
+	}
+	transitions := graph.Transitions[stateNamed(graph, "a")]
+	if len(transitions) != 2 || TriggerKey(transitions[0]) == TriggerKey(transitions[1]) {
+		t.Errorf("casts of different operands keyed alike: %v", transitions)
+	}
+
+	unkeyed, err := ToStateGraph(stateUsageIn(t, `state m {
+		entry; then a;
+		state a;
+		state b;
+		state c;
+		transition t1 first a accept after f(n = { in x : Real; x }) then b;
+		transition t2 first a accept after f(n = { in x : Real; x }) then c;
+	}`), nil)
+	if err != nil {
+		t.Fatalf("ToStateGraph(unkeyed): %v", err)
+	}
+	unkeyedTransitions := unkeyed.Transitions[stateNamed(unkeyed, "a")]
+	if len(unkeyedTransitions) != 2 ||
+		TriggerKey(unkeyedTransitions[0]) == TriggerKey(unkeyedTransitions[1]) {
+		t.Errorf("unrenderable named-arg values keyed alike: %v", unkeyedTransitions)
+	}
+}
+
+// weightedStateGraph lowers state usage m of a model importing Stochastic
+// through the name-resolution tier, the way the runtime does.
+func weightedStateGraph(t *testing.T, body string) (*StateGraph, error) {
+	t.Helper()
+	src := "package M {\n import Stochastic::*;\n state m {\n" + body + "\n }\n}\n"
+	p := parser.New(source.New("m.sysml", []byte(src)))
+	root := p.ParseFile()
+	if len(p.Diagnostics) > 0 {
+		t.Fatalf("parse errors: %v", p.Diagnostics)
+	}
+	idx := libs.NewModelIndex()
+	idx.AddDocument("m.sysml", root)
+	idx.ExpandWildcardImports()
+	pkg, ok := idx.DocumentRoot("m.sysml").LookupLocal("M")
+	if !ok {
+		t.Fatal("package M not indexed")
+	}
+	u, ok := pkg.Scope.LookupLocal("m")
+	if !ok {
+		t.Fatal("state m not indexed")
+	}
+	return ToStateGraphWithEndpoints(u.Decl, u.Scope, NewLibraryStateTypes(resolve.New(idx)))
+}
+
+// A weight on a branch no pick draws among — out of a fork, a join or a
+// history — is refused outright: Probability weights the branches of a choice
+// or junction only.
+func TestProbabilityOnPseudostateBranchRefused(t *testing.T) {
+	cases := []struct {
+		name, body, want string
+	}{
+		{"fork", `
+			state work parallel {
+				state left { state x; }
+				state right { state y; }
+			}
+			fork split;
+			transition first a then split;
+			transition first split then x { @Probability { p = 0.5; } }
+			transition first split then y { @Probability { p = 0.5; } }`, "out of a fork cannot be weighted"},
+		{"join", `
+			state work parallel {
+				state left { entry; then x; state x; }
+				state right { entry; then y; state y; }
+			}
+			join meet;
+			transition first x then meet;
+			transition first y then meet;
+			transition first meet then b { @Probability { p = 1.0; } }
+			state b;`, "out of a join cannot be weighted"},
+		{"history", `
+			state work {
+				state x;
+				state y;
+				entry; then x;
+				history back;
+			}
+			transition first back then b { @Probability { p = 1.0; } }
+			state b;`, "out of a shallow history cannot be weighted"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := weightedStateGraph(t, `
+				entry; then a;
+				state a;
+			`+tc.body)
+			if err == nil {
+				t.Fatal("lowering accepted the model")
+			}
+			if !errors.Is(err, ErrProbability) {
+				t.Fatalf("error %v is not an ErrProbability", err)
+			}
+			if !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("error = %q, want it to mention %q", err, tc.want)
+			}
+		})
+	}
+}
+
+// resolvedStateGraph lowers state usage `m` of src through the name-resolution
+// tier, so trigger names resolve to their definitions.
+func resolvedStateGraph(t *testing.T, src string) (*StateGraph, error) {
+	t.Helper()
+	p := parser.New(source.New("m.sysml", []byte(src)))
+	root := p.ParseFile()
+	if len(p.Diagnostics) > 0 {
+		t.Fatalf("parse errors: %v", p.Diagnostics)
+	}
+	idx := libs.NewModelIndex()
+	idx.AddDocument("m.sysml", root)
+	idx.ExpandWildcardImports()
+	pkg, ok := idx.DocumentRoot("m.sysml").LookupLocal("M")
+	if !ok {
+		t.Fatal("package M not indexed")
+	}
+	usage, ok := pkg.Scope.LookupLocal("m")
+	if !ok {
+		t.Fatal("state m not indexed")
+	}
+	return ToStateGraphWithEndpoints(usage.Decl, usage.Scope, NewLibraryStateTypes(resolve.New(idx)))
+}
+
+// Two accept triggers whose names spell the same simple name but resolve to
+// different definitions are different groups; two spellings of one definition
+// are one group.
+func TestTriggerKeyResolvesSignalDefinitions(t *testing.T) {
+	apart, err := resolvedStateGraph(t, `package M {
+		import Stochastic::*;
+		package A { item def Go; }
+		package B { item def Go; }
+		state m {
+			entry; then a;
+			state a; state b; state c;
+			transition t1 first a accept A::Go then b { @Probability { p = 1.0; } }
+			transition t2 first a accept B::Go then c;
+		}
+	}`)
+	if err != nil {
+		t.Fatalf("A::Go weighted, B::Go not — different groups, so accepted: %v", err)
+	}
+	transitions := apart.Transitions[stateNamed(apart, "a")]
+	if len(transitions) != 2 || TriggerKey(transitions[0]) == TriggerKey(transitions[1]) {
+		t.Fatalf("A::Go and B::Go keyed alike: %v", transitions)
+	}
+
+	_, err = resolvedStateGraph(t, `package M {
+		import Stochastic::*;
+		package A { item def Go; }
+		state m {
+			import A::*;
+			entry; then a;
+			state a; state b; state c;
+			transition t1 first a accept Go then b { @Probability { p = 1.0; } }
+			transition t2 first a accept A::Go then c;
+		}
+	}`)
+	if err == nil || !errors.Is(err, ErrProbability) {
+		t.Fatalf("Go and A::Go resolve to one def — one group, mixed weights refused; got %v", err)
+	}
+}

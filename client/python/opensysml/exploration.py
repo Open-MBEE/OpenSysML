@@ -28,6 +28,9 @@ class Outcome:
         states_visited (list[str]): The states a state machine entered, in order
         error (str): Why the run failed; empty for a run that completed
         linearizations (int): How many of the explored orders reached this outcome
+        probability (float): Share of the explored orders' likelihood reaching
+            this outcome, from the model's ``@Probability`` weights (uniform for
+            unweighted picks); a lower bound while the exploration is incomplete
         witness (list[str]): The choices one run reaching it made, in run order;
             empty when the behavior had no choice point
         diagnostics (list[Diagnostic]): What the witness run reported, its choice
@@ -35,12 +38,13 @@ class Outcome:
     """
 
     def __init__(self, outputs, final_state, states_visited, error,
-                 linearizations, witness, diagnostics):
+                 linearizations, witness, diagnostics, probability=0.0):
         self.outputs = dict(outputs or {})
         self.final_state = final_state
         self.states_visited = list(states_visited or [])
         self.error = error
         self.linearizations = linearizations
+        self.probability = probability
         self.witness = list(witness or [])
         self.diagnostics = list(diagnostics or [])
 
@@ -68,7 +72,7 @@ class Outcome:
     def __repr__(self):
         return (
             f"Outcome({self!s}, linearizations={self.linearizations}, "
-            f"witness={self.witness!r})"
+            f"probability={self.probability}, witness={self.witness!r})"
         )
 
 
@@ -86,15 +90,19 @@ class Exploration:
             ``"depth"`` — empty when it is complete
         runs_budget (int): The most runs the exploration would make
         depth_budget (int): The most choice points one run would resolve
+        probabilities_lower_bound (bool): Whether the outcomes' probabilities
+            are lower bounds — a budget kept some orders unexplored
     """
 
-    def __init__(self, outcomes, complete, runs, budgets_hit, runs_budget, depth_budget):
+    def __init__(self, outcomes, complete, runs, budgets_hit, runs_budget,
+                 depth_budget, probabilities_lower_bound=False):
         self.outcomes = list(outcomes or [])
         self.complete = complete
         self.runs = runs
         self.budgets_hit = list(budgets_hit or [])
         self.runs_budget = runs_budget
         self.depth_budget = depth_budget
+        self.probabilities_lower_bound = probabilities_lower_bound
 
     def __iter__(self):
         return iter(self.outcomes)
@@ -115,7 +123,7 @@ class Exploration:
             f"{budget} budget {self.depth_budget if budget == 'depth' else self.runs_budget}"
             for budget in self.budgets_hit
         )
-        return f"incomplete: {named} hit after {self.runs} runs"
+        return f"incomplete: {named} hit after {self.runs} runs; probabilities are lower bounds"
 
     def raise_for_incomplete(self):
         """Raise an :class:`~opensysml.errors.ExecutionError` unless every linearization was run."""

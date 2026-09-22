@@ -16,6 +16,9 @@ import java.util.Optional;
  * @param statesVisited the trace of states a machine entered, empty for an action
  * @param error why the runs reaching this outcome failed, absent when they completed
  * @param linearizations how many of the orders explored reached this outcome
+ * @param probability the share of the explored orders' likelihood reaching it, from the
+ *     model's {@code @Probability} weights (uniform for unweighted picks); a lower bound while
+ *     the exploration is incomplete
  * @param witness the choices of one run that reached it, each as {@code "<choice point>: <taken>"}
  * @param diagnostics what the service reported for the witness run
  */
@@ -25,6 +28,7 @@ public record Outcome(
     List<String> statesVisited,
     Optional<String> error,
     int linearizations,
+    double probability,
     List<String> witness,
     List<Diagnostic> diagnostics) {
 
@@ -36,6 +40,7 @@ public record Outcome(
    * @param statesVisited the trace
    * @param error the failure, when the runs failed
    * @param linearizations the number of orders reaching it
+   * @param probability the share of the explored orders' likelihood reaching it
    * @param witness one run's choices
    * @param diagnostics the diagnostics
    */

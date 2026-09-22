@@ -238,7 +238,11 @@ func (q *EventQueue) CompletionsOf(source ast.Node) []Event {
 // not running.
 func (q *EventQueue) TimerOf(trans *lower.Transition) (Event, bool) {
 	for _, event := range q.events {
-		if event.Type == EventTime && event.Payload == any(trans) {
+		if event.Type != EventTime {
+			continue
+		}
+		payload, ok := event.Payload.(*lower.Transition)
+		if ok && (payload == trans || sameTimerGroup(payload, trans)) {
 			return event, true
 		}
 	}

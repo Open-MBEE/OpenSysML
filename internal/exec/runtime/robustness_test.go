@@ -499,7 +499,6 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("weighted_decision_whose_weights_do_not_sum_to_one", testWeightedDecisionWhoseWeightsDoNotSumToOne)
 	t.Run("weighted_decision_with_a_weight_outside_zero_to_one", testWeightedDecisionWithAWeightOutsideZeroToOne)
 	t.Run("decision_mixing_weighted_and_unweighted_successions", testDecisionMixingWeightedAndUnweightedSuccessions)
-	t.Run("weighted_decision_on_a_state_transition", testWeightedDecisionOnAStateTransition)
 	t.Run("weighted_decision_whose_read_weight_is_no_probability", testWeightedDecisionWhoseReadWeightIsNoProbability)
 	t.Run("random_draw_without_a_seed", testRandomDrawWithoutASeed)
 	t.Run("random_bounds_reversed", testRandomBoundsReversed)
@@ -17114,25 +17113,6 @@ func testDecisionMixingWeightedAndUnweightedSuccessions(t *testing.T) {
 		action slow; then done;`)
 	if !errors.Is(err, lower.ErrProbability) || !strings.Contains(err.Error(), "weights 1 of its 2 successions") {
 		t.Fatalf("error = %v, want the mixed decision refused", err)
-	}
-}
-
-// testWeightedDecisionOnAStateTransition: the state machine draws no weighted
-// transition, so Probability on one is refused rather than read as unweighted.
-func testWeightedDecisionOnAStateTransition(t *testing.T) {
-	err := libraryStateExecutorError(t, `
-		package test {
-			private import ScalarValues::*;
-			private import Stochastic::*;
-			state def Machine {
-				entry; then a;
-				state a;
-				transition first a then b { @Probability { p = 1.0; } }
-				state b;
-			}
-		}`, "Machine")
-	if !errors.Is(err, lower.ErrProbability) || !strings.Contains(err.Error(), "a transition cannot be weighted") {
-		t.Fatalf("error = %v, want the weighted transition refused", err)
 	}
 }
 
