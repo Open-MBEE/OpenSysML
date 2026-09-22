@@ -201,6 +201,8 @@ elmt:AnonymousPortions__car___400___400
     sysml:owningMembership elmt:AnonymousPortions__car___400___400_om ;
     sysml:redefines elmt:AnonymousPortions__Vehicle__fuel ;
     sysml:value expr:AnonymousPortions__car___400___400_pvalue ;
+    sysml:ownedRelationship expr:AnonymousPortions__car___400___400_pvalue_om ;
+    sysml:ownedMembership expr:AnonymousPortions__car___400___400_pvalue_om ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "\t\t\tattribute :>> fuel = 100;\n" .
 
@@ -220,7 +222,22 @@ expr:AnonymousPortions__car___400___400_pvalue
     a sysml:LiteralInteger ;
     sysx:sourceText "100" ;
     sysml:elementId "AnonymousPortions__car___400___400_pvalue" ;
-    sysml:value "100"^^xsd:integer .
+    sysml:value "100"^^xsd:integer ;
+    sysml:owner elmt:AnonymousPortions__car___400___400 ;
+    sysml:owningRelationship expr:AnonymousPortions__car___400___400_pvalue_om ;
+    sysml:owningMembership expr:AnonymousPortions__car___400___400_pvalue_om .
+
+expr:AnonymousPortions__car___400___400_pvalue_om
+    a sysml:FeatureValue ;
+    sysml:elementId "AnonymousPortions__car___400___400_pvalue_om" ;
+    sysml:owner elmt:AnonymousPortions__car___400___400 ;
+    sysml:memberElement expr:AnonymousPortions__car___400___400_pvalue ;
+    sysml:ownedMemberElement expr:AnonymousPortions__car___400___400_pvalue ;
+    sysml:ownedRelatedElement expr:AnonymousPortions__car___400___400_pvalue ;
+    sysml:owningRelatedElement elmt:AnonymousPortions__car___400___400 ;
+    sysml:membershipOwningNamespace elmt:AnonymousPortions__car___400___400 ;
+    sysml:featureWithValue elmt:AnonymousPortions__car___400___400 ;
+    sysml:value expr:AnonymousPortions__car___400___400_pvalue .
 
 elmt:AnonymousPortions__car___401
     a sysml:OccurrenceUsage ;
@@ -265,6 +282,8 @@ elmt:AnonymousPortions__car___401___400
     sysml:owningMembership elmt:AnonymousPortions__car___401___400_om ;
     sysml:redefines elmt:AnonymousPortions__Vehicle__fuel ;
     sysml:value expr:AnonymousPortions__car___401___400_pvalue ;
+    sysml:ownedRelationship expr:AnonymousPortions__car___401___400_pvalue_om ;
+    sysml:ownedMembership expr:AnonymousPortions__car___401___400_pvalue_om ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "\t\t\tattribute :>> fuel = 50;\n" .
 
@@ -284,7 +303,22 @@ expr:AnonymousPortions__car___401___400_pvalue
     a sysml:LiteralInteger ;
     sysx:sourceText "50" ;
     sysml:elementId "AnonymousPortions__car___401___400_pvalue" ;
-    sysml:value "50"^^xsd:integer .
+    sysml:value "50"^^xsd:integer ;
+    sysml:owner elmt:AnonymousPortions__car___401___400 ;
+    sysml:owningRelationship expr:AnonymousPortions__car___401___400_pvalue_om ;
+    sysml:owningMembership expr:AnonymousPortions__car___401___400_pvalue_om .
+
+expr:AnonymousPortions__car___401___400_pvalue_om
+    a sysml:FeatureValue ;
+    sysml:elementId "AnonymousPortions__car___401___400_pvalue_om" ;
+    sysml:owner elmt:AnonymousPortions__car___401___400 ;
+    sysml:memberElement expr:AnonymousPortions__car___401___400_pvalue ;
+    sysml:ownedMemberElement expr:AnonymousPortions__car___401___400_pvalue ;
+    sysml:ownedRelatedElement expr:AnonymousPortions__car___401___400_pvalue ;
+    sysml:owningRelatedElement elmt:AnonymousPortions__car___401___400 ;
+    sysml:membershipOwningNamespace elmt:AnonymousPortions__car___401___400 ;
+    sysml:featureWithValue elmt:AnonymousPortions__car___401___400 ;
+    sysml:value expr:AnonymousPortions__car___401___400_pvalue .
 
 elmt:AnonymousPortions__car___402
     a sysml:OccurrenceUsage ;
@@ -330,6 +364,8 @@ elmt:AnonymousPortions__car___402___400
     sysml:owningMembership elmt:AnonymousPortions__car___402___400_om ;
     sysml:redefines elmt:AnonymousPortions__Vehicle__fuel ;
     sysml:value expr:AnonymousPortions__car___402___400_pvalue ;
+    sysml:ownedRelationship expr:AnonymousPortions__car___402___400_pvalue_om ;
+    sysml:ownedMembership expr:AnonymousPortions__car___402___400_pvalue_om ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "\t\t\tattribute :>> fuel = 0;\n" .
 
@@ -349,7 +385,22 @@ expr:AnonymousPortions__car___402___400_pvalue
     a sysml:LiteralInteger ;
     sysx:sourceText "0" ;
     sysml:elementId "AnonymousPortions__car___402___400_pvalue" ;
-    sysml:value "0"^^xsd:integer .
+    sysml:value "0"^^xsd:integer ;
+    sysml:owner elmt:AnonymousPortions__car___402___400 ;
+    sysml:owningRelationship expr:AnonymousPortions__car___402___400_pvalue_om ;
+    sysml:owningMembership expr:AnonymousPortions__car___402___400_pvalue_om .
+
+expr:AnonymousPortions__car___402___400_pvalue_om
+    a sysml:FeatureValue ;
+    sysml:elementId "AnonymousPortions__car___402___400_pvalue_om" ;
+    sysml:owner elmt:AnonymousPortions__car___402___400 ;
+    sysml:memberElement expr:AnonymousPortions__car___402___400_pvalue ;
+    sysml:ownedMemberElement expr:AnonymousPortions__car___402___400_pvalue ;
+    sysml:ownedRelatedElement expr:AnonymousPortions__car___402___400_pvalue ;
+    sysml:owningRelatedElement elmt:AnonymousPortions__car___402___400 ;
+    sysml:membershipOwningNamespace elmt:AnonymousPortions__car___402___400 ;
+    sysml:featureWithValue elmt:AnonymousPortions__car___402___400 ;
+    sysml:value expr:AnonymousPortions__car___402___400_pvalue .
 
 elmt:AnonymousPortions__car___403
     a sysml:OccurrenceUsage ;

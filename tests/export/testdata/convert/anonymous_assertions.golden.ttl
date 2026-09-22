@@ -144,6 +144,8 @@ elmt:AnonymousAssertions__MassConstraint___402
     sysml:owningRelationship elmt:AnonymousAssertions__MassConstraint___402_om ;
     sysml:owningMembership elmt:AnonymousAssertions__MassConstraint___402_om ;
     sysx:condition expr:AnonymousAssertions__MassConstraint___402_pcondition ;
+    sysml:ownedRelationship expr:AnonymousAssertions__MassConstraint___402_pcondition_om ;
+    sysml:ownedMembership expr:AnonymousAssertions__MassConstraint___402_pcondition_om ;
     sysx:sourceText "\t\ttotal <= limit\n" .
 
 elmt:AnonymousAssertions__MassConstraint___402_om
@@ -162,21 +164,118 @@ expr:AnonymousAssertions__MassConstraint___402_pcondition
     sysml:elementId "AnonymousAssertions__MassConstraint___402_pcondition" ;
     sysml:operator "<=" ;
     sysml:argument expr:AnonymousAssertions__MassConstraint___402_pcondition_pa0, expr:AnonymousAssertions__MassConstraint___402_pcondition_pa1 ;
-    json:argument "[{\"@id\":\"AnonymousAssertions__MassConstraint___402_pcondition_pa0\"},{\"@id\":\"AnonymousAssertions__MassConstraint___402_pcondition_pa1\"}]" .
+    sysml:ownedRelationship expr:AnonymousAssertions__MassConstraint___402_pcondition_pin0_om, expr:AnonymousAssertions__MassConstraint___402_pcondition_pin1_om ;
+    sysml:ownedMembership expr:AnonymousAssertions__MassConstraint___402_pcondition_pin0_om, expr:AnonymousAssertions__MassConstraint___402_pcondition_pin1_om ;
+    sysml:ownedFeatureMembership expr:AnonymousAssertions__MassConstraint___402_pcondition_pin0_om, expr:AnonymousAssertions__MassConstraint___402_pcondition_pin1_om ;
+    sysml:ownedFeature expr:AnonymousAssertions__MassConstraint___402_pcondition_pin0, expr:AnonymousAssertions__MassConstraint___402_pcondition_pin1 ;
+    sysml:parameter expr:AnonymousAssertions__MassConstraint___402_pcondition_pin0, expr:AnonymousAssertions__MassConstraint___402_pcondition_pin1 ;
+    sysml:input expr:AnonymousAssertions__MassConstraint___402_pcondition_pin0, expr:AnonymousAssertions__MassConstraint___402_pcondition_pin1 ;
+    sysml:owner elmt:AnonymousAssertions__MassConstraint___402 ;
+    sysml:owningRelationship expr:AnonymousAssertions__MassConstraint___402_pcondition_om ;
+    sysml:owningMembership expr:AnonymousAssertions__MassConstraint___402_pcondition_om ;
+    json:argument "[{\"@id\":\"AnonymousAssertions__MassConstraint___402_pcondition_pa0\"},{\"@id\":\"AnonymousAssertions__MassConstraint___402_pcondition_pa1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"AnonymousAssertions__MassConstraint___402_pcondition_pin0_om\"},{\"@id\":\"AnonymousAssertions__MassConstraint___402_pcondition_pin1_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"AnonymousAssertions__MassConstraint___402_pcondition_pin0_om\"},{\"@id\":\"AnonymousAssertions__MassConstraint___402_pcondition_pin1_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"AnonymousAssertions__MassConstraint___402_pcondition_pin0_om\"},{\"@id\":\"AnonymousAssertions__MassConstraint___402_pcondition_pin1_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"AnonymousAssertions__MassConstraint___402_pcondition_pin0\"},{\"@id\":\"AnonymousAssertions__MassConstraint___402_pcondition_pin1\"}]" ;
+    json:parameter "[{\"@id\":\"AnonymousAssertions__MassConstraint___402_pcondition_pin0\"},{\"@id\":\"AnonymousAssertions__MassConstraint___402_pcondition_pin1\"}]" ;
+    json:input "[{\"@id\":\"AnonymousAssertions__MassConstraint___402_pcondition_pin0\"},{\"@id\":\"AnonymousAssertions__MassConstraint___402_pcondition_pin1\"}]" .
 
 expr:AnonymousAssertions__MassConstraint___402_pcondition_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "total" ;
     sysml:elementId "AnonymousAssertions__MassConstraint___402_pcondition_pa0" ;
     sysml:referent elmt:AnonymousAssertions__MassConstraint__total ;
-    sysx:argumentIndex "0"^^xsd:integer .
+    sysml:owner expr:AnonymousAssertions__MassConstraint___402_pcondition_pin0 ;
+    sysml:owningRelationship expr:AnonymousAssertions__MassConstraint___402_pcondition_pa0_om ;
+    sysml:owningMembership expr:AnonymousAssertions__MassConstraint___402_pcondition_pa0_om .
+
+expr:AnonymousAssertions__MassConstraint___402_pcondition_pin0
+    a sysml:Feature ;
+    sysml:elementId "AnonymousAssertions__MassConstraint___402_pcondition_pin0" ;
+    sysml:direction "in" ;
+    sysml:owner expr:AnonymousAssertions__MassConstraint___402_pcondition ;
+    sysml:owningRelationship expr:AnonymousAssertions__MassConstraint___402_pcondition_pin0_om ;
+    sysml:owningMembership expr:AnonymousAssertions__MassConstraint___402_pcondition_pin0_om ;
+    sysml:ownedRelationship expr:AnonymousAssertions__MassConstraint___402_pcondition_pa0_om ;
+    sysml:ownedMembership expr:AnonymousAssertions__MassConstraint___402_pcondition_pa0_om .
+
+expr:AnonymousAssertions__MassConstraint___402_pcondition_pin0_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "AnonymousAssertions__MassConstraint___402_pcondition_pin0_om" ;
+    sysml:owner expr:AnonymousAssertions__MassConstraint___402_pcondition ;
+    sysml:memberElement expr:AnonymousAssertions__MassConstraint___402_pcondition_pin0 ;
+    sysml:ownedMemberElement expr:AnonymousAssertions__MassConstraint___402_pcondition_pin0 ;
+    sysml:ownedRelatedElement expr:AnonymousAssertions__MassConstraint___402_pcondition_pin0 ;
+    sysml:owningRelatedElement expr:AnonymousAssertions__MassConstraint___402_pcondition ;
+    sysml:membershipOwningNamespace expr:AnonymousAssertions__MassConstraint___402_pcondition ;
+    sysml:ownedMemberFeature expr:AnonymousAssertions__MassConstraint___402_pcondition_pin0 ;
+    sysml:ownedMemberParameter expr:AnonymousAssertions__MassConstraint___402_pcondition_pin0 .
+
+expr:AnonymousAssertions__MassConstraint___402_pcondition_pa0_om
+    a sysml:FeatureValue ;
+    sysml:elementId "AnonymousAssertions__MassConstraint___402_pcondition_pa0_om" ;
+    sysml:owner expr:AnonymousAssertions__MassConstraint___402_pcondition_pin0 ;
+    sysml:memberElement expr:AnonymousAssertions__MassConstraint___402_pcondition_pa0 ;
+    sysml:ownedMemberElement expr:AnonymousAssertions__MassConstraint___402_pcondition_pa0 ;
+    sysml:ownedRelatedElement expr:AnonymousAssertions__MassConstraint___402_pcondition_pa0 ;
+    sysml:owningRelatedElement expr:AnonymousAssertions__MassConstraint___402_pcondition_pin0 ;
+    sysml:membershipOwningNamespace expr:AnonymousAssertions__MassConstraint___402_pcondition_pin0 ;
+    sysml:featureWithValue expr:AnonymousAssertions__MassConstraint___402_pcondition_pin0 ;
+    sysml:value expr:AnonymousAssertions__MassConstraint___402_pcondition_pa0 .
 
 expr:AnonymousAssertions__MassConstraint___402_pcondition_pa1
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "limit" ;
     sysml:elementId "AnonymousAssertions__MassConstraint___402_pcondition_pa1" ;
     sysml:referent elmt:AnonymousAssertions__MassConstraint__limit ;
-    sysx:argumentIndex "1"^^xsd:integer .
+    sysml:owner expr:AnonymousAssertions__MassConstraint___402_pcondition_pin1 ;
+    sysml:owningRelationship expr:AnonymousAssertions__MassConstraint___402_pcondition_pa1_om ;
+    sysml:owningMembership expr:AnonymousAssertions__MassConstraint___402_pcondition_pa1_om .
+
+expr:AnonymousAssertions__MassConstraint___402_pcondition_pin1
+    a sysml:Feature ;
+    sysml:elementId "AnonymousAssertions__MassConstraint___402_pcondition_pin1" ;
+    sysml:direction "in" ;
+    sysml:owner expr:AnonymousAssertions__MassConstraint___402_pcondition ;
+    sysml:owningRelationship expr:AnonymousAssertions__MassConstraint___402_pcondition_pin1_om ;
+    sysml:owningMembership expr:AnonymousAssertions__MassConstraint___402_pcondition_pin1_om ;
+    sysml:ownedRelationship expr:AnonymousAssertions__MassConstraint___402_pcondition_pa1_om ;
+    sysml:ownedMembership expr:AnonymousAssertions__MassConstraint___402_pcondition_pa1_om .
+
+expr:AnonymousAssertions__MassConstraint___402_pcondition_pin1_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "AnonymousAssertions__MassConstraint___402_pcondition_pin1_om" ;
+    sysml:owner expr:AnonymousAssertions__MassConstraint___402_pcondition ;
+    sysml:memberElement expr:AnonymousAssertions__MassConstraint___402_pcondition_pin1 ;
+    sysml:ownedMemberElement expr:AnonymousAssertions__MassConstraint___402_pcondition_pin1 ;
+    sysml:ownedRelatedElement expr:AnonymousAssertions__MassConstraint___402_pcondition_pin1 ;
+    sysml:owningRelatedElement expr:AnonymousAssertions__MassConstraint___402_pcondition ;
+    sysml:membershipOwningNamespace expr:AnonymousAssertions__MassConstraint___402_pcondition ;
+    sysml:ownedMemberFeature expr:AnonymousAssertions__MassConstraint___402_pcondition_pin1 ;
+    sysml:ownedMemberParameter expr:AnonymousAssertions__MassConstraint___402_pcondition_pin1 .
+
+expr:AnonymousAssertions__MassConstraint___402_pcondition_pa1_om
+    a sysml:FeatureValue ;
+    sysml:elementId "AnonymousAssertions__MassConstraint___402_pcondition_pa1_om" ;
+    sysml:owner expr:AnonymousAssertions__MassConstraint___402_pcondition_pin1 ;
+    sysml:memberElement expr:AnonymousAssertions__MassConstraint___402_pcondition_pa1 ;
+    sysml:ownedMemberElement expr:AnonymousAssertions__MassConstraint___402_pcondition_pa1 ;
+    sysml:ownedRelatedElement expr:AnonymousAssertions__MassConstraint___402_pcondition_pa1 ;
+    sysml:owningRelatedElement expr:AnonymousAssertions__MassConstraint___402_pcondition_pin1 ;
+    sysml:membershipOwningNamespace expr:AnonymousAssertions__MassConstraint___402_pcondition_pin1 ;
+    sysml:featureWithValue expr:AnonymousAssertions__MassConstraint___402_pcondition_pin1 ;
+    sysml:value expr:AnonymousAssertions__MassConstraint___402_pcondition_pa1 .
+
+expr:AnonymousAssertions__MassConstraint___402_pcondition_om
+    a sysml:OwningMembership ;
+    sysml:elementId "AnonymousAssertions__MassConstraint___402_pcondition_om" ;
+    sysml:owner elmt:AnonymousAssertions__MassConstraint___402 ;
+    sysml:memberElement expr:AnonymousAssertions__MassConstraint___402_pcondition ;
+    sysml:ownedMemberElement expr:AnonymousAssertions__MassConstraint___402_pcondition ;
+    sysml:ownedRelatedElement expr:AnonymousAssertions__MassConstraint___402_pcondition ;
+    sysml:owningRelatedElement elmt:AnonymousAssertions__MassConstraint___402 ;
+    sysml:membershipOwningNamespace elmt:AnonymousAssertions__MassConstraint___402 .
 
 elmt:AnonymousAssertions__massConstraint
     a sysml:ConstraintUsage ;
@@ -277,6 +376,8 @@ elmt:AnonymousAssertions__massConstraint___402
     sysml:owningRelationship elmt:AnonymousAssertions__massConstraint___402_om ;
     sysml:owningMembership elmt:AnonymousAssertions__massConstraint___402_om ;
     sysx:condition expr:AnonymousAssertions__massConstraint___402_pcondition ;
+    sysml:ownedRelationship expr:AnonymousAssertions__massConstraint___402_pcondition_om ;
+    sysml:ownedMembership expr:AnonymousAssertions__massConstraint___402_pcondition_om ;
     sysx:sourceText "\t\ttotal <= limit\n" .
 
 elmt:AnonymousAssertions__massConstraint___402_om
@@ -295,21 +396,118 @@ expr:AnonymousAssertions__massConstraint___402_pcondition
     sysml:elementId "AnonymousAssertions__massConstraint___402_pcondition" ;
     sysml:operator "<=" ;
     sysml:argument expr:AnonymousAssertions__massConstraint___402_pcondition_pa0, expr:AnonymousAssertions__massConstraint___402_pcondition_pa1 ;
-    json:argument "[{\"@id\":\"AnonymousAssertions__massConstraint___402_pcondition_pa0\"},{\"@id\":\"AnonymousAssertions__massConstraint___402_pcondition_pa1\"}]" .
+    sysml:ownedRelationship expr:AnonymousAssertions__massConstraint___402_pcondition_pin0_om, expr:AnonymousAssertions__massConstraint___402_pcondition_pin1_om ;
+    sysml:ownedMembership expr:AnonymousAssertions__massConstraint___402_pcondition_pin0_om, expr:AnonymousAssertions__massConstraint___402_pcondition_pin1_om ;
+    sysml:ownedFeatureMembership expr:AnonymousAssertions__massConstraint___402_pcondition_pin0_om, expr:AnonymousAssertions__massConstraint___402_pcondition_pin1_om ;
+    sysml:ownedFeature expr:AnonymousAssertions__massConstraint___402_pcondition_pin0, expr:AnonymousAssertions__massConstraint___402_pcondition_pin1 ;
+    sysml:parameter expr:AnonymousAssertions__massConstraint___402_pcondition_pin0, expr:AnonymousAssertions__massConstraint___402_pcondition_pin1 ;
+    sysml:input expr:AnonymousAssertions__massConstraint___402_pcondition_pin0, expr:AnonymousAssertions__massConstraint___402_pcondition_pin1 ;
+    sysml:owner elmt:AnonymousAssertions__massConstraint___402 ;
+    sysml:owningRelationship expr:AnonymousAssertions__massConstraint___402_pcondition_om ;
+    sysml:owningMembership expr:AnonymousAssertions__massConstraint___402_pcondition_om ;
+    json:argument "[{\"@id\":\"AnonymousAssertions__massConstraint___402_pcondition_pa0\"},{\"@id\":\"AnonymousAssertions__massConstraint___402_pcondition_pa1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"AnonymousAssertions__massConstraint___402_pcondition_pin0_om\"},{\"@id\":\"AnonymousAssertions__massConstraint___402_pcondition_pin1_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"AnonymousAssertions__massConstraint___402_pcondition_pin0_om\"},{\"@id\":\"AnonymousAssertions__massConstraint___402_pcondition_pin1_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"AnonymousAssertions__massConstraint___402_pcondition_pin0_om\"},{\"@id\":\"AnonymousAssertions__massConstraint___402_pcondition_pin1_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"AnonymousAssertions__massConstraint___402_pcondition_pin0\"},{\"@id\":\"AnonymousAssertions__massConstraint___402_pcondition_pin1\"}]" ;
+    json:parameter "[{\"@id\":\"AnonymousAssertions__massConstraint___402_pcondition_pin0\"},{\"@id\":\"AnonymousAssertions__massConstraint___402_pcondition_pin1\"}]" ;
+    json:input "[{\"@id\":\"AnonymousAssertions__massConstraint___402_pcondition_pin0\"},{\"@id\":\"AnonymousAssertions__massConstraint___402_pcondition_pin1\"}]" .
 
 expr:AnonymousAssertions__massConstraint___402_pcondition_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "total" ;
     sysml:elementId "AnonymousAssertions__massConstraint___402_pcondition_pa0" ;
     sysml:referent elmt:AnonymousAssertions__massConstraint__total ;
-    sysx:argumentIndex "0"^^xsd:integer .
+    sysml:owner expr:AnonymousAssertions__massConstraint___402_pcondition_pin0 ;
+    sysml:owningRelationship expr:AnonymousAssertions__massConstraint___402_pcondition_pa0_om ;
+    sysml:owningMembership expr:AnonymousAssertions__massConstraint___402_pcondition_pa0_om .
+
+expr:AnonymousAssertions__massConstraint___402_pcondition_pin0
+    a sysml:Feature ;
+    sysml:elementId "AnonymousAssertions__massConstraint___402_pcondition_pin0" ;
+    sysml:direction "in" ;
+    sysml:owner expr:AnonymousAssertions__massConstraint___402_pcondition ;
+    sysml:owningRelationship expr:AnonymousAssertions__massConstraint___402_pcondition_pin0_om ;
+    sysml:owningMembership expr:AnonymousAssertions__massConstraint___402_pcondition_pin0_om ;
+    sysml:ownedRelationship expr:AnonymousAssertions__massConstraint___402_pcondition_pa0_om ;
+    sysml:ownedMembership expr:AnonymousAssertions__massConstraint___402_pcondition_pa0_om .
+
+expr:AnonymousAssertions__massConstraint___402_pcondition_pin0_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "AnonymousAssertions__massConstraint___402_pcondition_pin0_om" ;
+    sysml:owner expr:AnonymousAssertions__massConstraint___402_pcondition ;
+    sysml:memberElement expr:AnonymousAssertions__massConstraint___402_pcondition_pin0 ;
+    sysml:ownedMemberElement expr:AnonymousAssertions__massConstraint___402_pcondition_pin0 ;
+    sysml:ownedRelatedElement expr:AnonymousAssertions__massConstraint___402_pcondition_pin0 ;
+    sysml:owningRelatedElement expr:AnonymousAssertions__massConstraint___402_pcondition ;
+    sysml:membershipOwningNamespace expr:AnonymousAssertions__massConstraint___402_pcondition ;
+    sysml:ownedMemberFeature expr:AnonymousAssertions__massConstraint___402_pcondition_pin0 ;
+    sysml:ownedMemberParameter expr:AnonymousAssertions__massConstraint___402_pcondition_pin0 .
+
+expr:AnonymousAssertions__massConstraint___402_pcondition_pa0_om
+    a sysml:FeatureValue ;
+    sysml:elementId "AnonymousAssertions__massConstraint___402_pcondition_pa0_om" ;
+    sysml:owner expr:AnonymousAssertions__massConstraint___402_pcondition_pin0 ;
+    sysml:memberElement expr:AnonymousAssertions__massConstraint___402_pcondition_pa0 ;
+    sysml:ownedMemberElement expr:AnonymousAssertions__massConstraint___402_pcondition_pa0 ;
+    sysml:ownedRelatedElement expr:AnonymousAssertions__massConstraint___402_pcondition_pa0 ;
+    sysml:owningRelatedElement expr:AnonymousAssertions__massConstraint___402_pcondition_pin0 ;
+    sysml:membershipOwningNamespace expr:AnonymousAssertions__massConstraint___402_pcondition_pin0 ;
+    sysml:featureWithValue expr:AnonymousAssertions__massConstraint___402_pcondition_pin0 ;
+    sysml:value expr:AnonymousAssertions__massConstraint___402_pcondition_pa0 .
 
 expr:AnonymousAssertions__massConstraint___402_pcondition_pa1
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "limit" ;
     sysml:elementId "AnonymousAssertions__massConstraint___402_pcondition_pa1" ;
     sysml:referent elmt:AnonymousAssertions__massConstraint__limit ;
-    sysx:argumentIndex "1"^^xsd:integer .
+    sysml:owner expr:AnonymousAssertions__massConstraint___402_pcondition_pin1 ;
+    sysml:owningRelationship expr:AnonymousAssertions__massConstraint___402_pcondition_pa1_om ;
+    sysml:owningMembership expr:AnonymousAssertions__massConstraint___402_pcondition_pa1_om .
+
+expr:AnonymousAssertions__massConstraint___402_pcondition_pin1
+    a sysml:Feature ;
+    sysml:elementId "AnonymousAssertions__massConstraint___402_pcondition_pin1" ;
+    sysml:direction "in" ;
+    sysml:owner expr:AnonymousAssertions__massConstraint___402_pcondition ;
+    sysml:owningRelationship expr:AnonymousAssertions__massConstraint___402_pcondition_pin1_om ;
+    sysml:owningMembership expr:AnonymousAssertions__massConstraint___402_pcondition_pin1_om ;
+    sysml:ownedRelationship expr:AnonymousAssertions__massConstraint___402_pcondition_pa1_om ;
+    sysml:ownedMembership expr:AnonymousAssertions__massConstraint___402_pcondition_pa1_om .
+
+expr:AnonymousAssertions__massConstraint___402_pcondition_pin1_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "AnonymousAssertions__massConstraint___402_pcondition_pin1_om" ;
+    sysml:owner expr:AnonymousAssertions__massConstraint___402_pcondition ;
+    sysml:memberElement expr:AnonymousAssertions__massConstraint___402_pcondition_pin1 ;
+    sysml:ownedMemberElement expr:AnonymousAssertions__massConstraint___402_pcondition_pin1 ;
+    sysml:ownedRelatedElement expr:AnonymousAssertions__massConstraint___402_pcondition_pin1 ;
+    sysml:owningRelatedElement expr:AnonymousAssertions__massConstraint___402_pcondition ;
+    sysml:membershipOwningNamespace expr:AnonymousAssertions__massConstraint___402_pcondition ;
+    sysml:ownedMemberFeature expr:AnonymousAssertions__massConstraint___402_pcondition_pin1 ;
+    sysml:ownedMemberParameter expr:AnonymousAssertions__massConstraint___402_pcondition_pin1 .
+
+expr:AnonymousAssertions__massConstraint___402_pcondition_pa1_om
+    a sysml:FeatureValue ;
+    sysml:elementId "AnonymousAssertions__massConstraint___402_pcondition_pa1_om" ;
+    sysml:owner expr:AnonymousAssertions__massConstraint___402_pcondition_pin1 ;
+    sysml:memberElement expr:AnonymousAssertions__massConstraint___402_pcondition_pa1 ;
+    sysml:ownedMemberElement expr:AnonymousAssertions__massConstraint___402_pcondition_pa1 ;
+    sysml:ownedRelatedElement expr:AnonymousAssertions__massConstraint___402_pcondition_pa1 ;
+    sysml:owningRelatedElement expr:AnonymousAssertions__massConstraint___402_pcondition_pin1 ;
+    sysml:membershipOwningNamespace expr:AnonymousAssertions__massConstraint___402_pcondition_pin1 ;
+    sysml:featureWithValue expr:AnonymousAssertions__massConstraint___402_pcondition_pin1 ;
+    sysml:value expr:AnonymousAssertions__massConstraint___402_pcondition_pa1 .
+
+expr:AnonymousAssertions__massConstraint___402_pcondition_om
+    a sysml:OwningMembership ;
+    sysml:elementId "AnonymousAssertions__massConstraint___402_pcondition_om" ;
+    sysml:owner elmt:AnonymousAssertions__massConstraint___402 ;
+    sysml:memberElement expr:AnonymousAssertions__massConstraint___402_pcondition ;
+    sysml:ownedMemberElement expr:AnonymousAssertions__massConstraint___402_pcondition ;
+    sysml:ownedRelatedElement expr:AnonymousAssertions__massConstraint___402_pcondition ;
+    sysml:owningRelatedElement elmt:AnonymousAssertions__massConstraint___402 ;
+    sysml:membershipOwningNamespace elmt:AnonymousAssertions__massConstraint___402 .
 
 elmt:AnonymousAssertions__Vehicle
     a sysml:PartDefinition ;
@@ -447,6 +645,8 @@ elmt:AnonymousAssertions__Vehicle___402__total
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:direction "in" ;
     sysml:value expr:AnonymousAssertions__Vehicle___402__total_pvalue ;
+    sysml:ownedRelationship expr:AnonymousAssertions__Vehicle___402__total_pvalue_om ;
+    sysml:ownedMembership expr:AnonymousAssertions__Vehicle___402__total_pvalue_om ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "\t\t\tin total = mass;\n" .
 
@@ -466,7 +666,22 @@ expr:AnonymousAssertions__Vehicle___402__total_pvalue
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "mass" ;
     sysml:elementId "AnonymousAssertions__Vehicle___402__total_pvalue" ;
-    sysml:referent elmt:AnonymousAssertions__Vehicle__mass .
+    sysml:referent elmt:AnonymousAssertions__Vehicle__mass ;
+    sysml:owner elmt:AnonymousAssertions__Vehicle___402__total ;
+    sysml:owningRelationship expr:AnonymousAssertions__Vehicle___402__total_pvalue_om ;
+    sysml:owningMembership expr:AnonymousAssertions__Vehicle___402__total_pvalue_om .
+
+expr:AnonymousAssertions__Vehicle___402__total_pvalue_om
+    a sysml:FeatureValue ;
+    sysml:elementId "AnonymousAssertions__Vehicle___402__total_pvalue_om" ;
+    sysml:owner elmt:AnonymousAssertions__Vehicle___402__total ;
+    sysml:memberElement expr:AnonymousAssertions__Vehicle___402__total_pvalue ;
+    sysml:ownedMemberElement expr:AnonymousAssertions__Vehicle___402__total_pvalue ;
+    sysml:ownedRelatedElement expr:AnonymousAssertions__Vehicle___402__total_pvalue ;
+    sysml:owningRelatedElement elmt:AnonymousAssertions__Vehicle___402__total ;
+    sysml:membershipOwningNamespace elmt:AnonymousAssertions__Vehicle___402__total ;
+    sysml:featureWithValue elmt:AnonymousAssertions__Vehicle___402__total ;
+    sysml:value expr:AnonymousAssertions__Vehicle___402__total_pvalue .
 
 elmt:AnonymousAssertions__Vehicle___402__limit
     a sysml:ReferenceUsage ;
@@ -481,6 +696,8 @@ elmt:AnonymousAssertions__Vehicle___402__limit
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:direction "in" ;
     sysml:value expr:AnonymousAssertions__Vehicle___402__limit_pvalue ;
+    sysml:ownedRelationship expr:AnonymousAssertions__Vehicle___402__limit_pvalue_om ;
+    sysml:ownedMembership expr:AnonymousAssertions__Vehicle___402__limit_pvalue_om ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "\t\t\tin limit = maxMass;\n" .
 
@@ -500,7 +717,22 @@ expr:AnonymousAssertions__Vehicle___402__limit_pvalue
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "maxMass" ;
     sysml:elementId "AnonymousAssertions__Vehicle___402__limit_pvalue" ;
-    sysml:referent elmt:AnonymousAssertions__Vehicle__maxMass .
+    sysml:referent elmt:AnonymousAssertions__Vehicle__maxMass ;
+    sysml:owner elmt:AnonymousAssertions__Vehicle___402__limit ;
+    sysml:owningRelationship expr:AnonymousAssertions__Vehicle___402__limit_pvalue_om ;
+    sysml:owningMembership expr:AnonymousAssertions__Vehicle___402__limit_pvalue_om .
+
+expr:AnonymousAssertions__Vehicle___402__limit_pvalue_om
+    a sysml:FeatureValue ;
+    sysml:elementId "AnonymousAssertions__Vehicle___402__limit_pvalue_om" ;
+    sysml:owner elmt:AnonymousAssertions__Vehicle___402__limit ;
+    sysml:memberElement expr:AnonymousAssertions__Vehicle___402__limit_pvalue ;
+    sysml:ownedMemberElement expr:AnonymousAssertions__Vehicle___402__limit_pvalue ;
+    sysml:ownedRelatedElement expr:AnonymousAssertions__Vehicle___402__limit_pvalue ;
+    sysml:owningRelatedElement elmt:AnonymousAssertions__Vehicle___402__limit ;
+    sysml:membershipOwningNamespace elmt:AnonymousAssertions__Vehicle___402__limit ;
+    sysml:featureWithValue elmt:AnonymousAssertions__Vehicle___402__limit ;
+    sysml:value expr:AnonymousAssertions__Vehicle___402__limit_pvalue .
 
 elmt:AnonymousAssertions__Vehicle___403
     a sysml:AssertConstraintUsage ;
@@ -540,6 +772,8 @@ elmt:AnonymousAssertions__Vehicle___403___400
     sysml:owningRelationship elmt:AnonymousAssertions__Vehicle___403___400_om ;
     sysml:owningMembership elmt:AnonymousAssertions__Vehicle___403___400_om ;
     sysx:condition expr:AnonymousAssertions__Vehicle___403___400_pcondition ;
+    sysml:ownedRelationship expr:AnonymousAssertions__Vehicle___403___400_pcondition_om ;
+    sysml:ownedMembership expr:AnonymousAssertions__Vehicle___403___400_pcondition_om ;
     sysx:sourceText "\t\t\tmass <= maxMass\n" .
 
 elmt:AnonymousAssertions__Vehicle___403___400_om
@@ -558,21 +792,118 @@ expr:AnonymousAssertions__Vehicle___403___400_pcondition
     sysml:elementId "AnonymousAssertions__Vehicle___403___400_pcondition" ;
     sysml:operator "<=" ;
     sysml:argument expr:AnonymousAssertions__Vehicle___403___400_pcondition_pa0, expr:AnonymousAssertions__Vehicle___403___400_pcondition_pa1 ;
-    json:argument "[{\"@id\":\"AnonymousAssertions__Vehicle___403___400_pcondition_pa0\"},{\"@id\":\"AnonymousAssertions__Vehicle___403___400_pcondition_pa1\"}]" .
+    sysml:ownedRelationship expr:AnonymousAssertions__Vehicle___403___400_pcondition_pin0_om, expr:AnonymousAssertions__Vehicle___403___400_pcondition_pin1_om ;
+    sysml:ownedMembership expr:AnonymousAssertions__Vehicle___403___400_pcondition_pin0_om, expr:AnonymousAssertions__Vehicle___403___400_pcondition_pin1_om ;
+    sysml:ownedFeatureMembership expr:AnonymousAssertions__Vehicle___403___400_pcondition_pin0_om, expr:AnonymousAssertions__Vehicle___403___400_pcondition_pin1_om ;
+    sysml:ownedFeature expr:AnonymousAssertions__Vehicle___403___400_pcondition_pin0, expr:AnonymousAssertions__Vehicle___403___400_pcondition_pin1 ;
+    sysml:parameter expr:AnonymousAssertions__Vehicle___403___400_pcondition_pin0, expr:AnonymousAssertions__Vehicle___403___400_pcondition_pin1 ;
+    sysml:input expr:AnonymousAssertions__Vehicle___403___400_pcondition_pin0, expr:AnonymousAssertions__Vehicle___403___400_pcondition_pin1 ;
+    sysml:owner elmt:AnonymousAssertions__Vehicle___403___400 ;
+    sysml:owningRelationship expr:AnonymousAssertions__Vehicle___403___400_pcondition_om ;
+    sysml:owningMembership expr:AnonymousAssertions__Vehicle___403___400_pcondition_om ;
+    json:argument "[{\"@id\":\"AnonymousAssertions__Vehicle___403___400_pcondition_pa0\"},{\"@id\":\"AnonymousAssertions__Vehicle___403___400_pcondition_pa1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"AnonymousAssertions__Vehicle___403___400_pcondition_pin0_om\"},{\"@id\":\"AnonymousAssertions__Vehicle___403___400_pcondition_pin1_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"AnonymousAssertions__Vehicle___403___400_pcondition_pin0_om\"},{\"@id\":\"AnonymousAssertions__Vehicle___403___400_pcondition_pin1_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"AnonymousAssertions__Vehicle___403___400_pcondition_pin0_om\"},{\"@id\":\"AnonymousAssertions__Vehicle___403___400_pcondition_pin1_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"AnonymousAssertions__Vehicle___403___400_pcondition_pin0\"},{\"@id\":\"AnonymousAssertions__Vehicle___403___400_pcondition_pin1\"}]" ;
+    json:parameter "[{\"@id\":\"AnonymousAssertions__Vehicle___403___400_pcondition_pin0\"},{\"@id\":\"AnonymousAssertions__Vehicle___403___400_pcondition_pin1\"}]" ;
+    json:input "[{\"@id\":\"AnonymousAssertions__Vehicle___403___400_pcondition_pin0\"},{\"@id\":\"AnonymousAssertions__Vehicle___403___400_pcondition_pin1\"}]" .
 
 expr:AnonymousAssertions__Vehicle___403___400_pcondition_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "mass" ;
     sysml:elementId "AnonymousAssertions__Vehicle___403___400_pcondition_pa0" ;
     sysml:referent elmt:AnonymousAssertions__Vehicle__mass ;
-    sysx:argumentIndex "0"^^xsd:integer .
+    sysml:owner expr:AnonymousAssertions__Vehicle___403___400_pcondition_pin0 ;
+    sysml:owningRelationship expr:AnonymousAssertions__Vehicle___403___400_pcondition_pa0_om ;
+    sysml:owningMembership expr:AnonymousAssertions__Vehicle___403___400_pcondition_pa0_om .
+
+expr:AnonymousAssertions__Vehicle___403___400_pcondition_pin0
+    a sysml:Feature ;
+    sysml:elementId "AnonymousAssertions__Vehicle___403___400_pcondition_pin0" ;
+    sysml:direction "in" ;
+    sysml:owner expr:AnonymousAssertions__Vehicle___403___400_pcondition ;
+    sysml:owningRelationship expr:AnonymousAssertions__Vehicle___403___400_pcondition_pin0_om ;
+    sysml:owningMembership expr:AnonymousAssertions__Vehicle___403___400_pcondition_pin0_om ;
+    sysml:ownedRelationship expr:AnonymousAssertions__Vehicle___403___400_pcondition_pa0_om ;
+    sysml:ownedMembership expr:AnonymousAssertions__Vehicle___403___400_pcondition_pa0_om .
+
+expr:AnonymousAssertions__Vehicle___403___400_pcondition_pin0_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "AnonymousAssertions__Vehicle___403___400_pcondition_pin0_om" ;
+    sysml:owner expr:AnonymousAssertions__Vehicle___403___400_pcondition ;
+    sysml:memberElement expr:AnonymousAssertions__Vehicle___403___400_pcondition_pin0 ;
+    sysml:ownedMemberElement expr:AnonymousAssertions__Vehicle___403___400_pcondition_pin0 ;
+    sysml:ownedRelatedElement expr:AnonymousAssertions__Vehicle___403___400_pcondition_pin0 ;
+    sysml:owningRelatedElement expr:AnonymousAssertions__Vehicle___403___400_pcondition ;
+    sysml:membershipOwningNamespace expr:AnonymousAssertions__Vehicle___403___400_pcondition ;
+    sysml:ownedMemberFeature expr:AnonymousAssertions__Vehicle___403___400_pcondition_pin0 ;
+    sysml:ownedMemberParameter expr:AnonymousAssertions__Vehicle___403___400_pcondition_pin0 .
+
+expr:AnonymousAssertions__Vehicle___403___400_pcondition_pa0_om
+    a sysml:FeatureValue ;
+    sysml:elementId "AnonymousAssertions__Vehicle___403___400_pcondition_pa0_om" ;
+    sysml:owner expr:AnonymousAssertions__Vehicle___403___400_pcondition_pin0 ;
+    sysml:memberElement expr:AnonymousAssertions__Vehicle___403___400_pcondition_pa0 ;
+    sysml:ownedMemberElement expr:AnonymousAssertions__Vehicle___403___400_pcondition_pa0 ;
+    sysml:ownedRelatedElement expr:AnonymousAssertions__Vehicle___403___400_pcondition_pa0 ;
+    sysml:owningRelatedElement expr:AnonymousAssertions__Vehicle___403___400_pcondition_pin0 ;
+    sysml:membershipOwningNamespace expr:AnonymousAssertions__Vehicle___403___400_pcondition_pin0 ;
+    sysml:featureWithValue expr:AnonymousAssertions__Vehicle___403___400_pcondition_pin0 ;
+    sysml:value expr:AnonymousAssertions__Vehicle___403___400_pcondition_pa0 .
 
 expr:AnonymousAssertions__Vehicle___403___400_pcondition_pa1
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "maxMass" ;
     sysml:elementId "AnonymousAssertions__Vehicle___403___400_pcondition_pa1" ;
     sysml:referent elmt:AnonymousAssertions__Vehicle__maxMass ;
-    sysx:argumentIndex "1"^^xsd:integer .
+    sysml:owner expr:AnonymousAssertions__Vehicle___403___400_pcondition_pin1 ;
+    sysml:owningRelationship expr:AnonymousAssertions__Vehicle___403___400_pcondition_pa1_om ;
+    sysml:owningMembership expr:AnonymousAssertions__Vehicle___403___400_pcondition_pa1_om .
+
+expr:AnonymousAssertions__Vehicle___403___400_pcondition_pin1
+    a sysml:Feature ;
+    sysml:elementId "AnonymousAssertions__Vehicle___403___400_pcondition_pin1" ;
+    sysml:direction "in" ;
+    sysml:owner expr:AnonymousAssertions__Vehicle___403___400_pcondition ;
+    sysml:owningRelationship expr:AnonymousAssertions__Vehicle___403___400_pcondition_pin1_om ;
+    sysml:owningMembership expr:AnonymousAssertions__Vehicle___403___400_pcondition_pin1_om ;
+    sysml:ownedRelationship expr:AnonymousAssertions__Vehicle___403___400_pcondition_pa1_om ;
+    sysml:ownedMembership expr:AnonymousAssertions__Vehicle___403___400_pcondition_pa1_om .
+
+expr:AnonymousAssertions__Vehicle___403___400_pcondition_pin1_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "AnonymousAssertions__Vehicle___403___400_pcondition_pin1_om" ;
+    sysml:owner expr:AnonymousAssertions__Vehicle___403___400_pcondition ;
+    sysml:memberElement expr:AnonymousAssertions__Vehicle___403___400_pcondition_pin1 ;
+    sysml:ownedMemberElement expr:AnonymousAssertions__Vehicle___403___400_pcondition_pin1 ;
+    sysml:ownedRelatedElement expr:AnonymousAssertions__Vehicle___403___400_pcondition_pin1 ;
+    sysml:owningRelatedElement expr:AnonymousAssertions__Vehicle___403___400_pcondition ;
+    sysml:membershipOwningNamespace expr:AnonymousAssertions__Vehicle___403___400_pcondition ;
+    sysml:ownedMemberFeature expr:AnonymousAssertions__Vehicle___403___400_pcondition_pin1 ;
+    sysml:ownedMemberParameter expr:AnonymousAssertions__Vehicle___403___400_pcondition_pin1 .
+
+expr:AnonymousAssertions__Vehicle___403___400_pcondition_pa1_om
+    a sysml:FeatureValue ;
+    sysml:elementId "AnonymousAssertions__Vehicle___403___400_pcondition_pa1_om" ;
+    sysml:owner expr:AnonymousAssertions__Vehicle___403___400_pcondition_pin1 ;
+    sysml:memberElement expr:AnonymousAssertions__Vehicle___403___400_pcondition_pa1 ;
+    sysml:ownedMemberElement expr:AnonymousAssertions__Vehicle___403___400_pcondition_pa1 ;
+    sysml:ownedRelatedElement expr:AnonymousAssertions__Vehicle___403___400_pcondition_pa1 ;
+    sysml:owningRelatedElement expr:AnonymousAssertions__Vehicle___403___400_pcondition_pin1 ;
+    sysml:membershipOwningNamespace expr:AnonymousAssertions__Vehicle___403___400_pcondition_pin1 ;
+    sysml:featureWithValue expr:AnonymousAssertions__Vehicle___403___400_pcondition_pin1 ;
+    sysml:value expr:AnonymousAssertions__Vehicle___403___400_pcondition_pa1 .
+
+expr:AnonymousAssertions__Vehicle___403___400_pcondition_om
+    a sysml:OwningMembership ;
+    sysml:elementId "AnonymousAssertions__Vehicle___403___400_pcondition_om" ;
+    sysml:owner elmt:AnonymousAssertions__Vehicle___403___400 ;
+    sysml:memberElement expr:AnonymousAssertions__Vehicle___403___400_pcondition ;
+    sysml:ownedMemberElement expr:AnonymousAssertions__Vehicle___403___400_pcondition ;
+    sysml:ownedRelatedElement expr:AnonymousAssertions__Vehicle___403___400_pcondition ;
+    sysml:owningRelatedElement elmt:AnonymousAssertions__Vehicle___403___400 ;
+    sysml:membershipOwningNamespace elmt:AnonymousAssertions__Vehicle___403___400 .
 
 elmt:AnonymousAssertions__Vehicle__tooHeavy
     a sysml:AssertConstraintUsage ;
@@ -625,6 +956,8 @@ elmt:AnonymousAssertions__Vehicle__tooHeavy__total
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:direction "in" ;
     sysml:value expr:AnonymousAssertions__Vehicle__tooHeavy__total_pvalue ;
+    sysml:ownedRelationship expr:AnonymousAssertions__Vehicle__tooHeavy__total_pvalue_om ;
+    sysml:ownedMembership expr:AnonymousAssertions__Vehicle__tooHeavy__total_pvalue_om ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "\t\t\tin total = mass;\n" .
 
@@ -644,7 +977,22 @@ expr:AnonymousAssertions__Vehicle__tooHeavy__total_pvalue
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "mass" ;
     sysml:elementId "AnonymousAssertions__Vehicle__tooHeavy__total_pvalue" ;
-    sysml:referent elmt:AnonymousAssertions__Vehicle__mass .
+    sysml:referent elmt:AnonymousAssertions__Vehicle__mass ;
+    sysml:owner elmt:AnonymousAssertions__Vehicle__tooHeavy__total ;
+    sysml:owningRelationship expr:AnonymousAssertions__Vehicle__tooHeavy__total_pvalue_om ;
+    sysml:owningMembership expr:AnonymousAssertions__Vehicle__tooHeavy__total_pvalue_om .
+
+expr:AnonymousAssertions__Vehicle__tooHeavy__total_pvalue_om
+    a sysml:FeatureValue ;
+    sysml:elementId "AnonymousAssertions__Vehicle__tooHeavy__total_pvalue_om" ;
+    sysml:owner elmt:AnonymousAssertions__Vehicle__tooHeavy__total ;
+    sysml:memberElement expr:AnonymousAssertions__Vehicle__tooHeavy__total_pvalue ;
+    sysml:ownedMemberElement expr:AnonymousAssertions__Vehicle__tooHeavy__total_pvalue ;
+    sysml:ownedRelatedElement expr:AnonymousAssertions__Vehicle__tooHeavy__total_pvalue ;
+    sysml:owningRelatedElement elmt:AnonymousAssertions__Vehicle__tooHeavy__total ;
+    sysml:membershipOwningNamespace elmt:AnonymousAssertions__Vehicle__tooHeavy__total ;
+    sysml:featureWithValue elmt:AnonymousAssertions__Vehicle__tooHeavy__total ;
+    sysml:value expr:AnonymousAssertions__Vehicle__tooHeavy__total_pvalue .
 
 elmt:AnonymousAssertions__Vehicle__tooHeavy__limit
     a sysml:ReferenceUsage ;
@@ -659,6 +1007,8 @@ elmt:AnonymousAssertions__Vehicle__tooHeavy__limit
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:direction "in" ;
     sysml:value expr:AnonymousAssertions__Vehicle__tooHeavy__limit_pvalue ;
+    sysml:ownedRelationship expr:AnonymousAssertions__Vehicle__tooHeavy__limit_pvalue_om ;
+    sysml:ownedMembership expr:AnonymousAssertions__Vehicle__tooHeavy__limit_pvalue_om ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "\t\t\tin limit = maxMass;\n" .
 
@@ -678,7 +1028,22 @@ expr:AnonymousAssertions__Vehicle__tooHeavy__limit_pvalue
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "maxMass" ;
     sysml:elementId "AnonymousAssertions__Vehicle__tooHeavy__limit_pvalue" ;
-    sysml:referent elmt:AnonymousAssertions__Vehicle__maxMass .
+    sysml:referent elmt:AnonymousAssertions__Vehicle__maxMass ;
+    sysml:owner elmt:AnonymousAssertions__Vehicle__tooHeavy__limit ;
+    sysml:owningRelationship expr:AnonymousAssertions__Vehicle__tooHeavy__limit_pvalue_om ;
+    sysml:owningMembership expr:AnonymousAssertions__Vehicle__tooHeavy__limit_pvalue_om .
+
+expr:AnonymousAssertions__Vehicle__tooHeavy__limit_pvalue_om
+    a sysml:FeatureValue ;
+    sysml:elementId "AnonymousAssertions__Vehicle__tooHeavy__limit_pvalue_om" ;
+    sysml:owner elmt:AnonymousAssertions__Vehicle__tooHeavy__limit ;
+    sysml:memberElement expr:AnonymousAssertions__Vehicle__tooHeavy__limit_pvalue ;
+    sysml:ownedMemberElement expr:AnonymousAssertions__Vehicle__tooHeavy__limit_pvalue ;
+    sysml:ownedRelatedElement expr:AnonymousAssertions__Vehicle__tooHeavy__limit_pvalue ;
+    sysml:owningRelatedElement elmt:AnonymousAssertions__Vehicle__tooHeavy__limit ;
+    sysml:membershipOwningNamespace elmt:AnonymousAssertions__Vehicle__tooHeavy__limit ;
+    sysml:featureWithValue elmt:AnonymousAssertions__Vehicle__tooHeavy__limit ;
+    sysml:value expr:AnonymousAssertions__Vehicle__tooHeavy__limit_pvalue .
 
 elmt:AnonymousAssertions__Vehicle___405
     a sysml:AssertConstraintUsage ;

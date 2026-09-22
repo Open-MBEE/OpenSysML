@@ -57,6 +57,21 @@ func chainTargets(t *testing.T, graph *rdf.Graph, owner rdf.Term, text string) [
 		for id := range owned {
 			if strings.HasPrefix(triple.Subject.Value, rdf.Expression+id+"_p") {
 				targets = append(targets, graph.Objects(triple.Subject, rdf.SysML+"targetFeature")...)
+				if len(targets) == 0 {
+					for _, reference := range graph.Objects(triple.Subject, rdf.SysML+"references") {
+						segments := graph.Objects(reference, rdf.SysML+"chainingFeature")
+						if len(segments) > 0 {
+							targets = append(targets, segments[len(segments)-1])
+						}
+					}
+				}
+				if len(targets) == 0 {
+					for _, relationship := range graph.Objects(triple.Subject, rdf.SysML+"ownedReferenceSubsetting") {
+						if referenced := graph.Objects(relationship, rdf.SysML+"referencedFeature"); len(referenced) > 0 {
+							targets = append(targets, referenced...)
+						}
+					}
+				}
 				break
 			}
 		}

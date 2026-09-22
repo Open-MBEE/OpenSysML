@@ -1,1 +1,21 @@
-sysml: cannot convert the element <urn:sysmlv2:element:Payloads__Ctx___402>: it has no sysx:endForm, and the ends it relates are written in the form the head states, so no valid declaration can be written for it
+package Payloads {
+    attribute def Prio;
+    item def Fuel;
+    part def A {
+        out item i : Fuel;
+    }
+    part def B {
+        in item j : Fuel;
+    }
+    part def Ctx {
+        part x : A;
+        part y : B;
+        flow of fuel from x.i to y.j {
+            attribute w : Prio;
+        }
+        flow m of cmd from x.i to y.j;
+        flow of cmd from x.i to y.j {
+            attribute w : Prio;
+        }
+    }
+}

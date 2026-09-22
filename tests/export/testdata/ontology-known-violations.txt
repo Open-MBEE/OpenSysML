@@ -26,11 +26,6 @@ domain-mismatch AttributeUsage upperBound        # MultiplicityRange_upperBound:
 domain-mismatch SubjectMembership upperBound     # MultiplicityRange_upperBound: same collapse on a subject membership
 domain-mismatch OperatorExpression lowerBound    # MultiplicityRange_lowerBound: a cast's `(as T[m])` multiplicity is written on the operator expression
 domain-mismatch OperatorExpression upperBound    # MultiplicityRange_upperBound: same collapse on a cast's multiplicity
-domain-mismatch FeatureReferenceExpression lowerBound # MultiplicityRange_lowerBound: a connector end's `[0..1] a` multiplicity is written on the end's expression node
-domain-mismatch FeatureReferenceExpression upperBound # MultiplicityRange_upperBound: same collapse on a connector end
-domain-mismatch FeatureChainExpression upperBound     # MultiplicityRange_upperBound: same collapse on a connector end written as a chain
-domain-mismatch TransitionUsage sourceFeature    # Connector_sourceFeature: a transition's ends are written on the transition, not on a Connector
-domain-mismatch TransitionUsage targetFeature    # Connector_targetFeature: a transition's ends are written on the transition, not on a Connector
 domain-mismatch AttributeUsage visibility        # Membership_visibility: a declaration inside an expression body has no membership, so its visibility is written on the declaration
 
 # 2. Object properties carrying a name as a literal where the ontology's range is
@@ -90,10 +85,10 @@ unknown-property OccurrenceUsage redefines                   # redefinition is a
 unknown-property SubjectMembership redefines                 # redefinition is a Redefinition element, not a property
 unknown-property ActionUsage references                      # a referenced element is a ReferenceUsage or Membership, not a property
 unknown-property PartUsage references                        # a reference subsetting is a ReferenceSubsetting element, not a property
+unknown-property ReferenceUsage references                   # a `ref x ::> y` usage, written the same way
 unknown-property StateUsage references                       # the state an `exhibit` names, referenced the same way
 unknown-property EventOccurrenceUsage references             # the occurrence an `event m.start` names, standardly its eventOccurrence through a ReferenceSubsetting
 unknown-property AssertConstraintUsage references            # the constraint an `assert c` names, standardly its assertedConstraint through a ReferenceSubsetting
-unknown-property ReferenceUsage references                   # a connector end referencing its feature, written the same way
 unknown-property ViewRenderingMembership references          # a referenced element is a ReferenceUsage or Membership, not a property
 unknown-property urn:opensysml:sysml:AssumeMember references # a referenced element is a ReferenceUsage or Membership, not a property
 unknown-property urn:opensysml:sysml:Alias aliasedElement    # an alias target is a Membership's memberElement, not a property

@@ -653,20 +653,21 @@ what the service's own commit path stores for the same model. It measures the ga
 asserting the fix, so every item below shows up as movement in
 `internal/translate/interop/flexo/testdata/interop_expected.txt`. Keep it out of `go test ./...`.
 
-What the current recording measures, for the identity-carrying fixture: **49 of 49 elements
-listed and 369 of 452 properties delivered** on the graph-load side, against 33 of 33 and 158 of
-158 for the same model posted through the service's own commit path; 9 of 49 read as roots, and 9
-have no owner in the model; every element is readable directly by id; no subject of the graph is
-outside the element namespace. **Every standard property is delivered, the 14 multi-valued ones
-included** — `ownedMember`, `ownedMembership`, `ownedRelationship` (3/3 each), `ownedFeature`,
-`ownedFeatureMembership` (2/2 each), `specializes` (1/1) — since D3.4 landed. The 83 lost
-properties are one thing:
+What the current recording measures, for the identity-carrying fixture: **59 of 59 elements
+listed and 505 of 582 properties delivered** on the graph-load side, against 33 of 33 and 158 of
+158 for the same model posted through the service's own commit path; 1 of 59 reads as a root, and
+1 has no owner in the model (expression nodes and connector ends are owned elements now); every
+element is readable directly by id; no subject of the graph is outside the element namespace.
+**Every standard property is delivered, the 26 multi-valued ones included** — `connectorEnd`,
+`ownedEndFeature`, `chainingFeature`, `relatedElement`, `ownedRelationship` (6/6), `ownedMembership`
+(4/4), `ownedFeature`, `ownedFeatureMembership`, `ownedMember` (3/3 each), `specializes` (1/1) —
+since D3.4 landed. The 77 lost properties are one thing:
 
-- **10 property keys in `sysx:`** — `sourceText`, `sourceTail`, `sourceLanguage`, `hasBody`,
-  `memberIndex`, `argumentIndex`, `declaredKeyword`, `endForm`, `endIndex`, `relatedFeature` —
-  dropped unread. That is the D1/D2 residue below, and it is the reason the expression trees and
-  end structure the mapping now writes do not survive the hop. (The one multi-valued property
-  still lost, `relatedFeature` on 0/1, is among them.)
+- **The remaining loss is annotation vocabulary in `sysx:`** — seven predicates: source text and
+  tail, notation spelling (`declaredKeyword`, `endForm`, `sourceLanguage`), body presence and
+  member order. `sysx:argumentIndex`, `sysx:endIndex` and `sysx:relatedFeature` no longer appear,
+  because operand order and end targets are standard `sysml:` structure; the remaining `sysx:`
+  annotations are intentionally documented in D1 and D2 below.
 
 The commit path delivers 6 of 6 of its own multi-valued properties, because it stores each array
 whole as a JSON annotation literal alongside the typed triples; the graph now carries the same
@@ -686,53 +687,48 @@ either spelling or both and refuses a graph whose two spellings disagree, and `r
 the literal in step when it mints ids. Re-recorded against the live stack, the multi-valued
 standard properties went from 0 of 14 to 14 of 14 delivered, and the total from 355/424 to 369/452
 (the denominator moved with the source-text properties the mapping added since the previous
-recording; the one multi-valued property still lost is `sysx:relatedFeature`, D1/D2 residue).
+recording); the recording after D1 and D2 is 505/582, with the standard expression and end
+structure delivered in full and the remaining source and ordering limitations recorded in D1 and
+D2.
 
-## D1 — expression trees are standard in shape, non-standard in vocabulary
+## D1 — expression trees have standard ownership and operand vocabulary
 
 Every expression-valued position — a feature value, a multiplicity bound, a guard, a filter, a
 condition, a send payload — is now a **tree of typed nodes** in the `expr:` namespace
 (`rdf-mapping.md` § Expressions): standard metaclasses (`OperatorExpression`,
-`FeatureReferenceExpression`, `LiteralRational`, …), `sysml:argument` and `sysml:referent`
-linking operands and referents, a deterministic per-position id every node states in
-`sysml:elementId`, and a decoder that reads a foreign tree from its structure alone. SPARQL can
-see inside a value now; "every part whose mass exceeds 1000" is expressible.
+`FeatureReferenceExpression`, `LiteralRational`, …), roots owned through
+`OwningMembership`/`FeatureValue`, and operands owned through `ParameterMembership`, an `in`
+`Feature` and its `FeatureValue`. The encoder writes `sysml:operator`, and a decoder reads a
+foreign tree from its structure alone, without requiring `sysx:sourceText`. SPARQL can see inside
+a value now; "every part whose mass exceeds 1000" is expressible.
 
-What remains is what the Flexo hop still loses and the metamodel still does not recognise:
+What remains:
 
-- the operator, the operand order and the source text ride in `sysx:` (`sysx:operator`,
-  `sysx:argumentIndex`, `sysx:sourceText`), so after the hop a tree keeps its nodes and loses
-  their meaning. The metamodel spells the operator `OperatorExpression::operator` and orders
-  arguments through `ownedFeatureMembership`s; emit those;
-- a node is not a model element — no `qualifiedName`, no ownership, reachable only from the
-  position that holds it — where the abstract syntax makes an expression a `Feature` owned through
-  a `FeatureMembership`. Writing expressions as owned elements is the same materialization D3.3
-  did for ownership, and it is what the ontology gate's `value` → `FeatureValue` findings (D8) are
-  waiting on;
+- named-argument redefinition remains represented by `sysx:argumentName`, because the metamodel
+  has no notation-level name on an argument occurrence;
+- source spelling and expression-body ordering remain annotations where the metamodel has no
+  corresponding property; and
 - ~~an expression standing as a body member~~ — done: a calc's trailing result expression is a
   `ResultExpressionMembership` owning the expression (#815, #835,
   [rdf-mapping.md § Result expressions](../reference/rdf-mapping.md#result-expressions)), and no
   file in the ratchet is refused for an expression.
 
-## D2 — end bindings are structure, but in `sysx:`
+## D2 — end bindings use standard connector ownership
 
-`connect`, `bind`, `flow`, `succession`, `transition`, `accept` and `satisfy` now state their ends
-as structure beside the verbatim head — one expression node per end under `sysx:relatedFeature`
-with `sysx:endIndex`/`sysx:endRole`, and `sysx:endForm` naming the notation the ends are written
-in — so a graph from another tool converts to notation with no text at all, and a succession
-carries both its ends including the unnamed member a `then` sequences (`rdf-mapping.md`
-§ End-binding heads). The form is stated only when rebuilding it reproduces the head exactly;
-heads that state more than their ends (a multiplicity, a `references` clause, an inline payload
-declaration, a body) stay text-only and are reported, not guessed, when the text is absent.
+`connect`, `bind`, `flow`, `succession` and related heads now state their ends through
+`sysml:connectorEnd`, `EndFeatureMembership` and end `ReferenceUsage`s marked with
+`sysml:isEnd`, whose targets use owned `ReferenceSubsetting` relationships. Chained targets use an owned `Feature` and ordered
+`sysml:chainingFeature`; binary connectors additionally carry `sysml:sourceFeature` and
+`sysml:targetFeature`, while `sysml:relatedFeature` identifies related features at every arity.
+`TransitionUsage` endpoints use `sysml:source` and `sysml:target`. The decoder still accepts the
+earlier `sysx:` end shape and legacy transition predicates.
 
-What remains: the vocabulary is ours, so the hop drops it (`endForm`, `endIndex`,
-`relatedFeature` are three of the eight lost keys). The metamodel's shape is
-`Connector::connectorEnd` — end features owned through `EndFeatureMembership`s — with
-`sourceFeature`/`targetFeature` over them, the same `Connector_sourceFeature`/`targetFeature`
-domain findings the ontology gate records for transitions (D8). Emitting those is an
-encoder/decoder change, not a parser one; the ends are already in hand. The ends that are not a
-basic name (`drive vehicle`, `1stGear`) convert since #814 by quoting them in the head text; a real
-end triple would name the element by IRI and need no quoting, which is the same change.
+What remains:
+
+- non-name end targets are retained as typed `sysx:Expression` literals rather than being
+  fabricated as feature IRIs; and
+- the `ReferenceSubsetting` relationship is emitted for end targets, while
+  `sysml:references` remains accepted only for importing interim graphs.
 
 ## D7 — reference-valued properties are emitted as strings, and one metaclass is abstract (done)
 

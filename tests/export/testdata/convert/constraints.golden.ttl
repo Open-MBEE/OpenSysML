@@ -146,6 +146,8 @@ elmt:Constraints__MassLimit___402
     sysml:owningRelationship elmt:Constraints__MassLimit___402_om ;
     sysml:owningMembership elmt:Constraints__MassLimit___402_om ;
     sysx:condition expr:Constraints__MassLimit___402_pcondition ;
+    sysml:ownedRelationship expr:Constraints__MassLimit___402_pcondition_om ;
+    sysml:ownedMembership expr:Constraints__MassLimit___402_pcondition_om ;
     sysx:sourceText "        m < limit\n" .
 
 elmt:Constraints__MassLimit___402_om
@@ -164,21 +166,118 @@ expr:Constraints__MassLimit___402_pcondition
     sysml:elementId "Constraints__MassLimit___402_pcondition" ;
     sysml:operator "<" ;
     sysml:argument expr:Constraints__MassLimit___402_pcondition_pa0, expr:Constraints__MassLimit___402_pcondition_pa1 ;
-    json:argument "[{\"@id\":\"Constraints__MassLimit___402_pcondition_pa0\"},{\"@id\":\"Constraints__MassLimit___402_pcondition_pa1\"}]" .
+    sysml:ownedRelationship expr:Constraints__MassLimit___402_pcondition_pin0_om, expr:Constraints__MassLimit___402_pcondition_pin1_om ;
+    sysml:ownedMembership expr:Constraints__MassLimit___402_pcondition_pin0_om, expr:Constraints__MassLimit___402_pcondition_pin1_om ;
+    sysml:ownedFeatureMembership expr:Constraints__MassLimit___402_pcondition_pin0_om, expr:Constraints__MassLimit___402_pcondition_pin1_om ;
+    sysml:ownedFeature expr:Constraints__MassLimit___402_pcondition_pin0, expr:Constraints__MassLimit___402_pcondition_pin1 ;
+    sysml:parameter expr:Constraints__MassLimit___402_pcondition_pin0, expr:Constraints__MassLimit___402_pcondition_pin1 ;
+    sysml:input expr:Constraints__MassLimit___402_pcondition_pin0, expr:Constraints__MassLimit___402_pcondition_pin1 ;
+    sysml:owner elmt:Constraints__MassLimit___402 ;
+    sysml:owningRelationship expr:Constraints__MassLimit___402_pcondition_om ;
+    sysml:owningMembership expr:Constraints__MassLimit___402_pcondition_om ;
+    json:argument "[{\"@id\":\"Constraints__MassLimit___402_pcondition_pa0\"},{\"@id\":\"Constraints__MassLimit___402_pcondition_pa1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Constraints__MassLimit___402_pcondition_pin0_om\"},{\"@id\":\"Constraints__MassLimit___402_pcondition_pin1_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Constraints__MassLimit___402_pcondition_pin0_om\"},{\"@id\":\"Constraints__MassLimit___402_pcondition_pin1_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Constraints__MassLimit___402_pcondition_pin0_om\"},{\"@id\":\"Constraints__MassLimit___402_pcondition_pin1_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Constraints__MassLimit___402_pcondition_pin0\"},{\"@id\":\"Constraints__MassLimit___402_pcondition_pin1\"}]" ;
+    json:parameter "[{\"@id\":\"Constraints__MassLimit___402_pcondition_pin0\"},{\"@id\":\"Constraints__MassLimit___402_pcondition_pin1\"}]" ;
+    json:input "[{\"@id\":\"Constraints__MassLimit___402_pcondition_pin0\"},{\"@id\":\"Constraints__MassLimit___402_pcondition_pin1\"}]" .
 
 expr:Constraints__MassLimit___402_pcondition_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "m" ;
     sysml:elementId "Constraints__MassLimit___402_pcondition_pa0" ;
     sysml:referent elmt:Constraints__MassLimit__m ;
-    sysx:argumentIndex "0"^^xsd:integer .
+    sysml:owner expr:Constraints__MassLimit___402_pcondition_pin0 ;
+    sysml:owningRelationship expr:Constraints__MassLimit___402_pcondition_pa0_om ;
+    sysml:owningMembership expr:Constraints__MassLimit___402_pcondition_pa0_om .
+
+expr:Constraints__MassLimit___402_pcondition_pin0
+    a sysml:Feature ;
+    sysml:elementId "Constraints__MassLimit___402_pcondition_pin0" ;
+    sysml:direction "in" ;
+    sysml:owner expr:Constraints__MassLimit___402_pcondition ;
+    sysml:owningRelationship expr:Constraints__MassLimit___402_pcondition_pin0_om ;
+    sysml:owningMembership expr:Constraints__MassLimit___402_pcondition_pin0_om ;
+    sysml:ownedRelationship expr:Constraints__MassLimit___402_pcondition_pa0_om ;
+    sysml:ownedMembership expr:Constraints__MassLimit___402_pcondition_pa0_om .
+
+expr:Constraints__MassLimit___402_pcondition_pin0_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Constraints__MassLimit___402_pcondition_pin0_om" ;
+    sysml:owner expr:Constraints__MassLimit___402_pcondition ;
+    sysml:memberElement expr:Constraints__MassLimit___402_pcondition_pin0 ;
+    sysml:ownedMemberElement expr:Constraints__MassLimit___402_pcondition_pin0 ;
+    sysml:ownedRelatedElement expr:Constraints__MassLimit___402_pcondition_pin0 ;
+    sysml:owningRelatedElement expr:Constraints__MassLimit___402_pcondition ;
+    sysml:membershipOwningNamespace expr:Constraints__MassLimit___402_pcondition ;
+    sysml:ownedMemberFeature expr:Constraints__MassLimit___402_pcondition_pin0 ;
+    sysml:ownedMemberParameter expr:Constraints__MassLimit___402_pcondition_pin0 .
+
+expr:Constraints__MassLimit___402_pcondition_pa0_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Constraints__MassLimit___402_pcondition_pa0_om" ;
+    sysml:owner expr:Constraints__MassLimit___402_pcondition_pin0 ;
+    sysml:memberElement expr:Constraints__MassLimit___402_pcondition_pa0 ;
+    sysml:ownedMemberElement expr:Constraints__MassLimit___402_pcondition_pa0 ;
+    sysml:ownedRelatedElement expr:Constraints__MassLimit___402_pcondition_pa0 ;
+    sysml:owningRelatedElement expr:Constraints__MassLimit___402_pcondition_pin0 ;
+    sysml:membershipOwningNamespace expr:Constraints__MassLimit___402_pcondition_pin0 ;
+    sysml:featureWithValue expr:Constraints__MassLimit___402_pcondition_pin0 ;
+    sysml:value expr:Constraints__MassLimit___402_pcondition_pa0 .
 
 expr:Constraints__MassLimit___402_pcondition_pa1
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "limit" ;
     sysml:elementId "Constraints__MassLimit___402_pcondition_pa1" ;
     sysml:referent elmt:Constraints__MassLimit__limit ;
-    sysx:argumentIndex "1"^^xsd:integer .
+    sysml:owner expr:Constraints__MassLimit___402_pcondition_pin1 ;
+    sysml:owningRelationship expr:Constraints__MassLimit___402_pcondition_pa1_om ;
+    sysml:owningMembership expr:Constraints__MassLimit___402_pcondition_pa1_om .
+
+expr:Constraints__MassLimit___402_pcondition_pin1
+    a sysml:Feature ;
+    sysml:elementId "Constraints__MassLimit___402_pcondition_pin1" ;
+    sysml:direction "in" ;
+    sysml:owner expr:Constraints__MassLimit___402_pcondition ;
+    sysml:owningRelationship expr:Constraints__MassLimit___402_pcondition_pin1_om ;
+    sysml:owningMembership expr:Constraints__MassLimit___402_pcondition_pin1_om ;
+    sysml:ownedRelationship expr:Constraints__MassLimit___402_pcondition_pa1_om ;
+    sysml:ownedMembership expr:Constraints__MassLimit___402_pcondition_pa1_om .
+
+expr:Constraints__MassLimit___402_pcondition_pin1_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Constraints__MassLimit___402_pcondition_pin1_om" ;
+    sysml:owner expr:Constraints__MassLimit___402_pcondition ;
+    sysml:memberElement expr:Constraints__MassLimit___402_pcondition_pin1 ;
+    sysml:ownedMemberElement expr:Constraints__MassLimit___402_pcondition_pin1 ;
+    sysml:ownedRelatedElement expr:Constraints__MassLimit___402_pcondition_pin1 ;
+    sysml:owningRelatedElement expr:Constraints__MassLimit___402_pcondition ;
+    sysml:membershipOwningNamespace expr:Constraints__MassLimit___402_pcondition ;
+    sysml:ownedMemberFeature expr:Constraints__MassLimit___402_pcondition_pin1 ;
+    sysml:ownedMemberParameter expr:Constraints__MassLimit___402_pcondition_pin1 .
+
+expr:Constraints__MassLimit___402_pcondition_pa1_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Constraints__MassLimit___402_pcondition_pa1_om" ;
+    sysml:owner expr:Constraints__MassLimit___402_pcondition_pin1 ;
+    sysml:memberElement expr:Constraints__MassLimit___402_pcondition_pa1 ;
+    sysml:ownedMemberElement expr:Constraints__MassLimit___402_pcondition_pa1 ;
+    sysml:ownedRelatedElement expr:Constraints__MassLimit___402_pcondition_pa1 ;
+    sysml:owningRelatedElement expr:Constraints__MassLimit___402_pcondition_pin1 ;
+    sysml:membershipOwningNamespace expr:Constraints__MassLimit___402_pcondition_pin1 ;
+    sysml:featureWithValue expr:Constraints__MassLimit___402_pcondition_pin1 ;
+    sysml:value expr:Constraints__MassLimit___402_pcondition_pa1 .
+
+expr:Constraints__MassLimit___402_pcondition_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Constraints__MassLimit___402_pcondition_om" ;
+    sysml:owner elmt:Constraints__MassLimit___402 ;
+    sysml:memberElement expr:Constraints__MassLimit___402_pcondition ;
+    sysml:ownedMemberElement expr:Constraints__MassLimit___402_pcondition ;
+    sysml:ownedRelatedElement expr:Constraints__MassLimit___402_pcondition ;
+    sysml:owningRelatedElement elmt:Constraints__MassLimit___402 ;
+    sysml:membershipOwningNamespace elmt:Constraints__MassLimit___402 .
 
 elmt:Constraints__Margin
     a sysml:CalculationDefinition ;
@@ -256,6 +355,8 @@ elmt:Constraints__Margin___401
     sysml:direction "out" ;
     sysml:type elmt:Constraints__Mass ;
     sysml:value expr:Constraints__Margin___401_pvalue ;
+    sysml:ownedRelationship expr:Constraints__Margin___401_pvalue_om ;
+    sysml:ownedMembership expr:Constraints__Margin___401_pvalue_om ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        return : Mass = 100 - m;\n" .
 
@@ -277,21 +378,120 @@ expr:Constraints__Margin___401_pvalue
     sysml:elementId "Constraints__Margin___401_pvalue" ;
     sysml:operator "-" ;
     sysml:argument expr:Constraints__Margin___401_pvalue_pa0, expr:Constraints__Margin___401_pvalue_pa1 ;
-    json:argument "[{\"@id\":\"Constraints__Margin___401_pvalue_pa0\"},{\"@id\":\"Constraints__Margin___401_pvalue_pa1\"}]" .
+    sysml:ownedRelationship expr:Constraints__Margin___401_pvalue_pin0_om, expr:Constraints__Margin___401_pvalue_pin1_om ;
+    sysml:ownedMembership expr:Constraints__Margin___401_pvalue_pin0_om, expr:Constraints__Margin___401_pvalue_pin1_om ;
+    sysml:ownedFeatureMembership expr:Constraints__Margin___401_pvalue_pin0_om, expr:Constraints__Margin___401_pvalue_pin1_om ;
+    sysml:ownedFeature expr:Constraints__Margin___401_pvalue_pin0, expr:Constraints__Margin___401_pvalue_pin1 ;
+    sysml:parameter expr:Constraints__Margin___401_pvalue_pin0, expr:Constraints__Margin___401_pvalue_pin1 ;
+    sysml:input expr:Constraints__Margin___401_pvalue_pin0, expr:Constraints__Margin___401_pvalue_pin1 ;
+    sysml:owner elmt:Constraints__Margin___401 ;
+    sysml:owningRelationship expr:Constraints__Margin___401_pvalue_om ;
+    sysml:owningMembership expr:Constraints__Margin___401_pvalue_om ;
+    json:argument "[{\"@id\":\"Constraints__Margin___401_pvalue_pa0\"},{\"@id\":\"Constraints__Margin___401_pvalue_pa1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Constraints__Margin___401_pvalue_pin0_om\"},{\"@id\":\"Constraints__Margin___401_pvalue_pin1_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Constraints__Margin___401_pvalue_pin0_om\"},{\"@id\":\"Constraints__Margin___401_pvalue_pin1_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Constraints__Margin___401_pvalue_pin0_om\"},{\"@id\":\"Constraints__Margin___401_pvalue_pin1_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Constraints__Margin___401_pvalue_pin0\"},{\"@id\":\"Constraints__Margin___401_pvalue_pin1\"}]" ;
+    json:parameter "[{\"@id\":\"Constraints__Margin___401_pvalue_pin0\"},{\"@id\":\"Constraints__Margin___401_pvalue_pin1\"}]" ;
+    json:input "[{\"@id\":\"Constraints__Margin___401_pvalue_pin0\"},{\"@id\":\"Constraints__Margin___401_pvalue_pin1\"}]" .
 
 expr:Constraints__Margin___401_pvalue_pa0
     a sysml:LiteralInteger ;
     sysx:sourceText "100" ;
     sysml:elementId "Constraints__Margin___401_pvalue_pa0" ;
     sysml:value "100"^^xsd:integer ;
-    sysx:argumentIndex "0"^^xsd:integer .
+    sysml:owner expr:Constraints__Margin___401_pvalue_pin0 ;
+    sysml:owningRelationship expr:Constraints__Margin___401_pvalue_pa0_om ;
+    sysml:owningMembership expr:Constraints__Margin___401_pvalue_pa0_om .
+
+expr:Constraints__Margin___401_pvalue_pin0
+    a sysml:Feature ;
+    sysml:elementId "Constraints__Margin___401_pvalue_pin0" ;
+    sysml:direction "in" ;
+    sysml:owner expr:Constraints__Margin___401_pvalue ;
+    sysml:owningRelationship expr:Constraints__Margin___401_pvalue_pin0_om ;
+    sysml:owningMembership expr:Constraints__Margin___401_pvalue_pin0_om ;
+    sysml:ownedRelationship expr:Constraints__Margin___401_pvalue_pa0_om ;
+    sysml:ownedMembership expr:Constraints__Margin___401_pvalue_pa0_om .
+
+expr:Constraints__Margin___401_pvalue_pin0_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Constraints__Margin___401_pvalue_pin0_om" ;
+    sysml:owner expr:Constraints__Margin___401_pvalue ;
+    sysml:memberElement expr:Constraints__Margin___401_pvalue_pin0 ;
+    sysml:ownedMemberElement expr:Constraints__Margin___401_pvalue_pin0 ;
+    sysml:ownedRelatedElement expr:Constraints__Margin___401_pvalue_pin0 ;
+    sysml:owningRelatedElement expr:Constraints__Margin___401_pvalue ;
+    sysml:membershipOwningNamespace expr:Constraints__Margin___401_pvalue ;
+    sysml:ownedMemberFeature expr:Constraints__Margin___401_pvalue_pin0 ;
+    sysml:ownedMemberParameter expr:Constraints__Margin___401_pvalue_pin0 .
+
+expr:Constraints__Margin___401_pvalue_pa0_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Constraints__Margin___401_pvalue_pa0_om" ;
+    sysml:owner expr:Constraints__Margin___401_pvalue_pin0 ;
+    sysml:memberElement expr:Constraints__Margin___401_pvalue_pa0 ;
+    sysml:ownedMemberElement expr:Constraints__Margin___401_pvalue_pa0 ;
+    sysml:ownedRelatedElement expr:Constraints__Margin___401_pvalue_pa0 ;
+    sysml:owningRelatedElement expr:Constraints__Margin___401_pvalue_pin0 ;
+    sysml:membershipOwningNamespace expr:Constraints__Margin___401_pvalue_pin0 ;
+    sysml:featureWithValue expr:Constraints__Margin___401_pvalue_pin0 ;
+    sysml:value expr:Constraints__Margin___401_pvalue_pa0 .
 
 expr:Constraints__Margin___401_pvalue_pa1
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "m" ;
     sysml:elementId "Constraints__Margin___401_pvalue_pa1" ;
     sysml:referent elmt:Constraints__Margin__m ;
-    sysx:argumentIndex "1"^^xsd:integer .
+    sysml:owner expr:Constraints__Margin___401_pvalue_pin1 ;
+    sysml:owningRelationship expr:Constraints__Margin___401_pvalue_pa1_om ;
+    sysml:owningMembership expr:Constraints__Margin___401_pvalue_pa1_om .
+
+expr:Constraints__Margin___401_pvalue_pin1
+    a sysml:Feature ;
+    sysml:elementId "Constraints__Margin___401_pvalue_pin1" ;
+    sysml:direction "in" ;
+    sysml:owner expr:Constraints__Margin___401_pvalue ;
+    sysml:owningRelationship expr:Constraints__Margin___401_pvalue_pin1_om ;
+    sysml:owningMembership expr:Constraints__Margin___401_pvalue_pin1_om ;
+    sysml:ownedRelationship expr:Constraints__Margin___401_pvalue_pa1_om ;
+    sysml:ownedMembership expr:Constraints__Margin___401_pvalue_pa1_om .
+
+expr:Constraints__Margin___401_pvalue_pin1_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Constraints__Margin___401_pvalue_pin1_om" ;
+    sysml:owner expr:Constraints__Margin___401_pvalue ;
+    sysml:memberElement expr:Constraints__Margin___401_pvalue_pin1 ;
+    sysml:ownedMemberElement expr:Constraints__Margin___401_pvalue_pin1 ;
+    sysml:ownedRelatedElement expr:Constraints__Margin___401_pvalue_pin1 ;
+    sysml:owningRelatedElement expr:Constraints__Margin___401_pvalue ;
+    sysml:membershipOwningNamespace expr:Constraints__Margin___401_pvalue ;
+    sysml:ownedMemberFeature expr:Constraints__Margin___401_pvalue_pin1 ;
+    sysml:ownedMemberParameter expr:Constraints__Margin___401_pvalue_pin1 .
+
+expr:Constraints__Margin___401_pvalue_pa1_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Constraints__Margin___401_pvalue_pa1_om" ;
+    sysml:owner expr:Constraints__Margin___401_pvalue_pin1 ;
+    sysml:memberElement expr:Constraints__Margin___401_pvalue_pa1 ;
+    sysml:ownedMemberElement expr:Constraints__Margin___401_pvalue_pa1 ;
+    sysml:ownedRelatedElement expr:Constraints__Margin___401_pvalue_pa1 ;
+    sysml:owningRelatedElement expr:Constraints__Margin___401_pvalue_pin1 ;
+    sysml:membershipOwningNamespace expr:Constraints__Margin___401_pvalue_pin1 ;
+    sysml:featureWithValue expr:Constraints__Margin___401_pvalue_pin1 ;
+    sysml:value expr:Constraints__Margin___401_pvalue_pa1 .
+
+expr:Constraints__Margin___401_pvalue_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Constraints__Margin___401_pvalue_om" ;
+    sysml:owner elmt:Constraints__Margin___401 ;
+    sysml:memberElement expr:Constraints__Margin___401_pvalue ;
+    sysml:ownedMemberElement expr:Constraints__Margin___401_pvalue ;
+    sysml:ownedRelatedElement expr:Constraints__Margin___401_pvalue ;
+    sysml:owningRelatedElement elmt:Constraints__Margin___401 ;
+    sysml:membershipOwningNamespace elmt:Constraints__Margin___401 ;
+    sysml:featureWithValue elmt:Constraints__Margin___401 ;
+    sysml:value expr:Constraints__Margin___401_pvalue .
 
 elmt:Constraints__Rover
     a sysml:PartDefinition ;
@@ -339,6 +539,8 @@ elmt:Constraints__Rover__mass
     sysml:declaredName "mass" ;
     sysml:type elmt:Constraints__Mass ;
     sysml:value expr:Constraints__Rover__mass_pvalue ;
+    sysml:ownedRelationship expr:Constraints__Rover__mass_pvalue_om ;
+    sysml:ownedMembership expr:Constraints__Rover__mass_pvalue_om ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        attribute mass : Mass = 80;\n" .
 
@@ -358,7 +560,22 @@ expr:Constraints__Rover__mass_pvalue
     a sysml:LiteralInteger ;
     sysx:sourceText "80" ;
     sysml:elementId "Constraints__Rover__mass_pvalue" ;
-    sysml:value "80"^^xsd:integer .
+    sysml:value "80"^^xsd:integer ;
+    sysml:owner elmt:Constraints__Rover__mass ;
+    sysml:owningRelationship expr:Constraints__Rover__mass_pvalue_om ;
+    sysml:owningMembership expr:Constraints__Rover__mass_pvalue_om .
+
+expr:Constraints__Rover__mass_pvalue_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Constraints__Rover__mass_pvalue_om" ;
+    sysml:owner elmt:Constraints__Rover__mass ;
+    sysml:memberElement expr:Constraints__Rover__mass_pvalue ;
+    sysml:ownedMemberElement expr:Constraints__Rover__mass_pvalue ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__mass_pvalue ;
+    sysml:owningRelatedElement elmt:Constraints__Rover__mass ;
+    sysml:membershipOwningNamespace elmt:Constraints__Rover__mass ;
+    sysml:featureWithValue elmt:Constraints__Rover__mass ;
+    sysml:value expr:Constraints__Rover__mass_pvalue .
 
 elmt:Constraints__Rover__limit
     a sysml:ConstraintUsage ;
@@ -410,6 +627,8 @@ elmt:Constraints__Rover__limit__m
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:direction "in" ;
     sysml:value expr:Constraints__Rover__limit__m_pvalue ;
+    sysml:ownedRelationship expr:Constraints__Rover__limit__m_pvalue_om ;
+    sysml:ownedMembership expr:Constraints__Rover__limit__m_pvalue_om ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "            in m = mass;\n" .
 
@@ -429,7 +648,22 @@ expr:Constraints__Rover__limit__m_pvalue
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "mass" ;
     sysml:elementId "Constraints__Rover__limit__m_pvalue" ;
-    sysml:referent elmt:Constraints__Rover__mass .
+    sysml:referent elmt:Constraints__Rover__mass ;
+    sysml:owner elmt:Constraints__Rover__limit__m ;
+    sysml:owningRelationship expr:Constraints__Rover__limit__m_pvalue_om ;
+    sysml:owningMembership expr:Constraints__Rover__limit__m_pvalue_om .
+
+expr:Constraints__Rover__limit__m_pvalue_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Constraints__Rover__limit__m_pvalue_om" ;
+    sysml:owner elmt:Constraints__Rover__limit__m ;
+    sysml:memberElement expr:Constraints__Rover__limit__m_pvalue ;
+    sysml:ownedMemberElement expr:Constraints__Rover__limit__m_pvalue ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__limit__m_pvalue ;
+    sysml:owningRelatedElement elmt:Constraints__Rover__limit__m ;
+    sysml:membershipOwningNamespace elmt:Constraints__Rover__limit__m ;
+    sysml:featureWithValue elmt:Constraints__Rover__limit__m ;
+    sysml:value expr:Constraints__Rover__limit__m_pvalue .
 
 elmt:Constraints__Rover__limit__limit
     a sysml:ReferenceUsage ;
@@ -444,6 +678,8 @@ elmt:Constraints__Rover__limit__limit
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:direction "in" ;
     sysml:value expr:Constraints__Rover__limit__limit_pvalue ;
+    sysml:ownedRelationship expr:Constraints__Rover__limit__limit_pvalue_om ;
+    sysml:ownedMembership expr:Constraints__Rover__limit__limit_pvalue_om ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "            in limit = 100;\n" .
 
@@ -463,7 +699,22 @@ expr:Constraints__Rover__limit__limit_pvalue
     a sysml:LiteralInteger ;
     sysx:sourceText "100" ;
     sysml:elementId "Constraints__Rover__limit__limit_pvalue" ;
-    sysml:value "100"^^xsd:integer .
+    sysml:value "100"^^xsd:integer ;
+    sysml:owner elmt:Constraints__Rover__limit__limit ;
+    sysml:owningRelationship expr:Constraints__Rover__limit__limit_pvalue_om ;
+    sysml:owningMembership expr:Constraints__Rover__limit__limit_pvalue_om .
+
+expr:Constraints__Rover__limit__limit_pvalue_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Constraints__Rover__limit__limit_pvalue_om" ;
+    sysml:owner elmt:Constraints__Rover__limit__limit ;
+    sysml:memberElement expr:Constraints__Rover__limit__limit_pvalue ;
+    sysml:ownedMemberElement expr:Constraints__Rover__limit__limit_pvalue ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__limit__limit_pvalue ;
+    sysml:owningRelatedElement elmt:Constraints__Rover__limit__limit ;
+    sysml:membershipOwningNamespace elmt:Constraints__Rover__limit__limit ;
+    sysml:featureWithValue elmt:Constraints__Rover__limit__limit ;
+    sysml:value expr:Constraints__Rover__limit__limit_pvalue .
 
 elmt:Constraints__Rover__massOK
     a sysml:AssertConstraintUsage ;
@@ -556,6 +807,8 @@ elmt:Constraints__Rover___404___400
     sysml:owningRelationship elmt:Constraints__Rover___404___400_om ;
     sysml:owningMembership elmt:Constraints__Rover___404___400_om ;
     sysx:condition expr:Constraints__Rover___404___400_pcondition ;
+    sysml:ownedRelationship expr:Constraints__Rover___404___400_pcondition_om ;
+    sysml:ownedMembership expr:Constraints__Rover___404___400_pcondition_om ;
     sysx:sourceText "            mass > 0\n" .
 
 elmt:Constraints__Rover___404___400_om
@@ -574,21 +827,118 @@ expr:Constraints__Rover___404___400_pcondition
     sysml:elementId "Constraints__Rover___404___400_pcondition" ;
     sysml:operator ">" ;
     sysml:argument expr:Constraints__Rover___404___400_pcondition_pa0, expr:Constraints__Rover___404___400_pcondition_pa1 ;
-    json:argument "[{\"@id\":\"Constraints__Rover___404___400_pcondition_pa0\"},{\"@id\":\"Constraints__Rover___404___400_pcondition_pa1\"}]" .
+    sysml:ownedRelationship expr:Constraints__Rover___404___400_pcondition_pin0_om, expr:Constraints__Rover___404___400_pcondition_pin1_om ;
+    sysml:ownedMembership expr:Constraints__Rover___404___400_pcondition_pin0_om, expr:Constraints__Rover___404___400_pcondition_pin1_om ;
+    sysml:ownedFeatureMembership expr:Constraints__Rover___404___400_pcondition_pin0_om, expr:Constraints__Rover___404___400_pcondition_pin1_om ;
+    sysml:ownedFeature expr:Constraints__Rover___404___400_pcondition_pin0, expr:Constraints__Rover___404___400_pcondition_pin1 ;
+    sysml:parameter expr:Constraints__Rover___404___400_pcondition_pin0, expr:Constraints__Rover___404___400_pcondition_pin1 ;
+    sysml:input expr:Constraints__Rover___404___400_pcondition_pin0, expr:Constraints__Rover___404___400_pcondition_pin1 ;
+    sysml:owner elmt:Constraints__Rover___404___400 ;
+    sysml:owningRelationship expr:Constraints__Rover___404___400_pcondition_om ;
+    sysml:owningMembership expr:Constraints__Rover___404___400_pcondition_om ;
+    json:argument "[{\"@id\":\"Constraints__Rover___404___400_pcondition_pa0\"},{\"@id\":\"Constraints__Rover___404___400_pcondition_pa1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Constraints__Rover___404___400_pcondition_pin0_om\"},{\"@id\":\"Constraints__Rover___404___400_pcondition_pin1_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Constraints__Rover___404___400_pcondition_pin0_om\"},{\"@id\":\"Constraints__Rover___404___400_pcondition_pin1_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Constraints__Rover___404___400_pcondition_pin0_om\"},{\"@id\":\"Constraints__Rover___404___400_pcondition_pin1_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Constraints__Rover___404___400_pcondition_pin0\"},{\"@id\":\"Constraints__Rover___404___400_pcondition_pin1\"}]" ;
+    json:parameter "[{\"@id\":\"Constraints__Rover___404___400_pcondition_pin0\"},{\"@id\":\"Constraints__Rover___404___400_pcondition_pin1\"}]" ;
+    json:input "[{\"@id\":\"Constraints__Rover___404___400_pcondition_pin0\"},{\"@id\":\"Constraints__Rover___404___400_pcondition_pin1\"}]" .
 
 expr:Constraints__Rover___404___400_pcondition_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "mass" ;
     sysml:elementId "Constraints__Rover___404___400_pcondition_pa0" ;
     sysml:referent elmt:Constraints__Rover__mass ;
-    sysx:argumentIndex "0"^^xsd:integer .
+    sysml:owner expr:Constraints__Rover___404___400_pcondition_pin0 ;
+    sysml:owningRelationship expr:Constraints__Rover___404___400_pcondition_pa0_om ;
+    sysml:owningMembership expr:Constraints__Rover___404___400_pcondition_pa0_om .
+
+expr:Constraints__Rover___404___400_pcondition_pin0
+    a sysml:Feature ;
+    sysml:elementId "Constraints__Rover___404___400_pcondition_pin0" ;
+    sysml:direction "in" ;
+    sysml:owner expr:Constraints__Rover___404___400_pcondition ;
+    sysml:owningRelationship expr:Constraints__Rover___404___400_pcondition_pin0_om ;
+    sysml:owningMembership expr:Constraints__Rover___404___400_pcondition_pin0_om ;
+    sysml:ownedRelationship expr:Constraints__Rover___404___400_pcondition_pa0_om ;
+    sysml:ownedMembership expr:Constraints__Rover___404___400_pcondition_pa0_om .
+
+expr:Constraints__Rover___404___400_pcondition_pin0_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Constraints__Rover___404___400_pcondition_pin0_om" ;
+    sysml:owner expr:Constraints__Rover___404___400_pcondition ;
+    sysml:memberElement expr:Constraints__Rover___404___400_pcondition_pin0 ;
+    sysml:ownedMemberElement expr:Constraints__Rover___404___400_pcondition_pin0 ;
+    sysml:ownedRelatedElement expr:Constraints__Rover___404___400_pcondition_pin0 ;
+    sysml:owningRelatedElement expr:Constraints__Rover___404___400_pcondition ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover___404___400_pcondition ;
+    sysml:ownedMemberFeature expr:Constraints__Rover___404___400_pcondition_pin0 ;
+    sysml:ownedMemberParameter expr:Constraints__Rover___404___400_pcondition_pin0 .
+
+expr:Constraints__Rover___404___400_pcondition_pa0_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Constraints__Rover___404___400_pcondition_pa0_om" ;
+    sysml:owner expr:Constraints__Rover___404___400_pcondition_pin0 ;
+    sysml:memberElement expr:Constraints__Rover___404___400_pcondition_pa0 ;
+    sysml:ownedMemberElement expr:Constraints__Rover___404___400_pcondition_pa0 ;
+    sysml:ownedRelatedElement expr:Constraints__Rover___404___400_pcondition_pa0 ;
+    sysml:owningRelatedElement expr:Constraints__Rover___404___400_pcondition_pin0 ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover___404___400_pcondition_pin0 ;
+    sysml:featureWithValue expr:Constraints__Rover___404___400_pcondition_pin0 ;
+    sysml:value expr:Constraints__Rover___404___400_pcondition_pa0 .
 
 expr:Constraints__Rover___404___400_pcondition_pa1
     a sysml:LiteralInteger ;
     sysx:sourceText "0" ;
     sysml:elementId "Constraints__Rover___404___400_pcondition_pa1" ;
     sysml:value "0"^^xsd:integer ;
-    sysx:argumentIndex "1"^^xsd:integer .
+    sysml:owner expr:Constraints__Rover___404___400_pcondition_pin1 ;
+    sysml:owningRelationship expr:Constraints__Rover___404___400_pcondition_pa1_om ;
+    sysml:owningMembership expr:Constraints__Rover___404___400_pcondition_pa1_om .
+
+expr:Constraints__Rover___404___400_pcondition_pin1
+    a sysml:Feature ;
+    sysml:elementId "Constraints__Rover___404___400_pcondition_pin1" ;
+    sysml:direction "in" ;
+    sysml:owner expr:Constraints__Rover___404___400_pcondition ;
+    sysml:owningRelationship expr:Constraints__Rover___404___400_pcondition_pin1_om ;
+    sysml:owningMembership expr:Constraints__Rover___404___400_pcondition_pin1_om ;
+    sysml:ownedRelationship expr:Constraints__Rover___404___400_pcondition_pa1_om ;
+    sysml:ownedMembership expr:Constraints__Rover___404___400_pcondition_pa1_om .
+
+expr:Constraints__Rover___404___400_pcondition_pin1_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Constraints__Rover___404___400_pcondition_pin1_om" ;
+    sysml:owner expr:Constraints__Rover___404___400_pcondition ;
+    sysml:memberElement expr:Constraints__Rover___404___400_pcondition_pin1 ;
+    sysml:ownedMemberElement expr:Constraints__Rover___404___400_pcondition_pin1 ;
+    sysml:ownedRelatedElement expr:Constraints__Rover___404___400_pcondition_pin1 ;
+    sysml:owningRelatedElement expr:Constraints__Rover___404___400_pcondition ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover___404___400_pcondition ;
+    sysml:ownedMemberFeature expr:Constraints__Rover___404___400_pcondition_pin1 ;
+    sysml:ownedMemberParameter expr:Constraints__Rover___404___400_pcondition_pin1 .
+
+expr:Constraints__Rover___404___400_pcondition_pa1_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Constraints__Rover___404___400_pcondition_pa1_om" ;
+    sysml:owner expr:Constraints__Rover___404___400_pcondition_pin1 ;
+    sysml:memberElement expr:Constraints__Rover___404___400_pcondition_pa1 ;
+    sysml:ownedMemberElement expr:Constraints__Rover___404___400_pcondition_pa1 ;
+    sysml:ownedRelatedElement expr:Constraints__Rover___404___400_pcondition_pa1 ;
+    sysml:owningRelatedElement expr:Constraints__Rover___404___400_pcondition_pin1 ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover___404___400_pcondition_pin1 ;
+    sysml:featureWithValue expr:Constraints__Rover___404___400_pcondition_pin1 ;
+    sysml:value expr:Constraints__Rover___404___400_pcondition_pa1 .
+
+expr:Constraints__Rover___404___400_pcondition_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Constraints__Rover___404___400_pcondition_om" ;
+    sysml:owner elmt:Constraints__Rover___404___400 ;
+    sysml:memberElement expr:Constraints__Rover___404___400_pcondition ;
+    sysml:ownedMemberElement expr:Constraints__Rover___404___400_pcondition ;
+    sysml:ownedRelatedElement expr:Constraints__Rover___404___400_pcondition ;
+    sysml:owningRelatedElement elmt:Constraints__Rover___404___400 ;
+    sysml:membershipOwningNamespace elmt:Constraints__Rover___404___400 .
 
 elmt:Constraints__Rover__bounds
     a sysml:ConstraintUsage ;
@@ -632,6 +982,8 @@ elmt:Constraints__Rover__bounds___400
     sysml:owningRelationship elmt:Constraints__Rover__bounds___400_om ;
     sysml:owningMembership elmt:Constraints__Rover__bounds___400_om ;
     sysx:condition expr:Constraints__Rover__bounds___400_pcondition ;
+    sysml:ownedRelationship expr:Constraints__Rover__bounds___400_pcondition_om ;
+    sysml:ownedMembership expr:Constraints__Rover__bounds___400_pcondition_om ;
     sysx:sourceText "            mass > 0\n" .
 
 elmt:Constraints__Rover__bounds___400_om
@@ -650,21 +1002,118 @@ expr:Constraints__Rover__bounds___400_pcondition
     sysml:elementId "Constraints__Rover__bounds___400_pcondition" ;
     sysml:operator ">" ;
     sysml:argument expr:Constraints__Rover__bounds___400_pcondition_pa0, expr:Constraints__Rover__bounds___400_pcondition_pa1 ;
-    json:argument "[{\"@id\":\"Constraints__Rover__bounds___400_pcondition_pa0\"},{\"@id\":\"Constraints__Rover__bounds___400_pcondition_pa1\"}]" .
+    sysml:ownedRelationship expr:Constraints__Rover__bounds___400_pcondition_pin0_om, expr:Constraints__Rover__bounds___400_pcondition_pin1_om ;
+    sysml:ownedMembership expr:Constraints__Rover__bounds___400_pcondition_pin0_om, expr:Constraints__Rover__bounds___400_pcondition_pin1_om ;
+    sysml:ownedFeatureMembership expr:Constraints__Rover__bounds___400_pcondition_pin0_om, expr:Constraints__Rover__bounds___400_pcondition_pin1_om ;
+    sysml:ownedFeature expr:Constraints__Rover__bounds___400_pcondition_pin0, expr:Constraints__Rover__bounds___400_pcondition_pin1 ;
+    sysml:parameter expr:Constraints__Rover__bounds___400_pcondition_pin0, expr:Constraints__Rover__bounds___400_pcondition_pin1 ;
+    sysml:input expr:Constraints__Rover__bounds___400_pcondition_pin0, expr:Constraints__Rover__bounds___400_pcondition_pin1 ;
+    sysml:owner elmt:Constraints__Rover__bounds___400 ;
+    sysml:owningRelationship expr:Constraints__Rover__bounds___400_pcondition_om ;
+    sysml:owningMembership expr:Constraints__Rover__bounds___400_pcondition_om ;
+    json:argument "[{\"@id\":\"Constraints__Rover__bounds___400_pcondition_pa0\"},{\"@id\":\"Constraints__Rover__bounds___400_pcondition_pa1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Constraints__Rover__bounds___400_pcondition_pin0_om\"},{\"@id\":\"Constraints__Rover__bounds___400_pcondition_pin1_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Constraints__Rover__bounds___400_pcondition_pin0_om\"},{\"@id\":\"Constraints__Rover__bounds___400_pcondition_pin1_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Constraints__Rover__bounds___400_pcondition_pin0_om\"},{\"@id\":\"Constraints__Rover__bounds___400_pcondition_pin1_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Constraints__Rover__bounds___400_pcondition_pin0\"},{\"@id\":\"Constraints__Rover__bounds___400_pcondition_pin1\"}]" ;
+    json:parameter "[{\"@id\":\"Constraints__Rover__bounds___400_pcondition_pin0\"},{\"@id\":\"Constraints__Rover__bounds___400_pcondition_pin1\"}]" ;
+    json:input "[{\"@id\":\"Constraints__Rover__bounds___400_pcondition_pin0\"},{\"@id\":\"Constraints__Rover__bounds___400_pcondition_pin1\"}]" .
 
 expr:Constraints__Rover__bounds___400_pcondition_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "mass" ;
     sysml:elementId "Constraints__Rover__bounds___400_pcondition_pa0" ;
     sysml:referent elmt:Constraints__Rover__mass ;
-    sysx:argumentIndex "0"^^xsd:integer .
+    sysml:owner expr:Constraints__Rover__bounds___400_pcondition_pin0 ;
+    sysml:owningRelationship expr:Constraints__Rover__bounds___400_pcondition_pa0_om ;
+    sysml:owningMembership expr:Constraints__Rover__bounds___400_pcondition_pa0_om .
+
+expr:Constraints__Rover__bounds___400_pcondition_pin0
+    a sysml:Feature ;
+    sysml:elementId "Constraints__Rover__bounds___400_pcondition_pin0" ;
+    sysml:direction "in" ;
+    sysml:owner expr:Constraints__Rover__bounds___400_pcondition ;
+    sysml:owningRelationship expr:Constraints__Rover__bounds___400_pcondition_pin0_om ;
+    sysml:owningMembership expr:Constraints__Rover__bounds___400_pcondition_pin0_om ;
+    sysml:ownedRelationship expr:Constraints__Rover__bounds___400_pcondition_pa0_om ;
+    sysml:ownedMembership expr:Constraints__Rover__bounds___400_pcondition_pa0_om .
+
+expr:Constraints__Rover__bounds___400_pcondition_pin0_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Constraints__Rover__bounds___400_pcondition_pin0_om" ;
+    sysml:owner expr:Constraints__Rover__bounds___400_pcondition ;
+    sysml:memberElement expr:Constraints__Rover__bounds___400_pcondition_pin0 ;
+    sysml:ownedMemberElement expr:Constraints__Rover__bounds___400_pcondition_pin0 ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__bounds___400_pcondition_pin0 ;
+    sysml:owningRelatedElement expr:Constraints__Rover__bounds___400_pcondition ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__bounds___400_pcondition ;
+    sysml:ownedMemberFeature expr:Constraints__Rover__bounds___400_pcondition_pin0 ;
+    sysml:ownedMemberParameter expr:Constraints__Rover__bounds___400_pcondition_pin0 .
+
+expr:Constraints__Rover__bounds___400_pcondition_pa0_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Constraints__Rover__bounds___400_pcondition_pa0_om" ;
+    sysml:owner expr:Constraints__Rover__bounds___400_pcondition_pin0 ;
+    sysml:memberElement expr:Constraints__Rover__bounds___400_pcondition_pa0 ;
+    sysml:ownedMemberElement expr:Constraints__Rover__bounds___400_pcondition_pa0 ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__bounds___400_pcondition_pa0 ;
+    sysml:owningRelatedElement expr:Constraints__Rover__bounds___400_pcondition_pin0 ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__bounds___400_pcondition_pin0 ;
+    sysml:featureWithValue expr:Constraints__Rover__bounds___400_pcondition_pin0 ;
+    sysml:value expr:Constraints__Rover__bounds___400_pcondition_pa0 .
 
 expr:Constraints__Rover__bounds___400_pcondition_pa1
     a sysml:LiteralInteger ;
     sysx:sourceText "0" ;
     sysml:elementId "Constraints__Rover__bounds___400_pcondition_pa1" ;
     sysml:value "0"^^xsd:integer ;
-    sysx:argumentIndex "1"^^xsd:integer .
+    sysml:owner expr:Constraints__Rover__bounds___400_pcondition_pin1 ;
+    sysml:owningRelationship expr:Constraints__Rover__bounds___400_pcondition_pa1_om ;
+    sysml:owningMembership expr:Constraints__Rover__bounds___400_pcondition_pa1_om .
+
+expr:Constraints__Rover__bounds___400_pcondition_pin1
+    a sysml:Feature ;
+    sysml:elementId "Constraints__Rover__bounds___400_pcondition_pin1" ;
+    sysml:direction "in" ;
+    sysml:owner expr:Constraints__Rover__bounds___400_pcondition ;
+    sysml:owningRelationship expr:Constraints__Rover__bounds___400_pcondition_pin1_om ;
+    sysml:owningMembership expr:Constraints__Rover__bounds___400_pcondition_pin1_om ;
+    sysml:ownedRelationship expr:Constraints__Rover__bounds___400_pcondition_pa1_om ;
+    sysml:ownedMembership expr:Constraints__Rover__bounds___400_pcondition_pa1_om .
+
+expr:Constraints__Rover__bounds___400_pcondition_pin1_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Constraints__Rover__bounds___400_pcondition_pin1_om" ;
+    sysml:owner expr:Constraints__Rover__bounds___400_pcondition ;
+    sysml:memberElement expr:Constraints__Rover__bounds___400_pcondition_pin1 ;
+    sysml:ownedMemberElement expr:Constraints__Rover__bounds___400_pcondition_pin1 ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__bounds___400_pcondition_pin1 ;
+    sysml:owningRelatedElement expr:Constraints__Rover__bounds___400_pcondition ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__bounds___400_pcondition ;
+    sysml:ownedMemberFeature expr:Constraints__Rover__bounds___400_pcondition_pin1 ;
+    sysml:ownedMemberParameter expr:Constraints__Rover__bounds___400_pcondition_pin1 .
+
+expr:Constraints__Rover__bounds___400_pcondition_pa1_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Constraints__Rover__bounds___400_pcondition_pa1_om" ;
+    sysml:owner expr:Constraints__Rover__bounds___400_pcondition_pin1 ;
+    sysml:memberElement expr:Constraints__Rover__bounds___400_pcondition_pa1 ;
+    sysml:ownedMemberElement expr:Constraints__Rover__bounds___400_pcondition_pa1 ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__bounds___400_pcondition_pa1 ;
+    sysml:owningRelatedElement expr:Constraints__Rover__bounds___400_pcondition_pin1 ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__bounds___400_pcondition_pin1 ;
+    sysml:featureWithValue expr:Constraints__Rover__bounds___400_pcondition_pin1 ;
+    sysml:value expr:Constraints__Rover__bounds___400_pcondition_pa1 .
+
+expr:Constraints__Rover__bounds___400_pcondition_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Constraints__Rover__bounds___400_pcondition_om" ;
+    sysml:owner elmt:Constraints__Rover__bounds___400 ;
+    sysml:memberElement expr:Constraints__Rover__bounds___400_pcondition ;
+    sysml:ownedMemberElement expr:Constraints__Rover__bounds___400_pcondition ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__bounds___400_pcondition ;
+    sysml:owningRelatedElement elmt:Constraints__Rover__bounds___400 ;
+    sysml:membershipOwningNamespace elmt:Constraints__Rover__bounds___400 .
 
 elmt:Constraints__Rover__bounds___401
     a sysx:ConstraintMember ;
@@ -676,6 +1125,8 @@ elmt:Constraints__Rover__bounds___401
     sysml:owningRelationship elmt:Constraints__Rover__bounds___401_om ;
     sysml:owningMembership elmt:Constraints__Rover__bounds___401_om ;
     sysx:condition expr:Constraints__Rover__bounds___401_pcondition ;
+    sysml:ownedRelationship expr:Constraints__Rover__bounds___401_pcondition_om ;
+    sysml:ownedMembership expr:Constraints__Rover__bounds___401_pcondition_om ;
     sysx:sourceText "            mass != 0\n" .
 
 elmt:Constraints__Rover__bounds___401_om
@@ -694,21 +1145,118 @@ expr:Constraints__Rover__bounds___401_pcondition
     sysml:elementId "Constraints__Rover__bounds___401_pcondition" ;
     sysml:operator "!=" ;
     sysml:argument expr:Constraints__Rover__bounds___401_pcondition_pa0, expr:Constraints__Rover__bounds___401_pcondition_pa1 ;
-    json:argument "[{\"@id\":\"Constraints__Rover__bounds___401_pcondition_pa0\"},{\"@id\":\"Constraints__Rover__bounds___401_pcondition_pa1\"}]" .
+    sysml:ownedRelationship expr:Constraints__Rover__bounds___401_pcondition_pin0_om, expr:Constraints__Rover__bounds___401_pcondition_pin1_om ;
+    sysml:ownedMembership expr:Constraints__Rover__bounds___401_pcondition_pin0_om, expr:Constraints__Rover__bounds___401_pcondition_pin1_om ;
+    sysml:ownedFeatureMembership expr:Constraints__Rover__bounds___401_pcondition_pin0_om, expr:Constraints__Rover__bounds___401_pcondition_pin1_om ;
+    sysml:ownedFeature expr:Constraints__Rover__bounds___401_pcondition_pin0, expr:Constraints__Rover__bounds___401_pcondition_pin1 ;
+    sysml:parameter expr:Constraints__Rover__bounds___401_pcondition_pin0, expr:Constraints__Rover__bounds___401_pcondition_pin1 ;
+    sysml:input expr:Constraints__Rover__bounds___401_pcondition_pin0, expr:Constraints__Rover__bounds___401_pcondition_pin1 ;
+    sysml:owner elmt:Constraints__Rover__bounds___401 ;
+    sysml:owningRelationship expr:Constraints__Rover__bounds___401_pcondition_om ;
+    sysml:owningMembership expr:Constraints__Rover__bounds___401_pcondition_om ;
+    json:argument "[{\"@id\":\"Constraints__Rover__bounds___401_pcondition_pa0\"},{\"@id\":\"Constraints__Rover__bounds___401_pcondition_pa1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Constraints__Rover__bounds___401_pcondition_pin0_om\"},{\"@id\":\"Constraints__Rover__bounds___401_pcondition_pin1_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Constraints__Rover__bounds___401_pcondition_pin0_om\"},{\"@id\":\"Constraints__Rover__bounds___401_pcondition_pin1_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Constraints__Rover__bounds___401_pcondition_pin0_om\"},{\"@id\":\"Constraints__Rover__bounds___401_pcondition_pin1_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Constraints__Rover__bounds___401_pcondition_pin0\"},{\"@id\":\"Constraints__Rover__bounds___401_pcondition_pin1\"}]" ;
+    json:parameter "[{\"@id\":\"Constraints__Rover__bounds___401_pcondition_pin0\"},{\"@id\":\"Constraints__Rover__bounds___401_pcondition_pin1\"}]" ;
+    json:input "[{\"@id\":\"Constraints__Rover__bounds___401_pcondition_pin0\"},{\"@id\":\"Constraints__Rover__bounds___401_pcondition_pin1\"}]" .
 
 expr:Constraints__Rover__bounds___401_pcondition_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "mass" ;
     sysml:elementId "Constraints__Rover__bounds___401_pcondition_pa0" ;
     sysml:referent elmt:Constraints__Rover__mass ;
-    sysx:argumentIndex "0"^^xsd:integer .
+    sysml:owner expr:Constraints__Rover__bounds___401_pcondition_pin0 ;
+    sysml:owningRelationship expr:Constraints__Rover__bounds___401_pcondition_pa0_om ;
+    sysml:owningMembership expr:Constraints__Rover__bounds___401_pcondition_pa0_om .
+
+expr:Constraints__Rover__bounds___401_pcondition_pin0
+    a sysml:Feature ;
+    sysml:elementId "Constraints__Rover__bounds___401_pcondition_pin0" ;
+    sysml:direction "in" ;
+    sysml:owner expr:Constraints__Rover__bounds___401_pcondition ;
+    sysml:owningRelationship expr:Constraints__Rover__bounds___401_pcondition_pin0_om ;
+    sysml:owningMembership expr:Constraints__Rover__bounds___401_pcondition_pin0_om ;
+    sysml:ownedRelationship expr:Constraints__Rover__bounds___401_pcondition_pa0_om ;
+    sysml:ownedMembership expr:Constraints__Rover__bounds___401_pcondition_pa0_om .
+
+expr:Constraints__Rover__bounds___401_pcondition_pin0_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Constraints__Rover__bounds___401_pcondition_pin0_om" ;
+    sysml:owner expr:Constraints__Rover__bounds___401_pcondition ;
+    sysml:memberElement expr:Constraints__Rover__bounds___401_pcondition_pin0 ;
+    sysml:ownedMemberElement expr:Constraints__Rover__bounds___401_pcondition_pin0 ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__bounds___401_pcondition_pin0 ;
+    sysml:owningRelatedElement expr:Constraints__Rover__bounds___401_pcondition ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__bounds___401_pcondition ;
+    sysml:ownedMemberFeature expr:Constraints__Rover__bounds___401_pcondition_pin0 ;
+    sysml:ownedMemberParameter expr:Constraints__Rover__bounds___401_pcondition_pin0 .
+
+expr:Constraints__Rover__bounds___401_pcondition_pa0_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Constraints__Rover__bounds___401_pcondition_pa0_om" ;
+    sysml:owner expr:Constraints__Rover__bounds___401_pcondition_pin0 ;
+    sysml:memberElement expr:Constraints__Rover__bounds___401_pcondition_pa0 ;
+    sysml:ownedMemberElement expr:Constraints__Rover__bounds___401_pcondition_pa0 ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__bounds___401_pcondition_pa0 ;
+    sysml:owningRelatedElement expr:Constraints__Rover__bounds___401_pcondition_pin0 ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__bounds___401_pcondition_pin0 ;
+    sysml:featureWithValue expr:Constraints__Rover__bounds___401_pcondition_pin0 ;
+    sysml:value expr:Constraints__Rover__bounds___401_pcondition_pa0 .
 
 expr:Constraints__Rover__bounds___401_pcondition_pa1
     a sysml:LiteralInteger ;
     sysx:sourceText "0" ;
     sysml:elementId "Constraints__Rover__bounds___401_pcondition_pa1" ;
     sysml:value "0"^^xsd:integer ;
-    sysx:argumentIndex "1"^^xsd:integer .
+    sysml:owner expr:Constraints__Rover__bounds___401_pcondition_pin1 ;
+    sysml:owningRelationship expr:Constraints__Rover__bounds___401_pcondition_pa1_om ;
+    sysml:owningMembership expr:Constraints__Rover__bounds___401_pcondition_pa1_om .
+
+expr:Constraints__Rover__bounds___401_pcondition_pin1
+    a sysml:Feature ;
+    sysml:elementId "Constraints__Rover__bounds___401_pcondition_pin1" ;
+    sysml:direction "in" ;
+    sysml:owner expr:Constraints__Rover__bounds___401_pcondition ;
+    sysml:owningRelationship expr:Constraints__Rover__bounds___401_pcondition_pin1_om ;
+    sysml:owningMembership expr:Constraints__Rover__bounds___401_pcondition_pin1_om ;
+    sysml:ownedRelationship expr:Constraints__Rover__bounds___401_pcondition_pa1_om ;
+    sysml:ownedMembership expr:Constraints__Rover__bounds___401_pcondition_pa1_om .
+
+expr:Constraints__Rover__bounds___401_pcondition_pin1_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Constraints__Rover__bounds___401_pcondition_pin1_om" ;
+    sysml:owner expr:Constraints__Rover__bounds___401_pcondition ;
+    sysml:memberElement expr:Constraints__Rover__bounds___401_pcondition_pin1 ;
+    sysml:ownedMemberElement expr:Constraints__Rover__bounds___401_pcondition_pin1 ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__bounds___401_pcondition_pin1 ;
+    sysml:owningRelatedElement expr:Constraints__Rover__bounds___401_pcondition ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__bounds___401_pcondition ;
+    sysml:ownedMemberFeature expr:Constraints__Rover__bounds___401_pcondition_pin1 ;
+    sysml:ownedMemberParameter expr:Constraints__Rover__bounds___401_pcondition_pin1 .
+
+expr:Constraints__Rover__bounds___401_pcondition_pa1_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Constraints__Rover__bounds___401_pcondition_pa1_om" ;
+    sysml:owner expr:Constraints__Rover__bounds___401_pcondition_pin1 ;
+    sysml:memberElement expr:Constraints__Rover__bounds___401_pcondition_pa1 ;
+    sysml:ownedMemberElement expr:Constraints__Rover__bounds___401_pcondition_pa1 ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__bounds___401_pcondition_pa1 ;
+    sysml:owningRelatedElement expr:Constraints__Rover__bounds___401_pcondition_pin1 ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__bounds___401_pcondition_pin1 ;
+    sysml:featureWithValue expr:Constraints__Rover__bounds___401_pcondition_pin1 ;
+    sysml:value expr:Constraints__Rover__bounds___401_pcondition_pa1 .
+
+expr:Constraints__Rover__bounds___401_pcondition_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Constraints__Rover__bounds___401_pcondition_om" ;
+    sysml:owner elmt:Constraints__Rover__bounds___401 ;
+    sysml:memberElement expr:Constraints__Rover__bounds___401_pcondition ;
+    sysml:ownedMemberElement expr:Constraints__Rover__bounds___401_pcondition ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__bounds___401_pcondition ;
+    sysml:owningRelatedElement elmt:Constraints__Rover__bounds___401 ;
+    sysml:membershipOwningNamespace elmt:Constraints__Rover__bounds___401 .
 
 elmt:Constraints__Rover__bounds___402
     a sysx:ConstraintMember ;
@@ -720,6 +1268,8 @@ elmt:Constraints__Rover__bounds___402
     sysml:owningRelationship elmt:Constraints__Rover__bounds___402_om ;
     sysml:owningMembership elmt:Constraints__Rover__bounds___402_om ;
     sysx:condition expr:Constraints__Rover__bounds___402_pcondition ;
+    sysml:ownedRelationship expr:Constraints__Rover__bounds___402_pcondition_om ;
+    sysml:ownedMembership expr:Constraints__Rover__bounds___402_pcondition_om ;
     sysx:sourceText "            not (mass > 1000)\n" .
 
 elmt:Constraints__Rover__bounds___402_om
@@ -737,7 +1287,16 @@ expr:Constraints__Rover__bounds___402_pcondition
     sysx:sourceText "not (mass > 1000)" ;
     sysml:elementId "Constraints__Rover__bounds___402_pcondition" ;
     sysml:operator "not" ;
-    sysml:argument expr:Constraints__Rover__bounds___402_pcondition_pa0 .
+    sysml:argument expr:Constraints__Rover__bounds___402_pcondition_pa0 ;
+    sysml:ownedRelationship expr:Constraints__Rover__bounds___402_pcondition_pin0_om ;
+    sysml:ownedMembership expr:Constraints__Rover__bounds___402_pcondition_pin0_om ;
+    sysml:ownedFeatureMembership expr:Constraints__Rover__bounds___402_pcondition_pin0_om ;
+    sysml:ownedFeature expr:Constraints__Rover__bounds___402_pcondition_pin0 ;
+    sysml:parameter expr:Constraints__Rover__bounds___402_pcondition_pin0 ;
+    sysml:input expr:Constraints__Rover__bounds___402_pcondition_pin0 ;
+    sysml:owner elmt:Constraints__Rover__bounds___402 ;
+    sysml:owningRelationship expr:Constraints__Rover__bounds___402_pcondition_om ;
+    sysml:owningMembership expr:Constraints__Rover__bounds___402_pcondition_om .
 
 expr:Constraints__Rover__bounds___402_pcondition_pa0
     a sysml:OperatorExpression ;
@@ -745,22 +1304,152 @@ expr:Constraints__Rover__bounds___402_pcondition_pa0
     sysml:elementId "Constraints__Rover__bounds___402_pcondition_pa0" ;
     sysml:operator ">" ;
     sysml:argument expr:Constraints__Rover__bounds___402_pcondition_pa0_pa0, expr:Constraints__Rover__bounds___402_pcondition_pa0_pa1 ;
-    sysx:argumentIndex "0"^^xsd:integer ;
-    json:argument "[{\"@id\":\"Constraints__Rover__bounds___402_pcondition_pa0_pa0\"},{\"@id\":\"Constraints__Rover__bounds___402_pcondition_pa0_pa1\"}]" .
+    sysml:ownedRelationship expr:Constraints__Rover__bounds___402_pcondition_pa0_pin0_om, expr:Constraints__Rover__bounds___402_pcondition_pa0_pin1_om ;
+    sysml:ownedMembership expr:Constraints__Rover__bounds___402_pcondition_pa0_pin0_om, expr:Constraints__Rover__bounds___402_pcondition_pa0_pin1_om ;
+    sysml:ownedFeatureMembership expr:Constraints__Rover__bounds___402_pcondition_pa0_pin0_om, expr:Constraints__Rover__bounds___402_pcondition_pa0_pin1_om ;
+    sysml:ownedFeature expr:Constraints__Rover__bounds___402_pcondition_pa0_pin0, expr:Constraints__Rover__bounds___402_pcondition_pa0_pin1 ;
+    sysml:parameter expr:Constraints__Rover__bounds___402_pcondition_pa0_pin0, expr:Constraints__Rover__bounds___402_pcondition_pa0_pin1 ;
+    sysml:input expr:Constraints__Rover__bounds___402_pcondition_pa0_pin0, expr:Constraints__Rover__bounds___402_pcondition_pa0_pin1 ;
+    sysml:owner expr:Constraints__Rover__bounds___402_pcondition_pin0 ;
+    sysml:owningRelationship expr:Constraints__Rover__bounds___402_pcondition_pa0_om ;
+    sysml:owningMembership expr:Constraints__Rover__bounds___402_pcondition_pa0_om ;
+    json:argument "[{\"@id\":\"Constraints__Rover__bounds___402_pcondition_pa0_pa0\"},{\"@id\":\"Constraints__Rover__bounds___402_pcondition_pa0_pa1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Constraints__Rover__bounds___402_pcondition_pa0_pin0_om\"},{\"@id\":\"Constraints__Rover__bounds___402_pcondition_pa0_pin1_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Constraints__Rover__bounds___402_pcondition_pa0_pin0_om\"},{\"@id\":\"Constraints__Rover__bounds___402_pcondition_pa0_pin1_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Constraints__Rover__bounds___402_pcondition_pa0_pin0_om\"},{\"@id\":\"Constraints__Rover__bounds___402_pcondition_pa0_pin1_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Constraints__Rover__bounds___402_pcondition_pa0_pin0\"},{\"@id\":\"Constraints__Rover__bounds___402_pcondition_pa0_pin1\"}]" ;
+    json:parameter "[{\"@id\":\"Constraints__Rover__bounds___402_pcondition_pa0_pin0\"},{\"@id\":\"Constraints__Rover__bounds___402_pcondition_pa0_pin1\"}]" ;
+    json:input "[{\"@id\":\"Constraints__Rover__bounds___402_pcondition_pa0_pin0\"},{\"@id\":\"Constraints__Rover__bounds___402_pcondition_pa0_pin1\"}]" .
 
 expr:Constraints__Rover__bounds___402_pcondition_pa0_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "mass" ;
     sysml:elementId "Constraints__Rover__bounds___402_pcondition_pa0_pa0" ;
     sysml:referent elmt:Constraints__Rover__mass ;
-    sysx:argumentIndex "0"^^xsd:integer .
+    sysml:owner expr:Constraints__Rover__bounds___402_pcondition_pa0_pin0 ;
+    sysml:owningRelationship expr:Constraints__Rover__bounds___402_pcondition_pa0_pa0_om ;
+    sysml:owningMembership expr:Constraints__Rover__bounds___402_pcondition_pa0_pa0_om .
+
+expr:Constraints__Rover__bounds___402_pcondition_pa0_pin0
+    a sysml:Feature ;
+    sysml:elementId "Constraints__Rover__bounds___402_pcondition_pa0_pin0" ;
+    sysml:direction "in" ;
+    sysml:owner expr:Constraints__Rover__bounds___402_pcondition_pa0 ;
+    sysml:owningRelationship expr:Constraints__Rover__bounds___402_pcondition_pa0_pin0_om ;
+    sysml:owningMembership expr:Constraints__Rover__bounds___402_pcondition_pa0_pin0_om ;
+    sysml:ownedRelationship expr:Constraints__Rover__bounds___402_pcondition_pa0_pa0_om ;
+    sysml:ownedMembership expr:Constraints__Rover__bounds___402_pcondition_pa0_pa0_om .
+
+expr:Constraints__Rover__bounds___402_pcondition_pa0_pin0_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Constraints__Rover__bounds___402_pcondition_pa0_pin0_om" ;
+    sysml:owner expr:Constraints__Rover__bounds___402_pcondition_pa0 ;
+    sysml:memberElement expr:Constraints__Rover__bounds___402_pcondition_pa0_pin0 ;
+    sysml:ownedMemberElement expr:Constraints__Rover__bounds___402_pcondition_pa0_pin0 ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__bounds___402_pcondition_pa0_pin0 ;
+    sysml:owningRelatedElement expr:Constraints__Rover__bounds___402_pcondition_pa0 ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__bounds___402_pcondition_pa0 ;
+    sysml:ownedMemberFeature expr:Constraints__Rover__bounds___402_pcondition_pa0_pin0 ;
+    sysml:ownedMemberParameter expr:Constraints__Rover__bounds___402_pcondition_pa0_pin0 .
+
+expr:Constraints__Rover__bounds___402_pcondition_pa0_pa0_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Constraints__Rover__bounds___402_pcondition_pa0_pa0_om" ;
+    sysml:owner expr:Constraints__Rover__bounds___402_pcondition_pa0_pin0 ;
+    sysml:memberElement expr:Constraints__Rover__bounds___402_pcondition_pa0_pa0 ;
+    sysml:ownedMemberElement expr:Constraints__Rover__bounds___402_pcondition_pa0_pa0 ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__bounds___402_pcondition_pa0_pa0 ;
+    sysml:owningRelatedElement expr:Constraints__Rover__bounds___402_pcondition_pa0_pin0 ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__bounds___402_pcondition_pa0_pin0 ;
+    sysml:featureWithValue expr:Constraints__Rover__bounds___402_pcondition_pa0_pin0 ;
+    sysml:value expr:Constraints__Rover__bounds___402_pcondition_pa0_pa0 .
 
 expr:Constraints__Rover__bounds___402_pcondition_pa0_pa1
     a sysml:LiteralInteger ;
     sysx:sourceText "1000" ;
     sysml:elementId "Constraints__Rover__bounds___402_pcondition_pa0_pa1" ;
     sysml:value "1000"^^xsd:integer ;
-    sysx:argumentIndex "1"^^xsd:integer .
+    sysml:owner expr:Constraints__Rover__bounds___402_pcondition_pa0_pin1 ;
+    sysml:owningRelationship expr:Constraints__Rover__bounds___402_pcondition_pa0_pa1_om ;
+    sysml:owningMembership expr:Constraints__Rover__bounds___402_pcondition_pa0_pa1_om .
+
+expr:Constraints__Rover__bounds___402_pcondition_pa0_pin1
+    a sysml:Feature ;
+    sysml:elementId "Constraints__Rover__bounds___402_pcondition_pa0_pin1" ;
+    sysml:direction "in" ;
+    sysml:owner expr:Constraints__Rover__bounds___402_pcondition_pa0 ;
+    sysml:owningRelationship expr:Constraints__Rover__bounds___402_pcondition_pa0_pin1_om ;
+    sysml:owningMembership expr:Constraints__Rover__bounds___402_pcondition_pa0_pin1_om ;
+    sysml:ownedRelationship expr:Constraints__Rover__bounds___402_pcondition_pa0_pa1_om ;
+    sysml:ownedMembership expr:Constraints__Rover__bounds___402_pcondition_pa0_pa1_om .
+
+expr:Constraints__Rover__bounds___402_pcondition_pa0_pin1_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Constraints__Rover__bounds___402_pcondition_pa0_pin1_om" ;
+    sysml:owner expr:Constraints__Rover__bounds___402_pcondition_pa0 ;
+    sysml:memberElement expr:Constraints__Rover__bounds___402_pcondition_pa0_pin1 ;
+    sysml:ownedMemberElement expr:Constraints__Rover__bounds___402_pcondition_pa0_pin1 ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__bounds___402_pcondition_pa0_pin1 ;
+    sysml:owningRelatedElement expr:Constraints__Rover__bounds___402_pcondition_pa0 ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__bounds___402_pcondition_pa0 ;
+    sysml:ownedMemberFeature expr:Constraints__Rover__bounds___402_pcondition_pa0_pin1 ;
+    sysml:ownedMemberParameter expr:Constraints__Rover__bounds___402_pcondition_pa0_pin1 .
+
+expr:Constraints__Rover__bounds___402_pcondition_pa0_pa1_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Constraints__Rover__bounds___402_pcondition_pa0_pa1_om" ;
+    sysml:owner expr:Constraints__Rover__bounds___402_pcondition_pa0_pin1 ;
+    sysml:memberElement expr:Constraints__Rover__bounds___402_pcondition_pa0_pa1 ;
+    sysml:ownedMemberElement expr:Constraints__Rover__bounds___402_pcondition_pa0_pa1 ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__bounds___402_pcondition_pa0_pa1 ;
+    sysml:owningRelatedElement expr:Constraints__Rover__bounds___402_pcondition_pa0_pin1 ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__bounds___402_pcondition_pa0_pin1 ;
+    sysml:featureWithValue expr:Constraints__Rover__bounds___402_pcondition_pa0_pin1 ;
+    sysml:value expr:Constraints__Rover__bounds___402_pcondition_pa0_pa1 .
+
+expr:Constraints__Rover__bounds___402_pcondition_pin0
+    a sysml:Feature ;
+    sysml:elementId "Constraints__Rover__bounds___402_pcondition_pin0" ;
+    sysml:direction "in" ;
+    sysml:owner expr:Constraints__Rover__bounds___402_pcondition ;
+    sysml:owningRelationship expr:Constraints__Rover__bounds___402_pcondition_pin0_om ;
+    sysml:owningMembership expr:Constraints__Rover__bounds___402_pcondition_pin0_om ;
+    sysml:ownedRelationship expr:Constraints__Rover__bounds___402_pcondition_pa0_om ;
+    sysml:ownedMembership expr:Constraints__Rover__bounds___402_pcondition_pa0_om .
+
+expr:Constraints__Rover__bounds___402_pcondition_pin0_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Constraints__Rover__bounds___402_pcondition_pin0_om" ;
+    sysml:owner expr:Constraints__Rover__bounds___402_pcondition ;
+    sysml:memberElement expr:Constraints__Rover__bounds___402_pcondition_pin0 ;
+    sysml:ownedMemberElement expr:Constraints__Rover__bounds___402_pcondition_pin0 ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__bounds___402_pcondition_pin0 ;
+    sysml:owningRelatedElement expr:Constraints__Rover__bounds___402_pcondition ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__bounds___402_pcondition ;
+    sysml:ownedMemberFeature expr:Constraints__Rover__bounds___402_pcondition_pin0 ;
+    sysml:ownedMemberParameter expr:Constraints__Rover__bounds___402_pcondition_pin0 .
+
+expr:Constraints__Rover__bounds___402_pcondition_pa0_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Constraints__Rover__bounds___402_pcondition_pa0_om" ;
+    sysml:owner expr:Constraints__Rover__bounds___402_pcondition_pin0 ;
+    sysml:memberElement expr:Constraints__Rover__bounds___402_pcondition_pa0 ;
+    sysml:ownedMemberElement expr:Constraints__Rover__bounds___402_pcondition_pa0 ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__bounds___402_pcondition_pa0 ;
+    sysml:owningRelatedElement expr:Constraints__Rover__bounds___402_pcondition_pin0 ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__bounds___402_pcondition_pin0 ;
+    sysml:featureWithValue expr:Constraints__Rover__bounds___402_pcondition_pin0 ;
+    sysml:value expr:Constraints__Rover__bounds___402_pcondition_pa0 .
+
+expr:Constraints__Rover__bounds___402_pcondition_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Constraints__Rover__bounds___402_pcondition_om" ;
+    sysml:owner elmt:Constraints__Rover__bounds___402 ;
+    sysml:memberElement expr:Constraints__Rover__bounds___402_pcondition ;
+    sysml:ownedMemberElement expr:Constraints__Rover__bounds___402_pcondition ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__bounds___402_pcondition ;
+    sysml:owningRelatedElement elmt:Constraints__Rover__bounds___402 ;
+    sysml:membershipOwningNamespace elmt:Constraints__Rover__bounds___402 .
 
 elmt:Constraints__Rover__bounds__inner
     a sysx:ConstraintMember ;
@@ -800,6 +1489,8 @@ elmt:Constraints__Rover__bounds__inner___400
     sysml:owningRelationship elmt:Constraints__Rover__bounds__inner___400_om ;
     sysml:owningMembership elmt:Constraints__Rover__bounds__inner___400_om ;
     sysx:condition expr:Constraints__Rover__bounds__inner___400_pcondition ;
+    sysml:ownedRelationship expr:Constraints__Rover__bounds__inner___400_pcondition_om ;
+    sysml:ownedMembership expr:Constraints__Rover__bounds__inner___400_pcondition_om ;
     sysx:sourceText "                mass < 1000\n" .
 
 elmt:Constraints__Rover__bounds__inner___400_om
@@ -818,21 +1509,118 @@ expr:Constraints__Rover__bounds__inner___400_pcondition
     sysml:elementId "Constraints__Rover__bounds__inner___400_pcondition" ;
     sysml:operator "<" ;
     sysml:argument expr:Constraints__Rover__bounds__inner___400_pcondition_pa0, expr:Constraints__Rover__bounds__inner___400_pcondition_pa1 ;
-    json:argument "[{\"@id\":\"Constraints__Rover__bounds__inner___400_pcondition_pa0\"},{\"@id\":\"Constraints__Rover__bounds__inner___400_pcondition_pa1\"}]" .
+    sysml:ownedRelationship expr:Constraints__Rover__bounds__inner___400_pcondition_pin0_om, expr:Constraints__Rover__bounds__inner___400_pcondition_pin1_om ;
+    sysml:ownedMembership expr:Constraints__Rover__bounds__inner___400_pcondition_pin0_om, expr:Constraints__Rover__bounds__inner___400_pcondition_pin1_om ;
+    sysml:ownedFeatureMembership expr:Constraints__Rover__bounds__inner___400_pcondition_pin0_om, expr:Constraints__Rover__bounds__inner___400_pcondition_pin1_om ;
+    sysml:ownedFeature expr:Constraints__Rover__bounds__inner___400_pcondition_pin0, expr:Constraints__Rover__bounds__inner___400_pcondition_pin1 ;
+    sysml:parameter expr:Constraints__Rover__bounds__inner___400_pcondition_pin0, expr:Constraints__Rover__bounds__inner___400_pcondition_pin1 ;
+    sysml:input expr:Constraints__Rover__bounds__inner___400_pcondition_pin0, expr:Constraints__Rover__bounds__inner___400_pcondition_pin1 ;
+    sysml:owner elmt:Constraints__Rover__bounds__inner___400 ;
+    sysml:owningRelationship expr:Constraints__Rover__bounds__inner___400_pcondition_om ;
+    sysml:owningMembership expr:Constraints__Rover__bounds__inner___400_pcondition_om ;
+    json:argument "[{\"@id\":\"Constraints__Rover__bounds__inner___400_pcondition_pa0\"},{\"@id\":\"Constraints__Rover__bounds__inner___400_pcondition_pa1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Constraints__Rover__bounds__inner___400_pcondition_pin0_om\"},{\"@id\":\"Constraints__Rover__bounds__inner___400_pcondition_pin1_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Constraints__Rover__bounds__inner___400_pcondition_pin0_om\"},{\"@id\":\"Constraints__Rover__bounds__inner___400_pcondition_pin1_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Constraints__Rover__bounds__inner___400_pcondition_pin0_om\"},{\"@id\":\"Constraints__Rover__bounds__inner___400_pcondition_pin1_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Constraints__Rover__bounds__inner___400_pcondition_pin0\"},{\"@id\":\"Constraints__Rover__bounds__inner___400_pcondition_pin1\"}]" ;
+    json:parameter "[{\"@id\":\"Constraints__Rover__bounds__inner___400_pcondition_pin0\"},{\"@id\":\"Constraints__Rover__bounds__inner___400_pcondition_pin1\"}]" ;
+    json:input "[{\"@id\":\"Constraints__Rover__bounds__inner___400_pcondition_pin0\"},{\"@id\":\"Constraints__Rover__bounds__inner___400_pcondition_pin1\"}]" .
 
 expr:Constraints__Rover__bounds__inner___400_pcondition_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "mass" ;
     sysml:elementId "Constraints__Rover__bounds__inner___400_pcondition_pa0" ;
     sysml:referent elmt:Constraints__Rover__mass ;
-    sysx:argumentIndex "0"^^xsd:integer .
+    sysml:owner expr:Constraints__Rover__bounds__inner___400_pcondition_pin0 ;
+    sysml:owningRelationship expr:Constraints__Rover__bounds__inner___400_pcondition_pa0_om ;
+    sysml:owningMembership expr:Constraints__Rover__bounds__inner___400_pcondition_pa0_om .
+
+expr:Constraints__Rover__bounds__inner___400_pcondition_pin0
+    a sysml:Feature ;
+    sysml:elementId "Constraints__Rover__bounds__inner___400_pcondition_pin0" ;
+    sysml:direction "in" ;
+    sysml:owner expr:Constraints__Rover__bounds__inner___400_pcondition ;
+    sysml:owningRelationship expr:Constraints__Rover__bounds__inner___400_pcondition_pin0_om ;
+    sysml:owningMembership expr:Constraints__Rover__bounds__inner___400_pcondition_pin0_om ;
+    sysml:ownedRelationship expr:Constraints__Rover__bounds__inner___400_pcondition_pa0_om ;
+    sysml:ownedMembership expr:Constraints__Rover__bounds__inner___400_pcondition_pa0_om .
+
+expr:Constraints__Rover__bounds__inner___400_pcondition_pin0_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Constraints__Rover__bounds__inner___400_pcondition_pin0_om" ;
+    sysml:owner expr:Constraints__Rover__bounds__inner___400_pcondition ;
+    sysml:memberElement expr:Constraints__Rover__bounds__inner___400_pcondition_pin0 ;
+    sysml:ownedMemberElement expr:Constraints__Rover__bounds__inner___400_pcondition_pin0 ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__bounds__inner___400_pcondition_pin0 ;
+    sysml:owningRelatedElement expr:Constraints__Rover__bounds__inner___400_pcondition ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__bounds__inner___400_pcondition ;
+    sysml:ownedMemberFeature expr:Constraints__Rover__bounds__inner___400_pcondition_pin0 ;
+    sysml:ownedMemberParameter expr:Constraints__Rover__bounds__inner___400_pcondition_pin0 .
+
+expr:Constraints__Rover__bounds__inner___400_pcondition_pa0_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Constraints__Rover__bounds__inner___400_pcondition_pa0_om" ;
+    sysml:owner expr:Constraints__Rover__bounds__inner___400_pcondition_pin0 ;
+    sysml:memberElement expr:Constraints__Rover__bounds__inner___400_pcondition_pa0 ;
+    sysml:ownedMemberElement expr:Constraints__Rover__bounds__inner___400_pcondition_pa0 ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__bounds__inner___400_pcondition_pa0 ;
+    sysml:owningRelatedElement expr:Constraints__Rover__bounds__inner___400_pcondition_pin0 ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__bounds__inner___400_pcondition_pin0 ;
+    sysml:featureWithValue expr:Constraints__Rover__bounds__inner___400_pcondition_pin0 ;
+    sysml:value expr:Constraints__Rover__bounds__inner___400_pcondition_pa0 .
 
 expr:Constraints__Rover__bounds__inner___400_pcondition_pa1
     a sysml:LiteralInteger ;
     sysx:sourceText "1000" ;
     sysml:elementId "Constraints__Rover__bounds__inner___400_pcondition_pa1" ;
     sysml:value "1000"^^xsd:integer ;
-    sysx:argumentIndex "1"^^xsd:integer .
+    sysml:owner expr:Constraints__Rover__bounds__inner___400_pcondition_pin1 ;
+    sysml:owningRelationship expr:Constraints__Rover__bounds__inner___400_pcondition_pa1_om ;
+    sysml:owningMembership expr:Constraints__Rover__bounds__inner___400_pcondition_pa1_om .
+
+expr:Constraints__Rover__bounds__inner___400_pcondition_pin1
+    a sysml:Feature ;
+    sysml:elementId "Constraints__Rover__bounds__inner___400_pcondition_pin1" ;
+    sysml:direction "in" ;
+    sysml:owner expr:Constraints__Rover__bounds__inner___400_pcondition ;
+    sysml:owningRelationship expr:Constraints__Rover__bounds__inner___400_pcondition_pin1_om ;
+    sysml:owningMembership expr:Constraints__Rover__bounds__inner___400_pcondition_pin1_om ;
+    sysml:ownedRelationship expr:Constraints__Rover__bounds__inner___400_pcondition_pa1_om ;
+    sysml:ownedMembership expr:Constraints__Rover__bounds__inner___400_pcondition_pa1_om .
+
+expr:Constraints__Rover__bounds__inner___400_pcondition_pin1_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Constraints__Rover__bounds__inner___400_pcondition_pin1_om" ;
+    sysml:owner expr:Constraints__Rover__bounds__inner___400_pcondition ;
+    sysml:memberElement expr:Constraints__Rover__bounds__inner___400_pcondition_pin1 ;
+    sysml:ownedMemberElement expr:Constraints__Rover__bounds__inner___400_pcondition_pin1 ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__bounds__inner___400_pcondition_pin1 ;
+    sysml:owningRelatedElement expr:Constraints__Rover__bounds__inner___400_pcondition ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__bounds__inner___400_pcondition ;
+    sysml:ownedMemberFeature expr:Constraints__Rover__bounds__inner___400_pcondition_pin1 ;
+    sysml:ownedMemberParameter expr:Constraints__Rover__bounds__inner___400_pcondition_pin1 .
+
+expr:Constraints__Rover__bounds__inner___400_pcondition_pa1_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Constraints__Rover__bounds__inner___400_pcondition_pa1_om" ;
+    sysml:owner expr:Constraints__Rover__bounds__inner___400_pcondition_pin1 ;
+    sysml:memberElement expr:Constraints__Rover__bounds__inner___400_pcondition_pa1 ;
+    sysml:ownedMemberElement expr:Constraints__Rover__bounds__inner___400_pcondition_pa1 ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__bounds__inner___400_pcondition_pa1 ;
+    sysml:owningRelatedElement expr:Constraints__Rover__bounds__inner___400_pcondition_pin1 ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__bounds__inner___400_pcondition_pin1 ;
+    sysml:featureWithValue expr:Constraints__Rover__bounds__inner___400_pcondition_pin1 ;
+    sysml:value expr:Constraints__Rover__bounds__inner___400_pcondition_pa1 .
+
+expr:Constraints__Rover__bounds__inner___400_pcondition_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Constraints__Rover__bounds__inner___400_pcondition_om" ;
+    sysml:owner elmt:Constraints__Rover__bounds__inner___400 ;
+    sysml:memberElement expr:Constraints__Rover__bounds__inner___400_pcondition ;
+    sysml:ownedMemberElement expr:Constraints__Rover__bounds__inner___400_pcondition ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__bounds__inner___400_pcondition ;
+    sysml:owningRelatedElement elmt:Constraints__Rover__bounds__inner___400 ;
+    sysml:membershipOwningNamespace elmt:Constraints__Rover__bounds__inner___400 .
 
 elmt:Constraints__Rover__lightEnough
     a sysml:RequirementUsage ;
@@ -916,6 +1704,8 @@ elmt:Constraints__Rover__lightEnough___401___400
     sysml:owningRelationship elmt:Constraints__Rover__lightEnough___401___400_om ;
     sysml:owningMembership elmt:Constraints__Rover__lightEnough___401___400_om ;
     sysx:condition expr:Constraints__Rover__lightEnough___401___400_pcondition ;
+    sysml:ownedRelationship expr:Constraints__Rover__lightEnough___401___400_pcondition_om ;
+    sysml:ownedMembership expr:Constraints__Rover__lightEnough___401___400_pcondition_om ;
     sysx:sourceText "                r.mass > 0\n" .
 
 elmt:Constraints__Rover__lightEnough___401___400_om
@@ -934,29 +1724,168 @@ expr:Constraints__Rover__lightEnough___401___400_pcondition
     sysml:elementId "Constraints__Rover__lightEnough___401___400_pcondition" ;
     sysml:operator ">" ;
     sysml:argument expr:Constraints__Rover__lightEnough___401___400_pcondition_pa0, expr:Constraints__Rover__lightEnough___401___400_pcondition_pa1 ;
-    json:argument "[{\"@id\":\"Constraints__Rover__lightEnough___401___400_pcondition_pa0\"},{\"@id\":\"Constraints__Rover__lightEnough___401___400_pcondition_pa1\"}]" .
+    sysml:ownedRelationship expr:Constraints__Rover__lightEnough___401___400_pcondition_pin0_om, expr:Constraints__Rover__lightEnough___401___400_pcondition_pin1_om ;
+    sysml:ownedMembership expr:Constraints__Rover__lightEnough___401___400_pcondition_pin0_om, expr:Constraints__Rover__lightEnough___401___400_pcondition_pin1_om ;
+    sysml:ownedFeatureMembership expr:Constraints__Rover__lightEnough___401___400_pcondition_pin0_om, expr:Constraints__Rover__lightEnough___401___400_pcondition_pin1_om ;
+    sysml:ownedFeature expr:Constraints__Rover__lightEnough___401___400_pcondition_pin0, expr:Constraints__Rover__lightEnough___401___400_pcondition_pin1 ;
+    sysml:parameter expr:Constraints__Rover__lightEnough___401___400_pcondition_pin0, expr:Constraints__Rover__lightEnough___401___400_pcondition_pin1 ;
+    sysml:input expr:Constraints__Rover__lightEnough___401___400_pcondition_pin0, expr:Constraints__Rover__lightEnough___401___400_pcondition_pin1 ;
+    sysml:owner elmt:Constraints__Rover__lightEnough___401___400 ;
+    sysml:owningRelationship expr:Constraints__Rover__lightEnough___401___400_pcondition_om ;
+    sysml:owningMembership expr:Constraints__Rover__lightEnough___401___400_pcondition_om ;
+    json:argument "[{\"@id\":\"Constraints__Rover__lightEnough___401___400_pcondition_pa0\"},{\"@id\":\"Constraints__Rover__lightEnough___401___400_pcondition_pa1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Constraints__Rover__lightEnough___401___400_pcondition_pin0_om\"},{\"@id\":\"Constraints__Rover__lightEnough___401___400_pcondition_pin1_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Constraints__Rover__lightEnough___401___400_pcondition_pin0_om\"},{\"@id\":\"Constraints__Rover__lightEnough___401___400_pcondition_pin1_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Constraints__Rover__lightEnough___401___400_pcondition_pin0_om\"},{\"@id\":\"Constraints__Rover__lightEnough___401___400_pcondition_pin1_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Constraints__Rover__lightEnough___401___400_pcondition_pin0\"},{\"@id\":\"Constraints__Rover__lightEnough___401___400_pcondition_pin1\"}]" ;
+    json:parameter "[{\"@id\":\"Constraints__Rover__lightEnough___401___400_pcondition_pin0\"},{\"@id\":\"Constraints__Rover__lightEnough___401___400_pcondition_pin1\"}]" ;
+    json:input "[{\"@id\":\"Constraints__Rover__lightEnough___401___400_pcondition_pin0\"},{\"@id\":\"Constraints__Rover__lightEnough___401___400_pcondition_pin1\"}]" .
 
 expr:Constraints__Rover__lightEnough___401___400_pcondition_pa0
     a sysml:FeatureChainExpression ;
     sysx:sourceText "r.mass" ;
     sysml:elementId "Constraints__Rover__lightEnough___401___400_pcondition_pa0" ;
     sysml:argument expr:Constraints__Rover__lightEnough___401___400_pcondition_pa0_pa0 ;
+    sysml:ownedRelationship expr:Constraints__Rover__lightEnough___401___400_pcondition_pa0_pin0_om ;
+    sysml:ownedMembership expr:Constraints__Rover__lightEnough___401___400_pcondition_pa0_pin0_om ;
+    sysml:ownedFeatureMembership expr:Constraints__Rover__lightEnough___401___400_pcondition_pa0_pin0_om ;
+    sysml:ownedFeature expr:Constraints__Rover__lightEnough___401___400_pcondition_pa0_pin0 ;
+    sysml:parameter expr:Constraints__Rover__lightEnough___401___400_pcondition_pa0_pin0 ;
+    sysml:input expr:Constraints__Rover__lightEnough___401___400_pcondition_pa0_pin0 ;
     sysml:targetFeature elmt:Constraints__Rover__mass ;
-    sysx:argumentIndex "0"^^xsd:integer .
+    sysml:owner expr:Constraints__Rover__lightEnough___401___400_pcondition_pin0 ;
+    sysml:owningRelationship expr:Constraints__Rover__lightEnough___401___400_pcondition_pa0_om ;
+    sysml:owningMembership expr:Constraints__Rover__lightEnough___401___400_pcondition_pa0_om .
 
 expr:Constraints__Rover__lightEnough___401___400_pcondition_pa0_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "r" ;
     sysml:elementId "Constraints__Rover__lightEnough___401___400_pcondition_pa0_pa0" ;
     sysml:referent elmt:Constraints__Rover__lightEnough__r ;
-    sysx:argumentIndex "0"^^xsd:integer .
+    sysml:owner expr:Constraints__Rover__lightEnough___401___400_pcondition_pa0_pin0 ;
+    sysml:owningRelationship expr:Constraints__Rover__lightEnough___401___400_pcondition_pa0_pa0_om ;
+    sysml:owningMembership expr:Constraints__Rover__lightEnough___401___400_pcondition_pa0_pa0_om .
+
+expr:Constraints__Rover__lightEnough___401___400_pcondition_pa0_pin0
+    a sysml:Feature ;
+    sysml:elementId "Constraints__Rover__lightEnough___401___400_pcondition_pa0_pin0" ;
+    sysml:direction "in" ;
+    sysml:owner expr:Constraints__Rover__lightEnough___401___400_pcondition_pa0 ;
+    sysml:owningRelationship expr:Constraints__Rover__lightEnough___401___400_pcondition_pa0_pin0_om ;
+    sysml:owningMembership expr:Constraints__Rover__lightEnough___401___400_pcondition_pa0_pin0_om ;
+    sysml:ownedRelationship expr:Constraints__Rover__lightEnough___401___400_pcondition_pa0_pa0_om ;
+    sysml:ownedMembership expr:Constraints__Rover__lightEnough___401___400_pcondition_pa0_pa0_om .
+
+expr:Constraints__Rover__lightEnough___401___400_pcondition_pa0_pin0_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Constraints__Rover__lightEnough___401___400_pcondition_pa0_pin0_om" ;
+    sysml:owner expr:Constraints__Rover__lightEnough___401___400_pcondition_pa0 ;
+    sysml:memberElement expr:Constraints__Rover__lightEnough___401___400_pcondition_pa0_pin0 ;
+    sysml:ownedMemberElement expr:Constraints__Rover__lightEnough___401___400_pcondition_pa0_pin0 ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__lightEnough___401___400_pcondition_pa0_pin0 ;
+    sysml:owningRelatedElement expr:Constraints__Rover__lightEnough___401___400_pcondition_pa0 ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__lightEnough___401___400_pcondition_pa0 ;
+    sysml:ownedMemberFeature expr:Constraints__Rover__lightEnough___401___400_pcondition_pa0_pin0 ;
+    sysml:ownedMemberParameter expr:Constraints__Rover__lightEnough___401___400_pcondition_pa0_pin0 .
+
+expr:Constraints__Rover__lightEnough___401___400_pcondition_pa0_pa0_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Constraints__Rover__lightEnough___401___400_pcondition_pa0_pa0_om" ;
+    sysml:owner expr:Constraints__Rover__lightEnough___401___400_pcondition_pa0_pin0 ;
+    sysml:memberElement expr:Constraints__Rover__lightEnough___401___400_pcondition_pa0_pa0 ;
+    sysml:ownedMemberElement expr:Constraints__Rover__lightEnough___401___400_pcondition_pa0_pa0 ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__lightEnough___401___400_pcondition_pa0_pa0 ;
+    sysml:owningRelatedElement expr:Constraints__Rover__lightEnough___401___400_pcondition_pa0_pin0 ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__lightEnough___401___400_pcondition_pa0_pin0 ;
+    sysml:featureWithValue expr:Constraints__Rover__lightEnough___401___400_pcondition_pa0_pin0 ;
+    sysml:value expr:Constraints__Rover__lightEnough___401___400_pcondition_pa0_pa0 .
+
+expr:Constraints__Rover__lightEnough___401___400_pcondition_pin0
+    a sysml:Feature ;
+    sysml:elementId "Constraints__Rover__lightEnough___401___400_pcondition_pin0" ;
+    sysml:direction "in" ;
+    sysml:owner expr:Constraints__Rover__lightEnough___401___400_pcondition ;
+    sysml:owningRelationship expr:Constraints__Rover__lightEnough___401___400_pcondition_pin0_om ;
+    sysml:owningMembership expr:Constraints__Rover__lightEnough___401___400_pcondition_pin0_om ;
+    sysml:ownedRelationship expr:Constraints__Rover__lightEnough___401___400_pcondition_pa0_om ;
+    sysml:ownedMembership expr:Constraints__Rover__lightEnough___401___400_pcondition_pa0_om .
+
+expr:Constraints__Rover__lightEnough___401___400_pcondition_pin0_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Constraints__Rover__lightEnough___401___400_pcondition_pin0_om" ;
+    sysml:owner expr:Constraints__Rover__lightEnough___401___400_pcondition ;
+    sysml:memberElement expr:Constraints__Rover__lightEnough___401___400_pcondition_pin0 ;
+    sysml:ownedMemberElement expr:Constraints__Rover__lightEnough___401___400_pcondition_pin0 ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__lightEnough___401___400_pcondition_pin0 ;
+    sysml:owningRelatedElement expr:Constraints__Rover__lightEnough___401___400_pcondition ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__lightEnough___401___400_pcondition ;
+    sysml:ownedMemberFeature expr:Constraints__Rover__lightEnough___401___400_pcondition_pin0 ;
+    sysml:ownedMemberParameter expr:Constraints__Rover__lightEnough___401___400_pcondition_pin0 .
+
+expr:Constraints__Rover__lightEnough___401___400_pcondition_pa0_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Constraints__Rover__lightEnough___401___400_pcondition_pa0_om" ;
+    sysml:owner expr:Constraints__Rover__lightEnough___401___400_pcondition_pin0 ;
+    sysml:memberElement expr:Constraints__Rover__lightEnough___401___400_pcondition_pa0 ;
+    sysml:ownedMemberElement expr:Constraints__Rover__lightEnough___401___400_pcondition_pa0 ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__lightEnough___401___400_pcondition_pa0 ;
+    sysml:owningRelatedElement expr:Constraints__Rover__lightEnough___401___400_pcondition_pin0 ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__lightEnough___401___400_pcondition_pin0 ;
+    sysml:featureWithValue expr:Constraints__Rover__lightEnough___401___400_pcondition_pin0 ;
+    sysml:value expr:Constraints__Rover__lightEnough___401___400_pcondition_pa0 .
 
 expr:Constraints__Rover__lightEnough___401___400_pcondition_pa1
     a sysml:LiteralInteger ;
     sysx:sourceText "0" ;
     sysml:elementId "Constraints__Rover__lightEnough___401___400_pcondition_pa1" ;
     sysml:value "0"^^xsd:integer ;
-    sysx:argumentIndex "1"^^xsd:integer .
+    sysml:owner expr:Constraints__Rover__lightEnough___401___400_pcondition_pin1 ;
+    sysml:owningRelationship expr:Constraints__Rover__lightEnough___401___400_pcondition_pa1_om ;
+    sysml:owningMembership expr:Constraints__Rover__lightEnough___401___400_pcondition_pa1_om .
+
+expr:Constraints__Rover__lightEnough___401___400_pcondition_pin1
+    a sysml:Feature ;
+    sysml:elementId "Constraints__Rover__lightEnough___401___400_pcondition_pin1" ;
+    sysml:direction "in" ;
+    sysml:owner expr:Constraints__Rover__lightEnough___401___400_pcondition ;
+    sysml:owningRelationship expr:Constraints__Rover__lightEnough___401___400_pcondition_pin1_om ;
+    sysml:owningMembership expr:Constraints__Rover__lightEnough___401___400_pcondition_pin1_om ;
+    sysml:ownedRelationship expr:Constraints__Rover__lightEnough___401___400_pcondition_pa1_om ;
+    sysml:ownedMembership expr:Constraints__Rover__lightEnough___401___400_pcondition_pa1_om .
+
+expr:Constraints__Rover__lightEnough___401___400_pcondition_pin1_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Constraints__Rover__lightEnough___401___400_pcondition_pin1_om" ;
+    sysml:owner expr:Constraints__Rover__lightEnough___401___400_pcondition ;
+    sysml:memberElement expr:Constraints__Rover__lightEnough___401___400_pcondition_pin1 ;
+    sysml:ownedMemberElement expr:Constraints__Rover__lightEnough___401___400_pcondition_pin1 ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__lightEnough___401___400_pcondition_pin1 ;
+    sysml:owningRelatedElement expr:Constraints__Rover__lightEnough___401___400_pcondition ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__lightEnough___401___400_pcondition ;
+    sysml:ownedMemberFeature expr:Constraints__Rover__lightEnough___401___400_pcondition_pin1 ;
+    sysml:ownedMemberParameter expr:Constraints__Rover__lightEnough___401___400_pcondition_pin1 .
+
+expr:Constraints__Rover__lightEnough___401___400_pcondition_pa1_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Constraints__Rover__lightEnough___401___400_pcondition_pa1_om" ;
+    sysml:owner expr:Constraints__Rover__lightEnough___401___400_pcondition_pin1 ;
+    sysml:memberElement expr:Constraints__Rover__lightEnough___401___400_pcondition_pa1 ;
+    sysml:ownedMemberElement expr:Constraints__Rover__lightEnough___401___400_pcondition_pa1 ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__lightEnough___401___400_pcondition_pa1 ;
+    sysml:owningRelatedElement expr:Constraints__Rover__lightEnough___401___400_pcondition_pin1 ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__lightEnough___401___400_pcondition_pin1 ;
+    sysml:featureWithValue expr:Constraints__Rover__lightEnough___401___400_pcondition_pin1 ;
+    sysml:value expr:Constraints__Rover__lightEnough___401___400_pcondition_pa1 .
+
+expr:Constraints__Rover__lightEnough___401___400_pcondition_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Constraints__Rover__lightEnough___401___400_pcondition_om" ;
+    sysml:owner elmt:Constraints__Rover__lightEnough___401___400 ;
+    sysml:memberElement expr:Constraints__Rover__lightEnough___401___400_pcondition ;
+    sysml:ownedMemberElement expr:Constraints__Rover__lightEnough___401___400_pcondition ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__lightEnough___401___400_pcondition ;
+    sysml:owningRelatedElement elmt:Constraints__Rover__lightEnough___401___400 ;
+    sysml:membershipOwningNamespace elmt:Constraints__Rover__lightEnough___401___400 .
 
 elmt:Constraints__Rover__lightEnough___402
     a sysx:RequireMember ;
@@ -995,6 +1924,8 @@ elmt:Constraints__Rover__lightEnough___402___400
     sysml:owningRelationship elmt:Constraints__Rover__lightEnough___402___400_om ;
     sysml:owningMembership elmt:Constraints__Rover__lightEnough___402___400_om ;
     sysx:condition expr:Constraints__Rover__lightEnough___402___400_pcondition ;
+    sysml:ownedRelationship expr:Constraints__Rover__lightEnough___402___400_pcondition_om ;
+    sysml:ownedMembership expr:Constraints__Rover__lightEnough___402___400_pcondition_om ;
     sysx:sourceText "                r.mass < 100\n" .
 
 elmt:Constraints__Rover__lightEnough___402___400_om
@@ -1013,29 +1944,168 @@ expr:Constraints__Rover__lightEnough___402___400_pcondition
     sysml:elementId "Constraints__Rover__lightEnough___402___400_pcondition" ;
     sysml:operator "<" ;
     sysml:argument expr:Constraints__Rover__lightEnough___402___400_pcondition_pa0, expr:Constraints__Rover__lightEnough___402___400_pcondition_pa1 ;
-    json:argument "[{\"@id\":\"Constraints__Rover__lightEnough___402___400_pcondition_pa0\"},{\"@id\":\"Constraints__Rover__lightEnough___402___400_pcondition_pa1\"}]" .
+    sysml:ownedRelationship expr:Constraints__Rover__lightEnough___402___400_pcondition_pin0_om, expr:Constraints__Rover__lightEnough___402___400_pcondition_pin1_om ;
+    sysml:ownedMembership expr:Constraints__Rover__lightEnough___402___400_pcondition_pin0_om, expr:Constraints__Rover__lightEnough___402___400_pcondition_pin1_om ;
+    sysml:ownedFeatureMembership expr:Constraints__Rover__lightEnough___402___400_pcondition_pin0_om, expr:Constraints__Rover__lightEnough___402___400_pcondition_pin1_om ;
+    sysml:ownedFeature expr:Constraints__Rover__lightEnough___402___400_pcondition_pin0, expr:Constraints__Rover__lightEnough___402___400_pcondition_pin1 ;
+    sysml:parameter expr:Constraints__Rover__lightEnough___402___400_pcondition_pin0, expr:Constraints__Rover__lightEnough___402___400_pcondition_pin1 ;
+    sysml:input expr:Constraints__Rover__lightEnough___402___400_pcondition_pin0, expr:Constraints__Rover__lightEnough___402___400_pcondition_pin1 ;
+    sysml:owner elmt:Constraints__Rover__lightEnough___402___400 ;
+    sysml:owningRelationship expr:Constraints__Rover__lightEnough___402___400_pcondition_om ;
+    sysml:owningMembership expr:Constraints__Rover__lightEnough___402___400_pcondition_om ;
+    json:argument "[{\"@id\":\"Constraints__Rover__lightEnough___402___400_pcondition_pa0\"},{\"@id\":\"Constraints__Rover__lightEnough___402___400_pcondition_pa1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Constraints__Rover__lightEnough___402___400_pcondition_pin0_om\"},{\"@id\":\"Constraints__Rover__lightEnough___402___400_pcondition_pin1_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Constraints__Rover__lightEnough___402___400_pcondition_pin0_om\"},{\"@id\":\"Constraints__Rover__lightEnough___402___400_pcondition_pin1_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Constraints__Rover__lightEnough___402___400_pcondition_pin0_om\"},{\"@id\":\"Constraints__Rover__lightEnough___402___400_pcondition_pin1_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Constraints__Rover__lightEnough___402___400_pcondition_pin0\"},{\"@id\":\"Constraints__Rover__lightEnough___402___400_pcondition_pin1\"}]" ;
+    json:parameter "[{\"@id\":\"Constraints__Rover__lightEnough___402___400_pcondition_pin0\"},{\"@id\":\"Constraints__Rover__lightEnough___402___400_pcondition_pin1\"}]" ;
+    json:input "[{\"@id\":\"Constraints__Rover__lightEnough___402___400_pcondition_pin0\"},{\"@id\":\"Constraints__Rover__lightEnough___402___400_pcondition_pin1\"}]" .
 
 expr:Constraints__Rover__lightEnough___402___400_pcondition_pa0
     a sysml:FeatureChainExpression ;
     sysx:sourceText "r.mass" ;
     sysml:elementId "Constraints__Rover__lightEnough___402___400_pcondition_pa0" ;
     sysml:argument expr:Constraints__Rover__lightEnough___402___400_pcondition_pa0_pa0 ;
+    sysml:ownedRelationship expr:Constraints__Rover__lightEnough___402___400_pcondition_pa0_pin0_om ;
+    sysml:ownedMembership expr:Constraints__Rover__lightEnough___402___400_pcondition_pa0_pin0_om ;
+    sysml:ownedFeatureMembership expr:Constraints__Rover__lightEnough___402___400_pcondition_pa0_pin0_om ;
+    sysml:ownedFeature expr:Constraints__Rover__lightEnough___402___400_pcondition_pa0_pin0 ;
+    sysml:parameter expr:Constraints__Rover__lightEnough___402___400_pcondition_pa0_pin0 ;
+    sysml:input expr:Constraints__Rover__lightEnough___402___400_pcondition_pa0_pin0 ;
     sysml:targetFeature elmt:Constraints__Rover__mass ;
-    sysx:argumentIndex "0"^^xsd:integer .
+    sysml:owner expr:Constraints__Rover__lightEnough___402___400_pcondition_pin0 ;
+    sysml:owningRelationship expr:Constraints__Rover__lightEnough___402___400_pcondition_pa0_om ;
+    sysml:owningMembership expr:Constraints__Rover__lightEnough___402___400_pcondition_pa0_om .
 
 expr:Constraints__Rover__lightEnough___402___400_pcondition_pa0_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "r" ;
     sysml:elementId "Constraints__Rover__lightEnough___402___400_pcondition_pa0_pa0" ;
     sysml:referent elmt:Constraints__Rover__lightEnough__r ;
-    sysx:argumentIndex "0"^^xsd:integer .
+    sysml:owner expr:Constraints__Rover__lightEnough___402___400_pcondition_pa0_pin0 ;
+    sysml:owningRelationship expr:Constraints__Rover__lightEnough___402___400_pcondition_pa0_pa0_om ;
+    sysml:owningMembership expr:Constraints__Rover__lightEnough___402___400_pcondition_pa0_pa0_om .
+
+expr:Constraints__Rover__lightEnough___402___400_pcondition_pa0_pin0
+    a sysml:Feature ;
+    sysml:elementId "Constraints__Rover__lightEnough___402___400_pcondition_pa0_pin0" ;
+    sysml:direction "in" ;
+    sysml:owner expr:Constraints__Rover__lightEnough___402___400_pcondition_pa0 ;
+    sysml:owningRelationship expr:Constraints__Rover__lightEnough___402___400_pcondition_pa0_pin0_om ;
+    sysml:owningMembership expr:Constraints__Rover__lightEnough___402___400_pcondition_pa0_pin0_om ;
+    sysml:ownedRelationship expr:Constraints__Rover__lightEnough___402___400_pcondition_pa0_pa0_om ;
+    sysml:ownedMembership expr:Constraints__Rover__lightEnough___402___400_pcondition_pa0_pa0_om .
+
+expr:Constraints__Rover__lightEnough___402___400_pcondition_pa0_pin0_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Constraints__Rover__lightEnough___402___400_pcondition_pa0_pin0_om" ;
+    sysml:owner expr:Constraints__Rover__lightEnough___402___400_pcondition_pa0 ;
+    sysml:memberElement expr:Constraints__Rover__lightEnough___402___400_pcondition_pa0_pin0 ;
+    sysml:ownedMemberElement expr:Constraints__Rover__lightEnough___402___400_pcondition_pa0_pin0 ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__lightEnough___402___400_pcondition_pa0_pin0 ;
+    sysml:owningRelatedElement expr:Constraints__Rover__lightEnough___402___400_pcondition_pa0 ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__lightEnough___402___400_pcondition_pa0 ;
+    sysml:ownedMemberFeature expr:Constraints__Rover__lightEnough___402___400_pcondition_pa0_pin0 ;
+    sysml:ownedMemberParameter expr:Constraints__Rover__lightEnough___402___400_pcondition_pa0_pin0 .
+
+expr:Constraints__Rover__lightEnough___402___400_pcondition_pa0_pa0_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Constraints__Rover__lightEnough___402___400_pcondition_pa0_pa0_om" ;
+    sysml:owner expr:Constraints__Rover__lightEnough___402___400_pcondition_pa0_pin0 ;
+    sysml:memberElement expr:Constraints__Rover__lightEnough___402___400_pcondition_pa0_pa0 ;
+    sysml:ownedMemberElement expr:Constraints__Rover__lightEnough___402___400_pcondition_pa0_pa0 ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__lightEnough___402___400_pcondition_pa0_pa0 ;
+    sysml:owningRelatedElement expr:Constraints__Rover__lightEnough___402___400_pcondition_pa0_pin0 ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__lightEnough___402___400_pcondition_pa0_pin0 ;
+    sysml:featureWithValue expr:Constraints__Rover__lightEnough___402___400_pcondition_pa0_pin0 ;
+    sysml:value expr:Constraints__Rover__lightEnough___402___400_pcondition_pa0_pa0 .
+
+expr:Constraints__Rover__lightEnough___402___400_pcondition_pin0
+    a sysml:Feature ;
+    sysml:elementId "Constraints__Rover__lightEnough___402___400_pcondition_pin0" ;
+    sysml:direction "in" ;
+    sysml:owner expr:Constraints__Rover__lightEnough___402___400_pcondition ;
+    sysml:owningRelationship expr:Constraints__Rover__lightEnough___402___400_pcondition_pin0_om ;
+    sysml:owningMembership expr:Constraints__Rover__lightEnough___402___400_pcondition_pin0_om ;
+    sysml:ownedRelationship expr:Constraints__Rover__lightEnough___402___400_pcondition_pa0_om ;
+    sysml:ownedMembership expr:Constraints__Rover__lightEnough___402___400_pcondition_pa0_om .
+
+expr:Constraints__Rover__lightEnough___402___400_pcondition_pin0_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Constraints__Rover__lightEnough___402___400_pcondition_pin0_om" ;
+    sysml:owner expr:Constraints__Rover__lightEnough___402___400_pcondition ;
+    sysml:memberElement expr:Constraints__Rover__lightEnough___402___400_pcondition_pin0 ;
+    sysml:ownedMemberElement expr:Constraints__Rover__lightEnough___402___400_pcondition_pin0 ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__lightEnough___402___400_pcondition_pin0 ;
+    sysml:owningRelatedElement expr:Constraints__Rover__lightEnough___402___400_pcondition ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__lightEnough___402___400_pcondition ;
+    sysml:ownedMemberFeature expr:Constraints__Rover__lightEnough___402___400_pcondition_pin0 ;
+    sysml:ownedMemberParameter expr:Constraints__Rover__lightEnough___402___400_pcondition_pin0 .
+
+expr:Constraints__Rover__lightEnough___402___400_pcondition_pa0_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Constraints__Rover__lightEnough___402___400_pcondition_pa0_om" ;
+    sysml:owner expr:Constraints__Rover__lightEnough___402___400_pcondition_pin0 ;
+    sysml:memberElement expr:Constraints__Rover__lightEnough___402___400_pcondition_pa0 ;
+    sysml:ownedMemberElement expr:Constraints__Rover__lightEnough___402___400_pcondition_pa0 ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__lightEnough___402___400_pcondition_pa0 ;
+    sysml:owningRelatedElement expr:Constraints__Rover__lightEnough___402___400_pcondition_pin0 ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__lightEnough___402___400_pcondition_pin0 ;
+    sysml:featureWithValue expr:Constraints__Rover__lightEnough___402___400_pcondition_pin0 ;
+    sysml:value expr:Constraints__Rover__lightEnough___402___400_pcondition_pa0 .
 
 expr:Constraints__Rover__lightEnough___402___400_pcondition_pa1
     a sysml:LiteralInteger ;
     sysx:sourceText "100" ;
     sysml:elementId "Constraints__Rover__lightEnough___402___400_pcondition_pa1" ;
     sysml:value "100"^^xsd:integer ;
-    sysx:argumentIndex "1"^^xsd:integer .
+    sysml:owner expr:Constraints__Rover__lightEnough___402___400_pcondition_pin1 ;
+    sysml:owningRelationship expr:Constraints__Rover__lightEnough___402___400_pcondition_pa1_om ;
+    sysml:owningMembership expr:Constraints__Rover__lightEnough___402___400_pcondition_pa1_om .
+
+expr:Constraints__Rover__lightEnough___402___400_pcondition_pin1
+    a sysml:Feature ;
+    sysml:elementId "Constraints__Rover__lightEnough___402___400_pcondition_pin1" ;
+    sysml:direction "in" ;
+    sysml:owner expr:Constraints__Rover__lightEnough___402___400_pcondition ;
+    sysml:owningRelationship expr:Constraints__Rover__lightEnough___402___400_pcondition_pin1_om ;
+    sysml:owningMembership expr:Constraints__Rover__lightEnough___402___400_pcondition_pin1_om ;
+    sysml:ownedRelationship expr:Constraints__Rover__lightEnough___402___400_pcondition_pa1_om ;
+    sysml:ownedMembership expr:Constraints__Rover__lightEnough___402___400_pcondition_pa1_om .
+
+expr:Constraints__Rover__lightEnough___402___400_pcondition_pin1_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Constraints__Rover__lightEnough___402___400_pcondition_pin1_om" ;
+    sysml:owner expr:Constraints__Rover__lightEnough___402___400_pcondition ;
+    sysml:memberElement expr:Constraints__Rover__lightEnough___402___400_pcondition_pin1 ;
+    sysml:ownedMemberElement expr:Constraints__Rover__lightEnough___402___400_pcondition_pin1 ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__lightEnough___402___400_pcondition_pin1 ;
+    sysml:owningRelatedElement expr:Constraints__Rover__lightEnough___402___400_pcondition ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__lightEnough___402___400_pcondition ;
+    sysml:ownedMemberFeature expr:Constraints__Rover__lightEnough___402___400_pcondition_pin1 ;
+    sysml:ownedMemberParameter expr:Constraints__Rover__lightEnough___402___400_pcondition_pin1 .
+
+expr:Constraints__Rover__lightEnough___402___400_pcondition_pa1_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Constraints__Rover__lightEnough___402___400_pcondition_pa1_om" ;
+    sysml:owner expr:Constraints__Rover__lightEnough___402___400_pcondition_pin1 ;
+    sysml:memberElement expr:Constraints__Rover__lightEnough___402___400_pcondition_pa1 ;
+    sysml:ownedMemberElement expr:Constraints__Rover__lightEnough___402___400_pcondition_pa1 ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__lightEnough___402___400_pcondition_pa1 ;
+    sysml:owningRelatedElement expr:Constraints__Rover__lightEnough___402___400_pcondition_pin1 ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__lightEnough___402___400_pcondition_pin1 ;
+    sysml:featureWithValue expr:Constraints__Rover__lightEnough___402___400_pcondition_pin1 ;
+    sysml:value expr:Constraints__Rover__lightEnough___402___400_pcondition_pa1 .
+
+expr:Constraints__Rover__lightEnough___402___400_pcondition_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Constraints__Rover__lightEnough___402___400_pcondition_om" ;
+    sysml:owner elmt:Constraints__Rover__lightEnough___402___400 ;
+    sysml:memberElement expr:Constraints__Rover__lightEnough___402___400_pcondition ;
+    sysml:ownedMemberElement expr:Constraints__Rover__lightEnough___402___400_pcondition ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__lightEnough___402___400_pcondition ;
+    sysml:owningRelatedElement elmt:Constraints__Rover__lightEnough___402___400 ;
+    sysml:membershipOwningNamespace elmt:Constraints__Rover__lightEnough___402___400 .
 
 elmt:Constraints__Rover__lightEnough___403
     a sysx:RequireMember ;
@@ -1074,6 +2144,8 @@ elmt:Constraints__Rover__lightEnough___403___400
     sysml:owningRelationship elmt:Constraints__Rover__lightEnough___403___400_om ;
     sysml:owningMembership elmt:Constraints__Rover__lightEnough___403___400_om ;
     sysx:condition expr:Constraints__Rover__lightEnough___403___400_pcondition ;
+    sysml:ownedRelationship expr:Constraints__Rover__lightEnough___403___400_pcondition_om ;
+    sysml:ownedMembership expr:Constraints__Rover__lightEnough___403___400_pcondition_om ;
     sysx:sourceText "                r.mass < 200\n" .
 
 elmt:Constraints__Rover__lightEnough___403___400_om
@@ -1092,29 +2164,168 @@ expr:Constraints__Rover__lightEnough___403___400_pcondition
     sysml:elementId "Constraints__Rover__lightEnough___403___400_pcondition" ;
     sysml:operator "<" ;
     sysml:argument expr:Constraints__Rover__lightEnough___403___400_pcondition_pa0, expr:Constraints__Rover__lightEnough___403___400_pcondition_pa1 ;
-    json:argument "[{\"@id\":\"Constraints__Rover__lightEnough___403___400_pcondition_pa0\"},{\"@id\":\"Constraints__Rover__lightEnough___403___400_pcondition_pa1\"}]" .
+    sysml:ownedRelationship expr:Constraints__Rover__lightEnough___403___400_pcondition_pin0_om, expr:Constraints__Rover__lightEnough___403___400_pcondition_pin1_om ;
+    sysml:ownedMembership expr:Constraints__Rover__lightEnough___403___400_pcondition_pin0_om, expr:Constraints__Rover__lightEnough___403___400_pcondition_pin1_om ;
+    sysml:ownedFeatureMembership expr:Constraints__Rover__lightEnough___403___400_pcondition_pin0_om, expr:Constraints__Rover__lightEnough___403___400_pcondition_pin1_om ;
+    sysml:ownedFeature expr:Constraints__Rover__lightEnough___403___400_pcondition_pin0, expr:Constraints__Rover__lightEnough___403___400_pcondition_pin1 ;
+    sysml:parameter expr:Constraints__Rover__lightEnough___403___400_pcondition_pin0, expr:Constraints__Rover__lightEnough___403___400_pcondition_pin1 ;
+    sysml:input expr:Constraints__Rover__lightEnough___403___400_pcondition_pin0, expr:Constraints__Rover__lightEnough___403___400_pcondition_pin1 ;
+    sysml:owner elmt:Constraints__Rover__lightEnough___403___400 ;
+    sysml:owningRelationship expr:Constraints__Rover__lightEnough___403___400_pcondition_om ;
+    sysml:owningMembership expr:Constraints__Rover__lightEnough___403___400_pcondition_om ;
+    json:argument "[{\"@id\":\"Constraints__Rover__lightEnough___403___400_pcondition_pa0\"},{\"@id\":\"Constraints__Rover__lightEnough___403___400_pcondition_pa1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Constraints__Rover__lightEnough___403___400_pcondition_pin0_om\"},{\"@id\":\"Constraints__Rover__lightEnough___403___400_pcondition_pin1_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Constraints__Rover__lightEnough___403___400_pcondition_pin0_om\"},{\"@id\":\"Constraints__Rover__lightEnough___403___400_pcondition_pin1_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Constraints__Rover__lightEnough___403___400_pcondition_pin0_om\"},{\"@id\":\"Constraints__Rover__lightEnough___403___400_pcondition_pin1_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Constraints__Rover__lightEnough___403___400_pcondition_pin0\"},{\"@id\":\"Constraints__Rover__lightEnough___403___400_pcondition_pin1\"}]" ;
+    json:parameter "[{\"@id\":\"Constraints__Rover__lightEnough___403___400_pcondition_pin0\"},{\"@id\":\"Constraints__Rover__lightEnough___403___400_pcondition_pin1\"}]" ;
+    json:input "[{\"@id\":\"Constraints__Rover__lightEnough___403___400_pcondition_pin0\"},{\"@id\":\"Constraints__Rover__lightEnough___403___400_pcondition_pin1\"}]" .
 
 expr:Constraints__Rover__lightEnough___403___400_pcondition_pa0
     a sysml:FeatureChainExpression ;
     sysx:sourceText "r.mass" ;
     sysml:elementId "Constraints__Rover__lightEnough___403___400_pcondition_pa0" ;
     sysml:argument expr:Constraints__Rover__lightEnough___403___400_pcondition_pa0_pa0 ;
+    sysml:ownedRelationship expr:Constraints__Rover__lightEnough___403___400_pcondition_pa0_pin0_om ;
+    sysml:ownedMembership expr:Constraints__Rover__lightEnough___403___400_pcondition_pa0_pin0_om ;
+    sysml:ownedFeatureMembership expr:Constraints__Rover__lightEnough___403___400_pcondition_pa0_pin0_om ;
+    sysml:ownedFeature expr:Constraints__Rover__lightEnough___403___400_pcondition_pa0_pin0 ;
+    sysml:parameter expr:Constraints__Rover__lightEnough___403___400_pcondition_pa0_pin0 ;
+    sysml:input expr:Constraints__Rover__lightEnough___403___400_pcondition_pa0_pin0 ;
     sysml:targetFeature elmt:Constraints__Rover__mass ;
-    sysx:argumentIndex "0"^^xsd:integer .
+    sysml:owner expr:Constraints__Rover__lightEnough___403___400_pcondition_pin0 ;
+    sysml:owningRelationship expr:Constraints__Rover__lightEnough___403___400_pcondition_pa0_om ;
+    sysml:owningMembership expr:Constraints__Rover__lightEnough___403___400_pcondition_pa0_om .
 
 expr:Constraints__Rover__lightEnough___403___400_pcondition_pa0_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "r" ;
     sysml:elementId "Constraints__Rover__lightEnough___403___400_pcondition_pa0_pa0" ;
     sysml:referent elmt:Constraints__Rover__lightEnough__r ;
-    sysx:argumentIndex "0"^^xsd:integer .
+    sysml:owner expr:Constraints__Rover__lightEnough___403___400_pcondition_pa0_pin0 ;
+    sysml:owningRelationship expr:Constraints__Rover__lightEnough___403___400_pcondition_pa0_pa0_om ;
+    sysml:owningMembership expr:Constraints__Rover__lightEnough___403___400_pcondition_pa0_pa0_om .
+
+expr:Constraints__Rover__lightEnough___403___400_pcondition_pa0_pin0
+    a sysml:Feature ;
+    sysml:elementId "Constraints__Rover__lightEnough___403___400_pcondition_pa0_pin0" ;
+    sysml:direction "in" ;
+    sysml:owner expr:Constraints__Rover__lightEnough___403___400_pcondition_pa0 ;
+    sysml:owningRelationship expr:Constraints__Rover__lightEnough___403___400_pcondition_pa0_pin0_om ;
+    sysml:owningMembership expr:Constraints__Rover__lightEnough___403___400_pcondition_pa0_pin0_om ;
+    sysml:ownedRelationship expr:Constraints__Rover__lightEnough___403___400_pcondition_pa0_pa0_om ;
+    sysml:ownedMembership expr:Constraints__Rover__lightEnough___403___400_pcondition_pa0_pa0_om .
+
+expr:Constraints__Rover__lightEnough___403___400_pcondition_pa0_pin0_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Constraints__Rover__lightEnough___403___400_pcondition_pa0_pin0_om" ;
+    sysml:owner expr:Constraints__Rover__lightEnough___403___400_pcondition_pa0 ;
+    sysml:memberElement expr:Constraints__Rover__lightEnough___403___400_pcondition_pa0_pin0 ;
+    sysml:ownedMemberElement expr:Constraints__Rover__lightEnough___403___400_pcondition_pa0_pin0 ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__lightEnough___403___400_pcondition_pa0_pin0 ;
+    sysml:owningRelatedElement expr:Constraints__Rover__lightEnough___403___400_pcondition_pa0 ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__lightEnough___403___400_pcondition_pa0 ;
+    sysml:ownedMemberFeature expr:Constraints__Rover__lightEnough___403___400_pcondition_pa0_pin0 ;
+    sysml:ownedMemberParameter expr:Constraints__Rover__lightEnough___403___400_pcondition_pa0_pin0 .
+
+expr:Constraints__Rover__lightEnough___403___400_pcondition_pa0_pa0_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Constraints__Rover__lightEnough___403___400_pcondition_pa0_pa0_om" ;
+    sysml:owner expr:Constraints__Rover__lightEnough___403___400_pcondition_pa0_pin0 ;
+    sysml:memberElement expr:Constraints__Rover__lightEnough___403___400_pcondition_pa0_pa0 ;
+    sysml:ownedMemberElement expr:Constraints__Rover__lightEnough___403___400_pcondition_pa0_pa0 ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__lightEnough___403___400_pcondition_pa0_pa0 ;
+    sysml:owningRelatedElement expr:Constraints__Rover__lightEnough___403___400_pcondition_pa0_pin0 ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__lightEnough___403___400_pcondition_pa0_pin0 ;
+    sysml:featureWithValue expr:Constraints__Rover__lightEnough___403___400_pcondition_pa0_pin0 ;
+    sysml:value expr:Constraints__Rover__lightEnough___403___400_pcondition_pa0_pa0 .
+
+expr:Constraints__Rover__lightEnough___403___400_pcondition_pin0
+    a sysml:Feature ;
+    sysml:elementId "Constraints__Rover__lightEnough___403___400_pcondition_pin0" ;
+    sysml:direction "in" ;
+    sysml:owner expr:Constraints__Rover__lightEnough___403___400_pcondition ;
+    sysml:owningRelationship expr:Constraints__Rover__lightEnough___403___400_pcondition_pin0_om ;
+    sysml:owningMembership expr:Constraints__Rover__lightEnough___403___400_pcondition_pin0_om ;
+    sysml:ownedRelationship expr:Constraints__Rover__lightEnough___403___400_pcondition_pa0_om ;
+    sysml:ownedMembership expr:Constraints__Rover__lightEnough___403___400_pcondition_pa0_om .
+
+expr:Constraints__Rover__lightEnough___403___400_pcondition_pin0_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Constraints__Rover__lightEnough___403___400_pcondition_pin0_om" ;
+    sysml:owner expr:Constraints__Rover__lightEnough___403___400_pcondition ;
+    sysml:memberElement expr:Constraints__Rover__lightEnough___403___400_pcondition_pin0 ;
+    sysml:ownedMemberElement expr:Constraints__Rover__lightEnough___403___400_pcondition_pin0 ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__lightEnough___403___400_pcondition_pin0 ;
+    sysml:owningRelatedElement expr:Constraints__Rover__lightEnough___403___400_pcondition ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__lightEnough___403___400_pcondition ;
+    sysml:ownedMemberFeature expr:Constraints__Rover__lightEnough___403___400_pcondition_pin0 ;
+    sysml:ownedMemberParameter expr:Constraints__Rover__lightEnough___403___400_pcondition_pin0 .
+
+expr:Constraints__Rover__lightEnough___403___400_pcondition_pa0_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Constraints__Rover__lightEnough___403___400_pcondition_pa0_om" ;
+    sysml:owner expr:Constraints__Rover__lightEnough___403___400_pcondition_pin0 ;
+    sysml:memberElement expr:Constraints__Rover__lightEnough___403___400_pcondition_pa0 ;
+    sysml:ownedMemberElement expr:Constraints__Rover__lightEnough___403___400_pcondition_pa0 ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__lightEnough___403___400_pcondition_pa0 ;
+    sysml:owningRelatedElement expr:Constraints__Rover__lightEnough___403___400_pcondition_pin0 ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__lightEnough___403___400_pcondition_pin0 ;
+    sysml:featureWithValue expr:Constraints__Rover__lightEnough___403___400_pcondition_pin0 ;
+    sysml:value expr:Constraints__Rover__lightEnough___403___400_pcondition_pa0 .
 
 expr:Constraints__Rover__lightEnough___403___400_pcondition_pa1
     a sysml:LiteralInteger ;
     sysx:sourceText "200" ;
     sysml:elementId "Constraints__Rover__lightEnough___403___400_pcondition_pa1" ;
     sysml:value "200"^^xsd:integer ;
-    sysx:argumentIndex "1"^^xsd:integer .
+    sysml:owner expr:Constraints__Rover__lightEnough___403___400_pcondition_pin1 ;
+    sysml:owningRelationship expr:Constraints__Rover__lightEnough___403___400_pcondition_pa1_om ;
+    sysml:owningMembership expr:Constraints__Rover__lightEnough___403___400_pcondition_pa1_om .
+
+expr:Constraints__Rover__lightEnough___403___400_pcondition_pin1
+    a sysml:Feature ;
+    sysml:elementId "Constraints__Rover__lightEnough___403___400_pcondition_pin1" ;
+    sysml:direction "in" ;
+    sysml:owner expr:Constraints__Rover__lightEnough___403___400_pcondition ;
+    sysml:owningRelationship expr:Constraints__Rover__lightEnough___403___400_pcondition_pin1_om ;
+    sysml:owningMembership expr:Constraints__Rover__lightEnough___403___400_pcondition_pin1_om ;
+    sysml:ownedRelationship expr:Constraints__Rover__lightEnough___403___400_pcondition_pa1_om ;
+    sysml:ownedMembership expr:Constraints__Rover__lightEnough___403___400_pcondition_pa1_om .
+
+expr:Constraints__Rover__lightEnough___403___400_pcondition_pin1_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Constraints__Rover__lightEnough___403___400_pcondition_pin1_om" ;
+    sysml:owner expr:Constraints__Rover__lightEnough___403___400_pcondition ;
+    sysml:memberElement expr:Constraints__Rover__lightEnough___403___400_pcondition_pin1 ;
+    sysml:ownedMemberElement expr:Constraints__Rover__lightEnough___403___400_pcondition_pin1 ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__lightEnough___403___400_pcondition_pin1 ;
+    sysml:owningRelatedElement expr:Constraints__Rover__lightEnough___403___400_pcondition ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__lightEnough___403___400_pcondition ;
+    sysml:ownedMemberFeature expr:Constraints__Rover__lightEnough___403___400_pcondition_pin1 ;
+    sysml:ownedMemberParameter expr:Constraints__Rover__lightEnough___403___400_pcondition_pin1 .
+
+expr:Constraints__Rover__lightEnough___403___400_pcondition_pa1_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Constraints__Rover__lightEnough___403___400_pcondition_pa1_om" ;
+    sysml:owner expr:Constraints__Rover__lightEnough___403___400_pcondition_pin1 ;
+    sysml:memberElement expr:Constraints__Rover__lightEnough___403___400_pcondition_pa1 ;
+    sysml:ownedMemberElement expr:Constraints__Rover__lightEnough___403___400_pcondition_pa1 ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__lightEnough___403___400_pcondition_pa1 ;
+    sysml:owningRelatedElement expr:Constraints__Rover__lightEnough___403___400_pcondition_pin1 ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__lightEnough___403___400_pcondition_pin1 ;
+    sysml:featureWithValue expr:Constraints__Rover__lightEnough___403___400_pcondition_pin1 ;
+    sysml:value expr:Constraints__Rover__lightEnough___403___400_pcondition_pa1 .
+
+expr:Constraints__Rover__lightEnough___403___400_pcondition_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Constraints__Rover__lightEnough___403___400_pcondition_om" ;
+    sysml:owner elmt:Constraints__Rover__lightEnough___403___400 ;
+    sysml:memberElement expr:Constraints__Rover__lightEnough___403___400_pcondition ;
+    sysml:ownedMemberElement expr:Constraints__Rover__lightEnough___403___400_pcondition ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__lightEnough___403___400_pcondition ;
+    sysml:owningRelatedElement elmt:Constraints__Rover__lightEnough___403___400 ;
+    sysml:membershipOwningNamespace elmt:Constraints__Rover__lightEnough___403___400 .
 
 elmt:Constraints__Rover__lightEnough___404
     a sysx:RequireMember ;
@@ -1126,6 +2337,8 @@ elmt:Constraints__Rover__lightEnough___404
     sysml:owningRelationship elmt:Constraints__Rover__lightEnough___404_om ;
     sysml:owningMembership elmt:Constraints__Rover__lightEnough___404_om ;
     sysx:condition expr:Constraints__Rover__lightEnough___404_pcondition ;
+    sysml:ownedRelationship expr:Constraints__Rover__lightEnough___404_pcondition_om ;
+    sysml:ownedMembership expr:Constraints__Rover__lightEnough___404_pcondition_om ;
     sysx:sourceText "            require MassLimit;\n" .
 
 elmt:Constraints__Rover__lightEnough___404_om
@@ -1142,7 +2355,20 @@ expr:Constraints__Rover__lightEnough___404_pcondition
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "MassLimit" ;
     sysml:elementId "Constraints__Rover__lightEnough___404_pcondition" ;
-    sysml:referent elmt:Constraints__MassLimit .
+    sysml:referent elmt:Constraints__MassLimit ;
+    sysml:owner elmt:Constraints__Rover__lightEnough___404 ;
+    sysml:owningRelationship expr:Constraints__Rover__lightEnough___404_pcondition_om ;
+    sysml:owningMembership expr:Constraints__Rover__lightEnough___404_pcondition_om .
+
+expr:Constraints__Rover__lightEnough___404_pcondition_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Constraints__Rover__lightEnough___404_pcondition_om" ;
+    sysml:owner elmt:Constraints__Rover__lightEnough___404 ;
+    sysml:memberElement expr:Constraints__Rover__lightEnough___404_pcondition ;
+    sysml:ownedMemberElement expr:Constraints__Rover__lightEnough___404_pcondition ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__lightEnough___404_pcondition ;
+    sysml:owningRelatedElement elmt:Constraints__Rover__lightEnough___404 ;
+    sysml:membershipOwningNamespace elmt:Constraints__Rover__lightEnough___404 .
 
 elmt:Constraints__Rover__lightEnough___405
     a sysx:AssumeMember ;
@@ -1187,6 +2413,8 @@ elmt:Constraints__Rover__lightEnough___405__m
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:direction "in" ;
     sysml:value expr:Constraints__Rover__lightEnough___405__m_pvalue ;
+    sysml:ownedRelationship expr:Constraints__Rover__lightEnough___405__m_pvalue_om ;
+    sysml:ownedMembership expr:Constraints__Rover__lightEnough___405__m_pvalue_om ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "                in m = r.mass;\n" .
 
@@ -1205,14 +2433,71 @@ expr:Constraints__Rover__lightEnough___405__m_pvalue
     sysx:sourceText "r.mass" ;
     sysml:elementId "Constraints__Rover__lightEnough___405__m_pvalue" ;
     sysml:argument expr:Constraints__Rover__lightEnough___405__m_pvalue_pa0 ;
-    sysml:targetFeature elmt:Constraints__Rover__mass .
+    sysml:ownedRelationship expr:Constraints__Rover__lightEnough___405__m_pvalue_pin0_om ;
+    sysml:ownedMembership expr:Constraints__Rover__lightEnough___405__m_pvalue_pin0_om ;
+    sysml:ownedFeatureMembership expr:Constraints__Rover__lightEnough___405__m_pvalue_pin0_om ;
+    sysml:ownedFeature expr:Constraints__Rover__lightEnough___405__m_pvalue_pin0 ;
+    sysml:parameter expr:Constraints__Rover__lightEnough___405__m_pvalue_pin0 ;
+    sysml:input expr:Constraints__Rover__lightEnough___405__m_pvalue_pin0 ;
+    sysml:targetFeature elmt:Constraints__Rover__mass ;
+    sysml:owner elmt:Constraints__Rover__lightEnough___405__m ;
+    sysml:owningRelationship expr:Constraints__Rover__lightEnough___405__m_pvalue_om ;
+    sysml:owningMembership expr:Constraints__Rover__lightEnough___405__m_pvalue_om .
 
 expr:Constraints__Rover__lightEnough___405__m_pvalue_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "r" ;
     sysml:elementId "Constraints__Rover__lightEnough___405__m_pvalue_pa0" ;
     sysml:referent elmt:Constraints__Rover__lightEnough__r ;
-    sysx:argumentIndex "0"^^xsd:integer .
+    sysml:owner expr:Constraints__Rover__lightEnough___405__m_pvalue_pin0 ;
+    sysml:owningRelationship expr:Constraints__Rover__lightEnough___405__m_pvalue_pa0_om ;
+    sysml:owningMembership expr:Constraints__Rover__lightEnough___405__m_pvalue_pa0_om .
+
+expr:Constraints__Rover__lightEnough___405__m_pvalue_pin0
+    a sysml:Feature ;
+    sysml:elementId "Constraints__Rover__lightEnough___405__m_pvalue_pin0" ;
+    sysml:direction "in" ;
+    sysml:owner expr:Constraints__Rover__lightEnough___405__m_pvalue ;
+    sysml:owningRelationship expr:Constraints__Rover__lightEnough___405__m_pvalue_pin0_om ;
+    sysml:owningMembership expr:Constraints__Rover__lightEnough___405__m_pvalue_pin0_om ;
+    sysml:ownedRelationship expr:Constraints__Rover__lightEnough___405__m_pvalue_pa0_om ;
+    sysml:ownedMembership expr:Constraints__Rover__lightEnough___405__m_pvalue_pa0_om .
+
+expr:Constraints__Rover__lightEnough___405__m_pvalue_pin0_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Constraints__Rover__lightEnough___405__m_pvalue_pin0_om" ;
+    sysml:owner expr:Constraints__Rover__lightEnough___405__m_pvalue ;
+    sysml:memberElement expr:Constraints__Rover__lightEnough___405__m_pvalue_pin0 ;
+    sysml:ownedMemberElement expr:Constraints__Rover__lightEnough___405__m_pvalue_pin0 ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__lightEnough___405__m_pvalue_pin0 ;
+    sysml:owningRelatedElement expr:Constraints__Rover__lightEnough___405__m_pvalue ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__lightEnough___405__m_pvalue ;
+    sysml:ownedMemberFeature expr:Constraints__Rover__lightEnough___405__m_pvalue_pin0 ;
+    sysml:ownedMemberParameter expr:Constraints__Rover__lightEnough___405__m_pvalue_pin0 .
+
+expr:Constraints__Rover__lightEnough___405__m_pvalue_pa0_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Constraints__Rover__lightEnough___405__m_pvalue_pa0_om" ;
+    sysml:owner expr:Constraints__Rover__lightEnough___405__m_pvalue_pin0 ;
+    sysml:memberElement expr:Constraints__Rover__lightEnough___405__m_pvalue_pa0 ;
+    sysml:ownedMemberElement expr:Constraints__Rover__lightEnough___405__m_pvalue_pa0 ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__lightEnough___405__m_pvalue_pa0 ;
+    sysml:owningRelatedElement expr:Constraints__Rover__lightEnough___405__m_pvalue_pin0 ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__lightEnough___405__m_pvalue_pin0 ;
+    sysml:featureWithValue expr:Constraints__Rover__lightEnough___405__m_pvalue_pin0 ;
+    sysml:value expr:Constraints__Rover__lightEnough___405__m_pvalue_pa0 .
+
+expr:Constraints__Rover__lightEnough___405__m_pvalue_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Constraints__Rover__lightEnough___405__m_pvalue_om" ;
+    sysml:owner elmt:Constraints__Rover__lightEnough___405__m ;
+    sysml:memberElement expr:Constraints__Rover__lightEnough___405__m_pvalue ;
+    sysml:ownedMemberElement expr:Constraints__Rover__lightEnough___405__m_pvalue ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__lightEnough___405__m_pvalue ;
+    sysml:owningRelatedElement elmt:Constraints__Rover__lightEnough___405__m ;
+    sysml:membershipOwningNamespace elmt:Constraints__Rover__lightEnough___405__m ;
+    sysml:featureWithValue elmt:Constraints__Rover__lightEnough___405__m ;
+    sysml:value expr:Constraints__Rover__lightEnough___405__m_pvalue .
 
 elmt:Constraints__Rover__lightEnough___405__limit
     a sysml:ReferenceUsage ;
@@ -1227,6 +2512,8 @@ elmt:Constraints__Rover__lightEnough___405__limit
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:direction "in" ;
     sysml:value expr:Constraints__Rover__lightEnough___405__limit_pvalue ;
+    sysml:ownedRelationship expr:Constraints__Rover__lightEnough___405__limit_pvalue_om ;
+    sysml:ownedMembership expr:Constraints__Rover__lightEnough___405__limit_pvalue_om ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "                in limit = 100;\n" .
 
@@ -1244,7 +2531,22 @@ expr:Constraints__Rover__lightEnough___405__limit_pvalue
     a sysml:LiteralInteger ;
     sysx:sourceText "100" ;
     sysml:elementId "Constraints__Rover__lightEnough___405__limit_pvalue" ;
-    sysml:value "100"^^xsd:integer .
+    sysml:value "100"^^xsd:integer ;
+    sysml:owner elmt:Constraints__Rover__lightEnough___405__limit ;
+    sysml:owningRelationship expr:Constraints__Rover__lightEnough___405__limit_pvalue_om ;
+    sysml:owningMembership expr:Constraints__Rover__lightEnough___405__limit_pvalue_om .
+
+expr:Constraints__Rover__lightEnough___405__limit_pvalue_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Constraints__Rover__lightEnough___405__limit_pvalue_om" ;
+    sysml:owner elmt:Constraints__Rover__lightEnough___405__limit ;
+    sysml:memberElement expr:Constraints__Rover__lightEnough___405__limit_pvalue ;
+    sysml:ownedMemberElement expr:Constraints__Rover__lightEnough___405__limit_pvalue ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__lightEnough___405__limit_pvalue ;
+    sysml:owningRelatedElement elmt:Constraints__Rover__lightEnough___405__limit ;
+    sysml:membershipOwningNamespace elmt:Constraints__Rover__lightEnough___405__limit ;
+    sysml:featureWithValue elmt:Constraints__Rover__lightEnough___405__limit ;
+    sysml:value expr:Constraints__Rover__lightEnough___405__limit_pvalue .
 
 elmt:Constraints__Rover__refined
     a sysml:RequirementUsage ;
@@ -1286,6 +2588,10 @@ elmt:Constraints__Rover__refined__r
     sysml:type elmt:Constraints__Rover ;
     sysml:redefines elmt:Constraints__Rover__lightEnough__r ;
     sysml:upperBound expr:Constraints__Rover__refined__r_pupperBound ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__refined__r_pupperBound ;
+    sysml:memberElement expr:Constraints__Rover__refined__r_pupperBound ;
+    sysml:ownedMemberElement expr:Constraints__Rover__refined__r_pupperBound ;
+    sysml:ownedMemberFeature expr:Constraints__Rover__refined__r_pupperBound ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysx:sourceText "            subject r : Rover[1] :>> lightEnough::r { }\n" .
 
@@ -1293,4 +2599,7 @@ expr:Constraints__Rover__refined__r_pupperBound
     a sysml:LiteralInteger ;
     sysx:sourceText "1" ;
     sysml:elementId "Constraints__Rover__refined__r_pupperBound" ;
-    sysml:value "1"^^xsd:integer .
+    sysml:value "1"^^xsd:integer ;
+    sysml:owner elmt:Constraints__Rover__refined__r ;
+    sysml:owningRelationship elmt:Constraints__Rover__refined__r ;
+    sysml:owningMembership elmt:Constraints__Rover__refined__r .
