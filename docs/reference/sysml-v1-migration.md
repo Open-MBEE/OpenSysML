@@ -286,8 +286,8 @@ quoted (`'Vehicle Design'`).
 
 A diagram is a v2 `view`: what it shows is exposed, how it is drawn is not migrated (a layout
 has no v2 form). The view is named after the diagram and written in the body of the v2
-element `ownerOfDiagram` names — a `package`, or the `part def`, `state def`, `action def`…
-written for a classifier; for a behavior that is the method of an operation, the operation's
+element `ownerOfDiagram` names — a `package`, or the `part def`, `state def`, `action def`,
+`metadata def`… written for a classifier; for a behavior that is the method of an operation, the operation's
 definition, whose body the behavior is written as — and exposes, by qualified name, every
 shown element the document writes; a shown element that is not written (a result snapshot,
 tool content, an element nothing refers to, a state or an action node, which have no name of

@@ -108,6 +108,14 @@ func TestDiagramViews(t *testing.T) {
 			diagram("_d", "Levels", "_tank", "SysML Block Definition Diagram", "_level",
 				"http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"),
 			[]string{"view Levels {\n        expose level;\n        expose $::ScalarValues::Real;\n        render Views::asTreeDiagram;\n    }"}, Mapped, ""},
+		{"a diagram of a user stereotype is written in its metadata def",
+			`<packagedElement xmi:type="uml:Profile" xmi:id="_marks" name="Marks">
+			   <packagedElement xmi:type="uml:Stereotype" xmi:id="_review" name="Review">
+			     <ownedAttribute xmi:type="uml:Property" xmi:id="_status" name="status"/>
+			   </packagedElement>
+			 </packagedElement>`,
+			diagram("_d", "Reviews", "_review", "Profile Diagram", "_status", "_pump"),
+			[]string{"metadata def Review {\n        attribute status;\n        view Reviews {\n            expose status;\n            expose Sys::Pump;\n            render Views::asTreeDiagram;\n        }\n    }"}, Mapped, ""},
 		{"a diagram named like an earlier diagram of its owner is numbered",
 			``, diagram("_d1", "Overview", "_sys", "SysML Package Diagram") + diagram("_d", "Overview", "_sys", "SysML Package Diagram"),
 			[]string{"view Overview {", "view 'Overview 2' {"}, Approximated, "written as Overview 2"},
