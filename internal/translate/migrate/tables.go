@@ -200,7 +200,11 @@ func (m *migration) scopeQuery(scope []sysmlv1.ElementRef, whole bool, rows []sy
 	var src qx
 	switch {
 	case len(roots) > 0:
-		src = qcall("Descendants", qarg1("source", qcall("Named", qstrs("qualifiedName", roots...))))
+		named := qcall("Named", qstrs("qualifiedName", roots...))
+		src = qcall("Descendants", qarg1("source", named))
+		if whole {
+			src = qcall("Union", qarg1("source", named), qarg1("other", src))
+		}
 	case len(listed) == 0 && len(missing) > 0:
 		l.refuse("none of the rows listed is an element of the document: " + strings.Join(missing, "; "))
 		return qx{}
@@ -461,6 +465,7 @@ func (m *migration) projected(rows qx, t *sysmlv1.Table, host *sysmlv1.Element, 
 	var props []string
 	var cols []qx
 	shown := 0
+	names := columnNames{}
 	for _, c := range t.Columns {
 		if c.Hidden || c.Kind == sysmlv1.ColumnTool {
 			continue
@@ -472,8 +477,17 @@ func (m *migration) projected(rows qx, t *sysmlv1.Table, host *sysmlv1.Element, 
 			continue
 		}
 		if f == nil {
+			if names[key] {
+				l.note("the column " + c.ID + " repeats the column " + key + " and is omitted")
+				continue
+			}
+			names[key] = true
 			props = append(props, key)
 			continue
+		}
+		if unique := names.claim(key); unique != key {
+			l.note("the column " + key + " is written as " + unique + ": column names are unique")
+			key = unique
 		}
 		cols = append(cols, qcall("Column", qarg1("name", qstr(key)),
 			qarg1("expression", qlit(m.ref(f, host)+" ?? \"\""))))
@@ -585,6 +599,7 @@ func (m *migration) lowerMatrix(t *sysmlv1.Table, host *sysmlv1.Element, l *lowe
 		l.note("the matrix reads relationships in both directions, which become two columns per criterion")
 	}
 	var related []qx
+	names := columnNames{"name": true}
 	for _, c := range t.Criteria {
 		kind, why := criterionKind(c)
 		if why != "" {
@@ -598,6 +613,10 @@ func (m *migration) lowerMatrix(t *sysmlv1.Table, host *sysmlv1.Element, l *lowe
 			}
 			if len(dirs) > 1 {
 				name += " (" + dir + ")"
+			}
+			if unique := names.claim(name); unique != name {
+				l.note("the column " + name + " is written as " + unique + ": column names are unique")
+				name = unique
 			}
 			related = append(related, qcall("RelatedColumn", qarg1("name", qstr(name)),
 				qarg1("relationshipKind", qstr(kind)), qarg1("direction", qstr(dir)), qint1("maxDepth", 1),
@@ -620,6 +639,19 @@ func (m *migration) lowerMatrix(t *sysmlv1.Table, host *sysmlv1.Element, l *lowe
 }
 
 func qint1(name string, n int) qarg { return qarg1(name, qint(n)) }
+
+// columnNames are the column names a projection has claimed.
+type columnNames map[string]bool
+
+// claim returns name, or name with the first free numeric suffix once taken.
+func (c columnNames) claim(name string) string {
+	unique := name
+	for i := 2; c[unique]; i++ {
+		unique = fmt.Sprintf("%s %d", name, i)
+	}
+	c[unique] = true
+	return unique
+}
 
 // lowerRelationMap lowers a relation map: the elements reached from the
 // context by the criteria within the depth, filtered by type, listed by
