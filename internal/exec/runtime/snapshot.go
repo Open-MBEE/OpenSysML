@@ -439,7 +439,6 @@ type actionCapture struct {
 	steps, stepsSpent int64
 	inRun, held       bool
 	moved             bool
-	leftStanding      bool
 	awaiting          *actionFrame
 	outputListeners   []outputListener
 	firedBreakpoints  mapState[breakpointVisit, bool]
@@ -460,7 +459,6 @@ func (e *ActionExecutor) capture() actionCapture {
 		nextTokenID: e.nextTokenID, stepCount: e.stepCount, sweep: e.sweep, sweeps: e.sweeps,
 		pausedAt: e.pausedAt, released: e.released, pauses: e.pauses,
 		steps: e.steps, stepsSpent: e.stepsSpent, inRun: e.inRun, held: e.held, moved: e.moved, awaiting: e.awaiting,
-		leftStanding:     e.leftStanding,
 		outputListeners:  slices.Clone(e.outputListeners),
 		firedBreakpoints: captureMap(e.firedBreakpoints),
 		traversals:       cloneTraversals(e.traversals),
@@ -480,7 +478,7 @@ func (c actionCapture) restore() {
 	e.state, e.nextTokenID, e.stepCount, e.sweep, e.sweeps = c.state, c.nextTokenID, c.stepCount, c.sweep, c.sweeps
 	e.pausedAt, e.released, e.pauses = c.pausedAt, c.released, c.pauses
 	e.steps, e.stepsSpent, e.inRun, e.held = c.steps, c.stepsSpent, c.inRun, c.held
-	e.moved, e.awaiting, e.leftStanding = c.moved, c.awaiting, c.leftStanding
+	e.moved, e.awaiting = c.moved, c.awaiting
 	e.outputListeners = slices.Clone(c.outputListeners)
 	e.firedBreakpoints = c.firedBreakpoints.restore()
 	e.traversals, e.traversalBase = cloneTraversals(c.traversals), c.traversalBase
@@ -636,8 +634,6 @@ type stateCapture struct {
 	lastDispatch       *Dispatch
 	lastEventAt        float64
 	doActions          []doActionCapture
-	round              []*doAction
-	roundDone          bool
 	machineExited      bool
 	driven             *runState
 	inRun, moved       bool
@@ -659,11 +655,13 @@ type stateCapture struct {
 	pendingCall   *pendingCall
 }
 
-// doActionCapture is one do action's progress: the behaviors it has still to run
-// and the one paused under way, by identity, with its paused work by value.
+// doActionCapture is one do action's progress: the behaviors it has still to run,
+// the firing that entered its state, and the one paused under way, by identity,
+// with its paused work by value.
 type doActionCapture struct {
 	act     *doAction
 	pending []lower.StateBehavior
+	firing  *firing
 	run     *doRun
 	body    *bodyCapture
 }
@@ -687,8 +685,6 @@ func (e *StateExecutor) capture() stateCapture {
 		deferred:           slices.Clone(e.deferred),
 		lastDispatch:       cloneDispatch(e.lastDispatch),
 		lastEventAt:        e.lastEventAt,
-		round:              slices.Clone(e.round),
-		roundDone:          e.roundDone,
 		machineExited:      e.machineExited,
 		driven:             e.driven.state,
 		inRun:              e.inRun,
@@ -716,7 +712,7 @@ func (e *StateExecutor) capture() stateCapture {
 		c.history[node] = historyRecord{child: record.child, regions: maps.Clone(record.regions)}
 	}
 	for _, act := range e.doActions {
-		c.doActions = append(c.doActions, doActionCapture{act: act, pending: slices.Clone(act.pending), run: act.run})
+		c.doActions = append(c.doActions, doActionCapture{act: act, pending: slices.Clone(act.pending), firing: act.firing.snapshot(), run: act.run})
 	}
 	return c
 }
@@ -746,13 +742,12 @@ func (c stateCapture) restore() {
 	e.deferred, e.lastDispatch, e.lastEventAt = slices.Clone(c.deferred), cloneDispatch(c.lastDispatch), c.lastEventAt
 	e.doActions = e.doActions[:0]
 	for _, act := range c.doActions {
-		act.act.pending, act.act.run = slices.Clone(act.pending), act.run
+		act.act.pending, act.act.firing, act.act.run = slices.Clone(act.pending), act.firing.snapshot(), act.run
 		e.doActions = append(e.doActions, act.act)
 		if act.body != nil {
 			act.body.restore()
 		}
 	}
-	e.round, e.roundDone = slices.Clone(c.round), c.roundDone
 	e.machineExited, e.driven.state, e.inRun, e.moved = c.machineExited, c.driven, c.inRun, c.moved
 	e.driven.stir(0)
 	e.timerScheduled = c.timerScheduled.restore()
@@ -784,6 +779,7 @@ func cloneHeldEntries(entries []heldEntry) []heldEntry {
 			chain:    slices.Clone(entry.chain),
 			scopes:   slices.Clone(entry.scopes),
 			machine:  entry.machine,
+			firing:   entry.firing.snapshot(),
 		}
 	}
 	return cloned

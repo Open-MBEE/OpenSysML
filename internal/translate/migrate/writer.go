@@ -49,6 +49,27 @@ func (w *writer) braced(header string, body func()) {
 // enclose writes header with a brace-delimited body, or header followed by
 // empty when the body writes nothing.
 func (w *writer) enclose(header, empty string, body func()) {
+	w.trailed(header, empty, "", body)
+}
+
+// trailed writes header followed by empty when the body writes nothing, else
+// header with a brace-delimited body opened by the lead line, when there is one.
+func (w *writer) trailed(header, empty, lead string, body func()) {
+	inner := w.capture(body)
+	if inner == "" {
+		w.line(header + empty)
+		return
+	}
+	w.line(header + " {")
+	if lead != "" {
+		w.indented(func() { w.line(lead) })
+	}
+	_, _ = w.buf().WriteString(inner)
+	w.line("}")
+}
+
+// capture renders what body writes, one level deeper, without writing it.
+func (w *writer) capture(body func()) string {
 	w.buf()
 	w.bufs = append(w.bufs, &strings.Builder{})
 	w.indent++
@@ -56,13 +77,7 @@ func (w *writer) enclose(header, empty string, body func()) {
 	w.indent--
 	inner := w.bufs[len(w.bufs)-1].String()
 	w.bufs = w.bufs[:len(w.bufs)-1]
-	if inner == "" {
-		w.line(header + empty)
-		return
-	}
-	w.line(header + " {")
-	_, _ = w.buf().WriteString(inner)
-	w.line("}")
+	return inner
 }
 
 // indented writes body one level deeper, for a clause continued on the next lines.

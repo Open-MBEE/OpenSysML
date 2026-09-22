@@ -516,3 +516,198 @@ func TestReferenceExtensionsDescribeProxies(t *testing.T) {
 		t.Errorf("Extensions = %+v", m.Extensions)
 	}
 }
+
+// profileDocument wraps a user profile and a model in one document: the
+// profile defines stereotypes, the model's classes carry applications.
+func profileDocument(profile, applications string) string {
+	return `<?xml version="1.0"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:Org="http://www.magicdraw.com/schemas/Org_Profile.xmi" xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <uml:Model xmi:id="_m" name="M">
+    <packagedElement xmi:type="uml:Profile" xmi:id="_prof" name="Org Profile">` + profile + `
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_c1" name="C1"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_c2" name="C2"/>
+  </uml:Model>
+` + applications + `
+</xmi:XMI>`
+}
+
+func TestStereotypeDefinitionByNamespaceAndName(t *testing.T) {
+	m, err := Parse([]byte(profileDocument(`
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_s1" name="Org Requirement">
+        <generalization xmi:type="uml:Generalization" xmi:id="_g1">
+          <general href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML.Requirement">
+            <xmi:Extension extender="MagicDraw UML"><referenceExtension referentPath="SysML::Requirements::Requirement" referentType="Stereotype"/></xmi:Extension>
+          </general>
+        </generalization>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_a1" name="Rationale"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_s2" name="Plain"/>`,
+		`<Org:Org_Requirement xmi:id="_ap1" base_Class="_c1" Rationale="why"/>
+  <Org:Plain xmi:id="_ap2" base_Class="_c2"/>
+  <Org:Unknown xmi:id="_ap3" base_Class="_c2"/>
+  <sysml:Block xmi:id="_ap4" base_Class="_c2"/>`)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	c1, c2 := m.Lookup("_c1"), m.Lookup("_c2")
+	req := c1.Stereotype("Org Requirement")
+	if req == nil || req.Definition != m.Lookup("_s1") {
+		t.Fatalf("Org_Requirement definition = %+v", req)
+	}
+	if len(req.Generals) != 1 || !req.Generals[0].IsProxy() || req.Generals[0].Name != "Requirement" ||
+		req.Generals[0].QualifiedName != "SysML::Requirements::Requirement" || req.Generals[0].Type != "Stereotype" {
+		t.Errorf("Org_Requirement generals = %+v", req.Generals)
+	}
+	if plain := c2.Stereotype("Plain"); plain == nil || plain.Definition != m.Lookup("_s2") || len(plain.Generals) != 0 {
+		t.Errorf("Plain = %+v", plain)
+	}
+	if unknown := c2.Stereotype("Unknown"); unknown == nil || unknown.Definition != nil {
+		t.Errorf("Unknown = %+v", unknown)
+	}
+	if block := c2.Stereotype("Block"); block == nil || block.Definition != nil {
+		t.Errorf("a standard application resolved to %+v", block.Definition)
+	}
+}
+
+func TestStereotypeDefinitionByProfileURI(t *testing.T) {
+	doc := `<?xml version="1.0"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:acme="http://acme.example/uml/Acme" xmlns:twin="http://acme.example/uml/Twin">
+  <uml:Model xmi:id="_m" name="M">
+    <packagedElement xmi:type="uml:Profile" xmi:id="_p1" name="First" URI="http://acme.example/uml/Acme">
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_s1" name="Tag"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Profile" xmi:id="_p2" name="Second">
+      <eAnnotations xmi:type="ecore:EAnnotation" xmi:id="_ann" source="http://www.eclipse.org/uml2/2.0.0/UML">
+        <contents xmi:type="ecore:EPackage" xmi:id="_ep" name="Second" nsURI="http://acme.example/uml/Twin" nsPrefix="twin"/>
+      </eAnnotations>
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_s2" name="Tag"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_c" name="C"/>
+  </uml:Model>
+  <acme:Tag xmi:id="_a1" base_Class="_c"/>
+  <twin:Tag xmi:id="_a2" base_Class="_c"/>
+</xmi:XMI>`
+	m, err := Parse([]byte(doc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := m.Lookup("_c")
+	if len(c.Stereotypes) != 2 || c.Stereotypes[0].Definition != m.Lookup("_s1") || c.Stereotypes[1].Definition != m.Lookup("_s2") {
+		t.Errorf("definitions = %+v, %+v", c.Stereotypes[0].Definition, c.Stereotypes[1].Definition)
+	}
+}
+
+func TestStereotypeDefinitionByHrefTable(t *testing.T) {
+	// Two profiles derive the same XML namespace document name; only the
+	// tool's stereotypesHREFS table can tell which one an application means.
+	doc := `<?xml version="1.0"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:Org="http://www.magicdraw.com/schemas/Org.xmi">
+  <uml:Model xmi:id="_m" name="M">
+    <packagedElement xmi:type="uml:Profile" xmi:id="_p1" name="Org">
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_s1" name="Tag"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Profile" xmi:id="_p2" name="org">
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_s2" name="Tag"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_c" name="C"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_d" name="D"/>
+  </uml:Model>
+  <Org:Tag xmi:id="_a1" base_Class="_c"/>
+  <Org:Other xmi:id="_a2" base_Class="_d"/>
+  <xmi:Extension extender="MagicDraw UML 2024x">
+    <stereotypesHREFS>
+      <stereotype name="Org:Tag" stereotypeHREF="local:/PROJECT-1?resource=com.nomagic.magicdraw.uml_umodel.model#_s2"/>
+      <stereotype name="Org:Other" stereotypeHREF="local:/PROJECT-2?resource=com.nomagic.magicdraw.uml_umodel.shared_umodel#_elsewhere"/>
+    </stereotypesHREFS>
+  </xmi:Extension>
+</xmi:XMI>`
+	m, err := Parse([]byte(doc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s := m.Lookup("_c").Stereotype("Tag"); s.Definition != m.Lookup("_s2") {
+		t.Errorf("Tag definition = %+v, want the table's _s2", s.Definition)
+	}
+	if s := m.Lookup("_d").Stereotype("Other"); s.Definition != nil {
+		t.Errorf("Other, defined in another project, resolved to %+v", s.Definition)
+	}
+	m2, err := Parse([]byte(strings.Replace(strings.Replace(doc, `<stereotype name="Org:Tag" stereotypeHREF="local:/PROJECT-1?resource=com.nomagic.magicdraw.uml_umodel.model#_s2"/>`, "", 1),
+		`<packagedElement xmi:type="uml:Profile" xmi:id="_p2" name="org">
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_s2" name="Tag"/>
+    </packagedElement>`, "", 1)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s := m2.Lookup("_c").Stereotype("Tag"); s.Definition != m2.Lookup("_s1") {
+		t.Errorf("without the table, the single namesake = %+v", s.Definition)
+	}
+	if s := m.Lookup("_c").Stereotype("Tag"); s != nil {
+		// Ambiguous namesakes without a table row settle nothing.
+		m3, err := Parse([]byte(strings.Replace(doc, `<stereotype name="Org:Tag" stereotypeHREF="local:/PROJECT-1?resource=com.nomagic.magicdraw.uml_umodel.model#_s2"/>`, "", 1)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if s := m3.Lookup("_c").Stereotype("Tag"); s.Definition != nil {
+			t.Errorf("ambiguous namesakes resolved to %+v", s.Definition)
+		}
+	}
+}
+
+func TestStereotypeAncestry(t *testing.T) {
+	m, err := Parse([]byte(profileDocument(`
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_base" name="Base">
+        <generalization xmi:type="uml:Generalization" xmi:id="_g0">
+          <general href="pathmap://SysML_PROFILES/SysML.profile.uml#SysML.package_packagedElement_Blocks.stereotype_packagedElement_Block"/>
+        </generalization>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_left" name="Left">
+        <generalization xmi:type="uml:Generalization" xmi:id="_g1" general="_base"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_right" name="Right">
+        <generalization xmi:type="uml:Generalization" xmi:id="_g2" general="_base"/>
+        <generalization xmi:type="uml:Generalization" xmi:id="_g3" general="_missing"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_diamond" name="Diamond">
+        <generalization xmi:type="uml:Generalization" xmi:id="_g4" general="_left"/>
+        <generalization xmi:type="uml:Generalization" xmi:id="_g5" general="_right"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_ping" name="Ping">
+        <generalization xmi:type="uml:Generalization" xmi:id="_g6" general="_pong"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_pong" name="Pong">
+        <generalization xmi:type="uml:Generalization" xmi:id="_g7" general="_ping"/>
+      </packagedElement>`,
+		`<Org:Diamond xmi:id="_ap1" base_Class="_c1"/>
+  <Org:Ping xmi:id="_ap2" base_Class="_c2"/>`)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	names := func(es []*Element) string {
+		var out []string
+		for _, e := range es {
+			out = append(out, e.Name)
+		}
+		return strings.Join(out, " ")
+	}
+	diamond := m.Lookup("_c1").Stereotype("Diamond")
+	if got := names(diamond.Generals); got != "Left Right Base Block" {
+		t.Errorf("diamond ancestors = %q", got)
+	}
+	if got := m.UnresolvedGenerals(m.Lookup("_right")); len(got) != 1 || got[0] != "_missing" {
+		t.Errorf("unresolved generals = %v", got)
+	}
+	if block := diamond.Generals[3]; !block.IsProxy() || block.Href != "pathmap://SysML_PROFILES/SysML.profile.uml#SysML.package_packagedElement_Blocks.stereotype_packagedElement_Block" {
+		t.Errorf("pathmap general = %+v", block)
+	}
+	ping := m.Lookup("_c2").Stereotype("Ping")
+	if got := names(ping.Generals); got != "Pong Ping" {
+		t.Errorf("cyclic ancestors = %q", got)
+	}
+	if got := names(m.Ancestors(m.Lookup("_pong"))); got != "Ping Pong" {
+		t.Errorf("Pong ancestors = %q", got)
+	}
+}

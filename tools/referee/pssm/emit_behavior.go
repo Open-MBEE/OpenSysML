@@ -27,20 +27,87 @@ func (e *emitter) binding(bh *Behavior, where string) (*Binding, error) {
 }
 
 // bindValues spells what each input reads: the accept's own parameters in the
-// accepting transition's effect, elsewhere the attributes it stored them in.
+// accepting transition's effect, the leaving transitions' payloads in an exit,
+// elsewhere the attributes the accepting transition's effect stored them in.
 func (e *emitter) bindValues(binding *Binding) []string {
 	values := make([]string, len(binding.Data))
 	for i, p := range binding.Data {
 		switch {
+		case binding.Exit:
+			values[i] = e.exitValue(binding, p)
 		case binding.Direct == nil:
 			values[i] = e.bindings.carriedAttr(binding.Event, p)
-		case binding.Event.Kind == EventSignal:
-			values[i] = spell(payloadParam(binding.Event.Signal.Name))
 		default:
-			values[i] = spell(p.Name)
+			values[i] = acceptedName(binding.Event, p)
 		}
 	}
 	return values
+}
+
+// acceptedName is the name a transition's accept binds one value of its event's
+// data to: the payload parameter for a signal, the input's own for a call.
+func acceptedName(ev *Event, p Param) string {
+	if ev.Kind == EventSignal {
+		return spell(payloadParam(ev.Signal.Name))
+	}
+	return spell(p.Name)
+}
+
+// exitValue spells one value an exit reads, `T.d`, off the transition being
+// taken: a transition not taken carries nothing, so `??` reaches the taken one.
+func (e *emitter) exitValue(binding *Binding, p Param) string {
+	reads := make([]string, len(binding.Triggers))
+	for i, t := range binding.Triggers {
+		reads[i] = spell(e.named[t]) + "." + acceptedName(binding.Event, p)
+	}
+	return strings.Join(reads, " ?? ")
+}
+
+// nameExitTriggers names the transitions whose payload a bound exit reads, so
+// they are declared by name. Each name is unique in the machine, in region
+// order: a nested transition never shadows the one an outer exit reads.
+func (e *emitter) nameExitTriggers() {
+	read := map[*Transition]bool{}
+	for _, binding := range e.bindings.Bound {
+		if binding.Exit {
+			for _, t := range binding.Triggers {
+				read[t] = true
+			}
+		}
+	}
+	e.named = map[*Transition]string{}
+	var visit func([]*Region)
+	visit = func(regions []*Region) {
+		for _, r := range regions {
+			for _, t := range r.Transitions {
+				if read[t] && t.Name != "" {
+					e.named[t] = e.take(t.Name)
+				}
+			}
+			for _, v := range r.Vertices {
+				visit(v.Regions)
+			}
+		}
+	}
+	visit(e.test.Machine.Regions)
+}
+
+// boundExit spells a state's bound exit as the text after `exit action`: like
+// an entry, once each transition it reads is named and declared in its sight.
+func (e *emitter) boundExit(state *Vertex, ind, where, base string) (string, error) {
+	binding, err := e.binding(state.Exit, where)
+	if err != nil {
+		return "", err
+	}
+	for _, t := range binding.Triggers {
+		if t.Name == "" {
+			return "", e.fail(where, fmt.Sprintf("%s leaves the state unnamed; the exit reads its payload by name", t.Describe()))
+		}
+		if scope := e.scopeOf[t]; scope != nil && scope.owner != nil && !inside(state, scope.owner) {
+			return "", e.fail(where, fmt.Sprintf("transition %s is declared in %s, out of the exit's sight", t.Name, scope.owner.Describe()))
+		}
+	}
+	return e.boundEntry(state.Exit, ind, where, base)
 }
 
 // carryEventData declares an attribute per value of each event's data that a
@@ -118,6 +185,7 @@ func (e *emitter) boundEntry(bh *Behavior, ind, where, base string) (string, err
 	}
 	params, scope, types := e.declaredInputs(binding)
 	stmts, err := scoped(e, scope, types, func() ([]string, error) {
+		e.scopeEmpty = emptyInputs(binding)
 		return e.plainBody(bh, where)
 	})
 	if err != nil {
@@ -163,9 +231,43 @@ func (e *emitter) declaredInputs(binding *Binding) (params []string, scope, type
 	for i, p := range inputs(binding.Behavior) {
 		scope[p.Name] = spell(p.Name)
 		types[p.Name] = p.Type
-		params = append(params, fmt.Sprintf("in %s : %s = %s;", spell(p.Name), e.dataType(binding.Event, binding.Data[i]), values[i]))
+		params = append(params, fmt.Sprintf("in %s : %s%s = %s;", spell(p.Name), e.dataType(binding.Event, binding.Data[i]), inputMultiplicity(binding), values[i]))
 	}
 	return params, scope, types
+}
+
+// inputMultiplicity is the multiplicity a bound input is declared with: `[0..1]`
+// where a firing may bind nothing, so the behavior still runs with it empty.
+func inputMultiplicity(binding *Binding) string {
+	if binding.Partial {
+		return "[0..1]"
+	}
+	return ""
+}
+
+// emptyInputs names the inputs a firing may leave empty; nil where every one binds.
+func emptyInputs(binding *Binding) map[string]bool {
+	if !binding.Partial {
+		return nil
+	}
+	empty := map[string]bool{}
+	for _, p := range inputs(binding.Behavior) {
+		empty[p.Name] = true
+	}
+	return empty
+}
+
+// guards spells the conditions under which a statement's node fires: a token on
+// each input it needs that the current firing may have left empty.
+func (e *emitter) guards(st Statement) []string {
+	var out []string
+	for _, name := range st.Needs {
+		if e.scopeEmpty[name] {
+			e.sequences = true
+			out = append(out, "notEmpty("+e.scope[name]+")")
+		}
+	}
+	return out
 }
 
 // defUsage spells ` : <def> { inout log = log; in p = <value>; ... }`, inputs in
@@ -256,7 +358,7 @@ func (e *emitter) definition(binding *Binding, where, base string) (string, erro
 		dir, feat := inputSpelling(binding, p)
 		scope[p.Name] = feat
 		types[p.Name] = p.Type
-		fmt.Fprintf(&b, "        %s %s : %s;\n", dir, feat, e.dataType(binding.Event, binding.Data[i]))
+		fmt.Fprintf(&b, "        %s %s : %s%s;\n", dir, feat, e.dataType(binding.Event, binding.Data[i]), inputMultiplicity(binding))
 	}
 	for i, p := range outputs(bh) {
 		if p.Direction == "inout" {
@@ -269,6 +371,7 @@ func (e *emitter) definition(binding *Binding, where, base string) (string, erro
 	holders := inoutHolders(bh, scope)
 	stmts, err := scoped(e, scope, types, func() ([]string, error) {
 		e.scopeWrites = holders
+		e.scopeEmpty = emptyInputs(binding)
 		return e.plainBody(bh, where)
 	})
 	if err != nil {
@@ -309,9 +412,11 @@ func (e *emitter) defName(site string) string {
 // scoped spells with the parameters of one behavior in scope, restoring the
 // enclosing scope after.
 func scoped[T any](e *emitter, scope, types map[string]string, spell func() (T, error)) (T, error) {
-	outerScope, outerTypes, outerWrites := e.scope, e.scopeTypes, e.scopeWrites
-	e.scope, e.scopeTypes, e.scopeWrites = scope, types, nil
-	defer func() { e.scope, e.scopeTypes, e.scopeWrites = outerScope, outerTypes, outerWrites }()
+	outerScope, outerTypes, outerWrites, outerEmpty := e.scope, e.scopeTypes, e.scopeWrites, e.scopeEmpty
+	e.scope, e.scopeTypes, e.scopeWrites, e.scopeEmpty = scope, types, nil, nil
+	defer func() {
+		e.scope, e.scopeTypes, e.scopeWrites, e.scopeEmpty = outerScope, outerTypes, outerWrites, outerEmpty
+	}()
 	return spell()
 }
 
@@ -347,18 +452,21 @@ var libraryForms = map[string]struct {
 	"IntegerFunctions::le":                {2, "(%s <= %s)"},
 	"IntegerFunctions::gt":                {2, "(%s > %s)"},
 	"IntegerFunctions::ge":                {2, "(%s >= %s)"},
-	"IntegerFunctions::ToString":          {1, "ToString(%s)"},
-	"UnlimitedNaturalFunctions::ToString": {1, "ToString(%s)"},
+	"IntegerFunctions::ToString":          {1, toStringFormat},
+	"UnlimitedNaturalFunctions::ToString": {1, toStringFormat},
 	"BooleanFunctions::Not":               {1, "(not %s)"},
 	"BooleanFunctions::And":               {2, "(%s and %s)"},
 	"BooleanFunctions::Or":                {2, "(%s or %s)"},
 	"BooleanFunctions::Xor":               {2, "(%s xor %s)"},
-	"BooleanFunctions::ToString":          {1, "ToString(%s)"},
+	"BooleanFunctions::ToString":          {1, toStringFormat},
 	"StringFunctions::Concat":             {2, "(%s + %s)"},
 }
 
 // formatParameterValue is the suite's Util::Tracing::formatParameterValue.
 const formatParameterValueQualified = "Util::Tracing::formatParameterValue"
+
+// toStringFormat is the fUML ToString function's call template.
+const toStringFormat = "ToString(%s)"
 
 // apply spells an application: an owned behavior is inlined, a library one is
 // its expression, and formatParameterValue brackets as the suite's library does.

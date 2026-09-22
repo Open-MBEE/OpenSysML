@@ -1027,25 +1027,65 @@ func TestWritingOneValueToAManyValuedFeatureHoldsACollection(t *testing.T) {
 	}
 }
 
-// A type that exhibits a machine no element states is reported, not ignored.
-func TestExhibitedMachineNamingNoBodyIsReported(t *testing.T) {
+// An exhibited state naming nothing — no reference subsetting, no typing —
+// exhibits itself: the ExhibitStateUsage is its own exhibitedState
+// (SysML v2 §8.3.17), so its machine is created and run, not refused.
+func TestExhibitedStateNamingNothingExhibitsItself(t *testing.T) {
 	src := `
 		part def Controller {
-			exhibit state modes;
+			attribute level : Integer = 3;
+			exhibit state modes {
+				in amount : Integer = level;
+				entry; then a;
+				state a;
+			}
 		}
 	`
 	model, resolver, root := parseAndBuildModel(t, src)
 	ctx := NewContext(typedModel(model, resolver), 10000)
 
-	_, err := ctx.Instantiate(resolveSymbol(t, root, "Controller"))
-	if err == nil {
-		t.Fatal("expected an error for a machine naming no body")
+	inst, err := ctx.Instantiate(resolveSymbol(t, root, "Controller"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
 	}
-	if !errors.Is(err, ErrUnresolvedClassifierBehavior) {
-		t.Fatalf("error = %v, want ErrUnresolvedClassifierBehavior", err)
+	behavior, ok := inst.Behavior("modes")
+	if !ok || behavior.State == nil {
+		t.Fatalf("object exhibits no modes machine, behaviors: %v", inst.Behaviors())
 	}
-	if !strings.Contains(err.Error(), "modes") {
-		t.Errorf("error %q does not name the behavior", err)
+}
+
+// An exhibited state naming nothing whose body declares no initial state
+// fails at initialization with ErrNoInitialState, like any machine stating an
+// empty or parameter-only body — the declaration is its own body, not a
+// naming error.
+func TestExhibitedStateNamingNothingWithNoInitialStateIsReported(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		behavior string
+		want     string
+	}{
+		{"empty body", "exhibit state idle;", "idle"},
+		{"parameter-only body", `
+			attribute level : Integer = 3;
+			exhibit state modes { in amount : Integer = level; }`, "modes"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			src := `
+				part def Controller {
+			` + tc.behavior + `
+				}
+			`
+			model, resolver, root := parseAndBuildModel(t, src)
+			ctx := NewContext(typedModel(model, resolver), 10000)
+
+			_, err := ctx.Instantiate(resolveSymbol(t, root, "Controller"))
+			if !errors.Is(err, ErrNoInitialState) {
+				t.Fatalf("error = %v, want ErrNoInitialState", err)
+			}
+			if !strings.Contains(err.Error(), tc.want) {
+				t.Errorf("error %q does not name the behavior %q", err, tc.want)
+			}
+		})
 	}
 }
 
@@ -1301,6 +1341,78 @@ func TestPerformedActionAwaitingAMessageIsWokenByASibling(t *testing.T) {
 	instanceAtPath(t, ctx, pair, "s")
 	if got := featureInt(t, ctx, nested, "woken"); got != 1 {
 		t.Errorf("woken = %d, want 1 once the sibling's message arrived", got)
+	}
+}
+
+// An action an object's type declares without performing it runs only once started:
+// the object is materialized performing nothing, and `perform w.await.start` from the
+// enclosing part runs it as the object, where the message a sibling sent before the
+// start is waiting for it.
+func TestStartedActionAwaitingAMessageIsWokenByASibling(t *testing.T) {
+	src := `
+		package test {
+			part def Waiter {
+				attribute woken: Integer = 0;
+				action def Await {
+					first start;
+					action heard accept g : Integer;
+					action mark { assign woken := 1; }
+					done;
+					succession first start then heard;
+					succession first heard then mark;
+					succession first mark then done;
+				}
+				action await : Await;
+			}
+
+			part def Sender {
+				exhibit state sending {
+					entry; then sent;
+					state sent { entry send 5 to w; }
+				}
+			}
+
+			part def Pair {
+				part w : Waiter;
+				part s : Sender;
+				perform action kick {
+					first start;
+					then action go { perform w.await.start; }
+					then done;
+				}
+			}
+		}
+	`
+	model, resolver, root := parseAndBuildModel(t, src)
+	pkg := resolveSymbol(t, root, "test")
+
+	alone := NewContext(typedModel(model, resolver), 10000)
+	waiter, err := alone.Instantiate(resolveSymbol(t, pkg.Scope, "Waiter"))
+	if err != nil {
+		t.Fatalf("Instantiate Waiter: %v", err)
+	}
+	if bs := waiter.Behaviors(); len(bs) != 0 {
+		t.Errorf("the Waiter performs %v when materialized, want nothing before a start", bs)
+	}
+
+	ctx := NewContext(typedModel(model, resolver), 10000)
+	pair, err := ctx.Instantiate(resolveSymbol(t, pkg.Scope, "Pair"))
+	if err != nil {
+		t.Fatalf("Instantiate Pair: %v", err)
+	}
+	nested := instanceAtPath(t, ctx, pair, "w")
+	behavior, ok := nested.Behavior("await")
+	if !ok || behavior.Action == nil {
+		t.Fatalf("the started Waiter performs no await action, behaviors: %v", nested.Behaviors())
+	}
+	if behavior.Action.state != StateCompleted {
+		t.Errorf("await is %v, want complete once the sibling's message woke it", behavior.Action.state)
+	}
+	if got := featureInt(t, ctx, nested, "woken"); got != 1 {
+		t.Errorf("woken = %d, want 1 once the sibling's message arrived", got)
+	}
+	if l, ok := ctx.OccurrenceLife(nested.ID); !ok || !l.Alive() {
+		t.Errorf("OccurrenceLife(w) = %v, %v; want the object alive once its behavior is done", l, ok)
 	}
 }
 

@@ -276,25 +276,14 @@ type stepTokens struct {
 	held    map[int64]bool
 	enabled func(id int64) bool
 	label   func(id int64) string
+	// stepped marks a step of a body run one token move at a time: a do flow's,
+	// whose order among the tokens able to act is the machine's to draw.
+	stepped bool
 }
 
 // has reports whether the step has a token the label names.
 func (t stepTokens) has(label string) bool {
 	return slices.ContainsFunc(t.ids, func(id int64) bool { return t.label(id) == label })
-}
-
-// leftReady reports, once the tokens in acted have, a token held by none that did
-// not act yet can now: one a sweep moving each token once would move this step.
-func (t stepTokens) leftReady(acted []int64) bool {
-	if len(acted) == 0 {
-		return false
-	}
-	for _, id := range t.ids {
-		if !t.held[id] && !slices.Contains(acted, id) && t.enabled(id) {
-			return true
-		}
-	}
-	return false
 }
 
 // hasAll reports whether the step has every token the labels name: the order
@@ -471,10 +460,11 @@ func (s *scheduler) choose(c ChoicePoint, whereOf func(i int) string) int {
 // c.Taken and the draw: a weighted draw where the model can draw, the most probable
 // branch under an unseeded declared or reverse run, the witness's move, weighed and
 // drawn as the run weighs it; the exploration and the checker resolve it as every branch.
-func (s *scheduler) chooseWeighted(c *ChoicePoint) error {
+// whereOf, as for choose, is how the run reports Where once alternative i is taken.
+func (s *scheduler) chooseWeighted(c *ChoicePoint, whereOf func(i int) string) error {
 	n := len(c.Alternatives)
 	if n < 2 || len(c.Weights) != n {
-		c.Taken = s.choose(*c, nil)
+		c.Taken = s.choose(*c, whereOf)
 		return nil
 	}
 	total, err := checkWeights(c.Where, c.Weights)
@@ -483,11 +473,11 @@ func (s *scheduler) chooseWeighted(c *ChoicePoint) error {
 	}
 	switch s.policy.kind {
 	case scheduleExplore, scheduleCheck:
-		c.Taken = s.choose(*c, nil)
+		c.Taken = s.choose(*c, whereOf)
 		return nil
 	case scheduleReplay:
 		if s.replaying() {
-			c.Taken = s.replay.chooseWeighted(c)
+			c.Taken = s.replay.chooseWeighted(c, whereOf)
 			return nil
 		}
 	}

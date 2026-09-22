@@ -114,7 +114,8 @@ type ActivityReport struct {
 	Model  string        `json:"model"`
 	Class  string        `json:"class"`
 	Bucket report.Bucket `json:"bucket"`
-	// Reasons say why the activity is in its bucket, one line each; a pass has none.
+	// Reasons say why the activity is in its bucket, one line each; a pass of
+	// the activity's own run has none.
 	Reasons []string `json:"reasons,omitempty"`
 	// Expected and Reached are the implementation's outputs and the distinct
 	// output states the runs came to; Runs is how many linearizations were run.
@@ -159,15 +160,16 @@ func Referee(stop context.Context, s *Suite, x *Expected, prov Provenance, opts 
 			return nil, err
 		}
 	}
+	rf := &refereeing{stop: stop, s: s, x: x, opts: opts, rows: map[*Activity]ActivityReport{}}
 	var rows []ActivityReport
 	for _, m := range s.Models() {
 		for _, a := range m.Activities {
 			if opts.Filter != "" && !strings.Contains(a.Name, opts.Filter) {
 				continue
 			}
-			row, err := referee(stop, a, x.Activity(m.File, a.ID), opts)
+			row, err := rf.row(a)
 			if err != nil {
-				return nil, fmt.Errorf("%s: %w", a.Name, err)
+				return nil, err
 			}
 			rows = append(rows, row)
 		}
@@ -182,10 +184,35 @@ func Referee(stop context.Context, s *Suite, x *Expected, prov Provenance, opts 
 	return counted, nil
 }
 
+// refereeing is one run over the suite, each activity's row computed once.
+type refereeing struct {
+	stop context.Context
+	s    *Suite
+	x    *Expected
+	opts Options
+	rows map[*Activity]ActivityReport
+}
+
+// row files the activity, once.
+func (rf *refereeing) row(a *Activity) (ActivityReport, error) {
+	if row, ok := rf.rows[a]; ok {
+		return row, nil
+	}
+	row, err := rf.referee(a)
+	if err != nil {
+		return row, fmt.Errorf("%s: %w", a.Name, err)
+	}
+	rf.rows[a] = row
+	return row, nil
+}
+
 // referee files one activity: the classifier's bucket where it fixes one, else
 // the run's; a construct the emitter has no rule for yet is not-expressible by
 // the emitter, the row naming the construct and keeping the classifier's class.
-func referee(stop context.Context, a *Activity, x *ExpectedActivity, opts Options) (ActivityReport, error) {
+// A class's owned behavior runs only as the behavior of an object of the class,
+// so it is filed by the activities that start one, as the JUnit suite runs it.
+func (rf *refereeing) referee(a *Activity) (ActivityReport, error) {
+	stop, opts, x := rf.stop, rf.opts, rf.x.Activity(a.Model.File, a.ID)
 	c := Classify(a, x)
 	row := ActivityReport{Name: a.Name, Model: a.Model.File, Class: c.Class.String()}
 	if c.Class == NotExpressible {
@@ -194,6 +221,9 @@ func referee(stop context.Context, a *Activity, x *ExpectedActivity, opts Option
 		return row, nil
 	}
 	fixed, _ := c.Class.Bucket()
+	if a.Owner != nil {
+		return rf.carried(row, a, fixed, c)
+	}
 	em, err := Emit(a)
 	if err != nil {
 		var te *TranslateError
@@ -236,6 +266,113 @@ func referee(stop context.Context, a *Activity, x *ExpectedActivity, opts Option
 		return row, nil
 	}
 	return filed(row, fixed, c, ex.Reasons()...), nil
+}
+
+// carried files a class's owned behavior by the rows of the activities whose
+// run starts it: it fails when one fails, else passes when one passes, else
+// takes the bucket the starters share. With none, nothing runs it and it fails
+// saying so, as an activity the record has no execution of does.
+func (rf *refereeing) carried(row ActivityReport, b *Activity, fixed report.Bucket, c Classification) (ActivityReport, error) {
+	var reasons []string
+	bucket := report.Bucket("")
+	for _, s := range rf.starters(b) {
+		sr, err := rf.row(s.activity)
+		if err != nil {
+			return row, err
+		}
+		reason := fmt.Sprintf("started by %s, which is %s", s.String(), sr.Bucket)
+		if len(sr.Reasons) > 0 {
+			reason += ": " + strings.Join(sr.Reasons, "; ")
+		}
+		reasons = append(reasons, reason)
+		bucket = carriedBucket(bucket, sr.Bucket)
+	}
+	if bucket == "" {
+		return filed(row, fixed, c, "no activity starts an object of "+b.Owner.Name+", so nothing runs it"), nil
+	}
+	if fixed != "" {
+		return filed(row, fixed, c, reasons...), nil
+	}
+	row.Bucket, row.Reasons = bucket, reasons
+	return row, nil
+}
+
+// carriedBucket is the bucket two starters' rows give an owned behavior: fail
+// over pass, pass over differs-by-design, that over not-expressible.
+func carriedBucket(a, b report.Bucket) report.Bucket {
+	rank := map[report.Bucket]int{report.BucketFail: 4, report.BucketPass: 3, report.BucketDiffersByDesign: 2, report.BucketNotExpressible: 1}
+	if rank[b] > rank[a] {
+		return b
+	}
+	return a
+}
+
+// starter is an activity no class owns whose run starts an owned behavior, and
+// the activity holding the start action when the run reaches it through calls.
+type starter struct {
+	activity, through *Activity
+}
+
+func (s starter) String() string {
+	if s.through == nil {
+		return s.activity.Name
+	}
+	return s.activity.Name + " through " + s.through.Name
+}
+
+// starters lists the activities no class owns whose run starts the owned
+// behavior: those whose start action's object pin has its type, and every
+// activity calling one, transitively, in the model's order. Where the record
+// executes some of them, those alone carry the row; the others never ran it.
+func (rf *refereeing) starters(b *Activity) []starter {
+	callers := map[*Activity][]*Activity{}
+	through := map[*Activity]*Activity{}
+	var pending []*Activity
+	for _, a := range b.Model.Activities {
+		for _, n := range a.AllNodes() {
+			switch n.Kind {
+			case CallBehaviorAction:
+				if n.Behavior != nil && n.Behavior.Activity != nil {
+					callers[n.Behavior.Activity] = append(callers[n.Behavior.Activity], a)
+				}
+			case StartObjectBehaviorAction:
+				for _, p := range n.Inputs() {
+					if p.Role == "object" && startedBehavior(b.Model, p) == b && through[a] == nil {
+						through[a] = a
+						pending = append(pending, a)
+					}
+				}
+			}
+		}
+	}
+	for len(pending) > 0 {
+		a := pending[0]
+		pending = pending[1:]
+		for _, c := range callers[a] {
+			if through[c] == nil {
+				through[c] = through[a]
+				pending = append(pending, c)
+			}
+		}
+	}
+	var all, executed []starter
+	for _, a := range b.Model.Activities {
+		if through[a] == nil || a.Owner != nil {
+			continue
+		}
+		s := starter{activity: a}
+		if through[a] != a {
+			s.through = through[a]
+		}
+		all = append(all, s)
+		if x := rf.x.Activity(a.Model.File, a.ID); x != nil && x.Executed {
+			executed = append(executed, s)
+		}
+	}
+	if len(executed) > 0 {
+		return executed
+	}
+	return all
 }
 
 // filed puts a row in the classifier's fixed bucket with its reason first, or

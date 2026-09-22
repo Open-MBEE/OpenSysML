@@ -123,6 +123,7 @@ public final class Engine implements AutoCloseable {
       try {
         Thread.sleep(CANCEL_POLL.toMillis());
       } catch (InterruptedException interrupted) {
+        Thread.currentThread().interrupt();
         return;
       }
     }

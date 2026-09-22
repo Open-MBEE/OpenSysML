@@ -438,6 +438,17 @@ func (m *migration) symbolicDuration(text, lang string, scope *sysmlv1.Element) 
 	return expr, true, note
 }
 
+// inSeconds writes expr as one quantity in seconds: `[SI::s]` binds to the primary
+// before it, so a compound expression is parenthesized first.
+func inSeconds(expr string) string {
+	if v, ok := parseExpr(expr + siSeconds); ok {
+		if ix, isIndex := v.(*ast.IndexExpr); isIndex && ix.Bracket {
+			return expr + siSeconds
+		}
+	}
+	return "(" + expr + ")" + siSeconds
+}
+
 // parseStatement reports whether line parses, without diagnostics, as one
 // member of an action body.
 func parseStatement(line string) bool {
@@ -487,11 +498,12 @@ func (m *migration) simulationConfigs() (configs []*sysmlv1.Element, profiled bo
 	var walk func(e *sysmlv1.Element)
 	walk = func(e *sysmlv1.Element) {
 		for _, s := range e.Stereotypes {
-			if isSimulationProfile(s.Namespace) {
+			switch {
+			case isSimulationConfig(s):
 				profiled = true
-				if isSimulationConfig(s) {
-					configs = append(configs, e)
-				}
+				configs = append(configs, e)
+			case isSimulationProfile(s.Namespace):
+				profiled = true
 			}
 		}
 		for _, c := range e.Children {

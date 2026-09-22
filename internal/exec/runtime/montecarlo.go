@@ -80,12 +80,15 @@ func RunNumber(bindings []SweepBinding) (int64, bool) {
 }
 
 // Distribution summarises one observable over the runs of a Monte Carlo: extremes,
-// mean, nearest-rank p50/p90 and a histogram, exact on Integers save the Real mean.
+// mean, sample standard deviation, nearest-rank p50/p90 and a histogram, exact on
+// Integers save the Real mean and deviation.
 type Distribution struct {
-	Count     int
-	Integral  bool
-	Min       semantics.Value
-	Mean      float64
+	Count    int
+	Integral bool
+	Min      semantics.Value
+	Mean     float64
+	// Deviation is the sample standard deviation about Mean, 0 for fewer than two runs.
+	Deviation float64
 	Max       semantics.Value
 	P50       semantics.Value
 	P90       semantics.Value
@@ -129,12 +132,14 @@ func distributeInts(values []int64) *Distribution {
 	for _, v := range sorted {
 		sum.Add(sum, big.NewInt(v))
 	}
-	mean, _ := new(big.Rat).SetFrac(sum, big.NewInt(int64(n))).Float64()
+	exactMean := new(big.Rat).SetFrac(sum, big.NewInt(int64(n)))
+	mean, _ := exactMean.Float64()
 	return &Distribution{
 		Count:     n,
 		Integral:  true,
 		Min:       drawnInt(sorted[0]),
 		Mean:      mean,
+		Deviation: intDeviationOf(sorted, exactMean),
 		Max:       drawnInt(sorted[n-1]),
 		P50:       drawnInt(nearestRank(sorted, 0.5)),
 		P90:       drawnInt(nearestRank(sorted, 0.9)),
@@ -151,10 +156,12 @@ func distributeReals(numbers []semantics.Value) *Distribution {
 	}
 	slices.Sort(sorted)
 	n := len(sorted)
+	mean := meanOf(sorted)
 	return &Distribution{
 		Count:     n,
 		Min:       drawnReal(sorted[0]),
-		Mean:      meanOf(sorted),
+		Mean:      mean,
+		Deviation: deviationOf(sorted, mean),
 		Max:       drawnReal(sorted[n-1]),
 		P50:       drawnReal(nearestRank(sorted, 0.5)),
 		P90:       drawnReal(nearestRank(sorted, 0.9)),
@@ -165,24 +172,108 @@ func distributeReals(numbers []semantics.Value) *Distribution {
 // meanOf is the mean of values, exact until it rounds to a Real; a value that is
 // no finite number carries into the mean as Real arithmetic would carry it.
 func meanOf(values []float64) float64 {
-	sum := new(big.Rat)
-	for _, v := range values {
-		if math.IsInf(v, 0) || math.IsNaN(v) {
-			return realSum(values) / float64(len(values))
-		}
-		sum.Add(sum, new(big.Rat).SetFloat64(v))
+	counted := make([]Counted, len(values))
+	for i, v := range values {
+		counted[i] = Counted{Count: 1, Value: v}
 	}
-	mean, _ := sum.Quo(sum, big.NewRat(int64(len(values)), 1)).Float64()
+	mean, _ := WeightedMean(counted)
 	return mean
 }
 
-// realSum is the sum of values in Real arithmetic.
-func realSum(values []float64) float64 {
-	sum := 0.0
-	for _, v := range values {
-		sum += v
+// Counted is one term of a weighted mean: Value, over Count runs; the count is
+// exact, as the runs a tool summarises are.
+type Counted struct {
+	Count int64
+	Value float64
+}
+
+// WeightedMean is the mean of the values weighted by their counts, exact until it
+// rounds to a Real, with the exact total count; a value that is no finite number
+// carries into the mean as Real arithmetic would carry it.
+func WeightedMean(weighted []Counted) (mean float64, count int64) {
+	sum := new(big.Rat)
+	var realSum float64
+	exact := true
+	for _, w := range weighted {
+		count += w.Count
+		realSum += float64(w.Count) * w.Value
+		if math.IsInf(w.Value, 0) || math.IsNaN(w.Value) {
+			exact = false
+		} else if exact {
+			sum.Add(sum, new(big.Rat).Mul(big.NewRat(w.Count, 1), new(big.Rat).SetFloat64(w.Value)))
+		}
 	}
-	return sum
+	if count == 0 {
+		return 0, 0
+	}
+	if !exact {
+		return realSum / float64(count), count
+	}
+	mean, _ = sum.Quo(sum, big.NewRat(count, 1)).Float64()
+	return mean, count
+}
+
+// deviationOf is the sample standard deviation of values about their mean, 0 for fewer than two.
+func deviationOf(values []float64, mean float64) float64 {
+	spreads := make([]Spread, len(values))
+	for i, v := range values {
+		spreads[i] = Spread{Weight: 1, Value: v, About: true}
+	}
+	return PooledDeviation(mean, spreads, len(values)-1)
+}
+
+// Spread is one term of a pooled sum of squares: Weight times the square of Value,
+// or of Value's distance from the pool's mean when About it.
+type Spread struct {
+	Weight, Value float64
+	About         bool
+}
+
+// PooledDeviation is the root of the weighted squares of spreads, those About the mean
+// taken from it, over dof degrees of freedom, 0 for none. Values and mean are scaled
+// by the power of two below the largest before differencing and squaring, which rounds
+// nothing, so finite values however large or far apart pool to a finite deviation.
+func PooledDeviation(mean float64, spreads []Spread, dof int) float64 {
+	if dof < 1 {
+		return 0
+	}
+	var largest float64
+	for _, s := range spreads {
+		largest = math.Max(largest, math.Abs(s.Value))
+		if s.About {
+			largest = math.Max(largest, math.Abs(mean))
+		}
+	}
+	if largest == 0 || math.IsInf(largest, 0) || math.IsNaN(largest) {
+		return largest
+	}
+	_, exp := math.Frexp(largest)
+	scale := math.Ldexp(1, exp-1)
+	about := mean / scale
+	var sum float64
+	for _, s := range spreads {
+		d := s.Value / scale
+		if s.About {
+			d -= about
+		}
+		sum += s.Weight * d * d
+	}
+	return scale * math.Sqrt(sum/float64(dof))
+}
+
+// intDeviationOf is the sample standard deviation of Integers about their exact mean,
+// the squared deviations summed exactly so only the root rounds; 0 under two values.
+func intDeviationOf(values []int64, mean *big.Rat) float64 {
+	if len(values) < 2 {
+		return 0
+	}
+	sum := new(big.Rat)
+	for _, v := range values {
+		d := new(big.Rat).Sub(new(big.Rat).SetInt64(v), mean)
+		sum.Add(sum, d.Mul(d, d))
+	}
+	variance, _ := sum.Quo(sum, big.NewRat(int64(len(values)-1), 1)).Float64()
+	return math.Sqrt(variance)
 }
 
 // drawnInt is n as an Integer value.

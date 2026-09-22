@@ -300,6 +300,7 @@ class ResultProtosTest {
                 .putOutputs("x", integer(1))
                 .setLinearizations(2)
                 .addWitness("first of a, b, c: a")
+                .setProbability(0.5)
                 .addDiagnostics(Diagnostic.newBuilder().setMessage("choice").setSeverity("info"))
                 .build(),
             Outcome.newBuilder()
@@ -316,12 +317,14 @@ class ResultProtosTest {
             .addBudgetsHit("runs")
             .setRunsBudget(100)
             .setDepthBudget(64)
+            .setProbabilitiesLowerBound(true)
             .build();
     Exploration exploration = Protos.exploration(outcomes, status);
     assertEquals(3, exploration.outcomes().size());
     org.openmbee.opensysml.Outcome first = exploration.outcomes().get(0);
     assertEquals(Map.of("x", new Value.IntegerValue(1)), first.outputs());
     assertEquals(2, first.linearizations());
+    assertEquals(0.5, first.probability());
     assertEquals(List.of("first of a, b, c: a"), first.witness());
     assertEquals(1, first.diagnostics().size());
     assertTrue(first.completed());
@@ -334,7 +337,10 @@ class ResultProtosTest {
     assertFalse(exploration.complete());
     assertEquals(100, exploration.runs());
     assertEquals(List.of("runs"), exploration.budgetsHit());
-    assertEquals("incomplete: runs budget 100 hit after 100 runs", exploration.status());
+    assertTrue(exploration.probabilitiesLowerBound());
+    assertEquals(
+        "incomplete: runs budget 100 hit after 100 runs; probabilities are lower bounds",
+        exploration.status());
   }
 
   @Test

@@ -62,12 +62,12 @@ class RunVerdictSummaryTest {
     @Test
     void mapsExplorationFailureInCompleteRun() {
         Outcome completed = new Outcome(java.util.Map.of("value", new Value.IntegerValue(1)), Optional.empty(),
-                List.of(), Optional.empty(), 1, List.of(), List.of());
+                List.of(), Optional.empty(), 1, 0.5, List.of(), List.of());
         Outcome failed = new Outcome(java.util.Map.of(), Optional.empty(), List.of(), Optional.of("boom"), 1,
-                List.of(), List.of());
+                0.0, List.of(), List.of());
 
         ResultParts parts = ResultParts.exploration(new Exploration(List.of(completed, failed), true, 2, List.of(), 10,
-                10), PROJECT);
+                10, false), PROJECT);
 
         assertThat(parts.ok()).isFalse();
         assertThat(parts.resultText()).isEqualTo("complete (2 runs); 1 of 2 outcomes failed");

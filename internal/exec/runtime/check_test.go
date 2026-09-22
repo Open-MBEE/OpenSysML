@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"slices"
@@ -1460,6 +1461,98 @@ func TestCheckReplaysAPropertyThatFailsToEvaluate(t *testing.T) {
 		var dis *ReplayDisagreement
 		if _, err := Replay(context.Background(), m.fresh, start, v.Witness, props); !errors.As(err, &dis) {
 			t.Errorf("replay given %s property: %v, want a ReplayDisagreement", name, err)
+		}
+	}
+}
+
+// TestCheckWeighsMovesByExecutorThenUnit: a move's share is the draw a run makes
+// for it — the executor among those with a move, then the unit among its own —
+// so the masses a check reports are the probabilities explore reports for the
+// same invocation's outcomes.
+func TestCheckWeighsMovesByExecutorThenUnit(t *testing.T) {
+	m := parseExploreModel(t, `package test {
+		private import ScalarValues::*;
+		action a {
+			attribute x : Integer = 0;
+			first start;
+			fork split;
+			action div { assign x := 1 / 0; }
+			action ref { assign x := 'm' + 1; }
+			succession first start then split;
+			succession first split then div;
+			succession first split then ref;
+		}
+		action b {
+			attribute y : Integer = 0;
+			first start;
+			then action w assign y := 1;
+			then action third assign y := 'n' * 2;
+		}
+	}`)
+	start := invocationOf([]*symbols.Symbol{m.action(t, "a"), m.action(t, "b")}, nil)
+	leafOf := func(text string) string {
+		switch {
+		case strings.Contains(text, "division by zero"):
+			return "div"
+		case strings.Contains(text, "reference: m"):
+			return "ref"
+		case strings.Contains(text, "reference: n"):
+			return "third"
+		}
+		return ""
+	}
+
+	report, err := Check(context.Background(), m.fresh, start, CheckBudget{}, unreduced(), nil)
+	if err != nil {
+		t.Fatalf("check: %v", err)
+	}
+	mass := make(map[string]float64)
+	for _, v := range report.Violations {
+		leaf := leafOf(v.Err.Error())
+		if leaf == "" {
+			t.Fatalf("violation %q names no leaf", v.Err)
+		}
+		mass[leaf] += v.Mass
+	}
+
+	x, err := Explore(context.Background(), mustPolicy(t, "explore"), m.fresh, func(ctx *Context) (Outcome, error) {
+		run, err := beginInvocation(ctx, start)
+		if err != nil {
+			return Outcome{}, err
+		}
+		if err := run.inv.started(ctx); err != nil {
+			return Outcome{}, err
+		}
+		for {
+			if err := run.stabilize(); err != nil {
+				return Outcome{}, err
+			}
+			if run.terminal() {
+				return run.inv.Outcome(), nil
+			}
+			if err := run.step(owners(run.enabledMoves())); err != nil {
+				return Outcome{}, err
+			}
+		}
+	})
+	if err != nil || !x.Complete() {
+		t.Fatalf("explore: %v, %v", err, x)
+	}
+	probs := make(map[string]float64)
+	for _, o := range x.Outcomes {
+		if o.Outcome.Err == nil {
+			t.Fatalf("outcome %q failed under no leaf", o.Outcome)
+		}
+		probs[leafOf(o.Outcome.Err.Error())] += o.Probability
+	}
+
+	want := map[string]float64{"div": 0.25, "ref": 0.25, "third": 0.5}
+	for leaf, w := range want {
+		if math.Abs(probs[leaf]-w) > 1e-9 {
+			t.Errorf("explore's probability of the %s failure is %v, want %v", leaf, probs[leaf], w)
+		}
+		if math.Abs(mass[leaf]-probs[leaf]) > 1e-9 {
+			t.Errorf("check's mass of the %s failure is %v, want explore's %v", leaf, mass[leaf], probs[leaf])
 		}
 	}
 }

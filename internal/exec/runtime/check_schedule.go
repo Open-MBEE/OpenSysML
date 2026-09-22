@@ -70,16 +70,19 @@ type checkRun struct {
 	script  *checkScript
 	refused error
 	// picked counts the picks the move under way consumed; drawn are the choice
-	// points it faced past them, each taken at its first alternative.
+	// points it faced past them, each taken at its first alternative. faced is
+	// every choice point the move resolved, scripted picks and drawn alike, each
+	// at the alternative taken — the probability mass of the move is their product.
 	picked int
 	drawn  []ChoicePoint
+	faced  []ChoicePoint
 	// move is the step under way, nil between steps.
 	move *checkMove
 }
 
 // begin starts a move: the picks are consumed from the first, nothing is drawn yet.
 func (r *checkRun) begin() {
-	r.picked, r.drawn, r.move = 0, nil, nil
+	r.picked, r.drawn, r.faced, r.move = 0, nil, nil, nil
 }
 
 // refuse records the first selected move the run could not make.
@@ -122,10 +125,12 @@ type checkMove struct {
 // beginStep resolves the step as a replayed one resolves a witness move: the
 // selected token alone when two or more are able to act, else — one at most
 // able to act — that one first and the rest after, as a settling step tries them.
+// A step of a do flow within the machine's move picks its token as a choice point
+// of the move (ChoiceTokenOrder); any other nested step goes in declared order.
 func (r *checkRun) beginStep(tokens stepTokens) *checkMove {
 	m := &checkMove{run: r, step: tokens.step, taken: -1, selected: r.script.token != 0}
 	if tokens.owner != r.script.owner {
-		m.nested, m.selected = true, false
+		m.nested, m.selected = !tokens.stepped, false
 	}
 	r.move = m
 	var enabled, rest, held []int64
@@ -149,6 +154,16 @@ func (r *checkRun) beginStep(tokens stepTokens) *checkMove {
 		if m.selected && id == r.script.token {
 			m.taken = i
 		}
+	}
+	if tokens.stepped && tokens.owner != r.script.owner {
+		if len(enabled) >= 2 {
+			m.taken = r.choose(ChoicePoint{Kind: ChoiceTokenOrder, Step: tokens.step, Alternatives: m.enabled}, nil)
+			m.selected = true
+			m.order = []int64{enabled[m.taken]}
+		} else {
+			m.order = slices.Concat(enabled, rest, held)
+		}
+		return m
 	}
 	if !m.selected {
 		m.order = slices.Concat(enabled, rest, held)
@@ -250,6 +265,7 @@ func (r *checkRun) choose(c ChoicePoint, whereOf func(i int) string) int {
 			c.Where = whereOf(0)
 		}
 		r.drawn = append(r.drawn, c)
+		r.faced = append(r.faced, c)
 		return 0
 	}
 	pick := r.script.picks[r.picked]
@@ -261,12 +277,16 @@ func (r *checkRun) choose(c ChoicePoint, whereOf func(i int) string) int {
 		r.refuse(fmt.Sprintf("the run faced %s and pick %d is not among them", c.Describe(), pick+1))
 		return 0
 	}
+	c.Taken = pick
+	r.faced = append(r.faced, c)
 	return pick
 }
 
 // mark returns what a probe restores: whether a move was refused and what the
 // step under way drew.
 func (r *checkRun) mark() func() {
-	refused, picked, drawn, move := r.refused, r.picked, slices.Clone(r.drawn), r.move
-	return func() { r.refused, r.picked, r.drawn, r.move = refused, picked, slices.Clone(drawn), move }
+	refused, picked, drawn, faced, move := r.refused, r.picked, slices.Clone(r.drawn), slices.Clone(r.faced), r.move
+	return func() {
+		r.refused, r.picked, r.drawn, r.faced, r.move = refused, picked, slices.Clone(drawn), slices.Clone(faced), move
+	}
 }

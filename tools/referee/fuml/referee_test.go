@@ -28,9 +28,9 @@ const fixtureLibrary = `<?xml version="1.0" encoding="UTF-8"?>
 const integerType = `<type xmi:type="uml:PrimitiveType" href="pathmap://UML_LIBRARIES/UMLPrimitiveTypes.library.uml#Integer"/>`
 
 // fixtureModel is a test model of the suite's shape: Sum adds two literals into
-// an output, Twice collects two literals into a multi-valued output, Creator
-// creates an object the pilot emitter does not translate, and Extent reads a
-// classifier extent SysML v2 cannot spell.
+// an output, Twice collects two literals into a multi-valued output, Selfer
+// reads self outside any class, which the pilot emitter does not translate, and
+// Extent reads a classifier extent SysML v2 cannot spell.
 const fixtureModel = `<?xml version="1.0" encoding="UTF-8"?>
 <uml:Model xmi:version="20131001" xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmlns:uml="http://www.eclipse.org/uml2/5.0.0/UML" xmi:id="m" name="Fixture">
   <packagedElement xmi:type="uml:Activity" xmi:id="sum" name="Sum">
@@ -72,9 +72,9 @@ const fixtureModel = `<?xml version="1.0" encoding="UTF-8"?>
     <edge xmi:type="uml:ObjectFlow" xmi:id="w2" source="t2r" target="twiceOutNode"/>
   </packagedElement>
   <packagedElement xmi:type="uml:Class" xmi:id="k" name="K"/>
-  <packagedElement xmi:type="uml:Activity" xmi:id="creator" name="Creator">
-    <node xmi:type="uml:CreateObjectAction" xmi:id="createK" name="Create(K)" classifier="k">
-      <result xmi:type="uml:OutputPin" xmi:id="createKr" name="result" type="k"/>
+  <packagedElement xmi:type="uml:Activity" xmi:id="selfer" name="Selfer">
+    <node xmi:type="uml:ReadSelfAction" xmi:id="readSelf" name="ReadSelf">
+      <result xmi:type="uml:OutputPin" xmi:id="readSelfr" name="result"/>
     </node>
   </packagedElement>
   <packagedElement xmi:type="uml:Activity" xmi:id="extent" name="Extent">
@@ -206,7 +206,7 @@ func wantReasons(t *testing.T, row ActivityReport, wants ...string) {
 func TestRefereeBuckets(t *testing.T) {
 	s := fixtureSuite(t, fixtureModel)
 	x := fixtureExpected(t, s)
-	x.Activities = append(x.Activities, ExpectedActivity{Model: TestsFile, ID: "creator", Name: "Creator", Skipped: "no test executes it"})
+	x.Activities = append(x.Activities, ExpectedActivity{Model: TestsFile, ID: "selfer", Name: "Selfer", Skipped: "no test executes it"})
 	r := refereed(t, s, x, Options{})
 	if r.Buckets[oreport.BucketPass] != 2 || r.Buckets[oreport.BucketFail] != 0 || r.Buckets[oreport.BucketNotExpressible] != 3 || r.Buckets[oreport.BucketDiffersByDesign] != 0 {
 		t.Errorf("buckets = %v", r.Buckets)
@@ -222,11 +222,11 @@ func TestRefereeBuckets(t *testing.T) {
 	if twice.Bucket != oreport.BucketPass || strings.Join(twice.Reached, ";") != "values = 1, 2" {
 		t.Errorf("Twice = %+v", twice)
 	}
-	creator := row(t, r, "Creator")
-	if creator.Bucket != oreport.BucketNotExpressible || creator.Class != "expressible" || creator.Runs != 0 || len(creator.Reasons) != 1 {
-		t.Errorf("Creator = %+v", creator)
+	selfer := row(t, r, "Selfer")
+	if selfer.Bucket != oreport.BucketNotExpressible || selfer.Class != "expressible" || selfer.Runs != 0 || len(selfer.Reasons) != 1 {
+		t.Errorf("Selfer = %+v", selfer)
 	}
-	wantReasons(t, creator, "not yet translated: Create(K): CreateObjectAction")
+	wantReasons(t, selfer, "not yet translated: ReadSelf: reads self in an activity performed on its own, where self is the performance and not an object")
 	extent := row(t, r, "Extent")
 	if extent.Bucket != oreport.BucketNotExpressible || extent.Runs != 0 || len(extent.Reasons) != 1 {
 		t.Errorf("Extent = %+v", extent)
@@ -251,6 +251,96 @@ func TestRefereeNoRecord(t *testing.T) {
 	wantReasons(t, r.Activities[0], "record has no execution of it")
 	r = refereed(t, s, x, Options{Filter: "Twice"})
 	wantReasons(t, r.Activities[0], "record has no execution of it: the test harness has no case for it")
+}
+
+// A class's owned behavior runs only as the behavior of an object of the class,
+// so its row is carried by the activities whose start runs it: pass when a
+// starter passes, fail when one fails, each reason naming the starter; one
+// nothing starts fails saying so.
+func TestRefereeOwnedBehavior(t *testing.T) {
+	s := fixtureSuite(t, objectModel)
+	awakener := fixtureActivity(t, s, "Awakener")
+	x := &Expected{Activities: []ExpectedActivity{
+		executed(awakener, []ExpectedOutput{{Parameter: "made", Values: []ExpectedValue{object("o1", "Holder")}}}),
+		{Model: TestsFile, ID: "reflect", Name: "Reflect", Skipped: "ownedBehavior of Holder"},
+	}}
+	r := refereed(t, s, x, Options{Filter: "Reflect"})
+	reflect := row(t, r, "Reflect")
+	if reflect.Bucket != oreport.BucketPass || reflect.Class != "expressible" || reflect.Runs != 0 || len(reflect.Reasons) != 1 {
+		t.Errorf("Reflect = %+v", reflect)
+	}
+	wantReasons(t, reflect, "started by Awakener, which is pass")
+	idle := row(t, refereed(t, s, x, Options{Filter: "Idle"}), "Idle")
+	if idle.Bucket != oreport.BucketFail {
+		t.Errorf("Idle = %+v", idle)
+	}
+	wantReasons(t, idle, "no activity starts an object of Holder, so nothing runs it")
+
+	x.Activities[0] = executed(awakener, []ExpectedOutput{{Parameter: "made", Values: []ExpectedValue{object("o1", "Holder", feature("n", 4))}}})
+	r = refereed(t, s, x, Options{})
+	reflect = row(t, r, "Reflect")
+	if reflect.Bucket != oreport.BucketFail || row(t, r, "Awakener").Bucket != oreport.BucketFail {
+		t.Errorf("Reflect = %+v", reflect)
+	}
+	wantReasons(t, reflect, "started by Awakener, which is fail: outputs differ: made = Holder#1{n = -}")
+}
+
+// driverModel adds to the object model a Driver that calls Awakener, the start
+// of the Holder reached through the call, and passes the Holder made out.
+var driverModel = strings.Replace(objectModel, "</uml:Model>", `
+  <packagedElement xmi:type="uml:Activity" xmi:id="driver" name="Driver">
+    <ownedParameter xmi:type="uml:Parameter" xmi:id="driverOut" name="got" direction="out" type="holder"/>
+    <node xmi:type="uml:CallBehaviorAction" xmi:id="callAwakener" name="Call(Awakener)" behavior="awakener">
+      <result xmi:type="uml:OutputPin" xmi:id="callAwakenerr" name="made" type="holder"/>
+    </node>
+    <node xmi:type="uml:ActivityParameterNode" xmi:id="driverOutNode" name="Parameter(got)" parameter="driverOut"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="d1" source="callAwakenerr" target="driverOutNode"/>
+  </packagedElement>
+  <packagedElement xmi:type="uml:Activity" xmi:id="loop" name="Loop">
+    <node xmi:type="uml:CallBehaviorAction" xmi:id="callLoop" name="Call(Loop)" behavior="loop"/>
+    <node xmi:type="uml:CallBehaviorAction" xmi:id="callDriver" name="Call(Driver)" behavior="driver"/>
+  </packagedElement>
+</uml:Model>`, 1)
+
+// An owned behavior started by an activity the record never executed on its own
+// is carried by the executed activities that reach the start through calls,
+// transitively, an activity calling itself walked once; when none is executed,
+// every activity reaching the start speaks.
+func TestRefereeOwnedBehaviorStartedThroughACall(t *testing.T) {
+	s := fixtureSuite(t, driverModel)
+	driver := fixtureActivity(t, s, "Driver")
+	x := &Expected{Activities: []ExpectedActivity{
+		executed(driver, []ExpectedOutput{{Parameter: "got", Values: []ExpectedValue{object("o1", "Holder")}}}),
+		{Model: TestsFile, ID: "awakener", Name: "Awakener", Skipped: "no test executes it"},
+		{Model: TestsFile, ID: "loop", Name: "Loop", Skipped: "no test executes it"},
+		{Model: TestsFile, ID: "reflect", Name: "Reflect", Skipped: "ownedBehavior of Holder"},
+	}}
+	r := refereed(t, s, x, Options{})
+	reflect := row(t, r, "Reflect")
+	if reflect.Bucket != oreport.BucketPass || len(reflect.Reasons) != 1 {
+		t.Errorf("Reflect = %+v", reflect)
+	}
+	wantReasons(t, reflect, "started by Driver through Awakener, which is pass")
+	if awakener := row(t, r, "Awakener"); awakener.Bucket != oreport.BucketFail {
+		t.Errorf("Awakener = %+v", awakener)
+	}
+
+	x.Activities[0] = executed(driver, []ExpectedOutput{{Parameter: "got", Values: []ExpectedValue{object("o1", "Holder", feature("n", 4))}}})
+	reflect = row(t, refereed(t, s, x, Options{}), "Reflect")
+	if reflect.Bucket != oreport.BucketFail {
+		t.Errorf("Reflect = %+v", reflect)
+	}
+	wantReasons(t, reflect, "started by Driver through Awakener, which is fail: outputs differ")
+
+	x.Activities = x.Activities[1:]
+	reflect = row(t, refereed(t, s, x, Options{}), "Reflect")
+	if reflect.Bucket != oreport.BucketFail || len(reflect.Reasons) != 3 {
+		t.Errorf("Reflect = %+v", reflect)
+	}
+	wantReasons(t, reflect,
+		"started by Awakener, which is fail: the implementation's record has no execution of it",
+		"started by Driver through Awakener, which is fail",
+		"started by Loop through Awakener, which is fail")
 }
 
 // A run whose outputs differ from the record fails naming both; the differing
@@ -329,7 +419,7 @@ func TestRefereeFilterAndSummary(t *testing.T) {
 	if !strings.HasPrefix(summary, Meaning+"\n") {
 		t.Errorf("summary does not open with the meaning:\n%s", summary)
 	}
-	for _, want := range []string{"pass                 2", "fail                 0", "not-expressible      3", "differs-by-design    0", "\nnot-expressible:\n  Creator\n    not yet translated", "\n  Extent\n    ReadExtentAction"} {
+	for _, want := range []string{"pass                 2", "fail                 0", "not-expressible      3", "differs-by-design    0", "\nnot-expressible:\n  Selfer\n    not yet translated", "\n  Extent\n    ReadExtentAction"} {
 		if !strings.Contains(summary, want) {
 			t.Errorf("summary lacks %q:\n%s", want, summary)
 		}

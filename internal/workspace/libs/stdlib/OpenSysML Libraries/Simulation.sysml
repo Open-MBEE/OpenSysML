@@ -54,4 +54,37 @@ library package Simulation {
 		attribute timeUnit : String[0..1];
 		attribute parallelForks : Boolean[0..1];
 	}
+
+	abstract analysis def MonteCarlo {
+		doc
+		/*
+		 * An analysis of repeated runs. One run performs the case's steps on a
+		 * fresh subject and reads observed, the value the specializing case binds:
+		 *
+		 *   analysis def 'Timer Analysis Monte Carlo' :> MonteCarlo {
+		 *       subject timer : 'Timer Analysis';
+		 *       perform action run ::> timer.tick;
+		 *       attribute :>> observed : Real = timer.t;
+		 *       return Mean : Real = mean;
+		 *   }
+		 *
+		 * -runs N (or the Configuration's runs) performs N such runs, each seeded
+		 * from -seed, and then binds the statistics of the N observations: runs is
+		 * N, mean their arithmetic mean, deviation their sample standard deviation
+		 * (empty under two runs, so a return of it is optional) and outOfSpec the
+		 * number of runs in which a required check of the case — an objective's
+		 * condition or an assertion — did not hold. The case's own outputs are
+		 * evaluated once, over the statistics. Run once, without -runs, the
+		 * statistics stay unbound, and a return of one of them is refused.
+		 *
+		 * A SysML v1 model migrated from a tool with a Monte Carlo analysis pattern
+		 * carries one specializing case per block of that pattern; the migration
+		 * reference documents which statistic of the tool each attribute records.
+		 */
+		attribute observed[0..1];
+		out attribute runs : Natural[0..1];
+		out attribute mean[0..1];
+		out attribute deviation[0..1];
+		out attribute outOfSpec : Natural[0..1];
+	}
 }

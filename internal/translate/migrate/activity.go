@@ -771,7 +771,7 @@ func (a *activity) waitFor(e *sysmlv1.Element) (string, bool) {
 	hi, hok, hnote := a.m.durationExpr(a.m.model.Ref(spec, "max"), e)
 	if bound, bnote, ok := a.m.singleValue(spec, lo, lok, hok); ok {
 		a.m.add(dc, Approximated, a.m.v2Name(a.def), joinNotes(bnote, "so the wait is a fixed "+bound+" s before "+describe(e)))
-		return bound + siSeconds, true
+		return inSeconds(bound), true
 	}
 	if !lok || !hok {
 		a.unmappedWait(dc, e, a.m.openInterval(spec, lo, lok, lnote, hi, hok, hnote))
@@ -793,7 +793,7 @@ func (a *activity) waitFor(e *sysmlv1.Element) (string, bool) {
 		note = joinNotes(note, "written as a wait drawn uniformly over ["+lo+", "+hi+"] s before "+describe(e)+"; a tool's fixed min or max mode is a run setting, not the model's")
 	}
 	a.m.add(dc, Approximated, a.m.v2Name(a.def), note)
-	return expr + siSeconds, true
+	return inSeconds(expr), true
 }
 
 func (a *activity) unmappedWait(dc, e *sysmlv1.Element, note string) {
@@ -1031,11 +1031,11 @@ func probability(e *sysmlv1.Element) *sysmlv1.Stereotype {
 	return stereo(e, "Probability")
 }
 
-// foreignProbabilities notes each «Probability» on e from a profile other than
-// SysML's, whose probability is not read.
+// foreignProbabilities notes each «Probability» on e that neither is SysML's
+// nor specializes it, whose probability is not read.
 func (a *activity) foreignProbabilities(e *sysmlv1.Element) {
 	for _, s := range e.Stereotypes {
-		if s.Name == "Probability" && !isStandard(s) {
+		if s.Name == "Probability" && !appliesStandard(s, "Probability") {
 			a.m.add(e, Approximated, "", "«Probability» from "+s.Namespace+" is not the SysML profile's; its probability is not read")
 		}
 	}
@@ -2214,7 +2214,7 @@ func (m *migration) acceptClause(ev, scope *sysmlv1.Element, payload string) (cl
 		if !ok {
 			return "", "the time event's time is not written: " + note, false
 		}
-		return "accept after " + d + siSeconds, note, true
+		return "accept after " + inSeconds(d), note, true
 	case "ChangeEvent":
 		expr, ok, note := m.behaviorValue(firstOwned(ev, "changeExpression"), scope)
 		if !ok {

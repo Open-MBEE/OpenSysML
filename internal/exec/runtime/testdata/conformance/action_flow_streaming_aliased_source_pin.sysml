@@ -1,9 +1,9 @@
 package test {
 	private import ScalarValues::*;
 
-	// A flow may name a source pin by its inherited name or by the redefining one;
-	// both name one pin, so its one write to a target begun afterwards is staged once:
-	// the target's first performance takes it and its second finds nothing waiting.
+	// Two flows may name one source pin by its inherited and by its redefining name;
+	// each flow declaration is a transfer of its own, so the pin's one write is staged
+	// twice for a target begun afterwards: each of the target's two performances takes one.
 	action def Producer {
 		out result : Integer[0..1] = ();
 	}

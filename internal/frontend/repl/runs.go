@@ -13,7 +13,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 )
 
-const runsUsage = "usage: %runs <n> [<seed>] <action> [<observable>...]; the seed is left out under %draws min, max or average"
+const runsUsage = "usage: %runs <n> [<seed>] <action> [<observable>...] | %runs <n> [<seed>] <analysis>[(<args>)] [<object>]; the seed is left out under %draws min, max or average"
 
 // ClockObservable names the observable every run of a Monte Carlo reports
 // beside the action's features: the simulation clock when the action completed.
@@ -24,11 +24,16 @@ const ClockObservable = "clock"
 var ErrRunsReplay = errors.New("a Monte Carlo runs under a driving schedule, not a replay")
 
 // doRuns carries out %runs at the prompt: the number of runs, the seed their seeds
-// derive from — left out under a fixed %draws policy — the action, then the observables.
+// derive from — left out under a fixed %draws policy — the action, then the observables;
+// or, in the action's place, a Simulation::MonteCarlo analysis case with its arguments.
 func (s *Session) doRuns(tail string) ([]string, bool, error) {
 	count, seed, rest, err := splitRunsTail(tail, s.draws.Fixed())
 	if err != nil {
 		return []string{errPrefix + err.Error(), runsUsage}, false, nil
+	}
+	if s.namesAnalysisCase(rest) {
+		inv, _ := splitAnalysisArgs(rest)
+		return s.withTrace(s.monteCarloVerdict(inv, count, seed)).Lines, false, nil
 	}
 	fields := splitQueryArgs(rest)
 	if len(fields) == 0 {

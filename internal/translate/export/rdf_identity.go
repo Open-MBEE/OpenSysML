@@ -38,6 +38,13 @@ type identityFacts struct {
 	// qualified reports a multi-scope document, whose scoped elements get
 	// IRIs qualified by their scope so ids repeated across scopes stay apart.
 	qualified bool
+	// model and res read the identity of a library element the document
+	// refers to, which the table over its own root does not hold.
+	model *semantics.Model
+	res   *resolve.Resolver
+	// library memoizes those lookups: the qualified name a library symbol's
+	// normative id was recorded under, "" where the norm fixes none.
+	library map[*symbols.Symbol]string
 }
 
 // analyzeDocument indexes one parsed document over the standard library and resolves every
@@ -79,6 +86,9 @@ func documentIdentity(name string, res *resolve.Resolver, model *semantics.Model
 		byNode:     map[ast.Node]elementIdentity{},
 		consumed:   map[ast.Node]bool{},
 		provenance: map[ast.Node]*identity.Scope{},
+		model:      model,
+		res:        res,
+		library:    map[*symbols.Symbol]string{},
 	}
 	scopeKeys := map[string]bool{}
 	for _, sym := range table.Symbols() {
@@ -146,6 +156,40 @@ func idByte(c byte) bool {
 	return c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '-'
 }
 
+// libraryName reports whether fqn names a standard library element the norm
+// fixes an id for, so a reference to it links rather than carries text.
+func (f *identityFacts) libraryName(fqn string) bool {
+	if _, declared := f.byFQN[fqn]; declared {
+		return true
+	}
+	_, ok := identity.LibraryCatalog(f.res.Index()).ElementNamed(fqn)
+	return ok
+}
+
+// libraryElement records the normative identity of a bundled library symbol on
+// first sight and returns its qualified name; false where the norm fixes no id.
+func (f *identityFacts) libraryElement(sym *symbols.Symbol) (string, bool) {
+	if fqn, seen := f.library[sym]; seen {
+		return fqn, fqn != ""
+	}
+	f.library[sym] = ""
+	if _, declared := f.byNode[sym.Decl]; declared || !f.res.Index().Library(sym) {
+		return "", false
+	}
+	info, ok := identity.Of(f.model, f.res, sym)
+	if !ok || info.Source != identity.SourceNormative {
+		return "", false
+	}
+	if _, taken := f.byFQN[info.FQN]; taken {
+		return "", false
+	}
+	el := elementIdentity{id: info.EffectiveID, source: info.Source, membership: info.OwningMembershipID()}
+	f.byFQN[info.FQN] = el
+	f.byNode[sym.Decl] = el
+	f.library[sym] = info.FQN
+	return info.FQN, true
+}
+
 // subjectFor returns the subject IRI of the element with the given qualified
 // name: its effective id, scope-qualified when the document is multi-scope.
 func (f *identityFacts) subjectFor(fqn string) rdf.Term {
@@ -182,6 +226,12 @@ func (f *identityFacts) owningMembershipOf(node ast.Node, member rdf.Term) rdf.T
 		return rdf.ElementIRIForID(el.membership)
 	}
 	return rdf.OwningMembershipIRIOf(member)
+}
+
+// normativeMembership reports whether the norm fixes an id for the membership
+// owning the element declared at node.
+func (f *identityFacts) normativeMembership(node ast.Node) bool {
+	return f.byNode[node].membership != ""
 }
 
 // declaredIDAt reports whether the declaration's id came from an explicit

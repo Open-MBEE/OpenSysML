@@ -87,7 +87,7 @@ func (m *migration) behaviorBody(e *sysmlv1.Element, cat category) {
 		m.parameters(e, e)
 		m.opaqueBehaviorBody(e, e)
 	}
-	m.stereotypeComments(e)
+	m.stereotypeAnnotations(e)
 	m.scope = saved
 }
 

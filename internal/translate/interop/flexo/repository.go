@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/interop/reposync"
@@ -39,6 +41,28 @@ func (e *StaleBranchError) Error() string {
 		e.Branch, e.Project, e.Seen, e.Head)
 }
 
+// UnrecordedPushError is a graph write the branch accepted but whose response
+// named no commit; a later head read could be another writer's, so none is recorded.
+type UnrecordedPushError struct {
+	Project, Branch string
+}
+
+func (e *UnrecordedPushError) Error() string {
+	return fmt.Sprintf("the graph was written to %s/%s but the response named no commit; read the branch again before the next push",
+		e.Project, e.Branch)
+}
+
+// SupersededPushError is a committed graph write, named by its Location, whose
+// branch head has since moved on; the baseline must come from reading the branch again.
+type SupersededPushError struct {
+	Project, Branch, Commit, Head string
+}
+
+func (e *SupersededPushError) Error() string {
+	return fmt.Sprintf("the graph was committed to %s/%s as %s but the branch has since moved to %s; read it again before the next push",
+		e.Project, e.Branch, e.Commit, e.Head)
+}
+
 // Head is the branch's current head commit.
 func (r *Repository) Head(ctx context.Context) (string, error) {
 	branch, err := r.client.Branch(ctx, r.project, r.branch)
@@ -54,6 +78,10 @@ func (r *Repository) Head(ctx context.Context) (string, error) {
 // Seen is the head commit the last Graph read stood at, or the last commit
 // this repository wrote; empty before either.
 func (r *Repository) Seen() string { return r.seen }
+
+// Resume records the last-seen commit a saved sync state carries, so a head
+// that has since moved is refused instead of written past.
+func (r *Repository) Resume(commit string) { r.seen = commit }
 
 // Graph reads the branch as its head commit left it, so the read is of one
 // commit rather than of a branch that may move under it.
@@ -74,6 +102,68 @@ func (r *Repository) Graph(ctx context.Context) (*rdf.Graph, error) {
 // a diff needs to tell a repository change from its own.
 func (r *Repository) GraphAt(ctx context.Context, commit string) (*rdf.Graph, error) {
 	return r.client.CommitGraph(ctx, r.project, commit)
+}
+
+// Push replaces the branch's whole model graph with the given Turtle and
+// returns the commit made; a head that moved past what was seen is refused.
+func (r *Repository) Push(ctx context.Context, turtle []byte, message string) (string, error) {
+	// The etag is read first: a head read after it can only race into a 412,
+	// never into a write past a moved head.
+	etag, err := r.client.BranchETag(ctx, r.project, r.branch)
+	if err != nil {
+		return "", err
+	}
+	head, err := r.Head(ctx)
+	if err != nil {
+		return "", err
+	}
+	if r.seen != "" && head != r.seen {
+		return "", &StaleBranchError{Project: r.project, Branch: r.branch, Seen: r.seen, Head: head}
+	}
+	res, err := r.client.PutGraph(ctx, r.project, r.branch, turtle, message, etag)
+	if err != nil {
+		if Status(err) == http.StatusPreconditionFailed {
+			current, readErr := r.Head(ctx)
+			if readErr != nil {
+				return "", fmt.Errorf("the branch answered 412 and its head could not be re-read: %w", readErr)
+			}
+			// A committed write answers 412 too; its Location proves the commit,
+			// and only a head still at it counts it as ours.
+			if c := committedFrom(res); c != "" {
+				if c == current {
+					r.seen = c
+					return c, nil
+				}
+				return "", &SupersededPushError{Project: r.project, Branch: r.branch, Commit: c, Head: current}
+			}
+			return "", &StaleBranchError{Project: r.project, Branch: r.branch, Seen: head, Head: current}
+		}
+		return "", err
+	}
+	// Trust the commit the write itself reported; the head may have moved on.
+	if res.Commit != "" {
+		r.seen = res.Commit
+		return res.Commit, nil
+	}
+	r.seen = ""
+	return "", &UnrecordedPushError{Project: r.project, Branch: r.branch}
+}
+
+// committedFrom trusts an ETag only when the response's Location names the
+// same commit under /commits/; a refused 412 carries neither.
+func committedFrom(res PutResult) string {
+	if res.Commit == "" {
+		return ""
+	}
+	u, err := url.Parse(res.Location)
+	if err != nil {
+		return ""
+	}
+	parts := strings.Split(strings.Trim(u.Path, "/"), "/")
+	if len(parts) >= 2 && parts[len(parts)-2] == "commits" && parts[len(parts)-1] == res.Commit {
+		return res.Commit
+	}
+	return ""
 }
 
 // Commit writes one batch as one SysML v2 commit. Creates and updates send

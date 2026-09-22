@@ -406,81 +406,118 @@ func (ctx *Context) postVia(ec *EvalContext, conns []lower.Connection, msg Messa
 	if send.Receiver != "" && send.Scope != nil && !ctx.sendsOwnPort(routed, holder, holder != self) {
 		return &UnknownSendPortError{Port: send.Target, Receiver: send.Receiver}
 	}
-	receiver := send.Receiver
-	// receiverObjects are the objects a `to` expression evaluated to, where the
-	// receiver names no receiving node of the sending object: deliveries are then
-	// held to those objects rather than to a node's name.
-	var receiverObjects map[int64]bool
-	if receiver != "" {
-		separator := "::"
-		if send.ReceiverPath {
-			separator = "."
-		}
-		segments := strings.Split(receiver, separator)
-		objects, err := ec.routedReceiverObjects(send, holder, segments, len(segments) > 1)
-		if err != nil {
-			return err
-		}
-		if objects != nil {
-			receiverObjects = objects
-			receiver = ""
-		} else {
-			receiverSend := routed
-			receiverSend.Target = send.Receiver
-			receiverSend.TargetPath = send.ReceiverPath
-			receiverSend.IsVia = false
-			addr, err := ctx.resolveRoutedReceiver(receiverSend, holder)
-			if err != nil || (addr.Object != 0 && addr.Object != objectID(holder)) {
-				return &UnreachableSendReceiverError{Port: send.Target, Receiver: send.Receiver}
-			}
-			receiver = addr.Name
-		}
-	} else if receivers != nil {
-		receiverObjects = objectSet(receivers)
-	}
-	typed := receiver != ""
-	own, outbound, typeMismatch, err := ctx.connectedDeliveries(
-		ec, ctx.realizedConnections(conns, self), self, send, msg, typed,
-	)
+	receiver, receiverObjects, err := ctx.sendReceiver(ec, send, routed, holder, receivers)
 	if err != nil {
 		return err
 	}
-	performer := ctx.realizedConnections(ctx.performerConnections(holder, send.Scope), holder)
-	receiving, held, heldMismatch, err := ctx.connectedDeliveries(
-		nil, performer, holder, routed, msg, typed,
-	)
+	deliveries, own, err := ctx.viaRoutes(ec, conns, send, routed, holder, self, msg, receiver)
 	if err != nil {
 		return err
-	}
-	crossing, crossMismatch, err := ctx.ownerDeliveries(holder, routed, msg, typed)
-	if err != nil {
-		return err
-	}
-	typeMismatch = typeMismatch || heldMismatch || crossMismatch
-	outbound = appendUnseen(outbound, held...)
-	if len(own) == 0 && len(receiving) == 0 && len(crossing) == 0 {
-		if typeMismatch && receiver != "" {
-			return &SendPortTypeMismatchError{
-				Port: send.Target, Receiver: receiver, SignalType: msg.SignalType,
-			}
-		}
-		return &UnroutableSendError{Port: send.Target, Outbound: outbound}
 	}
 	// A connection joins two objects, so each copy is held to the identity of the
 	// object whose port the end resolved to rather than to the sender's. Two
 	// destinations naming one port object (through a binding) get one copy.
 	// Every destination is resolved before any copy is queued, so a failure
 	// leaves nothing behind.
+	copies, err := ctx.deliveryCopies(deliveries, own, holder, self, receiver, receiverObjects, msg)
+	if err != nil {
+		return err
+	}
+	if receiverObjects != nil && len(copies) == 0 {
+		return &UnreachableSendReceiverError{Port: send.Target, Receiver: exprText(send.ReceiverExpr)}
+	}
+	for _, c := range copies {
+		ctx.postFrom(c.msg, c.from, behavior)
+	}
+	return nil
+}
+
+// viaRoutes gathers the deliveries a `via` send reaches: the sender's own
+// connections, then the holder's performer connections and owner crossings. own
+// is how many of the first are the sender's, for the sender each copy leaves.
+func (ctx *Context) viaRoutes(ec *EvalContext, conns []lower.Connection, send, routed lower.Send, holder, self *Instance, msg Message, receiver string) ([]ownerDelivery, int, error) {
+	typed := receiver != ""
+	own, outbound, typeMismatch, err := ctx.connectedDeliveries(
+		ec, ctx.realizedConnections(conns, self), self, send, msg, typed,
+	)
+	if err != nil {
+		return nil, 0, err
+	}
+	performer := ctx.realizedConnections(ctx.performerConnections(holder, send.Scope), holder)
+	receiving, held, heldMismatch, err := ctx.connectedDeliveries(
+		nil, performer, holder, routed, msg, typed,
+	)
+	if err != nil {
+		return nil, 0, err
+	}
+	crossing, crossMismatch, err := ctx.ownerDeliveries(holder, routed, msg, typed)
+	if err != nil {
+		return nil, 0, err
+	}
+	typeMismatch = typeMismatch || heldMismatch || crossMismatch
+	outbound = appendUnseen(outbound, held...)
+	if len(own) == 0 && len(receiving) == 0 && len(crossing) == 0 {
+		if typeMismatch && receiver != "" {
+			return nil, 0, &SendPortTypeMismatchError{
+				Port: send.Target, Receiver: receiver, SignalType: msg.SignalType,
+			}
+		}
+		return nil, 0, &UnroutableSendError{Port: send.Target, Outbound: outbound}
+	}
+	return slices.Concat(own, receiving, crossing), len(own), nil
+}
+
+// sendReceiver resolves a `via` send's receiver: the node name deliveries target,
+// or the objects a `to` expression evaluated to, deliveries then held to those
+// objects rather than to a node's name.
+func (ctx *Context) sendReceiver(ec *EvalContext, send lower.Send, routed lower.Send, holder *Instance, receivers []*Instance) (string, map[int64]bool, error) {
+	receiver := send.Receiver
+	if receiver == "" {
+		if receivers != nil {
+			return "", objectSet(receivers), nil
+		}
+		return "", nil, nil
+	}
+	separator := "::"
+	if send.ReceiverPath {
+		separator = "."
+	}
+	segments := strings.Split(receiver, separator)
+	objects, err := ec.routedReceiverObjects(send, holder, segments, len(segments) > 1)
+	if err != nil {
+		return "", nil, err
+	}
+	if objects != nil {
+		return "", objects, nil
+	}
+	receiverSend := routed
+	receiverSend.Target = send.Receiver
+	receiverSend.TargetPath = send.ReceiverPath
+	receiverSend.IsVia = false
+	addr, err := ctx.resolveRoutedReceiver(receiverSend, holder)
+	if err != nil || (addr.Object != 0 && addr.Object != objectID(holder)) {
+		return "", nil, &UnreachableSendReceiverError{Port: send.Target, Receiver: send.Receiver}
+	}
+	return addr.Name, nil, nil
+}
+
+// postedCopy is one message queued against a delivery, from the sender it
+// leaves: self for the sender's own connections, holder for the rest.
+type postedCopy struct {
+	msg  Message
+	from *Instance
+}
+
+// deliveryCopies makes one copy of msg per unseen delivery; a port object two
+// destinations share (through a binding) gets one copy. Every destination is
+// resolved before any copy is queued, so a failure leaves nothing behind.
+func (ctx *Context) deliveryCopies(deliveries []ownerDelivery, own int, holder, self *Instance, receiver string, receiverObjects map[int64]bool, msg Message) ([]postedCopy, error) {
 	posted := map[ownerDelivery]bool{}
 	postedPorts := map[int64]bool{}
-	type outgoing struct {
-		msg  Message
-		from *Instance
-	}
-	var copies []outgoing
+	var copies []postedCopy
 	from := self
-	for i, delivery := range slices.Concat(own, receiving, crossing) {
-		if i == len(own) {
+	for i, delivery := range deliveries {
+		if i == own {
 			from = holder
 		}
 		if receiverObjects != nil && !receiverObjects[delivery.object] {
@@ -490,34 +527,40 @@ func (ctx *Context) postVia(ec *EvalContext, conns []lower.Connection, msg Messa
 			continue
 		}
 		posted[delivery] = true
-		portID, err := ctx.portInstanceID(ctx.instances[delivery.object], delivery.port)
+		copied, ok, err := ctx.portCopy(delivery, receiver, msg, postedPorts)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		if portID != 0 {
-			if postedPorts[portID] {
-				continue
-			}
-			postedPorts[portID] = true
+		if ok {
+			copies = append(copies, postedCopy{copied, from})
 		}
-		copied := msg
-		copied.Target = receiver
-		copied.Port = delivery.port
-		copied.Object = delivery.object
-		copied.PortID = portID
-		copied.Delivery = DeliverPort
-		if receiver != "" {
-			copied.Delivery = DeliverPortReceiver
+	}
+	return copies, nil
+}
+
+// portCopy makes delivery's copy of msg; a port object another delivery already
+// copied to (through a binding) is skipped, reported by ok false.
+func (ctx *Context) portCopy(delivery ownerDelivery, receiver string, msg Message, postedPorts map[int64]bool) (Message, bool, error) {
+	portID, err := ctx.portInstanceID(ctx.instances[delivery.object], delivery.port)
+	if err != nil {
+		return Message{}, false, err
+	}
+	if portID != 0 {
+		if postedPorts[portID] {
+			return Message{}, false, nil
 		}
-		copies = append(copies, outgoing{copied, from})
+		postedPorts[portID] = true
 	}
-	if receiverObjects != nil && len(copies) == 0 {
-		return &UnreachableSendReceiverError{Port: send.Target, Receiver: exprText(send.ReceiverExpr)}
+	copied := msg
+	copied.Target = receiver
+	copied.Port = delivery.port
+	copied.Object = delivery.object
+	copied.PortID = portID
+	copied.Delivery = DeliverPort
+	if receiver != "" {
+		copied.Delivery = DeliverPortReceiver
 	}
-	for _, c := range copies {
-		ctx.postFrom(c.msg, c.from, behavior)
-	}
-	return nil
+	return copied, true, nil
 }
 
 // sendsOwnPort reports whether a send's port is the sender's own: a port of the
@@ -1205,11 +1248,11 @@ func exprText(node ast.Node) string {
 	case *ast.FeatureReference, *ast.QualifiedName, *ast.FeatureChainExpr:
 		return targetText(node)
 	case *ast.IndexExpr:
-		open, close := "#(", ")"
+		open, closing := "#(", ")"
 		if n.Bracket {
-			open, close = "[", "]"
+			open, closing = "[", "]"
 		}
-		return exprText(n.Operand) + open + exprText(n.Index) + close
+		return exprText(n.Operand) + open + exprText(n.Index) + closing
 	case *ast.ConstructorExpr:
 		return "new " + ast.QualifiedText(n.Type)
 	case *ast.InvocationExpr:
@@ -1803,20 +1846,7 @@ func (e *EvalContext) constructorLabel(scope *symbols.Scope, signal *symbols.Sym
 // against goldens, so the text has to be stable: printing the trigger node
 // itself emits a pointer address.
 func triggerName(trigger ast.Node) string {
-	switch t := trigger.(type) {
-	case nil:
-		return ""
-	case *ast.AcceptEvent:
-		return "accept " + orAny(ast.SimpleName(t.SignalType))
-	case *ast.CallEvent:
-		return "call " + orAny(ast.SimpleName(t.Operation))
-	case *ast.TimeEvent:
-		return "time"
-	case *ast.ChangeEvent:
-		return "change"
-	default:
-		return fmt.Sprintf("%T", trigger)
-	}
+	return lower.TriggerName(trigger)
 }
 
 // eventName names a dispatched occurrence as triggerName names the triggers it

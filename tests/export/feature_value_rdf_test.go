@@ -111,3 +111,74 @@ func TestFeatureValueFlagsWithoutAValueOrStatedTwiceAreReported(t *testing.T) {
 		}
 	}
 }
+
+func TestFeatureValueCanBeStatedOnlyOnItsMembership(t *testing.T) {
+	src := `package P {
+    attribute a : Integer;
+    attribute total : Integer = a * 2;
+}`
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	blocks := strings.Split(string(turtle), "\n\n")
+	for i, block := range blocks {
+		if strings.HasPrefix(block, "elmt:P__total\n") {
+			blocks[i] = strings.Replace(block, "    sysml:value expr:P__total_pvalue ;\n", "", 1)
+		}
+	}
+	out, err := convert.Convert("m.ttl", []byte(strings.Join(blocks, "\n\n")), convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("feature-value-only conversion: %v", err)
+	}
+	if !strings.Contains(string(out), "attribute total : Integer = a * 2;") {
+		t.Fatalf("feature-value-only graph lost the value:\n%s", out)
+	}
+}
+
+func TestDirectAndFeatureValueExpressionsRenderOnce(t *testing.T) {
+	src := []byte(`package P {
+    attribute limit : Integer;
+    attribute xs : Integer[*];
+    attribute total = xs->collect({ in limit : Integer = limit; limit });
+}`)
+	turtle, err := convert.Convert("duplicate.sysml", src, convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("encode duplicate value routes: %v", err)
+	}
+	if !strings.Contains(string(turtle), "elmt:P__total\n") ||
+		!strings.Contains(string(turtle), "sysml:value expr:P__total_pvalue ;") ||
+		!strings.Contains(string(turtle), "sysml:featureWithValue elmt:P__total ;\n    sysml:value expr:P__total_pvalue .") {
+		t.Fatalf("encoder did not provide both value routes:\n%s", turtle)
+	}
+	out, err := convert.Convert("duplicate.ttl", withoutSourceText(t, turtle), convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("decode duplicate value routes: %v", err)
+	}
+	got := string(out)
+	if want := "xs->collect({ in limit : Integer = limit; limit })"; !strings.Contains(got, want) {
+		t.Fatalf("duplicate value routes changed the shortest reference:\n%s", got)
+	}
+	if count := strings.Count(got, "= limit;"); count != 1 {
+		t.Fatalf("expression reference rendered %d times, want once:\n%s", count, got)
+	}
+}
+
+func TestConflictingUsageAndFeatureValueAreRefused(t *testing.T) {
+	src := `package P {
+    attribute a : Integer;
+    attribute total : Integer = a * 2;
+}`
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	mutated := strings.Replace(string(turtle),
+		"    sysml:featureWithValue elmt:P__total ;\n    sysml:value expr:P__total_pvalue .",
+		"    sysml:featureWithValue elmt:P__total ;\n    sysml:value expr:P__total_pvalue_pa0 .", 1)
+	_, err = convert.Convert("m.ttl", []byte(mutated), convert.FormatTurtle, convert.FormatSysML)
+	var unsupported *export.UnsupportedError
+	if !errors.As(err, &unsupported) || !strings.Contains(err.Error(), "usage and FeatureValue state different expressions") {
+		t.Fatalf("expected a conflicting FeatureValue error, got %v", err)
+	}
+}

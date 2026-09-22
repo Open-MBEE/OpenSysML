@@ -143,6 +143,7 @@ func TestClassifierBehaviorNamesBehavior(t *testing.T) {
 			action def A;
 			action b;
 			state m;
+			state def M;
 
 			part def P {
 				perform action a { in x = 1; }
@@ -150,12 +151,15 @@ func TestClassifierBehaviorNamesBehavior(t *testing.T) {
 				perform action ref ::> b;
 				perform b;
 				exhibit m;
+				exhibit state own { }
+				exhibit state typedState : M;
+				exhibit state refState ::> m;
 			}
 		}
 	`)
 
-	if len(behaviors) != 5 {
-		t.Fatalf("expected the type to bind 5 behaviors, got %d", len(behaviors))
+	if len(behaviors) != 8 {
+		t.Fatalf("expected the type to bind 8 behaviors, got %d", len(behaviors))
 	}
 	for _, tc := range []struct {
 		name string
@@ -166,6 +170,9 @@ func TestClassifierBehaviorNamesBehavior(t *testing.T) {
 		{"ref", true},
 		{"b", true},
 		{"m", true},
+		{"own", false},
+		{"typedState", true},
+		{"refState", true},
 	} {
 		var got *ClassifierBehavior
 		for i := range behaviors {

@@ -42,6 +42,10 @@ Then open any `.sysml` file. The extension finds the server in this order:
 If none exist, highlighting still works and a warning explains how to build the
 server. `SysML: Restart Language Server` restarts it after a rebuild.
 
+In an untrusted workspace (Restricted Mode) the extension still works:
+highlighting and a server resolved from `opensysml.server.path` or `PATH`; trust
+the folder to let the workspace's own `bin/sysml-lsp` build be used.
+
 ## The standard library
 
 The server bundles the standard library, so a definition, reference or hover can

@@ -34,6 +34,18 @@ func TestWriterBracedKeepsEmptyBody(t *testing.T) {
 	}
 }
 
+// A trailed statement ends with its trailer when its body is empty, and opens a
+// body led by the lead line otherwise.
+func TestWriterTrailed(t *testing.T) {
+	w := &writer{}
+	w.trailed("dependency A to B", "; /* «Trace» */", "/* «Trace» */", func() {})
+	w.trailed("dependency A to C", "; /* «Trace» */", "/* «Trace» */", func() { w.line("@X;") })
+	want := "dependency A to B; /* «Trace» */\ndependency A to C {\n    /* «Trace» */\n    @X;\n}\n"
+	if got := w.String(); got != want {
+		t.Errorf("got\n%s\nwant\n%s", got, want)
+	}
+}
+
 // Sibling blocks must not copy the output written before them: the bytes
 // allocated stay within a small factor of the output.
 func TestWriterSiblingBlocksAreLinear(t *testing.T) {

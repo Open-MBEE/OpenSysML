@@ -428,6 +428,33 @@ states left, right react`), explored like any other ([below](#when-a-model-has-m
 A do body that binds an `in` pin to nothing, or to a feature the state does not declare, is
 refused when the behavior starts, naming the pin.
 
+**An exit that reads what fired the transition.** A transition's accepted data — the `d` of
+`accept d : Dim`, the `p1` of `accept op(p1)` — is a feature of the transition, visible by its
+simple name to the transition's own guard and effect. The exit of the state the transition
+leaves runs before that effect, but as a step of the same transition performance, so it reads
+the data qualified by the transition's name, and an exit shared by several leaving transitions
+reads whichever is being taken with `??`, a transition not being taken reading as nothing:
+
+```sysml
+state idle {
+    exit action {
+        in level : Integer = warn.w ?? alarm.a;
+        assign exits := exits * 100 + level;
+    }
+}
+transition warn first idle accept w : Warning then warned;
+transition alarm first idle accept a : Alarm then alarmed;
+```
+
+A transition leaving a composite state binds the exits of the substates it leaves the same
+way, and a completion transition, or one whose trigger carries no data, binds nothing — the
+parameter keeps its default. A read of a transition not being taken, with no `??` to fall back
+on, leaves the parameter without a value and is refused when the exit runs, as is a payload of
+the wrong type. The entered state's `entry` and `do` read the transition that entered it the
+same way, the do behavior for its whole run (the state performance holds the transfer that
+triggered the transition into it, `StatePerformance::incomingTransitionTrigger`), whether its
+first step is drawn before or after the entries of the substates entered with it.
+
 <a id="ending-a-state-machine-with-terminate"></a>
 **Ending a state machine with `terminate`.** A transition whose target is a terminate action
 usage — `transition first watching accept Abort then stop; action stop terminate;`, the
@@ -715,19 +742,27 @@ varied twice, so a choice met early is varied by the second run however many cho
 $ sysml -schedule explore -action test::race action_explore_three_writers.sysml
 ✓ package test
 ✓ explored test::race: 3 outcomes
-outcome                                      | linearizations | witness
----------------------------------------------+----------------+------------------------------------------------------------------
-aRan = true; bRan = true; cRan = true; x = 1 | 2              | step 3: 3@b first of 2@a, 3@b, 4@c; step 4: 4@c first of 2@a, 4@c
-aRan = true; bRan = true; cRan = true; x = 2 | 2              | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 4@c first of 3@b, 4@c
-aRan = true; bRan = true; cRan = true; x = 3 | 2              | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 3@b first of 3@b, 4@c
+outcome                                      | linearizations | probability        | witness
+---------------------------------------------+----------------+--------------------+------------------------------------------------------------------
+aRan = true; bRan = true; cRan = true; x = 1 | 2              | 0.3333333333333333 | step 3: 3@b first of 2@a, 3@b, 4@c; step 4: 4@c first of 2@a, 4@c
+aRan = true; bRan = true; cRan = true; x = 2 | 2              | 0.3333333333333333 | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 4@c first of 3@b, 4@c
+aRan = true; bRan = true; cRan = true; x = 3 | 2              | 0.3333333333333333 | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 3@b first of 3@b, 4@c
 complete (6 runs)
 ```
 
 Runs that agree on what the conformance harness compares — an action's outputs; a state machine's
 final state, states visited and values; an analysis case's outputs and verdicts — are one
 *outcome*, and the table has one sorted row per distinct outcome: the outcome, how many
-linearizations reached it, and the choice sequence of one *witness* run (`3@b first of 2@a, 3@b,
-4@c` is the first pick, then `4@c first of 2@a, 4@c` among the two that remained). Six
+linearizations reached it, its *probability*, and the choice sequence of one *witness* run (`3@b first of 2@a, 3@b,
+4@c` is the first pick, then `4@c first of 2@a, 4@c` among the two that remained). A
+linearization's probability is the product of the shares its picks resolved with — a
+`@Probability`-weighted pick its stated weight's share of the weights drawn over, an unweighted
+choice point the uniform `1/n` a `seed:<n>` takes each alternative with — and an outcome's is the
+sum over its runs, so the column totals `1` when the exploration is complete: it is the model's
+own probability where every choice point is weighted, and where they are not it assumes the
+scheduling choices the library leaves open are taken uniformly at random. An incomplete
+exploration prefixes each figure `≥` and the status line adds `; probabilities are lower bounds`,
+since the runs not taken can only add. Six
 linearizations, three outcomes, two each; `complete (6 runs)` says every choice sequence was
 tried. Under `explore` an action step is one token advancing one node — not, as under the fixed
 policies, every steppable token moving once — so the picks fall in consecutive steps and a branch
@@ -738,29 +773,29 @@ fails under some order is an outcome of its own (`error: …`), not the end of t
 behavior with no choice point explores in exactly one run (`no choice points`
 in the witness column); the same model explores to the same table every time. With `-trace`, the
 table is followed by the trace of each outcome's witness run (`trace of outcome 1's witness
-(run 4):`). With `-json`, each check carries `outcomes` (values, `linearizations`, `witness`) and
-`exploration` (`complete`, `runs`, `budgetsHit`) beside the table's lines.
+(run 4):`). With `-json`, each check carries `outcomes` (values, `linearizations`, `probability`, `witness`) and
+`exploration` (`complete`, `runs`, `budgetsHit`, `probabilitiesLowerBound`) beside the table's lines.
 
 <a id="a-do-behavior-under-explore-and-check"></a>
 A state's `do` behavior is stepped the same way under `explore` and `check`: one token at a time —
-each due `do` behavior moves one token, then the machine dispatches the event at the head of its
-pool. Under the fixed policies (`reverse`, `declared`, `seed:<n>`) a do behavior's flow instead
-advances every steppable token once a round, and the machine dispatches only between rounds. The
-run a fixed policy makes — the whole round, then the dispatch — is therefore an interleaving
-with a value under `reverse` that `check` does not table. The fixed-policy `check` enumeration
-does not contain the interleaving where a transition interrupts a `do` behavior mid-round; the
-runtime does support that interruption. A check that reaches such a state — a
-machine owing a dispatch after a `do` step that left a token able to act standing, one ready
-beside the token moved or one its move freed, where a fixed policy's round would have moved it too
-— therefore does not report
-*exhaustive*: its verdict is `no violation within bounds` (or `divergent`, when the schedules it
-did search disagree) with `not enumerated: do round before dispatch` naming the run it left out,
-and the standing is *bounded*. Whether the dispatch waits for the round or cuts it becomes a
-recorded choice point — drawn per token move of the `do` flow — as the one site of the
-region-order scheduling work still open ([design
-note](../internals/design/region-order-scheduling.md)); until then, run a fixed policy beside the
-checker when a `do` behavior loops through timed waits. The witnesses such a check writes replay
-as any other: the search is short of a run, not wrong about the ones it made.
+a due `do` behavior moves one token, and after each move the machine either dispatches the event
+at the head of its pool or moves the `do` flow again, a recorded choice (`at t=…: next do
+<state>, dispatch accept <signal> (unordered; took … first)` in the witness). Under the fixed
+policies (`reverse`, `declared`, `seed:<n>`) a `do` behavior's flow instead advances every
+steppable token once a round, and the machine dispatches only between rounds — one of the
+interleavings `check` and `explore` table, so the exhaustive set is a superset of every fixed
+policy's outcome, and a transition that interrupts a `do` behavior after any of its token moves
+is another. A `do` body parked at an `accept` offers no move until its occurrence is dispatched,
+and a `do` flow that never rests against a queued dispatch ends each run at the dispatch or at
+the do-step budget. A `do` behavior starts as its state's entry ends, before the state's
+substates are entered, and runs beside the entries still to come: each of its token moves is
+drawn against the sibling regions' remaining entry units and against the state's own substates'
+at the same `entering <state>` (or `fork <name>`) draw, `entering work: next do left, right(entry)
+(unordered; took do left first)` for a region's `do` against its sibling's entry, `entering work:
+next do work, w1(entry) (unordered; took do work first)` for a composite's own against its
+substate's, until no entry is left in the move; the fixed policies enter every state whole and
+run the `do` round after, as before. The witnesses such a check writes replay as any other
+([design note](../internals/design/region-order-scheduling.md)).
 
 The order of executors due at one instant of the clock is explored like any other choice:
 `sysml -schedule explore -instantiate Demo::beacon -action Demo::watcher -state
@@ -787,11 +822,11 @@ otherwise, and hitting it is never silent:
 $ sysml -schedule explore:runs=3 -action test::race action_explore_three_writers.sysml
 ✓ package test
 ? explored test::race: 2 outcomes
-outcome                                      | linearizations | witness
----------------------------------------------+----------------+------------------------------------------------------------------
-aRan = true; bRan = true; cRan = true; x = 2 | 1              | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 4@c first of 3@b, 4@c
-aRan = true; bRan = true; cRan = true; x = 3 | 2              | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 3@b first of 3@b, 4@c
-incomplete: runs budget 3 hit after 3 runs
+outcome                                      | linearizations | probability           | witness
+---------------------------------------------+----------------+-----------------------+------------------------------------------------------------------
+aRan = true; bRan = true; cRan = true; x = 2 | 1              | ≥ 0.16666666666666666 | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 4@c first of 3@b, 4@c
+aRan = true; bRan = true; cRan = true; x = 3 | 2              | ≥ 0.3333333333333333  | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 3@b first of 3@b, 4@c
+incomplete: runs budget 3 hit after 3 runs; probabilities are lower bounds
 $ echo $?
 2
 ```
@@ -1011,9 +1046,39 @@ enforces, each violation a typed error before anything runs:
 A branch whose guard does not hold at the decision is out of the draw, and the weights of the
 branches that do hold are renormalized among themselves: a `0.7` branch guarded by `if ready`
 against a `0.3` branch unguarded is the `0.3` branch alone when `ready` is false, and a decision
-at which no holding branch weighs more than zero is refused. A `Probability` on a state
-transition is refused with a typed lowering error: weighted transitions are not in this
-release (see [Known limitations](#known-limitations-of-modeled-randomness)).
+at which no holding branch weighs more than zero is refused.
+
+`@Probability` on a **state transition** weights it by the same rules, within the *group* it
+competes in: every transition out of one `choice` or `junction` pseudostate is a group — a
+weight on a transition out of a `fork`, `join`, `initial`, `entry`, `exit` or `history`
+pseudostate is refused, since no branch pick happens there; the
+transitions out of one state are grouped by what they wait on — all completion transitions
+together, and the ones on the same trigger (the resolved signal or operation definition
+together with a structurally identical expression and the same `via` receiver —
+`accept go` apart from `accept other`, `accept A::Go` apart from `accept B::Go`,
+`after uniform(1, 2)` apart from `after normal(10, 1)`, `via p` apart from `via this.p`)
+together. Transitions sharing a time-trigger spelling (`accept after 5 [s]` twice out of one
+state) arm a single timer: the expiry is one occurrence, drawn among them by weight rather than
+ordered as separate events, and a weight expression may read the trigger's bound arguments —
+`accept route(priority)` with `p = priority` weighs each transition by the priority the call
+carried. A group is weighted as a whole or not at all, and constant weights sum to `1.0`:
+
+```sysml
+state def Machine {
+	entry; then idle;
+	state idle;
+	state slow;
+	state fast;
+	transition first idle accept go then slow { @Probability { p = 0.3; } }
+	transition first idle accept go then fast { @Probability { p = 0.7; } }
+}
+```
+
+The weights pick among the transitions otherwise equally eligible — after the trigger matched,
+the guards read, and the innermost-wins rule between a substate and its enclosing state has run
+— so a substate's transition is never weighed against an enclosing one's, and the pick is drawn
+once, at dispatch. `explore` enumerates the alternatives as it does any choice point, and the
+outcome table's `probability` column reports each outcome's share (below).
 
 ### A random value: `RandomFunctions`
 
@@ -1190,19 +1255,20 @@ second knob here too: every run resolves its concurrency choices under `-schedul
 
 ### Known limitations of modeled randomness
 
-- **State transitions carry no weight.** `@Probability` on a `transition` is refused at lowering
-  with a typed error; only successions out of a decision node are weighted.
-- **`explore` and `check` do not accumulate probability.** The outcome table and the checker's
-  verdict enumerate the weighted branches as branches; the probability of an outcome (the product
-  of the weights along its linearization's decision picks) and the probability mass of the
-  schedules reaching a violation are not reported.
+- **A transition's weight is only its group's.** Weights pick among the transitions competing
+  for one dispatch — one trigger spelling out of one state, one completion set, one pseudostate's
+  branches — never between different events or different states, and a transition that loses to a
+  nested one fires nothing.
+- **Probabilities assume a uniform schedule.** `explore`'s column and `check`'s violation masses
+  are the model's own probabilities where every choice point is weighted; an unweighted point is
+  counted as if each alternative were equally likely, which is an assumption, not a measurement.
 - **Random functions are scalar.** A bound given as a quantity is refused; write the unit on the
   draw (`uniform(1, 80) [s]`).
 - **Weights are drawn among the branches that hold.** A decision whose guards leave exactly one
   weighted branch holding takes it with probability one, whatever its `p`; the sum-to-one rule
   is checked over the branches as written.
-- **Monte Carlo runs are a REPL and CLI operation.** `%runs` and `-runs` run an action
-  repeatedly; the `RunSweep` RPC and the service clients take ranges and samples but no run
+- **Monte Carlo runs are a REPL and CLI operation.** `%runs` and `-runs` run an action, or an
+  analysis case specializing `Simulation::MonteCarlo`, repeatedly; the `RunSweep` RPC and the service clients take ranges and samples but no run
   count, and an external engine put a Monte Carlo answers with a claim, not the table of runs.
 - **A draw policy resolves `RandomFunctions` only.** `min`, `max` and `average` fix the
   durations and values the four functions return; a weighted decision draws from the seed under
@@ -2178,6 +2244,68 @@ A calculation is pure and refuses `terminate` as it refuses `send`.
 A run that stops early, whether through deadlock or by hitting a budget, is reported as an
 undecided check rather than a failure. The budgets are documented in
 [reference/environment.md](../reference/environment.md).
+
+### Handling a failure: there is no `try`/`catch`
+
+SysML v2 has no exception handler and no `raise`: an action cannot end abnormally with a payload,
+and nothing propagates. A failure is modeled like any other fact, and handled with the nodes
+above. Two shapes cover what UML's exception handlers do. Where the failing step knows it failed,
+it reports so on an `out` parameter (`out ok : Boolean`, a status enum) and a `decide` after it
+routes on the report — the [conditional branching](#decision-and-else-conditional-branching)
+pattern. Where the failure has to interrupt work already under way, the step sends a signal, and
+a branch forked beside the work accepts it, terminates the work and handles the payload:
+
+```sysml
+attribute def Fault { attribute reason : String; }
+
+action bySignal {
+    out attribute progress : Integer = 0;
+    out attribute handled : String = "";
+
+    first start;
+    then fork split;
+        then work;
+        then caught;
+
+    action work {
+        first start;
+        then action step1 { assign progress := 1; }
+        then action raise send new Fault(reason = "sensor offline") to caught;
+        then action wait accept go : Integer;
+        then action step2 { assign progress := 99; }
+        then done;
+    }
+
+    action caught accept fault : Fault;
+    then action stop { terminate work; }
+    then action handle { assign handled := fault.reason; }
+    then sync;
+
+    join sync;
+    succession first work then sync;
+    succession first sync then done;
+}
+```
+
+```bash
+$ sysml -action FailureHandling::bySignal failure_handling.sysml
+✓ Action completed
+  Final state: Completed
+  Results:
+    fault = Instance(ID: 1)
+    handled = "sensor offline"
+    progress = 1
+```
+
+`work` was parked at `wait` when `stop` terminated it, so `step2` never ran and `progress` stays
+at 1; the join releases on the ended performance. This is §7.17.10's `MonitoredActivity` with the
+signal sent by the work itself, and it is the standard notation — every node in it is an ordinary
+`send`, `accept`, `terminate` or `fork`. A failure the model does *not* spell — a division by
+zero, an unbound parameter, an accept nothing can satisfy — is not silently skipped and not a
+crash: the run ends with a typed error naming it (`execution failed: … division by zero`), a
+check reports the standing `not covered`, and a verification case whose body fails is the verdict
+`error`. The adjudication behind this section is
+[project/exception-handlers.md](../project/exception-handlers.md).
 
 ---
 

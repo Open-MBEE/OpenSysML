@@ -1202,6 +1202,12 @@ func (ec *EvalContext) evalFeatureChain(n *ast.FeatureChainExpr) (Value, error) 
 		}
 	}
 
+	// A transition's payload, `T.d`, is what its trigger bound in the firing the
+	// reading behavior is performed within.
+	if val, ok, err := ec.transitionPayload(base, parts); ok {
+		return val, err
+	}
+
 	// A calc usage carries no value of its own: its output features are computed
 	// by evaluating it, so `c.a` runs the usage — once — and reads the output
 	// from that evaluation rather than from a feature value.

@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:Tailoring="http://example.com/schemas/Tailoring.xmi">
+  <xmi:Documentation exporter="Example UML Tool" exporterVersion="1.0"/>
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+    <packagedElement xmi:type="uml:Profile" xmi:id="_tailoring" name="Tailoring" URI="http://example.com/schemas/Tailoring.xmi">
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_st_base" name="Base">
+        <generalization xmi:type="uml:Generalization" xmi:id="_st_base_gen">
+          <general xmi:type="uml:Stereotype" href="pathmap://SysML_PROFILES/SysML.profile.uml#Blocks.Block"/>
+        </generalization>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_st_base_base" name="base_Class" association="_ext_base">
+          <type xmi:type="uml:Class" href="http://www.omg.org/spec/UML/20131001/UML.xmi#Class"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_st_base_origin" name="origin">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
+        </ownedAttribute>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Extension" xmi:id="_ext_base" memberEnd="_st_base_base _ext_base_end">
+        <ownedEnd xmi:type="uml:ExtensionEnd" xmi:id="_ext_base_end" name="extension_Base" type="_st_base" aggregation="composite"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_st_left" name="Left">
+        <generalization xmi:type="uml:Generalization" xmi:id="_st_left_gen" general="_st_base"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_st_right" name="Right">
+        <generalization xmi:type="uml:Generalization" xmi:id="_st_right_gen" general="_st_base"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_st_right_side" name="side">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        </ownedAttribute>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_st_diamond" name="Diamond">
+        <generalization xmi:type="uml:Generalization" xmi:id="_st_diamond_gen1" general="_st_left"/>
+        <generalization xmi:type="uml:Generalization" xmi:id="_st_diamond_gen2" general="_st_right"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_st_audited" name="Audited">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_st_audited_base" name="base_Element" association="_ext_audited">
+          <type xmi:type="uml:Class" href="http://www.omg.org/spec/UML/20131001/UML.xmi#Element"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_st_audited_by" name="auditor">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
+        </ownedAttribute>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Extension" xmi:id="_ext_audited" memberEnd="_st_audited_base _ext_audited_end">
+        <ownedEnd xmi:type="uml:ExtensionEnd" xmi:id="_ext_audited_end" name="extension_Audited" type="_st_audited" aggregation="composite"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_st_audited_req" name="Audited Requirement">
+        <generalization xmi:type="uml:Generalization" xmi:id="_st_audited_req_gen1" general="_st_audited"/>
+        <generalization xmi:type="uml:Generalization" xmi:id="_st_audited_req_gen2">
+          <general xmi:type="uml:Stereotype" href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#Requirement"/>
+        </generalization>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_st_ring_a" name="Ring A">
+        <generalization xmi:type="uml:Generalization" xmi:id="_st_ring_a_gen" general="_st_ring_b"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_st_ring_b" name="Ring B">
+        <generalization xmi:type="uml:Generalization" xmi:id="_st_ring_b_gen" general="_st_ring_a"/>
+        <generalization xmi:type="uml:Generalization" xmi:id="_st_ring_b_gen2">
+          <general xmi:type="uml:Stereotype" href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#ValueType"/>
+        </generalization>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_st_lost" name="Lost">
+        <generalization xmi:type="uml:Generalization" xmi:id="_st_lost_gen" general="_missing"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_st_foreign" name="Foreign">
+        <generalization xmi:type="uml:Generalization" xmi:id="_st_foreign_gen">
+          <general xmi:type="uml:Stereotype" href="http://example.com/projects/Shared_Profile.xmi#_shared_req"/>
+        </generalization>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_st_verify" name="Checked By">
+        <generalization xmi:type="uml:Generalization" xmi:id="_st_verify_gen">
+          <general xmi:type="uml:Stereotype" href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#Verify"/>
+        </generalization>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_st_refine" name="Detailed By">
+        <generalization xmi:type="uml:Generalization" xmi:id="_st_refine_gen">
+          <general xmi:type="uml:Stereotype" href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#Refine"/>
+        </generalization>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_st_trace" name="Linked To">
+        <generalization xmi:type="uml:Generalization" xmi:id="_st_trace_gen">
+          <general xmi:type="uml:Stereotype" href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#Trace"/>
+        </generalization>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_st_derive" name="Derived From">
+        <generalization xmi:type="uml:Generalization" xmi:id="_st_derive_gen">
+          <general xmi:type="uml:Stereotype" href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#DeriveReqt"/>
+        </generalization>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_st_alloc" name="Assigned To">
+        <generalization xmi:type="uml:Generalization" xmi:id="_st_alloc_gen">
+          <general xmi:type="uml:Stereotype" href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#Allocate"/>
+        </generalization>
+      </packagedElement>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Package" xmi:id="_sys" name="System">
+      <packagedElement xmi:type="uml:Class" xmi:id="_gear" name="Gear"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_shaft" name="Shaft"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_req_torque" name="Torque Requirement"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_req_speed" name="Speed Requirement"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_test" name="Torque Test">
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_test_act" name="run"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Activity" xmi:id="_spin" name="Spin"/>
+      <packagedElement xmi:type="uml:DataType" xmi:id="_torque" name="Torque"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_lost" name="Lost Thing"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_foreign" name="Foreign Thing"/>
+      <packagedElement xmi:type="uml:Abstraction" xmi:id="_verify" client="_test_act" supplier="_req_torque"/>
+      <packagedElement xmi:type="uml:Abstraction" xmi:id="_refine" client="_spin" supplier="_req_speed"/>
+      <packagedElement xmi:type="uml:Abstraction" xmi:id="_trace" client="_req_speed" supplier="_gear"/>
+      <packagedElement xmi:type="uml:Abstraction" xmi:id="_derive" client="_req_speed" supplier="_req_torque"/>
+      <packagedElement xmi:type="uml:Abstraction" xmi:id="_alloc" client="_spin" supplier="_shaft"/>
+    </packagedElement>
+  </uml:Model>
+  <Tailoring:Diamond xmi:id="_a_gear" base_Class="_gear" origin="catalogue" side="2"/>
+  <Tailoring:Right xmi:id="_a_shaft" base_Class="_shaft" side="1"/>
+  <Tailoring:Audited_Requirement xmi:id="_a_req_torque" base_Class="_req_torque" Id="R-1" Text="Torque shall exceed 10 Nm." auditor="QA"/>
+  <sysml:Requirement xmi:id="_a_req_speed" base_Class="_req_speed" Id="R-2" Text="Speed shall exceed 100 rpm."/>
+  <sysml:TestCase xmi:id="_a_test" base_Behavior="_test_act"/>
+  <sysml:Block xmi:id="_a_test_blk" base_Class="_test"/>
+  <Tailoring:Ring_A xmi:id="_a_torque" base_DataType="_torque"/>
+  <Tailoring:Lost xmi:id="_a_lost" base_Class="_lost"/>
+  <Tailoring:Foreign xmi:id="_a_foreign" base_Class="_foreign"/>
+  <Tailoring:Checked_By xmi:id="_a_verify" base_Abstraction="_verify"/>
+  <Tailoring:Detailed_By xmi:id="_a_refine" base_Abstraction="_refine"/>
+  <Tailoring:Linked_To xmi:id="_a_trace" base_Abstraction="_trace"/>
+  <Tailoring:Derived_From xmi:id="_a_derive" base_Abstraction="_derive"/>
+  <Tailoring:Assigned_To xmi:id="_a_alloc" base_Abstraction="_alloc"/>
+</xmi:XMI>

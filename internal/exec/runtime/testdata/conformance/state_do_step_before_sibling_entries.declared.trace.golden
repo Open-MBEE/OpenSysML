@@ -1,0 +1,24 @@
+exit: idle
+enter: work
+choice entering work: next l1(entry), m1(entry), r1(entry) (unordered; took l1(entry) first)
+enter: l1
+choice entering work: next m1(entry), r1(entry) (unordered; took m1(entry) first)
+enter: m1 (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> ""
+      eval literal "m1(entry) " -> "m1(entry) "
+    eval operator + -> "m1(entry) "
+enter: r1 (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> "m1(entry) "
+      eval literal "r1(entry) " -> "r1(entry) "
+    eval operator + -> "m1(entry) r1(entry) "
+transition: idle -> work (event: accept Go)
+do: l1
+stmt action body
+  stmt assign log
+      eval feature log -> "m1(entry) r1(entry) "
+      eval literal "did " -> "did "
+    eval operator + -> "m1(entry) r1(entry) did "

@@ -157,8 +157,8 @@ func (e *ActionExecutor) driveSubflow(f *subflowFrame) error {
 		if err != nil {
 			return err
 		}
-		// A flow a body drives outside any step of the executor's own counts its steps itself.
-		if moved && e.sweep == 0 {
+		// A flow a body drives outside any step of the executor's own counts its sweeps itself.
+		if moved && e.sweep == 0 && !e.ctx.stepsTokens() {
 			e.stepCount++
 		}
 		// A step of a token's own work stopped at a breakpoint stops the body too.
@@ -172,7 +172,15 @@ func (e *ActionExecutor) driveSubflow(f *subflowFrame) error {
 			e.ctx.bodyPerformed()
 		}
 		if moved {
-			if e.nextStepPerforms(perf) {
+			switch {
+			case e.ctx.stepsTokens():
+				// A run one move at a time pauses before its next, its machine going on meanwhile.
+				if e.canAct(perf) {
+					if err := e.ctx.tokenStepBody(); err != nil {
+						return err
+					}
+				}
+			case e.nextStepPerforms(perf):
 				if err := e.ctx.yieldBody(); err != nil {
 					return err
 				}
@@ -207,24 +215,40 @@ func (e *ActionExecutor) driveSubflow(f *subflowFrame) error {
 	return nil
 }
 
-// stepSubflow steps every token of perf's flow once and reports whether any moved
-// — which a retired, forked or relocated token did — and whether one performed
-// the node it stood at.
+// stepSubflow steps every token of perf's flow once — one token, drawn among those
+// able to act, where a step is one move — and reports whether any moved, which a
+// retired, forked or relocated token did, and whether one performed its node.
 func (e *ActionExecutor) stepSubflow(perf *actionFrame) (moved, performed bool, err error) {
 	before := e.subflowLocations(perf)
 	performing := e.performingTokens(perf)
+	if !e.ctx.stepsTokens() {
+		if err := e.stepSubflowSweep(perf); err != nil {
+			return false, false, err
+		}
+		return e.subflowMoved(perf, before, performing)
+	}
+	// A token moving on a loop may stand where it stood, so the move itself counts.
+	acted, performed, err := e.stepSubflowMove(perf)
+	if err != nil {
+		return false, false, err
+	}
+	moved, performedNode, err := e.subflowMoved(perf, before, performing)
+	return moved || acted, performed || performedNode, err
+}
+
+// stepSubflowSweep steps every token of perf's flow once, in the order the run's
+// scheduling policy has it try them.
+func (e *ActionExecutor) stepSubflowSweep(perf *actionFrame) (err error) {
 	defer e.beginSweep()()
 	order := e.beginStepOrder()
 	endWrites := e.beginStepWrites(e.stepCount + 1)
 	eligible := func(t Token) bool { return t.inFlowOf(perf) }
-	oneMove := e.ctx.scheduling().oneMove()
-	if oneMove {
+	if e.ctx.scheduling().oneMove() {
 		// Paused work that would only pause again is no alternative to pick.
 		eligible = func(t Token) bool { return t.inFlowOf(perf) && (t.body == nil || t.resumable()) }
 	}
 	candidates := e.stepCandidates(&order, eligible)
 	schedule := e.ctx.scheduling().scheduleStep(candidates)
-	var acted []int64
 	for id, ok := schedule.Next(); ok; id, ok = schedule.Next() {
 		i := e.tokenIndex(id)
 		if i < 0 || e.moving(e.tokens[i]) || !e.tokens[i].inFlowOf(perf) {
@@ -233,25 +257,146 @@ func (e *ActionExecutor) stepSubflow(perf *actionFrame) (moved, performed bool, 
 		}
 		var did bool
 		did, err = e.stepTokenNoting(i, &order)
-		if did {
-			acted = append(acted, id)
-		}
 		schedule.Acted(id, did)
 		if err != nil {
 			break
 		}
-	}
-	if oneMove && candidates.leftReady(acted) {
-		e.leftStanding = true
 	}
 	endWrites()
 	e.noteTokenOrder(e.stepCount+1, order, schedule)
 	if refused := e.ctx.scheduling().refusal(); refused != nil {
 		err = refused
 	}
+	return err
+}
+
+// stepSubflowMove is the step of a flow run one token move at a time: its silent
+// moves settle, without a draw, around one move drawn among the tokens able to act;
+// it reports whether a token acted and whether the drawn one performed its node.
+func (e *ActionExecutor) stepSubflowMove(perf *actionFrame) (acted, performed bool, err error) {
+	settled, err := e.settleSilentMoves(perf)
 	if err != nil {
 		return false, false, err
 	}
+	endWrites := e.beginStepWrites(e.stepCount + 1)
+	drew, performed, err := e.drawOneMove(perf)
+	endWrites()
+	if err != nil {
+		return false, false, err
+	}
+	// The drawn move is the step; the routing that settles it counts as steps of its own.
+	if drew && e.sweep == 0 {
+		e.stepCount++
+	}
+	settledAfter, err := e.settleSilentMoves(perf)
+	return settled || drew || settledAfter, performed, err
+}
+
+// drawOneMove moves one token of perf's flow, the one drawn among those able to act,
+// reporting whether one acted and whether it performed the node it stood at.
+func (e *ActionExecutor) drawOneMove(perf *actionFrame) (acted, performed bool, err error) {
+	defer e.beginSweep()()
+	order := e.beginStepOrder()
+	schedule := e.ctx.scheduling().scheduleStep(e.stepCandidates(&order, oneMoveEligibleIn(perf)))
+	for id, ok := schedule.Next(); ok; id, ok = schedule.Next() {
+		i := e.tokenIndex(id)
+		if i < 0 || e.moving(e.tokens[i]) || !e.tokens[i].inFlowOf(perf) {
+			schedule.Acted(id, false)
+			continue
+		}
+		t := e.tokens[i]
+		var did bool
+		did, err = e.stepTokenNoting(i, &order)
+		schedule.Acted(id, did)
+		if did {
+			acted, performed = true, e.performs(t.frame, t.Location)
+		}
+		if err != nil || did {
+			break
+		}
+	}
+	e.noteTokenOrder(e.stepCount+1, order, schedule)
+	if refused := e.ctx.scheduling().refusal(); refused != nil {
+		err = refused
+	}
+	return acted, performed, err
+}
+
+// oneMoveEligibleIn is the eligibility of a step moving one token of perf's flow.
+func oneMoveEligibleIn(perf *actionFrame) func(Token) bool {
+	return func(t Token) bool { return t.inFlowOf(perf) && (t.body == nil || t.resumable()) }
+}
+
+// canAct reports whether a token of perf's flow would act were it stepped now.
+func (e *ActionExecutor) canAct(perf *actionFrame) bool {
+	eligible := oneMoveEligibleIn(perf)
+	return slices.ContainsFunc(e.tokens, func(t Token) bool { return e.enabled(t.ID, eligible) })
+}
+
+// settleSilentMoves makes every silent move of perf's flow, in declared order,
+// until none is left: no other move observes where between two of them it falls.
+// Each pass is a step of the flow's own when the body drives it outside a sweep.
+func (e *ActionExecutor) settleSilentMoves(perf *actionFrame) (settled bool, err error) {
+	for {
+		moved, err := e.silentPass(perf)
+		if err != nil || !moved {
+			return settled, err
+		}
+		settled = true
+		if e.sweep == 0 {
+			e.stepCount++
+		}
+		if err := e.chargeActionStep(); err != nil {
+			return settled, err
+		}
+	}
+}
+
+// silentPass makes the silent move of every token of perf's flow standing at one.
+func (e *ActionExecutor) silentPass(perf *actionFrame) (moved bool, err error) {
+	defer e.beginSweep()()
+	for i := 0; i < len(e.tokens); i++ {
+		t := e.tokens[i]
+		if e.moving(t) || !t.inFlowOf(perf) || !e.silentMove(t) {
+			continue
+		}
+		did, err := e.stepTokenNoting(i, &stepOrder{})
+		if err != nil {
+			return moved, err
+		}
+		if did {
+			moved, i = true, -1
+		}
+	}
+	return moved, nil
+}
+
+// silentMove reports a token whose next move only routes control — through the
+// initial, a fork, join or merge without a body, over unguarded, unweighted successions.
+func (e *ActionExecutor) silentMove(t Token) bool {
+	if t.body != nil {
+		return false
+	}
+	switch t.Location.(type) {
+	case *ast.InitialNode, *ast.ForkNode, *ast.JoinNode, *ast.MergeNode:
+	default:
+		return false
+	}
+	graph := e.graphOf(t.frame)
+	if len(graph.Bodies[t.Location]) > 0 {
+		return false
+	}
+	for _, edge := range graph.Edges[t.Location] {
+		if edge.Guard != nil || edge.Probability != nil {
+			return false
+		}
+	}
+	return true
+}
+
+// subflowMoved compares where perf's tokens sit with where they sat before a step,
+// reporting whether any moved and whether one performed its node.
+func (e *ActionExecutor) subflowMoved(perf *actionFrame, before map[int64]ast.Node, performing map[int64]bool) (moved, performed bool, err error) {
 	after := e.subflowLocations(perf)
 	moved = len(after) != len(before)
 	for id, location := range after {
