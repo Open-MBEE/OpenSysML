@@ -433,6 +433,13 @@ func TestWriteAPIJSONRefuses(t *testing.T) {
 			g.Add(element, rdf.OpenSysMLTerm("sourceText"), rdf.TypedLiteral("a + b", rdf.OpenSysML+"Expression"))
 			return g
 		},
+		"collection in a non-round-trippable datatype": func() *rdf.Graph {
+			g := typed(rdf.SysMLTerm("Package"))
+			g.Add(element, rdf.SysMLTerm("value"), rdf.TypedLiteral("1.5", rdf.XSD+"float"))
+			g.Add(element, rdf.SysMLTerm("value"), rdf.TypedLiteral("2.5", rdf.XSD+"float"))
+			g.Add(element, rdf.IRI(rdf.AnnotationJSON+"value"), rdf.String("[1.5,2.5]"))
+			return g
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			_, err := export.WriteAPIJSON(build())

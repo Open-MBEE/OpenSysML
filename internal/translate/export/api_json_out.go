@@ -148,6 +148,7 @@ func apiJSONType(typ rdf.Term) string {
 // apiJSONSysMLValue is the value a sysml: key carries: the collection its
 // json: annotation states, or its single object as a scalar.
 func apiJSONSysMLValue(graph *rdf.Graph, subject rdf.Term, predicate, key string) (any, error) {
+	objects := graph.Objects(subject, predicate)
 	if annotation, ok := graph.Object(subject, rdf.AnnotationJSON+key); ok {
 		if !annotation.IsLiteral() {
 			return nil, &UnsupportedError{
@@ -162,9 +163,14 @@ func apiJSONSysMLValue(graph *rdf.Graph, subject rdf.Term, predicate, key string
 				Note: fmt.Sprintf("its literal is not JSON: %v", err),
 			}
 		}
+		// A member in a datatype the reader can't restore is refused like a scalar.
+		for _, object := range objects {
+			if _, err := apiJSONScalar(subject, key, object); err != nil {
+				return nil, err
+			}
+		}
 		return raw, nil
 	}
-	objects := graph.Objects(subject, predicate)
 	if len(objects) > 1 {
 		return nil, &UnsupportedError{
 			What: fmt.Sprintf("sysml:%s of <%s>", key, subject.Value),
