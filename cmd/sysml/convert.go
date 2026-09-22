@@ -167,8 +167,7 @@ func openBranch(ref flexo.BranchRef) (*flexo.Repository, flexo.Config, error) {
 	if err != nil {
 		return nil, flexo.Config{}, fmt.Errorf("a repository branch needs its bearer token: %w", err)
 	}
-	if ref.SysMLV2URL != "" &&
-		strings.TrimSuffix(ref.SysMLV2URL, "/") != strings.TrimSuffix(cfg.SysMLV2URL, "/") {
+	if ref.SysMLV2URL != "" && !flexo.SameEndpoint(ref.SysMLV2URL, cfg.SysMLV2URL) {
 		return nil, flexo.Config{}, fmt.Errorf("%s names a SysML v2 endpoint other than the configured %s (%s); point %s and %s at that stack together, or write flexo://%s/%s",
 			ref.SysMLV2URL, cfg.SysMLV2URL, flexo.EnvSysMLV2URL, flexo.EnvSysMLV2URL, flexo.EnvLayer1URL, ref.Project, ref.Branch)
 	}
@@ -304,8 +303,13 @@ func pushBranch(input string, to convert.Format, ref flexo.BranchRef) (int, erro
 	head, err := repo.Push(context.Background(), out, "sysml -convert ttl")
 	if err != nil {
 		var stale *flexo.StaleBranchError
-		if errors.As(err, &stale) {
+		var unrecorded *flexo.UnrecordedPushError
+		switch {
+		case errors.As(err, &stale):
 			fmt.Fprintf(os.Stderr, "%srefused to push: %v\n", commandPrefix, err)
+			return exitFailed, nil
+		case errors.As(err, &unrecorded):
+			fmt.Fprintf(os.Stderr, "%s%v\n", commandPrefix, err)
 			return exitFailed, nil
 		}
 		return failRepository(fmt.Errorf("push to the repository: %w", err)), nil

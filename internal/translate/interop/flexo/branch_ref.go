@@ -50,6 +50,39 @@ func ParseBranchURL(raw string) (ref BranchRef, ok bool, err error) {
 	return BranchRef{SysMLV2URL: endpoint, Project: segments[len(segments)-3], Branch: segments[len(segments)-1]}, true, nil
 }
 
+// SameEndpoint reports whether two URLs name the same endpoint: scheme, host
+// and effective port equal, path equal once trailing slashes are trimmed.
+func SameEndpoint(a, b string) bool {
+	ua, err := url.Parse(a)
+	if err != nil {
+		return false
+	}
+	ub, err := url.Parse(b)
+	if err != nil {
+		return false
+	}
+	if ua.User != nil || ub.User != nil || ua.RawQuery != "" || ub.RawQuery != "" ||
+		ua.Fragment != "" || ub.Fragment != "" {
+		return false
+	}
+	port := func(u *url.URL) string {
+		if p := u.Port(); p != "" {
+			return p
+		}
+		switch strings.ToLower(u.Scheme) {
+		case "http":
+			return "80"
+		case "https":
+			return "443"
+		}
+		return ""
+	}
+	return strings.EqualFold(ua.Scheme, ub.Scheme) &&
+		strings.EqualFold(ua.Hostname(), ub.Hostname()) &&
+		port(ua) == port(ub) &&
+		strings.TrimRight(ua.EscapedPath(), "/") == strings.TrimRight(ub.EscapedPath(), "/")
+}
+
 // branchURLForm is the shape the http(s) form spells out, quoted into every
 // malformed-URL error.
 const branchURLForm = "http(s)://host[:port][/base]/projects/{project}/branches/{branch}"

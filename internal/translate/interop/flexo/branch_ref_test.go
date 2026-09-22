@@ -58,6 +58,31 @@ func TestParseBranchURLLLeavesPathsToTheFilesystem(t *testing.T) {
 	}
 }
 
+func TestSameEndpoint(t *testing.T) {
+	for _, tc := range []struct {
+		a, b  string
+		equal bool
+	}{
+		{"https://host", "https://host:443", true},
+		{"http://host", "http://host:80", true},
+		{"http://HOST:8443", "http://host:8443", true},
+		{"http://host:8083/", "http://host:8083", true},
+		{"http://host/base/", "http://host/base", true},
+		{"http://host/base", "http://host/other", false},
+		{"http://host", "https://host", false},
+		{"http://host:8080", "http://host:8081", false},
+		{"http://user@host", "http://host", false},
+		{"http://host?x=1", "http://host", false},
+		{"http://host#a", "http://host", false},
+		{"http://host", "http://other", false},
+		{"not a url", "http://host", false},
+	} {
+		if got := SameEndpoint(tc.a, tc.b); got != tc.equal {
+			t.Errorf("SameEndpoint(%q, %q) = %v, want %v", tc.a, tc.b, got, tc.equal)
+		}
+	}
+}
+
 func TestPushWritesTheWholeGraphConditionally(t *testing.T) {
 	client, fake := stack(t, sparqlFixture)
 	repo := client.Repository("p", "b")
@@ -157,6 +182,21 @@ func TestPushRecordsTheCommitTheWriteReported(t *testing.T) {
 	}
 	if head != "c-new" || repo.Seen() != "c-new" {
 		t.Errorf("the push reported %q (seen %q), want the write's own c-new", head, repo.Seen())
+	}
+}
+
+func TestPushReportsAWriteNoCommitWasNamedFor(t *testing.T) {
+	client, fake := stack(t, sparqlFixture)
+	fake.noETag = true
+	repo := client.Repository("p", "b")
+
+	_, err := repo.Push(context.Background(), []byte("<s> <p> <o> ."), "a push")
+	var unrecorded *UnrecordedPushError
+	if !errors.As(err, &unrecorded) {
+		t.Fatalf("want an UnrecordedPushError on a write naming no commit, got %v", err)
+	}
+	if repo.Seen() != "" {
+		t.Errorf("an unrecorded write left the baseline at %q, want empty", repo.Seen())
 	}
 }
 

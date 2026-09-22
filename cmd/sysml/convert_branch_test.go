@@ -160,6 +160,35 @@ func TestConvertChecksTheStateAgainstTheConfiguredOrg(t *testing.T) {
 	}
 }
 
+func TestConvertPushReportsAWriteNoCommitWasNamedFor(t *testing.T) {
+	binary := buildCLI(t)
+	stack := newFakeStack(t, liveGraph(t, syncedModel))
+	stack.noPutETag = true
+	dir := t.TempDir()
+	model := writeModel(t, dir, "model.sysml", renamedModel)
+
+	out, code := exitCode(t, branchCommand(stack, binary, model, "-convert", "ttl", "-o", "flexo://proj-1/main"))
+	if code != 1 || len(stack.puts) != 1 || !strings.Contains(out, "the response named no commit") {
+		t.Fatalf("a push naming no commit: exit %d, %d write(s):\n%s", code, len(stack.puts), out)
+	}
+	if _, err := os.Stat(model + ".sync.json"); !os.IsNotExist(err) {
+		t.Errorf("an unrecorded push still wrote %s", model+".sync.json")
+	}
+}
+
+func TestConvertAcceptsTheConfiguredEndpointSpelledDifferently(t *testing.T) {
+	binary := buildCLI(t)
+	stack := newFakeStack(t, liveGraph(t, syncedModel))
+	// The configured endpoint carries a trailing slash; the branch URL does
+	// not. They name the same endpoint, so the read is allowed.
+	cmd := syncCommand(stack, binary, stack.server.URL+"/projects/proj-1/branches/main", "-convert", "sysml")
+	cmd.Env = append(cmd.Env, flexo.EnvSysMLV2URL+"="+stack.server.URL+"/")
+	out, code := exitCode(t, cmd)
+	if code != 0 || !strings.Contains(out, "part def Vehicle") {
+		t.Fatalf("the endpoint spelled with a trailing slash: exit %d:\n%s", code, out)
+	}
+}
+
 func TestConvertRefusesAnEndpointOtherThanTheConfigured(t *testing.T) {
 	binary := buildCLI(t)
 	stack := newFakeStack(t, liveGraph(t, syncedModel))

@@ -32,17 +32,18 @@ type fakePut struct {
 // service does (payload replaces whole, null removes), the Layer 1 branch
 // resource serving its etag and taking conditional whole-graph writes.
 type fakeStack struct {
-	mu       sync.Mutex
-	graph    *rdf.Graph
-	head     string
-	versions map[string]*rdf.Graph
-	commits  []json.RawMessage
-	puts     []fakePut
-	foreign  int
-	refuse   bool
-	drift    bool // every graph read is followed by someone else's commit
-	unread   bool // every read fails
-	server   *httptest.Server
+	mu        sync.Mutex
+	graph     *rdf.Graph
+	head      string
+	versions  map[string]*rdf.Graph
+	commits   []json.RawMessage
+	puts      []fakePut
+	foreign   int
+	refuse    bool
+	drift     bool // every graph read is followed by someone else's commit
+	unread    bool // every read fails
+	noPutETag bool // a graph write answers 2xx without an ETag, as a service that names no commit does
+	server    *httptest.Server
 }
 
 func newFakeStack(t *testing.T, graph *rdf.Graph) *fakeStack {
@@ -113,6 +114,9 @@ func (s *fakeStack) serve(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		s.advance(graph, fmt.Sprintf("commit-%d", len(s.commits)+len(s.puts)))
+		if !s.noPutETag {
+			w.Header().Set("ETag", s.head)
+		}
 	case strings.HasSuffix(r.URL.Path, "/branches/main") && r.Method == http.MethodGet:
 		fmt.Fprintf(w, `{"@id":"main","@type":"Branch","head":{"@id":%q}}`, s.head)
 	case strings.HasSuffix(r.URL.Path, "/query"):

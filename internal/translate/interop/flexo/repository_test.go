@@ -170,6 +170,7 @@ type fakeStack struct {
 	race412   bool   // every graph write answers 412 without writing, as a moved branch does
 	commit412 bool   // a graph write commits but still answers 412, as the deployed service does
 	putETag   string // a graph write answers 2xx with this ETag and moves no head, as when another commit already stands there
+	noETag    bool   // a graph write answers 2xx without an ETag, as a service that names no commit does
 	posted    [][]byte
 	puts      []fakePut
 }
@@ -219,11 +220,15 @@ func stack(t *testing.T, results string) (*Client, *fakeStack) {
 				}
 				fake.head = fmt.Sprintf("push-%d", len(fake.puts))
 				fake.etag = fake.head
-				if fake.commit412 {
+				switch {
+				case fake.noETag:
+				case fake.commit412:
 					// The deployed service answers 412 for a write it just
 					// committed; its response ETag is the commit made.
 					w.Header().Set("ETag", fake.head)
 					w.WriteHeader(http.StatusPreconditionFailed)
+				default:
+					w.Header().Set("ETag", fake.head)
 				}
 			}
 		case strings.HasPrefix(r.URL.Path, "/orgs/o/repos/p/locks/Commit.") && strings.HasSuffix(r.URL.Path, "/query"):

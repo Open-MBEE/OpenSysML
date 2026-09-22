@@ -40,6 +40,19 @@ func (e *StaleBranchError) Error() string {
 		e.Branch, e.Project, e.Seen, e.Head)
 }
 
+// UnrecordedPushError is a graph write the branch accepted but whose response
+// named no commit: nothing can be recorded as the new baseline, and a later
+// head re-read might name another writer's commit, so the next push must read
+// the branch again.
+type UnrecordedPushError struct {
+	Project, Branch string
+}
+
+func (e *UnrecordedPushError) Error() string {
+	return fmt.Sprintf("the graph was written to %s/%s but the response named no commit; read the branch again before the next push",
+		e.Project, e.Branch)
+}
+
 // Head is the branch's current head commit.
 func (r *Repository) Head(ctx context.Context) (string, error) {
 	branch, err := r.client.Branch(ctx, r.project, r.branch)
@@ -118,12 +131,8 @@ func (r *Repository) Push(ctx context.Context, turtle []byte, message string) (s
 		r.seen = committed
 		return committed, nil
 	}
-	head, err = r.Head(ctx)
-	if err != nil {
-		return "", err
-	}
-	r.seen = head
-	return head, nil
+	r.seen = ""
+	return "", &UnrecordedPushError{Project: r.project, Branch: r.branch}
 }
 
 // Commit writes one batch as one SysML v2 commit. Creates and updates send
