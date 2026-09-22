@@ -179,6 +179,9 @@ type StateExecutor struct {
 type doAction struct {
 	state   *ast.StateNode
 	pending []lower.StateBehavior
+	// firing is the transition that entered the state, whose payload the behavior
+	// reads for its whole run (`StatePerformance::incomingTransitionTrigger`).
+	firing *firing
 	// run is the behavior under way, paused between two statements or where its
 	// flow waits on the clock or for a message; nil between behaviors.
 	run *doRun
@@ -3738,6 +3741,7 @@ func (e *StateExecutor) startDoAction(state *ast.StateNode) {
 	act := &doAction{
 		state:   state,
 		pending: append([]lower.StateBehavior(nil), doBehaviors...),
+		firing:  e.currentFiring(),
 	}
 	e.doActions = append(e.doActions, act)
 	e.began = append(e.began, act)
@@ -3843,7 +3847,7 @@ func (e *StateExecutor) stepDoAction(act *doAction, goOn func(*doRun) (*doRun, e
 	if run == nil {
 		behavior := act.pending[0]
 		act.pending = act.pending[1:]
-		if run = e.newDoRun(behavior); run == nil {
+		if run = e.newDoRun(behavior, act.firing); run == nil {
 			return nil
 		}
 		goOn = func(run *doRun) (*doRun, error) { return run.resume(e.ctx) }

@@ -265,9 +265,15 @@ declares `d` a feature of the transition, so the read is of the notation's own d
 attribute the effect has yet to store. The runtime binds it from the lowered transition
 (`lower.Transition.Accepted`) in the frame every behavior of the firing reads, the emitter
 spells it, and the reader leaves out an activity node whose required input pin no token ever
-reaches (*Event 019 C*'s exit holds a `ToString` call nothing feeds). The 12 failures' reasons
-and every other row, run count included, are byte-identical to the previous baseline's; the
-run is byte-identical under `-jobs 1` and `-jobs 8`.
+reaches (*Event 019 C*'s exit holds a `ToString` call nothing feeds). A do behavior reads the
+transition that entered its state for its whole run, whether the entry front draws its first
+step before or after the entries of the substates entered with it
+(`StatePerformance::incomingTransitionTrigger`); the one do activity with a parameter the suite
+runs, *Event 017 B*'s `S1.1(doActivity)[in=true]`, reads `T2`'s data whichever draw places its
+step, and the parameterised entries (*Event 019 B*, *019 C*, *019 E*, *Standalone 003*) trace
+the same values as before, so no run count moved. The 12 failures' reasons and every other row, run
+count included, are byte-identical to the previous baseline's; the run is byte-identical under
+`-jobs 1` and `-jobs 8`.
 
 | Test | Construct | Movement | Adjudication |
 |---|---|---|---|

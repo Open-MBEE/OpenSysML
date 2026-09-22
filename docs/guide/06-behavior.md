@@ -450,7 +450,10 @@ A transition leaving a composite state binds the exits of the substates it leave
 way, and a completion transition, or one whose trigger carries no data, binds nothing — the
 parameter keeps its default. A read of a transition not being taken, with no `??` to fall back
 on, leaves the parameter without a value and is refused when the exit runs, as is a payload of
-the wrong type.
+the wrong type. The entered state's `entry` and `do` read the transition that entered it the
+same way, the do behavior for its whole run (the state performance holds the transfer that
+triggered the transition into it, `StatePerformance::incomingTransitionTrigger`), whether its
+first step is drawn before or after the entries of the substates entered with it.
 
 <a id="ending-a-state-machine-with-terminate"></a>
 **Ending a state machine with `terminate`.** A transition whose target is a terminate action

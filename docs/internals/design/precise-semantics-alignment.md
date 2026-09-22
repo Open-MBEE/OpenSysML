@@ -1790,17 +1790,24 @@ The runtime binds the exit's parameters from the lowered transition, not from th
 `lower.Transition.Accepted` names what the trigger binds (the signal payload, the operation's
 inputs, `state_graph.go:AcceptedNames`), the executor knows the transition it is taking before
 the exit runs (`state_executor.go:taking`, chosen by the RTC step's selection) and copies its
-payload into the frame every behavior of the firing reads (`state_statements.go:dataFrame`), and
-`T.d` evaluates against that frame (`transition_payload.go`): the taken transition's value, the
-null value for a transition not being taken, a `NoValueError` when the taken transition accepts
-`d` but bound nothing. The frame survives joins, queued events and nested exits
-(`state_exit_nested_reads_outer_transition`, `state_exit_shared_by_two_transitions`) and a
-completion firing binds nothing, leaving the parameter's default
-(`state_exit_completion_binds_nothing`); `TestRuntimeRobustnessExitParameters` pins the typed
-errors. The emitter (`emit_behavior.go:exitValue`) spells the exit's inputs as the chains; the
-reader (`activity.go:dry`) leaves out an activity node whose required input pin no token ever
-reaches, since UML never executes it (*Event 019 C*'s exit holds a `ToString` call nothing
-feeds and nothing reads; `TestReadStarvedActions`).
+payload into the frame every behavior of the firing reads (`state_statements.go:currentFiring`,
+`stateStmtHost.dataFrame`), and `T.d` evaluates against that frame (`transition_payload.go`):
+the taken transition's value, the null value for a transition not being taken, a `NoValueError`
+when the taken transition accepts `d` but bound nothing. The frame survives joins, queued
+events and nested exits (`state_exit_nested_reads_outer_transition`,
+`state_exit_shared_by_two_transitions`) and a completion firing binds nothing, leaving the
+parameter's default (`state_exit_completion_binds_nothing`); `TestRuntimeRobustnessExitParameters`
+pins the typed errors. A do behavior reads the transition that entered its state for its whole
+run, not whichever firing its steps happen to fall in: the state performance holds the transfer
+that triggered the transition into it (`StatePerformance::incomingTransitionTrigger`,
+`StatePerformances.kerml`), so the executor copies the entering firing into the do behavior as
+it starts (`state_executor.go:startDoAction`, `doAction.firing`) and every step reads it, whether
+the entry front draws the first step before or after the entries of the substates entered with
+it (`state_do_reads_entering_transition`, agreed across every schedule by the checker). The
+emitter (`emit_behavior.go:exitValue`) spells the exit's inputs as the chains; the reader
+(`activity.go:dry`) leaves out an activity node whose required input pin no token ever reaches,
+since UML never executes it (*Event 019 C*'s exit holds a `ToString` call nothing feeds and
+nothing reads; `TestReadStarvedActions`).
 `TestParametersExitBindsLeavingTransition` and `TestParametersExitSharedAndNested` pin the
 spelling. What is refused, with the reason the classifier
 reports under *behavior parameter* (`TestParametersRefusals`):
