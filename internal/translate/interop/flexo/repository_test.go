@@ -167,8 +167,9 @@ type fakePut struct {
 type fakeStack struct {
 	head      string
 	etag      string
-	race412   bool // every graph write answers 412 without writing, as a moved branch does
-	commit412 bool // a graph write commits but still answers 412, as the deployed service does
+	race412   bool   // every graph write answers 412 without writing, as a moved branch does
+	commit412 bool   // a graph write commits but still answers 412, as the deployed service does
+	putETag   string // a graph write answers 2xx with this ETag and moves no head, as when another commit already stands there
 	posted    [][]byte
 	puts      []fakePut
 }
@@ -212,6 +213,10 @@ func stack(t *testing.T, results string) (*Client, *fakeStack) {
 			case ifMatch != "*" && ifMatch != `"`+fake.etag+`"`:
 				w.WriteHeader(http.StatusPreconditionFailed)
 			default:
+				if fake.putETag != "" {
+					w.Header().Set("ETag", fake.putETag)
+					break
+				}
 				fake.head = fmt.Sprintf("push-%d", len(fake.puts))
 				fake.etag = fake.head
 				if fake.commit412 {

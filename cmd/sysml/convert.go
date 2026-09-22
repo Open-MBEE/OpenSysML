@@ -201,6 +201,27 @@ func readBranch(ref flexo.BranchRef, to convert.Format) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+	// Resolve and check the state file before anything is written: -o must
+	// never replace it, and a state pinned elsewhere refuses first.
+	statePath := syncState
+	if statePath == "" && outputPath != "" {
+		statePath = reposync.StatePath(outputPath)
+	}
+	if statePath != "" && outputPath != "" && samePath(statePath, outputPath) {
+		return 0, fmt.Errorf("-o and -sync-state both name %s; the model would replace the recorded commit", outputPath)
+	}
+	var state *reposync.State
+	if statePath != "" {
+		if state, err = reposync.LoadState(statePath); err != nil {
+			return 0, err
+		}
+	}
+	scope := reposync.Scope{Org: cfg.Org, ProjectID: ref.Project, Branch: ref.Branch}
+	if state != nil {
+		if err := state.Check(scope); err != nil {
+			return 0, err
+		}
+	}
 	graph, err := repo.Graph(context.Background())
 	if err != nil {
 		return failRepository(fmt.Errorf("read the repository: %w", err)), nil
@@ -216,17 +237,10 @@ func readBranch(ref flexo.BranchRef, to convert.Format) (int, error) {
 	} else if err := writeConversion(outputPath, out, to); err != nil {
 		return 0, err
 	}
-	// Record the head just read, beside the output file or where -sync-state
-	// names; a stdout-only run records nothing.
-	statePath := syncState
-	if statePath == "" && outputPath != "" {
-		statePath = reposync.StatePath(outputPath)
-	}
 	if statePath == "" {
 		return exitHolds, nil
 	}
-	scope := reposync.Scope{Org: cfg.Org, ProjectID: ref.Project, Branch: ref.Branch}
-	return recordBranchState(repo.Seen(), scope, statePath)
+	return recordBranchState(repo.Seen(), state, scope, statePath)
 }
 
 // pushBranch replaces a branch's model graph with the model converted to
@@ -309,23 +323,15 @@ func pushBranch(input string, to convert.Format, ref flexo.BranchRef) (int, erro
 }
 
 // recordBranchState writes the head commit the run stood at to the sync state
-// file; one pinned to another project or branch is refused.
-func recordBranchState(head string, scope reposync.Scope, statePath string) (int, error) {
+// file, over the state already loaded and checked for this scope.
+func recordBranchState(head string, state *reposync.State, scope reposync.Scope, statePath string) (int, error) {
 	if head == "" {
 		return exitHolds, nil
 	}
-	state, err := reposync.LoadState(statePath)
-	if err != nil {
-		return 0, err
+	if state != nil && state.Scope() == scope && state.LastSeenCommit == head {
+		return exitHolds, nil
 	}
-	if state != nil {
-		if err := state.Check(scope); err != nil {
-			return 0, err
-		}
-		if state.Scope() == scope && state.LastSeenCommit == head {
-			return exitHolds, nil
-		}
-	} else {
+	if state == nil {
 		state = &reposync.State{}
 	}
 	state.Org, state.ProjectID, state.Branch, state.LastSeenCommit = scope.Org, scope.ProjectID, scope.Branch, head

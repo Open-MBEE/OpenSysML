@@ -113,6 +113,11 @@ func (r *Repository) Push(ctx context.Context, turtle []byte, message string) (s
 		}
 		return "", err
 	}
+	// Trust the commit the write itself reported; the head may have moved on.
+	if committed != "" {
+		r.seen = committed
+		return committed, nil
+	}
 	head, err = r.Head(ctx)
 	if err != nil {
 		return "", err

@@ -143,6 +143,23 @@ func TestPushRefusesAHeadThatMovedAfterTheEtagRead(t *testing.T) {
 	}
 }
 
+func TestPushRecordsTheCommitTheWriteReported(t *testing.T) {
+	client, fake := stack(t, sparqlFixture)
+	// The head the branch serves has already moved to another writer's commit;
+	// the write still reports the commit it made, and that is what is recorded.
+	fake.head = "c-other"
+	fake.putETag = "c-new"
+	repo := client.Repository("p", "b")
+
+	head, err := repo.Push(context.Background(), []byte("<s> <p> <o> ."), "a push")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if head != "c-new" || repo.Seen() != "c-new" {
+		t.Errorf("the push reported %q (seen %q), want the write's own c-new", head, repo.Seen())
+	}
+}
+
 func TestPushTakesACommittedWritePastAnAmbiguousPreconditionAnswer(t *testing.T) {
 	client, fake := stack(t, sparqlFixture)
 	fake.commit412 = true

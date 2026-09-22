@@ -201,6 +201,39 @@ func TestConvertPushRefusesAMigrationReportOverTheInput(t *testing.T) {
 	}
 }
 
+func TestConvertReadRefusesOutputOverTheSyncState(t *testing.T) {
+	binary := buildCLI(t)
+	stack := newFakeStack(t, liveGraph(t, syncedModel))
+	dir := t.TempDir()
+	out_path := writeModel(t, dir, "saved.sysml", "sentinel")
+
+	out, code := exitCode(t, branchCommand(stack, binary, "flexo://proj-1/main", "-convert", "sysml", "-o", out_path, "-sync-state", out_path))
+	if code != 2 || !strings.Contains(out, "-o and -sync-state both name") {
+		t.Fatalf("-o over the sync state: exit %d:\n%s", code, out)
+	}
+	if content, _ := os.ReadFile(out_path); string(content) != "sentinel" {
+		t.Errorf("the refused read still replaced the file")
+	}
+}
+
+func TestConvertReadRefusesAStatePinnedElsewhereBeforeWriting(t *testing.T) {
+	binary := buildCLI(t)
+	stack := newFakeStack(t, liveGraph(t, syncedModel))
+	dir := t.TempDir()
+	state := writeModel(t, dir, "s.sync.json", `{"org":"other","projectId":"proj-1","branch":"main"}`)
+	out_path := filepath.Join(dir, "out.sysml")
+
+	cmd := branchCommand(stack, binary, "flexo://proj-1/main", "-convert", "sysml", "-o", out_path, "-sync-state", state)
+	cmd.Env = append(cmd.Env, flexo.EnvOrg+"=acme")
+	out, code := exitCode(t, cmd)
+	if code != 2 || !strings.Contains(out, "org other") {
+		t.Fatalf("a state pinned to another org: exit %d:\n%s", code, out)
+	}
+	if _, err := os.Stat(out_path); !os.IsNotExist(err) {
+		t.Errorf("the refused read still wrote %s", out_path)
+	}
+}
+
 func TestConvertBranchNeedsTheToken(t *testing.T) {
 	binary := buildCLI(t)
 	stack := newFakeStack(t, liveGraph(t, syncedModel))

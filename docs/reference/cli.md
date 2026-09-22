@@ -1764,7 +1764,8 @@ As the model argument the branch is **read** as its head commit's RDF graph — 
 model graph with the converted Turtle, conditional on the branch's etag (`If-Match` against
 Layer 1), so a head the sync state says has moved is refused with exit 1 and nothing is
 written; `-convert sysml -o <url>` is refused, since a branch holds a graph, not notation.
-A run takes one side as a URL — reading a branch into a branch is refused.
+A run takes one side as a URL — reading a branch into a branch is refused — and `-o` naming
+the same file `-sync-state` does is refused, since the model would replace the recorded commit.
 
 ```bash
 sysml flexo://demo/main -convert sysml                       # branch to notation on stdout
