@@ -50,8 +50,7 @@ type Workspace struct {
 	model    *semantics.Model
 	gathers  *passes.Gathers
 	// regatherPending queues the documents whose gathers an invalidate dropped,
-	// replayed on the next read (see settleGathersLocked); settling bars its
-	// re-entry, a settle itself calling back through contextLocked.
+	// replayed on the next read; settling bars a settle re-entering itself.
 	regatherPending map[string]bool
 	settling        bool
 	// analysis is the options every document of this workspace is analyzed under,
