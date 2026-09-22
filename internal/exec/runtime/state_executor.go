@@ -146,6 +146,8 @@ type StateExecutor struct {
 	// front is the site under way whose regions' units are drawn one at a time;
 	// it lives within one move, so no snapshot sees it.
 	front *unitFront
+	// progress is what the unit under way counts its do steps against, nil between units.
+	progress *dueProgress
 	// held contains entry cascades paused at RTC boundaries.
 	held []heldEntry
 	// entering marks states entered during the current entry unit.
@@ -3189,6 +3191,7 @@ func (e *StateExecutor) runOne(progress *dueProgress) (moved bool, err error) {
 // behavior, or the dispatch drawn against it (stepDue); the dispatch alone once no
 // do behavior is due; false when nothing was left.
 func (e *StateExecutor) oneUnit(progress *dueProgress) (moved bool, err error) {
+	defer e.counting(progress)()
 	e.resetEntering()
 	if len(e.held) > 0 {
 		return e.entryStep(progress)
@@ -3206,13 +3209,36 @@ func (e *StateExecutor) oneUnit(progress *dueProgress) (moved bool, err error) {
 // dueDoActions lists the do actions due at the instant, in the order their states
 // were entered — as runDoRound sweeps them.
 func (e *StateExecutor) dueDoActions() []*doAction {
+	return e.dueAmong(e.doActions)
+}
+
+// dueAmong lists those of the do actions still registered and due at the instant.
+func (e *StateExecutor) dueAmong(acts []*doAction) []*doAction {
 	var due []*doAction
-	for _, act := range e.doActions {
-		if act.due(e.ctx) {
+	for _, act := range acts {
+		if act.due(e.ctx) && slices.Contains(e.doActions, act) {
 			due = append(due, act)
 		}
 	}
 	return due
+}
+
+// counting makes progress what the unit under way counts its do steps against.
+func (e *StateExecutor) counting(progress *dueProgress) func() {
+	prior := e.progress
+	e.progress = progress
+	return func() { e.progress = prior }
+}
+
+// countDoStep counts one token move of a do behavior against the run's do-step budget.
+func (e *StateExecutor) countDoStep() error {
+	e.progress.doSteps++
+	if e.progress.doSteps >= e.ctx.maxDoSteps {
+		return budgetExceeded(ErrDoStepLimitExceeded,
+			fmt.Sprintf("state machine exceeded max do action steps (%d steps; raise %s to allow more), possible non-terminating do behavior",
+				e.ctx.maxDoSteps, MaxDoStepsEnvVar))
+	}
+	return nil
 }
 
 // stepDue moves one token of a due do behavior, drawn among the due ones, or — where
@@ -3236,11 +3262,8 @@ func (e *StateExecutor) stepDue(due []*doAction, progress *dueProgress) (bool, e
 	if err := e.stepDoAction(due[next], func(run *doRun) (*doRun, error) { return run.resume(e.ctx) }); err != nil {
 		return false, err
 	}
-	progress.doSteps++
-	if progress.doSteps >= e.ctx.maxDoSteps {
-		return false, budgetExceeded(ErrDoStepLimitExceeded,
-			fmt.Sprintf("state machine exceeded max do action steps (%d steps; raise %s to allow more), possible non-terminating do behavior",
-				e.ctx.maxDoSteps, MaxDoStepsEnvVar))
+	if err := e.countDoStep(); err != nil {
+		return false, err
 	}
 	return true, e.settleDoActions()
 }
@@ -3479,17 +3502,22 @@ func (e *StateExecutor) eventBudgetExceeded(maxStateEvents int64) error {
 }
 
 // startDoAction registers a state's do behavior as running. Re-entering a
-// state restarts its do behavior rather than resuming the abandoned one.
+// state restarts its do behavior rather than resuming the abandoned one; a queue of
+// a front entering the state offers the behavior's due steps as units of its own.
 func (e *StateExecutor) startDoAction(state *ast.StateNode) {
 	doBehaviors := e.behaviorsOf(state).Do
 	if len(doBehaviors) == 0 {
 		return
 	}
 	e.stopDoAction(state)
-	e.doActions = append(e.doActions, &doAction{
+	act := &doAction{
 		state:   state,
 		pending: append([]lower.StateBehavior(nil), doBehaviors...),
-	})
+	}
+	e.doActions = append(e.doActions, act)
+	if q := e.runningQueue(); q != nil {
+		q.started = append(q.started, act)
+	}
 }
 
 // behaviorsOf returns the lowered entry, do and exit behaviors of a state, and
@@ -4280,6 +4308,7 @@ func (e *StateExecutor) initialize() (err error) {
 	defer e.ctx.beginExecutorRun(&e.driven)()
 	defer e.completedWhole(&err)
 	defer e.unfireOnError(len(e.fired), &err)
+	defer e.counting(&dueProgress{})()
 	e.ctx.beginPerformanceLife(e.occurrence, e.ctx.newActivation())
 	e.resetEntering()
 	e.enteringMachine = true
@@ -5093,6 +5122,7 @@ func (e *StateExecutor) ProcessNextEvent() (err error) {
 
 	e.lastDispatch = nil
 	var progress dueProgress
+	defer e.counting(&progress)()
 	e.resetEntering()
 	if len(e.held) > 0 {
 		_, err := e.entryStep(&progress)

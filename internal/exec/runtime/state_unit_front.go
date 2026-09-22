@@ -114,10 +114,13 @@ type unitQueue struct {
 	perform bool
 	prepaid bool
 	firing  firingScope
+	// started are the do behaviors the queue's units started; it offers their due steps last.
+	started []*doAction
 }
 
 // unitHead is a queue's next unit: shared (performed once, by the first drawn), waiting (until
-// holds), void (a disabled firing, run last performing nothing) or silent (rides with the next performing unit).
+// holds), void (a disabled firing, run last performing nothing), silent (rides with the next
+// performing unit) or a do step (one token move, offered while a sibling has a unit left).
 type unitHead struct {
 	label   string
 	at      ast.Node
@@ -126,6 +129,7 @@ type unitHead struct {
 	until   func() bool
 	void    func() bool
 	silent  bool
+	doStep  bool
 }
 
 // firingScope is the state of a queue's firing (occurrence, what it left and entered ahead,
@@ -324,9 +328,16 @@ func (f *unitFront) spawnAt(head unitHead, body func() error) *unitQueue {
 	return q
 }
 
-// add places a queue for body in the front, before the running queue.
+// add places a queue for body in the front, before the running queue; after body the queue
+// offers the due steps of the do behaviors body started.
 func (f *unitFront) add(body func() error) *unitQueue {
-	q := &unitQueue{front: f, body: body, firing: f.exec.firing()}
+	q := &unitQueue{front: f, firing: f.exec.firing()}
+	q.body = func() error {
+		if err := body(); err != nil {
+			return err
+		}
+		return f.offerDoSteps(q)
+	}
 	q.firing.bound, q.firing.shadowed = make(map[string]Value), make(map[string]dataSlot)
 	at := len(f.queues)
 	if i := slices.Index(f.queues, f.current); i >= 0 {
@@ -482,6 +493,55 @@ func (f *unitFront) advance(q *unitQueue) {
 			return
 		}
 	}
+}
+
+// offerDoSteps yields each due token move of the do behaviors q started as a unit of q, never
+// silent, while a sibling has a unit left; only the one-move engines step a do behavior this fine.
+func (f *unitFront) offerDoSteps(q *unitQueue) error {
+	e := f.exec
+	if !e.ctx.scheduling().oneMove() {
+		return nil
+	}
+	for {
+		due := e.dueAmong(q.started)
+		if len(due) == 0 || !f.unitsPending(q) {
+			return nil
+		}
+		head := unitHead{label: doStepLabel(e.stateNames(statesOf(due))), at: due[0].state, doStep: true}
+		head.void = func() bool { return !f.unitsPending(q) }
+		perform, err := e.unit(f.kind, head)
+		if err != nil || !perform {
+			return err
+		}
+		next, err := e.chooseDoAction(due)
+		if err != nil {
+			return err
+		}
+		if err := e.stepDoAction(due[next], func(run *doRun) (*doRun, error) { return run.resume(e.ctx) }); err != nil {
+			return err
+		}
+		if err := e.countDoStep(); err != nil {
+			return err
+		}
+		if err := e.settleDoActions(); err != nil {
+			return err
+		}
+	}
+}
+
+// unitsPending reports a queue other than q with a unit of its own left: neither done, waiting,
+// void, nor offering a do step.
+func (f *unitFront) unitsPending(q *unitQueue) bool {
+	for _, r := range f.queues {
+		if r == q || r.done || r.head.until != nil || r.head.doStep {
+			continue
+		}
+		if r.head.void != nil && r.head.void() {
+			continue
+		}
+		return true
+	}
+	return false
 }
 
 // readyExcept lists the ready queues other than q.

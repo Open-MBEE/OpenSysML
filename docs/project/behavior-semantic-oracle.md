@@ -1393,6 +1393,78 @@ the round to close, where the two are a dispatch order; `log` ends `did one `, `
 `two `, and `explore` reaches the three and no other. Were the tied events judged together, the
 dropped one would hide the acting one behind the step and `two ` would be lost.
 
+### A do step and a sibling region's entry due inside one entry: which goes first is open
+
+Fixtures: `state_do_step_before_sibling_entry` (golden, explored, checked),
+`state_do_step_before_sibling_entries` (golden, explored, checked),
+`state_do_step_before_nested_entries` (golden, explored, checked),
+`state_do_step_nested_before_outer_entry` (golden, explored, checked),
+`state_do_step_before_fork_branch` (golden, explored, checked),
+`state_do_step_before_history_restore` (golden, explored, checked),
+`state_do_step_typed_before_sibling_entry` (golden, explored, checked),
+`state_do_step_cut_by_sibling_completion` (golden, explored, checked),
+`state_do_step_cut_by_sibling_terminate` (golden, explored, checked).
+
+```
+idle ─ accept Go → work parallel { left:  { entry; then l1 { do { log += "did " } } }
+                                   right: { entry; then r1 { entry { log += "r1(entry) " } } } }
+```
+
+Derived constraints:
+
+- Entering `work` starts one performance per region, concurrent with each other (SysML v2
+  §7.18.1); within `left`, `l1`'s entry precedes its do behavior's start
+  (`StatePerformances.kerml` `StatePerformance`, `succession [1] entry then [*] middle`, the do
+  behavior a `middle` step whose start precedes the other middle steps' starts), so `l1(entry) <
+  did`.
+- No succession joins a step of `left`'s chain to a step of `right`'s (the previous section's
+  derivation for the entries), and the do behavior's actions are steps of `left`'s chain: the
+  library orders `did` after `l1`'s entry and against nothing in `right`. That `r1`'s entry is
+  another unit of the same entry occurrence orders nothing — the do behavior has started and its
+  next action is due as any other due action is.
+- Every write appends to `log`, so `log` records the interleaving.
+
+Open: whether the do behavior's next action or the sibling's remaining entry goes first, at every
+draw of the entry front where both are left. The fixture's `log` ends `did r1(entry) ` or
+`r1(entry) did `.
+
+Pinned outcome: the admissible set `{did r1(entry) , r1(entry) did }`, stated as `outcomes` citing
+this section. The step is a unit of its region's queue on the entry front: once the queue has
+performed its entries — the entry unit that started the do behavior and, below a composite, its
+substates' — each due token move of that behavior is drawn against
+the sibling regions' remaining entry units under the front's own draw — the `entering <owner>`
+choice, its alternative labeled `do <state>` beside the entries — for as long as a sibling has a
+unit left; when none has, the remaining moves fall to the do-step site of the previous section,
+drawn against the dispatch after the entry move settles. `declared`, `reverse` and `seed:<n>`
+never take the alternative: they run the entries whole, as before, and the do round after the
+move settles, so their traces record no such draw and end `r1(entry) did `; `check`, `replay`
+and `explore` draw it at every unit and reach both outcomes and no other.
+`state_do_step_before_sibling_entries` leaves two sibling regions' entries, `m1` and `r1`: the
+step falls before, between or after them in either of their orders, six outcomes.
+`state_do_step_before_nested_entries` makes the sibling's start state parallel: its regions'
+entries `a1`, `b1` are units of the same front and the step is drawn against each while one is
+left, six outcomes; `state_do_step_nested_before_outer_entry` puts the do behavior in that nested
+state instead, drawn against the outer sibling's `l1` as against its own sibling's `b1`, six
+outcomes. `state_do_step_before_fork_branch` reaches the regions through a fork: the target one
+branch enters starts its do behavior, and the step is drawn against the other branch's effect and
+its target's entry, three outcomes. `state_do_step_before_history_restore` restores two regions
+through a deep history, one of them into a state with a do behavior: the restore is a front drawn
+the same way, so the step falls before or after the other region's restored entry, on top of the
+first occurrence's firing — where the step falls before the other region's entry, after it, or
+not at all, the `Pause` already in the pool cutting it (the previous section's draw) — and the
+exit's two orders: twelve `log` values.
+`state_do_step_typed_before_sibling_entry` gives the do behavior as a typed `action def` of two
+steps with an `inout` written back as it ends: each step is one move, drawn against the sibling's
+entry while it is left, and the sibling's write lands before the write-back, which overwrites
+it, or after both steps: two `count` values. `state_do_step_cut_by_sibling_completion` completes the
+sibling's state into a transition that leaves the parallel state: the do behavior's two steps
+are drawn against the sibling's entry and then, as the previous section has it, against the
+completion's dispatch that cuts them off, six outcomes; `state_do_step_cut_by_sibling_terminate`
+is PSSM *Terminate 002*'s shape, the sibling completing into a terminate that ends the machine,
+and the do activity's first segment falls before the sibling's entry, after it, or never, its
+second — beyond an accept the terminate leaves unfed — never; with the two entry orders, five
+outcomes, PSSM's five admitted traces.
+
 ## What the executor gets wrong
 
 Nothing, at present: every derivation above is met and carries a golden. The table this section
