@@ -50,8 +50,13 @@ returned over the service yet.
   namespace, with the SysML profile in `http://www.eclipse.org/papyrus/sysml/1.6/SysML/…`.
   Elements referenced by `href` into another resource are not read; they appear as external
   proxies and are reported as unmapped where they are relationship ends.
-- `xmi:Extension` elements — diagrams, layout, tool-internal state — are skipped; the
-  report says so once per skipped profile or library package. A package is library content
+- A `uml:Diagram` a tool's `xmi:Extension` holds, with the diagram representation MagicDraw
+  and Cameo write (`diagramRepresentation` → `DiagramRepresentationObject` with its `type`,
+  `umlType` and the `usedElements` it shows), is read as a tool-neutral diagram record: its
+  name, kind, `ownerOfDiagram` and shown elements, and is written as a `view` (see
+  [Diagrams](#diagrams)). Layout and the rest of the extension — tool-internal state, a
+  Papyrus `.notation` file — are skipped; the report says so once per skipped profile or
+  library package. A package is library content
   when it is a profile, is marked «ModelLibrary» or «auxiliaryResource», or is a document root
   beside the user's Model or package bearing a standard library name; a user package named
   `SysML` or `Libraries` inside the model, or standing alone as the document's only root, is
@@ -222,6 +227,12 @@ returned over the service yet.
 | Reception without a method, or whose method is not an Activity | the same performed `action def`, accepting the signal and accepting again; the method is named in the report | approximated |
 | Reception whose signal is not written | comment | **unmapped** — the reason names the signal |
 | «Unit», «QuantityKind» instance specifications | comment placeholder | **unmapped** — use the `SI`/`ISQ` libraries |
+| Diagram | `view 'Name' { expose …; render Views::as…; }` in the body of the v2 element written for `ownerOfDiagram`, one `expose` per shown element that is written, the rendering chosen by the diagram's kind (see [Diagrams](#diagrams)) | mapped |
+| Diagram whose owner has no v2 body (a region, a property, an enumeration, an activity that is inlined), names no owner, or names an id the document does not define | the view is written in the body of the nearest ancestor that has one — the state def a region belongs to, the part def a property is of, the package, or the document's top level — and the note says where | approximated |
+| Diagram some of whose shown elements are not written (results, tool content, elements nothing refers to, states and action nodes, ids the document does not define), or that shows nothing | the written ones are exposed and the rest dropped, the note counting them; a view exposing nothing is still written, `view 'Name' { render …; }`, which validates | approximated |
+| Diagram named like a member of the body it is written in | renamed `Name 2` | approximated |
+| Diagram with no representation serialized, or one naming no diagram type | a view of unknown kind, rendered `asTextualNotation`, exposing what the representation lists | approximated |
+| Diagram no written element can hold: every ancestor is library content or otherwise unwritten | comment | **unmapped** |
 | Profiles, the SysML/UML libraries themselves | — | skipped |
 
 The v1 element's `xmi:id` is kept as the reason a report line can be found in the source
@@ -230,6 +241,30 @@ future work (see [element identity annotations](../project/element-identity-anno
 
 Names that are not v2 identifiers — with spaces, punctuation, or starting with a digit — are
 quoted (`'Vehicle Design'`).
+
+### Diagrams
+
+A diagram is a v2 `view`: what it shows is exposed, how it is drawn is not migrated (a layout
+has no v2 form). The view is named after the diagram and written in the body of the v2
+element `ownerOfDiagram` names — a `package`, or the `part def`, `state def`, `action def`…
+written for a classifier — and exposes, by qualified name, every shown element the document
+writes; a shown element that is not written (a result snapshot, tool content, an element
+nothing refers to, a state or an action node, which have no name of their own outside their
+body) is dropped and counted in the note. A diagram showing nothing writable is still a view,
+with no `expose`, so the model's inventory of diagrams is complete.
+
+The `render` names one of the standard `Views` library's renderings, chosen from the
+diagram's kind — the tool's `type` (`SysML Block Definition Diagram`, `Dependency Matrix`)
+and `umlType` (`Class Diagram`) together — by the first family below a word of either names:
+
+| Diagram kind | Rendering |
+|---|---|
+| a table or matrix: Generic, Instance and Requirement Tables, Dependency and Allocation Matrices, any kind named `… Table`/`… Matrix` | `Views::asElementTable` |
+| internal block, parametric, composite structure and interconnection diagrams | `Views::asInterconnectionDiagram` |
+| block definition, class, package, object, component, deployment, profile and other structure diagrams | `Views::asTreeDiagram` |
+| behavior diagrams (activity, state machine, sequence, use case), requirement, content and free-form diagrams, a tool's own kinds, a diagram naming no kind | `Views::asTextualNotation` |
+
+The rendering is written `$::Views::…` where a member named `Views` would shadow the library.
 
 The mapping has been run over the XMI of the [OpenMBEE TMT SysML model](https://github.com/Open-MBEE/TMT-SysML-Model)
 (27 MB; 44,600 elements once the nodes and edges of its behaviors are counted): it writes 7 MB
