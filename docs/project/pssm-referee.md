@@ -118,8 +118,7 @@ under [Behavior parameters, operation results, tester traces and standalone mach
   `T2(effect)::S1(entry)` before any junction read, where the suite admits the two junction
   reads first, so the refusal is settled rather than provisional; the alignment note's
   [candidate table](../internals/design/precise-semantics-alignment.md#a-guard-whose-behavior-acts-on-the-model)
-  records the three candidates, and [the suite's side](omg-issues.md#pssm-choice-005-observes-its-guards-through-a-construct-uml-calls-ill-formed)
-  is a documented suite defect.
+  records the three candidates: the settled refusal of a construct v2 cannot spell faithfully.
 - **A fork into orthogonal regions that have no initial pseudostate**: *Fork 002*, *Join 001*
   — kept apart from the rest while the lowerer refused the shape, and translated since it
   accepts it, see [Findings about our own conformance](#findings-about-our-own-conformance).

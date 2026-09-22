@@ -7,5 +7,4 @@
   first read at each vertex, the others rolled back with the probe that made them. A `calc def`
   with a side effect is refused too: a v2 expression is pure, and UML 2.5.1 §14.5.11 calls a
   guard with a side effect ill formed. The alignment note tables the three candidates against
-  the admitted trace, `docs/project/omg-issues.md` records the test as a suite defect, and no
-  bucket, reason or trace moves.
+  the admitted trace, and no bucket, reason or trace moves.

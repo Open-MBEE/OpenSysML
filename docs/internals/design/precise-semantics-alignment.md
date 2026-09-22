@@ -1824,9 +1824,9 @@ and "guard expressions with side effects are ill formed".
 
 The classification is the settled one: *guard side effect* is a construct with no translation
 and no faithful observable, `not-expressible` with the reason naming the four transitions,
-byte-identical to the baseline. The suite's side is recorded in
-[omg-issues.md](../../project/omg-issues.md#pssm-choice-005-observes-its-guards-through-a-construct-uml-calls-ill-formed):
-a test that observes guard evaluation only through an ill-formed model.
+byte-identical to the baseline: the settled refusal of a construct v2 cannot spell faithfully,
+not a defect of the suite — the order the test observes is the one §8.5.6 and §8.5.7 define, and
+no v2 spelling observes it.
 
 ### What a translated test looks like
 
