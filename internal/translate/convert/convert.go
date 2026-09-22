@@ -245,12 +245,14 @@ type Migration struct {
 	Results *simresults.Results
 }
 
-// Migrate reads a SysML v1 model in XMI and writes it in the to format.
-func Migrate(name string, data []byte, to Format) (*Migration, error) {
+// Migrate reads a SysML v1 model in XMI and writes it in the to format. opts
+// carries the migration's augments: an MTIP export whose diagram records lay
+// out the views the migration writes.
+func Migrate(name string, data []byte, to Format, opts migrate.Options) (*Migration, error) {
 	if !to.Writable() {
 		return nil, &NotWritableError{Format: to}
 	}
-	result, err := migrate.Migrate(name, data)
+	result, err := migrate.MigrateOptions(name, data, opts)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", name, err)
 	}
@@ -267,7 +269,7 @@ func convert(name string, data []byte, from, to Format, tolerateSyntaxErrors boo
 		return nil, nil, &NotWritableError{Format: to}
 
 	case from == FormatXMI:
-		m, err := Migrate(name, data, to)
+		m, err := Migrate(name, data, to, migrate.Options{})
 		if err != nil {
 			return nil, nil, err
 		}
