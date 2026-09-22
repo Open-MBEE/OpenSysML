@@ -143,7 +143,10 @@ test("autoLayout moves an unplaced subtree with the container the model places",
 });
 
 test("autoLayout grows an unplaced container around a child the model places elsewhere", async () => {
-  const result = rendering([node("q", "q"), node("a", "a", { parent: "q", x: 700, y: 50 })]);
+  const result = rendering(
+    [node("q", "q"), node("a", "a", { parent: "q", x: 700, y: 50 }), node("b", "b"), node("c", "c")],
+    [edge("q", "b"), edge("a", "b"), edge("c", "b")],
+  );
   const laid = await autoLayout(result);
   assert.ok(laid);
   const q = boxOf(laid, "q");
@@ -151,6 +154,11 @@ test("autoLayout grows an unplaced container around a child the model places els
   assert.deepEqual([a.x, a.y], [700, 50]);
   assert.ok(a.x >= q.x && a.x + a.width <= q.x + q.width);
   assert.ok(a.y >= q.y && a.y + a.height <= q.y + q.height);
+  // The grown box's own route is dropped so the edge anchors on its new border.
+  assert.equal(laid.routes.has(0), false);
+  // So is a route at the placed child, which the model positions.
+  assert.equal(laid.routes.has(1), false);
+  assert.ok(laid.routes.has(2));
 });
 
 test("autoLayout drops the route of an edge crossing a placed container's border", async () => {

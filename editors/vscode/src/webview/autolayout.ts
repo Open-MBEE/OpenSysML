@@ -148,7 +148,8 @@ async function layOut(result: RenderResult): Promise<AutoLayout> {
 }
 
 // reconcile moves each placed node's subtree to the model's place (outermost first), keeps routes
-// inside it and drops those crossing its border; then unplaced containers grow to cover their children.
+// inside it and drops those crossing its border; then unplaced containers grow to cover their
+// children, their own routes dropped.
 function reconcile(
   result: RenderResult,
   children: Map<string | undefined, RenderNode[]>,
@@ -233,10 +234,20 @@ function reconcile(
       right = Math.max(right, box.x + (box.width ?? 0) + CONTAINER_PAD);
       bottom = Math.max(bottom, box.y + (box.height ?? 0) + CONTAINER_PAD);
     }
+    if (left === geometry.x && top === geometry.y && right - left === geometry.width && bottom - top === geometry.height) {
+      continue;
+    }
     geometry.x = left;
     geometry.y = top;
     geometry.width = right - left;
     geometry.height = bottom - top;
+    // The box moved, so routes anchored on its old border are dropped; they are drawn straight.
+    for (const [index] of [...routes]) {
+      const edge = result.edges![index];
+      if (edge.from === node.id || edge.to === node.id) {
+        routes.delete(index);
+      }
+    }
   }
 }
 
