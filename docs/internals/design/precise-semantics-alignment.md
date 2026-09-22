@@ -414,10 +414,10 @@ transitions (`settleDoActions`, SM8). `state_concurrent_do` records four admissi
 interleavings of two do actions under the scheduling policies; `TestCompletionWaitsForTheDoBehavior`.
 The step granularity (one action node per machine step) is a tool choice PSSM does not make
 either — its do activity runs in the fUML "as if concurrent" sense — so no trace admissible
-here is inadmissible there. The converse does not hold: the round always precedes the dispatch,
-so a do action that is due steps before the occurrence at the head of the pool is dispatched,
-and the interleavings where the dispatch comes first are not explored (finding 9's one site
-still open, designed per token move in
+here is inadmissible there. The converse holds under `check`, `replay` and `explore`, where a
+due do step and the dispatch at the head of the pool are drawn against each other per token move
+(finding 9's fourth site, `ChoiceStepOrder`; the fixed policies alone run the whole round before
+they dispatch, one path of that enumeration — see
 [recording the order of orthogonal regions](region-order-scheduling.md)). **agrees.**
 
 **SM14. Order of leaving a state.** PSSM §8.5.5 (`exit`) and requirements *Exiting 001–003*, *005*
@@ -2004,8 +2004,9 @@ activity engine and does not become one.
 The rows below report the runtime differing from, or falling short of, SysML v2's or the Kernel
 Semantic Library's *own* text, or from this project's own design notes. They are bug reports and
 unsupported-feature records, not alignment questions: PSSM has nothing to do with them and they
-are not alignment questions. Each names its evidence; items 1, 4 to 8 and 10 are fixed, and
-say where; item 9 is fixed at three of its four sites and open at the fourth; item 11 is open,
+are not alignment questions. Each names its evidence; items 1, 4 to 10 are fixed, and say where;
+item 11 is adjudicated — a translation limit on three tests, the suite's defect on two, its pool
+order fixed — with one site of the runtime's still open, the do step drawn on the entry front,
 and says what a fix takes.
 
 1. **Terminate was parsed and lowered but not executed** (SM38). SysML v2 §7.17.10 and §7.18.3
