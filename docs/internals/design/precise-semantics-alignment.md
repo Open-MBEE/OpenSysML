@@ -477,7 +477,20 @@ trigger's parameters; a guard that evaluates to nothing is not true. *v2/KerML:*
 payload for the guard's duration; a guard with no result (`state_choice_unevaluable_transition`:
 a division by zero) is "not true, so that transition is not selected", and reported as a
 `guard-unevaluable` note rather than a failure. `state_transition_accept_payload`,
-`state_call_trigger_guard`, `state_entry_transition_guard_first`. **agrees.**
+`state_call_trigger_guard`, `state_entry_transition_guard_first`. The guard is a step of the
+`TransitionPerformance` it guards, performed after the trigger has been accepted
+(`TransitionPerformances.kerml`: `bool guard[*] subsets enclosedPerformances`, `succession all
+[*] trigger then [*] guard`), so it reads the payload by the transition's name as the exits and
+effects of the *Read the leaving transition's payload* row below do — `if raise.l > 5`, `if
+raise.d.level > 5` — and a compound transition is one performance, so a guard on a segment out
+of a choice or junction reads the accepting segment's payload by that segment's name
+(`evalTransitionStep`, `stepFiring`: the candidate transition's own firing for a plain guard, the
+compound firing `resolveRoute` holds for a segment's; `transitionPayload` for the read). A guard
+naming a transition not being taken reads null, and comparing it is the operator's type error
+rather than false: the read resolves, so it is not "no result", and a null is no Boolean.
+`state_choice_guard_reads_accepting_segment`, `state_junction_guard_reads_call_argument`,
+`state_guard_reads_own_payload_member`, `state_guard_names_transition_not_taken`,
+`state_guard_reads_deferred_payload`. **agrees.**
 
 **SM18. Innermost first.** PSSM §8.5.2: "transition priorities, which are relative to the level
 of nesting of their source states" — a transition from a substate outranks one from its
