@@ -213,7 +213,7 @@ reported, so a script that reads it takes the output from the first `{`.
 | `--quiet` | | Report errors only, suppressing warnings |
 | `--strict` | | Judge the model as conforming SysML v2: notation no pinned production admits is an error, not a warning (see [Strict conformance](../guide/03-command-line.md#strict-conformance)) |
 | `--trace` | | Report each execution step: expression evaluation, calc invocation, action tokens, state transitions, each `choice` the executor made among alternatives the library leaves unordered, naming the alternatives and the one taken, and each `unevaluable guard` it read only to report one and could not evaluate ([Choice points](../guide/06-behavior.md)). Under `-schedule explore` the table is printed first, then the trace of one witness run per distinct outcome, each under a `trace of outcome <n>'s witness (run <r>):` heading ([Exploring every linearization](#exploring-every-linearization)) |
-| `--convert <format>` | | Convert the model instead of running it: `sysml`, `kerml`, `ttl`, `turtle` or `rdf`. RDF is [experimental](rdf-mapping.md#status-experimental) and every run that converts it says so on stderr (see [the RDF mapping](rdf-mapping.md)) |
+| `--convert <format>` | | Convert the model instead of running it: `sysml`, `kerml`, `ttl`, `turtle` or `rdf`. RDF is [experimental](rdf-mapping.md#status-experimental) and every run that converts it says so on stderr (see [the RDF mapping](rdf-mapping.md)). The model argument may be a Flexo MMS project branch URL — `http(s)://host[:port][/base]/projects/{project}/branches/{branch}` or `flexo://{project}/{branch}` — both naming the endpoint `FLEXO_SYSMLV2_URL` configures — which is read as its head commit's RDF graph; see [Reading and pushing a repository branch](#reading-and-pushing-a-repository-branch) |
 | `--from <format>` | | Input format for `--convert`: the `--convert` formats, or `xmi`/`uml`/`mdzip` for a SysML v1 model to migrate (experimental; default: from the input's extension; `.xmi`, `.uml` and `.mdzip` are recognized) — see [SysML v1 migration](sysml-v1-migration.md) |
 | `--migration-report <file>` | | With `--convert` from `xmi`: write the element-by-element migration report to this file, JSON when it ends in `.json`, text otherwise. Without it the one-line summary goes to stderr |
 | `--migration-results <file>` | | With `--convert` from `xmi`: write the simulation tool's run configurations (`SimulationProfile:SimulationConfig`) and the result snapshots it stored for each of them to this JSON file — the sidecar `-compare-results` reads against the migrated model. See [Comparing a migrated configuration with the tool's results](#comparing-a-migrated-configuration-with-the-tools-results) |
@@ -239,7 +239,7 @@ reported, so a script that reads it takes the output from the first `{`.
 | `--pdf-title-page` | | Former name of `--doc-title-page` |
 | `--pdf-toc` | | Former name of `--doc-toc` |
 | `--pdf-number-sections` | | Former name of `--doc-number-sections` |
-| `--output <file>` | `-o` | Write the conversion, the rendering or the rendered document to a file instead of stdout |
+| `--output <file>` | `-o` | Write the conversion, the rendering or the rendered document to a file instead of stdout; with `-convert ttl` a branch URL (the same two forms) replaces the branch's model graph with the converted Turtle — see [Reading and pushing a repository branch](#reading-and-pushing-a-repository-branch) |
 | `--version` | `-v` | Show version information |
 | `--help` | `-h` | Show usage information |
 | `--man` | | Write this command's manual page, in roff, to stdout (see [Installing](../guide/01-install.md)) |
@@ -294,6 +294,7 @@ Other modes, each described in full by `sysml -help` and the manual page:
 | `-compile <name>` | Compiles the named `calc def` to a native executable named by `-o`; `-target c` (default) or `go` picks the backend, and `-source` writes the generated source to `-o` instead of building it. What else compiles is in [Native compilation](../project/native-compilation.md) |
 | `-sync-diff <repo>` | Shows the change set between the model and a repository — a graph file (`.ttl`) or a SysML v2 API endpoint URL — keyed by effective element id, and never writes. `-sync-base <file>` names the repository graph at the last-seen commit so repository changes since then surface as conflicts; `-sync-confirm-deletes` confirms repository-side deletes, which the diff otherwise reports but refuses to apply; `-sync-mint-ids` mints a UUID for each unannotated element being created, and `-sync-annotate <file>` writes the model with each minted id declared as an `@ElementId` annotation |
 | `-sync-apply <url>` | Applies the change set to the model's project branch at the SysML v2 API endpoint, refusing one the dry run would have flagged, then records the commit in the sync state (`-sync-state <file>`, default `<model>.sync.json` beside the model). The token comes from `FLEXO_INTEROP_TOKEN` |
+| `-sync-state <file>` | The sync state file a live sync or a `-convert` over a branch URL reads and records the last-seen commit in; the defaults are `<model>.sync.json` on `-sync-apply` and a push, and `<output>.sync.json` on a branch read written to `-o`. A stdout branch read records nothing unless `-sync-state` names a file |
 | `-memstats`, `-cpuprofile <file>`, `-memprofile <file>` | Report on stderr what the run cost — wall time, memory allocated, memory taken from the OS — or write a CPU or heap profile for `go tool pprof` |
 | `-to <format>` | Replaced by `-convert`, which names the output format |
 
@@ -1757,6 +1758,41 @@ answers it beside `smt` under `-engine all`.
 With `-json` the `smt` engine's `results[]` entry carries the pair as `witness` and `contrast`,
 each with its `schedule`, `choices`, `inputs[]` and the `path` `-check-witness` wrote, and the
 verdict's `reason` names the two values and the parting move.
+
+## Reading and pushing a repository branch
+
+A `-convert` run may name a Flexo MMS project branch on either side, in one of two URL forms:
+`http(s)://host[:port][/base]/projects/{project}/branches/{branch}` — the SysML v2 API's own
+branch resource, where everything before `/projects/` is the endpoint and must be the
+one `FLEXO_SYSMLV2_URL` configures — a URL for another endpoint is refused, since the
+read and the push go through `FLEXO_LAYER1_URL` — or `flexo://{project}/{branch}`, the
+shorthand for that configured endpoint (default `http://localhost:8083`). Both need the
+bearer token `FLEXO_INTEROP_TOKEN`, and a plaintext `http://` endpoint off this machine
+is refused unless `FLEXO_ALLOW_PLAIN_HTTP=1`.
+
+As the model argument the branch is **read** as its head commit's RDF graph — the same read
+`-sync-diff` makes through Layer 1 — so `-convert sysml` writes it back as notation and
+`-convert ttl` as normalized Turtle, and `-from` accepts only the RDF spellings (`ttl`,
+`turtle`, `rdf`). As `-o` the branch is **pushed**: `-convert ttl` replaces the branch's whole
+model graph with the converted Turtle, conditional on the branch's etag (`If-Match` against
+Layer 1), so a head the sync state says has moved is refused with exit 1 and nothing is
+written; `-convert sysml -o <url>` is refused, since a branch holds a graph, not notation.
+A run takes one side as a URL — reading a branch into a branch is refused — and `-o` naming
+the same file `-sync-state` does is refused, since the model would replace the recorded commit.
+
+```bash
+sysml flexo://demo/main -convert sysml                       # branch to notation on stdout
+sysml flexo://demo/main -convert sysml -o model.sysml        # ...to a file, recording the head
+sysml model.sysml -convert ttl -o flexo://demo/main          # replace the branch's model graph
+sysml model.sysml -convert ttl -o https://mms.example.com/projects/demo/branches/main
+# ...when FLEXO_SYSMLV2_URL and FLEXO_LAYER1_URL point at that same stack
+```
+
+The head commit a read or push stood at is recorded in the sync state — `-sync-state <file>`,
+or `<output>.sync.json` beside a `-o` file on a read and `<model>.sync.json` on a push — so a
+later push is refused rather than silently overwriting another writer's commit, exactly the
+moved-head refusal `-sync-apply` gives. A stdout-only read records nothing unless `-sync-state`
+names a file.
 
 ## Output Format
 

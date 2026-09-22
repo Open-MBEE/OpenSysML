@@ -271,6 +271,8 @@ func doc() usage.Doc {
 				usage.Ex("sysml model.ttl -convert sysml", "RDF Turtle to SysML notation"),
 				usage.Ex("sysml model.sysml -convert ttl -o m.ttl", "Write the conversion to a file"),
 				usage.Ex("sysml in.txt -convert ttl -from sysml", "Name the input format explicitly"),
+				usage.Ex("sysml flexo://demo/main -convert sysml", "A Flexo branch as notation"),
+				usage.Ex("sysml model.sysml -convert ttl -o flexo://demo/main", "Push the graph to the branch"),
 			},
 			Paragraphs: []string{
 				"The input format is taken from the file extension (.sysml, .kerml, " +
@@ -280,6 +282,16 @@ func doc() usage.Doc {
 					"Converting to the format it is " +
 					"already in rewrites the input: notation is reformatted, Turtle " +
 					"is normalized.",
+				"Either side may name a Flexo MMS project branch instead of a file: " +
+					"http(s)://host[:port][/base]/projects/{project}/branches/{branch}, " +
+					"or flexo://{project}/{branch}, both naming the endpoint " +
+					"FLEXO_SYSMLV2_URL configures. A branch input is read as its head " +
+					"commit's RDF graph; a branch -o takes the -convert ttl output as " +
+					"the branch's whole model graph, conditional on the branch's etag, " +
+					"and refuses a head the sync state says has moved. Both need the " +
+					"bearer token in FLEXO_INTEROP_TOKEN and record the head commit " +
+					"in the sync state (-sync-state, or <output>.sync.json on a read / " +
+					"<model>.sync.json on a push).",
 				// Printed rather than restated, so the help cannot drift from what a
 				// conversion reports.
 				convert.ExperimentalNotice,
@@ -536,10 +548,10 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.Var(&modelChecks.checker.unroll, checkUnrollFlag, "Under smt, the most iterations of one loop the solver unrolls before it stops (default 4)")
 	fs.Var(&modelChecks.checker.timeout, "check-timeout", "The time the check's plan may run for, as 30s or 2m, and the time each smt solver query may take in place of OPENSYSML_SMT_TIMEOUT")
 
-	fs.StringVar(&convertFormat, "convert", "", "Convert the model to this format instead of running it: sysml, kerml, ttl, turtle or rdf (RDF is experimental)")
+	fs.StringVar(&convertFormat, "convert", "", "Convert the model to this format instead of running it: sysml, kerml, ttl, turtle or rdf (RDF is experimental). The input may be a Flexo branch URL (host[:port][/base]/projects/{p}/branches/{b} of the FLEXO_SYSMLV2_URL endpoint, or flexo://{p}/{b}), read as its RDF graph")
 	fs.StringVar(&fromFormat, "from", "", "Input format for -convert: sysml, kerml, ttl, turtle, rdf, or xmi, uml or mdzip for a SysML v1 model to migrate (experimental); default the input's extension")
-	fs.StringVar(&outputPath, "output", "", "Write what -convert, -compile, -render or -render-document produces to this file instead of stdout")
-	fs.StringVar(&outputPath, "o", "", "Write what -convert, -compile, -render or -render-document produces to this file instead of stdout")
+	fs.StringVar(&outputPath, "output", "", "Write what -convert, -compile, -render or -render-document produces to this file instead of stdout; with -convert ttl, a Flexo branch URL pushes the graph to the branch")
+	fs.StringVar(&outputPath, "o", "", "Write what -convert, -compile, -render or -render-document produces to this file instead of stdout; with -convert ttl, a Flexo branch URL pushes the graph to the branch")
 	fs.StringVar(&migrationReport, "migration-report", "", "With -convert from xmi, write the element-by-element migration report to this file: JSON when it ends in .json, text otherwise")
 	fs.StringVar(&migrationResults, "migration-results", "", "With -convert from xmi, write the run configurations and the result snapshots the simulation tool stored for them to this JSON file, for -compare-results to read against the migrated model")
 	fs.StringVar(&modelChecks.compare, "compare-results", "", "Run every configuration this -migration-results file indexes — or those -action names — with its recorded runs and duration mode, or the -runs and -draws given, seeded from -seed, and table the tool's and OpenSysML's min, mean, p50, p90 and max of each observable with their relative difference")
