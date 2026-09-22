@@ -1060,7 +1060,13 @@ the case binds as `observed`; the table has one row per run with that value and 
 beneath, and then the case is concluded once over the sample: `runs`, `mean`, `deviation` (the
 sample standard deviation, none under two runs) and `outOfSpec` (the runs in which a check of
 the case did not hold) are bound and the case's own outputs and checks evaluated over them, a
-failed run failing the table and an unsatisfied concluding check failing the verdict. The runs
+failed run failing the table and an unsatisfied concluding check failing the verdict. An
+`observed` that is a quantity is sampled by its magnitude in the first run's unit — a later run
+in a commensurable unit is converted, one of another dimension refuses the sample — and `mean`
+and `deviation` are quantities in that unit; the sample is of numbers or of quantities, never
+both. The table stands whatever the sample: when every run failed, each run's row and error
+are tabled and the case is reported unconcluded rather than refused as a sample of nothing, and
+a run observing no number is refused naming the run and what it observed, under the table. The runs
 make their objects from their declarations, so a subject named by `#id` alone is refused, and
 `-observe` belongs to an action's runs, not a case's. Run once, without `-runs`, such a case
 leaves its statistics unbound, so a return of one of them is refused naming `-runs`.

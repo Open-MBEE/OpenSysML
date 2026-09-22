@@ -7,14 +7,21 @@ import (
 	"testing"
 )
 
-// monteCarloModel declares a Simulation::MonteCarlo case over a part whose
-// behavior draws the value the case observes, and an ordinary analysis case.
+// monteCarloModel declares Simulation::MonteCarlo cases over a part whose behaviors
+// draw a Real, a duration, a string, or fail, and an ordinary analysis case.
 const monteCarloModel = `package MC {
 	private import ScalarValues::*;
 	private import RandomFunctions::*;
+	private import ISQ::*;
+	private import SI::*;
 	part def Probe {
 		attribute t : Real;
+		attribute elapsed : DurationValue;
+		attribute label : String;
 		action settle { first start; then assign t := uniform(1.0, 5.0); then done; }
+		action time { first start; then assign elapsed := uniform(1.0, 5.0) [s]; then done; }
+		action name { first start; then assign label := "x"; then done; }
+		action crash { first start; then assign t := 1.0 / 0.0; then done; }
 	}
 	individual def probe :> Probe;
 	analysis def Mc :> Simulation::MonteCarlo {
@@ -24,6 +31,25 @@ const monteCarloModel = `package MC {
 		return Mean : Real = mean;
 		out Deviation : Real[0..1] = deviation;
 		out N : Natural = runs;
+	}
+	analysis def Timed :> Simulation::MonteCarlo {
+		subject analysed : Probe;
+		perform action run ::> analysed.time;
+		attribute :>> observed : DurationValue = analysed.elapsed;
+		return Mean : DurationValue = mean;
+		out Deviation : DurationValue[0..1] = deviation;
+	}
+	analysis def Named :> Simulation::MonteCarlo {
+		subject analysed : Probe;
+		perform action run ::> analysed.name;
+		attribute :>> observed : String = analysed.label;
+		return Mean = mean;
+	}
+	analysis def Crashing :> Simulation::MonteCarlo {
+		subject analysed : Probe;
+		perform action run ::> analysed.crash;
+		attribute :>> observed : Real = analysed.t;
+		return Mean : Real = mean;
 	}
 	analysis def Plain { subject analysed : Probe; return k : Integer = 1; }
 }`
@@ -38,11 +64,13 @@ func monteCarloSession(t *testing.T) *Session {
 	return s
 }
 
-// statistic reads the number a "name = value" line of a concluded case reports.
+// statistic reads the number a "name = value" line of a concluded case reports,
+// a quantity's magnitude included.
 func statistic(t *testing.T, out, name string) float64 {
 	t.Helper()
 	for _, line := range strings.Split(out, "\n") {
 		if rest, ok := strings.CutPrefix(strings.TrimSpace(line), name+" = "); ok {
+			rest, _, _ = strings.Cut(rest, " [")
 			v, err := strconv.ParseFloat(rest, 64)
 			if err != nil {
 				t.Fatalf("%s = %q is not a number", name, rest)
@@ -107,6 +135,57 @@ func TestRunsOfOneLeaveTheDeviationEmpty(t *testing.T) {
 	if strings.Contains(out, "never assigned") {
 		t.Errorf("one run does not conclude:\n%s", out)
 	}
+}
+
+// A case observing a quantity concludes in its unit: Mean and Deviation are quantities
+// over the magnitudes the runs observed.
+func TestRunsConcludeAQuantityObservedCaseInItsUnit(t *testing.T) {
+	s := monteCarloSession(t)
+	out := run(t, s, "%runs 3 7 MC::Timed MC::probe")
+	wants(t, out, "✓ MC::Timed over 3 run(s)", "Mean = ", "Deviation = ")
+	var observed []float64
+	for _, line := range strings.Split(out, "\n") {
+		fields := strings.Split(line, "|")
+		if len(fields) < 2 {
+			continue
+		}
+		magnitude, unit, isQuantity := strings.Cut(strings.TrimSpace(fields[1]), " ")
+		if v, err := strconv.ParseFloat(magnitude, 64); err == nil && isQuantity && unit == "[s]" {
+			observed = append(observed, v)
+		}
+	}
+	if len(observed) != 3 {
+		t.Fatalf("the table holds %d observation(s) in seconds, want 3:\n%s", len(observed), out)
+	}
+	mean := (observed[0] + observed[1] + observed[2]) / 3
+	if got := statistic(t, out, "Mean"); math.Abs(got-mean) > 1e-12 {
+		t.Errorf("Mean = %v, want the mean %v of %v", got, mean, observed)
+	}
+	for _, line := range strings.Split(out, "\n") {
+		line = strings.TrimSpace(line)
+		if (strings.HasPrefix(line, "Mean = ") || strings.HasPrefix(line, "Deviation = ")) && !strings.HasSuffix(line, " [s]") {
+			t.Errorf("%q is not a quantity in seconds", line)
+		}
+	}
+}
+
+// Every run failing keeps every run's row and error in the table; the case fails and is
+// reported unconcluded rather than refused as a sample of nothing.
+func TestRunsAllFailingKeepTheirRows(t *testing.T) {
+	s := monteCarloSession(t)
+	out := run(t, s, "%runs 3 7 MC::Crashing MC::probe")
+	wants(t, out, "run | time", "| error", "error 1: ", "error 2: ", "error 3: ", "division by zero",
+		"✗ MC::Crashing: no run completed, so the case is not concluded")
+	if strings.Contains(out, "no run observed anything") {
+		t.Errorf("the failed runs are reported as a sample of nothing:\n%s", out)
+	}
+}
+
+// Runs observing no number keep their table too; the refusal names the run and what it observed.
+func TestRunsObservingNoNumberKeepTheirRows(t *testing.T) {
+	s := monteCarloSession(t)
+	wants(t, run(t, s, "%runs 2 7 MC::Named MC::probe"), "run | observed", `| "x"`,
+		"? MC::Named: invalid observation: run 1 of MC::Named observed \"x\", not a number")
 }
 
 // An analysis case that does not specialize Simulation::MonteCarlo is not run

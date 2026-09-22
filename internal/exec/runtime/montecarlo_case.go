@@ -186,21 +186,50 @@ type MonteCarloStatistics struct {
 	Deviation float64
 	// OutOfSpec is the number of runs a required check of the case did not hold in.
 	OutOfSpec int64
+	// Unit is the unit quantity observations were taken in, which Mean and Deviation
+	// are expressed in; nil when the observations were bare numbers.
+	Unit *Unit
 }
 
-// MonteCarloSample is the statistics of runs, each of which observed a number;
-// one observing none, or no number, refuses the sample.
+// statistic is Mean or Deviation as a value: a Real, or a quantity in the sample's unit.
+func (s MonteCarloStatistics) statistic(x float64) Value {
+	if s.Unit == nil {
+		return constValue(drawnReal(x))
+	}
+	return NewQuantityValue(&Quantity{Num: drawnReal(x), Unit: s.Unit.Clone()})
+}
+
+// MonteCarloSample is the statistics of runs, each of which observed a number or a
+// quantity, the quantities expressed in the first run's unit; one observing none,
+// no number, or a quantity of another dimension refuses the sample.
 func MonteCarloSample(runs []*MonteCarloRun) (MonteCarloStatistics, error) {
 	if len(runs) == 0 {
 		return MonteCarloStatistics{}, fmt.Errorf("%w: no run observed anything", ErrMonteCarloObserved)
 	}
 	numbers := make([]semantics.Value, 0, len(runs))
 	var outOfSpec int64
+	var unit *Unit
 	for i, run := range runs {
-		number, ok := observedNumber(run.Observed)
+		observed := soleElement(run.Observed)
+		number, ok := MagnitudeValue(observed)
 		if !ok {
 			return MonteCarloStatistics{}, fmt.Errorf("%w: run %d of %s observed %s, not a number",
-				ErrMonteCarloObserved, i+1, run.Case, describeObserved(run.Observed))
+				ErrMonteCarloObserved, i+1, run.Case, describeObserved(observed))
+		}
+		q := observed.Quantity()
+		switch {
+		case i == 0 && q != nil:
+			u := q.Unit.Clone()
+			unit = &u
+		case (q == nil) != (unit == nil):
+			return MonteCarloStatistics{}, fmt.Errorf("%w: run %d of %s observed %s where run 1 observed %s; a sample is of numbers or of quantities, not both",
+				ErrMonteCarloObserved, i+1, run.Case, describeObserved(observed), describeObserved(soleElement(runs[0].Observed)))
+		case q != nil:
+			magnitude, err := q.ConvertTo(*unit)
+			if err != nil {
+				return MonteCarloStatistics{}, fmt.Errorf("%w: run %d of %s: %w", ErrMonteCarloObserved, i+1, run.Case, err)
+			}
+			number = drawnReal(magnitude)
 		}
 		numbers = append(numbers, number)
 		if run.OutOfSpec() {
@@ -208,29 +237,15 @@ func MonteCarloSample(runs []*MonteCarloRun) (MonteCarloStatistics, error) {
 		}
 	}
 	d := Distribute(numbers)
-	return MonteCarloStatistics{Runs: int64(d.Count), Mean: d.Mean, Deviation: d.Deviation, OutOfSpec: outOfSpec}, nil
+	return MonteCarloStatistics{Runs: int64(d.Count), Mean: d.Mean, Deviation: d.Deviation, OutOfSpec: outOfSpec, Unit: unit}, nil
 }
 
-// observedNumber is the number an observation holds: a scalar Integer or Real,
-// or the number of a quantity value.
-func observedNumber(value Value) (semantics.Value, bool) {
-	value = soleElement(value)
-	if value.Kind != ValConst {
-		return semantics.Value{}, false
-	}
-	switch value.Const.Kind {
-	case semantics.ValInt, semantics.ValReal:
-		return value.Const, true
-	}
-	return semantics.Value{}, false
-}
-
-// describeObserved words an observation that is no number.
+// describeObserved words an observation as the sample's refusal names it.
 func describeObserved(value Value) string {
 	if value.Kind == ValNull {
 		return "no value"
 	}
-	return value.Kind.String()
+	return FormatValue(value)
 }
 
 // Conclude binds the sample's statistics (deviation empty under two runs), then reports
@@ -244,14 +259,14 @@ func (r *MonteCarloRun) Conclude(stats MonteCarloStatistics) (AnalysisResult, er
 
 	deviation := Value{Kind: ValNull}
 	if stats.Runs >= 2 {
-		deviation = constValue(drawnReal(stats.Deviation))
+		deviation = stats.statistic(stats.Deviation)
 	}
 	bound := []struct {
 		feature string
 		value   Value
 	}{
 		{MonteCarloRunsOutput, constValue(drawnInt(stats.Runs))},
-		{MonteCarloMeanOutput, constValue(drawnReal(stats.Mean))},
+		{MonteCarloMeanOutput, stats.statistic(stats.Mean)},
 		{MonteCarloDeviationOutput, deviation},
 		{MonteCarloOutOfSpecOutput, constValue(drawnInt(stats.OutOfSpec))},
 	}

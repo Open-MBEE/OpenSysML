@@ -58,6 +58,14 @@ func (s *Session) monteCarloVerdict(inv analysisInvocation, count int64, seed *u
 	lines := append(sweepTraces(sample.table), sweepTableLines(sample.table)...)
 	lines = append(lines, distributionLines(sample.table)...)
 	verdict := Verdict{Subject: label, Status: status, Values: sweepValues(sample.table, rows), Rows: rows}
+	if sample.unconcluded != nil {
+		mark := "✗"
+		if sample.last != nil {
+			verdict.Status, mark = VerdictUnresolved, "?"
+		}
+		verdict.Lines = append(lines, fmt.Sprintf("%s %s: %s", mark, inv.name, sample.unconcluded.Error()))
+		return standing(verdict, answered)
+	}
 
 	concluded, err := sample.conclude()
 	if err != nil {
@@ -103,8 +111,12 @@ func failedRun(table runtime.SweepTable) bool {
 type monteCarloRuns struct {
 	table runtime.SweepTable
 	stats runtime.MonteCarloStatistics
-	// last is the last completed run, whose context the conclusion is read through.
+	// last is the last completed run, whose context the conclusion is read through;
+	// nil when every run failed.
 	last *runtime.MonteCarloRun
+	// unconcluded says why the case is not concluded over the table: no run completed,
+	// or the sample of the completed ones was refused.
+	unconcluded error
 }
 
 // conclude binds the statistics of the sample in the last completed run and
@@ -234,11 +246,14 @@ func (s *Session) monteCarloSample(inv analysisInvocation, count int64, seed *ui
 			completed = append(completed, observed)
 		}
 	}
-	stats, err := runtime.MonteCarloSample(completed)
-	if err != nil {
-		return nil, &answered, err
+	if len(completed) == 0 {
+		return &monteCarloRuns{table: table, unconcluded: errors.New("no run completed, so the case is not concluded")}, &answered, nil
 	}
 	last := completed[len(completed)-1]
+	stats, err := runtime.MonteCarloSample(completed)
+	if err != nil {
+		return &monteCarloRuns{table: table, last: last, unconcluded: err}, &answered, nil
+	}
 	return &monteCarloRuns{table: table, stats: stats, last: last}, &answered, nil
 }
 
