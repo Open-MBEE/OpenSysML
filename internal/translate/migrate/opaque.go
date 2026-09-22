@@ -45,6 +45,10 @@ const (
 	assignKw   = "assign "
 	notBoolean = ", not a Boolean"
 	mathRound  = "Math.round"
+	mathAbsFn  = "Math.abs"
+	mathCeilFn = "Math.ceil"
+	mathPowFn  = "Math.pow"
+	mathSqrtFn = "Math.sqrt"
 )
 
 func (r *refusal) note() string {
@@ -851,8 +855,8 @@ var consolePrints = map[string]bool{
 
 // pureCalls are the functions call writes, which compute a value and change nothing.
 var pureCalls = map[string]bool{
-	"Math.max": true, "Math.min": true, "Math.abs": true, "Math.floor": true, "Math.round": true,
-	"Math.ceil": true, "Math.sqrt": true, "Math.pow": true,
+	"Math.max": true, "Math.min": true, mathAbsFn: true, "Math.floor": true, "Math.round": true,
+	mathCeilFn: true, mathSqrtFn: true, mathPowFn: true,
 	"java.util.Collections.max": true, "java.util.Collections.min": true, "Collections.max": true, "Collections.min": true,
 }
 
@@ -888,6 +892,7 @@ func (p *opaqueParser) holdsString(path []string) bool {
 func (p *opaqueParser) calleeAt(i int) (path []string, onLiteral bool) {
 	before := func(j int) int {
 		for j--; j >= 0 && p.toks[j].kind == tokNewline; j-- {
+			// skip newline tokens
 		}
 		return j
 	}
@@ -1528,9 +1533,9 @@ func (p *opaqueParser) call(path []string) (translated, *refusal) {
 	switch fn {
 	case "Math.max", "Math.min":
 		return p.mathExtremum(fn, args, arity)
-	case "Math.abs", "Math.sqrt", "Math.pow":
+	case mathAbsFn, mathSqrtFn, mathPowFn:
 		return mathScalarCall(fn, args, arity)
-	case "Math.floor", mathRound, "Math.ceil":
+	case "Math.floor", mathRound, mathCeilFn:
 		return p.mathRoundish(fn, args, arity)
 	case "java.util.Collections.max", "java.util.Collections.min", "Collections.max", "Collections.min":
 		if err := arity(1); err != nil {
@@ -1545,7 +1550,7 @@ func (p *opaqueParser) call(path []string) (translated, *refusal) {
 // is a library call: abs, sqrt and the ** of pow.
 func mathScalarCall(fn string, args []translated, arity func(int) *refusal) (translated, *refusal) {
 	n := 1
-	if fn == "Math.pow" {
+	if fn == mathPowFn {
 		n = 2
 	}
 	if err := arity(n); err != nil {
@@ -1555,9 +1560,9 @@ func mathScalarCall(fn string, args []translated, arity func(int) *refusal) (tra
 		return translated{}, err
 	}
 	switch fn {
-	case "Math.abs":
+	case mathAbsFn:
 		return mathAbs(args[0]), nil
-	case "Math.sqrt":
+	case mathSqrtFn:
 		return translated{expr: "RealFunctions::sqrt(" + args[0].expr + ")", scalar: "Real", atomic: true}, nil
 	default:
 		return binary(args[0], "**", args[1], loosePower, "Real"), nil
@@ -1627,7 +1632,7 @@ func (p *opaqueParser) mathRoundish(fn string, args []translated, arity func(int
 		yields = "Real"
 	}
 	switch fn {
-	case "Math.ceil":
+	case mathCeilFn:
 		// -floor(-x) would overflow at the least Integer; the extension library's ceiling does not.
 		return translated{expr: "OpenSysMLMathFunctions::ceiling(" + args[0].expr + ")", scalar: yields, atomic: true}, nil
 	case mathRound:
