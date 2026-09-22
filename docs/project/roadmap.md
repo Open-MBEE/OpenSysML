@@ -246,10 +246,10 @@ unreleased. The robustness cases are counted across the `TestRuntimeRobustness*`
 `TestGRPCRobustness*` functions since #345 registered them per feature, so the table's
 single-function figure and the block's are the same census under two spellings. The rejection-
 oracle row follows the committed baselines and did not move between `074f9c4b7` and the tag. At
-the current `origin/develop` head, the validation census has moved to **163 of 217 reported —
+`develop`'s head, the validation census has moved to **163 of 217 reported —
 157 faithful, 6 approximate, 0 not implemented, 1 deliberate, 53 unknown**, and the RDF corpus
-round trip has moved to **356 of 356 models stable**. The API element-form round trip at that
-same develop head is **354 of 356 models stable**, with 2 graph-diff cases.
+round trip has moved to **356 of 356 models stable**. The API element-form round trip at the
+same head is **354 of 356 models stable**, with 2 graph-diff cases.
 
 Statement coverage, re-measured with `go test -cover ./...` at this baseline with the corpora
 present. It counts only each package's own tests, which understates a package consumed by others
@@ -3217,7 +3217,7 @@ manual; #267, #289 and #293 closed Q2; Q4 (#849) landed independently ahead of t
 1. **I2, I3, then I4's client** — the shared fixtures, the thin R, Julia and MATLAB packages, the
    C client, each derived from the wire contract (I1, landed in #848); the C *ABI* half of I4 is
    not here — it is step 7.
-~~3. **D2 and D1** — Flexo: the standard vocabulary for expression trees and end structure (the
+3. ~~**D2 and D1** — Flexo: the standard vocabulary for expression trees and end structure (the
    collection JSON annotations, D3.4, landed in #850; the branch read and the authenticated
    whole-graph push, D9.1 and D9.2, landed with `-convert` over a branch URL).~~ **Landed in
    #509;** the live-stack harness was re-recorded at 505/582 properties, so the order is shorter
