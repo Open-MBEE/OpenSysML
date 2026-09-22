@@ -62,6 +62,9 @@ func Emit(s *Suite, t *Test) (*Model, error) {
 	fmt.Fprintf(&text, "package %s {\n", t.ID)
 	text.WriteString("    private import ScalarValues::*;\n")
 	text.WriteString("    private import BaseFunctions::*;\n")
+	if e.sequences {
+		text.WriteString("    private import SequenceFunctions::*;\n")
+	}
 	for _, name := range sortedKeys(e.signals) {
 		sig := s.Signals[name]
 		switch {
@@ -122,6 +125,10 @@ type emitter struct {
 	scope       map[string]string
 	scopeTypes  map[string]string
 	scopeWrites map[string]string
+	// scopeEmpty names the inputs the firing may have left empty.
+	scopeEmpty map[string]bool
+	// sequences marks a model reading SequenceFunctions, to be imported.
+	sequences bool
 }
 
 func (e *emitter) fail(where, reason string) error {
@@ -1005,11 +1012,39 @@ func (e *emitter) steps(body *Body, where string, depth int) ([]step, error) {
 	}
 	var out stepList
 	for _, st := range body.Statements {
-		if err := e.stmt(&out, st, where, depth); err != nil {
+		guards := e.guards(st)
+		if len(guards) == 0 {
+			if err := e.stmt(&out, st, where, depth); err != nil {
+				return nil, err
+			}
+			continue
+		}
+		if err := e.guarded(&out, st, guards, where, depth); err != nil {
 			return nil, err
 		}
 	}
 	return out, nil
+}
+
+// guarded translates a statement whose node fires only when the inputs it needs
+// hold a token, as UML starves it otherwise: `if notEmpty(p) { ... }`.
+func (e *emitter) guarded(out *stepList, st Statement, guards []string, where string, depth int) error {
+	var inner stepList
+	if err := e.stmt(&inner, st, where, depth); err != nil {
+		return err
+	}
+	var stmts []string
+	for _, s := range inner {
+		if s.accept != "" {
+			return e.fail(where, "an accept behind an input a firing may leave empty has no spelling")
+		}
+		stmts = append(stmts, s.stmts...)
+	}
+	if len(stmts) == 0 {
+		return nil
+	}
+	out.add(fmt.Sprintf("if %s { %s }", strings.Join(guards, " and "), strings.Join(stmts, " ")))
+	return nil
 }
 
 // stmt translates one statement into the steps.

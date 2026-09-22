@@ -1799,8 +1799,9 @@ events and nested exits (`state_exit_nested_reads_outer_transition`,
 (`frame.snapshot`, `state_exit_payload_deferred_read`) and the frames a predicate the state
 declares closes over (`invoke_predicate.go:flattenFrames`, `state_exit_payload_nested_predicate`),
 and a completion firing binds nothing, leaving the parameter's default
-(`state_exit_completion_binds_nothing`); `TestRuntimeRobustnessExitParameters` pins the typed
-errors. A do behavior reads the transition that entered its state for its whole
+(`state_exit_completion_binds_nothing`) or, for an `in level : Integer[0..1]` bound to a
+transition not taken, no value at all (`state_exit_payload_optional_input`);
+`TestRuntimeRobustnessExitParameters` pins the typed errors. A do behavior reads the transition that entered its state for its whole
 run, not whichever firing its steps happen to fall in: the state performance holds the transfer
 that triggered the transition into it (`StatePerformance::incomingTransitionTrigger`,
 `StatePerformances.kerml`), so the executor copies the entering firing into the do behavior as
@@ -1810,7 +1811,17 @@ it (`state_do_reads_entering_transition`, agreed across every schedule by the ch
 emitter (`emit_behavior.go:exitValue`) spells the exit's inputs as the chains; the reader
 (`activity.go:dry`) leaves out an activity node whose required input pin no token ever reaches,
 since UML never executes it (*Event 019 C*'s exit holds a `ToString` call nothing feeds and
-nothing reads; `TestReadStarvedActions`).
+nothing reads; `TestReadStarvedActions`). An exit some leaving paths bind nothing on — a
+completion, or an occurrence whose data the signature does not take — still runs on those
+firings with its inputs empty, and only the activity nodes a token from the input must reach
+never fire (§8.5.5: the input parameter node holds no token, so what it feeds, directly or
+through the nodes before it, never offers): the reader records those inputs per statement
+(`activity.go:needs`, `Statement.Needs`, `TestReadStatementNeeds`) by walking the activity
+once with every input fed and once per input with its parameter node absent, the binder marks
+the site (`Binding.Partial`), and the emitter declares such inputs `[0..1]` and wraps only the
+statements needing them in `if notEmpty(<input>) { … }` (`emit.go:guarded`), importing
+`SequenceFunctions::*` for the guard; a statement needing no input runs as before
+(`TestParametersExitLeftWithoutData`).
 `TestParametersExitBindsLeavingTransition` and `TestParametersExitSharedAndNested` pin the
 spelling. What is refused, with the reason the classifier
 reports under *behavior parameter* (`TestParametersRefusals`):
@@ -1820,7 +1831,7 @@ reports under *behavior parameter* (`TestParametersRefusals`):
   hold the last store; an exit left *only* by paths binding nothing — completion, data-less
   occurrences, data its signature does not take — is refused the same way, while one left by
   such a path beside conforming ones binds on the conforming firings and nothing on the
-  others, as §8.5.5 reads (`bindsNothing`);
+  others, as §8.5.5 reads (`bindsNothing`, `Binding.Partial`);
 - a signature that does not conform (arity, or a type with no `ScalarValues` counterpart), a
   signal with several attributes, a transition with several triggers, and a do activity with
   outputs.

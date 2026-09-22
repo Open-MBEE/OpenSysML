@@ -24,6 +24,9 @@ type Binding struct {
 	// Exit marks a state's exit, performed within the taking of one of Triggers:
 	// its inputs read that transition's own payload and nothing is carried.
 	Exit bool
+	// Partial marks an exit some leaving paths bind nothing on (PSSM 8.5.5): its
+	// inputs are then empty and the nodes needing them never fire.
+	Partial bool
 }
 
 // Bindings resolves each behavior with parameters to the one event bound on
@@ -140,7 +143,7 @@ func (b *binder) refuse(bh *Behavior, where, reason string) {
 }
 
 // site records the binding of one behavior from the triggers reaching it, or its
-// refusal; a path binding nothing (PSSM 8.5.5) is left out of an exit, refused elsewhere.
+// refusal; a path binding nothing (PSSM 8.5.5) leaves an exit's inputs empty, is refused elsewhere.
 func (b *binder) site(bh *Behavior, where string, set triggerSet, kind siteKind) {
 	if set.unbound != "" && !kind.exit {
 		b.refuse(bh, where, set.unbound)
@@ -192,7 +195,7 @@ func (b *binder) site(bh *Behavior, where string, set triggerSet, kind siteKind)
 		b.refuse(bh, where, reason)
 		return
 	}
-	binding := &Binding{Behavior: bh, Event: event, Triggers: bound, Data: data, Outputs: outputs, Exit: kind.exit}
+	binding := &Binding{Behavior: bh, Event: event, Triggers: bound, Data: data, Outputs: outputs, Exit: kind.exit, Partial: nothing != ""}
 	if at := kind.effect; at != nil && len(at.Triggers) > 0 {
 		binding.Direct = at
 	}

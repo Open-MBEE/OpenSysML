@@ -96,7 +96,11 @@ under [Behavior parameters, operation results, tester traces and standalone mach
   bound to it by name — `exit action { in data : Data = 'T1.2'.data; }`, or `T3.d ?? T4.d` when
   several transitions leave the state, each reading as nothing while it is not the one taken.
   The binding holds when every leaving transition whose data the signature takes accepts the one
-  event; a completion or data-less path binds nothing, as PSSM §8.5.5 has it. *Event 017-B*,
+  event; a completion or data-less path binds nothing, as PSSM §8.5.5 has it, and an exit left
+  by such a path beside binding ones still runs on it: its inputs are declared `[0..1]` and only
+  the statements a token from the input must reach are wrapped in `if notEmpty(data) { … }`, the
+  activity nodes UML never fires without the input (`Statement.Needs`, read from the activity
+  graph with each parameter node absent in turn). *Event 017-B*,
   *Event 019-B* and *Event 019-C* run and pass on it; *Standalone 002*'s exits bind, its entry
   and exit points keeping it not expressible; *Event 019-E* and *Standalone 003* run and pass,
   and *Entry 002-F*'s entries bind.

@@ -169,6 +169,7 @@ func (e *emitter) boundEntry(bh *Behavior, ind, where, base string) (string, err
 	}
 	params, scope, types := e.declaredInputs(binding)
 	stmts, err := scoped(e, scope, types, func() ([]string, error) {
+		e.scopeEmpty = emptyInputs(binding)
 		return e.plainBody(bh, where)
 	})
 	if err != nil {
@@ -214,9 +215,43 @@ func (e *emitter) declaredInputs(binding *Binding) (params []string, scope, type
 	for i, p := range inputs(binding.Behavior) {
 		scope[p.Name] = spell(p.Name)
 		types[p.Name] = p.Type
-		params = append(params, fmt.Sprintf("in %s : %s = %s;", spell(p.Name), e.dataType(binding.Event, binding.Data[i]), values[i]))
+		params = append(params, fmt.Sprintf("in %s : %s%s = %s;", spell(p.Name), e.dataType(binding.Event, binding.Data[i]), inputMultiplicity(binding), values[i]))
 	}
 	return params, scope, types
+}
+
+// inputMultiplicity is the multiplicity a bound input is declared with: `[0..1]`
+// where a firing may bind nothing, so the behavior still runs with it empty.
+func inputMultiplicity(binding *Binding) string {
+	if binding.Partial {
+		return "[0..1]"
+	}
+	return ""
+}
+
+// emptyInputs names the inputs a firing may leave empty; nil where every one binds.
+func emptyInputs(binding *Binding) map[string]bool {
+	if !binding.Partial {
+		return nil
+	}
+	empty := map[string]bool{}
+	for _, p := range inputs(binding.Behavior) {
+		empty[p.Name] = true
+	}
+	return empty
+}
+
+// guards spells the conditions under which a statement's node fires: a token on
+// each input it needs that the current firing may have left empty.
+func (e *emitter) guards(st Statement) []string {
+	var out []string
+	for _, name := range st.Needs {
+		if e.scopeEmpty[name] {
+			e.sequences = true
+			out = append(out, "notEmpty("+e.scope[name]+")")
+		}
+	}
+	return out
 }
 
 // defUsage spells ` : <def> { inout log = log; in p = <value>; ... }`, inputs in
@@ -307,7 +342,7 @@ func (e *emitter) definition(binding *Binding, where, base string) (string, erro
 		dir, feat := inputSpelling(binding, p)
 		scope[p.Name] = feat
 		types[p.Name] = p.Type
-		fmt.Fprintf(&b, "        %s %s : %s;\n", dir, feat, e.dataType(binding.Event, binding.Data[i]))
+		fmt.Fprintf(&b, "        %s %s : %s%s;\n", dir, feat, e.dataType(binding.Event, binding.Data[i]), inputMultiplicity(binding))
 	}
 	for i, p := range outputs(bh) {
 		if p.Direction == "inout" {
@@ -320,6 +355,7 @@ func (e *emitter) definition(binding *Binding, where, base string) (string, erro
 	holders := inoutHolders(bh, scope)
 	stmts, err := scoped(e, scope, types, func() ([]string, error) {
 		e.scopeWrites = holders
+		e.scopeEmpty = emptyInputs(binding)
 		return e.plainBody(bh, where)
 	})
 	if err != nil {
@@ -360,9 +396,11 @@ func (e *emitter) defName(site string) string {
 // scoped spells with the parameters of one behavior in scope, restoring the
 // enclosing scope after.
 func scoped[T any](e *emitter, scope, types map[string]string, spell func() (T, error)) (T, error) {
-	outerScope, outerTypes, outerWrites := e.scope, e.scopeTypes, e.scopeWrites
-	e.scope, e.scopeTypes, e.scopeWrites = scope, types, nil
-	defer func() { e.scope, e.scopeTypes, e.scopeWrites = outerScope, outerTypes, outerWrites }()
+	outerScope, outerTypes, outerWrites, outerEmpty := e.scope, e.scopeTypes, e.scopeWrites, e.scopeEmpty
+	e.scope, e.scopeTypes, e.scopeWrites, e.scopeEmpty = scope, types, nil, nil
+	defer func() {
+		e.scope, e.scopeTypes, e.scopeWrites, e.scopeEmpty = outerScope, outerTypes, outerWrites, outerEmpty
+	}()
 	return spell()
 }
 

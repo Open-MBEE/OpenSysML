@@ -54,6 +54,12 @@ func (b *behaviorBuilder) flows(src, dst string) {
 	fmt.Fprintf(&b.flow, `  <edge xmi:type="uml:ObjectFlow" xmi:id="%sE%d" source="%s" target="%s"/>`+"\n", b.id, b.e, src, dst)
 }
 
+// controls orders two actions by a control flow.
+func (b *behaviorBuilder) controls(src, dst string) {
+	b.e++
+	fmt.Fprintf(&b.flow, `  <edge xmi:type="uml:ControlFlow" xmi:id="%sE%d" source="%s" target="%s"/>`+"\n", b.id, b.e, src, dst)
+}
+
 // literal adds a value specification and returns its result pin.
 func (b *behaviorBuilder) literal(kind, value string) string {
 	id := b.fresh()
@@ -83,13 +89,14 @@ func (b *behaviorBuilder) format(in bool, value string) string {
 	return id + "Out"
 }
 
-// trace adds this.trace(value).
-func (b *behaviorBuilder) trace(value string) {
+// trace adds this.trace(value) and returns the call's id.
+func (b *behaviorBuilder) trace(value string) string {
 	id := b.fresh()
 	fmt.Fprintf(&b.nodes, `  <node xmi:type="uml:ReadSelfAction" xmi:id="%sSelf"><result xmi:type="uml:OutputPin" xmi:id="%sSelfOut"/></node>
   <node xmi:type="uml:CallOperationAction" xmi:id="%s" operation="opTrace"><target xmi:type="uml:InputPin" xmi:id="%sTarget"/><argument xmi:type="uml:InputPin" xmi:id="%sArg"/></node>`+"\n", id, id, id, id, id)
 	b.flows(id+"SelfOut", id+"Target")
 	b.flows(value, id+"Arg")
+	return id
 }
 
 // paramTrace writes an activity <tag> tracing `<segment>` and formatParameterValue of
@@ -767,6 +774,61 @@ func TestParametersExitSharedAndNested(t *testing.T) {
 		if !strings.Contains(m.Text, want) {
 			t.Errorf("emitted text lacks %q:\n%s", want, m.Text)
 		}
+	}
+}
+
+// twoTraces writes an activity <tag> tracing `<segment>` first, then `<segment>`
+// and formatParameterValue of its one parameter: the second needs the input.
+func twoTraces(tag, id, segment string, p param) string {
+	b := &behaviorBuilder{id: id}
+	plain := b.trace(b.literal("uml:LiteralString", segment))
+	read := b.trace(b.primitive("StringFunctions-Concat", b.literal("uml:LiteralString", segment), b.format(true, id+"P0Node")))
+	b.controls(plain, read)
+	return `<` + tag + ` xmi:type="uml:Activity" xmi:id="` + id + `" name="` + id + `">
+` + p.decl(id+"P0") + b.nodes.String() + b.flow.String() + `</` + tag + `>
+`
+}
+
+// An exit left both by a transition carrying its data and by one carrying none
+// runs on both: the data-less firing leaves the input empty and only the nodes
+// needing it never fire (PSSM 8.5.5), the rest of the exit still runs.
+func TestParametersExitLeftWithoutData(t *testing.T) {
+	body := `
+          <subvertex xmi:type="uml:State" xmi:id="xS1" name="S1">
+            ` + twoTraces("exit", "xS1exit", "S1(exit)", integerData) + `
+          </subvertex>
+          <subvertex xmi:type="uml:State" xmi:id="xS2" name="S2"/>
+          <transition xmi:type="uml:Transition" xmi:id="xT2" name="T2" source="xWait" target="xS1">
+            <trigger xmi:type="uml:Trigger" xmi:id="xT2trig" event="evData"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="xT3" name="T3" source="xS1" target="xS2">
+            <trigger xmi:type="uml:Trigger" xmi:id="xT3trig" event="evData"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="xT4" name="T4" source="xS2" target="xS1">
+            <trigger xmi:type="uml:Trigger" xmi:id="xT4trig" event="evContinue"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="xT5" name="T5" source="xS1" target="xFin">
+            <trigger xmi:type="uml:Trigger" xmi:id="xT5trig" event="evContinue"/>
+          </transition>`
+	report, s := refereeParameterSuite(t, "", body,
+		[]string{"S1(exit)::S1(exit)[in=7]::S1(exit)"},
+		sendData("5"), sendData("7"), sendContinue, sendContinue)
+	wantPass(t, report.Tests[0])
+	m, err := Emit(s, s.Tests[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"private import SequenceFunctions::*;",
+		"in data : IntegerData[0..1] = T3.integerData;",
+		`if notEmpty(data) { assign log := if log == "" ? ("S1(exit)" + ("[in=" + ToString(data) + "]")) else log + "::" + ("S1(exit)" + ("[in=" + ToString(data) + "]")); }`,
+	} {
+		if !strings.Contains(m.Text, want) {
+			t.Errorf("emitted text lacks %q:\n%s", want, m.Text)
+		}
+	}
+	if strings.Count(m.Text, "if notEmpty(data)") != 1 {
+		t.Errorf("the trace needing no input is guarded too:\n%s", m.Text)
 	}
 }
 
