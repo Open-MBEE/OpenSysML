@@ -24,6 +24,7 @@ const (
 	ErrorInvalidOrder          ErrorKind = "invalid-order"
 	ErrorUnknownProperty       ErrorKind = "unknown-property"
 	ErrorUnknownClassification ErrorKind = "unknown-classification"
+	ErrorUnknownElement        ErrorKind = "unknown-element"
 	ErrorUnknownRelationship   ErrorKind = "unknown-relationship"
 	ErrorUnevaluableFeature    ErrorKind = "unevaluable-feature"
 	ErrorUnknownInvocation     ErrorKind = "unknown-invocation"
@@ -133,6 +134,8 @@ func (e *Error) Error() string {
 		return fmt.Sprintf("query %s references unknown property %s", e.Query, e.Property)
 	case ErrorUnknownClassification:
 		return fmt.Sprintf("query %s references unknown classification %s", e.Query, e.Actual)
+	case ErrorUnknownElement:
+		return fmt.Sprintf("query %s names no single element %s", e.Query, e.Actual)
 	case ErrorUnknownRelationship:
 		return fmt.Sprintf("query %s%s does not support relationship kind %q", e.Query, e.column(), e.Actual)
 	case ErrorUnevaluableFeature:

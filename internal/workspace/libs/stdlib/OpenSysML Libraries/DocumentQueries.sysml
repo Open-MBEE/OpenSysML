@@ -28,6 +28,13 @@ library package DocumentQueries {
 		return result : Element[0..*] ordered;
 	}
 
+	/* Named: the model elements the qualified names denote, in the order given;
+	 * a name that denotes nothing is an error. */
+	calc def Named {
+		in qualifiedName : String[1..*] ordered;
+		return result : Element[0..*] ordered;
+	}
+
 	/* Objects: the objects the session holds that are of the named type,
 	 * each nested object under its path (`car.wheels[2]`). Requires a session. */
 	calc def Objects {

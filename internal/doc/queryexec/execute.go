@@ -395,6 +395,8 @@ func (e *executor) evaluate(expression queryplan.Expression) (sequence, error) {
 		return e.evaluateInvoke(expression)
 	case queryplan.OperationRelatedElements:
 		return e.evaluateRelated(expression)
+	case queryplan.OperationNamed:
+		return e.evaluateNamed(expression)
 	case queryplan.OperationObjects:
 		return e.evaluateObjects(expression)
 	case queryplan.OperationVerdicts:
