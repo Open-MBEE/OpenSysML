@@ -1684,6 +1684,7 @@ adjudicates the test on the traces the suite registers.
 | *Transition 017* | eight admitted traces, two of which — `T2(effect)::S1(entry)::T2.2(effect)::T3.2(effect)::S3.1(doActivity)::T3.1.2(effect)` and `…::T2.2(effect)::T3.2(effect)::T3.1.2(effect)::S3.1(doActivity)` — have `T3.2`, the completion transition out of `S3.1`, fire before `T3.1.2`, the completion transition inside `S3.1`'s own region, and run `S3.1`'s do activity after it | a composite state completes when its regions have reached their final states, so its completion transition cannot precede a transition of its region; the suite's own "Expected execution sequence" comment on the test's state machine fires `T3.2` when the completion event `S3.1` generates is consumed, *after* the inner region's `T3.1.2` and final state — the six other traces, not these two | `StatePerformances.kerml`: `private succession [*] transitionLinkSource.nonDoMiddle then [1] Performance::self;` on `StateTransitionPerformance` orders a transition out of a state after every non-do middle step of the state, the nested region's transition performances among them; `private succession [*] middle then [1] exit;` orders every middle step, the do activity included, before the state's exit. No reading of either admits `T3.2(effect)` before `T3.1.2(effect)` | **not filed**; documented without a correction — the test stays `fail` in the referee on these two traces alone, adjudicated in [the referee record](pssm-referee.md) |
 | *Exiting 002* | one admitted trace, `S1(doActivityPartI)::S1(exit)`, the do activity's first segment before the dispatch of the tester's `Continue` that leaves `S1` | the suite has a do activity evolve on its own thread of execution, and registers both orders of the same segment against the same dispatch for *Behavior 003 A*; `S1(exit)` alone, the dispatch first, is not registered here | the second order is the suite's own reading one test earlier; the test's point, the exit aborting the do activity, holds in both | documented, not corrected: `fail` in the referee while `S1(exit)` is the only reached trace not admitted |
 | *History 001-C*, *History 002-B* | twelve and six admitted traces, each set the product of the orders registered for the test's two halves — the first entry of the parallel `S1`, then its re-entry through the history pseudostate of region 2 after `AnotherSignal`. The two halves are structurally identical between the tests (`S2.1` carries an exit action and `T2.2.2` an effect in *002-B*, labels only) and the registered orders differ: *001-C* admits `S2.2(entry)::S1.1(exit)::S1.2(entry)::S2.2.1(exit)::S2.2.2(entry)` for the first half and *002-B* does not admit its counterpart, while *002-B* admits `S2.1(exit)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1.1(exit)::S1.2(entry)` and *001-C* does not admit its; for the second half *001-C* admits `S1.1(exit)::S2.2(entry)::S1.2(entry)::S2.2.2(entry)`, the firing of `T1.2` split around a restored entry, and *002-B* admits no split; and both admit `S1.1(exit)::S1.2(entry)` before or between region 2's restored entries | the specification's own descriptions of the two tests (PSSM 1.0 §9.3.15.4 and §9.3.15.7) end the RTC step that restores region 2 with `S1.1`'s completion event *pending* and fire `T1.2` in the next step, and §8.5.9 dispatches completion events in the order they were generated: `S2.2.1`'s completion, generated a step after `S1.1`'s, cannot be dispatched before it, and whichever region is entered first, its completion is dispatched first. Read by that text, *001-C* admits two of its twelve traces and *002-B* two of its six and two it does not register | `StatePerformances.kerml` orders a state's `entry` before its `middle` and a transition out of a state after its source's non-do middle steps, and nothing across regions; it neither orders one region's completion transition against a sibling region's entry nor forbids it, so the split firing is not excluded by the library — it is excluded by PSSM's own run-to-completion step, which the two tests describe alike and register differently | **not filed**; documented without a correction — both tests stay `fail` in the referee, adjudicated in [the referee record](pssm-referee.md); no runtime rule reaches either registered set without reaching traces the other test refuses |
+| *Choice 005* | one admitted trace, `T1.2(guard)::T1.3(guard)::T2(effect)::S1(entry)::T1.4(guard)::T1.5(guard)::S1.1(entry)`, whose four `(guard)` segments are traced by the guards themselves: each guard is an activity `this.trace("T1.n(guard)"); return <literal>;` | the test shows *when* a junction's and a choice's guards are read (PSSM 1.0 §9.4.10, static evaluation against dynamic) and can show it only by giving the guards a side effect, which UML 2.5.1 §14.5.11 — the specification whose semantics the suite tests — declares ill formed: "Guards should be pure expressions without side effects. Guard expressions with side effects are ill formed." The registered expectation is therefore defined only for a model UML says has no well-formed meaning, and a conformant implementation may refuse the model rather than reach the trace | `TransitionPerformances.kerml` declares `bool guard[*]`, an `Evaluation`, beside `step effect[*]`, the transition's one place for an action; no v2 spelling of the model exists, and the runtime's own reading order — the junction on `S1`'s default entry read after `S1(entry)`, as `StatePerformances.kerml`'s `entry then middle` places it — differs from the registered one besides (the alignment note's [candidate table](../internals/design/precise-semantics-alignment.md#a-guard-whose-behavior-acts-on-the-model)) | **not filed**; documented without a correction — the test stays `not-expressible` in the referee, its reason naming the four guards, adjudicated in [the referee record](pssm-referee.md) |
 
 ### PSSM Transition 017 admits a parent's completion before its region's
 
@@ -1828,6 +1829,39 @@ published and reports both tests `fail`, and [the referee record](pssm-referee.m
 them on that reason. The runtime adopts no rule to reach either registered set — none reaches
 one without reaching traces the other test refuses — and by the specification's own text
 neither test can reach `pass` against the published expectations. Nothing has been posted
+upstream.
+
+### PSSM Choice 005 observes its guards through a construct UML calls ill formed
+
+The test's `T2` leads `wait` into `S1`, whose region starts through the junction `Junction1`
+— `T1.2` (`true`) on to the choice `Choice1`, `T1.3` (`false`) to `S1.2` — and out of the
+choice `T1.4` (`true`) to `S1.1`, `T1.5` (`false`) to `S1.2`. Each guard is an activity, quoted
+from the XMI:
+
+```text
+activity 'T1.2_guard'(): Boolean {
+	this.trace("T1.2(guard)");
+	return true;
+}
+```
+
+and the one registered trace,
+`T1.2(guard)::T1.3(guard)::T2(effect)::S1(entry)::T1.4(guard)::T1.5(guard)::S1.1(entry)`, is
+the order the guards are read in: the junction's two statically, at `T2`'s selection, before its
+effect and `S1`'s entry; the choice's two on arrival. That order is PSSM §8.5.6's and §8.5.7's,
+and the test's point (§9.4.10) is to show it. What the test has no other way to show it with is
+a guard that acts, and UML 2.5.1 §14.5.11, `Transition::guard`, excludes exactly that: "Guards
+should be pure expressions without side effects. Guard expressions with side effects are ill
+formed." The registered expectation is thus a trace of a model the specification under test
+declares malformed; an implementation that checks the rule refuses the model and reaches no
+trace, and one that keeps the guards' values alone reaches the trace less its four `(guard)`
+segments.
+
+The suite is not vendored, so the test is not rewritten: the referee classifies it
+`not-expressible` with the reason naming the four guards, and [the referee
+record](pssm-referee.md) and the alignment note's
+[candidate table](../internals/design/precise-semantics-alignment.md#a-guard-whose-behavior-acts-on-the-model)
+record why no observable of the runtime's stands in for the calls. Nothing has been posted
 upstream.
 
 ---

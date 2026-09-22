@@ -114,7 +114,12 @@ under [Behavior parameters, operation results, tester traces and standalone mach
   separate `step`), and UML 2.5.1 §14.5.11 itself calls a guard with a side effect ill formed;
   the translation keeps the guard's value and cannot reach the trace, so the emitter refuses
   it rather than run the test short (`classify.go:guardSideEffect`, `TestClassifyGuardSideEffect`,
-  `TestEmitRejects`).
+  `TestEmitRejects`). Recording the runtime's own guard reads as the observable instead reaches
+  `T2(effect)::S1(entry)` before any junction read, where the suite admits the two junction
+  reads first, so the refusal is settled rather than provisional; the alignment note's
+  [candidate table](../internals/design/precise-semantics-alignment.md#a-guard-whose-behavior-acts-on-the-model)
+  records the three candidates, and [the suite's side](omg-issues.md#pssm-choice-005-observes-its-guards-through-a-construct-uml-calls-ill-formed)
+  is a documented suite defect.
 - **A fork into orthogonal regions that have no initial pseudostate**: *Fork 002*, *Join 001*
   — kept apart from the rest while the lowerer refused the shape, and translated since it
   accepts it, see [Findings about our own conformance](#findings-about-our-own-conformance).
@@ -677,7 +682,13 @@ By reason, as the classifier names them:
   into it** (ours): Entry 002 E, which is not expressible on other grounds too. Fork 002 and
   Join 001, filed here while the lowerer refused every region without an entry transition,
   translate since finding 6 was fixed.
-- **guard side effect** (no translation): Choice 005.
+- **guard side effect** (no translation, settled): Choice 005. Making the runtime's guard
+  reads the referee's observable instead was tried and refused: the suite reads the junction's
+  guards at the incoming transition's selection, before its effect and the target's entry, where
+  the runtime and the library read a transition inside the entered state after its entry, and
+  the runtime's trace holds only the first read of each vertex, the others rolled back with the
+  probe that made them; see the alignment note's
+  [candidate table](../internals/design/precise-semantics-alignment.md#a-guard-whose-behavior-acts-on-the-model).
 
 A test with several such constructs is listed under each; the baseline file names every
 test's constructs in its `reasons`.

@@ -724,7 +724,10 @@ disables the second, whose entering the join would need a way through; the owner
 for the next occurrence. The runtime fires nothing at the first completion (SM34: the segments
 fire together, once every source is active) and fails at the second, resolving the route out of
 the join. **differs, v2 silent.** Unchanged by the decisions below: a junction's guards stay
-static, and the runtime's rule here stays the project's.
+static, and the runtime's rule here stays the project's. *Choice 005* traces the same reach
+from the other side — its junction on the composite's default entry is read before `T2(effect)`
+and the composite's entry — and is refused on its acting guards before the order is reached; see
+[A guard whose behavior acts on the model](#a-guard-whose-behavior-acts-on-the-model).
 
 #### Fork and join
 
@@ -1525,7 +1528,7 @@ which supersede the hand count this section was first written with — the moves
 | Call event whose operation returns a value the tester traces | the runtime returns the outputs the triggered behaviors wrote to the caller (A14, `StateExecutor.Call`) and the driver traces them where the tester does; the producing behavior — an effect or entry with an `out`/`return` parameter — is an `action def` with `out` parameters named as the operation's (§7.16.2), used by the effect or entry with its inputs bound as above, and the runtime returns what it assigned. A do activity with outputs has no caller left to return to when it runs — see below | standard |
 | A `trace(...)` call in the tester's own behavior | the tester is the referee's driver, not a model element: its trace is appended to the target's `log` where the tester makes it, once the call it embeds has returned (`run.go:drive`, `tracer.value`); a trace that embeds no call and does not follow one is refused, since the machine may still be running (`stimulation.go:traceStimulus`) | standard, driven |
 | The UML `StateMachine` as the class under test (a standalone machine with attributes, operations, a constructor) | `part def` with `attribute`s, `action def`s and `exhibit state`, as an owned machine's: the reader (`reader.go`) reads the machine as the `Target` whose `Machine` is itself, with its attributes, operations and their methods, and its constructor | standard |
-| A guard whose behavior acts on the model (calls `trace(...)` before returning its value) | none: a v2 guard is a Boolean expression (§7.18.3, `validateTransitionFeatureMembershipGuardExpression`; `bool guard[*]` in `TransitionPerformances.kerml`, the effect a separate `step`), and an expression has no spelling for an action. UML 2.5.1 §14.5.11 `Transition::guard` itself calls such a guard ill formed | no translation |
+| A guard whose behavior acts on the model (calls `trace(...)` before returning its value) | none: a v2 guard is a Boolean expression (§7.18.3, `validateTransitionFeatureMembershipGuardExpression`; `bool guard[*]` in `TransitionPerformances.kerml`, the effect a separate `step`), and an expression has no spelling for an action. UML 2.5.1 §14.5.11 `Transition::guard` itself calls such a guard ill formed. Recording the runtime's guard reads as the referee's observable instead is refused too: the reads the suite traces are a junction's on the target's default entry, read at the incoming transition's selection, where the library orders every transition inside a state after the state's `entry` — see [A guard whose behavior acts on the model](#a-guard-whose-behavior-acts-on-the-model) | no translation |
 | A guard whose behavior is an opaque behavior, not an activity | none: the reader follows an activity's nodes to tell whether the behavior acts, and does not read an opaque body, so the guard is refused rather than carried as its Boolean text alone. A `FunctionBehavior` is the exception — it accesses no object by UML's contract (§13.2.3.3) — and is translated as the expression it spells | no translation |
 | Fork into states of orthogonal regions that have no initial pseudostate | `parallel` regions spell the shape and the `fork` extension the fork; a region a fork enters needs no `entry; then` (finding 6 below, fixed) | extension |
 
@@ -1593,7 +1596,7 @@ is where a later translation moves them back.
 | *Standalone 003* | standard | *the standalone machine is read as the target since the reader does so, and translated since the emitter binds entry parameters and returns outputs:* the same shape as *Event 019-E*, the machine itself the class under test with `or` its operation; both admitted traces are reached |
 | *Fork 002* | extension | *translated since finding 6 was fixed:* the fork enters the two regions of a nested composite state, which have no initial pseudostate; the lowerer used to refuse a `parallel` region with no `entry; then` — this project's gap, not v2's |
 | *Join 001* | extension | *translated since finding 6 was fixed:* the fork enters the two regions of the top-level composite state, which have no initial pseudostate; the same lowerer refusal |
-| *Choice 005* | extension | the guards of the junction's and the choice's four outgoing transitions each call `trace("T1.n(guard)")` and the admitted trace records the calls, to show when each guard is read; a v2 guard is an expression with no room for an action, so the translation keeps only the guard's value and cannot reach the trace, and is refused rather than run short |
+| *Choice 005* | extension | *refused, settled:* the guards of the junction's and the choice's four outgoing transitions each call `trace("T1.n(guard)")` and the admitted trace records the calls, to show when each guard is read; a v2 guard is an expression with no room for an action, so the translation keeps only the guard's value and cannot reach the trace, and is refused rather than run short. Making the runtime's guard reads the referee's observable would not reach the trace either: the junction sits on the composite's default entry and the suite reads its guards before `T2(effect)` and the composite's entry, where the library reads a transition inside a state after the state's `entry` — see [A guard whose behavior acts on the model](#a-guard-whose-behavior-acts-on-the-model) |
 
 The last two were kept apart from the other seven and from the 29 with no spelling: UML allows
 a fork to target states inside orthogonal regions that have no initial pseudostate, SysML v2
@@ -1778,6 +1781,52 @@ them and a trigger naming either is refused (`emit.go:indistinctOverload`,
 The classifier reports only the behaviors `binding.go` refuses, so *Entry 002-F*'s and
 *Standalone 002*'s entries bind and their reasons name their entry and exit points and, for the
 latter, its exits.
+
+#### A guard whose behavior acts on the model
+
+*Choice 005* (PSSM §9.4.10) is the one test whose guards act: `T2` (`Start`, effect
+`T2(effect)`) leads `wait` to a composite state with an entry behavior, whose region starts
+through `T1.1` into the junction `Junction1`, out of which `T1.2` (`true`) reaches the choice
+`Choice1` and `T1.3` (`false`) a second substate; out of the choice `T1.4` (`true`) reaches the
+first substate, which has an entry behavior, and `T1.5` (`false`) the second. Each of the four
+guards is an activity that calls `trace("T1.n(guard)")` and then returns its literal, and the
+one admitted trace has seven segments — `T1.2(guard)::T1.3(guard)::T2(effect)`, the
+composite's entry, `T1.4(guard)::T1.5(guard)`, the first substate's entry (the trace is quoted
+in [the referee record](../../project/pssm-referee.md)): the junction's two guards read at
+`T2`'s selection, before its effect and the composite's entry — the static evaluation of §8.5.6
+reaching through the composite's default entry, the same reach SM32 records for *Junction 004*
+— and the choice's two read on arrival, after the composite's entry, the dynamic evaluation of
+§8.5.7. The suite observes *when each guard is read*, and the calls are its only
+means of observing it. Whether the referee can observe the same without giving a v2 guard a
+side effect was tried three ways; none reaches the trace, so the test stays refused with the
+classifier's reason (`guard side effect T1.2; …`), and the table below records why.
+
+*The v2/KerML reading.* A guard is a Boolean expression: `bool guard[*] subsets
+enclosedPerformances;` on `TransitionPerformance` (`TransitionPerformances.kerml`), an
+`Evaluation`, with the transition's action a separate `step effect[*]`, ordered
+`private succession all [*] guard then [*] effect;`. `StateTransitionPerformance`
+(`StatePerformances.kerml`) orders a transition's guard after the acceptable transfers and
+before the source's exit (`private succession all [*] acceptable then [*] guard;`,
+`private succession [*] guard then [1] transitionLinkSource.exit;`), and `StatePerformance`
+orders a state's entry before every middle step (`private succession [1] entry then [*]
+middle;`), the region's transition performances among them. So the library places a guard's
+reading in time — after the trigger, before the exit and the effect — and places every
+transition inside the composite, `T1.1` through the junction included, after the composite's
+`entry`. UML 2.5.1
+§14.5.11 states the other half: guards "should be pure expressions without side effects",
+and "guard expressions with side effects are ill formed".
+
+| Candidate | What it would do | Result against the admitted trace |
+|---|---|---|
+| Guard reads as the referee's observable: the emitter spells the four guards as the pure `true`/`false` they return, the runtime records each guard evaluation as a trace event naming the transition, and the run maps the events to `T1.n(guard)` in `log` | the guard stays a Boolean expression and the model is never mutated; the observable is the runtime's, not the model's | **refused.** Run under the shape the emitter produces (an initial into a junction is spelled as a helper start state whose completion transition reaches the junction, `emit.go`, `TestEmitInitialIntoPseudostate`), the runtime's execution trace reads the junction's guards *after* the composite's `enter` line and the helper state's entry, as the completion transition out of it is selected (`state_route.go:resolveRoute` → `followOut`, SM29: static for *that* transition, whose source is inside the composite), and the choice's after the helper state's exit — `T2(effect)`, the composite's entry, then `T1.2(guard)::T1.3(guard)::T1.4(guard)::T1.5(guard)` and the first substate's entry at best, which the suite does not admit; its one trace needs the junction read at `T2`'s selection, before `T2(effect)`, a reach through the default entry that SM32 records as *differs, v2 silent* and the library's `entry then middle` places the other way. The channel is also short of the suite's reads: `enabledBranches` reads the first guard of a vertex in the open and every further one under `beginProbe`, which restores `ctx.trace` — so of the four reads the execution trace holds two `eval` lines, `T1.2`'s and `T1.4`'s, and `T1.3`'s and `T1.5`'s are rolled back with the probe; a choice branch past the first is read once probed and once more when drawn (`resolveChoice`), a read the suite never traces. Exposing every read as an event would need a rule for probe reads, repeated reads and their identity that no test of the suite fixes and this one contradicts on its first two entries. Reached against admitted: 0 of 1, with one trace the suite refuses. Nothing else moves — no other expressible test has an acting guard (`TestClassifyGuardSideEffect`), and the runtime is unchanged |
+| A `calc def` or an expression with a side effect: spell each guard as a calculation that appends to `log` and returns its literal | the trace would be reached | **refused.** A v2 expression is pure — a `calc def` is a `Function` and a `calc` usage an `Expression` (SysML v2 §7.17), an `Evaluation` that computes a result and performs no action; a transition's guard is an `Expression` (§7.18.3, `validateTransitionFeatureMembershipGuardExpression`), so `bool guard[*]` is an `Evaluation`, not a `step`, and no `assign`, `send` or `perform` may stand in one. What acts is `step effect[*]`, ordered after the guard. UML 2.5.1 §14.5.11 calls the guard with the side effect ill formed, so the spelling would encode a construct the source specification declares malformed to observe an order the target library places differently. Not spelled |
+| A `differs-by-design` row: adjudicate the test as differing because v2 orders the default entry after the composite's entry (SM32) | the test would run with pure guards and its `fail` on the missing four segments would be attributed to the tool choice | **refused.** `differs-by-design` names a *differs because v2 differs* row a test reaches (`rows.go:TestRows`); SM32 is *differs, v2 silent*, so the bucket does not apply, and the test does not run at all: with pure guards it reaches `T2(effect)`, the composite's entry and the first substate's entry, three segments where seven are admitted, and the difference is the construct's, not the order's alone. The classifier's refusal stands; SM31 (choice with no guard true) and SM32 (junction with no path through) are unchanged, and *Junction 002*, *Junction 004* and *Join 003* keep their buckets and reasons |
+
+The classification is the settled one: *guard side effect* is a construct with no translation
+and no faithful observable, `not-expressible` with the reason naming the four transitions,
+byte-identical to the baseline. The suite's side is recorded in
+[omg-issues.md](../../project/omg-issues.md#pssm-choice-005-observes-its-guards-through-a-construct-uml-calls-ill-formed):
+a test that observes guard evaluation only through an ill-formed model.
 
 ### What a translated test looks like
 
