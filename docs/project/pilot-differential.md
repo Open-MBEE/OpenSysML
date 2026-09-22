@@ -2826,7 +2826,7 @@ adjudicated toward the specification rather than the referee:
   sides. The specification asks for the result's type, which for a feature reference is the
   referent's wherever it is owned;
   [omg-issues.md](omg-issues.md#a-bound-naming-a-package-level-feature-is-rejected-whatever-its-type-pilot-2026-07)
-  holds the report, approved for filing.
+  holds the report, filed as [Systems-Modeling/SysML-v2-Pilot-Implementation#803](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/issues/803).
 - **`**` and `^` keep an Integer whole only under a Natural exponent.** The pilot's
   `isIntegerOperator` lists both alongside `+`, `-`, `*` and `%`, so `2 ** n` with `n : Integer`
   passes its check. `IntegerFunctions::'**'` is declared `in y : Natural`, and an Integer
