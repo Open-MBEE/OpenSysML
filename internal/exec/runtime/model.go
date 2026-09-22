@@ -109,6 +109,11 @@ type Model struct {
 	// behavingFeatures memoizes behavingParts and redefGroups redefinitionGroups, per type.
 	behavingFeatures map[*symbols.Symbol][]int
 	redefGroups      map[*symbols.Symbol][][]string
+	// subsetters memoizes, per type, the features subsetting each named feature of it
+	// under any of its redefinition names; callers read the shared slice.
+	subsetters map[*symbols.Symbol]map[string][]EffectiveFeature
+	// subsetted memoizes subsettedNames per feature of a type; callers read the shared slice.
+	subsetted map[featureOfType][]string
 
 	// toolExecutions memoizes toolExecutionOf per action; toolUnits the units tool
 	// answers spell, per scope they are read in.
@@ -201,6 +206,8 @@ func NewModel(sem *semantics.Model, resolver *resolve.Resolver) *Model {
 		behaving:            make(map[*symbols.Symbol]bool),
 		behavingFeatures:    make(map[*symbols.Symbol][]int),
 		redefGroups:         make(map[*symbols.Symbol][][]string),
+		subsetters:          make(map[*symbols.Symbol]map[string][]EffectiveFeature),
+		subsetted:           make(map[featureOfType][]string),
 		toolExecutions:      make(map[*symbols.Symbol]*toolExecution),
 		toolUnits:           make(map[toolUnitKey]semantics.Unit),
 		objectConns:         make(map[*symbols.Symbol][]lower.Connection),

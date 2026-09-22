@@ -67,15 +67,19 @@ type bodyRun struct {
 	// yields has the run pause at the statement boundary after the statement,
 	// loop iteration or flow step it performed since resumed, which performed marks.
 	yields, performed bool
+	// steps has the run pause after each token move of the flows and actions it
+	// drives where a step is one move, its machine going on between the moves.
+	steps bool
 }
 
-// bodyPause is why a body run paused: at the breakpoint, on a wait, or yielded
-// at a statement boundary, to go on with the next statement when resumed.
+// bodyPause is why a body run paused: at the breakpoint, on a wait, yielded at a
+// statement boundary, or after one token move (tokenStep), to go on when resumed.
 type bodyPause struct {
 	breakpoint breakpointStop
 	onWait     bool
 	wait       bodyWait
 	yielded    bool
+	tokenStep  bool
 }
 
 // bodyWait is the wait a body's run paused on: of the action it performs (held),
@@ -157,6 +161,8 @@ func (run *bodyRun) end(ctx *Context) {
 	switch {
 	case run.paused.onWait:
 		where = "on a wait"
+	case run.paused.tokenStep:
+		where = "between two moves of its flow"
 	case !run.paused.yielded:
 		where = fmt.Sprintf("at breakpoint %q", run.paused.breakpoint.name)
 	}
@@ -408,7 +414,7 @@ func (e *ActionExecutor) workToken(id int64) (int, error) {
 func (e *ActionExecutor) runBody(tokenIdx int, work bodyWork) error {
 	run := &bodyRun{work: work}
 	if outer := e.ctx.body; outer != nil {
-		run.awaitsMessages = outer.awaitsMessages
+		run.awaitsMessages, run.steps = outer.awaitsMessages, outer.steps
 	}
 	e.tokens[tokenIdx].body = run
 	return e.resumeBody(tokenIdx)
@@ -472,7 +478,7 @@ func (e *ActionExecutor) resumeBody(tokenIdx int) error {
 	if pause, paused := run.resume(e.ctx); paused {
 		e.pauses++
 		run.pausedAt = e.pauses
-		if !pause.onWait {
+		if !pause.onWait && !pause.tokenStep {
 			e.pausedAt = pause.breakpoint
 			e.state = StateSuspended
 		}
@@ -519,6 +525,20 @@ func (ctx *Context) bodyPerformed() {
 	if ctx.body != nil {
 		ctx.body.performed = true
 	}
+}
+
+// stepsTokens reports whether the body on the stack pauses after each token move.
+func (ctx *Context) stepsTokens() bool {
+	return ctx.body != nil && ctx.body.steps
+}
+
+// tokenStepBody pauses the body on the stack after one token move where its run
+// goes one move at a time; nil, going on, else.
+func (ctx *Context) tokenStepBody() error {
+	if !ctx.stepsTokens() {
+		return nil
+	}
+	return ctx.pauseBody(bodyPause{tokenStep: true})
 }
 
 // yieldedHere reports the frame just popped as the one the body yielded in: its

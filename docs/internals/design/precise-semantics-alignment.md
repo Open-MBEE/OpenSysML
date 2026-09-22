@@ -2182,18 +2182,19 @@ and says what a fix takes.
    silent firings across nested regions explore 1152 linearizations rather than some 320 000.
    *Exiting 001*, *Exiting 003*, *Fork 002*, *Terminate 001* and *Deferred 006 C* reach every
    admitted trace and pass; *Transition 019* reaches its six and stays `fail` on SM34 alone.
-   *Fixed at the fourth site* at the grain of a do action's step: a due do step against the
+   *Fixed at the fourth site* at the grain of a token move: a due do step against the
    dispatch the machine would make at the same instant — "dispatch now" against "keep moving
    the do flow" — is drawn under `check`, `replay` and `explore` (`ChoiceStepOrder`,
-   `state_executor.go:oneUnit`, `stepDoAction`), one action of a due do behavior or the
-   dispatch per move, the round closing once each due action has stepped; `declared`,
-   `reverse` and `seed:<n>` finish the round before they dispatch as they always did, so no
-   default trace moved. *Behavior 003 A* passes; *Transition 017* reaches every placement of
+   `state_executor.go:oneUnit`, `stepDue`), one token move of a due do behavior's flow — an
+   inline body's statement, a step of a do behavior given as an action, a token inside a nested
+   perform — or the dispatch per move, drawn again after every move while a do behavior is due,
+   so a dispatch cuts the flow anywhere or waits for it to rest and a body parked at an
+   `accept` offers no move; `declared`, `reverse` and `seed:<n>` finish the whole round before
+   they dispatch as they always did, so no default trace moved, and their run is one path of
+   the checker's enumeration. *Behavior 003 A* passes; *Transition 017* reaches every placement of
    its do step and stays `fail` on item 11's pool order and the suite's defect
    ([omg-issues](../../project/omg-issues.md#pssm-transition-017-admits-a-parents-completion-before-its-regions)),
-   *Terminate 002* on item 11 alone. Where a step left a token of the do body standing, the
-   checker's bounded verdict (`CheckReport.NotEnumerated`, *do round before dispatch*) still
-   stands in place of a move of its own.
+   *Terminate 002* on item 11 alone.
 10. **A segment leaving a junction inside a composite state runs its effect before the
     composite is entered.** PSSM *Junction 005* (§9.4.11): a transition from outside targets a
     junction that lies in one region of an orthogonal state, and the segment out of the

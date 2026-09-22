@@ -156,7 +156,7 @@ func (e *StateExecutor) newDoRun(behavior lower.StateBehavior) *doRun {
 		return nil
 	}
 	host := e.behaviorHost(behavior)
-	body := &bodyRun{work: host, awaitsMessages: true, yields: true}
+	body := &bodyRun{work: host, awaitsMessages: true, yields: true, steps: e.ctx.scheduling().oneMove()}
 	return &doRun{host: host, body: body}
 }
 
@@ -164,14 +164,13 @@ func (e *StateExecutor) newDoRun(behavior lower.StateBehavior) *doRun {
 func (run *doRun) resume(ctx *Context) (*doRun, error) {
 	defer ctx.readingMail(&run.mail)()
 	defer func() { run.mail = nil }()
-	run.host.flow.leftStanding = false
 	run.host.terminated = false
 	for {
 		pause, paused := run.body.resume(ctx)
 		if !paused {
 			return nil, run.body.err
 		}
-		if pause.onWait || pause.yielded {
+		if pause.tokenStep || pause.onWait || pause.yielded {
 			return run, nil
 		}
 	}
@@ -184,11 +183,11 @@ func (run *doRun) offer(ctx *Context, m Message) (*doRun, error) {
 	return run.resume(ctx)
 }
 
-// resumable reports a run due to go on: one yielded between statements, or one
-// whose wait on the clock has ended; a run parked for a message stays until its
-// machine dispatches one to it.
+// resumable reports a run due to go on: one yielded between statements or between
+// two moves of its flow, or one whose wait on the clock has ended; a run parked
+// for a message stays until its machine dispatches one to it.
 func (run *doRun) resumable(ctx *Context) bool {
-	if run.body.paused.yielded {
+	if run.body.paused.yielded || run.body.paused.tokenStep {
 		return true
 	}
 	defer ctx.readingMail(&run.mail)()

@@ -331,26 +331,50 @@ func (ctx *Context) collectRedefinedFeatures(sym, owner *symbols.Symbol) []*symb
 // subsettedNames returns the features of owner sym subsets, itself or through a feature it
 // redefines, which subsets what the redefined one subsets (KerML 1.0 §7.3.4.5).
 func (ctx *Context) subsettedNames(sym, owner *symbols.Symbol) []string {
+	key := featureOfType{feature: sym, owner: owner}
+	if names, ok := ctx.model.subsetted[key]; ok {
+		return names
+	}
 	names := ctx.relatedFeatureNames(sym, owner, ast.RelSubsets)
 	for _, redefined := range ctx.redefinedFeatures(sym, owner) {
 		names = append(names, ctx.relatedFeatureNames(redefined, owner, ast.RelSubsets)...)
 	}
+	ctx.model.subsetted[key] = names
 	return names
 }
 
 // SubsettingFeatures returns the features of typ subsetting the named feature under any
 // of its redefinition names, in declaration order, reading nothing; inst is nil for a type alone.
 func (ctx *Context) SubsettingFeatures(inst *Instance, typ *symbols.Symbol, name string) []EffectiveFeature {
+	ofType := ctx.subsettersOf(typ, name)
+	if inst == nil {
+		return ofType
+	}
+	var subsetting []EffectiveFeature
+	for _, feat := range ofType {
+		if _, ok := inst.FeatureValues[feat.Name]; ok {
+			subsetting = append(subsetting, feat)
+		}
+	}
+	return subsetting
+}
+
+// subsettersOf is SubsettingFeatures for the type alone, memoized per type and name;
+// callers read the shared slice and never append to it.
+func (ctx *Context) subsettersOf(typ *symbols.Symbol, name string) []EffectiveFeature {
+	byName, ok := ctx.model.subsetters[typ]
+	if !ok {
+		byName = make(map[string][]EffectiveFeature)
+		ctx.model.subsetters[typ] = byName
+	}
+	if subsetting, ok := byName[name]; ok {
+		return subsetting
+	}
 	aliases := ctx.redefinitionAliases(typ, name)
 	var subsetting []EffectiveFeature
 	for _, feat := range ctx.FeaturesOf(typ) {
 		if aliases[feat.Name] || feat.Symbol == nil {
 			continue
-		}
-		if inst != nil {
-			if _, ok := inst.FeatureValues[feat.Name]; !ok {
-				continue
-			}
 		}
 		for _, subsetted := range ctx.subsettedNames(feat.Symbol, typ) {
 			if aliases[subsetted] {
@@ -359,6 +383,7 @@ func (ctx *Context) SubsettingFeatures(inst *Instance, typ *symbols.Symbol, name
 			}
 		}
 	}
+	byName[name] = subsetting
 	return subsetting
 }
 
