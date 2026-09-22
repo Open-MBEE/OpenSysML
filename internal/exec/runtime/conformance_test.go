@@ -1046,6 +1046,10 @@ func runOneStatePerformance(t *testing.T, ctx *Context, stateSym *symbols.Symbol
 	} else {
 		exec, err = ctx.PerformState(stateSym, self, queuedEvents(t, expected.Events))
 	}
+	if expected.Error != "" {
+		requireError(t, "state machine", err, expected.Error)
+		return
+	}
 	if err != nil {
 		t.Fatalf("state machine: %v", err)
 	}

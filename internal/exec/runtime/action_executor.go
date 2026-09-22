@@ -2676,7 +2676,8 @@ func statementNodeKeyword(node ast.Node) string {
 }
 
 // applyDataFlows moves what the completed performance produced along graph's flows out
-// of sourceNode to the target pins; a source pin holding nothing is an error, not a no-op.
+// of sourceNode to the target pins; a source pin holding nothing is an error, not a no-op,
+// unless the pin is declared admitting no value, when the flow carries nothing.
 // A streaming flow from a pin in streamed carried its values as they were written;
 // perf is the performance that produced, nil for a node performed in frame itself.
 func (e *performances) applyDataFlows(
@@ -2688,6 +2689,9 @@ func (e *performances) applyDataFlows(
 		}
 		sourceData, ok := produced[flow.SourcePin]
 		if !ok {
+			if perf.admitsNoValueAt(flow.SourcePin) {
+				continue
+			}
 			return fmt.Errorf(
 				"%w: %s: %s produced no value at %s",
 				ErrFlowSource, flowDescription(flow), nodeDescription(sourceNode), orAnyPin(flow.SourcePin),

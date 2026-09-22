@@ -32,6 +32,10 @@ func (m *migration) nameOf(e *sysmlv1.Element) string {
 // nameFor returns the v2 name of an element, synthesizing one for an anonymous
 // element the first time it is asked for, so it can be referred to.
 func (m *migration) nameFor(e *sysmlv1.Element) string {
+	// An action node is named as its graph's writer names it.
+	if n := m.nameNode(e); n != "" {
+		return n
+	}
 	if n := m.nameOf(e); n != "" {
 		return n
 	}
@@ -83,7 +87,8 @@ func lowerFirst(s string) string {
 // segments returns the v2 qualified-name segments of an element: the names
 // from the top-level declaration down, the root Model not being written. A
 // lone region is its owner's body; one of several is a sub-state of a parallel state.
-// A connection point is a member of its owner, whichever region a tool listed it in.
+// A connection point is a member of its owner, whichever region a tool listed it in;
+// a method is the body of its operation.
 func (m *migration) segments(e *sysmlv1.Element) []string {
 	var segs []string
 	for cur := e; cur != nil; cur = memberOwner(cur) {
@@ -95,6 +100,9 @@ func (m *migration) segments(e *sysmlv1.Element) []string {
 				segs = append([]string{p, m.nameFor(cur)}, segs...)
 			}
 			continue
+		}
+		if op := m.methodOf[cur]; op != nil {
+			cur = op
 		}
 		segs = append([]string{m.nameFor(cur)}, segs...)
 	}

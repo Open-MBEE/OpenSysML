@@ -23,7 +23,7 @@ item.
 Read `AGENTS.md` first; it governs everything below.
 
 > **Labels.** This is an engineering record. The RDF items keep the `D` numbers (`D1`, `D2`,
-> `D3.4`, `D7`, `D8`, `D9`, `D10`, `D11`, `D12`) that other records, the known-violations inventory
+> `D3.4`, `D7`, `D8`, `D9`, `D10`, `D11`, `D12`, `D13`) that other records, the known-violations inventory
 > and the ontology package's README cross-reference; `L` names the library items, `N` the native
 > compilation track, `R` the release follow-through, `W` the diagram output formats a view
 > rendering is written in, `F` the executor defects the conformance gate carried as
@@ -1058,6 +1058,53 @@ What landed:
 
 Extends D3's identity work; D11's `api-json` payloads are the first surface where a foreign
 reader compares our library ids to its own.
+
+## D13 — SysML v1 migration: units, the report on the wire, and lifting the notice
+
+`-convert` reads a SysML v1 model — OMG UML XMI 2.5.1 with the SysML profile, an Eclipse UML2
+`.uml` file, a `.mdzip` archive — and writes it as v2 notation or Turtle with an
+element-by-element report; see [the migration reference](../reference/sysml-v1-migration.md) and
+[guide chapter 11](../guide/11-migrating-from-sysml-v1.md). The mapping covers structure, ports
+and connectors, requirements, constraints, instances, allocations, user profiles, and behavior:
+activities run as `action def`s and state machines as `state def`s under the chapter 6
+debuggers, operations and receptions are the actions their owner performs, opaque JavaScript and
+English bodies are translated within the subset the reference lists, and a tool's run
+configurations migrate with the results it stored (`-migration-results`, `-compare-results`,
+`-clock-step`). Over the TMT model five elements in six map or are approximated; the unmapped
+rest is dominated by absolute and unparseable time events, call actions that call no behavior,
+simulation verdicts stored in constraint slots, and views. It still ships **experimental**, and
+lifting that is closing the items below and then measuring, not a documentation change. Each is
+its own pull request:
+
+1. **Units and quantity kinds.** `«Unit»` and `«QuantityKind»` instance specifications, and the
+   `unit`/`quantityKind` tags of a `«ValueType»`, are reported as unmapped and left as comments;
+   the value type is written over `ScalarValues::Real`. Map a value type whose unit resolves to a
+   known SI or ISQ symbol onto `ISQ` quantity values with `SI` units (`attribute def Mass :>
+   ISQ::MassValue`, defaults as `1200 [SI::kg]`), and keep the comment for a unit that does not
+   resolve. L5's unit canonicalization supplies the symbol table.
+2. **The report and the results over gRPC and in the clients.** The report and the results
+   sidecar exist only where the CLI writes them; `Convert` answers the migrated content, the
+   canonical format names and the experimental notice, nothing more. Add the report to
+   `ConvertResponse` as a repeated entry message with the fields of the JSON form (id, kind,
+   name, verdict, target, note), populated only when the source is v1, and surface it as a
+   `Conversion` attribute in the Python and Go clients, so a program can gate on verdicts as a
+   script gates on the `.json` report. Node, Java and Rust read the field from the generated code
+   without a wrapper, as they do the notice. A Track I change to the wire contract in the same
+   pull request.
+3. **Stable identity for a re-migration.** The v1 `xmi:id` is kept only in the report; the
+   notation carries no ids, so migrating a model twice produces two unrelated v2 models, and an
+   edit made in v2 cannot be matched against a later v1 export. With
+   [element identity annotations](element-identity-annotations.md), write the `xmi:id` as the
+   element's identity, so a re-migration can be diffed against the edited model rather than
+   replacing it. Gated on D3's identity work.
+4. **Stable, then measured.** With 1–3 landed, re-run the TMT measurement the reference quotes
+   and pin the per-verdict counts as the corpus ratchet pins round trips; the mapping's forms
+   become subject to the compatibility path that lifting the experimental notice promises, and
+   the notice is removed from every surface at once (`convert.IsExperimental`, the Python warning,
+   the Go `Conversion`).
+
+Independent of D1, D2 and D7, which concern the RDF form the migrated model may be written into,
+not the migration.
 
 ---
 
@@ -2591,8 +2638,9 @@ what M2 needs.
 
 # Proposed
 
-Three pieces of work proposed outside the tracks. The first two are landed on `develop` after
-the tag; the third has its design and first step landed and three pull requests open.
+Four pieces of work proposed outside the tracks. The first two are landed on `develop` after
+the tag; the third has its design and first step landed and three pull requests open; the fourth
+is not started and waits on an input file.
 
 **The PDF path onto the HTML backend (landed, #358).** The backend
 [html-document-backend.md](html-document-backend.md) designs is implemented: `docrender.HTML`
@@ -2656,6 +2704,41 @@ a sixth slower for the recording it never uses). Open against `develop` on the s
 (a load's files parsed, indexed and validated on a pool of workers), #309 (the REPL analyzing
 each loaded file as a document of its own) and #308 (the satellite network generated as a fleet
 of occurrences). Independent of every track above; the design's own sequence orders it.
+
+**An MTIP export as an optional layout augment to a SysML v1 migration (not started).** A
+Cameo/MagicDraw export migrates through `sysml <model>.mdzip -convert sysml`
+([the mapping](../reference/sysml-v1-migration.md)), and #524 (open, stacked on #514) writes
+each of its diagrams as a `view` usage exposing the elements the diagram shows and rendered by
+the diagram's kind. What the XMI does not carry is where the diagram draws them: the tool keeps
+its diagram geometry outside the XMI, so the migrated views are auto-laid-out like any other
+and the arrangement an engineer settled on is lost. Open-MBEE's MTIP plugin
+(`Open-MBEE/mtip-cameo`) reads that geometry through the tool's own API and writes it into its
+HUDS XML — per diagram, the shown elements with their bounds, connector breakpoints, colors,
+fonts and images, each keyed by the element's identifier — so an MTIP export of the same
+project holds exactly the layer the migration lacks. The proposal is to read it as an
+**augment, not a second input format**: the `.mdzip` (or `.xmi`) stays the one source of the
+model's structure and behavior, and an optional `-layout <mtip-export.xml>` supplies presentation
+only. The reader takes the diagram/presentation layer of the HUDS file and nothing else, joins
+each record to the migrated view and the exposed element or connector by the element identifier
+MTIP records. MTIP has an export setting for that identifier (`local`, its default, or `cloud`);
+the join needs the local form, which the design must first confirm on a real export is the
+`xmi:id` the migration already resolves. The reader then writes
+the geometry the way [diagram-layout-annotations.md](diagram-layout-annotations.md) already
+carries it — `metadata Layout about … { x; y; width; height; }` and `metadata Route about … {
+points = (…); }` in the view usage's body, with `@Canvas` for the diagram's extent — so the
+result is standard metadata every conforming tool preserves and every OpenSysML rendering
+honors, not a sidecar and not comments. What `DiagramLayout` has no attribute for (colors,
+fonts, images) is reported and dropped rather than invented into the library; extending
+`DiagramLayout` for it is a separate decision. A record whose identifier matches no migrated
+element, a diagram MTIP exports that the migration skipped, and a malformed or partial record
+are each a named row in the migration report, never silently lost; and a `-layout` file written
+against a different project than the model refuses with the mismatch stated rather than
+annotating nothing. Without `-layout` the output is byte-identical to today's. Generic by
+construction: the HUDS schema is MTIP's, not any one project's, and the fixtures are MTIP's own
+test exports plus a small hand-written pair (model + HUDS) with a validated golden; the proof
+on a real project needs an MTIP export of a model whose `.mdzip` is also at hand, and no such
+pair exists yet — that file is the gate, not the code. Builds on #524's view usages and the
+landed `DiagramLayout` library; independent of every track.
 
 # Track P — package layering (earmarked for 0.9.0)
 
@@ -3121,8 +3204,8 @@ large-model design and its first step), #319, #321, #334 and #413 (the fUML refe
 and its emitter), #350 (R4's installer wizard), #304 (the errata overlay, under "Upstream
 follow-through") and the state-executor fixes and findings the PSSM referee adjudicated,
 #384, #438 and #513 (the region-order choice points) among them (Track E). Open against
-`develop` and touching an item: #308, #309 and #312 (the large-model design's next steps), #327
-(the SysML v1 migration's remaining items, written as a Track D item) and #525 (*Terminate
+`develop` and touching an item: #308, #309 and #312 (the large-model design's next steps), #531
+(the SysML v1 migration documented across the API, the guide and **D13**, superseding #327) and #525 (*Terminate
 002*'s do step against a sibling region's entry units). `release/0.8.1` (#347) is tagged
 `v0.8.1` and folded back.
 
@@ -3160,7 +3243,7 @@ carried more than that list. By track, with the pull requests the tracks cite:
   *Implementable But Not Yet Done* list empty.
 - **Track D** — D1, D2, D7, D9 (branch read and whole-graph push), D11 and D12 are done.
   D3's Flexo harness is measured at 505 of 582 properties delivered. D8's ontology profile and
-  D10's write-through remain open.
+  D10's write-through remain open; D13 (the SysML v1 migration's remaining items) is written.
 - **Release follow-through** — R4's Windows installer is published by `v0.7.0` and `v0.8.0`
   alike; the release procedure runs git-flow (#151); `opensysml` 0.5.0 is on PyPI; the
   test-suite figures are generated and gated (#291, on `develop` after the tag).
@@ -3198,7 +3281,9 @@ Tracks F, S, L and A are closed.
   for actions with its emitter (#319, #321, #334, #413; the `not-expressible` rows left are typed
   refusals recorded in [fuml-referee.md](fuml-referee.md)) are landed; the order of orthogonal
   regions is a recorded choice point (#384, #438, #513), with *Terminate 002*'s one trace left
-  to #525.
+  to #525. An MTIP export as an optional `-layout` augment to a SysML v1 migration, writing the
+  tool's diagram geometry into the migrated views as `DiagramLayout` metadata, is not started
+  and waits on an MTIP export of a model whose `.mdzip` is also at hand.
 
 ## Cross-cutting order
 
@@ -3279,7 +3364,8 @@ initial state. The decision is the release checklist's, recorded there.
   ratchet is 354/356 with 2 graph-diff cases. **D1** and **D2** are done: expression trees use
   standard ownership and operator vocabulary, and connector ends use `ReferenceSubsetting`;
   **D8**'s ontology-profile gate is therefore open. **D7**, **D9.1**, **D9.2**, **D11** and
-  **D12** are done; **D8** and **D10** remain.
+  **D12** are done; **D8** and **D10** remain; **D13** (the SysML v1 migration's units, its
+  report on the wire and its experimental notice) in the order it lists.
 - **Track F.** Closed. F1 and F2 landed together (#116) as the token-per-succession model, F3
   (#120) as the per-traversal merge on top of it; `known_failures.txt` has no line left to delete.
 - **Track S.** Landed in the order agreed: S1 (#110), S2 (#123), S3 (#125), S4 (#134); #141 added
