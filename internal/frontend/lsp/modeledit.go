@@ -425,9 +425,10 @@ func (s *Server) refusal(e *modeledit.Error, content []byte) modelEditRefusal {
 	if e.Diagnosed != nil {
 		diagnosed = e.Diagnosed.Bytes()
 	}
+	pos := positionsFor(diagnosed)
 	for _, d := range e.Diagnostics {
 		out.Diagnostics = append(out.Diagnostics, protocol.Diagnostic{
-			Range:    spanToRange(diagnosed, d.Span),
+			Range:    pos.rangeOf(d.Span),
 			Severity: protocol.DiagnosticSeverity(int(d.Severity) + 1),
 			Message:  d.Message,
 			Code:     d.Code,

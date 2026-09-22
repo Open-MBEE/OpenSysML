@@ -7,7 +7,8 @@ type LineIndex struct {
 	lineStarts []int
 }
 
-func newLineIndex(content []byte) *LineIndex {
+// NewLineIndex builds the index of content's line starts.
+func NewLineIndex(content []byte) *LineIndex {
 	starts := []int{0}
 	for i, b := range content {
 		if b == '\n' {
