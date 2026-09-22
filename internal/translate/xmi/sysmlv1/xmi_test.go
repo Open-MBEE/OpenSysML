@@ -511,7 +511,7 @@ func TestStereotypeDefinitionByNamespaceAndName(t *testing.T) {
 		t.Fatal(err)
 	}
 	c1, c2 := m.Lookup("_c1"), m.Lookup("_c2")
-	req := c1.Stereotype("Org_Requirement")
+	req := c1.Stereotype("Org Requirement")
 	if req == nil || req.Definition != m.Lookup("_s1") {
 		t.Fatalf("Org_Requirement definition = %+v", req)
 	}

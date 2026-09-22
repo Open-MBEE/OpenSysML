@@ -63,7 +63,8 @@ type Element struct {
 // whose base_* attribute names the element it extends.
 type Stereotype struct {
 	ID string
-	// Name is the stereotype's local name, such as "Block" or "Requirement".
+	// Name is the stereotype's local name, such as "Block" or "Requirement": the
+	// model name of a resolved Definition, else the XML name the tool wrote.
 	Name string
 	// Namespace is the XML namespace the profile was serialized under.
 	Namespace string
@@ -717,6 +718,9 @@ func (m *Model) link() {
 	for _, s := range m.Stereotypes {
 		if s.Definition = m.definitionOf(s, defs); s.Definition != nil {
 			s.Generals = m.Ancestors(s.Definition)
+			if s.Definition.Name != "" {
+				s.Name = s.Definition.Name
+			}
 		}
 	}
 }
@@ -754,7 +758,7 @@ func (m *Model) definitionOf(s *Stereotype, defs []*Element) *Element {
 	}
 	var found *Element
 	for _, d := range defs {
-		if !sameName(d.Name, s.Name) || !denotes(s.Namespace, d) {
+		if !SameName(d.Name, s.Name) || !denotes(s.Namespace, d) {
 			continue
 		}
 		if found != nil {
@@ -777,7 +781,7 @@ func denotes(ns string, d *Element) bool {
 		default:
 			continue
 		}
-		if p.Attrs["URI"] == ns || annotatedNamespace(p, ns) || (doc != "" && sameName(p.Name, doc)) {
+		if p.Attrs["URI"] == ns || annotatedNamespace(p, ns) || (doc != "" && SameName(p.Name, doc)) {
 			return true
 		}
 	}
@@ -823,9 +827,9 @@ func namespaceDocument(ns string) string {
 	return doc
 }
 
-// sameName compares names up to the characters a tool replaces to make an
+// SameName compares names up to the characters a tool replaces to make an
 // XML name of a model name: case and everything but letters and digits.
-func sameName(a, b string) bool {
+func SameName(a, b string) bool {
 	return foldName(a) == foldName(b)
 }
 
