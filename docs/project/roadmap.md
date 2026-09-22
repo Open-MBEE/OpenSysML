@@ -1141,18 +1141,20 @@ granularity (`action_merge_fork_branch_and_loop` now needs `explore:runs=10000` 
 The runtime executes actions, state machines, calculations and constraints against the lowered
 IR (`internal/ir/lower` `ActionGraph`/`StateGraph`, `internal/exec/runtime`). The behavior-execution
 items were once listed as unsupported or approximate; on this tree E1, E2, E4, E6, E7, E8, E9
-and E10 are landed, while E3 and E5 are closed by design record. The landed items have conformance
+and E10 are landed, while E3 and E5 are closed by design record, as is the compliance mapping's
+last UML-referenced action item, exception handlers. The landed items have conformance
 fixtures under `internal/exec/runtime/testdata/conformance/`, trace goldens, and robustness coverage;
 the design closures are recorded in
-[expansion-regions.md](expansion-regions.md) and [protocol-state-machines.md](protocol-state-machines.md).
+[expansion-regions.md](expansion-regions.md), [protocol-state-machines.md](protocol-state-machines.md)
+and [exception-handlers.md](exception-handlers.md).
 The track records how each item was decided against the SysML v2 notation, the Kernel Semantic
 Library, the Systems Library and the available execution evidence.
 
-The UML comparison remains useful for explaining the closures: SysML v2 has no expansion-region or
-protocol-state-machine notation, while its actions and states provide the corresponding `for`,
-flow, acceptance and exhibited-state-machine forms. The proof for landed execution items follows
-the four-layer contract in `AGENTS.md` §5.2, with the pinned pilot used for expression-level
-adjudication rather than action or state execution.
+The UML comparison remains useful for explaining the closures: SysML v2 has no expansion-region,
+protocol-state-machine or exception-handler notation, while its actions and states provide the
+corresponding `for`, flow, acceptance, `terminate` and exhibited-state-machine forms. The proof
+for landed execution items follows the four-layer contract in `AGENTS.md` §5.2, with the pinned
+pilot used for expression-level adjudication rather than action or state execution.
 
 **Landed ahead of E1–E7**, all merged: the one structural finding of the review
 — nested action nodes shared the enclosing action's flat feature space, so `p.v` and `q.v`
@@ -1531,6 +1533,27 @@ then seen` reaches `seen`), `state_choice_dynamic_conflict`, the three
 `state_pseudostate_chain_*` fixtures, `TestExploreDynamicChoiceBranches` and
 `robustness_test.go:state_choice_without_an_enabled_branch`; every other `state_choice_*` fixture
 kept its outcome.
+
+## Exception handlers (closed)
+
+**Closed** by its design record, [exception-handlers.md](exception-handlers.md): **not a SysML v2
+construct.** The compliance mapping had carried UML's `RaiseExceptionAction`/`ExceptionHandler`
+as "spec exists, needs exception propagation", the last UML-referenced action item still
+presented as implementable. The record finds no spelling for raising, catching or propagating in
+SysML v2 §7.17 (the action kinds are `send`, `accept`, `assign`, `terminate`, `if`, the loops and
+the control nodes), no metaclass in §8.3.17 or the reflective `SysML.sysml` metamodel, no base
+type in `Actions.sysml`, and in KerML a `Performance` that ends but never fails
+(`Performances.kerml`); no OMG corpus model writes one, and the pinned pilot's `SysML.ecore` (175
+classes) has no such class — which is also why the [fUML referee](fuml-referee.md) files fUML's
+exception model `not-expressible`. The need is met by constructs the runtime already executes: a
+step reports its failure on an `out` parameter and a `decide` routes on it, or the step `send`s a
+failure signal to an `accept` forked beside it whose branch `terminate`s the work — §7.17.10's
+`MonitoredActivity` — both run to completion under `bin/sysml` in the record; a failure the model
+does not spell is a typed error at the boundary (`ErrDivisionByZero`, `ErrAcceptDeadlock`,
+`ErrTerminateTarget`, …), never a panic, and an `error` verdict under a verification case.
+No AST, IR or runtime change follows; the behavior guide's *Terminate* section teaches the
+by-signal shape. A later SysML v2 revision adding an action kind for exceptions reopens the item
+with a spelling to implement.
 
 ---
 
@@ -2953,7 +2976,9 @@ carried more than that list. By track, with the pull requests the tracks cite:
   record; E6 landed; E7 landed; E8 landed; E9 landed; E10 landed. E3's record
   ([expansion-regions.md](expansion-regions.md)) closes the parallel per-element form because the
   iterative form is `for`; E5's record closes protocol state machines because they are not a
-  SysML v2 construct.
+  SysML v2 construct; the exception-handlers record ([exception-handlers.md](exception-handlers.md))
+  closes the compliance mapping's last UML-referenced action item the same way, leaving its
+  *Implementable But Not Yet Done* list empty.
 - **Track D** — D12 (the standard library's normative element ids) is done.
 - **Release follow-through** — R4's Windows installer is published by `v0.7.0` and `v0.8.0`
   alike; the release procedure runs git-flow (#151); `opensysml` 0.5.0 is on PyPI; the
@@ -2966,8 +2991,8 @@ is landed or is a track the previous baseline left as it stands (D, N, M, I, V, 
 Tracks F, S, L and A are closed.
 
 - **Track E** — complete: E1 landed; E2 landed; E3 closed by record; E4 landed; E5 closed by
-  record; E6 landed; E7 landed; E8 landed; E9 landed; E10 landed. Optional runtime follow-ups
-  are not SysML v2 specification gaps. The
+  record; E6 landed; E7 landed; E8 landed; E9 landed; E10 landed; exception handlers closed by
+  record. Optional runtime follow-ups are not SysML v2 specification gaps. The
   PSSM referee's 17 `fail` tests are the state side's measurement, every one attributed (#326):
   eleven wait on the region-order choice point whose design record #342 wrote and left at two
   maintainer decisions — the nine the record names to move `fail` → `pass`, plus *Terminate 001*

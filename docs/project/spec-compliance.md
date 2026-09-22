@@ -2410,7 +2410,7 @@ boundaries; the landed Track E behavior is recorded in the execution rows and th
 
 **Actions (Advanced):**
 - Expansion regions — closed, not to be implemented ([design record](expansion-regions.md)): the iterative form is `for` (§7.17.12, `Actions::ForLoopAction`), which runs in every body position; the parallel form is not SysML v2 — a multiplicity on a performed action usage with a `flow` delivering a collection to its input is not a standard spelling of per-element concurrent performance (SysML v2 §7.17.2, §8.4.13.2; KerML §7.4.7, Annex A.3.6; `Performances.kerml`, `Transfers.kerml`), no OMG corpus model writes one, and the pinned pilot performs no actions. The runtime performs such a node once per token (`runtime/action_frame.go` `beginPerformance`) and refuses a collection delivered to a one-valued pin (`runtime/write_conformance.go` `checkTargetAs`, `ErrMultiplicityViolation`); per-element concurrency is written as distinct nodes under a `fork`
-- Exception handlers
+- Exception handlers — closed, not a SysML v2 construct ([design record](exception-handlers.md)): UML's `RaiseExceptionAction`/`ExceptionHandler` have no spelling in §7.17 (no action kind raises, catches or propagates), no metaclass in §8.3.17 or the reflective `SysML.sysml` metamodel, no base type in `Actions.sysml`, and no counterpart in KerML — a `Performance` (`Performances.kerml`) ends but does not fail; no OMG corpus model writes one and the pinned pilot's `SysML.ecore` (175 classes) has none. A failure in SysML v2 is modeled, then handled with the ordinary constructs the runtime executes: an `out` result routed by `decide` (§7.17.3), or a failure signal `send` to an `accept` forked beside the work, whose branch `terminate`s the work (§7.17.7, §7.17.8, §7.17.10 `MonitoredActivity`; `runtime/action_terminate.go`, `runtime/action_executor.go` `acceptMatch`, `stepDecisionNode`); a failure the model does not spell is a typed error at the boundary (`ErrDivisionByZero`, `ErrAcceptDeadlock`, …), never a panic, and an `error` verdict under a verification case
 - Structured activities with pin connectors
 
 **State Machines (Advanced):**
@@ -2449,7 +2449,9 @@ boundaries; the landed Track E behavior is recorded in the execution rows and th
 - Allocation execution - SysML v2 §9.2.4: syntax defined, execution semantics not normative
 
 **Implementable But Not Yet Done:**
-- Exception handlers (spec exists, needs exception propagation)
+- None. The last entry here, exception handlers, closed as not a SysML v2 construct: the
+  specification that has one is UML's, and "propagation" is a rule about that construct
+  ([design record](exception-handlers.md), and the *Actions (Advanced)* bullet above).
 
 **No External Referee Exists (the limit of the evidence, not of the implementation):**
 - **Behavioral execution is self-assessed.** The pinned OMG pilot implementation's only execution
