@@ -408,6 +408,21 @@ jobs:
             OPENSYSML_REQUIRE_TRAINING_CORPUS: "1"
             OPENSYSML_REQUIRE_PILOT_CORPORA: "1"
 
+      # The same ratchet over the API's JSON element form, beside the RDF one.
+      - run:
+          name: Run api-json corpus round-trip gate
+          command: |
+            set -o pipefail
+            go test -count=1 -v ./tests/corpus -run 'TestCorpusAPIJSONRoundTrip' | tee api-json-roundtrip-gate.log
+            grep -E 'api-json corpus round trip: [0-9]+ files:' api-json-roundtrip-gate.log
+            if grep -qE '^\s*--- SKIP' api-json-roundtrip-gate.log; then
+              echo "error: the api-json corpus round-trip gate skipped" >&2
+              exit 1
+            fi
+          environment:
+            OPENSYSML_REQUIRE_TRAINING_CORPUS: "1"
+            OPENSYSML_REQUIRE_PILOT_CORPORA: "1"
+
       # The PSSM suite gates alone, then the referee's bucket-count check
       # (never pass/fail; see docs/project/pssm-referee.md).
       - run:

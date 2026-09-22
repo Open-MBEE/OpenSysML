@@ -32,6 +32,10 @@ const (
 	// FormatXMI is SysML v1 as UML XMI 2.5.1, the OMG SysML profile applied, or
 	// a .mdzip archive holding it. It is an input format only.
 	FormatXMI
+	// FormatAPIJSON is the OMG SysML v2 API element form: JSON objects with
+	// "@type", "@id" and the metamodel properties as keys, over the same graph
+	// the Turtle mapping builds.
+	FormatAPIJSON
 )
 
 func (f Format) String() string {
@@ -40,6 +44,8 @@ func (f Format) String() string {
 		return "ttl"
 	case FormatXMI:
 		return "xmi"
+	case FormatAPIJSON:
+		return "api-json"
 	}
 	return "sysml"
 }
@@ -51,19 +57,21 @@ func (f Format) Writable() bool {
 
 // formatNames are the names accepted on the command line for each format.
 var formatNames = map[string]Format{
-	"sysml":  FormatSysML,
-	"kerml":  FormatSysML,
-	"text":   FormatSysML,
-	"ttl":    FormatTurtle,
-	"turtle": FormatTurtle,
-	"rdf":    FormatTurtle,
-	"xmi":    FormatXMI,
-	"uml":    FormatXMI,
-	"mdzip":  FormatXMI,
+	"sysml":    FormatSysML,
+	"kerml":    FormatSysML,
+	"text":     FormatSysML,
+	"ttl":      FormatTurtle,
+	"turtle":   FormatTurtle,
+	"rdf":      FormatTurtle,
+	"xmi":      FormatXMI,
+	"uml":      FormatXMI,
+	"mdzip":    FormatXMI,
+	"api-json": FormatAPIJSON,
+	"json":     FormatAPIJSON,
 }
 
 // FormatList is the wording every surface lists the format names in.
-const FormatList = "sysml, kerml, ttl, turtle, rdf, or xmi/uml/mdzip (input only)"
+const FormatList = "sysml, kerml, ttl, turtle, rdf, api-json, or xmi/uml/mdzip (input only)"
 
 // FormatNames returns every name ParseFormat accepts, sorted.
 func FormatNames() []string {
@@ -103,7 +111,7 @@ type UnknownFormatError struct {
 }
 
 func (e *UnknownFormatError) Error() string {
-	reason := "expected .sysml, .kerml or .ttl"
+	reason := "expected .sysml, .kerml, .ttl or .json"
 	if e.NoExtension {
 		reason = "it has no extension"
 	}
@@ -116,7 +124,7 @@ func (e *UnknownFormatError) Error() string {
 
 // ExtensionAdvice is the remedy every surface shares: the file name says which
 // format to write. A surface with a format flag names it alongside this.
-const ExtensionAdvice = "name the file with a .sysml, .kerml or .ttl extension"
+const ExtensionAdvice = "name the file with a .sysml, .kerml, .ttl or .json extension"
 
 // Advise returns err with the surface's remedy attached when it is an
 // *UnknownFormatError, and unchanged otherwise.
@@ -138,6 +146,8 @@ func FormatOfPath(path string) (Format, error) {
 		return FormatSysML, nil
 	case ".ttl", ".turtle":
 		return FormatTurtle, nil
+	case ".json":
+		return FormatAPIJSON, nil
 	case ".xmi", ".uml", ".mdzip":
 		return FormatXMI, nil
 	case "":
@@ -282,6 +292,46 @@ func convert(name string, data []byte, from, to Format, tolerateSyntaxErrors boo
 		}
 		return rdf.WriteTurtle(graph), nil, nil
 
+	case from == FormatSysML && to == FormatAPIJSON:
+		graph, err := SysMLToRDF(name, data)
+		if err != nil {
+			return nil, nil, err
+		}
+		out, err := export.WriteAPIJSON(graph)
+		return out, nil, err
+
+	case from == FormatAPIJSON && to == FormatSysML:
+		graph, err := readAPIJSON(name, data)
+		if err != nil {
+			return nil, nil, err
+		}
+		out, err := export.ToSysML(graph)
+		return out, nil, err
+
+	case from == FormatAPIJSON && to == FormatTurtle:
+		graph, err := readAPIJSON(name, data)
+		if err != nil {
+			return nil, nil, err
+		}
+		return rdf.WriteTurtle(graph), nil, nil
+
+	case from == FormatAPIJSON && to == FormatAPIJSON:
+		// Read and rewrite, which normalizes the document as Turtle to Turtle does.
+		graph, err := readAPIJSON(name, data)
+		if err != nil {
+			return nil, nil, err
+		}
+		out, err := export.WriteAPIJSON(graph)
+		return out, nil, err
+
+	case from == FormatTurtle && to == FormatAPIJSON:
+		graph, err := rdf.ParseTurtle(data)
+		if err != nil {
+			return nil, nil, &SyntaxError{Name: name, Messages: []string{err.Error()}}
+		}
+		out, err := export.WriteAPIJSON(graph)
+		return out, nil, err
+
 	case from == FormatTurtle && to == FormatSysML:
 		graph, err := rdf.ParseTurtle(data)
 		if err != nil {
@@ -299,6 +349,16 @@ func convert(name string, data []byte, from, to Format, tolerateSyntaxErrors boo
 		}
 		return rdf.WriteTurtle(graph), nil, nil
 	}
+}
+
+// readAPIJSON parses the API element form, reporting a malformed document as a
+// syntax error of the input the way a Turtle parse failure is.
+func readAPIJSON(name string, data []byte) (*rdf.Graph, error) {
+	graph, err := export.ReadAPIJSON(data)
+	if err != nil {
+		return nil, &SyntaxError{Name: name, Messages: []string{err.Error()}}
+	}
+	return graph, nil
 }
 
 // SysMLToRDF parses SysML notation and converts it to a graph.

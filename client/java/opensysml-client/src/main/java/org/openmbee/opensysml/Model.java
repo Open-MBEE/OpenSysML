@@ -795,7 +795,7 @@ public final class Model {
    * Rewrites the model in another format.
    *
    * @param toFormat the format to write, named as the service names formats ({@code "sysml"},
-   *     {@code "kerml"}, {@code "ttl"}, …)
+   *     {@code "kerml"}, {@code "ttl"}, {@code "api-json"}, …)
    * @return the conversion, carrying the text and the formats used
    * @throws ModelException if the conversion failed; its diagnostics say why
    * @throws ServiceException if the service does not hold this model

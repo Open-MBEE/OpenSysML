@@ -10,10 +10,10 @@ import (
 // Format is a representation a model is written in or read from.
 type Format string
 
-// The formats conversion accepts. There are two canonical ones, FormatSysML and
-// FormatTTL, and a Conversion answers by those names whichever alias was asked
-// for. RDF, in any spelling, is an experimental mapping, which a Conversion
-// reports.
+// The formats conversion accepts. There are three canonical ones,
+// FormatSysML, FormatTTL and FormatAPIJSON, and a Conversion answers by those
+// names whichever alias was asked for. RDF and the API's JSON element form,
+// in any spelling, are one experimental mapping, which a Conversion reports.
 const (
 	FormatSysML Format = "sysml"
 	FormatTTL   Format = "ttl"
@@ -23,8 +23,12 @@ const (
 	FormatText  Format = "text"
 	// FormatTurtle and FormatRDF are aliases of FormatTTL, the one RDF
 	// serialization written.
-	FormatTurtle Format = "turtle"
-	FormatRDF    Format = "rdf"
+	FormatTurtle  Format = "turtle"
+	FormatRDF     Format = "rdf"
+	FormatAPIJSON Format = "api-json"
+	// FormatJSON is an alias of FormatAPIJSON, the OMG API's JSON element
+	// form of the same graph FormatTTL writes.
+	FormatJSON Format = "json"
 )
 
 // ConvertOption configures Convert and ConvertFile.

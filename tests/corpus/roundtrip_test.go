@@ -24,9 +24,13 @@ import (
 var updateCorpusRoundTrip = flag.Bool("update-corpus-roundtrip", false,
 	"rewrite testdata/corpus_roundtrip_expected.txt from the current results")
 
+var updateAPIJSONRoundTrip = flag.Bool("update-api-json-roundtrip", false,
+	"rewrite testdata/api_json_roundtrip_expected.txt from the current results")
+
 const (
-	corpusRoundTripExamples = "../../examples"
-	corpusRoundTripExpected = "testdata/corpus_roundtrip_expected.txt"
+	corpusRoundTripExamples  = "../../examples"
+	corpusRoundTripExpected  = "testdata/corpus_roundtrip_expected.txt"
+	apiJSONRoundTripExpected = "testdata/api_json_roundtrip_expected.txt"
 
 	// Byte-identical to the committed file's header, so regenerating without a
 	// movement rewrites it unchanged.
@@ -40,7 +44,49 @@ const (
 		"# is a per-file ratchet, not a claim that any verdict is right; see\n" +
 		"# docs/project/rdf-corpus-roundtrip.md. Regenerate with:\n" +
 		"#   go test ./tests/corpus -run TestCorpusRoundTrip -update-corpus-roundtrip\n"
+
+	apiJSONRoundTripHeader = "# Round-trip verdict for every model under examples/, as \"<verdict>\\t<path>\":\n" +
+		"# notation -> the API's JSON element form (hop 1) -> notation -> the JSON\n" +
+		"# element form (hop 2), then the two graphs compared as triple sets.\n" +
+		"# Verdicts: stable (hop 2 is byte-identical), whitespace-only (bytes\n" +
+		"# differ, triple sets equal once the whitespace inside sysx:sourceText\n" +
+		"# literals is normalised), graph-diff, unwritable (the JSON form ->\n" +
+		"# notation refused), unparseable (the written notation no longer\n" +
+		"# converts) and refused:<class> (notation -> the JSON form refused).\n" +
+		"# This is a per-file ratchet, not a claim that any verdict is right;\n" +
+		"# see docs/project/rdf-corpus-roundtrip.md. Regenerate with:\n" +
+		"#   go test ./tests/corpus -run TestCorpusAPIJSONRoundTrip -update-api-json-roundtrip\n"
 )
+
+// roundTripGate is one per-file ratchet over the corpus: the same walk,
+// worker pool, expectation file and comparison, differing only in the hop
+// format each verdict round-trips through.
+type roundTripGate struct {
+	name       string // the gate's name in the summary line CI greps
+	updateFlag string // the flag regeneration messages name
+	update     *bool
+	expected   string
+	header     string
+	verdict    func(rel string, src []byte) (string, error)
+}
+
+var corpusRoundTripGate = roundTripGate{
+	name:       "corpus round trip",
+	updateFlag: "-update-corpus-roundtrip",
+	update:     updateCorpusRoundTrip,
+	expected:   corpusRoundTripExpected,
+	header:     corpusRoundTripHeader,
+	verdict:    corpusRoundTripVerdict,
+}
+
+var apiJSONRoundTripGate = roundTripGate{
+	name:       "api-json corpus round trip",
+	updateFlag: "-update-api-json-roundtrip",
+	update:     updateAPIJSONRoundTrip,
+	expected:   apiJSONRoundTripExpected,
+	header:     apiJSONRoundTripHeader,
+	verdict:    apiJSONRoundTripVerdict,
+}
 
 // corpusRoundTripRoot is one downloaded corpus under examples/. The committed
 // models are everything under examples/ outside these roots.
@@ -187,6 +233,39 @@ func corpusRoundTripVerdict(rel string, src []byte) (string, error) {
 	return "graph-diff", nil
 }
 
+// apiJSONRoundTripVerdict classifies one model's notation -> api-json ->
+// notation -> api-json trip. The two hops parse back to graphs so the
+// whitespace-only check compares what the JSON states, not its key order.
+func apiJSONRoundTripVerdict(rel string, src []byte) (string, error) {
+	hop1, err := convert.Convert(rel, src, convert.FormatSysML, convert.FormatAPIJSON)
+	if err != nil {
+		return "refused:" + refusalClass(rel, err), nil
+	}
+	back, err := convert.Convert(rel+".json", hop1, convert.FormatAPIJSON, convert.FormatSysML)
+	if err != nil {
+		return "unwritable", nil
+	}
+	hop2, err := convert.Convert(rel, back, convert.FormatSysML, convert.FormatAPIJSON)
+	if err != nil {
+		return "unparseable", nil
+	}
+	if bytes.Equal(hop1, hop2) {
+		return "stable", nil
+	}
+	first, err := export.ReadAPIJSON(hop1)
+	if err != nil {
+		return "", fmt.Errorf("hop 1 api-json does not parse: %w", err)
+	}
+	second, err := export.ReadAPIJSON(hop2)
+	if err != nil {
+		return "", fmt.Errorf("hop 2 api-json does not parse: %w", err)
+	}
+	if sameTriples(first, second) {
+		return "whitespace-only", nil
+	}
+	return "graph-diff", nil
+}
+
 // sameTriples compares two graphs as sets, ignoring triple order and the
 // whitespace inside sysx:sourceText literals.
 func sameTriples(a, b *rdf.Graph) bool {
@@ -244,9 +323,9 @@ func refusalClass(name string, err error) string {
 	}
 }
 
-// corpusRoundTripVerdicts measures every file on a worker pool, indexed like
-// files so scheduling never affects the order.
-func corpusRoundTripVerdicts(t *testing.T, files []string) map[string]string {
+// verdicts measures every file on a worker pool, indexed like files so
+// scheduling never affects the order.
+func (g roundTripGate) verdicts(t *testing.T, files []string) map[string]string {
 	t.Helper()
 
 	verdicts := make([]string, len(files))
@@ -264,7 +343,7 @@ func corpusRoundTripVerdicts(t *testing.T, files []string) map[string]string {
 					failures[i] = err
 					continue
 				}
-				verdicts[i], failures[i] = corpusRoundTripVerdict(rel, src)
+				verdicts[i], failures[i] = g.verdict(rel, src)
 			}
 		}()
 	}
@@ -285,8 +364,8 @@ func corpusRoundTripVerdicts(t *testing.T, files []string) map[string]string {
 	return got
 }
 
-// corpusRoundTripSummary is the per-verdict count line CI greps for.
-func corpusRoundTripSummary(files []string, got map[string]string) string {
+// summary is the per-verdict count line CI greps for.
+func (g roundTripGate) summary(files []string, got map[string]string) string {
 	counts := make(map[string]int)
 	for _, rel := range files {
 		verdict := got[rel]
@@ -299,15 +378,15 @@ func corpusRoundTripSummary(files []string, got map[string]string) string {
 	for _, verdict := range []string{"stable", "whitespace-only", "graph-diff", "unwritable", "unparseable", "refused"} {
 		parts = append(parts, fmt.Sprintf("%d %s", counts[verdict], verdict))
 	}
-	return fmt.Sprintf("corpus round trip: %d files: %s", len(files), strings.Join(parts, ", "))
+	return fmt.Sprintf("%s: %d files: %s", g.name, len(files), strings.Join(parts, ", "))
 }
 
-func readCorpusRoundTripExpected(t *testing.T) (map[string]int, map[string]string) {
+func (g roundTripGate) readExpected(t *testing.T) (map[string]int, map[string]string) {
 	t.Helper()
 
-	content, err := os.ReadFile(corpusRoundTripExpected)
+	content, err := os.ReadFile(g.expected)
 	if err != nil {
-		t.Fatalf("read %s: %v", corpusRoundTripExpected, err)
+		t.Fatalf("read %s: %v", g.expected, err)
 	}
 
 	totals := make(map[string]int)
@@ -317,11 +396,11 @@ func readCorpusRoundTripExpected(t *testing.T) (map[string]int, map[string]strin
 		if rest, ok := strings.CutPrefix(line, "# files: "); ok {
 			root, count, found := strings.Cut(rest, " ")
 			if !found {
-				t.Fatalf("%s:%d: want \"# files: <root> <n>\", got %q", corpusRoundTripExpected, i+1, line)
+				t.Fatalf("%s:%d: want \"# files: <root> <n>\", got %q", g.expected, i+1, line)
 			}
 			totals[root], err = strconv.Atoi(count)
 			if err != nil {
-				t.Fatalf("%s:%d: bad file count: %v", corpusRoundTripExpected, i+1, err)
+				t.Fatalf("%s:%d: bad file count: %v", g.expected, i+1, err)
 			}
 			continue
 		}
@@ -330,21 +409,21 @@ func readCorpusRoundTripExpected(t *testing.T) (map[string]int, map[string]strin
 		}
 		verdict, path, found := strings.Cut(line, "\t")
 		if !found || verdict == "" || path == "" {
-			t.Fatalf("%s:%d: want \"<verdict>\\t<path>\", got %q", corpusRoundTripExpected, i+1, line)
+			t.Fatalf("%s:%d: want \"<verdict>\\t<path>\", got %q", g.expected, i+1, line)
 		}
 		if _, dup := want[path]; dup {
-			t.Fatalf("%s:%d: %s is recorded twice", corpusRoundTripExpected, i+1, path)
+			t.Fatalf("%s:%d: %s is recorded twice", g.expected, i+1, path)
 		}
 		want[path] = verdict
 	}
 	return totals, want
 }
 
-func writeCorpusRoundTripExpected(t *testing.T, files []string, totals map[string]int, got map[string]string) {
+func (g roundTripGate) writeExpected(t *testing.T, files []string, totals map[string]int, got map[string]string) {
 	t.Helper()
 
 	var b strings.Builder
-	b.WriteString(corpusRoundTripHeader)
+	b.WriteString(g.header)
 	fmt.Fprintf(&b, "# files: %s %d\n", corpusRoundTripCommitted, totals[corpusRoundTripCommitted])
 	for _, root := range corpusRoundTripRoots {
 		fmt.Fprintf(&b, "# files: %s %d\n", root.name, totals[root.name])
@@ -352,53 +431,66 @@ func writeCorpusRoundTripExpected(t *testing.T, files []string, totals map[strin
 	for _, rel := range files {
 		fmt.Fprintf(&b, "%s\t%s\n", got[rel], rel)
 	}
-	if err := os.WriteFile(corpusRoundTripExpected, []byte(b.String()), 0o644); err != nil {
-		t.Fatalf("write %s: %v", corpusRoundTripExpected, err)
+	if err := os.WriteFile(g.expected, []byte(b.String()), 0o644); err != nil {
+		t.Fatalf("write %s: %v", g.expected, err)
 	}
 }
 
-// TestCorpusRoundTrip is a per-file ratchet on the RDF round trip of every
-// model under examples/; any movement fails it. See docs/project/rdf-corpus-roundtrip.md.
-func TestCorpusRoundTrip(t *testing.T) {
+// run measures every file and either regenerates the gate's expectation or
+// fails on any movement from it.
+func (g roundTripGate) run(t *testing.T) {
 	files, totals := corpusRoundTripFiles(t)
 
 	// An empty semantic cache, as on a fresh checkout and in CI.
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 
-	got := corpusRoundTripVerdicts(t, files)
-	t.Log(corpusRoundTripSummary(files, got))
+	got := g.verdicts(t, files)
+	t.Log(g.summary(files, got))
 
-	if *updateCorpusRoundTrip {
-		writeCorpusRoundTripExpected(t, files, totals, got)
-		t.Logf("wrote %s: %d file(s)", corpusRoundTripExpected, len(files))
+	if *g.update {
+		g.writeExpected(t, files, totals, got)
+		t.Logf("wrote %s: %d file(s)", g.expected, len(files))
 		return
 	}
 
-	wantTotals, want := readCorpusRoundTripExpected(t)
+	wantTotals, want := g.readExpected(t)
 	for _, root := range append([]string{corpusRoundTripCommitted}, rootNames()...) {
 		if wantTotals[root] != totals[root] {
 			t.Errorf("%s holds %d model file(s), expectations were recorded against %d; "+
-				"re-download the pinned corpus or regenerate with -update-corpus-roundtrip",
-				root, totals[root], wantTotals[root])
+				"re-download the pinned corpus or regenerate with %s",
+				root, totals[root], wantTotals[root], g.updateFlag)
 		}
 	}
 
 	for _, path := range sortedStringKeys(want) {
 		switch verdict, ok := got[path]; {
 		case !ok:
-			t.Errorf("%s: recorded %s but the file is gone; regenerate with -update-corpus-roundtrip",
-				path, want[path])
+			t.Errorf("%s: recorded %s but the file is gone; regenerate with %s",
+				path, want[path], g.updateFlag)
 		case verdict != want[path]:
-			t.Errorf("%s: %s, expected %s; adjudicate the change, then regenerate with -update-corpus-roundtrip",
-				path, verdict, want[path])
+			t.Errorf("%s: %s, expected %s; adjudicate the change, then regenerate with %s",
+				path, verdict, want[path], g.updateFlag)
 		}
 	}
 	for _, path := range files {
 		if _, ok := want[path]; !ok {
-			t.Errorf("%s: %s but the file is not recorded; regenerate with -update-corpus-roundtrip",
-				path, got[path])
+			t.Errorf("%s: %s but the file is not recorded; regenerate with %s",
+				path, got[path], g.updateFlag)
 		}
 	}
+}
+
+// TestCorpusRoundTrip is a per-file ratchet on the RDF round trip of every
+// model under examples/; any movement fails it. See docs/project/rdf-corpus-roundtrip.md.
+func TestCorpusRoundTrip(t *testing.T) {
+	corpusRoundTripGate.run(t)
+}
+
+// TestCorpusAPIJSONRoundTrip is the same ratchet over the API's JSON element
+// form, whose reader and writer share the RDF graph. See
+// docs/project/rdf-corpus-roundtrip.md.
+func TestCorpusAPIJSONRoundTrip(t *testing.T) {
+	apiJSONRoundTripGate.run(t)
 }
 
 // Refusal classes must carry no location or identifier, however spelt.

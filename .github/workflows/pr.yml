@@ -448,6 +448,16 @@ jobs:
             exit 1
           fi
 
+      - name: Run api-json corpus round-trip gate
+        run: |
+          set -o pipefail
+          go test -count=1 -v ./tests/corpus -run 'TestCorpusAPIJSONRoundTrip' | tee api-json-roundtrip-gate.log
+          grep -E 'api-json corpus round trip: [0-9]+ files:' api-json-roundtrip-gate.log
+          if grep -qE '^\s*--- SKIP' api-json-roundtrip-gate.log; then
+            echo "error: the api-json corpus round-trip gate skipped" >&2
+            exit 1
+          fi
+
       # Re-run the solver gate on its own, as the corpus gate is, so a skip
       # cannot hide behind a green suite.
       - name: Run solver gate (Z3)

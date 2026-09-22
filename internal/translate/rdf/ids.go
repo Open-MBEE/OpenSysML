@@ -34,21 +34,21 @@ func EncodeElementID(qualifiedName string) string {
 	return b.String()
 }
 
-// owningMembershipSuffix ends a membership's id. An encoded id never ends in a
+// OwningMembershipSuffix ends a membership's id. An encoded id never ends in a
 // lone '_', so no element id ends in `_om` and the two id spaces are disjoint.
-const owningMembershipSuffix = "_om"
+const OwningMembershipSuffix = "_om"
 
 // OwningMembershipID returns the id of the OwningMembership that owns the
 // member with the given qualified name. The membership sits between exactly one
 // namespace and one member, so the member's own identity determines it.
 func OwningMembershipID(memberQualifiedName string) string {
-	return EncodeElementID(memberQualifiedName) + owningMembershipSuffix
+	return EncodeElementID(memberQualifiedName) + OwningMembershipSuffix
 }
 
 // DecodeOwningMembershipID reverses OwningMembershipID, returning the qualified
 // name of the member the membership owns.
 func DecodeOwningMembershipID(id string) (string, bool) {
-	member, found := strings.CutSuffix(id, owningMembershipSuffix)
+	member, found := strings.CutSuffix(id, OwningMembershipSuffix)
 	if !found {
 		return "", false
 	}
@@ -88,6 +88,27 @@ func DecodeExpressionNodeID(id string) (string, []string, bool) {
 		from = at + 1
 	}
 	return "", nil, false
+}
+
+// SplitExpressionNodeID reports whether id names an expression node: some
+// `_p`-separated prefix that isOwner claims, followed by well-formed encoded
+// positions. The owner is tested against the caller's id space rather than
+// decoded, so a scoped `qualifier:id` owner qualifies too.
+func SplitExpressionNodeID(id string, isOwner func(string) bool) bool {
+	for from := 0; from < len(id); {
+		next := strings.Index(id[from:], expressionPositionSeparator)
+		if next < 0 {
+			return false
+		}
+		at := from + next
+		if isOwner(id[:at]) {
+			if _, ok := decodeExpressionPositions(id[at+len(expressionPositionSeparator):]); ok {
+				return true
+			}
+		}
+		from = at + 1
+	}
+	return false
 }
 
 // decodeExpressionPositions decodes the separated positions under an owner id. A

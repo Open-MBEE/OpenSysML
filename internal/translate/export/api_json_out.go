@@ -1,0 +1,247 @@
+package export
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"slices"
+	"strings"
+
+	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
+)
+
+// WriteAPIJSON serializes a graph as the SysML v2 API's element form: a JSON
+// array of objects carrying "@type", "@id" and the metamodel properties as
+// keys, the shape GET /projects/{p}/commits/{c}/elements serves. It is the same
+// mapping the Turtle writer spells: the subjects of the graph in order, their
+// sysml: and sysx: properties as values, and each collection as the array its
+// json: annotation states.
+func WriteAPIJSON(graph *rdf.Graph) ([]byte, error) {
+	settled, err := rdf.ReconcileCollections(graph)
+	if err != nil {
+		return nil, err
+	}
+	elements := make([]apiJSONObject, 0, len(settled.Subjects()))
+	for _, subject := range settled.Subjects() {
+		element, err := apiJSONElement(settled, subject)
+		if err != nil {
+			return nil, err
+		}
+		elements = append(elements, element)
+	}
+	var b bytes.Buffer
+	enc := json.NewEncoder(&b)
+	enc.SetEscapeHTML(false)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(elements); err != nil {
+		return nil, err
+	}
+	return b.Bytes(), nil
+}
+
+// apiJSONMember is one key-value pair of an element object, order preserved.
+type apiJSONMember struct {
+	key   string
+	value any
+}
+
+// apiJSONObject is a JSON object that marshals its members in order.
+type apiJSONObject []apiJSONMember
+
+func (o apiJSONObject) MarshalJSON() ([]byte, error) {
+	var b bytes.Buffer
+	b.WriteByte('{')
+	for i, member := range o {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		key, err := json.Marshal(member.key)
+		if err != nil {
+			return nil, err
+		}
+		value, err := json.Marshal(member.value)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", member.key, err)
+		}
+		b.Write(key)
+		b.WriteByte(':')
+		b.Write(value)
+	}
+	b.WriteByte('}')
+	return b.Bytes(), nil
+}
+
+// apiJSONReference is the {"@id": <id>} spelling of a reference value.
+type apiJSONReference struct {
+	ID string `json:"@id"`
+}
+
+// apiJSONElement builds the element object for one subject: "@type", "@id",
+// then each property in statement order.
+func apiJSONElement(graph *rdf.Graph, subject rdf.Term) (apiJSONObject, error) {
+	types := graph.Objects(subject, rdf.RDFType)
+	if len(types) != 1 {
+		return nil, &UnsupportedError{
+			What: fmt.Sprintf("the subject <%s>", subject.Value),
+			Note: fmt.Sprintf("it has %d rdf:type statements, and an API element object carries exactly one \"@type\"", len(types)),
+		}
+	}
+	id, ok := rdf.SubjectID(subject)
+	if !ok {
+		return nil, &UnsupportedError{
+			What: fmt.Sprintf("the subject <%s>", subject.Value),
+			Note: "its IRI is in neither the element nor the expression namespace, so it has no \"@id\"",
+		}
+	}
+	element := apiJSONObject{
+		{key: "@type", value: apiJSONType(types[0])},
+		{key: "@id", value: id},
+	}
+	if !strings.HasPrefix(types[0].Value, rdf.SysML) && !strings.HasPrefix(types[0].Value, rdf.OpenSysML) {
+		return nil, &UnsupportedError{
+			What: fmt.Sprintf("the rdf:type %s of <%s>", types[0], subject.Value),
+			Note: "an element's metaclass is a sysml: or sysx: term",
+		}
+	}
+	for _, predicate := range graph.Predicates(subject) {
+		switch {
+		case predicate == rdf.RDFType:
+			continue
+		case rdf.IsAnnotationJSON(predicate):
+			// The collection is written at its sysml: key, as the array the
+			// annotation states; the annotation itself is no key of its own.
+			continue
+		case strings.HasPrefix(predicate, rdf.SysML):
+			key := strings.TrimPrefix(predicate, rdf.SysML)
+			value, err := apiJSONSysMLValue(graph, subject, predicate, key)
+			if err != nil {
+				return nil, err
+			}
+			element = append(element, apiJSONMember{key: key, value: value})
+		case strings.HasPrefix(predicate, rdf.OpenSysML):
+			key := "sysx:" + strings.TrimPrefix(predicate, rdf.OpenSysML)
+			objects := graph.Objects(subject, predicate)
+			value, err := apiJSONValues(subject, objects)
+			if err != nil {
+				return nil, err
+			}
+			element = append(element, apiJSONMember{key: key, value: value})
+		default:
+			return nil, &UnsupportedError{
+				What: fmt.Sprintf("the predicate <%s> of <%s>", predicate, subject.Value),
+				Note: "only the sysml: and sysx: vocabularies have API element keys",
+			}
+		}
+	}
+	return element, nil
+}
+
+// apiJSONType is the "@type" spelling of a metaclass IRI: the bare name in
+// the sysml: vocabulary, the sysx: CURIE in the extension namespace.
+func apiJSONType(typ rdf.Term) string {
+	if strings.HasPrefix(typ.Value, rdf.OpenSysML) {
+		return "sysx:" + strings.TrimPrefix(typ.Value, rdf.OpenSysML)
+	}
+	return strings.TrimPrefix(typ.Value, rdf.SysML)
+}
+
+// apiJSONSysMLValue is the value a sysml: key carries: the collection its
+// json: annotation states, or its single object as a scalar.
+func apiJSONSysMLValue(graph *rdf.Graph, subject rdf.Term, predicate, key string) (any, error) {
+	if annotation, ok := graph.Object(subject, rdf.AnnotationJSON+key); ok {
+		if !annotation.IsLiteral() {
+			return nil, &UnsupportedError{
+				What: fmt.Sprintf("the annotation json:%s of <%s>", key, subject.Value),
+				Note: fmt.Sprintf("its object %s is not the JSON literal a collection is stated by", annotation),
+			}
+		}
+		var raw json.RawMessage
+		if err := json.Unmarshal([]byte(annotation.Value), &raw); err != nil {
+			return nil, &UnsupportedError{
+				What: fmt.Sprintf("the annotation json:%s of <%s>", key, subject.Value),
+				Note: fmt.Sprintf("its literal is not JSON: %v", err),
+			}
+		}
+		return raw, nil
+	}
+	objects := graph.Objects(subject, predicate)
+	if len(objects) > 1 {
+		return nil, &UnsupportedError{
+			What: fmt.Sprintf("sysml:%s of <%s>", key, subject.Value),
+			Note: "a sysml: collection states its members in the json: annotation, which is absent",
+		}
+	}
+	return apiJSONValues(subject, objects)
+}
+
+// apiJSONValues spells a property's objects as the key's value: one object a
+// scalar, several an array.
+func apiJSONValues(subject rdf.Term, objects []rdf.Term) (any, error) {
+	if len(objects) == 1 {
+		return apiJSONScalar(subject, objects[0])
+	}
+	values := make([]any, 0, len(objects))
+	for _, object := range objects {
+		value, err := apiJSONScalar(subject, object)
+		if err != nil {
+			return nil, err
+		}
+		values = append(values, value)
+	}
+	return values, nil
+}
+
+// apiJSONScalar is the JSON spelling of one object: an IRI a {"@id": …}
+// reference, a boolean or number its JSON primitive, anything else a string.
+func apiJSONScalar(subject, object rdf.Term) (any, error) {
+	if object.IsIRI() {
+		return apiJSONReference{ID: rdf.ReferenceID(subject, object)}, nil
+	}
+	if object.Lang != "" {
+		return nil, &UnsupportedError{
+			What: fmt.Sprintf("the language-tagged literal %s of <%s>", object, subject.Value),
+			Note: "the API element form has no language tags",
+		}
+	}
+	switch {
+	case slices.Contains(booleanLiterals, object.Datatype):
+		return object.Value == "true" || object.Value == "1", nil
+	case slices.Contains(integerLiterals, object.Datatype):
+		return json.Number(object.Value), nil
+	case slices.Contains(realLiterals, object.Datatype):
+		lexical := apiJSONRealLexical(object.Value)
+		number := json.Number(lexical)
+		if _, err := json.Marshal(number); err != nil {
+			return nil, &UnsupportedError{
+				What: fmt.Sprintf("the literal %s of <%s>", object, subject.Value),
+				Note: "its lexical form is not a JSON number",
+			}
+		}
+		return number, nil
+	}
+	return object.Value, nil
+}
+
+// apiJSONRealLexical respells an XSD real's lexical form as a JSON number
+// without changing its value: a fraction needs a digit on both sides of the
+// point and no '+' sign. Lexicals like INF and NaN stay unspellable.
+func apiJSONRealLexical(lexical string) string {
+	lexical = strings.TrimPrefix(lexical, "+")
+	switch {
+	case strings.HasPrefix(lexical, "-."):
+		lexical = "-0" + lexical[1:]
+	case strings.HasPrefix(lexical, "."):
+		lexical = "0" + lexical
+	}
+	if i := strings.IndexAny(lexical, "eE"); i >= 0 {
+		mantissa := lexical[:i]
+		if strings.HasSuffix(mantissa, ".") {
+			mantissa += "0"
+		}
+		return mantissa + lexical[i:]
+	}
+	if strings.HasSuffix(lexical, ".") {
+		return lexical + "0"
+	}
+	return lexical
+}

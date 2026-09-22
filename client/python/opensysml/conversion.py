@@ -18,10 +18,14 @@ from typing import List
 FORMAT_SYSML = "sysml"
 #: RDF in Turtle syntax. ``turtle`` and ``rdf`` name it too.
 FORMAT_TURTLE = "ttl"
+#: The OMG API's JSON element form, the same RDF mapping spelled differently.
+#: ``json`` names it too.
+FORMAT_API_JSON = "api-json"
 
 #: Names the service canonicalizes each format to, so a reported format can be
 #: told apart without repeating the alias table.
 _TURTLE_NAMES = frozenset({"ttl", "turtle", "rdf"})
+_API_JSON_NAMES = frozenset({"api-json", "json"})
 
 #: Names of the SysML v1 input the service migrates, an experimental mapping too.
 _XMI_NAMES = frozenset({"xmi", "uml", "mdzip"})
@@ -29,9 +33,10 @@ _XMI_NAMES = frozenset({"xmi", "uml", "mdzip"})
 #: The fallback wording, for a service too old to send its own notice: the RDF
 #: mapping's status is a property of the mapping, not of the service.
 EXPERIMENTAL_NOTICE = (
-    "RDF conversion is experimental: the mapping covers model structure and the "
-    "behavior its bodies state, refuses what it cannot write back, and its "
-    "vocabulary may change without a compatibility path; see "
+    "RDF conversion \u2014 Turtle and the API's JSON element form alike \u2014 is "
+    "experimental: the mapping covers model structure and the behavior its "
+    "bodies state, refuses what it cannot write back, and its vocabulary may "
+    "change without a compatibility path; see "
     "docs/reference/rdf-mapping.md \u00a7 Status"
 )
 
@@ -53,12 +58,15 @@ def is_experimental(from_format, to_format):
         to_format (str): Format written, as the service reports it.
 
     Returns:
-        bool: True when either side is RDF or the input is SysML v1 XMI, which
-        is migrated. Notation to notation is stable.
+        bool: True when either side is RDF or the API's JSON element form, or
+        the input is SysML v1 XMI, which is migrated. Notation to notation is
+        stable.
     """
     return (
         from_format in _TURTLE_NAMES
         or to_format in _TURTLE_NAMES
+        or from_format in _API_JSON_NAMES
+        or to_format in _API_JSON_NAMES
         or from_format in _XMI_NAMES
     )
 
@@ -70,6 +78,7 @@ _EXTENSIONS = {
     ".kerml": FORMAT_SYSML,
     ".ttl": FORMAT_TURTLE,
     ".turtle": FORMAT_TURTLE,
+    ".json": FORMAT_API_JSON,
 }
 
 

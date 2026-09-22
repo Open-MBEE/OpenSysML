@@ -4,7 +4,9 @@ import difflib
 
 from opensysml.capabilities import CAPABILITY_QUERY
 from opensysml.symbol import Symbol
-from opensysml.conversion import FORMAT_SYSML, FORMAT_TURTLE, format_of_path
+from opensysml.conversion import (
+    FORMAT_API_JSON, FORMAT_SYSML, FORMAT_TURTLE, format_of_path,
+)
 from opensysml.diagnostic import Diagnostic
 from opensysml.edit import Editor
 from opensysml.errors import ModelError, SymbolNotFoundError
@@ -133,7 +135,8 @@ class Model:
         again, or convert its path through :meth:`Connection.convert`.
 
         Args:
-            to_format (str): 'sysml', 'kerml', 'text', 'ttl', 'turtle' or 'rdf'
+            to_format (str): 'sysml', 'kerml', 'text', 'ttl', 'turtle', 'rdf',
+                'api-json' or 'json'
             tolerate_syntax_errors (bool): Write notation back out even when the
                 parser could not read all of it
 
@@ -176,6 +179,17 @@ class Model:
             Conversion: The Turtle; ``str()`` of it is the text
         """
         return self.convert(FORMAT_TURTLE)
+
+    def to_api_json(self):
+        """Write this model out in the OMG API's JSON element form.
+
+        It is the same experimental RDF mapping as Turtle, spelled as the
+        element objects the SysML v2 API serves.
+
+        Returns:
+            Conversion: The JSON; ``str()`` of it is the text
+        """
+        return self.convert(FORMAT_API_JSON)
 
     def save(self, path, to_format=None, tolerate_syntax_errors=False):
         """Write this model to ``path``, in the format its extension names.
