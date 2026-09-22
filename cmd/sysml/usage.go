@@ -514,6 +514,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.Var(&schedule, "schedule", "Policy every run resolves its choice points under: declared, reverse (default), seed:<n>, explore[:runs=N,depth=D] or replay:<file>")
 	fs.Var(&modelChecks.seed, "seed", "Seed the model's own draws — weighted decisions, random functions — and those of -samples and -runs; the same seed draws the same run or table")
 	fs.Var(&modelChecks.draws, "draws", "How every run resolves the draws of RandomFunctions: random (default) draws from -seed; min, max and average take each call's least, greatest or mean value and need no seed; weighted decisions draw from -seed whatever the policy")
+	fs.Var(&modelChecks.clockStep, "clock-step", "The step, in seconds, the clock of every run ticks by: a wait comes due at the first multiple of it not before the wait ends; 0 (default) is a continuous clock. With -compare-results, replaces every configuration's stepSize")
 	fs.Var(&modelChecks.runs, "runs", "Run the -action this many times, each run seeded from -seed, and table the -observe features; needs -seed unless -draws is min, max or average")
 	fs.Var(&modelChecks.observe, "observe", "Report this feature of the -runs action, or clock for the time it completed at; default every feature it holds and the clock. With -compare-results, the stored observable to compare, or <observable>=<feature> to read it from another feature of the run (repeatable)")
 	fs.Var(&modelChecks.sweeps, "sweep", "Run the -analysis or -calc once per value of this range, as -sweep \"n=1..8:2\"; several ranges run their cartesian product (repeatable)")
@@ -629,6 +630,7 @@ func optionGroups() []usage.OptionGroup {
 			usage.Opt("schedule", "<policy>"),
 			usage.Opt("seed", "<n>"),
 			usage.Opt("draws", "<policy>"),
+			usage.Opt("clock-step", "<seconds>"),
 			usage.Opt("runs", "<n>"),
 			usage.Opt("observe", featureArg),
 			usage.Opt("sweep", "<range>"),

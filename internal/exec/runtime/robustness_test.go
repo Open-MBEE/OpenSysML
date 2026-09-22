@@ -641,7 +641,7 @@ func testBindingMultipleCollectionContributors(t *testing.T) {
 		if !errors.Is(err, ErrBindingEnd) {
 			t.Fatalf("GetFeatureValue(edges) = %v, want ErrBindingEnd", err)
 		}
-		if got, want := err.Error(), "binding end cannot be resolved: Sys.edges is bound by `bind [0..1] edges = [0..1] leftEdge`, "+
+		if got, want := err.Error(), "binding end cannot be resolved: Sys.edges is bound by `binding [1] bind [0..1] edges = [0..1] leftEdge`, "+
 			"which makes some value of edges a value of leftEdge without saying which value of either; the model does not state what edges holds"; got != want {
 			t.Errorf("error = %q, want %q", got, want)
 		}
@@ -772,7 +772,7 @@ func testBindingMultipleCollectionContributors(t *testing.T) {
 							binding [1] bind `+ends+` edges = `+ends+` pair;
 						}
 					}`))
-					want := "multiplicity violation: `bind " + ends + " edges = " + ends + " pair` links " +
+					want := "multiplicity violation: `binding [1] bind " + ends + " edges = " + ends + " pair` links " +
 						ends + " of edges, which holds 1 value(s)"
 					for _, order := range [][]string{{"pair", "edges", "pair"}, {"edges", "pair", "edges"}} {
 						inst, err := ctx.Instantiate(oneSymbol(t, idx, "P::Sys"))
@@ -808,7 +808,7 @@ func testBindingMultipleCollectionContributors(t *testing.T) {
 				binding [1] bind [2] edges = [2] pair;
 			}
 		}`))
-		want := "multiplicity violation: `bind [2] edges = [2] pair` links [2] of pair, which holds 1 value(s)"
+		want := "multiplicity violation: `binding [1] bind [2] edges = [2] pair` links [2] of pair, which holds 1 value(s)"
 		for _, order := range [][]string{{"edges", "pair"}, {"pair", "edges"}} {
 			inst, err := ctx.Instantiate(oneSymbol(t, idx, "P::Sys"))
 			if err != nil {
@@ -853,7 +853,7 @@ func testBindingMultipleCollectionContributors(t *testing.T) {
 				binding [1] bind [1] a = [1] c;
 			}
 		}`))
-		want := "multiplicity violation: `bind [1] a = [1] b` links [1] of a, which holds 0 value(s)"
+		want := "multiplicity violation: `binding [1] bind [1] a = [1] b` links [1] of a, which holds 0 value(s)"
 		for _, order := range [][]string{{"a", "b"}, {"b", "a"}} {
 			inst, err := ctx.Instantiate(oneSymbol(t, idx, "P::Empty"))
 			if err != nil {
@@ -1379,7 +1379,7 @@ func testSuccessionGuardFailureModes(t *testing.T) {
 				if !errors.Is(err, tc.want) {
 					t.Errorf("ExecuteAction err = %v, want %v", err, tc.want)
 				}
-			case <-time.After(5 * time.Second):
+			case <-watchdog(5 * time.Second):
 				t.Fatal("executing the guarded action did not terminate")
 			}
 		})
@@ -2121,7 +2121,7 @@ func testDefaultNotConformingToMultiplicity(t *testing.T) {
 				if !errors.Is(err, ErrMultiplicityViolation) {
 					t.Errorf("expected ErrMultiplicityViolation, got: %v", err)
 				}
-			case <-time.After(5 * time.Second):
+			case <-watchdog(5 * time.Second):
 				t.Fatal("materializing the default did not terminate")
 			}
 		})
@@ -2237,7 +2237,7 @@ func testMutuallySubsettingFeatures(t *testing.T) {
 	}()
 	select {
 	case <-done:
-	case <-time.After(5 * time.Second):
+	case <-watchdog(5 * time.Second):
 		t.Fatal("GetFeatureValue hung on mutually subsetting features")
 	}
 	if fvErr == nil {
@@ -3098,7 +3098,7 @@ func testCyclicDerivedFeatureValue(t *testing.T) {
 	}()
 	select {
 	case <-done:
-	case <-time.After(5 * time.Second):
+	case <-watchdog(5 * time.Second):
 		t.Fatal("GetFeatureValue hung on a cyclic derived feature value")
 	}
 
@@ -3139,7 +3139,7 @@ func testWriteIntoCyclicDerivedFeatureValues(t *testing.T) {
 		if err != nil {
 			t.Fatalf("SetFeatureValue(b): %v", err)
 		}
-	case <-time.After(5 * time.Second):
+	case <-watchdog(5 * time.Second):
 		t.Fatal("SetFeatureValue(b) hung unmaterializing a cycle of derived values")
 	}
 	if b := inst.FeatureValues["b"]; !b.Materialized || !b.Written {
@@ -3189,7 +3189,7 @@ func testCyclicSubsettingOfDefaultCollections(t *testing.T) {
 		}()
 		select {
 		case <-done:
-		case <-time.After(5 * time.Second):
+		case <-watchdog(5 * time.Second):
 			t.Fatalf("GetFeatureValue(%s) hung on collections subsetting each other", name)
 		}
 		if !errors.Is(fvErr, ErrCyclicFeatureValue) {
@@ -3333,7 +3333,7 @@ func testPerformReferenceCycle(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected a self-performing action to be bounded, it completed")
 		}
-	case <-time.After(10 * time.Second):
+	case <-watchdog(10 * time.Second):
 		t.Fatal("self-performing action did not terminate")
 	}
 }
@@ -3425,7 +3425,7 @@ func testStateTransitionEndpointMisspelled(t *testing.T) {
 		if err != nil {
 			t.Fatalf("RunToCompletion: %v", err)
 		}
-	case <-time.After(10 * time.Second):
+	case <-watchdog(10 * time.Second):
 		t.Fatal("RunToCompletion hung on a machine whose transition names nothing")
 	}
 	if got := exec.getCurrentState(); got == nil || got.Name != "busy" {
@@ -3472,7 +3472,7 @@ func testStateTransitionEndpointNeverResolved(t *testing.T) {
 		if err != nil {
 			t.Fatalf("RunToCompletion: %v", err)
 		}
-	case <-time.After(10 * time.Second):
+	case <-watchdog(10 * time.Second):
 		t.Fatal("RunToCompletion hung on an endpoint no resolution pass reported")
 	}
 	if got := exec.getCurrentState(); got == nil || got.Name != "busy" {
@@ -3682,7 +3682,7 @@ func testStateJunctionWithoutAnOutgoingTransition(t *testing.T) {
 		if !strings.Contains(err.Error(), "junction stuck has no outgoing transitions") {
 			t.Errorf("expected the error to name the junction, got %v", err)
 		}
-	case <-time.After(10 * time.Second):
+	case <-watchdog(10 * time.Second):
 		t.Fatal("RunToCompletion hung on a junction no transition leaves")
 	}
 }
@@ -3720,7 +3720,7 @@ func testStateChoiceWithoutAnEnabledBranch(t *testing.T) {
 		if x := exec.StateData()["x"]; !valueEqual(x, integerValue(2)) {
 			t.Errorf("x = %v, want 2: the incoming effect had run when the choice was read", x)
 		}
-	case <-time.After(10 * time.Second):
+	case <-watchdog(10 * time.Second):
 		t.Fatal("RunToCompletion hung on a choice no branch leaves")
 	}
 }
@@ -3793,7 +3793,7 @@ func testStateCrossRegionTransitionsPingPong(t *testing.T) {
 	var err error
 	select {
 	case err = <-done:
-	case <-time.After(30 * time.Second):
+	case <-watchdog(30 * time.Second):
 		t.Fatal("run to completion hangs on successions crossing between regions")
 	}
 	if err == nil {
@@ -3986,7 +3986,7 @@ func stateRunErrorForSource(t *testing.T, name, src string) error {
 	select {
 	case err := <-done:
 		return err
-	case <-time.After(10 * time.Second):
+	case <-watchdog(10 * time.Second):
 		t.Fatalf("running %s did not terminate", name)
 		return nil
 	}
@@ -4747,7 +4747,7 @@ func testTwoValuedMemberInScalarContext(t *testing.T) {
 				if !errors.Is(err, tc.want) {
 					t.Errorf("InvokeCalc err = %v, want %v", err, tc.want)
 				}
-			case <-time.After(5 * time.Second):
+			case <-watchdog(5 * time.Second):
 				t.Fatal("evaluating the two-valued member did not terminate")
 			}
 		})
@@ -4795,7 +4795,7 @@ func testBodyLocalOutsideItsDeclaration(t *testing.T) {
 				if !errors.Is(err, tc.want) {
 					t.Errorf("InvokeCalc err = %v, want %v", err, tc.want)
 				}
-			case <-time.After(5 * time.Second):
+			case <-watchdog(5 * time.Second):
 				t.Fatal("declaring the body-local did not terminate")
 			}
 		})
@@ -5426,7 +5426,7 @@ func testExtentOverRecursiveComposition(t *testing.T) {
 	}()
 	select {
 	case <-done:
-	case <-time.After(20 * time.Second):
+	case <-watchdog(20 * time.Second):
 		t.Fatal("the extent did not terminate on recursive composition")
 	}
 	if err != nil {
@@ -5785,7 +5785,7 @@ func testAcceptDeadlockNeverSatisfied(t *testing.T) {
 	var err error
 	select {
 	case err = <-done:
-	case <-time.After(10 * time.Second):
+	case <-watchdog(10 * time.Second):
 		t.Fatal("an action waiting for a message that cannot arrive did not terminate")
 	}
 
@@ -5866,7 +5866,7 @@ func testAcceptStatementDeadlockInALoop(t *testing.T) {
 	var err error
 	select {
 	case err = <-done:
-	case <-time.After(10 * time.Second):
+	case <-watchdog(10 * time.Second):
 		t.Fatal("a loop waiting for a message that cannot arrive did not terminate")
 	}
 
@@ -8896,7 +8896,7 @@ func assertCalcInvocationBounded(t *testing.T, idx *symbols.Index, ctx *Context,
 		if msg := err.Error(); len(msg) > 1024 {
 			t.Errorf("error for recursive calc %s is %d bytes; want frames collapsed: %.200s…", calcName, len(msg), msg)
 		}
-	case <-time.After(30 * time.Second):
+	case <-watchdog(30 * time.Second):
 		t.Fatalf("recursive calc %s did not terminate", calcName)
 	}
 }
@@ -9055,7 +9055,7 @@ func testRecursiveCompositionSubjectSearch(t *testing.T) {
 	}()
 	select {
 	case <-done:
-	case <-time.After(20 * time.Second):
+	case <-watchdog(20 * time.Second):
 		t.Fatal("the subject search did not terminate on recursive composition")
 	}
 	if err != nil {
@@ -11192,7 +11192,7 @@ func testQuantityCyclicUnitDefinition(t *testing.T) {
 		if !errors.Is(err, semantics.ErrUnitCycle) {
 			t.Fatalf("err = %v; want ErrUnitCycle", err)
 		}
-	case <-time.After(10 * time.Second):
+	case <-watchdog(10 * time.Second):
 		t.Fatal("evaluating a cyclic unit definition did not terminate")
 	}
 }
@@ -11309,7 +11309,7 @@ func invokeCalcInSource(t *testing.T, src, calcName string, arg int64, maxSteps 
 	select {
 	case err := <-done:
 		return err
-	case <-time.After(10 * time.Second):
+	case <-watchdog(10 * time.Second):
 		t.Fatalf("calc %s did not terminate", calcName)
 		return nil
 	}
@@ -11469,7 +11469,7 @@ func calcUsageOutputInSource(t *testing.T, src, usageName, output string, maxSte
 	select {
 	case err := <-done:
 		return err
-	case <-time.After(10 * time.Second):
+	case <-watchdog(10 * time.Second):
 		t.Fatalf("reading output %s of %s did not terminate", output, usageName)
 		return nil
 	}
@@ -12266,7 +12266,7 @@ func testDeepSpecializationChainOfRedefinitions(t *testing.T) {
 	}()
 	select {
 	case <-done:
-	case <-time.After(30 * time.Second):
+	case <-watchdog(30 * time.Second):
 		t.Fatal("reading an inherited value through a deep specialization chain hung")
 	}
 	if err != nil {
@@ -12355,7 +12355,7 @@ func calcErrorWithLibraries(t *testing.T, src, calcName string, args []Value, ma
 	select {
 	case err := <-done:
 		return err
-	case <-time.After(10 * time.Second):
+	case <-watchdog(10 * time.Second):
 		t.Fatalf("calc %s did not terminate", calcName)
 		return nil
 	}
@@ -14561,7 +14561,7 @@ func testStateDoBodyAcceptWaitsForTheMessage(t *testing.T) {
 		if err != nil {
 			t.Fatalf("run: %v", err)
 		}
-	case <-time.After(10 * time.Second):
+	case <-watchdog(10 * time.Second):
 		t.Fatal("a do body waiting for a message did not suspend")
 	}
 	if exec.State() != StateSuspended || StateVertexName(exec.CurrentState()) != "active" {
@@ -16009,7 +16009,7 @@ func invokeCalcExpecting(t *testing.T, src, expr string) error {
 	select {
 	case err := <-done:
 		return err
-	case <-time.After(10 * time.Second):
+	case <-watchdog(10 * time.Second):
 		t.Fatalf("%s did not terminate", expr)
 		return nil
 	}
@@ -16486,7 +16486,7 @@ func runTradeStudyExpecting(t *testing.T, name string) (AnalysisResult, error) {
 			t.Fatalf("%s selected %s, expected the run to fail", name, FormatValue(out.result.Outputs[0].Value))
 		}
 		return out.result, out.err
-	case <-time.After(10 * time.Second):
+	case <-watchdog(10 * time.Second):
 		t.Fatalf("%s did not terminate", name)
 		return AnalysisResult{}, nil
 	}

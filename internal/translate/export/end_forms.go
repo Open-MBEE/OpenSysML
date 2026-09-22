@@ -382,6 +382,245 @@ func (d *decoder) endWords(el *element, form string, declared bool) (string, err
 // behind the multiplicity it states, with the payload of a flow kept apart: it
 // is written ahead of them, after `of`.
 func (d *decoder) relatedEnds(el *element) (ends []string, payload string, err error) {
+	standard, hasStandard, err := d.standardEnds(el)
+	if err != nil {
+		return nil, "", err
+	}
+	legacy, legacyPayload, err := d.legacyEnds(el)
+	if err != nil {
+		return nil, "", err
+	}
+	if hasStandard {
+		if len(legacy) > 0 && (!slices.Equal(standard, legacy) || legacyPayload != "") {
+			return nil, "", &UnsupportedError{
+				What: fmt.Sprintf("the connector ends of <%s>", el.iri),
+				Note: "its standard sysml:connectorEnd and legacy sysx:relatedFeature shapes disagree",
+			}
+		}
+		payload, _ = d.stringOf(el, rdf.OpenSysML+xPayload)
+		return standard, payload, nil
+	}
+	return legacy, legacyPayload, nil
+}
+
+// standardEnds reads connectorEnd features in graph order, with ownership fallbacks.
+func (d *decoder) standardEnds(el *element) ([]string, bool, error) {
+	terms := d.standardEndFeatures(el)
+	if len(terms) == 0 {
+		return nil, false, nil
+	}
+	ends := make([]string, 0, len(terms))
+	for _, term := range terms {
+		text, err := d.standardEndText(term, el)
+		if err != nil {
+			return nil, true, err
+		}
+		ends = append(ends, text)
+	}
+	return ends, true, nil
+}
+
+// standardEndText renders one owned connector end from its structural target.
+func (d *decoder) standardEndText(end rdf.Term, in *element) (string, error) {
+	target, ok, err := d.standardEndTarget(end, in)
+	if err != nil {
+		return "", err
+	}
+	if !ok {
+		return "", &UnsupportedError{
+			What: fmt.Sprintf("the connector end <%s> of <%s>", end.Value, in.iri),
+			Note: "it has no ReferenceSubsetting or sysml:references target",
+		}
+	}
+	var text string
+	if d.graph.HasProperty(target, rdf.SysML+pChainingFeature) {
+		parts, err := d.standardChainText(target, in)
+		if err != nil {
+			return "", err
+		}
+		text = strings.Join(parts, ".")
+	} else if target.IsLiteral() {
+		text = target.Value
+	} else {
+		var err error
+		text, err = d.referenceName(target, in)
+		if err != nil {
+			return "", err
+		}
+	}
+	name, err := d.standardEndName(end, in)
+	if err != nil {
+		return "", err
+	}
+	if name != "" {
+		text = name + " " + text
+	}
+	mult, err := d.endMultiplicity(end, in)
+	if err != nil {
+		return "", err
+	}
+	if mult != "" {
+		text = mult + " " + text
+	}
+	return text, nil
+}
+
+// standardEndFeatures discovers connector ends through each standard ownership
+// representation, including the ownership-only shape accepted by standardEnds.
+func (d *decoder) standardEndFeatures(el *element) []rdf.Term {
+	var terms []rdf.Term
+	appendUnique := func(term rdf.Term) {
+		for _, prior := range terms {
+			if prior == term {
+				return
+			}
+		}
+		terms = append(terms, term)
+	}
+	for _, term := range d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pConnectorEnd) {
+		appendUnique(term)
+	}
+	if len(terms) == 0 {
+		for _, membership := range d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pOwnedFeatureMembership) {
+			if d.metaclass(membership) != mEndFeatureMembership {
+				continue
+			}
+			if member, ok := d.graph.Object(membership, rdf.SysML+pMemberElement); ok {
+				appendUnique(member)
+			}
+		}
+	}
+	if len(terms) == 0 {
+		for _, feature := range d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pOwnedFeature) {
+			for _, membership := range d.graph.Objects(feature, rdf.SysML+pOwningMembership) {
+				if d.metaclass(membership) == mEndFeatureMembership {
+					appendUnique(feature)
+					break
+				}
+			}
+		}
+	}
+	return terms
+}
+
+// standardEndTarget resolves an end through ReferenceSubsetting, then the
+// interim sysml:references property, refusing conflicting representations.
+func (d *decoder) standardEndTarget(end rdf.Term, in *element) (rdf.Term, bool, error) {
+	var relationships []rdf.Term
+	appendUnique := func(term rdf.Term) {
+		for _, prior := range relationships {
+			if prior == term {
+				return
+			}
+		}
+		relationships = append(relationships, term)
+	}
+	for _, relationship := range d.graph.Objects(end, rdf.SysML+pOwnedReferenceSubsetting) {
+		if d.metaclass(relationship) == mReferenceSubsetting {
+			appendUnique(relationship)
+		}
+	}
+	if len(relationships) == 0 {
+		for _, subject := range d.graph.Subjects() {
+			if d.metaclass(subject) != mReferenceSubsetting {
+				continue
+			}
+			if referencing, ok := d.graph.Object(subject, rdf.SysML+pReferencingFeature); ok && referencing == end {
+				appendUnique(subject)
+			}
+		}
+	}
+	var target rdf.Term
+	for _, relationship := range relationships {
+		candidate, ok := d.graph.Object(relationship, rdf.SysML+pReferencedFeature)
+		if !ok {
+			return rdf.Term{}, false, &UnsupportedError{
+				What: fmt.Sprintf("the ReferenceSubsetting <%s> of <%s>", relationship.Value, in.iri),
+				Note: "it has no sysml:referencedFeature target",
+			}
+		}
+		if target.Value != "" && target != candidate {
+			return rdf.Term{}, false, &UnsupportedError{
+				What: fmt.Sprintf("the connector end <%s> of <%s>", end.Value, in.iri),
+				Note: "its ReferenceSubsetting relationships disagree about sysml:referencedFeature",
+			}
+		}
+		target = candidate
+	}
+	direct, hasDirect := d.graph.Object(end, rdf.SysML+pReferences)
+	if hasDirect && target.Value != "" && direct != target {
+		return rdf.Term{}, false, &UnsupportedError{
+			What: fmt.Sprintf("the connector end <%s> of <%s>", end.Value, in.iri),
+			Note: "its ReferenceSubsetting and sysml:references targets disagree",
+		}
+	}
+	if target.Value != "" {
+		return target, true, nil
+	}
+	return direct, hasDirect, nil
+}
+
+// standardChainText resolves and renders the ordered segments of a chain feature.
+func (d *decoder) standardChainText(chain rdf.Term, in *element) ([]string, error) {
+	segments := d.graph.Objects(chain, rdf.SysML+pChainingFeature)
+	parts := make([]string, 0, len(segments))
+	operand := ""
+	for _, segment := range segments {
+		if segment.IsLiteral() {
+			parts = append(parts, qualifiedNameText(segment.Value))
+			operand = ""
+			continue
+		}
+		target, name, err := d.namedMember(segment)
+		if err != nil {
+			return nil, err
+		}
+		spelling := nameText(name)
+		if d.names != nil {
+			key := segmentKey{member: in.qname, operand: operand, name: name, target: target.qname}
+			if chosen, ok := d.names.segments[key]; ok {
+				spelling = qualifiedNameText(chosen)
+			}
+		}
+		parts = append(parts, spelling)
+		operand = target.qname
+	}
+	return parts, nil
+}
+
+// standardEndName renders an end's declared name and ReferencesKeyword.
+func (d *decoder) standardEndName(end rdf.Term, in *element) (string, error) {
+	keyword := referencesSymbol
+	if spelled, ok := d.graph.Lexical(end, rdf.OpenSysML+xEndReferencesKeyword); ok {
+		if spelled != referencesSymbol && spelled != referencesWord {
+			return "", &UnsupportedError{
+				What: fmt.Sprintf("the connector end <%s> of <%s>", end.Value, in.iri),
+				Note: fmt.Sprintf("it spells its ReferencesKeyword as %q", spelled),
+			}
+		}
+		keyword = spelled
+	}
+	names := d.graph.Objects(end, rdf.SysML+pDeclaredName)
+	if len(names) == 0 {
+		names = d.graph.Objects(end, rdf.SysML+pName)
+	}
+	if len(names) == 0 {
+		return "", nil
+	}
+	if len(names) > 1 {
+		return "", &UnsupportedError{
+			What: fmt.Sprintf("the connector end <%s> of <%s>", end.Value, in.iri),
+			Note: "it declares more than one end name",
+		}
+	}
+	if len(names) == 0 {
+		return "", nil
+	}
+	return nameText(names[0].Value) + " " + keyword, nil
+}
+
+// legacyEnds reads the positional sysx connector-end representation.
+func (d *decoder) legacyEnds(el *element) (ends []string, payload string, err error) {
 	type end struct {
 		index int
 		text  string
@@ -462,5 +701,29 @@ func (d *decoder) endMultiplicity(end rdf.Term, in *element) (string, error) {
 // statesEnds reports whether an element relates ends of its own, the shape that
 // needs a form to be written back.
 func (d *decoder) statesEnds(el *element) bool {
+	if len(d.standardEndFeatures(el)) > 0 {
+		return true
+	}
 	return len(d.graph.Objects(rdf.IRI(el.iri), rdf.OpenSysML+xRelatedFeature)) > 0
+}
+
+// inferredEndForm selects the notation form implied by a usage metaclass and arity.
+func (d *decoder) inferredEndForm(el *element) string {
+	switch el.metaclass {
+	case usageMetaclass[ast.UsageBinding]:
+		return formEquals
+	case usageMetaclass[ast.UsageSuccession]:
+		return formFirstThen
+	case usageMetaclass[ast.UsageFlow]:
+		return formFromTo
+	case usageMetaclass[ast.UsageConnection],
+		usageMetaclass[ast.UsageInterface],
+		usageMetaclass[ast.UsageAllocation],
+		usageMetaclass[ast.UsageConnector]:
+		if terms := d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pConnectorEnd); len(terms) > 2 {
+			return formNary
+		}
+		return formTo
+	}
+	return ""
 }

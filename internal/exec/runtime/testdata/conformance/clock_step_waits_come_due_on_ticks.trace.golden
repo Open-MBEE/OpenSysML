@@ -1,0 +1,25 @@
+  eval literal 2.3 -> 2.3
+eval index -> 2.3 [s]
+step 1: token 1@r1
+stmt assign t1
+materialize: universalClock #1
+      eval feature universalClock -> instance#1
+    eval feature localClock -> instance#1
+  eval chain currentTime -> 3.0
+step 2: token 1@w2
+  eval literal 0.4 -> 0.4
+eval index -> 0.4 [s]
+step 3: token 1@r2
+stmt assign t2
+      eval feature universalClock -> instance#1
+    eval feature localClock -> instance#1
+  eval chain currentTime -> 4.0
+step 4: token 1@w3
+  eval literal 2.0 -> 2.0
+eval index -> 2.0 [s]
+step 5: token 1@r3
+stmt assign t3
+      eval feature universalClock -> instance#1
+    eval feature localClock -> instance#1
+  eval chain currentTime -> 6.0
+step 6: no active tokens

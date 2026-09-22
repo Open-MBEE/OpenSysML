@@ -1,15 +1,16 @@
 # SysML v1 to v2 migration report: plant_states.xmi
-# migrated 111 element(s): 103 mapped, 5 approximated, 3 unmapped (0 skipped as profile, library or notation-only content, 1 as model elements nothing refers to)
+# migrated 112 element(s): 103 mapped, 6 approximated, 3 unmapped (0 skipped as profile, library or notation-only content, 1 as model elements nothing refers to)
 
 ## unmapped (3)
 Transition	Plant::Line::main::<Transition>	_tNever	(every trigger is dropped, so the transition would fire at once: a trigger is dropped: the time event's time is not written: the instant "next Tuesday" is neither a number with a time unit nor an expression: not v2 expression syntax)
 Trigger	Plant::Line::main::<Transition>::<Trigger>	_trNever	(the time event's time is not written: the instant "next Tuesday" is neither a number with a time unit nor an expression: not v2 expression syntax)
 TimeEvent	never	_never	(the time event's time is not written: the instant "next Tuesday" is neither a number with a time unit nor an expression: not v2 expression syntax)
 
-## approximated (5)
+## approximated (6)
 StateMachine	Plant::Line	_line	-> Plant::Line	(the classifier behavior is run by every object of Plant as its usage line)
 Transition	Plant::Line::main::<Transition>	_tBump	(the target 'Prep' lies in another region and is named by its path Work::Prep; a local transition is written external: the composite state Work exits and re-enters where v1 stayed in it, running its exit and entry behaviors)
 Trigger	Plant::Line::main::<Transition>::<Trigger>	_trDawn	(the absolute time is an instant on the simulation clock, which starts at 0.0 [SI::s])
+OpaqueBehavior	Plant::Line::main::<Transition>::log	_resumeLog	-> Plant::Line::unnamed::log	(the JavaScript body is translated to v2; the console print println(…) is left out, as it writes to the tool's console and changes nothing of the model; the JavaScript body is written as v2 assignments)
 OpaqueBehavior	Plant::Line::main::Work::tally	_workExit	-> Plant::Line::Work::tally	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
 TimeEvent	dawn	_dawn	(written where a trigger refers to it, as accept at dawn; the absolute time is an instant on the simulation clock, which starts at 0.0 [SI::s])
 

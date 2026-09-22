@@ -4,11 +4,11 @@
     "outcomes": [
         {
             "finalState": "ldone+rdone",
-            "outputs": { "seq": { "type": "Integer", "value": 124356 } }
+            "outputs": { "seq": { "type": "Integer", "value": 123456 } }
         },
         {
             "finalState": "ldone+rdone",
-            "outputs": { "seq": { "type": "Integer", "value": 142356 } }
+            "outputs": { "seq": { "type": "Integer", "value": 124356 } }
         },
         {
             "finalState": "ldone+rdone",
@@ -16,7 +16,47 @@
         },
         {
             "finalState": "ldone+rdone",
+            "outputs": { "seq": { "type": "Integer", "value": 124563 } }
+        },
+        {
+            "finalState": "ldone+rdone",
+            "outputs": { "seq": { "type": "Integer", "value": 142356 } }
+        },
+        {
+            "finalState": "ldone+rdone",
             "outputs": { "seq": { "type": "Integer", "value": 142536 } }
+        },
+        {
+            "finalState": "ldone+rdone",
+            "outputs": { "seq": { "type": "Integer", "value": 142563 } }
+        },
+        {
+            "finalState": "ldone+rdone",
+            "outputs": { "seq": { "type": "Integer", "value": 145236 } }
+        },
+        {
+            "finalState": "ldone+rdone",
+            "outputs": { "seq": { "type": "Integer", "value": 145263 } }
+        },
+        {
+            "finalState": "ldone+rdone",
+            "outputs": { "seq": { "type": "Integer", "value": 145623 } }
+        },
+        {
+            "finalState": "ldone+rdone",
+            "outputs": { "seq": { "type": "Integer", "value": 412356 } }
+        },
+        {
+            "finalState": "ldone+rdone",
+            "outputs": { "seq": { "type": "Integer", "value": 412536 } }
+        },
+        {
+            "finalState": "ldone+rdone",
+            "outputs": { "seq": { "type": "Integer", "value": 412563 } }
+        },
+        {
+            "finalState": "ldone+rdone",
+            "outputs": { "seq": { "type": "Integer", "value": 415236 } }
         },
         {
             "finalState": "ldone+rdone",
@@ -24,15 +64,23 @@
         },
         {
             "finalState": "ldone+rdone",
-            "outputs": { "seq": { "type": "Integer", "value": 451263 } }
-        },
-        {
-            "finalState": "ldone+rdone",
             "outputs": { "seq": { "type": "Integer", "value": 415623 } }
         },
         {
             "finalState": "ldone+rdone",
+            "outputs": { "seq": { "type": "Integer", "value": 451236 } }
+        },
+        {
+            "finalState": "ldone+rdone",
+            "outputs": { "seq": { "type": "Integer", "value": 451263 } }
+        },
+        {
+            "finalState": "ldone+rdone",
             "outputs": { "seq": { "type": "Integer", "value": 451623 } }
+        },
+        {
+            "finalState": "ldone+rdone",
+            "outputs": { "seq": { "type": "Integer", "value": 456123 } }
         }
     ],
     "admissible": "Do behaviors of sibling regions active at one instant: each proceeds, in which order is open"

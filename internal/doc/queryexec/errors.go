@@ -60,6 +60,8 @@ const (
 	ErrorNoStateMachine ErrorKind = "no-state-machine"
 	// ErrorUnknownState: InState named a state no session object's machine declares.
 	ErrorUnknownState ErrorKind = "unknown-state"
+	// ErrorObjectDestroyed: States or Events was given an object the run destroyed.
+	ErrorObjectDestroyed ErrorKind = "object-destroyed"
 	// ErrorNoTrace: Events ran in a session that records no trace.
 	ErrorNoTrace ErrorKind = "no-trace"
 	// ErrorInvalidInterval: an Events bound is not an instant on the clock, or the interval is empty.
@@ -134,6 +136,13 @@ func (e *Error) Error() string {
 	case ErrorUnknownRelationship:
 		return fmt.Sprintf("query %s%s does not support relationship kind %q", e.Query, e.column(), e.Actual)
 	case ErrorUnevaluableFeature:
+		if e.Property == "" {
+			message := fmt.Sprintf("query %s cannot evaluate %s", e.Query, e.Target)
+			if e.Cause != nil {
+				message += ": " + e.Cause.Error()
+			}
+			return message
+		}
 		message := fmt.Sprintf("query %s cannot evaluate feature %s", e.Query, e.Property)
 		if e.Target != "" {
 			message += " of " + e.Target
@@ -243,6 +252,8 @@ func (e *Error) sessionMessage() (string, bool) {
 		return fmt.Sprintf("query %s operation %s asks the state of %s, which exhibits no state machine", e.Query, e.Operation, e.Target), true
 	case ErrorUnknownState:
 		return fmt.Sprintf("query %s operation %s names state %s, which no state machine the session runs declares", e.Query, e.Operation, e.Actual), true
+	case ErrorObjectDestroyed:
+		return fmt.Sprintf("query %s operation %s asks after %s, an object destroyed at %s", e.Query, e.Operation, e.Target, e.Actual), true
 	case ErrorNoTrace:
 		return fmt.Sprintf("query %s operation %s reads the session's trace, and this session records none: turn tracing on before running", e.Query, e.Operation), true
 	case ErrorTraceTruncated:

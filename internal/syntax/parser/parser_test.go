@@ -78,6 +78,30 @@ func TestTriviaRecordsNotesAndCommentsOnly(t *testing.T) {
 	}
 }
 
+// A restored checkpoint replays the trivia the abandoned attempt consumed —
+// each exactly once, in order — instead of losing what takeTrivia attached to
+// a discarded node.
+func TestRestoreKeepsTriviaOnce(t *testing.T) {
+	p := newParser("/* a */ x /* b */ y")
+	p.peek() // lexes '/* a */'
+	cp := p.checkpoint()
+	defer p.release()
+	p.takeTrivia() // the discarded node's leading trivia
+	if p.peekN(1).Kind != lexer.Identifier {
+		t.Fatalf("peekN(1) = %+v, want 'y'", p.peekN(1))
+	}
+	p.restore(cp)
+	if len(p.triv) != 2 {
+		t.Fatalf("trivia = %v, want 2 entries", p.triv)
+	}
+	if got := p.src.Text(p.triv[0].Span); got != "/* a */" {
+		t.Errorf("trivia[0] = %q, want \"/* a */\"", got)
+	}
+	if got := p.src.Text(p.triv[1].Span); got != "/* b */" {
+		t.Errorf("trivia[1] = %q, want \"/* b */\"", got)
+	}
+}
+
 func TestAtEOF(t *testing.T) {
 	p := newParser("")
 	if !p.atEOF() {

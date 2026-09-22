@@ -1390,7 +1390,7 @@ func TestSweepRefusesWideRealRangesPromptly(t *testing.T) {
 			if !errors.Is(err, ErrSweepBudget) {
 				t.Errorf("range ending at %s: got %v; want a budget refusal", FormatValue(r.To), err)
 			}
-		case <-time.After(10 * time.Second):
+		case <-watchdog(10 * time.Second):
 			t.Fatalf("range ending at %s was still being counted after ten seconds", FormatValue(r.To))
 		}
 	}

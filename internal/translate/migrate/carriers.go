@@ -62,7 +62,7 @@ func (m *migration) carriers(sm *sysmlv1.Element, used map[string]bool) {
 			continue
 		}
 		for _, t := range incoming[v] {
-			if eff := firstOwned(t, "effect"); eff != nil {
+			if eff := m.behaviorIn(t, "effect"); eff != nil {
 				for _, p := range eff.Owned("ownedParameter") {
 					used[m.nameFor(p)] = true
 				}
@@ -83,7 +83,7 @@ func (m *migration) carriers(sm *sysmlv1.Element, used map[string]bool) {
 func (m *migration) parameterizedBehaviors(v *sysmlv1.Element) []*sysmlv1.Element {
 	var out []*sysmlv1.Element
 	for _, role := range []string{"entry", "doActivity"} {
-		if b := m.stateBehavior(v, role); b != nil && len(inParameters(b)) > 0 {
+		if b := m.behaviorIn(v, role); b != nil && len(inParameters(b)) > 0 {
 			out = append(out, b)
 		}
 	}
@@ -135,7 +135,7 @@ func (m *migration) incomingSignal(t, sig *sysmlv1.Element) (*sysmlv1.Element, s
 		}
 		sig = s
 	}
-	if eff := firstOwned(t, "effect"); eff != nil {
+	if eff := m.behaviorIn(t, "effect"); eff != nil {
 		switch {
 		case eff.Parent != t:
 			return nil, "the effect of the transition from " + describe(src) + " is written once, as its own action def, which cannot keep the accepted signal", true
@@ -213,8 +213,8 @@ func (m *migration) carrierPair(a, p *sysmlv1.Element) string {
 	if a.Attrs["isOrdered"] != p.Attrs["isOrdered"] {
 		return "one is ordered and the other is not"
 	}
-	am, _ := m.multiplicity(a)
-	pm, _ := m.multiplicity(p)
+	am, _ := m.declaredMultiplicity(a)
+	pm, _ := m.declaredMultiplicity(p)
 	if am != pm {
 		return "their multiplicities differ"
 	}

@@ -67,15 +67,19 @@ type bodyRun struct {
 	// yields has the run pause at the statement boundary after the statement,
 	// loop iteration or flow step it performed since resumed, which performed marks.
 	yields, performed bool
+	// steps has the run pause after each token move of the flows and actions it
+	// drives where a step is one move, its machine going on between the moves.
+	steps bool
 }
 
-// bodyPause is why a body run paused: at the breakpoint, on a wait, or yielded
-// at a statement boundary, to go on with the next statement when resumed.
+// bodyPause is why a body run paused: at the breakpoint, on a wait, yielded at a
+// statement boundary, or after one token move (tokenStep), to go on when resumed.
 type bodyPause struct {
 	breakpoint breakpointStop
 	onWait     bool
 	wait       bodyWait
 	yielded    bool
+	tokenStep  bool
 }
 
 // bodyWait is the wait a body's run paused on: of the action it performs (held),
@@ -105,12 +109,16 @@ func (w bodyWait) goesOn() bool {
 	return e.waitsOnClock(w.perf)
 }
 
-// heldWaiter is the executor the wait holds, nil for none.
-func (w bodyWait) heldWaiter() clockWaiter {
-	if w.held == nil {
-		return nil
+// waiter is the executor the paused work waits on, nil for none: the action it
+// holds, or the flow of a case it runs, which is not own, the flow of the body's executor.
+func (w bodyWait) waiter(own *ActionExecutor) clockWaiter {
+	if w.held != nil {
+		return w.held
 	}
-	return w.held
+	if w.exec != nil && w.exec != own {
+		return w.exec
+	}
+	return nil
 }
 
 // resume lets the work go on to its next pause, reported as true with why, or to
@@ -153,6 +161,8 @@ func (run *bodyRun) end(ctx *Context) {
 	switch {
 	case run.paused.onWait:
 		where = "on a wait"
+	case run.paused.tokenStep:
+		where = "between two moves of its flow"
 	case !run.paused.yielded:
 		where = fmt.Sprintf("at breakpoint %q", run.paused.breakpoint.name)
 	}
@@ -404,7 +414,7 @@ func (e *ActionExecutor) workToken(id int64) (int, error) {
 func (e *ActionExecutor) runBody(tokenIdx int, work bodyWork) error {
 	run := &bodyRun{work: work}
 	if outer := e.ctx.body; outer != nil {
-		run.awaitsMessages = outer.awaitsMessages
+		run.awaitsMessages, run.steps = outer.awaitsMessages, outer.steps
 	}
 	e.tokens[tokenIdx].body = run
 	return e.resumeBody(tokenIdx)
@@ -468,7 +478,7 @@ func (e *ActionExecutor) resumeBody(tokenIdx int) error {
 	if pause, paused := run.resume(e.ctx); paused {
 		e.pauses++
 		run.pausedAt = e.pauses
-		if !pause.onWait {
+		if !pause.onWait && !pause.tokenStep {
 			e.pausedAt = pause.breakpoint
 			e.state = StateSuspended
 		}
@@ -515,6 +525,20 @@ func (ctx *Context) bodyPerformed() {
 	if ctx.body != nil {
 		ctx.body.performed = true
 	}
+}
+
+// stepsTokens reports whether the body on the stack pauses after each token move.
+func (ctx *Context) stepsTokens() bool {
+	return ctx.body != nil && ctx.body.steps
+}
+
+// tokenStepBody pauses the body on the stack after one token move where its run
+// goes one move at a time; nil, going on, else.
+func (ctx *Context) tokenStepBody() error {
+	if !ctx.stepsTokens() {
+		return nil
+	}
+	return ctx.pauseBody(bodyPause{tokenStep: true})
 }
 
 // yieldedHere reports the frame just popped as the one the body yielded in: its
@@ -574,13 +598,24 @@ func (t Token) resumable() bool {
 	return t.body != nil && (!t.body.paused.onWait || !t.body.paused.wait.goesOn())
 }
 
-// heldWaiter returns the executor performing an action for the token's paused
-// work, whose wait on the clock the work waits for; nil for none.
-func (t Token) heldWaiter() clockWaiter {
+// pausedWaiter returns the executor the token's paused work waits on (the action it
+// performs or the flow of a case it runs), nil for none; own is the token's executor.
+func (t Token) pausedWaiter(own *ActionExecutor) clockWaiter {
 	if t.body == nil {
 		return nil
 	}
-	return t.body.paused.wait.heldWaiter()
+	return t.body.paused.wait.waiter(own)
+}
+
+// hostedFlow returns the flow of a case the token's paused work runs, nil for none.
+func (t Token) hostedFlow(own *ActionExecutor) *ActionExecutor {
+	if t.body == nil {
+		return nil
+	}
+	if w := t.body.paused.wait; w.held == nil && w.exec != nil && w.exec != own {
+		return w.exec
+	}
+	return nil
 }
 
 // drivenByBody reports whether the token runs in a flow a body statement runs

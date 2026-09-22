@@ -1103,7 +1103,7 @@ func (s *scenario) waits(step *scenarioStep, prev string) string {
 			continue
 		}
 		name := writeName(freshIn(s.used, "wait"))
-		s.m.w.line(actionKw + name + " accept after " + expr + " [SI::s];")
+		s.m.w.line(actionKw + name + " accept after " + inSeconds(expr) + ";")
 		s.m.w.line(firstKw + prev + thenKw + name + ";")
 		prev = name
 		s.m.add(dc, Approximated, name, joinNotes(from+", written as the wait "+name+" before "+step.name, note))
@@ -1143,7 +1143,7 @@ func (s *scenario) startWaits(step *scenarioStep) string {
 		}
 		base := freshIn(s.used, "wait")
 		wait := writeName(base)
-		s.m.w.line(actionKw + wait + " accept after " + expr + " [SI::s];")
+		s.m.w.line(actionKw + wait + " accept after " + inSeconds(expr) + ";")
 		s.m.w.line(firstKw + fork + thenKw + wait + ";")
 		s.pending[dc] = pendingWait{wait: wait, base: base, from: step.name, note: note}
 	}

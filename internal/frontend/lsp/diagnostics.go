@@ -44,9 +44,10 @@ func (s *Server) sendDiagnosticsLocked(ctx context.Context, name string) {
 	out := []protocol.Diagnostic{}
 	if content, diags, ok := s.ws.AnalyzedContent(name); ok {
 		out = make([]protocol.Diagnostic, 0, len(diags))
+		pos := positionsFor(content)
 		for _, d := range diags {
 			out = append(out, protocol.Diagnostic{
-				Range:    spanToRange(content, d.Span),
+				Range:    pos.rangeOf(d.Span),
 				Severity: protocol.DiagnosticSeverity(int(d.Severity) + 1),
 				Message:  d.Message,
 				Code:     d.Code,

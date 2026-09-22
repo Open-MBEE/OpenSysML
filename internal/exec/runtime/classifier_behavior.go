@@ -434,6 +434,7 @@ func (ctx *Context) forgetMessagesTo(abandoned map[int64]bool) {
 		}
 	}
 	ctx.messages = kept
+	ctx.bus.cuts++
 }
 
 // restartClassifierBehaviors gives every object a fresh execution of the
@@ -1036,7 +1037,8 @@ func (ctx *Context) classifierBehaviorSymbol(decl classifierBehaviorDecl) (*symb
 
 // classifierBehaviorChain resolves the bindings from a binding declaration to the
 // element holding the body it runs: the declaration first, then what each names in
-// turn, ending at the one stating a body.
+// turn, ending at the one stating a body — or at a performed action or exhibited
+// state naming no element, which is the body itself (SysML v2 §8.3.16–8.3.17).
 func (ctx *Context) classifierBehaviorChain(decl classifierBehaviorDecl) ([]*symbols.Symbol, error) {
 	sym := decl.member
 	chain := []*symbols.Symbol{sym}
@@ -1050,11 +1052,16 @@ func (ctx *Context) classifierBehaviorChain(decl classifierBehaviorDecl) ([]*sym
 		}
 		next := ctx.namedBehavior(sym)
 		if next == nil || next == sym {
-			// A declaration naming nothing that holds a body is not executable:
-			// the type binds a behavior no element states.
 			if sym != decl.member {
 				return chain, nil
 			}
+			// An exhibit/perform naming nothing is its own body: eventOccurrence is
+			// the usage itself when there is no ownedReferenceSubsetting (§8.3.16).
+			if !decl.behavior.NamesBehavior {
+				return chain, nil
+			}
+			// A declaration naming nothing that holds a body is not executable:
+			// the type binds a behavior no element states.
 			return nil, fmt.Errorf("%w: %s %s of %s names no behavior body",
 				ErrUnresolvedClassifierBehavior, decl.behavior.Kind, decl.behavior.Name, symbolText(decl.member))
 		}
@@ -1186,7 +1193,16 @@ func namesPerformerFeature(ctx *Context, self *Instance, scope *symbols.Scope, n
 		return false
 	}
 	sym, ok := ctx.lookupName(scope, name)
-	if !ok || sym == nil {
+	if !ok {
+		return false
+	}
+	return performerHoldsFeature(ctx, self, sym)
+}
+
+// performerHoldsFeature reports whether a resolved feature is one the object
+// performing the behavior holds under any of its types.
+func performerHoldsFeature(ctx *Context, self *Instance, sym *symbols.Symbol) bool {
+	if ctx == nil || self == nil || sym == nil {
 		return false
 	}
 	for _, typ := range self.types() {

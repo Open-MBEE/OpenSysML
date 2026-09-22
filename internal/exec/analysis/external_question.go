@@ -93,6 +93,9 @@ func (e externalEngine) wireQuestion(model *Model, q Question, budget Budget) (e
 	if q.Draws.Fixed() {
 		out.Draws = q.Draws.String()
 	}
+	if q.ClockStep > 0 {
+		out.ClockStep = q.ClockStep
+	}
 	out.SubjectKind = subjectFamily(model, q.Subject)
 	switch q.Kind {
 	case Holds, Outcomes:

@@ -266,6 +266,7 @@ package OpenSysMLPipeline {
         }
         part occurrenceTyping : TypeCheck { attribute :>> goType = "W8DOccurrenceTypingPass"; }
         part connectorFeaturing : ConstraintCheck { attribute :>> goType = "W8DConnectorFeaturingPass"; }
+        part multiplicityDomain : ConstraintCheck { attribute :>> goType = "MultiplicityDomainPass"; }
         part flowEnds : ConstraintCheck { attribute :>> goType = "W8DFlowEndPass"; }
         part variability : ConstraintCheck { attribute :>> goType = "W8DVariabilityPass"; }
         part variantOwners : ConstraintCheck {

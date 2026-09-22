@@ -29,10 +29,13 @@ func TestShapeItemsUnsupportedExpressionsAreTypedErrors(t *testing.T) {
 		{"rect.vertices#(1).matingOccurrences", ErrNoSuchFeature, "member matingOccurrences not found in instance"},
 		{"box.spaceBoundary", ErrNoSuchFeature, "member spaceBoundary not found in instance"},
 		{"box.tfe", ErrBindingEnd, "which makes some value of tfe a value of tf.edges without saying which value of either; the model does not state what tfe holds"},
-		{"box.tfe.length", ErrBindingEnd, "bind [0..1] tf.edges = [0..1] tfe"},
-		{"box.tflv", ErrBindingEnd, "bind [0..1] tf.edges = [0..1] tfe"},
-		{"box.vertices", ErrBindingEnd, "subsetting feature tflv of vertices: binding end cannot be resolved: box.tfe is bound by `bind [0..1] tf.edges = [0..1] tfe`"},
-		{"cyl.edges", ErrMultiplicityViolation, "cyl.be: multiplicity violation: 1 value(s) bound to a feature with multiplicity lower bound 2"},
+		{"box.tfe.length", ErrBindingEnd, "binding [1] bind [0..1] tf.edges = [0..1] tfe"},
+		{"box.tflv", ErrBindingEnd, "binding [1] bind [0..1] tf.edges = [0..1] tfe"},
+		{"box.vertices", ErrBindingEnd, "subsetting feature tflv of vertices: binding end cannot be resolved: box.tfe is bound by `binding [1] bind [0..1] tf.edges = [0..1] tfe`"},
+		{"cyl.edges", ErrNoSuchFeature, "member edges not found in instance"},
+		{"cyl.faces.edges", ErrNoSuchFeature, "member edges not found in instance"},
+		{"cyl.vertices", ErrNoSuchFeature, "member vertices not found in instance"},
+		{"cyl.be", ErrBindingEnd, `"cf.edges": feature edges not found`},
 		{"cyl.ae", ErrBindingEnd, `"cf.edges": feature edges not found`},
 	}
 	for _, tc := range cases {
@@ -51,5 +54,17 @@ func TestShapeItemsUnsupportedExpressionsAreTypedErrors(t *testing.T) {
 	val, err := evalIn(t, ctx, pkg.Scope, "ell.vertices")
 	if err != nil || FormatValue(val) != "[]" {
 		t.Errorf("ell.vertices = %s, %v; want [] with no error", FormatValue(val), err)
+	}
+
+	// `binding [1] bind [0..*] base.edges = [0..*] be` links one value of each end, so a face's
+	// `edges` keeps the edge its own `= shape` gives it instead of being bound to `be` whole.
+	for _, expr := range []string{"cyl.base.edges", "cyl.af.edges"} {
+		val, err := evalIn(t, ctx, pkg.Scope, expr)
+		if err != nil {
+			t.Fatalf("%s: %v", expr, err)
+		}
+		if val.Kind != ValInstance {
+			t.Errorf("%s = %s, want one Instance", expr, FormatValue(val))
+		}
 	}
 }

@@ -117,10 +117,11 @@ func (s *bodyScope) feature(path []string, write bool) (opaqueRef, *refusal) {
 		m.useLane(s.scope, s.lane)
 	}
 	return opaqueRef{
-		expr:   expr,
-		scalar: m.scalarBase(m.typedAs(f)),
-		object: m.nonScalar(m.typedAs(f)),
-		plural: plural || manyValued(f),
+		expr:     expr,
+		scalar:   m.scalarBase(m.typedAs(f)),
+		object:   m.nonScalar(m.typedAs(f)),
+		plural:   plural || manyValued(f),
+		optional: m.lacksValue(f),
 	}, nil
 }
 
@@ -346,6 +347,11 @@ func (s *bodyScope) note(lang string) string {
 // noted records on scope's report entry how a body read there was translated,
 // unless scope is a classifier or package, whose entry is not about the body.
 func (m *migration) noted(scope *sysmlv1.Element, note string) {
+	m.notedAs(scope, Mapped, note)
+}
+
+// notedAs is noted with the verdict the body's translation earns.
+func (m *migration) notedAs(scope *sysmlv1.Element, v Verdict, note string) {
 	if note == "" || m.contextClassifier(scope) == scope {
 		return
 	}
@@ -353,7 +359,7 @@ func (m *migration) noted(scope *sysmlv1.Element, note string) {
 	case "Package", "Model", "Profile":
 		return
 	}
-	m.add(scope, Mapped, "", note)
+	m.add(scope, v, "", note)
 }
 
 // translatedExpr translates an opaque body as one expression read at scope
@@ -373,32 +379,33 @@ func (m *migration) translatedExpr(body, lang string, scope *sysmlv1.Element, wa
 }
 
 // translatedStatements translates an opaque body as the statements of an action
-// body read at scope, each checked to parse.
-func (m *migration) translatedStatements(body, lang string, scope *sysmlv1.Element) (lines []string, note string, err *refusal) {
+// body read at scope, each checked to parse; otherwise notes the assignments made
+// only when a value read admitting none holds one and the console prints left out.
+func (m *migration) translatedStatements(body, lang string, scope *sysmlv1.Element) (lines []string, note, otherwise string, err *refusal) {
 	s := m.bodyScope(scope)
-	lines, err = translateStatements(body, lang, s)
+	lines, notes, err := translateStatements(body, lang, s)
 	if err != nil {
-		return nil, "", err
+		return nil, "", "", err
 	}
 	for _, line := range lines {
 		if !parseStatement(line) {
-			return nil, "", &refusal{kind: refusedSyntax, token: body, why: "its translation " + strconv.Quote(line) + " is not v2 syntax"}
+			return nil, "", "", &refusal{kind: refusedSyntax, token: body, why: "its translation " + strconv.Quote(line) + " is not v2 syntax"}
 		}
 	}
 	if note = s.note(lang); note == "" {
 		note = "the body is translated to v2"
 	}
-	return lines, note, nil
+	return lines, note, strings.Join(notes, "; "), nil
 }
 
 // symbolicDuration reads a duration written as an expression, optionally
-// followed by a time unit (`ditSetup s`, `t * 2 min`), as seconds read at scope.
+// followed by a time unit (`ditSetup s`, `t * 2 min`; none is milliseconds), as seconds read at scope.
 func (m *migration) symbolicDuration(text, lang string, scope *sysmlv1.Element) (expr string, ok bool, note string) {
 	body := strings.TrimSpace(durationVariable.ReplaceAllString(strings.TrimSpace(text), ""))
-	scale := 1.0
+	scale, bare := durationUnits[""], true
 	if i := strings.LastIndexAny(body, " \t"); i >= 0 {
 		if s, known := durationUnits[strings.ToLower(body[i+1:])]; known {
-			body, scale = strings.TrimSpace(body[:i]), s
+			body, scale, bare = strings.TrimSpace(body[:i]), s, false
 		}
 	}
 	if body == "" {
@@ -414,7 +421,22 @@ func (m *migration) symbolicDuration(text, lang string, scope *sysmlv1.Element) 
 		}
 		expr += " * " + realLiteral(scale)
 	}
-	return expr, true, "the duration " + strconv.Quote(strings.TrimSpace(text)) + " is read as the expression " + expr + ", in seconds"
+	note = "the duration " + strconv.Quote(strings.TrimSpace(text)) + " is read as the expression " + expr + ", in seconds"
+	if bare {
+		note += "; the expression" + bareDurationNote
+	}
+	return expr, true, note
+}
+
+// inSeconds writes expr as one quantity in seconds: `[SI::s]` binds to the primary
+// before it, so a compound expression is parenthesized first.
+func inSeconds(expr string) string {
+	if v, ok := parseExpr(expr + siSeconds); ok {
+		if ix, isIndex := v.(*ast.IndexExpr); isIndex && ix.Bracket {
+			return expr + siSeconds
+		}
+	}
+	return "(" + expr + ")" + siSeconds
 }
 
 // parseStatement reports whether line parses, without diagnostics, as one

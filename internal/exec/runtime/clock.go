@@ -2,9 +2,12 @@ package runtime
 
 import (
 	"cmp"
+	"errors"
 	"fmt"
 	"math"
 	"slices"
+	"strconv"
+	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -20,6 +23,9 @@ const secondFQN = "SI::s"
 type Clock struct {
 	now     float64
 	waiters []clockWaiter
+	// step is the instant grid the waits come due on, in seconds; 0 is a
+	// continuous clock, on which a wait comes due exactly when it ends.
+	step float64
 }
 
 // ClockWait describes one wait on the clock for a view of the run.
@@ -56,6 +62,96 @@ func (w ClockWait) What() string {
 // Now returns the current simulation instant, in seconds.
 func (c *Clock) Now() float64 {
 	return c.now
+}
+
+// Step is the step the clock advances by, in seconds: waits come due at the
+// first multiple of it not before they end; 0 is a continuous clock.
+func (c *Clock) Step() float64 {
+	return c.step
+}
+
+// ErrClockStep is the typed error a clock step that is not a finite,
+// non-negative number is refused with.
+var ErrClockStep = errors.New("invalid clock step")
+
+// CheckClockStep is ErrClockStep unless step is a finite, non-negative number of seconds.
+func CheckClockStep(step float64) error {
+	if math.IsNaN(step) || math.IsInf(step, 0) || step < 0 {
+		return fmt.Errorf("%w: a clock steps by a finite, non-negative number of seconds, not %s", ErrClockStep, semantics.FormatReal(step))
+	}
+	return nil
+}
+
+// SetClockStep makes the waits set from now on come due at multiples of step
+// seconds, as a simulation clock ticking by step does: a wait ending between
+// two ticks comes due at the later. 0 restores the continuous clock.
+func (ctx *Context) SetClockStep(step float64) error {
+	if err := CheckClockStep(step); err != nil {
+		return err
+	}
+	ctx.clock.step = step
+	return nil
+}
+
+// ClockStep is the step the clock's waits come due on, 0 for a continuous clock.
+func (ctx *Context) ClockStep() float64 {
+	return ctx.clock.step
+}
+
+// ClockStepTaken is the step the run's waits come due on: the witness's under a
+// `replay` policy, which follows the clock the witness ran on, else the clock's own.
+func (ctx *Context) ClockStepTaken() float64 {
+	if ctx.schedule.kind == scheduleReplay {
+		return ctx.schedule.replay.witness.ClockStep
+	}
+	return ctx.clock.step
+}
+
+// ParseClockStep reads a clock step as `-clock-step` and a witness spell it: a
+// finite, non-negative number of seconds, else ErrClockStep.
+func ParseClockStep(text string) (float64, error) {
+	step, err := strconv.ParseFloat(strings.TrimSpace(text), 64)
+	if err != nil {
+		return 0, fmt.Errorf("%w: %q is not a number of seconds", ErrClockStep, text)
+	}
+	if err := CheckClockStep(step); err != nil {
+		return 0, err
+	}
+	return step, nil
+}
+
+// ClockStepParseError is a witness's clock step line that does not read as one.
+type ClockStepParseError struct {
+	Text   string
+	Line   int
+	Reason string
+}
+
+func (e *ClockStepParseError) Error() string {
+	if e.Line > 0 {
+		return fmt.Sprintf("%v: line %d: %q: %s", ErrClockStep, e.Line, e.Text, e.Reason)
+	}
+	return fmt.Sprintf("%v: %q: %s", ErrClockStep, e.Text, e.Reason)
+}
+
+func (e *ClockStepParseError) Unwrap() error { return ErrClockStep }
+
+// onTick is the first tick of a clock stepping by step not before the instant t: t itself on a
+// continuous clock, within rounding (at most a millionth of a tick) of a tick, or past what a float64 counts.
+func onTick(t, step float64) float64 {
+	if step == 0 {
+		return t
+	}
+	ticks := t / step
+	if math.IsInf(ticks, 0) || math.Abs(ticks) >= 1<<53 {
+		return t
+	}
+	nearest := math.Round(ticks)
+	tolerance := math.Min(1e-9*math.Max(1, math.Abs(ticks)), 1e-6)
+	if math.Abs(ticks-nearest) <= tolerance {
+		return nearest * step
+	}
+	return math.Ceil(ticks) * step
 }
 
 // Waits lists everything waiting on the clock for an instant it has not
@@ -170,12 +266,30 @@ func (ctx *Context) dueInstant(t *ast.TimeEvent, val Value, what string) (float6
 		return 0, fmt.Errorf("%w: %s is infinite", ErrNegativeDuration, what)
 	}
 	if t.Absolute {
-		return math.Max(magnitude, ctx.clock.now), nil
+		if magnitude <= ctx.clock.now {
+			return ctx.clock.now, nil
+		}
+		return ctx.clock.tickOf(magnitude, ctx.ClockStepTaken(), what)
 	}
 	if magnitude < 0 {
 		return 0, fmt.Errorf("%w: %s %s is negative", ErrNegativeDuration, what, semantics.FormatReal(magnitude))
 	}
-	return ctx.clock.instantAfter(magnitude, what)
+	due, err := ctx.clock.instantAfter(magnitude, what)
+	if err != nil {
+		return 0, err
+	}
+	return ctx.clock.tickOf(due, ctx.ClockStepTaken(), what)
+}
+
+// tickOf is the tick a wait for the finite instant due comes due on under step; one
+// past the last instant a float64 holds is refused, so the clock stays finite.
+func (c *Clock) tickOf(due, step float64, what string) (float64, error) {
+	tick := onTick(due, step)
+	if math.IsInf(tick, 0) {
+		return 0, fmt.Errorf("%w: %s at t=%s comes due on a tick of the clock stepping by %s past the last instant the clock can hold",
+			ErrNegativeDuration, what, semantics.FormatReal(due), semantics.FormatReal(step))
+	}
+	return tick, nil
 }
 
 // instantAfter is the instant a finite, non-negative duration from now leads to;

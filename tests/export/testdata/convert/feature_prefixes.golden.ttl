@@ -213,9 +213,13 @@ elmt:FeaturePrefixes__B__slices
     sysml:type elmt:FeaturePrefixes__A ;
     sysml:subsets elmt:FeaturePrefixes__B__p ;
     sysml:lowerBound expr:FeaturePrefixes__B__slices_plowerBound ;
+    sysml:ownedRelationship expr:FeaturePrefixes__B__slices_plowerBound_om, expr:FeaturePrefixes__B__slices_pupperBound_om ;
+    sysml:ownedMembership expr:FeaturePrefixes__B__slices_plowerBound_om, expr:FeaturePrefixes__B__slices_pupperBound_om ;
     sysml:upperBound expr:FeaturePrefixes__B__slices_pupperBound ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysx:sourceText "        portion feature all slices : A[1..*] subsets p;\n" .
+    sysx:sourceText "        portion feature all slices : A[1..*] subsets p;\n" ;
+    json:ownedRelationship "[{\"@id\":\"FeaturePrefixes__B__slices_plowerBound_om\"},{\"@id\":\"FeaturePrefixes__B__slices_pupperBound_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"FeaturePrefixes__B__slices_plowerBound_om\"},{\"@id\":\"FeaturePrefixes__B__slices_pupperBound_om\"}]" .
 
 elmt:FeaturePrefixes__B__slices_om
     a sysml:FeatureMembership ;
@@ -233,12 +237,38 @@ expr:FeaturePrefixes__B__slices_plowerBound
     a sysml:LiteralInteger ;
     sysx:sourceText "1" ;
     sysml:elementId "FeaturePrefixes__B__slices_plowerBound" ;
-    sysml:value "1"^^xsd:integer .
+    sysml:value "1"^^xsd:integer ;
+    sysml:owner elmt:FeaturePrefixes__B__slices ;
+    sysml:owningRelationship expr:FeaturePrefixes__B__slices_plowerBound_om ;
+    sysml:owningMembership expr:FeaturePrefixes__B__slices_plowerBound_om .
+
+expr:FeaturePrefixes__B__slices_plowerBound_om
+    a sysml:OwningMembership ;
+    sysml:elementId "FeaturePrefixes__B__slices_plowerBound_om" ;
+    sysml:owner elmt:FeaturePrefixes__B__slices ;
+    sysml:memberElement expr:FeaturePrefixes__B__slices_plowerBound ;
+    sysml:ownedMemberElement expr:FeaturePrefixes__B__slices_plowerBound ;
+    sysml:ownedRelatedElement expr:FeaturePrefixes__B__slices_plowerBound ;
+    sysml:owningRelatedElement elmt:FeaturePrefixes__B__slices ;
+    sysml:membershipOwningNamespace elmt:FeaturePrefixes__B__slices .
 
 expr:FeaturePrefixes__B__slices_pupperBound
     a sysml:LiteralInfinity ;
     sysx:sourceText "*" ;
-    sysml:elementId "FeaturePrefixes__B__slices_pupperBound" .
+    sysml:elementId "FeaturePrefixes__B__slices_pupperBound" ;
+    sysml:owner elmt:FeaturePrefixes__B__slices ;
+    sysml:owningRelationship expr:FeaturePrefixes__B__slices_pupperBound_om ;
+    sysml:owningMembership expr:FeaturePrefixes__B__slices_pupperBound_om .
+
+expr:FeaturePrefixes__B__slices_pupperBound_om
+    a sysml:OwningMembership ;
+    sysml:elementId "FeaturePrefixes__B__slices_pupperBound_om" ;
+    sysml:owner elmt:FeaturePrefixes__B__slices ;
+    sysml:memberElement expr:FeaturePrefixes__B__slices_pupperBound ;
+    sysml:ownedMemberElement expr:FeaturePrefixes__B__slices_pupperBound ;
+    sysml:ownedRelatedElement expr:FeaturePrefixes__B__slices_pupperBound ;
+    sysml:owningRelatedElement elmt:FeaturePrefixes__B__slices ;
+    sysml:membershipOwningNamespace elmt:FeaturePrefixes__B__slices .
 
 elmt:FeaturePrefixes__C
     a sysml:ClassUsage ;
@@ -289,6 +319,8 @@ elmt:FeaturePrefixes__C___400
     sysml:isPortion "true"^^xsd:boolean ;
     sysml:redefines elmt:FeaturePrefixes__B__p ;
     sysml:upperBound expr:FeaturePrefixes__C___400_pupperBound ;
+    sysml:ownedRelationship expr:FeaturePrefixes__C___400_pupperBound_om ;
+    sysml:ownedMembership expr:FeaturePrefixes__C___400_pupperBound_om ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        portion feature redefines p [1];\n" .
 
@@ -308,7 +340,20 @@ expr:FeaturePrefixes__C___400_pupperBound
     a sysml:LiteralInteger ;
     sysx:sourceText "1" ;
     sysml:elementId "FeaturePrefixes__C___400_pupperBound" ;
-    sysml:value "1"^^xsd:integer .
+    sysml:value "1"^^xsd:integer ;
+    sysml:owner elmt:FeaturePrefixes__C___400 ;
+    sysml:owningRelationship expr:FeaturePrefixes__C___400_pupperBound_om ;
+    sysml:owningMembership expr:FeaturePrefixes__C___400_pupperBound_om .
+
+expr:FeaturePrefixes__C___400_pupperBound_om
+    a sysml:OwningMembership ;
+    sysml:elementId "FeaturePrefixes__C___400_pupperBound_om" ;
+    sysml:owner elmt:FeaturePrefixes__C___400 ;
+    sysml:memberElement expr:FeaturePrefixes__C___400_pupperBound ;
+    sysml:ownedMemberElement expr:FeaturePrefixes__C___400_pupperBound ;
+    sysml:ownedRelatedElement expr:FeaturePrefixes__C___400_pupperBound ;
+    sysml:owningRelatedElement elmt:FeaturePrefixes__C___400 ;
+    sysml:membershipOwningNamespace elmt:FeaturePrefixes__C___400 .
 
 elmt:FeaturePrefixes__C___401
     a sysml:ReferenceUsage ;
@@ -324,6 +369,8 @@ elmt:FeaturePrefixes__C___401
     sysml:isPortion "true"^^xsd:boolean ;
     sysml:redefines elmt:FeaturePrefixes__B__pv ;
     sysml:value expr:FeaturePrefixes__C___401_pvalue ;
+    sysml:ownedRelationship expr:FeaturePrefixes__C___401_pvalue_om ;
+    sysml:ownedMembership expr:FeaturePrefixes__C___401_pvalue_om ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        portion redefines pv = p;\n" .
 
@@ -343,7 +390,22 @@ expr:FeaturePrefixes__C___401_pvalue
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "p" ;
     sysml:elementId "FeaturePrefixes__C___401_pvalue" ;
-    sysml:referent elmt:FeaturePrefixes__C___400 .
+    sysml:referent elmt:FeaturePrefixes__C___400 ;
+    sysml:owner elmt:FeaturePrefixes__C___401 ;
+    sysml:owningRelationship expr:FeaturePrefixes__C___401_pvalue_om ;
+    sysml:owningMembership expr:FeaturePrefixes__C___401_pvalue_om .
+
+expr:FeaturePrefixes__C___401_pvalue_om
+    a sysml:FeatureValue ;
+    sysml:elementId "FeaturePrefixes__C___401_pvalue_om" ;
+    sysml:owner elmt:FeaturePrefixes__C___401 ;
+    sysml:memberElement expr:FeaturePrefixes__C___401_pvalue ;
+    sysml:ownedMemberElement expr:FeaturePrefixes__C___401_pvalue ;
+    sysml:ownedRelatedElement expr:FeaturePrefixes__C___401_pvalue ;
+    sysml:owningRelatedElement elmt:FeaturePrefixes__C___401 ;
+    sysml:membershipOwningNamespace elmt:FeaturePrefixes__C___401 ;
+    sysml:featureWithValue elmt:FeaturePrefixes__C___401 ;
+    sysml:value expr:FeaturePrefixes__C___401_pvalue .
 
 elmt:FeaturePrefixes__C__dk
     a sysml:AttributeUsage ;

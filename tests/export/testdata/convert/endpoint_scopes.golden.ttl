@@ -272,8 +272,8 @@ elmt:Machines__Lamp__on__heat___404
     sysml:owningRelationship elmt:Machines__Lamp__on__heat___404_om ;
     sysml:owningMembership elmt:Machines__Lamp__on__heat___404_om ;
     sysx:transitionSyntax "source" ;
-    sysml:sourceFeature elmt:Machines__Lamp__on__heat__warm ;
-    sysml:targetFeature elmt:Machines__Lamp__on__heat__hot .
+    sysml:source elmt:Machines__Lamp__on__heat__warm ;
+    sysml:target elmt:Machines__Lamp__on__heat__hot .
 
 elmt:Machines__Lamp__on__heat___404_om
     a sysml:FeatureMembership ;
@@ -414,8 +414,8 @@ elmt:Machines__Lamp__on__light___404
     sysml:owningRelationship elmt:Machines__Lamp__on__light___404_om ;
     sysml:owningMembership elmt:Machines__Lamp__on__light___404_om ;
     sysx:transitionSyntax "source" ;
-    sysml:sourceFeature elmt:Machines__Lamp__on__light__dim ;
-    sysml:targetFeature elmt:Machines__Lamp__on__light__bright .
+    sysml:source elmt:Machines__Lamp__on__light__dim ;
+    sysml:target elmt:Machines__Lamp__on__light__bright .
 
 elmt:Machines__Lamp__on__light___404_om
     a sysml:FeatureMembership ;
@@ -439,8 +439,8 @@ elmt:Machines__Lamp__on__light___405
     sysml:owningRelationship elmt:Machines__Lamp__on__light___405_om ;
     sysml:owningMembership elmt:Machines__Lamp__on__light___405_om ;
     sysx:transitionSyntax "source" ;
-    sysml:sourceFeature elmt:Machines__Lamp__on__light__bright ;
-    sysml:targetFeature elmt:Machines__Lamp__on__heat__hot .
+    sysml:source elmt:Machines__Lamp__on__light__bright ;
+    sysml:target elmt:Machines__Lamp__on__heat__hot .
 
 elmt:Machines__Lamp__on__light___405_om
     a sysml:FeatureMembership ;
@@ -464,8 +464,8 @@ elmt:Machines__Lamp___404
     sysml:owningRelationship elmt:Machines__Lamp___404_om ;
     sysml:owningMembership elmt:Machines__Lamp___404_om ;
     sysx:transitionSyntax "source" ;
-    sysml:sourceFeature elmt:Machines__Lamp__off ;
-    sysml:targetFeature elmt:Machines__Lamp__on .
+    sysml:source elmt:Machines__Lamp__off ;
+    sysml:target elmt:Machines__Lamp__on .
 
 elmt:Machines__Lamp___404_om
     a sysml:FeatureMembership ;
@@ -489,8 +489,8 @@ elmt:Machines__Lamp___405
     sysml:owningRelationship elmt:Machines__Lamp___405_om ;
     sysml:owningMembership elmt:Machines__Lamp___405_om ;
     sysx:transitionSyntax "source" ;
-    sysml:sourceFeature elmt:Machines__Lamp__on ;
-    sysml:targetFeature elmt:Machines__Lamp__on__light__bright .
+    sysml:source elmt:Machines__Lamp__on ;
+    sysml:target elmt:Machines__Lamp__on__light__bright .
 
 elmt:Machines__Lamp___405_om
     a sysml:FeatureMembership ;
@@ -514,8 +514,8 @@ elmt:Machines__Lamp___406
     sysml:owningRelationship elmt:Machines__Lamp___406_om ;
     sysml:owningMembership elmt:Machines__Lamp___406_om ;
     sysx:transitionSyntax "source" ;
-    sysml:sourceFeature elmt:Machines__Lamp__on__heat__hot ;
-    sysml:targetFeature elmt:Machines__Lamp__off .
+    sysml:source elmt:Machines__Lamp__on__heat__hot ;
+    sysml:target elmt:Machines__Lamp__off .
 
 elmt:Machines__Lamp___406_om
     a sysml:FeatureMembership ;

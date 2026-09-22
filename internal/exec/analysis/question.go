@@ -98,6 +98,9 @@ type Question struct {
 	// Draws is how the runs resolve their RandomFunctions draws: at random from
 	// the seeded stream, or at each call's min, max or average (runtime.Context.SetDrawPolicy).
 	Draws runtime.DrawPolicy
+	// ClockStep is the step the runs' clock ticks by, in seconds, on which their
+	// waits come due; 0 is a continuous clock (runtime.Context.SetClockStep).
+	ClockStep float64
 	// Free is what the question leaves open.
 	Free Freedom
 	// Perform makes the one execution an Evaluate question asks for.
@@ -132,8 +135,8 @@ func (s ModelSeed) apply(ctx *runtime.Context) {
 }
 
 // fresh is a context of a run's own on the plan's worker for job, under the budget as
-// Model.NewContextOn takes it, drawing from the question's model seed where one is set
-// and under its draw policy.
+// Model.NewContextOn takes it, drawing from the question's model seed where one is set,
+// under its draw policy and on a clock stepping as it states.
 func (q Question) fresh(model *Model, job int, budget Budget) (*runtime.Context, error) {
 	ctx, err := model.NewContextOn(job, budget)
 	if err != nil {
@@ -141,6 +144,9 @@ func (q Question) fresh(model *Model, job int, budget Budget) (*runtime.Context,
 	}
 	q.ModelSeed.apply(ctx)
 	ctx.SetDrawPolicy(q.Draws)
+	if err := ctx.SetClockStep(q.ClockStep); err != nil {
+		return nil, err
+	}
 	return ctx, nil
 }
 
@@ -159,6 +165,14 @@ func DrawsOf(ctx *runtime.Context) runtime.DrawPolicy {
 		return runtime.DrawRandom
 	}
 	return ctx.DrawPolicy()
+}
+
+// ClockStepOf is the clock step set on ctx, 0 (a continuous clock) when ctx is nil.
+func ClockStepOf(ctx *runtime.Context) float64 {
+	if ctx == nil {
+		return 0
+	}
+	return ctx.ClockStep()
 }
 
 // Performance makes one execution in the given context and reports what it established.

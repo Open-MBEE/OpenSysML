@@ -38,6 +38,11 @@ type StateExecutor struct {
 
 	// Lowered graph (source of truth)
 	graph *lower.StateGraph
+	// acceptsAlong memoizes, per leaf state, the accept-triggered transitions out of it
+	// and its enclosing states, in the order a message is tried against them.
+	acceptsAlong map[*ast.StateNode][]*lower.Transition
+	// pending memoizes the machine's last poll of the bus for a message it takes.
+	pending pendingMemo
 
 	// State machine execution state
 	activeConfig *StateConfiguration // Active state configuration (simple or multi-region)
@@ -90,11 +95,6 @@ type StateExecutor struct {
 	// entered. Concurrently active states interleave one action per round, so this
 	// order — not map iteration order — decides the interleaving.
 	doActions []*doAction
-	// round is the do round under way when the machine runs one unit at a time: the
-	// do actions whose sweep it has still to finish; roundDone marks a round closed,
-	// its dispatch owed.
-	round     []*doAction
-	roundDone bool
 	// dispatchAmong narrows the events nextEvent draws among to those a step order
 	// drew ahead of a due do step: the tied events whose dispatch acts.
 	dispatchAmong []Event
@@ -2418,13 +2418,13 @@ func (e *StateExecutor) moveToHistory(trans *lower.Transition, currentState *ast
 	if err != nil {
 		return err
 	}
+	e.noteFired(r.segments...)
 	if r.terminate != nil {
-		return e.terminateAt(trans, fromName, r, e.descendantChain(below, e.graph.TerminateOwner[r.terminate]))
+		return e.terminateAt(trans, fromName, r, r.effects(e.graph), e.descendantChain(below, e.graph.TerminateOwner[r.terminate]))
 	}
 	if err := e.runEffects(r.effects(e.graph), e.descendantChain(below, r.target)); err != nil {
 		return err
 	}
-	e.noteFired(r.segments...)
 	return e.enterBelow(trans, fromName, below, r.target, nil)
 }
 
@@ -3185,8 +3185,9 @@ func (e *StateExecutor) runOne(progress *dueProgress) (moved bool, err error) {
 	return moved, err
 }
 
-// oneUnit runs one atomic unit at the current instant: the dispatch a closed round
-// owes, else one step of the round under way (stepRound); false when nothing was left.
+// oneUnit runs one atomic unit at the current instant: one token move of a due do
+// behavior, or the dispatch drawn against it (stepDue); the dispatch alone once no
+// do behavior is due; false when nothing was left.
 func (e *StateExecutor) oneUnit(progress *dueProgress) (moved bool, err error) {
 	e.resetEntering()
 	if len(e.held) > 0 {
@@ -3195,59 +3196,44 @@ func (e *StateExecutor) oneUnit(progress *dueProgress) (moved bool, err error) {
 	if e.completionDue {
 		return true, e.completeMachine()
 	}
-	if e.roundDone {
-		e.roundDone = false
-		if dispatched, err := e.dispatchOne(progress); err != nil || dispatched {
-			return dispatched, err
-		}
-	}
-	e.round = e.dueRound()
-	if len(e.round) == 0 {
+	due := e.dueDoActions()
+	if len(due) == 0 {
 		return e.dispatchOne(progress)
 	}
-	return e.stepRound(progress)
+	return e.stepDue(due, progress)
 }
 
-// dueRound lists the do actions the next step picks among: the round under way's
-// still registered, else a new round of the due ones, as runDoRound sweeps them.
-func (e *StateExecutor) dueRound() []*doAction {
-	round := slices.DeleteFunc(slices.Clone(e.round), func(act *doAction) bool { return !e.isRunningDoAction(act) })
-	if len(round) > 0 {
-		return round
-	}
+// dueDoActions lists the do actions due at the instant, in the order their states
+// were entered — as runDoRound sweeps them.
+func (e *StateExecutor) dueDoActions() []*doAction {
+	var due []*doAction
 	for _, act := range e.doActions {
 		if act.due(e.ctx) {
-			round = append(round, act)
+			due = append(due, act)
 		}
 	}
-	return round
+	return due
 }
 
-// stepRound runs one do action's step or, drawn against the steps under ChoiceStepOrder
-// while a dispatch that acts is due, the dispatch; the round closes once each has stepped.
-func (e *StateExecutor) stepRound(progress *dueProgress) (bool, error) {
-	var next int
+// stepDue moves one token of a due do behavior, drawn among the due ones, or — where
+// a dispatch that acts is due, drawn against the move under ChoiceStepOrder — dispatches.
+func (e *StateExecutor) stepDue(due []*doAction, progress *dueProgress) (bool, error) {
 	if dispatch := e.dueDispatch(); dispatch.acts {
-		pick, err := e.chooseStepOrder(e.round, dispatch.step)
+		dispatchNow, err := e.chooseStepOrder(due, dispatch.step)
 		if err != nil {
 			return false, err
 		}
-		if pick == len(e.round) {
+		if dispatchNow {
 			e.dispatchAmong = dispatch.among
 			defer func() { e.dispatchAmong = nil }()
 			return e.dispatchOne(progress)
 		}
-		next = pick
-	} else {
-		pick, err := e.chooseDoAction(e.round)
-		if err != nil {
-			return false, err
-		}
-		next = pick
 	}
-	act := e.round[next]
-	e.round = slices.Delete(e.round, next, next+1)
-	if err := e.stepDoAction(act, func(run *doRun) (*doRun, error) { return run.resume(e.ctx) }); err != nil {
+	next, err := e.chooseDoAction(due)
+	if err != nil {
+		return false, err
+	}
+	if err := e.stepDoAction(due[next], func(run *doRun) (*doRun, error) { return run.resume(e.ctx) }); err != nil {
 		return false, err
 	}
 	progress.doSteps++
@@ -3256,11 +3242,7 @@ func (e *StateExecutor) stepRound(progress *dueProgress) (bool, error) {
 			fmt.Sprintf("state machine exceeded max do action steps (%d steps; raise %s to allow more), possible non-terminating do behavior",
 				e.ctx.maxDoSteps, MaxDoStepsEnvVar))
 	}
-	if len(e.round) == 0 {
-		e.roundDone = true
-		return true, e.settleDoActions()
-	}
-	return true, nil
+	return true, e.settleDoActions()
 }
 
 // stepWherePrefix opens where a step order names its instant; dispatchTiedLabel is
@@ -3371,30 +3353,31 @@ func (e *StateExecutor) changeLabel(trans *lower.Transition) string {
 	return transitionDescription(trans)
 }
 
-// chooseStepOrder draws what goes first under ChoiceStepOrder — `do <state>` per due
-// action in round order, then the dispatch — returning the index taken, len(due) for the dispatch.
-func (e *StateExecutor) chooseStepOrder(due []*doAction, dispatch string) (int, error) {
-	alternatives := make([]string, 0, len(due)+1)
-	for _, name := range e.stateNames(statesOf(due)) {
-		alternatives = append(alternatives, "do "+name)
-	}
+// chooseStepOrder draws what goes first under ChoiceStepOrder — the move of a due do
+// behavior, or the dispatch — and reports whether the dispatch does.
+func (e *StateExecutor) chooseStepOrder(due []*doAction, dispatch string) (bool, error) {
 	choice := ChoicePoint{
 		Kind:         ChoiceStepOrder,
 		Where:        stepWherePrefix + semantics.FormatReal(e.ctx.clock.now),
-		Alternatives: append(alternatives, dispatch),
+		Alternatives: []string{doStepLabel(e.stateNames(statesOf(due))), dispatch},
 		File:         e.stateMachine.DocName,
 		Span:         e.stateMachine.DeclSpan,
 	}
 	scheduling := e.ctx.scheduling()
 	choice.Taken = scheduling.choose(choice, nil)
 	if err := scheduling.refusal(); err != nil {
-		return 0, err
+		return false, err
 	}
-	if choice.Taken < len(due) {
-		choice.Span = due[choice.Taken].state.Span()
+	if choice.Taken == 0 && len(due) == 1 {
+		choice.Span = due[0].state.Span()
 	}
 	e.noteChoice(choice)
-	return choice.Taken, nil
+	return choice.Taken == 1, nil
+}
+
+// doStepLabel names the move of one of the states' do behaviors as a step order's alternative.
+func doStepLabel(states []string) string {
+	return "do " + strings.Join(states, " or ")
 }
 
 // dispatchOne is runStep's dispatch phase: a risen change condition fires, else
@@ -3952,6 +3935,7 @@ func (e *StateExecutor) yieldsTo(m Message) bool {
 	if len(siblings) == 0 {
 		return false
 	}
+	e.ctx.notePollReadsData()
 	if own, err := e.Decide(m); err != nil || own.Enabled() {
 		return false
 	}
@@ -4146,34 +4130,78 @@ func (e *StateExecutor) hasPendingSignal() bool {
 // pendingSignal is the message in flight deliverPendingSignal would take, the
 // first the machine takes; ok as hasPendingSignal, so a failing port counts.
 func (e *StateExecutor) pendingSignal() (Message, bool) {
-	for _, msg := range e.ctx.PendingMessages() {
-		if takes, err := e.takesMessage(msg); err != nil || takes {
-			return msg, true
+	if !e.driven.settled() {
+		// The machine, or a behavior under it, is mid-call: its state moves between polls.
+		e.pending.valid = false
+		return e.scanPending(nil, 0)
+	}
+	memo := &e.pending
+	if memo.holds(e) {
+		if memo.ok || memo.bus.posts == e.ctx.bus.posts {
+			return memo.msg, memo.ok
+		}
+		// The bus only grew since a negative answer: the messages added are examined.
+		return e.scanPending(memo, memo.scanned)
+	}
+	memo.readsData = false
+	return e.scanPending(memo, 0)
+}
+
+// scanPending polls the bus from its from-th message for one the machine takes,
+// recording in memo, if any, the marks the answer holds under and what it read.
+func (e *StateExecutor) scanPending(memo *pendingMemo, from int) (Message, bool) {
+	if memo != nil {
+		memo.valid, memo.bus, memo.writes, memo.machine = true, e.ctx.bus, e.ctx.writes, e.driven.serial
+		memo.msg, memo.ok, memo.scanned = Message{}, false, from
+	}
+	saved := e.ctx.polling
+	e.ctx.polling = memo
+	defer func() {
+		e.ctx.polling = saved
+		// A poll within a poll reads for the poll enclosing it too.
+		if saved != nil && (memo == nil || memo.readsData) {
+			saved.readsData = true
+		}
+	}()
+	messages := e.ctx.PendingMessages()
+	for i := from; i < len(messages); i++ {
+		if memo != nil {
+			memo.scanned = i + 1
+		}
+		if takes, err := e.takesMessage(messages[i]); err != nil || takes {
+			if memo != nil {
+				memo.msg, memo.ok = messages[i], true
+			}
+			return messages[i], true
 		}
 	}
 	return Message{}, false
+}
+
+// holds reports whether the memo still answers for e: taken, and nothing it
+// depends on moved since, the objects' data counting only where the scan read it.
+func (memo *pendingMemo) holds(e *StateExecutor) bool {
+	return memo.valid && memo.machine == e.driven.serial && memo.bus.cuts == e.ctx.bus.cuts &&
+		(!memo.readsData || memo.writes == e.ctx.writes)
 }
 
 // acceptsSignal reports whether any transition out of the active configuration,
 // or out of a composite state enclosing it, is triggered by this signal.
 func (e *StateExecutor) acceptsSignal(msg Message) (bool, error) {
 	for _, leaf := range e.activeStates() {
-		for _, state := range e.getParentChain(leaf) {
-			if accepted, err := e.acceptsSignalFrom(state, msg); err != nil || accepted {
-				return accepted, err
-			}
+		if accepted, err := e.acceptsSignalAlong(leaf, msg); err != nil || accepted {
+			return accepted, err
 		}
 	}
 	return false, nil
 }
 
-// acceptsSignalFrom reports whether a transition out of one state is triggered
-// by this message's signal. Only a message of the right signal resolves the
-// transition's `via` port; a failure to do so is returned.
-func (e *StateExecutor) acceptsSignalFrom(state *ast.StateNode, msg Message) (bool, error) {
-	for _, trans := range e.graph.Transitions[state] {
-		accept, ok := trans.Trigger.(*ast.AcceptEvent)
-		if !ok || !e.triggerSignalMatches(accept, trans.Scope, msg) {
+// acceptsSignalAlong reports whether a transition out of a leaf state or a state
+// enclosing it is triggered by this message's signal. Only a message of the right
+// signal resolves the transition's `via` port; a failure to do so is returned.
+func (e *StateExecutor) acceptsSignalAlong(leaf *ast.StateNode, msg Message) (bool, error) {
+	for _, trans := range e.acceptTransitionsAlong(leaf) {
+		if !e.triggerSignalMatches(trans.Trigger.(*ast.AcceptEvent), trans.Scope, msg) {
 			continue
 		}
 		reaches, err := e.transitionReached(trans, msg)
@@ -4182,6 +4210,27 @@ func (e *StateExecutor) acceptsSignalFrom(state *ast.StateNode, msg Message) (bo
 		}
 	}
 	return false, nil
+}
+
+// acceptTransitionsAlong lists the accept-triggered transitions out of a leaf state
+// and, after them, out of each state enclosing it; the graph fixes the list.
+func (e *StateExecutor) acceptTransitionsAlong(leaf *ast.StateNode) []*lower.Transition {
+	if along, ok := e.acceptsAlong[leaf]; ok {
+		return along
+	}
+	var along []*lower.Transition
+	for _, state := range e.getParentChain(leaf) {
+		for _, trans := range e.graph.Transitions[state] {
+			if _, ok := trans.Trigger.(*ast.AcceptEvent); ok {
+				along = append(along, trans)
+			}
+		}
+	}
+	if e.acceptsAlong == nil {
+		e.acceptsAlong = make(map[*ast.StateNode][]*lower.Transition)
+	}
+	e.acceptsAlong[leaf] = along
+	return along
 }
 
 // transitionReached reports whether a message arrives where a transition's
