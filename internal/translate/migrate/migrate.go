@@ -98,6 +98,7 @@ func FromModel(name string, model *sysmlv1.Model) *Result {
 		opaque:       map[*sysmlv1.Element]*opaqueResult{},
 		viewOf:       map[*sysmlv1.Diagram]*view{},
 		hosted:       map[*sysmlv1.Element][]*view{},
+		tableOf:      map[*sysmlv1.Table]*tableDoc{},
 		buried:       map[*sysmlv1.Element]bool{},
 		actors:       map[*sysmlv1.Element]*actorLink{},
 	}
@@ -172,6 +173,8 @@ type migration struct {
 	// viewOf plans each diagram's view; hosted lists the views each body opens with.
 	viewOf map[*sysmlv1.Diagram]*view
 	hosted map[*sysmlv1.Element][]*view
+	// tableOf plans each table definition's Document beside its diagram's view.
+	tableOf map[*sysmlv1.Table]*tableDoc
 	// buried memoizes isBuried: whether an ancestor left out of the document takes e with it.
 	buried map[*sysmlv1.Element]bool
 	// flows lists the item flows each connector realizes.

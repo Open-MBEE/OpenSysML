@@ -54,9 +54,9 @@ type view struct {
 	note string
 	// entry is the report row, filled when the view is written.
 	entry *Entry
-	// table is the table definition the diagram carries, written beside the
-	// view; nil for a diagram that defines none.
-	table *tableDoc
+	// tables are the table definitions the diagram carries, written beside
+	// the view in definition order; empty for a diagram that defines none.
+	tables []*tableDoc
 }
 
 // planViews assigns every diagram the body its view is written in and reserves
@@ -290,20 +290,22 @@ func (m *migration) writeView(v *view) {
 	if x.dangling > 0 {
 		note = joinNotes(note, fmt.Sprintf("%d of %d shown ids resolve to no element", x.dangling, shown))
 	}
-	if v.table != nil {
-		m.lowerTable(v.table)
+	for _, td := range v.tables {
+		m.lowerTable(td)
 	}
 	m.w.block("view "+writeName(v.name), func() {
 		for _, ref := range x.refs {
 			m.w.line("expose " + ref + ";")
 		}
-		if v.table != nil && v.table.written() {
-			m.w.line("expose " + writeName(v.table.doc) + ";")
+		for _, td := range v.tables {
+			if td.written() {
+				m.w.line("expose " + writeName(td.doc) + ";")
+			}
 		}
 		m.w.line("render " + prefix + render + ";")
 	})
-	if v.table != nil {
-		m.writeTable(v.table)
+	for _, td := range v.tables {
+		m.writeTable(td)
 	}
 	verdict := Mapped
 	if v.note != "" || untyped || shown == 0 || len(x.refs) == 0 || x.unwritten+x.dangling > 0 {

@@ -58,7 +58,7 @@ func (m *migration) planTables() {
 			continue
 		}
 		v := m.viewOf[t.Diagram]
-		if v == nil || v.host == nil || v.table != nil {
+		if v == nil || v.host == nil {
 			continue
 		}
 		name := strings.TrimSpace(t.Diagram.Name)
@@ -68,7 +68,8 @@ func (m *migration) planTables() {
 		td := &tableDoc{t: t, v: v, title: name}
 		td.doc = m.viewName(v.host, name+documentSuffix)
 		td.query = m.viewName(v.host, name+rowsSuffix)
-		v.table = td
+		m.tableOf[t] = td
+		v.tables = append(v.tables, td)
 	}
 }
 
@@ -91,7 +92,7 @@ func (m *migration) unplacedTables() {
 				Note: "base_Diagram " + t.DiagramID + " names no diagram of the document"}
 			m.w.lines(commentLines("not migrated: " + e.Kind + " " + t.DiagramID + " — " + e.Note))
 			m.report.Entries = append(m.report.Entries, *e)
-		case m.viewOf[t.Diagram].table == nil:
+		case m.tableOf[t] == nil:
 			v := m.viewOf[t.Diagram]
 			e := m.tableEntry(t, Unmapped, "", "its diagram is not written as a view: "+v.entry.Note)
 			m.report.Entries = append(m.report.Entries, *e)
