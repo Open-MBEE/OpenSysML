@@ -26,10 +26,12 @@ package 'Org Profile' {
     }
 }
 package Review {
+    attribute def Priority :> ScalarValues::Integer;
     metadata def Reviewed {
         attribute reviewer : ScalarValues::String;
         attribute round : ScalarValues::Integer;
         attribute approved : ScalarValues::Boolean;
+        attribute priority : Priority;
         attribute notes : ScalarValues::String[0..*];
     }
 }
@@ -65,11 +67,19 @@ package 'Pump System' {
         attribute rate : FlowRate {
             @Review::Reviewed {
                 approved = false;
+                priority = 2;
                 reviewer = "QA";
                 round = 1;
             }
         }
         part motor : Motor;
+        part controller : Controller;
+        connection wire connect motor to controller {
+            @Review::Reviewed {
+                approved = true;
+                reviewer = "EE";
+            }
+        }
         satisfy requirement : 'Flow Requirement' {
             @'Org Profile'::'Org Satisfy' {
                 verified = true;
@@ -87,6 +97,7 @@ package 'Pump System' {
         }
     }
     part def Motor;
+    part def Controller;
     part def 'Design Note' {
         @Legacy::Requirement {
             Text = "Kept for reference only.";

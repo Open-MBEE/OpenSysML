@@ -92,6 +92,11 @@
       </packagedElement>
     </packagedElement>
     <packagedElement xmi:type="uml:Profile" xmi:id="_review" name="Review" URI="http://example.com/schemas/Review.xmi">
+      <packagedElement xmi:type="uml:DataType" xmi:id="_priority" name="Priority">
+        <generalization xmi:type="uml:Generalization" xmi:id="_priority_gen">
+          <general href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#Integer"/>
+        </generalization>
+      </packagedElement>
       <packagedElement xmi:type="uml:Stereotype" xmi:id="_st_reviewed" name="Reviewed">
         <ownedAttribute xmi:type="uml:Property" xmi:id="_st_reviewed_base_e" name="base_Element" association="_ext_reviewed">
           <type xmi:type="uml:Class" href="http://www.omg.org/spec/UML/20131001/UML.xmi#Element"/>
@@ -105,6 +110,7 @@
         <ownedAttribute xmi:type="uml:Property" xmi:id="_st_reviewed_ok" name="approved">
           <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Boolean"/>
         </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_st_reviewed_priority" name="priority" type="_priority"/>
         <ownedAttribute xmi:type="uml:Property" xmi:id="_st_reviewed_notes" name="notes">
           <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
           <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_st_reviewed_notes_l" value="0"/>
@@ -138,8 +144,14 @@
       <packagedElement xmi:type="uml:Class" xmi:id="_pump" name="Pump">
         <ownedAttribute xmi:type="uml:Property" xmi:id="_pump_rate" name="rate" type="_flow"/>
         <ownedAttribute xmi:type="uml:Property" xmi:id="_pump_motor" name="motor" type="_motor" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_pump_ctrl" name="controller" type="_ctrl" aggregation="composite"/>
+        <ownedConnector xmi:type="uml:Connector" xmi:id="_wire" name="wire">
+          <end xmi:type="uml:ConnectorEnd" xmi:id="_wire_1" role="_pump_motor"/>
+          <end xmi:type="uml:ConnectorEnd" xmi:id="_wire_2" role="_pump_ctrl"/>
+        </ownedConnector>
       </packagedElement>
       <packagedElement xmi:type="uml:Class" xmi:id="_motor" name="Motor"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_ctrl" name="Controller"/>
       <packagedElement xmi:type="uml:Class" xmi:id="_note" name="Design Note"/>
       <packagedElement xmi:type="uml:Abstraction" xmi:id="_sat" client="_pump" supplier="_req_flow"/>
       <packagedElement xmi:type="uml:Dependency" xmi:id="_dep" name="derivedFrom" client="_motor" supplier="_pump"/>
@@ -152,13 +164,16 @@
   <Org_Profile:Org_Block xmi:id="_a_pump" base_Class="_pump" partNumber="P-100" supplier="_acme"/>
   <sysml:Block xmi:id="_a_motor" base_Class="_motor"/>
   <sysml:Block xmi:id="_a_acme" base_Class="_acme"/>
+  <sysml:Block xmi:id="_a_ctrl" base_Class="_ctrl"/>
+  <sysml:ValueType xmi:id="_a_priority" base_DataType="_priority"/>
   <Org_Profile:Org_Value xmi:id="_a_flow" base_DataType="_flow" precision="3"/>
   <Org_Profile:Org_Satisfy xmi:id="_a_sat" base_Abstraction="_sat" verified="true"/>
   <Review:Reviewed xmi:id="_a_rev_pump" base_Element="_pump" reviewer="QA" round="2" approved="true">
     <notes>First pass.</notes>
     <notes>Second pass.</notes>
   </Review:Reviewed>
-  <Review:Reviewed xmi:id="_a_rev_rate" base_Element="_pump_rate" reviewer="QA" round="1" approved="false"/>
+  <Review:Reviewed xmi:id="_a_rev_rate" base_Element="_pump_rate" reviewer="QA" round="1" approved="false" priority="2"/>
+  <Review:Reviewed xmi:id="_a_rev_wire" base_Element="_wire" reviewer="EE" approved="true"/>
   <Review:Reviewed xmi:id="_a_rev_dep" base_Element="_dep" reviewer="Lead" approved="true"/>
   <Legacy:Requirement xmi:id="_a_note" base_Class="_note" Text="Kept for reference only."/>
 </xmi:XMI>

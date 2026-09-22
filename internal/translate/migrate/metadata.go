@@ -241,7 +241,8 @@ func (m *migration) tagReference(id string) (string, string) {
 }
 
 // tagLiteral writes one value of a tag typed by t: a string, number or boolean
-// literal, an enumeration literal, or a string when the tag is untyped.
+// literal of the ScalarValues type t specializes, an enumeration literal, or a
+// string when the tag is untyped.
 func (m *migration) tagLiteral(t *sysmlv1.Element, v string) (string, string) {
 	if t != nil && t.Type == "Enumeration" && !t.IsProxy() {
 		for _, lit := range t.Owned("ownedLiteral") {
@@ -251,7 +252,10 @@ func (m *migration) tagLiteral(t *sysmlv1.Element, v string) (string, string) {
 		}
 		return "", "the value " + v + " is not a literal of " + qualifiedName(t)
 	}
-	sv := m.scalarValue(t)
+	if m.structuredValueType(t) {
+		return "", "the value " + v + " has no literal form: " + qualifiedName(t) + " is a structured value type"
+	}
+	sv := m.scalarBase(t)
 	text := strings.TrimSpace(v)
 	switch sv {
 	case "", "String":

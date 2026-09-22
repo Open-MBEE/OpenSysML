@@ -2067,13 +2067,13 @@ func (m *migration) connector(c *sysmlv1.Element) {
 		}
 		paths[i] = strings.Join(parts, ".")
 	}
-	decl, kw := "connect "+paths[0]+" to "+paths[1]+";", "connection "
+	decl, kw := "connect "+paths[0]+" to "+paths[1], "connection "
 	note = ""
 	switch {
 	case has(c, "BindingConnector"):
-		decl, kw = "bind "+paths[0]+" = "+paths[1]+";", "binding "
+		decl, kw = "bind "+paths[0]+" = "+paths[1], "binding "
 	case delegates(segs):
-		decl, kw = "bind "+paths[0]+" = "+paths[1]+";", "binding "
+		decl, kw = "bind "+paths[0]+" = "+paths[1], "binding "
 		note = "the connector delegates the owner's port to the part's, so it is written as a binding, which relays a message either way"
 	}
 	target := ""
@@ -2081,9 +2081,9 @@ func (m *migration) connector(c *sysmlv1.Element) {
 		decl = kw + writeName(m.nameOf(c)) + " " + decl
 		target = m.v2Name(c)
 	}
-	m.w.line(decl)
+	m.w.block(decl, func() { m.metadataUsages(c) })
 	m.add(c, Mapped, target, note)
-	m.stereotypeAnnotations(c)
+	m.stereotypeComments(c)
 	for _, f := range m.flows[c] {
 		m.itemFlow(f, c.Owned("end"), paths)
 	}

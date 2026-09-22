@@ -1,11 +1,11 @@
 # SysML v1 to v2 migration report: org_profile.xmi
 # exported by Example UML Tool
-# migrated 42 element(s): 41 mapped, 1 approximated, 0 unmapped (14 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 47 element(s): 46 mapped, 1 approximated, 0 unmapped (14 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
 ## approximated (1)
 «Requirement» Class	Pump System::Design Note	_note	-> 'Pump System'::'Design Note'	(a plain UML class without «Block» is written as a part def)
 
-## mapped (41)
+## mapped (46)
 Profile	Legacy	_legacy	-> Legacy
 Stereotype	Legacy::Requirement	_st_legacy_req	-> Legacy::Requirement
 Property	Legacy::Requirement::Text	_st_legacy_text	-> Legacy::Requirement::Text
@@ -33,18 +33,23 @@ Property	Org Profile::Org Value::precision	_st_val_precision	-> 'Org Profile'::'
 Package	Pump System	_system	-> 'Pump System'
 «Org Satisfy» Abstraction	Pump System::<Abstraction>	_sat	-> 'Pump System'::Pump
 «Block» Class	Pump System::Acme	_acme	-> 'Pump System'::Acme
+«Block» Class	Pump System::Controller	_ctrl	-> 'Pump System'::Controller
 «Org Requirement» Class	Pump System::Flow Requirement	_req_flow	-> 'Pump System'::'Flow Requirement'
 «Org Value» DataType	Pump System::FlowRate	_flow	-> 'Pump System'::FlowRate
 «Block» Class	Pump System::Motor	_motor	-> 'Pump System'::Motor
 «Org Block» Class	Pump System::Pump	_pump	-> 'Pump System'::Pump
+Property	Pump System::Pump::controller	_pump_ctrl	-> 'Pump System'::Pump::controller
 Property	Pump System::Pump::motor	_pump_motor	-> 'Pump System'::Pump::motor
 «Reviewed» Property	Pump System::Pump::rate	_pump_rate	-> 'Pump System'::Pump::rate
+«Reviewed» Connector	Pump System::Pump::wire	_wire	-> 'Pump System'::Pump::wire
 «Key Requirement» Class	Pump System::Safety Requirement	_req_safe	-> 'Pump System'::'Safety Requirement'
 «Reviewed» Dependency	Pump System::derivedFrom	_dep	-> 'Pump System'::derivedFrom
 Profile	Review	_review	-> Review
+«ValueType» DataType	Review::Priority	_priority	-> Review::Priority
 Stereotype	Review::Reviewed	_st_reviewed	-> Review::Reviewed
 Property	Review::Reviewed::approved	_st_reviewed_ok	-> Review::Reviewed::approved
 Property	Review::Reviewed::notes	_st_reviewed_notes	-> Review::Reviewed::notes
+Property	Review::Reviewed::priority	_st_reviewed_priority	-> Review::Reviewed::priority
 Property	Review::Reviewed::reviewer	_st_reviewed_by	-> Review::Reviewed::reviewer
 Property	Review::Reviewed::round	_st_reviewed_round	-> Review::Reviewed::round
 
