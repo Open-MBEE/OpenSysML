@@ -866,6 +866,7 @@ func suffixNote(s string) string {
 // interactionBody writes an interaction as a scenario: an action whose steps are
 // its messages and combined fragments in occurrence order.
 func (m *migration) interactionBody(e *sysmlv1.Element) {
+	m.unwrittenMembers(e, "lifeline", "message", "fragment", "generalOrdering", "ownedRule", "observation")
 	s, note := m.scenario(e, "this")
 	if note != "" {
 		// classifyBehavior does not let this happen; keep the body honest anyway.

@@ -47,7 +47,8 @@ func rendering(d *sysmlv1.Diagram) string {
 // view is one diagram planned as a view usage: where it is written, under
 // what name, and how the report accounts for it once it is.
 type view struct {
-	d    *sysmlv1.Diagram
+	d *sysmlv1.Diagram
+	// host is the element whose body holds the view; nil for the top level.
 	host *sysmlv1.Element
 	name string
 	// note says what of the view's placement is approximated; "" when nothing.
@@ -68,8 +69,9 @@ func (m *migration) planViews() {
 		d := &m.model.Diagrams[i]
 		v := &view{d: d}
 		m.viewOf[d] = v
-		v.host, v.note = m.viewHost(d)
-		if v.host == nil {
+		var placed bool
+		v.host, placed, v.note = m.viewHost(d)
+		if !placed {
 			v.entry = m.diagramEntry(d, Unmapped, "", v.note)
 			continue
 		}
@@ -92,16 +94,24 @@ func (m *migration) planViews() {
 	m.planTables()
 }
 
-// viewName reserves the name a view takes in host's body: name, or name with a
-// number when a member of the body has it — the vertices a state def writes
-// from its regions included, which are named ahead of it.
+// viewName reserves the name a view takes in host's body, or at the top level
+// for a nil host: name, or name with a number when a member of the body has it
+// — the vertices a state def writes from its regions and the members of an
+// operation's method included.
 func (m *migration) viewName(host *sysmlv1.Element, name string) string {
 	var used map[string]bool
-	if host.Type == "StateMachine" {
-		used = m.nameMachine(host)
+	var method *sysmlv1.Element
+	if host != nil {
+		if host.Type == "StateMachine" {
+			used = m.nameMachine(host)
+		}
+		method = m.bodyMethod(host)
+	}
+	taken := func(name string) bool {
+		return used[name] || m.nameTaken(host, name) || method != nil && m.nameTaken(method, name)
 	}
 	base := name
-	for i := 2; used[name] || m.nameTaken(host, name); i++ {
+	for i := 2; taken(name); i++ {
 		name = fmt.Sprintf("%s %d", base, i)
 	}
 	if used != nil {
@@ -115,9 +125,10 @@ func (m *migration) viewName(host *sysmlv1.Element, name string) string {
 // owner when that hosts views — the operation, for a behavior written as the
 // operation's method — else the owner's nearest ancestor that does; for a
 // diagram naming no owner the element whose extension holds it, and failing
-// that the document's top level. note says why the host is not the owner;
-// host is nil when nothing written can hold the view.
-func (m *migration) viewHost(d *sysmlv1.Diagram) (host *sysmlv1.Element, note string) {
+// that the document's top level. The top level is a nil host; the root model,
+// whose members are written there, is never one. note says why the host is not
+// the owner; placed is false when nothing written can hold the view.
+func (m *migration) viewHost(d *sysmlv1.Diagram) (host *sysmlv1.Element, placed bool, note string) {
 	from := m.viewOwner(d)
 	switch {
 	case d.Owner != nil:
@@ -129,53 +140,58 @@ func (m *migration) viewHost(d *sysmlv1.Diagram) (host *sysmlv1.Element, note st
 		from = d.Holder
 	}
 	if d.Owner == nil && from == nil {
-		for _, r := range m.model.Roots {
-			if m.hostsViews(r) {
-				return r, joinNotes(note, m.writtenIn(r))
-			}
-		}
-		return nil, joinNotes(note, "and nothing written holds it")
+		return nil, true, joinNotes(note, m.writtenIn(nil))
 	}
 	for cur := from; cur != nil; cur = cur.Parent {
-		if !m.hostsViews(cur) {
+		host := m.bodyOf(cur)
+		if !m.hostsViews(host) {
 			continue
+		}
+		if m.flattened(host) {
+			host = nil
 		}
 		switch {
 		case cur == from && d.Owner != nil:
 		case d.Owner != nil:
-			note = "its owner " + kindOf(d.Owner) + " " + qualifiedName(d.Owner) + " has no v2 body; " + m.writtenIn(cur)
+			note = "its owner " + kindOf(d.Owner) + " " + qualifiedName(d.Owner) + " has no v2 body; " + m.writtenIn(host)
 		default:
-			note = joinNotes(note, m.writtenIn(cur)+", which holds it")
+			note = joinNotes(note, m.writtenIn(host)+", which holds it")
 		}
-		return cur, note
+		return host, true, note
 	}
 	if d.Owner != nil {
-		return nil, "neither its owner " + kindOf(d.Owner) + " " + qualifiedName(d.Owner) + " nor any ancestor of it is written"
+		return nil, false, "neither its owner " + kindOf(d.Owner) + " " + qualifiedName(d.Owner) + " nor any ancestor of it is written"
 	}
-	return nil, joinNotes(note, "and neither "+kindOf(from)+" "+qualifiedName(from)+", which holds it, nor any ancestor of it is written")
+	return nil, false, joinNotes(note, "and neither "+kindOf(from)+" "+qualifiedName(from)+", which holds it, nor any ancestor of it is written")
 }
 
-// viewOwner is the element whose v2 body stands for a diagram's owner: the
-// operation a method behavior is written as the body of, else the owner itself.
+// viewOwner is the element whose v2 body stands for a diagram's owner.
 func (m *migration) viewOwner(d *sysmlv1.Diagram) *sysmlv1.Element {
-	if op := m.methodOf[d.Owner]; op != nil {
+	return m.bodyOf(d.Owner)
+}
+
+// bodyOf is the element whose v2 body stands for e: the operation a method
+// behavior is written as the body of, else e itself.
+func (m *migration) bodyOf(e *sysmlv1.Element) *sysmlv1.Element {
+	if op := m.methodOf[e]; op != nil {
 		return op
 	}
-	return d.Owner
+	return e
 }
 
 // hostsViews reports whether e is written with a body a view can be a member
-// of: the top level of the root model, or a declared package or definition
-// other than an enum def, whose members are its values.
+// of: the root model, whose members are the top level, or a declared package
+// or definition other than an enum def, whose members are its values. An action
+// node is written as a usage of its graph's body, which holds no members of its own.
 func (m *migration) hostsViews(e *sysmlv1.Element) bool {
-	if isTopLevel(e) {
-		return !m.isLibrary(e)
+	if m.flattened(e) {
+		return true
 	}
 	switch e.Type {
 	case "Property", "Port", "Parameter", "EnumerationLiteral":
 		return false
 	}
-	if m.methodOf[e] != nil || !m.written(e) {
+	if m.methodOf[e] != nil || isActionNode(e) || !m.written(e) {
 		return false
 	}
 	cat, _ := m.classify(e)
@@ -184,7 +200,7 @@ func (m *migration) hostsViews(e *sysmlv1.Element) bool {
 
 // hostName describes a host for a note: its v2 declaration, or the top level.
 func (m *migration) hostName(host *sysmlv1.Element) string {
-	if isTopLevel(host) {
+	if host == nil {
 		return "the top level"
 	}
 	cat, _ := m.classify(host)
@@ -193,7 +209,7 @@ func (m *migration) hostName(host *sysmlv1.Element) string {
 
 // writtenIn says where a view is written, for a note.
 func (m *migration) writtenIn(host *sysmlv1.Element) string {
-	if isTopLevel(host) {
+	if host == nil {
 		return "written at the top level"
 	}
 	return "written in " + m.hostName(host)
@@ -205,7 +221,8 @@ func isTopLevel(e *sysmlv1.Element) bool {
 	return e.Parent == nil && e.Type == "Model"
 }
 
-// views writes the views of the diagrams host owns, in source order.
+// views writes the views of the diagrams host owns, in source order; a nil
+// host writes the top level's.
 func (m *migration) views(host *sysmlv1.Element) {
 	for _, v := range m.hosted[host] {
 		m.writeView(v)
@@ -215,7 +232,7 @@ func (m *migration) views(host *sysmlv1.Element) {
 // diagramViewNote says why an «Expose» of a diagram cannot name its view: no
 // body takes the view; "" when the view is written.
 func (m *migration) diagramViewNote(d *sysmlv1.Diagram) string {
-	if host, note := m.viewHost(d); host == nil {
+	if _, placed, note := m.viewHost(d); !placed {
 		return "the exposed Diagram '" + d.Name + "' is not written as a view: " + note
 	}
 	return ""
@@ -228,9 +245,6 @@ func (m *migration) viewRef(v *view, scope *sysmlv1.Element) string {
 	name := writeName(v.name)
 	chain := scopeChain(scope)
 	host := v.host
-	if isTopLevel(host) {
-		host = nil
-	}
 	for i, s := range chain {
 		if s == host {
 			if !m.shadows(chain[:i], v.name) {
@@ -408,19 +422,7 @@ func (m *migration) exposable(e *sysmlv1.Element) *sysmlv1.Element {
 // shadowsLibrary reports whether a member named like a standard library
 // package hides it from scope: one of a scope on the chain, or a top-level one.
 func (m *migration) shadowsLibrary(lib string, scope *sysmlv1.Element) bool {
-	if m.shadows(scopeChain(scope), lib) {
-		return true
-	}
-	for _, r := range m.model.Roots {
-		if r.Type == "Model" {
-			if m.nameTaken(r, lib) {
-				return true
-			}
-		} else if m.nameOf(r) == lib {
-			return true
-		}
-	}
-	return false
+	return m.shadows(scopeChain(scope), lib) || m.nameTaken(nil, lib)
 }
 
 // diagramEntry builds the report row of a diagram: named under its owner, as

@@ -10,10 +10,11 @@ import (
 // Format is a representation a model is written in or read from.
 type Format string
 
-// The formats conversion accepts. There are three canonical ones,
-// FormatSysML, FormatTTL and FormatAPIJSON, and a Conversion answers by those
-// names whichever alias was asked for. RDF and the API's JSON element form,
-// in any spelling, are one experimental mapping, which a Conversion reports.
+// The formats conversion accepts. There are three canonical ones that are
+// written, FormatSysML, FormatTTL and FormatAPIJSON, and a Conversion answers by
+// those names whichever alias was asked for. RDF and the API's JSON element form,
+// in any spelling, are one experimental mapping, which a Conversion reports; so
+// is migration from FormatXMI, which is only ever read.
 const (
 	FormatSysML Format = "sysml"
 	FormatTTL   Format = "ttl"
@@ -29,6 +30,9 @@ const (
 	// FormatJSON is an alias of FormatAPIJSON, the OMG API's JSON element
 	// form of the same graph FormatTTL writes.
 	FormatJSON Format = "json"
+	// FormatXMI is SysML v1 as UML XMI, an Eclipse UML2 .uml file or a .mdzip
+	// archive, migrated to v2 on the way in. Asking to write it is refused.
+	FormatXMI Format = "xmi"
 )
 
 // ConvertOption configures Convert and ConvertFile.
@@ -62,8 +66,8 @@ type Conversion struct {
 	// inferred learns what it was inferred as.
 	From Format
 	To   Format
-	// Experimental is set when either format is RDF, whose vocabulary may change
-	// without a compatibility path.
+	// Experimental is set when either format is RDF or the API's JSON form, or the
+	// source is SysML v1: mappings that may change without a compatibility path.
 	Experimental bool
 	// ExperimentalNotice says what is experimental about the conversion, empty
 	// when it is not.

@@ -599,11 +599,12 @@ func (m *Model) extensionContent(raw *xmi.Element, ext *Extension, ref *Element,
 	}
 }
 
-// adoptValues reads the ElementValue operands a tool keeps in an extension block, under any
-// wrappers but not inside a diagram or a reference, as the owner's; it returns those adopted.
+// adoptValues reads the ElementValue operands of an Expression that a tool keeps in an
+// extension block, under any wrappers but not inside a diagram or a reference, as the
+// owner's elements, in document order. It returns those adopted; the rest stays metadata.
 func (m *Model) adoptValues(raw *xmi.Element, owner, ref *Element) map[*xmi.Element]bool {
 	adopted := map[*xmi.Element]bool{}
-	if owner == nil || ref != nil {
+	if owner == nil || ref != nil || (owner.Type != "Expression" && owner.Type != "StringExpression") {
 		return adopted
 	}
 	var walk func(*xmi.Element)
@@ -611,7 +612,7 @@ func (m *Model) adoptValues(raw *xmi.Element, owner, ref *Element) map[*xmi.Elem
 		for _, child := range block.Children {
 			switch {
 			case isDiagram(child) || child.Tag == "referenceExtension":
-			case local(child.Type) == "ElementValue":
+			case child.Tag == "operand" && local(child.Type) == "ElementValue":
 				e := m.newElement(child, owner)
 				owner.Children = append(owner.Children, e)
 				m.children(child, e, nil)

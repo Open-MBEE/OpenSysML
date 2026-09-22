@@ -430,7 +430,10 @@ refused when the behavior starts, naming the pin.
 
 **An exit that reads what fired the transition.** A transition's accepted data — the `d` of
 `accept d : Dim`, the `p1` of `accept op(p1)` — is a feature of the transition, visible by its
-simple name to the transition's own guard and effect. The exit of the state the transition
+simple name to the transition's own guard and effect, and by the transition's name too: the
+guard is evaluated within the transition's performance, once the accepter has accepted, so
+`transition raise first idle accept l : Level if raise.l > 5 then high;` reads the payload it
+is about to carry, and `if raise.d.level > 5` a member of it. The exit of the state the transition
 leaves runs before that effect, but as a step of the same transition performance, so it reads
 the data qualified by the transition's name, and an exit shared by several leaving transitions
 reads whichever is being taken with `??`, a transition not being taken reading as nothing:
@@ -450,7 +453,11 @@ A transition leaving a composite state binds the exits of the substates it leave
 way, and a completion transition, or one whose trigger carries no data, binds nothing — the
 parameter keeps its default. A read of a transition not being taken, with no `??` to fall back
 on, leaves the parameter without a value and is refused when the exit runs, as is a payload of
-the wrong type. The entered state's `entry` and `do` read the transition that entered it the
+the wrong type; a guard comparing such a read is refused as the operator's type error, not
+taken as false. A compound transition — an accepting segment into a choice or junction, guarded
+segments out of it — is one performance, so a segment's guard reads the accepting segment's
+payload by that segment's name (`transition up first pick if raise.l > 5 then high;`), as the
+segment's effect does. The entered state's `entry` and `do` read the transition that entered it the
 same way, the do behavior for its whole run (the state performance holds the transfer that
 triggered the transition into it, `StatePerformance::incomingTransitionTrigger`), whether its
 first step is drawn before or after the entries of the substates entered with it.

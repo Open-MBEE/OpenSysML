@@ -1,8 +1,8 @@
 # SysML v1 to v2 migration report: diagrams.xmi
 # exported by Example UML Tool
-# migrated 61 element(s): 43 mapped, 18 approximated, 0 unmapped (2 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 62 element(s): 43 mapped, 19 approximated, 0 unmapped (2 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
-## approximated (18)
+## approximated (19)
 Diagram	Behavior::Drive::Drive Flow	_diag_act	-> Behavior::Drive::'Drive Flow'	(a SysML Activity Diagram written as a view rendered asTextualNotation; 4 of 5 shown elements are not written and not exposed)
 OpaqueAction	Behavior::Drive::start engine	_act_start	-> 'start engine'	(the body is kept as a comment: the name "running" resolves to nothing readable: nothing visible from Behavior::Drive::start engine is called running)
 Diagram	Behavior::Drive::start engine	_diag_act_node	-> Behavior::Drive::'start engine 2'	(a SysML Activity Diagram written as a view rendered asTextualNotation; written as start engine 2 since a member of its owner is also named start engine)
@@ -12,6 +12,7 @@ Diagram	Reports::Fleet	_diag_fleet	-> Reports::'Fleet 2'	(a SysML Package Diagra
 Diagram	Structure::Engine	_diag_custom	-> Structure::'Engine 2'	(a Team Review Diagram written as a view rendered asTextualNotation; written as Engine 2 since a member of its owner is also named Engine)
 Diagram	Structure::Engine::Cranking::Cranking	_diag_cranking	-> Structure::Engine::Crank::Cranking	(a SysML Activity Diagram written as a view rendered asTextualNotation; its owner Activity Structure::Engine::Cranking is written as the body of action def Structure::Engine::Crank, whose method it is; 1 of 3 shown elements are not written and not exposed)
 OpaqueAction	Structure::Engine::Cranking::ignite	_crank_ignite	-> ignite	(the body is kept as a comment: the name "ignited" resolves to nothing readable: nothing visible from Structure::Engine::Cranking::ignite is called ignited)
+Diagram	Structure::Engine::Cranking::ignite::Ignition	_diag_ignite	-> Structure::Engine::Crank::Ignition	(a SysML Activity Diagram written as a view rendered asTextualNotation; its owner OpaqueAction Structure::Engine::Cranking::ignite has no v2 body; written in action def Structure::Engine::Crank; 1 of 2 shown elements are not written and not exposed)
 OpaqueBehavior	Structure::Engine::Halting	_ob_halting	-> Structure::Engine::Halt	(written as the body of the operation Structure::Engine::Halt, whose method it is; the body is kept as a comment: the name "ignited" resolves to nothing readable: nothing visible from Structure::Engine::Halt is called ignited)
 Diagram	Structure::Vehicle Structure	_diag_bdd	-> Structure::'Vehicle Structure'	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; 2 of 10 shown elements are not written and not exposed)
 Diagram	Structure::Vehicle Structure	_diag_pkg	-> Structure::'Vehicle Structure 2'	(a SysML Package Diagram written as a view rendered asTreeDiagram; written as Vehicle Structure 2 since a member of its owner is also named Vehicle Structure)

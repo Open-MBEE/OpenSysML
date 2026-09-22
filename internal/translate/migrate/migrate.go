@@ -115,6 +115,7 @@ func FromModel(name string, model *sysmlv1.Model) *Result {
 	for _, root := range model.Roots {
 		m.root(root)
 	}
+	m.views(nil)
 	m.flushFlows()
 	m.placeholderEnds()
 	m.unwrittenEvents()
@@ -1478,9 +1479,9 @@ func ownsEveryEnd(e *sysmlv1.Element, ends []*sysmlv1.Element) bool {
 // is already written as that property, so it writes nothing.
 func (m *migration) association(e *sysmlv1.Element) {
 	ends := m.model.Refs(e, "memberEnd")
-	name := e.Name
+	name := m.nameOf(e)
 	link := m.actors[e]
-	if name == "" {
+	if e.Name == "" {
 		missing := m.dangling(e, "memberEnd")
 		if link != nil {
 			m.add(e, Mapped, m.actorTarget(link), "the anonymous association to the actor is written as an actor of the use case")
