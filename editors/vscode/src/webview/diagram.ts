@@ -12,6 +12,7 @@ import {
 } from "../protocol";
 import { type DiagramStyle, pilotLook, STYLE_LABELS, STYLES, styleOf } from "../style";
 import { MenuCommand, MenuItem, nodeMenu, paletteItems } from "./actions";
+import { autoLayout, type AutoLayout } from "./autolayout";
 import { cssEscape, drawCanvas, liftNode } from "./canvas";
 import { dragHint, Drop, dropOn } from "./drop";
 import { tableOf } from "./table";
@@ -60,6 +61,8 @@ let style: DiagramStyle = styleOf(saved.style);
 let selectedNode: string | undefined;
 /** The layout on screen, which gestures act on; undefined while a table or nothing is shown. */
 let layout: CanvasLayout | undefined;
+/** What ELK placed for the rendering on screen; undefined until it answers, and for kinds it does not lay out. */
+let auto: AutoLayout | undefined;
 let gesture: Gesture | undefined;
 /** How far the pointer moves before a press becomes a drag rather than a click. */
 const DRAG_THRESHOLD = 3;
@@ -240,6 +243,7 @@ function draw(result: RenderResult): boolean {
     if (result.form === "mermaid") {
       // Mermaid is the machine form a diagram is exported in; the panel draws
       // the same nodes and edges itself, so their geometry is its own to edit.
+      auto = undefined;
       layout = layoutCanvas(result);
       show(layout);
     } else {
@@ -250,6 +254,22 @@ function draw(result: RenderResult): boolean {
     diagram.classList.remove("stale");
     showStatus("");
     last = result;
+    if (result.form === "mermaid") {
+      // The grid answers at once; ELK's layered layout replaces it when it resolves.
+      showStatus("Laying out…");
+      void autoLayout(result).then((laid) => {
+        if (last !== result) {
+          return;
+        }
+        showStatus("");
+        if (!laid) {
+          return;
+        }
+        auto = laid;
+        layout = layoutCanvas(result, {}, auto);
+        show(layout);
+      });
+    }
     remember();
     showNotices(result);
     // An open menu names nodes of the drawing just replaced.
@@ -367,7 +387,7 @@ function moveGesture(event: PointerEvent): void {
     drawDrag(event.shiftKey);
     return;
   }
-  showDragged(layoutCanvas(result, overridesOf(gesture.placements)));
+  showDragged(layoutCanvas(result, overridesOf(gesture.placements), auto));
 }
 
 // showDragged puts the canvas a gesture has changed on screen. The pointer is captured by the
@@ -391,7 +411,7 @@ function drawDrag(shift: boolean): void {
     const svg = showDragged(layout);
     liftNode(svg, layout, gesture.id, gesture.at.x - gesture.start.x, gesture.at.y - gesture.start.y);
   } else {
-    showDragged(layoutCanvas(last, overridesOf(gesture.placements)));
+    showDragged(layoutCanvas(last, overridesOf(gesture.placements), auto));
   }
   previewDrop(shift);
 }
