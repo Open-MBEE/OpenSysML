@@ -297,10 +297,11 @@ private static final long serialVersionUID = 0L;
   private boolean experimental_ = false;
   /**
    * <pre>
-   * Set when either format is RDF, whose mapping is experimental: it covers
-   * model structure and the behavior its bodies state, refuses what it cannot
-   * write back, and its vocabulary may change without a compatibility path.
-   * Notation to notation is stable and leaves this unset.
+   * Set when either format is RDF or the API's JSON element form, whose
+   * mapping is experimental: it covers model structure and the behavior its
+   * bodies state, refuses what it cannot write back, and its vocabulary may
+   * change without a compatibility path. Notation to notation is stable and
+   * leaves this unset.
    * </pre>
    *
    * <code>bool experimental = 6 [json_name = "experimental"];</code>
@@ -1516,10 +1517,11 @@ private static final long serialVersionUID = 0L;
     private boolean experimental_ ;
     /**
      * <pre>
-     * Set when either format is RDF, whose mapping is experimental: it covers
-     * model structure and the behavior its bodies state, refuses what it cannot
-     * write back, and its vocabulary may change without a compatibility path.
-     * Notation to notation is stable and leaves this unset.
+     * Set when either format is RDF or the API's JSON element form, whose
+     * mapping is experimental: it covers model structure and the behavior its
+     * bodies state, refuses what it cannot write back, and its vocabulary may
+     * change without a compatibility path. Notation to notation is stable and
+     * leaves this unset.
      * </pre>
      *
      * <code>bool experimental = 6 [json_name = "experimental"];</code>
@@ -1531,10 +1533,11 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Set when either format is RDF, whose mapping is experimental: it covers
-     * model structure and the behavior its bodies state, refuses what it cannot
-     * write back, and its vocabulary may change without a compatibility path.
-     * Notation to notation is stable and leaves this unset.
+     * Set when either format is RDF or the API's JSON element form, whose
+     * mapping is experimental: it covers model structure and the behavior its
+     * bodies state, refuses what it cannot write back, and its vocabulary may
+     * change without a compatibility path. Notation to notation is stable and
+     * leaves this unset.
      * </pre>
      *
      * <code>bool experimental = 6 [json_name = "experimental"];</code>
@@ -1550,10 +1553,11 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Set when either format is RDF, whose mapping is experimental: it covers
-     * model structure and the behavior its bodies state, refuses what it cannot
-     * write back, and its vocabulary may change without a compatibility path.
-     * Notation to notation is stable and leaves this unset.
+     * Set when either format is RDF or the API's JSON element form, whose
+     * mapping is experimental: it covers model structure and the behavior its
+     * bodies state, refuses what it cannot write back, and its vocabulary may
+     * change without a compatibility path. Notation to notation is stable and
+     * leaves this unset.
      * </pre>
      *
      * <code>bool experimental = 6 [json_name = "experimental"];</code>

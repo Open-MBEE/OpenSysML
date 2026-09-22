@@ -101,7 +101,7 @@ func TestMetaSaveEmptySession(t *testing.T) {
 func TestMetaSaveUnknownExtension(t *testing.T) {
 	s := NewSession()
 	s.Submit("package P { }")
-	path := filepath.Join(t.TempDir(), "out.json")
+	path := filepath.Join(t.TempDir(), "out.bak")
 	out, _, err := s.runMeta("%save " + path)
 	if err != nil {
 		t.Fatal(err)
@@ -280,7 +280,7 @@ func TestMetaSaveTurtleIsMarkedExperimental(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(strings.Join(out, "\n"), "RDF conversion is experimental") {
+	if !strings.Contains(strings.Join(out, "\n"), "RDF conversion — Turtle and the API's JSON element form alike — is experimental") {
 		t.Errorf("expected an experimental notice, got %v", out)
 	}
 
@@ -302,7 +302,7 @@ func TestMetaSaveTurtleIsMarkedExperimental(t *testing.T) {
 	if !strings.Contains(joined, "error:") {
 		t.Fatalf("expected the mapping to refuse the duplicate declaration, got %v", out)
 	}
-	if !strings.Contains(joined, "RDF conversion is experimental") {
+	if !strings.Contains(joined, "RDF conversion — Turtle and the API's JSON element form alike — is experimental") {
 		t.Errorf("a refusal is the experimental behavior, but was not marked: %v", out)
 	}
 }

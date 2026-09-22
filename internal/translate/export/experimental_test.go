@@ -17,9 +17,13 @@ func TestIsExperimental(t *testing.T) {
 		{convert.FormatSysML, convert.FormatTurtle, true},
 		{convert.FormatTurtle, convert.FormatSysML, true},
 		{convert.FormatTurtle, convert.FormatTurtle, true},
+		{convert.FormatSysML, convert.FormatAPIJSON, true},
+		{convert.FormatAPIJSON, convert.FormatSysML, true},
+		{convert.FormatAPIJSON, convert.FormatAPIJSON, true},
 		{convert.FormatSysML, convert.FormatSysML, false},
 		{convert.FormatXMI, convert.FormatSysML, true},
 		{convert.FormatXMI, convert.FormatTurtle, true},
+		{convert.FormatXMI, convert.FormatAPIJSON, true},
 	}
 	for _, c := range cases {
 		if got := convert.IsExperimental(c.from, c.to); got != c.want {
@@ -37,6 +41,7 @@ func TestNotices(t *testing.T) {
 	}{
 		{convert.FormatSysML, convert.FormatSysML, nil},
 		{convert.FormatSysML, convert.FormatTurtle, []string{convert.ExperimentalNotice}},
+		{convert.FormatSysML, convert.FormatAPIJSON, []string{convert.ExperimentalNotice}},
 		{convert.FormatXMI, convert.FormatSysML, []string{convert.MigrationNotice}},
 		{convert.FormatXMI, convert.FormatTurtle, []string{convert.MigrationNotice, convert.ExperimentalNotice}},
 	}

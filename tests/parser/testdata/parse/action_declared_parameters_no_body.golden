@@ -1,0 +1,47 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Definition kind="action" abstract=false variation=false name="Sampling"
+      (InitialNode name="start" successor="gain")
+      (Membership visibility="default"
+        (Usage kind="action" name="gain" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Membership visibility="default"
+            (Usage kind="attribute" name="result" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))
+              (LiteralReal value="2.5")))))
+      (InitialNode name="gain" successor="measure")
+      (Membership visibility="default"
+        (Usage kind="action" name="measure" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Membership visibility="default"
+            (Usage kind="attribute" name="gain" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="mode" ref=false direction="in" composite=false derived=false ordered=false nonunique=false))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="reading" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))
+              (Multiplicity range=true
+                (LiteralInteger value="0")
+                (LiteralInteger value="1"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="frames" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))
+              (Multiplicity range=true
+                (LiteralInteger value="0")
+                (LiteralInfinity))))))
+      (InitialNode name="measure" successor="done")
+      (Membership visibility="default"
+        (Usage kind="flow" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (FlowEnds from="gain.result" to="measure.gain" payload="nil" declared=false)))
+      (Membership visibility="default"
+        (Usage kind="flow" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (FlowEnds from="measure.reading" to="record.value" payload="nil" declared=false)))
+      (Membership visibility="default"
+        (Usage kind="allocation" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="allocate"
+          (ConnectorEnd target="measure"
+            (*ast.QualifiedName))
+          (ConnectorEnd target="probe"
+            (*ast.QualifiedName)))))))

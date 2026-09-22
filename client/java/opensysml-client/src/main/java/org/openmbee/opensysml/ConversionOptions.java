@@ -7,7 +7,8 @@ import java.util.Optional;
  * How a conversion reads its source.
  *
  * @param fromFormat the format to read the source as ({@code "sysml"}, {@code "kerml"}, {@code
- *     "text"}, {@code "ttl"}, {@code "turtle"} or {@code "rdf"}); absent infers it from a file's
+ *     "text"}, {@code "ttl"}, {@code "turtle"}, {@code "rdf"}, {@code "api-json"} or {@code
+ *     "json"}); absent infers it from a file's
  *     extension and reads a model's parsed source as notation — inline content has neither, so it
  *     must say
  * @param tolerateSyntaxErrors write notation back out even when the parser could not read all of

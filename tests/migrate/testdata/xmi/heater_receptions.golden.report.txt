@@ -46,8 +46,8 @@ Parameter	Heater::Nudge::delta	_onDelta	-> Heater::Nudge::delta
 Activity	Heater::Nudging	_nudging	-> Heater::Nudge	(written as the body of the operation Heater::Nudge, whose method it is)
 ObjectFlow	Heater::Nudging::<ObjectFlow>	_ngof
 Parameter	Heater::Nudging::d	_ngDelta	-> Heater::Nudge::delta	(stands for the operation's parameter delta at the same position, which is written once)
-ActivityParameterNode	Heater::Nudging::d	_ngnDelta	-> Heater::Nudging::delta	(the flows to and from the node name the parameter delta)
-InputPin	Heater::Nudging::set level::value	_ngsetVal	-> Heater::Nudging::'set level'.value
+ActivityParameterNode	Heater::Nudging::d	_ngnDelta	-> Heater::Nudge::delta	(the flows to and from the node name the parameter delta)
+InputPin	Heater::Nudging::set level::value	_ngsetVal	-> Heater::Nudge::'set level'.value
 Reception	Heater::OnNudge	_rcvNudge	-> Heater::OnNudge	(written as an action def accepting Nudge and performing its method Heater::Nudging as the operation Heater::Nudge, whose body it is, which its owner performs as onNudge from creation, accepting the signal again after each; nothing in the document declares or sends a signal to the ports rx, aux, so one arriving there is not accepted)
 StateMachine	Heater::Resetting	_resetting	-> Heater::Resetting
 Region	Heater::Resetting::<Region>	_rr	(the one region is written as the body of its owner)

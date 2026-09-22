@@ -57,6 +57,9 @@ func FromModel(name string, model *sysmlv1.Model) *Result {
 		results:      &simresults.Results{Source: name, Configurations: []simresults.ConfigurationResults{}},
 		w:            &writer{},
 		names:        map[*sysmlv1.Element]string{},
+		nodeNames:    map[*sysmlv1.Element]string{},
+		placeholders: map[*sysmlv1.Element]bool{},
+		nodeEnds:     map[*sysmlv1.Element]*placement{},
 		extras:       map[*sysmlv1.Element][]func(){},
 		flows:        map[*sysmlv1.Element][]*sysmlv1.Element{},
 		outcomes:     map[*sysmlv1.Element]*flowOutcome{},
@@ -108,6 +111,7 @@ func FromModel(name string, model *sysmlv1.Model) *Result {
 		m.root(root)
 	}
 	m.flushFlows()
+	m.placeholderEnds()
 	m.unwrittenEvents()
 	m.extensions()
 	return &Result{Notation: []byte(m.w.String()), Report: m.report, Results: m.results}
@@ -165,8 +169,14 @@ type migration struct {
 	// results index the run configurations' result snapshots.
 	results *simresults.Results
 	w       *writer
-	// names holds the names synthesized for anonymous elements.
-	names map[*sysmlv1.Element]string
+	// names holds the names synthesized for anonymous elements; nodeNames the names
+	// activity nodes are written under, fixed by their writer or ahead of it.
+	names     map[*sysmlv1.Element]string
+	nodeNames map[*sysmlv1.Element]string
+	// placeholders are the activity nodes written as inert placeholders, and nodeEnds
+	// the placements of the relationships ending at activity nodes, judged once all are written.
+	placeholders map[*sysmlv1.Element]bool
+	nodeEnds     map[*sysmlv1.Element]*placement
 	// extras are members other elements contribute to a body: a Satisfy is
 	// written inside the block that satisfies.
 	extras map[*sysmlv1.Element][]func()
@@ -479,6 +489,44 @@ func (m *migration) prepare() {
 		m.prepareLanes(act)
 	}
 	m.admitAbsent(laned)
+}
+
+// isActionNode reports whether e is an action node of an activity graph, written
+// as an action usage in the body of its graph.
+func isActionNode(e *sysmlv1.Element) bool {
+	return e.Role == "node" && nodeKind(e) == nodeAction && e.Parent != nil
+}
+
+// nodeGraph returns the activity or structured node whose graph n is an action node
+// of, and the definition the graph is written as the body of; nil for another element.
+func (m *migration) nodeGraph(n *sysmlv1.Element) (act, def *sysmlv1.Element) {
+	if !isActionNode(n) {
+		return nil, nil
+	}
+	act = n.Parent
+	switch {
+	case isStructured(act):
+		return act, act
+	case act.Type == "Activity":
+		if op := m.methodOf[act]; op != nil {
+			return act, op
+		}
+		return act, act
+	}
+	return nil, nil
+}
+
+// nameNode returns the v2 name of an action node: the one its graph's writer gave
+// it, or one fixed ahead of the write that the writer then keeps. "" for another element.
+func (m *migration) nameNode(n *sysmlv1.Element) string {
+	act, def := m.nodeGraph(n)
+	if act == nil {
+		return ""
+	}
+	if name, ok := m.nodeNames[n]; ok {
+		return name
+	}
+	return m.newActivity(act, def).name(n, baseName(n))
 }
 
 // exposeReached exposes the features a connector's ends or an instance's slots
@@ -1918,6 +1966,9 @@ func (m *migration) written(e *sysmlv1.Element) bool {
 	case "Association":
 		return e.Name != ""
 	}
+	if act, _ := m.nodeGraph(e); act != nil {
+		return m.written(act)
+	}
 	if op := m.methodOf[e]; op != nil {
 		return m.written(op)
 	}
@@ -2339,6 +2390,41 @@ func (m *migration) flushFlows() {
 	}
 }
 
+// placeholderEnds reports the relationships with activity-node ends once every node
+// is written: a pair ending at a placeholder is migrated no better than its end.
+func (m *migration) placeholderEnds() {
+	var rels []*sysmlv1.Element
+	for d := range m.nodeEnds {
+		rels = append(rels, d)
+	}
+	sort.Slice(rels, func(i, j int) bool { return rels[i].ID < rels[j].ID })
+	for _, d := range rels {
+		pl := m.nodeEnds[d]
+		for _, p := range pl.nodePairs {
+			for _, end := range p.ends {
+				if !m.placeholders[end] {
+					continue
+				}
+				if m.verdictOf(end) == Unmapped {
+					pl.fail(p.target)
+				}
+				pl.notes = append(pl.notes, "its end "+qualifiedName(end)+" is written only as a placeholder of a node that is not migrated")
+				break
+			}
+		}
+		v, target, note := pl.verdict()
+		m.add(d, v, target, note)
+	}
+}
+
+// verdictOf is the verdict e was reported with; Unmapped for an element not reported.
+func (m *migration) verdictOf(e *sysmlv1.Element) Verdict {
+	if i, ok := m.indexed[e.ID]; ok {
+		return m.report.Entries[i].Verdict
+	}
+	return Unmapped
+}
+
 // flowProperty finds the flow property of a port's type carrying item.
 func (m *migration) flowProperty(port, item *sysmlv1.Element) *sysmlv1.Element {
 	t := m.model.Ref(port, "type")
@@ -2413,12 +2499,32 @@ func (m *migration) dependencyPairs(d *sysmlv1.Element) (pairs []pair, failed in
 	return pairs, total - len(pairs), missing
 }
 
-// placement is the outcome of placing a Satisfy or Verify: where each pair was
-// written, and why the others could not be.
+// placement is the outcome of placing a relationship: the v2 target of each pair
+// written, how many pairs could not be and why, and the pairs ending at activity nodes.
 type placement struct {
-	written, failed int
-	target          string
-	notes           []string
+	targets   []string
+	failed    int
+	notes     []string
+	nodePairs []nodePair
+}
+
+// nodePair is a written pair with the activity nodes among its ends.
+type nodePair struct {
+	ends   []*sysmlv1.Element
+	target string
+}
+
+// write counts a pair written at target; fail retracts one written at target.
+func (pl *placement) write(target string) { pl.targets = append(pl.targets, target) }
+
+func (pl *placement) fail(target string) {
+	for i, t := range pl.targets {
+		if t == target {
+			pl.targets = append(pl.targets[:i], pl.targets[i+1:]...)
+			break
+		}
+	}
+	pl.failed++
 }
 
 // placeDependency registers, ahead of writing, a Satisfy, Verify, Expose or
@@ -2452,8 +2558,7 @@ func (m *migration) placeDependency(d *sysmlv1.Element) {
 			target, note, ok = m.verify(d, p.client, p.supplier, name)
 		}
 		if ok {
-			pl.written++
-			pl.target = target
+			pl.write(target)
 		} else {
 			pl.failed++
 		}
@@ -2499,10 +2604,9 @@ func (m *migration) dependency(d *sysmlv1.Element) {
 			name = m.freshName(m.scope, name)
 			pl.notes = append(pl.notes, fmt.Sprintf("pair %d is named %s so the pairs stay distinct", i+1, name))
 		}
-		target, written, note := m.dependencyPair(d, name, p.client, p.supplier)
+		target, written, note := m.dependencyPair(d, pl, name, p.client, p.supplier)
 		if written {
-			pl.written++
-			pl.target = target
+			pl.write(target)
 		} else {
 			pl.failed++
 		}
@@ -2510,8 +2614,12 @@ func (m *migration) dependency(d *sysmlv1.Element) {
 			pl.notes = append(pl.notes, note)
 		}
 	}
-	m.relationship(d, pl)
-	if pl.written > 0 {
+	if len(pl.nodePairs) > 0 {
+		m.nodeEnds[d] = pl
+	} else {
+		m.relationship(d, pl)
+	}
+	if len(pl.targets) > 0 {
 		m.stereotypeComments(d)
 	}
 }
@@ -2527,23 +2635,34 @@ func (m *migration) freshName(owner *sysmlv1.Element, name string) string {
 	return name
 }
 
-// relationship appends the one report entry of a relationship: mapped when every
-// pair was written, approximated when some were, unmapped when none.
+// relationship appends the one report entry of a relationship, leaving a trace
+// comment where it stands when no pair was written.
 func (m *migration) relationship(d *sysmlv1.Element, pl *placement) {
-	note := strings.Join(uniqueStrings(pl.notes), "; ")
-	target := ""
-	if pl.written == 1 {
-		target = pl.target
+	v, target, note := pl.verdict()
+	if v == Unmapped {
+		m.unmapped(d, note)
+		return
+	}
+	m.add(d, v, target, note)
+}
+
+// verdict derives a relationship's report entry from its placement: mapped when
+// every pair was written, approximated when some were, unmapped when none.
+func (pl *placement) verdict() (v Verdict, target, note string) {
+	note = strings.Join(uniqueStrings(pl.notes), "; ")
+	written := len(pl.targets)
+	if written == 1 {
+		target = pl.targets[0]
 	}
 	switch {
-	case pl.written == 0:
-		m.unmapped(d, note)
+	case written == 0:
+		return Unmapped, "", note
 	case pl.failed > 0:
-		m.add(d, Approximated, target, fmt.Sprintf("%d of %d relationships written; %s", pl.written, pl.written+pl.failed, note))
-	case pl.written > 1:
-		m.add(d, Approximated, "", fmt.Sprintf("written as %d relationships, one per client–supplier pair", pl.written))
+		return Approximated, target, fmt.Sprintf("%d of %d relationships written; %s", written, written+pl.failed, note)
+	case written > 1:
+		return Approximated, "", joinNotes(fmt.Sprintf("written as %d relationships, one per client–supplier pair", written), note)
 	default:
-		m.add(d, verdictFor(note), target, note)
+		return verdictFor(note), target, note
 	}
 }
 
@@ -2560,22 +2679,29 @@ func uniqueStrings(in []string) []string {
 	return out
 }
 
-// dependencyPair writes one client–supplier pair of a dependency, returning
-// the v2 target written, if any, whether it was written, and a note.
-func (m *migration) dependencyPair(d *sysmlv1.Element, name string, client, supplier *sysmlv1.Element) (string, bool, string) {
+// dependencyPair writes one client–supplier pair of a dependency, returning the v2
+// target written, if any, whether it was written, and a note; pl keeps its node ends.
+func (m *migration) dependencyPair(d *sysmlv1.Element, pl *placement, name string, client, supplier *sysmlv1.Element) (string, bool, string) {
 	if has(d, "DeriveReqt") {
 		target, note := m.derive(d, name, client, supplier)
 		return target, target != "", note
 	}
+	var nodes []*sysmlv1.Element
 	for _, end := range []*sysmlv1.Element{client, supplier} {
 		if !m.written(end) {
 			return "", false, "its end " + qualifiedName(end) + " is not migrated"
+		}
+		if act, _ := m.nodeGraph(end); act != nil {
+			nodes = append(nodes, end)
 		}
 	}
 	from, to := m.ref(client, m.scope), m.ref(supplier, m.scope)
 	target := ""
 	if name != "" {
 		target = m.qualified(append(m.segments(m.scope), name))
+	}
+	if len(nodes) > 0 {
+		pl.nodePairs = append(pl.nodePairs, nodePair{nodes, target})
 	}
 	decl := "dependency "
 	if name != "" {

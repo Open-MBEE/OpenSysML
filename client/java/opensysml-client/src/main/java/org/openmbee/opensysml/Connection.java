@@ -301,7 +301,7 @@ public final class Connection implements AutoCloseable {
    * @param content the notation to convert, which must name its format in {@code options} since
    *     inline content has no extension to infer it from
    * @param toFormat the format to write, named as the service names formats ({@code "sysml"},
-   *     {@code "kerml"}, {@code "ttl"}, …)
+   *     {@code "kerml"}, {@code "ttl"}, {@code "api-json"}, …)
    * @return the conversion, carrying the text and the formats used
    * @throws ModelException if the conversion failed; its diagnostics say why
    * @throws CapabilityException if the service does not advertise {@code convert}

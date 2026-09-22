@@ -55,11 +55,12 @@ func (a *activity) valueActionRefusal(n *sysmlv1.Element) (why string, v Verdict
 }
 
 // behaviorCallRefusal reports whether a call behavior action names a behavior
-// no action can call, with unbound arguments or no context to bind.
+// no action can call, with unbound arguments or no context to bind. One naming
+// none is a step, bare or declaring its pins; one naming a behavior the model lacks is refused.
 func (a *activity) behaviorCallRefusal(n *sysmlv1.Element) (why string, v Verdict, refused bool) {
 	b := a.m.model.Ref(n, "behavior")
 	if b == nil {
-		if a.leafStep(n) {
+		if len(a.m.model.Unresolved(n, "behavior")) == 0 {
 			return "", Mapped, false
 		}
 		return a.unbehaved(n), Unmapped, true
@@ -210,8 +211,8 @@ func (a *activity) produces(n *sysmlv1.Element) bool {
 }
 
 // producesAt reports whether an output pin may carry a value: its node must produce
-// one, an opaque body must assign the pin, and a call's pin must stand for a
-// parameter its callee gives a value.
+// one, an opaque body must assign the pin, a call must call a behavior, and its pin
+// must stand for a parameter the callee gives a value.
 func (a *activity) producesAt(pin *sysmlv1.Element) bool {
 	n := pin.Parent
 	if n == nil || !a.produces(n) {
@@ -219,6 +220,9 @@ func (a *activity) producesAt(pin *sysmlv1.Element) bool {
 	}
 	if n.Type == "OpaqueAction" {
 		return a.opaqueOf(n).assigned[pin]
+	}
+	if a.stubSource(pin) {
+		return false
 	}
 	if p := a.m.primitiveCalled(n); p != nil {
 		return slices.Index(outputPins(n), pin) < len(p.outs)
@@ -228,6 +232,13 @@ func (a *activity) producesAt(pin *sysmlv1.Element) bool {
 		return false
 	}
 	return p == nil || !a.m.dryOutputs(callee)[p]
+}
+
+// stubSource reports whether an output pin belongs to a call behavior action that
+// calls nothing: the step computes nothing, so the pin holds no value.
+func (a *activity) stubSource(pin *sysmlv1.Element) bool {
+	n := pin.Parent
+	return n != nil && n.Type == "CallBehaviorAction" && a.m.model.Ref(n, "behavior") == nil
 }
 
 // calleeOutput returns the activity a call node's output pin takes its value from and

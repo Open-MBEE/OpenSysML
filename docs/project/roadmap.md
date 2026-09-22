@@ -219,6 +219,7 @@ before re-recording anything.
 | Rejection oracle | 306 self-authored invalid models: 293 both reject by default and 297 when we are asked strictly, 4 the pilot alone by default and none strictly, 9 ours alone [285: 273 and 276, 3 the pilot alone] (the control-node rules the pilot leaves unimplemented and a non-Boolean succession guard) |
 | Validation census | 162 of 217 named constraints reported (156 faithful, 6 approximate), 1 not implemented, 1 deliberate, 53 unknown |
 | RDF corpus round trip | 353 of 353 models stable, none refused [346] |
+| API element form corpus round trip | 354 of 356 models stable, 2 respelled reals, none refused |
 
 The pilot differential, the Xpect oracle, the scope oracle and the rejection oracle are the
 external conformance statement, and their figures are generated into `README.md` by `make
@@ -944,24 +945,55 @@ which is how the view project materializes what it exposes) and sits after D9.2 
 order; independent of D1/D2, since it moves whole elements by id and never inspects their
 vocabulary.
 
-## D11 — the SysML v2 API element form as a `Convert` format
+## D11 — the SysML v2 API element form as a `Convert` format (done)
 
-`Convert` writes notation, `text` and Turtle, and reads the same three. The OMG SysML v2 API's
-own element form — JSON objects with `@type`, `@id` and the metamodel's properties as keys — is
-read today only as a *measurement*: `flexo.Elements` and `flexo.ElementByID` fetch what the
-Flexo API serves after a Turtle load, so the harness can say what survived. Nothing produces
-that form from a parsed model, and nothing parses it into one. A framework that wants the
+Before this item `Convert` wrote notation, `text` and Turtle, and read the same three. The OMG
+SysML v2 API's own element form — JSON objects with `@type`, `@id` and the metamodel's properties
+as keys — was read only as a *measurement*: `flexo.Elements` and `flexo.ElementByID` fetched what
+the Flexo API serves after a Turtle load, so the harness could say what survived. Nothing produced
+that form from a parsed model, and nothing parsed it into one. A framework that wants the
 normalized abstract syntax without an RDF store in the middle — a tool exchanging elements over
-the standard API, a client comparing two implementations element by element — has no format to
-ask for. Adding `api-json` to `Convert`, both directions, is the RDF mapping with a different
-serializer: the graph the `ttl` path builds already carries the metaclass and the properties, so
-the emitter walks it and the reader is `rdf_in.go`'s inverse over JSON. Reference-valued
-properties are `@id` objects, which is D7's question answered a second time, and the collection
-annotations D3.4 settled decide array-versus-object. Gate it as the RDF path is gated: a round-trip
-ratchet over `examples/`, and the live-stack harness posting the emitted elements to the Flexo API
-instead of a graph, reporting what that path keeps that the Turtle one loses or vice versa. After
-D1 and D2, since the element form inherits their vocabulary; before D9.2 if the branch read is to
-have a choice of representation.
+the standard API, a client comparing two implementations element by element — had no format to
+ask for.
+
+What landed:
+
+1. **The format.** `api-json` (alias `json`, extension `.json`) is a `Convert` format in both
+   directions, on every surface that names formats: `sysml -convert`/`-from`, `%save model.json`,
+   the service's `Convert` and the clients that name its formats (the Go and Python clients
+   carry the constant, the rest pass the name through). It is the RDF mapping
+   with a different serializer, not a second mapping: `export.WriteAPIJSON` walks the graph
+   `ToRDF` builds — the metaclass as `@type`, the id as `@id`, `sysml:` properties as bare keys,
+   `sysx:` ones with their prefix, IRIs as `{"@id": …}` spelled as the collection annotations
+   spell them, the annotated collections (D3.4) as arrays, typed literals as JSON scalars — and
+   `export.ReadAPIJSON` is `rdf_in.go`'s inverse over JSON, rebuilding the same triples and the
+   same annotations, so `sysml`, `ttl` and `api-json` convert among themselves through one graph
+   and the JSON of a model reads back to the Turtle of it triple for triple. What the mapping
+   does not state is refused on both sides — an unannotated repeated property, a real JSON cannot
+   spell, a document whose objects lack `@id` or `@type` or use a prefix the mapping does not
+   define — rather than dropped. Reference-valued properties are `@id` objects, D7's question
+   answered a second time; expression nodes are elements of the form with the ids the `expr:`
+   IRIs already had, and the reader tells them from elements by that id grammar. Documented in
+   [the RDF mapping](../reference/rdf-mapping.md), *The API element form*.
+2. **The ratchet.** `TestCorpusAPIJSONRoundTrip` pins notation → `api-json` → notation →
+   `api-json` per file over every model under `examples/`, sharing the Turtle gate's walk,
+   verdicts and policy ([rdf-corpus-roundtrip.md](rdf-corpus-roundtrip.md)); CI runs both. The
+   baseline is 354 of 356 `stable`, the other two `graph-diff` because JSON respells a `.1` real
+   as `0.1` — the one place the two forms' verdicts differ. Adjudicating it found and fixed two
+   reader defects at their root: a name literal on a property the encoder never writes expression
+   text on was read as expression text, and a real spelled `.1` was refused rather than respelled.
+3. **The live measurement.** `TestFlexoInterop` gained an `api-json-commit` side that posts the
+   emitted elements to the Flexo API's own commit endpoint as `DataVersion` payloads, beside the
+   Turtle graph-load and the hand-written JSON commit, and reports what each keeps. The service
+   accepts the form wholesale: all 59 elements of the reference fixture are listed and readable
+   by id, and the 505 properties it delivers are exactly the 505 the graph-load path delivers —
+   no property survives one path and not the other. The 77 lost on both are the `sysx:`
+   properties the service's reader ignores.
+
+One reading is decided by the graph rather than the standard and is recorded as such: a
+collection of one member is written as an object, since the graph carries no multiplicity and the
+annotation that marks a collection is written from its second member; the standard API serves
+every multi-valued property as an array, and the reader accepts both.
 
 ## D12 — the normative element ids of the standard library (done)
 
@@ -3236,9 +3268,10 @@ initial state. The decision is the release checklist's, recorded there.
   done (references are element IRIs, every metaclass written is concrete); the ontology modules (#774 on the
   previous repository) have to be re-proposed against this repository before **D8**'s profile,
   which only becomes conformant behind D1 and D2; **D12** (the standard library's normative
-  element ids) is done; **D11** (the API element form) after D1 and D2, when the branch read is
-  ready to offer it; **D9.1** and **D9.2** (the branch read and the whole-graph push) are done;
-  **D10** (write-through from a view-only project) reads and writes through them.
+  element ids) is done; **D11** (the API element form as a `Convert` format) is done, so the
+  branch read has a choice of representation; **D9.1** and **D9.2** (the branch read and the
+  whole-graph push) are done; **D10** (write-through from a view-only project) reads and
+  writes through them.
 - **Track F.** Closed. F1 and F2 landed together (#116) as the token-per-succession model, F3
   (#120) as the per-traversal merge on top of it; `known_failures.txt` has no line left to delete.
 - **Track S.** Landed in the order agreed: S1 (#110), S2 (#123), S3 (#125), S4 (#134); #141 added
