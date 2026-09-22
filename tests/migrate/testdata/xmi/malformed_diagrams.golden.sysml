@@ -44,6 +44,9 @@ package Views {
         render $::Views::asTextualNotation;
     }
 }
+package Spares {
+    part def Seal;
+}
 view Ownerless {
     expose Views::Pump;
     expose Views::Pump::rate;
@@ -52,4 +55,10 @@ view Ownerless {
 view 'Lost Owner' {
     expose Views::Valve;
     render $::Views::asInterconnectionDiagram;
+}
+view Inventory {
+    expose Spares;
+    expose Spares::Seal;
+    expose Views::Pump;
+    render $::Views::asTreeDiagram;
 }

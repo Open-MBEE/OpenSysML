@@ -139,6 +139,26 @@
     </xmi:Extension>
   </uml:Model>
 
+  <uml:Package xmi:type="uml:Package" xmi:id="_pkg_spares" name="Spares">
+    <packagedElement xmi:type="uml:Class" xmi:id="_blk_seal" name="Seal"/>
+  </uml:Package>
+
+  <xmi:Extension extender="Example UML Tool 1.0">
+    <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_root" name="Inventory">
+      <xmi:Extension extender="Example UML Tool 1.0">
+        <diagramRepresentation>
+          <diagram:DiagramRepresentationObject type="SysML Package Diagram" umlType="Package Diagram">
+            <diagramContents>
+              <usedElements>_pkg_spares</usedElements>
+              <usedElements>_blk_seal</usedElements>
+              <usedElements>_blk_pump</usedElements>
+            </diagramContents>
+          </diagram:DiagramRepresentationObject>
+        </diagramRepresentation>
+      </xmi:Extension>
+    </ownedDiagram>
+  </xmi:Extension>
+
   <sysml:Block xmi:id="_s_pump" base_Class="_blk_pump"/>
   <sysml:Block xmi:id="_s_valve" base_Class="_blk_valve"/>
 </xmi:XMI>

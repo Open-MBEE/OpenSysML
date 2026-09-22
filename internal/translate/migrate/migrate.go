@@ -114,6 +114,7 @@ func FromModel(name string, model *sysmlv1.Model) *Result {
 	for _, root := range model.Roots {
 		m.root(root)
 	}
+	m.views(nil)
 	m.flushFlows()
 	m.placeholderEnds()
 	m.unwrittenEvents()

@@ -1,10 +1,12 @@
 # SysML v1 to v2 migration report: malformed_diagrams.xmi
 # exported by Example UML Tool
-# migrated 23 element(s): 14 mapped, 9 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 26 element(s): 15 mapped, 11 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
-## approximated (9)
+## approximated (11)
+Diagram	Inventory	_diag_root	-> Inventory	(a SysML Package Diagram written as a view rendered asTreeDiagram; the diagram names no owner; written at the top level)
 Diagram	Lost Owner	_diag_unknown_owner	-> 'Lost Owner'	(a SysML Internal Block Diagram written as a view rendered asInterconnectionDiagram; ownerOfDiagram _gone resolves to no element; written at the top level, which holds it)
 Diagram	Ownerless	_diag_no_owner	-> Ownerless	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; the diagram names no owner; written at the top level, which holds it)
+Class	Spares::Seal	_blk_seal	-> Spares::Seal	(a plain UML class without «Block» is written as a part def)
 Diagram	Views::<Association>::Feeds	_diag_unwritten	-> Views::Feeds	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; its owner Association Views::<Association> has no v2 body; written in package Views; none of the 2 shown elements is written; the view exposes nothing; 2 of 2 shown elements are not written and not exposed)
 Diagram	Views::Dangling	_diag_dangling	-> Views::Dangling	(a Requirement Table written as a view rendered asElementTable; none of the 2 shown elements is written; the view exposes nothing; 2 of 2 shown ids resolve to no element)
 Diagram	Views::Empty	_diag_empty	-> Views::Empty	(a SysML Package Diagram written as a view rendered asTreeDiagram; the diagram shows nothing; the view exposes nothing)
@@ -13,8 +15,9 @@ Diagram	Views::Pump::<Diagram>	_diag_anonymous	-> Views::Pump::diagram	(a SysML 
 Diagram	Views::Pump::Bare	_diag_bare	-> Views::Pump::Bare	(a diagram of unknown kind written as a view rendered asTextualNotation; no diagram representation is serialized: what the diagram is and shows is unknown, and the view exposes nothing)
 Diagram	Views::Untyped	_diag_no_type	-> Views::Untyped	(a diagram of unknown kind written as a view rendered asTextualNotation; the representation names no diagram type)
 
-## mapped (14)
+## mapped (15)
 Model	Model	_m	(the root model's members are written at the top level)
+Package	Spares	_pkg_spares	-> Spares
 Package	Views	_pkg_views	-> Views
 Association	Views::<Association>	_assoc_feeds	(the anonymous association is written as its member-end properties)
 Enumeration	Views::Mode	_enum_mode	-> Views::Mode
