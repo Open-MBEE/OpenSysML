@@ -250,7 +250,8 @@ func (o *stepOrder) eligible(t Token) bool {
 }
 
 // tokenActed reports whether the step of the token snapshotted as before moved,
-// consumed, retired, resumed, forked or joined it, or took its awaited message.
+// consumed, retired, resumed, forked or joined it, took its awaited message, or
+// began work of its own that paused after one move.
 func (e *ActionExecutor) tokenActed(before Token, count int) bool {
 	if before.body != nil || len(e.tokens) != count {
 		return true
@@ -260,7 +261,8 @@ func (e *ActionExecutor) tokenActed(before Token, count int) bool {
 		return true
 	}
 	after := e.tokens[i]
-	return after.moved != before.moved || (before.Wait != nil && after.Wait == nil)
+	return after.moved != before.moved || (before.Wait != nil && after.Wait == nil) ||
+		(after.body != nil && after.body.paused.tokenStep)
 }
 
 // noteTokenOrder records the tokens a step advanced as a choice point when there are

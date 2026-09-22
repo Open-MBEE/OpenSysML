@@ -31,7 +31,7 @@ func runRouteToError(t *testing.T, exec *StateExecutor) error {
 			t.Fatal("expected the run to fail at the junction the composite state is left through")
 		}
 		return err
-	case <-time.After(10 * time.Second):
+	case <-watchdog(10 * time.Second):
 		t.Fatal("RunToCompletion hung on a junction the composite state is left through")
 	}
 	return nil

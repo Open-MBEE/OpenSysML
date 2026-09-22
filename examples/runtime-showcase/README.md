@@ -478,18 +478,22 @@ schedule reaches `transmitted | notRecharging` at t=241 with 100 frames
 received and the battery at 100.
 
 The two engines that run every schedule step finer than a round — one token of
-a `do` body at a time, the machine free to dispatch between two tokens — and so
-find a fork the fixed policies never take: at t=79 the order of the two regions'
+a `do` body at a time, the machine free to dispatch after any of them — find
+forks the fixed policies never take: at t=79 the order of the two regions'
 `do` rounds, which changes nothing under a whole-round policy, decides how many
-frames leave before `BatteryLow` interrupts. `-engine check` searches the choices
-exhaustively up to t=80 and tables the divergence — the battery ends as 39 or
-41, the data left as 52 224 or 53 248 bytes — with one witness per value, and
-`-check-witness <dir>` writes each to a file that `-schedule replay:<file>` runs
-again to the same values ([Checking every
+frames leave before `BatteryLow` interrupts, and the dispatch of `BatteryLow`
+may cut the transmission between a frame's `consume` and its `transmit`.
+`-engine check` searches the choices exhaustively up to t=80 and tables the
+divergence — the battery ends as 39 or 41, the data left as 51 200, 52 224 or
+53 248 bytes — with one witness per value, and `-check-witness <dir>` writes
+each to a file that `-schedule replay:<file>` runs again to the same values
+([Checking every
 schedule](../../docs/reference/cli.md#checking-every-schedule-of-an-action-or-a-state-machine)).
-The fixed policies' own run — the whole round, then the dispatch, 39 with 51 200
-bytes left — is an interleaving neither engine enumerates yet; the guide states
-the limit ([a do behavior under `explore` and
+The fixed policies' own run — the whole round, then the dispatch — is one of
+the interleavings enumerated; checked together with the station's machine, so
+that its count of frames is a checked feature too, `framesReceived` ends as 48,
+49 or 50, and the run ending at 50 frames with 39 and 51 200 is the fixed
+policies' ([a do behavior under `explore` and
 `check`](../../docs/guide/06-behavior.md#a-do-behavior-under-explore-and-check)):
 
 ```bash
@@ -499,27 +503,27 @@ the limit ([a do behavior under `explore` and
 ```
 
 ```
-✗ State machine SpacecraftComms::SpacecraftVehicle::modes: divergent up to t=80.0 (842 states, 998 moves, depth 334)
+✗ State machine SpacecraftComms::SpacecraftVehicle::modes: divergent up to t=80.0 (14664 states, 35546 moves, depth 757)
   divergent: this.battery ends as 39 or 41
-  divergent: this.data ends as 52224 or 53248
+  divergent: this.data ends as 51200 or 52224 or 53248
   (…)
 ```
 
 `-schedule explore` samples the same choices one whole run at a time, and its
-budget has to fit this model: a run to t=80 meets 278 choice points — which
-region of `modes` is entered first, which
-token acts, at every step of the looping `do` bodies where two are able to, and
-which region's `do round` goes first, every second `transmitting` and
-`recharging` fall due together — so the default depth of 64 leaves the round at
-t=79 past the budget, taking its first alternative in every run, and
-`explore:runs=300` alone tables the 41 outcome only, once per order the two
-regions are entered in. Every choice point a run
-met is listed in its witness, which sizes the depth; within it, the runs vary
-each choice point of the first run once, earliest first, so one more run than
-the first run's choice points reaches every alternative of the round at t=79:
+budget has to fit this model: a run to t=80 meets 516 choice points — which
+region of `modes` is entered first, which token acts, at every step of the
+looping `do` bodies where two are able to, which region's `do round` goes
+first and, at t=79, whether `BatteryLow` is dispatched before the next token —
+so the default depth of 64 leaves the round at t=79 past the budget, taking
+its first alternative in every run, and `explore:runs=300` alone tables the 41
+outcome only, once per order the two regions are entered in. Every choice
+point a run met is listed in its witness, which sizes the depth; within it,
+the runs vary each choice point of the first run once, earliest first, so the
+dispatch of `BatteryLow` before a frame's `consume` — the 495th choice of the
+first run — is first taken by run 496:
 
 ```bash
-./bin/sysml -schedule explore:runs=300,depth=512 -instantiate SpacecraftComms::mission \
+./bin/sysml -schedule explore:runs=500,depth=1024 -instantiate SpacecraftComms::mission \
   -state "SpacecraftComms::SpacecraftVehicle::modes SpacecraftComms::mission.spacecraftVehicle" \
   -advance 80 examples/runtime-showcase/spacecraft-comms.sysml
 ```
@@ -528,21 +532,21 @@ the first run's choice points reaches every alternative of the round at t=79:
 ? explored SpacecraftComms::SpacecraftVehicle::modes: 3 outcomes
 outcome                                                           | linearizations | witness
 ------------------------------------------------------------------+----------------+---------
-finalState recharging+lowPower; visits notRecharging, waitingGSPing, (…) this.battery = 41; (…) this.data = 53248; (…) | 22  | entering modes: notRecharging(entry) first of waitingGSPing(entry), notRecharging(entry); (…) do round at t=79.0: transmitting first of transmitting, recharging; (…)
-finalState recharging+lowPower; visits waitingGSPing, notRecharging, (…) this.battery = 39; (…) this.data = 52224; (…) | 4   | entering modes: waitingGSPing(entry) first of waitingGSPing(entry), notRecharging(entry); (…) do round at t=79.0: recharging first of transmitting, recharging; (…)
-finalState recharging+lowPower; visits waitingGSPing, notRecharging, (…) this.battery = 41; (…) this.data = 53248; (…) | 274 | entering modes: waitingGSPing(entry) first of waitingGSPing(entry), notRecharging(entry); (…) do round at t=79.0: transmitting first of transmitting, recharging; (…)
-incomplete: runs budget 300 hit after 300 runs
+finalState recharging+lowPower; visits notRecharging, waitingGSPing, (…) this.battery = 41; (…) this.data = 52224; (…) | 1   | entering modes: notRecharging(entry) first of waitingGSPing(entry), notRecharging(entry); (…) do round at t=79.0: transmitting first of transmitting, recharging; (…)
+finalState recharging+lowPower; visits waitingGSPing, notRecharging, (…) this.battery = 41; (…) this.data = 52224; (…) | 497 | entering modes: waitingGSPing(entry) first of waitingGSPing(entry), notRecharging(entry); (…) do round at t=79.0: transmitting first of transmitting, recharging; (…)
+finalState recharging+lowPower; visits waitingGSPing, notRecharging, (…) this.battery = 41; (…) this.data = 53248; (…) | 2   | entering modes: waitingGSPing(entry) first of waitingGSPing(entry), notRecharging(entry); (…) at t=79.0: dispatch accept BatteryLow first of do transmitting or recharging, dispatch accept BatteryLow
+incomplete: runs budget 500 hit after 500 runs
 ```
 
-The third row is the first run and the 273 that vary a choice the outcome
-does not turn on; the second is the run that let `recharging` go first at t=79
-and three more that vary a choice to the same end; the first is the run that
-entered `notRecharging` before `waitingGSPing` — the order the two regions of
-`modes` are entered in is a recorded choice, told apart by the visits — and the
-21 runs left in the budget once the first run's choices were varied, which vary
-that run's. `incomplete` is honest: 300 runs do not exhaust the orders of 278
-choices, and the table is the same at any
-`-jobs`.
+The second row is the first run and the 496 that vary a choice the outcome
+does not turn on; the third is run 496 and one more that varies the next such
+draw to the same end; the first is the run that entered `notRecharging` before
+`waitingGSPing` — the order the two regions of `modes` are entered in is a
+recorded choice, told apart by the visits. The 39 outcome needs two of the
+first run's draws at t=79 varied together — the charge's wait ending and the
+charge landing before the drain — so none of the 517 runs that vary each
+choice once reaches it; `check` does. `incomplete` is honest: 500 runs do not
+exhaust the orders of 516 choices, and the table is the same at any `-jobs`.
 
 ## Apollo 11
 

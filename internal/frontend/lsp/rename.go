@@ -54,6 +54,7 @@ func (s *Server) Rename(ctx context.Context, params *protocol.RenameParams) (*pr
 	// shorthand redefinition (`part redefines x;`) is both the declaration and a
 	// reference at the same span, and clients reject overlapping edits.
 	edited := map[protocol.DocumentURI]map[source.Span]bool{}
+	posOf := map[string]positions{}
 	addEdit := func(docName string, content []byte, span source.Span) {
 		uri := nameToURI(docName)
 		if edited[uri] == nil {
@@ -63,8 +64,13 @@ func (s *Server) Rename(ctx context.Context, params *protocol.RenameParams) (*pr
 			return
 		}
 		edited[uri][span] = true
+		pos, ok := posOf[docName]
+		if !ok {
+			pos = positionsFor(content)
+			posOf[docName] = pos
+		}
 		changes[uri] = append(changes[uri], protocol.TextEdit{
-			Range:   spanToRange(content, span),
+			Range:   pos.rangeOf(span),
 			NewText: params.NewName,
 		})
 	}

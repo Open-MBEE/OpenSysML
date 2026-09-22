@@ -36,3 +36,22 @@ func TestParseDuration(t *testing.T) {
 		}
 	}
 }
+
+// The unit binds to the primary before it, so a primary keeps its form and
+// anything else is parenthesized to be one quantity in seconds.
+func TestInSeconds(t *testing.T) {
+	for expr, want := range map[string]string{
+		"0.2":                                   "0.2 [SI::s]",
+		"this.settle":                           "this.settle [SI::s]",
+		"RandomFunctions::uniform(0.1, 0.25)":   "RandomFunctions::uniform(0.1, 0.25) [SI::s]",
+		"this.settle * 0.001":                   "(this.settle * 0.001) [SI::s]",
+		"(this.coarse + this.fine) * 0.001":     "((this.coarse + this.fine) * 0.001) [SI::s]",
+		"this.settle - 1.0":                     "(this.settle - 1.0) [SI::s]",
+		"if this.fast ? 0.1 else 0.2":           "(if this.fast ? 0.1 else 0.2) [SI::s]",
+		"this.settle > 1.0 ? this.settle : 0.1": "(this.settle > 1.0 ? this.settle : 0.1) [SI::s]",
+	} {
+		if got := inSeconds(expr); got != want {
+			t.Errorf("inSeconds(%q) = %q; want %q", expr, got, want)
+		}
+	}
+}

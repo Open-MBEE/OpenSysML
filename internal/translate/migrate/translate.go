@@ -428,6 +428,17 @@ func (m *migration) symbolicDuration(text, lang string, scope *sysmlv1.Element) 
 	return expr, true, note
 }
 
+// inSeconds writes expr as one quantity in seconds: `[SI::s]` binds to the primary
+// before it, so a compound expression is parenthesized first.
+func inSeconds(expr string) string {
+	if v, ok := parseExpr(expr + siSeconds); ok {
+		if ix, isIndex := v.(*ast.IndexExpr); isIndex && ix.Bracket {
+			return expr + siSeconds
+		}
+	}
+	return "(" + expr + ")" + siSeconds
+}
+
 // parseStatement reports whether line parses, without diagnostics, as one
 // member of an action body.
 func parseStatement(line string) bool {

@@ -1057,9 +1057,9 @@ func assertRefusedLeftOver(t *testing.T, err error, move int, choice ChoiceTaken
 }
 
 // A do-order move naming a state whose behavior is not due is refused before
-// either due behavior acts, so the run stops where the witness stopped fitting;
-// lwork's round, opened before the dispatch drawn ahead of its step, ends with
-// that step, and the round the move names opens after it with rwork due too.
+// either due behavior acts, so the run stops where the witness stopped fitting:
+// the dispatch drawn ahead of lwork's first move leaves both behaviors due, and
+// the move naming zork is refused with neither having moved.
 func TestReplayRefusesADoOrderMoveNotEnabled(t *testing.T) {
 	m := parseExploreModel(t, `package test {
 		private import ScalarValues::*;
@@ -1098,8 +1098,8 @@ func TestReplayRefusesADoOrderMoveNotEnabled(t *testing.T) {
 	if !errors.As(err, &refused) || refused.Move != 3 || !strings.Contains(err.Error(), "zork is not enabled (enabled: lwork, rwork)") {
 		t.Fatalf("error %T %v, want the do-order move refused", err, err)
 	}
-	if seq := FormatValue(exec.StateData()["seq"]); seq != "1" {
-		t.Errorf("seq is %v after the refusal, want 1: neither due behavior may act on a refused round", seq)
+	if seq := FormatValue(exec.StateData()["seq"]); seq != "0" {
+		t.Errorf("seq is %v after the refusal, want 0: neither due behavior may act on a refused move", seq)
 	}
 }
 

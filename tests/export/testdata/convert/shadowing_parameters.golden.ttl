@@ -94,6 +94,8 @@ elmt:Shadows__Sweep__items
     sysml:direction "in" ;
     sysml:type elmt:Shadows__Speed ;
     sysml:upperBound expr:Shadows__Sweep__items_pupperBound ;
+    sysml:ownedRelationship expr:Shadows__Sweep__items_pupperBound_om ;
+    sysml:ownedMembership expr:Shadows__Sweep__items_pupperBound_om ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        in items : Speed[*];\n" .
 
@@ -112,7 +114,20 @@ elmt:Shadows__Sweep__items_om
 expr:Shadows__Sweep__items_pupperBound
     a sysml:LiteralInfinity ;
     sysx:sourceText "*" ;
-    sysml:elementId "Shadows__Sweep__items_pupperBound" .
+    sysml:elementId "Shadows__Sweep__items_pupperBound" ;
+    sysml:owner elmt:Shadows__Sweep__items ;
+    sysml:owningRelationship expr:Shadows__Sweep__items_pupperBound_om ;
+    sysml:owningMembership expr:Shadows__Sweep__items_pupperBound_om .
+
+expr:Shadows__Sweep__items_pupperBound_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Shadows__Sweep__items_pupperBound_om" ;
+    sysml:owner elmt:Shadows__Sweep__items ;
+    sysml:memberElement expr:Shadows__Sweep__items_pupperBound ;
+    sysml:ownedMemberElement expr:Shadows__Sweep__items_pupperBound ;
+    sysml:ownedRelatedElement expr:Shadows__Sweep__items_pupperBound ;
+    sysml:owningRelatedElement elmt:Shadows__Sweep__items ;
+    sysml:membershipOwningNamespace elmt:Shadows__Sweep__items .
 
 elmt:Shadows__Sweep__value
     a sysml:AttributeUsage ;
@@ -151,14 +166,16 @@ elmt:Shadows__Sweep___402
     sysml:owningMembership elmt:Shadows__Sweep___402_om ;
     sysx:loopVariable "value" ;
     sysx:collection expr:Shadows__Sweep___402_pcollection ;
+    sysml:ownedRelationship expr:Shadows__Sweep___402_pcollection_om, elmt:Shadows__Sweep___402__cur_om ;
+    sysml:ownedMembership expr:Shadows__Sweep___402_pcollection_om, elmt:Shadows__Sweep___402__cur_om ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Shadows__Sweep___402__cur ;
-    sysml:ownedMembership elmt:Shadows__Sweep___402__cur_om ;
-    sysml:ownedRelationship elmt:Shadows__Sweep___402__cur_om ;
     sysml:ownedFeature elmt:Shadows__Sweep___402__cur ;
     sysml:ownedFeatureMembership elmt:Shadows__Sweep___402__cur_om ;
     sysx:sourceText "        for value in items {\n" ;
-    sysx:sourceTail "        }\n" .
+    sysx:sourceTail "        }\n" ;
+    json:ownedRelationship "[{\"@id\":\"Shadows__Sweep___402_pcollection_om\"},{\"@id\":\"Shadows__Sweep___402__cur_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Shadows__Sweep___402_pcollection_om\"},{\"@id\":\"Shadows__Sweep___402__cur_om\"}]" .
 
 elmt:Shadows__Sweep___402_om
     a sysml:FeatureMembership ;
@@ -176,7 +193,20 @@ expr:Shadows__Sweep___402_pcollection
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "items" ;
     sysml:elementId "Shadows__Sweep___402_pcollection" ;
-    sysml:referent elmt:Shadows__Sweep__items .
+    sysml:referent elmt:Shadows__Sweep__items ;
+    sysml:owner elmt:Shadows__Sweep___402 ;
+    sysml:owningRelationship expr:Shadows__Sweep___402_pcollection_om ;
+    sysml:owningMembership expr:Shadows__Sweep___402_pcollection_om .
+
+expr:Shadows__Sweep___402_pcollection_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Shadows__Sweep___402_pcollection_om" ;
+    sysml:owner elmt:Shadows__Sweep___402 ;
+    sysml:memberElement expr:Shadows__Sweep___402_pcollection ;
+    sysml:ownedMemberElement expr:Shadows__Sweep___402_pcollection ;
+    sysml:ownedRelatedElement expr:Shadows__Sweep___402_pcollection ;
+    sysml:owningRelatedElement elmt:Shadows__Sweep___402 ;
+    sysml:membershipOwningNamespace elmt:Shadows__Sweep___402 .
 
 elmt:Shadows__Sweep___402__cur
     a sysml:AttributeUsage ;
@@ -189,6 +219,8 @@ elmt:Shadows__Sweep___402__cur
     sysml:owningMembership elmt:Shadows__Sweep___402__cur_om ;
     sysml:declaredName "cur" ;
     sysml:value expr:Shadows__Sweep___402__cur_pvalue ;
+    sysml:ownedRelationship expr:Shadows__Sweep___402__cur_pvalue_om ;
+    sysml:ownedMembership expr:Shadows__Sweep___402__cur_pvalue_om ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "            attribute cur = value;\n" .
 
@@ -208,7 +240,22 @@ expr:Shadows__Sweep___402__cur_pvalue
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "value" ;
     sysml:elementId "Shadows__Sweep___402__cur_pvalue" ;
-    sysml:referent "value" .
+    sysml:referent "value" ;
+    sysml:owner elmt:Shadows__Sweep___402__cur ;
+    sysml:owningRelationship expr:Shadows__Sweep___402__cur_pvalue_om ;
+    sysml:owningMembership expr:Shadows__Sweep___402__cur_pvalue_om .
+
+expr:Shadows__Sweep___402__cur_pvalue_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Shadows__Sweep___402__cur_pvalue_om" ;
+    sysml:owner elmt:Shadows__Sweep___402__cur ;
+    sysml:memberElement expr:Shadows__Sweep___402__cur_pvalue ;
+    sysml:ownedMemberElement expr:Shadows__Sweep___402__cur_pvalue ;
+    sysml:ownedRelatedElement expr:Shadows__Sweep___402__cur_pvalue ;
+    sysml:owningRelatedElement elmt:Shadows__Sweep___402__cur ;
+    sysml:membershipOwningNamespace elmt:Shadows__Sweep___402__cur ;
+    sysml:featureWithValue elmt:Shadows__Sweep___402__cur ;
+    sysml:value expr:Shadows__Sweep___402__cur_pvalue .
 
 elmt:Shadows__Governor
     a sysml:StateDefinition ;
@@ -356,11 +403,13 @@ elmt:Shadows__Governor___404
     sysml:owningRelationship elmt:Shadows__Governor___404_om ;
     sysml:owningMembership elmt:Shadows__Governor___404_om ;
     sysx:transitionSyntax "source" ;
-    sysml:sourceFeature elmt:Shadows__Governor__idle ;
-    sysml:targetFeature elmt:Shadows__Governor__fast ;
+    sysml:source elmt:Shadows__Governor__idle ;
+    sysml:target elmt:Shadows__Governor__fast ;
     sysx:trigger "setSpeed(value)" ;
     sysx:triggerKeyword "accept" ;
     sysx:guard expr:Shadows__Governor___404_pguard ;
+    sysml:ownedRelationship expr:Shadows__Governor___404_pguard_om ;
+    sysml:ownedMembership expr:Shadows__Governor___404_pguard_om ;
     sysx:sourceText "        transition idle then fast accept setSpeed(value) if value > 0;\n" .
 
 elmt:Shadows__Governor___404_om
@@ -381,21 +430,118 @@ expr:Shadows__Governor___404_pguard
     sysml:elementId "Shadows__Governor___404_pguard" ;
     sysml:operator ">" ;
     sysml:argument expr:Shadows__Governor___404_pguard_pa0, expr:Shadows__Governor___404_pguard_pa1 ;
-    json:argument "[{\"@id\":\"Shadows__Governor___404_pguard_pa0\"},{\"@id\":\"Shadows__Governor___404_pguard_pa1\"}]" .
+    sysml:ownedRelationship expr:Shadows__Governor___404_pguard_pin0_om, expr:Shadows__Governor___404_pguard_pin1_om ;
+    sysml:ownedMembership expr:Shadows__Governor___404_pguard_pin0_om, expr:Shadows__Governor___404_pguard_pin1_om ;
+    sysml:ownedFeatureMembership expr:Shadows__Governor___404_pguard_pin0_om, expr:Shadows__Governor___404_pguard_pin1_om ;
+    sysml:ownedFeature expr:Shadows__Governor___404_pguard_pin0, expr:Shadows__Governor___404_pguard_pin1 ;
+    sysml:parameter expr:Shadows__Governor___404_pguard_pin0, expr:Shadows__Governor___404_pguard_pin1 ;
+    sysml:input expr:Shadows__Governor___404_pguard_pin0, expr:Shadows__Governor___404_pguard_pin1 ;
+    sysml:owner elmt:Shadows__Governor___404 ;
+    sysml:owningRelationship expr:Shadows__Governor___404_pguard_om ;
+    sysml:owningMembership expr:Shadows__Governor___404_pguard_om ;
+    json:argument "[{\"@id\":\"Shadows__Governor___404_pguard_pa0\"},{\"@id\":\"Shadows__Governor___404_pguard_pa1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Shadows__Governor___404_pguard_pin0_om\"},{\"@id\":\"Shadows__Governor___404_pguard_pin1_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Shadows__Governor___404_pguard_pin0_om\"},{\"@id\":\"Shadows__Governor___404_pguard_pin1_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Shadows__Governor___404_pguard_pin0_om\"},{\"@id\":\"Shadows__Governor___404_pguard_pin1_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Shadows__Governor___404_pguard_pin0\"},{\"@id\":\"Shadows__Governor___404_pguard_pin1\"}]" ;
+    json:parameter "[{\"@id\":\"Shadows__Governor___404_pguard_pin0\"},{\"@id\":\"Shadows__Governor___404_pguard_pin1\"}]" ;
+    json:input "[{\"@id\":\"Shadows__Governor___404_pguard_pin0\"},{\"@id\":\"Shadows__Governor___404_pguard_pin1\"}]" .
 
 expr:Shadows__Governor___404_pguard_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "value" ;
     sysml:elementId "Shadows__Governor___404_pguard_pa0" ;
     sysml:referent "value" ;
-    sysx:argumentIndex "0"^^xsd:integer .
+    sysml:owner expr:Shadows__Governor___404_pguard_pin0 ;
+    sysml:owningRelationship expr:Shadows__Governor___404_pguard_pa0_om ;
+    sysml:owningMembership expr:Shadows__Governor___404_pguard_pa0_om .
+
+expr:Shadows__Governor___404_pguard_pin0
+    a sysml:Feature ;
+    sysml:elementId "Shadows__Governor___404_pguard_pin0" ;
+    sysml:direction "in" ;
+    sysml:owner expr:Shadows__Governor___404_pguard ;
+    sysml:owningRelationship expr:Shadows__Governor___404_pguard_pin0_om ;
+    sysml:owningMembership expr:Shadows__Governor___404_pguard_pin0_om ;
+    sysml:ownedRelationship expr:Shadows__Governor___404_pguard_pa0_om ;
+    sysml:ownedMembership expr:Shadows__Governor___404_pguard_pa0_om .
+
+expr:Shadows__Governor___404_pguard_pin0_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Shadows__Governor___404_pguard_pin0_om" ;
+    sysml:owner expr:Shadows__Governor___404_pguard ;
+    sysml:memberElement expr:Shadows__Governor___404_pguard_pin0 ;
+    sysml:ownedMemberElement expr:Shadows__Governor___404_pguard_pin0 ;
+    sysml:ownedRelatedElement expr:Shadows__Governor___404_pguard_pin0 ;
+    sysml:owningRelatedElement expr:Shadows__Governor___404_pguard ;
+    sysml:membershipOwningNamespace expr:Shadows__Governor___404_pguard ;
+    sysml:ownedMemberFeature expr:Shadows__Governor___404_pguard_pin0 ;
+    sysml:ownedMemberParameter expr:Shadows__Governor___404_pguard_pin0 .
+
+expr:Shadows__Governor___404_pguard_pa0_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Shadows__Governor___404_pguard_pa0_om" ;
+    sysml:owner expr:Shadows__Governor___404_pguard_pin0 ;
+    sysml:memberElement expr:Shadows__Governor___404_pguard_pa0 ;
+    sysml:ownedMemberElement expr:Shadows__Governor___404_pguard_pa0 ;
+    sysml:ownedRelatedElement expr:Shadows__Governor___404_pguard_pa0 ;
+    sysml:owningRelatedElement expr:Shadows__Governor___404_pguard_pin0 ;
+    sysml:membershipOwningNamespace expr:Shadows__Governor___404_pguard_pin0 ;
+    sysml:featureWithValue expr:Shadows__Governor___404_pguard_pin0 ;
+    sysml:value expr:Shadows__Governor___404_pguard_pa0 .
 
 expr:Shadows__Governor___404_pguard_pa1
     a sysml:LiteralInteger ;
     sysx:sourceText "0" ;
     sysml:elementId "Shadows__Governor___404_pguard_pa1" ;
     sysml:value "0"^^xsd:integer ;
-    sysx:argumentIndex "1"^^xsd:integer .
+    sysml:owner expr:Shadows__Governor___404_pguard_pin1 ;
+    sysml:owningRelationship expr:Shadows__Governor___404_pguard_pa1_om ;
+    sysml:owningMembership expr:Shadows__Governor___404_pguard_pa1_om .
+
+expr:Shadows__Governor___404_pguard_pin1
+    a sysml:Feature ;
+    sysml:elementId "Shadows__Governor___404_pguard_pin1" ;
+    sysml:direction "in" ;
+    sysml:owner expr:Shadows__Governor___404_pguard ;
+    sysml:owningRelationship expr:Shadows__Governor___404_pguard_pin1_om ;
+    sysml:owningMembership expr:Shadows__Governor___404_pguard_pin1_om ;
+    sysml:ownedRelationship expr:Shadows__Governor___404_pguard_pa1_om ;
+    sysml:ownedMembership expr:Shadows__Governor___404_pguard_pa1_om .
+
+expr:Shadows__Governor___404_pguard_pin1_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Shadows__Governor___404_pguard_pin1_om" ;
+    sysml:owner expr:Shadows__Governor___404_pguard ;
+    sysml:memberElement expr:Shadows__Governor___404_pguard_pin1 ;
+    sysml:ownedMemberElement expr:Shadows__Governor___404_pguard_pin1 ;
+    sysml:ownedRelatedElement expr:Shadows__Governor___404_pguard_pin1 ;
+    sysml:owningRelatedElement expr:Shadows__Governor___404_pguard ;
+    sysml:membershipOwningNamespace expr:Shadows__Governor___404_pguard ;
+    sysml:ownedMemberFeature expr:Shadows__Governor___404_pguard_pin1 ;
+    sysml:ownedMemberParameter expr:Shadows__Governor___404_pguard_pin1 .
+
+expr:Shadows__Governor___404_pguard_pa1_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Shadows__Governor___404_pguard_pa1_om" ;
+    sysml:owner expr:Shadows__Governor___404_pguard_pin1 ;
+    sysml:memberElement expr:Shadows__Governor___404_pguard_pa1 ;
+    sysml:ownedMemberElement expr:Shadows__Governor___404_pguard_pa1 ;
+    sysml:ownedRelatedElement expr:Shadows__Governor___404_pguard_pa1 ;
+    sysml:owningRelatedElement expr:Shadows__Governor___404_pguard_pin1 ;
+    sysml:membershipOwningNamespace expr:Shadows__Governor___404_pguard_pin1 ;
+    sysml:featureWithValue expr:Shadows__Governor___404_pguard_pin1 ;
+    sysml:value expr:Shadows__Governor___404_pguard_pa1 .
+
+expr:Shadows__Governor___404_pguard_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Shadows__Governor___404_pguard_om" ;
+    sysml:owner elmt:Shadows__Governor___404 ;
+    sysml:memberElement expr:Shadows__Governor___404_pguard ;
+    sysml:ownedMemberElement expr:Shadows__Governor___404_pguard ;
+    sysml:ownedRelatedElement expr:Shadows__Governor___404_pguard ;
+    sysml:owningRelatedElement elmt:Shadows__Governor___404 ;
+    sysml:membershipOwningNamespace elmt:Shadows__Governor___404 .
 
 elmt:Shadows__Governor___405
     a sysml:TransitionUsage ;
@@ -407,11 +553,13 @@ elmt:Shadows__Governor___405
     sysml:owningRelationship elmt:Shadows__Governor___405_om ;
     sysml:owningMembership elmt:Shadows__Governor___405_om ;
     sysx:transitionSyntax "source" ;
-    sysml:sourceFeature elmt:Shadows__Governor__fast ;
-    sysml:targetFeature elmt:Shadows__Governor__idle ;
+    sysml:source elmt:Shadows__Governor__fast ;
+    sysml:target elmt:Shadows__Governor__idle ;
     sysx:trigger "w : Speed" ;
     sysx:triggerKeyword "accept" ;
     sysx:guard expr:Shadows__Governor___405_pguard ;
+    sysml:ownedRelationship expr:Shadows__Governor___405_pguard_om ;
+    sysml:ownedMembership expr:Shadows__Governor___405_pguard_om ;
     sysx:sourceText "        transition fast then idle accept w : Speed if w > 0;\n" .
 
 elmt:Shadows__Governor___405_om
@@ -432,18 +580,115 @@ expr:Shadows__Governor___405_pguard
     sysml:elementId "Shadows__Governor___405_pguard" ;
     sysml:operator ">" ;
     sysml:argument expr:Shadows__Governor___405_pguard_pa0, expr:Shadows__Governor___405_pguard_pa1 ;
-    json:argument "[{\"@id\":\"Shadows__Governor___405_pguard_pa0\"},{\"@id\":\"Shadows__Governor___405_pguard_pa1\"}]" .
+    sysml:ownedRelationship expr:Shadows__Governor___405_pguard_pin0_om, expr:Shadows__Governor___405_pguard_pin1_om ;
+    sysml:ownedMembership expr:Shadows__Governor___405_pguard_pin0_om, expr:Shadows__Governor___405_pguard_pin1_om ;
+    sysml:ownedFeatureMembership expr:Shadows__Governor___405_pguard_pin0_om, expr:Shadows__Governor___405_pguard_pin1_om ;
+    sysml:ownedFeature expr:Shadows__Governor___405_pguard_pin0, expr:Shadows__Governor___405_pguard_pin1 ;
+    sysml:parameter expr:Shadows__Governor___405_pguard_pin0, expr:Shadows__Governor___405_pguard_pin1 ;
+    sysml:input expr:Shadows__Governor___405_pguard_pin0, expr:Shadows__Governor___405_pguard_pin1 ;
+    sysml:owner elmt:Shadows__Governor___405 ;
+    sysml:owningRelationship expr:Shadows__Governor___405_pguard_om ;
+    sysml:owningMembership expr:Shadows__Governor___405_pguard_om ;
+    json:argument "[{\"@id\":\"Shadows__Governor___405_pguard_pa0\"},{\"@id\":\"Shadows__Governor___405_pguard_pa1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Shadows__Governor___405_pguard_pin0_om\"},{\"@id\":\"Shadows__Governor___405_pguard_pin1_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Shadows__Governor___405_pguard_pin0_om\"},{\"@id\":\"Shadows__Governor___405_pguard_pin1_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Shadows__Governor___405_pguard_pin0_om\"},{\"@id\":\"Shadows__Governor___405_pguard_pin1_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Shadows__Governor___405_pguard_pin0\"},{\"@id\":\"Shadows__Governor___405_pguard_pin1\"}]" ;
+    json:parameter "[{\"@id\":\"Shadows__Governor___405_pguard_pin0\"},{\"@id\":\"Shadows__Governor___405_pguard_pin1\"}]" ;
+    json:input "[{\"@id\":\"Shadows__Governor___405_pguard_pin0\"},{\"@id\":\"Shadows__Governor___405_pguard_pin1\"}]" .
 
 expr:Shadows__Governor___405_pguard_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "w" ;
     sysml:elementId "Shadows__Governor___405_pguard_pa0" ;
     sysml:referent "w" ;
-    sysx:argumentIndex "0"^^xsd:integer .
+    sysml:owner expr:Shadows__Governor___405_pguard_pin0 ;
+    sysml:owningRelationship expr:Shadows__Governor___405_pguard_pa0_om ;
+    sysml:owningMembership expr:Shadows__Governor___405_pguard_pa0_om .
+
+expr:Shadows__Governor___405_pguard_pin0
+    a sysml:Feature ;
+    sysml:elementId "Shadows__Governor___405_pguard_pin0" ;
+    sysml:direction "in" ;
+    sysml:owner expr:Shadows__Governor___405_pguard ;
+    sysml:owningRelationship expr:Shadows__Governor___405_pguard_pin0_om ;
+    sysml:owningMembership expr:Shadows__Governor___405_pguard_pin0_om ;
+    sysml:ownedRelationship expr:Shadows__Governor___405_pguard_pa0_om ;
+    sysml:ownedMembership expr:Shadows__Governor___405_pguard_pa0_om .
+
+expr:Shadows__Governor___405_pguard_pin0_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Shadows__Governor___405_pguard_pin0_om" ;
+    sysml:owner expr:Shadows__Governor___405_pguard ;
+    sysml:memberElement expr:Shadows__Governor___405_pguard_pin0 ;
+    sysml:ownedMemberElement expr:Shadows__Governor___405_pguard_pin0 ;
+    sysml:ownedRelatedElement expr:Shadows__Governor___405_pguard_pin0 ;
+    sysml:owningRelatedElement expr:Shadows__Governor___405_pguard ;
+    sysml:membershipOwningNamespace expr:Shadows__Governor___405_pguard ;
+    sysml:ownedMemberFeature expr:Shadows__Governor___405_pguard_pin0 ;
+    sysml:ownedMemberParameter expr:Shadows__Governor___405_pguard_pin0 .
+
+expr:Shadows__Governor___405_pguard_pa0_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Shadows__Governor___405_pguard_pa0_om" ;
+    sysml:owner expr:Shadows__Governor___405_pguard_pin0 ;
+    sysml:memberElement expr:Shadows__Governor___405_pguard_pa0 ;
+    sysml:ownedMemberElement expr:Shadows__Governor___405_pguard_pa0 ;
+    sysml:ownedRelatedElement expr:Shadows__Governor___405_pguard_pa0 ;
+    sysml:owningRelatedElement expr:Shadows__Governor___405_pguard_pin0 ;
+    sysml:membershipOwningNamespace expr:Shadows__Governor___405_pguard_pin0 ;
+    sysml:featureWithValue expr:Shadows__Governor___405_pguard_pin0 ;
+    sysml:value expr:Shadows__Governor___405_pguard_pa0 .
 
 expr:Shadows__Governor___405_pguard_pa1
     a sysml:LiteralInteger ;
     sysx:sourceText "0" ;
     sysml:elementId "Shadows__Governor___405_pguard_pa1" ;
     sysml:value "0"^^xsd:integer ;
-    sysx:argumentIndex "1"^^xsd:integer .
+    sysml:owner expr:Shadows__Governor___405_pguard_pin1 ;
+    sysml:owningRelationship expr:Shadows__Governor___405_pguard_pa1_om ;
+    sysml:owningMembership expr:Shadows__Governor___405_pguard_pa1_om .
+
+expr:Shadows__Governor___405_pguard_pin1
+    a sysml:Feature ;
+    sysml:elementId "Shadows__Governor___405_pguard_pin1" ;
+    sysml:direction "in" ;
+    sysml:owner expr:Shadows__Governor___405_pguard ;
+    sysml:owningRelationship expr:Shadows__Governor___405_pguard_pin1_om ;
+    sysml:owningMembership expr:Shadows__Governor___405_pguard_pin1_om ;
+    sysml:ownedRelationship expr:Shadows__Governor___405_pguard_pa1_om ;
+    sysml:ownedMembership expr:Shadows__Governor___405_pguard_pa1_om .
+
+expr:Shadows__Governor___405_pguard_pin1_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Shadows__Governor___405_pguard_pin1_om" ;
+    sysml:owner expr:Shadows__Governor___405_pguard ;
+    sysml:memberElement expr:Shadows__Governor___405_pguard_pin1 ;
+    sysml:ownedMemberElement expr:Shadows__Governor___405_pguard_pin1 ;
+    sysml:ownedRelatedElement expr:Shadows__Governor___405_pguard_pin1 ;
+    sysml:owningRelatedElement expr:Shadows__Governor___405_pguard ;
+    sysml:membershipOwningNamespace expr:Shadows__Governor___405_pguard ;
+    sysml:ownedMemberFeature expr:Shadows__Governor___405_pguard_pin1 ;
+    sysml:ownedMemberParameter expr:Shadows__Governor___405_pguard_pin1 .
+
+expr:Shadows__Governor___405_pguard_pa1_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Shadows__Governor___405_pguard_pa1_om" ;
+    sysml:owner expr:Shadows__Governor___405_pguard_pin1 ;
+    sysml:memberElement expr:Shadows__Governor___405_pguard_pa1 ;
+    sysml:ownedMemberElement expr:Shadows__Governor___405_pguard_pa1 ;
+    sysml:ownedRelatedElement expr:Shadows__Governor___405_pguard_pa1 ;
+    sysml:owningRelatedElement expr:Shadows__Governor___405_pguard_pin1 ;
+    sysml:membershipOwningNamespace expr:Shadows__Governor___405_pguard_pin1 ;
+    sysml:featureWithValue expr:Shadows__Governor___405_pguard_pin1 ;
+    sysml:value expr:Shadows__Governor___405_pguard_pa1 .
+
+expr:Shadows__Governor___405_pguard_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Shadows__Governor___405_pguard_om" ;
+    sysml:owner elmt:Shadows__Governor___405 ;
+    sysml:memberElement expr:Shadows__Governor___405_pguard ;
+    sysml:ownedMemberElement expr:Shadows__Governor___405_pguard ;
+    sysml:ownedRelatedElement expr:Shadows__Governor___405_pguard ;
+    sysml:owningRelatedElement elmt:Shadows__Governor___405 ;
+    sysml:membershipOwningNamespace elmt:Shadows__Governor___405 .
