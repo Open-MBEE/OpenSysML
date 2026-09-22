@@ -20,6 +20,32 @@ package Structure {
     part def Engine {
         attribute power : ScalarValues::Real;
         part wheel : Wheel;
+        action def Crank {
+            view Cranking {
+                expose Crank;
+                render Views::asTextualNotation;
+            }
+            first start then ignite;
+            action ignite {
+                /* body not migrated (the name "ignited" resolves to nothing readable: nothing visible from Structure::Engine::Cranking::ignite is called ignited) {JavaScript}:
+                 * ignited = true;
+                 */
+            }
+            first ignite then final;
+            action final terminate;
+        }
+        action crank : Crank;
+        action def Halt {
+            view Halting {
+                expose Halt;
+                expose Engine;
+                render Views::asTextualNotation;
+            }
+            /* body not migrated (the name "ignited" resolves to nothing readable: nothing visible from Structure::Engine::Halt is called ignited) {JavaScript}:
+             * ignited = false;
+             */
+        }
+        action halt : Halt;
     }
     part def Wheel;
     view 'Vehicle Structure' {

@@ -78,6 +78,26 @@ func TestDiagramViews(t *testing.T) {
 		{"a diagram named like a member of its package is renamed past it",
 			``, diagram("_d", "Pump", "_sys", "SysML Block Definition Diagram", "_pump"),
 			[]string{"view 'Pump 2' {\n        expose Pump;\n        render Views::asTreeDiagram;\n    }"}, Approximated, "written as Pump 2 since a member of its owner is also named Pump"},
+		{"a diagram of an activity that is an operation's method is written in the operation's body",
+			`<packagedElement xmi:type="uml:Class" xmi:id="_valve" name="Valve">
+			   <ownedOperation xmi:type="uml:Operation" xmi:id="_open" name="Open" method="_opening"/>
+			   <ownedBehavior xmi:type="uml:Activity" xmi:id="_opening" name="Opening" specification="_open">
+			     <node xmi:type="uml:InitialNode" xmi:id="_o_init"/>
+			   </ownedBehavior>
+			 </packagedElement>`,
+			diagram("_d", "Opening", "_opening", "SysML Activity Diagram", "_opening", "_pump"),
+			[]string{"action def Open {\n        view Opening {\n            expose Open;\n            expose Sys::Pump;\n            render Views::asTextualNotation;\n        }\n    }"}, Mapped,
+			"its owner Activity Valve::Opening is written as the body of action def Valve::Open, whose method it is"},
+		{"a diagram of an opaque behavior that is an operation's method is written in the operation's body",
+			`<packagedElement xmi:type="uml:Class" xmi:id="_valve" name="Valve">
+			   <ownedOperation xmi:type="uml:Operation" xmi:id="_shut" name="Shut" method="_shutting"/>
+			   <ownedBehavior xmi:type="uml:OpaqueBehavior" xmi:id="_shutting" name="Shutting" specification="_shut">
+			     <language>JavaScript</language><body>1;</body>
+			   </ownedBehavior>
+			 </packagedElement>`,
+			diagram("_d", "Shutting", "_shutting", "SysML Activity Diagram", "_pump"),
+			[]string{"action def Shut {\n        view Shutting {\n            expose Sys::Pump;\n            render Views::asTextualNotation;\n        }\n        /* body not migrated"}, Mapped,
+			"its owner OpaqueBehavior Valve::Shutting is written as the body of action def Valve::Shut, whose method it is"},
 		{"a diagram named like an earlier diagram of its owner is numbered",
 			``, diagram("_d1", "Overview", "_sys", "SysML Package Diagram") + diagram("_d", "Overview", "_sys", "SysML Package Diagram"),
 			[]string{"view Overview {", "view 'Overview 2' {"}, Approximated, "written as Overview 2"},

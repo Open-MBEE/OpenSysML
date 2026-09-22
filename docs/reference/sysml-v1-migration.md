@@ -54,8 +54,11 @@ returned over the service yet.
   and Cameo write (`diagramRepresentation` → `DiagramRepresentationObject` with its `type`,
   `umlType` and the `usedElements` it shows), is read as a tool-neutral diagram record: its
   name, kind, `ownerOfDiagram` and shown elements, and is written as a `view` (see
-  [Diagrams](#diagrams)). Layout and the rest of the extension — tool-internal state, a
-  Papyrus `.notation` file — are skipped; the report says so once per skipped profile or
+  [Diagrams](#diagrams)). The representation object is found by how it is held or tagged, or
+  failing that by the `umlType` it states; a child with a plain `type` (a comment, a legend, a
+  property) is not it, and what it lists is not shown. Layout and the rest of the extension —
+  tool-internal state, a Papyrus `.notation` file — are skipped; the report says so once per
+  skipped profile or
   library package. A package is library content
   when it is a profile, is marked «ModelLibrary» or «auxiliaryResource», or is a document root
   beside the user's Model or package bearing a standard library name; a user package named
@@ -271,10 +274,11 @@ quoted (`'Vehicle Design'`).
 A diagram is a v2 `view`: what it shows is exposed, how it is drawn is not migrated (a layout
 has no v2 form). The view is named after the diagram and written in the body of the v2
 element `ownerOfDiagram` names — a `package`, or the `part def`, `state def`, `action def`…
-written for a classifier — and exposes, by qualified name, every shown element the document
-writes; a shown element that is not written (a result snapshot, tool content, an element
-nothing refers to, a state or an action node, which have no name of their own outside their
-body) is dropped and counted in the note. A diagram showing nothing writable is still a view,
+written for a classifier; for a behavior that is the method of an operation, the operation's
+definition, whose body the behavior is written as — and exposes, by qualified name, every
+shown element the document writes; a shown element that is not written (a result snapshot,
+tool content, an element nothing refers to, a state or an action node, which have no name of
+their own outside their body) is dropped and counted in the note. A diagram showing nothing writable is still a view,
 with no `expose`, so the model's inventory of diagrams is complete. Each `expose` names one
 shown element by the qualified name the migrator writes elsewhere — `Package::Def::feature`,
 never a package's `::**` — so a diagram of a package exposes the members it pictures, not

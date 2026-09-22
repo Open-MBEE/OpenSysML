@@ -24,6 +24,22 @@
           <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
         </ownedAttribute>
         <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_anon" type="_blk_wheel" aggregation="composite"/>
+        <ownedOperation xmi:type="uml:Operation" xmi:id="_op_crank" name="Crank" method="_act_cranking"/>
+        <ownedOperation xmi:type="uml:Operation" xmi:id="_op_halt" name="Halt" method="_ob_halting"/>
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_cranking" name="Cranking" specification="_op_crank">
+          <node xmi:type="uml:InitialNode" xmi:id="_crank_init"/>
+          <node xmi:type="uml:OpaqueAction" xmi:id="_crank_ignite" name="ignite">
+            <language>JavaScript</language>
+            <body>ignited = true;</body>
+          </node>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_crank_final"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_crank_f1" source="_crank_init" target="_crank_ignite"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_crank_f2" source="_crank_ignite" target="_crank_final"/>
+        </ownedBehavior>
+        <ownedBehavior xmi:type="uml:OpaqueBehavior" xmi:id="_ob_halting" name="Halting" specification="_op_halt">
+          <language>JavaScript</language>
+          <body>ignited = false;</body>
+        </ownedBehavior>
       </packagedElement>
       <packagedElement xmi:type="uml:Class" xmi:id="_blk_wheel" name="Wheel"/>
       <packagedElement xmi:type="uml:Association" xmi:id="_assoc_drives" memberEnd="_prop_engine _assoc_end">
@@ -100,6 +116,7 @@
         <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_bdd" name="Vehicle Structure" ownerOfDiagram="_pkg_structure">
           <ownedComment xmi:type="uml:Comment" xmi:id="_note_bdd" body="A note on the canvas."/>
           <xmi:Extension extender="Example UML Tool 1.0">
+            <legend type="_pkg_behavior"><usedElements>_pkg_behavior</usedElements></legend>
             <diagramRepresentation>
               <diagram:DiagramRepresentationObject type="SysML Block Definition Diagram" umlType="Class Diagram">
                 <diagramContents>
@@ -168,6 +185,31 @@
               <diagram:DiagramRepresentationObject type="SysML Activity Diagram" umlType="Activity Diagram">
                 <diagramContents>
                   <usedElements>_act_start</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_cranking" name="Cranking" ownerOfDiagram="_act_cranking">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Activity Diagram" umlType="Activity Diagram">
+                <diagramContents>
+                  <usedElements>_act_cranking</usedElements>
+                  <usedElements>_crank_ignite</usedElements>
+                  <usedElements>_crank_f1</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_halting" name="Halting" ownerOfDiagram="_ob_halting">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Activity Diagram" umlType="Activity Diagram">
+                <diagramContents>
+                  <usedElements>_ob_halting</usedElements>
+                  <usedElements>_blk_engine</usedElements>
                 </diagramContents>
               </diagram:DiagramRepresentationObject>
             </diagramRepresentation>
