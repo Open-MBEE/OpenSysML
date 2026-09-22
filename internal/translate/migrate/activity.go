@@ -1034,11 +1034,11 @@ func probability(e *sysmlv1.Element) *sysmlv1.Stereotype {
 	return stereo(e, "Probability")
 }
 
-// foreignProbabilities notes each «Probability» on e from a profile other than
-// SysML's, whose probability is not read.
+// foreignProbabilities notes each «Probability» on e that neither is SysML's
+// nor specializes it, whose probability is not read.
 func (a *activity) foreignProbabilities(e *sysmlv1.Element) {
 	for _, s := range e.Stereotypes {
-		if s.Name == "Probability" && !isStandard(s) {
+		if s.Name == "Probability" && !appliesStandard(s, "Probability") {
 			a.m.add(e, Approximated, "", "«Probability» from "+s.Namespace+" is not the SysML profile's; its probability is not read")
 		}
 	}

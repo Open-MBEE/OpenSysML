@@ -191,18 +191,10 @@ type stmtEngine struct {
 	frameBuf []frame
 }
 
-// newStmtEngine returns an engine running statements against data — the
-// behavior's own values, which its statements read and write.
-func newStmtEngine(ctx *Context, host stmtHost, data map[string]Value) *stmtEngine {
-	return &stmtEngine{ctx: ctx, host: host, env: &stmtEnv{data: mapFrame(data)}, activation: ctx.newActivation()}
-}
-
-// newStmtEngineOver returns an engine whose statements also read outer value
-// maps — the attributes of the states enclosing the behavior — innermost last.
-func newStmtEngineOver(ctx *Context, host stmtHost, data map[string]Value, outer []map[string]Value) *stmtEngine {
-	engine := newStmtEngine(ctx, host, data)
-	engine.env.outer = outer
-	return engine
+// newStmtEngineOver returns an engine running statements against data, which also
+// read outer value maps — the attributes of the enclosing states — innermost last.
+func newStmtEngineOver(ctx *Context, host stmtHost, data frame, outer []map[string]Value) *stmtEngine {
+	return &stmtEngine{ctx: ctx, host: host, env: &stmtEnv{data: data, outer: outer}, activation: ctx.newActivation()}
 }
 
 // newStmtEngineIn returns an engine running statements against data, a frame

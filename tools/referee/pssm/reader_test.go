@@ -1,6 +1,7 @@
 package pssm
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -517,6 +518,124 @@ func TestReadActivityExpressions(t *testing.T) {
 	b := r.behavior(doc.ByID("actBig"))
 	if !strings.Contains(b.Source, "return this.value > 3") {
 		t.Errorf("source = %q", b.Source)
+	}
+}
+
+func TestReadStarvedActions(t *testing.T) {
+	// A trace whose segment is formatted from a parameter, beside a ToString
+	// whose input pin nothing feeds and a Concat fed by it alone: neither fires.
+	src := fixtureHead +
+		`  <packagedElement xmi:type="uml:Activity" xmi:id="actExit" name="exit">
+    <ownedParameter xmi:type="uml:Parameter" xmi:id="exitP1" name="p1" direction="in">
+      <type href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Boolean"/>
+    </ownedParameter>
+    <node xmi:type="uml:ActivityParameterNode" xmi:id="inP1" name="Input('p1')" parameter="exitP1"/>
+    <node xmi:type="uml:CallBehaviorAction" xmi:id="ts" name="call(ToString)">
+      <behavior href="http://www.omg.org/spec/FUML/20180501/fUML_Library.xmi#PrimitiveBehaviors-BooleanFunctions-ToString"/>
+      <argument xmi:type="uml:InputPin" xmi:id="tsX" name="x"/>
+      <result xmi:type="uml:OutputPin" xmi:id="tsOut" name="result"/>
+    </node>
+    <node xmi:type="uml:CallBehaviorAction" xmi:id="cc" name="call(concat)">
+      <behavior href="http://www.omg.org/spec/FUML/20180501/fUML_Library.xmi#PrimitiveBehaviors-StringFunctions-Concat"/>
+      <argument xmi:type="uml:InputPin" xmi:id="ccX" name="x"/>
+      <argument xmi:type="uml:InputPin" xmi:id="ccY" name="y"/>
+      <result xmi:type="uml:OutputPin" xmi:id="ccOut" name="result"/>
+    </node>
+    <node xmi:type="uml:CallBehaviorAction" xmi:id="fed" name="call(ToString)">
+      <behavior href="http://www.omg.org/spec/FUML/20180501/fUML_Library.xmi#PrimitiveBehaviors-BooleanFunctions-ToString"/>
+      <argument xmi:type="uml:InputPin" xmi:id="fedX" name="x"/>
+      <result xmi:type="uml:OutputPin" xmi:id="fedOut" name="result"/>
+    </node>
+    <node xmi:type="uml:ReadSelfAction" xmi:id="rs" name="this"><result xmi:type="uml:OutputPin" xmi:id="rsOut"/></node>
+    <node xmi:type="uml:CallOperationAction" xmi:id="tr" name="call(trace)" operation="opTrace">
+      <argument xmi:type="uml:InputPin" xmi:id="trSeg" name="segment"/>
+      <target xmi:type="uml:InputPin" xmi:id="trTarget" name="target"/>
+    </node>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="e1" source="inP1" target="fedX"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="e2" source="fedOut" target="trSeg"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="e3" source="rsOut" target="trTarget"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="e4" source="tsOut" target="ccX"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="e5" source="tsOut" target="ccY"/>
+  </packagedElement>
+` + fixtureTail
+	doc, err := xmi.Parse(strings.NewReader(src))
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := &reader{doc: doc, suite: &Suite{}, ops: map[string]*Operation{}, behaviors: map[string]*Behavior{}, events: map[string]*Event{}}
+	body := r.readActivity(doc.ByID("actExit"))
+	if len(body.Statements) != 1 || body.Statements[0].String() != "this.trace(ToString(p1))" {
+		t.Errorf("body = %+v", body.Statements)
+	}
+	if len(body.Unsupported) != 0 {
+		t.Errorf("unsupported = %q", body.Unsupported)
+	}
+	if got := body.Statements[0].Needs; len(got) != 1 || got[0] != "p1" {
+		t.Errorf("needs = %q, want [p1]", got)
+	}
+}
+
+func TestReadStatementNeeds(t *testing.T) {
+	// Three traces: a literal, one formatted from p1, and one of q ordered after it by a
+	// control flow: the first needs no input, the second p1, the third p1 and q.
+	src := fixtureHead +
+		`  <packagedElement xmi:type="uml:Activity" xmi:id="actExit" name="exit">
+    <ownedParameter xmi:type="uml:Parameter" xmi:id="exitP1" name="p1" direction="in">
+      <type href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Boolean"/>
+    </ownedParameter>
+    <ownedParameter xmi:type="uml:Parameter" xmi:id="exitQ" name="q" direction="in">
+      <type href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
+    </ownedParameter>
+    <ownedParameter xmi:type="uml:Parameter" xmi:id="exitOut" name="r" direction="out">
+      <type href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
+    </ownedParameter>
+    <node xmi:type="uml:ActivityParameterNode" xmi:id="inP1" parameter="exitP1"/>
+    <node xmi:type="uml:ActivityParameterNode" xmi:id="inQ" parameter="exitQ"/>
+    <node xmi:type="uml:ActivityParameterNode" xmi:id="outR" parameter="exitOut"/>
+    <node xmi:type="uml:ValueSpecificationAction" xmi:id="lit"><result xmi:type="uml:OutputPin" xmi:id="litOut"/><value xmi:type="uml:LiteralString" xmi:id="litV" value="a"/></node>
+    <node xmi:type="uml:CallBehaviorAction" xmi:id="ts">
+      <behavior href="http://www.omg.org/spec/FUML/20180501/fUML_Library.xmi#PrimitiveBehaviors-BooleanFunctions-ToString"/>
+      <argument xmi:type="uml:InputPin" xmi:id="tsX"/>
+      <result xmi:type="uml:OutputPin" xmi:id="tsOut"/>
+    </node>
+    <node xmi:type="uml:ReadSelfAction" xmi:id="rs1"><result xmi:type="uml:OutputPin" xmi:id="rs1Out"/></node>
+    <node xmi:type="uml:ReadSelfAction" xmi:id="rs2"><result xmi:type="uml:OutputPin" xmi:id="rs2Out"/></node>
+    <node xmi:type="uml:ReadSelfAction" xmi:id="rs3"><result xmi:type="uml:OutputPin" xmi:id="rs3Out"/></node>
+    <node xmi:type="uml:CallOperationAction" xmi:id="tr1" operation="opTrace">
+      <argument xmi:type="uml:InputPin" xmi:id="tr1Seg"/><target xmi:type="uml:InputPin" xmi:id="tr1Target"/>
+    </node>
+    <node xmi:type="uml:CallOperationAction" xmi:id="tr2" operation="opTrace">
+      <argument xmi:type="uml:InputPin" xmi:id="tr2Seg"/><target xmi:type="uml:InputPin" xmi:id="tr2Target"/>
+    </node>
+    <node xmi:type="uml:CallOperationAction" xmi:id="tr3" operation="opTrace">
+      <argument xmi:type="uml:InputPin" xmi:id="tr3Seg"/><target xmi:type="uml:InputPin" xmi:id="tr3Target"/>
+    </node>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="e1" source="litOut" target="tr1Seg"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="e2" source="rs1Out" target="tr1Target"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="e3" source="inP1" target="tsX"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="e4" source="tsOut" target="tr2Seg"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="e5" source="rs2Out" target="tr2Target"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="e6" source="inQ" target="tr3Seg"/>
+    <edge xmi:type="uml:ObjectFlow" xmi:id="e7" source="rs3Out" target="tr3Target"/>
+    <edge xmi:type="uml:ControlFlow" xmi:id="c1" source="tr1" target="tr2"/>
+    <edge xmi:type="uml:ControlFlow" xmi:id="c2" source="tr2" target="tr3"/>
+  </packagedElement>
+` + fixtureTail
+	doc, err := xmi.Parse(strings.NewReader(src))
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := &reader{doc: doc, suite: &Suite{}, ops: map[string]*Operation{}, behaviors: map[string]*Behavior{}, events: map[string]*Event{}}
+	body := r.readActivity(doc.ByID("actExit"))
+	want := []string{"this.trace(\"a\")", "this.trace(ToString(p1))", "this.trace(q)"}
+	needs := [][]string{nil, {"p1"}, {"p1", "q"}}
+	if len(body.Statements) != len(want) {
+		t.Fatalf("body = %+v", body.Statements)
+	}
+	for i, st := range body.Statements {
+		if st.String() != want[i] || fmt.Sprint(st.Needs) != fmt.Sprint(needs[i]) {
+			t.Errorf("statement %d = %s needs %q, want %s needs %q", i, st, st.Needs, want[i], needs[i])
+		}
 	}
 }
 

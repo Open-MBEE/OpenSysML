@@ -21,6 +21,7 @@ import (
 	"io"
 	"sort"
 	"strings"
+	"unicode"
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi"
 )
@@ -62,13 +63,23 @@ type Element struct {
 // whose base_* attribute names the element it extends.
 type Stereotype struct {
 	ID string
-	// Name is the stereotype's local name, such as "Block" or "Requirement".
+	// Name is the stereotype's local name, such as "Block" or "Requirement": the
+	// model name of a resolved Definition, else the XML name the tool wrote.
 	Name string
 	// Namespace is the XML namespace the profile was serialized under.
 	Namespace string
 	// BaseID is the value of the base_* attribute; Base resolves it.
 	BaseID string
 	Base   *Element
+	// Definition is the uml:Stereotype the application instantiates, when a
+	// document read defines it and the application can be traced to it: through
+	// the tool's stereotypesHREFS table, or by name within the profile the
+	// application's XML namespace denotes. Nil otherwise.
+	Definition *Element
+	// Generals are every stereotype Definition specializes, transitively:
+	// Model.Ancestors of the definition, so proxies stand for those defined
+	// outside the documents read. Empty without a Definition.
+	Generals []*Element
 	// Tags holds the tagged values: attributes other than xmi:* and base_*, and
 	// child elements as their text or idref, keyed by tag name. A multi-valued
 	// tag lists each value.
@@ -106,7 +117,15 @@ type Model struct {
 	Extensions []Extension
 	byID       map[string]*Element
 	proxies    map[string]*Element
+	// stereotypeHrefs are the definitions a tool's stereotypesHREFS table
+	// names for applied stereotypes, by namespace and name.
+	stereotypeHrefs map[stereotypeKey]string
+	ancestors       map[*Element][]*Element
 }
+
+// stereotypeKey identifies an applied stereotype by the namespace it is
+// serialized under and its local name.
+type stereotypeKey struct{ namespace, name string }
 
 // Extension records one skipped xmi:Extension: who wrote it and what it held.
 type Extension struct {
@@ -211,6 +230,49 @@ func (e *Element) HasStereotype(names ...string) bool {
 
 // IsProxy reports whether e stands for an element of another document.
 func (e *Element) IsProxy() bool { return e.Href != "" }
+
+// Generals returns the classifiers e directly specializes through its
+// generalizations: elements of the documents read, or proxies for others.
+func (m *Model) Generals(e *Element) []*Element {
+	var out []*Element
+	for _, g := range e.Owned("generalization") {
+		out = append(out, m.Refs(g, "general")...)
+	}
+	return out
+}
+
+// UnresolvedGenerals lists the ids of generals of e no document read defines.
+func (m *Model) UnresolvedGenerals(e *Element) []string {
+	var out []string
+	for _, g := range e.Owned("generalization") {
+		out = append(out, m.Unresolved(g, "general")...)
+	}
+	return out
+}
+
+// Ancestors returns every classifier e specializes, transitively, nearest
+// first and each once, in-document elements and proxies alike. e itself is
+// among them exactly when its generalizations cycle back to it.
+func (m *Model) Ancestors(e *Element) []*Element {
+	if a, ok := m.ancestors[e]; ok {
+		return a
+	}
+	seen := map[*Element]bool{}
+	var out []*Element
+	queue := m.Generals(e)
+	for len(queue) > 0 {
+		g := queue[0]
+		queue = queue[1:]
+		if seen[g] {
+			continue
+		}
+		seen[g] = true
+		out = append(out, g)
+		queue = append(queue, m.Generals(g)...)
+	}
+	m.ancestors[e] = out
+	return out
+}
 
 // Path returns the names from the root to e, for diagnostics; anonymous
 // elements contribute their type in angle brackets.
@@ -348,7 +410,10 @@ func (m *Model) parseEntry(f *zip.File) error {
 }
 
 func newModel() *Model {
-	return &Model{byID: map[string]*Element{}, proxies: map[string]*Element{}}
+	return &Model{
+		byID: map[string]*Element{}, proxies: map[string]*Element{},
+		stereotypeHrefs: map[stereotypeKey]string{}, ancestors: map[*Element][]*Element{},
+	}
 }
 
 // local returns the local part of an "prefix:name" value.
@@ -468,8 +533,30 @@ func (m *Model) special(raw *xmi.Element, owner, ref *Element) {
 			if ref != nil && child.Tag == "referenceExtension" {
 				m.describeReference(ref, child)
 			}
+			if child.Tag == "stereotype" && child.Parent != nil && child.Parent.Tag == "stereotypesHREFS" {
+				m.recordStereotypeHref(child)
+			}
 		}
 		m.Extensions = append(m.Extensions, ext)
+	}
+}
+
+// recordStereotypeHref reads one row of MagicDraw's stereotypesHREFS table,
+// `<stereotype name='prefix:Name' stereotypeHREF='doc#id'/>`, resolving the
+// prefix through the namespace declarations in scope.
+func (m *Model) recordStereotypeHref(raw *xmi.Element) {
+	name, href := raw.Attr("name"), raw.Attr("stereotypeHREF")
+	i := strings.IndexByte(name, ':')
+	if i < 0 || href == "" {
+		return
+	}
+	ns := raw.Namespace(name[:i])
+	if ns == "" {
+		return
+	}
+	key := stereotypeKey{ns, name[i+1:]}
+	if _, dup := m.stereotypeHrefs[key]; !dup {
+		m.stereotypeHrefs[key] = href
 	}
 }
 
@@ -568,14 +655,26 @@ func (m *Model) proxy(href string) *Element {
 
 // fragmentName reads the element name an href fragment spells, or "" when the
 // fragment is a generated id: PrimitiveTypes.xmi#Real names Real, and so does
-// SysML.xmi#SysML_dataType.Real, whose dotted path ends in the name.
+// SysML.xmi#SysML_dataType.Real, whose dotted path ends in the name, and
+// Papyrus's SysML.profile.uml#SysML.package_packagedElement_Blocks.stereotype_packagedElement_Block,
+// whose last path step ends in the name after its metaclass and role.
 func fragmentName(frag string) string {
 	if looksLikeName(frag) {
 		return frag
 	}
-	if i := strings.LastIndexByte(frag, '.'); i >= 0 && !strings.HasPrefix(frag, "_") {
-		if last := frag[i+1:]; looksLikeName(last) {
+	if strings.HasPrefix(frag, "_") {
+		return ""
+	}
+	last := frag
+	if i := strings.LastIndexByte(frag, '.'); i >= 0 {
+		last = frag[i+1:]
+		if looksLikeName(last) {
 			return last
+		}
+	}
+	if i := strings.LastIndexByte(last, '_'); i >= 0 && strings.Contains(frag, ".") {
+		if name := last[i+1:]; looksLikeName(name) {
+			return name
 		}
 	}
 	return ""
@@ -596,9 +695,9 @@ func looksLikeName(s string) bool {
 	return true
 }
 
-// link resolves each stereotype application to its base element. An
-// application of an element outside the documents read (a proxy) is kept
-// unresolved, since nothing in the model is extended by it.
+// link resolves each stereotype application to its base element and to the
+// stereotype defining it. An application of an element outside the documents
+// read (a proxy) is kept unresolved, since nothing in the model is extended by it.
 func (m *Model) link() {
 	for _, s := range m.Stereotypes {
 		if base, ok := m.byID[s.BaseID]; ok {
@@ -615,4 +714,130 @@ func (m *Model) link() {
 			}
 		}
 	}
+	defs := m.stereotypeDefinitions()
+	for _, s := range m.Stereotypes {
+		if s.Definition = m.definitionOf(s, defs); s.Definition != nil {
+			s.Generals = m.Ancestors(s.Definition)
+			if s.Definition.Name != "" {
+				s.Name = s.Definition.Name
+			}
+		}
+	}
+}
+
+// stereotypeDefinitions lists every uml:Stereotype the documents read define.
+func (m *Model) stereotypeDefinitions() []*Element {
+	var defs []*Element
+	var walk func(*Element)
+	walk = func(e *Element) {
+		if e.Type == "Stereotype" {
+			defs = append(defs, e)
+		}
+		for _, c := range e.Children {
+			walk(c)
+		}
+	}
+	for _, r := range m.Roots {
+		walk(r)
+	}
+	return defs
+}
+
+// definitionOf finds the stereotype an application instantiates: the one the
+// tool's stereotypesHREFS table names when it has one, else the single
+// definition of the same name whose owning profile the application's XML
+// namespace denotes. Nothing is guessed when neither settles it.
+func (m *Model) definitionOf(s *Stereotype, defs []*Element) *Element {
+	if href, ok := m.stereotypeHrefs[stereotypeKey{s.Namespace, s.Name}]; ok {
+		if i := strings.LastIndexByte(href, '#'); i >= 0 {
+			if d := m.byID[href[i+1:]]; d != nil && d.Type == "Stereotype" {
+				return d
+			}
+		}
+		return nil
+	}
+	var found *Element
+	for _, d := range defs {
+		if !SameName(d.Name, s.Name) || !denotes(s.Namespace, d) {
+			continue
+		}
+		if found != nil {
+			return nil
+		}
+		found = d
+	}
+	return found
+}
+
+// denotes reports whether the XML namespace an application is serialized
+// under names a package owning definition d: by the package's URI, by the
+// nsURI of an Ecore annotation on it, or by the namespace's document name
+// spelling the package's name as a tool derives one from the other.
+func denotes(ns string, d *Element) bool {
+	doc := namespaceDocument(ns)
+	for p := d.Parent; p != nil; p = p.Parent {
+		switch p.Type {
+		case "Profile", "Package", "Model":
+		default:
+			continue
+		}
+		if p.Attrs["URI"] == ns || annotatedNamespace(p, ns) || (doc != "" && SameName(p.Name, doc)) {
+			return true
+		}
+	}
+	return false
+}
+
+// annotatedNamespace reports whether an Ecore annotation under package p
+// (Papyrus writes one per profile definition) declares the nsURI ns.
+func annotatedNamespace(p *Element, ns string) bool {
+	var found bool
+	var walk func(*Element)
+	walk = func(e *Element) {
+		if found || e.Attrs["nsURI"] == ns {
+			found = true
+			return
+		}
+		for _, c := range e.Children {
+			walk(c)
+		}
+	}
+	for _, a := range p.Owned("eAnnotations") {
+		walk(a)
+	}
+	return found
+}
+
+// namespaceDocument is the last path segment of a namespace URI without its
+// model extension: MagicDraw derives it from the profile's name.
+func namespaceDocument(ns string) string {
+	doc := ns
+	if i := strings.IndexAny(doc, "#?"); i >= 0 {
+		doc = doc[:i]
+	}
+	doc = strings.TrimRight(doc, "/")
+	if i := strings.LastIndexByte(doc, '/'); i >= 0 {
+		doc = doc[i+1:]
+	}
+	for _, ext := range []string{".xmi", ".uml", ".xml"} {
+		if len(doc) > len(ext) && strings.EqualFold(doc[len(doc)-len(ext):], ext) {
+			return doc[:len(doc)-len(ext)]
+		}
+	}
+	return doc
+}
+
+// SameName compares names up to the characters a tool replaces to make an
+// XML name of a model name: case and everything but letters and digits.
+func SameName(a, b string) bool {
+	return foldName(a) == foldName(b)
+}
+
+func foldName(s string) string {
+	return strings.Map(func(r rune) rune {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			return unicode.ToLower(r)
+		}
+		return -1
+	}, s)
 }

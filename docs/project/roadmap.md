@@ -873,23 +873,33 @@ converted graph into a Layer 1 branch by `PUT` and measures what the service rea
 directions are refereed against the live stack, and both are element-keyed, which is what identity
 bought.
 
-What is missing is the round trip a modeller expects from a repository, and each piece is small
+The round trip a modeller expects from a repository is now in place; each piece landed small
 now that D3.4 is in:
 
-1. **Read a branch as notation.** `-sync-diff` reads a branch to compare it; nothing converts a
-   branch to `.sysml`. `sysml -convert sysml -from <endpoint or flexo:// URL>` is the decoder D3.4
-   completed, applied to the graph the service serves, and `-sync-state` already knows the branch
-   and the last commit.
-2. **Push a whole graph.** The harness's `PUT .../branches/{branch}/graph` with the ETag
-   precondition and `?message=` is the fast path for a first load or a re-baseline, where the
-   element-wise commit of `-sync-apply` is the wrong shape. Expose it as the write half of the
-   same flag, with the token from `flexo.EnvToken` as today.
+1. **Read a branch as notation** — landed. `sysml <branch-url> -convert sysml` (or `ttl`)
+   reads a Flexo MMS project branch as its head commit's RDF graph — the read `-sync-diff`
+   makes — and converts it through `convert.FromGraph`. The URL is the SysML v2 branch
+   resource (`http(s)://host[:port][/base]/projects/{p}/branches/{b}`) or the
+   `flexo://{p}/{b}` shorthand for the configured endpoint, parsed by
+   `flexo.ParseBranchURL`; the head commit is recorded in the sync state
+   (`-sync-state`, or `<output>.sync.json` beside `-o`).
+2. **Push a whole graph** — landed. `sysml model.sysml -convert ttl -o <branch-url>`
+   replaces the branch's model graph through Layer 1's `PUT .../branches/{b}/graph`
+   (`flexo.PutGraph`, conditioned on the branch etag `flexo.BranchETag` reads; the
+   harness's unconditional load stays as `LoadTurtle`), and `flexo.Repository.Push`
+   refuses a moved head — one the sync state's last-seen commit does not name, or one
+   that answers the write's `If-Match` with 412 — as `StaleBranchError` with nothing
+   written. The commit Layer 1 makes is recorded in `<model>.sync.json`; the token is
+   `flexo.EnvToken` as today.
 3. **What survives the hop.** D2 and D1 decide how much of a pushed model the read path gets
-   back; the harness's 369 of 452 is the number to move, and it is re-measured, not asserted,
-   after each.
+   back; the harness's figure is re-measured, not asserted, after each. Re-recorded with the
+   branch read and push in place: graph-load delivers 505 of 582 properties (59 of 59 elements
+   listed), the 77 undelivered all in the `sysx:` extension namespace, and the element-wise
+   apply now carries the `FeatureValue` memberships the standard vocabulary writes (17 of 17
+   elements read back on the initial commit).
 
-Nothing here is a new subsystem; the order is D9.1 → D9.2, and D9.3 is the RDF track's existing
-order applied to this use.
+Nothing here was a new subsystem; the order was D9.1 → D9.2, and D9.3 is the RDF track's
+existing order applied to this use.
 
 ## D10 — write-through from a view-only project to the projects it shows
 
@@ -3165,10 +3175,10 @@ manual; #267, #289 and #293 closed Q2; Q4 (#849) landed independently ahead of t
 1. **I2, I3, then I4's client** — the shared fixtures, the thin R, Julia and MATLAB packages, the
    C client, each derived from the wire contract (I1, landed in #848); the C *ABI* half of I4 is
    not here — it is step 7.
-3. **D2 and D1, then D9.1 and D9.2** — Flexo: the standard vocabulary for expression trees and
-   end structure, then the authenticated push and the branch read (the collection JSON annotations,
-   D3.4, landed in #850). Push and read depend on the vocabulary quality, which is why they come
-   last in the step; re-record the live-stack harness after D1/D2.
+3. **D2 and D1** — Flexo: the standard vocabulary for expression trees and end structure (the
+   collection JSON annotations, D3.4, landed in #850; the branch read and the authenticated
+   whole-graph push, D9.1 and D9.2, landed with `-convert` over a branch URL). What the hop
+   carries depends on the vocabulary quality; re-record the live-stack harness after D1/D2.
 4. **X8's harness halves, then X7's native layout** — normalization and adjudication in
    the pilot differential and a standalone RDF expression-tree round trip, so every later
    expression item is measured; the set and tensor native layouts when something needs them.
@@ -3226,9 +3236,9 @@ initial state. The decision is the release checklist's, recorded there.
   done (references are element IRIs, every metaclass written is concrete); the ontology modules (#774 on the
   previous repository) have to be re-proposed against this repository before **D8**'s profile,
   which only becomes conformant behind D1 and D2; **D12** (the standard library's normative
-  element ids) is done; **D11** (the API element form) after D1 and D2, and before D9.2 if the
-  branch read is to offer it; **D10** (write-through from a view-only project) after D9.1 and
-  D9.2, which it reads and writes through.
+  element ids) is done; **D11** (the API element form) after D1 and D2, when the branch read is
+  ready to offer it; **D9.1** and **D9.2** (the branch read and the whole-graph push) are done;
+  **D10** (write-through from a view-only project) reads and writes through them.
 - **Track F.** Closed. F1 and F2 landed together (#116) as the token-per-succession model, F3
   (#120) as the per-traversal merge on top of it; `known_failures.txt` has no line left to delete.
 - **Track S.** Landed in the order agreed: S1 (#110), S2 (#123), S3 (#125), S4 (#134); #141 added

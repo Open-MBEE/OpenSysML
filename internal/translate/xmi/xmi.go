@@ -60,10 +60,24 @@ type Element struct {
 	ID       string
 	Attrs    map[string]string
 	XMIAttrs map[string]string
-	Text     string
-	Children []*Element
-	Parent   *Element
-	Line     int
+	// Namespaces are the xmlns declarations on this element, prefix to URI;
+	// the default namespace is under "".
+	Namespaces map[string]string
+	Text       string
+	Children   []*Element
+	Parent     *Element
+	Line       int
+}
+
+// Namespace resolves a prefix to the URI declared for it on this element or
+// the nearest ancestor, or "" when none declares it.
+func (e *Element) Namespace(prefix string) string {
+	for cur := e; cur != nil; cur = cur.Parent {
+		if uri, ok := cur.Namespaces[prefix]; ok {
+			return uri
+		}
+	}
+	return ""
 }
 
 // Attr returns the attribute named by its local name, or "" when absent.
@@ -255,12 +269,22 @@ func newElement(t xml.StartElement) *Element {
 			e.ID = a.Value
 		case isXMI(a):
 			e.XMIAttrs[a.Name.Local] = a.Value
-		case a.Name.Space == "xmlns" || a.Name.Local == "xmlns":
+		case a.Name.Space == "xmlns":
+			e.declare(a.Name.Local, a.Value)
+		case a.Name.Local == "xmlns":
+			e.declare("", a.Value)
 		default:
 			e.Attrs[a.Name.Local] = a.Value
 		}
 	}
 	return e
+}
+
+func (e *Element) declare(prefix, uri string) {
+	if e.Namespaces == nil {
+		e.Namespaces = map[string]string{}
+	}
+	e.Namespaces[prefix] = uri
 }
 
 // place indexes e by id and files it under the open element, or as the root.
