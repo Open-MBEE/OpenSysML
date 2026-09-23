@@ -143,6 +143,54 @@ package 'Fleet Viewpoints' {
         }
         perform action 'gallery Method' : 'Gallery Method';
     }
+    viewpoint 'Selected Figures Viewpoint' {
+        action def 'Selected Figures Method' {
+            first start then 'Truck Diagrams';
+            action 'Truck Diagrams';
+            first 'Truck Diagrams' then Sort;
+            action Sort;
+            first Sort then Image;
+            action Image;
+            first Image then final;
+            action final terminate;
+        }
+        perform action 'selected Figures Method' : 'Selected Figures Method';
+    }
+    viewpoint 'Other Figures Viewpoint' {
+        action def 'Other Figures Method' {
+            first start then 'Not Truck Diagrams';
+            action 'Not Truck Diagrams';
+            first 'Not Truck Diagrams' then Image;
+            action Image;
+            first Image then final;
+            action final terminate;
+        }
+        perform action 'other Figures Method' : 'Other Figures Method';
+    }
+    viewpoint 'Figure Owners Viewpoint' {
+        action def 'Figure Owners Method' {
+            first start then 'Collect Owners';
+            action 'Collect Owners';
+            first 'Collect Owners' then Sort;
+            action Sort;
+            first Sort then List;
+            action List;
+            first List then final;
+            action final terminate;
+        }
+        perform action 'figure Owners Method' : 'Figure Owners Method';
+    }
+    viewpoint 'No Figures Viewpoint' {
+        action def 'No Figures Method' {
+            first start then 'Packages Only';
+            action 'Packages Only';
+            first 'Packages Only' then Image;
+            action Image;
+            first Image then final;
+            action final terminate;
+        }
+        perform action 'no Figures Method' : 'No Figures Method';
+    }
     viewpoint 'Traceability Viewpoint' {
         action def 'Traceability Method' {
             first start then 'fork';
@@ -234,6 +282,10 @@ package 'Fleet Documents' {
         view figures :> Figures;
         view fleet :> 'Fleet Views'::Fleet;
         view gallery :> 'Fleet Views'::Gallery;
+        view selected :> 'Fleet Views'::'Truck Figures';
+        view others :> 'Fleet Views'::'Other Figures';
+        view owners :> 'Fleet Views'::'Figure Owners';
+        view noFigures :> 'Fleet Views'::'No Figures';
         /* applied stereotype «Document» */
     }
     view Introduction {
@@ -446,6 +498,16 @@ package 'Fleet Documents' {
             /* not migrated: «Paragraph» Comment '<Comment>' — the paragraph's comment has no body */
         }
     }
+    calc def 'Fleet Brief List Rows' :> DocumentQueries::Query {
+        DocumentQueries::Project(
+            source = DocumentQueries::OrderBy(
+                source = DocumentQueries::Named(qualifiedName = ("Fleet::Structure::Truck", "Fleet::Structure")),
+                property = "name",
+                direction = "ascending",
+                missing = "last",
+                multiple = "first"),
+            properties = ("name"))
+    }
     part def 'Fleet Brief Document' :> DocumentQueries::Document {
         attribute redefines title = "Fleet Brief";
         ref truck : $::Fleet::Structure::Truck;
@@ -485,6 +547,34 @@ package 'Fleet Documents' {
                 ref redefines source = truck.'Truck Internals';
             }
         }
+        part 'Truck Figures' : DocumentQueries::Section {
+            attribute redefines title = "Truck Figures";
+            part diagram : DocumentQueries::Diagram {
+                attribute redefines caption = "Truck Internals";
+                ref redefines source = truck.'Truck Internals';
+            }
+            part 'diagram 2' : DocumentQueries::Diagram {
+                attribute redefines caption = "Truck Structure";
+                ref redefines source = $::Fleet::Structure::'Truck Structure';
+            }
+        }
+        part 'Other Figures' : DocumentQueries::Section {
+            attribute redefines title = "Other Figures";
+            part diagram : DocumentQueries::Diagram {
+                attribute redefines caption = "Fleet Overview";
+                ref redefines source = 'Fleet Views'::Fleet.'Fleet Overview';
+            }
+        }
+        part 'Figure Owners' : DocumentQueries::Section {
+            attribute redefines title = "Figure Owners";
+            part list : DocumentQueries::List {
+                attribute redefines style = "bullet";
+                calc items : 'Fleet Brief List Rows';
+            }
+        }
+        part 'No Figures' : DocumentQueries::Section {
+            attribute redefines title = "No Figures";
+        }
     }
 }
 package 'Fleet Views' {
@@ -503,5 +593,28 @@ package 'Fleet Views' {
     view Gallery {
         satisfy 'Fleet Viewpoints'::'Gallery Viewpoint';
         expose $::Fleet::Structure::Truck::'Truck Internals';
+    }
+    view 'Truck Figures' {
+        satisfy 'Fleet Viewpoints'::'Selected Figures Viewpoint';
+        expose $::Fleet::Structure::'Truck Structure';
+        expose 'Fleet Viewpoints'::'Parts Viewpoint'::'Parts Method'::'Parts Method Flow';
+        expose $::Fleet::Structure::Truck::'Truck Internals';
+        expose Fleet::'Fleet Overview';
+    }
+    view 'Other Figures' {
+        satisfy 'Fleet Viewpoints'::'Other Figures Viewpoint';
+        expose $::Fleet::Structure::'Truck Structure';
+        expose 'Fleet Viewpoints'::'Parts Viewpoint'::'Parts Method'::'Parts Method Flow';
+        expose $::Fleet::Structure::Truck::'Truck Internals';
+        expose Fleet::'Fleet Overview';
+    }
+    view 'Figure Owners' {
+        satisfy 'Fleet Viewpoints'::'Figure Owners Viewpoint';
+        expose $::Fleet::Structure::Truck::'Truck Internals';
+        expose $::Fleet::Structure::'Truck Structure';
+    }
+    view 'No Figures' {
+        satisfy 'Fleet Viewpoints'::'No Figures Viewpoint';
+        expose $::Fleet::Structure::'Truck Structure';
     }
 }

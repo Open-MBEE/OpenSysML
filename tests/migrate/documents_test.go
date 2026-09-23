@@ -35,6 +35,21 @@ func wantInOrder(t *testing.T, what, got string, want ...string) {
 	}
 }
 
+// markdownSection is the Markdown from heading to the next heading of its
+// level, or "" when the document has no such heading.
+func markdownSection(md, heading string) string {
+	i := strings.Index(md, heading)
+	if i < 0 {
+		return ""
+	}
+	body := md[i:]
+	level := heading[:strings.IndexByte(heading, ' ')+1]
+	if j := strings.Index(body[len(heading):], "\n"+level); j >= 0 {
+		body = body[:len(heading)+j]
+	}
+	return body
+}
+
 // markdown renders a migrated document through the Markdown backend.
 func markdown(t *testing.T, s *repl.Session, name string) string {
 	t.Helper()
@@ -308,15 +323,35 @@ func TestMigratedDocumentsRender(t *testing.T) {
 	// in, so both Diagram blocks name the view from the global namespace. A
 	// view inside a part def is reached through a usage of it the Document
 	// declares; one inside another view through that view.
+	// A filter, sort or collect before an Image transforms the diagrams as it
+	// does the elements: Truck Figures keeps the two Truck.* diagrams sorted
+	// by name, Other Figures the one diagram neither pattern excludes, Figure
+	// Owners lists the diagrams' owners, and No Figures draws nothing once a
+	// metaclass filter keeps no diagram.
+	wantNote(t, r, "_st_nofig_image", migrate.Mapped,
+		"it draws nothing: «FilterByMetaclasses» Fleet Viewpoints::No Figures Viewpoint::No Figures Method::Packages Only keeps none of the diagrams the view exposes or the node targets")
 	brief := markdown(t, s, "'Fleet Documents'::'Fleet Brief Document'")
 	wantInOrder(t, "Fleet Brief Markdown", brief,
 		"# Fleet Brief", "## Figures", "*Truck Structure*", "```mermaid", "The truck and what it hauls",
 		"## Fleet", "*Truck Structure*", "```mermaid", "The truck and what it hauls",
 		"*Truck Internals*", "```mermaid", "axles",
 		"*Fleet Overview*", "```mermaid", "Requirements",
-		"## Gallery", "*Figure: Inside the truck*", "```mermaid", "axles")
-	if strings.Count(brief, "```mermaid") != 5 {
-		t.Errorf("Fleet Brief Markdown draws %d diagrams, want 5:\n%s", strings.Count(brief, "```mermaid"), brief)
+		"## Gallery", "*Figure: Inside the truck*", "```mermaid", "axles",
+		"## Truck Figures", "*Truck Internals*", "```mermaid", "axles", "*Truck Structure*", "```mermaid", "Trailer",
+		"## Other Figures", "*Fleet Overview*", "```mermaid", "Requirements",
+		"## Figure Owners", "- Structure\n- Truck",
+		"## No Figures")
+	if strings.Count(brief, "```mermaid") != 8 {
+		t.Errorf("Fleet Brief Markdown draws %d diagrams, want 8:\n%s", strings.Count(brief, "```mermaid"), brief)
+	}
+	if body := markdownSection(brief, "## Truck Figures"); strings.Contains(body, "*Fleet Overview*") {
+		t.Errorf("Truck Figures draws a diagram the name filter drops:\n%s", body)
+	}
+	if body := markdownSection(brief, "## Other Figures"); strings.Contains(body, "*Truck") {
+		t.Errorf("Other Figures draws a diagram the name filter excludes:\n%s", body)
+	}
+	if body := markdownSection(brief, "## No Figures"); strings.Contains(body, "```mermaid") {
+		t.Errorf("No Figures draws a diagram the metaclass filter drops:\n%s", body)
 	}
 	if strings.Contains(brief, "showCaptions is false") {
 		t.Fatalf("a caption DocGen hides is rendered:\n%s", brief)

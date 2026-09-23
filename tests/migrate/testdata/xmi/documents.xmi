@@ -157,6 +157,58 @@
         </ownedBehavior>
       </packagedElement>
 
+      <packagedElement xmi:type="uml:Class" xmi:id="_vp_selected" name="Selected Figures Viewpoint" classifierBehavior="_act_selected">
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_selected" name="Selected Figures Method">
+          <node xmi:type="uml:InitialNode" xmi:id="_selected_init"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_selected_names" name="Truck Diagrams"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_selected_sort" name="Sort"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_selected_image" name="Image"/>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_selected_final"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_selected_e1" source="_selected_init" target="_selected_names"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_selected_e2" source="_selected_names" target="_selected_sort"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_selected_e3" source="_selected_sort" target="_selected_image"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_selected_e4" source="_selected_image" target="_selected_final"/>
+        </ownedBehavior>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_vp_others" name="Other Figures Viewpoint" classifierBehavior="_act_others">
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_others" name="Other Figures Method">
+          <node xmi:type="uml:InitialNode" xmi:id="_others_init"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_others_names" name="Not Truck Diagrams"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_others_image" name="Image"/>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_others_final"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_others_e1" source="_others_init" target="_others_names"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_others_e2" source="_others_names" target="_others_image"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_others_e3" source="_others_image" target="_others_final"/>
+        </ownedBehavior>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_vp_owners" name="Figure Owners Viewpoint" classifierBehavior="_act_owners">
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_owners" name="Figure Owners Method">
+          <node xmi:type="uml:InitialNode" xmi:id="_owners_init"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_owners_collect" name="Collect Owners"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_owners_sort" name="Sort"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_owners_list" name="List"/>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_owners_final"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_owners_e1" source="_owners_init" target="_owners_collect"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_owners_e2" source="_owners_collect" target="_owners_sort"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_owners_e3" source="_owners_sort" target="_owners_list"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_owners_e4" source="_owners_list" target="_owners_final"/>
+        </ownedBehavior>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_vp_nofig" name="No Figures Viewpoint" classifierBehavior="_act_nofig">
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_nofig" name="No Figures Method">
+          <node xmi:type="uml:InitialNode" xmi:id="_nofig_init"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_nofig_packages" name="Packages Only"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_nofig_image" name="Image"/>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_nofig_final"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_nofig_e1" source="_nofig_init" target="_nofig_packages"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_nofig_e2" source="_nofig_packages" target="_nofig_image"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_nofig_e3" source="_nofig_image" target="_nofig_final"/>
+        </ownedBehavior>
+      </packagedElement>
+
       <packagedElement xmi:type="uml:Class" xmi:id="_vp_trace" name="Traceability Viewpoint" classifierBehavior="_act_trace">
         <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_trace" name="Traceability Method">
           <node xmi:type="uml:InitialNode" xmi:id="_trace_init"/>
@@ -250,6 +302,10 @@
         <ownedAttribute xmi:type="uml:Property" xmi:id="_brief_figures" name="figures" type="_view_figures" aggregation="composite"/>
         <ownedAttribute xmi:type="uml:Property" xmi:id="_brief_fleet" name="fleet" type="_view_fleet" aggregation="composite"/>
         <ownedAttribute xmi:type="uml:Property" xmi:id="_brief_gallery" name="gallery" type="_view_gallery" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_brief_selected" name="selected" type="_view_selected" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_brief_others" name="others" type="_view_others" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_brief_owners" name="owners" type="_view_owners" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_brief_nofig" name="noFigures" type="_view_nofig" aggregation="composite"/>
       </packagedElement>
 
       <packagedElement xmi:type="uml:Class" xmi:id="_view_intro" name="Introduction">
@@ -312,6 +368,29 @@
         <generalization xmi:type="uml:Generalization" xmi:id="_gen_gallery" general="_vp_gallery"/>
       </packagedElement>
       <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_gallery" client="_view_gallery" supplier="_diag_truck_internals"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_selected" name="Truck Figures">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_selected" general="_vp_selected"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_selected" client="_view_selected" supplier="_diag_truck"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_selected_flow" client="_view_selected" supplier="_diag_parts_flow"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_selected_internals" client="_view_selected" supplier="_diag_truck_internals"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_selected_overview" client="_view_selected" supplier="_diag_fleet_overview"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_others" name="Other Figures">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_others" general="_vp_others"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_others" client="_view_others" supplier="_diag_truck"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_others_flow" client="_view_others" supplier="_diag_parts_flow"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_others_internals" client="_view_others" supplier="_diag_truck_internals"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_others_overview" client="_view_others" supplier="_diag_fleet_overview"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_owners" name="Figure Owners">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_owners" general="_vp_owners"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_owners_internals" client="_view_owners" supplier="_diag_truck_internals"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_owners" client="_view_owners" supplier="_diag_truck"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_nofig" name="No Figures">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_nofig" general="_vp_nofig"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_nofig" client="_view_nofig" supplier="_diag_truck"/>
     </packagedElement>
 
     <xmi:Extension extender="Example UML Tool 1.0">
@@ -385,6 +464,10 @@
   <sysml:Viewpoint xmi:id="_st_vp_safety" base_Class="_vp_safety" purpose="List the safety requirements."/>
   <sysml:Viewpoint xmi:id="_st_vp_figures" base_Class="_vp_figures"/>
   <sysml:Viewpoint xmi:id="_st_vp_gallery" base_Class="_vp_gallery"/>
+  <sysml:Viewpoint xmi:id="_st_vp_selected" base_Class="_vp_selected"/>
+  <sysml:Viewpoint xmi:id="_st_vp_others" base_Class="_vp_others"/>
+  <sysml:Viewpoint xmi:id="_st_vp_owners" base_Class="_vp_owners"/>
+  <sysml:Viewpoint xmi:id="_st_vp_nofig" base_Class="_vp_nofig"/>
   <sysml:Viewpoint xmi:id="_st_vp_trace" base_Class="_vp_trace"/>
   <sysml:Viewpoint xmi:id="_st_vp_odd" base_Class="_vp_odd"/>
   <sysml:Viewpoint xmi:id="_st_vp_broken" base_Class="_vp_broken"/>
@@ -403,6 +486,10 @@
   <sysml:View xmi:id="_st_view_notes" base_Class="_view_notes"/>
   <sysml:View xmi:id="_st_view_fleet" base_Class="_view_fleet"/>
   <sysml:View xmi:id="_st_view_gallery" base_Class="_view_gallery"/>
+  <sysml:View xmi:id="_st_view_selected" base_Class="_view_selected"/>
+  <sysml:View xmi:id="_st_view_others" base_Class="_view_others"/>
+  <sysml:View xmi:id="_st_view_owners" base_Class="_view_owners"/>
+  <sysml:View xmi:id="_st_view_nofig" base_Class="_view_nofig"/>
 
   <sysml:Conform xmi:id="_st_conform_intro" base_Generalization="_gen_intro"/>
   <sysml:Conform xmi:id="_st_conform_reqs" base_Generalization="_gen_reqs"/>
@@ -416,6 +503,10 @@
   <sysml:Conform xmi:id="_st_conform_notes" base_Generalization="_gen_notes"/>
   <sysml:Conform xmi:id="_st_conform_fleet" base_Generalization="_gen_fleet"/>
   <sysml:Conform xmi:id="_st_conform_gallery" base_Generalization="_gen_gallery"/>
+  <sysml:Conform xmi:id="_st_conform_selected" base_Generalization="_gen_selected"/>
+  <sysml:Conform xmi:id="_st_conform_others" base_Generalization="_gen_others"/>
+  <sysml:Conform xmi:id="_st_conform_owners" base_Generalization="_gen_owners"/>
+  <sysml:Conform xmi:id="_st_conform_nofig" base_Generalization="_gen_nofig"/>
 
   <sysml:Expose xmi:id="_st_expose_intro" base_Dependency="_expose_intro"/>
   <sysml:Expose xmi:id="_st_expose_reqs" base_Dependency="_expose_reqs"/>
@@ -429,6 +520,17 @@
   <sysml:Expose xmi:id="_st_expose_fleet_internals" base_Dependency="_expose_fleet_internals"/>
   <sysml:Expose xmi:id="_st_expose_fleet_overview" base_Dependency="_expose_fleet_overview"/>
   <sysml:Expose xmi:id="_st_expose_gallery" base_Dependency="_expose_gallery"/>
+  <sysml:Expose xmi:id="_st_expose_selected" base_Dependency="_expose_selected"/>
+  <sysml:Expose xmi:id="_st_expose_selected_flow" base_Dependency="_expose_selected_flow"/>
+  <sysml:Expose xmi:id="_st_expose_selected_internals" base_Dependency="_expose_selected_internals"/>
+  <sysml:Expose xmi:id="_st_expose_selected_overview" base_Dependency="_expose_selected_overview"/>
+  <sysml:Expose xmi:id="_st_expose_others" base_Dependency="_expose_others"/>
+  <sysml:Expose xmi:id="_st_expose_others_flow" base_Dependency="_expose_others_flow"/>
+  <sysml:Expose xmi:id="_st_expose_others_internals" base_Dependency="_expose_others_internals"/>
+  <sysml:Expose xmi:id="_st_expose_others_overview" base_Dependency="_expose_others_overview"/>
+  <sysml:Expose xmi:id="_st_expose_owners_internals" base_Dependency="_expose_owners_internals"/>
+  <sysml:Expose xmi:id="_st_expose_owners" base_Dependency="_expose_owners"/>
+  <sysml:Expose xmi:id="_st_expose_nofig" base_Dependency="_expose_nofig"/>
 
   <Document_View_Collaborator_Profile:Document xmi:id="_st_doc_handbook" base_Class="_doc_handbook"/>
   <Document_Profile_:Document xmi:id="_st_doc_brief" base_Class="_doc_brief"/>
@@ -484,6 +586,24 @@
     <titles>Inside the truck</titles>
     <captions>Hidden: showCaptions is false.</captions>
   </Document_Profile_:Image>
+
+  <Document_Profile_:FilterByNames xmi:id="_st_selected_names" base_CallBehaviorAction="_selected_names" include="true">
+    <names>Truck.*</names>
+  </Document_Profile_:FilterByNames>
+  <Document_Profile_:SortByName xmi:id="_st_selected_sort" base_CallBehaviorAction="_selected_sort"/>
+  <Document_Profile_:Image xmi:id="_st_selected_image" base_CallBehaviorAction="_selected_image"/>
+  <Document_Profile_:FilterByNames xmi:id="_st_others_names" base_CallBehaviorAction="_others_names" include="false">
+    <names>Truck.*</names>
+    <names>Parts.*</names>
+  </Document_Profile_:FilterByNames>
+  <Document_Profile_:Image xmi:id="_st_others_image" base_CallBehaviorAction="_others_image"/>
+  <Document_Profile_:CollectOwners xmi:id="_st_owners_collect" base_CallBehaviorAction="_owners_collect" depth="1"/>
+  <Document_Profile_:SortByName xmi:id="_st_owners_sort" base_CallBehaviorAction="_owners_sort"/>
+  <Document_Profile_:BulletedList xmi:id="_st_owners_list" base_CallBehaviorAction="_owners_list" orderedList="false" showTargets="true" includeDoc="false"/>
+  <Document_Profile_:FilterByMetaclasses xmi:id="_st_nofig_packages" base_CallBehaviorAction="_nofig_packages" include="true">
+    <metaclasses href="http://www.omg.org/spec/UML/20131001/UML.xmi#Package"/>
+  </Document_Profile_:FilterByMetaclasses>
+  <Document_Profile_:Image xmi:id="_st_nofig_image" base_CallBehaviorAction="_nofig_image"/>
 
   <Document_Profile_:CollectByDirectedRelationshipStereotypes xmi:id="_st_trace_satisfiers" base_CallBehaviorAction="_trace_satisfiers" depth="1" directionOut="false">
     <stereotypes href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML.Satisfy"/>

@@ -560,6 +560,15 @@ one content part in the section, in the activity's order:
 | `Image` | one `part diagram : Diagram { attribute redefines caption = "<title>"; ref redefines source = <its view>; }` per diagram the step targets or the view exposes, captioned by its `titles` entry (else the diagram's name) between `titlePrefix` and `titleSuffix`, its `captions` entry following as a `Paragraph` unless `showCaptions` is false; a diagram whose view renders as textual notation (an activity, state machine or sequence diagram) is refused, since a document draws no text view; a «CollaboratorImageParagraph»'s attached bitmap is not a view, so its caption stands as a paragraph and the report says the image is not written |
 | `Dynamic View` | a nested `Section` with the called activity's title, lowered the same way; an activity that calls itself is refused, since a recursive section has no static spelling |
 
+The diagrams among the root elements are no query's rows — a migrated diagram is a view — but
+each step transforms them beside the query so an `Image` shows what the chain kept: a name
+filter matches the diagram's name, a metaclass or stereotype filter keeps a diagram for
+`Element`, `NamedElement`, `Diagram` or the stereotype that is its diagram type, a sort by name
+orders them (a diagram has no documentation, so a sort by it leaves them as they are), a
+rejoin unites the branches' diagrams once each, `CollectOwners` adds the diagrams' owners to
+the query as `Named(qualifiedName = (…))`, and any other collect drops them. An `Image` after
+a filter that kept no diagram draws nothing and the report says which filter emptied it.
+
 A step with no query spelling — `CollectTypes`, `CollectByAssociation`, `CollectThingsOnDiagram`,
 `FilterByDiagramType`, `SortByAttribute(Value)`, `SortByProperty`, a `*ByExpression` or
 `TableExpressionColumn` beyond a bare query property (`owner.name`, `allInstances()`, OCL), a
