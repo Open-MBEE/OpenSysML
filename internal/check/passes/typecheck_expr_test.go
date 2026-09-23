@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 )
@@ -434,6 +435,36 @@ func TestExprInvocationArgumentErrorReportedOnce(t *testing.T) {
 
 func TestExprInvocationCorrectArityOK(t *testing.T) {
 	wantNoDiags(t, `package P { `+calcAdd+` calc c { add(1, 2) } }`)
+}
+
+// Calls nested inside calls are typed once each, not once per reader of the enclosing
+// call, and an error at the bottom of the nest still reports once.
+func TestExprInvocationDeeplyNestedCallsTypeOnce(t *testing.T) {
+	const depth = 60
+	nested := func(leaf string) string {
+		expr := leaf
+		for i := 0; i < depth; i++ {
+			expr = "add(" + expr + ", 1)"
+		}
+		return `package P { ` + calcAdd + ` calc c { ` + expr + ` } }`
+	}
+	type typed struct{ clean, broken []diag.Diagnostic }
+	done := make(chan typed, 1)
+	go func() {
+		done <- typed{exprDiags(t, nested(`1`)), exprDiags(t, nested(`1 + "s"`))}
+	}()
+	var got typed
+	select {
+	case got = <-done:
+	case <-time.After(30 * time.Second):
+		t.Fatalf("typing %d nested calls did not finish in 30s", depth)
+	}
+	if len(got.clean) != 0 {
+		t.Fatalf("expected no type diagnostics, got %v", got.clean)
+	}
+	if len(got.broken) != 1 || !strings.Contains(got.broken[0].Message, `operator '+' is not defined for Natural and String`) {
+		t.Fatalf("expected the leaf error once, got %v", got.broken)
+	}
 }
 
 // A parameter whose multiplicity admits no value may go without an argument,
