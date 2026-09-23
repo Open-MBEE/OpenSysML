@@ -356,12 +356,6 @@ func prepareAnnotation(local *rdf.Graph, model string, set *reposync.ChangeSet, 
 	for _, change := range minted {
 		target := annotationPath(local, change.Subject)
 		if target == "" {
-			// A minted relationship element belongs to its related elements
-			// directly — no membership names it, so notation can never address
-			// it; only a member element that lacks a name needs reporting.
-			if !local.HasProperty(rdf.IRI(change.Subject), rdf.SysML+"owningMembership") {
-				continue
-			}
 			a.unnamed = append(a.unnamed, change)
 			continue
 		}

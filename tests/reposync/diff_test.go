@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/interop/reposync"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
@@ -455,6 +456,40 @@ func TestMintingIsExplicit(t *testing.T) {
 		if change.MintedID != "" && strings.HasSuffix(change.ID, "_om") {
 			t.Errorf("a membership was minted an id of its own: %s", change.ID)
 		}
+	}
+}
+
+// A relationship element the encoder derives from a side table — the
+// FeatureTyping a `: T` materializes, a Subclassification a `:>` materializes —
+// is owned by the element it restates, and notation can never address it, so
+// minting it an id would mint one nothing can declare.
+func TestMintingSkipsDerivedSatellites(t *testing.T) {
+	repository := graphOf(t, scoped(vehicle))
+	local := graphOf(t, scoped(vehicle+`	part def Car :> Vehicle {
+		part wheel : Vehicle;
+	}
+`))
+	set, err := reposync.Diff(local, repository, reposync.Options{
+		MintIDs: true,
+		NewID:   func() (string, error) { return "minted-uuid-1", nil },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	mintedOwner := false
+	for _, change := range set.Changes {
+		if change.MintedID == "" {
+			continue
+		}
+		if export.DerivedSatellite(change.Metaclass) {
+			t.Errorf("the derived %s %s was minted an id", change.Metaclass, change.ID)
+		}
+		if change.ID == "P__Car" {
+			mintedOwner = true
+		}
+	}
+	if !mintedOwner {
+		t.Errorf("the satellite's owner element was not minted:\n%s", set.Text())
 	}
 }
 

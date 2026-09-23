@@ -29,6 +29,29 @@ var impliedRelationshipMetaclasses = map[string]bool{
 	mReferenceSubsetting:  true,
 }
 
+// DerivedSatellite reports whether metaclass is one the encoder derives from
+// its side tables rather than a declaration — the materialized relationship
+// elements, a conjugated port definition and its conjugation, a multiplicity
+// range, or the membership relating an expression to its referent. A member
+// element of such a metaclass carries a qualified name and stays addressable.
+func DerivedSatellite(metaclass string) bool {
+	return derivedSatelliteMetaclasses[metaclass]
+}
+
+var derivedSatelliteMetaclasses = map[string]bool{
+	mFeatureTyping:            true,
+	mConjugatedPortTyping:     true,
+	mSubclassification:        true,
+	mSubsetting:               true,
+	mSpecialization:           true,
+	mRedefinition:             true,
+	mReferenceSubsetting:      true,
+	mPortConjugation:          true,
+	mConjugatedPortDefinition: true,
+	mMultiplicityRange:        true,
+	mMembership:               true,
+}
+
 // relationshipSourceEnds are the properties of a materialized relationship
 // element that name its source end: the element it is owned by.
 var relationshipSourceEnds = []string{
