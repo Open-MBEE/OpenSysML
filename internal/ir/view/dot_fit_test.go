@@ -132,6 +132,8 @@ func TestDOTSymbolsInStatedBoxes(t *testing.T) {
 			`"n" [shape=doublecircle, fillcolor=black, label="", pos=`},
 		{"named final", stated(&Node{ID: "n", Kind: "final", Name: "done"}, 20, 20),
 			`"n" [shape=doublecircle, fillcolor=black, label="", xlabel="done", pos=`},
+		{"junction", stated(&Node{ID: "n", Kind: "junction", Name: "j"}, 16, 16),
+			`"n" [shape=circle, fillcolor=black, label="", xlabel="j", pos=`},
 		{"port", stated(&Node{ID: "n", Kind: "port", Name: "cmdIn", Type: "CmdPort"}, 12, 12),
 			`"n" [label="", xlabel="cmdIn : CmdPort", pos="6,-6!", pin=true, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true];`},
 		{"ref port", stated(&Node{ID: "n", Kind: "ref port", Name: "p"}, 12, 12), `"n" [label="", xlabel="p", pos=`},

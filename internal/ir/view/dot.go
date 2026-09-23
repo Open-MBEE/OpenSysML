@@ -448,13 +448,16 @@ func isSymbolKind(kind string) bool {
 }
 
 // dotRound reports whether a node is drawn round, so an edge reaches its border
-// at its radius: the start point, the pseudo-states, and a stated terminate action.
+// at its radius: the start point, the pseudo-states, and a stated junction or
+// terminate action.
 func dotRound(node *Node) bool {
 	switch node.Kind {
 	case startKind, "initial", "final":
 		return true
+	case "junction", terminateKind:
+		return node.Geometry != nil && node.Geometry.HasSize
 	}
-	return node.Kind == terminateKind && node.Geometry != nil && node.Geometry.HasSize
+	return false
 }
 
 // isPortKind reports whether a kind is a port usage: `port`, `ref port`, but no
@@ -463,9 +466,9 @@ func isPortKind(kind string) bool {
 	return slices.Contains(strings.Fields(kind), "port") && !isDefinitionKind(kind)
 }
 
-// dotSymbolAttributes draws a symbol kind in its stated box as the notation's
-// symbol: a diamond, a filled bar, the filled dot or double ring, a port's square.
-// A given name is set outside it as `xlabel`; a synthesized one is not drawn.
+// dotSymbolAttributes draws a symbol kind in its stated box as the notation's symbol: a
+// diamond, a filled bar or a port's square (the default box at the stated size), the
+// filled dot or double ring. A given name is set outside as `xlabel`; a synthesized one is not drawn.
 func (w *dotWriter) dotSymbolAttributes(node *Node) []string {
 	var attrs []string
 	switch node.Kind {
