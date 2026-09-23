@@ -166,7 +166,7 @@ func TestFiguresFromArchiveStreams(t *testing.T) {
 		"## Pictures",
 		"Nothing to see",
 		"The plant, photographed",
-		"*Unlisted*", "```mermaid", "Plant::Tank", "Plant::Pump")
+		"*Unlisted*", "```mermaid", "Plant::Unlisted — tree rendering", `"Tank<br>«part def»"`, `"Pump<br>«part def»"`)
 	if n := strings.Count(md, "```mermaid"); n != 3 {
 		t.Errorf("Plant Handbook draws %d figures, want 3:\n%s", n, md)
 	}
