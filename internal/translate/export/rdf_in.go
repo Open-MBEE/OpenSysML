@@ -64,6 +64,10 @@ type element struct {
 	// prefix is written ahead of the declaration, for a member a succession
 	// attached itself to (`then send Show(x) to screen;`).
 	prefix string
+	// implied marks a materialized relationship element: accepted and verified
+	// against the collapsed property it restates, but never written, since the
+	// notation states the collapsed form.
+	implied bool
 	// expressions holds the notation of each expression-valued property, keyed
 	// by predicate, resolved from the expression graph the property points at.
 	expressions map[string]string
@@ -91,6 +95,10 @@ func ToSysML(graph *rdf.Graph) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	// A graph in the normative element form — the toolkit's interchange JSON —
+	// mints what this mapping collapses; complete it with the collapsed
+	// properties and qualified names the decoder reads before anything else.
+	graph = deriveNormativeGraph(graph, metaclasses)
 	graph, err = rdf.ReconcileCollections(graph)
 	if err != nil {
 		var malformed *rdf.AnnotationError
@@ -749,12 +757,28 @@ func (d *decoder) build() ([]*element, error) {
 		if err != nil {
 			return nil, err
 		}
+		if parent != nil && d.transparentRoot(parent) {
+			parent = nil
+		}
 		if parent == nil {
 			roots = append(roots, el)
 			continue
 		}
 		el.owner = parent
 		parent.children = append(parent.children, el)
+		implied, err := d.normativeImplied(el, parent)
+		if err != nil {
+			return nil, err
+		}
+		el.implied = implied
+	}
+	for _, el := range order {
+		if err := d.verifyCovered(el); err != nil {
+			return nil, err
+		}
+	}
+	if err := d.verifyNormativeNodes(); err != nil {
+		return nil, err
 	}
 	if err := d.checkReferences(); err != nil {
 		return nil, err
@@ -767,7 +791,22 @@ func (d *decoder) build() ([]*element, error) {
 	if err := d.checkReachable(roots, order); err != nil {
 		return nil, err
 	}
-	return roots, nil
+	var kept []*element
+	for _, el := range roots {
+		if !d.transparentRoot(el) {
+			kept = append(kept, el)
+		}
+	}
+	return kept, nil
+}
+
+// transparentRoot reports whether el is a document wrapper no notation
+// prints: an unnamed, unowned Namespace, as the toolkit's interchange
+// documents wrap their roots in one.
+func (d *decoder) transparentRoot(el *element) bool {
+	return el.metaclass == "Namespace" && el.owner == nil &&
+		!d.graph.HasProperty(rdf.IRI(el.iri), rdf.SysML+pDeclaredName) &&
+		!d.graph.HasProperty(rdf.IRI(el.iri), rdf.SysML+pDeclaredShortName)
 }
 
 // isMembership reports whether a subject states ownership rather than a
@@ -791,7 +830,10 @@ func (d *decoder) isNodeMembership(subject rdf.Term) bool {
 	}
 	member, _, _ := d.agreedObject(subject, "the node membership", "member",
 		pMemberElement, pOwnedMemberElement, pOwnedMemberFeature, pOwnedMemberParameter, pOwnedRelatedElement, pOwnedResultExpression)
-	if d.isExpressionIRI(member) {
+	// An expression-metaclass member that carries a qualified name is a member
+	// element of its own — `in expr keep : T` declares one — not a node.
+	if d.isExpressionIRI(member) || expressionMetaclasses[d.metaclass(member)] &&
+		!d.graph.HasProperty(member, rdf.SysML+pQualifiedName) {
 		return true
 	}
 	if metaclass == mFeatureValue {
@@ -1035,6 +1077,11 @@ func (d *decoder) referencedElement(iri string) (*element, error) {
 		}
 	}
 	if !d.graph.HasProperty(rdf.IRI(target.iri), rdf.SysML+pQualifiedName) {
+		if d.transparentRoot(target) {
+			// The document wrapper names nothing; a reference to it is
+			// resolved without a spelling.
+			return target, nil
+		}
 		return nil, &UnsupportedError{
 			What: fmt.Sprintf("the element <%s>", target.iri),
 			Note: "it is referenced but carries no sysml:qualifiedName, which is where a reference's name is read from",
@@ -1316,7 +1363,7 @@ func (d *decoder) identityOf(el *element) []identityAnnotation {
 		}
 		out = append(out, identityAnnotation{"IdentityMetadata::ProjectRef", strings.Join(fields, " ")})
 	}
-	if el.declaredID || (!el.local && el.elementID != "" && el.elementID != rdf.EncodeElementID(el.qname)) {
+	if el.declaredID || (!el.local && el.elementID != "" && el.elementID != rdf.EncodeElementID(el.qname) && !modeDerivedUUID(el.elementID, el.qname)) {
 		if !d.explicit && NormativeSubject(el.elementID, el.qname) {
 			d.implied++
 			return out
@@ -1324,6 +1371,26 @@ func (d *decoder) identityOf(el *element) []identityAnnotation {
 		out = append(out, identityAnnotation{"IdentityMetadata::ElementId", fmt.Sprintf("id = %s;", source.StringText(el.elementID))})
 	}
 	return out
+}
+
+// modeDerivedUUID reports whether id is the elementId the uuid id form derives
+// for qname: uuid5(NamespaceURL, the root's element IRI) for the root itself
+// and uuid5(pkg, the qualified-name-derived id) under it — so an id that form
+// minted stays implied, and only a differing one is declared.
+func modeDerivedUUID(id, qname string) bool {
+	if qname == "" {
+		return false
+	}
+	root := qname
+	if i := strings.Index(qname, "::"); i >= 0 {
+		root = qname[:i]
+	}
+	pkg := identity.NamespaceOf(rdf.Element + rdf.EncodeElementID(root))
+	expected := pkg
+	if qname != root {
+		expected = identity.DerivedID(pkg, rdf.EncodeElementID(qname))
+	}
+	return id == expected
 }
 
 // head builds the declaration text up to the body or terminator, with the
@@ -1383,6 +1450,13 @@ func (d *decoder) declarationHead(el *element) (string, error) {
 	if d.isResultExpression(el) {
 		return d.expressionNodeText(rdf.IRI(el.iri), el)
 	}
+	if expressionMetaclasses[el.metaclass] && el.owner != nil && d.constraintMemberOwner(el.owner) {
+		// A condition before the result is a body member the notation closes
+		// with `;`; its head is the condition's expression.
+		if m, owned := d.owningMembership[el.iri]; owned && d.metaclass(rdf.IRI(m.iri)) == mFeatureMembership {
+			return d.expressionNodeText(rdf.IRI(el.iri), el)
+		}
+	}
 	switch el.metaclass {
 	case "Package", "Namespace":
 		return d.namespaceHead(el)
@@ -1407,6 +1481,12 @@ func (d *decoder) declarationHead(el *element) (string, error) {
 		condition, ok := d.stringOf(el, rdf.OpenSysML+xFilter)
 		if !ok {
 			return "", d.missing(el, "sysx:"+xFilter, "a filter is its condition")
+		}
+		return "filter " + condition, nil
+	case mElementFilterMembership:
+		condition, ok := d.stringOf(el, rdf.SysML+pCondition)
+		if !ok {
+			return "", d.missing(el, sysmlPrefix+pCondition, "a filter is its condition")
 		}
 		return "filter " + condition, nil
 	case mConstraint:
@@ -1457,6 +1537,16 @@ func (d *decoder) declarationHead(el *element) (string, error) {
 	}
 	if kind, ok := metaclassDefinition[el.metaclass]; ok {
 		return d.definitionHead(el, kind)
+	}
+	// A member whose form lives on its membership — a `require`/`assume`
+	// constraint, a constraint body's `assert` — is written by it.
+	if head, handled, err := d.normativeMemberHead(el); handled {
+		return head, err
+	}
+	// The parameter an actor, stakeholder, subject or objective member declares
+	// is a usage whose kind is the membership that owns it.
+	if kind, ok := d.membershipUsageKind(el); ok {
+		return d.usageHead(el, kind)
 	}
 	if kind, ok := metaclassUsage[el.metaclass]; ok {
 		return d.usageHead(el, kind)
@@ -1579,13 +1669,21 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	isResult := d.boolOf(el, rdf.SysML+"isResult")
 	if isResult {
 		words = append(words, "return")
-	} else if direction, ok := d.stringOf(el, rdf.SysML+pDirection); ok {
+	} else if direction, ok := d.stringOf(el, rdf.SysML+pDirection); ok && !d.parameterMember(el) {
+		// A parameter member's `in` is its default: `subject v` reads it back
+		// without the word, which only an explicit direction earns.
 		words = append(words, direction)
 	}
 	keyword := d.keywordOr(el, usageKeyword(kind))
 	// An accept written without the `action` keyword its kind states carries
 	// `accept` as the keyword it was written with; the shorthand writes it.
 	if keyword == "accept" {
+		keyword = ""
+	}
+	// A reference usage owned by a metadata usage is a metadata body member
+	// (`text = "…"`, SysML.xtext MetadataBodyUsage); a kind keyword has no
+	// notation there even when the graph states none as implicit.
+	if d.metadataBodyMember(el) {
 		keyword = ""
 	}
 	identWords := d.identWords(el)
@@ -1952,7 +2050,7 @@ func (d *decoder) conditionHead(el *element, keyword string) (string, error) {
 	// is one only where a body follows and nothing is referenced.
 	hasBody := d.boolOf(el, rdf.OpenSysML+xHasBody)
 	declared := hasBody && len(references) == 0
-	if el.metaclass == mAssume || el.metaclass == mRequire {
+	if el.metaclass == mAssume || el.metaclass == mRequire || el.metaclass == mConstraintUsage {
 		if written, ok := d.stringOf(el, rdf.OpenSysML+xDeclaredKeyword); ok {
 			if written != "constraint" {
 				return "", &UnsupportedError{
@@ -2366,6 +2464,31 @@ func (d *decoder) keywordOr(el *element, canonical string) string {
 	return canonical
 }
 
+// metadataBodyMember reports whether el is a `text = "…"` line inside a
+// metadata body: a ReferenceUsage owned through a FeatureMembership under a
+// MetadataUsage, declaring no kind keyword of its own.
+func (d *decoder) metadataBodyMember(el *element) bool {
+	if el.metaclass != "ReferenceUsage" {
+		return false
+	}
+	subject := rdf.IRI(el.iri)
+	if d.graph.HasProperty(subject, rdf.OpenSysML+xDeclaredKeyword) {
+		return false
+	}
+	membership := firstIRI(d.graph, subject, pOwningMembership, pOwningRelationship)
+	if membership.IsLiteral() {
+		return false
+	}
+	if d.metaclass(membership) != "FeatureMembership" {
+		return false
+	}
+	owner := firstIRI(d.graph, rdf.IRI(membership.Value), pMembershipOwningNamespace, pOwningRelatedElement, pOwner)
+	if owner.IsLiteral() {
+		return false
+	}
+	return d.metaclass(owner) == "MetadataUsage"
+}
+
 // keywordTyped checks that a keyword the graph types agrees with its typing:
 // the portion kind, the event typing or the AssertConstraintUsage metaclass.
 func (d *decoder) keywordTyped(el *element, keyword, portion string, event bool) error {
@@ -2530,7 +2653,7 @@ func qualifiedNameText(qname string) string {
 func (d *decoder) metadataKeyword(el *element) (string, error) {
 	keyword, ok := d.graph.Object(rdf.IRI(el.iri), rdf.OpenSysML+xDeclaredKeyword)
 	if !ok {
-		return "", nil
+		return d.derivedMetadataKeyword(el), nil
 	}
 	switch keyword := keyword.Value; keyword {
 	case "#", "@":
@@ -2541,6 +2664,41 @@ func (d *decoder) metadataKeyword(el *element) (string, error) {
 			Note: fmt.Sprintf("its sysx:%s %q is not a metadata form; a metadata usage is written as `metadata`, `@` or `#`", xDeclaredKeyword, keyword),
 		}
 	}
+}
+
+// derivedMetadataKeyword gives the sigil a foreign graph's metadata usage is
+// written with when it states none: `#` for the first owned relationship of a
+// relationship owner (a prefix ahead of its declaration), `@` for one owning
+// members of its own (an annotating `@X { … }` member), else none.
+func (d *decoder) derivedMetadataKeyword(el *element) string {
+	subject := rdf.IRI(el.iri)
+	membership := firstIRI(d.graph, subject, pOwningMembership, pOwningRelationship)
+	if membership.IsLiteral() {
+		return ""
+	}
+	owner := firstIRI(d.graph, rdf.IRI(membership.Value), pMembershipOwningNamespace, pOwningRelatedElement, pOwner)
+	if owner.IsLiteral() {
+		return ""
+	}
+	// A metadata usage a relationship owns is a `#` prefix ahead of the
+	// declaration: a `dependency { metadata M; }` body is not valid notation.
+	if isRelationship(d.metaclass(owner)) {
+		return "#"
+	}
+	// An `@X { … }` annotating member annotates its owner, so it states no
+	// `about`; one that does is a `metadata` member naming its subjects.
+	if len(d.graph.Objects(subject, rdf.SysML+pAnnotatedElement)) > 0 {
+		return ""
+	}
+	for _, owned := range d.graph.Objects(subject, rdf.SysML+pOwnedRelationship) {
+		if owned.IsLiteral() {
+			continue
+		}
+		if owningMembershipLike(d.metaclass(owned)) || strings.HasSuffix(d.metaclass(owned), "Membership") {
+			return "@"
+		}
+	}
+	return ""
 }
 
 // metadataSigil reports the sigil a metadata usage was written with, or none
@@ -2595,7 +2753,7 @@ func (d *decoder) prefixWords(el *element) ([]string, error) {
 		if err != nil {
 			return nil, err
 		}
-		if len(d.identWords(child)) > 0 || len(about) > 0 || len(child.children) > 0 || d.boolOf(child, rdf.OpenSysML+xHasBody) {
+		if len(d.identWords(child)) > 0 || len(about) > 0 || len(d.bodyChildren(child)) > 0 || d.boolOf(child, rdf.OpenSysML+xHasBody) {
 			return nil, &UnsupportedError{
 				What: fmt.Sprintf("the prefix annotation <%s>", child.iri),
 				Note: "a prefix names only its metadata definition; a name, an about clause or a body is written by the `@` member form",
@@ -2629,7 +2787,7 @@ func (d *decoder) bodyChildren(el *element) []*element {
 	cross := d.ownedCrossFeature(el)
 	var out []*element
 	for _, child := range el.children {
-		if child != cross && d.metadataSigil(child) != "#" {
+		if child != cross && !child.implied && d.metadataSigil(child) != "#" {
 			out = append(out, child)
 		}
 	}
@@ -2657,7 +2815,7 @@ func (d *decoder) ownedCrossFeature(el *element) *element {
 // and specializations, typing spelled `typed by` since `:` there is the end's own.
 // Its identity goes in the end's body (crossFeatureAnnotations); a body of its own has no place.
 func (d *decoder) crossFeatureWords(cross *element) ([]string, error) {
-	if len(cross.children) > 0 || d.boolOf(cross, rdf.OpenSysML+xHasBody) {
+	if len(d.bodyChildren(cross)) > 0 || d.boolOf(cross, rdf.OpenSysML+xHasBody) {
 		return nil, &UnsupportedError{
 			What: fmt.Sprintf("the cross feature <%s>", cross.iri),
 			Note: "it is written in the head of the end that owns it, which has no place for a body",
@@ -2971,10 +3129,14 @@ func (d *decoder) referenceName(term rdf.Term, el *element) (string, error) {
 			written = relativeName(spelled, el.scope)
 		}
 	}
-	d.wanted.references[key] = wantedReference{
-		qualified: spelled,
-		written:   written,
-		count:     d.wanted.references[key].count + 1,
+	// An implied element is never written, so a reference inside it is no
+	// spelling a rendering could check.
+	if !el.implied {
+		d.wanted.references[key] = wantedReference{
+			qualified: spelled,
+			written:   written,
+			count:     d.wanted.references[key].count + 1,
+		}
 	}
 	return qualifiedNameText(written), nil
 }

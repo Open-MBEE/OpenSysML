@@ -71,6 +71,9 @@ elmt:Values__Total__x
     sysml:direction "in" ;
     sysml:type "Real" ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Values__Total__x_ft0 ;
+    sysml:ownedSpecialization elmt:Values__Total__x_ft0 ;
+    sysml:ownedRelationship elmt:Values__Total__x_ft0 ;
     sysx:sourceText "        in x : Real;\n" .
 
 elmt:Values__Total__x_om
@@ -99,6 +102,9 @@ elmt:Values__Total__y
     sysml:direction "in" ;
     sysml:type "Real" ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Values__Total__y_ft0 ;
+    sysml:ownedSpecialization elmt:Values__Total__y_ft0 ;
+    sysml:ownedRelationship elmt:Values__Total__y_ft0 ;
     sysx:sourceText "        in y : Real;\n" .
 
 elmt:Values__Total__y_om
@@ -128,6 +134,9 @@ elmt:Values__Total__result
     sysml:direction "out" ;
     sysml:type "Real" ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Values__Total__result_ft0 ;
+    sysml:ownedSpecialization elmt:Values__Total__result_ft0 ;
+    sysml:ownedRelationship elmt:Values__Total__result_ft0 ;
     sysx:sourceText "        return result : Real;\n" .
 
 elmt:Values__Total__result_om
@@ -188,10 +197,13 @@ elmt:Values__Sized__size
     sysml:declaredName "size" ;
     sysml:type "Real" ;
     sysml:value expr:Values__Sized__size_pvalue ;
-    sysml:ownedRelationship expr:Values__Sized__size_pvalue_om ;
+    sysml:ownedRelationship expr:Values__Sized__size_pvalue_om, elmt:Values__Sized__size_ft0 ;
     sysml:ownedMembership expr:Values__Sized__size_pvalue_om ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysx:sourceText "        attribute size : Real = 4.5;\n" .
+    sysml:ownedTyping elmt:Values__Sized__size_ft0 ;
+    sysml:ownedSpecialization elmt:Values__Sized__size_ft0 ;
+    sysx:sourceText "        attribute size : Real = 4.5;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Values__Sized__size_pvalue_om\"},{\"@id\":\"Values__Sized__size_ft0\"}]" .
 
 elmt:Values__Sized__size_om
     a sysml:FeatureMembership ;
@@ -238,10 +250,13 @@ elmt:Values__Sized__label
     sysml:declaredName "label" ;
     sysml:type "String" ;
     sysml:value expr:Values__Sized__label_pvalue ;
-    sysml:ownedRelationship expr:Values__Sized__label_pvalue_om ;
+    sysml:ownedRelationship expr:Values__Sized__label_pvalue_om, elmt:Values__Sized__label_ft0 ;
     sysml:ownedMembership expr:Values__Sized__label_pvalue_om ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysx:sourceText "        attribute label : String = \"front\";\n" .
+    sysml:ownedTyping elmt:Values__Sized__label_ft0 ;
+    sysml:ownedSpecialization elmt:Values__Sized__label_ft0 ;
+    sysx:sourceText "        attribute label : String = \"front\";\n" ;
+    json:ownedRelationship "[{\"@id\":\"Values__Sized__label_pvalue_om\"},{\"@id\":\"Values__Sized__label_ft0\"}]" .
 
 elmt:Values__Sized__label_om
     a sysml:FeatureMembership ;
@@ -288,10 +303,13 @@ elmt:Values__Sized__total
     sysml:declaredName "total" ;
     sysml:type "Real" ;
     sysml:value expr:Values__Sized__total_pvalue ;
-    sysml:ownedRelationship expr:Values__Sized__total_pvalue_om ;
+    sysml:ownedRelationship expr:Values__Sized__total_pvalue_om, elmt:Values__Sized__total_ft0 ;
     sysml:ownedMembership expr:Values__Sized__total_pvalue_om ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysx:sourceText "        attribute total : Real = 1.0 + 2.0;\n" .
+    sysml:ownedTyping elmt:Values__Sized__total_ft0 ;
+    sysml:ownedSpecialization elmt:Values__Sized__total_ft0 ;
+    sysx:sourceText "        attribute total : Real = 1.0 + 2.0;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Values__Sized__total_pvalue_om\"},{\"@id\":\"Values__Sized__total_ft0\"}]" .
 
 elmt:Values__Sized__total_om
     a sysml:FeatureMembership ;
@@ -425,3 +443,93 @@ expr:Values__Sized__total_pvalue_om
     sysml:membershipOwningNamespace elmt:Values__Sized__total ;
     sysml:featureWithValue elmt:Values__Sized__total ;
     sysml:value expr:Values__Sized__total_pvalue .
+
+elmt:Values__Total__x_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Values__Total__x_ft0" ;
+    sysml:typedFeature elmt:Values__Total__x ;
+    sysml:owningFeature elmt:Values__Total__x ;
+    sysml:specific elmt:Values__Total__x ;
+    sysml:source elmt:Values__Total__x ;
+    sysml:owningRelatedElement elmt:Values__Total__x ;
+    sysml:type "Real" ;
+    sysml:general "Real" ;
+    sysml:target "Real" ;
+    sysml:owner elmt:Values__Total__x ;
+    sysml:relatedElement elmt:Values__Total__x, "Real" ;
+    json:relatedElement "[{\"@id\":\"Values__Total__x\"},\"Real\"]" .
+
+elmt:Values__Total__y_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Values__Total__y_ft0" ;
+    sysml:typedFeature elmt:Values__Total__y ;
+    sysml:owningFeature elmt:Values__Total__y ;
+    sysml:specific elmt:Values__Total__y ;
+    sysml:source elmt:Values__Total__y ;
+    sysml:owningRelatedElement elmt:Values__Total__y ;
+    sysml:type "Real" ;
+    sysml:general "Real" ;
+    sysml:target "Real" ;
+    sysml:owner elmt:Values__Total__y ;
+    sysml:relatedElement elmt:Values__Total__y, "Real" ;
+    json:relatedElement "[{\"@id\":\"Values__Total__y\"},\"Real\"]" .
+
+elmt:Values__Total__result_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Values__Total__result_ft0" ;
+    sysml:typedFeature elmt:Values__Total__result ;
+    sysml:owningFeature elmt:Values__Total__result ;
+    sysml:specific elmt:Values__Total__result ;
+    sysml:source elmt:Values__Total__result ;
+    sysml:owningRelatedElement elmt:Values__Total__result ;
+    sysml:type "Real" ;
+    sysml:general "Real" ;
+    sysml:target "Real" ;
+    sysml:owner elmt:Values__Total__result ;
+    sysml:relatedElement elmt:Values__Total__result, "Real" ;
+    json:relatedElement "[{\"@id\":\"Values__Total__result\"},\"Real\"]" .
+
+elmt:Values__Sized__size_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Values__Sized__size_ft0" ;
+    sysml:typedFeature elmt:Values__Sized__size ;
+    sysml:owningFeature elmt:Values__Sized__size ;
+    sysml:specific elmt:Values__Sized__size ;
+    sysml:source elmt:Values__Sized__size ;
+    sysml:owningRelatedElement elmt:Values__Sized__size ;
+    sysml:type "Real" ;
+    sysml:general "Real" ;
+    sysml:target "Real" ;
+    sysml:owner elmt:Values__Sized__size ;
+    sysml:relatedElement elmt:Values__Sized__size, "Real" ;
+    json:relatedElement "[{\"@id\":\"Values__Sized__size\"},\"Real\"]" .
+
+elmt:Values__Sized__label_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Values__Sized__label_ft0" ;
+    sysml:typedFeature elmt:Values__Sized__label ;
+    sysml:owningFeature elmt:Values__Sized__label ;
+    sysml:specific elmt:Values__Sized__label ;
+    sysml:source elmt:Values__Sized__label ;
+    sysml:owningRelatedElement elmt:Values__Sized__label ;
+    sysml:type "String" ;
+    sysml:general "String" ;
+    sysml:target "String" ;
+    sysml:owner elmt:Values__Sized__label ;
+    sysml:relatedElement elmt:Values__Sized__label, "String" ;
+    json:relatedElement "[{\"@id\":\"Values__Sized__label\"},\"String\"]" .
+
+elmt:Values__Sized__total_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Values__Sized__total_ft0" ;
+    sysml:typedFeature elmt:Values__Sized__total ;
+    sysml:owningFeature elmt:Values__Sized__total ;
+    sysml:specific elmt:Values__Sized__total ;
+    sysml:source elmt:Values__Sized__total ;
+    sysml:owningRelatedElement elmt:Values__Sized__total ;
+    sysml:type "Real" ;
+    sysml:general "Real" ;
+    sysml:target "Real" ;
+    sysml:owner elmt:Values__Sized__total ;
+    sysml:relatedElement elmt:Values__Sized__total, "Real" ;
+    json:relatedElement "[{\"@id\":\"Values__Sized__total\"},\"Real\"]" .

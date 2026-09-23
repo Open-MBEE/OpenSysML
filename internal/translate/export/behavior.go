@@ -748,7 +748,13 @@ func (d *decoder) behaviorHead(el *element) (string, bool, error) {
 	case mPerform:
 		action, ok := d.stringOf(el, rdf.OpenSysML+xExpression)
 		if !ok {
-			return "", true, d.missing(el, "sysx:"+xExpression, "a perform statement names the action it performs")
+			// A `perform` member is a usage element, not a statement: the usage
+			// head writes its keyword, name and performed-action typing.
+			return "", false, nil
+		}
+		// A named perform types the action it performs: `perform action a : A`.
+		if name := strings.Join(d.identWords(el), " "); name != "" {
+			return "perform action " + name + " : " + action, true, nil
 		}
 		return "perform " + action, true, nil
 

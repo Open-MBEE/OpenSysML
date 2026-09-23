@@ -87,6 +87,9 @@ elmt:AnonymousPortions__Vehicle__fuel
     sysml:declaredName "fuel" ;
     sysml:type elmt:AnonymousPortions__Fuel ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:AnonymousPortions__Vehicle__fuel_ft0 ;
+    sysml:ownedSpecialization elmt:AnonymousPortions__Vehicle__fuel_ft0 ;
+    sysml:ownedRelationship elmt:AnonymousPortions__Vehicle__fuel_ft0 ;
     sysx:sourceText "\t\tattribute fuel : Fuel;\n" .
 
 elmt:AnonymousPortions__Vehicle__fuel_om
@@ -114,6 +117,8 @@ elmt:AnonymousPortions__Car
     sysml:isIndividual "true"^^xsd:boolean ;
     sysml:specializes elmt:AnonymousPortions__Vehicle ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedSpecialization elmt:AnonymousPortions__Car_sp0 ;
+    sysml:ownedRelationship elmt:AnonymousPortions__Car_sp0 ;
     sysx:sourceText "\tindividual def Car :> Vehicle;\n" .
 
 elmt:AnonymousPortions__Car_om
@@ -141,12 +146,14 @@ elmt:AnonymousPortions__car
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:AnonymousPortions__car___400, elmt:AnonymousPortions__car___401, elmt:AnonymousPortions__car___402, elmt:AnonymousPortions__car___403, elmt:AnonymousPortions__car___404 ;
     sysml:ownedMembership elmt:AnonymousPortions__car___400_om, elmt:AnonymousPortions__car___401_om, elmt:AnonymousPortions__car___402_om, elmt:AnonymousPortions__car___403_om, elmt:AnonymousPortions__car___404_om ;
-    sysml:ownedRelationship elmt:AnonymousPortions__car___400_om, elmt:AnonymousPortions__car___401_om, elmt:AnonymousPortions__car___402_om, elmt:AnonymousPortions__car___403_om, elmt:AnonymousPortions__car___404_om ;
+    sysml:ownedRelationship elmt:AnonymousPortions__car___400_om, elmt:AnonymousPortions__car___401_om, elmt:AnonymousPortions__car___402_om, elmt:AnonymousPortions__car___403_om, elmt:AnonymousPortions__car___404_om, elmt:AnonymousPortions__car_ft0 ;
+    sysml:ownedTyping elmt:AnonymousPortions__car_ft0 ;
+    sysml:ownedSpecialization elmt:AnonymousPortions__car_ft0 ;
     sysx:sourceText "\tindividual car : Car {\n" ;
     sysx:sourceTail "\t}\n" ;
     json:ownedMember "[{\"@id\":\"AnonymousPortions__car___400\"},{\"@id\":\"AnonymousPortions__car___401\"},{\"@id\":\"AnonymousPortions__car___402\"},{\"@id\":\"AnonymousPortions__car___403\"},{\"@id\":\"AnonymousPortions__car___404\"}]" ;
     json:ownedMembership "[{\"@id\":\"AnonymousPortions__car___400_om\"},{\"@id\":\"AnonymousPortions__car___401_om\"},{\"@id\":\"AnonymousPortions__car___402_om\"},{\"@id\":\"AnonymousPortions__car___403_om\"},{\"@id\":\"AnonymousPortions__car___404_om\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"AnonymousPortions__car___400_om\"},{\"@id\":\"AnonymousPortions__car___401_om\"},{\"@id\":\"AnonymousPortions__car___402_om\"},{\"@id\":\"AnonymousPortions__car___403_om\"},{\"@id\":\"AnonymousPortions__car___404_om\"}]" .
+    json:ownedRelationship "[{\"@id\":\"AnonymousPortions__car___400_om\"},{\"@id\":\"AnonymousPortions__car___401_om\"},{\"@id\":\"AnonymousPortions__car___402_om\"},{\"@id\":\"AnonymousPortions__car___403_om\"},{\"@id\":\"AnonymousPortions__car___404_om\"},{\"@id\":\"AnonymousPortions__car_ft0\"}]" .
 
 elmt:AnonymousPortions__car_om
     a sysml:OwningMembership ;
@@ -174,11 +181,15 @@ elmt:AnonymousPortions__car___400
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:AnonymousPortions__car___400___400 ;
     sysml:ownedMembership elmt:AnonymousPortions__car___400___400_om ;
-    sysml:ownedRelationship elmt:AnonymousPortions__car___400___400_om ;
+    sysml:ownedRelationship elmt:AnonymousPortions__car___400___400_om, elmt:AnonymousPortions__car___400_rd0 ;
     sysml:ownedFeature elmt:AnonymousPortions__car___400___400 ;
     sysml:ownedFeatureMembership elmt:AnonymousPortions__car___400___400_om ;
+    sysml:ownedRedefinition elmt:AnonymousPortions__car___400_rd0 ;
+    sysml:ownedSubsetting elmt:AnonymousPortions__car___400_rd0 ;
+    sysml:ownedSpecialization elmt:AnonymousPortions__car___400_rd0 ;
     sysx:sourceText "\t\tsnapshot :>> start {\n" ;
-    sysx:sourceTail "\t\t}\n" .
+    sysx:sourceTail "\t\t}\n" ;
+    json:ownedRelationship "[{\"@id\":\"AnonymousPortions__car___400___400_om\"},{\"@id\":\"AnonymousPortions__car___400_rd0\"}]" .
 
 elmt:AnonymousPortions__car___400_om
     a sysml:OwningMembership ;
@@ -201,10 +212,14 @@ elmt:AnonymousPortions__car___400___400
     sysml:owningMembership elmt:AnonymousPortions__car___400___400_om ;
     sysml:redefines elmt:AnonymousPortions__Vehicle__fuel ;
     sysml:value expr:AnonymousPortions__car___400___400_pvalue ;
-    sysml:ownedRelationship expr:AnonymousPortions__car___400___400_pvalue_om ;
+    sysml:ownedRelationship expr:AnonymousPortions__car___400___400_pvalue_om, elmt:AnonymousPortions__car___400___400_rd0 ;
     sysml:ownedMembership expr:AnonymousPortions__car___400___400_pvalue_om ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysx:sourceText "\t\t\tattribute :>> fuel = 100;\n" .
+    sysml:ownedRedefinition elmt:AnonymousPortions__car___400___400_rd0 ;
+    sysml:ownedSubsetting elmt:AnonymousPortions__car___400___400_rd0 ;
+    sysml:ownedSpecialization elmt:AnonymousPortions__car___400___400_rd0 ;
+    sysx:sourceText "\t\t\tattribute :>> fuel = 100;\n" ;
+    json:ownedRelationship "[{\"@id\":\"AnonymousPortions__car___400___400_pvalue_om\"},{\"@id\":\"AnonymousPortions__car___400___400_rd0\"}]" .
 
 elmt:AnonymousPortions__car___400___400_om
     a sysml:FeatureMembership ;
@@ -255,11 +270,15 @@ elmt:AnonymousPortions__car___401
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:AnonymousPortions__car___401___400 ;
     sysml:ownedMembership elmt:AnonymousPortions__car___401___400_om ;
-    sysml:ownedRelationship elmt:AnonymousPortions__car___401___400_om ;
+    sysml:ownedRelationship elmt:AnonymousPortions__car___401___400_om, elmt:AnonymousPortions__car___401_rd0 ;
     sysml:ownedFeature elmt:AnonymousPortions__car___401___400 ;
     sysml:ownedFeatureMembership elmt:AnonymousPortions__car___401___400_om ;
+    sysml:ownedRedefinition elmt:AnonymousPortions__car___401_rd0 ;
+    sysml:ownedSubsetting elmt:AnonymousPortions__car___401_rd0 ;
+    sysml:ownedSpecialization elmt:AnonymousPortions__car___401_rd0 ;
     sysx:sourceText "\t\ttimeslice :>> portionOfLife {\n" ;
-    sysx:sourceTail "\t\t}\n" .
+    sysx:sourceTail "\t\t}\n" ;
+    json:ownedRelationship "[{\"@id\":\"AnonymousPortions__car___401___400_om\"},{\"@id\":\"AnonymousPortions__car___401_rd0\"}]" .
 
 elmt:AnonymousPortions__car___401_om
     a sysml:OwningMembership ;
@@ -282,10 +301,14 @@ elmt:AnonymousPortions__car___401___400
     sysml:owningMembership elmt:AnonymousPortions__car___401___400_om ;
     sysml:redefines elmt:AnonymousPortions__Vehicle__fuel ;
     sysml:value expr:AnonymousPortions__car___401___400_pvalue ;
-    sysml:ownedRelationship expr:AnonymousPortions__car___401___400_pvalue_om ;
+    sysml:ownedRelationship expr:AnonymousPortions__car___401___400_pvalue_om, elmt:AnonymousPortions__car___401___400_rd0 ;
     sysml:ownedMembership expr:AnonymousPortions__car___401___400_pvalue_om ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysx:sourceText "\t\t\tattribute :>> fuel = 50;\n" .
+    sysml:ownedRedefinition elmt:AnonymousPortions__car___401___400_rd0 ;
+    sysml:ownedSubsetting elmt:AnonymousPortions__car___401___400_rd0 ;
+    sysml:ownedSpecialization elmt:AnonymousPortions__car___401___400_rd0 ;
+    sysx:sourceText "\t\t\tattribute :>> fuel = 50;\n" ;
+    json:ownedRelationship "[{\"@id\":\"AnonymousPortions__car___401___400_pvalue_om\"},{\"@id\":\"AnonymousPortions__car___401___400_rd0\"}]" .
 
 elmt:AnonymousPortions__car___401___400_om
     a sysml:FeatureMembership ;
@@ -337,11 +360,17 @@ elmt:AnonymousPortions__car___402
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:AnonymousPortions__car___402___400 ;
     sysml:ownedMembership elmt:AnonymousPortions__car___402___400_om ;
-    sysml:ownedRelationship elmt:AnonymousPortions__car___402___400_om ;
+    sysml:ownedRelationship elmt:AnonymousPortions__car___402___400_om, elmt:AnonymousPortions__car___402_ss0, elmt:AnonymousPortions__car___402_rd0 ;
     sysml:ownedFeature elmt:AnonymousPortions__car___402___400 ;
     sysml:ownedFeatureMembership elmt:AnonymousPortions__car___402___400_om ;
+    sysml:ownedSubsetting elmt:AnonymousPortions__car___402_ss0, elmt:AnonymousPortions__car___402_rd0 ;
+    sysml:ownedSpecialization elmt:AnonymousPortions__car___402_ss0, elmt:AnonymousPortions__car___402_rd0 ;
+    sysml:ownedRedefinition elmt:AnonymousPortions__car___402_rd0 ;
     sysx:sourceText "\t\tsnapshot :>> done :> fuel {\n" ;
-    sysx:sourceTail "\t\t}\n" .
+    sysx:sourceTail "\t\t}\n" ;
+    json:ownedRelationship "[{\"@id\":\"AnonymousPortions__car___402___400_om\"},{\"@id\":\"AnonymousPortions__car___402_ss0\"},{\"@id\":\"AnonymousPortions__car___402_rd0\"}]" ;
+    json:ownedSubsetting "[{\"@id\":\"AnonymousPortions__car___402_ss0\"},{\"@id\":\"AnonymousPortions__car___402_rd0\"}]" ;
+    json:ownedSpecialization "[{\"@id\":\"AnonymousPortions__car___402_ss0\"},{\"@id\":\"AnonymousPortions__car___402_rd0\"}]" .
 
 elmt:AnonymousPortions__car___402_om
     a sysml:OwningMembership ;
@@ -364,10 +393,14 @@ elmt:AnonymousPortions__car___402___400
     sysml:owningMembership elmt:AnonymousPortions__car___402___400_om ;
     sysml:redefines elmt:AnonymousPortions__Vehicle__fuel ;
     sysml:value expr:AnonymousPortions__car___402___400_pvalue ;
-    sysml:ownedRelationship expr:AnonymousPortions__car___402___400_pvalue_om ;
+    sysml:ownedRelationship expr:AnonymousPortions__car___402___400_pvalue_om, elmt:AnonymousPortions__car___402___400_rd0 ;
     sysml:ownedMembership expr:AnonymousPortions__car___402___400_pvalue_om ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysx:sourceText "\t\t\tattribute :>> fuel = 0;\n" .
+    sysml:ownedRedefinition elmt:AnonymousPortions__car___402___400_rd0 ;
+    sysml:ownedSubsetting elmt:AnonymousPortions__car___402___400_rd0 ;
+    sysml:ownedSpecialization elmt:AnonymousPortions__car___402___400_rd0 ;
+    sysx:sourceText "\t\t\tattribute :>> fuel = 0;\n" ;
+    json:ownedRelationship "[{\"@id\":\"AnonymousPortions__car___402___400_pvalue_om\"},{\"@id\":\"AnonymousPortions__car___402___400_rd0\"}]" .
 
 elmt:AnonymousPortions__car___402___400_om
     a sysml:FeatureMembership ;
@@ -441,6 +474,9 @@ elmt:AnonymousPortions__car___404
     sysml:portionKind "timeslice" ;
     sysml:type elmt:AnonymousPortions__Car ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:AnonymousPortions__car___404_ft0 ;
+    sysml:ownedSpecialization elmt:AnonymousPortions__car___404_ft0 ;
+    sysml:ownedRelationship elmt:AnonymousPortions__car___404_ft0 ;
     sysx:sourceText "\t\ttimeslice : Car;\n" .
 
 elmt:AnonymousPortions__car___404_om
@@ -452,3 +488,178 @@ elmt:AnonymousPortions__car___404_om
     sysml:ownedRelatedElement elmt:AnonymousPortions__car___404 ;
     sysml:owningRelatedElement elmt:AnonymousPortions__car ;
     sysml:membershipOwningNamespace elmt:AnonymousPortions__car .
+
+elmt:AnonymousPortions__Vehicle__fuel_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "AnonymousPortions__Vehicle__fuel_ft0" ;
+    sysml:typedFeature elmt:AnonymousPortions__Vehicle__fuel ;
+    sysml:owningFeature elmt:AnonymousPortions__Vehicle__fuel ;
+    sysml:specific elmt:AnonymousPortions__Vehicle__fuel ;
+    sysml:source elmt:AnonymousPortions__Vehicle__fuel ;
+    sysml:owningRelatedElement elmt:AnonymousPortions__Vehicle__fuel ;
+    sysml:type elmt:AnonymousPortions__Fuel ;
+    sysml:general elmt:AnonymousPortions__Fuel ;
+    sysml:target elmt:AnonymousPortions__Fuel ;
+    sysml:owner elmt:AnonymousPortions__Vehicle__fuel ;
+    sysml:relatedElement elmt:AnonymousPortions__Vehicle__fuel, elmt:AnonymousPortions__Fuel ;
+    json:relatedElement "[{\"@id\":\"AnonymousPortions__Vehicle__fuel\"},{\"@id\":\"AnonymousPortions__Fuel\"}]" .
+
+elmt:AnonymousPortions__Car_sp0
+    a sysml:Specialization ;
+    sysml:elementId "AnonymousPortions__Car_sp0" ;
+    sysml:specific elmt:AnonymousPortions__Car ;
+    sysml:owningType elmt:AnonymousPortions__Car ;
+    sysml:source elmt:AnonymousPortions__Car ;
+    sysml:owningRelatedElement elmt:AnonymousPortions__Car ;
+    sysml:general elmt:AnonymousPortions__Vehicle ;
+    sysml:target elmt:AnonymousPortions__Vehicle ;
+    sysml:owner elmt:AnonymousPortions__Car ;
+    sysml:relatedElement elmt:AnonymousPortions__Car, elmt:AnonymousPortions__Vehicle ;
+    json:relatedElement "[{\"@id\":\"AnonymousPortions__Car\"},{\"@id\":\"AnonymousPortions__Vehicle\"}]" .
+
+elmt:AnonymousPortions__car_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "AnonymousPortions__car_ft0" ;
+    sysml:typedFeature elmt:AnonymousPortions__car ;
+    sysml:owningFeature elmt:AnonymousPortions__car ;
+    sysml:specific elmt:AnonymousPortions__car ;
+    sysml:source elmt:AnonymousPortions__car ;
+    sysml:owningRelatedElement elmt:AnonymousPortions__car ;
+    sysml:type elmt:AnonymousPortions__Car ;
+    sysml:general elmt:AnonymousPortions__Car ;
+    sysml:target elmt:AnonymousPortions__Car ;
+    sysml:owner elmt:AnonymousPortions__car ;
+    sysml:relatedElement elmt:AnonymousPortions__car, elmt:AnonymousPortions__Car ;
+    json:relatedElement "[{\"@id\":\"AnonymousPortions__car\"},{\"@id\":\"AnonymousPortions__Car\"}]" .
+
+elmt:AnonymousPortions__car___400_rd0
+    a sysml:Redefinition ;
+    sysml:elementId "AnonymousPortions__car___400_rd0" ;
+    sysml:redefiningFeature elmt:AnonymousPortions__car___400 ;
+    sysml:subsettingFeature elmt:AnonymousPortions__car___400 ;
+    sysml:owningFeature elmt:AnonymousPortions__car___400 ;
+    sysml:specific elmt:AnonymousPortions__car___400 ;
+    sysml:source elmt:AnonymousPortions__car___400 ;
+    sysml:owningRelatedElement elmt:AnonymousPortions__car___400 ;
+    sysml:redefinedFeature elmt:ed80d442-d498-5236-96ae-71a8a52531d2 ;
+    sysml:subsettedFeature elmt:ed80d442-d498-5236-96ae-71a8a52531d2 ;
+    sysml:general elmt:ed80d442-d498-5236-96ae-71a8a52531d2 ;
+    sysml:target elmt:ed80d442-d498-5236-96ae-71a8a52531d2 ;
+    sysml:owner elmt:AnonymousPortions__car___400 ;
+    sysml:relatedElement elmt:AnonymousPortions__car___400, elmt:ed80d442-d498-5236-96ae-71a8a52531d2 ;
+    json:relatedElement "[{\"@id\":\"AnonymousPortions__car___400\"},{\"@id\":\"ed80d442-d498-5236-96ae-71a8a52531d2\"}]" .
+
+elmt:AnonymousPortions__car___400___400_rd0
+    a sysml:Redefinition ;
+    sysml:elementId "AnonymousPortions__car___400___400_rd0" ;
+    sysml:redefiningFeature elmt:AnonymousPortions__car___400___400 ;
+    sysml:subsettingFeature elmt:AnonymousPortions__car___400___400 ;
+    sysml:owningFeature elmt:AnonymousPortions__car___400___400 ;
+    sysml:specific elmt:AnonymousPortions__car___400___400 ;
+    sysml:source elmt:AnonymousPortions__car___400___400 ;
+    sysml:owningRelatedElement elmt:AnonymousPortions__car___400___400 ;
+    sysml:redefinedFeature elmt:AnonymousPortions__Vehicle__fuel ;
+    sysml:subsettedFeature elmt:AnonymousPortions__Vehicle__fuel ;
+    sysml:general elmt:AnonymousPortions__Vehicle__fuel ;
+    sysml:target elmt:AnonymousPortions__Vehicle__fuel ;
+    sysml:owner elmt:AnonymousPortions__car___400___400 ;
+    sysml:relatedElement elmt:AnonymousPortions__car___400___400, elmt:AnonymousPortions__Vehicle__fuel ;
+    json:relatedElement "[{\"@id\":\"AnonymousPortions__car___400___400\"},{\"@id\":\"AnonymousPortions__Vehicle__fuel\"}]" .
+
+elmt:AnonymousPortions__car___401_rd0
+    a sysml:Redefinition ;
+    sysml:elementId "AnonymousPortions__car___401_rd0" ;
+    sysml:redefiningFeature elmt:AnonymousPortions__car___401 ;
+    sysml:subsettingFeature elmt:AnonymousPortions__car___401 ;
+    sysml:owningFeature elmt:AnonymousPortions__car___401 ;
+    sysml:specific elmt:AnonymousPortions__car___401 ;
+    sysml:source elmt:AnonymousPortions__car___401 ;
+    sysml:owningRelatedElement elmt:AnonymousPortions__car___401 ;
+    sysml:redefinedFeature elmt:fa859d04-71c3-510a-bdb7-d35d7bc10bee ;
+    sysml:subsettedFeature elmt:fa859d04-71c3-510a-bdb7-d35d7bc10bee ;
+    sysml:general elmt:fa859d04-71c3-510a-bdb7-d35d7bc10bee ;
+    sysml:target elmt:fa859d04-71c3-510a-bdb7-d35d7bc10bee ;
+    sysml:owner elmt:AnonymousPortions__car___401 ;
+    sysml:relatedElement elmt:AnonymousPortions__car___401, elmt:fa859d04-71c3-510a-bdb7-d35d7bc10bee ;
+    json:relatedElement "[{\"@id\":\"AnonymousPortions__car___401\"},{\"@id\":\"fa859d04-71c3-510a-bdb7-d35d7bc10bee\"}]" .
+
+elmt:AnonymousPortions__car___401___400_rd0
+    a sysml:Redefinition ;
+    sysml:elementId "AnonymousPortions__car___401___400_rd0" ;
+    sysml:redefiningFeature elmt:AnonymousPortions__car___401___400 ;
+    sysml:subsettingFeature elmt:AnonymousPortions__car___401___400 ;
+    sysml:owningFeature elmt:AnonymousPortions__car___401___400 ;
+    sysml:specific elmt:AnonymousPortions__car___401___400 ;
+    sysml:source elmt:AnonymousPortions__car___401___400 ;
+    sysml:owningRelatedElement elmt:AnonymousPortions__car___401___400 ;
+    sysml:redefinedFeature elmt:AnonymousPortions__Vehicle__fuel ;
+    sysml:subsettedFeature elmt:AnonymousPortions__Vehicle__fuel ;
+    sysml:general elmt:AnonymousPortions__Vehicle__fuel ;
+    sysml:target elmt:AnonymousPortions__Vehicle__fuel ;
+    sysml:owner elmt:AnonymousPortions__car___401___400 ;
+    sysml:relatedElement elmt:AnonymousPortions__car___401___400, elmt:AnonymousPortions__Vehicle__fuel ;
+    json:relatedElement "[{\"@id\":\"AnonymousPortions__car___401___400\"},{\"@id\":\"AnonymousPortions__Vehicle__fuel\"}]" .
+
+elmt:AnonymousPortions__car___402_ss0
+    a sysml:Subsetting ;
+    sysml:elementId "AnonymousPortions__car___402_ss0" ;
+    sysml:subsettingFeature elmt:AnonymousPortions__car___402 ;
+    sysml:owningFeature elmt:AnonymousPortions__car___402 ;
+    sysml:specific elmt:AnonymousPortions__car___402 ;
+    sysml:source elmt:AnonymousPortions__car___402 ;
+    sysml:owningRelatedElement elmt:AnonymousPortions__car___402 ;
+    sysml:subsettedFeature elmt:AnonymousPortions__Vehicle__fuel ;
+    sysml:general elmt:AnonymousPortions__Vehicle__fuel ;
+    sysml:target elmt:AnonymousPortions__Vehicle__fuel ;
+    sysml:owner elmt:AnonymousPortions__car___402 ;
+    sysml:relatedElement elmt:AnonymousPortions__car___402, elmt:AnonymousPortions__Vehicle__fuel ;
+    json:relatedElement "[{\"@id\":\"AnonymousPortions__car___402\"},{\"@id\":\"AnonymousPortions__Vehicle__fuel\"}]" .
+
+elmt:AnonymousPortions__car___402_rd0
+    a sysml:Redefinition ;
+    sysml:elementId "AnonymousPortions__car___402_rd0" ;
+    sysml:redefiningFeature elmt:AnonymousPortions__car___402 ;
+    sysml:subsettingFeature elmt:AnonymousPortions__car___402 ;
+    sysml:owningFeature elmt:AnonymousPortions__car___402 ;
+    sysml:specific elmt:AnonymousPortions__car___402 ;
+    sysml:source elmt:AnonymousPortions__car___402 ;
+    sysml:owningRelatedElement elmt:AnonymousPortions__car___402 ;
+    sysml:redefinedFeature elmt:dd677401-a352-5fe3-846a-dad08d3eab06 ;
+    sysml:subsettedFeature elmt:dd677401-a352-5fe3-846a-dad08d3eab06 ;
+    sysml:general elmt:dd677401-a352-5fe3-846a-dad08d3eab06 ;
+    sysml:target elmt:dd677401-a352-5fe3-846a-dad08d3eab06 ;
+    sysml:owner elmt:AnonymousPortions__car___402 ;
+    sysml:relatedElement elmt:AnonymousPortions__car___402, elmt:dd677401-a352-5fe3-846a-dad08d3eab06 ;
+    json:relatedElement "[{\"@id\":\"AnonymousPortions__car___402\"},{\"@id\":\"dd677401-a352-5fe3-846a-dad08d3eab06\"}]" .
+
+elmt:AnonymousPortions__car___402___400_rd0
+    a sysml:Redefinition ;
+    sysml:elementId "AnonymousPortions__car___402___400_rd0" ;
+    sysml:redefiningFeature elmt:AnonymousPortions__car___402___400 ;
+    sysml:subsettingFeature elmt:AnonymousPortions__car___402___400 ;
+    sysml:owningFeature elmt:AnonymousPortions__car___402___400 ;
+    sysml:specific elmt:AnonymousPortions__car___402___400 ;
+    sysml:source elmt:AnonymousPortions__car___402___400 ;
+    sysml:owningRelatedElement elmt:AnonymousPortions__car___402___400 ;
+    sysml:redefinedFeature elmt:AnonymousPortions__Vehicle__fuel ;
+    sysml:subsettedFeature elmt:AnonymousPortions__Vehicle__fuel ;
+    sysml:general elmt:AnonymousPortions__Vehicle__fuel ;
+    sysml:target elmt:AnonymousPortions__Vehicle__fuel ;
+    sysml:owner elmt:AnonymousPortions__car___402___400 ;
+    sysml:relatedElement elmt:AnonymousPortions__car___402___400, elmt:AnonymousPortions__Vehicle__fuel ;
+    json:relatedElement "[{\"@id\":\"AnonymousPortions__car___402___400\"},{\"@id\":\"AnonymousPortions__Vehicle__fuel\"}]" .
+
+elmt:AnonymousPortions__car___404_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "AnonymousPortions__car___404_ft0" ;
+    sysml:typedFeature elmt:AnonymousPortions__car___404 ;
+    sysml:owningFeature elmt:AnonymousPortions__car___404 ;
+    sysml:specific elmt:AnonymousPortions__car___404 ;
+    sysml:source elmt:AnonymousPortions__car___404 ;
+    sysml:owningRelatedElement elmt:AnonymousPortions__car___404 ;
+    sysml:type elmt:AnonymousPortions__Car ;
+    sysml:general elmt:AnonymousPortions__Car ;
+    sysml:target elmt:AnonymousPortions__Car ;
+    sysml:owner elmt:AnonymousPortions__car___404 ;
+    sysml:relatedElement elmt:AnonymousPortions__car___404, elmt:AnonymousPortions__Car ;
+    json:relatedElement "[{\"@id\":\"AnonymousPortions__car___404\"},{\"@id\":\"AnonymousPortions__Car\"}]" .

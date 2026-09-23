@@ -111,17 +111,20 @@ elmt:CompositeMultiplicity__Vehicle__w
     sysx:declaredKeyword "feature" ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:type elmt:CompositeMultiplicity__Wheel ;
+    sysml:multiplicity expr:CompositeMultiplicity__Vehicle__w_pmultiplicity ;
+    sysml:ownedRelationship expr:CompositeMultiplicity__Vehicle__w_pmultiplicity_om, elmt:CompositeMultiplicity__Vehicle__w__lugbolt_om, elmt:CompositeMultiplicity__Vehicle__w_ft0 ;
+    sysml:ownedMembership expr:CompositeMultiplicity__Vehicle__w_pmultiplicity_om, elmt:CompositeMultiplicity__Vehicle__w__lugbolt_om ;
     sysml:upperBound expr:CompositeMultiplicity__Vehicle__w_pupperBound ;
-    sysml:ownedRelationship expr:CompositeMultiplicity__Vehicle__w_pupperBound_om, elmt:CompositeMultiplicity__Vehicle__w__lugbolt_om ;
-    sysml:ownedMembership expr:CompositeMultiplicity__Vehicle__w_pupperBound_om, elmt:CompositeMultiplicity__Vehicle__w__lugbolt_om ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:CompositeMultiplicity__Vehicle__w__lugbolt ;
     sysml:ownedFeature elmt:CompositeMultiplicity__Vehicle__w__lugbolt ;
     sysml:ownedFeatureMembership elmt:CompositeMultiplicity__Vehicle__w__lugbolt_om ;
+    sysml:ownedTyping elmt:CompositeMultiplicity__Vehicle__w_ft0 ;
+    sysml:ownedSpecialization elmt:CompositeMultiplicity__Vehicle__w_ft0 ;
     sysx:sourceText "        composite feature w : Wheel[4] {\n" ;
     sysx:sourceTail "        }\n" ;
-    json:ownedRelationship "[{\"@id\":\"CompositeMultiplicity__Vehicle__w_pupperBound_om\"},{\"@id\":\"CompositeMultiplicity__Vehicle__w__lugbolt_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"CompositeMultiplicity__Vehicle__w_pupperBound_om\"},{\"@id\":\"CompositeMultiplicity__Vehicle__w__lugbolt_om\"}]" .
+    json:ownedRelationship "[{\"@id\":\"CompositeMultiplicity__Vehicle__w_pmultiplicity_om\"},{\"@id\":\"CompositeMultiplicity__Vehicle__w__lugbolt_om\"},{\"@id\":\"CompositeMultiplicity__Vehicle__w_ft0\"}]" ;
+    json:ownedMembership "[{\"@id\":\"CompositeMultiplicity__Vehicle__w_pmultiplicity_om\"},{\"@id\":\"CompositeMultiplicity__Vehicle__w__lugbolt_om\"}]" .
 
 elmt:CompositeMultiplicity__Vehicle__w_om
     a sysml:FeatureMembership ;
@@ -135,24 +138,44 @@ elmt:CompositeMultiplicity__Vehicle__w_om
     sysml:ownedMemberFeature elmt:CompositeMultiplicity__Vehicle__w ;
     sysml:owningType elmt:CompositeMultiplicity__Vehicle .
 
+expr:CompositeMultiplicity__Vehicle__w_pmultiplicity
+    a sysml:MultiplicityRange ;
+    sysml:elementId "CompositeMultiplicity__Vehicle__w_pmultiplicity" ;
+    sysml:owner elmt:CompositeMultiplicity__Vehicle__w ;
+    sysml:owningRelationship expr:CompositeMultiplicity__Vehicle__w_pmultiplicity_om ;
+    sysml:owningMembership expr:CompositeMultiplicity__Vehicle__w_pmultiplicity_om ;
+    sysml:upperBound expr:CompositeMultiplicity__Vehicle__w_pupperBound ;
+    sysml:ownedRelationship expr:CompositeMultiplicity__Vehicle__w_pupperBound_om ;
+    sysml:ownedMembership expr:CompositeMultiplicity__Vehicle__w_pupperBound_om .
+
+expr:CompositeMultiplicity__Vehicle__w_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "CompositeMultiplicity__Vehicle__w_pmultiplicity_om" ;
+    sysml:owner elmt:CompositeMultiplicity__Vehicle__w ;
+    sysml:memberElement expr:CompositeMultiplicity__Vehicle__w_pmultiplicity ;
+    sysml:ownedMemberElement expr:CompositeMultiplicity__Vehicle__w_pmultiplicity ;
+    sysml:ownedRelatedElement expr:CompositeMultiplicity__Vehicle__w_pmultiplicity ;
+    sysml:owningRelatedElement elmt:CompositeMultiplicity__Vehicle__w ;
+    sysml:membershipOwningNamespace elmt:CompositeMultiplicity__Vehicle__w .
+
 expr:CompositeMultiplicity__Vehicle__w_pupperBound
     a sysml:LiteralInteger ;
     sysx:sourceText "4" ;
     sysml:elementId "CompositeMultiplicity__Vehicle__w_pupperBound" ;
     sysml:value "4"^^xsd:integer ;
-    sysml:owner elmt:CompositeMultiplicity__Vehicle__w ;
+    sysml:owner expr:CompositeMultiplicity__Vehicle__w_pmultiplicity ;
     sysml:owningRelationship expr:CompositeMultiplicity__Vehicle__w_pupperBound_om ;
     sysml:owningMembership expr:CompositeMultiplicity__Vehicle__w_pupperBound_om .
 
 expr:CompositeMultiplicity__Vehicle__w_pupperBound_om
     a sysml:OwningMembership ;
     sysml:elementId "CompositeMultiplicity__Vehicle__w_pupperBound_om" ;
-    sysml:owner elmt:CompositeMultiplicity__Vehicle__w ;
+    sysml:owner expr:CompositeMultiplicity__Vehicle__w_pmultiplicity ;
     sysml:memberElement expr:CompositeMultiplicity__Vehicle__w_pupperBound ;
     sysml:ownedMemberElement expr:CompositeMultiplicity__Vehicle__w_pupperBound ;
     sysml:ownedRelatedElement expr:CompositeMultiplicity__Vehicle__w_pupperBound ;
-    sysml:owningRelatedElement elmt:CompositeMultiplicity__Vehicle__w ;
-    sysml:membershipOwningNamespace elmt:CompositeMultiplicity__Vehicle__w .
+    sysml:owningRelatedElement expr:CompositeMultiplicity__Vehicle__w_pmultiplicity ;
+    sysml:membershipOwningNamespace expr:CompositeMultiplicity__Vehicle__w_pmultiplicity .
 
 elmt:CompositeMultiplicity__Vehicle__w__lugbolt
     a sysml:ReferenceUsage ;
@@ -167,14 +190,16 @@ elmt:CompositeMultiplicity__Vehicle__w__lugbolt
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:type elmt:CompositeMultiplicity__Lugbolt ;
+    sysml:multiplicity expr:CompositeMultiplicity__Vehicle__w__lugbolt_pmultiplicity ;
+    sysml:ownedRelationship expr:CompositeMultiplicity__Vehicle__w__lugbolt_pmultiplicity_om, elmt:CompositeMultiplicity__Vehicle__w__lugbolt_ft0 ;
+    sysml:ownedMembership expr:CompositeMultiplicity__Vehicle__w__lugbolt_pmultiplicity_om ;
     sysml:lowerBound expr:CompositeMultiplicity__Vehicle__w__lugbolt_plowerBound ;
-    sysml:ownedRelationship expr:CompositeMultiplicity__Vehicle__w__lugbolt_plowerBound_om, expr:CompositeMultiplicity__Vehicle__w__lugbolt_pupperBound_om ;
-    sysml:ownedMembership expr:CompositeMultiplicity__Vehicle__w__lugbolt_plowerBound_om, expr:CompositeMultiplicity__Vehicle__w__lugbolt_pupperBound_om ;
     sysml:upperBound expr:CompositeMultiplicity__Vehicle__w__lugbolt_pupperBound ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:CompositeMultiplicity__Vehicle__w__lugbolt_ft0 ;
+    sysml:ownedSpecialization elmt:CompositeMultiplicity__Vehicle__w__lugbolt_ft0 ;
     sysx:sourceText "            composite lugbolt : Lugbolt[4..6];\n" ;
-    json:ownedRelationship "[{\"@id\":\"CompositeMultiplicity__Vehicle__w__lugbolt_plowerBound_om\"},{\"@id\":\"CompositeMultiplicity__Vehicle__w__lugbolt_pupperBound_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"CompositeMultiplicity__Vehicle__w__lugbolt_plowerBound_om\"},{\"@id\":\"CompositeMultiplicity__Vehicle__w__lugbolt_pupperBound_om\"}]" .
+    json:ownedRelationship "[{\"@id\":\"CompositeMultiplicity__Vehicle__w__lugbolt_pmultiplicity_om\"},{\"@id\":\"CompositeMultiplicity__Vehicle__w__lugbolt_ft0\"}]" .
 
 elmt:CompositeMultiplicity__Vehicle__w__lugbolt_om
     a sysml:FeatureMembership ;
@@ -188,43 +213,66 @@ elmt:CompositeMultiplicity__Vehicle__w__lugbolt_om
     sysml:ownedMemberFeature elmt:CompositeMultiplicity__Vehicle__w__lugbolt ;
     sysml:owningType elmt:CompositeMultiplicity__Vehicle__w .
 
+expr:CompositeMultiplicity__Vehicle__w__lugbolt_pmultiplicity
+    a sysml:MultiplicityRange ;
+    sysml:elementId "CompositeMultiplicity__Vehicle__w__lugbolt_pmultiplicity" ;
+    sysml:owner elmt:CompositeMultiplicity__Vehicle__w__lugbolt ;
+    sysml:owningRelationship expr:CompositeMultiplicity__Vehicle__w__lugbolt_pmultiplicity_om ;
+    sysml:owningMembership expr:CompositeMultiplicity__Vehicle__w__lugbolt_pmultiplicity_om ;
+    sysml:lowerBound expr:CompositeMultiplicity__Vehicle__w__lugbolt_plowerBound ;
+    sysml:ownedRelationship expr:CompositeMultiplicity__Vehicle__w__lugbolt_plowerBound_om, expr:CompositeMultiplicity__Vehicle__w__lugbolt_pupperBound_om ;
+    sysml:ownedMembership expr:CompositeMultiplicity__Vehicle__w__lugbolt_plowerBound_om, expr:CompositeMultiplicity__Vehicle__w__lugbolt_pupperBound_om ;
+    sysml:upperBound expr:CompositeMultiplicity__Vehicle__w__lugbolt_pupperBound ;
+    json:ownedRelationship "[{\"@id\":\"CompositeMultiplicity__Vehicle__w__lugbolt_plowerBound_om\"},{\"@id\":\"CompositeMultiplicity__Vehicle__w__lugbolt_pupperBound_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"CompositeMultiplicity__Vehicle__w__lugbolt_plowerBound_om\"},{\"@id\":\"CompositeMultiplicity__Vehicle__w__lugbolt_pupperBound_om\"}]" .
+
+expr:CompositeMultiplicity__Vehicle__w__lugbolt_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "CompositeMultiplicity__Vehicle__w__lugbolt_pmultiplicity_om" ;
+    sysml:owner elmt:CompositeMultiplicity__Vehicle__w__lugbolt ;
+    sysml:memberElement expr:CompositeMultiplicity__Vehicle__w__lugbolt_pmultiplicity ;
+    sysml:ownedMemberElement expr:CompositeMultiplicity__Vehicle__w__lugbolt_pmultiplicity ;
+    sysml:ownedRelatedElement expr:CompositeMultiplicity__Vehicle__w__lugbolt_pmultiplicity ;
+    sysml:owningRelatedElement elmt:CompositeMultiplicity__Vehicle__w__lugbolt ;
+    sysml:membershipOwningNamespace elmt:CompositeMultiplicity__Vehicle__w__lugbolt .
+
 expr:CompositeMultiplicity__Vehicle__w__lugbolt_plowerBound
     a sysml:LiteralInteger ;
     sysx:sourceText "4" ;
     sysml:elementId "CompositeMultiplicity__Vehicle__w__lugbolt_plowerBound" ;
     sysml:value "4"^^xsd:integer ;
-    sysml:owner elmt:CompositeMultiplicity__Vehicle__w__lugbolt ;
+    sysml:owner expr:CompositeMultiplicity__Vehicle__w__lugbolt_pmultiplicity ;
     sysml:owningRelationship expr:CompositeMultiplicity__Vehicle__w__lugbolt_plowerBound_om ;
     sysml:owningMembership expr:CompositeMultiplicity__Vehicle__w__lugbolt_plowerBound_om .
 
 expr:CompositeMultiplicity__Vehicle__w__lugbolt_plowerBound_om
     a sysml:OwningMembership ;
     sysml:elementId "CompositeMultiplicity__Vehicle__w__lugbolt_plowerBound_om" ;
-    sysml:owner elmt:CompositeMultiplicity__Vehicle__w__lugbolt ;
+    sysml:owner expr:CompositeMultiplicity__Vehicle__w__lugbolt_pmultiplicity ;
     sysml:memberElement expr:CompositeMultiplicity__Vehicle__w__lugbolt_plowerBound ;
     sysml:ownedMemberElement expr:CompositeMultiplicity__Vehicle__w__lugbolt_plowerBound ;
     sysml:ownedRelatedElement expr:CompositeMultiplicity__Vehicle__w__lugbolt_plowerBound ;
-    sysml:owningRelatedElement elmt:CompositeMultiplicity__Vehicle__w__lugbolt ;
-    sysml:membershipOwningNamespace elmt:CompositeMultiplicity__Vehicle__w__lugbolt .
+    sysml:owningRelatedElement expr:CompositeMultiplicity__Vehicle__w__lugbolt_pmultiplicity ;
+    sysml:membershipOwningNamespace expr:CompositeMultiplicity__Vehicle__w__lugbolt_pmultiplicity .
 
 expr:CompositeMultiplicity__Vehicle__w__lugbolt_pupperBound
     a sysml:LiteralInteger ;
     sysx:sourceText "6" ;
     sysml:elementId "CompositeMultiplicity__Vehicle__w__lugbolt_pupperBound" ;
     sysml:value "6"^^xsd:integer ;
-    sysml:owner elmt:CompositeMultiplicity__Vehicle__w__lugbolt ;
+    sysml:owner expr:CompositeMultiplicity__Vehicle__w__lugbolt_pmultiplicity ;
     sysml:owningRelationship expr:CompositeMultiplicity__Vehicle__w__lugbolt_pupperBound_om ;
     sysml:owningMembership expr:CompositeMultiplicity__Vehicle__w__lugbolt_pupperBound_om .
 
 expr:CompositeMultiplicity__Vehicle__w__lugbolt_pupperBound_om
     a sysml:OwningMembership ;
     sysml:elementId "CompositeMultiplicity__Vehicle__w__lugbolt_pupperBound_om" ;
-    sysml:owner elmt:CompositeMultiplicity__Vehicle__w__lugbolt ;
+    sysml:owner expr:CompositeMultiplicity__Vehicle__w__lugbolt_pmultiplicity ;
     sysml:memberElement expr:CompositeMultiplicity__Vehicle__w__lugbolt_pupperBound ;
     sysml:ownedMemberElement expr:CompositeMultiplicity__Vehicle__w__lugbolt_pupperBound ;
     sysml:ownedRelatedElement expr:CompositeMultiplicity__Vehicle__w__lugbolt_pupperBound ;
-    sysml:owningRelatedElement elmt:CompositeMultiplicity__Vehicle__w__lugbolt ;
-    sysml:membershipOwningNamespace elmt:CompositeMultiplicity__Vehicle__w__lugbolt .
+    sysml:owningRelatedElement expr:CompositeMultiplicity__Vehicle__w__lugbolt_pmultiplicity ;
+    sysml:membershipOwningNamespace expr:CompositeMultiplicity__Vehicle__w__lugbolt_pmultiplicity .
 
 elmt:CompositeMultiplicity__Car
     a sysml:ClassUsage ;
@@ -240,14 +288,15 @@ elmt:CompositeMultiplicity__Car
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:CompositeMultiplicity__Car__frontWheel, elmt:CompositeMultiplicity__Car__rearWheel ;
     sysml:ownedMembership elmt:CompositeMultiplicity__Car__frontWheel_om, elmt:CompositeMultiplicity__Car__rearWheel_om ;
-    sysml:ownedRelationship elmt:CompositeMultiplicity__Car__frontWheel_om, elmt:CompositeMultiplicity__Car__rearWheel_om ;
+    sysml:ownedRelationship elmt:CompositeMultiplicity__Car__frontWheel_om, elmt:CompositeMultiplicity__Car__rearWheel_om, elmt:CompositeMultiplicity__Car_sp0 ;
     sysml:ownedFeature elmt:CompositeMultiplicity__Car__frontWheel, elmt:CompositeMultiplicity__Car__rearWheel ;
     sysml:ownedFeatureMembership elmt:CompositeMultiplicity__Car__frontWheel_om, elmt:CompositeMultiplicity__Car__rearWheel_om ;
+    sysml:ownedSpecialization elmt:CompositeMultiplicity__Car_sp0 ;
     sysx:sourceText "    class Car specializes Vehicle {\n" ;
     sysx:sourceTail "    }\n" ;
     json:ownedMember "[{\"@id\":\"CompositeMultiplicity__Car__frontWheel\"},{\"@id\":\"CompositeMultiplicity__Car__rearWheel\"}]" ;
     json:ownedMembership "[{\"@id\":\"CompositeMultiplicity__Car__frontWheel_om\"},{\"@id\":\"CompositeMultiplicity__Car__rearWheel_om\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"CompositeMultiplicity__Car__frontWheel_om\"},{\"@id\":\"CompositeMultiplicity__Car__rearWheel_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"CompositeMultiplicity__Car__frontWheel_om\"},{\"@id\":\"CompositeMultiplicity__Car__rearWheel_om\"},{\"@id\":\"CompositeMultiplicity__Car_sp0\"}]" ;
     json:ownedFeature "[{\"@id\":\"CompositeMultiplicity__Car__frontWheel\"},{\"@id\":\"CompositeMultiplicity__Car__rearWheel\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"CompositeMultiplicity__Car__frontWheel_om\"},{\"@id\":\"CompositeMultiplicity__Car__rearWheel_om\"}]" .
 
@@ -274,17 +323,21 @@ elmt:CompositeMultiplicity__Car__frontWheel
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:redefines elmt:CompositeMultiplicity__Vehicle__w ;
+    sysml:multiplicity expr:CompositeMultiplicity__Car__frontWheel_pmultiplicity ;
+    sysml:ownedRelationship expr:CompositeMultiplicity__Car__frontWheel_pmultiplicity_om, elmt:CompositeMultiplicity__Car__frontWheel__lugbolt_om, elmt:CompositeMultiplicity__Car__frontWheel_rd0 ;
+    sysml:ownedMembership expr:CompositeMultiplicity__Car__frontWheel_pmultiplicity_om, elmt:CompositeMultiplicity__Car__frontWheel__lugbolt_om ;
     sysml:upperBound expr:CompositeMultiplicity__Car__frontWheel_pupperBound ;
-    sysml:ownedRelationship expr:CompositeMultiplicity__Car__frontWheel_pupperBound_om, elmt:CompositeMultiplicity__Car__frontWheel__lugbolt_om ;
-    sysml:ownedMembership expr:CompositeMultiplicity__Car__frontWheel_pupperBound_om, elmt:CompositeMultiplicity__Car__frontWheel__lugbolt_om ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:CompositeMultiplicity__Car__frontWheel__lugbolt ;
     sysml:ownedFeature elmt:CompositeMultiplicity__Car__frontWheel__lugbolt ;
     sysml:ownedFeatureMembership elmt:CompositeMultiplicity__Car__frontWheel__lugbolt_om ;
+    sysml:ownedRedefinition elmt:CompositeMultiplicity__Car__frontWheel_rd0 ;
+    sysml:ownedSubsetting elmt:CompositeMultiplicity__Car__frontWheel_rd0 ;
+    sysml:ownedSpecialization elmt:CompositeMultiplicity__Car__frontWheel_rd0 ;
     sysx:sourceText "        composite frontWheel[2] redefines w {\n" ;
     sysx:sourceTail "        }\n" ;
-    json:ownedRelationship "[{\"@id\":\"CompositeMultiplicity__Car__frontWheel_pupperBound_om\"},{\"@id\":\"CompositeMultiplicity__Car__frontWheel__lugbolt_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"CompositeMultiplicity__Car__frontWheel_pupperBound_om\"},{\"@id\":\"CompositeMultiplicity__Car__frontWheel__lugbolt_om\"}]" .
+    json:ownedRelationship "[{\"@id\":\"CompositeMultiplicity__Car__frontWheel_pmultiplicity_om\"},{\"@id\":\"CompositeMultiplicity__Car__frontWheel__lugbolt_om\"},{\"@id\":\"CompositeMultiplicity__Car__frontWheel_rd0\"}]" ;
+    json:ownedMembership "[{\"@id\":\"CompositeMultiplicity__Car__frontWheel_pmultiplicity_om\"},{\"@id\":\"CompositeMultiplicity__Car__frontWheel__lugbolt_om\"}]" .
 
 elmt:CompositeMultiplicity__Car__frontWheel_om
     a sysml:FeatureMembership ;
@@ -298,24 +351,44 @@ elmt:CompositeMultiplicity__Car__frontWheel_om
     sysml:ownedMemberFeature elmt:CompositeMultiplicity__Car__frontWheel ;
     sysml:owningType elmt:CompositeMultiplicity__Car .
 
+expr:CompositeMultiplicity__Car__frontWheel_pmultiplicity
+    a sysml:MultiplicityRange ;
+    sysml:elementId "CompositeMultiplicity__Car__frontWheel_pmultiplicity" ;
+    sysml:owner elmt:CompositeMultiplicity__Car__frontWheel ;
+    sysml:owningRelationship expr:CompositeMultiplicity__Car__frontWheel_pmultiplicity_om ;
+    sysml:owningMembership expr:CompositeMultiplicity__Car__frontWheel_pmultiplicity_om ;
+    sysml:upperBound expr:CompositeMultiplicity__Car__frontWheel_pupperBound ;
+    sysml:ownedRelationship expr:CompositeMultiplicity__Car__frontWheel_pupperBound_om ;
+    sysml:ownedMembership expr:CompositeMultiplicity__Car__frontWheel_pupperBound_om .
+
+expr:CompositeMultiplicity__Car__frontWheel_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "CompositeMultiplicity__Car__frontWheel_pmultiplicity_om" ;
+    sysml:owner elmt:CompositeMultiplicity__Car__frontWheel ;
+    sysml:memberElement expr:CompositeMultiplicity__Car__frontWheel_pmultiplicity ;
+    sysml:ownedMemberElement expr:CompositeMultiplicity__Car__frontWheel_pmultiplicity ;
+    sysml:ownedRelatedElement expr:CompositeMultiplicity__Car__frontWheel_pmultiplicity ;
+    sysml:owningRelatedElement elmt:CompositeMultiplicity__Car__frontWheel ;
+    sysml:membershipOwningNamespace elmt:CompositeMultiplicity__Car__frontWheel .
+
 expr:CompositeMultiplicity__Car__frontWheel_pupperBound
     a sysml:LiteralInteger ;
     sysx:sourceText "2" ;
     sysml:elementId "CompositeMultiplicity__Car__frontWheel_pupperBound" ;
     sysml:value "2"^^xsd:integer ;
-    sysml:owner elmt:CompositeMultiplicity__Car__frontWheel ;
+    sysml:owner expr:CompositeMultiplicity__Car__frontWheel_pmultiplicity ;
     sysml:owningRelationship expr:CompositeMultiplicity__Car__frontWheel_pupperBound_om ;
     sysml:owningMembership expr:CompositeMultiplicity__Car__frontWheel_pupperBound_om .
 
 expr:CompositeMultiplicity__Car__frontWheel_pupperBound_om
     a sysml:OwningMembership ;
     sysml:elementId "CompositeMultiplicity__Car__frontWheel_pupperBound_om" ;
-    sysml:owner elmt:CompositeMultiplicity__Car__frontWheel ;
+    sysml:owner expr:CompositeMultiplicity__Car__frontWheel_pmultiplicity ;
     sysml:memberElement expr:CompositeMultiplicity__Car__frontWheel_pupperBound ;
     sysml:ownedMemberElement expr:CompositeMultiplicity__Car__frontWheel_pupperBound ;
     sysml:ownedRelatedElement expr:CompositeMultiplicity__Car__frontWheel_pupperBound ;
-    sysml:owningRelatedElement elmt:CompositeMultiplicity__Car__frontWheel ;
-    sysml:membershipOwningNamespace elmt:CompositeMultiplicity__Car__frontWheel .
+    sysml:owningRelatedElement expr:CompositeMultiplicity__Car__frontWheel_pmultiplicity ;
+    sysml:membershipOwningNamespace expr:CompositeMultiplicity__Car__frontWheel_pmultiplicity .
 
 elmt:CompositeMultiplicity__Car__frontWheel__lugbolt
     a sysml:ReferenceUsage ;
@@ -330,11 +403,16 @@ elmt:CompositeMultiplicity__Car__frontWheel__lugbolt
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:redefines elmt:CompositeMultiplicity__Vehicle__w__lugbolt ;
+    sysml:multiplicity expr:CompositeMultiplicity__Car__frontWheel__lugbolt_pmultiplicity ;
+    sysml:ownedRelationship expr:CompositeMultiplicity__Car__frontWheel__lugbolt_pmultiplicity_om, elmt:CompositeMultiplicity__Car__frontWheel__lugbolt_rd0 ;
+    sysml:ownedMembership expr:CompositeMultiplicity__Car__frontWheel__lugbolt_pmultiplicity_om ;
     sysml:upperBound expr:CompositeMultiplicity__Car__frontWheel__lugbolt_pupperBound ;
-    sysml:ownedRelationship expr:CompositeMultiplicity__Car__frontWheel__lugbolt_pupperBound_om ;
-    sysml:ownedMembership expr:CompositeMultiplicity__Car__frontWheel__lugbolt_pupperBound_om ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysx:sourceText "            composite lugbolt[4] redefines Vehicle::w::lugbolt;\n" .
+    sysml:ownedRedefinition elmt:CompositeMultiplicity__Car__frontWheel__lugbolt_rd0 ;
+    sysml:ownedSubsetting elmt:CompositeMultiplicity__Car__frontWheel__lugbolt_rd0 ;
+    sysml:ownedSpecialization elmt:CompositeMultiplicity__Car__frontWheel__lugbolt_rd0 ;
+    sysx:sourceText "            composite lugbolt[4] redefines Vehicle::w::lugbolt;\n" ;
+    json:ownedRelationship "[{\"@id\":\"CompositeMultiplicity__Car__frontWheel__lugbolt_pmultiplicity_om\"},{\"@id\":\"CompositeMultiplicity__Car__frontWheel__lugbolt_rd0\"}]" .
 
 elmt:CompositeMultiplicity__Car__frontWheel__lugbolt_om
     a sysml:FeatureMembership ;
@@ -348,24 +426,44 @@ elmt:CompositeMultiplicity__Car__frontWheel__lugbolt_om
     sysml:ownedMemberFeature elmt:CompositeMultiplicity__Car__frontWheel__lugbolt ;
     sysml:owningType elmt:CompositeMultiplicity__Car__frontWheel .
 
+expr:CompositeMultiplicity__Car__frontWheel__lugbolt_pmultiplicity
+    a sysml:MultiplicityRange ;
+    sysml:elementId "CompositeMultiplicity__Car__frontWheel__lugbolt_pmultiplicity" ;
+    sysml:owner elmt:CompositeMultiplicity__Car__frontWheel__lugbolt ;
+    sysml:owningRelationship expr:CompositeMultiplicity__Car__frontWheel__lugbolt_pmultiplicity_om ;
+    sysml:owningMembership expr:CompositeMultiplicity__Car__frontWheel__lugbolt_pmultiplicity_om ;
+    sysml:upperBound expr:CompositeMultiplicity__Car__frontWheel__lugbolt_pupperBound ;
+    sysml:ownedRelationship expr:CompositeMultiplicity__Car__frontWheel__lugbolt_pupperBound_om ;
+    sysml:ownedMembership expr:CompositeMultiplicity__Car__frontWheel__lugbolt_pupperBound_om .
+
+expr:CompositeMultiplicity__Car__frontWheel__lugbolt_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "CompositeMultiplicity__Car__frontWheel__lugbolt_pmultiplicity_om" ;
+    sysml:owner elmt:CompositeMultiplicity__Car__frontWheel__lugbolt ;
+    sysml:memberElement expr:CompositeMultiplicity__Car__frontWheel__lugbolt_pmultiplicity ;
+    sysml:ownedMemberElement expr:CompositeMultiplicity__Car__frontWheel__lugbolt_pmultiplicity ;
+    sysml:ownedRelatedElement expr:CompositeMultiplicity__Car__frontWheel__lugbolt_pmultiplicity ;
+    sysml:owningRelatedElement elmt:CompositeMultiplicity__Car__frontWheel__lugbolt ;
+    sysml:membershipOwningNamespace elmt:CompositeMultiplicity__Car__frontWheel__lugbolt .
+
 expr:CompositeMultiplicity__Car__frontWheel__lugbolt_pupperBound
     a sysml:LiteralInteger ;
     sysx:sourceText "4" ;
     sysml:elementId "CompositeMultiplicity__Car__frontWheel__lugbolt_pupperBound" ;
     sysml:value "4"^^xsd:integer ;
-    sysml:owner elmt:CompositeMultiplicity__Car__frontWheel__lugbolt ;
+    sysml:owner expr:CompositeMultiplicity__Car__frontWheel__lugbolt_pmultiplicity ;
     sysml:owningRelationship expr:CompositeMultiplicity__Car__frontWheel__lugbolt_pupperBound_om ;
     sysml:owningMembership expr:CompositeMultiplicity__Car__frontWheel__lugbolt_pupperBound_om .
 
 expr:CompositeMultiplicity__Car__frontWheel__lugbolt_pupperBound_om
     a sysml:OwningMembership ;
     sysml:elementId "CompositeMultiplicity__Car__frontWheel__lugbolt_pupperBound_om" ;
-    sysml:owner elmt:CompositeMultiplicity__Car__frontWheel__lugbolt ;
+    sysml:owner expr:CompositeMultiplicity__Car__frontWheel__lugbolt_pmultiplicity ;
     sysml:memberElement expr:CompositeMultiplicity__Car__frontWheel__lugbolt_pupperBound ;
     sysml:ownedMemberElement expr:CompositeMultiplicity__Car__frontWheel__lugbolt_pupperBound ;
     sysml:ownedRelatedElement expr:CompositeMultiplicity__Car__frontWheel__lugbolt_pupperBound ;
-    sysml:owningRelatedElement elmt:CompositeMultiplicity__Car__frontWheel__lugbolt ;
-    sysml:membershipOwningNamespace elmt:CompositeMultiplicity__Car__frontWheel__lugbolt .
+    sysml:owningRelatedElement expr:CompositeMultiplicity__Car__frontWheel__lugbolt_pmultiplicity ;
+    sysml:membershipOwningNamespace expr:CompositeMultiplicity__Car__frontWheel__lugbolt_pmultiplicity .
 
 elmt:CompositeMultiplicity__Car__rearWheel
     a sysml:ReferenceUsage ;
@@ -381,11 +479,16 @@ elmt:CompositeMultiplicity__Car__rearWheel
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:isOrdered "true"^^xsd:boolean ;
     sysml:redefines elmt:CompositeMultiplicity__Vehicle__w ;
+    sysml:multiplicity expr:CompositeMultiplicity__Car__rearWheel_pmultiplicity ;
+    sysml:ownedRelationship expr:CompositeMultiplicity__Car__rearWheel_pmultiplicity_om, elmt:CompositeMultiplicity__Car__rearWheel_rd0 ;
+    sysml:ownedMembership expr:CompositeMultiplicity__Car__rearWheel_pmultiplicity_om ;
     sysml:upperBound expr:CompositeMultiplicity__Car__rearWheel_pupperBound ;
-    sysml:ownedRelationship expr:CompositeMultiplicity__Car__rearWheel_pupperBound_om ;
-    sysml:ownedMembership expr:CompositeMultiplicity__Car__rearWheel_pupperBound_om ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysx:sourceText "        composite rearWheel[2] ordered :>> w;\n" .
+    sysml:ownedRedefinition elmt:CompositeMultiplicity__Car__rearWheel_rd0 ;
+    sysml:ownedSubsetting elmt:CompositeMultiplicity__Car__rearWheel_rd0 ;
+    sysml:ownedSpecialization elmt:CompositeMultiplicity__Car__rearWheel_rd0 ;
+    sysx:sourceText "        composite rearWheel[2] ordered :>> w;\n" ;
+    json:ownedRelationship "[{\"@id\":\"CompositeMultiplicity__Car__rearWheel_pmultiplicity_om\"},{\"@id\":\"CompositeMultiplicity__Car__rearWheel_rd0\"}]" .
 
 elmt:CompositeMultiplicity__Car__rearWheel_om
     a sysml:FeatureMembership ;
@@ -399,21 +502,135 @@ elmt:CompositeMultiplicity__Car__rearWheel_om
     sysml:ownedMemberFeature elmt:CompositeMultiplicity__Car__rearWheel ;
     sysml:owningType elmt:CompositeMultiplicity__Car .
 
+expr:CompositeMultiplicity__Car__rearWheel_pmultiplicity
+    a sysml:MultiplicityRange ;
+    sysml:elementId "CompositeMultiplicity__Car__rearWheel_pmultiplicity" ;
+    sysml:owner elmt:CompositeMultiplicity__Car__rearWheel ;
+    sysml:owningRelationship expr:CompositeMultiplicity__Car__rearWheel_pmultiplicity_om ;
+    sysml:owningMembership expr:CompositeMultiplicity__Car__rearWheel_pmultiplicity_om ;
+    sysml:upperBound expr:CompositeMultiplicity__Car__rearWheel_pupperBound ;
+    sysml:ownedRelationship expr:CompositeMultiplicity__Car__rearWheel_pupperBound_om ;
+    sysml:ownedMembership expr:CompositeMultiplicity__Car__rearWheel_pupperBound_om .
+
+expr:CompositeMultiplicity__Car__rearWheel_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "CompositeMultiplicity__Car__rearWheel_pmultiplicity_om" ;
+    sysml:owner elmt:CompositeMultiplicity__Car__rearWheel ;
+    sysml:memberElement expr:CompositeMultiplicity__Car__rearWheel_pmultiplicity ;
+    sysml:ownedMemberElement expr:CompositeMultiplicity__Car__rearWheel_pmultiplicity ;
+    sysml:ownedRelatedElement expr:CompositeMultiplicity__Car__rearWheel_pmultiplicity ;
+    sysml:owningRelatedElement elmt:CompositeMultiplicity__Car__rearWheel ;
+    sysml:membershipOwningNamespace elmt:CompositeMultiplicity__Car__rearWheel .
+
 expr:CompositeMultiplicity__Car__rearWheel_pupperBound
     a sysml:LiteralInteger ;
     sysx:sourceText "2" ;
     sysml:elementId "CompositeMultiplicity__Car__rearWheel_pupperBound" ;
     sysml:value "2"^^xsd:integer ;
-    sysml:owner elmt:CompositeMultiplicity__Car__rearWheel ;
+    sysml:owner expr:CompositeMultiplicity__Car__rearWheel_pmultiplicity ;
     sysml:owningRelationship expr:CompositeMultiplicity__Car__rearWheel_pupperBound_om ;
     sysml:owningMembership expr:CompositeMultiplicity__Car__rearWheel_pupperBound_om .
 
 expr:CompositeMultiplicity__Car__rearWheel_pupperBound_om
     a sysml:OwningMembership ;
     sysml:elementId "CompositeMultiplicity__Car__rearWheel_pupperBound_om" ;
-    sysml:owner elmt:CompositeMultiplicity__Car__rearWheel ;
+    sysml:owner expr:CompositeMultiplicity__Car__rearWheel_pmultiplicity ;
     sysml:memberElement expr:CompositeMultiplicity__Car__rearWheel_pupperBound ;
     sysml:ownedMemberElement expr:CompositeMultiplicity__Car__rearWheel_pupperBound ;
     sysml:ownedRelatedElement expr:CompositeMultiplicity__Car__rearWheel_pupperBound ;
+    sysml:owningRelatedElement expr:CompositeMultiplicity__Car__rearWheel_pmultiplicity ;
+    sysml:membershipOwningNamespace expr:CompositeMultiplicity__Car__rearWheel_pmultiplicity .
+
+elmt:CompositeMultiplicity__Vehicle__w_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "CompositeMultiplicity__Vehicle__w_ft0" ;
+    sysml:typedFeature elmt:CompositeMultiplicity__Vehicle__w ;
+    sysml:owningFeature elmt:CompositeMultiplicity__Vehicle__w ;
+    sysml:specific elmt:CompositeMultiplicity__Vehicle__w ;
+    sysml:source elmt:CompositeMultiplicity__Vehicle__w ;
+    sysml:owningRelatedElement elmt:CompositeMultiplicity__Vehicle__w ;
+    sysml:type elmt:CompositeMultiplicity__Wheel ;
+    sysml:general elmt:CompositeMultiplicity__Wheel ;
+    sysml:target elmt:CompositeMultiplicity__Wheel ;
+    sysml:owner elmt:CompositeMultiplicity__Vehicle__w ;
+    sysml:relatedElement elmt:CompositeMultiplicity__Vehicle__w, elmt:CompositeMultiplicity__Wheel ;
+    json:relatedElement "[{\"@id\":\"CompositeMultiplicity__Vehicle__w\"},{\"@id\":\"CompositeMultiplicity__Wheel\"}]" .
+
+elmt:CompositeMultiplicity__Vehicle__w__lugbolt_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "CompositeMultiplicity__Vehicle__w__lugbolt_ft0" ;
+    sysml:typedFeature elmt:CompositeMultiplicity__Vehicle__w__lugbolt ;
+    sysml:owningFeature elmt:CompositeMultiplicity__Vehicle__w__lugbolt ;
+    sysml:specific elmt:CompositeMultiplicity__Vehicle__w__lugbolt ;
+    sysml:source elmt:CompositeMultiplicity__Vehicle__w__lugbolt ;
+    sysml:owningRelatedElement elmt:CompositeMultiplicity__Vehicle__w__lugbolt ;
+    sysml:type elmt:CompositeMultiplicity__Lugbolt ;
+    sysml:general elmt:CompositeMultiplicity__Lugbolt ;
+    sysml:target elmt:CompositeMultiplicity__Lugbolt ;
+    sysml:owner elmt:CompositeMultiplicity__Vehicle__w__lugbolt ;
+    sysml:relatedElement elmt:CompositeMultiplicity__Vehicle__w__lugbolt, elmt:CompositeMultiplicity__Lugbolt ;
+    json:relatedElement "[{\"@id\":\"CompositeMultiplicity__Vehicle__w__lugbolt\"},{\"@id\":\"CompositeMultiplicity__Lugbolt\"}]" .
+
+elmt:CompositeMultiplicity__Car_sp0
+    a sysml:Specialization ;
+    sysml:elementId "CompositeMultiplicity__Car_sp0" ;
+    sysml:specific elmt:CompositeMultiplicity__Car ;
+    sysml:owningType elmt:CompositeMultiplicity__Car ;
+    sysml:source elmt:CompositeMultiplicity__Car ;
+    sysml:owningRelatedElement elmt:CompositeMultiplicity__Car ;
+    sysml:general elmt:CompositeMultiplicity__Vehicle ;
+    sysml:target elmt:CompositeMultiplicity__Vehicle ;
+    sysml:owner elmt:CompositeMultiplicity__Car ;
+    sysml:relatedElement elmt:CompositeMultiplicity__Car, elmt:CompositeMultiplicity__Vehicle ;
+    json:relatedElement "[{\"@id\":\"CompositeMultiplicity__Car\"},{\"@id\":\"CompositeMultiplicity__Vehicle\"}]" .
+
+elmt:CompositeMultiplicity__Car__frontWheel_rd0
+    a sysml:Redefinition ;
+    sysml:elementId "CompositeMultiplicity__Car__frontWheel_rd0" ;
+    sysml:redefiningFeature elmt:CompositeMultiplicity__Car__frontWheel ;
+    sysml:subsettingFeature elmt:CompositeMultiplicity__Car__frontWheel ;
+    sysml:owningFeature elmt:CompositeMultiplicity__Car__frontWheel ;
+    sysml:specific elmt:CompositeMultiplicity__Car__frontWheel ;
+    sysml:source elmt:CompositeMultiplicity__Car__frontWheel ;
+    sysml:owningRelatedElement elmt:CompositeMultiplicity__Car__frontWheel ;
+    sysml:redefinedFeature elmt:CompositeMultiplicity__Vehicle__w ;
+    sysml:subsettedFeature elmt:CompositeMultiplicity__Vehicle__w ;
+    sysml:general elmt:CompositeMultiplicity__Vehicle__w ;
+    sysml:target elmt:CompositeMultiplicity__Vehicle__w ;
+    sysml:owner elmt:CompositeMultiplicity__Car__frontWheel ;
+    sysml:relatedElement elmt:CompositeMultiplicity__Car__frontWheel, elmt:CompositeMultiplicity__Vehicle__w ;
+    json:relatedElement "[{\"@id\":\"CompositeMultiplicity__Car__frontWheel\"},{\"@id\":\"CompositeMultiplicity__Vehicle__w\"}]" .
+
+elmt:CompositeMultiplicity__Car__frontWheel__lugbolt_rd0
+    a sysml:Redefinition ;
+    sysml:elementId "CompositeMultiplicity__Car__frontWheel__lugbolt_rd0" ;
+    sysml:redefiningFeature elmt:CompositeMultiplicity__Car__frontWheel__lugbolt ;
+    sysml:subsettingFeature elmt:CompositeMultiplicity__Car__frontWheel__lugbolt ;
+    sysml:owningFeature elmt:CompositeMultiplicity__Car__frontWheel__lugbolt ;
+    sysml:specific elmt:CompositeMultiplicity__Car__frontWheel__lugbolt ;
+    sysml:source elmt:CompositeMultiplicity__Car__frontWheel__lugbolt ;
+    sysml:owningRelatedElement elmt:CompositeMultiplicity__Car__frontWheel__lugbolt ;
+    sysml:redefinedFeature elmt:CompositeMultiplicity__Vehicle__w__lugbolt ;
+    sysml:subsettedFeature elmt:CompositeMultiplicity__Vehicle__w__lugbolt ;
+    sysml:general elmt:CompositeMultiplicity__Vehicle__w__lugbolt ;
+    sysml:target elmt:CompositeMultiplicity__Vehicle__w__lugbolt ;
+    sysml:owner elmt:CompositeMultiplicity__Car__frontWheel__lugbolt ;
+    sysml:relatedElement elmt:CompositeMultiplicity__Car__frontWheel__lugbolt, elmt:CompositeMultiplicity__Vehicle__w__lugbolt ;
+    json:relatedElement "[{\"@id\":\"CompositeMultiplicity__Car__frontWheel__lugbolt\"},{\"@id\":\"CompositeMultiplicity__Vehicle__w__lugbolt\"}]" .
+
+elmt:CompositeMultiplicity__Car__rearWheel_rd0
+    a sysml:Redefinition ;
+    sysml:elementId "CompositeMultiplicity__Car__rearWheel_rd0" ;
+    sysml:redefiningFeature elmt:CompositeMultiplicity__Car__rearWheel ;
+    sysml:subsettingFeature elmt:CompositeMultiplicity__Car__rearWheel ;
+    sysml:owningFeature elmt:CompositeMultiplicity__Car__rearWheel ;
+    sysml:specific elmt:CompositeMultiplicity__Car__rearWheel ;
+    sysml:source elmt:CompositeMultiplicity__Car__rearWheel ;
     sysml:owningRelatedElement elmt:CompositeMultiplicity__Car__rearWheel ;
-    sysml:membershipOwningNamespace elmt:CompositeMultiplicity__Car__rearWheel .
+    sysml:redefinedFeature elmt:CompositeMultiplicity__Vehicle__w ;
+    sysml:subsettedFeature elmt:CompositeMultiplicity__Vehicle__w ;
+    sysml:general elmt:CompositeMultiplicity__Vehicle__w ;
+    sysml:target elmt:CompositeMultiplicity__Vehicle__w ;
+    sysml:owner elmt:CompositeMultiplicity__Car__rearWheel ;
+    sysml:relatedElement elmt:CompositeMultiplicity__Car__rearWheel, elmt:CompositeMultiplicity__Vehicle__w ;
+    json:relatedElement "[{\"@id\":\"CompositeMultiplicity__Car__rearWheel\"},{\"@id\":\"CompositeMultiplicity__Vehicle__w\"}]" .

@@ -60,6 +60,9 @@ elmt:Synonyms__reading
     sysx:declaredKeyword "feature" ;
     sysml:type elmt:Synonyms__Temperature ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Synonyms__reading_ft0 ;
+    sysml:ownedSpecialization elmt:Synonyms__reading_ft0 ;
+    sysml:ownedRelationship elmt:Synonyms__reading_ft0 ;
     sysx:sourceText "    feature reading : Temperature;\n" .
 
 elmt:Synonyms__reading_om
@@ -420,7 +423,7 @@ elmt:Synonyms__Vehicle_om
     sysml:membershipOwningNamespace elmt:Synonyms .
 
 elmt:Synonyms__Vehicle___400
-    a sysml:StateUsage ;
+    a sysml:ExhibitStateUsage ;
     sysml:qualifiedName "Synonyms::Vehicle::@0" ;
     sysml:elementId "Synonyms__Vehicle___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
@@ -432,7 +435,14 @@ elmt:Synonyms__Vehicle___400
     sysml:type elmt:Synonyms__Idle ;
     sysml:references "idling" ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysx:sourceText "        exhibit idling : Idle;\n" .
+    sysml:ownedTyping elmt:Synonyms__Vehicle___400_ft0 ;
+    sysml:ownedSpecialization elmt:Synonyms__Vehicle___400_ft0, elmt:Synonyms__Vehicle___400_rs ;
+    sysml:ownedRelationship elmt:Synonyms__Vehicle___400_ft0, elmt:Synonyms__Vehicle___400_rs ;
+    sysml:ownedReferenceSubsetting elmt:Synonyms__Vehicle___400_rs ;
+    sysml:ownedSubsetting elmt:Synonyms__Vehicle___400_rs ;
+    sysx:sourceText "        exhibit idling : Idle;\n" ;
+    json:ownedSpecialization "[{\"@id\":\"Synonyms__Vehicle___400_ft0\"},{\"@id\":\"Synonyms__Vehicle___400_rs\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Synonyms__Vehicle___400_ft0\"},{\"@id\":\"Synonyms__Vehicle___400_rs\"}]" .
 
 elmt:Synonyms__Vehicle___400_om
     a sysml:FeatureMembership ;
@@ -459,6 +469,9 @@ elmt:Synonyms__Vehicle__safe
     sysx:declaredKeyword "assert" ;
     sysml:type elmt:Synonyms__Safe ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Synonyms__Vehicle__safe_ft0 ;
+    sysml:ownedSpecialization elmt:Synonyms__Vehicle__safe_ft0 ;
+    sysml:ownedRelationship elmt:Synonyms__Vehicle__safe_ft0 ;
     sysx:sourceText "        assert safe : Safe;\n" .
 
 elmt:Synonyms__Vehicle__safe_om
@@ -486,6 +499,9 @@ elmt:Synonyms__Vehicle__alsoSafe
     sysx:declaredKeyword "inv" ;
     sysml:type elmt:Synonyms__Safe ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Synonyms__Vehicle__alsoSafe_ft0 ;
+    sysml:ownedSpecialization elmt:Synonyms__Vehicle__alsoSafe_ft0 ;
+    sysml:ownedRelationship elmt:Synonyms__Vehicle__alsoSafe_ft0 ;
     sysx:sourceText "        inv alsoSafe : Safe;\n" .
 
 elmt:Synonyms__Vehicle__alsoSafe_om
@@ -572,3 +588,80 @@ elmt:Synonyms__Dashboard___401
     sysml:type elmt:Synonyms__AsTree ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        render rendering : AsTree;\n" .
+
+elmt:Synonyms__reading_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Synonyms__reading_ft0" ;
+    sysml:typedFeature elmt:Synonyms__reading ;
+    sysml:owningFeature elmt:Synonyms__reading ;
+    sysml:specific elmt:Synonyms__reading ;
+    sysml:source elmt:Synonyms__reading ;
+    sysml:owningRelatedElement elmt:Synonyms__reading ;
+    sysml:type elmt:Synonyms__Temperature ;
+    sysml:general elmt:Synonyms__Temperature ;
+    sysml:target elmt:Synonyms__Temperature ;
+    sysml:owner elmt:Synonyms__reading ;
+    sysml:relatedElement elmt:Synonyms__reading, elmt:Synonyms__Temperature ;
+    json:relatedElement "[{\"@id\":\"Synonyms__reading\"},{\"@id\":\"Synonyms__Temperature\"}]" .
+
+elmt:Synonyms__Vehicle___400_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Synonyms__Vehicle___400_ft0" ;
+    sysml:typedFeature elmt:Synonyms__Vehicle___400 ;
+    sysml:owningFeature elmt:Synonyms__Vehicle___400 ;
+    sysml:specific elmt:Synonyms__Vehicle___400 ;
+    sysml:source elmt:Synonyms__Vehicle___400 ;
+    sysml:owningRelatedElement elmt:Synonyms__Vehicle___400 ;
+    sysml:type elmt:Synonyms__Idle ;
+    sysml:general elmt:Synonyms__Idle ;
+    sysml:target elmt:Synonyms__Idle ;
+    sysml:owner elmt:Synonyms__Vehicle___400 ;
+    sysml:relatedElement elmt:Synonyms__Vehicle___400, elmt:Synonyms__Idle ;
+    json:relatedElement "[{\"@id\":\"Synonyms__Vehicle___400\"},{\"@id\":\"Synonyms__Idle\"}]" .
+
+elmt:Synonyms__Vehicle___400_rs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "Synonyms__Vehicle___400_rs" ;
+    sysml:referencingFeature elmt:Synonyms__Vehicle___400 ;
+    sysml:subsettingFeature elmt:Synonyms__Vehicle___400 ;
+    sysml:owningFeature elmt:Synonyms__Vehicle___400 ;
+    sysml:specific elmt:Synonyms__Vehicle___400 ;
+    sysml:source elmt:Synonyms__Vehicle___400 ;
+    sysml:owningRelatedElement elmt:Synonyms__Vehicle___400 ;
+    sysml:referencedFeature "idling" ;
+    sysml:subsettedFeature "idling" ;
+    sysml:general "idling" ;
+    sysml:target "idling" ;
+    sysml:owner elmt:Synonyms__Vehicle___400 ;
+    sysml:relatedElement elmt:Synonyms__Vehicle___400, "idling" ;
+    json:relatedElement "[{\"@id\":\"Synonyms__Vehicle___400\"},\"idling\"]" .
+
+elmt:Synonyms__Vehicle__safe_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Synonyms__Vehicle__safe_ft0" ;
+    sysml:typedFeature elmt:Synonyms__Vehicle__safe ;
+    sysml:owningFeature elmt:Synonyms__Vehicle__safe ;
+    sysml:specific elmt:Synonyms__Vehicle__safe ;
+    sysml:source elmt:Synonyms__Vehicle__safe ;
+    sysml:owningRelatedElement elmt:Synonyms__Vehicle__safe ;
+    sysml:type elmt:Synonyms__Safe ;
+    sysml:general elmt:Synonyms__Safe ;
+    sysml:target elmt:Synonyms__Safe ;
+    sysml:owner elmt:Synonyms__Vehicle__safe ;
+    sysml:relatedElement elmt:Synonyms__Vehicle__safe, elmt:Synonyms__Safe ;
+    json:relatedElement "[{\"@id\":\"Synonyms__Vehicle__safe\"},{\"@id\":\"Synonyms__Safe\"}]" .
+
+elmt:Synonyms__Vehicle__alsoSafe_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Synonyms__Vehicle__alsoSafe_ft0" ;
+    sysml:typedFeature elmt:Synonyms__Vehicle__alsoSafe ;
+    sysml:owningFeature elmt:Synonyms__Vehicle__alsoSafe ;
+    sysml:specific elmt:Synonyms__Vehicle__alsoSafe ;
+    sysml:source elmt:Synonyms__Vehicle__alsoSafe ;
+    sysml:owningRelatedElement elmt:Synonyms__Vehicle__alsoSafe ;
+    sysml:type elmt:Synonyms__Safe ;
+    sysml:general elmt:Synonyms__Safe ;
+    sysml:target elmt:Synonyms__Safe ;
+    sysml:owner elmt:Synonyms__Vehicle__alsoSafe ;
+    sysml:relatedElement elmt:Synonyms__Vehicle__alsoSafe, elmt:Synonyms__Safe ;
+    json:relatedElement "[{\"@id\":\"Synonyms__Vehicle__alsoSafe\"},{\"@id\":\"Synonyms__Safe\"}]" .

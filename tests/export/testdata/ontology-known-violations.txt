@@ -23,7 +23,8 @@ domain-mismatch ReferenceUsage lowerBound        # MultiplicityRange_lowerBound:
 domain-mismatch ReferenceUsage upperBound        # MultiplicityRange_upperBound: same collapse on a kindless usage
 domain-mismatch AttributeUsage lowerBound        # MultiplicityRange_lowerBound: same collapse on an attribute (a KerML `feature`)
 domain-mismatch AttributeUsage upperBound        # MultiplicityRange_upperBound: same collapse on an attribute (a KerML `feature`)
-domain-mismatch SubjectMembership upperBound     # MultiplicityRange_upperBound: same collapse on a subject membership
+domain-mismatch ConstraintUsage upperBound       # MultiplicityRange_lowerBound: a bound beside the MultiplicityRange the range already is stays on the usage
+domain-mismatch ConstraintUsage value            # FeatureValue_value: a constraint usage's result value is written on the usage instead of a FeatureValue membership
 domain-mismatch OperatorExpression lowerBound    # MultiplicityRange_lowerBound: a cast's `(as T[m])` multiplicity is written on the operator expression
 domain-mismatch OperatorExpression upperBound    # MultiplicityRange_upperBound: same collapse on a cast's multiplicity
 domain-mismatch AttributeUsage visibility        # Membership_visibility: a declaration inside an expression body has no membership, so its visibility is written on the declaration
@@ -37,6 +38,16 @@ literal-for-object-property ReferenceUsage type                                 
 literal-for-object-property PartUsage type                                       # Feature_type: a type the fixture never declares or imports is written as its name
 literal-for-object-property FeatureReferenceExpression referent                   # FeatureReferenceExpression_referent: a name resolving outside the graph is written as a name, as every reference this tool cannot link is (D7)
 literal-for-object-property InvocationExpression function                         # Expression_function: a function the fixture never imports (`->collect` without ControlFunctions) is written as a name
+literal-for-object-property FeatureTyping type                                  # FeatureTyping_type: a minted FeatureTyping carries the unresolved name its collapsed edge states, as the toolkit's interchange JSON does
+literal-for-object-property FeatureTyping general                               # Specialization_general: same literal on the minted relationship's general end
+literal-for-object-property FeatureTyping target                                # Relationship_target: same literal on the minted relationship's target end
+literal-for-object-property FeatureTyping relatedElement                        # Relationship_relatedElement: same literal on the minted relationship's relatedElement end
+literal-for-object-property ReferenceSubsetting general                          # Specialization_general: same on a minted ReferenceSubsetting
+literal-for-object-property ReferenceSubsetting target                           # Relationship_target: same on a minted ReferenceSubsetting
+literal-for-object-property ReferenceSubsetting relatedElement                   # Relationship_relatedElement: same on a minted ReferenceSubsetting
+literal-for-object-property ReferenceSubsetting referencedFeature                # ReferenceSubsetting_referencedFeature: same on a minted ReferenceSubsetting
+literal-for-object-property ReferenceSubsetting subsettedFeature                 # Subsetting_subsettedFeature: same on a minted ReferenceSubsetting
+literal-for-object-property Membership memberElement                          # Membership_memberElement: the Membership an expression's referent membership mints carries the unresolvable name as its member, as the toolkit's interchange JSON does
 
 # 3. Metaclass names this tool writes into the SysML namespace that the 202407
 # rendering does not declare at all.
@@ -51,11 +62,7 @@ unknown-class IndividualUsage -                  # `individual` usage, standardl
 # ontology cannot declare them; an ontology profile has to materialize the
 # abstract-syntax elements instead (D3.3).
 unknown-class urn:opensysml:sysml:Alias -                    # an alias member, standardly a Membership with a memberShortName/memberName
-unknown-class urn:opensysml:sysml:AssumeMember -             # `assume constraint`, standardly a RequirementConstraintMembership
-unknown-class urn:opensysml:sysml:RequireMember -            # `require constraint`, standardly a RequirementConstraintMembership
-unknown-class urn:opensysml:sysml:ConstraintMember -         # a constraint member, standardly a FeatureMembership
 unknown-class urn:opensysml:sysml:DeferMember -              # `defer` in a state, standardly a StateSubactionMembership
-unknown-class urn:opensysml:sysml:FilterMember -             # `filter` in a namespace, standardly an ElementFilterMembership
 unknown-class urn:opensysml:sysml:InitialNode -              # an action's initial node, standardly a Usage typed by an initial-node kind
 unknown-class urn:opensysml:sysml:FinalNode -                # an action's final node, standardly a Usage typed by a final-node kind
 unknown-class urn:opensysml:sysml:IfBranch -                 # an if/else branch, standardly an IfActionUsage's then/else parameter
@@ -75,22 +82,20 @@ unknown-property ReferenceUsage subsets                      # subsetting is a S
 unknown-property AttributeUsage subsets                      # subsetting is a Subsetting element, not a property
 unknown-property OccurrenceUsage subsets                     # subsetting is a Subsetting element, not a property
 unknown-property SatisfyRequirementUsage subsets             # subsetting is a Subsetting element, not a property
-unknown-property SubjectMembership subsets                   # subsetting is a Subsetting element, not a property
 unknown-property AnalysisCaseUsage subsets                   # subsetting is a Subsetting element, not a property
 unknown-property urn:opensysml:sysml:MultiplicityDeclaration subsets # a MultiplicitySubset's bounds, written the same way as any other subsetting
 unknown-property PartUsage redefines                         # redefinition is a Redefinition element, not a property
 unknown-property AttributeUsage redefines                    # redefinition is a Redefinition element, not a property
 unknown-property ReferenceUsage redefines                    # redefinition is a Redefinition element, not a property
 unknown-property OccurrenceUsage redefines                   # redefinition is a Redefinition element, not a property
-unknown-property SubjectMembership redefines                 # redefinition is a Redefinition element, not a property
-unknown-property ActionUsage references                      # a referenced element is a ReferenceUsage or Membership, not a property
+unknown-property PerformActionUsage references               # a referenced element is a ReferenceUsage or Membership, not a property
 unknown-property PartUsage references                        # a reference subsetting is a ReferenceSubsetting element, not a property
 unknown-property ReferenceUsage references                   # a `ref x ::> y` usage, written the same way
-unknown-property StateUsage references                       # the state an `exhibit` names, referenced the same way
+unknown-property ExhibitStateUsage references                # the state an `exhibit` names, referenced the same way
 unknown-property EventOccurrenceUsage references             # the occurrence an `event m.start` names, standardly its eventOccurrence through a ReferenceSubsetting
 unknown-property AssertConstraintUsage references            # the constraint an `assert c` names, standardly its assertedConstraint through a ReferenceSubsetting
+unknown-property ConstraintUsage references                  # a reference subsetting is a ReferenceSubsetting element, not a property
 unknown-property ViewRenderingMembership references          # a referenced element is a ReferenceUsage or Membership, not a property
-unknown-property urn:opensysml:sysml:AssumeMember references # a referenced element is a ReferenceUsage or Membership, not a property
 unknown-property urn:opensysml:sysml:Alias aliasedElement    # an alias target is a Membership's memberElement, not a property
 unknown-property SatisfyRequirementUsage subject             # the feature `by` names, standardly the satisfyingFeature through a SubjectMembership
 unknown-property ActionUsage via                             # the port an accept trigger listens on, which the metamodel reaches through the accept action's parameters

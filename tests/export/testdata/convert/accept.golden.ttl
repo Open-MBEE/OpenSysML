@@ -55,6 +55,10 @@ elmt:Accepts__Camera
     sysml:owningRelationship elmt:Accepts__Camera_om ;
     sysml:owningMembership elmt:Accepts__Camera_om ;
     sysml:declaredName "Camera" ;
+    sysml:ownedRelationship elmt:Accepts__Camera_conjugated_om ;
+    sysml:ownedMember elmt:Accepts__Camera_conjugated ;
+    sysml:ownedMembership elmt:Accepts__Camera_conjugated_om ;
+    sysml:conjugatedPortDefinition elmt:Accepts__Camera_conjugated ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "    port def Camera;\n" .
 
@@ -67,6 +71,40 @@ elmt:Accepts__Camera_om
     sysml:ownedRelatedElement elmt:Accepts__Camera ;
     sysml:owningRelatedElement elmt:Accepts ;
     sysml:membershipOwningNamespace elmt:Accepts .
+
+elmt:Accepts__Camera_conjugated
+    a sysml:ConjugatedPortDefinition ;
+    sysml:elementId "Accepts__Camera_conjugated" ;
+    sysml:qualifiedName "Accepts::Camera::'~Camera'" ;
+    sysml:declaredName "~Camera" ;
+    sysml:owner elmt:Accepts__Camera ;
+    sysml:owningRelationship elmt:Accepts__Camera_conjugated_om ;
+    sysml:owningMembership elmt:Accepts__Camera_conjugated_om ;
+    sysml:ownedRelationship elmt:Accepts__Camera_conjugated_pc ;
+    sysml:ownedPortConjugator elmt:Accepts__Camera_conjugated_pc .
+
+elmt:Accepts__Camera_conjugated_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Accepts__Camera_conjugated_om" ;
+    sysml:owner elmt:Accepts__Camera ;
+    sysml:memberElement elmt:Accepts__Camera_conjugated ;
+    sysml:ownedMemberElement elmt:Accepts__Camera_conjugated ;
+    sysml:ownedRelatedElement elmt:Accepts__Camera_conjugated ;
+    sysml:owningRelatedElement elmt:Accepts__Camera ;
+    sysml:membershipOwningNamespace elmt:Accepts__Camera .
+
+elmt:Accepts__Camera_conjugated_pc
+    a sysml:PortConjugation ;
+    sysml:elementId "Accepts__Camera_conjugated_pc" ;
+    sysml:conjugatedType elmt:Accepts__Camera_conjugated ;
+    sysml:originalType elmt:Accepts__Camera ;
+    sysml:originalPortDefinition elmt:Accepts__Camera ;
+    sysml:owner elmt:Accepts__Camera_conjugated ;
+    sysml:owningRelatedElement elmt:Accepts__Camera_conjugated ;
+    sysml:relatedElement elmt:Accepts__Camera_conjugated, elmt:Accepts__Camera ;
+    sysml:source elmt:Accepts__Camera_conjugated ;
+    sysml:target elmt:Accepts__Camera ;
+    json:relatedElement "[{\"@id\":\"Accepts__Camera_conjugated\"},{\"@id\":\"Accepts__Camera\"}]" .
 
 elmt:Accepts__Observe
     a sysml:ActionDefinition ;
@@ -142,7 +180,10 @@ elmt:Accepts__Observe__trigger__scene
     sysml:isAccept "true"^^xsd:boolean ;
     sysml:direction "out" ;
     sysml:type elmt:Accepts__Scene ;
-    sysx:hasBody "false"^^xsd:boolean .
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Accepts__Observe__trigger__scene_ft0 ;
+    sysml:ownedSpecialization elmt:Accepts__Observe__trigger__scene_ft0 ;
+    sysml:ownedRelationship elmt:Accepts__Observe__trigger__scene_ft0 .
 
 elmt:Accepts__Observe__trigger__scene_om
     a sysml:FeatureMembership ;
@@ -202,6 +243,9 @@ elmt:Accepts__Watch__lens
     sysml:declaredName "lens" ;
     sysml:type elmt:Accepts__Camera ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Accepts__Watch__lens_ft0 ;
+    sysml:ownedSpecialization elmt:Accepts__Watch__lens_ft0 ;
+    sysml:ownedRelationship elmt:Accepts__Watch__lens_ft0 ;
     sysx:sourceText "        port lens : Camera;\n" .
 
 elmt:Accepts__Watch__lens_om
@@ -262,7 +306,10 @@ elmt:Accepts__Watch__framed__scene
     sysml:isAccept "true"^^xsd:boolean ;
     sysml:direction "out" ;
     sysml:type elmt:Accepts__Scene ;
-    sysx:hasBody "false"^^xsd:boolean .
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Accepts__Watch__framed__scene_ft0 ;
+    sysml:ownedSpecialization elmt:Accepts__Watch__framed__scene_ft0 ;
+    sysml:ownedRelationship elmt:Accepts__Watch__framed__scene_ft0 .
 
 elmt:Accepts__Watch__framed__scene_om
     a sysml:FeatureMembership ;
@@ -275,3 +322,48 @@ elmt:Accepts__Watch__framed__scene_om
     sysml:membershipOwningNamespace elmt:Accepts__Watch__framed ;
     sysml:ownedMemberFeature elmt:Accepts__Watch__framed__scene ;
     sysml:owningType elmt:Accepts__Watch__framed .
+
+elmt:Accepts__Observe__trigger__scene_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Accepts__Observe__trigger__scene_ft0" ;
+    sysml:typedFeature elmt:Accepts__Observe__trigger__scene ;
+    sysml:owningFeature elmt:Accepts__Observe__trigger__scene ;
+    sysml:specific elmt:Accepts__Observe__trigger__scene ;
+    sysml:source elmt:Accepts__Observe__trigger__scene ;
+    sysml:owningRelatedElement elmt:Accepts__Observe__trigger__scene ;
+    sysml:type elmt:Accepts__Scene ;
+    sysml:general elmt:Accepts__Scene ;
+    sysml:target elmt:Accepts__Scene ;
+    sysml:owner elmt:Accepts__Observe__trigger__scene ;
+    sysml:relatedElement elmt:Accepts__Observe__trigger__scene, elmt:Accepts__Scene ;
+    json:relatedElement "[{\"@id\":\"Accepts__Observe__trigger__scene\"},{\"@id\":\"Accepts__Scene\"}]" .
+
+elmt:Accepts__Watch__lens_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Accepts__Watch__lens_ft0" ;
+    sysml:typedFeature elmt:Accepts__Watch__lens ;
+    sysml:owningFeature elmt:Accepts__Watch__lens ;
+    sysml:specific elmt:Accepts__Watch__lens ;
+    sysml:source elmt:Accepts__Watch__lens ;
+    sysml:owningRelatedElement elmt:Accepts__Watch__lens ;
+    sysml:type elmt:Accepts__Camera ;
+    sysml:general elmt:Accepts__Camera ;
+    sysml:target elmt:Accepts__Camera ;
+    sysml:owner elmt:Accepts__Watch__lens ;
+    sysml:relatedElement elmt:Accepts__Watch__lens, elmt:Accepts__Camera ;
+    json:relatedElement "[{\"@id\":\"Accepts__Watch__lens\"},{\"@id\":\"Accepts__Camera\"}]" .
+
+elmt:Accepts__Watch__framed__scene_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Accepts__Watch__framed__scene_ft0" ;
+    sysml:typedFeature elmt:Accepts__Watch__framed__scene ;
+    sysml:owningFeature elmt:Accepts__Watch__framed__scene ;
+    sysml:specific elmt:Accepts__Watch__framed__scene ;
+    sysml:source elmt:Accepts__Watch__framed__scene ;
+    sysml:owningRelatedElement elmt:Accepts__Watch__framed__scene ;
+    sysml:type elmt:Accepts__Scene ;
+    sysml:general elmt:Accepts__Scene ;
+    sysml:target elmt:Accepts__Scene ;
+    sysml:owner elmt:Accepts__Watch__framed__scene ;
+    sysml:relatedElement elmt:Accepts__Watch__framed__scene, elmt:Accepts__Scene ;
+    json:relatedElement "[{\"@id\":\"Accepts__Watch__framed__scene\"},{\"@id\":\"Accepts__Scene\"}]" .

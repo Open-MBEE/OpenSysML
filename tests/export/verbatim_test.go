@@ -493,6 +493,16 @@ package Accepts {
 		t.Fatalf("the accept is split across its payload:\n%s", turtle)
 	}
 	turtle = editTurtle(t, turtle, "sysml:type elmt:Accepts__Cmd ;", "sysml:type elmt:Accepts__Other ;")
+	// The FeatureTyping the collapsed edge materializes carries the same ends.
+	for _, property := range []string{"type", "general", "target"} {
+		turtle = relinkedProperty(t, turtle, "elmt:Accepts__Drive___400__sig_ft0", property, "elmt:Accepts__Cmd", "elmt:Accepts__Other")
+	}
+	turtle = []byte(strings.Replace(string(turtle),
+		"sysml:relatedElement elmt:Accepts__Drive___400__sig, elmt:Accepts__Cmd",
+		"sysml:relatedElement elmt:Accepts__Drive___400__sig, elmt:Accepts__Other", 1))
+	turtle = []byte(strings.Replace(string(turtle),
+		`json:relatedElement "[{\"@id\":\"Accepts__Drive___400__sig\"},{\"@id\":\"Accepts__Cmd\"}]"`,
+		`json:relatedElement "[{\"@id\":\"Accepts__Drive___400__sig\"},{\"@id\":\"Accepts__Other\"}]"`, 1))
 	back := toNotation(t, turtle)
 	want := `// The drive, as modelled.
 package Accepts {
