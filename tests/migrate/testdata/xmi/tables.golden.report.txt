@@ -1,0 +1,64 @@
+# SysML v1 to v2 migration report: tables.xmi
+# exported by Example UML Tool
+# migrated 51 element(s): 48 mapped, 2 approximated, 1 unmapped (2 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## unmapped (1)
+«DependencyMatrix» Diagram	Plant::Requirements::Trace Matrix	_mx_trace	(the criterion Owner chain is a metaChainExpressionSpecification, which no relationship walk expresses)
+
+## approximated (2)
+«InstanceTable» Diagram	Plant::Inventory::Pump Table	_tbl_pumps	-> part def Plant::Inventory::'Pump Table Document'	(the «InstanceTable» is written as a Document holding a Table over the query 'Pump Table Rows'; the column QPROP:Element:classifier is omitted: no query property stands for the UML property classifier)
+«DependencyMatrix» Diagram	Plant::Requirements::Satisfaction Matrix	_mx_satisfy	-> part def Plant::Requirements::'Satisfaction Matrix Document'	(the «DependencyMatrix» is written as a Document holding a Table over the query 'Satisfaction Matrix Rows'; the column Trace is written as Trace 2: column names are unique)
+
+## mapped (48)
+Model	Model	_m	(the root model's members are written at the top level)
+Package	Plant	_pkg_plant	-> Plant
+Profile	Plant Profile	_plant_profile	-> 'Plant Profile'
+Stereotype	Plant Profile::Critical	_st_critical	-> 'Plant Profile'::Critical
+Property	Plant Profile::Critical::level	_st_critical_level	-> 'Plant Profile'::Critical::level
+«DiagramTable» Diagram	Plant::Critical Elements	_tbl_critical	-> part def Plant::'Critical Elements Document'	(the «DiagramTable» is written as a Document holding a Table over the query 'Critical Elements Rows')
+Diagram	Plant::Critical Elements	_diag_critical	-> Plant::'Critical Elements'	(a Generic Table written as a view rendered asElementTable)
+Package	Plant::Inventory	_pkg_inventory	-> Plant::Inventory
+Diagram	Plant::Inventory::Pump Table	_diag_pumps	-> Plant::Inventory::'Pump Table'	(a SysML Instance Table written as a view rendered asElementTable)
+InstanceSpecification	Plant::Inventory::p1	_inst_p1	-> Plant::Inventory::p1
+Slot	Plant::Inventory::p1::<Slot>	_slot_p1_mass	-> Plant::Inventory::p1::mass
+Slot	Plant::Inventory::p1::<Slot>	_slot_p1_flow	-> Plant::Inventory::p1::'flow'
+InstanceSpecification	Plant::Inventory::p2	_inst_p2	-> Plant::Inventory::p2
+Slot	Plant::Inventory::p2::<Slot>	_slot_p2_mass	-> Plant::Inventory::p2::mass
+InstanceSpecification	Plant::Inventory::r1	_inst_r1	-> Plant::Inventory::r1
+Slot	Plant::Inventory::r1::<Slot>	_slot_r1_mass	-> Plant::Inventory::r1::mass
+InstanceSpecification	Plant::Inventory::v1	_inst_v1	-> Plant::Inventory::v1
+Slot	Plant::Inventory::v1::<Slot>	_slot_v1_mass	-> Plant::Inventory::v1::mass
+Package	Plant::Requirements	_pkg_reqs	-> Plant::Requirements
+«Satisfy» Abstraction	Plant::Requirements::<Abstraction>	_dep_satisfy_pump	-> Plant::Structure::Pump
+«Satisfy» Abstraction	Plant::Requirements::<Abstraction>	_dep_satisfy_valve	-> Plant::Structure::Valve
+«DeriveReqt» Abstraction	Plant::Requirements::<Abstraction>	_dep_derive	-> Plant::Requirements::'Derive MassRequirement'
+«Requirement» Class	Plant::Requirements::FlowRequirement	_req_flow	-> Plant::Requirements::FlowRequirement
+Comment	Plant::Requirements::FlowRequirement::<Comment>	_cmt_req_flow
+«Requirement» Class	Plant::Requirements::MassRequirement	_req_mass	-> Plant::Requirements::MassRequirement
+«DiagramTable» Diagram	Plant::Requirements::Requirement Table	_tbl_reqs	-> part def Plant::Requirements::'Requirement Table Document'	(the «DiagramTable» is written as a Document holding a Table over the query 'Requirement Table Rows')
+Diagram	Plant::Requirements::Requirement Table	_diag_reqs	-> Plant::Requirements::'Requirement Table'	(a Requirement Table written as a view rendered asElementTable)
+Diagram	Plant::Requirements::Satisfaction Matrix	_diag_matrix	-> Plant::Requirements::'Satisfaction Matrix'	(a Dependency Matrix written as a view rendered asElementTable)
+«Requirement» Class	Plant::Requirements::SealRequirement	_req_seal	-> Plant::Requirements::SealRequirement
+Comment	Plant::Requirements::SealRequirement::<Comment>	_cmt_req_seal
+Diagram	Plant::Requirements::Trace Matrix	_diag_trace_matrix	-> Plant::Requirements::'Trace Matrix'	(a Dependency Matrix written as a view rendered asElementTable)
+Package	Plant::Spares	_pkg_spares	-> Plant::Spares
+InstanceSpecification	Plant::Spares::s1	_inst_s1	-> Plant::Spares::s1
+Slot	Plant::Spares::s1::<Slot>	_slot_s1_mass	-> Plant::Spares::s1::mass
+InstanceSpecification	Plant::Spares::s2	_inst_s2	-> Plant::Spares::s2
+Package	Plant::Structure	_pkg_structure	-> Plant::Structure
+«Block» Class	Plant::Structure::Pump	_blk_pump	-> Plant::Structure::Pump
+«RelationMap» Diagram	Plant::Structure::Pump Requirement Map	_map_pump	-> part def Plant::Structure::'Pump Requirement Map Document'	(the «RelationMap» is written as a Document holding a Table over the query 'Pump Requirement Map Rows')
+Diagram	Plant::Structure::Pump Requirement Map	_diag_map	-> Plant::Structure::'Pump Requirement Map'	(a Relation Map written as a view rendered asTreeDiagram)
+Comment	Plant::Structure::Pump::<Comment>	_cmt_pump
+Property	Plant::Structure::Pump::flow	_prop_flow	-> Plant::Structure::Pump::'flow'
+Property	Plant::Structure::Pump::mass	_prop_mass	-> Plant::Structure::Pump::mass
+Operation	Plant::Structure::Pump::prime	_op_prime	-> Plant::Structure::Pump::prime	(its owner's usage prime 2 performs it, as a call on an object does)
+«Block» Class	Plant::Structure::ReservePump	_blk_reserve	-> Plant::Structure::ReservePump
+«Block» Class	Plant::Structure::Station	_blk_station	-> Plant::Structure::Station
+Property	Plant::Structure::Station::pumps	_prop_pumps	-> Plant::Structure::Station::pumps
+«Block» Class	Plant::Structure::Valve	_blk_valve	-> Plant::Structure::Valve
+Property	Plant::Structure::Valve::mass	_prop_valve_mass	-> Plant::Structure::Valve::mass
+
+## skipped (2)
+Extension	Plant Profile::<Extension>	_ext_critical	(an extension binds a stereotype to the metaclass it extends; v2 metadata applies to any element)
+Property	Plant Profile::Critical::base_Class	_st_critical_base	(an extension end names the metaclass the stereotype extends; v2 metadata applies to any element)

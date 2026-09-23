@@ -1799,6 +1799,10 @@ func (m *migration) feature(p *sysmlv1.Element) {
 	note = joinNotes(note, dnote)
 	b.WriteString(dir)
 	prefix, note = m.featureModifiers(&b, p, ownerCat, kw, dir, prefix, note)
+	tm := m.typeModifier(p)
+	if tm != nil && tm.ref {
+		prefix = "ref "
+	}
 	b.WriteString(prefix)
 	b.WriteString(kw)
 	name := m.nameOf(p)
@@ -1819,8 +1823,13 @@ func (m *migration) feature(p *sysmlv1.Element) {
 	ind, indNote := m.typingIndividual(p, kw)
 	m.featureTyping(&b, p, ind, payload, typ)
 	mult, mnote := m.multiplicity(p)
-	b.WriteString(mult + collection(p))
-	note = joinNotes(note, mnote)
+	if shape := tm.shape(); shape != "" {
+		mult, mnote = shape, ""
+	} else {
+		mult += collection(p)
+	}
+	b.WriteString(mult)
+	note = joinNotes(joinNotes(note, mnote), tm.note())
 	note = m.featureRedefinitions(&b, p, note)
 	note = m.featureShadow(&b, p, kw, note)
 	note = joinNotes(note, m.dangling(p, "redefinedProperty", "subsettedProperty"))
@@ -3150,7 +3159,7 @@ func (m *migration) stereotypeAnnotations(e *sysmlv1.Element) {
 func (m *migration) annotated(e *sysmlv1.Element) []*sysmlv1.Stereotype {
 	var out []*sysmlv1.Stereotype
 	for _, s := range e.Stereotypes {
-		if m.isConstraintParameterMarker(e, s) || isSimulationConfig(s) {
+		if m.isConstraintParameterMarker(e, s) || isSimulationConfig(s) || m.writesTypeModifier(e, s) {
 			continue
 		}
 		out = append(out, s)
@@ -3209,7 +3218,7 @@ func (m *migration) stereotypeComments(e *sysmlv1.Element) {
 			text += ": " + strings.Join(tags, "; ")
 		}
 		m.w.lines(commentLines(text))
-		if s.Definition == nil && toolProfile(s.Namespace) == "" {
+		if s.Definition == nil && toolProfile(s.Namespace) == "" && !readsTypeModifier(e, s) {
 			if byNamespace[s.Namespace] == nil {
 				outside = append(outside, s.Namespace)
 			}

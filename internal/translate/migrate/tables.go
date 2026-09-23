@@ -47,7 +47,7 @@ func (l *lowered) refuse(why string) {
 
 // documentSuffix and rowsSuffix name the Document and query after the diagram.
 const (
-	documentSuffix = " Table"
+	documentSuffix = " Document"
 	rowsSuffix     = " Rows"
 )
 

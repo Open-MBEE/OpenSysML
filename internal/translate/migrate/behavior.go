@@ -268,8 +268,12 @@ func (m *migration) parameter(p, scope *sysmlv1.Element, declared map[string]boo
 		b.WriteString(" : " + typ)
 	}
 	mult, mnote := m.multiplicity(p)
+	tm := m.typeModifier(p)
+	if shape := tm.shape(); shape != "" {
+		mult, mnote = shape, ""
+	}
 	b.WriteString(mult)
-	note = joinNotes(note, mnote)
+	note = joinNotes(joinNotes(note, mnote), tm.note())
 	var body []string
 	bound, isBound := m.bound[p]
 	if isBound {
@@ -299,6 +303,7 @@ func (m *migration) parameter(p, scope *sysmlv1.Element, declared map[string]boo
 	m.w.block(b.String(), func() {
 		m.comments(p)
 		m.w.lines(body)
+		m.stereotypeAnnotations(p)
 	})
 }
 
