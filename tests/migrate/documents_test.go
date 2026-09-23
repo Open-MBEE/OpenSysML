@@ -35,6 +35,19 @@ func wantInOrder(t *testing.T, what, got string, want ...string) {
 	}
 }
 
+// wantOneNote asserts that one of the entries reported for id has the verdict
+// and notes the text, where the node is reported once per thing it produces.
+func wantOneNote(t *testing.T, r *migrate.Result, id string, verdict migrate.Verdict, note string) {
+	t.Helper()
+	es := entriesFor(r, id)
+	for _, e := range es {
+		if e.Verdict == verdict && strings.Contains(e.Note, note) {
+			return
+		}
+	}
+	t.Errorf("entries for %s = %+v, want a %v entry noting %q", id, es, verdict, note)
+}
+
 // markdownSection is the Markdown from heading to the next heading of its
 // level, or "" when the document has no such heading.
 func markdownSection(md, heading string) string {
@@ -397,6 +410,114 @@ func TestMigratedDocumentsRender(t *testing.T) {
 	}
 	if strings.Contains(brief, "showCaptions is false") {
 		t.Fatalf("a caption DocGen hides is rendered:\n%s", brief)
+	}
+}
+
+// The DocGen collectors and filters that have a faithful query form follow the
+// tool's semantics: FilterByDiagramType keeps or drops diagrams by the tool's
+// presentation type, CollectThingsOnDiagram collects the elements a diagram
+// shows, CollectByAssociation walks typed attributes of one aggregation kind to
+// a depth, requirement columns read the id and text, and a filter over a
+// stereotype with no v2 form stays refused.
+func TestMigratedCollectorsAndFilters(t *testing.T) {
+	r := migrateFixtureFile(t, "collectors")
+	wantClean(t, "collectors.sysml", r)
+	notation := string(r.Notation)
+
+	// The presentation type, not the UML diagram kind, decides the filter:
+	// the BDD is a "Class Diagram" in UML terms yet is kept as a block diagram,
+	// and excluding it keeps the other two typed diagrams. A diagram whose type
+	// the archive does not record cannot be decided, so the Image says so.
+	wantInOrder(t, "Block Diagrams", notation,
+		"part 'Block Diagrams' : DocumentQueries::Section {",
+		`attribute redefines caption = "Crane Structure";`,
+		"part 'Other Diagrams' : DocumentQueries::Section {",
+		`attribute redefines caption = "Crane Internals";`,
+		`attribute redefines caption = "Yard Requirements";`,
+		"part 'Internal Diagrams' : DocumentQueries::Section {",
+		`attribute redefines caption = "Crane Internals";`,
+		"part 'Parametric Diagrams' : DocumentQueries::Section {",
+		`attribute redefines title = "Parametric Diagrams";`,
+		"}")
+	from, to := strings.Index(notation, "part 'Block Diagrams' : DocumentQueries::Section"), strings.Index(notation, "part 'Other Diagrams' : DocumentQueries::Section")
+	if body := notation[from:to]; strings.Count(body, "DocumentQueries::Diagram") != 1 {
+		t.Errorf("Block Diagrams draws diagrams the type filter drops:\n%s", body)
+	}
+	wantOneNote(t, r, "_st_bdds_image", migrate.Approximated,
+		"it may draw more than the diagrams known: «FilterByDiagramType» Yard Viewpoints::Block Diagrams Viewpoint::Block Diagrams Method::Filter By Diagram Type keeps or drops the diagram 'Sketch', whose diagram type the archive does not record")
+	wantNote(t, r, "_st_pars_image", migrate.Mapped,
+		"it draws nothing: «FilterByDiagramType» Yard Viewpoints::Parametric Diagrams Viewpoint::Parametric Diagrams Method::Filter By Diagram Type drops all the diagrams collected: none is a SysML Parametric Diagram; an Image draws only diagrams")
+
+	// Things on the diagram: the two blocks it shows are named; a nested
+	// diagram, an unresolved reference, a connector end of an anonymous
+	// connector and a comment written as its owner's doc are each left out
+	// for their own reason.
+	wantInOrder(t, "Shown Blocks query", notation,
+		"calc def 'Yard Handbook Shown Blocks Rows'",
+		`DocumentQueries::Named(qualifiedName = ("Structure::Hook", "Structure::Crane")),`,
+		`property = "name",`,
+		`properties = ("name", "documentation"))`)
+	for _, note := range []string{
+		"leaves out 2 elements shown on the SysML Block Definition Diagram 'Crane Structure' that the archive does not describe",
+		"leaves out 1 element shown on the SysML Block Definition Diagram 'Crane Structure' that the migration does not write",
+		"leaves out 1 element shown on the SysML Block Definition Diagram 'Crane Structure' written within the elements owning them, with no v2 element of their own",
+	} {
+		wantNote(t, r, "_st_shown_table", migrate.Approximated, note)
+	}
+
+	// By association: composite parts to any depth stop at the cycle back to
+	// Hook and skip the attribute whose type is missing; depth 1 keeps the
+	// direct part only; shared aggregation keeps the cable; a block with no
+	// composite part collects nothing.
+	wantInOrder(t, "Parts queries", notation,
+		"calc def 'Yard Handbook Parts Rows'",
+		`DocumentQueries::Named(qualifiedName = ("Structure::Hook", "Structure::Latch")),`,
+		"calc def 'Yard Handbook Direct Parts Rows'",
+		`DocumentQueries::Named(qualifiedName = ("Structure::Hook")),`,
+		"calc def 'Yard Handbook Shared Parts Rows'",
+		`DocumentQueries::Named(qualifiedName = ("Structure::Cable")),`)
+	if strings.Contains(notation, `"Structure::Operator"`) {
+		t.Errorf("a plain reference is collected as a composite part:\n%s", notation)
+	}
+	wantOneNote(t, r, "_st_parts_list", migrate.Mapped,
+		"it shows nothing: «CollectByAssociation» Yard Viewpoints::Parts Viewpoint::Parts Method::Collect By Association collects nothing: the only element collected, the «Block» Class Structure::Cable, has no typed attribute of composite aggregation")
+
+	// Requirement id and text columns read the short name and the doc.
+	wantInOrder(t, "Specification query", notation,
+		"calc def 'Yard Handbook Requirements Specification Table Rows'",
+		`type = ("RequirementDefinition")),`,
+		`properties = ("shortName", "name", "documentation"))`)
+	wantNote(t, r, "_st_todo_table", migrate.Unmapped,
+		"the elements it shows pass through «FilterByStereotypes» Yard Viewpoints::To Do Viewpoint::To Do Method::Filter By Stereotypes is not migrated: no v2 metaclass stands for the elements of «TODO_Owner»")
+
+	s := session(t, r)
+	md := markdown(t, s, "'Yard Handbook'::'Yard Handbook Document'")
+	wantInOrder(t, "Yard Handbook Markdown", md,
+		"# Yard Handbook",
+		"## Block Diagrams", "*Crane Structure*", "```mermaid",
+		"## Other Diagrams", "*Crane Internals*", "```mermaid", "*Yard Requirements*", "```mermaid",
+		"## Internal Diagrams", "*Crane Internals*", "```mermaid",
+		"## Parametric Diagrams",
+		"## Shown On The Structure Diagram",
+		"| name | documentation |",
+		"| Crane | Lifts containers off the quay. |",
+		"| Hook | Holds the spreader. |",
+		"## Crane Parts", "- Hook\n- Latch",
+		"## Direct Crane Parts", "- Hook",
+		"## Shared Crane Parts", "- Cable",
+		"## Cable Parts",
+		"## To Do",
+		"## Specification",
+		"| shortName | name | documentation |",
+		"| Y-1 | Lift | The crane lifts a loaded container. |",
+		"| Y-2 | Sway | The load sways less than one degree. |")
+	if n := strings.Count(md, "```mermaid"); n != 4 {
+		t.Errorf("Yard Handbook Markdown draws %d diagrams, want 4:\n%s", n, md)
+	}
+	for _, heading := range []string{"## Parametric Diagrams", "## Cable Parts", "## To Do"} {
+		if body := markdownSection(md, heading); strings.Contains(body, "```mermaid") || strings.Contains(body, "|") || strings.Contains(body, "\n- ") {
+			t.Errorf("%s shows content DocGen has nothing for:\n%s", heading, body)
+		}
 	}
 }
 

@@ -257,6 +257,17 @@ func (e *Element) HasStereotype(names ...string) bool {
 // IsProxy reports whether e stands for an element of another document.
 func (e *Element) IsProxy() bool { return e.Href != "" }
 
+// HrefOwnerName reads the name a proxy's href fragment spells for its owner:
+// SysML.xmi#SysML.AbstractRequirement.id is owned by AbstractRequirement.
+func (e *Element) HrefOwnerName() string {
+	frag := e.Href[strings.LastIndexByte(e.Href, '#')+1:]
+	i := strings.LastIndexByte(frag, '.')
+	if !e.IsProxy() || i < 0 {
+		return ""
+	}
+	return fragmentName(frag[:i])
+}
+
 // Generals returns the classifiers e directly specializes through its
 // generalizations: elements of the documents read, or proxies for others.
 func (m *Model) Generals(e *Element) []*Element {

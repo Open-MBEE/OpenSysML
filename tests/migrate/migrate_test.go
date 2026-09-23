@@ -329,6 +329,7 @@ var constructFixtures = []string{
 	"metaclass_tables",
 	"documents",
 	"figures",
+	"collectors",
 	"type_modifiers",
 	"table_homonyms",
 	"relation_subtypes",

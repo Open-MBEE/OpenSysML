@@ -655,9 +655,8 @@ func (m *migration) nameNode(n *sysmlv1.Element) string {
 	return m.newActivity(act, def).name(n, baseName(n))
 }
 
-// exposeReached exposes the features a connector's ends or an instance's slots
-// refer to, once the connector or slot resolves as the writer will write it;
-// one that is left as a comment reaches nothing.
+// exposeReached exposes the features a resolved connector's ends or instance's
+// slots refer to, and names a shown connector ahead of its write for documents to name.
 func (m *migration) exposeReached(e *sysmlv1.Element) {
 	switch e.Type {
 	case "Connector":
@@ -673,6 +672,12 @@ func (m *migration) exposeReached(e *sysmlv1.Element) {
 				if s.Parent != e.Parent {
 					m.expose(s, "connector "+describe(e)+" in "+qualifiedName(e.Parent)+" reaches it")
 				}
+			}
+		}
+		if stat, _, _ := m.monteCarloEnd(e); stat == "" && m.nameOf(e) == "" {
+			_, _, _, base, _ := m.connectorForm(e, ends)
+			if base = m.edgeName(e, base); base != "" {
+				m.names[e] = m.freshName(e.Parent, base)
 			}
 		}
 	case "InstanceSpecification":
@@ -782,6 +787,12 @@ func ownerWritten(role string) bool {
 		return true
 	}
 	return false
+}
+
+// foldedInto reports whether e is written within its owner's declaration, as a
+// connector's ends are, so that no v2 element stands for it alone.
+func (m *migration) foldedInto(e *sysmlv1.Element) bool {
+	return e.Parent != nil && ownerWritten(e.Role) && m.written(e.Parent)
 }
 
 // root writes a top-level element: a Model's members are written at the top
@@ -1188,6 +1199,27 @@ func requirementTag(e *sysmlv1.Element, tags ...string) string {
 		}
 	}
 	return ""
+}
+
+// requirementProperty is the query property standing for a standard requirement
+// stereotype's tag f: the id is written as the short name, the text as the doc.
+func requirementProperty(f *sysmlv1.Element) string {
+	owner := f.HrefOwnerName()
+	switch {
+	case f.IsProxy() && !isStandardHref(f.Href):
+		return ""
+	case !f.IsProxy() && (f.Parent == nil || f.Parent.Type != "Stereotype" || !isStandardDefinition(f.Parent)):
+		return ""
+	case !f.IsProxy():
+		owner = f.Parent.Name
+	}
+	if !slices.Contains(requirementStereotypes, owner) || !requirementTags[f.Name] {
+		return ""
+	}
+	if strings.EqualFold(f.Name, "text") {
+		return "documentation"
+	}
+	return "shortName"
 }
 
 func (m *migration) requirementBody(e *sysmlv1.Element) {
@@ -2427,29 +2459,8 @@ func (m *migration) connector(c *sysmlv1.Element) {
 		m.unmappedConnector(c, note)
 		return
 	}
-	paths := make([]string, len(segs))
-	for i, end := range segs {
-		parts := make([]string, len(end))
-		for j, s := range end {
-			parts[j] = writeName(m.nameFor(s))
-		}
-		paths[i] = strings.Join(parts, ".")
-	}
-	decl, kw, base := "connect "+paths[0]+" to "+paths[1], "connection", spoken(paths[0])+" to "+spoken(paths[1])
-	note = ""
-	switch {
-	case has(c, "BindingConnector"):
-		decl, kw, base = "bind "+paths[0]+" = "+paths[1], "binding", spoken(paths[0])+" = "+spoken(paths[1])
-	case delegates(segs):
-		decl, kw, base = "bind "+paths[0]+" = "+paths[1], "binding", spoken(paths[0])+" = "+spoken(paths[1])
-		note = "the connector delegates the owner's port to the part's, so it is written as a binding, which relays a message either way"
-	}
+	paths, decl, kw, _, note := m.connectorForm(c, segs)
 	target := ""
-	if m.nameOf(c) == "" {
-		if base = m.edgeName(c, base); base != "" {
-			m.names[c] = m.freshName(m.scope, base)
-		}
-	}
 	if name := m.nameOf(c); name != "" {
 		decl = kw + " " + writeName(name) + " " + decl
 		target = m.v2Name(c)
@@ -2461,6 +2472,28 @@ func (m *migration) connector(c *sysmlv1.Element) {
 	for _, f := range m.flows[c] {
 		m.itemFlow(f, c.Owned("end"), paths)
 	}
+}
+
+// connectorForm spells connector c from its resolved end segments: the end paths,
+// the declaration, its keyword, the name base a shown anonymous one takes, and a note.
+func (m *migration) connectorForm(c *sysmlv1.Element, segs [][]*sysmlv1.Element) (paths []string, decl, kw, base, note string) {
+	paths = make([]string, len(segs))
+	for i, end := range segs {
+		parts := make([]string, len(end))
+		for j, s := range end {
+			parts[j] = writeName(m.nameFor(s))
+		}
+		paths[i] = strings.Join(parts, ".")
+	}
+	decl, kw, base = "connect "+paths[0]+" to "+paths[1], "connection", spoken(paths[0])+" to "+spoken(paths[1])
+	switch {
+	case has(c, "BindingConnector"):
+		decl, kw, base = "bind "+paths[0]+" = "+paths[1], "binding", spoken(paths[0])+" = "+spoken(paths[1])
+	case delegates(segs):
+		decl, kw, base = "bind "+paths[0]+" = "+paths[1], "binding", spoken(paths[0])+" = "+spoken(paths[1])
+		note = "the connector delegates the owner's port to the part's, so it is written as a binding, which relays a message either way"
+	}
+	return paths, decl, kw, base, note
 }
 
 // delegates reports whether the connector ends make a UML delegation connector:
@@ -3442,8 +3475,12 @@ func (m *migration) stereotypeSummary(e *sysmlv1.Element) string {
 }
 
 // unmappedExpr records a constraint whose expression has no v2 form, keeping
-// its text.
+// its text; one whose Expression tree is blank is notation only and skipped.
 func (m *migration) unmappedExpr(r, spec *sysmlv1.Element, note string) {
+	if blankTree(spec) {
+		m.add(r, Skipped, "", "the constraint is notation only: "+note)
+		return
+	}
 	m.w.lines(commentLines("not migrated: " + kindOf(r) + " " + describe(r) + " " + describeValue(spec) + " — " + note))
 	m.add(r, Unmapped, "", note)
 }

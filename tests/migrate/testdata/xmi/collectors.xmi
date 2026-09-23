@@ -1,0 +1,435 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:MagicDraw_Profile="http://www.omg.org/spec/UML/20131001/MagicDrawProfile"
+         xmlns:Document_Profile_="http://www.magicdraw.com/schemas/manual/Document_Profile.xmi"
+         xmlns:diagram="http://www.example.com/tool/diagram">
+  <xmi:Documentation exporter="Example UML Tool" exporterVersion="1.0"/>
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Yard">
+
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_structure" name="Structure">
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_crane" name="Crane">
+        <ownedComment xmi:type="uml:Comment" xmi:id="_cmt_crane" body="Lifts containers off the quay."/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_hook" name="hook" type="_blk_hook" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_cable" name="cable" type="_blk_cable" aggregation="shared"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_operator" name="operator" type="_blk_operator"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_counterweight" name="counterweight" type="_blk_gone" aggregation="composite"/>
+        <ownedConnector xmi:type="uml:Connector" xmi:id="_conn_hoist">
+          <end xmi:type="uml:ConnectorEnd" xmi:id="_conn_hoist_e1" role="_prop_hook"/>
+          <end xmi:type="uml:ConnectorEnd" xmi:id="_conn_hoist_e2" role="_prop_cable"/>
+        </ownedConnector>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_hook" name="Hook">
+        <ownedComment xmi:type="uml:Comment" xmi:id="_cmt_hook" body="Holds the spreader."/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_latch" name="latch" type="_blk_latch" aggregation="composite"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_latch" name="Latch">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_latch_hook" name="hook" type="_blk_hook" aggregation="composite"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_cable" name="Cable"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_operator" name="Operator"/>
+    </packagedElement>
+
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_reqs" name="Needs">
+      <packagedElement xmi:type="uml:Class" xmi:id="_req_lift" name="Lift"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_req_sway" name="Sway">
+        <ownedComment xmi:type="uml:Comment" xmi:id="_cmt_sway" body="Measured at the hook."/>
+      </packagedElement>
+    </packagedElement>
+
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_viewpoints" name="Yard Viewpoints">
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_vp_bdds" name="Block Diagrams Viewpoint" classifierBehavior="_act_bdds">
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_bdds" name="Block Diagrams Method">
+          <node xmi:type="uml:InitialNode" xmi:id="_bdds_init"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_bdds_filter" name="Filter By Diagram Type"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_bdds_image" name="Image"/>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_bdds_final"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_bdds_e1" source="_bdds_init" target="_bdds_filter"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_bdds_e2" source="_bdds_filter" target="_bdds_image"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_bdds_e3" source="_bdds_image" target="_bdds_final"/>
+        </ownedBehavior>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_vp_others" name="Other Diagrams Viewpoint" classifierBehavior="_act_others">
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_others" name="Other Diagrams Method">
+          <node xmi:type="uml:InitialNode" xmi:id="_others_init"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_others_filter" name="Filter By Diagram Type"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_others_image" name="Image"/>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_others_final"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_others_e1" source="_others_init" target="_others_filter"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_others_e2" source="_others_filter" target="_others_image"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_others_e3" source="_others_image" target="_others_final"/>
+        </ownedBehavior>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_vp_ibds" name="Internal Diagrams Viewpoint" classifierBehavior="_act_ibds">
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_ibds" name="Internal Diagrams Method">
+          <node xmi:type="uml:InitialNode" xmi:id="_ibds_init"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_ibds_collect" name="Collect Owned Elements"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_ibds_filter" name="Filter By Diagram Type"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_ibds_image" name="Image"/>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_ibds_final"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_ibds_e1" source="_ibds_init" target="_ibds_collect"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_ibds_e2" source="_ibds_collect" target="_ibds_filter"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_ibds_e3" source="_ibds_filter" target="_ibds_image"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_ibds_e4" source="_ibds_image" target="_ibds_final"/>
+        </ownedBehavior>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_vp_pars" name="Parametric Diagrams Viewpoint" classifierBehavior="_act_pars">
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_pars" name="Parametric Diagrams Method">
+          <node xmi:type="uml:InitialNode" xmi:id="_pars_init"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_pars_filter" name="Filter By Diagram Type"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_pars_image" name="Image"/>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_pars_final"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_pars_e1" source="_pars_init" target="_pars_filter"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_pars_e2" source="_pars_filter" target="_pars_image"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_pars_e3" source="_pars_image" target="_pars_final"/>
+        </ownedBehavior>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_vp_shown" name="Shown Viewpoint" classifierBehavior="_act_shown">
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_shown" name="Shown Method">
+          <node xmi:type="uml:InitialNode" xmi:id="_shown_init"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_shown_collect" name="Collect Things On Diagram"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_shown_sort" name="Sort By Name"/>
+          <node xmi:type="uml:StructuredActivityNode" xmi:id="_shown_table" name="Shown Blocks">
+            <node xmi:type="uml:InitialNode" xmi:id="_shown_table_init"/>
+            <node xmi:type="uml:CallBehaviorAction" xmi:id="_shown_col_name" name="Name"/>
+            <node xmi:type="uml:CallBehaviorAction" xmi:id="_shown_col_doc" name="Documentation"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_shown_table_e1" source="_shown_table_init" target="_shown_col_name"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_shown_table_e2" source="_shown_col_name" target="_shown_col_doc"/>
+          </node>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_shown_final"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_shown_e1" source="_shown_init" target="_shown_collect"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_shown_e2" source="_shown_collect" target="_shown_sort"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_shown_e3" source="_shown_sort" target="_shown_table"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_shown_e4" source="_shown_table" target="_shown_final"/>
+        </ownedBehavior>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_vp_parts" name="Parts Viewpoint" classifierBehavior="_act_parts">
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_parts" name="Parts Method">
+          <node xmi:type="uml:InitialNode" xmi:id="_parts_init"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_parts_collect" name="Collect By Association"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_parts_list" name="Parts"/>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_parts_final"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_parts_e1" source="_parts_init" target="_parts_collect"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_parts_e2" source="_parts_collect" target="_parts_list"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_parts_e3" source="_parts_list" target="_parts_final"/>
+        </ownedBehavior>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_vp_direct" name="Direct Parts Viewpoint" classifierBehavior="_act_direct">
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_direct" name="Direct Parts Method">
+          <node xmi:type="uml:InitialNode" xmi:id="_direct_init"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_direct_collect" name="Collect By Association"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_direct_list" name="Direct Parts"/>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_direct_final"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_direct_e1" source="_direct_init" target="_direct_collect"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_direct_e2" source="_direct_collect" target="_direct_list"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_direct_e3" source="_direct_list" target="_direct_final"/>
+        </ownedBehavior>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_vp_shared" name="Shared Parts Viewpoint" classifierBehavior="_act_shared">
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_shared" name="Shared Parts Method">
+          <node xmi:type="uml:InitialNode" xmi:id="_shared_init"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_shared_collect" name="Collect By Association"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_shared_list" name="Shared Parts"/>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_shared_final"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_shared_e1" source="_shared_init" target="_shared_collect"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_shared_e2" source="_shared_collect" target="_shared_list"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_shared_e3" source="_shared_list" target="_shared_final"/>
+        </ownedBehavior>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_vp_todo" name="To Do Viewpoint" classifierBehavior="_act_todo">
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_todo" name="To Do Method">
+          <node xmi:type="uml:InitialNode" xmi:id="_todo_init"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_todo_collect" name="Collect Owned Elements"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_todo_filter" name="Filter By Stereotypes"/>
+          <node xmi:type="uml:StructuredActivityNode" xmi:id="_todo_table" name="To Do Items">
+            <node xmi:type="uml:InitialNode" xmi:id="_todo_table_init"/>
+            <node xmi:type="uml:CallBehaviorAction" xmi:id="_todo_col_name" name="Name"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_todo_table_e1" source="_todo_table_init" target="_todo_col_name"/>
+          </node>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_todo_final"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_todo_e1" source="_todo_init" target="_todo_collect"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_todo_e2" source="_todo_collect" target="_todo_filter"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_todo_e3" source="_todo_filter" target="_todo_table"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_todo_e4" source="_todo_table" target="_todo_final"/>
+        </ownedBehavior>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_vp_spec" name="Specification Viewpoint" classifierBehavior="_act_spec">
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_spec" name="Specification Method">
+          <node xmi:type="uml:InitialNode" xmi:id="_spec_init"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_spec_collect" name="Collect Owned Elements"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_spec_filter" name="Filter By Stereotypes"/>
+          <node xmi:type="uml:StructuredActivityNode" xmi:id="_spec_table" name="Requirements Specification Table">
+            <node xmi:type="uml:InitialNode" xmi:id="_spec_table_init"/>
+            <node xmi:type="uml:CallBehaviorAction" xmi:id="_spec_col_id" name="ID"/>
+            <node xmi:type="uml:CallBehaviorAction" xmi:id="_spec_col_name" name="Name"/>
+            <node xmi:type="uml:CallBehaviorAction" xmi:id="_spec_col_text" name="Requirement Text"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_spec_table_e1" source="_spec_table_init" target="_spec_col_id"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_spec_table_e2" source="_spec_col_id" target="_spec_col_name"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_spec_table_e3" source="_spec_col_name" target="_spec_col_text"/>
+          </node>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_spec_final"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_spec_e1" source="_spec_init" target="_spec_collect"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_spec_e2" source="_spec_collect" target="_spec_filter"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_spec_e3" source="_spec_filter" target="_spec_table"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_spec_e4" source="_spec_table" target="_spec_final"/>
+        </ownedBehavior>
+      </packagedElement>
+    </packagedElement>
+
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_doc" name="Yard Handbook">
+      <packagedElement xmi:type="uml:Class" xmi:id="_doc_handbook" name="Yard Handbook">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_bdds" name="blockDiagrams" type="_view_bdds" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_others" name="otherDiagrams" type="_view_others" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_ibds" name="internalDiagrams" type="_view_ibds" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_pars" name="parametricDiagrams" type="_view_pars" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_shown" name="shown" type="_view_shown" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_parts" name="parts" type="_view_parts" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_direct" name="directParts" type="_view_direct" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_shared" name="sharedParts" type="_view_shared" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_none" name="noParts" type="_view_none" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_todo" name="toDo" type="_view_todo" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_spec" name="specification" type="_view_spec" aggregation="composite"/>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_bdds" name="Block Diagrams">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_bdds" general="_vp_bdds"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_bdds_structure" client="_view_bdds" supplier="_diag_structure"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_bdds_internals" client="_view_bdds" supplier="_diag_internals"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_bdds_reqs" client="_view_bdds" supplier="_diag_reqs"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_bdds_untyped" client="_view_bdds" supplier="_diag_untyped"/>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_others" name="Other Diagrams">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_others" general="_vp_others"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_others_structure" client="_view_others" supplier="_diag_structure"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_others_internals" client="_view_others" supplier="_diag_internals"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_others_reqs" client="_view_others" supplier="_diag_reqs"/>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_ibds" name="Internal Diagrams">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_ibds" general="_vp_ibds"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_ibds" client="_view_ibds" supplier="_pkg_structure"/>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_pars" name="Parametric Diagrams">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_pars" general="_vp_pars"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_pars" client="_view_pars" supplier="_diag_structure"/>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_shown" name="Shown On The Structure Diagram">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_shown" general="_vp_shown"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_shown" client="_view_shown" supplier="_diag_structure"/>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_parts" name="Crane Parts">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_parts" general="_vp_parts"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_parts" client="_view_parts" supplier="_blk_crane"/>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_direct" name="Direct Crane Parts">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_direct" general="_vp_direct"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_direct" client="_view_direct" supplier="_blk_crane"/>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_shared" name="Shared Crane Parts">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_shared" general="_vp_shared"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_shared" client="_view_shared" supplier="_blk_crane"/>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_none" name="Cable Parts">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_none" general="_vp_parts"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_none" client="_view_none" supplier="_blk_cable"/>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_todo" name="To Do">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_todo" general="_vp_todo"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_todo" client="_view_todo" supplier="_pkg_structure"/>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_spec" name="Specification">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_spec" general="_vp_spec"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_spec" client="_view_spec" supplier="_pkg_reqs"/>
+    </packagedElement>
+
+    <xmi:Extension extender="Example UML Tool 1.0">
+      <modelExtension>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_structure" name="Crane Structure" ownerOfDiagram="_pkg_structure">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Block Definition Diagram" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_blk_hook</usedElements>
+                  <usedElements>_blk_crane</usedElements>
+                  <usedElements>_cmt_crane</usedElements>
+                  <usedElements>_conn_hoist_e1</usedElements>
+                  <usedElements>_ghost</usedElements>
+                  <usedElements>_diag_internals</usedElements>
+                  <usedElements>_st_todo</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_internals" name="Crane Internals" ownerOfDiagram="_blk_crane">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Internal Block Diagram" umlType="Composite Structure Diagram">
+                <diagramContents>
+                  <usedElements>_prop_hook</usedElements>
+                  <usedElements>_prop_cable</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_reqs" name="Yard Requirements" ownerOfDiagram="_pkg_reqs">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="Requirement Diagram" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_req_lift</usedElements>
+                  <usedElements>_req_sway</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_untyped" name="Sketch" ownerOfDiagram="_pkg_structure"/>
+      </modelExtension>
+      <stereotypesHREFS>
+        <stereotype name="MagicDraw_Profile:TODO_Owner" stereotypeHREF="UML_Standard_Profile.mdzip#_st_todo"/>
+      </stereotypesHREFS>
+    </xmi:Extension>
+  </uml:Model>
+
+  <sysml:Block xmi:id="_st_blk_crane" base_Class="_blk_crane"/>
+  <sysml:Block xmi:id="_st_blk_hook" base_Class="_blk_hook"/>
+  <sysml:Block xmi:id="_st_blk_latch" base_Class="_blk_latch"/>
+  <sysml:Block xmi:id="_st_blk_cable" base_Class="_blk_cable"/>
+  <sysml:Block xmi:id="_st_blk_operator" base_Class="_blk_operator"/>
+  <sysml:Requirement xmi:id="_st_req_lift" base_Class="_req_lift" Id="Y-1" Text="The crane lifts a loaded container."/>
+  <sysml:Requirement xmi:id="_st_req_sway" base_Class="_req_sway" Id="Y-2" Text="The load sways less than one degree."/>
+  <MagicDraw_Profile:TODO_Owner xmi:id="_app_todo_cable" base_Element="_blk_cable" TODO="Rate the cable."/>
+
+  <sysml:Viewpoint xmi:id="_st_vp_bdds" base_Class="_vp_bdds"/>
+  <sysml:Viewpoint xmi:id="_st_vp_others" base_Class="_vp_others"/>
+  <sysml:Viewpoint xmi:id="_st_vp_ibds" base_Class="_vp_ibds"/>
+  <sysml:Viewpoint xmi:id="_st_vp_pars" base_Class="_vp_pars"/>
+  <sysml:Viewpoint xmi:id="_st_vp_shown" base_Class="_vp_shown"/>
+  <sysml:Viewpoint xmi:id="_st_vp_parts" base_Class="_vp_parts"/>
+  <sysml:Viewpoint xmi:id="_st_vp_direct" base_Class="_vp_direct"/>
+  <sysml:Viewpoint xmi:id="_st_vp_shared" base_Class="_vp_shared"/>
+  <sysml:Viewpoint xmi:id="_st_vp_todo" base_Class="_vp_todo"/>
+  <sysml:Viewpoint xmi:id="_st_vp_spec" base_Class="_vp_spec"/>
+
+  <sysml:View xmi:id="_st_view_bdds" base_Class="_view_bdds"/>
+  <sysml:View xmi:id="_st_view_others" base_Class="_view_others"/>
+  <sysml:View xmi:id="_st_view_ibds" base_Class="_view_ibds"/>
+  <sysml:View xmi:id="_st_view_pars" base_Class="_view_pars"/>
+  <sysml:View xmi:id="_st_view_shown" base_Class="_view_shown"/>
+  <sysml:View xmi:id="_st_view_parts" base_Class="_view_parts"/>
+  <sysml:View xmi:id="_st_view_direct" base_Class="_view_direct"/>
+  <sysml:View xmi:id="_st_view_shared" base_Class="_view_shared"/>
+  <sysml:View xmi:id="_st_view_none" base_Class="_view_none"/>
+  <sysml:View xmi:id="_st_view_todo" base_Class="_view_todo"/>
+  <sysml:View xmi:id="_st_view_spec" base_Class="_view_spec"/>
+
+  <sysml:Conform xmi:id="_st_conform_bdds" base_Generalization="_gen_bdds"/>
+  <sysml:Conform xmi:id="_st_conform_others" base_Generalization="_gen_others"/>
+  <sysml:Conform xmi:id="_st_conform_ibds" base_Generalization="_gen_ibds"/>
+  <sysml:Conform xmi:id="_st_conform_pars" base_Generalization="_gen_pars"/>
+  <sysml:Conform xmi:id="_st_conform_shown" base_Generalization="_gen_shown"/>
+  <sysml:Conform xmi:id="_st_conform_parts" base_Generalization="_gen_parts"/>
+  <sysml:Conform xmi:id="_st_conform_direct" base_Generalization="_gen_direct"/>
+  <sysml:Conform xmi:id="_st_conform_shared" base_Generalization="_gen_shared"/>
+  <sysml:Conform xmi:id="_st_conform_none" base_Generalization="_gen_none"/>
+  <sysml:Conform xmi:id="_st_conform_todo" base_Generalization="_gen_todo"/>
+  <sysml:Conform xmi:id="_st_conform_spec" base_Generalization="_gen_spec"/>
+
+  <sysml:Expose xmi:id="_st_expose_bdds_structure" base_Dependency="_expose_bdds_structure"/>
+  <sysml:Expose xmi:id="_st_expose_bdds_internals" base_Dependency="_expose_bdds_internals"/>
+  <sysml:Expose xmi:id="_st_expose_bdds_reqs" base_Dependency="_expose_bdds_reqs"/>
+  <sysml:Expose xmi:id="_st_expose_bdds_untyped" base_Dependency="_expose_bdds_untyped"/>
+  <sysml:Expose xmi:id="_st_expose_others_structure" base_Dependency="_expose_others_structure"/>
+  <sysml:Expose xmi:id="_st_expose_others_internals" base_Dependency="_expose_others_internals"/>
+  <sysml:Expose xmi:id="_st_expose_others_reqs" base_Dependency="_expose_others_reqs"/>
+  <sysml:Expose xmi:id="_st_expose_ibds" base_Dependency="_expose_ibds"/>
+  <sysml:Expose xmi:id="_st_expose_pars" base_Dependency="_expose_pars"/>
+  <sysml:Expose xmi:id="_st_expose_shown" base_Dependency="_expose_shown"/>
+  <sysml:Expose xmi:id="_st_expose_parts" base_Dependency="_expose_parts"/>
+  <sysml:Expose xmi:id="_st_expose_direct" base_Dependency="_expose_direct"/>
+  <sysml:Expose xmi:id="_st_expose_shared" base_Dependency="_expose_shared"/>
+  <sysml:Expose xmi:id="_st_expose_none" base_Dependency="_expose_none"/>
+  <sysml:Expose xmi:id="_st_expose_todo" base_Dependency="_expose_todo"/>
+  <sysml:Expose xmi:id="_st_expose_spec" base_Dependency="_expose_spec"/>
+
+  <Document_Profile_:Document xmi:id="_st_doc_handbook" base_Class="_doc_handbook"/>
+
+  <Document_Profile_:FilterByDiagramType xmi:id="_st_bdds_filter" base_CallBehaviorAction="_bdds_filter" include="true">
+    <diagramTypes>SysML Block Definition Diagram</diagramTypes>
+  </Document_Profile_:FilterByDiagramType>
+  <Document_Profile_:Image xmi:id="_st_bdds_image" base_CallBehaviorAction="_bdds_image"/>
+
+  <Document_Profile_:FilterByDiagramType xmi:id="_st_others_filter" base_CallBehaviorAction="_others_filter" include="false">
+    <diagramTypes>SysML Block Definition Diagram</diagramTypes>
+  </Document_Profile_:FilterByDiagramType>
+  <Document_Profile_:Image xmi:id="_st_others_image" base_CallBehaviorAction="_others_image"/>
+
+  <Document_Profile_:CollectOwnedElements xmi:id="_st_ibds_collect" base_CallBehaviorAction="_ibds_collect" depth="0"/>
+  <Document_Profile_:FilterByDiagramType xmi:id="_st_ibds_filter" base_CallBehaviorAction="_ibds_filter" include="true">
+    <diagramTypes>SysML Internal Block Diagram</diagramTypes>
+  </Document_Profile_:FilterByDiagramType>
+  <Document_Profile_:Image xmi:id="_st_ibds_image" base_CallBehaviorAction="_ibds_image"/>
+
+  <Document_Profile_:FilterByDiagramType xmi:id="_st_pars_filter" base_CallBehaviorAction="_pars_filter" include="true">
+    <diagramTypes>SysML Parametric Diagram</diagramTypes>
+  </Document_Profile_:FilterByDiagramType>
+  <Document_Profile_:Image xmi:id="_st_pars_image" base_CallBehaviorAction="_pars_image"/>
+
+  <Document_Profile_:CollectThingsOnDiagram xmi:id="_st_shown_collect" base_CallBehaviorAction="_shown_collect"/>
+  <Document_Profile_:SortByName xmi:id="_st_shown_sort" base_CallBehaviorAction="_shown_sort"/>
+  <Document_Profile_:TableStructure xmi:id="_st_shown_table" base_StructuredActivityNode="_shown_table"/>
+  <Document_Profile_:TableAttributeColumn xmi:id="_st_shown_col_name" base_CallBehaviorAction="_shown_col_name" desiredAttribute="Name"/>
+  <Document_Profile_:TableAttributeColumn xmi:id="_st_shown_col_doc" base_CallBehaviorAction="_shown_col_doc" desiredAttribute="Documentation"/>
+
+  <Document_Profile_:CollectByAssociation xmi:id="_st_parts_collect" base_CallBehaviorAction="_parts_collect" depth="0"/>
+  <Document_Profile_:BulletedList xmi:id="_st_parts_list" base_CallBehaviorAction="_parts_list" showTargets="true" includeDoc="false"/>
+
+  <Document_Profile_:CollectByAssociation xmi:id="_st_direct_collect" base_CallBehaviorAction="_direct_collect" depth="1" associationType="composite"/>
+  <Document_Profile_:BulletedList xmi:id="_st_direct_list" base_CallBehaviorAction="_direct_list" showTargets="true" includeDoc="false"/>
+
+  <Document_Profile_:CollectByAssociation xmi:id="_st_shared_collect" base_CallBehaviorAction="_shared_collect" depth="0" associationType="shared"/>
+  <Document_Profile_:BulletedList xmi:id="_st_shared_list" base_CallBehaviorAction="_shared_list" showTargets="true" includeDoc="false"/>
+
+  <Document_Profile_:CollectOwnedElements xmi:id="_st_todo_collect" base_CallBehaviorAction="_todo_collect" depth="0"/>
+  <Document_Profile_:FilterByStereotypes xmi:id="_st_todo_filter" base_CallBehaviorAction="_todo_filter" include="true">
+    <stereotypes href="UML_Standard_Profile.mdzip#_st_todo"/>
+  </Document_Profile_:FilterByStereotypes>
+  <Document_Profile_:TableStructure xmi:id="_st_todo_table" base_StructuredActivityNode="_todo_table"/>
+  <Document_Profile_:TableAttributeColumn xmi:id="_st_todo_col_name" base_CallBehaviorAction="_todo_col_name" desiredAttribute="Name"/>
+
+  <Document_Profile_:CollectOwnedElements xmi:id="_st_spec_collect" base_CallBehaviorAction="_spec_collect" depth="0"/>
+  <Document_Profile_:FilterByStereotypes xmi:id="_st_spec_filter" base_CallBehaviorAction="_spec_filter" include="true">
+    <stereotypes href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML.Requirement"/>
+  </Document_Profile_:FilterByStereotypes>
+  <Document_Profile_:TableStructure xmi:id="_st_spec_table" base_StructuredActivityNode="_spec_table"/>
+  <Document_Profile_:TablePropertyColumn xmi:id="_st_spec_col_id" base_CallBehaviorAction="_spec_col_id">
+    <desiredProperty href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML.AbstractRequirement.id"/>
+  </Document_Profile_:TablePropertyColumn>
+  <Document_Profile_:TableAttributeColumn xmi:id="_st_spec_col_name" base_CallBehaviorAction="_spec_col_name" desiredAttribute="Name"/>
+  <Document_Profile_:TablePropertyColumn xmi:id="_st_spec_col_text" base_CallBehaviorAction="_spec_col_text">
+    <desiredProperty href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML.AbstractRequirement.text"/>
+  </Document_Profile_:TablePropertyColumn>
+</xmi:XMI>

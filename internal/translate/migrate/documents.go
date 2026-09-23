@@ -298,6 +298,8 @@ type chain struct {
 	self string
 	// dropped names the filter that kept none of the diagrams, while none is current.
 	dropped string
+	// none says why the chain is known to hold no element at all, once a step left none.
+	none string
 	// broken says why the current elements are unknown, once a step failed.
 	broken string
 	// notes are approximations the collected elements carry into what shows them.
@@ -350,7 +352,7 @@ func contains(ss []string, s string) bool {
 // a ref that resolves to no written element breaks the chain, though the
 // source elements stay followed for the diagrams they own.
 func (c *chain) roots(refs []sysmlv1.ElementRef, role string) {
-	c.ctx, c.diagrams, c.holders, c.vague, c.self, c.dropped, c.broken = qx{}, nil, nil, "", "", "", ""
+	c.ctx, c.diagrams, c.holders, c.vague, c.self, c.dropped, c.none, c.broken = qx{}, nil, nil, "", "", "", "", ""
 	var names []string
 	for _, ref := range refs {
 		if d := c.m.model.Diagram(ref.ID); d != nil {
@@ -450,10 +452,16 @@ func (c *chain) step(s *sysmlv1.DocGenStep) {
 		c.collect(s, "Ancestors")
 	case "CollectByDirectedRelationshipStereotypes":
 		c.collectRelated(s)
+	case "CollectThingsOnDiagram":
+		c.collectShown(s)
+	case "CollectByAssociation":
+		c.collectAssociated(s)
 	case "FilterByMetaclasses":
 		c.filterTypes(s, "metaclasses")
 	case "FilterByStereotypes":
 		c.filterTypes(s, "stereotypes")
+	case "FilterByDiagramType":
+		c.filterDiagramTypes(s)
 	case "FilterByNames":
 		c.filterNames(s)
 	case "SortByName":
@@ -543,11 +551,39 @@ func (c *chain) ready(s *sysmlv1.DocGenStep) bool {
 	case c.empty() && len(c.diagrams) > 0:
 		c.refuse(s, "it shows no element: only diagrams are current, and a diagram is shown by an Image, not listed")
 		return false
+	case c.empty() && c.none != "":
+		c.nothing(s)
+		return false
 	case c.empty():
 		c.refuse(s, "it shows no element: the view exposes nothing and the node targets nothing")
 		return false
 	}
 	return true
+}
+
+// nothing records a presentation node over no element, which DocGen shows
+// nothing for either, except a table, whose headings it prints over no row.
+func (c *chain) nothing(s *sysmlv1.DocGenStep) {
+	verdict, note := Mapped, "it shows nothing: "+c.none
+	if s.Kind == "TableStructure" {
+		verdict, note = Approximated, "it lists nothing: "+c.none+"; the table DocGen prints, headings over no row, is left out"
+	}
+	c.m.report.Entries = append(c.m.report.Entries, *c.m.nodeEntry(s.Node, s.Application, verdict, note))
+}
+
+// clear empties the chain for a known reason, which what follows reports.
+func (c *chain) clear(why string) {
+	c.ctx, c.diagrams, c.holders, c.vague = qx{}, nil, nil, ""
+	c.dropped, c.none = why, why
+}
+
+// keepNone lowers a filter that names nothing as DocGen runs it: including
+// keeps no element, excluding keeps them all.
+func (c *chain) keepNone(s *sysmlv1.DocGenStep, why string) {
+	if s.Application.Tag("include") == "false" {
+		return
+	}
+	c.clear("«" + c.kind(s) + "» " + qualifiedName(s.Node) + " keeps nothing: " + why)
 }
 
 // depth reads a collect step's depth: 0 or absent is unbounded.
@@ -608,7 +644,7 @@ func (c *chain) collect(s *sysmlv1.DocGenStep, op string) {
 // the elements and diagrams they own, or up to their owners and the diagrams'.
 func (c *chain) collectHolders(op string, depth int) {
 	holders, diagrams := c.holders, c.diagrams
-	c.diagrams, c.dropped = nil, ""
+	c.diagrams, c.dropped, c.none = nil, "", ""
 	if c.vague != "" {
 		c.holders = nil
 		return
@@ -661,6 +697,182 @@ func (c *chain) diagramOwners(depth int) (names []string, why string) {
 	return names, ""
 }
 
+// collectShown lowers CollectThingsOnDiagram as DocGen runs it: the model
+// elements the current diagrams show, named; anything else is dropped.
+func (c *chain) collectShown(s *sysmlv1.DocGenStep) {
+	if c.idle() {
+		return
+	}
+	diagrams, holders := c.diagrams, c.holders
+	c.ctx, c.diagrams, c.holders, c.dropped, c.none = qx{}, nil, nil, "", ""
+	if c.vague != "" {
+		return
+	}
+	var names []string
+	for _, d := range diagrams {
+		if !d.Drawn && len(d.Shown) == 0 {
+			c.blur(s, "collects what the "+diagramKind(d)+" '"+d.Name+"' shows, which the archive does not record")
+			continue
+		}
+		unknown, unwritten, folded := 0, 0, 0
+		for _, ref := range d.Shown {
+			if sd := c.m.model.Diagram(ref.ID); sd != nil {
+				c.diagrams = appendDiagram(c.diagrams, sd)
+				continue
+			}
+			switch name, why := c.m.namedRoot(ref, "element"); {
+			case ref.Element == nil:
+				unknown++
+			case why != "" && c.m.foldedInto(ref.Element):
+				folded++
+			case why != "":
+				c.holders = appendElement(c.holders, ref.Element)
+				unwritten++
+			default:
+				c.holders = appendElement(c.holders, ref.Element)
+				if !contains(names, name) {
+					names = append(names, name)
+				}
+			}
+		}
+		shown := " shown on the " + diagramKind(d) + " '" + d.Name + "' "
+		if unknown > 0 {
+			c.note("leaves out " + plural(unknown, "element") + shown + "that the archive does not describe")
+		}
+		if unwritten > 0 {
+			c.note("leaves out " + plural(unwritten, "element") + shown + "that the migration does not write")
+		}
+		if folded > 0 {
+			c.note("leaves out " + plural(folded, "element") + shown + "written within the elements owning them, with no v2 element of their own")
+		}
+	}
+	if len(names) > 0 {
+		c.ctx = qcall("Named", qstrs("qualifiedName", names...))
+	}
+	if c.empty() && len(c.diagrams) == 0 && c.vague == "" {
+		c.none = "«" + c.kind(s) + "» " + qualifiedName(s.Node) + " collects nothing: " + c.shownNothing(diagrams, holders)
+		c.dropped = c.none
+	}
+}
+
+// shownNothing says why no element is shown on the current diagrams: there is
+// none, or each shows no model element the query names.
+func (c *chain) shownNothing(diagrams []*sysmlv1.Diagram, holders []*sysmlv1.Element) string {
+	if len(diagrams) == 0 {
+		if len(holders) == 0 {
+			return "no diagram is collected for it to read"
+		}
+		return noneOf(holders) + ", and only a diagram shows elements"
+	}
+	var parts []string
+	for _, d := range diagrams {
+		if len(d.Shown) == 0 {
+			parts = append(parts, "the "+diagramKind(d)+" '"+d.Name+"' "+showsNothing(d, "shows no model element"))
+		} else {
+			parts = append(parts, "the "+diagramKind(d)+" '"+d.Name+"' shows no element the query names")
+		}
+	}
+	return strings.Join(parts, "; ")
+}
+
+// plural counts nouns: "1 element", "3 elements".
+func plural(n int, noun string) string {
+	if n == 1 {
+		return "1 " + noun
+	}
+	return strconv.Itoa(n) + " " + noun + "s"
+}
+
+// collectAssociated lowers CollectByAssociation as DocGen runs it: from each
+// current classifier, the types of its attributes of the aggregation kind,
+// followed on to depth. The types are known statically, so they are named.
+func (c *chain) collectAssociated(s *sysmlv1.DocGenStep) {
+	if c.idle() {
+		return
+	}
+	depth, why := c.depth(s)
+	if why != "" {
+		c.abort(s, why)
+		return
+	}
+	kind := c.aggregation(s)
+	// A diagram is no classifier, so it has no attributes to follow.
+	c.diagrams, c.dropped, c.none = nil, "", ""
+	if c.vague != "" {
+		c.fail(s, "the elements it starts from are known only when the query runs, and no query operation tells a "+kind+" feature from the others")
+		return
+	}
+	holders := c.holders
+	c.holders, c.ctx = nil, qx{}
+	var names []string
+	seen := map[*sysmlv1.Element]bool{}
+	var walk func(e *sysmlv1.Element, level int)
+	walk = func(e *sysmlv1.Element, level int) {
+		if depth > 0 && level > depth {
+			return
+		}
+		for _, p := range e.Owned("ownedAttribute") {
+			t := c.m.model.Ref(p, "type")
+			if aggregationOf(p) != kind || t == nil || seen[t] {
+				continue
+			}
+			seen[t] = true
+			c.holders = append(c.holders, t)
+			if name, why := c.m.namedRoot(sysmlv1.ElementRef{ID: t.ID, Element: t}, "type"); why != "" {
+				c.note(why + ", so it is left out")
+			} else if !contains(names, name) {
+				names = append(names, name)
+			}
+			walk(t, level+1)
+		}
+	}
+	for _, h := range holders {
+		walk(h, 1)
+	}
+	if len(names) > 0 {
+		c.ctx = qcall("Named", qstrs("qualifiedName", names...))
+		return
+	}
+	if len(c.holders) == 0 {
+		c.none = "«" + c.kind(s) + "» " + qualifiedName(s.Node) + " collects nothing: " + c.noAssociated(holders, kind)
+		c.dropped = c.none
+	}
+}
+
+// noAssociated says why no type is reached from the elements by attributes of
+// the aggregation kind: there is no element, or none has such an attribute.
+func (c *chain) noAssociated(holders []*sysmlv1.Element, kind string) string {
+	switch len(holders) {
+	case 0:
+		return "no element is collected for it to follow"
+	case 1:
+		return "the only element collected, the " + kindOf(holders[0]) + " " + qualifiedName(holders[0]) + ", has no typed attribute of " + kind + " aggregation"
+	}
+	return "none of the " + strconv.Itoa(len(holders)) + " elements collected has a typed attribute of " + kind + " aggregation"
+}
+
+// aggregation reads the association kind a CollectByAssociation follows, a
+// literal named or referred to; composite when none is.
+func (c *chain) aggregation(s *sysmlv1.DocGenStep) string {
+	kind := strings.TrimSpace(s.Application.Tag("associationType"))
+	if lit := c.m.model.Lookup(kind); lit != nil && lit.Name != "" {
+		kind = lit.Name
+	}
+	switch kind {
+	case "none", "shared":
+		return kind
+	}
+	return "composite"
+}
+
+// aggregationOf is a property's aggregation kind, none unless it says otherwise.
+func aggregationOf(p *sysmlv1.Element) string {
+	if a := p.Attrs["aggregation"]; a != "" {
+		return a
+	}
+	return "none"
+}
+
 // collectRelated lowers CollectByDirectedRelationshipStereotypes to a walk of
 // each supported relationship kind, united.
 func (c *chain) collectRelated(s *sysmlv1.DocGenStep) {
@@ -668,7 +880,7 @@ func (c *chain) collectRelated(s *sysmlv1.DocGenStep) {
 		return
 	}
 	// A migrated diagram is a view, which is the end of no relationship.
-	c.diagrams, c.dropped = nil, ""
+	c.diagrams, c.dropped, c.none = nil, "", ""
 	if len(c.holders) > 0 || !c.empty() {
 		c.blur(s, "follows relationships to elements only the query finds")
 	}
@@ -741,7 +953,7 @@ func (c *chain) filterTypes(s *sysmlv1.DocGenStep, tag string) {
 	}
 	refs := c.m.model.TagRefs(s.Application, tag)
 	if len(refs) == 0 {
-		c.abort(s, "it names no "+strings.TrimSuffix(tag, "es")+"")
+		c.keepNone(s, "it names no "+map[string]string{"metaclasses": "metaclass", "stereotypes": "stereotype"}[tag])
 		return
 	}
 	c.keepDiagrams(s, func(d *sysmlv1.Diagram) bool {
@@ -784,6 +996,70 @@ func (c *chain) filterTypes(s *sysmlv1.DocGenStep, tag string) {
 		return
 	}
 	c.ctx = kept
+}
+
+// filterDiagramTypes lowers FilterByDiagramType as DocGen runs it: only
+// diagrams pass, those of a diagram type named, or the others when excluding.
+func (c *chain) filterDiagramTypes(s *sysmlv1.DocGenStep) {
+	if c.idle() {
+		return
+	}
+	types := c.diagramTypes(s)
+	holders, diagrams := c.holders, c.diagrams
+	c.ctx, c.holders, c.diagrams = qx{}, nil, nil
+	for _, d := range diagrams {
+		if d.Kind == "" {
+			c.blur(s, "keeps or drops the diagram '"+d.Name+"', whose diagram type the archive does not record")
+			continue
+		}
+		c.diagrams = append(c.diagrams, d)
+	}
+	c.keepDiagrams(s, func(d *sysmlv1.Diagram) bool { return contains(types, d.Kind) })
+	if len(c.diagrams) > 0 || c.vague != "" {
+		return
+	}
+	step := "«" + c.kind(s) + "» " + qualifiedName(s.Node)
+	switch {
+	case len(diagrams) == 0 && len(holders) == 0:
+		return
+	case len(diagrams) == 0:
+		c.none = step + " drops " + noneOf(holders) + ", and it keeps only diagrams"
+	case len(types) == 0:
+		c.none = step + " drops all the diagrams collected: it names no diagram type"
+	case s.Application.Tag("include") == "false":
+		c.none = step + " drops all the diagrams collected: each is " + orList(types)
+	default:
+		c.none = step + " drops all the diagrams collected: none is " + orList(types)
+	}
+	c.dropped = c.none
+}
+
+// diagramTypes reads the diagram types a FilterByDiagramType names, as the
+// tool spells them: literally, or by a reference to a named element.
+func (c *chain) diagramTypes(s *sysmlv1.DocGenStep) []string {
+	var types []string
+	for _, raw := range s.Application.Tags["diagramTypes"] {
+		name := strings.TrimSpace(raw)
+		if e := c.m.model.Lookup(name); e != nil && e.Name != "" {
+			name = e.Name
+		}
+		if name != "" && !contains(types, name) {
+			types = append(types, name)
+		}
+	}
+	return types
+}
+
+// orList joins alternatives: "a", "a or b", "a, b or c".
+func orList(items []string) string {
+	quoted := make([]string, len(items))
+	for i, s := range items {
+		quoted[i] = "a " + s
+	}
+	if len(quoted) < 2 {
+		return strings.Join(quoted, "")
+	}
+	return strings.Join(quoted[:len(quoted)-1], ", ") + " or " + quoted[len(quoted)-1]
 }
 
 // keepHolders keeps the source elements keep admits, or the others when the
@@ -966,7 +1242,7 @@ func (c *chain) join(s *sysmlv1.DocGenStep) {
 	var results []qx
 	var diagrams []*sysmlv1.Diagram
 	var holders []*sysmlv1.Element
-	dropped, vague := c.dropped, c.vague
+	dropped, vague, none := c.dropped, c.vague, c.none
 	for _, branch := range s.Branches {
 		sub := c.sub()
 		sub.run(branch)
@@ -989,6 +1265,9 @@ func (c *chain) join(s *sysmlv1.DocGenStep) {
 		if sub.dropped != "" {
 			dropped = sub.dropped
 		}
+		if sub.none != "" {
+			none = sub.none
+		}
 		if vague == "" {
 			vague = sub.vague
 		}
@@ -997,9 +1276,12 @@ func (c *chain) join(s *sysmlv1.DocGenStep) {
 		c.abort(s, "its branches rejoin by "+strings.ToLower(s.Kind)+", which only a Union spelling exists for")
 		return
 	}
-	c.diagrams, c.dropped, c.holders, c.vague = diagrams, dropped, holders, vague
+	c.diagrams, c.dropped, c.holders, c.vague, c.none = diagrams, dropped, holders, vague, none
 	if len(diagrams) > 0 {
 		c.dropped = ""
+	}
+	if len(diagrams) > 0 || len(holders) > 0 || len(results) > 0 || vague != "" {
+		c.none = ""
 	}
 	if len(results) == 0 {
 		c.ctx = qx{}
@@ -1031,6 +1313,7 @@ func (c *chain) group(s *sysmlv1.DocGenStep, flows bool) {
 		return
 	}
 	c.ctx, c.diagrams, c.holders, c.vague, c.broken = sub.ctx, sub.diagrams, sub.holders, sub.vague, sub.broken
+	c.dropped, c.none = sub.dropped, sub.none
 	for _, n := range sub.notes {
 		c.note(n)
 	}
@@ -1167,6 +1450,11 @@ func (c *chain) column(col *sysmlv1.DocGenStep) (prop string, expr columnExpr, w
 		refs := c.m.model.TagRefs(col.Application, "desiredProperty")
 		if len(refs) == 0 {
 			return "", expr, "it names no property"
+		}
+		if f := refs[0].Element; f != nil {
+			if prop := requirementProperty(f); prop != "" {
+				return prop, expr, ""
+			}
 		}
 		key, f, why := c.m.columnKey(sysmlv1.Column{Kind: sysmlv1.ColumnFeature, Feature: refs[0], ID: refs[0].ID}, c.dp.host)
 		if why != "" {
@@ -1316,6 +1604,9 @@ func (c *chain) image(s *sysmlv1.DocGenStep) {
 		if text := c.captionText(s, i); text != "" {
 			c.captionParagraph(s, "the paragraph is the Diagram's caption", text)
 		}
+	}
+	if c.vague != "" {
+		c.m.report.Entries = append(c.m.report.Entries, *c.m.nodeEntry(s.Node, s.Application, Approximated, "it may draw more than the diagrams known: "+c.vague))
 	}
 }
 

@@ -147,6 +147,32 @@ package Results {
             out :>> mean = 8.0;
         }
     }
+    view 'Statistics Table' {
+        expose 'analysis of 4 runs';
+        expose 'Statistics Table Document';
+        render Views::asElementTable;
+    }
+    calc def 'Statistics Table Rows' :> DocumentQueries::Query {
+        DocumentQueries::Project(
+            source = DocumentQueries::WhereFeature(
+                source = DocumentQueries::WhereType(
+                    source = DocumentQueries::Descendants(
+                        source = DocumentQueries::Named(qualifiedName = ("Results"))),
+                    type = ("Timer Analysis")),
+                'feature' = "isIndividual",
+                operator = "=",
+                value = "true"),
+            properties = ("name"),
+            columns = (
+                DocumentQueries::Column(name = "t", expression = Timer::t ?? "")))
+    }
+    part def 'Statistics Table Document' :> DocumentQueries::Document {
+        attribute redefines title = "Statistics Table";
+        part rows : DocumentQueries::Table {
+            attribute redefines caption = "Statistics Table";
+            calc rows : 'Statistics Table Rows';
+        }
+    }
 }
 package Empty;
 package 'Unbound Results' {

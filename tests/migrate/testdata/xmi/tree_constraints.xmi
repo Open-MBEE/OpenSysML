@@ -46,6 +46,25 @@
             </operand>
           </specification>
         </ownedRule>
+        <ownedRule xmi:type="uml:Constraint" xmi:id="_presentRule" constrainedElement="_tank">
+          <specification xmi:type="uml:Expression" xmi:id="_presentSpec">
+            <operand xmi:type="uml:InstanceValue" xmi:id="_presentSpec1"/>
+          </specification>
+        </ownedRule>
+        <ownedRule xmi:type="uml:Constraint" xmi:id="_nestedBlankRule" constrainedElement="_tank">
+          <specification xmi:type="uml:Expression" xmi:id="_nestedBlankSpec">
+            <operand xmi:type="uml:Expression" xmi:id="_nestedBlankSpec1">
+              <operand xmi:type="uml:InstanceValue" xmi:id="_nestedBlankSpec1a"/>
+              <operand xmi:type="uml:InstanceValue" xmi:id="_nestedBlankSpec1b"/>
+            </operand>
+          </specification>
+        </ownedRule>
+        <ownedRule xmi:type="uml:Constraint" xmi:id="_unnamedRule" name="unnamed operand" constrainedElement="_tank">
+          <specification xmi:type="uml:Expression" xmi:id="_unnamedSpec" symbol="==">
+            <operand xmi:type="uml:Expression" xmi:id="_unnamedSpec1" symbol="mode"/>
+            <operand xmi:type="uml:InstanceValue" xmi:id="_unnamedSpec2"/>
+          </specification>
+        </ownedRule>
         <ownedRule xmi:type="uml:Constraint" xmi:id="_sealedRule" name="sealed" constrainedElement="_tank">
           <specification xmi:type="uml:Expression" xmi:id="_sealedSpec" symbol="xor">
             <operand xmi:type="uml:Expression" xmi:id="_sealedSpec1" symbol="level"/>
