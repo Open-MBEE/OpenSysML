@@ -352,8 +352,9 @@ not exposed, and how many resolved to no element; an export record matching no d
 or one the migration does not write as a view, and each malformed record is an `unmapped` report row; a presentation property `DiagramLayout` has
 no attribute for (a color, a font, an image) is counted by tag and dropped rather than invented.
 Views the export does not cover are a normal case of export scope and are reported as a count. A
-`-layout` file exported from a different project — no record joins — refuses with the mismatch
-stated; without `-layout` the migration's output is byte-identical.
+`-layout` file exported from a different project — no record joins — or one that is not a HUDS
+`<packet>` at all refuses with the mismatch stated; without `-layout` the migration's output is
+byte-identical.
 
 The mapping has been run over the XMI of the [OpenMBEE TMT SysML model](https://github.com/Open-MBEE/TMT-SysML-Model)
 (27 MB; 44,600 elements once the nodes and edges of its behaviors are counted): it writes 7 MB

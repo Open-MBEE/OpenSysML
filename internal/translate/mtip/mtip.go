@@ -116,11 +116,13 @@ func keyed(children []*node) []*node {
 // Parse reads one HUDS export: the packet's metadata and every <data> record,
 // keeping only the diagram records — those carrying an element placement list
 // or a diagramConnector list. A document that is not well-formed XML fails
-// with the position.
+// with the position; one whose root is not <packet> is not a HUDS export and
+// is refused, as is one with no root element at all.
 func Parse(data []byte) (*Export, error) {
 	dec := xml.NewDecoder(bytes.NewReader(data))
 	ex := &Export{}
 	var depth int
+	var root bool
 	for {
 		t, err := dec.Token()
 		if err == io.EOF {
@@ -132,6 +134,12 @@ func Parse(data []byte) (*Export, error) {
 		switch t := t.(type) {
 		case xml.StartElement:
 			depth++
+			if depth == 1 {
+				root = true
+				if t.Name.Local != "packet" {
+					return nil, fmt.Errorf("the MTIP export's root element is <%s>, not <packet>", t.Name.Local)
+				}
+			}
 			switch depth {
 			case 2:
 				if t.Name.Local == "metadata" {
@@ -158,6 +166,9 @@ func Parse(data []byte) (*Export, error) {
 		case xml.EndElement:
 			depth--
 		}
+	}
+	if !root {
+		return nil, fmt.Errorf("the MTIP export is empty")
 	}
 	return ex, nil
 }

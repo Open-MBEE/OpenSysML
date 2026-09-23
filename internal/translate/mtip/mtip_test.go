@@ -258,3 +258,29 @@ func TestNonFiniteNumbersAreMalformed(t *testing.T) {
 		}
 	}
 }
+
+// Only a HUDS <packet> is an MTIP export: another root is refused outright,
+// and a real packet with metadata and no diagram records is a valid export.
+func TestNonPacketRootRefused(t *testing.T) {
+	for _, src := range []string{`<html/>`, `<export><data/></export>`} {
+		_, err := Parse([]byte(src))
+		if err == nil {
+			t.Fatalf("Parse(%q): no error", src)
+		}
+	}
+	if _, err := Parse([]byte(`<html/>`)); err.Error() != "the MTIP export's root element is <html>, not <packet>" {
+		t.Errorf("error: %v", err)
+	}
+	ex := parse(t, `<packet><metadata><mtipVersion>2022x</mtipVersion></metadata></packet>`)
+	if len(ex.Diagrams) != 0 || ex.Records != 0 || ex.MTIPVersion != "2022x" {
+		t.Errorf("empty packet: %+v", ex)
+	}
+}
+
+// A document with no root element at all is refused.
+func TestEmptyDocumentRefused(t *testing.T) {
+	if _, err := Parse([]byte(`<?xml version="1.0"?><!-- nothing -->`)); err == nil ||
+		err.Error() != "the MTIP export is empty" {
+		t.Errorf("error: %v", err)
+	}
+}
