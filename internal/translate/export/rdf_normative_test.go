@@ -2,6 +2,7 @@ package export
 
 import (
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 
@@ -317,4 +318,75 @@ func TestNormativeReferentMembershipVerifyRejectsDisagreement(t *testing.T) {
 	if _, err := ToSysML(mut); err == nil {
 		t.Fatalf("want a refusal on the disagreeing memberElement")
 	}
+}
+
+// TestNormativeVerifyRejectsSwappedKinds: a materialized element restating a
+// target the head states under a different collapsed kind is refused — the
+// collapsed write would move the target across kinds.
+func TestNormativeVerifyRejectsSwappedKinds(t *testing.T) {
+	graph := normativeGraph(t, `package N {
+		part def T;
+		part f1 : T;
+		part f : T subsets f1;
+	}`)
+	f := elmt("N__f")
+	f1 := elmt("N__f1")
+	tdef := elmt("N__T")
+	fts := objects(graph, f.Value, "ownedTyping")
+	sss := objects(graph, f.Value, "ownedSubsetting")
+	if len(fts) != 1 || len(sss) != 1 {
+		t.Fatalf("typing %v subsetting %v", fts, sss)
+	}
+	ft, ss := fts[0], sss[0]
+	mut := rdf.NewGraph()
+	swap := func(t rdf.Triple) rdf.Triple {
+		switch {
+		case t.Subject == ft && (t.Predicate.Value == rdf.SysML+"type" || t.Predicate.Value == rdf.SysML+"general" || t.Predicate.Value == rdf.SysML+"target") && t.Object.Value == tdef.Value:
+			return rdf.Triple{Subject: ft, Predicate: t.Predicate, Object: f1}
+		case t.Subject == ss && (t.Predicate.Value == rdf.SysML+"subsettedFeature" || t.Predicate.Value == rdf.SysML+"general" || t.Predicate.Value == rdf.SysML+"target") && t.Object.Value == f1.Value:
+			return rdf.Triple{Subject: ss, Predicate: t.Predicate, Object: tdef}
+		}
+		return t
+	}
+	for _, tr := range graph.Triples() {
+		mut.AddTriple(swap(tr))
+	}
+	var uerr *UnsupportedError
+	if err := mustDecode(mut); err == nil || !errors.As(err, &uerr) {
+		t.Fatalf("want an UnsupportedError on the swapped kinds, got %v", err)
+	}
+}
+
+// TestNormativeVerifyCoveredRejectsMissingKind: once a head carries
+// materialized elements, every IRI target of each collapsed kind must be
+// carried by one whose metaclass maps to that kind.
+func TestNormativeVerifyCoveredRejectsMissingKind(t *testing.T) {
+	graph := normativeGraph(t, `package N {
+		part def T;
+		part f1 : T;
+		part f : T subsets f1;
+	}`)
+	if err := mustDecode(graph); err != nil {
+		t.Fatalf("the unmutated graph must still decode: %v", err)
+	}
+	sss := objects(graph, elmt("N__f").Value, "ownedSubsetting")
+	if len(sss) != 1 {
+		t.Fatalf("ownedSubsetting %v", sss)
+	}
+	mut := rdf.NewGraph()
+	for _, tr := range graph.Triples() {
+		if tr.Subject == sss[0] {
+			continue
+		}
+		mut.AddTriple(tr)
+	}
+	var uerr *UnsupportedError
+	if err := mustDecode(mut); err == nil || !errors.As(err, &uerr) {
+		t.Fatalf("want an UnsupportedError on the uncovered subsets target, got %v", err)
+	}
+}
+
+func mustDecode(graph *rdf.Graph) error {
+	_, err := ToSysML(graph)
+	return err
 }

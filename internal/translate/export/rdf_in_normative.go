@@ -8,6 +8,7 @@ package export
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -127,9 +128,7 @@ func (d *decoder) impliedRelationship(el *element, parent *element) (bool, error
 	what := fmt.Sprintf("the %s <%s>", el.metaclass, el.iri)
 	stated := map[string]bool{}
 	literal := false
-	for _, kind := range []ast.RelationshipKind{
-		ast.RelTyping, ast.RelSpecializes, ast.RelSubsets, ast.RelRedefines, ast.RelReferences,
-	} {
+	for _, kind := range collapsedKindsOf[el.metaclass] {
 		for _, object := range d.graph.Objects(rdf.IRI(parent.iri), rdf.SysML+relationshipProperty[kind]) {
 			stated[object.Value] = true
 			if !object.IsIRI() {
@@ -155,6 +154,37 @@ func (d *decoder) impliedRelationship(el *element, parent *element) (bool, error
 		// checked against it, so it is read as implying the literal instead.
 		if literal {
 			return true, nil
+		}
+		// Ends naming targets the parent does state — under kinds this
+		// metaclass never restates — are a misassigned element, not a foreign
+		// one: the collapsed form would move its targets across kinds.
+		if len(actual) > 0 {
+			other := map[string]bool{}
+			for _, kind := range []ast.RelationshipKind{
+				ast.RelTyping, ast.RelSpecializes, ast.RelSubsets, ast.RelRedefines, ast.RelReferences,
+			} {
+				if slices.Contains(collapsedKindsOf[el.metaclass], kind) {
+					continue
+				}
+				for _, object := range d.graph.Objects(rdf.IRI(parent.iri), rdf.SysML+relationshipProperty[kind]) {
+					other[object.Value] = true
+				}
+			}
+			var targets []string
+			for value := range actual {
+				if !other[value] {
+					targets = nil
+					break
+				}
+				targets = append(targets, value)
+			}
+			if len(targets) > 0 {
+				sort.Strings(targets)
+				return false, &UnsupportedError{
+					What: what,
+					Note: fmt.Sprintf("it names <%s>, which the collapsed properties of <%s> state under a different relationship kind, and writing them would move the targets across kinds", strings.Join(targets, ">, <"), parent.iri),
+				}
+			}
 		}
 		return false, nil
 	}
@@ -209,14 +239,17 @@ func (d *decoder) verifyCovered(owner *element) error {
 	if !materialized {
 		return nil
 	}
-	stated := map[string]bool{}
+	stated := map[ast.RelationshipKind]map[string]bool{}
 	for _, kind := range []ast.RelationshipKind{
 		ast.RelTyping, ast.RelSpecializes, ast.RelSubsets, ast.RelRedefines, ast.RelReferences,
 	} {
 		for _, object := range d.graph.Objects(rdf.IRI(owner.iri), rdf.SysML+relationshipProperty[kind]) {
 			// A literal edge names its target, so no element covers it.
 			if object.IsIRI() {
-				stated[object.Value] = true
+				if stated[kind] == nil {
+					stated[kind] = map[string]bool{}
+				}
+				stated[kind][object.Value] = true
 			}
 		}
 	}
@@ -224,17 +257,26 @@ func (d *decoder) verifyCovered(owner *element) error {
 		if !child.implied || !impliedRelationshipMetaclasses[child.metaclass] {
 			continue
 		}
-		for _, property := range relationshipTargetEnds {
-			for _, object := range d.graph.Objects(rdf.IRI(child.iri), rdf.SysML+property) {
-				delete(stated, object.Value)
+		for _, kind := range collapsedKindsOf[child.metaclass] {
+			for _, property := range relationshipTargetEnds {
+				for _, object := range d.graph.Objects(rdf.IRI(child.iri), rdf.SysML+property) {
+					delete(stated[kind], object.Value)
+				}
 			}
 		}
 	}
-	if len(stated) == 0 {
+	uncovered := map[string]bool{}
+	for _, targets := range stated {
+		for value := range targets {
+			uncovered[value] = true
+		}
+	}
+	statedValues := uncovered
+	if len(statedValues) == 0 {
 		return nil
 	}
-	missing := make([]string, 0, len(stated))
-	for value := range stated {
+	missing := make([]string, 0, len(statedValues))
+	for value := range statedValues {
 		missing = append(missing, value)
 	}
 	sort.Strings(missing)

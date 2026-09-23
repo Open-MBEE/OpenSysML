@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf/ontology"
 )
@@ -69,6 +70,20 @@ func collapsedOf(metaclass string, ownerHasEndForm, ownerIsSatisfy bool) (string
 		return "references", true
 	}
 	return "", false
+}
+
+// collapsedKindsOf are the collapsed properties a materialized element of the
+// metaclass may restate targets of — the encoder's relationshipSpec, read the
+// other way. A feature's `:>` is stored as specializes but materialized as a
+// Subsetting, and a satisfy's or end-form's subsets as a ReferenceSubsetting.
+var collapsedKindsOf = map[string][]ast.RelationshipKind{
+	mFeatureTyping:        {ast.RelTyping},
+	mConjugatedPortTyping: {ast.RelTyping},
+	mSubclassification:    {ast.RelSpecializes},
+	mSpecialization:       {ast.RelSpecializes},
+	mSubsetting:           {ast.RelSubsets, ast.RelSpecializes},
+	mRedefinition:         {ast.RelRedefines},
+	mReferenceSubsetting:  {ast.RelReferences, ast.RelSubsets},
 }
 
 // relationshipLike reports whether a metaclass is a Relationship element the
