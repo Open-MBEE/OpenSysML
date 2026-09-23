@@ -237,9 +237,13 @@ func TestMigratedDocumentsRender(t *testing.T) {
 		"### Per Truck",
 		"One truck.",
 		"## Broken",
+		"## Severed",
 		"## Notes")
 	if strings.Contains(md, "Axle Count | ") {
 		t.Fatalf("the Safety table lists a requirement outside the Safety filter:\n%s", md)
+	}
+	if strings.Contains(md, "Cut off here.") {
+		t.Fatalf("a method with a dangling control flow is written up to the break instead of refused:\n%s", md)
 	}
 
 	page := html(t, s, "'Fleet Documents'::'Fleet Handbook Document'")

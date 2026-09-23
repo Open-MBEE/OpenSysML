@@ -199,6 +199,15 @@
           <edge xmi:type="uml:ControlFlow" xmi:id="_broken_e1" source="_broken_para" target="_broken_final"/>
         </ownedBehavior>
       </packagedElement>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_vp_severed" name="Severed Viewpoint" classifierBehavior="_act_severed">
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_severed" name="Severed Method">
+          <node xmi:type="uml:InitialNode" xmi:id="_severed_init"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_severed_para" name="Paragraph"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_severed_e1" source="_severed_init" target="_severed_para"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_severed_e2" source="_severed_para" target="_severed_gone"/>
+        </ownedBehavior>
+      </packagedElement>
     </packagedElement>
 
     <packagedElement xmi:type="uml:Package" xmi:id="_pkg_docs" name="Fleet Documents">
@@ -209,6 +218,7 @@
         <ownedAttribute xmi:type="uml:Property" xmi:id="_doc_trace" name="traceability" type="_view_trace" aggregation="composite"/>
         <ownedAttribute xmi:type="uml:Property" xmi:id="_doc_odd" name="oddities" type="_view_odd" aggregation="composite"/>
         <ownedAttribute xmi:type="uml:Property" xmi:id="_doc_broken" name="broken" type="_view_broken" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_doc_severed" name="severed" type="_view_severed" aggregation="composite"/>
         <ownedAttribute xmi:type="uml:Property" xmi:id="_doc_notes" name="notes" type="_view_notes" aggregation="composite"/>
         <ownedAttribute xmi:type="uml:Property" xmi:id="_doc_author" name="author">
           <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
@@ -242,6 +252,9 @@
       <packagedElement xmi:type="uml:Class" xmi:id="_view_broken" name="Broken">
         <generalization xmi:type="uml:Generalization" xmi:id="_gen_broken" general="_vp_broken"/>
       </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_severed" name="Severed">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_severed" general="_vp_severed"/>
+      </packagedElement>
       <packagedElement xmi:type="uml:Class" xmi:id="_view_notes" name="Notes">
         <generalization xmi:type="uml:Generalization" xmi:id="_gen_notes" general="_vp_gone"/>
         <ownedComment xmi:type="uml:Comment" xmi:id="_note_second" body="Second note."/>
@@ -258,6 +271,7 @@
       <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_trace" client="_view_trace" supplier="_req_load"/>
       <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_odd" client="_view_odd" supplier="_blk_truck"/>
       <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_broken" client="_view_broken" supplier="_pkg_fleet"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_severed" client="_view_severed" supplier="_pkg_fleet"/>
     </packagedElement>
 
     <packagedElement xmi:type="uml:Package" xmi:id="_pkg_views" name="Fleet Views">
@@ -343,6 +357,7 @@
   <sysml:Viewpoint xmi:id="_st_vp_trace" base_Class="_vp_trace"/>
   <sysml:Viewpoint xmi:id="_st_vp_odd" base_Class="_vp_odd"/>
   <sysml:Viewpoint xmi:id="_st_vp_broken" base_Class="_vp_broken"/>
+  <sysml:Viewpoint xmi:id="_st_vp_severed" base_Class="_vp_severed"/>
 
   <sysml:View xmi:id="_st_view_intro" base_Class="_view_intro"/>
   <sysml:View xmi:id="_st_view_reqs" base_Class="_view_reqs"/>
@@ -351,6 +366,7 @@
   <sysml:View xmi:id="_st_view_trace" base_Class="_view_trace"/>
   <sysml:View xmi:id="_st_view_odd" base_Class="_view_odd"/>
   <sysml:View xmi:id="_st_view_broken" base_Class="_view_broken"/>
+  <sysml:View xmi:id="_st_view_severed" base_Class="_view_severed"/>
   <sysml:View xmi:id="_st_view_notes" base_Class="_view_notes"/>
   <sysml:View xmi:id="_st_view_fleet" base_Class="_view_fleet"/>
 
@@ -361,6 +377,7 @@
   <sysml:Conform xmi:id="_st_conform_trace" base_Generalization="_gen_trace"/>
   <sysml:Conform xmi:id="_st_conform_odd" base_Generalization="_gen_odd"/>
   <sysml:Conform xmi:id="_st_conform_broken" base_Generalization="_gen_broken"/>
+  <sysml:Conform xmi:id="_st_conform_severed" base_Generalization="_gen_severed"/>
   <sysml:Conform xmi:id="_st_conform_notes" base_Generalization="_gen_notes"/>
   <sysml:Conform xmi:id="_st_conform_fleet" base_Generalization="_gen_fleet"/>
 
@@ -370,6 +387,7 @@
   <sysml:Expose xmi:id="_st_expose_trace" base_Dependency="_expose_trace"/>
   <sysml:Expose xmi:id="_st_expose_odd" base_Dependency="_expose_odd"/>
   <sysml:Expose xmi:id="_st_expose_broken" base_Dependency="_expose_broken"/>
+  <sysml:Expose xmi:id="_st_expose_severed" base_Dependency="_expose_severed"/>
   <sysml:Expose xmi:id="_st_expose_fleet" base_Dependency="_expose_fleet"/>
   <sysml:Expose xmi:id="_st_expose_fleet_flow" base_Dependency="_expose_fleet_flow"/>
   <sysml:Expose xmi:id="_st_expose_fleet_internals" base_Dependency="_expose_fleet_internals"/>
@@ -431,6 +449,7 @@
   <Document_Profile_:Paragraph xmi:id="_st_per_para" base_CallBehaviorAction="_per_para" body="One truck."/>
 
   <Document_Profile_:Paragraph xmi:id="_st_broken_para" base_CallBehaviorAction="_broken_para" body="Never reached."/>
+  <Document_Profile_:Paragraph xmi:id="_st_severed_para" base_CallBehaviorAction="_severed_para" body="Cut off here."/>
 
   <MagicDraw_Profile:AttachedFile xmi:id="_st_attached_image" base_Comment="_note_image" file="fleet.png"/>
   <MagicDraw_Profile:AttachedFile xmi:id="_st_attached_blank" base_Comment="_note_blank_image" file="depot.png"/>

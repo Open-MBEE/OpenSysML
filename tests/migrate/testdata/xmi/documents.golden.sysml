@@ -189,6 +189,13 @@ package 'Fleet Viewpoints' {
         }
         perform action 'broken Method' : 'Broken Method';
     }
+    viewpoint 'Severed Viewpoint' {
+        action def 'Severed Method' {
+            first start then Paragraph;
+            action Paragraph;
+        }
+        perform action 'severed Method' : 'Severed Method';
+    }
 }
 package 'Fleet Documents' {
     part def 'Fleet Handbook' {
@@ -198,6 +205,7 @@ package 'Fleet Documents' {
         view traceability :> Traceability;
         view oddities :> Oddities;
         view broken :> Broken;
+        view severed :> Severed;
         view notes :> Notes;
         attribute author : ScalarValues::String;
         /* applied stereotype «Document» */
@@ -235,6 +243,10 @@ package 'Fleet Documents' {
     }
     view Broken {
         satisfy 'Fleet Viewpoints'::'Broken Viewpoint';
+        expose Fleet::**;
+    }
+    view Severed {
+        satisfy 'Fleet Viewpoints'::'Severed Viewpoint';
         expose Fleet::**;
     }
     view Notes {
@@ -372,6 +384,10 @@ package 'Fleet Documents' {
         part Broken : DocumentQueries::Section {
             attribute redefines title = "Broken";
             /* not migrated: the method Fleet Viewpoints::Broken Viewpoint::Broken Method is not migrated: no initial node */
+        }
+        part Severed : DocumentQueries::Section {
+            attribute redefines title = "Severed";
+            /* not migrated: the method Fleet Viewpoints::Severed Viewpoint::Severed Method is not migrated: ControlFlow _severed_e2's target "_severed_gone" names no node */
         }
         part Notes : DocumentQueries::Section {
             attribute redefines title = "Notes";

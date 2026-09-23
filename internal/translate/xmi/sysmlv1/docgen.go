@@ -405,6 +405,9 @@ func (m *Model) DocGenChain(a *Element) ([]*DocGenStep, string) {
 	if initial == nil {
 		return nil, "no initial node"
 	}
+	if why := m.danglingFlow(a); why != "" {
+		return nil, why
+	}
 	w := &chainWalker{m: m, out: m.flows(a, "source", "target"), in: m.flows(a, "target", "source")}
 	steps, end := w.walk(initial, nil)
 	return steps, end
@@ -416,15 +419,29 @@ type chainWalker struct {
 	seen    map[*Element]bool
 }
 
+// danglingFlow reports the first edge of a whose source or target names no
+// node; such an edge could lead anywhere, so the chain is unreadable.
+func (m *Model) danglingFlow(a *Element) string {
+	for _, e := range a.Owned("edge") {
+		for _, role := range []string{"source", "target"} {
+			if m.Ref(e, role) != nil {
+				continue
+			}
+			if ids := e.RefIDs(role); len(ids) > 0 {
+				return fmt.Sprintf("%s %s's %s %q names no node", nodeName(e), e.ID, role, ids[0])
+			}
+			return fmt.Sprintf("%s %s has no %s", nodeName(e), e.ID, role)
+		}
+	}
+	return ""
+}
+
 // flows indexes the edges of an activity or structured node by one end,
 // listing the other end in edge order.
 func (m *Model) flows(a *Element, from, to string) map[*Element][]*Element {
 	idx := map[*Element][]*Element{}
 	for _, e := range a.Owned("edge") {
-		s, t := m.Ref(e, from), m.Ref(e, to)
-		if s != nil && t != nil {
-			idx[s] = append(idx[s], t)
-		}
+		idx[m.Ref(e, from)] = append(idx[m.Ref(e, from)], m.Ref(e, to))
 	}
 	return idx
 }

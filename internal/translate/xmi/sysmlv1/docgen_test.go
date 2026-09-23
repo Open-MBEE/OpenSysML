@@ -1,6 +1,9 @@
 package sysmlv1
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+)
 
 // A document's view tree is DocGen's: every view-typed property of a view is
 // a child section in declaration order, and only a composite (or shared)
@@ -77,6 +80,47 @@ func TestDocGenViewTreeFollowsAggregation(t *testing.T) {
 	for _, v := range []*DocGenView{root, owned, linked, shared} {
 		if len(v.Malformed) != 0 {
 			t.Errorf("%s malformed: %v", v.Class.Name, v.Malformed)
+		}
+	}
+}
+
+// A control flow whose source or target names no node makes the whole chain
+// unreadable: the walk refuses it instead of ending cleanly where the edge is lost.
+func TestDocGenChainRefusesDanglingFlows(t *testing.T) {
+	const method = `<?xml version="1.0"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:Document_Profile_="http://www.magicdraw.com/schemas/manual/Document_Profile.xmi">
+  <uml:Model xmi:id="_m" name="M">
+    <packagedElement xmi:type="uml:Activity" xmi:id="_act" name="Method">
+      <node xmi:type="uml:InitialNode" xmi:id="_init"/>
+      <node xmi:type="uml:CallBehaviorAction" xmi:id="_collect" name="Collect"/>
+      <node xmi:type="uml:StructuredActivityNode" xmi:id="_table" name="Table"/>
+      <edge xmi:type="uml:ControlFlow" xmi:id="_e1" source="_init" target="_collect"/>
+      <edge xmi:type="uml:ControlFlow" xmi:id="_e2" %s/>
+    </packagedElement>
+  </uml:Model>
+  <Document_Profile_:CollectOwnedElements xmi:id="_st_c" base_Element="_collect"/>
+  <Document_Profile_:TableStructure xmi:id="_st_t" base_Element="_table"/>
+</xmi:XMI>`
+	for _, tc := range []struct{ edge, want string }{
+		{`source="_collect" target="_table"`, ""},
+		{`source="_collect" target="_missing"`, `ControlFlow _e2's target "_missing" names no node`},
+		{`source="_missing" target="_table"`, `ControlFlow _e2's source "_missing" names no node`},
+		{`source="_collect"`, `ControlFlow _e2 has no target`},
+	} {
+		m, err := Parse([]byte(fmt.Sprintf(method, tc.edge)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		steps, end := m.DocGenChain(m.Lookup("_act"))
+		if end != tc.want {
+			t.Errorf("edge %s: chain ended with %q, want %q", tc.edge, end, tc.want)
+		}
+		if want := 2; tc.want == "" && len(steps) != want {
+			t.Errorf("edge %s: %d steps, want %d", tc.edge, len(steps), want)
+		}
+		if tc.want != "" && steps != nil {
+			t.Errorf("edge %s: a refused chain still has steps %v", tc.edge, steps)
 		}
 	}
 }
