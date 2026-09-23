@@ -1,6 +1,7 @@
 package export
 
 import (
+	"regexp"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
@@ -83,6 +84,25 @@ func (d *decoder) expressionText(node rdf.Term) (string, bool) {
 	return text, ok && text != ""
 }
 
+// uuidElementID is the spelling of an element id the uuid form derives: a
+// v5 name uuid in plain hex form.
+var uuidElementID = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
+
+// isReferentMembership reports whether term is a plain Membership element —
+// the referent relation this mapping mints beside an expression's referent
+// edge — whatever namespace its IRI is spelled under.
+func isReferentMembership(graph *rdf.Graph, term rdf.Term) bool {
+	if !term.IsIRI() {
+		return false
+	}
+	for _, object := range graph.Objects(term, rdf.RDFType) {
+		if rdf.LocalName(object.Value) == mMembership {
+			return true
+		}
+	}
+	return false
+}
+
 // demoteStale demotes whatever verbatim text contradicts the graph; notation
 // that does not convert, or whose disagreement cannot be placed, demotes all.
 func (d *decoder) demoteStale(notation string, roots []*element) {
@@ -98,12 +118,40 @@ func (d *decoder) demoteStale(notation string, roots []*element) {
 		d.demoteAll()
 		return
 	}
-	check, err := encodeDocument(file, root, d.library)
+	// The candidate is rebuilt in the id form the document follows, so an
+	// element's identity is the same identity on both sides of the compare;
+	// a uuid root id does not say which, a library document mixing normative
+	// uuids with derived ids, so the better-agreeing of the two forms is used.
+	first, second := IDQualifiedName, IDUUID
+	for _, root := range roots {
+		if uuidElementID.MatchString(root.elementID) {
+			first, second = IDUUID, IDQualifiedName
+			break
+		}
+	}
+	check, err := encodeDocument(file, root, d.library, first)
 	if err != nil {
 		d.demoteAll()
 		return
 	}
+	if len(disagreeingTriples(d.graph, check.graph)) > 0 {
+		if other, oerr := encodeDocument(file, root, d.library, second); oerr == nil &&
+			len(disagreeingTriples(d.graph, other.graph)) < len(disagreeingTriples(d.graph, check.graph)) {
+			check = other
+		}
+	}
 	for _, t := range disagreeingTriples(d.graph, check.graph) {
+		// A referent membership restates the referent edge beside it; the
+		// edge's own disagreement is the one that counts.
+		if isReferentMembership(d.graph, t.Subject) || isReferentMembership(check.graph, t.Subject) ||
+			isReferentMembership(d.graph, t.Object) || isReferentMembership(check.graph, t.Object) {
+			continue
+		}
+		// An implied relationship element's ends restate the owner's collapsed
+		// edge, whose disagreement already falls on the target's text.
+		if el, ok := d.byIRI[t.Subject.Value]; ok && el.implied && impliedRelationshipMetaclasses[el.metaclass] {
+			continue
+		}
 		// A reference to an element only one graph has disagrees about that
 		// element's identity, not about the element referring to it.
 		var el *element

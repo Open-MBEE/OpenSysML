@@ -187,6 +187,11 @@ Input format for \-convert: sysml, kerml, ttl, turtle, rdf, api\-json, or xmi,
 uml or mdzip for a SysML v1 model to migrate (experimental); default the
 input's extension
 .TP
+.BR \-id " \fIname\fP"
+With \-convert ttl or api\-json, how derived element ids are spelled:
+qualified (default) derives each from its qualified name; uuid mints
+name\-based uuids under each root package, as the library convention does
+.TP
 .BR \-o ", " \-output " \fIfile\fP"
 Write what \-convert, \-compile, \-render or \-render\-document produces to
 this file instead of stdout; with \-convert ttl, a Flexo branch URL pushes the

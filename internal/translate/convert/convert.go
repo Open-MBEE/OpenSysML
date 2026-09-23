@@ -175,6 +175,14 @@ func (e *SyntaxError) Error() string {
 	return fmt.Sprintf("%s: %d syntax error(s):\n  %s", e.Name, len(e.Messages), strings.Join(e.Messages, "\n  "))
 }
 
+// Options carries the conversion settings a caller may change from their
+// defaults.
+type Options struct {
+	// ID is the form derived element ids are written in; the zero value is
+	// qualified-name-derived ids.
+	ID export.IDForm
+}
+
 // Convert reads data in the from format and writes it in the to format. name is
 // used in diagnostics and needs no relation to a file on disk.
 //
@@ -183,7 +191,12 @@ func (e *SyntaxError) Error() string {
 // from broken input does not hold the declarations it could not read, and a
 // graph built from it would be quietly missing them.
 func Convert(name string, data []byte, from, to Format) ([]byte, error) {
-	out, _, err := convert(name, data, from, to, false)
+	return ConvertWith(name, data, from, to, Options{})
+}
+
+// ConvertWith is Convert under non-default options.
+func ConvertWith(name string, data []byte, from, to Format, opts Options) ([]byte, error) {
+	out, _, err := convert(name, data, from, to, false, opts)
 	return out, err
 }
 
@@ -197,7 +210,7 @@ func Convert(name string, data []byte, from, to Format) ([]byte, error) {
 // declarations the parser could not read would be silently missing, so a broken
 // model is still rejected.
 func ConvertTolerant(name string, data []byte, from, to Format) ([]byte, *SyntaxError, error) {
-	return convert(name, data, from, to, true)
+	return convert(name, data, from, to, true, Options{})
 }
 
 // ErrNoNotation reports an element no notation can be written for: one the
@@ -220,7 +233,7 @@ func SysMLElement(file *source.SourceFile, span source.Span) ([]byte, *SyntaxErr
 	if text == "" {
 		return nil, nil, ErrNoNotation
 	}
-	return convert(file.Name(), []byte(text), FormatSysML, FormatSysML, true)
+	return convert(file.Name(), []byte(text), FormatSysML, FormatSysML, true, Options{})
 }
 
 // trimTrailingTrivia cuts source at its last token that is neither whitespace
@@ -256,14 +269,14 @@ func Migrate(name string, data []byte, to Format, opts migrate.Options) (*Migrat
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", name, err)
 	}
-	out, _, err := convert(name+".sysml", result.Notation, FormatSysML, to, false)
+	out, _, err := convert(name+".sysml", result.Notation, FormatSysML, to, false, Options{})
 	if err != nil {
 		return nil, fmt.Errorf("the migrated notation could not be written: %w", err)
 	}
 	return &Migration{Output: out, Report: result.Report, Results: result.Results}, nil
 }
 
-func convert(name string, data []byte, from, to Format, tolerateSyntaxErrors bool) ([]byte, *SyntaxError, error) {
+func convert(name string, data []byte, from, to Format, tolerateSyntaxErrors bool, opts Options) ([]byte, *SyntaxError, error) {
 	switch {
 	case !to.Writable():
 		return nil, nil, &NotWritableError{Format: to}
@@ -288,14 +301,14 @@ func convert(name string, data []byte, from, to Format, tolerateSyntaxErrors boo
 		return out, syntax, nil
 
 	case from == FormatSysML && to == FormatTurtle:
-		graph, err := SysMLToRDF(name, data)
+		graph, err := sysmlToRDFWith(name, data, opts.ID)
 		if err != nil {
 			return nil, nil, err
 		}
 		return rdf.WriteTurtle(graph), nil, nil
 
 	case from == FormatSysML && to == FormatAPIJSON:
-		graph, err := SysMLToRDF(name, data)
+		graph, err := sysmlToRDFWith(name, data, opts.ID)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -350,13 +363,18 @@ func readAPIJSON(name string, data []byte) (*rdf.Graph, error) {
 
 // SysMLToRDF parses SysML notation and converts it to a graph.
 func SysMLToRDF(name string, data []byte) (*rdf.Graph, error) {
+	return sysmlToRDFWith(name, data, export.IDQualifiedName)
+}
+
+// sysmlToRDFWith is SysMLToRDF under a non-default id form.
+func sysmlToRDFWith(name string, data []byte, form export.IDForm) (*rdf.Graph, error) {
 	file := source.New(name, data)
 	p := parser.New(file)
 	root := p.ParseFile()
 	if err := syntaxError(name, file, p); err != nil {
 		return nil, err
 	}
-	return export.ToRDF(file, root)
+	return export.ToRDFWith(file, root, form)
 }
 
 // checkSyntax reports the notation's syntax errors, if any.

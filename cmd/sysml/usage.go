@@ -565,6 +565,7 @@ func registerFlags(fs *flag.FlagSet) {
 
 	fs.StringVar(&convertFormat, "convert", "", "Convert the model to this format instead of running it: sysml, kerml, ttl, turtle, rdf or api-json (RDF and the API element form are experimental). The input may be a Flexo branch URL (host[:port][/base]/projects/{p}/branches/{b} of the FLEXO_SYSMLV2_URL endpoint, or flexo://{p}/{b}), read as its RDF graph")
 	fs.StringVar(&fromFormat, "from", "", "Input format for -convert: sysml, kerml, ttl, turtle, rdf, api-json, or xmi, uml or mdzip for a SysML v1 model to migrate (experimental); default the input's extension")
+	fs.StringVar(&idForm, "id", "", "With -convert ttl or api-json, how derived element ids are spelled: qualified (default) derives each from its qualified name; uuid mints name-based uuids under each root package, as the library convention does")
 	fs.StringVar(&outputPath, "output", "", "Write what -convert, -compile, -render or -render-document produces to this file instead of stdout; with -convert ttl, a Flexo branch URL pushes the graph to the branch")
 	fs.StringVar(&outputPath, "o", "", "Write what -convert, -compile, -render or -render-document produces to this file instead of stdout; with -convert ttl, a Flexo branch URL pushes the graph to the branch")
 	fs.StringVar(&migrationReport, "migration-report", "", "With -convert from xmi, write the element-by-element migration report to this file: JSON when it ends in .json, text otherwise")
@@ -690,6 +691,7 @@ func optionGroups() []usage.OptionGroup {
 		Options: []usage.Option{
 			usage.Opt("convert", formatArg),
 			usage.Opt("from", formatArg),
+			usage.Opt("id", nameArg),
 			usage.Opt("output", fileArg, "o"),
 			usage.Opt("migration-report", fileArg),
 			usage.Opt("migration-results", fileArg),
