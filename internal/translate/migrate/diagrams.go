@@ -451,6 +451,9 @@ func (m *migration) exposures(d *sysmlv1.Diagram, host *sysmlv1.Element, form vi
 			x.unwritten++
 		default:
 			add(ref)
+			for _, also := range m.edgeRefs(shown.Element, host) {
+				add(also)
+			}
 		}
 	}
 	return x
@@ -643,10 +646,11 @@ func (m *migration) viewGeometry(v *view, x exposures, form viewForm) viewGeomet
 			continue
 		}
 		kind := routeKindName(c.Type, el)
-		ref, why := m.routeTarget(el, v.host, form)
+		refs, why := m.routeTarget(el, v.host, form)
+		ref := strings.Join(refs, ", ")
 		switch {
 		case why != "":
-		case !m.draws(x, form, el, ref):
+		case !m.draws(x, form, el, refs[0]):
 			why = routeNotExposed
 		case pinned[ref]:
 			why = routeDuplicate

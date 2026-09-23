@@ -46,8 +46,8 @@
         </ownedConnector>
 
         <!-- Drive: a shown anonymous control flow, an unshown one, a named one, a shown
-             object flow between pins, and a shown one from a parameter node, which is
-             written as a binding the activity's view does not draw. -->
+             object flow between pins twinned by an unshown one written first, and a shown
+             one from a parameter node, written as a binding the activity's view does not draw. -->
         <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_drive" name="Drive">
           <ownedParameter xmi:type="uml:Parameter" xmi:id="_drive_target" name="target" direction="in">
             <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
@@ -65,6 +65,7 @@
           <edge xmi:type="uml:ControlFlow" xmi:id="_cf_shown" source="_init" target="_gain"/>
           <edge xmi:type="uml:ControlFlow" xmi:id="_cf_hidden" source="_gain" target="_set"/>
           <edge xmi:type="uml:ControlFlow" xmi:id="_cf_named" name="finish" source="_set" target="_final"/>
+          <edge xmi:type="uml:ObjectFlow" xmi:id="_of_twin" source="_gainOut" target="_setVal"/>
           <edge xmi:type="uml:ObjectFlow" xmi:id="_of_shown" source="_gainOut" target="_setVal"/>
           <edge xmi:type="uml:ObjectFlow" xmi:id="_of_param" source="_pn_target" target="_setVal"/>
         </ownedBehavior>
@@ -77,12 +78,15 @@
       <packagedElement xmi:type="uml:Dependency" xmi:id="_dep_hidden" client="_blk_vehicle" supplier="_blk_wheel"/>
     </packagedElement>
 
-    <!-- Modes: a shown anonymous triggered transition, a shown named one and an unshown one. -->
+    <!-- Modes: a shown anonymous triggered transition, a shown named one, an unshown one,
+         and a shown one with two triggers, written as two transitions. -->
     <packagedElement xmi:type="uml:Package" xmi:id="_pkg_behavior" name="Behavior">
       <packagedElement xmi:type="uml:Signal" xmi:id="_sig_go" name="Go"/>
       <packagedElement xmi:type="uml:Signal" xmi:id="_sig_stop" name="Stop"/>
+      <packagedElement xmi:type="uml:Signal" xmi:id="_sig_resume" name="Resume"/>
       <packagedElement xmi:type="uml:SignalEvent" xmi:id="_ev_go" signal="_sig_go"/>
       <packagedElement xmi:type="uml:SignalEvent" xmi:id="_ev_stop" signal="_sig_stop"/>
+      <packagedElement xmi:type="uml:SignalEvent" xmi:id="_ev_resume" signal="_sig_resume"/>
       <packagedElement xmi:type="uml:StateMachine" xmi:id="_sm_modes" name="Modes">
         <region xmi:type="uml:Region" xmi:id="_sm_region">
           <subvertex xmi:type="uml:Pseudostate" xmi:id="_sm_init" kind="initial"/>
@@ -102,6 +106,10 @@
             <trigger xmi:type="uml:Trigger" xmi:id="_tr_stop" event="_ev_stop"/>
           </transition>
           <transition xmi:type="uml:Transition" xmi:id="_t_reset" source="_st_halted" target="_st_idle"/>
+          <transition xmi:type="uml:Transition" xmi:id="_t_restart" source="_st_halted" target="_st_running">
+            <trigger xmi:type="uml:Trigger" xmi:id="_tr_restart_go" event="_ev_go"/>
+            <trigger xmi:type="uml:Trigger" xmi:id="_tr_restart_resume" event="_ev_resume"/>
+          </transition>
         </region>
       </packagedElement>
     </packagedElement>
@@ -192,6 +200,7 @@
                   <usedElements>_st_halted</usedElements>
                   <usedElements>_t_go</usedElements>
                   <usedElements>_t_stop</usedElements>
+                  <usedElements>_t_restart</usedElements>
                 </diagramContents>
               </diagram:DiagramRepresentationObject>
             </diagramRepresentation>

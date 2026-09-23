@@ -62,6 +62,7 @@ package Structure {
 package Behavior {
     item def Go;
     item def Stop;
+    item def Resume;
     state def Modes {
         view Modes : StandardViewDefinitions::StateTransitionView {
             expose Behavior::Modes;
@@ -80,6 +81,8 @@ package Behavior {
         transition 'Idle accept Go then Running' first Idle accept Go then Running;
         transition halt first Running accept Stop then Halted;
         transition first Halted then Idle;
+        transition 'Halted accept Go then Running' first Halted accept Go then Running;
+        transition 'Halted accept Resume then Running' first Halted accept Resume then Running;
     }
 }
 package Requirements {

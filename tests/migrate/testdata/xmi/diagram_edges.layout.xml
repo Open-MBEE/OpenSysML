@@ -513,6 +513,30 @@
                <id _dtype="str">_ghost_t</id>
                <type _dtype="str">sysml.Transition</type>
             </diagramConnector>
+            <diagramConnector _dtype="dict" key="4">
+               <relationship_metadata _dtype="dict">
+                  <supplierPoint _dtype="dict">
+                     <xCoordinate _dtype="int">280</xCoordinate>
+                     <yCoordinate _dtype="int">100</yCoordinate>
+                  </supplierPoint>
+                  <clientPoint _dtype="dict">
+                     <xCoordinate _dtype="int">280</xCoordinate>
+                     <yCoordinate _dtype="int">50</yCoordinate>
+                  </clientPoint>
+                  <breakPoint _dtype="list">
+                     <breakPoint key="0">
+                        <xCoordinate _dtype="int">320</xCoordinate>
+                        <yCoordinate _dtype="int">100</yCoordinate>
+                     </breakPoint>
+                     <breakPoint key="1">
+                        <xCoordinate _dtype="int">320</xCoordinate>
+                        <yCoordinate _dtype="int">50</yCoordinate>
+                     </breakPoint>
+                  </breakPoint>
+               </relationship_metadata>
+               <id _dtype="str">_t_restart</id>
+               <type _dtype="str">sysml.Transition</type>
+            </diagramConnector>
          </diagramConnector>
       </relationships>
       <type _dtype="str">sysml.StateMachineDiagram</type>

@@ -1449,8 +1449,8 @@ func (s *stateRegion) transitionAccepts(t *sysmlv1.Element, triggers []*sysmlv1.
 	return accepts, notes, info, written
 }
 
-// writeAccepts writes one transition line per acceptance, each with the guard,
-// an effect body when there is one, and the target.
+// writeAccepts writes one transition line per acceptance, each with the guard, an
+// effect body when there is one, and the target, recording each as a member of t.
 func (s *stateRegion) writeAccepts(t *sysmlv1.Element, accepts []acceptance, tname, guard string, eff *sysmlv1.Element, from, to string) {
 	s.m.wroteEdge(t, s.r, "transition", tname)
 	for i, accept := range accepts {
@@ -1458,7 +1458,8 @@ func (s *stateRegion) writeAccepts(t *sysmlv1.Element, accepts []acceptance, tna
 		if tname != "" {
 			n := tname
 			if i > 0 {
-				n = freshIn(s.used, tname)
+				n = freshIn(s.used, s.furtherName(t, tname, accept, guard, from, to))
+				s.m.wroteEdgeAlso(t, n)
 			}
 			line += writeName(n) + " "
 		}
@@ -1469,6 +1470,15 @@ func (s *stateRegion) writeAccepts(t *sysmlv1.Element, accepts []acceptance, tna
 		}
 		s.m.w.line(line + " then " + to + ";")
 	}
+}
+
+// furtherName is the base name of a further transition written for t: the v1
+// name when t has one, else spelled from the acceptance the line is written for.
+func (s *stateRegion) furtherName(t *sysmlv1.Element, tname string, a acceptance, guard, from, to string) string {
+	if s.m.nameOf(t) != "" {
+		return tname
+	}
+	return transitionBase(from, a, guard, to)
 }
 
 // routes writes the acceptances a trigger stands for: as read when taken from the object itself,

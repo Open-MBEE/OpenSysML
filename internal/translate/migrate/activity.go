@@ -123,8 +123,9 @@ type activity struct {
 	// data lists the object flows to write once the nodes are declared.
 	data []string
 	// written maps each (producer, pin) pair a flow or bind is written for to
-	// the first edge carrying it.
-	written map[[2]*sysmlv1.Element]*sysmlv1.Element
+	// the first edge carrying it; carriers lists every edge carrying it, in edge order.
+	written  map[[2]*sysmlv1.Element]*sysmlv1.Element
+	carriers map[[2]*sysmlv1.Element][]*sysmlv1.Element
 	// before and after are the clock stamps a duration observation reads at a node's ends.
 	before, after map[*sysmlv1.Element]*stamp
 	timed         []*timing
@@ -161,6 +162,7 @@ func (m *migration) newActivity(act, def *sysmlv1.Element) *activity {
 		edgeSources: map[*sysmlv1.Element][]*sysmlv1.Element{},
 		edgeSelf:    map[*sysmlv1.Element]bool{},
 		written:     map[[2]*sysmlv1.Element]*sysmlv1.Element{},
+		carriers:    map[[2]*sysmlv1.Element][]*sysmlv1.Element{},
 		inert:       map[*sysmlv1.Element]bool{},
 		computed:    map[*sysmlv1.Element]string{},
 		receivers:   map[*sysmlv1.Element]string{},
@@ -542,6 +544,7 @@ func (a *activity) resolveData() {
 				continue
 			}
 			a.edgeSources[e] = append(a.edgeSources[e], s)
+			a.carriers[[2]*sysmlv1.Element{s, tgt}] = append(a.carriers[[2]*sysmlv1.Element{s, tgt}], e)
 			if !slices.Contains(a.sources[tgt], s) {
 				a.sources[tgt] = append(a.sources[tgt], s)
 			}
@@ -1744,7 +1747,7 @@ func (a *activity) dataEdge(e, s, tgt *sysmlv1.Element, from, to string) {
 	if nodeKind(s) == nodeParam || nodeKind(tgt) == nodeParam {
 		kw, decl, base = "binding", "bind "+to+" = "+from, spoken(to)+" = "+spoken(from)
 	}
-	name := a.edgeFresh(e, base)
+	name := a.edgeFresh(a.namer(e, s, tgt), base)
 	if name != "" {
 		if kw == "flow" {
 			decl = "flow " + writeName(name) + " from " + from + " to " + to
@@ -1754,6 +1757,27 @@ func (a *activity) dataEdge(e, s, tgt *sysmlv1.Element, from, to string) {
 	}
 	a.m.w.line(decl + ";")
 	a.m.wroteEdge(e, a.def, kw, name)
+}
+
+// namer is the edge naming the member written once for what s carries to tgt: a
+// shown named one, else the first shown one, else e, the first written.
+func (a *activity) namer(e, s, tgt *sysmlv1.Element) *sysmlv1.Element {
+	var shown *sysmlv1.Element
+	for _, c := range a.carriers[[2]*sysmlv1.Element{s, tgt}] {
+		if !a.m.shownEdges[c] {
+			continue
+		}
+		if a.m.nameOf(c) != "" {
+			return c
+		}
+		if shown == nil {
+			shown = c
+		}
+	}
+	if shown != nil {
+		return shown
+	}
+	return e
 }
 
 // callBehavior writes a call behavior action as an action usage typed by the called

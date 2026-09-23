@@ -1,6 +1,7 @@
 package migrate
 
 import (
+	"slices"
 	"sort"
 	"strings"
 
@@ -18,8 +19,16 @@ type edgeMember struct {
 	// owner's body, when it is not a direct member.
 	nest []string
 	name string
+	// also names the further members the edge was written as beside name: a
+	// transition written once per trigger it accepts.
+	also []string
 	// none marks an edge written into its ends' declarations, not as a member.
 	none bool
+}
+
+// names lists the members the edge was written as, name first.
+func (em edgeMember) names() []string {
+	return append([]string{em.name}, em.also...)
 }
 
 // nameableEdge reports whether e is a relationship the migrator writes as a
@@ -124,6 +133,17 @@ func (m *migration) wroteNestedEdge(e, owner *sysmlv1.Element, keyword string, n
 	m.edgeMembers[e] = edgeMember{owner: owner, keyword: keyword, nest: nest, name: name}
 }
 
+// wroteEdgeAlso records a further member edge e was written as, beside the one
+// wroteEdge recorded: the next transition written for a trigger it accepts.
+func (m *migration) wroteEdgeAlso(e *sysmlv1.Element, name string) {
+	em, ok := m.edgeMembers[e]
+	if !ok || em.name == "" || name == "" || slices.Contains(em.also, name) {
+		return
+	}
+	em.also = append(em.also, name)
+	m.edgeMembers[e] = em
+}
+
 // wroteNoMember records edge e as written without a member of its own, as an
 // initial transition is written as its region's entry.
 func (m *migration) wroteNoMember(e *sysmlv1.Element) {
@@ -145,13 +165,14 @@ func (m *migration) reaches(owner *sysmlv1.Element) bool {
 	return owner == nil || owner.Parent == nil && owner.Type == "Model" || m.written(owner) || m.inlineWritten(owner)
 }
 
-// edgePath is the qualified-name segments of the member edge e was written as.
-func (m *migration) edgePath(em edgeMember) []segment {
+// edgePath is the qualified-name segments of the member named name an edge was
+// written as, one of em's names.
+func (m *migration) edgePath(em edgeMember, name string) []segment {
 	path := m.path(em.owner)
 	for _, n := range em.nest {
 		path = append(path, segment{name: n, feature: true})
 	}
-	return append(path, segment{name: em.name, feature: true})
+	return append(path, segment{name: name, feature: true})
 }
 
 // edgeTarget is the qualified name a report entry records for edge e's member;
@@ -161,7 +182,7 @@ func (m *migration) edgeTarget(e *sysmlv1.Element) string {
 	if !ok || em.name == "" {
 		return ""
 	}
-	path := m.edgePath(em)
+	path := m.edgePath(em, em.name)
 	segs := make([]string, len(path))
 	for i, s := range path {
 		segs[i] = s.name
@@ -172,13 +193,32 @@ func (m *migration) edgeTarget(e *sysmlv1.Element) string {
 // edgeRef writes a reference to edge e's member from inside scope's body as an
 // expose names it; "" when the edge has no named member a name reaches.
 func (m *migration) edgeRef(e, scope *sysmlv1.Element) string {
+	if refs := m.edgeRefs(e, scope); len(refs) > 0 {
+		return refs[0]
+	}
+	return ""
+}
+
+// edgeRefs writes a reference to each member edge e was written as, from inside
+// scope's body; nil when the edge has no named member a name reaches.
+func (m *migration) edgeRefs(e, scope *sysmlv1.Element) []string {
 	em, ok := m.edgeMembers[e]
 	if !ok || !m.written(e) {
-		return ""
+		return nil
 	}
-	path := m.edgePath(em)
+	var refs []string
+	for _, name := range em.names() {
+		refs = append(refs, m.refEdge(em, name, scope))
+	}
+	return refs
+}
+
+// refEdge writes a reference from inside scope's body to the member named name
+// an edge was written as, one of em's names.
+func (m *migration) refEdge(em edgeMember, name string, scope *sysmlv1.Element) string {
+	path := m.edgePath(em, name)
 	if len(em.nest) == 0 {
-		return m.refMember(em.owner, em.name, path, scope, false)
+		return m.refMember(em.owner, name, path, scope, false)
 	}
 	// The outermost nesting action is owner's member; the rest qualify from it.
 	member := len(path) - len(em.nest) - 1
@@ -253,29 +293,29 @@ func routeKindName(exported string, el *sysmlv1.Element) string {
 	return "unknown"
 }
 
-// routeTarget is the member a route of element el is pinned to, as scope's view of
-// form f exposes it, or "" and the reason there is none.
-func (m *migration) routeTarget(el, scope *sysmlv1.Element, f viewForm) (string, string) {
+// routeTarget is every member a route of el is pinned to, as scope's view of
+// form f exposes them; or nil and the reason there is none.
+func (m *migration) routeTarget(el, scope *sysmlv1.Element, f viewForm) ([]string, string) {
 	if nameableEdge(el) {
 		em, ok := m.edgeMembers[el]
 		switch {
 		case !ok:
-			return "", routeNotWritten
+			return nil, routeNotWritten
 		case em.none:
-			return "", routeNoMember
+			return nil, routeNoMember
 		case em.name == "":
-			return "", routeUnnamed
+			return nil, routeUnnamed
 		case !f.drawsEdge(em.keyword):
-			return "", routeNotDrawn
+			return nil, routeNotDrawn
 		case !m.reaches(em.owner):
-			return "", routeNotExposed
+			return nil, routeNotExposed
 		}
-		return m.edgeRef(el, scope), ""
+		return m.edgeRefs(el, scope), ""
 	}
 	if m.exposure(el, scope) != "" {
-		return "", routeNotDrawn
+		return nil, routeNotDrawn
 	}
-	return "", routeNoMember
+	return nil, routeNoMember
 }
 
 // viewForm is how a diagram's view is drawn: its Views rendering, the standard view

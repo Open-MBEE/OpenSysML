@@ -82,15 +82,17 @@ package Structure {
 package Behavior {
     item def Go;
     item def Stop;
+    item def Resume;
     state def Modes {
         view Modes : StandardViewDefinitions::StateTransitionView {
             expose Behavior::Modes;
-            @DiagramLayout::Canvas { unit = "px"; width = 300; height = 140; }
+            @DiagramLayout::Canvas { unit = "px"; width = 320; height = 140; }
             metadata DiagramLayout::Layout about Behavior::Modes::Idle { x = 10; y = 10; width = 100; height = 40; }
             metadata DiagramLayout::Layout about Behavior::Modes::Running { x = 200; y = 10; width = 100; height = 40; }
             metadata DiagramLayout::Layout about Behavior::Modes::Halted { x = 200; y = 100; width = 100; height = 40; }
             metadata DiagramLayout::Route about 'Idle accept Go then Running' { points = (200, 30, 110, 30); }
             metadata DiagramLayout::Route about halt { points = (250, 100, 250, 50); }
+            metadata DiagramLayout::Route about 'Halted accept Go then Running', 'Halted accept Resume then Running' { points = (280, 50, 320, 50, 320, 100, 280, 100); }
             render Views::asInterconnectionDiagram;
         }
         entry; then Idle;
@@ -106,6 +108,8 @@ package Behavior {
         transition 'Idle accept Go then Running' first Idle accept Go then Running;
         transition halt first Running accept Stop then Halted;
         transition first Halted then Idle;
+        transition 'Halted accept Go then Running' first Halted accept Go then Running;
+        transition 'Halted accept Resume then Running' first Halted accept Resume then Running;
     }
 }
 package Requirements {

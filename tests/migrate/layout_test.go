@@ -73,12 +73,20 @@ func TestGoldenEdgeLayout(t *testing.T) {
 	if l == nil {
 		t.Fatal("no layout summary")
 	}
-	if l.Routes != 19 || l.RoutesWritten != 9 || l.RoutesUnexposed != 9 || l.RoutesDangling != 1 {
+	if l.Routes != 20 || l.RoutesWritten != 10 || l.RoutesUnexposed != 9 || l.RoutesDangling != 1 {
 		t.Errorf("routes: %+v", l)
 	}
 	// An edge of the graph the activity's rendering does not draw is exposed, not swallowed.
 	if !strings.Contains(string(r.Notation), "expose 'set speed.value = target';") {
 		t.Errorf("the activity view does not expose the binding its rendering does not draw:\n%s", r.Notation)
+	}
+	// A flow several edges carry is named for the shown one, though an unshown one is written first.
+	if !strings.Contains(string(r.Notation), "Route about 'gain.result to set speed.value'") {
+		t.Errorf("the shown twin of a flow written once is not routed:\n%s", r.Notation)
+	}
+	// A transition written once per trigger routes every transition it was written as.
+	if !strings.Contains(string(r.Notation), "Route about 'Halted accept Go then Running', 'Halted accept Resume then Running'") {
+		t.Errorf("the two-trigger transition is not routed as both of its transitions:\n%s", r.Notation)
 	}
 	// A placement of a transition, which the state rendering draws as an edge, positions no node.
 	if l.PlacementsUnexposed != 4 || strings.Contains(string(r.Notation), "Layout about halt") {
@@ -98,7 +106,7 @@ func TestGoldenEdgeLayout(t *testing.T) {
 		{Kind: "Satisfy", Reason: "not drawn", Count: 1},
 		{Kind: "Transition", Reason: "dangling", Count: 1},
 		{Kind: "Transition", Reason: "no v2 member", Count: 1},
-		{Kind: "Transition", Reason: "written", Count: 2},
+		{Kind: "Transition", Reason: "written", Count: 3},
 		{Kind: "Verify", Reason: "not drawn", Count: 1},
 	}
 	if !reflect.DeepEqual(l.RoutesByKind, wantKinds) {
@@ -131,6 +139,8 @@ func TestMigratedRoutesRenderPinned(t *testing.T) {
 		"Behavior::Modes::Modes": {
 			`"n1" -> "n2" [label="accept Go", pos="200,110 200,110 110,110 110,110"];`,
 			`"n2" -> "n3" [label="accept Stop", pos="250,40 250,40 250,90 250,90"];`,
+			`"n3" -> "n2" [label="accept Go", pos="280,90 280,90 320,90 320,90 320,90 320,40 320,40 320,40 280,40 280,40"];`,
+			`"n3" -> "n2" [label="accept Resume", pos="280,90 280,90 320,90 320,90 320,90 320,40 320,40 320,40 280,40 280,40"];`,
 		},
 		"Structure::Vehicle::'Vehicle Internals'": {
 			`[label="'engine to wheel'", arrowhead=none, penwidth=3, pos="200,100 200,100 120,100 120,100"];`,
