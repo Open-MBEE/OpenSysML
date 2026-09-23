@@ -942,8 +942,8 @@ func dropStatedDefaults(graph *rdf.Graph, meta func(rdf.Term) string, elementFor
 	return out
 }
 
-// unescapeName returns a written qualified name as declared: each `::` segment
-// loses its quoting and escapes, so writing it back escapes it once.
+// unescapeName returns a written qualified name in its canonical spelling:
+// segments split on `::` outside quotes, each requoted and escaped once.
 func unescapeName(name string) string {
 	segments, ok := source.QualifiedNameSegments(name)
 	if !ok {
