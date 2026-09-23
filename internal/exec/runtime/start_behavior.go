@@ -80,6 +80,7 @@ func (ctx *Context) startBehaviorOn(inst *Instance, member *symbols.Symbol) erro
 	inst.behaviors = append(inst.behaviors, behavior)
 	ctx.pendingBehaviors = append(ctx.pendingBehaviors, behavior)
 	ctx.objectBehaviors = append(ctx.objectBehaviors, behavior)
+	ctx.workChanged()
 	err = ctx.runAttachedBehaviors()
 	endBoundary()
 	if err != nil {

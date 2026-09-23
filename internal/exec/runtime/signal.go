@@ -108,6 +108,7 @@ func (ctx *Context) postFrom(msg Message, from *Instance, behavior *symbols.Symb
 	}
 	ctx.messages = append(ctx.messages, msg)
 	ctx.bus.posts++
+	ctx.workChanged()
 	if ctx.trace != nil {
 		target, _ := ctx.Instance(msg.Object)
 		ctx.trace.RecordSend(TraceOrigin{At: ctx.clock.now, Object: from, Behavior: behavior}, msg, target)

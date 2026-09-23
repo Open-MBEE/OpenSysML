@@ -407,6 +407,9 @@ func (ctx *Context) extentCandidates(target *symbols.Symbol) []*symbols.Symbol {
 			}
 		}
 		found.judged = append(found.judged, target)
+		if ctx.run.extentCandidates == nil {
+			ctx.run.extentCandidates = map[*symbols.Symbol]*extentCandidates{}
+		}
 		ctx.run.extentCandidates[target] = found
 	}
 	for _, sym := range found.usages {
