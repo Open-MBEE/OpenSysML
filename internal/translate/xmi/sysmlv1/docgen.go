@@ -180,14 +180,20 @@ type docGenReader struct {
 // isDocGenView reports whether e is a view class: the SysML View stereotype
 // or the DocGen view stereotype applies to it.
 func isDocGenView(e *Element) bool {
-	if e.Type != "Class" {
-		return false
-	}
-	if isSysMLStereotyped(e, "View") {
-		return true
-	}
+	return e.Type == "Class" && (isSysMLStereotyped(e, "View") || e.DocGenView())
+}
+
+// DocGenView reports whether the DocGen profile's own view stereotype applies
+// to e, which makes a class a view as the SysML «View» does.
+func (e *Element) DocGenView() bool {
 	s := e.DocGen()
 	return s != nil && s.Namespace == DocGenNS && (s.Name == "view" || s.Name == "Dynamic_View")
+}
+
+// IsDocGenProfile reports whether ns is one of the DocGen profiles the
+// document mapping reads.
+func IsDocGenProfile(ns string) bool {
+	return ns == DocGenNS || ns == DocGenCollaboratorNS
 }
 
 // view reads one view placed by property p of its parent (nil at the root)
@@ -458,7 +464,9 @@ func (w *chainWalker) walk(cur *Element, stop *Element) ([]*DocGenStep, string) 
 		if n.Type == "ActivityFinalNode" || n.Type == "FlowFinalNode" {
 			return steps, ""
 		}
-		steps = append(steps, w.m.docGenStep(n))
+		if n.Type != "ForkNode" {
+			steps = append(steps, w.m.docGenStep(n))
+		}
 		cur = n
 	}
 }

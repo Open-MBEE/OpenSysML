@@ -3218,7 +3218,7 @@ func (m *migration) stereotypeComments(e *sysmlv1.Element) {
 			text += ": " + strings.Join(tags, "; ")
 		}
 		m.w.lines(commentLines(text))
-		if s.Definition == nil && toolProfile(s.Namespace) == "" && !readsTypeModifier(e, s) {
+		if s.Definition == nil && toolProfile(s.Namespace) == "" && !readsTypeModifier(e, s) && !sysmlv1.IsDocGenProfile(s.Namespace) {
 			if byNamespace[s.Namespace] == nil {
 				outside = append(outside, s.Namespace)
 			}

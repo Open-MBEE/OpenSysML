@@ -460,7 +460,7 @@ func (m *migration) classify(e *sysmlv1.Element) (category, string) {
 			return catPartDef, ""
 		case has(e, "Stakeholder"):
 			return catPartDef, "a v1 «Stakeholder» is written as a part def"
-		case has(e, "View"):
+		case has(e, "View") || e.DocGenView():
 			return catView, ""
 		case has(e, "Viewpoint"):
 			return catViewpoint, ""

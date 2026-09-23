@@ -475,6 +475,16 @@ func (c *chain) collectRelated(s *sysmlv1.DocGenStep) {
 // walks, or why it has none.
 func (m *migration) relationshipKind(ref sysmlv1.ElementRef) (kind, why string) {
 	s := m.model.StereotypeRef(ref.ID)
+	if s.Name == "" {
+		href := ref.ID
+		if ref.Element != nil && ref.Element.Href != "" {
+			href = ref.Element.Href
+		}
+		if doc, name, ok := standardHref(href); ok && doc == "SysML" {
+			s.Name = name
+			s.Namespace, _, _ = strings.Cut(href, "#")
+		}
+	}
 	switch {
 	case s.Name == "" && ref.Element != nil && ref.Element.Type == "Stereotype":
 		return "", "the relationship stereotype «" + ref.Element.Name + "» is the user's own: RelatedElements walks no user relationship"
@@ -510,7 +520,7 @@ func (c *chain) filterTypes(s *sysmlv1.DocGenStep, tag string) {
 		c.note(n)
 	}
 	if tag == "stereotypes" && s.Application.Tag("considerDerived") == "false" {
-		c.note("elements of the stereotypes specializing «" + strings.Join(c.labels(refs), "», «") + "» are kept too")
+		c.note("elements of the stereotypes specializing " + strings.Join(c.labels(refs), ", ") + " are kept too")
 	}
 	if s.Application.Tag("include") == "false" {
 		c.ctx = qcall("Except", qarg1("source", c.ctx), qarg1("exclude", kept))
@@ -882,11 +892,7 @@ func (c *chain) image(s *sysmlv1.DocGenStep) {
 		return
 	}
 	if len(c.diagrams) == 0 {
-		why := "it shows no diagram: the view exposes none and the node targets none"
-		if !c.empty() {
-			why = "it shows no diagram: its elements are collected by a query, and only a diagram named directly has a view to show"
-		}
-		c.refuse(s, why)
+		c.refuse(s, "it shows no diagram: only a diagram the view exposes or the node targets directly has a view to show")
 		return
 	}
 	captions := s.Application.Tags["captions"]
@@ -924,7 +930,7 @@ func (c *chain) dynamicView(s *sysmlv1.DocGenStep) {
 	title = a.Tag("titlePrefix") + title + a.Tag("titleSuffix")
 	sec := &sectionPlan{title: title, names: columnNames{}}
 	sec.name = c.sec.names.claim(title)
-	cp := &contentPlan{kind: "Section", node: s.Node, label: "«Dynamic View» " + s.Node.Type, section: sec}
+	cp := &contentPlan{kind: "Section", node: s.Node, label: "«Dynamic View» " + s.Node.Type, section: sec, name: sec.name}
 	c.sec.content = append(c.sec.content, cp)
 	body, why := c.body(s)
 	if why == "" {
