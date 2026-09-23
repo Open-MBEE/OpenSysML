@@ -95,13 +95,15 @@
           <node xmi:type="uml:InitialNode" xmi:id="_reqs_init"/>
           <node xmi:type="uml:CallBehaviorAction" xmi:id="_reqs_collect" name="Collect Owned Elements"/>
           <node xmi:type="uml:CallBehaviorAction" xmi:id="_reqs_filter" name="Filter By Stereotypes"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_reqs_names" name="Filter By Names"/>
           <node xmi:type="uml:CallBehaviorAction" xmi:id="_reqs_intro" name="Introduction"/>
           <node xmi:type="uml:CallBehaviorAction" xmi:id="_reqs_list" name="Requirement List"/>
           <node xmi:type="uml:CallBehaviorAction" xmi:id="_reqs_texts" name="Requirement Texts"/>
           <node xmi:type="uml:ActivityFinalNode" xmi:id="_reqs_final"/>
           <edge xmi:type="uml:ControlFlow" xmi:id="_reqs_e1" source="_reqs_init" target="_reqs_collect"/>
           <edge xmi:type="uml:ControlFlow" xmi:id="_reqs_e2" source="_reqs_collect" target="_reqs_filter"/>
-          <edge xmi:type="uml:ControlFlow" xmi:id="_reqs_e3" source="_reqs_filter" target="_reqs_intro"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_reqs_e3" source="_reqs_filter" target="_reqs_names"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_reqs_e3b" source="_reqs_names" target="_reqs_intro"/>
           <edge xmi:type="uml:ControlFlow" xmi:id="_reqs_e4" source="_reqs_intro" target="_reqs_list"/>
           <edge xmi:type="uml:ControlFlow" xmi:id="_reqs_e5" source="_reqs_list" target="_reqs_texts"/>
           <edge xmi:type="uml:ControlFlow" xmi:id="_reqs_e6" source="_reqs_texts" target="_reqs_final"/>
@@ -429,6 +431,11 @@
   <Document_Profile_:FilterByStereotypes xmi:id="_st_reqs_filter" base_CallBehaviorAction="_reqs_filter" considerDerived="true" include="true">
     <stereotypes href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML.Requirement"/>
   </Document_Profile_:FilterByStereotypes>
+  <Document_Profile_:FilterByNames xmi:id="_st_reqs_names" base_CallBehaviorAction="_reqs_names" include="true">
+    <names>Axle.*</names>
+    <names>Brake.*</names>
+    <names>Load.*</names>
+  </Document_Profile_:FilterByNames>
   <Document_Profile_:Paragraph xmi:id="_st_reqs_intro" base_CallBehaviorAction="_reqs_intro" body="&lt;p&gt;Every &lt;b&gt;truck&lt;/b&gt; of the fleet satisfies these requirements.&lt;/p&gt;"/>
   <Document_Profile_:BulletedList xmi:id="_st_reqs_list" base_CallBehaviorAction="_reqs_list" orderedList="true" showTargets="true" includeDoc="false"/>
   <Document_Profile_:Paragraph xmi:id="_st_reqs_texts" base_CallBehaviorAction="_reqs_texts"/>

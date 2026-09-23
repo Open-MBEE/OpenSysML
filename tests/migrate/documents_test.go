@@ -218,6 +218,11 @@ func TestMigratedDocumentsRender(t *testing.T) {
 	wantInOrder(t, "headless section", string(r.Notation),
 		"part Headless : DocumentQueries::Section {",
 		`/* not migrated: the viewpoint Fleet Viewpoints::Headless Viewpoint's method is not migrated: method "_act_vanished" names no element */`)
+	// Several name patterns are one WhereName, so the rows keep their order.
+	wantInOrder(t, "name filter", string(r.Notation),
+		"calc def 'Fleet Handbook Requirement List Rows'",
+		`value = "^(?:Axle.*)$|^(?:Brake.*)$|^(?:Load.*)$"),`,
+		"calc def 'Fleet Handbook Requirement Texts Rows'")
 	s := session(t, r)
 
 	md := markdown(t, s, "'Fleet Documents'::'Fleet Handbook Document'")
@@ -230,7 +235,7 @@ func TestMigratedDocumentsRender(t *testing.T) {
 		"| Truck | Fleet::Structure::Truck | Hauls one trailer. |  |",
 		"## Requirements",
 		"Every truck of the fleet satisfies these requirements.",
-		"1. Load Limit", "2. Brake Distance", "3. Axle Count",
+		"1. Load Limit\n2. Brake Distance\n3. Axle Count",
 		"The payload stays under the axle rating. A loaded truck stops within the legal distance. A truck has two axles.",
 		"### Safety",
 		"| Brake Distance | A loaded truck stops within the legal distance. |",

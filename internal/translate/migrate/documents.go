@@ -604,7 +604,8 @@ func (c *chain) labels(refs []sysmlv1.ElementRef) []string {
 }
 
 // filterNames lowers FilterByNames: each name is a whole-string regular
-// expression, as DocGen matches them.
+// expression, as DocGen matches them, and an element matching any is kept
+// in its place, so the patterns become one alternation.
 func (c *chain) filterNames(s *sysmlv1.DocGenStep) {
 	if c.broken != "" || c.empty() {
 		return
@@ -614,16 +615,16 @@ func (c *chain) filterNames(s *sysmlv1.DocGenStep) {
 		c.fail(s, "it names no name pattern")
 		return
 	}
-	var matches []qx
+	var patterns []string
 	for _, n := range names {
 		pattern := "^(?:" + n + ")$"
 		if _, err := regexp.Compile(pattern); err != nil {
 			c.fail(s, "the name pattern "+strconv.Quote(n)+" is not a regular expression the query can match")
 			return
 		}
-		matches = append(matches, qcall("WhereName", qarg1("source", c.ctx), qarg1("operator", qstr("matches")), qarg1("value", qstr(pattern))))
+		patterns = append(patterns, pattern)
 	}
-	kept := union(matches)
+	kept := qcall("WhereName", qarg1("source", c.ctx), qarg1("operator", qstr("matches")), qarg1("value", qstr(strings.Join(patterns, "|"))))
 	if s.Application.Tag("include") == "false" {
 		c.ctx = qcall("Except", qarg1("source", c.ctx), qarg1("exclude", kept))
 		return

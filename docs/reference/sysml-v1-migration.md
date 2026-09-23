@@ -479,7 +479,7 @@ one content part in the section, in the activity's order:
 | `CollectOwnedElements(depth)`, `CollectOwners(depth)` | `Descendants` / `Ancestors(source, maxDepth = depth)`; `depth` 0 or absent is unbounded |
 | `CollectByDirectedRelationshipStereotypes(stereotypes, directionOut, depth)` | one `RelatedElements(relationshipKind, direction, maxDepth)` per stereotype the kinds above cover, `Union`ed |
 | `FilterByMetaclasses`, `FilterByStereotypes` | `WhereType` on the v2 kinds, or `WhereMetadata` for a user stereotype written as a `metadata def`; `include = false` is `Except(source, exclude = …)`; `considerDerived = false` is approximated, since `WhereMetadata` honors specializations |
-| `FilterByNames(names)` | `WhereName(operator = "matches", value = "^(?:<pattern>)$")` per pattern, `Union`ed; the pattern must compile as an RE2 regular expression |
+| `FilterByNames(names)` | one `WhereName(operator = "matches", value = "^(?:<pattern>)$\|^(?:<pattern>)$\|…")` keeping the elements in their order; every pattern must compile as an RE2 regular expression |
 | `SortByName`, `SortByAttribute(Name / Documentation)` | `OrderBy(property = "name" / "documentation", …)`, `reverse` descending |
 | a fork whose branches rejoin at `Union` | `Union` of the branches' queries; a rejoin by `Intersection` or `XOR` is refused, and `RemoveDuplicates` is implicit in every operation and dropped |
 | `CollectionAndFilterGroup`, `StructuredQuery` | the group's chain, inlined |

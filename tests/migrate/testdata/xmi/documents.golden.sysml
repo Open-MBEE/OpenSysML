@@ -89,7 +89,9 @@ package 'Fleet Viewpoints' {
             action 'Collect Owned Elements';
             first 'Collect Owned Elements' then 'Filter By Stereotypes';
             action 'Filter By Stereotypes';
-            first 'Filter By Stereotypes' then Introduction;
+            first 'Filter By Stereotypes' then 'Filter By Names';
+            action 'Filter By Names';
+            first 'Filter By Names' then Introduction;
             action Introduction;
             first Introduction then 'Requirement List';
             action 'Requirement List';
@@ -286,18 +288,24 @@ package 'Fleet Documents' {
     }
     calc def 'Fleet Handbook Requirement List Rows' :> DocumentQueries::Query {
         DocumentQueries::Project(
-            source = DocumentQueries::WhereType(
-                source = DocumentQueries::Descendants(
-                    source = DocumentQueries::Named(qualifiedName = ("Fleet::Requirements"))),
-                type = ("RequirementDefinition")),
+            source = DocumentQueries::WhereName(
+                source = DocumentQueries::WhereType(
+                    source = DocumentQueries::Descendants(
+                        source = DocumentQueries::Named(qualifiedName = ("Fleet::Requirements"))),
+                    type = ("RequirementDefinition")),
+                operator = "matches",
+                value = "^(?:Axle.*)$|^(?:Brake.*)$|^(?:Load.*)$"),
             properties = ("name"))
     }
     calc def 'Fleet Handbook Requirement Texts Rows' :> DocumentQueries::Query {
         DocumentQueries::Project(
-            source = DocumentQueries::WhereType(
-                source = DocumentQueries::Descendants(
-                    source = DocumentQueries::Named(qualifiedName = ("Fleet::Requirements"))),
-                type = ("RequirementDefinition")),
+            source = DocumentQueries::WhereName(
+                source = DocumentQueries::WhereType(
+                    source = DocumentQueries::Descendants(
+                        source = DocumentQueries::Named(qualifiedName = ("Fleet::Requirements"))),
+                    type = ("RequirementDefinition")),
+                operator = "matches",
+                value = "^(?:Axle.*)$|^(?:Brake.*)$|^(?:Load.*)$"),
             properties = ("documentation"))
     }
     calc def 'Fleet Handbook Safety Requirements Rows' :> DocumentQueries::Query {
