@@ -435,7 +435,16 @@ func mintable(view *subjectView) bool {
 	if !view.mintableIRI() || view.normative {
 		return false
 	}
-	return view.metaclass != "OwningMembership" && view.metaclass != "FeatureMembership"
+	if view.metaclass == "OwningMembership" || view.metaclass == "FeatureMembership" {
+		return false
+	}
+	// An unnamed satellite the encoder derives from a side table — the
+	// materialized relationship elements, a conjugated definition — is
+	// owned by the element it restates and notation can never address it.
+	if view.qualifiedName == "" && export.DerivedSatellite(view.metaclass) {
+		return false
+	}
+	return true
 }
 
 // propertyDeltas lists the properties whose value sets differ between two

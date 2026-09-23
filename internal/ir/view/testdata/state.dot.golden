@@ -27,6 +27,6 @@ digraph "MachineViews::vehicleStates" {
   "n6" -> "n3";
   "n1" -> "n2" [lhead="cluster_n2"];
   "n2" -> "n1" [ltail="cluster_n2"];
-  "n3" -> "n4" [label="idle_to_moving: accept Signal [temperature > 0]"];
+  "n3" -> "n4" [label="accept Signal [temperature > 0]"];
   "n4" -> "n3";
 }

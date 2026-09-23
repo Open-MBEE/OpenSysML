@@ -56,6 +56,10 @@ elmt:ActionNodes__Radio
     sysml:owningRelationship elmt:ActionNodes__Radio_om ;
     sysml:owningMembership elmt:ActionNodes__Radio_om ;
     sysml:declaredName "Radio" ;
+    sysml:ownedRelationship elmt:ActionNodes__Radio_conjugated_om ;
+    sysml:ownedMember elmt:ActionNodes__Radio_conjugated ;
+    sysml:ownedMembership elmt:ActionNodes__Radio_conjugated_om ;
+    sysml:conjugatedPortDefinition elmt:ActionNodes__Radio_conjugated ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "    port def Radio;\n" .
 
@@ -68,6 +72,40 @@ elmt:ActionNodes__Radio_om
     sysml:ownedRelatedElement elmt:ActionNodes__Radio ;
     sysml:owningRelatedElement elmt:ActionNodes ;
     sysml:membershipOwningNamespace elmt:ActionNodes .
+
+elmt:ActionNodes__Radio_conjugated
+    a sysml:ConjugatedPortDefinition ;
+    sysml:elementId "ActionNodes__Radio_conjugated" ;
+    sysml:qualifiedName "ActionNodes::Radio::'~Radio'" ;
+    sysml:declaredName "~Radio" ;
+    sysml:owner elmt:ActionNodes__Radio ;
+    sysml:owningRelationship elmt:ActionNodes__Radio_conjugated_om ;
+    sysml:owningMembership elmt:ActionNodes__Radio_conjugated_om ;
+    sysml:ownedRelationship elmt:ActionNodes__Radio_conjugated_pc ;
+    sysml:ownedPortConjugator elmt:ActionNodes__Radio_conjugated_pc .
+
+elmt:ActionNodes__Radio_conjugated_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ActionNodes__Radio_conjugated_om" ;
+    sysml:owner elmt:ActionNodes__Radio ;
+    sysml:memberElement elmt:ActionNodes__Radio_conjugated ;
+    sysml:ownedMemberElement elmt:ActionNodes__Radio_conjugated ;
+    sysml:ownedRelatedElement elmt:ActionNodes__Radio_conjugated ;
+    sysml:owningRelatedElement elmt:ActionNodes__Radio ;
+    sysml:membershipOwningNamespace elmt:ActionNodes__Radio .
+
+elmt:ActionNodes__Radio_conjugated_pc
+    a sysml:PortConjugation ;
+    sysml:elementId "ActionNodes__Radio_conjugated_pc" ;
+    sysml:conjugatedType elmt:ActionNodes__Radio_conjugated ;
+    sysml:originalType elmt:ActionNodes__Radio ;
+    sysml:originalPortDefinition elmt:ActionNodes__Radio ;
+    sysml:owner elmt:ActionNodes__Radio_conjugated ;
+    sysml:owningRelatedElement elmt:ActionNodes__Radio_conjugated ;
+    sysml:relatedElement elmt:ActionNodes__Radio_conjugated, elmt:ActionNodes__Radio ;
+    sysml:source elmt:ActionNodes__Radio_conjugated ;
+    sysml:target elmt:ActionNodes__Radio ;
+    json:relatedElement "[{\"@id\":\"ActionNodes__Radio_conjugated\"},{\"@id\":\"ActionNodes__Radio\"}]" .
 
 elmt:ActionNodes__Brake
     a sysml:ActionDefinition ;
@@ -189,6 +227,9 @@ elmt:ActionNodes__Drive__antenna
     sysml:declaredName "antenna" ;
     sysml:type elmt:ActionNodes__Radio ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ActionNodes__Drive__antenna_ft0 ;
+    sysml:ownedSpecialization elmt:ActionNodes__Drive__antenna_ft0 ;
+    sysml:ownedRelationship elmt:ActionNodes__Drive__antenna_ft0 ;
     sysx:sourceText "        port antenna : Radio;\n" .
 
 elmt:ActionNodes__Drive__antenna_om
@@ -260,6 +301,9 @@ elmt:ActionNodes__Drive__brake
     sysml:declaredName "brake" ;
     sysml:type elmt:ActionNodes__Drive__Brake ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ActionNodes__Drive__brake_ft0 ;
+    sysml:ownedSpecialization elmt:ActionNodes__Drive__brake_ft0 ;
+    sysml:ownedRelationship elmt:ActionNodes__Drive__brake_ft0 ;
     sysx:sourceText "        action brake : Brake;\n" .
 
 elmt:ActionNodes__Drive__brake_om
@@ -371,7 +415,7 @@ elmt:ActionNodes__Drive__pick_om
     sysml:owningType elmt:ActionNodes__Drive .
 
 elmt:ActionNodes__Drive___4010
-    a sysml:ActionUsage ;
+    a sysml:PerformActionUsage ;
     sysml:qualifiedName "ActionNodes::Drive::@10" ;
     sysml:elementId "ActionNodes__Drive___4010" ;
     sysx:memberIndex "10"^^xsd:integer ;
@@ -382,6 +426,10 @@ elmt:ActionNodes__Drive___4010
     sysx:declaredKeyword "perform" ;
     sysml:references elmt:ActionNodes__Drive__brake ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedReferenceSubsetting elmt:ActionNodes__Drive___4010_rs ;
+    sysml:ownedSubsetting elmt:ActionNodes__Drive___4010_rs ;
+    sysml:ownedSpecialization elmt:ActionNodes__Drive___4010_rs ;
+    sysml:ownedRelationship elmt:ActionNodes__Drive___4010_rs ;
     sysx:sourceText "        perform brake;\n" .
 
 elmt:ActionNodes__Drive___4010_om
@@ -458,7 +506,8 @@ expr:ActionNodes__Drive___4012_ptarget
     sysml:referent elmt:ActionNodes__Drive__log ;
     sysml:owner elmt:ActionNodes__Drive___4012 ;
     sysml:owningRelationship expr:ActionNodes__Drive___4012_ptarget_om ;
-    sysml:owningMembership expr:ActionNodes__Drive___4012_ptarget_om .
+    sysml:owningMembership expr:ActionNodes__Drive___4012_ptarget_om ;
+    sysml:ownedRelationship expr:ActionNodes__Drive___4012_ptarget_preferent .
 
 expr:ActionNodes__Drive___4012_ptarget_om
     a sysml:OwningMembership ;
@@ -477,7 +526,8 @@ expr:ActionNodes__Drive___4012_pvalue
     sysml:referent elmt:ActionNodes__Drive__speed ;
     sysml:owner elmt:ActionNodes__Drive___4012 ;
     sysml:owningRelationship expr:ActionNodes__Drive___4012_pvalue_om ;
-    sysml:owningMembership expr:ActionNodes__Drive___4012_pvalue_om .
+    sysml:owningMembership expr:ActionNodes__Drive___4012_pvalue_om ;
+    sysml:ownedRelationship expr:ActionNodes__Drive___4012_pvalue_preferent .
 
 expr:ActionNodes__Drive___4012_pvalue_om
     a sysml:FeatureValue ;
@@ -547,7 +597,8 @@ expr:ActionNodes__Drive___4013_preceiver
     sysml:referent elmt:ActionNodes__Drive__antenna ;
     sysml:owner elmt:ActionNodes__Drive___4013 ;
     sysml:owningRelationship expr:ActionNodes__Drive___4013_preceiver_om ;
-    sysml:owningMembership expr:ActionNodes__Drive___4013_preceiver_om .
+    sysml:owningMembership expr:ActionNodes__Drive___4013_preceiver_om ;
+    sysml:ownedRelationship expr:ActionNodes__Drive___4013_preceiver_preferent .
 
 expr:ActionNodes__Drive___4013_preceiver_om
     a sysml:OwningMembership ;
@@ -616,7 +667,8 @@ expr:ActionNodes__Drive___4014_preceiver
     sysml:referent elmt:ActionNodes__Drive__antenna ;
     sysml:owner elmt:ActionNodes__Drive___4014 ;
     sysml:owningRelationship expr:ActionNodes__Drive___4014_preceiver_om ;
-    sysml:owningMembership expr:ActionNodes__Drive___4014_preceiver_om .
+    sysml:owningMembership expr:ActionNodes__Drive___4014_preceiver_om ;
+    sysml:ownedRelationship expr:ActionNodes__Drive___4014_preceiver_preferent .
 
 expr:ActionNodes__Drive___4014_preceiver_om
     a sysml:OwningMembership ;
@@ -760,7 +812,8 @@ expr:ActionNodes__Drive___4017_pexpression
     sysml:referent elmt:ActionNodes__Drive__brake ;
     sysml:owner elmt:ActionNodes__Drive___4017 ;
     sysml:owningRelationship expr:ActionNodes__Drive___4017_pexpression_om ;
-    sysml:owningMembership expr:ActionNodes__Drive___4017_pexpression_om .
+    sysml:owningMembership expr:ActionNodes__Drive___4017_pexpression_om ;
+    sysml:ownedRelationship expr:ActionNodes__Drive___4017_pexpression_preferent .
 
 expr:ActionNodes__Drive___4017_pexpression_om
     a sysml:OwningMembership ;
@@ -1040,3 +1093,85 @@ expr:ActionNodes__Drive___4020_pend1_prs
     sysml:owner expr:ActionNodes__Drive___4020_pend1 ;
     sysml:owningRelatedElement expr:ActionNodes__Drive___4020_pend1 ;
     json:relatedElement "[{\"@id\":\"ActionNodes__Drive___4020_pend1\"},{\"@id\":\"0cdc3cd3-b06c-5c32-beda-0cf4ba164a64\"}]" .
+
+elmt:ActionNodes__Drive__antenna_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ActionNodes__Drive__antenna_ft0" ;
+    sysml:typedFeature elmt:ActionNodes__Drive__antenna ;
+    sysml:owningFeature elmt:ActionNodes__Drive__antenna ;
+    sysml:specific elmt:ActionNodes__Drive__antenna ;
+    sysml:source elmt:ActionNodes__Drive__antenna ;
+    sysml:owningRelatedElement elmt:ActionNodes__Drive__antenna ;
+    sysml:type elmt:ActionNodes__Radio ;
+    sysml:general elmt:ActionNodes__Radio ;
+    sysml:target elmt:ActionNodes__Radio ;
+    sysml:owner elmt:ActionNodes__Drive__antenna ;
+    sysml:relatedElement elmt:ActionNodes__Drive__antenna, elmt:ActionNodes__Radio ;
+    json:relatedElement "[{\"@id\":\"ActionNodes__Drive__antenna\"},{\"@id\":\"ActionNodes__Radio\"}]" .
+
+elmt:ActionNodes__Drive__brake_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ActionNodes__Drive__brake_ft0" ;
+    sysml:typedFeature elmt:ActionNodes__Drive__brake ;
+    sysml:owningFeature elmt:ActionNodes__Drive__brake ;
+    sysml:specific elmt:ActionNodes__Drive__brake ;
+    sysml:source elmt:ActionNodes__Drive__brake ;
+    sysml:owningRelatedElement elmt:ActionNodes__Drive__brake ;
+    sysml:type elmt:ActionNodes__Drive__Brake ;
+    sysml:general elmt:ActionNodes__Drive__Brake ;
+    sysml:target elmt:ActionNodes__Drive__Brake ;
+    sysml:owner elmt:ActionNodes__Drive__brake ;
+    sysml:relatedElement elmt:ActionNodes__Drive__brake, elmt:ActionNodes__Drive__Brake ;
+    json:relatedElement "[{\"@id\":\"ActionNodes__Drive__brake\"},{\"@id\":\"ActionNodes__Drive__Brake\"}]" .
+
+elmt:ActionNodes__Drive___4010_rs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "ActionNodes__Drive___4010_rs" ;
+    sysml:referencingFeature elmt:ActionNodes__Drive___4010 ;
+    sysml:subsettingFeature elmt:ActionNodes__Drive___4010 ;
+    sysml:owningFeature elmt:ActionNodes__Drive___4010 ;
+    sysml:specific elmt:ActionNodes__Drive___4010 ;
+    sysml:source elmt:ActionNodes__Drive___4010 ;
+    sysml:owningRelatedElement elmt:ActionNodes__Drive___4010 ;
+    sysml:referencedFeature elmt:ActionNodes__Drive__brake ;
+    sysml:subsettedFeature elmt:ActionNodes__Drive__brake ;
+    sysml:general elmt:ActionNodes__Drive__brake ;
+    sysml:target elmt:ActionNodes__Drive__brake ;
+    sysml:owner elmt:ActionNodes__Drive___4010 ;
+    sysml:relatedElement elmt:ActionNodes__Drive___4010, elmt:ActionNodes__Drive__brake ;
+    json:relatedElement "[{\"@id\":\"ActionNodes__Drive___4010\"},{\"@id\":\"ActionNodes__Drive__brake\"}]" .
+
+expr:ActionNodes__Drive___4012_ptarget_preferent
+    a sysml:Membership ;
+    sysml:elementId "ActionNodes__Drive___4012_ptarget_preferent" ;
+    sysml:memberElement elmt:ActionNodes__Drive__log ;
+    sysml:owner expr:ActionNodes__Drive___4012_ptarget ;
+    sysml:owningRelatedElement expr:ActionNodes__Drive___4012_ptarget .
+
+expr:ActionNodes__Drive___4012_pvalue_preferent
+    a sysml:Membership ;
+    sysml:elementId "ActionNodes__Drive___4012_pvalue_preferent" ;
+    sysml:memberElement elmt:ActionNodes__Drive__speed ;
+    sysml:owner expr:ActionNodes__Drive___4012_pvalue ;
+    sysml:owningRelatedElement expr:ActionNodes__Drive___4012_pvalue .
+
+expr:ActionNodes__Drive___4013_preceiver_preferent
+    a sysml:Membership ;
+    sysml:elementId "ActionNodes__Drive___4013_preceiver_preferent" ;
+    sysml:memberElement elmt:ActionNodes__Drive__antenna ;
+    sysml:owner expr:ActionNodes__Drive___4013_preceiver ;
+    sysml:owningRelatedElement expr:ActionNodes__Drive___4013_preceiver .
+
+expr:ActionNodes__Drive___4014_preceiver_preferent
+    a sysml:Membership ;
+    sysml:elementId "ActionNodes__Drive___4014_preceiver_preferent" ;
+    sysml:memberElement elmt:ActionNodes__Drive__antenna ;
+    sysml:owner expr:ActionNodes__Drive___4014_preceiver ;
+    sysml:owningRelatedElement expr:ActionNodes__Drive___4014_preceiver .
+
+expr:ActionNodes__Drive___4017_pexpression_preferent
+    a sysml:Membership ;
+    sysml:elementId "ActionNodes__Drive___4017_pexpression_preferent" ;
+    sysml:memberElement elmt:ActionNodes__Drive__brake ;
+    sysml:owner expr:ActionNodes__Drive___4017_pexpression ;
+    sysml:owningRelatedElement expr:ActionNodes__Drive___4017_pexpression .

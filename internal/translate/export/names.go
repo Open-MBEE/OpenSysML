@@ -83,10 +83,10 @@ func chooseNames(name, library string, text []byte, want *wanted, previous *name
 	if !ok {
 		return nil, false, &UnsupportedError{
 			What: "the references the graph links",
-			Note: "the notation written for them does not parse, so no spelling can be checked to reach its element",
+			Note: "the notation written for them does not parse, so no spelling can be checked to reach its element\n" + string(text),
 		}
 	}
-	e, err := newEncoder(file, root, library)
+	e, err := newEncoder(file, root, library, IDQualifiedName)
 	if err != nil {
 		return nil, false, &UnsupportedError{
 			What: "the references the graph links",

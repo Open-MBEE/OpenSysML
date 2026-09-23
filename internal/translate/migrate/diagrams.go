@@ -24,11 +24,21 @@ var renderings = []struct {
 	rendering string
 }{
 	{[]string{"table", "matrix"}, "asElementTable"},
-	{[]string{"internal block", "parametric", "composite structure", "interconnection"}, "asInterconnectionDiagram"},
+	{[]string{"internal block", "parametric", "composite structure", "interconnection"}, interconnectionRendering},
 	{[]string{"block definition", "class", "package", "object", "component", "deployment", "profile", "structure"}, "asTreeDiagram"},
 }
 
-const textualRendering = "asTextualNotation"
+const (
+	textualRendering         = "asTextualNotation"
+	interconnectionRendering = "asInterconnectionDiagram"
+)
+
+// viewDefinitionsPrefix qualifies a standard view definition, like viewsPrefix
+// for renderings.
+const (
+	viewDefinitionsPrefix       = "StandardViewDefinitions::"
+	globalViewDefinitionsPrefix = "$::" + viewDefinitionsPrefix
+)
 
 // diagramLayoutPrefix qualifies a DiagramLayout annotation, like viewsPrefix
 // for renderings; a member named DiagramLayout shadows the library.
@@ -197,19 +207,17 @@ func (m *migration) bodyOf(e *sysmlv1.Element) *sysmlv1.Element {
 	return e
 }
 
-// hostsViews reports whether e is written with a body a view can be a member
-// of: the root model, whose members are the top level, or a declared package
-// or definition other than an enum def, whose members are its values. An action
-// node is written as a usage of its graph's body, which holds no members of its own.
+// hostsViews reports whether e is written with a body a view can be a member of: the
+// root model, or a declared package or definition (not an enum def, node, vertex or region).
 func (m *migration) hostsViews(e *sysmlv1.Element) bool {
 	if m.flattened(e) {
 		return true
 	}
 	switch e.Type {
-	case "Property", "Port", "Parameter", "EnumerationLiteral":
+	case "Property", "Port", "Parameter", "EnumerationLiteral", "Region":
 		return false
 	}
-	if m.methodOf[e] != nil || isActionNode(e) || !m.written(e) {
+	if m.methodOf[e] != nil || isActionNode(e) || vertexBase(e) != "" || !m.written(e) {
 		return false
 	}
 	cat, _ := m.classify(e)
@@ -239,11 +247,11 @@ func isTopLevel(e *sysmlv1.Element) bool {
 	return e.Parent == nil && e.Type == "Model"
 }
 
-// views writes the views of the diagrams host owns, in source order; a nil
-// host writes the top level's.
+// views leaves room for the views of the diagrams host owns (nil: the top level's), written
+// once the whole model is, so they can expose the edge members the writers name along the way.
 func (m *migration) views(host *sysmlv1.Element) {
 	for _, v := range m.hosted[host] {
-		m.writeView(v)
+		m.w.hole(func() { m.writeView(v) })
 	}
 }
 
@@ -318,22 +326,88 @@ func (m *migration) shadows(scopes []*sysmlv1.Element, name string) bool {
 // deduplicated in shown order, and the counts of what it cannot.
 type exposures struct {
 	refs []string
+	// drawn counts shown members of the form's subject, drawn by its graph.
+	drawn int
 	// unwritten counts shown elements nothing written stands for.
 	unwritten int
 	// dangling counts shown ids that resolve to no element.
 	dangling int
 }
 
+// exposed reports whether the view exposes what ref names.
+func (x exposures) exposed(ref string) bool {
+	for _, r := range x.refs {
+		if r == ref {
+			return true
+		}
+	}
+	return false
+}
+
+// inGraph reports whether el is part of the graph a view of form f draws: within
+// the form's subject, and not the subject itself.
+func inGraph(f viewForm, el *sysmlv1.Element) bool {
+	return f.subject != nil && el != f.subject && within(el, f.subject)
+}
+
+// graphPins reports whether the graph a view of form f draws shows el as a node or
+// edge of its own, which a Layout or Route pins: one of the form's subject, drawn.
+func (m *migration) graphPins(f viewForm, el *sysmlv1.Element) bool {
+	return inGraph(f, el) && (m.drawsNode(el, f) || m.drawsAsEdge(f, el))
+}
+
+// graphDraws reports whether the graph a view of form f draws shows el for the
+// view: a node or edge of the subject it pins, or an action a state's node lists.
+func (m *migration) graphDraws(f viewForm, el *sysmlv1.Element) bool {
+	return m.graphPins(f, el) || inGraph(f, el) && m.drawsInNode(el, f)
+}
+
+// draws reports whether a view of form f exposing x shows el, which ref names, where
+// geometry can pin it: an element it exposes, or a node or edge its subject's graph draws.
+func (m *migration) draws(x exposures, f viewForm, el *sysmlv1.Element, ref string) bool {
+	return x.exposed(ref) || m.graphPins(f, el)
+}
+
+// drawsAsEdge reports whether the rendering of form f draws el as an edge, which no
+// Layout positions: Cameo places an internal transition as text in its state's box.
+func (m *migration) drawsAsEdge(f viewForm, el *sysmlv1.Element) bool {
+	em, ok := m.edgeMembers[el]
+	return ok && em.name != "" && f.drawsEdge(em.keyword)
+}
+
+// places reports whether a view of form f exposing x shows el, which ref names, as a
+// node a Layout positions: an element it exposes or a node of its subject's graph.
+func (m *migration) places(x exposures, f viewForm, el *sysmlv1.Element, ref string) bool {
+	return !m.drawsAsEdge(f, el) && (x.exposed(ref) || inGraph(f, el) && m.drawsNode(el, f))
+}
+
 // writeView writes a diagram as a view usage exposing each shown element the
 // document writes, rendered by the diagram's kind, and records its report row.
 func (m *migration) writeView(v *view) {
 	d, host := v.d, v.host
-	x := m.exposures(d, host)
-	render := rendering(d)
+	form := m.formOf(d)
+	x := m.exposures(d, host, form)
+	render := form.rendering
 	kind := diagramKind(d)
 	note := article(strings.ToLower(kind)) + kind + " written as a view rendered " + render
+	decl := "view " + writeName(v.name)
+	if form.definition != "" {
+		note += " of " + form.definition
+		prefix := viewDefinitionsPrefix
+		if m.shadowsLibrary("StandardViewDefinitions", host) {
+			prefix = globalViewDefinitionsPrefix
+		}
+		decl += " : " + prefix + form.definition
+	}
 	if host != d.Owner && host == m.viewOwner(d) {
 		note = joinNotes(note, "its owner "+kindOf(d.Owner)+" "+qualifiedName(d.Owner)+" is written as the body of "+m.hostName(host)+", whose method it is")
+	}
+	if form.subject != nil {
+		subject := "the view exposes " + m.hostName(m.bodyOf(form.subject)) + ", whose graph the rendering draws"
+		if x.drawn > 0 {
+			subject += fmt.Sprintf(" with the %d shown nodes and edges of it", x.drawn)
+		}
+		note = joinNotes(note, subject)
 	}
 	note = joinNotes(note, v.note)
 	prefix := viewsPrefix
@@ -362,11 +436,11 @@ func (m *migration) writeView(v *view) {
 	for _, td := range v.tables {
 		m.lowerTable(td)
 	}
-	geo := m.viewGeometry(v, x)
+	geo := m.viewGeometry(v, x, form)
 	if geo.note != "" {
 		note = joinNotes(note, geo.note)
 	}
-	m.w.block("view "+writeName(v.name), func() {
+	m.w.block(decl, func() {
 		for _, ref := range x.refs {
 			m.w.line("expose " + ref + ";")
 		}
@@ -391,23 +465,36 @@ func (m *migration) writeView(v *view) {
 }
 
 // exposures resolves what a diagram shows into expose references, in the
-// scope of the view's host.
-func (m *migration) exposures(d *sysmlv1.Diagram, host *sysmlv1.Element) exposures {
+// scope of the view's host. A view of a form drawing a graph exposes the
+// behavior whose graph it is in place of the shown nodes and edges it draws.
+func (m *migration) exposures(d *sysmlv1.Diagram, host *sysmlv1.Element, form viewForm) exposures {
 	var x exposures
 	seen := map[string]bool{}
+	add := func(ref string) {
+		if !seen[ref] {
+			seen[ref] = true
+			x.refs = append(x.refs, ref)
+		}
+	}
+	if form.subject != nil {
+		add(m.exposure(form.subject, host))
+	}
 	for _, shown := range d.Shown {
 		if shown.Element == nil {
 			x.dangling++
 			continue
 		}
 		ref := m.exposure(shown.Element, host)
-		if ref == "" {
+		switch {
+		case m.graphDraws(form, shown.Element):
+			x.drawn++
+		case ref == "":
 			x.unwritten++
-			continue
-		}
-		if !seen[ref] {
-			seen[ref] = true
-			x.refs = append(x.refs, ref)
+		default:
+			add(ref)
+			for _, also := range m.edgeRefs(shown.Element, host) {
+				add(also)
+			}
 		}
 	}
 	return x
@@ -424,6 +511,9 @@ func (m *migration) exposure(e, scope *sysmlv1.Element) string {
 	}
 	if link := m.actorLinkOf(e); link != nil {
 		return m.memberRef(link.useCase, scope) + "::" + writeName(link.name)
+	}
+	if ref := m.edgeRef(e, scope); ref != "" {
+		return ref
 	}
 	if x := m.exposable(e); x != nil {
 		return m.memberRef(x, scope)
@@ -448,10 +538,8 @@ func (m *migration) actorLinkOf(e *sysmlv1.Element) *actorLink {
 	return link
 }
 
-// exposable is the declaration written for e that a view can expose: its own,
-// or the operation a behavior is the method of, or that one's parameter. It is
-// nil when nothing written stands for e: library and tool content, and what a
-// body leaves out.
+// exposable is the declaration written for e that a view can expose: its own, the
+// operation a behavior is the method of, or a state's named inline action; nil for none.
 func (m *migration) exposable(e *sysmlv1.Element) *sysmlv1.Element {
 	if e == nil || m.scalarValue(e) != "" {
 		return nil
@@ -462,7 +550,7 @@ func (m *migration) exposable(e *sysmlv1.Element) *sysmlv1.Element {
 	if op := m.realizes[e]; op != nil {
 		e = op
 	}
-	if !m.written(e) {
+	if !m.written(e) && !m.inlineWritten(e) {
 		return nil
 	}
 	return e
@@ -532,8 +620,9 @@ type viewGeometry struct {
 // viewGeometry plans the DiagramLayout annotations of the diagram record the
 // export holds for v's diagram: a Canvas sized by the bounding box of what is
 // written, a Layout per shown element the view exposes, and a Route per
-// connector whose element does. nil geometry when there is no layout export.
-func (m *migration) viewGeometry(v *view, x exposures) viewGeometry {
+// connector whose element does, tallied by the connector's v1 kind and why it
+// is or is not pinned. nil geometry when there is no layout export.
+func (m *migration) viewGeometry(v *view, x exposures, form viewForm) viewGeometry {
 	if m.layout == nil {
 		return viewGeometry{}
 	}
@@ -545,10 +634,6 @@ func (m *migration) viewGeometry(v *view, x exposures) viewGeometry {
 	}
 	s.DiagramsJoined++
 	m.layoutJoined[rec.ID] = true
-	exposed := map[string]bool{}
-	for _, ref := range x.refs {
-		exposed[ref] = true
-	}
 	prefix := diagramLayoutPrefix
 	if m.shadowsLibrary("DiagramLayout", v.host) {
 		prefix = globalDiagramLayoutPrefix
@@ -576,7 +661,7 @@ func (m *migration) viewGeometry(v *view, x exposures) viewGeometry {
 			continue
 		}
 		ref := m.exposure(el, v.host)
-		if ref == "" || !exposed[ref] {
+		if ref == "" || !m.places(x, form, el, ref) {
 			s.PlacementsUnexposed++
 			unexposed++
 			continue
@@ -591,27 +676,37 @@ func (m *migration) viewGeometry(v *view, x exposures) viewGeometry {
 			prefix, ref, layoutNumber(p.X), layoutNumber(p.Y), layoutNumber(p.Width), layoutNumber(p.Height)))
 		grow(p.X+p.Width, p.Y+p.Height)
 	}
-	var routed, connUnexposed, connDangling int
+	reasons := map[string]int{}
+	pinned := map[string]bool{}
 	for _, c := range rec.Connectors {
 		s.Routes++
 		el := m.model.Lookup(c.ID)
 		if el == nil {
 			s.RoutesDangling++
-			connDangling++
+			reasons[routeDangling]++
+			m.routeKinds.add(routeKindName(c.Type, nil), routeDangling)
 			continue
 		}
-		ref := m.exposure(el, v.host)
-		if ref == "" {
+		kind := routeKindName(c.Type, el)
+		refs, why := m.routeTarget(el, v.host, form)
+		ref := strings.Join(refs, ", ")
+		switch {
+		case why != "":
+		case !m.draws(x, form, el, refs[0]):
+			why = routeNotExposed
+		case pinned[ref]:
+			why = routeDuplicate
+		}
+		if why != "" {
 			s.RoutesUnexposed++
-			connUnexposed++
+			reasons[why]++
+			m.routeKinds.add(kind, why)
 			continue
 		}
-		if seen[ref] {
-			continue
-		}
-		seen[ref] = true
+		pinned[ref] = true
 		s.RoutesWritten++
-		routed++
+		reasons[routeWritten]++
+		m.routeKinds.add(kind, routeWritten)
 		var b strings.Builder
 		b.WriteString("metadata " + prefix + "Route about " + ref + " { points = (")
 		for i, n := range c.Points {
@@ -639,26 +734,21 @@ func (m *migration) viewGeometry(v *view, x exposures) viewGeometry {
 	geo.lines = append(geo.lines, placements...)
 	geo.lines = append(geo.lines, routes...)
 	if len(rec.Placements)+len(rec.Connectors) > 0 {
-		geo.note = fmt.Sprintf("laid out from %s: %s", m.layoutSource, layoutClause(written, unexposed, dangling, len(rec.Placements), "shown elements positioned", "not exposed", "resolving to no element")+", "+
-			layoutClause(routed, connUnexposed, connDangling, len(rec.Connectors), "connectors routed", "of an unwritten element", "resolving to no element"))
+		geo.note = fmt.Sprintf("laid out from %s: %s", m.layoutSource, layoutClause(written, unexposed, dangling, len(rec.Placements))+", "+routeClause(reasons, len(rec.Connectors)))
 	}
 	return geo
 }
 
-// layoutClause words one line of the layout note: how many of the record's
-// items were written, and why the rest were not.
-func layoutClause(written, unexposed, dangling, total int, what, unexposedWhy, danglingWhy string) string {
-	clause := fmt.Sprintf("%d of %d %s", written, total, what)
+// layoutClause words the placements of the layout note: how many of the
+// record's shown elements were positioned, and why the rest were not.
+func layoutClause(written, unexposed, dangling, total int) string {
+	clause := fmt.Sprintf("%d of %d shown elements positioned", written, total)
 	var parts []string
 	if unexposed > 0 {
-		word := unexposedWhy
-		if unexposed > 1 {
-			word = pluralWhy(unexposedWhy)
-		}
-		parts = append(parts, fmt.Sprintf("%d %s", unexposed, word))
+		parts = append(parts, fmt.Sprintf("%d not exposed", unexposed))
 	}
 	if dangling > 0 {
-		parts = append(parts, fmt.Sprintf("%d %s", dangling, danglingWhy))
+		parts = append(parts, fmt.Sprintf("%d resolving to no element", dangling))
 	}
 	if len(parts) > 0 {
 		clause += " (" + strings.Join(parts, ", ") + ")"
@@ -666,10 +756,25 @@ func layoutClause(written, unexposed, dangling, total int, what, unexposedWhy, d
 	return clause
 }
 
-// pluralWhy turns "of an unwritten element" into "of unwritten elements" and
-// leaves "not exposed" alone.
-func pluralWhy(why string) string {
-	return strings.Replace(why, "an unwritten element", "unwritten elements", 1)
+// routeClause words the routes of the layout note: how many of the record's
+// connectors were routed, and why the rest were not, a reason at a time.
+func routeClause(reasons map[string]int, total int) string {
+	clause := fmt.Sprintf("%d of %d connectors routed", reasons[routeWritten], total)
+	var parts []string
+	for _, why := range routeReasons {
+		n := reasons[why]
+		switch {
+		case n == 0 || why == routeWritten:
+		case why == routeDangling:
+			parts = append(parts, fmt.Sprintf("%d resolving to no element", n))
+		default:
+			parts = append(parts, fmt.Sprintf("%d %s", n, why))
+		}
+	}
+	if len(parts) > 0 {
+		clause += " (" + strings.Join(parts, ", ") + ")"
+	}
+	return clause
 }
 
 // layoutNumber writes a coordinate in its shortest exact form.
@@ -699,5 +804,6 @@ func (m *migration) layoutReport() {
 			m.report.Entries = append(m.report.Entries, Entry{ID: rec.ID, Kind: "Layout", Name: rec.Name, Verdict: Unmapped, Note: problem})
 		}
 	}
+	s.RoutesByKind = m.routeKinds.sorted()
 	m.report.Layout = s
 }

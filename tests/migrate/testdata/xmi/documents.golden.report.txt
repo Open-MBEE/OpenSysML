@@ -175,7 +175,7 @@ ControlFlow	Fleet Viewpoints::Parts Viewpoint::Parts Method::Fleet Parts::<Contr
 ControlFlow	Fleet Viewpoints::Parts Viewpoint::Parts Method::Fleet Parts::<ControlFlow>	_parts_table_e6
 FlowFinalNode	Fleet Viewpoints::Parts Viewpoint::Parts Method::Fleet Parts::<FlowFinalNode>	_parts_table_final	-> done	(a flow final ends the token, as done does)
 InitialNode	Fleet Viewpoints::Parts Viewpoint::Parts Method::Fleet Parts::<InitialNode>	_parts_table_init	-> start
-Diagram	Fleet Viewpoints::Parts Viewpoint::Parts Method::Parts Method Flow	_diag_parts_flow	-> 'Fleet Viewpoints'::'Parts Viewpoint'::'Parts Method'::'Parts Method Flow'	(a SysML Activity Diagram written as a view rendered asTextualNotation)
+Diagram	Fleet Viewpoints::Parts Viewpoint::Parts Method::Parts Method Flow	_diag_parts_flow	-> 'Fleet Viewpoints'::'Parts Viewpoint'::'Parts Method'::'Parts Method Flow'	(a SysML Activity Diagram written as a view rendered asInterconnectionDiagram of ActionFlowView; the view exposes action def 'Fleet Viewpoints'::'Parts Viewpoint'::'Parts Method', whose graph the rendering draws with the 3 shown nodes and edges of it)
 «Viewpoint» Class	Fleet Viewpoints::Requirements Viewpoint	_vp_reqs	-> 'Fleet Viewpoints'::'Requirements Viewpoint'
 Activity	Fleet Viewpoints::Requirements Viewpoint::Requirements Method	_act_reqs	-> 'Fleet Viewpoints'::'Requirements Viewpoint'::'Requirements Method'
 ActivityFinalNode	Fleet Viewpoints::Requirements Viewpoint::Requirements Method::<ActivityFinalNode>	_reqs_final	-> final

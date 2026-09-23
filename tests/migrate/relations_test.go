@@ -1287,6 +1287,49 @@ func TestConstraintParametersStoredAsPortsAreInParameters(t *testing.T) {
 	}
 }
 
+// MagicDraw's tagless property-kind markers say what the usage keyword says,
+// so they are not written; a same-named stereotype from any other profile, a
+// marker carrying a tag, and one on a property of another kind are kept.
+func TestPropertyKindMarkersAreNotWritten(t *testing.T) {
+	r := migrateFixtureFile(t, "property_markers")
+	for _, line := range []string{
+		"attribute mass : ScalarValues::Real;",
+		"attribute mode : Mode;",
+		"part engine : Engine;",
+		"ref part spare : Wheel;",
+		"ref part lead : Wheel;",
+		"constraint limit : MaxSpeed;",
+		"in attribute v : ScalarValues::Real;",
+		"in ref part wheel : Wheel;",
+		"in ref part hub : Wheel {",
+		"in attribute k : ScalarValues::Real {",
+		"/* applied stereotype «ReferenceProperty» */",
+		"part odd : Wheel {",
+		"/* applied stereotype «ValueProperty» */",
+		"part axle : Wheel {",
+		"/* applied stereotype «PartProperty»: ordering = rear */",
+		"part cabin : Engine {",
+		"@'Vehicle Profile'::PartProperty;",
+		"attribute serial : ScalarValues::String {",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	for _, name := range []string{"PartProperty", "ValueProperty", "SharedProperty", "ReferenceProperty", "ConstraintProperty"} {
+		want := map[string]int{"PartProperty": 1, "ValueProperty": 3, "ReferenceProperty": 1}[name]
+		if n := strings.Count(string(r.Notation), "«"+name+"»"); n != want {
+			t.Errorf("«%s» written %d times, want %d", name, n, want)
+		}
+	}
+	for _, id := range []string{"_mass", "_mode", "_engine", "_lead", "_limit", "_ms_v", "_ms_wheel", "_ms_hub", "_ms_k", "_odd", "_axle", "_cabin", "_serial"} {
+		if es := entriesFor(r, id); len(es) != 1 || es[0].Verdict != migrate.Mapped {
+			t.Errorf("%s entries = %+v", id, es)
+		}
+	}
+	if es := entriesFor(r, "_spare"); len(es) != 1 || es[0].Verdict != migrate.Approximated || !strings.Contains(es[0].Note, "shared aggregation") {
+		t.Errorf("_spare entries = %+v", es)
+	}
+}
+
 // namedRelationModel is a block, a requirement and a test case joined by one
 // named dependency of each SysML relationship stereotype.
 const namedRelationModel = `

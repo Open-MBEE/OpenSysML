@@ -107,6 +107,9 @@ elmt:ShadowBody__Sensor__value
     sysml:declaredName "value" ;
     sysml:type elmt:ShadowBody__Speed ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ShadowBody__Sensor__value_ft0 ;
+    sysml:ownedSpecialization elmt:ShadowBody__Sensor__value_ft0 ;
+    sysml:ownedRelationship elmt:ShadowBody__Sensor__value_ft0 ;
     sysx:sourceText "        attribute value : Speed;\n" .
 
 elmt:ShadowBody__Sensor__value_om
@@ -132,11 +135,15 @@ elmt:ShadowBody__Sensor__readings
     sysml:owningMembership elmt:ShadowBody__Sensor__readings_om ;
     sysml:declaredName "readings" ;
     sysml:type elmt:ShadowBody__Speed ;
+    sysml:multiplicity expr:ShadowBody__Sensor__readings_pmultiplicity ;
+    sysml:ownedRelationship expr:ShadowBody__Sensor__readings_pmultiplicity_om, elmt:ShadowBody__Sensor__readings_ft0 ;
+    sysml:ownedMembership expr:ShadowBody__Sensor__readings_pmultiplicity_om ;
     sysml:upperBound expr:ShadowBody__Sensor__readings_pupperBound ;
-    sysml:ownedRelationship expr:ShadowBody__Sensor__readings_pupperBound_om ;
-    sysml:ownedMembership expr:ShadowBody__Sensor__readings_pupperBound_om ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysx:sourceText "        attribute readings : Speed[*];\n" .
+    sysml:ownedTyping elmt:ShadowBody__Sensor__readings_ft0 ;
+    sysml:ownedSpecialization elmt:ShadowBody__Sensor__readings_ft0 ;
+    sysx:sourceText "        attribute readings : Speed[*];\n" ;
+    json:ownedRelationship "[{\"@id\":\"ShadowBody__Sensor__readings_pmultiplicity_om\"},{\"@id\":\"ShadowBody__Sensor__readings_ft0\"}]" .
 
 elmt:ShadowBody__Sensor__readings_om
     a sysml:FeatureMembership ;
@@ -150,23 +157,43 @@ elmt:ShadowBody__Sensor__readings_om
     sysml:ownedMemberFeature elmt:ShadowBody__Sensor__readings ;
     sysml:owningType elmt:ShadowBody__Sensor .
 
+expr:ShadowBody__Sensor__readings_pmultiplicity
+    a sysml:MultiplicityRange ;
+    sysml:elementId "ShadowBody__Sensor__readings_pmultiplicity" ;
+    sysml:owner elmt:ShadowBody__Sensor__readings ;
+    sysml:owningRelationship expr:ShadowBody__Sensor__readings_pmultiplicity_om ;
+    sysml:owningMembership expr:ShadowBody__Sensor__readings_pmultiplicity_om ;
+    sysml:upperBound expr:ShadowBody__Sensor__readings_pupperBound ;
+    sysml:ownedRelationship expr:ShadowBody__Sensor__readings_pupperBound_om ;
+    sysml:ownedMembership expr:ShadowBody__Sensor__readings_pupperBound_om .
+
+expr:ShadowBody__Sensor__readings_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ShadowBody__Sensor__readings_pmultiplicity_om" ;
+    sysml:owner elmt:ShadowBody__Sensor__readings ;
+    sysml:memberElement expr:ShadowBody__Sensor__readings_pmultiplicity ;
+    sysml:ownedMemberElement expr:ShadowBody__Sensor__readings_pmultiplicity ;
+    sysml:ownedRelatedElement expr:ShadowBody__Sensor__readings_pmultiplicity ;
+    sysml:owningRelatedElement elmt:ShadowBody__Sensor__readings ;
+    sysml:membershipOwningNamespace elmt:ShadowBody__Sensor__readings .
+
 expr:ShadowBody__Sensor__readings_pupperBound
     a sysml:LiteralInfinity ;
     sysx:sourceText "*" ;
     sysml:elementId "ShadowBody__Sensor__readings_pupperBound" ;
-    sysml:owner elmt:ShadowBody__Sensor__readings ;
+    sysml:owner expr:ShadowBody__Sensor__readings_pmultiplicity ;
     sysml:owningRelationship expr:ShadowBody__Sensor__readings_pupperBound_om ;
     sysml:owningMembership expr:ShadowBody__Sensor__readings_pupperBound_om .
 
 expr:ShadowBody__Sensor__readings_pupperBound_om
     a sysml:OwningMembership ;
     sysml:elementId "ShadowBody__Sensor__readings_pupperBound_om" ;
-    sysml:owner elmt:ShadowBody__Sensor__readings ;
+    sysml:owner expr:ShadowBody__Sensor__readings_pmultiplicity ;
     sysml:memberElement expr:ShadowBody__Sensor__readings_pupperBound ;
     sysml:ownedMemberElement expr:ShadowBody__Sensor__readings_pupperBound ;
     sysml:ownedRelatedElement expr:ShadowBody__Sensor__readings_pupperBound ;
-    sysml:owningRelatedElement elmt:ShadowBody__Sensor__readings ;
-    sysml:membershipOwningNamespace elmt:ShadowBody__Sensor__readings .
+    sysml:owningRelatedElement expr:ShadowBody__Sensor__readings_pmultiplicity ;
+    sysml:membershipOwningNamespace expr:ShadowBody__Sensor__readings_pmultiplicity .
 
 elmt:ShadowBody__Sensor__highs
     a sysml:AttributeUsage ;
@@ -217,7 +244,8 @@ expr:ShadowBody__Sensor__highs_pvalue_poperand
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "readings" ;
     sysml:elementId "ShadowBody__Sensor__highs_pvalue_poperand" ;
-    sysml:referent elmt:ShadowBody__Sensor__readings .
+    sysml:referent elmt:ShadowBody__Sensor__readings ;
+    sysml:ownedRelationship expr:ShadowBody__Sensor__highs_pvalue_poperand_preferent .
 
 expr:ShadowBody__Sensor__highs_pvalue_pa0
     a sysml:Expression ;
@@ -264,7 +292,8 @@ expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0
     sysml:referent "value" ;
     sysml:owner expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin0 ;
     sysml:owningRelationship expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0_om ;
-    sysml:owningMembership expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0_om .
+    sysml:owningMembership expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0_om ;
+    sysml:ownedRelationship expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0_preferent .
 
 expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin0
     a sysml:Feature ;
@@ -388,3 +417,47 @@ expr:ShadowBody__Sensor__highs_pvalue_om
     sysml:membershipOwningNamespace elmt:ShadowBody__Sensor__highs ;
     sysml:featureWithValue elmt:ShadowBody__Sensor__highs ;
     sysml:value expr:ShadowBody__Sensor__highs_pvalue .
+
+elmt:ShadowBody__Sensor__value_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ShadowBody__Sensor__value_ft0" ;
+    sysml:typedFeature elmt:ShadowBody__Sensor__value ;
+    sysml:owningFeature elmt:ShadowBody__Sensor__value ;
+    sysml:specific elmt:ShadowBody__Sensor__value ;
+    sysml:source elmt:ShadowBody__Sensor__value ;
+    sysml:owningRelatedElement elmt:ShadowBody__Sensor__value ;
+    sysml:type elmt:ShadowBody__Speed ;
+    sysml:general elmt:ShadowBody__Speed ;
+    sysml:target elmt:ShadowBody__Speed ;
+    sysml:owner elmt:ShadowBody__Sensor__value ;
+    sysml:relatedElement elmt:ShadowBody__Sensor__value, elmt:ShadowBody__Speed ;
+    json:relatedElement "[{\"@id\":\"ShadowBody__Sensor__value\"},{\"@id\":\"ShadowBody__Speed\"}]" .
+
+elmt:ShadowBody__Sensor__readings_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ShadowBody__Sensor__readings_ft0" ;
+    sysml:typedFeature elmt:ShadowBody__Sensor__readings ;
+    sysml:owningFeature elmt:ShadowBody__Sensor__readings ;
+    sysml:specific elmt:ShadowBody__Sensor__readings ;
+    sysml:source elmt:ShadowBody__Sensor__readings ;
+    sysml:owningRelatedElement elmt:ShadowBody__Sensor__readings ;
+    sysml:type elmt:ShadowBody__Speed ;
+    sysml:general elmt:ShadowBody__Speed ;
+    sysml:target elmt:ShadowBody__Speed ;
+    sysml:owner elmt:ShadowBody__Sensor__readings ;
+    sysml:relatedElement elmt:ShadowBody__Sensor__readings, elmt:ShadowBody__Speed ;
+    json:relatedElement "[{\"@id\":\"ShadowBody__Sensor__readings\"},{\"@id\":\"ShadowBody__Speed\"}]" .
+
+expr:ShadowBody__Sensor__highs_pvalue_poperand_preferent
+    a sysml:Membership ;
+    sysml:elementId "ShadowBody__Sensor__highs_pvalue_poperand_preferent" ;
+    sysml:memberElement elmt:ShadowBody__Sensor__readings ;
+    sysml:owner expr:ShadowBody__Sensor__highs_pvalue_poperand ;
+    sysml:owningRelatedElement expr:ShadowBody__Sensor__highs_pvalue_poperand .
+
+expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0_preferent
+    a sysml:Membership ;
+    sysml:elementId "ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0_preferent" ;
+    sysml:memberElement "value" ;
+    sysml:owner expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0 ;
+    sysml:owningRelatedElement expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0 .

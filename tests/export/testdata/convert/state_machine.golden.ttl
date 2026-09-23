@@ -79,6 +79,10 @@ elmt:StateMachine__Bus
     sysml:owningRelationship elmt:StateMachine__Bus_om ;
     sysml:owningMembership elmt:StateMachine__Bus_om ;
     sysml:declaredName "Bus" ;
+    sysml:ownedRelationship elmt:StateMachine__Bus_conjugated_om ;
+    sysml:ownedMember elmt:StateMachine__Bus_conjugated ;
+    sysml:ownedMembership elmt:StateMachine__Bus_conjugated_om ;
+    sysml:conjugatedPortDefinition elmt:StateMachine__Bus_conjugated ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "    port def Bus;\n" .
 
@@ -91,6 +95,40 @@ elmt:StateMachine__Bus_om
     sysml:ownedRelatedElement elmt:StateMachine__Bus ;
     sysml:owningRelatedElement elmt:StateMachine ;
     sysml:membershipOwningNamespace elmt:StateMachine .
+
+elmt:StateMachine__Bus_conjugated
+    a sysml:ConjugatedPortDefinition ;
+    sysml:elementId "StateMachine__Bus_conjugated" ;
+    sysml:qualifiedName "StateMachine::Bus::'~Bus'" ;
+    sysml:declaredName "~Bus" ;
+    sysml:owner elmt:StateMachine__Bus ;
+    sysml:owningRelationship elmt:StateMachine__Bus_conjugated_om ;
+    sysml:owningMembership elmt:StateMachine__Bus_conjugated_om ;
+    sysml:ownedRelationship elmt:StateMachine__Bus_conjugated_pc ;
+    sysml:ownedPortConjugator elmt:StateMachine__Bus_conjugated_pc .
+
+elmt:StateMachine__Bus_conjugated_om
+    a sysml:OwningMembership ;
+    sysml:elementId "StateMachine__Bus_conjugated_om" ;
+    sysml:owner elmt:StateMachine__Bus ;
+    sysml:memberElement elmt:StateMachine__Bus_conjugated ;
+    sysml:ownedMemberElement elmt:StateMachine__Bus_conjugated ;
+    sysml:ownedRelatedElement elmt:StateMachine__Bus_conjugated ;
+    sysml:owningRelatedElement elmt:StateMachine__Bus ;
+    sysml:membershipOwningNamespace elmt:StateMachine__Bus .
+
+elmt:StateMachine__Bus_conjugated_pc
+    a sysml:PortConjugation ;
+    sysml:elementId "StateMachine__Bus_conjugated_pc" ;
+    sysml:conjugatedType elmt:StateMachine__Bus_conjugated ;
+    sysml:originalType elmt:StateMachine__Bus ;
+    sysml:originalPortDefinition elmt:StateMachine__Bus ;
+    sysml:owner elmt:StateMachine__Bus_conjugated ;
+    sysml:owningRelatedElement elmt:StateMachine__Bus_conjugated ;
+    sysml:relatedElement elmt:StateMachine__Bus_conjugated, elmt:StateMachine__Bus ;
+    sysml:source elmt:StateMachine__Bus_conjugated ;
+    sysml:target elmt:StateMachine__Bus ;
+    json:relatedElement "[{\"@id\":\"StateMachine__Bus_conjugated\"},{\"@id\":\"StateMachine__Bus\"}]" .
 
 elmt:StateMachine__VehicleStates
     a sysml:StateDefinition ;
@@ -180,7 +218,7 @@ elmt:StateMachine__VehicleStates__off___400
     sysx:sourceText "            entry perform Warm;\n" .
 
 elmt:StateMachine__VehicleStates__off___400___400
-    a sysml:ActionUsage ;
+    a sysml:PerformActionUsage ;
     sysml:qualifiedName "StateMachine::VehicleStates::off::@0::@0" ;
     sysml:elementId "StateMachine__VehicleStates__off___400___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
@@ -189,7 +227,11 @@ elmt:StateMachine__VehicleStates__off___400___400
     sysml:owningMembership elmt:StateMachine__VehicleStates__off___400 ;
     sysx:declaredKeyword "perform" ;
     sysml:references elmt:StateMachine__Warm ;
-    sysx:hasBody "false"^^xsd:boolean .
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedReferenceSubsetting elmt:StateMachine__VehicleStates__off___400___400_rs ;
+    sysml:ownedSubsetting elmt:StateMachine__VehicleStates__off___400___400_rs ;
+    sysml:ownedSpecialization elmt:StateMachine__VehicleStates__off___400___400_rs ;
+    sysml:ownedRelationship elmt:StateMachine__VehicleStates__off___400___400_rs .
 
 elmt:StateMachine__VehicleStates__starting
     a sysml:StateUsage ;
@@ -244,7 +286,10 @@ elmt:StateMachine__VehicleStates__starting___400__ready
     sysml:owningMembership elmt:StateMachine__VehicleStates__starting___400 ;
     sysml:declaredName "ready" ;
     sysml:type elmt:StateMachine__Warm ;
-    sysx:hasBody "false"^^xsd:boolean .
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:StateMachine__VehicleStates__starting___400__ready_ft0 ;
+    sysml:ownedSpecialization elmt:StateMachine__VehicleStates__starting___400__ready_ft0 ;
+    sysml:ownedRelationship elmt:StateMachine__VehicleStates__starting___400__ready_ft0 .
 
 elmt:StateMachine__VehicleStates__starting___401
     a sysml:StateSubactionMembership ;
@@ -271,7 +316,10 @@ elmt:StateMachine__VehicleStates__starting___401__running
     sysml:owningMembership elmt:StateMachine__VehicleStates__starting___401 ;
     sysml:declaredName "running" ;
     sysml:type elmt:StateMachine__Warm ;
-    sysx:hasBody "false"^^xsd:boolean .
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:StateMachine__VehicleStates__starting___401__running_ft0 ;
+    sysml:ownedSpecialization elmt:StateMachine__VehicleStates__starting___401__running_ft0 ;
+    sysml:ownedRelationship elmt:StateMachine__VehicleStates__starting___401__running_ft0 .
 
 elmt:StateMachine__VehicleStates__starting___402
     a sysml:StateSubactionMembership ;
@@ -289,7 +337,7 @@ elmt:StateMachine__VehicleStates__starting___402
     sysx:sourceText "            exit perform Warm;\n" .
 
 elmt:StateMachine__VehicleStates__starting___402___400
-    a sysml:ActionUsage ;
+    a sysml:PerformActionUsage ;
     sysml:qualifiedName "StateMachine::VehicleStates::starting::@2::@0" ;
     sysml:elementId "StateMachine__VehicleStates__starting___402___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
@@ -298,7 +346,11 @@ elmt:StateMachine__VehicleStates__starting___402___400
     sysml:owningMembership elmt:StateMachine__VehicleStates__starting___402 ;
     sysx:declaredKeyword "perform" ;
     sysml:references elmt:StateMachine__Warm ;
-    sysx:hasBody "false"^^xsd:boolean .
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedReferenceSubsetting elmt:StateMachine__VehicleStates__starting___402___400_rs ;
+    sysml:ownedSubsetting elmt:StateMachine__VehicleStates__starting___402___400_rs ;
+    sysml:ownedSpecialization elmt:StateMachine__VehicleStates__starting___402___400_rs ;
+    sysml:ownedRelationship elmt:StateMachine__VehicleStates__starting___402___400_rs .
 
 elmt:StateMachine__VehicleStates__active
     a sysml:StateUsage ;
@@ -357,7 +409,10 @@ elmt:StateMachine__VehicleStates__active___400__monitor
     sysml:owningMembership elmt:StateMachine__VehicleStates__active___400 ;
     sysml:declaredName "monitor" ;
     sysml:type elmt:StateMachine__Warm ;
-    sysx:hasBody "false"^^xsd:boolean .
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:StateMachine__VehicleStates__active___400__monitor_ft0 ;
+    sysml:ownedSpecialization elmt:StateMachine__VehicleStates__active___400__monitor_ft0 ;
+    sysml:ownedRelationship elmt:StateMachine__VehicleStates__active___400__monitor_ft0 .
 
 elmt:StateMachine__VehicleStates__active___401
     a sysml:TransitionUsage ;
@@ -451,7 +506,8 @@ expr:StateMachine__VehicleStates___405_pguard
     sysml:referent "ready" ;
     sysml:owner elmt:StateMachine__VehicleStates___405 ;
     sysml:owningRelationship expr:StateMachine__VehicleStates___405_pguard_om ;
-    sysml:owningMembership expr:StateMachine__VehicleStates___405_pguard_om .
+    sysml:owningMembership expr:StateMachine__VehicleStates___405_pguard_om ;
+    sysml:ownedRelationship expr:StateMachine__VehicleStates___405_pguard_preferent .
 
 expr:StateMachine__VehicleStates___405_pguard_om
     a sysml:OwningMembership ;
@@ -510,7 +566,8 @@ expr:StateMachine__VehicleStates__active_5fto_5foff_pguard
     sysml:referent "monitor" ;
     sysml:owner elmt:StateMachine__VehicleStates__active_5fto_5foff ;
     sysml:owningRelationship expr:StateMachine__VehicleStates__active_5fto_5foff_pguard_om ;
-    sysml:owningMembership expr:StateMachine__VehicleStates__active_5fto_5foff_pguard_om .
+    sysml:owningMembership expr:StateMachine__VehicleStates__active_5fto_5foff_pguard_om ;
+    sysml:ownedRelationship expr:StateMachine__VehicleStates__active_5fto_5foff_pguard_preferent .
 
 expr:StateMachine__VehicleStates__active_5fto_5foff_pguard_om
     a sysml:OwningMembership ;
@@ -533,7 +590,10 @@ elmt:StateMachine__VehicleStates__active_5fto_5foff__stop
     sysml:owningMembership elmt:StateMachine__VehicleStates__active_5fto_5foff__stop_om ;
     sysml:declaredName "stop" ;
     sysml:type elmt:StateMachine__Warm ;
-    sysx:hasBody "false"^^xsd:boolean .
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:StateMachine__VehicleStates__active_5fto_5foff__stop_ft0 ;
+    sysml:ownedSpecialization elmt:StateMachine__VehicleStates__active_5fto_5foff__stop_ft0 ;
+    sysml:ownedRelationship elmt:StateMachine__VehicleStates__active_5fto_5foff__stop_ft0 .
 
 elmt:StateMachine__VehicleStates__active_5fto_5foff__stop_om
     a sysml:FeatureMembership ;
@@ -559,6 +619,9 @@ elmt:StateMachine__VehicleStates__lane
     sysml:declaredName "lane" ;
     sysml:type elmt:StateMachine__Bus ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:StateMachine__VehicleStates__lane_ft0 ;
+    sysml:ownedSpecialization elmt:StateMachine__VehicleStates__lane_ft0 ;
+    sysml:ownedRelationship elmt:StateMachine__VehicleStates__lane_ft0 ;
     sysx:sourceText "        port lane : Bus;\n" .
 
 elmt:StateMachine__VehicleStates__lane_om
@@ -676,7 +739,7 @@ elmt:StateMachine__Nested__idle__substate___400
     sysx:sourceText "                entry perform Warm;\n" .
 
 elmt:StateMachine__Nested__idle__substate___400___400
-    a sysml:ActionUsage ;
+    a sysml:PerformActionUsage ;
     sysml:qualifiedName "StateMachine::Nested::idle::substate::@0::@0" ;
     sysml:elementId "StateMachine__Nested__idle__substate___400___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
@@ -685,7 +748,11 @@ elmt:StateMachine__Nested__idle__substate___400___400
     sysml:owningMembership elmt:StateMachine__Nested__idle__substate___400 ;
     sysx:declaredKeyword "perform" ;
     sysml:references elmt:StateMachine__Warm ;
-    sysx:hasBody "false"^^xsd:boolean .
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedReferenceSubsetting elmt:StateMachine__Nested__idle__substate___400___400_rs ;
+    sysml:ownedSubsetting elmt:StateMachine__Nested__idle__substate___400___400_rs ;
+    sysml:ownedSpecialization elmt:StateMachine__Nested__idle__substate___400___400_rs ;
+    sysml:ownedRelationship elmt:StateMachine__Nested__idle__substate___400___400_rs .
 
 elmt:StateMachine__Composite
     a sysml:StateDefinition ;
@@ -838,7 +905,7 @@ elmt:StateMachine__Composite___404___400
     sysml:ownedFeatureMembership elmt:StateMachine__Composite___404___400___400_om .
 
 elmt:StateMachine__Composite___404___400___400
-    a sysml:ActionUsage ;
+    a sysml:PerformActionUsage ;
     sysml:qualifiedName "StateMachine::Composite::@4::@0::@0" ;
     sysml:elementId "StateMachine__Composite___404___400___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
@@ -849,6 +916,10 @@ elmt:StateMachine__Composite___404___400___400
     sysx:declaredKeyword "perform" ;
     sysml:references elmt:StateMachine__Warm ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedReferenceSubsetting elmt:StateMachine__Composite___404___400___400_rs ;
+    sysml:ownedSubsetting elmt:StateMachine__Composite___404___400___400_rs ;
+    sysml:ownedSpecialization elmt:StateMachine__Composite___404___400___400_rs ;
+    sysml:ownedRelationship elmt:StateMachine__Composite___404___400___400_rs ;
     sysx:sourceText "            perform Warm;\n" .
 
 elmt:StateMachine__Composite___404___400___400_om
@@ -1085,3 +1156,160 @@ elmt:StateMachine__Composite__primary__ready_om
     sysml:membershipOwningNamespace elmt:StateMachine__Composite__primary ;
     sysml:ownedMemberFeature elmt:StateMachine__Composite__primary__ready ;
     sysml:owningType elmt:StateMachine__Composite__primary .
+
+elmt:StateMachine__VehicleStates__off___400___400_rs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "StateMachine__VehicleStates__off___400___400_rs" ;
+    sysml:referencingFeature elmt:StateMachine__VehicleStates__off___400___400 ;
+    sysml:subsettingFeature elmt:StateMachine__VehicleStates__off___400___400 ;
+    sysml:owningFeature elmt:StateMachine__VehicleStates__off___400___400 ;
+    sysml:specific elmt:StateMachine__VehicleStates__off___400___400 ;
+    sysml:source elmt:StateMachine__VehicleStates__off___400___400 ;
+    sysml:owningRelatedElement elmt:StateMachine__VehicleStates__off___400___400 ;
+    sysml:referencedFeature elmt:StateMachine__Warm ;
+    sysml:subsettedFeature elmt:StateMachine__Warm ;
+    sysml:general elmt:StateMachine__Warm ;
+    sysml:target elmt:StateMachine__Warm ;
+    sysml:owner elmt:StateMachine__VehicleStates__off___400___400 ;
+    sysml:relatedElement elmt:StateMachine__VehicleStates__off___400___400, elmt:StateMachine__Warm ;
+    json:relatedElement "[{\"@id\":\"StateMachine__VehicleStates__off___400___400\"},{\"@id\":\"StateMachine__Warm\"}]" .
+
+elmt:StateMachine__VehicleStates__starting___400__ready_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "StateMachine__VehicleStates__starting___400__ready_ft0" ;
+    sysml:typedFeature elmt:StateMachine__VehicleStates__starting___400__ready ;
+    sysml:owningFeature elmt:StateMachine__VehicleStates__starting___400__ready ;
+    sysml:specific elmt:StateMachine__VehicleStates__starting___400__ready ;
+    sysml:source elmt:StateMachine__VehicleStates__starting___400__ready ;
+    sysml:owningRelatedElement elmt:StateMachine__VehicleStates__starting___400__ready ;
+    sysml:type elmt:StateMachine__Warm ;
+    sysml:general elmt:StateMachine__Warm ;
+    sysml:target elmt:StateMachine__Warm ;
+    sysml:owner elmt:StateMachine__VehicleStates__starting___400__ready ;
+    sysml:relatedElement elmt:StateMachine__VehicleStates__starting___400__ready, elmt:StateMachine__Warm ;
+    json:relatedElement "[{\"@id\":\"StateMachine__VehicleStates__starting___400__ready\"},{\"@id\":\"StateMachine__Warm\"}]" .
+
+elmt:StateMachine__VehicleStates__starting___401__running_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "StateMachine__VehicleStates__starting___401__running_ft0" ;
+    sysml:typedFeature elmt:StateMachine__VehicleStates__starting___401__running ;
+    sysml:owningFeature elmt:StateMachine__VehicleStates__starting___401__running ;
+    sysml:specific elmt:StateMachine__VehicleStates__starting___401__running ;
+    sysml:source elmt:StateMachine__VehicleStates__starting___401__running ;
+    sysml:owningRelatedElement elmt:StateMachine__VehicleStates__starting___401__running ;
+    sysml:type elmt:StateMachine__Warm ;
+    sysml:general elmt:StateMachine__Warm ;
+    sysml:target elmt:StateMachine__Warm ;
+    sysml:owner elmt:StateMachine__VehicleStates__starting___401__running ;
+    sysml:relatedElement elmt:StateMachine__VehicleStates__starting___401__running, elmt:StateMachine__Warm ;
+    json:relatedElement "[{\"@id\":\"StateMachine__VehicleStates__starting___401__running\"},{\"@id\":\"StateMachine__Warm\"}]" .
+
+elmt:StateMachine__VehicleStates__starting___402___400_rs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "StateMachine__VehicleStates__starting___402___400_rs" ;
+    sysml:referencingFeature elmt:StateMachine__VehicleStates__starting___402___400 ;
+    sysml:subsettingFeature elmt:StateMachine__VehicleStates__starting___402___400 ;
+    sysml:owningFeature elmt:StateMachine__VehicleStates__starting___402___400 ;
+    sysml:specific elmt:StateMachine__VehicleStates__starting___402___400 ;
+    sysml:source elmt:StateMachine__VehicleStates__starting___402___400 ;
+    sysml:owningRelatedElement elmt:StateMachine__VehicleStates__starting___402___400 ;
+    sysml:referencedFeature elmt:StateMachine__Warm ;
+    sysml:subsettedFeature elmt:StateMachine__Warm ;
+    sysml:general elmt:StateMachine__Warm ;
+    sysml:target elmt:StateMachine__Warm ;
+    sysml:owner elmt:StateMachine__VehicleStates__starting___402___400 ;
+    sysml:relatedElement elmt:StateMachine__VehicleStates__starting___402___400, elmt:StateMachine__Warm ;
+    json:relatedElement "[{\"@id\":\"StateMachine__VehicleStates__starting___402___400\"},{\"@id\":\"StateMachine__Warm\"}]" .
+
+elmt:StateMachine__VehicleStates__active___400__monitor_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "StateMachine__VehicleStates__active___400__monitor_ft0" ;
+    sysml:typedFeature elmt:StateMachine__VehicleStates__active___400__monitor ;
+    sysml:owningFeature elmt:StateMachine__VehicleStates__active___400__monitor ;
+    sysml:specific elmt:StateMachine__VehicleStates__active___400__monitor ;
+    sysml:source elmt:StateMachine__VehicleStates__active___400__monitor ;
+    sysml:owningRelatedElement elmt:StateMachine__VehicleStates__active___400__monitor ;
+    sysml:type elmt:StateMachine__Warm ;
+    sysml:general elmt:StateMachine__Warm ;
+    sysml:target elmt:StateMachine__Warm ;
+    sysml:owner elmt:StateMachine__VehicleStates__active___400__monitor ;
+    sysml:relatedElement elmt:StateMachine__VehicleStates__active___400__monitor, elmt:StateMachine__Warm ;
+    json:relatedElement "[{\"@id\":\"StateMachine__VehicleStates__active___400__monitor\"},{\"@id\":\"StateMachine__Warm\"}]" .
+
+expr:StateMachine__VehicleStates___405_pguard_preferent
+    a sysml:Membership ;
+    sysml:elementId "StateMachine__VehicleStates___405_pguard_preferent" ;
+    sysml:memberElement "ready" ;
+    sysml:owner expr:StateMachine__VehicleStates___405_pguard ;
+    sysml:owningRelatedElement expr:StateMachine__VehicleStates___405_pguard .
+
+expr:StateMachine__VehicleStates__active_5fto_5foff_pguard_preferent
+    a sysml:Membership ;
+    sysml:elementId "StateMachine__VehicleStates__active_5fto_5foff_pguard_preferent" ;
+    sysml:memberElement "monitor" ;
+    sysml:owner expr:StateMachine__VehicleStates__active_5fto_5foff_pguard ;
+    sysml:owningRelatedElement expr:StateMachine__VehicleStates__active_5fto_5foff_pguard .
+
+elmt:StateMachine__VehicleStates__active_5fto_5foff__stop_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "StateMachine__VehicleStates__active_5fto_5foff__stop_ft0" ;
+    sysml:typedFeature elmt:StateMachine__VehicleStates__active_5fto_5foff__stop ;
+    sysml:owningFeature elmt:StateMachine__VehicleStates__active_5fto_5foff__stop ;
+    sysml:specific elmt:StateMachine__VehicleStates__active_5fto_5foff__stop ;
+    sysml:source elmt:StateMachine__VehicleStates__active_5fto_5foff__stop ;
+    sysml:owningRelatedElement elmt:StateMachine__VehicleStates__active_5fto_5foff__stop ;
+    sysml:type elmt:StateMachine__Warm ;
+    sysml:general elmt:StateMachine__Warm ;
+    sysml:target elmt:StateMachine__Warm ;
+    sysml:owner elmt:StateMachine__VehicleStates__active_5fto_5foff__stop ;
+    sysml:relatedElement elmt:StateMachine__VehicleStates__active_5fto_5foff__stop, elmt:StateMachine__Warm ;
+    json:relatedElement "[{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff__stop\"},{\"@id\":\"StateMachine__Warm\"}]" .
+
+elmt:StateMachine__VehicleStates__lane_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "StateMachine__VehicleStates__lane_ft0" ;
+    sysml:typedFeature elmt:StateMachine__VehicleStates__lane ;
+    sysml:owningFeature elmt:StateMachine__VehicleStates__lane ;
+    sysml:specific elmt:StateMachine__VehicleStates__lane ;
+    sysml:source elmt:StateMachine__VehicleStates__lane ;
+    sysml:owningRelatedElement elmt:StateMachine__VehicleStates__lane ;
+    sysml:type elmt:StateMachine__Bus ;
+    sysml:general elmt:StateMachine__Bus ;
+    sysml:target elmt:StateMachine__Bus ;
+    sysml:owner elmt:StateMachine__VehicleStates__lane ;
+    sysml:relatedElement elmt:StateMachine__VehicleStates__lane, elmt:StateMachine__Bus ;
+    json:relatedElement "[{\"@id\":\"StateMachine__VehicleStates__lane\"},{\"@id\":\"StateMachine__Bus\"}]" .
+
+elmt:StateMachine__Nested__idle__substate___400___400_rs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "StateMachine__Nested__idle__substate___400___400_rs" ;
+    sysml:referencingFeature elmt:StateMachine__Nested__idle__substate___400___400 ;
+    sysml:subsettingFeature elmt:StateMachine__Nested__idle__substate___400___400 ;
+    sysml:owningFeature elmt:StateMachine__Nested__idle__substate___400___400 ;
+    sysml:specific elmt:StateMachine__Nested__idle__substate___400___400 ;
+    sysml:source elmt:StateMachine__Nested__idle__substate___400___400 ;
+    sysml:owningRelatedElement elmt:StateMachine__Nested__idle__substate___400___400 ;
+    sysml:referencedFeature elmt:StateMachine__Warm ;
+    sysml:subsettedFeature elmt:StateMachine__Warm ;
+    sysml:general elmt:StateMachine__Warm ;
+    sysml:target elmt:StateMachine__Warm ;
+    sysml:owner elmt:StateMachine__Nested__idle__substate___400___400 ;
+    sysml:relatedElement elmt:StateMachine__Nested__idle__substate___400___400, elmt:StateMachine__Warm ;
+    json:relatedElement "[{\"@id\":\"StateMachine__Nested__idle__substate___400___400\"},{\"@id\":\"StateMachine__Warm\"}]" .
+
+elmt:StateMachine__Composite___404___400___400_rs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "StateMachine__Composite___404___400___400_rs" ;
+    sysml:referencingFeature elmt:StateMachine__Composite___404___400___400 ;
+    sysml:subsettingFeature elmt:StateMachine__Composite___404___400___400 ;
+    sysml:owningFeature elmt:StateMachine__Composite___404___400___400 ;
+    sysml:specific elmt:StateMachine__Composite___404___400___400 ;
+    sysml:source elmt:StateMachine__Composite___404___400___400 ;
+    sysml:owningRelatedElement elmt:StateMachine__Composite___404___400___400 ;
+    sysml:referencedFeature elmt:StateMachine__Warm ;
+    sysml:subsettedFeature elmt:StateMachine__Warm ;
+    sysml:general elmt:StateMachine__Warm ;
+    sysml:target elmt:StateMachine__Warm ;
+    sysml:owner elmt:StateMachine__Composite___404___400___400 ;
+    sysml:relatedElement elmt:StateMachine__Composite___404___400___400, elmt:StateMachine__Warm ;
+    json:relatedElement "[{\"@id\":\"StateMachine__Composite___404___400___400\"},{\"@id\":\"StateMachine__Warm\"}]" .

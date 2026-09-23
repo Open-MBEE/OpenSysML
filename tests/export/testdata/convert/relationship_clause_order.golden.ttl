@@ -76,7 +76,10 @@ elmt:ClauseOrder__Quantity__num
     sysml:owningMembership elmt:ClauseOrder__Quantity__num_om ;
     sysml:declaredName "num" ;
     sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
-    sysx:hasBody "false"^^xsd:boolean .
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ClauseOrder__Quantity__num_ft0 ;
+    sysml:ownedSpecialization elmt:ClauseOrder__Quantity__num_ft0 ;
+    sysml:ownedRelationship elmt:ClauseOrder__Quantity__num_ft0 .
 
 elmt:ClauseOrder__Quantity__num_om
     a sysml:FeatureMembership ;
@@ -104,10 +107,13 @@ elmt:ClauseOrder__Ratio
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:ClauseOrder__Ratio___400 ;
     sysml:ownedMembership elmt:ClauseOrder__Ratio___400_om ;
-    sysml:ownedRelationship elmt:ClauseOrder__Ratio___400_om ;
+    sysml:ownedRelationship elmt:ClauseOrder__Ratio___400_om, elmt:ClauseOrder__Ratio_sc0 ;
     sysml:ownedFeature elmt:ClauseOrder__Ratio___400 ;
     sysml:ownedFeatureMembership elmt:ClauseOrder__Ratio___400_om ;
-    sysx:sourceText "    part def Ratio :> Quantity { attribute :>> num : ScalarValues::Real; }\n" .
+    sysml:ownedSubclassification elmt:ClauseOrder__Ratio_sc0 ;
+    sysml:ownedSpecialization elmt:ClauseOrder__Ratio_sc0 ;
+    sysx:sourceText "    part def Ratio :> Quantity { attribute :>> num : ScalarValues::Real; }\n" ;
+    json:ownedRelationship "[{\"@id\":\"ClauseOrder__Ratio___400_om\"},{\"@id\":\"ClauseOrder__Ratio_sc0\"}]" .
 
 elmt:ClauseOrder__Ratio_om
     a sysml:OwningMembership ;
@@ -130,7 +136,14 @@ elmt:ClauseOrder__Ratio___400
     sysml:owningMembership elmt:ClauseOrder__Ratio___400_om ;
     sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
     sysml:redefines elmt:ClauseOrder__Quantity__num ;
-    sysx:hasBody "false"^^xsd:boolean .
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ClauseOrder__Ratio___400_ft0 ;
+    sysml:ownedSpecialization elmt:ClauseOrder__Ratio___400_ft0, elmt:ClauseOrder__Ratio___400_rd0 ;
+    sysml:ownedRelationship elmt:ClauseOrder__Ratio___400_ft0, elmt:ClauseOrder__Ratio___400_rd0 ;
+    sysml:ownedRedefinition elmt:ClauseOrder__Ratio___400_rd0 ;
+    sysml:ownedSubsetting elmt:ClauseOrder__Ratio___400_rd0 ;
+    json:ownedSpecialization "[{\"@id\":\"ClauseOrder__Ratio___400_ft0\"},{\"@id\":\"ClauseOrder__Ratio___400_rd0\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"ClauseOrder__Ratio___400_ft0\"},{\"@id\":\"ClauseOrder__Ratio___400_rd0\"}]" .
 
 elmt:ClauseOrder__Ratio___400_om
     a sysml:FeatureMembership ;
@@ -213,6 +226,9 @@ elmt:ClauseOrder__Mission__context
     sysml:declaredName "context" ;
     sysml:type elmt:ClauseOrder__Ctx ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ClauseOrder__Mission__context_ft0 ;
+    sysml:ownedSpecialization elmt:ClauseOrder__Mission__context_ft0 ;
+    sysml:ownedRelationship elmt:ClauseOrder__Mission__context_ft0 ;
     sysx:sourceText "        part context : Ctx;\n" .
 
 elmt:ClauseOrder__Mission__context_om
@@ -243,7 +259,13 @@ elmt:ClauseOrder__Mission__groundSystemAtIngress
     sysml:type elmt:ClauseOrder__Ctx ;
     sysml:subsets elmt:ClauseOrder__Mission__context ;
     sysx:hasBody "true"^^xsd:boolean ;
-    sysx:sourceText "        snapshot groundSystemAtIngress :> context : Ctx { }\n" .
+    sysml:ownedTyping elmt:ClauseOrder__Mission__groundSystemAtIngress_ft0 ;
+    sysml:ownedSpecialization elmt:ClauseOrder__Mission__groundSystemAtIngress_ft0, elmt:ClauseOrder__Mission__groundSystemAtIngress_ss0 ;
+    sysml:ownedRelationship elmt:ClauseOrder__Mission__groundSystemAtIngress_ft0, elmt:ClauseOrder__Mission__groundSystemAtIngress_ss0 ;
+    sysml:ownedSubsetting elmt:ClauseOrder__Mission__groundSystemAtIngress_ss0 ;
+    sysx:sourceText "        snapshot groundSystemAtIngress :> context : Ctx { }\n" ;
+    json:ownedSpecialization "[{\"@id\":\"ClauseOrder__Mission__groundSystemAtIngress_ft0\"},{\"@id\":\"ClauseOrder__Mission__groundSystemAtIngress_ss0\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"ClauseOrder__Mission__groundSystemAtIngress_ft0\"},{\"@id\":\"ClauseOrder__Mission__groundSystemAtIngress_ss0\"}]" .
 
 elmt:ClauseOrder__Mission__groundSystemAtIngress_om
     a sysml:FeatureMembership ;
@@ -256,3 +278,110 @@ elmt:ClauseOrder__Mission__groundSystemAtIngress_om
     sysml:membershipOwningNamespace elmt:ClauseOrder__Mission ;
     sysml:ownedMemberFeature elmt:ClauseOrder__Mission__groundSystemAtIngress ;
     sysml:owningType elmt:ClauseOrder__Mission .
+
+elmt:ClauseOrder__Quantity__num_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ClauseOrder__Quantity__num_ft0" ;
+    sysml:typedFeature elmt:ClauseOrder__Quantity__num ;
+    sysml:owningFeature elmt:ClauseOrder__Quantity__num ;
+    sysml:specific elmt:ClauseOrder__Quantity__num ;
+    sysml:source elmt:ClauseOrder__Quantity__num ;
+    sysml:owningRelatedElement elmt:ClauseOrder__Quantity__num ;
+    sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    sysml:general <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    sysml:target <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    sysml:owner elmt:ClauseOrder__Quantity__num ;
+    sysml:relatedElement elmt:ClauseOrder__Quantity__num, <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    json:relatedElement "[{\"@id\":\"ClauseOrder__Quantity__num\"},{\"@id\":\"14c0aa22-5489-59b5-b438-ded26e83ba31\"}]" .
+
+elmt:ClauseOrder__Ratio_sc0
+    a sysml:Subclassification ;
+    sysml:elementId "ClauseOrder__Ratio_sc0" ;
+    sysml:subclassifier elmt:ClauseOrder__Ratio ;
+    sysml:owningClassifier elmt:ClauseOrder__Ratio ;
+    sysml:specific elmt:ClauseOrder__Ratio ;
+    sysml:source elmt:ClauseOrder__Ratio ;
+    sysml:owningRelatedElement elmt:ClauseOrder__Ratio ;
+    sysml:superclassifier elmt:ClauseOrder__Quantity ;
+    sysml:general elmt:ClauseOrder__Quantity ;
+    sysml:target elmt:ClauseOrder__Quantity ;
+    sysml:owner elmt:ClauseOrder__Ratio ;
+    sysml:relatedElement elmt:ClauseOrder__Ratio, elmt:ClauseOrder__Quantity ;
+    json:relatedElement "[{\"@id\":\"ClauseOrder__Ratio\"},{\"@id\":\"ClauseOrder__Quantity\"}]" .
+
+elmt:ClauseOrder__Ratio___400_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ClauseOrder__Ratio___400_ft0" ;
+    sysml:typedFeature elmt:ClauseOrder__Ratio___400 ;
+    sysml:owningFeature elmt:ClauseOrder__Ratio___400 ;
+    sysml:specific elmt:ClauseOrder__Ratio___400 ;
+    sysml:source elmt:ClauseOrder__Ratio___400 ;
+    sysml:owningRelatedElement elmt:ClauseOrder__Ratio___400 ;
+    sysml:type <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    sysml:general <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    sysml:target <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    sysml:owner elmt:ClauseOrder__Ratio___400 ;
+    sysml:relatedElement elmt:ClauseOrder__Ratio___400, <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> ;
+    json:relatedElement "[{\"@id\":\"ClauseOrder__Ratio___400\"},{\"@id\":\"14c0aa22-5489-59b5-b438-ded26e83ba31\"}]" .
+
+elmt:ClauseOrder__Ratio___400_rd0
+    a sysml:Redefinition ;
+    sysml:elementId "ClauseOrder__Ratio___400_rd0" ;
+    sysml:redefiningFeature elmt:ClauseOrder__Ratio___400 ;
+    sysml:subsettingFeature elmt:ClauseOrder__Ratio___400 ;
+    sysml:owningFeature elmt:ClauseOrder__Ratio___400 ;
+    sysml:specific elmt:ClauseOrder__Ratio___400 ;
+    sysml:source elmt:ClauseOrder__Ratio___400 ;
+    sysml:owningRelatedElement elmt:ClauseOrder__Ratio___400 ;
+    sysml:redefinedFeature elmt:ClauseOrder__Quantity__num ;
+    sysml:subsettedFeature elmt:ClauseOrder__Quantity__num ;
+    sysml:general elmt:ClauseOrder__Quantity__num ;
+    sysml:target elmt:ClauseOrder__Quantity__num ;
+    sysml:owner elmt:ClauseOrder__Ratio___400 ;
+    sysml:relatedElement elmt:ClauseOrder__Ratio___400, elmt:ClauseOrder__Quantity__num ;
+    json:relatedElement "[{\"@id\":\"ClauseOrder__Ratio___400\"},{\"@id\":\"ClauseOrder__Quantity__num\"}]" .
+
+elmt:ClauseOrder__Mission__context_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ClauseOrder__Mission__context_ft0" ;
+    sysml:typedFeature elmt:ClauseOrder__Mission__context ;
+    sysml:owningFeature elmt:ClauseOrder__Mission__context ;
+    sysml:specific elmt:ClauseOrder__Mission__context ;
+    sysml:source elmt:ClauseOrder__Mission__context ;
+    sysml:owningRelatedElement elmt:ClauseOrder__Mission__context ;
+    sysml:type elmt:ClauseOrder__Ctx ;
+    sysml:general elmt:ClauseOrder__Ctx ;
+    sysml:target elmt:ClauseOrder__Ctx ;
+    sysml:owner elmt:ClauseOrder__Mission__context ;
+    sysml:relatedElement elmt:ClauseOrder__Mission__context, elmt:ClauseOrder__Ctx ;
+    json:relatedElement "[{\"@id\":\"ClauseOrder__Mission__context\"},{\"@id\":\"ClauseOrder__Ctx\"}]" .
+
+elmt:ClauseOrder__Mission__groundSystemAtIngress_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ClauseOrder__Mission__groundSystemAtIngress_ft0" ;
+    sysml:typedFeature elmt:ClauseOrder__Mission__groundSystemAtIngress ;
+    sysml:owningFeature elmt:ClauseOrder__Mission__groundSystemAtIngress ;
+    sysml:specific elmt:ClauseOrder__Mission__groundSystemAtIngress ;
+    sysml:source elmt:ClauseOrder__Mission__groundSystemAtIngress ;
+    sysml:owningRelatedElement elmt:ClauseOrder__Mission__groundSystemAtIngress ;
+    sysml:type elmt:ClauseOrder__Ctx ;
+    sysml:general elmt:ClauseOrder__Ctx ;
+    sysml:target elmt:ClauseOrder__Ctx ;
+    sysml:owner elmt:ClauseOrder__Mission__groundSystemAtIngress ;
+    sysml:relatedElement elmt:ClauseOrder__Mission__groundSystemAtIngress, elmt:ClauseOrder__Ctx ;
+    json:relatedElement "[{\"@id\":\"ClauseOrder__Mission__groundSystemAtIngress\"},{\"@id\":\"ClauseOrder__Ctx\"}]" .
+
+elmt:ClauseOrder__Mission__groundSystemAtIngress_ss0
+    a sysml:Subsetting ;
+    sysml:elementId "ClauseOrder__Mission__groundSystemAtIngress_ss0" ;
+    sysml:subsettingFeature elmt:ClauseOrder__Mission__groundSystemAtIngress ;
+    sysml:owningFeature elmt:ClauseOrder__Mission__groundSystemAtIngress ;
+    sysml:specific elmt:ClauseOrder__Mission__groundSystemAtIngress ;
+    sysml:source elmt:ClauseOrder__Mission__groundSystemAtIngress ;
+    sysml:owningRelatedElement elmt:ClauseOrder__Mission__groundSystemAtIngress ;
+    sysml:subsettedFeature elmt:ClauseOrder__Mission__context ;
+    sysml:general elmt:ClauseOrder__Mission__context ;
+    sysml:target elmt:ClauseOrder__Mission__context ;
+    sysml:owner elmt:ClauseOrder__Mission__groundSystemAtIngress ;
+    sysml:relatedElement elmt:ClauseOrder__Mission__groundSystemAtIngress, elmt:ClauseOrder__Mission__context ;
+    json:relatedElement "[{\"@id\":\"ClauseOrder__Mission__groundSystemAtIngress\"},{\"@id\":\"ClauseOrder__Mission__context\"}]" .

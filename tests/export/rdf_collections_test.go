@@ -30,7 +30,7 @@ func TestCollectionsAreAnnotated(t *testing.T) {
 		`    json:specializes "[{\"@id\":\"P__A\"},{\"@id\":\"P__B\"}]"`,
 		"    sysml:supplier elmt:P__B, elmt:P__C ;",
 		`    json:supplier "[{\"@id\":\"P__B\"},{\"@id\":\"P__C\"}]"`,
-		`    json:ownedMember "[{\"@id\":\"P__A\"},{\"@id\":\"P__B\"},{\"@id\":\"P__C\"}]"`,
+		`    json:ownedMember "[{\"@id\":\"P__A\"},{\"@id\":\"P__B\"},{\"@id\":\"P__C\"},{\"@id\":\"P__D\"}]"`,
 	} {
 		if !strings.Contains(turtle, want) {
 			t.Errorf("missing %q in:\n%s", want, turtle)
@@ -102,14 +102,14 @@ func TestConflictingCollectionSpellingsAreRefused(t *testing.T) {
 
 // An annotation that is not one JSON-array literal is refused with a typed error.
 func TestMalformedCollectionAnnotationsAreRefused(t *testing.T) {
-	annotation := `    json:specializes "[{\"@id\":\"P__A\"},{\"@id\":\"P__B\"}]" .`
+	annotation := `    json:specializes "[{\"@id\":\"P__A\"},{\"@id\":\"P__B\"}]" ;`
 	for name, edited := range map[string]string{
-		"not JSON":       `    json:specializes "[{" .`,
-		"not an array":   `    json:specializes "{\"@id\":\"P__A\"}" .`,
-		"a null member":  `    json:specializes "[null]" .`,
-		"two literals":   `    json:specializes "[{\"@id\":\"P__A\"},{\"@id\":\"P__B\"}]", "[]" .`,
-		"not a literal":  `    json:specializes elmt:P__A .`,
-		"a typed number": `    json:specializes "1"^^xsd:integer .`,
+		"not JSON":       `    json:specializes "[{" ;`,
+		"not an array":   `    json:specializes "{\"@id\":\"P__A\"}" ;`,
+		"a null member":  `    json:specializes "[null]" ;`,
+		"two literals":   `    json:specializes "[{\"@id\":\"P__A\"},{\"@id\":\"P__B\"}]", "[]" ;`,
+		"not a literal":  `    json:specializes elmt:P__A ;`,
+		"a typed number": `    json:specializes "1"^^xsd:integer ;`,
 	} {
 		t.Run(name, func(t *testing.T) {
 			turtle := editTurtle(t, idTurtle(t, collections), annotation, edited)
@@ -252,8 +252,8 @@ func TestAnnotatedReferencesResolveInTheReferrersNamespace(t *testing.T) {
 // describe is refused as a dangling reference, as a typed triple's would be.
 func TestAnnotatedReferenceToAnAbsentElementIsRefused(t *testing.T) {
 	turtle := editTurtle(t, idTurtle(t, collections),
-		`    json:specializes "[{\"@id\":\"P__A\"},{\"@id\":\"P__B\"}]" .`,
-		`    json:specializes "[{\"@id\":\"P__A\"},{\"@id\":\"P__Z\"}]" .`)
+		`    json:specializes "[{\"@id\":\"P__A\"},{\"@id\":\"P__B\"}]" ;`,
+		`    json:specializes "[{\"@id\":\"P__A\"},{\"@id\":\"P__Z\"}]" ;`)
 	turtle = withoutTriples(t, []byte(structural(t, turtle)), "sysml:specializes")
 	_, err := convert.Convert("m.ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
 	var unsupported *export.UnsupportedError

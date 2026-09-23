@@ -11,5 +11,5 @@ stateDiagram-v2
   }
   n1 --> n2
   n2 --> n1
-  n3 --> n4 : idle_to_moving: accept Signal [temperature #gt; 0]
+  n3 --> n4 : accept Signal [temperature #gt; 0]
   n4 --> n3

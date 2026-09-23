@@ -117,6 +117,9 @@ elmt:Results__Double__x
     sysml:direction "in" ;
     sysml:type elmt:Results__Real ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Results__Double__x_ft0 ;
+    sysml:ownedSpecialization elmt:Results__Double__x_ft0 ;
+    sysml:ownedRelationship elmt:Results__Double__x_ft0 ;
     sysx:sourceText "        in x : Real;\n" .
 
 elmt:Results__Double__x_om
@@ -177,7 +180,8 @@ expr:Results__Double___401_pa0
     sysml:referent elmt:Results__Double__x ;
     sysml:owner expr:Results__Double___401_pin0 ;
     sysml:owningRelationship expr:Results__Double___401_pa0_om ;
-    sysml:owningMembership expr:Results__Double___401_pa0_om .
+    sysml:owningMembership expr:Results__Double___401_pa0_om ;
+    sysml:ownedRelationship expr:Results__Double___401_pa0_preferent .
 
 expr:Results__Double___401_pin0
     a sysml:Feature ;
@@ -358,6 +362,9 @@ elmt:Results__AfterMembers__x
     sysml:direction "in" ;
     sysml:type elmt:Results__Real ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Results__AfterMembers__x_ft0 ;
+    sysml:ownedSpecialization elmt:Results__AfterMembers__x_ft0 ;
+    sysml:ownedRelationship elmt:Results__AfterMembers__x_ft0 ;
     sysx:sourceText "        in x : Real;\n" .
 
 elmt:Results__AfterMembers__x_om
@@ -406,10 +413,13 @@ elmt:Results__AfterMembers__y
     sysml:declaredName "y" ;
     sysml:type elmt:Results__Real ;
     sysml:value expr:Results__AfterMembers__y_pvalue ;
-    sysml:ownedRelationship expr:Results__AfterMembers__y_pvalue_om ;
+    sysml:ownedRelationship expr:Results__AfterMembers__y_pvalue_om, elmt:Results__AfterMembers__y_ft0 ;
     sysml:ownedMembership expr:Results__AfterMembers__y_pvalue_om ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysx:sourceText "        attribute y : Real = x + 1;\n" .
+    sysml:ownedTyping elmt:Results__AfterMembers__y_ft0 ;
+    sysml:ownedSpecialization elmt:Results__AfterMembers__y_ft0 ;
+    sysx:sourceText "        attribute y : Real = x + 1;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Results__AfterMembers__y_pvalue_om\"},{\"@id\":\"Results__AfterMembers__y_ft0\"}]" .
 
 elmt:Results__AfterMembers__y_om
     a sysml:FeatureMembership ;
@@ -453,7 +463,8 @@ expr:Results__AfterMembers__y_pvalue_pa0
     sysml:referent elmt:Results__AfterMembers__x ;
     sysml:owner expr:Results__AfterMembers__y_pvalue_pin0 ;
     sysml:owningRelationship expr:Results__AfterMembers__y_pvalue_pa0_om ;
-    sysml:owningMembership expr:Results__AfterMembers__y_pvalue_pa0_om .
+    sysml:owningMembership expr:Results__AfterMembers__y_pvalue_pa0_om ;
+    sysml:ownedRelationship expr:Results__AfterMembers__y_pvalue_pa0_preferent .
 
 expr:Results__AfterMembers__y_pvalue_pin0
     a sysml:Feature ;
@@ -590,7 +601,8 @@ expr:Results__AfterMembers___403_pa0
     sysml:referent elmt:Results__AfterMembers__y ;
     sysml:owner expr:Results__AfterMembers___403_pin0 ;
     sysml:owningRelationship expr:Results__AfterMembers___403_pa0_om ;
-    sysml:owningMembership expr:Results__AfterMembers___403_pa0_om .
+    sysml:owningMembership expr:Results__AfterMembers___403_pa0_om ;
+    sysml:ownedRelationship expr:Results__AfterMembers___403_pa0_preferent .
 
 expr:Results__AfterMembers___403_pin0
     a sysml:Feature ;
@@ -633,7 +645,8 @@ expr:Results__AfterMembers___403_pa1
     sysml:referent elmt:Results__AfterMembers__y ;
     sysml:owner expr:Results__AfterMembers___403_pin1 ;
     sysml:owningRelationship expr:Results__AfterMembers___403_pa1_om ;
-    sysml:owningMembership expr:Results__AfterMembers___403_pa1_om .
+    sysml:owningMembership expr:Results__AfterMembers___403_pa1_om ;
+    sysml:ownedRelationship expr:Results__AfterMembers___403_pa1_preferent .
 
 expr:Results__AfterMembers___403_pin1
     a sysml:Feature ;
@@ -717,6 +730,9 @@ elmt:Results__Body__x
     sysml:direction "in" ;
     sysml:type elmt:Results__Real ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Results__Body__x_ft0 ;
+    sysml:ownedSpecialization elmt:Results__Body__x_ft0 ;
+    sysml:ownedRelationship elmt:Results__Body__x_ft0 ;
     sysx:sourceText "        in x : Real;\n" .
 
 elmt:Results__Body__x_om
@@ -793,7 +809,8 @@ expr:Results__Body___401_presult_pa0
     sysml:referent "y" ;
     sysml:owner expr:Results__Body___401_presult_pin0 ;
     sysml:owningRelationship expr:Results__Body___401_presult_pa0_om ;
-    sysml:owningMembership expr:Results__Body___401_presult_pa0_om .
+    sysml:owningMembership expr:Results__Body___401_presult_pa0_om ;
+    sysml:ownedRelationship expr:Results__Body___401_presult_pa0_preferent .
 
 expr:Results__Body___401_presult_pin0
     a sysml:Feature ;
@@ -836,7 +853,8 @@ expr:Results__Body___401_presult_pa1
     sysml:referent elmt:Results__Body__x ;
     sysml:owner expr:Results__Body___401_presult_pin1 ;
     sysml:owningRelationship expr:Results__Body___401_presult_pa1_om ;
-    sysml:owningMembership expr:Results__Body___401_presult_pa1_om .
+    sysml:owningMembership expr:Results__Body___401_presult_pa1_om ;
+    sysml:ownedRelationship expr:Results__Body___401_presult_pa1_preferent .
 
 expr:Results__Body___401_presult_pin1
     a sysml:Feature ;
@@ -920,6 +938,9 @@ elmt:Results__Quoted__x
     sysml:direction "in" ;
     sysml:type elmt:Results__Real ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Results__Quoted__x_ft0 ;
+    sysml:ownedSpecialization elmt:Results__Quoted__x_ft0 ;
+    sysml:ownedRelationship elmt:Results__Quoted__x_ft0 ;
     sysx:sourceText "        in x : Real;\n" .
 
 elmt:Results__Quoted__x_om
@@ -996,7 +1017,8 @@ expr:Results__Quoted___401_presult_pa0
     sysml:referent "the input" ;
     sysml:owner expr:Results__Quoted___401_presult_pin0 ;
     sysml:owningRelationship expr:Results__Quoted___401_presult_pa0_om ;
-    sysml:owningMembership expr:Results__Quoted___401_presult_pa0_om .
+    sysml:owningMembership expr:Results__Quoted___401_presult_pa0_om ;
+    sysml:ownedRelationship expr:Results__Quoted___401_presult_pa0_preferent .
 
 expr:Results__Quoted___401_presult_pin0
     a sysml:Feature ;
@@ -1039,7 +1061,8 @@ expr:Results__Quoted___401_presult_pa1
     sysml:referent elmt:Results__Quoted__x ;
     sysml:owner expr:Results__Quoted___401_presult_pin1 ;
     sysml:owningRelationship expr:Results__Quoted___401_presult_pa1_om ;
-    sysml:owningMembership expr:Results__Quoted___401_presult_pa1_om .
+    sysml:owningMembership expr:Results__Quoted___401_presult_pa1_om ;
+    sysml:ownedRelationship expr:Results__Quoted___401_presult_pa1_preferent .
 
 expr:Results__Quoted___401_presult_pin1
     a sysml:Feature ;
@@ -1123,6 +1146,9 @@ elmt:Results__Nested__x
     sysml:direction "in" ;
     sysml:type elmt:Results__Real ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Results__Nested__x_ft0 ;
+    sysml:ownedSpecialization elmt:Results__Nested__x_ft0 ;
+    sysml:ownedRelationship elmt:Results__Nested__x_ft0 ;
     sysx:sourceText "        in x : Real;\n" .
 
 elmt:Results__Nested__x_om
@@ -1232,7 +1258,8 @@ expr:Results__Nested___401_presult_pn0_presult_pa0
     sysml:referent "z" ;
     sysml:owner expr:Results__Nested___401_presult_pn0_presult_pin0 ;
     sysml:owningRelationship expr:Results__Nested___401_presult_pn0_presult_pa0_om ;
-    sysml:owningMembership expr:Results__Nested___401_presult_pn0_presult_pa0_om .
+    sysml:owningMembership expr:Results__Nested___401_presult_pn0_presult_pa0_om ;
+    sysml:ownedRelationship expr:Results__Nested___401_presult_pn0_presult_pa0_preferent .
 
 expr:Results__Nested___401_presult_pn0_presult_pin0
     a sysml:Feature ;
@@ -1275,7 +1302,8 @@ expr:Results__Nested___401_presult_pn0_presult_pa1
     sysml:referent "y" ;
     sysml:owner expr:Results__Nested___401_presult_pn0_presult_pin1 ;
     sysml:owningRelationship expr:Results__Nested___401_presult_pn0_presult_pa1_om ;
-    sysml:owningMembership expr:Results__Nested___401_presult_pn0_presult_pa1_om .
+    sysml:owningMembership expr:Results__Nested___401_presult_pn0_presult_pa1_om ;
+    sysml:ownedRelationship expr:Results__Nested___401_presult_pn0_presult_pa1_preferent .
 
 expr:Results__Nested___401_presult_pn0_presult_pin1
     a sysml:Feature ;
@@ -1393,6 +1421,9 @@ elmt:Results__Documented__x
     sysml:direction "in" ;
     sysml:type elmt:Results__Real ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Results__Documented__x_ft0 ;
+    sysml:ownedSpecialization elmt:Results__Documented__x_ft0 ;
+    sysml:ownedRelationship elmt:Results__Documented__x_ft0 ;
     sysx:sourceText "        in x : Real;\n" .
 
 elmt:Results__Documented__x_om
@@ -1453,7 +1484,8 @@ expr:Results__Documented___401_presult
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "y" ;
     sysml:elementId "Results__Documented___401_presult" ;
-    sysml:referent "y" .
+    sysml:referent "y" ;
+    sysml:ownedRelationship expr:Results__Documented___401_presult_preferent .
 
 elmt:Results__Passes
     a sysml:CalculationDefinition ;
@@ -1503,6 +1535,9 @@ elmt:Results__Passes__ok
     sysml:direction "in" ;
     sysml:type elmt:Results__Boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Results__Passes__ok_ft0 ;
+    sysml:ownedSpecialization elmt:Results__Passes__ok_ft0 ;
+    sysml:ownedRelationship elmt:Results__Passes__ok_ft0 ;
     sysx:sourceText "        in ok : Boolean;\n" .
 
 elmt:Results__Passes__ok_om
@@ -1527,6 +1562,7 @@ elmt:Results__Passes___401
     sysml:owningRelationship elmt:Results__Passes___401_om ;
     sysml:owningMembership elmt:Results__Passes___401_om ;
     sysml:referent elmt:Results__Passes__ok ;
+    sysml:ownedRelationship elmt:Results__Passes___401_referent ;
     sysx:sourceText "        ok\n" .
 
 elmt:Results__Passes___401_om
@@ -1644,6 +1680,9 @@ elmt:Results__Empty__x
     sysml:direction "in" ;
     sysml:type elmt:Results__Real ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Results__Empty__x_ft0 ;
+    sysml:ownedSpecialization elmt:Results__Empty__x_ft0 ;
+    sysml:ownedRelationship elmt:Results__Empty__x_ft0 ;
     sysx:sourceText "        in x : Real;\n" .
 
 elmt:Results__Empty__x_om
@@ -1731,6 +1770,9 @@ elmt:Results__Named__x
     sysml:direction "in" ;
     sysml:type elmt:Results__Real ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Results__Named__x_ft0 ;
+    sysml:ownedSpecialization elmt:Results__Named__x_ft0 ;
+    sysml:ownedRelationship elmt:Results__Named__x_ft0 ;
     sysx:sourceText "        in x : Real;\n" .
 
 elmt:Results__Named__x_om
@@ -1785,7 +1827,8 @@ expr:Results__Named___401_pn0
     sysml:owner expr:Results__Named___401_pin0 ;
     sysml:owningRelationship expr:Results__Named___401_pn0_om ;
     sysml:owningMembership expr:Results__Named___401_pn0_om ;
-    sysx:argumentName "the value" .
+    sysx:argumentName "the value" ;
+    sysml:ownedRelationship expr:Results__Named___401_pn0_preferent .
 
 expr:Results__Named___401_pin0
     a sysml:Feature ;
@@ -1869,6 +1912,9 @@ elmt:Results__Scaled__x
     sysml:direction "in" ;
     sysml:type elmt:Results__Real ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Results__Scaled__x_ft0 ;
+    sysml:ownedSpecialization elmt:Results__Scaled__x_ft0 ;
+    sysml:ownedRelationship elmt:Results__Scaled__x_ft0 ;
     sysx:sourceText "        in x : Real;\n" .
 
 elmt:Results__Scaled__x_om
@@ -1929,7 +1975,8 @@ expr:Results__Scaled___401_pa0
     sysml:referent elmt:Results__Scaled__x ;
     sysml:owner expr:Results__Scaled___401_pin0 ;
     sysml:owningRelationship expr:Results__Scaled___401_pa0_om ;
-    sysml:owningMembership expr:Results__Scaled___401_pa0_om .
+    sysml:owningMembership expr:Results__Scaled___401_pa0_om ;
+    sysml:ownedRelationship expr:Results__Scaled___401_pa0_preferent .
 
 expr:Results__Scaled___401_pin0
     a sysml:Feature ;
@@ -2056,6 +2103,9 @@ elmt:Results__Predicate__x
     sysml:direction "in" ;
     sysml:type elmt:Results__Real ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Results__Predicate__x_ft0 ;
+    sysml:ownedSpecialization elmt:Results__Predicate__x_ft0 ;
+    sysml:ownedRelationship elmt:Results__Predicate__x_ft0 ;
     sysx:sourceText "        in x : Real;\n" .
 
 elmt:Results__Predicate__x_om
@@ -2085,13 +2135,15 @@ elmt:Results__Predicate__keep
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Results__Predicate__keep__v, elmt:Results__Predicate__keep___401 ;
     sysml:ownedMembership elmt:Results__Predicate__keep__v_om, elmt:Results__Predicate__keep___401_om ;
-    sysml:ownedRelationship elmt:Results__Predicate__keep__v_om, elmt:Results__Predicate__keep___401_om ;
+    sysml:ownedRelationship elmt:Results__Predicate__keep__v_om, elmt:Results__Predicate__keep___401_om, elmt:Results__Predicate__keep_ft0 ;
     sysml:ownedFeature elmt:Results__Predicate__keep__v, elmt:Results__Predicate__keep___401 ;
     sysml:ownedFeatureMembership elmt:Results__Predicate__keep__v_om, elmt:Results__Predicate__keep___401_om ;
+    sysml:ownedTyping elmt:Results__Predicate__keep_ft0 ;
+    sysml:ownedSpecialization elmt:Results__Predicate__keep_ft0 ;
     sysx:sourceText "        in expr keep : Boolean { in v : Real; v > x }\n" ;
     json:ownedMember "[{\"@id\":\"Results__Predicate__keep__v\"},{\"@id\":\"Results__Predicate__keep___401\"}]" ;
     json:ownedMembership "[{\"@id\":\"Results__Predicate__keep__v_om\"},{\"@id\":\"Results__Predicate__keep___401_om\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"Results__Predicate__keep__v_om\"},{\"@id\":\"Results__Predicate__keep___401_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Results__Predicate__keep__v_om\"},{\"@id\":\"Results__Predicate__keep___401_om\"},{\"@id\":\"Results__Predicate__keep_ft0\"}]" ;
     json:ownedFeature "[{\"@id\":\"Results__Predicate__keep__v\"},{\"@id\":\"Results__Predicate__keep___401\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Results__Predicate__keep__v_om\"},{\"@id\":\"Results__Predicate__keep___401_om\"}]" .
 
@@ -2120,7 +2172,10 @@ elmt:Results__Predicate__keep__v
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:direction "in" ;
     sysml:type elmt:Results__Real ;
-    sysx:hasBody "false"^^xsd:boolean .
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Results__Predicate__keep__v_ft0 ;
+    sysml:ownedSpecialization elmt:Results__Predicate__keep__v_ft0 ;
+    sysml:ownedRelationship elmt:Results__Predicate__keep__v_ft0 .
 
 elmt:Results__Predicate__keep__v_om
     a sysml:FeatureMembership ;
@@ -2179,7 +2234,8 @@ expr:Results__Predicate__keep___401_pa0
     sysml:referent elmt:Results__Predicate__keep__v ;
     sysml:owner expr:Results__Predicate__keep___401_pin0 ;
     sysml:owningRelationship expr:Results__Predicate__keep___401_pa0_om ;
-    sysml:owningMembership expr:Results__Predicate__keep___401_pa0_om .
+    sysml:owningMembership expr:Results__Predicate__keep___401_pa0_om ;
+    sysml:ownedRelationship expr:Results__Predicate__keep___401_pa0_preferent .
 
 expr:Results__Predicate__keep___401_pin0
     a sysml:Feature ;
@@ -2222,7 +2278,8 @@ expr:Results__Predicate__keep___401_pa1
     sysml:referent elmt:Results__Predicate__x ;
     sysml:owner expr:Results__Predicate__keep___401_pin1 ;
     sysml:owningRelationship expr:Results__Predicate__keep___401_pa1_om ;
-    sysml:owningMembership expr:Results__Predicate__keep___401_pa1_om .
+    sysml:owningMembership expr:Results__Predicate__keep___401_pa1_om ;
+    sysml:ownedRelationship expr:Results__Predicate__keep___401_pa1_preferent .
 
 expr:Results__Predicate__keep___401_pin1
     a sysml:Feature ;
@@ -2352,7 +2409,8 @@ expr:Results__Predicate___403_pa0
     sysml:referent elmt:Results__Predicate__x ;
     sysml:owner expr:Results__Predicate___403_pin0 ;
     sysml:owningRelationship expr:Results__Predicate___403_pa0_om ;
-    sysml:owningMembership expr:Results__Predicate___403_pa0_om .
+    sysml:owningMembership expr:Results__Predicate___403_pa0_om ;
+    sysml:ownedRelationship expr:Results__Predicate___403_pa0_preferent .
 
 expr:Results__Predicate___403_pin0
     a sysml:Feature ;
@@ -2436,6 +2494,9 @@ elmt:Results__Chained__x
     sysml:direction "in" ;
     sysml:type elmt:Results__Real ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Results__Chained__x_ft0 ;
+    sysml:ownedSpecialization elmt:Results__Chained__x_ft0 ;
+    sysml:ownedRelationship elmt:Results__Chained__x_ft0 ;
     sysx:sourceText "        in x : Real;\n" .
 
 elmt:Results__Chained__x_om
@@ -2460,14 +2521,15 @@ elmt:Results__Chained___401
     sysml:owningRelationship elmt:Results__Chained___401_om ;
     sysml:owningMembership elmt:Results__Chained___401_om ;
     sysml:argument expr:Results__Chained___401_pa0 ;
-    sysml:ownedRelationship expr:Results__Chained___401_pin0_om ;
+    sysml:ownedRelationship expr:Results__Chained___401_pin0_om, elmt:Results__Chained___401_targetFeature ;
     sysml:ownedMembership expr:Results__Chained___401_pin0_om ;
     sysml:ownedFeatureMembership expr:Results__Chained___401_pin0_om ;
     sysml:ownedFeature expr:Results__Chained___401_pin0 ;
     sysml:parameter expr:Results__Chained___401_pin0 ;
     sysml:input expr:Results__Chained___401_pin0 ;
     sysml:targetFeature "result" ;
-    sysx:sourceText "        Double(x = Double(x)).result\n" .
+    sysx:sourceText "        Double(x = Double(x)).result\n" ;
+    json:ownedRelationship "[{\"@id\":\"Results__Chained___401_pin0_om\"},{\"@id\":\"Results__Chained___401_targetFeature\"}]" .
 
 elmt:Results__Chained___401_om
     a sysml:ResultExpressionMembership ;
@@ -2522,7 +2584,8 @@ expr:Results__Chained___401_pa0_pn0_pa0
     sysml:referent elmt:Results__Chained__x ;
     sysml:owner expr:Results__Chained___401_pa0_pn0_pin0 ;
     sysml:owningRelationship expr:Results__Chained___401_pa0_pn0_pa0_om ;
-    sysml:owningMembership expr:Results__Chained___401_pa0_pn0_pa0_om .
+    sysml:owningMembership expr:Results__Chained___401_pa0_pn0_pa0_om ;
+    sysml:ownedRelationship expr:Results__Chained___401_pa0_pn0_pa0_preferent .
 
 expr:Results__Chained___401_pa0_pn0_pin0
     a sysml:Feature ;
@@ -2674,6 +2737,9 @@ elmt:Results__Conditional__x
     sysml:direction "in" ;
     sysml:type elmt:Results__Real ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Results__Conditional__x_ft0 ;
+    sysml:ownedSpecialization elmt:Results__Conditional__x_ft0 ;
+    sysml:ownedRelationship elmt:Results__Conditional__x_ft0 ;
     sysx:sourceText "        in x : Real;\n" .
 
 elmt:Results__Conditional__x_om
@@ -2757,7 +2823,8 @@ expr:Results__Conditional___401_pa0_pa0
     sysml:referent elmt:Results__Conditional__x ;
     sysml:owner expr:Results__Conditional___401_pa0_pin0 ;
     sysml:owningRelationship expr:Results__Conditional___401_pa0_pa0_om ;
-    sysml:owningMembership expr:Results__Conditional___401_pa0_pa0_om .
+    sysml:owningMembership expr:Results__Conditional___401_pa0_pa0_om ;
+    sysml:ownedRelationship expr:Results__Conditional___401_pa0_pa0_preferent .
 
 expr:Results__Conditional___401_pa0_pin0
     a sysml:Feature ;
@@ -2877,7 +2944,8 @@ expr:Results__Conditional___401_pa1
     sysml:referent elmt:Results__Conditional__x ;
     sysml:owner expr:Results__Conditional___401_pin1 ;
     sysml:owningRelationship expr:Results__Conditional___401_pa1_om ;
-    sysml:owningMembership expr:Results__Conditional___401_pa1_om .
+    sysml:owningMembership expr:Results__Conditional___401_pa1_om ;
+    sysml:ownedRelationship expr:Results__Conditional___401_pa1_preferent .
 
 expr:Results__Conditional___401_pin1
     a sysml:Feature ;
@@ -2936,7 +3004,8 @@ expr:Results__Conditional___401_pa2_pa0
     sysml:referent elmt:Results__Conditional__x ;
     sysml:owner expr:Results__Conditional___401_pa2_pin0 ;
     sysml:owningRelationship expr:Results__Conditional___401_pa2_pa0_om ;
-    sysml:owningMembership expr:Results__Conditional___401_pa2_pa0_om .
+    sysml:owningMembership expr:Results__Conditional___401_pa2_pa0_om ;
+    sysml:ownedRelationship expr:Results__Conditional___401_pa2_pa0_preferent .
 
 expr:Results__Conditional___401_pa2_pin0
     a sysml:Feature ;
@@ -3054,6 +3123,9 @@ elmt:Results__Widened__x
     sysml:direction "in" ;
     sysml:type elmt:Results__Real ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Results__Widened__x_ft0 ;
+    sysml:ownedSpecialization elmt:Results__Widened__x_ft0 ;
+    sysml:ownedRelationship elmt:Results__Widened__x_ft0 ;
     sysx:sourceText "        in x : Real;\n" .
 
 elmt:Results__Widened__x_om
@@ -3079,9 +3151,10 @@ elmt:Results__Widened___401
     sysml:owningMembership elmt:Results__Widened___401_om ;
     sysml:operator "as" ;
     sysx:typeArgument elmt:Results__Real ;
+    sysml:multiplicity expr:Results__Widened___401_pmultiplicity ;
+    sysml:ownedRelationship expr:Results__Widened___401_pmultiplicity_om ;
+    sysml:ownedMembership expr:Results__Widened___401_pmultiplicity_om ;
     sysml:upperBound expr:Results__Widened___401_pupperBound ;
-    sysml:ownedRelationship expr:Results__Widened___401_pupperBound_om ;
-    sysml:ownedMembership expr:Results__Widened___401_pupperBound_om ;
     sysx:sourceText "        (as Real[2])\n" .
 
 elmt:Results__Widened___401_om
@@ -3097,24 +3170,44 @@ elmt:Results__Widened___401_om
     sysml:owningType elmt:Results__Widened ;
     sysml:ownedResultExpression elmt:Results__Widened___401 .
 
+expr:Results__Widened___401_pmultiplicity
+    a sysml:MultiplicityRange ;
+    sysml:elementId "Results__Widened___401_pmultiplicity" ;
+    sysml:owner elmt:Results__Widened___401 ;
+    sysml:owningRelationship expr:Results__Widened___401_pmultiplicity_om ;
+    sysml:owningMembership expr:Results__Widened___401_pmultiplicity_om ;
+    sysml:upperBound expr:Results__Widened___401_pupperBound ;
+    sysml:ownedRelationship expr:Results__Widened___401_pupperBound_om ;
+    sysml:ownedMembership expr:Results__Widened___401_pupperBound_om .
+
+expr:Results__Widened___401_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Results__Widened___401_pmultiplicity_om" ;
+    sysml:owner elmt:Results__Widened___401 ;
+    sysml:memberElement expr:Results__Widened___401_pmultiplicity ;
+    sysml:ownedMemberElement expr:Results__Widened___401_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Results__Widened___401_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Results__Widened___401 ;
+    sysml:membershipOwningNamespace elmt:Results__Widened___401 .
+
 expr:Results__Widened___401_pupperBound
     a sysml:LiteralInteger ;
     sysx:sourceText "2" ;
     sysml:elementId "Results__Widened___401_pupperBound" ;
     sysml:value "2"^^xsd:integer ;
-    sysml:owner elmt:Results__Widened___401 ;
+    sysml:owner expr:Results__Widened___401_pmultiplicity ;
     sysml:owningRelationship expr:Results__Widened___401_pupperBound_om ;
     sysml:owningMembership expr:Results__Widened___401_pupperBound_om .
 
 expr:Results__Widened___401_pupperBound_om
     a sysml:OwningMembership ;
     sysml:elementId "Results__Widened___401_pupperBound_om" ;
-    sysml:owner elmt:Results__Widened___401 ;
+    sysml:owner expr:Results__Widened___401_pmultiplicity ;
     sysml:memberElement expr:Results__Widened___401_pupperBound ;
     sysml:ownedMemberElement expr:Results__Widened___401_pupperBound ;
     sysml:ownedRelatedElement expr:Results__Widened___401_pupperBound ;
-    sysml:owningRelatedElement elmt:Results__Widened___401 ;
-    sysml:membershipOwningNamespace elmt:Results__Widened___401 .
+    sysml:owningRelatedElement expr:Results__Widened___401_pmultiplicity ;
+    sysml:membershipOwningNamespace expr:Results__Widened___401_pmultiplicity .
 
 elmt:Results__Ranged
     a sysml:CalculationDefinition ;
@@ -3164,6 +3257,9 @@ elmt:Results__Ranged__x
     sysml:direction "in" ;
     sysml:type elmt:Results__Real ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Results__Ranged__x_ft0 ;
+    sysml:ownedSpecialization elmt:Results__Ranged__x_ft0 ;
+    sysml:ownedRelationship elmt:Results__Ranged__x_ft0 ;
     sysx:sourceText "        in x : Real;\n" .
 
 elmt:Results__Ranged__x_om
@@ -3189,13 +3285,12 @@ elmt:Results__Ranged___401
     sysml:owningMembership elmt:Results__Ranged___401_om ;
     sysml:operator "as" ;
     sysx:typeArgument elmt:Results__Real ;
+    sysml:multiplicity expr:Results__Ranged___401_pmultiplicity ;
+    sysml:ownedRelationship expr:Results__Ranged___401_pmultiplicity_om ;
+    sysml:ownedMembership expr:Results__Ranged___401_pmultiplicity_om ;
     sysml:lowerBound expr:Results__Ranged___401_plowerBound ;
-    sysml:ownedRelationship expr:Results__Ranged___401_plowerBound_om, expr:Results__Ranged___401_pupperBound_om ;
-    sysml:ownedMembership expr:Results__Ranged___401_plowerBound_om, expr:Results__Ranged___401_pupperBound_om ;
     sysml:upperBound expr:Results__Ranged___401_pupperBound ;
-    sysx:sourceText "        (as Real[1..*])\n" ;
-    json:ownedRelationship "[{\"@id\":\"Results__Ranged___401_plowerBound_om\"},{\"@id\":\"Results__Ranged___401_pupperBound_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Results__Ranged___401_plowerBound_om\"},{\"@id\":\"Results__Ranged___401_pupperBound_om\"}]" .
+    sysx:sourceText "        (as Real[1..*])\n" .
 
 elmt:Results__Ranged___401_om
     a sysml:ResultExpressionMembership ;
@@ -3210,42 +3305,65 @@ elmt:Results__Ranged___401_om
     sysml:owningType elmt:Results__Ranged ;
     sysml:ownedResultExpression elmt:Results__Ranged___401 .
 
+expr:Results__Ranged___401_pmultiplicity
+    a sysml:MultiplicityRange ;
+    sysml:elementId "Results__Ranged___401_pmultiplicity" ;
+    sysml:owner elmt:Results__Ranged___401 ;
+    sysml:owningRelationship expr:Results__Ranged___401_pmultiplicity_om ;
+    sysml:owningMembership expr:Results__Ranged___401_pmultiplicity_om ;
+    sysml:lowerBound expr:Results__Ranged___401_plowerBound ;
+    sysml:ownedRelationship expr:Results__Ranged___401_plowerBound_om, expr:Results__Ranged___401_pupperBound_om ;
+    sysml:ownedMembership expr:Results__Ranged___401_plowerBound_om, expr:Results__Ranged___401_pupperBound_om ;
+    sysml:upperBound expr:Results__Ranged___401_pupperBound ;
+    json:ownedRelationship "[{\"@id\":\"Results__Ranged___401_plowerBound_om\"},{\"@id\":\"Results__Ranged___401_pupperBound_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Results__Ranged___401_plowerBound_om\"},{\"@id\":\"Results__Ranged___401_pupperBound_om\"}]" .
+
+expr:Results__Ranged___401_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Results__Ranged___401_pmultiplicity_om" ;
+    sysml:owner elmt:Results__Ranged___401 ;
+    sysml:memberElement expr:Results__Ranged___401_pmultiplicity ;
+    sysml:ownedMemberElement expr:Results__Ranged___401_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Results__Ranged___401_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Results__Ranged___401 ;
+    sysml:membershipOwningNamespace elmt:Results__Ranged___401 .
+
 expr:Results__Ranged___401_plowerBound
     a sysml:LiteralInteger ;
     sysx:sourceText "1" ;
     sysml:elementId "Results__Ranged___401_plowerBound" ;
     sysml:value "1"^^xsd:integer ;
-    sysml:owner elmt:Results__Ranged___401 ;
+    sysml:owner expr:Results__Ranged___401_pmultiplicity ;
     sysml:owningRelationship expr:Results__Ranged___401_plowerBound_om ;
     sysml:owningMembership expr:Results__Ranged___401_plowerBound_om .
 
 expr:Results__Ranged___401_plowerBound_om
     a sysml:OwningMembership ;
     sysml:elementId "Results__Ranged___401_plowerBound_om" ;
-    sysml:owner elmt:Results__Ranged___401 ;
+    sysml:owner expr:Results__Ranged___401_pmultiplicity ;
     sysml:memberElement expr:Results__Ranged___401_plowerBound ;
     sysml:ownedMemberElement expr:Results__Ranged___401_plowerBound ;
     sysml:ownedRelatedElement expr:Results__Ranged___401_plowerBound ;
-    sysml:owningRelatedElement elmt:Results__Ranged___401 ;
-    sysml:membershipOwningNamespace elmt:Results__Ranged___401 .
+    sysml:owningRelatedElement expr:Results__Ranged___401_pmultiplicity ;
+    sysml:membershipOwningNamespace expr:Results__Ranged___401_pmultiplicity .
 
 expr:Results__Ranged___401_pupperBound
     a sysml:LiteralInfinity ;
     sysx:sourceText "*" ;
     sysml:elementId "Results__Ranged___401_pupperBound" ;
-    sysml:owner elmt:Results__Ranged___401 ;
+    sysml:owner expr:Results__Ranged___401_pmultiplicity ;
     sysml:owningRelationship expr:Results__Ranged___401_pupperBound_om ;
     sysml:owningMembership expr:Results__Ranged___401_pupperBound_om .
 
 expr:Results__Ranged___401_pupperBound_om
     a sysml:OwningMembership ;
     sysml:elementId "Results__Ranged___401_pupperBound_om" ;
-    sysml:owner elmt:Results__Ranged___401 ;
+    sysml:owner expr:Results__Ranged___401_pmultiplicity ;
     sysml:memberElement expr:Results__Ranged___401_pupperBound ;
     sysml:ownedMemberElement expr:Results__Ranged___401_pupperBound ;
     sysml:ownedRelatedElement expr:Results__Ranged___401_pupperBound ;
-    sysml:owningRelatedElement elmt:Results__Ranged___401 ;
-    sysml:membershipOwningNamespace elmt:Results__Ranged___401 .
+    sysml:owningRelatedElement expr:Results__Ranged___401_pmultiplicity ;
+    sysml:membershipOwningNamespace expr:Results__Ranged___401_pmultiplicity .
 
 elmt:Results__Vehicle
     a sysml:PartDefinition ;
@@ -3288,6 +3406,9 @@ elmt:Results__Vehicle__mass
     sysml:declaredName "mass" ;
     sysml:type elmt:Results__Real ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Results__Vehicle__mass_ft0 ;
+    sysml:ownedSpecialization elmt:Results__Vehicle__mass_ft0 ;
+    sysml:ownedRelationship elmt:Results__Vehicle__mass_ft0 ;
     sysx:sourceText "        attribute mass : Real;\n" .
 
 elmt:Results__Vehicle__mass_om
@@ -3314,14 +3435,18 @@ elmt:Results__MassAnalysis
     sysml:declaredName "MassAnalysis" ;
     sysx:declaredKeyword "analysis" ;
     sysx:hasBody "true"^^xsd:boolean ;
-    sysml:ownedRelationship elmt:Results__MassAnalysis__v, elmt:Results__MassAnalysis___401_om ;
-    sysml:ownedMember elmt:Results__MassAnalysis___401 ;
-    sysml:ownedMembership elmt:Results__MassAnalysis___401_om ;
-    sysml:ownedFeature elmt:Results__MassAnalysis___401 ;
-    sysml:ownedFeatureMembership elmt:Results__MassAnalysis___401_om ;
+    sysml:ownedMember elmt:Results__MassAnalysis__v, elmt:Results__MassAnalysis___401 ;
+    sysml:ownedMembership elmt:Results__MassAnalysis__v_om, elmt:Results__MassAnalysis___401_om ;
+    sysml:ownedRelationship elmt:Results__MassAnalysis__v_om, elmt:Results__MassAnalysis___401_om ;
+    sysml:ownedFeature elmt:Results__MassAnalysis__v, elmt:Results__MassAnalysis___401 ;
+    sysml:ownedFeatureMembership elmt:Results__MassAnalysis__v_om, elmt:Results__MassAnalysis___401_om ;
     sysx:sourceText "    analysis def MassAnalysis {\n" ;
     sysx:sourceTail "    }\n" ;
-    json:ownedRelationship "[{\"@id\":\"Results__MassAnalysis__v\"},{\"@id\":\"Results__MassAnalysis___401_om\"}]" .
+    json:ownedMember "[{\"@id\":\"Results__MassAnalysis__v\"},{\"@id\":\"Results__MassAnalysis___401\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Results__MassAnalysis__v_om\"},{\"@id\":\"Results__MassAnalysis___401_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Results__MassAnalysis__v_om\"},{\"@id\":\"Results__MassAnalysis___401_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Results__MassAnalysis__v\"},{\"@id\":\"Results__MassAnalysis___401\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Results__MassAnalysis__v_om\"},{\"@id\":\"Results__MassAnalysis___401_om\"}]" .
 
 elmt:Results__MassAnalysis_om
     a sysml:OwningMembership ;
@@ -3334,17 +3459,36 @@ elmt:Results__MassAnalysis_om
     sysml:membershipOwningNamespace elmt:Results .
 
 elmt:Results__MassAnalysis__v
-    a sysml:SubjectMembership ;
+    a sysml:ReferenceUsage ;
     sysml:qualifiedName "Results::MassAnalysis::v" ;
     sysml:elementId "Results__MassAnalysis__v" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__MassAnalysis ;
     sysml:owner elmt:Results__MassAnalysis ;
-    sysml:owningRelatedElement elmt:Results__MassAnalysis ;
+    sysml:owningRelationship elmt:Results__MassAnalysis__v_om ;
+    sysml:owningMembership elmt:Results__MassAnalysis__v_om ;
     sysml:declaredName "v" ;
+    sysml:direction "in" ;
     sysml:type elmt:Results__Vehicle ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Results__MassAnalysis__v_ft0 ;
+    sysml:ownedSpecialization elmt:Results__MassAnalysis__v_ft0 ;
+    sysml:ownedRelationship elmt:Results__MassAnalysis__v_ft0 ;
     sysx:sourceText "        subject v : Vehicle;\n" .
+
+elmt:Results__MassAnalysis__v_om
+    a sysml:SubjectMembership ;
+    sysml:elementId "Results__MassAnalysis__v_om" ;
+    sysml:owner elmt:Results__MassAnalysis ;
+    sysml:memberElement elmt:Results__MassAnalysis__v ;
+    sysml:ownedMemberElement elmt:Results__MassAnalysis__v ;
+    sysml:ownedRelatedElement elmt:Results__MassAnalysis__v ;
+    sysml:owningRelatedElement elmt:Results__MassAnalysis ;
+    sysml:membershipOwningNamespace elmt:Results__MassAnalysis ;
+    sysml:ownedSubjectParameter elmt:Results__MassAnalysis__v ;
+    sysml:ownedMemberParameter elmt:Results__MassAnalysis__v ;
+    sysml:ownedMemberFeature elmt:Results__MassAnalysis__v ;
+    sysml:owningType elmt:Results__MassAnalysis .
 
 elmt:Results__MassAnalysis___401
     a sysml:FeatureChainExpression ;
@@ -3356,14 +3500,15 @@ elmt:Results__MassAnalysis___401
     sysml:owningRelationship elmt:Results__MassAnalysis___401_om ;
     sysml:owningMembership elmt:Results__MassAnalysis___401_om ;
     sysml:argument expr:Results__MassAnalysis___401_pa0 ;
-    sysml:ownedRelationship expr:Results__MassAnalysis___401_pin0_om ;
+    sysml:ownedRelationship expr:Results__MassAnalysis___401_pin0_om, elmt:Results__MassAnalysis___401_targetFeature ;
     sysml:ownedMembership expr:Results__MassAnalysis___401_pin0_om ;
     sysml:ownedFeatureMembership expr:Results__MassAnalysis___401_pin0_om ;
     sysml:ownedFeature expr:Results__MassAnalysis___401_pin0 ;
     sysml:parameter expr:Results__MassAnalysis___401_pin0 ;
     sysml:input expr:Results__MassAnalysis___401_pin0 ;
     sysml:targetFeature elmt:Results__Vehicle__mass ;
-    sysx:sourceText "        v.mass\n" .
+    sysx:sourceText "        v.mass\n" ;
+    json:ownedRelationship "[{\"@id\":\"Results__MassAnalysis___401_pin0_om\"},{\"@id\":\"Results__MassAnalysis___401_targetFeature\"}]" .
 
 elmt:Results__MassAnalysis___401_om
     a sysml:ResultExpressionMembership ;
@@ -3385,7 +3530,8 @@ expr:Results__MassAnalysis___401_pa0
     sysml:referent elmt:Results__MassAnalysis__v ;
     sysml:owner expr:Results__MassAnalysis___401_pin0 ;
     sysml:owningRelationship expr:Results__MassAnalysis___401_pa0_om ;
-    sysml:owningMembership expr:Results__MassAnalysis___401_pa0_om .
+    sysml:owningMembership expr:Results__MassAnalysis___401_pa0_om ;
+    sysml:ownedRelationship expr:Results__MassAnalysis___401_pa0_preferent .
 
 expr:Results__MassAnalysis___401_pin0
     a sysml:Feature ;
@@ -3433,14 +3579,18 @@ elmt:Results__MassCheck
     sysml:declaredName "MassCheck" ;
     sysx:declaredKeyword "verification" ;
     sysx:hasBody "true"^^xsd:boolean ;
-    sysml:ownedRelationship elmt:Results__MassCheck__v, elmt:Results__MassCheck___401_om ;
-    sysml:ownedMember elmt:Results__MassCheck___401 ;
-    sysml:ownedMembership elmt:Results__MassCheck___401_om ;
-    sysml:ownedFeature elmt:Results__MassCheck___401 ;
-    sysml:ownedFeatureMembership elmt:Results__MassCheck___401_om ;
+    sysml:ownedMember elmt:Results__MassCheck__v, elmt:Results__MassCheck___401 ;
+    sysml:ownedMembership elmt:Results__MassCheck__v_om, elmt:Results__MassCheck___401_om ;
+    sysml:ownedRelationship elmt:Results__MassCheck__v_om, elmt:Results__MassCheck___401_om ;
+    sysml:ownedFeature elmt:Results__MassCheck__v, elmt:Results__MassCheck___401 ;
+    sysml:ownedFeatureMembership elmt:Results__MassCheck__v_om, elmt:Results__MassCheck___401_om ;
     sysx:sourceText "    verification def MassCheck {\n" ;
     sysx:sourceTail "    }\n" ;
-    json:ownedRelationship "[{\"@id\":\"Results__MassCheck__v\"},{\"@id\":\"Results__MassCheck___401_om\"}]" .
+    json:ownedMember "[{\"@id\":\"Results__MassCheck__v\"},{\"@id\":\"Results__MassCheck___401\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Results__MassCheck__v_om\"},{\"@id\":\"Results__MassCheck___401_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Results__MassCheck__v_om\"},{\"@id\":\"Results__MassCheck___401_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Results__MassCheck__v\"},{\"@id\":\"Results__MassCheck___401\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Results__MassCheck__v_om\"},{\"@id\":\"Results__MassCheck___401_om\"}]" .
 
 elmt:Results__MassCheck_om
     a sysml:OwningMembership ;
@@ -3453,17 +3603,36 @@ elmt:Results__MassCheck_om
     sysml:membershipOwningNamespace elmt:Results .
 
 elmt:Results__MassCheck__v
-    a sysml:SubjectMembership ;
+    a sysml:ReferenceUsage ;
     sysml:qualifiedName "Results::MassCheck::v" ;
     sysml:elementId "Results__MassCheck__v" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__MassCheck ;
     sysml:owner elmt:Results__MassCheck ;
-    sysml:owningRelatedElement elmt:Results__MassCheck ;
+    sysml:owningRelationship elmt:Results__MassCheck__v_om ;
+    sysml:owningMembership elmt:Results__MassCheck__v_om ;
     sysml:declaredName "v" ;
+    sysml:direction "in" ;
     sysml:type elmt:Results__Vehicle ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Results__MassCheck__v_ft0 ;
+    sysml:ownedSpecialization elmt:Results__MassCheck__v_ft0 ;
+    sysml:ownedRelationship elmt:Results__MassCheck__v_ft0 ;
     sysx:sourceText "        subject v : Vehicle;\n" .
+
+elmt:Results__MassCheck__v_om
+    a sysml:SubjectMembership ;
+    sysml:elementId "Results__MassCheck__v_om" ;
+    sysml:owner elmt:Results__MassCheck ;
+    sysml:memberElement elmt:Results__MassCheck__v ;
+    sysml:ownedMemberElement elmt:Results__MassCheck__v ;
+    sysml:ownedRelatedElement elmt:Results__MassCheck__v ;
+    sysml:owningRelatedElement elmt:Results__MassCheck ;
+    sysml:membershipOwningNamespace elmt:Results__MassCheck ;
+    sysml:ownedSubjectParameter elmt:Results__MassCheck__v ;
+    sysml:ownedMemberParameter elmt:Results__MassCheck__v ;
+    sysml:ownedMemberFeature elmt:Results__MassCheck__v ;
+    sysml:owningType elmt:Results__MassCheck .
 
 elmt:Results__MassCheck___401
     a sysml:InvocationExpression ;
@@ -3525,7 +3694,7 @@ expr:Results__MassCheck___401_pa0_pa0
     sysx:sourceText "v.mass" ;
     sysml:elementId "Results__MassCheck___401_pa0_pa0" ;
     sysml:argument expr:Results__MassCheck___401_pa0_pa0_pa0 ;
-    sysml:ownedRelationship expr:Results__MassCheck___401_pa0_pa0_pin0_om ;
+    sysml:ownedRelationship expr:Results__MassCheck___401_pa0_pa0_pin0_om, expr:Results__MassCheck___401_pa0_pa0_ptargetFeature ;
     sysml:ownedMembership expr:Results__MassCheck___401_pa0_pa0_pin0_om ;
     sysml:ownedFeatureMembership expr:Results__MassCheck___401_pa0_pa0_pin0_om ;
     sysml:ownedFeature expr:Results__MassCheck___401_pa0_pa0_pin0 ;
@@ -3534,7 +3703,8 @@ expr:Results__MassCheck___401_pa0_pa0
     sysml:targetFeature elmt:Results__Vehicle__mass ;
     sysml:owner expr:Results__MassCheck___401_pa0_pin0 ;
     sysml:owningRelationship expr:Results__MassCheck___401_pa0_pa0_om ;
-    sysml:owningMembership expr:Results__MassCheck___401_pa0_pa0_om .
+    sysml:owningMembership expr:Results__MassCheck___401_pa0_pa0_om ;
+    json:ownedRelationship "[{\"@id\":\"Results__MassCheck___401_pa0_pa0_pin0_om\"},{\"@id\":\"Results__MassCheck___401_pa0_pa0_ptargetFeature\"}]" .
 
 expr:Results__MassCheck___401_pa0_pa0_pa0
     a sysml:FeatureReferenceExpression ;
@@ -3543,7 +3713,8 @@ expr:Results__MassCheck___401_pa0_pa0_pa0
     sysml:referent elmt:Results__MassCheck__v ;
     sysml:owner expr:Results__MassCheck___401_pa0_pa0_pin0 ;
     sysml:owningRelationship expr:Results__MassCheck___401_pa0_pa0_pa0_om ;
-    sysml:owningMembership expr:Results__MassCheck___401_pa0_pa0_pa0_om .
+    sysml:owningMembership expr:Results__MassCheck___401_pa0_pa0_pa0_om ;
+    sysml:ownedRelationship expr:Results__MassCheck___401_pa0_pa0_pa0_preferent .
 
 expr:Results__MassCheck___401_pa0_pa0_pin0
     a sysml:Feature ;
@@ -3701,14 +3872,18 @@ elmt:Results__MassCase
     sysml:owningMembership elmt:Results__MassCase_om ;
     sysml:declaredName "MassCase" ;
     sysx:hasBody "true"^^xsd:boolean ;
-    sysml:ownedRelationship elmt:Results__MassCase__v, elmt:Results__MassCase___401_om ;
-    sysml:ownedMember elmt:Results__MassCase___401 ;
-    sysml:ownedMembership elmt:Results__MassCase___401_om ;
-    sysml:ownedFeature elmt:Results__MassCase___401 ;
-    sysml:ownedFeatureMembership elmt:Results__MassCase___401_om ;
+    sysml:ownedMember elmt:Results__MassCase__v, elmt:Results__MassCase___401 ;
+    sysml:ownedMembership elmt:Results__MassCase__v_om, elmt:Results__MassCase___401_om ;
+    sysml:ownedRelationship elmt:Results__MassCase__v_om, elmt:Results__MassCase___401_om ;
+    sysml:ownedFeature elmt:Results__MassCase__v, elmt:Results__MassCase___401 ;
+    sysml:ownedFeatureMembership elmt:Results__MassCase__v_om, elmt:Results__MassCase___401_om ;
     sysx:sourceText "    case def MassCase {\n" ;
     sysx:sourceTail "    }\n" ;
-    json:ownedRelationship "[{\"@id\":\"Results__MassCase__v\"},{\"@id\":\"Results__MassCase___401_om\"}]" .
+    json:ownedMember "[{\"@id\":\"Results__MassCase__v\"},{\"@id\":\"Results__MassCase___401\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Results__MassCase__v_om\"},{\"@id\":\"Results__MassCase___401_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Results__MassCase__v_om\"},{\"@id\":\"Results__MassCase___401_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Results__MassCase__v\"},{\"@id\":\"Results__MassCase___401\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Results__MassCase__v_om\"},{\"@id\":\"Results__MassCase___401_om\"}]" .
 
 elmt:Results__MassCase_om
     a sysml:OwningMembership ;
@@ -3721,17 +3896,36 @@ elmt:Results__MassCase_om
     sysml:membershipOwningNamespace elmt:Results .
 
 elmt:Results__MassCase__v
-    a sysml:SubjectMembership ;
+    a sysml:ReferenceUsage ;
     sysml:qualifiedName "Results::MassCase::v" ;
     sysml:elementId "Results__MassCase__v" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Results__MassCase ;
     sysml:owner elmt:Results__MassCase ;
-    sysml:owningRelatedElement elmt:Results__MassCase ;
+    sysml:owningRelationship elmt:Results__MassCase__v_om ;
+    sysml:owningMembership elmt:Results__MassCase__v_om ;
     sysml:declaredName "v" ;
+    sysml:direction "in" ;
     sysml:type elmt:Results__Vehicle ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Results__MassCase__v_ft0 ;
+    sysml:ownedSpecialization elmt:Results__MassCase__v_ft0 ;
+    sysml:ownedRelationship elmt:Results__MassCase__v_ft0 ;
     sysx:sourceText "        subject v : Vehicle;\n" .
+
+elmt:Results__MassCase__v_om
+    a sysml:SubjectMembership ;
+    sysml:elementId "Results__MassCase__v_om" ;
+    sysml:owner elmt:Results__MassCase ;
+    sysml:memberElement elmt:Results__MassCase__v ;
+    sysml:ownedMemberElement elmt:Results__MassCase__v ;
+    sysml:ownedRelatedElement elmt:Results__MassCase__v ;
+    sysml:owningRelatedElement elmt:Results__MassCase ;
+    sysml:membershipOwningNamespace elmt:Results__MassCase ;
+    sysml:ownedSubjectParameter elmt:Results__MassCase__v ;
+    sysml:ownedMemberParameter elmt:Results__MassCase__v ;
+    sysml:ownedMemberFeature elmt:Results__MassCase__v ;
+    sysml:owningType elmt:Results__MassCase .
 
 elmt:Results__MassCase___401
     a sysml:OperatorExpression ;
@@ -3777,7 +3971,7 @@ expr:Results__MassCase___401_pa0
     sysx:sourceText "v.mass" ;
     sysml:elementId "Results__MassCase___401_pa0" ;
     sysml:argument expr:Results__MassCase___401_pa0_pa0 ;
-    sysml:ownedRelationship expr:Results__MassCase___401_pa0_pin0_om ;
+    sysml:ownedRelationship expr:Results__MassCase___401_pa0_pin0_om, expr:Results__MassCase___401_pa0_ptargetFeature ;
     sysml:ownedMembership expr:Results__MassCase___401_pa0_pin0_om ;
     sysml:ownedFeatureMembership expr:Results__MassCase___401_pa0_pin0_om ;
     sysml:ownedFeature expr:Results__MassCase___401_pa0_pin0 ;
@@ -3786,7 +3980,8 @@ expr:Results__MassCase___401_pa0
     sysml:targetFeature elmt:Results__Vehicle__mass ;
     sysml:owner expr:Results__MassCase___401_pin0 ;
     sysml:owningRelationship expr:Results__MassCase___401_pa0_om ;
-    sysml:owningMembership expr:Results__MassCase___401_pa0_om .
+    sysml:owningMembership expr:Results__MassCase___401_pa0_om ;
+    json:ownedRelationship "[{\"@id\":\"Results__MassCase___401_pa0_pin0_om\"},{\"@id\":\"Results__MassCase___401_pa0_ptargetFeature\"}]" .
 
 expr:Results__MassCase___401_pa0_pa0
     a sysml:FeatureReferenceExpression ;
@@ -3795,7 +3990,8 @@ expr:Results__MassCase___401_pa0_pa0
     sysml:referent elmt:Results__MassCase__v ;
     sysml:owner expr:Results__MassCase___401_pa0_pin0 ;
     sysml:owningRelationship expr:Results__MassCase___401_pa0_pa0_om ;
-    sysml:owningMembership expr:Results__MassCase___401_pa0_pa0_om .
+    sysml:owningMembership expr:Results__MassCase___401_pa0_pa0_om ;
+    sysml:ownedRelationship expr:Results__MassCase___401_pa0_pa0_preferent .
 
 expr:Results__MassCase___401_pa0_pin0
     a sysml:Feature ;
@@ -3922,11 +4118,14 @@ elmt:Results__rover
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Results__rover__twice ;
     sysml:ownedMembership elmt:Results__rover__twice_om ;
-    sysml:ownedRelationship elmt:Results__rover__twice_om ;
+    sysml:ownedRelationship elmt:Results__rover__twice_om, elmt:Results__rover_ft0 ;
     sysml:ownedFeature elmt:Results__rover__twice ;
     sysml:ownedFeatureMembership elmt:Results__rover__twice_om ;
+    sysml:ownedTyping elmt:Results__rover_ft0 ;
+    sysml:ownedSpecialization elmt:Results__rover_ft0 ;
     sysx:sourceText "    part rover : Vehicle {\n" ;
-    sysx:sourceTail "    }\n" .
+    sysx:sourceTail "    }\n" ;
+    json:ownedRelationship "[{\"@id\":\"Results__rover__twice_om\"},{\"@id\":\"Results__rover_ft0\"}]" .
 
 elmt:Results__rover_om
     a sysml:OwningMembership ;
@@ -4011,7 +4210,8 @@ expr:Results__rover__twice__x_pvalue
     sysml:referent elmt:Results__Vehicle__mass ;
     sysml:owner elmt:Results__rover__twice__x ;
     sysml:owningRelationship expr:Results__rover__twice__x_pvalue_om ;
-    sysml:owningMembership expr:Results__rover__twice__x_pvalue_om .
+    sysml:owningMembership expr:Results__rover__twice__x_pvalue_om ;
+    sysml:ownedRelationship expr:Results__rover__twice__x_pvalue_preferent .
 
 expr:Results__rover__twice__x_pvalue_om
     a sysml:FeatureValue ;
@@ -4071,7 +4271,8 @@ expr:Results__rover__twice___401_pa0
     sysml:referent elmt:Results__rover__twice__x ;
     sysml:owner expr:Results__rover__twice___401_pin0 ;
     sysml:owningRelationship expr:Results__rover__twice___401_pa0_om ;
-    sysml:owningMembership expr:Results__rover__twice___401_pa0_om .
+    sysml:owningMembership expr:Results__rover__twice___401_pa0_om ;
+    sysml:ownedRelationship expr:Results__rover__twice___401_pa0_preferent .
 
 expr:Results__rover__twice___401_pin0
     a sysml:Feature ;
@@ -4114,7 +4315,8 @@ expr:Results__rover__twice___401_pa1
     sysml:referent elmt:Results__rover__twice__x ;
     sysml:owner expr:Results__rover__twice___401_pin1 ;
     sysml:owningRelationship expr:Results__rover__twice___401_pa1_om ;
-    sysml:owningMembership expr:Results__rover__twice___401_pa1_om .
+    sysml:owningMembership expr:Results__rover__twice___401_pa1_om ;
+    sysml:ownedRelationship expr:Results__rover__twice___401_pa1_preferent .
 
 expr:Results__rover__twice___401_pin1
     a sysml:Feature ;
@@ -4149,3 +4351,565 @@ expr:Results__rover__twice___401_pa1_om
     sysml:membershipOwningNamespace expr:Results__rover__twice___401_pin1 ;
     sysml:featureWithValue expr:Results__rover__twice___401_pin1 ;
     sysml:value expr:Results__rover__twice___401_pa1 .
+
+elmt:Results__Double__x_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Results__Double__x_ft0" ;
+    sysml:typedFeature elmt:Results__Double__x ;
+    sysml:owningFeature elmt:Results__Double__x ;
+    sysml:specific elmt:Results__Double__x ;
+    sysml:source elmt:Results__Double__x ;
+    sysml:owningRelatedElement elmt:Results__Double__x ;
+    sysml:type elmt:Results__Real ;
+    sysml:general elmt:Results__Real ;
+    sysml:target elmt:Results__Real ;
+    sysml:owner elmt:Results__Double__x ;
+    sysml:relatedElement elmt:Results__Double__x, elmt:Results__Real ;
+    json:relatedElement "[{\"@id\":\"Results__Double__x\"},{\"@id\":\"Results__Real\"}]" .
+
+expr:Results__Double___401_pa0_preferent
+    a sysml:Membership ;
+    sysml:elementId "Results__Double___401_pa0_preferent" ;
+    sysml:memberElement elmt:Results__Double__x ;
+    sysml:owner expr:Results__Double___401_pa0 ;
+    sysml:owningRelatedElement expr:Results__Double___401_pa0 .
+
+elmt:Results__AfterMembers__x_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Results__AfterMembers__x_ft0" ;
+    sysml:typedFeature elmt:Results__AfterMembers__x ;
+    sysml:owningFeature elmt:Results__AfterMembers__x ;
+    sysml:specific elmt:Results__AfterMembers__x ;
+    sysml:source elmt:Results__AfterMembers__x ;
+    sysml:owningRelatedElement elmt:Results__AfterMembers__x ;
+    sysml:type elmt:Results__Real ;
+    sysml:general elmt:Results__Real ;
+    sysml:target elmt:Results__Real ;
+    sysml:owner elmt:Results__AfterMembers__x ;
+    sysml:relatedElement elmt:Results__AfterMembers__x, elmt:Results__Real ;
+    json:relatedElement "[{\"@id\":\"Results__AfterMembers__x\"},{\"@id\":\"Results__Real\"}]" .
+
+elmt:Results__AfterMembers__y_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Results__AfterMembers__y_ft0" ;
+    sysml:typedFeature elmt:Results__AfterMembers__y ;
+    sysml:owningFeature elmt:Results__AfterMembers__y ;
+    sysml:specific elmt:Results__AfterMembers__y ;
+    sysml:source elmt:Results__AfterMembers__y ;
+    sysml:owningRelatedElement elmt:Results__AfterMembers__y ;
+    sysml:type elmt:Results__Real ;
+    sysml:general elmt:Results__Real ;
+    sysml:target elmt:Results__Real ;
+    sysml:owner elmt:Results__AfterMembers__y ;
+    sysml:relatedElement elmt:Results__AfterMembers__y, elmt:Results__Real ;
+    json:relatedElement "[{\"@id\":\"Results__AfterMembers__y\"},{\"@id\":\"Results__Real\"}]" .
+
+expr:Results__AfterMembers__y_pvalue_pa0_preferent
+    a sysml:Membership ;
+    sysml:elementId "Results__AfterMembers__y_pvalue_pa0_preferent" ;
+    sysml:memberElement elmt:Results__AfterMembers__x ;
+    sysml:owner expr:Results__AfterMembers__y_pvalue_pa0 ;
+    sysml:owningRelatedElement expr:Results__AfterMembers__y_pvalue_pa0 .
+
+expr:Results__AfterMembers___403_pa0_preferent
+    a sysml:Membership ;
+    sysml:elementId "Results__AfterMembers___403_pa0_preferent" ;
+    sysml:memberElement elmt:Results__AfterMembers__y ;
+    sysml:owner expr:Results__AfterMembers___403_pa0 ;
+    sysml:owningRelatedElement expr:Results__AfterMembers___403_pa0 .
+
+expr:Results__AfterMembers___403_pa1_preferent
+    a sysml:Membership ;
+    sysml:elementId "Results__AfterMembers___403_pa1_preferent" ;
+    sysml:memberElement elmt:Results__AfterMembers__y ;
+    sysml:owner expr:Results__AfterMembers___403_pa1 ;
+    sysml:owningRelatedElement expr:Results__AfterMembers___403_pa1 .
+
+elmt:Results__Body__x_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Results__Body__x_ft0" ;
+    sysml:typedFeature elmt:Results__Body__x ;
+    sysml:owningFeature elmt:Results__Body__x ;
+    sysml:specific elmt:Results__Body__x ;
+    sysml:source elmt:Results__Body__x ;
+    sysml:owningRelatedElement elmt:Results__Body__x ;
+    sysml:type elmt:Results__Real ;
+    sysml:general elmt:Results__Real ;
+    sysml:target elmt:Results__Real ;
+    sysml:owner elmt:Results__Body__x ;
+    sysml:relatedElement elmt:Results__Body__x, elmt:Results__Real ;
+    json:relatedElement "[{\"@id\":\"Results__Body__x\"},{\"@id\":\"Results__Real\"}]" .
+
+expr:Results__Body___401_presult_pa0_preferent
+    a sysml:Membership ;
+    sysml:elementId "Results__Body___401_presult_pa0_preferent" ;
+    sysml:memberElement "y" ;
+    sysml:owner expr:Results__Body___401_presult_pa0 ;
+    sysml:owningRelatedElement expr:Results__Body___401_presult_pa0 .
+
+expr:Results__Body___401_presult_pa1_preferent
+    a sysml:Membership ;
+    sysml:elementId "Results__Body___401_presult_pa1_preferent" ;
+    sysml:memberElement elmt:Results__Body__x ;
+    sysml:owner expr:Results__Body___401_presult_pa1 ;
+    sysml:owningRelatedElement expr:Results__Body___401_presult_pa1 .
+
+elmt:Results__Quoted__x_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Results__Quoted__x_ft0" ;
+    sysml:typedFeature elmt:Results__Quoted__x ;
+    sysml:owningFeature elmt:Results__Quoted__x ;
+    sysml:specific elmt:Results__Quoted__x ;
+    sysml:source elmt:Results__Quoted__x ;
+    sysml:owningRelatedElement elmt:Results__Quoted__x ;
+    sysml:type elmt:Results__Real ;
+    sysml:general elmt:Results__Real ;
+    sysml:target elmt:Results__Real ;
+    sysml:owner elmt:Results__Quoted__x ;
+    sysml:relatedElement elmt:Results__Quoted__x, elmt:Results__Real ;
+    json:relatedElement "[{\"@id\":\"Results__Quoted__x\"},{\"@id\":\"Results__Real\"}]" .
+
+expr:Results__Quoted___401_presult_pa0_preferent
+    a sysml:Membership ;
+    sysml:elementId "Results__Quoted___401_presult_pa0_preferent" ;
+    sysml:memberElement "the input" ;
+    sysml:owner expr:Results__Quoted___401_presult_pa0 ;
+    sysml:owningRelatedElement expr:Results__Quoted___401_presult_pa0 .
+
+expr:Results__Quoted___401_presult_pa1_preferent
+    a sysml:Membership ;
+    sysml:elementId "Results__Quoted___401_presult_pa1_preferent" ;
+    sysml:memberElement elmt:Results__Quoted__x ;
+    sysml:owner expr:Results__Quoted___401_presult_pa1 ;
+    sysml:owningRelatedElement expr:Results__Quoted___401_presult_pa1 .
+
+elmt:Results__Nested__x_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Results__Nested__x_ft0" ;
+    sysml:typedFeature elmt:Results__Nested__x ;
+    sysml:owningFeature elmt:Results__Nested__x ;
+    sysml:specific elmt:Results__Nested__x ;
+    sysml:source elmt:Results__Nested__x ;
+    sysml:owningRelatedElement elmt:Results__Nested__x ;
+    sysml:type elmt:Results__Real ;
+    sysml:general elmt:Results__Real ;
+    sysml:target elmt:Results__Real ;
+    sysml:owner elmt:Results__Nested__x ;
+    sysml:relatedElement elmt:Results__Nested__x, elmt:Results__Real ;
+    json:relatedElement "[{\"@id\":\"Results__Nested__x\"},{\"@id\":\"Results__Real\"}]" .
+
+expr:Results__Nested___401_presult_pn0_presult_pa0_preferent
+    a sysml:Membership ;
+    sysml:elementId "Results__Nested___401_presult_pn0_presult_pa0_preferent" ;
+    sysml:memberElement "z" ;
+    sysml:owner expr:Results__Nested___401_presult_pn0_presult_pa0 ;
+    sysml:owningRelatedElement expr:Results__Nested___401_presult_pn0_presult_pa0 .
+
+expr:Results__Nested___401_presult_pn0_presult_pa1_preferent
+    a sysml:Membership ;
+    sysml:elementId "Results__Nested___401_presult_pn0_presult_pa1_preferent" ;
+    sysml:memberElement "y" ;
+    sysml:owner expr:Results__Nested___401_presult_pn0_presult_pa1 ;
+    sysml:owningRelatedElement expr:Results__Nested___401_presult_pn0_presult_pa1 .
+
+elmt:Results__Documented__x_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Results__Documented__x_ft0" ;
+    sysml:typedFeature elmt:Results__Documented__x ;
+    sysml:owningFeature elmt:Results__Documented__x ;
+    sysml:specific elmt:Results__Documented__x ;
+    sysml:source elmt:Results__Documented__x ;
+    sysml:owningRelatedElement elmt:Results__Documented__x ;
+    sysml:type elmt:Results__Real ;
+    sysml:general elmt:Results__Real ;
+    sysml:target elmt:Results__Real ;
+    sysml:owner elmt:Results__Documented__x ;
+    sysml:relatedElement elmt:Results__Documented__x, elmt:Results__Real ;
+    json:relatedElement "[{\"@id\":\"Results__Documented__x\"},{\"@id\":\"Results__Real\"}]" .
+
+expr:Results__Documented___401_presult_preferent
+    a sysml:Membership ;
+    sysml:elementId "Results__Documented___401_presult_preferent" ;
+    sysml:memberElement "y" ;
+    sysml:owner expr:Results__Documented___401_presult ;
+    sysml:owningRelatedElement expr:Results__Documented___401_presult .
+
+elmt:Results__Passes__ok_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Results__Passes__ok_ft0" ;
+    sysml:typedFeature elmt:Results__Passes__ok ;
+    sysml:owningFeature elmt:Results__Passes__ok ;
+    sysml:specific elmt:Results__Passes__ok ;
+    sysml:source elmt:Results__Passes__ok ;
+    sysml:owningRelatedElement elmt:Results__Passes__ok ;
+    sysml:type elmt:Results__Boolean ;
+    sysml:general elmt:Results__Boolean ;
+    sysml:target elmt:Results__Boolean ;
+    sysml:owner elmt:Results__Passes__ok ;
+    sysml:relatedElement elmt:Results__Passes__ok, elmt:Results__Boolean ;
+    json:relatedElement "[{\"@id\":\"Results__Passes__ok\"},{\"@id\":\"Results__Boolean\"}]" .
+
+elmt:Results__Passes___401_referent
+    a sysml:Membership ;
+    sysml:elementId "Results__Passes___401_referent" ;
+    sysml:memberElement elmt:Results__Passes__ok ;
+    sysml:owner elmt:Results__Passes___401 ;
+    sysml:owningRelatedElement elmt:Results__Passes___401 .
+
+elmt:Results__Empty__x_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Results__Empty__x_ft0" ;
+    sysml:typedFeature elmt:Results__Empty__x ;
+    sysml:owningFeature elmt:Results__Empty__x ;
+    sysml:specific elmt:Results__Empty__x ;
+    sysml:source elmt:Results__Empty__x ;
+    sysml:owningRelatedElement elmt:Results__Empty__x ;
+    sysml:type elmt:Results__Real ;
+    sysml:general elmt:Results__Real ;
+    sysml:target elmt:Results__Real ;
+    sysml:owner elmt:Results__Empty__x ;
+    sysml:relatedElement elmt:Results__Empty__x, elmt:Results__Real ;
+    json:relatedElement "[{\"@id\":\"Results__Empty__x\"},{\"@id\":\"Results__Real\"}]" .
+
+elmt:Results__Named__x_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Results__Named__x_ft0" ;
+    sysml:typedFeature elmt:Results__Named__x ;
+    sysml:owningFeature elmt:Results__Named__x ;
+    sysml:specific elmt:Results__Named__x ;
+    sysml:source elmt:Results__Named__x ;
+    sysml:owningRelatedElement elmt:Results__Named__x ;
+    sysml:type elmt:Results__Real ;
+    sysml:general elmt:Results__Real ;
+    sysml:target elmt:Results__Real ;
+    sysml:owner elmt:Results__Named__x ;
+    sysml:relatedElement elmt:Results__Named__x, elmt:Results__Real ;
+    json:relatedElement "[{\"@id\":\"Results__Named__x\"},{\"@id\":\"Results__Real\"}]" .
+
+expr:Results__Named___401_pn0_preferent
+    a sysml:Membership ;
+    sysml:elementId "Results__Named___401_pn0_preferent" ;
+    sysml:memberElement elmt:Results__Named__x ;
+    sysml:owner expr:Results__Named___401_pn0 ;
+    sysml:owningRelatedElement expr:Results__Named___401_pn0 .
+
+elmt:Results__Scaled__x_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Results__Scaled__x_ft0" ;
+    sysml:typedFeature elmt:Results__Scaled__x ;
+    sysml:owningFeature elmt:Results__Scaled__x ;
+    sysml:specific elmt:Results__Scaled__x ;
+    sysml:source elmt:Results__Scaled__x ;
+    sysml:owningRelatedElement elmt:Results__Scaled__x ;
+    sysml:type elmt:Results__Real ;
+    sysml:general elmt:Results__Real ;
+    sysml:target elmt:Results__Real ;
+    sysml:owner elmt:Results__Scaled__x ;
+    sysml:relatedElement elmt:Results__Scaled__x, elmt:Results__Real ;
+    json:relatedElement "[{\"@id\":\"Results__Scaled__x\"},{\"@id\":\"Results__Real\"}]" .
+
+expr:Results__Scaled___401_pa0_preferent
+    a sysml:Membership ;
+    sysml:elementId "Results__Scaled___401_pa0_preferent" ;
+    sysml:memberElement elmt:Results__Scaled__x ;
+    sysml:owner expr:Results__Scaled___401_pa0 ;
+    sysml:owningRelatedElement expr:Results__Scaled___401_pa0 .
+
+elmt:Results__Predicate__x_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Results__Predicate__x_ft0" ;
+    sysml:typedFeature elmt:Results__Predicate__x ;
+    sysml:owningFeature elmt:Results__Predicate__x ;
+    sysml:specific elmt:Results__Predicate__x ;
+    sysml:source elmt:Results__Predicate__x ;
+    sysml:owningRelatedElement elmt:Results__Predicate__x ;
+    sysml:type elmt:Results__Real ;
+    sysml:general elmt:Results__Real ;
+    sysml:target elmt:Results__Real ;
+    sysml:owner elmt:Results__Predicate__x ;
+    sysml:relatedElement elmt:Results__Predicate__x, elmt:Results__Real ;
+    json:relatedElement "[{\"@id\":\"Results__Predicate__x\"},{\"@id\":\"Results__Real\"}]" .
+
+elmt:Results__Predicate__keep_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Results__Predicate__keep_ft0" ;
+    sysml:typedFeature elmt:Results__Predicate__keep ;
+    sysml:owningFeature elmt:Results__Predicate__keep ;
+    sysml:specific elmt:Results__Predicate__keep ;
+    sysml:source elmt:Results__Predicate__keep ;
+    sysml:owningRelatedElement elmt:Results__Predicate__keep ;
+    sysml:type elmt:Results__Boolean ;
+    sysml:general elmt:Results__Boolean ;
+    sysml:target elmt:Results__Boolean ;
+    sysml:owner elmt:Results__Predicate__keep ;
+    sysml:relatedElement elmt:Results__Predicate__keep, elmt:Results__Boolean ;
+    json:relatedElement "[{\"@id\":\"Results__Predicate__keep\"},{\"@id\":\"Results__Boolean\"}]" .
+
+elmt:Results__Predicate__keep__v_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Results__Predicate__keep__v_ft0" ;
+    sysml:typedFeature elmt:Results__Predicate__keep__v ;
+    sysml:owningFeature elmt:Results__Predicate__keep__v ;
+    sysml:specific elmt:Results__Predicate__keep__v ;
+    sysml:source elmt:Results__Predicate__keep__v ;
+    sysml:owningRelatedElement elmt:Results__Predicate__keep__v ;
+    sysml:type elmt:Results__Real ;
+    sysml:general elmt:Results__Real ;
+    sysml:target elmt:Results__Real ;
+    sysml:owner elmt:Results__Predicate__keep__v ;
+    sysml:relatedElement elmt:Results__Predicate__keep__v, elmt:Results__Real ;
+    json:relatedElement "[{\"@id\":\"Results__Predicate__keep__v\"},{\"@id\":\"Results__Real\"}]" .
+
+expr:Results__Predicate__keep___401_pa0_preferent
+    a sysml:Membership ;
+    sysml:elementId "Results__Predicate__keep___401_pa0_preferent" ;
+    sysml:memberElement elmt:Results__Predicate__keep__v ;
+    sysml:owner expr:Results__Predicate__keep___401_pa0 ;
+    sysml:owningRelatedElement expr:Results__Predicate__keep___401_pa0 .
+
+expr:Results__Predicate__keep___401_pa1_preferent
+    a sysml:Membership ;
+    sysml:elementId "Results__Predicate__keep___401_pa1_preferent" ;
+    sysml:memberElement elmt:Results__Predicate__x ;
+    sysml:owner expr:Results__Predicate__keep___401_pa1 ;
+    sysml:owningRelatedElement expr:Results__Predicate__keep___401_pa1 .
+
+expr:Results__Predicate___403_pa0_preferent
+    a sysml:Membership ;
+    sysml:elementId "Results__Predicate___403_pa0_preferent" ;
+    sysml:memberElement elmt:Results__Predicate__x ;
+    sysml:owner expr:Results__Predicate___403_pa0 ;
+    sysml:owningRelatedElement expr:Results__Predicate___403_pa0 .
+
+elmt:Results__Chained__x_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Results__Chained__x_ft0" ;
+    sysml:typedFeature elmt:Results__Chained__x ;
+    sysml:owningFeature elmt:Results__Chained__x ;
+    sysml:specific elmt:Results__Chained__x ;
+    sysml:source elmt:Results__Chained__x ;
+    sysml:owningRelatedElement elmt:Results__Chained__x ;
+    sysml:type elmt:Results__Real ;
+    sysml:general elmt:Results__Real ;
+    sysml:target elmt:Results__Real ;
+    sysml:owner elmt:Results__Chained__x ;
+    sysml:relatedElement elmt:Results__Chained__x, elmt:Results__Real ;
+    json:relatedElement "[{\"@id\":\"Results__Chained__x\"},{\"@id\":\"Results__Real\"}]" .
+
+elmt:Results__Chained___401_targetFeature
+    a sysml:Membership ;
+    sysml:elementId "Results__Chained___401_targetFeature" ;
+    sysml:memberElement "result" ;
+    sysml:owner elmt:Results__Chained___401 ;
+    sysml:owningRelatedElement elmt:Results__Chained___401 .
+
+expr:Results__Chained___401_pa0_pn0_pa0_preferent
+    a sysml:Membership ;
+    sysml:elementId "Results__Chained___401_pa0_pn0_pa0_preferent" ;
+    sysml:memberElement elmt:Results__Chained__x ;
+    sysml:owner expr:Results__Chained___401_pa0_pn0_pa0 ;
+    sysml:owningRelatedElement expr:Results__Chained___401_pa0_pn0_pa0 .
+
+elmt:Results__Conditional__x_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Results__Conditional__x_ft0" ;
+    sysml:typedFeature elmt:Results__Conditional__x ;
+    sysml:owningFeature elmt:Results__Conditional__x ;
+    sysml:specific elmt:Results__Conditional__x ;
+    sysml:source elmt:Results__Conditional__x ;
+    sysml:owningRelatedElement elmt:Results__Conditional__x ;
+    sysml:type elmt:Results__Real ;
+    sysml:general elmt:Results__Real ;
+    sysml:target elmt:Results__Real ;
+    sysml:owner elmt:Results__Conditional__x ;
+    sysml:relatedElement elmt:Results__Conditional__x, elmt:Results__Real ;
+    json:relatedElement "[{\"@id\":\"Results__Conditional__x\"},{\"@id\":\"Results__Real\"}]" .
+
+expr:Results__Conditional___401_pa0_pa0_preferent
+    a sysml:Membership ;
+    sysml:elementId "Results__Conditional___401_pa0_pa0_preferent" ;
+    sysml:memberElement elmt:Results__Conditional__x ;
+    sysml:owner expr:Results__Conditional___401_pa0_pa0 ;
+    sysml:owningRelatedElement expr:Results__Conditional___401_pa0_pa0 .
+
+expr:Results__Conditional___401_pa1_preferent
+    a sysml:Membership ;
+    sysml:elementId "Results__Conditional___401_pa1_preferent" ;
+    sysml:memberElement elmt:Results__Conditional__x ;
+    sysml:owner expr:Results__Conditional___401_pa1 ;
+    sysml:owningRelatedElement expr:Results__Conditional___401_pa1 .
+
+expr:Results__Conditional___401_pa2_pa0_preferent
+    a sysml:Membership ;
+    sysml:elementId "Results__Conditional___401_pa2_pa0_preferent" ;
+    sysml:memberElement elmt:Results__Conditional__x ;
+    sysml:owner expr:Results__Conditional___401_pa2_pa0 ;
+    sysml:owningRelatedElement expr:Results__Conditional___401_pa2_pa0 .
+
+elmt:Results__Widened__x_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Results__Widened__x_ft0" ;
+    sysml:typedFeature elmt:Results__Widened__x ;
+    sysml:owningFeature elmt:Results__Widened__x ;
+    sysml:specific elmt:Results__Widened__x ;
+    sysml:source elmt:Results__Widened__x ;
+    sysml:owningRelatedElement elmt:Results__Widened__x ;
+    sysml:type elmt:Results__Real ;
+    sysml:general elmt:Results__Real ;
+    sysml:target elmt:Results__Real ;
+    sysml:owner elmt:Results__Widened__x ;
+    sysml:relatedElement elmt:Results__Widened__x, elmt:Results__Real ;
+    json:relatedElement "[{\"@id\":\"Results__Widened__x\"},{\"@id\":\"Results__Real\"}]" .
+
+elmt:Results__Ranged__x_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Results__Ranged__x_ft0" ;
+    sysml:typedFeature elmt:Results__Ranged__x ;
+    sysml:owningFeature elmt:Results__Ranged__x ;
+    sysml:specific elmt:Results__Ranged__x ;
+    sysml:source elmt:Results__Ranged__x ;
+    sysml:owningRelatedElement elmt:Results__Ranged__x ;
+    sysml:type elmt:Results__Real ;
+    sysml:general elmt:Results__Real ;
+    sysml:target elmt:Results__Real ;
+    sysml:owner elmt:Results__Ranged__x ;
+    sysml:relatedElement elmt:Results__Ranged__x, elmt:Results__Real ;
+    json:relatedElement "[{\"@id\":\"Results__Ranged__x\"},{\"@id\":\"Results__Real\"}]" .
+
+elmt:Results__Vehicle__mass_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Results__Vehicle__mass_ft0" ;
+    sysml:typedFeature elmt:Results__Vehicle__mass ;
+    sysml:owningFeature elmt:Results__Vehicle__mass ;
+    sysml:specific elmt:Results__Vehicle__mass ;
+    sysml:source elmt:Results__Vehicle__mass ;
+    sysml:owningRelatedElement elmt:Results__Vehicle__mass ;
+    sysml:type elmt:Results__Real ;
+    sysml:general elmt:Results__Real ;
+    sysml:target elmt:Results__Real ;
+    sysml:owner elmt:Results__Vehicle__mass ;
+    sysml:relatedElement elmt:Results__Vehicle__mass, elmt:Results__Real ;
+    json:relatedElement "[{\"@id\":\"Results__Vehicle__mass\"},{\"@id\":\"Results__Real\"}]" .
+
+elmt:Results__MassAnalysis__v_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Results__MassAnalysis__v_ft0" ;
+    sysml:typedFeature elmt:Results__MassAnalysis__v ;
+    sysml:owningFeature elmt:Results__MassAnalysis__v ;
+    sysml:specific elmt:Results__MassAnalysis__v ;
+    sysml:source elmt:Results__MassAnalysis__v ;
+    sysml:owningRelatedElement elmt:Results__MassAnalysis__v ;
+    sysml:type elmt:Results__Vehicle ;
+    sysml:general elmt:Results__Vehicle ;
+    sysml:target elmt:Results__Vehicle ;
+    sysml:owner elmt:Results__MassAnalysis__v ;
+    sysml:relatedElement elmt:Results__MassAnalysis__v, elmt:Results__Vehicle ;
+    json:relatedElement "[{\"@id\":\"Results__MassAnalysis__v\"},{\"@id\":\"Results__Vehicle\"}]" .
+
+elmt:Results__MassAnalysis___401_targetFeature
+    a sysml:Membership ;
+    sysml:elementId "Results__MassAnalysis___401_targetFeature" ;
+    sysml:memberElement elmt:Results__Vehicle__mass ;
+    sysml:owner elmt:Results__MassAnalysis___401 ;
+    sysml:owningRelatedElement elmt:Results__MassAnalysis___401 .
+
+expr:Results__MassAnalysis___401_pa0_preferent
+    a sysml:Membership ;
+    sysml:elementId "Results__MassAnalysis___401_pa0_preferent" ;
+    sysml:memberElement elmt:Results__MassAnalysis__v ;
+    sysml:owner expr:Results__MassAnalysis___401_pa0 ;
+    sysml:owningRelatedElement expr:Results__MassAnalysis___401_pa0 .
+
+elmt:Results__MassCheck__v_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Results__MassCheck__v_ft0" ;
+    sysml:typedFeature elmt:Results__MassCheck__v ;
+    sysml:owningFeature elmt:Results__MassCheck__v ;
+    sysml:specific elmt:Results__MassCheck__v ;
+    sysml:source elmt:Results__MassCheck__v ;
+    sysml:owningRelatedElement elmt:Results__MassCheck__v ;
+    sysml:type elmt:Results__Vehicle ;
+    sysml:general elmt:Results__Vehicle ;
+    sysml:target elmt:Results__Vehicle ;
+    sysml:owner elmt:Results__MassCheck__v ;
+    sysml:relatedElement elmt:Results__MassCheck__v, elmt:Results__Vehicle ;
+    json:relatedElement "[{\"@id\":\"Results__MassCheck__v\"},{\"@id\":\"Results__Vehicle\"}]" .
+
+expr:Results__MassCheck___401_pa0_pa0_ptargetFeature
+    a sysml:Membership ;
+    sysml:elementId "Results__MassCheck___401_pa0_pa0_ptargetFeature" ;
+    sysml:memberElement elmt:Results__Vehicle__mass ;
+    sysml:owner expr:Results__MassCheck___401_pa0_pa0 ;
+    sysml:owningRelatedElement expr:Results__MassCheck___401_pa0_pa0 .
+
+expr:Results__MassCheck___401_pa0_pa0_pa0_preferent
+    a sysml:Membership ;
+    sysml:elementId "Results__MassCheck___401_pa0_pa0_pa0_preferent" ;
+    sysml:memberElement elmt:Results__MassCheck__v ;
+    sysml:owner expr:Results__MassCheck___401_pa0_pa0_pa0 ;
+    sysml:owningRelatedElement expr:Results__MassCheck___401_pa0_pa0_pa0 .
+
+elmt:Results__MassCase__v_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Results__MassCase__v_ft0" ;
+    sysml:typedFeature elmt:Results__MassCase__v ;
+    sysml:owningFeature elmt:Results__MassCase__v ;
+    sysml:specific elmt:Results__MassCase__v ;
+    sysml:source elmt:Results__MassCase__v ;
+    sysml:owningRelatedElement elmt:Results__MassCase__v ;
+    sysml:type elmt:Results__Vehicle ;
+    sysml:general elmt:Results__Vehicle ;
+    sysml:target elmt:Results__Vehicle ;
+    sysml:owner elmt:Results__MassCase__v ;
+    sysml:relatedElement elmt:Results__MassCase__v, elmt:Results__Vehicle ;
+    json:relatedElement "[{\"@id\":\"Results__MassCase__v\"},{\"@id\":\"Results__Vehicle\"}]" .
+
+expr:Results__MassCase___401_pa0_ptargetFeature
+    a sysml:Membership ;
+    sysml:elementId "Results__MassCase___401_pa0_ptargetFeature" ;
+    sysml:memberElement elmt:Results__Vehicle__mass ;
+    sysml:owner expr:Results__MassCase___401_pa0 ;
+    sysml:owningRelatedElement expr:Results__MassCase___401_pa0 .
+
+expr:Results__MassCase___401_pa0_pa0_preferent
+    a sysml:Membership ;
+    sysml:elementId "Results__MassCase___401_pa0_pa0_preferent" ;
+    sysml:memberElement elmt:Results__MassCase__v ;
+    sysml:owner expr:Results__MassCase___401_pa0_pa0 ;
+    sysml:owningRelatedElement expr:Results__MassCase___401_pa0_pa0 .
+
+elmt:Results__rover_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Results__rover_ft0" ;
+    sysml:typedFeature elmt:Results__rover ;
+    sysml:owningFeature elmt:Results__rover ;
+    sysml:specific elmt:Results__rover ;
+    sysml:source elmt:Results__rover ;
+    sysml:owningRelatedElement elmt:Results__rover ;
+    sysml:type elmt:Results__Vehicle ;
+    sysml:general elmt:Results__Vehicle ;
+    sysml:target elmt:Results__Vehicle ;
+    sysml:owner elmt:Results__rover ;
+    sysml:relatedElement elmt:Results__rover, elmt:Results__Vehicle ;
+    json:relatedElement "[{\"@id\":\"Results__rover\"},{\"@id\":\"Results__Vehicle\"}]" .
+
+expr:Results__rover__twice__x_pvalue_preferent
+    a sysml:Membership ;
+    sysml:elementId "Results__rover__twice__x_pvalue_preferent" ;
+    sysml:memberElement elmt:Results__Vehicle__mass ;
+    sysml:owner expr:Results__rover__twice__x_pvalue ;
+    sysml:owningRelatedElement expr:Results__rover__twice__x_pvalue .
+
+expr:Results__rover__twice___401_pa0_preferent
+    a sysml:Membership ;
+    sysml:elementId "Results__rover__twice___401_pa0_preferent" ;
+    sysml:memberElement elmt:Results__rover__twice__x ;
+    sysml:owner expr:Results__rover__twice___401_pa0 ;
+    sysml:owningRelatedElement expr:Results__rover__twice___401_pa0 .
+
+expr:Results__rover__twice___401_pa1_preferent
+    a sysml:Membership ;
+    sysml:elementId "Results__rover__twice___401_pa1_preferent" ;
+    sysml:memberElement elmt:Results__rover__twice__x ;
+    sysml:owner expr:Results__rover__twice___401_pa1 ;
+    sysml:owningRelatedElement expr:Results__rover__twice___401_pa1 .

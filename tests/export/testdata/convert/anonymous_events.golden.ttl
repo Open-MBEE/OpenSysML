@@ -122,6 +122,9 @@ elmt:AnonymousEvents__Sender__exchange
     sysml:declaredName "exchange" ;
     sysml:type elmt:AnonymousEvents__Exchange ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:AnonymousEvents__Sender__exchange_ft0 ;
+    sysml:ownedSpecialization elmt:AnonymousEvents__Sender__exchange_ft0 ;
+    sysml:ownedRelationship elmt:AnonymousEvents__Sender__exchange_ft0 ;
     sysx:sourceText "\t\toccurrence exchange : Exchange;\n" .
 
 elmt:AnonymousEvents__Sender__exchange_om
@@ -148,6 +151,10 @@ elmt:AnonymousEvents__Sender___401
     sysx:declaredKeyword "event" ;
     sysml:references "exchange.request"^^sysx:Expression ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedReferenceSubsetting elmt:AnonymousEvents__Sender___401_rs ;
+    sysml:ownedSubsetting elmt:AnonymousEvents__Sender___401_rs ;
+    sysml:ownedSpecialization elmt:AnonymousEvents__Sender___401_rs ;
+    sysml:ownedRelationship elmt:AnonymousEvents__Sender___401_rs ;
     sysx:sourceText "\t\tevent exchange.request;\n" .
 
 elmt:AnonymousEvents__Sender___401_om
@@ -222,6 +229,9 @@ elmt:AnonymousEvents__Sender___404
     sysml:owningMembership elmt:AnonymousEvents__Sender___404_om ;
     sysml:type elmt:AnonymousEvents__Exchange ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:AnonymousEvents__Sender___404_ft0 ;
+    sysml:ownedSpecialization elmt:AnonymousEvents__Sender___404_ft0 ;
+    sysml:ownedRelationship elmt:AnonymousEvents__Sender___404_ft0 ;
     sysx:sourceText "\t\tevent occurrence : Exchange;\n" .
 
 elmt:AnonymousEvents__Sender___404_om
@@ -235,3 +245,50 @@ elmt:AnonymousEvents__Sender___404_om
     sysml:membershipOwningNamespace elmt:AnonymousEvents__Sender ;
     sysml:ownedMemberFeature elmt:AnonymousEvents__Sender___404 ;
     sysml:owningType elmt:AnonymousEvents__Sender .
+
+elmt:AnonymousEvents__Sender__exchange_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "AnonymousEvents__Sender__exchange_ft0" ;
+    sysml:typedFeature elmt:AnonymousEvents__Sender__exchange ;
+    sysml:owningFeature elmt:AnonymousEvents__Sender__exchange ;
+    sysml:specific elmt:AnonymousEvents__Sender__exchange ;
+    sysml:source elmt:AnonymousEvents__Sender__exchange ;
+    sysml:owningRelatedElement elmt:AnonymousEvents__Sender__exchange ;
+    sysml:type elmt:AnonymousEvents__Exchange ;
+    sysml:general elmt:AnonymousEvents__Exchange ;
+    sysml:target elmt:AnonymousEvents__Exchange ;
+    sysml:owner elmt:AnonymousEvents__Sender__exchange ;
+    sysml:relatedElement elmt:AnonymousEvents__Sender__exchange, elmt:AnonymousEvents__Exchange ;
+    json:relatedElement "[{\"@id\":\"AnonymousEvents__Sender__exchange\"},{\"@id\":\"AnonymousEvents__Exchange\"}]" .
+
+elmt:AnonymousEvents__Sender___401_rs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "AnonymousEvents__Sender___401_rs" ;
+    sysml:referencingFeature elmt:AnonymousEvents__Sender___401 ;
+    sysml:subsettingFeature elmt:AnonymousEvents__Sender___401 ;
+    sysml:owningFeature elmt:AnonymousEvents__Sender___401 ;
+    sysml:specific elmt:AnonymousEvents__Sender___401 ;
+    sysml:source elmt:AnonymousEvents__Sender___401 ;
+    sysml:owningRelatedElement elmt:AnonymousEvents__Sender___401 ;
+    sysml:referencedFeature "exchange.request"^^sysx:Expression ;
+    sysml:subsettedFeature "exchange.request"^^sysx:Expression ;
+    sysml:general "exchange.request"^^sysx:Expression ;
+    sysml:target "exchange.request"^^sysx:Expression ;
+    sysml:owner elmt:AnonymousEvents__Sender___401 ;
+    sysml:relatedElement elmt:AnonymousEvents__Sender___401, "exchange.request"^^sysx:Expression ;
+    json:relatedElement "[{\"@id\":\"AnonymousEvents__Sender___401\"},\"exchange.request\"]" .
+
+elmt:AnonymousEvents__Sender___404_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "AnonymousEvents__Sender___404_ft0" ;
+    sysml:typedFeature elmt:AnonymousEvents__Sender___404 ;
+    sysml:owningFeature elmt:AnonymousEvents__Sender___404 ;
+    sysml:specific elmt:AnonymousEvents__Sender___404 ;
+    sysml:source elmt:AnonymousEvents__Sender___404 ;
+    sysml:owningRelatedElement elmt:AnonymousEvents__Sender___404 ;
+    sysml:type elmt:AnonymousEvents__Exchange ;
+    sysml:general elmt:AnonymousEvents__Exchange ;
+    sysml:target elmt:AnonymousEvents__Exchange ;
+    sysml:owner elmt:AnonymousEvents__Sender___404 ;
+    sysml:relatedElement elmt:AnonymousEvents__Sender___404, elmt:AnonymousEvents__Exchange ;
+    json:relatedElement "[{\"@id\":\"AnonymousEvents__Sender___404\"},{\"@id\":\"AnonymousEvents__Exchange\"}]" .

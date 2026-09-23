@@ -59,11 +59,14 @@ elmt:Relations__Sub
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Relations__Sub__b ;
     sysml:ownedMembership elmt:Relations__Sub__b_om ;
-    sysml:ownedRelationship elmt:Relations__Sub__b_om ;
+    sysml:ownedRelationship elmt:Relations__Sub__b_om, elmt:Relations__Sub_sc0 ;
     sysml:ownedFeature elmt:Relations__Sub__b ;
     sysml:ownedFeatureMembership elmt:Relations__Sub__b_om ;
+    sysml:ownedSubclassification elmt:Relations__Sub_sc0 ;
+    sysml:ownedSpecialization elmt:Relations__Sub_sc0 ;
     sysx:sourceText "    part def Sub specializes Base {\n" ;
-    sysx:sourceTail "    }\n" .
+    sysx:sourceTail "    }\n" ;
+    json:ownedRelationship "[{\"@id\":\"Relations__Sub__b_om\"},{\"@id\":\"Relations__Sub_sc0\"}]" .
 
 elmt:Relations__Sub_om
     a sysml:OwningMembership ;
@@ -87,6 +90,9 @@ elmt:Relations__Sub__b
     sysml:declaredName "b" ;
     sysml:type elmt:Relations__Base ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Relations__Sub__b_ft0 ;
+    sysml:ownedSpecialization elmt:Relations__Sub__b_ft0 ;
+    sysml:ownedRelationship elmt:Relations__Sub__b_ft0 ;
     sysx:sourceText "        part b : Base;\n" .
 
 elmt:Relations__Sub__b_om
@@ -115,14 +121,16 @@ elmt:Relations__Other
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Relations__Other__r, elmt:Relations__Other__s ;
     sysml:ownedMembership elmt:Relations__Other__r_om, elmt:Relations__Other__s_om ;
-    sysml:ownedRelationship elmt:Relations__Other__r_om, elmt:Relations__Other__s_om ;
+    sysml:ownedRelationship elmt:Relations__Other__r_om, elmt:Relations__Other__s_om, elmt:Relations__Other_sc0 ;
     sysml:ownedFeature elmt:Relations__Other__r, elmt:Relations__Other__s ;
     sysml:ownedFeatureMembership elmt:Relations__Other__r_om, elmt:Relations__Other__s_om ;
+    sysml:ownedSubclassification elmt:Relations__Other_sc0 ;
+    sysml:ownedSpecialization elmt:Relations__Other_sc0 ;
     sysx:sourceText "    part def Other specializes Sub {\n" ;
     sysx:sourceTail "    }\n" ;
     json:ownedMember "[{\"@id\":\"Relations__Other__r\"},{\"@id\":\"Relations__Other__s\"}]" ;
     json:ownedMembership "[{\"@id\":\"Relations__Other__r_om\"},{\"@id\":\"Relations__Other__s_om\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"Relations__Other__r_om\"},{\"@id\":\"Relations__Other__s_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Relations__Other__r_om\"},{\"@id\":\"Relations__Other__s_om\"},{\"@id\":\"Relations__Other_sc0\"}]" ;
     json:ownedFeature "[{\"@id\":\"Relations__Other__r\"},{\"@id\":\"Relations__Other__s\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Relations__Other__r_om\"},{\"@id\":\"Relations__Other__s_om\"}]" .
 
@@ -148,6 +156,10 @@ elmt:Relations__Other__r
     sysml:declaredName "r" ;
     sysml:redefines elmt:Relations__Sub__b ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedRedefinition elmt:Relations__Other__r_rd0 ;
+    sysml:ownedSubsetting elmt:Relations__Other__r_rd0 ;
+    sysml:ownedSpecialization elmt:Relations__Other__r_rd0 ;
+    sysml:ownedRelationship elmt:Relations__Other__r_rd0 ;
     sysx:sourceText "        part r redefines b;\n" .
 
 elmt:Relations__Other__r_om
@@ -174,6 +186,9 @@ elmt:Relations__Other__s
     sysml:declaredName "s" ;
     sysml:subsets elmt:Relations__Other__r ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedSubsetting elmt:Relations__Other__s_ss0 ;
+    sysml:ownedSpecialization elmt:Relations__Other__s_ss0 ;
+    sysml:ownedRelationship elmt:Relations__Other__s_ss0 ;
     sysx:sourceText "        part s subsets r;\n" .
 
 elmt:Relations__Other__s_om
@@ -187,3 +202,80 @@ elmt:Relations__Other__s_om
     sysml:membershipOwningNamespace elmt:Relations__Other ;
     sysml:ownedMemberFeature elmt:Relations__Other__s ;
     sysml:owningType elmt:Relations__Other .
+
+elmt:Relations__Sub_sc0
+    a sysml:Subclassification ;
+    sysml:elementId "Relations__Sub_sc0" ;
+    sysml:subclassifier elmt:Relations__Sub ;
+    sysml:owningClassifier elmt:Relations__Sub ;
+    sysml:specific elmt:Relations__Sub ;
+    sysml:source elmt:Relations__Sub ;
+    sysml:owningRelatedElement elmt:Relations__Sub ;
+    sysml:superclassifier elmt:Relations__Base ;
+    sysml:general elmt:Relations__Base ;
+    sysml:target elmt:Relations__Base ;
+    sysml:owner elmt:Relations__Sub ;
+    sysml:relatedElement elmt:Relations__Sub, elmt:Relations__Base ;
+    json:relatedElement "[{\"@id\":\"Relations__Sub\"},{\"@id\":\"Relations__Base\"}]" .
+
+elmt:Relations__Sub__b_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Relations__Sub__b_ft0" ;
+    sysml:typedFeature elmt:Relations__Sub__b ;
+    sysml:owningFeature elmt:Relations__Sub__b ;
+    sysml:specific elmt:Relations__Sub__b ;
+    sysml:source elmt:Relations__Sub__b ;
+    sysml:owningRelatedElement elmt:Relations__Sub__b ;
+    sysml:type elmt:Relations__Base ;
+    sysml:general elmt:Relations__Base ;
+    sysml:target elmt:Relations__Base ;
+    sysml:owner elmt:Relations__Sub__b ;
+    sysml:relatedElement elmt:Relations__Sub__b, elmt:Relations__Base ;
+    json:relatedElement "[{\"@id\":\"Relations__Sub__b\"},{\"@id\":\"Relations__Base\"}]" .
+
+elmt:Relations__Other_sc0
+    a sysml:Subclassification ;
+    sysml:elementId "Relations__Other_sc0" ;
+    sysml:subclassifier elmt:Relations__Other ;
+    sysml:owningClassifier elmt:Relations__Other ;
+    sysml:specific elmt:Relations__Other ;
+    sysml:source elmt:Relations__Other ;
+    sysml:owningRelatedElement elmt:Relations__Other ;
+    sysml:superclassifier elmt:Relations__Sub ;
+    sysml:general elmt:Relations__Sub ;
+    sysml:target elmt:Relations__Sub ;
+    sysml:owner elmt:Relations__Other ;
+    sysml:relatedElement elmt:Relations__Other, elmt:Relations__Sub ;
+    json:relatedElement "[{\"@id\":\"Relations__Other\"},{\"@id\":\"Relations__Sub\"}]" .
+
+elmt:Relations__Other__r_rd0
+    a sysml:Redefinition ;
+    sysml:elementId "Relations__Other__r_rd0" ;
+    sysml:redefiningFeature elmt:Relations__Other__r ;
+    sysml:subsettingFeature elmt:Relations__Other__r ;
+    sysml:owningFeature elmt:Relations__Other__r ;
+    sysml:specific elmt:Relations__Other__r ;
+    sysml:source elmt:Relations__Other__r ;
+    sysml:owningRelatedElement elmt:Relations__Other__r ;
+    sysml:redefinedFeature elmt:Relations__Sub__b ;
+    sysml:subsettedFeature elmt:Relations__Sub__b ;
+    sysml:general elmt:Relations__Sub__b ;
+    sysml:target elmt:Relations__Sub__b ;
+    sysml:owner elmt:Relations__Other__r ;
+    sysml:relatedElement elmt:Relations__Other__r, elmt:Relations__Sub__b ;
+    json:relatedElement "[{\"@id\":\"Relations__Other__r\"},{\"@id\":\"Relations__Sub__b\"}]" .
+
+elmt:Relations__Other__s_ss0
+    a sysml:Subsetting ;
+    sysml:elementId "Relations__Other__s_ss0" ;
+    sysml:subsettingFeature elmt:Relations__Other__s ;
+    sysml:owningFeature elmt:Relations__Other__s ;
+    sysml:specific elmt:Relations__Other__s ;
+    sysml:source elmt:Relations__Other__s ;
+    sysml:owningRelatedElement elmt:Relations__Other__s ;
+    sysml:subsettedFeature elmt:Relations__Other__r ;
+    sysml:general elmt:Relations__Other__r ;
+    sysml:target elmt:Relations__Other__r ;
+    sysml:owner elmt:Relations__Other__s ;
+    sysml:relatedElement elmt:Relations__Other__s, elmt:Relations__Other__r ;
+    json:relatedElement "[{\"@id\":\"Relations__Other__s\"},{\"@id\":\"Relations__Other__r\"}]" .

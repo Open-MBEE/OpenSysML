@@ -22,6 +22,10 @@ type elementIdentity struct {
 	scope    *identity.Scope
 	// membership is the normative id of the owning membership, for a library element.
 	membership string
+	// root is the qualified name of the document root enclosing the element,
+	// which the qualified-name text cannot split out itself (a quoted name may
+	// carry :: inside it).
+	root string
 }
 
 // identityFacts is the identity side table of one document translated for the
@@ -45,6 +49,13 @@ type identityFacts struct {
 	// library memoizes those lookups: the qualified name a library symbol's
 	// normative id was recorded under, "" where the norm fixes none.
 	library map[*symbols.Symbol]string
+	// form is how derived ids are spelled; pkg memoizes each root's uuid
+	// namespace, and pkgOf/localOf carry them to the derived subjects minted
+	// under each element and node.
+	form    IDForm
+	pkg     map[string]string
+	pkgOf   map[string]string
+	localOf map[string]string
 }
 
 // analyzeDocument indexes one parsed document over the standard library and resolves every
@@ -78,10 +89,11 @@ func analyzeDocument(file *source.SourceFile, root *ast.RootNamespace, library s
 
 // documentIdentity builds the identity side table for one parsed document,
 // refusing an id that is not a constant string or is outside the id alphabet.
-func documentIdentity(name string, res *resolve.Resolver, model *semantics.Model) (*identityFacts, error) {
+func documentIdentity(name string, res *resolve.Resolver, model *semantics.Model, form IDForm) (*identityFacts, error) {
 	table := identity.Build(model, res, res.Index().DocumentRoot(name))
 
 	facts := &identityFacts{
+		form:       form,
 		byFQN:      map[string]elementIdentity{},
 		byNode:     map[ast.Node]elementIdentity{},
 		consumed:   map[ast.Node]bool{},
@@ -89,6 +101,9 @@ func documentIdentity(name string, res *resolve.Resolver, model *semantics.Model
 		model:      model,
 		res:        res,
 		library:    map[*symbols.Symbol]string{},
+		pkg:        map[string]string{},
+		pkgOf:      map[string]string{},
+		localOf:    map[string]string{},
 	}
 	scopeKeys := map[string]bool{}
 	for _, sym := range table.Symbols() {
@@ -117,6 +132,13 @@ func documentIdentity(name string, res *resolve.Resolver, model *semantics.Model
 			declared:   info.Source == identity.SourceDeclared,
 			scope:      info.Scope,
 			membership: info.OwningMembershipID(),
+		}
+		if root := identity.Root(sym); root != sym {
+			if ri, ok := table.Info(root); ok {
+				el.root = ri.FQN
+			}
+		} else {
+			el.root = info.FQN
 		}
 		facts.byFQN[info.FQN] = el
 		facts.byNode[sym.Decl] = el
@@ -206,17 +228,66 @@ func (f *identityFacts) subjectForNode(node ast.Node, fqn string) rdf.Term {
 	return f.subjectOf(el, fqn)
 }
 
+// rootIRIOf returns the root package's element IRI as the qualified form
+// spells it, so the uuid namespace derivation keys on (scope, root), not the
+// root's name alone.
+func (f *identityFacts) rootIRIOf(el elementIdentity, root string) string {
+	id := rdf.EncodeElementID(root)
+	if f.qualified && el.scope != nil {
+		return rdf.ScopedElementIRIForID(rdf.ScopeQualifier(el.scope.Org, el.scope.ProjectID), id).Value
+	}
+	return rdf.ElementIRIForID(id).Value
+}
+
 // subjectOf builds the IRI of one identity; a derived id is re-encoded from
 // the encoder's name, which positions an unnamed element the table cannot.
 func (f *identityFacts) subjectOf(el elementIdentity, fqn string) rdf.Term {
 	id := el.id
 	if el.source == identity.SourceDerived || id == "" {
 		id = rdf.EncodeElementID(fqn)
+		var subject rdf.Term
+		if f.qualified && el.scope != nil {
+			subject = rdf.ScopedElementIRIForID(rdf.ScopeQualifier(el.scope.Org, el.scope.ProjectID), id)
+		} else {
+			subject = rdf.ElementIRIForID(id)
+		}
+		if f.form == IDUUID {
+			// The root package's own id is the package namespace itself.
+			root := el.root
+			if root == "" {
+				root = rootOf(fqn)
+			}
+			pkg := f.pkgFor(f.rootIRIOf(el, root))
+			uuid := identity.DerivedID(pkg, id)
+			if fqn == root {
+				uuid = pkg
+			}
+			var out rdf.Term
+			if f.qualified && el.scope != nil {
+				out = rdf.ScopedElementIRIForID(rdf.ScopeQualifier(el.scope.Org, el.scope.ProjectID), uuid)
+			} else {
+				out = rdf.ElementIRIForID(uuid)
+			}
+			f.record(out, pkg, id)
+			return out
+		}
+		f.record(subject, "", id)
+		return subject
 	}
+	subject := rdf.ElementIRIForID(id)
 	if f.qualified && el.scope != nil {
-		return rdf.ScopedElementIRIForID(rdf.ScopeQualifier(el.scope.Org, el.scope.ProjectID), id)
+		subject = rdf.ScopedElementIRIForID(rdf.ScopeQualifier(el.scope.Org, el.scope.ProjectID), id)
 	}
-	return rdf.ElementIRIForID(id)
+	pkg := ""
+	if f.form == IDUUID {
+		root := el.root
+		if root == "" {
+			root = rootOf(fqn)
+		}
+		pkg = f.pkgFor(f.rootIRIOf(el, root))
+	}
+	f.record(subject, pkg, id)
+	return subject
 }
 
 // owningMembershipOf is the IRI of the membership owning the member declared at
@@ -225,7 +296,7 @@ func (f *identityFacts) owningMembershipOf(node ast.Node, member rdf.Term) rdf.T
 	if el, ok := f.byNode[node]; ok && el.membership != "" {
 		return rdf.ElementIRIForID(el.membership)
 	}
-	return rdf.OwningMembershipIRIOf(member)
+	return f.minted(rdf.OwningMembershipIRIOf(member), member, rdf.OwningMembershipSuffix)
 }
 
 // normativeMembership reports whether the norm fixes an id for the membership

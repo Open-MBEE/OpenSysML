@@ -110,6 +110,10 @@ elmt:SendNew__Radio
     sysml:owningRelationship elmt:SendNew__Radio_om ;
     sysml:owningMembership elmt:SendNew__Radio_om ;
     sysml:declaredName "Radio" ;
+    sysml:ownedRelationship elmt:SendNew__Radio_conjugated_om ;
+    sysml:ownedMember elmt:SendNew__Radio_conjugated ;
+    sysml:ownedMembership elmt:SendNew__Radio_conjugated_om ;
+    sysml:conjugatedPortDefinition elmt:SendNew__Radio_conjugated ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "    port def Radio;\n" .
 
@@ -122,6 +126,40 @@ elmt:SendNew__Radio_om
     sysml:ownedRelatedElement elmt:SendNew__Radio ;
     sysml:owningRelatedElement elmt:SendNew ;
     sysml:membershipOwningNamespace elmt:SendNew .
+
+elmt:SendNew__Radio_conjugated
+    a sysml:ConjugatedPortDefinition ;
+    sysml:elementId "SendNew__Radio_conjugated" ;
+    sysml:qualifiedName "SendNew::Radio::'~Radio'" ;
+    sysml:declaredName "~Radio" ;
+    sysml:owner elmt:SendNew__Radio ;
+    sysml:owningRelationship elmt:SendNew__Radio_conjugated_om ;
+    sysml:owningMembership elmt:SendNew__Radio_conjugated_om ;
+    sysml:ownedRelationship elmt:SendNew__Radio_conjugated_pc ;
+    sysml:ownedPortConjugator elmt:SendNew__Radio_conjugated_pc .
+
+elmt:SendNew__Radio_conjugated_om
+    a sysml:OwningMembership ;
+    sysml:elementId "SendNew__Radio_conjugated_om" ;
+    sysml:owner elmt:SendNew__Radio ;
+    sysml:memberElement elmt:SendNew__Radio_conjugated ;
+    sysml:ownedMemberElement elmt:SendNew__Radio_conjugated ;
+    sysml:ownedRelatedElement elmt:SendNew__Radio_conjugated ;
+    sysml:owningRelatedElement elmt:SendNew__Radio ;
+    sysml:membershipOwningNamespace elmt:SendNew__Radio .
+
+elmt:SendNew__Radio_conjugated_pc
+    a sysml:PortConjugation ;
+    sysml:elementId "SendNew__Radio_conjugated_pc" ;
+    sysml:conjugatedType elmt:SendNew__Radio_conjugated ;
+    sysml:originalType elmt:SendNew__Radio ;
+    sysml:originalPortDefinition elmt:SendNew__Radio ;
+    sysml:owner elmt:SendNew__Radio_conjugated ;
+    sysml:owningRelatedElement elmt:SendNew__Radio_conjugated ;
+    sysml:relatedElement elmt:SendNew__Radio_conjugated, elmt:SendNew__Radio ;
+    sysml:source elmt:SendNew__Radio_conjugated ;
+    sysml:target elmt:SendNew__Radio ;
+    json:relatedElement "[{\"@id\":\"SendNew__Radio_conjugated\"},{\"@id\":\"SendNew__Radio\"}]" .
 
 elmt:SendNew__Station
     a sysml:PartDefinition ;
@@ -192,6 +230,9 @@ elmt:SendNew__Downlink__antenna
     sysml:declaredName "antenna" ;
     sysml:type elmt:SendNew__Radio ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:SendNew__Downlink__antenna_ft0 ;
+    sysml:ownedSpecialization elmt:SendNew__Downlink__antenna_ft0 ;
+    sysml:ownedRelationship elmt:SendNew__Downlink__antenna_ft0 ;
     sysx:sourceText "        port antenna : Radio;\n" .
 
 elmt:SendNew__Downlink__antenna_om
@@ -218,6 +259,9 @@ elmt:SendNew__Downlink__ground
     sysml:declaredName "ground" ;
     sysml:type elmt:SendNew__Station ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:SendNew__Downlink__ground_ft0 ;
+    sysml:ownedSpecialization elmt:SendNew__Downlink__ground_ft0 ;
+    sysml:ownedRelationship elmt:SendNew__Downlink__ground_ft0 ;
     sysx:sourceText "        part ground : Station;\n" .
 
 elmt:SendNew__Downlink__ground_om
@@ -340,7 +384,8 @@ expr:SendNew__Downlink___402_preceiver
     sysml:referent elmt:SendNew__Downlink__antenna ;
     sysml:owner elmt:SendNew__Downlink___402 ;
     sysml:owningRelationship expr:SendNew__Downlink___402_preceiver_om ;
-    sysml:owningMembership expr:SendNew__Downlink___402_preceiver_om .
+    sysml:owningMembership expr:SendNew__Downlink___402_preceiver_om ;
+    sysml:ownedRelationship expr:SendNew__Downlink___402_preceiver_preferent .
 
 expr:SendNew__Downlink___402_preceiver_om
     a sysml:OwningMembership ;
@@ -458,7 +503,8 @@ expr:SendNew__Downlink___403_preceiver
     sysml:referent elmt:SendNew__Downlink__ground ;
     sysml:owner elmt:SendNew__Downlink___403 ;
     sysml:owningRelationship expr:SendNew__Downlink___403_preceiver_om ;
-    sysml:owningMembership expr:SendNew__Downlink___403_preceiver_om .
+    sysml:owningMembership expr:SendNew__Downlink___403_preceiver_om ;
+    sysml:ownedRelationship expr:SendNew__Downlink___403_preceiver_preferent .
 
 expr:SendNew__Downlink___403_preceiver_om
     a sysml:OwningMembership ;
@@ -469,3 +515,47 @@ expr:SendNew__Downlink___403_preceiver_om
     sysml:ownedRelatedElement expr:SendNew__Downlink___403_preceiver ;
     sysml:owningRelatedElement elmt:SendNew__Downlink___403 ;
     sysml:membershipOwningNamespace elmt:SendNew__Downlink___403 .
+
+elmt:SendNew__Downlink__antenna_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "SendNew__Downlink__antenna_ft0" ;
+    sysml:typedFeature elmt:SendNew__Downlink__antenna ;
+    sysml:owningFeature elmt:SendNew__Downlink__antenna ;
+    sysml:specific elmt:SendNew__Downlink__antenna ;
+    sysml:source elmt:SendNew__Downlink__antenna ;
+    sysml:owningRelatedElement elmt:SendNew__Downlink__antenna ;
+    sysml:type elmt:SendNew__Radio ;
+    sysml:general elmt:SendNew__Radio ;
+    sysml:target elmt:SendNew__Radio ;
+    sysml:owner elmt:SendNew__Downlink__antenna ;
+    sysml:relatedElement elmt:SendNew__Downlink__antenna, elmt:SendNew__Radio ;
+    json:relatedElement "[{\"@id\":\"SendNew__Downlink__antenna\"},{\"@id\":\"SendNew__Radio\"}]" .
+
+elmt:SendNew__Downlink__ground_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "SendNew__Downlink__ground_ft0" ;
+    sysml:typedFeature elmt:SendNew__Downlink__ground ;
+    sysml:owningFeature elmt:SendNew__Downlink__ground ;
+    sysml:specific elmt:SendNew__Downlink__ground ;
+    sysml:source elmt:SendNew__Downlink__ground ;
+    sysml:owningRelatedElement elmt:SendNew__Downlink__ground ;
+    sysml:type elmt:SendNew__Station ;
+    sysml:general elmt:SendNew__Station ;
+    sysml:target elmt:SendNew__Station ;
+    sysml:owner elmt:SendNew__Downlink__ground ;
+    sysml:relatedElement elmt:SendNew__Downlink__ground, elmt:SendNew__Station ;
+    json:relatedElement "[{\"@id\":\"SendNew__Downlink__ground\"},{\"@id\":\"SendNew__Station\"}]" .
+
+expr:SendNew__Downlink___402_preceiver_preferent
+    a sysml:Membership ;
+    sysml:elementId "SendNew__Downlink___402_preceiver_preferent" ;
+    sysml:memberElement elmt:SendNew__Downlink__antenna ;
+    sysml:owner expr:SendNew__Downlink___402_preceiver ;
+    sysml:owningRelatedElement expr:SendNew__Downlink___402_preceiver .
+
+expr:SendNew__Downlink___403_preceiver_preferent
+    a sysml:Membership ;
+    sysml:elementId "SendNew__Downlink___403_preceiver_preferent" ;
+    sysml:memberElement elmt:SendNew__Downlink__ground ;
+    sysml:owner expr:SendNew__Downlink___403_preceiver ;
+    sysml:owningRelatedElement expr:SendNew__Downlink___403_preceiver .

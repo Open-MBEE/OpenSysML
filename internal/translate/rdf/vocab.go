@@ -92,6 +92,13 @@ func OwningMembershipIRIOf(member Term) Term {
 	return IRI(member.Value + OwningMembershipSuffix)
 }
 
+// RelationshipIRI derives the IRI of a relationship element materialized
+// under subject — an owned specialization or owned member — by appending
+// suffix, so it inherits the owner's effective id and scope qualifier.
+func RelationshipIRI(subject Term, suffix string) Term {
+	return IRI(subject.Value + suffix)
+}
+
 // ExpressionPrefix is the prefix label bound to the expression namespace. It is
 // written only on a graph that carries an expression graph.
 const ExpressionPrefix = "expr"

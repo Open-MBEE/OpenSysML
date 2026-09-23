@@ -46,11 +46,9 @@ package 'Fleet Viewpoints' {
     viewpoint 'Parts Viewpoint' {
         doc /* List the parts of the fleet. */
         action def 'Parts Method' {
-            view 'Parts Method Flow' {
-                expose 'Collect Owned Elements';
-                expose 'Filter By Metaclasses';
-                expose 'Sort By Name';
-                render Views::asTextualNotation;
+            view 'Parts Method Flow' : StandardViewDefinitions::ActionFlowView {
+                expose 'Parts Method';
+                render Views::asInterconnectionDiagram;
             }
             first start then 'Collect Owned Elements';
             action 'Collect Owned Elements' {

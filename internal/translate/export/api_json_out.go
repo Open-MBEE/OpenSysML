@@ -78,6 +78,12 @@ type apiJSONReference struct {
 	ID string `json:"@id"`
 }
 
+// apiJSONNameReference is the {"@ref": <name>} spelling of a reference the
+// graph could not link: an object property naming an element by its text.
+type apiJSONNameReference struct {
+	Ref string `json:"@ref"`
+}
+
 // apiJSONElement builds the element object for one subject: "@type", "@id",
 // then each property in statement order.
 func apiJSONElement(graph *rdf.Graph, subject rdf.Term) (apiJSONObject, error) {
@@ -121,7 +127,12 @@ func apiJSONElement(graph *rdf.Graph, subject rdf.Term) (apiJSONObject, error) {
 			continue
 		case strings.HasPrefix(predicate, rdf.SysML):
 			key := strings.TrimPrefix(predicate, rdf.SysML)
-			value, err := apiJSONSysMLValue(graph, subject, predicate, key, metaclass)
+			objectProperty := false
+			if metaclass != "" {
+				property, known := ontology.PropertyOf(metaclass, key)
+				objectProperty = known && property.Kind == ontology.ObjectProperty
+			}
+			value, err := apiJSONSysMLValue(graph, subject, predicate, key, metaclass, objectProperty)
 			if err != nil {
 				return nil, err
 			}
@@ -129,7 +140,7 @@ func apiJSONElement(graph *rdf.Graph, subject rdf.Term) (apiJSONObject, error) {
 		case strings.HasPrefix(predicate, rdf.OpenSysML):
 			key := "sysx:" + strings.TrimPrefix(predicate, rdf.OpenSysML)
 			objects := graph.Objects(subject, predicate)
-			value, err := apiJSONValues(subject, "", objects)
+			value, err := apiJSONValues(subject, "", objects, false)
 			if err != nil {
 				return nil, err
 			}
@@ -156,7 +167,7 @@ func apiJSONType(typ rdf.Term) string {
 // apiJSONSysMLValue is the value a sysml: key carries: the collection its
 // json: annotation states, an array when the metamodel declares the property
 // multi-valued, or its single object as a scalar.
-func apiJSONSysMLValue(graph *rdf.Graph, subject rdf.Term, predicate, key, metaclass string) (any, error) {
+func apiJSONSysMLValue(graph *rdf.Graph, subject rdf.Term, predicate, key, metaclass string, objectProperty bool) (any, error) {
 	objects := graph.Objects(subject, predicate)
 	if annotation, ok := graph.Object(subject, rdf.AnnotationJSON+key); ok {
 		if !annotation.IsLiteral() {
@@ -174,7 +185,7 @@ func apiJSONSysMLValue(graph *rdf.Graph, subject rdf.Term, predicate, key, metac
 		}
 		// A member in a datatype the reader can't restore is refused like a scalar.
 		for _, object := range objects {
-			if _, err := apiJSONScalar(subject, key, object); err != nil {
+			if _, err := apiJSONScalar(subject, key, object, objectProperty); err != nil {
 				return nil, err
 			}
 		}
@@ -192,7 +203,7 @@ func apiJSONSysMLValue(graph *rdf.Graph, subject rdf.Term, predicate, key, metac
 	if many {
 		values := make([]any, 0, len(objects))
 		for _, object := range objects {
-			value, err := apiJSONScalar(subject, key, object)
+			value, err := apiJSONScalar(subject, key, object, objectProperty)
 			if err != nil {
 				return nil, err
 			}
@@ -206,19 +217,19 @@ func apiJSONSysMLValue(graph *rdf.Graph, subject rdf.Term, predicate, key, metac
 			Note: "a sysml: collection states its members in the json: annotation, which is absent",
 		}
 	}
-	return apiJSONValues(subject, key, objects)
+	return apiJSONValues(subject, key, objects, objectProperty)
 }
 
 // apiJSONValues spells a property's objects as the key's value: one object a
 // scalar, several an array. The key classifies expression text; sysx: keys
 // pass "".
-func apiJSONValues(subject rdf.Term, key string, objects []rdf.Term) (any, error) {
+func apiJSONValues(subject rdf.Term, key string, objects []rdf.Term, objectProperty bool) (any, error) {
 	if len(objects) == 1 {
-		return apiJSONScalar(subject, key, objects[0])
+		return apiJSONScalar(subject, key, objects[0], objectProperty)
 	}
 	values := make([]any, 0, len(objects))
 	for _, object := range objects {
-		value, err := apiJSONScalar(subject, key, object)
+		value, err := apiJSONScalar(subject, key, object, objectProperty)
 		if err != nil {
 			return nil, err
 		}
@@ -228,10 +239,11 @@ func apiJSONValues(subject rdf.Term, key string, objects []rdf.Term) (any, error
 }
 
 // apiJSONScalar is the JSON spelling of one object: an IRI a {"@id": …}
-// reference, a boolean or number its JSON primitive, anything else a string.
-// A literal the reader would restore in another datatype is refused: the
-// element form carries no datatype to spell it in.
-func apiJSONScalar(subject rdf.Term, key string, object rdf.Term) (any, error) {
+// reference, a plain literal on an object property the {"@ref": …} of a name
+// the graph could not link, a boolean or number its JSON primitive, anything
+// else a string. A literal the reader would restore in another datatype is
+// refused: the element form carries no datatype to spell it in.
+func apiJSONScalar(subject rdf.Term, key string, object rdf.Term, objectProperty bool) (any, error) {
 	if object.IsIRI() {
 		return apiJSONReference{ID: rdf.ReferenceID(subject, object)}, nil
 	}
@@ -271,6 +283,9 @@ func apiJSONScalar(subject rdf.Term, key string, object rdf.Term) (any, error) {
 		}
 		return number, nil
 	case "":
+		if objectProperty {
+			return apiJSONNameReference{Ref: object.Value}, nil
+		}
 		return object.Value, nil
 	case rdf.OpenSysML + dtExpression:
 		if !apiJSONIsExpressionText(key, object.Value) {

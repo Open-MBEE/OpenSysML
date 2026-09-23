@@ -106,6 +106,9 @@ elmt:Modifiers__Derived
     sysml:declaredName "Derived" ;
     sysml:specializes elmt:Modifiers__Base ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedSubclassification elmt:Modifiers__Derived_sc0 ;
+    sysml:ownedSpecialization elmt:Modifiers__Derived_sc0 ;
+    sysml:ownedRelationship elmt:Modifiers__Derived_sc0 ;
     sysx:sourceText "    part def Derived :> Base;\n" .
 
 elmt:Modifiers__Derived_om
@@ -141,3 +144,18 @@ elmt:Modifiers__Choice_om
     sysml:ownedRelatedElement elmt:Modifiers__Choice ;
     sysml:owningRelatedElement elmt:Modifiers ;
     sysml:membershipOwningNamespace elmt:Modifiers .
+
+elmt:Modifiers__Derived_sc0
+    a sysml:Subclassification ;
+    sysml:elementId "Modifiers__Derived_sc0" ;
+    sysml:subclassifier elmt:Modifiers__Derived ;
+    sysml:owningClassifier elmt:Modifiers__Derived ;
+    sysml:specific elmt:Modifiers__Derived ;
+    sysml:source elmt:Modifiers__Derived ;
+    sysml:owningRelatedElement elmt:Modifiers__Derived ;
+    sysml:superclassifier elmt:Modifiers__Base ;
+    sysml:general elmt:Modifiers__Base ;
+    sysml:target elmt:Modifiers__Base ;
+    sysml:owner elmt:Modifiers__Derived ;
+    sysml:relatedElement elmt:Modifiers__Derived, elmt:Modifiers__Base ;
+    json:relatedElement "[{\"@id\":\"Modifiers__Derived\"},{\"@id\":\"Modifiers__Base\"}]" .

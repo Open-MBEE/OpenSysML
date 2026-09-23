@@ -13,34 +13,35 @@
 
 [graph]
 fixture	identity_model.sysml
-subjects	17
-triples	205
-bytes	13884
-triples.json	3
-triples.rdf	17
-triples.sysml	153
+subjects	19
+triples	240
+bytes	16651
+triples.json	6
+triples.rdf	19
+triples.sysml	183
 triples.sysx	32
 
 [api-json]
-elements	17
-bytes	14243
+elements	19
+bytes	17452
 
 [graph-load]
 accepted	yes
 commits	1
-elements.written	17
-elements.listed	17
+elements.written	19
+elements.listed	19
 elements.unexpected	0
 listing.responses	1
 listing.paging-ignored	yes
-elements.readable-directly	17
+elements.readable-directly	19
 roots.reported	1
 roots.in-model	1
 
 [graph-load.properties]
 sysml:declaredName	written=7	delivered=7	multi-valued=0/0
-sysml:elementId	written=17	delivered=17	multi-valued=0/0
+sysml:elementId	written=19	delivered=19	multi-valued=0/0
 sysml:featureWithValue	written=2	delivered=2	multi-valued=0/0
+sysml:general	written=2	delivered=2	multi-valued=0/0
 sysml:memberElement	written=8	delivered=8	multi-valued=0/0
 sysml:membershipOwningNamespace	written=8	delivered=8	multi-valued=0/0
 sysml:ownedFeature	written=3	delivered=3	multi-valued=0/0
@@ -50,16 +51,28 @@ sysml:ownedMemberElement	written=8	delivered=8	multi-valued=0/0
 sysml:ownedMemberFeature	written=3	delivered=3	multi-valued=0/0
 sysml:ownedMembership	written=6	delivered=6	multi-valued=1/1
 sysml:ownedRelatedElement	written=8	delivered=8	multi-valued=0/0
-sysml:ownedRelationship	written=6	delivered=6	multi-valued=1/1
-sysml:owner	written=16	delivered=16	multi-valued=0/0
+sysml:ownedRelationship	written=7	delivered=7	multi-valued=2/2
+sysml:ownedSpecialization	written=2	delivered=2	multi-valued=0/0
+sysml:ownedSubclassification	written=1	delivered=1	multi-valued=0/0
+sysml:ownedTyping	written=1	delivered=1	multi-valued=0/0
+sysml:owner	written=18	delivered=18	multi-valued=0/0
+sysml:owningClassifier	written=1	delivered=1	multi-valued=0/0
+sysml:owningFeature	written=1	delivered=1	multi-valued=0/0
 sysml:owningMembership	written=8	delivered=8	multi-valued=0/0
 sysml:owningNamespace	written=6	delivered=6	multi-valued=0/0
-sysml:owningRelatedElement	written=8	delivered=8	multi-valued=0/0
+sysml:owningRelatedElement	written=10	delivered=10	multi-valued=0/0
 sysml:owningRelationship	written=8	delivered=8	multi-valued=0/0
 sysml:owningType	written=3	delivered=3	multi-valued=0/0
 sysml:qualifiedName	written=7	delivered=7	multi-valued=0/0
+sysml:relatedElement	written=2	delivered=2	multi-valued=2/2
+sysml:source	written=2	delivered=2	multi-valued=0/0
 sysml:specializes	written=1	delivered=1	multi-valued=0/0
-sysml:type	written=1	delivered=1	multi-valued=0/0
+sysml:specific	written=2	delivered=2	multi-valued=0/0
+sysml:subclassifier	written=1	delivered=1	multi-valued=0/0
+sysml:superclassifier	written=1	delivered=1	multi-valued=0/0
+sysml:target	written=2	delivered=2	multi-valued=0/0
+sysml:type	written=2	delivered=2	multi-valued=0/0
+sysml:typedFeature	written=1	delivered=1	multi-valued=0/0
 sysml:value	written=6	delivered=6	multi-valued=0/0
 sysx:branch	written=1	delivered=0	multi-valued=0/0
 sysx:declaredId	written=2	delivered=0	multi-valued=0/0
@@ -73,8 +86,9 @@ sysx:sourceText	written=9	delivered=0	multi-valued=0/0
 [graph-load.elements]
 0b6e3c1a-4d2f-4e8b-9a7c-5d1f0e9b2a7c	type=PartDefinition	listed=yes	direct=ok	properties=12/17	lost=sysx:declaredId,sysx:hasBody,sysx:memberIndex,sysx:sourceTail,sysx:sourceText
 0b6e3c1a-4d2f-4e8b-9a7c-5d1f0e9b2a7c_om	type=OwningMembership	listed=yes	direct=ok	properties=7/7
-8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90	type=PartDefinition	listed=yes	direct=ok	properties=13/18	lost=sysx:declaredId,sysx:hasBody,sysx:memberIndex,sysx:sourceTail,sysx:sourceText
+8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90	type=PartDefinition	listed=yes	direct=ok	properties=15/20	lost=sysx:declaredId,sysx:hasBody,sysx:memberIndex,sysx:sourceTail,sysx:sourceText
 8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90_om	type=OwningMembership	listed=yes	direct=ok	properties=7/7
+8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90_sc0	type=Subclassification	listed=yes	direct=ok	properties=11/11
 IdentityInterop	type=Package	listed=yes	direct=ok	properties=6/13	lost=sysx:branch,sysx:hasBody,sysx:memberIndex,sysx:projectId,sysx:sourceLanguage,sysx:sourceTail,sysx:sourceText
 IdentityInterop__Battery__capacity	type=AttributeUsage	listed=yes	direct=ok	properties=10/13	lost=sysx:hasBody,sysx:memberIndex,sysx:sourceText
 IdentityInterop__Battery__capacity_om	type=FeatureMembership	listed=yes	direct=ok	properties=9/9
@@ -85,7 +99,8 @@ IdentityInterop__Component__mass_om	type=FeatureMembership	listed=yes	direct=ok	
 IdentityInterop__Component__mass_pvalue	type=LiteralRational	listed=yes	direct=ok	properties=5/6	lost=sysx:sourceText
 IdentityInterop__Component__mass_pvalue_om	type=FeatureValue	listed=yes	direct=ok	properties=9/9
 IdentityInterop__Rover	type=PartDefinition	listed=yes	direct=ok	properties=12/16	lost=sysx:hasBody,sysx:memberIndex,sysx:sourceTail,sysx:sourceText
-IdentityInterop__Rover__battery	type=PartUsage	listed=yes	direct=ok	properties=8/11	lost=sysx:hasBody,sysx:memberIndex,sysx:sourceText
+IdentityInterop__Rover__battery	type=PartUsage	listed=yes	direct=ok	properties=11/14	lost=sysx:hasBody,sysx:memberIndex,sysx:sourceText
+IdentityInterop__Rover__battery_ft0	type=FeatureTyping	listed=yes	direct=ok	properties=11/11
 IdentityInterop__Rover__battery_om	type=FeatureMembership	listed=yes	direct=ok	properties=9/9
 IdentityInterop__Rover_om	type=OwningMembership	listed=yes	direct=ok	properties=7/7
 
@@ -129,19 +144,20 @@ IdentityInterop__Rover__battery	type=PartUsage	listed=yes	direct=ok	properties=5
 [api-json-commit]
 accepted	yes
 commits	1
-elements.written	17
-elements.listed	17
+elements.written	19
+elements.listed	19
 elements.unexpected	0
 listing.responses	1
 listing.paging-ignored	yes
-elements.readable-directly	17
+elements.readable-directly	19
 roots.reported	1
 roots.in-model	1
 
 [api-json-commit.properties]
 declaredName	written=7	delivered=7	multi-valued=0/0
-elementId	written=17	delivered=17	multi-valued=0/0
+elementId	written=19	delivered=19	multi-valued=0/0
 featureWithValue	written=2	delivered=2	multi-valued=0/0
+general	written=2	delivered=2	multi-valued=0/0
 memberElement	written=8	delivered=8	multi-valued=0/0
 membershipOwningNamespace	written=8	delivered=8	multi-valued=0/0
 ownedFeature	written=3	delivered=3	multi-valued=0/0
@@ -151,15 +167,25 @@ ownedMemberElement	written=8	delivered=8	multi-valued=0/0
 ownedMemberFeature	written=3	delivered=3	multi-valued=0/0
 ownedMembership	written=6	delivered=6	multi-valued=1/1
 ownedRelatedElement	written=8	delivered=8	multi-valued=0/0
-ownedRelationship	written=6	delivered=6	multi-valued=1/1
-owner	written=16	delivered=16	multi-valued=0/0
+ownedRelationship	written=7	delivered=7	multi-valued=2/2
+ownedSpecialization	written=2	delivered=2	multi-valued=0/0
+ownedSubclassification	written=1	delivered=1	multi-valued=0/0
+ownedTyping	written=1	delivered=1	multi-valued=0/0
+owner	written=18	delivered=18	multi-valued=0/0
+owningClassifier	written=1	delivered=1	multi-valued=0/0
+owningFeature	written=1	delivered=1	multi-valued=0/0
 owningMembership	written=8	delivered=8	multi-valued=0/0
 owningNamespace	written=6	delivered=6	multi-valued=0/0
-owningRelatedElement	written=8	delivered=8	multi-valued=0/0
+owningRelatedElement	written=10	delivered=10	multi-valued=0/0
 owningRelationship	written=8	delivered=8	multi-valued=0/0
 owningType	written=3	delivered=3	multi-valued=0/0
 qualifiedName	written=7	delivered=7	multi-valued=0/0
+relatedElement	written=2	delivered=2	multi-valued=2/2
+source	written=2	delivered=2	multi-valued=0/0
 specializes	written=1	delivered=1	multi-valued=0/0
+specific	written=2	delivered=2	multi-valued=0/0
+subclassifier	written=1	delivered=1	multi-valued=0/0
+superclassifier	written=1	delivered=1	multi-valued=0/0
 sysx:branch	written=1	delivered=0	multi-valued=0/0
 sysx:declaredId	written=2	delivered=0	multi-valued=0/0
 sysx:hasBody	written=7	delivered=0	multi-valued=0/0
@@ -168,14 +194,17 @@ sysx:projectId	written=1	delivered=0	multi-valued=0/0
 sysx:sourceLanguage	written=1	delivered=0	multi-valued=0/0
 sysx:sourceTail	written=4	delivered=0	multi-valued=0/0
 sysx:sourceText	written=9	delivered=0	multi-valued=0/0
-type	written=1	delivered=1	multi-valued=0/0
+target	written=2	delivered=2	multi-valued=0/0
+type	written=2	delivered=2	multi-valued=0/0
+typedFeature	written=1	delivered=1	multi-valued=0/0
 value	written=6	delivered=6	multi-valued=0/0
 
 [api-json-commit.elements]
 0b6e3c1a-4d2f-4e8b-9a7c-5d1f0e9b2a7c	type=PartDefinition	listed=yes	direct=ok	properties=12/17	lost=sysx:declaredId,sysx:hasBody,sysx:memberIndex,sysx:sourceTail,sysx:sourceText
 0b6e3c1a-4d2f-4e8b-9a7c-5d1f0e9b2a7c_om	type=OwningMembership	listed=yes	direct=ok	properties=7/7
-8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90	type=PartDefinition	listed=yes	direct=ok	properties=13/18	lost=sysx:declaredId,sysx:hasBody,sysx:memberIndex,sysx:sourceTail,sysx:sourceText
+8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90	type=PartDefinition	listed=yes	direct=ok	properties=15/20	lost=sysx:declaredId,sysx:hasBody,sysx:memberIndex,sysx:sourceTail,sysx:sourceText
 8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90_om	type=OwningMembership	listed=yes	direct=ok	properties=7/7
+8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90_sc0	type=Subclassification	listed=yes	direct=ok	properties=11/11
 IdentityInterop	type=Package	listed=yes	direct=ok	properties=6/13	lost=sysx:branch,sysx:hasBody,sysx:memberIndex,sysx:projectId,sysx:sourceLanguage,sysx:sourceTail,sysx:sourceText
 IdentityInterop__Battery__capacity	type=AttributeUsage	listed=yes	direct=ok	properties=10/13	lost=sysx:hasBody,sysx:memberIndex,sysx:sourceText
 IdentityInterop__Battery__capacity_om	type=FeatureMembership	listed=yes	direct=ok	properties=9/9
@@ -186,22 +215,23 @@ IdentityInterop__Component__mass_om	type=FeatureMembership	listed=yes	direct=ok	
 IdentityInterop__Component__mass_pvalue	type=LiteralRational	listed=yes	direct=ok	properties=5/6	lost=sysx:sourceText
 IdentityInterop__Component__mass_pvalue_om	type=FeatureValue	listed=yes	direct=ok	properties=9/9
 IdentityInterop__Rover	type=PartDefinition	listed=yes	direct=ok	properties=12/16	lost=sysx:hasBody,sysx:memberIndex,sysx:sourceTail,sysx:sourceText
-IdentityInterop__Rover__battery	type=PartUsage	listed=yes	direct=ok	properties=8/11	lost=sysx:hasBody,sysx:memberIndex,sysx:sourceText
+IdentityInterop__Rover__battery	type=PartUsage	listed=yes	direct=ok	properties=11/14	lost=sysx:hasBody,sysx:memberIndex,sysx:sourceText
+IdentityInterop__Rover__battery_ft0	type=FeatureTyping	listed=yes	direct=ok	properties=11/11
 IdentityInterop__Rover__battery_om	type=FeatureMembership	listed=yes	direct=ok	properties=9/9
 IdentityInterop__Rover_om	type=OwningMembership	listed=yes	direct=ok	properties=7/7
 
 [findings]
-graph-load: 17 of 17 elements listed, 147 of 179 properties delivered
+graph-load: 19 of 19 elements listed, 174 of 206 properties delivered
 json-commit: 10 of 10 elements listed, 49 of 49 properties delivered
-api-json-commit: 17 of 17 elements listed, 147 of 179 properties delivered
+api-json-commit: 19 of 19 elements listed, 174 of 206 properties delivered
 graph-load: 8 properties are in the sysx: extension namespace and are dropped unread — extractModelElementToJson ignores every predicate outside the sysml: vocabulary and the JSON annotation namespace (sysx:branch, sysx:declaredId, sysx:hasBody, sysx:memberIndex, sysx:projectId, sysx:sourceLanguage, sysx:sourceTail, sysx:sourceText)
-graph-load: 3 of 3 multi-valued properties are delivered (sysml:ownedMember on 1/1, sysml:ownedMembership on 1/1, sysml:ownedRelationship on 1/1); a standard predicate with several values is skipped entirely unless a JSON annotation supplies the array
-graph-load: the roots endpoint reports 1 of 17 elements as roots (1 have no owner in the model); it filters on sysml:owner and sysml:owningRelatedElement
+graph-load: 6 of 6 multi-valued properties are delivered (sysml:ownedMember on 1/1, sysml:ownedMembership on 1/1, sysml:ownedRelationship on 2/2, sysml:relatedElement on 2/2); a standard predicate with several values is skipped entirely unless a JSON annotation supplies the array
+graph-load: the roots endpoint reports 1 of 19 elements as roots (1 have no owner in the model); it filters on sysml:owner and sysml:owningRelatedElement
 json-commit: the roots endpoint reports 1 of 10 elements as roots, 1 in the payload
-api-json-commit: the roots endpoint reports 1 of 17 elements as roots, 1 in the payload
+api-json-commit: the roots endpoint reports 1 of 19 elements as roots, 1 in the payload
 both: the element listing answered every element it has in 1 response(s) at pageSize=10 — the service accepts pageAfter/pageBefore/pageSize and ignores them
 json-commit: 1 of 1 multi-valued properties are delivered (ownedElement on 1/1), because the commit path stores each array whole as a JSON annotation literal alongside the typed triples
-api-json-commit: 3 of 3 multi-valued properties are delivered (ownedMember on 1/1, ownedMembership on 1/1, ownedRelationship on 1/1)
+api-json-commit: 6 of 6 multi-valued properties are delivered (ownedMember on 1/1, ownedMembership on 1/1, ownedRelationship on 2/2, relatedElement on 2/2)
 api-json-commit vs graph-load: 0 properties delivered on api-json only (), 0 on graph-load only ()
 api-json-commit: 32 sysx: properties posted, 0 delivered (sysx:branch, sysx:declaredId, sysx:hasBody, sysx:memberIndex, sysx:projectId, sysx:sourceLanguage, sysx:sourceTail, sysx:sourceText)
-graph-load: 0 of 17 subjects of the graph are expression nodes or other subjects outside the element namespace
+graph-load: 0 of 19 subjects of the graph are expression nodes or other subjects outside the element namespace

@@ -63,6 +63,9 @@ elmt:Reqs__Safe__margin
     sysml:declaredName "margin" ;
     sysml:type "Real" ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Reqs__Safe__margin_ft0 ;
+    sysml:ownedSpecialization elmt:Reqs__Safe__margin_ft0 ;
+    sysml:ownedRelationship elmt:Reqs__Safe__margin_ft0 ;
     sysx:sourceText "        attribute margin : Real;\n" .
 
 elmt:Reqs__Safe__margin_om
@@ -118,6 +121,9 @@ elmt:Reqs__Positive__value
     sysml:declaredName "value" ;
     sysml:type "Real" ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Reqs__Positive__value_ft0 ;
+    sysml:ownedSpecialization elmt:Reqs__Positive__value_ft0 ;
+    sysml:ownedRelationship elmt:Reqs__Positive__value_ft0 ;
     sysx:sourceText "        attribute value : Real;\n" .
 
 elmt:Reqs__Positive__value_om
@@ -173,6 +179,9 @@ elmt:Reqs__System__safety
     sysml:declaredName "safety" ;
     sysml:type elmt:Reqs__Safe ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Reqs__System__safety_ft0 ;
+    sysml:ownedSpecialization elmt:Reqs__System__safety_ft0 ;
+    sysml:ownedRelationship elmt:Reqs__System__safety_ft0 ;
     sysx:sourceText "        requirement safety : Safe;\n" .
 
 elmt:Reqs__System__safety_om
@@ -186,3 +195,48 @@ elmt:Reqs__System__safety_om
     sysml:membershipOwningNamespace elmt:Reqs__System ;
     sysml:ownedMemberFeature elmt:Reqs__System__safety ;
     sysml:owningType elmt:Reqs__System .
+
+elmt:Reqs__Safe__margin_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Reqs__Safe__margin_ft0" ;
+    sysml:typedFeature elmt:Reqs__Safe__margin ;
+    sysml:owningFeature elmt:Reqs__Safe__margin ;
+    sysml:specific elmt:Reqs__Safe__margin ;
+    sysml:source elmt:Reqs__Safe__margin ;
+    sysml:owningRelatedElement elmt:Reqs__Safe__margin ;
+    sysml:type "Real" ;
+    sysml:general "Real" ;
+    sysml:target "Real" ;
+    sysml:owner elmt:Reqs__Safe__margin ;
+    sysml:relatedElement elmt:Reqs__Safe__margin, "Real" ;
+    json:relatedElement "[{\"@id\":\"Reqs__Safe__margin\"},\"Real\"]" .
+
+elmt:Reqs__Positive__value_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Reqs__Positive__value_ft0" ;
+    sysml:typedFeature elmt:Reqs__Positive__value ;
+    sysml:owningFeature elmt:Reqs__Positive__value ;
+    sysml:specific elmt:Reqs__Positive__value ;
+    sysml:source elmt:Reqs__Positive__value ;
+    sysml:owningRelatedElement elmt:Reqs__Positive__value ;
+    sysml:type "Real" ;
+    sysml:general "Real" ;
+    sysml:target "Real" ;
+    sysml:owner elmt:Reqs__Positive__value ;
+    sysml:relatedElement elmt:Reqs__Positive__value, "Real" ;
+    json:relatedElement "[{\"@id\":\"Reqs__Positive__value\"},\"Real\"]" .
+
+elmt:Reqs__System__safety_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Reqs__System__safety_ft0" ;
+    sysml:typedFeature elmt:Reqs__System__safety ;
+    sysml:owningFeature elmt:Reqs__System__safety ;
+    sysml:specific elmt:Reqs__System__safety ;
+    sysml:source elmt:Reqs__System__safety ;
+    sysml:owningRelatedElement elmt:Reqs__System__safety ;
+    sysml:type elmt:Reqs__Safe ;
+    sysml:general elmt:Reqs__Safe ;
+    sysml:target elmt:Reqs__Safe ;
+    sysml:owner elmt:Reqs__System__safety ;
+    sysml:relatedElement elmt:Reqs__System__safety, elmt:Reqs__Safe ;
+    json:relatedElement "[{\"@id\":\"Reqs__System__safety\"},{\"@id\":\"Reqs__Safe\"}]" .

@@ -134,8 +134,19 @@ func runConvert(files []string) (int, error) {
 // convertInput runs the conversion the input format asks for: a SysML v1 model
 // is migrated and its report written, anything else converted.
 func convertInput(name string, data []byte, from, to convert.Format) ([]byte, error) {
+	if idForm != "" && (from != convert.FormatSysML || (to != convert.FormatTurtle && to != convert.FormatAPIJSON)) {
+		return nil, fmt.Errorf("-id applies to -convert ttl or api-json from SysML notation")
+	}
 	if from != convert.FormatXMI {
-		return convert.Convert(name, data, from, to)
+		opts := convert.Options{}
+		if idForm != "" {
+			form, ok := export.ParseIDForm(idForm)
+			if !ok {
+				return nil, fmt.Errorf("-id wants qualified or uuid, not %q", idForm)
+			}
+			opts.ID = form
+		}
+		return convert.ConvertWith(name, data, from, to, opts)
 	}
 	opts, err := migrationOptions()
 	if err != nil {

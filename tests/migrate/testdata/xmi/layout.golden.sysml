@@ -8,6 +8,7 @@ package Structure {
             expose engine;
             expose wheel;
             expose drive;
+            expose Behavior::Drive::'start to step';
             render Views::asInterconnectionDiagram;
         }
     }
@@ -25,7 +26,7 @@ package Structure {
 }
 package Behavior {
     action def Drive {
-        first start then 'step';
+        succession 'start to step' first start then 'step';
         action 'step' {
             /* body not migrated (the name "going" resolves to nothing readable: nothing visible from Behavior::Drive::step is called going) {JavaScript}:
              * going = true;

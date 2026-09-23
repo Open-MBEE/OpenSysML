@@ -145,6 +145,8 @@ const (
 	EdgeSuccession
 	// EdgeFlow is a flow of a payload between action nodes.
 	EdgeFlow
+	// EdgeBinding is a binding equating two features.
+	EdgeBinding
 )
 
 // String names an edge kind the way the notation speaks of it.
@@ -158,6 +160,8 @@ func (k EdgeKind) String() string {
 		return "succession"
 	case EdgeFlow:
 		return "flow"
+	case EdgeBinding:
+		return "binding"
 	}
 	return "edge"
 }

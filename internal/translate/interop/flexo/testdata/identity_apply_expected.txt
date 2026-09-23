@@ -19,13 +19,13 @@ revision	identity_model_revised.sysml
 
 [apply.initial]
 base	no
-diff	creates=17	updates=0	deletes=0	conflicts=0
+diff	creates=19	updates=0	deletes=0	conflicts=0
 uncarried	sysx:hasBody,sysx:memberIndex,sysx:sourceLanguage,sysx:sourceTail,sysx:sourceText
 refused	-
 applied	yes
 commits	1
 state.advanced	yes
-elements.readable	17
+elements.readable	19
 deleted.absent	0
 deleted.emptied	0
 deleted.present	0
@@ -36,6 +36,7 @@ create	0b6e3c1a-4d2f-4e8b-9a7c-5d1f0e9b2a7c	PartDefinition
 create	0b6e3c1a-4d2f-4e8b-9a7c-5d1f0e9b2a7c_om	OwningMembership
 create	8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90	PartDefinition
 create	8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90_om	OwningMembership
+create	8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90_sc0	Subclassification
 create	IdentityInterop	Package
 create	IdentityInterop__Battery__capacity	AttributeUsage
 create	IdentityInterop__Battery__capacity_om	FeatureMembership
@@ -47,20 +48,21 @@ create	IdentityInterop__Component__mass_pvalue	LiteralRational
 create	IdentityInterop__Component__mass_pvalue_om	FeatureValue
 create	IdentityInterop__Rover	PartDefinition
 create	IdentityInterop__Rover__battery	PartUsage
+create	IdentityInterop__Rover__battery_ft0	FeatureTyping
 create	IdentityInterop__Rover__battery_om	FeatureMembership
 create	IdentityInterop__Rover_om	OwningMembership
 
 [apply.revision]
 base	yes
-diff	creates=6	updates=3	deletes=8	conflicts=0
+diff	creates=6	updates=3	deletes=9	conflicts=0
 uncarried	sysx:hasBody,sysx:memberIndex,sysx:sourceLanguage,sysx:sourceTail,sysx:sourceText
-refused	8 delete(s) need explicit confirmation before this change set can be applied
+refused	9 delete(s) need explicit confirmation before this change set can be applied
 applied	yes
 commits	2
 state.advanced	yes
 elements.readable	9
 deleted.absent	0
-deleted.emptied	8
+deleted.emptied	9
 deleted.present	0
 rediff	creates=0	updates=0	deletes=0	conflicts=0
 
@@ -78,6 +80,7 @@ create	IdentityInterop__Cell__capacity_pvalue_om	FeatureValue
 update	IdentityInterop__Component__mass_pvalue	LiteralRational
 delete	IdentityInterop__Rover	PartDefinition
 delete	IdentityInterop__Rover__battery	PartUsage
+delete	IdentityInterop__Rover__battery_ft0	FeatureTyping
 delete	IdentityInterop__Rover__battery_om	FeatureMembership
 delete	IdentityInterop__Rover_om	OwningMembership
 create	IdentityInterop__Wheel	PartDefinition
@@ -89,7 +92,7 @@ create	IdentityInterop__Wheel_om	OwningMembership
 8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90	ownedFeatureMembership={"@id":"IdentityInterop__Cell__capacity_om"}
 8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90	ownedMember={"@id":"IdentityInterop__Cell__capacity"}
 8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90	ownedMembership={"@id":"IdentityInterop__Cell__capacity_om"}
-8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90	ownedRelationship={"@id":"IdentityInterop__Cell__capacity_om"}
+8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90	ownedRelationship=[{"@id":"IdentityInterop__Cell__capacity_om"},{"@id":"8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90_sc0"}]
 8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90	qualifiedName="IdentityInterop::Cell"
 IdentityInterop	ownedMember=[{"@id":"0b6e3c1a-4d2f-4e8b-9a7c-5d1f0e9b2a7c"},{"@id":"8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90"},{"@id":"IdentityInterop__Wheel"}]
 IdentityInterop	ownedMembership=[{"@id":"0b6e3c1a-4d2f-4e8b-9a7c-5d1f0e9b2a7c_om"},{"@id":"8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90_om"},{"@id":"IdentityInterop__Wheel_om"}]
@@ -114,16 +117,16 @@ rediff	not run
 conflict	8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90	PartDefinition
 
 [findings]
-initial: 17 create(s), 0 update(s), 0 delete(s) reached the stack as one commit; 17 written element(s) read back at it; rediff creates=0 updates=0 deletes=0 conflicts=0
-revision: 6 create(s), 3 update(s), 8 delete(s) reached the stack as one commit; 9 written element(s) read back at it; rediff creates=0 updates=0 deletes=0 conflicts=0
-revision: of 8 deleted element(s), 0 read as 404, 8 as an id with a null type and no properties, 0 still with content
-revision: the first apply was refused before any write: 8 delete(s) need explicit confirmation before this change set can be applied
+initial: 19 create(s), 0 update(s), 0 delete(s) reached the stack as one commit; 19 written element(s) read back at it; rediff creates=0 updates=0 deletes=0 conflicts=0
+revision: 6 create(s), 3 update(s), 9 delete(s) reached the stack as one commit; 9 written element(s) read back at it; rediff creates=0 updates=0 deletes=0 conflicts=0
+revision: of 9 deleted element(s), 0 read as 404, 9 as an id with a null type and no properties, 0 still with content
+revision: the first apply was refused before any write: 9 delete(s) need explicit confirmation before this change set can be applied
 revision: 8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90 declaredName="Cell" reads back under its retained id
 revision: 8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90 ownedFeature={"@id":"IdentityInterop__Cell__capacity"} reads back under its retained id
 revision: 8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90 ownedFeatureMembership={"@id":"IdentityInterop__Cell__capacity_om"} reads back under its retained id
 revision: 8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90 ownedMember={"@id":"IdentityInterop__Cell__capacity"} reads back under its retained id
 revision: 8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90 ownedMembership={"@id":"IdentityInterop__Cell__capacity_om"} reads back under its retained id
-revision: 8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90 ownedRelationship={"@id":"IdentityInterop__Cell__capacity_om"} reads back under its retained id
+revision: 8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90 ownedRelationship=[{"@id":"IdentityInterop__Cell__capacity_om"},{"@id":"8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90_sc0"}] reads back under its retained id
 revision: 8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90 qualifiedName="IdentityInterop::Cell" reads back under its retained id
 revision: IdentityInterop ownedMember=[{"@id":"0b6e3c1a-4d2f-4e8b-9a7c-5d1f0e9b2a7c"},{"@id":"8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90"},{"@id":"IdentityInterop__Wheel"}] reads back under its retained id
 revision: IdentityInterop ownedMembership=[{"@id":"0b6e3c1a-4d2f-4e8b-9a7c-5d1f0e9b2a7c_om"},{"@id":"8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90_om"},{"@id":"IdentityInterop__Wheel_om"}] reads back under its retained id
