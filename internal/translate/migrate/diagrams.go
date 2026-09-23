@@ -321,9 +321,9 @@ func inGraph(f viewForm, el *sysmlv1.Element) bool {
 }
 
 // graphPins reports whether the graph a view of form f draws shows el as a node or
-// edge of its own, which a Layout or Route pins: one of the form's subject, written.
+// edge of its own, which a Layout or Route pins: one of the form's subject, drawn.
 func (m *migration) graphPins(f viewForm, el *sysmlv1.Element) bool {
-	return inGraph(f, el) && (m.drawsNode(el, f) || nameableEdge(el) && m.written(el))
+	return inGraph(f, el) && (m.drawsNode(el, f) || m.drawsAsEdge(f, el))
 }
 
 // graphDraws reports whether the graph a view of form f draws shows el for the

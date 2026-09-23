@@ -73,8 +73,12 @@ func TestGoldenEdgeLayout(t *testing.T) {
 	if l == nil {
 		t.Fatal("no layout summary")
 	}
-	if l.Routes != 18 || l.RoutesWritten != 9 || l.RoutesUnexposed != 8 || l.RoutesDangling != 1 {
+	if l.Routes != 19 || l.RoutesWritten != 9 || l.RoutesUnexposed != 9 || l.RoutesDangling != 1 {
 		t.Errorf("routes: %+v", l)
+	}
+	// An edge of the graph the activity's rendering does not draw is exposed, not swallowed.
+	if !strings.Contains(string(r.Notation), "expose 'set speed.value = target';") {
+		t.Errorf("the activity view does not expose the binding its rendering does not draw:\n%s", r.Notation)
 	}
 	// A placement of a transition, which the state rendering draws as an edge, positions no node.
 	if l.PlacementsUnexposed != 4 || strings.Contains(string(r.Notation), "Layout about halt") {
@@ -89,6 +93,7 @@ func TestGoldenEdgeLayout(t *testing.T) {
 		{Kind: "Dependency", Reason: "not drawn", Count: 1},
 		{Kind: "Generalization", Reason: "no v2 member", Count: 1},
 		{Kind: "Include", Reason: "not drawn", Count: 1},
+		{Kind: "ObjectFlow", Reason: "not drawn", Count: 1},
 		{Kind: "ObjectFlow", Reason: "written", Count: 1},
 		{Kind: "Satisfy", Reason: "not drawn", Count: 1},
 		{Kind: "Transition", Reason: "dangling", Count: 1},

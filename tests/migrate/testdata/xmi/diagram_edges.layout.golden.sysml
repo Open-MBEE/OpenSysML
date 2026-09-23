@@ -14,6 +14,7 @@ package Structure {
         action def Drive {
             view Driving : StandardViewDefinitions::ActionFlowView {
                 expose Drive;
+                expose 'set speed.value = target';
                 @DiagramLayout::Canvas { unit = "px"; width = 140; height = 220; }
                 metadata DiagramLayout::Layout about gain { x = 10; y = 60; width = 100; height = 40; }
                 metadata DiagramLayout::Layout about 'set speed' { x = 10; y = 140; width = 100; height = 40; }
@@ -22,6 +23,7 @@ package Structure {
                 metadata DiagramLayout::Route about 'gain.result to set speed.value' { points = (110, 160, 140, 160, 140, 80, 110, 80); }
                 render Views::asInterconnectionDiagram;
             }
+            in target : ScalarValues::Real;
             succession 'start to gain' first start then gain;
             action gain {
                 out result = 2.5;
@@ -34,6 +36,7 @@ package Structure {
             succession finish first 'set speed' then final;
             action final terminate;
             flow 'gain.result to set speed.value' from gain.result to 'set speed'.value;
+            binding 'set speed.value = target' bind 'set speed'.value = target;
         }
         satisfy requirement 'satisfy Mass Limit' : Requirements::'Mass Limit';
         satisfy requirement : Requirements::'Speed Limit';

@@ -45,9 +45,14 @@
           <end xmi:type="uml:ConnectorEnd" xmi:id="_ce_bind_2" role="_prop_limit"/>
         </ownedConnector>
 
-        <!-- Drive: a shown anonymous control flow, an unshown one, a named one,
-             and a shown object flow between pins. -->
+        <!-- Drive: a shown anonymous control flow, an unshown one, a named one, a shown
+             object flow between pins, and a shown one from a parameter node, which is
+             written as a binding the activity's view does not draw. -->
         <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_drive" name="Drive">
+          <ownedParameter xmi:type="uml:Parameter" xmi:id="_drive_target" name="target" direction="in">
+            <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+          </ownedParameter>
+          <node xmi:type="uml:ActivityParameterNode" xmi:id="_pn_target" name="target" parameter="_drive_target"/>
           <node xmi:type="uml:InitialNode" xmi:id="_init"/>
           <node xmi:type="uml:ValueSpecificationAction" xmi:id="_gain" name="gain">
             <value xmi:type="uml:LiteralReal" xmi:id="_gainVal" value="2.5"/>
@@ -61,6 +66,7 @@
           <edge xmi:type="uml:ControlFlow" xmi:id="_cf_hidden" source="_gain" target="_set"/>
           <edge xmi:type="uml:ControlFlow" xmi:id="_cf_named" name="finish" source="_set" target="_final"/>
           <edge xmi:type="uml:ObjectFlow" xmi:id="_of_shown" source="_gainOut" target="_setVal"/>
+          <edge xmi:type="uml:ObjectFlow" xmi:id="_of_param" source="_pn_target" target="_setVal"/>
         </ownedBehavior>
       </packagedElement>
       <packagedElement xmi:type="uml:Class" xmi:id="_blk_engine" name="Engine">
@@ -168,6 +174,8 @@
                   <usedElements>_cf_shown</usedElements>
                   <usedElements>_cf_named</usedElements>
                   <usedElements>_of_shown</usedElements>
+                  <usedElements>_pn_target</usedElements>
+                  <usedElements>_of_param</usedElements>
                 </diagramContents>
               </diagram:DiagramRepresentationObject>
             </diagramRepresentation>

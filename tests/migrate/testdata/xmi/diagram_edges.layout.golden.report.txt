@@ -1,11 +1,11 @@
 # SysML v1 to v2 migration report: diagram_edges.xmi
 # exported by Example UML Tool
-# migrated 65 element(s): 62 mapped, 3 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to); laid out 6 of 6 diagrams from diagram_edges.layout.xml: 18 elements positioned, 9 connectors routed
+# migrated 68 element(s): 64 mapped, 4 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to); laid out 6 of 6 diagrams from diagram_edges.layout.xml: 18 elements positioned, 9 connectors routed
 
 ## layout
 # source: diagram_edges.layout.xml (2022x v1.0.0, cameo 2022x Refresh2, exported 2025-06-12T21:38:50.779458500Z)
 # 6 diagram records: 6 joined, 0 matching no diagram; 0 views without layout
-# placements: 18 of 22 written (4 not exposed, 0 resolving to no element); routes: 9 of 18 written (8 not pinned, 1 resolving to no element); malformed: 0
+# placements: 18 of 22 written (4 not exposed, 0 resolving to no element); routes: 9 of 19 written (9 not pinned, 1 resolving to no element); malformed: 0
 # routes of BindingConnector: 1 written
 # routes of Connector: 1 unnamed
 # routes of Connector: 3 written
@@ -14,6 +14,7 @@
 # routes of Dependency: 1 not drawn
 # routes of Generalization: 1 no v2 member
 # routes of Include: 1 not drawn
+# routes of ObjectFlow: 1 not drawn
 # routes of ObjectFlow: 1 written
 # routes of Satisfy: 1 not drawn
 # routes of Transition: 1 dangling
@@ -21,12 +22,13 @@
 # routes of Transition: 2 written
 # routes of Verify: 1 not drawn
 
-## approximated (3)
+## approximated (4)
 OpaqueBehavior	Behavior::Modes::<Region>::Running::spin	_st_running_do	-> Behavior::Modes::Running::spin	(the body is kept as a comment: the statement "keep turning" is not an assignment of a v2 expression (language English))
 «TestCase» Activity	Requirements::Mass Test	_tc_mass	-> Requirements::'Mass Test'	(the test case's behavior is not migrated; only its verified requirements are)
 Diagram	Structure::Structure	_diag_bdd	-> Structure::Structure	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; 1 of 6 shown elements are not written and not exposed; laid out from diagram_edges.layout.xml: 4 of 4 shown elements positioned, 0 of 2 connectors routed (1 not drawn, 1 no v2 member))
+Diagram	Structure::Vehicle::Drive::Driving	_diag_act	-> Structure::Vehicle::Drive::Driving	(a SysML Activity Diagram written as a view rendered asInterconnectionDiagram of ActionFlowView; the view exposes action def Structure::Vehicle::Drive, whose graph the rendering draws with the 7 shown nodes and edges of it; 1 of 9 shown elements are not written and not exposed; laid out from diagram_edges.layout.xml: 2 of 4 shown elements positioned (2 not exposed), 3 of 5 connectors routed (1 not drawn, 1 unnamed))
 
-## mapped (62)
+## mapped (64)
 Package	Behavior	_pkg_behavior	-> Behavior
 SignalEvent	Behavior::<SignalEvent>	_ev_go	(written where a trigger refers to it, as accept Go)
 SignalEvent	Behavior::<SignalEvent>	_ev_stop	(written where a trigger refers to it, as accept Stop)
@@ -68,12 +70,14 @@ ActivityFinalNode	Structure::Vehicle::Drive::<ActivityFinalNode>	_final	-> final
 ControlFlow	Structure::Vehicle::Drive::<ControlFlow>	_cf_hidden
 InitialNode	Structure::Vehicle::Drive::<InitialNode>	_init	-> start
 ObjectFlow	Structure::Vehicle::Drive::<ObjectFlow>	_of_shown	-> Structure::Vehicle::Drive::'gain.result to set speed.value'	(the action waits for the value as well as for the control flow into it, as its pin did)
-Diagram	Structure::Vehicle::Drive::Driving	_diag_act	-> Structure::Vehicle::Drive::Driving	(a SysML Activity Diagram written as a view rendered asInterconnectionDiagram of ActionFlowView; the view exposes action def Structure::Vehicle::Drive, whose graph the rendering draws with the 7 shown nodes and edges of it; laid out from diagram_edges.layout.xml: 2 of 4 shown elements positioned (2 not exposed), 3 of 4 connectors routed (1 unnamed))
+ObjectFlow	Structure::Vehicle::Drive::<ObjectFlow>	_of_param	-> Structure::Vehicle::Drive::'set speed.value = target'
 ControlFlow	Structure::Vehicle::Drive::finish	_cf_named	-> Structure::Vehicle::Drive::finish
 ValueSpecificationAction	Structure::Vehicle::Drive::gain	_gain	-> gain
 OutputPin	Structure::Vehicle::Drive::gain::result	_gainOut	-> Structure::Vehicle::Drive::gain.result
 AddStructuralFeatureValueAction	Structure::Vehicle::Drive::set speed	_set	-> 'set speed'
 InputPin	Structure::Vehicle::Drive::set speed::value	_setVal	-> Structure::Vehicle::Drive::'set speed'.value
+Parameter	Structure::Vehicle::Drive::target	_drive_target	-> Structure::Vehicle::Drive::target
+ActivityParameterNode	Structure::Vehicle::Drive::target	_pn_target	-> Structure::Vehicle::Drive::target	(the flows to and from the node name the parameter target)
 Diagram	Structure::Vehicle::Vehicle Internals	_diag_ibd	-> Structure::Vehicle::'Vehicle Internals'	(a SysML Internal Block Diagram written as a view rendered asInterconnectionDiagram; laid out from diagram_edges.layout.xml: 4 of 4 shown elements positioned, 4 of 5 connectors routed (1 unnamed))
 Connector	Structure::Vehicle::drive	_conn_named	-> Structure::Vehicle::drive
 Property	Structure::Vehicle::engine	_prop_engine	-> Structure::Vehicle::engine

@@ -14,8 +14,10 @@ package Structure {
         action def Drive {
             view Driving : StandardViewDefinitions::ActionFlowView {
                 expose Drive;
+                expose 'set speed.value = target';
                 render Views::asInterconnectionDiagram;
             }
+            in target : ScalarValues::Real;
             succession 'start to gain' first start then gain;
             action gain {
                 out result = 2.5;
@@ -28,6 +30,7 @@ package Structure {
             succession finish first 'set speed' then final;
             action final terminate;
             flow 'gain.result to set speed.value' from gain.result to 'set speed'.value;
+            binding 'set speed.value = target' bind 'set speed'.value = target;
         }
         satisfy requirement 'satisfy Mass Limit' : Requirements::'Mass Limit';
         satisfy requirement : Requirements::'Speed Limit';

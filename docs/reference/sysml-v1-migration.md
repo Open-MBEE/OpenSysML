@@ -333,8 +333,9 @@ A typed graph view exposes the definition whose graph it draws — the `action d
 the diagram's owner, or the owner's nearest behavior ancestor (a region, an action node, a
 composite state) is written in — in place of the shown nodes and edges of that graph, which the
 rendering draws from the definition's body; shown elements from elsewhere (a block a swimlane
-represents, a signal) are exposed as in any view. The note names the definition and counts the
-nodes and edges drawn.
+represents, a signal), and a shown edge of the graph the rendering does not draw (an object flow
+from a parameter node, written as a `binding` an `ActionFlowView` has no edge for), are exposed as
+in any view. The note names the definition and counts the nodes and edges drawn.
 
 #### Edges a diagram shows
 

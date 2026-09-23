@@ -371,6 +371,21 @@
                <id _dtype="str">_of_shown</id>
                <type _dtype="str">sysml.ObjectFlow</type>
             </diagramConnector>
+            <diagramConnector _dtype="dict" key="4">
+               <relationship_metadata _dtype="dict">
+                  <supplierPoint _dtype="dict">
+                     <xCoordinate _dtype="int">10</xCoordinate>
+                     <yCoordinate _dtype="int">160</yCoordinate>
+                  </supplierPoint>
+                  <clientPoint _dtype="dict">
+                     <xCoordinate _dtype="int">0</xCoordinate>
+                     <yCoordinate _dtype="int">160</yCoordinate>
+                  </clientPoint>
+                  <breakPoint _dtype="list"/>
+               </relationship_metadata>
+               <id _dtype="str">_of_param</id>
+               <type _dtype="str">sysml.ObjectFlow</type>
+            </diagramConnector>
          </diagramConnector>
       </relationships>
       <type _dtype="str">sysml.ActivityDiagram</type>
