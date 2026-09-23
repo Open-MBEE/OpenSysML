@@ -483,27 +483,33 @@ func (d *decoder) verifyMultiplicityRange(subject rdf.Term) error {
 	if !d.isExpressionIRI(subject) {
 		return nil
 	}
+	// The range is owned through its membership; the feature the bounds are
+	// collapsed on is the membership's owner.
+	owner, ok := d.rangeOwner(subject)
+	if !ok {
+		return nil
+	}
 	for _, property := range []string{pLowerBound, pUpperBound} {
-		bound, ok := d.graph.Object(subject, rdf.SysML+property)
-		if !ok {
-			continue
+		collapsed := map[string]bool{}
+		for _, bound := range d.graph.Objects(owner, rdf.SysML+property) {
+			collapsed[bound.Value] = true
 		}
-		// The range is owned through its membership; the feature the bound is
-		// collapsed on is the membership's owner.
-		owner, ok := d.rangeOwner(subject)
-		if !ok {
-			continue
-		}
-		stated := false
-		for _, collapsed := range d.graph.Objects(owner, rdf.SysML+property) {
-			if collapsed == bound {
-				stated = true
+		carried := map[string]bool{}
+		for _, bound := range d.graph.Objects(subject, rdf.SysML+property) {
+			carried[bound.Value] = true
+			if !collapsed[bound.Value] {
+				return &UnsupportedError{
+					What: fmt.Sprintf("the multiplicity range <%s>", subject.Value),
+					Note: fmt.Sprintf("its %s is <%s>, which <%s> states no such bound for, and writing the collapsed bound would drop it", curie(rdf.SysML+property), bound.Value, owner.Value),
+				}
 			}
 		}
-		if !stated {
-			return &UnsupportedError{
-				What: fmt.Sprintf("the multiplicity range <%s>", subject.Value),
-				Note: fmt.Sprintf("its %s is <%s>, which <%s> states no such bound for, and writing the collapsed bound would drop it", curie(rdf.SysML+property), bound.Value, owner.Value),
+		for _, bound := range d.graph.Objects(owner, rdf.SysML+property) {
+			if !carried[bound.Value] {
+				return &UnsupportedError{
+					What: fmt.Sprintf("the multiplicity range <%s>", subject.Value),
+					Note: fmt.Sprintf("<%s> states %s <%s> it does not carry, and writing the collapsed bound would assert one it denies", owner.Value, curie(rdf.SysML+property), bound.Value),
+				}
 			}
 		}
 	}

@@ -386,6 +386,19 @@ func TestNormativeVerifyCoveredRejectsMissingKind(t *testing.T) {
 	}
 }
 
+// TestNormativeMultiplicityRangeVerifyRejectsOwnerOnlyBound: a bound the
+// feature states that the range does not carry is refused in the other
+// direction.
+func TestNormativeMultiplicityRangeVerifyRejectsOwnerOnlyBound(t *testing.T) {
+	graph := normativeGraph(t, `package N {
+		part p [4];
+	}`)
+	graph.Add(elmt("N__p"), rdf.IRI(rdf.SysML+"lowerBound"), rdf.String("9"))
+	if err := mustDecode(graph); err == nil || !strings.Contains(err.Error(), "9") {
+		t.Fatalf("want a refusal on the bound only the feature states, got %v", err)
+	}
+}
+
 func mustDecode(graph *rdf.Graph) error {
 	_, err := ToSysML(graph)
 	return err
