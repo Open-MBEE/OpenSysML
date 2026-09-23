@@ -184,10 +184,10 @@ copy of one) writes that id, so `ScalarValues::Real` is the same subject here as
 it is in the pilot's `sysml.library.xmi`:
 
 ```turtle
-<urn:sysmlv2:element:40bb440c-5036-58e1-8675-5afccb8b8f1d> a sysml:Package ;
+<urn:sysmlv2:element:40bb440c-5036-58e1-8675-5afccb8b8f1d> a sysml:LibraryPackage ;
     sysml:qualifiedName "ScalarValues" ;
     sysml:elementId "40bb440c-5036-58e1-8675-5afccb8b8f1d" ;
-    sysx:isStandardLibraryPackage "true"^^xsd:boolean ;
+    sysml:isStandard "true"^^xsd:boolean ;
     sysml:ownedMembership elmt:ab72a695-5fe9-58a3-9d48-9e9a8711862d .
 <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> a sysml:DataType ;
     sysml:qualifiedName "ScalarValues::Real" ;

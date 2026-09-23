@@ -98,7 +98,6 @@ const (
 	xSourceTail     = "sourceTail"
 	xSourceLanguage = "sourceLanguage"
 	xFilter         = "filter"
-	xRecursive      = "isRecursive"
 	// xExpose is only read: an older graph flags an expose on an abstract sysml:Import.
 	xExpose          = "isExpose"
 	xDeclaredKeyword = "declaredKeyword"
@@ -170,8 +169,16 @@ const (
 	mImport           = "Import"
 	mNamespaceImport  = "NamespaceImport"
 	mMembershipImport = "MembershipImport"
+	mPackage          = "Package"
+	mLibraryPackage   = "LibraryPackage"
+	pIsStandard       = "isStandard"
+	pIsRecursive      = "isRecursive"
 	mNamespaceExpose  = "NamespaceExpose"
 	mMembershipExpose = "MembershipExpose"
+	// The elements a filter package materializes under its import.
+	filterPackageSuffix    = "_fp"
+	filterImportSuffix     = "_im"
+	filterMembershipSuffix = "_efm"
 )
 
 // Metaclass names for the constructs that have no SysML metaclass of their own
@@ -382,6 +389,60 @@ func importMetaclass(imported, exposed string, expose bool) string {
 		return exposed
 	}
 	return imported
+}
+
+// importTarget types the import subject by what it imports and states the
+// target: a namespace directly, a membership once the walk has minted it.
+func (e *encoder) importTarget(subject rdf.Term, head func(rdf.Term), n *ast.Import) {
+	if n.Kind == ast.ImportNamespace {
+		head(rdf.SysMLTerm(importMetaclass(mNamespaceImport, mNamespaceExpose, n.IsExpose)))
+		e.graph.Add(subject, e.sysml(pImportedNamespace), e.reference(n.Imported))
+		return
+	}
+	head(rdf.SysMLTerm(importMetaclass(mMembershipImport, mMembershipExpose, n.IsExpose)))
+	e.membershipImports = append(e.membershipImports, membershipImport{subject, n.Imported})
+}
+
+// filterPackage materializes the filter package `import X::*[c]` stands for
+// (SysML.xtext FilterPackage): the import imports an unnamed Package it owns,
+// which imports X and owns a private ElementFilterMembership whose condition is
+// c. The collapsed sysx:filter on the import still names the condition.
+func (e *encoder) filterPackage(subject rdf.Term, within string, n *ast.Import) error {
+	pkg := e.ids.minted(rdf.RelationshipIRI(subject, filterPackageSuffix), subject, filterPackageSuffix)
+	inner := e.ids.minted(rdf.RelationshipIRI(pkg, filterImportSuffix), pkg, filterImportSuffix)
+	membership := e.ids.minted(rdf.RelationshipIRI(pkg, filterMembershipSuffix), pkg, filterMembershipSuffix)
+	condition := e.ids.mintedNode(rdf.ExpressionIRI(subject, xFilter), subject, xFilter)
+	outerClass := e.metaclassOf(subject)
+
+	e.typed(pkg, mPackage)
+	e.graph.Add(pkg, e.sysml(pElementID), rdf.String(rdf.LocalName(pkg.Value)))
+	e.graph.Add(subject, e.sysml(pImportedNamespace), pkg)
+	e.relationshipOwnership(pkg, subject, outerClass, mPackage)
+
+	if n.Kind == ast.ImportNamespace {
+		e.typed(inner, mNamespaceImport)
+		e.graph.Add(inner, e.sysml(pImportedNamespace), e.reference(n.Imported))
+	} else {
+		e.typed(inner, mMembershipImport)
+		e.membershipImports = append(e.membershipImports, membershipImport{inner, n.Imported})
+	}
+	e.graph.Add(inner, e.sysml(pElementID), rdf.String(rdf.LocalName(inner.Value)))
+	e.graph.Add(inner, e.sysml(pImportOwningNamespace), pkg)
+	e.flags(inner, []boolProperty{{pIsRecursive, n.IsRecursive}})
+	e.relationshipOwnership(inner, pkg, mPackage, mNamespaceImport)
+	e.graph.Add(pkg, e.sysml(pOwnedImport), inner)
+
+	e.graph.Prefixes[rdf.ExpressionPrefix] = rdf.Expression
+	e.graph.Add(subject, e.sysx(xFilter), condition)
+	if err := e.expressionNode(condition, within, n.FilterExpr); err != nil {
+		return err
+	}
+	e.emitMembershipCore(membership, condition, pkg, mElementFilterMembership, true)
+	e.graph.Add(membership, e.sysml(pVisibility), rdf.String("private"))
+	e.graph.Add(membership, e.sysml(pCondition), condition)
+	e.graph.Add(pkg, e.sysml(pOwnedRelationship), membership)
+	e.graph.Add(pkg, e.sysml(pOwnedMembership), membership)
+	return nil
 }
 
 // importedMembership is the membership a membership import names: the one
@@ -778,12 +839,14 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 
 	switch n := node.(type) {
 	case *ast.Package:
-		head(rdf.SysMLTerm("Package"))
+		// `library package` is a LibraryPackage (SysML 8.3.13.3), `standard` its isStandard.
+		if n.IsLibrary {
+			head(rdf.SysMLTerm(mLibraryPackage))
+		} else {
+			head(rdf.SysMLTerm(mPackage))
+		}
 		e.ident(subject, n.Ident)
-		e.flags(subject, []boolProperty{
-			{"isLibraryPackage", n.IsLibrary},
-			{"isStandardLibraryPackage", n.IsStandard},
-		})
+		e.flags(subject, []boolProperty{{pIsStandard, n.IsStandard}})
 		if err := e.prefixes(subject, fqn, n.Prefixes, n.Members); err != nil {
 			return err
 		}
@@ -954,21 +1017,22 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		return members(bodyMembers(n))
 
 	case *ast.Import:
-		// A membership import names a membership, minted once the walk reaches
-		// the member, so it is written after the walk.
-		if n.Kind == ast.ImportNamespace {
+		if n.FilterExpr != nil {
+			// `import X::*[c]` is a NamespaceImport of a filter package it owns
+			// (SysML.xtext FilterPackage): the package imports X and filters it.
 			head(rdf.SysMLTerm(importMetaclass(mNamespaceImport, mNamespaceExpose, n.IsExpose)))
-			e.graph.Add(subject, e.sysml(pImportedNamespace), e.reference(n.Imported))
+			e.flags(subject, []boolProperty{{pIsImportAll, n.IsAll}})
+			if err := e.filterPackage(subject, within, n); err != nil {
+				return err
+			}
 		} else {
-			head(rdf.SysMLTerm(importMetaclass(mMembershipImport, mMembershipExpose, n.IsExpose)))
-			e.membershipImports = append(e.membershipImports, membershipImport{subject, n.Imported})
-		}
-		e.flags(subject, []boolProperty{
-			{pIsImportAll, n.IsAll},
-			{xRecursive, n.IsRecursive},
-		})
-		if err := e.expression(subject, e.sysx(xFilter), xFilter, within, n.FilterExpr); err != nil {
-			return err
+			// A membership import names a membership, minted once the walk reaches
+			// the member, so it is written after the walk.
+			e.importTarget(subject, head, n)
+			e.flags(subject, []boolProperty{
+				{pIsImportAll, n.IsAll},
+				{pIsRecursive, n.IsRecursive},
+			})
 		}
 		e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(n.HasBody))
 		return members(n.Body)
@@ -1728,22 +1792,8 @@ func (e *encoder) flags(subject rdf.Term, flags []boolProperty) {
 		if !flag.value {
 			continue
 		}
-		property := e.sysml(flag.name)
-		if strings.HasPrefix(flag.name, "is") && isExtensionFlag(flag.name) {
-			property = e.sysx(flag.name)
-		}
-		e.graph.Add(subject, property, rdf.Bool(true))
+		e.graph.Add(subject, e.sysml(flag.name), rdf.Bool(true))
 	}
-}
-
-// isExtensionFlag reports whether a flag lives in the OpenSysML namespace
-// because the SysML metamodel has no such property.
-func isExtensionFlag(name string) bool {
-	switch name {
-	case "isLibraryPackage", "isStandardLibraryPackage", xRecursive:
-		return true
-	}
-	return false
 }
 
 // prefixes maps the `#M` annotations ahead of a declaration as metadata usages

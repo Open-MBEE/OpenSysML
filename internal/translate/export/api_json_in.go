@@ -144,11 +144,9 @@ func parseAPIJSON(data []byte) ([]apiJSONElementData, map[string]bool, error) {
 	// child may be listed before its parent. Opaque ids such as UUIDs carry no
 	// parent, so the membership that states the node as its member stands in.
 	nodeOwner := map[string]string{}
+	relationshipOwner := map[string]string{}
 	for i := range objects {
 		object := &objects[i]
-		if !nodeMembershipMetaclass(object.typ) {
-			continue
-		}
 		member, owner := "", ""
 		for _, m := range object.members {
 			id, isRef := memberReference(m.value)
@@ -160,7 +158,10 @@ func parseAPIJSON(data []byte) ([]apiJSONElementData, map[string]bool, error) {
 				owner = id
 			}
 		}
-		if member != "" && owner != "" {
+		if owner != "" && isRelationship(object.typ) {
+			relationshipOwner[object.id] = owner
+		}
+		if member != "" && owner != "" && nodeMembershipMetaclass(object.typ) {
 			nodeOwner[member] = owner
 		}
 	}
@@ -183,6 +184,10 @@ func parseAPIJSON(data []byte) ([]apiJSONElementData, map[string]bool, error) {
 				expression = true
 			} else if owner := nodeOwner[object.id]; owner != "" {
 				expression = expressionIDs[owner] || expressionMetaclasses[types[owner]]
+			} else if owner := relationshipOwner[object.id]; owner != "" && expressionIDs[owner] {
+				// A referent Membership is a node; other owned relationships are
+				// nodes only while their id derives from the node's (qualified form).
+				expression = object.typ == mMembership || strings.HasPrefix(object.id, owner+"_")
 			}
 			if expression {
 				object.expression = true

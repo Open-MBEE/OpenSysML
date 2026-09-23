@@ -22,7 +22,7 @@ package FlowsAndViews {
         out mass : Real;
     }
     view def StructureView {
-        filter (@ SysML::PartUsage);
+        filter @SysML::PartUsage;
     }
     view vehicleView : StructureView {
         expose vehicle::**;

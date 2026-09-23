@@ -77,8 +77,8 @@ func TestRootsSharingALineComeBack(t *testing.T) {
 	// An edited root is rebuilt where it stood, its trailing note with it; its
 	// neighbours stay as written.
 	edited := editTurtle(t, turtle,
-		"    sysml:declaredName \"B\" ;\n",
-		"    sysml:declaredName \"B\" ;\n    sysx:isLibraryPackage \"true\"^^xsd:boolean ;\n")
+		"elmt:B\n    a sysml:Package ;\n",
+		"elmt:B\n    a sysml:LibraryPackage ;\n")
 	back := toNotation(t, edited)
 	want := "package A; /* between */ library package B;\n\npackage C {\n\tpart p; } package D;"
 	if back != want {
@@ -90,8 +90,8 @@ func TestRootsSharingALineComeBack(t *testing.T) {
 	// The trivia after a root is its own, so a root rebuilt ahead of another
 	// leaves that one at the start of its line.
 	edited = editTurtle(t, turtle,
-		"    sysml:declaredName \"A\" ;\n",
-		"    sysml:declaredName \"A\" ;\n    sysx:isLibraryPackage \"true\"^^xsd:boolean ;\n")
+		"elmt:A\n    a sysml:Package ;\n",
+		"elmt:A\n    a sysml:LibraryPackage ;\n")
 	want = "library package A;\npackage B; // after\n\npackage C {\n\tpart p; } package D;"
 	if back := toNotation(t, edited); back != want {
 		t.Errorf("the first root was not rebuilt in place:\n--- want ---\n%s--- got ---\n%s", want, back)

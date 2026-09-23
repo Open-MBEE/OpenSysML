@@ -711,9 +711,9 @@ func (d *decoder) build() ([]*element, error) {
 		}
 	}
 	for _, subject := range d.graph.Subjects() {
-		if d.isMembership(subject) || d.isExpressionNode(subject) {
+		if d.isMembership(subject) || d.isExpressionNode(subject) || d.isFilterPackageNode(subject) {
 			// A node of an expression graph belongs to the declaration that holds
-			// the expression, not to an element of its own.
+			// the expression, not to an element of its own; so does a filter package.
 			continue
 		}
 		metaclass := d.metaclass(subject)
@@ -1031,8 +1031,16 @@ func (d *decoder) checkReferences() error {
 		if triple.Object.Kind != rdf.TermIRI || !referenceProperties[triple.Predicate.Value] {
 			continue
 		}
+		if d.isFilterPackageNode(triple.Object) || d.isFilterPackageNode(triple.Subject) {
+			// A filter package is written as its import's filter, not named.
+			continue
+		}
 		if ownershipPredicates[triple.Predicate.Value] &&
 			(d.isExpressionNode(triple.Subject) || d.nodeMembership[triple.Subject.Value]) {
+			continue
+		}
+		if d.isExpressionNode(triple.Subject) && d.isExpressionNode(triple.Object) {
+			// A relationship inside an expression graph ends on its own nodes.
 			continue
 		}
 		if triple.Predicate.Value == rdf.SysML+pReferences &&
@@ -1472,7 +1480,7 @@ func (d *decoder) declarationHead(el *element) (string, error) {
 		}
 	}
 	switch el.metaclass {
-	case "Package", "Namespace":
+	case mPackage, mLibraryPackage, mNamespace:
 		return d.namespaceHead(el)
 	case mNamespaceImport, mMembershipImport, mNamespaceExpose, mMembershipExpose, mImport:
 		return d.importHead(el)
@@ -1581,11 +1589,12 @@ func (d *decoder) namespaceHead(el *element) (string, error) {
 		return "", err
 	}
 	words = append(words, prefixes...)
-	if el.metaclass == "Package" {
-		if d.boolOf(el, rdf.OpenSysML+"isStandardLibraryPackage") {
+	if el.metaclass == mPackage || el.metaclass == mLibraryPackage {
+		// A LibraryPackage's isStandard, or an older graph's sysx: flags on a Package.
+		if d.boolOf(el, rdf.SysML+pIsStandard) || d.boolOf(el, rdf.OpenSysML+"isStandardLibraryPackage") {
 			words = append(words, "standard")
 		}
-		if d.boolOf(el, rdf.OpenSysML+"isLibraryPackage") {
+		if el.metaclass == mLibraryPackage || d.boolOf(el, rdf.OpenSysML+"isLibraryPackage") {
 			words = append(words, "library")
 		}
 		words = append(words, "package")
@@ -2227,27 +2236,127 @@ func (d *decoder) importHead(el *element) (string, error) {
 			words = append(words, "all")
 		}
 	}
-	imported, err := d.importedName(el)
+	// A filter package's import is the one whose target and recursion the
+	// notation writes; the outer import imports the package.
+	target := el
+	if pkg, ok := d.filterPackageOf(rdf.IRI(el.iri)); ok {
+		inner, _, err := d.filterPackageParts(el, pkg)
+		if err != nil {
+			return "", err
+		}
+		probe := *el
+		probe.iri, probe.metaclass = inner.Value, d.metaclass(inner)
+		target = &probe
+	}
+	imported, err := d.importedName(target)
 	if err != nil {
 		return "", err
 	}
 	if imported == "" {
-		return "", d.missing(el, sysmlPrefix+pImportedNamespace, "an import names the namespace or membership it imports")
+		return "", d.missing(target, sysmlPrefix+pImportedNamespace, "an import names the namespace or membership it imports")
 	}
 	// `P::*::**` imports the members of P recursively; `P::**` imports P itself
 	// and, recursively, its members. An older graph states the kind of an
 	// abstract sysml:Import as a flag.
-	if el.metaclass == mNamespaceImport || el.metaclass == mNamespaceExpose || d.boolOf(el, rdf.OpenSysML+"isNamespaceImport") {
+	if target.metaclass == mNamespaceImport || target.metaclass == mNamespaceExpose || d.boolOf(target, rdf.OpenSysML+"isNamespaceImport") {
 		imported += "::*"
 	}
-	if d.boolOf(el, rdf.OpenSysML+xRecursive) {
+	if d.boolOf(target, rdf.SysML+pIsRecursive) || d.boolOf(target, rdf.OpenSysML+pIsRecursive) {
 		imported += "::**"
 	}
-	words = append(words, imported)
-	if filter, ok := d.stringOf(el, rdf.OpenSysML+xFilter); ok {
-		words = append(words, "["+filter+"]")
+	filter, err := d.importFilter(el)
+	if err != nil {
+		return "", err
 	}
+	if filter != "" {
+		imported += "[" + filter + "]"
+	}
+	words = append(words, imported)
 	return strings.Join(words, " "), nil
+}
+
+// filterPackageOf is the unnamed Package an import owns and imports — the
+// filter package `import X::*[c]` stands for — or nothing.
+func (d *decoder) filterPackageOf(subject rdf.Term) (rdf.Term, bool) {
+	pkg, ok := d.graph.Object(subject, rdf.SysML+pImportedNamespace)
+	if !ok || d.metaclass(pkg) != mPackage || d.graph.HasProperty(pkg, rdf.SysML+pQualifiedName) {
+		return rdf.Term{}, false
+	}
+	owner, ok := d.graph.Object(pkg, rdf.SysML+pOwningRelationship)
+	return pkg, ok && owner == subject
+}
+
+// isFilterPackageNode tells a filter package, or the import it owns, which the
+// import that owns the package writes as its own target and filter.
+func (d *decoder) isFilterPackageNode(subject rdf.Term) bool {
+	if d.metaclass(subject) == mPackage {
+		owner, ok := d.graph.Object(subject, rdf.SysML+pOwningRelationship)
+		if !ok || !ontology.IsAncestorOrSelf(d.metaclass(owner), mImport) {
+			return false
+		}
+		_, ok = d.filterPackageOf(owner)
+		return ok
+	}
+	if ontology.IsAncestorOrSelf(d.metaclass(subject), mImport) {
+		if owner, ok := d.graph.Object(subject, rdf.SysML+pImportOwningNamespace); ok {
+			return d.isFilterPackageNode(owner)
+		}
+	}
+	return false
+}
+
+// filterPackageParts is the import a filter package owns and the condition of
+// its ElementFilterMembership, refusing a package that is not one of each,
+// which is all `import X::*[c]` can write.
+func (d *decoder) filterPackageParts(el *element, pkg rdf.Term) (rdf.Term, rdf.Term, error) {
+	var imports, conditions []rdf.Term
+	for _, rel := range d.graph.Objects(pkg, rdf.SysML+pOwnedRelationship) {
+		switch metaclass := d.metaclass(rel); {
+		case ontology.IsAncestorOrSelf(metaclass, mImport):
+			imports = append(imports, rel)
+		case metaclass == mElementFilterMembership:
+			condition, ok := d.graph.Object(rel, rdf.SysML+pCondition)
+			if !ok {
+				if condition, ok = d.graph.Object(rel, rdf.SysML+pMemberElement); !ok {
+					return rdf.Term{}, rdf.Term{}, d.missing(&element{iri: rel.Value}, sysmlPrefix+pCondition, "an element filter states the condition it filters by")
+				}
+			}
+			conditions = append(conditions, condition)
+		}
+	}
+	if len(imports) != 1 || len(conditions) != 1 {
+		return rdf.Term{}, rdf.Term{}, &UnsupportedError{
+			What: fmt.Sprintf("the import <%s>", el.iri),
+			Note: fmt.Sprintf("its filter package owns %d imports and %d element filters, and `import X::*[c]` writes exactly one of each", len(imports), len(conditions)),
+		}
+	}
+	return imports[0], conditions[0], nil
+}
+
+// importFilter is the filter an import writes in brackets: the condition of
+// its filter package's ElementFilterMembership, agreeing with the collapsed
+// sysx:filter where a graph states one too.
+func (d *decoder) importFilter(el *element) (string, error) {
+	collapsed, hasCollapsed := d.stringOf(el, rdf.OpenSysML+xFilter)
+	pkg, ok := d.filterPackageOf(rdf.IRI(el.iri))
+	if !ok {
+		return collapsed, nil
+	}
+	_, condition, err := d.filterPackageParts(el, pkg)
+	if err != nil {
+		return "", err
+	}
+	text, err := d.expressionOperand(condition, el, bindConditional)
+	if err != nil {
+		return "", err
+	}
+	if hasCollapsed && collapsed != text {
+		return "", &UnsupportedError{
+			What: fmt.Sprintf("the import <%s>", el.iri),
+			Note: fmt.Sprintf("its sysx:filter %q and its filter package's condition %q disagree, so it is not clear which to write", collapsed, text),
+		}
+	}
+	return text, nil
 }
 
 // importedName is the name an import writes: a namespace import's namespace, a

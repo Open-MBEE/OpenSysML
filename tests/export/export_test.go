@@ -305,7 +305,19 @@ func TestCastTypeIsSpelledForItsScope(t *testing.T) {
 		t.Errorf("notation does not write %q\n%s", want, notation)
 	}
 	structural := withoutTriples(t, graph, "sysx:sourceText")
-	relinkedGraph := relinked(t, structural, "sysx:typeArgument elmt:P__T", "sysx:typeArgument elmt:P__H__T")
+	// The collapsed sysx:typeArgument and the typed parameter's FeatureTyping
+	// name the type twice; relinking only one of them is a disagreement.
+	collapsedOnly := relinked(t, structural, "sysx:typeArgument elmt:P__T", "sysx:typeArgument elmt:P__H__T")
+	refusedAsUnsupported(t, "cast_type", collapsedOnly, "its sysx:typeArgument names P::H::T and its typed parameter names P::T")
+	relinkedGraph := collapsedOnly
+	for _, property := range []string{"type", "general", "target"} {
+		relinkedGraph = relinkedProperty(t, relinkedGraph, "expr:P__H__v_pvalue_pin0_ft0", property, "elmt:P__T", "elmt:P__H__T")
+	}
+	relinkedGraph = relinkedProperty(t, relinkedGraph, "expr:P__H__v_pvalue_pin0_ft0", "relatedElement",
+		"expr:P__H__v_pvalue_pin0, elmt:P__T", "expr:P__H__v_pvalue_pin0, elmt:P__H__T")
+	relinkedGraph = relinked(t, relinkedGraph,
+		`json:relatedElement "[{\"@id\":\"P__H__v_pvalue_pin0\"},{\"@id\":\"P__T\"}]"`,
+		`json:relatedElement "[{\"@id\":\"P__H__v_pvalue_pin0\"},{\"@id\":\"P__H__T\"}]"`)
 	back, err := convert.Convert("cast_type.ttl", relinkedGraph, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation: %v\n%s", err, relinkedGraph)
@@ -3017,8 +3029,9 @@ func TestElementIRIsEncodeQualifiedNames(t *testing.T) {
 // materializedSuffixID is the naming convention of the relationship elements
 // the collapsed head properties imply: the `<S>_ft<i>`/`_sc<i>`/`_ss<i>`/`_sp<i>`/`_rd<i>`/`_rs<i>` relationships,
 // the satisfy subject `_subject`, the conjugate `_conjugated` and its `_pc`,
-// and the referent memberships an expression's referent edge restates.
-var materializedSuffixID = regexp.MustCompile(`_(ft|sc|ss|sp|rd|rs)[0-9]*(_om)?$|_(subject|conjugated|pc|referent|preferent|targetFeature)(_om)?$`)
+// the referent memberships an expression's referent edge restates, and a
+// filtered import's unnamed `_fp` package with its `_im` import and `_efm` filter.
+var materializedSuffixID = regexp.MustCompile(`_(ft|sc|ss|sp|rd|rs)[0-9]*(_om)?$|_(subject|conjugated|pc|referent|preferent|targetFeature)(_om)?$|_fp(_im|_efm)?$`)
 
 // materializedExprID is the same convention inside an expression node's id.
 var materializedExprID = regexp.MustCompile(`_(subject|conjugated|pc|referent|preferent|targetFeature)(_|$)|_(ft|sc|ss|sp|rd|rs)[0-9]`)
@@ -3579,7 +3592,7 @@ func TestLinkedReferencesCarryTheRoundTripWithoutSourceText(t *testing.T) {
 		"part : Inner::Wheel redefines w;",
 		"transition idle then Done::done;",
 		"part unresolved : Elsewhere::Missing;",
-		"public import Meta::* [(@ Safety)];",
+		"public import Meta::*[@Safety];",
 		"attribute other : Tagged;",
 	} {
 		if !strings.Contains(back, want) {

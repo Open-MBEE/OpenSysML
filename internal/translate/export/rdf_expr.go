@@ -168,14 +168,14 @@ func (e *encoder) expressionOperands(subject rdf.Term, owner string, node ast.No
 			return err
 		}
 		if n.TypeRef != nil {
-			e.graph.Add(subject, e.sysx(xTypeArgument), e.reference(n.TypeRef))
+			e.typeArgument(subject, n.TypeRef, len(n.Operands))
 		}
 
 	case *ast.CastExpr:
 		// `(as T[m])` is the classification operator with a type argument only,
 		// its multiplicity written as bounds the way a usage's is.
 		e.graph.Add(subject, e.sysml(pOperator), rdf.String(ast.OpAs.String()))
-		e.graph.Add(subject, e.sysx(xTypeArgument), e.reference(n.TargetType))
+		e.typeArgument(subject, n.TargetType, 0)
 		return e.multiplicity(subject, owner, n.Multiplicity)
 
 	case *ast.FeatureChainExpr:
@@ -371,6 +371,33 @@ func (e *encoder) arguments(subject rdf.Term, owner string, args []ast.Node) err
 		}
 	}
 	return nil
+}
+
+// typeArgument states the type a classification operator tests or casts to:
+// collapsed as sysx:typeArgument and, as the pilot writes it (SysML.xtext
+// TypeReferenceMember), as an in parameter typed by that type with no value.
+func (e *encoder) typeArgument(subject rdf.Term, typeRef *ast.QualifiedName, index int) {
+	target := e.reference(typeRef)
+	e.graph.Add(subject, e.sysx(xTypeArgument), target)
+	if !target.IsIRI() {
+		return
+	}
+	parameter := e.ids.mintedNode(rdf.ExpressionIRI(subject, fmt.Sprintf("in%d", index)), subject, fmt.Sprintf("in%d", index))
+	membership := e.ids.minted(rdf.OwningMembershipIRIOf(parameter), parameter, rdf.OwningMembershipSuffix)
+	e.typed(parameter, mFeature)
+	e.graph.Add(parameter, e.sysml(pElementID), rdf.String(rdf.LocalName(parameter.Value)))
+	e.graph.Add(parameter, e.sysml(pDirection), rdf.String("in"))
+	e.emitMembershipCore(membership, parameter, subject, mParameterMembership, true)
+	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
+	e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
+	e.graph.Add(subject, e.sysml(pOwnedFeatureMembership), membership)
+	e.graph.Add(subject, e.sysml(pOwnedFeature), parameter)
+	e.graph.Add(subject, e.sysml(pParameter), parameter)
+	e.graph.Add(subject, e.sysml(pInput), parameter)
+	e.graph.Add(membership, e.sysml(pOwnedMemberFeature), parameter)
+	e.graph.Add(membership, e.sysml(pOwnedMemberParameter), parameter)
+	spec, _ := e.relationshipSpec(parameter, ast.RelTyping, 1, 0)
+	e.emitRelationship(parameter, target, spec)
 }
 
 // invocation emits the parts an invocation and a constructor share: the function
@@ -1229,6 +1256,9 @@ func (d *decoder) operatorForm(node rdf.Term, in *element) (operand, error) {
 		return primary(args[0].at(bindPrimary) + "#(" + indexText(args[1]) + ")")
 	case hasType && len(args) == 1 && isInfix:
 		return operand{text: args[0].at(infix) + " " + operator + " " + typeArgument, binding: infix}, nil
+	case hasType && len(args) == 0 && operator == "@":
+		// `@T` alone tests the implicit self, as a filter condition writes it.
+		return operand{text: "@" + typeArgument, binding: bindUnary}, nil
 	case hasType && len(args) == 0:
 		multiplicity, err := d.expressionMultiplicityText(node, in)
 		if err != nil {
@@ -1422,6 +1452,11 @@ func (d *decoder) standardExpressionOperandTerms(node rdf.Term) ([]expressionOpe
 			continue
 		}
 		valueMembership, ok := d.featureValueMembership(parameter)
+		if !ok && d.typeArgumentParameter(parameter) {
+			// A typed, valueless parameter is a classification operator's type
+			// argument, read by expressionTypeArgument.
+			continue
+		}
 		if !ok {
 			return nil, true, &UnsupportedError{
 				What: fmt.Sprintf("the expression <%s>", node.Value),
@@ -1558,15 +1593,73 @@ func (d *decoder) expressionMultiplicityText(node rdf.Term, in *element) (string
 	return d.multiplicityText(el), nil
 }
 
-// expressionTypeArgument names the type a classification operator applies.
+// typeArgumentParameter reports whether an in parameter is a classification
+// operator's type argument: typed, and with no value bound to it.
+func (d *decoder) typeArgumentParameter(parameter rdf.Term) bool {
+	if _, valued := d.featureValueMembership(parameter); valued {
+		return false
+	}
+	_, ok := d.typeArgumentOf(parameter)
+	return ok
+}
+
+// typeArgumentOf is the type a type-argument parameter is typed by.
+func (d *decoder) typeArgumentOf(parameter rdf.Term) (rdf.Term, bool) {
+	for _, typing := range d.graph.Objects(parameter, rdf.SysML+"ownedTyping") {
+		if d.metaclass(typing) == mFeatureTyping {
+			return d.graph.Object(typing, rdf.SysML+"type")
+		}
+	}
+	return d.graph.Object(parameter, rdf.SysML+"type")
+}
+
+// expressionTypeArgument names the type a classification operator applies:
+// the collapsed sysx:typeArgument, the typed in parameter that states it, or
+// both when they agree.
 func (d *decoder) expressionTypeArgument(node rdf.Term, in *element) (string, bool, error) {
-	object, ok := d.graph.Object(node, rdf.OpenSysML+xTypeArgument)
-	if !ok {
+	collapsed, hasCollapsed := d.graph.Object(node, rdf.OpenSysML+xTypeArgument)
+	var typed []rdf.Term
+	for _, membership := range d.graph.Objects(node, rdf.SysML+pOwnedFeatureMembership) {
+		if d.metaclass(membership) != mParameterMembership {
+			continue
+		}
+		parameter, ok := d.graph.Object(membership, rdf.SysML+pOwnedMemberParameter)
+		if !ok {
+			parameter, ok = d.graph.Object(membership, rdf.SysML+pMemberElement)
+		}
+		if ok && d.typeArgumentParameter(parameter) {
+			target, _ := d.typeArgumentOf(parameter)
+			typed = append(typed, target)
+		}
+	}
+	if len(typed) > 1 {
+		return "", false, &UnsupportedError{
+			What: fmt.Sprintf("the expression <%s>", node.Value),
+			Note: fmt.Sprintf("it has %d type-argument parameters, and a classification operator takes one type", len(typed)),
+		}
+	}
+	if !hasCollapsed && len(typed) == 0 {
 		return "", false, nil
+	}
+	object := collapsed
+	if !hasCollapsed {
+		object = typed[0]
 	}
 	name, err := d.referenceName(object, in)
 	if err != nil {
 		return "", false, err
+	}
+	if hasCollapsed && len(typed) == 1 {
+		stated, err := d.referenceName(typed[0], in)
+		if err != nil {
+			return "", false, err
+		}
+		if stated != name {
+			return "", false, &UnsupportedError{
+				What: fmt.Sprintf("the expression <%s>", node.Value),
+				Note: fmt.Sprintf("its sysx:typeArgument names %s and its typed parameter names %s, so it is not clear which type to write", name, stated),
+			}
+		}
 	}
 	return name, true, nil
 }

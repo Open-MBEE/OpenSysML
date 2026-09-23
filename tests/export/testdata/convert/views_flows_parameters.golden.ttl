@@ -969,15 +969,59 @@ expr:FlowsAndViews__StructureView___400_pfilter
     sysml:elementId "FlowsAndViews__StructureView___400_pfilter" ;
     sysml:operator "@" ;
     sysx:typeArgument <urn:sysmlv2:element:550f9923-23f8-5142-aa06-d7ff476876d7> ;
-    sysml:ownedRelationship expr:FlowsAndViews__StructureView___400_pfilter_pout_om ;
-    sysml:ownedMembership expr:FlowsAndViews__StructureView___400_pfilter_pout_om ;
-    sysml:ownedFeatureMembership expr:FlowsAndViews__StructureView___400_pfilter_pout_om ;
-    sysml:ownedFeature expr:FlowsAndViews__StructureView___400_pfilter_pout ;
-    sysml:parameter expr:FlowsAndViews__StructureView___400_pfilter_pout ;
+    sysml:ownedRelationship expr:FlowsAndViews__StructureView___400_pfilter_pin0_om, expr:FlowsAndViews__StructureView___400_pfilter_pout_om ;
+    sysml:ownedMembership expr:FlowsAndViews__StructureView___400_pfilter_pin0_om, expr:FlowsAndViews__StructureView___400_pfilter_pout_om ;
+    sysml:ownedFeatureMembership expr:FlowsAndViews__StructureView___400_pfilter_pin0_om, expr:FlowsAndViews__StructureView___400_pfilter_pout_om ;
+    sysml:ownedFeature expr:FlowsAndViews__StructureView___400_pfilter_pin0, expr:FlowsAndViews__StructureView___400_pfilter_pout ;
+    sysml:parameter expr:FlowsAndViews__StructureView___400_pfilter_pin0, expr:FlowsAndViews__StructureView___400_pfilter_pout ;
+    sysml:input expr:FlowsAndViews__StructureView___400_pfilter_pin0 ;
     sysml:result expr:FlowsAndViews__StructureView___400_pfilter_pout ;
     sysml:owner elmt:FlowsAndViews__StructureView___400 ;
     sysml:owningRelationship elmt:FlowsAndViews__StructureView___400 ;
-    sysml:owningMembership elmt:FlowsAndViews__StructureView___400 .
+    sysml:owningMembership elmt:FlowsAndViews__StructureView___400 ;
+    json:ownedRelationship "[{\"@id\":\"FlowsAndViews__StructureView___400_pfilter_pin0_om\"},{\"@id\":\"FlowsAndViews__StructureView___400_pfilter_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"FlowsAndViews__StructureView___400_pfilter_pin0_om\"},{\"@id\":\"FlowsAndViews__StructureView___400_pfilter_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"FlowsAndViews__StructureView___400_pfilter_pin0_om\"},{\"@id\":\"FlowsAndViews__StructureView___400_pfilter_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"FlowsAndViews__StructureView___400_pfilter_pin0\"},{\"@id\":\"FlowsAndViews__StructureView___400_pfilter_pout\"}]" ;
+    json:parameter "[{\"@id\":\"FlowsAndViews__StructureView___400_pfilter_pin0\"},{\"@id\":\"FlowsAndViews__StructureView___400_pfilter_pout\"}]" .
+
+expr:FlowsAndViews__StructureView___400_pfilter_pin0
+    a sysml:Feature ;
+    sysml:elementId "FlowsAndViews__StructureView___400_pfilter_pin0" ;
+    sysml:direction "in" ;
+    sysml:owner expr:FlowsAndViews__StructureView___400_pfilter ;
+    sysml:owningRelationship expr:FlowsAndViews__StructureView___400_pfilter_pin0_om ;
+    sysml:owningMembership expr:FlowsAndViews__StructureView___400_pfilter_pin0_om ;
+    sysml:ownedTyping expr:FlowsAndViews__StructureView___400_pfilter_pin0_ft0 ;
+    sysml:ownedSpecialization expr:FlowsAndViews__StructureView___400_pfilter_pin0_ft0 ;
+    sysml:ownedRelationship expr:FlowsAndViews__StructureView___400_pfilter_pin0_ft0 .
+
+expr:FlowsAndViews__StructureView___400_pfilter_pin0_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "FlowsAndViews__StructureView___400_pfilter_pin0_om" ;
+    sysml:owner expr:FlowsAndViews__StructureView___400_pfilter ;
+    sysml:memberElement expr:FlowsAndViews__StructureView___400_pfilter_pin0 ;
+    sysml:ownedMemberElement expr:FlowsAndViews__StructureView___400_pfilter_pin0 ;
+    sysml:ownedRelatedElement expr:FlowsAndViews__StructureView___400_pfilter_pin0 ;
+    sysml:owningRelatedElement expr:FlowsAndViews__StructureView___400_pfilter ;
+    sysml:membershipOwningNamespace expr:FlowsAndViews__StructureView___400_pfilter ;
+    sysml:ownedMemberFeature expr:FlowsAndViews__StructureView___400_pfilter_pin0 ;
+    sysml:ownedMemberParameter expr:FlowsAndViews__StructureView___400_pfilter_pin0 .
+
+expr:FlowsAndViews__StructureView___400_pfilter_pin0_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "FlowsAndViews__StructureView___400_pfilter_pin0_ft0" ;
+    sysml:typedFeature expr:FlowsAndViews__StructureView___400_pfilter_pin0 ;
+    sysml:owningFeature expr:FlowsAndViews__StructureView___400_pfilter_pin0 ;
+    sysml:specific expr:FlowsAndViews__StructureView___400_pfilter_pin0 ;
+    sysml:source expr:FlowsAndViews__StructureView___400_pfilter_pin0 ;
+    sysml:owningRelatedElement expr:FlowsAndViews__StructureView___400_pfilter_pin0 ;
+    sysml:type <urn:sysmlv2:element:550f9923-23f8-5142-aa06-d7ff476876d7> ;
+    sysml:general <urn:sysmlv2:element:550f9923-23f8-5142-aa06-d7ff476876d7> ;
+    sysml:target <urn:sysmlv2:element:550f9923-23f8-5142-aa06-d7ff476876d7> ;
+    sysml:owner expr:FlowsAndViews__StructureView___400_pfilter_pin0 ;
+    sysml:relatedElement expr:FlowsAndViews__StructureView___400_pfilter_pin0, <urn:sysmlv2:element:550f9923-23f8-5142-aa06-d7ff476876d7> ;
+    json:relatedElement "[{\"@id\":\"FlowsAndViews__StructureView___400_pfilter_pin0\"},{\"@id\":\"550f9923-23f8-5142-aa06-d7ff476876d7\"}]" .
 
 expr:FlowsAndViews__StructureView___400_pfilter_pout
     a sysml:Feature ;
@@ -1039,7 +1083,7 @@ elmt:FlowsAndViews__vehicleView___400
     sysml:importOwningNamespace elmt:FlowsAndViews__vehicleView ;
     sysml:visibility "protected" ;
     sysml:isImportAll "true"^^xsd:boolean ;
-    sysx:isRecursive "true"^^xsd:boolean ;
+    sysml:isRecursive "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:importedMembership elmt:FlowsAndViews__vehicle_om .
 
