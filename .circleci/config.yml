@@ -775,6 +775,7 @@ jobs:
       - store_artifacts:
           path: sonar-logs/
           destination: sonar-logs
+          when: always
 
       # SonarCloud does not create a project from a CI scan, so the first run
       # against an unprovisioned project fails; point at the setup doc.
