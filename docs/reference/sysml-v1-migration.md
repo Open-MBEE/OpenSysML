@@ -369,7 +369,8 @@ written as before, anonymous, so naming changes nothing in a model without diagr
 reads only the model's diagrams, never `-layout`, so the notation is the same with or without an
 MTIP export. What a view can expose, anything can refer to: a state, a parallel state standing
 for a region, and a transition written under its v1 name are members a qualified name reaches, so
-a comment annotating one now says `about` it, diagrams or not. Naming an edge leaves it `mapped`:
+a comment annotating one now says `about` it, diagrams or not — the comment is written once the
+whole model is, so it names members declared after it. Naming an edge leaves it `mapped`:
 the element is unchanged, and the report's target column now names the member.
 
 Edges with no v2 member of their own are not given one: a Generalization or InterfaceRealization

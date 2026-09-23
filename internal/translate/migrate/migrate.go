@@ -3120,25 +3120,8 @@ func (m *migration) writeComments(e *sysmlv1.Element, first bool) {
 			continue
 		}
 		if others {
-			refs := make([]string, 0, len(about))
-			var omitted []string
-			for _, a := range about {
-				if !m.written(a) {
-					omitted = append(omitted, describe(a))
-					continue
-				}
-				refs = append(refs, m.ref(a, m.scope))
-			}
-			if len(refs) == 0 {
-				m.w.lines(prefixFirst(commentPrefix, commentLines(text)))
-			} else {
-				m.w.lines(prefixFirst("comment about "+strings.Join(refs, ", ")+" ", commentLines(text)))
-			}
-			note := missing
-			if len(omitted) > 0 {
-				note = joinNotes(note, "the comment also annotates "+strings.Join(omitted, ", ")+", which has no v2 declaration in the document and is not written as a subject")
-			}
-			m.add(c, verdictFor(note), "", note)
+			scope := m.scope
+			m.w.hole(func() { m.commentAbout(c, about, text, missing, scope) })
 			continue
 		}
 		if first {
@@ -3149,6 +3132,30 @@ func (m *migration) writeComments(e *sysmlv1.Element, first bool) {
 		}
 		m.add(c, verdictFor(missing), "", missing)
 	}
+}
+
+// commentAbout writes a `comment about` other elements from inside scope's body
+// once the whole model is written, when every member the writers name is known.
+func (m *migration) commentAbout(c *sysmlv1.Element, about []*sysmlv1.Element, text, missing string, scope *sysmlv1.Element) {
+	refs := make([]string, 0, len(about))
+	var omitted []string
+	for _, a := range about {
+		if !m.written(a) {
+			omitted = append(omitted, describe(a))
+			continue
+		}
+		refs = append(refs, m.ref(a, scope))
+	}
+	if len(refs) == 0 {
+		m.w.lines(prefixFirst(commentPrefix, commentLines(text)))
+	} else {
+		m.w.lines(prefixFirst("comment about "+strings.Join(refs, ", ")+" ", commentLines(text)))
+	}
+	note := missing
+	if len(omitted) > 0 {
+		note = joinNotes(note, "the comment also annotates "+strings.Join(omitted, ", ")+", which has no v2 declaration in the document and is not written as a subject")
+	}
+	m.add(c, verdictFor(note), "", note)
 }
 
 // commentBody reads a comment's text, from its body attribute or child element.

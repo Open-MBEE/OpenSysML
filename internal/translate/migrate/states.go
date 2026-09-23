@@ -578,7 +578,11 @@ func pluralRegion(n int) string {
 
 // region prepares to write region r of the machine that nameMachine named.
 func (m *migration) region(r *sysmlv1.Element) *stateRegion {
-	return &stateRegion{m: m, r: r, used: m.regionUsed[r], machine: machineOf(r)}
+	s := &stateRegion{m: m, r: r, owner: r.Parent, used: m.regionUsed[r], machine: machineOf(r)}
+	if _, parallel := m.parallel[r]; parallel {
+		s.owner = nil
+	}
+	return s
 }
 
 // machineOf returns the state machine an element of one belongs to.
@@ -610,10 +614,12 @@ func entryThen(entered bool, to string) string {
 	return "entry; then " + to + ";"
 }
 
-// stateRegion writes one region: its entry, then its states and transitions.
+// stateRegion writes one region: its entry, then its states and transitions,
+// named against owner's body as its vertices were (nil for a parallel region's).
 type stateRegion struct {
 	m       *migration
 	r       *sysmlv1.Element
+	owner   *sysmlv1.Element
 	used    map[string]bool
 	machine *sysmlv1.Element
 }
@@ -1357,7 +1363,7 @@ func (s *stateRegion) transition(t *sysmlv1.Element) {
 		tname = s.m.edgeName(t, transitionBase(from, accepts[0], guard, to))
 	}
 	if tname != "" {
-		tname = freshIn(s.used, tname)
+		tname = s.m.freshMember(s.owner, s.used, tname)
 	}
 	s.writeAccepts(t, accepts, tname, guard, eff, from, to)
 	note := strings.Join(notes, "; ")
@@ -1458,7 +1464,7 @@ func (s *stateRegion) writeAccepts(t *sysmlv1.Element, accepts []acceptance, tna
 		if tname != "" {
 			n := tname
 			if i > 0 {
-				n = freshIn(s.used, s.furtherName(t, tname, accept, guard, from, to))
+				n = s.m.freshMember(s.owner, s.used, s.furtherName(t, tname, accept, guard, from, to))
 				s.m.wroteEdgeAlso(t, s.r, "transition", nil, n)
 			}
 			line += writeName(n) + " "
