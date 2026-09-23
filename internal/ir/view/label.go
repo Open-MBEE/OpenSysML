@@ -7,13 +7,16 @@ import (
 )
 
 // labeller heads the nodes of one rendering the way a diagram names them: a
-// node by its name under the namespace every root shares, a type by its own name.
+// node by its name under the namespace every root shares, or under the drawn
+// owner that holds it, a type by its own name.
 type labeller struct {
-	context []string // the shared namespace's names, outermost first
+	context []string         // the shared namespace's names, outermost first
+	owned   map[*Node]string // a node's name relative to the nearest drawn owner
 }
 
-// labelsOf finds the namespace the named roots share: the longest run of
-// leading names common to their qualifiers.
+// labelsOf finds the namespace the named roots share — the longest run of
+// leading names common to their qualifiers — and, for every node whose
+// qualified name continues that of another drawn node, its name below that owner.
 func labelsOf(roots []*Node) labeller {
 	var context []string
 	found := false
@@ -36,11 +39,57 @@ func labelsOf(roots []*Node) labeller {
 		}
 		context = context[:n]
 	}
-	return labeller{context: context}
+	return labeller{context: context, owned: ownedNames(roots)}
 }
 
-// name is a node's name with the shared namespace left off the front.
+// ownedNames names each node relative to the nearest drawn node whose
+// qualified name its own continues. A root's name is its qualified name; a
+// child named with one name is named under its parent, one named with a
+// qualified name stands on its own, as a nested view's exposed elements do.
+func ownedNames(roots []*Node) map[*Node]string {
+	drawn := map[string]bool{}
+	qualified := map[*Node][]string{} // the nodes named with a qualifier: the ones to shorten
+	var walk func(nodes []*Node, root bool, parent []string)
+	walk = func(nodes []*Node, root bool, parent []string) {
+		for _, node := range nodes {
+			var names []string
+			if node.Name != "" {
+				segments, ok := source.QualifiedNameSegments(node.Name)
+				switch {
+				case !ok:
+				case len(segments) > 1:
+					names, qualified[node] = segments, segments
+				case root:
+					names = segments
+				case parent != nil:
+					names = append(slices.Clone(parent), segments[0])
+				}
+			}
+			if names != nil {
+				drawn[source.QualifiedNameOf(names)] = true
+			}
+			walk(node.Children, false, names)
+		}
+	}
+	walk(roots, true, nil)
+	owned := map[*Node]string{}
+	for node, names := range qualified {
+		for n := len(names) - 1; n > 0; n-- {
+			if drawn[source.QualifiedNameOf(names[:n])] {
+				owned[node] = source.QualifiedNameOf(names[n:])
+				break
+			}
+		}
+	}
+	return owned
+}
+
+// name is a node's name below its nearest drawn owner, or else with the
+// shared namespace left off the front.
 func (l labeller) name(node *Node) string {
+	if name, ok := l.owned[node]; ok {
+		return name
+	}
 	if len(l.context) == 0 {
 		return node.Name
 	}
