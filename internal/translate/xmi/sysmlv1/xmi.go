@@ -369,8 +369,10 @@ func documentEntry(name string) bool {
 func parseArchive(zr *zip.Reader) (*Model, error) {
 	var project, modules, documents []*zip.File
 	names := make([]string, 0, len(zr.File))
+	entries := make(map[string]*zip.File, len(zr.File))
 	for _, f := range zr.File {
 		names = append(names, f.Name)
+		entries[f.Name] = f
 		switch {
 		case projectEntry(f.Name):
 			project = append(project, f)
@@ -411,6 +413,9 @@ func parseArchive(zr *zip.Reader) (*Model, error) {
 	if read == 0 {
 		sort.Strings(names)
 		return nil, fmt.Errorf("archive holds no model document (expected a MagicDraw uml_model.model entry or an .xmi file); entries: %s", strings.Join(names, ", "))
+	}
+	if err := m.readStreams(entries); err != nil {
+		return nil, err
 	}
 	model, err := m.finish()
 	if err != nil {

@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xmlns:Document_Profile_="http://www.magicdraw.com/schemas/manual/Document_Profile.xmi"
+         xmlns:diagram="http://www.example.com/tool/diagram">
+  <xmi:Documentation exporter="Example UML Tool" exporterVersion="1.0"/>
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_plant" name="Plant">
+      <packagedElement xmi:type="uml:Signal" xmi:id="_sig_start" name="Start"/>
+      <packagedElement xmi:type="uml:SignalEvent" xmi:id="_ev_start" signal="_sig_start"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_pump" name="Pump">
+        <ownedComment xmi:type="uml:Comment" xmi:id="_cmt_pump" body="Moves the coolant."/>
+        <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_sm_modes" name="Modes">
+          <region xmi:type="uml:Region" xmi:id="_sm_region">
+            <subvertex xmi:type="uml:Pseudostate" xmi:id="_sm_init" kind="initial"/>
+            <subvertex xmi:type="uml:State" xmi:id="_st_idle" name="Idle"/>
+            <subvertex xmi:type="uml:State" xmi:id="_st_running" name="Running"/>
+            <transition xmi:type="uml:Transition" xmi:id="_t_init" source="_sm_init" target="_st_idle"/>
+            <transition xmi:type="uml:Transition" xmi:id="_t_start" source="_st_idle" target="_st_running">
+              <trigger xmi:type="uml:Trigger" xmi:id="_tr_start" event="_ev_start"/>
+            </transition>
+          </region>
+        </ownedBehavior>
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_prime" name="Prime">
+          <node xmi:type="uml:InitialNode" xmi:id="_prime_init"/>
+          <node xmi:type="uml:OpaqueAction" xmi:id="_prime_fill" name="Fill"/>
+          <node xmi:type="uml:OpaqueAction" xmi:id="_prime_vent" name="Vent"/>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_prime_final"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_prime_e1" source="_prime_init" target="_prime_fill"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_prime_e2" source="_prime_fill" target="_prime_vent"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_prime_e3" source="_prime_vent" target="_prime_final"/>
+        </ownedBehavior>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_tank" name="Tank"/>
+    </packagedElement>
+
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_viewpoints" name="Plant Viewpoints">
+      <packagedElement xmi:type="uml:Class" xmi:id="_vp_figures" name="Figures Viewpoint" classifierBehavior="_act_figures">
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_figures" name="Figures Method">
+          <node xmi:type="uml:InitialNode" xmi:id="_figures_init"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_figures_image" name="Image"/>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_figures_final"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_figures_e1" source="_figures_init" target="_figures_image"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_figures_e2" source="_figures_image" target="_figures_final"/>
+        </ownedBehavior>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_vp_pictures" name="Pictures Viewpoint" classifierBehavior="_act_pictures">
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_pictures" name="Pictures Method">
+          <node xmi:type="uml:InitialNode" xmi:id="_pictures_init"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_pictures_image" name="Image"/>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_pictures_final"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_pictures_e1" source="_pictures_init" target="_pictures_image"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_pictures_e2" source="_pictures_image" target="_pictures_final"/>
+        </ownedBehavior>
+      </packagedElement>
+    </packagedElement>
+
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_docs" name="Plant Documents">
+      <packagedElement xmi:type="uml:Class" xmi:id="_doc_plant" name="Plant Handbook">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_doc_behaviors" name="behaviors" type="_view_behaviors" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_doc_pictures" name="pictures" type="_view_pictures" aggregation="composite"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_behaviors" name="Behaviors">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_behaviors" general="_vp_figures"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_behaviors_modes" client="_view_behaviors" supplier="_diag_modes"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_behaviors_prime" client="_view_behaviors" supplier="_diag_prime"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_pictures" name="Pictures">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_pictures" general="_vp_pictures"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_pictures_blank" client="_view_pictures" supplier="_diag_blank"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_pictures_poster" client="_view_pictures" supplier="_diag_poster"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_pictures_unlisted" client="_view_pictures" supplier="_diag_unlisted"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_pictures_silent" client="_view_pictures" supplier="_diag_silent"/>
+    </packagedElement>
+
+    <xmi:Extension extender="Example UML Tool 1.0">
+      <modelExtension>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_modes" name="Pump Modes" ownerOfDiagram="_sm_modes">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML State Machine Diagram" umlType="State Machine Diagram">
+                <diagramContents>
+                  <usedElements>_st_idle</usedElements>
+                  <usedElements>_st_running</usedElements>
+                  <usedElements>_t_start</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_prime" name="Priming" ownerOfDiagram="_act_prime">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Activity Diagram" umlType="Activity Diagram">
+                <diagramContents>
+                  <usedElements>_prime_fill</usedElements>
+                  <usedElements>_prime_vent</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <!-- Four diagrams the tool lists no used element for: the streams the
+             archive holds tell a blank one from a pasted picture and from
+             symbols of elements the list omits; Silent names no stream. -->
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_blank" name="Blank" ownerOfDiagram="_pkg_plant">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Block Definition Diagram" umlType="Class Diagram">
+                <diagramContents>
+                  <binaryObject xsi:type="binary:StreamIdentityBinaryObject" streamContentID="BINARY-blank"/>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_poster" name="Poster" ownerOfDiagram="_pkg_plant">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Block Definition Diagram" umlType="Class Diagram">
+                <diagramContents>
+                  <binaryObject xsi:type="binary:StreamIdentityBinaryObject" streamContentID="BINARY-poster"/>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_unlisted" name="Unlisted" ownerOfDiagram="_pkg_plant">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Block Definition Diagram" umlType="Class Diagram">
+                <diagramContents>
+                  <binaryObject xsi:type="binary:StreamIdentityBinaryObject" streamContentID="BINARY-unlisted"/>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_silent" name="Silent" ownerOfDiagram="_pkg_plant">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Block Definition Diagram" umlType="Class Diagram">
+                <diagramContents/>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+      </modelExtension>
+    </xmi:Extension>
+  </uml:Model>
+
+  <sysml:Block xmi:id="_st_blk_pump" base_Class="_blk_pump"/>
+  <sysml:Block xmi:id="_st_blk_tank" base_Class="_blk_tank"/>
+
+  <sysml:Viewpoint xmi:id="_st_vp_figures" base_Class="_vp_figures"/>
+  <sysml:Viewpoint xmi:id="_st_vp_pictures" base_Class="_vp_pictures"/>
+  <sysml:View xmi:id="_st_view_behaviors" base_Class="_view_behaviors"/>
+  <sysml:View xmi:id="_st_view_pictures" base_Class="_view_pictures"/>
+  <sysml:Conform xmi:id="_st_conform_behaviors" base_Generalization="_gen_behaviors"/>
+  <sysml:Conform xmi:id="_st_conform_pictures" base_Generalization="_gen_pictures"/>
+  <sysml:Expose xmi:id="_st_expose_behaviors_modes" base_Dependency="_expose_behaviors_modes"/>
+  <sysml:Expose xmi:id="_st_expose_behaviors_prime" base_Dependency="_expose_behaviors_prime"/>
+  <sysml:Expose xmi:id="_st_expose_pictures_blank" base_Dependency="_expose_pictures_blank"/>
+  <sysml:Expose xmi:id="_st_expose_pictures_poster" base_Dependency="_expose_pictures_poster"/>
+  <sysml:Expose xmi:id="_st_expose_pictures_unlisted" base_Dependency="_expose_pictures_unlisted"/>
+  <sysml:Expose xmi:id="_st_expose_pictures_silent" base_Dependency="_expose_pictures_silent"/>
+
+  <Document_Profile_:Document xmi:id="_st_doc_plant" base_Class="_doc_plant"/>
+  <Document_Profile_:Image xmi:id="_st_figures_image" base_CallBehaviorAction="_figures_image" showCaptions="true">
+    <captions>How the pump behaves</captions>
+    <captions>How the pump is primed</captions>
+  </Document_Profile_:Image>
+  <Document_Profile_:Image xmi:id="_st_pictures_image" base_CallBehaviorAction="_pictures_image" showCaptions="true">
+    <captions>Nothing to see</captions>
+    <captions>The plant, photographed</captions>
+  </Document_Profile_:Image>
+</xmi:XMI>

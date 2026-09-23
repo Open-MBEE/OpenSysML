@@ -1286,11 +1286,15 @@ func (c *chain) image(s *sysmlv1.DocGenStep) {
 		}
 		if empty := c.m.emptyView(v, form); empty != "" {
 			note := "no Diagram shows the " + diagramKind(d) + " '" + d.Name + "': " + empty + ", so the figure would be empty and is left out"
+			verdict := Approximated
+			if d.Drawn && len(d.Shown) == 0 && len(d.Free) == 0 {
+				verdict = Mapped
+			}
 			if text := c.captionText(s, i); text != "" {
 				note += "; its caption stands alone"
 				c.captionParagraph(s, "the paragraph is the caption of the figure left out for the diagram '"+d.Name+"'", text)
 			}
-			c.m.report.Entries = append(c.m.report.Entries, *c.m.nodeEntry(s.Node, s.Application, Approximated, note))
+			c.m.report.Entries = append(c.m.report.Entries, *c.m.nodeEntry(s.Node, s.Application, verdict, note))
 			continue
 		}
 		def, _, why := c.m.viewSteps(v)

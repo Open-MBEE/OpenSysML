@@ -32,6 +32,15 @@ type Diagram struct {
 	Shown []ElementRef
 	// Extender is the tool named by the extension the diagram sits in.
 	Extender string
+	// Stream names the archive entry the tool serialized the diagram's symbols
+	// to (a binaryObject's streamContentID); "" when none is named.
+	Stream string
+	// Drawn reports whether Stream was read, so that Shown lists every element
+	// the diagram's symbols stand for and Free the symbols standing for none.
+	Drawn bool
+	// Free counts the symbols standing for no model element, such as a pasted
+	// image or a text box, by the tool's symbol class; set only when Drawn.
+	Free map[string]int
 }
 
 // ElementRef is one element a diagram shows.
@@ -47,7 +56,7 @@ type ElementRef struct {
 // Represented reports whether the tool serialized what the diagram is and shows;
 // a diagram with neither a kind nor contents is a name and nothing more.
 func (d *Diagram) Represented() bool {
-	return d.Kind != "" || d.UMLKind != "" || len(d.Shown) > 0
+	return d.Kind != "" || d.UMLKind != "" || len(d.Shown) > 0 || d.Drawn
 }
 
 // isDiagram reports whether a raw extension element is a diagram: a UML
@@ -58,7 +67,8 @@ func isDiagram(raw *xmi.Element) bool {
 
 // diagram reads one serialized diagram: its kind from the representation
 // object's type and umlType attributes, its contents from the usedElements ids
-// and usedObjects hrefs beneath that object; without a representation object
+// and usedObjects hrefs beneath that object, and the stream its symbols are
+// serialized to from the binaryObject there; without a representation object
 // nothing is shown, whatever other tool content lists. Owner and shown elements
 // are resolved by linkDiagrams once every document is read, since a diagram may
 // precede what it names.
@@ -75,6 +85,9 @@ func (m *Model) diagram(raw *xmi.Element, ext *Extension) {
 	d.Kind, d.UMLKind = rep.Attrs["type"], rep.Attrs["umlType"]
 	seen := map[string]bool{}
 	walkDiagram(rep, func(n *xmi.Element) {
+		if n.Tag == "binaryObject" && d.Stream == "" {
+			d.Stream = n.Attrs["streamContentID"]
+		}
 		if n.Tag != "usedElements" && n.Tag != "usedObjects" {
 			return
 		}
