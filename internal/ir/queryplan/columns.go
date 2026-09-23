@@ -9,14 +9,15 @@ import (
 )
 
 const (
-	columnFQN        = "DocumentQueries::Column"
-	columnSpecFQN    = "DocumentQueries::ColumnSpec"
-	relatedColumnFQN = "DocumentQueries::RelatedColumn"
+	columnFQN         = "DocumentQueries::Column"
+	columnSpecFQN     = "DocumentQueries::ColumnSpec"
+	propertyColumnFQN = "DocumentQueries::PropertyColumn"
+	relatedColumnFQN  = "DocumentQueries::RelatedColumn"
 )
 
 // compileColumns compiles Project's columns argument: a sequence of
-// Column(name, expression) and RelatedColumn(...) invocations into a
-// planned column sequence.
+// Column(name, expression), PropertyColumn(name, property) and
+// RelatedColumn(...) invocations into a planned column sequence.
 func (c *compiler) compileColumns(
 	query *symbols.Symbol,
 	owner *symbols.Symbol,
@@ -70,6 +71,8 @@ func (c *compiler) compileColumn(
 	switch symbols.FQNOf(selection.Called()) {
 	case relatedColumnFQN:
 		return c.compileRelatedColumn(query, owner, params, selection.Called(), invocation, dependency)
+	case propertyColumnFQN:
+		return c.compilePropertyColumn(query, owner, params, selection.Called(), invocation, dependency)
 	case columnFQN:
 	default:
 		return Expression{}, invalid
@@ -514,8 +517,56 @@ func staticString(value Expression) (string, bool) {
 	return "", false
 }
 
-// relatedColumnNameNode finds the name argument of a RelatedColumn invocation,
-// positional or named; nil when it is absent.
+// compilePropertyColumn compiles PropertyColumn(name, property) into a planned
+// property column named by its target; the property is the name when omitted.
+func (c *compiler) compilePropertyColumn(
+	query *symbols.Symbol,
+	owner *symbols.Symbol,
+	params []Parameter,
+	target *symbols.Symbol,
+	invocation *ast.InvocationExpr,
+	dependency func(string),
+) (Expression, error) {
+	name := ""
+	if nameNode := relatedColumnNameNode(invocation); nameNode != nil {
+		literal, err := c.columnName(query, owner, nameNode)
+		if err != nil {
+			return Expression{}, err
+		}
+		name = literal
+	}
+	targetParams, _, err := c.signature(target, ignoreDependency)
+	if err != nil {
+		return Expression{}, err
+	}
+	args, err := c.compileBuiltinArguments(
+		query,
+		owner,
+		params,
+		invocation,
+		propertyColumnFQN,
+		targetParams,
+		dependency,
+	)
+	if err != nil {
+		return Expression{}, err
+	}
+	arguments := make([]Argument, 0, len(args))
+	for _, arg := range args {
+		if arg.Name != "name" {
+			arguments = append(arguments, arg)
+		}
+	}
+	return Expression{
+		operation: OperationPropertyColumn,
+		target:    name,
+		arguments: arguments,
+		origin:    symbols.NodeOrigin(owner.DocName, invocation),
+	}, nil
+}
+
+// relatedColumnNameNode finds the name argument of a RelatedColumn or
+// PropertyColumn invocation, positional or named; nil when it is absent.
 func relatedColumnNameNode(invocation *ast.InvocationExpr) ast.Node {
 	if len(invocation.Args) > 0 {
 		return invocation.Args[0]

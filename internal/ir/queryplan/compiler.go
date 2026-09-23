@@ -742,7 +742,7 @@ func (c *compiler) compileInvocation(
 		}
 	}
 	targetName := symbols.FQNOf(target)
-	if targetName == columnFQN || targetName == relatedColumnFQN {
+	if targetName == columnFQN || targetName == propertyColumnFQN || targetName == relatedColumnFQN {
 		return typedExpression{}, &Error{
 			Kind:   ErrorInvalidColumn,
 			Query:  symbols.FQNOf(query),

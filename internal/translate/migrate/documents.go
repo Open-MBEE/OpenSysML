@@ -790,27 +790,23 @@ func (c *chain) table(s *sysmlv1.DocGenStep) {
 		c.refuse(s, "its columns could not be read: "+end)
 		return
 	}
-	var props []string
-	var cols []qx
+	p := &projection{}
 	var notes []string
-	claimed := columnNames{}
 	for _, col := range colSteps {
 		prop, expr, why := c.column(col)
 		switch {
 		case why != "":
 			notes = append(notes, "the column «"+c.kind(col)+"» "+qualifiedName(col.Node)+" is not written: "+why)
 		case prop != "":
-			if !contains(props, prop) {
-				props = append(props, prop)
-			}
+			p.property(prop)
 		default:
-			cols = append(cols, qcall("Column", qarg1("name", qstr(claimed.claim(expr.name))), qarg1("expression", qlit(expr.expression))))
+			p.column(expr.name, qlit(expr.expression))
 		}
 	}
-	if s.Application.Tag("includeDoc") == "true" && !contains(props, "documentation") {
-		props = append(props, "documentation")
+	if s.Application.Tag("includeDoc") == "true" {
+		p.property("documentation")
 	}
-	if len(props) == 0 && len(cols) == 0 {
+	if p.empty() {
 		why := "none of its columns reads what a query can"
 		if len(notes) > 0 {
 			why += ": " + strings.Join(notes, "; ")
@@ -818,14 +814,11 @@ func (c *chain) table(s *sysmlv1.DocGenStep) {
 		c.refuse(s, why)
 		return
 	}
-	args := []qarg{qarg1("source", c.ctx)}
-	if len(props) > 0 {
-		args = append(args, qstrs("properties", props...))
+	project, renamed := p.build(c.ctx)
+	for _, r := range renamed {
+		notes = append(notes, "the column "+r[0]+" is written as "+r[1]+": column names are unique")
 	}
-	if len(cols) > 0 {
-		args = append(args, qlist("columns", cols...))
-	}
-	cp := c.block(s, "Table", c.caption(s, "Table"), qcall("Project", args...))
+	cp := c.block(s, "Table", c.caption(s, "Table"), project)
 	cp.notes = append(cp.notes, notes...)
 	if s.Application.Tag("loop") == "true" {
 		cp.notes = append(cp.notes, "the table loops over its elements one table each; one table lists them together")

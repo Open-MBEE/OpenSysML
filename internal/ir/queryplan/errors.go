@@ -131,7 +131,7 @@ func (e *Error) Error() string {
 			e.Expected,
 		)
 	case ErrorInvalidColumn:
-		return fmt.Sprintf("query %s must build the columns of Project from Column(name, expression) or RelatedColumn(name, relationshipKind, direction, maxDepth, aggregate) invocations", e.Query)
+		return fmt.Sprintf("query %s must build the columns of Project from Column(name, expression), PropertyColumn(name, property) or RelatedColumn(name, relationshipKind, direction, maxDepth, aggregate) invocations", e.Query)
 	case ErrorColumnName:
 		return fmt.Sprintf("query %s must name each computed column with a string literal", e.Query)
 	case ErrorUnknownColumnProperty:

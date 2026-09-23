@@ -1,6 +1,7 @@
 package queryplan
 
 import (
+	"slices"
 	"testing"
 )
 
@@ -329,6 +330,160 @@ calc def Matrix :> Query {
 	aggregate, _ := argumentOf(t, elements[1].Value, "aggregate")
 	if kind, text := aggregate.Literal(); aggregate.Operation() != OperationLiteral || kind != LiteralString || text != `"count"` {
 		t.Fatalf("aggregate = %s %s %s", aggregate.Operation(), kind, text)
+	}
+}
+
+func TestCompilePropertyColumns(t *testing.T) {
+	fixture := loadQueryFixture(t, computedFixture+`
+calc def Ledger :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		columns = (
+			PropertyColumn(name = "name"),
+			Column(name = "label", expression = "req: " + Element::name),
+			PropertyColumn(name = "Notes", property = "documentation"),
+			PropertyColumn("qualifiedName")
+		)
+	)
+}
+`)
+	program := fixture.compile(t, "Ledger")
+	definition := entryDefinition(t, program)
+	var columns Expression
+	for _, argument := range definition.Expression().Arguments() {
+		if argument.Name == "columns" {
+			columns = argument.Value
+		}
+	}
+	elements := columns.Arguments()
+	if len(elements) != 4 {
+		t.Fatalf("columns = %d, want 4", len(elements))
+	}
+	want := []struct {
+		operation Operation
+		name      string
+		arguments []string
+	}{
+		{OperationPropertyColumn, "name", nil},
+		{OperationColumn, "label", []string{"expression"}},
+		{OperationPropertyColumn, "Notes", []string{"property"}},
+		{OperationPropertyColumn, "qualifiedName", nil},
+	}
+	for i, element := range elements {
+		column := element.Value
+		if column.Operation() != want[i].operation || column.Target() != want[i].name {
+			t.Fatalf("column %d = %s %q, want %s %q", i, column.Operation(), column.Target(), want[i].operation, want[i].name)
+		}
+		if !column.Origin().Located() {
+			t.Fatalf("column %d must carry source provenance", i)
+		}
+		var names []string
+		for _, argument := range column.Arguments() {
+			names = append(names, argument.Name)
+		}
+		if !slices.Equal(names, want[i].arguments) {
+			t.Fatalf("column %d arguments = %v, want %v", i, names, want[i].arguments)
+		}
+	}
+	property, _ := argumentOf(t, elements[2].Value, "property")
+	if kind, text := property.Literal(); property.Operation() != OperationLiteral || kind != LiteralString || text != `"documentation"` {
+		t.Fatalf("property = %s %s %s", property.Operation(), kind, text)
+	}
+}
+
+func TestCompilePropertyColumnDiagnostics(t *testing.T) {
+	cases := []struct {
+		name string
+		body string
+		kind ErrorKind
+	}{
+		{
+			name: "non-literal column name",
+			kind: ErrorColumnName,
+			body: `
+calc def Bad :> Query {
+	in root : Element;
+	in label : String;
+	Project(source = Descendants(source = root, maxDepth = 1), columns = (PropertyColumn(name = label)))
+}`,
+		},
+		{
+			name: "missing name",
+			kind: ErrorMissingArgument,
+			body: `
+calc def Bad :> Query {
+	in root : Element;
+	Project(source = Descendants(source = root, maxDepth = 1), columns = (PropertyColumn(property = "name")))
+}`,
+		},
+		{
+			name: "mistyped property",
+			kind: ErrorArgumentType,
+			body: `
+calc def Bad :> Query {
+	in root : Element;
+	Project(source = Descendants(source = root, maxDepth = 1), columns = (PropertyColumn(name = "n", property = 1)))
+}`,
+		},
+		{
+			name: "unknown argument",
+			kind: ErrorUnknownArgument,
+			body: `
+calc def Bad :> Query {
+	in root : Element;
+	Project(source = Descendants(source = root, maxDepth = 1), columns = (PropertyColumn(name = "n", expression = "x")))
+}`,
+		},
+		{
+			name: "too many positional arguments",
+			kind: ErrorArgumentCount,
+			body: `
+calc def Bad :> Query {
+	in root : Element;
+	Project(source = Descendants(source = root, maxDepth = 1), columns = (PropertyColumn("n", "name", "extra")))
+}`,
+		},
+		{
+			name: "duplicate of a projected property",
+			kind: ErrorDuplicateColumn,
+			body: `
+calc def Bad :> Query {
+	in root : Element;
+	Project(source = Descendants(source = root, maxDepth = 1), properties = ("name"), columns = (PropertyColumn(name = "name")))
+}`,
+		},
+		{
+			name: "duplicate of a computed column",
+			kind: ErrorDuplicateColumn,
+			body: `
+calc def Bad :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		columns = (Column(name = "name", expression = Element::name), PropertyColumn(name = "name"))
+	)
+}`,
+		},
+		{
+			name: "property column outside a projection",
+			kind: ErrorInvalidColumn,
+			body: `
+calc def Bad :> Query {
+	in root : Element;
+	PropertyColumn(name = "name")
+}`,
+		},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			fixture := loadQueryFixture(t, computedFixture+test.body)
+			_, err := Compile(fixture.index, fixture.model, fixture.resolver, fixture.symbol(t, "Bad"))
+			planning := planningError(t, err, test.kind)
+			if !planning.Origin.Located() {
+				t.Fatal("planning diagnostics must carry source spans")
+			}
+		})
 	}
 }
 

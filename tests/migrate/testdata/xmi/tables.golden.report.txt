@@ -1,15 +1,16 @@
 # SysML v1 to v2 migration report: tables.xmi
 # exported by Example UML Tool
-# migrated 51 element(s): 48 mapped, 2 approximated, 1 unmapped (2 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 55 element(s): 51 mapped, 3 approximated, 1 unmapped (2 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
 ## unmapped (1)
 «DependencyMatrix» Diagram	Plant::Requirements::Trace Matrix	_mx_trace	(the criterion Owner chain is a metaChainExpressionSpecification, which no relationship walk expresses)
 
-## approximated (2)
+## approximated (3)
+«InstanceTable» Diagram	Plant::Inventory::Pump Ledger	_tbl_ledger	-> part def Plant::Inventory::'Pump Ledger Document'	(the «InstanceTable» is written as a Document holding a Table over the query 'Pump Ledger Rows'; rows of subtypes of the row types are listed too: a type filter admits conforming elements; the column name is written as name 2: column names are unique)
 «InstanceTable» Diagram	Plant::Inventory::Pump Table	_tbl_pumps	-> part def Plant::Inventory::'Pump Table Document'	(the «InstanceTable» is written as a Document holding a Table over the query 'Pump Table Rows'; the column QPROP:Element:classifier is omitted: no query property stands for the UML property classifier)
 «DependencyMatrix» Diagram	Plant::Requirements::Satisfaction Matrix	_mx_satisfy	-> part def Plant::Requirements::'Satisfaction Matrix Document'	(the «DependencyMatrix» is written as a Document holding a Table over the query 'Satisfaction Matrix Rows'; the column Trace is written as Trace 2: column names are unique)
 
-## mapped (48)
+## mapped (51)
 Model	Model	_m	(the root model's members are written at the top level)
 Package	Plant	_pkg_plant	-> Plant
 Profile	Plant Profile	_plant_profile	-> 'Plant Profile'
@@ -18,10 +19,12 @@ Property	Plant Profile::Critical::level	_st_critical_level	-> 'Plant Profile'::C
 «DiagramTable» Diagram	Plant::Critical Elements	_tbl_critical	-> part def Plant::'Critical Elements Document'	(the «DiagramTable» is written as a Document holding a Table over the query 'Critical Elements Rows')
 Diagram	Plant::Critical Elements	_diag_critical	-> Plant::'Critical Elements'	(a Generic Table written as a view rendered asElementTable)
 Package	Plant::Inventory	_pkg_inventory	-> Plant::Inventory
+Diagram	Plant::Inventory::Pump Ledger	_diag_ledger	-> Plant::Inventory::'Pump Ledger'	(a SysML Instance Table written as a view rendered asElementTable)
 Diagram	Plant::Inventory::Pump Table	_diag_pumps	-> Plant::Inventory::'Pump Table'	(a SysML Instance Table written as a view rendered asElementTable)
 InstanceSpecification	Plant::Inventory::p1	_inst_p1	-> Plant::Inventory::p1
 Slot	Plant::Inventory::p1::<Slot>	_slot_p1_mass	-> Plant::Inventory::p1::mass
 Slot	Plant::Inventory::p1::<Slot>	_slot_p1_flow	-> Plant::Inventory::p1::'flow'
+Slot	Plant::Inventory::p1::<Slot>	_slot_p1_label	-> Plant::Inventory::p1::name
 InstanceSpecification	Plant::Inventory::p2	_inst_p2	-> Plant::Inventory::p2
 Slot	Plant::Inventory::p2::<Slot>	_slot_p2_mass	-> Plant::Inventory::p2::mass
 InstanceSpecification	Plant::Inventory::r1	_inst_r1	-> Plant::Inventory::r1
@@ -52,6 +55,7 @@ Diagram	Plant::Structure::Pump Requirement Map	_diag_map	-> Plant::Structure::'P
 Comment	Plant::Structure::Pump::<Comment>	_cmt_pump
 Property	Plant::Structure::Pump::flow	_prop_flow	-> Plant::Structure::Pump::'flow'
 Property	Plant::Structure::Pump::mass	_prop_mass	-> Plant::Structure::Pump::mass
+Property	Plant::Structure::Pump::name	_prop_label	-> Plant::Structure::Pump::name
 Operation	Plant::Structure::Pump::prime	_op_prime	-> Plant::Structure::Pump::prime	(its owner's usage prime 2 performs it, as a call on an object does)
 «Block» Class	Plant::Structure::ReservePump	_blk_reserve	-> Plant::Structure::ReservePump
 «Block» Class	Plant::Structure::Station	_blk_station	-> Plant::Structure::Station

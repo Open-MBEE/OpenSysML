@@ -33,6 +33,9 @@
           <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_flow" name="flow">
             <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#Real"/>
           </ownedAttribute>
+          <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_label" name="name">
+            <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#String"/>
+          </ownedAttribute>
           <ownedOperation xmi:type="uml:Operation" xmi:id="_op_prime" name="prime"/>
         </packagedElement>
         <packagedElement xmi:type="uml:Class" xmi:id="_blk_reserve" name="ReservePump">
@@ -58,6 +61,9 @@
           </slot>
           <slot xmi:type="uml:Slot" xmi:id="_slot_p1_flow" definingFeature="_prop_flow">
             <value xmi:type="uml:LiteralReal" xmi:id="_slot_p1_flow_v" value="3.0"/>
+          </slot>
+          <slot xmi:type="uml:Slot" xmi:id="_slot_p1_label" definingFeature="_prop_label">
+            <value xmi:type="uml:LiteralString" xmi:id="_slot_p1_label_v" value="primary"/>
           </slot>
         </packagedElement>
         <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_inst_p2" name="p2" classifier="_blk_pump">
@@ -110,6 +116,18 @@
                   <usedElements>_inst_p1</usedElements>
                   <usedElements>_inst_p2</usedElements>
                   <usedElements>_inst_r1</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_ledger" name="Pump Ledger" ownerOfDiagram="_pkg_inventory">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Instance Table" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_inst_p1</usedElements>
+                  <usedElements>_inst_p2</usedElements>
                 </diagramContents>
               </diagram:DiagramRepresentationObject>
             </diagramRepresentation>
@@ -210,6 +228,16 @@
     <sort>IColumn:_prop_mass^Desc</sort>
     <columnWidth>35</columnWidth>
     <columnWidth>200</columnWidth>
+  </MagicDraw_Profile:InstanceTable>
+
+  <MagicDraw_Profile:InstanceTable xmi:id="_tbl_ledger" base_Diagram="_diag_ledger" scope="_pkg_inventory" includeSubtypesOfRowTypes="false" showScopeAsRoot="false">
+    <classifiers xmi:idref="_blk_pump"/>
+    <columnIds>_NUMBER_</columnIds>
+    <columnIds>IColumn:_prop_label</columnIds>
+    <columnIds>QPROP:Element:name</columnIds>
+    <columnIds>IColumn:_prop_mass</columnIds>
+    <columnIds>QPROP:Element:qualifiedName</columnIds>
+    <sort>QPROP:Element:name^Asc</sort>
   </MagicDraw_Profile:InstanceTable>
 
   <MagicDraw_Profile:DiagramTable xmi:id="_tbl_reqs" base_Diagram="_diag_reqs" takeWholeModelAsScope="true" includeSubtypesOfRowTypes="true">

@@ -9,6 +9,7 @@ package Plant {
             doc /* Moves fluid through the plant. */
             attribute mass : ScalarValues::Real;
             attribute 'flow' : ScalarValues::Real;
+            attribute name : ScalarValues::String;
             abstract action def prime;
             action 'prime 2' : prime;
             satisfy requirement : Plant::Requirements::FlowRequirement;
@@ -53,6 +54,7 @@ package Plant {
         individual part def p1 :> Plant::Structure::Pump {
             attribute :>> mass = 12.5;
             attribute :>> 'flow' = 3.0;
+            attribute :>> name = "primary";
         }
         individual part def p2 :> Plant::Structure::Pump {
             attribute :>> mass = 9.0;
@@ -97,6 +99,40 @@ package Plant {
             part rows : DocumentQueries::Table {
                 attribute redefines caption = "Pump Table";
                 calc rows : 'Pump Table Rows';
+            }
+        }
+        view 'Pump Ledger' {
+            expose p1;
+            expose p2;
+            expose 'Pump Ledger Document';
+            render Views::asElementTable;
+        }
+        calc def 'Pump Ledger Rows' :> DocumentQueries::Query {
+            DocumentQueries::Project(
+                source = DocumentQueries::OrderBy(
+                    source = DocumentQueries::WhereFeature(
+                        source = DocumentQueries::WhereType(
+                            source = DocumentQueries::Descendants(
+                                source = DocumentQueries::Named(qualifiedName = ("Plant::Inventory"))),
+                            type = ("Plant::Structure::Pump")),
+                        'feature' = "isIndividual",
+                        operator = "=",
+                        value = "true"),
+                    property = "name",
+                    direction = "ascending",
+                    missing = "last",
+                    multiple = "first"),
+                columns = (
+                    DocumentQueries::Column(name = "name 2", expression = Plant::Structure::Pump::name ?? ""),
+                    DocumentQueries::PropertyColumn(name = "name"),
+                    DocumentQueries::Column(name = "mass", expression = Plant::Structure::Pump::mass ?? ""),
+                    DocumentQueries::PropertyColumn(name = "qualifiedName")))
+        }
+        part def 'Pump Ledger Document' :> DocumentQueries::Document {
+            attribute redefines title = "Pump Ledger";
+            part rows : DocumentQueries::Table {
+                attribute redefines caption = "Pump Ledger";
+                calc rows : 'Pump Ledger Rows';
             }
         }
     }

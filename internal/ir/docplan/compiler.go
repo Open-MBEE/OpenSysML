@@ -1151,7 +1151,7 @@ func columnNames(value queryplan.Expression) []string {
 		return out
 	}
 	switch value.Operation() {
-	case queryplan.OperationColumn, queryplan.OperationRelatedColumn:
+	case queryplan.OperationColumn, queryplan.OperationPropertyColumn, queryplan.OperationRelatedColumn:
 		return []string{value.Target()}
 	}
 	return nil

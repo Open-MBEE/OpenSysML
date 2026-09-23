@@ -754,6 +754,30 @@ different dimensions — `Stage::mass +
 Stage::length`, or a quantity plus a bare number — are a typed
 `column-incommensurable` error naming the column, the row and both units.
 
+The `properties` list always comes before the computed columns. To place a
+built-in property among them, list it as a `PropertyColumn(name, property)`
+entry instead: it reads the property exactly as `properties` does (every
+value of a multi-valued `documentation`, an empty cell where the property is
+absent, a typed `unknown-property` error where no row has it) and takes the
+place it is written at. `property` defaults to `name`, so
+`PropertyColumn(name = "owner")` is the `owner` property under its own name
+and `PropertyColumn(name = "Notes", property = "documentation")` renders
+`documentation` as `Notes`:
+
+```sysml
+calc def MassLedger :> Query {
+	in root : Element;
+	Project(
+		source = PartsByMass(root = root),
+		columns = (
+			PropertyColumn(name = "name"),
+			Column(name = "massLbs", expression = (Subsystem::mass ?? 0.0) * 2.2),
+			PropertyColumn(name = "qualifiedName")
+		)
+	)
+}
+```
+
 ## Query invokes query
 
 `MassTable` above already shows it: `PartsByMass(root = root)` invokes the

@@ -13,10 +13,12 @@ import (
 )
 
 // computedColumn is one planned columns entry of a projection: a
-// Column(name, expression), or a RelatedColumn when related is set.
+// Column(name, expression), a PropertyColumn when property is set, or a
+// RelatedColumn when related is set.
 type computedColumn struct {
 	name       string
 	expression queryplan.Expression
+	property   string
 	related    *relatedColumn
 	origin     queryplan.Expression
 }
@@ -29,7 +31,7 @@ func (e *executor) computedColumns(project, value queryplan.Expression) ([]compu
 		for _, argument := range value.Arguments() {
 			elements = append(elements, argument.Value)
 		}
-	case queryplan.OperationColumn, queryplan.OperationRelatedColumn:
+	case queryplan.OperationColumn, queryplan.OperationPropertyColumn, queryplan.OperationRelatedColumn:
 		elements = []queryplan.Expression{value}
 	default:
 		return nil, e.invalidArgument(project, "columns", string(value.Operation()))
@@ -44,6 +46,12 @@ func (e *executor) computedColumns(project, value queryplan.Expression) ([]compu
 				return nil, e.invalidArgument(project, "columns", column.name)
 			}
 			column.expression = expression
+		case queryplan.OperationPropertyColumn:
+			property, err := e.propertyColumnProperty(element, column.name)
+			if err != nil {
+				return nil, columnScoped(err, column.name)
+			}
+			column.property = property
 		case queryplan.OperationRelatedColumn:
 			related, err := e.relatedColumnOf(element)
 			if err != nil {
@@ -56,6 +64,33 @@ func (e *executor) computedColumns(project, value queryplan.Expression) ([]compu
 		columns = append(columns, column)
 	}
 	return columns, nil
+}
+
+// propertyColumnProperty reads a PropertyColumn's property: one non-empty
+// string, or the column's name when omitted or null.
+func (e *executor) propertyColumnProperty(column queryplan.Expression, name string) (string, error) {
+	if !hasArgument(column, "property") {
+		return name, nil
+	}
+	value, err := e.argument(column, "property")
+	if err != nil {
+		return "", err
+	}
+	switch len(value.values) {
+	case 0:
+		return name, nil
+	case 1:
+	default:
+		return "", e.invalidArgument(column, "property", strconv.Itoa(len(value.values)))
+	}
+	property, ok := value.values[0].String()
+	if !ok {
+		return "", e.invalidArgument(column, "property", string(value.values[0].Kind()))
+	}
+	if property == "" {
+		return "", e.invalidArgument(column, "property", property)
+	}
+	return property, nil
 }
 
 // propertyTracker records the row properties a projection read and whether
@@ -94,6 +129,14 @@ func (e *executor) evaluateColumnCell(
 ) ([]Value, error) {
 	if column.related != nil {
 		return e.evaluateRelatedCell(column, row)
+	}
+	if column.property != "" {
+		values, present, err := e.propertyValues(row, column.property)
+		if err != nil {
+			return nil, e.unevaluable(column.origin, column.property, row, err)
+		}
+		tracker.record(column.property, present)
+		return values, nil
 	}
 	values, err := e.evaluateColumnExpression(column.expression, column.name, row, tracker)
 	if err != nil {

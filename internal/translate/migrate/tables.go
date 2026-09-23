@@ -476,13 +476,11 @@ func columnByID(t *sysmlv1.Table, id string) (sysmlv1.Column, bool) {
 	return sysmlv1.Column{}, false
 }
 
-// projected selects the table's shown columns: query properties as
-// properties, features as Column expressions reading them.
+// projected selects the table's shown columns in their order: query
+// properties as properties, features as Column expressions reading them.
 func (m *migration) projected(rows qx, t *sysmlv1.Table, host *sysmlv1.Element, l *lowered) qx {
-	var props []string
-	var cols []qx
+	p := &projection{}
 	shown := 0
-	names := columnNames{}
 	for _, c := range t.Columns {
 		if c.Hidden || c.Kind == sysmlv1.ColumnTool {
 			continue
@@ -494,37 +492,100 @@ func (m *migration) projected(rows qx, t *sysmlv1.Table, host *sysmlv1.Element, 
 			continue
 		}
 		if f == nil {
-			if names[key] {
+			if !p.property(key) {
 				l.note("the column " + c.ID + " repeats the column " + key + " and is omitted")
-				continue
 			}
-			names[key] = true
-			props = append(props, key)
 			continue
 		}
-		if unique := names.claim(key); unique != key {
-			l.note("the column " + key + " is written as " + unique + ": column names are unique")
-			key = unique
-		}
-		cols = append(cols, qcall("Column", qarg1("name", qstr(key)),
-			qarg1("expression", qlit(m.ref(f, host)+" ?? \"\""))))
+		p.column(key, qlit(m.ref(f, host)+" ?? \"\""))
 	}
-	if shown > 0 && len(props)+len(cols) == 0 {
+	if shown > 0 && p.empty() {
 		l.refuse("none of the table's columns reads what a query can")
 		return rows
 	}
 	if shown == 0 {
 		l.note("the table shows no column beyond the row number; rows are projected by name")
-		props = []string{"name"}
+		p.property("name")
 	}
-	args := []qarg{qarg1("source", rows)}
-	if len(props) > 0 {
-		args = append(args, qstrs("properties", props...))
+	project, renamed := p.build(rows)
+	for _, r := range renamed {
+		l.note("the column " + r[0] + " is written as " + r[1] + ": column names are unique")
 	}
-	if len(cols) > 0 {
+	return project
+}
+
+// projection is a table's columns in source order: query properties and
+// computed columns alike, written as one Project.
+type projection struct {
+	entries []projectionEntry
+	listed  columnNames
+}
+
+// projectionEntry is a query property, or a computed column when computed.
+type projectionEntry struct {
+	name       string
+	computed   bool
+	expression qx
+}
+
+// property lists a query property once; false when it is listed already.
+func (p *projection) property(name string) bool {
+	if p.listed[name] {
+		return false
+	}
+	if p.listed == nil {
+		p.listed = columnNames{}
+	}
+	p.listed[name] = true
+	p.entries = append(p.entries, projectionEntry{name: name})
+	return true
+}
+
+// column adds a computed column captioned name.
+func (p *projection) column(name string, expression qx) {
+	p.entries = append(p.entries, projectionEntry{name: name, computed: true, expression: expression})
+}
+
+func (p *projection) empty() bool {
+	return len(p.entries) == 0
+}
+
+// build writes the Project: properties claim their names first, a repeating
+// caption is suffixed (renamed), and an interleaved order is kept by PropertyColumn.
+func (p *projection) build(source qx) (project qx, renamed [][2]string) {
+	names := columnNames{}
+	for n := range p.listed {
+		names[n] = true
+	}
+	var props []string
+	var cols []qx
+	ordered := false
+	for _, e := range p.entries {
+		if !e.computed {
+			ordered = ordered || len(cols) > len(props)
+			props = append(props, e.name)
+			cols = append(cols, qcall("PropertyColumn", qarg1("name", qstr(e.name))))
+			continue
+		}
+		name := names.claim(e.name)
+		if name != e.name {
+			renamed = append(renamed, [2]string{e.name, name})
+		}
+		cols = append(cols, qcall("Column", qarg1("name", qstr(name)), qarg1("expression", e.expression)))
+	}
+	args := []qarg{qarg1("source", source)}
+	switch {
+	case ordered:
 		args = append(args, qlist("columns", cols...))
+	default:
+		if len(props) > 0 {
+			args = append(args, qstrs("properties", props...))
+		}
+		if len(cols) > len(props) {
+			args = append(args, qlist("columns", cols[len(props):]...))
+		}
 	}
-	return qcall("Project", args...)
+	return qcall("Project", args...), renamed
 }
 
 // relationKinds maps the SysML relationship stereotypes and UML metaclasses a

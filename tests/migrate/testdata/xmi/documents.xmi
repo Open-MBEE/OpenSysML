@@ -73,12 +73,14 @@
             <node xmi:type="uml:CallBehaviorAction" xmi:id="_parts_col_payload" name="Payload"/>
             <node xmi:type="uml:CallBehaviorAction" xmi:id="_parts_col_qname" name="Qualified Name"/>
             <node xmi:type="uml:CallBehaviorAction" xmi:id="_parts_col_owner" name="Owner Name"/>
+            <node xmi:type="uml:CallBehaviorAction" xmi:id="_parts_col_alias" name="Alias"/>
             <node xmi:type="uml:FlowFinalNode" xmi:id="_parts_table_final"/>
             <edge xmi:type="uml:ControlFlow" xmi:id="_parts_table_e1" source="_parts_table_init" target="_parts_col_name"/>
             <edge xmi:type="uml:ControlFlow" xmi:id="_parts_table_e2" source="_parts_col_name" target="_parts_col_payload"/>
             <edge xmi:type="uml:ControlFlow" xmi:id="_parts_table_e3" source="_parts_col_payload" target="_parts_col_qname"/>
             <edge xmi:type="uml:ControlFlow" xmi:id="_parts_table_e4" source="_parts_col_qname" target="_parts_col_owner"/>
-            <edge xmi:type="uml:ControlFlow" xmi:id="_parts_table_e5" source="_parts_col_owner" target="_parts_table_final"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_parts_table_e5" source="_parts_col_owner" target="_parts_col_alias"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_parts_table_e6" source="_parts_col_alias" target="_parts_table_final"/>
           </node>
           <node xmi:type="uml:ActivityFinalNode" xmi:id="_parts_final"/>
           <edge xmi:type="uml:ControlFlow" xmi:id="_parts_e1" source="_parts_init" target="_parts_collect"/>
@@ -426,6 +428,9 @@
   </Document_Profile_:TablePropertyColumn>
   <Document_Profile_:TableExpressionColumn xmi:id="_st_parts_col_qname" base_CallBehaviorAction="_parts_col_qname" expression="qualifiedName"/>
   <Document_Profile_:TableExpressionColumn xmi:id="_st_parts_col_owner" base_CallBehaviorAction="_parts_col_owner" expression="owner.name"/>
+  <Document_Profile_:TablePropertyColumn xmi:id="_st_parts_col_alias" base_CallBehaviorAction="_parts_col_alias" desiredProperty="_prop_payload">
+    <titles>name</titles>
+  </Document_Profile_:TablePropertyColumn>
 
   <Document_Profile_:CollectOwnedElements xmi:id="_st_reqs_collect" base_CallBehaviorAction="_reqs_collect" depth="0"/>
   <Document_Profile_:FilterByStereotypes xmi:id="_st_reqs_filter" base_CallBehaviorAction="_reqs_filter" considerDerived="true" include="true">

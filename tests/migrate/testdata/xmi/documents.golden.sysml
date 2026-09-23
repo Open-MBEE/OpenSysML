@@ -72,7 +72,9 @@ package 'Fleet Viewpoints' {
                 action 'Qualified Name';
                 first 'Qualified Name' then 'Owner Name';
                 action 'Owner Name';
-                first 'Owner Name' then done;
+                first 'Owner Name' then Alias;
+                action Alias;
+                first Alias then done;
             }
             first 'Fleet Parts' then final;
             action final terminate;
@@ -282,9 +284,12 @@ package 'Fleet Documents' {
                 direction = "ascending",
                 missing = "last",
                 multiple = "first"),
-            properties = ("name", "qualifiedName", "documentation"),
             columns = (
-                DocumentQueries::Column(name = "Payload", expression = Fleet::Structure::Truck::payload ?? "")))
+                DocumentQueries::PropertyColumn(name = "name"),
+                DocumentQueries::Column(name = "Payload", expression = Fleet::Structure::Truck::payload ?? ""),
+                DocumentQueries::PropertyColumn(name = "qualifiedName"),
+                DocumentQueries::Column(name = "name 2", expression = Fleet::Structure::Truck::payload ?? ""),
+                DocumentQueries::PropertyColumn(name = "documentation")))
     }
     calc def 'Fleet Handbook Requirement List Rows' :> DocumentQueries::Query {
         DocumentQueries::Project(
