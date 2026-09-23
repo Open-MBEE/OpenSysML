@@ -226,6 +226,7 @@ func metadataAccessRef(expr ast.Node) *ast.QualifiedName {
 func (p *Parser) atExprStart() bool {
 	t := p.peek()
 	return p.atName() ||
+		p.atGlobalName() ||
 		t.Kind == lexer.Decimal ||
 		t.Kind == lexer.Real ||
 		t.Kind == lexer.String ||
@@ -420,8 +421,8 @@ func (p *Parser) parseBase() ast.Node {
 		e.NodeSpan = p.spanFrom(start)
 		return setBase(e)
 
-	case p.atName(), p.at(lexer.Keyword):
-		// Parse qualified name or keyword-as-name
+	case p.atName(), p.atGlobalName(), p.at(lexer.Keyword):
+		// Parse qualified name (`$::`-rooted included) or keyword-as-name
 		var qn *ast.QualifiedName
 		if p.at(lexer.Keyword) {
 			// Keywords can be used as feature references (e.g., `excluding(do)`)
