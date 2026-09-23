@@ -2,8 +2,6 @@ version: 2.1
 
 orbs:
   go: circleci/go@1.10.0
-  # Pinned exactly, matching Open-MBEE/flexo-mms-layer1-service.
-  sonarcloud: sonarsource/sonarcloud@4.0.0
 
 executors:
   go-executor:
@@ -153,8 +151,9 @@ commands:
             done
 
 # The Go suite is four jobs rather than one because the plan caps a job at 60
-# minutes and the race run and the coverage run alone take ~45 of them. Each
-# job runs on its own executor and every downstream job requires all four.
+# minutes and the race run and the coverage run alone take ~45 of them. The
+# race run gates the workflow but not the client tests or the scan, which need
+# only the coverage profile and the binaries.
 jobs:
   # Formatting, vet, static analysis, the documentation gates and the protobuf
   # schema checks: everything that needs neither a solver nor the corpora.
@@ -608,13 +607,16 @@ jobs:
     docker:
       - image: cimg/go:1.25
     # The Go sensor holds a whole directory's parse in memory; internal/exec/runtime
-    # (168 files) overflows the default heap (a quarter of the container). 8 GB is
-    # the largest class in the project's plan (xlarge is rejected).
+    # (168 files) overflows the default heap. The 8 GB container, the largest
+    # class in the plan, carries: 5.5 GB analysis heap + Node capped at 1 GB
+    # (sonar-project.properties) + a small launcher JVM.
     resource_class: large
     environment:
       # sonar-scanner-cli 8 forks the analysis into a second JVM whose arguments
-      # come from this variable only; SONAR_SCANNER_OPTS sizes just the launcher.
-      SONAR_SCANNER_JAVA_OPTS: -Xmx6500m
+      # come from SONAR_SCANNER_JAVA_OPTS; SONAR_SCANNER_OPTS sizes the launcher
+      # and carries -D properties appended by later steps.
+      SONAR_SCANNER_JAVA_OPTS: -Xmx5500m
+      SONAR_SCANNER_OPTS: -Xmx256m
     steps:
       # Forked PRs get no context, so the token is absent there: end green
       # rather than fail every outside contribution. With a token, a failing
@@ -710,7 +712,69 @@ jobs:
             # properties and hands them to the forked analysis JVM.
             echo "export SONAR_SCANNER_OPTS=\"${SONAR_SCANNER_OPTS} -Dsonar.projectVersion=${version#v}\"" >> "$BASH_ENV"
 
-      - sonarcloud/scan
+      - run: mkdir -p /tmp/cache/scanner sonar-logs
+
+      - restore_cache:
+          keys:
+            - v1-sonar-scanner-8.0.1.6346
+
+      # The sonar-scanner-cli distribution, cached by version; what the
+      # sonarsource/sonarcloud orb's scan command did. A transient SonarCloud
+      # API failure retries once after 30s; an analysis failure exits at once.
+      - run:
+          name: SonarQube Cloud
+          no_output_timeout: 20m
+          command: |
+            set -eo pipefail
+            VERSION=8.0.1.6346
+            if [ -z "${SONAR_TOKEN:-}" ]; then
+              echo "SONAR_TOKEN is required to scan" >&2
+              exit 1
+            fi
+            SCANNER_DIRECTORY=/tmp/cache/scanner
+            export SONAR_USER_HOME=$SCANNER_DIRECTORY/.sonar
+            if ! ls "$SCANNER_DIRECTORY/sonar-scanner-$VERSION-linux-x64/bin/sonar-scanner" >/dev/null 2>&1; then
+              curl -sSLo /tmp/scanner-cli.zip "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-$VERSION-linux-x64.zip"
+              unzip -q -d "$SCANNER_DIRECTORY" /tmp/scanner-cli.zip
+              rm /tmp/scanner-cli.zip
+              chmod +x "$SCANNER_DIRECTORY/sonar-scanner-$VERSION-linux-x64/bin/sonar-scanner" "$SCANNER_DIRECTORY/sonar-scanner-$VERSION-linux-x64/jre/bin/java"
+            fi
+            scanner="$SCANNER_DIRECTORY/sonar-scanner-$VERSION-linux-x64/bin/sonar-scanner"
+            transient='Failed to query JRE metadata|failed with HTTP 5[0-9][0-9]|Connection reset|Connect timed out|Read timed out|SocketTimeoutException|UnknownHostException'
+            for attempt in 1 2; do
+              set +e
+              "$scanner" 2>&1 | tee "sonar-logs/sonar-scan-$attempt.log"
+              status=${PIPESTATUS[0]}
+              set -e
+              [ "$status" -eq 0 ] && exit 0
+              if [ "$attempt" -eq 1 ] && grep -Eq "$transient" "sonar-logs/sonar-scan-$attempt.log"; then
+                echo "SonarCloud API error; retrying once in 30s"
+                sleep 30
+                continue
+              fi
+              exit "$status"
+            done
+
+      # An OOM kill surfaces as a bare exit 3 in the scan's log; the cgroup
+      # counters name it (v2 first, v1 fallback).
+      - run:
+          name: Report the container's memory events
+          when: always
+          command: |
+            cat /sys/fs/cgroup/memory.max 2>/dev/null || true
+            cat /sys/fs/cgroup/memory.peak 2>/dev/null || true
+            cat /sys/fs/cgroup/memory.events 2>/dev/null || true
+            cat /sys/fs/cgroup/memory/memory.max_usage_in_bytes 2>/dev/null || true
+            cat /sys/fs/cgroup/memory/memory.oom_control 2>/dev/null || true
+
+      - save_cache:
+          key: v1-sonar-scanner-8.0.1.6346
+          paths:
+            - /tmp/cache/scanner
+
+      - store_artifacts:
+          path: sonar-logs/
+          destination: sonar-logs
 
       # SonarCloud does not create a project from a CI scan, so the first run
       # against an unprovisioned project fails; point at the setup doc.
@@ -1729,7 +1793,8 @@ workflows:
   version: 2
 
   # Build and test every merge into main or develop; pull requests run .github/workflows/pr.yml instead.
-  # The Go suite is the four `Go …` jobs, and everything downstream requires all of them.
+  # The race run gates the workflow but not the client tests or the scan, which
+  # need only the coverage profile and the binaries.
   build-test:
     jobs:
       - go-static:
@@ -1750,23 +1815,22 @@ workflows:
           filters: *integration-branches
       - python-test:
           name: Python client tests
-          requires: &go-suite
+          requires: &scan-inputs
             - Go static checks
-            - Go race tests
             - Go coverage profile
             - Go gates and binaries
           filters: *integration-branches
       - rust-test:
           name: Rust client tests
-          requires: *go-suite
+          requires: *scan-inputs
           filters: *integration-branches
       - java-test:
           name: Java client tests
-          requires: *go-suite
+          requires: *scan-inputs
           filters: *integration-branches
       - node-test:
           name: Node client tests
-          requires: *go-suite
+          requires: *scan-inputs
           filters: *integration-branches
       - scan:
           name: SonarCloud scan
@@ -1775,7 +1839,6 @@ workflows:
             - SonarCloud
           requires:
             - Go static checks
-            - Go race tests
             # Persists coverage.txt, the Go report the scan reads.
             - Go coverage profile
             - Go gates and binaries
@@ -1810,7 +1873,11 @@ workflows:
 
       - python-test:
           name: Python client tests
-          requires: *go-suite
+          requires: &go-suite
+            - Go static checks
+            - Go race tests
+            - Go coverage profile
+            - Go gates and binaries
           filters: *release-tags
 
       # Fails the release before anything is built when the tag does not name
