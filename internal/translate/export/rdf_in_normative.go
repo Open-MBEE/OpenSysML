@@ -271,12 +271,11 @@ func (d *decoder) verifyCovered(owner *element) error {
 			uncovered[value] = true
 		}
 	}
-	statedValues := uncovered
-	if len(statedValues) == 0 {
+	if len(uncovered) == 0 {
 		return nil
 	}
-	missing := make([]string, 0, len(statedValues))
-	for value := range statedValues {
+	missing := make([]string, 0, len(uncovered))
+	for value := range uncovered {
 		missing = append(missing, value)
 	}
 	sort.Strings(missing)
