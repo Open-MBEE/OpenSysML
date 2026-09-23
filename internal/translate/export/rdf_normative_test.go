@@ -433,3 +433,30 @@ func TestNormativeVerifyRejectsLiteralMismatchedEnd(t *testing.T) {
 		t.Fatalf("want an UnsupportedError on the differently named end, got %v", err)
 	}
 }
+
+// TestReferentMembershipIDCollisionIsRefused: a minted referent membership's
+// element-namespace id is claimed, so a declared id landing on it is refused
+// rather than merged.
+func TestReferentMembershipIDCollisionIsRefused(t *testing.T) {
+	e := &encoder{
+		graph:    rdf.NewGraph(),
+		subjects: map[string]string{},
+		ids: &identityFacts{
+			form:    IDQualifiedName,
+			pkgOf:   map[string]string{},
+			localOf: map[string]string{},
+		},
+	}
+	fre := rdf.ElementIRIForID("N__x")
+	e.graph.Add(fre, rdf.IRI(rdf.RDFType), rdf.IRI(rdf.SysML+mFeatureReference))
+	e.graph.Add(fre, rdf.IRI(rdf.SysML+pReferent), elmt("N__p"))
+	e.claim("urn:sysmlv2:element:N__x_referent", "N::d")
+	e.materializeReferentMemberships(fre)
+	if e.idErr == nil {
+		t.Fatal("the id collision on the minted membership was not refused")
+	}
+	var uerr *UnsupportedError
+	if !errors.As(e.idErr, &uerr) {
+		t.Fatalf("want an UnsupportedError, got %v", e.idErr)
+	}
+}

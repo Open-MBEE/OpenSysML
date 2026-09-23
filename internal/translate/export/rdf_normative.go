@@ -226,6 +226,12 @@ func (e *encoder) materializeReferentMemberships(subject rdf.Term) {
 		membership = e.ids.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot)
 	} else {
 		membership = e.ids.minted(rdf.RelationshipIRI(subject, "_"+slot), subject, "_"+slot)
+		if prior, taken := e.claim(membership.Value, "the "+slot+" membership of "+membership.Value); taken && e.idErr == nil {
+			e.idErr = &UnsupportedError{
+				What: fmt.Sprintf("the %s membership <%s>", slot, membership.Value),
+				Note: fmt.Sprintf("its id lands on the same IRI as %s, and merging two elements into one subject would be a different model", prior),
+			}
+		}
 	}
 	e.typed(membership, mMembership)
 	e.graph.Add(membership, e.sysml(pElementID), rdf.String(rdf.LocalName(membership.Value)))
