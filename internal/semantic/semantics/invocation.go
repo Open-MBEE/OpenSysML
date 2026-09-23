@@ -79,7 +79,21 @@ func (m *Model) SelectCall(scope *symbols.Scope, e *ast.InvocationExpr, performs
 		}
 		return m.selectAmong(scope, m.resolver.InvocationCandidates(scope, e.Type), untypedArguments(e), performs)
 	}
+	if sel, ok := m.selected(scope, e, performs); ok {
+		return sel
+	}
 	return m.SelectInvocation(scope, e, m.callArguments(scope, e), performs)
+}
+
+// selected is the selection memoized for e in scope, if any, so a call read again
+// is answered without retyping its arguments.
+func (m *Model) selected(scope *symbols.Scope, e *ast.InvocationExpr, performs Performs) (*InvocationSelection, bool) {
+	if e.Type == nil {
+		return &InvocationSelection{}, true
+	}
+	defer m.ownScope(scope).LeaveDoc()
+	sel, ok := m.invocations[invocationKey{node: e, scope: scope, performs: performs}]
+	return sel, ok
 }
 
 // SelectCallAmong is SelectCall were e's name to denote named, in that order, as a

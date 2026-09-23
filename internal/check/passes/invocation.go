@@ -50,8 +50,15 @@ type argumentTypes struct {
 	named      []semantics.Argument
 }
 
-// argumentTypes types e's arguments once, so nested errors report once.
+// argumentTypes types e's arguments once, so nested errors report once; a muted checker
+// answers from its memo when it can.
 func (ec *exprChecker) argumentTypes(scope *symbols.Scope, e *ast.InvocationExpr) argumentTypes {
+	key := typingKey{scope, e}
+	memo := &ec.typings().args
+	if types, ok := memo.lookup(ec, key); ok {
+		return types
+	}
+	keep := memo.begin(ec, key)
 	args := semantics.InvocationArgs(e)
 	types := argumentTypes{
 		positional: make([]semantics.Argument, len(args)),
@@ -63,7 +70,78 @@ func (ec *exprChecker) argumentTypes(scope *symbols.Scope, e *ast.InvocationExpr
 	for i, arg := range e.NamedArgs {
 		types.named[i] = ec.argument(scope, arg.Value, arg.Name)
 	}
+	memo.end(key, types, keep)
 	return types
+}
+
+// typingKey identifies an invocation expression read in a scope.
+type typingKey struct {
+	scope *symbols.Scope
+	node  *ast.InvocationExpr
+}
+
+// typings memoizes a call's argument types and scalar type for the muted checkers that share
+// it; a reporting checker never answers from it, so what it reports is what it typed.
+type typings struct {
+	args  memo[argumentTypes]
+	prims memo[semantics.PrimType]
+}
+
+func newTypings() *typings {
+	return &typings{args: newMemo[argumentTypes](), prims: newMemo[semantics.PrimType]()}
+}
+
+// typings is the memo ec and its silent checkers share, made on first use.
+func (ec *exprChecker) typings() *typings {
+	if ec.memo == nil {
+		ec.memo = newTypings()
+	}
+	return ec.memo
+}
+
+// memo holds the values typed so far and the keys being typed, whose re-entry yields a
+// provisional value that must not be kept.
+type memo[V any] struct {
+	done   map[typingKey]V
+	typing map[typingKey]bool
+}
+
+func newMemo[V any]() memo[V] {
+	return memo[V]{done: make(map[typingKey]V), typing: make(map[typingKey]bool)}
+}
+
+// usable reports whether ec may read m: only a muted checker, and only outside a chain
+// being typed, whose guard would make the value provisional.
+func (m *memo[V]) usable(ec *exprChecker) bool {
+	return ec.muted && len(ec.chaining) == 0
+}
+
+// lookup is the value kept for key, if ec may read it.
+func (m *memo[V]) lookup(ec *exprChecker, key typingKey) (V, bool) {
+	if !m.usable(ec) {
+		var none V
+		return none, false
+	}
+	v, ok := m.done[key]
+	return v, ok
+}
+
+// begin marks key as being typed and reports whether its value is to be kept: not when ec
+// may not use m, nor on re-entry while it is already being typed.
+func (m *memo[V]) begin(ec *exprChecker, key typingKey) bool {
+	if !m.usable(ec) || m.typing[key] {
+		return false
+	}
+	m.typing[key] = true
+	return true
+}
+
+// end keeps v for key when begin said to.
+func (m *memo[V]) end(key typingKey, v V, keep bool) {
+	if keep {
+		delete(m.typing, key)
+		m.done[key] = v
+	}
 }
 
 // selectInvocation records the declaration e calls given the types of its arguments.

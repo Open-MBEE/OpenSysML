@@ -440,9 +440,10 @@ func (ec *exprChecker) heldPrim(el semantics.CollectionElement) semantics.PrimTy
 	return semantics.PrimUnknown
 }
 
-// silent is a checker typing as ec does, under the same chains and performances, reporting nothing.
+// silent is a checker typing as ec does, under the same chains and performances, that
+// reports nothing and types from the memo ec's silent checkers share.
 func (ec *exprChecker) silent() *exprChecker {
-	return &exprChecker{resolver: ec.resolver, model: ec.model, lang: ec.lang, chaining: ec.chaining, performed: ec.performed}
+	return &exprChecker{resolver: ec.resolver, model: ec.model, lang: ec.lang, chaining: ec.chaining, performed: ec.performed, memo: ec.typings(), muted: true}
 }
 
 // declaredTypeSymbol returns the symbol a usage is typed by, or nil.

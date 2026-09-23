@@ -38,6 +38,10 @@ type exprChecker struct {
 	// diagnostics() (w9c_argument_bindings.go); warned keeps one from being judged twice.
 	bindings []argumentBinding
 	warned   map[ast.Node]bool
+	// memo is what the silent checkers spawned from this one have typed, so a call read
+	// again as an argument, a result or a held element is not retyped from its leaves.
+	memo  *typings
+	muted bool
 }
 
 // codeTypeExpr is the code of an expression typing diagnostic no rule of its
@@ -621,8 +625,7 @@ func (ec *exprChecker) featurePrimType(sym *symbols.Symbol) semantics.PrimType {
 	if value := typingValue(sym); value != nil {
 		// The value is checked in its declaring scope; this only reads its type,
 		// so no diagnostic is raised once per reader.
-		silent := exprChecker{resolver: ec.resolver, model: ec.model, lang: ec.lang, chaining: ec.chaining}
-		if prim := silent.infer(sym.OwnerScope, value); prim != semantics.PrimUnknown {
+		if prim := ec.silent().infer(sym.OwnerScope, value); prim != semantics.PrimUnknown {
 			return prim
 		}
 	}
@@ -911,7 +914,15 @@ func (ec *exprChecker) operands(scope *symbols.Scope, e *ast.OperatorExpr) (sema
 // inferInvocation checks a call's arguments against the `in` parameters of the declaration
 // SelectInvocation chose and types it by its result; a receiver `x->f(a)` is the first argument.
 func (ec *exprChecker) inferInvocation(scope *symbols.Scope, e *ast.InvocationExpr) semantics.PrimType {
-	return ec.inferNodeInvocation(scope, e, nil)
+	key := typingKey{scope, e}
+	memo := &ec.typings().prims
+	if prim, ok := memo.lookup(ec, key); ok {
+		return prim
+	}
+	keep := memo.begin(ec, key)
+	prim := ec.inferNodeInvocation(scope, e, nil)
+	memo.end(key, prim, keep)
+	return prim
 }
 
 // inferNodeInvocation is inferInvocation for an invocation performed by node (nil for a bare
