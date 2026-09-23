@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
 
 // renderModel declares a view stating no rendering, one exposing nothing, and a
@@ -733,6 +734,49 @@ func TestRenderAllEncodesUnsafeViewNames(t *testing.T) {
 	want := []string{"Demo.Acquire Telescope Pointing w%2FNSEN Logical Actual.dot", "Demo.after.dot"}
 	if strings.Join(names, ",") != strings.Join(want, ",") {
 		t.Errorf("files = %v, want %v", names, want)
+	}
+}
+
+// The files -render-all plans are distinct letter case aside, and only views the
+// written form is written for take part: a view whose plain name is another's
+// tagged name is tagged in turn, a view the forced form skips leaves its peer's
+// plain name alone, and two names still meeting tagged are refused.
+func TestRenderFilenamesMeetOnlyOnce(t *testing.T) {
+	tree := func(name string) model.ViewInfo {
+		return model.ViewInfo{Name: name, Kind: view.KindTree, Supported: true}
+	}
+	tagged := renderFilename("Demo::Report", view.FormDot, true)
+	tagName := "Demo::" + strings.TrimSuffix(strings.TrimPrefix(tagged, "Demo."), ".dot")
+	got, err := renderFilenames([]model.ViewInfo{tree("Demo::Report"), tree("Demo::report"), tree(tagName), tree("Demo::other")}, view.FormDot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got["Demo::Report"] != tagged || got["Demo::other"] != "Demo.other.dot" {
+		t.Errorf("filenames = %v, want Demo::Report as %s and Demo::other plain", got, tagged)
+	}
+	if got[tagName] == tagged || !strings.Contains(got[tagName], "~") {
+		t.Errorf("view %s named like the tag is written to %q, want a tagged name other than %s", tagName, got[tagName], tagged)
+	}
+	folded := map[string]string{}
+	for name, filename := range got {
+		if other, met := folded[caseFolded(filename)]; met {
+			t.Errorf("views %s and %s are both written to %s", other, name, filename)
+		}
+		folded[caseFolded(filename)] = name
+	}
+
+	sequence := model.ViewInfo{Name: "Demo::report", Kind: view.KindSequence, Supported: true}
+	got, err = renderFilenames([]model.ViewInfo{tree("Demo::Report"), sequence}, view.FormDot)
+	if err != nil || len(got) != 1 || got["Demo::Report"] != "Demo.Report.dot" {
+		t.Errorf("filenames beside a view DOT skips = %v, %v; want Demo::Report plain alone", got, err)
+	}
+	got, err = renderFilenames([]model.ViewInfo{tree("Demo::Report"), sequence}, "")
+	if err != nil || len(got) != 2 || got["Demo::Report"] == got["Demo::report"] || !strings.Contains(got["Demo::report"], "~") {
+		t.Errorf("filenames in machine forms = %v, %v; want both tagged", got, err)
+	}
+
+	if _, err := renderFilenames([]model.ViewInfo{tree("Demo::Report"), tree("Demo::Report")}, view.FormDot); err == nil || !strings.Contains(err.Error(), "same rendering path") {
+		t.Errorf("one name twice err = %v, want the shared path refused", err)
 	}
 }
 

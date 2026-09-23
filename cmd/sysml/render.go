@@ -84,7 +84,10 @@ func runRenderAll(files []string) error {
 		return fmt.Errorf("create rendering directory %s: %w", renderAllDir, err)
 	}
 
-	filenames := renderFilenames(views, form)
+	filenames, err := renderFilenames(views, form)
+	if err != nil {
+		return err
+	}
 	for _, info := range views {
 		if !info.Supported {
 			reportRenderSkip(info.Name, info.Reason)
@@ -115,32 +118,60 @@ func runRenderAll(files []string) error {
 	return nil
 }
 
-// renderFilenames is the file -render-all writes each supported view to, by view name;
-// names meeting in one file letter case aside, as a case-ignoring filesystem would, are each tagged.
-func renderFilenames(views []model.ViewInfo, form view.Form) map[string]string {
-	written := func(info model.ViewInfo) view.Form {
-		if form == "" {
-			return info.Kind.MachineForm()
-		}
-		return form
+// renderFilenames is the file -render-all writes each view it writes to, by view name;
+// files meeting letter case aside are tagged until no two meet, or refused if two still do.
+func renderFilenames(views []model.ViewInfo, form view.Form) (map[string]string, error) {
+	type plan struct {
+		name   string
+		form   view.Form
+		tagged bool
 	}
-	meeting := map[string]int{}
+	var plans []*plan
 	for _, info := range views {
-		if info.Supported {
-			meeting[caseFolded(renderFilename(info.Name, written(info), false))]++
+		written := form
+		if written == "" {
+			written = info.Kind.MachineForm()
+		}
+		if info.Supported && info.Kind.SupportsForm(written) {
+			plans = append(plans, &plan{name: info.Name, form: written})
 		}
 	}
-	filenames := make(map[string]string, len(views))
-	for _, info := range views {
-		if info.Supported {
-			plain := renderFilename(info.Name, written(info), false)
-			filenames[info.Name] = plain
-			if meeting[caseFolded(plain)] > 1 {
-				filenames[info.Name] = renderFilename(info.Name, written(info), true)
+	for {
+		meeting := map[string][]*plan{}
+		var keys []string
+		for _, p := range plans {
+			key := caseFolded(renderFilename(p.name, p.form, p.tagged))
+			if _, seen := meeting[key]; !seen {
+				keys = append(keys, key)
+			}
+			meeting[key] = append(meeting[key], p)
+		}
+		progressed := false
+		for _, key := range keys {
+			group := meeting[key]
+			if len(group) < 2 {
+				continue
+			}
+			settled := true
+			for _, p := range group {
+				if !p.tagged {
+					p.tagged, settled, progressed = true, false, true
+				}
+			}
+			if settled {
+				return nil, fmt.Errorf("views %s and %s have the same rendering path %s",
+					group[0].name, group[1].name, renderFilename(group[0].name, group[0].form, true))
 			}
 		}
+		if !progressed {
+			break
+		}
 	}
-	return filenames
+	filenames := make(map[string]string, len(plans))
+	for _, p := range plans {
+		filenames[p.name] = renderFilename(p.name, p.form, p.tagged)
+	}
+	return filenames, nil
 }
 
 // caseFolded is text under simple Unicode case folding: two texts fold alike
