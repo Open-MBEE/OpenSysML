@@ -212,6 +212,30 @@ func TestConvertErrors(t *testing.T) {
 	}
 }
 
+// TestConvertIDFormMisuse checks -id is refused, as a usage error, on every
+// conversion but SysML notation to an RDF form.
+func TestConvertIDFormMisuse(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	model := filepath.Join(dir, "model.sysml")
+	if err := os.WriteFile(model, []byte(sampleModel), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for name, args := range map[string][]string{
+		"without convert":       {model, "-id", "uuid"},
+		"to notation":           {model, "-convert", "sysml", "-id", "uuid"},
+		"from interchange json": {model, "-from", "api-json", "-convert", "api-json", "-id", "uuid"},
+		"from xmi":              {model, "-from", "xmi", "-convert", "sysml", "-id", "uuid"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			res := runCommand(t, exec.Command(binary, args...))
+			if res.status != 2 || !strings.Contains(res.stderr, "-id") {
+				t.Errorf("%v: status %d, stderr:\n%s", args, res.status, res.stderr)
+			}
+		})
+	}
+}
+
 // TestConvertRDFIsMarkedExperimental checks every RDF conversion says so on
 // stderr — including one the mapping refuses — and that the notice never lands
 // in the converted model on stdout.
