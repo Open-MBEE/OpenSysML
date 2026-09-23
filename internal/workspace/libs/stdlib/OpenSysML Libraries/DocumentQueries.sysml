@@ -200,15 +200,6 @@ library package DocumentQueries {
 		return result : ColumnSpec[1];
 	}
 
-	/* A built-in property of each row as a Project column, read as the
-	 * properties list reads it (every value, absent as an empty cell) but
-	 * ordered among the other columns; property is name when null. */
-	calc def PropertyColumn {
-		in name : String[1];
-		in property : String[0..1] = null;
-		return result : ColumnSpec[1];
-	}
-
 	calc def Project {
 		in source : Element[0..*] ordered;
 		in properties : String[0..*] ordered = null;

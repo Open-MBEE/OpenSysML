@@ -76,13 +76,13 @@ func TestMigratedTablesExecute(t *testing.T) {
 		t.Fatalf("Pump Table lists the valve v1:\n%s", pumps)
 	}
 
-	// Built-in and feature columns keep the table's order, and a feature
-	// column captioned like a built-in property takes the suffixed name.
+	// Built-in columns are projected before the feature columns, and a
+	// feature column captioned like a built-in property takes the suffixed name.
 	ledger := rows(t, s, "Plant::Inventory::'Pump Ledger Rows'")
 	wantInOrder(t, "Pump Ledger rows", ledger,
-		"Columns: name 2, name, mass, qualifiedName",
-		"Plant::Inventory::p1", `name 2 = "primary"`, `name = "p1"`, `mass = 12.5`, `qualifiedName = "Plant::Inventory::p1"`,
-		"Plant::Inventory::p2", `name 2 = ""`, `name = "p2"`)
+		"Columns: name, qualifiedName, name 2, mass",
+		"Plant::Inventory::p1", `name = "p1"`, `qualifiedName = "Plant::Inventory::p1"`, `name 2 = "primary"`, `mass = 12.5`,
+		"Plant::Inventory::p2", `name = "p2"`, `qualifiedName = "Plant::Inventory::p2"`, `name 2 = ""`)
 
 	// Generic table: every requirement definition of the scope by name.
 	reqs := rows(t, s, "Plant::Requirements::'Requirement Table Rows'")
@@ -237,10 +237,10 @@ func TestMigratedDocumentsRender(t *testing.T) {
 	wantInOrder(t, "Fleet Handbook Markdown", md,
 		"# Fleet Handbook",
 		"## Introduction",
-		"| name | Payload | qualifiedName | name 2 | documentation |",
-		"| Axle |  | Fleet::Structure::Axle |  |  |",
-		"| Trailer |  | Fleet::Structure::Trailer |  | Carries the load. |",
-		"| Truck |  | Fleet::Structure::Truck |  | Hauls one trailer. |",
+		"| name | qualifiedName | documentation | Payload | name 2 |",
+		"| Axle | Fleet::Structure::Axle |  |  |  |",
+		"| Trailer | Fleet::Structure::Trailer | Carries the load. |  |  |",
+		"| Truck | Fleet::Structure::Truck | Hauls one trailer. |  |  |",
 		"## Requirements",
 		"Every truck of the fleet satisfies these requirements.",
 		"1. Load Limit\n2. Brake Distance\n3. Axle Count",

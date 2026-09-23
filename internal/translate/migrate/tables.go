@@ -507,9 +507,9 @@ func (m *migration) projected(rows qx, t *sysmlv1.Table, host *sysmlv1.Element, 
 		l.note("the table shows no column beyond the row number; rows are projected by name")
 		p.property("name")
 	}
-	project, renamed := p.build(rows)
-	for _, r := range renamed {
-		l.note("the column " + r[0] + " is written as " + r[1] + ": column names are unique")
+	project, notes := p.build(rows)
+	for _, n := range notes {
+		l.note(n)
 	}
 	return project
 }
@@ -550,42 +550,51 @@ func (p *projection) empty() bool {
 	return len(p.entries) == 0
 }
 
-// build writes the Project: properties claim their names first, a repeating
-// caption is suffixed (renamed), and an interleaved order is kept by PropertyColumn.
-func (p *projection) build(source qx) (project qx, renamed [][2]string) {
+// reordered reports whether Project's properties-then-columns order moves a
+// property column past a computed one.
+func (p *projection) reordered() bool {
+	computed := false
+	for _, e := range p.entries {
+		if e.computed {
+			computed = true
+		} else if computed {
+			return true
+		}
+	}
+	return false
+}
+
+// build writes the Project, properties before columns, with the notes that
+// make it approximate: a reordered column, a repeating caption suffixed.
+func (p *projection) build(source qx) (project qx, notes []string) {
 	names := columnNames{}
 	for n := range p.listed {
 		names[n] = true
 	}
 	var props []string
 	var cols []qx
-	ordered := false
 	for _, e := range p.entries {
 		if !e.computed {
-			ordered = ordered || len(cols) > len(props)
 			props = append(props, e.name)
-			cols = append(cols, qcall("PropertyColumn", qarg1("name", qstr(e.name))))
 			continue
 		}
 		name := names.claim(e.name)
 		if name != e.name {
-			renamed = append(renamed, [2]string{e.name, name})
+			notes = append(notes, "the column "+e.name+" is written as "+name+": column names are unique")
 		}
 		cols = append(cols, qcall("Column", qarg1("name", qstr(name)), qarg1("expression", e.expression)))
 	}
-	args := []qarg{qarg1("source", source)}
-	switch {
-	case ordered:
-		args = append(args, qlist("columns", cols...))
-	default:
-		if len(props) > 0 {
-			args = append(args, qstrs("properties", props...))
-		}
-		if len(cols) > len(props) {
-			args = append(args, qlist("columns", cols[len(props):]...))
-		}
+	if p.reordered() {
+		notes = append(notes, "Project lists its properties first: "+strings.Join(props, ", ")+" precede the other columns")
 	}
-	return qcall("Project", args...), renamed
+	args := []qarg{qarg1("source", source)}
+	if len(props) > 0 {
+		args = append(args, qstrs("properties", props...))
+	}
+	if len(cols) > 0 {
+		args = append(args, qlist("columns", cols...))
+	}
+	return qcall("Project", args...), notes
 }
 
 // relationKinds maps the SysML relationship stereotypes and UML metaclasses a

@@ -10,11 +10,8 @@ func TestCompileColumnRuns(t *testing.T) {
 			in root : Element;
 			Project(
 				source = OwnedElements(source = root),
-				properties = ("zone"),
-				columns = (
-					PropertyColumn(name = "name"),
-					Column(name = "url", expression = "https://example.com/" + Element::name)
-				)
+				properties = ("zone", "name"),
+				columns = (Column(name = "url", expression = "https://example.com/" + Element::name))
 			)
 		}
 		part telescope;

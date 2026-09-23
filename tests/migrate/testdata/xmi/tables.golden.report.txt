@@ -6,7 +6,7 @@
 «DependencyMatrix» Diagram	Plant::Requirements::Trace Matrix	_mx_trace	(the criterion Owner chain is a metaChainExpressionSpecification, which no relationship walk expresses)
 
 ## approximated (3)
-«InstanceTable» Diagram	Plant::Inventory::Pump Ledger	_tbl_ledger	-> part def Plant::Inventory::'Pump Ledger Document'	(the «InstanceTable» is written as a Document holding a Table over the query 'Pump Ledger Rows'; rows of subtypes of the row types are listed too: a type filter admits conforming elements; the column name is written as name 2: column names are unique)
+«InstanceTable» Diagram	Plant::Inventory::Pump Ledger	_tbl_ledger	-> part def Plant::Inventory::'Pump Ledger Document'	(the «InstanceTable» is written as a Document holding a Table over the query 'Pump Ledger Rows'; rows of subtypes of the row types are listed too: a type filter admits conforming elements; the column name is written as name 2: column names are unique; Project lists its properties first: name, qualifiedName precede the other columns)
 «InstanceTable» Diagram	Plant::Inventory::Pump Table	_tbl_pumps	-> part def Plant::Inventory::'Pump Table Document'	(the «InstanceTable» is written as a Document holding a Table over the query 'Pump Table Rows'; the column QPROP:Element:classifier is omitted: no query property stands for the UML property classifier)
 «DependencyMatrix» Diagram	Plant::Requirements::Satisfaction Matrix	_mx_satisfy	-> part def Plant::Requirements::'Satisfaction Matrix Document'	(the «DependencyMatrix» is written as a Document holding a Table over the query 'Satisfaction Matrix Rows'; the column Trace is written as Trace 2: column names are unique)
 

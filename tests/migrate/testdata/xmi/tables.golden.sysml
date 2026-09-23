@@ -122,11 +122,10 @@ package Plant {
                     direction = "ascending",
                     missing = "last",
                     multiple = "first"),
+                properties = ("name", "qualifiedName"),
                 columns = (
                     DocumentQueries::Column(name = "name 2", expression = Plant::Structure::Pump::name ?? ""),
-                    DocumentQueries::PropertyColumn(name = "name"),
-                    DocumentQueries::Column(name = "mass", expression = Plant::Structure::Pump::mass ?? ""),
-                    DocumentQueries::PropertyColumn(name = "qualifiedName")))
+                    DocumentQueries::Column(name = "mass", expression = Plant::Structure::Pump::mass ?? "")))
         }
         part def 'Pump Ledger Document' :> DocumentQueries::Document {
             attribute redefines title = "Pump Ledger";

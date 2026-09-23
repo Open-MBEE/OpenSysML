@@ -814,10 +814,8 @@ func (c *chain) table(s *sysmlv1.DocGenStep) {
 		c.refuse(s, why)
 		return
 	}
-	project, renamed := p.build(c.ctx)
-	for _, r := range renamed {
-		notes = append(notes, "the column "+r[0]+" is written as "+r[1]+": column names are unique")
-	}
+	project, projectNotes := p.build(c.ctx)
+	notes = append(notes, projectNotes...)
 	cp := c.block(s, "Table", c.caption(s, "Table"), project)
 	cp.notes = append(cp.notes, notes...)
 	if s.Application.Tag("loop") == "true" {

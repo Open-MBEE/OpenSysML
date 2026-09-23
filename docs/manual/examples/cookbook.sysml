@@ -180,18 +180,6 @@ package Cookbook {
 		)
 	}
 
-	calc def MassLedger :> Query {
-		in root : Element;
-		Project(
-			source = PartsByMass(root = root),
-			columns = (
-				PropertyColumn(name = "name"),
-				Column(name = "massLbs", expression = (Subsystem::mass ?? 0.0) * 2.2),
-				PropertyColumn(name = "qualifiedName")
-			)
-		)
-	}
-
 	calc def ConnectedTo :> Query {
 		in origin : Element;
 		RelatedElements(

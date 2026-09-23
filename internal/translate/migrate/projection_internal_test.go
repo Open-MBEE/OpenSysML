@@ -1,30 +1,31 @@
 package migrate
 
 import (
+	"slices"
 	"strings"
 	"testing"
 )
 
-func projectText(p *projection) (string, [][2]string) {
-	project, renamed := p.build(qlit("rows"))
-	return strings.Join(project.lines(""), "\n"), renamed
+func projectText(p *projection) (string, []string) {
+	project, notes := p.build(qlit("rows"))
+	return strings.Join(project.lines(""), "\n"), notes
 }
 
-// Properties ahead of the computed columns keep the plain properties list;
-// a computed column ahead of a property makes the whole projection ordered.
-func TestProjectionKeepsSourceOrder(t *testing.T) {
+// Properties ahead of the computed columns are written as they stand; a
+// property behind a computed column is written first and noted.
+func TestProjectionWritesPropertiesFirst(t *testing.T) {
 	plain := &projection{}
 	plain.property("name")
 	plain.property("qualifiedName")
 	plain.column("mass", qlit("Pump::mass"))
-	got, renamed := projectText(plain)
+	got, notes := projectText(plain)
 	want := `Project(
     source = rows,
     properties = ("name", "qualifiedName"),
     columns = (
         Column(name = "mass", expression = Pump::mass)))`
-	if got != want || len(renamed) != 0 {
-		t.Errorf("plain projection = \n%s\nrenamed %v, want\n%s", got, renamed, want)
+	if got != want || len(notes) != 0 {
+		t.Errorf("plain projection = \n%s\nnotes %v, want\n%s", got, notes, want)
 	}
 
 	pure := &projection{}
@@ -38,16 +39,16 @@ func TestProjectionKeepsSourceOrder(t *testing.T) {
 	mixed.column("mass", qlit("Pump::mass"))
 	mixed.property("owner")
 	mixed.column("flow", qlit("Pump::flow"))
-	got, renamed = projectText(mixed)
+	got, notes = projectText(mixed)
 	want = `Project(
     source = rows,
+    properties = ("name", "owner"),
     columns = (
-        PropertyColumn(name = "name"),
         Column(name = "mass", expression = Pump::mass),
-        PropertyColumn(name = "owner"),
         Column(name = "flow", expression = Pump::flow)))`
-	if got != want || len(renamed) != 0 {
-		t.Errorf("mixed projection = \n%s\nrenamed %v, want\n%s", got, renamed, want)
+	wantNotes := []string{"Project lists its properties first: name, owner precede the other columns"}
+	if got != want || !slices.Equal(notes, wantNotes) {
+		t.Errorf("mixed projection = \n%s\nnotes %v, want\n%s\nnotes %v", got, notes, want, wantNotes)
 	}
 }
 
@@ -61,18 +62,23 @@ func TestProjectionClaimsPropertyNamesFirst(t *testing.T) {
 	}
 	p.column("mass", qlit("Pump::mass"))
 	p.column("mass", qlit("Pump::dryMass"))
-	got, renamed := projectText(p)
+	got, notes := projectText(p)
 	want := `Project(
     source = rows,
+    properties = ("name"),
     columns = (
         Column(name = "name 2", expression = Pump::label),
-        PropertyColumn(name = "name"),
         Column(name = "mass", expression = Pump::mass),
         Column(name = "mass 2", expression = Pump::dryMass)))`
 	if got != want {
 		t.Errorf("projection = \n%s\nwant\n%s", got, want)
 	}
-	if len(renamed) != 2 || renamed[0] != [2]string{"name", "name 2"} || renamed[1] != [2]string{"mass", "mass 2"} {
-		t.Errorf("renamed = %v", renamed)
+	wantNotes := []string{
+		"the column name is written as name 2: column names are unique",
+		"the column mass is written as mass 2: column names are unique",
+		"Project lists its properties first: name precede the other columns",
+	}
+	if !slices.Equal(notes, wantNotes) {
+		t.Errorf("notes = %v, want %v", notes, wantNotes)
 	}
 }

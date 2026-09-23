@@ -40,8 +40,6 @@ const (
 	OperationColumn          Operation = "column"
 	OperationRowProperty     Operation = "row-property"
 	OperationColumnOperator  Operation = "column-operator"
-	// OperationPropertyColumn projects a built-in property of each row as one named column.
-	OperationPropertyColumn Operation = "property-column"
 	// OperationRelatedColumn projects the elements a relationship reaches from each row.
 	OperationRelatedColumn Operation = "related-column"
 	// OperationWhereRelated keeps the source rows by whether a related element exists.

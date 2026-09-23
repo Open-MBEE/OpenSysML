@@ -284,12 +284,10 @@ package 'Fleet Documents' {
                 direction = "ascending",
                 missing = "last",
                 multiple = "first"),
+            properties = ("name", "qualifiedName", "documentation"),
             columns = (
-                DocumentQueries::PropertyColumn(name = "name"),
                 DocumentQueries::Column(name = "Payload", expression = Fleet::Structure::Truck::payload ?? ""),
-                DocumentQueries::PropertyColumn(name = "qualifiedName"),
-                DocumentQueries::Column(name = "name 2", expression = Fleet::Structure::Truck::payload ?? ""),
-                DocumentQueries::PropertyColumn(name = "documentation")))
+                DocumentQueries::Column(name = "name 2", expression = Fleet::Structure::Truck::payload ?? "")))
     }
     calc def 'Fleet Handbook Requirement List Rows' :> DocumentQueries::Query {
         DocumentQueries::Project(
