@@ -190,10 +190,15 @@ func (m *migration) planSection(dp *docPlan, sec *sectionPlan) {
 }
 
 // planMethod walks the activity chain of the view's viewpoint method into
-// content blocks; a view without a method contributes only its structure.
+// content blocks; a view without a method contributes only its structure,
+// unless its viewpoint's method tag names something that is not one.
 func (m *migration) planMethod(dp *docPlan, sec *sectionPlan) {
 	v := sec.v
 	if v.Method == nil {
+		if v.MethodMalformed != "" {
+			sec.refused = "the viewpoint " + qualifiedName(v.Viewpoint) + "'s method is not migrated: " + v.MethodMalformed
+			m.report.Entries = append(m.report.Entries, *m.nodeEntry(v.Viewpoint, v.Viewpoint.Stereotype("Viewpoint"), Unmapped, sec.refused))
+		}
 		return
 	}
 	steps, end := m.model.DocGenChain(v.Method)

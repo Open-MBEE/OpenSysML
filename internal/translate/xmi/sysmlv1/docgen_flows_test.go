@@ -56,3 +56,54 @@ func TestDocGenChainIgnoresObjectFlows(t *testing.T) {
 		}
 	}
 }
+
+// A viewpoint whose method tag names no activity is malformed, and the view
+// says so; a viewpoint that declares no method at all has none.
+func TestDocGenViewKeepsWhyMethodIsMissing(t *testing.T) {
+	const model = `<?xml version="1.0"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:Document_Profile_="http://www.magicdraw.com/schemas/manual/Document_Profile.xmi">
+  <uml:Model xmi:id="_m" name="M">
+    <packagedElement xmi:type="uml:Class" xmi:id="_vp" name="VP">
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_act" name="Method"/>
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_sm" name="Machine"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_doc" name="Doc">
+      <generalization xmi:type="uml:Generalization" xmi:id="_gen" general="_vp"/>
+    </packagedElement>
+  </uml:Model>
+  <Document_Profile_:Document xmi:id="_st_doc" base_Class="_doc"/>
+  <sysml:Viewpoint xmi:id="_st_vp" base_Class="_vp" %s/>
+  <sysml:Conform xmi:id="_st_conform" base_Generalization="_gen"/>
+</xmi:XMI>`
+	for _, tc := range []struct{ tag, method, why string }{
+		{``, "", ""},
+		{`method="_act"`, "_act", ""},
+		{`method="_gone"`, "", `method "_gone" names no element`},
+		{`method="_sm"`, "", `method "_sm" names a StateMachine, not an Activity`},
+		{`method="_gone _act"`, "_act", ""},
+	} {
+		m, err := Parse([]byte(fmt.Sprintf(model, tc.tag)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(m.Documents) != 1 {
+			t.Fatalf("%s: %d documents, want 1", tc.tag, len(m.Documents))
+		}
+		v := m.Documents[0].Root
+		if v.Viewpoint == nil || v.Viewpoint.ID != "_vp" {
+			t.Fatalf("%s: viewpoint %v, want VP", tc.tag, v.Viewpoint)
+		}
+		var method string
+		if v.Method != nil {
+			method = v.Method.ID
+		}
+		if method != tc.method {
+			t.Errorf("%s: method %q, want %q", tc.tag, method, tc.method)
+		}
+		if v.MethodMalformed != tc.why {
+			t.Errorf("%s: malformed %q, want %q", tc.tag, v.MethodMalformed, tc.why)
+		}
+	}
+}

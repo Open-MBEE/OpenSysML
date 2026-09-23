@@ -53,9 +53,13 @@ package 'Fleet Viewpoints' {
                 render Views::asTextualNotation;
             }
             first start then 'Collect Owned Elements';
-            action 'Collect Owned Elements';
+            action 'Collect Owned Elements' {
+                out result[0..1];
+            }
             first 'Collect Owned Elements' then 'Filter By Metaclasses';
-            action 'Filter By Metaclasses';
+            action 'Filter By Metaclasses' {
+                in input[0..1];
+            }
             first 'Filter By Metaclasses' then 'Sort By Name';
             action 'Sort By Name';
             first 'Sort By Name' then 'Fleet Parts';
@@ -72,6 +76,7 @@ package 'Fleet Viewpoints' {
             }
             first 'Fleet Parts' then final;
             action final terminate;
+            flow 'Collect Owned Elements'.result to 'Filter By Metaclasses'.input;
         }
         perform action 'parts Method' : 'Parts Method';
     }
@@ -196,6 +201,9 @@ package 'Fleet Viewpoints' {
         }
         perform action 'severed Method' : 'Severed Method';
     }
+    viewpoint 'Headless Viewpoint' {
+        doc /* method: _act_vanished */
+    }
 }
 package 'Fleet Documents' {
     part def 'Fleet Handbook' {
@@ -206,6 +214,7 @@ package 'Fleet Documents' {
         view oddities :> Oddities;
         view broken :> Broken;
         view severed :> Severed;
+        view headless :> Headless;
         view notes :> Notes;
         attribute author : ScalarValues::String;
         /* applied stereotype «Document» */
@@ -248,6 +257,9 @@ package 'Fleet Documents' {
     view Severed {
         satisfy 'Fleet Viewpoints'::'Severed Viewpoint';
         expose Fleet::**;
+    }
+    view Headless {
+        satisfy 'Fleet Viewpoints'::'Headless Viewpoint';
     }
     view Notes {
         doc /* Second note. */
@@ -388,6 +400,10 @@ package 'Fleet Documents' {
         part Severed : DocumentQueries::Section {
             attribute redefines title = "Severed";
             /* not migrated: the method Fleet Viewpoints::Severed Viewpoint::Severed Method is not migrated: ControlFlow _severed_e2's target "_severed_gone" names no node */
+        }
+        part Headless : DocumentQueries::Section {
+            attribute redefines title = "Headless";
+            /* not migrated: the viewpoint Fleet Viewpoints::Headless Viewpoint's method is not migrated: method "_act_vanished" names no element */
         }
         part Notes : DocumentQueries::Section {
             attribute redefines title = "Notes";

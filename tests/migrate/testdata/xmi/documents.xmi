@@ -60,8 +60,12 @@
       <packagedElement xmi:type="uml:Class" xmi:id="_vp_parts" name="Parts Viewpoint" classifierBehavior="_act_parts">
         <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_parts" name="Parts Method">
           <node xmi:type="uml:InitialNode" xmi:id="_parts_init"/>
-          <node xmi:type="uml:CallBehaviorAction" xmi:id="_parts_collect" name="Collect Owned Elements"/>
-          <node xmi:type="uml:CallBehaviorAction" xmi:id="_parts_filter" name="Filter By Metaclasses"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_parts_collect" name="Collect Owned Elements">
+            <result xmi:type="uml:OutputPin" xmi:id="_parts_collect_out" name="result"/>
+          </node>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_parts_filter" name="Filter By Metaclasses">
+            <argument xmi:type="uml:InputPin" xmi:id="_parts_filter_in" name="input"/>
+          </node>
           <node xmi:type="uml:CallBehaviorAction" xmi:id="_parts_sort" name="Sort By Name"/>
           <node xmi:type="uml:StructuredActivityNode" xmi:id="_parts_table" name="Fleet Parts">
             <node xmi:type="uml:InitialNode" xmi:id="_parts_table_init"/>
@@ -79,6 +83,7 @@
           <node xmi:type="uml:ActivityFinalNode" xmi:id="_parts_final"/>
           <edge xmi:type="uml:ControlFlow" xmi:id="_parts_e1" source="_parts_init" target="_parts_collect"/>
           <edge xmi:type="uml:ControlFlow" xmi:id="_parts_e2" source="_parts_collect" target="_parts_filter"/>
+          <edge xmi:type="uml:ObjectFlow" xmi:id="_parts_o1" source="_parts_collect_out" target="_parts_filter_in"/>
           <edge xmi:type="uml:ControlFlow" xmi:id="_parts_e3" source="_parts_filter" target="_parts_sort"/>
           <edge xmi:type="uml:ControlFlow" xmi:id="_parts_e4" source="_parts_sort" target="_parts_table"/>
           <edge xmi:type="uml:ControlFlow" xmi:id="_parts_e5" source="_parts_table" target="_parts_final"/>
@@ -208,6 +213,8 @@
           <edge xmi:type="uml:ControlFlow" xmi:id="_severed_e2" source="_severed_para" target="_severed_gone"/>
         </ownedBehavior>
       </packagedElement>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_vp_headless" name="Headless Viewpoint"/>
     </packagedElement>
 
     <packagedElement xmi:type="uml:Package" xmi:id="_pkg_docs" name="Fleet Documents">
@@ -219,6 +226,7 @@
         <ownedAttribute xmi:type="uml:Property" xmi:id="_doc_odd" name="oddities" type="_view_odd" aggregation="composite"/>
         <ownedAttribute xmi:type="uml:Property" xmi:id="_doc_broken" name="broken" type="_view_broken" aggregation="composite"/>
         <ownedAttribute xmi:type="uml:Property" xmi:id="_doc_severed" name="severed" type="_view_severed" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_doc_headless" name="headless" type="_view_headless" aggregation="composite"/>
         <ownedAttribute xmi:type="uml:Property" xmi:id="_doc_notes" name="notes" type="_view_notes" aggregation="composite"/>
         <ownedAttribute xmi:type="uml:Property" xmi:id="_doc_author" name="author">
           <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
@@ -254,6 +262,9 @@
       </packagedElement>
       <packagedElement xmi:type="uml:Class" xmi:id="_view_severed" name="Severed">
         <generalization xmi:type="uml:Generalization" xmi:id="_gen_severed" general="_vp_severed"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_headless" name="Headless">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_headless" general="_vp_headless"/>
       </packagedElement>
       <packagedElement xmi:type="uml:Class" xmi:id="_view_notes" name="Notes">
         <generalization xmi:type="uml:Generalization" xmi:id="_gen_notes" general="_vp_gone"/>
@@ -358,6 +369,7 @@
   <sysml:Viewpoint xmi:id="_st_vp_odd" base_Class="_vp_odd"/>
   <sysml:Viewpoint xmi:id="_st_vp_broken" base_Class="_vp_broken"/>
   <sysml:Viewpoint xmi:id="_st_vp_severed" base_Class="_vp_severed"/>
+  <sysml:Viewpoint xmi:id="_st_vp_headless" base_Class="_vp_headless" method="_act_vanished"/>
 
   <sysml:View xmi:id="_st_view_intro" base_Class="_view_intro"/>
   <sysml:View xmi:id="_st_view_reqs" base_Class="_view_reqs"/>
@@ -367,6 +379,7 @@
   <sysml:View xmi:id="_st_view_odd" base_Class="_view_odd"/>
   <sysml:View xmi:id="_st_view_broken" base_Class="_view_broken"/>
   <sysml:View xmi:id="_st_view_severed" base_Class="_view_severed"/>
+  <sysml:View xmi:id="_st_view_headless" base_Class="_view_headless"/>
   <sysml:View xmi:id="_st_view_notes" base_Class="_view_notes"/>
   <sysml:View xmi:id="_st_view_fleet" base_Class="_view_fleet"/>
 
@@ -378,6 +391,7 @@
   <sysml:Conform xmi:id="_st_conform_odd" base_Generalization="_gen_odd"/>
   <sysml:Conform xmi:id="_st_conform_broken" base_Generalization="_gen_broken"/>
   <sysml:Conform xmi:id="_st_conform_severed" base_Generalization="_gen_severed"/>
+  <sysml:Conform xmi:id="_st_conform_headless" base_Generalization="_gen_headless"/>
   <sysml:Conform xmi:id="_st_conform_notes" base_Generalization="_gen_notes"/>
   <sysml:Conform xmi:id="_st_conform_fleet" base_Generalization="_gen_fleet"/>
 

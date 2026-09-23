@@ -467,11 +467,12 @@ part def 'Fleet Handbook Document' :> DocumentQueries::Document {
 }
 ```
 
-The method activity is walked from its initial node along control flow; forks whose branches
-rejoin are walked branch by branch. The «Expose» suppliers (and the view's element and package
-imports) are the chain's root, `Named(qualifiedName = (…))`, and each collect, filter and sort
-step wraps the query so far; each presentation step ends one `calc def '<Document> <Title>
-Rows' :> Query` beside the document and one content part in the section, in the activity's order:
+The method activity is walked from its initial node along control flow — object flows between
+pins carry data and are not followed; forks whose branches rejoin are walked branch by branch.
+The «Expose» suppliers (and the view's element and package imports) are the chain's root,
+`Named(qualifiedName = (…))`, and each collect, filter and sort step wraps the query so far; each
+presentation step ends one `calc def '<Document> <Title> Rows' :> Query` beside the document and
+one content part in the section, in the activity's order:
 
 | DocGen step | Query or content |
 |---|---|
@@ -494,7 +495,8 @@ A step with no query spelling — `CollectTypes`, `CollectByAssociation`, `Colle
 `CollectFilterUserScript`, a user script — is refused with the offending construct quoted,
 and so is every presentation step downstream of it, while the section and its independent
 siblings are still written. A malformed document — a view whose `Conform` names no viewpoint,
-a viewpoint whose method has no initial node, a `depth` that is not a whole number, a
+a viewpoint whose `method` names no element or one that is not an activity, a method with no
+initial node or a dangling control flow, a `depth` that is not a whole number, a
 collaborator paragraph whose `viewId` or `ownerId` names no view, an empty paragraph — is
 reported the same way. Where a model member named `DocumentQueries` would shadow the library,
 every reference is written `$::DocumentQueries::…`. A section, paragraph, table, list or diagram

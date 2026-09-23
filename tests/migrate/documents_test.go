@@ -210,9 +210,15 @@ func TestMigratedTablesRender(t *testing.T) {
 // A DocGen document renders as the Section tree its views formed, each
 // presentation node executing its query: lists, query-backed paragraphs,
 // tables with property columns and view-backed diagrams all carry content,
-// and a refused node leaves its enclosing section in place.
+// and a refused node or method leaves its enclosing section in place.
 func TestMigratedDocumentsRender(t *testing.T) {
-	s := session(t, migrateFixtureFile(t, "documents"))
+	r := migrateFixtureFile(t, "documents")
+	wantNote(t, r, "_st_vp_headless", migrate.Unmapped,
+		`the viewpoint Fleet Viewpoints::Headless Viewpoint's method is not migrated: method "_act_vanished" names no element`)
+	wantInOrder(t, "headless section", string(r.Notation),
+		"part Headless : DocumentQueries::Section {",
+		`/* not migrated: the viewpoint Fleet Viewpoints::Headless Viewpoint's method is not migrated: method "_act_vanished" names no element */`)
+	s := session(t, r)
 
 	md := markdown(t, s, "'Fleet Documents'::'Fleet Handbook Document'")
 	wantInOrder(t, "Fleet Handbook Markdown", md,
@@ -238,6 +244,7 @@ func TestMigratedDocumentsRender(t *testing.T) {
 		"One truck.",
 		"## Broken",
 		"## Severed",
+		"## Headless",
 		"## Notes")
 	if strings.Contains(md, "Axle Count | ") {
 		t.Fatalf("the Safety table lists a requirement outside the Safety filter:\n%s", md)

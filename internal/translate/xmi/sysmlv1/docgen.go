@@ -26,6 +26,9 @@ type DocGenView struct {
 	// Method is the viewpoint's method activity, the behavior of its
 	// operation named View or its method tag; nil when the viewpoint has none.
 	Method *Element
+	// MethodMalformed is why the viewpoint's method tag yields no activity,
+	// "" when it does or the viewpoint declares no method.
+	MethodMalformed string
 	// Exposed are the elements the view exposes or imports, in document order.
 	Exposed []ElementRef
 	// Paragraphs are the collaborator paragraphs placed in this view, in the
@@ -215,7 +218,7 @@ func (r *docGenReader) view(class, p *Element, path map[*Element]bool, recurse b
 		}
 	}
 	if v.Viewpoint != nil {
-		v.Method = m.viewpointMethod(v.Viewpoint)
+		v.Method, v.MethodMalformed = m.viewpointMethod(v.Viewpoint)
 	}
 	v.Exposed = m.exposed(class)
 	if p != nil && composite(p) {
@@ -359,25 +362,32 @@ func (m *Model) elementRefs(e *Element, role string) []ElementRef {
 
 // viewpointMethod finds the method activity of a viewpoint: the behaviors
 // of its Viewpoint application's method tag, else its classifier behavior,
-// else the owned behaviors that specify its operation named View.
-func (m *Model) viewpointMethod(vp *Element) *Element {
+// else the owned behaviors that specify its operation named View; why says
+// what a method tag that yields no activity named, when no route does.
+func (m *Model) viewpointMethod(vp *Element) (method *Element, why string) {
 	if s := vp.Stereotype("Viewpoint"); s != nil {
 		for _, id := range s.IDs("method") {
-			if b := m.Lookup(id); b != nil && b.Type == "Activity" {
-				return b
+			b := m.Lookup(id)
+			switch {
+			case b == nil:
+				why = fmt.Sprintf("method %q names no element", id)
+			case b.Type != "Activity":
+				why = fmt.Sprintf("method %q names a %s, not an Activity", id, b.Type)
+			default:
+				return b, ""
 			}
 		}
 	}
 	if b := m.Ref(vp, "classifierBehavior"); b != nil && b.Type == "Activity" {
-		return b
+		return b, ""
 	}
 	for _, b := range vp.Owned("ownedBehavior") {
 		spec := m.Ref(b, "specification")
 		if b.Type == "Activity" && spec != nil && spec.Parent == vp && spec.Name == "View" {
-			return b
+			return b, ""
 		}
 	}
-	return nil
+	return nil, why
 }
 
 // isSysMLStereotyped reports whether a stereotype of the SysML profile
