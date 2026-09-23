@@ -1,6 +1,7 @@
 package migrate
 
 import (
+	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
@@ -14,8 +15,30 @@ type docPlan struct {
 	d    *sysmlv1.DocGenDocument
 	host *sysmlv1.Element
 	root *sectionPlan
+	// anchors are the usages the Document declares to reach views held by
+	// definitions, one per definition in first-use order.
+	anchors []*anchor
 	// notes are the approximations the document as a whole carries.
 	notes []string
+}
+
+// anchor is a Document's reference usage of a definition, through which a
+// Diagram block reaches a view the definition holds.
+type anchor struct {
+	def  *sysmlv1.Element
+	name string
+}
+
+// anchor returns the Document's anchor of def, adding it on first use.
+func (dp *docPlan) anchor(def *sysmlv1.Element) *anchor {
+	for _, a := range dp.anchors {
+		if a.def == def {
+			return a
+		}
+	}
+	a := &anchor{def: def}
+	dp.anchors = append(dp.anchors, a)
+	return a
 }
 
 // sectionPlan is one view of a document: the Document itself at the root, a
@@ -48,8 +71,10 @@ type contentPlan struct {
 	// the query-backed kinds.
 	query string
 	rows  qx
-	// source is the view a Diagram shows.
+	// source is the view a Diagram shows; anchor the Document's usage of the
+	// definition holding it, when one does.
 	source  *view
+	anchor  *anchor
 	section *sectionPlan
 	notes   []string
 	refused string
@@ -103,7 +128,44 @@ func (m *migration) planDocument(d *sysmlv1.DocGenDocument) {
 	dp.root = &sectionPlan{v: d.Root, title: title, names: columnNames{}}
 	dp.root.name = m.viewName(host, title+docSuffix)
 	m.planSection(dp, dp.root)
+	m.nameAnchors(dp)
 	m.extras[host] = append(m.extras[host], func() { m.writeDocument(dp) })
+}
+
+// nameAnchors names the anchors after their definitions, clear of every
+// member name the document declares, so a chain from one resolves anywhere in it.
+func (m *migration) nameAnchors(dp *docPlan) {
+	used := columnNames{}
+	for _, names := range libraryMembers {
+		for _, n := range names {
+			used[n] = true
+		}
+	}
+	claimed(dp.root, used)
+	for _, a := range dp.anchors {
+		base := lowerFirst(m.nameFor(a.def))
+		a.name = base
+		for i := 2; used[a.name]; i++ {
+			a.name = fmt.Sprintf("%s %d", base, i)
+		}
+		used[a.name] = true
+		dp.root.names[a.name] = true
+	}
+}
+
+// claimed adds the member names of sec and every section under it to into.
+func claimed(sec *sectionPlan, into columnNames) {
+	for n := range sec.names {
+		into[n] = true
+	}
+	for _, cp := range sec.content {
+		if cp.section != nil {
+			claimed(cp.section, into)
+		}
+	}
+	for _, child := range sec.children {
+		claimed(child, into)
+	}
 }
 
 // planSection lowers a view's method into the section's content, then plans
@@ -905,7 +967,15 @@ func (c *chain) image(s *sysmlv1.DocGenStep) {
 			c.refuse(s, "the "+diagramKind(d)+" '"+d.Name+"' is a view rendered as textual notation, which a document does not draw")
 			continue
 		}
+		def, _, why := c.m.viewSteps(v)
+		if why != "" {
+			c.refuse(s, why)
+			continue
+		}
 		cp := &contentPlan{kind: "Diagram", node: s.Node, label: "«Image» " + s.Node.Type, source: v}
+		if def != nil {
+			cp.anchor = c.dp.anchor(def)
+		}
 		cp.caption = strings.TrimSpace(d.Name)
 		if show && i < len(captions) && strings.TrimSpace(captions[i]) != "" {
 			cp.caption = strings.TrimSpace(captions[i])
@@ -964,6 +1034,9 @@ func (m *migration) writeDocument(dp *docPlan) {
 	m.inside(blockNames("Document", dp.root.names), func() {
 		m.w.block("part def "+writeName(dp.root.name)+" :> "+m.queryPrefix(dp.host)+"Document", func() {
 			m.w.line("attribute redefines title = " + stringLiteral(dp.root.title) + ";")
+			for _, a := range dp.anchors {
+				m.w.line("ref " + writeName(a.name) + " : " + m.memberRef(a.def, dp.host) + ";")
+			}
 			notes = m.writeSectionBody(dp, dp.root, target)
 		})
 	})
@@ -1094,10 +1167,31 @@ func (m *migration) writeBlock(dp *docPlan, cp *contentPlan, path string) []stri
 	case "Diagram":
 		m.blockPart(dp.host, cp.name, "Diagram", nil, func() {
 			m.w.line("attribute redefines caption = " + stringLiteral(cp.caption) + ";")
-			m.w.line("ref redefines source = " + m.viewRef(cp.source, dp.host) + ";")
+			m.w.line("ref redefines source = " + m.diagramSource(dp, cp) + ";")
 		})
 	}
 	return cp.notes
+}
+
+// diagramSource names a Diagram block's view: by name where that reaches it,
+// else by the feature chain from its anchor or the first usage under its package.
+func (m *migration) diagramSource(dp *docPlan, cp *contentPlan) string {
+	_, steps, _ := m.viewSteps(cp.source)
+	var b strings.Builder
+	switch {
+	case cp.anchor != nil:
+		b.WriteString(writeName(cp.anchor.name))
+	case len(steps) == 1:
+		return m.viewRef(cp.source, dp.host)
+	default:
+		b.WriteString(m.ref(steps[0].elem, dp.host))
+		steps = steps[1:]
+	}
+	for _, s := range steps {
+		b.WriteString(".")
+		b.WriteString(writeName(s.name))
+	}
+	return b.String()
 }
 
 // nodeLabel names a node for a comment: its name, else its metaclass.

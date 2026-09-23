@@ -183,13 +183,17 @@ func TestMigratedDocumentsRender(t *testing.T) {
 		"Oddities")
 
 	// The Fleet section is named like the top-level package the view lives
-	// in, so both Diagram blocks name the view from the global namespace.
+	// in, so both Diagram blocks name the view from the global namespace. A
+	// view inside a part def is reached through a usage of it the Document
+	// declares; one inside another view through that view.
 	brief := markdown(t, s, "'Fleet Documents'::'Fleet Brief Document'")
 	wantInOrder(t, "Fleet Brief Markdown", brief,
 		"# Fleet Brief", "## Figures", "*The truck and what it hauls*", "```mermaid",
-		"## Fleet", "*The truck and what it hauls*", "```mermaid")
-	if strings.Count(brief, "Truck") < 2 {
-		t.Errorf("Fleet Brief Markdown draws the view once:\n%s", brief)
+		"## Fleet", "*The truck and what it hauls*", "```mermaid",
+		"*Truck Internals*", "```mermaid", "axles",
+		"*Fleet Overview*", "```mermaid", "Requirements")
+	if strings.Count(brief, "```mermaid") != 4 {
+		t.Errorf("Fleet Brief Markdown draws %d diagrams, want 4:\n%s", strings.Count(brief, "```mermaid"), brief)
 	}
 }
 

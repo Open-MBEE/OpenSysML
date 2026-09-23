@@ -266,6 +266,8 @@
       </packagedElement>
       <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_fleet" client="_view_fleet" supplier="_diag_truck"/>
       <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_fleet_flow" client="_view_fleet" supplier="_diag_parts_flow"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_fleet_internals" client="_view_fleet" supplier="_diag_truck_internals"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_fleet_overview" client="_view_fleet" supplier="_diag_fleet_overview"/>
     </packagedElement>
 
     <xmi:Extension extender="Example UML Tool 1.0">
@@ -291,6 +293,29 @@
                   <usedElements>_parts_collect</usedElements>
                   <usedElements>_parts_filter</usedElements>
                   <usedElements>_parts_sort</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_truck_internals" name="Truck Internals" ownerOfDiagram="_blk_truck">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Internal Block Diagram" umlType="Composite Structure Diagram">
+                <diagramContents>
+                  <usedElements>_prop_axles</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_fleet_overview" name="Fleet Overview" ownerOfDiagram="_view_fleet">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Package Diagram" umlType="Package Diagram">
+                <diagramContents>
+                  <usedElements>_pkg_structure</usedElements>
+                  <usedElements>_pkg_reqs</usedElements>
                 </diagramContents>
               </diagram:DiagramRepresentationObject>
             </diagramRepresentation>
@@ -347,6 +372,8 @@
   <sysml:Expose xmi:id="_st_expose_broken" base_Dependency="_expose_broken"/>
   <sysml:Expose xmi:id="_st_expose_fleet" base_Dependency="_expose_fleet"/>
   <sysml:Expose xmi:id="_st_expose_fleet_flow" base_Dependency="_expose_fleet_flow"/>
+  <sysml:Expose xmi:id="_st_expose_fleet_internals" base_Dependency="_expose_fleet_internals"/>
+  <sysml:Expose xmi:id="_st_expose_fleet_overview" base_Dependency="_expose_fleet_overview"/>
 
   <Document_View_Collaborator_Profile:Document xmi:id="_st_doc_handbook" base_Class="_doc_handbook"/>
   <Document_Profile_:Document xmi:id="_st_doc_brief" base_Class="_doc_brief"/>

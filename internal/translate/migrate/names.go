@@ -114,10 +114,12 @@ func (m *migration) segments(e *sysmlv1.Element) []string {
 	return segs
 }
 
-// segment is one step of a qualified name; feature marks a step that is a usage.
+// segment is one step of a qualified name; feature marks a step that is a
+// usage, elem the element it names, nil for a step no element stands for.
 type segment struct {
 	name    string
 	feature bool
+	elem    *sysmlv1.Element
 }
 
 // path returns the segments of e's qualified name, see segments. A behavior
@@ -141,7 +143,7 @@ func (m *migration) path(e *sysmlv1.Element) []segment {
 		if op := m.methodOf[cur]; op != nil {
 			cur = op
 		}
-		segs = append([]segment{{name: m.nameFor(cur), feature: m.isUsage(cur)}}, segs...)
+		segs = append([]segment{{name: m.nameFor(cur), feature: m.isUsage(cur), elem: cur}}, segs...)
 	}
 	return segs
 }

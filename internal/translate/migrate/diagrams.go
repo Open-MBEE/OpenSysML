@@ -279,6 +279,30 @@ func (m *migration) viewRef(v *view, scope *sysmlv1.Element) string {
 	return m.memberRef(host, scope) + "::" + name
 }
 
+// viewSteps is the feature chain from the namespace above v's outermost usage
+// down to v; def is that namespace when a definition, why says why no chain reaches v.
+func (m *migration) viewSteps(v *view) (def *sysmlv1.Element, steps []segment, why string) {
+	path := m.path(v.host)
+	i := len(path)
+	for i > 0 && path[i-1].feature {
+		i--
+	}
+	steps = append(append(steps, path[i:]...), segment{name: v.name, feature: true})
+	if i == 0 {
+		return nil, steps, ""
+	}
+	ns := path[i-1]
+	if ns.elem != nil {
+		switch cat, _ := m.classify(ns.elem); {
+		case cat == catPackage:
+			return nil, steps, ""
+		case strings.HasSuffix(cat.keyword(), " def"):
+			return ns.elem, steps, ""
+		}
+	}
+	return nil, nil, "the view '" + v.name + "' is a member of " + m.qualified(m.segments(v.host)) + ", which no feature reaches"
+}
+
 // shadows reports whether one of scopes declares a member named name.
 func (m *migration) shadows(scopes []*sysmlv1.Element, name string) bool {
 	for _, s := range scopes {

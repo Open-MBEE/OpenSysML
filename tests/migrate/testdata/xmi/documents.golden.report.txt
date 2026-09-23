@@ -1,6 +1,6 @@
 # SysML v1 to v2 migration report: documents.xmi
 # exported by Example UML Tool
-# migrated 209 element(s): 151 mapped, 42 approximated, 16 unmapped (4 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 215 element(s): 157 mapped, 42 approximated, 16 unmapped (4 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
 ## unmapped (16)
 «CollaboratorImageParagraph» Comment	Fleet Documents::Notes::<Comment>	_st_note_blank_image	(the attached image "depot.png" has no caption, and a Diagram shows a view, not an image file)
@@ -64,7 +64,7 @@ Activity	Fleet Viewpoints::Traceability Viewpoint::Traceability Method	_act_trac
 «BulletedList» CallBehaviorAction	Fleet Viewpoints::Traceability Viewpoint::Traceability Method::Related Elements	_trace_list	-> 'Related Elements'	(a step with no behavior and no duration; it passes the token on)
 «BulletedList» CallBehaviorAction	Fleet Viewpoints::Traceability Viewpoint::Traceability Method::Related Elements	_st_trace_list	-> part 'Fleet Documents'::'Fleet Handbook Document'::Traceability::list	(its rows are the query 'Fleet Handbook Related Elements Rows'; each item's documentation follows its name)
 
-## mapped (151)
+## mapped (157)
 Package	Fleet	_pkg_fleet	-> Fleet
 Package	Fleet Documents	_pkg_docs	-> 'Fleet Documents'
 «Expose» Dependency	Fleet Documents::<Dependency>	_expose_intro	-> 'Fleet Documents'::Introduction
@@ -119,6 +119,8 @@ InitialNode	Fleet Viewpoints::Figures Viewpoint::Figures Method::<InitialNode>	_
 «Image» CallBehaviorAction	Fleet Viewpoints::Figures Viewpoint::Figures Method::Image	_st_figures_image	-> part 'Fleet Documents'::'Fleet Handbook Document'::Figures::diagram
 «Image» CallBehaviorAction	Fleet Viewpoints::Figures Viewpoint::Figures Method::Image	_st_figures_image	-> part 'Fleet Documents'::'Fleet Brief Document'::Figures::diagram
 «Image» CallBehaviorAction	Fleet Viewpoints::Figures Viewpoint::Figures Method::Image	_st_figures_image	-> part 'Fleet Documents'::'Fleet Brief Document'::Fleet::diagram
+«Image» CallBehaviorAction	Fleet Viewpoints::Figures Viewpoint::Figures Method::Image	_st_figures_image	-> part 'Fleet Documents'::'Fleet Brief Document'::Fleet::'diagram 2'
+«Image» CallBehaviorAction	Fleet Viewpoints::Figures Viewpoint::Figures Method::Image	_st_figures_image	-> part 'Fleet Documents'::'Fleet Brief Document'::Fleet::'diagram 3'
 «Viewpoint» Class	Fleet Viewpoints::Oddities Viewpoint	_vp_odd	-> 'Fleet Viewpoints'::'Oddities Viewpoint'
 ActivityFinalNode	Fleet Viewpoints::Oddities Viewpoint::Oddities Method::<ActivityFinalNode>	_odd_final	-> final
 ControlFlow	Fleet Viewpoints::Oddities Viewpoint::Oddities Method::<ControlFlow>	_odd_e2
@@ -195,8 +197,11 @@ MergeNode	Fleet Viewpoints::Traceability Viewpoint::Traceability Method::<MergeN
 Package	Fleet Views	_pkg_views	-> 'Fleet Views'
 «Expose» Dependency	Fleet Views::<Dependency>	_expose_fleet	-> 'Fleet Views'::Fleet
 «Expose» Dependency	Fleet Views::<Dependency>	_expose_fleet_flow	-> 'Fleet Views'::Fleet
+«Expose» Dependency	Fleet Views::<Dependency>	_expose_fleet_internals	-> 'Fleet Views'::Fleet
+«Expose» Dependency	Fleet Views::<Dependency>	_expose_fleet_overview	-> 'Fleet Views'::Fleet
 «View» Class	Fleet Views::Fleet	_view_fleet	-> 'Fleet Views'::Fleet
 «Conform» Generalization	Fleet Views::Fleet::<Generalization>	_gen_fleet	-> 'Fleet Views'::Fleet
+Diagram	Fleet Views::Fleet::Fleet Overview	_diag_fleet_overview	-> 'Fleet Views'::Fleet::'Fleet Overview'	(a SysML Package Diagram written as a view rendered asTreeDiagram)
 Package	Fleet::Requirements	_pkg_reqs	-> Fleet::Requirements
 «Requirement» Class	Fleet::Requirements::Axle Count	_req_axles	-> Fleet::Requirements::'Axle Count'
 «Requirement» Class	Fleet::Requirements::Brake Distance	_req_brake	-> Fleet::Requirements::'Brake Distance'
@@ -213,6 +218,7 @@ Property	Fleet::Structure::Trailer::payload	_prop_trailer_payload	-> Fleet::Stru
 «Block» Class	Fleet::Structure::Truck	_blk_truck	-> Fleet::Structure::Truck
 Diagram	Fleet::Structure::Truck Structure	_diag_truck	-> Fleet::Structure::'Truck Structure'	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram)
 Comment	Fleet::Structure::Truck::<Comment>	_cmt_truck
+Diagram	Fleet::Structure::Truck::Truck Internals	_diag_truck_internals	-> Fleet::Structure::Truck::'Truck Internals'	(a SysML Internal Block Diagram written as a view rendered asInterconnectionDiagram)
 Property	Fleet::Structure::Truck::axles	_prop_axles	-> Fleet::Structure::Truck::axles
 Property	Fleet::Structure::Truck::payload	_prop_payload	-> Fleet::Structure::Truck::payload
 Model	Model	_m	(the root model's members are written at the top level)

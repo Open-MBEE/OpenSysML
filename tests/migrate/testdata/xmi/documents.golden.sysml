@@ -8,6 +8,10 @@ package Fleet {
             attribute payload : ScalarValues::Real;
             part axles : Axle[2];
             satisfy requirement : Fleet::Requirements::'Load Limit';
+            view 'Truck Internals' {
+                expose axles;
+                render Views::asInterconnectionDiagram;
+            }
         }
         part def Trailer {
             doc /* Carries the load. */
@@ -387,6 +391,7 @@ package 'Fleet Documents' {
     }
     part def 'Fleet Brief Document' :> DocumentQueries::Document {
         attribute redefines title = "Fleet Brief";
+        ref truck : $::Fleet::Structure::Truck;
         part Figures : DocumentQueries::Section {
             attribute redefines title = "Figures";
             part diagram : DocumentQueries::Diagram {
@@ -401,6 +406,14 @@ package 'Fleet Documents' {
                 ref redefines source = $::Fleet::Structure::'Truck Structure';
             }
             /* not migrated: «Image» CallBehaviorAction 'Image' — the SysML Activity Diagram 'Parts Method Flow' is a view rendered as textual notation, which a document does not draw */
+            part 'diagram 2' : DocumentQueries::Diagram {
+                attribute redefines caption = "Truck Internals";
+                ref redefines source = truck.'Truck Internals';
+            }
+            part 'diagram 3' : DocumentQueries::Diagram {
+                attribute redefines caption = "Fleet Overview";
+                ref redefines source = 'Fleet Views'::Fleet.'Fleet Overview';
+            }
         }
     }
 }
@@ -409,5 +422,12 @@ package 'Fleet Views' {
         satisfy 'Fleet Viewpoints'::'Figures Viewpoint';
         expose $::Fleet::Structure::'Truck Structure';
         expose 'Fleet Viewpoints'::'Parts Viewpoint'::'Parts Method'::'Parts Method Flow';
+        expose $::Fleet::Structure::Truck::'Truck Internals';
+        expose 'Fleet Overview';
+        view 'Fleet Overview' {
+            expose $::Fleet::Structure;
+            expose $::Fleet::Requirements;
+            render Views::asTreeDiagram;
+        }
     }
 }
