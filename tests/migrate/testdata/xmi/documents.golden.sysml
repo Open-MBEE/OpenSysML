@@ -318,7 +318,7 @@ package 'Fleet Documents' {
                 calc items : 'Fleet Handbook Requirement List Rows';
             }
             part 'paragraph 2' : DocumentQueries::Paragraph {
-                calc text : 'Fleet Handbook Requirement Texts Rows';
+                calc values : 'Fleet Handbook Requirement Texts Rows';
             }
             part Safety : DocumentQueries::Section {
                 attribute redefines title = "Safety";

@@ -1041,7 +1041,7 @@ func (m *migration) writeBlock(dp *docPlan, cp *contentPlan, prefix, path string
 	case "Paragraph":
 		m.w.block("part "+writeName(cp.name)+" : "+prefix+"Paragraph", func() {
 			if cp.query != "" {
-				m.w.line("calc text : " + writeName(cp.query) + ";")
+				m.w.line("calc values : " + writeName(cp.query) + ";")
 			} else {
 				m.w.line("attribute redefines text = " + stringLiteral(cp.text) + ";")
 			}
