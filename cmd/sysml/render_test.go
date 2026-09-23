@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -738,22 +739,51 @@ func TestRenderAllEncodesUnsafeViewNames(t *testing.T) {
 // filesystem that ignores case, so they are refused together on every platform.
 func TestRenderAllRefusesPathsMeetingUnderCaseFolding(t *testing.T) {
 	binary := buildCLI(t)
-	const model = `package Demo {
+	for _, tc := range []struct{ first, second string }{
+		{"Report", "report"},
+		{"'Σύνοψις'", "'σύνοψισ'"},
+	} {
+		model := fmt.Sprintf(`package Demo {
     part def Vehicle;
-    view Report {
+    view %s {
         expose Demo::Vehicle;
         render Views::asTreeDiagram;
     }
-    view report {
+    view %s {
         expose Demo::Vehicle;
         render Views::asTreeDiagram;
     }
 }
-`
-	dir := filepath.Join(t.TempDir(), "rendered")
-	got := runStreams(t, binary, model, "-render-all", dir, "-render-form", "dot")
-	if got.status != exitUnevaluable || !strings.Contains(got.stderr, "views Demo::Report and Demo::report have the same rendering path") {
-		t.Errorf("exit status = %d, want %d naming both views\n%s", got.status, exitUnevaluable, got.output())
+`, tc.first, tc.second)
+		dir := filepath.Join(t.TempDir(), "rendered")
+		got := runStreams(t, binary, model, "-render-all", dir, "-render-form", "dot")
+		want := fmt.Sprintf("views Demo::%s and Demo::%s have the same rendering path", strings.Trim(tc.first, "'"), strings.Trim(tc.second, "'"))
+		if got.status != exitUnevaluable || !strings.Contains(got.stderr, want) {
+			t.Errorf("exit status = %d, want %d naming both views\n%s", got.status, exitUnevaluable, got.output())
+		}
+	}
+}
+
+// Case folding is Unicode's simple folding, which strings.EqualFold decides:
+// a final sigma folds with a sigma, a Kelvin sign with a k, and a name that
+// differs in more than case folds apart.
+func TestCaseFoldedAgreesWithEqualFold(t *testing.T) {
+	for _, tc := range []struct {
+		a, b string
+		want bool
+	}{
+		{"Report.dot", "report.dot", true},
+		{"σ", "ς", true},
+		{"Σ", "ς", true},
+		{"k", "\u212a", true},
+		{"ß", "ẞ", true},
+		{"ſ", "S", true},
+		{"i", "İ", false},
+		{"Report.dot", "Reports.dot", false},
+	} {
+		if got := caseFolded(tc.a) == caseFolded(tc.b); got != tc.want || got != strings.EqualFold(tc.a, tc.b) {
+			t.Errorf("caseFolded(%q) == caseFolded(%q) is %v, want %v, as EqualFold says %v", tc.a, tc.b, got, tc.want, strings.EqualFold(tc.a, tc.b))
+		}
 	}
 }
 

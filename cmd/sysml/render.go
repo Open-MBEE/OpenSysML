@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/chzyer/readline"
@@ -107,7 +108,7 @@ func runRenderAll(files []string) error {
 		}
 		path := filepath.Join(renderAllDir, renderFilename(info.Name, writtenForm))
 		// A filesystem that ignores letter case hands two such paths one file, so the key ignores it too.
-		key := strings.ToLower(path)
+		key := caseFolded(path)
 		if previous, exists := destinations[key]; exists {
 			return fmt.Errorf("views %s and %s have the same rendering path %s", previous, info.Name, path)
 		}
@@ -117,6 +118,20 @@ func runRenderAll(files []string) error {
 		}
 	}
 	return nil
+}
+
+// caseFolded is text under simple Unicode case folding: two texts fold alike
+// exactly when strings.EqualFold holds of them.
+func caseFolded(text string) string {
+	var b strings.Builder
+	for _, r := range text {
+		least := r
+		for f := unicode.SimpleFold(r); f != r; f = unicode.SimpleFold(f) {
+			least = min(least, f)
+		}
+		b.WriteRune(least)
+	}
+	return b.String()
 }
 
 // renderOptions is what -render and -render-all write with: the text width,
