@@ -5033,7 +5033,6 @@ elmt:Results__MassAnalysis
     sysml:owningRelationship elmt:Results__MassAnalysis_om ;
     sysml:owningMembership elmt:Results__MassAnalysis_om ;
     sysml:declaredName "MassAnalysis" ;
-    sysx:declaredKeyword "analysis" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Results__MassAnalysis__v, elmt:Results__MassAnalysis___401 ;
     sysml:ownedMembership elmt:Results__MassAnalysis__v_om, elmt:Results__MassAnalysis___401_om ;
@@ -5228,7 +5227,6 @@ elmt:Results__MassCheck
     sysml:owningRelationship elmt:Results__MassCheck_om ;
     sysml:owningMembership elmt:Results__MassCheck_om ;
     sysml:declaredName "MassCheck" ;
-    sysx:declaredKeyword "verification" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Results__MassCheck__v, elmt:Results__MassCheck___401 ;
     sysml:ownedMembership elmt:Results__MassCheck__v_om, elmt:Results__MassCheck___401_om ;

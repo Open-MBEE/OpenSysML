@@ -689,7 +689,7 @@ func (d *decoder) headEnd(el, parent *element) bool {
 }
 
 // transitionImplied classifies a child of a TransitionUsage against the head
-// the transition states (SysML v2 § 8.3.16.8): the source Membership, the
+// the transition states (SysML v2 1.0 § 8.3.18.9): the source Membership, the
 // payload parameter, the trigger AcceptActionUsage, and the SuccessionAsUsage
 // whose second end refers to the target are implied when they agree with the
 // head, refused when they contradict it, and ordinary members otherwise.

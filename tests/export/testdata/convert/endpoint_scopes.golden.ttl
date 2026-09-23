@@ -61,6 +61,7 @@ elmt:Machines__Lamp___400
     sysml:owner elmt:Machines__Lamp ;
     sysml:owningRelatedElement elmt:Machines__Lamp ;
     sysml:membershipOwningNamespace elmt:Machines__Lamp ;
+    sysml:kind "entry" ;
     sysx:subactionKind "entry" .
 
 elmt:Machines__Lamp___401
@@ -190,6 +191,7 @@ elmt:Machines__Lamp__on__heat___400
     sysml:owner elmt:Machines__Lamp__on__heat ;
     sysml:owningRelatedElement elmt:Machines__Lamp__on__heat ;
     sysml:membershipOwningNamespace elmt:Machines__Lamp__on__heat ;
+    sysml:kind "entry" ;
     sysx:subactionKind "entry" .
 
 elmt:Machines__Lamp__on__heat___401
@@ -333,6 +335,7 @@ elmt:Machines__Lamp__on__light___400
     sysml:owner elmt:Machines__Lamp__on__light ;
     sysml:owningRelatedElement elmt:Machines__Lamp__on__light ;
     sysml:membershipOwningNamespace elmt:Machines__Lamp__on__light ;
+    sysml:kind "entry" ;
     sysx:subactionKind "entry" .
 
 elmt:Machines__Lamp__on__light___401

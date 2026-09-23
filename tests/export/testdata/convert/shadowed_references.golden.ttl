@@ -986,7 +986,6 @@ elmt:Shadowing__Study
     sysml:owningRelationship elmt:Shadowing__Study_om ;
     sysml:owningMembership elmt:Shadowing__Study_om ;
     sysml:declaredName "Study" ;
-    sysx:declaredKeyword "analysis" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Shadowing__Study__vehicle ;
     sysml:ownedMembership elmt:Shadowing__Study__vehicle_om ;
@@ -1046,7 +1045,6 @@ elmt:Shadowing__study
     sysml:owningRelationship elmt:Shadowing__study_om ;
     sysml:owningMembership elmt:Shadowing__study_om ;
     sysml:declaredName "study" ;
-    sysx:declaredKeyword "analysis" ;
     sysml:type elmt:Shadowing__Study ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Shadowing__study___400 ;
@@ -1116,7 +1114,6 @@ elmt:Shadowing__deeper
     sysml:owningRelationship elmt:Shadowing__deeper_om ;
     sysml:owningMembership elmt:Shadowing__deeper_om ;
     sysml:declaredName "deeper" ;
-    sysx:declaredKeyword "analysis" ;
     sysml:subsets elmt:Shadowing__study ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Shadowing__deeper__load ;

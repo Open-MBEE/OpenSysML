@@ -15,7 +15,7 @@ const RootNamespaceSuffix = "_ns"
 const mNamespace = "Namespace"
 
 // withRootNamespace returns graph wrapped the way the pilot serializes a
-// document (KerML 8.3.2.4 Namespace): an unnamed, unowned Namespace whose
+// document (KerML 1.0 § 8.3.2.4.5 Namespace): an unnamed, unowned Namespace whose
 // OwningMemberships own every element the graph leaves unowned. A graph that
 // already carries such a root is returned as it is.
 func withRootNamespace(graph *rdf.Graph) (*rdf.Graph, error) {

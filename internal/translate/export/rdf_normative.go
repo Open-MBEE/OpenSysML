@@ -201,7 +201,7 @@ func (e *encoder) referenceSubsettingSpec(count, i int) normativeRelationship {
 
 // emitConjugatedPortTyping materializes `: ~P` as a ConjugatedPortTyping whose
 // type is P's ConjugatedPortDefinition and whose portDefinition is P itself
-// (SysML v2 § 8.3.14 Ports); an external P is named `~P` by the literal.
+// (SysML v2 1.0 § 8.3.12 Ports); an external P is named `~P` by the literal.
 func (e *encoder) emitConjugatedPortTyping(subject, target rdf.Term, spec normativeRelationship) {
 	spec.metaclass = mConjugatedPortTyping
 	spec.targetEnds = append([]string{pConjugatedPortDefinition}, spec.targetEnds...)

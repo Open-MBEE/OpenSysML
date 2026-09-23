@@ -1071,6 +1071,7 @@ elmt:R90__Run___400
     sysml:owner elmt:R90__Run ;
     sysml:owningRelatedElement elmt:R90__Run ;
     sysml:membershipOwningNamespace elmt:R90__Run ;
+    sysml:kind "entry" ;
     sysx:subactionKind "entry" .
 
 elmt:R90__Run___401

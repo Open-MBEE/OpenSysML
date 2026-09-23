@@ -113,7 +113,7 @@ func (e *encoder) expressionNode(subject rdf.Term, owner string, node ast.Node) 
 }
 
 // resultBearing lists the expression metaclasses the pilot gives an owned
-// result parameter (KerML 8.3.4.8: every non-literal Expression).
+// result parameter (KerML 1.0 § 8.3.4.7.3 Expression).
 var resultBearing = map[string]bool{
 	mFeatureReference: true, mFeatureChain: true, mOperator: true, mIndex: true,
 	mInvocation: true, mConstructor: true, mCollect: true, mSelect: true,
@@ -509,7 +509,7 @@ func (e *encoder) invocation(subject rdf.Term, owner string, function *ast.Quali
 }
 
 // calleeMembership emits the relationship an invocation owns to what it
-// invokes (KerML 8.3.4.8 InstantiationExpression): a Membership whose member is
+// invokes (KerML 1.0 § 8.3.4.8.7 InstantiationExpression): a Membership whose member is
 // the named function (its name, where it resolves to nothing), or an
 // OwningMembership owning the chain feature a dotted callee reaches.
 func (e *encoder) calleeMembership(subject rdf.Term, function *ast.QualifiedName) {
@@ -1477,7 +1477,7 @@ func (d *decoder) localElement(node rdf.Term, in *element) (*element, error) {
 func (d *decoder) operatorForm(node rdf.Term, in *element) (operand, error) {
 	operator, ok := d.graph.Lexical(node, rdf.SysML+pOperator)
 	if !ok && d.metaclass(node) == mIndex {
-		// An IndexExpression is the `#` operator applied (KerML 8.3.4.8.8).
+		// An IndexExpression is the `#` operator applied (KerML 1.0 § 8.3.4.8.6).
 		operator, ok = opAt, true
 	}
 	if !ok {

@@ -865,7 +865,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 
 	switch n := node.(type) {
 	case *ast.Package:
-		// `library package` is a LibraryPackage (SysML 8.3.13.3), `standard` its isStandard.
+		// `library package` is a LibraryPackage (KerML 1.0 § 8.3.4.13.3), `standard` its isStandard.
 		if n.IsLibrary {
 			head(rdf.SysMLTerm(mLibraryPackage))
 		} else {
@@ -1088,7 +1088,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		return members(n.Body)
 
 	case *ast.Alias:
-		// An alias is a Membership naming its member (KerML §8.3.2.5, KerML.xtext AliasMember).
+		// An alias is a Membership naming its member (KerML 1.0 § 8.3.2.4.3, KerML.xtext AliasMember).
 		head(rdf.SysMLTerm(mMembership))
 		e.graph.Add(subject, e.sysx(xDeclaredKeyword), rdf.String("alias"))
 		if n.Ident.Name != "" {

@@ -527,7 +527,7 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) *rd
 		}
 		// The members a `then` is written between: the feature (or `first`
 		// member) before it, which an empty source end sequences from
-		// (SysML v2 § 8.3.16.6), and the next, which `then` ahead of it targets.
+		// (SysML v2 1.0 § 7.17.4), and the next, which `then` ahead of it targets.
 		var previous, next rdf.Term
 		sequenced := func(t rdf.Term) bool {
 			m := meta(t)
@@ -817,7 +817,7 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) *rd
 }
 
 // deriveTransitionHeads states a TransitionUsage's collapsed head from the
-// structure SysML v2 § 8.3.16.8 gives it: the source Membership, the trigger
+// structure SysML v2 1.0 § 8.3.18.9 gives it: the source Membership, the trigger
 // AcceptActionUsage, and the SuccessionAsUsage whose second end names the target.
 func deriveTransitionHeads(graph *rdf.Graph, meta func(rdf.Term) string) {
 	for _, subject := range graph.Subjects() {

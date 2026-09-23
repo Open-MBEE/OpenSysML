@@ -1182,6 +1182,32 @@ func TestShortKindKeywordSurvivesTheRoundTrip(t *testing.T) {
 	}
 }
 
+// A case metaclass alone, with no recorded keyword (as another tool's graph
+// states it), reconstructs the grammar's `analysis def` and `analysis`, not
+// the two-word display name, which the parser reads as a plain case.
+func TestCaseKeywordsReconstructFromTheMetaclassAlone(t *testing.T) {
+	src := "package P {\n\tverification def V;\n\tanalysis def A;\n\tanalysis a : A;\n\tverification v : V;\n}"
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	for _, property := range []string{"sysx:sourceText", "sysx:sourceTail", "sysx:declaredKeyword"} {
+		turtle = withoutTriples(t, turtle, property)
+	}
+	back, err := convert.Convert("m.ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation: %v", err)
+	}
+	for _, want := range []string{"verification def V;", "analysis def A;", "analysis a : A;", "verification v : V;"} {
+		if !strings.Contains(string(back), want) {
+			t.Errorf("`%s` did not come back from the metaclass:\n%s", want, back)
+		}
+	}
+	if strings.Contains(string(back), " case") {
+		t.Errorf("a two-word kind was written:\n%s", back)
+	}
+}
+
 // A `#M` prefix is an owned metadata usage linked to its definition; the head
 // comes back from the graph alone, a `$::`/short-name type as its declared name.
 func TestPrefixMetadataComesBackFromTheGraphAlone(t *testing.T) {
@@ -2668,6 +2694,44 @@ func TestTransitionEffectMembershipIsNormative(t *testing.T) {
 		var unsupported *export.UnsupportedError
 		if !errors.As(err, &unsupported) || !strings.Contains(err.Error(), "effect membership") {
 			t.Fatalf("got %v, want a refusal naming the effect membership", err)
+		}
+	})
+}
+
+// A state subaction's kind is the membership's sysml:kind, as SysML v2's
+// StateSubactionMembership states it; the collapsed sysx:subactionKind is
+// written beside. Either alone reads; the two disagreeing is refused.
+func TestSubactionKindNormativeAndCollapsed(t *testing.T) {
+	src := "package P {\n\taction def Warm;\n\tstate def M {\n\t\tstate s1 {\n\t\t\texit action stop : Warm;\n\t\t}\n\t}\n}"
+	const collapsed = `sysx:subactionKind "exit" ;`
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	turtle = withoutTriples(t, withoutTriples(t, turtle, "sysx:sourceText"), "sysx:sourceTail")
+	if !strings.Contains(string(turtle), `sysml:kind "exit" ;`) || !strings.Contains(string(turtle), collapsed) {
+		t.Fatalf("the subaction does not state its kind both ways:\n%s", turtle)
+	}
+	for name, graph := range map[string][]byte{
+		"normative only": withoutTriples(t, turtle, "sysx:subactionKind"),
+		"collapsed only": withoutTriples(t, turtle, "sysml:kind"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			back, err := convert.Convert("m.ttl", graph, convert.FormatTurtle, convert.FormatSysML)
+			if err != nil {
+				t.Fatalf("back to notation: %v", err)
+			}
+			if !strings.Contains(string(back), "exit action stop : Warm;") {
+				t.Errorf("the exit subaction was lost:\n%s", back)
+			}
+		})
+	}
+	t.Run("disagreement refused", func(t *testing.T) {
+		graph := strings.Replace(string(turtle), collapsed, `sysx:subactionKind "entry" ;`, 1)
+		_, err := convert.Convert("m.ttl", []byte(graph), convert.FormatTurtle, convert.FormatSysML)
+		var unsupported *export.UnsupportedError
+		if !errors.As(err, &unsupported) || !strings.Contains(err.Error(), "cannot both hold") {
+			t.Fatalf("got %v, want a refusal naming the two kinds", err)
 		}
 	})
 }

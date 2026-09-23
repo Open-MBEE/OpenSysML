@@ -2802,6 +2802,7 @@ elmt:IrregularLayout__Ops___400
     sysml:owner elmt:IrregularLayout__Ops ;
     sysml:owningRelatedElement elmt:IrregularLayout__Ops ;
     sysml:membershipOwningNamespace elmt:IrregularLayout__Ops ;
+    sysml:kind "entry" ;
     sysx:subactionKind "entry" .
 
 elmt:IrregularLayout__Ops___401

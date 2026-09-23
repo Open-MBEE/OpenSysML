@@ -45,7 +45,7 @@ const (
 	mSubaction  = "StateSubactionMembership"
 	mSuccession = "SuccessionAsUsage"
 	mTransition = "TransitionUsage"
-	// The elements a TransitionUsage owns in the abstract syntax (SysML v2 § 8.3.16.8).
+	// The elements a TransitionUsage owns in the abstract syntax (SysML v2 1.0 § 8.3.18.9).
 	mTransitionFeatureMembership = "TransitionFeatureMembership"
 	mAcceptAction                = "AcceptActionUsage"
 	mStateUsage                  = "StateUsage"
@@ -347,6 +347,7 @@ func (e *encoder) encodeLoop(n *ast.WhileLoopActionNode, head func(rdf.Term), su
 // block being an anonymous action whose own body holds the statements.
 func (e *encoder) encodeSubaction(n ast.Node, actions []ast.Node, kind string, head func(rdf.Term), subject rdf.Term, fqn string) error {
 	head(rdf.SysMLTerm(mSubaction))
+	e.graph.Add(subject, e.sysml(pKind), rdf.String(kind))
 	e.graph.Add(subject, e.sysx(xSubactionKind), rdf.String(kind))
 	e.markPerformed(actions)
 	// `entry do { … }` states the subaction's own keyword and `do` as well, with
@@ -1426,8 +1427,17 @@ func (d *decoder) conditionalText(el *element, depth int) (string, error) {
 // anonymous action that writes its own braces.
 func (d *decoder) subactionText(el *element, depth int) (string, error) {
 	kind, ok := d.stringOf(el, rdf.OpenSysML+xSubactionKind)
-	if !ok {
-		return "", d.missing(el, "sysx:"+xSubactionKind, "a state subaction states whether it runs on entry, throughout or on exit")
+	normative, hasNormative := d.stringOf(el, rdf.SysML+pKind)
+	switch {
+	case ok && hasNormative && kind != normative:
+		return "", &UnsupportedError{
+			What: fmt.Sprintf("the state subaction <%s>", el.iri),
+			Note: fmt.Sprintf("its kind is %q, but sysx:subactionKind says %q, and the two statements cannot both hold", normative, kind),
+		}
+	case !ok && hasNormative:
+		kind = normative
+	case !ok:
+		return "", d.missing(el, "sysml:"+pKind+" or sysx:"+xSubactionKind, "a state subaction states whether it runs on entry, throughout or on exit")
 	}
 	keyword := d.keywordOr(el, kind)
 	// A braced block is one anonymous action; a graph that wrote it as the
@@ -1576,7 +1586,7 @@ func (d *decoder) transitionMembers(el *element) (effect, body []*element, hasEf
 	inBody := d.linked(el, xBodyMember)
 	children := d.bodyChildren(el)
 	collapsed := len(inEffect) > 0 || len(inBody) > 0
-	// A TransitionFeatureMembership of kind `effect` (SysML 8.3.16.13) owns an
+	// A TransitionFeatureMembership of kind `effect` (SysML v2 1.0 § 8.3.18.8) owns an
 	// effect action; the collapsed links, when written too, must agree with it.
 	for _, child := range children {
 		if !d.effectMembership(child) {

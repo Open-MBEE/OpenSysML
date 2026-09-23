@@ -5682,6 +5682,7 @@ elmt:ThenAfterMembers__Switch___400
     sysml:owner elmt:ThenAfterMembers__Switch ;
     sysml:owningRelatedElement elmt:ThenAfterMembers__Switch ;
     sysml:membershipOwningNamespace elmt:ThenAfterMembers__Switch ;
+    sysml:kind "entry" ;
     sysx:subactionKind "entry" ;
     sysx:sourceText "        entry;\n" .
 

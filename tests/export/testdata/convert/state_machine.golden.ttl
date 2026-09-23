@@ -173,6 +173,7 @@ elmt:StateMachine__VehicleStates___400
     sysml:owner elmt:StateMachine__VehicleStates ;
     sysml:owningRelatedElement elmt:StateMachine__VehicleStates ;
     sysml:membershipOwningNamespace elmt:StateMachine__VehicleStates ;
+    sysml:kind "entry" ;
     sysx:subactionKind "entry" ;
     sysx:sourceText "        entry;\n" .
 
@@ -213,6 +214,7 @@ elmt:StateMachine__VehicleStates__off___400
     sysml:owner elmt:StateMachine__VehicleStates__off ;
     sysml:owningRelatedElement elmt:StateMachine__VehicleStates__off ;
     sysml:membershipOwningNamespace elmt:StateMachine__VehicleStates__off ;
+    sysml:kind "entry" ;
     sysx:subactionKind "entry" ;
     sysml:ownedRelatedElement elmt:StateMachine__VehicleStates__off___400___400 ;
     sysml:memberElement elmt:StateMachine__VehicleStates__off___400___400 ;
@@ -275,6 +277,7 @@ elmt:StateMachine__VehicleStates__starting___400
     sysml:owner elmt:StateMachine__VehicleStates__starting ;
     sysml:owningRelatedElement elmt:StateMachine__VehicleStates__starting ;
     sysml:membershipOwningNamespace elmt:StateMachine__VehicleStates__starting ;
+    sysml:kind "entry" ;
     sysx:subactionKind "entry" ;
     sysml:ownedRelatedElement elmt:StateMachine__VehicleStates__starting___400__ready ;
     sysml:memberElement elmt:StateMachine__VehicleStates__starting___400__ready ;
@@ -306,6 +309,7 @@ elmt:StateMachine__VehicleStates__starting___401
     sysml:owner elmt:StateMachine__VehicleStates__starting ;
     sysml:owningRelatedElement elmt:StateMachine__VehicleStates__starting ;
     sysml:membershipOwningNamespace elmt:StateMachine__VehicleStates__starting ;
+    sysml:kind "do" ;
     sysx:subactionKind "do" ;
     sysml:ownedRelatedElement elmt:StateMachine__VehicleStates__starting___401__running ;
     sysml:memberElement elmt:StateMachine__VehicleStates__starting___401__running ;
@@ -337,6 +341,7 @@ elmt:StateMachine__VehicleStates__starting___402
     sysml:owner elmt:StateMachine__VehicleStates__starting ;
     sysml:owningRelatedElement elmt:StateMachine__VehicleStates__starting ;
     sysml:membershipOwningNamespace elmt:StateMachine__VehicleStates__starting ;
+    sysml:kind "exit" ;
     sysx:subactionKind "exit" ;
     sysml:ownedRelatedElement elmt:StateMachine__VehicleStates__starting___402___400 ;
     sysml:memberElement elmt:StateMachine__VehicleStates__starting___402___400 ;
@@ -402,6 +407,7 @@ elmt:StateMachine__VehicleStates__active___400
     sysml:owner elmt:StateMachine__VehicleStates__active ;
     sysml:owningRelatedElement elmt:StateMachine__VehicleStates__active ;
     sysml:membershipOwningNamespace elmt:StateMachine__VehicleStates__active ;
+    sysml:kind "do" ;
     sysx:subactionKind "do" ;
     sysml:ownedRelatedElement elmt:StateMachine__VehicleStates__active___400__monitor ;
     sysml:memberElement elmt:StateMachine__VehicleStates__active___400__monitor ;
@@ -798,6 +804,7 @@ elmt:StateMachine__Nested__idle__substate___400
     sysml:owner elmt:StateMachine__Nested__idle__substate ;
     sysml:owningRelatedElement elmt:StateMachine__Nested__idle__substate ;
     sysml:membershipOwningNamespace elmt:StateMachine__Nested__idle__substate ;
+    sysml:kind "entry" ;
     sysx:subactionKind "entry" ;
     sysml:ownedRelatedElement elmt:StateMachine__Nested__idle__substate___400___400 ;
     sysml:memberElement elmt:StateMachine__Nested__idle__substate___400___400 ;
@@ -864,6 +871,7 @@ elmt:StateMachine__Composite___400
     sysml:owner elmt:StateMachine__Composite ;
     sysml:owningRelatedElement elmt:StateMachine__Composite ;
     sysml:membershipOwningNamespace elmt:StateMachine__Composite ;
+    sysml:kind "entry" ;
     sysx:subactionKind "entry" ;
     sysx:sourceText "        entry;\n" .
 
@@ -951,6 +959,7 @@ elmt:StateMachine__Composite___404
     sysml:owner elmt:StateMachine__Composite ;
     sysml:owningRelatedElement elmt:StateMachine__Composite ;
     sysml:membershipOwningNamespace elmt:StateMachine__Composite ;
+    sysml:kind "entry" ;
     sysx:subactionKind "entry" ;
     sysml:ownedRelatedElement elmt:StateMachine__Composite___404___400 ;
     sysml:memberElement elmt:StateMachine__Composite___404___400 ;
