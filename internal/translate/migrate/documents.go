@@ -110,9 +110,7 @@ func (m *migration) planDocument(d *sysmlv1.DocGenDocument) {
 // its child views as sections after the content, in declaration order.
 func (m *migration) planSection(dp *docPlan, sec *sectionPlan) {
 	v := sec.v
-	for _, bad := range v.Malformed {
-		dp.notes = append(dp.notes, bad)
-	}
+	dp.notes = append(dp.notes, v.Malformed...)
 	m.planMethod(dp, sec)
 	for _, p := range v.Paragraphs {
 		sec.content = append(sec.content, m.collaboratorParagraph(sec, p))
@@ -903,6 +901,10 @@ func (c *chain) image(s *sysmlv1.DocGenStep) {
 			c.refuse(s, "the Diagram '"+d.Name+"' is not written as a view")
 			continue
 		}
+		if rendering(d) == textualRendering {
+			c.refuse(s, "the "+diagramKind(d)+" '"+d.Name+"' is a view rendered as textual notation, which a document does not draw")
+			continue
+		}
 		cp := &contentPlan{kind: "Diagram", node: s.Node, label: "«Image» " + s.Node.Type, source: v}
 		cp.caption = strings.TrimSpace(d.Name)
 		if show && i < len(captions) && strings.TrimSpace(captions[i]) != "" {
@@ -956,13 +958,14 @@ func (c *chain) dynamicView(s *sysmlv1.DocGenStep) {
 // writeDocument writes a planned document: its queries first, then the
 // Document definition holding its sections and blocks.
 func (m *migration) writeDocument(dp *docPlan) {
-	prefix := m.queryPrefix(dp.host)
-	m.writeQueries(dp.root, prefix)
+	m.writeQueries(dp.root, m.queryPrefix(dp.host))
 	var notes []string
 	target := m.qualified(append(m.segments(dp.host), dp.root.name))
-	m.w.block("part def "+writeName(dp.root.name)+" :> "+prefix+"Document", func() {
-		m.w.line("attribute redefines title = " + stringLiteral(dp.root.title) + ";")
-		notes = m.writeSectionBody(dp, dp.root, prefix, target)
+	m.inside(blockNames("Document", dp.root.names), func() {
+		m.w.block("part def "+writeName(dp.root.name)+" :> "+m.queryPrefix(dp.host)+"Document", func() {
+			m.w.line("attribute redefines title = " + stringLiteral(dp.root.title) + ";")
+			notes = m.writeSectionBody(dp, dp.root, target)
+		})
 	})
 	notes = append(notes, dp.notes...)
 	note := "the «Document» is written as a Document definition of " + strconv.Itoa(len(dp.root.children)) + " section(s)"
@@ -1004,27 +1007,59 @@ func (m *migration) blocks(sec *sectionPlan) []*contentPlan {
 	return out
 }
 
+// libraryMembers lists the members each DocumentQueries block inherits, and
+// the calc a query-backed one holds; a reference inside it steers clear of them.
+var libraryMembers = map[string][]string{
+	"Document":  {"title"},
+	"Section":   {"title"},
+	"Paragraph": {"text", "values"},
+	"Table":     {"caption", "groupBy", "rows"},
+	"List":      {"style", "items"},
+	"Diagram":   {"caption", "kind", "direction", "palette", "source"},
+}
+
+// blockNames is the member set of a block of the library kind whose own
+// members are named own.
+func blockNames(kind string, own columnNames) columnNames {
+	names := columnNames{}
+	for n := range own {
+		names[n] = true
+	}
+	for _, n := range libraryMembers[kind] {
+		names[n] = true
+	}
+	return names
+}
+
+// blockPart writes a part usage of the library kind named name holding body,
+// with the names it declares in scope for the references body writes.
+func (m *migration) blockPart(host *sysmlv1.Element, name, kind string, own columnNames, body func()) {
+	m.inside(blockNames(kind, own), func() {
+		m.w.block("part "+writeName(name)+" : "+m.queryPrefix(host)+kind, body)
+	})
+}
+
 // writeSectionBody writes a section's blocks then its child sections under
 // path, and returns the notes its blocks carry.
-func (m *migration) writeSectionBody(dp *docPlan, sec *sectionPlan, prefix, path string) []string {
+func (m *migration) writeSectionBody(dp *docPlan, sec *sectionPlan, path string) []string {
 	var notes []string
 	if sec.refused != "" {
 		m.w.lines(commentLines("not migrated: " + sec.refused))
 	}
 	for _, cp := range sec.content {
-		notes = append(notes, m.writeBlock(dp, cp, prefix, path)...)
+		notes = append(notes, m.writeBlock(dp, cp, path)...)
 	}
 	for _, child := range sec.children {
-		m.w.block("part "+writeName(child.name)+" : "+prefix+"Section", func() {
+		m.blockPart(dp.host, child.name, "Section", child.names, func() {
 			m.w.line("attribute redefines title = " + stringLiteral(child.title) + ";")
-			notes = append(notes, m.writeSectionBody(dp, child, prefix, path+"::"+writeName(child.name))...)
+			notes = append(notes, m.writeSectionBody(dp, child, path+"::"+writeName(child.name))...)
 		})
 	}
 	return notes
 }
 
 // writeBlock writes one block, or the comment standing for a refused node.
-func (m *migration) writeBlock(dp *docPlan, cp *contentPlan, prefix, path string) []string {
+func (m *migration) writeBlock(dp *docPlan, cp *contentPlan, path string) []string {
 	if cp.refused != "" {
 		m.w.lines(commentLines("not migrated: " + cp.label + " '" + nodeLabel(cp.node) + "' — " + cp.refused))
 		return nil
@@ -1033,31 +1068,31 @@ func (m *migration) writeBlock(dp *docPlan, cp *contentPlan, prefix, path string
 	switch cp.kind {
 	case "Section":
 		var notes []string
-		m.w.block("part "+writeName(cp.name)+" : "+prefix+"Section", func() {
+		m.blockPart(dp.host, cp.name, "Section", cp.section.names, func() {
 			m.w.line("attribute redefines title = " + stringLiteral(cp.section.title) + ";")
-			notes = m.writeSectionBody(dp, cp.section, prefix, cp.target)
+			notes = m.writeSectionBody(dp, cp.section, cp.target)
 		})
 		return notes
 	case "Paragraph":
-		m.w.block("part "+writeName(cp.name)+" : "+prefix+"Paragraph", func() {
+		m.blockPart(dp.host, cp.name, "Paragraph", nil, func() {
 			if cp.query != "" {
-				m.w.line("calc values : " + writeName(cp.query) + ";")
+				m.w.line("calc values : " + m.siblingRef(dp.host, cp.query) + ";")
 			} else {
 				m.w.line("attribute redefines text = " + stringLiteral(cp.text) + ";")
 			}
 		})
 	case "Table":
-		m.w.block("part "+writeName(cp.name)+" : "+prefix+"Table", func() {
+		m.blockPart(dp.host, cp.name, "Table", nil, func() {
 			m.w.line("attribute redefines caption = " + stringLiteral(cp.caption) + ";")
-			m.w.line("calc rows : " + writeName(cp.query) + ";")
+			m.w.line("calc rows : " + m.siblingRef(dp.host, cp.query) + ";")
 		})
 	case "List":
-		m.w.block("part "+writeName(cp.name)+" : "+prefix+"List", func() {
+		m.blockPart(dp.host, cp.name, "List", nil, func() {
 			m.w.line("attribute redefines style = " + stringLiteral(cp.style) + ";")
-			m.w.line("calc items : " + writeName(cp.query) + ";")
+			m.w.line("calc items : " + m.siblingRef(dp.host, cp.query) + ";")
 		})
 	case "Diagram":
-		m.w.block("part "+writeName(cp.name)+" : "+prefix+"Diagram", func() {
+		m.blockPart(dp.host, cp.name, "Diagram", nil, func() {
 			m.w.line("attribute redefines caption = " + stringLiteral(cp.caption) + ";")
 			m.w.line("ref redefines source = " + m.viewRef(cp.source, dp.host) + ";")
 		})

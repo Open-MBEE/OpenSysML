@@ -481,7 +481,7 @@ Rows' :> Query` beside the document and one content part in the section, in the 
 | `TableStructure` with `TableAttributeColumn` (`Name`, `Documentation`), `TablePropertyColumn` (a value property of the rows' definition), `TableExpressionColumn` naming a bare query property | `part table : Table { attribute redefines caption = …; calc rows : …; }` over `Project(properties, columns = (Column(…)))`; `includeDoc` adds `documentation`; a column beyond these is omitted with the note, and a table with no writable column is refused |
 | `BulletedList(orderedList, includeDoc)` | `part list : List { attribute redefines style = "number" / "bullet"; calc items : …; }`; `includeDoc` follows each item's name with its documentation |
 | `Paragraph(body)`; a «CollaboratorParagraph» reading the comment body | `part paragraph : Paragraph { attribute redefines text = "…"; }`, tool HTML reduced to text; a paragraph over the targets' documentation is `calc values : …` over `Project(properties = ("documentation"))` |
-| `Image` | one `part diagram : Diagram { attribute redefines caption = "<diagram>"; ref redefines source = <its view>; }` per diagram the step targets or the view exposes; a «CollaboratorImageParagraph»'s attached bitmap is not a view, so its caption stands as a paragraph and the report says the image is not written |
+| `Image` | one `part diagram : Diagram { attribute redefines caption = "<diagram>"; ref redefines source = <its view>; }` per diagram the step targets or the view exposes; a diagram whose view renders as textual notation (an activity, state machine or sequence diagram) is refused, since a document draws no text view; a «CollaboratorImageParagraph»'s attached bitmap is not a view, so its caption stands as a paragraph and the report says the image is not written |
 | `Dynamic View` | a nested `Section` with the called activity's title, lowered the same way; an activity that calls itself is refused, since a recursive section has no static spelling |
 
 A step with no query spelling — `CollectTypes`, `CollectByAssociation`, `CollectThingsOnDiagram`,
@@ -493,7 +493,10 @@ siblings are still written. A malformed document — a view whose `Conform` name
 a viewpoint whose method has no initial node, a `depth` that is not a whole number, a
 collaborator paragraph whose `viewId` or `ownerId` names no view, an empty paragraph — is
 reported the same way. Where a model member named `DocumentQueries` would shadow the library,
-every reference is written `$::DocumentQueries::…`.
+every reference is written `$::DocumentQueries::…`. A section, paragraph, table, list or diagram
+block declares members of its own (`title`, `rows`, the nested sections), and a reference written
+inside it is qualified past whichever of those it would otherwise resolve to — a section named
+like a top-level package names that package's view as `$::<package>::…`.
 
 The mapping has been run over the XMI of the [OpenMBEE TMT SysML model](https://github.com/Open-MBEE/TMT-SysML-Model)
 (27 MB; 44,600 elements once the nodes and edges of its behaviors are counted): it writes 7 MB

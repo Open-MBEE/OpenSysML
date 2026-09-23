@@ -1,8 +1,8 @@
 # SysML v1 to v2 migration report: documents.xmi
 # exported by Example UML Tool
-# migrated 200 element(s): 143 mapped, 42 approximated, 15 unmapped (4 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 209 element(s): 151 mapped, 42 approximated, 16 unmapped (4 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
-## unmapped (15)
+## unmapped (16)
 «CollaboratorImageParagraph» Comment	Fleet Documents::Notes::<Comment>	_st_note_blank_image	(the attached image "depot.png" has no caption, and a Diagram shows a view, not an image file)
 «CollaboratorParagraph» Comment	Fleet Documents::Notes::<Comment>	_st_note_named	(property "META:QPROP:Element:name" is not the comment body)
 «CollaboratorParagraph» Comment	Fleet Documents::Notes::<Comment>	_st_note_empty	(the paragraph's comment has no body)
@@ -10,6 +10,7 @@
 «CollaboratorParagraph» Comment	Fleet Documents::Notes::<Comment>	_st_note_other_doc	(viewId "_doc_gone" names no document)
 «Conform» Generalization	Fleet Documents::Notes::<Generalization>	_gen_notes	(the viewpoint is not in the document; applied stereotypes «Conform»)
 Activity	Fleet Viewpoints::Broken Viewpoint::Broken Method	_act_broken	(the method Fleet Viewpoints::Broken Viewpoint::Broken Method is not migrated: no initial node)
+«Image» CallBehaviorAction	Fleet Viewpoints::Figures Viewpoint::Figures Method::Image	_st_figures_image	(the SysML Activity Diagram 'Parts Method Flow' is a view rendered as textual notation, which a document does not draw)
 «CollectOwnedElements» CallBehaviorAction	Fleet Viewpoints::Oddities Viewpoint::Oddities Method::Collect Owned Elements	_st_odd_depth	(the depth "many" is not a whole number)
 «CollectTypes» CallBehaviorAction	Fleet Viewpoints::Oddities Viewpoint::Oddities Method::Collect Types	_st_odd_types	(no query operation or content block stands for «CollectTypes»)
 «Paragraph» CallBehaviorAction	Fleet Viewpoints::Oddities Viewpoint::Oddities Method::Evaluated Paragraph	_st_odd_ocl	(its body is evaluated as OCL, which no query evaluates)
@@ -63,7 +64,7 @@ Activity	Fleet Viewpoints::Traceability Viewpoint::Traceability Method	_act_trac
 «BulletedList» CallBehaviorAction	Fleet Viewpoints::Traceability Viewpoint::Traceability Method::Related Elements	_trace_list	-> 'Related Elements'	(a step with no behavior and no duration; it passes the token on)
 «BulletedList» CallBehaviorAction	Fleet Viewpoints::Traceability Viewpoint::Traceability Method::Related Elements	_st_trace_list	-> part 'Fleet Documents'::'Fleet Handbook Document'::Traceability::list	(its rows are the query 'Fleet Handbook Related Elements Rows'; each item's documentation follows its name)
 
-## mapped (143)
+## mapped (151)
 Package	Fleet	_pkg_fleet	-> Fleet
 Package	Fleet Documents	_pkg_docs	-> 'Fleet Documents'
 «Expose» Dependency	Fleet Documents::<Dependency>	_expose_intro	-> 'Fleet Documents'::Introduction
@@ -76,8 +77,9 @@ Package	Fleet Documents	_pkg_docs	-> 'Fleet Documents'
 «Conform» Generalization	Fleet Documents::Broken::<Generalization>	_gen_broken	-> 'Fleet Documents'::Broken
 «View» Class	Fleet Documents::Figures	_view_figures	-> 'Fleet Documents'::Figures
 «Conform» Generalization	Fleet Documents::Figures::<Generalization>	_gen_figures	-> 'Fleet Documents'::Figures
-«Document» Class	Fleet Documents::Fleet Brief	_st_doc_brief	-> part def 'Fleet Documents'::'Fleet Brief Document'	(the «Document» is written as a Document definition of 1 section(s))
+«Document» Class	Fleet Documents::Fleet Brief	_st_doc_brief	-> part def 'Fleet Documents'::'Fleet Brief Document'	(the «Document» is written as a Document definition of 2 section(s))
 Property	Fleet Documents::Fleet Brief::figures	_brief_figures	-> 'Fleet Documents'::'Fleet Brief'::figures
+Property	Fleet Documents::Fleet Brief::fleet	_brief_fleet	-> 'Fleet Documents'::'Fleet Brief'::fleet
 Property	Fleet Documents::Fleet Handbook::author	_doc_author	-> 'Fleet Documents'::'Fleet Handbook'::author
 Property	Fleet Documents::Fleet Handbook::broken	_doc_broken	-> 'Fleet Documents'::'Fleet Handbook'::broken
 Property	Fleet Documents::Fleet Handbook::figures	_doc_figures	-> 'Fleet Documents'::'Fleet Handbook'::figures
@@ -116,6 +118,7 @@ ControlFlow	Fleet Viewpoints::Figures Viewpoint::Figures Method::<ControlFlow>	_
 InitialNode	Fleet Viewpoints::Figures Viewpoint::Figures Method::<InitialNode>	_figures_init	-> start
 «Image» CallBehaviorAction	Fleet Viewpoints::Figures Viewpoint::Figures Method::Image	_st_figures_image	-> part 'Fleet Documents'::'Fleet Handbook Document'::Figures::diagram
 «Image» CallBehaviorAction	Fleet Viewpoints::Figures Viewpoint::Figures Method::Image	_st_figures_image	-> part 'Fleet Documents'::'Fleet Brief Document'::Figures::diagram
+«Image» CallBehaviorAction	Fleet Viewpoints::Figures Viewpoint::Figures Method::Image	_st_figures_image	-> part 'Fleet Documents'::'Fleet Brief Document'::Fleet::diagram
 «Viewpoint» Class	Fleet Viewpoints::Oddities Viewpoint	_vp_odd	-> 'Fleet Viewpoints'::'Oddities Viewpoint'
 ActivityFinalNode	Fleet Viewpoints::Oddities Viewpoint::Oddities Method::<ActivityFinalNode>	_odd_final	-> final
 ControlFlow	Fleet Viewpoints::Oddities Viewpoint::Oddities Method::<ControlFlow>	_odd_e2
@@ -152,6 +155,7 @@ ControlFlow	Fleet Viewpoints::Parts Viewpoint::Parts Method::Fleet Parts::<Contr
 ControlFlow	Fleet Viewpoints::Parts Viewpoint::Parts Method::Fleet Parts::<ControlFlow>	_parts_table_e5
 FlowFinalNode	Fleet Viewpoints::Parts Viewpoint::Parts Method::Fleet Parts::<FlowFinalNode>	_parts_table_final	-> done	(a flow final ends the token, as done does)
 InitialNode	Fleet Viewpoints::Parts Viewpoint::Parts Method::Fleet Parts::<InitialNode>	_parts_table_init	-> start
+Diagram	Fleet Viewpoints::Parts Viewpoint::Parts Method::Parts Method Flow	_diag_parts_flow	-> 'Fleet Viewpoints'::'Parts Viewpoint'::'Parts Method'::'Parts Method Flow'	(a SysML Activity Diagram written as a view rendered asTextualNotation)
 «Viewpoint» Class	Fleet Viewpoints::Requirements Viewpoint	_vp_reqs	-> 'Fleet Viewpoints'::'Requirements Viewpoint'
 Activity	Fleet Viewpoints::Requirements Viewpoint::Requirements Method	_act_reqs	-> 'Fleet Viewpoints'::'Requirements Viewpoint'::'Requirements Method'
 ActivityFinalNode	Fleet Viewpoints::Requirements Viewpoint::Requirements Method::<ActivityFinalNode>	_reqs_final	-> final
@@ -188,6 +192,11 @@ ControlFlow	Fleet Viewpoints::Traceability Viewpoint::Traceability Method::<Cont
 ForkNode	Fleet Viewpoints::Traceability Viewpoint::Traceability Method::<ForkNode>	_trace_fork	-> 'fork'
 InitialNode	Fleet Viewpoints::Traceability Viewpoint::Traceability Method::<InitialNode>	_trace_init	-> start
 MergeNode	Fleet Viewpoints::Traceability Viewpoint::Traceability Method::<MergeNode>	_trace_merge	-> 'merge'
+Package	Fleet Views	_pkg_views	-> 'Fleet Views'
+«Expose» Dependency	Fleet Views::<Dependency>	_expose_fleet	-> 'Fleet Views'::Fleet
+«Expose» Dependency	Fleet Views::<Dependency>	_expose_fleet_flow	-> 'Fleet Views'::Fleet
+«View» Class	Fleet Views::Fleet	_view_fleet	-> 'Fleet Views'::Fleet
+«Conform» Generalization	Fleet Views::Fleet::<Generalization>	_gen_fleet	-> 'Fleet Views'::Fleet
 Package	Fleet::Requirements	_pkg_reqs	-> Fleet::Requirements
 «Requirement» Class	Fleet::Requirements::Axle Count	_req_axles	-> Fleet::Requirements::'Axle Count'
 «Requirement» Class	Fleet::Requirements::Brake Distance	_req_brake	-> Fleet::Requirements::'Brake Distance'

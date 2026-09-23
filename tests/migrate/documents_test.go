@@ -182,9 +182,15 @@ func TestMigratedDocumentsRender(t *testing.T) {
 		"Traceability",
 		"Oddities")
 
+	// The Fleet section is named like the top-level package the view lives
+	// in, so both Diagram blocks name the view from the global namespace.
 	brief := markdown(t, s, "'Fleet Documents'::'Fleet Brief Document'")
 	wantInOrder(t, "Fleet Brief Markdown", brief,
-		"# Fleet Brief", "## Figures", "*The truck and what it hauls*", "```mermaid")
+		"# Fleet Brief", "## Figures", "*The truck and what it hauls*", "```mermaid",
+		"## Fleet", "*The truck and what it hauls*", "```mermaid")
+	if strings.Count(brief, "Truck") < 2 {
+		t.Errorf("Fleet Brief Markdown draws the view once:\n%s", brief)
+	}
 }
 
 // Only the tool's own profile namespaces define tables: a user stereotype named

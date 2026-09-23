@@ -133,9 +133,10 @@ func indentLines(ls []string) []string {
 }
 
 // queryPrefix is how the DocumentQueries library is named from inside host:
-// from the global namespace when a member of host's scopes shadows it.
+// from the global namespace when a member of host's scopes, or of a
+// synthesized declaration being written, shadows it.
 func (m *migration) queryPrefix(host *sysmlv1.Element) string {
-	if m.shadowsLibrary("DocumentQueries", host) {
+	if m.hidden("DocumentQueries") || m.shadowsLibrary("DocumentQueries", host) {
 		return "$::DocumentQueries::"
 	}
 	return "DocumentQueries::"

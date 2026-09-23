@@ -119,11 +119,13 @@ func (m *migration) writeTable(td *tableDoc) {
 		return
 	}
 	m.writeQueryDef(td.query, prefix, l.rows)
-	m.w.block("part def "+writeName(td.doc)+" :> "+prefix+"Document", func() {
-		m.w.line("attribute redefines title = " + stringLiteral(td.title) + ";")
-		m.w.block("part rows : "+prefix+"Table", func() {
-			m.w.line("attribute redefines caption = " + stringLiteral(td.title) + ";")
-			m.w.line("calc rows : " + writeName(td.query) + ";")
+	m.inside(blockNames("Document", columnNames{"rows": true}), func() {
+		m.w.block("part def "+writeName(td.doc)+" :> "+m.queryPrefix(host)+"Document", func() {
+			m.w.line("attribute redefines title = " + stringLiteral(td.title) + ";")
+			m.blockPart(host, "rows", "Table", nil, func() {
+				m.w.line("attribute redefines caption = " + stringLiteral(td.title) + ";")
+				m.w.line("calc rows : " + m.siblingRef(host, td.query) + ";")
+			})
 		})
 	})
 	note := "the «" + kind + "» is written as a Document holding a Table over the query " + writeName(td.query)

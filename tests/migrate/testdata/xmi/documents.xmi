@@ -216,6 +216,7 @@
       </packagedElement>
       <packagedElement xmi:type="uml:Class" xmi:id="_doc_brief" name="Fleet Brief">
         <ownedAttribute xmi:type="uml:Property" xmi:id="_brief_figures" name="figures" type="_view_figures" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_brief_fleet" name="fleet" type="_view_fleet" aggregation="composite"/>
       </packagedElement>
 
       <packagedElement xmi:type="uml:Class" xmi:id="_view_intro" name="Introduction">
@@ -259,6 +260,14 @@
       <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_broken" client="_view_broken" supplier="_pkg_fleet"/>
     </packagedElement>
 
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_views" name="Fleet Views">
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_fleet" name="Fleet">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_fleet" general="_vp_figures"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_fleet" client="_view_fleet" supplier="_diag_truck"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_fleet_flow" client="_view_fleet" supplier="_diag_parts_flow"/>
+    </packagedElement>
+
     <xmi:Extension extender="Example UML Tool 1.0">
       <modelExtension>
         <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_truck" name="Truck Structure" ownerOfDiagram="_pkg_structure">
@@ -269,6 +278,19 @@
                   <usedElements>_blk_truck</usedElements>
                   <usedElements>_blk_trailer</usedElements>
                   <usedElements>_blk_axle</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_parts_flow" name="Parts Method Flow" ownerOfDiagram="_act_parts">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Activity Diagram" umlType="Activity Diagram">
+                <diagramContents>
+                  <usedElements>_parts_collect</usedElements>
+                  <usedElements>_parts_filter</usedElements>
+                  <usedElements>_parts_sort</usedElements>
                 </diagramContents>
               </diagram:DiagramRepresentationObject>
             </diagramRepresentation>
@@ -305,6 +327,7 @@
   <sysml:View xmi:id="_st_view_odd" base_Class="_view_odd"/>
   <sysml:View xmi:id="_st_view_broken" base_Class="_view_broken"/>
   <sysml:View xmi:id="_st_view_notes" base_Class="_view_notes"/>
+  <sysml:View xmi:id="_st_view_fleet" base_Class="_view_fleet"/>
 
   <sysml:Conform xmi:id="_st_conform_intro" base_Generalization="_gen_intro"/>
   <sysml:Conform xmi:id="_st_conform_reqs" base_Generalization="_gen_reqs"/>
@@ -314,6 +337,7 @@
   <sysml:Conform xmi:id="_st_conform_odd" base_Generalization="_gen_odd"/>
   <sysml:Conform xmi:id="_st_conform_broken" base_Generalization="_gen_broken"/>
   <sysml:Conform xmi:id="_st_conform_notes" base_Generalization="_gen_notes"/>
+  <sysml:Conform xmi:id="_st_conform_fleet" base_Generalization="_gen_fleet"/>
 
   <sysml:Expose xmi:id="_st_expose_intro" base_Dependency="_expose_intro"/>
   <sysml:Expose xmi:id="_st_expose_reqs" base_Dependency="_expose_reqs"/>
@@ -321,6 +345,8 @@
   <sysml:Expose xmi:id="_st_expose_trace" base_Dependency="_expose_trace"/>
   <sysml:Expose xmi:id="_st_expose_odd" base_Dependency="_expose_odd"/>
   <sysml:Expose xmi:id="_st_expose_broken" base_Dependency="_expose_broken"/>
+  <sysml:Expose xmi:id="_st_expose_fleet" base_Dependency="_expose_fleet"/>
+  <sysml:Expose xmi:id="_st_expose_fleet_flow" base_Dependency="_expose_fleet_flow"/>
 
   <Document_View_Collaborator_Profile:Document xmi:id="_st_doc_handbook" base_Class="_doc_handbook"/>
   <Document_Profile_:Document xmi:id="_st_doc_brief" base_Class="_doc_brief"/>

@@ -264,14 +264,14 @@ func (m *migration) viewRef(v *view, scope *sysmlv1.Element) string {
 	host := v.host
 	for i, s := range chain {
 		if s == host {
-			if !m.shadows(chain[:i], v.name) {
+			if !m.hidden(v.name) && !m.shadows(chain[:i], v.name) {
 				return name
 			}
 			break
 		}
 	}
 	if host == nil {
-		if m.shadows(chain, v.name) {
+		if m.hidden(v.name) || m.shadows(chain, v.name) {
 			return "$::" + name
 		}
 		return name

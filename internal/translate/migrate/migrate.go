@@ -276,6 +276,9 @@ type migration struct {
 	unplaced map[*sysmlv1.Element]*placement
 	// taken holds synthesized names reserved in a body, by owner.
 	taken map[*sysmlv1.Element]map[string]bool
+	// opened holds the member names of each synthesized declaration being
+	// written, outermost first; a reference written inside them avoids those names.
+	opened []columnNames
 	// parallel names the parallel state each region of an orthogonal state is
 	// written in; a lone region is written inline and has no name of its own.
 	parallel map[*sysmlv1.Element]string

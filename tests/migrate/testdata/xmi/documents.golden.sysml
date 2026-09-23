@@ -42,6 +42,12 @@ package 'Fleet Viewpoints' {
     viewpoint 'Parts Viewpoint' {
         doc /* List the parts of the fleet. */
         action def 'Parts Method' {
+            view 'Parts Method Flow' {
+                expose 'Collect Owned Elements';
+                expose 'Filter By Metaclasses';
+                expose 'Sort By Name';
+                render Views::asTextualNotation;
+            }
             first start then 'Collect Owned Elements';
             action 'Collect Owned Elements';
             first 'Collect Owned Elements' then 'Filter By Metaclasses';
@@ -194,6 +200,7 @@ package 'Fleet Documents' {
     }
     part def 'Fleet Brief' {
         view figures :> Figures;
+        view fleet :> 'Fleet Views'::Fleet;
         /* applied stereotype «Document» */
     }
     view Introduction {
@@ -384,8 +391,23 @@ package 'Fleet Documents' {
             attribute redefines title = "Figures";
             part diagram : DocumentQueries::Diagram {
                 attribute redefines caption = "The truck and what it hauls";
-                ref redefines source = Fleet::Structure::'Truck Structure';
+                ref redefines source = $::Fleet::Structure::'Truck Structure';
             }
         }
+        part Fleet : DocumentQueries::Section {
+            attribute redefines title = "Fleet";
+            part diagram : DocumentQueries::Diagram {
+                attribute redefines caption = "The truck and what it hauls";
+                ref redefines source = $::Fleet::Structure::'Truck Structure';
+            }
+            /* not migrated: «Image» CallBehaviorAction 'Image' — the SysML Activity Diagram 'Parts Method Flow' is a view rendered as textual notation, which a document does not draw */
+        }
+    }
+}
+package 'Fleet Views' {
+    view Fleet {
+        satisfy 'Fleet Viewpoints'::'Figures Viewpoint';
+        expose $::Fleet::Structure::'Truck Structure';
+        expose 'Fleet Viewpoints'::'Parts Viewpoint'::'Parts Method'::'Parts Method Flow';
     }
 }
