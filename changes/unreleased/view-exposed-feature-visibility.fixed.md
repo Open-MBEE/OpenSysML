@@ -1,0 +1,1 @@
+- **A private v1 property shown on a diagram in another namespace is no longer written `private`.** The view's `expose` — and any layout annotation naming it — must be able to refer to the feature, and v2 hides a private member from every qualified path; the migration report notes "private visibility is not written: view … exposes it".
