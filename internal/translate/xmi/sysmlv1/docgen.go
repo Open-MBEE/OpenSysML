@@ -12,6 +12,8 @@ type DocGenDocument struct {
 	// document class is the first view.
 	Class *Element
 	Root  *DocGenView
+	// Application is the Document application that names the class.
+	Application *Stereotype
 }
 
 // DocGenView is one view of a document: a class the SysML View stereotype
@@ -26,13 +28,28 @@ type DocGenView struct {
 	Method *Element
 	// Exposed are the elements the view exposes or imports, in document order.
 	Exposed []ElementRef
-	// Collaborator lists the collaborator profile's applications on the
-	// comments placed in this view (its ownerId), in document order.
-	Collaborator []*Stereotype
+	// Paragraphs are the collaborator paragraphs placed in this view, in the
+	// order they are shown.
+	Paragraphs []*DocGenParagraph
 	// Children are the child views, in property order.
 	Children []*DocGenView
 	// Malformed lists what could not be read.
 	Malformed []string
+}
+
+// DocGenParagraph is one collaborator paragraph: a comment the collaborator
+// profile places in a view (its ownerId), after the paragraph its siblingId
+// names.
+type DocGenParagraph struct {
+	// Application is the CollaboratorParagraph application.
+	Application *Stereotype
+	// Comment is the comment shown; nil when the application's base is dangling.
+	Comment *Element
+	// Malformed is why the paragraph cannot be shown, "" when it can.
+	Malformed string
+	// Placed reports whether siblingId named a paragraph of the same view,
+	// which this one then follows; false also when siblingId is empty.
+	Placed bool
 }
 
 // DocGenStep is one node of a DocGen activity chain: a collect, filter or
@@ -111,7 +128,7 @@ func (e *Element) DocGen() *Stereotype {
 func (m *Model) readDocuments() {
 	r := &docGenReader{m: m, comments: map[string][]*Stereotype{}}
 	for _, s := range m.Stereotypes {
-		if s.Namespace == DocGenCollaboratorNS && s.Base != nil && s.Base.Type == "Comment" {
+		if s.Namespace == DocGenCollaboratorNS && s.Name == "CollaboratorParagraph" {
 			owner := s.Tag("ownerId")
 			r.comments[owner] = append(r.comments[owner], s)
 		}
@@ -125,7 +142,7 @@ func (m *Model) readDocuments() {
 			continue
 		}
 		seen[s.Base] = true
-		doc := &DocGenDocument{Class: s.Base}
+		doc := &DocGenDocument{Class: s.Base, Application: s}
 		doc.Root = r.view(s.Base, nil, map[*Element]bool{}, true)
 		m.Documents = append(m.Documents, doc)
 	}
@@ -154,7 +171,7 @@ func isDocGenView(e *Element) bool {
 // entered twice.
 func (r *docGenReader) view(class, p *Element, path map[*Element]bool, recurse bool) *DocGenView {
 	m := r.m
-	v := &DocGenView{Class: class, Collaborator: r.comments[class.ID]}
+	v := &DocGenView{Class: class, Paragraphs: r.paragraphs(class)}
 	path[class] = true
 	defer delete(path, class)
 	for _, g := range class.Owned("generalization") {
@@ -191,6 +208,70 @@ func (r *docGenReader) view(class, p *Element, path map[*Element]bool, recurse b
 	}
 	return v
 }
+
+// paragraphs reads the collaborator paragraphs placed in a view: in
+// application order, each moved behind the paragraph its siblingId names.
+func (r *docGenReader) paragraphs(class *Element) []*DocGenParagraph {
+	apps := r.comments[class.ID]
+	if len(apps) == 0 {
+		return nil
+	}
+	byComment := map[string]*DocGenParagraph{}
+	var out []*DocGenParagraph
+	for _, s := range apps {
+		p := &DocGenParagraph{Application: s, Comment: s.Base}
+		switch {
+		case s.Base == nil:
+			p.Malformed = fmt.Sprintf("base_Element %q names no element", s.BaseID)
+		case s.Base.Type != "Comment":
+			p.Malformed = fmt.Sprintf("base_Element names a %s, not a Comment", s.Base.Type)
+		case s.Tag("property") != "" && s.Tag("property") != collaboratorBody:
+			p.Malformed = fmt.Sprintf("property %q is not the comment body", s.Tag("property"))
+		}
+		if s.BaseID != "" {
+			byComment[s.BaseID] = p
+		}
+		out = append(out, p)
+	}
+	followers := map[*DocGenParagraph][]*DocGenParagraph{}
+	var heads []*DocGenParagraph
+	for _, p := range out {
+		after := byComment[p.Application.Tag("siblingId")]
+		if after == nil || after == p {
+			heads = append(heads, p)
+			continue
+		}
+		p.Placed = true
+		followers[after] = append(followers[after], p)
+	}
+	ordered := make([]*DocGenParagraph, 0, len(out))
+	placed := map[*DocGenParagraph]bool{}
+	var place func(p *DocGenParagraph)
+	place = func(p *DocGenParagraph) {
+		if placed[p] {
+			return
+		}
+		placed[p] = true
+		ordered = append(ordered, p)
+		for _, f := range followers[p] {
+			place(f)
+		}
+	}
+	for _, p := range heads {
+		place(p)
+	}
+	// Paragraphs only reachable through a siblingId cycle keep document order.
+	for _, p := range out {
+		if !placed[p] {
+			p.Placed = false
+			place(p)
+		}
+	}
+	return ordered
+}
+
+// collaboratorBody is the property tag naming the comment body.
+const collaboratorBody = "META:QPROP:Element:body"
 
 // composite reports whether a property is a composite end.
 func composite(p *Element) bool { return p.Attrs["aggregation"] == "composite" }

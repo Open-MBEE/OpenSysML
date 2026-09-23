@@ -14,6 +14,8 @@ type typeFilter struct {
 	classifiers []*sysmlv1.Element
 	// types are the v2 metaclass names a row must conform to one of.
 	types []string
+	// metadata is the written metadata def of a user stereotype rows carry.
+	metadata string
 	// all is set when the type admits every migrated element.
 	all bool
 	// note says why the filter is only an approximation; refused why it has
@@ -223,7 +225,10 @@ func (m *migration) typeFilter(ref sysmlv1.ElementRef) typeFilter {
 		if t, ok := stereotypeTypes[e.Name]; ok && m.isLibrary(e) && libraryRoots[pathRoot(qualifiedName(e))] {
 			return fromTypes("«"+e.Name+"»", t)
 		}
-		return typeFilter{label: "«" + e.Name + "»", refused: "«" + e.Name + "» is a user stereotype, which is not written as a metadata def rows could be filtered by"}
+		if m.userStereotype(e) && m.written(e) {
+			return typeFilter{label: "«" + e.Name + "»", metadata: m.plainName(e)}
+		}
+		return typeFilter{label: "«" + e.Name + "»", refused: "«" + e.Name + "» is not written as a metadata def rows could be filtered by"}
 	}
 	if !m.written(e) {
 		return typeFilter{label: qualifiedName(e), refused: "the element type " + kindOf(e) + " " + qualifiedName(e) + " is not migrated"}

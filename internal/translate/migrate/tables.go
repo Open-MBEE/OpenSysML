@@ -297,7 +297,7 @@ func (m *migration) typedRows(src qx, types []sysmlv1.ElementRef, subtypes, indi
 	}
 	rows := src
 	if !typesAdmitAll(filters, l) {
-		var names []string
+		var qs []qx
 		seen := map[string]bool{}
 		for _, f := range filters {
 			switch {
@@ -308,29 +308,26 @@ func (m *migration) typedRows(src qx, types []sysmlv1.ElementRef, subtypes, indi
 				l.note("elements of type " + f.label + " are not listed: " + f.refused)
 				continue
 			case len(f.classifiers) > 0:
-				if f.note != "" {
-					l.note(f.note)
-				}
+				l.note(f.note)
 				for _, c := range f.classifiers {
-					names = append(names, m.plainName(c))
+					qs = append(qs, whereType(src, m.plainName(c)))
 				}
+				continue
+			case f.metadata != "":
+				qs = append(qs, qcall("WhereMetadata", qarg1("source", src), qarg1("'metadata'", qstr(f.metadata))))
 				continue
 			}
 			l.note(f.note)
 			for _, typ := range f.types {
 				if !seen[typ] {
 					seen[typ] = true
-					names = append(names, typ)
+					qs = append(qs, whereType(src, typ))
 				}
 			}
 		}
-		if len(names) == 0 {
+		if len(qs) == 0 {
 			l.refuse("none of the element types has a v2 form rows could be filtered by")
 			return src
-		}
-		var qs []qx
-		for _, name := range names {
-			qs = append(qs, whereType(src, name))
 		}
 		rows = union(qs)
 	}
