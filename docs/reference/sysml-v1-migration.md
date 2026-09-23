@@ -348,8 +348,8 @@ Geometry is written only for what the view exposes: a placement whose element re
 `expose` the view carries, a route whose connector's element does — a named member connection, say,
 not an anonymous `connect a to b;`. Everything else is counted, not dropped: the report's `layout`
 summary section and each diagram's note say how many shown elements were positioned, how many were
-not exposed, and how many resolved to no element; an export record matching no diagram of the model
-and each malformed record is an `unmapped` report row; a presentation property `DiagramLayout` has
+not exposed, and how many resolved to no element; an export record matching no diagram of the model,
+or one the migration does not write as a view, and each malformed record is an `unmapped` report row; a presentation property `DiagramLayout` has
 no attribute for (a color, a font, an image) is counted by tag and dropped rather than invented.
 Views the export does not cover are a normal case of export scope and are reported as a count. A
 `-layout` file exported from a different project — no record joins — refuses with the mismatch

@@ -10,6 +10,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -174,10 +175,14 @@ func diagram(n *node) (*Diagram, bool) {
 		return nil, false
 	}
 	d := &Diagram{
-		ID:          n.child("id").textOf("cameo"),
 		Type:        n.textOf("type"),
 		Name:        recordName(n),
 		Unsupported: map[string]int{},
+	}
+	if id := n.child("id"); id != nil {
+		d.ID = id.textOf("cameo")
+	} else {
+		d.Malformed = append(d.Malformed, "the diagram record has no <id>")
 	}
 	if elements != nil {
 		for i, el := range keyed(elements.children) {
@@ -210,10 +215,11 @@ func recordName(n *node) string {
 	return ""
 }
 
-// number parses a bound or coordinate; empty is a missing one.
+// number parses a bound or coordinate; empty is a missing one, and a
+// non-finite value is malformed rather than an invalid token written out.
 func number(n *node) (float64, bool) {
 	v, err := strconv.ParseFloat(strings.TrimSpace(n.text), 64)
-	return v, err == nil
+	return v, err == nil && !math.IsNaN(v) && !math.IsInf(v, 0)
 }
 
 // unsupported counts every relationship_metadata child that is not a known tag.

@@ -158,6 +158,7 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		layoutSource: opts.LayoutSource,
 		layoutByID:   map[string]*mtip.Diagram{},
 		diagramIDs:   map[string]bool{},
+		layoutJoined: map[string]bool{},
 	}
 	if opts.Layout != nil {
 		m.layoutSummary = &LayoutSummary{
@@ -172,15 +173,8 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 			m.layoutByID[opts.Layout.Diagrams[i].ID] = &opts.Layout.Diagrams[i]
 		}
 		for i := range model.Diagrams {
-			id := model.Diagrams[i].ID
-			m.diagramIDs[id] = true
-			if m.layoutByID[id] != nil {
-				m.layoutSummary.DiagramsJoined++
-			} else {
-				m.layoutSummary.ViewsWithoutLayout++
-			}
+			m.diagramIDs[model.Diagrams[i].ID] = true
 		}
-		m.layoutSummary.DiagramsUnmatched = m.layoutSummary.Diagrams - m.layoutSummary.DiagramsJoined
 		m.layoutSummary.Malformed = 0
 		for i := range opts.Layout.Diagrams {
 			m.layoutSummary.Malformed += len(opts.Layout.Diagrams[i].Malformed)
@@ -371,11 +365,13 @@ type migration struct {
 	monteCarlo map[*sysmlv1.Element]*monteCarloCase
 	// layout is the MTIP export augmenting the migration, nil without one;
 	// layoutByID indexes its diagram records by id, diagramIDs the model's
-	// diagrams, and layoutSummary the report's layout account.
+	// diagrams, layoutJoined the records a written view laid out, and
+	// layoutSummary the report's layout account.
 	layout        *mtip.Export
 	layoutSource  string
 	layoutByID    map[string]*mtip.Diagram
 	diagramIDs    map[string]bool
+	layoutJoined  map[string]bool
 	layoutSummary *LayoutSummary
 	// rules memoizes how each constraint block's anonymous rule is written.
 	rules map[*sysmlv1.Element]ruleForm

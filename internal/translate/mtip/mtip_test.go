@@ -220,3 +220,41 @@ func TestNotWellFormedFails(t *testing.T) {
 		t.Error("expected an error for truncated XML")
 	}
 }
+
+// A diagram record with no <id> keeps its geometry and records the missing id.
+func TestDiagramRecordWithoutID(t *testing.T) {
+	rec := `<data>
+  <relationships _dtype="dict">` + elementList(placement("0", "_e1", "sysml.State", bounds("-10", "-40", "5", "25"))) + `</relationships>
+  <type _dtype="str">sysml.StateMachineDiagram</type>
+</data>`
+	ex := parse(t, huds(rec))
+	if len(ex.Diagrams) != 1 {
+		t.Fatalf("diagrams: %d", len(ex.Diagrams))
+	}
+	d := ex.Diagrams[0]
+	if d.ID != "" {
+		t.Errorf("id: %q", d.ID)
+	}
+	if len(d.Malformed) != 1 || d.Malformed[0] != "the diagram record has no <id>" {
+		t.Errorf("malformed: %v", d.Malformed)
+	}
+	if len(d.Placements) != 1 || d.Placements[0].ID != "_e1" {
+		t.Errorf("placements: %+v", d.Placements)
+	}
+}
+
+// A bound or coordinate that parses but is not finite is malformed, not
+// written out as an invalid token.
+func TestNonFiniteNumbersAreMalformed(t *testing.T) {
+	for _, bad := range []string{"NaN", "+Inf", "-Inf"} {
+		ex := parse(t, huds(named("D", dataRecord("_d", "sysml.BlockDefinitionDiagram",
+			elementList(placement("0", "_e1", "sysml.Block", bounds(bad, "-40", "5", "25")))))))
+		d := ex.Diagrams[0]
+		if len(d.Placements) != 0 {
+			t.Errorf("%s: placements %+v", bad, d.Placements)
+		}
+		if len(d.Malformed) != 1 {
+			t.Errorf("%s: malformed %v", bad, d.Malformed)
+		}
+	}
+}

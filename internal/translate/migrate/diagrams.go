@@ -487,10 +487,13 @@ func (m *migration) viewGeometry(v *view, x exposures) viewGeometry {
 		return viewGeometry{}
 	}
 	rec := m.layoutByID[v.d.ID]
+	s := m.layoutSummary
 	if rec == nil {
+		s.ViewsWithoutLayout++
 		return viewGeometry{}
 	}
-	s := m.layoutSummary
+	s.DiagramsJoined++
+	m.layoutJoined[rec.ID] = true
 	exposed := map[string]bool{}
 	for _, ref := range x.refs {
 		exposed[ref] = true
@@ -624,20 +627,26 @@ func layoutNumber(v float64) string {
 }
 
 // layoutReport finishes the report's layout account: a row per export record
-// that matched no diagram of the model and per malformed record, then the
-// summary itself.
+// that matched no written view — no diagram of the model, or one the migration
+// does not write a view for — and per malformed record, then the summary itself.
 func (m *migration) layoutReport() {
 	if m.layout == nil {
 		return
 	}
+	s := m.layoutSummary
 	for i := range m.layout.Diagrams {
 		rec := &m.layout.Diagrams[i]
-		if !m.diagramIDs[rec.ID] {
+		switch {
+		case !m.diagramIDs[rec.ID]:
+			s.DiagramsUnmatched++
 			m.report.Entries = append(m.report.Entries, Entry{ID: rec.ID, Kind: "Layout", Name: rec.Name, Verdict: Unmapped, Note: "matches no diagram of the model"})
+		case !m.layoutJoined[rec.ID]:
+			s.DiagramsUnmatched++
+			m.report.Entries = append(m.report.Entries, Entry{ID: rec.ID, Kind: "Layout", Name: rec.Name, Verdict: Unmapped, Note: "matches a diagram the migration does not write as a view"})
 		}
 		for _, problem := range rec.Malformed {
 			m.report.Entries = append(m.report.Entries, Entry{ID: rec.ID, Kind: "Layout", Name: rec.Name, Verdict: Unmapped, Note: problem})
 		}
 	}
-	m.report.Layout = m.layoutSummary
+	m.report.Layout = s
 }

@@ -135,3 +135,72 @@ func TestLayoutSummary(t *testing.T) {
 		t.Errorf("layout entries: %d, want one per unmatched record and one per malformed record", unmapped)
 	}
 }
+
+// A record joining a diagram the migration does not write as a view — its host
+// is written without a body — lays out nothing, and the summary counts it as
+// unmatched rather than joined.
+func TestLayoutDiagramWithoutWrittenView(t *testing.T) {
+	xmi := `<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:diagram="http://www.example.com/tool/diagram">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg" name="P">
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_wheel" name="Wheel"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_vehicle" name="Vehicle">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_w" name="wheel" type="_blk_wheel"/>
+        <ownedConnector xmi:type="uml:Connector" xmi:id="_conn" name="drive">
+          <end xmi:type="uml:ConnectorEnd" xmi:id="_ce_1" role="_prop_w"/>
+          <end xmi:type="uml:ConnectorEnd" xmi:id="_ce_2" role="_prop_w"/>
+        </ownedConnector>
+      </packagedElement>
+    </packagedElement>
+    <xmi:Extension extender="Example UML Tool 1.0">
+      <modelExtension>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_unhosted" name="Drive Internals" ownerOfDiagram="_conn">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Internal Block Diagram" umlType="Composite Structure Diagram">
+                <diagramContents><usedElements>_blk_wheel</usedElements></diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+      </modelExtension>
+    </xmi:Extension>
+  </uml:Model>
+  <sysml:Block xmi:id="_s_wheel2" base_Class="_blk_wheel"/>
+  <sysml:Block xmi:id="_s_wheel" base_Class="_blk_wheel"/>
+</xmi:XMI>`
+	layout := &mtip.Export{Diagrams: []mtip.Diagram{{
+		ID:          "_diag_unhosted",
+		Name:        "Drive Internals",
+		Placements:  []mtip.Placement{{ID: "_blk_wheel", X: 10, Y: 20, Width: 100, Height: 40}},
+		Unsupported: map[string]int{},
+	}}}
+	r, err := migrate.MigrateOptions("unhosted.xmi", []byte(xmi), migrate.Options{Layout: layout, LayoutSource: "unhosted.xml"})
+	if err != nil {
+		t.Fatalf("MigrateOptions: %v", err)
+	}
+	l := r.Report.Layout
+	if l == nil {
+		t.Fatal("no layout summary")
+	}
+	if l.Diagrams != 1 || l.DiagramsJoined != 0 || l.DiagramsUnmatched != 1 {
+		t.Errorf("diagrams: %+v", l)
+	}
+	var row *migrate.Entry
+	for i := range r.Report.Entries {
+		e := &r.Report.Entries[i]
+		if e.Kind == "Layout" {
+			row = e
+		}
+	}
+	if row == nil || row.ID != "_diag_unhosted" || row.Note != "matches a diagram the migration does not write as a view" {
+		t.Errorf("layout row: %+v", row)
+	}
+	if strings.Contains(string(r.Notation), "DiagramLayout::") {
+		t.Errorf("notation lays out a view never written:\n%s", r.Notation)
+	}
+}

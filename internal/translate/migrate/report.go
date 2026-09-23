@@ -92,11 +92,13 @@ type LayoutSummary struct {
 	CameoVersion string `json:"cameoVersion,omitempty"`
 	ExportTime   string `json:"exportTime,omitempty"`
 	// Diagrams counts the export's diagram records; DiagramsJoined those whose
-	// id is a migrated diagram's, DiagramsUnmatched those matching none.
+	// diagram's view was written and laid out, DiagramsUnmatched those whose
+	// diagram is not written as a view or matches none — joined + unmatched
+	// always equals Diagrams.
 	Diagrams          int `json:"diagrams"`
 	DiagramsJoined    int `json:"diagramsJoined"`
 	DiagramsUnmatched int `json:"diagramsUnmatched"`
-	// ViewsWithoutLayout counts the migrated diagrams the export does not cover.
+	// ViewsWithoutLayout counts the written views the export does not cover.
 	ViewsWithoutLayout int `json:"viewsWithoutLayout"`
 	// Placements counts the shown elements the export positions;
 	// PlacementsWritten those positioned into a view, PlacementsUnexposed
