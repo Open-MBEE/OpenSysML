@@ -631,9 +631,102 @@ func TestRenderAllMutualExclusions(t *testing.T) {
 	}
 }
 
-func TestRenderFilenameStaysInsideTheDestination(t *testing.T) {
-	if _, err := renderFilename("Package::../../outside", view.FormMermaid); err == nil {
-		t.Fatal("a view name containing a path was accepted as a rendering filename")
+// A view name is a bare filename whatever it contains: `::` reads as `.`, and
+// every byte a filesystem refuses or the encoding needs is `%XX`, so two names
+// never share a file and the name reads back from it.
+func TestRenderFilenameEncodesWhatAFilesystemRefuses(t *testing.T) {
+	cases := []struct{ name, want string }{
+		{"Demo::treeView", "Demo.treeView.mmd"},
+		{"Package::../../outside", "Package.%2E%2E%2F%2E%2E%2Foutside.mmd"},
+		{"Ops::'Acquire Telescope Pointing w/NSEN Logical Actual'", "Ops.'Acquire Telescope Pointing w%2FNSEN Logical Actual'.mmd"},
+		{`Ops::'a\b:c'`, "Ops.'a%5Cb%3Ac'.mmd"},
+		{"Ops::'100% done'", "Ops.'100%25 done'.mmd"},
+		{"Ops::'v1.2'", "Ops.'v1%2E2'.mmd"},
+		{"Ops::'<a>|b?*\"'", "Ops.'%3Ca%3E%7Cb%3F%2A%22'.mmd"},
+		{"Ops::'tab\there'", "Ops.'tab%09here'.mmd"},
+		{"Ops::'nul\x00'", "Ops.'nul%00'.mmd"},
+		{".hidden", "%2Ehidden.mmd"},
+		{"CON", "%43ON.mmd"},
+		{"con::view", "%63on.view.mmd"},
+		{"Ops::CON", "Ops.CON.mmd"},
+		{"Ops::Größe", "Ops.Größe.mmd"},
+	}
+	for _, tc := range cases {
+		got := renderFilename(tc.name, view.FormMermaid)
+		if got != tc.want {
+			t.Errorf("renderFilename(%q) = %q, want %q", tc.name, got, tc.want)
+		}
+		if filepath.Base(got) != got || strings.HasPrefix(got, ".") {
+			t.Errorf("renderFilename(%q) = %q is not a bare filename", tc.name, got)
+		}
+	}
+}
+
+// A name too long for one path component is cut to 255 bytes and tagged with a hash of
+// the whole, at a boundary that splits neither a `%XX` escape nor a UTF-8 sequence.
+func TestRenderFilenameFitsAPathComponent(t *testing.T) {
+	long := "TMT::" + strings.Repeat("'Acquire Telescope Pointing w/NSEN'::", 8)
+	got := renderFilename(long+"first", view.FormDot)
+	if len(got) != maxFilenameBytes || !strings.HasSuffix(got, ".dot") {
+		t.Errorf("renderFilename(long) = %q (%d bytes), want %d ending in .dot", got, len(got), maxFilenameBytes)
+	}
+	if i := strings.LastIndexByte(got, '~'); i < 0 || len(got)-i != 1+2*filenameTagBytes+len(".dot") {
+		t.Errorf("renderFilename(long) = %q lacks a %d-byte hash tag before the extension", got, 2*filenameTagBytes)
+	}
+	if got != renderFilename(long+"first", view.FormDot) {
+		t.Errorf("renderFilename(long) is not deterministic")
+	}
+	if other := renderFilename(long+"second", view.FormDot); other == got {
+		t.Errorf("two long names that differ only past the cut share %q", got)
+	}
+	a := strings.Repeat("a", 230)
+	for _, tc := range []struct{ name, stem string }{
+		{a + "aaaa::" + a, a + "aaaa"},
+		{a + "aa/" + a, a + "aa"},
+		{a + "aaa/" + a, a + "aaa"},
+		{a + "a/" + a, a + "a%2F"},
+		{a + "aaaö" + a, a + "aaa"},
+		{a + "aaö" + a, a + "aaö"},
+	} {
+		got := renderFilename(tc.name, view.FormDot)
+		if len(got) > maxFilenameBytes || !strings.HasPrefix(got, tc.stem+"~") {
+			t.Errorf("renderFilename(%q) = %q (%d bytes), want the stem %q", tc.name, got, len(got), tc.stem)
+		}
+	}
+}
+
+// A view whose name holds a path separator is written beside the others under
+// an encoded filename; the run goes on to the views after it.
+func TestRenderAllEncodesUnsafeViewNames(t *testing.T) {
+	binary := buildCLI(t)
+	const model = `package Demo {
+    part def Vehicle;
+    view 'Acquire Telescope Pointing w/NSEN Logical Actual' {
+        expose Demo::Vehicle;
+        render Views::asTreeDiagram;
+    }
+    view after {
+        expose Demo::Vehicle;
+        render Views::asTreeDiagram;
+    }
+}
+`
+	dir := filepath.Join(t.TempDir(), "rendered")
+	got := runStreams(t, binary, model, "-render-all", dir, "-render-form", "dot")
+	if got.status != exitHolds {
+		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
+	}
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	for _, file := range files {
+		names = append(names, file.Name())
+	}
+	want := []string{"Demo.Acquire Telescope Pointing w%2FNSEN Logical Actual.dot", "Demo.after.dot"}
+	if strings.Join(names, ",") != strings.Join(want, ",") {
+		t.Errorf("files = %v, want %v", names, want)
 	}
 }
 

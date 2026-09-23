@@ -757,7 +757,10 @@ rendering cannot represent \(em go on stderr. Every file named is loaded as
 one model, so a view may expose elements a sibling file declares.
 \-render\-form names the form written \(em text, mermaid, markdown, dot or
 plantuml; by default \-render takes it from the destination and \-render\-all
-writes each kind's machine form. A graph\-shaped rendering is written as a
+writes each kind's machine form, one file per view named by its qualified name
+with :: as . and every byte unsafe in a filename (/, \e, :, ., %, control
+characters, what Windows reserves) as %XX; a name past 255 bytes is cut and
+tagged ~ and a hash of the whole. A graph\-shaped rendering is written as a
 Mermaid diagram by default, as Graphviz DOT with \-render\-form dot and as
 PlantUML with \-render\-form plantuml, which also writes a sequence rendering;
 neither Graphviz nor PlantUML is needed to write them. Both are drawn in the
