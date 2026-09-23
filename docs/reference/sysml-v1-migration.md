@@ -273,6 +273,8 @@ returned over the service yet.
 | Reception whose signal is not written | comment | **unmapped** — the reason names the signal |
 | «Unit», «QuantityKind» instance specifications | comment placeholder | **unmapped** — use the `SI`/`ISQ` libraries |
 | Diagram | `view 'Name' { expose …; render Views::as…; }` in the body of the v2 element written for `ownerOfDiagram`, one `expose` per shown element that is written, the rendering chosen by the diagram's kind (see [Diagrams](#diagrams)) | mapped |
+| Activity diagram of a behavior written as an `action def`; state machine diagram of one written as a `state def` | `view 'Name' : StandardViewDefinitions::ActionFlowView` / `StateTransitionView` exposing the definition, whose graph the rendering draws — its nodes and edges are drawn, not exposed one by one — and the shown elements from elsewhere; rendered `asInterconnectionDiagram` | mapped |
+| ControlFlow, ObjectFlow, Transition, Connector, Dependency, Extend, «Satisfy», «Verify» shown by a diagram and unnamed in v1 | the member is written with a name spelled from its written ends — `succession 'start to call' first start then call;`, `flow 'a.out to b.in' from a.out to b.in;`, `transition 'Wait accept Sig then Run' first Wait accept Sig then Run;`, `connection 'a.p to b.q' connect a.p to b.q;`, `binding 'a.p = b.q' bind a.p = b.q;`, `dependency 'A to B' from A to B;`, `satisfy requirement 'satisfy R' : R;`, `verify requirement 'verify R' : R;` inside a named `objective` — so the view can `expose` it; a name already taken in the body is numbered (`'a to b 2'`); an edge no diagram shows is written as before, anonymous (see [Edges a diagram shows](#edges-a-diagram-shows)) | mapped |
 | Diagram whose owner has no v2 body (a region, a property, an enumeration, an action node, an activity that is inlined), names no owner, or names an id the document does not define | the view is written in the body of the nearest ancestor that has one — the state def a region belongs to, the part def a property is of, the action def (or the operation whose method it is) an action node belongs to, the package, or the document's top level — and the note says where | approximated |
 | Diagram some of whose shown elements are not written (results, tool content, elements nothing refers to, states and action nodes, ids the document does not define), or that shows nothing | the written ones are exposed and the rest dropped, the note counting them; a view exposing nothing is still written, `view 'Name' { render …; }`, which validates | approximated |
 | Diagram named like a member of the body it is written in — a «View» class's `view` usage of the same name in the same package, a state, an action | renamed `Name 2`, `Name 3`… past the taken names | approximated |
@@ -320,10 +322,58 @@ and `umlType` (`Class Diagram`) together — by the first family below a word of
 | a table or matrix: Generic, Instance and Requirement Tables, Dependency and Allocation Matrices, any kind named `… Table`/`… Matrix` | `Views::asElementTable` |
 | internal block, parametric, composite structure and interconnection diagrams | `Views::asInterconnectionDiagram` |
 | block definition, class, package, object, component, deployment, profile and other structure diagrams | `Views::asTreeDiagram` |
-| behavior diagrams (activity, state machine, sequence, use case), requirement, content and free-form diagrams, a tool's own kinds, a diagram naming no kind | `Views::asTextualNotation` |
+| an activity diagram whose owner is written as an `action def`, a state machine (or statechart) diagram whose owner is written as a `state def` | `view : StandardViewDefinitions::ActionFlowView` / `StateTransitionView`, rendered `Views::asInterconnectionDiagram` |
+| other behavior diagrams (sequence, use case, an activity diagram of a package), requirement, content and free-form diagrams, a tool's own kinds, a diagram naming no kind | `Views::asTextualNotation` |
 
-The rendering is written `$::Views::…` where a member named `Views` would shadow the library, and a
+The rendering is written `$::Views::…` where a member named `Views` would shadow the library, a
+view definition `$::StandardViewDefinitions::…` where one named `StandardViewDefinitions` would, and a
 shown primitive is exposed as `$::ScalarValues::…` where a member named `ScalarValues` would.
+
+A typed graph view exposes the definition whose graph it draws — the `action def` or `state def`
+the diagram's owner, or the owner's nearest behavior ancestor (a region, an action node, a
+composite state) is written in — in place of the shown nodes and edges of that graph, which the
+rendering draws from the definition's body; shown elements from elsewhere (a block a swimlane
+represents, a signal) are exposed as in any view. The note names the definition and counts the
+nodes and edges drawn.
+
+#### Edges a diagram shows
+
+A view can only `expose` a member, and the migrator writes most edges anonymously — `first a then
+b;`, `flow a.out to b.in;`, `transition first S accept Sig then T;`, `connect a to b;` — so a
+diagram drawing one had nothing to name, and an MTIP route (below) nothing to attach to. An edge at
+least one diagram shows is therefore written as a named member, its v1 name when it has one and
+otherwise a name spelled from what it is written between, in the body it is written in:
+
+| v1 edge shown by a diagram | named member |
+|---|---|
+| ControlFlow | `succession 'a to b' first a then b;` (`'start to b'` from an initial node, `if g` after the source as before); a decision's `else` branch, which v2 admits no name for, stays anonymous and is reported so |
+| ObjectFlow between pins | `flow 'a.out to b.in' from a.out to b.in;`; several edges carrying one producer–pin pair share the one member |
+| ObjectFlow at a parameter | `binding 'p = a.out' bind p = a.out;` — exposable, but an `ActionFlowView` draws neither the parameter nor the binding, so its route is reported `not drawn` |
+| Transition | `transition 'S accept Sig then T' first S accept Sig then T;` — the trigger, guard and target as written, the payload binding left out of the name; several triggers are several transitions of the one name |
+| Connector | `connection 'a.p to b.q' connect a.p to b.q;` |
+| BindingConnector, delegation connector | `binding 'a.p = b.q' bind a.p = b.q;` |
+| Dependency, Extend | `dependency 'A to B' from A to B;` (`allocation` for an «Allocate») |
+| «Satisfy» | `satisfy requirement 'satisfy R' : R;` in the satisfying usage's owner |
+| «Verify» | `verify requirement 'verify R' : R;` in the test case's `objective`, which is named `objective` so the member can be qualified |
+| Include, Message | already named members: `include use case x : X;`, the interaction step `action x …` |
+
+The name is a spelling, not a value: it derives from the ends' written names, never from ids or
+hashes, so it is stable across runs and readable in the view (`expose 'Wait accept QueryCompleted
+then Retrieve Segment Config';`). A name the body already holds is numbered past the taken ones,
+`'a to b 2'`, by the same helpers that dedupe every other member. An edge no diagram shows is
+written as before, anonymous, so naming changes nothing in a model without diagrams; and naming
+reads only the model's diagrams, never `-layout`, so the notation is the same with or without an
+MTIP export. What a view can expose, anything can refer to: a state, a parallel state standing
+for a region, and a transition written under its v1 name are members a qualified name reaches, so
+a comment annotating one now says `about` it, diagrams or not. Naming an edge leaves it `mapped`:
+the element is unchanged, and the report's target column now names the member.
+
+Edges with no v2 member of their own are not given one: a Generalization or InterfaceRealization
+is a `:>` clause or a port's conjugation, a Composition, Aggregation or Association between blocks
+is the `part`/`ref` end usage, a constraint or information flow edge nothing realizes is not
+written, and a decision's `else` branch or an initial transition is a clause of the node it leaves,
+not a member. Their placements on a diagram expose the ends as before; their routes are reported
+(below), not attached to a member that is not an edge.
 
 #### Layout from an MTIP export
 
@@ -344,11 +394,21 @@ left, and a connector's waypoints source to target — client point, breakpoints
 point. `@DiagramLayout::Canvas { unit = "px"; width; height; }` sizes the canvas by the bounding
 box of what the view writes, and is omitted when nothing is.
 
-Geometry is written only for what the view exposes: a placement whose element resolves and whose
-`expose` the view carries, a route whose connector's element does — a named member connection, say,
-not an anonymous `connect a to b;`. Everything else is counted, not dropped: the report's `layout`
+Geometry is written only for what the view draws: a placement whose element resolves and whose
+`expose` the view carries, or which the graph a typed view exposes draws as a node (a state's
+inline `entry`, `do` or `exit` action is listed inside the state's node, so its placement is
+counted as not exposed rather than pinned to a node the rendering never draws); a route whose
+connector's element is written as a named member (see [Edges a diagram shows](#edges-a-diagram-shows))
+that the view exposes, or that its graph draws, *and* that the view's rendering draws as an edge —
+a succession or flow in an `ActionFlowView`, a transition in a `StateTransitionView`, a connection
+or binding `asInterconnectionDiagram`. A route for an edge the rendering does not draw (a dependency,
+satisfy or include on a tree diagram, a message step) is not written: the geometry would pin
+nothing. Everything else is counted, not dropped: the report's `layout`
 summary section and each diagram's note say how many shown elements were positioned, how many were
-not exposed, and how many resolved to no element; an export record matching no diagram of the model,
+not exposed, and how many resolved to no element; the routes are itemized by the connector's v1 kind
+and what became of each — `written`, `no v2 member`, `not written`, `unnamed`, `not drawn`,
+`not exposed`, `duplicate`, `dangling` — in the report (`# routes of Transition: 2 written`) and
+the results sidecar's `routesByKind`; an export record matching no diagram of the model,
 or one the migration does not write as a view, and each malformed record is an `unmapped` report row; a presentation property `DiagramLayout` has
 no attribute for (a color, a font, an image) is counted by tag and dropped rather than invented.
 Views the export does not cover are a normal case of export scope and are reported as a count. A

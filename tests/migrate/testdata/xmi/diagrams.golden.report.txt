@@ -1,39 +1,37 @@
 # SysML v1 to v2 migration report: diagrams.xmi
 # exported by Example UML Tool
-# migrated 62 element(s): 43 mapped, 19 approximated, 0 unmapped (2 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 62 element(s): 46 mapped, 16 approximated, 0 unmapped (2 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
-## approximated (19)
-Diagram	Behavior::Drive::Drive Flow	_diag_act	-> Behavior::Drive::'Drive Flow'	(a SysML Activity Diagram written as a view rendered asTextualNotation; 4 of 5 shown elements are not written and not exposed)
+## approximated (16)
 OpaqueAction	Behavior::Drive::start engine	_act_start	-> 'start engine'	(the body is kept as a comment: the name "running" resolves to nothing readable: nothing visible from Behavior::Drive::start engine is called running)
-Diagram	Behavior::Drive::start engine	_diag_act_node	-> Behavior::Drive::'start engine 2'	(a SysML Activity Diagram written as a view rendered asTextualNotation; written as start engine 2 since a member of its owner is also named start engine)
-Diagram	Behavior::Modes::<Region>::Idle	_diag_stm	-> Behavior::Modes::'Idle 2'	(a SysML State Machine Diagram written as a view rendered asTextualNotation; its owner Region Behavior::Modes::<Region> has no v2 body; written in state def Behavior::Modes; written as Idle 2 since a member of its owner is also named Idle; none of the 3 shown elements is written; the view exposes nothing; 3 of 3 shown elements are not written and not exposed)
+Diagram	Behavior::Drive::start engine	_diag_act_node	-> Behavior::Drive::'start engine 2'	(a SysML Activity Diagram written as a view rendered asInterconnectionDiagram of ActionFlowView; the view exposes action def Behavior::Drive, whose graph the rendering draws with the 1 shown nodes and edges of it; written as start engine 2 since a member of its owner is also named start engine)
+Diagram	Behavior::Modes::<Region>::Idle	_diag_stm	-> Behavior::Modes::'Idle 2'	(a SysML State Machine Diagram written as a view rendered asInterconnectionDiagram of StateTransitionView; the view exposes state def Behavior::Modes, whose graph the rendering draws with the 3 shown nodes and edges of it; its owner Region Behavior::Modes::<Region> has no v2 body; written in state def Behavior::Modes; written as Idle 2 since a member of its owner is also named Idle)
 «Expose» Dependency	Reports::<Dependency>	_expose_fleet	(written as 2 relationships, one per client–supplier pair)
 Diagram	Reports::Fleet	_diag_fleet	-> Reports::'Fleet 2'	(a SysML Package Diagram written as a view rendered asTreeDiagram; written as Fleet 2 since a member of its owner is also named Fleet)
 Diagram	Structure::Engine	_diag_custom	-> Structure::'Engine 2'	(a Team Review Diagram written as a view rendered asTextualNotation; written as Engine 2 since a member of its owner is also named Engine)
-Diagram	Structure::Engine::Cranking::Cranking	_diag_cranking	-> Structure::Engine::Crank::Cranking	(a SysML Activity Diagram written as a view rendered asTextualNotation; its owner Activity Structure::Engine::Cranking is written as the body of action def Structure::Engine::Crank, whose method it is; 1 of 3 shown elements are not written and not exposed)
 OpaqueAction	Structure::Engine::Cranking::ignite	_crank_ignite	-> ignite	(the body is kept as a comment: the name "ignited" resolves to nothing readable: nothing visible from Structure::Engine::Cranking::ignite is called ignited)
-Diagram	Structure::Engine::Cranking::ignite::Ignition	_diag_ignite	-> Structure::Engine::Crank::Ignition	(a SysML Activity Diagram written as a view rendered asTextualNotation; its owner OpaqueAction Structure::Engine::Cranking::ignite has no v2 body; written in action def Structure::Engine::Crank; 1 of 2 shown elements are not written and not exposed)
+Diagram	Structure::Engine::Cranking::ignite::Ignition	_diag_ignite	-> Structure::Engine::Crank::Ignition	(a SysML Activity Diagram written as a view rendered asInterconnectionDiagram of ActionFlowView; the view exposes action def Structure::Engine::Crank, whose graph the rendering draws with the 2 shown nodes and edges of it; its owner OpaqueAction Structure::Engine::Cranking::ignite has no v2 body; written in action def Structure::Engine::Crank)
 OpaqueBehavior	Structure::Engine::Halting	_ob_halting	-> Structure::Engine::Halt	(written as the body of the operation Structure::Engine::Halt, whose method it is; the body is kept as a comment: the name "ignited" resolves to nothing readable: nothing visible from Structure::Engine::Halt is called ignited)
 Diagram	Structure::Vehicle Structure	_diag_bdd	-> Structure::'Vehicle Structure'	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; 2 of 10 shown elements are not written and not exposed)
 Diagram	Structure::Vehicle Structure	_diag_pkg	-> Structure::'Vehicle Structure 2'	(a SysML Package Diagram written as a view rendered asTreeDiagram; written as Vehicle Structure 2 since a member of its owner is also named Vehicle Structure)
-Diagram	Structure::Vehicle::Vehicle Internals	_diag_ibd	-> Structure::Vehicle::'Vehicle Internals'	(a SysML Internal Block Diagram written as a view rendered asInterconnectionDiagram; 1 of 5 shown elements are not written and not exposed)
 Diagram	Structure::Vehicle::engine::Engine Matrix	_diag_matrix	-> Structure::Vehicle::'Engine Matrix'	(a Dependency Matrix written as a view rendered asElementTable; its owner Property Structure::Vehicle::engine has no v2 body; written in part def Structure::Vehicle)
 Property	Usage::<Association>::<Property>	_end_uc	-> Usage::'Drive Vehicle'::driver	(the end at the use case is the use case def the actor is declared in)
 Comment	Usage::<Comment>	_cmt_drives	(the comment also annotates (_assoc_driver), which has no v2 declaration in the document and is not written as a subject)
 Actor	Usage::Driver	_actor_driver	-> Usage::Driver	(a UML actor is written as a part def)
 Diagram	Usage::Driving	_diag_usage	-> Usage::Driving	(a SysML Use Case Diagram written as a view rendered asTextualNotation; 1 of 5 shown elements are not written and not exposed)
 
-## mapped (43)
+## mapped (46)
 Package	Behavior	_pkg_behavior	-> Behavior
 Activity	Behavior::Drive	_act_drive	-> Behavior::Drive
 ActivityFinalNode	Behavior::Drive::<ActivityFinalNode>	_final	-> final
-ControlFlow	Behavior::Drive::<ControlFlow>	_f2
+ControlFlow	Behavior::Drive::<ControlFlow>	_f2	-> Behavior::Drive::'start engine to final'
 InitialNode	Behavior::Drive::<InitialNode>	_init	-> start
+Diagram	Behavior::Drive::Drive Flow	_diag_act	-> Behavior::Drive::'Drive Flow'	(a SysML Activity Diagram written as a view rendered asInterconnectionDiagram of ActionFlowView; the view exposes action def Behavior::Drive, whose graph the rendering draws with the 5 shown nodes and edges of it)
 StateMachine	Behavior::Modes	_sm_modes	-> Behavior::Modes
 Region	Behavior::Modes::<Region>	_sm_region	(the one region is written as the body of its owner)
 Pseudostate	Behavior::Modes::<Region>::<Pseudostate>	_sm_init	(written as the entry of the region)
 Transition	Behavior::Modes::<Region>::<Transition>	_t_init
-Transition	Behavior::Modes::<Region>::<Transition>	_t_run
+Transition	Behavior::Modes::<Region>::<Transition>	_t_run	-> Behavior::Modes::'Idle then Running'
 State	Behavior::Modes::<Region>::Idle	_st_idle	-> Idle
 State	Behavior::Modes::<Region>::Running	_st_running	-> Running
 Diagram	Block Table	_diag_table	-> 'Block Table'	(a Generic Table written as a view rendered asElementTable)
@@ -52,13 +50,15 @@ Property	Structure::Engine::<Property>	_prop_anon	-> Structure::Engine::wheel
 Operation	Structure::Engine::Crank	_op_crank	-> Structure::Engine::Crank	(its owner's usage crank performs it, as a call on an object does)
 Activity	Structure::Engine::Cranking	_act_cranking	-> Structure::Engine::Crank	(written as the body of the operation Structure::Engine::Crank, whose method it is)
 ActivityFinalNode	Structure::Engine::Cranking::<ActivityFinalNode>	_crank_final	-> final
-ControlFlow	Structure::Engine::Cranking::<ControlFlow>	_crank_f2
+ControlFlow	Structure::Engine::Cranking::<ControlFlow>	_crank_f2	-> Structure::Engine::Crank::'ignite to final'
 InitialNode	Structure::Engine::Cranking::<InitialNode>	_crank_init	-> start
+Diagram	Structure::Engine::Cranking::Cranking	_diag_cranking	-> Structure::Engine::Crank::Cranking	(a SysML Activity Diagram written as a view rendered asInterconnectionDiagram of ActionFlowView; its owner Activity Structure::Engine::Cranking is written as the body of action def Structure::Engine::Crank, whose method it is; the view exposes action def Structure::Engine::Crank, whose graph the rendering draws with the 2 shown nodes and edges of it)
 Operation	Structure::Engine::Halt	_op_halt	-> Structure::Engine::Halt	(its owner's usage halt performs it, as a call on an object does)
-Diagram	Structure::Engine::Halting::Halting	_diag_halting	-> Structure::Engine::Halt::Halting	(a SysML Activity Diagram written as a view rendered asTextualNotation; its owner OpaqueBehavior Structure::Engine::Halting is written as the body of action def Structure::Engine::Halt, whose method it is)
+Diagram	Structure::Engine::Halting::Halting	_diag_halting	-> Structure::Engine::Halt::Halting	(a SysML Activity Diagram written as a view rendered asInterconnectionDiagram of ActionFlowView; its owner OpaqueBehavior Structure::Engine::Halting is written as the body of action def Structure::Engine::Halt, whose method it is; the view exposes action def Structure::Engine::Halt, whose graph the rendering draws)
 Property	Structure::Engine::power	_prop_power	-> Structure::Engine::power
 «Block» Class	Structure::Vehicle	_blk_vehicle	-> Structure::Vehicle
-Connector	Structure::Vehicle::<Connector>	_conn_drive
+Connector	Structure::Vehicle::<Connector>	_conn_drive	-> Structure::Vehicle::'engine to wheel'
+Diagram	Structure::Vehicle::Vehicle Internals	_diag_ibd	-> Structure::Vehicle::'Vehicle Internals'	(a SysML Internal Block Diagram written as a view rendered asInterconnectionDiagram)
 Property	Structure::Vehicle::engine	_prop_engine	-> Structure::Vehicle::engine
 Property	Structure::Vehicle::mass	_prop_mass	-> Structure::Vehicle::mass
 Property	Structure::Vehicle::wheel	_prop_wheel	-> Structure::Vehicle::wheel

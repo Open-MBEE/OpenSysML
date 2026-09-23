@@ -35,7 +35,7 @@ func TestBehaviorMembersUnwritten(t *testing.T) {
 			   <language>JavaScript</language><body>x = 1; y = 2;</body>` + rule("_r", "keep") + `
 			 </packagedElement>`,
 			[]string{"_r"}, nil, 0,
-			[]string{"action def Halt {\n    view Rules {\n        expose Halt;\n        render Views::asTextualNotation;\n    }\n    /* not migrated: Constraint 'keep' — owned by a OpaqueBehavior, whose v2 body is its parameters and code, not a place for a Constraint */"}},
+			[]string{"action def Halt {\n    view Rules : StandardViewDefinitions::ActionFlowView {\n        expose Halt;\n        render Views::asInterconnectionDiagram;\n    }\n    /* not migrated: Constraint 'keep' — owned by a OpaqueBehavior, whose v2 body is its parameters and code, not a place for a Constraint */"}},
 		{"a function behavior has no place for a constraint",
 			`<packagedElement xmi:type="uml:FunctionBehavior" xmi:id="_b" name="Square">
 			   <language>JavaScript</language><body>1;</body>` + rule("_r", "keep") + `
@@ -50,7 +50,7 @@ func TestBehaviorMembersUnwritten(t *testing.T) {
 			   </ownedBehavior>
 			 </packagedElement>`,
 			[]string{"_r"}, nil, 0,
-			[]string{"action def Shut {\n        view Rules {\n            expose Shut;\n            render Views::asTextualNotation;\n        }\n        /* not migrated: Constraint 'keep' — owned by a OpaqueBehavior"}},
+			[]string{"action def Shut {\n        view Rules : StandardViewDefinitions::ActionFlowView {\n            expose Shut;\n            render Views::asInterconnectionDiagram;\n        }\n        /* not migrated: Constraint 'keep' — owned by a OpaqueBehavior"}},
 		{"an interaction written as a scenario has no place for an attribute",
 			`<packagedElement xmi:type="uml:Signal" xmi:id="_go" name="Go"/>
 			 <packagedElement xmi:type="uml:Class" xmi:id="_rig" name="Rig">
@@ -64,14 +64,14 @@ func TestBehaviorMembersUnwritten(t *testing.T) {
 			   </ownedBehavior>
 			 </packagedElement>`,
 			[]string{"_p"}, nil, 0,
-			[]string{"action def Spin {\n        view Rules {\n            expose Spin;\n            render Views::asTextualNotation;\n        }\n        /* not migrated: Property 'p' — owned by a Interaction, whose v2 body is its parameters and scenario steps, not a place for a Property */\n        action go send new Go() to this.ctrl;"}},
+			[]string{"action def Spin {\n        view Rules : StandardViewDefinitions::ActionFlowView {\n            expose Spin;\n            render Views::asInterconnectionDiagram;\n        }\n        /* not migrated: Property 'p' — owned by a Interaction, whose v2 body is its parameters and scenario steps, not a place for a Property */\n        action go send new Go() to this.ctrl;"}},
 		{"an activity writes its constraint and attribute, and has no place for a port",
 			`<packagedElement xmi:type="uml:Activity" xmi:id="_b" name="Run">` + rule("_r", "keep") + `
 			   <ownedAttribute xmi:type="uml:Property" xmi:id="_p" name="p"/>
 			   <ownedPort xmi:type="uml:Port" xmi:id="_q" name="q"/>
 			 </packagedElement>`,
 			[]string{"_q"}, []string{"_r", "_p"}, 1,
-			[]string{"action def Run {\n    view Rules {\n        expose Run;\n        expose p;\n        render Views::asTextualNotation;\n    }\n    /* not migrated: Port 'q' — owned by a Activity, whose v2 body is its parameters and flow, not a place for a Port */\n    ref p;\n    constraint keep { true }\n}"}},
+			[]string{"action def Run {\n    view Rules : StandardViewDefinitions::ActionFlowView {\n        expose Run;\n        expose p;\n        render Views::asInterconnectionDiagram;\n    }\n    /* not migrated: Port 'q' — owned by a Activity, whose v2 body is its parameters and flow, not a place for a Port */\n    ref p;\n    constraint keep { true }\n}"}},
 		{"a state machine writes its constraint and attribute, and has no place for a port",
 			`<packagedElement xmi:type="uml:StateMachine" xmi:id="_b" name="Modes">` + rule("_r", "keep") + `
 			   <ownedAttribute xmi:type="uml:Property" xmi:id="_p" name="p"/>

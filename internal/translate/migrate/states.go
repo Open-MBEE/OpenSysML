@@ -437,6 +437,29 @@ func writtenRegions(owner *sysmlv1.Element) []*sysmlv1.Element {
 	return out
 }
 
+// vertexWritten reports whether vertex v is written as a member of its state def's
+// body: its machine is written and nameMachine named it, which skips what no region writes.
+func (m *migration) vertexWritten(v *sysmlv1.Element) bool {
+	sm := machineOf(v)
+	if sm == nil || !m.written(sm) {
+		return false
+	}
+	m.nameMachine(sm)
+	_, ok := m.vertexNames[v]
+	return ok
+}
+
+// regionWritten reports whether region r is written as a member of its own: a sub-state
+// of the parallel state an orthogonal state's regions become, in a machine that is written.
+func (m *migration) regionWritten(r *sysmlv1.Element) bool {
+	sm := machineOf(r)
+	if sm == nil || !m.written(sm) {
+		return false
+	}
+	m.nameMachine(sm)
+	return m.parallel[r] != ""
+}
+
 // nameVertex gives a vertex that is written as a member its name in the body
 // used lists, after its own when it has one and no sibling took it; a name
 // synthesized from its kind also keeps clear of owner's other members.
@@ -679,6 +702,7 @@ func (s *stateRegion) initial(vertices, transitions []*sysmlv1.Element, entered 
 		}
 		return
 	}
+	s.m.wroteNoMember(t)
 	note := ""
 	for _, tr := range t.Owned("trigger") {
 		note = "an initial transition takes no trigger; its triggers are dropped"
@@ -1328,13 +1352,26 @@ func (s *stateRegion) transition(t *sysmlv1.Element) {
 	} else if written > 1 {
 		notes = append(notes, "written as "+strconv.Itoa(written)+" transitions, one per trigger")
 	}
-	tname := ""
-	if s.m.nameOf(t) != "" {
-		tname = freshIn(s.used, s.m.nameOf(t))
+	tname := s.m.nameOf(t)
+	if tname == "" {
+		tname = s.m.edgeName(t, transitionBase(from, accepts[0], guard, to))
+	}
+	if tname != "" {
+		tname = freshIn(s.used, tname)
 	}
 	s.writeAccepts(t, accepts, tname, guard, eff, from, to)
 	note := strings.Join(notes, "; ")
-	s.m.add(t, verdictFor(note), tname, joinNotes(note, strings.Join(info, "; ")))
+	s.m.add(t, verdictFor(note), s.m.edgeTarget(t), joinNotes(note, strings.Join(info, "; ")))
+}
+
+// transitionBase spells the name a shown anonymous transition is declared
+// under, from what it is written between: `Wait accept Sig then Retrieve`.
+func transitionBase(from string, a acceptance, guard, to string) string {
+	clause := a.clause
+	if a.payload != "" {
+		clause = strings.Replace(clause, writeName(a.payload)+" : ", "", 1)
+	}
+	return spoken(from + clause + guard + " then " + to)
 }
 
 // kindNotes notes how an internal or local transition's semantics change in
@@ -1415,6 +1452,7 @@ func (s *stateRegion) transitionAccepts(t *sysmlv1.Element, triggers []*sysmlv1.
 // writeAccepts writes one transition line per acceptance, each with the guard,
 // an effect body when there is one, and the target.
 func (s *stateRegion) writeAccepts(t *sysmlv1.Element, accepts []acceptance, tname, guard string, eff *sysmlv1.Element, from, to string) {
+	s.m.wroteEdge(t, s.r, "transition", tname)
 	for i, accept := range accepts {
 		line := "transition "
 		if tname != "" {

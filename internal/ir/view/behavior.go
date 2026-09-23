@@ -234,14 +234,10 @@ func bodyOwning(graph *lower.StateGraph, state *ast.StateNode) ast.Node {
 	return nil
 }
 
-// transitionLabel is what a transition edge carries: its name, the trigger it
-// waits for, the guard it is subject to, and whether it runs an effect —
-// `maintain: after 5 [ok] / effect`.
+// transitionLabel is a transition edge's trigger, guard and effect, `after 5 [ok] /
+// effect`; a transition with none of those is labelled by its name.
 func (r *Renderer) transitionLabel(doc string, transition *lower.Transition) string {
 	var parts []string
-	if transition.Name != "" {
-		parts = append(parts, nameText(transition.Name)+":")
-	}
 	if trigger := r.triggerLabel(doc, transition.Trigger); trigger != "" {
 		parts = append(parts, trigger)
 	}
@@ -254,7 +250,16 @@ func (r *Renderer) transitionLabel(doc string, transition *lower.Transition) str
 	if len(transition.Effect) > 0 {
 		parts = append(parts, "/ "+behaviorNames(transition.Effect))
 	}
-	return strings.Join(parts, " ")
+	return edgeLabel(transition.Name, strings.Join(parts, " "))
+}
+
+// edgeLabel is text when the edge has any of its own, else its name: a name
+// only labels an edge that nothing else describes.
+func edgeLabel(name, text string) string {
+	if text != "" || name == "" {
+		return text
+	}
+	return nameText(name)
 }
 
 // guardLabel is the guard an edge carries, `[guard]` as written when the source
@@ -468,7 +473,8 @@ func (r *Renderer) actionEdges(subject actionSubject, graph *lower.ActionGraph, 
 	}
 }
 
-// successionLabel is the succession's guard in brackets, then its probability.
+// successionLabel is the succession's guard in brackets, then its probability;
+// a succession with neither is labelled by its name.
 func (r *Renderer) successionLabel(edge lower.ActionEdge, edgeDoc, doc string) string {
 	label := ""
 	if guard := edge.Guard; guard != nil {
@@ -481,20 +487,17 @@ func (r *Renderer) successionLabel(edge lower.ActionEdge, edgeDoc, doc string) s
 	if weight := edge.Probability; weight != nil {
 		label = strings.TrimSpace(label + " p = " + r.nodeText(doc, weight.Expr))
 	}
-	return label
+	return edgeLabel(edge.Name, label)
 }
 
-// flowLabel is what an object flow carries: the pins it joins, named by the flow
-// when it has a name of its own.
+// flowLabel is what an object flow carries: the pins it joins; a flow naming no
+// pins is labelled by its name.
 func flowLabel(flow lower.ObjectFlow) string {
 	label := flow.SourcePin
 	if flow.TargetPin != "" {
 		label = strings.TrimPrefix(label+" to "+flow.TargetPin, " to ")
 	}
-	if flow.Name != "" {
-		return nameText(flow.Name) + ": " + label
-	}
-	return label
+	return edgeLabel(flow.Name, label)
 }
 
 // nestedAction is the declaration of an action node that performs a body of its

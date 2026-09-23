@@ -165,6 +165,7 @@ func (m *migration) include(inc *sysmlv1.Element) {
 		name = m.freshName(inc.Parent, lowerFirst(m.nameFor(added)))
 		m.names[inc] = name
 	}
+	m.wroteEdge(inc, m.scope, "include", name)
 	m.w.line("include use case " + writeName(name) + " : " + m.ref(added, m.scope) + ";")
 	m.add(inc, Mapped, m.v2Name(inc), "")
 	m.stereotypeComments(inc)
@@ -189,12 +190,21 @@ func (m *migration) extend(ext *sysmlv1.Element) {
 		comment += " " + detail
 		note += "; it applies " + detail + ", which only a comment keeps"
 	}
+	from, to := m.ref(ext.Parent, m.scope), m.ref(extended, m.scope)
 	decl, target := "dependency ", ""
-	if name := m.nameOf(ext); name != "" {
+	name := m.nameOf(ext)
+	if name == "" {
+		if base := m.edgeName(ext, spoken(from)+" to "+spoken(to)); base != "" {
+			name = m.freshName(m.scope, base)
+			m.names[ext] = name
+		}
+	}
+	if name != "" {
 		decl += writeName(name) + " from "
 		target = m.v2Name(ext)
 	}
-	m.w.line(decl + m.ref(ext.Parent, m.scope) + " to " + m.ref(extended, m.scope) + "; /* " + comment + " */")
+	m.wroteEdge(ext, m.scope, "dependency", name)
+	m.w.line(decl + from + " to " + to + "; /* " + comment + " */")
 	m.add(ext, Approximated, target, note)
 	m.stereotypeComments(ext)
 }

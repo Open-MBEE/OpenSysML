@@ -52,6 +52,6 @@ state "**Machines::VehicleStates**\n<size:10>//«state def»//</size>" as n0 <<s
 }
 n1 --> n2
 n2 --> n1
-n3 --> n4 : idle_to_moving: accept Signal [temperature <U+003E> 0]
+n3 --> n4 : accept Signal [temperature <U+003E> 0]
 n4 --> n3
 @enduml

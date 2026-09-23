@@ -307,7 +307,7 @@ func mermaidLabel(node *Node) string {
 // mermaidArrow is how an edge of each kind is drawn in a flowchart.
 func mermaidArrow(kind EdgeKind) string {
 	switch kind {
-	case EdgeConnection:
+	case EdgeConnection, EdgeBinding:
 		return "---"
 	case EdgeFlow:
 		return "-.->"

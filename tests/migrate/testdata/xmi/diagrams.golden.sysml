@@ -4,11 +4,12 @@ package Structure {
         part engine : Engine;
         part wheel : Wheel;
         attribute mass : ScalarValues::Real;
-        connect engine to wheel;
+        connection 'engine to wheel' connect engine to wheel;
         view 'Vehicle Internals' {
             expose Vehicle;
             expose engine;
             expose wheel;
+            expose 'engine to wheel';
             expose Structure::Engine::power;
             render Views::asInterconnectionDiagram;
         }
@@ -21,30 +22,29 @@ package Structure {
         attribute power : ScalarValues::Real;
         part wheel : Wheel;
         action def Crank {
-            view Cranking {
+            view Cranking : StandardViewDefinitions::ActionFlowView {
                 expose Crank;
-                expose Structure::Engine::Crank::ignite;
-                render Views::asTextualNotation;
+                render Views::asInterconnectionDiagram;
             }
-            view Ignition {
-                expose Structure::Engine::Crank::ignite;
-                render Views::asTextualNotation;
+            view Ignition : StandardViewDefinitions::ActionFlowView {
+                expose Crank;
+                render Views::asInterconnectionDiagram;
             }
-            first start then ignite;
+            succession 'start to ignite' first start then ignite;
             action ignite {
                 /* body not migrated (the name "ignited" resolves to nothing readable: nothing visible from Structure::Engine::Cranking::ignite is called ignited) {JavaScript}:
                  * ignited = true;
                  */
             }
-            first ignite then final;
+            succession 'ignite to final' first ignite then final;
             action final terminate;
         }
         action crank : Crank;
         action def Halt {
-            view Halting {
+            view Halting : StandardViewDefinitions::ActionFlowView {
                 expose Halt;
                 expose Engine;
-                render Views::asTextualNotation;
+                render Views::asInterconnectionDiagram;
             }
             /* body not migrated (the name "ignited" resolves to nothing readable: nothing visible from Structure::Engine::Halt is called ignited) {JavaScript}:
              * ignited = false;
@@ -76,31 +76,32 @@ package Structure {
 }
 package Behavior {
     action def Drive {
-        view 'Drive Flow' {
-            expose 'start engine';
-            render Views::asTextualNotation;
+        view 'Drive Flow' : StandardViewDefinitions::ActionFlowView {
+            expose Drive;
+            render Views::asInterconnectionDiagram;
         }
-        view 'start engine 2' {
-            expose 'start engine';
-            render Views::asTextualNotation;
+        view 'start engine 2' : StandardViewDefinitions::ActionFlowView {
+            expose Drive;
+            render Views::asInterconnectionDiagram;
         }
-        first start then 'start engine';
+        succession 'start to start engine' first start then 'start engine';
         action 'start engine' {
             /* body not migrated (the name "running" resolves to nothing readable: nothing visible from Behavior::Drive::start engine is called running) {JavaScript}:
              * running = true;
              */
         }
-        first 'start engine' then final;
+        succession 'start engine to final' first 'start engine' then final;
         action final terminate;
     }
     state def Modes {
-        view 'Idle 2' {
-            render Views::asTextualNotation;
+        view 'Idle 2' : StandardViewDefinitions::StateTransitionView {
+            expose Modes;
+            render Views::asInterconnectionDiagram;
         }
         entry; then Idle;
         state Idle;
         state Running;
-        transition first Idle then Running;
+        transition 'Idle then Running' first Idle then Running;
     }
 }
 package Usage {

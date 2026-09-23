@@ -65,6 +65,8 @@ type activity struct {
 	ctx   *behaviorContext
 	names map[*sysmlv1.Element]string
 	used  map[string]bool
+	// named marks the edges a member of this body is named for.
+	named map[*sysmlv1.Element]bool
 	// next lists, for each node, the nodes its edges lead to, once each; succ the
 	// edges out of it that stand for a succession, in the order they are owned.
 	next map[*sysmlv1.Element][]*sysmlv1.Element
@@ -120,8 +122,9 @@ type activity struct {
 	edges []*sysmlv1.Element
 	// data lists the object flows to write once the nodes are declared.
 	data []string
-	// written marks the (producer, pin) pairs a flow or bind is already written for.
-	written map[[2]*sysmlv1.Element]bool
+	// written maps each (producer, pin) pair a flow or bind is written for to
+	// the first edge carrying it.
+	written map[[2]*sysmlv1.Element]*sysmlv1.Element
 	// before and after are the clock stamps a duration observation reads at a node's ends.
 	before, after map[*sysmlv1.Element]*stamp
 	timed         []*timing
@@ -135,6 +138,7 @@ func (m *migration) newActivity(act, def *sysmlv1.Element) *activity {
 		m: m, act: act, def: def, ctx: m.contextOf(enclosingActivity(def)),
 		names:       map[*sysmlv1.Element]string{},
 		used:        inheritedActionNames(),
+		named:       map[*sysmlv1.Element]bool{},
 		next:        map[*sysmlv1.Element][]*sysmlv1.Element{},
 		prev:        map[*sysmlv1.Element][]*sysmlv1.Element{},
 		succ:        map[*sysmlv1.Element][]*sysmlv1.Element{},
@@ -156,7 +160,7 @@ func (m *migration) newActivity(act, def *sysmlv1.Element) *activity {
 		sink:        map[*sysmlv1.Element]bool{},
 		edgeSources: map[*sysmlv1.Element][]*sysmlv1.Element{},
 		edgeSelf:    map[*sysmlv1.Element]bool{},
-		written:     map[[2]*sysmlv1.Element]bool{},
+		written:     map[[2]*sysmlv1.Element]*sysmlv1.Element{},
 		inert:       map[*sysmlv1.Element]bool{},
 		computed:    map[*sysmlv1.Element]string{},
 		receivers:   map[*sysmlv1.Element]string{},
@@ -261,6 +265,21 @@ func (a *activity) name(n *sysmlv1.Element, base string) string {
 	a.m.take(a.def, name)
 	a.names[n], a.m.nodeNames[n] = name, name
 	return name
+}
+
+// edgeFresh is the name a shown edge's member is declared under: the one its first
+// writing chose when the body is written again, else base made fresh; "" when unshown.
+func (a *activity) edgeFresh(e *sysmlv1.Element, base string) string {
+	if em, ok := a.m.edgeMembers[e]; ok && em.name != "" && !a.named[e] {
+		a.used[em.name], a.named[e] = true, true
+		a.m.take(a.def, em.name)
+		return em.name
+	}
+	if name := a.m.edgeName(e, base); name != "" {
+		a.named[e] = true
+		return a.fresh(name)
+	}
+	return ""
 }
 
 // fresh returns base, or base with a number, not yet used in the body.
@@ -658,10 +677,45 @@ func (a *activity) startSuccessions() {
 	}
 	for _, t := range targets {
 		if to := a.endpointIn(t); to != "" {
-			a.m.w.line(firstKw + from + thenKw + to + ";")
+			a.succession(a.initialEdges(t), from, "", to, ";")
 		}
 	}
 	a.checkInitialSuccessions()
+}
+
+// initialEdges lists the initial nodes' edges into t, which one succession
+// from start stands for.
+func (a *activity) initialEdges(t *sysmlv1.Element) []*sysmlv1.Element {
+	var edges []*sysmlv1.Element
+	for _, n := range a.nodes {
+		if nodeKind(n) != nodeInitial {
+			continue
+		}
+		for _, e := range a.succ[n] {
+			if ownerNode(a.m.model.Ref(e, "target")) == t {
+				edges = append(edges, e)
+			}
+		}
+	}
+	return edges
+}
+
+// succession writes the succession the edges travel, from from to to under guard and
+// trailed by tail; named, `succession 'from to to' first from then to;`, if a diagram shows one.
+func (a *activity) succession(edges []*sysmlv1.Element, from, guard, to, tail string) {
+	line := firstKw + from + guard + thenKw + to + tail
+	name := ""
+	for _, e := range edges {
+		if name = a.edgeFresh(e, spoken(from)+" to "+spoken(to)); name != "" {
+			line = "succession " + writeName(name) + " " + line
+			break
+		}
+	}
+	a.m.w.line(line)
+	for _, e := range edges {
+		a.named[e] = a.named[e] || name != ""
+		a.m.wroteEdge(e, a.def, "succession", name)
+	}
 }
 
 // startPrologue writes what precedes the targets: the kept action, the initial
@@ -841,9 +895,9 @@ func (a *activity) successions(n *sysmlv1.Element) {
 		}
 		g := a.guard(e, "")
 		a.m.w.lines(g.comment)
-		a.m.w.line(firstKw + from + g.expr + thenKw + to + ";")
+		a.succession([]*sysmlv1.Element{e}, from, g.expr, to, ";")
 		if g.ok {
-			a.m.add(e, Mapped, "", "")
+			a.m.add(e, Mapped, a.m.edgeTarget(e), "")
 		}
 	}
 }
@@ -894,19 +948,19 @@ func (a *activity) decisionSuccessions(n *sysmlv1.Element, from string, outs []*
 			continue
 		}
 		a.m.w.lines(guards[i].comment)
-		line := firstKw + from + guards[i].expr + thenKw + to
+		tail := ";"
 		if weights != nil {
-			line += " { @Stochastic::Probability { p = " + weights[i] + "; } }"
-		} else {
-			line += ";"
+			tail = " { @Stochastic::Probability { p = " + weights[i] + "; } }"
 		}
-		a.m.w.line(line)
+		a.succession([]*sysmlv1.Element{e}, from, guards[i].expr, to, tail)
 		if guards[i].ok {
-			a.m.add(e, Mapped, "", "")
+			a.m.add(e, Mapped, a.m.edgeTarget(e), "")
 		}
 	}
 	if elseAt >= 0 {
+		// An else branch is a target succession of the decision, not a member of its own.
 		a.m.w.line("else " + tos[elseAt] + ";")
+		a.m.wroteNoMember(outs[elseAt])
 		a.m.add(outs[elseAt], Mapped, "", "")
 	}
 }
@@ -1634,11 +1688,12 @@ func (a *activity) objectFlowSource(e, s, tgt *sysmlv1.Element, to string) {
 		a.m.add(e, Unmapped, "", "the flow's source "+describe(s)+" has no v2 name")
 		return
 	}
-	if a.written[[2]*sysmlv1.Element{s, tgt}] {
-		a.m.add(e, Mapped, "", "the flow from "+from+" to "+to+" is written once, though several edges carry it")
+	if first, ok := a.written[[2]*sysmlv1.Element{s, tgt}]; ok {
+		a.m.wroteSameEdge(e, first)
+		a.m.add(e, Mapped, a.m.edgeTarget(e), "the flow from "+from+" to "+to+" is written once, though several edges carry it")
 		return
 	}
-	a.written[[2]*sysmlv1.Element{s, tgt}] = true
+	a.written[[2]*sysmlv1.Element{s, tgt}] = e
 	if nodeKind(s) == nodeParam && a.m.unvalued[a.m.model.Ref(s, "parameter")] {
 		a.m.w.line(flowNote + from + " to " + to + " not written: the parameter " + from + " takes no value */")
 		a.m.add(e, Approximated, "", "the flow is kept as a comment: its source, the parameter "+from+", takes no value, so none reaches "+describe(tgt))
@@ -1670,11 +1725,7 @@ func (a *activity) objectFlowSource(e, s, tgt *sysmlv1.Element, to string) {
 		a.m.add(e, Approximated, "", "the flow is kept as a comment: its ends are typed by "+qualifiedName(st)+" and "+qualifiedName(tt)+", which do not conform")
 		return
 	}
-	if nodeKind(s) == nodeParam || nodeKind(tgt) == nodeParam {
-		a.m.w.line("bind " + to + " = " + from + ";")
-	} else {
-		a.m.w.line("flow " + from + " to " + to + ";")
-	}
+	a.dataEdge(e, s, tgt, from, to)
 	if a.stubSource(s) {
 		note := "the flow is written, but " + describe(s.Parent) + " calls no behavior and computes nothing, so no value travels it"
 		if nodeKind(tgt) == nodePin {
@@ -1683,7 +1734,26 @@ func (a *activity) objectFlowSource(e, s, tgt *sysmlv1.Element, to string) {
 		a.m.add(e, Approximated, "", note)
 		return
 	}
-	a.m.add(e, Mapped, "", "")
+	a.m.add(e, Mapped, a.m.edgeTarget(e), "")
+}
+
+// dataEdge writes the flow e carries from from to to: a binding at a
+// parameter, a flow between pins, named as a member when a diagram shows e.
+func (a *activity) dataEdge(e, s, tgt *sysmlv1.Element, from, to string) {
+	kw, decl, base := "flow", "flow "+from+" to "+to, spoken(from)+" to "+spoken(to)
+	if nodeKind(s) == nodeParam || nodeKind(tgt) == nodeParam {
+		kw, decl, base = "binding", "bind "+to+" = "+from, spoken(to)+" = "+spoken(from)
+	}
+	name := a.edgeFresh(e, base)
+	if name != "" {
+		if kw == "flow" {
+			decl = "flow " + writeName(name) + " from " + from + " to " + to
+		} else {
+			decl = kw + " " + writeName(name) + " " + decl
+		}
+	}
+	a.m.w.line(decl + ";")
+	a.m.wroteEdge(e, a.def, kw, name)
 }
 
 // callBehavior writes a call behavior action as an action usage typed by the called

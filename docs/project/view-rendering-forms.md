@@ -16,7 +16,7 @@ A view renders into a `view.Rendering` (`internal/ir/view/view.go`): the kind (`
 `interconnection`, `state`, `action`, `sequence`, `table`), typed nodes with an identifier, a
 kind, a name, the declared type of a typed usage, an optional detail holding the notes (`initial`,
 `already shown`, `own flow`) and their children, edges with a label and an `EdgeKind`
-(connection, transition, succession, flow), a table's columns and rows, the origin of every node
+(connection, binding, transition, succession, flow), a table's columns and rows, the origin of every node
 and row, and notices for what the kind could not represent. The tree, interconnection, state and
 action kinds are produced from the model — the last two from the lowered `StateGraph` and
 `ActionGraph` the runtime executes — and nothing in the rendering is text of any diagram
@@ -68,6 +68,20 @@ and the keyword line under the 14pt Graphviz draws the rest in; `&`, `<`, `>` an
 reads as markup. A cluster's label is the same string. The text form keeps the notation's
 declaration order, `part pump : Pump`, with a detail parenthesised after it. The declared type is
 a field of the node (`Node.Type`, `type` in the JSON), never parsed back out of the detail.
+
+## Edge labels
+
+An edge is labelled by its own text when it has any, and by its name only when it has none
+(`edgeLabel` in `behavior.go`): a transition's label is its trigger, guard and effect, `accept Sig
+[g] / act`; a succession's its guard and probability, `[g] p = 0.5`; a flow's the pins or the
+payload it carries, `out to in`, `of Water`; and a connection's the name, else the declared type,
+else the keyword. A named edge with none of that — a completion transition, a plain succession, a
+binding — is labelled by its name, `'off then on'`. The rule holds for every kind and every name,
+whether the model's author gave it or the [v1 migration](../reference/sysml-v1-migration.md#edges-a-diagram-shows)
+spelled it from the ends: a triggered transition named `idle_to_moving` reads `accept Signal
+[temperature > 0]`, as the graphical notation draws it, since the name adds nothing a reader
+looks for and a migrated name would only repeat the ends. The rule is one place, so the text,
+Mermaid, DOT and PlantUML forms label an edge alike.
 
 ## Why DOT next to Mermaid
 
@@ -133,8 +147,13 @@ digraph "VehicleViews::vehicleView" {
   | `EdgeKind` | Mermaid | DOT |
   | --- | --- | --- |
   | connection | `---` | `arrowhead=none, penwidth=3` |
+  | binding | `---` | `arrowhead=none` |
   | transition, succession | `-->` | solid, default arrowhead |
   | flow | `-.->` | `style=dashed` |
+
+  An interconnection draws a `binding` between two features as an edge of its own kind, a plain
+  undirected line beside the heavy connection (`==` in the text form, `--` in PlantUML), and
+  pins its `DiagramLayout::Route` as it pins a connection's.
 
 - **Quoting.** Every identifier, edge label and geometry value passes through one helper that
   double-quotes it and escapes `"`, `\` and newlines; a node or cluster label is an HTML-like
@@ -181,10 +200,9 @@ translation to DOT is:
 Not translated, because Graphviz has no vocabulary for them: `Shadowing 0` (no shadows to turn
 off), `hide circle` (no class circles), `wrapWidth 300` (DOT does not wrap label text), and the
 20-unit corner radius. Out of scope: the skin's notes, sequence, gantt, mindmap and wbs
-sections — the DOT form draws no notes and a sequence rendering has no DOT form — and the
-Pilot's `-[thickness=5]-` binding connectors, which the interconnection rendering does not
-distinguish from connections today (there is no `EdgeBinding` kind), so DOT cannot draw them
-apart either; that is a known limitation, not an approximation.
+sections — the DOT form draws no notes and a sequence rendering has no DOT form. The Pilot's
+`-[thickness=5]-` binding connectors are `EdgeBinding`, drawn as a plain undirected line: thinner
+than a connection, not heavier, so a binding reads as the equation it is rather than a channel.
 
 ### Palettes
 
@@ -293,7 +311,10 @@ digraph "PlantViews::placedView" {
   a cluster with neither has no box to state and pins its anchor at the corner.
 - **Edges.** A `Route` becomes `pos` as the cubic B-spline Graphviz reads: each segment's ends
   are its own control points, so the spline is the polyline through the waypoints. A route of
-  one waypoint draws no line; it is left out and noticed as `// not represented:`.
+  one waypoint draws no line; it is left out and noticed as `// not represented:`. Every edge a
+  kind draws takes a route: a connection, binding or flow of an interconnection, a transition
+  of a state rendering, a succession or flow of an action rendering — the annotation names the
+  member (`metadata DiagramLayout::Route about 'a to b'`), so only a named edge can carry one.
 - **Engine.** The `// layout:` header names the command that honours what is written:
   `neato -n2` when every node is positioned and any edge is routed (the pinned nodes and the
   written routes are taken as given, the other edges are drawn), `neato -n` when every node is

@@ -43,6 +43,22 @@ func diagram(id, name, owner, kind string, shown ...string) string {
 	return b.String()
 }
 
+// machineMembers is a state machine Modes (_sm) whose region enters Idle
+// (_idle) and leaves it for Run (_run) on signal Go.
+const machineMembers = `<packagedElement xmi:type="uml:Signal" xmi:id="_go" name="Go"/>
+    <packagedElement xmi:type="uml:StateMachine" xmi:id="_sm" name="Modes">
+      <region xmi:type="uml:Region" xmi:id="_r">
+        <subvertex xmi:type="uml:Pseudostate" xmi:id="_sm_init"/>
+        <subvertex xmi:type="uml:State" xmi:id="_idle" name="Idle"/>
+        <subvertex xmi:type="uml:State" xmi:id="_run" name="Run"/>
+        <transition xmi:type="uml:Transition" xmi:id="_t_init" source="_sm_init" target="_idle"/>
+        <transition xmi:type="uml:Transition" xmi:id="_t_go" source="_idle" target="_run">
+          <trigger xmi:type="uml:Trigger" xmi:id="_tr_go" event="_ev_go"/>
+        </transition>
+      </region>
+    </packagedElement>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_ev_go" signal="_go"/>`
+
 func TestDiagramViews(t *testing.T) {
 	for _, tc := range []struct {
 		name, members, diagrams string
@@ -88,7 +104,7 @@ func TestDiagramViews(t *testing.T) {
 			   </ownedBehavior>
 			 </packagedElement>`,
 			diagram("_d", "Opening", "_opening", "SysML Activity Diagram", "_opening", "_pump"),
-			[]string{"action def Open {\n        view Opening {\n            expose Open;\n            expose Sys::Pump;\n            render Views::asTextualNotation;\n        }\n    }"}, Mapped,
+			[]string{"action def Open {\n        view Opening : StandardViewDefinitions::ActionFlowView {\n            expose Open;\n            expose Sys::Pump;\n            render Views::asInterconnectionDiagram;\n        }\n    }"}, Mapped,
 			"its owner Activity Valve::Opening is written as the body of action def Valve::Open, whose method it is"},
 		{"a diagram of an opaque behavior that is an operation's method is written in the operation's body",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_valve" name="Valve">
@@ -98,7 +114,7 @@ func TestDiagramViews(t *testing.T) {
 			   </ownedBehavior>
 			 </packagedElement>`,
 			diagram("_d", "Shutting", "_shutting", "SysML Activity Diagram", "_pump"),
-			[]string{"action def Shut {\n        view Shutting {\n            expose Sys::Pump;\n            render Views::asTextualNotation;\n        }\n        /* body not migrated"}, Mapped,
+			[]string{"action def Shut {\n        view Shutting : StandardViewDefinitions::ActionFlowView {\n            expose Shut;\n            expose Sys::Pump;\n            render Views::asInterconnectionDiagram;\n        }\n        /* body not migrated"}, Mapped,
 			"its owner OpaqueBehavior Valve::Shutting is written as the body of action def Valve::Shut, whose method it is"},
 		{"a diagram owned by an action node is written in the body of the node's activity",
 			`<packagedElement xmi:type="uml:Activity" xmi:id="_fill" name="Fill">
@@ -107,7 +123,7 @@ func TestDiagramViews(t *testing.T) {
 			   <edge xmi:type="uml:ControlFlow" xmi:id="_f_e" source="_f_init" target="_pour"/>
 			 </packagedElement>`,
 			diagram("_d", "Pouring", "_pour", "SysML Activity Diagram", "_pour", "_pump"),
-			[]string{"action def Fill {\n    view Pouring {\n        expose pour;\n        expose Sys::Pump;\n        render Views::asTextualNotation;\n    }"}, Approximated,
+			[]string{"action def Fill {\n    view Pouring : StandardViewDefinitions::ActionFlowView {\n        expose Fill;\n        expose Sys::Pump;\n        render Views::asInterconnectionDiagram;\n    }"}, Approximated,
 			"its owner OpaqueAction Fill::pour has no v2 body; written in action def Fill"},
 		{"a diagram owned by a node of a method activity is written in the operation's body",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_valve" name="Valve">
@@ -119,7 +135,7 @@ func TestDiagramViews(t *testing.T) {
 			   </ownedBehavior>
 			 </packagedElement>`,
 			diagram("_d", "Turning", "_turn", "SysML Activity Diagram", "_turn"),
-			[]string{"action def Open {\n        view Turning {\n            expose Valve::Open::turn;\n            render Views::asTextualNotation;\n        }"}, Approximated,
+			[]string{"action def Open {\n        view Turning : StandardViewDefinitions::ActionFlowView {\n            expose Open;\n            render Views::asInterconnectionDiagram;\n        }"}, Approximated,
 			"its owner OpaqueAction Valve::Opening::turn has no v2 body; written in action def Valve::Open"},
 		{"a member of a method behavior is exposed under the operation that holds its body",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_valve" name="Valve">
@@ -142,7 +158,7 @@ func TestDiagramViews(t *testing.T) {
 			   </ownedBehavior>
 			 </packagedElement>`,
 			diagram("_d1", "status", "_opening", "SysML Activity Diagram", "_status") + diagram("_d", "turn", "_opening", "SysML Activity Diagram", "_turn"),
-			[]string{"action def Open {\n        view 'status 2' {\n            expose Valve::Open::status;", "view 'turn 2' {\n            expose Valve::Open::turn;", "ref status;", "action turn {"}, Approximated,
+			[]string{"action def Open {\n        view 'status 2' : StandardViewDefinitions::ActionFlowView {\n            expose Open;\n            expose Valve::Open::status;", "view 'turn 2' : StandardViewDefinitions::ActionFlowView {\n            expose Open;\n            render Views::asInterconnectionDiagram;", "ref status;", "action turn {"}, Approximated,
 			"written as turn 2"},
 		{"a shown association end is exposed under the name its connection def declares",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_tank" name="Tank">
@@ -180,6 +196,43 @@ func TestDiagramViews(t *testing.T) {
 		{"a diagram named like an earlier diagram of its owner is numbered",
 			``, diagram("_d1", "Overview", "_sys", "SysML Package Diagram") + diagram("_d", "Overview", "_sys", "SysML Package Diagram"),
 			[]string{"view Overview {", "view 'Overview 2' {"}, Approximated, "written as Overview 2"},
+		{"a state machine diagram exposes the state def whose graph it draws, its states drawn by the graph",
+			machineMembers,
+			diagram("_d", "Modes", "_sm", "SysML State Machine Diagram", "_idle", "_run", "_t_go", "_sm_init"),
+			[]string{"state def Modes {\n    view Modes : StandardViewDefinitions::StateTransitionView {\n        expose $::Modes;\n        render Views::asInterconnectionDiagram;\n    }\n    entry; then Idle;\n    state Idle;\n    state Run;\n    transition 'Idle accept Go then Run' first Idle accept Go then Run;\n}"},
+			Mapped, "the view exposes state def Modes, whose graph the rendering draws with the 4 shown nodes and edges of it"},
+		{"a diagram of a composite state is drawn as the graph of the state def its machine is written as",
+			`<packagedElement xmi:type="uml:StateMachine" xmi:id="_sm" name="Modes">
+			   <region xmi:type="uml:Region" xmi:id="_r">
+			     <subvertex xmi:type="uml:State" xmi:id="_busy" name="Busy">
+			       <region xmi:type="uml:Region" xmi:id="_r2">
+			         <subvertex xmi:type="uml:State" xmi:id="_read" name="Read"/>
+			       </region>
+			     </subvertex>
+			   </region>
+			 </packagedElement>`,
+			diagram("_d", "Busy", "_busy", "SysML State Machine Diagram", "_read"),
+			[]string{"state def Modes {\n    view 'Busy 2' : StandardViewDefinitions::StateTransitionView {\n        expose Modes;\n        render Views::asInterconnectionDiagram;\n    }\n    /* the region has no initial pseudostate: nothing enters it */\n    state Busy {\n        /* the region has no initial pseudostate: nothing enters it */\n        state Read;\n    }\n}"},
+			Approximated, "the view exposes state def Modes, whose graph the rendering draws with the 1 shown nodes and edges of it; its owner State Modes::<Region>::Busy has no v2 body; written in state def Modes"},
+		{"a state shown by another diagram is exposed as the member its state def declares",
+			machineMembers,
+			diagram("_d", "Vertices", "_sys", "SysML Block Definition Diagram", "_idle", "_sm_init"),
+			[]string{"view Vertices {\n        expose Modes::Idle;\n        render Views::asTreeDiagram;\n    }"},
+			Approximated, "1 of 2 shown elements are not written and not exposed"},
+		{"a diagram of a classifier behavior draws the graph of the state def the behavior is written as",
+			`<packagedElement xmi:type="uml:Class" xmi:id="_ctl" name="Controller" classifierBehavior="_sm">
+			   <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_sm" name="Modes">
+			     <region xmi:type="uml:Region" xmi:id="_r">
+			       <subvertex xmi:type="uml:State" xmi:id="_idle" name="Idle"/>
+			     </region>
+			   </ownedBehavior>
+			 </packagedElement>`,
+			diagram("_d", "Modes", "_sm", "SysML State Machine Diagram", "_idle"),
+			[]string{"part def Controller {\n    state def Modes {\n        view Modes : StandardViewDefinitions::StateTransitionView {\n            expose Controller::Modes;\n            render Views::asInterconnectionDiagram;\n        }", "exhibit state modes : Modes;"}, Mapped,
+			"the view exposes state def Controller::Modes, whose graph the rendering draws with the 1 shown nodes and edges of it"},
+		{"an activity diagram of a package draws no graph",
+			``, diagram("_d", "Flows", "_sys", "SysML Activity Diagram", "_pump"),
+			[]string{"view Flows {\n        expose Pump;\n        render Views::asTextualNotation;\n    }"}, Mapped, ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			r, err := Migrate("diagrams.xmi", []byte(diagramModel(tc.members, tc.diagrams)))
@@ -336,16 +389,30 @@ func TestLayoutClauseWording(t *testing.T) {
 		written, unexposed, dangling, total int
 		want                                string
 	}{
-		{1, 0, 0, 1, "1 of 1 connectors routed"},
-		{1, 1, 1, 3, "1 of 3 connectors routed (1 of an unwritten element, 1 resolving to no element)"},
-		{0, 2, 0, 2, "0 of 2 connectors routed (2 of unwritten elements)"},
+		{1, 0, 0, 1, "1 of 1 shown elements positioned"},
+		{1, 1, 1, 3, "1 of 3 shown elements positioned (1 not exposed, 1 resolving to no element)"},
+		{0, 2, 0, 2, "0 of 2 shown elements positioned (2 not exposed)"},
 	} {
-		got := layoutClause(tc.written, tc.unexposed, tc.dangling, tc.total, "connectors routed", "of an unwritten element", "resolving to no element")
+		got := layoutClause(tc.written, tc.unexposed, tc.dangling, tc.total)
 		if got != tc.want {
 			t.Errorf("layoutClause = %q, want %q", got, tc.want)
 		}
 	}
-	if got := layoutClause(0, 2, 0, 2, "shown elements positioned", "not exposed", "resolving to no element"); got != "0 of 2 shown elements positioned (2 not exposed)" {
-		t.Errorf("layoutClause = %q", got)
+}
+
+func TestRouteClauseWording(t *testing.T) {
+	for _, tc := range []struct {
+		reasons map[string]int
+		total   int
+		want    string
+	}{
+		{map[string]int{routeWritten: 1}, 1, "1 of 1 connectors routed"},
+		{map[string]int{routeWritten: 1, routeNotWritten: 1, routeDangling: 1}, 3, "1 of 3 connectors routed (1 not written, 1 resolving to no element)"},
+		{map[string]int{routeNotDrawn: 2, routeNoMember: 1, routeNotExposed: 1}, 4, "0 of 4 connectors routed (2 not drawn, 1 not exposed, 1 no v2 member)"},
+	} {
+		got := routeClause(tc.reasons, tc.total)
+		if got != tc.want {
+			t.Errorf("routeClause(%v) = %q, want %q", tc.reasons, got, tc.want)
+		}
 	}
 }

@@ -55,7 +55,7 @@ func (r *Renderer) draws(kind Kind, sym *symbols.Symbol) (node, edge bool) {
 	case KindTree:
 		return containedKind(sym), false
 	case KindInterconnection:
-		return featureLike(sym), r.model.IsConnectorUsage(sym) || isFlowUsage(sym)
+		return featureLike(sym), r.drawsConnector(sym)
 	case KindState:
 		return stateLike(sym), isTransition(sym) || sym.Kind == symbols.SymbolSuccessionUsage
 	case KindAction:

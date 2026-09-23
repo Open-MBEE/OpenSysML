@@ -122,10 +122,14 @@ type segment struct {
 
 // path returns the segments of e's qualified name, see segments. A behavior
 // that is the method of an operation is written as that operation's body, so
-// it and its members are named under the operation.
+// it and its members are named under the operation; an edge's members (a
+// transition's effect) are named under the member the edge was written as.
 func (m *migration) path(e *sysmlv1.Element) []segment {
 	var segs []segment
 	for cur := e; cur != nil; cur = memberOwner(cur) {
+		if em, ok := m.edgeMembers[cur]; ok && em.name != "" {
+			return append(m.edgePath(em), segs...)
+		}
 		if op := m.methodOf[cur]; op != nil {
 			cur = op
 		}

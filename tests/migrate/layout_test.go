@@ -3,6 +3,7 @@ package migrate_test
 import (
 	"bytes"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -14,11 +15,18 @@ import (
 // export layout.layout.xml.
 func migrateLayoutFixture(t *testing.T) *migrate.Result {
 	t.Helper()
-	data, err := os.ReadFile("testdata/xmi/layout.xmi")
+	return migrateLaidOut(t, "layout")
+}
+
+// migrateLaidOut migrates testdata/xmi/<name>.xmi augmented by the MTIP export
+// <name>.layout.xml beside it.
+func migrateLaidOut(t *testing.T, name string) *migrate.Result {
+	t.Helper()
+	data, err := os.ReadFile("testdata/xmi/" + name + ".xmi")
 	if err != nil {
 		t.Fatal(err)
 	}
-	layoutData, err := os.ReadFile("testdata/xmi/layout.layout.xml")
+	layoutData, err := os.ReadFile("testdata/xmi/" + name + ".layout.xml")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -26,7 +34,7 @@ func migrateLayoutFixture(t *testing.T) *migrate.Result {
 	if err != nil {
 		t.Fatalf("mtip.Parse: %v", err)
 	}
-	r, err := migrate.MigrateOptions("layout.xmi", data, migrate.Options{Layout: layout, LayoutSource: "layout.layout.xml"})
+	r, err := migrate.MigrateOptions(name+".xmi", data, migrate.Options{Layout: layout, LayoutSource: name + ".layout.xml"})
 	if err != nil {
 		t.Fatalf("MigrateOptions: %v", err)
 	}
@@ -45,6 +53,58 @@ func TestGoldenLayout(t *testing.T) {
 	checkGolden(t, "testdata/xmi/layout.layout.golden.report.txt", report.Bytes())
 	for _, d := range errors(t, "layout.sysml", r.Notation) {
 		t.Errorf("%v", d)
+	}
+}
+
+// Every edge kind a diagram draws is routed once its member is named and exposed, every
+// connector record not routed is accounted for by kind and reason, and the notation analyses clean.
+func TestGoldenEdgeLayout(t *testing.T) {
+	r := migrateLaidOut(t, "diagram_edges")
+	checkGolden(t, "testdata/xmi/diagram_edges.layout.golden.sysml", r.Notation)
+	var report bytes.Buffer
+	if err := r.Report.WriteText(&report); err != nil {
+		t.Fatal(err)
+	}
+	checkGolden(t, "testdata/xmi/diagram_edges.layout.golden.report.txt", report.Bytes())
+	for _, d := range errors(t, "diagram_edges.sysml", r.Notation) {
+		t.Errorf("%v", d)
+	}
+	l := r.Report.Layout
+	if l == nil {
+		t.Fatal("no layout summary")
+	}
+	if l.Routes != 18 || l.RoutesWritten != 9 || l.RoutesUnexposed != 8 || l.RoutesDangling != 1 {
+		t.Errorf("routes: %+v", l)
+	}
+	wantKinds := []migrate.RouteKind{
+		{Kind: "BindingConnector", Reason: "written", Count: 1},
+		{Kind: "Connector", Reason: "unnamed", Count: 1},
+		{Kind: "Connector", Reason: "written", Count: 3},
+		{Kind: "ControlFlow", Reason: "unnamed", Count: 1},
+		{Kind: "ControlFlow", Reason: "written", Count: 2},
+		{Kind: "Dependency", Reason: "not drawn", Count: 1},
+		{Kind: "Generalization", Reason: "no v2 member", Count: 1},
+		{Kind: "Include", Reason: "not drawn", Count: 1},
+		{Kind: "ObjectFlow", Reason: "written", Count: 1},
+		{Kind: "Satisfy", Reason: "not drawn", Count: 1},
+		{Kind: "Transition", Reason: "dangling", Count: 1},
+		{Kind: "Transition", Reason: "no v2 member", Count: 1},
+		{Kind: "Transition", Reason: "written", Count: 2},
+		{Kind: "Verify", Reason: "not drawn", Count: 1},
+	}
+	if !reflect.DeepEqual(l.RoutesByKind, wantKinds) {
+		t.Errorf("routes by kind:\n got %+v\nwant %+v", l.RoutesByKind, wantKinds)
+	}
+	// The view text is the same with or without the export: naming never reads it.
+	plain := migrateFixtureFile(t, "diagram_edges")
+	var stripped []string
+	for _, line := range strings.Split(string(r.Notation), "\n") {
+		if !strings.Contains(line, "DiagramLayout::") {
+			stripped = append(stripped, line)
+		}
+	}
+	if got := strings.Join(stripped, "\n"); got != string(plain.Notation) {
+		t.Errorf("the laid-out notation differs from the plain one beyond its DiagramLayout annotations:\n%s", got)
 	}
 }
 
@@ -116,8 +176,19 @@ func TestLayoutSummary(t *testing.T) {
 	if l.Placements != 7 || l.PlacementsWritten != 5 || l.PlacementsUnexposed != 1 || l.PlacementsDangling != 1 {
 		t.Errorf("placements: %+v", l)
 	}
-	if l.Routes != 4 || l.RoutesWritten != 2 || l.RoutesUnexposed != 1 || l.RoutesDangling != 1 {
+	if l.Routes != 4 || l.RoutesWritten != 1 || l.RoutesUnexposed != 2 || l.RoutesDangling != 1 {
 		t.Errorf("routes: %+v", l)
+	}
+	// The tree diagram draws no connection, so its connector's route is not
+	// pinned; the control flow the interconnection diagram shows is not either.
+	wantKinds := []migrate.RouteKind{
+		{Kind: "Connector", Reason: "not drawn", Count: 1},
+		{Kind: "Connector", Reason: "written", Count: 1},
+		{Kind: "ControlFlow", Reason: "not drawn", Count: 1},
+		{Kind: "Dependency", Reason: "dangling", Count: 1},
+	}
+	if !reflect.DeepEqual(l.RoutesByKind, wantKinds) {
+		t.Errorf("routes by kind: %+v, want %+v", l.RoutesByKind, wantKinds)
 	}
 	if l.Malformed != 1 || l.Unsupported["fillColor"] != 1 {
 		t.Errorf("malformed/unsupported: %+v", l)

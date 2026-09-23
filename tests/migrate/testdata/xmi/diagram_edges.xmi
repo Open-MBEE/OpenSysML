@@ -1,0 +1,235 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:diagram="http://www.example.com/tool/diagram">
+  <xmi:Documentation exporter="Example UML Tool" exporterVersion="1.0"/>
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+
+    <!-- Every edge kind a diagram can draw, shown and unshown side by side:
+         only the shown anonymous edges are named, so the unshown ones are
+         written exactly as they would be without the diagrams. -->
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_structure" name="Structure">
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_component" name="Component"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_vehicle" name="Vehicle">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_engine" name="engine" type="_blk_engine" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_wheel" name="wheel" type="_blk_wheel" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_mass" name="mass">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_limit" name="limit">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_speed" name="speed">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedAttribute>
+        <!-- Two anonymous connectors between the same parts are shown: the second takes a suffix. -->
+        <ownedConnector xmi:type="uml:Connector" xmi:id="_conn_shown">
+          <end xmi:type="uml:ConnectorEnd" xmi:id="_ce_shown_1" role="_prop_engine"/>
+          <end xmi:type="uml:ConnectorEnd" xmi:id="_ce_shown_2" role="_prop_wheel"/>
+        </ownedConnector>
+        <ownedConnector xmi:type="uml:Connector" xmi:id="_conn_twin">
+          <end xmi:type="uml:ConnectorEnd" xmi:id="_ce_twin_1" role="_prop_engine"/>
+          <end xmi:type="uml:ConnectorEnd" xmi:id="_ce_twin_2" role="_prop_wheel"/>
+        </ownedConnector>
+        <ownedConnector xmi:type="uml:Connector" xmi:id="_conn_hidden">
+          <end xmi:type="uml:ConnectorEnd" xmi:id="_ce_hidden_1" role="_prop_engine"/>
+          <end xmi:type="uml:ConnectorEnd" xmi:id="_ce_hidden_2" role="_prop_wheel"/>
+        </ownedConnector>
+        <ownedConnector xmi:type="uml:Connector" xmi:id="_conn_named" name="drive">
+          <end xmi:type="uml:ConnectorEnd" xmi:id="_ce_named_1" role="_prop_engine"/>
+          <end xmi:type="uml:ConnectorEnd" xmi:id="_ce_named_2" role="_prop_wheel"/>
+        </ownedConnector>
+        <ownedConnector xmi:type="uml:Connector" xmi:id="_conn_bind">
+          <end xmi:type="uml:ConnectorEnd" xmi:id="_ce_bind_1" role="_prop_mass"/>
+          <end xmi:type="uml:ConnectorEnd" xmi:id="_ce_bind_2" role="_prop_limit"/>
+        </ownedConnector>
+
+        <!-- Drive: a shown anonymous control flow, an unshown one, a named one,
+             and a shown object flow between pins. -->
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_drive" name="Drive">
+          <node xmi:type="uml:InitialNode" xmi:id="_init"/>
+          <node xmi:type="uml:ValueSpecificationAction" xmi:id="_gain" name="gain">
+            <value xmi:type="uml:LiteralReal" xmi:id="_gainVal" value="2.5"/>
+            <result xmi:type="uml:OutputPin" xmi:id="_gainOut" name="result"/>
+          </node>
+          <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="_set" name="set speed" structuralFeature="_prop_speed" isReplaceAll="true">
+            <value xmi:type="uml:InputPin" xmi:id="_setVal" name="value"/>
+          </node>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_final"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_cf_shown" source="_init" target="_gain"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_cf_hidden" source="_gain" target="_set"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_cf_named" name="finish" source="_set" target="_final"/>
+          <edge xmi:type="uml:ObjectFlow" xmi:id="_of_shown" source="_gainOut" target="_setVal"/>
+        </ownedBehavior>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_engine" name="Engine">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_engine" general="_blk_component"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_wheel" name="Wheel"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_dep_shown" client="_blk_vehicle" supplier="_blk_engine"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_dep_hidden" client="_blk_vehicle" supplier="_blk_wheel"/>
+    </packagedElement>
+
+    <!-- Modes: a shown anonymous triggered transition, a shown named one and an unshown one. -->
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_behavior" name="Behavior">
+      <packagedElement xmi:type="uml:Signal" xmi:id="_sig_go" name="Go"/>
+      <packagedElement xmi:type="uml:Signal" xmi:id="_sig_stop" name="Stop"/>
+      <packagedElement xmi:type="uml:SignalEvent" xmi:id="_ev_go" signal="_sig_go"/>
+      <packagedElement xmi:type="uml:SignalEvent" xmi:id="_ev_stop" signal="_sig_stop"/>
+      <packagedElement xmi:type="uml:StateMachine" xmi:id="_sm_modes" name="Modes">
+        <region xmi:type="uml:Region" xmi:id="_sm_region">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_sm_init" kind="initial"/>
+          <subvertex xmi:type="uml:State" xmi:id="_st_idle" name="Idle"/>
+          <subvertex xmi:type="uml:State" xmi:id="_st_running" name="Running">
+            <doActivity xmi:type="uml:OpaqueBehavior" xmi:id="_st_running_do" name="spin">
+              <language>English</language>
+              <body>keep turning</body>
+            </doActivity>
+          </subvertex>
+          <subvertex xmi:type="uml:State" xmi:id="_st_halted" name="Halted"/>
+          <transition xmi:type="uml:Transition" xmi:id="_t_init" source="_sm_init" target="_st_idle"/>
+          <transition xmi:type="uml:Transition" xmi:id="_t_go" source="_st_idle" target="_st_running">
+            <trigger xmi:type="uml:Trigger" xmi:id="_tr_go" event="_ev_go"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_t_stop" name="halt" source="_st_running" target="_st_halted">
+            <trigger xmi:type="uml:Trigger" xmi:id="_tr_stop" event="_ev_stop"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_t_reset" source="_st_halted" target="_st_idle"/>
+        </region>
+      </packagedElement>
+    </packagedElement>
+
+    <!-- Requirements: a shown satisfy and verify, and an unshown satisfy. -->
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_reqs" name="Requirements">
+      <packagedElement xmi:type="uml:Class" xmi:id="_req_mass" name="Mass Limit"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_req_speed" name="Speed Limit"/>
+      <packagedElement xmi:type="uml:Activity" xmi:id="_tc_mass" name="Mass Test"/>
+      <packagedElement xmi:type="uml:Abstraction" xmi:id="_dep_satisfy" client="_blk_vehicle" supplier="_req_mass"/>
+      <packagedElement xmi:type="uml:Abstraction" xmi:id="_dep_satisfy_hidden" client="_blk_vehicle" supplier="_req_speed"/>
+      <packagedElement xmi:type="uml:Abstraction" xmi:id="_dep_verify" client="_tc_mass" supplier="_req_mass"/>
+    </packagedElement>
+
+    <!-- Use cases: a shown anonymous include and an unshown one. -->
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_usage" name="Usage">
+      <packagedElement xmi:type="uml:UseCase" xmi:id="_uc_drive" name="Drive Vehicle">
+        <include xmi:type="uml:Include" xmi:id="_inc_shown" includingCase="_uc_drive" addition="_uc_start"/>
+        <include xmi:type="uml:Include" xmi:id="_inc_hidden" includingCase="_uc_drive" addition="_uc_stop"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:UseCase" xmi:id="_uc_start" name="Start Engine"/>
+      <packagedElement xmi:type="uml:UseCase" xmi:id="_uc_stop" name="Stop Engine"/>
+    </packagedElement>
+
+    <xmi:Extension extender="Example UML Tool 1.0">
+      <modelExtension>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_bdd" name="Structure" ownerOfDiagram="_pkg_structure">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Block Definition Diagram" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_blk_component</usedElements>
+                  <usedElements>_blk_vehicle</usedElements>
+                  <usedElements>_blk_engine</usedElements>
+                  <usedElements>_blk_wheel</usedElements>
+                  <usedElements>_gen_engine</usedElements>
+                  <usedElements>_dep_shown</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_ibd" name="Vehicle Internals" ownerOfDiagram="_blk_vehicle">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Internal Block Diagram" umlType="Composite Structure Diagram">
+                <diagramContents>
+                  <usedElements>_prop_engine</usedElements>
+                  <usedElements>_prop_wheel</usedElements>
+                  <usedElements>_prop_mass</usedElements>
+                  <usedElements>_prop_limit</usedElements>
+                  <usedElements>_conn_shown</usedElements>
+                  <usedElements>_conn_twin</usedElements>
+                  <usedElements>_conn_named</usedElements>
+                  <usedElements>_conn_bind</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_act" name="Driving" ownerOfDiagram="_act_drive">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Activity Diagram" umlType="Activity Diagram">
+                <diagramContents>
+                  <usedElements>_init</usedElements>
+                  <usedElements>_gain</usedElements>
+                  <usedElements>_set</usedElements>
+                  <usedElements>_final</usedElements>
+                  <usedElements>_cf_shown</usedElements>
+                  <usedElements>_cf_named</usedElements>
+                  <usedElements>_of_shown</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_stm" name="Modes" ownerOfDiagram="_sm_modes">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML State Machine Diagram" umlType="State Machine Diagram">
+                <diagramContents>
+                  <usedElements>_st_idle</usedElements>
+                  <usedElements>_st_running</usedElements>
+                  <usedElements>_st_running_do</usedElements>
+                  <usedElements>_st_halted</usedElements>
+                  <usedElements>_t_go</usedElements>
+                  <usedElements>_t_stop</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_req" name="Traceability" ownerOfDiagram="_pkg_reqs">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Requirement Diagram" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_req_mass</usedElements>
+                  <usedElements>_blk_vehicle</usedElements>
+                  <usedElements>_tc_mass</usedElements>
+                  <usedElements>_dep_satisfy</usedElements>
+                  <usedElements>_dep_verify</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_uc" name="Driving Cases" ownerOfDiagram="_pkg_usage">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Use Case Diagram" umlType="Use Case Diagram">
+                <diagramContents>
+                  <usedElements>_uc_drive</usedElements>
+                  <usedElements>_uc_start</usedElements>
+                  <usedElements>_inc_shown</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+      </modelExtension>
+    </xmi:Extension>
+  </uml:Model>
+
+  <sysml:Block xmi:id="_s_component" base_Class="_blk_component"/>
+  <sysml:Block xmi:id="_s_vehicle" base_Class="_blk_vehicle"/>
+  <sysml:Block xmi:id="_s_engine" base_Class="_blk_engine"/>
+  <sysml:Block xmi:id="_s_wheel" base_Class="_blk_wheel"/>
+  <sysml:BindingConnector xmi:id="_s_bind" base_Connector="_conn_bind"/>
+  <sysml:Requirement xmi:id="_s_req_mass" base_Class="_req_mass" id="R1" text="The vehicle shall weigh less than 1500 kg."/>
+  <sysml:Requirement xmi:id="_s_req_speed" base_Class="_req_speed" id="R2" text="The vehicle shall not exceed 120 km/h."/>
+  <sysml:Satisfy xmi:id="_s_satisfy" base_Abstraction="_dep_satisfy"/>
+  <sysml:Satisfy xmi:id="_s_satisfy_hidden" base_Abstraction="_dep_satisfy_hidden"/>
+  <sysml:Verify xmi:id="_s_verify" base_Abstraction="_dep_verify"/>
+  <sysml:TestCase xmi:id="_s_tc" base_Behavior="_tc_mass"/>
+</xmi:XMI>
