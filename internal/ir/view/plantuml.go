@@ -319,11 +319,14 @@ func (w *plantumlWriter) writeArrow(indent, from, to, arrow, label string) {
 }
 
 // plantumlArrow is how an edge of each kind is drawn: a connection as the
-// Pilot's heavy undirected connector, a flow dashed, every other edge a plain arrow.
+// Pilot's heavy undirected connector, a binding a plain undirected line, a flow
+// dashed, every other edge a plain arrow.
 func plantumlArrow(kind EdgeKind) string {
 	switch kind {
 	case EdgeConnection:
 		return "-[thickness=3]-"
+	case EdgeBinding:
+		return "--"
 	case EdgeFlow:
 		return "-[dashed]->"
 	}

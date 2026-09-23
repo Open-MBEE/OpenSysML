@@ -319,6 +319,7 @@ var constructFixtures = []string{
 	"profile_inheritance",
 	"tool_profiles",
 	"diagrams",
+	"diagram_edges",
 	"exposed",
 	"layout",
 	"malformed_diagrams",

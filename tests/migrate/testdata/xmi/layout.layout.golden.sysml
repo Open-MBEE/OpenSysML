@@ -8,6 +8,7 @@ package Structure {
             expose engine;
             expose wheel;
             expose drive;
+            expose Behavior::Drive::'start to step';
             @DiagramLayout::Canvas { unit = "px"; width = 300; height = 50; }
             metadata DiagramLayout::Layout about engine { x = 20; y = 10; width = 100; height = 40; }
             metadata DiagramLayout::Layout about wheel { x = 200; y = 10; width = 100; height = 40; }
@@ -28,13 +29,12 @@ package Structure {
         metadata DiagramLayout::Layout about Vehicle { x = 10; y = 20; width = 200; height = 80; }
         metadata DiagramLayout::Layout about Engine { x = 240; y = 20; width = 100; height = 60; }
         metadata DiagramLayout::Layout about Behavior::Drive::'step' { x = 240; y = 120; width = 100; height = 40; }
-        metadata DiagramLayout::Route about Structure::Vehicle::drive { points = (290, 60, 290, 140, 200, 140, 200, 60); }
         render Views::asTreeDiagram;
     }
 }
 package Behavior {
     action def Drive {
-        first start then 'step';
+        succession 'start to step' first start then 'step';
         action 'step' {
             /* body not migrated (the name "going" resolves to nothing readable: nothing visible from Behavior::Drive::step is called going) {JavaScript}:
              * going = true;

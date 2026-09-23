@@ -437,6 +437,29 @@ func writtenRegions(owner *sysmlv1.Element) []*sysmlv1.Element {
 	return out
 }
 
+// vertexWritten reports whether vertex v is written as a member of its state def's
+// body: its machine is written and nameMachine named it, which skips what no region writes.
+func (m *migration) vertexWritten(v *sysmlv1.Element) bool {
+	sm := machineOf(v)
+	if sm == nil || !m.written(sm) {
+		return false
+	}
+	m.nameMachine(sm)
+	_, ok := m.vertexNames[v]
+	return ok
+}
+
+// regionWritten reports whether region r is written as a member of its own: a sub-state
+// of the parallel state an orthogonal state's regions become, in a machine that is written.
+func (m *migration) regionWritten(r *sysmlv1.Element) bool {
+	sm := machineOf(r)
+	if sm == nil || !m.written(sm) {
+		return false
+	}
+	m.nameMachine(sm)
+	return m.parallel[r] != ""
+}
+
 // nameVertex gives a vertex that is written as a member its name in the body
 // used lists, after its own when it has one and no sibling took it; a name
 // synthesized from its kind also keeps clear of owner's other members.
@@ -555,7 +578,11 @@ func pluralRegion(n int) string {
 
 // region prepares to write region r of the machine that nameMachine named.
 func (m *migration) region(r *sysmlv1.Element) *stateRegion {
-	return &stateRegion{m: m, r: r, used: m.regionUsed[r], machine: machineOf(r)}
+	s := &stateRegion{m: m, r: r, owner: r.Parent, used: m.regionUsed[r], machine: machineOf(r)}
+	if _, parallel := m.parallel[r]; parallel {
+		s.owner = nil
+	}
+	return s
 }
 
 // machineOf returns the state machine an element of one belongs to.
@@ -587,10 +614,12 @@ func entryThen(entered bool, to string) string {
 	return "entry; then " + to + ";"
 }
 
-// stateRegion writes one region: its entry, then its states and transitions.
+// stateRegion writes one region: its entry, then its states and transitions,
+// named against owner's body as its vertices were (nil for a parallel region's).
 type stateRegion struct {
 	m       *migration
 	r       *sysmlv1.Element
+	owner   *sysmlv1.Element
 	used    map[string]bool
 	machine *sysmlv1.Element
 }
@@ -679,6 +708,7 @@ func (s *stateRegion) initial(vertices, transitions []*sysmlv1.Element, entered 
 		}
 		return
 	}
+	s.m.wroteNoMember(t)
 	note := ""
 	for _, tr := range t.Owned("trigger") {
 		note = "an initial transition takes no trigger; its triggers are dropped"
@@ -1328,13 +1358,26 @@ func (s *stateRegion) transition(t *sysmlv1.Element) {
 	} else if written > 1 {
 		notes = append(notes, "written as "+strconv.Itoa(written)+" transitions, one per trigger")
 	}
-	tname := ""
-	if s.m.nameOf(t) != "" {
-		tname = freshIn(s.used, s.m.nameOf(t))
+	tname := s.m.nameOf(t)
+	if tname == "" {
+		tname = s.m.edgeName(t, transitionBase(from, accepts[0], guard, to))
+	}
+	if tname != "" {
+		tname = s.m.freshMember(s.owner, s.used, tname)
 	}
 	s.writeAccepts(t, accepts, tname, guard, eff, from, to)
 	note := strings.Join(notes, "; ")
-	s.m.add(t, verdictFor(note), tname, joinNotes(note, strings.Join(info, "; ")))
+	s.m.add(t, verdictFor(note), s.m.edgeTarget(t), joinNotes(note, strings.Join(info, "; ")))
+}
+
+// transitionBase spells the name a shown anonymous transition is declared
+// under, from what it is written between: `Wait accept Sig then Retrieve`.
+func transitionBase(from string, a acceptance, guard, to string) string {
+	clause := a.clause
+	if a.payload != "" {
+		clause = strings.Replace(clause, writeName(a.payload)+" : ", "", 1)
+	}
+	return spoken(from + clause + guard + " then " + to)
 }
 
 // kindNotes notes how an internal or local transition's semantics change in
@@ -1412,15 +1455,17 @@ func (s *stateRegion) transitionAccepts(t *sysmlv1.Element, triggers []*sysmlv1.
 	return accepts, notes, info, written
 }
 
-// writeAccepts writes one transition line per acceptance, each with the guard,
-// an effect body when there is one, and the target.
+// writeAccepts writes one transition line per acceptance, each with the guard, an
+// effect body when there is one, and the target, recording each as a member of t.
 func (s *stateRegion) writeAccepts(t *sysmlv1.Element, accepts []acceptance, tname, guard string, eff *sysmlv1.Element, from, to string) {
+	s.m.wroteEdge(t, s.r, "transition", tname)
 	for i, accept := range accepts {
 		line := "transition "
 		if tname != "" {
 			n := tname
 			if i > 0 {
-				n = freshIn(s.used, tname)
+				n = s.m.freshMember(s.owner, s.used, s.furtherName(t, tname, accept, guard, from, to))
+				s.m.wroteEdgeAlso(t, s.r, "transition", nil, n)
 			}
 			line += writeName(n) + " "
 		}
@@ -1431,6 +1476,15 @@ func (s *stateRegion) writeAccepts(t *sysmlv1.Element, accepts []acceptance, tna
 		}
 		s.m.w.line(line + " then " + to + ";")
 	}
+}
+
+// furtherName is the base name of a further transition written for t: the v1
+// name when t has one, else spelled from the acceptance the line is written for.
+func (s *stateRegion) furtherName(t *sysmlv1.Element, tname string, a acceptance, guard, from, to string) string {
+	if s.m.nameOf(t) != "" {
+		return tname
+	}
+	return transitionBase(from, a, guard, to)
 }
 
 // routes writes the acceptances a trigger stands for: as read when taken from the object itself,
