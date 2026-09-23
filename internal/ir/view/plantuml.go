@@ -28,7 +28,8 @@ func (r *Rendering) PlantUMLWith(options Options) (string, error) {
 	if err := options.Palette.check(); err != nil {
 		return "", err
 	}
-	w := &plantumlWriter{borders: r.Kind.paletteBorders(), fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree}}
+	w := &plantumlWriter{borders: r.Kind.paletteBorders(), fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree},
+		labels: labelsOf(r.Roots)}
 	for _, root := range r.Roots {
 		w.fills.collect(root)
 	}
@@ -81,6 +82,7 @@ type plantumlWriter struct {
 	b       strings.Builder
 	borders bool        // whether a filled node's border takes the family colour; a participant's cannot
 	fills   familyFills // the palette fills, by keyword family
+	labels  labeller    // the node labels, headed relative to the roots' namespace
 }
 
 // countGeometry counts the nodes a Geometry positions and the edges with a route.
@@ -194,7 +196,7 @@ func (w *plantumlWriter) writeClassDiagram(r *Rendering) {
 // writeClassNode writes one class and, in a tree, its children with the
 // containment edge to each.
 func (w *plantumlWriter) writeClassNode(node *Node) {
-	fmt.Fprintf(&w.b, "class %s as %s%s\n", plantumlQuote(plantumlLabel(node)), node.ID, w.decoration(node))
+	fmt.Fprintf(&w.b, "class %s as %s%s\n", plantumlQuote(w.plantumlLabel(node)), node.ID, w.decoration(node))
 	for _, child := range node.Children {
 		w.writeClassNode(child)
 		fmt.Fprintf(&w.b, "%s -- %s\n", node.ID, child.ID)
@@ -220,7 +222,7 @@ func (w *plantumlWriter) writeRectangleDiagram(r *Rendering) {
 // writeRectangleNode writes one rectangle, a block of its children when it has any.
 func (w *plantumlWriter) writeRectangleNode(node *Node, depth int) {
 	indent := strings.Repeat("  ", depth)
-	fmt.Fprintf(&w.b, "%srectangle %s as %s%s", indent, plantumlQuote(plantumlLabel(node)), node.ID, w.decoration(node))
+	fmt.Fprintf(&w.b, "%srectangle %s as %s%s", indent, plantumlQuote(w.plantumlLabel(node)), node.ID, w.decoration(node))
 	if len(node.Children) == 0 {
 		w.b.WriteString("\n")
 		return
@@ -268,7 +270,7 @@ func (w *plantumlWriter) writeStateDiagram(r *Rendering) {
 // `[*]` marker inside that state, so its edges are written there after the substates.
 func (w *plantumlWriter) writeStateNode(node *Node, depth int, starts map[string][]Edge) {
 	indent := strings.Repeat("  ", depth)
-	fmt.Fprintf(&w.b, "%sstate %s as %s%s", indent, plantumlQuote(plantumlLabel(node)), node.ID, w.decoration(node))
+	fmt.Fprintf(&w.b, "%sstate %s as %s%s", indent, plantumlQuote(w.plantumlLabel(node)), node.ID, w.decoration(node))
 	if len(node.Children) == 0 {
 		w.b.WriteString("\n")
 		return
@@ -297,7 +299,7 @@ func (w *plantumlWriter) writeSequenceDiagram(r *Rendering) {
 		return
 	}
 	for _, node := range r.Roots {
-		fmt.Fprintf(b, "participant %s as %s%s\n", plantumlQuote(plantumlLabel(node)), node.ID, w.decoration(node))
+		fmt.Fprintf(b, "participant %s as %s%s\n", plantumlQuote(w.plantumlLabel(node)), node.ID, w.decoration(node))
 	}
 	for _, edge := range r.Edges {
 		w.writeArrow("", edge.From, edge.To, "->", edge.Label)
@@ -383,8 +385,8 @@ func plantumlShapeStereotype(node *Node) string {
 
 // plantumlLabel is a node's label ready to quote: the name line bold, the
 // keyword line italic at the skin's stereotype size, every line escaped.
-func plantumlLabel(node *Node) string {
-	lines := labelLines(node)
+func (w *plantumlWriter) plantumlLabel(node *Node) string {
+	lines := w.labels.lines(node)
 	parts := []string{"**" + plantumlText(lines[0]) + "**"}
 	for _, line := range lines[1:] {
 		parts = append(parts, plantumlText(line))

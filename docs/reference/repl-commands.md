@@ -398,13 +398,13 @@ view Demo::summary::detail
 sysml> %render Demo::summary mermaid
 %% Demo::summary — tree rendering
 flowchart TD
-  n0["Demo::Vehicle<br>«part def»"]
+  n0["Vehicle<br>«part def»"]
   n1["mass : Real<br>«attribute»"]
   n0 --- n1
   n2["wheel : Wheel<br>«part»"]
   n0 --- n2
-  n3["Demo::summary::detail<br>«view»"]
-  n4["Demo::Wheel<br>«part def»"]
+  n3["summary::detail<br>«view»"]
+  n4["Wheel<br>«part def»"]
   n5["diameter : Real<br>«attribute»"]
   n4 --- n5
   n3 --- n4
@@ -457,13 +457,13 @@ digraph "Demo::summary" {
   graph [fontname="Helvetica"];
   node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
   edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
-  "n0" [label=<<b>Demo::Vehicle</b><br/><font point-size="10"><i>«part def»</i></font>>];
+  "n0" [label=<<b>Vehicle</b><br/><font point-size="10"><i>«part def»</i></font>>];
   "n1" [style="rounded,filled", label=<<b>mass : Real</b><br/><font point-size="10"><i>«attribute»</i></font>>];
   "n0" -> "n1" [arrowhead=none];
   "n2" [style="rounded,filled", label=<<b>wheel : Wheel</b><br/><font point-size="10"><i>«part»</i></font>>];
   "n0" -> "n2" [arrowhead=none];
-  "n3" [style="rounded,filled", label=<<b>Demo::summary::detail</b><br/><font point-size="10"><i>«view»</i></font>>];
-  "n4" [label=<<b>Demo::Wheel</b><br/><font point-size="10"><i>«part def»</i></font>>];
+  "n3" [style="rounded,filled", label=<<b>summary::detail</b><br/><font point-size="10"><i>«view»</i></font>>];
+  "n4" [label=<<b>Wheel</b><br/><font point-size="10"><i>«part def»</i></font>>];
   "n5" [style="rounded,filled", label=<<b>diameter : Real</b><br/><font point-size="10"><i>«attribute»</i></font>>];
   "n4" -> "n5" [arrowhead=none];
   "n3" -> "n4" [arrowhead=none];
@@ -479,7 +479,7 @@ kept legible on every fill:
 ```text
 sysml> %render Demo::summary dot okabe-ito
 …
-  "n0" [fillcolor="#E69F00", color="#E69F00", penwidth=1, label=<<b>Demo::Vehicle</b><br/><font point-size="10"><i>«part def»</i></font>>];
+  "n0" [fillcolor="#E69F00", color="#E69F00", penwidth=1, label=<<b>Vehicle</b><br/><font point-size="10"><i>«part def»</i></font>>];
   "n1" [style="rounded,filled", fillcolor="#F9F4B3", color="#F0E442", penwidth=1, label=<<b>mass : Real</b><br/><font point-size="10"><i>«attribute»</i></font>>];
 …
 ```
@@ -509,7 +509,7 @@ skinparam wrapWidth 300
 hide stereotype
 hide circle
 hide empty members
-class "**Demo::Vehicle**\n<size:10>//«part def»//</size>" as n0 <<part def>>
+class "**Vehicle**\n<size:10>//«part def»//</size>" as n0 <<part def>>
 class "**mass : Real**\n<size:10>//«attribute»//</size>" as n1 <<attribute>> <<usage>>
 n0 -- n1
 …

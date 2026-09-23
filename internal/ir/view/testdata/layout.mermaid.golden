@@ -10,7 +10,7 @@ config:
 %% layout: n2 x=500 y=40 w=120 h=60
 %% route: n1->n2 400,70 450,120 500,70
 flowchart LR
-  subgraph n0 ["Plant::Loop<br>«part def»"]
+  subgraph n0 ["Loop<br>«part def»"]
     direction LR
     n1["pump : Pump<br>«part»"]
     n2["tank : Tank<br>«part»"]

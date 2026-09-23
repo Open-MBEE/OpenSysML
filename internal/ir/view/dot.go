@@ -54,7 +54,7 @@ func (r *Rendering) DOTWith(options Options) (string, error) {
 	}
 	direction := options.Direction
 	w := &dotWriter{tree: r.Kind == KindTree, clusters: map[string]bool{}, enclosing: map[string][]string{}, canvas: r.Canvas,
-		boxes: map[string]nodeBox{}, fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree}}
+		boxes: map[string]nodeBox{}, fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree}, labels: labelsOf(r.Roots)}
 	w.placeNodes(r.Roots, r.Edges)
 	for _, root := range r.Roots {
 		if !w.tree {
@@ -138,6 +138,7 @@ type dotWriter struct {
 	routed    int         // edges with a route to write
 	notices   []string    // geometry the form cannot draw
 	fills     familyFills // the palette fills, by keyword family
+	labels    labeller    // the node labels, headed relative to the roots' namespace
 }
 
 // The Standard B&W style, after the sysmlbw PlantUML skin: Helvetica text,
@@ -214,27 +215,27 @@ func (w *dotWriter) placeNode(node *Node, ends map[string][]routeEnd) {
 	case node.Geometry != nil && cluster:
 		w.boxes[node.ID] = w.clusterBox(node)
 	case node.Geometry != nil:
-		w.boxes[node.ID] = statedBox(node)
+		w.boxes[node.ID] = w.statedBox(node)
 	case cluster && w.membersBox(node) != nil:
 		w.boxes[node.ID] = *w.membersBox(node)
 	case len(ends[node.ID]) > 0:
-		w.boxes[node.ID] = routedBox(node, ends[node.ID])
+		w.boxes[node.ID] = w.routedBox(node, ends[node.ID])
 	}
 }
 
 // statedBox is the box a Layout places a plain node in: from its top-left
 // corner, the stated size or the one fitted to its label.
-func statedBox(node *Node) nodeBox {
+func (w *dotWriter) statedBox(node *Node) nodeBox {
 	g := node.Geometry
-	width, height := dotBox(node)
+	width, height := w.labels.dotBox(node)
 	return nodeBox{low: Point{X: g.X, Y: g.Y}, high: Point{X: g.X + width, Y: g.Y + height}}
 }
 
 // routedBox is the box a node with no Layout takes from the routes that meet
 // it, sized to its label: centred one reach back from each route's end along
 // its end segment, so the route meets the border, at their mean under several.
-func routedBox(node *Node, ends []routeEnd) nodeBox {
-	width, height := dotBox(node)
+func (w *dotWriter) routedBox(node *Node, ends []routeEnd) nodeBox {
+	width, height := w.labels.dotBox(node)
 	var sum Point
 	for _, end := range ends {
 		centre := end.at
@@ -411,10 +412,10 @@ func (w *dotWriter) dotNodeAttributes(node *Node) []string {
 		if w.fills.filled(node) {
 			attrs = append(attrs, "fillcolor="+dotQuote(w.fills.fill(node)), dotColorAttr(w.fills.color(node)), "penwidth=1")
 		}
-		attrs = append(attrs, dotLabel(node))
+		attrs = append(attrs, w.labels.dotLabel(node))
 	}
 	if box, ok := w.boxes[node.ID]; ok {
-		width, height := dotBox(node)
+		width, height := w.labels.dotBox(node)
 		attrs = append(attrs, w.dotPin(box.centre()))
 		if node.Kind != startKind {
 			attrs = append(attrs, "width="+dotInches(width), "height="+dotInches(height))
@@ -442,7 +443,7 @@ func (w *dotWriter) dotPseudostateAttributes(node *Node) []string {
 		shape = "shape=doublecircle"
 	}
 	if node.Name != "" {
-		return []string{shape, dotLabel(node)}
+		return []string{shape, w.labels.dotLabel(node)}
 	}
 	attrs := []string{shape, "fillcolor=black", `label=""`}
 	if _, ok := w.boxes[node.ID]; !ok {
@@ -468,7 +469,7 @@ const (
 
 // dotBox is the box a positioned node is centred in, in points: the stated
 // size, or one fitted to its label so Graphviz has no cause to grow it.
-func dotBox(node *Node) (width, height float64) {
+func (l labeller) dotBox(node *Node) (width, height float64) {
 	if g := node.Geometry; g != nil && g.HasSize {
 		return g.Width, g.Height
 	}
@@ -478,7 +479,7 @@ func dotBox(node *Node) (width, height float64) {
 	if (node.Kind == "initial" || node.Kind == "final") && node.Name == "" {
 		return dotPseudostateSize, dotPseudostateSize
 	}
-	width, height = dotLabelExtent(node)
+	width, height = l.dotLabelExtent(node)
 	width = math.Ceil(width + 2*dotMarginWidth)
 	height = math.Ceil(height + 2*dotMarginHeight)
 	if node.Kind == "initial" || node.Kind == "final" {
@@ -490,8 +491,8 @@ func dotBox(node *Node) (width, height float64) {
 
 // dotLabelExtent is a label's text extent in points: its widest line by its
 // lines' summed heights, the head in bold glyphs and the keyword line at 10pt.
-func dotLabelExtent(node *Node) (width, height float64) {
-	for i, line := range labelLines(node) {
+func (l labeller) dotLabelExtent(node *Node) (width, height float64) {
+	for i, line := range l.lines(node) {
 		size, glyph := float64(dotFontSize), dotGlyphEm
 		switch {
 		case i == 0:
@@ -528,7 +529,7 @@ var dotInvisibleAttributes = []string{"shape=point", "style=invis", "width=0", "
 // border for an orthogonal region, its black border at the skin's thickness (a
 // package's heavier than an element's), and its box as `bb` when it has an extent.
 func (w *dotWriter) dotClusterAttributes(node *Node) []string {
-	attrs := []string{dotLabel(node)}
+	attrs := []string{w.labels.dotLabel(node)}
 	if node.Kind == "region" {
 		attrs = append(attrs, "style=dashed")
 	}
@@ -643,8 +644,8 @@ const dotKeywordPointSize = 10
 // alike: the head in bold, the keyword line smaller and in italics, then the
 // notes, one line each. A state's name is bold too, where the Pilot's is plain:
 // the label's extent estimate (dotLabelExtent) and the other forms are kept to.
-func dotLabel(node *Node) string {
-	lines := labelLines(node)
+func (l labeller) dotLabel(node *Node) string {
+	lines := l.lines(node)
 	parts := []string{"<b>" + dotEscape(lines[0]) + "</b>"}
 	for _, line := range lines[1:] {
 		parts = append(parts, dotEscape(line))

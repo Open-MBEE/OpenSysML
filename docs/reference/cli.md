@@ -559,7 +559,7 @@ config:
 ---
 %% Plant::loopView — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
-  subgraph n0 ["Plant::Loop<br>«part def»"]
+  subgraph n0 ["Loop<br>«part def»"]
     direction LR
   …
 ```

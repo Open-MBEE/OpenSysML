@@ -7,7 +7,7 @@ digraph "MachineViews::thermostat" {
   node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
   edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
   subgraph "cluster_n0" {
-    label=<<b>Machines::Thermostat</b><br/><font point-size="10"><i>«state def»</i></font>>;
+    label=<<b>Thermostat</b><br/><font point-size="10"><i>«state def»</i></font>>;
     color=black;
     penwidth=0.5;
     "n0" [shape=point, style=invis, width=0, height=0, label=""];

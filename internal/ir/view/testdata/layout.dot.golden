@@ -10,7 +10,7 @@ digraph "PlantViews::placedView" {
   "canvas:0" [shape=point, style=invis, width=0, height=0, label="", pos="0,800!", pin=true];
   "canvas:1" [shape=point, style=invis, width=0, height=0, label="", pos="1200,0!", pin=true];
   subgraph "cluster_n0" {
-    label=<<b>Plant::Loop</b><br/><font point-size="10"><i>«part def»</i></font>>;
+    label=<<b>Loop</b><br/><font point-size="10"><i>«part def»</i></font>>;
     color=black;
     penwidth=0.5;
     bb="292,692,628,768";

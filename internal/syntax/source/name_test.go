@@ -28,3 +28,26 @@ func TestQualifiedNameSegments(t *testing.T) {
 		t.Error("QualifiedNameSegments(\"A::\") succeeded, want a failure")
 	}
 }
+
+// A typing's references each end in the name a diagram heads the type by; a
+// conjugation is kept, and text that is not a reference list stands as it is.
+func TestReferenceEndNames(t *testing.T) {
+	for _, tc := range []struct{ text, want string }{
+		{"Pump", "Pump"},
+		{"Plant::Pumps::Pump", "Pump"},
+		{"$::ISQ::LengthValue", "LengthValue"},
+		{"~Ports::FuelPort", "~FuelPort"},
+		{"Plant::Pumps::Pump, ~Ports::FuelPort", "Pump, ~FuelPort"},
+		{"'Sep::Pkg'::'x::y'", "'x::y'"},
+		{"vehicle.engine.Cylinder", "Cylinder"},
+		{"Plant::pump.'fuel in'", "'fuel in'"},
+		{"", ""},
+		{"T<U>", "T<U>"},
+		{"A::", "A::"},
+		{"A,B", "A,B"},
+	} {
+		if got := ReferenceEndNames(tc.text); got != tc.want {
+			t.Errorf("ReferenceEndNames(%q) = %q, want %q", tc.text, got, tc.want)
+		}
+	}
+}
