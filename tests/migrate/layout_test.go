@@ -112,6 +112,44 @@ func TestGoldenEdgeLayout(t *testing.T) {
 	}
 }
 
+// The routes a migrated view carries reach the DOT form as pinned edge splines for each
+// edge kind, labelled by name only where the edge has no text of its own.
+func TestMigratedRoutesRenderPinned(t *testing.T) {
+	r := migrateLaidOut(t, "diagram_edges")
+	s := session(t, r)
+	for view, wants := range map[string][]string{
+		"Structure::Vehicle::Drive::Driving": {
+			`"n5" -> "n1" [label="'start to gain'", pos="60,160 60,160 60,190 60,190"];`,
+			`"n3" -> "n4" [label="finish", pos="60,0 60,0 60,40 60,40"];`,
+			`[label="result to value", style=dashed, pos="110,60 110,60 140,60 140,60 140,60 140,140 140,140 140,140 110,140 110,140"];`,
+		},
+		"Behavior::Modes::Modes": {
+			`"n1" -> "n2" [label="accept Go", pos="200,110 200,110 110,110 110,110"];`,
+			`"n2" -> "n3" [label="accept Stop", pos="250,40 250,40 250,90 250,90"];`,
+		},
+		"Structure::Vehicle::'Vehicle Internals'": {
+			`[label="'engine to wheel'", arrowhead=none, penwidth=3, pos="200,100 200,100 120,100 120,100"];`,
+			`[label="'engine to wheel 2'", arrowhead=none, penwidth=3, pos="200,80 200,80 160,60 160,60 160,60 120,80 120,80"];`,
+			`[label="drive", arrowhead=none, penwidth=3, pos="200,90 200,90 120,90 120,90"];`,
+			`[label="'mass = limit'", arrowhead=none, pos="200,10 200,10 120,10 120,10"];`,
+		},
+	} {
+		rendering, err := s.ViewRendering(view)
+		if err != nil {
+			t.Fatalf("render %s: %v", view, err)
+		}
+		dot, err := rendering.DOT()
+		if err != nil {
+			t.Fatalf("DOT of %s: %v", view, err)
+		}
+		for _, want := range wants {
+			if !strings.Contains(dot, want) {
+				t.Errorf("DOT of %s lacks %q:\n%s", view, want, dot)
+			}
+		}
+	}
+}
+
 // Zero options must migrate exactly as Migrate does: notation and text report
 // byte-identical for every fixture.
 func TestZeroOptionsMatchMigrate(t *testing.T) {
