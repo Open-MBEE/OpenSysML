@@ -170,6 +170,10 @@ func TestDOTSymbolsInStatedBoxes(t *testing.T) {
 			`"n" [label=<<b>decide</b><br/><font point-size="10"><i>«decision»</i></font>>, pos=`},
 		{"unsized terminate action", &Node{ID: "n", Kind: terminateKind, Name: "final"},
 			`"n" [style="rounded,filled", label=<<b>final</b><br/><font point-size="10"><i>«terminate action»</i></font>>];`},
+		{"unsized named initial", &Node{ID: "n", Kind: "initial", Name: "begin"},
+			`"n" [shape=circle, label=<<b>begin</b><br/><font point-size="10"><i>«initial»</i></font>>];`},
+		{"unsized initial with a synthesized name", &Node{ID: "n", Kind: "initial", Name: "start", NameSynthesized: true},
+			`"n" [shape=circle, fillcolor=black, label="", width=0.2];`},
 	} {
 		dot, err := (&Rendering{View: "V", Kind: KindAction, Roots: []*Node{tc.node}}).DOT()
 		if err != nil {

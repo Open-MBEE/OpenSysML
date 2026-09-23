@@ -494,14 +494,14 @@ func (w *dotWriter) dotSymbolAttributes(node *Node) []string {
 const dotPseudostateSize = 14.4
 
 // dotPseudostateAttributes is an initial or final node's shape and label: the
-// UML filled black dot, or double ring, when it has no name to show, a labelled
-// circle when the rendering names it. A placed one keeps its placed size.
+// UML filled black dot, or double ring, when it has no given name to show, a
+// labelled circle when the rendering names it. A placed one keeps its placed size.
 func (w *dotWriter) dotPseudostateAttributes(node *Node) []string {
 	shape := "shape=circle"
 	if node.Kind == "final" {
 		shape = "shape=doublecircle"
 	}
-	if node.Name != "" {
+	if node.Name != "" && !node.NameSynthesized {
 		return []string{shape, w.labels.dotLabel(node)}
 	}
 	attrs := []string{shape, "fillcolor=black", `label=""`}
