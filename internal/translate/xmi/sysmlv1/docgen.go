@@ -41,8 +41,10 @@ type DocGenView struct {
 // profile places in a view (its ownerId) of a document (its viewId), after
 // the paragraph its siblingId names.
 type DocGenParagraph struct {
-	// Application is the CollaboratorParagraph application.
+	// Application is the CollaboratorParagraph or CollaboratorImageParagraph application.
 	Application *Stereotype
+	// Image reports a CollaboratorImageParagraph: the comment carries an attached image file.
+	Image bool
 	// Comment is the comment shown; nil when the application's base is dangling.
 	Comment *Element
 	// Malformed is why the paragraph cannot be shown, "" when it can.
@@ -128,7 +130,7 @@ func (e *Element) DocGen() *Stereotype {
 func (m *Model) readDocuments() {
 	r := &docGenReader{m: m, comments: map[string][]*Stereotype{}, placed: map[*Stereotype]bool{}}
 	for _, s := range m.Stereotypes {
-		if s.Namespace == DocGenCollaboratorNS && s.Name == "CollaboratorParagraph" {
+		if isCollaboratorParagraph(s) {
 			owner := s.Tag("ownerId")
 			r.comments[owner] = append(r.comments[owner], s)
 		}
@@ -148,10 +150,10 @@ func (m *Model) readDocuments() {
 		m.Documents = append(m.Documents, doc)
 	}
 	for _, s := range m.Stereotypes {
-		if s.Namespace != DocGenCollaboratorNS || s.Name != "CollaboratorParagraph" || r.placed[s] {
+		if !isCollaboratorParagraph(s) || r.placed[s] {
 			continue
 		}
-		p := &DocGenParagraph{Application: s, Comment: s.Base}
+		p := &DocGenParagraph{Application: s, Comment: s.Base, Image: s.Name == "CollaboratorImageParagraph"}
 		if id := s.Tag("viewId"); id != "" && !seen[m.Lookup(id)] {
 			p.Malformed = fmt.Sprintf("viewId %q names no document", id)
 		} else {
@@ -159,6 +161,11 @@ func (m *Model) readDocuments() {
 		}
 		m.StrayParagraphs = append(m.StrayParagraphs, p)
 	}
+}
+
+// isCollaboratorParagraph matches the collaborator profile's paragraph applications.
+func isCollaboratorParagraph(s *Stereotype) bool {
+	return s.Namespace == DocGenCollaboratorNS && (s.Name == "CollaboratorParagraph" || s.Name == "CollaboratorImageParagraph")
 }
 
 type docGenReader struct {
@@ -237,7 +244,7 @@ func (r *docGenReader) paragraphs(class *Element) []*DocGenParagraph {
 			continue
 		}
 		r.placed[s] = true
-		p := &DocGenParagraph{Application: s, Comment: s.Base}
+		p := &DocGenParagraph{Application: s, Comment: s.Base, Image: s.Name == "CollaboratorImageParagraph"}
 		switch {
 		case s.Base == nil:
 			p.Malformed = fmt.Sprintf("base_Element %q names no element", s.BaseID)

@@ -185,6 +185,9 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 	for _, root := range model.Roots {
 		m.root(root)
 	}
+	for _, extra := range m.extras[nil] {
+		extra()
+	}
 	m.views(nil)
 	m.flushFlows()
 	m.placeholderEnds()

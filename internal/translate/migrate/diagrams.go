@@ -108,6 +108,7 @@ func (m *migration) planViews() {
 		m.hosted[v.host] = append(m.hosted[v.host], v)
 	}
 	m.planTables()
+	m.planDocuments()
 }
 
 // viewName reserves the name a view takes in host's body, or at the top level
