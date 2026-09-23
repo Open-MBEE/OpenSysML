@@ -324,6 +324,7 @@ var constructFixtures = []string{
 	"malformed_diagrams",
 	"stub_actions",
 	"tables",
+	"metaclass_tables",
 	"documents",
 	"type_modifiers",
 	"table_homonyms",

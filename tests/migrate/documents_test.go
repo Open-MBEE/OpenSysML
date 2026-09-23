@@ -104,6 +104,52 @@ func TestMigratedTablesExecute(t *testing.T) {
 		"returned 2 rows", "Plant::Structure::Pump", "Plant::Requirements::FlowRequirement")
 }
 
+// A generic table over a broad UML metaclass lists what that metaclass holds
+// in the source model: the packageable elements of a package but not the
+// features they own, and the «View» and «Viewpoint» classes among the types.
+func TestMetaclassTablesExecute(t *testing.T) {
+	s := session(t, migrateFixtureFile(t, "metaclass_tables"))
+
+	packageable := rows(t, s, "Tables::'Packageable Elements Rows'")
+	wantInOrder(t, "Packageable Elements rows", packageable,
+		"returned 11 rows",
+		"Plant::Structure\n", "Plant::Structure::Mode\n", "Plant::Structure::Pump\n",
+		"Plant::Structure::Pump::Cycle\n", "Plant::Structure::Pump::prime\n", "Plant::Structure::Valve\n",
+		"Plant::Structure::needs\n", "Plant::Structure::p1\n",
+		"Plant::Views\n", "Plant::Views::Operations\n", "Plant::Views::Overview\n")
+	for _, feature := range []string{"Pump::mass", "Pump::valve", "Pump::'prime 2'", "Mode::on", "Cycle::Idle", "p1::mass"} {
+		if strings.Contains(packageable, feature) {
+			t.Errorf("Packageable Elements lists the owned feature %s:\n%s", feature, packageable)
+		}
+	}
+
+	namespaces := rows(t, s, "Tables::'Namespaces Rows'")
+	wantInOrder(t, "Namespaces rows", namespaces,
+		"returned 12 rows",
+		"Plant::Structure\n", "Plant::Structure::Mode\n", "Plant::Structure::Pump\n",
+		"Plant::Structure::Pump::Cycle\n", "Plant::Structure::Pump::Cycle::Idle\n",
+		"Plant::Structure::Pump::Cycle::Running\n", "Plant::Structure::Pump::prime\n",
+		"Plant::Structure::Valve\n", "Plant::Structure::p1\n",
+		"Plant::Views\n", "Plant::Views::Operations\n", "Plant::Views::Overview\n")
+	if strings.Contains(namespaces, "Plant::Structure::needs") {
+		t.Errorf("Namespaces lists the dependency needs:\n%s", namespaces)
+	}
+
+	for _, name := range []string{"Types", "Classifiers"} {
+		got := rows(t, s, "Tables::'"+name+" Rows'")
+		wantInOrder(t, name+" rows", got,
+			"returned 8 rows",
+			"Plant::Structure::Mode\n", "Plant::Structure::Pump\n", "Plant::Structure::Pump::Cycle\n",
+			"Plant::Structure::Pump::prime\n", "Plant::Structure::Valve\n", "Plant::Structure::p1\n",
+			"Plant::Views::Operations\n", "Plant::Views::Overview\n")
+		for _, other := range []string{"Plant::Structure\n", "Plant::Views\n", "Cycle::Idle", "needs"} {
+			if strings.Contains(got, other) {
+				t.Errorf("%s lists %q, which is no type:\n%s", name, strings.TrimSpace(other), got)
+			}
+		}
+	}
+}
+
 // A table whose diagram the model itself owns is written at the top level,
 // beside its view, as a table in a package is beside its own.
 func TestTopLevelTableIsWritten(t *testing.T) {

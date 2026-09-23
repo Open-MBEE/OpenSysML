@@ -84,17 +84,39 @@ var propertyTypes = []string{typeAttributeUsage, typePartUsage, typeItemUsage, t
 // behaviorTypes are the definitions a UML behavior migrates to.
 var behaviorTypes = []string{typeActionDef, typeCalcDef, typeStateDef, typeVerificationDef}
 
+// classifierTypes are what a UML type, which is always a classifier, migrates
+// to: a definition, or the view or viewpoint usage a «View» or «Viewpoint»
+// class becomes.
+var classifierTypes = []string{typeDefinition, typeViewUsage, typeViewpointUsage}
+
+// namespaceTypes add to the classifiers the packages and the states, which are
+// namespaces in UML; a «View» package is a view usage too.
+var namespaceTypes = []string{typePackage, typeDefinition, typeViewUsage, typeViewpointUsage, typeStateUsage}
+
+// packageableTypes are what the elements a package can own migrate to: the
+// classifiers, packages, and the dependencies of every stereotype.
+var packageableTypes = []string{typePackage, typeDefinition, typeViewUsage, typeViewpointUsage,
+	typeDependency, typeSatisfyUsage, typeAllocationUsage}
+
+// Notes on what the broad UML metaclasses list once migrated.
+const (
+	noteDiagramViews    = "the views diagrams became are listed too"
+	noteClassifierExtra = "the views diagrams became and the action defs operations became are listed too"
+)
+
 // metaclassTypes maps a UML metaclass to the v2 metaclasses its elements
 // migrate to; a nil entry admits every element.
 var metaclassTypes = map[string]v2Types{
-	"Element":            {},
-	"NamedElement":       {note: "every migrated element is named, so a NamedElement filter admits all of them"},
-	"PackageableElement": {note: "a PackageableElement filter admits every migrated element"},
-	"Namespace":          {types: []string{typePackage, typeDefinition}},
+	"Element":      {},
+	"NamedElement": {note: "every migrated element is named, so a NamedElement filter admits all of them"},
+	"PackageableElement": {types: packageableTypes,
+		note: noteClassifierExtra + "; instances of value types, written as attributes, are not"},
+	"Namespace": {types: namespaceTypes, note: noteDiagramViews +
+		"; transitions and structured activity nodes are not"},
 	"Package":            {types: []string{typePackage}},
 	"Model":              {types: []string{typePackage}, note: "a model is a package once migrated"},
-	"Type":               {types: []string{typeDefinition}},
-	"Classifier":         {types: []string{typeDefinition}},
+	"Type":               {types: classifierTypes, note: noteClassifierExtra},
+	"Classifier":         {types: classifierTypes, note: noteClassifierExtra},
 	"Class":              {types: classTypes},
 	"Component":          {types: []string{typePartDef}, note: "a component is a part def once migrated, as a block is"},
 	"Actor":              {types: []string{typePartDef}, note: "an actor is a part def once migrated, as a block is"},
