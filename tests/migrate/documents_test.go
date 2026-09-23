@@ -1,6 +1,8 @@
 package migrate_test
 
 import (
+	"bytes"
+	"os"
 	"strings"
 	"testing"
 
@@ -100,6 +102,31 @@ func TestMigratedTablesExecute(t *testing.T) {
 	critical := rows(t, s, "Plant::'Critical Elements Rows'")
 	wantInOrder(t, "Critical Elements rows", critical,
 		"returned 2 rows", "Plant::Structure::Pump", "Plant::Requirements::FlowRequirement")
+}
+
+// A table whose diagram the model itself owns is written at the top level,
+// beside its view, as a table in a package is beside its own.
+func TestTopLevelTableIsWritten(t *testing.T) {
+	data, err := os.ReadFile("testdata/xmi/tables.xmi")
+	if err != nil {
+		t.Fatal(err)
+	}
+	data = bytes.ReplaceAll(data, []byte(`ownerOfDiagram="_pkg_inventory"`), []byte(`ownerOfDiagram="_m"`))
+	r, err := migrate.Migrate("tables.xmi", data)
+	if err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+	wantClean(t, "tables.sysml", r)
+	wantInOrder(t, "top-level table", string(r.Notation),
+		"\nview 'Pump Table' {", "expose 'Pump Table Document';",
+		"\ncalc def 'Pump Table Rows' :> DocumentQueries::Query {",
+		"\npart def 'Pump Table Document' :> DocumentQueries::Document {", "calc rows : 'Pump Table Rows';")
+	wantNote(t, r, "_tbl_pumps", migrate.Approximated, "written as a Document holding a Table over the query 'Pump Table Rows'")
+	if es := entriesFor(r, "_tbl_pumps"); len(es) == 1 && es[0].Target != "part def 'Pump Table Document'" {
+		t.Errorf("target = %q", es[0].Target)
+	}
+	wantInOrder(t, "top-level Pump Table rows", rows(t, session(t, r), "'Pump Table Rows'"),
+		"returned 5 rows", "Plant::Inventory::r1", "Plant::Spares::s2")
 }
 
 // The Document each table becomes renders through the real Markdown and HTML

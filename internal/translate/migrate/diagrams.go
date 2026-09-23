@@ -57,7 +57,9 @@ type view struct {
 	d *sysmlv1.Diagram
 	// host is the element whose body holds the view; nil for the top level.
 	host *sysmlv1.Element
-	name string
+	// placed is false when nothing written can hold the view.
+	placed bool
+	name   string
 	// note says what of the view's placement is approximated; "" when nothing.
 	note string
 	// entry is the report row, filled when the view is written.
@@ -76,9 +78,8 @@ func (m *migration) planViews() {
 		d := &m.model.Diagrams[i]
 		v := &view{d: d}
 		m.viewOf[d] = v
-		var placed bool
-		v.host, placed, v.note = m.viewHost(d)
-		if !placed {
+		v.host, v.placed, v.note = m.viewHost(d)
+		if !v.placed {
 			v.entry = m.diagramEntry(d, Unmapped, "", v.note)
 			continue
 		}

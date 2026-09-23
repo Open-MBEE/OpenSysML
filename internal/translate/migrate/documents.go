@@ -959,7 +959,7 @@ func (c *chain) image(s *sysmlv1.DocGenStep) {
 	show := s.Application.Tag("showCaptions") != "false"
 	for i, d := range c.diagrams {
 		v := c.m.viewOf[d]
-		if v == nil || v.host == nil && !c.m.viewPlaced(d) {
+		if v == nil || !v.placed {
 			c.refuse(s, "the Diagram '"+d.Name+"' is not written as a view")
 			continue
 		}
@@ -983,12 +983,6 @@ func (c *chain) image(s *sysmlv1.DocGenStep) {
 		cp.name = c.sec.names.claim("diagram")
 		c.sec.content = append(c.sec.content, cp)
 	}
-}
-
-// viewPlaced reports whether a diagram's view is written somewhere.
-func (m *migration) viewPlaced(d *sysmlv1.Diagram) bool {
-	_, placed, _ := m.viewHost(d)
-	return placed
 }
 
 // dynamicView lowers a Dynamic View node: a Section titled after it, holding

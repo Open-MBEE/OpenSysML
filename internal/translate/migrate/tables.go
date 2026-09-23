@@ -59,7 +59,7 @@ func (m *migration) planTables() {
 			continue
 		}
 		v := m.viewOf[t.Diagram]
-		if v == nil || v.host == nil {
+		if v == nil || !v.placed {
 			continue
 		}
 		name := strings.TrimSpace(t.Diagram.Name)
@@ -89,7 +89,7 @@ func (m *migration) tableEntry(t *sysmlv1.Table, v Verdict, target, note string)
 }
 
 // unplacedTables reports the table definitions no view was planned for: those
-// naming no diagram, or a diagram whose view has no host.
+// naming no diagram, or a diagram nothing written can hold.
 func (m *migration) unplacedTables() {
 	for _, t := range m.model.Tables {
 		switch {
