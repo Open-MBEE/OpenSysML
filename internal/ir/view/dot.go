@@ -255,7 +255,7 @@ func (w *dotWriter) routedBox(node *Node, ends []routeEnd) nodeBox {
 // dotReach is the distance from the centre of a node's shape to its border along
 // a unit direction: a round pseudo-state's radius, the edge of a box otherwise.
 func dotReach(node *Node, width, height, ux, uy float64) float64 {
-	if node.Kind == startKind || node.Kind == "initial" || node.Kind == "final" {
+	if dotRound(node) {
 		return width / 2
 	}
 	reach := math.Inf(1)
@@ -400,10 +400,13 @@ func (w *dotWriter) writeEdge(from, to string, attrs []string) {
 // position and size when a box places it.
 func (w *dotWriter) dotNodeAttributes(node *Node) []string {
 	var attrs []string
-	switch node.Kind {
-	case startKind:
+	stated := node.Geometry != nil && node.Geometry.HasSize
+	switch {
+	case node.Kind == startKind:
 		attrs = []string{"shape=point", "fillcolor=black", `label=""`}
-	case "initial", "final":
+	case stated && isSymbolKind(node.Kind):
+		attrs = w.dotSymbolAttributes(node)
+	case node.Kind == "initial" || node.Kind == "final":
 		attrs = w.dotPseudostateAttributes(node)
 	default:
 		if !controlKinds[node.Kind] && !isDefinitionKind(node.Kind) {
@@ -412,7 +415,11 @@ func (w *dotWriter) dotNodeAttributes(node *Node) []string {
 		if w.fills.filled(node) {
 			attrs = append(attrs, "fillcolor="+dotQuote(w.fills.fill(node)), dotColorAttr(w.fills.color(node)), "penwidth=1")
 		}
-		attrs = append(attrs, w.labels.dotLabel(node))
+		if stated {
+			attrs = append(attrs, w.labels.dotFittedLabel(node, node.Geometry.Width, node.Geometry.Height))
+		} else {
+			attrs = append(attrs, w.labels.dotLabel(node))
+		}
 	}
 	if box, ok := w.boxes[node.ID]; ok {
 		width, height := w.labels.dotBox(node)
@@ -420,12 +427,64 @@ func (w *dotWriter) dotNodeAttributes(node *Node) []string {
 		if node.Kind != startKind {
 			attrs = append(attrs, "width="+dotInches(width), "height="+dotInches(height))
 		}
-		if g := node.Geometry; g != nil && g.HasSize {
+		if stated {
 			attrs = append(attrs, "fixedsize=true")
 		}
 		if g := node.Geometry; g != nil && g.Collapsed {
 			attrs = append(attrs, `comment="collapsed"`)
 		}
+	}
+	return attrs
+}
+
+// isSymbolKind reports whether a kind has a notation symbol a stated box is drawn
+// as, with no text inside it: the control and pseudo-state nodes and a port.
+func isSymbolKind(kind string) bool {
+	switch kind {
+	case "initial", "final", terminateKind, "fork", "join", "merge", "decision", "choice", "junction":
+		return true
+	}
+	return isPortKind(kind)
+}
+
+// dotRound reports whether a node is drawn round, so an edge reaches its border
+// at its radius: the start point, the pseudo-states, and a stated terminate action.
+func dotRound(node *Node) bool {
+	switch node.Kind {
+	case startKind, "initial", "final":
+		return true
+	}
+	return node.Kind == terminateKind && node.Geometry != nil && node.Geometry.HasSize
+}
+
+// isPortKind reports whether a kind is a port usage: `port`, `ref port`, but no
+// `port def`.
+func isPortKind(kind string) bool {
+	return slices.Contains(strings.Fields(kind), "port") && !isDefinitionKind(kind)
+}
+
+// dotSymbolAttributes draws a symbol kind in its stated box as the notation's
+// symbol: a diamond, a filled bar, the filled dot or double ring, a port's square.
+// A given name is set outside it as `xlabel`; a synthesized one is not drawn.
+func (w *dotWriter) dotSymbolAttributes(node *Node) []string {
+	var attrs []string
+	switch node.Kind {
+	case "decision", "merge", "choice":
+		attrs = []string{"shape=diamond"}
+	case "fork", "join":
+		attrs = []string{"fillcolor=black"}
+	case "initial", "junction":
+		attrs = []string{"shape=circle", "fillcolor=black"}
+	case "final", terminateKind:
+		attrs = []string{"shape=doublecircle", "fillcolor=black"}
+	default:
+		if w.fills.filled(node) {
+			attrs = append(attrs, "fillcolor="+dotQuote(w.fills.fill(node)), dotColorAttr(w.fills.color(node)), "penwidth=1")
+		}
+	}
+	attrs = append(attrs, `label=""`)
+	if node.Name != "" && !node.NameSynthesized {
+		attrs = append(attrs, "xlabel="+dotQuote(w.labels.head(node)))
 	}
 	return attrs
 }
@@ -504,6 +563,111 @@ func (l labeller) dotLabelExtent(node *Node) (width, height float64) {
 		height += size * dotLineEm
 	}
 	return width, height
+}
+
+// dotFitFloor is the smallest font size, in points, a stated box's label shrinks to.
+const dotFitFloor = 8
+
+// dotFittedLabel is a node's label composed to fit a stated box: the head wrapped
+// at the box's width and shrunk from the default size to the largest at which it
+// fits, the keyword and detail lines after it while height remains. A head too
+// tall even at the floor is cut to the lines that fit and ellipsized.
+func (l labeller) dotFittedLabel(node *Node, width, height float64) string {
+	lines := l.lines(node)
+	size, head, fits := dotFitHead(lines[0], width, height)
+	parts := []string{dotSized(size, "<b>"+dotEscapeLines(head)+"</b>")}
+	left := height - float64(len(head))*size*dotLineEm
+	for i := 1; fits && i < len(lines); i++ {
+		keyword := i == 1 && node.Name != ""
+		lineSize := size
+		if keyword {
+			lineSize = math.Round(size * dotKeywordPointSize / dotFontSize)
+		}
+		wrapped := dotWrap(lines[i], dotRunesAcross(width, lineSize, dotGlyphEm))
+		used := float64(len(wrapped)) * lineSize * dotLineEm
+		if used > left {
+			break
+		}
+		left -= used
+		text := dotEscapeLines(wrapped)
+		if keyword {
+			text = "<i>" + text + "</i>"
+		}
+		parts = append(parts, dotSized(lineSize, text))
+	}
+	return dotLabelAttribute("<" + strings.Join(parts, "<br/>") + ">")
+}
+
+// dotFitHead wraps a head line into a box at the largest font size, from the
+// default down to the floor, at which it fits; when none does, the floor's
+// wrapping is cut to the lines the height holds, the last ellipsized.
+func dotFitHead(head string, width, height float64) (size float64, lines []string, fits bool) {
+	for size = dotFontSize; size >= dotFitFloor; size-- {
+		lines = dotWrap(head, dotRunesAcross(width, size, dotBoldGlyphEm))
+		if float64(len(lines))*size*dotLineEm <= height {
+			return size, lines, true
+		}
+	}
+	size = dotFitFloor
+	across := dotRunesAcross(width, size, dotBoldGlyphEm)
+	lines = dotWrap(head, across)
+	down := max(1, int(height/(size*dotLineEm)))
+	if len(lines) > down {
+		lines = lines[:down]
+		last := []rune(lines[down-1])
+		lines[down-1] = string(last[:max(0, min(len(last), across-1))]) + "…"
+	}
+	return size, lines, false
+}
+
+// dotRunesAcross is how many glyphs of a font size fit across a width, one at
+// least so a line can be written at all.
+func dotRunesAcross(width, size, glyph float64) int {
+	return max(1, int(width/(size*glyph)))
+}
+
+// dotWrap word-wraps text to at most across runes a line, breaking a word longer
+// than that at the rune it overruns.
+func dotWrap(text string, across int) []string {
+	var lines []string
+	line := ""
+	for _, word := range strings.Fields(text) {
+		if line != "" && utf8.RuneCountInString(line)+1+utf8.RuneCountInString(word) <= across {
+			line += " " + word
+			continue
+		}
+		if line != "" {
+			lines = append(lines, line)
+		}
+		runes := []rune(word)
+		for len(runes) > across {
+			lines = append(lines, string(runes[:across]))
+			runes = runes[across:]
+		}
+		line = string(runes)
+	}
+	if line != "" || len(lines) == 0 {
+		lines = append(lines, line)
+	}
+	return lines
+}
+
+// dotEscapeLines joins lines as HTML-like label text, each escaped.
+func dotEscapeLines(lines []string) string {
+	escaped := make([]string, len(lines))
+	for i, line := range lines {
+		escaped[i] = dotEscape(line)
+	}
+	return strings.Join(escaped, "<br/>")
+}
+
+// dotSized wraps label text in a `<font point-size>` when its size is not the
+// node's 14pt default.
+func dotSized(size float64, text string) string {
+	if size == dotFontSize {
+		return text
+	}
+	return fmt.Sprintf(`<font point-size="%s">%s</font>`, formatCoord(size), text)
 }
 
 // dotPin pins a node at a pixel point: `pos="x,y!"` and `pin=true`.

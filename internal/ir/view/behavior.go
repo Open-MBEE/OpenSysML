@@ -161,6 +161,10 @@ func (r *Renderer) transitionEdges(view, machine *symbols.Symbol, graph *lower.S
 	}
 }
 
+// terminateKind is the Kind of a terminate action usage (`action final terminate;`),
+// the activity's final node, drawn as the final symbol when a box places it.
+const terminateKind = "terminate action"
+
 // startKind is the Kind of the node a body's entry transitions leave, which a
 // state diagram draws as its start marker.
 const startKind = "start"
@@ -552,6 +556,9 @@ func actionNodeKind(node ast.Node, graph *lower.ActionGraph) string {
 	case *ast.StateNode:
 		return "state"
 	case *ast.Usage:
+		if lower.IsTerminateUsage(n) {
+			return terminateKind
+		}
 		return n.Kind.String()
 	case *ast.Definition:
 		return n.Kind.String() + " def"

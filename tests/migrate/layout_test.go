@@ -184,7 +184,9 @@ func TestGoldenControlNodeLayout(t *testing.T) {
 	}
 	for _, want := range []string{
 		"// layout: neato -n2\n",
-		`<i>«fork»</i></font>>, pos="100,217!", pin=true, width=1.6666666666666667, height=0.08333333333333333, fixedsize=true];`,
+		`"n1" [fillcolor=black, label="", xlabel="'fork'", pos="100,217!", pin=true, width=1.6666666666666667, height=0.08333333333333333, fixedsize=true];`,
+		`"n7" [shape=diamond, label="", xlabel="check", pos="100,70!", pin=true, width=0.2777777777777778, height=0.2777777777777778, fixedsize=true];`,
+		`"n8" [shape=doublecircle, fillcolor=black, label="", xlabel="final", pos="50,10!", pin=true, width=0.2777777777777778, height=0.2777777777777778, fixedsize=true];`,
 		`<i>«initial»</i></font>>, pos="100,290!", pin=true, width=1.1111111111111112, height=1.1111111111111112];`,
 		`<i>«final»</i></font>>, pos="150,-14.5!", pin=true, width=0.9583333333333334, height=0.9583333333333334];`,
 		`"n9" -> "n1" [label="'start to fork'", pos="100,250 100,250 100,220 100,220"];`,

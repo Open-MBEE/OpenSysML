@@ -490,6 +490,7 @@ func TestDOTWritesTheGeometry(t *testing.T) {
 		}
 	}
 	// Without a canvas height, y is negated; the inline Layout of pump is kept,
+	// its head wrapped where eleven bold 14pt glyphs overrun the stated 100pt width,
 	// and tank, with none, takes the end of the inline route: its 118x37
 	// label-fitted box centred 59 back from (200, 45) along the route's last leg.
 	plain, err := render(t, "layout.sysml", "PlantViews::plainView").DOT()
@@ -500,7 +501,7 @@ func TestDOTWritesTheGeometry(t *testing.T) {
 	for _, want := range []string{
 		"// layout: neato -n2\ndigraph",
 		"  graph [fontname=\"Helvetica\", inputscale=72, dpi=72];\n",
-		`"n1" [style="rounded,filled", label=<<b>pump : Pump</b><br/><font point-size="10"><i>«part»</i></font>>, pos="60,-45!", pin=true, width=1.3888888888888888, height=0.6944444444444444, fixedsize=true];`,
+		`"n1" [style="rounded,filled", label=<<b>pump :<br/>Pump</b><br/><font point-size="10"><i>«part»</i></font>>, pos="60,-45!", pin=true, width=1.3888888888888888, height=0.6944444444444444, fixedsize=true];`,
 		`"n2" [style="rounded,filled", label=<<b>tank : Tank</b><br/><font point-size="10"><i>«part»</i></font>>, pos="259,-45!", pin=true, width=1.6388888888888888, height=0.5138888888888888];`,
 		`pos="60,-45 60,-45 200,-45 200,-45"`,
 	} {
@@ -653,7 +654,8 @@ digraph "Pinned::view" {
 		t.Errorf("tree DOT states a cluster box:\n%s", dot)
 	}
 	// Pseudo-states are centred on their own shapes: a point's fixed size, a
-	// circle round the label's diagonal.
+	// circle round the label's diagonal, a stated box drawn as the bare symbol
+	// with the name beside it.
 	pseudo := &Rendering{View: "V", Kind: KindState, Roots: []*Node{
 		{ID: "s", Kind: startKind, Geometry: &Geometry{X: 0, Y: 0}},
 		{ID: "i", Kind: "initial", Name: "go", Geometry: &Geometry{X: 100, Y: 0}},
@@ -667,7 +669,7 @@ digraph "Pinned::view" {
 	for _, want := range []string{
 		`"s" [shape=point, fillcolor=black, label="", pos="1.8,-1.8!", pin=true];`,
 		`"i" [shape=circle, label=<<b>go</b><br/><font point-size="10"><i>«initial»</i></font>>, pos="140,-40!", pin=true, width=1.1111111111111112, height=1.1111111111111112];`,
-		`"f" [shape=doublecircle, label=<<b>done</b><br/><font point-size="10"><i>«final»</i></font>>, pos="205,-5!", pin=true, width=0.1388888888888889, height=0.1388888888888889, fixedsize=true];`,
+		`"f" [shape=doublecircle, fillcolor=black, label="", xlabel="done", pos="205,-5!", pin=true, width=0.1388888888888889, height=0.1388888888888889, fixedsize=true];`,
 	} {
 		if !strings.Contains(dot, want) {
 			t.Errorf("pseudo-state DOT lacks %q:\n%s", want, dot)
@@ -940,7 +942,7 @@ func checkDOTAttributes(t *testing.T, tokens []dotToken, i int, dot string, clip
 			t.Fatalf("attribute list is not name=value at token %d (%q):\n%s", i, tokens[i].text, dot)
 		}
 		name, value := tokens[i].text, tokens[i+2]
-		if (name == "label" || name == "lhead" || name == "ltail" || name == "pos" || name == "bb" || name == "comment") && !value.quoted {
+		if (name == "label" || name == "xlabel" || name == "lhead" || name == "ltail" || name == "pos" || name == "bb" || name == "comment") && !value.quoted {
 			t.Fatalf("attribute %s has a bare value %q:\n%s", name, value.text, dot)
 		}
 		if value.html {
