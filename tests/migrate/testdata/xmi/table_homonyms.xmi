@@ -53,7 +53,15 @@
         </ownedAttribute>
       </packagedElement>
       <packagedElement xmi:type="uml:Class" xmi:id="_blk_ledger" name="Ledger"/>
-      <packagedElement xmi:type="uml:Class" xmi:id="_blk_report" name="Report"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_report" name="Report">
+        <!-- Two used modules whose elements share the fragment _shared. -->
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_report_a" name="a">
+          <type xmi:type="uml:Class" href="http://example.com/modules/Warehouse.xmi#_shared"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_report_b" name="b">
+          <type xmi:type="uml:Class" href="http://example.com/modules/Storefront.xmi#_shared"/>
+        </ownedAttribute>
+      </packagedElement>
       <packagedElement xmi:type="uml:Class" xmi:id="_blk_seasonal" name="SeasonalCatalog">
         <generalization xmi:type="uml:Generalization" xmi:id="_gen_seasonal" general="_blk_catalog"/>
       </packagedElement>
@@ -91,6 +99,15 @@
         </ownedDiagram>
         <!-- Table diagrams whose exact-profile definitions are malformed. -->
         <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_dangling" name="Dangling Scope" ownerOfDiagram="_pkg_shop">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Instance Table" umlType="Class Diagram">
+                <diagramContents/>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_ambiguous" name="Ambiguous Scope" ownerOfDiagram="_pkg_shop">
           <xmi:Extension extender="Example UML Tool 1.0">
             <diagramRepresentation>
               <diagram:DiagramRepresentationObject type="SysML Instance Table" umlType="Class Diagram">
@@ -203,6 +220,11 @@
 
   <!-- Malformed definitions on the exact tool profiles. -->
   <MagicDraw_Profile:InstanceTable xmi:id="_tbl_dangling" base_Diagram="_diag_dangling" scope="_nowhere">
+    <classifiers xmi:idref="_blk_catalog"/>
+    <columnIds>QPROP:Element:name</columnIds>
+  </MagicDraw_Profile:InstanceTable>
+  <!-- A bare module id two used modules' hrefs share: it names neither. -->
+  <MagicDraw_Profile:InstanceTable xmi:id="_tbl_ambiguous" base_Diagram="_diag_ambiguous" scope="_shared">
     <classifiers xmi:idref="_blk_catalog"/>
     <columnIds>QPROP:Element:name</columnIds>
   </MagicDraw_Profile:InstanceTable>

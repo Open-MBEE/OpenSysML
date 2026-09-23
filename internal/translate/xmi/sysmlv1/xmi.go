@@ -133,7 +133,9 @@ type Model struct {
 	StrayParagraphs []*DocGenParagraph
 	byID            map[string]*Element
 	proxies         map[string]*Element
-	fragments       map[string]*Element
+	// fragments lists the proxies whose hrefs share a fragment, in first-seen
+	// order; a bare fragment resolves only while one proxy carries it.
+	fragments       map[string][]*Element
 	stereotypeNames map[string]stereotypeName
 	// moduleStereotypes are the stereotypes the archive's module snapshots
 	// declare, by id, for resolving ids the stereotype table does not name.
@@ -453,7 +455,7 @@ func (m *Model) parseEntry(f *zip.File) error {
 
 func newModel() *Model {
 	return &Model{
-		byID: map[string]*Element{}, proxies: map[string]*Element{}, fragments: map[string]*Element{},
+		byID: map[string]*Element{}, proxies: map[string]*Element{}, fragments: map[string][]*Element{},
 		stereotypeHrefs: map[stereotypeKey]string{}, ancestors: map[*Element][]*Element{},
 	}
 }
@@ -720,9 +722,7 @@ func (m *Model) proxy(href string) *Element {
 	p := &Element{ID: href, Href: href, Attrs: map[string]string{}, refs: map[string][]string{}}
 	if i := strings.LastIndexByte(href, '#'); i >= 0 {
 		p.Name = fragmentName(href[i+1:])
-		if frag := href[i+1:]; m.fragments[frag] == nil {
-			m.fragments[frag] = p
-		}
+		m.fragments[href[i+1:]] = append(m.fragments[href[i+1:]], p)
 	}
 	m.proxies[href] = p
 	return p

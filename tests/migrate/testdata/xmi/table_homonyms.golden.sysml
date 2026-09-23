@@ -20,6 +20,8 @@ package Shop {
         }
     }
     part def Report {
+        attribute a;
+        attribute b;
         @'Shop Profile'::Document;
         /* applied stereotype «Document» */
     }
@@ -39,6 +41,10 @@ package Shop {
         render Views::asElementTable;
     }
     /* not migrated: «InstanceTable» 'Dangling Scope' — the scope _nowhere resolves to no element */
+    view 'Ambiguous Scope' {
+        render Views::asElementTable;
+    }
+    /* not migrated: «InstanceTable» 'Ambiguous Scope' — the scope _shared names 2 module elements (http://example.com/modules/Warehouse.xmi#_shared, http://example.com/modules/Storefront.xmi#_shared) */
     view 'Bad Sort' {
         expose c1;
         render Views::asElementTable;

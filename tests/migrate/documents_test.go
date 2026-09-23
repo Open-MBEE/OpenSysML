@@ -386,6 +386,7 @@ func TestTableHomonymsAndMalformedTables(t *testing.T) {
 
 	refusals := map[string]string{
 		"_tbl_dangling":      "the scope _nowhere resolves to no element",
+		"_tbl_ambiguous":     "the scope _shared names 2 module elements (http://example.com/modules/Warehouse.xmi#_shared, http://example.com/modules/Storefront.xmi#_shared)",
 		"_tbl_bad_sort":      `sort "IColumn:_prop_price^Sideways": not in the form <column>^Asc|Desc; sort "price": not in the form <column>^Asc|Desc`,
 		"_tbl_no_classifier": "the instance table names no classifier",
 		"_tbl_ghost_column":  "the column IColumn:_no_such_property names no property of the document",
@@ -399,6 +400,7 @@ func TestTableHomonymsAndMalformedTables(t *testing.T) {
 	}
 	wantInOrder(t, "refused tables", notation,
 		"view 'Dangling Scope' {", "/* not migrated: «InstanceTable» 'Dangling Scope' — the scope _nowhere resolves to no element */",
+		"view 'Ambiguous Scope' {", "/* not migrated: «InstanceTable» 'Ambiguous Scope' — the scope _shared names 2 module elements (http://example.com/modules/Warehouse.xmi#_shared, http://example.com/modules/Storefront.xmi#_shared) */",
 		"view 'Broken Matrix' {", "expose Catalog;", "/* not migrated: «DependencyMatrix» 'Broken Matrix' — the unnamed criterion is malformed",
 		"view 'Deep Map' {", "/* not migrated: «RelationMap» 'Deep Map' — depth \"deep\"",
 		"view 'Catalog Map' {", "expose 'Catalog Map Document';",

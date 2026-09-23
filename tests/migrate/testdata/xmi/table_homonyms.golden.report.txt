@@ -1,9 +1,10 @@
 # SysML v1 to v2 migration report: table_homonyms.xmi
 # exported by Example UML Tool
-# migrated 34 element(s): 23 mapped, 3 approximated, 8 unmapped (6 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 38 element(s): 23 mapped, 6 approximated, 9 unmapped (6 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
-## unmapped (8)
+## unmapped (9)
 «InstanceTable»	<Diagram>	_tbl_no_diagram	(base_Diagram _no_such_diagram names no diagram of the document)
+«InstanceTable» Diagram	Shop::Ambiguous Scope	_tbl_ambiguous	(the scope _shared names 2 module elements (http://example.com/modules/Warehouse.xmi#_shared, http://example.com/modules/Storefront.xmi#_shared))
 «InstanceTable» Diagram	Shop::Bad Sort	_tbl_bad_sort	(sort "IColumn:_prop_price^Sideways": not in the form <column>^Asc|Desc; sort "price": not in the form <column>^Asc|Desc)
 «DependencyMatrix» Diagram	Shop::Broken Matrix	_mx_broken	(the unnamed criterion is malformed: not well-formed XML: xmi: XML syntax error on line 4: unexpected EOF)
 «InstanceTable» Diagram	Shop::Dangling Scope	_tbl_dangling	(the scope _nowhere resolves to no element)
@@ -12,10 +13,13 @@
 «InstanceTable» Diagram	Shop::No Classifier	_tbl_no_classifier	(the instance table names no classifier)
 «DependencyMatrix» Diagram	Shop::Orphan Matrix	_mx_orphan	(MatrixFilter: no filter application names the diagram)
 
-## approximated (3)
+## approximated (6)
+Diagram	Shop::Ambiguous Scope	_diag_ambiguous	-> Shop::'Ambiguous Scope'	(a SysML Instance Table written as a view rendered asElementTable; the diagram shows nothing; the view exposes nothing)
 Diagram	Shop::Dangling Scope	_diag_dangling	-> Shop::'Dangling Scope'	(a SysML Instance Table written as a view rendered asElementTable; the diagram shows nothing; the view exposes nothing)
 Diagram	Shop::No Classifier	_diag_no_classifier	-> Shop::'No Classifier'	(a SysML Instance Table written as a view rendered asElementTable; the diagram shows nothing; the view exposes nothing)
 Diagram	Shop::Orphan Matrix	_diag_orphan_matrix	-> Shop::'Orphan Matrix'	(a Dependency Matrix written as a view rendered asElementTable; the diagram shows nothing; the view exposes nothing)
+Property	Shop::Report::a	_prop_report_a	-> Shop::Report::a	(typed by library element  with no known v2 counterpart; type http://example.com/modules/Warehouse.xmi#_shared lives outside the document and is not written)
+Property	Shop::Report::b	_prop_report_b	-> Shop::Report::b	(typed by library element  with no known v2 counterpart; type http://example.com/modules/Storefront.xmi#_shared lives outside the document and is not written)
 
 ## mapped (23)
 Model	Model	_m	(the root model's members are written at the top level)

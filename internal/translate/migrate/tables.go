@@ -187,7 +187,7 @@ func (m *migration) scopeQuery(scope []sysmlv1.ElementRef, whole bool, rows []sy
 		}
 	}
 	var listed []string
-	var unresolved, unwritten []string
+	var unresolved, ambiguous, unwritten []string
 	seen := map[string]bool{}
 	for _, ref := range rows {
 		if seen[ref.ID] {
@@ -196,7 +196,11 @@ func (m *migration) scopeQuery(scope []sysmlv1.ElementRef, whole bool, rows []sy
 		seen[ref.ID] = true
 		switch {
 		case ref.Element == nil:
-			unresolved = append(unresolved, ref.ID)
+			if hrefs := m.model.Ambiguous(ref.ID); len(hrefs) > 0 {
+				ambiguous = append(ambiguous, ref.ID+" ("+strings.Join(hrefs, ", ")+")")
+			} else {
+				unresolved = append(unresolved, ref.ID)
+			}
 		case !m.written(ref.Element):
 			unwritten = append(unwritten, kindOf(ref.Element)+" "+qualifiedName(ref.Element))
 		default:
@@ -204,6 +208,7 @@ func (m *migration) scopeQuery(scope []sysmlv1.ElementRef, whole bool, rows []sy
 		}
 	}
 	missing := summarizeMissing(unresolved, "resolve to no element", "resolves to no element")
+	missing = append(missing, summarizeMissing(ambiguous, "name several module elements", "names several module elements")...)
 	missing = append(missing, summarizeMissing(unwritten, "are not migrated", "is not migrated")...)
 	var src qx
 	switch {
@@ -278,11 +283,20 @@ func (m *migration) topLevelNames() []string {
 	return names
 }
 
+// unresolvedRef says why ref names no element: no document defines its id, or
+// module elements of several documents share it as their href fragment.
+func (m *migration) unresolvedRef(ref sysmlv1.ElementRef) string {
+	if hrefs := m.model.Ambiguous(ref.ID); len(hrefs) > 0 {
+		return fmt.Sprintf("names %d module elements (%s)", len(hrefs), strings.Join(hrefs, ", "))
+	}
+	return "resolves to no element"
+}
+
 // namedRoot is the qualified name Named resolves ref by, or why it has none.
 func (m *migration) namedRoot(ref sysmlv1.ElementRef, role string) (name, why string) {
 	switch {
 	case ref.Element == nil:
-		return "", "the " + role + " " + ref.ID + " resolves to no element"
+		return "", "the " + role + " " + ref.ID + " " + m.unresolvedRef(ref)
 	case !m.written(ref.Element):
 		return "", "the " + role + " " + kindOf(ref.Element) + " " + qualifiedName(ref.Element) + " is not migrated"
 	}

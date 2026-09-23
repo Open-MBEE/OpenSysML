@@ -212,7 +212,7 @@ func standardHref(href string) (doc, name string, ok bool) {
 func (m *migration) typeFilter(ref sysmlv1.ElementRef) typeFilter {
 	e := ref.Element
 	if e == nil {
-		return typeFilter{label: ref.ID, refused: "the element type " + ref.ID + " resolves to no element"}
+		return typeFilter{label: ref.ID, refused: "the element type " + ref.ID + " " + m.unresolvedRef(ref)}
 	}
 	if doc, name, ok := standardHref(e.Href); ok {
 		switch {

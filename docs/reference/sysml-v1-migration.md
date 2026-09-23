@@ -490,7 +490,9 @@ A criterion is a relationship walk only for the kinds `RelatedElements` knows: �
 «Verify», «Refine», «DeriveReqt», «Allocate» and UML `Generalization` (`specialization`); a
 `Dependency`, an import, a user-profile relationship, a metachain or an OCL expression is
 refused with the criterion named. So is a table whose serialization is malformed — a `scope`
-resolving to no element, a `sort` not of the form `<column>^Asc|Desc`, a `depth` that is not a
+resolving to no element (a bare module id resolves through the href the document referenced
+the element by; one that elements of several modules share names no element, and the refusal
+lists the hrefs), a `sort` not of the form `<column>^Asc|Desc`, a `depth` that is not a
 whole number, an instance table naming no classifier, a matrix with no filter, a criterion
 whose XML does not parse — with every fault stated at once. A refused table is an `unmapped`
 report row and a `not migrated` comment beside its view, which is still written; the rest of the

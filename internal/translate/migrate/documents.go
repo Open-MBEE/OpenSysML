@@ -341,7 +341,7 @@ func (c *chain) roots(refs []sysmlv1.ElementRef, role string) {
 			continue
 		}
 		if ref.Element == nil {
-			c.broken = role + " " + ref.ID + ", which resolves to no element"
+			c.broken = role + " " + ref.ID + ", which " + c.m.unresolvedRef(ref)
 			return
 		}
 		name, why := c.m.namedRoot(ref, "element")
