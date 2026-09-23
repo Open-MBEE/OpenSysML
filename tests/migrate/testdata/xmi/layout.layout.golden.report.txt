@@ -1,0 +1,31 @@
+# SysML v1 to v2 migration report: layout.xmi
+# exported by Example UML Tool
+# migrated 16 element(s): 11 mapped, 3 approximated, 2 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to); laid out 2 of 2 diagrams from layout.layout.xml: 5 elements positioned, 2 connectors routed
+
+## layout
+# source: layout.layout.xml (2022x v1.0.0, cameo 2022x Refresh2, exported 2025-06-12T21:38:50.779458500Z)
+# 3 diagram records: 2 joined, 1 matching no diagram; 0 views without layout
+# placements: 5 of 7 written (1 not exposed, 1 resolving to no element); routes: 2 of 4 written (1 not exposed, 1 resolving to no element); malformed: 1
+# unsupported presentation properties, dropped: fillColor (1)
+
+## unmapped (2)
+Layout	Elsewhere	_diag_nowhere	(matches no diagram of the model)
+Layout	Vehicle Structure	_diag_bdd	(_blk_wheel: no <right> bound)
+
+## approximated (3)
+OpaqueAction	Behavior::Drive::step	_act_step	-> 'step'	(the body is kept as a comment: the name "going" resolves to nothing readable: nothing visible from Behavior::Drive::step is called going)
+Diagram	Structure::Vehicle Structure	_diag_bdd	-> Structure::'Vehicle Structure'	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; 1 of 7 shown ids resolve to no element; laid out from layout.layout.xml: 3 of 5 shown elements positioned (1 not exposed, 1 resolving to no element), 1 of 3 connectors routed (1 of an unwritten element, 1 resolving to no element))
+Diagram	Structure::Vehicle::Vehicle Internals	_diag_ibd	-> Structure::Vehicle::'Vehicle Internals'	(a SysML Internal Block Diagram written as a view rendered asInterconnectionDiagram; 1 of 5 shown elements are not written and not exposed; laid out from layout.layout.xml: 2 of 2 shown elements positioned, 1 of 1 connectors routed)
+
+## mapped (11)
+Package	Behavior	_pkg_behavior	-> Behavior
+Activity	Behavior::Drive	_act_drive	-> Behavior::Drive
+InitialNode	Behavior::Drive::<InitialNode>	_init	-> start
+Model	Model	_m	(the root model's members are written at the top level)
+Package	Structure	_pkg_structure	-> Structure
+«Block» Class	Structure::Engine	_blk_engine	-> Structure::Engine
+«Block» Class	Structure::Vehicle	_blk_vehicle	-> Structure::Vehicle
+Connector	Structure::Vehicle::drive	_conn_drive	-> Structure::Vehicle::drive
+Property	Structure::Vehicle::engine	_prop_engine	-> Structure::Vehicle::engine
+Property	Structure::Vehicle::wheel	_prop_wheel	-> Structure::Vehicle::wheel
+«Block» Class	Structure::Wheel	_blk_wheel	-> Structure::Wheel

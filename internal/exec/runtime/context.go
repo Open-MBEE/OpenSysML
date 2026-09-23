@@ -124,6 +124,9 @@ type Context struct {
 	// heldBehaviors are the behaviors already holding work when the outermost
 	// start under way began: a driver put it in flight, and dispatches it.
 	heldBehaviors map[*ObjectBehavior]bool
+	// holdingDriven marks that hold however it came out, nil map included; a
+	// nested start leaves the driving to the outermost one.
+	holdingDriven bool
 
 	// objectBehaviors are every behavior an object of this context runs, so a
 	// drain to quiescence can re-run one a sibling's send woke.
@@ -241,6 +244,10 @@ type Context struct {
 	// clockRun the run an advance of it draws its due-order choices from.
 	clock    Clock
 	clockRun executorRun
+	// work counts the changes that can leave an attached behavior holding work;
+	// quiescent is the memo a full scan leaves when it finds them all idle.
+	work      uint64
+	quiescent quiescence
 	// onStack lists the runs of the executors whose calls are under way, outermost first.
 	onStack []*executorRun
 
@@ -302,8 +309,7 @@ func NewContext(model *Model, maxSteps int64) *Context {
 		compileCalcs: CalcCompileFromEnv(),
 
 		run: &runState{
-			calcUsageRuns:    make(map[int64]map[calcUsageKey]*calcRun),
-			extentCandidates: make(map[*symbols.Symbol]*extentCandidates),
+			calcUsageRuns: make(map[int64]map[calcUsageKey]*calcRun),
 		},
 		calcUsageRunning: make(map[calcUsageKey]*calcShape),
 
@@ -658,9 +664,8 @@ type runState struct {
 // newRunState is the state a run starts with, under the schedule policy set now.
 func (ctx *Context) newRunState() *runState {
 	return &runState{
-		scheduler:        ctx.newScheduler(),
-		calcUsageRuns:    make(map[int64]map[calcUsageKey]*calcRun),
-		extentCandidates: make(map[*symbols.Symbol]*extentCandidates),
+		scheduler:     ctx.newScheduler(),
+		calcUsageRuns: make(map[int64]map[calcUsageKey]*calcRun),
 	}
 }
 
@@ -746,6 +751,7 @@ func (ctx *Context) beginExecutorRun(run *executorRun) func() {
 	run.stir(1)
 	ctx.onStack = append(ctx.onStack, run)
 	leave := ctx.enterRun(run.state)
+	ctx.workChanged()
 	// A call into an executor whose performer ended in between finds its performance over.
 	if run.exec != nil && run.exec.performerEnded() {
 		run.exec.endTerminated()
@@ -754,6 +760,7 @@ func (ctx *Context) beginExecutorRun(run *executorRun) func() {
 		leave()
 		ctx.onStack = ctx.onStack[:len(ctx.onStack)-1]
 		run.stir(-1)
+		ctx.workChanged()
 	}
 }
 
@@ -806,7 +813,8 @@ func (ctx *Context) previewExecutorRun(run *executorRun) func() {
 	} else {
 		ctx.run = ctx.newRunState()
 	}
-	return func() { ctx.run = saved }
+	ctx.workChanged()
+	return func() { ctx.run = saved; ctx.workChanged() }
 }
 
 // endExecutorRun brackets the release of a call-by-call driven run: its leftovers

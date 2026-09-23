@@ -47,6 +47,13 @@ func TestUseCaseForms(t *testing.T) {
 			 <packagedElement xmi:type="uml:Class" xmi:id="_sv" name="Safety"/>`,
 			`<sysml:View xmi:id="_st1" base_Class="_ov"/><sysml:Viewpoint xmi:id="_st2" base_Class="_sv"/>`,
 			[]string{"subject overview :> Overview;\n    ref viewpoint safety :> Safety;"}, "_uc", Approximated},
+		{"a subject that is a nested definition is named by its qualified name",
+			`<packagedElement xmi:type="uml:UseCase" xmi:id="_uc" name="Review" subject="_sys"/>
+			 <packagedElement xmi:type="uml:Class" xmi:id="_rep" name="Report">
+			   <nestedClassifier xmi:type="uml:Class" xmi:id="_sys" name="System"/>
+			 </packagedElement>`,
+			`<sysml:Block xmi:id="_st1" base_Class="_rep"/><sysml:Block xmi:id="_st2" base_Class="_sys"/>`,
+			[]string{"use case def Review {\n    subject system : Report::System;\n}"}, "_uc", Mapped},
 		{"an association-owned actor end is an actor of the use case",
 			`<packagedElement xmi:type="uml:UseCase" xmi:id="_uc" name="Buy"/>
 			 <packagedElement xmi:type="uml:Association" xmi:id="_a" memberEnd="_e1 _e2">
@@ -85,6 +92,11 @@ func TestUseCaseForms(t *testing.T) {
 			 </packagedElement>`, "",
 			[]string{"dependency Buy to Browse; /* extends at extension point(s) 'found' when true */",
 				"not migrated: ExtensionPoint 'found'"}, "_ext", Approximated},
+		{"an extend keeps an extension point that is not in the document",
+			`<packagedElement xmi:type="uml:UseCase" xmi:id="_uc" name="Buy">
+			   <extend xmi:type="uml:Extend" xmi:id="_ext" extension="_uc" extendedCase="_browse" extensionLocation="_gone"/>
+			 </packagedElement>`, "",
+			[]string{"dependency Buy to Browse; /* extends at extension point(s) _gone (not in the document) */"}, "_ext", Approximated},
 		{"a block property typed by a use case is a reference use case usage",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_c" name="Site">
 			   <ownedAttribute xmi:type="uml:Property" xmi:id="_p" name="visit" type="_browse"/>
@@ -116,5 +128,38 @@ func TestUseCaseForms(t *testing.T) {
 				t.Errorf("%s is missing from the report", tc.id)
 			}
 		})
+	}
+}
+
+// TestUseCaseSubjectFeaturedElsewhere names as subject a view nested in a block:
+// a feature only the block's members can name, so no subject is written and
+// the report says why.
+func TestUseCaseSubjectFeaturedElsewhere(t *testing.T) {
+	r, err := Migrate("cases.xmi", []byte(useCaseModel(
+		`<packagedElement xmi:type="uml:UseCase" xmi:id="_uc" name="Review" subject="_ov"/>
+		 <packagedElement xmi:type="uml:Class" xmi:id="_rep" name="Report">
+		   <nestedClassifier xmi:type="uml:Class" xmi:id="_ov" name="Overview"/>
+		 </packagedElement>`,
+		`<sysml:Block xmi:id="_st1" base_Class="_rep"/><sysml:View xmi:id="_st2" base_Class="_ov"/>`)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(r.Notation)
+	if !strings.Contains(got, "use case def Review;") || strings.Contains(got, "subject overview") {
+		t.Errorf("notation names the nested view:\n%s", got)
+	}
+	want := "the subject is not written: the view Report::Overview is a feature of the part def Report, which only its members can name"
+	var found bool
+	for _, e := range r.Report.Entries {
+		if e.ID != "_uc" {
+			continue
+		}
+		found = true
+		if e.Verdict != Approximated || !strings.Contains(e.Note, want) {
+			t.Errorf("entry = %s %q, want %s with %q", e.Verdict, e.Note, Approximated, want)
+		}
+	}
+	if !found {
+		t.Error("_uc is missing from the report")
 	}
 }

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { RenderEdge, RenderNode, RenderResult } from "../protocol";
+import type { AutoLayout } from "./autolayout";
 import {
   anchor,
   GAP,
@@ -445,5 +446,43 @@ test("overridesOf previews a gesture: the moved node and route show where the dr
   assert.equal(preview.nodes.get("a")!.pinned, true);
   assert.deepEqual(preview.nodes.get("b")!.box, layout.nodes.get("b")!.box);
   assert.deepEqual(preview.edges[0].route, []);
+  assert.equal(preview.edges[0].points.length, 2);
+});
+
+test("layoutCanvas takes an auto layout's geometry for nodes the model does not place", () => {
+  const auto: AutoLayout = {
+    nodes: new Map([
+      ["a", { x: 100, y: 50, width: 140, height: 60 }],
+      ["b", { x: 300, y: 200, width: 140, height: 60 }],
+      ["c", { x: 500, y: 50, width: 140, height: 60 }],
+    ]),
+    routes: new Map([[0, [{ x: 240, y: 80 }, { x: 300, y: 80 }, { x: 300, y: 200 }, { x: 300, y: 230 }]]]),
+  };
+  const result = rendering(
+    [node("a", "a"), node("b", "b"), node("c", "c", { x: 50, y: 400, width: 90, height: 50 })],
+    [{ from: "a", to: "b", label: "", kind: "connection", fqn: "M::ab" }, { from: "a", to: "c", label: "", kind: "connection", fqn: "M::ac" }],
+  );
+  const layout = layoutCanvas(result, {}, auto);
+  const a = layout.nodes.get("a")!;
+  const b = layout.nodes.get("b")!;
+  const c = layout.nodes.get("c")!;
+  // The auto geometry is honored exactly, but does not pin the node.
+  assert.deepEqual(a.box, { x: 100, y: 50, width: 140, height: 60 });
+  assert.equal(a.pinned, false);
+  assert.equal(b.pinned, false);
+  // The model's geometry wins over the auto layout and stays pinned.
+  assert.deepEqual(c.box, { x: 50, y: 400, width: 90, height: 50 });
+  assert.equal(c.pinned, true);
+  // An edge between two auto-placed nodes follows the auto route verbatim: its
+  // anchors first and last, its inner points the edge's route.
+  assert.deepEqual(layout.edges[0].points, auto.routes.get(0));
+  assert.deepEqual(layout.edges[0].route, auto.routes.get(0)!.slice(1, -1));
+  // An edge at a node the model places is straight, the auto route void at it.
+  assert.equal(layout.edges[1].points.length, 2);
+  assert.deepEqual(layout.edges[1].route, []);
+  // A gesture wins over both, and the pinned end straightens the edge to it.
+  const preview = layoutCanvas(result, overridesOf({ nodes: [{ id: "a", layout: { x: 10, y: 10 } }], edges: [] }), auto);
+  assert.deepEqual([preview.nodes.get("a")!.box.x, preview.nodes.get("a")!.box.y], [10, 10]);
+  assert.equal(preview.nodes.get("a")!.pinned, true);
   assert.equal(preview.edges[0].points.length, 2);
 });

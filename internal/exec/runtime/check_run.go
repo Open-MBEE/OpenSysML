@@ -162,7 +162,7 @@ func (r *invocationRun) advanceClock() bool {
 	if !ok || next <= r.ctx.clock.now {
 		return false
 	}
-	r.ctx.clock.now = next
+	r.ctx.setClock(next)
 	r.turn = nil
 	return true
 }

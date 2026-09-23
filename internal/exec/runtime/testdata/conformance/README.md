@@ -96,6 +96,10 @@ top-level one is. `instantiate` names an instance case's type the same way.
 - `evaluate`: qualified path of the state machine to execute (see
   [Entry Points](#entry-points))
 - `outputs`: map of state machine outputs
+- `error`: text the performance must fail with, for a case whose contract is a
+  diagnostic rather than a result — a guard comparing a null payload read must
+  fail with the operator's type error. Set it instead of `finalState`,
+  `stateVisits` and `outputs`; a case without it must run to completion.
 - `performers`: objects that each perform the machine, for a case whose contract
   depends on which object performs it (two objects selecting different variants
   of one variation route over their own connections). Each entry names the

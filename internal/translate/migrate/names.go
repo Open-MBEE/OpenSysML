@@ -58,10 +58,26 @@ func (m *migration) nameTaken(owner *sysmlv1.Element, name string) bool {
 		return true
 	}
 	if owner == nil {
-		return false
+		return m.topLevelNamed(name)
 	}
 	for _, c := range owner.Children {
 		if m.nameOf(c) == name {
+			return true
+		}
+	}
+	return false
+}
+
+// topLevelNamed reports whether a declaration at the document's top level is
+// named name: a member of the root model, or a root written as a declaration.
+func (m *migration) topLevelNamed(name string) bool {
+	for _, r := range m.model.Roots {
+		switch {
+		case m.flattened(r):
+			if m.nameTaken(r, name) {
+				return true
+			}
+		case r.Type != "Model" && m.nameOf(r) == name:
 			return true
 		}
 	}

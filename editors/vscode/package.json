@@ -26,7 +26,10 @@
     "untrustedWorkspaces": {
       "supported": "limited",
       "description": "In Restricted Mode the language server is only started from `opensysml.server.path` or `PATH`, never from the workspace's own `bin/` directory, and the server settings are read from user settings only.",
-      "restrictedConfigurations": ["opensysml.server.path", "opensysml.server.args"]
+      "restrictedConfigurations": [
+        "opensysml.server.path",
+        "opensysml.server.args"
+      ]
     }
   },
   "contributes": {
@@ -213,6 +216,7 @@
     "package": "npm run typecheck && npm test && npm run build -- --production && vsce package --no-dependencies --out opensysml-sysml.vsix"
   },
   "dependencies": {
+    "elkjs": "0.12.0",
     "vscode-languageclient": "9.0.1"
   },
   "devDependencies": {

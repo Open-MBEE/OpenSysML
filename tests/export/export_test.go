@@ -15,6 +15,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/migrate"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
 
@@ -3108,7 +3109,7 @@ func TestConvertFromXMI(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	migrated, err := convert.Migrate("vehicle.xmi", data, convert.FormatSysML)
+	migrated, err := convert.Migrate("vehicle.xmi", data, convert.FormatSysML, migrate.Options{})
 	if err != nil {
 		t.Fatalf("Migrate to notation: %v", err)
 	}
@@ -3126,7 +3127,7 @@ func TestConvertFromXMI(t *testing.T) {
 		t.Errorf("Convert from XMI differs from Migrate: %v", err)
 	}
 
-	asTurtle, err := convert.Migrate("vehicle.xmi", data, convert.FormatTurtle)
+	asTurtle, err := convert.Migrate("vehicle.xmi", data, convert.FormatTurtle, migrate.Options{})
 	if err != nil {
 		t.Fatalf("Migrate to Turtle: %v", err)
 	}
@@ -3142,7 +3143,7 @@ func TestConvertFromXMI(t *testing.T) {
 	if _, err := convert.Convert("model.sysml", []byte("package P;"), convert.FormatSysML, convert.FormatXMI); !errors.As(err, &notWritable) {
 		t.Errorf("writing XMI: got %v, want a NotWritableError", err)
 	}
-	if _, err := convert.Migrate("vehicle.xmi", data, convert.FormatXMI); !errors.As(err, &notWritable) {
+	if _, err := convert.Migrate("vehicle.xmi", data, convert.FormatXMI, migrate.Options{}); !errors.As(err, &notWritable) {
 		t.Errorf("migrating to XMI: got %v, want a NotWritableError", err)
 	}
 	if _, err := convert.Convert("model.sysml", []byte("package P;"), convert.FormatXMI, convert.FormatSysML); err == nil {

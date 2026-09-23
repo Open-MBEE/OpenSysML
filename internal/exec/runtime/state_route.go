@@ -90,7 +90,9 @@ func (r route) effects(g *lower.StateGraph) []routeEffect {
 
 // resolveRoute settles a transition's route before anything moves: its target, or
 // on through junctions or a join, up to the first choice; a history stays unsettled.
+// The guards along it are read within trans's performance, as its own guard is.
 func (e *StateExecutor) resolveRoute(trans *lower.Transition) (route, error) {
+	defer e.taking(trans, e.firingNotes)()
 	r := route{segments: []*lower.Transition{trans}}
 	switch target := trans.Target.(type) {
 	case *ast.StateNode:

@@ -1698,14 +1698,17 @@ How each part of the graph is spelled:
 | An IRI object | `{"@id": <id>}`, the id spelled from the subject as above |
 | An `xsd:boolean`, `xsd:integer`, `xsd:decimal`/`xsd:double` literal | a JSON boolean or number; a real whose lexical form JSON cannot spell is given the digits it needs (`.1` → `0.1`, `5.` → `5.0`), and `INF` or `NaN` is refused; a literal in another datatype (`xsd:float`, `xsd:int`, `owl:real`, a `xsd:double` without an exponent) is refused, since the form carries no datatype and the reader would restore a different one |
 | A plain literal (and, on the properties that carry it, expression text) | a JSON string; a literal in any other datatype is refused |
-| A `sysml:` property stated more than once | an array, in the order the annotation records; a repeated `sysml:` property with no annotation is refused, since the graph does not say which order the values have |
+| A `sysml:` property the metamodel declares multi-valued (unbounded upper) | an array of however many values the graph states, in the order the annotation records or in triple order when no annotation states it |
+| A `sysml:` property stated more than once with no annotation, that the metamodel declares single-valued | refused, since the graph does not say which order the values have |
 | A `sysx:` property stated more than once | an array, in triple order |
 
 Reading is the inverse, and refuses rather than guesses: the document is one
 element object or an array of them; every object carries a non-empty `@id` and a
 `@type`, no `@id` occurs twice, no `@` key other than those two is accepted, no key
 or `@type` is in a prefix other than the bare `sysml:` names and `sysx:`, an object
-value is a reference `{"@id": …}` and nothing else, an array holds no array and no
+value is a reference `{"@id": …}` or a `{"@ref": <name>}` — sysml-toolkit's
+spelling of a target it could not resolve, which reads as the name literal the
+mapping writes for a name-valued reference — and an array holds no array and no
 `null`. A `null` value states no triple. An array on a `sysml:` property becomes
 the repeated triples and the collection annotation the Turtle path would have
 written, so the graph read from the JSON form is the graph the Turtle form parses
@@ -1722,11 +1725,15 @@ of the id.
 
 Two readings are decided by the graph rather than the JSON, and are worth knowing:
 
-- **A collection of one member is an object, not an array.** The graph carries
-  no multiplicity, and the annotation that marks a collection is written from its
-  second member ([Collections](#collections)), so `ownedMember` with one value is
-  `{"@id": …}` here where the standard API would serve `[{"@id": …}]`. The
-  reader accepts both. What the SysML v2 API's own commit path serves back for
+- **Multi-valued properties are arrays; single-valued ones are objects or
+  scalars.** The element form's property shape follows the metamodel's upper
+  multiplicity (`SysML.ecore` `upperBound="-1"` in the generated
+  `internal/translate/rdf/ontology` table): `ownedMember` with one value is
+  `[{"@id": …}]`, `owningRelationship` is `{"@id": …}`. The `json:`
+  annotation still fixes member order where the graph states it. The reader
+  accepts both shapes and records the annotation only for two members or more,
+  so a one-member array reads back to the same graph Turtle produces. What the
+  SysML v2 API's own commit path serves back for
   the elements this form posts is measured, not assumed: the opt-in
   `TestFlexoInterop` harness posts them as `DataVersion` payloads and reports the
   elements and properties the service returns beside those the Turtle graph-load
@@ -1738,6 +1745,21 @@ Two readings are decided by the graph rather than the JSON, and are worth knowin
   properties the encoder writes expression text on (`type`, `general`,
   `memberElement`, the connector ends and their subsetting) a string that does not
   parse as a name is expression text; on every other property it is a name.
+
+Interchange with sysml-toolkit (the Open-MBEE Rust toolkit) is partial in both
+directions, for one reason: the toolkit reads and writes the specialization and
+multiplicity relationships as first-class elements (`FeatureTyping`,
+`Subclassification`, `Redefinition`, `Subsetting`, `ReferenceSubsetting`,
+`MultiplicityRange`, `ConjugatedPortDefinition`/`PortConjugation`, the
+`Membership` an expression referent is carried by), where this mapping
+collapses them to properties of the element (`type`, `redefines`, `general`,
+`referent`, a bound under the feature) and to extension metaclasses
+(`sysx:RequireMember`, `sysx:ConstraintMember`). The toolkit loads every
+element this form writes but prints them without their typing, redefinition
+or subsetting, and refuses the extension metaclasses and the collapsed
+multiplicity and referent shapes. Its own JSON reads into the graph here, but
+`-convert sysml` refuses a document whose elements it cannot place, which any
+model beyond bare declarations is.
 
 The per-file ratchet over `examples/` runs for this form too:
 `TestCorpusAPIJSONRoundTrip` in `tests/corpus/roundtrip_test.go` converts each

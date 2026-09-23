@@ -424,13 +424,36 @@ func (e *StateExecutor) assignAttribute(name string, value Value) error {
 	return nil
 }
 
-// evalStepOf evaluates one expression of a step — a guard, a change condition, a
-// duration — in scope, in an activation of its own (see beginStep), with the
+// evalStepOf evaluates one expression of a step read ahead of any transition
+// performance — a change condition, a duration, an entry guard, a run-to-completion
+// value — in scope, in an activation of its own (see beginStep), with the
 // machine's data and the attributes of the state the step leaves shadowing it.
 func (e *StateExecutor) evalStepOf(owner ast.Node, node ast.Node, scope *symbols.Scope) (Value, error) {
+	return e.evalStepWithin(owner, nil, node, scope)
+}
+
+// evalTransitionStep evaluates a transition's guard or weight within the firing
+// it belongs to (see stepFiring), so `T.d` reads what the accepting segment bound.
+func (e *StateExecutor) evalTransitionStep(trans *lower.Transition, node ast.Node, scope *symbols.Scope) (Value, error) {
+	return e.evalStepWithin(trans.Source, e.stepFiring(trans), node, scope)
+}
+
+// stepFiring is the firing a step of trans is read within: trans's own, with the
+// arguments its trigger bound, when it leaves a state; the compound transition
+// under way when it is a segment past a pseudostate, which accepts nothing itself.
+func (e *StateExecutor) stepFiring(trans *lower.Transition) *firing {
+	if _, segment := trans.Source.(*ast.PseudostateNode); segment {
+		return e.currentFiring()
+	}
+	return e.firingOf(trans)
+}
+
+// evalStepWithin evaluates a step's expression over the machine's data read
+// within f, nil for a step no transition performance carries.
+func (e *StateExecutor) evalStepWithin(owner ast.Node, f *firing, node ast.Node, scope *symbols.Scope) (Value, error) {
 	ec := NewEvalContextIn(e.ctx, scope, e.self)
 	ec.inBehaviorBody = true
-	ec.Push(e.stateData)
+	ec.pushFrame(frame{vars: e.stateData, firing: f})
 	if state, ok := owner.(*ast.StateNode); ok {
 		for _, frame := range e.attrFramesFor(state) {
 			ec.Push(frame)
@@ -533,7 +556,7 @@ func (e *StateExecutor) scheduleCompletionTransitions(state *ast.StateNode) erro
 		if trans.Trigger != nil {
 			continue
 		}
-		e.eventQueue.Push(Event{
+		e.enqueue(Event{
 			ID:        e.nextEventID,
 			Type:      EventTime, // Use EventTime with nil trigger
 			Timestamp: e.ctx.clock.now,
@@ -600,7 +623,7 @@ func (e *StateExecutor) scheduleTimeTransitions(state *ast.StateNode) error {
 			return err
 		}
 
-		e.eventQueue.Push(Event{
+		e.enqueue(Event{
 			ID:        e.nextEventID,
 			Type:      EventTime,
 			Timestamp: due,
@@ -641,7 +664,7 @@ func (e *StateExecutor) processNextEvent() error {
 	}
 	e.moved = true
 	// The clock never lags a dispatched event: a timer popped ahead of it moves it.
-	e.ctx.clock.now = math.Max(e.ctx.clock.now, event.Timestamp)
+	e.ctx.setClock(math.Max(e.ctx.clock.now, event.Timestamp))
 	e.lastEventAt = e.ctx.clock.now
 
 	e.markDispatch()
@@ -1045,7 +1068,7 @@ func (e *StateExecutor) recallDeferredEvents() {
 			continue
 		}
 		event.Timestamp = e.ctx.clock.now
-		e.eventQueue.Push(event)
+		e.enqueue(event)
 	}
 	e.deferred = retained
 }
@@ -1790,7 +1813,7 @@ func (e *StateExecutor) transitionWeights(source ast.Node, transitions []*lower.
 					ErrBranchWeights, weightWhere(source, transitions, pos), transitionName(transitions, pos), err)
 			}
 		}
-		val, err := e.evalStepOf(trans.Source, trans.Probability.Expr, trans.BodyScope)
+		val, err := e.evalTransitionStep(trans, trans.Probability.Expr, trans.BodyScope)
 		if err != nil {
 			return 0, fmt.Errorf("%w: %s: weight of %s: %v",
 				ErrBranchWeights, weightWhere(source, transitions, pos), transitionName(transitions, pos), err)
@@ -2468,18 +2491,18 @@ func isSynchronizationTarget(target ast.Node) bool {
 // passesGuard reports whether a transition's guard allows it to fire. A nil
 // guard always passes. The guard resolves its names in the scope the transition
 // was written in, with the machine's data shadowing it, so a live value wins
-// over a same-named declaration.
+// over a same-named declaration; it is read within the transition's firing.
 func (e *StateExecutor) passesGuard(trans *lower.Transition) (bool, error) {
 	if trans == nil || trans.Guard == nil {
 		return true, nil
 	}
-	val, err := e.evalStepOf(trans.Source, trans.Guard, trans.BodyScope)
+	val, err := e.evalTransitionStep(trans, trans.Guard, trans.BodyScope)
 	if err != nil {
 		return false, fmt.Errorf("eval guard of %s: %w", transitionDescription(trans), err)
 	}
 	if val.Kind != ValConst || val.Const.Kind != semantics.ValBool {
-		return false, fmt.Errorf("guard of %s must be boolean, got %v",
-			transitionDescription(trans), val.Kind)
+		return false, fmt.Errorf("%w: guard of %s must be boolean, got %s",
+			ErrTypeMismatch, transitionDescription(trans), describeOperand(val))
 	}
 	return val.Const.Bool, nil
 }
@@ -4132,7 +4155,7 @@ func (e *StateExecutor) InvokeOperation(operation string, args map[string]Value)
 // queueCall queues a call event carrying the payload.
 func (e *StateExecutor) queueCall(payload Call) {
 	e.moved = true
-	e.eventQueue.Push(Event{
+	e.enqueue(Event{
 		ID:        e.nextEventID,
 		Type:      EventCall,
 		Timestamp: e.ctx.clock.now,
@@ -4144,8 +4167,14 @@ func (e *StateExecutor) queueCall(payload Call) {
 // enqueueSignal queues a message as an accept event, to fire immediately.
 func (e *StateExecutor) enqueueSignal(msg Message) {
 	e.moved = true
-	e.eventQueue.Push(e.signalEvent(msg))
+	e.enqueue(e.signalEvent(msg))
 	e.nextEventID++
+}
+
+// enqueue queues ev as work the machine's next run takes.
+func (e *StateExecutor) enqueue(ev Event) {
+	e.eventQueue.Push(ev)
+	e.ctx.workChanged()
 }
 
 // signalEvent is the event enqueueSignal queues for a message in flight.
@@ -4408,6 +4437,9 @@ func (e *StateExecutor) pendingSignal() (Message, bool) {
 	memo := &e.pending
 	if memo.holds(e) {
 		if memo.ok || memo.bus.posts == e.ctx.bus.posts {
+			if memo.readsData {
+				e.ctx.notePollReadsData()
+			}
 			return memo.msg, memo.ok
 		}
 		// The bus only grew since a negative answer: the messages added are examined.

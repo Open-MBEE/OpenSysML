@@ -265,6 +265,7 @@ returned over the service yet.
 | DurationConstraint between two messages of a scenario whose steps lie in different fragments (one in an `alt` operand, the other outside it) | comment before the later step | **unmapped** — a wait forked in one fragment cannot be joined in another |
 | Interaction with no message | comment naming what it records (state invariants under time constraints: a timing trace); DurationConstraint, TimeConstraint, observation on an interaction | **unmapped** — no scenario step performs it |
 | OpaqueBehavior, FunctionBehavior | `calc def` with its parameters when its one body is a v2 expression whose names resolve or a JavaScript expression of the [subset](#the-opaque-language-subset) (`Math.max(a, b)` → `RealFunctions::max(a, b)`) of the type of its one return or output parameter — a behavior with several has no one result and is written as an `action def`; an `action def` whose body is the translated `assign` sequence when the script is statements; otherwise `action def` keeping the body as a comment and the report naming the token refused | mapped / approximated |
+| Member a behavior owns that its body has no place for: a constraint, attribute, nested classifier, operation or nested behavior of an OpaqueBehavior, FunctionBehavior or Interaction, a port of an Activity or StateMachine | comment; a diagram showing it does not expose it | **unmapped** — the reason names the behavior kind and its body |
 | Operation | `action def <Op>` owned by the owner, with its parameters; the `method` behavior is written as its body (an Activity as the flow, an OpaqueBehavior as expression or comment), its parameters standing for the operation's at the same position, direction and type under the operation's names; a method parameter matching none is declared and reported, since a call binds only the operation's; no method: `abstract action def`; an `action <op> : <Op>;` usage of the owner performs it, as a call on an object does | mapped |
 | Operation `precondition`, `postcondition`, `bodyCondition` | `assert constraint { <expr> }` in the action def when the expression parses and resolves; otherwise a comment | mapped / approximated |
 | Reception with a `signal` and an Activity `method` | `action def <Sig> { action receive accept sig : Sig; action run : <Method> { in p = sig.p; } first run then receive; }` on the `part def`, plus `perform action sig : <Sig>;`, so every object of the block runs it from creation and accepts the signal again after each: the signal's attributes bind the method's `in` parameters of the same name whose type they conform to and whose multiplicity holds theirs, defaulted and optional parameters stay unbound; a parameter that must hold a value no attribute supplies, or whose type or multiplicity the same-named attribute does not fit, leaves the method unrun, with the reason. Where the signal arrives at ports of the block over the document's connectors or declarations, a `fork` after `start` adds one such loop per port, `accept … : Sig via <port>;` | mapped (a required parameter unsupplied, or an attribute not fitting its parameter: approximated, the signal is only accepted) |
@@ -272,7 +273,7 @@ returned over the service yet.
 | Reception whose signal is not written | comment | **unmapped** — the reason names the signal |
 | «Unit», «QuantityKind» instance specifications | comment placeholder | **unmapped** — use the `SI`/`ISQ` libraries |
 | Diagram | `view 'Name' { expose …; render Views::as…; }` in the body of the v2 element written for `ownerOfDiagram`, one `expose` per shown element that is written, the rendering chosen by the diagram's kind (see [Diagrams](#diagrams)) | mapped |
-| Diagram whose owner has no v2 body (a region, a property, an enumeration, an activity that is inlined), names no owner, or names an id the document does not define | the view is written in the body of the nearest ancestor that has one — the state def a region belongs to, the part def a property is of, the package, or the document's top level — and the note says where | approximated |
+| Diagram whose owner has no v2 body (a region, a property, an enumeration, an action node, an activity that is inlined), names no owner, or names an id the document does not define | the view is written in the body of the nearest ancestor that has one — the state def a region belongs to, the part def a property is of, the action def (or the operation whose method it is) an action node belongs to, the package, or the document's top level — and the note says where | approximated |
 | Diagram some of whose shown elements are not written (results, tool content, elements nothing refers to, states and action nodes, ids the document does not define), or that shows nothing | the written ones are exposed and the rest dropped, the note counting them; a view exposing nothing is still written, `view 'Name' { render …; }`, which validates | approximated |
 | Diagram named like a member of the body it is written in — a «View» class's `view` usage of the same name in the same package, a state, an action | renamed `Name 2`, `Name 3`… past the taken names | approximated |
 | Diagram with no representation serialized, or one naming no diagram type | a view of unknown kind, rendered `asTextualNotation`, exposing what the representation lists — nothing when there is none | approximated |
@@ -323,6 +324,37 @@ and `umlType` (`Class Diagram`) together — by the first family below a word of
 
 The rendering is written `$::Views::…` where a member named `Views` would shadow the library, and a
 shown primitive is exposed as `$::ScalarValues::…` where a member named `ScalarValues` would.
+
+#### Layout from an MTIP export
+
+What a diagram's XMI does not carry is where it draws its elements; Cameo/MagicDraw keeps that
+geometry outside the model. An [MTIP](https://github.com/Open-MBEE/mtip-cameo) export of the same
+project — its HUDS XML — holds it, and `-layout <mtip-export.xml>` joins it to the migration: the
+model document stays the one source of structure and behavior, the export is an augment, never a
+second input. Each of the export's diagram records joins a migrated diagram by the element
+identifier both files share (the record's `id` is the model's `xmi:id`).
+
+A record's element placements become `metadata DiagramLayout::Layout about <ref> { x; y; width;
+height; }` in the view's body, and its connector routes `metadata DiagramLayout::Route about <ref>
+{ points = (…); }`, qualified `$::DiagramLayout::` where a member shadows the library — the
+geometry form [DiagramLayout](../project/diagram-layout-annotations.md) already defines, so every
+rendering honors it. Cameo stores y negated (top at or below zero); the migration writes
+`x = left`, `y = -top`, `width = right - left`, `height = top - bottom`, pixels y-down from the top
+left, and a connector's waypoints source to target — client point, breakpoints reversed, supplier
+point. `@DiagramLayout::Canvas { unit = "px"; width; height; }` sizes the canvas by the bounding
+box of what the view writes, and is omitted when nothing is.
+
+Geometry is written only for what the view exposes: a placement whose element resolves and whose
+`expose` the view carries, a route whose connector's element does — a named member connection, say,
+not an anonymous `connect a to b;`. Everything else is counted, not dropped: the report's `layout`
+summary section and each diagram's note say how many shown elements were positioned, how many were
+not exposed, and how many resolved to no element; an export record matching no diagram of the model,
+or one the migration does not write as a view, and each malformed record is an `unmapped` report row; a presentation property `DiagramLayout` has
+no attribute for (a color, a font, an image) is counted by tag and dropped rather than invented.
+Views the export does not cover are a normal case of export scope and are reported as a count. A
+`-layout` file exported from a different project — no record joins — or one that is not a HUDS
+`<packet>` at all refuses with the mismatch stated; without `-layout` the migration's output is
+byte-identical.
 
 The mapping has been run over the XMI of the [OpenMBEE TMT SysML model](https://github.com/Open-MBEE/TMT-SysML-Model)
 (27 MB; 44,600 elements once the nodes and edges of its behaviors are counted): it writes 7 MB

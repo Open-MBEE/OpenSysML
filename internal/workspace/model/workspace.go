@@ -49,6 +49,10 @@ type Workspace struct {
 	resolver *resolve.Resolver
 	model    *semantics.Model
 	gathers  *passes.Gathers
+	// regatherPending queues the documents whose gathers an invalidate dropped,
+	// replayed on the next read; settling bars a settle re-entering itself.
+	regatherPending map[string]bool
+	settling        bool
 	// analysis is the options every document of this workspace is analyzed under,
 	// so one session asks one question of all its files.
 	analysis passes.Options
@@ -350,20 +354,35 @@ func (w *Workspace) invalidateLocked(name string) {
 	dropped := w.resolver.Invalidate(ch)
 	delete(w.diagCache, name)
 	w.refs.drop(name)
-	// The gathers the drop took go again, and what they now say differently
-	// drops the judgments that read it, until nothing more moves.
-	regather := ch.Docs
-	for {
-		for _, doc := range dropped {
-			delete(w.diagCache, doc)
-			w.refs.drop(doc)
-			if gathered, ok := resolve.GatheredDoc(doc); ok {
-				regather[gathered] = true
-			}
+	// The gathers the drop took are replayed by the next read that needs them
+	// (settleGathersLocked), not inside the edit.
+	if w.regatherPending == nil {
+		w.regatherPending = map[string]bool{}
+	}
+	for doc := range ch.Docs {
+		w.regatherPending[doc] = true
+	}
+	for _, doc := range dropped {
+		delete(w.diagCache, doc)
+		w.refs.drop(doc)
+		if gathered, ok := resolve.GatheredDoc(doc); ok {
+			w.regatherPending[gathered] = true
 		}
-		if len(regather) == 0 {
-			return
-		}
+	}
+}
+
+// settleGathersLocked runs the regather cascade the invalidations queued: what
+// a regathered union now says differently drops the judgments that read it,
+// until nothing more moves. Caller holds the write lock.
+func (w *Workspace) settleGathersLocked() {
+	if w.settling || w.resolver == nil || len(w.regatherPending) == 0 {
+		return
+	}
+	w.settling = true
+	defer func() { w.settling = false }()
+	regather := w.regatherPending
+	w.regatherPending = nil
+	for len(regather) > 0 {
 		changed := w.gathers.Regather(w.contextLocked(), regather)
 		if len(changed) == 0 {
 			return
@@ -372,8 +391,15 @@ func (w *Workspace) invalidateLocked(name string) {
 		for _, n := range changed {
 			names[n] = true
 		}
-		dropped = w.resolver.Invalidate(symbols.Changes{Names: names})
+		dropped := w.resolver.Invalidate(symbols.Changes{Names: names})
 		regather = map[string]bool{}
+		for _, doc := range dropped {
+			delete(w.diagCache, doc)
+			w.refs.drop(doc)
+			if gathered, ok := resolve.GatheredDoc(doc); ok {
+				regather[gathered] = true
+			}
+		}
 	}
 }
 
@@ -390,6 +416,7 @@ func (w *Workspace) contextLocked() *passes.Context {
 func (w *Workspace) invalidateAllLocked() {
 	w.diagCache = map[string][]diag.Diagnostic{}
 	w.refs = nil
+	w.regatherPending = nil
 	w.generation++
 	if w.resolver != nil {
 		w.resolver.InvalidateAll()
@@ -425,6 +452,7 @@ func (w *Workspace) AnalyzedContent(name string) ([]byte, []diag.Diagnostic, boo
 
 // diagnosticsLocked analyzes doc, caching the result. Caller holds the lock.
 func (w *Workspace) diagnosticsLocked(name string, doc *Document) []diag.Diagnostic {
+	w.settleGathersLocked()
 	if cached, ok := w.diagCache[name]; ok {
 		return cached
 	}
@@ -540,6 +568,7 @@ func (w *Workspace) semanticsLocked() (*resolve.Resolver, *semantics.Model) {
 		resolver.Track()
 		w.resolver, w.model, w.gathers = resolver, sem, passes.NewGathers()
 	}
+	w.settleGathersLocked()
 	return w.resolver, w.model
 }
 

@@ -62,6 +62,10 @@ func TestExpressionTreeLowering(t *testing.T) {
 			   <operand xmi:type="uml:Expression" xmi:id="_s3" symbol="!=">` + leaf("a") + leaf("b") + `</operand>
 			 </specification>`,
 			"constraint r { a > 0 and b > 0 and a != b }"},
+		{"a power over several operands keeps the tree's left fold",
+			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="==">` + leaf("a") +
+				`<operand xmi:type="uml:Expression" xmi:id="_s1" symbol="**"><operand xmi:type="uml:LiteralInteger" xmi:id="_l1" value="2"/><operand xmi:type="uml:LiteralInteger" xmi:id="_l2" value="3"/><operand xmi:type="uml:LiteralInteger" xmi:id="_l3" value="2"/></operand></specification>`,
+			"constraint r { a == (2 ** 3) ** 2 }"},
 		{"instance value of an enumeration literal",
 			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="==">` + leaf("m") + `<operand xmi:type="uml:InstanceValue" xmi:id="_iv" instance="_on"/></specification>`,
 			"constraint r { m == Mode::On }"},

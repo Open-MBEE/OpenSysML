@@ -26,6 +26,10 @@ package Structure {
                 expose Structure::Engine::Crank::ignite;
                 render Views::asTextualNotation;
             }
+            view Ignition {
+                expose Structure::Engine::Crank::ignite;
+                render Views::asTextualNotation;
+            }
             first start then ignite;
             action ignite {
                 /* body not migrated (the name "ignited" resolves to nothing readable: nothing visible from Structure::Engine::Cranking::ignite is called ignited) {JavaScript}:
