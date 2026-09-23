@@ -348,12 +348,24 @@ func (e *encoder) encodeLoop(n *ast.WhileLoopActionNode, head func(rdf.Term), su
 func (e *encoder) encodeSubaction(n ast.Node, actions []ast.Node, kind string, head func(rdf.Term), subject rdf.Term, fqn string) error {
 	head(rdf.SysMLTerm(mSubaction))
 	e.graph.Add(subject, e.sysx(xSubactionKind), rdf.String(kind))
+	e.markPerformed(actions)
 	// `entry do { … }` states the subaction's own keyword and `do` as well, with
 	// or without a space or a comment between them and the body.
 	if written := strings.Fields(withoutComments(e.text(n))); len(written) > 1 && bareWord(written[1]) == "do" && kind != "do" {
 		e.graph.Add(subject, e.sysx(xDeclaredKeyword), rdf.String(kind+" do"))
 	}
 	return e.encode(actions, fqn, subject)
+}
+
+// markPerformed records the action usages among members as performed actions.
+func (e *encoder) markPerformed(members []ast.Node) {
+	for _, member := range members {
+		if node, _ := unwrapMember(member); node != nil {
+			if usage, ok := node.(*ast.Usage); ok && usage.Kind == ast.UsageAction {
+				e.performed[usage] = true
+			}
+		}
+	}
 }
 
 // encodeTransition emits a transition of a state machine: its ends as
@@ -388,6 +400,7 @@ func (e *encoder) encodeTransition(n *ast.TransitionMember, head func(rdf.Term),
 	if n.HasEffect {
 		e.graph.Add(subject, e.sysx(xHasEffect), rdf.Bool(true))
 	}
+	e.markPerformed(n.Effect)
 	if err := e.transitionMemberLinks(n, subject, xEffectMember, n.Effect); err != nil {
 		return err
 	}
@@ -1420,7 +1433,9 @@ func (d *decoder) subactionText(el *element, depth int) (string, error) {
 			Note: "its braced `" + kind + " { … }` block is written as its statements, not as the anonymous action the braces declare",
 		}
 	}
-	if len(el.children) == 0 {
+	// `entry;` is an empty ActionUsage in the pilot's graph (SysML.xtext
+	// EmptyActionUsage); this mapping writes no element for it.
+	if len(el.children) == 0 || len(el.children) == 1 && d.emptyActionUsage(el.children[0]) {
 		return keyword + ";", nil
 	}
 	body, err := d.membersText(el.children, false, depth)
@@ -1690,4 +1705,24 @@ func referenceMemberKeyword(keyword string) bool {
 		return true
 	}
 	return false
+}
+
+// emptyActionUsage reports whether el is the ActionUsage an `entry;`, `do;` or
+// `exit;` declares: nameless, without body, relationships or references.
+func (d *decoder) emptyActionUsage(el *element) bool {
+	if el.metaclass != usageMetaclass[ast.UsageAction] || len(d.identWords(el)) > 0 || len(el.children) > 0 {
+		return false
+	}
+	subject := rdf.IRI(el.iri)
+	for _, rel := range d.graph.Objects(subject, rdf.SysML+pOwnedRelationship) {
+		if !d.graph.BoolValue(rel, rdf.SysML+pIsImplied) && !impliedRelationshipMetaclasses[d.metaclass(rel)] {
+			return false
+		}
+	}
+	for _, property := range []string{pReferences, relationshipProperty[ast.RelTyping]} {
+		if d.graph.HasProperty(subject, rdf.SysML+property) {
+			return false
+		}
+	}
+	return !d.graph.HasProperty(subject, rdf.OpenSysML+xExpression) && !d.boolOf(el, rdf.OpenSysML+xHasBody)
 }

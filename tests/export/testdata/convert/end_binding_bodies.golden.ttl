@@ -3141,7 +3141,7 @@ elmt:Bodies__Ctx__Machine___404_om
     sysml:owningType elmt:Bodies__Ctx__Machine .
 
 elmt:Bodies__Ctx__Machine___404___400
-    a sysml:ActionUsage ;
+    a sysml:PerformActionUsage ;
     sysml:qualifiedName "Bodies::Ctx::Machine::@4::@0" ;
     sysml:elementId "Bodies__Ctx__Machine___404___400" ;
     sysx:memberIndex "0"^^xsd:integer ;

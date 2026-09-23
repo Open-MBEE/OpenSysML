@@ -440,3 +440,17 @@ package Q {
 		}
 	}
 }
+
+// TestToolkitStateMachineDecodes reads the toolkit's interchange of a state
+// machine — StateSubactionMembership-owned PerformActionUsages, a transition's
+// effect under TransitionFeatureMembership, sourceless `then` successions and
+// the library `start`/`done` ends — back to the notation it was written from.
+func TestToolkitStateMachineDecodes(t *testing.T) {
+	want := interchangeFixture(t, "states.sysml")
+	for _, form := range []string{"compact", "full"} {
+		got := decodeAPIJSON(t, interchangeFixture(t, "states.toolkit."+form+".json"))
+		if !bytes.Equal(got, want) {
+			t.Errorf("the %s form decodes differently:\n--- want ---\n%s\n--- got ---\n%s", form, want, got)
+		}
+	}
+}

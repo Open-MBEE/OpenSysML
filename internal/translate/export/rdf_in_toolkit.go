@@ -604,7 +604,11 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) *rd
 	for member, owner := range memberOwner {
 		// A subaction's one action and a connector's unnamed ends are written
 		// in the head, not in a body.
-		if meta(owner) == mSubaction {
+		if meta(owner) == mSubaction || meta(memberMembership[member]) == mTransitionFeatureMembership {
+			continue
+		}
+		// A transition's `then` succession is its head's target, not a body.
+		if meta(owner) == mTransition && meta(rdf.IRI(member)) == mSuccession {
 			continue
 		}
 		if m := rdf.IRI(member); meta(memberMembership[member]) == mEndFeatureMembership &&
@@ -771,6 +775,17 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) *rd
 		if meta(subject) != mPerform || graph.HasProperty(subject, rdf.OpenSysML+xExpression) {
 			continue
 		}
+		// A state's `entry action e : A` and a transition's `do action f : A`
+		// are performed actions too, written as usage heads after the keyword.
+		ms := firstIRI(graph, subject, pOwningRelationship, pOwningMembership)
+		if m := meta(ms); m == mSubaction || m == mTransitionFeatureMembership {
+			if !graph.HasProperty(subject, rdf.SysML+pDeclaredName) && graph.HasProperty(subject, rdf.SysML+pReferences) {
+				if kind, ok := graph.Lexical(ms, rdf.SysML+pKind); ok && m == mSubaction {
+					graph.Add(subject, rdf.OpenSysMLTerm(xDeclaredKeyword), rdf.String(kind))
+				}
+			}
+			continue
+		}
 		for _, target := range graph.Objects(subject, rdf.SysML+"type") {
 			if target.IsIRI() {
 				if name, ok := qname[target.Value]; ok && name != "" {
@@ -820,7 +835,13 @@ func deriveTransitionHeads(graph *rdf.Graph, meta func(rdf.Term) string) {
 					graph.Add(subject, rdf.SysMLTerm(pSource), member)
 				}
 			case mTransitionFeatureMembership:
-				if kind, _ := graph.Lexical(ms, rdf.SysML+pKind); kind != "trigger" {
+				kind, _ := graph.Lexical(ms, rdf.SysML+pKind)
+				if kind == "effect" {
+					graph.Add(subject, rdf.OpenSysMLTerm(xEffectMember), member)
+					graph.Add(subject, rdf.OpenSysMLTerm(xHasEffect), rdf.Bool(true))
+					continue
+				}
+				if kind != "trigger" {
 					continue
 				}
 				if trigger, ok := acceptTriggerText(graph, meta, member); ok &&
@@ -1212,7 +1233,7 @@ func dropStatedDefaults(graph *rdf.Graph, meta func(rdf.Term) string, elementFor
 				// The full form derives a qualified name for the unnamed too;
 				// the compact form leaves the name to be derived.
 				drop = true
-			case local == pQualifiedName && meta(firstIRI(graph, triple.Subject, pOwningRelationship)) == mSubaction:
+			case local == pQualifiedName && underSubaction(graph, meta, triple.Subject):
 				// This mapping positions a subaction's action under its
 				// membership (`S::@0::ops`); the full form's name skips it.
 				drop = true
@@ -1338,4 +1359,18 @@ func insertBefore(members []rdf.Term, term, before rdf.Term) []rdf.Term {
 		out = append(out, m)
 	}
 	return out
+}
+
+// underSubaction reports whether a StateSubactionMembership owns subject or
+// one of the elements it is nested in.
+func underSubaction(graph *rdf.Graph, meta func(rdf.Term) string, subject rdf.Term) bool {
+	for seen := map[string]bool{}; subject.IsIRI() && !seen[subject.Value]; {
+		seen[subject.Value] = true
+		ms := firstIRI(graph, subject, pOwningRelationship)
+		if meta(ms) == mSubaction {
+			return true
+		}
+		subject = firstIRI(graph, ms, pOwningRelatedElement, pOwner)
+	}
+	return false
 }

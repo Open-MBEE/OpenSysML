@@ -312,6 +312,7 @@ func newEncoder(file *source.SourceFile, root *ast.RootNamespace, library string
 		res:            res,
 		declared:       map[string]bool{},
 		metadataBodies: map[string]bool{},
+		performed:      map[ast.Node]bool{},
 		fqn:            map[ast.Node]string{},
 		links:          map[*ast.QualifiedName]*symbols.Symbol{},
 		preceding:      map[ast.Node]ast.Node{},
@@ -345,6 +346,9 @@ type encoder struct {
 	// metadataBodies holds the qualified names of the metadata usages and the nested
 	// members of their bodies: a keywordless member there is a ReferenceUsage.
 	metadataBodies map[string]bool
+	// performed holds the action usages a state's entry/do/exit or a transition's
+	// effect declares: each is a PerformActionUsage (SysML.xtext PerformedActionUsage).
+	performed map[ast.Node]bool
 	// fqn is the qualified name of each member node, which is how a succession
 	// end the notation leaves unnamed addresses the member it binds.
 	fqn map[ast.Node]string
@@ -907,6 +911,9 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 	case *ast.Usage:
 		inBody := !local && e.metadataBodies[owner]
 		metaclass, ok := usageMetaclassOf(n, inBody)
+		if e.performed[n] {
+			metaclass = mPerform
+		}
 		if !ok {
 			return &UnsupportedError{What: fmt.Sprintf("usage kind %q at %s", n.Kind, e.where(n))}
 		}

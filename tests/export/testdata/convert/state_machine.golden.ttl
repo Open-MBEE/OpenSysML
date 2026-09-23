@@ -283,7 +283,7 @@ elmt:StateMachine__VehicleStates__starting___400
     sysx:sourceText "            entry action ready : Warm;\n" .
 
 elmt:StateMachine__VehicleStates__starting___400__ready
-    a sysml:ActionUsage ;
+    a sysml:PerformActionUsage ;
     sysml:qualifiedName "StateMachine::VehicleStates::starting::@0::ready" ;
     sysml:elementId "StateMachine__VehicleStates__starting___400__ready" ;
     sysx:memberIndex "0"^^xsd:integer ;
@@ -314,7 +314,7 @@ elmt:StateMachine__VehicleStates__starting___401
     sysx:sourceText "            do action running : Warm;\n" .
 
 elmt:StateMachine__VehicleStates__starting___401__running
-    a sysml:ActionUsage ;
+    a sysml:PerformActionUsage ;
     sysml:qualifiedName "StateMachine::VehicleStates::starting::@1::running" ;
     sysml:elementId "StateMachine__VehicleStates__starting___401__running" ;
     sysx:memberIndex "0"^^xsd:integer ;
@@ -410,7 +410,7 @@ elmt:StateMachine__VehicleStates__active___400
     sysx:sourceText "            do action monitor : Warm;\n" .
 
 elmt:StateMachine__VehicleStates__active___400__monitor
-    a sysml:ActionUsage ;
+    a sysml:PerformActionUsage ;
     sysml:qualifiedName "StateMachine::VehicleStates::active::@0::monitor" ;
     sysml:elementId "StateMachine__VehicleStates__active___400__monitor" ;
     sysx:memberIndex "0"^^xsd:integer ;
@@ -642,7 +642,7 @@ expr:StateMachine__VehicleStates__active_5fto_5foff_pguard_om
     sysml:membershipOwningNamespace elmt:StateMachine__VehicleStates__active_5fto_5foff .
 
 elmt:StateMachine__VehicleStates__active_5fto_5foff__stop
-    a sysml:ActionUsage ;
+    a sysml:PerformActionUsage ;
     sysml:qualifiedName "StateMachine::VehicleStates::active_to_off::stop" ;
     sysml:elementId "StateMachine__VehicleStates__active_5fto_5foff__stop" ;
     sysx:memberIndex "0"^^xsd:integer ;
@@ -956,7 +956,7 @@ elmt:StateMachine__Composite___404
     sysx:sourceText "        entry action {\n            perform Warm;\n        }\n" .
 
 elmt:StateMachine__Composite___404___400
-    a sysml:ActionUsage ;
+    a sysml:PerformActionUsage ;
     sysml:qualifiedName "StateMachine::Composite::@4::@0" ;
     sysml:elementId "StateMachine__Composite___404___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
