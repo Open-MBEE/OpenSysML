@@ -71,7 +71,7 @@ func (w *featureWalk) featureNode(sym *symbols.Symbol, seen map[*symbols.Symbol]
 		return node
 	}
 	seen[sym] = true
-	for _, member := range containedMembers(sym) {
+	for _, member := range r.containedMembers(sym) {
 		switch {
 		case r.drawsConnector(member):
 			w.connectors = append(w.connectors, member)
