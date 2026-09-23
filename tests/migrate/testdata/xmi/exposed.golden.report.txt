@@ -1,0 +1,16 @@
+# SysML v1 to v2 migration report: exposed.xmi
+# exported by Example UML Tool
+# migrated 9 element(s): 8 mapped, 1 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## approximated (1)
+Property	Structure::Vehicle::spare	_prop_spare	-> Structure::Vehicle::spare	(private visibility is not written: view 'Vehicle Overview' in Views exposes it)
+
+## mapped (8)
+Model	Model	_m	(the root model's members are written at the top level)
+Package	Structure	_pkg_structure	-> Structure
+«Block» Class	Structure::Vehicle	_blk_vehicle	-> Structure::Vehicle
+Diagram	Structure::Vehicle::Vehicle Internals	_diag_ibd	-> Structure::Vehicle::'Vehicle Internals'	(a SysML Internal Block Diagram written as a view rendered asInterconnectionDiagram)
+Property	Structure::Vehicle::serial	_prop_serial	-> Structure::Vehicle::serial
+«Block» Class	Structure::Wheel	_blk_wheel	-> Structure::Wheel
+Package	Views	_pkg_views	-> Views
+Diagram	Views::Vehicle Overview	_diag_overview	-> Views::'Vehicle Overview'	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram)

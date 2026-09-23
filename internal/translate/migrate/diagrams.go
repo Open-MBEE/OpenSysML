@@ -93,6 +93,15 @@ func (m *migration) planViews() {
 		if v.name != name && d.Name != "" {
 			v.note = joinNotes(v.note, "written as "+v.name+" since a member of its owner is also named "+name)
 		}
+		where := "view '" + v.name + "'"
+		if d.Owner != nil {
+			where += " in " + qualifiedName(d.Owner)
+		}
+		for _, shown := range d.Shown {
+			if x := m.exposable(shown.Element); x != nil && x.Parent != v.host {
+				m.expose(x, where+" exposes it")
+			}
+		}
 		m.hosted[v.host] = append(m.hosted[v.host], v)
 	}
 }
