@@ -71,6 +71,7 @@ type ReadRecorder interface {
 	ReadNamespace(fqn string)
 	ReadDocument(name string)
 	ReadAllNames()
+	ReadSegment(name string)
 }
 
 // SetReadRecorder installs the recorder the index's reads report to, or none.
@@ -99,5 +100,11 @@ func (idx *Index) readDocument(name string) {
 func (idx *Index) readAllNames() {
 	if idx.reads != nil {
 		idx.reads.ReadAllNames()
+	}
+}
+
+func (idx *Index) readSegment(name string) {
+	if idx.reads != nil {
+		idx.reads.ReadSegment(name)
 	}
 }
