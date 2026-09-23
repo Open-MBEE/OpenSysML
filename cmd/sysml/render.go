@@ -17,6 +17,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
 
 // runRender renders the view -render names of the model the files named on the
@@ -83,7 +84,10 @@ func runRenderAll(files []string) error {
 		return fmt.Errorf("create rendering directory %s: %w", renderAllDir, err)
 	}
 
-	destinations := map[string]string{}
+	filenames, err := renderFilenames(views, form)
+	if err != nil {
+		return err
+	}
 	for _, info := range views {
 		if !info.Supported {
 			reportRenderSkip(info.Name, info.Reason)
@@ -106,18 +110,68 @@ func runRenderAll(files []string) error {
 			}
 			return err
 		}
-		path := filepath.Join(renderAllDir, renderFilename(info.Name, writtenForm))
-		// A filesystem that ignores letter case hands two such paths one file, so the key ignores it too.
-		key := caseFolded(path)
-		if previous, exists := destinations[key]; exists {
-			return fmt.Errorf("views %s and %s have the same rendering path %s", previous, info.Name, path)
-		}
-		destinations[key] = info.Name
+		path := filepath.Join(renderAllDir, filenames[info.Name])
 		if err := writeArtifactFile(path, artifact, writtenForm); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// renderFilenames is the file -render-all writes each view it writes to, by view name;
+// files meeting letter case aside are tagged until no two meet, or refused if two still do.
+func renderFilenames(views []model.ViewInfo, form view.Form) (map[string]string, error) {
+	type plan struct {
+		name   string
+		form   view.Form
+		tagged bool
+	}
+	var plans []*plan
+	for _, info := range views {
+		written := form
+		if written == "" {
+			written = info.Kind.MachineForm()
+		}
+		if info.Supported && info.Kind.SupportsForm(written) {
+			plans = append(plans, &plan{name: info.Name, form: written})
+		}
+	}
+	for {
+		meeting := map[string][]*plan{}
+		var keys []string
+		for _, p := range plans {
+			key := caseFolded(renderFilename(p.name, p.form, p.tagged))
+			if _, seen := meeting[key]; !seen {
+				keys = append(keys, key)
+			}
+			meeting[key] = append(meeting[key], p)
+		}
+		progressed := false
+		for _, key := range keys {
+			group := meeting[key]
+			if len(group) < 2 {
+				continue
+			}
+			settled := true
+			for _, p := range group {
+				if !p.tagged {
+					p.tagged, settled, progressed = true, false, true
+				}
+			}
+			if settled {
+				return nil, fmt.Errorf("views %s and %s have the same rendering path %s",
+					group[0].name, group[1].name, renderFilename(group[0].name, group[0].form, true))
+			}
+		}
+		if !progressed {
+			break
+		}
+	}
+	filenames := make(map[string]string, len(plans))
+	for _, p := range plans {
+		filenames[p.name] = renderFilename(p.name, p.form, p.tagged)
+	}
+	return filenames, nil
 }
 
 // caseFolded is text under simple Unicode case folding: two texts fold alike
@@ -181,9 +235,9 @@ func loadRenderingModel(files []string) (*repl.Session, error) {
 	return sess, nil
 }
 
-// renderFilename is the file -render-all writes a view to: its qualified name with `::` as `.`,
-// every unsafe byte as `%XX` (the first too under a Windows device-name stem), cut to fit, the extension.
-func renderFilename(name string, form view.Form) string {
+// renderFilename is the file -render-all writes a view to: its qualified name with `::` as `.`, every
+// unsafe byte as `%XX` (the first too under a Windows device-name stem), cut to fit, `~` and a hash when tagged, the extension.
+func renderFilename(name string, form view.Form, tagged bool) string {
 	var b strings.Builder
 	for i := 0; i < len(name); i++ {
 		switch c := name[i]; {
@@ -201,7 +255,7 @@ func renderFilename(name string, form view.Form) string {
 		filename = fmt.Sprintf("%%%02X", filename[0]) + filename[1:]
 	}
 	ext := renderExtension(form)
-	if len(filename)+len(ext) > maxFilenameBytes {
+	if tagged || len(filename)+len(ext) > maxFilenameBytes {
 		sum := sha256.Sum256([]byte(filename))
 		tag := "~" + hex.EncodeToString(sum[:filenameTagBytes])
 		filename = cutFilename(filename, maxFilenameBytes-len(ext)-len(tag)) + tag
@@ -219,6 +273,7 @@ const (
 // cutFilename is the longest prefix of an encoded filename within n bytes that
 // splits neither a UTF-8 sequence nor a `%XX` escape.
 func cutFilename(filename string, n int) string {
+	n = min(n, len(filename))
 	for n > 0 && n < len(filename) && !utf8.RuneStart(filename[n]) {
 		n--
 	}
