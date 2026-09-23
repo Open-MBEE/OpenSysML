@@ -389,21 +389,49 @@ models with the listed expression kinds. That is the first measurement of phase 
 ### 2.9 Known SysON export gaps
 
 The textual export SysON produces from a project edited graphically — SysON's
-`SysMLElementSerializer` (v2026.9.0), seen on the Batmobile template — drops
-pieces of the model rather than serializing them, and OpenSysML reports each as
-a syntax error where the gap lands. These are serializer gaps, not parser gaps:
+`SysMLElementSerializer`, seen on the Batmobile template — used to drop pieces of
+the model rather than serializing them, and OpenSysML reported each as a syntax
+error where the gap landed. Three of those gaps are fixed on the Open-MBEE fork
+of SysON (branch `integration/textual-export-fixes`, combining the fork's pull
+requests 1–3) and are pending upstream; a SysON built from that branch exports:
 
-- **Feature-chained connector ends are dropped.** A connection whose ends are
-  feature chains serializes both ends as nothing:
-  `connection bat2eng : PowerInterface connect  to ;`. OpenSysML reports
-  `expected a connector end before 'to'` at the `to` and `expected a name` at
-  the `;`.
-- **A succession to an anonymous decision node is split.** `then decide;` is
-  serialized as two members, `then;` followed by `decide ;`: the `then;` is a
-  syntax error (`expected a name`), while `decide ;` — an anonymous decision
-  node — is valid on its own and reports nothing.
-- **A satisfy with no subject serializes a dangling `by`.**
-  `assert satisfy 'system components' by;` reports `expected a name` at the `;`.
+- **Feature-chained connector ends** —
+  `interface bat2eng : PowerInterface connect battery.powerPort to batmobileEngine.enginePort;`
+  (previously `connection bat2eng : PowerInterface connect  to ;`).
+- **A succession to an anonymous decision node** — `then decide;` (previously
+  `then;` followed by `decide ;`).
+- **A satisfy with no subject** — `assert satisfy 'system components';`
+  (previously a dangling `assert satisfy 'system components' by;`).
+
+With those in place a Batmobile export parses far enough that `instantiate`,
+`validateInstance`, `verifyRequirement` and `verifySatisfaction` answer
+`ok: true`. What still goes wrong is in the serializer, not the plugin or the
+parser:
+
+- **A succession with an explicit `first` source inlines its target action.**
+  The fork's implicit-target fix writes `first start then action startBatmobile;`
+  for what the template spells `first start;` `then action startBatmobile;`.
+  The grammar admits an inline action only after a target succession (`then
+  action …`), never after `first <node>`, so OpenSysML reports
+  `expected ';' or '{' after initial node` at the `then` (Batmobile lines 85 and
+  112, `'Drive Batmobile'` and `ActivateRocketBooster`), and executing either
+  action fails to lower: `action succession references undefined target node
+  "action"`. The serializer should emit `first start;` and the following
+  `then action …` as separate members whenever it printed a `first` end.
+- **A succession to a non-action target is dropped.** `then timeslice charging`
+  in `part bm1` exports as `timeslice charging` with the warning `Unable to
+  export a SuccessionAsUsage (…) with an implicit target and no following
+  action`; the implicit-target fix only inlines `ActionUsage` targets.
+- **Redefinition through a feature chain is dropped.**
+  `attribute :>> battery.capacity = 40000 [SI::'watt hour'];` exports as
+  `attribute = 40000 [SI::'watt hour'];`, an anonymous attribute with no
+  redefinition — valid text that no longer says what it meant.
+- **Unresolved library proxies** are reported as `Found one proxy
+  kermllibrary:///…` warnings; the export itself is unaffected.
+
+Verdicts on standard-library constraints (`ShapeItems`, `Geometry`) that
+`validateInstance` reports carry no SysON element: the library is not part of
+the project, so there is nothing to select.
 
 ## 3. Architecture of `editors/syson/`
 
