@@ -23,6 +23,19 @@ package Structure {
         /* applied stereotype «TODO_Owner»: TODO = Rate the cable. */
     }
     part def Operator;
+    part def Gantry {
+        part trolley : Trolley;
+    }
+    part def Trolley {
+        part motor : Motor;
+    }
+    part def Winch {
+        part motor : Motor;
+    }
+    part def Motor {
+        part brake : Brake;
+    }
+    part def Brake;
     view 'Crane Structure' {
         expose Hook;
         expose Crane;
@@ -111,6 +124,31 @@ package 'Yard Viewpoints' {
         }
         perform action 'shown Method' : 'Shown Method';
     }
+    viewpoint 'Shown Everywhere Viewpoint' {
+        action def 'Shown Everywhere Method' {
+            first start then 'Collect Things On Diagram';
+            action 'Collect Things On Diagram';
+            first 'Collect Things On Diagram' then 'Shown Everywhere';
+            action 'Shown Everywhere' {
+                first start then Name;
+                action Name;
+            }
+            first 'Shown Everywhere' then final;
+            action final terminate;
+        }
+        perform action 'shown Everywhere Method' : 'Shown Everywhere Method';
+    }
+    viewpoint 'Drive Parts Viewpoint' {
+        action def 'Drive Parts Method' {
+            first start then 'Collect By Association';
+            action 'Collect By Association';
+            first 'Collect By Association' then 'Drive Parts';
+            action 'Drive Parts';
+            first 'Drive Parts' then final;
+            action final terminate;
+        }
+        perform action 'drive Parts Method' : 'Drive Parts Method';
+    }
     viewpoint 'Parts Viewpoint' {
         action def 'Parts Method' {
             first start then 'Collect By Association';
@@ -188,6 +226,8 @@ package 'Yard Handbook' {
         view internalDiagrams :> 'Internal Diagrams';
         view parametricDiagrams :> 'Parametric Diagrams';
         view shown :> 'Shown On The Structure Diagram';
+        view shownEverywhere :> 'Shown On Both Diagrams';
+        view driveParts :> 'Drive Parts';
         view parts :> 'Crane Parts';
         view directParts :> 'Direct Crane Parts';
         view sharedParts :> 'Shared Crane Parts';
@@ -220,6 +260,16 @@ package 'Yard Handbook' {
     view 'Shown On The Structure Diagram' {
         satisfy 'Yard Viewpoints'::'Shown Viewpoint';
         expose Structure::'Crane Structure';
+    }
+    view 'Shown On Both Diagrams' {
+        satisfy 'Yard Viewpoints'::'Shown Everywhere Viewpoint';
+        expose Structure::'Crane Structure';
+        expose Structure::Sketch;
+    }
+    view 'Drive Parts' {
+        satisfy 'Yard Viewpoints'::'Drive Parts Viewpoint';
+        expose Structure::Gantry;
+        expose Structure::Winch;
     }
     view 'Crane Parts' {
         satisfy 'Yard Viewpoints'::'Parts Viewpoint';
@@ -254,6 +304,11 @@ package 'Yard Handbook' {
                 missing = "last",
                 multiple = "first"),
             properties = ("name", "documentation"))
+    }
+    calc def 'Yard Handbook Drive Parts Rows' :> DocumentQueries::Query {
+        DocumentQueries::Project(
+            source = DocumentQueries::Named(qualifiedName = ("Structure::Trolley", "Structure::Motor", "Structure::Brake")),
+            properties = ("name"))
     }
     calc def 'Yard Handbook Parts Rows' :> DocumentQueries::Query {
         DocumentQueries::Project(
@@ -314,6 +369,17 @@ package 'Yard Handbook' {
             part table : DocumentQueries::Table {
                 attribute redefines caption = "Shown Blocks";
                 calc rows : 'Yard Handbook Shown Blocks Rows';
+            }
+        }
+        part 'Shown On Both Diagrams' : DocumentQueries::Section {
+            attribute redefines title = "Shown On Both Diagrams";
+            /* not migrated: «TableStructure» StructuredActivityNode 'Shown Everywhere' — the elements it shows pass through «CollectThingsOnDiagram» Yard Viewpoints::Shown Everywhere Viewpoint::Shown Everywhere Method::Collect Things On Diagram is not migrated: it collects what the diagram of unknown kind 'Sketch' shows, which the archive does not record */
+        }
+        part 'Drive Parts' : DocumentQueries::Section {
+            attribute redefines title = "Drive Parts";
+            part list : DocumentQueries::List {
+                attribute redefines style = "bullet";
+                calc items : 'Yard Handbook Drive Parts Rows';
             }
         }
         part 'Crane Parts' : DocumentQueries::Section {

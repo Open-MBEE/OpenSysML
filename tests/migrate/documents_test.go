@@ -464,6 +464,16 @@ func TestMigratedCollectorsAndFilters(t *testing.T) {
 	} {
 		wantNote(t, r, "_st_shown_table", migrate.Approximated, note)
 	}
+	// A diagram whose contents the archive does not record leaves the whole
+	// collection unknown: the elements the other diagrams show are not listed
+	// as if they were all of them.
+	wantNote(t, r, "_st_both_collect", migrate.Unmapped,
+		"it collects what the diagram of unknown kind 'Sketch' shows, which the archive does not record")
+	wantNote(t, r, "_st_both_table", migrate.Unmapped,
+		"the elements it shows pass through «CollectThingsOnDiagram» Yard Viewpoints::Shown Everywhere Viewpoint::Shown Everywhere Method::Collect Things On Diagram is not migrated: it collects what the diagram of unknown kind 'Sketch' shows, which the archive does not record")
+	if strings.Contains(notation, "calc def 'Yard Handbook Shown Everywhere Rows'") {
+		t.Errorf("a collection over an unread diagram is spelled as the elements the other diagrams show:\n%s", notation)
+	}
 
 	// By association: composite parts to any depth stop at the cycle back to
 	// Hook and skip the attribute whose type is missing; depth 1 keeps the
@@ -476,6 +486,13 @@ func TestMigratedCollectorsAndFilters(t *testing.T) {
 		`DocumentQueries::Named(qualifiedName = ("Structure::Hook")),`,
 		"calc def 'Yard Handbook Shared Parts Rows'",
 		`DocumentQueries::Named(qualifiedName = ("Structure::Cable")),`)
+	// A type first reached at the depth limit through one root is walked
+	// again when another root reaches it with depth to spare: the gantry's
+	// trolley motor is two steps down, the winch's motor one, so its brake is
+	// within the winch's two.
+	wantInOrder(t, "Drive Parts query", notation,
+		"calc def 'Yard Handbook Drive Parts Rows'",
+		`DocumentQueries::Named(qualifiedName = ("Structure::Trolley", "Structure::Motor", "Structure::Brake")),`)
 	if strings.Contains(notation, `"Structure::Operator"`) {
 		t.Errorf("a plain reference is collected as a composite part:\n%s", notation)
 	}
@@ -502,6 +519,8 @@ func TestMigratedCollectorsAndFilters(t *testing.T) {
 		"| name | documentation |",
 		"| Crane | Lifts containers off the quay. |",
 		"| Hook | Holds the spreader. |",
+		"## Shown On Both Diagrams",
+		"## Drive Parts", "- Trolley\n- Motor\n- Brake",
 		"## Crane Parts", "- Hook\n- Latch",
 		"## Direct Crane Parts", "- Hook",
 		"## Shared Crane Parts", "- Cable",
@@ -514,7 +533,7 @@ func TestMigratedCollectorsAndFilters(t *testing.T) {
 	if n := strings.Count(md, "```mermaid"); n != 4 {
 		t.Errorf("Yard Handbook Markdown draws %d diagrams, want 4:\n%s", n, md)
 	}
-	for _, heading := range []string{"## Parametric Diagrams", "## Cable Parts", "## To Do"} {
+	for _, heading := range []string{"## Parametric Diagrams", "## Shown On Both Diagrams", "## Cable Parts", "## To Do"} {
 		if body := markdownSection(md, heading); strings.Contains(body, "```mermaid") || strings.Contains(body, "|") || strings.Contains(body, "\n- ") {
 			t.Errorf("%s shows content DocGen has nothing for:\n%s", heading, body)
 		}

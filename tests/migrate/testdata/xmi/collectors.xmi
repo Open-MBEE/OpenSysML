@@ -29,6 +29,19 @@
       </packagedElement>
       <packagedElement xmi:type="uml:Class" xmi:id="_blk_cable" name="Cable"/>
       <packagedElement xmi:type="uml:Class" xmi:id="_blk_operator" name="Operator"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_gantry" name="Gantry">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_trolley" name="trolley" type="_blk_trolley" aggregation="composite"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_trolley" name="Trolley">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_trolley_motor" name="motor" type="_blk_motor" aggregation="composite"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_winch" name="Winch">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_winch_motor" name="motor" type="_blk_motor" aggregation="composite"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_motor" name="Motor">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_brake" name="brake" type="_blk_brake" aggregation="composite"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_brake" name="Brake"/>
     </packagedElement>
 
     <packagedElement xmi:type="uml:Package" xmi:id="_pkg_reqs" name="Needs">
@@ -107,6 +120,34 @@
           <edge xmi:type="uml:ControlFlow" xmi:id="_shown_e2" source="_shown_collect" target="_shown_sort"/>
           <edge xmi:type="uml:ControlFlow" xmi:id="_shown_e3" source="_shown_sort" target="_shown_table"/>
           <edge xmi:type="uml:ControlFlow" xmi:id="_shown_e4" source="_shown_table" target="_shown_final"/>
+        </ownedBehavior>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_vp_both" name="Shown Everywhere Viewpoint" classifierBehavior="_act_both">
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_both" name="Shown Everywhere Method">
+          <node xmi:type="uml:InitialNode" xmi:id="_both_init"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_both_collect" name="Collect Things On Diagram"/>
+          <node xmi:type="uml:StructuredActivityNode" xmi:id="_both_table" name="Shown Everywhere">
+            <node xmi:type="uml:InitialNode" xmi:id="_both_table_init"/>
+            <node xmi:type="uml:CallBehaviorAction" xmi:id="_both_col_name" name="Name"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_both_table_e1" source="_both_table_init" target="_both_col_name"/>
+          </node>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_both_final"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_both_e1" source="_both_init" target="_both_collect"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_both_e2" source="_both_collect" target="_both_table"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_both_e3" source="_both_table" target="_both_final"/>
+        </ownedBehavior>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_vp_drive" name="Drive Parts Viewpoint" classifierBehavior="_act_drive">
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_drive" name="Drive Parts Method">
+          <node xmi:type="uml:InitialNode" xmi:id="_drive_init"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_drive_collect" name="Collect By Association"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_drive_list" name="Drive Parts"/>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_drive_final"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_drive_e1" source="_drive_init" target="_drive_collect"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_drive_e2" source="_drive_collect" target="_drive_list"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_drive_e3" source="_drive_list" target="_drive_final"/>
         </ownedBehavior>
       </packagedElement>
 
@@ -194,6 +235,8 @@
         <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_ibds" name="internalDiagrams" type="_view_ibds" aggregation="composite"/>
         <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_pars" name="parametricDiagrams" type="_view_pars" aggregation="composite"/>
         <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_shown" name="shown" type="_view_shown" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_both" name="shownEverywhere" type="_view_both" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_drive" name="driveParts" type="_view_drive" aggregation="composite"/>
         <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_parts" name="parts" type="_view_parts" aggregation="composite"/>
         <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_direct" name="directParts" type="_view_direct" aggregation="composite"/>
         <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_shared" name="sharedParts" type="_view_shared" aggregation="composite"/>
@@ -231,6 +274,18 @@
         <generalization xmi:type="uml:Generalization" xmi:id="_gen_shown" general="_vp_shown"/>
       </packagedElement>
       <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_shown" client="_view_shown" supplier="_diag_structure"/>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_both" name="Shown On Both Diagrams">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_both" general="_vp_both"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_both_structure" client="_view_both" supplier="_diag_structure"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_both_untyped" client="_view_both" supplier="_diag_untyped"/>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_drive" name="Drive Parts">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_drive" general="_vp_drive"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_drive_gantry" client="_view_drive" supplier="_blk_gantry"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_drive_winch" client="_view_drive" supplier="_blk_winch"/>
 
       <packagedElement xmi:type="uml:Class" xmi:id="_view_parts" name="Crane Parts">
         <generalization xmi:type="uml:Generalization" xmi:id="_gen_parts" general="_vp_parts"/>
@@ -319,6 +374,11 @@
   <sysml:Block xmi:id="_st_blk_latch" base_Class="_blk_latch"/>
   <sysml:Block xmi:id="_st_blk_cable" base_Class="_blk_cable"/>
   <sysml:Block xmi:id="_st_blk_operator" base_Class="_blk_operator"/>
+  <sysml:Block xmi:id="_st_blk_gantry" base_Class="_blk_gantry"/>
+  <sysml:Block xmi:id="_st_blk_trolley" base_Class="_blk_trolley"/>
+  <sysml:Block xmi:id="_st_blk_winch" base_Class="_blk_winch"/>
+  <sysml:Block xmi:id="_st_blk_motor" base_Class="_blk_motor"/>
+  <sysml:Block xmi:id="_st_blk_brake" base_Class="_blk_brake"/>
   <sysml:Requirement xmi:id="_st_req_lift" base_Class="_req_lift" Id="Y-1" Text="The crane lifts a loaded container."/>
   <sysml:Requirement xmi:id="_st_req_sway" base_Class="_req_sway" Id="Y-2" Text="The load sways less than one degree."/>
   <MagicDraw_Profile:TODO_Owner xmi:id="_app_todo_cable" base_Element="_blk_cable" TODO="Rate the cable."/>
@@ -328,6 +388,8 @@
   <sysml:Viewpoint xmi:id="_st_vp_ibds" base_Class="_vp_ibds"/>
   <sysml:Viewpoint xmi:id="_st_vp_pars" base_Class="_vp_pars"/>
   <sysml:Viewpoint xmi:id="_st_vp_shown" base_Class="_vp_shown"/>
+  <sysml:Viewpoint xmi:id="_st_vp_both" base_Class="_vp_both"/>
+  <sysml:Viewpoint xmi:id="_st_vp_drive" base_Class="_vp_drive"/>
   <sysml:Viewpoint xmi:id="_st_vp_parts" base_Class="_vp_parts"/>
   <sysml:Viewpoint xmi:id="_st_vp_direct" base_Class="_vp_direct"/>
   <sysml:Viewpoint xmi:id="_st_vp_shared" base_Class="_vp_shared"/>
@@ -339,6 +401,8 @@
   <sysml:View xmi:id="_st_view_ibds" base_Class="_view_ibds"/>
   <sysml:View xmi:id="_st_view_pars" base_Class="_view_pars"/>
   <sysml:View xmi:id="_st_view_shown" base_Class="_view_shown"/>
+  <sysml:View xmi:id="_st_view_both" base_Class="_view_both"/>
+  <sysml:View xmi:id="_st_view_drive" base_Class="_view_drive"/>
   <sysml:View xmi:id="_st_view_parts" base_Class="_view_parts"/>
   <sysml:View xmi:id="_st_view_direct" base_Class="_view_direct"/>
   <sysml:View xmi:id="_st_view_shared" base_Class="_view_shared"/>
@@ -351,6 +415,8 @@
   <sysml:Conform xmi:id="_st_conform_ibds" base_Generalization="_gen_ibds"/>
   <sysml:Conform xmi:id="_st_conform_pars" base_Generalization="_gen_pars"/>
   <sysml:Conform xmi:id="_st_conform_shown" base_Generalization="_gen_shown"/>
+  <sysml:Conform xmi:id="_st_conform_both" base_Generalization="_gen_both"/>
+  <sysml:Conform xmi:id="_st_conform_drive" base_Generalization="_gen_drive"/>
   <sysml:Conform xmi:id="_st_conform_parts" base_Generalization="_gen_parts"/>
   <sysml:Conform xmi:id="_st_conform_direct" base_Generalization="_gen_direct"/>
   <sysml:Conform xmi:id="_st_conform_shared" base_Generalization="_gen_shared"/>
@@ -368,6 +434,10 @@
   <sysml:Expose xmi:id="_st_expose_ibds" base_Dependency="_expose_ibds"/>
   <sysml:Expose xmi:id="_st_expose_pars" base_Dependency="_expose_pars"/>
   <sysml:Expose xmi:id="_st_expose_shown" base_Dependency="_expose_shown"/>
+  <sysml:Expose xmi:id="_st_expose_both_structure" base_Dependency="_expose_both_structure"/>
+  <sysml:Expose xmi:id="_st_expose_both_untyped" base_Dependency="_expose_both_untyped"/>
+  <sysml:Expose xmi:id="_st_expose_drive_gantry" base_Dependency="_expose_drive_gantry"/>
+  <sysml:Expose xmi:id="_st_expose_drive_winch" base_Dependency="_expose_drive_winch"/>
   <sysml:Expose xmi:id="_st_expose_parts" base_Dependency="_expose_parts"/>
   <sysml:Expose xmi:id="_st_expose_direct" base_Dependency="_expose_direct"/>
   <sysml:Expose xmi:id="_st_expose_shared" base_Dependency="_expose_shared"/>
@@ -403,6 +473,13 @@
   <Document_Profile_:TableStructure xmi:id="_st_shown_table" base_StructuredActivityNode="_shown_table"/>
   <Document_Profile_:TableAttributeColumn xmi:id="_st_shown_col_name" base_CallBehaviorAction="_shown_col_name" desiredAttribute="Name"/>
   <Document_Profile_:TableAttributeColumn xmi:id="_st_shown_col_doc" base_CallBehaviorAction="_shown_col_doc" desiredAttribute="Documentation"/>
+
+  <Document_Profile_:CollectThingsOnDiagram xmi:id="_st_both_collect" base_CallBehaviorAction="_both_collect"/>
+  <Document_Profile_:TableStructure xmi:id="_st_both_table" base_StructuredActivityNode="_both_table"/>
+  <Document_Profile_:TableAttributeColumn xmi:id="_st_both_col_name" base_CallBehaviorAction="_both_col_name" desiredAttribute="Name"/>
+
+  <Document_Profile_:CollectByAssociation xmi:id="_st_drive_collect" base_CallBehaviorAction="_drive_collect" depth="2" associationType="composite"/>
+  <Document_Profile_:BulletedList xmi:id="_st_drive_list" base_CallBehaviorAction="_drive_list" showTargets="true" includeDoc="false"/>
 
   <Document_Profile_:CollectByAssociation xmi:id="_st_parts_collect" base_CallBehaviorAction="_parts_collect" depth="0"/>
   <Document_Profile_:BulletedList xmi:id="_st_parts_list" base_CallBehaviorAction="_parts_list" showTargets="true" includeDoc="false"/>

@@ -706,14 +706,27 @@ func (c *chain) collectShown(s *sysmlv1.DocGenStep) {
 	diagrams, holders := c.diagrams, c.holders
 	c.ctx, c.diagrams, c.holders, c.dropped, c.none = qx{}, nil, nil, "", ""
 	if c.vague != "" {
+		c.fail(s, "the diagrams it reads are known only when the query runs, and no query operation reads what a diagram shows")
+		return
+	}
+	// One diagram whose contents are unread leaves the whole collection
+	// unknown: a Named query over the rest would pass for complete.
+	var unread []string
+	for _, d := range diagrams {
+		if !d.Drawn && len(d.Shown) == 0 {
+			unread = append(unread, "the "+diagramKind(d)+" '"+d.Name+"'")
+		}
+	}
+	if len(unread) > 0 {
+		verb := " shows"
+		if len(unread) > 1 {
+			verb = " show"
+		}
+		c.abort(s, "it collects what "+strings.Join(unread, " and ")+verb+", which the archive does not record")
 		return
 	}
 	var names []string
 	for _, d := range diagrams {
-		if !d.Drawn && len(d.Shown) == 0 {
-			c.blur(s, "collects what the "+diagramKind(d)+" '"+d.Name+"' shows, which the archive does not record")
-			continue
-		}
 		unknown, unwritten, folded := 0, 0, 0
 		for _, ref := range d.Shown {
 			if sd := c.m.model.Diagram(ref.ID); sd != nil {
@@ -805,7 +818,9 @@ func (c *chain) collectAssociated(s *sysmlv1.DocGenStep) {
 	holders := c.holders
 	c.holders, c.ctx = nil, qx{}
 	var names []string
-	seen := map[*sysmlv1.Element]bool{}
+	// reached is the shallowest level each type was met at; a shallower path
+	// walks it again, since more depth remains below it.
+	reached := map[*sysmlv1.Element]int{}
 	var walk func(e *sysmlv1.Element, level int)
 	walk = func(e *sysmlv1.Element, level int) {
 		if depth > 0 && level > depth {
@@ -813,16 +828,22 @@ func (c *chain) collectAssociated(s *sysmlv1.DocGenStep) {
 		}
 		for _, p := range e.Owned("ownedAttribute") {
 			t := c.m.model.Ref(p, "type")
-			if aggregationOf(p) != kind || t == nil || seen[t] {
+			if aggregationOf(p) != kind || t == nil {
 				continue
 			}
-			seen[t] = true
-			c.holders = append(c.holders, t)
-			if name, why := c.m.namedRoot(sysmlv1.ElementRef{ID: t.ID, Element: t}, "type"); why != "" {
-				c.note(why + ", so it is left out")
-			} else if !contains(names, name) {
-				names = append(names, name)
+			at, met := reached[t]
+			if met && at <= level {
+				continue
 			}
+			if !met {
+				c.holders = append(c.holders, t)
+				if name, why := c.m.namedRoot(sysmlv1.ElementRef{ID: t.ID, Element: t}, "type"); why != "" {
+					c.note(why + ", so it is left out")
+				} else if !contains(names, name) {
+					names = append(names, name)
+				}
+			}
+			reached[t] = level
 			walk(t, level+1)
 		}
 	}
