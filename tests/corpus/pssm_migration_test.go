@@ -99,7 +99,7 @@ func pssmMigrationCounts(t *testing.T, data []byte) map[string]int {
 	t.Helper()
 
 	const name = "PSSM_TestSuite.xmi"
-	m, err := convert.Migrate(name, data, convert.FormatSysML)
+	m, err := convert.Migrate(name, data, convert.FormatSysML, migrate.Options{})
 	var syntax *convert.SyntaxError
 	switch {
 	case errors.As(err, &syntax):

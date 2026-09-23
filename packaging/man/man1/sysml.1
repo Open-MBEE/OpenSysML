@@ -201,6 +201,10 @@ With \-convert from xmi, write the run configurations and the result snapshots
 the simulation tool stored for them to this JSON file, for \-compare\-results
 to read against the migrated model
 .TP
+.BR \-layout " \fIfile\fP"
+With \-convert from xmi, read this MTIP export (HUDS XML) and write the
+diagram geometry it records as DiagramLayout annotations in the migrated views
+.TP
 .BR \-compare\-results " \fIfile\fP"
 Run every configuration this \-migration\-results file indexes \(em or those
 \-action names \(em with its recorded runs and duration mode, or the \-runs
@@ -650,8 +654,10 @@ sysml model.sysml \-convert ttl \-o flexo://demo/main
 The input format is taken from the file extension (.sysml, .kerml, .ttl,
 \&.json) unless \-from names it: sysml, kerml, ttl, turtle, rdf, api\-json, or
 xmi, uml or mdzip for a SysML v1 model to migrate, whose element\-by\-element
-report \-migration\-report writes out. Converting to the format it is already
-in rewrites the input: notation is reformatted, Turtle is normalized.
+report \-migration\-report writes out; \-layout names an MTIP export of the
+same project, whose diagram geometry is written into the migrated views as
+DiagramLayout metadata. Converting to the format it is already in rewrites the
+input: notation is reformatted, Turtle is normalized.
 .PP
 Either side may name a Flexo MMS project branch instead of a file:
 http(s)://host[:port][/base]/projects/{project}/branches/{branch}, or

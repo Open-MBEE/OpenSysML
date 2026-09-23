@@ -30,6 +30,13 @@ var renderings = []struct {
 
 const textualRendering = "asTextualNotation"
 
+// diagramLayoutPrefix qualifies a DiagramLayout annotation, like viewsPrefix
+// for renderings; a member named DiagramLayout shadows the library.
+const (
+	diagramLayoutPrefix       = "DiagramLayout::"
+	globalDiagramLayoutPrefix = "$::" + diagramLayoutPrefix
+)
+
 // rendering picks the rendering of a diagram from its tool type and the UML
 // type it derives from.
 func rendering(d *sysmlv1.Diagram) string {
@@ -313,9 +320,16 @@ func (m *migration) writeView(v *view) {
 	if x.dangling > 0 {
 		note = joinNotes(note, fmt.Sprintf("%d of %d shown ids resolve to no element", x.dangling, shown))
 	}
+	geo := m.viewGeometry(v, x)
+	if geo.note != "" {
+		note = joinNotes(note, geo.note)
+	}
 	m.w.block("view "+writeName(v.name), func() {
 		for _, ref := range x.refs {
 			m.w.line("expose " + ref + ";")
+		}
+		for _, line := range geo.lines {
+			m.w.line(line)
 		}
 		m.w.line("render " + prefix + render + ";")
 	})
@@ -455,4 +469,184 @@ func (m *migration) diagrams() {
 		}
 		m.report.Entries = append(m.report.Entries, *v.entry)
 	}
+}
+
+// viewGeometry is the layout a matched MTIP diagram record writes into a view:
+// the annotation lines and the report clause describing them.
+type viewGeometry struct {
+	lines []string
+	note  string
+}
+
+// viewGeometry plans the DiagramLayout annotations of the diagram record the
+// export holds for v's diagram: a Canvas sized by the bounding box of what is
+// written, a Layout per shown element the view exposes, and a Route per
+// connector whose element does. nil geometry when there is no layout export.
+func (m *migration) viewGeometry(v *view, x exposures) viewGeometry {
+	if m.layout == nil {
+		return viewGeometry{}
+	}
+	rec := m.layoutByID[v.d.ID]
+	s := m.layoutSummary
+	if rec == nil {
+		s.ViewsWithoutLayout++
+		return viewGeometry{}
+	}
+	s.DiagramsJoined++
+	m.layoutJoined[rec.ID] = true
+	exposed := map[string]bool{}
+	for _, ref := range x.refs {
+		exposed[ref] = true
+	}
+	prefix := diagramLayoutPrefix
+	if m.shadowsLibrary("DiagramLayout", v.host) {
+		prefix = globalDiagramLayoutPrefix
+	}
+	var placements, routes []string
+	var maxX, maxY float64
+	var size bool
+	grow := func(w, h float64) {
+		size = true
+		if w > maxX {
+			maxX = w
+		}
+		if h > maxY {
+			maxY = h
+		}
+	}
+	var written, unexposed, dangling int
+	seen := map[string]bool{}
+	for _, p := range rec.Placements {
+		s.Placements++
+		el := m.model.Lookup(p.ID)
+		if el == nil {
+			s.PlacementsDangling++
+			dangling++
+			continue
+		}
+		ref := m.exposure(el, v.host)
+		if ref == "" || !exposed[ref] {
+			s.PlacementsUnexposed++
+			unexposed++
+			continue
+		}
+		if seen[ref] {
+			continue
+		}
+		seen[ref] = true
+		s.PlacementsWritten++
+		written++
+		placements = append(placements, fmt.Sprintf("metadata %sLayout about %s { x = %s; y = %s; width = %s; height = %s; }",
+			prefix, ref, layoutNumber(p.X), layoutNumber(p.Y), layoutNumber(p.Width), layoutNumber(p.Height)))
+		grow(p.X+p.Width, p.Y+p.Height)
+	}
+	var routed, connUnexposed, connDangling int
+	for _, c := range rec.Connectors {
+		s.Routes++
+		el := m.model.Lookup(c.ID)
+		if el == nil {
+			s.RoutesDangling++
+			connDangling++
+			continue
+		}
+		ref := m.exposure(el, v.host)
+		if ref == "" {
+			s.RoutesUnexposed++
+			connUnexposed++
+			continue
+		}
+		if seen[ref] {
+			continue
+		}
+		seen[ref] = true
+		s.RoutesWritten++
+		routed++
+		var b strings.Builder
+		b.WriteString("metadata " + prefix + "Route about " + ref + " { points = (")
+		for i, n := range c.Points {
+			if i > 0 {
+				b.WriteString(", ")
+			}
+			b.WriteString(layoutNumber(n))
+			if i%2 == 0 {
+				grow(n, maxY)
+			} else {
+				grow(maxX, n)
+			}
+		}
+		b.WriteString("); }")
+		routes = append(routes, b.String())
+	}
+	for tag, n := range rec.Unsupported {
+		s.Unsupported[tag] += n
+	}
+	var geo viewGeometry
+	if size {
+		geo.lines = append(geo.lines, fmt.Sprintf("@%sCanvas { unit = \"px\"; width = %s; height = %s; }",
+			prefix, layoutNumber(maxX), layoutNumber(maxY)))
+	}
+	geo.lines = append(geo.lines, placements...)
+	geo.lines = append(geo.lines, routes...)
+	if len(rec.Placements)+len(rec.Connectors) > 0 {
+		geo.note = fmt.Sprintf("laid out from %s: %s", m.layoutSource, layoutClause(written, unexposed, dangling, len(rec.Placements), "shown elements positioned", "not exposed", "resolving to no element")+", "+
+			layoutClause(routed, connUnexposed, connDangling, len(rec.Connectors), "connectors routed", "of an unwritten element", "resolving to no element"))
+	}
+	return geo
+}
+
+// layoutClause words one line of the layout note: how many of the record's
+// items were written, and why the rest were not.
+func layoutClause(written, unexposed, dangling, total int, what, unexposedWhy, danglingWhy string) string {
+	clause := fmt.Sprintf("%d of %d %s", written, total, what)
+	var parts []string
+	if unexposed > 0 {
+		word := unexposedWhy
+		if unexposed > 1 {
+			word = pluralWhy(unexposedWhy)
+		}
+		parts = append(parts, fmt.Sprintf("%d %s", unexposed, word))
+	}
+	if dangling > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s", dangling, danglingWhy))
+	}
+	if len(parts) > 0 {
+		clause += " (" + strings.Join(parts, ", ") + ")"
+	}
+	return clause
+}
+
+// pluralWhy turns "of an unwritten element" into "of unwritten elements" and
+// leaves "not exposed" alone.
+func pluralWhy(why string) string {
+	return strings.Replace(why, "an unwritten element", "unwritten elements", 1)
+}
+
+// layoutNumber writes a coordinate in its shortest exact form.
+func layoutNumber(v float64) string {
+	return strconv.FormatFloat(v, 'f', -1, 64)
+}
+
+// layoutReport finishes the report's layout account: a row per export record
+// that matched no written view — no diagram of the model, or one the migration
+// does not write a view for — and per malformed record, then the summary itself.
+func (m *migration) layoutReport() {
+	if m.layout == nil {
+		return
+	}
+	s := m.layoutSummary
+	for i := range m.layout.Diagrams {
+		rec := &m.layout.Diagrams[i]
+		switch {
+		case !m.diagramIDs[rec.ID]:
+			s.DiagramsUnmatched++
+			m.report.Entries = append(m.report.Entries, Entry{ID: rec.ID, Kind: "Layout", Name: rec.Name, Verdict: Unmapped, Note: "matches no diagram of the model"})
+		case !m.layoutJoined[rec.ID]:
+			s.DiagramsUnmatched++
+			m.report.Entries = append(m.report.Entries, Entry{ID: rec.ID, Kind: "Layout", Name: rec.Name, Verdict: Unmapped, Note: "matches a diagram the migration does not write as a view"})
+		}
+		for _, problem := range rec.Malformed {
+			m.report.Entries = append(m.report.Entries, Entry{ID: rec.ID, Kind: "Layout", Name: rec.Name, Verdict: Unmapped, Note: problem})
+		}
+	}
+	m.report.Layout = s
 }

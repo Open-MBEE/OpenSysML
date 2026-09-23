@@ -291,7 +291,9 @@ func doc() usage.Doc {
 					".ttl, .json) unless -from names it: sysml, kerml, ttl, turtle, " +
 					"rdf, api-json, or xmi, uml or mdzip for a SysML v1 model to " +
 					"migrate, whose " +
-					"element-by-element report -migration-report writes out. " +
+					"element-by-element report -migration-report writes out; -layout " +
+					"names an MTIP export of the same project, whose diagram geometry " +
+					"is written into the migrated views as DiagramLayout metadata. " +
 					"Converting to the format it is " +
 					"already in rewrites the input: notation is reformatted, Turtle " +
 					"is normalized.",
@@ -567,6 +569,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.StringVar(&outputPath, "o", "", "Write what -convert, -compile, -render or -render-document produces to this file instead of stdout; with -convert ttl, a Flexo branch URL pushes the graph to the branch")
 	fs.StringVar(&migrationReport, "migration-report", "", "With -convert from xmi, write the element-by-element migration report to this file: JSON when it ends in .json, text otherwise")
 	fs.StringVar(&migrationResults, "migration-results", "", "With -convert from xmi, write the run configurations and the result snapshots the simulation tool stored for them to this JSON file, for -compare-results to read against the migrated model")
+	fs.StringVar(&layoutPath, "layout", "", "With -convert from xmi, read this MTIP export (HUDS XML) and write the diagram geometry it records as DiagramLayout annotations in the migrated views")
 	fs.StringVar(&modelChecks.compare, "compare-results", "", "Run every configuration this -migration-results file indexes — or those -action names — with its recorded runs and duration mode, or the -runs and -draws given, seeded from -seed, and table the tool's and OpenSysML's min, mean, p50, p90 and max of each observable with their relative difference")
 
 	fs.StringVar(&compileCalc, "compile", "", "Compile this calc def to a native executable named by -o, as -compile Pkg::Fib")
@@ -690,6 +693,7 @@ func optionGroups() []usage.OptionGroup {
 			usage.Opt("output", fileArg, "o"),
 			usage.Opt("migration-report", fileArg),
 			usage.Opt("migration-results", fileArg),
+			usage.Opt("layout", fileArg),
 			usage.Opt("compare-results", fileArg),
 		},
 	}, {

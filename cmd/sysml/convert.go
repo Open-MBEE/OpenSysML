@@ -15,6 +15,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/interop/flexo"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/interop/reposync"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/migrate"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/mtip"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/simresults"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/project"
 )
@@ -109,6 +110,9 @@ func runConvert(files []string) (int, error) {
 	if err := migrationResultsMisuse(from, input); err != nil {
 		return 0, err
 	}
+	if err := layoutMisuse(from, input); err != nil {
+		return 0, err
+	}
 	// A v2 model may be rewritten in place; a v1 model would be lost.
 	if from == convert.FormatXMI && outputPath != "" && input != "-" && samePath(outputPath, input) {
 		return 0, fmt.Errorf("-o names the model being migrated, %s; the v1 model would be replaced by its migration", input)
@@ -133,7 +137,11 @@ func convertInput(name string, data []byte, from, to convert.Format) ([]byte, er
 	if from != convert.FormatXMI {
 		return convert.Convert(name, data, from, to)
 	}
-	migrated, err := convert.Migrate(name, data, to)
+	opts, err := migrationOptions()
+	if err != nil {
+		return nil, err
+	}
+	migrated, err := convert.Migrate(name, data, to, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -195,6 +203,9 @@ func readBranch(ref flexo.BranchRef, to convert.Format) (int, error) {
 	}
 	if migrationResults != "" {
 		return 0, fmt.Errorf("-migration-results indexes the result snapshots of a SysML v1 migration, and a repository branch is not migrated; pass it with -from xmi or a .xmi/.uml/.mdzip file")
+	}
+	if layoutPath != "" {
+		return 0, fmt.Errorf("-layout augments a SysML v1 migration, and a repository branch is not migrated; pass it with -from xmi or a .xmi/.uml/.mdzip file")
 	}
 	repo, cfg, err := openBranch(ref)
 	if err != nil {
@@ -296,6 +307,9 @@ func pushBranch(input string, to convert.Format, ref flexo.BranchRef) (int, erro
 	if err := migrationResultsMisuse(from, input); err != nil {
 		return 0, err
 	}
+	if err := layoutMisuse(from, input); err != nil {
+		return 0, err
+	}
 	out, err := convertInput(name, data, from, to)
 	if err != nil {
 		return 0, err
@@ -345,6 +359,43 @@ func recordBranchState(head string, state *reposync.State, scope reposync.Scope,
 	}
 	fmt.Fprintf(os.Stderr, "head commit %s recorded in %s\n", head, statePath)
 	return exitHolds, nil
+}
+
+// migrationOptions reads the -layout MTIP export into the migration's
+// options; none were given when the flag was not passed.
+func migrationOptions() (migrate.Options, error) {
+	if layoutPath == "" {
+		return migrate.Options{}, nil
+	}
+	data, err := os.ReadFile(layoutPath)
+	if err != nil {
+		return migrate.Options{}, err
+	}
+	layout, err := mtip.Parse(data)
+	if err != nil {
+		return migrate.Options{}, fmt.Errorf("%s: %w", layoutPath, err)
+	}
+	return migrate.Options{Layout: layout, LayoutSource: layoutPath}, nil
+}
+
+// layoutMisuse reports why -layout augments nothing: a v2 input has no
+// migration to lay out, and the export must not name a file the run rewrites.
+func layoutMisuse(from convert.Format, input string) error {
+	switch {
+	case layoutPath == "":
+		return nil
+	case from != convert.FormatXMI:
+		return fmt.Errorf("-layout augments a SysML v1 migration, and %s input is not migrated; pass it with -from xmi or a .xmi/.uml/.mdzip file", from)
+	case outputPath != "" && samePath(layoutPath, outputPath):
+		return fmt.Errorf("-layout and -o both name %s; the model would replace the layout export", outputPath)
+	case migrationReport != "" && samePath(layoutPath, migrationReport):
+		return fmt.Errorf("-layout and -migration-report both name %s; the report would replace the layout export", migrationReport)
+	case migrationResults != "" && samePath(layoutPath, migrationResults):
+		return fmt.Errorf("-layout and -migration-results both name %s; the results would replace the layout export", migrationResults)
+	case input != "-" && samePath(layoutPath, input):
+		return fmt.Errorf("-layout names the model being migrated, %s; the migration would replace it", input)
+	}
+	return nil
 }
 
 // writeMigrationReport writes the report to the -migration-report file (JSON when
