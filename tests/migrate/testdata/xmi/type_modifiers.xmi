@@ -40,6 +40,11 @@
           <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_history_lo" value="0"/>
           <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_history_hi" value="*"/>
         </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_stray" name="stray">
+          <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+          <lowerValue xmi:type="uml:LiteralString" xmi:id="_stray_lo" value="n"/>
+          <upperValue xmi:type="uml:LiteralString" xmi:id="_stray_hi" value="n"/>
+        </ownedAttribute>
         <ownedAttribute xmi:type="uml:Property" xmi:id="_taps" name="taps">
           <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
           <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_taps_lo" value="1"/>
@@ -84,6 +89,7 @@
   <MagicDraw_Profile:typeModifier xmi:id="_tm_grid" base_Element="_grid" typeModifier="[][]"/>
   <MagicDraw_Profile:typeModifier xmi:id="_tm_rect" base_Element="_rect" typeModifier="[2*3]"/>
   <MagicDraw_Profile:typeModifier xmi:id="_tm_history" base_Element="_history" typeModifier="[]"/>
+  <MagicDraw_Profile:typeModifier xmi:id="_tm_stray" base_Element="_stray" typeModifier="[]"/>
   <MagicDraw_Profile:typeModifier xmi:id="_tm_taps" base_Element="_taps" typeModifier="[4]"/>
   <MagicDraw_Profile:typeModifier xmi:id="_tm_level" base_Element="_level" typeModifier="*"/>
   <MagicDraw_Profile:typeModifier xmi:id="_tm_blank" base_Element="_blank" typeModifier=""/>

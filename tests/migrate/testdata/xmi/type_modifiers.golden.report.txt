@@ -1,8 +1,8 @@
 # SysML v1 to v2 migration report: type_modifiers.xmi
 # exported by Example UML Tool
-# migrated 25 element(s): 17 mapped, 8 approximated, 0 unmapped (2 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 26 element(s): 17 mapped, 9 approximated, 0 unmapped (2 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
-## approximated (8)
+## approximated (9)
 «typeModifier» Property	Signals::Filter::blank	_blank	-> Signals::Filter::blank	(an empty «typeModifier» is kept as a comment: it says nothing of the type)
 «typeModifier» Property	Signals::Filter::grid	_grid	-> Signals::Filter::grid	(«typeModifier» [][] is kept as a comment: the type modifier [][] has no v2 form: a multiplicity has one dimension)
 «typeModifier» Property	Signals::Filter::history	_history	-> Signals::Filter::history	(«typeModifier» [] is kept as a comment: the type modifier [] has no v2 form: the declared multiplicity [0..*] is already a collection, and a collection of collections has no multiplicity)
@@ -11,6 +11,7 @@
 «typeModifier» Property	Signals::Filter::rect	_rect	-> Signals::Filter::rect	(«typeModifier» [2*3] is kept as a comment: the type modifier [2*3] has no v2 form: a multiplicity has one dimension)
 «typeModifier» Parameter	Signals::Filter::smooth::handle	_par_handle	-> Signals::Filter::smooth::handle	(«typeModifier» * is kept as a comment: the type modifier * has no v2 form: a parameter is not held by reference)
 «typeModifier» Parameter	Signals::Filter::smooth::result	_par_result	-> Signals::Filter::smooth::result	(the return parameter is written as an out parameter)
+«typeModifier» Property	Signals::Filter::stray	_stray	-> Signals::Filter::stray	(multiplicity n..n is not a range of natural numbers and is not written; «typeModifier» [] is kept as a comment: the type modifier [] has no v2 form: the declared multiplicity n..n is not a range of natural numbers and is not written)
 
 ## mapped (17)
 Model	Model	_m	(the root model's members are written at the top level)

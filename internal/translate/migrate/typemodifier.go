@@ -74,7 +74,12 @@ func (tm *typeModifier) collection(m *migration, p *sysmlv1.Element, n string) {
 		tm.refused = "the type modifier " + tm.text + " is not one the migrator reads"
 		return
 	}
-	if mult, _ := m.declaredMultiplicity(p); mult != "" {
+	mult, note := m.declaredMultiplicity(p)
+	if note != "" {
+		tm.refused = "the type modifier " + tm.text + " has no v2 form: the declared " + note
+		return
+	}
+	if mult != "" {
 		tm.refused = "the type modifier " + tm.text + " has no v2 form: the declared multiplicity " + mult + " is already a collection, and a collection of collections has no multiplicity"
 		return
 	}

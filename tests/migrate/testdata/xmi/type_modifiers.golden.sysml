@@ -18,6 +18,9 @@ package Signals {
         attribute history : ScalarValues::Real[0..*] {
             /* applied stereotype «typeModifier»: typeModifier = [] */
         }
+        attribute stray : ScalarValues::Real {
+            /* applied stereotype «typeModifier»: typeModifier = [] */
+        }
         attribute taps : ScalarValues::Real[4] ordered nonunique;
         attribute level : ScalarValues::Real {
             /* applied stereotype «typeModifier»: typeModifier = * */
