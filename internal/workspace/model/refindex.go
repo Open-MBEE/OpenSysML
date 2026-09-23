@@ -79,6 +79,7 @@ func (x *refIndex) add(doc *Document, ref resolve.Reference, part int, element, 
 // document, in document then position order, building the table of each
 // document a change has dropped. Caller holds the write lock.
 func (w *Workspace) referencesLocked(key symbols.ElementKey) []refEntry {
+	w.settleGathersLocked()
 	if w.refs == nil {
 		w.refs = newRefIndex()
 	}
