@@ -403,3 +403,33 @@ func mustDecode(graph *rdf.Graph) error {
 	_, err := ToSysML(graph)
 	return err
 }
+
+// TestNormativeVerifyRejectsLiteralMismatchedEnd: a collapsed literal target is
+// stated by its value, so an element end naming a different concrete target is
+// refused; the same literal it states decodes.
+func TestNormativeVerifyRejectsLiteralMismatchedEnd(t *testing.T) {
+	graph := normativeGraph(t, `package N {
+		part p : Missing;
+	}`)
+	p := elmt("N__p")
+	fts := objects(graph, p.Value, "ownedTyping")
+	if len(fts) != 1 {
+		t.Fatalf("ownedTyping %v", fts)
+	}
+	// The unmutated graph — the literal "Missing" both sides state — decodes.
+	if err := mustDecode(graph); err != nil {
+		t.Fatalf("the literal-matched graph must decode: %v", err)
+	}
+	mut := rdf.NewGraph()
+	for _, tr := range graph.Triples() {
+		if tr.Subject == fts[0] && tr.Predicate.Value == rdf.SysML+"type" {
+			continue
+		}
+		mut.AddTriple(tr)
+	}
+	mut.Add(fts[0], rdf.IRI(rdf.SysML+"type"), elmt("N__Other"))
+	var uerr *UnsupportedError
+	if err := mustDecode(mut); err == nil || !errors.As(err, &uerr) {
+		t.Fatalf("want an UnsupportedError on the differently named end, got %v", err)
+	}
+}

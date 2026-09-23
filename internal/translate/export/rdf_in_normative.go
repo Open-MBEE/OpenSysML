@@ -137,56 +137,112 @@ func (d *decoder) impliedRelationship(el *element, parent *element) (bool, error
 		}
 	}
 	actual := map[string]bool{}
+	actualIRI := map[string]bool{}
 	matched := 0
 	for _, property := range relationshipTargetEnds {
 		for _, object := range d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+property) {
 			actual[object.Value] = true
+			actualIRI[object.Value] = object.IsIRI()
 		}
 	}
+	// A literal collapsed target is a name, and an element end spelled as the
+	// element it names joins to it by that name — a legacy graph writes the
+	// collapsed `type` as a literal where the minted end is the element's IRI.
+	literalName := func(value string) bool {
+		for _, property := range []string{pDeclaredName, pDeclaredShortName} {
+			for _, name := range d.graph.Objects(rdf.IRI(value), rdf.SysML+property) {
+				if stated[name.Value] {
+					return true
+				}
+			}
+		}
+		return false
+	}
 	for value := range actual {
-		if stated[value] {
+		if stated[value] || literalName(value) {
 			matched++
 		}
 	}
-	if matched == 0 {
+	if len(actual) == 0 {
 		// A collapsed edge that names its target as a literal carries the same
-		// statement a literal-name graph does: the element's ends cannot be
+		// statement a literal-name graph does: an element with no ends cannot be
 		// checked against it, so it is read as implying the literal instead.
 		if literal {
 			return true, nil
 		}
+		return false, nil
+	}
+	if matched == 0 {
+		// A metadata usage's typing is ruled by its own check, which reads the
+		// collapsed property directly: its literal `type` and the element's ends
+		// spell the same name differently, so it stays implied, while an
+		// unmatched element under it stays foreign.
+		if parent.metaclass == usageMetaclass[ast.UsageMetadata] {
+			if literal {
+				return true, nil
+			}
+			return false, nil
+		}
 		// Ends naming targets the parent does state — under kinds this
 		// metaclass never restates — are a misassigned element, not a foreign
-		// one: the collapsed form would move its targets across kinds.
-		if len(actual) > 0 {
-			other := map[string]bool{}
-			for _, kind := range []ast.RelationshipKind{
-				ast.RelTyping, ast.RelSpecializes, ast.RelSubsets, ast.RelRedefines, ast.RelReferences,
-			} {
-				if slices.Contains(collapsedKindsOf[el.metaclass], kind) {
-					continue
-				}
-				for _, object := range d.graph.Objects(rdf.IRI(parent.iri), rdf.SysML+relationshipProperty[kind]) {
-					other[object.Value] = true
-				}
+		// one: the collapsed form would move them across kinds.
+		other := map[string]bool{}
+		for _, kind := range []ast.RelationshipKind{
+			ast.RelTyping, ast.RelSpecializes, ast.RelSubsets, ast.RelRedefines, ast.RelReferences,
+		} {
+			if slices.Contains(collapsedKindsOf[el.metaclass], kind) {
+				continue
 			}
-			var targets []string
-			for value := range actual {
-				if !other[value] {
-					targets = nil
-					break
-				}
-				targets = append(targets, value)
-			}
-			if len(targets) > 0 {
-				sort.Strings(targets)
-				return false, &UnsupportedError{
-					What: what,
-					Note: fmt.Sprintf("it names <%s>, which the collapsed properties of <%s> state under a different relationship kind, and writing them would move the targets across kinds", strings.Join(targets, ">, <"), parent.iri),
-				}
+			for _, object := range d.graph.Objects(rdf.IRI(parent.iri), rdf.SysML+relationshipProperty[kind]) {
+				other[object.Value] = true
 			}
 		}
-		return false, nil
+		misassigned := len(actual) > 0
+		var moved []string
+		for value := range actual {
+			if !other[value] {
+				misassigned = false
+				break
+			}
+			moved = append(moved, value)
+		}
+		if misassigned {
+			sort.Strings(moved)
+			return false, &UnsupportedError{
+				What: what,
+				Note: fmt.Sprintf("it names <%s>, which the collapsed properties of <%s> state under a different relationship kind, and writing them would move the targets across kinds", strings.Join(moved, ">, <"), parent.iri),
+			}
+		}
+		// Under stated IRI targets only, the element restates nothing: a
+		// foreign element, read as the ordinary element it declares.
+		if !literal {
+			return false, nil
+		}
+		// Under a literal collapsed target an end carries a name, and an
+		// unmatched name is refused; an end spelled as an element the graph
+		// names nothing for — a legacy graph's bare uuid — cannot be checked
+		// and stays vacuous.
+		checkable := false
+		for value := range actual {
+			if stated[value] || literalName(value) {
+				continue
+			}
+			if !actualIRI[value] {
+				checkable = true
+				break
+			}
+			for _, property := range []string{pDeclaredName, pDeclaredShortName, pQualifiedName} {
+				if d.graph.HasProperty(rdf.IRI(value), rdf.SysML+property) {
+					checkable = true
+				}
+			}
+			if checkable {
+				break
+			}
+		}
+		if !checkable {
+			return true, nil
+		}
 	}
 	if matched != len(actual) {
 		var targets []string
