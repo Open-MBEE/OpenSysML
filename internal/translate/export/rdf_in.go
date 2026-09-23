@@ -1363,7 +1363,7 @@ func (d *decoder) identityOf(el *element) []identityAnnotation {
 		}
 		out = append(out, identityAnnotation{"IdentityMetadata::ProjectRef", strings.Join(fields, " ")})
 	}
-	if el.declaredID || (!el.local && el.elementID != "" && el.elementID != rdf.EncodeElementID(el.qname) && !modeDerivedUUID(el.elementID, el.qname)) {
+	if el.declaredID || (!el.local && el.elementID != "" && el.elementID != rdf.EncodeElementID(el.qname) && !d.modeDerivedUUID(el.elementID, el.qname, d.rootQNameOf(el))) {
 		if !d.explicit && NormativeSubject(el.elementID, el.qname) {
 			d.implied++
 			return out
@@ -1377,13 +1377,9 @@ func (d *decoder) identityOf(el *element) []identityAnnotation {
 // for qname: uuid5(NamespaceURL, the root's element IRI) for the root itself
 // and uuid5(pkg, the qualified-name-derived id) under it — so an id that form
 // minted stays implied, and only a differing one is declared.
-func modeDerivedUUID(id, qname string) bool {
-	if qname == "" {
+func (d *decoder) modeDerivedUUID(id, qname, root string) bool {
+	if qname == "" || root == "" {
 		return false
-	}
-	root := qname
-	if i := strings.Index(qname, "::"); i >= 0 {
-		root = qname[:i]
 	}
 	pkg := identity.NamespaceOf(rdf.Element + rdf.EncodeElementID(root))
 	expected := pkg
@@ -1391,6 +1387,24 @@ func modeDerivedUUID(id, qname string) bool {
 		expected = identity.DerivedID(pkg, rdf.EncodeElementID(qname))
 	}
 	return id == expected
+}
+
+// rootQNameOf is the qualified name of the document root el sits under — the
+// outermost element of its ownership chain, dropping a transparent toolkit
+// Namespace wrapper when one wraps it. The qualified-name text cannot split
+// the root out itself: a quoted name may carry :: inside it.
+func (d *decoder) rootQNameOf(el *element) string {
+	root := el
+	for root.owner != nil {
+		root = root.owner
+	}
+	if !d.transparentRoot(root) || el == root {
+		return root.qname
+	}
+	for el.owner != root {
+		el = el.owner
+	}
+	return el.qname
 }
 
 // head builds the declaration text up to the body or terminator, with the

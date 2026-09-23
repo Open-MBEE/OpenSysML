@@ -235,6 +235,57 @@ func TestUUIDQuotedRootPackage(t *testing.T) {
 	}
 }
 
+// TestUUIDQuotedRootDecodesImplied checks a mode-derived uuid under a quoted
+// root name decodes as implied — the decoder takes the root from the ownership
+// tree, not a textual :: split — while a genuinely differing uuid declares.
+func TestUUIDQuotedRootDecodesImplied(t *testing.T) {
+	src := `package 'Sep::Pkg' { part p; }`
+	file := source.New("quoted.sysml", []byte(src))
+	p := parser.New(file)
+	root := p.ParseFile()
+	if len(p.Diagnostics) != 0 {
+		t.Fatalf("the fixture does not parse: %v", p.Diagnostics)
+	}
+	graph, err := ToRDFWith(file, root, IDUUID)
+	if err != nil {
+		t.Fatalf("ToRDFWith: %v", err)
+	}
+	strip := func(g *rdf.Graph) *rdf.Graph {
+		out := rdf.NewGraph()
+		for _, tr := range g.Triples() {
+			if tr.Predicate.Value == rdf.OpenSysML+"sourceText" || tr.Predicate.Value == rdf.OpenSysML+"sourceTail" {
+				continue
+			}
+			out.AddTriple(tr)
+		}
+		return out
+	}
+	back, err := ToSysML(strip(graph))
+	if err != nil {
+		t.Fatalf("ToSysML: %v", err)
+	}
+	if strings.Contains(string(back), "IdentityMetadata::ElementId") {
+		t.Fatalf("a mode-derived uuid was re-declared:\n%s", back)
+	}
+	pkg := identity.NamespaceOf(rdf.Element + rdf.EncodeElementID("Sep::Pkg"))
+	member := rdf.ElementIRIForID(identity.DerivedID(pkg, rdf.EncodeElementID("Sep::Pkg::p")))
+	mut := rdf.NewGraph()
+	for _, tr := range strip(graph).Triples() {
+		if tr.Subject == member && tr.Predicate.Value == rdf.SysML+"elementId" {
+			continue
+		}
+		mut.AddTriple(tr)
+	}
+	mut.Add(member, rdf.IRI(rdf.SysML+"elementId"), rdf.String("11111111-2222-4333-8444-555555555555"))
+	back, err = ToSysML(mut)
+	if err != nil {
+		t.Fatalf("ToSysML: %v", err)
+	}
+	if !strings.Contains(string(back), "IdentityMetadata::ElementId") {
+		t.Fatalf("a differing uuid was not declared:\n%s", back)
+	}
+}
+
 // TestUUIDRoundTrip checks the uuid form's document imports back to the same
 // notation the qualified form's does.
 func TestUUIDRoundTrip(t *testing.T) {
