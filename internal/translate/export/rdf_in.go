@@ -809,12 +809,9 @@ func (d *decoder) build() ([]*element, error) {
 }
 
 // transparentRoot reports whether el is a document wrapper no notation
-// prints: an unnamed, unowned Namespace, as the toolkit's interchange
-// documents wrap their roots in one.
+// prints, as the pilot and the toolkit wrap a document's roots in one.
 func (d *decoder) transparentRoot(el *element) bool {
-	return el.metaclass == mNamespace && el.owner == nil &&
-		!d.graph.HasProperty(rdf.IRI(el.iri), rdf.SysML+pDeclaredName) &&
-		!d.graph.HasProperty(rdf.IRI(el.iri), rdf.SysML+pDeclaredShortName)
+	return el.owner == nil && transparentRootSubject(d.graph, rdf.IRI(el.iri))
 }
 
 // isMembership reports whether a subject states ownership rather than a

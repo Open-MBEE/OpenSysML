@@ -116,13 +116,16 @@ func withoutRootNamespace(graph *rdf.Graph) *rdf.Graph {
 }
 
 // transparentRootSubject reports whether subject is a document wrapper no
-// notation prints: an unnamed, unowned Namespace.
+// notation prints: an unnamed, unowned Namespace with no qualified name or body,
+// unlike a top-level `namespace { … }` the encoder names `@0` and gives a body.
 func transparentRootSubject(graph *rdf.Graph, subject rdf.Term) bool {
 	return graph.Type(subject) == rdf.SysML+mNamespace &&
 		!graph.HasProperty(subject, rdf.SysML+pOwner) &&
 		!graph.HasProperty(subject, rdf.SysML+pOwningRelationship) &&
 		!graph.HasProperty(subject, rdf.SysML+pDeclaredName) &&
-		!graph.HasProperty(subject, rdf.SysML+pDeclaredShortName)
+		!graph.HasProperty(subject, rdf.SysML+pDeclaredShortName) &&
+		!graph.HasProperty(subject, rdf.SysML+pQualifiedName) &&
+		!graph.HasProperty(subject, rdf.OpenSysML+xHasBody)
 }
 
 // unownedElements lists the elements of the element namespace no element owns,

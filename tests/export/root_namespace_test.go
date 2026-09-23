@@ -212,6 +212,49 @@ func TestAPIJSONRootNamespaceTransparent(t *testing.T) {
 	}
 }
 
+const rootNamespaceAnonymous = `namespace {
+    package P;
+}
+`
+
+// An authored `namespace { … }` is an element the notation prints, not the
+// wrapper: it survives both round trips, wrapped once in the element form.
+func TestAPIJSONRootNamespaceKeepsAuthoredAnonymousNamespace(t *testing.T) {
+	for _, id := range []export.IDForm{export.IDQualifiedName, export.IDUUID} {
+		document, err := convert.ConvertWith("m.sysml", []byte(rootNamespaceAnonymous), convert.FormatSysML, convert.FormatAPIJSON, convert.Options{ID: id})
+		if err != nil {
+			t.Fatal(err)
+		}
+		namespaces := 0
+		for _, element := range rootElements(t, document) {
+			if rootString(t, element["@type"]) == "Namespace" {
+				namespaces++
+			}
+		}
+		if namespaces != 2 {
+			t.Errorf("id form %v: %d Namespaces, want the wrapper and the authored one", id, namespaces)
+		}
+		back, err := convert.Convert("m.json", document, convert.FormatAPIJSON, convert.FormatSysML)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(back) != rootNamespaceAnonymous {
+			t.Errorf("id form %v: notation moved through the element form:\n%s", id, back)
+		}
+		turtle, err := convert.ConvertWith("m.sysml", []byte(rootNamespaceAnonymous), convert.FormatSysML, convert.FormatTurtle, convert.Options{ID: id})
+		if err != nil {
+			t.Fatal(err)
+		}
+		back, err = convert.Convert("m.ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(back) != rootNamespaceAnonymous {
+			t.Errorf("id form %v: notation moved through Turtle:\n%s", id, back)
+		}
+	}
+}
+
 // A document that already carries the pilot's wrapper is not wrapped twice.
 func TestAPIJSONRootNamespaceNotDoubled(t *testing.T) {
 	src, err := os.ReadFile(filepath.Join("testdata", "interchange", "p10.toolkit.compact.json"))

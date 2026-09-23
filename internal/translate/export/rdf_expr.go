@@ -1627,13 +1627,18 @@ func (d *decoder) calleeText(node rdf.Term, in *element) (string, bool, error) {
 	}
 	switch {
 	case chain.Value != "":
-		var parts []string
-		for _, segment := range d.graph.Objects(chain, rdf.SysML+pChainingFeature) {
+		segments := d.graph.Objects(chain, rdf.SysML+pChainingFeature)
+		var parts, spelled []string
+		for _, segment := range segments {
 			name, err := d.referenceName(segment, in)
 			if err != nil {
 				return "", false, err
 			}
 			parts = append(parts, name)
+			if segment.IsLiteral() {
+				name = segment.Value
+			}
+			spelled = append(spelled, name)
 		}
 		text := strings.Join(parts, ".")
 		if hasCollapsed {
@@ -1641,7 +1646,15 @@ func (d *decoder) calleeText(node rdf.Term, in *element) (string, bool, error) {
 			if err != nil {
 				return "", false, err
 			}
-			if len(parts) == 0 || !strings.HasSuffix(name, parts[len(parts)-1]) {
+			// The function is the chain's last feature when it resolves, else
+			// the whole chain's spelling; anything else names a second callee.
+			var agree bool
+			if collapsed.IsIRI() {
+				agree = len(segments) > 0 && segments[len(segments)-1] == collapsed
+			} else {
+				agree = collapsed.Value == strings.Join(spelled, ".")
+			}
+			if !agree {
 				return "", false, &UnsupportedError{
 					What: fmt.Sprintf("the expression <%s>", node.Value),
 					Note: fmt.Sprintf("its function is %s, but the chain feature it owns reaches %s, and the two statements cannot both hold", name, text),
