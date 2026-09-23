@@ -804,7 +804,7 @@ func (d *decoder) build() ([]*element, error) {
 // prints: an unnamed, unowned Namespace, as the toolkit's interchange
 // documents wrap their roots in one.
 func (d *decoder) transparentRoot(el *element) bool {
-	return el.metaclass == "Namespace" && el.owner == nil &&
+	return el.metaclass == mNamespace && el.owner == nil &&
 		!d.graph.HasProperty(rdf.IRI(el.iri), rdf.SysML+pDeclaredName) &&
 		!d.graph.HasProperty(rdf.IRI(el.iri), rdf.SysML+pDeclaredShortName)
 }

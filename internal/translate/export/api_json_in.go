@@ -18,7 +18,8 @@ import (
 // objects, or a single element object — into the same graph ParseTurtle yields:
 // the "@type" and "@id" of each object and each metamodel key in document
 // order. It is the inverse of WriteAPIJSON, so a graph it builds writes the
-// same elements back.
+// same elements back; the unnamed root Namespace a document wraps its
+// top-level elements in is dropped, as the Turtle form does not carry it.
 func ReadAPIJSON(data []byte) (*rdf.Graph, error) {
 	elements, expressionIDs, err := parseAPIJSON(data)
 	if err != nil {
@@ -60,7 +61,7 @@ func ReadAPIJSON(data []byte) (*rdf.Graph, error) {
 	if len(expressionIDs) > 0 {
 		graph.Prefixes[rdf.ExpressionPrefix] = rdf.Expression
 	}
-	return graph, nil
+	return withoutRootNamespace(graph), nil
 }
 
 // apiJSONElementData is one parsed element object: its identity, its class as

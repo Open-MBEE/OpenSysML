@@ -17,9 +17,15 @@ import (
 // mapping the Turtle writer spells: the subjects of the graph in order, their
 // sysml: and sysx: properties as values, each collection as the array its
 // json: annotation states, and each multi-valued metamodel property as an
-// array even when no annotation states it.
+// array even when no annotation states it. The document's top-level elements
+// are owned by the unnamed root Namespace the pilot's documents carry, which
+// the Turtle form leaves out (see docs/reference/rdf-mapping.md).
 func WriteAPIJSON(graph *rdf.Graph) ([]byte, error) {
-	settled, err := rdf.ReconcileCollections(graph)
+	wrapped, err := withRootNamespace(graph)
+	if err != nil {
+		return nil, err
+	}
+	settled, err := rdf.ReconcileCollections(wrapped)
 	if err != nil {
 		return nil, err
 	}
