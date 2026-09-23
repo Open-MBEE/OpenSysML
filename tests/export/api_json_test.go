@@ -218,6 +218,8 @@ func TestReadAPIJSONRejectsNonElements(t *testing.T) {
 		"repeated key in an array element": `[{"@type": "Package", "@id": "X", "ownedMember": [{"@id": "A", "@id": "B"}]}]`,
 		"unknown @key":                     `[{"@type": "Package", "@id": "X", "@foo": 1}]`,
 		"object without @id":               `[{"@type": "Package", "@id": "X", "ownedMember": {"@type": "Y"}}]`,
+		"object with unknown key":          `[{"@type": "Package", "@id": "X", "ownedMember": {"@foo": "x"}}]`,
+		"object with @id and @ref":         `[{"@type": "Package", "@id": "X", "ownedMember": {"@id": "A", "@ref": "b"}}]`,
 		"nested array":                     `[{"@type": "Package", "@id": "X", "ownedMember": [[{"@id": "Y"}]]}]`,
 		"null member":                      `[{"@type": "Package", "@id": "X", "ownedMember": [null]}]`,
 		"prefixed key":                     `[{"@type": "Package", "@id": "X", "sysml:name": "n"}]`,
@@ -424,8 +426,8 @@ func TestWriteAPIJSONRefuses(t *testing.T) {
 		},
 		"collection without annotation": func() *rdf.Graph {
 			g := typed(rdf.SysMLTerm("Package"))
-			g.Add(element, rdf.SysMLTerm("ownedMember"), rdf.ElementIRIForID("A"))
-			g.Add(element, rdf.SysMLTerm("ownedMember"), rdf.ElementIRIForID("B"))
+			g.Add(element, rdf.SysMLTerm("declaredName"), rdf.String("a"))
+			g.Add(element, rdf.SysMLTerm("declaredName"), rdf.String("b"))
 			return g
 		},
 		"xsd:float": func() *rdf.Graph {
@@ -468,5 +470,84 @@ func TestWriteAPIJSONRefuses(t *testing.T) {
 				t.Errorf("WriteAPIJSON = %v, want an UnsupportedError", err)
 			}
 		})
+	}
+}
+
+// A property the metamodel declares unbounded is an array even with one
+// member — the shape the API serves and other readers require — while a
+// single-valued property stays an object.
+func TestWriteAPIJSONManyIsAlwaysAnArray(t *testing.T) {
+	text := []byte("package P { part def V; }")
+	graph, err := convert.SysMLToRDF("p.sysml", text)
+	if err != nil {
+		t.Fatalf("SysMLToRDF: %v", err)
+	}
+	document, err := export.WriteAPIJSON(graph)
+	if err != nil {
+		t.Fatalf("WriteAPIJSON: %v", err)
+	}
+	var elements []map[string]json.RawMessage
+	if err := json.Unmarshal(document, &elements); err != nil {
+		t.Fatalf("the document is not a JSON array: %v\n%s", err, document)
+	}
+	pkg := apiJSONElement(t, elements, "P")
+	for _, key := range []string{"ownedRelationship", "ownedMember", "ownedMembership"} {
+		var members []json.RawMessage
+		if err := json.Unmarshal(pkg[key], &members); err != nil || len(members) != 1 {
+			t.Errorf("P %s = %s, want a one-member array", key, pkg[key])
+		}
+	}
+	var usage map[string]json.RawMessage
+	for _, element := range elements {
+		var typ string
+		if err := json.Unmarshal(element["@type"], &typ); err == nil && typ == "PartDefinition" {
+			usage = element
+		}
+	}
+	if usage == nil {
+		t.Fatal("no PartDefinition element")
+	}
+	var owner map[string]string
+	if err := json.Unmarshal(usage["owningRelationship"], &owner); err != nil || owner["@id"] == "" {
+		t.Errorf("owningRelationship = %s, want a single reference object", usage["owningRelationship"])
+	}
+}
+
+// A one-member array states the triple without a json: annotation — the same
+// graph the Turtle form reads, where the annotation marks two members or more.
+func TestReadAPIJSONOneMemberArray(t *testing.T) {
+	graph, err := export.ReadAPIJSON([]byte(`[{"@type": "Package", "@id": "P", "ownedMember": [{"@id": "Q"}]}]`))
+	if err != nil {
+		t.Fatalf("ReadAPIJSON: %v", err)
+	}
+	subject := rdf.ElementIRIForID("P")
+	if !graph.Has(rdf.Triple{Subject: subject, Predicate: rdf.SysMLTerm("ownedMember"), Object: rdf.ElementIRIForID("Q")}) {
+		t.Error("the member triple is missing")
+	}
+	if graph.HasProperty(subject, rdf.AnnotationJSON+"ownedMember") {
+		t.Error("a one-member array stated a json: annotation")
+	}
+}
+
+// A model whose collections each hold one member makes the same graph through
+// the element form as through Turtle — neither direction invents or drops a
+// statement.
+func TestAPIJSONRoundTripSingleMemberCollections(t *testing.T) {
+	text := []byte("package P {\n\tpart def V;\n\tpart car : V;\n}")
+	graph, err := convert.SysMLToRDF("p.sysml", text)
+	if err != nil {
+		t.Fatalf("SysMLToRDF: %v", err)
+	}
+	document, err := export.WriteAPIJSON(graph)
+	if err != nil {
+		t.Fatalf("WriteAPIJSON: %v", err)
+	}
+	reread, err := export.ReadAPIJSON(document)
+	if err != nil {
+		t.Fatalf("ReadAPIJSON: %v\n%s", err, document)
+	}
+	if !sameTriples(tripleSet(graph), tripleSet(reread)) {
+		t.Fatalf("the graph changed through the element form\nmissing: %v\nadded: %v",
+			diffTriples(tripleSet(graph), tripleSet(reread)), diffTriples(tripleSet(reread), tripleSet(graph)))
 	}
 }

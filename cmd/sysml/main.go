@@ -123,6 +123,7 @@ var (
 	fromFormat       string
 	migrationReport  string
 	migrationResults string
+	layoutPath       string
 	renderView       string
 	renderAllDir     string
 	renderForm       string
@@ -443,6 +444,14 @@ func runCLI() int {
 	}
 	if flagGiven("migration-results") && migrationResults == "" {
 		fmt.Fprintln(os.Stderr, "sysml: -migration-results is empty; name the JSON file to write the run configurations and result snapshots to")
+		return 2
+	}
+	if layoutPath != "" && convertFormat == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -layout accompanies -convert of a SysML v1 model; write `sysml model.xmi -convert sysml -layout model_mtip.xml`")
+		return 2
+	}
+	if flagGiven("layout") && layoutPath == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -layout is empty; name the MTIP export to lay the migrated views out from")
 		return 2
 	}
 	if flagGiven("compare-results") && modelChecks.compare == "" {

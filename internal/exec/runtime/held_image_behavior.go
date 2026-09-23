@@ -484,6 +484,7 @@ func (m *materializing) behavior(b imagedBehavior) error {
 	}
 	inst.behaviors = append(inst.behaviors, behavior)
 	dst.objectBehaviors = append(dst.objectBehaviors, behavior)
+	dst.workChanged()
 	return nil
 }
 

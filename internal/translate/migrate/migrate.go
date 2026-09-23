@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/translate/mtip"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/simresults"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
@@ -38,19 +39,63 @@ type Result struct {
 	Results  *simresults.Results
 }
 
+// Options carries the optional inputs of a migration: an MTIP export whose
+// diagram records lay out the views the migration writes.
+type Options struct {
+	// Layout is the parsed MTIP export; nil migrates without layout.
+	Layout *mtip.Export
+	// LayoutSource names the file Layout was read from, for the report and
+	// diagnostics.
+	LayoutSource string
+}
+
 // Migrate reads a SysML v1 model as UML XMI, or a zip archive (such as a
 // .mdzip) holding it, and writes it as SysML v2 notation. name labels the
 // source in the report.
 func Migrate(name string, data []byte) (*Result, error) {
+	return MigrateOptions(name, data, Options{})
+}
+
+// MigrateOptions is Migrate with the augments opts carries. A layout export
+// whose diagram records match no diagram of the model is an error: the file
+// was exported from a different project.
+func MigrateOptions(name string, data []byte, opts Options) (*Result, error) {
 	model, err := sysmlv1.Parse(data)
 	if err != nil {
 		return nil, err
 	}
-	return FromModel(name, model), nil
+	if opts.Layout != nil && len(opts.Layout.Diagrams) > 0 && layoutJoins(model, opts.Layout) == 0 {
+		return nil, fmt.Errorf("%s: none of its %d diagram records matches a diagram of %s; the layout file was exported from a different project",
+			opts.LayoutSource, len(opts.Layout.Diagrams), name)
+	}
+	return FromModelOptions(name, model, opts), nil
+}
+
+// layoutJoins counts the export's diagram records whose id is a diagram of the
+// model.
+func layoutJoins(model *sysmlv1.Model, layout *mtip.Export) int {
+	ids := map[string]bool{}
+	for i := range model.Diagrams {
+		ids[model.Diagrams[i].ID] = true
+	}
+	joined := 0
+	for i := range layout.Diagrams {
+		if ids[layout.Diagrams[i].ID] {
+			joined++
+		}
+	}
+	return joined
 }
 
 // FromModel migrates an already-read XMI model.
 func FromModel(name string, model *sysmlv1.Model) *Result {
+	return FromModelOptions(name, model, Options{})
+}
+
+// FromModelOptions is FromModel with the augments opts carries. Unlike
+// MigrateOptions it cannot fail, so a layout export joins whatever of the
+// model it can and reports the rest.
+func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 	m := &migration{
 		model:        model,
 		report:       &Report{Source: name, Exporter: model.Exporter},
@@ -110,6 +155,31 @@ func FromModel(name string, model *sysmlv1.Model) *Result {
 		buried:       map[*sysmlv1.Element]bool{},
 		actors:       map[*sysmlv1.Element]*actorLink{},
 		monteCarlo:   map[*sysmlv1.Element]*monteCarloCase{},
+		layout:       opts.Layout,
+		layoutSource: opts.LayoutSource,
+		layoutByID:   map[string]*mtip.Diagram{},
+		diagramIDs:   map[string]bool{},
+		layoutJoined: map[string]bool{},
+	}
+	if opts.Layout != nil {
+		m.layoutSummary = &LayoutSummary{
+			Source:       opts.LayoutSource,
+			MTIPVersion:  opts.Layout.MTIPVersion,
+			CameoVersion: opts.Layout.CameoVersion,
+			ExportTime:   opts.Layout.ExportTime,
+			Diagrams:     len(opts.Layout.Diagrams),
+			Unsupported:  map[string]int{},
+		}
+		for i := range opts.Layout.Diagrams {
+			m.layoutByID[opts.Layout.Diagrams[i].ID] = &opts.Layout.Diagrams[i]
+		}
+		for i := range model.Diagrams {
+			m.diagramIDs[model.Diagrams[i].ID] = true
+		}
+		m.layoutSummary.Malformed = 0
+		for i := range opts.Layout.Diagrams {
+			m.layoutSummary.Malformed += len(opts.Layout.Diagrams[i].Malformed)
+		}
 	}
 	m.prepare()
 	for _, root := range model.Roots {
@@ -120,6 +190,7 @@ func FromModel(name string, model *sysmlv1.Model) *Result {
 	m.placeholderEnds()
 	m.unwrittenEvents()
 	m.diagrams()
+	m.layoutReport()
 	m.extensions()
 	return &Result{Notation: []byte(m.w.String()), Report: m.report, Results: m.results}
 }
@@ -295,6 +366,16 @@ type migration struct {
 	opaque map[*sysmlv1.Element]*opaqueResult
 	// monteCarlo memoizes the analysis def written beside each block; nil for one without.
 	monteCarlo map[*sysmlv1.Element]*monteCarloCase
+	// layout is the MTIP export augmenting the migration, nil without one;
+	// layoutByID indexes its diagram records by id, diagramIDs the model's
+	// diagrams, layoutJoined the records a written view laid out, and
+	// layoutSummary the report's layout account.
+	layout        *mtip.Export
+	layoutSource  string
+	layoutByID    map[string]*mtip.Diagram
+	diagramIDs    map[string]bool
+	layoutJoined  map[string]bool
+	layoutSummary *LayoutSummary
 	// rules memoizes how each constraint block's anonymous rule is written.
 	rules map[*sysmlv1.Element]ruleForm
 	// actors gives each association linking a use case to an actor the actor
@@ -2023,6 +2104,18 @@ func (m *migration) written(e *sysmlv1.Element) bool {
 		// An anonymous association is a connection def only when it owns every
 		// end and is not written as an actor of a use case instead.
 		return e.Name != "" || m.actors[e] == nil && ownsEveryEnd(e, m.model.Refs(e, "memberEnd"))
+	case "Connector":
+		// A connector is a member of its owner only when named and its ends
+		// resolve; an anonymous `connect a to b;` and one bound into a
+		// MonteCarlo analysis def name nothing a view can expose.
+		if m.nameOf(e) == "" {
+			return false
+		}
+		if stat, _, _ := m.monteCarloEnd(e); stat != "" {
+			return false
+		}
+		_, note := m.connectorEnds(e, e.Parent)
+		return note == ""
 	}
 	if act, _ := m.nodeGraph(e); act != nil {
 		return m.written(act)

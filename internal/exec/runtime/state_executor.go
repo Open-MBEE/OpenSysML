@@ -556,7 +556,7 @@ func (e *StateExecutor) scheduleCompletionTransitions(state *ast.StateNode) erro
 		if trans.Trigger != nil {
 			continue
 		}
-		e.eventQueue.Push(Event{
+		e.enqueue(Event{
 			ID:        e.nextEventID,
 			Type:      EventTime, // Use EventTime with nil trigger
 			Timestamp: e.ctx.clock.now,
@@ -623,7 +623,7 @@ func (e *StateExecutor) scheduleTimeTransitions(state *ast.StateNode) error {
 			return err
 		}
 
-		e.eventQueue.Push(Event{
+		e.enqueue(Event{
 			ID:        e.nextEventID,
 			Type:      EventTime,
 			Timestamp: due,
@@ -664,7 +664,7 @@ func (e *StateExecutor) processNextEvent() error {
 	}
 	e.moved = true
 	// The clock never lags a dispatched event: a timer popped ahead of it moves it.
-	e.ctx.clock.now = math.Max(e.ctx.clock.now, event.Timestamp)
+	e.ctx.setClock(math.Max(e.ctx.clock.now, event.Timestamp))
 	e.lastEventAt = e.ctx.clock.now
 
 	e.markDispatch()
@@ -1068,7 +1068,7 @@ func (e *StateExecutor) recallDeferredEvents() {
 			continue
 		}
 		event.Timestamp = e.ctx.clock.now
-		e.eventQueue.Push(event)
+		e.enqueue(event)
 	}
 	e.deferred = retained
 }
@@ -4155,7 +4155,7 @@ func (e *StateExecutor) InvokeOperation(operation string, args map[string]Value)
 // queueCall queues a call event carrying the payload.
 func (e *StateExecutor) queueCall(payload Call) {
 	e.moved = true
-	e.eventQueue.Push(Event{
+	e.enqueue(Event{
 		ID:        e.nextEventID,
 		Type:      EventCall,
 		Timestamp: e.ctx.clock.now,
@@ -4167,8 +4167,14 @@ func (e *StateExecutor) queueCall(payload Call) {
 // enqueueSignal queues a message as an accept event, to fire immediately.
 func (e *StateExecutor) enqueueSignal(msg Message) {
 	e.moved = true
-	e.eventQueue.Push(e.signalEvent(msg))
+	e.enqueue(e.signalEvent(msg))
 	e.nextEventID++
+}
+
+// enqueue queues ev as work the machine's next run takes.
+func (e *StateExecutor) enqueue(ev Event) {
+	e.eventQueue.Push(ev)
+	e.ctx.workChanged()
 }
 
 // signalEvent is the event enqueueSignal queues for a message in flight.
@@ -4431,6 +4437,9 @@ func (e *StateExecutor) pendingSignal() (Message, bool) {
 	memo := &e.pending
 	if memo.holds(e) {
 		if memo.ok || memo.bus.posts == e.ctx.bus.posts {
+			if memo.readsData {
+				e.ctx.notePollReadsData()
+			}
 			return memo.msg, memo.ok
 		}
 		// The bus only grew since a negative answer: the messages added are examined.

@@ -67,6 +67,7 @@ type runCapture struct {
 	evaluations       *evaluationLog
 	pendingBehaviors  []*ObjectBehavior
 	heldBehaviors     mapState[*ObjectBehavior, bool]
+	holdingDriven     bool
 	clockRun          *runState
 }
 
@@ -332,6 +333,7 @@ func (ctx *Context) rollbackJournal(mark journalMark) {
 	ctx.messages = slices.Clone(mark.messages)
 	ctx.bus.cuts++
 	ctx.writes++
+	ctx.workChanged()
 	ctx.abandonCreationSince(mark.created, mark.attached)
 	ctx.clock.now, ctx.clock.waiters = mark.clockNow, slices.Clone(mark.clockWaiters)
 	mark.traced.restore(mark.trace)
@@ -349,6 +351,7 @@ func (ctx *Context) captureRun() runCapture {
 		evaluations:      ctx.evaluations,
 		pendingBehaviors: slices.Clone(ctx.pendingBehaviors),
 		heldBehaviors:    captureMap(ctx.heldBehaviors),
+		holdingDriven:    ctx.holdingDriven,
 		clockRun:         ctx.clockRun.state,
 	}
 	return c
@@ -369,7 +372,9 @@ func (c runCapture) restore(ctx *Context) {
 	ctx.evaluations = c.evaluations
 	ctx.pendingBehaviors = slices.Clone(c.pendingBehaviors)
 	ctx.heldBehaviors = c.heldBehaviors.restore()
+	ctx.holdingDriven = c.holdingDriven
 	ctx.clockRun.state = c.clockRun
+	ctx.workChanged()
 }
 
 // captureRunState captures a run's state once, however many executors share it.

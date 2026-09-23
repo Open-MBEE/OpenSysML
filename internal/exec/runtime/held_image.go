@@ -649,7 +649,7 @@ func (mark materializeMark) rollBack(ctx *Context) {
 		ctx.ids.release(ctx, mark.nextID)
 	}
 	ctx.activations, ctx.runs = mark.activations, mark.runs
-	ctx.clock.now = mark.clock
+	ctx.setClock(mark.clock)
 	ctx.clockRun.state = mark.clockRun
 	ctx.lifetimes.dependents = mark.readLives
 }
@@ -721,7 +721,7 @@ func (m *materializing) run() error {
 	dst.livesChanged()
 	dst.activations = max(dst.activations, img.activations)
 	dst.runs = max(dst.runs, img.runs)
-	dst.clock.now = img.clock
+	dst.setClock(img.clock)
 	for _, run := range img.runStates {
 		m.runs = append(m.runs, m.runState(run))
 	}
@@ -744,6 +744,7 @@ func (m *materializing) run() error {
 	// Nothing below fails: what names the objects made is installed once they all stand.
 	dst.messages = append(dst.messages, messages...)
 	dst.bus.posts += uint64(len(messages))
+	dst.workChanged()
 	for sym, ids := range img.occurrences {
 		dst.occurrences[sym] = slices.Clone(ids)
 	}

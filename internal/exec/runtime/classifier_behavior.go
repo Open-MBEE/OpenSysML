@@ -662,30 +662,77 @@ func (ctx *Context) startBehaviorsOf(inst *Instance) error {
 			inst.behaviors = append(inst.behaviors, behavior)
 			ctx.pendingBehaviors = append(ctx.pendingBehaviors, behavior)
 			ctx.objectBehaviors = append(ctx.objectBehaviors, behavior)
+			ctx.workChanged()
 		}
 	}
 
 	return ctx.runAttachedBehaviors()
 }
 
+// workChanged counts a change that can leave an attached behavior holding work:
+// a message posted, the clock moved, an event queued, an executor run or left.
+func (ctx *Context) workChanged() { ctx.work++ }
+
+// quiescence is the memo a full behavior scan leaves when it finds every
+// attached behavior idle: the work and write marks it holds under, and whether
+// the scan read the objects' data, so writes since then invalidate it.
+type quiescence struct {
+	at        uint64
+	writes    uint64
+	readsData bool
+}
+
+// holds reports whether the memo still answers: taken, and nothing it depends
+// on moved since, the objects' data counting only where the scan read it.
+func (q quiescence) holds(ctx *Context) bool {
+	return q.at != 0 && q.at == ctx.work && (!q.readsData || q.writes == ctx.writes)
+}
+
+// setClock moves the shared clock, the work due on it moving with it.
+func (ctx *Context) setClock(now float64) {
+	ctx.clock.now = now
+	ctx.workChanged()
+}
+
 // holdDrivenWork marks, at an outermost start, the behaviors already holding
 // work: a driver put it in flight, so the start leaves it to that driver. Once
 // the start returns, the behaviors it attached are as their start left them.
 func (ctx *Context) holdDrivenWork() func() {
-	if ctx.behaviorRunDepth > 0 || ctx.heldBehaviors != nil {
+	if ctx.behaviorRunDepth > 0 || ctx.holdingDriven {
 		return func() { /* an outer start already holds them */ }
 	}
-	held := make(map[*ObjectBehavior]bool)
-	ctx.behaviorRunDepth++
-	for _, behavior := range ctx.objectBehaviors {
-		if behavior.hasPendingWork() {
-			held[behavior] = true
+	var held map[*ObjectBehavior]bool
+	if ctx.quiescent.holds(ctx) {
+		// Nothing woke a behavior since a full scan found them all idle.
+	} else if len(ctx.objectBehaviors) == 0 {
+		ctx.quiescent = quiescence{at: ctx.work, writes: ctx.writes}
+	} else {
+		memo := &pendingMemo{}
+		saved := ctx.polling
+		ctx.polling = memo
+		ctx.behaviorRunDepth++
+		for _, behavior := range ctx.objectBehaviors {
+			if behavior.hasPendingWork() {
+				if held == nil {
+					held = map[*ObjectBehavior]bool{}
+				}
+				held[behavior] = true
+			}
+		}
+		ctx.behaviorRunDepth--
+		ctx.polling = saved
+		if saved != nil && memo.readsData {
+			saved.readsData = true
+		}
+		if len(held) == 0 {
+			ctx.quiescent = quiescence{at: ctx.work, writes: ctx.writes, readsData: memo.readsData}
 		}
 	}
-	ctx.behaviorRunDepth--
 	ctx.heldBehaviors = held
+	ctx.holdingDriven = true
 	attached := len(ctx.objectBehaviors)
 	return func() {
+		ctx.holdingDriven = false
 		ctx.heldBehaviors = nil
 		for _, behavior := range ctx.objectBehaviors[min(attached, len(ctx.objectBehaviors)):] {
 			behavior.settle()
@@ -771,6 +818,7 @@ func (ctx *Context) forgetBehaviors(behaviors []*ObjectBehavior) {
 	}
 	ctx.objectBehaviors = behaviorsExcept(ctx.objectBehaviors, dropped)
 	ctx.pendingBehaviors = behaviorsExcept(ctx.pendingBehaviors, dropped)
+	ctx.workChanged()
 }
 
 // leaveClock releases the behavior's execution, ending the work it left paused
@@ -838,10 +886,35 @@ func (ctx *Context) nextRunnableBehavior() (*ObjectBehavior, bool) {
 			return behavior, true
 		}
 	}
+	// A context a full scan found idle, unchanged since, holds no runnable behavior.
+	if ctx.quiescent.holds(ctx) {
+		return nil, false
+	}
+	if attached >= len(ctx.objectBehaviors) {
+		// Every behavior pending is already held by a driver, or there are none.
+		if attached == 0 && len(ctx.heldBehaviors) == 0 {
+			ctx.quiescent = quiescence{at: ctx.work, writes: ctx.writes}
+		}
+		return nil, false
+	}
+	memo := &pendingMemo{}
+	saved := ctx.polling
+	ctx.polling = memo
 	for _, behavior := range ctx.objectBehaviors[attached:] {
 		if !ctx.heldBehaviors[behavior] && behavior.hasPendingWork() {
+			ctx.polling = saved
+			if saved != nil && memo.readsData {
+				saved.readsData = true
+			}
 			return behavior, true
 		}
+	}
+	ctx.polling = saved
+	if saved != nil && memo.readsData {
+		saved.readsData = true
+	}
+	if attached == 0 && len(ctx.heldBehaviors) == 0 {
+		ctx.quiescent = quiescence{at: ctx.work, writes: ctx.writes, readsData: memo.readsData}
 	}
 	return nil, false
 }

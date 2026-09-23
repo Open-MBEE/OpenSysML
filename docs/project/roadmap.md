@@ -2705,40 +2705,37 @@ a sixth slower for the recording it never uses). Open against `develop` on the s
 each loaded file as a document of its own) and #308 (the satellite network generated as a fleet
 of occurrences). Independent of every track above; the design's own sequence orders it.
 
-**An MTIP export as an optional layout augment to a SysML v1 migration (not started).** A
+**An MTIP export as an optional layout augment to a SysML v1 migration (landed).** A
 Cameo/MagicDraw export migrates through `sysml <model>.mdzip -convert sysml`
-([the mapping](../reference/sysml-v1-migration.md)), and #524 (open, stacked on #514) writes
-each of its diagrams as a `view` usage exposing the elements the diagram shows and rendered by
-the diagram's kind. What the XMI does not carry is where the diagram draws them: the tool keeps
-its diagram geometry outside the XMI, so the migrated views are auto-laid-out like any other
-and the arrangement an engineer settled on is lost. Open-MBEE's MTIP plugin
-(`Open-MBEE/mtip-cameo`) reads that geometry through the tool's own API and writes it into its
-HUDS XML — per diagram, the shown elements with their bounds, connector breakpoints, colors,
-fonts and images, each keyed by the element's identifier — so an MTIP export of the same
-project holds exactly the layer the migration lacks. The proposal is to read it as an
-**augment, not a second input format**: the `.mdzip` (or `.xmi`) stays the one source of the
-model's structure and behavior, and an optional `-layout <mtip-export.xml>` supplies presentation
-only. The reader takes the diagram/presentation layer of the HUDS file and nothing else, joins
-each record to the migrated view and the exposed element or connector by the element identifier
-MTIP records. MTIP has an export setting for that identifier (`local`, its default, or `cloud`);
-the join needs the local form, which the design must first confirm on a real export is the
-`xmi:id` the migration already resolves. The reader then writes
-the geometry the way [diagram-layout-annotations.md](diagram-layout-annotations.md) already
-carries it — `metadata Layout about … { x; y; width; height; }` and `metadata Route about … {
-points = (…); }` in the view usage's body, with `@Canvas` for the diagram's extent — so the
-result is standard metadata every conforming tool preserves and every OpenSysML rendering
-honors, not a sidecar and not comments. What `DiagramLayout` has no attribute for (colors,
-fonts, images) is reported and dropped rather than invented into the library; extending
-`DiagramLayout` for it is a separate decision. A record whose identifier matches no migrated
-element, a diagram MTIP exports that the migration skipped, and a malformed or partial record
-are each a named row in the migration report, never silently lost; and a `-layout` file written
-against a different project than the model refuses with the mismatch stated rather than
-annotating nothing. Without `-layout` the output is byte-identical to today's. Generic by
-construction: the HUDS schema is MTIP's, not any one project's, and the fixtures are MTIP's own
-test exports plus a small hand-written pair (model + HUDS) with a validated golden; the proof
-on a real project needs an MTIP export of a model whose `.mdzip` is also at hand, and no such
-pair exists yet — that file is the gate, not the code. Builds on #524's view usages and the
-landed `DiagramLayout` library; independent of every track.
+([the mapping](../reference/sysml-v1-migration.md)), and #524 writes each of its diagrams as a
+`view` usage exposing the elements the diagram shows and rendered by the diagram's kind. What
+the XMI does not carry is where the diagram draws them: the tool keeps its diagram geometry
+outside the XMI, so the migrated views are auto-laid-out like any other and the arrangement an
+engineer settled on is lost. Open-MBEE's MTIP plugin (`Open-MBEE/mtip-cameo`) reads that geometry
+through the tool's own API and writes it into its HUDS XML — per diagram, the shown elements
+with their bounds, connector breakpoints, colors, fonts and images, each keyed by the element's
+identifier — so an MTIP export of the same project holds exactly the layer the migration lacks.
+`sysml <model>.mdzip -convert sysml -layout <mtip-export.xml>` now reads it as an **augment,
+not a second input format**: `internal/translate/mtip` keeps the diagram/presentation layer of
+the HUDS file and nothing else, and the migration joins each record to the migrated view and the
+exposed element or connector by the element identifier MTIP records — confirmed on a real
+export (the OpenMBEE TMT model and its MTIP export): the record id is the `xmi:id` the migration
+already resolves, all 721 diagram records joining, with the geometry written the way
+[diagram-layout-annotations.md](diagram-layout-annotations.md) already carries it — `metadata
+Layout about … { x; y; width; height; }` and `metadata Route about … { points = (…); }` in the
+view usage's body, with `@Canvas` for the diagram's extent — so the result is standard metadata
+every conforming tool preserves and every OpenSysML rendering honors, not a sidecar and not
+comments. Geometry is written only for what the view exposes; what `DiagramLayout` has no
+attribute for (colors, fonts, images) is reported and dropped rather than invented into the
+library — extending `DiagramLayout` for it is a separate decision. A record whose identifier
+matches no migrated element, a diagram MTIP exports that the migration skipped, and a malformed
+or partial record are each a named row in the migration report, never silently lost; and a
+`-layout` file written against a different project than the model refuses with the mismatch
+stated rather than annotating nothing. Without `-layout` the output is byte-identical to today's.
+Open follow-up: most placed elements are not exposed because activity and state nodes have no
+name of their own outside their body — naming them so a view can expose (and so lay out) them
+is a separate migration item. Builds on #524's view usages and the landed `DiagramLayout`
+library; independent of every track.
 
 # Track P — package layering (earmarked for 0.9.0)
 
@@ -3282,8 +3279,9 @@ Tracks F, S, L and A are closed.
   refusals recorded in [fuml-referee.md](fuml-referee.md)) are landed; the order of orthogonal
   regions is a recorded choice point (#384, #438, #513), with *Terminate 002*'s one trace left
   to #525. An MTIP export as an optional `-layout` augment to a SysML v1 migration, writing the
-  tool's diagram geometry into the migrated views as `DiagramLayout` metadata, is not started
-  and waits on an MTIP export of a model whose `.mdzip` is also at hand.
+  tool's diagram geometry into the migrated views as `DiagramLayout` metadata, is landed and
+  gated on a real model/MTIP pair; naming activity and state nodes so a view can expose them is
+  the open follow-up.
 
 ## Cross-cutting order
 
