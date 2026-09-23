@@ -5,6 +5,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf/ontology"
 )
@@ -769,10 +770,10 @@ func dropStatedDefaults(graph *rdf.Graph, meta func(rdf.Term) string, elementFor
 			}
 			feature := firstIRI(graph, chain, "chainingFeature")
 			if feature.IsIRI() {
-				if name, ok := graph.Lexical(feature, rdf.SysML+pQualifiedName); ok {
-					segments = append(segments, name[strings.LastIndex(name, "::")+2:])
-				} else if name, ok := graph.Lexical(feature, rdf.SysML+pDeclaredName); ok {
+				if name, ok := graph.Lexical(feature, rdf.SysML+pDeclaredName); ok {
 					segments = append(segments, name)
+				} else if name, ok := graph.Lexical(feature, rdf.SysML+pQualifiedName); ok {
+					segments = append(segments, name[strings.LastIndex(name, "::")+2:])
 				}
 			} else if name, ok := graph.Lexical(chain, rdf.SysML+"chainingFeature"); ok {
 				segments = append(segments, unescapeName(name))
@@ -944,20 +945,12 @@ func dropStatedDefaults(graph *rdf.Graph, meta func(rdf.Term) string, elementFor
 // unescapeName returns a written qualified name as declared: each `::` segment
 // loses its quoting and escapes, so writing it back escapes it once.
 func unescapeName(name string) string {
-	segments := strings.Split(name, "::")
-	for i, segment := range segments {
-		if len(segment) < 2 || segment[0] != '\'' || segment[len(segment)-1] != '\'' {
-			continue
-		}
-		var b strings.Builder
-		inner := segment[1 : len(segment)-1]
-		for j := 0; j < len(inner); j++ {
-			if inner[j] == '\\' && j+1 < len(inner) {
-				j++
-			}
-			b.WriteByte(inner[j])
-		}
-		segments[i] = b.String()
+	segments, ok := source.QualifiedNameSegments(name)
+	if !ok {
+		return source.UnescapedName(strings.Trim(name, "'"))
 	}
-	return strings.Join(segments, "::")
+	for i, segment := range segments {
+		segments[i] = source.UnescapedName(segment)
+	}
+	return source.QualifiedNameOf(segments)
 }

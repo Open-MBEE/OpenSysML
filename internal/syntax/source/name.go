@@ -34,6 +34,22 @@ func QualifiedNameOf(names []string) string {
 	return strings.Join(segments, "::")
 }
 
+// UnescapedName drops the escapes a written name carries: the `\'` a quoted
+// segment writes for `'` is `'` declared.
+func UnescapedName(name string) string {
+	if !strings.Contains(name, "\\") {
+		return name
+	}
+	var b strings.Builder
+	for i := 0; i < len(name); i++ {
+		if name[i] == '\\' && i+1 < len(name) {
+			i++
+		}
+		b.WriteByte(name[i])
+	}
+	return b.String()
+}
+
 // QualifiedNameSegments reads a qualified name back into its names, `'x::y'` one
 // and `x::y` two, quotes dropped and escapes kept; false for malformed text.
 func QualifiedNameSegments(text string) ([]string, bool) {

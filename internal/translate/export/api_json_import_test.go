@@ -3,6 +3,7 @@ package export
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -341,5 +342,38 @@ func TestUUIDDeclaredElementID(t *testing.T) {
 	back := decodeAPIJSON(t, document)
 	if !strings.Contains(string(back), `id = "aaaa0000-0000-5000-8000-0000000000aa"`) {
 		t.Fatalf("the declared ElementId was dropped:\n%s", back)
+	}
+}
+
+// TestUnescapeNameSplitsQuotedSegments checks a written qualified name is
+// split on :: outside quotes only, each segment unescaped once.
+func TestUnescapeNameSplitsQuotedSegments(t *testing.T) {
+	for _, tc := range []struct{ in, want string }{
+		{"'Sep::Pkg'::x", "'Sep::Pkg'::x"},
+		{`'a\'b'::c`, "'a'b'::c"},
+		{"A::B", "A::B"},
+	} {
+		if got := unescapeName(tc.in); got != tc.want {
+			t.Errorf("unescapeName(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}
+
+// TestToolkitRefWithQuotedSegmentDecodes checks a toolkit {"@ref": name}
+// carrying a quoted segment decodes to the two-segment reference it wrote.
+func TestToolkitRefWithQuotedSegmentDecodes(t *testing.T) {
+	doc := `[
+		{"@type": "Package", "@id": "N", "qualifiedName": "N",
+		 "ownedMembership": [{"@id": "N__p_om"}]},
+		{"@type": "OwningMembership", "@id": "N__p_om",
+		 "memberElement": {"@id": "N__p"}, "membershipOwningNamespace": {"@id": "N"}},
+		{"@type": "PartUsage", "@id": "N__p", "qualifiedName": "N::p", "declaredName": "p",
+		 "type": {"@ref": "'Sep::Pkg'::x"}, "ownedTyping": [{"@id": "N__p_ft0"}]},
+		{"@type": "FeatureTyping", "@id": "N__p_ft0", "type": {"@ref": "'Sep::Pkg'::x"},
+		 "typedFeature": {"@id": "N__p"}, "owningRelatedElement": {"@id": "N__p"}}
+	]`
+	out := decodeAPIJSON(t, []byte(doc))
+	if !strings.Contains(string(out), ": 'Sep::Pkg'::x") {
+		t.Fatalf("the quoted-segment reference did not decode as written:\n%s", out)
 	}
 }

@@ -2649,7 +2649,10 @@ func qualifiedNameText(qname string) string {
 	if global {
 		qname = strings.TrimPrefix(qname, "$::")
 	}
-	segments := strings.Split(qname, "::")
+	segments, ok := source.QualifiedNameSegments(qname)
+	if !ok {
+		segments = strings.Split(qname, "::")
+	}
 	for i, segment := range segments {
 		segments[i] = nameText(segment)
 	}
