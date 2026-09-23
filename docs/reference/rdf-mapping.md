@@ -199,6 +199,20 @@ it is in the pilot's `sysml.library.xmi`:
 `elmt:` prefixed name, so a UUID reads either way depending on its first hex
 digit.)
 
+Derived ids are spelled this way by default because the qualified name they
+encode lets a consumer address an element without resolving the graph. Passing
+`-id uuid` to `-convert ttl` or `-convert api-json` mints name-based uuids
+instead, as the library convention does: each root package gets
+`uuid5(URL namespace, prefix + name)` with `https://www.omg.org/spec/SysML/` as
+the prefix, and every subject the encoder derives under it gets
+`uuid5(package id, the id it would carry by default)` — so an owning
+membership's is `uuid5(package id, member id + "_om")` and an expression
+node's composes its owner's derived id the way the encoded positions do. Ids a
+declaration fixes (an `@ElementId` annotation, a library element's normative
+UUID) are never re-derived; `sysml:elementId` literals carry whichever form the
+subject carries, and the api-json reader classifies a node's namespace from the
+membership that owns it, so either form reads back to the same notation.
+
 The id is a version-5 UUID (`internal/semantic/identity`): the library
 package's is `uuid5(URL namespace, prefix + name)` with the prefix
 `https://www.omg.org/spec/KerML/` for the kernel libraries and
@@ -522,7 +536,44 @@ Metaclass names with no counterpart in the OMG vocabulary are typed in the
 standard metaclasses: `sysx:Alias`, `sysx:FilterMember`,
 `sysx:MultiplicityDeclaration`, `sysx:ConstraintMember`, `sysx:AssumeMember`,
 `sysx:RequireMember`, and the
-behavioral ones listed under [Behavior](#behavior).
+behavioral ones listed under [Behavior](#behavior). These are OpenSysML
+extensions — an interchange consumer that reads only `sysml:` terms (the
+sysml-toolkit among them) does not interpret them:
+
+- `sysx:InitialNode` and `sysx:FinalNode` — the `first x;` start of an action
+  or state body and its `done;`, which the standard vocabulary has no element
+  for; the behavior table spells the end forms they carry.
+- `sysx:IfBranch` — one branch of an `if`/`else`, held as the IfActionUsage's
+  parameter, so branch order survives.
+- `sysx:Pseudostate` — a state machine's `choice`, `junction`, `fork`, `join`
+  and `history` vertices, with `sysx:pseudostateKind`.
+- `sysx:MultiplicityDeclaration` — a multiplicity declared as a member
+  (`multiplicity m [1..*];`), kept distinct from the `MultiplicityRange` a
+  bound states inline.
+- `sysx:DeferMember` — the `defer sig;` member of a state, carrying
+  `sysx:deferredEvent` per event.
+- `sysx:Alias` — the `alias a for b;` member, whose `sysml:memberName` the
+  toolkit's `Membership` alone cannot spell.
+
+The rest of the membership-side metaclasses the notation implies are
+standard: the mapping materializes each as the relationship element the OMG
+metamodel defines for it, so a consumer reading elements rather than notation
+sees the same relationships SysML.xtext produces.
+
+| Notation | Elements minted |
+|----------|-----------------|
+| `part wheels : Wheel[4];` | the member, a `sysml:FeatureTyping` (`<S>_ft0`) whose `general`/`type` is `Wheel` and whose `specific`/`typedFeature` is the member, a `sysml:MultiplicityRange` (`<S>_mult`) carrying the `[4]` bound, and the member's `sysml:OwningMembership` (`<S>_om`) |
+| `part v : Vehicle;` | the member, its `FeatureTyping` (`<S>_ft0`), its `OwningMembership` |
+| `:>> mass`, `redefines mass` | a `sysml:Redefinition` (`<S>_rd<i>`) with `redefiningFeature`/`redefinedFeature` |
+| `:> base`, `subsets base` | a `sysml:Subsetting`/`sysml:ReferenceSubsetting` (`<S>_ss<i>`/`<S>_rs<i>`) |
+| `specializes Base`, `:>> Base` on a definition | a `sysml:Subclassification` (`<S>_sc<i>`) |
+| `part p : ~P;` | a `sysml:ConjugatedPortDefinition` (`<S>_conjugated`) typed by `P`, and a `sysml:PortConjugation` (`<S>_pc`) joining it to `P`, so `port p`'s `FeatureTyping` reads `type: ~P` |
+| `subject v : Vehicle;` in a requirement | a `sysml:SubjectMembership` owning `v`, with `sysml:subjectParameter` on the membership's owner |
+| `require constraint { v.mass < 1500 [kg] }` | a `sysml:RequirementConstraintMembership` owning the `sysml:ConstraintUsage`, with `sysml:kind "requirement"`/`"assumption"` by keyword |
+| `{ in y : Real; y + x }` | a `sysml:ResultExpressionMembership` owning the result expression |
+| `filter <expr>;`, `import P::*[@T]` | a `sysml:ElementFilterMembership` carrying `sysml:condition` |
+| an expression's `referent`/`targetFeature` link | a `sysml:Membership` minted beside it (`<S>_referent`, `_preferent`, `_targetFeature`) restating the referent edge as `memberElement`/`owner`, the shape interchange readers navigate |
+| a `dependency`, keyword-first `specialization`/`subclassification`/`redefinition`/`subsetting`/`typing`/`disjoining`/`inverting`/`featuring`/`conjugation`, or `succession` declared in a body | the declared relationship, owned through an `OwningMembership` (`<S>_om`) like any other member — `Import` and `Membership`-family members excepted, which own directly |
 
 Comments, documentation and textual representations convert as their own
 elements (`sysml:Comment`, `sysml:Documentation`, `sysml:TextualRepresentation`)
@@ -1698,6 +1749,7 @@ How each part of the graph is spelled:
 | An IRI object | `{"@id": <id>}`, the id spelled from the subject as above |
 | An `xsd:boolean`, `xsd:integer`, `xsd:decimal`/`xsd:double` literal | a JSON boolean or number; a real whose lexical form JSON cannot spell is given the digits it needs (`.1` → `0.1`, `5.` → `5.0`), and `INF` or `NaN` is refused; a literal in another datatype (`xsd:float`, `xsd:int`, `owl:real`, a `xsd:double` without an exponent) is refused, since the form carries no datatype and the reader would restore a different one |
 | A plain literal (and, on the properties that carry it, expression text) | a JSON string; a literal in any other datatype is refused |
+| A name literal on an object property | `{"@ref": <name>}` — sysml-toolkit's spelling of a target the writer could not resolve, read back as the same name literal |
 | A `sysml:` property the metamodel declares multi-valued (unbounded upper) | an array of however many values the graph states, in the order the annotation records or in triple order when no annotation states it |
 | A `sysml:` property stated more than once with no annotation, that the metamodel declares single-valued | refused, since the graph does not say which order the values have |
 | A `sysx:` property stated more than once | an array, in triple order |
@@ -1746,20 +1798,47 @@ Two readings are decided by the graph rather than the JSON, and are worth knowin
   `memberElement`, the connector ends and their subsetting) a string that does not
   parse as a name is expression text; on every other property it is a name.
 
-Interchange with sysml-toolkit (the Open-MBEE Rust toolkit) is partial in both
-directions, for one reason: the toolkit reads and writes the specialization and
-multiplicity relationships as first-class elements (`FeatureTyping`,
-`Subclassification`, `Redefinition`, `Subsetting`, `ReferenceSubsetting`,
-`MultiplicityRange`, `ConjugatedPortDefinition`/`PortConjugation`, the
-`Membership` an expression referent is carried by), where this mapping
-collapses them to properties of the element (`type`, `redefines`, `general`,
-`referent`, a bound under the feature) and to extension metaclasses
-(`sysx:RequireMember`, `sysx:ConstraintMember`). The toolkit loads every
-element this form writes but prints them without their typing, redefinition
-or subsetting, and refuses the extension metaclasses and the collapsed
-multiplicity and referent shapes. Its own JSON reads into the graph here, but
-`-convert sysml` refuses a document whose elements it cannot place, which any
-model beyond bare declarations is.
+Interchange with sysml-toolkit (the Open-MBEE Rust toolkit) runs both ways.
+The mapping materializes the same relationship elements the toolkit emits
+(`FeatureTyping`, `Subclassification`, `Redefinition`, `Subsetting`,
+`ReferenceSubsetting`, `MultiplicityRange`,
+`ConjugatedPortDefinition`/`PortConjugation`, the `Membership` an expression
+referent is carried by — the table above), so the toolkit's lifter reads this
+form's output back to the notation it came from; the element counts differ
+only by the toolkit's synthetic root `Namespace` and its `OwningMembership`,
+which this mapping does not write since the document root is the package
+itself. What the toolkit does not read are the `sysx:` extension metaclasses
+listed above.
+
+The toolkit's own JSON — `convert --to compact-json` or `--to full-json` —
+reads into the same graph through `ReadAPIJSON` and converts to notation like
+any graph this mapping holds:
+
+- **Both forms decode identically.** `full-json` states every property of an
+  element the compact form collapses onto its owner (`type` on a usage for
+  the `FeatureTyping` element, `isImpliedIncluded`, the membership ends), so
+  the reader derives the collapsed spelling back: a `sysml:FeatureTyping`
+  stating nothing the collapsed `type` edge does not already say contributes
+  its ends and is then elementless, an `isImpliedIncluded` element drops the
+  stated defaults (`isEnd`, `isReference`, `mayTimeVary`, …) its owner's
+  spelling never writes, and the resulting graph is the graph a compact
+  document produces — compact and full of one model convert to byte-identical
+  notation.
+- **The root `Namespace` is transparent.** The toolkit wraps the document in
+  a root `Namespace` and one `OwningMembership`; the reader strips both, so a
+  `package P { … }` comes back without a synthetic wrapper.
+- **A `{"@ref": <name>}` target is the unresolved name it spells**, matching
+  the name literal this form writes for the same case, and the dangling IRI a
+  full document uses for the same target (`unresolved:`-derived, recoverable
+  from the reference's `x-sysmlv2-unresolved-reference` textual annotation)
+  reads as the same name.
+- **Ends the notation alone cannot place are refused.** Where a member's two
+  collapsed ends disagree, or an element names no owner it can sit under,
+  `-convert sysml` fails rather than guesses a position.
+- **uuid ids are derived, not declared.** A document whose `@id`s are the
+  `-id uuid` form's name-based uuids reads back to the same notation, the ids
+  implied as in the default form; only an id that does not match the
+  derivation stays a declared `@ElementId` annotation.
 
 The per-file ratchet over `examples/` runs for this form too:
 `TestCorpusAPIJSONRoundTrip` in `tests/corpus/roundtrip_test.go` converts each
