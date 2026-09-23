@@ -181,6 +181,41 @@ func TestMetaclassTablesExecute(t *testing.T) {
 		"Tables::Namespaces\n", "Tables::'Packageable Elements'\n", "Tables::Types\n")
 }
 
+// A criterion that excludes subtypes of its stereotype cannot be told apart
+// from one that includes them once every «Satisfy» — a user «Fulfil»
+// specializing it included — is written as the same satisfy: the query lists
+// the «Fulfil» relationships too, and the report says so. A criterion no
+// applied stereotype specializes is exact either way.
+func TestRelationCriterionSubtypes(t *testing.T) {
+	r := migrateFixtureFile(t, "relation_subtypes")
+	walked := "excludes subtypes of «Satisfy», but the «Fulfil» relationships are walked too"
+	wantNote(t, r, "_mx_exact", migrate.Approximated, "the criterion Satisfied by "+walked)
+	wantNote(t, r, "_map_valve", migrate.Approximated, "the criterion Satisfy "+walked)
+	wantNote(t, r, "_mx_wide", migrate.Mapped, "")
+	if es := entriesFor(r, "_mx_wide"); len(es) == 1 && strings.Contains(es[0].Note, "subtypes") {
+		t.Errorf("Wide Satisfaction Matrix notes subtypes: %s", es[0].Note)
+	}
+
+	s := session(t, r)
+	exact := rows(t, s, "Plant::Requirements::'Exact Satisfaction Matrix Rows'")
+	wantInOrder(t, "Exact Satisfaction Matrix rows", exact,
+		"FlowRequirement", "Satisfied by = Plant::Structure::Pump",
+		"SealRequirement", "Satisfied by = Plant::Structure::Valve")
+	wide := rows(t, s, "Plant::Requirements::'Wide Satisfaction Matrix Rows'")
+	wantInOrder(t, "Wide Satisfaction Matrix rows", wide,
+		"FlowRequirement", "Satisfied by = Plant::Structure::Pump", "Derived by = Plant::Requirements::SealRequirement",
+		"SealRequirement", "Satisfied by = Plant::Structure::Valve", "Derived by = (none)")
+	reached := rows(t, s, "Plant::Structure::'Valve Requirement Map Rows'")
+	wantInOrder(t, "Valve Requirement Map rows", reached,
+		"returned 1 row", "Plant::Requirements::SealRequirement")
+
+	// A v1 DeriveReqt runs from the derived requirement to its original, a v2
+	// derivation the other way: following it from the derived one reaches the original.
+	original := rows(t, s, "Plant::Requirements::'Seal Derivation Map Rows'")
+	wantInOrder(t, "Seal Derivation Map rows", original,
+		"returned 1 row", "Plant::Requirements::FlowRequirement")
+}
+
 // A table whose diagram the model itself owns is written at the top level,
 // beside its view, as a table in a package is beside its own.
 func TestTopLevelTableIsWritten(t *testing.T) {

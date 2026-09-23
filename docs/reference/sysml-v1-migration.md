@@ -483,13 +483,17 @@ metadata, and a look-alike application from an unbundled profile stays a comment
 | `columnIds` `IColumn:<property>` — a value property of the row classifier | `Column(name = "<property>", expression = <Def>::<property> ?? "")`, an empty cell where a row has no slot, as the tool draws it; the property is kept reachable (never written private) because the column names it |
 | built-in and value-property columns interleaved (`name`, `mass`, `qualifiedName`) | `Project(properties = ("name", "qualifiedName"), columns = (Column(…)))` — `Project` lists its properties before its columns, so the built-in columns move ahead of the value properties; approximated with the note. Column names are unique: the built-in properties claim theirs first, and a value property captioned like one (`Pump::name`) is written `name 2` with the note |
 | `sort` `<column>^Asc` / `^Desc` | `OrderBy(property, direction, missing = "last", multiple = "first")` — empty cells last and the first value of a multi-valued slot, the tool's own ordering; `-1`/`_EMPTY_` is no sort, a sort by tool identity is dropped with the note |
-| a matrix's `rowScope`/`rowElementType` and `columnScope`/`columnElementType` | the rows are the row query; each `dependencyCriteria` becomes a `RelatedColumn(name, relationshipKind, direction, maxDepth = 1, aggregate = "list", targets = <column query>)`, whose cell lists the column elements the row is related to; `Row to column` is `"outgoing"`, `Column to row` `"incoming"`, `Both` two columns (approximated); a second criterion with the same name is `Name 2` |
+| a matrix's `rowScope`/`rowElementType` and `columnScope`/`columnElementType` | the rows are the row query; each `dependencyCriteria` becomes a `RelatedColumn(name, relationshipKind, direction, maxDepth = 1, aggregate = "list", targets = <column query>)`, whose cell lists the column elements the row is related to; `Row to column` is `"outgoing"`, `Column to row` `"incoming"` — the other way round for «DeriveReqt», whose v2 `derivation` runs from the original requirement to the derived one where the v1 dependency runs from the derived to the original — `Both` two columns (approximated); a second criterion with the same name is `Name 2` |
 | a relation map's `contextElement`, `relationCriterion`, `depth`, `elementTypes` | `RelatedElements(source = Named(…), relationshipKind, direction, maxDepth = depth)` (0 = unbounded) filtered by `WhereType` over the element types, projected as `qualifiedName` and `@type` |
 
 A criterion is a relationship walk only for the kinds `RelatedElements` knows: «Satisfy»,
 «Verify», «Refine», «DeriveReqt», «Allocate» and UML `Generalization` (`specialization`); a
 `Dependency`, an import, a user-profile relationship, a metachain or an OCL expression is
-refused with the criterion named. So is a table whose serialization is malformed — a `scope`
+refused with the criterion named. A criterion's `includeSubtypes` has no query spelling: a
+user stereotype specializing «Satisfy» is written as the same `satisfy`, so a walk of the kind
+lists its relationships whether or not the criterion included subtypes. A criterion excluding
+them is exact while the archive applies no such stereotype, and approximated — the stereotypes
+named — when it does. Refused too is a table whose serialization is malformed — a `scope`
 resolving to no element (a bare module id resolves through the href the document referenced
 the element by; one that elements of several modules share names no element, and the refusal
 lists the hrefs), a `sort` not of the form `<column>^Asc|Desc`, a `depth` that is not a

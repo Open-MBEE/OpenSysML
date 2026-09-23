@@ -218,7 +218,7 @@ package Plant {
                     DocumentQueries::RelatedColumn(
                         name = "Trace 2",
                         relationshipKind = "derivation",
-                        direction = "incoming",
+                        direction = "outgoing",
                         maxDepth = 1,
                         aggregate = "list",
                         targets = DocumentQueries::WhereType(

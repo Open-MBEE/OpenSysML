@@ -626,12 +626,17 @@ var relationKinds = map[string]string{
 	"Generalization": "specialization",
 }
 
+// criterionLabel names a criterion in a note.
+func criterionLabel(c sysmlv1.Criterion) string {
+	if c.Name == "" {
+		return "the unnamed criterion"
+	}
+	return "the criterion " + c.Name
+}
+
 // criterionKind is the relationship kind a criterion walks, or why none does.
 func criterionKind(c sysmlv1.Criterion) (kind, why string) {
-	label := "the criterion " + c.Name
-	if c.Name == "" {
-		label = "the unnamed criterion"
-	}
+	label := criterionLabel(c)
 	switch {
 	case c.Malformed != "":
 		return "", label + " is malformed: " + c.Malformed
@@ -655,8 +660,28 @@ func criterionKind(c sysmlv1.Criterion) (kind, why string) {
 	return "", label + " walks «" + c.Stereotype.Name + "», which RelatedElements has no kind for"
 }
 
-// walkDirections are the directions a criterion walks, as RelatedElements
-// spells them; "" for a direction the tool did not write.
+// subtypesWalked names the user stereotypes specializing the one a criterion walks
+// without subtypes: written as the same v2 relationship, they are walked too. "" when none.
+func (m *migration) subtypesWalked(c sysmlv1.Criterion) string {
+	if c.IncludeSubtypes || c.Stereotype.Name == "" {
+		return ""
+	}
+	var names []string
+	for _, s := range m.model.Stereotypes {
+		if !isStandard(s) && appliesStandard(s, c.Stereotype.Name) && !slices.Contains(names, s.Name) {
+			names = append(names, s.Name)
+		}
+	}
+	if len(names) == 0 {
+		return ""
+	}
+	slices.Sort(names)
+	return criterionLabel(c) + " excludes subtypes of «" + c.Stereotype.Name + "», but the «" +
+		strings.Join(names, "», «") + "» relationships are walked too: they are written as the same relationship"
+}
+
+// walkDirections are the directions a criterion walks, as RelatedElements spells
+// them (outgoing runs from client to supplier); nil for a direction the tool did not write.
 func walkDirections(direction string) []string {
 	switch direction {
 	case "DIRECT", "Row to column":
@@ -667,6 +692,18 @@ func walkDirections(direction string) []string {
 		return []string{"outgoing", "incoming"}
 	}
 	return nil
+}
+
+// kindDirection is dir as the v2 kind spells it: every kind runs client to
+// supplier but derivation, which runs from the original requirement to the derived one.
+func kindDirection(kind, dir string) string {
+	if kind != "derivation" {
+		return dir
+	}
+	if dir == "outgoing" {
+		return "incoming"
+	}
+	return "outgoing"
 }
 
 // lowerMatrix lowers a dependency matrix: the typed rows projected by name,
@@ -711,6 +748,7 @@ func (m *migration) lowerMatrix(t *sysmlv1.Table, host *sysmlv1.Element, l *lowe
 			l.refuse(why)
 			return
 		}
+		l.note(m.subtypesWalked(c))
 		for _, dir := range dirs {
 			name := c.Name
 			if name == "" {
@@ -724,7 +762,7 @@ func (m *migration) lowerMatrix(t *sysmlv1.Table, host *sysmlv1.Element, l *lowe
 				name = unique
 			}
 			related = append(related, qcall("RelatedColumn", qarg1("name", qstr(name)),
-				qarg1("relationshipKind", qstr(kind)), qarg1("direction", qstr(dir)), qint1("maxDepth", 1),
+				qarg1("relationshipKind", qstr(kind)), qarg1("direction", qstr(kindDirection(kind, dir))), qint1("maxDepth", 1),
 				qarg1("aggregate", qstr("list")), qarg1("targets", cols)))
 		}
 	}
@@ -734,7 +772,7 @@ func (m *migration) lowerMatrix(t *sysmlv1.Table, host *sysmlv1.Element, l *lowe
 			kind, _ := criterionKind(c)
 			for _, dir := range dirs {
 				kept = append(kept, qcall("WhereRelated", qarg1("source", rows), qarg1("relationshipKind", qstr(kind)),
-					qarg1("direction", qstr(dir)), qint1("maxDepth", 1), qarg1("exists", qlit("true"))))
+					qarg1("direction", qstr(kindDirection(kind, dir))), qint1("maxDepth", 1), qarg1("exists", qlit("true"))))
 			}
 		}
 		rows = union(kept)
@@ -787,13 +825,14 @@ func (m *migration) lowerRelationMap(t *sysmlv1.Table, host *sysmlv1.Element, l 
 			l.refuse(why)
 			return
 		}
+		l.note(m.subtypesWalked(c))
 		dirs := walkDirections(c.Direction)
 		if dirs == nil {
 			dirs = []string{"outgoing"}
 			l.note("the criterion " + c.Name + " names no direction; the context is read as the client of the relationships")
 		}
 		for _, dir := range dirs {
-			args := []qarg{qarg1("source", ctx), qarg1("relationshipKind", qstr(kind)), qarg1("direction", qstr(dir))}
+			args := []qarg{qarg1("source", ctx), qarg1("relationshipKind", qstr(kind)), qarg1("direction", qstr(kindDirection(kind, dir)))}
 			if t.Depth > 0 {
 				args = append(args, qint1("maxDepth", t.Depth))
 			}
