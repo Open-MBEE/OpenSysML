@@ -318,6 +318,7 @@ var constructFixtures = []string{
 	"org_profile",
 	"profile_inheritance",
 	"tool_profiles",
+	"property_markers",
 	"diagrams",
 	"diagram_edges",
 	"exposed",
