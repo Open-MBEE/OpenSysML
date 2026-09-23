@@ -1583,6 +1583,31 @@ func (idx *Index) RegisteredUnder(fqn string) []*Symbol {
 	return idx.fqn.at(fqn)
 }
 
+// ShortNamed reports whether some registered symbol carries name as its short
+// name: it is registered under a path ending in name that is not its own.
+func (idx *Index) ShortNamed(name string) bool {
+	if name == "" {
+		return false
+	}
+	idx.readSegment(name)
+	shortRegistered := func(fqn string) bool {
+		for _, sym := range idx.fqn.at(fqn) {
+			if LastSegment(sym.Name) != name {
+				return true
+			}
+		}
+		return false
+	}
+	for _, fqn := range idx.bySegment.at(name) {
+		if shortRegistered(fqn) {
+			return true
+		}
+	}
+	// bySegment omits root-level names, so a short name at the root is found
+	// under the fqn equal to name itself.
+	return shortRegistered(name)
+}
+
 // FQNsEndingIn returns up to limit registered fully-qualified names whose last
 // segment is name, in name order. Used to suggest a candidate for a reference
 // whose qualifying namespace is not loaded.
