@@ -84,7 +84,7 @@ func TestParseBareKindKeywordIsAnonymousUsage(t *testing.T) {
 	if usage.Kind != ast.UsageAction || usage.Ident.Name != "" || usage.PrefixKeyword != "exit" {
 		t.Errorf("exit action; parsed as %v %q prefix %q", usage.Kind, usage.Ident.Name, usage.PrefixKeyword)
 	}
-	nested := pkg.Members[1].(*ast.Membership).Member.(*ast.Definition).Members[0].(*ast.Membership).Member.(*ast.Usage)
+	nested := pkg.Members[1].(*ast.Membership).Member.(*ast.Definition).Members[0].(*ast.Usage)
 	if nested.Kind != ast.UsageAction || nested.Ident.Name != "" {
 		t.Errorf("action; parsed as %v %q", nested.Kind, nested.Ident.Name)
 	}
