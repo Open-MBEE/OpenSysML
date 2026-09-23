@@ -29,24 +29,26 @@ package Pump {
 		action Fill;
 		succession 'Fill to Vent' first Fill then Vent;
 		action Vent;
-		first Vent then done;
-		action done terminate;
+		first Vent then finish;
+		action finish terminate;
 	}
 
 	part def Handbook :> Document {
 		attribute redefines title = "Pump Handbook";
+		ref modes : Modes;
+		ref prime : Prime;
 
 		part behaviors : Section {
 			attribute redefines title = "Behaviors";
 
-			part modes : Diagram {
+			part modesFigure : Diagram {
 				attribute redefines caption = "Pump Modes";
-				ref redefines source = Modes::'Pump Modes';
+				ref redefines source = modes.'Pump Modes';
 			}
 
-			part priming : Diagram {
+			part primingFigure : Diagram {
 				attribute redefines caption = "Priming";
-				ref redefines source = Prime::Priming;
+				ref redefines source = prime.Priming;
 			}
 		}
 	}
