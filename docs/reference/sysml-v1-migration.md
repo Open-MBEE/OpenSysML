@@ -353,9 +353,9 @@ otherwise a name spelled from what it is written between, in the body it is writ
 | Transition | `transition 'S accept Sig then T' first S accept Sig then T;` — the trigger, guard and target as written, the payload binding left out of the name; several triggers are several transitions, each named for its own trigger (a v1 name is numbered, `halt`, `halt2`), and the edge's route pins every one of them |
 | Connector | `connection 'a.p to b.q' connect a.p to b.q;` |
 | BindingConnector, delegation connector | `binding 'a.p = b.q' bind a.p = b.q;` |
-| Dependency, Extend | `dependency 'A to B' from A to B;` (`allocation` for an «Allocate») |
-| «Satisfy» | `satisfy requirement 'satisfy R' : R;` in the satisfying usage's owner |
-| «Verify» | `verify requirement 'verify R' : R;` in the test case's `objective`, which is named `objective` so the member can be qualified |
+| Dependency, Extend | `dependency 'A to B' from A to B;` (`allocation` for an «Allocate»); several clients or suppliers are several dependencies, one per pair, and the view exposes each |
+| «Satisfy» | `satisfy requirement 'satisfy R' : R;` in the satisfying usage's owner, one per client in its own owner's body, and the view exposes each |
+| «Verify» | `verify requirement 'verify R' : R;` in the test case's `objective`, which is named `objective` so the member can be qualified; one per pair, as for a «Satisfy» |
 | Include, Message | already named members: `include use case x : X;`, the interaction step `action x …` |
 
 The name is a spelling, not a value: it derives from the ends' written names, never from ids or

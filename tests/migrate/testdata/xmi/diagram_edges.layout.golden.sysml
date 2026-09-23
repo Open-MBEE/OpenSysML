@@ -40,6 +40,7 @@ package Structure {
         }
         satisfy requirement 'satisfy Mass Limit' : Requirements::'Mass Limit';
         satisfy requirement : Requirements::'Speed Limit';
+        satisfy requirement 'satisfy Speed Limit' : Requirements::'Speed Limit';
         view 'Vehicle Internals' {
             expose engine;
             expose wheel;
@@ -61,16 +62,22 @@ package Structure {
             render Views::asInterconnectionDiagram;
         }
     }
-    part def Engine :> Component;
+    part def Engine :> Component {
+        satisfy requirement 'satisfy Speed Limit' : Requirements::'Speed Limit';
+    }
     part def Wheel;
     dependency 'Vehicle to Engine' from Vehicle to Engine;
     dependency Vehicle to Wheel;
+    dependency 'Engine to Component' from Engine to Component;
+    dependency 'Wheel to Component' from Wheel to Component;
     view Structure {
         expose Component;
         expose Vehicle;
         expose Engine;
         expose Wheel;
         expose 'Vehicle to Engine';
+        expose 'Engine to Component';
+        expose 'Wheel to Component';
         @DiagramLayout::Canvas { unit = "px"; width = 330; height = 240; }
         metadata DiagramLayout::Layout about Component { x = 120; y = 20; width = 100; height = 60; }
         metadata DiagramLayout::Layout about Vehicle { x = 10; y = 160; width = 100; height = 80; }
@@ -130,6 +137,8 @@ package Requirements {
         expose 'Mass Test';
         expose Structure::Vehicle::'satisfy Mass Limit';
         expose Requirements::'Mass Test'::'objective'::'verify Mass Limit';
+        expose Structure::Vehicle::'satisfy Speed Limit';
+        expose Structure::Engine::'satisfy Speed Limit';
         @DiagramLayout::Canvas { unit = "px"; width = 330; height = 140; }
         metadata DiagramLayout::Layout about 'Mass Limit' { x = 120; y = 10; width = 100; height = 40; }
         metadata DiagramLayout::Layout about Structure::Vehicle { x = 10; y = 100; width = 100; height = 40; }

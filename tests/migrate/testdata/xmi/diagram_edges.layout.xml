@@ -99,6 +99,21 @@
                <id _dtype="str">_dep_shown</id>
                <type _dtype="str">sysml.Dependency</type>
             </diagramConnector>
+            <diagramConnector _dtype="dict" key="2">
+               <relationship_metadata _dtype="dict">
+                  <supplierPoint _dtype="dict">
+                     <xCoordinate _dtype="int">60</xCoordinate>
+                     <yCoordinate _dtype="int">60</yCoordinate>
+                  </supplierPoint>
+                  <clientPoint _dtype="dict">
+                     <xCoordinate _dtype="int">160</xCoordinate>
+                     <yCoordinate _dtype="int">180</yCoordinate>
+                  </clientPoint>
+                  <breakPoint _dtype="list"/>
+               </relationship_metadata>
+               <id _dtype="str">_dep_pairs</id>
+               <type _dtype="str">sysml.Dependency</type>
+            </diagramConnector>
          </diagramConnector>
       </relationships>
       <type _dtype="str">sysml.BlockDefinitionDiagram</type>
@@ -613,6 +628,21 @@
                </relationship_metadata>
                <id _dtype="str">_dep_verify</id>
                <type _dtype="str">sysml.Verify</type>
+            </diagramConnector>
+            <diagramConnector _dtype="dict" key="2">
+               <relationship_metadata _dtype="dict">
+                  <supplierPoint _dtype="dict">
+                     <xCoordinate _dtype="int">170</xCoordinate>
+                     <yCoordinate _dtype="int">120</yCoordinate>
+                  </supplierPoint>
+                  <clientPoint _dtype="dict">
+                     <xCoordinate _dtype="int">170</xCoordinate>
+                     <yCoordinate _dtype="int">50</yCoordinate>
+                  </clientPoint>
+                  <breakPoint _dtype="list"/>
+               </relationship_metadata>
+               <id _dtype="str">_dep_satisfy_pairs</id>
+               <type _dtype="str">sysml.Satisfy</type>
             </diagramConnector>
          </diagramConnector>
       </relationships>

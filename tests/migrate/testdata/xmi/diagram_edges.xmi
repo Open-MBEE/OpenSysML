@@ -76,6 +76,7 @@
       <packagedElement xmi:type="uml:Class" xmi:id="_blk_wheel" name="Wheel"/>
       <packagedElement xmi:type="uml:Dependency" xmi:id="_dep_shown" client="_blk_vehicle" supplier="_blk_engine"/>
       <packagedElement xmi:type="uml:Dependency" xmi:id="_dep_hidden" client="_blk_vehicle" supplier="_blk_wheel"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_dep_pairs" client="_blk_engine _blk_wheel" supplier="_blk_component"/>
     </packagedElement>
 
     <!-- Modes: a shown anonymous triggered transition, a shown named one, an unshown one,
@@ -114,7 +115,8 @@
       </packagedElement>
     </packagedElement>
 
-    <!-- Requirements: a shown satisfy and verify, and an unshown satisfy. -->
+    <!-- Requirements: a shown satisfy and verify, an unshown satisfy, and a shown
+         satisfy with two clients, written in the body of each. -->
     <packagedElement xmi:type="uml:Package" xmi:id="_pkg_reqs" name="Requirements">
       <packagedElement xmi:type="uml:Class" xmi:id="_req_mass" name="Mass Limit"/>
       <packagedElement xmi:type="uml:Class" xmi:id="_req_speed" name="Speed Limit"/>
@@ -122,6 +124,7 @@
       <packagedElement xmi:type="uml:Abstraction" xmi:id="_dep_satisfy" client="_blk_vehicle" supplier="_req_mass"/>
       <packagedElement xmi:type="uml:Abstraction" xmi:id="_dep_satisfy_hidden" client="_blk_vehicle" supplier="_req_speed"/>
       <packagedElement xmi:type="uml:Abstraction" xmi:id="_dep_verify" client="_tc_mass" supplier="_req_mass"/>
+      <packagedElement xmi:type="uml:Abstraction" xmi:id="_dep_satisfy_pairs" client="_blk_vehicle _blk_engine" supplier="_req_speed"/>
     </packagedElement>
 
     <!-- Use cases: a shown anonymous include and an unshown one. -->
@@ -147,6 +150,7 @@
                   <usedElements>_blk_wheel</usedElements>
                   <usedElements>_gen_engine</usedElements>
                   <usedElements>_dep_shown</usedElements>
+                  <usedElements>_dep_pairs</usedElements>
                 </diagramContents>
               </diagram:DiagramRepresentationObject>
             </diagramRepresentation>
@@ -216,6 +220,7 @@
                   <usedElements>_tc_mass</usedElements>
                   <usedElements>_dep_satisfy</usedElements>
                   <usedElements>_dep_verify</usedElements>
+                  <usedElements>_dep_satisfy_pairs</usedElements>
                 </diagramContents>
               </diagram:DiagramRepresentationObject>
             </diagramRepresentation>
@@ -248,5 +253,6 @@
   <sysml:Satisfy xmi:id="_s_satisfy" base_Abstraction="_dep_satisfy"/>
   <sysml:Satisfy xmi:id="_s_satisfy_hidden" base_Abstraction="_dep_satisfy_hidden"/>
   <sysml:Verify xmi:id="_s_verify" base_Abstraction="_dep_verify"/>
+  <sysml:Satisfy xmi:id="_s_satisfy_pairs" base_Abstraction="_dep_satisfy_pairs"/>
   <sysml:TestCase xmi:id="_s_tc" base_Behavior="_tc_mass"/>
 </xmi:XMI>

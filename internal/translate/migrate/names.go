@@ -128,7 +128,7 @@ func (m *migration) path(e *sysmlv1.Element) []segment {
 	var segs []segment
 	for cur := e; cur != nil; cur = memberOwner(cur) {
 		if em, ok := m.edgeMembers[cur]; ok && em.name != "" {
-			return append(m.edgePath(em, em.name), segs...)
+			return append(m.edgePath(em.edgePlace), segs...)
 		}
 		if op := m.methodOf[cur]; op != nil {
 			cur = op

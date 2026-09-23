@@ -73,7 +73,7 @@ func TestGoldenEdgeLayout(t *testing.T) {
 	if l == nil {
 		t.Fatal("no layout summary")
 	}
-	if l.Routes != 20 || l.RoutesWritten != 10 || l.RoutesUnexposed != 9 || l.RoutesDangling != 1 {
+	if l.Routes != 22 || l.RoutesWritten != 10 || l.RoutesUnexposed != 11 || l.RoutesDangling != 1 {
 		t.Errorf("routes: %+v", l)
 	}
 	// An edge of the graph the activity's rendering does not draw is exposed, not swallowed.
@@ -88,6 +88,18 @@ func TestGoldenEdgeLayout(t *testing.T) {
 	if !strings.Contains(string(r.Notation), "Route about 'Halted accept Go then Running', 'Halted accept Resume then Running'") {
 		t.Errorf("the two-trigger transition is not routed as both of its transitions:\n%s", r.Notation)
 	}
+	// A relationship written once per client–supplier pair exposes every pair, each in
+	// the body it was written in, though the tree rendering draws none of them.
+	for _, want := range []string{
+		"expose 'Engine to Component';\n",
+		"expose 'Wheel to Component';\n",
+		"expose Structure::Vehicle::'satisfy Speed Limit';\n",
+		"expose Structure::Engine::'satisfy Speed Limit';\n",
+	} {
+		if !strings.Contains(string(r.Notation), want) {
+			t.Errorf("a pair of a relationship written per pair is not exposed: %s\n%s", want, r.Notation)
+		}
+	}
 	// A placement of a transition, which the state rendering draws as an edge, positions no node.
 	if l.PlacementsUnexposed != 4 || strings.Contains(string(r.Notation), "Layout about halt") {
 		t.Errorf("placements: %+v", l)
@@ -98,12 +110,12 @@ func TestGoldenEdgeLayout(t *testing.T) {
 		{Kind: "Connector", Reason: "written", Count: 3},
 		{Kind: "ControlFlow", Reason: "unnamed", Count: 1},
 		{Kind: "ControlFlow", Reason: "written", Count: 2},
-		{Kind: "Dependency", Reason: "not drawn", Count: 1},
+		{Kind: "Dependency", Reason: "not drawn", Count: 2},
 		{Kind: "Generalization", Reason: "no v2 member", Count: 1},
 		{Kind: "Include", Reason: "not drawn", Count: 1},
 		{Kind: "ObjectFlow", Reason: "not drawn", Count: 1},
 		{Kind: "ObjectFlow", Reason: "written", Count: 1},
-		{Kind: "Satisfy", Reason: "not drawn", Count: 1},
+		{Kind: "Satisfy", Reason: "not drawn", Count: 2},
 		{Kind: "Transition", Reason: "dangling", Count: 1},
 		{Kind: "Transition", Reason: "no v2 member", Count: 1},
 		{Kind: "Transition", Reason: "written", Count: 3},

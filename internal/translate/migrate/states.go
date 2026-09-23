@@ -1459,7 +1459,7 @@ func (s *stateRegion) writeAccepts(t *sysmlv1.Element, accepts []acceptance, tna
 			n := tname
 			if i > 0 {
 				n = freshIn(s.used, s.furtherName(t, tname, accept, guard, from, to))
-				s.m.wroteEdgeAlso(t, n)
+				s.m.wroteEdgeAlso(t, s.r, "transition", nil, n)
 			}
 			line += writeName(n) + " "
 		}

@@ -2928,7 +2928,7 @@ func (m *migration) dependencyPair(d *sysmlv1.Element, pl *placement, name strin
 	if has(d, "Allocate") {
 		kw = "allocation"
 	}
-	m.wroteEdge(d, m.scope, kw, name)
+	m.wroteEdgeAlso(d, m.scope, kw, nil, name)
 	if len(nodes) > 0 {
 		pl.nodePairs = append(pl.nodePairs, nodePair{nodes, target})
 	}
@@ -2990,7 +2990,7 @@ func (m *migration) satisfy(d, client, req *sysmlv1.Element, name string) (strin
 		}
 	}
 	m.extras[scope] = append(m.extras[scope], func() {
-		m.wroteEdge(d, scope, "satisfy", name)
+		m.wroteEdgeAlso(d, scope, "satisfy", nil, name)
 		decl := "satisfy requirement "
 		if name != "" {
 			decl += writeName(name) + " "
@@ -3054,7 +3054,7 @@ func (m *migration) verify(d, client, req *sysmlv1.Element, name string) (string
 		nest = []string{objective}
 	}
 	m.extras[client] = append(m.extras[client], func() {
-		m.wroteNestedEdge(d, client, "verify", nest, name)
+		m.wroteEdgeAlso(d, client, "verify", nest, name)
 		decl := "verify requirement "
 		if name != "" {
 			decl += writeName(name) + " "

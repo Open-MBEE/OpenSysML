@@ -11,24 +11,33 @@ import (
 // edgeMember locates the member an edge was written as: the element whose body
 // declares it and its name there, "" when the edge was written anonymously.
 type edgeMember struct {
-	owner *sysmlv1.Element
+	edgePlace
 	// keyword is the usage kind the member is declared as: succession, flow,
 	// binding, transition, connection, dependency, include, action, and so on.
 	keyword string
-	// nest names the anonymous actions the member is declared within, in
-	// owner's body, when it is not a direct member.
-	nest []string
-	name string
-	// also names the further members the edge was written as beside name: a
-	// transition written once per trigger it accepts.
-	also []string
+	// also locates the further members the edge was written as: a transition
+	// once per trigger, a dependency once per client–supplier pair.
+	also []edgePlace
 	// none marks an edge written into its ends' declarations, not as a member.
 	none bool
 }
 
-// names lists the members the edge was written as, name first.
-func (em edgeMember) names() []string {
-	return append([]string{em.name}, em.also...)
+// edgePlace is where one member an edge was written as is declared.
+type edgePlace struct {
+	owner *sysmlv1.Element
+	// nest names the anonymous actions the member is declared within, in
+	// owner's body, when it is not a direct member.
+	nest []string
+	name string
+}
+
+func (p edgePlace) equal(q edgePlace) bool {
+	return p.owner == q.owner && p.name == q.name && slices.Equal(p.nest, q.nest)
+}
+
+// places lists where every member the edge was written as is declared, the first first.
+func (em edgeMember) places() []edgePlace {
+	return append([]edgePlace{em.edgePlace}, em.also...)
 }
 
 // nameableEdge reports whether e is a relationship the migrator writes as a
@@ -121,6 +130,12 @@ func (m *migration) wroteNestedEdge(e, owner *sysmlv1.Element, keyword string, n
 	if _, ok := m.edgeMembers[e]; ok {
 		return
 	}
+	m.edgeMembers[e] = edgeMember{edgePlace: m.edgePlaceIn(owner, nest, name), keyword: keyword}
+}
+
+// edgePlaceIn locates a member declared in owner's body within the actions nest
+// names; a lone region's members are its owner's, a method's its operation's.
+func (m *migration) edgePlaceIn(owner *sysmlv1.Element, nest []string, name string) edgePlace {
 	for owner != nil && owner.Type == "Region" && owner.Role == "region" {
 		if _, parallel := m.parallel[owner]; parallel {
 			break
@@ -130,17 +145,22 @@ func (m *migration) wroteNestedEdge(e, owner *sysmlv1.Element, keyword string, n
 	if op := m.methodOf[owner]; op != nil {
 		owner = op
 	}
-	m.edgeMembers[e] = edgeMember{owner: owner, keyword: keyword, nest: nest, name: name}
+	return edgePlace{owner: owner, nest: nest, name: name}
 }
 
-// wroteEdgeAlso records a further member edge e was written as, beside the one
-// wroteEdge recorded: the next transition written for a trigger it accepts.
-func (m *migration) wroteEdgeAlso(e *sysmlv1.Element, name string) {
+// wroteEdgeAlso records one more member edge e was written as, the first when none
+// is recorded yet: a transition per trigger, a dependency per client–supplier pair.
+func (m *migration) wroteEdgeAlso(e, owner *sysmlv1.Element, keyword string, nest []string, name string) {
 	em, ok := m.edgeMembers[e]
-	if !ok || em.name == "" || name == "" || slices.Contains(em.also, name) {
+	if !ok {
+		m.wroteNestedEdge(e, owner, keyword, nest, name)
 		return
 	}
-	em.also = append(em.also, name)
+	p := m.edgePlaceIn(owner, nest, name)
+	if em.none || em.name == "" || name == "" || slices.ContainsFunc(em.places(), p.equal) {
+		return
+	}
+	em.also = append(em.also, p)
 	m.edgeMembers[e] = em
 }
 
@@ -165,14 +185,13 @@ func (m *migration) reaches(owner *sysmlv1.Element) bool {
 	return owner == nil || owner.Parent == nil && owner.Type == "Model" || m.written(owner) || m.inlineWritten(owner)
 }
 
-// edgePath is the qualified-name segments of the member named name an edge was
-// written as, one of em's names.
-func (m *migration) edgePath(em edgeMember, name string) []segment {
-	path := m.path(em.owner)
-	for _, n := range em.nest {
+// edgePath is the qualified-name segments of the member declared at p.
+func (m *migration) edgePath(p edgePlace) []segment {
+	path := m.path(p.owner)
+	for _, n := range p.nest {
 		path = append(path, segment{name: n, feature: true})
 	}
-	return append(path, segment{name: name, feature: true})
+	return append(path, segment{name: p.name, feature: true})
 }
 
 // edgeTarget is the qualified name a report entry records for edge e's member;
@@ -182,7 +201,7 @@ func (m *migration) edgeTarget(e *sysmlv1.Element) string {
 	if !ok || em.name == "" {
 		return ""
 	}
-	path := m.edgePath(em, em.name)
+	path := m.edgePath(em.edgePlace)
 	segs := make([]string, len(path))
 	for i, s := range path {
 		segs[i] = s.name
@@ -199,30 +218,31 @@ func (m *migration) edgeRef(e, scope *sysmlv1.Element) string {
 	return ""
 }
 
-// edgeRefs writes a reference to each member edge e was written as, from inside
-// scope's body; nil when the edge has no named member a name reaches.
+// edgeRefs writes a reference to each member edge e was written as that a name
+// reaches, from inside scope's body; nil when the edge has no named member one does.
 func (m *migration) edgeRefs(e, scope *sysmlv1.Element) []string {
 	em, ok := m.edgeMembers[e]
 	if !ok || !m.written(e) {
 		return nil
 	}
 	var refs []string
-	for _, name := range em.names() {
-		refs = append(refs, m.refEdge(em, name, scope))
+	for _, p := range em.places() {
+		if m.reaches(p.owner) {
+			refs = append(refs, m.refEdge(p, scope))
+		}
 	}
 	return refs
 }
 
-// refEdge writes a reference from inside scope's body to the member named name
-// an edge was written as, one of em's names.
-func (m *migration) refEdge(em edgeMember, name string, scope *sysmlv1.Element) string {
-	path := m.edgePath(em, name)
-	if len(em.nest) == 0 {
-		return m.refMember(em.owner, name, path, scope, false)
+// refEdge writes a reference from inside scope's body to the member declared at p.
+func (m *migration) refEdge(p edgePlace, scope *sysmlv1.Element) string {
+	path := m.edgePath(p)
+	if len(p.nest) == 0 {
+		return m.refMember(p.owner, p.name, path, scope, false)
 	}
 	// The outermost nesting action is owner's member; the rest qualify from it.
-	member := len(path) - len(em.nest) - 1
-	ref := m.refMember(em.owner, em.nest[0], path[:member+1], scope, false)
+	member := len(path) - len(p.nest) - 1
+	ref := m.refMember(p.owner, p.nest[0], path[:member+1], scope, false)
 	for _, s := range path[member+1:] {
 		ref += "::" + writeName(s.name)
 	}

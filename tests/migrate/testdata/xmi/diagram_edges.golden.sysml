@@ -34,6 +34,7 @@ package Structure {
         }
         satisfy requirement 'satisfy Mass Limit' : Requirements::'Mass Limit';
         satisfy requirement : Requirements::'Speed Limit';
+        satisfy requirement 'satisfy Speed Limit' : Requirements::'Speed Limit';
         view 'Vehicle Internals' {
             expose engine;
             expose wheel;
@@ -46,16 +47,22 @@ package Structure {
             render Views::asInterconnectionDiagram;
         }
     }
-    part def Engine :> Component;
+    part def Engine :> Component {
+        satisfy requirement 'satisfy Speed Limit' : Requirements::'Speed Limit';
+    }
     part def Wheel;
     dependency 'Vehicle to Engine' from Vehicle to Engine;
     dependency Vehicle to Wheel;
+    dependency 'Engine to Component' from Engine to Component;
+    dependency 'Wheel to Component' from Wheel to Component;
     view Structure {
         expose Component;
         expose Vehicle;
         expose Engine;
         expose Wheel;
         expose 'Vehicle to Engine';
+        expose 'Engine to Component';
+        expose 'Wheel to Component';
         render Views::asTreeDiagram;
     }
 }
@@ -103,6 +110,8 @@ package Requirements {
         expose 'Mass Test';
         expose Structure::Vehicle::'satisfy Mass Limit';
         expose Requirements::'Mass Test'::'objective'::'verify Mass Limit';
+        expose Structure::Vehicle::'satisfy Speed Limit';
+        expose Structure::Engine::'satisfy Speed Limit';
         render Views::asTreeDiagram;
     }
 }
