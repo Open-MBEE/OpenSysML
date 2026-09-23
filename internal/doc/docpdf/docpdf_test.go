@@ -355,7 +355,7 @@ func TestRenderHTMLIsTheBackendsPage(t *testing.T) {
 			t.Fatalf("page carries %q:\n%s", stray, page)
 		}
 	}
-	for _, want := range []string{"diagram-1.mmd", "diagram-1.svg", "diagram-2.svg", "mermaid-config.json"} {
+	for _, want := range []string{"diagram-1.mmd", "diagram-1.json", "diagram-1.svg", "diagram-2.svg", "diagram-2.json"} {
 		if !strings.Contains(listing, want) {
 			t.Fatalf("working directory lacks %s:\n%s", want, listing)
 		}

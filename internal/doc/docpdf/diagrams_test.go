@@ -1,7 +1,9 @@
 package docpdf
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -366,6 +368,53 @@ func TestMermaidStaysRequiredBesideOptionalTools(t *testing.T) {
 	var docErr *Error
 	if !errors.As(err, &docErr) || docErr.Kind != ErrorToolMissing || docErr.EnvVar != MermaidEnv {
 		t.Fatalf("got %v, want ErrorToolMissing for mmdc", err)
+	}
+}
+
+// TestMermaidConfigFitsTheChart checks each Mermaid chart is drawn under a
+// configuration of its own, with plain text labels and text and edge caps a
+// chart larger than Mermaid's defaults (500 edges, 50 000 characters) fits under.
+func TestMermaidConfigFitsTheChart(t *testing.T) {
+	dir := t.TempDir()
+	withoutDiagramTools(t)
+	log := fakeSVGTool(t, dir, "mmdc", MermaidEnv)
+	var b strings.Builder
+	b.WriteString("flowchart TD\n")
+	for i := 0; i < 600; i++ {
+		fmt.Fprintf(&b, "  n%d[\"%s\"]\n  n0 --- n%d\n", i, strings.Repeat("x", 80), i)
+	}
+	large := docrender.Diagram{Name: "Large", Source: b.String()}
+	small := docrender.Diagram{Name: "Small", Source: "flowchart TD\n  a --- b\n"}
+	if _, err := drawDiagrams(dir, []docrender.Diagram{large, small}, view.FormMermaid); err != nil {
+		t.Fatalf("drawDiagrams: %v", err)
+	}
+	args, err := os.ReadFile(log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, diagram := range []docrender.Diagram{large, small} {
+		name := fmt.Sprintf("diagram-%d.json", i+1)
+		if !strings.Contains(string(args), "--configFile "+name) {
+			t.Fatalf("mmdc was not handed %s:\n%s", name, args)
+		}
+		raw, err := os.ReadFile(filepath.Join(dir, name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var config mermaidConfig
+		if err := json.Unmarshal(raw, &config); err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		edges := strings.Count(diagram.Source, "---")
+		if config.MaxEdges <= edges || config.MaxTextSize <= len(diagram.Source) {
+			t.Errorf("%s caps %d edges and %d characters; the chart has %d and %d", name, config.MaxEdges, config.MaxTextSize, edges, len(diagram.Source))
+		}
+		if config.HTMLLabels || config.Flowchart.HTMLLabels || config.Class.HTMLLabels {
+			t.Errorf("%s keeps HTML labels: %s", name, raw)
+		}
+	}
+	if config := configFor(small.Source); config.MaxEdges > 10 {
+		t.Errorf("a two-line chart is capped at %d edges, not sized to the chart", config.MaxEdges)
 	}
 }
 

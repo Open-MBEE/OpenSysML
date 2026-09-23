@@ -654,6 +654,24 @@ func TestMermaidLabelsAreEscaped(t *testing.T) {
 	}
 }
 
+// A state transition's label follows an unquoted colon, where Mermaid reads
+// `::` as its class marker: a qualified trigger is written with entity colons.
+func TestMermaidTransitionLabelsEscapeColons(t *testing.T) {
+	rendering := &Rendering{View: "V", Kind: KindState,
+		Roots: []*Node{{ID: "a", Kind: "state", Name: "idle"}, {ID: "b", Kind: "state", Name: "busy"}},
+		Edges: []Edge{{From: "a", To: "b", Label: "accept Signals::'Go Now'; [x : T]"}}}
+	mermaid := rendering.Mermaid()
+	want := "  a --> b : accept Signals#58;#58;'Go Now'#59; [x #58; T]\n"
+	if !strings.Contains(mermaid, want) {
+		t.Errorf("Mermaid lacks %q:\n%s", want, mermaid)
+	}
+	for _, line := range strings.Split(mermaid, "\n") {
+		if _, label, ok := strings.Cut(line, " : "); ok && strings.Contains(label, "::") {
+			t.Errorf("transition label carries a bare `::`: %q", line)
+		}
+	}
+}
+
 // nodeNames collects the names of a rendering's nodes, at every depth.
 func nodeNames(nodes []*Node) map[string]bool {
 	out := map[string]bool{}

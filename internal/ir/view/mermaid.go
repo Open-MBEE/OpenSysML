@@ -244,7 +244,7 @@ func writeStateEdge(b *strings.Builder, from, to, label string, depth int) {
 		fmt.Fprintf(b, "%s%s --> %s\n", indent, from, to)
 		return
 	}
-	fmt.Fprintf(b, "%s%s --> %s : %s\n", indent, from, to, mermaidText(label))
+	fmt.Fprintf(b, "%s%s --> %s : %s\n", indent, from, to, mermaidTransitionText(label))
 }
 
 // writeSequenceDiagram writes a sequence rendering as a Mermaid sequence
@@ -321,4 +321,11 @@ func mermaidArrow(kind EdgeKind) string {
 func mermaidText(text string) string {
 	replacer := strings.NewReplacer("#", "#35;", "\"", "#quot;", "\n", " ", "<", "#lt;", ">", "#gt;", ";", "#59;")
 	return replacer.Replace(text)
+}
+
+// mermaidTransitionText escapes a state transition's label, which follows an
+// unquoted colon: a state diagram reads `::` in it as the class marker, so a
+// qualified name in a trigger or guard is written with its colons as entities.
+func mermaidTransitionText(text string) string {
+	return strings.ReplaceAll(mermaidText(text), ":", "#58;")
 }
