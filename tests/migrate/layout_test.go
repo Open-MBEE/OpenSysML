@@ -204,3 +204,69 @@ func TestLayoutDiagramWithoutWrittenView(t *testing.T) {
 		t.Errorf("notation lays out a view never written:\n%s", r.Notation)
 	}
 }
+
+// A table diagram with a layout record keeps its Canvas and Layout annotations
+// on the view usage, next to the Document its table definition becomes: the
+// view exposes the Document, the query still reads the laid-out rows, and the
+// join counts the diagram as laid out.
+func TestLayoutOfTableDiagram(t *testing.T) {
+	data, err := os.ReadFile("testdata/xmi/tables.xmi")
+	if err != nil {
+		t.Fatal(err)
+	}
+	layout := &mtip.Export{Diagrams: []mtip.Diagram{{
+		ID:   "_diag_pumps",
+		Name: "Pump Table",
+		Type: "sysml.InstanceTable",
+		Placements: []mtip.Placement{
+			{ID: "_inst_p1", X: 0, Y: 0, Width: 400, Height: 20},
+			{ID: "_inst_p2", X: 0, Y: 20, Width: 400, Height: 20},
+			{ID: "_inst_r1", X: 0, Y: 40, Width: 400, Height: 20},
+		},
+		Unsupported: map[string]int{},
+	}}}
+	r, err := migrate.MigrateOptions("tables.xmi", data, migrate.Options{Layout: layout, LayoutSource: "tables.xml"})
+	if err != nil {
+		t.Fatalf("MigrateOptions: %v", err)
+	}
+	wantClean(t, "tables.sysml", r)
+	l := r.Report.Layout
+	if l == nil {
+		t.Fatal("no layout summary")
+	}
+	if l.Diagrams != 1 || l.DiagramsJoined != 1 || l.DiagramsUnmatched != 0 || l.PlacementsWritten != 3 {
+		t.Errorf("layout summary: %+v", l)
+	}
+	notation := string(r.Notation)
+	wantInOrder(t, "laid-out table view", notation,
+		"view 'Pump Table' {",
+		"expose p1;", "expose p2;", "expose r1;",
+		"expose 'Pump Table Document';",
+		`@DiagramLayout::Canvas { unit = "px"; width = 400; height = 60; }`,
+		"metadata DiagramLayout::Layout about p1 { x = 0; y = 0; width = 400; height = 20; }",
+		"metadata DiagramLayout::Layout about p2 { x = 0; y = 20; width = 400; height = 20; }",
+		"metadata DiagramLayout::Layout about r1 { x = 0; y = 40; width = 400; height = 20; }",
+		"render Views::asElementTable;",
+		"calc def 'Pump Table Rows' :> DocumentQueries::Query {",
+		"part def 'Pump Table Document' :> DocumentQueries::Document {")
+
+	plain, err := migrate.Migrate("tables.xmi", data)
+	if err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+	strip := func(s string) string {
+		var kept []string
+		for _, line := range strings.Split(s, "\n") {
+			if !strings.Contains(line, "DiagramLayout::") {
+				kept = append(kept, line)
+			}
+		}
+		return strings.Join(kept, "\n")
+	}
+	if strip(notation) != string(plain.Notation) {
+		t.Errorf("the layout changed more than the annotations:\n%s", notation)
+	}
+	s := session(t, r)
+	wantInOrder(t, "laid-out Pump Table rows", rows(t, s, "Plant::Inventory::'Pump Table Rows'"),
+		"returned 5 rows", "Plant::Inventory::r1", "Plant::Inventory::p1", "Plant::Inventory::p2", "Plant::Spares::s1", "Plant::Spares::s2")
+}
