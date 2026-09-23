@@ -33,14 +33,15 @@ func ParseIDForm(s string) (IDForm, bool) {
 	return IDQualifiedName, false
 }
 
-// pkgFor returns the uuid namespace a document's root package roots the uuid
-// id form under, one per root of a multi-root document.
-func (f *identityFacts) pkgFor(root string) string {
-	if pkg, ok := f.pkg[root]; ok {
+// pkgFor returns the uuid namespace the root element IRI roots the uuid id
+// form under — a scoped IRI where the document carries more than one scope,
+// so same-named roots of different scopes derive different namespaces.
+func (f *identityFacts) pkgFor(rootIRI string) string {
+	if pkg, ok := f.pkg[rootIRI]; ok {
 		return pkg
 	}
-	pkg := identity.NamespaceOf(rdf.Element + rdf.EncodeElementID(root))
-	f.pkg[root] = pkg
+	pkg := identity.NamespaceOf(rootIRI)
+	f.pkg[rootIRI] = pkg
 	return pkg
 }
 

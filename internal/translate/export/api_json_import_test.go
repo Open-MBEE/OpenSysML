@@ -377,3 +377,61 @@ func TestToolkitRefWithQuotedSegmentDecodes(t *testing.T) {
 		t.Fatalf("the quoted-segment reference did not decode as written:\n%s", out)
 	}
 }
+
+// TestUUIDScopedRootsDeriveScopedNamespaces checks the uuid derivation keys
+// each root's package namespace on its scoped element IRI, so two roots of
+// one name in two project scopes derive different namespaces and IRIs.
+func TestUUIDScopedRootsDeriveScopedNamespaces(t *testing.T) {
+	f := &identityFacts{
+		form:      IDUUID,
+		qualified: true,
+		pkg:       map[string]string{},
+		pkgOf:     map[string]string{},
+		localOf:   map[string]string{},
+	}
+	subject := func(project string) rdf.Term {
+		return f.subjectOf(elementIdentity{
+			source: identity.SourceDerived,
+			scope:  &identity.Scope{Org: "acme", ProjectID: project},
+			root:   "P",
+		}, "P::x")
+	}
+	a, b := subject("proj-1"), subject("proj-2")
+	if a == b {
+		t.Fatalf("two scopes' members derived one IRI %s", a.Value)
+	}
+	for i, subject := range []rdf.Term{a, b} {
+		if want := fmt.Sprintf("urn:sysmlv2:element:acme.proj-%d:", i+1); !strings.HasPrefix(subject.Value, want) {
+			t.Errorf("the uuid IRI %s does not carry the scope qualifier %q", subject.Value, want)
+		}
+	}
+}
+
+// TestUUIDMixedScopeCarriesQualifier checks a multi-scope document under the
+// uuid id form writes each element's uuid IRI qualified by its project scope.
+func TestUUIDMixedScopeCarriesQualifier(t *testing.T) {
+	src := `package P {
+	@IdentityMetadata::ProjectRef { projectId = "proj-1"; org = "acme"; }
+	part def A;
+}
+package Q {
+	@IdentityMetadata::ProjectRef { projectId = "proj-2"; org = "acme"; }
+	part def B;
+}`
+	file := source.New("m.sysml", []byte(src))
+	p := parser.New(file)
+	root := p.ParseFile()
+	if len(p.Diagnostics) != 0 {
+		t.Fatalf("the fixture does not parse: %v", p.Diagnostics)
+	}
+	graph, err := ToRDFWith(file, root, IDUUID)
+	if err != nil {
+		t.Fatalf("ToRDFWith: %v", err)
+	}
+	text := string(rdf.WriteTurtle(graph))
+	for _, qualifier := range []string{"acme.proj-1:", "acme.proj-2:"} {
+		if !strings.Contains(text, qualifier) {
+			t.Fatalf("no element IRI carries the scope qualifier %q:\n%s", qualifier, text)
+		}
+	}
+}

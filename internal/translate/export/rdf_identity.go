@@ -228,6 +228,17 @@ func (f *identityFacts) subjectForNode(node ast.Node, fqn string) rdf.Term {
 	return f.subjectOf(el, fqn)
 }
 
+// rootIRIOf returns the root package's element IRI as the qualified form
+// spells it, so the uuid namespace derivation keys on (scope, root), not the
+// root's name alone.
+func (f *identityFacts) rootIRIOf(el elementIdentity, root string) string {
+	id := rdf.EncodeElementID(root)
+	if f.qualified && el.scope != nil {
+		return rdf.ScopedElementIRIForID(rdf.ScopeQualifier(el.scope.Org, el.scope.ProjectID), id).Value
+	}
+	return rdf.ElementIRIForID(id).Value
+}
+
 // subjectOf builds the IRI of one identity; a derived id is re-encoded from
 // the encoder's name, which positions an unnamed element the table cannot.
 func (f *identityFacts) subjectOf(el elementIdentity, fqn string) rdf.Term {
@@ -246,10 +257,16 @@ func (f *identityFacts) subjectOf(el elementIdentity, fqn string) rdf.Term {
 			if root == "" {
 				root = rootOf(fqn)
 			}
-			pkg := f.pkgFor(root)
-			out := rdf.ElementIRIForID(identity.DerivedID(pkg, id))
+			pkg := f.pkgFor(f.rootIRIOf(el, root))
+			uuid := identity.DerivedID(pkg, id)
 			if fqn == root {
-				out = rdf.ElementIRIForID(pkg)
+				uuid = pkg
+			}
+			var out rdf.Term
+			if f.qualified && el.scope != nil {
+				out = rdf.ScopedElementIRIForID(rdf.ScopeQualifier(el.scope.Org, el.scope.ProjectID), uuid)
+			} else {
+				out = rdf.ElementIRIForID(uuid)
 			}
 			f.record(out, pkg, id)
 			return out
@@ -267,7 +284,7 @@ func (f *identityFacts) subjectOf(el elementIdentity, fqn string) rdf.Term {
 		if root == "" {
 			root = rootOf(fqn)
 		}
-		pkg = f.pkgFor(root)
+		pkg = f.pkgFor(f.rootIRIOf(el, root))
 	}
 	f.record(subject, pkg, id)
 	return subject
