@@ -233,11 +233,9 @@ func (f *identityFacts) subjectOf(el elementIdentity, fqn string) rdf.Term {
 			// The root package's own id is the package namespace itself.
 			root := rootOf(fqn)
 			pkg := f.pkgFor(root)
-			out := subject
+			out := rdf.ElementIRIForID(identity.DerivedID(pkg, id))
 			if fqn == root {
 				out = rdf.ElementIRIForID(pkg)
-			} else {
-				out = rdf.ElementIRIForID(identity.DerivedID(pkg, id))
 			}
 			f.record(out, pkg, id)
 			return out

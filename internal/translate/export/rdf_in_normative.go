@@ -230,17 +230,6 @@ func (d *decoder) parameterMember(el *element) bool {
 	return kind
 }
 
-// isParameterMembership reports whether a membership metaclass is a
-// ParameterMembership: SubjectMembership, ActorMembership and the rest.
-func isParameterMembership(metaclass string) bool {
-	switch metaclass {
-	case mParameterMembership, mSubjectMembership, mActorMembership,
-		mStakeholderMembership, mObjectiveMembership:
-		return true
-	}
-	return false
-}
-
 // verifyConjugated checks a conjugated port definition against its owner: it
 // is the `~` of the original's name, which the notation derives rather than
 // writing.
@@ -271,20 +260,26 @@ func (d *decoder) verifySubjectParameter(el *element, parent *element, subjects 
 	if !iris {
 		return nil
 	}
+	referents := false
 	for _, object := range d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pValue) {
 		for _, property := range []string{pReferent, pTargetFeature} {
 			for _, referent := range d.graph.Objects(object, rdf.SysML+property) {
+				referents = true
+				matched := false
 				for _, subject := range subjects {
-					if referent == subject {
-						return nil
-					}
+					matched = matched || referent == subject
 				}
-				return &UnsupportedError{
-					What: what,
-					Note: fmt.Sprintf("its value refers to <%s> while the satisfy head states <%s>, and writing `by` would pick one of the two", referent.Value, subjects[0].Value),
+				if !matched {
+					return &UnsupportedError{
+						What: what,
+						Note: fmt.Sprintf("its value refers to <%s> while the satisfy head states <%s>, and writing `by` would pick one of the two", referent.Value, subjects[0].Value),
+					}
 				}
 			}
 		}
+	}
+	if referents {
+		return nil
 	}
 	return &UnsupportedError{
 		What: what,
