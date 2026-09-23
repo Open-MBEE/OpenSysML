@@ -3144,7 +3144,7 @@ func (m *migration) stereotypeAnnotations(e *sysmlv1.Element) {
 func (m *migration) annotated(e *sysmlv1.Element) []*sysmlv1.Stereotype {
 	var out []*sysmlv1.Stereotype
 	for _, s := range e.Stereotypes {
-		if m.isConstraintParameterMarker(e, s) || isSimulationConfig(s) {
+		if m.isConstraintParameterMarker(e, s) || m.isPropertyKindMarker(e, s) || isSimulationConfig(s) {
 			continue
 		}
 		out = append(out, s)
@@ -3253,6 +3253,44 @@ func (m *migration) isConstraintParameterMarker(e *sysmlv1.Element, s *sysmlv1.S
 	}
 	cat, _ := m.classify(e.Parent)
 	return cat == catConstraintDef
+}
+
+// propertyKindMarkers are the tagless markers MagicDraw's SysML customization
+// applies to a UML Property, each by the kind of usage the property is written as.
+var propertyKindMarkers = map[string]string{
+	"ValueProperty":      "attribute",
+	"PartProperty":       "part",
+	"SharedProperty":     "ref",
+	"ReferenceProperty":  "ref",
+	"ConstraintProperty": "constraint",
+}
+
+// isPropertyKindMarker recognises MagicDraw's marker of a property's kind, which
+// the usage's keyword already says; a same-named stereotype from elsewhere is kept.
+func (m *migration) isPropertyKindMarker(e *sysmlv1.Element, s *sysmlv1.Stereotype) bool {
+	kind, ok := propertyKindMarkers[s.Name]
+	if !ok || len(s.Tags) > 0 || e.Type != "Property" || e.Parent == nil ||
+		!isMagicDrawCustomization(s.Namespace) {
+		return false
+	}
+	owner, _ := m.classify(e.Parent)
+	kw, prefix, _ := m.featureKeyword(e, owner)
+	if owner == catConstraintDef && kw != "constraint" {
+		// A constraint parameter's `in` says all a value, part or reference marker does.
+		return kind != "constraint"
+	}
+	return usageKind(kw, prefix) == kind
+}
+
+// usageKind is the kind of property a usage keyword and its `ref ` prefix express.
+func usageKind(kw, prefix string) string {
+	switch {
+	case prefix == "ref ", kw == "ref":
+		return "ref"
+	case kw == "item":
+		return "part"
+	}
+	return kw
 }
 
 // tagValues writes tag values, an element reference by the element's name.
