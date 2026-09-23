@@ -2056,8 +2056,8 @@ Track E of the roadmap, on its acceptance gate, and on what a user would see.
   `explore` policy already exists; it *benefits* from stage 3 (dispatch-order choice points make
   the set comparison exhaustive for the orthogonal-region tests rather than budget-bounded). No
   Track E dependency; the three terminate tests, held in a `terminate-gap` bucket until Track E
-  closed terminate, run since (*Terminate 003* and *001* pass, *002* fails on finding 9's open
-  site).
+  closed terminate, run since (*Terminate 003* and *001* passed at once, *002* once the do step
+  was drawn on the entry front; all three pass).
 - **Acceptance gate.** The harness reproduces its committed baseline deterministically; the
   `pass` bucket is not a CI gate, only its *count* is, adjudicated on every movement like the
   corpus ratchets. The tool's `-h` says in one sentence what a pass means, in the words of the
@@ -2161,8 +2161,8 @@ sites of the runtime's fixed, the pool's order and the do step drawn on the entr
    (`robustness_test.go:calc_terminate_is_rejected`). That PSSM's *Terminate 001–002* describe
    the same behavior is a coincidence of the two texts and did not make this a PSSM alignment
    item: the implementation follows §7.17.10, and *Terminate 003* passes as a consequence,
-   *Terminate 001* since item 9's region-entry order is drawn, while *002* reaches two of its
-   five admitted traces and fails on item 9's open site and item 11.
+   *Terminate 001* since item 9's region-entry order is drawn, and *002* since item 11's do
+   step on the entry front is drawn: it reaches all five admitted traces and nothing else.
 2. **Streaming flows, parallel expansion and interrupting an ongoing performance** (A8, A9,
    A10). `Flows.sysml` distinguishes `Flow` from `SuccessionFlow` and SysML v2 §7.16.1 says a
    streaming flow may be ongoing while both actions perform; the runtime applies every flow at
