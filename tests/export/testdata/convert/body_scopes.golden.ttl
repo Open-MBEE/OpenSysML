@@ -297,7 +297,7 @@ expr:Scopes__D__one_pvalue_pa0
     sysx:sourceText "{in limit; limit}" ;
     sysml:elementId "Scopes__D__one_pvalue_pa0" ;
     sysml:referent expr:Scopes__D__one_pvalue_pa0_pbody ;
-    sysml:ownedRelationship expr:Scopes__D__one_pvalue_pa0_pbody_om, expr:Scopes__D__one_pvalue_pa0_pout_om, expr:Scopes__D__one_pvalue_pa0_preferent ;
+    sysml:ownedRelationship expr:Scopes__D__one_pvalue_pa0_pbody_om, expr:Scopes__D__one_pvalue_pa0_pout_om ;
     sysml:ownedMembership expr:Scopes__D__one_pvalue_pa0_pbody_om, expr:Scopes__D__one_pvalue_pa0_pout_om ;
     sysml:ownedFeatureMembership expr:Scopes__D__one_pvalue_pa0_pbody_om, expr:Scopes__D__one_pvalue_pa0_pout_om ;
     sysml:ownedFeature expr:Scopes__D__one_pvalue_pa0_pbody, expr:Scopes__D__one_pvalue_pa0_pout ;
@@ -306,7 +306,7 @@ expr:Scopes__D__one_pvalue_pa0
     sysml:owner expr:Scopes__D__one_pvalue_pin1 ;
     sysml:owningRelationship expr:Scopes__D__one_pvalue_pa0_om ;
     sysml:owningMembership expr:Scopes__D__one_pvalue_pa0_om ;
-    json:ownedRelationship "[{\"@id\":\"Scopes__D__one_pvalue_pa0_pbody_om\"},{\"@id\":\"Scopes__D__one_pvalue_pa0_pout_om\"},{\"@id\":\"Scopes__D__one_pvalue_pa0_preferent\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Scopes__D__one_pvalue_pa0_pbody_om\"},{\"@id\":\"Scopes__D__one_pvalue_pa0_pout_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Scopes__D__one_pvalue_pa0_pbody_om\"},{\"@id\":\"Scopes__D__one_pvalue_pa0_pout_om\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Scopes__D__one_pvalue_pa0_pbody_om\"},{\"@id\":\"Scopes__D__one_pvalue_pa0_pout_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Scopes__D__one_pvalue_pa0_pbody\"},{\"@id\":\"Scopes__D__one_pvalue_pa0_pout\"}]" .
@@ -627,7 +627,7 @@ expr:Scopes__D__two_pvalue_pa0
     sysx:sourceText "{in Gauge; Gauge}" ;
     sysml:elementId "Scopes__D__two_pvalue_pa0" ;
     sysml:referent expr:Scopes__D__two_pvalue_pa0_pbody ;
-    sysml:ownedRelationship expr:Scopes__D__two_pvalue_pa0_pbody_om, expr:Scopes__D__two_pvalue_pa0_pout_om, expr:Scopes__D__two_pvalue_pa0_preferent ;
+    sysml:ownedRelationship expr:Scopes__D__two_pvalue_pa0_pbody_om, expr:Scopes__D__two_pvalue_pa0_pout_om ;
     sysml:ownedMembership expr:Scopes__D__two_pvalue_pa0_pbody_om, expr:Scopes__D__two_pvalue_pa0_pout_om ;
     sysml:ownedFeatureMembership expr:Scopes__D__two_pvalue_pa0_pbody_om, expr:Scopes__D__two_pvalue_pa0_pout_om ;
     sysml:ownedFeature expr:Scopes__D__two_pvalue_pa0_pbody, expr:Scopes__D__two_pvalue_pa0_pout ;
@@ -636,7 +636,7 @@ expr:Scopes__D__two_pvalue_pa0
     sysml:owner expr:Scopes__D__two_pvalue_pin1 ;
     sysml:owningRelationship expr:Scopes__D__two_pvalue_pa0_om ;
     sysml:owningMembership expr:Scopes__D__two_pvalue_pa0_om ;
-    json:ownedRelationship "[{\"@id\":\"Scopes__D__two_pvalue_pa0_pbody_om\"},{\"@id\":\"Scopes__D__two_pvalue_pa0_pout_om\"},{\"@id\":\"Scopes__D__two_pvalue_pa0_preferent\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Scopes__D__two_pvalue_pa0_pbody_om\"},{\"@id\":\"Scopes__D__two_pvalue_pa0_pout_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Scopes__D__two_pvalue_pa0_pbody_om\"},{\"@id\":\"Scopes__D__two_pvalue_pa0_pout_om\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Scopes__D__two_pvalue_pa0_pbody_om\"},{\"@id\":\"Scopes__D__two_pvalue_pa0_pout_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Scopes__D__two_pvalue_pa0_pbody\"},{\"@id\":\"Scopes__D__two_pvalue_pa0_pout\"}]" .
@@ -949,13 +949,6 @@ expr:Scopes__D__one_pvalue_poperand_preferent
     sysml:owner expr:Scopes__D__one_pvalue_poperand ;
     sysml:owningRelatedElement expr:Scopes__D__one_pvalue_poperand .
 
-expr:Scopes__D__one_pvalue_pa0_preferent
-    a sysml:Membership ;
-    sysml:elementId "Scopes__D__one_pvalue_pa0_preferent" ;
-    sysml:memberElement expr:Scopes__D__one_pvalue_pa0_pbody ;
-    sysml:owner expr:Scopes__D__one_pvalue_pa0 ;
-    sysml:owningRelatedElement expr:Scopes__D__one_pvalue_pa0 .
-
 expr:Scopes__D__one_pvalue_pa0_presult_preferent
     a sysml:Membership ;
     sysml:elementId "Scopes__D__one_pvalue_pa0_presult_preferent" ;
@@ -969,13 +962,6 @@ expr:Scopes__D__two_pvalue_poperand_preferent
     sysml:memberElement elmt:Scopes__D__xs ;
     sysml:owner expr:Scopes__D__two_pvalue_poperand ;
     sysml:owningRelatedElement expr:Scopes__D__two_pvalue_poperand .
-
-expr:Scopes__D__two_pvalue_pa0_preferent
-    a sysml:Membership ;
-    sysml:elementId "Scopes__D__two_pvalue_pa0_preferent" ;
-    sysml:memberElement expr:Scopes__D__two_pvalue_pa0_pbody ;
-    sysml:owner expr:Scopes__D__two_pvalue_pa0 ;
-    sysml:owningRelatedElement expr:Scopes__D__two_pvalue_pa0 .
 
 expr:Scopes__D__two_pvalue_pa0_presult_preferent
     a sysml:Membership ;

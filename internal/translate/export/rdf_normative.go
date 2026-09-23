@@ -257,6 +257,11 @@ func (e *encoder) materializeReferentMemberships(subject rdf.Term) {
 	if !ok {
 		return
 	}
+	// A body expression the node owns is already its member through the
+	// FeatureMembership that owns it, as in the pilot's XMI.
+	if owner, owned := e.graph.Object(target, rdf.SysML+pOwner); owned && owner == subject {
+		return
+	}
 	var membership rdf.Term
 	if strings.HasPrefix(subject.Value, rdf.Expression) {
 		e.graph.Prefixes[rdf.ExpressionPrefix] = rdf.Expression

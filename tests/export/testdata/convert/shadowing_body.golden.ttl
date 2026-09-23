@@ -330,7 +330,7 @@ expr:ShadowBody__Sensor__highs_pvalue_pa0
     sysx:sourceText "{ in value; value > 5 }" ;
     sysml:elementId "ShadowBody__Sensor__highs_pvalue_pa0" ;
     sysml:referent expr:ShadowBody__Sensor__highs_pvalue_pa0_pbody ;
-    sysml:ownedRelationship expr:ShadowBody__Sensor__highs_pvalue_pa0_pbody_om, expr:ShadowBody__Sensor__highs_pvalue_pa0_pout_om, expr:ShadowBody__Sensor__highs_pvalue_pa0_preferent ;
+    sysml:ownedRelationship expr:ShadowBody__Sensor__highs_pvalue_pa0_pbody_om, expr:ShadowBody__Sensor__highs_pvalue_pa0_pout_om ;
     sysml:ownedMembership expr:ShadowBody__Sensor__highs_pvalue_pa0_pbody_om, expr:ShadowBody__Sensor__highs_pvalue_pa0_pout_om ;
     sysml:ownedFeatureMembership expr:ShadowBody__Sensor__highs_pvalue_pa0_pbody_om, expr:ShadowBody__Sensor__highs_pvalue_pa0_pout_om ;
     sysml:ownedFeature expr:ShadowBody__Sensor__highs_pvalue_pa0_pbody, expr:ShadowBody__Sensor__highs_pvalue_pa0_pout ;
@@ -339,7 +339,7 @@ expr:ShadowBody__Sensor__highs_pvalue_pa0
     sysml:owner expr:ShadowBody__Sensor__highs_pvalue_pin1 ;
     sysml:owningRelationship expr:ShadowBody__Sensor__highs_pvalue_pa0_om ;
     sysml:owningMembership expr:ShadowBody__Sensor__highs_pvalue_pa0_om ;
-    json:ownedRelationship "[{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_pbody_om\"},{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_pout_om\"},{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_preferent\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_pbody_om\"},{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_pout_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_pbody_om\"},{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_pout_om\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_pbody_om\"},{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_pout_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_pbody\"},{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_pout\"}]" .
@@ -682,13 +682,6 @@ expr:ShadowBody__Sensor__highs_pvalue_poperand_preferent
     sysml:memberElement elmt:ShadowBody__Sensor__readings ;
     sysml:owner expr:ShadowBody__Sensor__highs_pvalue_poperand ;
     sysml:owningRelatedElement expr:ShadowBody__Sensor__highs_pvalue_poperand .
-
-expr:ShadowBody__Sensor__highs_pvalue_pa0_preferent
-    a sysml:Membership ;
-    sysml:elementId "ShadowBody__Sensor__highs_pvalue_pa0_preferent" ;
-    sysml:memberElement expr:ShadowBody__Sensor__highs_pvalue_pa0_pbody ;
-    sysml:owner expr:ShadowBody__Sensor__highs_pvalue_pa0 ;
-    sysml:owningRelatedElement expr:ShadowBody__Sensor__highs_pvalue_pa0 .
 
 expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0_preferent
     a sysml:Membership ;

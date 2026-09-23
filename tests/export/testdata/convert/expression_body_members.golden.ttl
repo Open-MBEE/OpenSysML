@@ -121,14 +121,14 @@ elmt:Bodies__Scaled___401
     sysml:owningRelationship elmt:Bodies__Scaled___401_om ;
     sysml:owningMembership elmt:Bodies__Scaled___401_om ;
     sysml:referent expr:Bodies__Scaled___401_pbody ;
-    sysml:ownedRelationship expr:Bodies__Scaled___401_pbody_om, expr:Bodies__Scaled___401_pout_om, elmt:Bodies__Scaled___401_referent ;
+    sysml:ownedRelationship expr:Bodies__Scaled___401_pbody_om, expr:Bodies__Scaled___401_pout_om ;
     sysml:ownedMembership expr:Bodies__Scaled___401_pbody_om, expr:Bodies__Scaled___401_pout_om ;
     sysml:ownedFeatureMembership expr:Bodies__Scaled___401_pbody_om, expr:Bodies__Scaled___401_pout_om ;
     sysml:ownedFeature expr:Bodies__Scaled___401_pbody, expr:Bodies__Scaled___401_pout ;
     sysml:parameter expr:Bodies__Scaled___401_pout ;
     sysml:result expr:Bodies__Scaled___401_pout ;
     sysx:sourceText "        { in y : Real; private attribute k : Real = 2; y * k + x }\n" ;
-    json:ownedRelationship "[{\"@id\":\"Bodies__Scaled___401_pbody_om\"},{\"@id\":\"Bodies__Scaled___401_pout_om\"},{\"@id\":\"Bodies__Scaled___401_referent\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Bodies__Scaled___401_pbody_om\"},{\"@id\":\"Bodies__Scaled___401_pout_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Bodies__Scaled___401_pbody_om\"},{\"@id\":\"Bodies__Scaled___401_pout_om\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Bodies__Scaled___401_pbody_om\"},{\"@id\":\"Bodies__Scaled___401_pout_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Bodies__Scaled___401_pbody\"},{\"@id\":\"Bodies__Scaled___401_pout\"}]" .
@@ -611,13 +611,6 @@ elmt:Bodies__Scaled__x_ft0
     sysml:owner elmt:Bodies__Scaled__x ;
     sysml:relatedElement elmt:Bodies__Scaled__x, elmt:Bodies__Real ;
     json:relatedElement "[{\"@id\":\"Bodies__Scaled__x\"},{\"@id\":\"Bodies__Real\"}]" .
-
-elmt:Bodies__Scaled___401_referent
-    a sysml:Membership ;
-    sysml:elementId "Bodies__Scaled___401_referent" ;
-    sysml:memberElement expr:Bodies__Scaled___401_pbody ;
-    sysml:owner elmt:Bodies__Scaled___401 ;
-    sysml:owningRelatedElement elmt:Bodies__Scaled___401 .
 
 expr:Bodies__Scaled___401_pin0_ft0
     a sysml:FeatureTyping ;

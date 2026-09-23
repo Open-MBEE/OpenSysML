@@ -121,14 +121,14 @@ elmt:Ordered__Mixed___401
     sysml:owningRelationship elmt:Ordered__Mixed___401_om ;
     sysml:owningMembership elmt:Ordered__Mixed___401_om ;
     sysml:referent expr:Ordered__Mixed___401_pbody ;
-    sysml:ownedRelationship expr:Ordered__Mixed___401_pbody_om, expr:Ordered__Mixed___401_pout_om, elmt:Ordered__Mixed___401_referent ;
+    sysml:ownedRelationship expr:Ordered__Mixed___401_pbody_om, expr:Ordered__Mixed___401_pout_om ;
     sysml:ownedMembership expr:Ordered__Mixed___401_pbody_om, expr:Ordered__Mixed___401_pout_om ;
     sysml:ownedFeatureMembership expr:Ordered__Mixed___401_pbody_om, expr:Ordered__Mixed___401_pout_om ;
     sysml:ownedFeature expr:Ordered__Mixed___401_pbody, expr:Ordered__Mixed___401_pout ;
     sysml:parameter expr:Ordered__Mixed___401_pout ;
     sysml:result expr:Ordered__Mixed___401_pout ;
     sysx:sourceText "        { in a : Real; private attribute k : Real = 1; in b : Real; a + b + k * x }\n" ;
-    json:ownedRelationship "[{\"@id\":\"Ordered__Mixed___401_pbody_om\"},{\"@id\":\"Ordered__Mixed___401_pout_om\"},{\"@id\":\"Ordered__Mixed___401_referent\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Ordered__Mixed___401_pbody_om\"},{\"@id\":\"Ordered__Mixed___401_pout_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Ordered__Mixed___401_pbody_om\"},{\"@id\":\"Ordered__Mixed___401_pout_om\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Ordered__Mixed___401_pbody_om\"},{\"@id\":\"Ordered__Mixed___401_pout_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Ordered__Mixed___401_pbody\"},{\"@id\":\"Ordered__Mixed___401_pout\"}]" .
@@ -809,14 +809,14 @@ elmt:Ordered__Declares___400
     sysml:owningRelationship elmt:Ordered__Declares___400_om ;
     sysml:owningMembership elmt:Ordered__Declares___400_om ;
     sysml:referent expr:Ordered__Declares___400_pbody ;
-    sysml:ownedRelationship expr:Ordered__Declares___400_pbody_om, expr:Ordered__Declares___400_pout_om, elmt:Ordered__Declares___400_referent ;
+    sysml:ownedRelationship expr:Ordered__Declares___400_pbody_om, expr:Ordered__Declares___400_pout_om ;
     sysml:ownedMembership expr:Ordered__Declares___400_pbody_om, expr:Ordered__Declares___400_pout_om ;
     sysml:ownedFeatureMembership expr:Ordered__Declares___400_pbody_om, expr:Ordered__Declares___400_pout_om ;
     sysml:ownedFeature expr:Ordered__Declares___400_pbody, expr:Ordered__Declares___400_pout ;
     sysml:parameter expr:Ordered__Declares___400_pout ;
     sysml:result expr:Ordered__Declares___400_pout ;
     sysx:sourceText "        { private attribute k : Real = 1; }\n" ;
-    json:ownedRelationship "[{\"@id\":\"Ordered__Declares___400_pbody_om\"},{\"@id\":\"Ordered__Declares___400_pout_om\"},{\"@id\":\"Ordered__Declares___400_referent\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Ordered__Declares___400_pbody_om\"},{\"@id\":\"Ordered__Declares___400_pout_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Ordered__Declares___400_pbody_om\"},{\"@id\":\"Ordered__Declares___400_pout_om\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Ordered__Declares___400_pbody_om\"},{\"@id\":\"Ordered__Declares___400_pout_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Ordered__Declares___400_pbody\"},{\"@id\":\"Ordered__Declares___400_pout\"}]" .
@@ -926,13 +926,6 @@ elmt:Ordered__Mixed__x_ft0
     sysml:relatedElement elmt:Ordered__Mixed__x, elmt:Ordered__Real ;
     json:relatedElement "[{\"@id\":\"Ordered__Mixed__x\"},{\"@id\":\"Ordered__Real\"}]" .
 
-elmt:Ordered__Mixed___401_referent
-    a sysml:Membership ;
-    sysml:elementId "Ordered__Mixed___401_referent" ;
-    sysml:memberElement expr:Ordered__Mixed___401_pbody ;
-    sysml:owner elmt:Ordered__Mixed___401 ;
-    sysml:owningRelatedElement elmt:Ordered__Mixed___401 .
-
 expr:Ordered__Mixed___401_pin0_ft0
     a sysml:FeatureTyping ;
     sysml:elementId "Ordered__Mixed___401_pin0_ft0" ;
@@ -1005,13 +998,6 @@ expr:Ordered__Mixed___401_presult_pa1_pa1_preferent
     sysml:memberElement elmt:Ordered__Mixed__x ;
     sysml:owner expr:Ordered__Mixed___401_presult_pa1_pa1 ;
     sysml:owningRelatedElement expr:Ordered__Mixed___401_presult_pa1_pa1 .
-
-elmt:Ordered__Declares___400_referent
-    a sysml:Membership ;
-    sysml:elementId "Ordered__Declares___400_referent" ;
-    sysml:memberElement expr:Ordered__Declares___400_pbody ;
-    sysml:owner elmt:Ordered__Declares___400 ;
-    sysml:owningRelatedElement elmt:Ordered__Declares___400 .
 
 expr:Ordered__Declares___400_pm0_ft0
     a sysml:FeatureTyping ;
