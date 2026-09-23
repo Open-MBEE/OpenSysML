@@ -48,7 +48,7 @@ func TestBehavioralModelsComeBackByteIdentical(t *testing.T) {
 // is rather than leaving the reader to parse the notation back out of a literal.
 func TestActionNodeMetaclasses(t *testing.T) {
 	for _, want := range []string{
-		"sysx:InitialNode", "sysx:FinalNode",
+		"sysml:Membership", "sysx:declaredKeyword \"first\"", "sysx:declaredKeyword \"done\"",
 		"sysml:ForkNode", "sysml:JoinNode", "sysml:MergeNode", "sysml:DecisionNode",
 		"sysml:AssignmentActionUsage", "sysml:SendActionUsage",
 		"sysml:TerminateActionUsage", "sysml:SuccessionAsUsage",
@@ -66,7 +66,7 @@ func TestLoopAndConditionalMetaclasses(t *testing.T) {
 	turtle := toTurtle(t, filepath.Join("testdata", "convert", "loops_conditionals.sysml"))
 	for _, want := range []string{
 		"sysml:WhileLoopActionUsage", "sysml:ForLoopActionUsage", "sysml:IfActionUsage",
-		"sysx:IfBranch", "sysx:whileCondition", "sysx:untilCondition",
+		"sysx:branchKind \"then\"", "sysml:ParameterMembership", "sysx:whileCondition", "sysx:untilCondition",
 		"sysx:loopVariable", "sysx:collection",
 	} {
 		if !strings.Contains(turtle, want) {
@@ -317,9 +317,12 @@ func TestThenAfterFirstSequencesFromTheMemberTheStartNames(t *testing.T) {
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
-	const start = "sysml:sourceFeature elmt:P__drive___400"
-	if n := strings.Count(string(turtle), start); n != 2 {
-		t.Fatalf("the initial node and the then after it should both state %s, found %d:\n%s", start, n, turtle)
+	// `first start;` is a Membership of the start; the `then` after it
+	// sequences from that same member.
+	for _, want := range []string{"sysx:declaredKeyword \"first\" ;\n    sysml:memberElement elmt:P__drive___400", "sysml:sourceFeature elmt:P__drive___400"} {
+		if n := strings.Count(string(turtle), want); n != 1 {
+			t.Fatalf("the initial node and the then after it should state %s once, found %d:\n%s", want, n, turtle)
+		}
 	}
 	back, err := convert.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
@@ -378,10 +381,10 @@ func TestFirstThenLinksItsSourceLikeASuccession(t *testing.T) {
 	if !strings.Contains(string(turtle), "sysml:referencedFeature elmt:P__A__a") {
 		t.Fatalf("`succession first a then b` should link a through its end:\n%s", turtle)
 	}
-	if !strings.Contains(string(turtle), "sysml:sourceFeature <urn:sysmlv2:element:9a0d2905-0f9c-5bb4-af74-9780d6db1817>") {
+	if !strings.Contains(string(turtle), "sysml:memberElement <urn:sysmlv2:element:9a0d2905-0f9c-5bb4-af74-9780d6db1817>") {
 		t.Fatalf("`first start;` should link the start the action inherits:\n%s", turtle)
 	}
-	if strings.Contains(string(turtle), `sysml:sourceFeature "start"`) {
+	if strings.Contains(string(turtle), `sysml:memberElement "start"`) {
 		t.Fatalf("`first start;` should not carry its start as text:\n%s", turtle)
 	}
 	back, err := convert.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)

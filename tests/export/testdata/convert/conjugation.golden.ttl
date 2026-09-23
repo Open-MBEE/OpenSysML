@@ -188,7 +188,7 @@ elmt:Conjugation__Ground__spacePort
     sysml:owningRelationship elmt:Conjugation__Ground__spacePort_om ;
     sysml:owningMembership elmt:Conjugation__Ground__spacePort_om ;
     sysml:declaredName "spacePort" ;
-    sysml:isConjugated "true"^^xsd:boolean ;
+    sysx:conjugatedTyping "true"^^xsd:boolean ;
     sysml:type elmt:Conjugation__CommunicationPort ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Conjugation__Ground__spacePort_ft0 ;
@@ -283,7 +283,7 @@ elmt:Conjugation__Link__b
     sysml:owningMembership elmt:Conjugation__Link__b_om ;
     sysml:declaredName "b" ;
     sysml:isEnd "true"^^xsd:boolean ;
-    sysml:isConjugated "true"^^xsd:boolean ;
+    sysx:conjugatedTyping "true"^^xsd:boolean ;
     sysml:type elmt:Conjugation__CommunicationPort ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Conjugation__Link__b_ft0 ;
@@ -319,19 +319,21 @@ elmt:Conjugation__Ground__groundPort_ft0
     json:relatedElement "[{\"@id\":\"Conjugation__Ground__groundPort\"},{\"@id\":\"Conjugation__CommunicationPort\"}]" .
 
 elmt:Conjugation__Ground__spacePort_ft0
-    a sysml:FeatureTyping ;
+    a sysml:ConjugatedPortTyping ;
     sysml:elementId "Conjugation__Ground__spacePort_ft0" ;
     sysml:typedFeature elmt:Conjugation__Ground__spacePort ;
     sysml:owningFeature elmt:Conjugation__Ground__spacePort ;
     sysml:specific elmt:Conjugation__Ground__spacePort ;
     sysml:source elmt:Conjugation__Ground__spacePort ;
     sysml:owningRelatedElement elmt:Conjugation__Ground__spacePort ;
-    sysml:type elmt:Conjugation__CommunicationPort ;
-    sysml:general elmt:Conjugation__CommunicationPort ;
-    sysml:target elmt:Conjugation__CommunicationPort ;
+    sysml:conjugatedPortDefinition elmt:Conjugation__CommunicationPort_conjugated ;
+    sysml:type elmt:Conjugation__CommunicationPort_conjugated ;
+    sysml:general elmt:Conjugation__CommunicationPort_conjugated ;
+    sysml:target elmt:Conjugation__CommunicationPort_conjugated ;
     sysml:owner elmt:Conjugation__Ground__spacePort ;
-    sysml:relatedElement elmt:Conjugation__Ground__spacePort, elmt:Conjugation__CommunicationPort ;
-    json:relatedElement "[{\"@id\":\"Conjugation__Ground__spacePort\"},{\"@id\":\"Conjugation__CommunicationPort\"}]" .
+    sysml:relatedElement elmt:Conjugation__Ground__spacePort, elmt:Conjugation__CommunicationPort_conjugated ;
+    sysml:portDefinition elmt:Conjugation__CommunicationPort ;
+    json:relatedElement "[{\"@id\":\"Conjugation__Ground__spacePort\"},{\"@id\":\"Conjugation__CommunicationPort_conjugated\"}]" .
 
 elmt:Conjugation__Link__a_ft0
     a sysml:FeatureTyping ;
@@ -349,16 +351,18 @@ elmt:Conjugation__Link__a_ft0
     json:relatedElement "[{\"@id\":\"Conjugation__Link__a\"},{\"@id\":\"Conjugation__CommunicationPort\"}]" .
 
 elmt:Conjugation__Link__b_ft0
-    a sysml:FeatureTyping ;
+    a sysml:ConjugatedPortTyping ;
     sysml:elementId "Conjugation__Link__b_ft0" ;
     sysml:typedFeature elmt:Conjugation__Link__b ;
     sysml:owningFeature elmt:Conjugation__Link__b ;
     sysml:specific elmt:Conjugation__Link__b ;
     sysml:source elmt:Conjugation__Link__b ;
     sysml:owningRelatedElement elmt:Conjugation__Link__b ;
-    sysml:type elmt:Conjugation__CommunicationPort ;
-    sysml:general elmt:Conjugation__CommunicationPort ;
-    sysml:target elmt:Conjugation__CommunicationPort ;
+    sysml:conjugatedPortDefinition elmt:Conjugation__CommunicationPort_conjugated ;
+    sysml:type elmt:Conjugation__CommunicationPort_conjugated ;
+    sysml:general elmt:Conjugation__CommunicationPort_conjugated ;
+    sysml:target elmt:Conjugation__CommunicationPort_conjugated ;
     sysml:owner elmt:Conjugation__Link__b ;
-    sysml:relatedElement elmt:Conjugation__Link__b, elmt:Conjugation__CommunicationPort ;
-    json:relatedElement "[{\"@id\":\"Conjugation__Link__b\"},{\"@id\":\"Conjugation__CommunicationPort\"}]" .
+    sysml:relatedElement elmt:Conjugation__Link__b, elmt:Conjugation__CommunicationPort_conjugated ;
+    sysml:portDefinition elmt:Conjugation__CommunicationPort ;
+    json:relatedElement "[{\"@id\":\"Conjugation__Link__b\"},{\"@id\":\"Conjugation__CommunicationPort_conjugated\"}]" .

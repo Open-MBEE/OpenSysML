@@ -279,15 +279,15 @@ elmt:R90
     sysx:sourceLanguage "sysml" ;
     sysml:declaredName "R90" ;
     sysx:hasBody "true"^^xsd:boolean ;
-    sysml:ownedRelationship elmt:R90___400, elmt:R90__Ledger_om, elmt:R90__A_om, elmt:R90__B_om, elmt:R90__G1_om, elmt:R90__G2_om, elmt:R90__H_om, elmt:R90__Run_om, elmt:R90__Done_om ;
+    sysml:ownedRelationship elmt:R90___400, elmt:R90__Ledger, elmt:R90__A_om, elmt:R90__B_om, elmt:R90__G1_om, elmt:R90__G2_om, elmt:R90__H_om, elmt:R90__Run_om, elmt:R90__Done_om ;
     sysml:ownedImport elmt:R90___400 ;
-    sysml:ownedMember elmt:R90__Ledger, elmt:R90__A, elmt:R90__B, elmt:R90__G1, elmt:R90__G2, elmt:R90__H, elmt:R90__Run, elmt:R90__Done ;
-    sysml:ownedMembership elmt:R90__Ledger_om, elmt:R90__A_om, elmt:R90__B_om, elmt:R90__G1_om, elmt:R90__G2_om, elmt:R90__H_om, elmt:R90__Run_om, elmt:R90__Done_om ;
+    sysml:ownedMembership elmt:R90__Ledger, elmt:R90__A_om, elmt:R90__B_om, elmt:R90__G1_om, elmt:R90__G2_om, elmt:R90__H_om, elmt:R90__Run_om, elmt:R90__Done_om ;
+    sysml:ownedMember elmt:R90__A, elmt:R90__B, elmt:R90__G1, elmt:R90__G2, elmt:R90__H, elmt:R90__Run, elmt:R90__Done ;
     sysx:sourceText "package R90 {\n" ;
     sysx:sourceTail "}\n" ;
-    json:ownedRelationship "[{\"@id\":\"R90___400\"},{\"@id\":\"R90__Ledger_om\"},{\"@id\":\"R90__A_om\"},{\"@id\":\"R90__B_om\"},{\"@id\":\"R90__G1_om\"},{\"@id\":\"R90__G2_om\"},{\"@id\":\"R90__H_om\"},{\"@id\":\"R90__Run_om\"},{\"@id\":\"R90__Done_om\"}]" ;
-    json:ownedMember "[{\"@id\":\"R90__Ledger\"},{\"@id\":\"R90__A\"},{\"@id\":\"R90__B\"},{\"@id\":\"R90__G1\"},{\"@id\":\"R90__G2\"},{\"@id\":\"R90__H\"},{\"@id\":\"R90__Run\"},{\"@id\":\"R90__Done\"}]" ;
-    json:ownedMembership "[{\"@id\":\"R90__Ledger_om\"},{\"@id\":\"R90__A_om\"},{\"@id\":\"R90__B_om\"},{\"@id\":\"R90__G1_om\"},{\"@id\":\"R90__G2_om\"},{\"@id\":\"R90__H_om\"},{\"@id\":\"R90__Run_om\"},{\"@id\":\"R90__Done_om\"}]" .
+    json:ownedRelationship "[{\"@id\":\"R90___400\"},{\"@id\":\"R90__Ledger\"},{\"@id\":\"R90__A_om\"},{\"@id\":\"R90__B_om\"},{\"@id\":\"R90__G1_om\"},{\"@id\":\"R90__G2_om\"},{\"@id\":\"R90__H_om\"},{\"@id\":\"R90__Run_om\"},{\"@id\":\"R90__Done_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"R90__Ledger\"},{\"@id\":\"R90__A_om\"},{\"@id\":\"R90__B_om\"},{\"@id\":\"R90__G1_om\"},{\"@id\":\"R90__G2_om\"},{\"@id\":\"R90__H_om\"},{\"@id\":\"R90__Run_om\"},{\"@id\":\"R90__Done_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"R90__A\"},{\"@id\":\"R90__B\"},{\"@id\":\"R90__G1\"},{\"@id\":\"R90__G2\"},{\"@id\":\"R90__H\"},{\"@id\":\"R90__Run\"},{\"@id\":\"R90__Done\"}]" .
 
 elmt:R90___400
     a sysml:NamespaceImport ;
@@ -304,28 +304,19 @@ elmt:R90___400
     sysx:sourceText "    public import OtherPkg::*;\n" .
 
 elmt:R90__Ledger
-    a sysx:Alias ;
+    a sysml:Membership ;
     sysml:qualifiedName "R90::Ledger" ;
     sysml:elementId "R90__Ledger" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:R90 ;
     sysml:owner elmt:R90 ;
-    sysml:owningRelationship elmt:R90__Ledger_om ;
-    sysml:owningMembership elmt:R90__Ledger_om ;
-    sysml:declaredName "Ledger" ;
-    sysml:aliasedElement elmt:OtherPkg__BudgetLedger ;
+    sysml:owningRelatedElement elmt:R90 ;
+    sysml:membershipOwningNamespace elmt:R90 ;
+    sysx:declaredKeyword "alias" ;
+    sysml:memberName "Ledger" ;
+    sysml:memberElement elmt:OtherPkg__BudgetLedger ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "    alias Ledger for OtherPkg::BudgetLedger;\n" .
-
-elmt:R90__Ledger_om
-    a sysml:OwningMembership ;
-    sysml:elementId "R90__Ledger_om" ;
-    sysml:owner elmt:R90 ;
-    sysml:memberElement elmt:R90__Ledger ;
-    sysml:ownedMemberElement elmt:R90__Ledger ;
-    sysml:ownedRelatedElement elmt:R90__Ledger ;
-    sysml:owningRelatedElement elmt:R90 ;
-    sysml:membershipOwningNamespace elmt:R90 .
 
 elmt:R90__A
     a sysml:PartDefinition ;
@@ -427,10 +418,36 @@ expr:R90__A__t_pvalue
     sysx:sourceText "Tempo::operative" ;
     sysml:elementId "R90__A__t_pvalue" ;
     sysml:referent elmt:OtherPkg__Tempo__operative ;
+    sysml:ownedRelationship expr:R90__A__t_pvalue_pout_om, expr:R90__A__t_pvalue_preferent ;
+    sysml:ownedMembership expr:R90__A__t_pvalue_pout_om ;
+    sysml:ownedFeatureMembership expr:R90__A__t_pvalue_pout_om ;
+    sysml:ownedFeature expr:R90__A__t_pvalue_pout ;
+    sysml:parameter expr:R90__A__t_pvalue_pout ;
+    sysml:result expr:R90__A__t_pvalue_pout ;
     sysml:owner elmt:R90__A__t ;
     sysml:owningRelationship expr:R90__A__t_pvalue_om ;
     sysml:owningMembership expr:R90__A__t_pvalue_om ;
-    sysml:ownedRelationship expr:R90__A__t_pvalue_preferent .
+    json:ownedRelationship "[{\"@id\":\"R90__A__t_pvalue_pout_om\"},{\"@id\":\"R90__A__t_pvalue_preferent\"}]" .
+
+expr:R90__A__t_pvalue_pout
+    a sysml:Feature ;
+    sysml:elementId "R90__A__t_pvalue_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:R90__A__t_pvalue ;
+    sysml:owningRelationship expr:R90__A__t_pvalue_pout_om ;
+    sysml:owningMembership expr:R90__A__t_pvalue_pout_om .
+
+expr:R90__A__t_pvalue_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "R90__A__t_pvalue_pout_om" ;
+    sysml:owner expr:R90__A__t_pvalue ;
+    sysml:memberElement expr:R90__A__t_pvalue_pout ;
+    sysml:ownedMemberElement expr:R90__A__t_pvalue_pout ;
+    sysml:ownedRelatedElement expr:R90__A__t_pvalue_pout ;
+    sysml:owningRelatedElement expr:R90__A__t_pvalue ;
+    sysml:membershipOwningNamespace expr:R90__A__t_pvalue ;
+    sysml:ownedMemberFeature expr:R90__A__t_pvalue_pout ;
+    sysml:ownedMemberParameter expr:R90__A__t_pvalue_pout .
 
 expr:R90__A__t_pvalue_om
     a sysml:FeatureValue ;
@@ -625,27 +642,58 @@ expr:R90__A__s_pvalue
     sysx:sourceText "w.size" ;
     sysml:elementId "R90__A__s_pvalue" ;
     sysml:argument expr:R90__A__s_pvalue_pa0 ;
-    sysml:ownedRelationship expr:R90__A__s_pvalue_pin0_om, expr:R90__A__s_pvalue_ptargetFeature ;
-    sysml:ownedMembership expr:R90__A__s_pvalue_pin0_om ;
-    sysml:ownedFeatureMembership expr:R90__A__s_pvalue_pin0_om ;
-    sysml:ownedFeature expr:R90__A__s_pvalue_pin0 ;
-    sysml:parameter expr:R90__A__s_pvalue_pin0 ;
+    sysml:ownedRelationship expr:R90__A__s_pvalue_pin0_om, expr:R90__A__s_pvalue_pout_om, expr:R90__A__s_pvalue_ptargetFeature ;
+    sysml:ownedMembership expr:R90__A__s_pvalue_pin0_om, expr:R90__A__s_pvalue_pout_om ;
+    sysml:ownedFeatureMembership expr:R90__A__s_pvalue_pin0_om, expr:R90__A__s_pvalue_pout_om ;
+    sysml:ownedFeature expr:R90__A__s_pvalue_pin0, expr:R90__A__s_pvalue_pout ;
+    sysml:parameter expr:R90__A__s_pvalue_pin0, expr:R90__A__s_pvalue_pout ;
     sysml:input expr:R90__A__s_pvalue_pin0 ;
     sysml:targetFeature elmt:OtherPkg__Inner__Wheel__size ;
+    sysml:result expr:R90__A__s_pvalue_pout ;
     sysml:owner elmt:R90__A__s ;
     sysml:owningRelationship expr:R90__A__s_pvalue_om ;
     sysml:owningMembership expr:R90__A__s_pvalue_om ;
-    json:ownedRelationship "[{\"@id\":\"R90__A__s_pvalue_pin0_om\"},{\"@id\":\"R90__A__s_pvalue_ptargetFeature\"}]" .
+    json:ownedRelationship "[{\"@id\":\"R90__A__s_pvalue_pin0_om\"},{\"@id\":\"R90__A__s_pvalue_pout_om\"},{\"@id\":\"R90__A__s_pvalue_ptargetFeature\"}]" ;
+    json:ownedMembership "[{\"@id\":\"R90__A__s_pvalue_pin0_om\"},{\"@id\":\"R90__A__s_pvalue_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"R90__A__s_pvalue_pin0_om\"},{\"@id\":\"R90__A__s_pvalue_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"R90__A__s_pvalue_pin0\"},{\"@id\":\"R90__A__s_pvalue_pout\"}]" ;
+    json:parameter "[{\"@id\":\"R90__A__s_pvalue_pin0\"},{\"@id\":\"R90__A__s_pvalue_pout\"}]" .
 
 expr:R90__A__s_pvalue_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "w" ;
     sysml:elementId "R90__A__s_pvalue_pa0" ;
     sysml:referent elmt:R90__A__w ;
+    sysml:ownedRelationship expr:R90__A__s_pvalue_pa0_pout_om, expr:R90__A__s_pvalue_pa0_preferent ;
+    sysml:ownedMembership expr:R90__A__s_pvalue_pa0_pout_om ;
+    sysml:ownedFeatureMembership expr:R90__A__s_pvalue_pa0_pout_om ;
+    sysml:ownedFeature expr:R90__A__s_pvalue_pa0_pout ;
+    sysml:parameter expr:R90__A__s_pvalue_pa0_pout ;
+    sysml:result expr:R90__A__s_pvalue_pa0_pout ;
     sysml:owner expr:R90__A__s_pvalue_pin0 ;
     sysml:owningRelationship expr:R90__A__s_pvalue_pa0_om ;
     sysml:owningMembership expr:R90__A__s_pvalue_pa0_om ;
-    sysml:ownedRelationship expr:R90__A__s_pvalue_pa0_preferent .
+    json:ownedRelationship "[{\"@id\":\"R90__A__s_pvalue_pa0_pout_om\"},{\"@id\":\"R90__A__s_pvalue_pa0_preferent\"}]" .
+
+expr:R90__A__s_pvalue_pa0_pout
+    a sysml:Feature ;
+    sysml:elementId "R90__A__s_pvalue_pa0_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:R90__A__s_pvalue_pa0 ;
+    sysml:owningRelationship expr:R90__A__s_pvalue_pa0_pout_om ;
+    sysml:owningMembership expr:R90__A__s_pvalue_pa0_pout_om .
+
+expr:R90__A__s_pvalue_pa0_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "R90__A__s_pvalue_pa0_pout_om" ;
+    sysml:owner expr:R90__A__s_pvalue_pa0 ;
+    sysml:memberElement expr:R90__A__s_pvalue_pa0_pout ;
+    sysml:ownedMemberElement expr:R90__A__s_pvalue_pa0_pout ;
+    sysml:ownedRelatedElement expr:R90__A__s_pvalue_pa0_pout ;
+    sysml:owningRelatedElement expr:R90__A__s_pvalue_pa0 ;
+    sysml:membershipOwningNamespace expr:R90__A__s_pvalue_pa0 ;
+    sysml:ownedMemberFeature expr:R90__A__s_pvalue_pa0_pout ;
+    sysml:ownedMemberParameter expr:R90__A__s_pvalue_pa0_pout .
 
 expr:R90__A__s_pvalue_pin0
     a sysml:Feature ;
@@ -680,6 +728,26 @@ expr:R90__A__s_pvalue_pa0_om
     sysml:membershipOwningNamespace expr:R90__A__s_pvalue_pin0 ;
     sysml:featureWithValue expr:R90__A__s_pvalue_pin0 ;
     sysml:value expr:R90__A__s_pvalue_pa0 .
+
+expr:R90__A__s_pvalue_pout
+    a sysml:Feature ;
+    sysml:elementId "R90__A__s_pvalue_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:R90__A__s_pvalue ;
+    sysml:owningRelationship expr:R90__A__s_pvalue_pout_om ;
+    sysml:owningMembership expr:R90__A__s_pvalue_pout_om .
+
+expr:R90__A__s_pvalue_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "R90__A__s_pvalue_pout_om" ;
+    sysml:owner expr:R90__A__s_pvalue ;
+    sysml:memberElement expr:R90__A__s_pvalue_pout ;
+    sysml:ownedMemberElement expr:R90__A__s_pvalue_pout ;
+    sysml:ownedRelatedElement expr:R90__A__s_pvalue_pout ;
+    sysml:owningRelatedElement expr:R90__A__s_pvalue ;
+    sysml:membershipOwningNamespace expr:R90__A__s_pvalue ;
+    sysml:ownedMemberFeature expr:R90__A__s_pvalue_pout ;
+    sysml:ownedMemberParameter expr:R90__A__s_pvalue_pout .
 
 expr:R90__A__s_pvalue_om
     a sysml:FeatureValue ;
@@ -973,14 +1041,14 @@ elmt:R90__Run
     sysml:declaredName "Run" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedRelationship elmt:R90__Run___400, elmt:R90__Run___401_om, elmt:R90__Run__idle_om, elmt:R90__Run___403_om ;
+    sysml:ownedMembership elmt:R90__Run___400, elmt:R90__Run___401_om, elmt:R90__Run__idle_om, elmt:R90__Run___403_om ;
     sysml:ownedMember elmt:R90__Run___401, elmt:R90__Run__idle, elmt:R90__Run___403 ;
-    sysml:ownedMembership elmt:R90__Run___401_om, elmt:R90__Run__idle_om, elmt:R90__Run___403_om ;
     sysml:ownedFeature elmt:R90__Run___401, elmt:R90__Run__idle, elmt:R90__Run___403 ;
     sysml:ownedFeatureMembership elmt:R90__Run___401_om, elmt:R90__Run__idle_om, elmt:R90__Run___403_om ;
     sysx:sourceText "    state def Run {\n        entry; then idle;\n        state idle;\n        transition idle then Done::done;\n    }\n" ;
     json:ownedRelationship "[{\"@id\":\"R90__Run___400\"},{\"@id\":\"R90__Run___401_om\"},{\"@id\":\"R90__Run__idle_om\"},{\"@id\":\"R90__Run___403_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"R90__Run___400\"},{\"@id\":\"R90__Run___401_om\"},{\"@id\":\"R90__Run__idle_om\"},{\"@id\":\"R90__Run___403_om\"}]" ;
     json:ownedMember "[{\"@id\":\"R90__Run___401\"},{\"@id\":\"R90__Run__idle\"},{\"@id\":\"R90__Run___403\"}]" ;
-    json:ownedMembership "[{\"@id\":\"R90__Run___401_om\"},{\"@id\":\"R90__Run__idle_om\"},{\"@id\":\"R90__Run___403_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"R90__Run___401\"},{\"@id\":\"R90__Run__idle\"},{\"@id\":\"R90__Run___403\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"R90__Run___401_om\"},{\"@id\":\"R90__Run__idle_om\"},{\"@id\":\"R90__Run___403_om\"}]" .
 
@@ -1002,6 +1070,8 @@ elmt:R90__Run___400
     sysml:owningNamespace elmt:R90__Run ;
     sysml:owner elmt:R90__Run ;
     sysml:owningRelatedElement elmt:R90__Run ;
+    sysml:membershipOwningNamespace elmt:R90__Run ;
+    sysml:kind "entry" ;
     sysx:subactionKind "entry" .
 
 elmt:R90__Run___401
@@ -1272,11 +1342,29 @@ elmt:Filtered___400
     sysml:owningRelatedElement elmt:Filtered ;
     sysml:importOwningNamespace elmt:Filtered ;
     sysml:visibility "public" ;
-    sysml:importedNamespace elmt:Meta ;
+    sysml:importedNamespace elmt:Filtered___400_fp ;
+    sysml:ownedRelatedElement elmt:Filtered___400_fp ;
     sysx:filter expr:Filtered___400_pfilter ;
-    sysml:ownedRelatedElement expr:Filtered___400_pfilter ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "    public import Meta::*[@Safety];\n" .
+
+elmt:Filtered___400_fp
+    a sysml:Package ;
+    sysml:elementId "Filtered___400_fp" ;
+    sysml:owner elmt:Filtered ;
+    sysml:owningRelationship elmt:Filtered___400 ;
+    sysml:ownedRelationship elmt:Filtered___400_fp_im, elmt:Filtered___400_fp_efm ;
+    sysml:ownedImport elmt:Filtered___400_fp_im ;
+    sysml:ownedMembership elmt:Filtered___400_fp_efm ;
+    json:ownedRelationship "[{\"@id\":\"Filtered___400_fp_im\"},{\"@id\":\"Filtered___400_fp_efm\"}]" .
+
+elmt:Filtered___400_fp_im
+    a sysml:NamespaceImport ;
+    sysml:importedNamespace elmt:Meta ;
+    sysml:elementId "Filtered___400_fp_im" ;
+    sysml:importOwningNamespace elmt:Filtered___400_fp ;
+    sysml:owner elmt:Filtered___400_fp ;
+    sysml:owningRelatedElement elmt:Filtered___400_fp .
 
 expr:Filtered___400_pfilter
     a sysml:OperatorExpression ;
@@ -1284,8 +1372,91 @@ expr:Filtered___400_pfilter
     sysml:elementId "Filtered___400_pfilter" ;
     sysml:operator "@" ;
     sysx:typeArgument elmt:Meta__Safety ;
-    sysml:owner elmt:Filtered___400 ;
-    sysml:owningRelationship elmt:Filtered___400 .
+    sysml:ownedRelationship expr:Filtered___400_pfilter_pin0_om, expr:Filtered___400_pfilter_pout_om ;
+    sysml:ownedMembership expr:Filtered___400_pfilter_pin0_om, expr:Filtered___400_pfilter_pout_om ;
+    sysml:ownedFeatureMembership expr:Filtered___400_pfilter_pin0_om, expr:Filtered___400_pfilter_pout_om ;
+    sysml:ownedFeature expr:Filtered___400_pfilter_pin0, expr:Filtered___400_pfilter_pout ;
+    sysml:parameter expr:Filtered___400_pfilter_pin0, expr:Filtered___400_pfilter_pout ;
+    sysml:input expr:Filtered___400_pfilter_pin0 ;
+    sysml:result expr:Filtered___400_pfilter_pout ;
+    sysml:owner elmt:Filtered___400_fp ;
+    sysml:owningRelationship elmt:Filtered___400_fp_efm ;
+    sysml:owningMembership elmt:Filtered___400_fp_efm ;
+    json:ownedRelationship "[{\"@id\":\"Filtered___400_pfilter_pin0_om\"},{\"@id\":\"Filtered___400_pfilter_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Filtered___400_pfilter_pin0_om\"},{\"@id\":\"Filtered___400_pfilter_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Filtered___400_pfilter_pin0_om\"},{\"@id\":\"Filtered___400_pfilter_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Filtered___400_pfilter_pin0\"},{\"@id\":\"Filtered___400_pfilter_pout\"}]" ;
+    json:parameter "[{\"@id\":\"Filtered___400_pfilter_pin0\"},{\"@id\":\"Filtered___400_pfilter_pout\"}]" .
+
+expr:Filtered___400_pfilter_pin0
+    a sysml:Feature ;
+    sysml:elementId "Filtered___400_pfilter_pin0" ;
+    sysml:direction "in" ;
+    sysml:owner expr:Filtered___400_pfilter ;
+    sysml:owningRelationship expr:Filtered___400_pfilter_pin0_om ;
+    sysml:owningMembership expr:Filtered___400_pfilter_pin0_om ;
+    sysml:ownedTyping expr:Filtered___400_pfilter_pin0_ft0 ;
+    sysml:ownedSpecialization expr:Filtered___400_pfilter_pin0_ft0 ;
+    sysml:ownedRelationship expr:Filtered___400_pfilter_pin0_ft0 .
+
+expr:Filtered___400_pfilter_pin0_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Filtered___400_pfilter_pin0_om" ;
+    sysml:owner expr:Filtered___400_pfilter ;
+    sysml:memberElement expr:Filtered___400_pfilter_pin0 ;
+    sysml:ownedMemberElement expr:Filtered___400_pfilter_pin0 ;
+    sysml:ownedRelatedElement expr:Filtered___400_pfilter_pin0 ;
+    sysml:owningRelatedElement expr:Filtered___400_pfilter ;
+    sysml:membershipOwningNamespace expr:Filtered___400_pfilter ;
+    sysml:ownedMemberFeature expr:Filtered___400_pfilter_pin0 ;
+    sysml:ownedMemberParameter expr:Filtered___400_pfilter_pin0 .
+
+expr:Filtered___400_pfilter_pin0_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Filtered___400_pfilter_pin0_ft0" ;
+    sysml:typedFeature expr:Filtered___400_pfilter_pin0 ;
+    sysml:owningFeature expr:Filtered___400_pfilter_pin0 ;
+    sysml:specific expr:Filtered___400_pfilter_pin0 ;
+    sysml:source expr:Filtered___400_pfilter_pin0 ;
+    sysml:owningRelatedElement expr:Filtered___400_pfilter_pin0 ;
+    sysml:type elmt:Meta__Safety ;
+    sysml:general elmt:Meta__Safety ;
+    sysml:target elmt:Meta__Safety ;
+    sysml:owner expr:Filtered___400_pfilter_pin0 ;
+    sysml:relatedElement expr:Filtered___400_pfilter_pin0, elmt:Meta__Safety ;
+    json:relatedElement "[{\"@id\":\"Filtered___400_pfilter_pin0\"},{\"@id\":\"Meta__Safety\"}]" .
+
+expr:Filtered___400_pfilter_pout
+    a sysml:Feature ;
+    sysml:elementId "Filtered___400_pfilter_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:Filtered___400_pfilter ;
+    sysml:owningRelationship expr:Filtered___400_pfilter_pout_om ;
+    sysml:owningMembership expr:Filtered___400_pfilter_pout_om .
+
+expr:Filtered___400_pfilter_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Filtered___400_pfilter_pout_om" ;
+    sysml:owner expr:Filtered___400_pfilter ;
+    sysml:memberElement expr:Filtered___400_pfilter_pout ;
+    sysml:ownedMemberElement expr:Filtered___400_pfilter_pout ;
+    sysml:ownedRelatedElement expr:Filtered___400_pfilter_pout ;
+    sysml:owningRelatedElement expr:Filtered___400_pfilter ;
+    sysml:membershipOwningNamespace expr:Filtered___400_pfilter ;
+    sysml:ownedMemberFeature expr:Filtered___400_pfilter_pout ;
+    sysml:ownedMemberParameter expr:Filtered___400_pfilter_pout .
+
+elmt:Filtered___400_fp_efm
+    a sysml:ElementFilterMembership ;
+    sysml:elementId "Filtered___400_fp_efm" ;
+    sysml:owner elmt:Filtered___400_fp ;
+    sysml:memberElement expr:Filtered___400_pfilter ;
+    sysml:ownedMemberElement expr:Filtered___400_pfilter ;
+    sysml:ownedRelatedElement expr:Filtered___400_pfilter ;
+    sysml:owningRelatedElement elmt:Filtered___400_fp ;
+    sysml:membershipOwningNamespace elmt:Filtered___400_fp ;
+    sysml:visibility "private" ;
+    sysml:condition expr:Filtered___400_pfilter .
 
 elmt:Filtered__C
     a sysml:PartDefinition ;
@@ -1299,12 +1470,13 @@ elmt:Filtered__C
     sysml:declaredName "C" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Filtered__C__other ;
-    sysml:ownedMembership elmt:Filtered__C__other_om ;
+    sysml:ownedMembership elmt:Filtered__C__other_om, elmt:Filtered__C___401 ;
     sysml:ownedRelationship elmt:Filtered__C__other_om, elmt:Filtered__C___401 ;
     sysml:ownedFeature elmt:Filtered__C__other ;
     sysml:ownedFeatureMembership elmt:Filtered__C__other_om ;
     sysx:sourceText "    part def C {\n" ;
     sysx:sourceTail "    }\n" ;
+    json:ownedMembership "[{\"@id\":\"Filtered__C__other_om\"},{\"@id\":\"Filtered__C___401\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Filtered__C__other_om\"},{\"@id\":\"Filtered__C___401\"}]" .
 
 elmt:Filtered__C_om
@@ -1354,6 +1526,7 @@ elmt:Filtered__C___401
     sysml:owningNamespace elmt:Filtered__C ;
     sysml:owner elmt:Filtered__C ;
     sysml:owningRelatedElement elmt:Filtered__C ;
+    sysml:membershipOwningNamespace elmt:Filtered__C ;
     sysml:condition expr:Filtered__C___401_pfilter ;
     sysml:ownedRelatedElement expr:Filtered__C___401_pfilter ;
     sysml:memberElement expr:Filtered__C___401_pfilter ;
@@ -1366,9 +1539,79 @@ expr:Filtered__C___401_pfilter
     sysml:elementId "Filtered__C___401_pfilter" ;
     sysml:operator "@" ;
     sysx:typeArgument elmt:Meta__Safety ;
+    sysml:ownedRelationship expr:Filtered__C___401_pfilter_pin0_om, expr:Filtered__C___401_pfilter_pout_om ;
+    sysml:ownedMembership expr:Filtered__C___401_pfilter_pin0_om, expr:Filtered__C___401_pfilter_pout_om ;
+    sysml:ownedFeatureMembership expr:Filtered__C___401_pfilter_pin0_om, expr:Filtered__C___401_pfilter_pout_om ;
+    sysml:ownedFeature expr:Filtered__C___401_pfilter_pin0, expr:Filtered__C___401_pfilter_pout ;
+    sysml:parameter expr:Filtered__C___401_pfilter_pin0, expr:Filtered__C___401_pfilter_pout ;
+    sysml:input expr:Filtered__C___401_pfilter_pin0 ;
+    sysml:result expr:Filtered__C___401_pfilter_pout ;
     sysml:owner elmt:Filtered__C___401 ;
     sysml:owningRelationship elmt:Filtered__C___401 ;
-    sysml:owningMembership elmt:Filtered__C___401 .
+    sysml:owningMembership elmt:Filtered__C___401 ;
+    json:ownedRelationship "[{\"@id\":\"Filtered__C___401_pfilter_pin0_om\"},{\"@id\":\"Filtered__C___401_pfilter_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Filtered__C___401_pfilter_pin0_om\"},{\"@id\":\"Filtered__C___401_pfilter_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Filtered__C___401_pfilter_pin0_om\"},{\"@id\":\"Filtered__C___401_pfilter_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Filtered__C___401_pfilter_pin0\"},{\"@id\":\"Filtered__C___401_pfilter_pout\"}]" ;
+    json:parameter "[{\"@id\":\"Filtered__C___401_pfilter_pin0\"},{\"@id\":\"Filtered__C___401_pfilter_pout\"}]" .
+
+expr:Filtered__C___401_pfilter_pin0
+    a sysml:Feature ;
+    sysml:elementId "Filtered__C___401_pfilter_pin0" ;
+    sysml:direction "in" ;
+    sysml:owner expr:Filtered__C___401_pfilter ;
+    sysml:owningRelationship expr:Filtered__C___401_pfilter_pin0_om ;
+    sysml:owningMembership expr:Filtered__C___401_pfilter_pin0_om ;
+    sysml:ownedTyping expr:Filtered__C___401_pfilter_pin0_ft0 ;
+    sysml:ownedSpecialization expr:Filtered__C___401_pfilter_pin0_ft0 ;
+    sysml:ownedRelationship expr:Filtered__C___401_pfilter_pin0_ft0 .
+
+expr:Filtered__C___401_pfilter_pin0_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Filtered__C___401_pfilter_pin0_om" ;
+    sysml:owner expr:Filtered__C___401_pfilter ;
+    sysml:memberElement expr:Filtered__C___401_pfilter_pin0 ;
+    sysml:ownedMemberElement expr:Filtered__C___401_pfilter_pin0 ;
+    sysml:ownedRelatedElement expr:Filtered__C___401_pfilter_pin0 ;
+    sysml:owningRelatedElement expr:Filtered__C___401_pfilter ;
+    sysml:membershipOwningNamespace expr:Filtered__C___401_pfilter ;
+    sysml:ownedMemberFeature expr:Filtered__C___401_pfilter_pin0 ;
+    sysml:ownedMemberParameter expr:Filtered__C___401_pfilter_pin0 .
+
+expr:Filtered__C___401_pfilter_pin0_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Filtered__C___401_pfilter_pin0_ft0" ;
+    sysml:typedFeature expr:Filtered__C___401_pfilter_pin0 ;
+    sysml:owningFeature expr:Filtered__C___401_pfilter_pin0 ;
+    sysml:specific expr:Filtered__C___401_pfilter_pin0 ;
+    sysml:source expr:Filtered__C___401_pfilter_pin0 ;
+    sysml:owningRelatedElement expr:Filtered__C___401_pfilter_pin0 ;
+    sysml:type elmt:Meta__Safety ;
+    sysml:general elmt:Meta__Safety ;
+    sysml:target elmt:Meta__Safety ;
+    sysml:owner expr:Filtered__C___401_pfilter_pin0 ;
+    sysml:relatedElement expr:Filtered__C___401_pfilter_pin0, elmt:Meta__Safety ;
+    json:relatedElement "[{\"@id\":\"Filtered__C___401_pfilter_pin0\"},{\"@id\":\"Meta__Safety\"}]" .
+
+expr:Filtered__C___401_pfilter_pout
+    a sysml:Feature ;
+    sysml:elementId "Filtered__C___401_pfilter_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:Filtered__C___401_pfilter ;
+    sysml:owningRelationship expr:Filtered__C___401_pfilter_pout_om ;
+    sysml:owningMembership expr:Filtered__C___401_pfilter_pout_om .
+
+expr:Filtered__C___401_pfilter_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Filtered__C___401_pfilter_pout_om" ;
+    sysml:owner expr:Filtered__C___401_pfilter ;
+    sysml:memberElement expr:Filtered__C___401_pfilter_pout ;
+    sysml:ownedMemberElement expr:Filtered__C___401_pfilter_pout ;
+    sysml:ownedRelatedElement expr:Filtered__C___401_pfilter_pout ;
+    sysml:owningRelatedElement expr:Filtered__C___401_pfilter ;
+    sysml:membershipOwningNamespace expr:Filtered__C___401_pfilter ;
+    sysml:ownedMemberFeature expr:Filtered__C___401_pfilter_pout ;
+    sysml:ownedMemberParameter expr:Filtered__C___401_pfilter_pout .
 
 elmt:OtherPkg__Inner__wheels_ft0
     a sysml:FeatureTyping ;

@@ -373,7 +373,10 @@ func doc() usage.Doc {
 					"model, so a view may expose elements a sibling file declares. " +
 					"-render-form names the form written — text, mermaid, markdown, dot " +
 					"or plantuml; by default -render takes it from the destination and " +
-					"-render-all writes each kind's machine form. " +
+					"-render-all writes each kind's machine form, one file per view named " +
+					"by its qualified name with :: as . and every byte unsafe in a filename " +
+					"(/, \\, :, ., %, control characters, what Windows reserves) as %XX; " +
+					"a name past 255 bytes is cut and tagged ~ and a hash of the whole. " +
 					"A graph-shaped rendering is written as a Mermaid diagram by " +
 					"default, as Graphviz DOT with -render-form dot and as PlantUML with " +
 					"-render-form plantuml, which also writes a sequence rendering; neither " +

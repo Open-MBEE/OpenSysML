@@ -550,10 +550,18 @@ elmt:Synonyms__Dashboard
     sysml:owningMembership elmt:Synonyms__Dashboard_om ;
     sysml:declaredName "Dashboard" ;
     sysx:hasBody "true"^^xsd:boolean ;
-    sysml:ownedRelationship elmt:Synonyms__Dashboard___400, elmt:Synonyms__Dashboard___401 ;
+    sysml:ownedMember elmt:Synonyms__Dashboard___400, elmt:Synonyms__Dashboard___401 ;
+    sysml:ownedMembership elmt:Synonyms__Dashboard___400_om, elmt:Synonyms__Dashboard___401_om ;
+    sysml:ownedRelationship elmt:Synonyms__Dashboard___400_om, elmt:Synonyms__Dashboard___401_om ;
+    sysml:ownedFeature elmt:Synonyms__Dashboard___400, elmt:Synonyms__Dashboard___401 ;
+    sysml:ownedFeatureMembership elmt:Synonyms__Dashboard___400_om, elmt:Synonyms__Dashboard___401_om ;
     sysx:sourceText "    view def Dashboard {\n" ;
     sysx:sourceTail "    }\n" ;
-    json:ownedRelationship "[{\"@id\":\"Synonyms__Dashboard___400\"},{\"@id\":\"Synonyms__Dashboard___401\"}]" .
+    json:ownedMember "[{\"@id\":\"Synonyms__Dashboard___400\"},{\"@id\":\"Synonyms__Dashboard___401\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Synonyms__Dashboard___400_om\"},{\"@id\":\"Synonyms__Dashboard___401_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Synonyms__Dashboard___400_om\"},{\"@id\":\"Synonyms__Dashboard___401_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Synonyms__Dashboard___400\"},{\"@id\":\"Synonyms__Dashboard___401\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Synonyms__Dashboard___400_om\"},{\"@id\":\"Synonyms__Dashboard___401_om\"}]" .
 
 elmt:Synonyms__Dashboard_om
     a sysml:OwningMembership ;
@@ -566,28 +574,63 @@ elmt:Synonyms__Dashboard_om
     sysml:membershipOwningNamespace elmt:Synonyms .
 
 elmt:Synonyms__Dashboard___400
-    a sysml:ViewRenderingMembership ;
+    a sysml:RenderingUsage ;
     sysml:qualifiedName "Synonyms::Dashboard::@0" ;
     sysml:elementId "Synonyms__Dashboard___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:owningNamespace elmt:Synonyms__Dashboard ;
     sysml:owner elmt:Synonyms__Dashboard ;
-    sysml:owningRelatedElement elmt:Synonyms__Dashboard ;
+    sysml:owningRelationship elmt:Synonyms__Dashboard___400_om ;
+    sysml:owningMembership elmt:Synonyms__Dashboard___400_om ;
     sysml:references "display" ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedReferenceSubsetting elmt:Synonyms__Dashboard___400_rs ;
+    sysml:ownedSubsetting elmt:Synonyms__Dashboard___400_rs ;
+    sysml:ownedSpecialization elmt:Synonyms__Dashboard___400_rs ;
+    sysml:ownedRelationship elmt:Synonyms__Dashboard___400_rs ;
     sysx:sourceText "        render display;\n" .
 
-elmt:Synonyms__Dashboard___401
+elmt:Synonyms__Dashboard___400_om
     a sysml:ViewRenderingMembership ;
+    sysml:elementId "Synonyms__Dashboard___400_om" ;
+    sysml:owner elmt:Synonyms__Dashboard ;
+    sysml:memberElement elmt:Synonyms__Dashboard___400 ;
+    sysml:ownedMemberElement elmt:Synonyms__Dashboard___400 ;
+    sysml:ownedRelatedElement elmt:Synonyms__Dashboard___400 ;
+    sysml:owningRelatedElement elmt:Synonyms__Dashboard ;
+    sysml:membershipOwningNamespace elmt:Synonyms__Dashboard ;
+    sysml:ownedRendering elmt:Synonyms__Dashboard___400 ;
+    sysml:ownedMemberFeature elmt:Synonyms__Dashboard___400 ;
+    sysml:owningType elmt:Synonyms__Dashboard .
+
+elmt:Synonyms__Dashboard___401
+    a sysml:RenderingUsage ;
     sysml:qualifiedName "Synonyms::Dashboard::@1" ;
     sysml:elementId "Synonyms__Dashboard___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:owningNamespace elmt:Synonyms__Dashboard ;
     sysml:owner elmt:Synonyms__Dashboard ;
-    sysml:owningRelatedElement elmt:Synonyms__Dashboard ;
+    sysml:owningRelationship elmt:Synonyms__Dashboard___401_om ;
+    sysml:owningMembership elmt:Synonyms__Dashboard___401_om ;
     sysml:type elmt:Synonyms__AsTree ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Synonyms__Dashboard___401_ft0 ;
+    sysml:ownedSpecialization elmt:Synonyms__Dashboard___401_ft0 ;
+    sysml:ownedRelationship elmt:Synonyms__Dashboard___401_ft0 ;
     sysx:sourceText "        render rendering : AsTree;\n" .
+
+elmt:Synonyms__Dashboard___401_om
+    a sysml:ViewRenderingMembership ;
+    sysml:elementId "Synonyms__Dashboard___401_om" ;
+    sysml:owner elmt:Synonyms__Dashboard ;
+    sysml:memberElement elmt:Synonyms__Dashboard___401 ;
+    sysml:ownedMemberElement elmt:Synonyms__Dashboard___401 ;
+    sysml:ownedRelatedElement elmt:Synonyms__Dashboard___401 ;
+    sysml:owningRelatedElement elmt:Synonyms__Dashboard ;
+    sysml:membershipOwningNamespace elmt:Synonyms__Dashboard ;
+    sysml:ownedRendering elmt:Synonyms__Dashboard___401 ;
+    sysml:ownedMemberFeature elmt:Synonyms__Dashboard___401 ;
+    sysml:owningType elmt:Synonyms__Dashboard .
 
 elmt:Synonyms__reading_ft0
     a sysml:FeatureTyping ;
@@ -665,3 +708,35 @@ elmt:Synonyms__Vehicle__alsoSafe_ft0
     sysml:owner elmt:Synonyms__Vehicle__alsoSafe ;
     sysml:relatedElement elmt:Synonyms__Vehicle__alsoSafe, elmt:Synonyms__Safe ;
     json:relatedElement "[{\"@id\":\"Synonyms__Vehicle__alsoSafe\"},{\"@id\":\"Synonyms__Safe\"}]" .
+
+elmt:Synonyms__Dashboard___400_rs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "Synonyms__Dashboard___400_rs" ;
+    sysml:referencingFeature elmt:Synonyms__Dashboard___400 ;
+    sysml:subsettingFeature elmt:Synonyms__Dashboard___400 ;
+    sysml:owningFeature elmt:Synonyms__Dashboard___400 ;
+    sysml:specific elmt:Synonyms__Dashboard___400 ;
+    sysml:source elmt:Synonyms__Dashboard___400 ;
+    sysml:owningRelatedElement elmt:Synonyms__Dashboard___400 ;
+    sysml:referencedFeature "display" ;
+    sysml:subsettedFeature "display" ;
+    sysml:general "display" ;
+    sysml:target "display" ;
+    sysml:owner elmt:Synonyms__Dashboard___400 ;
+    sysml:relatedElement elmt:Synonyms__Dashboard___400, "display" ;
+    json:relatedElement "[{\"@id\":\"Synonyms__Dashboard___400\"},\"display\"]" .
+
+elmt:Synonyms__Dashboard___401_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Synonyms__Dashboard___401_ft0" ;
+    sysml:typedFeature elmt:Synonyms__Dashboard___401 ;
+    sysml:owningFeature elmt:Synonyms__Dashboard___401 ;
+    sysml:specific elmt:Synonyms__Dashboard___401 ;
+    sysml:source elmt:Synonyms__Dashboard___401 ;
+    sysml:owningRelatedElement elmt:Synonyms__Dashboard___401 ;
+    sysml:type elmt:Synonyms__AsTree ;
+    sysml:general elmt:Synonyms__AsTree ;
+    sysml:target elmt:Synonyms__AsTree ;
+    sysml:owner elmt:Synonyms__Dashboard___401 ;
+    sysml:relatedElement elmt:Synonyms__Dashboard___401, elmt:Synonyms__AsTree ;
+    json:relatedElement "[{\"@id\":\"Synonyms__Dashboard___401\"},{\"@id\":\"Synonyms__AsTree\"}]" .

@@ -56,17 +56,13 @@ unknown-class TerminateActionUsage -             # SysML.owl declares no Termina
 unknown-class ClassUsage -                       # a KerML `class` written as a usage; SysML.owl declares Class, a classifier, and no ClassUsage
 unknown-class IndividualDefinition -             # `individual def`, standardly an OccurrenceDefinition with isIndividual; SysML.owl declares no IndividualDefinition
 unknown-class IndividualUsage -                  # `individual` usage, standardly an OccurrenceUsage with isIndividual; SysML.owl declares no IndividualUsage
+unknown-class ConstructorExpression -            # KerML 1.0 `new T(...)`, an InstantiationExpression the pilot writes; the 202407 rendering predates the metaclass
 
 # 4. Metaclasses of this tool's own extension namespace, for constructs it has no
 # standard metaclass for. Deliberately outside the standard vocabulary, so the
 # ontology cannot declare them; an ontology profile has to materialize the
 # abstract-syntax elements instead (D3.3).
-unknown-class urn:opensysml:sysml:Alias -                    # an alias member, standardly a Membership with a memberShortName/memberName
 unknown-class urn:opensysml:sysml:DeferMember -              # `defer` in a state, standardly a StateSubactionMembership
-unknown-class urn:opensysml:sysml:InitialNode -              # an action's initial node, standardly a Usage typed by an initial-node kind
-unknown-class urn:opensysml:sysml:FinalNode -                # an action's final node, standardly a Usage typed by a final-node kind
-unknown-class urn:opensysml:sysml:IfBranch -                 # an if/else branch, standardly an IfActionUsage's then/else parameter
-unknown-class urn:opensysml:sysml:MultiplicityDeclaration -  # a named multiplicity, standardly a MultiplicityRange
 unknown-class urn:opensysml:sysml:Pseudostate -              # a state machine pseudostate, standardly a StateUsage or TransitionUsage shape
 
 # 5. Properties written in the SysML namespace that no metaclass declares. Every
@@ -83,7 +79,7 @@ unknown-property AttributeUsage subsets                      # subsetting is a S
 unknown-property OccurrenceUsage subsets                     # subsetting is a Subsetting element, not a property
 unknown-property SatisfyRequirementUsage subsets             # subsetting is a Subsetting element, not a property
 unknown-property AnalysisCaseUsage subsets                   # subsetting is a Subsetting element, not a property
-unknown-property urn:opensysml:sysml:MultiplicityDeclaration subsets # a MultiplicitySubset's bounds, written the same way as any other subsetting
+unknown-property Multiplicity subsets                        # a MultiplicitySubset's bounds, collapsed the same way as any other subsetting
 unknown-property PartUsage redefines                         # redefinition is a Redefinition element, not a property
 unknown-property AttributeUsage redefines                    # redefinition is a Redefinition element, not a property
 unknown-property ReferenceUsage redefines                    # redefinition is a Redefinition element, not a property
@@ -95,8 +91,7 @@ unknown-property ExhibitStateUsage references                # the state an `exh
 unknown-property EventOccurrenceUsage references             # the occurrence an `event m.start` names, standardly its eventOccurrence through a ReferenceSubsetting
 unknown-property AssertConstraintUsage references            # the constraint an `assert c` names, standardly its assertedConstraint through a ReferenceSubsetting
 unknown-property ConstraintUsage references                  # a reference subsetting is a ReferenceSubsetting element, not a property
-unknown-property ViewRenderingMembership references          # a referenced element is a ReferenceUsage or Membership, not a property
-unknown-property urn:opensysml:sysml:Alias aliasedElement    # an alias target is a Membership's memberElement, not a property
+unknown-property RenderingUsage references                   # the rendering a `render r` names, standardly its referencedRendering through a ReferenceSubsetting
 unknown-property SatisfyRequirementUsage subject             # the feature `by` names, standardly the satisfyingFeature through a SubjectMembership
 unknown-property ActionUsage via                             # the port an accept trigger listens on, which the metamodel reaches through the accept action's parameters
 unknown-property TransitionUsage via                         # the port a transition's trigger listens on, reached the same way

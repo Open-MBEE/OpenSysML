@@ -90,7 +90,7 @@ digraph "Observatory::interconnectView" {
   node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
   edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
   subgraph "cluster_n0" {
-    label=<<b>Observatory::imagingChain</b><br/><font point-size="10"><i>«part»</i></font>>;
+    label=<<b>imagingChain</b><br/><font point-size="10"><i>«part»</i></font>>;
     color=black;
     penwidth=0.5;
     "n0" [shape=point, style=invis, width=0, height=0, label=""];
@@ -112,7 +112,7 @@ digraph {
   node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
   edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
   subgraph "cluster_n0" {
-    label=<<b>Observatory::operatingStates : ObservatoryStates</b><br/><font point-size="10"><i>«state»</i></font>>;
+    label=<<b>operatingStates : ObservatoryStates</b><br/><font point-size="10"><i>«state»</i></font>>;
     color=black;
     penwidth=0.5;
     "n0" [shape=point, style=invis, width=0, height=0, label=""];

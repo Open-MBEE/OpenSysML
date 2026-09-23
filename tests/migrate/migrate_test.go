@@ -321,6 +321,7 @@ var constructFixtures = []string{
 	"property_markers",
 	"diagrams",
 	"diagram_edges",
+	"control_nodes",
 	"exposed",
 	"layout",
 	"malformed_diagrams",

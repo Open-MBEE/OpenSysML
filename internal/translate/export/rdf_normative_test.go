@@ -292,6 +292,33 @@ func TestNormativeMultiplicityRangeVerifyRejectsDisagreement(t *testing.T) {
 	}
 }
 
+// A body expression is its FeatureReferenceExpression's member through the
+// FeatureMembership that owns it, so no plain Membership is minted beside it
+// (pilot XMI: Objects.kermlx, the `{ … }` bodies of `select`/`collect`).
+func TestNormativeBodyReferentOwnsNoPlainMembership(t *testing.T) {
+	graph := normativeGraph(t, `package N {
+		attribute def V;
+		attribute cars : V[*];
+		attribute heavy : V[*] = cars->select { in c : V; c == c };
+	}`)
+	for _, e := range graph.Subjects() {
+		if meta(graph, e) != "Membership" {
+			continue
+		}
+		member, _ := graph.Object(e, rdf.SysML+pMemberElement)
+		if meta(graph, member) == "Expression" && strings.Contains(member.Value, "heavy") {
+			t.Fatalf("plain membership %s minted for the owned body %s", e.Value, member.Value)
+		}
+	}
+	back, err := ToSysML(graph)
+	if err != nil {
+		t.Fatalf("ToSysML: %v", err)
+	}
+	if !strings.Contains(string(back), "cars->select { in c : V; c == c }") {
+		t.Fatalf("body lost:\n%s", back)
+	}
+}
+
 // TestNormativeReferentMembershipVerifyRejectsDisagreement.
 func TestNormativeReferentMembershipVerifyRejectsDisagreement(t *testing.T) {
 	graph := normativeGraph(t, `package N {

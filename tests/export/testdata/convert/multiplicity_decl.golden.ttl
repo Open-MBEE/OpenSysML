@@ -1,5 +1,4 @@
 @prefix elmt: <urn:sysmlv2:element:> .
-@prefix expr: <urn:opensysml:expr:> .
 @prefix json: <urn:sysmlv2:annotation:json:> .
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix sysml: <https://www.omg.org/spec/SysML#> .
@@ -24,7 +23,7 @@ elmt:Mult
     json:ownedRelationship "[{\"@id\":\"Mult__exactlyOne_om\"},{\"@id\":\"Mult__optional_om\"},{\"@id\":\"Mult__single_om\"}]" .
 
 elmt:Mult__exactlyOne
-    a sysx:MultiplicityDeclaration ;
+    a sysml:MultiplicityRange ;
     sysml:qualifiedName "Mult::exactlyOne" ;
     sysml:elementId "Mult__exactlyOne" ;
     sysx:memberIndex "0"^^xsd:integer ;
@@ -32,14 +31,16 @@ elmt:Mult__exactlyOne
     sysml:owner elmt:Mult ;
     sysml:owningRelationship elmt:Mult__exactlyOne_om ;
     sysml:owningMembership elmt:Mult__exactlyOne_om ;
+    sysx:declaredKeyword "multiplicity" ;
     sysml:declaredName "exactlyOne" ;
-    sysml:multiplicity expr:Mult__exactlyOne_pmultiplicity ;
-    sysml:ownedRelationship expr:Mult__exactlyOne_pmultiplicity_om ;
-    sysml:ownedMembership expr:Mult__exactlyOne_pmultiplicity_om ;
-    sysml:lowerBound expr:Mult__exactlyOne_plowerBound ;
-    sysml:upperBound expr:Mult__exactlyOne_pupperBound ;
+    sysml:lowerBound <urn:opensysml:expr:Mult__exactlyOne_plowerBound> ;
+    sysml:ownedRelationship <urn:opensysml:expr:Mult__exactlyOne_plowerBound_om>, <urn:opensysml:expr:Mult__exactlyOne_pupperBound_om> ;
+    sysml:ownedMembership <urn:opensysml:expr:Mult__exactlyOne_plowerBound_om>, <urn:opensysml:expr:Mult__exactlyOne_pupperBound_om> ;
+    sysml:upperBound <urn:opensysml:expr:Mult__exactlyOne_pupperBound> ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysx:sourceText "    multiplicity exactlyOne [1..1];\n" .
+    sysx:sourceText "    multiplicity exactlyOne [1..1];\n" ;
+    json:ownedRelationship "[{\"@id\":\"Mult__exactlyOne_plowerBound_om\"},{\"@id\":\"Mult__exactlyOne_pupperBound_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Mult__exactlyOne_plowerBound_om\"},{\"@id\":\"Mult__exactlyOne_pupperBound_om\"}]" .
 
 elmt:Mult__exactlyOne_om
     a sysml:OwningMembership ;
@@ -51,69 +52,46 @@ elmt:Mult__exactlyOne_om
     sysml:owningRelatedElement elmt:Mult ;
     sysml:membershipOwningNamespace elmt:Mult .
 
-expr:Mult__exactlyOne_pmultiplicity
-    a sysml:MultiplicityRange ;
-    sysml:elementId "Mult__exactlyOne_pmultiplicity" ;
-    sysml:owner elmt:Mult__exactlyOne ;
-    sysml:owningRelationship expr:Mult__exactlyOne_pmultiplicity_om ;
-    sysml:owningMembership expr:Mult__exactlyOne_pmultiplicity_om ;
-    sysml:lowerBound expr:Mult__exactlyOne_plowerBound ;
-    sysml:ownedRelationship expr:Mult__exactlyOne_plowerBound_om, expr:Mult__exactlyOne_pupperBound_om ;
-    sysml:ownedMembership expr:Mult__exactlyOne_plowerBound_om, expr:Mult__exactlyOne_pupperBound_om ;
-    sysml:upperBound expr:Mult__exactlyOne_pupperBound ;
-    json:ownedRelationship "[{\"@id\":\"Mult__exactlyOne_plowerBound_om\"},{\"@id\":\"Mult__exactlyOne_pupperBound_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Mult__exactlyOne_plowerBound_om\"},{\"@id\":\"Mult__exactlyOne_pupperBound_om\"}]" .
-
-expr:Mult__exactlyOne_pmultiplicity_om
-    a sysml:OwningMembership ;
-    sysml:elementId "Mult__exactlyOne_pmultiplicity_om" ;
-    sysml:owner elmt:Mult__exactlyOne ;
-    sysml:memberElement expr:Mult__exactlyOne_pmultiplicity ;
-    sysml:ownedMemberElement expr:Mult__exactlyOne_pmultiplicity ;
-    sysml:ownedRelatedElement expr:Mult__exactlyOne_pmultiplicity ;
-    sysml:owningRelatedElement elmt:Mult__exactlyOne ;
-    sysml:membershipOwningNamespace elmt:Mult__exactlyOne .
-
-expr:Mult__exactlyOne_plowerBound
+<urn:opensysml:expr:Mult__exactlyOne_plowerBound>
     a sysml:LiteralInteger ;
     sysx:sourceText "1" ;
     sysml:elementId "Mult__exactlyOne_plowerBound" ;
     sysml:value "1"^^xsd:integer ;
-    sysml:owner expr:Mult__exactlyOne_pmultiplicity ;
-    sysml:owningRelationship expr:Mult__exactlyOne_plowerBound_om ;
-    sysml:owningMembership expr:Mult__exactlyOne_plowerBound_om .
+    sysml:owner elmt:Mult__exactlyOne ;
+    sysml:owningRelationship <urn:opensysml:expr:Mult__exactlyOne_plowerBound_om> ;
+    sysml:owningMembership <urn:opensysml:expr:Mult__exactlyOne_plowerBound_om> .
 
-expr:Mult__exactlyOne_plowerBound_om
+<urn:opensysml:expr:Mult__exactlyOne_plowerBound_om>
     a sysml:OwningMembership ;
     sysml:elementId "Mult__exactlyOne_plowerBound_om" ;
-    sysml:owner expr:Mult__exactlyOne_pmultiplicity ;
-    sysml:memberElement expr:Mult__exactlyOne_plowerBound ;
-    sysml:ownedMemberElement expr:Mult__exactlyOne_plowerBound ;
-    sysml:ownedRelatedElement expr:Mult__exactlyOne_plowerBound ;
-    sysml:owningRelatedElement expr:Mult__exactlyOne_pmultiplicity ;
-    sysml:membershipOwningNamespace expr:Mult__exactlyOne_pmultiplicity .
+    sysml:owner elmt:Mult__exactlyOne ;
+    sysml:memberElement <urn:opensysml:expr:Mult__exactlyOne_plowerBound> ;
+    sysml:ownedMemberElement <urn:opensysml:expr:Mult__exactlyOne_plowerBound> ;
+    sysml:ownedRelatedElement <urn:opensysml:expr:Mult__exactlyOne_plowerBound> ;
+    sysml:owningRelatedElement elmt:Mult__exactlyOne ;
+    sysml:membershipOwningNamespace elmt:Mult__exactlyOne .
 
-expr:Mult__exactlyOne_pupperBound
+<urn:opensysml:expr:Mult__exactlyOne_pupperBound>
     a sysml:LiteralInteger ;
     sysx:sourceText "1" ;
     sysml:elementId "Mult__exactlyOne_pupperBound" ;
     sysml:value "1"^^xsd:integer ;
-    sysml:owner expr:Mult__exactlyOne_pmultiplicity ;
-    sysml:owningRelationship expr:Mult__exactlyOne_pupperBound_om ;
-    sysml:owningMembership expr:Mult__exactlyOne_pupperBound_om .
+    sysml:owner elmt:Mult__exactlyOne ;
+    sysml:owningRelationship <urn:opensysml:expr:Mult__exactlyOne_pupperBound_om> ;
+    sysml:owningMembership <urn:opensysml:expr:Mult__exactlyOne_pupperBound_om> .
 
-expr:Mult__exactlyOne_pupperBound_om
+<urn:opensysml:expr:Mult__exactlyOne_pupperBound_om>
     a sysml:OwningMembership ;
     sysml:elementId "Mult__exactlyOne_pupperBound_om" ;
-    sysml:owner expr:Mult__exactlyOne_pmultiplicity ;
-    sysml:memberElement expr:Mult__exactlyOne_pupperBound ;
-    sysml:ownedMemberElement expr:Mult__exactlyOne_pupperBound ;
-    sysml:ownedRelatedElement expr:Mult__exactlyOne_pupperBound ;
-    sysml:owningRelatedElement expr:Mult__exactlyOne_pmultiplicity ;
-    sysml:membershipOwningNamespace expr:Mult__exactlyOne_pmultiplicity .
+    sysml:owner elmt:Mult__exactlyOne ;
+    sysml:memberElement <urn:opensysml:expr:Mult__exactlyOne_pupperBound> ;
+    sysml:ownedMemberElement <urn:opensysml:expr:Mult__exactlyOne_pupperBound> ;
+    sysml:ownedRelatedElement <urn:opensysml:expr:Mult__exactlyOne_pupperBound> ;
+    sysml:owningRelatedElement elmt:Mult__exactlyOne ;
+    sysml:membershipOwningNamespace elmt:Mult__exactlyOne .
 
 elmt:Mult__optional
-    a sysx:MultiplicityDeclaration ;
+    a sysml:MultiplicityRange ;
     sysml:qualifiedName "Mult::optional" ;
     sysml:elementId "Mult__optional" ;
     sysx:memberIndex "1"^^xsd:integer ;
@@ -121,14 +99,16 @@ elmt:Mult__optional
     sysml:owner elmt:Mult ;
     sysml:owningRelationship elmt:Mult__optional_om ;
     sysml:owningMembership elmt:Mult__optional_om ;
+    sysx:declaredKeyword "multiplicity" ;
     sysml:declaredName "optional" ;
-    sysml:multiplicity expr:Mult__optional_pmultiplicity ;
-    sysml:ownedRelationship expr:Mult__optional_pmultiplicity_om ;
-    sysml:ownedMembership expr:Mult__optional_pmultiplicity_om ;
-    sysml:lowerBound expr:Mult__optional_plowerBound ;
-    sysml:upperBound expr:Mult__optional_pupperBound ;
+    sysml:lowerBound <urn:opensysml:expr:Mult__optional_plowerBound> ;
+    sysml:ownedRelationship <urn:opensysml:expr:Mult__optional_plowerBound_om>, <urn:opensysml:expr:Mult__optional_pupperBound_om> ;
+    sysml:ownedMembership <urn:opensysml:expr:Mult__optional_plowerBound_om>, <urn:opensysml:expr:Mult__optional_pupperBound_om> ;
+    sysml:upperBound <urn:opensysml:expr:Mult__optional_pupperBound> ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysx:sourceText "    multiplicity optional [0..1];\n" .
+    sysx:sourceText "    multiplicity optional [0..1];\n" ;
+    json:ownedRelationship "[{\"@id\":\"Mult__optional_plowerBound_om\"},{\"@id\":\"Mult__optional_pupperBound_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Mult__optional_plowerBound_om\"},{\"@id\":\"Mult__optional_pupperBound_om\"}]" .
 
 elmt:Mult__optional_om
     a sysml:OwningMembership ;
@@ -140,69 +120,46 @@ elmt:Mult__optional_om
     sysml:owningRelatedElement elmt:Mult ;
     sysml:membershipOwningNamespace elmt:Mult .
 
-expr:Mult__optional_pmultiplicity
-    a sysml:MultiplicityRange ;
-    sysml:elementId "Mult__optional_pmultiplicity" ;
-    sysml:owner elmt:Mult__optional ;
-    sysml:owningRelationship expr:Mult__optional_pmultiplicity_om ;
-    sysml:owningMembership expr:Mult__optional_pmultiplicity_om ;
-    sysml:lowerBound expr:Mult__optional_plowerBound ;
-    sysml:ownedRelationship expr:Mult__optional_plowerBound_om, expr:Mult__optional_pupperBound_om ;
-    sysml:ownedMembership expr:Mult__optional_plowerBound_om, expr:Mult__optional_pupperBound_om ;
-    sysml:upperBound expr:Mult__optional_pupperBound ;
-    json:ownedRelationship "[{\"@id\":\"Mult__optional_plowerBound_om\"},{\"@id\":\"Mult__optional_pupperBound_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Mult__optional_plowerBound_om\"},{\"@id\":\"Mult__optional_pupperBound_om\"}]" .
-
-expr:Mult__optional_pmultiplicity_om
-    a sysml:OwningMembership ;
-    sysml:elementId "Mult__optional_pmultiplicity_om" ;
-    sysml:owner elmt:Mult__optional ;
-    sysml:memberElement expr:Mult__optional_pmultiplicity ;
-    sysml:ownedMemberElement expr:Mult__optional_pmultiplicity ;
-    sysml:ownedRelatedElement expr:Mult__optional_pmultiplicity ;
-    sysml:owningRelatedElement elmt:Mult__optional ;
-    sysml:membershipOwningNamespace elmt:Mult__optional .
-
-expr:Mult__optional_plowerBound
+<urn:opensysml:expr:Mult__optional_plowerBound>
     a sysml:LiteralInteger ;
     sysx:sourceText "0" ;
     sysml:elementId "Mult__optional_plowerBound" ;
     sysml:value "0"^^xsd:integer ;
-    sysml:owner expr:Mult__optional_pmultiplicity ;
-    sysml:owningRelationship expr:Mult__optional_plowerBound_om ;
-    sysml:owningMembership expr:Mult__optional_plowerBound_om .
+    sysml:owner elmt:Mult__optional ;
+    sysml:owningRelationship <urn:opensysml:expr:Mult__optional_plowerBound_om> ;
+    sysml:owningMembership <urn:opensysml:expr:Mult__optional_plowerBound_om> .
 
-expr:Mult__optional_plowerBound_om
+<urn:opensysml:expr:Mult__optional_plowerBound_om>
     a sysml:OwningMembership ;
     sysml:elementId "Mult__optional_plowerBound_om" ;
-    sysml:owner expr:Mult__optional_pmultiplicity ;
-    sysml:memberElement expr:Mult__optional_plowerBound ;
-    sysml:ownedMemberElement expr:Mult__optional_plowerBound ;
-    sysml:ownedRelatedElement expr:Mult__optional_plowerBound ;
-    sysml:owningRelatedElement expr:Mult__optional_pmultiplicity ;
-    sysml:membershipOwningNamespace expr:Mult__optional_pmultiplicity .
+    sysml:owner elmt:Mult__optional ;
+    sysml:memberElement <urn:opensysml:expr:Mult__optional_plowerBound> ;
+    sysml:ownedMemberElement <urn:opensysml:expr:Mult__optional_plowerBound> ;
+    sysml:ownedRelatedElement <urn:opensysml:expr:Mult__optional_plowerBound> ;
+    sysml:owningRelatedElement elmt:Mult__optional ;
+    sysml:membershipOwningNamespace elmt:Mult__optional .
 
-expr:Mult__optional_pupperBound
+<urn:opensysml:expr:Mult__optional_pupperBound>
     a sysml:LiteralInteger ;
     sysx:sourceText "1" ;
     sysml:elementId "Mult__optional_pupperBound" ;
     sysml:value "1"^^xsd:integer ;
-    sysml:owner expr:Mult__optional_pmultiplicity ;
-    sysml:owningRelationship expr:Mult__optional_pupperBound_om ;
-    sysml:owningMembership expr:Mult__optional_pupperBound_om .
+    sysml:owner elmt:Mult__optional ;
+    sysml:owningRelationship <urn:opensysml:expr:Mult__optional_pupperBound_om> ;
+    sysml:owningMembership <urn:opensysml:expr:Mult__optional_pupperBound_om> .
 
-expr:Mult__optional_pupperBound_om
+<urn:opensysml:expr:Mult__optional_pupperBound_om>
     a sysml:OwningMembership ;
     sysml:elementId "Mult__optional_pupperBound_om" ;
-    sysml:owner expr:Mult__optional_pmultiplicity ;
-    sysml:memberElement expr:Mult__optional_pupperBound ;
-    sysml:ownedMemberElement expr:Mult__optional_pupperBound ;
-    sysml:ownedRelatedElement expr:Mult__optional_pupperBound ;
-    sysml:owningRelatedElement expr:Mult__optional_pmultiplicity ;
-    sysml:membershipOwningNamespace expr:Mult__optional_pmultiplicity .
+    sysml:owner elmt:Mult__optional ;
+    sysml:memberElement <urn:opensysml:expr:Mult__optional_pupperBound> ;
+    sysml:ownedMemberElement <urn:opensysml:expr:Mult__optional_pupperBound> ;
+    sysml:ownedRelatedElement <urn:opensysml:expr:Mult__optional_pupperBound> ;
+    sysml:owningRelatedElement elmt:Mult__optional ;
+    sysml:membershipOwningNamespace elmt:Mult__optional .
 
 elmt:Mult__single
-    a sysx:MultiplicityDeclaration ;
+    a sysml:Multiplicity ;
     sysml:qualifiedName "Mult::single" ;
     sysml:elementId "Mult__single" ;
     sysx:memberIndex "2"^^xsd:integer ;
@@ -210,6 +167,7 @@ elmt:Mult__single
     sysml:owner elmt:Mult ;
     sysml:owningRelationship elmt:Mult__single_om ;
     sysml:owningMembership elmt:Mult__single_om ;
+    sysx:declaredKeyword "multiplicity" ;
     sysml:declaredName "single" ;
     sysml:subsets elmt:Mult__exactlyOne ;
     sysx:hasBody "false"^^xsd:boolean ;

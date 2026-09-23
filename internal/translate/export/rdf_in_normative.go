@@ -14,7 +14,28 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf/ontology"
 )
+
+// collapsedTargets are the target ends of a relationship element as the
+// owner's collapsed property states them: a ConjugatedPortTyping types by the
+// conjugate `~P`, which the head writes as P.
+func (d *decoder) collapsedTargets(el *element) []rdf.Term {
+	var targets []rdf.Term
+	for _, property := range relationshipTargetEnds {
+		for _, object := range d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+property) {
+			if el.metaclass == mConjugatedPortTyping {
+				if object.IsIRI() {
+					object = originalPortDefinition(d.graph, d.metaclass, rdf.IRI(el.iri), object)
+				} else {
+					object = rdf.String(strings.TrimPrefix(object.Value, "~"))
+				}
+			}
+			targets = append(targets, object)
+		}
+	}
+	return targets
+}
 
 // impliedRelationshipMetaclasses are the relationship elements materialized
 // beside the collapsed head properties: minted without a qualified name, owned
@@ -99,6 +120,10 @@ func (d *decoder) normativeImplied(el *element, parent *element) (bool, error) {
 			return false, nil
 		}
 		return true, d.verifyConjugated(el, parent)
+	case parent != nil && parent.metaclass == mTransition:
+		return d.transitionImplied(el, parent)
+	case d.headEnd(el, parent):
+		return true, nil
 	case el.metaclass == mReferenceUsage:
 		// The subject parameter of a satisfy head: a ReferenceUsage its
 		// SubjectMembership owns, whose value is a reference to the `by`
@@ -139,10 +164,15 @@ func (d *decoder) impliedRelationship(el *element, parent *element) (bool, error
 	actual := map[string]bool{}
 	actualIRI := map[string]bool{}
 	matched := 0
-	for _, property := range relationshipTargetEnds {
-		for _, object := range d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+property) {
-			actual[object.Value] = true
-			actualIRI[object.Value] = object.IsIRI()
+	for _, object := range d.collapsedTargets(el) {
+		actual[object.Value] = true
+		actualIRI[object.Value] = object.IsIRI()
+	}
+	if conjugated := el.metaclass == mConjugatedPortTyping; len(stated) > 0 &&
+		conjugated != d.graph.BoolValue(rdf.IRI(parent.iri), rdf.OpenSysML+xConjugatedTyping) {
+		return false, &UnsupportedError{
+			What: what,
+			Note: fmt.Sprintf("it and sysx:conjugatedTyping on <%s> disagree about whether the type is written `~P`, and writing the collapsed form would pick one of the two", parent.iri),
 		}
 	}
 	// An IRI end matches a literal collapsed target through its declared name.
@@ -302,10 +332,8 @@ func (d *decoder) verifyCovered(owner *element) error {
 			continue
 		}
 		targets := map[string]bool{}
-		for _, property := range relationshipTargetEnds {
-			for _, object := range d.graph.Objects(rdf.IRI(child.iri), rdf.SysML+property) {
-				targets[object.Value] = true
-			}
+		for _, object := range d.collapsedTargets(child) {
+			targets[object.Value] = true
 		}
 		// A child whose metaclass maps to more than one kind covers a target
 		// under one kind only: the first kind still stating it consumes it.
@@ -343,7 +371,7 @@ func (d *decoder) verifyCovered(owner *element) error {
 // spells out. A bare ParameterMembership declares no parameter kind, so a
 // member's direction is written explicitly.
 func (d *decoder) parameterMember(el *element) bool {
-	_, kind := d.membershipUsageKind(el)
+	_, kind := d.parameterMembershipKind(el)
 	return kind
 }
 
@@ -406,8 +434,27 @@ func (d *decoder) verifySubjectParameter(el *element, parent *element, subjects 
 
 // membershipUsageKind is the usage kind a member's metaclass does not state
 // but its owning membership does: the parameter an actor, stakeholder,
-// subject or objective member declares.
+// subject or objective member declares, or a `render`/`frame` member's usage.
 func (d *decoder) membershipUsageKind(el *element) (ast.UsageKind, bool) {
+	if kind, ok := d.parameterMembershipKind(el); ok {
+		return kind, true
+	}
+	m, owned := d.owningMembership[el.iri]
+	if !owned {
+		return 0, false
+	}
+	switch d.metaclass(rdf.IRI(m.iri)) {
+	case mViewRenderingMembership:
+		return ast.UsageViewRendering, true
+	case mFramedConcernMembership:
+		return ast.UsageFramedConcern, true
+	}
+	return 0, false
+}
+
+// parameterMembershipKind is the kind of the parameter a subject, actor,
+// stakeholder or objective membership owns.
+func (d *decoder) parameterMembershipKind(el *element) (ast.UsageKind, bool) {
 	m, owned := d.owningMembership[el.iri]
 	if !owned {
 		return 0, false
@@ -423,6 +470,28 @@ func (d *decoder) membershipUsageKind(el *element) (ast.UsageKind, bool) {
 		return ast.UsageObjective, true
 	}
 	return 0, false
+}
+
+// returnMember reports whether el is the result parameter a
+// ReturnParameterMembership owns, which is written `return`; a graph whose
+// sysml:isResult contradicts a parameter membership's metaclass is refused.
+// Older graphs own the result through a plain FeatureMembership, which says nothing.
+func (d *decoder) returnMember(el *element) (bool, error) {
+	m, owned := d.owningMembership[el.iri]
+	var mclass string
+	if owned {
+		mclass = d.metaclass(rdf.IRI(m.iri))
+	}
+	normative := mclass == mReturnParameterMembership
+	parameterKind := normative || mclass == mParameterMembership
+	collapsed, stated := d.graph.Object(rdf.IRI(el.iri), rdf.SysML+"isResult")
+	if stated && parameterKind && normative != (collapsed.Value == "true") {
+		return false, &UnsupportedError{
+			What: fmt.Sprintf("the member <%s>", el.iri),
+			Note: "its sysml:isResult and the metaclass of its owning membership disagree about whether it is a `return` parameter",
+		}
+	}
+	return normative || collapsed.Value == "true", nil
 }
 
 // normativeMemberHead reads the member forms whose kind lives on the owning
@@ -484,9 +553,39 @@ func (d *decoder) verifyNormativeNodes() error {
 			if err := d.verifyMultiplicityRange(subject); err != nil {
 				return err
 			}
+		default:
+			if err := d.verifyNodeRelationship(subject); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
+}
+
+// verifyNodeRelationship checks a relationship element a node owns, such as
+// the FeatureTyping of a body parameter, restates a target the node's
+// collapsed property states, and that every collapsed target is restated.
+func (d *decoder) verifyNodeRelationship(subject rdf.Term) error {
+	// A chain feature's segments are read as the chain's text, not as a derivation.
+	if !d.nodeRelationship(subject) || d.metaclass(subject) == mFeatureChaining {
+		return nil
+	}
+	owner := firstIRI(d.graph, subject, pOwningRelatedElement, pOwner)
+	// A connector end's reference subsetting is checked where the end is read.
+	if d.graph.BoolValue(owner, rdf.SysML+pIsEnd) {
+		return nil
+	}
+	node := &element{iri: owner.Value, metaclass: d.metaclass(owner)}
+	el := &element{iri: subject.Value, metaclass: d.metaclass(subject)}
+	if _, err := d.impliedRelationship(el, node); err != nil {
+		return err
+	}
+	for _, sibling := range d.graph.Objects(owner, rdf.SysML+pOwnedRelationship) {
+		if d.nodeRelationship(sibling) {
+			node.children = append(node.children, &element{iri: sibling.Value, metaclass: d.metaclass(sibling), implied: true})
+		}
+	}
+	return d.verifyCovered(node)
 }
 
 // verifyReferentMembership checks a referent Membership: owned by the
@@ -507,8 +606,10 @@ func (d *decoder) verifyReferentMembership(subject rdf.Term) error {
 			Note: "it owns no element, so the expression it relates cannot be told",
 		}
 	}
-	for _, property := range []string{pReferent, pTargetFeature} {
+	stated := false
+	for _, property := range []string{pReferent, pTargetFeature, pFunction} {
 		objects := d.graph.Objects(owner, rdf.SysML+property)
+		stated = stated || len(objects) > 0
 		for _, object := range objects {
 			if object == member {
 				return nil
@@ -523,9 +624,13 @@ func (d *decoder) verifyReferentMembership(subject rdf.Term) error {
 			}
 		}
 	}
+	if !stated {
+		// The membership alone states the referent: the normative-only form.
+		return nil
+	}
 	return &UnsupportedError{
 		What: fmt.Sprintf("the membership <%s>", subject.Value),
-		Note: fmt.Sprintf("its member is <%s>, which the expression <%s> states no referent or target feature for, and the two statements cannot both hold", member.Value, owner.Value),
+		Note: fmt.Sprintf("its member is <%s>, which the expression <%s> states no referent, target feature or function for, and the two statements cannot both hold", member.Value, owner.Value),
 	}
 }
 
@@ -576,4 +681,84 @@ func (d *decoder) rangeOwner(subject rdf.Term) (rdf.Term, bool) {
 		return rdf.Term{}, false
 	}
 	return rdf.IRI(m.owner), true
+}
+
+// headEnd reports whether el is an unnamed end a connector owns through an
+// EndFeatureMembership: the head writes it (`connect a to b`, `first a then b`).
+func (d *decoder) headEnd(el, parent *element) bool {
+	if parent == nil || !ontology.IsAncestorOrSelf(parent.metaclass, "Connector") ||
+		!d.boolOf(el, rdf.SysML+pIsEnd) || d.graph.HasProperty(rdf.IRI(el.iri), rdf.SysML+pDeclaredName) {
+		return false
+	}
+	m, owned := d.owningMembership[el.iri]
+	return owned && d.metaclass(rdf.IRI(m.iri)) == mEndFeatureMembership
+}
+
+// transitionImplied classifies a child of a TransitionUsage against the head
+// the transition states (SysML v2 1.0 § 8.3.18.9): the source Membership, the
+// payload parameter, the trigger AcceptActionUsage, and the SuccessionAsUsage
+// whose second end refers to the target are implied when they agree with the
+// head, refused when they contradict it, and ordinary members otherwise.
+func (d *decoder) transitionImplied(el *element, parent *element) (bool, error) {
+	subject := rdf.IRI(el.iri)
+	what := fmt.Sprintf("the transition <%s>", parent.iri)
+	m, owned := d.owningMembership[el.iri]
+	owning := ""
+	if owned {
+		owning = d.metaclass(rdf.IRI(m.iri))
+	}
+	agree := func(property string, stated rdf.Term, role string) (bool, error) {
+		head, hasHead, err := d.transitionObject(parent, property)
+		if err != nil || !hasHead {
+			return false, err
+		}
+		if stated != head {
+			return false, &UnsupportedError{
+				What: what,
+				Note: fmt.Sprintf("its head states <%s> as its %s while its owned %s refers to <%s>, and writing one would drop the other", head.Value, role, el.metaclass, stated.Value),
+			}
+		}
+		return true, nil
+	}
+	switch {
+	case el.metaclass == mMembership && !owned:
+		source := firstIRI(d.graph, subject, pMemberElement, pTarget)
+		if source.Value == "" || d.graph.HasProperty(subject, rdf.SysML+pQualifiedName) {
+			return false, nil
+		}
+		return agree(pSource, source, "source")
+	case el.metaclass == mReferenceUsage && owning == mParameterMembership:
+		direction, _ := d.stringOf(el, rdf.SysML+pDirection)
+		return direction == "in" && !d.graph.HasProperty(subject, rdf.SysML+pDeclaredName) &&
+			len(d.graph.Objects(subject, rdf.SysML+pOwnedRelationship)) == 0, nil
+	case el.metaclass == mAcceptAction && owning == mTransitionFeatureMembership:
+		kind, _ := d.graph.Lexical(rdf.IRI(m.iri), rdf.SysML+pKind)
+		if kind != "trigger" {
+			return false, nil
+		}
+		derived, ok := acceptTriggerText(d.graph, d.metaclass, subject)
+		trigger, hasTrigger := d.stringOf(parent, rdf.OpenSysML+xTrigger)
+		if !ok || !hasTrigger {
+			return false, nil
+		}
+		if derived != trigger {
+			return false, &UnsupportedError{
+				What: what,
+				Note: fmt.Sprintf("its head states the trigger %q while its owned AcceptActionUsage accepts %q, and writing one would drop the other", trigger, derived),
+			}
+		}
+		return true, nil
+	case el.metaclass == mSuccession && owning == mOwningMembership:
+		ends := successionEndReferents(d.graph, d.metaclass, subject)
+		if len(ends) != 2 || ends[1].Value == "" {
+			return false, nil
+		}
+		if ends[0].Value != "" {
+			if ok, err := agree(pSource, ends[0], "source"); err != nil || !ok {
+				return false, err
+			}
+		}
+		return agree(pTarget, ends[1], "target")
+	}
+	return false, nil
 }

@@ -36,15 +36,22 @@ const (
 	mStakeholderMembership           = "StakeholderMembership"
 	mObjectiveMembership             = "ObjectiveMembership"
 	mElementFilterMembership         = "ElementFilterMembership"
+	mViewRenderingMembership         = "ViewRenderingMembership"
+	mFramedConcernMembership         = "FramedConcernMembership"
 	mConstraintUsage                 = "ConstraintUsage"
 	mReferenceUsage                  = "ReferenceUsage"
 	pMultiplicity                    = "multiplicity"
 	pCondition                       = "condition"
 	pConjugatedPortDefinition        = "conjugatedPortDefinition"
+	pPortDefinition                  = "portDefinition"
 	pOwnedPortConjugator             = "ownedPortConjugator"
 	pOwnedSubjectParameter           = "ownedSubjectParameter"
 	pOwnedConstraint                 = "ownedConstraint"
+	pOwnedRendering                  = "ownedRendering"
+	pOwnedConcern                    = "ownedConcern"
 	pKind                            = "kind"
+	pTransitionFeature               = "transitionFeature"
+	pEffectAction                    = "effectAction"
 	pConjugatedType                  = "conjugatedType"
 	pOriginalType                    = "originalType"
 	pOriginalPortDefinition          = "originalPortDefinition"
@@ -58,16 +65,25 @@ const (
 func (e *encoder) materializeNormative() {
 	subjects := e.graph.Subjects()
 	for _, subject := range subjects {
-		// A node in the expression namespace is addressed by position, so the
-		// relationship elements a declared element owns are minted for elements
-		// only; a node's collapsed head properties stay collapsed.
+		// A node in the expression namespace is addressed by position, so an
+		// expression node's collapsed head properties stay collapsed; a feature
+		// an expression body declares owns its relationships as any feature does.
 		if strings.HasPrefix(subject.Value, rdf.Expression) {
 			e.materializeReferentMemberships(subject)
-			continue
+			if !e.bodyDeclarationNode(subject) {
+				continue
+			}
 		}
 		e.materializeReferentMemberships(subject)
 		e.materializeRelationships(subject)
 	}
+}
+
+// bodyDeclarationNode reports whether an expression-namespace node is a
+// feature an expression body declares rather than a node of an expression tree.
+func (e *encoder) bodyDeclarationNode(subject rdf.Term) bool {
+	metaclass := e.metaclassOf(subject)
+	return !expressionMetaclasses[metaclass] && ontology.IsAncestorOrSelf(metaclass, mFeature)
 }
 
 // normativeRelationship is one collapsed property's materialization: the
@@ -97,6 +113,10 @@ func (e *encoder) materializeRelationships(subject rdf.Term) {
 		for i, target := range targets {
 			spec, ok := e.relationshipSpec(subject, kind, len(targets), i)
 			if !ok {
+				continue
+			}
+			if kind == ast.RelTyping && e.graph.BoolValue(subject, rdf.OpenSysML+xConjugatedTyping) {
+				e.emitConjugatedPortTyping(subject, target, spec)
 				continue
 			}
 			e.emitRelationship(subject, target, spec)
@@ -179,6 +199,21 @@ func (e *encoder) referenceSubsettingSpec(count, i int) normativeRelationship {
 		[]string{pOwnedReferenceSubsetting, pOwnedSubsetting, pOwnedSpecialization, pOwnedRelationship}}
 }
 
+// emitConjugatedPortTyping materializes `: ~P` as a ConjugatedPortTyping whose
+// type is P's ConjugatedPortDefinition and whose portDefinition is P itself
+// (SysML v2 1.0 § 8.3.12 Ports); an external P is named `~P` by the literal.
+func (e *encoder) emitConjugatedPortTyping(subject, target rdf.Term, spec normativeRelationship) {
+	spec.metaclass = mConjugatedPortTyping
+	spec.targetEnds = append([]string{pConjugatedPortDefinition}, spec.targetEnds...)
+	conjugated := rdf.String("~" + target.Value)
+	if target.IsIRI() {
+		conjugated = e.ids.minted(rdf.RelationshipIRI(target, "_conjugated"), target, "_conjugated")
+	}
+	e.emitRelationship(subject, conjugated, spec)
+	relation := e.ids.minted(rdf.RelationshipIRI(subject, spec.suffix), subject, spec.suffix)
+	e.graph.Add(relation, e.sysml(pPortDefinition), target)
+}
+
 // emitRelationship mints the relationship element between subject and target
 // and wires its ends, its identity and its owner's owned-* properties.
 func (e *encoder) emitRelationship(subject, target rdf.Term, spec normativeRelationship) {
@@ -220,6 +255,11 @@ func (e *encoder) materializeReferentMemberships(subject rdf.Term) {
 	}
 	target, ok := e.graph.Object(subject, rdf.SysML+property)
 	if !ok {
+		return
+	}
+	// A body expression the node owns is already its member through the
+	// FeatureMembership that owns it, as in the pilot's XMI.
+	if owner, owned := e.graph.Object(target, rdf.SysML+pOwner); owned && owner == subject {
 		return
 	}
 	var membership rdf.Term

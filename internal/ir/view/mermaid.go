@@ -29,7 +29,8 @@ func (r *Rendering) Mermaid() string {
 func (r *Rendering) MermaidWith(options Options) string {
 	direction := options.Direction
 	var b strings.Builder
-	r.writeFlowchartFrontmatter(&b)
+	labels := labelsOf(r.Roots)
+	r.writeFlowchartFrontmatter(&b, labels)
 	if r.View == "" {
 		fmt.Fprintf(&b, "%%%% %s rendering", r.Kind)
 	} else {
@@ -48,13 +49,13 @@ func (r *Rendering) MermaidWith(options Options) string {
 	r.writeGeometryComments(&b, "%%")
 	switch r.Kind {
 	case KindState:
-		r.writeStateDiagram(&b, direction)
+		r.writeStateDiagram(&b, direction, labels)
 		return b.String()
 	case KindSequence:
-		r.writeSequenceDiagram(&b)
+		r.writeSequenceDiagram(&b, labels)
 		return b.String()
 	}
-	r.writeFlowchart(&b, direction)
+	r.writeFlowchart(&b, direction, labels)
 	return b.String()
 }
 
@@ -111,14 +112,14 @@ const mermaidTitleLine = 24
 
 // writeFlowchartFrontmatter reserves, as a subgraph title's bottom margin, the
 // height Mermaid leaves out for a title beyond its first line; none is needed otherwise.
-func (r *Rendering) writeFlowchartFrontmatter(b *strings.Builder) {
+func (r *Rendering) writeFlowchartFrontmatter(b *strings.Builder, labels labeller) {
 	switch r.Kind {
 	case KindTree, KindState, KindSequence:
 		return
 	}
 	extra := 0
 	for _, root := range r.Roots {
-		extra = max(extra, clusterTitleExtraLines(root))
+		extra = max(extra, clusterTitleExtraLines(root, labels))
 	}
 	if extra == 0 {
 		return
@@ -128,13 +129,13 @@ func (r *Rendering) writeFlowchartFrontmatter(b *strings.Builder) {
 
 // clusterTitleExtraLines is the most lines beyond the first spanned by the
 // title of node or of a cluster under it.
-func clusterTitleExtraLines(node *Node) int {
+func clusterTitleExtraLines(node *Node, labels labeller) int {
 	if len(node.Children) == 0 {
 		return 0
 	}
-	extra := len(labelLines(node)) - 1
+	extra := len(labels.lines(node)) - 1
 	for _, child := range node.Children {
-		extra = max(extra, clusterTitleExtraLines(child))
+		extra = max(extra, clusterTitleExtraLines(child, labels))
 	}
 	return extra
 }
@@ -142,7 +143,7 @@ func clusterTitleExtraLines(node *Node) int {
 // writeFlowchart writes the tree, interconnection and action renderings as a
 // Mermaid flowchart: a node with children is a subgraph, containment in a tree
 // is an edge, and every other edge is the one the rendering holds.
-func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction) {
+func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction, labels labeller) {
 	flow := "TD"
 	if r.Kind == KindInterconnection {
 		flow = "LR"
@@ -156,7 +157,7 @@ func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction) {
 		return
 	}
 	for _, root := range r.Roots {
-		writeFlowchartNode(b, root, 1, r.Kind == KindTree, flow)
+		writeFlowchartNode(b, root, 1, r.Kind == KindTree, flow, labels)
 	}
 	for _, edge := range r.Edges {
 		if edge.Label == "" {
@@ -171,31 +172,31 @@ func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction) {
 // node otherwise. containment adds an edge from a node to each of its children,
 // which is how a tree rendering shows what contains what. A subgraph restates the
 // flowchart's direction, which Mermaid does not apply inside one that states none.
-func writeFlowchartNode(b *strings.Builder, node *Node, depth int, containment bool, flow string) {
+func writeFlowchartNode(b *strings.Builder, node *Node, depth int, containment bool, flow string, labels labeller) {
 	indent := strings.Repeat("  ", depth)
 	if len(node.Children) == 0 {
-		fmt.Fprintf(b, "%s%s[\"%s\"]\n", indent, node.ID, mermaidLabel(node))
+		fmt.Fprintf(b, "%s%s[\"%s\"]\n", indent, node.ID, labels.mermaid(node))
 		return
 	}
 	if containment {
-		fmt.Fprintf(b, "%s%s[\"%s\"]\n", indent, node.ID, mermaidLabel(node))
+		fmt.Fprintf(b, "%s%s[\"%s\"]\n", indent, node.ID, labels.mermaid(node))
 		for _, child := range node.Children {
-			writeFlowchartNode(b, child, depth, containment, flow)
+			writeFlowchartNode(b, child, depth, containment, flow, labels)
 			fmt.Fprintf(b, "%s%s --- %s\n", indent, node.ID, child.ID)
 		}
 		return
 	}
-	fmt.Fprintf(b, "%ssubgraph %s [\"%s\"]\n", indent, node.ID, mermaidLabel(node))
+	fmt.Fprintf(b, "%ssubgraph %s [\"%s\"]\n", indent, node.ID, labels.mermaid(node))
 	fmt.Fprintf(b, "%s  direction %s\n", indent, flow)
 	for _, child := range node.Children {
-		writeFlowchartNode(b, child, depth+1, containment, flow)
+		writeFlowchartNode(b, child, depth+1, containment, flow, labels)
 	}
 	fmt.Fprintf(b, "%send\n", indent)
 }
 
 // writeStateDiagram writes a state rendering as a Mermaid state diagram: bodies
 // are composite states, entry transitions leave the `[*]` marker of their body.
-func (r *Rendering) writeStateDiagram(b *strings.Builder, direction Direction) {
+func (r *Rendering) writeStateDiagram(b *strings.Builder, direction Direction, labels labeller) {
 	b.WriteString("stateDiagram-v2\n")
 	if direction != "" {
 		fmt.Fprintf(b, "  direction %s\n", direction)
@@ -216,7 +217,7 @@ func (r *Rendering) writeStateDiagram(b *strings.Builder, direction Direction) {
 		}
 	}
 	for _, root := range r.Roots {
-		writeStateNode(b, root, 1, starts)
+		writeStateNode(b, root, 1, starts, labels)
 	}
 	for _, edge := range r.Edges {
 		if _, ok := starts[edge.From]; ok {
@@ -250,7 +251,7 @@ func writeStateEdge(b *strings.Builder, from, to, label string, depth int) {
 // writeSequenceDiagram writes a sequence rendering as a Mermaid sequence
 // diagram: one participant per lifeline, declared before the messages, then the
 // messages in the order the rendering settled on.
-func (r *Rendering) writeSequenceDiagram(b *strings.Builder) {
+func (r *Rendering) writeSequenceDiagram(b *strings.Builder, labels labeller) {
 	b.WriteString("sequenceDiagram\n")
 	if r.Empty() {
 		// A sequence diagram carries no free text, so the reason is a
@@ -259,7 +260,7 @@ func (r *Rendering) writeSequenceDiagram(b *strings.Builder) {
 		return
 	}
 	for _, node := range r.Roots {
-		fmt.Fprintf(b, "  participant %s as %s\n", node.ID, mermaidLabel(node))
+		fmt.Fprintf(b, "  participant %s as %s\n", node.ID, labels.mermaid(node))
 	}
 	for _, edge := range r.Edges {
 		// The colon is part of the message syntax; only the text after it is left
@@ -274,16 +275,16 @@ func (r *Rendering) writeSequenceDiagram(b *strings.Builder) {
 
 // writeStateNode writes one state and its substates. A body's start is the `[*]`
 // marker inside that state, so its edges are written there after the substates.
-func writeStateNode(b *strings.Builder, node *Node, depth int, starts map[string][]Edge) {
+func writeStateNode(b *strings.Builder, node *Node, depth int, starts map[string][]Edge, labels labeller) {
 	indent := strings.Repeat("  ", depth)
 	if len(node.Children) == 0 {
-		fmt.Fprintf(b, "%sstate \"%s\" as %s\n", indent, mermaidLabel(node), node.ID)
+		fmt.Fprintf(b, "%sstate \"%s\" as %s\n", indent, labels.mermaid(node), node.ID)
 		return
 	}
-	fmt.Fprintf(b, "%sstate \"%s\" as %s {\n", indent, mermaidLabel(node), node.ID)
+	fmt.Fprintf(b, "%sstate \"%s\" as %s {\n", indent, labels.mermaid(node), node.ID)
 	for _, child := range node.Children {
 		if child.Kind != startKind {
-			writeStateNode(b, child, depth+1, starts)
+			writeStateNode(b, child, depth+1, starts, labels)
 		}
 	}
 	for _, child := range node.Children {
@@ -294,10 +295,10 @@ func writeStateNode(b *strings.Builder, node *Node, depth int, starts map[string
 	fmt.Fprintf(b, "%s}\n", indent)
 }
 
-// mermaidLabel is a node's label ready to embed: its lines escaped and joined
-// with `<br>`, which flowcharts, state diagrams and sequence diagrams all break at.
-func mermaidLabel(node *Node) string {
-	lines := labelLines(node)
+// mermaid is a node's label ready to embed: its lines escaped and joined with
+// `<br>`, which flowcharts, state diagrams and sequence diagrams all break at.
+func (l labeller) mermaid(node *Node) string {
+	lines := l.lines(node)
 	for i, line := range lines {
 		lines[i] = mermaidText(line)
 	}

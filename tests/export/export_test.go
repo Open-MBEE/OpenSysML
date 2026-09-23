@@ -305,7 +305,19 @@ func TestCastTypeIsSpelledForItsScope(t *testing.T) {
 		t.Errorf("notation does not write %q\n%s", want, notation)
 	}
 	structural := withoutTriples(t, graph, "sysx:sourceText")
-	relinkedGraph := relinked(t, structural, "sysx:typeArgument elmt:P__T", "sysx:typeArgument elmt:P__H__T")
+	// The collapsed sysx:typeArgument and the typed parameter's FeatureTyping
+	// name the type twice; relinking only one of them is a disagreement.
+	collapsedOnly := relinked(t, structural, "sysx:typeArgument elmt:P__T", "sysx:typeArgument elmt:P__H__T")
+	refusedAsUnsupported(t, "cast_type", collapsedOnly, "its sysx:typeArgument names P::H::T and its typed parameter names P::T")
+	relinkedGraph := collapsedOnly
+	for _, property := range []string{"type", "general", "target"} {
+		relinkedGraph = relinkedProperty(t, relinkedGraph, "expr:P__H__v_pvalue_pin0_ft0", property, "elmt:P__T", "elmt:P__H__T")
+	}
+	relinkedGraph = relinkedProperty(t, relinkedGraph, "expr:P__H__v_pvalue_pin0_ft0", "relatedElement",
+		"expr:P__H__v_pvalue_pin0, elmt:P__T", "expr:P__H__v_pvalue_pin0, elmt:P__H__T")
+	relinkedGraph = relinked(t, relinkedGraph,
+		`json:relatedElement "[{\"@id\":\"P__H__v_pvalue_pin0\"},{\"@id\":\"P__T\"}]"`,
+		`json:relatedElement "[{\"@id\":\"P__H__v_pvalue_pin0\"},{\"@id\":\"P__H__T\"}]"`)
 	back, err := convert.Convert("cast_type.ttl", relinkedGraph, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to notation: %v\n%s", err, relinkedGraph)
@@ -665,8 +677,8 @@ func TestInitialStartMustBeAMemberOfItsBody(t *testing.T) {
 	}
 	structuralRoundTrip(t, "initial", graph)
 	structural := withoutTriples(t, graph, "sysx:sourceText")
-	const link = "sysml:sourceFeature elmt:P__Outer__inner__s2"
-	refusedAsUnsupported(t, "initial", relinked(t, structural, link, "sysml:sourceFeature elmt:P__Outer__s1"),
+	const link = "sysx:declaredKeyword \"first\" ;\n    sysml:memberElement elmt:P__Outer__inner__s2"
+	refusedAsUnsupported(t, "initial", relinked(t, structural, link, "sysx:declaredKeyword \"first\" ;\n    sysml:memberElement elmt:P__Outer__s1"),
 		"`first s1` does not name P::Outer::s1 in the body it is written in")
 	// A same-named sibling of the body would read as the start instead.
 	shadowed := strings.Replace(src, "action s1;", "action s2;", 1)
@@ -675,7 +687,7 @@ func TestInitialStartMustBeAMemberOfItsBody(t *testing.T) {
 		t.Fatalf("to turtle: %v", err)
 	}
 	structural = withoutTriples(t, graph, "sysx:sourceText")
-	refusedAsUnsupported(t, "initial", relinked(t, structural, link, "sysml:sourceFeature elmt:P__Outer__s2"),
+	refusedAsUnsupported(t, "initial", relinked(t, structural, link, "sysx:declaredKeyword \"first\" ;\n    sysml:memberElement elmt:P__Outer__s2"),
 		"`first s2` does not name P::Outer::s2 in the body it is written in")
 }
 
@@ -1167,6 +1179,32 @@ func TestShortKindKeywordSurvivesTheRoundTrip(t *testing.T) {
 		if !strings.Contains(string(back), want) {
 			t.Errorf("`%s` did not survive the round trip:\n%s", want, back)
 		}
+	}
+}
+
+// A case metaclass alone, with no recorded keyword (as another tool's graph
+// states it), reconstructs the grammar's `analysis def` and `analysis`, not
+// the two-word display name, which the parser reads as a plain case.
+func TestCaseKeywordsReconstructFromTheMetaclassAlone(t *testing.T) {
+	src := "package P {\n\tverification def V;\n\tanalysis def A;\n\tanalysis a : A;\n\tverification v : V;\n}"
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	for _, property := range []string{"sysx:sourceText", "sysx:sourceTail", "sysx:declaredKeyword"} {
+		turtle = withoutTriples(t, turtle, property)
+	}
+	back, err := convert.Convert("m.ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation: %v", err)
+	}
+	for _, want := range []string{"verification def V;", "analysis def A;", "analysis a : A;", "verification v : V;"} {
+		if !strings.Contains(string(back), want) {
+			t.Errorf("`%s` did not come back from the metaclass:\n%s", want, back)
+		}
+	}
+	if strings.Contains(string(back), " case") {
+		t.Errorf("a two-word kind was written:\n%s", back)
 	}
 }
 
@@ -2573,6 +2611,13 @@ func TestLegacyTransitionEffectsStayEffects(t *testing.T) {
 		if !strings.Contains(string(turtle), hasEffect) {
 			t.Fatalf("the effect is not the one the test rewrites:\n%s", turtle)
 		}
+		// The older mapping owned the effect through a plain FeatureMembership.
+		if len(without) > 0 {
+			for _, property := range []string{"sysml:kind", "sysml:transitionFeature", "sysml:effectAction"} {
+				turtle = withoutTriples(t, turtle, property)
+			}
+			turtle = []byte(strings.ReplaceAll(string(turtle), "a sysml:TransitionFeatureMembership ;", "a sysml:FeatureMembership ;"))
+		}
 		return strings.ReplaceAll(string(turtle), hasEffect, replacement)
 	}
 	unlinked := []string{"sysx:effectMember", "sysx:bodyMember"}
@@ -2609,6 +2654,86 @@ func TestLegacyTransitionEffectsStayEffects(t *testing.T) {
 			}
 		})
 	}
+}
+
+// A transition's effect is owned through a TransitionFeatureMembership of kind
+// `effect` (SysML 8.3.16.13): the normative membership alone places the action
+// as the effect, and a collapsed link that contradicts it is refused.
+func TestTransitionEffectMembershipIsNormative(t *testing.T) {
+	src := "package P {\n\taction def Warm;\n\tstate def M {\n\t\tstate s1;\n\t\tstate s2;\n\t\ttransition first s1 do action stop : Warm then s2 {\n\t\t\taction tidy : Warm;\n\t\t}\n\t}\n}"
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	for _, property := range []string{"sysx:sourceText", "sysx:sourceTail"} {
+		turtle = withoutTriples(t, turtle, property)
+	}
+	if !strings.Contains(string(turtle), "a sysml:TransitionFeatureMembership ;") ||
+		!strings.Contains(string(turtle), `sysml:kind "effect" ;`) {
+		t.Fatalf("the effect is not owned by an effect membership:\n%s", turtle)
+	}
+	t.Run("normative only", func(t *testing.T) {
+		graph := turtle
+		for _, property := range []string{"sysx:effectMember", "sysx:bodyMember", "sysx:hasEffect"} {
+			graph = withoutTriples(t, graph, property)
+		}
+		back, err := convert.Convert("m.ttl", graph, convert.FormatTurtle, convert.FormatSysML)
+		if err != nil {
+			t.Fatalf("back to notation: %v", err)
+		}
+		if want := "transition first s1 do action stop : Warm then s2 {\n            action tidy : Warm;\n        }"; !strings.Contains(string(back), want) {
+			t.Errorf("expected %q in:\n%s", want, back)
+		}
+	})
+	t.Run("contradicting link refused", func(t *testing.T) {
+		graph := strings.ReplaceAll(string(turtle), "sysx:effectMember elmt:P__M___402__stop", "sysx:bodyMember elmt:P__M___402__stop")
+		if graph == string(turtle) {
+			t.Fatalf("the effect link is not the one the test rewrites:\n%s", turtle)
+		}
+		_, err := convert.Convert("m.ttl", []byte(graph), convert.FormatTurtle, convert.FormatSysML)
+		var unsupported *export.UnsupportedError
+		if !errors.As(err, &unsupported) || !strings.Contains(err.Error(), "effect membership") {
+			t.Fatalf("got %v, want a refusal naming the effect membership", err)
+		}
+	})
+}
+
+// A state subaction's kind is the membership's sysml:kind, as SysML v2's
+// StateSubactionMembership states it; the collapsed sysx:subactionKind is
+// written beside. Either alone reads; the two disagreeing is refused.
+func TestSubactionKindNormativeAndCollapsed(t *testing.T) {
+	src := "package P {\n\taction def Warm;\n\tstate def M {\n\t\tstate s1 {\n\t\t\texit action stop : Warm;\n\t\t}\n\t}\n}"
+	const collapsed = `sysx:subactionKind "exit" ;`
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	turtle = withoutTriples(t, withoutTriples(t, turtle, "sysx:sourceText"), "sysx:sourceTail")
+	if !strings.Contains(string(turtle), `sysml:kind "exit" ;`) || !strings.Contains(string(turtle), collapsed) {
+		t.Fatalf("the subaction does not state its kind both ways:\n%s", turtle)
+	}
+	for name, graph := range map[string][]byte{
+		"normative only": withoutTriples(t, turtle, "sysx:subactionKind"),
+		"collapsed only": withoutTriples(t, turtle, "sysml:kind"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			back, err := convert.Convert("m.ttl", graph, convert.FormatTurtle, convert.FormatSysML)
+			if err != nil {
+				t.Fatalf("back to notation: %v", err)
+			}
+			if !strings.Contains(string(back), "exit action stop : Warm;") {
+				t.Errorf("the exit subaction was lost:\n%s", back)
+			}
+		})
+	}
+	t.Run("disagreement refused", func(t *testing.T) {
+		graph := strings.Replace(string(turtle), collapsed, `sysx:subactionKind "entry" ;`, 1)
+		_, err := convert.Convert("m.ttl", []byte(graph), convert.FormatTurtle, convert.FormatSysML)
+		var unsupported *export.UnsupportedError
+		if !errors.As(err, &unsupported) || !strings.Contains(err.Error(), "cannot both hold") {
+			t.Fatalf("got %v, want a refusal naming the two kinds", err)
+		}
+	})
 }
 
 // A state subaction graph from an older mapping recorded its braces with
@@ -3017,8 +3142,9 @@ func TestElementIRIsEncodeQualifiedNames(t *testing.T) {
 // materializedSuffixID is the naming convention of the relationship elements
 // the collapsed head properties imply: the `<S>_ft<i>`/`_sc<i>`/`_ss<i>`/`_sp<i>`/`_rd<i>`/`_rs<i>` relationships,
 // the satisfy subject `_subject`, the conjugate `_conjugated` and its `_pc`,
-// and the referent memberships an expression's referent edge restates.
-var materializedSuffixID = regexp.MustCompile(`_(ft|sc|ss|sp|rd|rs)[0-9]*(_om)?$|_(subject|conjugated|pc|referent|preferent|targetFeature)(_om)?$`)
+// the referent memberships an expression's referent edge restates, and a
+// filtered import's unnamed `_fp` package with its `_im` import and `_efm` filter.
+var materializedSuffixID = regexp.MustCompile(`_(ft|sc|ss|sp|rd|rs)[0-9]*(_om)?$|_(subject|conjugated|pc|referent|preferent|targetFeature)(_om)?$|_fp(_im|_efm)?$`)
 
 // materializedExprID is the same convention inside an expression node's id.
 var materializedExprID = regexp.MustCompile(`_(subject|conjugated|pc|referent|preferent|targetFeature)(_|$)|_(ft|sc|ss|sp|rd|rs)[0-9]`)
@@ -3390,6 +3516,37 @@ func TestWriteFileNamesTheMissingDirectory(t *testing.T) {
 	}
 }
 
+// A destination whose name fills a 255-byte path component is still written
+// atomically: the temporary file beside it takes a shorter name.
+func TestWriteFileFitsALongName(t *testing.T) {
+	dir := t.TempDir()
+	name := strings.Repeat("ä", 124) + "a.sysml"
+	if len(name) != 255 {
+		t.Fatalf("name is %d bytes, want 255", len(name))
+	}
+	path := filepath.Join(dir, name)
+	if _, err := export.WriteFile(path, []byte("package P;\n")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := export.WriteFile(path, []byte("package Q;\n")); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "package Q;\n" {
+		t.Errorf("content = %q", data)
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 {
+		t.Errorf("leftover files in %s: %v", dir, entries)
+	}
+}
+
 // The REPL's tolerant save writes notation it could not fully parse and reports
 // the syntax errors; every other direction still refuses.
 func TestConvertTolerant(t *testing.T) {
@@ -3579,7 +3736,7 @@ func TestLinkedReferencesCarryTheRoundTripWithoutSourceText(t *testing.T) {
 		"part : Inner::Wheel redefines w;",
 		"transition idle then Done::done;",
 		"part unresolved : Elsewhere::Missing;",
-		"public import Meta::* [(@ Safety)];",
+		"public import Meta::*[@Safety];",
 		"attribute other : Tagged;",
 	} {
 		if !strings.Contains(back, want) {

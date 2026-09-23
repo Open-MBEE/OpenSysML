@@ -18,7 +18,8 @@ import (
 // objects, or a single element object — into the same graph ParseTurtle yields:
 // the "@type" and "@id" of each object and each metamodel key in document
 // order. It is the inverse of WriteAPIJSON, so a graph it builds writes the
-// same elements back.
+// same elements back; the unnamed root Namespace a document wraps its
+// top-level elements in is dropped, as the Turtle form does not carry it.
 func ReadAPIJSON(data []byte) (*rdf.Graph, error) {
 	elements, expressionIDs, err := parseAPIJSON(data)
 	if err != nil {
@@ -60,7 +61,7 @@ func ReadAPIJSON(data []byte) (*rdf.Graph, error) {
 	if len(expressionIDs) > 0 {
 		graph.Prefixes[rdf.ExpressionPrefix] = rdf.Expression
 	}
-	return graph, nil
+	return withoutRootNamespace(graph), nil
 }
 
 // apiJSONElementData is one parsed element object: its identity, its class as
@@ -143,11 +144,9 @@ func parseAPIJSON(data []byte) ([]apiJSONElementData, map[string]bool, error) {
 	// child may be listed before its parent. Opaque ids such as UUIDs carry no
 	// parent, so the membership that states the node as its member stands in.
 	nodeOwner := map[string]string{}
+	relationshipOwner := map[string]string{}
 	for i := range objects {
 		object := &objects[i]
-		if !nodeMembershipMetaclass(object.typ) {
-			continue
-		}
 		member, owner := "", ""
 		for _, m := range object.members {
 			id, isRef := memberReference(m.value)
@@ -159,7 +158,10 @@ func parseAPIJSON(data []byte) ([]apiJSONElementData, map[string]bool, error) {
 				owner = id
 			}
 		}
-		if member != "" && owner != "" {
+		if owner != "" && isRelationship(object.typ) {
+			relationshipOwner[object.id] = owner
+		}
+		if member != "" && owner != "" && nodeMembershipMetaclass(object.typ) {
 			nodeOwner[member] = owner
 		}
 	}
@@ -182,6 +184,10 @@ func parseAPIJSON(data []byte) ([]apiJSONElementData, map[string]bool, error) {
 				expression = true
 			} else if owner := nodeOwner[object.id]; owner != "" {
 				expression = expressionIDs[owner] || expressionMetaclasses[types[owner]]
+			} else if owner := relationshipOwner[object.id]; owner != "" && expressionIDs[owner] {
+				// A referent Membership is a node; other owned relationships are
+				// nodes only while their id derives from the node's (qualified form).
+				expression = object.typ == mMembership || strings.HasPrefix(object.id, owner+"_")
 			}
 			if expression {
 				object.expression = true
@@ -414,6 +420,13 @@ func apiJSONReferenceTarget(subject rdf.Term, object map[string]any, expressionI
 	return rdf.Term{}, fmt.Errorf("an object value is a reference {\"@id\": <id>} or {\"@ref\": <name>}")
 }
 
+// nonuniqueCollections are the derived KerML collections declared {nonunique}:
+// a relationship's related elements may repeat (an association of two ends on one type).
+var nonuniqueCollections = map[string]bool{
+	"relatedElement": true, "relatedType": true, "relatedFeature": true,
+	"chainingFeature": true, "source": true, "target": true,
+}
+
 // apiJSONCollection states an array member: one triple per value, recording
 // a collection of at least two on a sysml: key for its json: annotation.
 func apiJSONCollection(graph *rdf.Graph, subject rdf.Term, predicate rdf.Term, sysmlKey string, values []any, expressionIDs map[string]bool, annotations *[]apiJSONAnnotation) error {
@@ -428,15 +441,20 @@ func apiJSONCollection(graph *rdf.Graph, subject rdf.Term, predicate rdf.Term, s
 		}
 		members = append(members, member)
 	}
+	name := sysmlKey
+	if name == "" {
+		name = rdf.LocalName(predicate.Value)
+	}
 	for i, member := range members {
 		for _, earlier := range members[:i] {
-			if member.Equal(earlier) {
-				name := sysmlKey
-				if name == "" {
-					name = rdf.LocalName(predicate.Value)
-				}
-				return fmt.Errorf("the array on %s of <%s> repeats the member %s", name, subject.Value, member)
+			if !member.Equal(earlier) {
+				continue
 			}
+			if nonuniqueCollections[name] {
+				// A derived {nonunique} list repeats a member the triples hold once.
+				break
+			}
+			return fmt.Errorf("the array on %s of <%s> repeats the member %s", name, subject.Value, member)
 		}
 		graph.Add(subject, predicate, member)
 	}

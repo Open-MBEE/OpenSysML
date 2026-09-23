@@ -103,6 +103,7 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		w:            &writer{},
 		names:        map[*sysmlv1.Element]string{},
 		nodeNames:    map[*sysmlv1.Element]string{},
+		declared:     map[*sysmlv1.Element]bool{},
 		placeholders: map[*sysmlv1.Element]bool{},
 		nodeEnds:     map[*sysmlv1.Element]*placement{},
 		extras:       map[*sysmlv1.Element][]func(){},
@@ -259,6 +260,8 @@ type migration struct {
 	// activity nodes are written under, fixed by their writer or ahead of it.
 	names     map[*sysmlv1.Element]string
 	nodeNames map[*sysmlv1.Element]string
+	// declared marks the activity nodes their graph's writer declared as members.
+	declared map[*sysmlv1.Element]bool
 	// placeholders are the activity nodes written as inert placeholders, and nodeEnds
 	// the placements of the relationships ending at activity nodes, judged once all are written.
 	placeholders map[*sysmlv1.Element]bool
@@ -617,16 +620,25 @@ func (m *migration) prepare() {
 	}
 }
 
-// isActionNode reports whether e is an action node of an activity graph, written
-// as an action usage in the body of its graph.
-func isActionNode(e *sysmlv1.Element) bool {
-	return e.Role == "node" && nodeKind(e) == nodeAction && e.Parent != nil
+// isActionNode reports whether e is an action node of an activity graph, written as a
+// member of its graph's body: an action, or a control, buffer or final node declared as one.
+func (m *migration) isActionNode(e *sysmlv1.Element) bool {
+	if e.Role != "node" || e.Parent == nil {
+		return false
+	}
+	switch nodeKind(e) {
+	case nodeAction:
+		return true
+	case nodeControl, nodeBuffer, nodeFinal:
+		return m.declared[e]
+	}
+	return false
 }
 
 // nodeGraph returns the activity or structured node whose graph n is an action node
 // of, and the definition the graph is written as the body of; nil for another element.
 func (m *migration) nodeGraph(n *sysmlv1.Element) (act, def *sysmlv1.Element) {
-	if !isActionNode(n) {
+	if !m.isActionNode(n) {
 		return nil, nil
 	}
 	act = n.Parent

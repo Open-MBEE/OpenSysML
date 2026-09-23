@@ -460,10 +460,36 @@ expr:FeaturePrefixes__C___401_pvalue
     sysx:sourceText "p" ;
     sysml:elementId "FeaturePrefixes__C___401_pvalue" ;
     sysml:referent elmt:FeaturePrefixes__C___400 ;
+    sysml:ownedRelationship expr:FeaturePrefixes__C___401_pvalue_pout_om, expr:FeaturePrefixes__C___401_pvalue_preferent ;
+    sysml:ownedMembership expr:FeaturePrefixes__C___401_pvalue_pout_om ;
+    sysml:ownedFeatureMembership expr:FeaturePrefixes__C___401_pvalue_pout_om ;
+    sysml:ownedFeature expr:FeaturePrefixes__C___401_pvalue_pout ;
+    sysml:parameter expr:FeaturePrefixes__C___401_pvalue_pout ;
+    sysml:result expr:FeaturePrefixes__C___401_pvalue_pout ;
     sysml:owner elmt:FeaturePrefixes__C___401 ;
     sysml:owningRelationship expr:FeaturePrefixes__C___401_pvalue_om ;
     sysml:owningMembership expr:FeaturePrefixes__C___401_pvalue_om ;
-    sysml:ownedRelationship expr:FeaturePrefixes__C___401_pvalue_preferent .
+    json:ownedRelationship "[{\"@id\":\"FeaturePrefixes__C___401_pvalue_pout_om\"},{\"@id\":\"FeaturePrefixes__C___401_pvalue_preferent\"}]" .
+
+expr:FeaturePrefixes__C___401_pvalue_pout
+    a sysml:Feature ;
+    sysml:elementId "FeaturePrefixes__C___401_pvalue_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:FeaturePrefixes__C___401_pvalue ;
+    sysml:owningRelationship expr:FeaturePrefixes__C___401_pvalue_pout_om ;
+    sysml:owningMembership expr:FeaturePrefixes__C___401_pvalue_pout_om .
+
+expr:FeaturePrefixes__C___401_pvalue_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "FeaturePrefixes__C___401_pvalue_pout_om" ;
+    sysml:owner expr:FeaturePrefixes__C___401_pvalue ;
+    sysml:memberElement expr:FeaturePrefixes__C___401_pvalue_pout ;
+    sysml:ownedMemberElement expr:FeaturePrefixes__C___401_pvalue_pout ;
+    sysml:ownedRelatedElement expr:FeaturePrefixes__C___401_pvalue_pout ;
+    sysml:owningRelatedElement expr:FeaturePrefixes__C___401_pvalue ;
+    sysml:membershipOwningNamespace expr:FeaturePrefixes__C___401_pvalue ;
+    sysml:ownedMemberFeature expr:FeaturePrefixes__C___401_pvalue_pout ;
+    sysml:ownedMemberParameter expr:FeaturePrefixes__C___401_pvalue_pout .
 
 expr:FeaturePrefixes__C___401_pvalue_om
     a sysml:FeatureValue ;

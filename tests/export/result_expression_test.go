@@ -249,8 +249,8 @@ func TestResultExpressionWithoutAnExpressionIsRefused(t *testing.T) {
 	turtle := string(withoutTriples(t, convertFixture(t, "result_expressions"), "sysx:sourceText"))
 	const argument = "    sysml:argument expr:Results__AfterMembers___403_pa0, expr:Results__AfterMembers___403_pa1 ;"
 	const annotation = "    json:argument \"[{\\\"@id\\\":\\\"Results__AfterMembers___403_pa0\\\"},{\\\"@id\\\":\\\"Results__AfterMembers___403_pa1\\\"}]\" ;"
-	const featureMembership = "    sysml:ownedFeatureMembership expr:Results__AfterMembers___403_pin0_om, expr:Results__AfterMembers___403_pin1_om ;"
-	const featureMembershipAnnotation = "    json:ownedFeatureMembership \"[{\\\"@id\\\":\\\"Results__AfterMembers___403_pin0_om\\\"},{\\\"@id\\\":\\\"Results__AfterMembers___403_pin1_om\\\"}]\" ;"
+	const featureMembership = "    sysml:ownedFeatureMembership expr:Results__AfterMembers___403_pin0_om, expr:Results__AfterMembers___403_pin1_om, expr:Results__AfterMembers___403_pout_om ;"
+	const featureMembershipAnnotation = "    json:ownedFeatureMembership \"[{\\\"@id\\\":\\\"Results__AfterMembers___403_pin0_om\\\"},{\\\"@id\\\":\\\"Results__AfterMembers___403_pin1_om\\\"},{\\\"@id\\\":\\\"Results__AfterMembers___403_pout_om\\\"}]\" ;"
 	if !strings.Contains(turtle, argument) || !strings.Contains(turtle, annotation) || !strings.Contains(turtle, featureMembership) || !strings.Contains(turtle, featureMembershipAnnotation) {
 		t.Fatalf("expected the operands of the AfterMembers result in the graph:\n%s", turtle)
 	}
@@ -704,8 +704,8 @@ func TestNonStringLiteralsAreRefused(t *testing.T) {
 	cases := []struct {
 		name, literal, want string
 	}{
-		{"typed", `sysx:bodyParameter "3"^^xsd:integer ;`, `the literal "3"^^xsd:integer stated by <urn:sysmlv2:element:Results__Quoted___401> sysx:bodyParameter: sysx:bodyParameter takes a string`},
-		{"language-tagged", `sysx:bodyParameter "eingabe"@de ;`, `the literal "eingabe"@de stated by <urn:sysmlv2:element:Results__Quoted___401> sysx:bodyParameter: a language-tagged literal is an rdf:langString`},
+		{"typed", `sysx:bodyParameter "3"^^xsd:integer ;`, `the literal "3"^^xsd:integer stated by <urn:opensysml:expr:Results__Quoted___401_pbody> sysx:bodyParameter: sysx:bodyParameter takes a string`},
+		{"language-tagged", `sysx:bodyParameter "eingabe"@de ;`, `the literal "eingabe"@de stated by <urn:opensysml:expr:Results__Quoted___401_pbody> sysx:bodyParameter: a language-tagged literal is an rdf:langString`},
 		{"explicit string", `sysx:bodyParameter "the input"^^xsd:string ;`, ""},
 	}
 	for _, tc := range cases {
@@ -1001,9 +1001,10 @@ func TestExpressionBodyParameterIsDeclaredOutsideTheBody(t *testing.T) {
 	}
 	for _, want := range []string{
 		"expr:Params__one_pvalue_pa0_pin0\n    a sysml:ReferenceUsage ;",
-		"sysml:declaredName \"Gauge\" ;\n    sysml:type elmt:Params__Gauge .",
+		"sysml:declaredName \"Gauge\" ;\n    sysml:type elmt:Params__Gauge ;\n    sysml:owner expr:Params__one_pvalue_pa0_pbody ;",
 		"expr:Params__two_pvalue_pa0_pin0\n    a sysml:ReferenceUsage ;",
-		"sysml:declaredName \"limit\" ;\n    sysml:type elmt:Params__Gauge ;\n    sysml:multiplicity expr:Params__two_pvalue_pa0_pin0_pmultiplicity ;\n    sysml:ownedRelationship expr:Params__two_pvalue_pa0_pin0_pmultiplicity_om ;\n    sysml:ownedMembership expr:Params__two_pvalue_pa0_pin0_pmultiplicity_om ;\n    sysml:lowerBound expr:Params__two_pvalue_pa0_pin0_plowerBound ;\n    sysml:upperBound expr:Params__two_pvalue_pa0_pin0_pupperBound ;\n    sysml:value expr:Params__two_pvalue_pa0_pin0_pvalue .",
+		"sysml:declaredName \"limit\" ;\n    sysml:type elmt:Params__Gauge ;\n    sysml:owner expr:Params__two_pvalue_pa0_pbody ;\n    sysml:owningRelationship expr:Params__two_pvalue_pa0_pin0_om ;\n    sysml:owningMembership expr:Params__two_pvalue_pa0_pin0_om ;\n    sysml:multiplicity expr:Params__two_pvalue_pa0_pin0_pmultiplicity ;\n    sysml:ownedRelationship expr:Params__two_pvalue_pa0_pin0_pmultiplicity_om, expr:Params__two_pvalue_pa0_pin0_ft0 ;\n    sysml:ownedMembership expr:Params__two_pvalue_pa0_pin0_pmultiplicity_om ;\n    sysml:lowerBound expr:Params__two_pvalue_pa0_pin0_plowerBound ;\n    sysml:upperBound expr:Params__two_pvalue_pa0_pin0_pupperBound ;\n    sysml:value expr:Params__two_pvalue_pa0_pin0_pvalue ;\n    sysml:ownedTyping expr:Params__two_pvalue_pa0_pin0_ft0 ;",
+		"expr:Params__two_pvalue_pa0_pin0_ft0\n    a sysml:FeatureTyping ;\n    sysml:elementId \"Params__two_pvalue_pa0_pin0_ft0\" ;\n    sysml:typedFeature expr:Params__two_pvalue_pa0_pin0 ;",
 		"expr:Params__two_pvalue_pa0_pin0_pupperBound\n    a sysml:FeatureReferenceExpression ;\n    sysx:sourceText \"upper\" ;\n    sysml:elementId \"Params__two_pvalue_pa0_pin0_pupperBound\" ;\n    sysml:referent elmt:Params__upper ;",
 		"expr:Params__two_pvalue_pa0_pin0_pvalue\n    a sysml:FeatureReferenceExpression ;\n    sysx:sourceText \"limit\" ;\n    sysml:elementId \"Params__two_pvalue_pa0_pin0_pvalue\" ;\n    sysml:referent elmt:Params__limit ;",
 	} {
@@ -1022,5 +1023,25 @@ func TestExpressionBodyParameterIsDeclaredOutsideTheBody(t *testing.T) {
 		if !strings.Contains(string(fromGraph), want) {
 			t.Errorf("the notation rebuilt from the graph lacks %q:\n%s", want, fromGraph)
 		}
+	}
+}
+
+// A `return` parameter under a ParameterMembership whose sysml:isResult says
+// otherwise is a contradiction and is refused; the legacy fixture shows the
+// plain FeatureMembership an older graph used, which states nothing.
+func TestReturnParameterKindDisagreementIsRefused(t *testing.T) {
+	turtle, err := convert.Convert("calls.kerml", []byte(namedInvocations), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	membership := "a sysml:ReturnParameterMembership ;"
+	if !strings.Contains(string(turtle), membership) {
+		t.Fatalf("no ReturnParameterMembership written:\n%s", turtle)
+	}
+	demoted := strings.Replace(string(withoutSourceText(t, turtle)), membership, "a sysml:ParameterMembership ;", 1)
+	_, err = convert.Convert("calls.ttl", []byte(demoted), convert.FormatTurtle, convert.FormatSysML)
+	var unsupported *export.UnsupportedError
+	if !errors.As(err, &unsupported) || !strings.Contains(err.Error(), "`return` parameter") {
+		t.Fatalf("the demoted return parameter was not refused: %v", err)
 	}
 }

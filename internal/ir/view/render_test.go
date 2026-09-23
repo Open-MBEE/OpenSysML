@@ -354,13 +354,13 @@ func TestActionRenderingLabelsWeightedSuccessions(t *testing.T) {
 // apart from its notes, and every form writes the type after the name.
 func TestBehaviorRenderingsCarryTheDeclaredType(t *testing.T) {
 	cases := []struct {
-		view, name, kind, typ, detail string
+		view, name, label, kind, typ, detail string
 	}{
-		{"TypedViews::cycleView", "Typed::run", "action", "Cycle", ""},
-		{"TypedViews::cycleView", "warm", "action", "Warm", ""},
-		{"TypedViews::cycleView", "start", "initial", "", ""},
-		{"TypedViews::boilerView", "heating", "state", "Heating", ""},
-		{"TypedViews::boilerView", "idle", "state", "", "initial"},
+		{"TypedViews::cycleView", "Typed::run", "run", "action", "Cycle", ""},
+		{"TypedViews::cycleView", "warm", "warm", "action", "Warm", ""},
+		{"TypedViews::cycleView", "start", "start", "initial", "", ""},
+		{"TypedViews::boilerView", "heating", "heating", "state", "Heating", ""},
+		{"TypedViews::boilerView", "idle", "idle", "state", "", "initial"},
 	}
 	for _, tc := range cases {
 		rendering := render(t, "typed-behavior.sysml", tc.view)
@@ -372,10 +372,10 @@ func TestBehaviorRenderingsCarryTheDeclaredType(t *testing.T) {
 		if tc.typ == "" {
 			continue
 		}
-		head := tc.name + " : " + tc.typ
-		if text := rendering.Text(); !strings.Contains(text, tc.kind+" "+head) {
+		if text, head := rendering.Text(), tc.name+" : "+tc.typ; !strings.Contains(text, tc.kind+" "+head) {
 			t.Errorf("%s: text lacks %q:\n%s", tc.view, tc.kind+" "+head, text)
 		}
+		head := tc.label + " : " + tc.typ
 		if mermaid := rendering.Mermaid(); !strings.Contains(mermaid, head+"<br>«"+tc.kind+"»") {
 			t.Errorf("%s: Mermaid lacks %q:\n%s", tc.view, head+"<br>«"+tc.kind+"»", mermaid)
 		}
@@ -391,7 +391,8 @@ func TestBehaviorRenderingsCarryTheDeclaredType(t *testing.T) {
 
 // A declared type is spelled as the notation does: a conjugated port typing
 // keeps its `~`, a name that is not a basic one its quotes, a global name its
-// `$::` root, and a usage typed by several types lists them all.
+// `$::` root, and a usage typed by several types lists them all. A diagram
+// heads each type by the name it ends in, the `~` and the quotes kept.
 func TestDeclaredTypesAreSpelledAsWritten(t *testing.T) {
 	rendering := render(t, "typings.sysml", "SpelledViews::rigView")
 	cases := map[string]string{
@@ -413,6 +414,15 @@ func TestDeclaredTypesAreSpelledAsWritten(t *testing.T) {
 	} {
 		if !strings.Contains(text, want) {
 			t.Errorf("text lacks %q:\n%s", want, text)
+		}
+	}
+	mermaid := rendering.Mermaid()
+	for _, want := range []string{
+		"[\"Rig<br>«part def»\"]", "[\"plug : ~Link<br>«port»\"]", "[\"base : Mount, Cart<br>«part»\"]",
+		"[\"root : Mount<br>«part»\"]", "[\"mirrored : ~'Frame *rail*'<br>«port»\"]",
+	} {
+		if !strings.Contains(mermaid, want) {
+			t.Errorf("Mermaid lacks %q:\n%s", want, mermaid)
 		}
 	}
 	// An anonymous connection or message is labeled by its type, spelled once.
@@ -649,7 +659,7 @@ func TestMermaidLabelsAreEscaped(t *testing.T) {
 		}
 	}
 	node := &Node{Kind: "part", Name: `a<b> "c" #d`, Type: "T<U>", Detail: "x; y"}
-	if got, want := mermaidLabel(node), "a#lt;b#gt; #quot;c#quot; #35;d : T#lt;U#gt;<br>«part»<br>x#59; y"; got != want {
+	if got, want := (labeller{}).mermaid(node), "a#lt;b#gt; #quot;c#quot; #35;d : T#lt;U#gt;<br>«part»<br>x#59; y"; got != want {
 		t.Errorf("mermaidLabel = %q, want %q", got, want)
 	}
 }

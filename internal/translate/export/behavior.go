@@ -18,7 +18,8 @@ import (
 )
 
 // Metaclass names for the behavioral nodes the SysML metamodel has no
-// counterpart for, typed in the OpenSysML namespace.
+// counterpart for, typed in the OpenSysML namespace. InitialNode and FinalNode
+// are an older graph's forms of `first`/`done`, read only.
 const (
 	mInitialNode     = "InitialNode"
 	mFinalNode       = "FinalNode"
@@ -44,7 +45,10 @@ const (
 	mSubaction  = "StateSubactionMembership"
 	mSuccession = "SuccessionAsUsage"
 	mTransition = "TransitionUsage"
-	mStateUsage = "StateUsage"
+	// The elements a TransitionUsage owns in the abstract syntax (SysML v2 1.0 § 8.3.18.9).
+	mTransitionFeatureMembership = "TransitionFeatureMembership"
+	mAcceptAction                = "AcceptActionUsage"
+	mStateUsage                  = "StateUsage"
 )
 
 // Property names for the parts of a behavioral node that the SysML vocabulary
@@ -75,20 +79,41 @@ const (
 	xTarget           = "target"
 )
 
+// libraryDone is the library feature a `done;` member names.
+var libraryDone = ast.QualifiedNameOf("Actions", "Action", "done")
+
+// libraryReference is the subject of a standard library element named from
+// the global scope, or its name when no library is loaded.
+func (e *encoder) libraryReference(name *ast.QualifiedName) rdf.Term {
+	if decl, fqn, ok := e.linked(e.res.ResolveQualified(nil, name)); ok {
+		return e.ids.subjectForNode(decl, fqn)
+	}
+	return rdf.String(qualifiedText(name))
+}
+
 // encodeBehavior emits the triples of a behavioral node, reporting whether the
 // node was one. head writes the properties every member carries.
 func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf.Term, fqn, owner string, index int) (bool, error) {
 	switch n := node.(type) {
 	case *ast.InitialNode:
-		head(rdf.OpenSysMLTerm(mInitialNode))
-		// `first x` names the member the body starts at, or declares a label
-		// for transitions to name when no member answers to it.
+		// `first x;` is a Membership of the member the body starts at (SysML.xtext
+		// InitialNodeMember); `first x then y` the SuccessionAsUsage it sequences.
+		if qualifiedText(n.Successor) != "" {
+			head(rdf.SysMLTerm(mSuccession))
+		} else {
+			head(rdf.SysMLTerm(mMembership))
+		}
+		e.graph.Add(subject, e.sysx(xDeclaredKeyword), rdf.String("first"))
 		if n.Name() != "" {
 			start := rdf.Term(rdf.String(n.Name()))
 			if decl, fqn, ok := e.linked(e.res.InitialSymbol(n)); ok {
 				start = e.ids.subjectForNode(decl, fqn)
 			}
-			e.graph.Add(subject, e.sysml(pSourceFeature), start)
+			if qualifiedText(n.Successor) != "" {
+				e.graph.Add(subject, e.sysml(pSourceFeature), start)
+			} else {
+				e.graph.Add(subject, e.sysml(pMemberElement), start)
+			}
 		}
 		if err := e.expression(subject, e.sysx(xGuard), xGuard, owner, n.Guard); err != nil {
 			return true, err
@@ -107,7 +132,10 @@ func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf
 		return true, e.encode(n.Members, fqn, subject)
 
 	case *ast.FinalNode:
-		head(rdf.OpenSysMLTerm(mFinalNode))
+		// `done;` is a Membership of the library's Actions::Action::done.
+		head(rdf.SysMLTerm(mMembership))
+		e.graph.Add(subject, e.sysx(xDeclaredKeyword), rdf.String("done"))
+		e.graph.Add(subject, e.sysml(pMemberElement), e.libraryReference(libraryDone))
 		return true, nil
 
 	case *ast.ForkNode:
@@ -219,7 +247,7 @@ func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf
 
 	case *ast.IfActionNode:
 		head(rdf.SysMLTerm(mIfAction))
-		if err := e.expression(subject, e.sysx(xCondition), xCondition, owner, n.Condition); err != nil {
+		if err := e.expressionAs(subject, e.sysx(xCondition), xCondition, owner, n.Condition, mParameterMembership); err != nil {
 			return true, err
 		}
 		branches := make([]ast.Node, 0, 2)
@@ -229,7 +257,7 @@ func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf
 		return true, e.encode(branches, fqn, subject)
 
 	case *ast.IfBranchNode:
-		head(rdf.OpenSysMLTerm(mIfBranch))
+		head(rdf.SysMLTerm(usageMetaclass[ast.UsageAction]))
 		e.graph.Add(subject, e.sysx(xBranchKind), rdf.String(n.Kind.String()))
 		e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(e.bracedBranch(n)))
 		return true, e.encode(n.Body, fqn, subject)
@@ -319,13 +347,26 @@ func (e *encoder) encodeLoop(n *ast.WhileLoopActionNode, head func(rdf.Term), su
 // block being an anonymous action whose own body holds the statements.
 func (e *encoder) encodeSubaction(n ast.Node, actions []ast.Node, kind string, head func(rdf.Term), subject rdf.Term, fqn string) error {
 	head(rdf.SysMLTerm(mSubaction))
+	e.graph.Add(subject, e.sysml(pKind), rdf.String(kind))
 	e.graph.Add(subject, e.sysx(xSubactionKind), rdf.String(kind))
+	e.markPerformed(actions)
 	// `entry do { … }` states the subaction's own keyword and `do` as well, with
 	// or without a space or a comment between them and the body.
 	if written := strings.Fields(withoutComments(e.text(n))); len(written) > 1 && bareWord(written[1]) == "do" && kind != "do" {
 		e.graph.Add(subject, e.sysx(xDeclaredKeyword), rdf.String(kind+" do"))
 	}
 	return e.encode(actions, fqn, subject)
+}
+
+// markPerformed records the action usages among members as performed actions.
+func (e *encoder) markPerformed(members []ast.Node) {
+	for _, member := range members {
+		if node, _ := unwrapMember(member); node != nil {
+			if usage, ok := node.(*ast.Usage); ok && usage.Kind == ast.UsageAction {
+				e.performed[usage] = true
+			}
+		}
+	}
 }
 
 // encodeTransition emits a transition of a state machine: its ends as
@@ -359,6 +400,12 @@ func (e *encoder) encodeTransition(n *ast.TransitionMember, head func(rdf.Term),
 	}
 	if n.HasEffect {
 		e.graph.Add(subject, e.sysx(xHasEffect), rdf.Bool(true))
+	}
+	e.markPerformed(n.Effect)
+	for _, member := range e.kept(n.Effect) {
+		if node, _ := unwrapMember(member); node != nil {
+			e.effects[node] = true
+		}
 	}
 	if err := e.transitionMemberLinks(n, subject, xEffectMember, n.Effect); err != nil {
 		return err
@@ -696,30 +743,8 @@ func behaviorNameAndMembers(node ast.Node) (string, []ast.Node, bool) {
 func (d *decoder) behaviorHead(el *element) (string, bool, error) {
 	switch el.metaclass {
 	case mInitialNode:
-		words := []string{"first"}
-		// The start is a member of this body or a label, so it is written by
-		// its own name: `first` takes no qualified name.
-		if starts := d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pSourceFeature); len(starts) > 0 {
-			start, target, err := d.memberName(starts[0])
-			if err != nil {
-				return "", true, err
-			}
-			if target != nil {
-				d.wanted.starts[el.qname] = target.qname
-			}
-			words = append(words, start)
-		}
-		if guard, ok := d.stringOf(el, rdf.OpenSysML+xGuard); ok {
-			words = append(words, "if", guard)
-		}
-		successor, err := d.referenceText(el, rdf.SysML+pTargetFeature)
-		if err != nil {
-			return "", true, err
-		}
-		if successor != "" {
-			words = append(words, "then", successor)
-		}
-		return strings.Join(words, " "), true, nil
+		head, err := d.initialNodeHead(el)
+		return head, true, err
 
 	case mFinalNode:
 		return "done", true, nil
@@ -844,8 +869,102 @@ var controlNodeKeyword = map[string]string{
 	mDecision: "decide",
 }
 
+// membershipKeyword is the notation a Membership member is written with: the
+// `alias`, `first` or `done` its graph states, or the one its member implies.
+func (d *decoder) membershipKeyword(el *element) string {
+	if el.membershipKeyword != "" {
+		return el.membershipKeyword
+	}
+	if keyword, ok := d.stringOf(el, rdf.OpenSysML+xDeclaredKeyword); ok {
+		return keyword
+	}
+	switch el.metaclass {
+	case mSuccession:
+		return ""
+	case mAlias:
+		return "alias"
+	case mFinalNode:
+		return "done"
+	case mInitialNode:
+		return "first"
+	}
+	subject := rdf.IRI(el.iri)
+	if d.graph.HasProperty(subject, rdf.SysML+pMemberName) ||
+		d.graph.HasProperty(subject, rdf.SysML+pMemberShortName) {
+		return "alias"
+	}
+	if member, ok := d.graph.Object(subject, rdf.SysML+pMemberElement); ok {
+		done := qualifiedText(libraryDone)
+		if member.IsLiteral() && member.Value == done {
+			return "done"
+		}
+		if target, err := d.referencedElement(member.Value); err == nil && target.qname == done {
+			return "done"
+		}
+	}
+	// An unnamed Membership in a behavior body is `first x`; elsewhere an alias.
+	if el.owner != nil && (ontology.IsAncestorOrSelf(el.owner.metaclass, "Behavior") ||
+		ontology.IsAncestorOrSelf(el.owner.metaclass, "Feature")) {
+		return "first"
+	}
+	return "alias"
+}
+
+// initialNode reports whether el is a `first` member: an older graph's
+// sysx:InitialNode, or the Membership or SuccessionAsUsage written with `first`.
+func (d *decoder) initialNode(el *element) bool {
+	switch el.metaclass {
+	case mInitialNode:
+		return true
+	case mMembership:
+		return d.membershipKeyword(el) == "first"
+	case mSuccession:
+		return d.membershipKeyword(el) == "first"
+	}
+	return false
+}
+
+// startOf is the member a `first` names: a Membership's member, a
+// succession's source feature.
+func (d *decoder) startOf(el *element) (rdf.Term, bool) {
+	if start, ok := d.graph.Object(rdf.IRI(el.iri), rdf.SysML+pMemberElement); ok {
+		return start, true
+	}
+	return d.graph.Object(rdf.IRI(el.iri), rdf.SysML+pSourceFeature)
+}
+
+// initialNodeHead writes `first x [if g then y]`. The start is a member of
+// this body or a label, written by its own name: `first` takes no qualified name.
+func (d *decoder) initialNodeHead(el *element) (string, error) {
+	words := []string{"first"}
+	if start, ok := d.startOf(el); ok {
+		name, target, err := d.memberName(start)
+		if err != nil {
+			return "", err
+		}
+		if target != nil {
+			d.wanted.starts[el.qname] = target.qname
+		}
+		words = append(words, name)
+	}
+	if guard, ok := d.stringOf(el, rdf.OpenSysML+xGuard); ok {
+		words = append(words, "if", guard)
+	}
+	successor, err := d.referenceText(el, rdf.SysML+pTargetFeature)
+	if err != nil {
+		return "", err
+	}
+	if successor != "" {
+		words = append(words, "then", successor)
+	}
+	return strings.Join(words, " "), nil
+}
+
 // successionHead writes a succession back using standard end notation.
 func (d *decoder) successionHead(el *element) (string, error) {
+	if d.initialNode(el) {
+		return d.initialNodeHead(el)
+	}
 	target, err := d.referenceText(el, rdf.SysML+pTargetFeature)
 	if err != nil {
 		return "", err
@@ -889,6 +1008,15 @@ func (d *decoder) successionHead(el *element) (string, error) {
 		words = []string{"succession", "first", source, "if", guard, "then", target}
 	}
 	return strings.Join(words, " "), nil
+}
+
+// positionalSuccession reports a succession written as `then`, whose unnamed
+// source end is the member before it, whatever end features it owns.
+func (d *decoder) positionalSuccession(el *element) bool {
+	form, _ := d.stringOf(el, rdf.OpenSysML+xEndForm)
+	subject := rdf.IRI(el.iri)
+	return form == formThen || d.graph.HasProperty(subject, rdf.OpenSysML+xSourceMember) ||
+		d.graph.HasProperty(subject, rdf.OpenSysML+xTargetMember)
 }
 
 // positionalSuccessions resolves the successions of one body stating no source
@@ -991,9 +1119,22 @@ func (d *decoder) successionChild(src *keptSources, child *element) (bool, error
 	return true, nil
 }
 
+// ifBranch reports whether el is a branch of `if`: an older graph's
+// sysx:IfBranch, or the ActionUsage parameter written with its branch kind.
+func (d *decoder) ifBranch(el *element) bool {
+	if el.metaclass == mIfBranch {
+		return true
+	}
+	return el.metaclass == usageMetaclass[ast.UsageAction] &&
+		d.graph.HasProperty(rdf.IRI(el.iri), rdf.OpenSysML+xBranchKind)
+}
+
 // isSuccessionSource is ast.IsSuccessionSource read off a metaclass: a feature that
 // is not an edge. A subaction membership stands for the action it owns.
 func isSuccessionSource(el *element) bool {
+	if el.membershipKeyword == "first" {
+		return true
+	}
 	if kind, ok := metaclassUsage[el.metaclass]; ok {
 		return !kind.IsEdge()
 	}
@@ -1002,7 +1143,9 @@ func isSuccessionSource(el *element) bool {
 		mPerform, mAssignment, mSend, mTerminate, mWhileLoop, mForLoop, mIfAction,
 		mSubaction, mStateUsage:
 		return true
-	case mAlias, mFilter, mMultiplicity, mDeferMember:
+	case mMembership:
+		return el.membershipKeyword != "alias"
+	case mAlias, mFilter, mMultiplicity, mMultiplicityClass, mMultiplicityRange, mDeferMember:
 		return false
 	}
 	if _, declared := ontology.LookupClass(el.metaclass); declared {
@@ -1018,8 +1161,8 @@ func (d *decoder) answersTo(el *element) (rdf.Term, bool) {
 		return rdf.Term{}, false
 	}
 	subject := rdf.IRI(el.iri)
-	if el.metaclass == mInitialNode {
-		if term, ok := d.graph.Object(subject, rdf.SysML+pSourceFeature); ok {
+	if d.initialNode(el) {
+		if term, ok := d.startOf(el); ok {
 			return term, true
 		}
 		return subject, true
@@ -1036,7 +1179,7 @@ func (d *decoder) answersTo(el *element) (rdf.Term, bool) {
 // sequencesTo reports whether the target end el states is the member to: by
 // position that member itself, by name the one the parser gives it.
 func (d *decoder) sequencesTo(el, to *element) bool {
-	if to == nil || to.metaclass == mInitialNode {
+	if to == nil || d.initialNode(to) {
 		return false
 	}
 	if term, positional := d.graph.Object(rdf.IRI(el.iri), rdf.OpenSysML+xTargetMember); positional {
@@ -1052,7 +1195,7 @@ func (d *decoder) sequencesTo(el, to *element) bool {
 // namesMember reports whether an end names member: the member itself, or the
 // naming feature an unnamed one answers to.
 func (d *decoder) namesMember(end rdf.Term, member *element) bool {
-	if member.metaclass != mInitialNode && end.Equal(rdf.IRI(member.iri)) {
+	if !d.initialNode(member) && end.Equal(rdf.IRI(member.iri)) {
 		return true
 	}
 	answers, ok := d.answersTo(member)
@@ -1248,7 +1391,7 @@ func (d *decoder) conditionalText(el *element, depth int) (string, error) {
 	}
 	var then, otherwise *element
 	for _, child := range el.children {
-		if child.metaclass != mIfBranch {
+		if !d.ifBranch(child) {
 			return "", &UnsupportedError{
 				What: fmt.Sprintf("the member <%s> of the if action <%s>", child.iri, el.iri),
 				Note: "an if action owns its branches, and this member is not one",
@@ -1284,8 +1427,17 @@ func (d *decoder) conditionalText(el *element, depth int) (string, error) {
 // anonymous action that writes its own braces.
 func (d *decoder) subactionText(el *element, depth int) (string, error) {
 	kind, ok := d.stringOf(el, rdf.OpenSysML+xSubactionKind)
-	if !ok {
-		return "", d.missing(el, "sysx:"+xSubactionKind, "a state subaction states whether it runs on entry, throughout or on exit")
+	normative, hasNormative := d.stringOf(el, rdf.SysML+pKind)
+	switch {
+	case ok && hasNormative && kind != normative:
+		return "", &UnsupportedError{
+			What: fmt.Sprintf("the state subaction <%s>", el.iri),
+			Note: fmt.Sprintf("its kind is %q, but sysx:subactionKind says %q, and the two statements cannot both hold", normative, kind),
+		}
+	case !ok && hasNormative:
+		kind = normative
+	case !ok:
+		return "", d.missing(el, "sysml:"+pKind+" or sysx:"+xSubactionKind, "a state subaction states whether it runs on entry, throughout or on exit")
 	}
 	keyword := d.keywordOr(el, kind)
 	// A braced block is one anonymous action; a graph that wrote it as the
@@ -1296,7 +1448,9 @@ func (d *decoder) subactionText(el *element, depth int) (string, error) {
 			Note: "its braced `" + kind + " { … }` block is written as its statements, not as the anonymous action the braces declare",
 		}
 	}
-	if len(el.children) == 0 {
+	// `entry;` is an empty ActionUsage in the pilot's graph (SysML.xtext
+	// EmptyActionUsage); this mapping writes no element for it.
+	if len(el.children) == 0 || len(el.children) == 1 && d.emptyActionUsage(el.children[0]) {
 		return keyword + ";", nil
 	}
 	body, err := d.membersText(el.children, false, depth)
@@ -1430,8 +1584,28 @@ func (d *decoder) triggerWords(el *element, trigger string) ([]string, error) {
 func (d *decoder) transitionMembers(el *element) (effect, body []*element, hasEffect, hasBody bool, err error) {
 	inEffect := d.linked(el, xEffectMember)
 	inBody := d.linked(el, xBodyMember)
-	legacy := len(el.children) > 0 && len(inEffect) == 0 && len(inBody) == 0
-	hasEffect = d.boolOf(el, rdf.OpenSysML+xHasEffect)
+	children := d.bodyChildren(el)
+	collapsed := len(inEffect) > 0 || len(inBody) > 0
+	// A TransitionFeatureMembership of kind `effect` (SysML v2 1.0 § 8.3.18.8) owns an
+	// effect action; the collapsed links, when written too, must agree with it.
+	for _, child := range children {
+		if !d.effectMembership(child) {
+			continue
+		}
+		if collapsed && !inEffect[child.iri] {
+			return nil, nil, false, false, transitionLinkError(el, child.iri, "is owned by an effect membership but is not linked as an effect")
+		}
+		inEffect[child.iri] = true
+	}
+	if !collapsed && len(inEffect) > 0 {
+		for _, child := range children {
+			if !inEffect[child.iri] {
+				inBody[child.iri] = true
+			}
+		}
+	}
+	legacy := len(children) > 0 && len(inEffect) == 0 && len(inBody) == 0
+	hasEffect = d.boolOf(el, rdf.OpenSysML+xHasEffect) || (!collapsed && len(inEffect) > 0)
 	hasBody = d.boolOf(el, rdf.OpenSysML+xHasBody)
 	// A braced effect is one anonymous action; a graph that wrote it as the
 	// statements it holds cannot be read back as that action.
@@ -1444,7 +1618,7 @@ func (d *decoder) transitionMembers(el *element) (effect, body []*element, hasEf
 	if legacy {
 		hasEffect, hasBody = true, false
 	}
-	for _, child := range el.children {
+	for _, child := range children {
 		switch {
 		case legacy, inEffect[child.iri] && !inBody[child.iri]:
 			effect = append(effect, child)
@@ -1513,6 +1687,17 @@ func transitionLinkError(el *element, member, fault string) error {
 	}
 }
 
+// effectMembership reports whether el is owned by a TransitionFeatureMembership
+// of kind `effect`.
+func (d *decoder) effectMembership(el *element) bool {
+	m, owned := d.owningMembership[el.iri]
+	if !owned || d.metaclass(rdf.IRI(m.iri)) != mTransitionFeatureMembership {
+		return false
+	}
+	kind, _ := d.graph.Lexical(rdf.IRI(m.iri), rdf.SysML+pKind)
+	return kind == "effect"
+}
+
 // linked is the set of members the element links through the property.
 func (d *decoder) linked(el *element, property string) map[string]bool {
 	set := map[string]bool{}
@@ -1565,4 +1750,24 @@ func referenceMemberKeyword(keyword string) bool {
 		return true
 	}
 	return false
+}
+
+// emptyActionUsage reports whether el is the ActionUsage an `entry;`, `do;` or
+// `exit;` declares: nameless, without body, relationships or references.
+func (d *decoder) emptyActionUsage(el *element) bool {
+	if el.metaclass != usageMetaclass[ast.UsageAction] || len(d.identWords(el)) > 0 || len(el.children) > 0 {
+		return false
+	}
+	subject := rdf.IRI(el.iri)
+	for _, rel := range d.graph.Objects(subject, rdf.SysML+pOwnedRelationship) {
+		if !d.graph.BoolValue(rel, rdf.SysML+pIsImplied) && !impliedRelationshipMetaclasses[d.metaclass(rel)] {
+			return false
+		}
+	}
+	for _, property := range []string{pReferences, relationshipProperty[ast.RelTyping]} {
+		if d.graph.HasProperty(subject, rdf.SysML+property) {
+			return false
+		}
+	}
+	return !d.graph.HasProperty(subject, rdf.OpenSysML+xExpression) && !d.boolOf(el, rdf.OpenSysML+xHasBody)
 }

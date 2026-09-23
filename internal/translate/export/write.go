@@ -5,12 +5,18 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"unicode/utf8"
 )
 
 // newFileMode is the permission a model that did not exist yet is created with:
 // readable like any other document the user writes, since a model is not a
 // secret. A file that does exist keeps the permissions it has.
 const newFileMode = 0o644
+
+// maxTempStemBytes bounds the destination's name inside the temporary file's, so
+// that with the dot, the separator and CreateTemp's random digits it still fits
+// a 255-byte path component wherever the destination itself does.
+const maxTempStemBytes = 240
 
 // WriteFile writes a converted model to path, reporting whether it replaced a
 // file that was already there.
@@ -61,7 +67,7 @@ func writeAtomic(path, target string, mode os.FileMode, data []byte) (err error)
 	case !info.IsDir():
 		return fmt.Errorf("cannot write %s: %s is not a directory", path, dir)
 	}
-	tmp, err := os.CreateTemp(dir, "."+filepath.Base(target)+".*")
+	tmp, err := os.CreateTemp(dir, "."+tempStem(filepath.Base(target))+".*")
 	if err != nil {
 		return writeError(path, err)
 	}
@@ -95,6 +101,18 @@ func writeAtomic(path, target string, mode os.FileMode, data []byte) (err error)
 	}
 	syncDir(dir)
 	return nil
+}
+
+// tempStem cuts a long file name to maxTempStemBytes without splitting a UTF-8 sequence.
+func tempStem(base string) string {
+	n := maxTempStemBytes
+	if len(base) <= n {
+		return base
+	}
+	for n > 0 && !utf8.RuneStart(base[n]) {
+		n--
+	}
+	return base[:n]
 }
 
 // writeThrough writes data into target as it stands, without replacing it. A

@@ -81,6 +81,24 @@ class RunWithOpenSysMLIntegrationTest {
     }
 
     @Test
+    void mapsNestedSyntaxErrorToTheInnermostElement() throws Exception {
+        String source = "package P {\n\taction def A {\n\t\tfirst start then action x;\n\t}\n}";
+        Element root = target("P");
+        Element action = target("P::A");
+        ElementIndex index = new ElementIndex(Map.of(
+                "P", new ElementIndex.IndexedElement("P", root.getElementId(), root.getElementId(), root),
+                "P::A", new ElementIndex.IndexedElement("P::A", action.getElementId(), action.getElementId(),
+                        action)));
+        ExportedProject project = new ExportedProject(List.of(SourceDocument.inline("nested.sysml", source)),
+                index, List.of(), List.of(
+                        new DocumentRange("nested.sysml", 1, 5, root),
+                        new DocumentRange("nested.sysml", 2, 4, action)));
+        RunResult result = service(project).run(context(), action, input(RunOperation.INSTANTIATE, Map.of()));
+        assertThat(result.diagnostics()).isNotEmpty();
+        assertThat(result.diagnostics()).anyMatch(diagnostic -> "P::A".equals(diagnostic.qualifiedName()));
+    }
+
+    @Test
     void verifiesHoldingAndViolatedRequirements() throws Exception {
         String source = Files.readString(repository.resolve("editors/syson/backend/src/test/resources/models/req.sysml"));
         Element holding = target("Holding");

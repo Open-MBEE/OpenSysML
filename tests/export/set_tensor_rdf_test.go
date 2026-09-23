@@ -116,7 +116,7 @@ func TestSetAndTensorGraphsAreStandardShaped(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	allowed := map[string]bool{"OperatorExpression": true, "LiteralInteger": true, "LiteralRational": true, "InvocationExpression": true, "FeatureReferenceExpression": true, "NullExpression": true}
+	allowed := map[string]bool{"OperatorExpression": true, "IndexExpression": true, "LiteralInteger": true, "LiteralRational": true, "InvocationExpression": true, "FeatureReferenceExpression": true, "NullExpression": true}
 	var roots []rdf.Term
 	for _, tr := range graph.Triples() {
 		if tr.Predicate.Value == rdf.SysML+"value" && tr.Subject.IsIRI() {
@@ -204,7 +204,8 @@ func TestSetAndTensorStructuralPredicatesCarryTheRoundTrip(t *testing.T) {
 		degrades bool
 	}{
 		{pred: "sysml:operator", spelling: "(3, 1, 2, 2, 3)", degrades: true},
-		{pred: "sysml:function", spelling: "TensorCalculations::'['(", degrades: true},
+		// The callee travels two ways, standard Membership and collapsed function; either alone suffices.
+		{pred: "sysml:function", spelling: "TensorCalculations::'['("},
 		{pred: "sysml:referent", spelling: ", cubeRef)", degrades: true},
 		// Operands travel two ways, standard ParameterMembership and legacy argument; either alone suffices.
 		{pred: "sysml:argument", also: []string{"json:argument"}, spelling: "TensorCalculations::'['("},

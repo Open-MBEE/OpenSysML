@@ -50,6 +50,18 @@ only joins them:
 2. the kind in guillemets, `«part»`, `«state def»` — left out when line 1 is already the kind;
 3. the detail, when there is one.
 
+The name and type a node carries (`Node.Name`, `Node.Type`, the JSON's `name` and `type`) stay
+as the walk spells them — a root's name qualified, a nested member's simple, a type as the
+declaration references it — and the text form prints them so. The graphical forms head a node
+the way a diagram frame does (`labeller` in `label.go`): the roots' names lose the namespace
+every named root shares — the longest run of leading qualifier names common to all of them, so
+`Plant::Loop` alone heads `Loop`, `Systems::Radio` beside `Systems::Braking::Brake` heads
+`Radio` beside `Braking::Brake`, and roots from unrelated packages keep their whole names — and
+a type is named by the name each of its references ends in, its `~` kept (`~Ports::FuelPort` is
+`~FuelPort`; `Pump, ~FuelPort` for a pair); a name the roots' namespace does not head, and a type
+that does not read as references, are shown whole. The DOT writer sizes a box from the same
+label it emits, so a Cameo-sized box holds what it is headed with.
+
 Mermaid joins the lines with `<br>` in every grammar it writes — a flowchart node label, a
 `state "…" as n` and a `participant n as …` — which the pinned `mermaid-cli` breaks at whether
 `htmlLabels` is on (the text becomes HTML, `<br>` a line break) or off (the label is split into
@@ -273,7 +285,7 @@ digraph "PlantViews::placedView" {
   "canvas:0" [shape=point, style=invis, width=0, height=0, label="", pos="0,800!", pin=true];
   "canvas:1" [shape=point, style=invis, width=0, height=0, label="", pos="1200,0!", pin=true];
   subgraph "cluster_n0" {
-    label=<<b>Plant::Loop</b><br/><font point-size="10"><i>«part def»</i></font>>;
+    label=<<b>Loop</b><br/><font point-size="10"><i>«part def»</i></font>>;
     color=black;
     penwidth=0.5;
     "n0" [shape=point, style=invis, width=0, height=0, label=""];
@@ -304,11 +316,20 @@ digraph "PlantViews::placedView" {
   pseudo-state, a 3.6 pt point for a start — and writes that `width`/`height` without
   `fixedsize`, so Graphviz may still grow the box for its own font but the corner is where the
   Layout put it under the writer's estimate. `collapsed` is kept as `comment="collapsed"`, an
-  attribute Graphviz ignores and a consumer can read.
+  attribute Graphviz ignores and a consumer can read. A node with no `Layout` whose edge
+  carries a `Route` of two or more waypoints is positioned by that route: the route's first
+  waypoint is where it leaves the edge's source and its last where it reaches the target, so the
+  node's box, sized as above, is centred one reach back from that waypoint along the route's end
+  segment (the edge meets the border); several routes place it at the mean of the centres they
+  give. A stated `Layout` always wins over a route, a route of one waypoint places nothing, and
+  a node with neither `Layout` nor route is unpositioned. The `start` node and an initial or
+  final node of a state rendering take their positions this way too, so a migrated diagram that
+  drew them as pseudo-states but named no member for them is still positioned throughout.
 - **Clusters.** A node drawn as a cluster writes its box as `bb="llx,lly,urx,ury"` and pins
   its anchor node at the box's centre. The box is the stated one, or, with a corner alone, the
   one from that corner round its positioned members' boxes with Graphviz's 8 pt cluster margin;
-  a cluster with neither has no box to state and pins its anchor at the corner.
+  a cluster with no `Layout` takes the box round its positioned members alone, and one with
+  a corner and no positioned member has no box to state and pins its anchor at the corner.
 - **Edges.** A `Route` becomes `pos` as the cubic B-spline Graphviz reads: each segment's ends
   are its own control points, so the spline is the polyline through the waypoints. A route of
   one waypoint draws no line; it is left out and noticed as `// not represented:`. Every edge a
@@ -319,9 +340,12 @@ digraph "PlantViews::placedView" {
   `neato -n2` when every node is positioned and any edge is routed (the pinned nodes and the
   written routes are taken as given, the other edges are drawn), `neato -n` when every node is
   positioned and no edge is routed, `neato` when only some nodes are (pinned nodes stay, the
-  rest are placed around them), `dot` when none is. `neato` and `dot` redraw every edge, so
-  when the header names either and a route was written, a `// not represented:` notice says
-  so. A rendering with no geometry is written byte for byte as before.
+  rest are placed around them), `dot` when none is. A node counts as positioned however its box
+  was found — by its `Layout`, round its members, or from a route — so a view whose every node
+  is placed or routed is written for `neato -n2`, which refuses a node with no position.
+  `neato` and `dot` redraw every edge, so when the header names either and a route was
+  written, a `// not represented:` notice says so. A rendering with no geometry is written byte
+  for byte as before.
 
 The writer is still text over the tree: no Graphviz binary is run to produce, check or test
 the output.

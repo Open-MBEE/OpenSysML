@@ -60,7 +60,7 @@ elmt:Importer___402
     sysml:owningRelatedElement elmt:Importer ;
     sysml:importOwningNamespace elmt:Importer ;
     sysml:visibility "private" ;
-    sysx:isRecursive "true"^^xsd:boolean ;
+    sysml:isRecursive "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:importedMembership elmt:Importer__Deep_om ;
     sysx:sourceText "    private import Deep::**;\n" .

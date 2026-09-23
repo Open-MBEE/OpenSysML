@@ -41,7 +41,7 @@ note {
 skinparam wrapWidth 300
 hide stereotype
 hide empty description
-state "**Machines::Thermostat**\n<size:10>//«state def»//</size>" as n0 <<state def>> {
+state "**Thermostat**\n<size:10>//«state def»//</size>" as n0 <<state def>> {
   state "**heating**\n<size:10>//«state»//</size>" as n1 <<state>> <<usage>>
   state "**idle**\n<size:10>//«state»//</size>" as n2 <<state>> <<usage>> {
     state "**drying**\n<size:10>//«state»//</size>" as n3 <<state>> <<usage>>

@@ -152,8 +152,10 @@ func TestAPIJSONPayloadIsAPostableCommit(t *testing.T) {
 		t.Fatalf("build the api-json commit: %v", err)
 	}
 	checkPostableCommit(t, changes, written)
-	if len(written) != len(graph.Subjects()) {
-		t.Errorf("the commit posts %d elements for %d graph subjects", len(written), len(graph.Subjects()))
+	// The element form adds the document's root Namespace and the
+	// OwningMembership it owns the one top-level package through.
+	if want := len(graph.Subjects()) + 2; len(written) != want {
+		t.Errorf("the commit posts %d elements for %d graph subjects, want %d", len(written), len(graph.Subjects()), want)
 	}
 }
 

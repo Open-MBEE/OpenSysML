@@ -6,7 +6,7 @@ config:
 ---
 %% FlowViews::driveView — action rendering (render asInterconnectionDiagram, view def ActionFlowView)
 flowchart TD
-  subgraph n0 ["Flows::Drive<br>«action def»"]
+  subgraph n0 ["Drive<br>«action def»"]
     direction TD
     n1["start<br>«initial»"]
     n2["provide : Provide<br>«action»"]
