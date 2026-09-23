@@ -22,6 +22,17 @@ action kinds are produced from the model — the last two from the lowered `Stat
 `ActionGraph` the runtime executes — and nothing in the rendering is text of any diagram
 language.
 
+What a kind walks into nodes is model content. A view's own bookkeeping is left out of every
+kind, by the one member walk the kinds share (`contentKind` in `tree.go`): a
+[DiagramLayout](diagram-layout-annotations.md) annotation — a `Canvas`, `Layout` or `Route`,
+whether a prefix `@Layout` or a `metadata Layout about …` member, wherever it is owned — and the
+`render` members a view holds (`render asTreeDiagram;`, `render rendering r : AsTree;`). Both say
+how a picture is drawn, not what the model is, so a tree over a package of migrated views draws
+those views without the `metadata` and `render` nodes their annotations would add. Every other
+metadata usage — a user's `metadata Approved about errorCBE { by = "review"; }`, an annotation
+typed by any definition outside `DiagramLayout` — is drawn as before, and a rendering usage owned
+by anything but a view (a `rendering` under a package) stays a node.
+
 A **form** is a writer over that tree (`internal/ir/view/form.go`):
 
 | Form | Writer | Kinds | Role |
@@ -59,8 +70,15 @@ every named root shares — the longest run of leading qualifier names common to
 `Radio` beside `Braking::Brake`, and roots from unrelated packages keep their whole names — and
 a type is named by the name each of its references ends in, its `~` kept (`~Ports::FuelPort` is
 `~FuelPort`; `Pump, ~FuelPort` for a pair); a name the roots' namespace does not head, and a type
-that does not read as references, are shown whole. The DOT writer sizes a box from the same
-label it emits, so a Cameo-sized box holds what it is headed with.
+that does not read as references, are shown whole. A member drawn under a drawn owner — a child
+node, or a nested exposed element whose owner is a node of the same rendering — is headed by its
+name below the nearest such owner, as a compartment or a nested box in a diagram frame shows it:
+`'K-Mirror Offset'::'interpolation Error' : 'Interpolation Error'` under the `'K-Mirror Offset'`
+node heads `'interpolation Error' : 'Interpolation Error'`, and a name with a single segment is
+shown whole. Only the graphical heads change: `Node.Name`, the JSON and the text form keep the
+qualified name. The DOT writer sizes a box from the same label it emits, so a box a Layout does
+not size holds what it is headed with; a box a Layout sizes has its label fitted to it
+([Geometry](#geometry)).
 
 Mermaid joins the lines with `<br>` in every grammar it writes — a flowchart node label, a
 `state "…" as n` and a `participant n as …` — which the pinned `mermaid-cli` breaks at whether
@@ -207,11 +225,12 @@ translation to DOT is:
 | `arrow { FontSize 13; LineThickness 1.0 }` | edge default `color="#181818", fontsize=13, penwidth=1` |
 | Pilot `caseConnectionUsage`, `caseConnector`: `-[thickness=3]-` | `EdgeConnection`: `arrowhead=none, penwidth=3` |
 | Pilot `caseFlow`, `caseSuccession`, `caseTransitionUsage`: `-->` | the `EdgeKind` table above, unchanged |
-| initial and final pseudo-states | the UML filled black dot: `shape=circle` (`doublecircle` for a final), `fillcolor=black`, `label=""`, `width=0.2` unless a Layout sizes it; a pseudo-state the rendering names keeps its labelled ring. The `start` point is unchanged |
+| initial and final pseudo-states | the UML filled black dot: `shape=circle` (`doublecircle` for a final), `fillcolor=black`, `label=""`, `width=0.2` unless a Layout sizes it; a pseudo-state the rendering names keeps its labelled ring unless a Layout sizes it. The `start` point is unchanged |
+| symbol kinds in a stated box | a node whose Layout states a size and whose kind has a notation symbol is drawn as the symbol with no text inside it: `decision`, `merge` and `choice` as `shape=diamond`; `fork` and `join` as the filled bar (the stated box, `fillcolor=black`); `initial` and `junction` as the filled dot; `final` and a terminate action as `shape=doublecircle, fillcolor=black`; a port (`port`, `ref port`, not a `port def`) as its stated square, filled by the palette when one is set. The head the node would have carried is set beside the symbol as `xlabel="…"`, a plain string, and left out when `Node.NameSynthesized` marks the name as one a migration made up |
 
 Not translated, because Graphviz has no vocabulary for them: `Shadowing 0` (no shadows to turn
-off), `hide circle` (no class circles), `wrapWidth 300` (DOT does not wrap label text), and the
-20-unit corner radius. Out of scope: the skin's notes, sequence, gantt, mindmap and wbs
+off), `hide circle` (no class circles), `wrapWidth 300` (DOT does not wrap label text; the writer
+wraps only a head it fits to a stated box), and the 20-unit corner radius. Out of scope: the skin's notes, sequence, gantt, mindmap and wbs
 sections — the DOT form draws no notes and a sequence rendering has no DOT form. The Pilot's
 `-[thickness=5]-` binding connectors are `EdgeBinding`, drawn as a plain undirected line: thinner
 than a connection, not heavier, so a binding reads as the equation it is rather than a channel.
@@ -309,7 +328,17 @@ digraph "PlantViews::placedView" {
   node where it is. The names cannot collide with a rendering's `n<i>` node IDs.
 - **Nodes.** A `Layout` names the box's top-left corner; Graphviz positions a node's centre, so
   the writer pins `pos="x,y!"` at the centre of the box and `pin=true` keeps `neato` from
-  moving it. A stated size is `width`/`height` in inches with `fixedsize=true`. Without one
+  moving it. A stated size is `width`/`height` in inches with `fixedsize=true`, and the label
+  is composed to fit it (`dotFittedLabel` in `dot.go`), never the box grown to the label: the
+  head is word-wrapped at the box's width, a word wider than the box broken where it overruns,
+  and drawn at the largest whole font size from 14 pt down to 8 pt at which the wrapped lines
+  stack within the height; the keyword line (at 10/14 of the head's size) and each detail line
+  follow only while height remains for them, so a 449×14 px compartment row holds
+  `<font point-size="11"><b>errorReq : Real</b></font>` and nothing else; a head that overruns the
+  height even at 8 pt is cut to the lines that fit and its last line ellipsized. The estimate is
+  the box fitting's own — 0.6 em a glyph (0.66 em bold), 1.2 em a line — so nothing here is
+  particular to the tool that stated the box. A symbol kind in a stated box carries no label at
+  all ([Style](#style)). Without a stated size
   the writer sizes the box to the label itself — 0.6 em a glyph (0.66 em in the bold head),
   1.2 em a line, at 14 pt for every line but the 10 pt keyword line, Graphviz's margins, no
   smaller than its 54×36 pt default box, a circle round the label for a
@@ -534,6 +563,17 @@ and did not change. A view-render RPC added later would take the form as a strin
   and the header's engine for none, some and all of the nodes positioned and all edges routed;
   the syntax check parses every `pos` and `bb` it meets, and reads an HTML-like label as one
   string whose tags balance and whose entities are known.
+- `internal/ir/view/dot_fit_test.go`: the label fitted to a stated box — a head wrapped at the
+  width, kept at 14 pt while it fits and shrunk to 8 pt when it does not, the keyword and detail
+  lines kept only while height remains, a compartment row's one line, a word broken across
+  lines, the ellipsis at the floor — and `dotFitHead`/`dotWrap` on their own; the symbol every
+  kind draws as in a stated box, its `xlabel` for a name and none for a synthesized one, a
+  `port def` and an unsized symbol kind still labelled; an unsized node's label unchanged.
+- `internal/ir/view/label_test.go`: a member headed by its name below its drawn owner, at every
+  depth and for a nested exposed element, an unrelated root left whole, the text form unchanged.
+- `internal/ir/view/bookkeeping_test.go`: a tree over migrated views carries none of their
+  `DiagramLayout` annotations or `render` members, while a user's metadata usage and a rendering
+  usage outside a view are still drawn.
 - `internal/ir/view/dot_style_test.go`, `palette_test.go`: the B&W defaults; a definition
   square and a usage rounded; the pseudo-state rules named and unnamed, placed and not; the
   package, element and region cluster widths; the connection's `penwidth=3`; the family of every

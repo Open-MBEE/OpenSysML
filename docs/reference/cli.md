@@ -639,7 +639,10 @@ y=80 w=200 h=90`, `%% route: n1->n2 320,125 400,125`) and the text form appends 
 honours it: a positioned node is pinned at the centre of its box (`pos="220,675!", pin=true`, in
 points with y measured up from the canvas's bottom edge — negated when no canvas height is
 stated — one pixel to one point under `inputscale=72`), a stated size is `width`/`height` in inches
-with `fixedsize=true` (an unstated one is fitted to the label, so the box's corner stays put), a
+with `fixedsize=true` and the label fitted to it — the name wrapped at the width and shrunk from
+14 pt to 8 pt until it fits, the keyword and detail lines kept only while height remains, and a
+decision, fork, initial, final or port drawn as its symbol with the name beside it (an unstated
+size is fitted to the label, so the box's corner stays put), a
 positioned cluster states its `bb`, a route is the edge's `pos` spline (a route of one waypoint
 draws no line and is noticed), the canvas is echoed as `// canvas:` and held by an invisible
 point pinned at each corner so the drawing's bounding box is the canvas, and the
