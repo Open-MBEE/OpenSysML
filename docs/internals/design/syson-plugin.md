@@ -391,15 +391,21 @@ models with the listed expression kinds. That is the first measurement of phase 
 The textual export SysON produces from a project edited graphically — SysON's
 `SysMLElementSerializer`, seen on the Batmobile template — used to drop pieces of
 the model rather than serializing them, and OpenSysML reported each as a syntax
-error where the gap landed. Three of those gaps are fixed on the Open-MBEE fork
+error where the gap landed. Four of those gaps are fixed on the Open-MBEE fork
 of SysON (branch `integration/textual-export-fixes`, combining the fork's pull
-requests 1–3) and are pending upstream; a SysON built from that branch exports:
+requests 1–3 with `fix/succession-implicit-target`) and are pending upstream; a
+SysON built from that branch exports:
 
 - **Feature-chained connector ends** —
   `interface bat2eng : PowerInterface connect battery.powerPort to batmobileEngine.enginePort;`
   (previously `connection bat2eng : PowerInterface connect  to ;`).
 - **A succession to an anonymous decision node** — `then decide;` (previously
   `then;` followed by `decide ;`).
+- **A succession with an explicit `first` source and an implicit target** —
+  `first start then startBatmobile;` followed by `action startBatmobile;`
+  (previously the target action was inlined as the invalid
+  `first start then action startBatmobile;`, which OpenSysML rejected with
+  `expected ';' or '{' after initial node`).
 - **A satisfy with no subject** — `assert satisfy 'system components';`
   (previously a dangling `assert satisfy 'system components' by;`).
 
@@ -408,16 +414,6 @@ With those in place a Batmobile export parses far enough that `instantiate`,
 `ok: true`. What still goes wrong is in the serializer, not the plugin or the
 parser:
 
-- **A succession with an explicit `first` source inlines its target action.**
-  The fork's implicit-target fix writes `first start then action startBatmobile;`
-  for what the template spells `first start;` `then action startBatmobile;`.
-  The grammar admits an inline action only after a target succession (`then
-  action …`), never after `first <node>`, so OpenSysML reports
-  `expected ';' or '{' after initial node` at the `then` (Batmobile lines 85 and
-  112, `'Drive Batmobile'` and `ActivateRocketBooster`), and executing either
-  action fails to lower: `action succession references undefined target node
-  "action"`. The serializer should emit `first start;` and the following
-  `then action …` as separate members whenever it printed a `first` end.
 - **A succession to a non-action target is dropped.** `then timeslice charging`
   in `part bm1` exports as `timeslice charging` with the warning `Unable to
   export a SuccessionAsUsage (…) with an implicit target and no following
@@ -426,8 +422,28 @@ parser:
   `attribute :>> battery.capacity = 40000 [SI::'watt hour'];` exports as
   `attribute = 40000 [SI::'watt hour'];`, an anonymous attribute with no
   redefinition — valid text that no longer says what it meant.
+- **`view def` exports as `part def`.** `SysMLElementSerializer` has no
+  `caseViewDefinition`, so a `view def` falls to `casePartDefinition` and exports
+  as `part def 'Part list' { … }` with its `filter @SysML::PartUsage;` dropped;
+  the `view batmobileParts : 'Part list'` usage then fails OpenSysML's `A view
+  must be typed by one view definition` check. Similarly
+  `expose Dont_Panic_Batmobile::**;` exports as `expose Batmobile;`.
 - **Unresolved library proxies** are reported as `Found one proxy
   kermllibrary:///…` warnings; the export itself is unaffected.
+
+What the Batmobile run reports after the fork fixes, attributed:
+
+- **Batmobile model.** `actor driver : Batman;` and `stakeholder pm :
+  ProductManagement;` are typed by `item def`s, which OpenSysML rejects as kind
+  mismatches (actors and stakeholders are part usages). `'Drive Batmobile'`
+  execution stops at the decision guard because `scanEnvironment.status` is
+  never given a value.
+- **OpenSysML runtime.** `ActivateRocketBooster :> 'Activate rocket booster'`
+  inherits the `result` return parameter of the use case def it specializes,
+  and `ActionExecutor.checkResultParameters`
+  (`internal/exec/runtime/action_subflow.go`) rejects inherited as well as
+  declared return parameters: `action ActivateRocketBooster declares 'return
+  result'; write 'out result'`. Not fixed here.
 
 Verdicts on standard-library constraints (`ShapeItems`, `Geometry`) that
 `validateInstance` reports carry no SysON element: the library is not part of
