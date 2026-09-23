@@ -104,7 +104,7 @@ func TestDiagramViews(t *testing.T) {
 			   </ownedBehavior>
 			 </packagedElement>`,
 			diagram("_d", "Opening", "_opening", "SysML Activity Diagram", "_opening", "_pump"),
-			[]string{"action def Open {\n        view Opening : StandardViewDefinitions::ActionFlowView {\n            expose Open;\n            expose Sys::Pump;\n            render Views::asInterconnectionDiagram;\n        }\n    }"}, Mapped,
+			[]string{"action def Open {\n        view Opening {\n            expose Open;\n            expose Sys::Pump;\n            render Views::asTextualNotation;\n        }\n    }"}, Mapped,
 			"its owner Activity Valve::Opening is written as the body of action def Valve::Open, whose method it is"},
 		{"a diagram of an opaque behavior that is an operation's method is written in the operation's body",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_valve" name="Valve">
@@ -114,7 +114,7 @@ func TestDiagramViews(t *testing.T) {
 			   </ownedBehavior>
 			 </packagedElement>`,
 			diagram("_d", "Shutting", "_shutting", "SysML Activity Diagram", "_pump"),
-			[]string{"action def Shut {\n        view Shutting : StandardViewDefinitions::ActionFlowView {\n            expose Shut;\n            expose Sys::Pump;\n            render Views::asInterconnectionDiagram;\n        }\n        /* body not migrated"}, Mapped,
+			[]string{"action def Shut {\n        view Shutting {\n            expose Sys::Pump;\n            render Views::asTextualNotation;\n        }\n        /* body not migrated"}, Mapped,
 			"its owner OpaqueBehavior Valve::Shutting is written as the body of action def Valve::Shut, whose method it is"},
 		{"a diagram owned by an action node is written in the body of the node's activity",
 			`<packagedElement xmi:type="uml:Activity" xmi:id="_fill" name="Fill">
@@ -158,7 +158,7 @@ func TestDiagramViews(t *testing.T) {
 			   </ownedBehavior>
 			 </packagedElement>`,
 			diagram("_d1", "status", "_opening", "SysML Activity Diagram", "_status") + diagram("_d", "turn", "_opening", "SysML Activity Diagram", "_turn"),
-			[]string{"action def Open {\n        view 'status 2' : StandardViewDefinitions::ActionFlowView {\n            expose Open;\n            expose Valve::Open::status;", "view 'turn 2' : StandardViewDefinitions::ActionFlowView {\n            expose Open;\n            render Views::asInterconnectionDiagram;", "ref status;", "action turn {"}, Approximated,
+			[]string{"action def Open {\n        view 'status 2' {\n            expose Valve::Open::status;\n            render Views::asTextualNotation;", "view 'turn 2' : StandardViewDefinitions::ActionFlowView {\n            expose Open;\n            render Views::asInterconnectionDiagram;", "ref status;", "action turn {"}, Approximated,
 			"written as turn 2"},
 		{"a shown association end is exposed under the name its connection def declares",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_tank" name="Tank">
@@ -233,6 +233,19 @@ func TestDiagramViews(t *testing.T) {
 		{"an activity diagram of a package draws no graph",
 			``, diagram("_d", "Flows", "_sys", "SysML Activity Diagram", "_pump"),
 			[]string{"view Flows {\n        expose Pump;\n        render Views::asTextualNotation;\n    }"}, Mapped, ""},
+		{"an empty activity diagram is not a graph view of its activity",
+			`<packagedElement xmi:type="uml:Activity" xmi:id="_fill" name="Fill">
+			   <node xmi:type="uml:InitialNode" xmi:id="_f_init"/>
+			   <node xmi:type="uml:OpaqueAction" xmi:id="_pour" name="pour"><language>JavaScript</language><body>1;</body></node>
+			   <edge xmi:type="uml:ControlFlow" xmi:id="_f_e" source="_f_init" target="_pour"/>
+			 </packagedElement>`,
+			diagram("_d", "Sketch", "_fill", "SysML Activity Diagram"),
+			[]string{"action def Fill {\n    view Sketch {\n        render Views::asTextualNotation;\n    }\n    first start then pour;"}, Approximated,
+			"the diagram shows nothing; the view exposes nothing"},
+		{"a state machine diagram showing none of the graph is not a graph view of the state def",
+			machineMembers,
+			diagram("_d", "Signals", "_sm", "SysML State Machine Diagram", "_go"),
+			[]string{"state def Modes {\n    view Signals {\n        expose Go;\n        render Views::asTextualNotation;\n    }"}, Mapped, ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			r, err := Migrate("diagrams.xmi", []byte(diagramModel(tc.members, tc.diagrams)))

@@ -356,8 +356,9 @@ var graphDefinitions = []struct {
 	{[]string{"state machine diagram", "statechart diagram"}, "StateTransitionView"},
 }
 
-// formOf picks how a diagram is drawn from its tool and UML types: a Views rendering when
-// one applies, else a behavior diagram's graph when its owner is written as that graph's kind.
+// formOf picks how a diagram is drawn from its tool and UML types: a Views rendering when one
+// applies, else a behavior diagram's graph when its owner is written as that graph's kind and
+// the diagram shows some node or edge of it; a diagram showing none of the graph stays textual.
 func (m *migration) formOf(d *sysmlv1.Diagram) viewForm {
 	f := viewForm{rendering: rendering(d)}
 	if f.rendering != textualRendering {
@@ -370,7 +371,7 @@ func (m *migration) formOf(d *sysmlv1.Diagram) viewForm {
 				continue
 			}
 			graph := viewForm{rendering: interconnectionRendering, definition: g.definition}
-			if graph.subject = m.graphSubject(d.Owner, graph); graph.subject != nil {
+			if graph.subject = m.graphSubject(d.Owner, graph); graph.subject != nil && m.showsGraph(d, graph) {
 				return graph
 			}
 			return f
@@ -389,6 +390,13 @@ func (f viewForm) drawsEdge(keyword string) bool {
 		return keyword == "transition"
 	}
 	return f.rendering == interconnectionRendering && (keyword == "connection" || keyword == "binding")
+}
+
+// showsGraph reports whether d shows a node or edge the graph of form f draws.
+func (m *migration) showsGraph(d *sysmlv1.Diagram, f viewForm) bool {
+	return slices.ContainsFunc(d.Shown, func(s sysmlv1.ElementRef) bool {
+		return s.Element != nil && m.graphDraws(f, s.Element)
+	})
 }
 
 // graphSubject is the behavior whose graph a view of form f draws: the diagram owner's

@@ -322,8 +322,8 @@ and `umlType` (`Class Diagram`) together — by the first family below a word of
 | a table or matrix: Generic, Instance and Requirement Tables, Dependency and Allocation Matrices, any kind named `… Table`/`… Matrix` | `Views::asElementTable` |
 | internal block, parametric, composite structure and interconnection diagrams | `Views::asInterconnectionDiagram` |
 | block definition, class, package, object, component, deployment, profile and other structure diagrams | `Views::asTreeDiagram` |
-| an activity diagram whose owner is written as an `action def`, a state machine (or statechart) diagram whose owner is written as a `state def` | `view : StandardViewDefinitions::ActionFlowView` / `StateTransitionView`, rendered `Views::asInterconnectionDiagram` |
-| other behavior diagrams (sequence, use case, an activity diagram of a package), requirement, content and free-form diagrams, a tool's own kinds, a diagram naming no kind | `Views::asTextualNotation` |
+| an activity diagram whose owner is written as an `action def`, a state machine (or statechart) diagram whose owner is written as a `state def`, showing a node or edge of its graph | `view : StandardViewDefinitions::ActionFlowView` / `StateTransitionView`, rendered `Views::asInterconnectionDiagram` |
+| other behavior diagrams (sequence, use case, an activity diagram of a package or one showing nothing of its activity's graph), requirement, content and free-form diagrams, a tool's own kinds, a diagram naming no kind | `Views::asTextualNotation` |
 
 The rendering is written `$::Views::…` where a member named `Views` would shadow the library, a
 view definition `$::StandardViewDefinitions::…` where one named `StandardViewDefinitions` would, and a
@@ -335,7 +335,10 @@ composite state) is written in — in place of the shown nodes and edges of that
 rendering draws from the definition's body; shown elements from elsewhere (a block a swimlane
 represents, a signal), and a shown edge of the graph the rendering does not draw (an object flow
 from a parameter node, written as a `binding` an `ActionFlowView` has no edge for), are exposed as
-in any view. The note names the definition and counts the nodes and edges drawn.
+in any view. The note names the definition and counts the nodes and edges drawn. A diagram of
+the family that shows none of the graph — an empty one, or one showing only the behavior itself
+— is not a graph view, since exposing the definition would draw what the diagram did not: it is
+rendered `asTextualNotation`, exposing what it shows as any other diagram.
 
 #### Edges a diagram shows
 

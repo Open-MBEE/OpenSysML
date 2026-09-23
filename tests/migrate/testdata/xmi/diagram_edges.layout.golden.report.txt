@@ -1,10 +1,10 @@
 # SysML v1 to v2 migration report: diagram_edges.xmi
 # exported by Example UML Tool
-# migrated 76 element(s): 69 mapped, 7 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to); laid out 6 of 6 diagrams from diagram_edges.layout.xml: 18 elements positioned, 10 connectors routed
+# migrated 77 element(s): 69 mapped, 8 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to); laid out 6 of 7 diagrams from diagram_edges.layout.xml: 18 elements positioned, 10 connectors routed
 
 ## layout
 # source: diagram_edges.layout.xml (2022x v1.0.0, cameo 2022x Refresh2, exported 2025-06-12T21:38:50.779458500Z)
-# 6 diagram records: 6 joined, 0 matching no diagram; 0 views without layout
+# 6 diagram records: 6 joined, 0 matching no diagram; 1 views without layout
 # placements: 18 of 22 written (4 not exposed, 0 resolving to no element); routes: 10 of 22 written (11 not pinned, 1 resolving to no element); malformed: 0
 # routes of BindingConnector: 1 written
 # routes of Connector: 1 unnamed
@@ -22,7 +22,7 @@
 # routes of Transition: 3 written
 # routes of Verify: 1 not drawn
 
-## approximated (7)
+## approximated (8)
 Transition	Behavior::Modes::<Region>::<Transition>	_t_restart	-> Behavior::Modes::'Halted accept Go then Running'	(written as 2 transitions, one per trigger)
 OpaqueBehavior	Behavior::Modes::<Region>::Running::spin	_st_running_do	-> Behavior::Modes::Running::spin	(the body is kept as a comment: the statement "keep turning" is not an assignment of a v2 expression (language English))
 «Satisfy» Abstraction	Requirements::<Abstraction>	_dep_satisfy_pairs	(written as 2 relationships, one per client–supplier pair)
@@ -30,6 +30,7 @@ OpaqueBehavior	Behavior::Modes::<Region>::Running::spin	_st_running_do	-> Behavi
 Dependency	Structure::<Dependency>	_dep_pairs	(written as 2 relationships, one per client–supplier pair)
 Diagram	Structure::Structure	_diag_bdd	-> Structure::Structure	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; 1 of 7 shown elements are not written and not exposed; laid out from diagram_edges.layout.xml: 4 of 4 shown elements positioned, 0 of 3 connectors routed (2 not drawn, 1 no v2 member))
 Diagram	Structure::Vehicle::Drive::Driving	_diag_act	-> Structure::Vehicle::Drive::Driving	(a SysML Activity Diagram written as a view rendered asInterconnectionDiagram of ActionFlowView; the view exposes action def Structure::Vehicle::Drive, whose graph the rendering draws with the 7 shown nodes and edges of it; 1 of 9 shown elements are not written and not exposed; laid out from diagram_edges.layout.xml: 2 of 4 shown elements positioned (2 not exposed), 3 of 5 connectors routed (1 not drawn, 1 unnamed))
+Diagram	Structure::Vehicle::Drive::Driving Sketch	_diag_act_empty	-> Structure::Vehicle::Drive::'Driving Sketch'	(a SysML Activity Diagram written as a view rendered asTextualNotation; the diagram shows nothing; the view exposes nothing)
 
 ## mapped (69)
 Package	Behavior	_pkg_behavior	-> Behavior

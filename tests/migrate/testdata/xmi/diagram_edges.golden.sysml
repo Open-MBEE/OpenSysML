@@ -17,6 +17,9 @@ package Structure {
                 expose 'set speed.value = target';
                 render Views::asInterconnectionDiagram;
             }
+            view 'Driving Sketch' {
+                render Views::asTextualNotation;
+            }
             in target : ScalarValues::Real;
             succession 'start to gain' first start then gain;
             action gain {

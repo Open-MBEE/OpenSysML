@@ -193,6 +193,15 @@
             </diagramRepresentation>
           </xmi:Extension>
         </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_act_empty" name="Driving Sketch" ownerOfDiagram="_act_drive">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Activity Diagram" umlType="Activity Diagram">
+                <diagramContents/>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
         <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_stm" name="Modes" ownerOfDiagram="_sm_modes">
           <xmi:Extension extender="Example UML Tool 1.0">
             <diagramRepresentation>

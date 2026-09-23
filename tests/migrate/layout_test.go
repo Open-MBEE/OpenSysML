@@ -100,6 +100,11 @@ func TestGoldenEdgeLayout(t *testing.T) {
 			t.Errorf("a pair of a relationship written per pair is not exposed: %s\n%s", want, r.Notation)
 		}
 	}
+	// An activity diagram showing none of its activity's graph is not a graph view of it:
+	// it exposes nothing rather than drawing the whole activity.
+	if !strings.Contains(string(r.Notation), "view 'Driving Sketch' {\n                render Views::asTextualNotation;\n            }") {
+		t.Errorf("the empty activity diagram is not an empty textual view:\n%s", r.Notation)
+	}
 	// A placement of a transition, which the state rendering draws as an edge, positions no node.
 	if l.PlacementsUnexposed != 4 || strings.Contains(string(r.Notation), "Layout about halt") {
 		t.Errorf("placements: %+v", l)

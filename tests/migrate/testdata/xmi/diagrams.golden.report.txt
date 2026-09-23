@@ -54,7 +54,7 @@ ControlFlow	Structure::Engine::Cranking::<ControlFlow>	_crank_f2	-> Structure::E
 InitialNode	Structure::Engine::Cranking::<InitialNode>	_crank_init	-> start
 Diagram	Structure::Engine::Cranking::Cranking	_diag_cranking	-> Structure::Engine::Crank::Cranking	(a SysML Activity Diagram written as a view rendered asInterconnectionDiagram of ActionFlowView; its owner Activity Structure::Engine::Cranking is written as the body of action def Structure::Engine::Crank, whose method it is; the view exposes action def Structure::Engine::Crank, whose graph the rendering draws with the 2 shown nodes and edges of it)
 Operation	Structure::Engine::Halt	_op_halt	-> Structure::Engine::Halt	(its owner's usage halt performs it, as a call on an object does)
-Diagram	Structure::Engine::Halting::Halting	_diag_halting	-> Structure::Engine::Halt::Halting	(a SysML Activity Diagram written as a view rendered asInterconnectionDiagram of ActionFlowView; its owner OpaqueBehavior Structure::Engine::Halting is written as the body of action def Structure::Engine::Halt, whose method it is; the view exposes action def Structure::Engine::Halt, whose graph the rendering draws)
+Diagram	Structure::Engine::Halting::Halting	_diag_halting	-> Structure::Engine::Halt::Halting	(a SysML Activity Diagram written as a view rendered asTextualNotation; its owner OpaqueBehavior Structure::Engine::Halting is written as the body of action def Structure::Engine::Halt, whose method it is)
 Property	Structure::Engine::power	_prop_power	-> Structure::Engine::power
 «Block» Class	Structure::Vehicle	_blk_vehicle	-> Structure::Vehicle
 Connector	Structure::Vehicle::<Connector>	_conn_drive	-> Structure::Vehicle::'engine to wheel'

@@ -41,10 +41,10 @@ package Structure {
         }
         action crank : Crank;
         action def Halt {
-            view Halting : StandardViewDefinitions::ActionFlowView {
+            view Halting {
                 expose Halt;
                 expose Engine;
-                render Views::asInterconnectionDiagram;
+                render Views::asTextualNotation;
             }
             /* body not migrated (the name "ignited" resolves to nothing readable: nothing visible from Structure::Engine::Halt is called ignited) {JavaScript}:
              * ignited = false;
