@@ -576,6 +576,7 @@ elmt:StateMachine__VehicleStates__active_5fto_5foff
     sysml:ownedMembership expr:StateMachine__VehicleStates__active_5fto_5foff_pguard_om, elmt:StateMachine__VehicleStates__active_5fto_5foff__stop_om ;
     sysx:hasEffect "true"^^xsd:boolean ;
     sysx:effectMember elmt:StateMachine__VehicleStates__active_5fto_5foff__stop ;
+    sysml:effectAction elmt:StateMachine__VehicleStates__active_5fto_5foff__stop ;
     sysml:ownedMember elmt:StateMachine__VehicleStates__active_5fto_5foff__stop ;
     sysml:ownedFeature elmt:StateMachine__VehicleStates__active_5fto_5foff__stop ;
     sysml:ownedFeatureMembership elmt:StateMachine__VehicleStates__active_5fto_5foff__stop_om ;
@@ -658,7 +659,7 @@ elmt:StateMachine__VehicleStates__active_5fto_5foff__stop
     sysml:ownedRelationship elmt:StateMachine__VehicleStates__active_5fto_5foff__stop_ft0 .
 
 elmt:StateMachine__VehicleStates__active_5fto_5foff__stop_om
-    a sysml:FeatureMembership ;
+    a sysml:TransitionFeatureMembership ;
     sysml:elementId "StateMachine__VehicleStates__active_5fto_5foff__stop_om" ;
     sysml:owner elmt:StateMachine__VehicleStates__active_5fto_5foff ;
     sysml:memberElement elmt:StateMachine__VehicleStates__active_5fto_5foff__stop ;
@@ -666,6 +667,8 @@ elmt:StateMachine__VehicleStates__active_5fto_5foff__stop_om
     sysml:ownedRelatedElement elmt:StateMachine__VehicleStates__active_5fto_5foff__stop ;
     sysml:owningRelatedElement elmt:StateMachine__VehicleStates__active_5fto_5foff ;
     sysml:membershipOwningNamespace elmt:StateMachine__VehicleStates__active_5fto_5foff ;
+    sysml:kind "effect" ;
+    sysml:transitionFeature elmt:StateMachine__VehicleStates__active_5fto_5foff__stop ;
     sysml:ownedMemberFeature elmt:StateMachine__VehicleStates__active_5fto_5foff__stop ;
     sysml:owningType elmt:StateMachine__VehicleStates__active_5fto_5foff .
 

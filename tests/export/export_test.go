@@ -2585,6 +2585,13 @@ func TestLegacyTransitionEffectsStayEffects(t *testing.T) {
 		if !strings.Contains(string(turtle), hasEffect) {
 			t.Fatalf("the effect is not the one the test rewrites:\n%s", turtle)
 		}
+		// The older mapping owned the effect through a plain FeatureMembership.
+		if len(without) > 0 {
+			for _, property := range []string{"sysml:kind", "sysml:transitionFeature", "sysml:effectAction"} {
+				turtle = withoutTriples(t, turtle, property)
+			}
+			turtle = []byte(strings.ReplaceAll(string(turtle), "a sysml:TransitionFeatureMembership ;", "a sysml:FeatureMembership ;"))
+		}
 		return strings.ReplaceAll(string(turtle), hasEffect, replacement)
 	}
 	unlinked := []string{"sysx:effectMember", "sysx:bodyMember"}
@@ -2621,6 +2628,48 @@ func TestLegacyTransitionEffectsStayEffects(t *testing.T) {
 			}
 		})
 	}
+}
+
+// A transition's effect is owned through a TransitionFeatureMembership of kind
+// `effect` (SysML 8.3.16.13): the normative membership alone places the action
+// as the effect, and a collapsed link that contradicts it is refused.
+func TestTransitionEffectMembershipIsNormative(t *testing.T) {
+	src := "package P {\n\taction def Warm;\n\tstate def M {\n\t\tstate s1;\n\t\tstate s2;\n\t\ttransition first s1 do action stop : Warm then s2 {\n\t\t\taction tidy : Warm;\n\t\t}\n\t}\n}"
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	for _, property := range []string{"sysx:sourceText", "sysx:sourceTail"} {
+		turtle = withoutTriples(t, turtle, property)
+	}
+	if !strings.Contains(string(turtle), "a sysml:TransitionFeatureMembership ;") ||
+		!strings.Contains(string(turtle), `sysml:kind "effect" ;`) {
+		t.Fatalf("the effect is not owned by an effect membership:\n%s", turtle)
+	}
+	t.Run("normative only", func(t *testing.T) {
+		graph := turtle
+		for _, property := range []string{"sysx:effectMember", "sysx:bodyMember", "sysx:hasEffect"} {
+			graph = withoutTriples(t, graph, property)
+		}
+		back, err := convert.Convert("m.ttl", graph, convert.FormatTurtle, convert.FormatSysML)
+		if err != nil {
+			t.Fatalf("back to notation: %v", err)
+		}
+		if want := "transition first s1 do action stop : Warm then s2 {\n            action tidy : Warm;\n        }"; !strings.Contains(string(back), want) {
+			t.Errorf("expected %q in:\n%s", want, back)
+		}
+	})
+	t.Run("contradicting link refused", func(t *testing.T) {
+		graph := strings.ReplaceAll(string(turtle), "sysx:effectMember elmt:P__M___402__stop", "sysx:bodyMember elmt:P__M___402__stop")
+		if graph == string(turtle) {
+			t.Fatalf("the effect link is not the one the test rewrites:\n%s", turtle)
+		}
+		_, err := convert.Convert("m.ttl", []byte(graph), convert.FormatTurtle, convert.FormatSysML)
+		var unsupported *export.UnsupportedError
+		if !errors.As(err, &unsupported) || !strings.Contains(err.Error(), "effect membership") {
+			t.Fatalf("got %v, want a refusal naming the effect membership", err)
+		}
+	})
 }
 
 // A state subaction graph from an older mapping recorded its braces with

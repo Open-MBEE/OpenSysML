@@ -69,6 +69,27 @@ func TestParseKeywordAsNameAfterKindKeyword(t *testing.T) {
 	}
 }
 
+// A kind keyword ending at `;` declares an anonymous usage of that kind, as
+// `exit action;` performs an anonymous action (SysML.xtext PerformActionUsage).
+func TestParseBareKindKeywordIsAnonymousUsage(t *testing.T) {
+	src := "package P { state def S { exit action; } action def A { action; } }"
+	p := New(source.New("test.sysml", []byte(src)))
+	root := p.ParseFile()
+	if len(p.Diagnostics) > 0 {
+		t.Fatalf("parse errors: %v", p.Diagnostics)
+	}
+	pkg := root.Members[0].(*ast.Membership).Member.(*ast.Package)
+	exit := pkg.Members[0].(*ast.Membership).Member.(*ast.Definition).Members[0].(*ast.ExitMember)
+	usage := exit.Actions[0].(*ast.Membership).Member.(*ast.Usage)
+	if usage.Kind != ast.UsageAction || usage.Ident.Name != "" || usage.PrefixKeyword != "exit" {
+		t.Errorf("exit action; parsed as %v %q prefix %q", usage.Kind, usage.Ident.Name, usage.PrefixKeyword)
+	}
+	nested := pkg.Members[1].(*ast.Membership).Member.(*ast.Definition).Members[0].(*ast.Membership).Member.(*ast.Usage)
+	if nested.Kind != ast.UsageAction || nested.Ident.Name != "" {
+		t.Errorf("action; parsed as %v %q", nested.Kind, nested.Ident.Name)
+	}
+}
+
 // A prefix keyword followed by a kind keyword and a name declares that kind:
 // `variant attribute diameterSmall` is an attribute variant, not a variant
 // named `attribute`. With no name after it, the kind keyword is the name.

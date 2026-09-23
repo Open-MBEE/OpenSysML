@@ -3216,10 +3216,10 @@ func (p *Parser) parseBodyMember() ast.Node {
 	// A relationship keyword is not a literal's name either: `redefines;` and
 	// `redefines = 5;` are specializations missing their target, diagnosed as
 	// such, exactly as `:>>;` and `:>> = 5;` are.
-	// A kind keyword before a body declares an anonymous usage of that kind
-	// (`action { … }`), not a literal named by it: a name spelling a reserved
-	// keyword must be written as an unrestricted name (KerML §7.2.4).
-	anonKindDecl := nextKind == lexer.LBrace && p.isKindKeyword(p.peek())
+	// A kind keyword before a body or `;` declares an anonymous usage of that
+	// kind (`action { … }`, `exit action;`), not a literal named by it: a name
+	// spelling a reserved keyword must be an unrestricted name (KerML §7.2.4).
+	anonKindDecl := (nextKind == lexer.LBrace || nextKind == lexer.Semicolon) && p.isKindKeyword(p.peek())
 	if !isUsageOnlyKwForEnum && !anonKindDecl && !p.atFeatureSpecialization() && p.atNameOrKeyword() && (nextKind == lexer.Eq || nextKind == lexer.Semicolon || nextKind == lexer.LBrace) {
 		seg, _ := p.parseNameSegmentRelaxed()
 		id := ast.Identification{Name: seg.Text, NameSpan: seg.Span}

@@ -313,6 +313,7 @@ func newEncoder(file *source.SourceFile, root *ast.RootNamespace, library string
 		declared:       map[string]bool{},
 		metadataBodies: map[string]bool{},
 		performed:      map[ast.Node]bool{},
+		effects:        map[ast.Node]bool{},
 		fqn:            map[ast.Node]string{},
 		links:          map[*ast.QualifiedName]*symbols.Symbol{},
 		preceding:      map[ast.Node]ast.Node{},
@@ -349,6 +350,9 @@ type encoder struct {
 	// performed holds the action usages a state's entry/do/exit or a transition's
 	// effect declares: each is a PerformActionUsage (SysML.xtext PerformedActionUsage).
 	performed map[ast.Node]bool
+	// effects holds the members of a transition's `do` effect, which a
+	// TransitionFeatureMembership of kind effect owns.
+	effects map[ast.Node]bool
 	// fqn is the qualified name of each member node, which is how a succession
 	// end the notation leaves unnamed addresses the member it binds.
 	fqn map[ast.Node]string
@@ -834,6 +838,14 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		var err error
 		if subject, err = e.mint(node, fqn); err != nil {
 			return err
+		}
+	}
+	if e.effects[node] {
+		h.membershipClass = mTransitionFeatureMembership
+		h.membershipExtra = func(membership rdf.Term) {
+			e.graph.Add(membership, e.sysml(pKind), rdf.String("effect"))
+			e.graph.Add(membership, e.sysml(pTransitionFeature), subject)
+			e.graph.Add(ownerTerm, e.sysml(pEffectAction), subject)
 		}
 	}
 	// A bare expression among a body's members is the result the body computes.

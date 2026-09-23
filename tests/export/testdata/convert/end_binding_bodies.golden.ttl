@@ -2909,6 +2909,7 @@ elmt:Bodies__Ctx__Machine___403
     sysx:hasEffect "true"^^xsd:boolean ;
     sysx:effectMember elmt:Bodies__Ctx__Machine___403___400 ;
     sysx:hasBody "true"^^xsd:boolean ;
+    sysml:effectAction elmt:Bodies__Ctx__Machine___403___400 ;
     sysml:ownedMember elmt:Bodies__Ctx__Machine___403___400 ;
     sysml:ownedMembership elmt:Bodies__Ctx__Machine___403___400_om ;
     sysml:ownedRelationship elmt:Bodies__Ctx__Machine___403___400_om ;
@@ -2946,7 +2947,7 @@ elmt:Bodies__Ctx__Machine___403___400
     json:ownedMembership "[{\"@id\":\"Bodies__Ctx__Machine___403___400_ptarget_om\"},{\"@id\":\"Bodies__Ctx__Machine___403___400_pvalue_om\"}]" .
 
 elmt:Bodies__Ctx__Machine___403___400_om
-    a sysml:FeatureMembership ;
+    a sysml:TransitionFeatureMembership ;
     sysml:elementId "Bodies__Ctx__Machine___403___400_om" ;
     sysml:owner elmt:Bodies__Ctx__Machine___403 ;
     sysml:memberElement elmt:Bodies__Ctx__Machine___403___400 ;
@@ -2954,6 +2955,8 @@ elmt:Bodies__Ctx__Machine___403___400_om
     sysml:ownedRelatedElement elmt:Bodies__Ctx__Machine___403___400 ;
     sysml:owningRelatedElement elmt:Bodies__Ctx__Machine___403 ;
     sysml:membershipOwningNamespace elmt:Bodies__Ctx__Machine___403 ;
+    sysml:kind "effect" ;
+    sysml:transitionFeature elmt:Bodies__Ctx__Machine___403___400 ;
     sysml:ownedMemberFeature elmt:Bodies__Ctx__Machine___403___400 ;
     sysml:owningType elmt:Bodies__Ctx__Machine___403 .
 
@@ -3116,6 +3119,7 @@ elmt:Bodies__Ctx__Machine___404
     sysx:effectMember elmt:Bodies__Ctx__Machine___404___400 ;
     sysx:bodyMember elmt:Bodies__Ctx__Machine___404__w ;
     sysx:hasBody "true"^^xsd:boolean ;
+    sysml:effectAction elmt:Bodies__Ctx__Machine___404___400 ;
     sysml:ownedMember elmt:Bodies__Ctx__Machine___404___400, elmt:Bodies__Ctx__Machine___404__w ;
     sysml:ownedMembership elmt:Bodies__Ctx__Machine___404___400_om, elmt:Bodies__Ctx__Machine___404__w_om ;
     sysml:ownedRelationship elmt:Bodies__Ctx__Machine___404___400_om, elmt:Bodies__Ctx__Machine___404__w_om ;
@@ -3158,7 +3162,7 @@ elmt:Bodies__Ctx__Machine___404___400
     sysml:ownedFeatureMembership elmt:Bodies__Ctx__Machine___404___400___400_om .
 
 elmt:Bodies__Ctx__Machine___404___400_om
-    a sysml:FeatureMembership ;
+    a sysml:TransitionFeatureMembership ;
     sysml:elementId "Bodies__Ctx__Machine___404___400_om" ;
     sysml:owner elmt:Bodies__Ctx__Machine___404 ;
     sysml:memberElement elmt:Bodies__Ctx__Machine___404___400 ;
@@ -3166,6 +3170,8 @@ elmt:Bodies__Ctx__Machine___404___400_om
     sysml:ownedRelatedElement elmt:Bodies__Ctx__Machine___404___400 ;
     sysml:owningRelatedElement elmt:Bodies__Ctx__Machine___404 ;
     sysml:membershipOwningNamespace elmt:Bodies__Ctx__Machine___404 ;
+    sysml:kind "effect" ;
+    sysml:transitionFeature elmt:Bodies__Ctx__Machine___404___400 ;
     sysml:ownedMemberFeature elmt:Bodies__Ctx__Machine___404___400 ;
     sysml:owningType elmt:Bodies__Ctx__Machine___404 .
 

@@ -50,6 +50,8 @@ const (
 	pOwnedRendering                  = "ownedRendering"
 	pOwnedConcern                    = "ownedConcern"
 	pKind                            = "kind"
+	pTransitionFeature               = "transitionFeature"
+	pEffectAction                    = "effectAction"
 	pConjugatedType                  = "conjugatedType"
 	pOriginalType                    = "originalType"
 	pOriginalPortDefinition          = "originalPortDefinition"

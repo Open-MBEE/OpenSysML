@@ -401,6 +401,11 @@ func (e *encoder) encodeTransition(n *ast.TransitionMember, head func(rdf.Term),
 		e.graph.Add(subject, e.sysx(xHasEffect), rdf.Bool(true))
 	}
 	e.markPerformed(n.Effect)
+	for _, member := range e.kept(n.Effect) {
+		if node, _ := unwrapMember(member); node != nil {
+			e.effects[node] = true
+		}
+	}
 	if err := e.transitionMemberLinks(n, subject, xEffectMember, n.Effect); err != nil {
 		return err
 	}
@@ -1570,8 +1575,27 @@ func (d *decoder) transitionMembers(el *element) (effect, body []*element, hasEf
 	inEffect := d.linked(el, xEffectMember)
 	inBody := d.linked(el, xBodyMember)
 	children := d.bodyChildren(el)
+	collapsed := len(inEffect) > 0 || len(inBody) > 0
+	// A TransitionFeatureMembership of kind `effect` (SysML 8.3.16.13) owns an
+	// effect action; the collapsed links, when written too, must agree with it.
+	for _, child := range children {
+		if !d.effectMembership(child) {
+			continue
+		}
+		if collapsed && !inEffect[child.iri] {
+			return nil, nil, false, false, transitionLinkError(el, child.iri, "is owned by an effect membership but is not linked as an effect")
+		}
+		inEffect[child.iri] = true
+	}
+	if !collapsed && len(inEffect) > 0 {
+		for _, child := range children {
+			if !inEffect[child.iri] {
+				inBody[child.iri] = true
+			}
+		}
+	}
 	legacy := len(children) > 0 && len(inEffect) == 0 && len(inBody) == 0
-	hasEffect = d.boolOf(el, rdf.OpenSysML+xHasEffect)
+	hasEffect = d.boolOf(el, rdf.OpenSysML+xHasEffect) || (!collapsed && len(inEffect) > 0)
 	hasBody = d.boolOf(el, rdf.OpenSysML+xHasBody)
 	// A braced effect is one anonymous action; a graph that wrote it as the
 	// statements it holds cannot be read back as that action.
@@ -1651,6 +1675,17 @@ func transitionLinkError(el *element, member, fault string) error {
 		What: fmt.Sprintf("the transition %s", el.iri),
 		Note: fmt.Sprintf("%s %s, so its actions cannot be placed", member, fault),
 	}
+}
+
+// effectMembership reports whether el is owned by a TransitionFeatureMembership
+// of kind `effect`.
+func (d *decoder) effectMembership(el *element) bool {
+	m, owned := d.owningMembership[el.iri]
+	if !owned || d.metaclass(rdf.IRI(m.iri)) != mTransitionFeatureMembership {
+		return false
+	}
+	kind, _ := d.graph.Lexical(rdf.IRI(m.iri), rdf.SysML+pKind)
+	return kind == "effect"
 }
 
 // linked is the set of members the element links through the property.
