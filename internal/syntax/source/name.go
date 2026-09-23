@@ -54,19 +54,77 @@ func QualifiedNameSegments(text string) ([]string, bool) {
 	}
 }
 
+// ReferenceEndNames rewrites a typing's references — `, ` apart, each a
+// qualified name or feature chain, `$::` led or `~` conjugated — by the name
+// each ends in, `~` kept; text that does not read as such is returned as it is.
+func ReferenceEndNames(text string) string {
+	var ends []string
+	rest := text
+	for {
+		conjugated := strings.HasPrefix(rest, "~")
+		rest = strings.TrimPrefix(strings.TrimPrefix(rest, "~"), "$::")
+		var end string
+		for {
+			name, after, ok := readBasicOrQuotedName(rest)
+			if !ok {
+				return text
+			}
+			end, rest = name, after
+			if strings.HasPrefix(rest, "::") {
+				rest = rest[2:]
+			} else if strings.HasPrefix(rest, ".") {
+				rest = rest[1:]
+			} else {
+				break
+			}
+		}
+		end = NameText(end)
+		if conjugated {
+			end = "~" + end
+		}
+		ends = append(ends, end)
+		if rest == "" {
+			return strings.Join(ends, ", ")
+		}
+		if !strings.HasPrefix(rest, ", ") {
+			return text
+		}
+		rest = rest[2:]
+	}
+}
+
 // readName reads one name off the front of text: a quoted one up to its closing
 // quote, else a bare one up to `::`.
 func readName(text string) (name, rest string, ok bool) {
-	if text == "" {
-		return "", "", false
+	if text == "" || text[0] == '\'' {
+		return readQuotedName(text)
 	}
-	if text[0] != '\'' {
-		end := strings.Index(text, "::")
-		if end < 0 {
-			end = len(text)
-		}
-		name = text[:end]
-		return name, text[end:], name != "" && !strings.Contains(name, "'")
+	end := strings.Index(text, "::")
+	if end < 0 {
+		end = len(text)
+	}
+	name = text[:end]
+	return name, text[end:], name != "" && !strings.Contains(name, "'")
+}
+
+// readBasicOrQuotedName reads one name off the front of text: a quoted one up to
+// its closing quote, else a basic name up to the first byte that cannot continue it.
+func readBasicOrQuotedName(text string) (name, rest string, ok bool) {
+	if text == "" || text[0] == '\'' {
+		return readQuotedName(text)
+	}
+	end := 0
+	for end < len(text) && IsIdentCont(text[end]) {
+		end++
+	}
+	name = text[:end]
+	return name, text[end:], IsIdentifier(name)
+}
+
+// readQuotedName reads a quoted name off the front of text, escapes kept.
+func readQuotedName(text string) (name, rest string, ok bool) {
+	if text == "" || text[0] != '\'' {
+		return "", "", false
 	}
 	for i := 1; i < len(text); i++ {
 		switch text[i] {

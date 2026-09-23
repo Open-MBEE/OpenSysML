@@ -50,6 +50,18 @@ only joins them:
 2. the kind in guillemets, `«part»`, `«state def»` — left out when line 1 is already the kind;
 3. the detail, when there is one.
 
+The name and type a node carries (`Node.Name`, `Node.Type`, the JSON's `name` and `type`) stay
+as the walk spells them — a root's name qualified, a nested member's simple, a type as the
+declaration references it — and the text form prints them so. The graphical forms head a node
+the way a diagram frame does (`labeller` in `label.go`): the roots' names lose the namespace
+every named root shares — the longest run of leading qualifier names common to all of them, so
+`Plant::Loop` alone heads `Loop`, `Systems::Radio` beside `Systems::Braking::Brake` heads
+`Radio` beside `Braking::Brake`, and roots from unrelated packages keep their whole names — and
+a type is named by the name each of its references ends in, its `~` kept (`~Ports::FuelPort` is
+`~FuelPort`; `Pump, ~FuelPort` for a pair); a name the roots' namespace does not head, and a type
+that does not read as references, are shown whole. The DOT writer sizes a box from the same
+label it emits, so a Cameo-sized box holds what it is headed with.
+
 Mermaid joins the lines with `<br>` in every grammar it writes — a flowchart node label, a
 `state "…" as n` and a `participant n as …` — which the pinned `mermaid-cli` breaks at whether
 `htmlLabels` is on (the text becomes HTML, `<br>` a line break) or off (the label is split into
@@ -273,7 +285,7 @@ digraph "PlantViews::placedView" {
   "canvas:0" [shape=point, style=invis, width=0, height=0, label="", pos="0,800!", pin=true];
   "canvas:1" [shape=point, style=invis, width=0, height=0, label="", pos="1200,0!", pin=true];
   subgraph "cluster_n0" {
-    label=<<b>Plant::Loop</b><br/><font point-size="10"><i>«part def»</i></font>>;
+    label=<<b>Loop</b><br/><font point-size="10"><i>«part def»</i></font>>;
     color=black;
     penwidth=0.5;
     "n0" [shape=point, style=invis, width=0, height=0, label=""];

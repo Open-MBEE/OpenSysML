@@ -54,7 +54,7 @@ func (r *Rendering) DOTWith(options Options) (string, error) {
 	}
 	direction := options.Direction
 	w := &dotWriter{tree: r.Kind == KindTree, clusters: map[string]bool{}, enclosing: map[string][]string{}, canvas: r.Canvas,
-		fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree}}
+		fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree}, labels: labelsOf(r.Roots)}
 	for _, root := range r.Roots {
 		if !w.tree {
 			w.collectClusters(root, nil)
@@ -136,6 +136,7 @@ type dotWriter struct {
 	routed    int         // edges with a route to write
 	notices   []string    // geometry the form cannot draw
 	fills     familyFills // the palette fills, by keyword family
+	labels    labeller    // the node labels, headed relative to the roots' namespace
 }
 
 // The Standard B&W style, after the sysmlbw PlantUML skin: Helvetica text,
@@ -314,10 +315,10 @@ func (w *dotWriter) dotNodeAttributes(node *Node) []string {
 		if w.fills.filled(node) {
 			attrs = append(attrs, "fillcolor="+dotQuote(w.fills.fill(node)), dotColorAttr(w.fills.color(node)), "penwidth=1")
 		}
-		attrs = append(attrs, dotLabel(node))
+		attrs = append(attrs, w.labels.dotLabel(node))
 	}
 	if g := node.Geometry; g != nil {
-		width, height := dotBox(node)
+		width, height := w.labels.dotBox(node)
 		attrs = append(attrs, w.dotPin(Point{X: g.X + width/2, Y: g.Y + height/2}))
 		if node.Kind != startKind {
 			attrs = append(attrs, "width="+dotInches(width), "height="+dotInches(height))
@@ -345,7 +346,7 @@ func (w *dotWriter) dotPseudostateAttributes(node *Node) []string {
 		shape = "shape=doublecircle"
 	}
 	if node.Name != "" {
-		return []string{shape, dotLabel(node)}
+		return []string{shape, w.labels.dotLabel(node)}
 	}
 	attrs := []string{shape, "fillcolor=black", `label=""`}
 	if node.Geometry == nil {
@@ -371,14 +372,14 @@ const (
 
 // dotBox is the box a positioned node is centred in, in points: the stated
 // size, or one fitted to its label so Graphviz has no cause to grow it.
-func dotBox(node *Node) (width, height float64) {
+func (l labeller) dotBox(node *Node) (width, height float64) {
 	if g := node.Geometry; g.HasSize {
 		return g.Width, g.Height
 	}
 	if node.Kind == startKind {
 		return dotPointSize, dotPointSize
 	}
-	width, height = dotLabelExtent(node)
+	width, height = l.dotLabelExtent(node)
 	width = math.Ceil(width + 2*dotMarginWidth)
 	height = math.Ceil(height + 2*dotMarginHeight)
 	if node.Kind == "initial" || node.Kind == "final" {
@@ -390,8 +391,8 @@ func dotBox(node *Node) (width, height float64) {
 
 // dotLabelExtent is a label's text extent in points: its widest line by its
 // lines' summed heights, the head in bold glyphs and the keyword line at 10pt.
-func dotLabelExtent(node *Node) (width, height float64) {
-	for i, line := range labelLines(node) {
+func (l labeller) dotLabelExtent(node *Node) (width, height float64) {
+	for i, line := range l.lines(node) {
 		size, glyph := float64(dotFontSize), dotGlyphEm
 		switch {
 		case i == 0:
@@ -416,7 +417,7 @@ func (w *dotWriter) dotPin(centre Point) string {
 func (w *dotWriter) dotAnchorAttributes(node *Node) []string {
 	attrs := slices.Clone(dotInvisibleAttributes)
 	if node.Geometry != nil {
-		low, high := clusterBox(node)
+		low, high := w.labels.clusterBox(node)
 		attrs = append(attrs, w.dotPin(Point{X: (low.X + high.X) / 2, Y: (low.Y + high.Y) / 2}))
 	}
 	return attrs
@@ -429,13 +430,13 @@ var dotInvisibleAttributes = []string{"shape=point", "style=invis", "width=0", "
 // border for an orthogonal region, its black border at the skin's thickness (a
 // package's heavier than an element's), and its box as `bb` when it has an extent.
 func (w *dotWriter) dotClusterAttributes(node *Node) []string {
-	attrs := []string{dotLabel(node)}
+	attrs := []string{w.labels.dotLabel(node)}
 	if node.Kind == "region" {
 		attrs = append(attrs, "style=dashed")
 	}
 	attrs = append(attrs, "color=black", "penwidth="+dotClusterPenwidth(node))
 	if g := node.Geometry; g != nil {
-		if low, high := clusterBox(node); low != high {
+		if low, high := w.labels.clusterBox(node); low != high {
 			attrs = append(attrs, "bb="+dotQuote(w.dotPoint(Point{X: low.X, Y: high.Y})+","+w.dotPoint(Point{X: high.X, Y: low.Y})))
 		}
 		if g.Collapsed {
@@ -461,7 +462,7 @@ const dotClusterMargin = 8
 
 // clusterBox is a positioned cluster's box, top-left to bottom-right: the stated
 // one, or its corner grown round its positioned members (the corner alone with none).
-func clusterBox(node *Node) (topLeft, bottomRight Point) {
+func (l labeller) clusterBox(node *Node) (topLeft, bottomRight Point) {
 	g := node.Geometry
 	topLeft = Point{X: g.X, Y: g.Y}
 	if g.HasSize {
@@ -472,7 +473,7 @@ func clusterBox(node *Node) (topLeft, bottomRight Point) {
 		if child.Geometry == nil {
 			continue
 		}
-		low, high := memberBox(child)
+		low, high := l.memberBox(child)
 		if low == high {
 			continue
 		}
@@ -484,12 +485,12 @@ func clusterBox(node *Node) (topLeft, bottomRight Point) {
 
 // memberBox is the box a positioned member of a cluster takes up: a cluster's
 // own box, a node's stated or label-fitted box.
-func memberBox(node *Node) (topLeft, bottomRight Point) {
+func (l labeller) memberBox(node *Node) (topLeft, bottomRight Point) {
 	if len(node.Children) > 0 {
-		return clusterBox(node)
+		return l.clusterBox(node)
 	}
 	g := node.Geometry
-	width, height := dotBox(node)
+	width, height := l.dotBox(node)
 	return Point{X: g.X, Y: g.Y}, Point{X: g.X + width, Y: g.Y + height}
 }
 
@@ -539,8 +540,8 @@ const dotKeywordPointSize = 10
 // alike: the head in bold, the keyword line smaller and in italics, then the
 // notes, one line each. A state's name is bold too, where the Pilot's is plain:
 // the label's extent estimate (dotLabelExtent) and the other forms are kept to.
-func dotLabel(node *Node) string {
-	lines := labelLines(node)
+func (l labeller) dotLabel(node *Node) string {
+	lines := l.lines(node)
 	parts := []string{"<b>" + dotEscape(lines[0]) + "</b>"}
 	for _, line := range lines[1:] {
 		parts = append(parts, dotEscape(line))

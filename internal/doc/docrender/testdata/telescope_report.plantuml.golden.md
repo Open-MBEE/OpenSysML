@@ -123,7 +123,7 @@ note {
 </style>
 skinparam wrapWidth 300
 hide stereotype
-rectangle "**Observatory::imagingChain**\n<size:10>//«part»//</size>" as n0 <<part>> <<usage>> {
+rectangle "**imagingChain**\n<size:10>//«part»//</size>" as n0 <<part>> <<usage>> {
   rectangle "**camera : Camera**\n<size:10>//«part»//</size>" as n1 <<part>> <<usage>>
   rectangle "**recorder : Recorder**\n<size:10>//«part»//</size>" as n2 <<part>> <<usage>>
 }
@@ -178,7 +178,7 @@ skinparam wrapWidth 300
 hide stereotype
 left to right direction
 hide empty description
-state "**Observatory::operatingStates : ObservatoryStates**\n<size:10>//«state»//</size>" as n0 <<state>> <<usage>> {
+state "**operatingStates : ObservatoryStates**\n<size:10>//«state»//</size>" as n0 <<state>> <<usage>> {
   state "**idle**\n<size:10>//«state»//</size>\ninitial" as n1 <<state>> <<usage>>
   state "**observing**\n<size:10>//«state»//</size>" as n2 <<state>> <<usage>>
   [*] --> n1

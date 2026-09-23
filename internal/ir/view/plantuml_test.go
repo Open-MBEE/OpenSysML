@@ -87,7 +87,7 @@ func TestPlantUMLDrawsEveryNodeAndEdge(t *testing.T) {
 			var walk func(node *Node)
 			walk = func(node *Node) {
 				if node.Kind != startKind && !strings.Contains(puml, " as "+node.ID+"\n") && !strings.Contains(puml, " as "+node.ID+" ") {
-					t.Errorf("node %s (%s) is not declared:\n%s", node.ID, labelHead(node), puml)
+					t.Errorf("node %s (%s) is not declared:\n%s", node.ID, (labeller{}).head(node), puml)
 				}
 				for _, child := range node.Children {
 					walk(child)
@@ -149,7 +149,7 @@ func TestPlantUMLInterconnectionNestsRectangles(t *testing.T) {
 		t.Fatalf("PlantUML: %v", err)
 	}
 	for _, want := range []string{
-		"rectangle \"**Plant::Loop**\\n<size:10>//«part def»//</size>\" as n0 <<part def>> {\n  rectangle \"**pump : Pump**\\n<size:10>//«part»//</size>\" as n1 <<part>> <<usage>>\n",
+		"rectangle \"**Loop**\\n<size:10>//«part def»//</size>\" as n0 <<part def>> {\n  rectangle \"**pump : Pump**\\n<size:10>//«part»//</size>\" as n1 <<part>> <<usage>>\n",
 		"\n}\nn1 -[thickness=3]- n2 : supply\nn1 -[dashed]-> n2 : of Water\n@enduml\n",
 	} {
 		if !strings.Contains(puml, want) {
@@ -192,7 +192,7 @@ func TestPlantUMLActionUsesStateGrammar(t *testing.T) {
 	}
 	for _, want := range []string{
 		"\nhide empty description\n",
-		"state \"**Flows::Drive**\\n<size:10>//«action def»//</size>\" as n0 <<action def>> {\n",
+		"state \"**Drive**\\n<size:10>//«action def»//</size>\" as n0 <<action def>> {\n",
 		"  state \"**start**\\n<size:10>//«initial»//</size>\" as n1 <<start>>\n",
 		"  state \"**split**\\n<size:10>//«fork»//</size>\" as n8 <<fork>>\n",
 		"  state \"**done**\\n<size:10>//«final»//</size>\" as n10 <<end>>\n",
@@ -469,7 +469,7 @@ func TestPlantUMLEscapesLabels(t *testing.T) {
 	}
 	node := &Node{ID: "n0", Kind: "part", Name: `q"uote`, Type: "T<x>", Detail: "own **flow**"}
 	label := `**q<U+0022>uote : T<U+003C>x<U+003E>**\n<size:10>//«part»//</size>\nown <U+002A><U+002A>flow<U+002A><U+002A>`
-	if got := plantumlLabel(node); got != label {
+	if got := (&plantumlWriter{}).plantumlLabel(node); got != label {
 		t.Errorf("plantumlLabel = %q, want %q", got, label)
 	}
 	rendering := &Rendering{Kind: KindTree, Roots: []*Node{node}}
@@ -505,7 +505,7 @@ func TestPlantUMLLabelShape(t *testing.T) {
 	}
 	w := &plantumlWriter{}
 	for _, tc := range cases {
-		if got := plantumlLabel(tc.node); got != tc.label {
+		if got := w.plantumlLabel(tc.node); got != tc.label {
 			t.Errorf("label of %+v = %q, want %q", tc.node, got, tc.label)
 		}
 		if got := w.decoration(tc.node); got != tc.decor {

@@ -185,7 +185,7 @@ func TestDOTLabelShape(t *testing.T) {
 			`<<b>a&lt;b&gt; &amp; &#34;c&#34; : T&lt;U&gt;</b><br/><font point-size="10"><i>«part»</i></font><br/>x &gt; y>`},
 	}
 	for _, tc := range cases {
-		if got := dotLabel(tc.node); got != "label="+tc.want {
+		if got := (labeller{}).dotLabel(tc.node); got != "label="+tc.want {
 			t.Errorf("%s: dotLabel = %s, want %s", tc.name, got, tc.want)
 		}
 	}

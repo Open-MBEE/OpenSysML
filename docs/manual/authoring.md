@@ -493,7 +493,7 @@ config:
 ---
 %% Observatory::interconnectView — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
-  subgraph n0 ["Observatory::imagingChain<br>«part»"]
+  subgraph n0 ["imagingChain<br>«part»"]
     direction LR
     n1["camera : Camera<br>«part»"]
     n2["recorder : Recorder<br>«part»"]
@@ -520,7 +520,7 @@ digraph "Observatory::interconnectView" {
   graph [rankdir=LR];
   node [shape=box];
   subgraph "cluster_n0" {
-    label=<<b>Observatory::imagingChain</b><br/><font point-size="10">«part»</font>>;
+    label=<<b>imagingChain</b><br/><font point-size="10">«part»</font>>;
     "n0" [shape=point, style=invis, width=0, height=0, label=""];
     "n1" [label=<<b>camera : Camera</b><br/><font point-size="10">«part»</font>>];
     "n2" [label=<<b>recorder : Recorder</b><br/><font point-size="10">«part»</font>>];
@@ -555,7 +555,7 @@ PlantUML jar is needed to write it:
 </style>
 skinparam wrapWidth 300
 hide stereotype
-rectangle "**Observatory::imagingChain**\n<size:10>//«part»//</size>" as n0 <<part>> <<usage>> {
+rectangle "**imagingChain**\n<size:10>//«part»//</size>" as n0 <<part>> <<usage>> {
   rectangle "**camera : Camera**\n<size:10>//«part»//</size>" as n1 <<part>> <<usage>>
   rectangle "**recorder : Recorder**\n<size:10>//«part»//</size>" as n2 <<part>> <<usage>>
 }

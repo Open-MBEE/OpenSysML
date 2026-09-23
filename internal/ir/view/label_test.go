@@ -26,10 +26,49 @@ func TestLabelLines(t *testing.T) {
 		{"state note", &Node{Kind: "state", Name: "off", Detail: "initial, entry"}, []string{"off", "«state»", "initial, entry"}},
 	}
 	for _, tc := range cases {
-		got := labelLines(tc.node)
+		got := (labeller{}).lines(tc.node)
 		if strings.Join(got, "\x00") != strings.Join(tc.want, "\x00") {
 			t.Errorf("%s: labelLines = %q, want %q", tc.name, got, tc.want)
 		}
+	}
+}
+
+// A rendering's roots are headed under the namespace they share: a lone root
+// by its own name, several by their names below the longest common qualifier,
+// roots of unrelated namespaces in full; a quoted name holding `::` is one
+// name, and a type is headed by its own name, or as written when unreadable.
+func TestLabelsHeadRootsUnderTheirSharedNamespace(t *testing.T) {
+	cases := []struct {
+		name  string
+		roots []*Node
+		want  []string
+	}{
+		{"lone root", []*Node{{Kind: "part def", Name: "Plant::Loop"}}, []string{"Loop"}},
+		{"shared namespace", []*Node{{Kind: "part def", Name: "Systems::Radio"}, {Kind: "part def", Name: "Systems::Braking::Brake"}},
+			[]string{"Radio", "Braking::Brake"}},
+		{"unrelated namespaces", []*Node{{Kind: "part def", Name: "Plant::Loop"}, {Kind: "part def", Name: "Ctrl::Unit"}},
+			[]string{"Plant::Loop", "Ctrl::Unit"}},
+		{"unqualified root", []*Node{{Kind: "part def", Name: "Loop"}, {Kind: "part def", Name: "Plant::Pump"}}, []string{"Loop", "Plant::Pump"}},
+		{"quoted names", []*Node{{Kind: "part", Name: "'Sep::Pkg'::'x::y'"}, {Kind: "part", Name: "'Sep::Pkg'::'a b'"}}, []string{"'x::y'", "'a b'"}},
+		{"anonymous root", []*Node{{Kind: "connect"}, {Kind: "part def", Name: "Plant::Loop"}}, []string{"connect", "Loop"}},
+		{"typed root", []*Node{{Kind: "part", Name: "TMT::Segments::tcs", Type: "TMT::Systems::TCS"}}, []string{"tcs : TCS"}},
+		{"typings", []*Node{{Kind: "part", Name: "Rig::base", Type: "Frame::Mount, ~Ports::Cart"}, {Kind: "part", Name: "Rig::root", Type: "$::Spelled::Mount"}},
+			[]string{"base : Mount, ~Cart", "root : Mount"}},
+		{"unreadable type", []*Node{{Kind: "part", Name: "Rig::t", Type: "T<U>"}}, []string{"t : T<U>"}},
+	}
+	for _, tc := range cases {
+		labels := labelsOf(tc.roots)
+		var got []string
+		for _, root := range tc.roots {
+			got = append(got, labels.head(root))
+		}
+		if strings.Join(got, "\x00") != strings.Join(tc.want, "\x00") {
+			t.Errorf("%s: heads = %q, want %q", tc.name, got, tc.want)
+		}
+	}
+	labels := labelsOf([]*Node{{Kind: "part def", Name: "Plant::Loop"}})
+	if got := labels.head(&Node{Kind: "part", Name: "Other::pump", Type: "Plant::Pumps::Pump"}); got != "Other::pump : Pump" {
+		t.Errorf("a node named outside the roots' namespace is headed %q, want it whole", got)
 	}
 }
 

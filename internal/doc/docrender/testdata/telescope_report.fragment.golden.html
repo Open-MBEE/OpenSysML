@@ -206,7 +206,7 @@ config:
 ---
 %% Observatory::interconnectView — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
-  subgraph n0 [&#34;Observatory::imagingChain&lt;br&gt;«part»&#34;]
+  subgraph n0 [&#34;imagingChain&lt;br&gt;«part»&#34;]
     direction LR
     n1[&#34;camera : Camera&lt;br&gt;«part»&#34;]
     n2[&#34;recorder : Recorder&lt;br&gt;«part»&#34;]
@@ -218,7 +218,7 @@ flowchart LR
 <pre class="mermaid">%% state rendering (the diagram states kind &#34;state&#34;)
 stateDiagram-v2
   direction LR
-  state &#34;Observatory::operatingStates : ObservatoryStates&lt;br&gt;«state»&#34; as n0 {
+  state &#34;operatingStates : ObservatoryStates&lt;br&gt;«state»&#34; as n0 {
     state &#34;idle&lt;br&gt;«state»&lt;br&gt;initial&#34; as n1
     state &#34;observing&lt;br&gt;«state»&#34; as n2
     [*] --&gt; n1
