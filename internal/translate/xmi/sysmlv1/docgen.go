@@ -419,10 +419,22 @@ type chainWalker struct {
 	seen    map[*Element]bool
 }
 
-// danglingFlow reports the first edge of a whose source or target names no
-// node; such an edge could lead anywhere, so the chain is unreadable.
-func (m *Model) danglingFlow(a *Element) string {
+// controlFlows are the edges of an activity or structured node that order
+// its steps; object flows carry data between pins and are not followed.
+func controlFlows(a *Element) []*Element {
+	var flows []*Element
 	for _, e := range a.Owned("edge") {
+		if e.Type == "ControlFlow" {
+			flows = append(flows, e)
+		}
+	}
+	return flows
+}
+
+// danglingFlow reports the first control flow of a whose source or target
+// names no node; such an edge could lead anywhere, so the chain is unreadable.
+func (m *Model) danglingFlow(a *Element) string {
+	for _, e := range controlFlows(a) {
 		for _, role := range []string{"source", "target"} {
 			if m.Ref(e, role) != nil {
 				continue
@@ -436,11 +448,11 @@ func (m *Model) danglingFlow(a *Element) string {
 	return ""
 }
 
-// flows indexes the edges of an activity or structured node by one end,
-// listing the other end in edge order.
+// flows indexes the control flows of an activity or structured node by one
+// end, listing the other end in edge order.
 func (m *Model) flows(a *Element, from, to string) map[*Element][]*Element {
 	idx := map[*Element][]*Element{}
-	for _, e := range a.Owned("edge") {
+	for _, e := range controlFlows(a) {
 		idx[m.Ref(e, from)] = append(idx[m.Ref(e, from)], m.Ref(e, to))
 	}
 	return idx
