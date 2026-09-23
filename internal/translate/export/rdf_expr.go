@@ -470,7 +470,7 @@ func (e *encoder) typeArgument(subject rdf.Term, typeRef *ast.QualifiedName, ind
 // sysml:operand so the arrow spelling survives.
 func (e *encoder) invocation(subject rdf.Term, owner string, function *ast.QualifiedName, operand ast.Node, args []ast.Node, named []ast.NamedArg) error {
 	if function != nil {
-		e.graph.Add(subject, e.sysml(pFunction), e.reference(function))
+		e.graph.Add(subject, e.sysml(pFunction), e.calleeReference(function))
 		e.calleeMembership(subject, function)
 	}
 	first := 0
@@ -506,6 +506,36 @@ func (e *encoder) invocation(subject rdf.Term, owner string, function *ast.Quali
 		e.graph.Add(child, e.sysx(xArgumentName), rdf.String(qualifiedText(arg.Name)))
 	}
 	return nil
+}
+
+// calleeReference is the collapsed function: the element it resolves to, else
+// its spelling, dots kept at the chained joints so it matches the owned chain.
+func (e *encoder) calleeReference(function *ast.QualifiedName) rdf.Term {
+	target := e.reference(function)
+	if target.IsIRI() || !qualifiedNameHasChain(function) {
+		return target
+	}
+	return rdf.String(chainedText(function))
+}
+
+// chainedText spells a name as written: `::` between qualifying segments and
+// `.` before each chained one.
+func chainedText(name *ast.QualifiedName) string {
+	var out strings.Builder
+	if name.Global {
+		out.WriteString("$::")
+	}
+	for i, part := range name.Parts {
+		switch {
+		case i == 0:
+		case part.Chained:
+			out.WriteString(".")
+		default:
+			out.WriteString("::")
+		}
+		out.WriteString(part.Text)
+	}
+	return out.String()
 }
 
 // calleeMembership emits the relationship an invocation owns to what it
