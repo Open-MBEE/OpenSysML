@@ -364,11 +364,15 @@ func TestMigratedDocumentsRender(t *testing.T) {
 	// Owners lists the diagrams' owners, and No Figures draws nothing once a
 	// metaclass filter keeps no diagram.
 	wantNote(t, r, "_st_nofig_image", migrate.Mapped,
-		"it draws nothing: «FilterByMetaclasses» Fleet Viewpoints::No Figures Viewpoint::No Figures Method::Packages Only keeps none of the diagrams the view exposes or the node targets")
+		"it draws nothing: «FilterByMetaclasses» Fleet Viewpoints::No Figures Viewpoint::No Figures Method::Packages Only drops all the diagrams collected; an Image draws only diagrams")
+	wantNote(t, r, "_st_odd_image", migrate.Mapped,
+		"it draws nothing: the only element collected, the «Block» Class Fleet::Structure::Truck, is not a diagram; an Image draws only diagrams")
 	brief := markdown(t, s, "'Fleet Documents'::'Fleet Brief Document'")
 	wantInOrder(t, "Fleet Brief Markdown", brief,
 		"# Fleet Brief", "## Figures", "*Truck Structure*", "```mermaid", "The truck and what it hauls",
 		"## Fleet", "*Truck Structure*", "```mermaid", "The truck and what it hauls",
+		"*Parts Method Flow*", "```mermaid", "action rendering (render Views::asInterconnectionDiagram, view def ActionFlowView)",
+		"'Collect Owned Elements'<br>«action»", "'Filter By Metaclasses'<br>«action»", "'Sort By Name'<br>«action»",
 		"*Truck Internals*", "```mermaid", "axles",
 		"*Fleet Overview*", "```mermaid", "Requirements",
 		"## Gallery", "*Figure: Inside the truck*", "```mermaid", "axles",
@@ -376,8 +380,11 @@ func TestMigratedDocumentsRender(t *testing.T) {
 		"## Other Figures", "*Fleet Overview*", "```mermaid", "Requirements",
 		"## Figure Owners", "- Structure\n- Truck",
 		"## No Figures")
-	if strings.Count(brief, "```mermaid") != 8 {
-		t.Errorf("Fleet Brief Markdown draws %d diagrams, want 8:\n%s", strings.Count(brief, "```mermaid"), brief)
+	if strings.Count(brief, "```mermaid") != 9 {
+		t.Errorf("Fleet Brief Markdown draws %d diagrams, want 9:\n%s", strings.Count(brief, "```mermaid"), brief)
+	}
+	if strings.Contains(brief, "rendered as textual notation") {
+		t.Errorf("the activity diagram's figure is refused instead of drawn:\n%s", brief)
 	}
 	if body := markdownSection(brief, "## Truck Figures"); strings.Contains(body, "*Fleet Overview*") {
 		t.Errorf("Truck Figures draws a diagram the name filter drops:\n%s", body)

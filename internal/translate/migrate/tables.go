@@ -138,9 +138,12 @@ func (m *migration) writeTable(td *tableDoc) {
 	m.report.Entries = append(m.report.Entries, *m.tableEntry(t, verdict, "part def "+target, note))
 }
 
-// lowerTable lowers a table definition of any kind to its row query, ahead of
-// writing, so the view knows whether a Document follows it.
+// lowerTable lowers a table definition of any kind to its row query, once,
+// ahead of writing, so the view knows whether a Document follows it.
 func (m *migration) lowerTable(td *tableDoc) {
+	if td.l != nil {
+		return
+	}
 	t, host := td.t, td.v.host
 	l := &lowered{}
 	td.l = l

@@ -269,6 +269,8 @@ type migration struct {
 	// viewOf plans each diagram's view; hosted lists the views each body opens with.
 	viewOf map[*sysmlv1.Diagram]*view
 	hosted map[*sysmlv1.Element][]*view
+	// diagramsOf indexes the diagrams each element owns, built on first use.
+	diagramsOf map[*sysmlv1.Element][]*sysmlv1.Diagram
 	// tableOf plans each table definition's Document beside its diagram's view.
 	tableOf map[*sysmlv1.Table]*tableDoc
 	// buried memoizes isBuried: whether an ancestor left out of the document takes e with it.

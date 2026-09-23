@@ -381,6 +381,28 @@ func (m *migration) places(x exposures, f viewForm, el *sysmlv1.Element, ref str
 	return !m.drawsAsEdge(f, el) && (x.exposed(ref) || inGraph(f, el) && m.drawsNode(el, f))
 }
 
+// emptyView says why a view of form f draws nothing: its diagram shows no
+// element the view exposes; "" when the rendering has something to draw.
+func (m *migration) emptyView(v *view, f viewForm) string {
+	d := v.d
+	if len(m.exposures(d, v.host, f).refs) > 0 {
+		return ""
+	}
+	for _, td := range v.tables {
+		m.lowerTable(td)
+		if td.written() {
+			return ""
+		}
+	}
+	switch {
+	case !d.Represented():
+		return "no diagram representation is serialized, so what it shows is unknown and its view exposes nothing"
+	case len(d.Shown) == 0:
+		return "it shows no model element, and its view exposes nothing"
+	}
+	return "none of the " + strconv.Itoa(len(d.Shown)) + " elements it shows is written, and its view exposes nothing"
+}
+
 // writeView writes a diagram as a view usage exposing each shown element the
 // document writes, rendered by the diagram's kind, and records its report row.
 func (m *migration) writeView(v *view) {
