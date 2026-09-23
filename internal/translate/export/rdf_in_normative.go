@@ -313,10 +313,19 @@ func (d *decoder) verifyCovered(owner *element) error {
 		if !child.implied || !impliedRelationshipMetaclasses[child.metaclass] {
 			continue
 		}
+		targets := map[string]bool{}
+		for _, property := range relationshipTargetEnds {
+			for _, object := range d.graph.Objects(rdf.IRI(child.iri), rdf.SysML+property) {
+				targets[object.Value] = true
+			}
+		}
+		// A child whose metaclass maps to more than one kind covers a target
+		// under one kind only: the first kind still stating it consumes it.
 		for _, kind := range collapsedKindsOf[child.metaclass] {
-			for _, property := range relationshipTargetEnds {
-				for _, object := range d.graph.Objects(rdf.IRI(child.iri), rdf.SysML+property) {
-					delete(stated[kind], object.Value)
+			for value := range targets {
+				if stated[kind][value] {
+					delete(stated[kind], value)
+					delete(targets, value)
 				}
 			}
 		}

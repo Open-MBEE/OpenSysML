@@ -434,6 +434,35 @@ func TestNormativeVerifyRejectsLiteralMismatchedEnd(t *testing.T) {
 	}
 }
 
+// TestNormativeVerifyCoveredConsumesOneKindPerChild: a Subsetting maps to both
+// subsets and specializes, but covers a stated target under one kind only.
+func TestNormativeVerifyCoveredConsumesOneKindPerChild(t *testing.T) {
+	graph := normativeGraph(t, `package N {
+		part def T;
+		part f1 : T;
+		part f : T subsets f1 specializes f1;
+	}`)
+	if err := mustDecode(graph); err != nil {
+		t.Fatalf("the two-kind graph must decode: %v", err)
+	}
+	f := elmt("N__f")
+	sss := objects(graph, f.Value, "ownedSubsetting")
+	if len(sss) != 2 {
+		t.Fatalf("want one Subsetting per kind, got %v", sss)
+	}
+	mut := rdf.NewGraph()
+	for _, tr := range graph.Triples() {
+		if tr.Subject == sss[1] {
+			continue
+		}
+		mut.AddTriple(tr)
+	}
+	var uerr *UnsupportedError
+	if err := mustDecode(mut); err == nil || !errors.As(err, &uerr) {
+		t.Fatalf("want an UnsupportedError on the uncovered kind, got %v", err)
+	}
+}
+
 // TestReferentMembershipIDCollisionIsRefused: a minted referent membership's
 // element-namespace id is claimed, so a declared id landing on it is refused
 // rather than merged.

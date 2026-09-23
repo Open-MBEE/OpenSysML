@@ -125,7 +125,9 @@ func (e *encoder) relationshipSpec(subject rdf.Term, kind ast.RelationshipKind, 
 				[]string{"superclassifier", pGeneral, pTarget},
 				[]string{"ownedSubclassification", pOwnedSpecialization, pOwnedRelationship}}, true
 		case ontology.IsAncestorOrSelf(metaclass, mFeature):
-			return normativeRelationship{mSubsetting, "_ss" + index,
+			// A feature's specializes materializes as a Subsetting like its
+			// subsets, under a distinct suffix so the two kinds never merge.
+			return normativeRelationship{mSubsetting, "_sp" + index,
 				[]string{pSubsettingFeature, pOwningFeature, pSpecific, pSource, pOwningRelatedElement},
 				[]string{pSubsettedFeature, pGeneral, pTarget},
 				[]string{pOwnedSubsetting, pOwnedSpecialization, pOwnedRelationship}}, true
