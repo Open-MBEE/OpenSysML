@@ -159,6 +159,10 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		layoutByID:   map[string]*mtip.Diagram{},
 		diagramIDs:   map[string]bool{},
 		layoutJoined: map[string]bool{},
+		shownEdges:   map[*sysmlv1.Element]bool{},
+		edgeMembers:  map[*sysmlv1.Element]edgeMember{},
+		objectives:   map[*sysmlv1.Element]string{},
+		routeKinds:   routeKinds{},
 	}
 	if opts.Layout != nil {
 		m.layoutSummary = &LayoutSummary{
@@ -188,6 +192,7 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 	m.flushFlows()
 	m.placeholderEnds()
 	m.unwrittenEvents()
+	m.w.fill()
 	m.diagrams()
 	m.layoutReport()
 	m.extensions()
@@ -373,6 +378,14 @@ type migration struct {
 	diagramIDs    map[string]bool
 	layoutJoined  map[string]bool
 	layoutSummary *LayoutSummary
+	// shownEdges marks the edges some diagram draws (named so a view can expose them),
+	// edgeMembers the member each was written as, routeKinds the routes by kind and reason.
+	shownEdges  map[*sysmlv1.Element]bool
+	edgeMembers map[*sysmlv1.Element]edgeMember
+	routeKinds  routeKinds
+	// objectives names a test case's objective when a diagram shows a verify
+	// it holds, since a member of an anonymous objective cannot be exposed.
+	objectives map[*sysmlv1.Element]string
 	// rules memoizes how each constraint block's anonymous rule is written.
 	rules map[*sysmlv1.Element]ruleForm
 	// actors gives each association linking a use case to an actor the actor
@@ -468,6 +481,7 @@ func weaker(a, b Verdict) bool {
 // types the run configurations' result snapshots, and then exposes the
 // features the connectors and slots that will be written reach.
 func (m *migration) prepare() {
+	m.planEdges()
 	var reachers, configs, laned, associations []*sysmlv1.Element
 	var links []*actorLink
 	var walk func(e *sysmlv1.Element)
@@ -1510,7 +1524,11 @@ func (m *migration) verificationBody(e *sysmlv1.Element) {
 	m.scope = e
 	m.comments(e)
 	if extras := m.extras[e]; len(extras) > 0 {
-		m.w.block("objective", func() {
+		decl := "objective"
+		if name := m.objectives[e]; name != "" {
+			decl += " " + writeName(name)
+		}
+		m.w.block(decl, func() {
 			for _, extra := range extras {
 				extra()
 			}
@@ -2078,6 +2096,15 @@ func (m *migration) written(e *sysmlv1.Element) bool {
 	if e == nil || e.IsProxy() {
 		return false
 	}
+	if em, ok := m.edgeMembers[e]; ok {
+		return em.name != "" && m.reaches(em.owner)
+	}
+	if vertexBase(e) != "" {
+		return m.vertexWritten(e)
+	}
+	if e.Type == "Region" && e.Role == "region" {
+		return m.regionWritten(e)
+	}
 	// The root Model is the file itself, so nothing can refer to it.
 	if e.Parent == nil && e.Type == "Model" {
 		return false
@@ -2115,7 +2142,7 @@ func (m *migration) written(e *sysmlv1.Element) bool {
 		return note == ""
 	}
 	if act, _ := m.nodeGraph(e); act != nil {
-		return m.written(act)
+		return m.reaches(act)
 	}
 	if op := m.methodOf[e]; op != nil {
 		return m.written(op)
@@ -2160,9 +2187,15 @@ func declaresNamespace(e *sysmlv1.Element) bool {
 }
 
 // inlinedBehavior reports whether e is a behavior a state or transition owns, written
-// as its owner's entry, do, exit or effect action, which nothing else can name.
+// as its owner's entry, do, exit or effect action, which nothing can type by.
 func inlinedBehavior(e *sysmlv1.Element) bool {
 	return isBehavior(e) && e.Parent != nil && (e.Parent.Type == "State" || e.Parent.Type == "Transition")
+}
+
+// inlineWritten reports whether e is an inlined behavior written as a named action of a
+// written state or transition, so a qualified name reaches the members of its body.
+func (m *migration) inlineWritten(e *sysmlv1.Element) bool {
+	return inlinedBehavior(e) && hasActionForm(e) && m.nameOf(e) != "" && m.written(e.Parent)
 }
 
 // hasActionForm reports whether behavior b is written inline as an action
@@ -2382,20 +2415,26 @@ func (m *migration) connector(c *sysmlv1.Element) {
 		}
 		paths[i] = strings.Join(parts, ".")
 	}
-	decl, kw := "connect "+paths[0]+" to "+paths[1], "connection "
+	decl, kw, base := "connect "+paths[0]+" to "+paths[1], "connection", spoken(paths[0])+" to "+spoken(paths[1])
 	note = ""
 	switch {
 	case has(c, "BindingConnector"):
-		decl, kw = "bind "+paths[0]+" = "+paths[1], "binding "
+		decl, kw, base = "bind "+paths[0]+" = "+paths[1], "binding", spoken(paths[0])+" = "+spoken(paths[1])
 	case delegates(segs):
-		decl, kw = "bind "+paths[0]+" = "+paths[1], "binding "
+		decl, kw, base = "bind "+paths[0]+" = "+paths[1], "binding", spoken(paths[0])+" = "+spoken(paths[1])
 		note = "the connector delegates the owner's port to the part's, so it is written as a binding, which relays a message either way"
 	}
 	target := ""
-	if m.nameOf(c) != "" {
-		decl = kw + writeName(m.nameOf(c)) + " " + decl
+	if m.nameOf(c) == "" {
+		if base = m.edgeName(c, base); base != "" {
+			m.names[c] = m.freshName(m.scope, base)
+		}
+	}
+	if name := m.nameOf(c); name != "" {
+		decl = kw + " " + writeName(name) + " " + decl
 		target = m.v2Name(c)
 	}
+	m.wroteEdge(c, m.scope, kw, m.nameOf(c))
 	m.w.block(decl, func() { m.metadataUsages(c) })
 	m.add(c, Mapped, target, note)
 	m.stereotypeComments(c)
@@ -2876,10 +2915,20 @@ func (m *migration) dependencyPair(d *sysmlv1.Element, pl *placement, name strin
 		}
 	}
 	from, to := m.ref(client, m.scope), m.ref(supplier, m.scope)
+	if name == "" {
+		if base := m.edgeName(d, spoken(from)+" to "+spoken(to)); base != "" {
+			name = m.freshName(m.scope, base)
+		}
+	}
 	target := ""
 	if name != "" {
 		target = m.qualified(append(m.segments(m.scope), name))
 	}
+	kw := "dependency"
+	if has(d, "Allocate") {
+		kw = "allocation"
+	}
+	m.wroteEdgeAlso(d, m.scope, kw, nil, name)
 	if len(nodes) > 0 {
 		pl.nodePairs = append(pl.nodePairs, nodePair{nodes, target})
 	}
@@ -2935,7 +2984,13 @@ func (m *migration) satisfy(d, client, req *sysmlv1.Element, name string) (strin
 		return "", "a satisfy whose client is a " + kindOf(client) + " has no v2 form", false
 	}
 	name, note := m.placedName(scope, name)
+	if name == "" {
+		if base := m.edgeName(d, "satisfy "+spoken(m.ref(req, scope))); base != "" {
+			name = m.freshName(scope, base)
+		}
+	}
 	m.extras[scope] = append(m.extras[scope], func() {
+		m.wroteEdgeAlso(d, scope, "satisfy", nil, name)
 		decl := "satisfy requirement "
 		if name != "" {
 			decl += writeName(name) + " "
@@ -2986,14 +3041,30 @@ func (m *migration) verify(d, client, req *sysmlv1.Element, name string) (string
 		return "", "a verify whose client is not a test case has no v2 form", false
 	}
 	name, note := m.placedName(client, name)
+	if name == "" {
+		if base := m.edgeName(d, "verify "+spoken(m.ref(req, client))); base != "" {
+			name = m.freshName(client, base)
+		}
+	}
+	if m.shownEdges[d] && m.objectives[client] == "" {
+		m.objectives[client] = m.freshName(client, "objective")
+	}
+	var nest []string
+	if objective := m.objectives[client]; objective != "" {
+		nest = []string{objective}
+	}
 	m.extras[client] = append(m.extras[client], func() {
+		m.wroteEdgeAlso(d, client, "verify", nest, name)
 		decl := "verify requirement "
 		if name != "" {
 			decl += writeName(name) + " "
 		}
 		m.w.block(decl+": "+m.ref(req, client), func() { m.metadataUsages(d) })
 	})
-	return m.placedTarget(client, name), note, true
+	if name == "" {
+		return m.v2Name(client), note, true
+	}
+	return m.qualified(append(append(m.segments(client), nest...), name)), note, true
 }
 
 // derive writes a requirement derivation as a connection def specializing the
@@ -3049,25 +3120,8 @@ func (m *migration) writeComments(e *sysmlv1.Element, first bool) {
 			continue
 		}
 		if others {
-			refs := make([]string, 0, len(about))
-			var omitted []string
-			for _, a := range about {
-				if !m.written(a) {
-					omitted = append(omitted, describe(a))
-					continue
-				}
-				refs = append(refs, m.ref(a, m.scope))
-			}
-			if len(refs) == 0 {
-				m.w.lines(prefixFirst(commentPrefix, commentLines(text)))
-			} else {
-				m.w.lines(prefixFirst("comment about "+strings.Join(refs, ", ")+" ", commentLines(text)))
-			}
-			note := missing
-			if len(omitted) > 0 {
-				note = joinNotes(note, "the comment also annotates "+strings.Join(omitted, ", ")+", which has no v2 declaration in the document and is not written as a subject")
-			}
-			m.add(c, verdictFor(note), "", note)
+			scope := m.scope
+			m.w.hole(func() { m.commentAbout(c, about, text, missing, scope) })
 			continue
 		}
 		if first {
@@ -3078,6 +3132,30 @@ func (m *migration) writeComments(e *sysmlv1.Element, first bool) {
 		}
 		m.add(c, verdictFor(missing), "", missing)
 	}
+}
+
+// commentAbout writes a `comment about` other elements from inside scope's body
+// once the whole model is written, when every member the writers name is known.
+func (m *migration) commentAbout(c *sysmlv1.Element, about []*sysmlv1.Element, text, missing string, scope *sysmlv1.Element) {
+	refs := make([]string, 0, len(about))
+	var omitted []string
+	for _, a := range about {
+		if !m.written(a) {
+			omitted = append(omitted, describe(a))
+			continue
+		}
+		refs = append(refs, m.ref(a, scope))
+	}
+	if len(refs) == 0 {
+		m.w.lines(prefixFirst(commentPrefix, commentLines(text)))
+	} else {
+		m.w.lines(prefixFirst("comment about "+strings.Join(refs, ", ")+" ", commentLines(text)))
+	}
+	note := missing
+	if len(omitted) > 0 {
+		note = joinNotes(note, "the comment also annotates "+strings.Join(omitted, ", ")+", which has no v2 declaration in the document and is not written as a subject")
+	}
+	m.add(c, verdictFor(note), "", note)
 }
 
 // commentBody reads a comment's text, from its body attribute or child element.

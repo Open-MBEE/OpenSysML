@@ -151,12 +151,14 @@ func (g *ActionGraph) Inherited() []Inherited {
 // ActionEdge is one succession out of a node: the node it leaves, the target it reaches, the
 // guard it carries and its declaration (nil when implicit). No two edges of a graph compare equal.
 // Probability is the weight its `@Probability` states, nil for an unweighted succession.
+// Name is the name the succession was declared with, "" for an anonymous one.
 type ActionEdge struct {
 	Source      ast.Node
 	Target      ast.Node
 	Guard       ast.Node
 	Decl        ast.Node
 	Probability *Probability
+	Name        string
 }
 
 // Statement is one lowered statement in an action node's body. Statements are
@@ -767,7 +769,7 @@ func (l *actionEdgeLowerer) initial(n *ast.InitialNode) error {
 	if err != nil {
 		return err
 	}
-	return lowerSuccession(l.graph, n.First, n.Successor, n.Guard, n, weight)
+	return lowerSuccession(l.graph, n.First, n.Successor, n.Guard, n, weight, "")
 }
 
 func (l *actionEdgeLowerer) successionEdge(n *ast.SuccessionEdge) error {
@@ -829,6 +831,7 @@ func (l *actionEdgeLowerer) transition(n *ast.TransitionMember) error {
 		Guard:       n.Guard,
 		Decl:        n,
 		Probability: weight,
+		Name:        n.Name,
 	})
 	return nil
 }
@@ -906,7 +909,8 @@ func (l *actionEdgeLowerer) successionUsage(n *ast.Usage) error {
 	}
 	sourceRef := connectorEndReference(n.ConnectorEnds[0])
 	targetRef := connectorEndReference(n.ConnectorEnds[1])
-	return lowerSuccession(l.graph, sourceRef, targetRef, nil, n, weight)
+	name, _ := ast.EffectiveName(n)
+	return lowerSuccession(l.graph, sourceRef, targetRef, nil, n, weight, name)
 }
 
 // lowerInheritedPinConnections lowers the bindings and flows the actions the
@@ -1042,7 +1046,7 @@ func resolveFirstNode(graph *ActionGraph) error {
 
 // lowerSuccession adds the edge a succession states between the nodes its two
 // ends resolve to.
-func lowerSuccession(graph *ActionGraph, sourceRef, targetRef, guard, decl ast.Node, weight *Probability) error {
+func lowerSuccession(graph *ActionGraph, sourceRef, targetRef, guard, decl ast.Node, weight *Probability, name string) error {
 	sourceNode := resolveActionEndpoint(graph, sourceRef, true)
 	if sourceNode == nil {
 		return fmt.Errorf("action succession references undefined source node %s", successionEndText(sourceRef))
@@ -1057,6 +1061,7 @@ func lowerSuccession(graph *ActionGraph, sourceRef, targetRef, guard, decl ast.N
 		Guard:       guard,
 		Decl:        decl,
 		Probability: weight,
+		Name:        name,
 	})
 	return nil
 }

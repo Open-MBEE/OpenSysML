@@ -22,6 +22,7 @@ import (
 //	EdgeTransition  -->      solid, default arrowhead
 //	EdgeSuccession  -->      solid, default arrowhead
 //	EdgeFlow        -.->     style=dashed
+//	EdgeBinding     ---      arrowhead=none
 //	(containment)   ---      arrowhead=none
 //
 // DiagramLayout geometry is written as Graphviz reads it (pinned `pos`, `bb`,
@@ -505,6 +506,8 @@ func (w *dotWriter) dotEdgeAttributes(edge Edge) []string {
 		attrs = append(attrs, "arrowhead=none", "penwidth=3")
 	case EdgeFlow:
 		attrs = append(attrs, "style=dashed")
+	case EdgeBinding:
+		attrs = append(attrs, "arrowhead=none")
 	}
 	if len(edge.Route) > 1 {
 		attrs = append(attrs, "pos="+dotQuote(w.dotSpline(edge.Route)))

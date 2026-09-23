@@ -290,6 +290,8 @@ func edgeArrow(kind EdgeKind) string {
 	switch kind {
 	case EdgeConnection:
 		return "--"
+	case EdgeBinding:
+		return "=="
 	case EdgeFlow:
 		return "=>"
 	}

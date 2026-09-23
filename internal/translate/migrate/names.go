@@ -122,10 +122,14 @@ type segment struct {
 
 // path returns the segments of e's qualified name, see segments. A behavior
 // that is the method of an operation is written as that operation's body, so
-// it and its members are named under the operation.
+// it and its members are named under the operation; an edge's members (a
+// transition's effect) are named under the member the edge was written as.
 func (m *migration) path(e *sysmlv1.Element) []segment {
 	var segs []segment
 	for cur := e; cur != nil; cur = memberOwner(cur) {
+		if em, ok := m.edgeMembers[cur]; ok && em.name != "" {
+			return append(m.edgePath(em.edgePlace), segs...)
+		}
 		if op := m.methodOf[cur]; op != nil {
 			cur = op
 		}
@@ -174,8 +178,12 @@ func scopeChain(scope *sysmlv1.Element) []*sysmlv1.Element {
 // ref writes a reference to target from inside scope's body (nil for the top
 // level): the shortest qualified name that resolves there, which is the simple
 // name when target is a member of an enclosing scope no nearer scope shadows,
-// and the full qualified name otherwise. A feature of a feature is chained.
+// and the full qualified name otherwise. A feature of a feature is chained. An
+// edge's member is referred to where the writer placed it, not under its v1 owner.
 func (m *migration) ref(target, scope *sysmlv1.Element) string {
+	if em, ok := m.edgeMembers[target]; ok && em.name != "" {
+		return m.refEdge(em.edgePlace, scope)
+	}
 	return m.refMember(target.Parent, m.nameOf(target), m.path(target), scope, true)
 }
 

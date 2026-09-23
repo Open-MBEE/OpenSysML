@@ -309,6 +309,7 @@ func TestDOTEdgeKinds(t *testing.T) {
 		EdgeTransition: `"a" -> "b" [label="k"];`,
 		EdgeSuccession: `"a" -> "b" [label="k"];`,
 		EdgeFlow:       `"a" -> "b" [label="k", style=dashed];`,
+		EdgeBinding:    `"a" -> "b" [label="k", arrowhead=none];`,
 	}
 	for kind := EdgeConnection; kind.String() != "edge"; kind++ {
 		want, ok := styles[kind]
@@ -517,7 +518,7 @@ func TestDOTWritesTheGeometry(t *testing.T) {
 		// off: three lines, 14pt, 10pt and 14pt, so a 75x54 box from its top-left (0, 0).
 		`[style="rounded,filled", label=<<b>off</b><br/><font point-size="10"><i>«state»</i></font><br/>initial>, pos="37.5,-27!", pin=true, width=1.0416666666666667, height=0.75];`,
 		`[style="rounded,filled", label=<<b>on</b><br/><font point-size="10"><i>«state»</i></font>>, pos="40,-120!", pin=true, width=1.1111111111111112, height=0.5555555555555556, fixedsize=true];`,
-		`"n1" -> "n2" [label="off_on:", pos="50,-10 50,-10 50,-90 50,-90"];`,
+		`"n1" -> "n2" [label="off_on", pos="50,-10 50,-10 50,-90 50,-90"];`,
 		`"n2" -> "n1" [pos="30,-90 30,-90 30,-10 30,-10"];`,
 	} {
 		if !strings.Contains(machine, want) {

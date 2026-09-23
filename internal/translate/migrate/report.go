@@ -102,9 +102,9 @@ type LayoutSummary struct {
 	ViewsWithoutLayout int `json:"viewsWithoutLayout"`
 	// Placements counts the shown elements the export positions;
 	// PlacementsWritten those positioned into a view, PlacementsUnexposed
-	// those resolving to an element the view does not expose, and
-	// PlacementsDangling those resolving to no element. Routes likewise per
-	// connector.
+	// those the view neither exposes nor draws, PlacementsDangling those
+	// resolving to no element. Routes likewise per connector, RoutesUnexposed
+	// counting every route pinned to no member, for the reasons RoutesByKind itemizes.
 	Placements          int `json:"placements"`
 	PlacementsWritten   int `json:"placementsWritten"`
 	PlacementsUnexposed int `json:"placementsUnexposed"`
@@ -113,6 +113,9 @@ type LayoutSummary struct {
 	RoutesWritten       int `json:"routesWritten"`
 	RoutesUnexposed     int `json:"routesUnexposed"`
 	RoutesDangling      int `json:"routesDangling"`
+	// RoutesByKind itemizes the routes by the connector's v1 kind and why each
+	// is or is not pinned to a member of the view.
+	RoutesByKind []RouteKind `json:"routesByKind,omitempty"`
 	// Malformed counts the export's malformed records; Unsupported the
 	// presentation properties DiagramLayout carries no attribute for, by tag.
 	Malformed   int            `json:"malformed"`
@@ -197,9 +200,12 @@ func (r *Report) WriteText(w io.Writer) error {
 		}
 		fmt.Fprintf(&b, "# %d diagram records: %d joined, %d matching no diagram; %d views without layout\n",
 			l.Diagrams, l.DiagramsJoined, l.DiagramsUnmatched, l.ViewsWithoutLayout)
-		fmt.Fprintf(&b, "# placements: %d of %d written (%d not exposed, %d resolving to no element); routes: %d of %d written (%d not exposed, %d resolving to no element); malformed: %d\n",
+		fmt.Fprintf(&b, "# placements: %d of %d written (%d not exposed, %d resolving to no element); routes: %d of %d written (%d not pinned, %d resolving to no element); malformed: %d\n",
 			l.PlacementsWritten, l.Placements, l.PlacementsUnexposed, l.PlacementsDangling,
 			l.RoutesWritten, l.Routes, l.RoutesUnexposed, l.RoutesDangling, l.Malformed)
+		for _, k := range l.RoutesByKind {
+			fmt.Fprintf(&b, "# routes of %s: %d %s\n", k.Kind, k.Count, k.Reason)
+		}
 		if len(l.Unsupported) > 0 {
 			tags := make([]string, 0, len(l.Unsupported))
 			for tag := range l.Unsupported {
