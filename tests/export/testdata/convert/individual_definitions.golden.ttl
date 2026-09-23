@@ -59,6 +59,9 @@ elmt:IndividualDefinitions__Neil_20Armstrong
     sysml:isIndividual "true"^^xsd:boolean ;
     sysml:specializes elmt:IndividualDefinitions__Astronaut ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedSubclassification elmt:IndividualDefinitions__Neil_20Armstrong_sc0 ;
+    sysml:ownedSpecialization elmt:IndividualDefinitions__Neil_20Armstrong_sc0 ;
+    sysml:ownedRelationship elmt:IndividualDefinitions__Neil_20Armstrong_sc0 ;
     sysx:sourceText "\tindividual part def 'Neil Armstrong' :> Astronaut;\n" .
 
 elmt:IndividualDefinitions__Neil_20Armstrong_om
@@ -204,6 +207,8 @@ elmt:IndividualDefinitions__Eagle
     sysml:isIndividual "true"^^xsd:boolean ;
     sysml:specializes elmt:IndividualDefinitions__Spacecraft ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedSpecialization elmt:IndividualDefinitions__Eagle_sp0 ;
+    sysml:ownedRelationship elmt:IndividualDefinitions__Eagle_sp0 ;
     sysx:sourceText "\tindividual def Eagle :> Spacecraft;\n" .
 
 elmt:IndividualDefinitions__Eagle_om
@@ -261,11 +266,15 @@ elmt:IndividualDefinitions__Mission__crew
     sysml:owningMembership elmt:IndividualDefinitions__Mission__crew_om ;
     sysml:declaredName "crew" ;
     sysml:type elmt:IndividualDefinitions__Astronaut ;
+    sysml:multiplicity expr:IndividualDefinitions__Mission__crew_pmultiplicity ;
+    sysml:ownedRelationship expr:IndividualDefinitions__Mission__crew_pmultiplicity_om, elmt:IndividualDefinitions__Mission__crew_ft0 ;
+    sysml:ownedMembership expr:IndividualDefinitions__Mission__crew_pmultiplicity_om ;
     sysml:upperBound expr:IndividualDefinitions__Mission__crew_pupperBound ;
-    sysml:ownedRelationship expr:IndividualDefinitions__Mission__crew_pupperBound_om ;
-    sysml:ownedMembership expr:IndividualDefinitions__Mission__crew_pupperBound_om ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysx:sourceText "\t\tpart crew : Astronaut[*];\n" .
+    sysml:ownedTyping elmt:IndividualDefinitions__Mission__crew_ft0 ;
+    sysml:ownedSpecialization elmt:IndividualDefinitions__Mission__crew_ft0 ;
+    sysx:sourceText "\t\tpart crew : Astronaut[*];\n" ;
+    json:ownedRelationship "[{\"@id\":\"IndividualDefinitions__Mission__crew_pmultiplicity_om\"},{\"@id\":\"IndividualDefinitions__Mission__crew_ft0\"}]" .
 
 elmt:IndividualDefinitions__Mission__crew_om
     a sysml:FeatureMembership ;
@@ -279,23 +288,43 @@ elmt:IndividualDefinitions__Mission__crew_om
     sysml:ownedMemberFeature elmt:IndividualDefinitions__Mission__crew ;
     sysml:owningType elmt:IndividualDefinitions__Mission .
 
+expr:IndividualDefinitions__Mission__crew_pmultiplicity
+    a sysml:MultiplicityRange ;
+    sysml:elementId "IndividualDefinitions__Mission__crew_pmultiplicity" ;
+    sysml:owner elmt:IndividualDefinitions__Mission__crew ;
+    sysml:owningRelationship expr:IndividualDefinitions__Mission__crew_pmultiplicity_om ;
+    sysml:owningMembership expr:IndividualDefinitions__Mission__crew_pmultiplicity_om ;
+    sysml:upperBound expr:IndividualDefinitions__Mission__crew_pupperBound ;
+    sysml:ownedRelationship expr:IndividualDefinitions__Mission__crew_pupperBound_om ;
+    sysml:ownedMembership expr:IndividualDefinitions__Mission__crew_pupperBound_om .
+
+expr:IndividualDefinitions__Mission__crew_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "IndividualDefinitions__Mission__crew_pmultiplicity_om" ;
+    sysml:owner elmt:IndividualDefinitions__Mission__crew ;
+    sysml:memberElement expr:IndividualDefinitions__Mission__crew_pmultiplicity ;
+    sysml:ownedMemberElement expr:IndividualDefinitions__Mission__crew_pmultiplicity ;
+    sysml:ownedRelatedElement expr:IndividualDefinitions__Mission__crew_pmultiplicity ;
+    sysml:owningRelatedElement elmt:IndividualDefinitions__Mission__crew ;
+    sysml:membershipOwningNamespace elmt:IndividualDefinitions__Mission__crew .
+
 expr:IndividualDefinitions__Mission__crew_pupperBound
     a sysml:LiteralInfinity ;
     sysx:sourceText "*" ;
     sysml:elementId "IndividualDefinitions__Mission__crew_pupperBound" ;
-    sysml:owner elmt:IndividualDefinitions__Mission__crew ;
+    sysml:owner expr:IndividualDefinitions__Mission__crew_pmultiplicity ;
     sysml:owningRelationship expr:IndividualDefinitions__Mission__crew_pupperBound_om ;
     sysml:owningMembership expr:IndividualDefinitions__Mission__crew_pupperBound_om .
 
 expr:IndividualDefinitions__Mission__crew_pupperBound_om
     a sysml:OwningMembership ;
     sysml:elementId "IndividualDefinitions__Mission__crew_pupperBound_om" ;
-    sysml:owner elmt:IndividualDefinitions__Mission__crew ;
+    sysml:owner expr:IndividualDefinitions__Mission__crew_pmultiplicity ;
     sysml:memberElement expr:IndividualDefinitions__Mission__crew_pupperBound ;
     sysml:ownedMemberElement expr:IndividualDefinitions__Mission__crew_pupperBound ;
     sysml:ownedRelatedElement expr:IndividualDefinitions__Mission__crew_pupperBound ;
-    sysml:owningRelatedElement elmt:IndividualDefinitions__Mission__crew ;
-    sysml:membershipOwningNamespace elmt:IndividualDefinitions__Mission__crew .
+    sysml:owningRelatedElement expr:IndividualDefinitions__Mission__crew_pmultiplicity ;
+    sysml:membershipOwningNamespace expr:IndividualDefinitions__Mission__crew_pmultiplicity .
 
 elmt:IndividualDefinitions__Mission__commander
     a sysml:PartUsage ;
@@ -311,7 +340,13 @@ elmt:IndividualDefinitions__Mission__commander
     sysml:type elmt:IndividualDefinitions__Neil_20Armstrong ;
     sysml:subsets elmt:IndividualDefinitions__Mission__crew ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysx:sourceText "\t\tindividual part commander : 'Neil Armstrong' :> crew;\n" .
+    sysml:ownedTyping elmt:IndividualDefinitions__Mission__commander_ft0 ;
+    sysml:ownedSpecialization elmt:IndividualDefinitions__Mission__commander_ft0, elmt:IndividualDefinitions__Mission__commander_ss0 ;
+    sysml:ownedRelationship elmt:IndividualDefinitions__Mission__commander_ft0, elmt:IndividualDefinitions__Mission__commander_ss0 ;
+    sysml:ownedSubsetting elmt:IndividualDefinitions__Mission__commander_ss0 ;
+    sysx:sourceText "\t\tindividual part commander : 'Neil Armstrong' :> crew;\n" ;
+    json:ownedSpecialization "[{\"@id\":\"IndividualDefinitions__Mission__commander_ft0\"},{\"@id\":\"IndividualDefinitions__Mission__commander_ss0\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"IndividualDefinitions__Mission__commander_ft0\"},{\"@id\":\"IndividualDefinitions__Mission__commander_ss0\"}]" .
 
 elmt:IndividualDefinitions__Mission__commander_om
     a sysml:FeatureMembership ;
@@ -338,6 +373,9 @@ elmt:IndividualDefinitions__Mission__returned
     sysml:isIndividual "true"^^xsd:boolean ;
     sysml:type elmt:IndividualDefinitions__Sample_2010005 ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:IndividualDefinitions__Mission__returned_ft0 ;
+    sysml:ownedSpecialization elmt:IndividualDefinitions__Mission__returned_ft0 ;
+    sysml:ownedRelationship elmt:IndividualDefinitions__Mission__returned_ft0 ;
     sysx:sourceText "\t\tindividual item returned : 'Sample 10005';\n" .
 
 elmt:IndividualDefinitions__Mission__returned_om
@@ -365,6 +403,9 @@ elmt:IndividualDefinitions__Mission__landing
     sysml:isIndividual "true"^^xsd:boolean ;
     sysml:type elmt:IndividualDefinitions__FirstLanding ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:IndividualDefinitions__Mission__landing_ft0 ;
+    sysml:ownedSpecialization elmt:IndividualDefinitions__Mission__landing_ft0 ;
+    sysml:ownedRelationship elmt:IndividualDefinitions__Mission__landing_ft0 ;
     sysx:sourceText "\t\tindividual occurrence landing : FirstLanding;\n" .
 
 elmt:IndividualDefinitions__Mission__landing_om
@@ -392,6 +433,9 @@ elmt:IndividualDefinitions__Mission__flag
     sysml:isIndividual "true"^^xsd:boolean ;
     sysml:type elmt:IndividualDefinitions__PlantFlag ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:IndividualDefinitions__Mission__flag_ft0 ;
+    sysml:ownedSpecialization elmt:IndividualDefinitions__Mission__flag_ft0 ;
+    sysml:ownedRelationship elmt:IndividualDefinitions__Mission__flag_ft0 ;
     sysx:sourceText "\t\tindividual action flag : PlantFlag;\n" .
 
 elmt:IndividualDefinitions__Mission__flag_om
@@ -419,6 +463,9 @@ elmt:IndividualDefinitions__Mission__lander
     sysml:isIndividual "true"^^xsd:boolean ;
     sysml:type elmt:IndividualDefinitions__Eagle ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:IndividualDefinitions__Mission__lander_ft0 ;
+    sysml:ownedSpecialization elmt:IndividualDefinitions__Mission__lander_ft0 ;
+    sysml:ownedRelationship elmt:IndividualDefinitions__Mission__lander_ft0 ;
     sysx:sourceText "\t\tindividual part lander : Eagle;\n" .
 
 elmt:IndividualDefinitions__Mission__lander_om
@@ -432,3 +479,136 @@ elmt:IndividualDefinitions__Mission__lander_om
     sysml:membershipOwningNamespace elmt:IndividualDefinitions__Mission ;
     sysml:ownedMemberFeature elmt:IndividualDefinitions__Mission__lander ;
     sysml:owningType elmt:IndividualDefinitions__Mission .
+
+elmt:IndividualDefinitions__Neil_20Armstrong_sc0
+    a sysml:Subclassification ;
+    sysml:elementId "IndividualDefinitions__Neil_20Armstrong_sc0" ;
+    sysml:subclassifier elmt:IndividualDefinitions__Neil_20Armstrong ;
+    sysml:owningClassifier elmt:IndividualDefinitions__Neil_20Armstrong ;
+    sysml:specific elmt:IndividualDefinitions__Neil_20Armstrong ;
+    sysml:source elmt:IndividualDefinitions__Neil_20Armstrong ;
+    sysml:owningRelatedElement elmt:IndividualDefinitions__Neil_20Armstrong ;
+    sysml:superclassifier elmt:IndividualDefinitions__Astronaut ;
+    sysml:general elmt:IndividualDefinitions__Astronaut ;
+    sysml:target elmt:IndividualDefinitions__Astronaut ;
+    sysml:owner elmt:IndividualDefinitions__Neil_20Armstrong ;
+    sysml:relatedElement elmt:IndividualDefinitions__Neil_20Armstrong, elmt:IndividualDefinitions__Astronaut ;
+    json:relatedElement "[{\"@id\":\"IndividualDefinitions__Neil_20Armstrong\"},{\"@id\":\"IndividualDefinitions__Astronaut\"}]" .
+
+elmt:IndividualDefinitions__Eagle_sp0
+    a sysml:Specialization ;
+    sysml:elementId "IndividualDefinitions__Eagle_sp0" ;
+    sysml:specific elmt:IndividualDefinitions__Eagle ;
+    sysml:owningType elmt:IndividualDefinitions__Eagle ;
+    sysml:source elmt:IndividualDefinitions__Eagle ;
+    sysml:owningRelatedElement elmt:IndividualDefinitions__Eagle ;
+    sysml:general elmt:IndividualDefinitions__Spacecraft ;
+    sysml:target elmt:IndividualDefinitions__Spacecraft ;
+    sysml:owner elmt:IndividualDefinitions__Eagle ;
+    sysml:relatedElement elmt:IndividualDefinitions__Eagle, elmt:IndividualDefinitions__Spacecraft ;
+    json:relatedElement "[{\"@id\":\"IndividualDefinitions__Eagle\"},{\"@id\":\"IndividualDefinitions__Spacecraft\"}]" .
+
+elmt:IndividualDefinitions__Mission__crew_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "IndividualDefinitions__Mission__crew_ft0" ;
+    sysml:typedFeature elmt:IndividualDefinitions__Mission__crew ;
+    sysml:owningFeature elmt:IndividualDefinitions__Mission__crew ;
+    sysml:specific elmt:IndividualDefinitions__Mission__crew ;
+    sysml:source elmt:IndividualDefinitions__Mission__crew ;
+    sysml:owningRelatedElement elmt:IndividualDefinitions__Mission__crew ;
+    sysml:type elmt:IndividualDefinitions__Astronaut ;
+    sysml:general elmt:IndividualDefinitions__Astronaut ;
+    sysml:target elmt:IndividualDefinitions__Astronaut ;
+    sysml:owner elmt:IndividualDefinitions__Mission__crew ;
+    sysml:relatedElement elmt:IndividualDefinitions__Mission__crew, elmt:IndividualDefinitions__Astronaut ;
+    json:relatedElement "[{\"@id\":\"IndividualDefinitions__Mission__crew\"},{\"@id\":\"IndividualDefinitions__Astronaut\"}]" .
+
+elmt:IndividualDefinitions__Mission__commander_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "IndividualDefinitions__Mission__commander_ft0" ;
+    sysml:typedFeature elmt:IndividualDefinitions__Mission__commander ;
+    sysml:owningFeature elmt:IndividualDefinitions__Mission__commander ;
+    sysml:specific elmt:IndividualDefinitions__Mission__commander ;
+    sysml:source elmt:IndividualDefinitions__Mission__commander ;
+    sysml:owningRelatedElement elmt:IndividualDefinitions__Mission__commander ;
+    sysml:type elmt:IndividualDefinitions__Neil_20Armstrong ;
+    sysml:general elmt:IndividualDefinitions__Neil_20Armstrong ;
+    sysml:target elmt:IndividualDefinitions__Neil_20Armstrong ;
+    sysml:owner elmt:IndividualDefinitions__Mission__commander ;
+    sysml:relatedElement elmt:IndividualDefinitions__Mission__commander, elmt:IndividualDefinitions__Neil_20Armstrong ;
+    json:relatedElement "[{\"@id\":\"IndividualDefinitions__Mission__commander\"},{\"@id\":\"IndividualDefinitions__Neil_20Armstrong\"}]" .
+
+elmt:IndividualDefinitions__Mission__commander_ss0
+    a sysml:Subsetting ;
+    sysml:elementId "IndividualDefinitions__Mission__commander_ss0" ;
+    sysml:subsettingFeature elmt:IndividualDefinitions__Mission__commander ;
+    sysml:owningFeature elmt:IndividualDefinitions__Mission__commander ;
+    sysml:specific elmt:IndividualDefinitions__Mission__commander ;
+    sysml:source elmt:IndividualDefinitions__Mission__commander ;
+    sysml:owningRelatedElement elmt:IndividualDefinitions__Mission__commander ;
+    sysml:subsettedFeature elmt:IndividualDefinitions__Mission__crew ;
+    sysml:general elmt:IndividualDefinitions__Mission__crew ;
+    sysml:target elmt:IndividualDefinitions__Mission__crew ;
+    sysml:owner elmt:IndividualDefinitions__Mission__commander ;
+    sysml:relatedElement elmt:IndividualDefinitions__Mission__commander, elmt:IndividualDefinitions__Mission__crew ;
+    json:relatedElement "[{\"@id\":\"IndividualDefinitions__Mission__commander\"},{\"@id\":\"IndividualDefinitions__Mission__crew\"}]" .
+
+elmt:IndividualDefinitions__Mission__returned_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "IndividualDefinitions__Mission__returned_ft0" ;
+    sysml:typedFeature elmt:IndividualDefinitions__Mission__returned ;
+    sysml:owningFeature elmt:IndividualDefinitions__Mission__returned ;
+    sysml:specific elmt:IndividualDefinitions__Mission__returned ;
+    sysml:source elmt:IndividualDefinitions__Mission__returned ;
+    sysml:owningRelatedElement elmt:IndividualDefinitions__Mission__returned ;
+    sysml:type elmt:IndividualDefinitions__Sample_2010005 ;
+    sysml:general elmt:IndividualDefinitions__Sample_2010005 ;
+    sysml:target elmt:IndividualDefinitions__Sample_2010005 ;
+    sysml:owner elmt:IndividualDefinitions__Mission__returned ;
+    sysml:relatedElement elmt:IndividualDefinitions__Mission__returned, elmt:IndividualDefinitions__Sample_2010005 ;
+    json:relatedElement "[{\"@id\":\"IndividualDefinitions__Mission__returned\"},{\"@id\":\"IndividualDefinitions__Sample_2010005\"}]" .
+
+elmt:IndividualDefinitions__Mission__landing_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "IndividualDefinitions__Mission__landing_ft0" ;
+    sysml:typedFeature elmt:IndividualDefinitions__Mission__landing ;
+    sysml:owningFeature elmt:IndividualDefinitions__Mission__landing ;
+    sysml:specific elmt:IndividualDefinitions__Mission__landing ;
+    sysml:source elmt:IndividualDefinitions__Mission__landing ;
+    sysml:owningRelatedElement elmt:IndividualDefinitions__Mission__landing ;
+    sysml:type elmt:IndividualDefinitions__FirstLanding ;
+    sysml:general elmt:IndividualDefinitions__FirstLanding ;
+    sysml:target elmt:IndividualDefinitions__FirstLanding ;
+    sysml:owner elmt:IndividualDefinitions__Mission__landing ;
+    sysml:relatedElement elmt:IndividualDefinitions__Mission__landing, elmt:IndividualDefinitions__FirstLanding ;
+    json:relatedElement "[{\"@id\":\"IndividualDefinitions__Mission__landing\"},{\"@id\":\"IndividualDefinitions__FirstLanding\"}]" .
+
+elmt:IndividualDefinitions__Mission__flag_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "IndividualDefinitions__Mission__flag_ft0" ;
+    sysml:typedFeature elmt:IndividualDefinitions__Mission__flag ;
+    sysml:owningFeature elmt:IndividualDefinitions__Mission__flag ;
+    sysml:specific elmt:IndividualDefinitions__Mission__flag ;
+    sysml:source elmt:IndividualDefinitions__Mission__flag ;
+    sysml:owningRelatedElement elmt:IndividualDefinitions__Mission__flag ;
+    sysml:type elmt:IndividualDefinitions__PlantFlag ;
+    sysml:general elmt:IndividualDefinitions__PlantFlag ;
+    sysml:target elmt:IndividualDefinitions__PlantFlag ;
+    sysml:owner elmt:IndividualDefinitions__Mission__flag ;
+    sysml:relatedElement elmt:IndividualDefinitions__Mission__flag, elmt:IndividualDefinitions__PlantFlag ;
+    json:relatedElement "[{\"@id\":\"IndividualDefinitions__Mission__flag\"},{\"@id\":\"IndividualDefinitions__PlantFlag\"}]" .
+
+elmt:IndividualDefinitions__Mission__lander_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "IndividualDefinitions__Mission__lander_ft0" ;
+    sysml:typedFeature elmt:IndividualDefinitions__Mission__lander ;
+    sysml:owningFeature elmt:IndividualDefinitions__Mission__lander ;
+    sysml:specific elmt:IndividualDefinitions__Mission__lander ;
+    sysml:source elmt:IndividualDefinitions__Mission__lander ;
+    sysml:owningRelatedElement elmt:IndividualDefinitions__Mission__lander ;
+    sysml:type elmt:IndividualDefinitions__Eagle ;
+    sysml:general elmt:IndividualDefinitions__Eagle ;
+    sysml:target elmt:IndividualDefinitions__Eagle ;
+    sysml:owner elmt:IndividualDefinitions__Mission__lander ;
+    sysml:relatedElement elmt:IndividualDefinitions__Mission__lander, elmt:IndividualDefinitions__Eagle ;
+    json:relatedElement "[{\"@id\":\"IndividualDefinitions__Mission__lander\"},{\"@id\":\"IndividualDefinitions__Eagle\"}]" .

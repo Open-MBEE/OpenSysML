@@ -61,10 +61,12 @@ const (
 	xResultExpression = "resultExpression"
 )
 
-// Operator spellings whose notation is not the plain infix form.
+// Operator spellings whose notation is not the plain infix form; `[` is the
+// spelling the SysML v2 interchange gives the bracket operator (sysmlv2 json).
 const (
 	opSequence = ","
-	opIndex    = "[]"
+	opIndex    = "["
+	opIndexOld = "[]"
 	opAt       = "#"
 	opIf       = "if"
 )
@@ -77,7 +79,7 @@ func (e *encoder) expression(subject, property rdf.Term, slot, owner string, nod
 		return nil
 	}
 	e.graph.Prefixes[rdf.ExpressionPrefix] = rdf.Expression
-	target := rdf.ExpressionIRI(subject, slot)
+	target := e.ids.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot)
 	e.graph.Add(subject, property, target)
 	if err := e.expressionNode(target, owner, node); err != nil {
 		return err
@@ -182,7 +184,7 @@ func (e *encoder) expressionStructure(subject rdf.Term, owner string, node ast.N
 			return err
 		}
 		if n.Result != nil {
-			result := rdf.ExpressionIRI(subject, "result")
+			result := e.ids.mintedNode(rdf.ExpressionIRI(subject, "result"), subject, "result")
 			e.graph.Add(subject, e.sysx(xResultExpression), result)
 			return e.expressionNode(result, owner, n.Result)
 		}
@@ -272,7 +274,7 @@ func (e *encoder) bodyDeclarations(subject rdf.Term, owner string, params []ast.
 // bodyParameter emits one parameter of an expression body as a node of its
 // own, so its type, value and bounds are structure, not text.
 func (e *encoder) bodyParameter(subject rdf.Term, owner string, index int, param ast.BodyParam) error {
-	node := rdf.ExpressionIRI(subject, fmt.Sprintf("in%d", index))
+	node := e.ids.mintedNode(rdf.ExpressionIRI(subject, fmt.Sprintf("in%d", index)), subject, fmt.Sprintf("in%d", index))
 	e.graph.Add(subject, e.sysx(xBodyParameter), node)
 	e.graph.Add(node, rdf.IRI(rdf.RDFType), rdf.SysMLTerm(keywordMetaclass["ref"]))
 	e.graph.Add(node, e.sysml(pElementID), rdf.String(rdf.LocalName(node.Value)))
@@ -303,7 +305,7 @@ func (e *encoder) bodyMember(subject rdf.Term, owner string, index int, member a
 			Note: "a membership in an expression body declares the member it holds",
 		}
 	}
-	local := rdf.ExpressionIRI(subject, fmt.Sprintf("m%d", index))
+	local := e.ids.mintedNode(rdf.ExpressionIRI(subject, fmt.Sprintf("m%d", index)), subject, fmt.Sprintf("m%d", index))
 	e.graph.Add(subject, e.sysx(xBodyMember), local)
 	return e.encodeMember(memberHead{node: node, visibility: visibility, index: index, inline: true, local: local}, owner)
 }
@@ -315,7 +317,7 @@ func (e *encoder) arguments(subject rdf.Term, owner string, args []ast.Node) err
 		if arg == nil {
 			continue
 		}
-		child := rdf.ExpressionIRI(subject, fmt.Sprintf("a%d", i))
+		child := e.ids.mintedNode(rdf.ExpressionIRI(subject, fmt.Sprintf("a%d", i)), subject, fmt.Sprintf("a%d", i))
 		e.graph.Add(subject, e.sysml(pArgument), child)
 		if err := e.expressionNode(child, owner, arg); err != nil {
 			return err
@@ -334,7 +336,7 @@ func (e *encoder) invocation(subject rdf.Term, owner string, function *ast.Quali
 		e.graph.Add(subject, e.sysml(pFunction), e.reference(function))
 	}
 	if operand != nil {
-		receiver := rdf.ExpressionIRI(subject, "operand")
+		receiver := e.ids.mintedNode(rdf.ExpressionIRI(subject, "operand"), subject, "operand")
 		e.graph.Add(subject, e.sysml(pOperand), receiver)
 		if err := e.expressionNode(receiver, owner, operand); err != nil {
 			return err
@@ -347,7 +349,7 @@ func (e *encoder) invocation(subject rdf.Term, owner string, function *ast.Quali
 		if arg.Value == nil {
 			continue
 		}
-		child := rdf.ExpressionIRI(subject, fmt.Sprintf("n%d", i))
+		child := e.ids.mintedNode(rdf.ExpressionIRI(subject, fmt.Sprintf("n%d", i)), subject, fmt.Sprintf("n%d", i))
 		e.graph.Add(subject, e.sysml(pArgument), child)
 		if err := e.expressionNode(child, owner, arg.Value); err != nil {
 			return err
@@ -366,7 +368,7 @@ func (e *encoder) expressionOwnership(node, owner rdf.Term, featureValue bool) e
 		e.relationshipOwnership(node, owner, e.metaclassOf(owner), e.metaclassOf(node))
 		return nil
 	}
-	membership := rdf.OwningMembershipIRIOf(node)
+	membership := e.ids.minted(rdf.OwningMembershipIRIOf(node), node, rdf.OwningMembershipSuffix)
 	metaclass := mOwningMembership
 	if featureValue {
 		metaclass = mFeatureValue
@@ -390,9 +392,9 @@ func (e *encoder) expressionOwnership(node, owner rdf.Term, featureValue bool) e
 
 // expressionOperandOwnership models an operand as an input parameter and value.
 func (e *encoder) expressionOperandOwnership(node, operand rdf.Term, index int) error {
-	parameter := rdf.ExpressionIRI(node, fmt.Sprintf("in%d", index))
-	membership := rdf.OwningMembershipIRIOf(parameter)
-	valueMembership := rdf.OwningMembershipIRIOf(operand)
+	parameter := e.ids.mintedNode(rdf.ExpressionIRI(node, fmt.Sprintf("in%d", index)), node, fmt.Sprintf("in%d", index))
+	membership := e.ids.minted(rdf.OwningMembershipIRIOf(parameter), parameter, rdf.OwningMembershipSuffix)
+	valueMembership := e.ids.minted(rdf.OwningMembershipIRIOf(operand), operand, rdf.OwningMembershipSuffix)
 	e.typed(parameter, mFeature)
 	e.graph.Add(parameter, e.sysml(pElementID), rdf.String(rdf.LocalName(parameter.Value)))
 	e.graph.Add(parameter, e.sysml(pDirection), rdf.String("in"))
@@ -425,6 +427,10 @@ var expressionMetaclasses = map[string]bool{
 	mNullExpression: true, mFeatureReference: true, mFeatureChain: true,
 	mOperator: true, mInvocation: true, mCollect: true, mSelect: true,
 	mMetadataAccess: true,
+	// A MultiplicityRange is a part of the feature's declaration, and a
+	// Membership relates an expression to its referent: both are minted in the
+	// expression namespace under the element they belong to.
+	mMultiplicityRange: true, mMembership: true,
 }
 
 // isExpressionRoot reports whether the encoder mints an expr: node of this
@@ -466,6 +472,9 @@ var ownershipPredicates = func() map[string]bool {
 		pOwnedFeatureMembership, pFeatureWithValue,
 		pOwnedReferenceSubsetting, pOwnedSubsetting, pOwnedSpecialization,
 		pConnectorEnd, pOwnedEndFeature,
+		// The range a head's collapsed bounds are owned by is a structural
+		// edge, not an expression-valued property to render.
+		pMultiplicity, pConjugatedPortDefinition,
 	}
 	set := make(map[string]bool, len(properties))
 	for _, property := range properties {
@@ -536,6 +545,15 @@ func (d *decoder) valueOwner(triple rdf.Triple, valueTargets map[string]string, 
 func (d *decoder) resolveExpression(triple rdf.Triple, parents map[string][]rdf.Term, valueTargets map[string]string, directValues map[string]rdf.Term) error {
 	if ownershipPredicates[triple.Predicate.Value] || d.nodeMembership[triple.Object.Value] {
 		return nil
+	}
+	if el, ok := d.byIRI[triple.Subject.Value]; ok && expressionMetaclasses[el.metaclass] {
+		// An expression element's predicates are its structure, which its own
+		// head renders whole; the collapsed head properties still resolve.
+		switch triple.Predicate.Value {
+		case rdf.SysML + pLowerBound, rdf.SysML + pUpperBound, rdf.SysML + pValue, rdf.SysML + pMultiplicity:
+		default:
+			return nil
+		}
 	}
 	if triple.Predicate.Value == rdf.SysML+pReferences &&
 		d.graph.BoolValue(triple.Subject, rdf.SysML+pIsEnd) {
@@ -1125,7 +1143,7 @@ func (d *decoder) operatorForm(node rdf.Term, in *element) (operand, error) {
 		// The condition is read below the conditional form; either branch may be one.
 		text := "if " + args[0].at(bindNullCoalesce) + " ? " + args[1].at(bindConditional) + " else " + args[2].at(bindConditional)
 		return operand{text: text, binding: bindConditional}, nil
-	case operator == opIndex && len(args) == 2:
+	case (operator == opIndex || operator == opIndexOld) && len(args) == 2:
 		return primary(args[0].at(bindPrimary) + "[" + indexText(args[1]) + "]")
 	case operator == opAt && len(args) == 2:
 		return primary(args[0].at(bindPrimary) + "#(" + indexText(args[1]) + ")")

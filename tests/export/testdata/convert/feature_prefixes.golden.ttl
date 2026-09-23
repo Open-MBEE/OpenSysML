@@ -94,6 +94,9 @@ elmt:FeaturePrefixes__B__k
     sysml:isConstant "true"^^xsd:boolean ;
     sysml:type elmt:FeaturePrefixes__A ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:FeaturePrefixes__B__k_ft0 ;
+    sysml:ownedSpecialization elmt:FeaturePrefixes__B__k_ft0 ;
+    sysml:ownedRelationship elmt:FeaturePrefixes__B__k_ft0 ;
     sysx:sourceText "        const feature k : A;\n" .
 
 elmt:FeaturePrefixes__B__k_om
@@ -123,6 +126,9 @@ elmt:FeaturePrefixes__B__vk
     sysml:isConstant "true"^^xsd:boolean ;
     sysml:type elmt:FeaturePrefixes__A ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:FeaturePrefixes__B__vk_ft0 ;
+    sysml:ownedSpecialization elmt:FeaturePrefixes__B__vk_ft0 ;
+    sysml:ownedRelationship elmt:FeaturePrefixes__B__vk_ft0 ;
     sysx:sourceText "        var const feature vk : A;\n" .
 
 elmt:FeaturePrefixes__B__vk_om
@@ -152,6 +158,9 @@ elmt:FeaturePrefixes__B__p
     sysml:isPortion "true"^^xsd:boolean ;
     sysml:type elmt:FeaturePrefixes__A ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:FeaturePrefixes__B__p_ft0 ;
+    sysml:ownedSpecialization elmt:FeaturePrefixes__B__p_ft0 ;
+    sysml:ownedRelationship elmt:FeaturePrefixes__B__p_ft0 ;
     sysx:sourceText "        portion feature p : A;\n" .
 
 elmt:FeaturePrefixes__B__p_om
@@ -182,6 +191,9 @@ elmt:FeaturePrefixes__B__pv
     sysml:isPortion "true"^^xsd:boolean ;
     sysml:type elmt:FeaturePrefixes__A ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:FeaturePrefixes__B__pv_ft0 ;
+    sysml:ownedSpecialization elmt:FeaturePrefixes__B__pv_ft0 ;
+    sysml:ownedRelationship elmt:FeaturePrefixes__B__pv_ft0 ;
     sysx:sourceText "        var portion feature pv : A;\n" .
 
 elmt:FeaturePrefixes__B__pv_om
@@ -212,14 +224,18 @@ elmt:FeaturePrefixes__B__slices
     sysml:isPortion "true"^^xsd:boolean ;
     sysml:type elmt:FeaturePrefixes__A ;
     sysml:subsets elmt:FeaturePrefixes__B__p ;
+    sysml:multiplicity expr:FeaturePrefixes__B__slices_pmultiplicity ;
+    sysml:ownedRelationship expr:FeaturePrefixes__B__slices_pmultiplicity_om, elmt:FeaturePrefixes__B__slices_ft0, elmt:FeaturePrefixes__B__slices_ss0 ;
+    sysml:ownedMembership expr:FeaturePrefixes__B__slices_pmultiplicity_om ;
     sysml:lowerBound expr:FeaturePrefixes__B__slices_plowerBound ;
-    sysml:ownedRelationship expr:FeaturePrefixes__B__slices_plowerBound_om, expr:FeaturePrefixes__B__slices_pupperBound_om ;
-    sysml:ownedMembership expr:FeaturePrefixes__B__slices_plowerBound_om, expr:FeaturePrefixes__B__slices_pupperBound_om ;
     sysml:upperBound expr:FeaturePrefixes__B__slices_pupperBound ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:FeaturePrefixes__B__slices_ft0 ;
+    sysml:ownedSpecialization elmt:FeaturePrefixes__B__slices_ft0, elmt:FeaturePrefixes__B__slices_ss0 ;
+    sysml:ownedSubsetting elmt:FeaturePrefixes__B__slices_ss0 ;
     sysx:sourceText "        portion feature all slices : A[1..*] subsets p;\n" ;
-    json:ownedRelationship "[{\"@id\":\"FeaturePrefixes__B__slices_plowerBound_om\"},{\"@id\":\"FeaturePrefixes__B__slices_pupperBound_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"FeaturePrefixes__B__slices_plowerBound_om\"},{\"@id\":\"FeaturePrefixes__B__slices_pupperBound_om\"}]" .
+    json:ownedRelationship "[{\"@id\":\"FeaturePrefixes__B__slices_pmultiplicity_om\"},{\"@id\":\"FeaturePrefixes__B__slices_ft0\"},{\"@id\":\"FeaturePrefixes__B__slices_ss0\"}]" ;
+    json:ownedSpecialization "[{\"@id\":\"FeaturePrefixes__B__slices_ft0\"},{\"@id\":\"FeaturePrefixes__B__slices_ss0\"}]" .
 
 elmt:FeaturePrefixes__B__slices_om
     a sysml:FeatureMembership ;
@@ -233,42 +249,65 @@ elmt:FeaturePrefixes__B__slices_om
     sysml:ownedMemberFeature elmt:FeaturePrefixes__B__slices ;
     sysml:owningType elmt:FeaturePrefixes__B .
 
+expr:FeaturePrefixes__B__slices_pmultiplicity
+    a sysml:MultiplicityRange ;
+    sysml:elementId "FeaturePrefixes__B__slices_pmultiplicity" ;
+    sysml:owner elmt:FeaturePrefixes__B__slices ;
+    sysml:owningRelationship expr:FeaturePrefixes__B__slices_pmultiplicity_om ;
+    sysml:owningMembership expr:FeaturePrefixes__B__slices_pmultiplicity_om ;
+    sysml:lowerBound expr:FeaturePrefixes__B__slices_plowerBound ;
+    sysml:ownedRelationship expr:FeaturePrefixes__B__slices_plowerBound_om, expr:FeaturePrefixes__B__slices_pupperBound_om ;
+    sysml:ownedMembership expr:FeaturePrefixes__B__slices_plowerBound_om, expr:FeaturePrefixes__B__slices_pupperBound_om ;
+    sysml:upperBound expr:FeaturePrefixes__B__slices_pupperBound ;
+    json:ownedRelationship "[{\"@id\":\"FeaturePrefixes__B__slices_plowerBound_om\"},{\"@id\":\"FeaturePrefixes__B__slices_pupperBound_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"FeaturePrefixes__B__slices_plowerBound_om\"},{\"@id\":\"FeaturePrefixes__B__slices_pupperBound_om\"}]" .
+
+expr:FeaturePrefixes__B__slices_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "FeaturePrefixes__B__slices_pmultiplicity_om" ;
+    sysml:owner elmt:FeaturePrefixes__B__slices ;
+    sysml:memberElement expr:FeaturePrefixes__B__slices_pmultiplicity ;
+    sysml:ownedMemberElement expr:FeaturePrefixes__B__slices_pmultiplicity ;
+    sysml:ownedRelatedElement expr:FeaturePrefixes__B__slices_pmultiplicity ;
+    sysml:owningRelatedElement elmt:FeaturePrefixes__B__slices ;
+    sysml:membershipOwningNamespace elmt:FeaturePrefixes__B__slices .
+
 expr:FeaturePrefixes__B__slices_plowerBound
     a sysml:LiteralInteger ;
     sysx:sourceText "1" ;
     sysml:elementId "FeaturePrefixes__B__slices_plowerBound" ;
     sysml:value "1"^^xsd:integer ;
-    sysml:owner elmt:FeaturePrefixes__B__slices ;
+    sysml:owner expr:FeaturePrefixes__B__slices_pmultiplicity ;
     sysml:owningRelationship expr:FeaturePrefixes__B__slices_plowerBound_om ;
     sysml:owningMembership expr:FeaturePrefixes__B__slices_plowerBound_om .
 
 expr:FeaturePrefixes__B__slices_plowerBound_om
     a sysml:OwningMembership ;
     sysml:elementId "FeaturePrefixes__B__slices_plowerBound_om" ;
-    sysml:owner elmt:FeaturePrefixes__B__slices ;
+    sysml:owner expr:FeaturePrefixes__B__slices_pmultiplicity ;
     sysml:memberElement expr:FeaturePrefixes__B__slices_plowerBound ;
     sysml:ownedMemberElement expr:FeaturePrefixes__B__slices_plowerBound ;
     sysml:ownedRelatedElement expr:FeaturePrefixes__B__slices_plowerBound ;
-    sysml:owningRelatedElement elmt:FeaturePrefixes__B__slices ;
-    sysml:membershipOwningNamespace elmt:FeaturePrefixes__B__slices .
+    sysml:owningRelatedElement expr:FeaturePrefixes__B__slices_pmultiplicity ;
+    sysml:membershipOwningNamespace expr:FeaturePrefixes__B__slices_pmultiplicity .
 
 expr:FeaturePrefixes__B__slices_pupperBound
     a sysml:LiteralInfinity ;
     sysx:sourceText "*" ;
     sysml:elementId "FeaturePrefixes__B__slices_pupperBound" ;
-    sysml:owner elmt:FeaturePrefixes__B__slices ;
+    sysml:owner expr:FeaturePrefixes__B__slices_pmultiplicity ;
     sysml:owningRelationship expr:FeaturePrefixes__B__slices_pupperBound_om ;
     sysml:owningMembership expr:FeaturePrefixes__B__slices_pupperBound_om .
 
 expr:FeaturePrefixes__B__slices_pupperBound_om
     a sysml:OwningMembership ;
     sysml:elementId "FeaturePrefixes__B__slices_pupperBound_om" ;
-    sysml:owner elmt:FeaturePrefixes__B__slices ;
+    sysml:owner expr:FeaturePrefixes__B__slices_pmultiplicity ;
     sysml:memberElement expr:FeaturePrefixes__B__slices_pupperBound ;
     sysml:ownedMemberElement expr:FeaturePrefixes__B__slices_pupperBound ;
     sysml:ownedRelatedElement expr:FeaturePrefixes__B__slices_pupperBound ;
-    sysml:owningRelatedElement elmt:FeaturePrefixes__B__slices ;
-    sysml:membershipOwningNamespace elmt:FeaturePrefixes__B__slices .
+    sysml:owningRelatedElement expr:FeaturePrefixes__B__slices_pmultiplicity ;
+    sysml:membershipOwningNamespace expr:FeaturePrefixes__B__slices_pmultiplicity .
 
 elmt:FeaturePrefixes__C
     a sysml:ClassUsage ;
@@ -284,14 +323,15 @@ elmt:FeaturePrefixes__C
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:FeaturePrefixes__C___400, elmt:FeaturePrefixes__C___401, elmt:FeaturePrefixes__C__dk ;
     sysml:ownedMembership elmt:FeaturePrefixes__C___400_om, elmt:FeaturePrefixes__C___401_om, elmt:FeaturePrefixes__C__dk_om ;
-    sysml:ownedRelationship elmt:FeaturePrefixes__C___400_om, elmt:FeaturePrefixes__C___401_om, elmt:FeaturePrefixes__C__dk_om ;
+    sysml:ownedRelationship elmt:FeaturePrefixes__C___400_om, elmt:FeaturePrefixes__C___401_om, elmt:FeaturePrefixes__C__dk_om, elmt:FeaturePrefixes__C_sp0 ;
     sysml:ownedFeature elmt:FeaturePrefixes__C___400, elmt:FeaturePrefixes__C___401, elmt:FeaturePrefixes__C__dk ;
     sysml:ownedFeatureMembership elmt:FeaturePrefixes__C___400_om, elmt:FeaturePrefixes__C___401_om, elmt:FeaturePrefixes__C__dk_om ;
+    sysml:ownedSpecialization elmt:FeaturePrefixes__C_sp0 ;
     sysx:sourceText "    class C specializes B {\n" ;
     sysx:sourceTail "    }\n" ;
     json:ownedMember "[{\"@id\":\"FeaturePrefixes__C___400\"},{\"@id\":\"FeaturePrefixes__C___401\"},{\"@id\":\"FeaturePrefixes__C__dk\"}]" ;
     json:ownedMembership "[{\"@id\":\"FeaturePrefixes__C___400_om\"},{\"@id\":\"FeaturePrefixes__C___401_om\"},{\"@id\":\"FeaturePrefixes__C__dk_om\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"FeaturePrefixes__C___400_om\"},{\"@id\":\"FeaturePrefixes__C___401_om\"},{\"@id\":\"FeaturePrefixes__C__dk_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"FeaturePrefixes__C___400_om\"},{\"@id\":\"FeaturePrefixes__C___401_om\"},{\"@id\":\"FeaturePrefixes__C__dk_om\"},{\"@id\":\"FeaturePrefixes__C_sp0\"}]" ;
     json:ownedFeature "[{\"@id\":\"FeaturePrefixes__C___400\"},{\"@id\":\"FeaturePrefixes__C___401\"},{\"@id\":\"FeaturePrefixes__C__dk\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"FeaturePrefixes__C___400_om\"},{\"@id\":\"FeaturePrefixes__C___401_om\"},{\"@id\":\"FeaturePrefixes__C__dk_om\"}]" .
 
@@ -318,11 +358,16 @@ elmt:FeaturePrefixes__C___400
     sysml:isComposite "true"^^xsd:boolean ;
     sysml:isPortion "true"^^xsd:boolean ;
     sysml:redefines elmt:FeaturePrefixes__B__p ;
+    sysml:multiplicity expr:FeaturePrefixes__C___400_pmultiplicity ;
+    sysml:ownedRelationship expr:FeaturePrefixes__C___400_pmultiplicity_om, elmt:FeaturePrefixes__C___400_rd0 ;
+    sysml:ownedMembership expr:FeaturePrefixes__C___400_pmultiplicity_om ;
     sysml:upperBound expr:FeaturePrefixes__C___400_pupperBound ;
-    sysml:ownedRelationship expr:FeaturePrefixes__C___400_pupperBound_om ;
-    sysml:ownedMembership expr:FeaturePrefixes__C___400_pupperBound_om ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysx:sourceText "        portion feature redefines p [1];\n" .
+    sysml:ownedRedefinition elmt:FeaturePrefixes__C___400_rd0 ;
+    sysml:ownedSubsetting elmt:FeaturePrefixes__C___400_rd0 ;
+    sysml:ownedSpecialization elmt:FeaturePrefixes__C___400_rd0 ;
+    sysx:sourceText "        portion feature redefines p [1];\n" ;
+    json:ownedRelationship "[{\"@id\":\"FeaturePrefixes__C___400_pmultiplicity_om\"},{\"@id\":\"FeaturePrefixes__C___400_rd0\"}]" .
 
 elmt:FeaturePrefixes__C___400_om
     a sysml:FeatureMembership ;
@@ -336,24 +381,44 @@ elmt:FeaturePrefixes__C___400_om
     sysml:ownedMemberFeature elmt:FeaturePrefixes__C___400 ;
     sysml:owningType elmt:FeaturePrefixes__C .
 
+expr:FeaturePrefixes__C___400_pmultiplicity
+    a sysml:MultiplicityRange ;
+    sysml:elementId "FeaturePrefixes__C___400_pmultiplicity" ;
+    sysml:owner elmt:FeaturePrefixes__C___400 ;
+    sysml:owningRelationship expr:FeaturePrefixes__C___400_pmultiplicity_om ;
+    sysml:owningMembership expr:FeaturePrefixes__C___400_pmultiplicity_om ;
+    sysml:upperBound expr:FeaturePrefixes__C___400_pupperBound ;
+    sysml:ownedRelationship expr:FeaturePrefixes__C___400_pupperBound_om ;
+    sysml:ownedMembership expr:FeaturePrefixes__C___400_pupperBound_om .
+
+expr:FeaturePrefixes__C___400_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "FeaturePrefixes__C___400_pmultiplicity_om" ;
+    sysml:owner elmt:FeaturePrefixes__C___400 ;
+    sysml:memberElement expr:FeaturePrefixes__C___400_pmultiplicity ;
+    sysml:ownedMemberElement expr:FeaturePrefixes__C___400_pmultiplicity ;
+    sysml:ownedRelatedElement expr:FeaturePrefixes__C___400_pmultiplicity ;
+    sysml:owningRelatedElement elmt:FeaturePrefixes__C___400 ;
+    sysml:membershipOwningNamespace elmt:FeaturePrefixes__C___400 .
+
 expr:FeaturePrefixes__C___400_pupperBound
     a sysml:LiteralInteger ;
     sysx:sourceText "1" ;
     sysml:elementId "FeaturePrefixes__C___400_pupperBound" ;
     sysml:value "1"^^xsd:integer ;
-    sysml:owner elmt:FeaturePrefixes__C___400 ;
+    sysml:owner expr:FeaturePrefixes__C___400_pmultiplicity ;
     sysml:owningRelationship expr:FeaturePrefixes__C___400_pupperBound_om ;
     sysml:owningMembership expr:FeaturePrefixes__C___400_pupperBound_om .
 
 expr:FeaturePrefixes__C___400_pupperBound_om
     a sysml:OwningMembership ;
     sysml:elementId "FeaturePrefixes__C___400_pupperBound_om" ;
-    sysml:owner elmt:FeaturePrefixes__C___400 ;
+    sysml:owner expr:FeaturePrefixes__C___400_pmultiplicity ;
     sysml:memberElement expr:FeaturePrefixes__C___400_pupperBound ;
     sysml:ownedMemberElement expr:FeaturePrefixes__C___400_pupperBound ;
     sysml:ownedRelatedElement expr:FeaturePrefixes__C___400_pupperBound ;
-    sysml:owningRelatedElement elmt:FeaturePrefixes__C___400 ;
-    sysml:membershipOwningNamespace elmt:FeaturePrefixes__C___400 .
+    sysml:owningRelatedElement expr:FeaturePrefixes__C___400_pmultiplicity ;
+    sysml:membershipOwningNamespace expr:FeaturePrefixes__C___400_pmultiplicity .
 
 elmt:FeaturePrefixes__C___401
     a sysml:ReferenceUsage ;
@@ -369,10 +434,14 @@ elmt:FeaturePrefixes__C___401
     sysml:isPortion "true"^^xsd:boolean ;
     sysml:redefines elmt:FeaturePrefixes__B__pv ;
     sysml:value expr:FeaturePrefixes__C___401_pvalue ;
-    sysml:ownedRelationship expr:FeaturePrefixes__C___401_pvalue_om ;
+    sysml:ownedRelationship expr:FeaturePrefixes__C___401_pvalue_om, elmt:FeaturePrefixes__C___401_rd0 ;
     sysml:ownedMembership expr:FeaturePrefixes__C___401_pvalue_om ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysx:sourceText "        portion redefines pv = p;\n" .
+    sysml:ownedRedefinition elmt:FeaturePrefixes__C___401_rd0 ;
+    sysml:ownedSubsetting elmt:FeaturePrefixes__C___401_rd0 ;
+    sysml:ownedSpecialization elmt:FeaturePrefixes__C___401_rd0 ;
+    sysx:sourceText "        portion redefines pv = p;\n" ;
+    json:ownedRelationship "[{\"@id\":\"FeaturePrefixes__C___401_pvalue_om\"},{\"@id\":\"FeaturePrefixes__C___401_rd0\"}]" .
 
 elmt:FeaturePrefixes__C___401_om
     a sysml:FeatureMembership ;
@@ -393,7 +462,8 @@ expr:FeaturePrefixes__C___401_pvalue
     sysml:referent elmt:FeaturePrefixes__C___400 ;
     sysml:owner elmt:FeaturePrefixes__C___401 ;
     sysml:owningRelationship expr:FeaturePrefixes__C___401_pvalue_om ;
-    sysml:owningMembership expr:FeaturePrefixes__C___401_pvalue_om .
+    sysml:owningMembership expr:FeaturePrefixes__C___401_pvalue_om ;
+    sysml:ownedRelationship expr:FeaturePrefixes__C___401_pvalue_preferent .
 
 expr:FeaturePrefixes__C___401_pvalue_om
     a sysml:FeatureValue ;
@@ -422,6 +492,9 @@ elmt:FeaturePrefixes__C__dk
     sysml:isDerived "true"^^xsd:boolean ;
     sysml:type elmt:FeaturePrefixes__A ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:FeaturePrefixes__C__dk_ft0 ;
+    sysml:ownedSpecialization elmt:FeaturePrefixes__C__dk_ft0 ;
+    sysml:ownedRelationship elmt:FeaturePrefixes__C__dk_ft0 ;
     sysx:sourceText "        derived const feature dk : A;\n" .
 
 elmt:FeaturePrefixes__C__dk_om
@@ -435,3 +508,162 @@ elmt:FeaturePrefixes__C__dk_om
     sysml:membershipOwningNamespace elmt:FeaturePrefixes__C ;
     sysml:ownedMemberFeature elmt:FeaturePrefixes__C__dk ;
     sysml:owningType elmt:FeaturePrefixes__C .
+
+elmt:FeaturePrefixes__B__k_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "FeaturePrefixes__B__k_ft0" ;
+    sysml:typedFeature elmt:FeaturePrefixes__B__k ;
+    sysml:owningFeature elmt:FeaturePrefixes__B__k ;
+    sysml:specific elmt:FeaturePrefixes__B__k ;
+    sysml:source elmt:FeaturePrefixes__B__k ;
+    sysml:owningRelatedElement elmt:FeaturePrefixes__B__k ;
+    sysml:type elmt:FeaturePrefixes__A ;
+    sysml:general elmt:FeaturePrefixes__A ;
+    sysml:target elmt:FeaturePrefixes__A ;
+    sysml:owner elmt:FeaturePrefixes__B__k ;
+    sysml:relatedElement elmt:FeaturePrefixes__B__k, elmt:FeaturePrefixes__A ;
+    json:relatedElement "[{\"@id\":\"FeaturePrefixes__B__k\"},{\"@id\":\"FeaturePrefixes__A\"}]" .
+
+elmt:FeaturePrefixes__B__vk_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "FeaturePrefixes__B__vk_ft0" ;
+    sysml:typedFeature elmt:FeaturePrefixes__B__vk ;
+    sysml:owningFeature elmt:FeaturePrefixes__B__vk ;
+    sysml:specific elmt:FeaturePrefixes__B__vk ;
+    sysml:source elmt:FeaturePrefixes__B__vk ;
+    sysml:owningRelatedElement elmt:FeaturePrefixes__B__vk ;
+    sysml:type elmt:FeaturePrefixes__A ;
+    sysml:general elmt:FeaturePrefixes__A ;
+    sysml:target elmt:FeaturePrefixes__A ;
+    sysml:owner elmt:FeaturePrefixes__B__vk ;
+    sysml:relatedElement elmt:FeaturePrefixes__B__vk, elmt:FeaturePrefixes__A ;
+    json:relatedElement "[{\"@id\":\"FeaturePrefixes__B__vk\"},{\"@id\":\"FeaturePrefixes__A\"}]" .
+
+elmt:FeaturePrefixes__B__p_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "FeaturePrefixes__B__p_ft0" ;
+    sysml:typedFeature elmt:FeaturePrefixes__B__p ;
+    sysml:owningFeature elmt:FeaturePrefixes__B__p ;
+    sysml:specific elmt:FeaturePrefixes__B__p ;
+    sysml:source elmt:FeaturePrefixes__B__p ;
+    sysml:owningRelatedElement elmt:FeaturePrefixes__B__p ;
+    sysml:type elmt:FeaturePrefixes__A ;
+    sysml:general elmt:FeaturePrefixes__A ;
+    sysml:target elmt:FeaturePrefixes__A ;
+    sysml:owner elmt:FeaturePrefixes__B__p ;
+    sysml:relatedElement elmt:FeaturePrefixes__B__p, elmt:FeaturePrefixes__A ;
+    json:relatedElement "[{\"@id\":\"FeaturePrefixes__B__p\"},{\"@id\":\"FeaturePrefixes__A\"}]" .
+
+elmt:FeaturePrefixes__B__pv_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "FeaturePrefixes__B__pv_ft0" ;
+    sysml:typedFeature elmt:FeaturePrefixes__B__pv ;
+    sysml:owningFeature elmt:FeaturePrefixes__B__pv ;
+    sysml:specific elmt:FeaturePrefixes__B__pv ;
+    sysml:source elmt:FeaturePrefixes__B__pv ;
+    sysml:owningRelatedElement elmt:FeaturePrefixes__B__pv ;
+    sysml:type elmt:FeaturePrefixes__A ;
+    sysml:general elmt:FeaturePrefixes__A ;
+    sysml:target elmt:FeaturePrefixes__A ;
+    sysml:owner elmt:FeaturePrefixes__B__pv ;
+    sysml:relatedElement elmt:FeaturePrefixes__B__pv, elmt:FeaturePrefixes__A ;
+    json:relatedElement "[{\"@id\":\"FeaturePrefixes__B__pv\"},{\"@id\":\"FeaturePrefixes__A\"}]" .
+
+elmt:FeaturePrefixes__B__slices_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "FeaturePrefixes__B__slices_ft0" ;
+    sysml:typedFeature elmt:FeaturePrefixes__B__slices ;
+    sysml:owningFeature elmt:FeaturePrefixes__B__slices ;
+    sysml:specific elmt:FeaturePrefixes__B__slices ;
+    sysml:source elmt:FeaturePrefixes__B__slices ;
+    sysml:owningRelatedElement elmt:FeaturePrefixes__B__slices ;
+    sysml:type elmt:FeaturePrefixes__A ;
+    sysml:general elmt:FeaturePrefixes__A ;
+    sysml:target elmt:FeaturePrefixes__A ;
+    sysml:owner elmt:FeaturePrefixes__B__slices ;
+    sysml:relatedElement elmt:FeaturePrefixes__B__slices, elmt:FeaturePrefixes__A ;
+    json:relatedElement "[{\"@id\":\"FeaturePrefixes__B__slices\"},{\"@id\":\"FeaturePrefixes__A\"}]" .
+
+elmt:FeaturePrefixes__B__slices_ss0
+    a sysml:Subsetting ;
+    sysml:elementId "FeaturePrefixes__B__slices_ss0" ;
+    sysml:subsettingFeature elmt:FeaturePrefixes__B__slices ;
+    sysml:owningFeature elmt:FeaturePrefixes__B__slices ;
+    sysml:specific elmt:FeaturePrefixes__B__slices ;
+    sysml:source elmt:FeaturePrefixes__B__slices ;
+    sysml:owningRelatedElement elmt:FeaturePrefixes__B__slices ;
+    sysml:subsettedFeature elmt:FeaturePrefixes__B__p ;
+    sysml:general elmt:FeaturePrefixes__B__p ;
+    sysml:target elmt:FeaturePrefixes__B__p ;
+    sysml:owner elmt:FeaturePrefixes__B__slices ;
+    sysml:relatedElement elmt:FeaturePrefixes__B__slices, elmt:FeaturePrefixes__B__p ;
+    json:relatedElement "[{\"@id\":\"FeaturePrefixes__B__slices\"},{\"@id\":\"FeaturePrefixes__B__p\"}]" .
+
+elmt:FeaturePrefixes__C_sp0
+    a sysml:Specialization ;
+    sysml:elementId "FeaturePrefixes__C_sp0" ;
+    sysml:specific elmt:FeaturePrefixes__C ;
+    sysml:owningType elmt:FeaturePrefixes__C ;
+    sysml:source elmt:FeaturePrefixes__C ;
+    sysml:owningRelatedElement elmt:FeaturePrefixes__C ;
+    sysml:general elmt:FeaturePrefixes__B ;
+    sysml:target elmt:FeaturePrefixes__B ;
+    sysml:owner elmt:FeaturePrefixes__C ;
+    sysml:relatedElement elmt:FeaturePrefixes__C, elmt:FeaturePrefixes__B ;
+    json:relatedElement "[{\"@id\":\"FeaturePrefixes__C\"},{\"@id\":\"FeaturePrefixes__B\"}]" .
+
+elmt:FeaturePrefixes__C___400_rd0
+    a sysml:Redefinition ;
+    sysml:elementId "FeaturePrefixes__C___400_rd0" ;
+    sysml:redefiningFeature elmt:FeaturePrefixes__C___400 ;
+    sysml:subsettingFeature elmt:FeaturePrefixes__C___400 ;
+    sysml:owningFeature elmt:FeaturePrefixes__C___400 ;
+    sysml:specific elmt:FeaturePrefixes__C___400 ;
+    sysml:source elmt:FeaturePrefixes__C___400 ;
+    sysml:owningRelatedElement elmt:FeaturePrefixes__C___400 ;
+    sysml:redefinedFeature elmt:FeaturePrefixes__B__p ;
+    sysml:subsettedFeature elmt:FeaturePrefixes__B__p ;
+    sysml:general elmt:FeaturePrefixes__B__p ;
+    sysml:target elmt:FeaturePrefixes__B__p ;
+    sysml:owner elmt:FeaturePrefixes__C___400 ;
+    sysml:relatedElement elmt:FeaturePrefixes__C___400, elmt:FeaturePrefixes__B__p ;
+    json:relatedElement "[{\"@id\":\"FeaturePrefixes__C___400\"},{\"@id\":\"FeaturePrefixes__B__p\"}]" .
+
+elmt:FeaturePrefixes__C___401_rd0
+    a sysml:Redefinition ;
+    sysml:elementId "FeaturePrefixes__C___401_rd0" ;
+    sysml:redefiningFeature elmt:FeaturePrefixes__C___401 ;
+    sysml:subsettingFeature elmt:FeaturePrefixes__C___401 ;
+    sysml:owningFeature elmt:FeaturePrefixes__C___401 ;
+    sysml:specific elmt:FeaturePrefixes__C___401 ;
+    sysml:source elmt:FeaturePrefixes__C___401 ;
+    sysml:owningRelatedElement elmt:FeaturePrefixes__C___401 ;
+    sysml:redefinedFeature elmt:FeaturePrefixes__B__pv ;
+    sysml:subsettedFeature elmt:FeaturePrefixes__B__pv ;
+    sysml:general elmt:FeaturePrefixes__B__pv ;
+    sysml:target elmt:FeaturePrefixes__B__pv ;
+    sysml:owner elmt:FeaturePrefixes__C___401 ;
+    sysml:relatedElement elmt:FeaturePrefixes__C___401, elmt:FeaturePrefixes__B__pv ;
+    json:relatedElement "[{\"@id\":\"FeaturePrefixes__C___401\"},{\"@id\":\"FeaturePrefixes__B__pv\"}]" .
+
+expr:FeaturePrefixes__C___401_pvalue_preferent
+    a sysml:Membership ;
+    sysml:elementId "FeaturePrefixes__C___401_pvalue_preferent" ;
+    sysml:memberElement elmt:FeaturePrefixes__C___400 ;
+    sysml:owner expr:FeaturePrefixes__C___401_pvalue ;
+    sysml:owningRelatedElement expr:FeaturePrefixes__C___401_pvalue .
+
+elmt:FeaturePrefixes__C__dk_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "FeaturePrefixes__C__dk_ft0" ;
+    sysml:typedFeature elmt:FeaturePrefixes__C__dk ;
+    sysml:owningFeature elmt:FeaturePrefixes__C__dk ;
+    sysml:specific elmt:FeaturePrefixes__C__dk ;
+    sysml:source elmt:FeaturePrefixes__C__dk ;
+    sysml:owningRelatedElement elmt:FeaturePrefixes__C__dk ;
+    sysml:type elmt:FeaturePrefixes__A ;
+    sysml:general elmt:FeaturePrefixes__A ;
+    sysml:target elmt:FeaturePrefixes__A ;
+    sysml:owner elmt:FeaturePrefixes__C__dk ;
+    sysml:relatedElement elmt:FeaturePrefixes__C__dk, elmt:FeaturePrefixes__A ;
+    json:relatedElement "[{\"@id\":\"FeaturePrefixes__C__dk\"},{\"@id\":\"FeaturePrefixes__A\"}]" .

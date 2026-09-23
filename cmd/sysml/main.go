@@ -121,6 +121,7 @@ var (
 	queryText        string
 	outputPath       string
 	fromFormat       string
+	idForm           string
 	migrationReport  string
 	migrationResults string
 	layoutPath       string
@@ -444,6 +445,10 @@ func runCLI() int {
 	}
 	if flagGiven("migration-results") && migrationResults == "" {
 		fmt.Fprintln(os.Stderr, "sysml: -migration-results is empty; name the JSON file to write the run configurations and result snapshots to")
+		return 2
+	}
+	if idForm != "" && convertFormat == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -id accompanies -convert to an RDF form; write `sysml model.sysml -convert api-json -id uuid`")
 		return 2
 	}
 	if layoutPath != "" && convertFormat == "" {

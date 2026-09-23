@@ -69,6 +69,9 @@ elmt:Vehicles__Vehicle__mass
     sysml:declaredName "mass" ;
     sysml:type <urn:sysmlv2:element:9cd0e404-efee-50e5-a59b-681065bd188c> ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Vehicles__Vehicle__mass_ft0 ;
+    sysml:ownedSpecialization elmt:Vehicles__Vehicle__mass_ft0 ;
+    sysml:ownedRelationship elmt:Vehicles__Vehicle__mass_ft0 ;
     sysx:sourceText "        attribute mass : ISQ::MassValue;\n" .
 
 elmt:Vehicles__Vehicle__mass_om
@@ -94,11 +97,15 @@ elmt:Vehicles__Vehicle__engine
     sysml:owningMembership elmt:Vehicles__Vehicle__engine_om ;
     sysml:declaredName "engine" ;
     sysml:type elmt:Vehicles__Engine ;
+    sysml:multiplicity expr:Vehicles__Vehicle__engine_pmultiplicity ;
+    sysml:ownedRelationship expr:Vehicles__Vehicle__engine_pmultiplicity_om, elmt:Vehicles__Vehicle__engine_ft0 ;
+    sysml:ownedMembership expr:Vehicles__Vehicle__engine_pmultiplicity_om ;
     sysml:upperBound expr:Vehicles__Vehicle__engine_pupperBound ;
-    sysml:ownedRelationship expr:Vehicles__Vehicle__engine_pupperBound_om ;
-    sysml:ownedMembership expr:Vehicles__Vehicle__engine_pupperBound_om ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysx:sourceText "        part engine : Engine[1];\n" .
+    sysml:ownedTyping elmt:Vehicles__Vehicle__engine_ft0 ;
+    sysml:ownedSpecialization elmt:Vehicles__Vehicle__engine_ft0 ;
+    sysx:sourceText "        part engine : Engine[1];\n" ;
+    json:ownedRelationship "[{\"@id\":\"Vehicles__Vehicle__engine_pmultiplicity_om\"},{\"@id\":\"Vehicles__Vehicle__engine_ft0\"}]" .
 
 elmt:Vehicles__Vehicle__engine_om
     a sysml:FeatureMembership ;
@@ -112,24 +119,44 @@ elmt:Vehicles__Vehicle__engine_om
     sysml:ownedMemberFeature elmt:Vehicles__Vehicle__engine ;
     sysml:owningType elmt:Vehicles__Vehicle .
 
+expr:Vehicles__Vehicle__engine_pmultiplicity
+    a sysml:MultiplicityRange ;
+    sysml:elementId "Vehicles__Vehicle__engine_pmultiplicity" ;
+    sysml:owner elmt:Vehicles__Vehicle__engine ;
+    sysml:owningRelationship expr:Vehicles__Vehicle__engine_pmultiplicity_om ;
+    sysml:owningMembership expr:Vehicles__Vehicle__engine_pmultiplicity_om ;
+    sysml:upperBound expr:Vehicles__Vehicle__engine_pupperBound ;
+    sysml:ownedRelationship expr:Vehicles__Vehicle__engine_pupperBound_om ;
+    sysml:ownedMembership expr:Vehicles__Vehicle__engine_pupperBound_om .
+
+expr:Vehicles__Vehicle__engine_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Vehicles__Vehicle__engine_pmultiplicity_om" ;
+    sysml:owner elmt:Vehicles__Vehicle__engine ;
+    sysml:memberElement expr:Vehicles__Vehicle__engine_pmultiplicity ;
+    sysml:ownedMemberElement expr:Vehicles__Vehicle__engine_pmultiplicity ;
+    sysml:ownedRelatedElement expr:Vehicles__Vehicle__engine_pmultiplicity ;
+    sysml:owningRelatedElement elmt:Vehicles__Vehicle__engine ;
+    sysml:membershipOwningNamespace elmt:Vehicles__Vehicle__engine .
+
 expr:Vehicles__Vehicle__engine_pupperBound
     a sysml:LiteralInteger ;
     sysx:sourceText "1" ;
     sysml:elementId "Vehicles__Vehicle__engine_pupperBound" ;
     sysml:value "1"^^xsd:integer ;
-    sysml:owner elmt:Vehicles__Vehicle__engine ;
+    sysml:owner expr:Vehicles__Vehicle__engine_pmultiplicity ;
     sysml:owningRelationship expr:Vehicles__Vehicle__engine_pupperBound_om ;
     sysml:owningMembership expr:Vehicles__Vehicle__engine_pupperBound_om .
 
 expr:Vehicles__Vehicle__engine_pupperBound_om
     a sysml:OwningMembership ;
     sysml:elementId "Vehicles__Vehicle__engine_pupperBound_om" ;
-    sysml:owner elmt:Vehicles__Vehicle__engine ;
+    sysml:owner expr:Vehicles__Vehicle__engine_pmultiplicity ;
     sysml:memberElement expr:Vehicles__Vehicle__engine_pupperBound ;
     sysml:ownedMemberElement expr:Vehicles__Vehicle__engine_pupperBound ;
     sysml:ownedRelatedElement expr:Vehicles__Vehicle__engine_pupperBound ;
-    sysml:owningRelatedElement elmt:Vehicles__Vehicle__engine ;
-    sysml:membershipOwningNamespace elmt:Vehicles__Vehicle__engine .
+    sysml:owningRelatedElement expr:Vehicles__Vehicle__engine_pmultiplicity ;
+    sysml:membershipOwningNamespace expr:Vehicles__Vehicle__engine_pmultiplicity .
 
 elmt:Vehicles__Engine
     a sysml:PartDefinition ;
@@ -153,3 +180,33 @@ elmt:Vehicles__Engine_om
     sysml:ownedRelatedElement elmt:Vehicles__Engine ;
     sysml:owningRelatedElement elmt:Vehicles ;
     sysml:membershipOwningNamespace elmt:Vehicles .
+
+elmt:Vehicles__Vehicle__mass_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Vehicles__Vehicle__mass_ft0" ;
+    sysml:typedFeature elmt:Vehicles__Vehicle__mass ;
+    sysml:owningFeature elmt:Vehicles__Vehicle__mass ;
+    sysml:specific elmt:Vehicles__Vehicle__mass ;
+    sysml:source elmt:Vehicles__Vehicle__mass ;
+    sysml:owningRelatedElement elmt:Vehicles__Vehicle__mass ;
+    sysml:type <urn:sysmlv2:element:9cd0e404-efee-50e5-a59b-681065bd188c> ;
+    sysml:general <urn:sysmlv2:element:9cd0e404-efee-50e5-a59b-681065bd188c> ;
+    sysml:target <urn:sysmlv2:element:9cd0e404-efee-50e5-a59b-681065bd188c> ;
+    sysml:owner elmt:Vehicles__Vehicle__mass ;
+    sysml:relatedElement elmt:Vehicles__Vehicle__mass, <urn:sysmlv2:element:9cd0e404-efee-50e5-a59b-681065bd188c> ;
+    json:relatedElement "[{\"@id\":\"Vehicles__Vehicle__mass\"},{\"@id\":\"9cd0e404-efee-50e5-a59b-681065bd188c\"}]" .
+
+elmt:Vehicles__Vehicle__engine_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Vehicles__Vehicle__engine_ft0" ;
+    sysml:typedFeature elmt:Vehicles__Vehicle__engine ;
+    sysml:owningFeature elmt:Vehicles__Vehicle__engine ;
+    sysml:specific elmt:Vehicles__Vehicle__engine ;
+    sysml:source elmt:Vehicles__Vehicle__engine ;
+    sysml:owningRelatedElement elmt:Vehicles__Vehicle__engine ;
+    sysml:type elmt:Vehicles__Engine ;
+    sysml:general elmt:Vehicles__Engine ;
+    sysml:target elmt:Vehicles__Engine ;
+    sysml:owner elmt:Vehicles__Vehicle__engine ;
+    sysml:relatedElement elmt:Vehicles__Vehicle__engine, elmt:Vehicles__Engine ;
+    json:relatedElement "[{\"@id\":\"Vehicles__Vehicle__engine\"},{\"@id\":\"Vehicles__Engine\"}]" .

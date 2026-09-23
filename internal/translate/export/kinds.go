@@ -50,41 +50,45 @@ var definitionMetaclass = map[ast.DefinitionKind]string{
 
 // usageMetaclass maps a usage kind to its SysML metaclass name.
 var usageMetaclass = map[ast.UsageKind]string{
-	ast.UsagePart:             "PartUsage",
-	ast.UsageAttribute:        "AttributeUsage",
-	ast.UsageItem:             "ItemUsage",
-	ast.UsageOccurrence:       "OccurrenceUsage",
-	ast.UsageIndividual:       "IndividualUsage",
-	ast.UsageMetadata:         "MetadataUsage",
-	ast.UsageEnumeration:      "EnumerationUsage",
-	ast.UsageView:             "ViewUsage",
-	ast.UsageViewpoint:        "ViewpointUsage",
-	ast.UsageRendering:        "RenderingUsage",
-	ast.UsageViewRendering:    "ViewRenderingMembership",
-	ast.UsageConcern:          "ConcernUsage",
-	ast.UsageFramedConcern:    "FramedConcernMembership",
-	ast.UsageConnection:       "ConnectionUsage",
-	ast.UsageConnector:        "Connector",
-	ast.UsageSuccession:       "SuccessionAsUsage",
-	ast.UsageFlow:             "FlowUsage",
-	ast.UsagePort:             "PortUsage",
-	ast.UsageInterface:        "InterfaceUsage",
-	ast.UsageInteraction:      "InteractionUsage",
-	ast.UsageAllocation:       "AllocationUsage",
-	ast.UsageBinding:          "BindingConnectorAsUsage",
-	ast.UsageAction:           "ActionUsage",
-	ast.UsageState:            "StateUsage",
-	ast.UsageTransition:       "TransitionUsage",
-	ast.UsageStep:             "Step",
-	ast.UsageCalc:             "CalculationUsage",
-	ast.UsageExpr:             "Expression",
-	ast.UsageConstraint:       "ConstraintUsage",
-	ast.UsageRequirement:      "RequirementUsage",
-	ast.UsageSatisfy:          "SatisfyRequirementUsage",
-	ast.UsageSubject:          "SubjectMembership",
-	ast.UsageActor:            "ActorMembership",
-	ast.UsageStakeholder:      "StakeholderMembership",
-	ast.UsageObjective:        "ObjectiveMembership",
+	ast.UsagePart:          "PartUsage",
+	ast.UsageAttribute:     "AttributeUsage",
+	ast.UsageItem:          "ItemUsage",
+	ast.UsageOccurrence:    "OccurrenceUsage",
+	ast.UsageIndividual:    "IndividualUsage",
+	ast.UsageMetadata:      "MetadataUsage",
+	ast.UsageEnumeration:   "EnumerationUsage",
+	ast.UsageView:          "ViewUsage",
+	ast.UsageViewpoint:     "ViewpointUsage",
+	ast.UsageRendering:     "RenderingUsage",
+	ast.UsageViewRendering: "ViewRenderingMembership",
+	ast.UsageConcern:       "ConcernUsage",
+	ast.UsageFramedConcern: "FramedConcernMembership",
+	ast.UsageConnection:    "ConnectionUsage",
+	ast.UsageConnector:     "Connector",
+	ast.UsageSuccession:    "SuccessionAsUsage",
+	ast.UsageFlow:          "FlowUsage",
+	ast.UsagePort:          "PortUsage",
+	ast.UsageInterface:     "InterfaceUsage",
+	ast.UsageInteraction:   "InteractionUsage",
+	ast.UsageAllocation:    "AllocationUsage",
+	ast.UsageBinding:       "BindingConnectorAsUsage",
+	ast.UsageAction:        "ActionUsage",
+	ast.UsageState:         "StateUsage",
+	ast.UsageTransition:    "TransitionUsage",
+	ast.UsageStep:          "Step",
+	ast.UsageCalc:          "CalculationUsage",
+	ast.UsageExpr:          "Expression",
+	ast.UsageConstraint:    "ConstraintUsage",
+	ast.UsageRequirement:   "RequirementUsage",
+	ast.UsageSatisfy:       "SatisfyRequirementUsage",
+	// The parameter a subject/actor/stakeholder/objective member declares is the
+	// usage the membership owns (SysML.xtext SubjectMember & co.); the
+	// membership metaclasses older graphs typed the element by are read in
+	// metaclassKeywordUsage.
+	ast.UsageSubject:          "ReferenceUsage",
+	ast.UsageActor:            "PartUsage",
+	ast.UsageStakeholder:      "PartUsage",
+	ast.UsageObjective:        "RequirementUsage",
 	ast.UsageCase:             "CaseUsage",
 	ast.UsageAnalysisCase:     "AnalysisCaseUsage",
 	ast.UsageVerificationCase: "VerificationCaseUsage",
@@ -166,8 +170,17 @@ func usageMetaclassOf(n *ast.Usage, inMetadataBody bool) (string, bool) {
 		return mAssertConstraintUsage, true
 	case n.IsTerminate && n.Kind == ast.UsageAction:
 		return mTerminate, true
+	case n.IsPerformedAction():
+		return mPerform, true
+	case n.IsExhibitedState():
+		return "ExhibitStateUsage", true
+	case n.IsIncludedUseCase():
+		return "IncludeUseCaseUsage", true
 	}
-	if n.Keyword == "" && (n.Kind == ast.UsageAttribute || inMetadataBody && n.Kind == ast.UsageEnumeration) {
+	if n.Keyword == "" && (n.Kind == ast.UsageAttribute || inMetadataBody && n.Kind == ast.UsageEnumeration || n.Ident.Name == "" && n.Kind < ast.UsageConnection) {
+		// A kindless usage is a DefaultReferenceUsage; an unnamed one is too,
+		// the name it would take being what a reference lacks (SysML.xtext
+		// MemberElement `isReference ?= 'ref'` defaulted for the unnamed).
 		return "ReferenceUsage", true
 	}
 	m, ok := usageMetaclass[n.Kind]
@@ -211,6 +224,20 @@ var metaclassKeywordUsage = map[string]ast.UsageKind{
 	mEventOccurrenceUsage:  ast.UsageOccurrence,
 	mAssertConstraintUsage: ast.UsageConstraint,
 	mTerminate:             ast.UsageAction,
+	mPerform:               ast.UsageAction,
+	"ExhibitStateUsage":    ast.UsageState,
+	"IncludeUseCaseUsage":  ast.UsageUseCase,
+	// PartUsage types actor and stakeholder members too, RequirementUsage an
+	// objective member; the requirement is the keyword each metaclass alone
+	// spells, the others come from the membership's metaclass.
+	"PartUsage":        ast.UsagePart,
+	"RequirementUsage": ast.UsageRequirement,
+	// The membership metaclasses graphs before the parameter members were
+	// materialized typed the element itself with; read, never written.
+	"SubjectMembership":     ast.UsageSubject,
+	"ActorMembership":       ast.UsageActor,
+	"StakeholderMembership": ast.UsageStakeholder,
+	"ObjectiveMembership":   ast.UsageObjective,
 }
 
 // definitionKeyword and usageKeyword give the source keyword for a kind. The

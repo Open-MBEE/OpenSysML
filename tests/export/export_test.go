@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"syscall"
 	"testing"
@@ -559,6 +560,8 @@ func TestChainSegmentIsSpelledToReachTheGraphsTarget(t *testing.T) {
 	// The value's chain `a.x` relinked to B::x is written `a.B::x`, as is the
 	// connector's first end, whether or not the notation is kept with the graph.
 	relinkedValue := relinkedProperty(t, structural, "expr:P__v_pvalue", "targetFeature", "elmt:P__A__x", "elmt:P__B__x")
+	// The membership the edge materializes carries the same member.
+	relinkedValue = relinkedProperty(t, relinkedValue, "expr:P__v_pvalue_ptargetFeature", "memberElement", "elmt:P__A__x", "elmt:P__B__x")
 	if back := backFromTheGraphAlone(t, string(relinkedValue)); !strings.Contains(back, "attribute v = a.B::x;") {
 		t.Errorf("the relinked value should be written qualified\n%s", back)
 	}
@@ -576,16 +579,20 @@ func TestChainSegmentIsSpelledToReachTheGraphsTarget(t *testing.T) {
 		}
 	}
 	// A target no chain from a can name — the package itself — is refused.
-	refusedAsUnsupported(t, "chain-package", relinkedProperty(t, structural, "expr:P__v_pvalue", "targetFeature", "elmt:P__A__x", "elmt:P"),
+	packageTarget := relinkedProperty(t, structural, "expr:P__v_pvalue", "targetFeature", "elmt:P__A__x", "elmt:P")
+	packageTarget = relinkedProperty(t, packageTarget, "expr:P__v_pvalue_ptargetFeature", "memberElement", "elmt:P__A__x", "elmt:P")
+	refusedAsUnsupported(t, "chain-package", packageTarget,
 		"no spelling of the segment reads as the element the graph names from the operand")
 	// The sum repeats `a.x`: the occurrence still reaching A::x must not vouch
 	// for the one relinked to B::x, which is spelled to reach its own element.
 	repeated := relinkedProperty(t, structural, "expr:P__w_pvalue_pa1", "targetFeature", "elmt:P__A__x", "elmt:P__B__x")
+	repeated = relinkedProperty(t, repeated, "expr:P__w_pvalue_pa1_ptargetFeature", "memberElement", "elmt:P__A__x", "elmt:P__B__x")
 	if back := backFromTheGraphAlone(t, string(repeated)); !strings.Contains(back, "attribute w = a.x + a.B::x;") {
 		t.Errorf("each repeated chain should be spelled for its own element\n%s", back)
 	}
 	// Both relinked, neither occurrence reads as A::x any more.
 	both := relinkedProperty(t, repeated, "expr:P__w_pvalue_pa0", "targetFeature", "elmt:P__A__x", "elmt:P__B__x")
+	both = relinkedProperty(t, both, "expr:P__w_pvalue_pa0_ptargetFeature", "memberElement", "elmt:P__A__x", "elmt:P__B__x")
 	if back := backFromTheGraphAlone(t, string(both)); !strings.Contains(back, "attribute w = a.B::x + a.B::x;") {
 		t.Errorf("both relinked chains should be spelled qualified\n%s", back)
 	}
@@ -1339,6 +1346,8 @@ func TestMetadataOnARelationshipIsOwnedThroughAMembership(t *testing.T) {
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
+	// The dependency is a relationship and the subject a usage: a relationship
+	// is no namespace, so only the usage's membership states one.
 	for _, owner := range []string{"P___402", "P__R__s"} {
 		member, membership := "elmt:"+owner+"___400", "elmt:"+owner+"___400_om"
 		for _, want := range []string{
@@ -1353,7 +1362,7 @@ func TestMetadataOnARelationshipIsOwnedThroughAMembership(t *testing.T) {
 				t.Errorf("the graph does not state %q:\n%s", want, turtle)
 			}
 		}
-		for _, reject := range []string{"sysml:memberElement " + member + " ;\n    sysml:ownedMemberFeature", "sysml:membershipOwningNamespace elmt:" + owner} {
+		for _, reject := range []string{"sysml:memberElement " + member + " ;\n    sysml:ownedMemberFeature", "sysml:membershipOwningNamespace elmt:P___402"} {
 			if strings.Contains(string(turtle), reject) {
 				t.Errorf("a relationship is no namespace, yet the graph states %q:\n%s", reject, turtle)
 			}
@@ -1519,7 +1528,7 @@ func TestMetadataUsageTypedByANonMetadataDefinitionIsReported(t *testing.T) {
 	structural := string(withoutTriples(t, turtle, "sysx:sourceText"))
 	const typing = "    sysml:type elmt:P__M ;\n"
 	typings := strings.Split(structural, typing)
-	if len(typings) != 4 {
+	if len(typings) != 7 {
 		t.Fatalf("expected three metadata usages typed by M in the graph:\n%s", structural)
 	}
 	if _, err := convert.Convert("m.ttl", []byte(structural), convert.FormatTurtle, convert.FormatSysML); err != nil {
@@ -1564,7 +1573,7 @@ func TestMetadataUsageTypedByANonNameLiteralIsReported(t *testing.T) {
 	structural := string(withoutTriples(t, turtle, "sysx:sourceText"))
 	const typing = "    sysml:type elmt:P__M ;\n"
 	typings := strings.Split(structural, typing)
-	if len(typings) != 4 {
+	if len(typings) != 7 {
 		t.Fatalf("expected three metadata usages typed by M in the graph:\n%s", structural)
 	}
 	retyped := func(i int, object string) string {
@@ -3005,6 +3014,15 @@ func TestElementIRIsEncodeQualifiedNames(t *testing.T) {
 }
 
 // Every element IRI in the convert fixtures is the encoding of the qualified
+// materializedSuffixID is the naming convention of the relationship elements
+// the collapsed head properties imply: the `<S>_ft<i>`/`_sc<i>`/`_ss<i>`/`_sp<i>`/`_rd<i>`/`_rs<i>` relationships,
+// the satisfy subject `_subject`, the conjugate `_conjugated` and its `_pc`,
+// and the referent memberships an expression's referent edge restates.
+var materializedSuffixID = regexp.MustCompile(`_(ft|sc|ss|sp|rd|rs)[0-9]*(_om)?$|_(subject|conjugated|pc|referent|preferent|targetFeature)(_om)?$`)
+
+// materializedExprID is the same convention inside an expression node's id.
+var materializedExprID = regexp.MustCompile(`_(subject|conjugated|pc|referent|preferent|targetFeature)(_|$)|_(ft|sc|ss|sp|rd|rs)[0-9]`)
+
 // name the element carries, and the encoding decodes back to that name.
 func TestFixtureElementIDsRoundTrip(t *testing.T) {
 	paths, err := filepath.Glob(filepath.Join("testdata", "convert", "*.golden.ttl"))
@@ -3032,6 +3050,10 @@ func TestFixtureElementIDsRoundTrip(t *testing.T) {
 				// belongs to, not by a qualified name of its own.
 				id := strings.TrimPrefix(subject.Value, rdf.Expression)
 				owner, positions, ok := rdf.DecodeExpressionNodeID(id)
+				// A node under a minted id is named by convention, like its owner.
+				if !ok && materializedExprID.MatchString(id) {
+					continue
+				}
 				if !ok || owner == "" || len(positions) == 0 {
 					t.Errorf("%s: expression %s is not named for an element", path, subject.Value)
 				}
@@ -3044,6 +3066,12 @@ func TestFixtureElementIDsRoundTrip(t *testing.T) {
 				if !ok || owned.Value != rdf.Element+rdf.EncodeElementID(member) {
 					t.Errorf("%s: membership %s does not own %q", path, subject.Value, member)
 				}
+				continue
+			}
+			// A relationship element the collapsed properties imply is named by
+			// suffix convention — `<S>_ft0`, `_rs`, `_subject`, `_conjugated`,
+			// `_pc` — not by a qualified name, like the memberships' members.
+			if materializedSuffixID.MatchString(strings.TrimPrefix(subject.Value, rdf.Element)) {
 				continue
 			}
 			qname, ok := graph.Lexical(subject, rdf.SysML+"qualifiedName")

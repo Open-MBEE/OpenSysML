@@ -282,6 +282,31 @@ func TestSyncAnnotateAddressesByShortName(t *testing.T) {
 	}
 }
 
+// An import has no declaration an annotation can address, so a minted import
+// must surface in the unnamed report rather than being dropped silently.
+func TestSyncAnnotateReportsMintedImport(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	model := filepath.Join(dir, "model.sysml")
+	repo := filepath.Join(dir, "repo.ttl")
+	if err := os.WriteFile(model, []byte(`package P {
+	@IdentityMetadata::ProjectRef { projectId = "proj-1"; branch = "main"; }
+	import A::*;
+}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(repo, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	annotated := filepath.Join(dir, "annotated.sysml")
+
+	out := run(t, binary, model, "-sync-diff", repo, "-sync-mint-ids", "-sync-annotate", annotated)
+	if !strings.Contains(out, "has no name to write an annotation against") || !strings.Contains(out, "Import") {
+		t.Errorf("the minted import's skipped annotation is not reported:\n%s", out)
+	}
+}
+
 func TestSyncAnnotateNeedsMinting(t *testing.T) {
 	binary := buildCLI(t)
 	model, repo := syncFixtures(t, binary)

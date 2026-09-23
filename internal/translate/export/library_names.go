@@ -102,7 +102,7 @@ func encodeLibraryNames(doc string) any {
 		}
 		return fmt.Errorf("%s: %d syntax error(s):\n  %s", doc, len(messages), strings.Join(messages, "\n  "))
 	}
-	e, err := newEncoder(file, root, doc)
+	e, err := newEncoder(file, root, doc, IDQualifiedName)
 	if err != nil {
 		return err
 	}

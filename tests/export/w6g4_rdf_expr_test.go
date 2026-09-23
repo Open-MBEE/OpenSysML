@@ -188,7 +188,6 @@ func TestExpressionPositionsAllEmitTrees(t *testing.T) {
 		{"_pvalue", "LiteralInteger"}, // limit = 4
 		{"wheels_plowerBound", "LiteralInteger"},
 		{"wheels_pupperBound", "OperatorExpression"},
-		{"_pcondition", "OperatorExpression"},
 		{"_pguard", "OperatorExpression"},
 		{"_pfilter", "OperatorExpression"},
 	} {
@@ -203,6 +202,20 @@ func TestExpressionPositionsAllEmitTrees(t *testing.T) {
 			t.Errorf("no %s expression in a %s position; the graph states: %v",
 				want.metaclass, want.suffix, trees)
 		}
+	}
+	// A constraint member's condition is no longer a position on the assert: the
+	// braced expression is a real element owned through its
+	// ResultExpressionMembership.
+	condition := false
+	for _, triple := range g.Triples() {
+		if triple.Predicate.Value == rdf.RDFNS+"type" &&
+			triple.Object.Value == rdf.SysML+"OperatorExpression" &&
+			!strings.HasPrefix(triple.Subject.Value, rdf.Expression) {
+			condition = true
+		}
+	}
+	if !condition {
+		t.Errorf("the assert's condition is no element; the graph states: %v", trees)
 	}
 }
 
@@ -221,7 +234,9 @@ func TestExpressionIdentityIsPerPosition(t *testing.T) {
 			triple.Object.Value != rdf.SysML+"Feature" &&
 			triple.Object.Value != rdf.SysML+"FeatureValue" &&
 			triple.Object.Value != rdf.SysML+"ParameterMembership" &&
-			triple.Object.Value != rdf.SysML+"OwningMembership" {
+			triple.Object.Value != rdf.SysML+"OwningMembership" &&
+			triple.Object.Value != rdf.SysML+"Membership" &&
+			triple.Object.Value != rdf.SysML+"MultiplicityRange" {
 			types[triple.Subject.Value]++
 		}
 	}

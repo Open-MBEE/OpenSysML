@@ -130,8 +130,8 @@ func TestLegacyReferenceGraphsStillRead(t *testing.T) {
 	}
 	legacy := string(withoutTriples(t, graph, "sysx:sourceText"))
 	for _, edit := range [][2]string{
-		{link("sysml:type", massValueID), `sysml:type "MassValue"`},
-		{"sysml:type elmt:Refs__Engine", `sysml:type "Engine"`},
+		{`sysml:declaredName "mass" ;` + "\n    " + link("sysml:type", massValueID), `sysml:declaredName "mass" ;` + "\n    " + `sysml:type "MassValue"`},
+		{`sysml:declaredName "engine" ;` + "\n    " + `sysml:type elmt:Refs__Engine`, `sysml:declaredName "engine" ;` + "\n    " + `sysml:type "Engine"`},
 		{link("sysml:sourceFeature", actionStartID), `sysml:sourceFeature "start"`},
 		{link("sysml:importedNamespace", scalarValuesID), `sysml:importedNamespace "ScalarValues"`},
 		{link("sysml:importedMembership", massValueMembershipID), `sysml:importedNamespace "ISQ::MassValue"`},

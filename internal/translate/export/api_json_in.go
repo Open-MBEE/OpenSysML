@@ -140,7 +140,29 @@ func parseAPIJSON(data []byte) ([]apiJSONElementData, map[string]bool, error) {
 	// Classify the expression namespace to a fixpoint: a node is an expression
 	// when its metaclass is one the encoder mints directly under a declaration,
 	// or when its parent is an expr: node or an expression-class element — a
-	// child may be listed before its parent.
+	// child may be listed before its parent. Opaque ids such as UUIDs carry no
+	// parent, so the membership that states the node as its member stands in.
+	nodeOwner := map[string]string{}
+	for i := range objects {
+		object := &objects[i]
+		if !nodeMembershipMetaclass(object.typ) {
+			continue
+		}
+		member, owner := "", ""
+		for _, m := range object.members {
+			id, isRef := memberReference(m.value)
+			switch {
+			case !isRef:
+			case membershipMemberProperty(m.key):
+				member = id
+			case membershipOwnerProperty(m.key):
+				owner = id
+			}
+		}
+		if member != "" && owner != "" {
+			nodeOwner[member] = owner
+		}
+	}
 	expressionIDs := map[string]bool{}
 	for changed := true; changed; {
 		changed = false
@@ -154,6 +176,12 @@ func parseAPIJSON(data []byte) ([]apiJSONElementData, map[string]bool, error) {
 				expression = ids[base] && expressionIDs[base]
 			} else if owner, ok := rdf.ExpressionNodeOwner(object.id, func(prefix string) bool { return ids[prefix] }); ok {
 				expression = expressionIDs[owner] || isExpressionRoot(object.typ) || expressionMetaclasses[types[owner]]
+			} else if object.typ != mMembership && expressionMetaclasses[object.typ] {
+				// A Membership carries a referent element, not an owned node;
+				// only an owning membership marks one a node.
+				expression = true
+			} else if owner := nodeOwner[object.id]; owner != "" {
+				expression = expressionIDs[owner] || expressionMetaclasses[types[owner]]
 			}
 			if expression {
 				object.expression = true
@@ -163,6 +191,44 @@ func parseAPIJSON(data []byte) ([]apiJSONElementData, map[string]bool, error) {
 		}
 	}
 	return objects, expressionIDs, nil
+}
+
+// nodeMembershipMetaclass reports whether an element of this metaclass can
+// own an expression node as its member: a membership family class or a
+// feature value.
+func nodeMembershipMetaclass(metaclass string) bool {
+	return metaclass != mMembership && (metaclass == mFeatureValue || strings.HasSuffix(metaclass, "Membership"))
+}
+
+// membershipMemberProperty reports whether a property names the member a
+// membership owns.
+func membershipMemberProperty(key string) bool {
+	switch key {
+	case "memberElement", "ownedMemberElement", "ownedMemberFeature", "ownedMemberParameter",
+		"ownedMember", "ownedRelatedElement", "ownedResultExpression", "member", "memberFeature":
+		return true
+	}
+	return false
+}
+
+// membershipOwnerProperty reports whether a property names the element a
+// membership sits under.
+func membershipOwnerProperty(key string) bool {
+	switch key {
+	case "owningRelatedElement", "membershipOwningNamespace", "owner", "featureWithValue":
+		return true
+	}
+	return false
+}
+
+// memberReference reads the id of an {"@id": "…"} member value.
+func memberReference(value any) (string, bool) {
+	object, ok := value.(map[string]any)
+	if !ok {
+		return "", false
+	}
+	id, ok := object["@id"].(string)
+	return id, ok
 }
 
 // apiJSONObjectOf reads one '{...}' from the decoder — its '{' already consumed

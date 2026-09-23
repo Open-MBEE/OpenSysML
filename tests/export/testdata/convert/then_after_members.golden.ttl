@@ -93,6 +93,9 @@ elmt:ThenAfterMembers__Step__x
     sysml:direction "in" ;
     sysml:type elmt:ThenAfterMembers__Signal ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__Step__x_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__Step__x_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__Step__x_ft0 ;
     sysx:sourceText "        in item x : Signal;\n" .
 
 elmt:ThenAfterMembers__Step__x_om
@@ -120,6 +123,9 @@ elmt:ThenAfterMembers__Step__y
     sysml:direction "out" ;
     sysml:type elmt:ThenAfterMembers__Signal ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__Step__y_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__Step__y_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__Step__y_ft0 ;
     sysx:sourceText "        out item y : Signal;\n" .
 
 elmt:ThenAfterMembers__Step__y_om
@@ -180,6 +186,9 @@ elmt:ThenAfterMembers__AfterFlow__a
     sysml:declaredName "a" ;
     sysml:type elmt:ThenAfterMembers__Step ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterFlow__a_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterFlow__a_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterFlow__a_ft0 ;
     sysx:sourceText "        action a : Step;\n" .
 
 elmt:ThenAfterMembers__AfterFlow__a_om
@@ -365,6 +374,9 @@ elmt:ThenAfterMembers__AfterFlow__b
     sysml:declaredName "b" ;
     sysml:type elmt:ThenAfterMembers__Step ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterFlow__b_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterFlow__b_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterFlow__b_ft0 ;
     sysx:sourceText "        then action b : Step;\n" .
 
 elmt:ThenAfterMembers__AfterFlow__b_om
@@ -451,6 +463,9 @@ elmt:ThenAfterMembers__AfterBind__k
     sysml:declaredName "k" ;
     sysml:type elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterBind__k_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterBind__k_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterBind__k_ft0 ;
     sysx:sourceText "        attribute k : ScalarValues::Integer;\n" .
 
 elmt:ThenAfterMembers__AfterBind__k_om
@@ -477,6 +492,9 @@ elmt:ThenAfterMembers__AfterBind__m
     sysml:declaredName "m" ;
     sysml:type elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterBind__m_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterBind__m_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterBind__m_ft0 ;
     sysx:sourceText "        attribute m : ScalarValues::Integer;\n" .
 
 elmt:ThenAfterMembers__AfterBind__m_om
@@ -503,6 +521,9 @@ elmt:ThenAfterMembers__AfterBind__a
     sysml:declaredName "a" ;
     sysml:type elmt:ThenAfterMembers__Step ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterBind__a_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterBind__a_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterBind__a_ft0 ;
     sysx:sourceText "        action a : Step;\n" .
 
 elmt:ThenAfterMembers__AfterBind__a_om
@@ -653,6 +674,9 @@ elmt:ThenAfterMembers__AfterBind__b
     sysml:declaredName "b" ;
     sysml:type elmt:ThenAfterMembers__Step ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterBind__b_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterBind__b_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterBind__b_ft0 ;
     sysx:sourceText "        then action b : Step;\n" .
 
 elmt:ThenAfterMembers__AfterBind__b_om
@@ -726,6 +750,10 @@ elmt:ThenAfterMembers__Plug
     sysml:owningRelationship elmt:ThenAfterMembers__Plug_om ;
     sysml:owningMembership elmt:ThenAfterMembers__Plug_om ;
     sysml:declaredName "Plug" ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__Plug_conjugated_om ;
+    sysml:ownedMember elmt:ThenAfterMembers__Plug_conjugated ;
+    sysml:ownedMembership elmt:ThenAfterMembers__Plug_conjugated_om ;
+    sysml:conjugatedPortDefinition elmt:ThenAfterMembers__Plug_conjugated ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "    port def Plug;\n" .
 
@@ -738,6 +766,40 @@ elmt:ThenAfterMembers__Plug_om
     sysml:ownedRelatedElement elmt:ThenAfterMembers__Plug ;
     sysml:owningRelatedElement elmt:ThenAfterMembers ;
     sysml:membershipOwningNamespace elmt:ThenAfterMembers .
+
+elmt:ThenAfterMembers__Plug_conjugated
+    a sysml:ConjugatedPortDefinition ;
+    sysml:elementId "ThenAfterMembers__Plug_conjugated" ;
+    sysml:qualifiedName "ThenAfterMembers::Plug::'~Plug'" ;
+    sysml:declaredName "~Plug" ;
+    sysml:owner elmt:ThenAfterMembers__Plug ;
+    sysml:owningRelationship elmt:ThenAfterMembers__Plug_conjugated_om ;
+    sysml:owningMembership elmt:ThenAfterMembers__Plug_conjugated_om ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__Plug_conjugated_pc ;
+    sysml:ownedPortConjugator elmt:ThenAfterMembers__Plug_conjugated_pc .
+
+elmt:ThenAfterMembers__Plug_conjugated_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ThenAfterMembers__Plug_conjugated_om" ;
+    sysml:owner elmt:ThenAfterMembers__Plug ;
+    sysml:memberElement elmt:ThenAfterMembers__Plug_conjugated ;
+    sysml:ownedMemberElement elmt:ThenAfterMembers__Plug_conjugated ;
+    sysml:ownedRelatedElement elmt:ThenAfterMembers__Plug_conjugated ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__Plug ;
+    sysml:membershipOwningNamespace elmt:ThenAfterMembers__Plug .
+
+elmt:ThenAfterMembers__Plug_conjugated_pc
+    a sysml:PortConjugation ;
+    sysml:elementId "ThenAfterMembers__Plug_conjugated_pc" ;
+    sysml:conjugatedType elmt:ThenAfterMembers__Plug_conjugated ;
+    sysml:originalType elmt:ThenAfterMembers__Plug ;
+    sysml:originalPortDefinition elmt:ThenAfterMembers__Plug ;
+    sysml:owner elmt:ThenAfterMembers__Plug_conjugated ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__Plug_conjugated ;
+    sysml:relatedElement elmt:ThenAfterMembers__Plug_conjugated, elmt:ThenAfterMembers__Plug ;
+    sysml:source elmt:ThenAfterMembers__Plug_conjugated ;
+    sysml:target elmt:ThenAfterMembers__Plug ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__Plug_conjugated\"},{\"@id\":\"ThenAfterMembers__Plug\"}]" .
 
 elmt:ThenAfterMembers__AfterConnect
     a sysml:ActionDefinition ;
@@ -785,6 +847,9 @@ elmt:ThenAfterMembers__AfterConnect__a
     sysml:declaredName "a" ;
     sysml:type elmt:ThenAfterMembers__Step ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterConnect__a_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterConnect__a_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterConnect__a_ft0 ;
     sysx:sourceText "        action a : Step;\n" .
 
 elmt:ThenAfterMembers__AfterConnect__a_om
@@ -811,6 +876,9 @@ elmt:ThenAfterMembers__AfterConnect__p
     sysml:declaredName "p" ;
     sysml:type elmt:ThenAfterMembers__Widget ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterConnect__p_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterConnect__p_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterConnect__p_ft0 ;
     sysx:sourceText "        part p : Widget;\n" .
 
 elmt:ThenAfterMembers__AfterConnect__p_om
@@ -837,6 +905,9 @@ elmt:ThenAfterMembers__AfterConnect__q
     sysml:declaredName "q" ;
     sysml:type elmt:ThenAfterMembers__Widget ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterConnect__q_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterConnect__q_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterConnect__q_ft0 ;
     sysx:sourceText "        part q : Widget;\n" .
 
 elmt:ThenAfterMembers__AfterConnect__q_om
@@ -987,6 +1058,9 @@ elmt:ThenAfterMembers__AfterConnect__b
     sysml:declaredName "b" ;
     sysml:type elmt:ThenAfterMembers__Step ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterConnect__b_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterConnect__b_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterConnect__b_ft0 ;
     sysx:sourceText "        then action b : Step;\n" .
 
 elmt:ThenAfterMembers__AfterConnect__b_om
@@ -1073,6 +1147,9 @@ elmt:ThenAfterMembers__AfterConnection__a
     sysml:declaredName "a" ;
     sysml:type elmt:ThenAfterMembers__Step ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterConnection__a_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterConnection__a_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterConnection__a_ft0 ;
     sysx:sourceText "        action a : Step;\n" .
 
 elmt:ThenAfterMembers__AfterConnection__a_om
@@ -1099,6 +1176,9 @@ elmt:ThenAfterMembers__AfterConnection__p
     sysml:declaredName "p" ;
     sysml:type elmt:ThenAfterMembers__Widget ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterConnection__p_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterConnection__p_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterConnection__p_ft0 ;
     sysx:sourceText "        part p : Widget;\n" .
 
 elmt:ThenAfterMembers__AfterConnection__p_om
@@ -1125,6 +1205,9 @@ elmt:ThenAfterMembers__AfterConnection__q
     sysml:declaredName "q" ;
     sysml:type elmt:ThenAfterMembers__Widget ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterConnection__q_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterConnection__q_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterConnection__q_ft0 ;
     sysx:sourceText "        part q : Widget;\n" .
 
 elmt:ThenAfterMembers__AfterConnection__q_om
@@ -1276,6 +1359,9 @@ elmt:ThenAfterMembers__AfterConnection__b
     sysml:declaredName "b" ;
     sysml:type elmt:ThenAfterMembers__Step ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterConnection__b_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterConnection__b_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterConnection__b_ft0 ;
     sysx:sourceText "        then action b : Step;\n" .
 
 elmt:ThenAfterMembers__AfterConnection__b_om
@@ -1362,6 +1448,9 @@ elmt:ThenAfterMembers__AfterInterface__a
     sysml:declaredName "a" ;
     sysml:type elmt:ThenAfterMembers__Step ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterInterface__a_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterInterface__a_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterInterface__a_ft0 ;
     sysx:sourceText "        action a : Step;\n" .
 
 elmt:ThenAfterMembers__AfterInterface__a_om
@@ -1388,6 +1477,9 @@ elmt:ThenAfterMembers__AfterInterface__p1
     sysml:declaredName "p1" ;
     sysml:type elmt:ThenAfterMembers__Plug ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterInterface__p1_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterInterface__p1_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterInterface__p1_ft0 ;
     sysx:sourceText "        port p1 : Plug;\n" .
 
 elmt:ThenAfterMembers__AfterInterface__p1_om
@@ -1415,6 +1507,9 @@ elmt:ThenAfterMembers__AfterInterface__p2
     sysml:isConjugated "true"^^xsd:boolean ;
     sysml:type elmt:ThenAfterMembers__Plug ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterInterface__p2_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterInterface__p2_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterInterface__p2_ft0 ;
     sysx:sourceText "        port p2 : ~Plug;\n" .
 
 elmt:ThenAfterMembers__AfterInterface__p2_om
@@ -1566,6 +1661,9 @@ elmt:ThenAfterMembers__AfterInterface__b
     sysml:declaredName "b" ;
     sysml:type elmt:ThenAfterMembers__Step ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterInterface__b_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterInterface__b_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterInterface__b_ft0 ;
     sysx:sourceText "        then action b : Step;\n" .
 
 elmt:ThenAfterMembers__AfterInterface__b_om
@@ -1652,6 +1750,9 @@ elmt:ThenAfterMembers__AfterAllocate__a
     sysml:declaredName "a" ;
     sysml:type elmt:ThenAfterMembers__Step ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterAllocate__a_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterAllocate__a_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterAllocate__a_ft0 ;
     sysx:sourceText "        action a : Step;\n" .
 
 elmt:ThenAfterMembers__AfterAllocate__a_om
@@ -1678,6 +1779,9 @@ elmt:ThenAfterMembers__AfterAllocate__p
     sysml:declaredName "p" ;
     sysml:type elmt:ThenAfterMembers__Widget ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterAllocate__p_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterAllocate__p_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterAllocate__p_ft0 ;
     sysx:sourceText "        part p : Widget;\n" .
 
 elmt:ThenAfterMembers__AfterAllocate__p_om
@@ -1704,6 +1808,9 @@ elmt:ThenAfterMembers__AfterAllocate__q
     sysml:declaredName "q" ;
     sysml:type elmt:ThenAfterMembers__Widget ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterAllocate__q_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterAllocate__q_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterAllocate__q_ft0 ;
     sysx:sourceText "        part q : Widget;\n" .
 
 elmt:ThenAfterMembers__AfterAllocate__q_om
@@ -1854,6 +1961,9 @@ elmt:ThenAfterMembers__AfterAllocate__b
     sysml:declaredName "b" ;
     sysml:type elmt:ThenAfterMembers__Step ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterAllocate__b_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterAllocate__b_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterAllocate__b_ft0 ;
     sysx:sourceText "        then action b : Step;\n" .
 
 elmt:ThenAfterMembers__AfterAllocate__b_om
@@ -1940,6 +2050,9 @@ elmt:ThenAfterMembers__AfterAllocation__a
     sysml:declaredName "a" ;
     sysml:type elmt:ThenAfterMembers__Step ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterAllocation__a_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterAllocation__a_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterAllocation__a_ft0 ;
     sysx:sourceText "        action a : Step;\n" .
 
 elmt:ThenAfterMembers__AfterAllocation__a_om
@@ -1966,6 +2079,9 @@ elmt:ThenAfterMembers__AfterAllocation__p
     sysml:declaredName "p" ;
     sysml:type elmt:ThenAfterMembers__Widget ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterAllocation__p_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterAllocation__p_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterAllocation__p_ft0 ;
     sysx:sourceText "        part p : Widget;\n" .
 
 elmt:ThenAfterMembers__AfterAllocation__p_om
@@ -1992,6 +2108,9 @@ elmt:ThenAfterMembers__AfterAllocation__q
     sysml:declaredName "q" ;
     sysml:type elmt:ThenAfterMembers__Widget ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterAllocation__q_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterAllocation__q_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterAllocation__q_ft0 ;
     sysx:sourceText "        part q : Widget;\n" .
 
 elmt:ThenAfterMembers__AfterAllocation__q_om
@@ -2143,6 +2262,9 @@ elmt:ThenAfterMembers__AfterAllocation__b
     sysml:declaredName "b" ;
     sysml:type elmt:ThenAfterMembers__Step ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterAllocation__b_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterAllocation__b_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterAllocation__b_ft0 ;
     sysx:sourceText "        then action b : Step;\n" .
 
 elmt:ThenAfterMembers__AfterAllocation__b_om
@@ -2229,6 +2351,9 @@ elmt:ThenAfterMembers__AfterConnectors__a
     sysml:declaredName "a" ;
     sysml:type elmt:ThenAfterMembers__Widget ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterConnectors__a_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterConnectors__a_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterConnectors__a_ft0 ;
     sysx:sourceText "        part a : Widget;\n" .
 
 elmt:ThenAfterMembers__AfterConnectors__a_om
@@ -2255,6 +2380,9 @@ elmt:ThenAfterMembers__AfterConnectors__p
     sysml:declaredName "p" ;
     sysml:type elmt:ThenAfterMembers__Widget ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterConnectors__p_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterConnectors__p_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterConnectors__p_ft0 ;
     sysx:sourceText "        part p : Widget;\n" .
 
 elmt:ThenAfterMembers__AfterConnectors__p_om
@@ -2281,6 +2409,9 @@ elmt:ThenAfterMembers__AfterConnectors__q
     sysml:declaredName "q" ;
     sysml:type elmt:ThenAfterMembers__Widget ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterConnectors__q_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterConnectors__q_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterConnectors__q_ft0 ;
     sysx:sourceText "        part q : Widget;\n" .
 
 elmt:ThenAfterMembers__AfterConnectors__q_om
@@ -2555,6 +2686,9 @@ elmt:ThenAfterMembers__AfterConnectors__b
     sysml:declaredName "b" ;
     sysml:type elmt:ThenAfterMembers__Widget ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterConnectors__b_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterConnectors__b_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterConnectors__b_ft0 ;
     sysx:sourceText "        then part b : Widget;\n" .
 
 elmt:ThenAfterMembers__AfterConnectors__b_om
@@ -2641,6 +2775,9 @@ elmt:ThenAfterMembers__AfterAttribute__a
     sysml:declaredName "a" ;
     sysml:type elmt:ThenAfterMembers__Step ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterAttribute__a_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterAttribute__a_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterAttribute__a_ft0 ;
     sysx:sourceText "        action a : Step;\n" .
 
 elmt:ThenAfterMembers__AfterAttribute__a_om
@@ -2667,6 +2804,9 @@ elmt:ThenAfterMembers__AfterAttribute__k
     sysml:declaredName "k" ;
     sysml:type elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterAttribute__k_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterAttribute__k_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterAttribute__k_ft0 ;
     sysx:sourceText "        attribute k : ScalarValues::Integer;\n" .
 
 elmt:ThenAfterMembers__AfterAttribute__k_om
@@ -2693,6 +2833,9 @@ elmt:ThenAfterMembers__AfterAttribute__b
     sysml:declaredName "b" ;
     sysml:type elmt:ThenAfterMembers__Step ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterAttribute__b_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterAttribute__b_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterAttribute__b_ft0 ;
     sysx:sourceText "        then action b : Step;\n" .
 
 elmt:ThenAfterMembers__AfterAttribute__b_om
@@ -2779,6 +2922,9 @@ elmt:ThenAfterMembers__AfterDoc__a
     sysml:declaredName "a" ;
     sysml:type elmt:ThenAfterMembers__Step ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterDoc__a_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterDoc__a_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterDoc__a_ft0 ;
     sysx:sourceText "        action a : Step;\n" .
 
 elmt:ThenAfterMembers__AfterDoc__a_om
@@ -2827,6 +2973,9 @@ elmt:ThenAfterMembers__AfterDoc__b
     sysml:declaredName "b" ;
     sysml:type elmt:ThenAfterMembers__Step ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterDoc__b_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterDoc__b_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterDoc__b_ft0 ;
     sysx:sourceText "        then action b : Step;\n" .
 
 elmt:ThenAfterMembers__AfterDoc__b_om
@@ -2913,6 +3062,9 @@ elmt:ThenAfterMembers__AfterComment__a
     sysml:declaredName "a" ;
     sysml:type elmt:ThenAfterMembers__Step ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterComment__a_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterComment__a_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterComment__a_ft0 ;
     sysx:sourceText "        action a : Step;\n" .
 
 elmt:ThenAfterMembers__AfterComment__a_om
@@ -2962,6 +3114,9 @@ elmt:ThenAfterMembers__AfterComment__b
     sysml:declaredName "b" ;
     sysml:type elmt:ThenAfterMembers__Step ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterComment__b_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterComment__b_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterComment__b_ft0 ;
     sysx:sourceText "        then action b : Step;\n" .
 
 elmt:ThenAfterMembers__AfterComment__b_om
@@ -3099,6 +3254,9 @@ elmt:ThenAfterMembers__AfterImport__a
     sysml:declaredName "a" ;
     sysml:type elmt:ThenAfterMembers__Step ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterImport__a_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterImport__a_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterImport__a_ft0 ;
     sysx:sourceText "        action a : Step;\n" .
 
 elmt:ThenAfterMembers__AfterImport__a_om
@@ -3139,6 +3297,9 @@ elmt:ThenAfterMembers__AfterImport__b
     sysml:declaredName "b" ;
     sysml:type elmt:ThenAfterMembers__Step ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterImport__b_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterImport__b_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterImport__b_ft0 ;
     sysx:sourceText "        then action b : Step;\n" .
 
 elmt:ThenAfterMembers__AfterImport__b_om
@@ -3225,6 +3386,9 @@ elmt:ThenAfterMembers__AfterAlias__a
     sysml:declaredName "a" ;
     sysml:type elmt:ThenAfterMembers__Step ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterAlias__a_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterAlias__a_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterAlias__a_ft0 ;
     sysx:sourceText "        action a : Step;\n" .
 
 elmt:ThenAfterMembers__AfterAlias__a_om
@@ -3275,6 +3439,9 @@ elmt:ThenAfterMembers__AfterAlias__b
     sysml:declaredName "b" ;
     sysml:type elmt:ThenAfterMembers__Step ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterAlias__b_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterAlias__b_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterAlias__b_ft0 ;
     sysx:sourceText "        then action b : Step;\n" .
 
 elmt:ThenAfterMembers__AfterAlias__b_om
@@ -3361,6 +3528,9 @@ elmt:ThenAfterMembers__AfterNestedDefinition__a
     sysml:declaredName "a" ;
     sysml:type elmt:ThenAfterMembers__Step ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterNestedDefinition__a_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterNestedDefinition__a_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterNestedDefinition__a_ft0 ;
     sysx:sourceText "        action a : Step;\n" .
 
 elmt:ThenAfterMembers__AfterNestedDefinition__a_om
@@ -3410,6 +3580,9 @@ elmt:ThenAfterMembers__AfterNestedDefinition__b
     sysml:declaredName "b" ;
     sysml:type elmt:ThenAfterMembers__Step ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterNestedDefinition__b_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterNestedDefinition__b_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterNestedDefinition__b_ft0 ;
     sysx:sourceText "        then action b : Step;\n" .
 
 elmt:ThenAfterMembers__AfterNestedDefinition__b_om
@@ -3496,6 +3669,9 @@ elmt:ThenAfterMembers__AfterNestedPackage__a
     sysml:declaredName "a" ;
     sysml:type elmt:ThenAfterMembers__Step ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterNestedPackage__a_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterNestedPackage__a_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterNestedPackage__a_ft0 ;
     sysx:sourceText "        action a : Step;\n" .
 
 elmt:ThenAfterMembers__AfterNestedPackage__a_om
@@ -3545,6 +3721,9 @@ elmt:ThenAfterMembers__AfterNestedPackage__b
     sysml:declaredName "b" ;
     sysml:type elmt:ThenAfterMembers__Step ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterNestedPackage__b_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterNestedPackage__b_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterNestedPackage__b_ft0 ;
     sysx:sourceText "        then action b : Step;\n" .
 
 elmt:ThenAfterMembers__AfterNestedPackage__b_om
@@ -3631,6 +3810,9 @@ elmt:ThenAfterMembers__AfterMultiplicity__a
     sysml:declaredName "a" ;
     sysml:type elmt:ThenAfterMembers__Step ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterMultiplicity__a_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterMultiplicity__a_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterMultiplicity__a_ft0 ;
     sysx:sourceText "        action a : Step;\n" .
 
 elmt:ThenAfterMembers__AfterMultiplicity__a_om
@@ -3655,9 +3837,10 @@ elmt:ThenAfterMembers__AfterMultiplicity__m
     sysml:owningRelationship elmt:ThenAfterMembers__AfterMultiplicity__m_om ;
     sysml:owningMembership elmt:ThenAfterMembers__AfterMultiplicity__m_om ;
     sysml:declaredName "m" ;
+    sysml:multiplicity expr:ThenAfterMembers__AfterMultiplicity__m_pmultiplicity ;
+    sysml:ownedRelationship expr:ThenAfterMembers__AfterMultiplicity__m_pmultiplicity_om ;
+    sysml:ownedMembership expr:ThenAfterMembers__AfterMultiplicity__m_pmultiplicity_om ;
     sysml:upperBound expr:ThenAfterMembers__AfterMultiplicity__m_pupperBound ;
-    sysml:ownedRelationship expr:ThenAfterMembers__AfterMultiplicity__m_pupperBound_om ;
-    sysml:ownedMembership expr:ThenAfterMembers__AfterMultiplicity__m_pupperBound_om ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        multiplicity m [1];\n" .
 
@@ -3671,24 +3854,44 @@ elmt:ThenAfterMembers__AfterMultiplicity__m_om
     sysml:owningRelatedElement elmt:ThenAfterMembers__AfterMultiplicity ;
     sysml:membershipOwningNamespace elmt:ThenAfterMembers__AfterMultiplicity .
 
+expr:ThenAfterMembers__AfterMultiplicity__m_pmultiplicity
+    a sysml:MultiplicityRange ;
+    sysml:elementId "ThenAfterMembers__AfterMultiplicity__m_pmultiplicity" ;
+    sysml:owner elmt:ThenAfterMembers__AfterMultiplicity__m ;
+    sysml:owningRelationship expr:ThenAfterMembers__AfterMultiplicity__m_pmultiplicity_om ;
+    sysml:owningMembership expr:ThenAfterMembers__AfterMultiplicity__m_pmultiplicity_om ;
+    sysml:upperBound expr:ThenAfterMembers__AfterMultiplicity__m_pupperBound ;
+    sysml:ownedRelationship expr:ThenAfterMembers__AfterMultiplicity__m_pupperBound_om ;
+    sysml:ownedMembership expr:ThenAfterMembers__AfterMultiplicity__m_pupperBound_om .
+
+expr:ThenAfterMembers__AfterMultiplicity__m_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ThenAfterMembers__AfterMultiplicity__m_pmultiplicity_om" ;
+    sysml:owner elmt:ThenAfterMembers__AfterMultiplicity__m ;
+    sysml:memberElement expr:ThenAfterMembers__AfterMultiplicity__m_pmultiplicity ;
+    sysml:ownedMemberElement expr:ThenAfterMembers__AfterMultiplicity__m_pmultiplicity ;
+    sysml:ownedRelatedElement expr:ThenAfterMembers__AfterMultiplicity__m_pmultiplicity ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterMultiplicity__m ;
+    sysml:membershipOwningNamespace elmt:ThenAfterMembers__AfterMultiplicity__m .
+
 expr:ThenAfterMembers__AfterMultiplicity__m_pupperBound
     a sysml:LiteralInteger ;
     sysx:sourceText "1" ;
     sysml:elementId "ThenAfterMembers__AfterMultiplicity__m_pupperBound" ;
     sysml:value "1"^^xsd:integer ;
-    sysml:owner elmt:ThenAfterMembers__AfterMultiplicity__m ;
+    sysml:owner expr:ThenAfterMembers__AfterMultiplicity__m_pmultiplicity ;
     sysml:owningRelationship expr:ThenAfterMembers__AfterMultiplicity__m_pupperBound_om ;
     sysml:owningMembership expr:ThenAfterMembers__AfterMultiplicity__m_pupperBound_om .
 
 expr:ThenAfterMembers__AfterMultiplicity__m_pupperBound_om
     a sysml:OwningMembership ;
     sysml:elementId "ThenAfterMembers__AfterMultiplicity__m_pupperBound_om" ;
-    sysml:owner elmt:ThenAfterMembers__AfterMultiplicity__m ;
+    sysml:owner expr:ThenAfterMembers__AfterMultiplicity__m_pmultiplicity ;
     sysml:memberElement expr:ThenAfterMembers__AfterMultiplicity__m_pupperBound ;
     sysml:ownedMemberElement expr:ThenAfterMembers__AfterMultiplicity__m_pupperBound ;
     sysml:ownedRelatedElement expr:ThenAfterMembers__AfterMultiplicity__m_pupperBound ;
-    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterMultiplicity__m ;
-    sysml:membershipOwningNamespace elmt:ThenAfterMembers__AfterMultiplicity__m .
+    sysml:owningRelatedElement expr:ThenAfterMembers__AfterMultiplicity__m_pmultiplicity ;
+    sysml:membershipOwningNamespace expr:ThenAfterMembers__AfterMultiplicity__m_pmultiplicity .
 
 elmt:ThenAfterMembers__AfterMultiplicity__b
     a sysml:ActionUsage ;
@@ -3702,6 +3905,9 @@ elmt:ThenAfterMembers__AfterMultiplicity__b
     sysml:declaredName "b" ;
     sysml:type elmt:ThenAfterMembers__Step ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterMultiplicity__b_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterMultiplicity__b_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterMultiplicity__b_ft0 ;
     sysx:sourceText "        then action b : Step;\n" .
 
 elmt:ThenAfterMembers__AfterMultiplicity__b_om
@@ -3789,6 +3995,9 @@ elmt:ThenAfterMembers__AfterSeveralNonFeatures__a
     sysml:declaredName "a" ;
     sysml:type elmt:ThenAfterMembers__Step ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterSeveralNonFeatures__a_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterSeveralNonFeatures__a_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterSeveralNonFeatures__a_ft0 ;
     sysx:sourceText "        action a : Step;\n" .
 
 elmt:ThenAfterMembers__AfterSeveralNonFeatures__a_om
@@ -3897,6 +4106,9 @@ elmt:ThenAfterMembers__AfterSeveralNonFeatures__b
     sysml:declaredName "b" ;
     sysml:type elmt:ThenAfterMembers__Step ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterSeveralNonFeatures__b_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterSeveralNonFeatures__b_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterSeveralNonFeatures__b_ft0 ;
     sysx:sourceText "        then action b : Step;\n" .
 
 elmt:ThenAfterMembers__AfterSeveralNonFeatures__b_om
@@ -3983,6 +4195,9 @@ elmt:ThenAfterMembers__AfterNonFeatures__a
     sysml:declaredName "a" ;
     sysml:type elmt:ThenAfterMembers__Widget ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterNonFeatures__a_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterNonFeatures__a_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterNonFeatures__a_ft0 ;
     sysx:sourceText "        part a : Widget;\n" .
 
 elmt:ThenAfterMembers__AfterNonFeatures__a_om
@@ -4054,6 +4269,9 @@ elmt:ThenAfterMembers__AfterNonFeatures__b
     sysml:declaredName "b" ;
     sysml:type elmt:ThenAfterMembers__Widget ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterNonFeatures__b_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterNonFeatures__b_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterNonFeatures__b_ft0 ;
     sysx:sourceText "        then part b : Widget;\n" .
 
 elmt:ThenAfterMembers__AfterNonFeatures__b_om
@@ -4140,6 +4358,9 @@ elmt:ThenAfterMembers__AfterSuccession__a
     sysml:declaredName "a" ;
     sysml:type elmt:ThenAfterMembers__Step ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterSuccession__a_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterSuccession__a_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterSuccession__a_ft0 ;
     sysx:sourceText "        action a : Step;\n" .
 
 elmt:ThenAfterMembers__AfterSuccession__a_om
@@ -4166,6 +4387,9 @@ elmt:ThenAfterMembers__AfterSuccession__c
     sysml:declaredName "c" ;
     sysml:type elmt:ThenAfterMembers__Step ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterSuccession__c_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterSuccession__c_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterSuccession__c_ft0 ;
     sysx:sourceText "        action c : Step;\n" .
 
 elmt:ThenAfterMembers__AfterSuccession__c_om
@@ -4316,6 +4540,9 @@ elmt:ThenAfterMembers__AfterSuccession__b
     sysml:declaredName "b" ;
     sysml:type elmt:ThenAfterMembers__Step ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterSuccession__b_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterSuccession__b_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterSuccession__b_ft0 ;
     sysx:sourceText "        then action b : Step;\n" .
 
 elmt:ThenAfterMembers__AfterSuccession__b_om
@@ -4402,6 +4629,9 @@ elmt:ThenAfterMembers__AfterFirstThen__a
     sysml:declaredName "a" ;
     sysml:type elmt:ThenAfterMembers__Step ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterFirstThen__a_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterFirstThen__a_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterFirstThen__a_ft0 ;
     sysx:sourceText "        action a : Step;\n" .
 
 elmt:ThenAfterMembers__AfterFirstThen__a_om
@@ -4451,6 +4681,9 @@ elmt:ThenAfterMembers__AfterFirstThen__b
     sysml:declaredName "b" ;
     sysml:type elmt:ThenAfterMembers__Step ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterFirstThen__b_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterFirstThen__b_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterFirstThen__b_ft0 ;
     sysx:sourceText "        then action b : Step;\n" .
 
 elmt:ThenAfterMembers__AfterFirstThen__b_om
@@ -4503,6 +4736,9 @@ elmt:ThenAfterMembers__AfterFirstThen__c
     sysml:declaredName "c" ;
     sysml:type elmt:ThenAfterMembers__Step ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterFirstThen__c_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterFirstThen__c_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterFirstThen__c_ft0 ;
     sysx:sourceText "        action c : Step;\n" .
 
 elmt:ThenAfterMembers__AfterFirstThen__c_om
@@ -4585,6 +4821,9 @@ elmt:ThenAfterMembers__AfterFirstStart__a
     sysml:declaredName "a" ;
     sysml:type elmt:ThenAfterMembers__Step ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterFirstStart__a_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterFirstStart__a_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterFirstStart__a_ft0 ;
     sysx:sourceText "        then action a : Step;\n" .
 
 elmt:ThenAfterMembers__AfterFirstStart__a_om
@@ -4684,6 +4923,9 @@ elmt:ThenAfterMembers__stride
     sysml:declaredName "stride" ;
     sysml:type elmt:ThenAfterMembers__Step ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__stride_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__stride_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__stride_ft0 ;
     sysx:sourceText "    action stride : Step;\n" .
 
 elmt:ThenAfterMembers__stride_om
@@ -4731,7 +4973,7 @@ elmt:ThenAfterMembers__AfterPerform_om
     sysml:membershipOwningNamespace elmt:ThenAfterMembers .
 
 elmt:ThenAfterMembers__AfterPerform___400
-    a sysml:ActionUsage ;
+    a sysml:PerformActionUsage ;
     sysml:qualifiedName "ThenAfterMembers::AfterPerform::@0" ;
     sysml:elementId "ThenAfterMembers__AfterPerform___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
@@ -4742,6 +4984,10 @@ elmt:ThenAfterMembers__AfterPerform___400
     sysx:declaredKeyword "perform" ;
     sysml:references elmt:ThenAfterMembers__stride ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedReferenceSubsetting elmt:ThenAfterMembers__AfterPerform___400_rs ;
+    sysml:ownedSubsetting elmt:ThenAfterMembers__AfterPerform___400_rs ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterPerform___400_rs ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterPerform___400_rs ;
     sysx:sourceText "        perform stride;\n" .
 
 elmt:ThenAfterMembers__AfterPerform___400_om
@@ -4927,6 +5173,9 @@ elmt:ThenAfterMembers__AfterPerform__b
     sysml:declaredName "b" ;
     sysml:type elmt:ThenAfterMembers__Step ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__AfterPerform__b_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__AfterPerform__b_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__AfterPerform__b_ft0 ;
     sysx:sourceText "        then action b : Step;\n" .
 
 elmt:ThenAfterMembers__AfterPerform__b_om
@@ -5013,6 +5262,9 @@ elmt:ThenAfterMembers__ThenAlone__a
     sysml:declaredName "a" ;
     sysml:type elmt:ThenAfterMembers__Step ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__ThenAlone__a_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__ThenAlone__a_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__ThenAlone__a_ft0 ;
     sysx:sourceText "        action a : Step;\n" .
 
 elmt:ThenAfterMembers__ThenAlone__a_om
@@ -5224,6 +5476,9 @@ elmt:ThenAfterMembers__ThenAlone__b
     sysml:declaredName "b" ;
     sysml:type elmt:ThenAfterMembers__Step ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__ThenAlone__b_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__ThenAlone__b_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__ThenAlone__b_ft0 ;
     sysx:sourceText "        action b : Step;\n" .
 
 elmt:ThenAfterMembers__ThenAlone__b_om
@@ -5284,6 +5539,9 @@ elmt:ThenAfterMembers__Lamp__level
     sysml:declaredName "level" ;
     sysml:type elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__Lamp__level_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__Lamp__level_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__Lamp__level_ft0 ;
     sysx:sourceText "        attribute level : ScalarValues::Integer;\n" .
 
 elmt:ThenAfterMembers__Lamp__level_om
@@ -5479,6 +5737,9 @@ elmt:ThenAfterMembers__Switch__pressed
     sysml:declaredName "pressed" ;
     sysml:type elmt:d1e9242d-b2e3-5270-bf69-4f4fb0447193 ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ThenAfterMembers__Switch__pressed_ft0 ;
+    sysml:ownedSpecialization elmt:ThenAfterMembers__Switch__pressed_ft0 ;
+    sysml:ownedRelationship elmt:ThenAfterMembers__Switch__pressed_ft0 ;
     sysx:sourceText "        attribute pressed : ScalarValues::Boolean;\n" .
 
 elmt:ThenAfterMembers__Switch__pressed_om
@@ -5675,3 +5936,1010 @@ elmt:ThenAfterMembers__AfterDefer___403_om
     sysml:membershipOwningNamespace elmt:ThenAfterMembers__AfterDefer ;
     sysml:ownedMemberFeature elmt:ThenAfterMembers__AfterDefer___403 ;
     sysml:owningType elmt:ThenAfterMembers__AfterDefer .
+
+elmt:ThenAfterMembers__Step__x_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__Step__x_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__Step__x ;
+    sysml:owningFeature elmt:ThenAfterMembers__Step__x ;
+    sysml:specific elmt:ThenAfterMembers__Step__x ;
+    sysml:source elmt:ThenAfterMembers__Step__x ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__Step__x ;
+    sysml:type elmt:ThenAfterMembers__Signal ;
+    sysml:general elmt:ThenAfterMembers__Signal ;
+    sysml:target elmt:ThenAfterMembers__Signal ;
+    sysml:owner elmt:ThenAfterMembers__Step__x ;
+    sysml:relatedElement elmt:ThenAfterMembers__Step__x, elmt:ThenAfterMembers__Signal ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__Step__x\"},{\"@id\":\"ThenAfterMembers__Signal\"}]" .
+
+elmt:ThenAfterMembers__Step__y_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__Step__y_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__Step__y ;
+    sysml:owningFeature elmt:ThenAfterMembers__Step__y ;
+    sysml:specific elmt:ThenAfterMembers__Step__y ;
+    sysml:source elmt:ThenAfterMembers__Step__y ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__Step__y ;
+    sysml:type elmt:ThenAfterMembers__Signal ;
+    sysml:general elmt:ThenAfterMembers__Signal ;
+    sysml:target elmt:ThenAfterMembers__Signal ;
+    sysml:owner elmt:ThenAfterMembers__Step__y ;
+    sysml:relatedElement elmt:ThenAfterMembers__Step__y, elmt:ThenAfterMembers__Signal ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__Step__y\"},{\"@id\":\"ThenAfterMembers__Signal\"}]" .
+
+elmt:ThenAfterMembers__AfterFlow__a_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterFlow__a_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterFlow__a ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterFlow__a ;
+    sysml:specific elmt:ThenAfterMembers__AfterFlow__a ;
+    sysml:source elmt:ThenAfterMembers__AfterFlow__a ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterFlow__a ;
+    sysml:type elmt:ThenAfterMembers__Step ;
+    sysml:general elmt:ThenAfterMembers__Step ;
+    sysml:target elmt:ThenAfterMembers__Step ;
+    sysml:owner elmt:ThenAfterMembers__AfterFlow__a ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterFlow__a, elmt:ThenAfterMembers__Step ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterFlow__a\"},{\"@id\":\"ThenAfterMembers__Step\"}]" .
+
+elmt:ThenAfterMembers__AfterFlow__b_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterFlow__b_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterFlow__b ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterFlow__b ;
+    sysml:specific elmt:ThenAfterMembers__AfterFlow__b ;
+    sysml:source elmt:ThenAfterMembers__AfterFlow__b ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterFlow__b ;
+    sysml:type elmt:ThenAfterMembers__Step ;
+    sysml:general elmt:ThenAfterMembers__Step ;
+    sysml:target elmt:ThenAfterMembers__Step ;
+    sysml:owner elmt:ThenAfterMembers__AfterFlow__b ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterFlow__b, elmt:ThenAfterMembers__Step ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterFlow__b\"},{\"@id\":\"ThenAfterMembers__Step\"}]" .
+
+elmt:ThenAfterMembers__AfterBind__k_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterBind__k_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterBind__k ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterBind__k ;
+    sysml:specific elmt:ThenAfterMembers__AfterBind__k ;
+    sysml:source elmt:ThenAfterMembers__AfterBind__k ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterBind__k ;
+    sysml:type elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
+    sysml:general elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
+    sysml:target elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
+    sysml:owner elmt:ThenAfterMembers__AfterBind__k ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterBind__k, elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterBind__k\"},{\"@id\":\"f2350199-2ab1-5258-8514-58812ef25dc6\"}]" .
+
+elmt:ThenAfterMembers__AfterBind__m_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterBind__m_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterBind__m ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterBind__m ;
+    sysml:specific elmt:ThenAfterMembers__AfterBind__m ;
+    sysml:source elmt:ThenAfterMembers__AfterBind__m ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterBind__m ;
+    sysml:type elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
+    sysml:general elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
+    sysml:target elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
+    sysml:owner elmt:ThenAfterMembers__AfterBind__m ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterBind__m, elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterBind__m\"},{\"@id\":\"f2350199-2ab1-5258-8514-58812ef25dc6\"}]" .
+
+elmt:ThenAfterMembers__AfterBind__a_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterBind__a_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterBind__a ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterBind__a ;
+    sysml:specific elmt:ThenAfterMembers__AfterBind__a ;
+    sysml:source elmt:ThenAfterMembers__AfterBind__a ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterBind__a ;
+    sysml:type elmt:ThenAfterMembers__Step ;
+    sysml:general elmt:ThenAfterMembers__Step ;
+    sysml:target elmt:ThenAfterMembers__Step ;
+    sysml:owner elmt:ThenAfterMembers__AfterBind__a ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterBind__a, elmt:ThenAfterMembers__Step ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterBind__a\"},{\"@id\":\"ThenAfterMembers__Step\"}]" .
+
+elmt:ThenAfterMembers__AfterBind__b_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterBind__b_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterBind__b ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterBind__b ;
+    sysml:specific elmt:ThenAfterMembers__AfterBind__b ;
+    sysml:source elmt:ThenAfterMembers__AfterBind__b ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterBind__b ;
+    sysml:type elmt:ThenAfterMembers__Step ;
+    sysml:general elmt:ThenAfterMembers__Step ;
+    sysml:target elmt:ThenAfterMembers__Step ;
+    sysml:owner elmt:ThenAfterMembers__AfterBind__b ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterBind__b, elmt:ThenAfterMembers__Step ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterBind__b\"},{\"@id\":\"ThenAfterMembers__Step\"}]" .
+
+elmt:ThenAfterMembers__AfterConnect__a_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterConnect__a_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterConnect__a ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterConnect__a ;
+    sysml:specific elmt:ThenAfterMembers__AfterConnect__a ;
+    sysml:source elmt:ThenAfterMembers__AfterConnect__a ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterConnect__a ;
+    sysml:type elmt:ThenAfterMembers__Step ;
+    sysml:general elmt:ThenAfterMembers__Step ;
+    sysml:target elmt:ThenAfterMembers__Step ;
+    sysml:owner elmt:ThenAfterMembers__AfterConnect__a ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterConnect__a, elmt:ThenAfterMembers__Step ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterConnect__a\"},{\"@id\":\"ThenAfterMembers__Step\"}]" .
+
+elmt:ThenAfterMembers__AfterConnect__p_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterConnect__p_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterConnect__p ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterConnect__p ;
+    sysml:specific elmt:ThenAfterMembers__AfterConnect__p ;
+    sysml:source elmt:ThenAfterMembers__AfterConnect__p ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterConnect__p ;
+    sysml:type elmt:ThenAfterMembers__Widget ;
+    sysml:general elmt:ThenAfterMembers__Widget ;
+    sysml:target elmt:ThenAfterMembers__Widget ;
+    sysml:owner elmt:ThenAfterMembers__AfterConnect__p ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterConnect__p, elmt:ThenAfterMembers__Widget ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterConnect__p\"},{\"@id\":\"ThenAfterMembers__Widget\"}]" .
+
+elmt:ThenAfterMembers__AfterConnect__q_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterConnect__q_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterConnect__q ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterConnect__q ;
+    sysml:specific elmt:ThenAfterMembers__AfterConnect__q ;
+    sysml:source elmt:ThenAfterMembers__AfterConnect__q ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterConnect__q ;
+    sysml:type elmt:ThenAfterMembers__Widget ;
+    sysml:general elmt:ThenAfterMembers__Widget ;
+    sysml:target elmt:ThenAfterMembers__Widget ;
+    sysml:owner elmt:ThenAfterMembers__AfterConnect__q ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterConnect__q, elmt:ThenAfterMembers__Widget ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterConnect__q\"},{\"@id\":\"ThenAfterMembers__Widget\"}]" .
+
+elmt:ThenAfterMembers__AfterConnect__b_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterConnect__b_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterConnect__b ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterConnect__b ;
+    sysml:specific elmt:ThenAfterMembers__AfterConnect__b ;
+    sysml:source elmt:ThenAfterMembers__AfterConnect__b ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterConnect__b ;
+    sysml:type elmt:ThenAfterMembers__Step ;
+    sysml:general elmt:ThenAfterMembers__Step ;
+    sysml:target elmt:ThenAfterMembers__Step ;
+    sysml:owner elmt:ThenAfterMembers__AfterConnect__b ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterConnect__b, elmt:ThenAfterMembers__Step ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterConnect__b\"},{\"@id\":\"ThenAfterMembers__Step\"}]" .
+
+elmt:ThenAfterMembers__AfterConnection__a_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterConnection__a_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterConnection__a ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterConnection__a ;
+    sysml:specific elmt:ThenAfterMembers__AfterConnection__a ;
+    sysml:source elmt:ThenAfterMembers__AfterConnection__a ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterConnection__a ;
+    sysml:type elmt:ThenAfterMembers__Step ;
+    sysml:general elmt:ThenAfterMembers__Step ;
+    sysml:target elmt:ThenAfterMembers__Step ;
+    sysml:owner elmt:ThenAfterMembers__AfterConnection__a ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterConnection__a, elmt:ThenAfterMembers__Step ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterConnection__a\"},{\"@id\":\"ThenAfterMembers__Step\"}]" .
+
+elmt:ThenAfterMembers__AfterConnection__p_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterConnection__p_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterConnection__p ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterConnection__p ;
+    sysml:specific elmt:ThenAfterMembers__AfterConnection__p ;
+    sysml:source elmt:ThenAfterMembers__AfterConnection__p ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterConnection__p ;
+    sysml:type elmt:ThenAfterMembers__Widget ;
+    sysml:general elmt:ThenAfterMembers__Widget ;
+    sysml:target elmt:ThenAfterMembers__Widget ;
+    sysml:owner elmt:ThenAfterMembers__AfterConnection__p ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterConnection__p, elmt:ThenAfterMembers__Widget ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterConnection__p\"},{\"@id\":\"ThenAfterMembers__Widget\"}]" .
+
+elmt:ThenAfterMembers__AfterConnection__q_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterConnection__q_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterConnection__q ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterConnection__q ;
+    sysml:specific elmt:ThenAfterMembers__AfterConnection__q ;
+    sysml:source elmt:ThenAfterMembers__AfterConnection__q ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterConnection__q ;
+    sysml:type elmt:ThenAfterMembers__Widget ;
+    sysml:general elmt:ThenAfterMembers__Widget ;
+    sysml:target elmt:ThenAfterMembers__Widget ;
+    sysml:owner elmt:ThenAfterMembers__AfterConnection__q ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterConnection__q, elmt:ThenAfterMembers__Widget ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterConnection__q\"},{\"@id\":\"ThenAfterMembers__Widget\"}]" .
+
+elmt:ThenAfterMembers__AfterConnection__b_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterConnection__b_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterConnection__b ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterConnection__b ;
+    sysml:specific elmt:ThenAfterMembers__AfterConnection__b ;
+    sysml:source elmt:ThenAfterMembers__AfterConnection__b ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterConnection__b ;
+    sysml:type elmt:ThenAfterMembers__Step ;
+    sysml:general elmt:ThenAfterMembers__Step ;
+    sysml:target elmt:ThenAfterMembers__Step ;
+    sysml:owner elmt:ThenAfterMembers__AfterConnection__b ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterConnection__b, elmt:ThenAfterMembers__Step ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterConnection__b\"},{\"@id\":\"ThenAfterMembers__Step\"}]" .
+
+elmt:ThenAfterMembers__AfterInterface__a_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterInterface__a_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterInterface__a ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterInterface__a ;
+    sysml:specific elmt:ThenAfterMembers__AfterInterface__a ;
+    sysml:source elmt:ThenAfterMembers__AfterInterface__a ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterInterface__a ;
+    sysml:type elmt:ThenAfterMembers__Step ;
+    sysml:general elmt:ThenAfterMembers__Step ;
+    sysml:target elmt:ThenAfterMembers__Step ;
+    sysml:owner elmt:ThenAfterMembers__AfterInterface__a ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterInterface__a, elmt:ThenAfterMembers__Step ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterInterface__a\"},{\"@id\":\"ThenAfterMembers__Step\"}]" .
+
+elmt:ThenAfterMembers__AfterInterface__p1_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterInterface__p1_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterInterface__p1 ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterInterface__p1 ;
+    sysml:specific elmt:ThenAfterMembers__AfterInterface__p1 ;
+    sysml:source elmt:ThenAfterMembers__AfterInterface__p1 ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterInterface__p1 ;
+    sysml:type elmt:ThenAfterMembers__Plug ;
+    sysml:general elmt:ThenAfterMembers__Plug ;
+    sysml:target elmt:ThenAfterMembers__Plug ;
+    sysml:owner elmt:ThenAfterMembers__AfterInterface__p1 ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterInterface__p1, elmt:ThenAfterMembers__Plug ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterInterface__p1\"},{\"@id\":\"ThenAfterMembers__Plug\"}]" .
+
+elmt:ThenAfterMembers__AfterInterface__p2_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterInterface__p2_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterInterface__p2 ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterInterface__p2 ;
+    sysml:specific elmt:ThenAfterMembers__AfterInterface__p2 ;
+    sysml:source elmt:ThenAfterMembers__AfterInterface__p2 ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterInterface__p2 ;
+    sysml:type elmt:ThenAfterMembers__Plug ;
+    sysml:general elmt:ThenAfterMembers__Plug ;
+    sysml:target elmt:ThenAfterMembers__Plug ;
+    sysml:owner elmt:ThenAfterMembers__AfterInterface__p2 ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterInterface__p2, elmt:ThenAfterMembers__Plug ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterInterface__p2\"},{\"@id\":\"ThenAfterMembers__Plug\"}]" .
+
+elmt:ThenAfterMembers__AfterInterface__b_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterInterface__b_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterInterface__b ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterInterface__b ;
+    sysml:specific elmt:ThenAfterMembers__AfterInterface__b ;
+    sysml:source elmt:ThenAfterMembers__AfterInterface__b ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterInterface__b ;
+    sysml:type elmt:ThenAfterMembers__Step ;
+    sysml:general elmt:ThenAfterMembers__Step ;
+    sysml:target elmt:ThenAfterMembers__Step ;
+    sysml:owner elmt:ThenAfterMembers__AfterInterface__b ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterInterface__b, elmt:ThenAfterMembers__Step ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterInterface__b\"},{\"@id\":\"ThenAfterMembers__Step\"}]" .
+
+elmt:ThenAfterMembers__AfterAllocate__a_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterAllocate__a_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterAllocate__a ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterAllocate__a ;
+    sysml:specific elmt:ThenAfterMembers__AfterAllocate__a ;
+    sysml:source elmt:ThenAfterMembers__AfterAllocate__a ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterAllocate__a ;
+    sysml:type elmt:ThenAfterMembers__Step ;
+    sysml:general elmt:ThenAfterMembers__Step ;
+    sysml:target elmt:ThenAfterMembers__Step ;
+    sysml:owner elmt:ThenAfterMembers__AfterAllocate__a ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterAllocate__a, elmt:ThenAfterMembers__Step ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterAllocate__a\"},{\"@id\":\"ThenAfterMembers__Step\"}]" .
+
+elmt:ThenAfterMembers__AfterAllocate__p_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterAllocate__p_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterAllocate__p ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterAllocate__p ;
+    sysml:specific elmt:ThenAfterMembers__AfterAllocate__p ;
+    sysml:source elmt:ThenAfterMembers__AfterAllocate__p ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterAllocate__p ;
+    sysml:type elmt:ThenAfterMembers__Widget ;
+    sysml:general elmt:ThenAfterMembers__Widget ;
+    sysml:target elmt:ThenAfterMembers__Widget ;
+    sysml:owner elmt:ThenAfterMembers__AfterAllocate__p ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterAllocate__p, elmt:ThenAfterMembers__Widget ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterAllocate__p\"},{\"@id\":\"ThenAfterMembers__Widget\"}]" .
+
+elmt:ThenAfterMembers__AfterAllocate__q_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterAllocate__q_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterAllocate__q ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterAllocate__q ;
+    sysml:specific elmt:ThenAfterMembers__AfterAllocate__q ;
+    sysml:source elmt:ThenAfterMembers__AfterAllocate__q ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterAllocate__q ;
+    sysml:type elmt:ThenAfterMembers__Widget ;
+    sysml:general elmt:ThenAfterMembers__Widget ;
+    sysml:target elmt:ThenAfterMembers__Widget ;
+    sysml:owner elmt:ThenAfterMembers__AfterAllocate__q ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterAllocate__q, elmt:ThenAfterMembers__Widget ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterAllocate__q\"},{\"@id\":\"ThenAfterMembers__Widget\"}]" .
+
+elmt:ThenAfterMembers__AfterAllocate__b_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterAllocate__b_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterAllocate__b ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterAllocate__b ;
+    sysml:specific elmt:ThenAfterMembers__AfterAllocate__b ;
+    sysml:source elmt:ThenAfterMembers__AfterAllocate__b ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterAllocate__b ;
+    sysml:type elmt:ThenAfterMembers__Step ;
+    sysml:general elmt:ThenAfterMembers__Step ;
+    sysml:target elmt:ThenAfterMembers__Step ;
+    sysml:owner elmt:ThenAfterMembers__AfterAllocate__b ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterAllocate__b, elmt:ThenAfterMembers__Step ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterAllocate__b\"},{\"@id\":\"ThenAfterMembers__Step\"}]" .
+
+elmt:ThenAfterMembers__AfterAllocation__a_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterAllocation__a_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterAllocation__a ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterAllocation__a ;
+    sysml:specific elmt:ThenAfterMembers__AfterAllocation__a ;
+    sysml:source elmt:ThenAfterMembers__AfterAllocation__a ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterAllocation__a ;
+    sysml:type elmt:ThenAfterMembers__Step ;
+    sysml:general elmt:ThenAfterMembers__Step ;
+    sysml:target elmt:ThenAfterMembers__Step ;
+    sysml:owner elmt:ThenAfterMembers__AfterAllocation__a ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterAllocation__a, elmt:ThenAfterMembers__Step ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterAllocation__a\"},{\"@id\":\"ThenAfterMembers__Step\"}]" .
+
+elmt:ThenAfterMembers__AfterAllocation__p_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterAllocation__p_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterAllocation__p ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterAllocation__p ;
+    sysml:specific elmt:ThenAfterMembers__AfterAllocation__p ;
+    sysml:source elmt:ThenAfterMembers__AfterAllocation__p ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterAllocation__p ;
+    sysml:type elmt:ThenAfterMembers__Widget ;
+    sysml:general elmt:ThenAfterMembers__Widget ;
+    sysml:target elmt:ThenAfterMembers__Widget ;
+    sysml:owner elmt:ThenAfterMembers__AfterAllocation__p ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterAllocation__p, elmt:ThenAfterMembers__Widget ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterAllocation__p\"},{\"@id\":\"ThenAfterMembers__Widget\"}]" .
+
+elmt:ThenAfterMembers__AfterAllocation__q_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterAllocation__q_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterAllocation__q ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterAllocation__q ;
+    sysml:specific elmt:ThenAfterMembers__AfterAllocation__q ;
+    sysml:source elmt:ThenAfterMembers__AfterAllocation__q ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterAllocation__q ;
+    sysml:type elmt:ThenAfterMembers__Widget ;
+    sysml:general elmt:ThenAfterMembers__Widget ;
+    sysml:target elmt:ThenAfterMembers__Widget ;
+    sysml:owner elmt:ThenAfterMembers__AfterAllocation__q ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterAllocation__q, elmt:ThenAfterMembers__Widget ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterAllocation__q\"},{\"@id\":\"ThenAfterMembers__Widget\"}]" .
+
+elmt:ThenAfterMembers__AfterAllocation__b_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterAllocation__b_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterAllocation__b ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterAllocation__b ;
+    sysml:specific elmt:ThenAfterMembers__AfterAllocation__b ;
+    sysml:source elmt:ThenAfterMembers__AfterAllocation__b ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterAllocation__b ;
+    sysml:type elmt:ThenAfterMembers__Step ;
+    sysml:general elmt:ThenAfterMembers__Step ;
+    sysml:target elmt:ThenAfterMembers__Step ;
+    sysml:owner elmt:ThenAfterMembers__AfterAllocation__b ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterAllocation__b, elmt:ThenAfterMembers__Step ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterAllocation__b\"},{\"@id\":\"ThenAfterMembers__Step\"}]" .
+
+elmt:ThenAfterMembers__AfterConnectors__a_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterConnectors__a_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterConnectors__a ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterConnectors__a ;
+    sysml:specific elmt:ThenAfterMembers__AfterConnectors__a ;
+    sysml:source elmt:ThenAfterMembers__AfterConnectors__a ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterConnectors__a ;
+    sysml:type elmt:ThenAfterMembers__Widget ;
+    sysml:general elmt:ThenAfterMembers__Widget ;
+    sysml:target elmt:ThenAfterMembers__Widget ;
+    sysml:owner elmt:ThenAfterMembers__AfterConnectors__a ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterConnectors__a, elmt:ThenAfterMembers__Widget ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterConnectors__a\"},{\"@id\":\"ThenAfterMembers__Widget\"}]" .
+
+elmt:ThenAfterMembers__AfterConnectors__p_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterConnectors__p_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterConnectors__p ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterConnectors__p ;
+    sysml:specific elmt:ThenAfterMembers__AfterConnectors__p ;
+    sysml:source elmt:ThenAfterMembers__AfterConnectors__p ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterConnectors__p ;
+    sysml:type elmt:ThenAfterMembers__Widget ;
+    sysml:general elmt:ThenAfterMembers__Widget ;
+    sysml:target elmt:ThenAfterMembers__Widget ;
+    sysml:owner elmt:ThenAfterMembers__AfterConnectors__p ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterConnectors__p, elmt:ThenAfterMembers__Widget ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterConnectors__p\"},{\"@id\":\"ThenAfterMembers__Widget\"}]" .
+
+elmt:ThenAfterMembers__AfterConnectors__q_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterConnectors__q_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterConnectors__q ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterConnectors__q ;
+    sysml:specific elmt:ThenAfterMembers__AfterConnectors__q ;
+    sysml:source elmt:ThenAfterMembers__AfterConnectors__q ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterConnectors__q ;
+    sysml:type elmt:ThenAfterMembers__Widget ;
+    sysml:general elmt:ThenAfterMembers__Widget ;
+    sysml:target elmt:ThenAfterMembers__Widget ;
+    sysml:owner elmt:ThenAfterMembers__AfterConnectors__q ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterConnectors__q, elmt:ThenAfterMembers__Widget ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterConnectors__q\"},{\"@id\":\"ThenAfterMembers__Widget\"}]" .
+
+elmt:ThenAfterMembers__AfterConnectors__b_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterConnectors__b_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterConnectors__b ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterConnectors__b ;
+    sysml:specific elmt:ThenAfterMembers__AfterConnectors__b ;
+    sysml:source elmt:ThenAfterMembers__AfterConnectors__b ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterConnectors__b ;
+    sysml:type elmt:ThenAfterMembers__Widget ;
+    sysml:general elmt:ThenAfterMembers__Widget ;
+    sysml:target elmt:ThenAfterMembers__Widget ;
+    sysml:owner elmt:ThenAfterMembers__AfterConnectors__b ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterConnectors__b, elmt:ThenAfterMembers__Widget ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterConnectors__b\"},{\"@id\":\"ThenAfterMembers__Widget\"}]" .
+
+elmt:ThenAfterMembers__AfterAttribute__a_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterAttribute__a_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterAttribute__a ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterAttribute__a ;
+    sysml:specific elmt:ThenAfterMembers__AfterAttribute__a ;
+    sysml:source elmt:ThenAfterMembers__AfterAttribute__a ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterAttribute__a ;
+    sysml:type elmt:ThenAfterMembers__Step ;
+    sysml:general elmt:ThenAfterMembers__Step ;
+    sysml:target elmt:ThenAfterMembers__Step ;
+    sysml:owner elmt:ThenAfterMembers__AfterAttribute__a ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterAttribute__a, elmt:ThenAfterMembers__Step ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterAttribute__a\"},{\"@id\":\"ThenAfterMembers__Step\"}]" .
+
+elmt:ThenAfterMembers__AfterAttribute__k_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterAttribute__k_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterAttribute__k ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterAttribute__k ;
+    sysml:specific elmt:ThenAfterMembers__AfterAttribute__k ;
+    sysml:source elmt:ThenAfterMembers__AfterAttribute__k ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterAttribute__k ;
+    sysml:type elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
+    sysml:general elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
+    sysml:target elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
+    sysml:owner elmt:ThenAfterMembers__AfterAttribute__k ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterAttribute__k, elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterAttribute__k\"},{\"@id\":\"f2350199-2ab1-5258-8514-58812ef25dc6\"}]" .
+
+elmt:ThenAfterMembers__AfterAttribute__b_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterAttribute__b_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterAttribute__b ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterAttribute__b ;
+    sysml:specific elmt:ThenAfterMembers__AfterAttribute__b ;
+    sysml:source elmt:ThenAfterMembers__AfterAttribute__b ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterAttribute__b ;
+    sysml:type elmt:ThenAfterMembers__Step ;
+    sysml:general elmt:ThenAfterMembers__Step ;
+    sysml:target elmt:ThenAfterMembers__Step ;
+    sysml:owner elmt:ThenAfterMembers__AfterAttribute__b ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterAttribute__b, elmt:ThenAfterMembers__Step ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterAttribute__b\"},{\"@id\":\"ThenAfterMembers__Step\"}]" .
+
+elmt:ThenAfterMembers__AfterDoc__a_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterDoc__a_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterDoc__a ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterDoc__a ;
+    sysml:specific elmt:ThenAfterMembers__AfterDoc__a ;
+    sysml:source elmt:ThenAfterMembers__AfterDoc__a ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterDoc__a ;
+    sysml:type elmt:ThenAfterMembers__Step ;
+    sysml:general elmt:ThenAfterMembers__Step ;
+    sysml:target elmt:ThenAfterMembers__Step ;
+    sysml:owner elmt:ThenAfterMembers__AfterDoc__a ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterDoc__a, elmt:ThenAfterMembers__Step ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterDoc__a\"},{\"@id\":\"ThenAfterMembers__Step\"}]" .
+
+elmt:ThenAfterMembers__AfterDoc__b_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterDoc__b_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterDoc__b ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterDoc__b ;
+    sysml:specific elmt:ThenAfterMembers__AfterDoc__b ;
+    sysml:source elmt:ThenAfterMembers__AfterDoc__b ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterDoc__b ;
+    sysml:type elmt:ThenAfterMembers__Step ;
+    sysml:general elmt:ThenAfterMembers__Step ;
+    sysml:target elmt:ThenAfterMembers__Step ;
+    sysml:owner elmt:ThenAfterMembers__AfterDoc__b ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterDoc__b, elmt:ThenAfterMembers__Step ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterDoc__b\"},{\"@id\":\"ThenAfterMembers__Step\"}]" .
+
+elmt:ThenAfterMembers__AfterComment__a_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterComment__a_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterComment__a ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterComment__a ;
+    sysml:specific elmt:ThenAfterMembers__AfterComment__a ;
+    sysml:source elmt:ThenAfterMembers__AfterComment__a ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterComment__a ;
+    sysml:type elmt:ThenAfterMembers__Step ;
+    sysml:general elmt:ThenAfterMembers__Step ;
+    sysml:target elmt:ThenAfterMembers__Step ;
+    sysml:owner elmt:ThenAfterMembers__AfterComment__a ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterComment__a, elmt:ThenAfterMembers__Step ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterComment__a\"},{\"@id\":\"ThenAfterMembers__Step\"}]" .
+
+elmt:ThenAfterMembers__AfterComment__b_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterComment__b_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterComment__b ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterComment__b ;
+    sysml:specific elmt:ThenAfterMembers__AfterComment__b ;
+    sysml:source elmt:ThenAfterMembers__AfterComment__b ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterComment__b ;
+    sysml:type elmt:ThenAfterMembers__Step ;
+    sysml:general elmt:ThenAfterMembers__Step ;
+    sysml:target elmt:ThenAfterMembers__Step ;
+    sysml:owner elmt:ThenAfterMembers__AfterComment__b ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterComment__b, elmt:ThenAfterMembers__Step ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterComment__b\"},{\"@id\":\"ThenAfterMembers__Step\"}]" .
+
+elmt:ThenAfterMembers__AfterImport__a_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterImport__a_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterImport__a ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterImport__a ;
+    sysml:specific elmt:ThenAfterMembers__AfterImport__a ;
+    sysml:source elmt:ThenAfterMembers__AfterImport__a ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterImport__a ;
+    sysml:type elmt:ThenAfterMembers__Step ;
+    sysml:general elmt:ThenAfterMembers__Step ;
+    sysml:target elmt:ThenAfterMembers__Step ;
+    sysml:owner elmt:ThenAfterMembers__AfterImport__a ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterImport__a, elmt:ThenAfterMembers__Step ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterImport__a\"},{\"@id\":\"ThenAfterMembers__Step\"}]" .
+
+elmt:ThenAfterMembers__AfterImport__b_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterImport__b_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterImport__b ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterImport__b ;
+    sysml:specific elmt:ThenAfterMembers__AfterImport__b ;
+    sysml:source elmt:ThenAfterMembers__AfterImport__b ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterImport__b ;
+    sysml:type elmt:ThenAfterMembers__Step ;
+    sysml:general elmt:ThenAfterMembers__Step ;
+    sysml:target elmt:ThenAfterMembers__Step ;
+    sysml:owner elmt:ThenAfterMembers__AfterImport__b ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterImport__b, elmt:ThenAfterMembers__Step ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterImport__b\"},{\"@id\":\"ThenAfterMembers__Step\"}]" .
+
+elmt:ThenAfterMembers__AfterAlias__a_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterAlias__a_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterAlias__a ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterAlias__a ;
+    sysml:specific elmt:ThenAfterMembers__AfterAlias__a ;
+    sysml:source elmt:ThenAfterMembers__AfterAlias__a ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterAlias__a ;
+    sysml:type elmt:ThenAfterMembers__Step ;
+    sysml:general elmt:ThenAfterMembers__Step ;
+    sysml:target elmt:ThenAfterMembers__Step ;
+    sysml:owner elmt:ThenAfterMembers__AfterAlias__a ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterAlias__a, elmt:ThenAfterMembers__Step ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterAlias__a\"},{\"@id\":\"ThenAfterMembers__Step\"}]" .
+
+elmt:ThenAfterMembers__AfterAlias__b_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterAlias__b_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterAlias__b ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterAlias__b ;
+    sysml:specific elmt:ThenAfterMembers__AfterAlias__b ;
+    sysml:source elmt:ThenAfterMembers__AfterAlias__b ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterAlias__b ;
+    sysml:type elmt:ThenAfterMembers__Step ;
+    sysml:general elmt:ThenAfterMembers__Step ;
+    sysml:target elmt:ThenAfterMembers__Step ;
+    sysml:owner elmt:ThenAfterMembers__AfterAlias__b ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterAlias__b, elmt:ThenAfterMembers__Step ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterAlias__b\"},{\"@id\":\"ThenAfterMembers__Step\"}]" .
+
+elmt:ThenAfterMembers__AfterNestedDefinition__a_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterNestedDefinition__a_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterNestedDefinition__a ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterNestedDefinition__a ;
+    sysml:specific elmt:ThenAfterMembers__AfterNestedDefinition__a ;
+    sysml:source elmt:ThenAfterMembers__AfterNestedDefinition__a ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterNestedDefinition__a ;
+    sysml:type elmt:ThenAfterMembers__Step ;
+    sysml:general elmt:ThenAfterMembers__Step ;
+    sysml:target elmt:ThenAfterMembers__Step ;
+    sysml:owner elmt:ThenAfterMembers__AfterNestedDefinition__a ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterNestedDefinition__a, elmt:ThenAfterMembers__Step ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterNestedDefinition__a\"},{\"@id\":\"ThenAfterMembers__Step\"}]" .
+
+elmt:ThenAfterMembers__AfterNestedDefinition__b_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterNestedDefinition__b_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterNestedDefinition__b ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterNestedDefinition__b ;
+    sysml:specific elmt:ThenAfterMembers__AfterNestedDefinition__b ;
+    sysml:source elmt:ThenAfterMembers__AfterNestedDefinition__b ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterNestedDefinition__b ;
+    sysml:type elmt:ThenAfterMembers__Step ;
+    sysml:general elmt:ThenAfterMembers__Step ;
+    sysml:target elmt:ThenAfterMembers__Step ;
+    sysml:owner elmt:ThenAfterMembers__AfterNestedDefinition__b ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterNestedDefinition__b, elmt:ThenAfterMembers__Step ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterNestedDefinition__b\"},{\"@id\":\"ThenAfterMembers__Step\"}]" .
+
+elmt:ThenAfterMembers__AfterNestedPackage__a_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterNestedPackage__a_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterNestedPackage__a ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterNestedPackage__a ;
+    sysml:specific elmt:ThenAfterMembers__AfterNestedPackage__a ;
+    sysml:source elmt:ThenAfterMembers__AfterNestedPackage__a ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterNestedPackage__a ;
+    sysml:type elmt:ThenAfterMembers__Step ;
+    sysml:general elmt:ThenAfterMembers__Step ;
+    sysml:target elmt:ThenAfterMembers__Step ;
+    sysml:owner elmt:ThenAfterMembers__AfterNestedPackage__a ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterNestedPackage__a, elmt:ThenAfterMembers__Step ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterNestedPackage__a\"},{\"@id\":\"ThenAfterMembers__Step\"}]" .
+
+elmt:ThenAfterMembers__AfterNestedPackage__b_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterNestedPackage__b_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterNestedPackage__b ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterNestedPackage__b ;
+    sysml:specific elmt:ThenAfterMembers__AfterNestedPackage__b ;
+    sysml:source elmt:ThenAfterMembers__AfterNestedPackage__b ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterNestedPackage__b ;
+    sysml:type elmt:ThenAfterMembers__Step ;
+    sysml:general elmt:ThenAfterMembers__Step ;
+    sysml:target elmt:ThenAfterMembers__Step ;
+    sysml:owner elmt:ThenAfterMembers__AfterNestedPackage__b ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterNestedPackage__b, elmt:ThenAfterMembers__Step ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterNestedPackage__b\"},{\"@id\":\"ThenAfterMembers__Step\"}]" .
+
+elmt:ThenAfterMembers__AfterMultiplicity__a_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterMultiplicity__a_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterMultiplicity__a ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterMultiplicity__a ;
+    sysml:specific elmt:ThenAfterMembers__AfterMultiplicity__a ;
+    sysml:source elmt:ThenAfterMembers__AfterMultiplicity__a ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterMultiplicity__a ;
+    sysml:type elmt:ThenAfterMembers__Step ;
+    sysml:general elmt:ThenAfterMembers__Step ;
+    sysml:target elmt:ThenAfterMembers__Step ;
+    sysml:owner elmt:ThenAfterMembers__AfterMultiplicity__a ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterMultiplicity__a, elmt:ThenAfterMembers__Step ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterMultiplicity__a\"},{\"@id\":\"ThenAfterMembers__Step\"}]" .
+
+elmt:ThenAfterMembers__AfterMultiplicity__b_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterMultiplicity__b_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterMultiplicity__b ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterMultiplicity__b ;
+    sysml:specific elmt:ThenAfterMembers__AfterMultiplicity__b ;
+    sysml:source elmt:ThenAfterMembers__AfterMultiplicity__b ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterMultiplicity__b ;
+    sysml:type elmt:ThenAfterMembers__Step ;
+    sysml:general elmt:ThenAfterMembers__Step ;
+    sysml:target elmt:ThenAfterMembers__Step ;
+    sysml:owner elmt:ThenAfterMembers__AfterMultiplicity__b ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterMultiplicity__b, elmt:ThenAfterMembers__Step ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterMultiplicity__b\"},{\"@id\":\"ThenAfterMembers__Step\"}]" .
+
+elmt:ThenAfterMembers__AfterSeveralNonFeatures__a_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterSeveralNonFeatures__a_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterSeveralNonFeatures__a ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterSeveralNonFeatures__a ;
+    sysml:specific elmt:ThenAfterMembers__AfterSeveralNonFeatures__a ;
+    sysml:source elmt:ThenAfterMembers__AfterSeveralNonFeatures__a ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterSeveralNonFeatures__a ;
+    sysml:type elmt:ThenAfterMembers__Step ;
+    sysml:general elmt:ThenAfterMembers__Step ;
+    sysml:target elmt:ThenAfterMembers__Step ;
+    sysml:owner elmt:ThenAfterMembers__AfterSeveralNonFeatures__a ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterSeveralNonFeatures__a, elmt:ThenAfterMembers__Step ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterSeveralNonFeatures__a\"},{\"@id\":\"ThenAfterMembers__Step\"}]" .
+
+elmt:ThenAfterMembers__AfterSeveralNonFeatures__b_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterSeveralNonFeatures__b_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterSeveralNonFeatures__b ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterSeveralNonFeatures__b ;
+    sysml:specific elmt:ThenAfterMembers__AfterSeveralNonFeatures__b ;
+    sysml:source elmt:ThenAfterMembers__AfterSeveralNonFeatures__b ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterSeveralNonFeatures__b ;
+    sysml:type elmt:ThenAfterMembers__Step ;
+    sysml:general elmt:ThenAfterMembers__Step ;
+    sysml:target elmt:ThenAfterMembers__Step ;
+    sysml:owner elmt:ThenAfterMembers__AfterSeveralNonFeatures__b ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterSeveralNonFeatures__b, elmt:ThenAfterMembers__Step ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterSeveralNonFeatures__b\"},{\"@id\":\"ThenAfterMembers__Step\"}]" .
+
+elmt:ThenAfterMembers__AfterNonFeatures__a_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterNonFeatures__a_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterNonFeatures__a ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterNonFeatures__a ;
+    sysml:specific elmt:ThenAfterMembers__AfterNonFeatures__a ;
+    sysml:source elmt:ThenAfterMembers__AfterNonFeatures__a ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterNonFeatures__a ;
+    sysml:type elmt:ThenAfterMembers__Widget ;
+    sysml:general elmt:ThenAfterMembers__Widget ;
+    sysml:target elmt:ThenAfterMembers__Widget ;
+    sysml:owner elmt:ThenAfterMembers__AfterNonFeatures__a ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterNonFeatures__a, elmt:ThenAfterMembers__Widget ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterNonFeatures__a\"},{\"@id\":\"ThenAfterMembers__Widget\"}]" .
+
+elmt:ThenAfterMembers__AfterNonFeatures__b_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterNonFeatures__b_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterNonFeatures__b ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterNonFeatures__b ;
+    sysml:specific elmt:ThenAfterMembers__AfterNonFeatures__b ;
+    sysml:source elmt:ThenAfterMembers__AfterNonFeatures__b ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterNonFeatures__b ;
+    sysml:type elmt:ThenAfterMembers__Widget ;
+    sysml:general elmt:ThenAfterMembers__Widget ;
+    sysml:target elmt:ThenAfterMembers__Widget ;
+    sysml:owner elmt:ThenAfterMembers__AfterNonFeatures__b ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterNonFeatures__b, elmt:ThenAfterMembers__Widget ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterNonFeatures__b\"},{\"@id\":\"ThenAfterMembers__Widget\"}]" .
+
+elmt:ThenAfterMembers__AfterSuccession__a_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterSuccession__a_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterSuccession__a ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterSuccession__a ;
+    sysml:specific elmt:ThenAfterMembers__AfterSuccession__a ;
+    sysml:source elmt:ThenAfterMembers__AfterSuccession__a ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterSuccession__a ;
+    sysml:type elmt:ThenAfterMembers__Step ;
+    sysml:general elmt:ThenAfterMembers__Step ;
+    sysml:target elmt:ThenAfterMembers__Step ;
+    sysml:owner elmt:ThenAfterMembers__AfterSuccession__a ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterSuccession__a, elmt:ThenAfterMembers__Step ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterSuccession__a\"},{\"@id\":\"ThenAfterMembers__Step\"}]" .
+
+elmt:ThenAfterMembers__AfterSuccession__c_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterSuccession__c_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterSuccession__c ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterSuccession__c ;
+    sysml:specific elmt:ThenAfterMembers__AfterSuccession__c ;
+    sysml:source elmt:ThenAfterMembers__AfterSuccession__c ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterSuccession__c ;
+    sysml:type elmt:ThenAfterMembers__Step ;
+    sysml:general elmt:ThenAfterMembers__Step ;
+    sysml:target elmt:ThenAfterMembers__Step ;
+    sysml:owner elmt:ThenAfterMembers__AfterSuccession__c ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterSuccession__c, elmt:ThenAfterMembers__Step ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterSuccession__c\"},{\"@id\":\"ThenAfterMembers__Step\"}]" .
+
+elmt:ThenAfterMembers__AfterSuccession__b_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterSuccession__b_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterSuccession__b ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterSuccession__b ;
+    sysml:specific elmt:ThenAfterMembers__AfterSuccession__b ;
+    sysml:source elmt:ThenAfterMembers__AfterSuccession__b ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterSuccession__b ;
+    sysml:type elmt:ThenAfterMembers__Step ;
+    sysml:general elmt:ThenAfterMembers__Step ;
+    sysml:target elmt:ThenAfterMembers__Step ;
+    sysml:owner elmt:ThenAfterMembers__AfterSuccession__b ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterSuccession__b, elmt:ThenAfterMembers__Step ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterSuccession__b\"},{\"@id\":\"ThenAfterMembers__Step\"}]" .
+
+elmt:ThenAfterMembers__AfterFirstThen__a_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterFirstThen__a_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterFirstThen__a ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterFirstThen__a ;
+    sysml:specific elmt:ThenAfterMembers__AfterFirstThen__a ;
+    sysml:source elmt:ThenAfterMembers__AfterFirstThen__a ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterFirstThen__a ;
+    sysml:type elmt:ThenAfterMembers__Step ;
+    sysml:general elmt:ThenAfterMembers__Step ;
+    sysml:target elmt:ThenAfterMembers__Step ;
+    sysml:owner elmt:ThenAfterMembers__AfterFirstThen__a ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterFirstThen__a, elmt:ThenAfterMembers__Step ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterFirstThen__a\"},{\"@id\":\"ThenAfterMembers__Step\"}]" .
+
+elmt:ThenAfterMembers__AfterFirstThen__b_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterFirstThen__b_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterFirstThen__b ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterFirstThen__b ;
+    sysml:specific elmt:ThenAfterMembers__AfterFirstThen__b ;
+    sysml:source elmt:ThenAfterMembers__AfterFirstThen__b ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterFirstThen__b ;
+    sysml:type elmt:ThenAfterMembers__Step ;
+    sysml:general elmt:ThenAfterMembers__Step ;
+    sysml:target elmt:ThenAfterMembers__Step ;
+    sysml:owner elmt:ThenAfterMembers__AfterFirstThen__b ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterFirstThen__b, elmt:ThenAfterMembers__Step ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterFirstThen__b\"},{\"@id\":\"ThenAfterMembers__Step\"}]" .
+
+elmt:ThenAfterMembers__AfterFirstThen__c_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterFirstThen__c_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterFirstThen__c ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterFirstThen__c ;
+    sysml:specific elmt:ThenAfterMembers__AfterFirstThen__c ;
+    sysml:source elmt:ThenAfterMembers__AfterFirstThen__c ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterFirstThen__c ;
+    sysml:type elmt:ThenAfterMembers__Step ;
+    sysml:general elmt:ThenAfterMembers__Step ;
+    sysml:target elmt:ThenAfterMembers__Step ;
+    sysml:owner elmt:ThenAfterMembers__AfterFirstThen__c ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterFirstThen__c, elmt:ThenAfterMembers__Step ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterFirstThen__c\"},{\"@id\":\"ThenAfterMembers__Step\"}]" .
+
+elmt:ThenAfterMembers__AfterFirstStart__a_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterFirstStart__a_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterFirstStart__a ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterFirstStart__a ;
+    sysml:specific elmt:ThenAfterMembers__AfterFirstStart__a ;
+    sysml:source elmt:ThenAfterMembers__AfterFirstStart__a ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterFirstStart__a ;
+    sysml:type elmt:ThenAfterMembers__Step ;
+    sysml:general elmt:ThenAfterMembers__Step ;
+    sysml:target elmt:ThenAfterMembers__Step ;
+    sysml:owner elmt:ThenAfterMembers__AfterFirstStart__a ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterFirstStart__a, elmt:ThenAfterMembers__Step ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterFirstStart__a\"},{\"@id\":\"ThenAfterMembers__Step\"}]" .
+
+elmt:ThenAfterMembers__stride_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__stride_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__stride ;
+    sysml:owningFeature elmt:ThenAfterMembers__stride ;
+    sysml:specific elmt:ThenAfterMembers__stride ;
+    sysml:source elmt:ThenAfterMembers__stride ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__stride ;
+    sysml:type elmt:ThenAfterMembers__Step ;
+    sysml:general elmt:ThenAfterMembers__Step ;
+    sysml:target elmt:ThenAfterMembers__Step ;
+    sysml:owner elmt:ThenAfterMembers__stride ;
+    sysml:relatedElement elmt:ThenAfterMembers__stride, elmt:ThenAfterMembers__Step ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__stride\"},{\"@id\":\"ThenAfterMembers__Step\"}]" .
+
+elmt:ThenAfterMembers__AfterPerform___400_rs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "ThenAfterMembers__AfterPerform___400_rs" ;
+    sysml:referencingFeature elmt:ThenAfterMembers__AfterPerform___400 ;
+    sysml:subsettingFeature elmt:ThenAfterMembers__AfterPerform___400 ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterPerform___400 ;
+    sysml:specific elmt:ThenAfterMembers__AfterPerform___400 ;
+    sysml:source elmt:ThenAfterMembers__AfterPerform___400 ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterPerform___400 ;
+    sysml:referencedFeature elmt:ThenAfterMembers__stride ;
+    sysml:subsettedFeature elmt:ThenAfterMembers__stride ;
+    sysml:general elmt:ThenAfterMembers__stride ;
+    sysml:target elmt:ThenAfterMembers__stride ;
+    sysml:owner elmt:ThenAfterMembers__AfterPerform___400 ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterPerform___400, elmt:ThenAfterMembers__stride ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterPerform___400\"},{\"@id\":\"ThenAfterMembers__stride\"}]" .
+
+elmt:ThenAfterMembers__AfterPerform__b_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__AfterPerform__b_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__AfterPerform__b ;
+    sysml:owningFeature elmt:ThenAfterMembers__AfterPerform__b ;
+    sysml:specific elmt:ThenAfterMembers__AfterPerform__b ;
+    sysml:source elmt:ThenAfterMembers__AfterPerform__b ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__AfterPerform__b ;
+    sysml:type elmt:ThenAfterMembers__Step ;
+    sysml:general elmt:ThenAfterMembers__Step ;
+    sysml:target elmt:ThenAfterMembers__Step ;
+    sysml:owner elmt:ThenAfterMembers__AfterPerform__b ;
+    sysml:relatedElement elmt:ThenAfterMembers__AfterPerform__b, elmt:ThenAfterMembers__Step ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterPerform__b\"},{\"@id\":\"ThenAfterMembers__Step\"}]" .
+
+elmt:ThenAfterMembers__ThenAlone__a_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__ThenAlone__a_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__ThenAlone__a ;
+    sysml:owningFeature elmt:ThenAfterMembers__ThenAlone__a ;
+    sysml:specific elmt:ThenAfterMembers__ThenAlone__a ;
+    sysml:source elmt:ThenAfterMembers__ThenAlone__a ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__ThenAlone__a ;
+    sysml:type elmt:ThenAfterMembers__Step ;
+    sysml:general elmt:ThenAfterMembers__Step ;
+    sysml:target elmt:ThenAfterMembers__Step ;
+    sysml:owner elmt:ThenAfterMembers__ThenAlone__a ;
+    sysml:relatedElement elmt:ThenAfterMembers__ThenAlone__a, elmt:ThenAfterMembers__Step ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__ThenAlone__a\"},{\"@id\":\"ThenAfterMembers__Step\"}]" .
+
+elmt:ThenAfterMembers__ThenAlone__b_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__ThenAlone__b_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__ThenAlone__b ;
+    sysml:owningFeature elmt:ThenAfterMembers__ThenAlone__b ;
+    sysml:specific elmt:ThenAfterMembers__ThenAlone__b ;
+    sysml:source elmt:ThenAfterMembers__ThenAlone__b ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__ThenAlone__b ;
+    sysml:type elmt:ThenAfterMembers__Step ;
+    sysml:general elmt:ThenAfterMembers__Step ;
+    sysml:target elmt:ThenAfterMembers__Step ;
+    sysml:owner elmt:ThenAfterMembers__ThenAlone__b ;
+    sysml:relatedElement elmt:ThenAfterMembers__ThenAlone__b, elmt:ThenAfterMembers__Step ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__ThenAlone__b\"},{\"@id\":\"ThenAfterMembers__Step\"}]" .
+
+elmt:ThenAfterMembers__Lamp__level_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__Lamp__level_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__Lamp__level ;
+    sysml:owningFeature elmt:ThenAfterMembers__Lamp__level ;
+    sysml:specific elmt:ThenAfterMembers__Lamp__level ;
+    sysml:source elmt:ThenAfterMembers__Lamp__level ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__Lamp__level ;
+    sysml:type elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
+    sysml:general elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
+    sysml:target elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
+    sysml:owner elmt:ThenAfterMembers__Lamp__level ;
+    sysml:relatedElement elmt:ThenAfterMembers__Lamp__level, elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__Lamp__level\"},{\"@id\":\"f2350199-2ab1-5258-8514-58812ef25dc6\"}]" .
+
+elmt:ThenAfterMembers__Switch__pressed_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ThenAfterMembers__Switch__pressed_ft0" ;
+    sysml:typedFeature elmt:ThenAfterMembers__Switch__pressed ;
+    sysml:owningFeature elmt:ThenAfterMembers__Switch__pressed ;
+    sysml:specific elmt:ThenAfterMembers__Switch__pressed ;
+    sysml:source elmt:ThenAfterMembers__Switch__pressed ;
+    sysml:owningRelatedElement elmt:ThenAfterMembers__Switch__pressed ;
+    sysml:type elmt:d1e9242d-b2e3-5270-bf69-4f4fb0447193 ;
+    sysml:general elmt:d1e9242d-b2e3-5270-bf69-4f4fb0447193 ;
+    sysml:target elmt:d1e9242d-b2e3-5270-bf69-4f4fb0447193 ;
+    sysml:owner elmt:ThenAfterMembers__Switch__pressed ;
+    sysml:relatedElement elmt:ThenAfterMembers__Switch__pressed, elmt:d1e9242d-b2e3-5270-bf69-4f4fb0447193 ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__Switch__pressed\"},{\"@id\":\"d1e9242d-b2e3-5270-bf69-4f4fb0447193\"}]" .

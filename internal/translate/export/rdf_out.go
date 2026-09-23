@@ -214,7 +214,12 @@ func (e *UnsupportedError) Error() string {
 // it was written as alongside its structural triples, so the conversion needs
 // the bytes as well as the tree.
 func ToRDF(file *source.SourceFile, root *ast.RootNamespace) (*rdf.Graph, error) {
-	e, err := encodeDocument(file, root, "")
+	return ToRDFWith(file, root, IDQualifiedName)
+}
+
+// ToRDFWith is ToRDF with the id form the caller asks for.
+func ToRDFWith(file *source.SourceFile, root *ast.RootNamespace, form IDForm) (*rdf.Graph, error) {
+	e, err := encodeDocument(file, root, "", form)
 	if err != nil {
 		return nil, err
 	}
@@ -223,11 +228,11 @@ func ToRDF(file *source.SourceFile, root *ast.RootNamespace) (*rdf.Graph, error)
 
 // encodeDocument converts a parsed document, returning the encoder that holds
 // the graph and where in file each element was written; library is as for analyzeDocument.
-func encodeDocument(file *source.SourceFile, root *ast.RootNamespace, library string) (*encoder, error) {
+func encodeDocument(file *source.SourceFile, root *ast.RootNamespace, library string, form IDForm) (*encoder, error) {
 	if file == nil || root == nil {
 		return nil, &UnsupportedError{What: "an empty document", Note: "nothing to convert"}
 	}
-	e, err := newEncoder(file, root, library)
+	e, err := newEncoder(file, root, library, form)
 	if err != nil {
 		return nil, err
 	}
@@ -236,6 +241,7 @@ func encodeDocument(file *source.SourceFile, root *ast.RootNamespace, library st
 		return nil, err
 	}
 	e.importedMemberships()
+	e.materializeNormative()
 	if e.idErr != nil {
 		return nil, e.idErr
 	}
@@ -280,9 +286,9 @@ func (e *encoder) sourceText() {
 
 // newEncoder resolves a parsed document, builds its identity side table and
 // records each member's qualified name, so references can be told from names.
-func newEncoder(file *source.SourceFile, root *ast.RootNamespace, library string) (*encoder, error) {
+func newEncoder(file *source.SourceFile, root *ast.RootNamespace, library string, form IDForm) (*encoder, error) {
 	res, model := analyzeDocument(file, root, library)
-	ids, err := documentIdentity(file.Name(), res, model)
+	ids, err := documentIdentity(file.Name(), res, model, form)
 	if err != nil {
 		return nil, err
 	}
@@ -621,7 +627,7 @@ func (e *encoder) encodeMembers(kept []ast.Node, regions []region, inline bool, 
 			e.preceding[node] = preceding
 		}
 		h := memberHead{node: node, visibility: visibility, owner: ownerTerm, index: i,
-			lines: regions[i], inline: inline, typeFeature: isTypeFeatureMember(member)}
+			lines: regions[i], inline: inline, typeFeature: isTypeFeatureMember(member), last: i == len(kept)-1}
 		if err := e.encodeMember(h, owner); err != nil {
 			return err
 		}
@@ -674,6 +680,15 @@ type memberHead struct {
 	// typeFeature marks a KerML `member` (TypeFeatureMember): a feature its type
 	// owns through a plain OwningMembership rather than a FeatureMembership.
 	typeFeature bool
+	// last marks the body's closing member, which a constraint body writes back
+	// bare as its result expression.
+	last bool
+	// membershipClass, when set, is the metaclass the minted membership is
+	// typed with instead of FeatureMembership — the SubjectMembership of a
+	// `subject` member or the RequirementConstraintMembership of a `require`
+	// member — and membershipExtra adds the metaclass's own ends to it.
+	membershipClass string
+	membershipExtra func(rdf.Term)
 	// local is the subject of a declaration inside an expression body, which has
 	// no qualified name and no owning namespace: the body positions it.
 	local rdf.Term
@@ -709,7 +724,7 @@ func (e *encoder) head(subject rdf.Term, h memberHead) {
 			e.graph.Add(subject, e.sysml(pOwningNamespace), ownerTerm)
 		}
 		_, crossing := node.(*ast.CrossFeatureMember)
-		membership = e.owningMembership(node, subject, ownerTerm, fqn, ast.IsExpression(node), e.variantMember(node, ownerTerm), crossing || h.typeFeature)
+		membership = e.owningMembership(node, subject, ownerTerm, fqn, ast.IsExpression(node), e.variantMember(node, ownerTerm), crossing || h.typeFeature, h.membershipClass, h.membershipExtra)
 	}
 	if keyword := visibilityKeyword(visibility); keyword != "" {
 		// The membership states the visibility a member is declared with; a
@@ -806,6 +821,12 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			return err
 		}
 		e.relationships(subject, owner, n.Relationships)
+		if n.Kind == ast.DefPort {
+			// Every port definition owns its conjugate (SysML.xtext
+			// ConjugatedPortDefinitionMember), which the `~P` typing of a
+			// conjugated port usage resolves to.
+			e.conjugatedPortDefinition(subject, fqn, n)
+		}
 		e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(n.HasBody))
 		return members(n.Members)
 
@@ -814,6 +835,17 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		metaclass, ok := usageMetaclassOf(n, inBody)
 		if !ok {
 			return &UnsupportedError{What: fmt.Sprintf("usage kind %q at %s", n.Kind, e.where(n))}
+		}
+		// An actor, stakeholder or objective member is a parameter its
+		// membership owns (SysML.xtext ActorMember & co.): the parameter kind
+		// is the membership's metaclass, and the parameter itself is a usage.
+		parameterClass, parameterEnd := parameterMembership(n.Kind)
+		if parameterClass != "" {
+			h.membershipClass = parameterClass
+			h.membershipExtra = func(membership rdf.Term) {
+				e.graph.Add(membership, e.sysml(parameterEnd), subject)
+				e.graph.Add(membership, e.sysml(pOwnedMemberParameter), subject)
+			}
 		}
 		head(rdf.SysMLTerm(metaclass))
 		if !shorthandRelationship(n) {
@@ -869,6 +901,9 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		}
 		if keyword := directionKeyword(n.Direction); keyword != "" {
 			e.graph.Add(subject, e.sysml(pDirection), rdf.String(keyword))
+		} else if parameterClass != "" {
+			// A parameter member is read `in` when it states no direction of its own.
+			e.graph.Add(subject, e.sysml(pDirection), rdf.String("in"))
 		}
 		if portion := portionKeyword(n.Portion); portion != "" {
 			e.graph.Add(subject, e.sysml(pPortionKind), rdf.String(portion))
@@ -895,6 +930,11 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			return err
 		}
 		if err := e.featureValue(subject, within, n.Value, n.ValueIsDefault, n.ValueIsInitial); err != nil {
+			return err
+		}
+		// A `satisfy R by s` head states its subject through a SubjectMembership
+		// holding an unnamed reference to s (SysML.xtext SatisfyRequirementUsage).
+		if err := e.subjectParameters(subject, within, n.Relationships); err != nil {
 			return err
 		}
 		// A declaration head that binds ends (connect/bind/flow/succession),
@@ -1012,20 +1052,52 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		return members(n.Members)
 
 	case *ast.ConstraintMember:
-		// A condition of a constraint body, written bare (`x > 0`) or as a
-		// nested constraint (`assert constraint [name] { … }`).
-		head(rdf.OpenSysMLTerm(mConstraint))
+		// A bare condition is an expression element of its own; the one closing
+		// the body is the result the constraint evaluates (SysML.xtext
+		// ownedResultExpression), owned through a ResultExpressionMembership.
+		if n.Keyword == "" && n.Name == "" && n.Body == nil {
+			if h.last {
+				h.membershipClass = mResultExpressionMembership
+			}
+			head(rdf.SysMLTerm(expressionMetaclass(n.Expression)))
+			e.graph.Prefixes[rdf.ExpressionPrefix] = rdf.Expression
+			if err := e.expressionStructure(subject, within, n.Expression); err != nil {
+				return err
+			}
+			if h.last {
+				if membership, ok := e.graph.Object(subject, rdf.SysML+pOwningMembership); ok {
+					e.graph.Add(membership, e.sysml(pOwnedResultExpression), subject)
+				}
+			}
+			return nil
+		}
+		// A keyworded condition is an AssertConstraintUsage: `assert R` states
+		// the constraint it references, `assert constraint c { … }` declares a
+		// nested one. `assume` has no metaclass of its own and keeps the keyword.
+		head(rdf.SysMLTerm(mAssertConstraintUsage))
 		if n.Name != "" {
 			e.graph.Add(subject, e.sysml(pDeclaredName), rdf.String(n.Name))
 		}
-		if n.Keyword != "" {
-			e.graph.Add(subject, e.sysx(xDeclaredKeyword), rdf.String(n.Keyword))
+		if n.Keyword == "assume" {
+			e.graph.Add(subject, e.sysx(xDeclaredKeyword), rdf.String("assume"))
 		}
 		e.flags(subject, []boolProperty{{"isNegated", n.IsNegated}})
-		return e.condition(subject, fqn, within, n.Expression, nil, true, n.Body)
+		reference, _ := n.Expression.(*ast.QualifiedName)
+		var expr ast.Node
+		if reference == nil {
+			expr = n.Expression
+		}
+		return e.condition(subject, fqn, within, expr, reference, n.Body != nil, n.Body)
 
 	case *ast.AssumeMember:
-		head(rdf.OpenSysMLTerm(mAssume))
+		// An `assume` member owns its constraint usage through a
+		// RequirementConstraintMembership whose kind is an assumption.
+		h.membershipClass = mRequirementConstraintMembership
+		h.membershipExtra = func(membership rdf.Term) {
+			e.graph.Add(membership, e.sysml(pKind), rdf.String("assumption"))
+			e.graph.Add(membership, e.sysml(pOwnedConstraint), subject)
+		}
+		head(rdf.SysMLTerm(mConstraintUsage))
 		return e.requirementCondition(subject, fqn, within, requirementConditionDecl{
 			prefixes: n.Prefixes, ident: n.Ident, relationships: n.Relationships, multiplicity: n.Multiplicity,
 			value: n.Value, isDefault: n.ValueIsDefault, isInitial: n.ValueIsInitial,
@@ -1033,7 +1105,12 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		})
 
 	case *ast.RequireMember:
-		head(rdf.OpenSysMLTerm(mRequire))
+		h.membershipClass = mRequirementConstraintMembership
+		h.membershipExtra = func(membership rdf.Term) {
+			e.graph.Add(membership, e.sysml(pKind), rdf.String("requirement"))
+			e.graph.Add(membership, e.sysml(pOwnedConstraint), subject)
+		}
+		head(rdf.SysMLTerm(mConstraintUsage))
 		return e.requirementCondition(subject, fqn, within, requirementConditionDecl{
 			prefixes: n.Prefixes, ident: n.Ident, relationships: n.Relationships, multiplicity: n.Multiplicity,
 			value: n.Value, isDefault: n.ValueIsDefault, isInitial: n.ValueIsInitial,
@@ -1047,10 +1124,16 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		return e.metadataUsage(subject, fqn, owner, n, "@")
 
 	case *ast.SubjectMember:
-		// A subject parameter is a usage of its own (SysML v2 8.2.2.16), so it
-		// is mapped as the SubjectMembership a `subject s : X` declares.
-		head(rdf.SysMLTerm(usageMetaclass[ast.UsageSubject]))
+		// A subject parameter is the ReferenceUsage its SubjectMembership owns
+		// (SysML v2 8.2.2.16 SysML.xtext SubjectMember), read in by default.
+		h.membershipClass = mSubjectMembership
+		h.membershipExtra = func(membership rdf.Term) {
+			e.graph.Add(membership, e.sysml(pOwnedSubjectParameter), subject)
+			e.graph.Add(membership, e.sysml(pOwnedMemberParameter), subject)
+		}
+		head(rdf.SysMLTerm(mReferenceUsage))
 		e.ident(subject, n.Ident)
+		e.graph.Add(subject, e.sysml(pDirection), rdf.String("in"))
 		if n.TypeRef != nil {
 			e.graph.Add(subject, e.sysml(relationshipProperty[ast.RelTyping]), e.reference(n.TypeRef))
 		}
@@ -1068,8 +1151,10 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		return e.encode(n.Body, fqn, subject)
 
 	case *ast.FilterMember:
-		head(rdf.OpenSysMLTerm(mFilter))
-		return e.expression(subject, e.sysx(xFilter), xFilter, within, n.Condition)
+		// A `filter <cond>` member is an ElementFilterMembership owning the
+		// condition expression (KerML ElementFilterMembership::condition).
+		head(rdf.SysMLTerm(mElementFilterMembership))
+		return e.expression(subject, e.sysml(pCondition), "filter", within, n.Condition)
 
 	case *ast.ErrorNode:
 		return &UnsupportedError{
@@ -1137,7 +1222,7 @@ func (e *encoder) localShape(node ast.Node) error {
 // which a ResultExpressionMembership owns; variant a usage a VariantMembership
 // owns; plain a feature its type owns through a plain OwningMembership rather
 // than a FeatureMembership: an end's cross feature, or a KerML `member` feature.
-func (e *encoder) owningMembership(node ast.Node, member, owner rdf.Term, memberFQN string, result, variant, plain bool) rdf.Term {
+func (e *encoder) owningMembership(node ast.Node, member, owner rdf.Term, memberFQN string, result, variant, plain bool, membershipClass string, membershipExtra func(rdf.Term)) rdf.Term {
 	ownerClass, memberClass := e.metaclassOf(owner), e.metaclassOf(member)
 	// A metadata usage annotates its owner through an OwningMembership whatever
 	// the owner is, a relationship included (SysML.xtext PrefixMetadataMember).
@@ -1148,9 +1233,11 @@ func (e *encoder) owningMembership(node ast.Node, member, owner rdf.Term, member
 		// membership owns the action it states.
 		e.relationshipOwnership(member, owner, ownerClass, memberClass)
 		return rdf.Term{}
-	case isRelationship(memberClass):
-		// A namespace owns a relationship it declares — an import, a dependency,
-		// a membership — as an owned relationship, with no membership between.
+	case isRelationship(memberClass) &&
+		(ontology.IsAncestorOrSelf(memberClass, "Import") || ontology.IsAncestorOrSelf(memberClass, "Membership")):
+		// A namespace owns an import or a membership-family member — an alias —
+		// as an owned relationship, with no membership between; every other
+		// declared relationship is a member, owned through an OwningMembership.
 		e.graph.Add(member, e.sysml(pOwner), owner)
 		e.graph.Add(member, e.sysml(pOwningRelatedElement), owner)
 		e.graph.Add(owner, e.sysml(pOwnedRelationship), member)
@@ -1181,6 +1268,8 @@ func (e *encoder) owningMembership(node ast.Node, member, owner rdf.Term, member
 	}
 	metaclass := mOwningMembership
 	switch {
+	case membershipClass != "":
+		metaclass = membershipClass
 	case result:
 		metaclass = mResultExpressionMembership
 	case variant:
@@ -1189,6 +1278,9 @@ func (e *encoder) owningMembership(node ast.Node, member, owner rdf.Term, member
 		metaclass = mFeatureMembership
 	}
 	e.emitMembershipCore(membership, member, owner, metaclass, !isRelationship(ownerClass))
+	if membershipExtra != nil {
+		membershipExtra(membership)
+	}
 	// Only a namespace has members; a relationship owner just owns the membership.
 	if !isRelationship(ownerClass) {
 		e.graph.Add(owner, e.sysml(pOwnedMember), member)
@@ -1435,8 +1527,8 @@ func (e *encoder) connectorEnd(subject rdf.Term, end connectorEndSpec) error {
 	if end.target == nil {
 		return nil
 	}
-	feature := rdf.ExpressionIRI(subject, end.slot)
-	membership := rdf.OwningMembershipIRIOf(feature)
+	feature := e.ids.mintedNode(rdf.ExpressionIRI(subject, end.slot), subject, end.slot)
+	membership := e.ids.minted(rdf.OwningMembershipIRIOf(feature), feature, rdf.OwningMembershipSuffix)
 	e.graph.Prefixes[rdf.ExpressionPrefix] = rdf.Expression
 	e.typed(feature, crossFeatureMetaclass(false))
 	e.graph.Add(feature, e.sysml(pElementID), rdf.String(rdf.LocalName(feature.Value)))
@@ -1503,7 +1595,7 @@ func (e *encoder) endReferences(feature rdf.Term, target ast.Node) error {
 // referenceSubsetting writes the standard relationship that connects an end
 // feature to the feature or expression it references.
 func (e *encoder) referenceSubsetting(feature, target rdf.Term) {
-	subsetting := rdf.ExpressionIRI(feature, "rs")
+	subsetting := e.ids.mintedNode(rdf.ExpressionIRI(feature, "rs"), feature, "rs")
 	e.typed(subsetting, mReferenceSubsetting)
 	e.graph.Add(subsetting, e.sysml(pElementID), rdf.String(rdf.LocalName(subsetting.Value)))
 	for _, property := range []string{pReferencingFeature, pSubsettingFeature, pSpecific, pSource, pOwningFeature, pOwningType} {
@@ -1522,13 +1614,13 @@ func (e *encoder) referenceSubsetting(feature, target rdf.Term) {
 
 // chainFeature creates an owned structural Feature holding ordered chain segments.
 func (e *encoder) chainFeature(feature rdf.Term, segments []rdf.Term) {
-	chain := rdf.ExpressionIRI(feature, "chain")
+	chain := e.ids.mintedNode(rdf.ExpressionIRI(feature, "chain"), feature, "chain")
 	e.typed(chain, mFeature)
 	e.graph.Add(chain, e.sysml(pElementID), rdf.String(rdf.LocalName(chain.Value)))
 	for _, segment := range segments {
 		e.graph.Add(chain, e.sysml(pChainingFeature), segment)
 	}
-	membership := rdf.OwningMembershipIRIOf(chain)
+	membership := e.ids.minted(rdf.OwningMembershipIRIOf(chain), chain, rdf.OwningMembershipSuffix)
 	e.emitMembershipCore(membership, chain, feature, mOwningMembership, true)
 	e.graph.Add(feature, e.sysml(pOwnedRelationship), membership)
 	e.graph.Add(feature, e.sysml(pOwnedMembership), membership)
@@ -1822,20 +1914,88 @@ func (e *encoder) relationshipEnd(subject rdf.Term, owner, property string, end 
 	e.graph.Add(subject, e.sysml(property), rdf.TypedLiteral(e.text(end), rdf.OpenSysML+dtExpression))
 }
 
+// multiplicity emits the MultiplicityRange a declared multiplicity is
+// (SysML.xtext OwnedMultiplicityRangeMember): the bounds are owned by the
+// range, which the head's collapsed bounds still state beside it.
 func (e *encoder) multiplicity(subject rdf.Term, owner string, mult *ast.Multiplicity) error {
 	if mult == nil {
 		return nil
 	}
+	e.graph.Prefixes[rdf.ExpressionPrefix] = rdf.Expression
+	rangeNode := e.ids.mintedNode(rdf.ExpressionIRI(subject, "multiplicity"), subject, "multiplicity")
+	membership := e.ids.minted(rdf.OwningMembershipIRIOf(rangeNode), rangeNode, rdf.OwningMembershipSuffix)
+	for _, c := range []struct{ iri, standsFor string }{
+		{rangeNode.Value, "the multiplicity range of " + rdf.LocalName(subject.Value)},
+		{membership.Value, "the owning membership of the multiplicity range"},
+	} {
+		if prior, taken := e.claim(c.iri, c.standsFor); taken && e.idErr == nil {
+			e.idErr = &UnsupportedError{
+				What: c.standsFor,
+				Note: fmt.Sprintf("its id lands on the same IRI as %s, and merging two elements into one subject would be a different model", prior),
+			}
+		}
+	}
+	e.typed(rangeNode, mMultiplicityRange)
+	e.graph.Add(rangeNode, e.sysml(pElementID), rdf.String(rdf.LocalName(rangeNode.Value)))
+	e.graph.Add(subject, e.sysml(pMultiplicity), rangeNode)
+	e.emitMembershipCore(membership, rangeNode, subject, mOwningMembership, true)
+	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
+	e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
 	// The parser puts the single bound of `[n]` in Lower; the language reads
 	// that as lower and upper both being n, so it is written as the upper bound
 	// alone and the printer renders it back as `[n]`.
+	lower, upper := mult.Lower, mult.Upper
 	if !mult.IsRange {
-		return e.expression(subject, e.sysml(pUpperBound), pUpperBound, owner, mult.Lower)
+		lower, upper = nil, mult.Lower
 	}
-	if err := e.expression(subject, e.sysml(pLowerBound), pLowerBound, owner, mult.Lower); err != nil {
+	for _, bound := range []struct {
+		property string
+		node     ast.Node
+	}{
+		{pLowerBound, lower},
+		{pUpperBound, upper},
+	} {
+		if err := e.multiplicityBound(subject, rangeNode, owner, bound.property, bound.node); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// multiplicityBound emits one bound of a multiplicity range: the literal the
+// head states collapsed and the range owns through its own membership.
+func (e *encoder) multiplicityBound(subject, rangeNode rdf.Term, owner, property string, node ast.Node) error {
+	if node == nil {
+		return nil
+	}
+	bound := e.ids.mintedNode(rdf.ExpressionIRI(subject, property), subject, property)
+	membership := e.ids.minted(rdf.OwningMembershipIRIOf(bound), bound, rdf.OwningMembershipSuffix)
+	e.graph.Add(subject, e.sysml(property), bound)
+	e.graph.Add(rangeNode, e.sysml(property), bound)
+	if err := e.expressionNode(bound, owner, node); err != nil {
 		return err
 	}
-	return e.expression(subject, e.sysml(pUpperBound), pUpperBound, owner, mult.Upper)
+	e.emitMembershipCore(membership, bound, rangeNode, mOwningMembership, true)
+	e.graph.Add(rangeNode, e.sysml(pOwnedRelationship), membership)
+	e.graph.Add(rangeNode, e.sysml(pOwnedMembership), membership)
+	return nil
+}
+
+// parameterMembership is the membership metaclass and its parameter end for
+// the member kinds whose declaration is a usage the membership owns, or ""
+// for a member that is not a parameter.
+func parameterMembership(kind ast.UsageKind) (class, end string) {
+	switch kind {
+	case ast.UsageSubject:
+		return mSubjectMembership, "ownedSubjectParameter"
+	case ast.UsageActor:
+		return mActorMembership, "ownedActorParameter"
+	case ast.UsageStakeholder:
+		return mStakeholderMembership, "ownedStakeholderParameter"
+	case ast.UsageObjective:
+		return mObjectiveMembership, "ownedObjectiveRequirement"
+	}
+	return "", ""
 }
 
 // reference renders a name reference as a link when it resolves to an element

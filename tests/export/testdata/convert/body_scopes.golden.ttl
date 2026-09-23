@@ -58,6 +58,9 @@ elmt:Lib__limit
     sysml:declaredName "limit" ;
     sysml:type elmt:Lib__Gauge ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Lib__limit_ft0 ;
+    sysml:ownedSpecialization elmt:Lib__limit_ft0 ;
+    sysml:ownedRelationship elmt:Lib__limit_ft0 ;
     sysx:sourceText "    attribute limit : Gauge;\n" .
 
 elmt:Lib__limit_om
@@ -208,7 +211,8 @@ expr:Scopes__D__one_pvalue_poperand
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "xs" ;
     sysml:elementId "Scopes__D__one_pvalue_poperand" ;
-    sysml:referent elmt:Scopes__D__xs .
+    sysml:referent elmt:Scopes__D__xs ;
+    sysml:ownedRelationship expr:Scopes__D__one_pvalue_poperand_preferent .
 
 expr:Scopes__D__one_pvalue_pa0
     a sysml:Expression ;
@@ -232,7 +236,8 @@ expr:Scopes__D__one_pvalue_pa0_presult
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "limit" ;
     sysml:elementId "Scopes__D__one_pvalue_pa0_presult" ;
-    sysml:referent "limit" .
+    sysml:referent "limit" ;
+    sysml:ownedRelationship expr:Scopes__D__one_pvalue_pa0_presult_preferent .
 
 expr:Scopes__D__one_pvalue_pin0
     a sysml:Feature ;
@@ -329,7 +334,8 @@ expr:Scopes__D__two_pvalue_poperand
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "xs" ;
     sysml:elementId "Scopes__D__two_pvalue_poperand" ;
-    sysml:referent elmt:Scopes__D__xs .
+    sysml:referent elmt:Scopes__D__xs ;
+    sysml:ownedRelationship expr:Scopes__D__two_pvalue_poperand_preferent .
 
 expr:Scopes__D__two_pvalue_pa0
     a sysml:Expression ;
@@ -353,7 +359,8 @@ expr:Scopes__D__two_pvalue_pa0_presult
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "Gauge" ;
     sysml:elementId "Scopes__D__two_pvalue_pa0_presult" ;
-    sysml:referent "Gauge" .
+    sysml:referent "Gauge" ;
+    sysml:ownedRelationship expr:Scopes__D__two_pvalue_pa0_presult_preferent .
 
 expr:Scopes__D__two_pvalue_pin0
     a sysml:Feature ;
@@ -436,7 +443,8 @@ expr:Scopes__D__outside_pvalue
     sysml:referent elmt:Lib__limit ;
     sysml:owner elmt:Scopes__D__outside ;
     sysml:owningRelationship expr:Scopes__D__outside_pvalue_om ;
-    sysml:owningMembership expr:Scopes__D__outside_pvalue_om .
+    sysml:owningMembership expr:Scopes__D__outside_pvalue_om ;
+    sysml:ownedRelationship expr:Scopes__D__outside_pvalue_preferent .
 
 expr:Scopes__D__outside_pvalue_om
     a sysml:FeatureValue ;
@@ -462,6 +470,9 @@ elmt:Scopes__D__g
     sysml:declaredName "g" ;
     sysml:type elmt:Lib__Gauge ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Scopes__D__g_ft0 ;
+    sysml:ownedSpecialization elmt:Scopes__D__g_ft0 ;
+    sysml:ownedRelationship elmt:Scopes__D__g_ft0 ;
     sysx:sourceText "        attribute g : Gauge;\n" .
 
 elmt:Scopes__D__g_om
@@ -475,3 +486,68 @@ elmt:Scopes__D__g_om
     sysml:membershipOwningNamespace elmt:Scopes__D ;
     sysml:ownedMemberFeature elmt:Scopes__D__g ;
     sysml:owningType elmt:Scopes__D .
+
+elmt:Lib__limit_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Lib__limit_ft0" ;
+    sysml:typedFeature elmt:Lib__limit ;
+    sysml:owningFeature elmt:Lib__limit ;
+    sysml:specific elmt:Lib__limit ;
+    sysml:source elmt:Lib__limit ;
+    sysml:owningRelatedElement elmt:Lib__limit ;
+    sysml:type elmt:Lib__Gauge ;
+    sysml:general elmt:Lib__Gauge ;
+    sysml:target elmt:Lib__Gauge ;
+    sysml:owner elmt:Lib__limit ;
+    sysml:relatedElement elmt:Lib__limit, elmt:Lib__Gauge ;
+    json:relatedElement "[{\"@id\":\"Lib__limit\"},{\"@id\":\"Lib__Gauge\"}]" .
+
+expr:Scopes__D__one_pvalue_poperand_preferent
+    a sysml:Membership ;
+    sysml:elementId "Scopes__D__one_pvalue_poperand_preferent" ;
+    sysml:memberElement elmt:Scopes__D__xs ;
+    sysml:owner expr:Scopes__D__one_pvalue_poperand ;
+    sysml:owningRelatedElement expr:Scopes__D__one_pvalue_poperand .
+
+expr:Scopes__D__one_pvalue_pa0_presult_preferent
+    a sysml:Membership ;
+    sysml:elementId "Scopes__D__one_pvalue_pa0_presult_preferent" ;
+    sysml:memberElement "limit" ;
+    sysml:owner expr:Scopes__D__one_pvalue_pa0_presult ;
+    sysml:owningRelatedElement expr:Scopes__D__one_pvalue_pa0_presult .
+
+expr:Scopes__D__two_pvalue_poperand_preferent
+    a sysml:Membership ;
+    sysml:elementId "Scopes__D__two_pvalue_poperand_preferent" ;
+    sysml:memberElement elmt:Scopes__D__xs ;
+    sysml:owner expr:Scopes__D__two_pvalue_poperand ;
+    sysml:owningRelatedElement expr:Scopes__D__two_pvalue_poperand .
+
+expr:Scopes__D__two_pvalue_pa0_presult_preferent
+    a sysml:Membership ;
+    sysml:elementId "Scopes__D__two_pvalue_pa0_presult_preferent" ;
+    sysml:memberElement "Gauge" ;
+    sysml:owner expr:Scopes__D__two_pvalue_pa0_presult ;
+    sysml:owningRelatedElement expr:Scopes__D__two_pvalue_pa0_presult .
+
+expr:Scopes__D__outside_pvalue_preferent
+    a sysml:Membership ;
+    sysml:elementId "Scopes__D__outside_pvalue_preferent" ;
+    sysml:memberElement elmt:Lib__limit ;
+    sysml:owner expr:Scopes__D__outside_pvalue ;
+    sysml:owningRelatedElement expr:Scopes__D__outside_pvalue .
+
+elmt:Scopes__D__g_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Scopes__D__g_ft0" ;
+    sysml:typedFeature elmt:Scopes__D__g ;
+    sysml:owningFeature elmt:Scopes__D__g ;
+    sysml:specific elmt:Scopes__D__g ;
+    sysml:source elmt:Scopes__D__g ;
+    sysml:owningRelatedElement elmt:Scopes__D__g ;
+    sysml:type elmt:Lib__Gauge ;
+    sysml:general elmt:Lib__Gauge ;
+    sysml:target elmt:Lib__Gauge ;
+    sysml:owner elmt:Scopes__D__g ;
+    sysml:relatedElement elmt:Scopes__D__g, elmt:Lib__Gauge ;
+    json:relatedElement "[{\"@id\":\"Scopes__D__g\"},{\"@id\":\"Lib__Gauge\"}]" .

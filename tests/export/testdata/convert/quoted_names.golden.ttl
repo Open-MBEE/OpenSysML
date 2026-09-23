@@ -93,6 +93,9 @@ elmt:Quoted_20Names__Rover_20Model__dry_20mass
     sysml:declaredName "dry mass" ;
     sysml:type elmt:Quoted_20Names__Mass_20_28kg_29 ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Quoted_20Names__Rover_20Model__dry_20mass_ft0 ;
+    sysml:ownedSpecialization elmt:Quoted_20Names__Rover_20Model__dry_20mass_ft0 ;
+    sysml:ownedRelationship elmt:Quoted_20Names__Rover_20Model__dry_20mass_ft0 ;
     sysx:sourceText "        attribute 'dry mass' : 'Mass (kg)';\n" .
 
 elmt:Quoted_20Names__Rover_20Model__dry_20mass_om
@@ -121,6 +124,8 @@ elmt:Quoted_20Names__Rover_20Model__mass_20limit
     sysml:ownedMember elmt:Quoted_20Names__Rover_20Model__mass_20limit___400 ;
     sysml:ownedMembership elmt:Quoted_20Names__Rover_20Model__mass_20limit___400_om ;
     sysml:ownedRelationship elmt:Quoted_20Names__Rover_20Model__mass_20limit___400_om ;
+    sysml:ownedFeature elmt:Quoted_20Names__Rover_20Model__mass_20limit___400 ;
+    sysml:ownedFeatureMembership elmt:Quoted_20Names__Rover_20Model__mass_20limit___400_om ;
     sysx:sourceText "        constraint 'mass limit' {\n" ;
     sysx:sourceTail "        }\n" .
 
@@ -137,7 +142,7 @@ elmt:Quoted_20Names__Rover_20Model__mass_20limit_om
     sysml:owningType elmt:Quoted_20Names__Rover_20Model .
 
 elmt:Quoted_20Names__Rover_20Model__mass_20limit___400
-    a sysx:ConstraintMember ;
+    a sysml:OperatorExpression ;
     sysml:qualifiedName "Quoted Names::Rover Model::mass limit::@0" ;
     sysml:elementId "Quoted_20Names__Rover_20Model__mass_20limit___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
@@ -145,139 +150,122 @@ elmt:Quoted_20Names__Rover_20Model__mass_20limit___400
     sysml:owner elmt:Quoted_20Names__Rover_20Model__mass_20limit ;
     sysml:owningRelationship elmt:Quoted_20Names__Rover_20Model__mass_20limit___400_om ;
     sysml:owningMembership elmt:Quoted_20Names__Rover_20Model__mass_20limit___400_om ;
-    sysx:condition expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition ;
-    sysml:ownedRelationship expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_om ;
-    sysml:ownedMembership expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_om ;
-    sysx:sourceText "            'dry mass' > 0\n" .
+    sysml:operator ">" ;
+    sysml:argument expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pa0, expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pa1 ;
+    sysml:ownedRelationship expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pin0_om, expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pin1_om ;
+    sysml:ownedMembership expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pin0_om, expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pin1_om ;
+    sysml:ownedFeatureMembership expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pin0_om, expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pin1_om ;
+    sysml:ownedFeature expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pin0, expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pin1 ;
+    sysml:parameter expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pin0, expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pin1 ;
+    sysml:input expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pin0, expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pin1 ;
+    sysx:sourceText "            'dry mass' > 0\n" ;
+    json:argument "[{\"@id\":\"Quoted_20Names__Rover_20Model__mass_20limit___400_pa0\"},{\"@id\":\"Quoted_20Names__Rover_20Model__mass_20limit___400_pa1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Quoted_20Names__Rover_20Model__mass_20limit___400_pin0_om\"},{\"@id\":\"Quoted_20Names__Rover_20Model__mass_20limit___400_pin1_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Quoted_20Names__Rover_20Model__mass_20limit___400_pin0_om\"},{\"@id\":\"Quoted_20Names__Rover_20Model__mass_20limit___400_pin1_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Quoted_20Names__Rover_20Model__mass_20limit___400_pin0_om\"},{\"@id\":\"Quoted_20Names__Rover_20Model__mass_20limit___400_pin1_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Quoted_20Names__Rover_20Model__mass_20limit___400_pin0\"},{\"@id\":\"Quoted_20Names__Rover_20Model__mass_20limit___400_pin1\"}]" ;
+    json:parameter "[{\"@id\":\"Quoted_20Names__Rover_20Model__mass_20limit___400_pin0\"},{\"@id\":\"Quoted_20Names__Rover_20Model__mass_20limit___400_pin1\"}]" ;
+    json:input "[{\"@id\":\"Quoted_20Names__Rover_20Model__mass_20limit___400_pin0\"},{\"@id\":\"Quoted_20Names__Rover_20Model__mass_20limit___400_pin1\"}]" .
 
 elmt:Quoted_20Names__Rover_20Model__mass_20limit___400_om
-    a sysml:OwningMembership ;
+    a sysml:ResultExpressionMembership ;
     sysml:elementId "Quoted_20Names__Rover_20Model__mass_20limit___400_om" ;
     sysml:owner elmt:Quoted_20Names__Rover_20Model__mass_20limit ;
     sysml:memberElement elmt:Quoted_20Names__Rover_20Model__mass_20limit___400 ;
     sysml:ownedMemberElement elmt:Quoted_20Names__Rover_20Model__mass_20limit___400 ;
     sysml:ownedRelatedElement elmt:Quoted_20Names__Rover_20Model__mass_20limit___400 ;
     sysml:owningRelatedElement elmt:Quoted_20Names__Rover_20Model__mass_20limit ;
-    sysml:membershipOwningNamespace elmt:Quoted_20Names__Rover_20Model__mass_20limit .
+    sysml:membershipOwningNamespace elmt:Quoted_20Names__Rover_20Model__mass_20limit ;
+    sysml:ownedMemberFeature elmt:Quoted_20Names__Rover_20Model__mass_20limit___400 ;
+    sysml:owningType elmt:Quoted_20Names__Rover_20Model__mass_20limit ;
+    sysml:ownedResultExpression elmt:Quoted_20Names__Rover_20Model__mass_20limit___400 .
 
-expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition
-    a sysml:OperatorExpression ;
-    sysx:sourceText "'dry mass' > 0" ;
-    sysml:elementId "Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition" ;
-    sysml:operator ">" ;
-    sysml:argument expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pa0, expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pa1 ;
-    sysml:ownedRelationship expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin0_om, expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin1_om ;
-    sysml:ownedMembership expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin0_om, expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin1_om ;
-    sysml:ownedFeatureMembership expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin0_om, expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin1_om ;
-    sysml:ownedFeature expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin0, expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin1 ;
-    sysml:parameter expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin0, expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin1 ;
-    sysml:input expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin0, expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin1 ;
-    sysml:owner elmt:Quoted_20Names__Rover_20Model__mass_20limit___400 ;
-    sysml:owningRelationship expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_om ;
-    sysml:owningMembership expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_om ;
-    json:argument "[{\"@id\":\"Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pa0\"},{\"@id\":\"Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pa1\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin0_om\"},{\"@id\":\"Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin1_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin0_om\"},{\"@id\":\"Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin1_om\"}]" ;
-    json:ownedFeatureMembership "[{\"@id\":\"Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin0_om\"},{\"@id\":\"Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin1_om\"}]" ;
-    json:ownedFeature "[{\"@id\":\"Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin0\"},{\"@id\":\"Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin1\"}]" ;
-    json:parameter "[{\"@id\":\"Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin0\"},{\"@id\":\"Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin1\"}]" ;
-    json:input "[{\"@id\":\"Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin0\"},{\"@id\":\"Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin1\"}]" .
-
-expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pa0
+expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "'dry mass'" ;
-    sysml:elementId "Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pa0" ;
+    sysml:elementId "Quoted_20Names__Rover_20Model__mass_20limit___400_pa0" ;
     sysml:referent elmt:Quoted_20Names__Rover_20Model__dry_20mass ;
-    sysml:owner expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin0 ;
-    sysml:owningRelationship expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pa0_om ;
-    sysml:owningMembership expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pa0_om .
+    sysml:owner expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pin0 ;
+    sysml:owningRelationship expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pa0_om ;
+    sysml:owningMembership expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pa0_om ;
+    sysml:ownedRelationship expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pa0_preferent .
 
-expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin0
+expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pin0
     a sysml:Feature ;
-    sysml:elementId "Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin0" ;
+    sysml:elementId "Quoted_20Names__Rover_20Model__mass_20limit___400_pin0" ;
     sysml:direction "in" ;
-    sysml:owner expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition ;
-    sysml:owningRelationship expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin0_om ;
-    sysml:owningMembership expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin0_om ;
-    sysml:ownedRelationship expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pa0_om ;
-    sysml:ownedMembership expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pa0_om .
+    sysml:owner elmt:Quoted_20Names__Rover_20Model__mass_20limit___400 ;
+    sysml:owningRelationship expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pin0_om ;
+    sysml:owningMembership expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pin0_om ;
+    sysml:ownedRelationship expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pa0_om ;
+    sysml:ownedMembership expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pa0_om .
 
-expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin0_om
+expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pin0_om
     a sysml:ParameterMembership ;
-    sysml:elementId "Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin0_om" ;
-    sysml:owner expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition ;
-    sysml:memberElement expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin0 ;
-    sysml:ownedMemberElement expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin0 ;
-    sysml:ownedRelatedElement expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin0 ;
-    sysml:owningRelatedElement expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition ;
-    sysml:membershipOwningNamespace expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition ;
-    sysml:ownedMemberFeature expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin0 ;
-    sysml:ownedMemberParameter expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin0 .
+    sysml:elementId "Quoted_20Names__Rover_20Model__mass_20limit___400_pin0_om" ;
+    sysml:owner elmt:Quoted_20Names__Rover_20Model__mass_20limit___400 ;
+    sysml:memberElement expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pin0 ;
+    sysml:ownedMemberElement expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pin0 ;
+    sysml:ownedRelatedElement expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pin0 ;
+    sysml:owningRelatedElement elmt:Quoted_20Names__Rover_20Model__mass_20limit___400 ;
+    sysml:membershipOwningNamespace elmt:Quoted_20Names__Rover_20Model__mass_20limit___400 ;
+    sysml:ownedMemberFeature expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pin0 ;
+    sysml:ownedMemberParameter expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pin0 .
 
-expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pa0_om
+expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pa0_om
     a sysml:FeatureValue ;
-    sysml:elementId "Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pa0_om" ;
-    sysml:owner expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin0 ;
-    sysml:memberElement expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pa0 ;
-    sysml:ownedMemberElement expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pa0 ;
-    sysml:ownedRelatedElement expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pa0 ;
-    sysml:owningRelatedElement expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin0 ;
-    sysml:membershipOwningNamespace expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin0 ;
-    sysml:featureWithValue expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin0 ;
-    sysml:value expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pa0 .
+    sysml:elementId "Quoted_20Names__Rover_20Model__mass_20limit___400_pa0_om" ;
+    sysml:owner expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pin0 ;
+    sysml:memberElement expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pa0 ;
+    sysml:ownedMemberElement expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pa0 ;
+    sysml:ownedRelatedElement expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pa0 ;
+    sysml:owningRelatedElement expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pin0 ;
+    sysml:membershipOwningNamespace expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pin0 ;
+    sysml:featureWithValue expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pin0 ;
+    sysml:value expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pa0 .
 
-expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pa1
+expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pa1
     a sysml:LiteralInteger ;
     sysx:sourceText "0" ;
-    sysml:elementId "Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pa1" ;
+    sysml:elementId "Quoted_20Names__Rover_20Model__mass_20limit___400_pa1" ;
     sysml:value "0"^^xsd:integer ;
-    sysml:owner expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin1 ;
-    sysml:owningRelationship expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pa1_om ;
-    sysml:owningMembership expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pa1_om .
+    sysml:owner expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pin1 ;
+    sysml:owningRelationship expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pa1_om ;
+    sysml:owningMembership expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pa1_om .
 
-expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin1
+expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pin1
     a sysml:Feature ;
-    sysml:elementId "Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin1" ;
+    sysml:elementId "Quoted_20Names__Rover_20Model__mass_20limit___400_pin1" ;
     sysml:direction "in" ;
-    sysml:owner expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition ;
-    sysml:owningRelationship expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin1_om ;
-    sysml:owningMembership expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin1_om ;
-    sysml:ownedRelationship expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pa1_om ;
-    sysml:ownedMembership expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pa1_om .
-
-expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin1_om
-    a sysml:ParameterMembership ;
-    sysml:elementId "Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin1_om" ;
-    sysml:owner expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition ;
-    sysml:memberElement expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin1 ;
-    sysml:ownedMemberElement expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin1 ;
-    sysml:ownedRelatedElement expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin1 ;
-    sysml:owningRelatedElement expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition ;
-    sysml:membershipOwningNamespace expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition ;
-    sysml:ownedMemberFeature expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin1 ;
-    sysml:ownedMemberParameter expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin1 .
-
-expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pa1_om
-    a sysml:FeatureValue ;
-    sysml:elementId "Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pa1_om" ;
-    sysml:owner expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin1 ;
-    sysml:memberElement expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pa1 ;
-    sysml:ownedMemberElement expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pa1 ;
-    sysml:ownedRelatedElement expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pa1 ;
-    sysml:owningRelatedElement expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin1 ;
-    sysml:membershipOwningNamespace expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin1 ;
-    sysml:featureWithValue expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pin1 ;
-    sysml:value expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_pa1 .
-
-expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_om
-    a sysml:OwningMembership ;
-    sysml:elementId "Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition_om" ;
     sysml:owner elmt:Quoted_20Names__Rover_20Model__mass_20limit___400 ;
-    sysml:memberElement expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition ;
-    sysml:ownedMemberElement expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition ;
-    sysml:ownedRelatedElement expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pcondition ;
+    sysml:owningRelationship expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pin1_om ;
+    sysml:owningMembership expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pin1_om ;
+    sysml:ownedRelationship expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pa1_om ;
+    sysml:ownedMembership expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pa1_om .
+
+expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pin1_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Quoted_20Names__Rover_20Model__mass_20limit___400_pin1_om" ;
+    sysml:owner elmt:Quoted_20Names__Rover_20Model__mass_20limit___400 ;
+    sysml:memberElement expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pin1 ;
+    sysml:ownedMemberElement expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pin1 ;
+    sysml:ownedRelatedElement expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pin1 ;
     sysml:owningRelatedElement elmt:Quoted_20Names__Rover_20Model__mass_20limit___400 ;
-    sysml:membershipOwningNamespace elmt:Quoted_20Names__Rover_20Model__mass_20limit___400 .
+    sysml:membershipOwningNamespace elmt:Quoted_20Names__Rover_20Model__mass_20limit___400 ;
+    sysml:ownedMemberFeature expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pin1 ;
+    sysml:ownedMemberParameter expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pin1 .
+
+expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pa1_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Quoted_20Names__Rover_20Model__mass_20limit___400_pa1_om" ;
+    sysml:owner expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pin1 ;
+    sysml:memberElement expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pa1 ;
+    sysml:ownedMemberElement expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pa1 ;
+    sysml:ownedRelatedElement expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pa1 ;
+    sysml:owningRelatedElement expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pin1 ;
+    sysml:membershipOwningNamespace expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pin1 ;
+    sysml:featureWithValue expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pin1 ;
+    sysml:value expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pa1 .
 
 elmt:Quoted_20Names__Rover_20Model__is_20light
     a sysml:AssertConstraintUsage ;
@@ -291,6 +279,9 @@ elmt:Quoted_20Names__Rover_20Model__is_20light
     sysml:declaredName "is light" ;
     sysml:type elmt:Quoted_20Names__Rover_20Model__mass_20limit ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Quoted_20Names__Rover_20Model__is_20light_ft0 ;
+    sysml:ownedSpecialization elmt:Quoted_20Names__Rover_20Model__is_20light_ft0 ;
+    sysml:ownedRelationship elmt:Quoted_20Names__Rover_20Model__is_20light_ft0 ;
     sysx:sourceText "        assert constraint 'is light' : 'mass limit';\n" .
 
 elmt:Quoted_20Names__Rover_20Model__is_20light_om
@@ -342,7 +333,13 @@ elmt:Quoted_20Names__my_20rover
     sysml:type elmt:Quoted_20Names__Rover_20Model ;
     sysml:subsets elmt:Quoted_20Names__Rover_20Model ;
     sysx:hasBody "false"^^xsd:boolean ;
-    sysx:sourceText "    part 'my rover' : 'Rover Model' :> 'Rover Model';\n" .
+    sysml:ownedTyping elmt:Quoted_20Names__my_20rover_ft0 ;
+    sysml:ownedSpecialization elmt:Quoted_20Names__my_20rover_ft0, elmt:Quoted_20Names__my_20rover_ss0 ;
+    sysml:ownedRelationship elmt:Quoted_20Names__my_20rover_ft0, elmt:Quoted_20Names__my_20rover_ss0 ;
+    sysml:ownedSubsetting elmt:Quoted_20Names__my_20rover_ss0 ;
+    sysx:sourceText "    part 'my rover' : 'Rover Model' :> 'Rover Model';\n" ;
+    json:ownedSpecialization "[{\"@id\":\"Quoted_20Names__my_20rover_ft0\"},{\"@id\":\"Quoted_20Names__my_20rover_ss0\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Quoted_20Names__my_20rover_ft0\"},{\"@id\":\"Quoted_20Names__my_20rover_ss0\"}]" .
 
 elmt:Quoted_20Names__my_20rover_om
     a sysml:OwningMembership ;
@@ -366,6 +363,9 @@ elmt:Quoted_20Names__off_20model
     sysml:declaredName "off model" ;
     sysml:type "Not Declared Here" ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Quoted_20Names__off_20model_ft0 ;
+    sysml:ownedSpecialization elmt:Quoted_20Names__off_20model_ft0 ;
+    sysml:ownedRelationship elmt:Quoted_20Names__off_20model_ft0 ;
     sysx:sourceText "    part 'off model' : 'Not Declared Here';\n" .
 
 elmt:Quoted_20Names__off_20model_om
@@ -413,6 +413,9 @@ elmt:Quoted_20Names__a_20state
     sysml:declaredName "a state" ;
     sysml:type elmt:Quoted_20Names__state ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Quoted_20Names__a_20state_ft0 ;
+    sysml:ownedSpecialization elmt:Quoted_20Names__a_20state_ft0 ;
+    sysml:ownedRelationship elmt:Quoted_20Names__a_20state_ft0 ;
     sysx:sourceText "    part 'a state' : 'state';\n" .
 
 elmt:Quoted_20Names__a_20state_om
@@ -433,13 +436,15 @@ elmt:Consumer
     sysx:sourceLanguage "sysml" ;
     sysml:declaredName "Consumer" ;
     sysx:hasBody "true"^^xsd:boolean ;
-    sysml:ownedRelationship elmt:Consumer___400, elmt:Consumer__r_om, elmt:Consumer___402 ;
+    sysml:ownedRelationship elmt:Consumer___400, elmt:Consumer__r_om, elmt:Consumer___402_om ;
     sysml:ownedImport elmt:Consumer___400 ;
-    sysml:ownedMember elmt:Consumer__r ;
-    sysml:ownedMembership elmt:Consumer__r_om ;
+    sysml:ownedMember elmt:Consumer__r, elmt:Consumer___402 ;
+    sysml:ownedMembership elmt:Consumer__r_om, elmt:Consumer___402_om ;
     sysx:sourceText "package Consumer {\n" ;
     sysx:sourceTail "}\n" ;
-    json:ownedRelationship "[{\"@id\":\"Consumer___400\"},{\"@id\":\"Consumer__r_om\"},{\"@id\":\"Consumer___402\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Consumer___400\"},{\"@id\":\"Consumer__r_om\"},{\"@id\":\"Consumer___402_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"Consumer__r\"},{\"@id\":\"Consumer___402\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Consumer__r_om\"},{\"@id\":\"Consumer___402_om\"}]" .
 
 elmt:Consumer___400
     a sysml:NamespaceImport ;
@@ -467,6 +472,9 @@ elmt:Consumer__r
     sysml:declaredName "r" ;
     sysml:type elmt:Quoted_20Names__Rover_20Model ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Consumer__r_ft0 ;
+    sysml:ownedSpecialization elmt:Consumer__r_ft0 ;
+    sysml:ownedRelationship elmt:Consumer__r_ft0 ;
     sysx:sourceText "    part r : 'Quoted Names'::'Rover Model';\n" .
 
 elmt:Consumer__r_om
@@ -486,8 +494,131 @@ elmt:Consumer___402
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Consumer ;
     sysml:owner elmt:Consumer ;
-    sysml:owningRelatedElement elmt:Consumer ;
+    sysml:owningRelationship elmt:Consumer___402_om ;
+    sysml:owningMembership elmt:Consumer___402_om ;
     sysml:client elmt:Consumer__r ;
     sysml:supplier elmt:Quoted_20Names__Rover_20Model ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "    dependency from r to 'Quoted Names'::'Rover Model';\n" .
+
+elmt:Consumer___402_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Consumer___402_om" ;
+    sysml:owner elmt:Consumer ;
+    sysml:memberElement elmt:Consumer___402 ;
+    sysml:ownedMemberElement elmt:Consumer___402 ;
+    sysml:ownedRelatedElement elmt:Consumer___402 ;
+    sysml:owningRelatedElement elmt:Consumer ;
+    sysml:membershipOwningNamespace elmt:Consumer .
+
+elmt:Quoted_20Names__Rover_20Model__dry_20mass_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Quoted_20Names__Rover_20Model__dry_20mass_ft0" ;
+    sysml:typedFeature elmt:Quoted_20Names__Rover_20Model__dry_20mass ;
+    sysml:owningFeature elmt:Quoted_20Names__Rover_20Model__dry_20mass ;
+    sysml:specific elmt:Quoted_20Names__Rover_20Model__dry_20mass ;
+    sysml:source elmt:Quoted_20Names__Rover_20Model__dry_20mass ;
+    sysml:owningRelatedElement elmt:Quoted_20Names__Rover_20Model__dry_20mass ;
+    sysml:type elmt:Quoted_20Names__Mass_20_28kg_29 ;
+    sysml:general elmt:Quoted_20Names__Mass_20_28kg_29 ;
+    sysml:target elmt:Quoted_20Names__Mass_20_28kg_29 ;
+    sysml:owner elmt:Quoted_20Names__Rover_20Model__dry_20mass ;
+    sysml:relatedElement elmt:Quoted_20Names__Rover_20Model__dry_20mass, elmt:Quoted_20Names__Mass_20_28kg_29 ;
+    json:relatedElement "[{\"@id\":\"Quoted_20Names__Rover_20Model__dry_20mass\"},{\"@id\":\"Quoted_20Names__Mass_20_28kg_29\"}]" .
+
+expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pa0_preferent
+    a sysml:Membership ;
+    sysml:elementId "Quoted_20Names__Rover_20Model__mass_20limit___400_pa0_preferent" ;
+    sysml:memberElement elmt:Quoted_20Names__Rover_20Model__dry_20mass ;
+    sysml:owner expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pa0 ;
+    sysml:owningRelatedElement expr:Quoted_20Names__Rover_20Model__mass_20limit___400_pa0 .
+
+elmt:Quoted_20Names__Rover_20Model__is_20light_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Quoted_20Names__Rover_20Model__is_20light_ft0" ;
+    sysml:typedFeature elmt:Quoted_20Names__Rover_20Model__is_20light ;
+    sysml:owningFeature elmt:Quoted_20Names__Rover_20Model__is_20light ;
+    sysml:specific elmt:Quoted_20Names__Rover_20Model__is_20light ;
+    sysml:source elmt:Quoted_20Names__Rover_20Model__is_20light ;
+    sysml:owningRelatedElement elmt:Quoted_20Names__Rover_20Model__is_20light ;
+    sysml:type elmt:Quoted_20Names__Rover_20Model__mass_20limit ;
+    sysml:general elmt:Quoted_20Names__Rover_20Model__mass_20limit ;
+    sysml:target elmt:Quoted_20Names__Rover_20Model__mass_20limit ;
+    sysml:owner elmt:Quoted_20Names__Rover_20Model__is_20light ;
+    sysml:relatedElement elmt:Quoted_20Names__Rover_20Model__is_20light, elmt:Quoted_20Names__Rover_20Model__mass_20limit ;
+    json:relatedElement "[{\"@id\":\"Quoted_20Names__Rover_20Model__is_20light\"},{\"@id\":\"Quoted_20Names__Rover_20Model__mass_20limit\"}]" .
+
+elmt:Quoted_20Names__my_20rover_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Quoted_20Names__my_20rover_ft0" ;
+    sysml:typedFeature elmt:Quoted_20Names__my_20rover ;
+    sysml:owningFeature elmt:Quoted_20Names__my_20rover ;
+    sysml:specific elmt:Quoted_20Names__my_20rover ;
+    sysml:source elmt:Quoted_20Names__my_20rover ;
+    sysml:owningRelatedElement elmt:Quoted_20Names__my_20rover ;
+    sysml:type elmt:Quoted_20Names__Rover_20Model ;
+    sysml:general elmt:Quoted_20Names__Rover_20Model ;
+    sysml:target elmt:Quoted_20Names__Rover_20Model ;
+    sysml:owner elmt:Quoted_20Names__my_20rover ;
+    sysml:relatedElement elmt:Quoted_20Names__my_20rover, elmt:Quoted_20Names__Rover_20Model ;
+    json:relatedElement "[{\"@id\":\"Quoted_20Names__my_20rover\"},{\"@id\":\"Quoted_20Names__Rover_20Model\"}]" .
+
+elmt:Quoted_20Names__my_20rover_ss0
+    a sysml:Subsetting ;
+    sysml:elementId "Quoted_20Names__my_20rover_ss0" ;
+    sysml:subsettingFeature elmt:Quoted_20Names__my_20rover ;
+    sysml:owningFeature elmt:Quoted_20Names__my_20rover ;
+    sysml:specific elmt:Quoted_20Names__my_20rover ;
+    sysml:source elmt:Quoted_20Names__my_20rover ;
+    sysml:owningRelatedElement elmt:Quoted_20Names__my_20rover ;
+    sysml:subsettedFeature elmt:Quoted_20Names__Rover_20Model ;
+    sysml:general elmt:Quoted_20Names__Rover_20Model ;
+    sysml:target elmt:Quoted_20Names__Rover_20Model ;
+    sysml:owner elmt:Quoted_20Names__my_20rover ;
+    sysml:relatedElement elmt:Quoted_20Names__my_20rover, elmt:Quoted_20Names__Rover_20Model ;
+    json:relatedElement "[{\"@id\":\"Quoted_20Names__my_20rover\"},{\"@id\":\"Quoted_20Names__Rover_20Model\"}]" .
+
+elmt:Quoted_20Names__off_20model_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Quoted_20Names__off_20model_ft0" ;
+    sysml:typedFeature elmt:Quoted_20Names__off_20model ;
+    sysml:owningFeature elmt:Quoted_20Names__off_20model ;
+    sysml:specific elmt:Quoted_20Names__off_20model ;
+    sysml:source elmt:Quoted_20Names__off_20model ;
+    sysml:owningRelatedElement elmt:Quoted_20Names__off_20model ;
+    sysml:type "Not Declared Here" ;
+    sysml:general "Not Declared Here" ;
+    sysml:target "Not Declared Here" ;
+    sysml:owner elmt:Quoted_20Names__off_20model ;
+    sysml:relatedElement elmt:Quoted_20Names__off_20model, "Not Declared Here" ;
+    json:relatedElement "[{\"@id\":\"Quoted_20Names__off_20model\"},\"Not Declared Here\"]" .
+
+elmt:Quoted_20Names__a_20state_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Quoted_20Names__a_20state_ft0" ;
+    sysml:typedFeature elmt:Quoted_20Names__a_20state ;
+    sysml:owningFeature elmt:Quoted_20Names__a_20state ;
+    sysml:specific elmt:Quoted_20Names__a_20state ;
+    sysml:source elmt:Quoted_20Names__a_20state ;
+    sysml:owningRelatedElement elmt:Quoted_20Names__a_20state ;
+    sysml:type elmt:Quoted_20Names__state ;
+    sysml:general elmt:Quoted_20Names__state ;
+    sysml:target elmt:Quoted_20Names__state ;
+    sysml:owner elmt:Quoted_20Names__a_20state ;
+    sysml:relatedElement elmt:Quoted_20Names__a_20state, elmt:Quoted_20Names__state ;
+    json:relatedElement "[{\"@id\":\"Quoted_20Names__a_20state\"},{\"@id\":\"Quoted_20Names__state\"}]" .
+
+elmt:Consumer__r_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Consumer__r_ft0" ;
+    sysml:typedFeature elmt:Consumer__r ;
+    sysml:owningFeature elmt:Consumer__r ;
+    sysml:specific elmt:Consumer__r ;
+    sysml:source elmt:Consumer__r ;
+    sysml:owningRelatedElement elmt:Consumer__r ;
+    sysml:type elmt:Quoted_20Names__Rover_20Model ;
+    sysml:general elmt:Quoted_20Names__Rover_20Model ;
+    sysml:target elmt:Quoted_20Names__Rover_20Model ;
+    sysml:owner elmt:Consumer__r ;
+    sysml:relatedElement elmt:Consumer__r, elmt:Quoted_20Names__Rover_20Model ;
+    json:relatedElement "[{\"@id\":\"Consumer__r\"},{\"@id\":\"Quoted_20Names__Rover_20Model\"}]" .
