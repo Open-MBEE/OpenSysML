@@ -296,6 +296,7 @@ package 'Fleet Documents' {
         satisfy 'Fleet Viewpoints'::'Requirements Viewpoint';
         view safety :> Safety;
         expose Fleet::Requirements::**;
+        expose Fleet::Requirements::**;
     }
     view Safety {
         satisfy 'Fleet Viewpoints'::'Safety Viewpoint';
@@ -600,6 +601,7 @@ package 'Fleet Views' {
         expose 'Fleet Viewpoints'::'Parts Viewpoint'::'Parts Method'::'Parts Method Flow';
         expose $::Fleet::Structure::Truck::'Truck Internals';
         expose Fleet::'Fleet Overview';
+        expose $::Fleet::Structure::'Truck Structure';
     }
     view 'Other Figures' {
         satisfy 'Fleet Viewpoints'::'Other Figures Viewpoint';

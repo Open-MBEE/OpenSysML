@@ -541,9 +541,10 @@ part def 'Fleet Handbook Document' :> DocumentQueries::Document {
 The method activity is walked from its initial node along control flow — object flows between
 pins carry data and are not followed; forks whose branches rejoin are walked branch by branch.
 The «Expose» suppliers (and the view's element and package imports) are the chain's root,
-`Named(qualifiedName = (…))`, and each collect, filter and sort step wraps the query so far; each
-presentation step ends one `calc def '<Document> <Title> Rows' :> Query` beside the document and
-one content part in the section, in the activity's order:
+`Named(qualifiedName = (…))`, each once however many times it is exposed, and each collect,
+filter and sort step wraps the query so far; each presentation step ends one
+`calc def '<Document> <Title> Rows' :> Query` beside the document and one content part in the
+section, in the activity's order:
 
 | DocGen step | Query or content |
 |---|---|

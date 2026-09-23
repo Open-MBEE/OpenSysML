@@ -349,6 +349,7 @@
 
       <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_intro" client="_view_intro" supplier="_pkg_structure"/>
       <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_reqs" client="_view_reqs" supplier="_pkg_reqs"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_reqs_again" client="_view_reqs" supplier="_pkg_reqs"/>
       <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_figures" client="_view_figures" supplier="_diag_truck"/>
       <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_trace" client="_view_trace" supplier="_req_load"/>
       <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_odd" client="_view_odd" supplier="_blk_truck"/>
@@ -375,6 +376,7 @@
       <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_selected_flow" client="_view_selected" supplier="_diag_parts_flow"/>
       <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_selected_internals" client="_view_selected" supplier="_diag_truck_internals"/>
       <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_selected_overview" client="_view_selected" supplier="_diag_fleet_overview"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_selected_again" client="_view_selected" supplier="_diag_truck"/>
       <packagedElement xmi:type="uml:Class" xmi:id="_view_others" name="Other Figures">
         <generalization xmi:type="uml:Generalization" xmi:id="_gen_others" general="_vp_others"/>
       </packagedElement>
@@ -510,6 +512,7 @@
 
   <sysml:Expose xmi:id="_st_expose_intro" base_Dependency="_expose_intro"/>
   <sysml:Expose xmi:id="_st_expose_reqs" base_Dependency="_expose_reqs"/>
+  <sysml:Expose xmi:id="_st_expose_reqs_again" base_Dependency="_expose_reqs_again"/>
   <sysml:Expose xmi:id="_st_expose_figures" base_Dependency="_expose_figures"/>
   <sysml:Expose xmi:id="_st_expose_trace" base_Dependency="_expose_trace"/>
   <sysml:Expose xmi:id="_st_expose_odd" base_Dependency="_expose_odd"/>
@@ -524,6 +527,7 @@
   <sysml:Expose xmi:id="_st_expose_selected_flow" base_Dependency="_expose_selected_flow"/>
   <sysml:Expose xmi:id="_st_expose_selected_internals" base_Dependency="_expose_selected_internals"/>
   <sysml:Expose xmi:id="_st_expose_selected_overview" base_Dependency="_expose_selected_overview"/>
+  <sysml:Expose xmi:id="_st_expose_selected_again" base_Dependency="_expose_selected_again"/>
   <sysml:Expose xmi:id="_st_expose_others" base_Dependency="_expose_others"/>
   <sysml:Expose xmi:id="_st_expose_others_flow" base_Dependency="_expose_others_flow"/>
   <sysml:Expose xmi:id="_st_expose_others_internals" base_Dependency="_expose_others_internals"/>

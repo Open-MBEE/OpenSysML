@@ -1,6 +1,6 @@
 # SysML v1 to v2 migration report: documents.xmi
 # exported by Example UML Tool
-# migrated 315 element(s): 232 mapped, 65 approximated, 18 unmapped (4 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 317 element(s): 234 mapped, 65 approximated, 18 unmapped (4 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
 ## unmapped (18)
 «CollaboratorImageParagraph» Comment	Fleet Documents::Notes::<Comment>	_st_note_blank_image	(the attached image "depot.png" has no caption, and a Diagram shows a view, not an image file)
@@ -89,11 +89,12 @@ Activity	Fleet Viewpoints::Traceability Viewpoint::Traceability Method	_act_trac
 «BulletedList» CallBehaviorAction	Fleet Viewpoints::Traceability Viewpoint::Traceability Method::Related Elements	_trace_list	-> 'Related Elements'	(a step with no behavior and no duration; it passes the token on)
 «BulletedList» CallBehaviorAction	Fleet Viewpoints::Traceability Viewpoint::Traceability Method::Related Elements	_st_trace_list	-> part 'Fleet Documents'::'Fleet Handbook Document'::Traceability::list	(its rows are the query 'Fleet Handbook Related Elements Rows'; each item's documentation follows its name)
 
-## mapped (232)
+## mapped (234)
 Package	Fleet	_pkg_fleet	-> Fleet
 Package	Fleet Documents	_pkg_docs	-> 'Fleet Documents'
 «Expose» Dependency	Fleet Documents::<Dependency>	_expose_intro	-> 'Fleet Documents'::Introduction
 «Expose» Dependency	Fleet Documents::<Dependency>	_expose_reqs	-> 'Fleet Documents'::Requirements
+«Expose» Dependency	Fleet Documents::<Dependency>	_expose_reqs_again	-> 'Fleet Documents'::Requirements
 «Expose» Dependency	Fleet Documents::<Dependency>	_expose_figures	-> 'Fleet Documents'::Figures
 «Expose» Dependency	Fleet Documents::<Dependency>	_expose_trace	-> 'Fleet Documents'::Traceability
 «Expose» Dependency	Fleet Documents::<Dependency>	_expose_odd	-> 'Fleet Documents'::Oddities
@@ -282,6 +283,7 @@ Package	Fleet Views	_pkg_views	-> 'Fleet Views'
 «Expose» Dependency	Fleet Views::<Dependency>	_expose_selected_flow	-> 'Fleet Views'::'Truck Figures'
 «Expose» Dependency	Fleet Views::<Dependency>	_expose_selected_internals	-> 'Fleet Views'::'Truck Figures'
 «Expose» Dependency	Fleet Views::<Dependency>	_expose_selected_overview	-> 'Fleet Views'::'Truck Figures'
+«Expose» Dependency	Fleet Views::<Dependency>	_expose_selected_again	-> 'Fleet Views'::'Truck Figures'
 «Expose» Dependency	Fleet Views::<Dependency>	_expose_others	-> 'Fleet Views'::'Other Figures'
 «Expose» Dependency	Fleet Views::<Dependency>	_expose_others_flow	-> 'Fleet Views'::'Other Figures'
 «Expose» Dependency	Fleet Views::<Dependency>	_expose_others_internals	-> 'Fleet Views'::'Other Figures'

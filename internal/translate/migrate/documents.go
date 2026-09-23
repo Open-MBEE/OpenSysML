@@ -327,8 +327,8 @@ func contains(ss []string, s string) bool {
 	return false
 }
 
-// roots sets the chain's elements to refs, named by qualified name; a ref
-// that resolves to no written element breaks the chain.
+// roots sets the chain's elements to refs, named by qualified name once each;
+// a ref that resolves to no written element breaks the chain.
 func (c *chain) roots(refs []sysmlv1.ElementRef, role string) {
 	c.ctx, c.diagrams, c.dropped, c.broken = qx{}, nil, "", ""
 	if len(refs) == 0 {
@@ -349,7 +349,9 @@ func (c *chain) roots(refs []sysmlv1.ElementRef, role string) {
 			c.broken = role + " " + kindOf(ref.Element) + " " + qualifiedName(ref.Element) + ", which is not migrated"
 			return
 		}
-		names = append(names, name)
+		if !contains(names, name) {
+			names = append(names, name)
+		}
 	}
 	if len(names) > 0 {
 		c.ctx = qcall("Named", qstrs("qualifiedName", names...))
