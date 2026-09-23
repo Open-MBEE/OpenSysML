@@ -92,6 +92,29 @@
             </diagramRepresentation>
           </xmi:Extension>
         </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_diagrams" name="Diagrams" ownerOfDiagram="_pkg_tables">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="Generic Table" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_blk_pump</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_model" name="Model Overview" ownerOfDiagram="_m">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Package Diagram" umlType="Package Diagram">
+                <diagramContents>
+                  <usedElements>_pkg_plant</usedElements>
+                  <usedElements>_pkg_tables</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
       </modelExtension>
     </xmi:Extension>
   </uml:Model>
@@ -124,6 +147,13 @@
 
   <MagicDraw_Profile:DiagramTable xmi:id="_tbl_classifiers" base_Diagram="_diag_classifiers" scope="_pkg_plant" includeSubtypesOfRowTypes="true">
     <rowElementType href="http://www.omg.org/spec/UML/20131001/UML.xmi#Classifier"/>
+    <columnIds>_NUMBER_</columnIds>
+    <columnIds>QPROP:Element:qualifiedName</columnIds>
+    <sort>QPROP:Element:qualifiedName^Asc</sort>
+  </MagicDraw_Profile:DiagramTable>
+
+  <MagicDraw_Profile:DiagramTable xmi:id="_tbl_diagrams" base_Diagram="_diag_diagrams" takeWholeModelAsScope="true" includeSubtypesOfRowTypes="true">
+    <rowElementType href="http://www.omg.org/spec/UML/20131001/UML.xmi#Diagram"/>
     <columnIds>_NUMBER_</columnIds>
     <columnIds>QPROP:Element:qualifiedName</columnIds>
     <sort>QPROP:Element:qualifiedName^Asc</sort>

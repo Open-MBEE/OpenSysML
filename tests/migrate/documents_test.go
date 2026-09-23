@@ -156,6 +156,14 @@ func TestMetaclassTablesExecute(t *testing.T) {
 			}
 		}
 	}
+
+	// A whole-model table over Diagram lists every view, the one the model
+	// itself owns — written at the top level — included.
+	diagrams := rows(t, s, "Tables::'Diagrams Rows'")
+	wantInOrder(t, "Diagrams rows", diagrams,
+		"returned 7 rows",
+		"Row 1: 'Model Overview'\n", "Plant::Views::Overview\n", "Tables::Classifiers\n", "Tables::Diagrams\n",
+		"Tables::Namespaces\n", "Tables::'Packageable Elements'\n", "Tables::Types\n")
 }
 
 // A table whose diagram the model itself owns is written at the top level,

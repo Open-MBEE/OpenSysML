@@ -129,4 +129,36 @@ package Tables {
             calc rows : 'Classifiers Rows';
         }
     }
+    view Diagrams {
+        expose Plant::Structure::Pump;
+        expose 'Diagrams Document';
+        render Views::asElementTable;
+    }
+    calc def 'Diagrams Rows' :> DocumentQueries::Query {
+        DocumentQueries::Project(
+            source = DocumentQueries::OrderBy(
+                source = DocumentQueries::WhereType(
+                    source = DocumentQueries::Union(
+                        source = DocumentQueries::Named(qualifiedName = ("Plant", "Tables", "Model Overview")),
+                        other = DocumentQueries::Descendants(
+                            source = DocumentQueries::Named(qualifiedName = ("Plant", "Tables", "Model Overview")))),
+                    type = ("ViewUsage")),
+                property = "qualifiedName",
+                direction = "ascending",
+                missing = "last",
+                multiple = "first"),
+            properties = ("qualifiedName"))
+    }
+    part def 'Diagrams Document' :> DocumentQueries::Document {
+        attribute redefines title = "Diagrams";
+        part rows : DocumentQueries::Table {
+            attribute redefines caption = "Diagrams";
+            calc rows : 'Diagrams Rows';
+        }
+    }
+}
+view 'Model Overview' {
+    expose Plant;
+    expose Tables;
+    render Views::asTreeDiagram;
 }
