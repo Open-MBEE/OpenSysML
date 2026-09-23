@@ -22,6 +22,10 @@ type elementIdentity struct {
 	scope    *identity.Scope
 	// membership is the normative id of the owning membership, for a library element.
 	membership string
+	// root is the qualified name of the document root enclosing the element,
+	// which the qualified-name text cannot split out itself (a quoted name may
+	// carry :: inside it).
+	root string
 }
 
 // identityFacts is the identity side table of one document translated for the
@@ -129,6 +133,13 @@ func documentIdentity(name string, res *resolve.Resolver, model *semantics.Model
 			scope:      info.Scope,
 			membership: info.OwningMembershipID(),
 		}
+		if root := identity.Root(sym); root != sym {
+			if ri, ok := table.Info(root); ok {
+				el.root = ri.FQN
+			}
+		} else {
+			el.root = info.FQN
+		}
 		facts.byFQN[info.FQN] = el
 		facts.byNode[sym.Decl] = el
 	}
@@ -231,7 +242,10 @@ func (f *identityFacts) subjectOf(el elementIdentity, fqn string) rdf.Term {
 		}
 		if f.form == IDUUID {
 			// The root package's own id is the package namespace itself.
-			root := rootOf(fqn)
+			root := el.root
+			if root == "" {
+				root = rootOf(fqn)
+			}
 			pkg := f.pkgFor(root)
 			out := rdf.ElementIRIForID(identity.DerivedID(pkg, id))
 			if fqn == root {
@@ -249,7 +263,11 @@ func (f *identityFacts) subjectOf(el elementIdentity, fqn string) rdf.Term {
 	}
 	pkg := ""
 	if f.form == IDUUID {
-		pkg = f.pkgFor(rootOf(fqn))
+		root := el.root
+		if root == "" {
+			root = rootOf(fqn)
+		}
+		pkg = f.pkgFor(root)
 	}
 	f.record(subject, pkg, id)
 	return subject

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
@@ -199,6 +200,38 @@ func TestUUIDIDs(t *testing.T) {
 		if uuidPattern.MatchString(id) {
 			t.Errorf("the default form minted a uuid %q", id)
 		}
+	}
+}
+
+// TestUUIDQuotedRootPackage checks a root package whose quoted name carries ::
+// still roots the uuid namespace as itself: the package's id is its namespace
+// uuid, its member's a derived id under it, and the name round trips.
+func TestUUIDQuotedRootPackage(t *testing.T) {
+	src := `package 'Sep::Pkg' { part p; }`
+	file := source.New("quoted.sysml", []byte(src))
+	p := parser.New(file)
+	root := p.ParseFile()
+	if len(p.Diagnostics) != 0 {
+		t.Fatalf("the fixture does not parse: %v", p.Diagnostics)
+	}
+	graph, err := ToRDFWith(file, root, IDUUID)
+	if err != nil {
+		t.Fatalf("ToRDFWith: %v", err)
+	}
+	pkg := identity.NamespaceOf(rdf.Element + rdf.EncodeElementID("Sep::Pkg"))
+	if !graph.HasProperty(rdf.ElementIRIForID(pkg), rdf.SysML+"qualifiedName") {
+		t.Fatalf("the package's id is not its namespace uuid %s:\n%s", pkg, rdf.WriteTurtle(graph))
+	}
+	member := rdf.ElementIRIForID(identity.DerivedID(pkg, rdf.EncodeElementID("Sep::Pkg::p")))
+	if !graph.HasProperty(member, rdf.SysML+"qualifiedName") {
+		t.Fatalf("the member's id is not derived under the root uuid %s:\n%s", member, rdf.WriteTurtle(graph))
+	}
+	back, err := ToSysML(graph)
+	if err != nil {
+		t.Fatalf("ToSysML: %v", err)
+	}
+	if !strings.Contains(string(back), "'Sep::Pkg'") {
+		t.Fatalf("the quoted root name did not round trip:\n%s", back)
 	}
 }
 
