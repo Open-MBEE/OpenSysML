@@ -328,22 +328,28 @@ func apiJSONTriples(graph *rdf.Graph, subject rdf.Term, predicate rdf.Term, sysm
 	}
 }
 
-// apiJSONReferenceTarget resolves a {"@id": <id>} member object into the IRI it
-// names from subject.
+// apiJSONReferenceTarget resolves a member object into the term it names: a
+// {"@id": <id>} reference the IRI it spells from subject, a {"@ref": <name>}
+// — sysml-toolkit's spelling of a target it could not resolve — the name
+// literal the mapping already writes for a name-valued reference.
 func apiJSONReferenceTarget(subject rdf.Term, object map[string]any, expressionIDs map[string]bool) (rdf.Term, error) {
-	id, ok := object["@id"].(string)
-	if !ok || len(object) != 1 || id == "" {
-		return rdf.Term{}, fmt.Errorf("an object value is a reference {\"@id\": <id>}")
+	if len(object) == 1 {
+		if id, ok := object["@id"].(string); ok && id != "" {
+			target := rdf.ReferenceIRI(subject, id)
+			if targetID, ok := rdf.SubjectID(target); ok && expressionIDs[targetID] {
+				target = rdf.IRI(rdf.Expression + targetID)
+			}
+			return target, nil
+		}
+		if name, ok := object["@ref"].(string); ok && name != "" {
+			return rdf.String(name), nil
+		}
 	}
-	target := rdf.ReferenceIRI(subject, id)
-	if targetID, ok := rdf.SubjectID(target); ok && expressionIDs[targetID] {
-		target = rdf.IRI(rdf.Expression + targetID)
-	}
-	return target, nil
+	return rdf.Term{}, fmt.Errorf("an object value is a reference {\"@id\": <id>} or {\"@ref\": <name>}")
 }
 
 // apiJSONCollection states an array member: one triple per value, recording
-// the collection on a sysml: key for its json: annotation.
+// a collection of at least two on a sysml: key for its json: annotation.
 func apiJSONCollection(graph *rdf.Graph, subject rdf.Term, predicate rdf.Term, sysmlKey string, values []any, expressionIDs map[string]bool, annotations *[]apiJSONAnnotation) error {
 	if len(values) == 0 {
 		return nil
@@ -368,7 +374,8 @@ func apiJSONCollection(graph *rdf.Graph, subject rdf.Term, predicate rdf.Term, s
 		}
 		graph.Add(subject, predicate, member)
 	}
-	if sysmlKey != "" {
+	// Like AnnotateCollections, only a collection of two or more is annotated.
+	if sysmlKey != "" && len(members) >= 2 {
 		*annotations = append(*annotations, apiJSONAnnotation{subject: subject, key: sysmlKey, members: members})
 	}
 	return nil
