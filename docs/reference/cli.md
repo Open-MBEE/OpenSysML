@@ -483,10 +483,22 @@ status 2. Rendering decides nothing about the model, so it cannot be combined wi
 with `-convert`.
 
 `-render-all <dir>` writes every declared view of all loaded files, in document and declaration
-order. Each qualified view name becomes a file name with `::` replaced by `.`. With no
-`-render-form`, graph-shaped kinds use Mermaid (`.mmd`) and tables use Markdown (`.md`); a forced
-text form uses `.txt` and unbounded width, a forced `dot` form uses `.dot`, and a forced `plantuml`
-form uses `.puml`, PlantUML's conventional extension.
+order. Each qualified view name becomes a file name with `::` replaced by `.`; any other byte a
+filesystem does not take in a name — `/`, `\`, `:`, `.` (so the two `.` cannot be confused), `%`,
+`<`, `>`, `"`, `|`, `?`, `*`, and control characters — is written as `%XX` (its byte in upper-case
+hex), and a stem Windows reads as a device (`CON`, `NUL`, `COM0`–`COM9`, `COM¹`–`COM³`, `LPT0`–`LPT9`,
+`LPT¹`–`LPT³`, in any letter case) has its first byte encoded too. The rule is the same on every
+platform and reverses to the view name, so `Views::'Pointing w/NSEN'` is written as
+`Views.Pointing w%2FNSEN.mmd`. A name that would run past
+the 255 bytes a path component may hold is cut short of that — at a boundary that splits neither a
+`%XX` nor a UTF-8 sequence — and tagged with `~` and the first 16 hex digits of the SHA-256 of the
+full encoded name, so two long names that agree up to the cut still take two files; such a file
+name no longer reads back to the view name. Two views whose names meet in the same path — letter
+case aside under Unicode's simple case folding, since a filesystem may ignore it — stop the run
+with status 2 naming both. With no
+`-render-form`, graph-shaped kinds use Mermaid (`.mmd`) and tables use Markdown (`.md`); a forced text form uses
+`.txt` and unbounded width, a forced `dot` form uses `.dot`, and a forced `plantuml` form uses
+`.puml`, PlantUML's conventional extension.
 
 ```bash
 sysml types.sysml model.sysml -render-all rendered

@@ -316,11 +316,20 @@ digraph "PlantViews::placedView" {
   pseudo-state, a 3.6 pt point for a start — and writes that `width`/`height` without
   `fixedsize`, so Graphviz may still grow the box for its own font but the corner is where the
   Layout put it under the writer's estimate. `collapsed` is kept as `comment="collapsed"`, an
-  attribute Graphviz ignores and a consumer can read.
+  attribute Graphviz ignores and a consumer can read. A node with no `Layout` whose edge
+  carries a `Route` of two or more waypoints is positioned by that route: the route's first
+  waypoint is where it leaves the edge's source and its last where it reaches the target, so the
+  node's box, sized as above, is centred one reach back from that waypoint along the route's end
+  segment (the edge meets the border); several routes place it at the mean of the centres they
+  give. A stated `Layout` always wins over a route, a route of one waypoint places nothing, and
+  a node with neither `Layout` nor route is unpositioned. The `start` node and an initial or
+  final node of a state rendering take their positions this way too, so a migrated diagram that
+  drew them as pseudo-states but named no member for them is still positioned throughout.
 - **Clusters.** A node drawn as a cluster writes its box as `bb="llx,lly,urx,ury"` and pins
   its anchor node at the box's centre. The box is the stated one, or, with a corner alone, the
   one from that corner round its positioned members' boxes with Graphviz's 8 pt cluster margin;
-  a cluster with neither has no box to state and pins its anchor at the corner.
+  a cluster with no `Layout` takes the box round its positioned members alone, and one with
+  a corner and no positioned member has no box to state and pins its anchor at the corner.
 - **Edges.** A `Route` becomes `pos` as the cubic B-spline Graphviz reads: each segment's ends
   are its own control points, so the spline is the polyline through the waypoints. A route of
   one waypoint draws no line; it is left out and noticed as `// not represented:`. Every edge a
@@ -331,9 +340,12 @@ digraph "PlantViews::placedView" {
   `neato -n2` when every node is positioned and any edge is routed (the pinned nodes and the
   written routes are taken as given, the other edges are drawn), `neato -n` when every node is
   positioned and no edge is routed, `neato` when only some nodes are (pinned nodes stay, the
-  rest are placed around them), `dot` when none is. `neato` and `dot` redraw every edge, so
-  when the header names either and a route was written, a `// not represented:` notice says
-  so. A rendering with no geometry is written byte for byte as before.
+  rest are placed around them), `dot` when none is. A node counts as positioned however its box
+  was found — by its `Layout`, round its members, or from a route — so a view whose every node
+  is placed or routed is written for `neato -n2`, which refuses a node with no position.
+  `neato` and `dot` redraw every edge, so when the header names either and a route was
+  written, a `// not represented:` notice says so. A rendering with no geometry is written byte
+  for byte as before.
 
 The writer is still text over the tree: no Graphviz binary is run to produce, check or test
 the output.

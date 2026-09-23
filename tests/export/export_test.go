@@ -3390,6 +3390,37 @@ func TestWriteFileNamesTheMissingDirectory(t *testing.T) {
 	}
 }
 
+// A destination whose name fills a 255-byte path component is still written
+// atomically: the temporary file beside it takes a shorter name.
+func TestWriteFileFitsALongName(t *testing.T) {
+	dir := t.TempDir()
+	name := strings.Repeat("ä", 124) + "a.sysml"
+	if len(name) != 255 {
+		t.Fatalf("name is %d bytes, want 255", len(name))
+	}
+	path := filepath.Join(dir, name)
+	if _, err := export.WriteFile(path, []byte("package P;\n")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := export.WriteFile(path, []byte("package Q;\n")); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "package Q;\n" {
+		t.Errorf("content = %q", data)
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 {
+		t.Errorf("leftover files in %s: %v", dir, entries)
+	}
+}
+
 // The REPL's tolerant save writes notation it could not fully parse and reports
 // the syntax errors; every other direction still refuses.
 func TestConvertTolerant(t *testing.T) {

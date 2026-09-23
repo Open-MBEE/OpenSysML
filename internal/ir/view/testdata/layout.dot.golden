@@ -1,9 +1,8 @@
 // view: PlantViews::placedView
 // kind: interconnection
 // stated: render asInterconnectionDiagram
-// not represented: 1 route(s) written as pos; neato redraws every edge, only neato -n2 keeps them
 // canvas: unit=px w=1200 h=800
-// layout: neato
+// layout: neato -n2
 digraph "PlantViews::placedView" {
   graph [fontname="Helvetica", inputscale=72, dpi=72];
   node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
@@ -14,7 +13,8 @@ digraph "PlantViews::placedView" {
     label=<<b>Loop</b><br/><font point-size="10"><i>«part def»</i></font>>;
     color=black;
     penwidth=0.5;
-    "n0" [shape=point, style=invis, width=0, height=0, label=""];
+    bb="292,692,628,768";
+    "n0" [shape=point, style=invis, width=0, height=0, label="", pos="460,730!", pin=true];
     "n1" [style="rounded,filled", label=<<b>pump : Pump</b><br/><font point-size="10"><i>«part»</i></font>>, pos="359,741.5!", pin=true, width=1.6388888888888888, height=0.5138888888888888, comment="collapsed"];
     "n2" [style="rounded,filled", label=<<b>tank : Tank</b><br/><font point-size="10"><i>«part»</i></font>>, pos="560,730!", pin=true, width=1.6666666666666667, height=0.8333333333333334, fixedsize=true];
   }

@@ -1,12 +1,16 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/chzyer/readline"
 
@@ -102,20 +106,32 @@ func runRenderAll(files []string) error {
 			}
 			return err
 		}
-		filename, err := renderFilename(info.Name, writtenForm)
-		if err != nil {
-			return err
-		}
-		path := filepath.Join(renderAllDir, filename)
-		if previous, exists := destinations[path]; exists {
+		path := filepath.Join(renderAllDir, renderFilename(info.Name, writtenForm))
+		// A filesystem that ignores letter case hands two such paths one file, so the key ignores it too.
+		key := caseFolded(path)
+		if previous, exists := destinations[key]; exists {
 			return fmt.Errorf("views %s and %s have the same rendering path %s", previous, info.Name, path)
 		}
-		destinations[path] = info.Name
+		destinations[key] = info.Name
 		if err := writeArtifactFile(path, artifact, writtenForm); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// caseFolded is text under simple Unicode case folding: two texts fold alike
+// exactly when strings.EqualFold holds of them.
+func caseFolded(text string) string {
+	var b strings.Builder
+	for _, r := range text {
+		least := r
+		for f := unicode.SimpleFold(r); f != r; f = unicode.SimpleFold(f) {
+			least = min(least, f)
+		}
+		b.WriteRune(least)
+	}
+	return b.String()
 }
 
 // renderOptions is what -render and -render-all write with: the text width,
@@ -165,12 +181,66 @@ func loadRenderingModel(files []string) (*repl.Session, error) {
 	return sess, nil
 }
 
-func renderFilename(name string, form view.Form) (string, error) {
-	filename := strings.ReplaceAll(name, "::", ".") + renderExtension(form)
-	if filepath.Base(filename) != filename || filename == "." || filename == ".." {
-		return "", fmt.Errorf("view %s does not form a safe rendering filename", name)
+// renderFilename is the file -render-all writes a view to: its qualified name with `::` as `.`,
+// every unsafe byte as `%XX` (the first too under a Windows device-name stem), cut to fit, the extension.
+func renderFilename(name string, form view.Form) string {
+	var b strings.Builder
+	for i := 0; i < len(name); i++ {
+		switch c := name[i]; {
+		case c == ':' && i+1 < len(name) && name[i+1] == ':':
+			b.WriteByte('.')
+			i++
+		case c < 0x20 || c == 0x7f || strings.IndexByte(unsafeFilenameBytes, c) >= 0:
+			fmt.Fprintf(&b, "%%%02X", c)
+		default:
+			b.WriteByte(c)
+		}
 	}
-	return filename, nil
+	filename := b.String()
+	if stem, _, _ := strings.Cut(filename, "."); windowsDeviceNames[strings.ToUpper(strings.TrimRight(stem, " "))] {
+		filename = fmt.Sprintf("%%%02X", filename[0]) + filename[1:]
+	}
+	ext := renderExtension(form)
+	if len(filename)+len(ext) > maxFilenameBytes {
+		sum := sha256.Sum256([]byte(filename))
+		tag := "~" + hex.EncodeToString(sum[:filenameTagBytes])
+		filename = cutFilename(filename, maxFilenameBytes-len(ext)-len(tag)) + tag
+	}
+	return filename + ext
+}
+
+// maxFilenameBytes is the longest name every common filesystem takes for one path component;
+// filenameTagBytes of the encoded name's hash keep a cut name apart from its neighbours.
+const (
+	maxFilenameBytes = 255
+	filenameTagBytes = 8
+)
+
+// cutFilename is the longest prefix of an encoded filename within n bytes that
+// splits neither a UTF-8 sequence nor a `%XX` escape.
+func cutFilename(filename string, n int) string {
+	for n > 0 && n < len(filename) && !utf8.RuneStart(filename[n]) {
+		n--
+	}
+	if i := strings.LastIndexByte(filename[:n], '%'); i >= 0 && i > n-3 {
+		n = i
+	}
+	return filename[:n]
+}
+
+// unsafeFilenameBytes are the printable bytes a rendering filename encodes: path separators,
+// the drive colon, the encoding's own `%`, the `.` standing for `::`, and what Windows reserves.
+const unsafeFilenameBytes = "/\\:%.<>\"|?*"
+
+// windowsDeviceNames are the stems Windows reads as devices whatever the extension,
+// trailing spaces and letter case aside: the serial and printer ports include the
+// superscript digits Windows counts among them.
+var windowsDeviceNames = map[string]bool{
+	"CON": true, "PRN": true, "AUX": true, "NUL": true,
+	"COM0": true, "COM1": true, "COM2": true, "COM3": true, "COM4": true, "COM5": true, "COM6": true, "COM7": true, "COM8": true, "COM9": true,
+	"COM¹": true, "COM²": true, "COM³": true,
+	"LPT0": true, "LPT1": true, "LPT2": true, "LPT3": true, "LPT4": true, "LPT5": true, "LPT6": true, "LPT7": true, "LPT8": true, "LPT9": true,
+	"LPT¹": true, "LPT²": true, "LPT³": true,
 }
 
 func renderExtension(form view.Form) string {

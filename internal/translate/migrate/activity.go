@@ -1310,6 +1310,7 @@ func (a *activity) declare(n *sysmlv1.Element) {
 	name := writeName(a.name(n, baseName(n)))
 	a.leadIn(n, name)
 	a.declareNode(n, name)
+	a.m.declared[n] = true
 }
 
 // leadIn writes what a token passes on its way into n, named into: its wait,
