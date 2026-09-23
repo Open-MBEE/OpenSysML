@@ -101,6 +101,8 @@ const (
 	xSourceTail     = "sourceTail"
 	xSourceLanguage = "sourceLanguage"
 	xFilter         = "filter"
+	// xIsConstructor is only read: an older graph flags `new` on an InvocationExpression.
+	xIsConstructor = "isConstructor"
 	// xExpose is only read: an older graph flags an expose on an abstract sysml:Import.
 	xExpose          = "isExpose"
 	xDeclaredKeyword = "declaredKeyword"

@@ -2,6 +2,8 @@ package export_test
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -31,6 +33,7 @@ const namedInvocations = `package Calls {
     feature named : Integer = pick(a = 2, b = 3);
     feature chained : Boolean = not s.signal.condition();
     feature piped : Integer = s.reading->twice();
+    feature chosen2 : Integer = s.reading->pick(1);
     feature made : Sensor = new Sensor();
 }
 `
@@ -134,5 +137,72 @@ func TestInvocationWithoutAFunctionIsRefused(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "an invocation names the function it invokes") {
 		t.Errorf("the refusal does not say what is missing: %v", err)
+	}
+}
+
+// An earlier release wrote an arrow invocation with the receiver in
+// sysml:operand only, its arguments as ParameterMemberships beside a legacy
+// sysml:argument list, `new` as sysx:isConstructor on an InvocationExpression,
+// and a `return` parameter under a plain FeatureMembership. That graph still
+// reads back, source text stripped, as the notation that produced it.
+func TestLegacyInvocationGraphStillReads(t *testing.T) {
+	legacy, err := os.ReadFile(filepath.Join("testdata", "legacy_invocations.ttl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, marker := range []string{"sysx:isConstructor", "sysml:argument", "a sysml:FeatureMembership"} {
+		if !strings.Contains(string(legacy), marker) {
+			t.Fatalf("the legacy fixture no longer states %s", marker)
+		}
+	}
+	if strings.Contains(string(legacy), "ConstructorExpression") || strings.Contains(string(legacy), "ReturnParameterMembership") {
+		t.Fatal("the legacy fixture is written in today's shape")
+	}
+	back, err := convert.Convert("legacy.ttl", withoutSourceText(t, legacy), convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("legacy graph refused: %v", err)
+	}
+	want := `package Legacy {
+    private import ScalarValues::*;
+    function twice {
+        in x : Integer;
+        return : Integer = x + x;
+    }
+    class Sensor {
+        feature reading : Integer;
+    }
+    feature s : Sensor;
+    feature piped : Integer = s.reading->twice();
+    feature piped2 : Integer = s.reading->twice(1);
+    feature made : Sensor = new Sensor();
+}
+`
+	if string(back) != want {
+		t.Errorf("legacy invocations were not rebuilt:\n--- want ---\n%s--- got ---\n%s", want, back)
+	}
+}
+
+// A receiver that the parameter memberships place anywhere but first is a
+// contradiction, not an older shape, and is refused even with no legacy
+// argument list to disagree with.
+func TestInvocationReceiverMisplacedIsRefused(t *testing.T) {
+	turtle := string(withoutTriples(t, withoutTriples(t, invocationTurtle(t), "sysml:argument"), "json:argument"))
+	receiver, argument := "Calls__chosen2_pvalue_pin0_om", "Calls__chosen2_pvalue_pin1_om"
+	var lines []string
+	swapped := 0
+	for _, line := range strings.Split(turtle, "\n") {
+		if strings.Contains(line, receiver) && strings.Contains(line, argument) {
+			line = strings.NewReplacer(receiver, argument, argument, receiver).Replace(line)
+			swapped++
+		}
+		lines = append(lines, line)
+	}
+	if swapped == 0 {
+		t.Fatalf("the graph does not order two parameters for `chosen2`:\n%s", turtle)
+	}
+	_, err := convert.Convert("calls.ttl", []byte(strings.Join(lines, "\n")), convert.FormatTurtle, convert.FormatSysML)
+	var unsupported *export.UnsupportedError
+	if !errors.As(err, &unsupported) || !strings.Contains(err.Error(), "not its first parameter") {
+		t.Fatalf("misplaced receiver was not refused: %v", err)
 	}
 }

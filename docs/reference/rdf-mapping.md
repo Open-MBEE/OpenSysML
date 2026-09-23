@@ -1333,6 +1333,12 @@ Graphs written by earlier releases still import. This includes the legacy
 reached only through their positional properties. When both standard
 `ParameterMembership` operands and legacy arguments are present, they are
 compared by ordered identity and argument name; disagreement is refused.
+Earlier releases also left the receiver of `x->f(a)` out of the parameters,
+naming it by `sysml:operand` alone, spelled `new` as `sysx:isConstructor` on a
+`sysml:InvocationExpression`, and owned a `return` parameter through a plain
+`FeatureMembership` with `sysml:isResult`: each still reads. A receiver the
+parameters do place, anywhere but first, and an `isResult` that contradicts a
+`ParameterMembership`/`ReturnParameterMembership` are refused.
 Likewise, when direct and typed `FeatureValue` value routes are both present,
 equal roots are rendered once and conflicting roots are refused.
 
@@ -1825,7 +1831,10 @@ top-level element's id with `_ns` appended and each membership the member's
 id with `_om`, the suffix every other owning membership uses; in the `uuid`
 form both are UUIDv5 names in the same namespace the top-level element's
 uuid is minted in, so a document's ids are stable across the two forms and
-across re-exports.
+across re-exports. Encoded names cannot spell either suffix, but a document
+read from another writer may already use any id, so a suffix is repeated
+(`P_ns_ns`, `P_om_om`) until it names a subject the graph does not hold; the
+choice depends only on the graph, so it too is the same on every run.
 
 The Turtle form does not carry the wrapper. Turtle is this mapping's own
 notation round-trip carrier, and its root subjects are the document's own

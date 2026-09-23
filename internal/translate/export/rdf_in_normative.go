@@ -474,12 +474,18 @@ func (d *decoder) parameterMembershipKind(el *element) (ast.UsageKind, bool) {
 
 // returnMember reports whether el is the result parameter a
 // ReturnParameterMembership owns, which is written `return`; a graph whose
-// sysml:isResult denies the membership is refused.
+// sysml:isResult contradicts a parameter membership's metaclass is refused.
+// Older graphs own the result through a plain FeatureMembership, which says nothing.
 func (d *decoder) returnMember(el *element) (bool, error) {
 	m, owned := d.owningMembership[el.iri]
-	normative := owned && d.metaclass(rdf.IRI(m.iri)) == mReturnParameterMembership
+	var mclass string
+	if owned {
+		mclass = d.metaclass(rdf.IRI(m.iri))
+	}
+	normative := mclass == mReturnParameterMembership
+	parameterKind := normative || mclass == mParameterMembership
 	collapsed, stated := d.graph.Object(rdf.IRI(el.iri), rdf.SysML+"isResult")
-	if stated && normative != (collapsed.Value == "true") {
+	if stated && parameterKind && normative != (collapsed.Value == "true") {
 		return false, &UnsupportedError{
 			What: fmt.Sprintf("the member <%s>", el.iri),
 			Note: "its sysml:isResult and the metaclass of its owning membership disagree about whether it is a `return` parameter",

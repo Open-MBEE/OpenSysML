@@ -1548,26 +1548,29 @@ func indexText(index operand) string {
 }
 
 func (d *decoder) invocationText(node rdf.Term, in *element) (string, error) {
-	terms, err := d.expressionOperandTerms(node)
+	terms, normative, err := d.expressionOperandTerms(node)
 	if err != nil {
 		return "", err
 	}
 	receiver, hasReceiver := d.graph.Object(node, rdf.SysML+pOperand)
-	constructor := d.metaclass(node) == mConstructor
+	// Older graphs flag `new` on an InvocationExpression instead of the metaclass.
+	constructor := d.metaclass(node) == mConstructor || d.graph.BoolValue(node, rdf.OpenSysML+xIsConstructor)
 	function, hasFunction, err := d.calleeText(node, in)
 	if err != nil {
 		return "", err
 	}
 	if hasReceiver && hasFunction {
-		// The receiver of `x->f(a)` is the first argument; the operand triple
-		// only keeps the arrow spelling, so both must name the same expression.
-		if len(terms) == 0 || terms[0].term != receiver || terms[0].name != "" {
+		// The receiver of `x->f(a)` is the first parameter; the operand triple
+		// only keeps the arrow spelling. Older graphs left it out of the
+		// parameters altogether, so its absence is accepted, only a misplacement refused.
+		if len(terms) > 0 && terms[0].term == receiver && terms[0].name == "" {
+			terms = terms[1:]
+		} else if normative && operandTermIndex(terms, receiver) >= 0 {
 			return "", &UnsupportedError{
 				What: fmt.Sprintf("the expression <%s>", node.Value),
-				Note: fmt.Sprintf("its operand <%s> is not its first argument, and the two statements cannot both hold", receiver.Value),
+				Note: fmt.Sprintf("its operand <%s> is not its first parameter, and the two statements cannot both hold", receiver.Value),
 			}
 		}
-		terms = terms[1:]
 	}
 	operands, err := d.renderOperandTerms(terms, in)
 	if err != nil {
@@ -1664,7 +1667,7 @@ func (d *decoder) calleeText(node rdf.Term, in *element) (string, bool, error) {
 // expressionOperands rebuilds operands from parameter memberships, with legacy
 // argument triples retained for graphs written before the structural mapping.
 func (d *decoder) expressionOperands(node rdf.Term, in *element) ([]operand, error) {
-	terms, err := d.expressionOperandTerms(node)
+	terms, _, err := d.expressionOperandTerms(node)
 	if err != nil {
 		return nil, err
 	}
@@ -1673,25 +1676,25 @@ func (d *decoder) expressionOperands(node rdf.Term, in *element) ([]operand, err
 
 // expressionOperandTerms identifies the operands in order, from the parameter
 // memberships where there are any, checked against the legacy arguments.
-func (d *decoder) expressionOperandTerms(node rdf.Term) ([]expressionOperandTerm, error) {
+func (d *decoder) expressionOperandTerms(node rdf.Term) ([]expressionOperandTerm, bool, error) {
 	standard, hasStandard, err := d.standardExpressionOperandTerms(node)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	legacy, err := d.legacyOperandTerms(node)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	if !hasStandard {
-		return legacy, nil
+		return legacy, false, nil
 	}
 	if len(legacy) > 0 && !sameOperandTerms(standard, legacy) {
-		return nil, &UnsupportedError{
+		return nil, true, &UnsupportedError{
 			What: fmt.Sprintf("the expression <%s>", node.Value),
 			Note: "its parameter memberships and legacy arguments state different operands",
 		}
 	}
-	return standard, nil
+	return standard, true, nil
 }
 
 // expressionOperandTerm identifies an operand and its optional named binding.
@@ -1833,6 +1836,16 @@ func sameOperandTerms(left, right []expressionOperandTerm) bool {
 		}
 	}
 	return true
+}
+
+// operandTermIndex finds the operand bound to term, or -1.
+func operandTermIndex(terms []expressionOperandTerm, term rdf.Term) int {
+	for i := range terms {
+		if terms[i].term == term {
+			return i
+		}
+	}
+	return -1
 }
 
 // joinOperands writes the operands comma-separated, each at floor.

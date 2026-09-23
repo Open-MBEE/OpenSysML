@@ -146,21 +146,47 @@ func unownedElements(graph *rdf.Graph) []rdf.Term {
 // rootNamespaceIDs mints the root Namespace and its memberships the way the
 // graph's own ids are spelled: suffixes on the qualified-name ids, or uuid5
 // under the first root's namespace when the ids are uuids (see IDUUID).
+// A suffix repeats until it names a subject the graph does not already hold,
+// since a top-level name may itself end in `_ns` or `_om`.
 func rootNamespaceIDs(graph *rdf.Graph, roots []rdf.Term) (rdf.Term, []rdf.Term) {
 	memberships := make([]rdf.Term, len(roots))
 	first := roots[0]
+	mint := &subjectMinter{graph: graph, taken: map[string]bool{}}
 	if !uuidForm(graph, first) {
+		namespace := mint.free(func(suffix string) rdf.Term { return rdf.IRI(first.Value + suffix) }, RootNamespaceSuffix)
 		for i, root := range roots {
-			memberships[i] = rdf.OwningMembershipIRIOf(root)
+			memberships[i] = mint.free(func(suffix string) rdf.Term { return rdf.IRI(root.Value + suffix) }, rdf.OwningMembershipSuffix)
 		}
-		return rdf.IRI(first.Value + RootNamespaceSuffix), memberships
+		return namespace, memberships
 	}
-	namespace := rdf.ReferenceIRI(first, identity.DerivedID(rootPackageNamespace(graph, first), rootLocalID(graph, first)+RootNamespaceSuffix))
+	namespace := mint.free(func(suffix string) rdf.Term {
+		return rdf.ReferenceIRI(first, identity.DerivedID(rootPackageNamespace(graph, first), rootLocalID(graph, first)+suffix))
+	}, RootNamespaceSuffix)
 	for i, root := range roots {
 		pkg := rootPackageNamespace(graph, root)
-		memberships[i] = rdf.ReferenceIRI(root, identity.DerivedID(pkg, rootLocalID(graph, root)+rdf.OwningMembershipSuffix))
+		memberships[i] = mint.free(func(suffix string) rdf.Term {
+			return rdf.ReferenceIRI(root, identity.DerivedID(pkg, rootLocalID(graph, root)+suffix))
+		}, rdf.OwningMembershipSuffix)
 	}
 	return namespace, memberships
+}
+
+// subjectMinter hands out ids that are neither subjects of the graph nor
+// already minted.
+type subjectMinter struct {
+	graph *rdf.Graph
+	taken map[string]bool
+}
+
+// free returns the candidate for the fewest repetitions of suffix that is still unused.
+func (m *subjectMinter) free(candidate func(suffix string) rdf.Term, suffix string) rdf.Term {
+	for n := 1; ; n++ {
+		term := candidate(strings.Repeat(suffix, n))
+		if !m.taken[term.Value] && len(m.graph.Predicates(term)) == 0 {
+			m.taken[term.Value] = true
+			return term
+		}
+	}
 }
 
 // uuidForm reports whether a root's id is a uuid rather than its encoded name.

@@ -241,3 +241,100 @@ func TestAPIJSONRootNamespaceNotDoubled(t *testing.T) {
 		t.Fatalf("%d root Namespaces, want 1", namespaces)
 	}
 }
+
+const rootNamespaceSuffixNames = `package P {
+    part def A;
+}
+package P_ns {
+    part def B;
+}
+package P_om {
+    part def C;
+}
+`
+
+// Top-level names spelled like the wrapper's suffixes stay apart from the
+// minted root ids in both id forms: every @id is unique and every element
+// keeps a single @type.
+func TestAPIJSONRootNamespaceIdsDoNotCollideWithNames(t *testing.T) {
+	for _, id := range []export.IDForm{export.IDQualifiedName, export.IDUUID} {
+		document, err := convert.ConvertWith("m.sysml", []byte(rootNamespaceSuffixNames), convert.FormatSysML, convert.FormatAPIJSON, convert.Options{ID: id})
+		if err != nil {
+			t.Fatal(err)
+		}
+		assertDistinctRootIds(t, document, 3)
+		back, err := convert.Convert("m.json", document, convert.FormatAPIJSON, convert.FormatSysML)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(back) != rootNamespaceSuffixNames {
+			t.Errorf("id form %v: notation moved:\n%s", id, back)
+		}
+	}
+}
+
+// A foreign document may spell its ids freely: roots whose ids already read
+// `P`, `P_ns` and `P_om` are wrapped without merging any subject, and the
+// minted ids are the same on every run.
+func TestAPIJSONRootNamespaceIdsDoNotCollideWithForeignIds(t *testing.T) {
+	foreign := []byte(`[
+{"@type":"Package","@id":"P","declaredName":"P"},
+{"@type":"Package","@id":"P_ns","declaredName":"Q"},
+{"@type":"Package","@id":"P_om","declaredName":"R"},
+{"@type":"Package","@id":"P_om_om","declaredName":"S"}
+]`)
+	graph, err := export.ReadAPIJSON(foreign)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := export.WriteAPIJSON(graph)
+	if err != nil {
+		t.Fatal(err)
+	}
+	elements := assertDistinctRootIds(t, out, 4)
+	for _, id := range []string{"P", "P_ns", "P_om", "P_om_om"} {
+		if got := rootString(t, apiJSONElement(t, elements, id)["@type"]); got != "Package" {
+			t.Errorf("%s became a %s", id, got)
+		}
+	}
+	if got := rootString(t, elements[0]["@id"]); got != "P_ns_ns" {
+		t.Errorf("root Namespace id = %s, want P_ns_ns", got)
+	}
+	again, err := export.WriteAPIJSON(graph)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(again) != string(out) {
+		t.Error("minted ids differ between runs")
+	}
+}
+
+// assertDistinctRootIds checks one Namespace, roots OwningMemberships, no
+// repeated @id, and one @type string per element.
+func assertDistinctRootIds(t *testing.T, document []byte, roots int) []map[string]json.RawMessage {
+	t.Helper()
+	elements := rootElements(t, document)
+	seen := map[string]bool{}
+	namespaces, memberships := 0, 0
+	for _, element := range elements {
+		id := rootString(t, element["@id"])
+		if seen[id] {
+			t.Errorf("@id %q appears twice:\n%s", id, document)
+		}
+		seen[id] = true
+		switch rootString(t, element["@type"]) {
+		case "Namespace":
+			namespaces++
+		case "OwningMembership":
+			if _, top := element["owningRelatedElement"]; top {
+				if rootRef(t, element["owningRelatedElement"]) == rootString(t, elements[0]["@id"]) {
+					memberships++
+				}
+			}
+		}
+	}
+	if namespaces != 1 || memberships != roots {
+		t.Errorf("%d root Namespaces and %d root memberships, want 1 and %d:\n%s", namespaces, memberships, roots, document)
+	}
+	return elements
+}

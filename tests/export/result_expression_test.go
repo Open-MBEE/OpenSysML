@@ -1025,3 +1025,23 @@ func TestExpressionBodyParameterIsDeclaredOutsideTheBody(t *testing.T) {
 		}
 	}
 }
+
+// A `return` parameter under a ParameterMembership whose sysml:isResult says
+// otherwise is a contradiction and is refused; the legacy fixture shows the
+// plain FeatureMembership an older graph used, which states nothing.
+func TestReturnParameterKindDisagreementIsRefused(t *testing.T) {
+	turtle, err := convert.Convert("calls.kerml", []byte(namedInvocations), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	membership := "a sysml:ReturnParameterMembership ;"
+	if !strings.Contains(string(turtle), membership) {
+		t.Fatalf("no ReturnParameterMembership written:\n%s", turtle)
+	}
+	demoted := strings.Replace(string(withoutSourceText(t, turtle)), membership, "a sysml:ParameterMembership ;", 1)
+	_, err = convert.Convert("calls.ttl", []byte(demoted), convert.FormatTurtle, convert.FormatSysML)
+	var unsupported *export.UnsupportedError
+	if !errors.As(err, &unsupported) || !strings.Contains(err.Error(), "`return` parameter") {
+		t.Fatalf("the demoted return parameter was not refused: %v", err)
+	}
+}
