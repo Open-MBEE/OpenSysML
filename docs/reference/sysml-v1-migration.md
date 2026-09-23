@@ -437,7 +437,11 @@ collaborator profile beside it holds the paragraphs) — is a tree of «view» c
 conforming to a viewpoint whose method activity says what the view shows. It is written, beside
 the class, as a `part def '<Name> Document' :> DocumentQueries::Document` whose sections are
 the view tree in declaration order, and each view's method is lowered into the section's
-content, so `-render-document` produces the document DocGen would have:
+content, so `-render-document` produces the document DocGen would have. The tree is the one
+DocGen walks: every property of a view typed by a view is a section, and a view is entered
+for its own sections only through a composite or shared property — a plain reference places
+the view as a section without its children, and the «Expose» dependencies of a property feed
+its view only when the property is composite.
 
 ```sysml
 part def 'Fleet Handbook Document' :> DocumentQueries::Document {
@@ -586,9 +590,10 @@ on a part or item property held by value writes it `ref`, a reference rather tha
 containment. A shape with no v2 form is kept as the applied-stereotype comment with the reason
 in the report: `[][]`, `[n*m]` and other two-dimensional shapes (a multiplicity has one
 dimension), `[]` on a feature already declared a collection (a collection of collections has
-no multiplicity), `*` on an attribute or on a parameter (neither is held by reference), and a
-tag that is not one of these spellings. A same-named user stereotype outside the MagicDraw
-profile namespace is a `metadata def` like any other.
+no multiplicity) or whose declared bounds are not natural numbers, `*` on an attribute or on
+a parameter (neither is held by reference), and a tag that is not one of these spellings. A
+same-named user stereotype outside the MagicDraw profile namespace is a `metadata def` like
+any other.
 
 ## Behaviors
 
