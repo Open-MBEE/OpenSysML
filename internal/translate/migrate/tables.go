@@ -142,8 +142,8 @@ func (m *migration) lowerTable(td *tableDoc) {
 	t, host := td.t, td.v.host
 	l := &lowered{}
 	td.l = l
-	for _, bad := range t.Malformed {
-		l.refuse(bad)
+	if len(t.Malformed) > 0 {
+		l.refuse(strings.Join(t.Malformed, "; "))
 	}
 	switch t.Kind {
 	case sysmlv1.InstanceTable, sysmlv1.DiagramTable:
@@ -538,31 +538,31 @@ var relationKinds = map[string]string{
 
 // criterionKind is the relationship kind a criterion walks, or why none does.
 func criterionKind(c sysmlv1.Criterion) (kind, why string) {
-	label := c.Name
-	if label == "" {
-		label = string(c.Kind) + " criterion"
+	label := "the criterion " + c.Name
+	if c.Name == "" {
+		label = "the unnamed criterion"
 	}
 	switch {
 	case c.Malformed != "":
-		return "", "the criterion " + label + " is malformed: " + c.Malformed
+		return "", label + " is malformed: " + c.Malformed
 	case c.Kind != sysmlv1.CriterionRelation:
-		return "", "the criterion " + label + " is a " + c.Expression + ", which no relationship walk expresses"
+		return "", label + " is a " + c.Expression + ", which no relationship walk expresses"
 	case c.Metaclass != "":
 		if k, ok := relationKinds[c.Metaclass]; ok {
 			return k, ""
 		}
-		return "", "the criterion " + label + " walks UML " + c.Metaclass + " relationships, which RelatedElements has no kind for"
+		return "", label + " walks UML " + c.Metaclass + " relationships, which RelatedElements has no kind for"
 	case c.Stereotype.ID == "":
-		return "", "the criterion " + label + " names no relationship"
+		return "", label + " names no relationship"
 	case c.Stereotype.Name == "":
-		return "", "the criterion " + label + " walks the relationship stereotype " + c.Stereotype.ID + ", which the archive does not describe"
+		return "", label + " walks the relationship stereotype " + c.Stereotype.ID + ", which the archive does not describe"
 	case !isStandardNamespace(c.Stereotype.Namespace):
-		return "", "the criterion " + label + " walks «" + c.Stereotype.Name + "» of a user profile, which RelatedElements has no kind for"
+		return "", label + " walks «" + c.Stereotype.Name + "» of a user profile, which RelatedElements has no kind for"
 	}
 	if k, ok := relationKinds[c.Stereotype.Name]; ok {
 		return k, ""
 	}
-	return "", "the criterion " + label + " walks «" + c.Stereotype.Name + "», which RelatedElements has no kind for"
+	return "", label + " walks «" + c.Stereotype.Name + "», which RelatedElements has no kind for"
 }
 
 // walkDirections are the directions a criterion walks, as RelatedElements

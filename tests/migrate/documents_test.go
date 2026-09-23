@@ -6,6 +6,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/migrate"
 )
 
 // rows runs a migrated document query in the session and returns its report,
@@ -184,4 +185,60 @@ func TestMigratedDocumentsRender(t *testing.T) {
 	brief := markdown(t, s, "'Fleet Documents'::'Fleet Brief Document'")
 	wantInOrder(t, "Fleet Brief Markdown", brief,
 		"# Fleet Brief", "## Figures", "*The truck and what it hauls*", "```mermaid")
+}
+
+// Only the tool's own profile namespaces define tables: a user stereotype named
+// InstanceTable, TableStructure or Document is ordinary metadata, applications
+// of look-alike stereotypes under other URIs stay comments, and an exact-profile
+// table whose serialization is malformed is refused with the fault named, its
+// view and its independent siblings still written.
+func TestTableHomonymsAndMalformedTables(t *testing.T) {
+	r := migrateFixtureFile(t, "table_homonyms")
+	wantClean(t, "table_homonyms.sysml", r)
+	notation := string(r.Notation)
+
+	wantInOrder(t, "user profile", notation,
+		"metadata def TableStructure {", "metadata def InstanceTable {", "metadata def Document;",
+		"part def Catalog {", "@'Shop Profile'::InstanceTable {", `scope = "Shop";`,
+		"part def Ledger {", "@'Shop Profile'::TableStructure {", "rows = 12;",
+		"part def Report {", "@'Shop Profile'::Document;", "/* applied stereotype «Document» */")
+	wantNote(t, r, "_blk_report", migrate.Mapped,
+		"«Document» from http://www.magicdraw.com/schemas/manual/Document_Profile_Custom.xmi is applied from a profile the document does not define")
+	for _, name := range []string{"Catalog Table", "Custom Table"} {
+		if strings.Contains(notation, "'"+name+" Rows'") || strings.Contains(notation, "'"+name+" Document'") {
+			t.Errorf("the look-alike %s on a non-profile URI lowered to a query:\n%s", name, notation)
+		}
+	}
+	if n := strings.Count(notation, ":> DocumentQueries::Document {"); n != 1 {
+		t.Errorf("%d Documents written, want only the valid Catalog Map:\n%s", n, notation)
+	}
+
+	refusals := map[string]string{
+		"_tbl_dangling":      "the scope _nowhere resolves to no element",
+		"_tbl_bad_sort":      `sort "IColumn:_prop_price^Sideways": not in the form <column>^Asc|Desc; sort "price": not in the form <column>^Asc|Desc`,
+		"_tbl_no_classifier": "the instance table names no classifier",
+		"_tbl_ghost_column":  "the column IColumn:_no_such_property names no property of the document",
+		"_tbl_no_diagram":    "base_Diagram _no_such_diagram names no diagram of the document",
+		"_mx_broken":         "the unnamed criterion is malformed: not well-formed XML: xmi: XML syntax error on line 4: unexpected EOF",
+		"_mx_orphan":         "MatrixFilter: no filter application names the diagram",
+		"_map_deep":          `depth "deep": not a non-negative integer`,
+	}
+	for id, why := range refusals {
+		wantNote(t, r, id, migrate.Unmapped, why)
+	}
+	wantInOrder(t, "refused tables", notation,
+		"view 'Dangling Scope' {", "/* not migrated: «InstanceTable» 'Dangling Scope' — the scope _nowhere resolves to no element */",
+		"view 'Broken Matrix' {", "expose Catalog;", "/* not migrated: «DependencyMatrix» 'Broken Matrix' — the unnamed criterion is malformed",
+		"view 'Deep Map' {", "/* not migrated: «RelationMap» 'Deep Map' — depth \"deep\"",
+		"view 'Catalog Map' {", "expose 'Catalog Map Document';",
+		"calc def 'Catalog Map Rows' :> DocumentQueries::Query {",
+		`relationshipKind = "specialization"`, `direction = "incoming"`, "maxDepth = 1",
+		"part def 'Catalog Map Document' :> DocumentQueries::Document {")
+	wantNote(t, r, "_map_catalog", migrate.Mapped, "written as a Document holding a Table over the query 'Catalog Map Rows'")
+
+	s := session(t, r)
+	wantInOrder(t, "Catalog Map rows", rows(t, s, "Shop::'Catalog Map Rows'"),
+		"returned 2 rows", "Shop::SeasonalCatalog", `@type = "PartDefinition"`, "Shop::c1")
+	wantInOrder(t, "Catalog Map Markdown", markdown(t, s, "Shop::'Catalog Map Document'"),
+		"# Catalog Map", "| qualifiedName | @type |", "| Shop::SeasonalCatalog | PartDefinition |", "| Shop::c1 | PartDefinition |")
 }
