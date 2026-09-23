@@ -128,7 +128,9 @@ type Model struct {
 	// the tool profile applications, in document order.
 	Tables []*Table
 	// Documents are the MDK DocGen documents, in document order.
-	Documents       []*DocGenDocument
+	Documents []*DocGenDocument
+	// StrayParagraphs are collaborator paragraphs no document's view shows.
+	StrayParagraphs []*DocGenParagraph
 	byID            map[string]*Element
 	proxies         map[string]*Element
 	fragments       map[string]*Element

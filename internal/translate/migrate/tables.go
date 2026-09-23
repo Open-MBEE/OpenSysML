@@ -2,6 +2,7 @@ package migrate
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
@@ -297,8 +298,7 @@ func (m *migration) typedRows(src qx, types []sysmlv1.ElementRef, subtypes, indi
 	}
 	rows := src
 	if !typesAdmitAll(filters, l) {
-		var qs []qx
-		seen := map[string]bool{}
+		var types, metadata uniqueNames
 		for _, f := range filters {
 			switch {
 			case f.refused != "" && len(filters) == 1:
@@ -306,24 +306,24 @@ func (m *migration) typedRows(src qx, types []sysmlv1.ElementRef, subtypes, indi
 				return src
 			case f.refused != "":
 				l.note("elements of type " + f.label + " are not listed: " + f.refused)
-				continue
 			case len(f.classifiers) > 0:
 				l.note(f.note)
 				for _, c := range f.classifiers {
-					qs = append(qs, whereType(src, m.plainName(c)))
+					types.add(m.plainName(c))
 				}
-				continue
 			case f.metadata != "":
-				qs = append(qs, qcall("WhereMetadata", qarg1("source", src), qarg1("'metadata'", qstr(f.metadata))))
-				continue
+				metadata.add(f.metadata)
+			default:
+				l.note(f.note)
+				types.add(f.types...)
 			}
-			l.note(f.note)
-			for _, typ := range f.types {
-				if !seen[typ] {
-					seen[typ] = true
-					qs = append(qs, whereType(src, typ))
-				}
-			}
+		}
+		var qs []qx
+		if len(types) > 0 {
+			qs = append(qs, whereType(src, types...))
+		}
+		if len(metadata) > 0 {
+			qs = append(qs, qcall("WhereMetadata", qarg1("source", src), qstrs("'metadata'", metadata...)))
 		}
 		if len(qs) == 0 {
 			l.refuse("none of the element types has a v2 form rows could be filtered by")
@@ -353,17 +353,30 @@ func typesAdmitAll(filters []typeFilter, l *lowered) bool {
 	return false
 }
 
-func whereType(src qx, typ string) qx {
-	return qcall("WhereType", qarg1("source", src), qarg1("type", qstr(typ)))
+// uniqueNames are names in first-seen order, each once.
+type uniqueNames []string
+
+func (u *uniqueNames) add(names ...string) {
+	for _, n := range names {
+		if !slices.Contains(*u, n) {
+			*u = append(*u, n)
+		}
+	}
 }
 
-// union joins queries with Union, left to right.
+// whereType keeps the elements of src of any of the types.
+func whereType(src qx, types ...string) qx {
+	return qcall("WhereType", qarg1("source", src), qstrs("type", types...))
+}
+
+// union joins queries with Union in order, as a balanced tree so the nesting
+// grows with the logarithm of their number.
 func union(qs []qx) qx {
-	out := qs[0]
-	for _, q := range qs[1:] {
-		out = qcall("Union", qarg1("source", out), qarg1("other", q))
+	if len(qs) == 1 {
+		return qs[0]
 	}
-	return out
+	half := len(qs) / 2
+	return qcall("Union", qarg1("source", union(qs[:half])), qarg1("other", union(qs[half:])))
 }
 
 // queryProperties maps the UML properties a column or sort reads to the query

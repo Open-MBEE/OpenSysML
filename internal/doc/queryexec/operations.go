@@ -216,53 +216,73 @@ func (e *executor) evaluateAncestors(expression queryplan.Expression) (sequence,
 	return result, nil
 }
 
+// typeTest is one resolved name WhereType keeps rows conforming to.
+type typeTest struct {
+	name           string
+	target         *symbols.Symbol
+	classification string
+}
+
 func (e *executor) evaluateWhereType(expression queryplan.Expression) (sequence, error) {
 	source, err := e.rowArgument(expression, "source")
 	if err != nil {
 		return sequence{}, err
 	}
-	typeName, err := e.stringArgument(expression, "type")
+	typeNames, err := e.stringsArgument(expression, "type")
 	if err != nil {
 		return sequence{}, err
 	}
-	target := e.resolveClassification(typeName)
-	classification := typeName
-	if target != nil {
-		classification = symbols.FQNOf(target)
+	if len(typeNames) == 0 {
+		return sequence{}, e.invalidArgument(expression, "type", "0")
+	}
+	tests := make([]typeTest, len(typeNames))
+	matched := make([]bool, len(typeNames))
+	for i, typeName := range typeNames {
+		tests[i] = typeTest{name: typeName, target: e.resolveClassification(typeName), classification: typeName}
+		if tests[i].target != nil {
+			tests[i].classification = symbols.FQNOf(tests[i].target)
+		}
 	}
 	result := filtered(source)
 	for i, value := range source.values {
-		if _, _, isObject := value.Object(); isObject {
-			if e.objectIsA(value, typeName, target) {
+		for j, test := range tests {
+			if e.valueIsA(value, test) {
+				matched[j] = true
 				appendSelected(&result, source, i)
+				break
 			}
-			continue
-		}
-		sym := value.Declaration()
-		if sym == nil {
-			continue
-		}
-		matches := query.MetamodelTypeNameOf(sym) == typeName
-		if target != nil {
-			matches = matches ||
-				e.context.Model.MetaclassConforms(sym, classification) ||
-				symbols.SameElement(sym, target) ||
-				e.context.Model.Conforms(sym, target)
-		}
-		if matches {
-			appendSelected(&result, source, i)
 		}
 	}
-	if target == nil && len(result.values) == 0 && !query.IsMetamodelTypeName(typeName) {
-		return sequence{}, &Error{
-			Kind:      ErrorUnknownClassification,
-			Query:     e.definition.Name(),
-			Operation: expression.Operation(),
-			Actual:    typeName,
-			Origin:    expression.Origin(),
+	for j, test := range tests {
+		if test.target == nil && !matched[j] && !query.IsMetamodelTypeName(test.name) {
+			return sequence{}, &Error{
+				Kind:      ErrorUnknownClassification,
+				Query:     e.definition.Name(),
+				Operation: expression.Operation(),
+				Actual:    test.name,
+				Origin:    expression.Origin(),
+			}
 		}
 	}
 	return result, nil
+}
+
+// valueIsA reports whether a row is an object or declaration of the type.
+func (e *executor) valueIsA(value Value, test typeTest) bool {
+	if _, _, isObject := value.Object(); isObject {
+		return e.objectIsA(value, test.name, test.target)
+	}
+	sym := value.Declaration()
+	if sym == nil {
+		return false
+	}
+	if query.MetamodelTypeNameOf(sym) == test.name {
+		return true
+	}
+	return test.target != nil &&
+		(e.context.Model.MetaclassConforms(sym, test.classification) ||
+			symbols.SameElement(sym, test.target) ||
+			e.context.Model.Conforms(sym, test.target))
 }
 
 func (e *executor) evaluateWhereMetadata(expression queryplan.Expression) (sequence, error) {
@@ -270,18 +290,23 @@ func (e *executor) evaluateWhereMetadata(expression queryplan.Expression) (seque
 	if err != nil {
 		return sequence{}, err
 	}
-	name, err := e.stringArgument(expression, "metadata")
+	names, err := e.stringsArgument(expression, "metadata")
 	if err != nil {
 		return sequence{}, err
 	}
-	target := e.resolveClassification(name)
-	if target == nil {
-		return sequence{}, &Error{
-			Kind:      ErrorUnknownClassification,
-			Query:     e.definition.Name(),
-			Operation: expression.Operation(),
-			Actual:    name,
-			Origin:    expression.Origin(),
+	if len(names) == 0 {
+		return sequence{}, e.invalidArgument(expression, "metadata", "0")
+	}
+	targets := make([]*symbols.Symbol, len(names))
+	for i, name := range names {
+		if targets[i] = e.resolveClassification(name); targets[i] == nil {
+			return sequence{}, &Error{
+				Kind:      ErrorUnknownClassification,
+				Query:     e.definition.Name(),
+				Operation: expression.Operation(),
+				Actual:    name,
+				Origin:    expression.Origin(),
+			}
 		}
 	}
 	result := filtered(source)
@@ -291,9 +316,10 @@ func (e *executor) evaluateWhereMetadata(expression queryplan.Expression) (seque
 			types := e.context.Index.LookupQualified(annotation.TypeFQN)
 			matches := false
 			for _, actual := range types {
-				if symbols.SameElement(actual, target) || e.context.Model.Conforms(actual, target) {
-					matches = true
-					break
+				for _, target := range targets {
+					if symbols.SameElement(actual, target) || e.context.Model.Conforms(actual, target) {
+						matches = true
+					}
 				}
 			}
 			if matches {

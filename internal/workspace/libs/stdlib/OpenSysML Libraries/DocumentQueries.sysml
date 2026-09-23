@@ -145,15 +145,17 @@ library package DocumentQueries {
 		return result : Element[0..*] ordered;
 	}
 
+	/* WhereType keeps the elements that are of any of the named types. */
 	calc def WhereType {
 		in source : Element[0..*] ordered;
-		in type : String[1];
+		in type : String[1..*] ordered;
 		return result : Element[0..*] ordered;
 	}
 
+	/* WhereMetadata keeps the elements annotated with any of the named metadata definitions. */
 	calc def WhereMetadata {
 		in source : Element[0..*] ordered;
-		in 'metadata' : String[1];
+		in 'metadata' : String[1..*] ordered;
 		return result : Element[0..*] ordered;
 	}
 

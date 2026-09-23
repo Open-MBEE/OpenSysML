@@ -38,8 +38,8 @@ type DocGenView struct {
 }
 
 // DocGenParagraph is one collaborator paragraph: a comment the collaborator
-// profile places in a view (its ownerId), after the paragraph its siblingId
-// names.
+// profile places in a view (its ownerId) of a document (its viewId), after
+// the paragraph its siblingId names.
 type DocGenParagraph struct {
 	// Application is the CollaboratorParagraph application.
 	Application *Stereotype
@@ -126,7 +126,7 @@ func (e *Element) DocGen() *Stereotype {
 // readDocuments reads every DocGen document once every document is read; a
 // class several applications name is one document.
 func (m *Model) readDocuments() {
-	r := &docGenReader{m: m, comments: map[string][]*Stereotype{}}
+	r := &docGenReader{m: m, comments: map[string][]*Stereotype{}, placed: map[*Stereotype]bool{}}
 	for _, s := range m.Stereotypes {
 		if s.Namespace == DocGenCollaboratorNS && s.Name == "CollaboratorParagraph" {
 			owner := s.Tag("ownerId")
@@ -142,15 +142,32 @@ func (m *Model) readDocuments() {
 			continue
 		}
 		seen[s.Base] = true
+		r.doc = s.Base
 		doc := &DocGenDocument{Class: s.Base, Application: s}
 		doc.Root = r.view(s.Base, nil, map[*Element]bool{}, true)
 		m.Documents = append(m.Documents, doc)
+	}
+	for _, s := range m.Stereotypes {
+		if s.Namespace != DocGenCollaboratorNS || s.Name != "CollaboratorParagraph" || r.placed[s] {
+			continue
+		}
+		p := &DocGenParagraph{Application: s, Comment: s.Base}
+		if id := s.Tag("viewId"); id != "" && !seen[m.Lookup(id)] {
+			p.Malformed = fmt.Sprintf("viewId %q names no document", id)
+		} else {
+			p.Malformed = fmt.Sprintf("ownerId %q names no view of the document", s.Tag("ownerId"))
+		}
+		m.StrayParagraphs = append(m.StrayParagraphs, p)
 	}
 }
 
 type docGenReader struct {
 	m        *Model
 	comments map[string][]*Stereotype
+	// doc is the document class whose views are being read; placed are the
+	// paragraph applications some view of some document has shown.
+	doc    *Element
+	placed map[*Stereotype]bool
 }
 
 // isDocGenView reports whether e is a view class: the SysML View stereotype
@@ -209,16 +226,17 @@ func (r *docGenReader) view(class, p *Element, path map[*Element]bool, recurse b
 	return v
 }
 
-// paragraphs reads the collaborator paragraphs placed in a view: in
+// paragraphs reads the collaborator paragraphs placed in a view of the
+// current document (viewId, when set, names the document class): in
 // application order, each moved behind the paragraph its siblingId names.
 func (r *docGenReader) paragraphs(class *Element) []*DocGenParagraph {
-	apps := r.comments[class.ID]
-	if len(apps) == 0 {
-		return nil
-	}
 	byComment := map[string]*DocGenParagraph{}
 	var out []*DocGenParagraph
-	for _, s := range apps {
+	for _, s := range r.comments[class.ID] {
+		if id := s.Tag("viewId"); id != "" && id != r.doc.ID {
+			continue
+		}
+		r.placed[s] = true
 		p := &DocGenParagraph{Application: s, Comment: s.Base}
 		switch {
 		case s.Base == nil:

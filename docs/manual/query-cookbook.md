@@ -254,8 +254,9 @@ Owners are returned nearest-first, up to `maxDepth` levels.
 `WhereType` keeps elements whose *metamodel* type matches — `"PartUsage"`,
 `"ConnectionUsage"`, `"RequirementUsage"`, `"AttributeUsage"`, `"PortUsage"`,
 `"PartDefinition"` and so on — including metaclass conformance, so
-`type = "Usage"` keeps every kind of usage. A name that is neither a known
-metamodel type nor resolvable in the model is a typed
+`type = "Usage"` keeps every kind of usage. Several names keep the elements of
+any of them: `type = ("PartUsage", "PortUsage")`. A name that is neither a
+known metamodel type nor resolvable in the model is a typed
 `unknown-classification` error rather than a silently-empty result.
 
 ```sysml
@@ -283,8 +284,8 @@ attribute ([property filters](#property-filters)).
 ## Metadata filters
 
 `WhereMetadata` keeps elements annotated with a metadata definition, matching
-specializations of it too. The model marks `primaryMirror` with
-`@Critical`:
+specializations of it too; several names keep the elements annotated with any
+of them. The model marks `primaryMirror` with `@Critical`:
 
 ```sysml
 calc def CriticalParts :> Query {
