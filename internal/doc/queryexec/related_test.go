@@ -149,10 +149,13 @@ func TestExecuteRelatedDeclaredRequirements(t *testing.T) {
 	fixture := loadExecutionFixtureFile(t, "testdata/tmt_relationships.sysml")
 
 	// A satisfy or verify assertion that declares its requirement relates the
-	// subject to the declared requirement usage itself.
+	// subject to the declared requirement usage itself and, when the
+	// declaration is typed, to its requirement definition.
 	assertRelated(t, fixture, "scienceComputer", "satisfaction", "outgoing", 1,
-		[]string{"dataArchive::archiveRequirement"})
+		[]string{"dataArchive::archiveRequirement", "DataRequirement"})
 	assertRelated(t, fixture, "dataArchive::archiveRequirement", "satisfaction", "incoming", 1,
+		[]string{"scienceComputer"})
+	assertRelated(t, fixture, "DataRequirement", "satisfaction", "incoming", 1,
 		[]string{"scienceComputer"})
 	assertRelated(t, fixture, "scienceComputer", "verification", "outgoing", 1,
 		[]string{"archiveVerification::archiveObjective::archiveCheck"})

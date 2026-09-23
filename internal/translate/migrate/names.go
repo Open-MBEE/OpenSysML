@@ -114,10 +114,12 @@ func (m *migration) segments(e *sysmlv1.Element) []string {
 	return segs
 }
 
-// segment is one step of a qualified name; feature marks a step that is a usage.
+// segment is one step of a qualified name; feature marks a step that is a
+// usage, elem the element it names, nil for a step no element stands for.
 type segment struct {
 	name    string
 	feature bool
+	elem    *sysmlv1.Element
 }
 
 // path returns the segments of e's qualified name, see segments. A behavior
@@ -145,7 +147,7 @@ func (m *migration) path(e *sysmlv1.Element) []segment {
 		if op := m.methodOf[cur]; op != nil {
 			cur = op
 		}
-		segs = append([]segment{{name: m.nameFor(cur), feature: m.isUsage(cur)}}, segs...)
+		segs = append([]segment{{name: m.nameFor(cur), feature: m.isUsage(cur), elem: cur}}, segs...)
 	}
 	return segs
 }
@@ -173,6 +175,32 @@ func scopeChain(scope *sysmlv1.Element) []*sysmlv1.Element {
 		chain = append(chain, cur)
 	}
 	return chain
+}
+
+// inside writes body inside a synthesized declaration whose members are named
+// names: a reference written there resolves through those members first, so
+// one naming a member steers clear of them.
+func (m *migration) inside(names columnNames, body func()) {
+	m.opened = append(m.opened, names)
+	body()
+	m.opened = m.opened[:len(m.opened)-1]
+}
+
+// hidden reports whether a synthesized declaration being written declares a
+// member named name, which hides the name outside it.
+func (m *migration) hidden(name string) bool {
+	for _, names := range m.opened {
+		if names[name] {
+			return true
+		}
+	}
+	return false
+}
+
+// siblingRef writes a reference to a synthesized declaration named name that
+// is written beside host's members, from inside whatever is being written.
+func (m *migration) siblingRef(host *sysmlv1.Element, name string) string {
+	return m.refMember(host, name, append(m.path(host), segment{name: name}), host, false)
 }
 
 // ref writes a reference to target from inside scope's body (nil for the top
@@ -206,7 +234,7 @@ func (m *migration) refMember(owner *sysmlv1.Element, name string, path []segmen
 		if s != owner {
 			continue
 		}
-		shadowed := false
+		shadowed := m.hidden(name)
 		for _, inner := range chain[:i] {
 			if name != "" && m.nameTaken(inner, name) {
 				shadowed = true
@@ -219,6 +247,9 @@ func (m *migration) refMember(owner *sysmlv1.Element, name string, path []segmen
 	}
 	if owner == nil && len(chain) > 0 {
 		// A top-level declaration: visible everywhere unless shadowed.
+		if m.hidden(name) {
+			return m.qualifiedFrom(path, chain, chained)
+		}
 		for _, inner := range chain {
 			if name != "" && m.nameTaken(inner, name) {
 				return m.qualifiedFrom(path, chain, chained)
@@ -246,11 +277,8 @@ func namespaces(segs []string) []segment {
 // is referred to; an import names them by qualified name alone.
 func (m *migration) qualifiedFrom(path []segment, chain []*sysmlv1.Element, chained bool) string {
 	var b strings.Builder
-	for _, s := range chain {
-		if m.nameTaken(s, path[0].name) {
-			b.WriteString("$::")
-			break
-		}
+	if m.hidden(path[0].name) || m.shadows(chain, path[0].name) {
+		b.WriteString("$::")
 	}
 	for i, s := range path {
 		switch {

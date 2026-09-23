@@ -223,7 +223,9 @@ $ sysml cookbook.sysml -run-query "Cookbook::AllParts root=Cookbook::telescope"
   Row 5: Cookbook::telescope::dataPath
 ```
 
-`maxDepth` bounds the walk; each level is visited in declaration order.
+`maxDepth` bounds the walk; each level is visited in declaration order. Omit
+it (or pass `null`) to walk the whole subtree — `Ancestors` likewise walks to
+the root when unbounded.
 Note that the connections are still here: a `connection` usage *is* a
 `PartUsage` in the SysML metamodel (its metaclass conforms to it). Use
 a feature or name filter, or `type = "ConnectionUsage"`, to separate them —
@@ -247,13 +249,43 @@ $ sysml cookbook.sysml -run-query "Cookbook::Enclosing leaf=Cookbook::telescope:
 
 Owners are returned nearest-first, up to `maxDepth` levels.
 
+### Elements by qualified name: `Named`
+
+```sysml
+calc def NamedParts :> Query {
+	WhereType(
+		source = Descendants(source = Named(qualifiedName = ("Cookbook::telescope", "Cookbook::Traceability"))),
+		type = "PartUsage"
+	)
+}
+```
+
+```console
+$ sysml cookbook.sysml -run-query "Cookbook::NamedParts"
+✓ Query Cookbook::NamedParts returned 12 rows
+  Row 1: Cookbook::telescope::primaryMirror
+  Row 2: Cookbook::telescope::instrumentCluster
+  ...
+  Row 6: Cookbook::Traceability::gimbal
+  ...
+```
+
+A query parameter must be bound to a feature, so a walk rooted at a *package*
+or a *definition* has nothing to bind `root` to. `Named` resolves qualified
+names — spelled as strings, like the types `WhereType` takes — to the elements
+they name, in the order given, and any element may be named, a package or
+definition included. A name that resolves to nothing, or to more than one
+element, fails the query with the name quoted rather than returning fewer rows.
+The SysML v1 migration roots every table scope this way.
+
 ## Type filters
 
 `WhereType` keeps elements whose *metamodel* type matches — `"PartUsage"`,
 `"ConnectionUsage"`, `"RequirementUsage"`, `"AttributeUsage"`, `"PortUsage"`,
 `"PartDefinition"` and so on — including metaclass conformance, so
-`type = "Usage"` keeps every kind of usage. A name that is neither a known
-metamodel type nor resolvable in the model is a typed
+`type = "Usage"` keeps every kind of usage. Several names keep the elements of
+any of them: `type = ("PartUsage", "PortUsage")`. A name that is neither a
+known metamodel type nor resolvable in the model is a typed
 `unknown-classification` error rather than a silently-empty result.
 
 ```sysml
@@ -281,8 +313,8 @@ attribute ([property filters](#property-filters)).
 ## Metadata filters
 
 `WhereMetadata` keeps elements annotated with a metadata definition, matching
-specializations of it too. The model marks `primaryMirror` with
-`@Critical`:
+specializations of it too; several names keep the elements annotated with any
+of them. The model marks `primaryMirror` with `@Critical`:
 
 ```sysml
 calc def CriticalParts :> Query {
@@ -467,6 +499,7 @@ are always projectable:
 | `@type` | The metamodel type (`PartUsage`, ...) |
 | `type` | The declared type's qualified name |
 | `isAbstract` | Boolean |
+| `isIndividual` | Boolean: whether a definition or usage carries the `individual` modifier |
 | `multiplicityLower`, `multiplicityUpper` | Integers, `*` as unbounded |
 
 ```sysml
@@ -742,15 +775,15 @@ RelatedElements(
 	                                // satisfaction, verification,
 	                                // derivation or refinement
 	direction = "<direction>",     // outgoing or incoming
-	maxDepth = <n>
+	maxDepth = <n>                 // omit, or null, for no bound
 )
 ```
 
 Direction is from the relationship's own point of view — `outgoing` follows
 it as declared, `incoming` follows it backwards. Traversal is breadth-first
-to `maxDepth`, deduplicated, in declaration order, and bounded by a visit
-budget so a pathological model terminates with a typed error rather than
-hanging.
+to `maxDepth` (unbounded when omitted or `null`), deduplicated, in
+declaration order, and bounded by a visit budget so a pathological model
+terminates with a typed error rather than hanging.
 
 ### Connections
 
@@ -1170,12 +1203,15 @@ as the last table of its report, [`requirements.md`](examples/requirements.md).
 `RelatedElements` answers one requirement at a time. To put every requirement
 in one table with its satisfiers and verifiers beside it, derive the columns
 from the relationships instead: a `RelatedColumn(name, relationshipKind,
-direction, maxDepth, aggregate = "list")` entry of `columns` traverses the
-named relationship from each row's element — the same kinds, directions and
-depth bound as `RelatedElements` — and fills a cell with what it reaches.
-The `aggregate` chooses the cell's shape: `"list"` (the default) holds the
-related elements, `"count"` how many there are, `"any"` whether there is at
-least one — an existence test that stops at the first element it reaches.
+direction, maxDepth, aggregate = "list", targets)` entry of `columns`
+traverses the named relationship from each row's element — the same kinds,
+directions and depth bound as `RelatedElements` — and fills a cell with what
+it reaches. The `aggregate` chooses the cell's shape: `"list"` (the default)
+holds the related elements, `"count"` how many there are, `"any"` whether
+there is at least one — an existence test that stops at the first element it
+reaches. `targets`, when given, keeps only the reached elements among them:
+a dependency matrix whose columns are one query and whose rows are another
+is `Project(source = <rows>, columns = (RelatedColumn(..., targets = <columns>)))`.
 
 The cookbook model's `Traceability` package holds three requirements, a
 `spacecraft` whose parts satisfy them and three verification cases, two of

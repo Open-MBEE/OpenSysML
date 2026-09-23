@@ -23,6 +23,11 @@ func (p *Parser) atName() bool {
 	return false
 }
 
+// atGlobalName reports whether a `$::`-rooted qualified name begins here.
+func (p *Parser) atGlobalName() bool {
+	return p.at(lexer.Dollar) && p.peekN(1).Kind == lexer.ColonColon
+}
+
 // reservedWord reports whether the word is a literal of this file's grammar,
 // and so cannot spell a name in it.
 func (p *Parser) reservedWord(w string) bool {

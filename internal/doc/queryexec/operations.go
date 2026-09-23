@@ -92,12 +92,46 @@ func (e *executor) evaluateOwned(expression queryplan.Expression) (sequence, err
 	return result, nil
 }
 
+// depthLimit is a maxDepth argument: so many levels, or unbounded when the
+// argument is null or omitted.
+type depthLimit struct {
+	bounded bool
+	levels  int64
+}
+
+// reached reports whether a row at depth is not to be walked past.
+func (d depthLimit) reached(depth int64) bool { return d.bounded && depth >= d.levels }
+
+// depthArgument reads an operation's maxDepth: a non-negative integer, or
+// unbounded when null or omitted.
+func (e *executor) depthArgument(expression queryplan.Expression) (depthLimit, error) {
+	if !hasArgument(expression, "maxDepth") {
+		return depthLimit{}, nil
+	}
+	value, err := e.argument(expression, "maxDepth")
+	if err != nil {
+		return depthLimit{}, err
+	}
+	switch len(value.values) {
+	case 0:
+		return depthLimit{}, nil
+	case 1:
+	default:
+		return depthLimit{}, e.invalidArgument(expression, "maxDepth", strconv.Itoa(len(value.values)))
+	}
+	levels, ok := value.values[0].Integer()
+	if !ok || levels < 0 {
+		return depthLimit{}, e.invalidArgument(expression, "maxDepth", string(value.values[0].Kind()))
+	}
+	return depthLimit{bounded: true, levels: levels}, nil
+}
+
 func (e *executor) evaluateDescendants(expression queryplan.Expression) (sequence, error) {
 	source, err := e.ownershipArgument(expression, "source")
 	if err != nil {
 		return sequence{}, err
 	}
-	maxDepth, err := e.integerArgument(expression, "maxDepth")
+	maxDepth, err := e.depthArgument(expression)
 	if err != nil {
 		return sequence{}, err
 	}
@@ -115,7 +149,7 @@ func (e *executor) evaluateDescendants(expression queryplan.Expression) (sequenc
 	for len(queue) > 0 {
 		next := queue[0]
 		queue = queue[1:]
-		if next.depth >= maxDepth {
+		if maxDepth.reached(next.depth) {
 			continue
 		}
 		owned, err := e.ownedRows(expression, next.row)
@@ -143,7 +177,7 @@ func (e *executor) evaluateAncestors(expression queryplan.Expression) (sequence,
 	if err != nil {
 		return sequence{}, err
 	}
-	maxDepth, err := e.integerArgument(expression, "maxDepth")
+	maxDepth, err := e.depthArgument(expression)
 	if err != nil {
 		return sequence{}, err
 	}
@@ -161,7 +195,7 @@ func (e *executor) evaluateAncestors(expression queryplan.Expression) (sequence,
 	for len(queue) > 0 {
 		next := queue[0]
 		queue = queue[1:]
-		if next.depth >= maxDepth {
+		if maxDepth.reached(next.depth) {
 			continue
 		}
 		owner, ok := e.ownerRow(next.row)
@@ -182,53 +216,73 @@ func (e *executor) evaluateAncestors(expression queryplan.Expression) (sequence,
 	return result, nil
 }
 
+// typeTest is one resolved name WhereType keeps rows conforming to.
+type typeTest struct {
+	name           string
+	target         *symbols.Symbol
+	classification string
+}
+
 func (e *executor) evaluateWhereType(expression queryplan.Expression) (sequence, error) {
 	source, err := e.rowArgument(expression, "source")
 	if err != nil {
 		return sequence{}, err
 	}
-	typeName, err := e.stringArgument(expression, "type")
+	typeNames, err := e.stringsArgument(expression, "type")
 	if err != nil {
 		return sequence{}, err
 	}
-	target := e.resolveClassification(typeName)
-	classification := typeName
-	if target != nil {
-		classification = symbols.FQNOf(target)
+	if len(typeNames) == 0 {
+		return sequence{}, e.invalidArgument(expression, "type", "0")
+	}
+	tests := make([]typeTest, len(typeNames))
+	matched := make([]bool, len(typeNames))
+	for i, typeName := range typeNames {
+		tests[i] = typeTest{name: typeName, target: e.resolveClassification(typeName), classification: typeName}
+		if tests[i].target != nil {
+			tests[i].classification = symbols.FQNOf(tests[i].target)
+		}
 	}
 	result := filtered(source)
 	for i, value := range source.values {
-		if _, _, isObject := value.Object(); isObject {
-			if e.objectIsA(value, typeName, target) {
+		for j, test := range tests {
+			if e.valueIsA(value, test) {
+				matched[j] = true
 				appendSelected(&result, source, i)
+				break
 			}
-			continue
-		}
-		sym := value.Declaration()
-		if sym == nil {
-			continue
-		}
-		matches := query.MetamodelTypeNameOf(sym) == typeName
-		if target != nil {
-			matches = matches ||
-				e.context.Model.MetaclassConforms(sym, classification) ||
-				symbols.SameElement(sym, target) ||
-				e.context.Model.Conforms(sym, target)
-		}
-		if matches {
-			appendSelected(&result, source, i)
 		}
 	}
-	if target == nil && len(result.values) == 0 && !query.IsMetamodelTypeName(typeName) {
-		return sequence{}, &Error{
-			Kind:      ErrorUnknownClassification,
-			Query:     e.definition.Name(),
-			Operation: expression.Operation(),
-			Actual:    typeName,
-			Origin:    expression.Origin(),
+	for j, test := range tests {
+		if test.target == nil && !matched[j] && !query.IsMetamodelTypeName(test.name) {
+			return sequence{}, &Error{
+				Kind:      ErrorUnknownClassification,
+				Query:     e.definition.Name(),
+				Operation: expression.Operation(),
+				Actual:    test.name,
+				Origin:    expression.Origin(),
+			}
 		}
 	}
 	return result, nil
+}
+
+// valueIsA reports whether a row is an object or declaration of the type.
+func (e *executor) valueIsA(value Value, test typeTest) bool {
+	if _, _, isObject := value.Object(); isObject {
+		return e.objectIsA(value, test.name, test.target)
+	}
+	sym := value.Declaration()
+	if sym == nil {
+		return false
+	}
+	if query.MetamodelTypeNameOf(sym) == test.name {
+		return true
+	}
+	return test.target != nil &&
+		(e.context.Model.MetaclassConforms(sym, test.classification) ||
+			symbols.SameElement(sym, test.target) ||
+			e.context.Model.Conforms(sym, test.target))
 }
 
 func (e *executor) evaluateWhereMetadata(expression queryplan.Expression) (sequence, error) {
@@ -236,18 +290,23 @@ func (e *executor) evaluateWhereMetadata(expression queryplan.Expression) (seque
 	if err != nil {
 		return sequence{}, err
 	}
-	name, err := e.stringArgument(expression, "metadata")
+	names, err := e.stringsArgument(expression, "metadata")
 	if err != nil {
 		return sequence{}, err
 	}
-	target := e.resolveClassification(name)
-	if target == nil {
-		return sequence{}, &Error{
-			Kind:      ErrorUnknownClassification,
-			Query:     e.definition.Name(),
-			Operation: expression.Operation(),
-			Actual:    name,
-			Origin:    expression.Origin(),
+	if len(names) == 0 {
+		return sequence{}, e.invalidArgument(expression, "metadata", "0")
+	}
+	targets := make([]*symbols.Symbol, len(names))
+	for i, name := range names {
+		if targets[i] = e.resolveClassification(name); targets[i] == nil {
+			return sequence{}, &Error{
+				Kind:      ErrorUnknownClassification,
+				Query:     e.definition.Name(),
+				Operation: expression.Operation(),
+				Actual:    name,
+				Origin:    expression.Origin(),
+			}
 		}
 	}
 	result := filtered(source)
@@ -257,9 +316,10 @@ func (e *executor) evaluateWhereMetadata(expression queryplan.Expression) (seque
 			types := e.context.Index.LookupQualified(annotation.TypeFQN)
 			matches := false
 			for _, actual := range types {
-				if symbols.SameElement(actual, target) || e.context.Model.Conforms(actual, target) {
-					matches = true
-					break
+				for _, target := range targets {
+					if symbols.SameElement(actual, target) || e.context.Model.Conforms(actual, target) {
+						matches = true
+					}
 				}
 			}
 			if matches {
@@ -670,6 +730,7 @@ func isQueryableProperty(property string) bool {
 		query.PropertyOwner,
 		query.PropertyElementType,
 		query.PropertyIsAbstract,
+		query.PropertyIsIndividual,
 		query.PropertyMultiplicityLower,
 		query.PropertyMultiplicityUpper:
 		return true
@@ -681,7 +742,7 @@ func isQueryableProperty(property string) bool {
 func typedPropertyValue(property, value string, sym *symbols.Symbol) Value {
 	var result Value
 	switch property {
-	case query.PropertyIsAbstract:
+	case query.PropertyIsAbstract, query.PropertyIsIndividual:
 		boolean, _ := strconv.ParseBool(value)
 		result = BooleanValue(boolean)
 	case query.PropertyMultiplicityLower, query.PropertyMultiplicityUpper:

@@ -36,6 +36,8 @@ const (
 	PropertyElementType = "type"
 	// PropertyIsAbstract is the abstractness property.
 	PropertyIsAbstract = "isAbstract"
+	// PropertyIsIndividual is the `individual` modifier of a definition or usage.
+	PropertyIsIndividual = "isIndividual"
 	// PropertyMultiplicityLower is the lower multiplicity bound property.
 	PropertyMultiplicityLower = "multiplicityLower"
 	// PropertyMultiplicityUpper is the upper multiplicity bound property.
@@ -46,7 +48,7 @@ const (
 var propertyNames = []string{
 	PropertyID, PropertyType, PropertyName, PropertyDeclaredName,
 	PropertyShortName, PropertyDeclaredShortName, PropertyDocumentation,
-	PropertyQualifiedName, PropertyOwner, PropertyIsAbstract, PropertyElementType,
+	PropertyQualifiedName, PropertyOwner, PropertyIsAbstract, PropertyIsIndividual, PropertyElementType,
 	PropertyMultiplicityLower, PropertyMultiplicityUpper,
 }
 

@@ -14,15 +14,24 @@ library package DocumentQueries {
 		return result : Element[0..*] ordered;
 	}
 
+	/* Descendants and Ancestors walk ownership from source to maxDepth levels;
+	 * maxDepth = null (the default) walks the whole tree. */
 	calc def Descendants {
 		in source : Element[0..*] ordered;
-		in maxDepth : Integer[1];
+		in maxDepth : Integer[0..1] = null;
 		return result : Element[0..*] ordered;
 	}
 
 	calc def Ancestors {
 		in source : Element[0..*] ordered;
-		in maxDepth : Integer[1];
+		in maxDepth : Integer[0..1] = null;
+		return result : Element[0..*] ordered;
+	}
+
+	/* Named: the model elements the qualified names denote, in the order given;
+	 * a name that denotes nothing is an error. */
+	calc def Named {
+		in qualifiedName : String[1..*] ordered;
 		return result : Element[0..*] ordered;
 	}
 
@@ -131,19 +140,22 @@ library package DocumentQueries {
 		 * "derivation" or "refinement"; direction: "outgoing" or "incoming". */
 		in relationshipKind : String[1];
 		in direction : String[1];
-		in maxDepth : Integer[1];
+		/* maxDepth: how many relationships to follow; null (the default) is unbounded. */
+		in maxDepth : Integer[0..1] = null;
 		return result : Element[0..*] ordered;
 	}
 
+	/* WhereType keeps the elements that are of any of the named types. */
 	calc def WhereType {
 		in source : Element[0..*] ordered;
-		in type : String[1];
+		in type : String[1..*] ordered;
 		return result : Element[0..*] ordered;
 	}
 
+	/* WhereMetadata keeps the elements annotated with any of the named metadata definitions. */
 	calc def WhereMetadata {
 		in source : Element[0..*] ordered;
-		in 'metadata' : String[1];
+		in 'metadata' : String[1..*] ordered;
 		return result : Element[0..*] ordered;
 	}
 
@@ -298,24 +310,27 @@ library package DocumentQueries {
 	}
 
 	/* A relationship-derived Project column: the elements RelatedElements
-	 * reaches from each row, as a "list" (default), a "count" or "any". */
+	 * reaches from each row, as a "list" (default), a "count" or "any";
+	 * maxDepth = null is unbounded, and targets, when given, keeps only the
+	 * reached elements among them. */
 	calc def RelatedColumn {
 		in name : String[1];
 		in relationshipKind : String[1];
 		in direction : String[1];
-		in maxDepth : Integer[1];
+		in maxDepth : Integer[0..1] = null;
 		in aggregate : String[1] = "list";
+		in targets : Element[0..*] ordered = null;
 		return result : ColumnSpec[1];
 	}
 
 	/* WhereRelated: the source rows with at least one element reachable by the
 	 * relationship kind and direction of RelatedElements within maxDepth
-	 * (exists = true), or with none (exists = false). */
+	 * (exists = true), or with none (exists = false); maxDepth = null is unbounded. */
 	calc def WhereRelated {
 		in source : Element[0..*] ordered;
 		in relationshipKind : String[1];
 		in direction : String[1];
-		in maxDepth : Integer[1];
+		in maxDepth : Integer[0..1] = null;
 		in exists : Boolean[1] = true;
 		return result : Element[0..*] ordered;
 	}

@@ -406,7 +406,7 @@ calc def Bad :> Query {
 	in root : Element;
 	Project(
 		source = Descendants(source = root, maxDepth = 1),
-		columns = (RelatedColumn("satisfiedBy", "satisfaction", "incoming"))
+		columns = (RelatedColumn("satisfiedBy", "satisfaction"))
 	)
 }`,
 		},
@@ -418,7 +418,7 @@ calc def Bad :> Query {
 	in root : Element;
 	Project(
 		source = Descendants(source = root, maxDepth = 1),
-		columns = (RelatedColumn("satisfiedBy", "satisfaction", "incoming", 1, "list", "extra"))
+		columns = (RelatedColumn("satisfiedBy", "satisfaction", "incoming", 1, "list", root, "extra"))
 	)
 }`,
 		},

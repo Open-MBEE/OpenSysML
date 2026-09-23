@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 	"strings"
+
+	"golang.org/x/net/html/charset"
 )
 
 // isXMI reports whether the attribute is in an XMI namespace of any version.
@@ -51,8 +53,9 @@ func isVersionSegment(s string) bool {
 }
 
 // Element is one XML element of an XMI document: its local tag, its xmi:type
-// and xmi:id, its non-XMI and XMI attributes by local name, and its children
-// in document order. A parsed document is never modified after Parse returns.
+// and xmi:id, its non-XMI and XMI attributes by local name, the namespaces it
+// declares, and its children in document order. A parsed document is never
+// modified after Parse returns.
 type Element struct {
 	Tag      string
 	Space    string
@@ -214,6 +217,7 @@ func (d *Document) ByID(id string) *Element {
 // xmi:id declared twice, and never panics on unexpected content.
 func Parse(r io.Reader) (*Document, error) {
 	dec := xml.NewDecoder(r)
+	dec.CharsetReader = charset.NewReaderLabel
 	doc := &Document{byID: make(map[string]*Element)}
 	var stack []*Element
 	for {
@@ -252,8 +256,8 @@ func Parse(r io.Reader) (*Document, error) {
 	return doc, nil
 }
 
-// newElement reads a start tag: its xmi:type and xmi:id, then the remaining
-// attributes by local name, namespace declarations aside.
+// newElement reads a start tag: its xmi:type and xmi:id, its namespace
+// declarations, then the remaining attributes by local name.
 func newElement(t xml.StartElement) *Element {
 	e := &Element{
 		Tag:      t.Name.Local,

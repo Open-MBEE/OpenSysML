@@ -18,6 +18,8 @@ const (
 	OperationOwnedElements Operation = "owned-elements"
 	OperationDescendants   Operation = "descendants"
 	OperationAncestors     Operation = "ancestors"
+	// OperationNamed resolves qualified names to the model elements they denote.
+	OperationNamed Operation = "named"
 	// OperationObjects enumerates the objects a session holds, by type.
 	OperationObjects Operation = "objects"
 	// OperationVerdicts checks the assertions about each source row's object.

@@ -905,7 +905,8 @@ answer.
 | `declaredShortName` | `shortName`, absent when the short name is borrowed from a redefined or subsetted feature | |
 | `documentation` | The body text of the element's `doc` comment, delimiters and indentation removed; absent when undocumented. This single-valued record reports the first body of an element declaring several — a document query's `Project` carries every body | |
 | `owner` | Qualified name of the owning element; absent for a top-level element, whose owner is the document root | |
-| `isAbstract` | `true`/`false` for a definition or usage; absent for anything else, and for a standard-library element restored from cache, which carries no declaration | |
+| `isAbstract` | `true`/`false` for a definition or usage; absent for anything else. A standard-library element carries its declaration on every load path (parsed, restored from the on-disk cache or decoded from the bundled snapshot), so it answers too | |
+| `isIndividual` | `true`/`false` for a definition or usage (the `individual` modifier); absent for anything else, and present for a standard-library element as `isAbstract` is | |
 | `type` | Qualified name of the resolved type of a typed feature; absent when untyped or unresolved | |
 | `multiplicityLower` | Declared lower bound | ✅ |
 | `multiplicityUpper` | Declared upper bound, `*` when unbounded | ✅ |

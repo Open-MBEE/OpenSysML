@@ -67,11 +67,16 @@ type view struct {
 	d *sysmlv1.Diagram
 	// host is the element whose body holds the view; nil for the top level.
 	host *sysmlv1.Element
-	name string
+	// placed is false when nothing written can hold the view.
+	placed bool
+	name   string
 	// note says what of the view's placement is approximated; "" when nothing.
 	note string
 	// entry is the report row, filled when the view is written.
 	entry *Entry
+	// tables are the table definitions the diagram carries, written beside
+	// the view in definition order; empty for a diagram that defines none.
+	tables []*tableDoc
 }
 
 // planViews assigns every diagram the body its view is written in and reserves
@@ -83,9 +88,8 @@ func (m *migration) planViews() {
 		d := &m.model.Diagrams[i]
 		v := &view{d: d}
 		m.viewOf[d] = v
-		var placed bool
-		v.host, placed, v.note = m.viewHost(d)
-		if !placed {
+		v.host, v.placed, v.note = m.viewHost(d)
+		if !v.placed {
 			v.entry = m.diagramEntry(d, Unmapped, "", v.note)
 			continue
 		}
@@ -114,6 +118,8 @@ func (m *migration) planViews() {
 		}
 		m.hosted[v.host] = append(m.hosted[v.host], v)
 	}
+	m.planTables()
+	m.planDocuments()
 }
 
 // viewName reserves the name a view takes in host's body, or at the top level
@@ -267,19 +273,43 @@ func (m *migration) viewRef(v *view, scope *sysmlv1.Element) string {
 	host := v.host
 	for i, s := range chain {
 		if s == host {
-			if !m.shadows(chain[:i], v.name) {
+			if !m.hidden(v.name) && !m.shadows(chain[:i], v.name) {
 				return name
 			}
 			break
 		}
 	}
 	if host == nil {
-		if m.shadows(chain, v.name) {
+		if m.hidden(v.name) || m.shadows(chain, v.name) {
 			return "$::" + name
 		}
 		return name
 	}
 	return m.memberRef(host, scope) + "::" + name
+}
+
+// viewSteps is the feature chain from the namespace above v's outermost usage
+// down to v; def is that namespace when a definition, why says why no chain reaches v.
+func (m *migration) viewSteps(v *view) (def *sysmlv1.Element, steps []segment, why string) {
+	path := m.path(v.host)
+	i := len(path)
+	for i > 0 && path[i-1].feature {
+		i--
+	}
+	steps = append(append(steps, path[i:]...), segment{name: v.name, feature: true})
+	if i == 0 {
+		return nil, steps, ""
+	}
+	ns := path[i-1]
+	if ns.elem != nil {
+		switch cat, _ := m.classify(ns.elem); {
+		case cat == catPackage:
+			return nil, steps, ""
+		case strings.HasSuffix(cat.keyword(), " def"):
+			return ns.elem, steps, ""
+		}
+	}
+	return nil, nil, "the view '" + v.name + "' is a member of " + m.qualified(m.segments(v.host)) + ", which no feature reaches"
 }
 
 // shadows reports whether one of scopes declares a member named name.
@@ -403,6 +433,9 @@ func (m *migration) writeView(v *view) {
 	if x.dangling > 0 {
 		note = joinNotes(note, fmt.Sprintf("%d of %d shown ids resolve to no element", x.dangling, shown))
 	}
+	for _, td := range v.tables {
+		m.lowerTable(td)
+	}
 	geo := m.viewGeometry(v, x, form)
 	if geo.note != "" {
 		note = joinNotes(note, geo.note)
@@ -411,11 +444,19 @@ func (m *migration) writeView(v *view) {
 		for _, ref := range x.refs {
 			m.w.line("expose " + ref + ";")
 		}
+		for _, td := range v.tables {
+			if td.written() {
+				m.w.line("expose " + writeName(td.doc) + ";")
+			}
+		}
 		for _, line := range geo.lines {
 			m.w.line(line)
 		}
 		m.w.line("render " + prefix + render + ";")
 	})
+	for _, td := range v.tables {
+		m.writeTable(td)
+	}
 	verdict := Mapped
 	if v.note != "" || untyped || shown == 0 || len(x.refs) == 0 || x.unwritten+x.dangling > 0 {
 		verdict = Approximated
@@ -566,6 +607,7 @@ func (m *migration) diagrams() {
 		}
 		m.report.Entries = append(m.report.Entries, *v.entry)
 	}
+	m.unplacedTables()
 }
 
 // viewGeometry is the layout a matched MTIP diagram record writes into a view:

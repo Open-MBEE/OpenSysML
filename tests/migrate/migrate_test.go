@@ -325,6 +325,12 @@ var constructFixtures = []string{
 	"layout",
 	"malformed_diagrams",
 	"stub_actions",
+	"tables",
+	"metaclass_tables",
+	"documents",
+	"type_modifiers",
+	"table_homonyms",
+	"relation_subtypes",
 }
 
 // migrateFixtureFile migrates testdata/xmi/<name>.xmi.

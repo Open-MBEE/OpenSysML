@@ -159,7 +159,10 @@ func (m *Model) Diagram(id string) *Diagram {
 }
 
 // shown resolves the id of a shown element: an xmi:id of the read documents,
-// an href into one of them, or an href another document's proxy stands for.
+// an href into one of them, an href another document's proxy stands for, or
+// the bare fragment of such an href, as a tool writes a module element's id
+// once it has referenced the element by href. A bare fragment that hrefs of
+// several documents share names no element (Ambiguous lists the candidates).
 func (m *Model) shown(id string) *Element {
 	if e := m.byID[id]; e != nil {
 		return e
@@ -169,5 +172,26 @@ func (m *Model) shown(id string) *Element {
 			return e
 		}
 	}
-	return m.proxies[id]
+	if p := m.proxies[id]; p != nil {
+		return p
+	}
+	if ps := m.fragments[id]; len(ps) == 1 {
+		return ps[0]
+	}
+	return nil
+}
+
+// Ambiguous lists the hrefs a bare id could stand for when proxies of several
+// documents share it as their fragment, in first-seen order; nil when the id
+// resolves, or when no proxy carries it.
+func (m *Model) Ambiguous(id string) []string {
+	ps := m.fragments[id]
+	if len(ps) < 2 || m.byID[id] != nil || m.proxies[id] != nil {
+		return nil
+	}
+	hrefs := make([]string, len(ps))
+	for i, p := range ps {
+		hrefs[i] = p.Href
+	}
+	return hrefs
 }

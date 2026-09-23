@@ -62,7 +62,7 @@ func newRelationshipTables() *relationshipTables {
 type relationshipWalk struct {
 	kind      string
 	direction string
-	maxDepth  int64
+	maxDepth  depthLimit
 }
 
 func (e *executor) evaluateRelated(expression queryplan.Expression) (sequence, error) {
@@ -100,7 +100,7 @@ func (e *executor) relationshipArguments(expression queryplan.Expression) (relat
 	if err != nil {
 		return relationshipWalk{}, err
 	}
-	maxDepth, err := e.integerArgument(expression, "maxDepth")
+	maxDepth, err := e.depthArgument(expression)
 	if err != nil {
 		return relationshipWalk{}, err
 	}
@@ -140,7 +140,7 @@ func (e *executor) traverseRelated(
 	for len(queue) > 0 {
 		next := queue[0]
 		queue = queue[1:]
-		if next.depth >= walk.maxDepth {
+		if walk.maxDepth.reached(next.depth) {
 			continue
 		}
 		neighbors, err := e.relatedNeighbors(expression, walk.kind, walk.direction, next.sym)
@@ -321,7 +321,9 @@ func connectorRelationship(usage ast.UsageKind, kind string) bool {
 // scanSatisfaction records the edge a satisfy or verify assertion states: from
 // the subject its `by` clause names — else the element stating the assertion —
 // to the requirement it references, or to the assertion itself when it
-// declares its requirement (`satisfy requirement r by v { ... }`).
+// declares its requirement (`satisfy requirement r by v { ... }`) — and then
+// also to the requirement definition the declaration is typed by, which is
+// the requirement a v1 model states the satisfaction of.
 func (e *executor) scanSatisfaction(edges *relationshipEdges, kind string, sym *symbols.Symbol) {
 	usage, ok := sym.Decl.(*ast.Usage)
 	if !ok || usage.Kind != ast.UsageSatisfy {
@@ -330,7 +332,7 @@ func (e *executor) scanSatisfaction(edges *relationshipEdges, kind string, sym *
 	if (usage.Keyword == "verify") != (kind == relationshipVerification) {
 		return
 	}
-	var requirement, subject *symbols.Symbol
+	var requirement, definition, subject *symbols.Symbol
 	for _, rel := range usage.Relationships {
 		if rel == nil || rel.Target == nil {
 			continue
@@ -345,6 +347,10 @@ func (e *executor) scanSatisfaction(edges *relationshipEdges, kind string, sym *
 			// only the reference form names the requirement this way.
 			if !usage.DeclaresRequirement {
 				requirement = target
+			}
+		case ast.RelTyping:
+			if usage.DeclaresRequirement && target.Kind == symbols.SymbolRequirementDef {
+				definition = target
 			}
 		case ast.RelSubject:
 			subject = target
@@ -365,6 +371,9 @@ func (e *executor) scanSatisfaction(edges *relationshipEdges, kind string, sym *
 		return
 	}
 	addEdge(edges, subject, requirement)
+	if definition != nil {
+		addEdge(edges, subject, definition)
+	}
 }
 
 func isObjectiveUsage(decl ast.Node) bool {

@@ -314,3 +314,61 @@ func TestDiagramsInArchiveEntriesResolveAcrossDocuments(t *testing.T) {
 		t.Fatalf("diagrams = %+v", m.Diagrams)
 	}
 }
+
+func TestBareModuleFragmentResolvesOnlyWhenUnique(t *testing.T) {
+	// A tool that referenced a module element by href goes on to write its
+	// bare id, which resolves to that href's proxy while one document holds
+	// the fragment; once hrefs of two documents share it, the id is ambiguous
+	// and names no element rather than the first proxy seen.
+	m, err := Parse([]byte(`<?xml version="1.0"?>
+<xmi:XMI xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:diagram="http://www.example.com/tool/diagram">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="M">
+    <packagedElement xmi:type="uml:Class" xmi:id="_a" name="A">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_a_x" name="x">
+        <type xmi:type="uml:Class" href="module-a.xmi#_type1"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_a_y" name="y">
+        <type xmi:type="uml:Class" href="module-b.xmi#_type1"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_a_z" name="z">
+        <type xmi:type="uml:Class" href="module-a.xmi#_only"/>
+      </ownedAttribute>
+    </packagedElement>
+    <xmi:Extension extender="Example UML Tool 1.0">
+      <modelExtension>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_d" name="Modules" ownerOfDiagram="_m">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Package Diagram" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_type1</usedElements>
+                  <usedElements>_only</usedElements>
+                  <usedObjects href="module-b.xmi#_type1"/>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+      </modelExtension>
+    </xmi:Extension>
+  </uml:Model>
+</xmi:XMI>`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := m.Diagrams[0]
+	if got := ids(d.Shown); got != "_type1? _only module-b.xmi#_type1" {
+		t.Errorf("shown = %q", got)
+	}
+	if d.Shown[1].Element != m.Lookup("module-a.xmi#_only") || d.Shown[2].Element != m.Lookup("module-b.xmi#_type1") {
+		t.Errorf("shown elements = %+v", d.Shown)
+	}
+	if got := strings.Join(m.Ambiguous("_type1"), " "); got != "module-a.xmi#_type1 module-b.xmi#_type1" {
+		t.Errorf("Ambiguous(_type1) = %q", got)
+	}
+	if m.Ambiguous("_only") != nil || m.Ambiguous("module-a.xmi#_type1") != nil || m.Ambiguous("_a") != nil || m.Ambiguous("_gone") != nil {
+		t.Error("a resolved or unknown id reads as ambiguous")
+	}
+}

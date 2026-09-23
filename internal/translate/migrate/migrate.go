@@ -151,6 +151,7 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		opaque:       map[*sysmlv1.Element]*opaqueResult{},
 		viewOf:       map[*sysmlv1.Diagram]*view{},
 		hosted:       map[*sysmlv1.Element][]*view{},
+		tableOf:      map[*sysmlv1.Table]*tableDoc{},
 		buried:       map[*sysmlv1.Element]bool{},
 		actors:       map[*sysmlv1.Element]*actorLink{},
 		monteCarlo:   map[*sysmlv1.Element]*monteCarloCase{},
@@ -187,6 +188,9 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 	m.prepare()
 	for _, root := range model.Roots {
 		m.root(root)
+	}
+	for _, extra := range m.extras[nil] {
+		extra()
 	}
 	m.views(nil)
 	m.flushFlows()
@@ -265,6 +269,8 @@ type migration struct {
 	// viewOf plans each diagram's view; hosted lists the views each body opens with.
 	viewOf map[*sysmlv1.Diagram]*view
 	hosted map[*sysmlv1.Element][]*view
+	// tableOf plans each table definition's Document beside its diagram's view.
+	tableOf map[*sysmlv1.Table]*tableDoc
 	// buried memoizes isBuried: whether an ancestor left out of the document takes e with it.
 	buried map[*sysmlv1.Element]bool
 	// flows lists the item flows each connector realizes.
@@ -275,6 +281,9 @@ type migration struct {
 	unplaced map[*sysmlv1.Element]*placement
 	// taken holds synthesized names reserved in a body, by owner.
 	taken map[*sysmlv1.Element]map[string]bool
+	// opened holds the member names of each synthesized declaration being
+	// written, outermost first; a reference written inside them avoids those names.
+	opened []columnNames
 	// parallel names the parallel state each region of an orthogonal state is
 	// written in; a lone region is written inline and has no name of its own.
 	parallel map[*sysmlv1.Element]string
@@ -1811,6 +1820,10 @@ func (m *migration) feature(p *sysmlv1.Element) {
 	note = joinNotes(note, dnote)
 	b.WriteString(dir)
 	prefix, note = m.featureModifiers(&b, p, ownerCat, kw, dir, prefix, note)
+	tm := m.typeModifier(p)
+	if tm != nil && tm.ref {
+		prefix = "ref "
+	}
 	b.WriteString(prefix)
 	b.WriteString(kw)
 	name := m.nameOf(p)
@@ -1831,8 +1844,13 @@ func (m *migration) feature(p *sysmlv1.Element) {
 	ind, indNote := m.typingIndividual(p, kw)
 	m.featureTyping(&b, p, ind, payload, typ)
 	mult, mnote := m.multiplicity(p)
-	b.WriteString(mult + collection(p))
-	note = joinNotes(note, mnote)
+	if shape := tm.shape(); shape != "" {
+		mult, mnote = shape, ""
+	} else {
+		mult += collection(p)
+	}
+	b.WriteString(mult)
+	note = joinNotes(joinNotes(note, mnote), tm.note())
 	note = m.featureRedefinitions(&b, p, note)
 	note = m.featureShadow(&b, p, kw, note)
 	note = joinNotes(note, m.dangling(p, "redefinedProperty", "subsettedProperty"))
@@ -3222,7 +3240,7 @@ func (m *migration) stereotypeAnnotations(e *sysmlv1.Element) {
 func (m *migration) annotated(e *sysmlv1.Element) []*sysmlv1.Stereotype {
 	var out []*sysmlv1.Stereotype
 	for _, s := range e.Stereotypes {
-		if m.isConstraintParameterMarker(e, s) || m.isPropertyKindMarker(e, s) || isSimulationConfig(s) {
+		if m.isConstraintParameterMarker(e, s) || m.isPropertyKindMarker(e, s) || isSimulationConfig(s) || m.writesTypeModifier(e, s) {
 			continue
 		}
 		out = append(out, s)
@@ -3281,7 +3299,7 @@ func (m *migration) stereotypeComments(e *sysmlv1.Element) {
 			text += ": " + strings.Join(tags, "; ")
 		}
 		m.w.lines(commentLines(text))
-		if s.Definition == nil && toolProfile(s.Namespace) == "" {
+		if s.Definition == nil && toolProfile(s.Namespace) == "" && !readsTypeModifier(e, s) && !sysmlv1.IsDocGenProfile(s.Namespace) {
 			if byNamespace[s.Namespace] == nil {
 				outside = append(outside, s.Namespace)
 			}
