@@ -1504,7 +1504,7 @@ elmt:ThenAfterMembers__AfterInterface__p2
     sysml:owningRelationship elmt:ThenAfterMembers__AfterInterface__p2_om ;
     sysml:owningMembership elmt:ThenAfterMembers__AfterInterface__p2_om ;
     sysml:declaredName "p2" ;
-    sysml:isConjugated "true"^^xsd:boolean ;
+    sysx:conjugatedTyping "true"^^xsd:boolean ;
     sysml:type elmt:ThenAfterMembers__Plug ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:ThenAfterMembers__AfterInterface__p2_ft0 ;
@@ -6168,19 +6168,21 @@ elmt:ThenAfterMembers__AfterInterface__p1_ft0
     json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterInterface__p1\"},{\"@id\":\"ThenAfterMembers__Plug\"}]" .
 
 elmt:ThenAfterMembers__AfterInterface__p2_ft0
-    a sysml:FeatureTyping ;
+    a sysml:ConjugatedPortTyping ;
     sysml:elementId "ThenAfterMembers__AfterInterface__p2_ft0" ;
     sysml:typedFeature elmt:ThenAfterMembers__AfterInterface__p2 ;
     sysml:owningFeature elmt:ThenAfterMembers__AfterInterface__p2 ;
     sysml:specific elmt:ThenAfterMembers__AfterInterface__p2 ;
     sysml:source elmt:ThenAfterMembers__AfterInterface__p2 ;
     sysml:owningRelatedElement elmt:ThenAfterMembers__AfterInterface__p2 ;
-    sysml:type elmt:ThenAfterMembers__Plug ;
-    sysml:general elmt:ThenAfterMembers__Plug ;
-    sysml:target elmt:ThenAfterMembers__Plug ;
+    sysml:conjugatedPortDefinition elmt:ThenAfterMembers__Plug_conjugated ;
+    sysml:type elmt:ThenAfterMembers__Plug_conjugated ;
+    sysml:general elmt:ThenAfterMembers__Plug_conjugated ;
+    sysml:target elmt:ThenAfterMembers__Plug_conjugated ;
     sysml:owner elmt:ThenAfterMembers__AfterInterface__p2 ;
-    sysml:relatedElement elmt:ThenAfterMembers__AfterInterface__p2, elmt:ThenAfterMembers__Plug ;
-    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterInterface__p2\"},{\"@id\":\"ThenAfterMembers__Plug\"}]" .
+    sysml:relatedElement elmt:ThenAfterMembers__AfterInterface__p2, elmt:ThenAfterMembers__Plug_conjugated ;
+    sysml:portDefinition elmt:ThenAfterMembers__Plug ;
+    json:relatedElement "[{\"@id\":\"ThenAfterMembers__AfterInterface__p2\"},{\"@id\":\"ThenAfterMembers__Plug_conjugated\"}]" .
 
 elmt:ThenAfterMembers__AfterInterface__b_ft0
     a sysml:FeatureTyping ;

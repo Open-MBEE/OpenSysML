@@ -142,7 +142,7 @@ elmt:IrregularLayout__Speed___401
     sysml:ownedRelationship elmt:IrregularLayout__Speed___401_ft0 .
 
 elmt:IrregularLayout__Speed___401_om
-    a sysml:FeatureMembership ;
+    a sysml:ReturnParameterMembership ;
     sysml:elementId "IrregularLayout__Speed___401_om" ;
     sysml:owner elmt:IrregularLayout__Speed ;
     sysml:memberElement elmt:IrregularLayout__Speed___401 ;
@@ -150,6 +150,7 @@ elmt:IrregularLayout__Speed___401_om
     sysml:ownedRelatedElement elmt:IrregularLayout__Speed___401 ;
     sysml:owningRelatedElement elmt:IrregularLayout__Speed ;
     sysml:membershipOwningNamespace elmt:IrregularLayout__Speed ;
+    sysml:ownedMemberParameter elmt:IrregularLayout__Speed___401 ;
     sysml:ownedMemberFeature elmt:IrregularLayout__Speed___401 ;
     sysml:owningType elmt:IrregularLayout__Speed .
 

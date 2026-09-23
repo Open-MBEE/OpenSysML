@@ -1350,7 +1350,7 @@ elmt:Filtered___400
 elmt:Filtered___400_fp
     a sysml:Package ;
     sysml:elementId "Filtered___400_fp" ;
-    sysml:owner elmt:Filtered___400 ;
+    sysml:owner elmt:Filtered ;
     sysml:owningRelationship elmt:Filtered___400 ;
     sysml:ownedRelationship elmt:Filtered___400_fp_im, elmt:Filtered___400_fp_efm ;
     sysml:ownedImport elmt:Filtered___400_fp_im ;

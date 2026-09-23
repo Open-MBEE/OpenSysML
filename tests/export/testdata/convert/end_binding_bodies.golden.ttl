@@ -300,7 +300,7 @@ elmt:R89__Rd__inp
     sysml:owningRelationship elmt:R89__Rd__inp_om ;
     sysml:owningMembership elmt:R89__Rd__inp_om ;
     sysml:declaredName "inp" ;
-    sysml:isConjugated "true"^^xsd:boolean ;
+    sysx:conjugatedTyping "true"^^xsd:boolean ;
     sysml:type elmt:R89__P ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:R89__Rd__inp_ft0 ;
@@ -3386,19 +3386,21 @@ elmt:R89__W__outp_ft0
     json:relatedElement "[{\"@id\":\"R89__W__outp\"},{\"@id\":\"R89__P\"}]" .
 
 elmt:R89__Rd__inp_ft0
-    a sysml:FeatureTyping ;
+    a sysml:ConjugatedPortTyping ;
     sysml:elementId "R89__Rd__inp_ft0" ;
     sysml:typedFeature elmt:R89__Rd__inp ;
     sysml:owningFeature elmt:R89__Rd__inp ;
     sysml:specific elmt:R89__Rd__inp ;
     sysml:source elmt:R89__Rd__inp ;
     sysml:owningRelatedElement elmt:R89__Rd__inp ;
-    sysml:type elmt:R89__P ;
-    sysml:general elmt:R89__P ;
-    sysml:target elmt:R89__P ;
+    sysml:conjugatedPortDefinition elmt:R89__P_conjugated ;
+    sysml:type elmt:R89__P_conjugated ;
+    sysml:general elmt:R89__P_conjugated ;
+    sysml:target elmt:R89__P_conjugated ;
     sysml:owner elmt:R89__Rd__inp ;
-    sysml:relatedElement elmt:R89__Rd__inp, elmt:R89__P ;
-    json:relatedElement "[{\"@id\":\"R89__Rd__inp\"},{\"@id\":\"R89__P\"}]" .
+    sysml:relatedElement elmt:R89__Rd__inp, elmt:R89__P_conjugated ;
+    sysml:portDefinition elmt:R89__P ;
+    json:relatedElement "[{\"@id\":\"R89__Rd__inp\"},{\"@id\":\"R89__P_conjugated\"}]" .
 
 elmt:R89__Ctx__w_ft0
     a sysml:FeatureTyping ;

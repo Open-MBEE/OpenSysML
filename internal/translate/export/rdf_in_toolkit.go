@@ -8,6 +8,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf/ontology"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
 // deriveNormativeGraph completes a graph written in the normative element form
@@ -52,6 +53,32 @@ func firstObject(graph *rdf.Graph, subject rdf.Term, properties ...string) rdf.T
 	return rdf.Term{}
 }
 
+// originalPortDefinition is the PortDefinition a ConjugatedPortTyping's `~P`
+// names: its stated portDefinition when that is a definition (the toolkit
+// points it at the typing itself), else the conjugate's original.
+func originalPortDefinition(graph *rdf.Graph, meta func(rdf.Term) string, typing, conjugated rdf.Term) rdf.Term {
+	if stated := firstIRI(graph, typing, pPortDefinition); stated.Value != "" && meta(stated) != mConjugatedPortTyping {
+		return stated
+	}
+	if conjugated.Value == "" || meta(conjugated) != mConjugatedPortDefinition {
+		return conjugated
+	}
+	for _, subject := range graph.Subjects() {
+		if meta(subject) == mPortConjugation && firstIRI(graph, subject, pConjugatedType) == conjugated {
+			if original := firstIRI(graph, subject, pOriginalPortDefinition, pOriginalType); original.Value != "" {
+				return original
+			}
+		}
+		if firstIRI(graph, subject, pConjugatedPortDefinition) == conjugated {
+			return subject
+		}
+	}
+	if ms := firstIRI(graph, conjugated, pOwningRelationship, pOwningMembership); ms.Value != "" {
+		return firstIRI(graph, ms, pOwningRelatedElement, pMembershipOwningNamespace, pOwner)
+	}
+	return conjugated
+}
+
 // collapsedOf is the collapsed head property a minted relationship element
 // restates, for the owners this mapping collapses them on.
 func collapsedOf(metaclass string, ownerHasEndForm, ownerIsSatisfy bool) (string, bool) {
@@ -94,12 +121,65 @@ func relationshipLike(metaclass string) bool {
 	return ontology.IsAncestorOrSelf(metaclass, "Relationship")
 }
 
+// chainFeatureIn reports whether subject is an unnamed Feature owning
+// FeatureChainings: the feature chain `a.b` an expression reaches or invokes.
+func chainFeatureIn(graph *rdf.Graph, meta func(rdf.Term) string, subject rdf.Term) bool {
+	_, ok := chainTextIn(graph, meta, nil, subject)
+	return ok
+}
+
+// chainTextIn writes the chain `a.b.c` an unnamed Feature's FeatureChainings
+// spell, as notation: each segment its declared name or, through unresolved,
+// the name the writer could not resolve to an element of the document.
+func chainTextIn(graph *rdf.Graph, meta func(rdf.Term) string, unresolved map[string]string, subject rdf.Term) (string, bool) {
+	if meta(subject) == "" || !ontology.IsAncestorOrSelf(meta(subject), mFeature) {
+		return "", false
+	}
+	if _, named := graph.Lexical(subject, rdf.SysML+pDeclaredName); named {
+		return "", false
+	}
+	var segments []string
+	for _, chain := range graph.Objects(subject, rdf.SysML+pOwnedRelationship) {
+		if meta(chain) != mFeatureChaining {
+			continue
+		}
+		feature := firstIRI(graph, chain, pChainingFeature)
+		if feature.Value != "" {
+			if name, ok := graph.Lexical(feature, rdf.SysML+pDeclaredName); ok {
+				segments = append(segments, nameText(name))
+			} else if name, ok := graph.Lexical(feature, rdf.SysML+pQualifiedName); ok {
+				segments = append(segments, lastSegmentText(name))
+			} else if name := unresolved[feature.Value[strings.LastIndex(feature.Value, ":")+1:]]; name != "" {
+				if _, qualified := source.QualifiedNameSegments(name); qualified {
+					segments = append(segments, lastSegmentText(name))
+				} else {
+					// The writer left a chain unresolved whole; its text is the segment.
+					segments = append(segments, name)
+				}
+			}
+		} else if name, ok := graph.Lexical(chain, rdf.SysML+pChainingFeature); ok {
+			segments = append(segments, qualifiedNameText(canonicalName(name)))
+		}
+	}
+	return strings.Join(segments, "."), len(segments) > 0
+}
+
+// lastSegmentText writes the last segment of a qualified name as notation.
+func lastSegmentText(qname string) string {
+	segments, ok := source.QualifiedNameSegments(qname)
+	if !ok {
+		segments = strings.Split(qname, "::")
+	}
+	return nameText(segments[len(segments)-1])
+}
+
 // deriveNormativeGraph runs the whole normalization over the graph and
 // returns the completed graph: a copy first, since the sparse form also
 // states defaults this mapping never writes, and a stated default would
 // print the keyword a graph carrying none reads the same way.
 func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) *rdf.Graph {
 	meta := func(t rdf.Term) string { return rdf.LocalName(metaclasses[t]) }
+	chainFeature := func(graph *rdf.Graph, t rdf.Term) bool { return chainFeatureIn(graph, meta, t) }
 	// A graph written in the API element form spells every default, so its
 	// stated defaults are dropped and its collapsed properties derived; a
 	// graph minted to this mapping states only what it means.
@@ -149,6 +229,18 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) *rd
 			graph.Add(subject, rdf.SysMLTerm(pOwnedSubjectParameter), member)
 		}
 		switch {
+		case m == mSubaction:
+			// `entry`/`do`/`exit` is the membership itself, a member of the
+			// state that performs its one action.
+			delete(membershipSubject, subject.Value)
+			if kind, ok := graph.Lexical(subject, rdf.SysML+pKind); ok {
+				graph.Add(subject, rdf.OpenSysMLTerm(xSubactionKind), rdf.String(kind))
+			}
+			memberOwner[subject.Value] = owner
+			ownerMembers[owner.Value] = append(ownerMembers[owner.Value], subject)
+			memberOwner[member.Value] = subject
+			memberMembership[member.Value] = subject
+			ownerMembers[subject.Value] = append(ownerMembers[subject.Value], member)
 		case m == mResultExpressionMembership:
 			// The result expression is a member of the body it closes, not a
 			// part of an expression tree.
@@ -202,12 +294,25 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) *rd
 		var ordered []rdf.Term
 		seen := map[string]bool{}
 		appendMember := func(m rdf.Term) {
+			// A feature's `[n]` range and the expressions valuing it are part
+			// of its head, not body members that take a position.
+			if nodeMember[m.Value] || meta(m) == mMultiplicityRange && !graph.HasProperty(m, rdf.SysML+pDeclaredName) {
+				return
+			}
 			if m.Value != "" && !seen[m.Value] {
 				seen[m.Value] = true
 				ordered = append(ordered, m)
 			}
 		}
 		for _, ms := range graph.Objects(term, rdf.SysML+pOwnedRelationship) {
+			// Only memberships and imports take a position; a specialization
+			// or typing beside them is part of the owner's head.
+			if m := meta(ms); m == "" || !strings.HasSuffix(m, "Membership") && !strings.HasSuffix(m, "Import") {
+				continue
+			} else if m == mSubaction {
+				appendMember(ms)
+				continue
+			}
 			if member := firstObject(graph, ms, pMemberElement, "memberFeature", "memberNamespace",
 				pOwnedMemberElement, pOwnedMemberFeature, pOwnedVariantUsage, pOwnedResultExpression,
 				pOwnedMemberParameter, pOwnedSubjectParameter, pOwnedRelatedElement, pImportedMembership,
@@ -245,15 +350,16 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) *rd
 			continue
 		}
 		target := firstIRI(graph, subject, relationshipTargetEnds...)
+		if m == mConjugatedPortTyping {
+			// The head writes `~P`: the original definition, the conjugate of
+			// which the typing names as its type.
+			target = originalPortDefinition(graph, meta, subject, target)
+			graph.Add(owner, rdf.OpenSysMLTerm(xConjugatedTyping), rdf.Bool(true))
+		}
 		if target.Value == "" {
 			continue
 		}
 		graph.Add(owner, rdf.SysMLTerm(property), target)
-		if m == mConjugatedPortTyping {
-			// A conjugated typing types its feature by the original
-			// definition with a `~` the head writes before the name.
-			graph.Add(owner, rdf.SysMLTerm("isConjugated"), rdf.Bool(true))
-		}
 	}
 	// Literal targets: the minted element's literal ends restate the literal
 	// collapsed value the same way; the loop above only reads IRIs, so repeat
@@ -276,12 +382,15 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) *rd
 		for _, end := range relationshipTargetEnds {
 			for _, object := range graph.Objects(subject, rdf.SysML+end) {
 				if !object.IsIRI() {
+					if m == mConjugatedPortTyping {
+						object = rdf.String(strings.TrimPrefix(object.Value, "~"))
+					}
 					graph.Add(owner, rdf.SysMLTerm(property), object)
 				}
 			}
 		}
 		if m == mConjugatedPortTyping {
-			graph.Add(owner, rdf.SysMLTerm("isConjugated"), rdf.Bool(true))
+			graph.Add(owner, rdf.OpenSysMLTerm(xConjugatedTyping), rdf.Bool(true))
 		}
 	}
 
@@ -289,8 +398,26 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) *rd
 	// collapsed property our decoder reads: a FeatureReferenceExpression's
 	// referent, a FeatureChainExpression's target feature, an invocation's
 	// function.
+	// A chain feature's collapsed chainingFeature list is derived from the
+	// FeatureChainings it owns, in ownedRelationship order.
 	for _, subject := range graph.Subjects() {
-		if meta(subject) != mMembership {
+		if !chainFeature(graph, subject) || graph.HasProperty(subject, rdf.SysML+pChainingFeature) {
+			continue
+		}
+		for _, chaining := range graph.Objects(subject, rdf.SysML+pOwnedRelationship) {
+			if meta(chaining) != mFeatureChaining {
+				continue
+			}
+			if segment, ok := graph.Object(chaining, rdf.SysML+pChainingFeature); ok {
+				graph.Add(subject, rdf.SysMLTerm(pChainingFeature), segment)
+			}
+		}
+	}
+	unresolvedID, _ := unresolvedNames(graph, meta)
+	// A chain the expression reaches (`a.b`) is a Feature of FeatureChainings
+	// its OwningMembership owns in place of a named member, read as the chain's text.
+	for _, subject := range graph.Subjects() {
+		if meta(subject) != mMembership && meta(subject) != mOwningMembership {
 			continue
 		}
 		owner := firstIRI(graph, subject, pOwningRelatedElement, pOwner)
@@ -306,6 +433,13 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) *rd
 			property = pTargetFeature
 		case mInvocation, mConstructor:
 			property = pFunction
+		}
+		if meta(subject) == mOwningMembership {
+			text, chain := chainTextIn(graph, meta, unresolvedID, member)
+			if !chain || property == pFunction {
+				continue
+			}
+			member = rdf.TypedLiteral(text, rdf.OpenSysML+dtExpression)
 		}
 		if property != "" && !graph.HasProperty(owner, rdf.SysML+property) {
 			// A referent stated already is the statement; adding the member
@@ -376,46 +510,107 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) *rd
 			continue
 		}
 		var source, target rdf.Term
+		if referents := successionEndReferents(graph, meta, subject); len(referents) == 2 {
+			source, target = referents[0], referents[1]
+		}
 		if ends := ownerMembers[subject.Value]; len(ends) >= 2 {
-			if t := firstIRI(graph, ends[0], "featureTarget"); t.IsIRI() && t != ends[0] {
+			if t := firstIRI(graph, ends[0], "featureTarget"); source.Value == "" && t.IsIRI() && t != ends[0] {
 				source = t
 			}
 			last := ends[len(ends)-1]
-			if t := firstIRI(graph, last, "featureTarget"); t.IsIRI() && t != last {
+			if t := firstIRI(graph, last, "featureTarget"); target.Value == "" && t.IsIRI() && t != last {
 				target = t
 			}
 		}
 		if source.Value != "" {
 			graph.Add(subject, rdf.SysMLTerm(pSourceFeature), source)
 		}
-		if target.Value != "" {
-			graph.Add(subject, rdf.SysMLTerm(pTargetFeature), target)
-		}
-		if target.Value != "" || graph.HasProperty(subject, rdf.SysML+pTargetFeature) {
-			continue
+		// The members a `then` is written between: the feature (or `first`
+		// member) before it, which an empty source end sequences from
+		// (SysML v2 § 8.3.16.6), and the next, which `then` ahead of it targets.
+		var previous, next rdf.Term
+		sequenced := func(t rdf.Term) bool {
+			m := meta(t)
+			return m != "" && !ontology.IsAncestorOrSelf(m, "Succession") &&
+				(m == mMembership || !relationshipLike(m))
 		}
 		members := ownerMembers[owner.Value]
 		for i, member := range members {
 			if member != subject {
 				continue
 			}
-			for _, next := range members[i+1:] {
-				nm := meta(next)
-				if nm == "" || relationshipLike(nm) || ontology.IsAncestorOrSelf(nm, "Succession") {
-					continue
+			for j := i - 1; j >= 0; j-- {
+				if sequenced(members[j]) {
+					previous = members[j]
+					break
 				}
-				graph.Add(subject, rdf.OpenSysMLTerm(xEndForm), rdf.String(formThen))
-				graph.Add(subject, rdf.OpenSysMLTerm(xTargetMember), next)
-				break
+			}
+			for _, candidate := range members[i+1:] {
+				if sequenced(candidate) {
+					next = candidate
+					break
+				}
 			}
 			break
+		}
+		if source.Value == "" && previous.Value != "" && target.Value != "" {
+			graph.Add(subject, rdf.OpenSysMLTerm(xSourceMember), previous)
+		}
+		switch {
+		case source.Value == "" && target.Value != "" && libraryDoneID(target):
+			// `then done` targets a Membership of Actions::Action::done (SysML.xtext
+			// ActionTargetMember); state the member the reader writes it as.
+			membership := rdf.IRI(subject.Value + "_done")
+			graph.Add(membership, rdf.IRI(rdf.RDFType), rdf.SysMLTerm(mMembership))
+			metaclasses[membership] = rdf.SysML + mMembership
+			graph.Add(membership, rdf.SysMLTerm(pMemberElement), target)
+			graph.Add(membership, rdf.SysMLTerm(pOwningRelatedElement), owner)
+			graph.Add(membership, rdf.SysMLTerm(pMembershipOwningNamespace), owner)
+			graph.Add(membership, rdf.OpenSysMLTerm(xDeclaredKeyword), rdf.String("done"))
+			graph.Add(subject, rdf.OpenSysMLTerm(xEndForm), rdf.String(formThen))
+			graph.Add(subject, rdf.OpenSysMLTerm(xTargetMember), membership)
+			memberOwner[membership.Value] = owner
+			ownerMembers[owner.Value] = insertBefore(members, membership, subject)
+			// The graph's order placed the other members; the new one takes
+			// its position by index, so every member states one.
+			for i, m := range ownerMembers[owner.Value] {
+				if meta(m) != "" {
+					graph.Add(m, rdf.OpenSysMLTerm(xMemberIndex), rdf.Int(i))
+				}
+				if ms, ok := memberMembership[m.Value]; ok {
+					graph.Add(ms, rdf.OpenSysMLTerm(xMemberIndex), rdf.Int(i))
+				}
+				for _, ms := range graph.Objects(owner, rdf.SysML+pOwnedRelationship) {
+					if meta(ms) == mMembership && firstIRI(graph, ms, pMemberElement) == m {
+						graph.Add(ms, rdf.OpenSysMLTerm(xMemberIndex), rdf.Int(i))
+					}
+				}
+			}
+		case target.Value != "" && target != next:
+			graph.Add(subject, rdf.SysMLTerm(pTargetFeature), target)
+			if source.Value == "" {
+				graph.Add(subject, rdf.OpenSysMLTerm(xEndForm), rdf.String(formThen))
+			}
+		case graph.HasProperty(subject, rdf.SysML+pTargetFeature):
+		case next.Value != "":
+			graph.Add(subject, rdf.OpenSysMLTerm(xEndForm), rdf.String(formThen))
+			graph.Add(subject, rdf.OpenSysMLTerm(xTargetMember), next)
 		}
 	}
 
 	// An element with members is written with a body; the compact form states
 	// no hasBody flag.
 	bodied := map[string]bool{}
-	for _, owner := range memberOwner {
+	for member, owner := range memberOwner {
+		// A subaction's one action and a connector's unnamed ends are written
+		// in the head, not in a body.
+		if meta(owner) == mSubaction {
+			continue
+		}
+		if m := rdf.IRI(member); meta(memberMembership[member]) == mEndFeatureMembership &&
+			!graph.HasProperty(m, rdf.SysML+pDeclaredName) {
+			continue
+		}
 		bodied[owner.Value] = true
 	}
 	for _, subject := range graph.Subjects() {
@@ -531,7 +726,7 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) *rd
 			qname[subject.Value] = q
 			return q
 		}
-		q := qualify(base, identity.EscapeName(name), 0)
+		q := qualify(base, name, 0)
 		qname[subject.Value] = q
 		return q
 	}
@@ -543,10 +738,10 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) *rd
 		if graph.HasProperty(subject, rdf.SysML+pQualifiedName) {
 			continue
 		}
-		if m == "" || expressionMetaclasses[m] {
+		owner, owned := memberOwner[subject.Value]
+		if m == "" || expressionMetaclasses[m] && !(m == mMembership && owned) {
 			continue
 		}
-		owner, owned := memberOwner[subject.Value]
 		if !owned && relationshipLike(m) {
 			// An implied relationship is no member and takes no name.
 			continue
@@ -560,13 +755,15 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) *rd
 			if name == "" {
 				continue
 			}
-			graph.Add(subject, rdf.SysMLTerm(pQualifiedName), rdf.String(identity.EscapeName(name)))
-			qname[subject.Value] = identity.EscapeName(name)
+			graph.Add(subject, rdf.SysMLTerm(pQualifiedName), rdf.String(name))
+			qname[subject.Value] = name
 			continue
 		}
 		_ = owner
 		graph.Add(subject, rdf.SysMLTerm(pQualifiedName), rdf.String(nameOf(subject)))
 	}
+
+	deriveTransitionHeads(graph, meta)
 
 	// A perform's action is the type its head is typed by, written back as
 	// the expression the `perform` statement names.
@@ -602,6 +799,121 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) *rd
 		}
 	}
 	return graph
+}
+
+// deriveTransitionHeads states a TransitionUsage's collapsed head from the
+// structure SysML v2 § 8.3.16.8 gives it: the source Membership, the trigger
+// AcceptActionUsage, and the SuccessionAsUsage whose second end names the target.
+func deriveTransitionHeads(graph *rdf.Graph, meta func(rdf.Term) string) {
+	for _, subject := range graph.Subjects() {
+		if meta(subject) != mTransition {
+			continue
+		}
+		for _, ms := range graph.Objects(subject, rdf.SysML+pOwnedRelationship) {
+			member := firstIRI(graph, ms, pMemberElement, pOwnedMemberElement, pOwnedRelatedElement)
+			if member.Value == "" {
+				continue
+			}
+			switch meta(ms) {
+			case mMembership:
+				if !graph.HasProperty(subject, rdf.SysML+pSource) && !graph.HasProperty(subject, rdf.SysML+pSourceFeature) {
+					graph.Add(subject, rdf.SysMLTerm(pSource), member)
+				}
+			case mTransitionFeatureMembership:
+				if kind, _ := graph.Lexical(ms, rdf.SysML+pKind); kind != "trigger" {
+					continue
+				}
+				if trigger, ok := acceptTriggerText(graph, meta, member); ok &&
+					!graph.HasProperty(subject, rdf.OpenSysML+xTrigger) {
+					graph.Add(subject, rdf.OpenSysMLTerm(xTrigger), rdf.String(trigger))
+				}
+			case mOwningMembership:
+				if meta(member) == mSuccession {
+					ends := successionEndReferents(graph, meta, member)
+					if len(ends) == 2 && ends[1].Value != "" &&
+						!graph.HasProperty(subject, rdf.SysML+pTarget) && !graph.HasProperty(subject, rdf.SysML+pTargetFeature) {
+						graph.Add(subject, rdf.SysMLTerm(pTarget), ends[1])
+					}
+					continue
+				}
+				graph.Add(subject, rdf.OpenSysMLTerm(xBodyMember), member)
+				graph.Add(subject, rdf.OpenSysMLTerm(xHasBody), rdf.Bool(true))
+			}
+		}
+	}
+}
+
+// successionEndReferents is what each end feature a succession owns through
+// EndFeatureMembership refers to, in order; an end that refers to nothing is empty.
+func successionEndReferents(graph *rdf.Graph, meta func(rdf.Term) string, succession rdf.Term) []rdf.Term {
+	var out []rdf.Term
+	for _, ms := range graph.Objects(succession, rdf.SysML+pOwnedRelationship) {
+		if meta(ms) != mEndFeatureMembership {
+			continue
+		}
+		end := firstIRI(graph, ms, pMemberElement, pOwnedMemberElement, pOwnedRelatedElement)
+		if end.Value == "" {
+			continue
+		}
+		referent := firstIRI(graph, end, pReferences)
+		for _, rel := range graph.Objects(end, rdf.SysML+pOwnedRelationship) {
+			if meta(rel) == mReferenceSubsetting {
+				referent = firstIRI(graph, rel, pReferencedFeature, pTarget)
+			}
+		}
+		out = append(out, referent)
+	}
+	return out
+}
+
+// acceptTriggerText is the `accept` clause an AcceptActionUsage states through
+// its payload parameter: `T` for a typed unnamed payload, `x : T` for a named one.
+func acceptTriggerText(graph *rdf.Graph, meta func(rdf.Term) string, accept rdf.Term) (string, bool) {
+	if meta(accept) != mAcceptAction {
+		return "", false
+	}
+	var payloads []rdf.Term
+	for _, ms := range graph.Objects(accept, rdf.SysML+pOwnedRelationship) {
+		if impliedRelationshipMetaclasses[meta(ms)] {
+			// The library subsetting every accept action carries is implied.
+			continue
+		}
+		if meta(ms) != mParameterMembership {
+			return "", false
+		}
+		payloads = append(payloads, firstIRI(graph, ms, pMemberElement, pOwnedMemberElement, pOwnedRelatedElement))
+	}
+	if len(payloads) != 1 || payloads[0].Value == "" {
+		return "", false
+	}
+	payload := payloads[0]
+	var typeName string
+	for _, ms := range graph.Objects(payload, rdf.SysML+pOwnedRelationship) {
+		if graph.BoolValue(ms, rdf.SysML+pIsImplied) {
+			continue
+		}
+		if meta(ms) != mFeatureTyping || typeName != "" {
+			return "", false
+		}
+		typed := firstObject(graph, ms, relationshipTargetEnds...)
+		switch {
+		case typed.IsIRI():
+			name, ok := graph.Lexical(typed, rdf.SysML+pDeclaredName)
+			if !ok {
+				return "", false
+			}
+			typeName = nameText(name)
+		case typed.Value != "":
+			typeName = qualifiedNameText(canonicalName(typed.Value))
+		}
+	}
+	if typeName == "" || graph.HasProperty(payload, rdf.SysML+pValue) {
+		return "", false
+	}
+	if name, ok := graph.Lexical(payload, rdf.SysML+pDeclaredName); ok {
+		return nameText(name) + " : " + typeName, true
+	}
+	return typeName, true
 }
 
 // dropStatedDefaults copies the graph without the triples the sparse form
@@ -663,6 +975,15 @@ func dropStatedDefaults(graph *rdf.Graph, meta func(rdf.Term) string, elementFor
 		"type": true, "specializes": true, "subsets": true,
 		"redefines": true, "references": true,
 	}
+	// Derived collections the full form restates over owned structure: the
+	// owned relationships state them, so the derived list cannot contradict them.
+	derivedCollections := func(local string) bool {
+		switch local {
+		case pChainingFeature, "relatedFeature", "relatedType", "associationEnd", "connectorEnd":
+			return true
+		}
+		return local == pArgument || local == "definition" || strings.HasSuffix(local, "Definition")
+	}
 	// The structural ends an element owns and is owned through: a chain
 	// segment stays an element to these, a written name to everything else.
 	structuralProps := map[string]bool{
@@ -698,7 +1019,7 @@ func dropStatedDefaults(graph *rdf.Graph, meta func(rdf.Term) string, elementFor
 		if m == "" || !relationshipLike(m) {
 			continue
 		}
-		if graph.BoolValue(subject, rdf.SysML+"isImplied") {
+		if graph.BoolValue(subject, rdf.SysML+pIsImplied) {
 			// An implied element restates a derivation its owner did not
 			// declare; it backs no collapsed statement either.
 			continue
@@ -709,6 +1030,10 @@ func dropStatedDefaults(graph *rdf.Graph, meta func(rdf.Term) string, elementFor
 		}
 		for _, end := range relationshipTargetEnds {
 			for _, object := range graph.Objects(subject, rdf.SysML+end) {
+				if m == mConjugatedPortTyping && object.IsIRI() {
+					// The head writes `~P`; the derived type `~P` is not what it states.
+					object = originalPortDefinition(graph, meta, subject, object)
+				}
 				if backed[owner.Value] == nil {
 					backed[owner.Value] = map[string]bool{}
 				}
@@ -734,53 +1059,14 @@ func dropStatedDefaults(graph *rdf.Graph, meta func(rdf.Term) string, elementFor
 			unresolvedRef[owner.Value] = canonicalName(body)
 		}
 	}
-	// The same reference resolved to a library uuid only in the full form is
-	// still the name it could not resolve: uuid5(OID, "unresolved:"+name).
-	unresolvedID := map[string]string{}
-	unresolvedTR := map[string]bool{}
-	for _, subject := range graph.Subjects() {
-		if meta(subject) != "TextualRepresentation" {
-			continue
-		}
-		language, _ := graph.Lexical(subject, rdf.SysML+"language")
-		body, hasBody := graph.Lexical(subject, rdf.SysML+"body")
-		if language != "x-sysmlv2-unresolved-reference" || !hasBody {
-			continue
-		}
-		unresolvedID[identity.UnresolvedElementID(body)] = canonicalName(body)
-		// The annotation exists only to carry the written name; the compact
-		// form mints no such element.
-		unresolvedTR[subject.Value] = true
-	}
+	unresolvedID, unresolvedTR := unresolvedNames(graph, meta)
 	// An unnamed Feature a relationship relates is a feature chain's segment:
 	// `a.b.c` is the chain of features its FeatureChaining elements name, so a
 	// reference to it is written as that chain's text, not as the element.
 	chainSegment := map[string]string{}
 	for _, subject := range graph.Subjects() {
-		if meta(subject) == "" || !ontology.IsAncestorOrSelf(meta(subject), "Feature") {
-			continue
-		}
-		if _, named := graph.Lexical(subject, rdf.SysML+pDeclaredName); named {
-			continue
-		}
-		var segments []string
-		for _, chain := range graph.Objects(subject, rdf.SysML+pOwnedRelationship) {
-			if meta(chain) != "FeatureChaining" {
-				continue
-			}
-			feature := firstIRI(graph, chain, "chainingFeature")
-			if feature.IsIRI() {
-				if name, ok := graph.Lexical(feature, rdf.SysML+pDeclaredName); ok {
-					segments = append(segments, name)
-				} else if name, ok := graph.Lexical(feature, rdf.SysML+pQualifiedName); ok {
-					segments = append(segments, name[strings.LastIndex(name, "::")+2:])
-				}
-			} else if name, ok := graph.Lexical(chain, rdf.SysML+"chainingFeature"); ok {
-				segments = append(segments, canonicalName(name))
-			}
-		}
-		if len(segments) > 0 {
-			chainSegment[subject.Value] = strings.Join(segments, ".")
+		if text, ok := chainTextIn(graph, meta, unresolvedID, subject); ok {
+			chainSegment[subject.Value] = text
 		}
 	}
 	// The element owning an unresolved membership is annotated the same way
@@ -833,12 +1119,14 @@ func dropStatedDefaults(graph *rdf.Graph, meta func(rdf.Term) string, elementFor
 		if object.IsIRI() {
 			local := rdf.LocalName(triple.Predicate.Value)
 			if _, segment := chainSegment[object.Value]; segment && !structuralProps[local] {
-				object = rdf.String(chainSegment[object.Value])
+				object = rdf.TypedLiteral(chainSegment[object.Value], rdf.OpenSysML+dtExpression)
 				triple.Object = object
 			}
+			// A reference the writer could not resolve becomes the name it
+			// wrote, once the derived edges restating it are dropped below.
+			unresolvedName := ""
 			if tail := object.Value[strings.LastIndex(object.Value, ":")+1:]; unresolvedID[tail] != "" && meta(object) == "" {
-				out.Add(triple.Subject, triple.Predicate, rdf.String(unresolvedID[tail]))
-				continue
+				unresolvedName = unresolvedID[tail]
 			}
 			if _, unresolved := unresolvedRef[triple.Subject.Value]; unresolved && local == pMemberElement {
 				continue
@@ -866,7 +1154,7 @@ func dropStatedDefaults(graph *rdf.Graph, meta func(rdf.Term) string, elementFor
 					continue
 				}
 			}
-			if unresolvedOwner[triple.Subject.Value] && meta(object) == "" {
+			if unresolvedOwner[triple.Subject.Value] && meta(object) == "" && unresolvedName == "" {
 				switch local {
 				case "referent", pTargetFeature, pFunction:
 					continue
@@ -884,12 +1172,24 @@ func dropStatedDefaults(graph *rdf.Graph, meta func(rdf.Term) string, elementFor
 					graph.HasProperty(triple.Subject, rdf.SysML+"isImpliedIncluded") {
 					continue
 				}
+			case pArgument:
+				// The argument list is derived from the parameters the
+				// expression owns; the owned structure is what is stated.
+				if graph.HasProperty(triple.Subject, rdf.SysML+"isImpliedIncluded") &&
+					ownsParameterMembership(graph, meta, triple.Subject) {
+					continue
+				}
+			}
+			if unresolvedName != "" {
+				out.Add(triple.Subject, triple.Predicate, writtenReference(unresolvedName))
+				continue
 			}
 		}
 		if !object.IsIRI() {
 			local := rdf.LocalName(triple.Predicate.Value)
 			if strings.HasPrefix(triple.Predicate.Value, rdf.AnnotationJSON) &&
 				(memberCollections[local] || membershipEnds[local] ||
+					derivedCollections(local) && graph.HasProperty(triple.Subject, rdf.SysML+"isImpliedIncluded") ||
 					collapsedProps[local] && !relationshipLike(meta(triple.Subject)) &&
 						graph.HasProperty(triple.Subject, rdf.SysML+"isImpliedIncluded")) {
 				// A collection restated under json: agrees with the typed
@@ -897,8 +1197,12 @@ func dropStatedDefaults(graph *rdf.Graph, meta func(rdf.Term) string, elementFor
 				// dropped whole instead.
 				continue
 			}
-			if referenceNameProps[local] && !strings.HasPrefix(triple.Predicate.Value, rdf.AnnotationJSON) {
+			if referenceNameProps[local] && object.Datatype != rdf.OpenSysML+dtExpression &&
+				!strings.HasPrefix(triple.Predicate.Value, rdf.AnnotationJSON) {
 				object = rdf.String(canonicalName(object.Value))
+			}
+			if local == pQualifiedName && elementForm && !strings.HasPrefix(triple.Predicate.Value, rdf.AnnotationJSON) {
+				object = rdf.String(plainQualifiedName(object.Value))
 			}
 			drop := false
 			switch {
@@ -907,6 +1211,10 @@ func dropStatedDefaults(graph *rdf.Graph, meta func(rdf.Term) string, elementFor
 				!graph.HasProperty(triple.Subject, rdf.SysML+pDeclaredShortName):
 				// The full form derives a qualified name for the unnamed too;
 				// the compact form leaves the name to be derived.
+				drop = true
+			case local == pQualifiedName && meta(firstIRI(graph, triple.Subject, pOwningRelationship)) == mSubaction:
+				// This mapping positions a subaction's action under its
+				// membership (`S::@0::ops`); the full form's name skips it.
 				drop = true
 			case local == pElementID && strings.HasSuffix(triple.Subject.Value, object.Value):
 				// An elementId identical to the IRI's id is derivable.
@@ -919,6 +1227,12 @@ func dropStatedDefaults(graph *rdf.Graph, meta func(rdf.Term) string, elementFor
 				graph.HasProperty(triple.Subject, rdf.SysML+"isImpliedIncluded"):
 				// A feature is variable and time-varying without a keyword.
 				drop = true
+			case local == "isConstant" && object.Value == "true" &&
+				graph.BoolValue(triple.Subject, rdf.SysML+"isEnd") &&
+				graph.HasProperty(triple.Subject, rdf.SysML+"isImpliedIncluded"):
+				// KerML Feature: `isEnd and isVariable implies isConstant`, so a
+				// variable end is constant without the keyword.
+				drop = true
 			case local == pVisibility && object.Value == "public":
 				// Public is the visibility a member writes nothing for.
 				drop = true
@@ -927,6 +1241,12 @@ func dropStatedDefaults(graph *rdf.Graph, meta func(rdf.Term) string, elementFor
 				case "PartUsage", "PortUsage", "ItemUsage", "ConstraintUsage":
 					// Compositional usages are composite without a keyword.
 					drop = true
+				default:
+					// A usage nested in a type is composite unless `ref`
+					// (SysML Usage::isComposite); only one elsewhere writes `composite`.
+					owner := firstIRI(graph, firstIRI(graph, triple.Subject, pOwningRelationship), pOwningRelatedElement, pOwner)
+					drop = ontology.IsAncestorOrSelf(meta(triple.Subject), "Usage") && owner.IsIRI() &&
+						ontology.IsAncestorOrSelf(meta(owner), "Type")
 				}
 			}
 			if drop {
@@ -942,6 +1262,56 @@ func dropStatedDefaults(graph *rdf.Graph, meta func(rdf.Term) string, elementFor
 	return out
 }
 
+// ownsParameterMembership reports whether subject owns a ParameterMembership.
+func ownsParameterMembership(graph *rdf.Graph, meta func(rdf.Term) string, subject rdf.Term) bool {
+	for _, rel := range graph.Objects(subject, rdf.SysML+pOwnedRelationship) {
+		if meta(rel) == mParameterMembership {
+			return true
+		}
+	}
+	return false
+}
+
+// writtenReference is the literal for a reference written as name: a qualified
+// name stays a name, a feature chain is expression text so it is not re-quoted.
+func writtenReference(name string) rdf.Term {
+	if _, ok := source.QualifiedNameSegments(name); ok {
+		return rdf.String(name)
+	}
+	return rdf.TypedLiteral(name, rdf.OpenSysML+dtExpression)
+}
+
+// unresolvedNames indexes the references the writer could not resolve: the
+// uuid5(OID, "unresolved:"+name) id the full form mints -> the name written, and
+// the TextualRepresentation elements carrying those names.
+func unresolvedNames(graph *rdf.Graph, meta func(rdf.Term) string) (map[string]string, map[string]bool) {
+	unresolvedID := map[string]string{}
+	unresolvedTR := map[string]bool{}
+	for _, subject := range graph.Subjects() {
+		if meta(subject) != "TextualRepresentation" {
+			continue
+		}
+		language, _ := graph.Lexical(subject, rdf.SysML+"language")
+		body, hasBody := graph.Lexical(subject, rdf.SysML+"body")
+		if language != "x-sysmlv2-unresolved-reference" || !hasBody {
+			continue
+		}
+		unresolvedID[identity.UnresolvedElementID(body)] = canonicalName(body)
+		unresolvedTR[subject.Value] = true
+	}
+	return unresolvedID, unresolvedTR
+}
+
+// plainQualifiedName spells a qualified name the way this mapping's
+// sysml:qualifiedName does: the segments unquoted, joined by `::`.
+func plainQualifiedName(name string) string {
+	segments, ok := source.QualifiedNameSegments(name)
+	if !ok {
+		return name
+	}
+	return strings.Join(segments, "::")
+}
+
 // canonicalName returns a written qualified name in its canonical spelling:
 // segments split on `::` outside quotes, each requoted with its escapes kept.
 func canonicalName(name string) string {
@@ -950,4 +1320,22 @@ func canonicalName(name string) string {
 		return name
 	}
 	return source.QualifiedNameOf(segments)
+}
+
+// libraryDoneID reports whether term carries the normative id of Actions::Action::done.
+func libraryDoneID(term rdf.Term) bool {
+	el, ok := identity.LibraryCatalog(libs.NewModelIndex()).Element(rdf.LocalName(term.Value))
+	return ok && el.FQN == qualifiedText(libraryDone)
+}
+
+// insertBefore returns members with term inserted ahead of before.
+func insertBefore(members []rdf.Term, term, before rdf.Term) []rdf.Term {
+	out := make([]rdf.Term, 0, len(members)+1)
+	for _, m := range members {
+		if m == before {
+			out = append(out, term)
+		}
+		out = append(out, m)
+	}
+	return out
 }

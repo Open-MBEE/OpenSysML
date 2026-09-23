@@ -43,6 +43,7 @@ const (
 	pMultiplicity                    = "multiplicity"
 	pCondition                       = "condition"
 	pConjugatedPortDefinition        = "conjugatedPortDefinition"
+	pPortDefinition                  = "portDefinition"
 	pOwnedPortConjugator             = "ownedPortConjugator"
 	pOwnedSubjectParameter           = "ownedSubjectParameter"
 	pOwnedConstraint                 = "ownedConstraint"
@@ -62,16 +63,25 @@ const (
 func (e *encoder) materializeNormative() {
 	subjects := e.graph.Subjects()
 	for _, subject := range subjects {
-		// A node in the expression namespace is addressed by position, so the
-		// relationship elements a declared element owns are minted for elements
-		// only; a node's collapsed head properties stay collapsed.
+		// A node in the expression namespace is addressed by position, so an
+		// expression node's collapsed head properties stay collapsed; a feature
+		// an expression body declares owns its relationships as any feature does.
 		if strings.HasPrefix(subject.Value, rdf.Expression) {
 			e.materializeReferentMemberships(subject)
-			continue
+			if !e.bodyDeclarationNode(subject) {
+				continue
+			}
 		}
 		e.materializeReferentMemberships(subject)
 		e.materializeRelationships(subject)
 	}
+}
+
+// bodyDeclarationNode reports whether an expression-namespace node is a
+// feature an expression body declares rather than a node of an expression tree.
+func (e *encoder) bodyDeclarationNode(subject rdf.Term) bool {
+	metaclass := e.metaclassOf(subject)
+	return !expressionMetaclasses[metaclass] && ontology.IsAncestorOrSelf(metaclass, mFeature)
 }
 
 // normativeRelationship is one collapsed property's materialization: the
@@ -101,6 +111,10 @@ func (e *encoder) materializeRelationships(subject rdf.Term) {
 		for i, target := range targets {
 			spec, ok := e.relationshipSpec(subject, kind, len(targets), i)
 			if !ok {
+				continue
+			}
+			if kind == ast.RelTyping && e.graph.BoolValue(subject, rdf.OpenSysML+xConjugatedTyping) {
+				e.emitConjugatedPortTyping(subject, target, spec)
 				continue
 			}
 			e.emitRelationship(subject, target, spec)
@@ -181,6 +195,21 @@ func (e *encoder) referenceSubsettingSpec(count, i int) normativeRelationship {
 		[]string{pReferencingFeature, pSubsettingFeature, pOwningFeature, pSpecific, pSource, pOwningRelatedElement},
 		[]string{pReferencedFeature, pSubsettedFeature, pGeneral, pTarget},
 		[]string{pOwnedReferenceSubsetting, pOwnedSubsetting, pOwnedSpecialization, pOwnedRelationship}}
+}
+
+// emitConjugatedPortTyping materializes `: ~P` as a ConjugatedPortTyping whose
+// type is P's ConjugatedPortDefinition and whose portDefinition is P itself
+// (SysML v2 § 8.3.14 Ports); an external P is named `~P` by the literal.
+func (e *encoder) emitConjugatedPortTyping(subject, target rdf.Term, spec normativeRelationship) {
+	spec.metaclass = mConjugatedPortTyping
+	spec.targetEnds = append([]string{pConjugatedPortDefinition}, spec.targetEnds...)
+	conjugated := rdf.String("~" + target.Value)
+	if target.IsIRI() {
+		conjugated = e.ids.minted(rdf.RelationshipIRI(target, "_conjugated"), target, "_conjugated")
+	}
+	e.emitRelationship(subject, conjugated, spec)
+	relation := e.ids.minted(rdf.RelationshipIRI(subject, spec.suffix), subject, spec.suffix)
+	e.graph.Add(relation, e.sysml(pPortDefinition), target)
 }
 
 // emitRelationship mints the relationship element between subject and target

@@ -45,7 +45,10 @@ const (
 	mSubaction  = "StateSubactionMembership"
 	mSuccession = "SuccessionAsUsage"
 	mTransition = "TransitionUsage"
-	mStateUsage = "StateUsage"
+	// The elements a TransitionUsage owns in the abstract syntax (SysML v2 § 8.3.16.8).
+	mTransitionFeatureMembership = "TransitionFeatureMembership"
+	mAcceptAction                = "AcceptActionUsage"
+	mStateUsage                  = "StateUsage"
 )
 
 // Property names for the parts of a behavioral node that the SysML vocabulary
@@ -988,6 +991,15 @@ func (d *decoder) successionHead(el *element) (string, error) {
 	return strings.Join(words, " "), nil
 }
 
+// positionalSuccession reports a succession written as `then`, whose unnamed
+// source end is the member before it, whatever end features it owns.
+func (d *decoder) positionalSuccession(el *element) bool {
+	form, _ := d.stringOf(el, rdf.OpenSysML+xEndForm)
+	subject := rdf.IRI(el.iri)
+	return form == formThen || d.graph.HasProperty(subject, rdf.OpenSysML+xSourceMember) ||
+		d.graph.HasProperty(subject, rdf.OpenSysML+xTargetMember)
+}
+
 // positionalSuccessions resolves the successions of one body stating no source
 // name: each sequences from the member before it, folded in as `then action b;`.
 func (d *decoder) positionalSuccessions(children []*element) ([]*element, error) {
@@ -1542,7 +1554,8 @@ func (d *decoder) triggerWords(el *element, trigger string) ([]string, error) {
 func (d *decoder) transitionMembers(el *element) (effect, body []*element, hasEffect, hasBody bool, err error) {
 	inEffect := d.linked(el, xEffectMember)
 	inBody := d.linked(el, xBodyMember)
-	legacy := len(el.children) > 0 && len(inEffect) == 0 && len(inBody) == 0
+	children := d.bodyChildren(el)
+	legacy := len(children) > 0 && len(inEffect) == 0 && len(inBody) == 0
 	hasEffect = d.boolOf(el, rdf.OpenSysML+xHasEffect)
 	hasBody = d.boolOf(el, rdf.OpenSysML+xHasBody)
 	// A braced effect is one anonymous action; a graph that wrote it as the
@@ -1556,7 +1569,7 @@ func (d *decoder) transitionMembers(el *element) (effect, body []*element, hasEf
 	if legacy {
 		hasEffect, hasBody = true, false
 	}
-	for _, child := range el.children {
+	for _, child := range children {
 		switch {
 		case legacy, inEffect[child.iri] && !inBody[child.iri]:
 			effect = append(effect, child)

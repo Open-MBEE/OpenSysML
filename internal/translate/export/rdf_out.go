@@ -59,6 +59,7 @@ const (
 	pOwnedImport               = "ownedImport"
 	pImportOwningNamespace     = "importOwningNamespace"
 	pDirection                 = "direction"
+	pIsImplied                 = "isImplied"
 	pLowerBound                = "lowerBound"
 	pUpperBound                = "upperBound"
 	pValue                     = "value"
@@ -113,6 +114,7 @@ const (
 	// The ReferencesKeyword a named end spells, when it is not `::>`.
 	xEndReferencesKeyword = "endReferencesKeyword"
 	xEndForm              = "endForm"
+	xConjugatedTyping     = "conjugatedTyping"
 	xEndVerb              = "endVerb"
 	xSourceMember         = "sourceMember"
 	xTargetMember         = "targetMember"
@@ -157,6 +159,7 @@ const (
 	mFeatureMembership         = "FeatureMembership"
 	mVariantMembership         = "VariantMembership"
 	mFeatureValue              = "FeatureValue"
+	mFeatureChaining           = "FeatureChaining"
 	mParameterMembership       = "ParameterMembership"
 	mReturnParameterMembership = "ReturnParameterMembership"
 	mFeature                   = "Feature"
@@ -839,7 +842,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 	// member's body declares into the expression body it lies in.
 	members := func(members []ast.Node) error {
 		if local {
-			return e.bodyDeclarations(subject, within, nil, members)
+			return e.bodyDeclarations(subject, subject, within, nil, members)
 		}
 		return e.encode(members, fqn, subject)
 	}
@@ -911,6 +914,11 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		// membership owns (SysML.xtext ActorMember & co.): the parameter kind
 		// is the membership's metaclass, and the parameter itself is a usage.
 		parameterClass, parameterEnd := parameterMembership(n.Kind)
+		if n.IsResult {
+			// A `return` member is the result parameter its ReturnParameterMembership
+			// owns (SysML.xtext ReturnParameterMember).
+			parameterClass, parameterEnd = mReturnParameterMembership, pOwnedMemberParameter
+		}
 		if parameterClass != "" {
 			h.membershipClass = parameterClass
 			h.membershipExtra = func(membership rdf.Term) {
@@ -974,11 +982,15 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			{"isDerived", n.IsDerived},
 			{"isOrdered", n.IsOrdered},
 			{"isNonunique", n.IsNonunique},
-			{"isConjugated", n.HasConjugatedTyping()},
 			{"isAccept", n.IsAccept},
 			{"isResult", n.IsResult},
 			{"isParallel", n.IsParallel},
 		})
+		// `: ~P` types the port by P's conjugate; the usage owns no Conjugation
+		// of its own, so Type::isConjugated stays false on it.
+		if n.HasConjugatedTyping() {
+			e.graph.Add(subject, e.sysx(xConjugatedTyping), rdf.Bool(true))
+		}
 		if err := e.prefixes(subject, fqn, n.Prefixes, bodyMembers(n)); err != nil {
 			return err
 		}
@@ -1451,7 +1463,7 @@ func enumeratedValue(usage *ast.Usage, ownerClass string) bool {
 // namespace, such as a state's entry action. A relationship owns its related
 // element itself, so no membership is minted between them.
 func (e *encoder) relationshipOwnership(member, owner rdf.Term, ownerClass, memberClass string) {
-	e.graph.Add(member, e.sysml(pOwner), owner)
+	e.graph.Add(member, e.sysml(pOwner), e.ownerThrough(owner, ownerClass, memberClass))
 	if isRelationship(memberClass) {
 		// A relationship states the element that owns it, not an owning
 		// relationship of its own.
@@ -1474,6 +1486,20 @@ func (e *encoder) relationshipOwnership(member, owner rdf.Term, ownerClass, memb
 	if ontology.IsAncestorOrSelf(ownerClass, mFeatureMembership) && ontology.IsAncestorOrSelf(memberClass, mFeature) {
 		e.graph.Add(owner, e.sysml(pOwnedMemberFeature), member)
 	}
+}
+
+// ownerThrough is the owner KerML derives for a member a relationship owns:
+// the relationship's own owning element (Element::owner), the relationship
+// itself only while it is a membership or owns no element yet.
+func (e *encoder) ownerThrough(owner rdf.Term, ownerClass, memberClass string) rdf.Term {
+	if isRelationship(memberClass) || !isRelationship(ownerClass) ||
+		ontology.IsAncestorOrSelf(ownerClass, mMembership) {
+		return owner
+	}
+	if through := firstIRI(e.graph, owner, pOwningRelatedElement, pOwner); through.Value != "" {
+		return through
+	}
+	return owner
 }
 
 // metaclassOf is the ontology name of the metaclass a subject is typed with,

@@ -430,7 +430,7 @@ elmt:Constraints__Margin___401
     json:ownedRelationship "[{\"@id\":\"Constraints__Margin___401_pvalue_om\"},{\"@id\":\"Constraints__Margin___401_ft0\"}]" .
 
 elmt:Constraints__Margin___401_om
-    a sysml:FeatureMembership ;
+    a sysml:ReturnParameterMembership ;
     sysml:elementId "Constraints__Margin___401_om" ;
     sysml:owner elmt:Constraints__Margin ;
     sysml:memberElement elmt:Constraints__Margin___401 ;
@@ -438,6 +438,7 @@ elmt:Constraints__Margin___401_om
     sysml:ownedRelatedElement elmt:Constraints__Margin___401 ;
     sysml:owningRelatedElement elmt:Constraints__Margin ;
     sysml:membershipOwningNamespace elmt:Constraints__Margin ;
+    sysml:ownedMemberParameter elmt:Constraints__Margin___401 ;
     sysml:ownedMemberFeature elmt:Constraints__Margin___401 ;
     sysml:owningType elmt:Constraints__Margin .
 

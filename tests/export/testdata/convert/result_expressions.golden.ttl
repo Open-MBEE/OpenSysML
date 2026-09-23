@@ -915,7 +915,7 @@ elmt:Results__Body__x_om
     sysml:owningType elmt:Results__Body .
 
 elmt:Results__Body___401
-    a sysml:Expression ;
+    a sysml:FeatureReferenceExpression ;
     sysml:qualifiedName "Results::Body::@1" ;
     sysml:elementId "Results__Body___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
@@ -923,10 +923,18 @@ elmt:Results__Body___401
     sysml:owner elmt:Results__Body ;
     sysml:owningRelationship elmt:Results__Body___401_om ;
     sysml:owningMembership elmt:Results__Body___401_om ;
-    sysx:hasBody "true"^^xsd:boolean ;
-    sysx:bodyParameter expr:Results__Body___401_pin0 ;
-    sysx:resultExpression expr:Results__Body___401_presult ;
-    sysx:sourceText "        { in y : Real; y + x }\n" .
+    sysml:referent expr:Results__Body___401_pbody ;
+    sysml:ownedRelationship expr:Results__Body___401_pbody_om, expr:Results__Body___401_pout_om, elmt:Results__Body___401_referent ;
+    sysml:ownedMembership expr:Results__Body___401_pbody_om, expr:Results__Body___401_pout_om ;
+    sysml:ownedFeatureMembership expr:Results__Body___401_pbody_om, expr:Results__Body___401_pout_om ;
+    sysml:ownedFeature expr:Results__Body___401_pbody, expr:Results__Body___401_pout ;
+    sysml:parameter expr:Results__Body___401_pout ;
+    sysml:result expr:Results__Body___401_pout ;
+    sysx:sourceText "        { in y : Real; y + x }\n" ;
+    json:ownedRelationship "[{\"@id\":\"Results__Body___401_pbody_om\"},{\"@id\":\"Results__Body___401_pout_om\"},{\"@id\":\"Results__Body___401_referent\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Results__Body___401_pbody_om\"},{\"@id\":\"Results__Body___401_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Results__Body___401_pbody_om\"},{\"@id\":\"Results__Body___401_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Results__Body___401_pbody\"},{\"@id\":\"Results__Body___401_pout\"}]" .
 
 elmt:Results__Body___401_om
     a sysml:ResultExpressionMembership ;
@@ -941,13 +949,57 @@ elmt:Results__Body___401_om
     sysml:owningType elmt:Results__Body ;
     sysml:ownedResultExpression elmt:Results__Body___401 .
 
+expr:Results__Body___401_pbody
+    a sysml:Expression ;
+    sysml:elementId "Results__Body___401_pbody" ;
+    sysml:owner elmt:Results__Body___401 ;
+    sysml:owningRelationship expr:Results__Body___401_pbody_om ;
+    sysml:owningMembership expr:Results__Body___401_pbody_om ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysx:bodyParameter expr:Results__Body___401_pin0 ;
+    sysml:ownedRelationship expr:Results__Body___401_pin0_om, expr:Results__Body___401_presult_om ;
+    sysml:ownedMembership expr:Results__Body___401_pin0_om, expr:Results__Body___401_presult_om ;
+    sysml:ownedFeatureMembership expr:Results__Body___401_pin0_om ;
+    sysml:ownedFeature expr:Results__Body___401_pin0 ;
+    sysx:resultExpression expr:Results__Body___401_presult ;
+    json:ownedRelationship "[{\"@id\":\"Results__Body___401_pin0_om\"},{\"@id\":\"Results__Body___401_presult_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Results__Body___401_pin0_om\"},{\"@id\":\"Results__Body___401_presult_om\"}]" .
+
+expr:Results__Body___401_pbody_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Results__Body___401_pbody_om" ;
+    sysml:owner elmt:Results__Body___401 ;
+    sysml:memberElement expr:Results__Body___401_pbody ;
+    sysml:ownedMemberElement expr:Results__Body___401_pbody ;
+    sysml:ownedRelatedElement expr:Results__Body___401_pbody ;
+    sysml:owningRelatedElement elmt:Results__Body___401 ;
+    sysml:membershipOwningNamespace elmt:Results__Body___401 ;
+    sysml:ownedMemberFeature expr:Results__Body___401_pbody .
+
 expr:Results__Body___401_pin0
     a sysml:ReferenceUsage ;
     sysml:elementId "Results__Body___401_pin0" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:direction "in" ;
     sysml:declaredName "y" ;
-    sysml:type elmt:Results__Real .
+    sysml:type elmt:Results__Real ;
+    sysml:owner expr:Results__Body___401_pbody ;
+    sysml:owningRelationship expr:Results__Body___401_pin0_om ;
+    sysml:owningMembership expr:Results__Body___401_pin0_om ;
+    sysml:ownedTyping expr:Results__Body___401_pin0_ft0 ;
+    sysml:ownedSpecialization expr:Results__Body___401_pin0_ft0 ;
+    sysml:ownedRelationship expr:Results__Body___401_pin0_ft0 .
+
+expr:Results__Body___401_pin0_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Results__Body___401_pin0_om" ;
+    sysml:owner expr:Results__Body___401_pbody ;
+    sysml:memberElement expr:Results__Body___401_pin0 ;
+    sysml:ownedMemberElement expr:Results__Body___401_pin0 ;
+    sysml:ownedRelatedElement expr:Results__Body___401_pin0 ;
+    sysml:owningRelatedElement expr:Results__Body___401_pbody ;
+    sysml:membershipOwningNamespace expr:Results__Body___401_pbody ;
+    sysml:ownedMemberFeature expr:Results__Body___401_pin0 .
 
 expr:Results__Body___401_presult
     a sysml:OperatorExpression ;
@@ -962,6 +1014,9 @@ expr:Results__Body___401_presult
     sysml:parameter expr:Results__Body___401_presult_pin0, expr:Results__Body___401_presult_pin1, expr:Results__Body___401_presult_pout ;
     sysml:input expr:Results__Body___401_presult_pin0, expr:Results__Body___401_presult_pin1 ;
     sysml:result expr:Results__Body___401_presult_pout ;
+    sysml:owner expr:Results__Body___401_pbody ;
+    sysml:owningRelationship expr:Results__Body___401_presult_om ;
+    sysml:owningMembership expr:Results__Body___401_presult_om ;
     json:argument "[{\"@id\":\"Results__Body___401_presult_pa0\"},{\"@id\":\"Results__Body___401_presult_pa1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Results__Body___401_presult_pin0_om\"},{\"@id\":\"Results__Body___401_presult_pin1_om\"},{\"@id\":\"Results__Body___401_presult_pout_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Results__Body___401_presult_pin0_om\"},{\"@id\":\"Results__Body___401_presult_pin1_om\"},{\"@id\":\"Results__Body___401_presult_pout_om\"}]" ;
@@ -1130,6 +1185,37 @@ expr:Results__Body___401_presult_pout_om
     sysml:ownedMemberFeature expr:Results__Body___401_presult_pout ;
     sysml:ownedMemberParameter expr:Results__Body___401_presult_pout .
 
+expr:Results__Body___401_presult_om
+    a sysml:ResultExpressionMembership ;
+    sysml:elementId "Results__Body___401_presult_om" ;
+    sysml:owner expr:Results__Body___401_pbody ;
+    sysml:memberElement expr:Results__Body___401_presult ;
+    sysml:ownedMemberElement expr:Results__Body___401_presult ;
+    sysml:ownedRelatedElement expr:Results__Body___401_presult ;
+    sysml:owningRelatedElement expr:Results__Body___401_pbody ;
+    sysml:membershipOwningNamespace expr:Results__Body___401_pbody ;
+    sysml:ownedResultExpression expr:Results__Body___401_presult .
+
+expr:Results__Body___401_pout
+    a sysml:Feature ;
+    sysml:elementId "Results__Body___401_pout" ;
+    sysml:direction "out" ;
+    sysml:owner elmt:Results__Body___401 ;
+    sysml:owningRelationship expr:Results__Body___401_pout_om ;
+    sysml:owningMembership expr:Results__Body___401_pout_om .
+
+expr:Results__Body___401_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Results__Body___401_pout_om" ;
+    sysml:owner elmt:Results__Body___401 ;
+    sysml:memberElement expr:Results__Body___401_pout ;
+    sysml:ownedMemberElement expr:Results__Body___401_pout ;
+    sysml:ownedRelatedElement expr:Results__Body___401_pout ;
+    sysml:owningRelatedElement elmt:Results__Body___401 ;
+    sysml:membershipOwningNamespace elmt:Results__Body___401 ;
+    sysml:ownedMemberFeature expr:Results__Body___401_pout ;
+    sysml:ownedMemberParameter expr:Results__Body___401_pout .
+
 elmt:Results__Quoted
     a sysml:CalculationDefinition ;
     sysml:qualifiedName "Results::Quoted" ;
@@ -1196,7 +1282,7 @@ elmt:Results__Quoted__x_om
     sysml:owningType elmt:Results__Quoted .
 
 elmt:Results__Quoted___401
-    a sysml:Expression ;
+    a sysml:FeatureReferenceExpression ;
     sysml:qualifiedName "Results::Quoted::@1" ;
     sysml:elementId "Results__Quoted___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
@@ -1204,10 +1290,18 @@ elmt:Results__Quoted___401
     sysml:owner elmt:Results__Quoted ;
     sysml:owningRelationship elmt:Results__Quoted___401_om ;
     sysml:owningMembership elmt:Results__Quoted___401_om ;
-    sysx:hasBody "true"^^xsd:boolean ;
-    sysx:bodyParameter expr:Results__Quoted___401_pin0 ;
-    sysx:resultExpression expr:Results__Quoted___401_presult ;
-    sysx:sourceText "        { in 'the input' : Real; 'the input' + x }\n" .
+    sysml:referent expr:Results__Quoted___401_pbody ;
+    sysml:ownedRelationship expr:Results__Quoted___401_pbody_om, expr:Results__Quoted___401_pout_om, elmt:Results__Quoted___401_referent ;
+    sysml:ownedMembership expr:Results__Quoted___401_pbody_om, expr:Results__Quoted___401_pout_om ;
+    sysml:ownedFeatureMembership expr:Results__Quoted___401_pbody_om, expr:Results__Quoted___401_pout_om ;
+    sysml:ownedFeature expr:Results__Quoted___401_pbody, expr:Results__Quoted___401_pout ;
+    sysml:parameter expr:Results__Quoted___401_pout ;
+    sysml:result expr:Results__Quoted___401_pout ;
+    sysx:sourceText "        { in 'the input' : Real; 'the input' + x }\n" ;
+    json:ownedRelationship "[{\"@id\":\"Results__Quoted___401_pbody_om\"},{\"@id\":\"Results__Quoted___401_pout_om\"},{\"@id\":\"Results__Quoted___401_referent\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Results__Quoted___401_pbody_om\"},{\"@id\":\"Results__Quoted___401_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Results__Quoted___401_pbody_om\"},{\"@id\":\"Results__Quoted___401_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Results__Quoted___401_pbody\"},{\"@id\":\"Results__Quoted___401_pout\"}]" .
 
 elmt:Results__Quoted___401_om
     a sysml:ResultExpressionMembership ;
@@ -1222,13 +1316,57 @@ elmt:Results__Quoted___401_om
     sysml:owningType elmt:Results__Quoted ;
     sysml:ownedResultExpression elmt:Results__Quoted___401 .
 
+expr:Results__Quoted___401_pbody
+    a sysml:Expression ;
+    sysml:elementId "Results__Quoted___401_pbody" ;
+    sysml:owner elmt:Results__Quoted___401 ;
+    sysml:owningRelationship expr:Results__Quoted___401_pbody_om ;
+    sysml:owningMembership expr:Results__Quoted___401_pbody_om ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysx:bodyParameter expr:Results__Quoted___401_pin0 ;
+    sysml:ownedRelationship expr:Results__Quoted___401_pin0_om, expr:Results__Quoted___401_presult_om ;
+    sysml:ownedMembership expr:Results__Quoted___401_pin0_om, expr:Results__Quoted___401_presult_om ;
+    sysml:ownedFeatureMembership expr:Results__Quoted___401_pin0_om ;
+    sysml:ownedFeature expr:Results__Quoted___401_pin0 ;
+    sysx:resultExpression expr:Results__Quoted___401_presult ;
+    json:ownedRelationship "[{\"@id\":\"Results__Quoted___401_pin0_om\"},{\"@id\":\"Results__Quoted___401_presult_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Results__Quoted___401_pin0_om\"},{\"@id\":\"Results__Quoted___401_presult_om\"}]" .
+
+expr:Results__Quoted___401_pbody_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Results__Quoted___401_pbody_om" ;
+    sysml:owner elmt:Results__Quoted___401 ;
+    sysml:memberElement expr:Results__Quoted___401_pbody ;
+    sysml:ownedMemberElement expr:Results__Quoted___401_pbody ;
+    sysml:ownedRelatedElement expr:Results__Quoted___401_pbody ;
+    sysml:owningRelatedElement elmt:Results__Quoted___401 ;
+    sysml:membershipOwningNamespace elmt:Results__Quoted___401 ;
+    sysml:ownedMemberFeature expr:Results__Quoted___401_pbody .
+
 expr:Results__Quoted___401_pin0
     a sysml:ReferenceUsage ;
     sysml:elementId "Results__Quoted___401_pin0" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:direction "in" ;
     sysml:declaredName "the input" ;
-    sysml:type elmt:Results__Real .
+    sysml:type elmt:Results__Real ;
+    sysml:owner expr:Results__Quoted___401_pbody ;
+    sysml:owningRelationship expr:Results__Quoted___401_pin0_om ;
+    sysml:owningMembership expr:Results__Quoted___401_pin0_om ;
+    sysml:ownedTyping expr:Results__Quoted___401_pin0_ft0 ;
+    sysml:ownedSpecialization expr:Results__Quoted___401_pin0_ft0 ;
+    sysml:ownedRelationship expr:Results__Quoted___401_pin0_ft0 .
+
+expr:Results__Quoted___401_pin0_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Results__Quoted___401_pin0_om" ;
+    sysml:owner expr:Results__Quoted___401_pbody ;
+    sysml:memberElement expr:Results__Quoted___401_pin0 ;
+    sysml:ownedMemberElement expr:Results__Quoted___401_pin0 ;
+    sysml:ownedRelatedElement expr:Results__Quoted___401_pin0 ;
+    sysml:owningRelatedElement expr:Results__Quoted___401_pbody ;
+    sysml:membershipOwningNamespace expr:Results__Quoted___401_pbody ;
+    sysml:ownedMemberFeature expr:Results__Quoted___401_pin0 .
 
 expr:Results__Quoted___401_presult
     a sysml:OperatorExpression ;
@@ -1243,6 +1381,9 @@ expr:Results__Quoted___401_presult
     sysml:parameter expr:Results__Quoted___401_presult_pin0, expr:Results__Quoted___401_presult_pin1, expr:Results__Quoted___401_presult_pout ;
     sysml:input expr:Results__Quoted___401_presult_pin0, expr:Results__Quoted___401_presult_pin1 ;
     sysml:result expr:Results__Quoted___401_presult_pout ;
+    sysml:owner expr:Results__Quoted___401_pbody ;
+    sysml:owningRelationship expr:Results__Quoted___401_presult_om ;
+    sysml:owningMembership expr:Results__Quoted___401_presult_om ;
     json:argument "[{\"@id\":\"Results__Quoted___401_presult_pa0\"},{\"@id\":\"Results__Quoted___401_presult_pa1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Results__Quoted___401_presult_pin0_om\"},{\"@id\":\"Results__Quoted___401_presult_pin1_om\"},{\"@id\":\"Results__Quoted___401_presult_pout_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Results__Quoted___401_presult_pin0_om\"},{\"@id\":\"Results__Quoted___401_presult_pin1_om\"},{\"@id\":\"Results__Quoted___401_presult_pout_om\"}]" ;
@@ -1411,6 +1552,37 @@ expr:Results__Quoted___401_presult_pout_om
     sysml:ownedMemberFeature expr:Results__Quoted___401_presult_pout ;
     sysml:ownedMemberParameter expr:Results__Quoted___401_presult_pout .
 
+expr:Results__Quoted___401_presult_om
+    a sysml:ResultExpressionMembership ;
+    sysml:elementId "Results__Quoted___401_presult_om" ;
+    sysml:owner expr:Results__Quoted___401_pbody ;
+    sysml:memberElement expr:Results__Quoted___401_presult ;
+    sysml:ownedMemberElement expr:Results__Quoted___401_presult ;
+    sysml:ownedRelatedElement expr:Results__Quoted___401_presult ;
+    sysml:owningRelatedElement expr:Results__Quoted___401_pbody ;
+    sysml:membershipOwningNamespace expr:Results__Quoted___401_pbody ;
+    sysml:ownedResultExpression expr:Results__Quoted___401_presult .
+
+expr:Results__Quoted___401_pout
+    a sysml:Feature ;
+    sysml:elementId "Results__Quoted___401_pout" ;
+    sysml:direction "out" ;
+    sysml:owner elmt:Results__Quoted___401 ;
+    sysml:owningRelationship expr:Results__Quoted___401_pout_om ;
+    sysml:owningMembership expr:Results__Quoted___401_pout_om .
+
+expr:Results__Quoted___401_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Results__Quoted___401_pout_om" ;
+    sysml:owner elmt:Results__Quoted___401 ;
+    sysml:memberElement expr:Results__Quoted___401_pout ;
+    sysml:ownedMemberElement expr:Results__Quoted___401_pout ;
+    sysml:ownedRelatedElement expr:Results__Quoted___401_pout ;
+    sysml:owningRelatedElement elmt:Results__Quoted___401 ;
+    sysml:membershipOwningNamespace elmt:Results__Quoted___401 ;
+    sysml:ownedMemberFeature expr:Results__Quoted___401_pout ;
+    sysml:ownedMemberParameter expr:Results__Quoted___401_pout .
+
 elmt:Results__Nested
     a sysml:CalculationDefinition ;
     sysml:qualifiedName "Results::Nested" ;
@@ -1477,7 +1649,7 @@ elmt:Results__Nested__x_om
     sysml:owningType elmt:Results__Nested .
 
 elmt:Results__Nested___401
-    a sysml:Expression ;
+    a sysml:FeatureReferenceExpression ;
     sysml:qualifiedName "Results::Nested::@1" ;
     sysml:elementId "Results__Nested___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
@@ -1485,10 +1657,18 @@ elmt:Results__Nested___401
     sysml:owner elmt:Results__Nested ;
     sysml:owningRelationship elmt:Results__Nested___401_om ;
     sysml:owningMembership elmt:Results__Nested___401_om ;
-    sysx:hasBody "true"^^xsd:boolean ;
-    sysx:bodyParameter expr:Results__Nested___401_pin0 ;
-    sysx:resultExpression expr:Results__Nested___401_presult ;
-    sysx:sourceText "        { in y : Real; Double(x = { in z : Real; z + y }) }\n" .
+    sysml:referent expr:Results__Nested___401_pbody ;
+    sysml:ownedRelationship expr:Results__Nested___401_pbody_om, expr:Results__Nested___401_pout_om, elmt:Results__Nested___401_referent ;
+    sysml:ownedMembership expr:Results__Nested___401_pbody_om, expr:Results__Nested___401_pout_om ;
+    sysml:ownedFeatureMembership expr:Results__Nested___401_pbody_om, expr:Results__Nested___401_pout_om ;
+    sysml:ownedFeature expr:Results__Nested___401_pbody, expr:Results__Nested___401_pout ;
+    sysml:parameter expr:Results__Nested___401_pout ;
+    sysml:result expr:Results__Nested___401_pout ;
+    sysx:sourceText "        { in y : Real; Double(x = { in z : Real; z + y }) }\n" ;
+    json:ownedRelationship "[{\"@id\":\"Results__Nested___401_pbody_om\"},{\"@id\":\"Results__Nested___401_pout_om\"},{\"@id\":\"Results__Nested___401_referent\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Results__Nested___401_pbody_om\"},{\"@id\":\"Results__Nested___401_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Results__Nested___401_pbody_om\"},{\"@id\":\"Results__Nested___401_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Results__Nested___401_pbody\"},{\"@id\":\"Results__Nested___401_pout\"}]" .
 
 elmt:Results__Nested___401_om
     a sysml:ResultExpressionMembership ;
@@ -1503,13 +1683,57 @@ elmt:Results__Nested___401_om
     sysml:owningType elmt:Results__Nested ;
     sysml:ownedResultExpression elmt:Results__Nested___401 .
 
+expr:Results__Nested___401_pbody
+    a sysml:Expression ;
+    sysml:elementId "Results__Nested___401_pbody" ;
+    sysml:owner elmt:Results__Nested___401 ;
+    sysml:owningRelationship expr:Results__Nested___401_pbody_om ;
+    sysml:owningMembership expr:Results__Nested___401_pbody_om ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysx:bodyParameter expr:Results__Nested___401_pin0 ;
+    sysml:ownedRelationship expr:Results__Nested___401_pin0_om, expr:Results__Nested___401_presult_om ;
+    sysml:ownedMembership expr:Results__Nested___401_pin0_om, expr:Results__Nested___401_presult_om ;
+    sysml:ownedFeatureMembership expr:Results__Nested___401_pin0_om ;
+    sysml:ownedFeature expr:Results__Nested___401_pin0 ;
+    sysx:resultExpression expr:Results__Nested___401_presult ;
+    json:ownedRelationship "[{\"@id\":\"Results__Nested___401_pin0_om\"},{\"@id\":\"Results__Nested___401_presult_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Results__Nested___401_pin0_om\"},{\"@id\":\"Results__Nested___401_presult_om\"}]" .
+
+expr:Results__Nested___401_pbody_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Results__Nested___401_pbody_om" ;
+    sysml:owner elmt:Results__Nested___401 ;
+    sysml:memberElement expr:Results__Nested___401_pbody ;
+    sysml:ownedMemberElement expr:Results__Nested___401_pbody ;
+    sysml:ownedRelatedElement expr:Results__Nested___401_pbody ;
+    sysml:owningRelatedElement elmt:Results__Nested___401 ;
+    sysml:membershipOwningNamespace elmt:Results__Nested___401 ;
+    sysml:ownedMemberFeature expr:Results__Nested___401_pbody .
+
 expr:Results__Nested___401_pin0
     a sysml:ReferenceUsage ;
     sysml:elementId "Results__Nested___401_pin0" ;
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:direction "in" ;
     sysml:declaredName "y" ;
-    sysml:type elmt:Results__Real .
+    sysml:type elmt:Results__Real ;
+    sysml:owner expr:Results__Nested___401_pbody ;
+    sysml:owningRelationship expr:Results__Nested___401_pin0_om ;
+    sysml:owningMembership expr:Results__Nested___401_pin0_om ;
+    sysml:ownedTyping expr:Results__Nested___401_pin0_ft0 ;
+    sysml:ownedSpecialization expr:Results__Nested___401_pin0_ft0 ;
+    sysml:ownedRelationship expr:Results__Nested___401_pin0_ft0 .
+
+expr:Results__Nested___401_pin0_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Results__Nested___401_pin0_om" ;
+    sysml:owner expr:Results__Nested___401_pbody ;
+    sysml:memberElement expr:Results__Nested___401_pin0 ;
+    sysml:ownedMemberElement expr:Results__Nested___401_pin0 ;
+    sysml:ownedRelatedElement expr:Results__Nested___401_pin0 ;
+    sysml:owningRelatedElement expr:Results__Nested___401_pbody ;
+    sysml:membershipOwningNamespace expr:Results__Nested___401_pbody ;
+    sysml:ownedMemberFeature expr:Results__Nested___401_pin0 .
 
 expr:Results__Nested___401_presult
     a sysml:InvocationExpression ;
@@ -1524,6 +1748,9 @@ expr:Results__Nested___401_presult
     sysml:parameter expr:Results__Nested___401_presult_pin0, expr:Results__Nested___401_presult_pout ;
     sysml:input expr:Results__Nested___401_presult_pin0 ;
     sysml:result expr:Results__Nested___401_presult_pout ;
+    sysml:owner expr:Results__Nested___401_pbody ;
+    sysml:owningRelationship expr:Results__Nested___401_presult_om ;
+    sysml:owningMembership expr:Results__Nested___401_presult_om ;
     json:ownedRelationship "[{\"@id\":\"Results__Nested___401_presult_pfunction\"},{\"@id\":\"Results__Nested___401_presult_pin0_om\"},{\"@id\":\"Results__Nested___401_presult_pout_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Results__Nested___401_presult_pin0_om\"},{\"@id\":\"Results__Nested___401_presult_pout_om\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Results__Nested___401_presult_pin0_om\"},{\"@id\":\"Results__Nested___401_presult_pout_om\"}]" ;
@@ -1538,16 +1765,51 @@ expr:Results__Nested___401_presult_pfunction
     sysml:owningRelatedElement expr:Results__Nested___401_presult .
 
 expr:Results__Nested___401_presult_pn0
-    a sysml:Expression ;
+    a sysml:FeatureReferenceExpression ;
     sysx:sourceText "{ in z : Real; z + y }" ;
     sysml:elementId "Results__Nested___401_presult_pn0" ;
-    sysx:hasBody "true"^^xsd:boolean ;
-    sysx:bodyParameter expr:Results__Nested___401_presult_pn0_pin0 ;
-    sysx:resultExpression expr:Results__Nested___401_presult_pn0_presult ;
+    sysml:referent expr:Results__Nested___401_presult_pn0_pbody ;
+    sysml:ownedRelationship expr:Results__Nested___401_presult_pn0_pbody_om, expr:Results__Nested___401_presult_pn0_pout_om, expr:Results__Nested___401_presult_pn0_preferent ;
+    sysml:ownedMembership expr:Results__Nested___401_presult_pn0_pbody_om, expr:Results__Nested___401_presult_pn0_pout_om ;
+    sysml:ownedFeatureMembership expr:Results__Nested___401_presult_pn0_pbody_om, expr:Results__Nested___401_presult_pn0_pout_om ;
+    sysml:ownedFeature expr:Results__Nested___401_presult_pn0_pbody, expr:Results__Nested___401_presult_pn0_pout ;
+    sysml:parameter expr:Results__Nested___401_presult_pn0_pout ;
+    sysml:result expr:Results__Nested___401_presult_pn0_pout ;
     sysml:owner expr:Results__Nested___401_presult_pin0 ;
     sysml:owningRelationship expr:Results__Nested___401_presult_pn0_om ;
     sysml:owningMembership expr:Results__Nested___401_presult_pn0_om ;
-    sysx:argumentName "x" .
+    sysx:argumentName "x" ;
+    json:ownedRelationship "[{\"@id\":\"Results__Nested___401_presult_pn0_pbody_om\"},{\"@id\":\"Results__Nested___401_presult_pn0_pout_om\"},{\"@id\":\"Results__Nested___401_presult_pn0_preferent\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Results__Nested___401_presult_pn0_pbody_om\"},{\"@id\":\"Results__Nested___401_presult_pn0_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Results__Nested___401_presult_pn0_pbody_om\"},{\"@id\":\"Results__Nested___401_presult_pn0_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Results__Nested___401_presult_pn0_pbody\"},{\"@id\":\"Results__Nested___401_presult_pn0_pout\"}]" .
+
+expr:Results__Nested___401_presult_pn0_pbody
+    a sysml:Expression ;
+    sysml:elementId "Results__Nested___401_presult_pn0_pbody" ;
+    sysml:owner expr:Results__Nested___401_presult_pn0 ;
+    sysml:owningRelationship expr:Results__Nested___401_presult_pn0_pbody_om ;
+    sysml:owningMembership expr:Results__Nested___401_presult_pn0_pbody_om ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysx:bodyParameter expr:Results__Nested___401_presult_pn0_pin0 ;
+    sysml:ownedRelationship expr:Results__Nested___401_presult_pn0_pin0_om, expr:Results__Nested___401_presult_pn0_presult_om ;
+    sysml:ownedMembership expr:Results__Nested___401_presult_pn0_pin0_om, expr:Results__Nested___401_presult_pn0_presult_om ;
+    sysml:ownedFeatureMembership expr:Results__Nested___401_presult_pn0_pin0_om ;
+    sysml:ownedFeature expr:Results__Nested___401_presult_pn0_pin0 ;
+    sysx:resultExpression expr:Results__Nested___401_presult_pn0_presult ;
+    json:ownedRelationship "[{\"@id\":\"Results__Nested___401_presult_pn0_pin0_om\"},{\"@id\":\"Results__Nested___401_presult_pn0_presult_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Results__Nested___401_presult_pn0_pin0_om\"},{\"@id\":\"Results__Nested___401_presult_pn0_presult_om\"}]" .
+
+expr:Results__Nested___401_presult_pn0_pbody_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Results__Nested___401_presult_pn0_pbody_om" ;
+    sysml:owner expr:Results__Nested___401_presult_pn0 ;
+    sysml:memberElement expr:Results__Nested___401_presult_pn0_pbody ;
+    sysml:ownedMemberElement expr:Results__Nested___401_presult_pn0_pbody ;
+    sysml:ownedRelatedElement expr:Results__Nested___401_presult_pn0_pbody ;
+    sysml:owningRelatedElement expr:Results__Nested___401_presult_pn0 ;
+    sysml:membershipOwningNamespace expr:Results__Nested___401_presult_pn0 ;
+    sysml:ownedMemberFeature expr:Results__Nested___401_presult_pn0_pbody .
 
 expr:Results__Nested___401_presult_pn0_pin0
     a sysml:ReferenceUsage ;
@@ -1555,7 +1817,24 @@ expr:Results__Nested___401_presult_pn0_pin0
     sysx:memberIndex "0"^^xsd:integer ;
     sysml:direction "in" ;
     sysml:declaredName "z" ;
-    sysml:type elmt:Results__Real .
+    sysml:type elmt:Results__Real ;
+    sysml:owner expr:Results__Nested___401_presult_pn0_pbody ;
+    sysml:owningRelationship expr:Results__Nested___401_presult_pn0_pin0_om ;
+    sysml:owningMembership expr:Results__Nested___401_presult_pn0_pin0_om ;
+    sysml:ownedTyping expr:Results__Nested___401_presult_pn0_pin0_ft0 ;
+    sysml:ownedSpecialization expr:Results__Nested___401_presult_pn0_pin0_ft0 ;
+    sysml:ownedRelationship expr:Results__Nested___401_presult_pn0_pin0_ft0 .
+
+expr:Results__Nested___401_presult_pn0_pin0_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Results__Nested___401_presult_pn0_pin0_om" ;
+    sysml:owner expr:Results__Nested___401_presult_pn0_pbody ;
+    sysml:memberElement expr:Results__Nested___401_presult_pn0_pin0 ;
+    sysml:ownedMemberElement expr:Results__Nested___401_presult_pn0_pin0 ;
+    sysml:ownedRelatedElement expr:Results__Nested___401_presult_pn0_pin0 ;
+    sysml:owningRelatedElement expr:Results__Nested___401_presult_pn0_pbody ;
+    sysml:membershipOwningNamespace expr:Results__Nested___401_presult_pn0_pbody ;
+    sysml:ownedMemberFeature expr:Results__Nested___401_presult_pn0_pin0 .
 
 expr:Results__Nested___401_presult_pn0_presult
     a sysml:OperatorExpression ;
@@ -1570,6 +1849,9 @@ expr:Results__Nested___401_presult_pn0_presult
     sysml:parameter expr:Results__Nested___401_presult_pn0_presult_pin0, expr:Results__Nested___401_presult_pn0_presult_pin1, expr:Results__Nested___401_presult_pn0_presult_pout ;
     sysml:input expr:Results__Nested___401_presult_pn0_presult_pin0, expr:Results__Nested___401_presult_pn0_presult_pin1 ;
     sysml:result expr:Results__Nested___401_presult_pn0_presult_pout ;
+    sysml:owner expr:Results__Nested___401_presult_pn0_pbody ;
+    sysml:owningRelationship expr:Results__Nested___401_presult_pn0_presult_om ;
+    sysml:owningMembership expr:Results__Nested___401_presult_pn0_presult_om ;
     json:argument "[{\"@id\":\"Results__Nested___401_presult_pn0_presult_pa0\"},{\"@id\":\"Results__Nested___401_presult_pn0_presult_pa1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Results__Nested___401_presult_pn0_presult_pin0_om\"},{\"@id\":\"Results__Nested___401_presult_pn0_presult_pin1_om\"},{\"@id\":\"Results__Nested___401_presult_pn0_presult_pout_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Results__Nested___401_presult_pn0_presult_pin0_om\"},{\"@id\":\"Results__Nested___401_presult_pn0_presult_pin1_om\"},{\"@id\":\"Results__Nested___401_presult_pn0_presult_pout_om\"}]" ;
@@ -1738,6 +2020,37 @@ expr:Results__Nested___401_presult_pn0_presult_pout_om
     sysml:ownedMemberFeature expr:Results__Nested___401_presult_pn0_presult_pout ;
     sysml:ownedMemberParameter expr:Results__Nested___401_presult_pn0_presult_pout .
 
+expr:Results__Nested___401_presult_pn0_presult_om
+    a sysml:ResultExpressionMembership ;
+    sysml:elementId "Results__Nested___401_presult_pn0_presult_om" ;
+    sysml:owner expr:Results__Nested___401_presult_pn0_pbody ;
+    sysml:memberElement expr:Results__Nested___401_presult_pn0_presult ;
+    sysml:ownedMemberElement expr:Results__Nested___401_presult_pn0_presult ;
+    sysml:ownedRelatedElement expr:Results__Nested___401_presult_pn0_presult ;
+    sysml:owningRelatedElement expr:Results__Nested___401_presult_pn0_pbody ;
+    sysml:membershipOwningNamespace expr:Results__Nested___401_presult_pn0_pbody ;
+    sysml:ownedResultExpression expr:Results__Nested___401_presult_pn0_presult .
+
+expr:Results__Nested___401_presult_pn0_pout
+    a sysml:Feature ;
+    sysml:elementId "Results__Nested___401_presult_pn0_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:Results__Nested___401_presult_pn0 ;
+    sysml:owningRelationship expr:Results__Nested___401_presult_pn0_pout_om ;
+    sysml:owningMembership expr:Results__Nested___401_presult_pn0_pout_om .
+
+expr:Results__Nested___401_presult_pn0_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Results__Nested___401_presult_pn0_pout_om" ;
+    sysml:owner expr:Results__Nested___401_presult_pn0 ;
+    sysml:memberElement expr:Results__Nested___401_presult_pn0_pout ;
+    sysml:ownedMemberElement expr:Results__Nested___401_presult_pn0_pout ;
+    sysml:ownedRelatedElement expr:Results__Nested___401_presult_pn0_pout ;
+    sysml:owningRelatedElement expr:Results__Nested___401_presult_pn0 ;
+    sysml:membershipOwningNamespace expr:Results__Nested___401_presult_pn0 ;
+    sysml:ownedMemberFeature expr:Results__Nested___401_presult_pn0_pout ;
+    sysml:ownedMemberParameter expr:Results__Nested___401_presult_pn0_pout .
+
 expr:Results__Nested___401_presult_pin0
     a sysml:Feature ;
     sysml:elementId "Results__Nested___401_presult_pin0" ;
@@ -1791,6 +2104,37 @@ expr:Results__Nested___401_presult_pout_om
     sysml:membershipOwningNamespace expr:Results__Nested___401_presult ;
     sysml:ownedMemberFeature expr:Results__Nested___401_presult_pout ;
     sysml:ownedMemberParameter expr:Results__Nested___401_presult_pout .
+
+expr:Results__Nested___401_presult_om
+    a sysml:ResultExpressionMembership ;
+    sysml:elementId "Results__Nested___401_presult_om" ;
+    sysml:owner expr:Results__Nested___401_pbody ;
+    sysml:memberElement expr:Results__Nested___401_presult ;
+    sysml:ownedMemberElement expr:Results__Nested___401_presult ;
+    sysml:ownedRelatedElement expr:Results__Nested___401_presult ;
+    sysml:owningRelatedElement expr:Results__Nested___401_pbody ;
+    sysml:membershipOwningNamespace expr:Results__Nested___401_pbody ;
+    sysml:ownedResultExpression expr:Results__Nested___401_presult .
+
+expr:Results__Nested___401_pout
+    a sysml:Feature ;
+    sysml:elementId "Results__Nested___401_pout" ;
+    sysml:direction "out" ;
+    sysml:owner elmt:Results__Nested___401 ;
+    sysml:owningRelationship expr:Results__Nested___401_pout_om ;
+    sysml:owningMembership expr:Results__Nested___401_pout_om .
+
+expr:Results__Nested___401_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Results__Nested___401_pout_om" ;
+    sysml:owner elmt:Results__Nested___401 ;
+    sysml:memberElement expr:Results__Nested___401_pout ;
+    sysml:ownedMemberElement expr:Results__Nested___401_pout ;
+    sysml:ownedRelatedElement expr:Results__Nested___401_pout ;
+    sysml:owningRelatedElement elmt:Results__Nested___401 ;
+    sysml:membershipOwningNamespace elmt:Results__Nested___401 ;
+    sysml:ownedMemberFeature expr:Results__Nested___401_pout ;
+    sysml:ownedMemberParameter expr:Results__Nested___401_pout .
 
 elmt:Results__Documented
     a sysml:CalculationDefinition ;
@@ -1858,7 +2202,7 @@ elmt:Results__Documented__x_om
     sysml:owningType elmt:Results__Documented .
 
 elmt:Results__Documented___401
-    a sysml:Expression ;
+    a sysml:FeatureReferenceExpression ;
     sysml:qualifiedName "Results::Documented::@1" ;
     sysml:elementId "Results__Documented___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
@@ -1866,11 +2210,18 @@ elmt:Results__Documented___401
     sysml:owner elmt:Results__Documented ;
     sysml:owningRelationship elmt:Results__Documented___401_om ;
     sysml:owningMembership elmt:Results__Documented___401_om ;
-    sysx:hasBody "true"^^xsd:boolean ;
-    sysx:bodyMember expr:Results__Documented___401_pm0 ;
-    sysx:bodyParameter expr:Results__Documented___401_pin1 ;
-    sysx:resultExpression expr:Results__Documented___401_presult ;
-    sysx:sourceText "        { doc /* the parameter, unchanged */ in y : Real; y }\n" .
+    sysml:referent expr:Results__Documented___401_pbody ;
+    sysml:ownedRelationship expr:Results__Documented___401_pbody_om, expr:Results__Documented___401_pout_om, elmt:Results__Documented___401_referent ;
+    sysml:ownedMembership expr:Results__Documented___401_pbody_om, expr:Results__Documented___401_pout_om ;
+    sysml:ownedFeatureMembership expr:Results__Documented___401_pbody_om, expr:Results__Documented___401_pout_om ;
+    sysml:ownedFeature expr:Results__Documented___401_pbody, expr:Results__Documented___401_pout ;
+    sysml:parameter expr:Results__Documented___401_pout ;
+    sysml:result expr:Results__Documented___401_pout ;
+    sysx:sourceText "        { doc /* the parameter, unchanged */ in y : Real; y }\n" ;
+    json:ownedRelationship "[{\"@id\":\"Results__Documented___401_pbody_om\"},{\"@id\":\"Results__Documented___401_pout_om\"},{\"@id\":\"Results__Documented___401_referent\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Results__Documented___401_pbody_om\"},{\"@id\":\"Results__Documented___401_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Results__Documented___401_pbody_om\"},{\"@id\":\"Results__Documented___401_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Results__Documented___401_pbody\"},{\"@id\":\"Results__Documented___401_pout\"}]" .
 
 elmt:Results__Documented___401_om
     a sysml:ResultExpressionMembership ;
@@ -1885,11 +2236,52 @@ elmt:Results__Documented___401_om
     sysml:owningType elmt:Results__Documented ;
     sysml:ownedResultExpression elmt:Results__Documented___401 .
 
+expr:Results__Documented___401_pbody
+    a sysml:Expression ;
+    sysml:elementId "Results__Documented___401_pbody" ;
+    sysml:owner elmt:Results__Documented___401 ;
+    sysml:owningRelationship expr:Results__Documented___401_pbody_om ;
+    sysml:owningMembership expr:Results__Documented___401_pbody_om ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysx:bodyMember expr:Results__Documented___401_pm0 ;
+    sysml:ownedRelationship expr:Results__Documented___401_pm0_om, expr:Results__Documented___401_pin1_om, expr:Results__Documented___401_presult_om ;
+    sysml:ownedMembership expr:Results__Documented___401_pm0_om, expr:Results__Documented___401_pin1_om, expr:Results__Documented___401_presult_om ;
+    sysx:bodyParameter expr:Results__Documented___401_pin1 ;
+    sysml:ownedFeatureMembership expr:Results__Documented___401_pin1_om ;
+    sysml:ownedFeature expr:Results__Documented___401_pin1 ;
+    sysx:resultExpression expr:Results__Documented___401_presult ;
+    json:ownedRelationship "[{\"@id\":\"Results__Documented___401_pm0_om\"},{\"@id\":\"Results__Documented___401_pin1_om\"},{\"@id\":\"Results__Documented___401_presult_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Results__Documented___401_pm0_om\"},{\"@id\":\"Results__Documented___401_pin1_om\"},{\"@id\":\"Results__Documented___401_presult_om\"}]" .
+
+expr:Results__Documented___401_pbody_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Results__Documented___401_pbody_om" ;
+    sysml:owner elmt:Results__Documented___401 ;
+    sysml:memberElement expr:Results__Documented___401_pbody ;
+    sysml:ownedMemberElement expr:Results__Documented___401_pbody ;
+    sysml:ownedRelatedElement expr:Results__Documented___401_pbody ;
+    sysml:owningRelatedElement elmt:Results__Documented___401 ;
+    sysml:membershipOwningNamespace elmt:Results__Documented___401 ;
+    sysml:ownedMemberFeature expr:Results__Documented___401_pbody .
+
 expr:Results__Documented___401_pm0
     a sysml:Documentation ;
     sysml:elementId "Results__Documented___401_pm0" ;
     sysx:memberIndex "0"^^xsd:integer ;
-    sysml:body " the parameter, unchanged " .
+    sysml:body " the parameter, unchanged " ;
+    sysml:owner expr:Results__Documented___401_pbody ;
+    sysml:owningRelationship expr:Results__Documented___401_pm0_om ;
+    sysml:owningMembership expr:Results__Documented___401_pm0_om .
+
+expr:Results__Documented___401_pm0_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Results__Documented___401_pm0_om" ;
+    sysml:owner expr:Results__Documented___401_pbody ;
+    sysml:memberElement expr:Results__Documented___401_pm0 ;
+    sysml:ownedMemberElement expr:Results__Documented___401_pm0 ;
+    sysml:ownedRelatedElement expr:Results__Documented___401_pm0 ;
+    sysml:owningRelatedElement expr:Results__Documented___401_pbody ;
+    sysml:membershipOwningNamespace expr:Results__Documented___401_pbody .
 
 expr:Results__Documented___401_pin1
     a sysml:ReferenceUsage ;
@@ -1897,7 +2289,24 @@ expr:Results__Documented___401_pin1
     sysx:memberIndex "1"^^xsd:integer ;
     sysml:direction "in" ;
     sysml:declaredName "y" ;
-    sysml:type elmt:Results__Real .
+    sysml:type elmt:Results__Real ;
+    sysml:owner expr:Results__Documented___401_pbody ;
+    sysml:owningRelationship expr:Results__Documented___401_pin1_om ;
+    sysml:owningMembership expr:Results__Documented___401_pin1_om ;
+    sysml:ownedTyping expr:Results__Documented___401_pin1_ft0 ;
+    sysml:ownedSpecialization expr:Results__Documented___401_pin1_ft0 ;
+    sysml:ownedRelationship expr:Results__Documented___401_pin1_ft0 .
+
+expr:Results__Documented___401_pin1_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Results__Documented___401_pin1_om" ;
+    sysml:owner expr:Results__Documented___401_pbody ;
+    sysml:memberElement expr:Results__Documented___401_pin1 ;
+    sysml:ownedMemberElement expr:Results__Documented___401_pin1 ;
+    sysml:ownedRelatedElement expr:Results__Documented___401_pin1 ;
+    sysml:owningRelatedElement expr:Results__Documented___401_pbody ;
+    sysml:membershipOwningNamespace expr:Results__Documented___401_pbody ;
+    sysml:ownedMemberFeature expr:Results__Documented___401_pin1 .
 
 expr:Results__Documented___401_presult
     a sysml:FeatureReferenceExpression ;
@@ -1910,6 +2319,9 @@ expr:Results__Documented___401_presult
     sysml:ownedFeature expr:Results__Documented___401_presult_pout ;
     sysml:parameter expr:Results__Documented___401_presult_pout ;
     sysml:result expr:Results__Documented___401_presult_pout ;
+    sysml:owner expr:Results__Documented___401_pbody ;
+    sysml:owningRelationship expr:Results__Documented___401_presult_om ;
+    sysml:owningMembership expr:Results__Documented___401_presult_om ;
     json:ownedRelationship "[{\"@id\":\"Results__Documented___401_presult_pout_om\"},{\"@id\":\"Results__Documented___401_presult_preferent\"}]" .
 
 expr:Results__Documented___401_presult_pout
@@ -1931,6 +2343,37 @@ expr:Results__Documented___401_presult_pout_om
     sysml:membershipOwningNamespace expr:Results__Documented___401_presult ;
     sysml:ownedMemberFeature expr:Results__Documented___401_presult_pout ;
     sysml:ownedMemberParameter expr:Results__Documented___401_presult_pout .
+
+expr:Results__Documented___401_presult_om
+    a sysml:ResultExpressionMembership ;
+    sysml:elementId "Results__Documented___401_presult_om" ;
+    sysml:owner expr:Results__Documented___401_pbody ;
+    sysml:memberElement expr:Results__Documented___401_presult ;
+    sysml:ownedMemberElement expr:Results__Documented___401_presult ;
+    sysml:ownedRelatedElement expr:Results__Documented___401_presult ;
+    sysml:owningRelatedElement expr:Results__Documented___401_pbody ;
+    sysml:membershipOwningNamespace expr:Results__Documented___401_pbody ;
+    sysml:ownedResultExpression expr:Results__Documented___401_presult .
+
+expr:Results__Documented___401_pout
+    a sysml:Feature ;
+    sysml:elementId "Results__Documented___401_pout" ;
+    sysml:direction "out" ;
+    sysml:owner elmt:Results__Documented___401 ;
+    sysml:owningRelationship expr:Results__Documented___401_pout_om ;
+    sysml:owningMembership expr:Results__Documented___401_pout_om .
+
+expr:Results__Documented___401_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Results__Documented___401_pout_om" ;
+    sysml:owner elmt:Results__Documented___401 ;
+    sysml:memberElement expr:Results__Documented___401_pout ;
+    sysml:ownedMemberElement expr:Results__Documented___401_pout ;
+    sysml:ownedRelatedElement expr:Results__Documented___401_pout ;
+    sysml:owningRelatedElement elmt:Results__Documented___401 ;
+    sysml:membershipOwningNamespace elmt:Results__Documented___401 ;
+    sysml:ownedMemberFeature expr:Results__Documented___401_pout ;
+    sysml:ownedMemberParameter expr:Results__Documented___401_pout .
 
 elmt:Results__Passes
     a sysml:CalculationDefinition ;
@@ -2169,7 +2612,7 @@ elmt:Results__Empty__x_om
     sysml:owningType elmt:Results__Empty .
 
 elmt:Results__Empty___401
-    a sysml:Expression ;
+    a sysml:FeatureReferenceExpression ;
     sysml:qualifiedName "Results::Empty::@1" ;
     sysml:elementId "Results__Empty___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
@@ -2177,8 +2620,18 @@ elmt:Results__Empty___401
     sysml:owner elmt:Results__Empty ;
     sysml:owningRelationship elmt:Results__Empty___401_om ;
     sysml:owningMembership elmt:Results__Empty___401_om ;
-    sysx:hasBody "true"^^xsd:boolean ;
-    sysx:sourceText "        {}\n" .
+    sysml:referent expr:Results__Empty___401_pbody ;
+    sysml:ownedRelationship expr:Results__Empty___401_pbody_om, expr:Results__Empty___401_pout_om, elmt:Results__Empty___401_referent ;
+    sysml:ownedMembership expr:Results__Empty___401_pbody_om, expr:Results__Empty___401_pout_om ;
+    sysml:ownedFeatureMembership expr:Results__Empty___401_pbody_om, expr:Results__Empty___401_pout_om ;
+    sysml:ownedFeature expr:Results__Empty___401_pbody, expr:Results__Empty___401_pout ;
+    sysml:parameter expr:Results__Empty___401_pout ;
+    sysml:result expr:Results__Empty___401_pout ;
+    sysx:sourceText "        {}\n" ;
+    json:ownedRelationship "[{\"@id\":\"Results__Empty___401_pbody_om\"},{\"@id\":\"Results__Empty___401_pout_om\"},{\"@id\":\"Results__Empty___401_referent\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Results__Empty___401_pbody_om\"},{\"@id\":\"Results__Empty___401_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Results__Empty___401_pbody_om\"},{\"@id\":\"Results__Empty___401_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Results__Empty___401_pbody\"},{\"@id\":\"Results__Empty___401_pout\"}]" .
 
 elmt:Results__Empty___401_om
     a sysml:ResultExpressionMembership ;
@@ -2192,6 +2645,45 @@ elmt:Results__Empty___401_om
     sysml:ownedMemberFeature elmt:Results__Empty___401 ;
     sysml:owningType elmt:Results__Empty ;
     sysml:ownedResultExpression elmt:Results__Empty___401 .
+
+expr:Results__Empty___401_pbody
+    a sysml:Expression ;
+    sysml:elementId "Results__Empty___401_pbody" ;
+    sysml:owner elmt:Results__Empty___401 ;
+    sysml:owningRelationship expr:Results__Empty___401_pbody_om ;
+    sysml:owningMembership expr:Results__Empty___401_pbody_om ;
+    sysx:hasBody "true"^^xsd:boolean .
+
+expr:Results__Empty___401_pbody_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Results__Empty___401_pbody_om" ;
+    sysml:owner elmt:Results__Empty___401 ;
+    sysml:memberElement expr:Results__Empty___401_pbody ;
+    sysml:ownedMemberElement expr:Results__Empty___401_pbody ;
+    sysml:ownedRelatedElement expr:Results__Empty___401_pbody ;
+    sysml:owningRelatedElement elmt:Results__Empty___401 ;
+    sysml:membershipOwningNamespace elmt:Results__Empty___401 ;
+    sysml:ownedMemberFeature expr:Results__Empty___401_pbody .
+
+expr:Results__Empty___401_pout
+    a sysml:Feature ;
+    sysml:elementId "Results__Empty___401_pout" ;
+    sysml:direction "out" ;
+    sysml:owner elmt:Results__Empty___401 ;
+    sysml:owningRelationship expr:Results__Empty___401_pout_om ;
+    sysml:owningMembership expr:Results__Empty___401_pout_om .
+
+expr:Results__Empty___401_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Results__Empty___401_pout_om" ;
+    sysml:owner elmt:Results__Empty___401 ;
+    sysml:memberElement expr:Results__Empty___401_pout ;
+    sysml:ownedMemberElement expr:Results__Empty___401_pout ;
+    sysml:ownedRelatedElement expr:Results__Empty___401_pout ;
+    sysml:owningRelatedElement elmt:Results__Empty___401 ;
+    sysml:membershipOwningNamespace elmt:Results__Empty___401 ;
+    sysml:ownedMemberFeature expr:Results__Empty___401_pout ;
+    sysml:ownedMemberParameter expr:Results__Empty___401_pout .
 
 elmt:Results__Named
     a sysml:CalculationDefinition ;
@@ -5875,6 +6367,28 @@ elmt:Results__Body__x_ft0
     sysml:relatedElement elmt:Results__Body__x, elmt:Results__Real ;
     json:relatedElement "[{\"@id\":\"Results__Body__x\"},{\"@id\":\"Results__Real\"}]" .
 
+elmt:Results__Body___401_referent
+    a sysml:Membership ;
+    sysml:elementId "Results__Body___401_referent" ;
+    sysml:memberElement expr:Results__Body___401_pbody ;
+    sysml:owner elmt:Results__Body___401 ;
+    sysml:owningRelatedElement elmt:Results__Body___401 .
+
+expr:Results__Body___401_pin0_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Results__Body___401_pin0_ft0" ;
+    sysml:typedFeature expr:Results__Body___401_pin0 ;
+    sysml:owningFeature expr:Results__Body___401_pin0 ;
+    sysml:specific expr:Results__Body___401_pin0 ;
+    sysml:source expr:Results__Body___401_pin0 ;
+    sysml:owningRelatedElement expr:Results__Body___401_pin0 ;
+    sysml:type elmt:Results__Real ;
+    sysml:general elmt:Results__Real ;
+    sysml:target elmt:Results__Real ;
+    sysml:owner expr:Results__Body___401_pin0 ;
+    sysml:relatedElement expr:Results__Body___401_pin0, elmt:Results__Real ;
+    json:relatedElement "[{\"@id\":\"Results__Body___401_pin0\"},{\"@id\":\"Results__Real\"}]" .
+
 expr:Results__Body___401_presult_pa0_preferent
     a sysml:Membership ;
     sysml:elementId "Results__Body___401_presult_pa0_preferent" ;
@@ -5903,6 +6417,28 @@ elmt:Results__Quoted__x_ft0
     sysml:owner elmt:Results__Quoted__x ;
     sysml:relatedElement elmt:Results__Quoted__x, elmt:Results__Real ;
     json:relatedElement "[{\"@id\":\"Results__Quoted__x\"},{\"@id\":\"Results__Real\"}]" .
+
+elmt:Results__Quoted___401_referent
+    a sysml:Membership ;
+    sysml:elementId "Results__Quoted___401_referent" ;
+    sysml:memberElement expr:Results__Quoted___401_pbody ;
+    sysml:owner elmt:Results__Quoted___401 ;
+    sysml:owningRelatedElement elmt:Results__Quoted___401 .
+
+expr:Results__Quoted___401_pin0_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Results__Quoted___401_pin0_ft0" ;
+    sysml:typedFeature expr:Results__Quoted___401_pin0 ;
+    sysml:owningFeature expr:Results__Quoted___401_pin0 ;
+    sysml:specific expr:Results__Quoted___401_pin0 ;
+    sysml:source expr:Results__Quoted___401_pin0 ;
+    sysml:owningRelatedElement expr:Results__Quoted___401_pin0 ;
+    sysml:type elmt:Results__Real ;
+    sysml:general elmt:Results__Real ;
+    sysml:target elmt:Results__Real ;
+    sysml:owner expr:Results__Quoted___401_pin0 ;
+    sysml:relatedElement expr:Results__Quoted___401_pin0, elmt:Results__Real ;
+    json:relatedElement "[{\"@id\":\"Results__Quoted___401_pin0\"},{\"@id\":\"Results__Real\"}]" .
 
 expr:Results__Quoted___401_presult_pa0_preferent
     a sysml:Membership ;
@@ -5933,6 +6469,50 @@ elmt:Results__Nested__x_ft0
     sysml:relatedElement elmt:Results__Nested__x, elmt:Results__Real ;
     json:relatedElement "[{\"@id\":\"Results__Nested__x\"},{\"@id\":\"Results__Real\"}]" .
 
+elmt:Results__Nested___401_referent
+    a sysml:Membership ;
+    sysml:elementId "Results__Nested___401_referent" ;
+    sysml:memberElement expr:Results__Nested___401_pbody ;
+    sysml:owner elmt:Results__Nested___401 ;
+    sysml:owningRelatedElement elmt:Results__Nested___401 .
+
+expr:Results__Nested___401_pin0_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Results__Nested___401_pin0_ft0" ;
+    sysml:typedFeature expr:Results__Nested___401_pin0 ;
+    sysml:owningFeature expr:Results__Nested___401_pin0 ;
+    sysml:specific expr:Results__Nested___401_pin0 ;
+    sysml:source expr:Results__Nested___401_pin0 ;
+    sysml:owningRelatedElement expr:Results__Nested___401_pin0 ;
+    sysml:type elmt:Results__Real ;
+    sysml:general elmt:Results__Real ;
+    sysml:target elmt:Results__Real ;
+    sysml:owner expr:Results__Nested___401_pin0 ;
+    sysml:relatedElement expr:Results__Nested___401_pin0, elmt:Results__Real ;
+    json:relatedElement "[{\"@id\":\"Results__Nested___401_pin0\"},{\"@id\":\"Results__Real\"}]" .
+
+expr:Results__Nested___401_presult_pn0_preferent
+    a sysml:Membership ;
+    sysml:elementId "Results__Nested___401_presult_pn0_preferent" ;
+    sysml:memberElement expr:Results__Nested___401_presult_pn0_pbody ;
+    sysml:owner expr:Results__Nested___401_presult_pn0 ;
+    sysml:owningRelatedElement expr:Results__Nested___401_presult_pn0 .
+
+expr:Results__Nested___401_presult_pn0_pin0_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Results__Nested___401_presult_pn0_pin0_ft0" ;
+    sysml:typedFeature expr:Results__Nested___401_presult_pn0_pin0 ;
+    sysml:owningFeature expr:Results__Nested___401_presult_pn0_pin0 ;
+    sysml:specific expr:Results__Nested___401_presult_pn0_pin0 ;
+    sysml:source expr:Results__Nested___401_presult_pn0_pin0 ;
+    sysml:owningRelatedElement expr:Results__Nested___401_presult_pn0_pin0 ;
+    sysml:type elmt:Results__Real ;
+    sysml:general elmt:Results__Real ;
+    sysml:target elmt:Results__Real ;
+    sysml:owner expr:Results__Nested___401_presult_pn0_pin0 ;
+    sysml:relatedElement expr:Results__Nested___401_presult_pn0_pin0, elmt:Results__Real ;
+    json:relatedElement "[{\"@id\":\"Results__Nested___401_presult_pn0_pin0\"},{\"@id\":\"Results__Real\"}]" .
+
 expr:Results__Nested___401_presult_pn0_presult_pa0_preferent
     a sysml:Membership ;
     sysml:elementId "Results__Nested___401_presult_pn0_presult_pa0_preferent" ;
@@ -5961,6 +6541,28 @@ elmt:Results__Documented__x_ft0
     sysml:owner elmt:Results__Documented__x ;
     sysml:relatedElement elmt:Results__Documented__x, elmt:Results__Real ;
     json:relatedElement "[{\"@id\":\"Results__Documented__x\"},{\"@id\":\"Results__Real\"}]" .
+
+elmt:Results__Documented___401_referent
+    a sysml:Membership ;
+    sysml:elementId "Results__Documented___401_referent" ;
+    sysml:memberElement expr:Results__Documented___401_pbody ;
+    sysml:owner elmt:Results__Documented___401 ;
+    sysml:owningRelatedElement elmt:Results__Documented___401 .
+
+expr:Results__Documented___401_pin1_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Results__Documented___401_pin1_ft0" ;
+    sysml:typedFeature expr:Results__Documented___401_pin1 ;
+    sysml:owningFeature expr:Results__Documented___401_pin1 ;
+    sysml:specific expr:Results__Documented___401_pin1 ;
+    sysml:source expr:Results__Documented___401_pin1 ;
+    sysml:owningRelatedElement expr:Results__Documented___401_pin1 ;
+    sysml:type elmt:Results__Real ;
+    sysml:general elmt:Results__Real ;
+    sysml:target elmt:Results__Real ;
+    sysml:owner expr:Results__Documented___401_pin1 ;
+    sysml:relatedElement expr:Results__Documented___401_pin1, elmt:Results__Real ;
+    json:relatedElement "[{\"@id\":\"Results__Documented___401_pin1\"},{\"@id\":\"Results__Real\"}]" .
 
 expr:Results__Documented___401_presult_preferent
     a sysml:Membership ;
@@ -6005,6 +6607,13 @@ elmt:Results__Empty__x_ft0
     sysml:owner elmt:Results__Empty__x ;
     sysml:relatedElement elmt:Results__Empty__x, elmt:Results__Real ;
     json:relatedElement "[{\"@id\":\"Results__Empty__x\"},{\"@id\":\"Results__Real\"}]" .
+
+elmt:Results__Empty___401_referent
+    a sysml:Membership ;
+    sysml:elementId "Results__Empty___401_referent" ;
+    sysml:memberElement expr:Results__Empty___401_pbody ;
+    sysml:owner elmt:Results__Empty___401 ;
+    sysml:owningRelatedElement elmt:Results__Empty___401 .
 
 elmt:Results__Named__x_ft0
     a sysml:FeatureTyping ;

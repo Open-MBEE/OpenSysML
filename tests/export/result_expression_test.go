@@ -704,8 +704,8 @@ func TestNonStringLiteralsAreRefused(t *testing.T) {
 	cases := []struct {
 		name, literal, want string
 	}{
-		{"typed", `sysx:bodyParameter "3"^^xsd:integer ;`, `the literal "3"^^xsd:integer stated by <urn:sysmlv2:element:Results__Quoted___401> sysx:bodyParameter: sysx:bodyParameter takes a string`},
-		{"language-tagged", `sysx:bodyParameter "eingabe"@de ;`, `the literal "eingabe"@de stated by <urn:sysmlv2:element:Results__Quoted___401> sysx:bodyParameter: a language-tagged literal is an rdf:langString`},
+		{"typed", `sysx:bodyParameter "3"^^xsd:integer ;`, `the literal "3"^^xsd:integer stated by <urn:opensysml:expr:Results__Quoted___401_pbody> sysx:bodyParameter: sysx:bodyParameter takes a string`},
+		{"language-tagged", `sysx:bodyParameter "eingabe"@de ;`, `the literal "eingabe"@de stated by <urn:opensysml:expr:Results__Quoted___401_pbody> sysx:bodyParameter: a language-tagged literal is an rdf:langString`},
 		{"explicit string", `sysx:bodyParameter "the input"^^xsd:string ;`, ""},
 	}
 	for _, tc := range cases {
@@ -1001,9 +1001,10 @@ func TestExpressionBodyParameterIsDeclaredOutsideTheBody(t *testing.T) {
 	}
 	for _, want := range []string{
 		"expr:Params__one_pvalue_pa0_pin0\n    a sysml:ReferenceUsage ;",
-		"sysml:declaredName \"Gauge\" ;\n    sysml:type elmt:Params__Gauge .",
+		"sysml:declaredName \"Gauge\" ;\n    sysml:type elmt:Params__Gauge ;\n    sysml:owner expr:Params__one_pvalue_pa0_pbody ;",
 		"expr:Params__two_pvalue_pa0_pin0\n    a sysml:ReferenceUsage ;",
-		"sysml:declaredName \"limit\" ;\n    sysml:type elmt:Params__Gauge ;\n    sysml:multiplicity expr:Params__two_pvalue_pa0_pin0_pmultiplicity ;\n    sysml:ownedRelationship expr:Params__two_pvalue_pa0_pin0_pmultiplicity_om ;\n    sysml:ownedMembership expr:Params__two_pvalue_pa0_pin0_pmultiplicity_om ;\n    sysml:lowerBound expr:Params__two_pvalue_pa0_pin0_plowerBound ;\n    sysml:upperBound expr:Params__two_pvalue_pa0_pin0_pupperBound ;\n    sysml:value expr:Params__two_pvalue_pa0_pin0_pvalue .",
+		"sysml:declaredName \"limit\" ;\n    sysml:type elmt:Params__Gauge ;\n    sysml:owner expr:Params__two_pvalue_pa0_pbody ;\n    sysml:owningRelationship expr:Params__two_pvalue_pa0_pin0_om ;\n    sysml:owningMembership expr:Params__two_pvalue_pa0_pin0_om ;\n    sysml:multiplicity expr:Params__two_pvalue_pa0_pin0_pmultiplicity ;\n    sysml:ownedRelationship expr:Params__two_pvalue_pa0_pin0_pmultiplicity_om, expr:Params__two_pvalue_pa0_pin0_ft0 ;\n    sysml:ownedMembership expr:Params__two_pvalue_pa0_pin0_pmultiplicity_om ;\n    sysml:lowerBound expr:Params__two_pvalue_pa0_pin0_plowerBound ;\n    sysml:upperBound expr:Params__two_pvalue_pa0_pin0_pupperBound ;\n    sysml:value expr:Params__two_pvalue_pa0_pin0_pvalue ;\n    sysml:ownedTyping expr:Params__two_pvalue_pa0_pin0_ft0 ;",
+		"expr:Params__two_pvalue_pa0_pin0_ft0\n    a sysml:FeatureTyping ;\n    sysml:elementId \"Params__two_pvalue_pa0_pin0_ft0\" ;\n    sysml:typedFeature expr:Params__two_pvalue_pa0_pin0 ;",
 		"expr:Params__two_pvalue_pa0_pin0_pupperBound\n    a sysml:FeatureReferenceExpression ;\n    sysx:sourceText \"upper\" ;\n    sysml:elementId \"Params__two_pvalue_pa0_pin0_pupperBound\" ;\n    sysml:referent elmt:Params__upper ;",
 		"expr:Params__two_pvalue_pa0_pin0_pvalue\n    a sysml:FeatureReferenceExpression ;\n    sysx:sourceText \"limit\" ;\n    sysml:elementId \"Params__two_pvalue_pa0_pin0_pvalue\" ;\n    sysml:referent elmt:Params__limit ;",
 	} {

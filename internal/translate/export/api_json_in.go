@@ -420,6 +420,13 @@ func apiJSONReferenceTarget(subject rdf.Term, object map[string]any, expressionI
 	return rdf.Term{}, fmt.Errorf("an object value is a reference {\"@id\": <id>} or {\"@ref\": <name>}")
 }
 
+// nonuniqueCollections are the derived KerML collections declared {nonunique}:
+// a relationship's related elements may repeat (an association of two ends on one type).
+var nonuniqueCollections = map[string]bool{
+	"relatedElement": true, "relatedType": true, "relatedFeature": true,
+	"chainingFeature": true, "source": true, "target": true,
+}
+
 // apiJSONCollection states an array member: one triple per value, recording
 // a collection of at least two on a sysml: key for its json: annotation.
 func apiJSONCollection(graph *rdf.Graph, subject rdf.Term, predicate rdf.Term, sysmlKey string, values []any, expressionIDs map[string]bool, annotations *[]apiJSONAnnotation) error {
@@ -434,15 +441,20 @@ func apiJSONCollection(graph *rdf.Graph, subject rdf.Term, predicate rdf.Term, s
 		}
 		members = append(members, member)
 	}
+	name := sysmlKey
+	if name == "" {
+		name = rdf.LocalName(predicate.Value)
+	}
 	for i, member := range members {
 		for _, earlier := range members[:i] {
-			if member.Equal(earlier) {
-				name := sysmlKey
-				if name == "" {
-					name = rdf.LocalName(predicate.Value)
-				}
-				return fmt.Errorf("the array on %s of <%s> repeats the member %s", name, subject.Value, member)
+			if !member.Equal(earlier) {
+				continue
 			}
+			if nonuniqueCollections[name] {
+				// A derived {nonunique} list repeats a member the triples hold once.
+				break
+			}
+			return fmt.Errorf("the array on %s of <%s> repeats the member %s", name, subject.Value, member)
 		}
 		graph.Add(subject, predicate, member)
 	}

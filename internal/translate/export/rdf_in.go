@@ -542,7 +542,7 @@ func literalDatatypes(metaclass, predicate string) []string {
 	switch {
 	case isIndexProperty(predicate):
 		return integerLiterals
-	case strings.HasPrefix(name, "is"), name == xHasBody, name == xDeclaredID, name == xHasEffect, name == xBracedEffect:
+	case strings.HasPrefix(name, "is"), name == xHasBody, name == xDeclaredID, name == xHasEffect, name == xBracedEffect, name == xConjugatedTyping:
 		return booleanLiterals
 	case strings.HasPrefix(predicate, rdf.SysML) && (name == pLowerBound || name == pUpperBound):
 		// A feature's bound is an Expression the notation also states as a bare number.
@@ -833,8 +833,12 @@ func (d *decoder) isNodeMembership(subject rdf.Term) bool {
 		return true
 	}
 	metaclass := d.metaclass(subject)
+	owner, _, _ := d.agreedObject(subject, "the node membership", "owner",
+		pMembershipOwningNamespace, pOwningRelatedElement)
+	// A result expression of a calc or constraint body is the element's member;
+	// one owned by an expression body node is part of that expression.
 	if metaclass == mResultExpressionMembership {
-		return false
+		return d.expressionOwner(owner)
 	}
 	member, _, _ := d.agreedObject(subject, "the node membership", "member",
 		pMemberElement, pOwnedMemberElement, pOwnedMemberFeature, pOwnedMemberParameter, pOwnedRelatedElement, pOwnedResultExpression)
@@ -847,12 +851,7 @@ func (d *decoder) isNodeMembership(subject rdf.Term) bool {
 	if metaclass == mFeatureValue {
 		return true
 	}
-	if metaclass != mParameterMembership {
-		return false
-	}
-	owner, _, _ := d.agreedObject(subject, "the parameter membership", "owner",
-		pMembershipOwningNamespace, pOwningRelatedElement)
-	return d.isExpressionIRI(member) || d.expressionOwner(owner)
+	return d.expressionOwner(owner)
 }
 
 // isExpressionIRI reports whether a term belongs to the expression namespace.
@@ -989,7 +988,7 @@ func (d *decoder) ownerOf(el *element) (*element, error) {
 	default:
 		return nil, nil
 	}
-	if hasOwner && owner.Value != ownerIRI {
+	if hasOwner && owner.Value != ownerIRI && !d.ownerDerivedThrough(owner, ownerIRI) {
 		return nil, &UnsupportedError{
 			What: what,
 			Note: fmt.Sprintf("it states <%s> as its owner while its owning relationship puts it under <%s>, and following one would drop the other", owner.Value, ownerIRI),
@@ -1003,6 +1002,16 @@ func (d *decoder) ownerOf(el *element) (*element, error) {
 		}
 	}
 	return parent, nil
+}
+
+// ownerDerivedThrough reports whether owner is what KerML derives for an
+// element a relationship owns directly: the relationship's own owning element.
+func (d *decoder) ownerDerivedThrough(owner rdf.Term, relationship string) bool {
+	if _, membership := d.memberships[relationship]; membership {
+		return false
+	}
+	through := firstIRI(d.graph, rdf.IRI(relationship), pOwningRelatedElement, pOwner)
+	return through.Value != "" && through == owner
 }
 
 // referenceProperties are the predicates whose IRI objects reference elements,
@@ -1571,7 +1580,7 @@ func (d *decoder) declarationHead(el *element) (string, error) {
 	// kept verbatim never reaches here — print() writes its source text.
 	// A `succession` declaration that states the form its ends are written in
 	// is a head that binds ends, not an edge between two members.
-	if el.metaclass == mSuccession && !d.statesEnds(el) {
+	if el.metaclass == mSuccession && (!d.statesEnds(el) || d.positionalSuccession(el)) {
 		return d.successionHead(el)
 	}
 	// A control node, statement, state or region: the behavioral half of the
@@ -1711,7 +1720,10 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	}
 	// A result parameter is declared with `return`, which carries its out
 	// direction: writing both would not parse.
-	isResult := d.boolOf(el, rdf.SysML+"isResult")
+	isResult, err := d.returnMember(el)
+	if err != nil {
+		return "", err
+	}
 	if isResult {
 		words = append(words, "return")
 	} else if direction, ok := d.stringOf(el, rdf.SysML+pDirection); ok && !d.parameterMember(el) {
@@ -3170,7 +3182,7 @@ func (d *decoder) relationshipWords(el *element, multPart string, skip ...ast.Re
 		}
 		// Conjugation qualifies the type a feature is typed by, not the feature
 		// itself: the notation is `port p : ~P` (SysML v2 ConjugatedPortTyping).
-		if kind == ast.RelTyping && d.boolOf(el, rdf.SysML+"isConjugated") {
+		if kind == ast.RelTyping && d.boolOf(el, rdf.OpenSysML+xConjugatedTyping) {
 			for i, target := range targets {
 				targets[i] = "~" + target
 			}
@@ -3277,6 +3289,9 @@ func (d *decoder) referenceName(term rdf.Term, el *element) (string, error) {
 		}
 		return qualifiedNameText(term.Value), nil
 	}
+	if name, ok := d.bodyLocalName(term); ok {
+		return nameText(name), nil
+	}
 	target, err := d.referencedElement(term.Value)
 	if err != nil {
 		return "", err
@@ -3300,6 +3315,16 @@ func (d *decoder) referenceName(term rdf.Term, el *element) (string, error) {
 		}
 	}
 	return qualifiedNameText(written), nil
+}
+
+// bodyLocalName is the declared name of a feature an expression body declares,
+// which a reference inside the body names without a qualified name.
+func (d *decoder) bodyLocalName(term rdf.Term) (string, bool) {
+	name, ok := d.graph.Object(term, rdf.SysML+pDeclaredName)
+	if !ok || !name.IsLiteral() || expressionMetaclasses[d.metaclass(term)] || !d.isExpressionNode(term) {
+		return "", false
+	}
+	return name.Value, true
 }
 
 // memberName renders a chain segment or `first` start, looked up in its operand

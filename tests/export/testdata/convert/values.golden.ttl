@@ -140,7 +140,7 @@ elmt:Values__Total__result
     sysx:sourceText "        return result : Real;\n" .
 
 elmt:Values__Total__result_om
-    a sysml:FeatureMembership ;
+    a sysml:ReturnParameterMembership ;
     sysml:elementId "Values__Total__result_om" ;
     sysml:owner elmt:Values__Total ;
     sysml:memberElement elmt:Values__Total__result ;
@@ -148,6 +148,7 @@ elmt:Values__Total__result_om
     sysml:ownedRelatedElement elmt:Values__Total__result ;
     sysml:owningRelatedElement elmt:Values__Total ;
     sysml:membershipOwningNamespace elmt:Values__Total ;
+    sysml:ownedMemberParameter elmt:Values__Total__result ;
     sysml:ownedMemberFeature elmt:Values__Total__result ;
     sysml:owningType elmt:Values__Total .
 
