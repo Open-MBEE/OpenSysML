@@ -106,10 +106,12 @@ func runRenderAll(files []string) error {
 			return err
 		}
 		path := filepath.Join(renderAllDir, renderFilename(info.Name, writtenForm))
-		if previous, exists := destinations[path]; exists {
+		// A filesystem that ignores letter case hands two such paths one file, so the key ignores it too.
+		key := strings.ToLower(path)
+		if previous, exists := destinations[key]; exists {
 			return fmt.Errorf("views %s and %s have the same rendering path %s", previous, info.Name, path)
 		}
-		destinations[path] = info.Name
+		destinations[key] = info.Name
 		if err := writeArtifactFile(path, artifact, writtenForm); err != nil {
 			return err
 		}
@@ -180,7 +182,7 @@ func renderFilename(name string, form view.Form) string {
 		}
 	}
 	filename := b.String()
-	if stem, _, _ := strings.Cut(filename, "."); windowsDeviceNames[strings.ToUpper(stem)] {
+	if stem, _, _ := strings.Cut(filename, "."); windowsDeviceNames[strings.ToUpper(strings.TrimRight(stem, " "))] {
 		filename = fmt.Sprintf("%%%02X", filename[0]) + filename[1:]
 	}
 	ext := renderExtension(form)
@@ -215,11 +217,15 @@ func cutFilename(filename string, n int) string {
 // the drive colon, the encoding's own `%`, the `.` standing for `::`, and what Windows reserves.
 const unsafeFilenameBytes = "/\\:%.<>\"|?*"
 
-// windowsDeviceNames are the stems Windows reads as devices whatever the extension.
+// windowsDeviceNames are the stems Windows reads as devices whatever the extension,
+// trailing spaces and letter case aside: the serial and printer ports include the
+// superscript digits Windows counts among them.
 var windowsDeviceNames = map[string]bool{
 	"CON": true, "PRN": true, "AUX": true, "NUL": true,
-	"COM1": true, "COM2": true, "COM3": true, "COM4": true, "COM5": true, "COM6": true, "COM7": true, "COM8": true, "COM9": true,
-	"LPT1": true, "LPT2": true, "LPT3": true, "LPT4": true, "LPT5": true, "LPT6": true, "LPT7": true, "LPT8": true, "LPT9": true,
+	"COM0": true, "COM1": true, "COM2": true, "COM3": true, "COM4": true, "COM5": true, "COM6": true, "COM7": true, "COM8": true, "COM9": true,
+	"COM¹": true, "COM²": true, "COM³": true,
+	"LPT0": true, "LPT1": true, "LPT2": true, "LPT3": true, "LPT4": true, "LPT5": true, "LPT6": true, "LPT7": true, "LPT8": true, "LPT9": true,
+	"LPT¹": true, "LPT²": true, "LPT³": true,
 }
 
 func renderExtension(form view.Form) string {

@@ -648,6 +648,10 @@ func TestRenderFilenameEncodesWhatAFilesystemRefuses(t *testing.T) {
 		{".hidden", "%2Ehidden.mmd"},
 		{"CON", "%43ON.mmd"},
 		{"con::view", "%63on.view.mmd"},
+		{"'CON '", "'CON '.mmd"},
+		{"COM0", "%43OM0.mmd"},
+		{"COM¹", "%43OM¹.mmd"},
+		{"lpt³::view", "%6Cpt³.view.mmd"},
 		{"Ops::CON", "Ops.CON.mmd"},
 		{"Ops::Größe", "Ops.Größe.mmd"},
 	}
@@ -727,6 +731,29 @@ func TestRenderAllEncodesUnsafeViewNames(t *testing.T) {
 	want := []string{"Demo.Acquire Telescope Pointing w%2FNSEN Logical Actual.dot", "Demo.after.dot"}
 	if strings.Join(names, ",") != strings.Join(want, ",") {
 		t.Errorf("files = %v, want %v", names, want)
+	}
+}
+
+// Two views whose names differ in letter case alone would share one file on a
+// filesystem that ignores case, so they are refused together on every platform.
+func TestRenderAllRefusesPathsMeetingUnderCaseFolding(t *testing.T) {
+	binary := buildCLI(t)
+	const model = `package Demo {
+    part def Vehicle;
+    view Report {
+        expose Demo::Vehicle;
+        render Views::asTreeDiagram;
+    }
+    view report {
+        expose Demo::Vehicle;
+        render Views::asTreeDiagram;
+    }
+}
+`
+	dir := filepath.Join(t.TempDir(), "rendered")
+	got := runStreams(t, binary, model, "-render-all", dir, "-render-form", "dot")
+	if got.status != exitUnevaluable || !strings.Contains(got.stderr, "views Demo::Report and Demo::report have the same rendering path") {
+		t.Errorf("exit status = %d, want %d naming both views\n%s", got.status, exitUnevaluable, got.output())
 	}
 }
 
