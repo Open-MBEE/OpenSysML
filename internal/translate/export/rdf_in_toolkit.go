@@ -22,7 +22,7 @@ import (
 // before it consults names, plus the parameter memberships the toolkit writes.
 func owningMembershipLike(metaclass string) bool {
 	return metaclass == mFeatureValue || metaclass == mParameterMembership ||
-		metaclass == "ReturnParameterMembership" ||
+		metaclass == mReturnParameterMembership ||
 		metaclass != "" && ontology.IsAncestorOrSelf(metaclass, mOwningMembership)
 }
 
@@ -143,7 +143,7 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) *rd
 		case m == mFeatureValue:
 			graph.Add(subject, rdf.SysMLTerm(pFeatureWithValue), owner)
 			graph.Add(subject, rdf.SysMLTerm(pValue), member)
-		case m == mParameterMembership || m == "ReturnParameterMembership":
+		case m == mParameterMembership || m == mReturnParameterMembership:
 			graph.Add(owner, rdf.SysMLTerm(pOwnedFeatureMembership), subject)
 		case m == mSubjectMembership:
 			graph.Add(subject, rdf.SysMLTerm(pOwnedSubjectParameter), member)
@@ -161,7 +161,7 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) *rd
 		case expressionMetaclasses[meta(member)]:
 			nodeMember[member.Value] = true
 			nodeOwner[member.Value] = owner
-		case (m == mParameterMembership || m == "ReturnParameterMembership") && expressionMetaclasses[meta(owner)]:
+		case (m == mParameterMembership || m == mReturnParameterMembership) && expressionMetaclasses[meta(owner)]:
 			nodeMember[member.Value] = true
 			nodeOwner[member.Value] = owner
 		default:
@@ -304,7 +304,7 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) *rd
 			property = pReferent
 		case mFeatureChain:
 			property = pTargetFeature
-		case mInvocation:
+		case mInvocation, mConstructor:
 			property = pFunction
 		}
 		if property != "" && !graph.HasProperty(owner, rdf.SysML+property) {
@@ -645,7 +645,7 @@ func dropStatedDefaults(graph *rdf.Graph, meta func(rdf.Term) string, elementFor
 		}
 		owner := firstIRI(graph, subject, pOwningRelatedElement, pOwner, pMembershipOwningNamespace)
 		if expressionMetaclasses[meta(member)] || m == mFeatureValue ||
-			(m == mParameterMembership || m == "ReturnParameterMembership") && expressionMetaclasses[meta(owner)] {
+			(m == mParameterMembership || m == mReturnParameterMembership) && expressionMetaclasses[meta(owner)] {
 			nodeOwned[member.Value] = true
 		}
 	}

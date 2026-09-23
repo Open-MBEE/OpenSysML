@@ -199,21 +199,22 @@ expr:LoopsAndConditionals__Control___403_pwhileCondition
     sysml:elementId "LoopsAndConditionals__Control___403_pwhileCondition" ;
     sysml:operator ">" ;
     sysml:argument expr:LoopsAndConditionals__Control___403_pwhileCondition_pa0, expr:LoopsAndConditionals__Control___403_pwhileCondition_pa1 ;
-    sysml:ownedRelationship expr:LoopsAndConditionals__Control___403_pwhileCondition_pin0_om, expr:LoopsAndConditionals__Control___403_pwhileCondition_pin1_om ;
-    sysml:ownedMembership expr:LoopsAndConditionals__Control___403_pwhileCondition_pin0_om, expr:LoopsAndConditionals__Control___403_pwhileCondition_pin1_om ;
-    sysml:ownedFeatureMembership expr:LoopsAndConditionals__Control___403_pwhileCondition_pin0_om, expr:LoopsAndConditionals__Control___403_pwhileCondition_pin1_om ;
-    sysml:ownedFeature expr:LoopsAndConditionals__Control___403_pwhileCondition_pin0, expr:LoopsAndConditionals__Control___403_pwhileCondition_pin1 ;
-    sysml:parameter expr:LoopsAndConditionals__Control___403_pwhileCondition_pin0, expr:LoopsAndConditionals__Control___403_pwhileCondition_pin1 ;
+    sysml:ownedRelationship expr:LoopsAndConditionals__Control___403_pwhileCondition_pin0_om, expr:LoopsAndConditionals__Control___403_pwhileCondition_pin1_om, expr:LoopsAndConditionals__Control___403_pwhileCondition_pout_om ;
+    sysml:ownedMembership expr:LoopsAndConditionals__Control___403_pwhileCondition_pin0_om, expr:LoopsAndConditionals__Control___403_pwhileCondition_pin1_om, expr:LoopsAndConditionals__Control___403_pwhileCondition_pout_om ;
+    sysml:ownedFeatureMembership expr:LoopsAndConditionals__Control___403_pwhileCondition_pin0_om, expr:LoopsAndConditionals__Control___403_pwhileCondition_pin1_om, expr:LoopsAndConditionals__Control___403_pwhileCondition_pout_om ;
+    sysml:ownedFeature expr:LoopsAndConditionals__Control___403_pwhileCondition_pin0, expr:LoopsAndConditionals__Control___403_pwhileCondition_pin1, expr:LoopsAndConditionals__Control___403_pwhileCondition_pout ;
+    sysml:parameter expr:LoopsAndConditionals__Control___403_pwhileCondition_pin0, expr:LoopsAndConditionals__Control___403_pwhileCondition_pin1, expr:LoopsAndConditionals__Control___403_pwhileCondition_pout ;
     sysml:input expr:LoopsAndConditionals__Control___403_pwhileCondition_pin0, expr:LoopsAndConditionals__Control___403_pwhileCondition_pin1 ;
+    sysml:result expr:LoopsAndConditionals__Control___403_pwhileCondition_pout ;
     sysml:owner elmt:LoopsAndConditionals__Control___403 ;
     sysml:owningRelationship expr:LoopsAndConditionals__Control___403_pwhileCondition_om ;
     sysml:owningMembership expr:LoopsAndConditionals__Control___403_pwhileCondition_om ;
     json:argument "[{\"@id\":\"LoopsAndConditionals__Control___403_pwhileCondition_pa0\"},{\"@id\":\"LoopsAndConditionals__Control___403_pwhileCondition_pa1\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"LoopsAndConditionals__Control___403_pwhileCondition_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___403_pwhileCondition_pin1_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"LoopsAndConditionals__Control___403_pwhileCondition_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___403_pwhileCondition_pin1_om\"}]" ;
-    json:ownedFeatureMembership "[{\"@id\":\"LoopsAndConditionals__Control___403_pwhileCondition_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___403_pwhileCondition_pin1_om\"}]" ;
-    json:ownedFeature "[{\"@id\":\"LoopsAndConditionals__Control___403_pwhileCondition_pin0\"},{\"@id\":\"LoopsAndConditionals__Control___403_pwhileCondition_pin1\"}]" ;
-    json:parameter "[{\"@id\":\"LoopsAndConditionals__Control___403_pwhileCondition_pin0\"},{\"@id\":\"LoopsAndConditionals__Control___403_pwhileCondition_pin1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"LoopsAndConditionals__Control___403_pwhileCondition_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___403_pwhileCondition_pin1_om\"},{\"@id\":\"LoopsAndConditionals__Control___403_pwhileCondition_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"LoopsAndConditionals__Control___403_pwhileCondition_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___403_pwhileCondition_pin1_om\"},{\"@id\":\"LoopsAndConditionals__Control___403_pwhileCondition_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"LoopsAndConditionals__Control___403_pwhileCondition_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___403_pwhileCondition_pin1_om\"},{\"@id\":\"LoopsAndConditionals__Control___403_pwhileCondition_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"LoopsAndConditionals__Control___403_pwhileCondition_pin0\"},{\"@id\":\"LoopsAndConditionals__Control___403_pwhileCondition_pin1\"},{\"@id\":\"LoopsAndConditionals__Control___403_pwhileCondition_pout\"}]" ;
+    json:parameter "[{\"@id\":\"LoopsAndConditionals__Control___403_pwhileCondition_pin0\"},{\"@id\":\"LoopsAndConditionals__Control___403_pwhileCondition_pin1\"},{\"@id\":\"LoopsAndConditionals__Control___403_pwhileCondition_pout\"}]" ;
     json:input "[{\"@id\":\"LoopsAndConditionals__Control___403_pwhileCondition_pin0\"},{\"@id\":\"LoopsAndConditionals__Control___403_pwhileCondition_pin1\"}]" .
 
 expr:LoopsAndConditionals__Control___403_pwhileCondition_pa0
@@ -221,10 +222,36 @@ expr:LoopsAndConditionals__Control___403_pwhileCondition_pa0
     sysx:sourceText "count" ;
     sysml:elementId "LoopsAndConditionals__Control___403_pwhileCondition_pa0" ;
     sysml:referent elmt:LoopsAndConditionals__Control__count ;
+    sysml:ownedRelationship expr:LoopsAndConditionals__Control___403_pwhileCondition_pa0_pout_om, expr:LoopsAndConditionals__Control___403_pwhileCondition_pa0_preferent ;
+    sysml:ownedMembership expr:LoopsAndConditionals__Control___403_pwhileCondition_pa0_pout_om ;
+    sysml:ownedFeatureMembership expr:LoopsAndConditionals__Control___403_pwhileCondition_pa0_pout_om ;
+    sysml:ownedFeature expr:LoopsAndConditionals__Control___403_pwhileCondition_pa0_pout ;
+    sysml:parameter expr:LoopsAndConditionals__Control___403_pwhileCondition_pa0_pout ;
+    sysml:result expr:LoopsAndConditionals__Control___403_pwhileCondition_pa0_pout ;
     sysml:owner expr:LoopsAndConditionals__Control___403_pwhileCondition_pin0 ;
     sysml:owningRelationship expr:LoopsAndConditionals__Control___403_pwhileCondition_pa0_om ;
     sysml:owningMembership expr:LoopsAndConditionals__Control___403_pwhileCondition_pa0_om ;
-    sysml:ownedRelationship expr:LoopsAndConditionals__Control___403_pwhileCondition_pa0_preferent .
+    json:ownedRelationship "[{\"@id\":\"LoopsAndConditionals__Control___403_pwhileCondition_pa0_pout_om\"},{\"@id\":\"LoopsAndConditionals__Control___403_pwhileCondition_pa0_preferent\"}]" .
+
+expr:LoopsAndConditionals__Control___403_pwhileCondition_pa0_pout
+    a sysml:Feature ;
+    sysml:elementId "LoopsAndConditionals__Control___403_pwhileCondition_pa0_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:LoopsAndConditionals__Control___403_pwhileCondition_pa0 ;
+    sysml:owningRelationship expr:LoopsAndConditionals__Control___403_pwhileCondition_pa0_pout_om ;
+    sysml:owningMembership expr:LoopsAndConditionals__Control___403_pwhileCondition_pa0_pout_om .
+
+expr:LoopsAndConditionals__Control___403_pwhileCondition_pa0_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "LoopsAndConditionals__Control___403_pwhileCondition_pa0_pout_om" ;
+    sysml:owner expr:LoopsAndConditionals__Control___403_pwhileCondition_pa0 ;
+    sysml:memberElement expr:LoopsAndConditionals__Control___403_pwhileCondition_pa0_pout ;
+    sysml:ownedMemberElement expr:LoopsAndConditionals__Control___403_pwhileCondition_pa0_pout ;
+    sysml:ownedRelatedElement expr:LoopsAndConditionals__Control___403_pwhileCondition_pa0_pout ;
+    sysml:owningRelatedElement expr:LoopsAndConditionals__Control___403_pwhileCondition_pa0 ;
+    sysml:membershipOwningNamespace expr:LoopsAndConditionals__Control___403_pwhileCondition_pa0 ;
+    sysml:ownedMemberFeature expr:LoopsAndConditionals__Control___403_pwhileCondition_pa0_pout ;
+    sysml:ownedMemberParameter expr:LoopsAndConditionals__Control___403_pwhileCondition_pa0_pout .
 
 expr:LoopsAndConditionals__Control___403_pwhileCondition_pin0
     a sysml:Feature ;
@@ -302,6 +329,26 @@ expr:LoopsAndConditionals__Control___403_pwhileCondition_pa1_om
     sysml:membershipOwningNamespace expr:LoopsAndConditionals__Control___403_pwhileCondition_pin1 ;
     sysml:featureWithValue expr:LoopsAndConditionals__Control___403_pwhileCondition_pin1 ;
     sysml:value expr:LoopsAndConditionals__Control___403_pwhileCondition_pa1 .
+
+expr:LoopsAndConditionals__Control___403_pwhileCondition_pout
+    a sysml:Feature ;
+    sysml:elementId "LoopsAndConditionals__Control___403_pwhileCondition_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:LoopsAndConditionals__Control___403_pwhileCondition ;
+    sysml:owningRelationship expr:LoopsAndConditionals__Control___403_pwhileCondition_pout_om ;
+    sysml:owningMembership expr:LoopsAndConditionals__Control___403_pwhileCondition_pout_om .
+
+expr:LoopsAndConditionals__Control___403_pwhileCondition_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "LoopsAndConditionals__Control___403_pwhileCondition_pout_om" ;
+    sysml:owner expr:LoopsAndConditionals__Control___403_pwhileCondition ;
+    sysml:memberElement expr:LoopsAndConditionals__Control___403_pwhileCondition_pout ;
+    sysml:ownedMemberElement expr:LoopsAndConditionals__Control___403_pwhileCondition_pout ;
+    sysml:ownedRelatedElement expr:LoopsAndConditionals__Control___403_pwhileCondition_pout ;
+    sysml:owningRelatedElement expr:LoopsAndConditionals__Control___403_pwhileCondition ;
+    sysml:membershipOwningNamespace expr:LoopsAndConditionals__Control___403_pwhileCondition ;
+    sysml:ownedMemberFeature expr:LoopsAndConditionals__Control___403_pwhileCondition_pout ;
+    sysml:ownedMemberParameter expr:LoopsAndConditionals__Control___403_pwhileCondition_pout .
 
 expr:LoopsAndConditionals__Control___403_pwhileCondition_om
     a sysml:OwningMembership ;
@@ -408,10 +455,36 @@ expr:LoopsAndConditionals__Control___404___400_ptarget
     sysx:sourceText "total" ;
     sysml:elementId "LoopsAndConditionals__Control___404___400_ptarget" ;
     sysml:referent elmt:LoopsAndConditionals__Control__total ;
+    sysml:ownedRelationship expr:LoopsAndConditionals__Control___404___400_ptarget_pout_om, expr:LoopsAndConditionals__Control___404___400_ptarget_preferent ;
+    sysml:ownedMembership expr:LoopsAndConditionals__Control___404___400_ptarget_pout_om ;
+    sysml:ownedFeatureMembership expr:LoopsAndConditionals__Control___404___400_ptarget_pout_om ;
+    sysml:ownedFeature expr:LoopsAndConditionals__Control___404___400_ptarget_pout ;
+    sysml:parameter expr:LoopsAndConditionals__Control___404___400_ptarget_pout ;
+    sysml:result expr:LoopsAndConditionals__Control___404___400_ptarget_pout ;
     sysml:owner elmt:LoopsAndConditionals__Control___404___400 ;
     sysml:owningRelationship expr:LoopsAndConditionals__Control___404___400_ptarget_om ;
     sysml:owningMembership expr:LoopsAndConditionals__Control___404___400_ptarget_om ;
-    sysml:ownedRelationship expr:LoopsAndConditionals__Control___404___400_ptarget_preferent .
+    json:ownedRelationship "[{\"@id\":\"LoopsAndConditionals__Control___404___400_ptarget_pout_om\"},{\"@id\":\"LoopsAndConditionals__Control___404___400_ptarget_preferent\"}]" .
+
+expr:LoopsAndConditionals__Control___404___400_ptarget_pout
+    a sysml:Feature ;
+    sysml:elementId "LoopsAndConditionals__Control___404___400_ptarget_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:LoopsAndConditionals__Control___404___400_ptarget ;
+    sysml:owningRelationship expr:LoopsAndConditionals__Control___404___400_ptarget_pout_om ;
+    sysml:owningMembership expr:LoopsAndConditionals__Control___404___400_ptarget_pout_om .
+
+expr:LoopsAndConditionals__Control___404___400_ptarget_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "LoopsAndConditionals__Control___404___400_ptarget_pout_om" ;
+    sysml:owner expr:LoopsAndConditionals__Control___404___400_ptarget ;
+    sysml:memberElement expr:LoopsAndConditionals__Control___404___400_ptarget_pout ;
+    sysml:ownedMemberElement expr:LoopsAndConditionals__Control___404___400_ptarget_pout ;
+    sysml:ownedRelatedElement expr:LoopsAndConditionals__Control___404___400_ptarget_pout ;
+    sysml:owningRelatedElement expr:LoopsAndConditionals__Control___404___400_ptarget ;
+    sysml:membershipOwningNamespace expr:LoopsAndConditionals__Control___404___400_ptarget ;
+    sysml:ownedMemberFeature expr:LoopsAndConditionals__Control___404___400_ptarget_pout ;
+    sysml:ownedMemberParameter expr:LoopsAndConditionals__Control___404___400_ptarget_pout .
 
 expr:LoopsAndConditionals__Control___404___400_ptarget_om
     a sysml:OwningMembership ;
@@ -429,21 +502,22 @@ expr:LoopsAndConditionals__Control___404___400_pvalue
     sysml:elementId "LoopsAndConditionals__Control___404___400_pvalue" ;
     sysml:operator "+" ;
     sysml:argument expr:LoopsAndConditionals__Control___404___400_pvalue_pa0, expr:LoopsAndConditionals__Control___404___400_pvalue_pa1 ;
-    sysml:ownedRelationship expr:LoopsAndConditionals__Control___404___400_pvalue_pin0_om, expr:LoopsAndConditionals__Control___404___400_pvalue_pin1_om ;
-    sysml:ownedMembership expr:LoopsAndConditionals__Control___404___400_pvalue_pin0_om, expr:LoopsAndConditionals__Control___404___400_pvalue_pin1_om ;
-    sysml:ownedFeatureMembership expr:LoopsAndConditionals__Control___404___400_pvalue_pin0_om, expr:LoopsAndConditionals__Control___404___400_pvalue_pin1_om ;
-    sysml:ownedFeature expr:LoopsAndConditionals__Control___404___400_pvalue_pin0, expr:LoopsAndConditionals__Control___404___400_pvalue_pin1 ;
-    sysml:parameter expr:LoopsAndConditionals__Control___404___400_pvalue_pin0, expr:LoopsAndConditionals__Control___404___400_pvalue_pin1 ;
+    sysml:ownedRelationship expr:LoopsAndConditionals__Control___404___400_pvalue_pin0_om, expr:LoopsAndConditionals__Control___404___400_pvalue_pin1_om, expr:LoopsAndConditionals__Control___404___400_pvalue_pout_om ;
+    sysml:ownedMembership expr:LoopsAndConditionals__Control___404___400_pvalue_pin0_om, expr:LoopsAndConditionals__Control___404___400_pvalue_pin1_om, expr:LoopsAndConditionals__Control___404___400_pvalue_pout_om ;
+    sysml:ownedFeatureMembership expr:LoopsAndConditionals__Control___404___400_pvalue_pin0_om, expr:LoopsAndConditionals__Control___404___400_pvalue_pin1_om, expr:LoopsAndConditionals__Control___404___400_pvalue_pout_om ;
+    sysml:ownedFeature expr:LoopsAndConditionals__Control___404___400_pvalue_pin0, expr:LoopsAndConditionals__Control___404___400_pvalue_pin1, expr:LoopsAndConditionals__Control___404___400_pvalue_pout ;
+    sysml:parameter expr:LoopsAndConditionals__Control___404___400_pvalue_pin0, expr:LoopsAndConditionals__Control___404___400_pvalue_pin1, expr:LoopsAndConditionals__Control___404___400_pvalue_pout ;
     sysml:input expr:LoopsAndConditionals__Control___404___400_pvalue_pin0, expr:LoopsAndConditionals__Control___404___400_pvalue_pin1 ;
+    sysml:result expr:LoopsAndConditionals__Control___404___400_pvalue_pout ;
     sysml:owner elmt:LoopsAndConditionals__Control___404___400 ;
     sysml:owningRelationship expr:LoopsAndConditionals__Control___404___400_pvalue_om ;
     sysml:owningMembership expr:LoopsAndConditionals__Control___404___400_pvalue_om ;
     json:argument "[{\"@id\":\"LoopsAndConditionals__Control___404___400_pvalue_pa0\"},{\"@id\":\"LoopsAndConditionals__Control___404___400_pvalue_pa1\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"LoopsAndConditionals__Control___404___400_pvalue_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___404___400_pvalue_pin1_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"LoopsAndConditionals__Control___404___400_pvalue_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___404___400_pvalue_pin1_om\"}]" ;
-    json:ownedFeatureMembership "[{\"@id\":\"LoopsAndConditionals__Control___404___400_pvalue_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___404___400_pvalue_pin1_om\"}]" ;
-    json:ownedFeature "[{\"@id\":\"LoopsAndConditionals__Control___404___400_pvalue_pin0\"},{\"@id\":\"LoopsAndConditionals__Control___404___400_pvalue_pin1\"}]" ;
-    json:parameter "[{\"@id\":\"LoopsAndConditionals__Control___404___400_pvalue_pin0\"},{\"@id\":\"LoopsAndConditionals__Control___404___400_pvalue_pin1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"LoopsAndConditionals__Control___404___400_pvalue_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___404___400_pvalue_pin1_om\"},{\"@id\":\"LoopsAndConditionals__Control___404___400_pvalue_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"LoopsAndConditionals__Control___404___400_pvalue_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___404___400_pvalue_pin1_om\"},{\"@id\":\"LoopsAndConditionals__Control___404___400_pvalue_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"LoopsAndConditionals__Control___404___400_pvalue_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___404___400_pvalue_pin1_om\"},{\"@id\":\"LoopsAndConditionals__Control___404___400_pvalue_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"LoopsAndConditionals__Control___404___400_pvalue_pin0\"},{\"@id\":\"LoopsAndConditionals__Control___404___400_pvalue_pin1\"},{\"@id\":\"LoopsAndConditionals__Control___404___400_pvalue_pout\"}]" ;
+    json:parameter "[{\"@id\":\"LoopsAndConditionals__Control___404___400_pvalue_pin0\"},{\"@id\":\"LoopsAndConditionals__Control___404___400_pvalue_pin1\"},{\"@id\":\"LoopsAndConditionals__Control___404___400_pvalue_pout\"}]" ;
     json:input "[{\"@id\":\"LoopsAndConditionals__Control___404___400_pvalue_pin0\"},{\"@id\":\"LoopsAndConditionals__Control___404___400_pvalue_pin1\"}]" .
 
 expr:LoopsAndConditionals__Control___404___400_pvalue_pa0
@@ -451,10 +525,36 @@ expr:LoopsAndConditionals__Control___404___400_pvalue_pa0
     sysx:sourceText "total" ;
     sysml:elementId "LoopsAndConditionals__Control___404___400_pvalue_pa0" ;
     sysml:referent elmt:LoopsAndConditionals__Control__total ;
+    sysml:ownedRelationship expr:LoopsAndConditionals__Control___404___400_pvalue_pa0_pout_om, expr:LoopsAndConditionals__Control___404___400_pvalue_pa0_preferent ;
+    sysml:ownedMembership expr:LoopsAndConditionals__Control___404___400_pvalue_pa0_pout_om ;
+    sysml:ownedFeatureMembership expr:LoopsAndConditionals__Control___404___400_pvalue_pa0_pout_om ;
+    sysml:ownedFeature expr:LoopsAndConditionals__Control___404___400_pvalue_pa0_pout ;
+    sysml:parameter expr:LoopsAndConditionals__Control___404___400_pvalue_pa0_pout ;
+    sysml:result expr:LoopsAndConditionals__Control___404___400_pvalue_pa0_pout ;
     sysml:owner expr:LoopsAndConditionals__Control___404___400_pvalue_pin0 ;
     sysml:owningRelationship expr:LoopsAndConditionals__Control___404___400_pvalue_pa0_om ;
     sysml:owningMembership expr:LoopsAndConditionals__Control___404___400_pvalue_pa0_om ;
-    sysml:ownedRelationship expr:LoopsAndConditionals__Control___404___400_pvalue_pa0_preferent .
+    json:ownedRelationship "[{\"@id\":\"LoopsAndConditionals__Control___404___400_pvalue_pa0_pout_om\"},{\"@id\":\"LoopsAndConditionals__Control___404___400_pvalue_pa0_preferent\"}]" .
+
+expr:LoopsAndConditionals__Control___404___400_pvalue_pa0_pout
+    a sysml:Feature ;
+    sysml:elementId "LoopsAndConditionals__Control___404___400_pvalue_pa0_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:LoopsAndConditionals__Control___404___400_pvalue_pa0 ;
+    sysml:owningRelationship expr:LoopsAndConditionals__Control___404___400_pvalue_pa0_pout_om ;
+    sysml:owningMembership expr:LoopsAndConditionals__Control___404___400_pvalue_pa0_pout_om .
+
+expr:LoopsAndConditionals__Control___404___400_pvalue_pa0_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "LoopsAndConditionals__Control___404___400_pvalue_pa0_pout_om" ;
+    sysml:owner expr:LoopsAndConditionals__Control___404___400_pvalue_pa0 ;
+    sysml:memberElement expr:LoopsAndConditionals__Control___404___400_pvalue_pa0_pout ;
+    sysml:ownedMemberElement expr:LoopsAndConditionals__Control___404___400_pvalue_pa0_pout ;
+    sysml:ownedRelatedElement expr:LoopsAndConditionals__Control___404___400_pvalue_pa0_pout ;
+    sysml:owningRelatedElement expr:LoopsAndConditionals__Control___404___400_pvalue_pa0 ;
+    sysml:membershipOwningNamespace expr:LoopsAndConditionals__Control___404___400_pvalue_pa0 ;
+    sysml:ownedMemberFeature expr:LoopsAndConditionals__Control___404___400_pvalue_pa0_pout ;
+    sysml:ownedMemberParameter expr:LoopsAndConditionals__Control___404___400_pvalue_pa0_pout .
 
 expr:LoopsAndConditionals__Control___404___400_pvalue_pin0
     a sysml:Feature ;
@@ -533,6 +633,26 @@ expr:LoopsAndConditionals__Control___404___400_pvalue_pa1_om
     sysml:featureWithValue expr:LoopsAndConditionals__Control___404___400_pvalue_pin1 ;
     sysml:value expr:LoopsAndConditionals__Control___404___400_pvalue_pa1 .
 
+expr:LoopsAndConditionals__Control___404___400_pvalue_pout
+    a sysml:Feature ;
+    sysml:elementId "LoopsAndConditionals__Control___404___400_pvalue_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:LoopsAndConditionals__Control___404___400_pvalue ;
+    sysml:owningRelationship expr:LoopsAndConditionals__Control___404___400_pvalue_pout_om ;
+    sysml:owningMembership expr:LoopsAndConditionals__Control___404___400_pvalue_pout_om .
+
+expr:LoopsAndConditionals__Control___404___400_pvalue_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "LoopsAndConditionals__Control___404___400_pvalue_pout_om" ;
+    sysml:owner expr:LoopsAndConditionals__Control___404___400_pvalue ;
+    sysml:memberElement expr:LoopsAndConditionals__Control___404___400_pvalue_pout ;
+    sysml:ownedMemberElement expr:LoopsAndConditionals__Control___404___400_pvalue_pout ;
+    sysml:ownedRelatedElement expr:LoopsAndConditionals__Control___404___400_pvalue_pout ;
+    sysml:owningRelatedElement expr:LoopsAndConditionals__Control___404___400_pvalue ;
+    sysml:membershipOwningNamespace expr:LoopsAndConditionals__Control___404___400_pvalue ;
+    sysml:ownedMemberFeature expr:LoopsAndConditionals__Control___404___400_pvalue_pout ;
+    sysml:ownedMemberParameter expr:LoopsAndConditionals__Control___404___400_pvalue_pout .
+
 expr:LoopsAndConditionals__Control___404___400_pvalue_om
     a sysml:FeatureValue ;
     sysml:elementId "LoopsAndConditionals__Control___404___400_pvalue_om" ;
@@ -584,21 +704,22 @@ expr:LoopsAndConditionals__Control___405_puntilCondition
     sysml:elementId "LoopsAndConditionals__Control___405_puntilCondition" ;
     sysml:operator ">" ;
     sysml:argument expr:LoopsAndConditionals__Control___405_puntilCondition_pa0, expr:LoopsAndConditionals__Control___405_puntilCondition_pa1 ;
-    sysml:ownedRelationship expr:LoopsAndConditionals__Control___405_puntilCondition_pin0_om, expr:LoopsAndConditionals__Control___405_puntilCondition_pin1_om ;
-    sysml:ownedMembership expr:LoopsAndConditionals__Control___405_puntilCondition_pin0_om, expr:LoopsAndConditionals__Control___405_puntilCondition_pin1_om ;
-    sysml:ownedFeatureMembership expr:LoopsAndConditionals__Control___405_puntilCondition_pin0_om, expr:LoopsAndConditionals__Control___405_puntilCondition_pin1_om ;
-    sysml:ownedFeature expr:LoopsAndConditionals__Control___405_puntilCondition_pin0, expr:LoopsAndConditionals__Control___405_puntilCondition_pin1 ;
-    sysml:parameter expr:LoopsAndConditionals__Control___405_puntilCondition_pin0, expr:LoopsAndConditionals__Control___405_puntilCondition_pin1 ;
+    sysml:ownedRelationship expr:LoopsAndConditionals__Control___405_puntilCondition_pin0_om, expr:LoopsAndConditionals__Control___405_puntilCondition_pin1_om, expr:LoopsAndConditionals__Control___405_puntilCondition_pout_om ;
+    sysml:ownedMembership expr:LoopsAndConditionals__Control___405_puntilCondition_pin0_om, expr:LoopsAndConditionals__Control___405_puntilCondition_pin1_om, expr:LoopsAndConditionals__Control___405_puntilCondition_pout_om ;
+    sysml:ownedFeatureMembership expr:LoopsAndConditionals__Control___405_puntilCondition_pin0_om, expr:LoopsAndConditionals__Control___405_puntilCondition_pin1_om, expr:LoopsAndConditionals__Control___405_puntilCondition_pout_om ;
+    sysml:ownedFeature expr:LoopsAndConditionals__Control___405_puntilCondition_pin0, expr:LoopsAndConditionals__Control___405_puntilCondition_pin1, expr:LoopsAndConditionals__Control___405_puntilCondition_pout ;
+    sysml:parameter expr:LoopsAndConditionals__Control___405_puntilCondition_pin0, expr:LoopsAndConditionals__Control___405_puntilCondition_pin1, expr:LoopsAndConditionals__Control___405_puntilCondition_pout ;
     sysml:input expr:LoopsAndConditionals__Control___405_puntilCondition_pin0, expr:LoopsAndConditionals__Control___405_puntilCondition_pin1 ;
+    sysml:result expr:LoopsAndConditionals__Control___405_puntilCondition_pout ;
     sysml:owner elmt:LoopsAndConditionals__Control___405 ;
     sysml:owningRelationship expr:LoopsAndConditionals__Control___405_puntilCondition_om ;
     sysml:owningMembership expr:LoopsAndConditionals__Control___405_puntilCondition_om ;
     json:argument "[{\"@id\":\"LoopsAndConditionals__Control___405_puntilCondition_pa0\"},{\"@id\":\"LoopsAndConditionals__Control___405_puntilCondition_pa1\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"LoopsAndConditionals__Control___405_puntilCondition_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___405_puntilCondition_pin1_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"LoopsAndConditionals__Control___405_puntilCondition_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___405_puntilCondition_pin1_om\"}]" ;
-    json:ownedFeatureMembership "[{\"@id\":\"LoopsAndConditionals__Control___405_puntilCondition_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___405_puntilCondition_pin1_om\"}]" ;
-    json:ownedFeature "[{\"@id\":\"LoopsAndConditionals__Control___405_puntilCondition_pin0\"},{\"@id\":\"LoopsAndConditionals__Control___405_puntilCondition_pin1\"}]" ;
-    json:parameter "[{\"@id\":\"LoopsAndConditionals__Control___405_puntilCondition_pin0\"},{\"@id\":\"LoopsAndConditionals__Control___405_puntilCondition_pin1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"LoopsAndConditionals__Control___405_puntilCondition_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___405_puntilCondition_pin1_om\"},{\"@id\":\"LoopsAndConditionals__Control___405_puntilCondition_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"LoopsAndConditionals__Control___405_puntilCondition_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___405_puntilCondition_pin1_om\"},{\"@id\":\"LoopsAndConditionals__Control___405_puntilCondition_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"LoopsAndConditionals__Control___405_puntilCondition_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___405_puntilCondition_pin1_om\"},{\"@id\":\"LoopsAndConditionals__Control___405_puntilCondition_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"LoopsAndConditionals__Control___405_puntilCondition_pin0\"},{\"@id\":\"LoopsAndConditionals__Control___405_puntilCondition_pin1\"},{\"@id\":\"LoopsAndConditionals__Control___405_puntilCondition_pout\"}]" ;
+    json:parameter "[{\"@id\":\"LoopsAndConditionals__Control___405_puntilCondition_pin0\"},{\"@id\":\"LoopsAndConditionals__Control___405_puntilCondition_pin1\"},{\"@id\":\"LoopsAndConditionals__Control___405_puntilCondition_pout\"}]" ;
     json:input "[{\"@id\":\"LoopsAndConditionals__Control___405_puntilCondition_pin0\"},{\"@id\":\"LoopsAndConditionals__Control___405_puntilCondition_pin1\"}]" .
 
 expr:LoopsAndConditionals__Control___405_puntilCondition_pa0
@@ -606,10 +727,36 @@ expr:LoopsAndConditionals__Control___405_puntilCondition_pa0
     sysx:sourceText "total" ;
     sysml:elementId "LoopsAndConditionals__Control___405_puntilCondition_pa0" ;
     sysml:referent elmt:LoopsAndConditionals__Control__total ;
+    sysml:ownedRelationship expr:LoopsAndConditionals__Control___405_puntilCondition_pa0_pout_om, expr:LoopsAndConditionals__Control___405_puntilCondition_pa0_preferent ;
+    sysml:ownedMembership expr:LoopsAndConditionals__Control___405_puntilCondition_pa0_pout_om ;
+    sysml:ownedFeatureMembership expr:LoopsAndConditionals__Control___405_puntilCondition_pa0_pout_om ;
+    sysml:ownedFeature expr:LoopsAndConditionals__Control___405_puntilCondition_pa0_pout ;
+    sysml:parameter expr:LoopsAndConditionals__Control___405_puntilCondition_pa0_pout ;
+    sysml:result expr:LoopsAndConditionals__Control___405_puntilCondition_pa0_pout ;
     sysml:owner expr:LoopsAndConditionals__Control___405_puntilCondition_pin0 ;
     sysml:owningRelationship expr:LoopsAndConditionals__Control___405_puntilCondition_pa0_om ;
     sysml:owningMembership expr:LoopsAndConditionals__Control___405_puntilCondition_pa0_om ;
-    sysml:ownedRelationship expr:LoopsAndConditionals__Control___405_puntilCondition_pa0_preferent .
+    json:ownedRelationship "[{\"@id\":\"LoopsAndConditionals__Control___405_puntilCondition_pa0_pout_om\"},{\"@id\":\"LoopsAndConditionals__Control___405_puntilCondition_pa0_preferent\"}]" .
+
+expr:LoopsAndConditionals__Control___405_puntilCondition_pa0_pout
+    a sysml:Feature ;
+    sysml:elementId "LoopsAndConditionals__Control___405_puntilCondition_pa0_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:LoopsAndConditionals__Control___405_puntilCondition_pa0 ;
+    sysml:owningRelationship expr:LoopsAndConditionals__Control___405_puntilCondition_pa0_pout_om ;
+    sysml:owningMembership expr:LoopsAndConditionals__Control___405_puntilCondition_pa0_pout_om .
+
+expr:LoopsAndConditionals__Control___405_puntilCondition_pa0_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "LoopsAndConditionals__Control___405_puntilCondition_pa0_pout_om" ;
+    sysml:owner expr:LoopsAndConditionals__Control___405_puntilCondition_pa0 ;
+    sysml:memberElement expr:LoopsAndConditionals__Control___405_puntilCondition_pa0_pout ;
+    sysml:ownedMemberElement expr:LoopsAndConditionals__Control___405_puntilCondition_pa0_pout ;
+    sysml:ownedRelatedElement expr:LoopsAndConditionals__Control___405_puntilCondition_pa0_pout ;
+    sysml:owningRelatedElement expr:LoopsAndConditionals__Control___405_puntilCondition_pa0 ;
+    sysml:membershipOwningNamespace expr:LoopsAndConditionals__Control___405_puntilCondition_pa0 ;
+    sysml:ownedMemberFeature expr:LoopsAndConditionals__Control___405_puntilCondition_pa0_pout ;
+    sysml:ownedMemberParameter expr:LoopsAndConditionals__Control___405_puntilCondition_pa0_pout .
 
 expr:LoopsAndConditionals__Control___405_puntilCondition_pin0
     a sysml:Feature ;
@@ -687,6 +834,26 @@ expr:LoopsAndConditionals__Control___405_puntilCondition_pa1_om
     sysml:membershipOwningNamespace expr:LoopsAndConditionals__Control___405_puntilCondition_pin1 ;
     sysml:featureWithValue expr:LoopsAndConditionals__Control___405_puntilCondition_pin1 ;
     sysml:value expr:LoopsAndConditionals__Control___405_puntilCondition_pa1 .
+
+expr:LoopsAndConditionals__Control___405_puntilCondition_pout
+    a sysml:Feature ;
+    sysml:elementId "LoopsAndConditionals__Control___405_puntilCondition_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:LoopsAndConditionals__Control___405_puntilCondition ;
+    sysml:owningRelationship expr:LoopsAndConditionals__Control___405_puntilCondition_pout_om ;
+    sysml:owningMembership expr:LoopsAndConditionals__Control___405_puntilCondition_pout_om .
+
+expr:LoopsAndConditionals__Control___405_puntilCondition_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "LoopsAndConditionals__Control___405_puntilCondition_pout_om" ;
+    sysml:owner expr:LoopsAndConditionals__Control___405_puntilCondition ;
+    sysml:memberElement expr:LoopsAndConditionals__Control___405_puntilCondition_pout ;
+    sysml:ownedMemberElement expr:LoopsAndConditionals__Control___405_puntilCondition_pout ;
+    sysml:ownedRelatedElement expr:LoopsAndConditionals__Control___405_puntilCondition_pout ;
+    sysml:owningRelatedElement expr:LoopsAndConditionals__Control___405_puntilCondition ;
+    sysml:membershipOwningNamespace expr:LoopsAndConditionals__Control___405_puntilCondition ;
+    sysml:ownedMemberFeature expr:LoopsAndConditionals__Control___405_puntilCondition_pout ;
+    sysml:ownedMemberParameter expr:LoopsAndConditionals__Control___405_puntilCondition_pout .
 
 expr:LoopsAndConditionals__Control___405_puntilCondition_om
     a sysml:OwningMembership ;
@@ -768,21 +935,22 @@ expr:LoopsAndConditionals__Control___406_pcollection
     sysml:elementId "LoopsAndConditionals__Control___406_pcollection" ;
     sysml:operator ".." ;
     sysml:argument expr:LoopsAndConditionals__Control___406_pcollection_pa0, expr:LoopsAndConditionals__Control___406_pcollection_pa1 ;
-    sysml:ownedRelationship expr:LoopsAndConditionals__Control___406_pcollection_pin0_om, expr:LoopsAndConditionals__Control___406_pcollection_pin1_om ;
-    sysml:ownedMembership expr:LoopsAndConditionals__Control___406_pcollection_pin0_om, expr:LoopsAndConditionals__Control___406_pcollection_pin1_om ;
-    sysml:ownedFeatureMembership expr:LoopsAndConditionals__Control___406_pcollection_pin0_om, expr:LoopsAndConditionals__Control___406_pcollection_pin1_om ;
-    sysml:ownedFeature expr:LoopsAndConditionals__Control___406_pcollection_pin0, expr:LoopsAndConditionals__Control___406_pcollection_pin1 ;
-    sysml:parameter expr:LoopsAndConditionals__Control___406_pcollection_pin0, expr:LoopsAndConditionals__Control___406_pcollection_pin1 ;
+    sysml:ownedRelationship expr:LoopsAndConditionals__Control___406_pcollection_pin0_om, expr:LoopsAndConditionals__Control___406_pcollection_pin1_om, expr:LoopsAndConditionals__Control___406_pcollection_pout_om ;
+    sysml:ownedMembership expr:LoopsAndConditionals__Control___406_pcollection_pin0_om, expr:LoopsAndConditionals__Control___406_pcollection_pin1_om, expr:LoopsAndConditionals__Control___406_pcollection_pout_om ;
+    sysml:ownedFeatureMembership expr:LoopsAndConditionals__Control___406_pcollection_pin0_om, expr:LoopsAndConditionals__Control___406_pcollection_pin1_om, expr:LoopsAndConditionals__Control___406_pcollection_pout_om ;
+    sysml:ownedFeature expr:LoopsAndConditionals__Control___406_pcollection_pin0, expr:LoopsAndConditionals__Control___406_pcollection_pin1, expr:LoopsAndConditionals__Control___406_pcollection_pout ;
+    sysml:parameter expr:LoopsAndConditionals__Control___406_pcollection_pin0, expr:LoopsAndConditionals__Control___406_pcollection_pin1, expr:LoopsAndConditionals__Control___406_pcollection_pout ;
     sysml:input expr:LoopsAndConditionals__Control___406_pcollection_pin0, expr:LoopsAndConditionals__Control___406_pcollection_pin1 ;
+    sysml:result expr:LoopsAndConditionals__Control___406_pcollection_pout ;
     sysml:owner elmt:LoopsAndConditionals__Control___406 ;
     sysml:owningRelationship expr:LoopsAndConditionals__Control___406_pcollection_om ;
     sysml:owningMembership expr:LoopsAndConditionals__Control___406_pcollection_om ;
     json:argument "[{\"@id\":\"LoopsAndConditionals__Control___406_pcollection_pa0\"},{\"@id\":\"LoopsAndConditionals__Control___406_pcollection_pa1\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"LoopsAndConditionals__Control___406_pcollection_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___406_pcollection_pin1_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"LoopsAndConditionals__Control___406_pcollection_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___406_pcollection_pin1_om\"}]" ;
-    json:ownedFeatureMembership "[{\"@id\":\"LoopsAndConditionals__Control___406_pcollection_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___406_pcollection_pin1_om\"}]" ;
-    json:ownedFeature "[{\"@id\":\"LoopsAndConditionals__Control___406_pcollection_pin0\"},{\"@id\":\"LoopsAndConditionals__Control___406_pcollection_pin1\"}]" ;
-    json:parameter "[{\"@id\":\"LoopsAndConditionals__Control___406_pcollection_pin0\"},{\"@id\":\"LoopsAndConditionals__Control___406_pcollection_pin1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"LoopsAndConditionals__Control___406_pcollection_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___406_pcollection_pin1_om\"},{\"@id\":\"LoopsAndConditionals__Control___406_pcollection_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"LoopsAndConditionals__Control___406_pcollection_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___406_pcollection_pin1_om\"},{\"@id\":\"LoopsAndConditionals__Control___406_pcollection_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"LoopsAndConditionals__Control___406_pcollection_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___406_pcollection_pin1_om\"},{\"@id\":\"LoopsAndConditionals__Control___406_pcollection_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"LoopsAndConditionals__Control___406_pcollection_pin0\"},{\"@id\":\"LoopsAndConditionals__Control___406_pcollection_pin1\"},{\"@id\":\"LoopsAndConditionals__Control___406_pcollection_pout\"}]" ;
+    json:parameter "[{\"@id\":\"LoopsAndConditionals__Control___406_pcollection_pin0\"},{\"@id\":\"LoopsAndConditionals__Control___406_pcollection_pin1\"},{\"@id\":\"LoopsAndConditionals__Control___406_pcollection_pout\"}]" ;
     json:input "[{\"@id\":\"LoopsAndConditionals__Control___406_pcollection_pin0\"},{\"@id\":\"LoopsAndConditionals__Control___406_pcollection_pin1\"}]" .
 
 expr:LoopsAndConditionals__Control___406_pcollection_pa0
@@ -871,6 +1039,26 @@ expr:LoopsAndConditionals__Control___406_pcollection_pa1_om
     sysml:featureWithValue expr:LoopsAndConditionals__Control___406_pcollection_pin1 ;
     sysml:value expr:LoopsAndConditionals__Control___406_pcollection_pa1 .
 
+expr:LoopsAndConditionals__Control___406_pcollection_pout
+    a sysml:Feature ;
+    sysml:elementId "LoopsAndConditionals__Control___406_pcollection_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:LoopsAndConditionals__Control___406_pcollection ;
+    sysml:owningRelationship expr:LoopsAndConditionals__Control___406_pcollection_pout_om ;
+    sysml:owningMembership expr:LoopsAndConditionals__Control___406_pcollection_pout_om .
+
+expr:LoopsAndConditionals__Control___406_pcollection_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "LoopsAndConditionals__Control___406_pcollection_pout_om" ;
+    sysml:owner expr:LoopsAndConditionals__Control___406_pcollection ;
+    sysml:memberElement expr:LoopsAndConditionals__Control___406_pcollection_pout ;
+    sysml:ownedMemberElement expr:LoopsAndConditionals__Control___406_pcollection_pout ;
+    sysml:ownedRelatedElement expr:LoopsAndConditionals__Control___406_pcollection_pout ;
+    sysml:owningRelatedElement expr:LoopsAndConditionals__Control___406_pcollection ;
+    sysml:membershipOwningNamespace expr:LoopsAndConditionals__Control___406_pcollection ;
+    sysml:ownedMemberFeature expr:LoopsAndConditionals__Control___406_pcollection_pout ;
+    sysml:ownedMemberParameter expr:LoopsAndConditionals__Control___406_pcollection_pout .
+
 expr:LoopsAndConditionals__Control___406_pcollection_om
     a sysml:OwningMembership ;
     sysml:elementId "LoopsAndConditionals__Control___406_pcollection_om" ;
@@ -916,10 +1104,36 @@ expr:LoopsAndConditionals__Control___406___400_ptarget
     sysx:sourceText "total" ;
     sysml:elementId "LoopsAndConditionals__Control___406___400_ptarget" ;
     sysml:referent elmt:LoopsAndConditionals__Control__total ;
+    sysml:ownedRelationship expr:LoopsAndConditionals__Control___406___400_ptarget_pout_om, expr:LoopsAndConditionals__Control___406___400_ptarget_preferent ;
+    sysml:ownedMembership expr:LoopsAndConditionals__Control___406___400_ptarget_pout_om ;
+    sysml:ownedFeatureMembership expr:LoopsAndConditionals__Control___406___400_ptarget_pout_om ;
+    sysml:ownedFeature expr:LoopsAndConditionals__Control___406___400_ptarget_pout ;
+    sysml:parameter expr:LoopsAndConditionals__Control___406___400_ptarget_pout ;
+    sysml:result expr:LoopsAndConditionals__Control___406___400_ptarget_pout ;
     sysml:owner elmt:LoopsAndConditionals__Control___406___400 ;
     sysml:owningRelationship expr:LoopsAndConditionals__Control___406___400_ptarget_om ;
     sysml:owningMembership expr:LoopsAndConditionals__Control___406___400_ptarget_om ;
-    sysml:ownedRelationship expr:LoopsAndConditionals__Control___406___400_ptarget_preferent .
+    json:ownedRelationship "[{\"@id\":\"LoopsAndConditionals__Control___406___400_ptarget_pout_om\"},{\"@id\":\"LoopsAndConditionals__Control___406___400_ptarget_preferent\"}]" .
+
+expr:LoopsAndConditionals__Control___406___400_ptarget_pout
+    a sysml:Feature ;
+    sysml:elementId "LoopsAndConditionals__Control___406___400_ptarget_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:LoopsAndConditionals__Control___406___400_ptarget ;
+    sysml:owningRelationship expr:LoopsAndConditionals__Control___406___400_ptarget_pout_om ;
+    sysml:owningMembership expr:LoopsAndConditionals__Control___406___400_ptarget_pout_om .
+
+expr:LoopsAndConditionals__Control___406___400_ptarget_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "LoopsAndConditionals__Control___406___400_ptarget_pout_om" ;
+    sysml:owner expr:LoopsAndConditionals__Control___406___400_ptarget ;
+    sysml:memberElement expr:LoopsAndConditionals__Control___406___400_ptarget_pout ;
+    sysml:ownedMemberElement expr:LoopsAndConditionals__Control___406___400_ptarget_pout ;
+    sysml:ownedRelatedElement expr:LoopsAndConditionals__Control___406___400_ptarget_pout ;
+    sysml:owningRelatedElement expr:LoopsAndConditionals__Control___406___400_ptarget ;
+    sysml:membershipOwningNamespace expr:LoopsAndConditionals__Control___406___400_ptarget ;
+    sysml:ownedMemberFeature expr:LoopsAndConditionals__Control___406___400_ptarget_pout ;
+    sysml:ownedMemberParameter expr:LoopsAndConditionals__Control___406___400_ptarget_pout .
 
 expr:LoopsAndConditionals__Control___406___400_ptarget_om
     a sysml:OwningMembership ;
@@ -937,21 +1151,22 @@ expr:LoopsAndConditionals__Control___406___400_pvalue
     sysml:elementId "LoopsAndConditionals__Control___406___400_pvalue" ;
     sysml:operator "+" ;
     sysml:argument expr:LoopsAndConditionals__Control___406___400_pvalue_pa0, expr:LoopsAndConditionals__Control___406___400_pvalue_pa1 ;
-    sysml:ownedRelationship expr:LoopsAndConditionals__Control___406___400_pvalue_pin0_om, expr:LoopsAndConditionals__Control___406___400_pvalue_pin1_om ;
-    sysml:ownedMembership expr:LoopsAndConditionals__Control___406___400_pvalue_pin0_om, expr:LoopsAndConditionals__Control___406___400_pvalue_pin1_om ;
-    sysml:ownedFeatureMembership expr:LoopsAndConditionals__Control___406___400_pvalue_pin0_om, expr:LoopsAndConditionals__Control___406___400_pvalue_pin1_om ;
-    sysml:ownedFeature expr:LoopsAndConditionals__Control___406___400_pvalue_pin0, expr:LoopsAndConditionals__Control___406___400_pvalue_pin1 ;
-    sysml:parameter expr:LoopsAndConditionals__Control___406___400_pvalue_pin0, expr:LoopsAndConditionals__Control___406___400_pvalue_pin1 ;
+    sysml:ownedRelationship expr:LoopsAndConditionals__Control___406___400_pvalue_pin0_om, expr:LoopsAndConditionals__Control___406___400_pvalue_pin1_om, expr:LoopsAndConditionals__Control___406___400_pvalue_pout_om ;
+    sysml:ownedMembership expr:LoopsAndConditionals__Control___406___400_pvalue_pin0_om, expr:LoopsAndConditionals__Control___406___400_pvalue_pin1_om, expr:LoopsAndConditionals__Control___406___400_pvalue_pout_om ;
+    sysml:ownedFeatureMembership expr:LoopsAndConditionals__Control___406___400_pvalue_pin0_om, expr:LoopsAndConditionals__Control___406___400_pvalue_pin1_om, expr:LoopsAndConditionals__Control___406___400_pvalue_pout_om ;
+    sysml:ownedFeature expr:LoopsAndConditionals__Control___406___400_pvalue_pin0, expr:LoopsAndConditionals__Control___406___400_pvalue_pin1, expr:LoopsAndConditionals__Control___406___400_pvalue_pout ;
+    sysml:parameter expr:LoopsAndConditionals__Control___406___400_pvalue_pin0, expr:LoopsAndConditionals__Control___406___400_pvalue_pin1, expr:LoopsAndConditionals__Control___406___400_pvalue_pout ;
     sysml:input expr:LoopsAndConditionals__Control___406___400_pvalue_pin0, expr:LoopsAndConditionals__Control___406___400_pvalue_pin1 ;
+    sysml:result expr:LoopsAndConditionals__Control___406___400_pvalue_pout ;
     sysml:owner elmt:LoopsAndConditionals__Control___406___400 ;
     sysml:owningRelationship expr:LoopsAndConditionals__Control___406___400_pvalue_om ;
     sysml:owningMembership expr:LoopsAndConditionals__Control___406___400_pvalue_om ;
     json:argument "[{\"@id\":\"LoopsAndConditionals__Control___406___400_pvalue_pa0\"},{\"@id\":\"LoopsAndConditionals__Control___406___400_pvalue_pa1\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"LoopsAndConditionals__Control___406___400_pvalue_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___406___400_pvalue_pin1_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"LoopsAndConditionals__Control___406___400_pvalue_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___406___400_pvalue_pin1_om\"}]" ;
-    json:ownedFeatureMembership "[{\"@id\":\"LoopsAndConditionals__Control___406___400_pvalue_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___406___400_pvalue_pin1_om\"}]" ;
-    json:ownedFeature "[{\"@id\":\"LoopsAndConditionals__Control___406___400_pvalue_pin0\"},{\"@id\":\"LoopsAndConditionals__Control___406___400_pvalue_pin1\"}]" ;
-    json:parameter "[{\"@id\":\"LoopsAndConditionals__Control___406___400_pvalue_pin0\"},{\"@id\":\"LoopsAndConditionals__Control___406___400_pvalue_pin1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"LoopsAndConditionals__Control___406___400_pvalue_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___406___400_pvalue_pin1_om\"},{\"@id\":\"LoopsAndConditionals__Control___406___400_pvalue_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"LoopsAndConditionals__Control___406___400_pvalue_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___406___400_pvalue_pin1_om\"},{\"@id\":\"LoopsAndConditionals__Control___406___400_pvalue_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"LoopsAndConditionals__Control___406___400_pvalue_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___406___400_pvalue_pin1_om\"},{\"@id\":\"LoopsAndConditionals__Control___406___400_pvalue_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"LoopsAndConditionals__Control___406___400_pvalue_pin0\"},{\"@id\":\"LoopsAndConditionals__Control___406___400_pvalue_pin1\"},{\"@id\":\"LoopsAndConditionals__Control___406___400_pvalue_pout\"}]" ;
+    json:parameter "[{\"@id\":\"LoopsAndConditionals__Control___406___400_pvalue_pin0\"},{\"@id\":\"LoopsAndConditionals__Control___406___400_pvalue_pin1\"},{\"@id\":\"LoopsAndConditionals__Control___406___400_pvalue_pout\"}]" ;
     json:input "[{\"@id\":\"LoopsAndConditionals__Control___406___400_pvalue_pin0\"},{\"@id\":\"LoopsAndConditionals__Control___406___400_pvalue_pin1\"}]" .
 
 expr:LoopsAndConditionals__Control___406___400_pvalue_pa0
@@ -959,10 +1174,36 @@ expr:LoopsAndConditionals__Control___406___400_pvalue_pa0
     sysx:sourceText "total" ;
     sysml:elementId "LoopsAndConditionals__Control___406___400_pvalue_pa0" ;
     sysml:referent elmt:LoopsAndConditionals__Control__total ;
+    sysml:ownedRelationship expr:LoopsAndConditionals__Control___406___400_pvalue_pa0_pout_om, expr:LoopsAndConditionals__Control___406___400_pvalue_pa0_preferent ;
+    sysml:ownedMembership expr:LoopsAndConditionals__Control___406___400_pvalue_pa0_pout_om ;
+    sysml:ownedFeatureMembership expr:LoopsAndConditionals__Control___406___400_pvalue_pa0_pout_om ;
+    sysml:ownedFeature expr:LoopsAndConditionals__Control___406___400_pvalue_pa0_pout ;
+    sysml:parameter expr:LoopsAndConditionals__Control___406___400_pvalue_pa0_pout ;
+    sysml:result expr:LoopsAndConditionals__Control___406___400_pvalue_pa0_pout ;
     sysml:owner expr:LoopsAndConditionals__Control___406___400_pvalue_pin0 ;
     sysml:owningRelationship expr:LoopsAndConditionals__Control___406___400_pvalue_pa0_om ;
     sysml:owningMembership expr:LoopsAndConditionals__Control___406___400_pvalue_pa0_om ;
-    sysml:ownedRelationship expr:LoopsAndConditionals__Control___406___400_pvalue_pa0_preferent .
+    json:ownedRelationship "[{\"@id\":\"LoopsAndConditionals__Control___406___400_pvalue_pa0_pout_om\"},{\"@id\":\"LoopsAndConditionals__Control___406___400_pvalue_pa0_preferent\"}]" .
+
+expr:LoopsAndConditionals__Control___406___400_pvalue_pa0_pout
+    a sysml:Feature ;
+    sysml:elementId "LoopsAndConditionals__Control___406___400_pvalue_pa0_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:LoopsAndConditionals__Control___406___400_pvalue_pa0 ;
+    sysml:owningRelationship expr:LoopsAndConditionals__Control___406___400_pvalue_pa0_pout_om ;
+    sysml:owningMembership expr:LoopsAndConditionals__Control___406___400_pvalue_pa0_pout_om .
+
+expr:LoopsAndConditionals__Control___406___400_pvalue_pa0_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "LoopsAndConditionals__Control___406___400_pvalue_pa0_pout_om" ;
+    sysml:owner expr:LoopsAndConditionals__Control___406___400_pvalue_pa0 ;
+    sysml:memberElement expr:LoopsAndConditionals__Control___406___400_pvalue_pa0_pout ;
+    sysml:ownedMemberElement expr:LoopsAndConditionals__Control___406___400_pvalue_pa0_pout ;
+    sysml:ownedRelatedElement expr:LoopsAndConditionals__Control___406___400_pvalue_pa0_pout ;
+    sysml:owningRelatedElement expr:LoopsAndConditionals__Control___406___400_pvalue_pa0 ;
+    sysml:membershipOwningNamespace expr:LoopsAndConditionals__Control___406___400_pvalue_pa0 ;
+    sysml:ownedMemberFeature expr:LoopsAndConditionals__Control___406___400_pvalue_pa0_pout ;
+    sysml:ownedMemberParameter expr:LoopsAndConditionals__Control___406___400_pvalue_pa0_pout .
 
 expr:LoopsAndConditionals__Control___406___400_pvalue_pin0
     a sysml:Feature ;
@@ -1003,10 +1244,36 @@ expr:LoopsAndConditionals__Control___406___400_pvalue_pa1
     sysx:sourceText "idx" ;
     sysml:elementId "LoopsAndConditionals__Control___406___400_pvalue_pa1" ;
     sysml:referent "idx" ;
+    sysml:ownedRelationship expr:LoopsAndConditionals__Control___406___400_pvalue_pa1_pout_om, expr:LoopsAndConditionals__Control___406___400_pvalue_pa1_preferent ;
+    sysml:ownedMembership expr:LoopsAndConditionals__Control___406___400_pvalue_pa1_pout_om ;
+    sysml:ownedFeatureMembership expr:LoopsAndConditionals__Control___406___400_pvalue_pa1_pout_om ;
+    sysml:ownedFeature expr:LoopsAndConditionals__Control___406___400_pvalue_pa1_pout ;
+    sysml:parameter expr:LoopsAndConditionals__Control___406___400_pvalue_pa1_pout ;
+    sysml:result expr:LoopsAndConditionals__Control___406___400_pvalue_pa1_pout ;
     sysml:owner expr:LoopsAndConditionals__Control___406___400_pvalue_pin1 ;
     sysml:owningRelationship expr:LoopsAndConditionals__Control___406___400_pvalue_pa1_om ;
     sysml:owningMembership expr:LoopsAndConditionals__Control___406___400_pvalue_pa1_om ;
-    sysml:ownedRelationship expr:LoopsAndConditionals__Control___406___400_pvalue_pa1_preferent .
+    json:ownedRelationship "[{\"@id\":\"LoopsAndConditionals__Control___406___400_pvalue_pa1_pout_om\"},{\"@id\":\"LoopsAndConditionals__Control___406___400_pvalue_pa1_preferent\"}]" .
+
+expr:LoopsAndConditionals__Control___406___400_pvalue_pa1_pout
+    a sysml:Feature ;
+    sysml:elementId "LoopsAndConditionals__Control___406___400_pvalue_pa1_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:LoopsAndConditionals__Control___406___400_pvalue_pa1 ;
+    sysml:owningRelationship expr:LoopsAndConditionals__Control___406___400_pvalue_pa1_pout_om ;
+    sysml:owningMembership expr:LoopsAndConditionals__Control___406___400_pvalue_pa1_pout_om .
+
+expr:LoopsAndConditionals__Control___406___400_pvalue_pa1_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "LoopsAndConditionals__Control___406___400_pvalue_pa1_pout_om" ;
+    sysml:owner expr:LoopsAndConditionals__Control___406___400_pvalue_pa1 ;
+    sysml:memberElement expr:LoopsAndConditionals__Control___406___400_pvalue_pa1_pout ;
+    sysml:ownedMemberElement expr:LoopsAndConditionals__Control___406___400_pvalue_pa1_pout ;
+    sysml:ownedRelatedElement expr:LoopsAndConditionals__Control___406___400_pvalue_pa1_pout ;
+    sysml:owningRelatedElement expr:LoopsAndConditionals__Control___406___400_pvalue_pa1 ;
+    sysml:membershipOwningNamespace expr:LoopsAndConditionals__Control___406___400_pvalue_pa1 ;
+    sysml:ownedMemberFeature expr:LoopsAndConditionals__Control___406___400_pvalue_pa1_pout ;
+    sysml:ownedMemberParameter expr:LoopsAndConditionals__Control___406___400_pvalue_pa1_pout .
 
 expr:LoopsAndConditionals__Control___406___400_pvalue_pin1
     a sysml:Feature ;
@@ -1041,6 +1308,26 @@ expr:LoopsAndConditionals__Control___406___400_pvalue_pa1_om
     sysml:membershipOwningNamespace expr:LoopsAndConditionals__Control___406___400_pvalue_pin1 ;
     sysml:featureWithValue expr:LoopsAndConditionals__Control___406___400_pvalue_pin1 ;
     sysml:value expr:LoopsAndConditionals__Control___406___400_pvalue_pa1 .
+
+expr:LoopsAndConditionals__Control___406___400_pvalue_pout
+    a sysml:Feature ;
+    sysml:elementId "LoopsAndConditionals__Control___406___400_pvalue_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:LoopsAndConditionals__Control___406___400_pvalue ;
+    sysml:owningRelationship expr:LoopsAndConditionals__Control___406___400_pvalue_pout_om ;
+    sysml:owningMembership expr:LoopsAndConditionals__Control___406___400_pvalue_pout_om .
+
+expr:LoopsAndConditionals__Control___406___400_pvalue_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "LoopsAndConditionals__Control___406___400_pvalue_pout_om" ;
+    sysml:owner expr:LoopsAndConditionals__Control___406___400_pvalue ;
+    sysml:memberElement expr:LoopsAndConditionals__Control___406___400_pvalue_pout ;
+    sysml:ownedMemberElement expr:LoopsAndConditionals__Control___406___400_pvalue_pout ;
+    sysml:ownedRelatedElement expr:LoopsAndConditionals__Control___406___400_pvalue_pout ;
+    sysml:owningRelatedElement expr:LoopsAndConditionals__Control___406___400_pvalue ;
+    sysml:membershipOwningNamespace expr:LoopsAndConditionals__Control___406___400_pvalue ;
+    sysml:ownedMemberFeature expr:LoopsAndConditionals__Control___406___400_pvalue_pout ;
+    sysml:ownedMemberParameter expr:LoopsAndConditionals__Control___406___400_pvalue_pout .
 
 expr:LoopsAndConditionals__Control___406___400_pvalue_om
     a sysml:FeatureValue ;
@@ -1089,21 +1376,22 @@ expr:LoopsAndConditionals__Control___407_pcondition
     sysml:elementId "LoopsAndConditionals__Control___407_pcondition" ;
     sysml:operator ">" ;
     sysml:argument expr:LoopsAndConditionals__Control___407_pcondition_pa0, expr:LoopsAndConditionals__Control___407_pcondition_pa1 ;
-    sysml:ownedRelationship expr:LoopsAndConditionals__Control___407_pcondition_pin0_om, expr:LoopsAndConditionals__Control___407_pcondition_pin1_om ;
-    sysml:ownedMembership expr:LoopsAndConditionals__Control___407_pcondition_pin0_om, expr:LoopsAndConditionals__Control___407_pcondition_pin1_om ;
-    sysml:ownedFeatureMembership expr:LoopsAndConditionals__Control___407_pcondition_pin0_om, expr:LoopsAndConditionals__Control___407_pcondition_pin1_om ;
-    sysml:ownedFeature expr:LoopsAndConditionals__Control___407_pcondition_pin0, expr:LoopsAndConditionals__Control___407_pcondition_pin1 ;
-    sysml:parameter expr:LoopsAndConditionals__Control___407_pcondition_pin0, expr:LoopsAndConditionals__Control___407_pcondition_pin1 ;
+    sysml:ownedRelationship expr:LoopsAndConditionals__Control___407_pcondition_pin0_om, expr:LoopsAndConditionals__Control___407_pcondition_pin1_om, expr:LoopsAndConditionals__Control___407_pcondition_pout_om ;
+    sysml:ownedMembership expr:LoopsAndConditionals__Control___407_pcondition_pin0_om, expr:LoopsAndConditionals__Control___407_pcondition_pin1_om, expr:LoopsAndConditionals__Control___407_pcondition_pout_om ;
+    sysml:ownedFeatureMembership expr:LoopsAndConditionals__Control___407_pcondition_pin0_om, expr:LoopsAndConditionals__Control___407_pcondition_pin1_om, expr:LoopsAndConditionals__Control___407_pcondition_pout_om ;
+    sysml:ownedFeature expr:LoopsAndConditionals__Control___407_pcondition_pin0, expr:LoopsAndConditionals__Control___407_pcondition_pin1, expr:LoopsAndConditionals__Control___407_pcondition_pout ;
+    sysml:parameter expr:LoopsAndConditionals__Control___407_pcondition_pin0, expr:LoopsAndConditionals__Control___407_pcondition_pin1, expr:LoopsAndConditionals__Control___407_pcondition_pout ;
     sysml:input expr:LoopsAndConditionals__Control___407_pcondition_pin0, expr:LoopsAndConditionals__Control___407_pcondition_pin1 ;
+    sysml:result expr:LoopsAndConditionals__Control___407_pcondition_pout ;
     sysml:owner elmt:LoopsAndConditionals__Control___407 ;
     sysml:owningRelationship expr:LoopsAndConditionals__Control___407_pcondition_om ;
     sysml:owningMembership expr:LoopsAndConditionals__Control___407_pcondition_om ;
     json:argument "[{\"@id\":\"LoopsAndConditionals__Control___407_pcondition_pa0\"},{\"@id\":\"LoopsAndConditionals__Control___407_pcondition_pa1\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"LoopsAndConditionals__Control___407_pcondition_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___407_pcondition_pin1_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"LoopsAndConditionals__Control___407_pcondition_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___407_pcondition_pin1_om\"}]" ;
-    json:ownedFeatureMembership "[{\"@id\":\"LoopsAndConditionals__Control___407_pcondition_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___407_pcondition_pin1_om\"}]" ;
-    json:ownedFeature "[{\"@id\":\"LoopsAndConditionals__Control___407_pcondition_pin0\"},{\"@id\":\"LoopsAndConditionals__Control___407_pcondition_pin1\"}]" ;
-    json:parameter "[{\"@id\":\"LoopsAndConditionals__Control___407_pcondition_pin0\"},{\"@id\":\"LoopsAndConditionals__Control___407_pcondition_pin1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"LoopsAndConditionals__Control___407_pcondition_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___407_pcondition_pin1_om\"},{\"@id\":\"LoopsAndConditionals__Control___407_pcondition_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"LoopsAndConditionals__Control___407_pcondition_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___407_pcondition_pin1_om\"},{\"@id\":\"LoopsAndConditionals__Control___407_pcondition_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"LoopsAndConditionals__Control___407_pcondition_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___407_pcondition_pin1_om\"},{\"@id\":\"LoopsAndConditionals__Control___407_pcondition_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"LoopsAndConditionals__Control___407_pcondition_pin0\"},{\"@id\":\"LoopsAndConditionals__Control___407_pcondition_pin1\"},{\"@id\":\"LoopsAndConditionals__Control___407_pcondition_pout\"}]" ;
+    json:parameter "[{\"@id\":\"LoopsAndConditionals__Control___407_pcondition_pin0\"},{\"@id\":\"LoopsAndConditionals__Control___407_pcondition_pin1\"},{\"@id\":\"LoopsAndConditionals__Control___407_pcondition_pout\"}]" ;
     json:input "[{\"@id\":\"LoopsAndConditionals__Control___407_pcondition_pin0\"},{\"@id\":\"LoopsAndConditionals__Control___407_pcondition_pin1\"}]" .
 
 expr:LoopsAndConditionals__Control___407_pcondition_pa0
@@ -1111,10 +1399,36 @@ expr:LoopsAndConditionals__Control___407_pcondition_pa0
     sysx:sourceText "count" ;
     sysml:elementId "LoopsAndConditionals__Control___407_pcondition_pa0" ;
     sysml:referent elmt:LoopsAndConditionals__Control__count ;
+    sysml:ownedRelationship expr:LoopsAndConditionals__Control___407_pcondition_pa0_pout_om, expr:LoopsAndConditionals__Control___407_pcondition_pa0_preferent ;
+    sysml:ownedMembership expr:LoopsAndConditionals__Control___407_pcondition_pa0_pout_om ;
+    sysml:ownedFeatureMembership expr:LoopsAndConditionals__Control___407_pcondition_pa0_pout_om ;
+    sysml:ownedFeature expr:LoopsAndConditionals__Control___407_pcondition_pa0_pout ;
+    sysml:parameter expr:LoopsAndConditionals__Control___407_pcondition_pa0_pout ;
+    sysml:result expr:LoopsAndConditionals__Control___407_pcondition_pa0_pout ;
     sysml:owner expr:LoopsAndConditionals__Control___407_pcondition_pin0 ;
     sysml:owningRelationship expr:LoopsAndConditionals__Control___407_pcondition_pa0_om ;
     sysml:owningMembership expr:LoopsAndConditionals__Control___407_pcondition_pa0_om ;
-    sysml:ownedRelationship expr:LoopsAndConditionals__Control___407_pcondition_pa0_preferent .
+    json:ownedRelationship "[{\"@id\":\"LoopsAndConditionals__Control___407_pcondition_pa0_pout_om\"},{\"@id\":\"LoopsAndConditionals__Control___407_pcondition_pa0_preferent\"}]" .
+
+expr:LoopsAndConditionals__Control___407_pcondition_pa0_pout
+    a sysml:Feature ;
+    sysml:elementId "LoopsAndConditionals__Control___407_pcondition_pa0_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:LoopsAndConditionals__Control___407_pcondition_pa0 ;
+    sysml:owningRelationship expr:LoopsAndConditionals__Control___407_pcondition_pa0_pout_om ;
+    sysml:owningMembership expr:LoopsAndConditionals__Control___407_pcondition_pa0_pout_om .
+
+expr:LoopsAndConditionals__Control___407_pcondition_pa0_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "LoopsAndConditionals__Control___407_pcondition_pa0_pout_om" ;
+    sysml:owner expr:LoopsAndConditionals__Control___407_pcondition_pa0 ;
+    sysml:memberElement expr:LoopsAndConditionals__Control___407_pcondition_pa0_pout ;
+    sysml:ownedMemberElement expr:LoopsAndConditionals__Control___407_pcondition_pa0_pout ;
+    sysml:ownedRelatedElement expr:LoopsAndConditionals__Control___407_pcondition_pa0_pout ;
+    sysml:owningRelatedElement expr:LoopsAndConditionals__Control___407_pcondition_pa0 ;
+    sysml:membershipOwningNamespace expr:LoopsAndConditionals__Control___407_pcondition_pa0 ;
+    sysml:ownedMemberFeature expr:LoopsAndConditionals__Control___407_pcondition_pa0_pout ;
+    sysml:ownedMemberParameter expr:LoopsAndConditionals__Control___407_pcondition_pa0_pout .
 
 expr:LoopsAndConditionals__Control___407_pcondition_pin0
     a sysml:Feature ;
@@ -1192,6 +1506,26 @@ expr:LoopsAndConditionals__Control___407_pcondition_pa1_om
     sysml:membershipOwningNamespace expr:LoopsAndConditionals__Control___407_pcondition_pin1 ;
     sysml:featureWithValue expr:LoopsAndConditionals__Control___407_pcondition_pin1 ;
     sysml:value expr:LoopsAndConditionals__Control___407_pcondition_pa1 .
+
+expr:LoopsAndConditionals__Control___407_pcondition_pout
+    a sysml:Feature ;
+    sysml:elementId "LoopsAndConditionals__Control___407_pcondition_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:LoopsAndConditionals__Control___407_pcondition ;
+    sysml:owningRelationship expr:LoopsAndConditionals__Control___407_pcondition_pout_om ;
+    sysml:owningMembership expr:LoopsAndConditionals__Control___407_pcondition_pout_om .
+
+expr:LoopsAndConditionals__Control___407_pcondition_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "LoopsAndConditionals__Control___407_pcondition_pout_om" ;
+    sysml:owner expr:LoopsAndConditionals__Control___407_pcondition ;
+    sysml:memberElement expr:LoopsAndConditionals__Control___407_pcondition_pout ;
+    sysml:ownedMemberElement expr:LoopsAndConditionals__Control___407_pcondition_pout ;
+    sysml:ownedRelatedElement expr:LoopsAndConditionals__Control___407_pcondition_pout ;
+    sysml:owningRelatedElement expr:LoopsAndConditionals__Control___407_pcondition ;
+    sysml:membershipOwningNamespace expr:LoopsAndConditionals__Control___407_pcondition ;
+    sysml:ownedMemberFeature expr:LoopsAndConditionals__Control___407_pcondition_pout ;
+    sysml:ownedMemberParameter expr:LoopsAndConditionals__Control___407_pcondition_pout .
 
 expr:LoopsAndConditionals__Control___407_pcondition_om
     a sysml:OwningMembership ;
@@ -1292,21 +1626,22 @@ expr:LoopsAndConditionals__Control___408_pcondition
     sysml:elementId "LoopsAndConditionals__Control___408_pcondition" ;
     sysml:operator ">" ;
     sysml:argument expr:LoopsAndConditionals__Control___408_pcondition_pa0, expr:LoopsAndConditionals__Control___408_pcondition_pa1 ;
-    sysml:ownedRelationship expr:LoopsAndConditionals__Control___408_pcondition_pin0_om, expr:LoopsAndConditionals__Control___408_pcondition_pin1_om ;
-    sysml:ownedMembership expr:LoopsAndConditionals__Control___408_pcondition_pin0_om, expr:LoopsAndConditionals__Control___408_pcondition_pin1_om ;
-    sysml:ownedFeatureMembership expr:LoopsAndConditionals__Control___408_pcondition_pin0_om, expr:LoopsAndConditionals__Control___408_pcondition_pin1_om ;
-    sysml:ownedFeature expr:LoopsAndConditionals__Control___408_pcondition_pin0, expr:LoopsAndConditionals__Control___408_pcondition_pin1 ;
-    sysml:parameter expr:LoopsAndConditionals__Control___408_pcondition_pin0, expr:LoopsAndConditionals__Control___408_pcondition_pin1 ;
+    sysml:ownedRelationship expr:LoopsAndConditionals__Control___408_pcondition_pin0_om, expr:LoopsAndConditionals__Control___408_pcondition_pin1_om, expr:LoopsAndConditionals__Control___408_pcondition_pout_om ;
+    sysml:ownedMembership expr:LoopsAndConditionals__Control___408_pcondition_pin0_om, expr:LoopsAndConditionals__Control___408_pcondition_pin1_om, expr:LoopsAndConditionals__Control___408_pcondition_pout_om ;
+    sysml:ownedFeatureMembership expr:LoopsAndConditionals__Control___408_pcondition_pin0_om, expr:LoopsAndConditionals__Control___408_pcondition_pin1_om, expr:LoopsAndConditionals__Control___408_pcondition_pout_om ;
+    sysml:ownedFeature expr:LoopsAndConditionals__Control___408_pcondition_pin0, expr:LoopsAndConditionals__Control___408_pcondition_pin1, expr:LoopsAndConditionals__Control___408_pcondition_pout ;
+    sysml:parameter expr:LoopsAndConditionals__Control___408_pcondition_pin0, expr:LoopsAndConditionals__Control___408_pcondition_pin1, expr:LoopsAndConditionals__Control___408_pcondition_pout ;
     sysml:input expr:LoopsAndConditionals__Control___408_pcondition_pin0, expr:LoopsAndConditionals__Control___408_pcondition_pin1 ;
+    sysml:result expr:LoopsAndConditionals__Control___408_pcondition_pout ;
     sysml:owner elmt:LoopsAndConditionals__Control___408 ;
     sysml:owningRelationship expr:LoopsAndConditionals__Control___408_pcondition_om ;
     sysml:owningMembership expr:LoopsAndConditionals__Control___408_pcondition_om ;
     json:argument "[{\"@id\":\"LoopsAndConditionals__Control___408_pcondition_pa0\"},{\"@id\":\"LoopsAndConditionals__Control___408_pcondition_pa1\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"LoopsAndConditionals__Control___408_pcondition_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___408_pcondition_pin1_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"LoopsAndConditionals__Control___408_pcondition_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___408_pcondition_pin1_om\"}]" ;
-    json:ownedFeatureMembership "[{\"@id\":\"LoopsAndConditionals__Control___408_pcondition_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___408_pcondition_pin1_om\"}]" ;
-    json:ownedFeature "[{\"@id\":\"LoopsAndConditionals__Control___408_pcondition_pin0\"},{\"@id\":\"LoopsAndConditionals__Control___408_pcondition_pin1\"}]" ;
-    json:parameter "[{\"@id\":\"LoopsAndConditionals__Control___408_pcondition_pin0\"},{\"@id\":\"LoopsAndConditionals__Control___408_pcondition_pin1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"LoopsAndConditionals__Control___408_pcondition_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___408_pcondition_pin1_om\"},{\"@id\":\"LoopsAndConditionals__Control___408_pcondition_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"LoopsAndConditionals__Control___408_pcondition_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___408_pcondition_pin1_om\"},{\"@id\":\"LoopsAndConditionals__Control___408_pcondition_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"LoopsAndConditionals__Control___408_pcondition_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___408_pcondition_pin1_om\"},{\"@id\":\"LoopsAndConditionals__Control___408_pcondition_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"LoopsAndConditionals__Control___408_pcondition_pin0\"},{\"@id\":\"LoopsAndConditionals__Control___408_pcondition_pin1\"},{\"@id\":\"LoopsAndConditionals__Control___408_pcondition_pout\"}]" ;
+    json:parameter "[{\"@id\":\"LoopsAndConditionals__Control___408_pcondition_pin0\"},{\"@id\":\"LoopsAndConditionals__Control___408_pcondition_pin1\"},{\"@id\":\"LoopsAndConditionals__Control___408_pcondition_pout\"}]" ;
     json:input "[{\"@id\":\"LoopsAndConditionals__Control___408_pcondition_pin0\"},{\"@id\":\"LoopsAndConditionals__Control___408_pcondition_pin1\"}]" .
 
 expr:LoopsAndConditionals__Control___408_pcondition_pa0
@@ -1314,10 +1649,36 @@ expr:LoopsAndConditionals__Control___408_pcondition_pa0
     sysx:sourceText "count" ;
     sysml:elementId "LoopsAndConditionals__Control___408_pcondition_pa0" ;
     sysml:referent elmt:LoopsAndConditionals__Control__count ;
+    sysml:ownedRelationship expr:LoopsAndConditionals__Control___408_pcondition_pa0_pout_om, expr:LoopsAndConditionals__Control___408_pcondition_pa0_preferent ;
+    sysml:ownedMembership expr:LoopsAndConditionals__Control___408_pcondition_pa0_pout_om ;
+    sysml:ownedFeatureMembership expr:LoopsAndConditionals__Control___408_pcondition_pa0_pout_om ;
+    sysml:ownedFeature expr:LoopsAndConditionals__Control___408_pcondition_pa0_pout ;
+    sysml:parameter expr:LoopsAndConditionals__Control___408_pcondition_pa0_pout ;
+    sysml:result expr:LoopsAndConditionals__Control___408_pcondition_pa0_pout ;
     sysml:owner expr:LoopsAndConditionals__Control___408_pcondition_pin0 ;
     sysml:owningRelationship expr:LoopsAndConditionals__Control___408_pcondition_pa0_om ;
     sysml:owningMembership expr:LoopsAndConditionals__Control___408_pcondition_pa0_om ;
-    sysml:ownedRelationship expr:LoopsAndConditionals__Control___408_pcondition_pa0_preferent .
+    json:ownedRelationship "[{\"@id\":\"LoopsAndConditionals__Control___408_pcondition_pa0_pout_om\"},{\"@id\":\"LoopsAndConditionals__Control___408_pcondition_pa0_preferent\"}]" .
+
+expr:LoopsAndConditionals__Control___408_pcondition_pa0_pout
+    a sysml:Feature ;
+    sysml:elementId "LoopsAndConditionals__Control___408_pcondition_pa0_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:LoopsAndConditionals__Control___408_pcondition_pa0 ;
+    sysml:owningRelationship expr:LoopsAndConditionals__Control___408_pcondition_pa0_pout_om ;
+    sysml:owningMembership expr:LoopsAndConditionals__Control___408_pcondition_pa0_pout_om .
+
+expr:LoopsAndConditionals__Control___408_pcondition_pa0_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "LoopsAndConditionals__Control___408_pcondition_pa0_pout_om" ;
+    sysml:owner expr:LoopsAndConditionals__Control___408_pcondition_pa0 ;
+    sysml:memberElement expr:LoopsAndConditionals__Control___408_pcondition_pa0_pout ;
+    sysml:ownedMemberElement expr:LoopsAndConditionals__Control___408_pcondition_pa0_pout ;
+    sysml:ownedRelatedElement expr:LoopsAndConditionals__Control___408_pcondition_pa0_pout ;
+    sysml:owningRelatedElement expr:LoopsAndConditionals__Control___408_pcondition_pa0 ;
+    sysml:membershipOwningNamespace expr:LoopsAndConditionals__Control___408_pcondition_pa0 ;
+    sysml:ownedMemberFeature expr:LoopsAndConditionals__Control___408_pcondition_pa0_pout ;
+    sysml:ownedMemberParameter expr:LoopsAndConditionals__Control___408_pcondition_pa0_pout .
 
 expr:LoopsAndConditionals__Control___408_pcondition_pin0
     a sysml:Feature ;
@@ -1395,6 +1756,26 @@ expr:LoopsAndConditionals__Control___408_pcondition_pa1_om
     sysml:membershipOwningNamespace expr:LoopsAndConditionals__Control___408_pcondition_pin1 ;
     sysml:featureWithValue expr:LoopsAndConditionals__Control___408_pcondition_pin1 ;
     sysml:value expr:LoopsAndConditionals__Control___408_pcondition_pa1 .
+
+expr:LoopsAndConditionals__Control___408_pcondition_pout
+    a sysml:Feature ;
+    sysml:elementId "LoopsAndConditionals__Control___408_pcondition_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:LoopsAndConditionals__Control___408_pcondition ;
+    sysml:owningRelationship expr:LoopsAndConditionals__Control___408_pcondition_pout_om ;
+    sysml:owningMembership expr:LoopsAndConditionals__Control___408_pcondition_pout_om .
+
+expr:LoopsAndConditionals__Control___408_pcondition_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "LoopsAndConditionals__Control___408_pcondition_pout_om" ;
+    sysml:owner expr:LoopsAndConditionals__Control___408_pcondition ;
+    sysml:memberElement expr:LoopsAndConditionals__Control___408_pcondition_pout ;
+    sysml:ownedMemberElement expr:LoopsAndConditionals__Control___408_pcondition_pout ;
+    sysml:ownedRelatedElement expr:LoopsAndConditionals__Control___408_pcondition_pout ;
+    sysml:owningRelatedElement expr:LoopsAndConditionals__Control___408_pcondition ;
+    sysml:membershipOwningNamespace expr:LoopsAndConditionals__Control___408_pcondition ;
+    sysml:ownedMemberFeature expr:LoopsAndConditionals__Control___408_pcondition_pout ;
+    sysml:ownedMemberParameter expr:LoopsAndConditionals__Control___408_pcondition_pout .
 
 expr:LoopsAndConditionals__Control___408_pcondition_om
     a sysml:OwningMembership ;
@@ -1517,10 +1898,36 @@ expr:LoopsAndConditionals__Control___408___401___400_ptarget
     sysx:sourceText "total" ;
     sysml:elementId "LoopsAndConditionals__Control___408___401___400_ptarget" ;
     sysml:referent elmt:LoopsAndConditionals__Control__total ;
+    sysml:ownedRelationship expr:LoopsAndConditionals__Control___408___401___400_ptarget_pout_om, expr:LoopsAndConditionals__Control___408___401___400_ptarget_preferent ;
+    sysml:ownedMembership expr:LoopsAndConditionals__Control___408___401___400_ptarget_pout_om ;
+    sysml:ownedFeatureMembership expr:LoopsAndConditionals__Control___408___401___400_ptarget_pout_om ;
+    sysml:ownedFeature expr:LoopsAndConditionals__Control___408___401___400_ptarget_pout ;
+    sysml:parameter expr:LoopsAndConditionals__Control___408___401___400_ptarget_pout ;
+    sysml:result expr:LoopsAndConditionals__Control___408___401___400_ptarget_pout ;
     sysml:owner elmt:LoopsAndConditionals__Control___408___401___400 ;
     sysml:owningRelationship expr:LoopsAndConditionals__Control___408___401___400_ptarget_om ;
     sysml:owningMembership expr:LoopsAndConditionals__Control___408___401___400_ptarget_om ;
-    sysml:ownedRelationship expr:LoopsAndConditionals__Control___408___401___400_ptarget_preferent .
+    json:ownedRelationship "[{\"@id\":\"LoopsAndConditionals__Control___408___401___400_ptarget_pout_om\"},{\"@id\":\"LoopsAndConditionals__Control___408___401___400_ptarget_preferent\"}]" .
+
+expr:LoopsAndConditionals__Control___408___401___400_ptarget_pout
+    a sysml:Feature ;
+    sysml:elementId "LoopsAndConditionals__Control___408___401___400_ptarget_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:LoopsAndConditionals__Control___408___401___400_ptarget ;
+    sysml:owningRelationship expr:LoopsAndConditionals__Control___408___401___400_ptarget_pout_om ;
+    sysml:owningMembership expr:LoopsAndConditionals__Control___408___401___400_ptarget_pout_om .
+
+expr:LoopsAndConditionals__Control___408___401___400_ptarget_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "LoopsAndConditionals__Control___408___401___400_ptarget_pout_om" ;
+    sysml:owner expr:LoopsAndConditionals__Control___408___401___400_ptarget ;
+    sysml:memberElement expr:LoopsAndConditionals__Control___408___401___400_ptarget_pout ;
+    sysml:ownedMemberElement expr:LoopsAndConditionals__Control___408___401___400_ptarget_pout ;
+    sysml:ownedRelatedElement expr:LoopsAndConditionals__Control___408___401___400_ptarget_pout ;
+    sysml:owningRelatedElement expr:LoopsAndConditionals__Control___408___401___400_ptarget ;
+    sysml:membershipOwningNamespace expr:LoopsAndConditionals__Control___408___401___400_ptarget ;
+    sysml:ownedMemberFeature expr:LoopsAndConditionals__Control___408___401___400_ptarget_pout ;
+    sysml:ownedMemberParameter expr:LoopsAndConditionals__Control___408___401___400_ptarget_pout .
 
 expr:LoopsAndConditionals__Control___408___401___400_ptarget_om
     a sysml:OwningMembership ;
@@ -1589,21 +1996,22 @@ expr:LoopsAndConditionals__Control___409_pcondition
     sysml:elementId "LoopsAndConditionals__Control___409_pcondition" ;
     sysml:operator ">" ;
     sysml:argument expr:LoopsAndConditionals__Control___409_pcondition_pa0, expr:LoopsAndConditionals__Control___409_pcondition_pa1 ;
-    sysml:ownedRelationship expr:LoopsAndConditionals__Control___409_pcondition_pin0_om, expr:LoopsAndConditionals__Control___409_pcondition_pin1_om ;
-    sysml:ownedMembership expr:LoopsAndConditionals__Control___409_pcondition_pin0_om, expr:LoopsAndConditionals__Control___409_pcondition_pin1_om ;
-    sysml:ownedFeatureMembership expr:LoopsAndConditionals__Control___409_pcondition_pin0_om, expr:LoopsAndConditionals__Control___409_pcondition_pin1_om ;
-    sysml:ownedFeature expr:LoopsAndConditionals__Control___409_pcondition_pin0, expr:LoopsAndConditionals__Control___409_pcondition_pin1 ;
-    sysml:parameter expr:LoopsAndConditionals__Control___409_pcondition_pin0, expr:LoopsAndConditionals__Control___409_pcondition_pin1 ;
+    sysml:ownedRelationship expr:LoopsAndConditionals__Control___409_pcondition_pin0_om, expr:LoopsAndConditionals__Control___409_pcondition_pin1_om, expr:LoopsAndConditionals__Control___409_pcondition_pout_om ;
+    sysml:ownedMembership expr:LoopsAndConditionals__Control___409_pcondition_pin0_om, expr:LoopsAndConditionals__Control___409_pcondition_pin1_om, expr:LoopsAndConditionals__Control___409_pcondition_pout_om ;
+    sysml:ownedFeatureMembership expr:LoopsAndConditionals__Control___409_pcondition_pin0_om, expr:LoopsAndConditionals__Control___409_pcondition_pin1_om, expr:LoopsAndConditionals__Control___409_pcondition_pout_om ;
+    sysml:ownedFeature expr:LoopsAndConditionals__Control___409_pcondition_pin0, expr:LoopsAndConditionals__Control___409_pcondition_pin1, expr:LoopsAndConditionals__Control___409_pcondition_pout ;
+    sysml:parameter expr:LoopsAndConditionals__Control___409_pcondition_pin0, expr:LoopsAndConditionals__Control___409_pcondition_pin1, expr:LoopsAndConditionals__Control___409_pcondition_pout ;
     sysml:input expr:LoopsAndConditionals__Control___409_pcondition_pin0, expr:LoopsAndConditionals__Control___409_pcondition_pin1 ;
+    sysml:result expr:LoopsAndConditionals__Control___409_pcondition_pout ;
     sysml:owner elmt:LoopsAndConditionals__Control___409 ;
     sysml:owningRelationship expr:LoopsAndConditionals__Control___409_pcondition_om ;
     sysml:owningMembership expr:LoopsAndConditionals__Control___409_pcondition_om ;
     json:argument "[{\"@id\":\"LoopsAndConditionals__Control___409_pcondition_pa0\"},{\"@id\":\"LoopsAndConditionals__Control___409_pcondition_pa1\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"LoopsAndConditionals__Control___409_pcondition_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___409_pcondition_pin1_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"LoopsAndConditionals__Control___409_pcondition_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___409_pcondition_pin1_om\"}]" ;
-    json:ownedFeatureMembership "[{\"@id\":\"LoopsAndConditionals__Control___409_pcondition_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___409_pcondition_pin1_om\"}]" ;
-    json:ownedFeature "[{\"@id\":\"LoopsAndConditionals__Control___409_pcondition_pin0\"},{\"@id\":\"LoopsAndConditionals__Control___409_pcondition_pin1\"}]" ;
-    json:parameter "[{\"@id\":\"LoopsAndConditionals__Control___409_pcondition_pin0\"},{\"@id\":\"LoopsAndConditionals__Control___409_pcondition_pin1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"LoopsAndConditionals__Control___409_pcondition_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___409_pcondition_pin1_om\"},{\"@id\":\"LoopsAndConditionals__Control___409_pcondition_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"LoopsAndConditionals__Control___409_pcondition_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___409_pcondition_pin1_om\"},{\"@id\":\"LoopsAndConditionals__Control___409_pcondition_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"LoopsAndConditionals__Control___409_pcondition_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___409_pcondition_pin1_om\"},{\"@id\":\"LoopsAndConditionals__Control___409_pcondition_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"LoopsAndConditionals__Control___409_pcondition_pin0\"},{\"@id\":\"LoopsAndConditionals__Control___409_pcondition_pin1\"},{\"@id\":\"LoopsAndConditionals__Control___409_pcondition_pout\"}]" ;
+    json:parameter "[{\"@id\":\"LoopsAndConditionals__Control___409_pcondition_pin0\"},{\"@id\":\"LoopsAndConditionals__Control___409_pcondition_pin1\"},{\"@id\":\"LoopsAndConditionals__Control___409_pcondition_pout\"}]" ;
     json:input "[{\"@id\":\"LoopsAndConditionals__Control___409_pcondition_pin0\"},{\"@id\":\"LoopsAndConditionals__Control___409_pcondition_pin1\"}]" .
 
 expr:LoopsAndConditionals__Control___409_pcondition_pa0
@@ -1611,10 +2019,36 @@ expr:LoopsAndConditionals__Control___409_pcondition_pa0
     sysx:sourceText "count" ;
     sysml:elementId "LoopsAndConditionals__Control___409_pcondition_pa0" ;
     sysml:referent elmt:LoopsAndConditionals__Control__count ;
+    sysml:ownedRelationship expr:LoopsAndConditionals__Control___409_pcondition_pa0_pout_om, expr:LoopsAndConditionals__Control___409_pcondition_pa0_preferent ;
+    sysml:ownedMembership expr:LoopsAndConditionals__Control___409_pcondition_pa0_pout_om ;
+    sysml:ownedFeatureMembership expr:LoopsAndConditionals__Control___409_pcondition_pa0_pout_om ;
+    sysml:ownedFeature expr:LoopsAndConditionals__Control___409_pcondition_pa0_pout ;
+    sysml:parameter expr:LoopsAndConditionals__Control___409_pcondition_pa0_pout ;
+    sysml:result expr:LoopsAndConditionals__Control___409_pcondition_pa0_pout ;
     sysml:owner expr:LoopsAndConditionals__Control___409_pcondition_pin0 ;
     sysml:owningRelationship expr:LoopsAndConditionals__Control___409_pcondition_pa0_om ;
     sysml:owningMembership expr:LoopsAndConditionals__Control___409_pcondition_pa0_om ;
-    sysml:ownedRelationship expr:LoopsAndConditionals__Control___409_pcondition_pa0_preferent .
+    json:ownedRelationship "[{\"@id\":\"LoopsAndConditionals__Control___409_pcondition_pa0_pout_om\"},{\"@id\":\"LoopsAndConditionals__Control___409_pcondition_pa0_preferent\"}]" .
+
+expr:LoopsAndConditionals__Control___409_pcondition_pa0_pout
+    a sysml:Feature ;
+    sysml:elementId "LoopsAndConditionals__Control___409_pcondition_pa0_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:LoopsAndConditionals__Control___409_pcondition_pa0 ;
+    sysml:owningRelationship expr:LoopsAndConditionals__Control___409_pcondition_pa0_pout_om ;
+    sysml:owningMembership expr:LoopsAndConditionals__Control___409_pcondition_pa0_pout_om .
+
+expr:LoopsAndConditionals__Control___409_pcondition_pa0_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "LoopsAndConditionals__Control___409_pcondition_pa0_pout_om" ;
+    sysml:owner expr:LoopsAndConditionals__Control___409_pcondition_pa0 ;
+    sysml:memberElement expr:LoopsAndConditionals__Control___409_pcondition_pa0_pout ;
+    sysml:ownedMemberElement expr:LoopsAndConditionals__Control___409_pcondition_pa0_pout ;
+    sysml:ownedRelatedElement expr:LoopsAndConditionals__Control___409_pcondition_pa0_pout ;
+    sysml:owningRelatedElement expr:LoopsAndConditionals__Control___409_pcondition_pa0 ;
+    sysml:membershipOwningNamespace expr:LoopsAndConditionals__Control___409_pcondition_pa0 ;
+    sysml:ownedMemberFeature expr:LoopsAndConditionals__Control___409_pcondition_pa0_pout ;
+    sysml:ownedMemberParameter expr:LoopsAndConditionals__Control___409_pcondition_pa0_pout .
 
 expr:LoopsAndConditionals__Control___409_pcondition_pin0
     a sysml:Feature ;
@@ -1692,6 +2126,26 @@ expr:LoopsAndConditionals__Control___409_pcondition_pa1_om
     sysml:membershipOwningNamespace expr:LoopsAndConditionals__Control___409_pcondition_pin1 ;
     sysml:featureWithValue expr:LoopsAndConditionals__Control___409_pcondition_pin1 ;
     sysml:value expr:LoopsAndConditionals__Control___409_pcondition_pa1 .
+
+expr:LoopsAndConditionals__Control___409_pcondition_pout
+    a sysml:Feature ;
+    sysml:elementId "LoopsAndConditionals__Control___409_pcondition_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:LoopsAndConditionals__Control___409_pcondition ;
+    sysml:owningRelationship expr:LoopsAndConditionals__Control___409_pcondition_pout_om ;
+    sysml:owningMembership expr:LoopsAndConditionals__Control___409_pcondition_pout_om .
+
+expr:LoopsAndConditionals__Control___409_pcondition_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "LoopsAndConditionals__Control___409_pcondition_pout_om" ;
+    sysml:owner expr:LoopsAndConditionals__Control___409_pcondition ;
+    sysml:memberElement expr:LoopsAndConditionals__Control___409_pcondition_pout ;
+    sysml:ownedMemberElement expr:LoopsAndConditionals__Control___409_pcondition_pout ;
+    sysml:ownedRelatedElement expr:LoopsAndConditionals__Control___409_pcondition_pout ;
+    sysml:owningRelatedElement expr:LoopsAndConditionals__Control___409_pcondition ;
+    sysml:membershipOwningNamespace expr:LoopsAndConditionals__Control___409_pcondition ;
+    sysml:ownedMemberFeature expr:LoopsAndConditionals__Control___409_pcondition_pout ;
+    sysml:ownedMemberParameter expr:LoopsAndConditionals__Control___409_pcondition_pout .
 
 expr:LoopsAndConditionals__Control___409_pcondition_om
     a sysml:OwningMembership ;
@@ -1813,21 +2267,22 @@ expr:LoopsAndConditionals__Control___409___401___400_pcondition
     sysml:elementId "LoopsAndConditionals__Control___409___401___400_pcondition" ;
     sysml:operator ">" ;
     sysml:argument expr:LoopsAndConditionals__Control___409___401___400_pcondition_pa0, expr:LoopsAndConditionals__Control___409___401___400_pcondition_pa1 ;
-    sysml:ownedRelationship expr:LoopsAndConditionals__Control___409___401___400_pcondition_pin0_om, expr:LoopsAndConditionals__Control___409___401___400_pcondition_pin1_om ;
-    sysml:ownedMembership expr:LoopsAndConditionals__Control___409___401___400_pcondition_pin0_om, expr:LoopsAndConditionals__Control___409___401___400_pcondition_pin1_om ;
-    sysml:ownedFeatureMembership expr:LoopsAndConditionals__Control___409___401___400_pcondition_pin0_om, expr:LoopsAndConditionals__Control___409___401___400_pcondition_pin1_om ;
-    sysml:ownedFeature expr:LoopsAndConditionals__Control___409___401___400_pcondition_pin0, expr:LoopsAndConditionals__Control___409___401___400_pcondition_pin1 ;
-    sysml:parameter expr:LoopsAndConditionals__Control___409___401___400_pcondition_pin0, expr:LoopsAndConditionals__Control___409___401___400_pcondition_pin1 ;
+    sysml:ownedRelationship expr:LoopsAndConditionals__Control___409___401___400_pcondition_pin0_om, expr:LoopsAndConditionals__Control___409___401___400_pcondition_pin1_om, expr:LoopsAndConditionals__Control___409___401___400_pcondition_pout_om ;
+    sysml:ownedMembership expr:LoopsAndConditionals__Control___409___401___400_pcondition_pin0_om, expr:LoopsAndConditionals__Control___409___401___400_pcondition_pin1_om, expr:LoopsAndConditionals__Control___409___401___400_pcondition_pout_om ;
+    sysml:ownedFeatureMembership expr:LoopsAndConditionals__Control___409___401___400_pcondition_pin0_om, expr:LoopsAndConditionals__Control___409___401___400_pcondition_pin1_om, expr:LoopsAndConditionals__Control___409___401___400_pcondition_pout_om ;
+    sysml:ownedFeature expr:LoopsAndConditionals__Control___409___401___400_pcondition_pin0, expr:LoopsAndConditionals__Control___409___401___400_pcondition_pin1, expr:LoopsAndConditionals__Control___409___401___400_pcondition_pout ;
+    sysml:parameter expr:LoopsAndConditionals__Control___409___401___400_pcondition_pin0, expr:LoopsAndConditionals__Control___409___401___400_pcondition_pin1, expr:LoopsAndConditionals__Control___409___401___400_pcondition_pout ;
     sysml:input expr:LoopsAndConditionals__Control___409___401___400_pcondition_pin0, expr:LoopsAndConditionals__Control___409___401___400_pcondition_pin1 ;
+    sysml:result expr:LoopsAndConditionals__Control___409___401___400_pcondition_pout ;
     sysml:owner elmt:LoopsAndConditionals__Control___409___401___400 ;
     sysml:owningRelationship expr:LoopsAndConditionals__Control___409___401___400_pcondition_om ;
     sysml:owningMembership expr:LoopsAndConditionals__Control___409___401___400_pcondition_om ;
     json:argument "[{\"@id\":\"LoopsAndConditionals__Control___409___401___400_pcondition_pa0\"},{\"@id\":\"LoopsAndConditionals__Control___409___401___400_pcondition_pa1\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"LoopsAndConditionals__Control___409___401___400_pcondition_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___409___401___400_pcondition_pin1_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"LoopsAndConditionals__Control___409___401___400_pcondition_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___409___401___400_pcondition_pin1_om\"}]" ;
-    json:ownedFeatureMembership "[{\"@id\":\"LoopsAndConditionals__Control___409___401___400_pcondition_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___409___401___400_pcondition_pin1_om\"}]" ;
-    json:ownedFeature "[{\"@id\":\"LoopsAndConditionals__Control___409___401___400_pcondition_pin0\"},{\"@id\":\"LoopsAndConditionals__Control___409___401___400_pcondition_pin1\"}]" ;
-    json:parameter "[{\"@id\":\"LoopsAndConditionals__Control___409___401___400_pcondition_pin0\"},{\"@id\":\"LoopsAndConditionals__Control___409___401___400_pcondition_pin1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"LoopsAndConditionals__Control___409___401___400_pcondition_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___409___401___400_pcondition_pin1_om\"},{\"@id\":\"LoopsAndConditionals__Control___409___401___400_pcondition_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"LoopsAndConditionals__Control___409___401___400_pcondition_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___409___401___400_pcondition_pin1_om\"},{\"@id\":\"LoopsAndConditionals__Control___409___401___400_pcondition_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"LoopsAndConditionals__Control___409___401___400_pcondition_pin0_om\"},{\"@id\":\"LoopsAndConditionals__Control___409___401___400_pcondition_pin1_om\"},{\"@id\":\"LoopsAndConditionals__Control___409___401___400_pcondition_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"LoopsAndConditionals__Control___409___401___400_pcondition_pin0\"},{\"@id\":\"LoopsAndConditionals__Control___409___401___400_pcondition_pin1\"},{\"@id\":\"LoopsAndConditionals__Control___409___401___400_pcondition_pout\"}]" ;
+    json:parameter "[{\"@id\":\"LoopsAndConditionals__Control___409___401___400_pcondition_pin0\"},{\"@id\":\"LoopsAndConditionals__Control___409___401___400_pcondition_pin1\"},{\"@id\":\"LoopsAndConditionals__Control___409___401___400_pcondition_pout\"}]" ;
     json:input "[{\"@id\":\"LoopsAndConditionals__Control___409___401___400_pcondition_pin0\"},{\"@id\":\"LoopsAndConditionals__Control___409___401___400_pcondition_pin1\"}]" .
 
 expr:LoopsAndConditionals__Control___409___401___400_pcondition_pa0
@@ -1835,10 +2290,36 @@ expr:LoopsAndConditionals__Control___409___401___400_pcondition_pa0
     sysx:sourceText "total" ;
     sysml:elementId "LoopsAndConditionals__Control___409___401___400_pcondition_pa0" ;
     sysml:referent elmt:LoopsAndConditionals__Control__total ;
+    sysml:ownedRelationship expr:LoopsAndConditionals__Control___409___401___400_pcondition_pa0_pout_om, expr:LoopsAndConditionals__Control___409___401___400_pcondition_pa0_preferent ;
+    sysml:ownedMembership expr:LoopsAndConditionals__Control___409___401___400_pcondition_pa0_pout_om ;
+    sysml:ownedFeatureMembership expr:LoopsAndConditionals__Control___409___401___400_pcondition_pa0_pout_om ;
+    sysml:ownedFeature expr:LoopsAndConditionals__Control___409___401___400_pcondition_pa0_pout ;
+    sysml:parameter expr:LoopsAndConditionals__Control___409___401___400_pcondition_pa0_pout ;
+    sysml:result expr:LoopsAndConditionals__Control___409___401___400_pcondition_pa0_pout ;
     sysml:owner expr:LoopsAndConditionals__Control___409___401___400_pcondition_pin0 ;
     sysml:owningRelationship expr:LoopsAndConditionals__Control___409___401___400_pcondition_pa0_om ;
     sysml:owningMembership expr:LoopsAndConditionals__Control___409___401___400_pcondition_pa0_om ;
-    sysml:ownedRelationship expr:LoopsAndConditionals__Control___409___401___400_pcondition_pa0_preferent .
+    json:ownedRelationship "[{\"@id\":\"LoopsAndConditionals__Control___409___401___400_pcondition_pa0_pout_om\"},{\"@id\":\"LoopsAndConditionals__Control___409___401___400_pcondition_pa0_preferent\"}]" .
+
+expr:LoopsAndConditionals__Control___409___401___400_pcondition_pa0_pout
+    a sysml:Feature ;
+    sysml:elementId "LoopsAndConditionals__Control___409___401___400_pcondition_pa0_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:LoopsAndConditionals__Control___409___401___400_pcondition_pa0 ;
+    sysml:owningRelationship expr:LoopsAndConditionals__Control___409___401___400_pcondition_pa0_pout_om ;
+    sysml:owningMembership expr:LoopsAndConditionals__Control___409___401___400_pcondition_pa0_pout_om .
+
+expr:LoopsAndConditionals__Control___409___401___400_pcondition_pa0_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "LoopsAndConditionals__Control___409___401___400_pcondition_pa0_pout_om" ;
+    sysml:owner expr:LoopsAndConditionals__Control___409___401___400_pcondition_pa0 ;
+    sysml:memberElement expr:LoopsAndConditionals__Control___409___401___400_pcondition_pa0_pout ;
+    sysml:ownedMemberElement expr:LoopsAndConditionals__Control___409___401___400_pcondition_pa0_pout ;
+    sysml:ownedRelatedElement expr:LoopsAndConditionals__Control___409___401___400_pcondition_pa0_pout ;
+    sysml:owningRelatedElement expr:LoopsAndConditionals__Control___409___401___400_pcondition_pa0 ;
+    sysml:membershipOwningNamespace expr:LoopsAndConditionals__Control___409___401___400_pcondition_pa0 ;
+    sysml:ownedMemberFeature expr:LoopsAndConditionals__Control___409___401___400_pcondition_pa0_pout ;
+    sysml:ownedMemberParameter expr:LoopsAndConditionals__Control___409___401___400_pcondition_pa0_pout .
 
 expr:LoopsAndConditionals__Control___409___401___400_pcondition_pin0
     a sysml:Feature ;
@@ -1917,6 +2398,26 @@ expr:LoopsAndConditionals__Control___409___401___400_pcondition_pa1_om
     sysml:featureWithValue expr:LoopsAndConditionals__Control___409___401___400_pcondition_pin1 ;
     sysml:value expr:LoopsAndConditionals__Control___409___401___400_pcondition_pa1 .
 
+expr:LoopsAndConditionals__Control___409___401___400_pcondition_pout
+    a sysml:Feature ;
+    sysml:elementId "LoopsAndConditionals__Control___409___401___400_pcondition_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:LoopsAndConditionals__Control___409___401___400_pcondition ;
+    sysml:owningRelationship expr:LoopsAndConditionals__Control___409___401___400_pcondition_pout_om ;
+    sysml:owningMembership expr:LoopsAndConditionals__Control___409___401___400_pcondition_pout_om .
+
+expr:LoopsAndConditionals__Control___409___401___400_pcondition_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "LoopsAndConditionals__Control___409___401___400_pcondition_pout_om" ;
+    sysml:owner expr:LoopsAndConditionals__Control___409___401___400_pcondition ;
+    sysml:memberElement expr:LoopsAndConditionals__Control___409___401___400_pcondition_pout ;
+    sysml:ownedMemberElement expr:LoopsAndConditionals__Control___409___401___400_pcondition_pout ;
+    sysml:ownedRelatedElement expr:LoopsAndConditionals__Control___409___401___400_pcondition_pout ;
+    sysml:owningRelatedElement expr:LoopsAndConditionals__Control___409___401___400_pcondition ;
+    sysml:membershipOwningNamespace expr:LoopsAndConditionals__Control___409___401___400_pcondition ;
+    sysml:ownedMemberFeature expr:LoopsAndConditionals__Control___409___401___400_pcondition_pout ;
+    sysml:ownedMemberParameter expr:LoopsAndConditionals__Control___409___401___400_pcondition_pout .
+
 expr:LoopsAndConditionals__Control___409___401___400_pcondition_om
     a sysml:OwningMembership ;
     sysml:elementId "LoopsAndConditionals__Control___409___401___400_pcondition_om" ;
@@ -1985,10 +2486,36 @@ expr:LoopsAndConditionals__Control___409___401___400___400___400_ptarget
     sysx:sourceText "total" ;
     sysml:elementId "LoopsAndConditionals__Control___409___401___400___400___400_ptarget" ;
     sysml:referent elmt:LoopsAndConditionals__Control__total ;
+    sysml:ownedRelationship expr:LoopsAndConditionals__Control___409___401___400___400___400_ptarget_pout_om, expr:LoopsAndConditionals__Control___409___401___400___400___400_ptarget_preferent ;
+    sysml:ownedMembership expr:LoopsAndConditionals__Control___409___401___400___400___400_ptarget_pout_om ;
+    sysml:ownedFeatureMembership expr:LoopsAndConditionals__Control___409___401___400___400___400_ptarget_pout_om ;
+    sysml:ownedFeature expr:LoopsAndConditionals__Control___409___401___400___400___400_ptarget_pout ;
+    sysml:parameter expr:LoopsAndConditionals__Control___409___401___400___400___400_ptarget_pout ;
+    sysml:result expr:LoopsAndConditionals__Control___409___401___400___400___400_ptarget_pout ;
     sysml:owner elmt:LoopsAndConditionals__Control___409___401___400___400___400 ;
     sysml:owningRelationship expr:LoopsAndConditionals__Control___409___401___400___400___400_ptarget_om ;
     sysml:owningMembership expr:LoopsAndConditionals__Control___409___401___400___400___400_ptarget_om ;
-    sysml:ownedRelationship expr:LoopsAndConditionals__Control___409___401___400___400___400_ptarget_preferent .
+    json:ownedRelationship "[{\"@id\":\"LoopsAndConditionals__Control___409___401___400___400___400_ptarget_pout_om\"},{\"@id\":\"LoopsAndConditionals__Control___409___401___400___400___400_ptarget_preferent\"}]" .
+
+expr:LoopsAndConditionals__Control___409___401___400___400___400_ptarget_pout
+    a sysml:Feature ;
+    sysml:elementId "LoopsAndConditionals__Control___409___401___400___400___400_ptarget_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:LoopsAndConditionals__Control___409___401___400___400___400_ptarget ;
+    sysml:owningRelationship expr:LoopsAndConditionals__Control___409___401___400___400___400_ptarget_pout_om ;
+    sysml:owningMembership expr:LoopsAndConditionals__Control___409___401___400___400___400_ptarget_pout_om .
+
+expr:LoopsAndConditionals__Control___409___401___400___400___400_ptarget_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "LoopsAndConditionals__Control___409___401___400___400___400_ptarget_pout_om" ;
+    sysml:owner expr:LoopsAndConditionals__Control___409___401___400___400___400_ptarget ;
+    sysml:memberElement expr:LoopsAndConditionals__Control___409___401___400___400___400_ptarget_pout ;
+    sysml:ownedMemberElement expr:LoopsAndConditionals__Control___409___401___400___400___400_ptarget_pout ;
+    sysml:ownedRelatedElement expr:LoopsAndConditionals__Control___409___401___400___400___400_ptarget_pout ;
+    sysml:owningRelatedElement expr:LoopsAndConditionals__Control___409___401___400___400___400_ptarget ;
+    sysml:membershipOwningNamespace expr:LoopsAndConditionals__Control___409___401___400___400___400_ptarget ;
+    sysml:ownedMemberFeature expr:LoopsAndConditionals__Control___409___401___400___400___400_ptarget_pout ;
+    sysml:ownedMemberParameter expr:LoopsAndConditionals__Control___409___401___400___400___400_ptarget_pout .
 
 expr:LoopsAndConditionals__Control___409___401___400___400___400_ptarget_om
     a sysml:OwningMembership ;

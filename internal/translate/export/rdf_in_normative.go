@@ -507,8 +507,10 @@ func (d *decoder) verifyReferentMembership(subject rdf.Term) error {
 			Note: "it owns no element, so the expression it relates cannot be told",
 		}
 	}
-	for _, property := range []string{pReferent, pTargetFeature} {
+	stated := false
+	for _, property := range []string{pReferent, pTargetFeature, pFunction} {
 		objects := d.graph.Objects(owner, rdf.SysML+property)
+		stated = stated || len(objects) > 0
 		for _, object := range objects {
 			if object == member {
 				return nil
@@ -523,9 +525,13 @@ func (d *decoder) verifyReferentMembership(subject rdf.Term) error {
 			}
 		}
 	}
+	if !stated {
+		// The membership alone states the referent: the normative-only form.
+		return nil
+	}
 	return &UnsupportedError{
 		What: fmt.Sprintf("the membership <%s>", subject.Value),
-		Note: fmt.Sprintf("its member is <%s>, which the expression <%s> states no referent or target feature for, and the two statements cannot both hold", member.Value, owner.Value),
+		Note: fmt.Sprintf("its member is <%s>, which the expression <%s> states no referent, target feature or function for, and the two statements cannot both hold", member.Value, owner.Value),
 	}
 }
 

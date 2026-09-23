@@ -614,10 +614,36 @@ expr:R89__Ctx__seam__coupling_pvalue
     sysx:sourceText "SeamCoupling::learnFromData" ;
     sysml:elementId "R89__Ctx__seam__coupling_pvalue" ;
     sysml:referent elmt:R89__SeamCoupling__learnFromData ;
+    sysml:ownedRelationship expr:R89__Ctx__seam__coupling_pvalue_pout_om, expr:R89__Ctx__seam__coupling_pvalue_preferent ;
+    sysml:ownedMembership expr:R89__Ctx__seam__coupling_pvalue_pout_om ;
+    sysml:ownedFeatureMembership expr:R89__Ctx__seam__coupling_pvalue_pout_om ;
+    sysml:ownedFeature expr:R89__Ctx__seam__coupling_pvalue_pout ;
+    sysml:parameter expr:R89__Ctx__seam__coupling_pvalue_pout ;
+    sysml:result expr:R89__Ctx__seam__coupling_pvalue_pout ;
     sysml:owner elmt:R89__Ctx__seam__coupling ;
     sysml:owningRelationship expr:R89__Ctx__seam__coupling_pvalue_om ;
     sysml:owningMembership expr:R89__Ctx__seam__coupling_pvalue_om ;
-    sysml:ownedRelationship expr:R89__Ctx__seam__coupling_pvalue_preferent .
+    json:ownedRelationship "[{\"@id\":\"R89__Ctx__seam__coupling_pvalue_pout_om\"},{\"@id\":\"R89__Ctx__seam__coupling_pvalue_preferent\"}]" .
+
+expr:R89__Ctx__seam__coupling_pvalue_pout
+    a sysml:Feature ;
+    sysml:elementId "R89__Ctx__seam__coupling_pvalue_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:R89__Ctx__seam__coupling_pvalue ;
+    sysml:owningRelationship expr:R89__Ctx__seam__coupling_pvalue_pout_om ;
+    sysml:owningMembership expr:R89__Ctx__seam__coupling_pvalue_pout_om .
+
+expr:R89__Ctx__seam__coupling_pvalue_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "R89__Ctx__seam__coupling_pvalue_pout_om" ;
+    sysml:owner expr:R89__Ctx__seam__coupling_pvalue ;
+    sysml:memberElement expr:R89__Ctx__seam__coupling_pvalue_pout ;
+    sysml:ownedMemberElement expr:R89__Ctx__seam__coupling_pvalue_pout ;
+    sysml:ownedRelatedElement expr:R89__Ctx__seam__coupling_pvalue_pout ;
+    sysml:owningRelatedElement expr:R89__Ctx__seam__coupling_pvalue ;
+    sysml:membershipOwningNamespace expr:R89__Ctx__seam__coupling_pvalue ;
+    sysml:ownedMemberFeature expr:R89__Ctx__seam__coupling_pvalue_pout ;
+    sysml:ownedMemberParameter expr:R89__Ctx__seam__coupling_pvalue_pout .
 
 expr:R89__Ctx__seam__coupling_pvalue_om
     a sysml:FeatureValue ;
@@ -2926,27 +2952,58 @@ expr:Bodies__Ctx__Machine___403___400_ptarget
     sysx:sourceText "x.a" ;
     sysml:elementId "Bodies__Ctx__Machine___403___400_ptarget" ;
     sysml:argument expr:Bodies__Ctx__Machine___403___400_ptarget_pa0 ;
-    sysml:ownedRelationship expr:Bodies__Ctx__Machine___403___400_ptarget_pin0_om, expr:Bodies__Ctx__Machine___403___400_ptarget_ptargetFeature ;
-    sysml:ownedMembership expr:Bodies__Ctx__Machine___403___400_ptarget_pin0_om ;
-    sysml:ownedFeatureMembership expr:Bodies__Ctx__Machine___403___400_ptarget_pin0_om ;
-    sysml:ownedFeature expr:Bodies__Ctx__Machine___403___400_ptarget_pin0 ;
-    sysml:parameter expr:Bodies__Ctx__Machine___403___400_ptarget_pin0 ;
+    sysml:ownedRelationship expr:Bodies__Ctx__Machine___403___400_ptarget_pin0_om, expr:Bodies__Ctx__Machine___403___400_ptarget_pout_om, expr:Bodies__Ctx__Machine___403___400_ptarget_ptargetFeature ;
+    sysml:ownedMembership expr:Bodies__Ctx__Machine___403___400_ptarget_pin0_om, expr:Bodies__Ctx__Machine___403___400_ptarget_pout_om ;
+    sysml:ownedFeatureMembership expr:Bodies__Ctx__Machine___403___400_ptarget_pin0_om, expr:Bodies__Ctx__Machine___403___400_ptarget_pout_om ;
+    sysml:ownedFeature expr:Bodies__Ctx__Machine___403___400_ptarget_pin0, expr:Bodies__Ctx__Machine___403___400_ptarget_pout ;
+    sysml:parameter expr:Bodies__Ctx__Machine___403___400_ptarget_pin0, expr:Bodies__Ctx__Machine___403___400_ptarget_pout ;
     sysml:input expr:Bodies__Ctx__Machine___403___400_ptarget_pin0 ;
     sysml:targetFeature elmt:Bodies__A__a ;
+    sysml:result expr:Bodies__Ctx__Machine___403___400_ptarget_pout ;
     sysml:owner elmt:Bodies__Ctx__Machine___403___400 ;
     sysml:owningRelationship expr:Bodies__Ctx__Machine___403___400_ptarget_om ;
     sysml:owningMembership expr:Bodies__Ctx__Machine___403___400_ptarget_om ;
-    json:ownedRelationship "[{\"@id\":\"Bodies__Ctx__Machine___403___400_ptarget_pin0_om\"},{\"@id\":\"Bodies__Ctx__Machine___403___400_ptarget_ptargetFeature\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Bodies__Ctx__Machine___403___400_ptarget_pin0_om\"},{\"@id\":\"Bodies__Ctx__Machine___403___400_ptarget_pout_om\"},{\"@id\":\"Bodies__Ctx__Machine___403___400_ptarget_ptargetFeature\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Bodies__Ctx__Machine___403___400_ptarget_pin0_om\"},{\"@id\":\"Bodies__Ctx__Machine___403___400_ptarget_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Bodies__Ctx__Machine___403___400_ptarget_pin0_om\"},{\"@id\":\"Bodies__Ctx__Machine___403___400_ptarget_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Bodies__Ctx__Machine___403___400_ptarget_pin0\"},{\"@id\":\"Bodies__Ctx__Machine___403___400_ptarget_pout\"}]" ;
+    json:parameter "[{\"@id\":\"Bodies__Ctx__Machine___403___400_ptarget_pin0\"},{\"@id\":\"Bodies__Ctx__Machine___403___400_ptarget_pout\"}]" .
 
 expr:Bodies__Ctx__Machine___403___400_ptarget_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "x" ;
     sysml:elementId "Bodies__Ctx__Machine___403___400_ptarget_pa0" ;
     sysml:referent elmt:Bodies__Ctx__x ;
+    sysml:ownedRelationship expr:Bodies__Ctx__Machine___403___400_ptarget_pa0_pout_om, expr:Bodies__Ctx__Machine___403___400_ptarget_pa0_preferent ;
+    sysml:ownedMembership expr:Bodies__Ctx__Machine___403___400_ptarget_pa0_pout_om ;
+    sysml:ownedFeatureMembership expr:Bodies__Ctx__Machine___403___400_ptarget_pa0_pout_om ;
+    sysml:ownedFeature expr:Bodies__Ctx__Machine___403___400_ptarget_pa0_pout ;
+    sysml:parameter expr:Bodies__Ctx__Machine___403___400_ptarget_pa0_pout ;
+    sysml:result expr:Bodies__Ctx__Machine___403___400_ptarget_pa0_pout ;
     sysml:owner expr:Bodies__Ctx__Machine___403___400_ptarget_pin0 ;
     sysml:owningRelationship expr:Bodies__Ctx__Machine___403___400_ptarget_pa0_om ;
     sysml:owningMembership expr:Bodies__Ctx__Machine___403___400_ptarget_pa0_om ;
-    sysml:ownedRelationship expr:Bodies__Ctx__Machine___403___400_ptarget_pa0_preferent .
+    json:ownedRelationship "[{\"@id\":\"Bodies__Ctx__Machine___403___400_ptarget_pa0_pout_om\"},{\"@id\":\"Bodies__Ctx__Machine___403___400_ptarget_pa0_preferent\"}]" .
+
+expr:Bodies__Ctx__Machine___403___400_ptarget_pa0_pout
+    a sysml:Feature ;
+    sysml:elementId "Bodies__Ctx__Machine___403___400_ptarget_pa0_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:Bodies__Ctx__Machine___403___400_ptarget_pa0 ;
+    sysml:owningRelationship expr:Bodies__Ctx__Machine___403___400_ptarget_pa0_pout_om ;
+    sysml:owningMembership expr:Bodies__Ctx__Machine___403___400_ptarget_pa0_pout_om .
+
+expr:Bodies__Ctx__Machine___403___400_ptarget_pa0_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Bodies__Ctx__Machine___403___400_ptarget_pa0_pout_om" ;
+    sysml:owner expr:Bodies__Ctx__Machine___403___400_ptarget_pa0 ;
+    sysml:memberElement expr:Bodies__Ctx__Machine___403___400_ptarget_pa0_pout ;
+    sysml:ownedMemberElement expr:Bodies__Ctx__Machine___403___400_ptarget_pa0_pout ;
+    sysml:ownedRelatedElement expr:Bodies__Ctx__Machine___403___400_ptarget_pa0_pout ;
+    sysml:owningRelatedElement expr:Bodies__Ctx__Machine___403___400_ptarget_pa0 ;
+    sysml:membershipOwningNamespace expr:Bodies__Ctx__Machine___403___400_ptarget_pa0 ;
+    sysml:ownedMemberFeature expr:Bodies__Ctx__Machine___403___400_ptarget_pa0_pout ;
+    sysml:ownedMemberParameter expr:Bodies__Ctx__Machine___403___400_ptarget_pa0_pout .
 
 expr:Bodies__Ctx__Machine___403___400_ptarget_pin0
     a sysml:Feature ;
@@ -2981,6 +3038,26 @@ expr:Bodies__Ctx__Machine___403___400_ptarget_pa0_om
     sysml:membershipOwningNamespace expr:Bodies__Ctx__Machine___403___400_ptarget_pin0 ;
     sysml:featureWithValue expr:Bodies__Ctx__Machine___403___400_ptarget_pin0 ;
     sysml:value expr:Bodies__Ctx__Machine___403___400_ptarget_pa0 .
+
+expr:Bodies__Ctx__Machine___403___400_ptarget_pout
+    a sysml:Feature ;
+    sysml:elementId "Bodies__Ctx__Machine___403___400_ptarget_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:Bodies__Ctx__Machine___403___400_ptarget ;
+    sysml:owningRelationship expr:Bodies__Ctx__Machine___403___400_ptarget_pout_om ;
+    sysml:owningMembership expr:Bodies__Ctx__Machine___403___400_ptarget_pout_om .
+
+expr:Bodies__Ctx__Machine___403___400_ptarget_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Bodies__Ctx__Machine___403___400_ptarget_pout_om" ;
+    sysml:owner expr:Bodies__Ctx__Machine___403___400_ptarget ;
+    sysml:memberElement expr:Bodies__Ctx__Machine___403___400_ptarget_pout ;
+    sysml:ownedMemberElement expr:Bodies__Ctx__Machine___403___400_ptarget_pout ;
+    sysml:ownedRelatedElement expr:Bodies__Ctx__Machine___403___400_ptarget_pout ;
+    sysml:owningRelatedElement expr:Bodies__Ctx__Machine___403___400_ptarget ;
+    sysml:membershipOwningNamespace expr:Bodies__Ctx__Machine___403___400_ptarget ;
+    sysml:ownedMemberFeature expr:Bodies__Ctx__Machine___403___400_ptarget_pout ;
+    sysml:ownedMemberParameter expr:Bodies__Ctx__Machine___403___400_ptarget_pout .
 
 expr:Bodies__Ctx__Machine___403___400_ptarget_om
     a sysml:OwningMembership ;
@@ -3117,27 +3194,58 @@ expr:Bodies__Ctx__Machine___404___400___400_ptarget
     sysx:sourceText "x.a" ;
     sysml:elementId "Bodies__Ctx__Machine___404___400___400_ptarget" ;
     sysml:argument expr:Bodies__Ctx__Machine___404___400___400_ptarget_pa0 ;
-    sysml:ownedRelationship expr:Bodies__Ctx__Machine___404___400___400_ptarget_pin0_om, expr:Bodies__Ctx__Machine___404___400___400_ptarget_ptargetFeature ;
-    sysml:ownedMembership expr:Bodies__Ctx__Machine___404___400___400_ptarget_pin0_om ;
-    sysml:ownedFeatureMembership expr:Bodies__Ctx__Machine___404___400___400_ptarget_pin0_om ;
-    sysml:ownedFeature expr:Bodies__Ctx__Machine___404___400___400_ptarget_pin0 ;
-    sysml:parameter expr:Bodies__Ctx__Machine___404___400___400_ptarget_pin0 ;
+    sysml:ownedRelationship expr:Bodies__Ctx__Machine___404___400___400_ptarget_pin0_om, expr:Bodies__Ctx__Machine___404___400___400_ptarget_pout_om, expr:Bodies__Ctx__Machine___404___400___400_ptarget_ptargetFeature ;
+    sysml:ownedMembership expr:Bodies__Ctx__Machine___404___400___400_ptarget_pin0_om, expr:Bodies__Ctx__Machine___404___400___400_ptarget_pout_om ;
+    sysml:ownedFeatureMembership expr:Bodies__Ctx__Machine___404___400___400_ptarget_pin0_om, expr:Bodies__Ctx__Machine___404___400___400_ptarget_pout_om ;
+    sysml:ownedFeature expr:Bodies__Ctx__Machine___404___400___400_ptarget_pin0, expr:Bodies__Ctx__Machine___404___400___400_ptarget_pout ;
+    sysml:parameter expr:Bodies__Ctx__Machine___404___400___400_ptarget_pin0, expr:Bodies__Ctx__Machine___404___400___400_ptarget_pout ;
     sysml:input expr:Bodies__Ctx__Machine___404___400___400_ptarget_pin0 ;
     sysml:targetFeature elmt:Bodies__A__a ;
+    sysml:result expr:Bodies__Ctx__Machine___404___400___400_ptarget_pout ;
     sysml:owner elmt:Bodies__Ctx__Machine___404___400___400 ;
     sysml:owningRelationship expr:Bodies__Ctx__Machine___404___400___400_ptarget_om ;
     sysml:owningMembership expr:Bodies__Ctx__Machine___404___400___400_ptarget_om ;
-    json:ownedRelationship "[{\"@id\":\"Bodies__Ctx__Machine___404___400___400_ptarget_pin0_om\"},{\"@id\":\"Bodies__Ctx__Machine___404___400___400_ptarget_ptargetFeature\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Bodies__Ctx__Machine___404___400___400_ptarget_pin0_om\"},{\"@id\":\"Bodies__Ctx__Machine___404___400___400_ptarget_pout_om\"},{\"@id\":\"Bodies__Ctx__Machine___404___400___400_ptarget_ptargetFeature\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Bodies__Ctx__Machine___404___400___400_ptarget_pin0_om\"},{\"@id\":\"Bodies__Ctx__Machine___404___400___400_ptarget_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Bodies__Ctx__Machine___404___400___400_ptarget_pin0_om\"},{\"@id\":\"Bodies__Ctx__Machine___404___400___400_ptarget_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Bodies__Ctx__Machine___404___400___400_ptarget_pin0\"},{\"@id\":\"Bodies__Ctx__Machine___404___400___400_ptarget_pout\"}]" ;
+    json:parameter "[{\"@id\":\"Bodies__Ctx__Machine___404___400___400_ptarget_pin0\"},{\"@id\":\"Bodies__Ctx__Machine___404___400___400_ptarget_pout\"}]" .
 
 expr:Bodies__Ctx__Machine___404___400___400_ptarget_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "x" ;
     sysml:elementId "Bodies__Ctx__Machine___404___400___400_ptarget_pa0" ;
     sysml:referent elmt:Bodies__Ctx__x ;
+    sysml:ownedRelationship expr:Bodies__Ctx__Machine___404___400___400_ptarget_pa0_pout_om, expr:Bodies__Ctx__Machine___404___400___400_ptarget_pa0_preferent ;
+    sysml:ownedMembership expr:Bodies__Ctx__Machine___404___400___400_ptarget_pa0_pout_om ;
+    sysml:ownedFeatureMembership expr:Bodies__Ctx__Machine___404___400___400_ptarget_pa0_pout_om ;
+    sysml:ownedFeature expr:Bodies__Ctx__Machine___404___400___400_ptarget_pa0_pout ;
+    sysml:parameter expr:Bodies__Ctx__Machine___404___400___400_ptarget_pa0_pout ;
+    sysml:result expr:Bodies__Ctx__Machine___404___400___400_ptarget_pa0_pout ;
     sysml:owner expr:Bodies__Ctx__Machine___404___400___400_ptarget_pin0 ;
     sysml:owningRelationship expr:Bodies__Ctx__Machine___404___400___400_ptarget_pa0_om ;
     sysml:owningMembership expr:Bodies__Ctx__Machine___404___400___400_ptarget_pa0_om ;
-    sysml:ownedRelationship expr:Bodies__Ctx__Machine___404___400___400_ptarget_pa0_preferent .
+    json:ownedRelationship "[{\"@id\":\"Bodies__Ctx__Machine___404___400___400_ptarget_pa0_pout_om\"},{\"@id\":\"Bodies__Ctx__Machine___404___400___400_ptarget_pa0_preferent\"}]" .
+
+expr:Bodies__Ctx__Machine___404___400___400_ptarget_pa0_pout
+    a sysml:Feature ;
+    sysml:elementId "Bodies__Ctx__Machine___404___400___400_ptarget_pa0_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:Bodies__Ctx__Machine___404___400___400_ptarget_pa0 ;
+    sysml:owningRelationship expr:Bodies__Ctx__Machine___404___400___400_ptarget_pa0_pout_om ;
+    sysml:owningMembership expr:Bodies__Ctx__Machine___404___400___400_ptarget_pa0_pout_om .
+
+expr:Bodies__Ctx__Machine___404___400___400_ptarget_pa0_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Bodies__Ctx__Machine___404___400___400_ptarget_pa0_pout_om" ;
+    sysml:owner expr:Bodies__Ctx__Machine___404___400___400_ptarget_pa0 ;
+    sysml:memberElement expr:Bodies__Ctx__Machine___404___400___400_ptarget_pa0_pout ;
+    sysml:ownedMemberElement expr:Bodies__Ctx__Machine___404___400___400_ptarget_pa0_pout ;
+    sysml:ownedRelatedElement expr:Bodies__Ctx__Machine___404___400___400_ptarget_pa0_pout ;
+    sysml:owningRelatedElement expr:Bodies__Ctx__Machine___404___400___400_ptarget_pa0 ;
+    sysml:membershipOwningNamespace expr:Bodies__Ctx__Machine___404___400___400_ptarget_pa0 ;
+    sysml:ownedMemberFeature expr:Bodies__Ctx__Machine___404___400___400_ptarget_pa0_pout ;
+    sysml:ownedMemberParameter expr:Bodies__Ctx__Machine___404___400___400_ptarget_pa0_pout .
 
 expr:Bodies__Ctx__Machine___404___400___400_ptarget_pin0
     a sysml:Feature ;
@@ -3172,6 +3280,26 @@ expr:Bodies__Ctx__Machine___404___400___400_ptarget_pa0_om
     sysml:membershipOwningNamespace expr:Bodies__Ctx__Machine___404___400___400_ptarget_pin0 ;
     sysml:featureWithValue expr:Bodies__Ctx__Machine___404___400___400_ptarget_pin0 ;
     sysml:value expr:Bodies__Ctx__Machine___404___400___400_ptarget_pa0 .
+
+expr:Bodies__Ctx__Machine___404___400___400_ptarget_pout
+    a sysml:Feature ;
+    sysml:elementId "Bodies__Ctx__Machine___404___400___400_ptarget_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:Bodies__Ctx__Machine___404___400___400_ptarget ;
+    sysml:owningRelationship expr:Bodies__Ctx__Machine___404___400___400_ptarget_pout_om ;
+    sysml:owningMembership expr:Bodies__Ctx__Machine___404___400___400_ptarget_pout_om .
+
+expr:Bodies__Ctx__Machine___404___400___400_ptarget_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Bodies__Ctx__Machine___404___400___400_ptarget_pout_om" ;
+    sysml:owner expr:Bodies__Ctx__Machine___404___400___400_ptarget ;
+    sysml:memberElement expr:Bodies__Ctx__Machine___404___400___400_ptarget_pout ;
+    sysml:ownedMemberElement expr:Bodies__Ctx__Machine___404___400___400_ptarget_pout ;
+    sysml:ownedRelatedElement expr:Bodies__Ctx__Machine___404___400___400_ptarget_pout ;
+    sysml:owningRelatedElement expr:Bodies__Ctx__Machine___404___400___400_ptarget ;
+    sysml:membershipOwningNamespace expr:Bodies__Ctx__Machine___404___400___400_ptarget ;
+    sysml:ownedMemberFeature expr:Bodies__Ctx__Machine___404___400___400_ptarget_pout ;
+    sysml:ownedMemberParameter expr:Bodies__Ctx__Machine___404___400___400_ptarget_pout .
 
 expr:Bodies__Ctx__Machine___404___400___400_ptarget_om
     a sysml:OwningMembership ;

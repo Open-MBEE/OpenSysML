@@ -249,8 +249,8 @@ func TestResultExpressionWithoutAnExpressionIsRefused(t *testing.T) {
 	turtle := string(withoutTriples(t, convertFixture(t, "result_expressions"), "sysx:sourceText"))
 	const argument = "    sysml:argument expr:Results__AfterMembers___403_pa0, expr:Results__AfterMembers___403_pa1 ;"
 	const annotation = "    json:argument \"[{\\\"@id\\\":\\\"Results__AfterMembers___403_pa0\\\"},{\\\"@id\\\":\\\"Results__AfterMembers___403_pa1\\\"}]\" ;"
-	const featureMembership = "    sysml:ownedFeatureMembership expr:Results__AfterMembers___403_pin0_om, expr:Results__AfterMembers___403_pin1_om ;"
-	const featureMembershipAnnotation = "    json:ownedFeatureMembership \"[{\\\"@id\\\":\\\"Results__AfterMembers___403_pin0_om\\\"},{\\\"@id\\\":\\\"Results__AfterMembers___403_pin1_om\\\"}]\" ;"
+	const featureMembership = "    sysml:ownedFeatureMembership expr:Results__AfterMembers___403_pin0_om, expr:Results__AfterMembers___403_pin1_om, expr:Results__AfterMembers___403_pout_om ;"
+	const featureMembershipAnnotation = "    json:ownedFeatureMembership \"[{\\\"@id\\\":\\\"Results__AfterMembers___403_pin0_om\\\"},{\\\"@id\\\":\\\"Results__AfterMembers___403_pin1_om\\\"},{\\\"@id\\\":\\\"Results__AfterMembers___403_pout_om\\\"}]\" ;"
 	if !strings.Contains(turtle, argument) || !strings.Contains(turtle, annotation) || !strings.Contains(turtle, featureMembership) || !strings.Contains(turtle, featureMembershipAnnotation) {
 		t.Fatalf("expected the operands of the AfterMembers result in the graph:\n%s", turtle)
 	}

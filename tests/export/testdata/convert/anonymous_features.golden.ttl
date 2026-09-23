@@ -332,10 +332,36 @@ expr:AnonymousFeatures__v___402_pvalue
     sysx:sourceText "e" ;
     sysml:elementId "AnonymousFeatures__v___402_pvalue" ;
     sysml:referent elmt:AnonymousFeatures__e ;
+    sysml:ownedRelationship expr:AnonymousFeatures__v___402_pvalue_pout_om, expr:AnonymousFeatures__v___402_pvalue_preferent ;
+    sysml:ownedMembership expr:AnonymousFeatures__v___402_pvalue_pout_om ;
+    sysml:ownedFeatureMembership expr:AnonymousFeatures__v___402_pvalue_pout_om ;
+    sysml:ownedFeature expr:AnonymousFeatures__v___402_pvalue_pout ;
+    sysml:parameter expr:AnonymousFeatures__v___402_pvalue_pout ;
+    sysml:result expr:AnonymousFeatures__v___402_pvalue_pout ;
     sysml:owner elmt:AnonymousFeatures__v___402 ;
     sysml:owningRelationship expr:AnonymousFeatures__v___402_pvalue_om ;
     sysml:owningMembership expr:AnonymousFeatures__v___402_pvalue_om ;
-    sysml:ownedRelationship expr:AnonymousFeatures__v___402_pvalue_preferent .
+    json:ownedRelationship "[{\"@id\":\"AnonymousFeatures__v___402_pvalue_pout_om\"},{\"@id\":\"AnonymousFeatures__v___402_pvalue_preferent\"}]" .
+
+expr:AnonymousFeatures__v___402_pvalue_pout
+    a sysml:Feature ;
+    sysml:elementId "AnonymousFeatures__v___402_pvalue_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:AnonymousFeatures__v___402_pvalue ;
+    sysml:owningRelationship expr:AnonymousFeatures__v___402_pvalue_pout_om ;
+    sysml:owningMembership expr:AnonymousFeatures__v___402_pvalue_pout_om .
+
+expr:AnonymousFeatures__v___402_pvalue_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "AnonymousFeatures__v___402_pvalue_pout_om" ;
+    sysml:owner expr:AnonymousFeatures__v___402_pvalue ;
+    sysml:memberElement expr:AnonymousFeatures__v___402_pvalue_pout ;
+    sysml:ownedMemberElement expr:AnonymousFeatures__v___402_pvalue_pout ;
+    sysml:ownedRelatedElement expr:AnonymousFeatures__v___402_pvalue_pout ;
+    sysml:owningRelatedElement expr:AnonymousFeatures__v___402_pvalue ;
+    sysml:membershipOwningNamespace expr:AnonymousFeatures__v___402_pvalue ;
+    sysml:ownedMemberFeature expr:AnonymousFeatures__v___402_pvalue_pout ;
+    sysml:ownedMemberParameter expr:AnonymousFeatures__v___402_pvalue_pout .
 
 expr:AnonymousFeatures__v___402_pvalue_om
     a sysml:FeatureValue ;

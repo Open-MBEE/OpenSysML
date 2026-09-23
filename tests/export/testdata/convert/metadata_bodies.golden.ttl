@@ -830,27 +830,58 @@ expr:Annotated___403__level_pvalue
     sysx:sourceText "car.range" ;
     sysml:elementId "Annotated___403__level_pvalue" ;
     sysml:argument expr:Annotated___403__level_pvalue_pa0 ;
-    sysml:ownedRelationship expr:Annotated___403__level_pvalue_pin0_om, expr:Annotated___403__level_pvalue_ptargetFeature ;
-    sysml:ownedMembership expr:Annotated___403__level_pvalue_pin0_om ;
-    sysml:ownedFeatureMembership expr:Annotated___403__level_pvalue_pin0_om ;
-    sysml:ownedFeature expr:Annotated___403__level_pvalue_pin0 ;
-    sysml:parameter expr:Annotated___403__level_pvalue_pin0 ;
+    sysml:ownedRelationship expr:Annotated___403__level_pvalue_pin0_om, expr:Annotated___403__level_pvalue_pout_om, expr:Annotated___403__level_pvalue_ptargetFeature ;
+    sysml:ownedMembership expr:Annotated___403__level_pvalue_pin0_om, expr:Annotated___403__level_pvalue_pout_om ;
+    sysml:ownedFeatureMembership expr:Annotated___403__level_pvalue_pin0_om, expr:Annotated___403__level_pvalue_pout_om ;
+    sysml:ownedFeature expr:Annotated___403__level_pvalue_pin0, expr:Annotated___403__level_pvalue_pout ;
+    sysml:parameter expr:Annotated___403__level_pvalue_pin0, expr:Annotated___403__level_pvalue_pout ;
     sysml:input expr:Annotated___403__level_pvalue_pin0 ;
     sysml:targetFeature elmt:Annotated__car__range ;
+    sysml:result expr:Annotated___403__level_pvalue_pout ;
     sysml:owner elmt:Annotated___403__level ;
     sysml:owningRelationship expr:Annotated___403__level_pvalue_om ;
     sysml:owningMembership expr:Annotated___403__level_pvalue_om ;
-    json:ownedRelationship "[{\"@id\":\"Annotated___403__level_pvalue_pin0_om\"},{\"@id\":\"Annotated___403__level_pvalue_ptargetFeature\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Annotated___403__level_pvalue_pin0_om\"},{\"@id\":\"Annotated___403__level_pvalue_pout_om\"},{\"@id\":\"Annotated___403__level_pvalue_ptargetFeature\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Annotated___403__level_pvalue_pin0_om\"},{\"@id\":\"Annotated___403__level_pvalue_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Annotated___403__level_pvalue_pin0_om\"},{\"@id\":\"Annotated___403__level_pvalue_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Annotated___403__level_pvalue_pin0\"},{\"@id\":\"Annotated___403__level_pvalue_pout\"}]" ;
+    json:parameter "[{\"@id\":\"Annotated___403__level_pvalue_pin0\"},{\"@id\":\"Annotated___403__level_pvalue_pout\"}]" .
 
 expr:Annotated___403__level_pvalue_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "car" ;
     sysml:elementId "Annotated___403__level_pvalue_pa0" ;
     sysml:referent elmt:Annotated__car ;
+    sysml:ownedRelationship expr:Annotated___403__level_pvalue_pa0_pout_om, expr:Annotated___403__level_pvalue_pa0_preferent ;
+    sysml:ownedMembership expr:Annotated___403__level_pvalue_pa0_pout_om ;
+    sysml:ownedFeatureMembership expr:Annotated___403__level_pvalue_pa0_pout_om ;
+    sysml:ownedFeature expr:Annotated___403__level_pvalue_pa0_pout ;
+    sysml:parameter expr:Annotated___403__level_pvalue_pa0_pout ;
+    sysml:result expr:Annotated___403__level_pvalue_pa0_pout ;
     sysml:owner expr:Annotated___403__level_pvalue_pin0 ;
     sysml:owningRelationship expr:Annotated___403__level_pvalue_pa0_om ;
     sysml:owningMembership expr:Annotated___403__level_pvalue_pa0_om ;
-    sysml:ownedRelationship expr:Annotated___403__level_pvalue_pa0_preferent .
+    json:ownedRelationship "[{\"@id\":\"Annotated___403__level_pvalue_pa0_pout_om\"},{\"@id\":\"Annotated___403__level_pvalue_pa0_preferent\"}]" .
+
+expr:Annotated___403__level_pvalue_pa0_pout
+    a sysml:Feature ;
+    sysml:elementId "Annotated___403__level_pvalue_pa0_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:Annotated___403__level_pvalue_pa0 ;
+    sysml:owningRelationship expr:Annotated___403__level_pvalue_pa0_pout_om ;
+    sysml:owningMembership expr:Annotated___403__level_pvalue_pa0_pout_om .
+
+expr:Annotated___403__level_pvalue_pa0_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Annotated___403__level_pvalue_pa0_pout_om" ;
+    sysml:owner expr:Annotated___403__level_pvalue_pa0 ;
+    sysml:memberElement expr:Annotated___403__level_pvalue_pa0_pout ;
+    sysml:ownedMemberElement expr:Annotated___403__level_pvalue_pa0_pout ;
+    sysml:ownedRelatedElement expr:Annotated___403__level_pvalue_pa0_pout ;
+    sysml:owningRelatedElement expr:Annotated___403__level_pvalue_pa0 ;
+    sysml:membershipOwningNamespace expr:Annotated___403__level_pvalue_pa0 ;
+    sysml:ownedMemberFeature expr:Annotated___403__level_pvalue_pa0_pout ;
+    sysml:ownedMemberParameter expr:Annotated___403__level_pvalue_pa0_pout .
 
 expr:Annotated___403__level_pvalue_pin0
     a sysml:Feature ;
@@ -885,6 +916,26 @@ expr:Annotated___403__level_pvalue_pa0_om
     sysml:membershipOwningNamespace expr:Annotated___403__level_pvalue_pin0 ;
     sysml:featureWithValue expr:Annotated___403__level_pvalue_pin0 ;
     sysml:value expr:Annotated___403__level_pvalue_pa0 .
+
+expr:Annotated___403__level_pvalue_pout
+    a sysml:Feature ;
+    sysml:elementId "Annotated___403__level_pvalue_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:Annotated___403__level_pvalue ;
+    sysml:owningRelationship expr:Annotated___403__level_pvalue_pout_om ;
+    sysml:owningMembership expr:Annotated___403__level_pvalue_pout_om .
+
+expr:Annotated___403__level_pvalue_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Annotated___403__level_pvalue_pout_om" ;
+    sysml:owner expr:Annotated___403__level_pvalue ;
+    sysml:memberElement expr:Annotated___403__level_pvalue_pout ;
+    sysml:ownedMemberElement expr:Annotated___403__level_pvalue_pout ;
+    sysml:ownedRelatedElement expr:Annotated___403__level_pvalue_pout ;
+    sysml:owningRelatedElement expr:Annotated___403__level_pvalue ;
+    sysml:membershipOwningNamespace expr:Annotated___403__level_pvalue ;
+    sysml:ownedMemberFeature expr:Annotated___403__level_pvalue_pout ;
+    sysml:ownedMemberParameter expr:Annotated___403__level_pvalue_pout .
 
 expr:Annotated___403__level_pvalue_om
     a sysml:FeatureValue ;
@@ -932,10 +983,36 @@ expr:Annotated___403__reviewer_pvalue
     sysx:sourceText "Car::mass" ;
     sysml:elementId "Annotated___403__reviewer_pvalue" ;
     sysml:referent elmt:Annotated__Car__mass ;
+    sysml:ownedRelationship expr:Annotated___403__reviewer_pvalue_pout_om, expr:Annotated___403__reviewer_pvalue_preferent ;
+    sysml:ownedMembership expr:Annotated___403__reviewer_pvalue_pout_om ;
+    sysml:ownedFeatureMembership expr:Annotated___403__reviewer_pvalue_pout_om ;
+    sysml:ownedFeature expr:Annotated___403__reviewer_pvalue_pout ;
+    sysml:parameter expr:Annotated___403__reviewer_pvalue_pout ;
+    sysml:result expr:Annotated___403__reviewer_pvalue_pout ;
     sysml:owner elmt:Annotated___403__reviewer ;
     sysml:owningRelationship expr:Annotated___403__reviewer_pvalue_om ;
     sysml:owningMembership expr:Annotated___403__reviewer_pvalue_om ;
-    sysml:ownedRelationship expr:Annotated___403__reviewer_pvalue_preferent .
+    json:ownedRelationship "[{\"@id\":\"Annotated___403__reviewer_pvalue_pout_om\"},{\"@id\":\"Annotated___403__reviewer_pvalue_preferent\"}]" .
+
+expr:Annotated___403__reviewer_pvalue_pout
+    a sysml:Feature ;
+    sysml:elementId "Annotated___403__reviewer_pvalue_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:Annotated___403__reviewer_pvalue ;
+    sysml:owningRelationship expr:Annotated___403__reviewer_pvalue_pout_om ;
+    sysml:owningMembership expr:Annotated___403__reviewer_pvalue_pout_om .
+
+expr:Annotated___403__reviewer_pvalue_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Annotated___403__reviewer_pvalue_pout_om" ;
+    sysml:owner expr:Annotated___403__reviewer_pvalue ;
+    sysml:memberElement expr:Annotated___403__reviewer_pvalue_pout ;
+    sysml:ownedMemberElement expr:Annotated___403__reviewer_pvalue_pout ;
+    sysml:ownedRelatedElement expr:Annotated___403__reviewer_pvalue_pout ;
+    sysml:owningRelatedElement expr:Annotated___403__reviewer_pvalue ;
+    sysml:membershipOwningNamespace expr:Annotated___403__reviewer_pvalue ;
+    sysml:ownedMemberFeature expr:Annotated___403__reviewer_pvalue_pout ;
+    sysml:ownedMemberParameter expr:Annotated___403__reviewer_pvalue_pout .
 
 expr:Annotated___403__reviewer_pvalue_om
     a sysml:FeatureValue ;

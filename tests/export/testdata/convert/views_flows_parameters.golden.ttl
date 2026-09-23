@@ -969,9 +969,35 @@ expr:FlowsAndViews__StructureView___400_pfilter
     sysml:elementId "FlowsAndViews__StructureView___400_pfilter" ;
     sysml:operator "@" ;
     sysx:typeArgument <urn:sysmlv2:element:550f9923-23f8-5142-aa06-d7ff476876d7> ;
+    sysml:ownedRelationship expr:FlowsAndViews__StructureView___400_pfilter_pout_om ;
+    sysml:ownedMembership expr:FlowsAndViews__StructureView___400_pfilter_pout_om ;
+    sysml:ownedFeatureMembership expr:FlowsAndViews__StructureView___400_pfilter_pout_om ;
+    sysml:ownedFeature expr:FlowsAndViews__StructureView___400_pfilter_pout ;
+    sysml:parameter expr:FlowsAndViews__StructureView___400_pfilter_pout ;
+    sysml:result expr:FlowsAndViews__StructureView___400_pfilter_pout ;
     sysml:owner elmt:FlowsAndViews__StructureView___400 ;
     sysml:owningRelationship elmt:FlowsAndViews__StructureView___400 ;
     sysml:owningMembership elmt:FlowsAndViews__StructureView___400 .
+
+expr:FlowsAndViews__StructureView___400_pfilter_pout
+    a sysml:Feature ;
+    sysml:elementId "FlowsAndViews__StructureView___400_pfilter_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:FlowsAndViews__StructureView___400_pfilter ;
+    sysml:owningRelationship expr:FlowsAndViews__StructureView___400_pfilter_pout_om ;
+    sysml:owningMembership expr:FlowsAndViews__StructureView___400_pfilter_pout_om .
+
+expr:FlowsAndViews__StructureView___400_pfilter_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "FlowsAndViews__StructureView___400_pfilter_pout_om" ;
+    sysml:owner expr:FlowsAndViews__StructureView___400_pfilter ;
+    sysml:memberElement expr:FlowsAndViews__StructureView___400_pfilter_pout ;
+    sysml:ownedMemberElement expr:FlowsAndViews__StructureView___400_pfilter_pout ;
+    sysml:ownedRelatedElement expr:FlowsAndViews__StructureView___400_pfilter_pout ;
+    sysml:owningRelatedElement expr:FlowsAndViews__StructureView___400_pfilter ;
+    sysml:membershipOwningNamespace expr:FlowsAndViews__StructureView___400_pfilter ;
+    sysml:ownedMemberFeature expr:FlowsAndViews__StructureView___400_pfilter_pout ;
+    sysml:ownedMemberParameter expr:FlowsAndViews__StructureView___400_pfilter_pout .
 
 elmt:FlowsAndViews__vehicleView
     a sysml:ViewUsage ;

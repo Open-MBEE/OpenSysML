@@ -153,19 +153,20 @@ elmt:Constraints__MassLimit___402
     sysml:owningMembership elmt:Constraints__MassLimit___402_om ;
     sysml:operator "<" ;
     sysml:argument expr:Constraints__MassLimit___402_pa0, expr:Constraints__MassLimit___402_pa1 ;
-    sysml:ownedRelationship expr:Constraints__MassLimit___402_pin0_om, expr:Constraints__MassLimit___402_pin1_om ;
-    sysml:ownedMembership expr:Constraints__MassLimit___402_pin0_om, expr:Constraints__MassLimit___402_pin1_om ;
-    sysml:ownedFeatureMembership expr:Constraints__MassLimit___402_pin0_om, expr:Constraints__MassLimit___402_pin1_om ;
-    sysml:ownedFeature expr:Constraints__MassLimit___402_pin0, expr:Constraints__MassLimit___402_pin1 ;
-    sysml:parameter expr:Constraints__MassLimit___402_pin0, expr:Constraints__MassLimit___402_pin1 ;
+    sysml:ownedRelationship expr:Constraints__MassLimit___402_pin0_om, expr:Constraints__MassLimit___402_pin1_om, expr:Constraints__MassLimit___402_pout_om ;
+    sysml:ownedMembership expr:Constraints__MassLimit___402_pin0_om, expr:Constraints__MassLimit___402_pin1_om, expr:Constraints__MassLimit___402_pout_om ;
+    sysml:ownedFeatureMembership expr:Constraints__MassLimit___402_pin0_om, expr:Constraints__MassLimit___402_pin1_om, expr:Constraints__MassLimit___402_pout_om ;
+    sysml:ownedFeature expr:Constraints__MassLimit___402_pin0, expr:Constraints__MassLimit___402_pin1, expr:Constraints__MassLimit___402_pout ;
+    sysml:parameter expr:Constraints__MassLimit___402_pin0, expr:Constraints__MassLimit___402_pin1, expr:Constraints__MassLimit___402_pout ;
     sysml:input expr:Constraints__MassLimit___402_pin0, expr:Constraints__MassLimit___402_pin1 ;
+    sysml:result expr:Constraints__MassLimit___402_pout ;
     sysx:sourceText "        m < limit\n" ;
     json:argument "[{\"@id\":\"Constraints__MassLimit___402_pa0\"},{\"@id\":\"Constraints__MassLimit___402_pa1\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"Constraints__MassLimit___402_pin0_om\"},{\"@id\":\"Constraints__MassLimit___402_pin1_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Constraints__MassLimit___402_pin0_om\"},{\"@id\":\"Constraints__MassLimit___402_pin1_om\"}]" ;
-    json:ownedFeatureMembership "[{\"@id\":\"Constraints__MassLimit___402_pin0_om\"},{\"@id\":\"Constraints__MassLimit___402_pin1_om\"}]" ;
-    json:ownedFeature "[{\"@id\":\"Constraints__MassLimit___402_pin0\"},{\"@id\":\"Constraints__MassLimit___402_pin1\"}]" ;
-    json:parameter "[{\"@id\":\"Constraints__MassLimit___402_pin0\"},{\"@id\":\"Constraints__MassLimit___402_pin1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Constraints__MassLimit___402_pin0_om\"},{\"@id\":\"Constraints__MassLimit___402_pin1_om\"},{\"@id\":\"Constraints__MassLimit___402_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Constraints__MassLimit___402_pin0_om\"},{\"@id\":\"Constraints__MassLimit___402_pin1_om\"},{\"@id\":\"Constraints__MassLimit___402_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Constraints__MassLimit___402_pin0_om\"},{\"@id\":\"Constraints__MassLimit___402_pin1_om\"},{\"@id\":\"Constraints__MassLimit___402_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Constraints__MassLimit___402_pin0\"},{\"@id\":\"Constraints__MassLimit___402_pin1\"},{\"@id\":\"Constraints__MassLimit___402_pout\"}]" ;
+    json:parameter "[{\"@id\":\"Constraints__MassLimit___402_pin0\"},{\"@id\":\"Constraints__MassLimit___402_pin1\"},{\"@id\":\"Constraints__MassLimit___402_pout\"}]" ;
     json:input "[{\"@id\":\"Constraints__MassLimit___402_pin0\"},{\"@id\":\"Constraints__MassLimit___402_pin1\"}]" .
 
 elmt:Constraints__MassLimit___402_om
@@ -186,10 +187,36 @@ expr:Constraints__MassLimit___402_pa0
     sysx:sourceText "m" ;
     sysml:elementId "Constraints__MassLimit___402_pa0" ;
     sysml:referent elmt:Constraints__MassLimit__m ;
+    sysml:ownedRelationship expr:Constraints__MassLimit___402_pa0_pout_om, expr:Constraints__MassLimit___402_pa0_preferent ;
+    sysml:ownedMembership expr:Constraints__MassLimit___402_pa0_pout_om ;
+    sysml:ownedFeatureMembership expr:Constraints__MassLimit___402_pa0_pout_om ;
+    sysml:ownedFeature expr:Constraints__MassLimit___402_pa0_pout ;
+    sysml:parameter expr:Constraints__MassLimit___402_pa0_pout ;
+    sysml:result expr:Constraints__MassLimit___402_pa0_pout ;
     sysml:owner expr:Constraints__MassLimit___402_pin0 ;
     sysml:owningRelationship expr:Constraints__MassLimit___402_pa0_om ;
     sysml:owningMembership expr:Constraints__MassLimit___402_pa0_om ;
-    sysml:ownedRelationship expr:Constraints__MassLimit___402_pa0_preferent .
+    json:ownedRelationship "[{\"@id\":\"Constraints__MassLimit___402_pa0_pout_om\"},{\"@id\":\"Constraints__MassLimit___402_pa0_preferent\"}]" .
+
+expr:Constraints__MassLimit___402_pa0_pout
+    a sysml:Feature ;
+    sysml:elementId "Constraints__MassLimit___402_pa0_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:Constraints__MassLimit___402_pa0 ;
+    sysml:owningRelationship expr:Constraints__MassLimit___402_pa0_pout_om ;
+    sysml:owningMembership expr:Constraints__MassLimit___402_pa0_pout_om .
+
+expr:Constraints__MassLimit___402_pa0_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Constraints__MassLimit___402_pa0_pout_om" ;
+    sysml:owner expr:Constraints__MassLimit___402_pa0 ;
+    sysml:memberElement expr:Constraints__MassLimit___402_pa0_pout ;
+    sysml:ownedMemberElement expr:Constraints__MassLimit___402_pa0_pout ;
+    sysml:ownedRelatedElement expr:Constraints__MassLimit___402_pa0_pout ;
+    sysml:owningRelatedElement expr:Constraints__MassLimit___402_pa0 ;
+    sysml:membershipOwningNamespace expr:Constraints__MassLimit___402_pa0 ;
+    sysml:ownedMemberFeature expr:Constraints__MassLimit___402_pa0_pout ;
+    sysml:ownedMemberParameter expr:Constraints__MassLimit___402_pa0_pout .
 
 expr:Constraints__MassLimit___402_pin0
     a sysml:Feature ;
@@ -230,10 +257,36 @@ expr:Constraints__MassLimit___402_pa1
     sysx:sourceText "limit" ;
     sysml:elementId "Constraints__MassLimit___402_pa1" ;
     sysml:referent elmt:Constraints__MassLimit__limit ;
+    sysml:ownedRelationship expr:Constraints__MassLimit___402_pa1_pout_om, expr:Constraints__MassLimit___402_pa1_preferent ;
+    sysml:ownedMembership expr:Constraints__MassLimit___402_pa1_pout_om ;
+    sysml:ownedFeatureMembership expr:Constraints__MassLimit___402_pa1_pout_om ;
+    sysml:ownedFeature expr:Constraints__MassLimit___402_pa1_pout ;
+    sysml:parameter expr:Constraints__MassLimit___402_pa1_pout ;
+    sysml:result expr:Constraints__MassLimit___402_pa1_pout ;
     sysml:owner expr:Constraints__MassLimit___402_pin1 ;
     sysml:owningRelationship expr:Constraints__MassLimit___402_pa1_om ;
     sysml:owningMembership expr:Constraints__MassLimit___402_pa1_om ;
-    sysml:ownedRelationship expr:Constraints__MassLimit___402_pa1_preferent .
+    json:ownedRelationship "[{\"@id\":\"Constraints__MassLimit___402_pa1_pout_om\"},{\"@id\":\"Constraints__MassLimit___402_pa1_preferent\"}]" .
+
+expr:Constraints__MassLimit___402_pa1_pout
+    a sysml:Feature ;
+    sysml:elementId "Constraints__MassLimit___402_pa1_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:Constraints__MassLimit___402_pa1 ;
+    sysml:owningRelationship expr:Constraints__MassLimit___402_pa1_pout_om ;
+    sysml:owningMembership expr:Constraints__MassLimit___402_pa1_pout_om .
+
+expr:Constraints__MassLimit___402_pa1_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Constraints__MassLimit___402_pa1_pout_om" ;
+    sysml:owner expr:Constraints__MassLimit___402_pa1 ;
+    sysml:memberElement expr:Constraints__MassLimit___402_pa1_pout ;
+    sysml:ownedMemberElement expr:Constraints__MassLimit___402_pa1_pout ;
+    sysml:ownedRelatedElement expr:Constraints__MassLimit___402_pa1_pout ;
+    sysml:owningRelatedElement expr:Constraints__MassLimit___402_pa1 ;
+    sysml:membershipOwningNamespace expr:Constraints__MassLimit___402_pa1 ;
+    sysml:ownedMemberFeature expr:Constraints__MassLimit___402_pa1_pout ;
+    sysml:ownedMemberParameter expr:Constraints__MassLimit___402_pa1_pout .
 
 expr:Constraints__MassLimit___402_pin1
     a sysml:Feature ;
@@ -268,6 +321,26 @@ expr:Constraints__MassLimit___402_pa1_om
     sysml:membershipOwningNamespace expr:Constraints__MassLimit___402_pin1 ;
     sysml:featureWithValue expr:Constraints__MassLimit___402_pin1 ;
     sysml:value expr:Constraints__MassLimit___402_pa1 .
+
+expr:Constraints__MassLimit___402_pout
+    a sysml:Feature ;
+    sysml:elementId "Constraints__MassLimit___402_pout" ;
+    sysml:direction "out" ;
+    sysml:owner elmt:Constraints__MassLimit___402 ;
+    sysml:owningRelationship expr:Constraints__MassLimit___402_pout_om ;
+    sysml:owningMembership expr:Constraints__MassLimit___402_pout_om .
+
+expr:Constraints__MassLimit___402_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Constraints__MassLimit___402_pout_om" ;
+    sysml:owner elmt:Constraints__MassLimit___402 ;
+    sysml:memberElement expr:Constraints__MassLimit___402_pout ;
+    sysml:ownedMemberElement expr:Constraints__MassLimit___402_pout ;
+    sysml:ownedRelatedElement expr:Constraints__MassLimit___402_pout ;
+    sysml:owningRelatedElement elmt:Constraints__MassLimit___402 ;
+    sysml:membershipOwningNamespace elmt:Constraints__MassLimit___402 ;
+    sysml:ownedMemberFeature expr:Constraints__MassLimit___402_pout ;
+    sysml:ownedMemberParameter expr:Constraints__MassLimit___402_pout .
 
 elmt:Constraints__Margin
     a sysml:CalculationDefinition ;
@@ -374,21 +447,22 @@ expr:Constraints__Margin___401_pvalue
     sysml:elementId "Constraints__Margin___401_pvalue" ;
     sysml:operator "-" ;
     sysml:argument expr:Constraints__Margin___401_pvalue_pa0, expr:Constraints__Margin___401_pvalue_pa1 ;
-    sysml:ownedRelationship expr:Constraints__Margin___401_pvalue_pin0_om, expr:Constraints__Margin___401_pvalue_pin1_om ;
-    sysml:ownedMembership expr:Constraints__Margin___401_pvalue_pin0_om, expr:Constraints__Margin___401_pvalue_pin1_om ;
-    sysml:ownedFeatureMembership expr:Constraints__Margin___401_pvalue_pin0_om, expr:Constraints__Margin___401_pvalue_pin1_om ;
-    sysml:ownedFeature expr:Constraints__Margin___401_pvalue_pin0, expr:Constraints__Margin___401_pvalue_pin1 ;
-    sysml:parameter expr:Constraints__Margin___401_pvalue_pin0, expr:Constraints__Margin___401_pvalue_pin1 ;
+    sysml:ownedRelationship expr:Constraints__Margin___401_pvalue_pin0_om, expr:Constraints__Margin___401_pvalue_pin1_om, expr:Constraints__Margin___401_pvalue_pout_om ;
+    sysml:ownedMembership expr:Constraints__Margin___401_pvalue_pin0_om, expr:Constraints__Margin___401_pvalue_pin1_om, expr:Constraints__Margin___401_pvalue_pout_om ;
+    sysml:ownedFeatureMembership expr:Constraints__Margin___401_pvalue_pin0_om, expr:Constraints__Margin___401_pvalue_pin1_om, expr:Constraints__Margin___401_pvalue_pout_om ;
+    sysml:ownedFeature expr:Constraints__Margin___401_pvalue_pin0, expr:Constraints__Margin___401_pvalue_pin1, expr:Constraints__Margin___401_pvalue_pout ;
+    sysml:parameter expr:Constraints__Margin___401_pvalue_pin0, expr:Constraints__Margin___401_pvalue_pin1, expr:Constraints__Margin___401_pvalue_pout ;
     sysml:input expr:Constraints__Margin___401_pvalue_pin0, expr:Constraints__Margin___401_pvalue_pin1 ;
+    sysml:result expr:Constraints__Margin___401_pvalue_pout ;
     sysml:owner elmt:Constraints__Margin___401 ;
     sysml:owningRelationship expr:Constraints__Margin___401_pvalue_om ;
     sysml:owningMembership expr:Constraints__Margin___401_pvalue_om ;
     json:argument "[{\"@id\":\"Constraints__Margin___401_pvalue_pa0\"},{\"@id\":\"Constraints__Margin___401_pvalue_pa1\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"Constraints__Margin___401_pvalue_pin0_om\"},{\"@id\":\"Constraints__Margin___401_pvalue_pin1_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Constraints__Margin___401_pvalue_pin0_om\"},{\"@id\":\"Constraints__Margin___401_pvalue_pin1_om\"}]" ;
-    json:ownedFeatureMembership "[{\"@id\":\"Constraints__Margin___401_pvalue_pin0_om\"},{\"@id\":\"Constraints__Margin___401_pvalue_pin1_om\"}]" ;
-    json:ownedFeature "[{\"@id\":\"Constraints__Margin___401_pvalue_pin0\"},{\"@id\":\"Constraints__Margin___401_pvalue_pin1\"}]" ;
-    json:parameter "[{\"@id\":\"Constraints__Margin___401_pvalue_pin0\"},{\"@id\":\"Constraints__Margin___401_pvalue_pin1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Constraints__Margin___401_pvalue_pin0_om\"},{\"@id\":\"Constraints__Margin___401_pvalue_pin1_om\"},{\"@id\":\"Constraints__Margin___401_pvalue_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Constraints__Margin___401_pvalue_pin0_om\"},{\"@id\":\"Constraints__Margin___401_pvalue_pin1_om\"},{\"@id\":\"Constraints__Margin___401_pvalue_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Constraints__Margin___401_pvalue_pin0_om\"},{\"@id\":\"Constraints__Margin___401_pvalue_pin1_om\"},{\"@id\":\"Constraints__Margin___401_pvalue_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Constraints__Margin___401_pvalue_pin0\"},{\"@id\":\"Constraints__Margin___401_pvalue_pin1\"},{\"@id\":\"Constraints__Margin___401_pvalue_pout\"}]" ;
+    json:parameter "[{\"@id\":\"Constraints__Margin___401_pvalue_pin0\"},{\"@id\":\"Constraints__Margin___401_pvalue_pin1\"},{\"@id\":\"Constraints__Margin___401_pvalue_pout\"}]" ;
     json:input "[{\"@id\":\"Constraints__Margin___401_pvalue_pin0\"},{\"@id\":\"Constraints__Margin___401_pvalue_pin1\"}]" .
 
 expr:Constraints__Margin___401_pvalue_pa0
@@ -439,10 +513,36 @@ expr:Constraints__Margin___401_pvalue_pa1
     sysx:sourceText "m" ;
     sysml:elementId "Constraints__Margin___401_pvalue_pa1" ;
     sysml:referent elmt:Constraints__Margin__m ;
+    sysml:ownedRelationship expr:Constraints__Margin___401_pvalue_pa1_pout_om, expr:Constraints__Margin___401_pvalue_pa1_preferent ;
+    sysml:ownedMembership expr:Constraints__Margin___401_pvalue_pa1_pout_om ;
+    sysml:ownedFeatureMembership expr:Constraints__Margin___401_pvalue_pa1_pout_om ;
+    sysml:ownedFeature expr:Constraints__Margin___401_pvalue_pa1_pout ;
+    sysml:parameter expr:Constraints__Margin___401_pvalue_pa1_pout ;
+    sysml:result expr:Constraints__Margin___401_pvalue_pa1_pout ;
     sysml:owner expr:Constraints__Margin___401_pvalue_pin1 ;
     sysml:owningRelationship expr:Constraints__Margin___401_pvalue_pa1_om ;
     sysml:owningMembership expr:Constraints__Margin___401_pvalue_pa1_om ;
-    sysml:ownedRelationship expr:Constraints__Margin___401_pvalue_pa1_preferent .
+    json:ownedRelationship "[{\"@id\":\"Constraints__Margin___401_pvalue_pa1_pout_om\"},{\"@id\":\"Constraints__Margin___401_pvalue_pa1_preferent\"}]" .
+
+expr:Constraints__Margin___401_pvalue_pa1_pout
+    a sysml:Feature ;
+    sysml:elementId "Constraints__Margin___401_pvalue_pa1_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:Constraints__Margin___401_pvalue_pa1 ;
+    sysml:owningRelationship expr:Constraints__Margin___401_pvalue_pa1_pout_om ;
+    sysml:owningMembership expr:Constraints__Margin___401_pvalue_pa1_pout_om .
+
+expr:Constraints__Margin___401_pvalue_pa1_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Constraints__Margin___401_pvalue_pa1_pout_om" ;
+    sysml:owner expr:Constraints__Margin___401_pvalue_pa1 ;
+    sysml:memberElement expr:Constraints__Margin___401_pvalue_pa1_pout ;
+    sysml:ownedMemberElement expr:Constraints__Margin___401_pvalue_pa1_pout ;
+    sysml:ownedRelatedElement expr:Constraints__Margin___401_pvalue_pa1_pout ;
+    sysml:owningRelatedElement expr:Constraints__Margin___401_pvalue_pa1 ;
+    sysml:membershipOwningNamespace expr:Constraints__Margin___401_pvalue_pa1 ;
+    sysml:ownedMemberFeature expr:Constraints__Margin___401_pvalue_pa1_pout ;
+    sysml:ownedMemberParameter expr:Constraints__Margin___401_pvalue_pa1_pout .
 
 expr:Constraints__Margin___401_pvalue_pin1
     a sysml:Feature ;
@@ -477,6 +577,26 @@ expr:Constraints__Margin___401_pvalue_pa1_om
     sysml:membershipOwningNamespace expr:Constraints__Margin___401_pvalue_pin1 ;
     sysml:featureWithValue expr:Constraints__Margin___401_pvalue_pin1 ;
     sysml:value expr:Constraints__Margin___401_pvalue_pa1 .
+
+expr:Constraints__Margin___401_pvalue_pout
+    a sysml:Feature ;
+    sysml:elementId "Constraints__Margin___401_pvalue_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:Constraints__Margin___401_pvalue ;
+    sysml:owningRelationship expr:Constraints__Margin___401_pvalue_pout_om ;
+    sysml:owningMembership expr:Constraints__Margin___401_pvalue_pout_om .
+
+expr:Constraints__Margin___401_pvalue_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Constraints__Margin___401_pvalue_pout_om" ;
+    sysml:owner expr:Constraints__Margin___401_pvalue ;
+    sysml:memberElement expr:Constraints__Margin___401_pvalue_pout ;
+    sysml:ownedMemberElement expr:Constraints__Margin___401_pvalue_pout ;
+    sysml:ownedRelatedElement expr:Constraints__Margin___401_pvalue_pout ;
+    sysml:owningRelatedElement expr:Constraints__Margin___401_pvalue ;
+    sysml:membershipOwningNamespace expr:Constraints__Margin___401_pvalue ;
+    sysml:ownedMemberFeature expr:Constraints__Margin___401_pvalue_pout ;
+    sysml:ownedMemberParameter expr:Constraints__Margin___401_pvalue_pout .
 
 expr:Constraints__Margin___401_pvalue_om
     a sysml:FeatureValue ;
@@ -651,10 +771,36 @@ expr:Constraints__Rover__limit__m_pvalue
     sysx:sourceText "mass" ;
     sysml:elementId "Constraints__Rover__limit__m_pvalue" ;
     sysml:referent elmt:Constraints__Rover__mass ;
+    sysml:ownedRelationship expr:Constraints__Rover__limit__m_pvalue_pout_om, expr:Constraints__Rover__limit__m_pvalue_preferent ;
+    sysml:ownedMembership expr:Constraints__Rover__limit__m_pvalue_pout_om ;
+    sysml:ownedFeatureMembership expr:Constraints__Rover__limit__m_pvalue_pout_om ;
+    sysml:ownedFeature expr:Constraints__Rover__limit__m_pvalue_pout ;
+    sysml:parameter expr:Constraints__Rover__limit__m_pvalue_pout ;
+    sysml:result expr:Constraints__Rover__limit__m_pvalue_pout ;
     sysml:owner elmt:Constraints__Rover__limit__m ;
     sysml:owningRelationship expr:Constraints__Rover__limit__m_pvalue_om ;
     sysml:owningMembership expr:Constraints__Rover__limit__m_pvalue_om ;
-    sysml:ownedRelationship expr:Constraints__Rover__limit__m_pvalue_preferent .
+    json:ownedRelationship "[{\"@id\":\"Constraints__Rover__limit__m_pvalue_pout_om\"},{\"@id\":\"Constraints__Rover__limit__m_pvalue_preferent\"}]" .
+
+expr:Constraints__Rover__limit__m_pvalue_pout
+    a sysml:Feature ;
+    sysml:elementId "Constraints__Rover__limit__m_pvalue_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:Constraints__Rover__limit__m_pvalue ;
+    sysml:owningRelationship expr:Constraints__Rover__limit__m_pvalue_pout_om ;
+    sysml:owningMembership expr:Constraints__Rover__limit__m_pvalue_pout_om .
+
+expr:Constraints__Rover__limit__m_pvalue_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Constraints__Rover__limit__m_pvalue_pout_om" ;
+    sysml:owner expr:Constraints__Rover__limit__m_pvalue ;
+    sysml:memberElement expr:Constraints__Rover__limit__m_pvalue_pout ;
+    sysml:ownedMemberElement expr:Constraints__Rover__limit__m_pvalue_pout ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__limit__m_pvalue_pout ;
+    sysml:owningRelatedElement expr:Constraints__Rover__limit__m_pvalue ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__limit__m_pvalue ;
+    sysml:ownedMemberFeature expr:Constraints__Rover__limit__m_pvalue_pout ;
+    sysml:ownedMemberParameter expr:Constraints__Rover__limit__m_pvalue_pout .
 
 expr:Constraints__Rover__limit__m_pvalue_om
     a sysml:FeatureValue ;
@@ -819,19 +965,20 @@ elmt:Constraints__Rover___404___400
     sysml:owningMembership elmt:Constraints__Rover___404___400_om ;
     sysml:operator ">" ;
     sysml:argument expr:Constraints__Rover___404___400_pa0, expr:Constraints__Rover___404___400_pa1 ;
-    sysml:ownedRelationship expr:Constraints__Rover___404___400_pin0_om, expr:Constraints__Rover___404___400_pin1_om ;
-    sysml:ownedMembership expr:Constraints__Rover___404___400_pin0_om, expr:Constraints__Rover___404___400_pin1_om ;
-    sysml:ownedFeatureMembership expr:Constraints__Rover___404___400_pin0_om, expr:Constraints__Rover___404___400_pin1_om ;
-    sysml:ownedFeature expr:Constraints__Rover___404___400_pin0, expr:Constraints__Rover___404___400_pin1 ;
-    sysml:parameter expr:Constraints__Rover___404___400_pin0, expr:Constraints__Rover___404___400_pin1 ;
+    sysml:ownedRelationship expr:Constraints__Rover___404___400_pin0_om, expr:Constraints__Rover___404___400_pin1_om, expr:Constraints__Rover___404___400_pout_om ;
+    sysml:ownedMembership expr:Constraints__Rover___404___400_pin0_om, expr:Constraints__Rover___404___400_pin1_om, expr:Constraints__Rover___404___400_pout_om ;
+    sysml:ownedFeatureMembership expr:Constraints__Rover___404___400_pin0_om, expr:Constraints__Rover___404___400_pin1_om, expr:Constraints__Rover___404___400_pout_om ;
+    sysml:ownedFeature expr:Constraints__Rover___404___400_pin0, expr:Constraints__Rover___404___400_pin1, expr:Constraints__Rover___404___400_pout ;
+    sysml:parameter expr:Constraints__Rover___404___400_pin0, expr:Constraints__Rover___404___400_pin1, expr:Constraints__Rover___404___400_pout ;
     sysml:input expr:Constraints__Rover___404___400_pin0, expr:Constraints__Rover___404___400_pin1 ;
+    sysml:result expr:Constraints__Rover___404___400_pout ;
     sysx:sourceText "            mass > 0\n" ;
     json:argument "[{\"@id\":\"Constraints__Rover___404___400_pa0\"},{\"@id\":\"Constraints__Rover___404___400_pa1\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"Constraints__Rover___404___400_pin0_om\"},{\"@id\":\"Constraints__Rover___404___400_pin1_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Constraints__Rover___404___400_pin0_om\"},{\"@id\":\"Constraints__Rover___404___400_pin1_om\"}]" ;
-    json:ownedFeatureMembership "[{\"@id\":\"Constraints__Rover___404___400_pin0_om\"},{\"@id\":\"Constraints__Rover___404___400_pin1_om\"}]" ;
-    json:ownedFeature "[{\"@id\":\"Constraints__Rover___404___400_pin0\"},{\"@id\":\"Constraints__Rover___404___400_pin1\"}]" ;
-    json:parameter "[{\"@id\":\"Constraints__Rover___404___400_pin0\"},{\"@id\":\"Constraints__Rover___404___400_pin1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Constraints__Rover___404___400_pin0_om\"},{\"@id\":\"Constraints__Rover___404___400_pin1_om\"},{\"@id\":\"Constraints__Rover___404___400_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Constraints__Rover___404___400_pin0_om\"},{\"@id\":\"Constraints__Rover___404___400_pin1_om\"},{\"@id\":\"Constraints__Rover___404___400_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Constraints__Rover___404___400_pin0_om\"},{\"@id\":\"Constraints__Rover___404___400_pin1_om\"},{\"@id\":\"Constraints__Rover___404___400_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Constraints__Rover___404___400_pin0\"},{\"@id\":\"Constraints__Rover___404___400_pin1\"},{\"@id\":\"Constraints__Rover___404___400_pout\"}]" ;
+    json:parameter "[{\"@id\":\"Constraints__Rover___404___400_pin0\"},{\"@id\":\"Constraints__Rover___404___400_pin1\"},{\"@id\":\"Constraints__Rover___404___400_pout\"}]" ;
     json:input "[{\"@id\":\"Constraints__Rover___404___400_pin0\"},{\"@id\":\"Constraints__Rover___404___400_pin1\"}]" .
 
 elmt:Constraints__Rover___404___400_om
@@ -852,10 +999,36 @@ expr:Constraints__Rover___404___400_pa0
     sysx:sourceText "mass" ;
     sysml:elementId "Constraints__Rover___404___400_pa0" ;
     sysml:referent elmt:Constraints__Rover__mass ;
+    sysml:ownedRelationship expr:Constraints__Rover___404___400_pa0_pout_om, expr:Constraints__Rover___404___400_pa0_preferent ;
+    sysml:ownedMembership expr:Constraints__Rover___404___400_pa0_pout_om ;
+    sysml:ownedFeatureMembership expr:Constraints__Rover___404___400_pa0_pout_om ;
+    sysml:ownedFeature expr:Constraints__Rover___404___400_pa0_pout ;
+    sysml:parameter expr:Constraints__Rover___404___400_pa0_pout ;
+    sysml:result expr:Constraints__Rover___404___400_pa0_pout ;
     sysml:owner expr:Constraints__Rover___404___400_pin0 ;
     sysml:owningRelationship expr:Constraints__Rover___404___400_pa0_om ;
     sysml:owningMembership expr:Constraints__Rover___404___400_pa0_om ;
-    sysml:ownedRelationship expr:Constraints__Rover___404___400_pa0_preferent .
+    json:ownedRelationship "[{\"@id\":\"Constraints__Rover___404___400_pa0_pout_om\"},{\"@id\":\"Constraints__Rover___404___400_pa0_preferent\"}]" .
+
+expr:Constraints__Rover___404___400_pa0_pout
+    a sysml:Feature ;
+    sysml:elementId "Constraints__Rover___404___400_pa0_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:Constraints__Rover___404___400_pa0 ;
+    sysml:owningRelationship expr:Constraints__Rover___404___400_pa0_pout_om ;
+    sysml:owningMembership expr:Constraints__Rover___404___400_pa0_pout_om .
+
+expr:Constraints__Rover___404___400_pa0_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Constraints__Rover___404___400_pa0_pout_om" ;
+    sysml:owner expr:Constraints__Rover___404___400_pa0 ;
+    sysml:memberElement expr:Constraints__Rover___404___400_pa0_pout ;
+    sysml:ownedMemberElement expr:Constraints__Rover___404___400_pa0_pout ;
+    sysml:ownedRelatedElement expr:Constraints__Rover___404___400_pa0_pout ;
+    sysml:owningRelatedElement expr:Constraints__Rover___404___400_pa0 ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover___404___400_pa0 ;
+    sysml:ownedMemberFeature expr:Constraints__Rover___404___400_pa0_pout ;
+    sysml:ownedMemberParameter expr:Constraints__Rover___404___400_pa0_pout .
 
 expr:Constraints__Rover___404___400_pin0
     a sysml:Feature ;
@@ -934,6 +1107,26 @@ expr:Constraints__Rover___404___400_pa1_om
     sysml:featureWithValue expr:Constraints__Rover___404___400_pin1 ;
     sysml:value expr:Constraints__Rover___404___400_pa1 .
 
+expr:Constraints__Rover___404___400_pout
+    a sysml:Feature ;
+    sysml:elementId "Constraints__Rover___404___400_pout" ;
+    sysml:direction "out" ;
+    sysml:owner elmt:Constraints__Rover___404___400 ;
+    sysml:owningRelationship expr:Constraints__Rover___404___400_pout_om ;
+    sysml:owningMembership expr:Constraints__Rover___404___400_pout_om .
+
+expr:Constraints__Rover___404___400_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Constraints__Rover___404___400_pout_om" ;
+    sysml:owner elmt:Constraints__Rover___404___400 ;
+    sysml:memberElement expr:Constraints__Rover___404___400_pout ;
+    sysml:ownedMemberElement expr:Constraints__Rover___404___400_pout ;
+    sysml:ownedRelatedElement expr:Constraints__Rover___404___400_pout ;
+    sysml:owningRelatedElement elmt:Constraints__Rover___404___400 ;
+    sysml:membershipOwningNamespace elmt:Constraints__Rover___404___400 ;
+    sysml:ownedMemberFeature expr:Constraints__Rover___404___400_pout ;
+    sysml:ownedMemberParameter expr:Constraints__Rover___404___400_pout .
+
 elmt:Constraints__Rover__bounds
     a sysml:ConstraintUsage ;
     sysml:qualifiedName "Constraints::Rover::bounds" ;
@@ -981,19 +1174,20 @@ elmt:Constraints__Rover__bounds___400
     sysml:owningMembership elmt:Constraints__Rover__bounds___400_om ;
     sysml:operator ">" ;
     sysml:argument expr:Constraints__Rover__bounds___400_pa0, expr:Constraints__Rover__bounds___400_pa1 ;
-    sysml:ownedRelationship expr:Constraints__Rover__bounds___400_pin0_om, expr:Constraints__Rover__bounds___400_pin1_om ;
-    sysml:ownedMembership expr:Constraints__Rover__bounds___400_pin0_om, expr:Constraints__Rover__bounds___400_pin1_om ;
-    sysml:ownedFeatureMembership expr:Constraints__Rover__bounds___400_pin0_om, expr:Constraints__Rover__bounds___400_pin1_om ;
-    sysml:ownedFeature expr:Constraints__Rover__bounds___400_pin0, expr:Constraints__Rover__bounds___400_pin1 ;
-    sysml:parameter expr:Constraints__Rover__bounds___400_pin0, expr:Constraints__Rover__bounds___400_pin1 ;
+    sysml:ownedRelationship expr:Constraints__Rover__bounds___400_pin0_om, expr:Constraints__Rover__bounds___400_pin1_om, expr:Constraints__Rover__bounds___400_pout_om ;
+    sysml:ownedMembership expr:Constraints__Rover__bounds___400_pin0_om, expr:Constraints__Rover__bounds___400_pin1_om, expr:Constraints__Rover__bounds___400_pout_om ;
+    sysml:ownedFeatureMembership expr:Constraints__Rover__bounds___400_pin0_om, expr:Constraints__Rover__bounds___400_pin1_om, expr:Constraints__Rover__bounds___400_pout_om ;
+    sysml:ownedFeature expr:Constraints__Rover__bounds___400_pin0, expr:Constraints__Rover__bounds___400_pin1, expr:Constraints__Rover__bounds___400_pout ;
+    sysml:parameter expr:Constraints__Rover__bounds___400_pin0, expr:Constraints__Rover__bounds___400_pin1, expr:Constraints__Rover__bounds___400_pout ;
     sysml:input expr:Constraints__Rover__bounds___400_pin0, expr:Constraints__Rover__bounds___400_pin1 ;
+    sysml:result expr:Constraints__Rover__bounds___400_pout ;
     sysx:sourceText "            mass > 0\n" ;
     json:argument "[{\"@id\":\"Constraints__Rover__bounds___400_pa0\"},{\"@id\":\"Constraints__Rover__bounds___400_pa1\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"Constraints__Rover__bounds___400_pin0_om\"},{\"@id\":\"Constraints__Rover__bounds___400_pin1_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Constraints__Rover__bounds___400_pin0_om\"},{\"@id\":\"Constraints__Rover__bounds___400_pin1_om\"}]" ;
-    json:ownedFeatureMembership "[{\"@id\":\"Constraints__Rover__bounds___400_pin0_om\"},{\"@id\":\"Constraints__Rover__bounds___400_pin1_om\"}]" ;
-    json:ownedFeature "[{\"@id\":\"Constraints__Rover__bounds___400_pin0\"},{\"@id\":\"Constraints__Rover__bounds___400_pin1\"}]" ;
-    json:parameter "[{\"@id\":\"Constraints__Rover__bounds___400_pin0\"},{\"@id\":\"Constraints__Rover__bounds___400_pin1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Constraints__Rover__bounds___400_pin0_om\"},{\"@id\":\"Constraints__Rover__bounds___400_pin1_om\"},{\"@id\":\"Constraints__Rover__bounds___400_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Constraints__Rover__bounds___400_pin0_om\"},{\"@id\":\"Constraints__Rover__bounds___400_pin1_om\"},{\"@id\":\"Constraints__Rover__bounds___400_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Constraints__Rover__bounds___400_pin0_om\"},{\"@id\":\"Constraints__Rover__bounds___400_pin1_om\"},{\"@id\":\"Constraints__Rover__bounds___400_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Constraints__Rover__bounds___400_pin0\"},{\"@id\":\"Constraints__Rover__bounds___400_pin1\"},{\"@id\":\"Constraints__Rover__bounds___400_pout\"}]" ;
+    json:parameter "[{\"@id\":\"Constraints__Rover__bounds___400_pin0\"},{\"@id\":\"Constraints__Rover__bounds___400_pin1\"},{\"@id\":\"Constraints__Rover__bounds___400_pout\"}]" ;
     json:input "[{\"@id\":\"Constraints__Rover__bounds___400_pin0\"},{\"@id\":\"Constraints__Rover__bounds___400_pin1\"}]" .
 
 elmt:Constraints__Rover__bounds___400_om
@@ -1013,10 +1207,36 @@ expr:Constraints__Rover__bounds___400_pa0
     sysx:sourceText "mass" ;
     sysml:elementId "Constraints__Rover__bounds___400_pa0" ;
     sysml:referent elmt:Constraints__Rover__mass ;
+    sysml:ownedRelationship expr:Constraints__Rover__bounds___400_pa0_pout_om, expr:Constraints__Rover__bounds___400_pa0_preferent ;
+    sysml:ownedMembership expr:Constraints__Rover__bounds___400_pa0_pout_om ;
+    sysml:ownedFeatureMembership expr:Constraints__Rover__bounds___400_pa0_pout_om ;
+    sysml:ownedFeature expr:Constraints__Rover__bounds___400_pa0_pout ;
+    sysml:parameter expr:Constraints__Rover__bounds___400_pa0_pout ;
+    sysml:result expr:Constraints__Rover__bounds___400_pa0_pout ;
     sysml:owner expr:Constraints__Rover__bounds___400_pin0 ;
     sysml:owningRelationship expr:Constraints__Rover__bounds___400_pa0_om ;
     sysml:owningMembership expr:Constraints__Rover__bounds___400_pa0_om ;
-    sysml:ownedRelationship expr:Constraints__Rover__bounds___400_pa0_preferent .
+    json:ownedRelationship "[{\"@id\":\"Constraints__Rover__bounds___400_pa0_pout_om\"},{\"@id\":\"Constraints__Rover__bounds___400_pa0_preferent\"}]" .
+
+expr:Constraints__Rover__bounds___400_pa0_pout
+    a sysml:Feature ;
+    sysml:elementId "Constraints__Rover__bounds___400_pa0_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:Constraints__Rover__bounds___400_pa0 ;
+    sysml:owningRelationship expr:Constraints__Rover__bounds___400_pa0_pout_om ;
+    sysml:owningMembership expr:Constraints__Rover__bounds___400_pa0_pout_om .
+
+expr:Constraints__Rover__bounds___400_pa0_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Constraints__Rover__bounds___400_pa0_pout_om" ;
+    sysml:owner expr:Constraints__Rover__bounds___400_pa0 ;
+    sysml:memberElement expr:Constraints__Rover__bounds___400_pa0_pout ;
+    sysml:ownedMemberElement expr:Constraints__Rover__bounds___400_pa0_pout ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__bounds___400_pa0_pout ;
+    sysml:owningRelatedElement expr:Constraints__Rover__bounds___400_pa0 ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__bounds___400_pa0 ;
+    sysml:ownedMemberFeature expr:Constraints__Rover__bounds___400_pa0_pout ;
+    sysml:ownedMemberParameter expr:Constraints__Rover__bounds___400_pa0_pout .
 
 expr:Constraints__Rover__bounds___400_pin0
     a sysml:Feature ;
@@ -1095,6 +1315,26 @@ expr:Constraints__Rover__bounds___400_pa1_om
     sysml:featureWithValue expr:Constraints__Rover__bounds___400_pin1 ;
     sysml:value expr:Constraints__Rover__bounds___400_pa1 .
 
+expr:Constraints__Rover__bounds___400_pout
+    a sysml:Feature ;
+    sysml:elementId "Constraints__Rover__bounds___400_pout" ;
+    sysml:direction "out" ;
+    sysml:owner elmt:Constraints__Rover__bounds___400 ;
+    sysml:owningRelationship expr:Constraints__Rover__bounds___400_pout_om ;
+    sysml:owningMembership expr:Constraints__Rover__bounds___400_pout_om .
+
+expr:Constraints__Rover__bounds___400_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Constraints__Rover__bounds___400_pout_om" ;
+    sysml:owner elmt:Constraints__Rover__bounds___400 ;
+    sysml:memberElement expr:Constraints__Rover__bounds___400_pout ;
+    sysml:ownedMemberElement expr:Constraints__Rover__bounds___400_pout ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__bounds___400_pout ;
+    sysml:owningRelatedElement elmt:Constraints__Rover__bounds___400 ;
+    sysml:membershipOwningNamespace elmt:Constraints__Rover__bounds___400 ;
+    sysml:ownedMemberFeature expr:Constraints__Rover__bounds___400_pout ;
+    sysml:ownedMemberParameter expr:Constraints__Rover__bounds___400_pout .
+
 elmt:Constraints__Rover__bounds___401
     a sysml:OperatorExpression ;
     sysml:qualifiedName "Constraints::Rover::bounds::@1" ;
@@ -1106,19 +1346,20 @@ elmt:Constraints__Rover__bounds___401
     sysml:owningMembership elmt:Constraints__Rover__bounds___401_om ;
     sysml:operator "!=" ;
     sysml:argument expr:Constraints__Rover__bounds___401_pa0, expr:Constraints__Rover__bounds___401_pa1 ;
-    sysml:ownedRelationship expr:Constraints__Rover__bounds___401_pin0_om, expr:Constraints__Rover__bounds___401_pin1_om ;
-    sysml:ownedMembership expr:Constraints__Rover__bounds___401_pin0_om, expr:Constraints__Rover__bounds___401_pin1_om ;
-    sysml:ownedFeatureMembership expr:Constraints__Rover__bounds___401_pin0_om, expr:Constraints__Rover__bounds___401_pin1_om ;
-    sysml:ownedFeature expr:Constraints__Rover__bounds___401_pin0, expr:Constraints__Rover__bounds___401_pin1 ;
-    sysml:parameter expr:Constraints__Rover__bounds___401_pin0, expr:Constraints__Rover__bounds___401_pin1 ;
+    sysml:ownedRelationship expr:Constraints__Rover__bounds___401_pin0_om, expr:Constraints__Rover__bounds___401_pin1_om, expr:Constraints__Rover__bounds___401_pout_om ;
+    sysml:ownedMembership expr:Constraints__Rover__bounds___401_pin0_om, expr:Constraints__Rover__bounds___401_pin1_om, expr:Constraints__Rover__bounds___401_pout_om ;
+    sysml:ownedFeatureMembership expr:Constraints__Rover__bounds___401_pin0_om, expr:Constraints__Rover__bounds___401_pin1_om, expr:Constraints__Rover__bounds___401_pout_om ;
+    sysml:ownedFeature expr:Constraints__Rover__bounds___401_pin0, expr:Constraints__Rover__bounds___401_pin1, expr:Constraints__Rover__bounds___401_pout ;
+    sysml:parameter expr:Constraints__Rover__bounds___401_pin0, expr:Constraints__Rover__bounds___401_pin1, expr:Constraints__Rover__bounds___401_pout ;
     sysml:input expr:Constraints__Rover__bounds___401_pin0, expr:Constraints__Rover__bounds___401_pin1 ;
+    sysml:result expr:Constraints__Rover__bounds___401_pout ;
     sysx:sourceText "            mass != 0\n" ;
     json:argument "[{\"@id\":\"Constraints__Rover__bounds___401_pa0\"},{\"@id\":\"Constraints__Rover__bounds___401_pa1\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"Constraints__Rover__bounds___401_pin0_om\"},{\"@id\":\"Constraints__Rover__bounds___401_pin1_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Constraints__Rover__bounds___401_pin0_om\"},{\"@id\":\"Constraints__Rover__bounds___401_pin1_om\"}]" ;
-    json:ownedFeatureMembership "[{\"@id\":\"Constraints__Rover__bounds___401_pin0_om\"},{\"@id\":\"Constraints__Rover__bounds___401_pin1_om\"}]" ;
-    json:ownedFeature "[{\"@id\":\"Constraints__Rover__bounds___401_pin0\"},{\"@id\":\"Constraints__Rover__bounds___401_pin1\"}]" ;
-    json:parameter "[{\"@id\":\"Constraints__Rover__bounds___401_pin0\"},{\"@id\":\"Constraints__Rover__bounds___401_pin1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Constraints__Rover__bounds___401_pin0_om\"},{\"@id\":\"Constraints__Rover__bounds___401_pin1_om\"},{\"@id\":\"Constraints__Rover__bounds___401_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Constraints__Rover__bounds___401_pin0_om\"},{\"@id\":\"Constraints__Rover__bounds___401_pin1_om\"},{\"@id\":\"Constraints__Rover__bounds___401_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Constraints__Rover__bounds___401_pin0_om\"},{\"@id\":\"Constraints__Rover__bounds___401_pin1_om\"},{\"@id\":\"Constraints__Rover__bounds___401_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Constraints__Rover__bounds___401_pin0\"},{\"@id\":\"Constraints__Rover__bounds___401_pin1\"},{\"@id\":\"Constraints__Rover__bounds___401_pout\"}]" ;
+    json:parameter "[{\"@id\":\"Constraints__Rover__bounds___401_pin0\"},{\"@id\":\"Constraints__Rover__bounds___401_pin1\"},{\"@id\":\"Constraints__Rover__bounds___401_pout\"}]" ;
     json:input "[{\"@id\":\"Constraints__Rover__bounds___401_pin0\"},{\"@id\":\"Constraints__Rover__bounds___401_pin1\"}]" .
 
 elmt:Constraints__Rover__bounds___401_om
@@ -1138,10 +1379,36 @@ expr:Constraints__Rover__bounds___401_pa0
     sysx:sourceText "mass" ;
     sysml:elementId "Constraints__Rover__bounds___401_pa0" ;
     sysml:referent elmt:Constraints__Rover__mass ;
+    sysml:ownedRelationship expr:Constraints__Rover__bounds___401_pa0_pout_om, expr:Constraints__Rover__bounds___401_pa0_preferent ;
+    sysml:ownedMembership expr:Constraints__Rover__bounds___401_pa0_pout_om ;
+    sysml:ownedFeatureMembership expr:Constraints__Rover__bounds___401_pa0_pout_om ;
+    sysml:ownedFeature expr:Constraints__Rover__bounds___401_pa0_pout ;
+    sysml:parameter expr:Constraints__Rover__bounds___401_pa0_pout ;
+    sysml:result expr:Constraints__Rover__bounds___401_pa0_pout ;
     sysml:owner expr:Constraints__Rover__bounds___401_pin0 ;
     sysml:owningRelationship expr:Constraints__Rover__bounds___401_pa0_om ;
     sysml:owningMembership expr:Constraints__Rover__bounds___401_pa0_om ;
-    sysml:ownedRelationship expr:Constraints__Rover__bounds___401_pa0_preferent .
+    json:ownedRelationship "[{\"@id\":\"Constraints__Rover__bounds___401_pa0_pout_om\"},{\"@id\":\"Constraints__Rover__bounds___401_pa0_preferent\"}]" .
+
+expr:Constraints__Rover__bounds___401_pa0_pout
+    a sysml:Feature ;
+    sysml:elementId "Constraints__Rover__bounds___401_pa0_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:Constraints__Rover__bounds___401_pa0 ;
+    sysml:owningRelationship expr:Constraints__Rover__bounds___401_pa0_pout_om ;
+    sysml:owningMembership expr:Constraints__Rover__bounds___401_pa0_pout_om .
+
+expr:Constraints__Rover__bounds___401_pa0_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Constraints__Rover__bounds___401_pa0_pout_om" ;
+    sysml:owner expr:Constraints__Rover__bounds___401_pa0 ;
+    sysml:memberElement expr:Constraints__Rover__bounds___401_pa0_pout ;
+    sysml:ownedMemberElement expr:Constraints__Rover__bounds___401_pa0_pout ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__bounds___401_pa0_pout ;
+    sysml:owningRelatedElement expr:Constraints__Rover__bounds___401_pa0 ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__bounds___401_pa0 ;
+    sysml:ownedMemberFeature expr:Constraints__Rover__bounds___401_pa0_pout ;
+    sysml:ownedMemberParameter expr:Constraints__Rover__bounds___401_pa0_pout .
 
 expr:Constraints__Rover__bounds___401_pin0
     a sysml:Feature ;
@@ -1220,6 +1487,26 @@ expr:Constraints__Rover__bounds___401_pa1_om
     sysml:featureWithValue expr:Constraints__Rover__bounds___401_pin1 ;
     sysml:value expr:Constraints__Rover__bounds___401_pa1 .
 
+expr:Constraints__Rover__bounds___401_pout
+    a sysml:Feature ;
+    sysml:elementId "Constraints__Rover__bounds___401_pout" ;
+    sysml:direction "out" ;
+    sysml:owner elmt:Constraints__Rover__bounds___401 ;
+    sysml:owningRelationship expr:Constraints__Rover__bounds___401_pout_om ;
+    sysml:owningMembership expr:Constraints__Rover__bounds___401_pout_om .
+
+expr:Constraints__Rover__bounds___401_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Constraints__Rover__bounds___401_pout_om" ;
+    sysml:owner elmt:Constraints__Rover__bounds___401 ;
+    sysml:memberElement expr:Constraints__Rover__bounds___401_pout ;
+    sysml:ownedMemberElement expr:Constraints__Rover__bounds___401_pout ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__bounds___401_pout ;
+    sysml:owningRelatedElement elmt:Constraints__Rover__bounds___401 ;
+    sysml:membershipOwningNamespace elmt:Constraints__Rover__bounds___401 ;
+    sysml:ownedMemberFeature expr:Constraints__Rover__bounds___401_pout ;
+    sysml:ownedMemberParameter expr:Constraints__Rover__bounds___401_pout .
+
 elmt:Constraints__Rover__bounds___402
     a sysml:OperatorExpression ;
     sysml:qualifiedName "Constraints::Rover::bounds::@2" ;
@@ -1231,13 +1518,19 @@ elmt:Constraints__Rover__bounds___402
     sysml:owningMembership elmt:Constraints__Rover__bounds___402_om ;
     sysml:operator "not" ;
     sysml:argument expr:Constraints__Rover__bounds___402_pa0 ;
-    sysml:ownedRelationship expr:Constraints__Rover__bounds___402_pin0_om ;
-    sysml:ownedMembership expr:Constraints__Rover__bounds___402_pin0_om ;
-    sysml:ownedFeatureMembership expr:Constraints__Rover__bounds___402_pin0_om ;
-    sysml:ownedFeature expr:Constraints__Rover__bounds___402_pin0 ;
-    sysml:parameter expr:Constraints__Rover__bounds___402_pin0 ;
+    sysml:ownedRelationship expr:Constraints__Rover__bounds___402_pin0_om, expr:Constraints__Rover__bounds___402_pout_om ;
+    sysml:ownedMembership expr:Constraints__Rover__bounds___402_pin0_om, expr:Constraints__Rover__bounds___402_pout_om ;
+    sysml:ownedFeatureMembership expr:Constraints__Rover__bounds___402_pin0_om, expr:Constraints__Rover__bounds___402_pout_om ;
+    sysml:ownedFeature expr:Constraints__Rover__bounds___402_pin0, expr:Constraints__Rover__bounds___402_pout ;
+    sysml:parameter expr:Constraints__Rover__bounds___402_pin0, expr:Constraints__Rover__bounds___402_pout ;
     sysml:input expr:Constraints__Rover__bounds___402_pin0 ;
-    sysx:sourceText "            not (mass > 1000)\n" .
+    sysml:result expr:Constraints__Rover__bounds___402_pout ;
+    sysx:sourceText "            not (mass > 1000)\n" ;
+    json:ownedRelationship "[{\"@id\":\"Constraints__Rover__bounds___402_pin0_om\"},{\"@id\":\"Constraints__Rover__bounds___402_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Constraints__Rover__bounds___402_pin0_om\"},{\"@id\":\"Constraints__Rover__bounds___402_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Constraints__Rover__bounds___402_pin0_om\"},{\"@id\":\"Constraints__Rover__bounds___402_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Constraints__Rover__bounds___402_pin0\"},{\"@id\":\"Constraints__Rover__bounds___402_pout\"}]" ;
+    json:parameter "[{\"@id\":\"Constraints__Rover__bounds___402_pin0\"},{\"@id\":\"Constraints__Rover__bounds___402_pout\"}]" .
 
 elmt:Constraints__Rover__bounds___402_om
     a sysml:FeatureMembership ;
@@ -1257,21 +1550,22 @@ expr:Constraints__Rover__bounds___402_pa0
     sysml:elementId "Constraints__Rover__bounds___402_pa0" ;
     sysml:operator ">" ;
     sysml:argument expr:Constraints__Rover__bounds___402_pa0_pa0, expr:Constraints__Rover__bounds___402_pa0_pa1 ;
-    sysml:ownedRelationship expr:Constraints__Rover__bounds___402_pa0_pin0_om, expr:Constraints__Rover__bounds___402_pa0_pin1_om ;
-    sysml:ownedMembership expr:Constraints__Rover__bounds___402_pa0_pin0_om, expr:Constraints__Rover__bounds___402_pa0_pin1_om ;
-    sysml:ownedFeatureMembership expr:Constraints__Rover__bounds___402_pa0_pin0_om, expr:Constraints__Rover__bounds___402_pa0_pin1_om ;
-    sysml:ownedFeature expr:Constraints__Rover__bounds___402_pa0_pin0, expr:Constraints__Rover__bounds___402_pa0_pin1 ;
-    sysml:parameter expr:Constraints__Rover__bounds___402_pa0_pin0, expr:Constraints__Rover__bounds___402_pa0_pin1 ;
+    sysml:ownedRelationship expr:Constraints__Rover__bounds___402_pa0_pin0_om, expr:Constraints__Rover__bounds___402_pa0_pin1_om, expr:Constraints__Rover__bounds___402_pa0_pout_om ;
+    sysml:ownedMembership expr:Constraints__Rover__bounds___402_pa0_pin0_om, expr:Constraints__Rover__bounds___402_pa0_pin1_om, expr:Constraints__Rover__bounds___402_pa0_pout_om ;
+    sysml:ownedFeatureMembership expr:Constraints__Rover__bounds___402_pa0_pin0_om, expr:Constraints__Rover__bounds___402_pa0_pin1_om, expr:Constraints__Rover__bounds___402_pa0_pout_om ;
+    sysml:ownedFeature expr:Constraints__Rover__bounds___402_pa0_pin0, expr:Constraints__Rover__bounds___402_pa0_pin1, expr:Constraints__Rover__bounds___402_pa0_pout ;
+    sysml:parameter expr:Constraints__Rover__bounds___402_pa0_pin0, expr:Constraints__Rover__bounds___402_pa0_pin1, expr:Constraints__Rover__bounds___402_pa0_pout ;
     sysml:input expr:Constraints__Rover__bounds___402_pa0_pin0, expr:Constraints__Rover__bounds___402_pa0_pin1 ;
+    sysml:result expr:Constraints__Rover__bounds___402_pa0_pout ;
     sysml:owner expr:Constraints__Rover__bounds___402_pin0 ;
     sysml:owningRelationship expr:Constraints__Rover__bounds___402_pa0_om ;
     sysml:owningMembership expr:Constraints__Rover__bounds___402_pa0_om ;
     json:argument "[{\"@id\":\"Constraints__Rover__bounds___402_pa0_pa0\"},{\"@id\":\"Constraints__Rover__bounds___402_pa0_pa1\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"Constraints__Rover__bounds___402_pa0_pin0_om\"},{\"@id\":\"Constraints__Rover__bounds___402_pa0_pin1_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Constraints__Rover__bounds___402_pa0_pin0_om\"},{\"@id\":\"Constraints__Rover__bounds___402_pa0_pin1_om\"}]" ;
-    json:ownedFeatureMembership "[{\"@id\":\"Constraints__Rover__bounds___402_pa0_pin0_om\"},{\"@id\":\"Constraints__Rover__bounds___402_pa0_pin1_om\"}]" ;
-    json:ownedFeature "[{\"@id\":\"Constraints__Rover__bounds___402_pa0_pin0\"},{\"@id\":\"Constraints__Rover__bounds___402_pa0_pin1\"}]" ;
-    json:parameter "[{\"@id\":\"Constraints__Rover__bounds___402_pa0_pin0\"},{\"@id\":\"Constraints__Rover__bounds___402_pa0_pin1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Constraints__Rover__bounds___402_pa0_pin0_om\"},{\"@id\":\"Constraints__Rover__bounds___402_pa0_pin1_om\"},{\"@id\":\"Constraints__Rover__bounds___402_pa0_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Constraints__Rover__bounds___402_pa0_pin0_om\"},{\"@id\":\"Constraints__Rover__bounds___402_pa0_pin1_om\"},{\"@id\":\"Constraints__Rover__bounds___402_pa0_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Constraints__Rover__bounds___402_pa0_pin0_om\"},{\"@id\":\"Constraints__Rover__bounds___402_pa0_pin1_om\"},{\"@id\":\"Constraints__Rover__bounds___402_pa0_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Constraints__Rover__bounds___402_pa0_pin0\"},{\"@id\":\"Constraints__Rover__bounds___402_pa0_pin1\"},{\"@id\":\"Constraints__Rover__bounds___402_pa0_pout\"}]" ;
+    json:parameter "[{\"@id\":\"Constraints__Rover__bounds___402_pa0_pin0\"},{\"@id\":\"Constraints__Rover__bounds___402_pa0_pin1\"},{\"@id\":\"Constraints__Rover__bounds___402_pa0_pout\"}]" ;
     json:input "[{\"@id\":\"Constraints__Rover__bounds___402_pa0_pin0\"},{\"@id\":\"Constraints__Rover__bounds___402_pa0_pin1\"}]" .
 
 expr:Constraints__Rover__bounds___402_pa0_pa0
@@ -1279,10 +1573,36 @@ expr:Constraints__Rover__bounds___402_pa0_pa0
     sysx:sourceText "mass" ;
     sysml:elementId "Constraints__Rover__bounds___402_pa0_pa0" ;
     sysml:referent elmt:Constraints__Rover__mass ;
+    sysml:ownedRelationship expr:Constraints__Rover__bounds___402_pa0_pa0_pout_om, expr:Constraints__Rover__bounds___402_pa0_pa0_preferent ;
+    sysml:ownedMembership expr:Constraints__Rover__bounds___402_pa0_pa0_pout_om ;
+    sysml:ownedFeatureMembership expr:Constraints__Rover__bounds___402_pa0_pa0_pout_om ;
+    sysml:ownedFeature expr:Constraints__Rover__bounds___402_pa0_pa0_pout ;
+    sysml:parameter expr:Constraints__Rover__bounds___402_pa0_pa0_pout ;
+    sysml:result expr:Constraints__Rover__bounds___402_pa0_pa0_pout ;
     sysml:owner expr:Constraints__Rover__bounds___402_pa0_pin0 ;
     sysml:owningRelationship expr:Constraints__Rover__bounds___402_pa0_pa0_om ;
     sysml:owningMembership expr:Constraints__Rover__bounds___402_pa0_pa0_om ;
-    sysml:ownedRelationship expr:Constraints__Rover__bounds___402_pa0_pa0_preferent .
+    json:ownedRelationship "[{\"@id\":\"Constraints__Rover__bounds___402_pa0_pa0_pout_om\"},{\"@id\":\"Constraints__Rover__bounds___402_pa0_pa0_preferent\"}]" .
+
+expr:Constraints__Rover__bounds___402_pa0_pa0_pout
+    a sysml:Feature ;
+    sysml:elementId "Constraints__Rover__bounds___402_pa0_pa0_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:Constraints__Rover__bounds___402_pa0_pa0 ;
+    sysml:owningRelationship expr:Constraints__Rover__bounds___402_pa0_pa0_pout_om ;
+    sysml:owningMembership expr:Constraints__Rover__bounds___402_pa0_pa0_pout_om .
+
+expr:Constraints__Rover__bounds___402_pa0_pa0_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Constraints__Rover__bounds___402_pa0_pa0_pout_om" ;
+    sysml:owner expr:Constraints__Rover__bounds___402_pa0_pa0 ;
+    sysml:memberElement expr:Constraints__Rover__bounds___402_pa0_pa0_pout ;
+    sysml:ownedMemberElement expr:Constraints__Rover__bounds___402_pa0_pa0_pout ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__bounds___402_pa0_pa0_pout ;
+    sysml:owningRelatedElement expr:Constraints__Rover__bounds___402_pa0_pa0 ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__bounds___402_pa0_pa0 ;
+    sysml:ownedMemberFeature expr:Constraints__Rover__bounds___402_pa0_pa0_pout ;
+    sysml:ownedMemberParameter expr:Constraints__Rover__bounds___402_pa0_pa0_pout .
 
 expr:Constraints__Rover__bounds___402_pa0_pin0
     a sysml:Feature ;
@@ -1361,6 +1681,26 @@ expr:Constraints__Rover__bounds___402_pa0_pa1_om
     sysml:featureWithValue expr:Constraints__Rover__bounds___402_pa0_pin1 ;
     sysml:value expr:Constraints__Rover__bounds___402_pa0_pa1 .
 
+expr:Constraints__Rover__bounds___402_pa0_pout
+    a sysml:Feature ;
+    sysml:elementId "Constraints__Rover__bounds___402_pa0_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:Constraints__Rover__bounds___402_pa0 ;
+    sysml:owningRelationship expr:Constraints__Rover__bounds___402_pa0_pout_om ;
+    sysml:owningMembership expr:Constraints__Rover__bounds___402_pa0_pout_om .
+
+expr:Constraints__Rover__bounds___402_pa0_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Constraints__Rover__bounds___402_pa0_pout_om" ;
+    sysml:owner expr:Constraints__Rover__bounds___402_pa0 ;
+    sysml:memberElement expr:Constraints__Rover__bounds___402_pa0_pout ;
+    sysml:ownedMemberElement expr:Constraints__Rover__bounds___402_pa0_pout ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__bounds___402_pa0_pout ;
+    sysml:owningRelatedElement expr:Constraints__Rover__bounds___402_pa0 ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__bounds___402_pa0 ;
+    sysml:ownedMemberFeature expr:Constraints__Rover__bounds___402_pa0_pout ;
+    sysml:ownedMemberParameter expr:Constraints__Rover__bounds___402_pa0_pout .
+
 expr:Constraints__Rover__bounds___402_pin0
     a sysml:Feature ;
     sysml:elementId "Constraints__Rover__bounds___402_pin0" ;
@@ -1394,6 +1734,26 @@ expr:Constraints__Rover__bounds___402_pa0_om
     sysml:membershipOwningNamespace expr:Constraints__Rover__bounds___402_pin0 ;
     sysml:featureWithValue expr:Constraints__Rover__bounds___402_pin0 ;
     sysml:value expr:Constraints__Rover__bounds___402_pa0 .
+
+expr:Constraints__Rover__bounds___402_pout
+    a sysml:Feature ;
+    sysml:elementId "Constraints__Rover__bounds___402_pout" ;
+    sysml:direction "out" ;
+    sysml:owner elmt:Constraints__Rover__bounds___402 ;
+    sysml:owningRelationship expr:Constraints__Rover__bounds___402_pout_om ;
+    sysml:owningMembership expr:Constraints__Rover__bounds___402_pout_om .
+
+expr:Constraints__Rover__bounds___402_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Constraints__Rover__bounds___402_pout_om" ;
+    sysml:owner elmt:Constraints__Rover__bounds___402 ;
+    sysml:memberElement expr:Constraints__Rover__bounds___402_pout ;
+    sysml:ownedMemberElement expr:Constraints__Rover__bounds___402_pout ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__bounds___402_pout ;
+    sysml:owningRelatedElement elmt:Constraints__Rover__bounds___402 ;
+    sysml:membershipOwningNamespace elmt:Constraints__Rover__bounds___402 ;
+    sysml:ownedMemberFeature expr:Constraints__Rover__bounds___402_pout ;
+    sysml:ownedMemberParameter expr:Constraints__Rover__bounds___402_pout .
 
 elmt:Constraints__Rover__bounds__inner
     a sysml:AssertConstraintUsage ;
@@ -1437,19 +1797,20 @@ elmt:Constraints__Rover__bounds__inner___400
     sysml:owningMembership elmt:Constraints__Rover__bounds__inner___400_om ;
     sysml:operator "<" ;
     sysml:argument expr:Constraints__Rover__bounds__inner___400_pa0, expr:Constraints__Rover__bounds__inner___400_pa1 ;
-    sysml:ownedRelationship expr:Constraints__Rover__bounds__inner___400_pin0_om, expr:Constraints__Rover__bounds__inner___400_pin1_om ;
-    sysml:ownedMembership expr:Constraints__Rover__bounds__inner___400_pin0_om, expr:Constraints__Rover__bounds__inner___400_pin1_om ;
-    sysml:ownedFeatureMembership expr:Constraints__Rover__bounds__inner___400_pin0_om, expr:Constraints__Rover__bounds__inner___400_pin1_om ;
-    sysml:ownedFeature expr:Constraints__Rover__bounds__inner___400_pin0, expr:Constraints__Rover__bounds__inner___400_pin1 ;
-    sysml:parameter expr:Constraints__Rover__bounds__inner___400_pin0, expr:Constraints__Rover__bounds__inner___400_pin1 ;
+    sysml:ownedRelationship expr:Constraints__Rover__bounds__inner___400_pin0_om, expr:Constraints__Rover__bounds__inner___400_pin1_om, expr:Constraints__Rover__bounds__inner___400_pout_om ;
+    sysml:ownedMembership expr:Constraints__Rover__bounds__inner___400_pin0_om, expr:Constraints__Rover__bounds__inner___400_pin1_om, expr:Constraints__Rover__bounds__inner___400_pout_om ;
+    sysml:ownedFeatureMembership expr:Constraints__Rover__bounds__inner___400_pin0_om, expr:Constraints__Rover__bounds__inner___400_pin1_om, expr:Constraints__Rover__bounds__inner___400_pout_om ;
+    sysml:ownedFeature expr:Constraints__Rover__bounds__inner___400_pin0, expr:Constraints__Rover__bounds__inner___400_pin1, expr:Constraints__Rover__bounds__inner___400_pout ;
+    sysml:parameter expr:Constraints__Rover__bounds__inner___400_pin0, expr:Constraints__Rover__bounds__inner___400_pin1, expr:Constraints__Rover__bounds__inner___400_pout ;
     sysml:input expr:Constraints__Rover__bounds__inner___400_pin0, expr:Constraints__Rover__bounds__inner___400_pin1 ;
+    sysml:result expr:Constraints__Rover__bounds__inner___400_pout ;
     sysx:sourceText "                mass < 1000\n" ;
     json:argument "[{\"@id\":\"Constraints__Rover__bounds__inner___400_pa0\"},{\"@id\":\"Constraints__Rover__bounds__inner___400_pa1\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"Constraints__Rover__bounds__inner___400_pin0_om\"},{\"@id\":\"Constraints__Rover__bounds__inner___400_pin1_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Constraints__Rover__bounds__inner___400_pin0_om\"},{\"@id\":\"Constraints__Rover__bounds__inner___400_pin1_om\"}]" ;
-    json:ownedFeatureMembership "[{\"@id\":\"Constraints__Rover__bounds__inner___400_pin0_om\"},{\"@id\":\"Constraints__Rover__bounds__inner___400_pin1_om\"}]" ;
-    json:ownedFeature "[{\"@id\":\"Constraints__Rover__bounds__inner___400_pin0\"},{\"@id\":\"Constraints__Rover__bounds__inner___400_pin1\"}]" ;
-    json:parameter "[{\"@id\":\"Constraints__Rover__bounds__inner___400_pin0\"},{\"@id\":\"Constraints__Rover__bounds__inner___400_pin1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Constraints__Rover__bounds__inner___400_pin0_om\"},{\"@id\":\"Constraints__Rover__bounds__inner___400_pin1_om\"},{\"@id\":\"Constraints__Rover__bounds__inner___400_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Constraints__Rover__bounds__inner___400_pin0_om\"},{\"@id\":\"Constraints__Rover__bounds__inner___400_pin1_om\"},{\"@id\":\"Constraints__Rover__bounds__inner___400_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Constraints__Rover__bounds__inner___400_pin0_om\"},{\"@id\":\"Constraints__Rover__bounds__inner___400_pin1_om\"},{\"@id\":\"Constraints__Rover__bounds__inner___400_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Constraints__Rover__bounds__inner___400_pin0\"},{\"@id\":\"Constraints__Rover__bounds__inner___400_pin1\"},{\"@id\":\"Constraints__Rover__bounds__inner___400_pout\"}]" ;
+    json:parameter "[{\"@id\":\"Constraints__Rover__bounds__inner___400_pin0\"},{\"@id\":\"Constraints__Rover__bounds__inner___400_pin1\"},{\"@id\":\"Constraints__Rover__bounds__inner___400_pout\"}]" ;
     json:input "[{\"@id\":\"Constraints__Rover__bounds__inner___400_pin0\"},{\"@id\":\"Constraints__Rover__bounds__inner___400_pin1\"}]" .
 
 elmt:Constraints__Rover__bounds__inner___400_om
@@ -1470,10 +1831,36 @@ expr:Constraints__Rover__bounds__inner___400_pa0
     sysx:sourceText "mass" ;
     sysml:elementId "Constraints__Rover__bounds__inner___400_pa0" ;
     sysml:referent elmt:Constraints__Rover__mass ;
+    sysml:ownedRelationship expr:Constraints__Rover__bounds__inner___400_pa0_pout_om, expr:Constraints__Rover__bounds__inner___400_pa0_preferent ;
+    sysml:ownedMembership expr:Constraints__Rover__bounds__inner___400_pa0_pout_om ;
+    sysml:ownedFeatureMembership expr:Constraints__Rover__bounds__inner___400_pa0_pout_om ;
+    sysml:ownedFeature expr:Constraints__Rover__bounds__inner___400_pa0_pout ;
+    sysml:parameter expr:Constraints__Rover__bounds__inner___400_pa0_pout ;
+    sysml:result expr:Constraints__Rover__bounds__inner___400_pa0_pout ;
     sysml:owner expr:Constraints__Rover__bounds__inner___400_pin0 ;
     sysml:owningRelationship expr:Constraints__Rover__bounds__inner___400_pa0_om ;
     sysml:owningMembership expr:Constraints__Rover__bounds__inner___400_pa0_om ;
-    sysml:ownedRelationship expr:Constraints__Rover__bounds__inner___400_pa0_preferent .
+    json:ownedRelationship "[{\"@id\":\"Constraints__Rover__bounds__inner___400_pa0_pout_om\"},{\"@id\":\"Constraints__Rover__bounds__inner___400_pa0_preferent\"}]" .
+
+expr:Constraints__Rover__bounds__inner___400_pa0_pout
+    a sysml:Feature ;
+    sysml:elementId "Constraints__Rover__bounds__inner___400_pa0_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:Constraints__Rover__bounds__inner___400_pa0 ;
+    sysml:owningRelationship expr:Constraints__Rover__bounds__inner___400_pa0_pout_om ;
+    sysml:owningMembership expr:Constraints__Rover__bounds__inner___400_pa0_pout_om .
+
+expr:Constraints__Rover__bounds__inner___400_pa0_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Constraints__Rover__bounds__inner___400_pa0_pout_om" ;
+    sysml:owner expr:Constraints__Rover__bounds__inner___400_pa0 ;
+    sysml:memberElement expr:Constraints__Rover__bounds__inner___400_pa0_pout ;
+    sysml:ownedMemberElement expr:Constraints__Rover__bounds__inner___400_pa0_pout ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__bounds__inner___400_pa0_pout ;
+    sysml:owningRelatedElement expr:Constraints__Rover__bounds__inner___400_pa0 ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__bounds__inner___400_pa0 ;
+    sysml:ownedMemberFeature expr:Constraints__Rover__bounds__inner___400_pa0_pout ;
+    sysml:ownedMemberParameter expr:Constraints__Rover__bounds__inner___400_pa0_pout .
 
 expr:Constraints__Rover__bounds__inner___400_pin0
     a sysml:Feature ;
@@ -1551,6 +1938,26 @@ expr:Constraints__Rover__bounds__inner___400_pa1_om
     sysml:membershipOwningNamespace expr:Constraints__Rover__bounds__inner___400_pin1 ;
     sysml:featureWithValue expr:Constraints__Rover__bounds__inner___400_pin1 ;
     sysml:value expr:Constraints__Rover__bounds__inner___400_pa1 .
+
+expr:Constraints__Rover__bounds__inner___400_pout
+    a sysml:Feature ;
+    sysml:elementId "Constraints__Rover__bounds__inner___400_pout" ;
+    sysml:direction "out" ;
+    sysml:owner elmt:Constraints__Rover__bounds__inner___400 ;
+    sysml:owningRelationship expr:Constraints__Rover__bounds__inner___400_pout_om ;
+    sysml:owningMembership expr:Constraints__Rover__bounds__inner___400_pout_om .
+
+expr:Constraints__Rover__bounds__inner___400_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Constraints__Rover__bounds__inner___400_pout_om" ;
+    sysml:owner elmt:Constraints__Rover__bounds__inner___400 ;
+    sysml:memberElement expr:Constraints__Rover__bounds__inner___400_pout ;
+    sysml:ownedMemberElement expr:Constraints__Rover__bounds__inner___400_pout ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__bounds__inner___400_pout ;
+    sysml:owningRelatedElement elmt:Constraints__Rover__bounds__inner___400 ;
+    sysml:membershipOwningNamespace elmt:Constraints__Rover__bounds__inner___400 ;
+    sysml:ownedMemberFeature expr:Constraints__Rover__bounds__inner___400_pout ;
+    sysml:ownedMemberParameter expr:Constraints__Rover__bounds__inner___400_pout .
 
 elmt:Constraints__Rover__lightEnough
     a sysml:RequirementUsage ;
@@ -1664,19 +2071,20 @@ elmt:Constraints__Rover__lightEnough___401___400
     sysml:owningMembership elmt:Constraints__Rover__lightEnough___401___400_om ;
     sysml:operator ">" ;
     sysml:argument expr:Constraints__Rover__lightEnough___401___400_pa0, expr:Constraints__Rover__lightEnough___401___400_pa1 ;
-    sysml:ownedRelationship expr:Constraints__Rover__lightEnough___401___400_pin0_om, expr:Constraints__Rover__lightEnough___401___400_pin1_om ;
-    sysml:ownedMembership expr:Constraints__Rover__lightEnough___401___400_pin0_om, expr:Constraints__Rover__lightEnough___401___400_pin1_om ;
-    sysml:ownedFeatureMembership expr:Constraints__Rover__lightEnough___401___400_pin0_om, expr:Constraints__Rover__lightEnough___401___400_pin1_om ;
-    sysml:ownedFeature expr:Constraints__Rover__lightEnough___401___400_pin0, expr:Constraints__Rover__lightEnough___401___400_pin1 ;
-    sysml:parameter expr:Constraints__Rover__lightEnough___401___400_pin0, expr:Constraints__Rover__lightEnough___401___400_pin1 ;
+    sysml:ownedRelationship expr:Constraints__Rover__lightEnough___401___400_pin0_om, expr:Constraints__Rover__lightEnough___401___400_pin1_om, expr:Constraints__Rover__lightEnough___401___400_pout_om ;
+    sysml:ownedMembership expr:Constraints__Rover__lightEnough___401___400_pin0_om, expr:Constraints__Rover__lightEnough___401___400_pin1_om, expr:Constraints__Rover__lightEnough___401___400_pout_om ;
+    sysml:ownedFeatureMembership expr:Constraints__Rover__lightEnough___401___400_pin0_om, expr:Constraints__Rover__lightEnough___401___400_pin1_om, expr:Constraints__Rover__lightEnough___401___400_pout_om ;
+    sysml:ownedFeature expr:Constraints__Rover__lightEnough___401___400_pin0, expr:Constraints__Rover__lightEnough___401___400_pin1, expr:Constraints__Rover__lightEnough___401___400_pout ;
+    sysml:parameter expr:Constraints__Rover__lightEnough___401___400_pin0, expr:Constraints__Rover__lightEnough___401___400_pin1, expr:Constraints__Rover__lightEnough___401___400_pout ;
     sysml:input expr:Constraints__Rover__lightEnough___401___400_pin0, expr:Constraints__Rover__lightEnough___401___400_pin1 ;
+    sysml:result expr:Constraints__Rover__lightEnough___401___400_pout ;
     sysx:sourceText "                r.mass > 0\n" ;
     json:argument "[{\"@id\":\"Constraints__Rover__lightEnough___401___400_pa0\"},{\"@id\":\"Constraints__Rover__lightEnough___401___400_pa1\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"Constraints__Rover__lightEnough___401___400_pin0_om\"},{\"@id\":\"Constraints__Rover__lightEnough___401___400_pin1_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Constraints__Rover__lightEnough___401___400_pin0_om\"},{\"@id\":\"Constraints__Rover__lightEnough___401___400_pin1_om\"}]" ;
-    json:ownedFeatureMembership "[{\"@id\":\"Constraints__Rover__lightEnough___401___400_pin0_om\"},{\"@id\":\"Constraints__Rover__lightEnough___401___400_pin1_om\"}]" ;
-    json:ownedFeature "[{\"@id\":\"Constraints__Rover__lightEnough___401___400_pin0\"},{\"@id\":\"Constraints__Rover__lightEnough___401___400_pin1\"}]" ;
-    json:parameter "[{\"@id\":\"Constraints__Rover__lightEnough___401___400_pin0\"},{\"@id\":\"Constraints__Rover__lightEnough___401___400_pin1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Constraints__Rover__lightEnough___401___400_pin0_om\"},{\"@id\":\"Constraints__Rover__lightEnough___401___400_pin1_om\"},{\"@id\":\"Constraints__Rover__lightEnough___401___400_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Constraints__Rover__lightEnough___401___400_pin0_om\"},{\"@id\":\"Constraints__Rover__lightEnough___401___400_pin1_om\"},{\"@id\":\"Constraints__Rover__lightEnough___401___400_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Constraints__Rover__lightEnough___401___400_pin0_om\"},{\"@id\":\"Constraints__Rover__lightEnough___401___400_pin1_om\"},{\"@id\":\"Constraints__Rover__lightEnough___401___400_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Constraints__Rover__lightEnough___401___400_pin0\"},{\"@id\":\"Constraints__Rover__lightEnough___401___400_pin1\"},{\"@id\":\"Constraints__Rover__lightEnough___401___400_pout\"}]" ;
+    json:parameter "[{\"@id\":\"Constraints__Rover__lightEnough___401___400_pin0\"},{\"@id\":\"Constraints__Rover__lightEnough___401___400_pin1\"},{\"@id\":\"Constraints__Rover__lightEnough___401___400_pout\"}]" ;
     json:input "[{\"@id\":\"Constraints__Rover__lightEnough___401___400_pin0\"},{\"@id\":\"Constraints__Rover__lightEnough___401___400_pin1\"}]" .
 
 elmt:Constraints__Rover__lightEnough___401___400_om
@@ -1697,27 +2105,58 @@ expr:Constraints__Rover__lightEnough___401___400_pa0
     sysx:sourceText "r.mass" ;
     sysml:elementId "Constraints__Rover__lightEnough___401___400_pa0" ;
     sysml:argument expr:Constraints__Rover__lightEnough___401___400_pa0_pa0 ;
-    sysml:ownedRelationship expr:Constraints__Rover__lightEnough___401___400_pa0_pin0_om, expr:Constraints__Rover__lightEnough___401___400_pa0_ptargetFeature ;
-    sysml:ownedMembership expr:Constraints__Rover__lightEnough___401___400_pa0_pin0_om ;
-    sysml:ownedFeatureMembership expr:Constraints__Rover__lightEnough___401___400_pa0_pin0_om ;
-    sysml:ownedFeature expr:Constraints__Rover__lightEnough___401___400_pa0_pin0 ;
-    sysml:parameter expr:Constraints__Rover__lightEnough___401___400_pa0_pin0 ;
+    sysml:ownedRelationship expr:Constraints__Rover__lightEnough___401___400_pa0_pin0_om, expr:Constraints__Rover__lightEnough___401___400_pa0_pout_om, expr:Constraints__Rover__lightEnough___401___400_pa0_ptargetFeature ;
+    sysml:ownedMembership expr:Constraints__Rover__lightEnough___401___400_pa0_pin0_om, expr:Constraints__Rover__lightEnough___401___400_pa0_pout_om ;
+    sysml:ownedFeatureMembership expr:Constraints__Rover__lightEnough___401___400_pa0_pin0_om, expr:Constraints__Rover__lightEnough___401___400_pa0_pout_om ;
+    sysml:ownedFeature expr:Constraints__Rover__lightEnough___401___400_pa0_pin0, expr:Constraints__Rover__lightEnough___401___400_pa0_pout ;
+    sysml:parameter expr:Constraints__Rover__lightEnough___401___400_pa0_pin0, expr:Constraints__Rover__lightEnough___401___400_pa0_pout ;
     sysml:input expr:Constraints__Rover__lightEnough___401___400_pa0_pin0 ;
     sysml:targetFeature elmt:Constraints__Rover__mass ;
+    sysml:result expr:Constraints__Rover__lightEnough___401___400_pa0_pout ;
     sysml:owner expr:Constraints__Rover__lightEnough___401___400_pin0 ;
     sysml:owningRelationship expr:Constraints__Rover__lightEnough___401___400_pa0_om ;
     sysml:owningMembership expr:Constraints__Rover__lightEnough___401___400_pa0_om ;
-    json:ownedRelationship "[{\"@id\":\"Constraints__Rover__lightEnough___401___400_pa0_pin0_om\"},{\"@id\":\"Constraints__Rover__lightEnough___401___400_pa0_ptargetFeature\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Constraints__Rover__lightEnough___401___400_pa0_pin0_om\"},{\"@id\":\"Constraints__Rover__lightEnough___401___400_pa0_pout_om\"},{\"@id\":\"Constraints__Rover__lightEnough___401___400_pa0_ptargetFeature\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Constraints__Rover__lightEnough___401___400_pa0_pin0_om\"},{\"@id\":\"Constraints__Rover__lightEnough___401___400_pa0_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Constraints__Rover__lightEnough___401___400_pa0_pin0_om\"},{\"@id\":\"Constraints__Rover__lightEnough___401___400_pa0_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Constraints__Rover__lightEnough___401___400_pa0_pin0\"},{\"@id\":\"Constraints__Rover__lightEnough___401___400_pa0_pout\"}]" ;
+    json:parameter "[{\"@id\":\"Constraints__Rover__lightEnough___401___400_pa0_pin0\"},{\"@id\":\"Constraints__Rover__lightEnough___401___400_pa0_pout\"}]" .
 
 expr:Constraints__Rover__lightEnough___401___400_pa0_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "r" ;
     sysml:elementId "Constraints__Rover__lightEnough___401___400_pa0_pa0" ;
     sysml:referent elmt:Constraints__Rover__lightEnough__r ;
+    sysml:ownedRelationship expr:Constraints__Rover__lightEnough___401___400_pa0_pa0_pout_om, expr:Constraints__Rover__lightEnough___401___400_pa0_pa0_preferent ;
+    sysml:ownedMembership expr:Constraints__Rover__lightEnough___401___400_pa0_pa0_pout_om ;
+    sysml:ownedFeatureMembership expr:Constraints__Rover__lightEnough___401___400_pa0_pa0_pout_om ;
+    sysml:ownedFeature expr:Constraints__Rover__lightEnough___401___400_pa0_pa0_pout ;
+    sysml:parameter expr:Constraints__Rover__lightEnough___401___400_pa0_pa0_pout ;
+    sysml:result expr:Constraints__Rover__lightEnough___401___400_pa0_pa0_pout ;
     sysml:owner expr:Constraints__Rover__lightEnough___401___400_pa0_pin0 ;
     sysml:owningRelationship expr:Constraints__Rover__lightEnough___401___400_pa0_pa0_om ;
     sysml:owningMembership expr:Constraints__Rover__lightEnough___401___400_pa0_pa0_om ;
-    sysml:ownedRelationship expr:Constraints__Rover__lightEnough___401___400_pa0_pa0_preferent .
+    json:ownedRelationship "[{\"@id\":\"Constraints__Rover__lightEnough___401___400_pa0_pa0_pout_om\"},{\"@id\":\"Constraints__Rover__lightEnough___401___400_pa0_pa0_preferent\"}]" .
+
+expr:Constraints__Rover__lightEnough___401___400_pa0_pa0_pout
+    a sysml:Feature ;
+    sysml:elementId "Constraints__Rover__lightEnough___401___400_pa0_pa0_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:Constraints__Rover__lightEnough___401___400_pa0_pa0 ;
+    sysml:owningRelationship expr:Constraints__Rover__lightEnough___401___400_pa0_pa0_pout_om ;
+    sysml:owningMembership expr:Constraints__Rover__lightEnough___401___400_pa0_pa0_pout_om .
+
+expr:Constraints__Rover__lightEnough___401___400_pa0_pa0_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Constraints__Rover__lightEnough___401___400_pa0_pa0_pout_om" ;
+    sysml:owner expr:Constraints__Rover__lightEnough___401___400_pa0_pa0 ;
+    sysml:memberElement expr:Constraints__Rover__lightEnough___401___400_pa0_pa0_pout ;
+    sysml:ownedMemberElement expr:Constraints__Rover__lightEnough___401___400_pa0_pa0_pout ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__lightEnough___401___400_pa0_pa0_pout ;
+    sysml:owningRelatedElement expr:Constraints__Rover__lightEnough___401___400_pa0_pa0 ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__lightEnough___401___400_pa0_pa0 ;
+    sysml:ownedMemberFeature expr:Constraints__Rover__lightEnough___401___400_pa0_pa0_pout ;
+    sysml:ownedMemberParameter expr:Constraints__Rover__lightEnough___401___400_pa0_pa0_pout .
 
 expr:Constraints__Rover__lightEnough___401___400_pa0_pin0
     a sysml:Feature ;
@@ -1752,6 +2191,26 @@ expr:Constraints__Rover__lightEnough___401___400_pa0_pa0_om
     sysml:membershipOwningNamespace expr:Constraints__Rover__lightEnough___401___400_pa0_pin0 ;
     sysml:featureWithValue expr:Constraints__Rover__lightEnough___401___400_pa0_pin0 ;
     sysml:value expr:Constraints__Rover__lightEnough___401___400_pa0_pa0 .
+
+expr:Constraints__Rover__lightEnough___401___400_pa0_pout
+    a sysml:Feature ;
+    sysml:elementId "Constraints__Rover__lightEnough___401___400_pa0_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:Constraints__Rover__lightEnough___401___400_pa0 ;
+    sysml:owningRelationship expr:Constraints__Rover__lightEnough___401___400_pa0_pout_om ;
+    sysml:owningMembership expr:Constraints__Rover__lightEnough___401___400_pa0_pout_om .
+
+expr:Constraints__Rover__lightEnough___401___400_pa0_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Constraints__Rover__lightEnough___401___400_pa0_pout_om" ;
+    sysml:owner expr:Constraints__Rover__lightEnough___401___400_pa0 ;
+    sysml:memberElement expr:Constraints__Rover__lightEnough___401___400_pa0_pout ;
+    sysml:ownedMemberElement expr:Constraints__Rover__lightEnough___401___400_pa0_pout ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__lightEnough___401___400_pa0_pout ;
+    sysml:owningRelatedElement expr:Constraints__Rover__lightEnough___401___400_pa0 ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__lightEnough___401___400_pa0 ;
+    sysml:ownedMemberFeature expr:Constraints__Rover__lightEnough___401___400_pa0_pout ;
+    sysml:ownedMemberParameter expr:Constraints__Rover__lightEnough___401___400_pa0_pout .
 
 expr:Constraints__Rover__lightEnough___401___400_pin0
     a sysml:Feature ;
@@ -1830,6 +2289,26 @@ expr:Constraints__Rover__lightEnough___401___400_pa1_om
     sysml:featureWithValue expr:Constraints__Rover__lightEnough___401___400_pin1 ;
     sysml:value expr:Constraints__Rover__lightEnough___401___400_pa1 .
 
+expr:Constraints__Rover__lightEnough___401___400_pout
+    a sysml:Feature ;
+    sysml:elementId "Constraints__Rover__lightEnough___401___400_pout" ;
+    sysml:direction "out" ;
+    sysml:owner elmt:Constraints__Rover__lightEnough___401___400 ;
+    sysml:owningRelationship expr:Constraints__Rover__lightEnough___401___400_pout_om ;
+    sysml:owningMembership expr:Constraints__Rover__lightEnough___401___400_pout_om .
+
+expr:Constraints__Rover__lightEnough___401___400_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Constraints__Rover__lightEnough___401___400_pout_om" ;
+    sysml:owner elmt:Constraints__Rover__lightEnough___401___400 ;
+    sysml:memberElement expr:Constraints__Rover__lightEnough___401___400_pout ;
+    sysml:ownedMemberElement expr:Constraints__Rover__lightEnough___401___400_pout ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__lightEnough___401___400_pout ;
+    sysml:owningRelatedElement elmt:Constraints__Rover__lightEnough___401___400 ;
+    sysml:membershipOwningNamespace elmt:Constraints__Rover__lightEnough___401___400 ;
+    sysml:ownedMemberFeature expr:Constraints__Rover__lightEnough___401___400_pout ;
+    sysml:ownedMemberParameter expr:Constraints__Rover__lightEnough___401___400_pout .
+
 elmt:Constraints__Rover__lightEnough___402
     a sysml:ConstraintUsage ;
     sysml:qualifiedName "Constraints::Rover::lightEnough::@2" ;
@@ -1874,19 +2353,20 @@ elmt:Constraints__Rover__lightEnough___402___400
     sysml:owningMembership elmt:Constraints__Rover__lightEnough___402___400_om ;
     sysml:operator "<" ;
     sysml:argument expr:Constraints__Rover__lightEnough___402___400_pa0, expr:Constraints__Rover__lightEnough___402___400_pa1 ;
-    sysml:ownedRelationship expr:Constraints__Rover__lightEnough___402___400_pin0_om, expr:Constraints__Rover__lightEnough___402___400_pin1_om ;
-    sysml:ownedMembership expr:Constraints__Rover__lightEnough___402___400_pin0_om, expr:Constraints__Rover__lightEnough___402___400_pin1_om ;
-    sysml:ownedFeatureMembership expr:Constraints__Rover__lightEnough___402___400_pin0_om, expr:Constraints__Rover__lightEnough___402___400_pin1_om ;
-    sysml:ownedFeature expr:Constraints__Rover__lightEnough___402___400_pin0, expr:Constraints__Rover__lightEnough___402___400_pin1 ;
-    sysml:parameter expr:Constraints__Rover__lightEnough___402___400_pin0, expr:Constraints__Rover__lightEnough___402___400_pin1 ;
+    sysml:ownedRelationship expr:Constraints__Rover__lightEnough___402___400_pin0_om, expr:Constraints__Rover__lightEnough___402___400_pin1_om, expr:Constraints__Rover__lightEnough___402___400_pout_om ;
+    sysml:ownedMembership expr:Constraints__Rover__lightEnough___402___400_pin0_om, expr:Constraints__Rover__lightEnough___402___400_pin1_om, expr:Constraints__Rover__lightEnough___402___400_pout_om ;
+    sysml:ownedFeatureMembership expr:Constraints__Rover__lightEnough___402___400_pin0_om, expr:Constraints__Rover__lightEnough___402___400_pin1_om, expr:Constraints__Rover__lightEnough___402___400_pout_om ;
+    sysml:ownedFeature expr:Constraints__Rover__lightEnough___402___400_pin0, expr:Constraints__Rover__lightEnough___402___400_pin1, expr:Constraints__Rover__lightEnough___402___400_pout ;
+    sysml:parameter expr:Constraints__Rover__lightEnough___402___400_pin0, expr:Constraints__Rover__lightEnough___402___400_pin1, expr:Constraints__Rover__lightEnough___402___400_pout ;
     sysml:input expr:Constraints__Rover__lightEnough___402___400_pin0, expr:Constraints__Rover__lightEnough___402___400_pin1 ;
+    sysml:result expr:Constraints__Rover__lightEnough___402___400_pout ;
     sysx:sourceText "                r.mass < 100\n" ;
     json:argument "[{\"@id\":\"Constraints__Rover__lightEnough___402___400_pa0\"},{\"@id\":\"Constraints__Rover__lightEnough___402___400_pa1\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"Constraints__Rover__lightEnough___402___400_pin0_om\"},{\"@id\":\"Constraints__Rover__lightEnough___402___400_pin1_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Constraints__Rover__lightEnough___402___400_pin0_om\"},{\"@id\":\"Constraints__Rover__lightEnough___402___400_pin1_om\"}]" ;
-    json:ownedFeatureMembership "[{\"@id\":\"Constraints__Rover__lightEnough___402___400_pin0_om\"},{\"@id\":\"Constraints__Rover__lightEnough___402___400_pin1_om\"}]" ;
-    json:ownedFeature "[{\"@id\":\"Constraints__Rover__lightEnough___402___400_pin0\"},{\"@id\":\"Constraints__Rover__lightEnough___402___400_pin1\"}]" ;
-    json:parameter "[{\"@id\":\"Constraints__Rover__lightEnough___402___400_pin0\"},{\"@id\":\"Constraints__Rover__lightEnough___402___400_pin1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Constraints__Rover__lightEnough___402___400_pin0_om\"},{\"@id\":\"Constraints__Rover__lightEnough___402___400_pin1_om\"},{\"@id\":\"Constraints__Rover__lightEnough___402___400_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Constraints__Rover__lightEnough___402___400_pin0_om\"},{\"@id\":\"Constraints__Rover__lightEnough___402___400_pin1_om\"},{\"@id\":\"Constraints__Rover__lightEnough___402___400_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Constraints__Rover__lightEnough___402___400_pin0_om\"},{\"@id\":\"Constraints__Rover__lightEnough___402___400_pin1_om\"},{\"@id\":\"Constraints__Rover__lightEnough___402___400_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Constraints__Rover__lightEnough___402___400_pin0\"},{\"@id\":\"Constraints__Rover__lightEnough___402___400_pin1\"},{\"@id\":\"Constraints__Rover__lightEnough___402___400_pout\"}]" ;
+    json:parameter "[{\"@id\":\"Constraints__Rover__lightEnough___402___400_pin0\"},{\"@id\":\"Constraints__Rover__lightEnough___402___400_pin1\"},{\"@id\":\"Constraints__Rover__lightEnough___402___400_pout\"}]" ;
     json:input "[{\"@id\":\"Constraints__Rover__lightEnough___402___400_pin0\"},{\"@id\":\"Constraints__Rover__lightEnough___402___400_pin1\"}]" .
 
 elmt:Constraints__Rover__lightEnough___402___400_om
@@ -1907,27 +2387,58 @@ expr:Constraints__Rover__lightEnough___402___400_pa0
     sysx:sourceText "r.mass" ;
     sysml:elementId "Constraints__Rover__lightEnough___402___400_pa0" ;
     sysml:argument expr:Constraints__Rover__lightEnough___402___400_pa0_pa0 ;
-    sysml:ownedRelationship expr:Constraints__Rover__lightEnough___402___400_pa0_pin0_om, expr:Constraints__Rover__lightEnough___402___400_pa0_ptargetFeature ;
-    sysml:ownedMembership expr:Constraints__Rover__lightEnough___402___400_pa0_pin0_om ;
-    sysml:ownedFeatureMembership expr:Constraints__Rover__lightEnough___402___400_pa0_pin0_om ;
-    sysml:ownedFeature expr:Constraints__Rover__lightEnough___402___400_pa0_pin0 ;
-    sysml:parameter expr:Constraints__Rover__lightEnough___402___400_pa0_pin0 ;
+    sysml:ownedRelationship expr:Constraints__Rover__lightEnough___402___400_pa0_pin0_om, expr:Constraints__Rover__lightEnough___402___400_pa0_pout_om, expr:Constraints__Rover__lightEnough___402___400_pa0_ptargetFeature ;
+    sysml:ownedMembership expr:Constraints__Rover__lightEnough___402___400_pa0_pin0_om, expr:Constraints__Rover__lightEnough___402___400_pa0_pout_om ;
+    sysml:ownedFeatureMembership expr:Constraints__Rover__lightEnough___402___400_pa0_pin0_om, expr:Constraints__Rover__lightEnough___402___400_pa0_pout_om ;
+    sysml:ownedFeature expr:Constraints__Rover__lightEnough___402___400_pa0_pin0, expr:Constraints__Rover__lightEnough___402___400_pa0_pout ;
+    sysml:parameter expr:Constraints__Rover__lightEnough___402___400_pa0_pin0, expr:Constraints__Rover__lightEnough___402___400_pa0_pout ;
     sysml:input expr:Constraints__Rover__lightEnough___402___400_pa0_pin0 ;
     sysml:targetFeature elmt:Constraints__Rover__mass ;
+    sysml:result expr:Constraints__Rover__lightEnough___402___400_pa0_pout ;
     sysml:owner expr:Constraints__Rover__lightEnough___402___400_pin0 ;
     sysml:owningRelationship expr:Constraints__Rover__lightEnough___402___400_pa0_om ;
     sysml:owningMembership expr:Constraints__Rover__lightEnough___402___400_pa0_om ;
-    json:ownedRelationship "[{\"@id\":\"Constraints__Rover__lightEnough___402___400_pa0_pin0_om\"},{\"@id\":\"Constraints__Rover__lightEnough___402___400_pa0_ptargetFeature\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Constraints__Rover__lightEnough___402___400_pa0_pin0_om\"},{\"@id\":\"Constraints__Rover__lightEnough___402___400_pa0_pout_om\"},{\"@id\":\"Constraints__Rover__lightEnough___402___400_pa0_ptargetFeature\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Constraints__Rover__lightEnough___402___400_pa0_pin0_om\"},{\"@id\":\"Constraints__Rover__lightEnough___402___400_pa0_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Constraints__Rover__lightEnough___402___400_pa0_pin0_om\"},{\"@id\":\"Constraints__Rover__lightEnough___402___400_pa0_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Constraints__Rover__lightEnough___402___400_pa0_pin0\"},{\"@id\":\"Constraints__Rover__lightEnough___402___400_pa0_pout\"}]" ;
+    json:parameter "[{\"@id\":\"Constraints__Rover__lightEnough___402___400_pa0_pin0\"},{\"@id\":\"Constraints__Rover__lightEnough___402___400_pa0_pout\"}]" .
 
 expr:Constraints__Rover__lightEnough___402___400_pa0_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "r" ;
     sysml:elementId "Constraints__Rover__lightEnough___402___400_pa0_pa0" ;
     sysml:referent elmt:Constraints__Rover__lightEnough__r ;
+    sysml:ownedRelationship expr:Constraints__Rover__lightEnough___402___400_pa0_pa0_pout_om, expr:Constraints__Rover__lightEnough___402___400_pa0_pa0_preferent ;
+    sysml:ownedMembership expr:Constraints__Rover__lightEnough___402___400_pa0_pa0_pout_om ;
+    sysml:ownedFeatureMembership expr:Constraints__Rover__lightEnough___402___400_pa0_pa0_pout_om ;
+    sysml:ownedFeature expr:Constraints__Rover__lightEnough___402___400_pa0_pa0_pout ;
+    sysml:parameter expr:Constraints__Rover__lightEnough___402___400_pa0_pa0_pout ;
+    sysml:result expr:Constraints__Rover__lightEnough___402___400_pa0_pa0_pout ;
     sysml:owner expr:Constraints__Rover__lightEnough___402___400_pa0_pin0 ;
     sysml:owningRelationship expr:Constraints__Rover__lightEnough___402___400_pa0_pa0_om ;
     sysml:owningMembership expr:Constraints__Rover__lightEnough___402___400_pa0_pa0_om ;
-    sysml:ownedRelationship expr:Constraints__Rover__lightEnough___402___400_pa0_pa0_preferent .
+    json:ownedRelationship "[{\"@id\":\"Constraints__Rover__lightEnough___402___400_pa0_pa0_pout_om\"},{\"@id\":\"Constraints__Rover__lightEnough___402___400_pa0_pa0_preferent\"}]" .
+
+expr:Constraints__Rover__lightEnough___402___400_pa0_pa0_pout
+    a sysml:Feature ;
+    sysml:elementId "Constraints__Rover__lightEnough___402___400_pa0_pa0_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:Constraints__Rover__lightEnough___402___400_pa0_pa0 ;
+    sysml:owningRelationship expr:Constraints__Rover__lightEnough___402___400_pa0_pa0_pout_om ;
+    sysml:owningMembership expr:Constraints__Rover__lightEnough___402___400_pa0_pa0_pout_om .
+
+expr:Constraints__Rover__lightEnough___402___400_pa0_pa0_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Constraints__Rover__lightEnough___402___400_pa0_pa0_pout_om" ;
+    sysml:owner expr:Constraints__Rover__lightEnough___402___400_pa0_pa0 ;
+    sysml:memberElement expr:Constraints__Rover__lightEnough___402___400_pa0_pa0_pout ;
+    sysml:ownedMemberElement expr:Constraints__Rover__lightEnough___402___400_pa0_pa0_pout ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__lightEnough___402___400_pa0_pa0_pout ;
+    sysml:owningRelatedElement expr:Constraints__Rover__lightEnough___402___400_pa0_pa0 ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__lightEnough___402___400_pa0_pa0 ;
+    sysml:ownedMemberFeature expr:Constraints__Rover__lightEnough___402___400_pa0_pa0_pout ;
+    sysml:ownedMemberParameter expr:Constraints__Rover__lightEnough___402___400_pa0_pa0_pout .
 
 expr:Constraints__Rover__lightEnough___402___400_pa0_pin0
     a sysml:Feature ;
@@ -1962,6 +2473,26 @@ expr:Constraints__Rover__lightEnough___402___400_pa0_pa0_om
     sysml:membershipOwningNamespace expr:Constraints__Rover__lightEnough___402___400_pa0_pin0 ;
     sysml:featureWithValue expr:Constraints__Rover__lightEnough___402___400_pa0_pin0 ;
     sysml:value expr:Constraints__Rover__lightEnough___402___400_pa0_pa0 .
+
+expr:Constraints__Rover__lightEnough___402___400_pa0_pout
+    a sysml:Feature ;
+    sysml:elementId "Constraints__Rover__lightEnough___402___400_pa0_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:Constraints__Rover__lightEnough___402___400_pa0 ;
+    sysml:owningRelationship expr:Constraints__Rover__lightEnough___402___400_pa0_pout_om ;
+    sysml:owningMembership expr:Constraints__Rover__lightEnough___402___400_pa0_pout_om .
+
+expr:Constraints__Rover__lightEnough___402___400_pa0_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Constraints__Rover__lightEnough___402___400_pa0_pout_om" ;
+    sysml:owner expr:Constraints__Rover__lightEnough___402___400_pa0 ;
+    sysml:memberElement expr:Constraints__Rover__lightEnough___402___400_pa0_pout ;
+    sysml:ownedMemberElement expr:Constraints__Rover__lightEnough___402___400_pa0_pout ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__lightEnough___402___400_pa0_pout ;
+    sysml:owningRelatedElement expr:Constraints__Rover__lightEnough___402___400_pa0 ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__lightEnough___402___400_pa0 ;
+    sysml:ownedMemberFeature expr:Constraints__Rover__lightEnough___402___400_pa0_pout ;
+    sysml:ownedMemberParameter expr:Constraints__Rover__lightEnough___402___400_pa0_pout .
 
 expr:Constraints__Rover__lightEnough___402___400_pin0
     a sysml:Feature ;
@@ -2040,6 +2571,26 @@ expr:Constraints__Rover__lightEnough___402___400_pa1_om
     sysml:featureWithValue expr:Constraints__Rover__lightEnough___402___400_pin1 ;
     sysml:value expr:Constraints__Rover__lightEnough___402___400_pa1 .
 
+expr:Constraints__Rover__lightEnough___402___400_pout
+    a sysml:Feature ;
+    sysml:elementId "Constraints__Rover__lightEnough___402___400_pout" ;
+    sysml:direction "out" ;
+    sysml:owner elmt:Constraints__Rover__lightEnough___402___400 ;
+    sysml:owningRelationship expr:Constraints__Rover__lightEnough___402___400_pout_om ;
+    sysml:owningMembership expr:Constraints__Rover__lightEnough___402___400_pout_om .
+
+expr:Constraints__Rover__lightEnough___402___400_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Constraints__Rover__lightEnough___402___400_pout_om" ;
+    sysml:owner elmt:Constraints__Rover__lightEnough___402___400 ;
+    sysml:memberElement expr:Constraints__Rover__lightEnough___402___400_pout ;
+    sysml:ownedMemberElement expr:Constraints__Rover__lightEnough___402___400_pout ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__lightEnough___402___400_pout ;
+    sysml:owningRelatedElement elmt:Constraints__Rover__lightEnough___402___400 ;
+    sysml:membershipOwningNamespace elmt:Constraints__Rover__lightEnough___402___400 ;
+    sysml:ownedMemberFeature expr:Constraints__Rover__lightEnough___402___400_pout ;
+    sysml:ownedMemberParameter expr:Constraints__Rover__lightEnough___402___400_pout .
+
 elmt:Constraints__Rover__lightEnough___403
     a sysml:ConstraintUsage ;
     sysml:qualifiedName "Constraints::Rover::lightEnough::@3" ;
@@ -2084,19 +2635,20 @@ elmt:Constraints__Rover__lightEnough___403___400
     sysml:owningMembership elmt:Constraints__Rover__lightEnough___403___400_om ;
     sysml:operator "<" ;
     sysml:argument expr:Constraints__Rover__lightEnough___403___400_pa0, expr:Constraints__Rover__lightEnough___403___400_pa1 ;
-    sysml:ownedRelationship expr:Constraints__Rover__lightEnough___403___400_pin0_om, expr:Constraints__Rover__lightEnough___403___400_pin1_om ;
-    sysml:ownedMembership expr:Constraints__Rover__lightEnough___403___400_pin0_om, expr:Constraints__Rover__lightEnough___403___400_pin1_om ;
-    sysml:ownedFeatureMembership expr:Constraints__Rover__lightEnough___403___400_pin0_om, expr:Constraints__Rover__lightEnough___403___400_pin1_om ;
-    sysml:ownedFeature expr:Constraints__Rover__lightEnough___403___400_pin0, expr:Constraints__Rover__lightEnough___403___400_pin1 ;
-    sysml:parameter expr:Constraints__Rover__lightEnough___403___400_pin0, expr:Constraints__Rover__lightEnough___403___400_pin1 ;
+    sysml:ownedRelationship expr:Constraints__Rover__lightEnough___403___400_pin0_om, expr:Constraints__Rover__lightEnough___403___400_pin1_om, expr:Constraints__Rover__lightEnough___403___400_pout_om ;
+    sysml:ownedMembership expr:Constraints__Rover__lightEnough___403___400_pin0_om, expr:Constraints__Rover__lightEnough___403___400_pin1_om, expr:Constraints__Rover__lightEnough___403___400_pout_om ;
+    sysml:ownedFeatureMembership expr:Constraints__Rover__lightEnough___403___400_pin0_om, expr:Constraints__Rover__lightEnough___403___400_pin1_om, expr:Constraints__Rover__lightEnough___403___400_pout_om ;
+    sysml:ownedFeature expr:Constraints__Rover__lightEnough___403___400_pin0, expr:Constraints__Rover__lightEnough___403___400_pin1, expr:Constraints__Rover__lightEnough___403___400_pout ;
+    sysml:parameter expr:Constraints__Rover__lightEnough___403___400_pin0, expr:Constraints__Rover__lightEnough___403___400_pin1, expr:Constraints__Rover__lightEnough___403___400_pout ;
     sysml:input expr:Constraints__Rover__lightEnough___403___400_pin0, expr:Constraints__Rover__lightEnough___403___400_pin1 ;
+    sysml:result expr:Constraints__Rover__lightEnough___403___400_pout ;
     sysx:sourceText "                r.mass < 200\n" ;
     json:argument "[{\"@id\":\"Constraints__Rover__lightEnough___403___400_pa0\"},{\"@id\":\"Constraints__Rover__lightEnough___403___400_pa1\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"Constraints__Rover__lightEnough___403___400_pin0_om\"},{\"@id\":\"Constraints__Rover__lightEnough___403___400_pin1_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Constraints__Rover__lightEnough___403___400_pin0_om\"},{\"@id\":\"Constraints__Rover__lightEnough___403___400_pin1_om\"}]" ;
-    json:ownedFeatureMembership "[{\"@id\":\"Constraints__Rover__lightEnough___403___400_pin0_om\"},{\"@id\":\"Constraints__Rover__lightEnough___403___400_pin1_om\"}]" ;
-    json:ownedFeature "[{\"@id\":\"Constraints__Rover__lightEnough___403___400_pin0\"},{\"@id\":\"Constraints__Rover__lightEnough___403___400_pin1\"}]" ;
-    json:parameter "[{\"@id\":\"Constraints__Rover__lightEnough___403___400_pin0\"},{\"@id\":\"Constraints__Rover__lightEnough___403___400_pin1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Constraints__Rover__lightEnough___403___400_pin0_om\"},{\"@id\":\"Constraints__Rover__lightEnough___403___400_pin1_om\"},{\"@id\":\"Constraints__Rover__lightEnough___403___400_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Constraints__Rover__lightEnough___403___400_pin0_om\"},{\"@id\":\"Constraints__Rover__lightEnough___403___400_pin1_om\"},{\"@id\":\"Constraints__Rover__lightEnough___403___400_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Constraints__Rover__lightEnough___403___400_pin0_om\"},{\"@id\":\"Constraints__Rover__lightEnough___403___400_pin1_om\"},{\"@id\":\"Constraints__Rover__lightEnough___403___400_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Constraints__Rover__lightEnough___403___400_pin0\"},{\"@id\":\"Constraints__Rover__lightEnough___403___400_pin1\"},{\"@id\":\"Constraints__Rover__lightEnough___403___400_pout\"}]" ;
+    json:parameter "[{\"@id\":\"Constraints__Rover__lightEnough___403___400_pin0\"},{\"@id\":\"Constraints__Rover__lightEnough___403___400_pin1\"},{\"@id\":\"Constraints__Rover__lightEnough___403___400_pout\"}]" ;
     json:input "[{\"@id\":\"Constraints__Rover__lightEnough___403___400_pin0\"},{\"@id\":\"Constraints__Rover__lightEnough___403___400_pin1\"}]" .
 
 elmt:Constraints__Rover__lightEnough___403___400_om
@@ -2117,27 +2669,58 @@ expr:Constraints__Rover__lightEnough___403___400_pa0
     sysx:sourceText "r.mass" ;
     sysml:elementId "Constraints__Rover__lightEnough___403___400_pa0" ;
     sysml:argument expr:Constraints__Rover__lightEnough___403___400_pa0_pa0 ;
-    sysml:ownedRelationship expr:Constraints__Rover__lightEnough___403___400_pa0_pin0_om, expr:Constraints__Rover__lightEnough___403___400_pa0_ptargetFeature ;
-    sysml:ownedMembership expr:Constraints__Rover__lightEnough___403___400_pa0_pin0_om ;
-    sysml:ownedFeatureMembership expr:Constraints__Rover__lightEnough___403___400_pa0_pin0_om ;
-    sysml:ownedFeature expr:Constraints__Rover__lightEnough___403___400_pa0_pin0 ;
-    sysml:parameter expr:Constraints__Rover__lightEnough___403___400_pa0_pin0 ;
+    sysml:ownedRelationship expr:Constraints__Rover__lightEnough___403___400_pa0_pin0_om, expr:Constraints__Rover__lightEnough___403___400_pa0_pout_om, expr:Constraints__Rover__lightEnough___403___400_pa0_ptargetFeature ;
+    sysml:ownedMembership expr:Constraints__Rover__lightEnough___403___400_pa0_pin0_om, expr:Constraints__Rover__lightEnough___403___400_pa0_pout_om ;
+    sysml:ownedFeatureMembership expr:Constraints__Rover__lightEnough___403___400_pa0_pin0_om, expr:Constraints__Rover__lightEnough___403___400_pa0_pout_om ;
+    sysml:ownedFeature expr:Constraints__Rover__lightEnough___403___400_pa0_pin0, expr:Constraints__Rover__lightEnough___403___400_pa0_pout ;
+    sysml:parameter expr:Constraints__Rover__lightEnough___403___400_pa0_pin0, expr:Constraints__Rover__lightEnough___403___400_pa0_pout ;
     sysml:input expr:Constraints__Rover__lightEnough___403___400_pa0_pin0 ;
     sysml:targetFeature elmt:Constraints__Rover__mass ;
+    sysml:result expr:Constraints__Rover__lightEnough___403___400_pa0_pout ;
     sysml:owner expr:Constraints__Rover__lightEnough___403___400_pin0 ;
     sysml:owningRelationship expr:Constraints__Rover__lightEnough___403___400_pa0_om ;
     sysml:owningMembership expr:Constraints__Rover__lightEnough___403___400_pa0_om ;
-    json:ownedRelationship "[{\"@id\":\"Constraints__Rover__lightEnough___403___400_pa0_pin0_om\"},{\"@id\":\"Constraints__Rover__lightEnough___403___400_pa0_ptargetFeature\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Constraints__Rover__lightEnough___403___400_pa0_pin0_om\"},{\"@id\":\"Constraints__Rover__lightEnough___403___400_pa0_pout_om\"},{\"@id\":\"Constraints__Rover__lightEnough___403___400_pa0_ptargetFeature\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Constraints__Rover__lightEnough___403___400_pa0_pin0_om\"},{\"@id\":\"Constraints__Rover__lightEnough___403___400_pa0_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Constraints__Rover__lightEnough___403___400_pa0_pin0_om\"},{\"@id\":\"Constraints__Rover__lightEnough___403___400_pa0_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Constraints__Rover__lightEnough___403___400_pa0_pin0\"},{\"@id\":\"Constraints__Rover__lightEnough___403___400_pa0_pout\"}]" ;
+    json:parameter "[{\"@id\":\"Constraints__Rover__lightEnough___403___400_pa0_pin0\"},{\"@id\":\"Constraints__Rover__lightEnough___403___400_pa0_pout\"}]" .
 
 expr:Constraints__Rover__lightEnough___403___400_pa0_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "r" ;
     sysml:elementId "Constraints__Rover__lightEnough___403___400_pa0_pa0" ;
     sysml:referent elmt:Constraints__Rover__lightEnough__r ;
+    sysml:ownedRelationship expr:Constraints__Rover__lightEnough___403___400_pa0_pa0_pout_om, expr:Constraints__Rover__lightEnough___403___400_pa0_pa0_preferent ;
+    sysml:ownedMembership expr:Constraints__Rover__lightEnough___403___400_pa0_pa0_pout_om ;
+    sysml:ownedFeatureMembership expr:Constraints__Rover__lightEnough___403___400_pa0_pa0_pout_om ;
+    sysml:ownedFeature expr:Constraints__Rover__lightEnough___403___400_pa0_pa0_pout ;
+    sysml:parameter expr:Constraints__Rover__lightEnough___403___400_pa0_pa0_pout ;
+    sysml:result expr:Constraints__Rover__lightEnough___403___400_pa0_pa0_pout ;
     sysml:owner expr:Constraints__Rover__lightEnough___403___400_pa0_pin0 ;
     sysml:owningRelationship expr:Constraints__Rover__lightEnough___403___400_pa0_pa0_om ;
     sysml:owningMembership expr:Constraints__Rover__lightEnough___403___400_pa0_pa0_om ;
-    sysml:ownedRelationship expr:Constraints__Rover__lightEnough___403___400_pa0_pa0_preferent .
+    json:ownedRelationship "[{\"@id\":\"Constraints__Rover__lightEnough___403___400_pa0_pa0_pout_om\"},{\"@id\":\"Constraints__Rover__lightEnough___403___400_pa0_pa0_preferent\"}]" .
+
+expr:Constraints__Rover__lightEnough___403___400_pa0_pa0_pout
+    a sysml:Feature ;
+    sysml:elementId "Constraints__Rover__lightEnough___403___400_pa0_pa0_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:Constraints__Rover__lightEnough___403___400_pa0_pa0 ;
+    sysml:owningRelationship expr:Constraints__Rover__lightEnough___403___400_pa0_pa0_pout_om ;
+    sysml:owningMembership expr:Constraints__Rover__lightEnough___403___400_pa0_pa0_pout_om .
+
+expr:Constraints__Rover__lightEnough___403___400_pa0_pa0_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Constraints__Rover__lightEnough___403___400_pa0_pa0_pout_om" ;
+    sysml:owner expr:Constraints__Rover__lightEnough___403___400_pa0_pa0 ;
+    sysml:memberElement expr:Constraints__Rover__lightEnough___403___400_pa0_pa0_pout ;
+    sysml:ownedMemberElement expr:Constraints__Rover__lightEnough___403___400_pa0_pa0_pout ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__lightEnough___403___400_pa0_pa0_pout ;
+    sysml:owningRelatedElement expr:Constraints__Rover__lightEnough___403___400_pa0_pa0 ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__lightEnough___403___400_pa0_pa0 ;
+    sysml:ownedMemberFeature expr:Constraints__Rover__lightEnough___403___400_pa0_pa0_pout ;
+    sysml:ownedMemberParameter expr:Constraints__Rover__lightEnough___403___400_pa0_pa0_pout .
 
 expr:Constraints__Rover__lightEnough___403___400_pa0_pin0
     a sysml:Feature ;
@@ -2172,6 +2755,26 @@ expr:Constraints__Rover__lightEnough___403___400_pa0_pa0_om
     sysml:membershipOwningNamespace expr:Constraints__Rover__lightEnough___403___400_pa0_pin0 ;
     sysml:featureWithValue expr:Constraints__Rover__lightEnough___403___400_pa0_pin0 ;
     sysml:value expr:Constraints__Rover__lightEnough___403___400_pa0_pa0 .
+
+expr:Constraints__Rover__lightEnough___403___400_pa0_pout
+    a sysml:Feature ;
+    sysml:elementId "Constraints__Rover__lightEnough___403___400_pa0_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:Constraints__Rover__lightEnough___403___400_pa0 ;
+    sysml:owningRelationship expr:Constraints__Rover__lightEnough___403___400_pa0_pout_om ;
+    sysml:owningMembership expr:Constraints__Rover__lightEnough___403___400_pa0_pout_om .
+
+expr:Constraints__Rover__lightEnough___403___400_pa0_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Constraints__Rover__lightEnough___403___400_pa0_pout_om" ;
+    sysml:owner expr:Constraints__Rover__lightEnough___403___400_pa0 ;
+    sysml:memberElement expr:Constraints__Rover__lightEnough___403___400_pa0_pout ;
+    sysml:ownedMemberElement expr:Constraints__Rover__lightEnough___403___400_pa0_pout ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__lightEnough___403___400_pa0_pout ;
+    sysml:owningRelatedElement expr:Constraints__Rover__lightEnough___403___400_pa0 ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__lightEnough___403___400_pa0 ;
+    sysml:ownedMemberFeature expr:Constraints__Rover__lightEnough___403___400_pa0_pout ;
+    sysml:ownedMemberParameter expr:Constraints__Rover__lightEnough___403___400_pa0_pout .
 
 expr:Constraints__Rover__lightEnough___403___400_pin0
     a sysml:Feature ;
@@ -2250,6 +2853,26 @@ expr:Constraints__Rover__lightEnough___403___400_pa1_om
     sysml:featureWithValue expr:Constraints__Rover__lightEnough___403___400_pin1 ;
     sysml:value expr:Constraints__Rover__lightEnough___403___400_pa1 .
 
+expr:Constraints__Rover__lightEnough___403___400_pout
+    a sysml:Feature ;
+    sysml:elementId "Constraints__Rover__lightEnough___403___400_pout" ;
+    sysml:direction "out" ;
+    sysml:owner elmt:Constraints__Rover__lightEnough___403___400 ;
+    sysml:owningRelationship expr:Constraints__Rover__lightEnough___403___400_pout_om ;
+    sysml:owningMembership expr:Constraints__Rover__lightEnough___403___400_pout_om .
+
+expr:Constraints__Rover__lightEnough___403___400_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Constraints__Rover__lightEnough___403___400_pout_om" ;
+    sysml:owner elmt:Constraints__Rover__lightEnough___403___400 ;
+    sysml:memberElement expr:Constraints__Rover__lightEnough___403___400_pout ;
+    sysml:ownedMemberElement expr:Constraints__Rover__lightEnough___403___400_pout ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__lightEnough___403___400_pout ;
+    sysml:owningRelatedElement elmt:Constraints__Rover__lightEnough___403___400 ;
+    sysml:membershipOwningNamespace elmt:Constraints__Rover__lightEnough___403___400 ;
+    sysml:ownedMemberFeature expr:Constraints__Rover__lightEnough___403___400_pout ;
+    sysml:ownedMemberParameter expr:Constraints__Rover__lightEnough___403___400_pout .
+
 elmt:Constraints__Rover__lightEnough___404
     a sysml:ConstraintUsage ;
     sysml:qualifiedName "Constraints::Rover::lightEnough::@4" ;
@@ -2283,10 +2906,36 @@ expr:Constraints__Rover__lightEnough___404_pcondition
     sysx:sourceText "MassLimit" ;
     sysml:elementId "Constraints__Rover__lightEnough___404_pcondition" ;
     sysml:referent elmt:Constraints__MassLimit ;
+    sysml:ownedRelationship expr:Constraints__Rover__lightEnough___404_pcondition_pout_om, expr:Constraints__Rover__lightEnough___404_pcondition_preferent ;
+    sysml:ownedMembership expr:Constraints__Rover__lightEnough___404_pcondition_pout_om ;
+    sysml:ownedFeatureMembership expr:Constraints__Rover__lightEnough___404_pcondition_pout_om ;
+    sysml:ownedFeature expr:Constraints__Rover__lightEnough___404_pcondition_pout ;
+    sysml:parameter expr:Constraints__Rover__lightEnough___404_pcondition_pout ;
+    sysml:result expr:Constraints__Rover__lightEnough___404_pcondition_pout ;
     sysml:owner elmt:Constraints__Rover__lightEnough___404 ;
     sysml:owningRelationship expr:Constraints__Rover__lightEnough___404_pcondition_om ;
     sysml:owningMembership expr:Constraints__Rover__lightEnough___404_pcondition_om ;
-    sysml:ownedRelationship expr:Constraints__Rover__lightEnough___404_pcondition_preferent .
+    json:ownedRelationship "[{\"@id\":\"Constraints__Rover__lightEnough___404_pcondition_pout_om\"},{\"@id\":\"Constraints__Rover__lightEnough___404_pcondition_preferent\"}]" .
+
+expr:Constraints__Rover__lightEnough___404_pcondition_pout
+    a sysml:Feature ;
+    sysml:elementId "Constraints__Rover__lightEnough___404_pcondition_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:Constraints__Rover__lightEnough___404_pcondition ;
+    sysml:owningRelationship expr:Constraints__Rover__lightEnough___404_pcondition_pout_om ;
+    sysml:owningMembership expr:Constraints__Rover__lightEnough___404_pcondition_pout_om .
+
+expr:Constraints__Rover__lightEnough___404_pcondition_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Constraints__Rover__lightEnough___404_pcondition_pout_om" ;
+    sysml:owner expr:Constraints__Rover__lightEnough___404_pcondition ;
+    sysml:memberElement expr:Constraints__Rover__lightEnough___404_pcondition_pout ;
+    sysml:ownedMemberElement expr:Constraints__Rover__lightEnough___404_pcondition_pout ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__lightEnough___404_pcondition_pout ;
+    sysml:owningRelatedElement expr:Constraints__Rover__lightEnough___404_pcondition ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__lightEnough___404_pcondition ;
+    sysml:ownedMemberFeature expr:Constraints__Rover__lightEnough___404_pcondition_pout ;
+    sysml:ownedMemberParameter expr:Constraints__Rover__lightEnough___404_pcondition_pout .
 
 expr:Constraints__Rover__lightEnough___404_pcondition_om
     a sysml:OwningMembership ;
@@ -2374,27 +3023,58 @@ expr:Constraints__Rover__lightEnough___405__m_pvalue
     sysx:sourceText "r.mass" ;
     sysml:elementId "Constraints__Rover__lightEnough___405__m_pvalue" ;
     sysml:argument expr:Constraints__Rover__lightEnough___405__m_pvalue_pa0 ;
-    sysml:ownedRelationship expr:Constraints__Rover__lightEnough___405__m_pvalue_pin0_om, expr:Constraints__Rover__lightEnough___405__m_pvalue_ptargetFeature ;
-    sysml:ownedMembership expr:Constraints__Rover__lightEnough___405__m_pvalue_pin0_om ;
-    sysml:ownedFeatureMembership expr:Constraints__Rover__lightEnough___405__m_pvalue_pin0_om ;
-    sysml:ownedFeature expr:Constraints__Rover__lightEnough___405__m_pvalue_pin0 ;
-    sysml:parameter expr:Constraints__Rover__lightEnough___405__m_pvalue_pin0 ;
+    sysml:ownedRelationship expr:Constraints__Rover__lightEnough___405__m_pvalue_pin0_om, expr:Constraints__Rover__lightEnough___405__m_pvalue_pout_om, expr:Constraints__Rover__lightEnough___405__m_pvalue_ptargetFeature ;
+    sysml:ownedMembership expr:Constraints__Rover__lightEnough___405__m_pvalue_pin0_om, expr:Constraints__Rover__lightEnough___405__m_pvalue_pout_om ;
+    sysml:ownedFeatureMembership expr:Constraints__Rover__lightEnough___405__m_pvalue_pin0_om, expr:Constraints__Rover__lightEnough___405__m_pvalue_pout_om ;
+    sysml:ownedFeature expr:Constraints__Rover__lightEnough___405__m_pvalue_pin0, expr:Constraints__Rover__lightEnough___405__m_pvalue_pout ;
+    sysml:parameter expr:Constraints__Rover__lightEnough___405__m_pvalue_pin0, expr:Constraints__Rover__lightEnough___405__m_pvalue_pout ;
     sysml:input expr:Constraints__Rover__lightEnough___405__m_pvalue_pin0 ;
     sysml:targetFeature elmt:Constraints__Rover__mass ;
+    sysml:result expr:Constraints__Rover__lightEnough___405__m_pvalue_pout ;
     sysml:owner elmt:Constraints__Rover__lightEnough___405__m ;
     sysml:owningRelationship expr:Constraints__Rover__lightEnough___405__m_pvalue_om ;
     sysml:owningMembership expr:Constraints__Rover__lightEnough___405__m_pvalue_om ;
-    json:ownedRelationship "[{\"@id\":\"Constraints__Rover__lightEnough___405__m_pvalue_pin0_om\"},{\"@id\":\"Constraints__Rover__lightEnough___405__m_pvalue_ptargetFeature\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Constraints__Rover__lightEnough___405__m_pvalue_pin0_om\"},{\"@id\":\"Constraints__Rover__lightEnough___405__m_pvalue_pout_om\"},{\"@id\":\"Constraints__Rover__lightEnough___405__m_pvalue_ptargetFeature\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Constraints__Rover__lightEnough___405__m_pvalue_pin0_om\"},{\"@id\":\"Constraints__Rover__lightEnough___405__m_pvalue_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Constraints__Rover__lightEnough___405__m_pvalue_pin0_om\"},{\"@id\":\"Constraints__Rover__lightEnough___405__m_pvalue_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Constraints__Rover__lightEnough___405__m_pvalue_pin0\"},{\"@id\":\"Constraints__Rover__lightEnough___405__m_pvalue_pout\"}]" ;
+    json:parameter "[{\"@id\":\"Constraints__Rover__lightEnough___405__m_pvalue_pin0\"},{\"@id\":\"Constraints__Rover__lightEnough___405__m_pvalue_pout\"}]" .
 
 expr:Constraints__Rover__lightEnough___405__m_pvalue_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "r" ;
     sysml:elementId "Constraints__Rover__lightEnough___405__m_pvalue_pa0" ;
     sysml:referent elmt:Constraints__Rover__lightEnough__r ;
+    sysml:ownedRelationship expr:Constraints__Rover__lightEnough___405__m_pvalue_pa0_pout_om, expr:Constraints__Rover__lightEnough___405__m_pvalue_pa0_preferent ;
+    sysml:ownedMembership expr:Constraints__Rover__lightEnough___405__m_pvalue_pa0_pout_om ;
+    sysml:ownedFeatureMembership expr:Constraints__Rover__lightEnough___405__m_pvalue_pa0_pout_om ;
+    sysml:ownedFeature expr:Constraints__Rover__lightEnough___405__m_pvalue_pa0_pout ;
+    sysml:parameter expr:Constraints__Rover__lightEnough___405__m_pvalue_pa0_pout ;
+    sysml:result expr:Constraints__Rover__lightEnough___405__m_pvalue_pa0_pout ;
     sysml:owner expr:Constraints__Rover__lightEnough___405__m_pvalue_pin0 ;
     sysml:owningRelationship expr:Constraints__Rover__lightEnough___405__m_pvalue_pa0_om ;
     sysml:owningMembership expr:Constraints__Rover__lightEnough___405__m_pvalue_pa0_om ;
-    sysml:ownedRelationship expr:Constraints__Rover__lightEnough___405__m_pvalue_pa0_preferent .
+    json:ownedRelationship "[{\"@id\":\"Constraints__Rover__lightEnough___405__m_pvalue_pa0_pout_om\"},{\"@id\":\"Constraints__Rover__lightEnough___405__m_pvalue_pa0_preferent\"}]" .
+
+expr:Constraints__Rover__lightEnough___405__m_pvalue_pa0_pout
+    a sysml:Feature ;
+    sysml:elementId "Constraints__Rover__lightEnough___405__m_pvalue_pa0_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:Constraints__Rover__lightEnough___405__m_pvalue_pa0 ;
+    sysml:owningRelationship expr:Constraints__Rover__lightEnough___405__m_pvalue_pa0_pout_om ;
+    sysml:owningMembership expr:Constraints__Rover__lightEnough___405__m_pvalue_pa0_pout_om .
+
+expr:Constraints__Rover__lightEnough___405__m_pvalue_pa0_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Constraints__Rover__lightEnough___405__m_pvalue_pa0_pout_om" ;
+    sysml:owner expr:Constraints__Rover__lightEnough___405__m_pvalue_pa0 ;
+    sysml:memberElement expr:Constraints__Rover__lightEnough___405__m_pvalue_pa0_pout ;
+    sysml:ownedMemberElement expr:Constraints__Rover__lightEnough___405__m_pvalue_pa0_pout ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__lightEnough___405__m_pvalue_pa0_pout ;
+    sysml:owningRelatedElement expr:Constraints__Rover__lightEnough___405__m_pvalue_pa0 ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__lightEnough___405__m_pvalue_pa0 ;
+    sysml:ownedMemberFeature expr:Constraints__Rover__lightEnough___405__m_pvalue_pa0_pout ;
+    sysml:ownedMemberParameter expr:Constraints__Rover__lightEnough___405__m_pvalue_pa0_pout .
 
 expr:Constraints__Rover__lightEnough___405__m_pvalue_pin0
     a sysml:Feature ;
@@ -2429,6 +3109,26 @@ expr:Constraints__Rover__lightEnough___405__m_pvalue_pa0_om
     sysml:membershipOwningNamespace expr:Constraints__Rover__lightEnough___405__m_pvalue_pin0 ;
     sysml:featureWithValue expr:Constraints__Rover__lightEnough___405__m_pvalue_pin0 ;
     sysml:value expr:Constraints__Rover__lightEnough___405__m_pvalue_pa0 .
+
+expr:Constraints__Rover__lightEnough___405__m_pvalue_pout
+    a sysml:Feature ;
+    sysml:elementId "Constraints__Rover__lightEnough___405__m_pvalue_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:Constraints__Rover__lightEnough___405__m_pvalue ;
+    sysml:owningRelationship expr:Constraints__Rover__lightEnough___405__m_pvalue_pout_om ;
+    sysml:owningMembership expr:Constraints__Rover__lightEnough___405__m_pvalue_pout_om .
+
+expr:Constraints__Rover__lightEnough___405__m_pvalue_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Constraints__Rover__lightEnough___405__m_pvalue_pout_om" ;
+    sysml:owner expr:Constraints__Rover__lightEnough___405__m_pvalue ;
+    sysml:memberElement expr:Constraints__Rover__lightEnough___405__m_pvalue_pout ;
+    sysml:ownedMemberElement expr:Constraints__Rover__lightEnough___405__m_pvalue_pout ;
+    sysml:ownedRelatedElement expr:Constraints__Rover__lightEnough___405__m_pvalue_pout ;
+    sysml:owningRelatedElement expr:Constraints__Rover__lightEnough___405__m_pvalue ;
+    sysml:membershipOwningNamespace expr:Constraints__Rover__lightEnough___405__m_pvalue ;
+    sysml:ownedMemberFeature expr:Constraints__Rover__lightEnough___405__m_pvalue_pout ;
+    sysml:ownedMemberParameter expr:Constraints__Rover__lightEnough___405__m_pvalue_pout .
 
 expr:Constraints__Rover__lightEnough___405__m_pvalue_om
     a sysml:FeatureValue ;

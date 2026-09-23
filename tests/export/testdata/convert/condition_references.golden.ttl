@@ -230,7 +230,13 @@ elmt:ConditionReferences__Resistance___404___400
     sysml:owningRelationship elmt:ConditionReferences__Resistance___404___400_om ;
     sysml:owningMembership elmt:ConditionReferences__Resistance___404___400_om ;
     sysml:referent elmt:ConditionReferences__Resistance__structuralIntegrityMaintained ;
-    sysml:ownedRelationship elmt:ConditionReferences__Resistance___404___400_referent .
+    sysml:ownedRelationship expr:ConditionReferences__Resistance___404___400_pout_om, elmt:ConditionReferences__Resistance___404___400_referent ;
+    sysml:ownedMembership expr:ConditionReferences__Resistance___404___400_pout_om ;
+    sysml:ownedFeatureMembership expr:ConditionReferences__Resistance___404___400_pout_om ;
+    sysml:ownedFeature expr:ConditionReferences__Resistance___404___400_pout ;
+    sysml:parameter expr:ConditionReferences__Resistance___404___400_pout ;
+    sysml:result expr:ConditionReferences__Resistance___404___400_pout ;
+    json:ownedRelationship "[{\"@id\":\"ConditionReferences__Resistance___404___400_pout_om\"},{\"@id\":\"ConditionReferences__Resistance___404___400_referent\"}]" .
 
 elmt:ConditionReferences__Resistance___404___400_om
     a sysml:ResultExpressionMembership ;
@@ -244,6 +250,26 @@ elmt:ConditionReferences__Resistance___404___400_om
     sysml:ownedMemberFeature elmt:ConditionReferences__Resistance___404___400 ;
     sysml:owningType elmt:ConditionReferences__Resistance___404 ;
     sysml:ownedResultExpression elmt:ConditionReferences__Resistance___404___400 .
+
+expr:ConditionReferences__Resistance___404___400_pout
+    a sysml:Feature ;
+    sysml:elementId "ConditionReferences__Resistance___404___400_pout" ;
+    sysml:direction "out" ;
+    sysml:owner elmt:ConditionReferences__Resistance___404___400 ;
+    sysml:owningRelationship expr:ConditionReferences__Resistance___404___400_pout_om ;
+    sysml:owningMembership expr:ConditionReferences__Resistance___404___400_pout_om .
+
+expr:ConditionReferences__Resistance___404___400_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "ConditionReferences__Resistance___404___400_pout_om" ;
+    sysml:owner elmt:ConditionReferences__Resistance___404___400 ;
+    sysml:memberElement expr:ConditionReferences__Resistance___404___400_pout ;
+    sysml:ownedMemberElement expr:ConditionReferences__Resistance___404___400_pout ;
+    sysml:ownedRelatedElement expr:ConditionReferences__Resistance___404___400_pout ;
+    sysml:owningRelatedElement elmt:ConditionReferences__Resistance___404___400 ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences__Resistance___404___400 ;
+    sysml:ownedMemberFeature expr:ConditionReferences__Resistance___404___400_pout ;
+    sysml:ownedMemberParameter expr:ConditionReferences__Resistance___404___400_pout .
 
 elmt:ConditionReferences__Resistance___405
     a sysml:ConstraintUsage ;
@@ -288,12 +314,18 @@ elmt:ConditionReferences__Resistance___405___400
     sysml:owningMembership elmt:ConditionReferences__Resistance___405___400_om ;
     sysml:operator "not" ;
     sysml:argument expr:ConditionReferences__Resistance___405___400_pa0 ;
-    sysml:ownedRelationship expr:ConditionReferences__Resistance___405___400_pin0_om ;
-    sysml:ownedMembership expr:ConditionReferences__Resistance___405___400_pin0_om ;
-    sysml:ownedFeatureMembership expr:ConditionReferences__Resistance___405___400_pin0_om ;
-    sysml:ownedFeature expr:ConditionReferences__Resistance___405___400_pin0 ;
-    sysml:parameter expr:ConditionReferences__Resistance___405___400_pin0 ;
-    sysml:input expr:ConditionReferences__Resistance___405___400_pin0 .
+    sysml:ownedRelationship expr:ConditionReferences__Resistance___405___400_pin0_om, expr:ConditionReferences__Resistance___405___400_pout_om ;
+    sysml:ownedMembership expr:ConditionReferences__Resistance___405___400_pin0_om, expr:ConditionReferences__Resistance___405___400_pout_om ;
+    sysml:ownedFeatureMembership expr:ConditionReferences__Resistance___405___400_pin0_om, expr:ConditionReferences__Resistance___405___400_pout_om ;
+    sysml:ownedFeature expr:ConditionReferences__Resistance___405___400_pin0, expr:ConditionReferences__Resistance___405___400_pout ;
+    sysml:parameter expr:ConditionReferences__Resistance___405___400_pin0, expr:ConditionReferences__Resistance___405___400_pout ;
+    sysml:input expr:ConditionReferences__Resistance___405___400_pin0 ;
+    sysml:result expr:ConditionReferences__Resistance___405___400_pout ;
+    json:ownedRelationship "[{\"@id\":\"ConditionReferences__Resistance___405___400_pin0_om\"},{\"@id\":\"ConditionReferences__Resistance___405___400_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"ConditionReferences__Resistance___405___400_pin0_om\"},{\"@id\":\"ConditionReferences__Resistance___405___400_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"ConditionReferences__Resistance___405___400_pin0_om\"},{\"@id\":\"ConditionReferences__Resistance___405___400_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"ConditionReferences__Resistance___405___400_pin0\"},{\"@id\":\"ConditionReferences__Resistance___405___400_pout\"}]" ;
+    json:parameter "[{\"@id\":\"ConditionReferences__Resistance___405___400_pin0\"},{\"@id\":\"ConditionReferences__Resistance___405___400_pout\"}]" .
 
 elmt:ConditionReferences__Resistance___405___400_om
     a sysml:ResultExpressionMembership ;
@@ -313,10 +345,36 @@ expr:ConditionReferences__Resistance___405___400_pa0
     sysx:sourceText "x" ;
     sysml:elementId "ConditionReferences__Resistance___405___400_pa0" ;
     sysml:referent elmt:ConditionReferences__Resistance__x ;
+    sysml:ownedRelationship expr:ConditionReferences__Resistance___405___400_pa0_pout_om, expr:ConditionReferences__Resistance___405___400_pa0_preferent ;
+    sysml:ownedMembership expr:ConditionReferences__Resistance___405___400_pa0_pout_om ;
+    sysml:ownedFeatureMembership expr:ConditionReferences__Resistance___405___400_pa0_pout_om ;
+    sysml:ownedFeature expr:ConditionReferences__Resistance___405___400_pa0_pout ;
+    sysml:parameter expr:ConditionReferences__Resistance___405___400_pa0_pout ;
+    sysml:result expr:ConditionReferences__Resistance___405___400_pa0_pout ;
     sysml:owner expr:ConditionReferences__Resistance___405___400_pin0 ;
     sysml:owningRelationship expr:ConditionReferences__Resistance___405___400_pa0_om ;
     sysml:owningMembership expr:ConditionReferences__Resistance___405___400_pa0_om ;
-    sysml:ownedRelationship expr:ConditionReferences__Resistance___405___400_pa0_preferent .
+    json:ownedRelationship "[{\"@id\":\"ConditionReferences__Resistance___405___400_pa0_pout_om\"},{\"@id\":\"ConditionReferences__Resistance___405___400_pa0_preferent\"}]" .
+
+expr:ConditionReferences__Resistance___405___400_pa0_pout
+    a sysml:Feature ;
+    sysml:elementId "ConditionReferences__Resistance___405___400_pa0_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:ConditionReferences__Resistance___405___400_pa0 ;
+    sysml:owningRelationship expr:ConditionReferences__Resistance___405___400_pa0_pout_om ;
+    sysml:owningMembership expr:ConditionReferences__Resistance___405___400_pa0_pout_om .
+
+expr:ConditionReferences__Resistance___405___400_pa0_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "ConditionReferences__Resistance___405___400_pa0_pout_om" ;
+    sysml:owner expr:ConditionReferences__Resistance___405___400_pa0 ;
+    sysml:memberElement expr:ConditionReferences__Resistance___405___400_pa0_pout ;
+    sysml:ownedMemberElement expr:ConditionReferences__Resistance___405___400_pa0_pout ;
+    sysml:ownedRelatedElement expr:ConditionReferences__Resistance___405___400_pa0_pout ;
+    sysml:owningRelatedElement expr:ConditionReferences__Resistance___405___400_pa0 ;
+    sysml:membershipOwningNamespace expr:ConditionReferences__Resistance___405___400_pa0 ;
+    sysml:ownedMemberFeature expr:ConditionReferences__Resistance___405___400_pa0_pout ;
+    sysml:ownedMemberParameter expr:ConditionReferences__Resistance___405___400_pa0_pout .
 
 expr:ConditionReferences__Resistance___405___400_pin0
     a sysml:Feature ;
@@ -351,6 +409,26 @@ expr:ConditionReferences__Resistance___405___400_pa0_om
     sysml:membershipOwningNamespace expr:ConditionReferences__Resistance___405___400_pin0 ;
     sysml:featureWithValue expr:ConditionReferences__Resistance___405___400_pin0 ;
     sysml:value expr:ConditionReferences__Resistance___405___400_pa0 .
+
+expr:ConditionReferences__Resistance___405___400_pout
+    a sysml:Feature ;
+    sysml:elementId "ConditionReferences__Resistance___405___400_pout" ;
+    sysml:direction "out" ;
+    sysml:owner elmt:ConditionReferences__Resistance___405___400 ;
+    sysml:owningRelationship expr:ConditionReferences__Resistance___405___400_pout_om ;
+    sysml:owningMembership expr:ConditionReferences__Resistance___405___400_pout_om .
+
+expr:ConditionReferences__Resistance___405___400_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "ConditionReferences__Resistance___405___400_pout_om" ;
+    sysml:owner elmt:ConditionReferences__Resistance___405___400 ;
+    sysml:memberElement expr:ConditionReferences__Resistance___405___400_pout ;
+    sysml:ownedMemberElement expr:ConditionReferences__Resistance___405___400_pout ;
+    sysml:ownedRelatedElement expr:ConditionReferences__Resistance___405___400_pout ;
+    sysml:owningRelatedElement elmt:ConditionReferences__Resistance___405___400 ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences__Resistance___405___400 ;
+    sysml:ownedMemberFeature expr:ConditionReferences__Resistance___405___400_pout ;
+    sysml:ownedMemberParameter expr:ConditionReferences__Resistance___405___400_pout .
 
 elmt:ConditionReferences__Resistance___406
     a sysml:ConstraintUsage ;
@@ -394,7 +472,13 @@ elmt:ConditionReferences__Resistance___406___400
     sysml:owningRelationship elmt:ConditionReferences__Resistance___406___400_om ;
     sysml:owningMembership elmt:ConditionReferences__Resistance___406___400_om ;
     sysml:referent elmt:ConditionReferences__Resistance__a ;
-    sysml:ownedRelationship elmt:ConditionReferences__Resistance___406___400_referent .
+    sysml:ownedRelationship expr:ConditionReferences__Resistance___406___400_pout_om, elmt:ConditionReferences__Resistance___406___400_referent ;
+    sysml:ownedMembership expr:ConditionReferences__Resistance___406___400_pout_om ;
+    sysml:ownedFeatureMembership expr:ConditionReferences__Resistance___406___400_pout_om ;
+    sysml:ownedFeature expr:ConditionReferences__Resistance___406___400_pout ;
+    sysml:parameter expr:ConditionReferences__Resistance___406___400_pout ;
+    sysml:result expr:ConditionReferences__Resistance___406___400_pout ;
+    json:ownedRelationship "[{\"@id\":\"ConditionReferences__Resistance___406___400_pout_om\"},{\"@id\":\"ConditionReferences__Resistance___406___400_referent\"}]" .
 
 elmt:ConditionReferences__Resistance___406___400_om
     a sysml:ResultExpressionMembership ;
@@ -408,6 +492,26 @@ elmt:ConditionReferences__Resistance___406___400_om
     sysml:ownedMemberFeature elmt:ConditionReferences__Resistance___406___400 ;
     sysml:owningType elmt:ConditionReferences__Resistance___406 ;
     sysml:ownedResultExpression elmt:ConditionReferences__Resistance___406___400 .
+
+expr:ConditionReferences__Resistance___406___400_pout
+    a sysml:Feature ;
+    sysml:elementId "ConditionReferences__Resistance___406___400_pout" ;
+    sysml:direction "out" ;
+    sysml:owner elmt:ConditionReferences__Resistance___406___400 ;
+    sysml:owningRelationship expr:ConditionReferences__Resistance___406___400_pout_om ;
+    sysml:owningMembership expr:ConditionReferences__Resistance___406___400_pout_om .
+
+expr:ConditionReferences__Resistance___406___400_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "ConditionReferences__Resistance___406___400_pout_om" ;
+    sysml:owner elmt:ConditionReferences__Resistance___406___400 ;
+    sysml:memberElement expr:ConditionReferences__Resistance___406___400_pout ;
+    sysml:ownedMemberElement expr:ConditionReferences__Resistance___406___400_pout ;
+    sysml:ownedRelatedElement expr:ConditionReferences__Resistance___406___400_pout ;
+    sysml:owningRelatedElement elmt:ConditionReferences__Resistance___406___400 ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences__Resistance___406___400 ;
+    sysml:ownedMemberFeature expr:ConditionReferences__Resistance___406___400_pout ;
+    sysml:ownedMemberParameter expr:ConditionReferences__Resistance___406___400_pout .
 
 elmt:ConditionReferences__Resistance___407
     a sysml:ConstraintUsage ;
@@ -452,7 +556,13 @@ elmt:ConditionReferences__Resistance___407___400
     sysml:owningRelationship elmt:ConditionReferences__Resistance___407___400_om ;
     sysml:owningMembership elmt:ConditionReferences__Resistance___407___400_om ;
     sysml:referent elmt:ConditionReferences__Resistance__x ;
-    sysml:ownedRelationship elmt:ConditionReferences__Resistance___407___400_referent .
+    sysml:ownedRelationship expr:ConditionReferences__Resistance___407___400_pout_om, elmt:ConditionReferences__Resistance___407___400_referent ;
+    sysml:ownedMembership expr:ConditionReferences__Resistance___407___400_pout_om ;
+    sysml:ownedFeatureMembership expr:ConditionReferences__Resistance___407___400_pout_om ;
+    sysml:ownedFeature expr:ConditionReferences__Resistance___407___400_pout ;
+    sysml:parameter expr:ConditionReferences__Resistance___407___400_pout ;
+    sysml:result expr:ConditionReferences__Resistance___407___400_pout ;
+    json:ownedRelationship "[{\"@id\":\"ConditionReferences__Resistance___407___400_pout_om\"},{\"@id\":\"ConditionReferences__Resistance___407___400_referent\"}]" .
 
 elmt:ConditionReferences__Resistance___407___400_om
     a sysml:ResultExpressionMembership ;
@@ -466,6 +576,26 @@ elmt:ConditionReferences__Resistance___407___400_om
     sysml:ownedMemberFeature elmt:ConditionReferences__Resistance___407___400 ;
     sysml:owningType elmt:ConditionReferences__Resistance___407 ;
     sysml:ownedResultExpression elmt:ConditionReferences__Resistance___407___400 .
+
+expr:ConditionReferences__Resistance___407___400_pout
+    a sysml:Feature ;
+    sysml:elementId "ConditionReferences__Resistance___407___400_pout" ;
+    sysml:direction "out" ;
+    sysml:owner elmt:ConditionReferences__Resistance___407___400 ;
+    sysml:owningRelationship expr:ConditionReferences__Resistance___407___400_pout_om ;
+    sysml:owningMembership expr:ConditionReferences__Resistance___407___400_pout_om .
+
+expr:ConditionReferences__Resistance___407___400_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "ConditionReferences__Resistance___407___400_pout_om" ;
+    sysml:owner elmt:ConditionReferences__Resistance___407___400 ;
+    sysml:memberElement expr:ConditionReferences__Resistance___407___400_pout ;
+    sysml:ownedMemberElement expr:ConditionReferences__Resistance___407___400_pout ;
+    sysml:ownedRelatedElement expr:ConditionReferences__Resistance___407___400_pout ;
+    sysml:owningRelatedElement elmt:ConditionReferences__Resistance___407___400 ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences__Resistance___407___400 ;
+    sysml:ownedMemberFeature expr:ConditionReferences__Resistance___407___400_pout ;
+    sysml:ownedMemberParameter expr:ConditionReferences__Resistance___407___400_pout .
 
 elmt:ConditionReferences__Resistance__named
     a sysml:ConstraintUsage ;
@@ -512,18 +642,19 @@ elmt:ConditionReferences__Resistance__named___400
     sysml:owningMembership elmt:ConditionReferences__Resistance__named___400_om ;
     sysml:operator "and" ;
     sysml:argument expr:ConditionReferences__Resistance__named___400_pa0, expr:ConditionReferences__Resistance__named___400_pa1 ;
-    sysml:ownedRelationship expr:ConditionReferences__Resistance__named___400_pin0_om, expr:ConditionReferences__Resistance__named___400_pin1_om ;
-    sysml:ownedMembership expr:ConditionReferences__Resistance__named___400_pin0_om, expr:ConditionReferences__Resistance__named___400_pin1_om ;
-    sysml:ownedFeatureMembership expr:ConditionReferences__Resistance__named___400_pin0_om, expr:ConditionReferences__Resistance__named___400_pin1_om ;
-    sysml:ownedFeature expr:ConditionReferences__Resistance__named___400_pin0, expr:ConditionReferences__Resistance__named___400_pin1 ;
-    sysml:parameter expr:ConditionReferences__Resistance__named___400_pin0, expr:ConditionReferences__Resistance__named___400_pin1 ;
+    sysml:ownedRelationship expr:ConditionReferences__Resistance__named___400_pin0_om, expr:ConditionReferences__Resistance__named___400_pin1_om, expr:ConditionReferences__Resistance__named___400_pout_om ;
+    sysml:ownedMembership expr:ConditionReferences__Resistance__named___400_pin0_om, expr:ConditionReferences__Resistance__named___400_pin1_om, expr:ConditionReferences__Resistance__named___400_pout_om ;
+    sysml:ownedFeatureMembership expr:ConditionReferences__Resistance__named___400_pin0_om, expr:ConditionReferences__Resistance__named___400_pin1_om, expr:ConditionReferences__Resistance__named___400_pout_om ;
+    sysml:ownedFeature expr:ConditionReferences__Resistance__named___400_pin0, expr:ConditionReferences__Resistance__named___400_pin1, expr:ConditionReferences__Resistance__named___400_pout ;
+    sysml:parameter expr:ConditionReferences__Resistance__named___400_pin0, expr:ConditionReferences__Resistance__named___400_pin1, expr:ConditionReferences__Resistance__named___400_pout ;
     sysml:input expr:ConditionReferences__Resistance__named___400_pin0, expr:ConditionReferences__Resistance__named___400_pin1 ;
+    sysml:result expr:ConditionReferences__Resistance__named___400_pout ;
     json:argument "[{\"@id\":\"ConditionReferences__Resistance__named___400_pa0\"},{\"@id\":\"ConditionReferences__Resistance__named___400_pa1\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"ConditionReferences__Resistance__named___400_pin0_om\"},{\"@id\":\"ConditionReferences__Resistance__named___400_pin1_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"ConditionReferences__Resistance__named___400_pin0_om\"},{\"@id\":\"ConditionReferences__Resistance__named___400_pin1_om\"}]" ;
-    json:ownedFeatureMembership "[{\"@id\":\"ConditionReferences__Resistance__named___400_pin0_om\"},{\"@id\":\"ConditionReferences__Resistance__named___400_pin1_om\"}]" ;
-    json:ownedFeature "[{\"@id\":\"ConditionReferences__Resistance__named___400_pin0\"},{\"@id\":\"ConditionReferences__Resistance__named___400_pin1\"}]" ;
-    json:parameter "[{\"@id\":\"ConditionReferences__Resistance__named___400_pin0\"},{\"@id\":\"ConditionReferences__Resistance__named___400_pin1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"ConditionReferences__Resistance__named___400_pin0_om\"},{\"@id\":\"ConditionReferences__Resistance__named___400_pin1_om\"},{\"@id\":\"ConditionReferences__Resistance__named___400_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"ConditionReferences__Resistance__named___400_pin0_om\"},{\"@id\":\"ConditionReferences__Resistance__named___400_pin1_om\"},{\"@id\":\"ConditionReferences__Resistance__named___400_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"ConditionReferences__Resistance__named___400_pin0_om\"},{\"@id\":\"ConditionReferences__Resistance__named___400_pin1_om\"},{\"@id\":\"ConditionReferences__Resistance__named___400_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"ConditionReferences__Resistance__named___400_pin0\"},{\"@id\":\"ConditionReferences__Resistance__named___400_pin1\"},{\"@id\":\"ConditionReferences__Resistance__named___400_pout\"}]" ;
+    json:parameter "[{\"@id\":\"ConditionReferences__Resistance__named___400_pin0\"},{\"@id\":\"ConditionReferences__Resistance__named___400_pin1\"},{\"@id\":\"ConditionReferences__Resistance__named___400_pout\"}]" ;
     json:input "[{\"@id\":\"ConditionReferences__Resistance__named___400_pin0\"},{\"@id\":\"ConditionReferences__Resistance__named___400_pin1\"}]" .
 
 elmt:ConditionReferences__Resistance__named___400_om
@@ -544,10 +675,36 @@ expr:ConditionReferences__Resistance__named___400_pa0
     sysx:sourceText "a" ;
     sysml:elementId "ConditionReferences__Resistance__named___400_pa0" ;
     sysml:referent elmt:ConditionReferences__Resistance__a ;
+    sysml:ownedRelationship expr:ConditionReferences__Resistance__named___400_pa0_pout_om, expr:ConditionReferences__Resistance__named___400_pa0_preferent ;
+    sysml:ownedMembership expr:ConditionReferences__Resistance__named___400_pa0_pout_om ;
+    sysml:ownedFeatureMembership expr:ConditionReferences__Resistance__named___400_pa0_pout_om ;
+    sysml:ownedFeature expr:ConditionReferences__Resistance__named___400_pa0_pout ;
+    sysml:parameter expr:ConditionReferences__Resistance__named___400_pa0_pout ;
+    sysml:result expr:ConditionReferences__Resistance__named___400_pa0_pout ;
     sysml:owner expr:ConditionReferences__Resistance__named___400_pin0 ;
     sysml:owningRelationship expr:ConditionReferences__Resistance__named___400_pa0_om ;
     sysml:owningMembership expr:ConditionReferences__Resistance__named___400_pa0_om ;
-    sysml:ownedRelationship expr:ConditionReferences__Resistance__named___400_pa0_preferent .
+    json:ownedRelationship "[{\"@id\":\"ConditionReferences__Resistance__named___400_pa0_pout_om\"},{\"@id\":\"ConditionReferences__Resistance__named___400_pa0_preferent\"}]" .
+
+expr:ConditionReferences__Resistance__named___400_pa0_pout
+    a sysml:Feature ;
+    sysml:elementId "ConditionReferences__Resistance__named___400_pa0_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:ConditionReferences__Resistance__named___400_pa0 ;
+    sysml:owningRelationship expr:ConditionReferences__Resistance__named___400_pa0_pout_om ;
+    sysml:owningMembership expr:ConditionReferences__Resistance__named___400_pa0_pout_om .
+
+expr:ConditionReferences__Resistance__named___400_pa0_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "ConditionReferences__Resistance__named___400_pa0_pout_om" ;
+    sysml:owner expr:ConditionReferences__Resistance__named___400_pa0 ;
+    sysml:memberElement expr:ConditionReferences__Resistance__named___400_pa0_pout ;
+    sysml:ownedMemberElement expr:ConditionReferences__Resistance__named___400_pa0_pout ;
+    sysml:ownedRelatedElement expr:ConditionReferences__Resistance__named___400_pa0_pout ;
+    sysml:owningRelatedElement expr:ConditionReferences__Resistance__named___400_pa0 ;
+    sysml:membershipOwningNamespace expr:ConditionReferences__Resistance__named___400_pa0 ;
+    sysml:ownedMemberFeature expr:ConditionReferences__Resistance__named___400_pa0_pout ;
+    sysml:ownedMemberParameter expr:ConditionReferences__Resistance__named___400_pa0_pout .
 
 expr:ConditionReferences__Resistance__named___400_pin0
     a sysml:Feature ;
@@ -588,10 +745,36 @@ expr:ConditionReferences__Resistance__named___400_pa1
     sysx:sourceText "b" ;
     sysml:elementId "ConditionReferences__Resistance__named___400_pa1" ;
     sysml:referent elmt:ConditionReferences__Resistance__b ;
+    sysml:ownedRelationship expr:ConditionReferences__Resistance__named___400_pa1_pout_om, expr:ConditionReferences__Resistance__named___400_pa1_preferent ;
+    sysml:ownedMembership expr:ConditionReferences__Resistance__named___400_pa1_pout_om ;
+    sysml:ownedFeatureMembership expr:ConditionReferences__Resistance__named___400_pa1_pout_om ;
+    sysml:ownedFeature expr:ConditionReferences__Resistance__named___400_pa1_pout ;
+    sysml:parameter expr:ConditionReferences__Resistance__named___400_pa1_pout ;
+    sysml:result expr:ConditionReferences__Resistance__named___400_pa1_pout ;
     sysml:owner expr:ConditionReferences__Resistance__named___400_pin1 ;
     sysml:owningRelationship expr:ConditionReferences__Resistance__named___400_pa1_om ;
     sysml:owningMembership expr:ConditionReferences__Resistance__named___400_pa1_om ;
-    sysml:ownedRelationship expr:ConditionReferences__Resistance__named___400_pa1_preferent .
+    json:ownedRelationship "[{\"@id\":\"ConditionReferences__Resistance__named___400_pa1_pout_om\"},{\"@id\":\"ConditionReferences__Resistance__named___400_pa1_preferent\"}]" .
+
+expr:ConditionReferences__Resistance__named___400_pa1_pout
+    a sysml:Feature ;
+    sysml:elementId "ConditionReferences__Resistance__named___400_pa1_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:ConditionReferences__Resistance__named___400_pa1 ;
+    sysml:owningRelationship expr:ConditionReferences__Resistance__named___400_pa1_pout_om ;
+    sysml:owningMembership expr:ConditionReferences__Resistance__named___400_pa1_pout_om .
+
+expr:ConditionReferences__Resistance__named___400_pa1_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "ConditionReferences__Resistance__named___400_pa1_pout_om" ;
+    sysml:owner expr:ConditionReferences__Resistance__named___400_pa1 ;
+    sysml:memberElement expr:ConditionReferences__Resistance__named___400_pa1_pout ;
+    sysml:ownedMemberElement expr:ConditionReferences__Resistance__named___400_pa1_pout ;
+    sysml:ownedRelatedElement expr:ConditionReferences__Resistance__named___400_pa1_pout ;
+    sysml:owningRelatedElement expr:ConditionReferences__Resistance__named___400_pa1 ;
+    sysml:membershipOwningNamespace expr:ConditionReferences__Resistance__named___400_pa1 ;
+    sysml:ownedMemberFeature expr:ConditionReferences__Resistance__named___400_pa1_pout ;
+    sysml:ownedMemberParameter expr:ConditionReferences__Resistance__named___400_pa1_pout .
 
 expr:ConditionReferences__Resistance__named___400_pin1
     a sysml:Feature ;
@@ -626,6 +809,26 @@ expr:ConditionReferences__Resistance__named___400_pa1_om
     sysml:membershipOwningNamespace expr:ConditionReferences__Resistance__named___400_pin1 ;
     sysml:featureWithValue expr:ConditionReferences__Resistance__named___400_pin1 ;
     sysml:value expr:ConditionReferences__Resistance__named___400_pa1 .
+
+expr:ConditionReferences__Resistance__named___400_pout
+    a sysml:Feature ;
+    sysml:elementId "ConditionReferences__Resistance__named___400_pout" ;
+    sysml:direction "out" ;
+    sysml:owner elmt:ConditionReferences__Resistance__named___400 ;
+    sysml:owningRelationship expr:ConditionReferences__Resistance__named___400_pout_om ;
+    sysml:owningMembership expr:ConditionReferences__Resistance__named___400_pout_om .
+
+expr:ConditionReferences__Resistance__named___400_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "ConditionReferences__Resistance__named___400_pout_om" ;
+    sysml:owner elmt:ConditionReferences__Resistance__named___400 ;
+    sysml:memberElement expr:ConditionReferences__Resistance__named___400_pout ;
+    sysml:ownedMemberElement expr:ConditionReferences__Resistance__named___400_pout ;
+    sysml:ownedRelatedElement expr:ConditionReferences__Resistance__named___400_pout ;
+    sysml:owningRelatedElement elmt:ConditionReferences__Resistance__named___400 ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences__Resistance__named___400 ;
+    sysml:ownedMemberFeature expr:ConditionReferences__Resistance__named___400_pout ;
+    sysml:ownedMemberParameter expr:ConditionReferences__Resistance__named___400_pout .
 
 elmt:ConditionReferences__Resistance___409
     a sysml:ConstraintUsage ;
@@ -667,18 +870,19 @@ elmt:ConditionReferences__Resistance___409___400
     sysml:owningMembership elmt:ConditionReferences__Resistance___409___400_om ;
     sysml:operator "and" ;
     sysml:argument expr:ConditionReferences__Resistance___409___400_pa0, expr:ConditionReferences__Resistance___409___400_pa1 ;
-    sysml:ownedRelationship expr:ConditionReferences__Resistance___409___400_pin0_om, expr:ConditionReferences__Resistance___409___400_pin1_om ;
-    sysml:ownedMembership expr:ConditionReferences__Resistance___409___400_pin0_om, expr:ConditionReferences__Resistance___409___400_pin1_om ;
-    sysml:ownedFeatureMembership expr:ConditionReferences__Resistance___409___400_pin0_om, expr:ConditionReferences__Resistance___409___400_pin1_om ;
-    sysml:ownedFeature expr:ConditionReferences__Resistance___409___400_pin0, expr:ConditionReferences__Resistance___409___400_pin1 ;
-    sysml:parameter expr:ConditionReferences__Resistance___409___400_pin0, expr:ConditionReferences__Resistance___409___400_pin1 ;
+    sysml:ownedRelationship expr:ConditionReferences__Resistance___409___400_pin0_om, expr:ConditionReferences__Resistance___409___400_pin1_om, expr:ConditionReferences__Resistance___409___400_pout_om ;
+    sysml:ownedMembership expr:ConditionReferences__Resistance___409___400_pin0_om, expr:ConditionReferences__Resistance___409___400_pin1_om, expr:ConditionReferences__Resistance___409___400_pout_om ;
+    sysml:ownedFeatureMembership expr:ConditionReferences__Resistance___409___400_pin0_om, expr:ConditionReferences__Resistance___409___400_pin1_om, expr:ConditionReferences__Resistance___409___400_pout_om ;
+    sysml:ownedFeature expr:ConditionReferences__Resistance___409___400_pin0, expr:ConditionReferences__Resistance___409___400_pin1, expr:ConditionReferences__Resistance___409___400_pout ;
+    sysml:parameter expr:ConditionReferences__Resistance___409___400_pin0, expr:ConditionReferences__Resistance___409___400_pin1, expr:ConditionReferences__Resistance___409___400_pout ;
     sysml:input expr:ConditionReferences__Resistance___409___400_pin0, expr:ConditionReferences__Resistance___409___400_pin1 ;
+    sysml:result expr:ConditionReferences__Resistance___409___400_pout ;
     json:argument "[{\"@id\":\"ConditionReferences__Resistance___409___400_pa0\"},{\"@id\":\"ConditionReferences__Resistance___409___400_pa1\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"ConditionReferences__Resistance___409___400_pin0_om\"},{\"@id\":\"ConditionReferences__Resistance___409___400_pin1_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"ConditionReferences__Resistance___409___400_pin0_om\"},{\"@id\":\"ConditionReferences__Resistance___409___400_pin1_om\"}]" ;
-    json:ownedFeatureMembership "[{\"@id\":\"ConditionReferences__Resistance___409___400_pin0_om\"},{\"@id\":\"ConditionReferences__Resistance___409___400_pin1_om\"}]" ;
-    json:ownedFeature "[{\"@id\":\"ConditionReferences__Resistance___409___400_pin0\"},{\"@id\":\"ConditionReferences__Resistance___409___400_pin1\"}]" ;
-    json:parameter "[{\"@id\":\"ConditionReferences__Resistance___409___400_pin0\"},{\"@id\":\"ConditionReferences__Resistance___409___400_pin1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"ConditionReferences__Resistance___409___400_pin0_om\"},{\"@id\":\"ConditionReferences__Resistance___409___400_pin1_om\"},{\"@id\":\"ConditionReferences__Resistance___409___400_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"ConditionReferences__Resistance___409___400_pin0_om\"},{\"@id\":\"ConditionReferences__Resistance___409___400_pin1_om\"},{\"@id\":\"ConditionReferences__Resistance___409___400_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"ConditionReferences__Resistance___409___400_pin0_om\"},{\"@id\":\"ConditionReferences__Resistance___409___400_pin1_om\"},{\"@id\":\"ConditionReferences__Resistance___409___400_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"ConditionReferences__Resistance___409___400_pin0\"},{\"@id\":\"ConditionReferences__Resistance___409___400_pin1\"},{\"@id\":\"ConditionReferences__Resistance___409___400_pout\"}]" ;
+    json:parameter "[{\"@id\":\"ConditionReferences__Resistance___409___400_pin0\"},{\"@id\":\"ConditionReferences__Resistance___409___400_pin1\"},{\"@id\":\"ConditionReferences__Resistance___409___400_pout\"}]" ;
     json:input "[{\"@id\":\"ConditionReferences__Resistance___409___400_pin0\"},{\"@id\":\"ConditionReferences__Resistance___409___400_pin1\"}]" .
 
 elmt:ConditionReferences__Resistance___409___400_om
@@ -699,10 +903,36 @@ expr:ConditionReferences__Resistance___409___400_pa0
     sysx:sourceText "a" ;
     sysml:elementId "ConditionReferences__Resistance___409___400_pa0" ;
     sysml:referent elmt:ConditionReferences__Resistance__a ;
+    sysml:ownedRelationship expr:ConditionReferences__Resistance___409___400_pa0_pout_om, expr:ConditionReferences__Resistance___409___400_pa0_preferent ;
+    sysml:ownedMembership expr:ConditionReferences__Resistance___409___400_pa0_pout_om ;
+    sysml:ownedFeatureMembership expr:ConditionReferences__Resistance___409___400_pa0_pout_om ;
+    sysml:ownedFeature expr:ConditionReferences__Resistance___409___400_pa0_pout ;
+    sysml:parameter expr:ConditionReferences__Resistance___409___400_pa0_pout ;
+    sysml:result expr:ConditionReferences__Resistance___409___400_pa0_pout ;
     sysml:owner expr:ConditionReferences__Resistance___409___400_pin0 ;
     sysml:owningRelationship expr:ConditionReferences__Resistance___409___400_pa0_om ;
     sysml:owningMembership expr:ConditionReferences__Resistance___409___400_pa0_om ;
-    sysml:ownedRelationship expr:ConditionReferences__Resistance___409___400_pa0_preferent .
+    json:ownedRelationship "[{\"@id\":\"ConditionReferences__Resistance___409___400_pa0_pout_om\"},{\"@id\":\"ConditionReferences__Resistance___409___400_pa0_preferent\"}]" .
+
+expr:ConditionReferences__Resistance___409___400_pa0_pout
+    a sysml:Feature ;
+    sysml:elementId "ConditionReferences__Resistance___409___400_pa0_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:ConditionReferences__Resistance___409___400_pa0 ;
+    sysml:owningRelationship expr:ConditionReferences__Resistance___409___400_pa0_pout_om ;
+    sysml:owningMembership expr:ConditionReferences__Resistance___409___400_pa0_pout_om .
+
+expr:ConditionReferences__Resistance___409___400_pa0_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "ConditionReferences__Resistance___409___400_pa0_pout_om" ;
+    sysml:owner expr:ConditionReferences__Resistance___409___400_pa0 ;
+    sysml:memberElement expr:ConditionReferences__Resistance___409___400_pa0_pout ;
+    sysml:ownedMemberElement expr:ConditionReferences__Resistance___409___400_pa0_pout ;
+    sysml:ownedRelatedElement expr:ConditionReferences__Resistance___409___400_pa0_pout ;
+    sysml:owningRelatedElement expr:ConditionReferences__Resistance___409___400_pa0 ;
+    sysml:membershipOwningNamespace expr:ConditionReferences__Resistance___409___400_pa0 ;
+    sysml:ownedMemberFeature expr:ConditionReferences__Resistance___409___400_pa0_pout ;
+    sysml:ownedMemberParameter expr:ConditionReferences__Resistance___409___400_pa0_pout .
 
 expr:ConditionReferences__Resistance___409___400_pin0
     a sysml:Feature ;
@@ -743,10 +973,36 @@ expr:ConditionReferences__Resistance___409___400_pa1
     sysx:sourceText "b" ;
     sysml:elementId "ConditionReferences__Resistance___409___400_pa1" ;
     sysml:referent elmt:ConditionReferences__Resistance__b ;
+    sysml:ownedRelationship expr:ConditionReferences__Resistance___409___400_pa1_pout_om, expr:ConditionReferences__Resistance___409___400_pa1_preferent ;
+    sysml:ownedMembership expr:ConditionReferences__Resistance___409___400_pa1_pout_om ;
+    sysml:ownedFeatureMembership expr:ConditionReferences__Resistance___409___400_pa1_pout_om ;
+    sysml:ownedFeature expr:ConditionReferences__Resistance___409___400_pa1_pout ;
+    sysml:parameter expr:ConditionReferences__Resistance___409___400_pa1_pout ;
+    sysml:result expr:ConditionReferences__Resistance___409___400_pa1_pout ;
     sysml:owner expr:ConditionReferences__Resistance___409___400_pin1 ;
     sysml:owningRelationship expr:ConditionReferences__Resistance___409___400_pa1_om ;
     sysml:owningMembership expr:ConditionReferences__Resistance___409___400_pa1_om ;
-    sysml:ownedRelationship expr:ConditionReferences__Resistance___409___400_pa1_preferent .
+    json:ownedRelationship "[{\"@id\":\"ConditionReferences__Resistance___409___400_pa1_pout_om\"},{\"@id\":\"ConditionReferences__Resistance___409___400_pa1_preferent\"}]" .
+
+expr:ConditionReferences__Resistance___409___400_pa1_pout
+    a sysml:Feature ;
+    sysml:elementId "ConditionReferences__Resistance___409___400_pa1_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:ConditionReferences__Resistance___409___400_pa1 ;
+    sysml:owningRelationship expr:ConditionReferences__Resistance___409___400_pa1_pout_om ;
+    sysml:owningMembership expr:ConditionReferences__Resistance___409___400_pa1_pout_om .
+
+expr:ConditionReferences__Resistance___409___400_pa1_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "ConditionReferences__Resistance___409___400_pa1_pout_om" ;
+    sysml:owner expr:ConditionReferences__Resistance___409___400_pa1 ;
+    sysml:memberElement expr:ConditionReferences__Resistance___409___400_pa1_pout ;
+    sysml:ownedMemberElement expr:ConditionReferences__Resistance___409___400_pa1_pout ;
+    sysml:ownedRelatedElement expr:ConditionReferences__Resistance___409___400_pa1_pout ;
+    sysml:owningRelatedElement expr:ConditionReferences__Resistance___409___400_pa1 ;
+    sysml:membershipOwningNamespace expr:ConditionReferences__Resistance___409___400_pa1 ;
+    sysml:ownedMemberFeature expr:ConditionReferences__Resistance___409___400_pa1_pout ;
+    sysml:ownedMemberParameter expr:ConditionReferences__Resistance___409___400_pa1_pout .
 
 expr:ConditionReferences__Resistance___409___400_pin1
     a sysml:Feature ;
@@ -781,6 +1037,26 @@ expr:ConditionReferences__Resistance___409___400_pa1_om
     sysml:membershipOwningNamespace expr:ConditionReferences__Resistance___409___400_pin1 ;
     sysml:featureWithValue expr:ConditionReferences__Resistance___409___400_pin1 ;
     sysml:value expr:ConditionReferences__Resistance___409___400_pa1 .
+
+expr:ConditionReferences__Resistance___409___400_pout
+    a sysml:Feature ;
+    sysml:elementId "ConditionReferences__Resistance___409___400_pout" ;
+    sysml:direction "out" ;
+    sysml:owner elmt:ConditionReferences__Resistance___409___400 ;
+    sysml:owningRelationship expr:ConditionReferences__Resistance___409___400_pout_om ;
+    sysml:owningMembership expr:ConditionReferences__Resistance___409___400_pout_om .
+
+expr:ConditionReferences__Resistance___409___400_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "ConditionReferences__Resistance___409___400_pout_om" ;
+    sysml:owner elmt:ConditionReferences__Resistance___409___400 ;
+    sysml:memberElement expr:ConditionReferences__Resistance___409___400_pout ;
+    sysml:ownedMemberElement expr:ConditionReferences__Resistance___409___400_pout ;
+    sysml:ownedRelatedElement expr:ConditionReferences__Resistance___409___400_pout ;
+    sysml:owningRelatedElement elmt:ConditionReferences__Resistance___409___400 ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences__Resistance___409___400 ;
+    sysml:ownedMemberFeature expr:ConditionReferences__Resistance___409___400_pout ;
+    sysml:ownedMemberParameter expr:ConditionReferences__Resistance___409___400_pout .
 
 elmt:ConditionReferences__Resistance__c1
     a sysml:ConstraintUsage ;
@@ -822,7 +1098,13 @@ elmt:ConditionReferences__Resistance__c1___400
     sysml:owningRelationship elmt:ConditionReferences__Resistance__c1___400_om ;
     sysml:owningMembership elmt:ConditionReferences__Resistance__c1___400_om ;
     sysml:referent elmt:ConditionReferences__Resistance__x ;
-    sysml:ownedRelationship elmt:ConditionReferences__Resistance__c1___400_referent .
+    sysml:ownedRelationship expr:ConditionReferences__Resistance__c1___400_pout_om, elmt:ConditionReferences__Resistance__c1___400_referent ;
+    sysml:ownedMembership expr:ConditionReferences__Resistance__c1___400_pout_om ;
+    sysml:ownedFeatureMembership expr:ConditionReferences__Resistance__c1___400_pout_om ;
+    sysml:ownedFeature expr:ConditionReferences__Resistance__c1___400_pout ;
+    sysml:parameter expr:ConditionReferences__Resistance__c1___400_pout ;
+    sysml:result expr:ConditionReferences__Resistance__c1___400_pout ;
+    json:ownedRelationship "[{\"@id\":\"ConditionReferences__Resistance__c1___400_pout_om\"},{\"@id\":\"ConditionReferences__Resistance__c1___400_referent\"}]" .
 
 elmt:ConditionReferences__Resistance__c1___400_om
     a sysml:ResultExpressionMembership ;
@@ -836,6 +1118,26 @@ elmt:ConditionReferences__Resistance__c1___400_om
     sysml:ownedMemberFeature elmt:ConditionReferences__Resistance__c1___400 ;
     sysml:owningType elmt:ConditionReferences__Resistance__c1 ;
     sysml:ownedResultExpression elmt:ConditionReferences__Resistance__c1___400 .
+
+expr:ConditionReferences__Resistance__c1___400_pout
+    a sysml:Feature ;
+    sysml:elementId "ConditionReferences__Resistance__c1___400_pout" ;
+    sysml:direction "out" ;
+    sysml:owner elmt:ConditionReferences__Resistance__c1___400 ;
+    sysml:owningRelationship expr:ConditionReferences__Resistance__c1___400_pout_om ;
+    sysml:owningMembership expr:ConditionReferences__Resistance__c1___400_pout_om .
+
+expr:ConditionReferences__Resistance__c1___400_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "ConditionReferences__Resistance__c1___400_pout_om" ;
+    sysml:owner elmt:ConditionReferences__Resistance__c1___400 ;
+    sysml:memberElement expr:ConditionReferences__Resistance__c1___400_pout ;
+    sysml:ownedMemberElement expr:ConditionReferences__Resistance__c1___400_pout ;
+    sysml:ownedRelatedElement expr:ConditionReferences__Resistance__c1___400_pout ;
+    sysml:owningRelatedElement elmt:ConditionReferences__Resistance__c1___400 ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences__Resistance__c1___400 ;
+    sysml:ownedMemberFeature expr:ConditionReferences__Resistance__c1___400_pout ;
+    sysml:ownedMemberParameter expr:ConditionReferences__Resistance__c1___400_pout .
 
 elmt:ConditionReferences__Resistance___4011
     a sysml:AssertConstraintUsage ;
@@ -876,7 +1178,13 @@ elmt:ConditionReferences__Resistance___4011___400
     sysml:owningRelationship elmt:ConditionReferences__Resistance___4011___400_om ;
     sysml:owningMembership elmt:ConditionReferences__Resistance___4011___400_om ;
     sysml:referent elmt:ConditionReferences__Resistance__x ;
-    sysml:ownedRelationship elmt:ConditionReferences__Resistance___4011___400_referent .
+    sysml:ownedRelationship expr:ConditionReferences__Resistance___4011___400_pout_om, elmt:ConditionReferences__Resistance___4011___400_referent ;
+    sysml:ownedMembership expr:ConditionReferences__Resistance___4011___400_pout_om ;
+    sysml:ownedFeatureMembership expr:ConditionReferences__Resistance___4011___400_pout_om ;
+    sysml:ownedFeature expr:ConditionReferences__Resistance___4011___400_pout ;
+    sysml:parameter expr:ConditionReferences__Resistance___4011___400_pout ;
+    sysml:result expr:ConditionReferences__Resistance___4011___400_pout ;
+    json:ownedRelationship "[{\"@id\":\"ConditionReferences__Resistance___4011___400_pout_om\"},{\"@id\":\"ConditionReferences__Resistance___4011___400_referent\"}]" .
 
 elmt:ConditionReferences__Resistance___4011___400_om
     a sysml:ResultExpressionMembership ;
@@ -890,6 +1198,26 @@ elmt:ConditionReferences__Resistance___4011___400_om
     sysml:ownedMemberFeature elmt:ConditionReferences__Resistance___4011___400 ;
     sysml:owningType elmt:ConditionReferences__Resistance___4011 ;
     sysml:ownedResultExpression elmt:ConditionReferences__Resistance___4011___400 .
+
+expr:ConditionReferences__Resistance___4011___400_pout
+    a sysml:Feature ;
+    sysml:elementId "ConditionReferences__Resistance___4011___400_pout" ;
+    sysml:direction "out" ;
+    sysml:owner elmt:ConditionReferences__Resistance___4011___400 ;
+    sysml:owningRelationship expr:ConditionReferences__Resistance___4011___400_pout_om ;
+    sysml:owningMembership expr:ConditionReferences__Resistance___4011___400_pout_om .
+
+expr:ConditionReferences__Resistance___4011___400_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "ConditionReferences__Resistance___4011___400_pout_om" ;
+    sysml:owner elmt:ConditionReferences__Resistance___4011___400 ;
+    sysml:memberElement expr:ConditionReferences__Resistance___4011___400_pout ;
+    sysml:ownedMemberElement expr:ConditionReferences__Resistance___4011___400_pout ;
+    sysml:ownedRelatedElement expr:ConditionReferences__Resistance___4011___400_pout ;
+    sysml:owningRelatedElement elmt:ConditionReferences__Resistance___4011___400 ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences__Resistance___4011___400 ;
+    sysml:ownedMemberFeature expr:ConditionReferences__Resistance___4011___400_pout ;
+    sysml:ownedMemberParameter expr:ConditionReferences__Resistance___4011___400_pout .
 
 elmt:ConditionReferences__Resistance___4012
     a sysml:AssertConstraintUsage ;
@@ -931,12 +1259,18 @@ elmt:ConditionReferences__Resistance___4012___400
     sysml:owningMembership elmt:ConditionReferences__Resistance___4012___400_om ;
     sysml:operator "not" ;
     sysml:argument expr:ConditionReferences__Resistance___4012___400_pa0 ;
-    sysml:ownedRelationship expr:ConditionReferences__Resistance___4012___400_pin0_om ;
-    sysml:ownedMembership expr:ConditionReferences__Resistance___4012___400_pin0_om ;
-    sysml:ownedFeatureMembership expr:ConditionReferences__Resistance___4012___400_pin0_om ;
-    sysml:ownedFeature expr:ConditionReferences__Resistance___4012___400_pin0 ;
-    sysml:parameter expr:ConditionReferences__Resistance___4012___400_pin0 ;
-    sysml:input expr:ConditionReferences__Resistance___4012___400_pin0 .
+    sysml:ownedRelationship expr:ConditionReferences__Resistance___4012___400_pin0_om, expr:ConditionReferences__Resistance___4012___400_pout_om ;
+    sysml:ownedMembership expr:ConditionReferences__Resistance___4012___400_pin0_om, expr:ConditionReferences__Resistance___4012___400_pout_om ;
+    sysml:ownedFeatureMembership expr:ConditionReferences__Resistance___4012___400_pin0_om, expr:ConditionReferences__Resistance___4012___400_pout_om ;
+    sysml:ownedFeature expr:ConditionReferences__Resistance___4012___400_pin0, expr:ConditionReferences__Resistance___4012___400_pout ;
+    sysml:parameter expr:ConditionReferences__Resistance___4012___400_pin0, expr:ConditionReferences__Resistance___4012___400_pout ;
+    sysml:input expr:ConditionReferences__Resistance___4012___400_pin0 ;
+    sysml:result expr:ConditionReferences__Resistance___4012___400_pout ;
+    json:ownedRelationship "[{\"@id\":\"ConditionReferences__Resistance___4012___400_pin0_om\"},{\"@id\":\"ConditionReferences__Resistance___4012___400_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"ConditionReferences__Resistance___4012___400_pin0_om\"},{\"@id\":\"ConditionReferences__Resistance___4012___400_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"ConditionReferences__Resistance___4012___400_pin0_om\"},{\"@id\":\"ConditionReferences__Resistance___4012___400_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"ConditionReferences__Resistance___4012___400_pin0\"},{\"@id\":\"ConditionReferences__Resistance___4012___400_pout\"}]" ;
+    json:parameter "[{\"@id\":\"ConditionReferences__Resistance___4012___400_pin0\"},{\"@id\":\"ConditionReferences__Resistance___4012___400_pout\"}]" .
 
 elmt:ConditionReferences__Resistance___4012___400_om
     a sysml:ResultExpressionMembership ;
@@ -956,10 +1290,36 @@ expr:ConditionReferences__Resistance___4012___400_pa0
     sysx:sourceText "x" ;
     sysml:elementId "ConditionReferences__Resistance___4012___400_pa0" ;
     sysml:referent elmt:ConditionReferences__Resistance__x ;
+    sysml:ownedRelationship expr:ConditionReferences__Resistance___4012___400_pa0_pout_om, expr:ConditionReferences__Resistance___4012___400_pa0_preferent ;
+    sysml:ownedMembership expr:ConditionReferences__Resistance___4012___400_pa0_pout_om ;
+    sysml:ownedFeatureMembership expr:ConditionReferences__Resistance___4012___400_pa0_pout_om ;
+    sysml:ownedFeature expr:ConditionReferences__Resistance___4012___400_pa0_pout ;
+    sysml:parameter expr:ConditionReferences__Resistance___4012___400_pa0_pout ;
+    sysml:result expr:ConditionReferences__Resistance___4012___400_pa0_pout ;
     sysml:owner expr:ConditionReferences__Resistance___4012___400_pin0 ;
     sysml:owningRelationship expr:ConditionReferences__Resistance___4012___400_pa0_om ;
     sysml:owningMembership expr:ConditionReferences__Resistance___4012___400_pa0_om ;
-    sysml:ownedRelationship expr:ConditionReferences__Resistance___4012___400_pa0_preferent .
+    json:ownedRelationship "[{\"@id\":\"ConditionReferences__Resistance___4012___400_pa0_pout_om\"},{\"@id\":\"ConditionReferences__Resistance___4012___400_pa0_preferent\"}]" .
+
+expr:ConditionReferences__Resistance___4012___400_pa0_pout
+    a sysml:Feature ;
+    sysml:elementId "ConditionReferences__Resistance___4012___400_pa0_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:ConditionReferences__Resistance___4012___400_pa0 ;
+    sysml:owningRelationship expr:ConditionReferences__Resistance___4012___400_pa0_pout_om ;
+    sysml:owningMembership expr:ConditionReferences__Resistance___4012___400_pa0_pout_om .
+
+expr:ConditionReferences__Resistance___4012___400_pa0_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "ConditionReferences__Resistance___4012___400_pa0_pout_om" ;
+    sysml:owner expr:ConditionReferences__Resistance___4012___400_pa0 ;
+    sysml:memberElement expr:ConditionReferences__Resistance___4012___400_pa0_pout ;
+    sysml:ownedMemberElement expr:ConditionReferences__Resistance___4012___400_pa0_pout ;
+    sysml:ownedRelatedElement expr:ConditionReferences__Resistance___4012___400_pa0_pout ;
+    sysml:owningRelatedElement expr:ConditionReferences__Resistance___4012___400_pa0 ;
+    sysml:membershipOwningNamespace expr:ConditionReferences__Resistance___4012___400_pa0 ;
+    sysml:ownedMemberFeature expr:ConditionReferences__Resistance___4012___400_pa0_pout ;
+    sysml:ownedMemberParameter expr:ConditionReferences__Resistance___4012___400_pa0_pout .
 
 expr:ConditionReferences__Resistance___4012___400_pin0
     a sysml:Feature ;
@@ -994,6 +1354,26 @@ expr:ConditionReferences__Resistance___4012___400_pa0_om
     sysml:membershipOwningNamespace expr:ConditionReferences__Resistance___4012___400_pin0 ;
     sysml:featureWithValue expr:ConditionReferences__Resistance___4012___400_pin0 ;
     sysml:value expr:ConditionReferences__Resistance___4012___400_pa0 .
+
+expr:ConditionReferences__Resistance___4012___400_pout
+    a sysml:Feature ;
+    sysml:elementId "ConditionReferences__Resistance___4012___400_pout" ;
+    sysml:direction "out" ;
+    sysml:owner elmt:ConditionReferences__Resistance___4012___400 ;
+    sysml:owningRelationship expr:ConditionReferences__Resistance___4012___400_pout_om ;
+    sysml:owningMembership expr:ConditionReferences__Resistance___4012___400_pout_om .
+
+expr:ConditionReferences__Resistance___4012___400_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "ConditionReferences__Resistance___4012___400_pout_om" ;
+    sysml:owner elmt:ConditionReferences__Resistance___4012___400 ;
+    sysml:memberElement expr:ConditionReferences__Resistance___4012___400_pout ;
+    sysml:ownedMemberElement expr:ConditionReferences__Resistance___4012___400_pout ;
+    sysml:ownedRelatedElement expr:ConditionReferences__Resistance___4012___400_pout ;
+    sysml:owningRelatedElement elmt:ConditionReferences__Resistance___4012___400 ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences__Resistance___4012___400 ;
+    sysml:ownedMemberFeature expr:ConditionReferences__Resistance___4012___400_pout ;
+    sysml:ownedMemberParameter expr:ConditionReferences__Resistance___4012___400_pout .
 
 elmt:ConditionReferences__Resistance___4013
     a sysml:AssertConstraintUsage ;
@@ -1035,7 +1415,13 @@ elmt:ConditionReferences__Resistance___4013___400
     sysml:owningRelationship elmt:ConditionReferences__Resistance___4013___400_om ;
     sysml:owningMembership elmt:ConditionReferences__Resistance___4013___400_om ;
     sysml:referent elmt:ConditionReferences__Resistance__x ;
-    sysml:ownedRelationship elmt:ConditionReferences__Resistance___4013___400_referent .
+    sysml:ownedRelationship expr:ConditionReferences__Resistance___4013___400_pout_om, elmt:ConditionReferences__Resistance___4013___400_referent ;
+    sysml:ownedMembership expr:ConditionReferences__Resistance___4013___400_pout_om ;
+    sysml:ownedFeatureMembership expr:ConditionReferences__Resistance___4013___400_pout_om ;
+    sysml:ownedFeature expr:ConditionReferences__Resistance___4013___400_pout ;
+    sysml:parameter expr:ConditionReferences__Resistance___4013___400_pout ;
+    sysml:result expr:ConditionReferences__Resistance___4013___400_pout ;
+    json:ownedRelationship "[{\"@id\":\"ConditionReferences__Resistance___4013___400_pout_om\"},{\"@id\":\"ConditionReferences__Resistance___4013___400_referent\"}]" .
 
 elmt:ConditionReferences__Resistance___4013___400_om
     a sysml:ResultExpressionMembership ;
@@ -1049,6 +1435,26 @@ elmt:ConditionReferences__Resistance___4013___400_om
     sysml:ownedMemberFeature elmt:ConditionReferences__Resistance___4013___400 ;
     sysml:owningType elmt:ConditionReferences__Resistance___4013 ;
     sysml:ownedResultExpression elmt:ConditionReferences__Resistance___4013___400 .
+
+expr:ConditionReferences__Resistance___4013___400_pout
+    a sysml:Feature ;
+    sysml:elementId "ConditionReferences__Resistance___4013___400_pout" ;
+    sysml:direction "out" ;
+    sysml:owner elmt:ConditionReferences__Resistance___4013___400 ;
+    sysml:owningRelationship expr:ConditionReferences__Resistance___4013___400_pout_om ;
+    sysml:owningMembership expr:ConditionReferences__Resistance___4013___400_pout_om .
+
+expr:ConditionReferences__Resistance___4013___400_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "ConditionReferences__Resistance___4013___400_pout_om" ;
+    sysml:owner elmt:ConditionReferences__Resistance___4013___400 ;
+    sysml:memberElement expr:ConditionReferences__Resistance___4013___400_pout ;
+    sysml:ownedMemberElement expr:ConditionReferences__Resistance___4013___400_pout ;
+    sysml:ownedRelatedElement expr:ConditionReferences__Resistance___4013___400_pout ;
+    sysml:owningRelatedElement elmt:ConditionReferences__Resistance___4013___400 ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences__Resistance___4013___400 ;
+    sysml:ownedMemberFeature expr:ConditionReferences__Resistance___4013___400_pout ;
+    sysml:ownedMemberParameter expr:ConditionReferences__Resistance___4013___400_pout .
 
 elmt:ConditionReferences__Rover
     a sysml:PartDefinition ;
@@ -1181,7 +1587,13 @@ elmt:ConditionReferences__Rover___402___400
     sysml:owningRelationship elmt:ConditionReferences__Rover___402___400_om ;
     sysml:owningMembership elmt:ConditionReferences__Rover___402___400_om ;
     sysml:referent elmt:ConditionReferences__Rover__ok ;
-    sysml:ownedRelationship elmt:ConditionReferences__Rover___402___400_referent .
+    sysml:ownedRelationship expr:ConditionReferences__Rover___402___400_pout_om, elmt:ConditionReferences__Rover___402___400_referent ;
+    sysml:ownedMembership expr:ConditionReferences__Rover___402___400_pout_om ;
+    sysml:ownedFeatureMembership expr:ConditionReferences__Rover___402___400_pout_om ;
+    sysml:ownedFeature expr:ConditionReferences__Rover___402___400_pout ;
+    sysml:parameter expr:ConditionReferences__Rover___402___400_pout ;
+    sysml:result expr:ConditionReferences__Rover___402___400_pout ;
+    json:ownedRelationship "[{\"@id\":\"ConditionReferences__Rover___402___400_pout_om\"},{\"@id\":\"ConditionReferences__Rover___402___400_referent\"}]" .
 
 elmt:ConditionReferences__Rover___402___400_om
     a sysml:ResultExpressionMembership ;
@@ -1195,6 +1607,26 @@ elmt:ConditionReferences__Rover___402___400_om
     sysml:ownedMemberFeature elmt:ConditionReferences__Rover___402___400 ;
     sysml:owningType elmt:ConditionReferences__Rover___402 ;
     sysml:ownedResultExpression elmt:ConditionReferences__Rover___402___400 .
+
+expr:ConditionReferences__Rover___402___400_pout
+    a sysml:Feature ;
+    sysml:elementId "ConditionReferences__Rover___402___400_pout" ;
+    sysml:direction "out" ;
+    sysml:owner elmt:ConditionReferences__Rover___402___400 ;
+    sysml:owningRelationship expr:ConditionReferences__Rover___402___400_pout_om ;
+    sysml:owningMembership expr:ConditionReferences__Rover___402___400_pout_om .
+
+expr:ConditionReferences__Rover___402___400_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "ConditionReferences__Rover___402___400_pout_om" ;
+    sysml:owner elmt:ConditionReferences__Rover___402___400 ;
+    sysml:memberElement expr:ConditionReferences__Rover___402___400_pout ;
+    sysml:ownedMemberElement expr:ConditionReferences__Rover___402___400_pout ;
+    sysml:ownedRelatedElement expr:ConditionReferences__Rover___402___400_pout ;
+    sysml:owningRelatedElement elmt:ConditionReferences__Rover___402___400 ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences__Rover___402___400 ;
+    sysml:ownedMemberFeature expr:ConditionReferences__Rover___402___400_pout ;
+    sysml:ownedMemberParameter expr:ConditionReferences__Rover___402___400_pout .
 
 elmt:ConditionReferences__Rover___403
     a sysml:AssertConstraintUsage ;
@@ -1242,19 +1674,20 @@ elmt:ConditionReferences__Rover___403___400
     sysml:owningMembership elmt:ConditionReferences__Rover___403___400_om ;
     sysml:operator ">" ;
     sysml:argument expr:ConditionReferences__Rover___403___400_pa0, expr:ConditionReferences__Rover___403___400_pa1 ;
-    sysml:ownedRelationship expr:ConditionReferences__Rover___403___400_pin0_om, expr:ConditionReferences__Rover___403___400_pin1_om ;
-    sysml:ownedMembership expr:ConditionReferences__Rover___403___400_pin0_om, expr:ConditionReferences__Rover___403___400_pin1_om ;
-    sysml:ownedFeatureMembership expr:ConditionReferences__Rover___403___400_pin0_om, expr:ConditionReferences__Rover___403___400_pin1_om ;
-    sysml:ownedFeature expr:ConditionReferences__Rover___403___400_pin0, expr:ConditionReferences__Rover___403___400_pin1 ;
-    sysml:parameter expr:ConditionReferences__Rover___403___400_pin0, expr:ConditionReferences__Rover___403___400_pin1 ;
+    sysml:ownedRelationship expr:ConditionReferences__Rover___403___400_pin0_om, expr:ConditionReferences__Rover___403___400_pin1_om, expr:ConditionReferences__Rover___403___400_pout_om ;
+    sysml:ownedMembership expr:ConditionReferences__Rover___403___400_pin0_om, expr:ConditionReferences__Rover___403___400_pin1_om, expr:ConditionReferences__Rover___403___400_pout_om ;
+    sysml:ownedFeatureMembership expr:ConditionReferences__Rover___403___400_pin0_om, expr:ConditionReferences__Rover___403___400_pin1_om, expr:ConditionReferences__Rover___403___400_pout_om ;
+    sysml:ownedFeature expr:ConditionReferences__Rover___403___400_pin0, expr:ConditionReferences__Rover___403___400_pin1, expr:ConditionReferences__Rover___403___400_pout ;
+    sysml:parameter expr:ConditionReferences__Rover___403___400_pin0, expr:ConditionReferences__Rover___403___400_pin1, expr:ConditionReferences__Rover___403___400_pout ;
     sysml:input expr:ConditionReferences__Rover___403___400_pin0, expr:ConditionReferences__Rover___403___400_pin1 ;
+    sysml:result expr:ConditionReferences__Rover___403___400_pout ;
     sysx:sourceText "            n > 0\n" ;
     json:argument "[{\"@id\":\"ConditionReferences__Rover___403___400_pa0\"},{\"@id\":\"ConditionReferences__Rover___403___400_pa1\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"ConditionReferences__Rover___403___400_pin0_om\"},{\"@id\":\"ConditionReferences__Rover___403___400_pin1_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"ConditionReferences__Rover___403___400_pin0_om\"},{\"@id\":\"ConditionReferences__Rover___403___400_pin1_om\"}]" ;
-    json:ownedFeatureMembership "[{\"@id\":\"ConditionReferences__Rover___403___400_pin0_om\"},{\"@id\":\"ConditionReferences__Rover___403___400_pin1_om\"}]" ;
-    json:ownedFeature "[{\"@id\":\"ConditionReferences__Rover___403___400_pin0\"},{\"@id\":\"ConditionReferences__Rover___403___400_pin1\"}]" ;
-    json:parameter "[{\"@id\":\"ConditionReferences__Rover___403___400_pin0\"},{\"@id\":\"ConditionReferences__Rover___403___400_pin1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"ConditionReferences__Rover___403___400_pin0_om\"},{\"@id\":\"ConditionReferences__Rover___403___400_pin1_om\"},{\"@id\":\"ConditionReferences__Rover___403___400_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"ConditionReferences__Rover___403___400_pin0_om\"},{\"@id\":\"ConditionReferences__Rover___403___400_pin1_om\"},{\"@id\":\"ConditionReferences__Rover___403___400_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"ConditionReferences__Rover___403___400_pin0_om\"},{\"@id\":\"ConditionReferences__Rover___403___400_pin1_om\"},{\"@id\":\"ConditionReferences__Rover___403___400_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"ConditionReferences__Rover___403___400_pin0\"},{\"@id\":\"ConditionReferences__Rover___403___400_pin1\"},{\"@id\":\"ConditionReferences__Rover___403___400_pout\"}]" ;
+    json:parameter "[{\"@id\":\"ConditionReferences__Rover___403___400_pin0\"},{\"@id\":\"ConditionReferences__Rover___403___400_pin1\"},{\"@id\":\"ConditionReferences__Rover___403___400_pout\"}]" ;
     json:input "[{\"@id\":\"ConditionReferences__Rover___403___400_pin0\"},{\"@id\":\"ConditionReferences__Rover___403___400_pin1\"}]" .
 
 elmt:ConditionReferences__Rover___403___400_om
@@ -1274,10 +1707,36 @@ expr:ConditionReferences__Rover___403___400_pa0
     sysx:sourceText "n" ;
     sysml:elementId "ConditionReferences__Rover___403___400_pa0" ;
     sysml:referent elmt:ConditionReferences__Rover__n ;
+    sysml:ownedRelationship expr:ConditionReferences__Rover___403___400_pa0_pout_om, expr:ConditionReferences__Rover___403___400_pa0_preferent ;
+    sysml:ownedMembership expr:ConditionReferences__Rover___403___400_pa0_pout_om ;
+    sysml:ownedFeatureMembership expr:ConditionReferences__Rover___403___400_pa0_pout_om ;
+    sysml:ownedFeature expr:ConditionReferences__Rover___403___400_pa0_pout ;
+    sysml:parameter expr:ConditionReferences__Rover___403___400_pa0_pout ;
+    sysml:result expr:ConditionReferences__Rover___403___400_pa0_pout ;
     sysml:owner expr:ConditionReferences__Rover___403___400_pin0 ;
     sysml:owningRelationship expr:ConditionReferences__Rover___403___400_pa0_om ;
     sysml:owningMembership expr:ConditionReferences__Rover___403___400_pa0_om ;
-    sysml:ownedRelationship expr:ConditionReferences__Rover___403___400_pa0_preferent .
+    json:ownedRelationship "[{\"@id\":\"ConditionReferences__Rover___403___400_pa0_pout_om\"},{\"@id\":\"ConditionReferences__Rover___403___400_pa0_preferent\"}]" .
+
+expr:ConditionReferences__Rover___403___400_pa0_pout
+    a sysml:Feature ;
+    sysml:elementId "ConditionReferences__Rover___403___400_pa0_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:ConditionReferences__Rover___403___400_pa0 ;
+    sysml:owningRelationship expr:ConditionReferences__Rover___403___400_pa0_pout_om ;
+    sysml:owningMembership expr:ConditionReferences__Rover___403___400_pa0_pout_om .
+
+expr:ConditionReferences__Rover___403___400_pa0_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "ConditionReferences__Rover___403___400_pa0_pout_om" ;
+    sysml:owner expr:ConditionReferences__Rover___403___400_pa0 ;
+    sysml:memberElement expr:ConditionReferences__Rover___403___400_pa0_pout ;
+    sysml:ownedMemberElement expr:ConditionReferences__Rover___403___400_pa0_pout ;
+    sysml:ownedRelatedElement expr:ConditionReferences__Rover___403___400_pa0_pout ;
+    sysml:owningRelatedElement expr:ConditionReferences__Rover___403___400_pa0 ;
+    sysml:membershipOwningNamespace expr:ConditionReferences__Rover___403___400_pa0 ;
+    sysml:ownedMemberFeature expr:ConditionReferences__Rover___403___400_pa0_pout ;
+    sysml:ownedMemberParameter expr:ConditionReferences__Rover___403___400_pa0_pout .
 
 expr:ConditionReferences__Rover___403___400_pin0
     a sysml:Feature ;
@@ -1356,6 +1815,26 @@ expr:ConditionReferences__Rover___403___400_pa1_om
     sysml:featureWithValue expr:ConditionReferences__Rover___403___400_pin1 ;
     sysml:value expr:ConditionReferences__Rover___403___400_pa1 .
 
+expr:ConditionReferences__Rover___403___400_pout
+    a sysml:Feature ;
+    sysml:elementId "ConditionReferences__Rover___403___400_pout" ;
+    sysml:direction "out" ;
+    sysml:owner elmt:ConditionReferences__Rover___403___400 ;
+    sysml:owningRelationship expr:ConditionReferences__Rover___403___400_pout_om ;
+    sysml:owningMembership expr:ConditionReferences__Rover___403___400_pout_om .
+
+expr:ConditionReferences__Rover___403___400_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "ConditionReferences__Rover___403___400_pout_om" ;
+    sysml:owner elmt:ConditionReferences__Rover___403___400 ;
+    sysml:memberElement expr:ConditionReferences__Rover___403___400_pout ;
+    sysml:ownedMemberElement expr:ConditionReferences__Rover___403___400_pout ;
+    sysml:ownedRelatedElement expr:ConditionReferences__Rover___403___400_pout ;
+    sysml:owningRelatedElement elmt:ConditionReferences__Rover___403___400 ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences__Rover___403___400 ;
+    sysml:ownedMemberFeature expr:ConditionReferences__Rover___403___400_pout ;
+    sysml:ownedMemberParameter expr:ConditionReferences__Rover___403___400_pout .
+
 elmt:ConditionReferences__Rover___403___401
     a sysml:FeatureReferenceExpression ;
     sysml:qualifiedName "ConditionReferences::Rover::@3::@1" ;
@@ -1366,8 +1845,14 @@ elmt:ConditionReferences__Rover___403___401
     sysml:owningRelationship elmt:ConditionReferences__Rover___403___401_om ;
     sysml:owningMembership elmt:ConditionReferences__Rover___403___401_om ;
     sysml:referent elmt:ConditionReferences__Rover__ok ;
-    sysml:ownedRelationship elmt:ConditionReferences__Rover___403___401_referent ;
-    sysx:sourceText "            ok\n" .
+    sysml:ownedRelationship expr:ConditionReferences__Rover___403___401_pout_om, elmt:ConditionReferences__Rover___403___401_referent ;
+    sysml:ownedMembership expr:ConditionReferences__Rover___403___401_pout_om ;
+    sysml:ownedFeatureMembership expr:ConditionReferences__Rover___403___401_pout_om ;
+    sysml:ownedFeature expr:ConditionReferences__Rover___403___401_pout ;
+    sysml:parameter expr:ConditionReferences__Rover___403___401_pout ;
+    sysml:result expr:ConditionReferences__Rover___403___401_pout ;
+    sysx:sourceText "            ok\n" ;
+    json:ownedRelationship "[{\"@id\":\"ConditionReferences__Rover___403___401_pout_om\"},{\"@id\":\"ConditionReferences__Rover___403___401_referent\"}]" .
 
 elmt:ConditionReferences__Rover___403___401_om
     a sysml:ResultExpressionMembership ;
@@ -1381,6 +1866,26 @@ elmt:ConditionReferences__Rover___403___401_om
     sysml:ownedMemberFeature elmt:ConditionReferences__Rover___403___401 ;
     sysml:owningType elmt:ConditionReferences__Rover___403 ;
     sysml:ownedResultExpression elmt:ConditionReferences__Rover___403___401 .
+
+expr:ConditionReferences__Rover___403___401_pout
+    a sysml:Feature ;
+    sysml:elementId "ConditionReferences__Rover___403___401_pout" ;
+    sysml:direction "out" ;
+    sysml:owner elmt:ConditionReferences__Rover___403___401 ;
+    sysml:owningRelationship expr:ConditionReferences__Rover___403___401_pout_om ;
+    sysml:owningMembership expr:ConditionReferences__Rover___403___401_pout_om .
+
+expr:ConditionReferences__Rover___403___401_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "ConditionReferences__Rover___403___401_pout_om" ;
+    sysml:owner elmt:ConditionReferences__Rover___403___401 ;
+    sysml:memberElement expr:ConditionReferences__Rover___403___401_pout ;
+    sysml:ownedMemberElement expr:ConditionReferences__Rover___403___401_pout ;
+    sysml:ownedRelatedElement expr:ConditionReferences__Rover___403___401_pout ;
+    sysml:owningRelatedElement elmt:ConditionReferences__Rover___403___401 ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences__Rover___403___401 ;
+    sysml:ownedMemberFeature expr:ConditionReferences__Rover___403___401_pout ;
+    sysml:ownedMemberParameter expr:ConditionReferences__Rover___403___401_pout .
 
 elmt:ConditionReferences__Rover___404
     a sysml:ConstraintUsage ;
@@ -1421,7 +1926,13 @@ elmt:ConditionReferences__Rover___404___400
     sysml:owningRelationship elmt:ConditionReferences__Rover___404___400_om ;
     sysml:owningMembership elmt:ConditionReferences__Rover___404___400_om ;
     sysml:referent elmt:ConditionReferences__Rover__ok ;
-    sysml:ownedRelationship elmt:ConditionReferences__Rover___404___400_referent .
+    sysml:ownedRelationship expr:ConditionReferences__Rover___404___400_pout_om, elmt:ConditionReferences__Rover___404___400_referent ;
+    sysml:ownedMembership expr:ConditionReferences__Rover___404___400_pout_om ;
+    sysml:ownedFeatureMembership expr:ConditionReferences__Rover___404___400_pout_om ;
+    sysml:ownedFeature expr:ConditionReferences__Rover___404___400_pout ;
+    sysml:parameter expr:ConditionReferences__Rover___404___400_pout ;
+    sysml:result expr:ConditionReferences__Rover___404___400_pout ;
+    json:ownedRelationship "[{\"@id\":\"ConditionReferences__Rover___404___400_pout_om\"},{\"@id\":\"ConditionReferences__Rover___404___400_referent\"}]" .
 
 elmt:ConditionReferences__Rover___404___400_om
     a sysml:ResultExpressionMembership ;
@@ -1435,6 +1946,26 @@ elmt:ConditionReferences__Rover___404___400_om
     sysml:ownedMemberFeature elmt:ConditionReferences__Rover___404___400 ;
     sysml:owningType elmt:ConditionReferences__Rover___404 ;
     sysml:ownedResultExpression elmt:ConditionReferences__Rover___404___400 .
+
+expr:ConditionReferences__Rover___404___400_pout
+    a sysml:Feature ;
+    sysml:elementId "ConditionReferences__Rover___404___400_pout" ;
+    sysml:direction "out" ;
+    sysml:owner elmt:ConditionReferences__Rover___404___400 ;
+    sysml:owningRelationship expr:ConditionReferences__Rover___404___400_pout_om ;
+    sysml:owningMembership expr:ConditionReferences__Rover___404___400_pout_om .
+
+expr:ConditionReferences__Rover___404___400_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "ConditionReferences__Rover___404___400_pout_om" ;
+    sysml:owner elmt:ConditionReferences__Rover___404___400 ;
+    sysml:memberElement expr:ConditionReferences__Rover___404___400_pout ;
+    sysml:ownedMemberElement expr:ConditionReferences__Rover___404___400_pout ;
+    sysml:ownedRelatedElement expr:ConditionReferences__Rover___404___400_pout ;
+    sysml:owningRelatedElement elmt:ConditionReferences__Rover___404___400 ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences__Rover___404___400 ;
+    sysml:ownedMemberFeature expr:ConditionReferences__Rover___404___400_pout ;
+    sysml:ownedMemberParameter expr:ConditionReferences__Rover___404___400_pout .
 
 elmt:ConditionReferences__Rover__inv1
     a sysml:ConstraintUsage ;
@@ -1477,12 +2008,18 @@ elmt:ConditionReferences__Rover__inv1___400
     sysml:owningMembership elmt:ConditionReferences__Rover__inv1___400_om ;
     sysml:operator "not" ;
     sysml:argument expr:ConditionReferences__Rover__inv1___400_pa0 ;
-    sysml:ownedRelationship expr:ConditionReferences__Rover__inv1___400_pin0_om ;
-    sysml:ownedMembership expr:ConditionReferences__Rover__inv1___400_pin0_om ;
-    sysml:ownedFeatureMembership expr:ConditionReferences__Rover__inv1___400_pin0_om ;
-    sysml:ownedFeature expr:ConditionReferences__Rover__inv1___400_pin0 ;
-    sysml:parameter expr:ConditionReferences__Rover__inv1___400_pin0 ;
-    sysml:input expr:ConditionReferences__Rover__inv1___400_pin0 .
+    sysml:ownedRelationship expr:ConditionReferences__Rover__inv1___400_pin0_om, expr:ConditionReferences__Rover__inv1___400_pout_om ;
+    sysml:ownedMembership expr:ConditionReferences__Rover__inv1___400_pin0_om, expr:ConditionReferences__Rover__inv1___400_pout_om ;
+    sysml:ownedFeatureMembership expr:ConditionReferences__Rover__inv1___400_pin0_om, expr:ConditionReferences__Rover__inv1___400_pout_om ;
+    sysml:ownedFeature expr:ConditionReferences__Rover__inv1___400_pin0, expr:ConditionReferences__Rover__inv1___400_pout ;
+    sysml:parameter expr:ConditionReferences__Rover__inv1___400_pin0, expr:ConditionReferences__Rover__inv1___400_pout ;
+    sysml:input expr:ConditionReferences__Rover__inv1___400_pin0 ;
+    sysml:result expr:ConditionReferences__Rover__inv1___400_pout ;
+    json:ownedRelationship "[{\"@id\":\"ConditionReferences__Rover__inv1___400_pin0_om\"},{\"@id\":\"ConditionReferences__Rover__inv1___400_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"ConditionReferences__Rover__inv1___400_pin0_om\"},{\"@id\":\"ConditionReferences__Rover__inv1___400_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"ConditionReferences__Rover__inv1___400_pin0_om\"},{\"@id\":\"ConditionReferences__Rover__inv1___400_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"ConditionReferences__Rover__inv1___400_pin0\"},{\"@id\":\"ConditionReferences__Rover__inv1___400_pout\"}]" ;
+    json:parameter "[{\"@id\":\"ConditionReferences__Rover__inv1___400_pin0\"},{\"@id\":\"ConditionReferences__Rover__inv1___400_pout\"}]" .
 
 elmt:ConditionReferences__Rover__inv1___400_om
     a sysml:ResultExpressionMembership ;
@@ -1502,10 +2039,36 @@ expr:ConditionReferences__Rover__inv1___400_pa0
     sysx:sourceText "ok" ;
     sysml:elementId "ConditionReferences__Rover__inv1___400_pa0" ;
     sysml:referent elmt:ConditionReferences__Rover__ok ;
+    sysml:ownedRelationship expr:ConditionReferences__Rover__inv1___400_pa0_pout_om, expr:ConditionReferences__Rover__inv1___400_pa0_preferent ;
+    sysml:ownedMembership expr:ConditionReferences__Rover__inv1___400_pa0_pout_om ;
+    sysml:ownedFeatureMembership expr:ConditionReferences__Rover__inv1___400_pa0_pout_om ;
+    sysml:ownedFeature expr:ConditionReferences__Rover__inv1___400_pa0_pout ;
+    sysml:parameter expr:ConditionReferences__Rover__inv1___400_pa0_pout ;
+    sysml:result expr:ConditionReferences__Rover__inv1___400_pa0_pout ;
     sysml:owner expr:ConditionReferences__Rover__inv1___400_pin0 ;
     sysml:owningRelationship expr:ConditionReferences__Rover__inv1___400_pa0_om ;
     sysml:owningMembership expr:ConditionReferences__Rover__inv1___400_pa0_om ;
-    sysml:ownedRelationship expr:ConditionReferences__Rover__inv1___400_pa0_preferent .
+    json:ownedRelationship "[{\"@id\":\"ConditionReferences__Rover__inv1___400_pa0_pout_om\"},{\"@id\":\"ConditionReferences__Rover__inv1___400_pa0_preferent\"}]" .
+
+expr:ConditionReferences__Rover__inv1___400_pa0_pout
+    a sysml:Feature ;
+    sysml:elementId "ConditionReferences__Rover__inv1___400_pa0_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:ConditionReferences__Rover__inv1___400_pa0 ;
+    sysml:owningRelationship expr:ConditionReferences__Rover__inv1___400_pa0_pout_om ;
+    sysml:owningMembership expr:ConditionReferences__Rover__inv1___400_pa0_pout_om .
+
+expr:ConditionReferences__Rover__inv1___400_pa0_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "ConditionReferences__Rover__inv1___400_pa0_pout_om" ;
+    sysml:owner expr:ConditionReferences__Rover__inv1___400_pa0 ;
+    sysml:memberElement expr:ConditionReferences__Rover__inv1___400_pa0_pout ;
+    sysml:ownedMemberElement expr:ConditionReferences__Rover__inv1___400_pa0_pout ;
+    sysml:ownedRelatedElement expr:ConditionReferences__Rover__inv1___400_pa0_pout ;
+    sysml:owningRelatedElement expr:ConditionReferences__Rover__inv1___400_pa0 ;
+    sysml:membershipOwningNamespace expr:ConditionReferences__Rover__inv1___400_pa0 ;
+    sysml:ownedMemberFeature expr:ConditionReferences__Rover__inv1___400_pa0_pout ;
+    sysml:ownedMemberParameter expr:ConditionReferences__Rover__inv1___400_pa0_pout .
 
 expr:ConditionReferences__Rover__inv1___400_pin0
     a sysml:Feature ;
@@ -1540,6 +2103,26 @@ expr:ConditionReferences__Rover__inv1___400_pa0_om
     sysml:membershipOwningNamespace expr:ConditionReferences__Rover__inv1___400_pin0 ;
     sysml:featureWithValue expr:ConditionReferences__Rover__inv1___400_pin0 ;
     sysml:value expr:ConditionReferences__Rover__inv1___400_pa0 .
+
+expr:ConditionReferences__Rover__inv1___400_pout
+    a sysml:Feature ;
+    sysml:elementId "ConditionReferences__Rover__inv1___400_pout" ;
+    sysml:direction "out" ;
+    sysml:owner elmt:ConditionReferences__Rover__inv1___400 ;
+    sysml:owningRelationship expr:ConditionReferences__Rover__inv1___400_pout_om ;
+    sysml:owningMembership expr:ConditionReferences__Rover__inv1___400_pout_om .
+
+expr:ConditionReferences__Rover__inv1___400_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "ConditionReferences__Rover__inv1___400_pout_om" ;
+    sysml:owner elmt:ConditionReferences__Rover__inv1___400 ;
+    sysml:memberElement expr:ConditionReferences__Rover__inv1___400_pout ;
+    sysml:ownedMemberElement expr:ConditionReferences__Rover__inv1___400_pout ;
+    sysml:ownedRelatedElement expr:ConditionReferences__Rover__inv1___400_pout ;
+    sysml:owningRelatedElement elmt:ConditionReferences__Rover__inv1___400 ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences__Rover__inv1___400 ;
+    sysml:ownedMemberFeature expr:ConditionReferences__Rover__inv1___400_pout ;
+    sysml:ownedMemberParameter expr:ConditionReferences__Rover__inv1___400_pout .
 
 elmt:ConditionReferences__Resistance__structuralIntegrityMaintained_ft0
     a sysml:FeatureTyping ;

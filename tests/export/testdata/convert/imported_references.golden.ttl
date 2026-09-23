@@ -427,10 +427,36 @@ expr:R90__A__t_pvalue
     sysx:sourceText "Tempo::operative" ;
     sysml:elementId "R90__A__t_pvalue" ;
     sysml:referent elmt:OtherPkg__Tempo__operative ;
+    sysml:ownedRelationship expr:R90__A__t_pvalue_pout_om, expr:R90__A__t_pvalue_preferent ;
+    sysml:ownedMembership expr:R90__A__t_pvalue_pout_om ;
+    sysml:ownedFeatureMembership expr:R90__A__t_pvalue_pout_om ;
+    sysml:ownedFeature expr:R90__A__t_pvalue_pout ;
+    sysml:parameter expr:R90__A__t_pvalue_pout ;
+    sysml:result expr:R90__A__t_pvalue_pout ;
     sysml:owner elmt:R90__A__t ;
     sysml:owningRelationship expr:R90__A__t_pvalue_om ;
     sysml:owningMembership expr:R90__A__t_pvalue_om ;
-    sysml:ownedRelationship expr:R90__A__t_pvalue_preferent .
+    json:ownedRelationship "[{\"@id\":\"R90__A__t_pvalue_pout_om\"},{\"@id\":\"R90__A__t_pvalue_preferent\"}]" .
+
+expr:R90__A__t_pvalue_pout
+    a sysml:Feature ;
+    sysml:elementId "R90__A__t_pvalue_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:R90__A__t_pvalue ;
+    sysml:owningRelationship expr:R90__A__t_pvalue_pout_om ;
+    sysml:owningMembership expr:R90__A__t_pvalue_pout_om .
+
+expr:R90__A__t_pvalue_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "R90__A__t_pvalue_pout_om" ;
+    sysml:owner expr:R90__A__t_pvalue ;
+    sysml:memberElement expr:R90__A__t_pvalue_pout ;
+    sysml:ownedMemberElement expr:R90__A__t_pvalue_pout ;
+    sysml:ownedRelatedElement expr:R90__A__t_pvalue_pout ;
+    sysml:owningRelatedElement expr:R90__A__t_pvalue ;
+    sysml:membershipOwningNamespace expr:R90__A__t_pvalue ;
+    sysml:ownedMemberFeature expr:R90__A__t_pvalue_pout ;
+    sysml:ownedMemberParameter expr:R90__A__t_pvalue_pout .
 
 expr:R90__A__t_pvalue_om
     a sysml:FeatureValue ;
@@ -625,27 +651,58 @@ expr:R90__A__s_pvalue
     sysx:sourceText "w.size" ;
     sysml:elementId "R90__A__s_pvalue" ;
     sysml:argument expr:R90__A__s_pvalue_pa0 ;
-    sysml:ownedRelationship expr:R90__A__s_pvalue_pin0_om, expr:R90__A__s_pvalue_ptargetFeature ;
-    sysml:ownedMembership expr:R90__A__s_pvalue_pin0_om ;
-    sysml:ownedFeatureMembership expr:R90__A__s_pvalue_pin0_om ;
-    sysml:ownedFeature expr:R90__A__s_pvalue_pin0 ;
-    sysml:parameter expr:R90__A__s_pvalue_pin0 ;
+    sysml:ownedRelationship expr:R90__A__s_pvalue_pin0_om, expr:R90__A__s_pvalue_pout_om, expr:R90__A__s_pvalue_ptargetFeature ;
+    sysml:ownedMembership expr:R90__A__s_pvalue_pin0_om, expr:R90__A__s_pvalue_pout_om ;
+    sysml:ownedFeatureMembership expr:R90__A__s_pvalue_pin0_om, expr:R90__A__s_pvalue_pout_om ;
+    sysml:ownedFeature expr:R90__A__s_pvalue_pin0, expr:R90__A__s_pvalue_pout ;
+    sysml:parameter expr:R90__A__s_pvalue_pin0, expr:R90__A__s_pvalue_pout ;
     sysml:input expr:R90__A__s_pvalue_pin0 ;
     sysml:targetFeature elmt:OtherPkg__Inner__Wheel__size ;
+    sysml:result expr:R90__A__s_pvalue_pout ;
     sysml:owner elmt:R90__A__s ;
     sysml:owningRelationship expr:R90__A__s_pvalue_om ;
     sysml:owningMembership expr:R90__A__s_pvalue_om ;
-    json:ownedRelationship "[{\"@id\":\"R90__A__s_pvalue_pin0_om\"},{\"@id\":\"R90__A__s_pvalue_ptargetFeature\"}]" .
+    json:ownedRelationship "[{\"@id\":\"R90__A__s_pvalue_pin0_om\"},{\"@id\":\"R90__A__s_pvalue_pout_om\"},{\"@id\":\"R90__A__s_pvalue_ptargetFeature\"}]" ;
+    json:ownedMembership "[{\"@id\":\"R90__A__s_pvalue_pin0_om\"},{\"@id\":\"R90__A__s_pvalue_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"R90__A__s_pvalue_pin0_om\"},{\"@id\":\"R90__A__s_pvalue_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"R90__A__s_pvalue_pin0\"},{\"@id\":\"R90__A__s_pvalue_pout\"}]" ;
+    json:parameter "[{\"@id\":\"R90__A__s_pvalue_pin0\"},{\"@id\":\"R90__A__s_pvalue_pout\"}]" .
 
 expr:R90__A__s_pvalue_pa0
     a sysml:FeatureReferenceExpression ;
     sysx:sourceText "w" ;
     sysml:elementId "R90__A__s_pvalue_pa0" ;
     sysml:referent elmt:R90__A__w ;
+    sysml:ownedRelationship expr:R90__A__s_pvalue_pa0_pout_om, expr:R90__A__s_pvalue_pa0_preferent ;
+    sysml:ownedMembership expr:R90__A__s_pvalue_pa0_pout_om ;
+    sysml:ownedFeatureMembership expr:R90__A__s_pvalue_pa0_pout_om ;
+    sysml:ownedFeature expr:R90__A__s_pvalue_pa0_pout ;
+    sysml:parameter expr:R90__A__s_pvalue_pa0_pout ;
+    sysml:result expr:R90__A__s_pvalue_pa0_pout ;
     sysml:owner expr:R90__A__s_pvalue_pin0 ;
     sysml:owningRelationship expr:R90__A__s_pvalue_pa0_om ;
     sysml:owningMembership expr:R90__A__s_pvalue_pa0_om ;
-    sysml:ownedRelationship expr:R90__A__s_pvalue_pa0_preferent .
+    json:ownedRelationship "[{\"@id\":\"R90__A__s_pvalue_pa0_pout_om\"},{\"@id\":\"R90__A__s_pvalue_pa0_preferent\"}]" .
+
+expr:R90__A__s_pvalue_pa0_pout
+    a sysml:Feature ;
+    sysml:elementId "R90__A__s_pvalue_pa0_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:R90__A__s_pvalue_pa0 ;
+    sysml:owningRelationship expr:R90__A__s_pvalue_pa0_pout_om ;
+    sysml:owningMembership expr:R90__A__s_pvalue_pa0_pout_om .
+
+expr:R90__A__s_pvalue_pa0_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "R90__A__s_pvalue_pa0_pout_om" ;
+    sysml:owner expr:R90__A__s_pvalue_pa0 ;
+    sysml:memberElement expr:R90__A__s_pvalue_pa0_pout ;
+    sysml:ownedMemberElement expr:R90__A__s_pvalue_pa0_pout ;
+    sysml:ownedRelatedElement expr:R90__A__s_pvalue_pa0_pout ;
+    sysml:owningRelatedElement expr:R90__A__s_pvalue_pa0 ;
+    sysml:membershipOwningNamespace expr:R90__A__s_pvalue_pa0 ;
+    sysml:ownedMemberFeature expr:R90__A__s_pvalue_pa0_pout ;
+    sysml:ownedMemberParameter expr:R90__A__s_pvalue_pa0_pout .
 
 expr:R90__A__s_pvalue_pin0
     a sysml:Feature ;
@@ -680,6 +737,26 @@ expr:R90__A__s_pvalue_pa0_om
     sysml:membershipOwningNamespace expr:R90__A__s_pvalue_pin0 ;
     sysml:featureWithValue expr:R90__A__s_pvalue_pin0 ;
     sysml:value expr:R90__A__s_pvalue_pa0 .
+
+expr:R90__A__s_pvalue_pout
+    a sysml:Feature ;
+    sysml:elementId "R90__A__s_pvalue_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:R90__A__s_pvalue ;
+    sysml:owningRelationship expr:R90__A__s_pvalue_pout_om ;
+    sysml:owningMembership expr:R90__A__s_pvalue_pout_om .
+
+expr:R90__A__s_pvalue_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "R90__A__s_pvalue_pout_om" ;
+    sysml:owner expr:R90__A__s_pvalue ;
+    sysml:memberElement expr:R90__A__s_pvalue_pout ;
+    sysml:ownedMemberElement expr:R90__A__s_pvalue_pout ;
+    sysml:ownedRelatedElement expr:R90__A__s_pvalue_pout ;
+    sysml:owningRelatedElement expr:R90__A__s_pvalue ;
+    sysml:membershipOwningNamespace expr:R90__A__s_pvalue ;
+    sysml:ownedMemberFeature expr:R90__A__s_pvalue_pout ;
+    sysml:ownedMemberParameter expr:R90__A__s_pvalue_pout .
 
 expr:R90__A__s_pvalue_om
     a sysml:FeatureValue ;
@@ -1284,8 +1361,34 @@ expr:Filtered___400_pfilter
     sysml:elementId "Filtered___400_pfilter" ;
     sysml:operator "@" ;
     sysx:typeArgument elmt:Meta__Safety ;
+    sysml:ownedRelationship expr:Filtered___400_pfilter_pout_om ;
+    sysml:ownedMembership expr:Filtered___400_pfilter_pout_om ;
+    sysml:ownedFeatureMembership expr:Filtered___400_pfilter_pout_om ;
+    sysml:ownedFeature expr:Filtered___400_pfilter_pout ;
+    sysml:parameter expr:Filtered___400_pfilter_pout ;
+    sysml:result expr:Filtered___400_pfilter_pout ;
     sysml:owner elmt:Filtered___400 ;
     sysml:owningRelationship elmt:Filtered___400 .
+
+expr:Filtered___400_pfilter_pout
+    a sysml:Feature ;
+    sysml:elementId "Filtered___400_pfilter_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:Filtered___400_pfilter ;
+    sysml:owningRelationship expr:Filtered___400_pfilter_pout_om ;
+    sysml:owningMembership expr:Filtered___400_pfilter_pout_om .
+
+expr:Filtered___400_pfilter_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Filtered___400_pfilter_pout_om" ;
+    sysml:owner expr:Filtered___400_pfilter ;
+    sysml:memberElement expr:Filtered___400_pfilter_pout ;
+    sysml:ownedMemberElement expr:Filtered___400_pfilter_pout ;
+    sysml:ownedRelatedElement expr:Filtered___400_pfilter_pout ;
+    sysml:owningRelatedElement expr:Filtered___400_pfilter ;
+    sysml:membershipOwningNamespace expr:Filtered___400_pfilter ;
+    sysml:ownedMemberFeature expr:Filtered___400_pfilter_pout ;
+    sysml:ownedMemberParameter expr:Filtered___400_pfilter_pout .
 
 elmt:Filtered__C
     a sysml:PartDefinition ;
@@ -1366,9 +1469,35 @@ expr:Filtered__C___401_pfilter
     sysml:elementId "Filtered__C___401_pfilter" ;
     sysml:operator "@" ;
     sysx:typeArgument elmt:Meta__Safety ;
+    sysml:ownedRelationship expr:Filtered__C___401_pfilter_pout_om ;
+    sysml:ownedMembership expr:Filtered__C___401_pfilter_pout_om ;
+    sysml:ownedFeatureMembership expr:Filtered__C___401_pfilter_pout_om ;
+    sysml:ownedFeature expr:Filtered__C___401_pfilter_pout ;
+    sysml:parameter expr:Filtered__C___401_pfilter_pout ;
+    sysml:result expr:Filtered__C___401_pfilter_pout ;
     sysml:owner elmt:Filtered__C___401 ;
     sysml:owningRelationship elmt:Filtered__C___401 ;
     sysml:owningMembership elmt:Filtered__C___401 .
+
+expr:Filtered__C___401_pfilter_pout
+    a sysml:Feature ;
+    sysml:elementId "Filtered__C___401_pfilter_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:Filtered__C___401_pfilter ;
+    sysml:owningRelationship expr:Filtered__C___401_pfilter_pout_om ;
+    sysml:owningMembership expr:Filtered__C___401_pfilter_pout_om .
+
+expr:Filtered__C___401_pfilter_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Filtered__C___401_pfilter_pout_om" ;
+    sysml:owner expr:Filtered__C___401_pfilter ;
+    sysml:memberElement expr:Filtered__C___401_pfilter_pout ;
+    sysml:ownedMemberElement expr:Filtered__C___401_pfilter_pout ;
+    sysml:ownedRelatedElement expr:Filtered__C___401_pfilter_pout ;
+    sysml:owningRelatedElement expr:Filtered__C___401_pfilter ;
+    sysml:membershipOwningNamespace expr:Filtered__C___401_pfilter ;
+    sysml:ownedMemberFeature expr:Filtered__C___401_pfilter_pout ;
+    sysml:ownedMemberParameter expr:Filtered__C___401_pfilter_pout .
 
 elmt:OtherPkg__Inner__wheels_ft0
     a sysml:FeatureTyping ;

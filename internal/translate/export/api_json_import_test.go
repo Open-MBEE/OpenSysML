@@ -101,7 +101,8 @@ func TestToolkitLiteralReferenceEnds(t *testing.T) {
 
 // TestToolkitReExportTable decodes the toolkit's compact interchange and
 // re-exports it, checking the element table matches but for the transparent
-// root namespace and its owning membership.
+// root namespace and its owning membership, and for the result parameter the
+// pilot gives every non-literal expression, which the toolkit leaves out.
 func TestToolkitReExportTable(t *testing.T) {
 	notation := decodeAPIJSON(t, interchangeFixture(t, "p10.toolkit.compact.json"))
 	file := source.New("p10.sysml", notation)
@@ -122,6 +123,12 @@ func TestToolkitReExportTable(t *testing.T) {
 	want := countTable(t, interchangeFixture(t, "p10.toolkit.compact.json"))
 	want["Namespace"]--
 	want["OwningMembership"]--
+	results := 0
+	for typ := range resultBearing {
+		results += want[typ]
+	}
+	want["Feature"] += results
+	want[mReturnParameterMembership] += results
 	for typ, n := range want {
 		if got[typ] != n {
 			t.Errorf("@type %s: want %d, got %d", typ, n, got[typ])

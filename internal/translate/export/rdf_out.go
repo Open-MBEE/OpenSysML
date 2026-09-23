@@ -152,13 +152,14 @@ const dtExpression = "Expression"
 // through a VariantMembership, and every other namespace member is owned
 // through an OwningMembership. All three are concrete.
 const (
-	mOwningMembership     = "OwningMembership"
-	mFeatureMembership    = "FeatureMembership"
-	mVariantMembership    = "VariantMembership"
-	mFeatureValue         = "FeatureValue"
-	mParameterMembership  = "ParameterMembership"
-	mFeature              = "Feature"
-	mEndFeatureMembership = "EndFeatureMembership"
+	mOwningMembership          = "OwningMembership"
+	mFeatureMembership         = "FeatureMembership"
+	mVariantMembership         = "VariantMembership"
+	mFeatureValue              = "FeatureValue"
+	mParameterMembership       = "ParameterMembership"
+	mReturnParameterMembership = "ReturnParameterMembership"
+	mFeature                   = "Feature"
+	mEndFeatureMembership      = "EndFeatureMembership"
 	// The membership a body owns its result expression through, which states
 	// the expression as sysml:ownedResultExpression.
 	mResultExpressionMembership = "ResultExpressionMembership"

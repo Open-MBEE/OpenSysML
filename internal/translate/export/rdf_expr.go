@@ -32,6 +32,8 @@ const (
 	mFeatureChain        = "FeatureChainExpression"
 	mOperator            = "OperatorExpression"
 	mInvocation          = "InvocationExpression"
+	mConstructor         = "ConstructorExpression"
+	mIndex               = "IndexExpression"
 	mCollect             = "CollectExpression"
 	mSelect              = "SelectExpression"
 	mMetadataAccess      = "MetadataAccessExpression"
@@ -48,6 +50,7 @@ const (
 	pReferent          = "referent"
 	pFunction          = "function"
 	pReferencedElement = "referencedElement"
+	pResult            = "result"
 )
 
 // Properties this mapping adds: argument order, which RDF does not carry, and
@@ -56,7 +59,6 @@ const (
 	xArgumentIndex    = "argumentIndex"
 	xArgumentName     = "argumentName"
 	xTypeArgument     = "typeArgument"
-	xIsConstructor    = "isConstructor"
 	xBodyParameter    = "bodyParameter"
 	xResultExpression = "resultExpression"
 )
@@ -100,10 +102,46 @@ func (e *encoder) expressionNode(subject rdf.Term, owner string, node ast.Node) 
 	return e.expressionStructure(subject, owner, node)
 }
 
+// resultBearing lists the expression metaclasses the pilot gives an owned
+// result parameter (KerML 8.3.4.8: every non-literal Expression).
+var resultBearing = map[string]bool{
+	mFeatureReference: true, mFeatureChain: true, mOperator: true, mIndex: true,
+	mInvocation: true, mConstructor: true, mCollect: true, mSelect: true,
+}
+
+// resultParameter emits the `out` Feature an expression's ReturnParameterMembership owns.
+func (e *encoder) resultParameter(node rdf.Term) {
+	result := e.ids.mintedNode(rdf.ExpressionIRI(node, "out"), node, "out")
+	membership := e.ids.minted(rdf.OwningMembershipIRIOf(result), result, rdf.OwningMembershipSuffix)
+	e.typed(result, mFeature)
+	e.graph.Add(result, e.sysml(pElementID), rdf.String(rdf.LocalName(result.Value)))
+	e.graph.Add(result, e.sysml(pDirection), rdf.String("out"))
+	e.emitMembershipCore(membership, result, node, mReturnParameterMembership, true)
+	e.graph.Add(membership, e.sysml(pOwnedMemberFeature), result)
+	e.graph.Add(membership, e.sysml(pOwnedMemberParameter), result)
+	e.graph.Add(node, e.sysml(pOwnedRelationship), membership)
+	e.graph.Add(node, e.sysml(pOwnedMembership), membership)
+	e.graph.Add(node, e.sysml(pOwnedFeatureMembership), membership)
+	e.graph.Add(node, e.sysml(pOwnedFeature), result)
+	e.graph.Add(node, e.sysml(pParameter), result)
+	e.graph.Add(node, e.sysml(pResult), result)
+}
+
 // expressionStructure emits an expression's type and operands; an Expression
 // element states its text as an element does, so it takes none here.
 func (e *encoder) expressionStructure(subject rdf.Term, owner string, node ast.Node) error {
 	e.typed(subject, expressionMetaclass(node))
+	if err := e.expressionOperands(subject, owner, node); err != nil {
+		return err
+	}
+	if resultBearing[expressionMetaclass(node)] {
+		e.resultParameter(subject)
+	}
+	return nil
+}
+
+// expressionOperands emits the operands and stored properties of one expression node.
+func (e *encoder) expressionOperands(subject rdf.Term, owner string, node ast.Node) error {
 	switch n := node.(type) {
 	case *ast.LiteralBool:
 		e.graph.Add(subject, e.sysml(pValue), rdf.Bool(n.Value))
@@ -158,8 +196,6 @@ func (e *encoder) expressionStructure(subject rdf.Term, owner string, node ast.N
 		return e.invocation(subject, owner, n.Type, n.Operand, n.Args, n.NamedArgs)
 
 	case *ast.ConstructorExpr:
-		// The 202407 rendering declares no ConstructorExpression, so `new` is a flag.
-		e.graph.Add(subject, e.sysx(xIsConstructor), rdf.Bool(true))
 		return e.invocation(subject, owner, n.Type, nil, n.Args, n.NamedArgs)
 
 	case *ast.CollectExpr:
@@ -208,7 +244,7 @@ func (e *encoder) typed(subject rdf.Term, metaclass string) {
 // expressionMetaclass is the metaclass an expression node is typed with. A shape
 // this mapping does not decompose still states it is an expression.
 func expressionMetaclass(node ast.Node) string {
-	switch node.(type) {
+	switch n := node.(type) {
 	case *ast.LiteralBool:
 		return mLiteralBoolean
 	case *ast.LiteralString:
@@ -223,12 +259,20 @@ func expressionMetaclass(node ast.Node) string {
 		return mNullExpression
 	case *ast.QualifiedName, *ast.FeatureReference:
 		return mFeatureReference
-	case *ast.OperatorExpr, *ast.CastExpr, *ast.IndexExpr, *ast.SequenceExpr:
+	case *ast.OperatorExpr, *ast.CastExpr, *ast.SequenceExpr:
 		return mOperator
+	case *ast.IndexExpr:
+		// `x[i]` is the `[` operator; only `x#(i)` is an IndexExpression.
+		if n.Bracket {
+			return mOperator
+		}
+		return mIndex
 	case *ast.FeatureChainExpr:
 		return mFeatureChain
-	case *ast.InvocationExpr, *ast.ConstructorExpr:
+	case *ast.InvocationExpr:
 		return mInvocation
+	case *ast.ConstructorExpr:
+		return mConstructor
 	case *ast.CollectExpr:
 		return mCollect
 	case *ast.SelectExpr:
@@ -334,6 +378,7 @@ func (e *encoder) arguments(subject rdf.Term, owner string, args []ast.Node) err
 func (e *encoder) invocation(subject rdf.Term, owner string, function *ast.QualifiedName, operand ast.Node, args []ast.Node, named []ast.NamedArg) error {
 	if function != nil {
 		e.graph.Add(subject, e.sysml(pFunction), e.reference(function))
+		e.calleeMembership(subject, function)
 	}
 	if operand != nil {
 		receiver := e.ids.mintedNode(rdf.ExpressionIRI(subject, "operand"), subject, "operand")
@@ -360,6 +405,37 @@ func (e *encoder) invocation(subject rdf.Term, owner string, function *ast.Quali
 		e.graph.Add(child, e.sysx(xArgumentName), rdf.String(qualifiedText(arg.Name)))
 	}
 	return nil
+}
+
+// calleeMembership emits the relationship an invocation owns to what it
+// invokes (KerML 8.3.4.8 InstantiationExpression): a Membership whose member is
+// the named function, or an OwningMembership owning the chain feature a
+// dotted callee reaches.
+func (e *encoder) calleeMembership(subject rdf.Term, function *ast.QualifiedName) {
+	if qualifiedNameHasChain(function) {
+		chain := e.ids.mintedNode(rdf.ExpressionIRI(subject, "function"), subject, "function")
+		e.typed(chain, mFeature)
+		e.graph.Add(chain, e.sysml(pElementID), rdf.String(rdf.LocalName(chain.Value)))
+		for _, segment := range e.qualifiedChainReferences(function) {
+			e.graph.Add(chain, e.sysml(pChainingFeature), segment)
+		}
+		membership := e.ids.minted(rdf.OwningMembershipIRIOf(chain), chain, rdf.OwningMembershipSuffix)
+		e.emitMembershipCore(membership, chain, subject, mOwningMembership, true)
+		e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
+		e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
+		return
+	}
+	target := e.reference(function)
+	if !target.IsIRI() {
+		return
+	}
+	membership := e.ids.mintedNode(rdf.ExpressionIRI(subject, "function"), subject, "function")
+	e.typed(membership, mMembership)
+	e.graph.Add(membership, e.sysml(pElementID), rdf.String(rdf.LocalName(membership.Value)))
+	e.graph.Add(membership, e.sysml(pMemberElement), target)
+	e.graph.Add(membership, e.sysml(pOwner), subject)
+	e.graph.Add(membership, e.sysml(pOwningRelatedElement), subject)
+	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
 }
 
 // expressionOwnership owns an expression root through the position that holds it.
@@ -425,8 +501,8 @@ var expressionMetaclasses = map[string]bool{
 	mExpression: true, mLiteralBoolean: true, mLiteralInteger: true,
 	mLiteralRational: true, mLiteralString: true, mLiteralInfinity: true,
 	mNullExpression: true, mFeatureReference: true, mFeatureChain: true,
-	mOperator: true, mInvocation: true, mCollect: true, mSelect: true,
-	mMetadataAccess: true,
+	mOperator: true, mIndex: true, mInvocation: true, mConstructor: true,
+	mCollect: true, mSelect: true, mMetadataAccess: true,
 	// A MultiplicityRange is a part of the feature's declaration, and a
 	// Membership relates an expression to its referent: both are minted in the
 	// expression namespace under the element they belong to.
@@ -895,9 +971,9 @@ func (d *decoder) expressionForm(node rdf.Term, in *element) (operand, error) {
 			separator = ".?"
 		}
 		return primary(operands[0]+separator+operands[1], nil)
-	case mOperator:
+	case mOperator, mIndex:
 		return d.operatorForm(node, in)
-	case mInvocation:
+	case mInvocation, mConstructor:
 		return primary(d.invocationText(node, in))
 	case mExpression:
 		if d.graph.BoolValue(node, rdf.OpenSysML+xHasBody) ||
@@ -1117,6 +1193,10 @@ func (d *decoder) localElement(node rdf.Term, in *element) (*element, error) {
 // parentheses only where its own form binds too loosely for its position.
 func (d *decoder) operatorForm(node rdf.Term, in *element) (operand, error) {
 	operator, ok := d.graph.Lexical(node, rdf.SysML+pOperator)
+	if !ok && d.metaclass(node) == mIndex {
+		// An IndexExpression is the `#` operator applied (KerML 8.3.4.8.8).
+		operator, ok = opAt, true
+	}
 	if !ok {
 		return operand{}, &UnsupportedError{
 			What: fmt.Sprintf("the expression <%s>", node.Value),
@@ -1188,9 +1268,14 @@ func (d *decoder) invocationText(node rdf.Term, in *element) (string, error) {
 	}
 	arguments := "(" + strings.Join(args, ", ") + ")"
 	receiver, hasReceiver := d.graph.Object(node, rdf.SysML+pOperand)
-	if !d.graph.HasProperty(node, rdf.SysML+pFunction) {
+	constructor := d.metaclass(node) == mConstructor
+	function, hasFunction, err := d.calleeText(node, in)
+	if err != nil {
+		return "", err
+	}
+	if !hasFunction {
 		// `chain(args)`: the invoked type is the feature chain the operand reaches.
-		if !hasReceiver || d.metaclass(receiver) != mFeatureChain || d.graph.BoolValue(node, rdf.OpenSysML+xIsConstructor) {
+		if !hasReceiver || d.metaclass(receiver) != mFeatureChain || constructor {
 			return "", &UnsupportedError{
 				What: fmt.Sprintf("the expression <%s>", node.Value),
 				Note: "an invocation names the function it invokes, by name or as the feature chain it applies to",
@@ -1202,13 +1287,8 @@ func (d *decoder) invocationText(node rdf.Term, in *element) (string, error) {
 		}
 		return text + arguments, nil
 	}
-	function, err := d.expressionReference(node, rdf.SysML+pFunction, in,
-		"an invocation names the function it invokes")
-	if err != nil {
-		return "", err
-	}
 	call := function + arguments
-	if d.graph.BoolValue(node, rdf.OpenSysML+xIsConstructor) {
+	if constructor {
 		call = "new " + call
 	}
 	if hasReceiver {
@@ -1219,6 +1299,65 @@ func (d *decoder) invocationText(node rdf.Term, in *element) (string, error) {
 		return text + "->" + call, nil
 	}
 	return call, nil
+}
+
+// calleeText names what an invocation invokes, from the collapsed `function`
+// and from the callee relationship it owns: a Membership to the function or an
+// OwningMembership owning the chain feature. Both present, they must agree.
+func (d *decoder) calleeText(node rdf.Term, in *element) (string, bool, error) {
+	collapsed, hasCollapsed := d.graph.Object(node, rdf.SysML+pFunction)
+	var member rdf.Term
+	var chain rdf.Term
+	for _, relationship := range d.graph.Objects(node, rdf.SysML+pOwnedRelationship) {
+		switch d.metaclass(relationship) {
+		case mMembership:
+			if m, ok := d.graph.Object(relationship, rdf.SysML+pMemberElement); ok {
+				member = m
+			}
+		case mOwningMembership:
+			if m, ok := d.graph.Object(relationship, rdf.SysML+pMemberElement); ok &&
+				d.metaclass(m) == mFeature && d.graph.HasProperty(m, rdf.SysML+pChainingFeature) {
+				chain = m
+			}
+		}
+	}
+	switch {
+	case chain.Value != "":
+		var parts []string
+		for _, segment := range d.graph.Objects(chain, rdf.SysML+pChainingFeature) {
+			name, err := d.referenceName(segment, in)
+			if err != nil {
+				return "", false, err
+			}
+			parts = append(parts, name)
+		}
+		text := strings.Join(parts, ".")
+		if hasCollapsed {
+			name, err := d.referenceName(collapsed, in)
+			if err != nil {
+				return "", false, err
+			}
+			if len(parts) == 0 || !strings.HasSuffix(name, parts[len(parts)-1]) {
+				return "", false, &UnsupportedError{
+					What: fmt.Sprintf("the expression <%s>", node.Value),
+					Note: fmt.Sprintf("its function is %s, but the chain feature it owns reaches %s, and the two statements cannot both hold", name, text),
+				}
+			}
+		}
+		return text, true, nil
+	case member.Value != "" && hasCollapsed && member != collapsed:
+		return "", false, &UnsupportedError{
+			What: fmt.Sprintf("the expression <%s>", node.Value),
+			Note: fmt.Sprintf("its function is <%s>, but the membership it owns names <%s>, and the two statements cannot both hold", collapsed.Value, member.Value),
+		}
+	case hasCollapsed:
+		name, err := d.referenceName(collapsed, in)
+		return name, true, err
+	case member.Value != "":
+		name, err := d.referenceName(member, in)
+		return name, true, err
+	}
+	return "", false, nil
 }
 
 // expressionOperands rebuilds operands from parameter memberships, with legacy
