@@ -370,6 +370,12 @@ func (d *decoder) endWords(el *element, form string, declared bool) (string, err
 			verb = "bind"
 		case form == formFirstThen:
 			verb = "first"
+		case form == formTo && el.metaclass == usageMetaclass[ast.UsageFlow]:
+			verb = "from"
+		case (form == formTo || form == formNary) && el.metaclass == usageMetaclass[ast.UsageAllocation]:
+			verb = "allocate"
+		case form == formTo || form == formNary:
+			verb = "connect"
 		}
 	}
 	if len(ends) == 0 {
@@ -470,6 +476,11 @@ func (d *decoder) standardEndText(end rdf.Term, in *element) (string, error) {
 func (d *decoder) standardEndFeatures(el *element) []rdf.Term {
 	var terms []rdf.Term
 	appendUnique := func(term rdf.Term) {
+		if d.declaredChild(el, term) {
+			// An end the connector declares as a member is written in its
+			// body as `end`, not in its head: the abstract syntax is the same.
+			return
+		}
 		for _, prior := range terms {
 			if prior == term {
 				return
@@ -500,7 +511,21 @@ func (d *decoder) standardEndFeatures(el *element) []rdf.Term {
 			}
 		}
 	}
+	if len(terms) == 0 {
+		for _, child := range el.children {
+			if d.headEnd(child, el) {
+				appendUnique(rdf.IRI(child.iri))
+			}
+		}
+	}
 	return terms
+}
+
+// declaredChild reports whether term is an element the graph declares under el
+// rather than a node el owns by structure alone.
+func (d *decoder) declaredChild(el *element, term rdf.Term) bool {
+	child, declared := d.byIRI[term.Value]
+	return declared && child.owner == el && !d.isExpressionNode(term) && !d.headEnd(child, el)
 }
 
 // standardEndTarget resolves an end through ReferenceSubsetting, then the
@@ -600,10 +625,9 @@ func (d *decoder) standardEndName(end rdf.Term, in *element) (string, error) {
 		}
 		keyword = spelled
 	}
+	// Only a declared name is written: Element::name is derived, and an end
+	// redefining `source` takes that name without declaring one.
 	names := d.graph.Objects(end, rdf.SysML+pDeclaredName)
-	if len(names) == 0 {
-		names = d.graph.Objects(end, rdf.SysML+pName)
-	}
 	if len(names) == 0 {
 		return "", nil
 	}
@@ -612,9 +636,6 @@ func (d *decoder) standardEndName(end rdf.Term, in *element) (string, error) {
 			What: fmt.Sprintf("the connector end <%s> of <%s>", end.Value, in.iri),
 			Note: "it declares more than one end name",
 		}
-	}
-	if len(names) == 0 {
-		return "", nil
 	}
 	return nameText(names[0].Value) + " " + keyword, nil
 }
@@ -720,7 +741,7 @@ func (d *decoder) inferredEndForm(el *element) string {
 		usageMetaclass[ast.UsageInterface],
 		usageMetaclass[ast.UsageAllocation],
 		usageMetaclass[ast.UsageConnector]:
-		if terms := d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pConnectorEnd); len(terms) > 2 {
+		if len(d.standardEndFeatures(el)) > 2 {
 			return formNary
 		}
 		return formTo

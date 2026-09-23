@@ -93,7 +93,7 @@ func TestReferencePropertiesLinkElements(t *testing.T) {
 		"sysml:importedMembership elmt:Refs__Vehicle_om ;",
 		"sysml:importedNamespace elmt:Refs__Wheels ;",
 		// An import written through an alias imports the alias's membership.
-		"sysml:importedMembership elmt:Refs__Motor_om ;",
+		"sysml:importedMembership elmt:Refs__Motor ;",
 		// Names nothing declares are carried as written.
 		`sysml:type "Missing::Kind"`,
 		`sysml:importedNamespace "Nowhere"`,
@@ -107,7 +107,7 @@ func TestReferencePropertiesLinkElements(t *testing.T) {
 		"a sysml:Import ;",
 		"sysx:isNamespaceImport",
 		"sysx:isExpose",
-		"sysml:importedMembership elmt:Refs__Motor ;",
+		"sysml:importedMembership elmt:Refs__Motor_om ;",
 		`sysml:type "MassValue"`,
 		`sysml:type "Engine"`,
 		`sysml:importedNamespace "ScalarValues"`,
@@ -135,7 +135,7 @@ func TestLegacyReferenceGraphsStillRead(t *testing.T) {
 		{link("sysml:sourceFeature", actionStartID), `sysml:sourceFeature "start"`},
 		{link("sysml:importedNamespace", scalarValuesID), `sysml:importedNamespace "ScalarValues"`},
 		{link("sysml:importedMembership", massValueMembershipID), `sysml:importedNamespace "ISQ::MassValue"`},
-		{"sysml:importedMembership elmt:Refs__Motor_om", `sysml:importedNamespace "Motor"`},
+		{"sysml:importedMembership elmt:Refs__Motor", `sysml:importedNamespace "Motor"`},
 		{"a sysml:NamespaceImport ;", `a sysml:Import ;
     sysx:isNamespaceImport "true"^^xsd:boolean ;`},
 		{"a sysml:MembershipImport ;", "a sysml:Import ;"},
@@ -237,7 +237,7 @@ func TestImportNamingTwoElementsIsRefused(t *testing.T) {
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
-	const one = "sysml:importedMembership elmt:Refs__Motor_om ;"
+	const one = "sysml:importedMembership elmt:Refs__Motor ;"
 	if !strings.Contains(string(graph), one) {
 		t.Fatalf("graph does not record %q\n%s", one, graph)
 	}
@@ -256,7 +256,7 @@ func TestImportContradictingItsClassIsRefused(t *testing.T) {
 		t.Fatalf("to turtle: %v", err)
 	}
 	for _, c := range []struct{ target, class, other string }{
-		{"sysml:importedMembership elmt:Refs__Motor_om ;", "sysml:MembershipImport", "sysml:NamespaceImport"},
+		{"sysml:importedMembership elmt:Refs__Motor ;", "sysml:MembershipImport", "sysml:NamespaceImport"},
 		{"sysml:importedNamespace elmt:Refs__Wheels ;", "sysml:NamespaceImport", "sysml:MembershipImport"},
 	} {
 		i := strings.Index(string(graph), c.target)

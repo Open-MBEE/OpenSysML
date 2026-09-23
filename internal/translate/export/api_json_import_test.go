@@ -100,8 +100,9 @@ func TestToolkitLiteralReferenceEnds(t *testing.T) {
 }
 
 // TestToolkitReExportTable decodes the toolkit's compact interchange and
-// re-exports it, checking the element table matches but for the transparent
-// root namespace and its owning membership.
+// re-exports it, checking the element table matches — root namespace and its
+// owning membership included — but for the result parameter the pilot gives
+// every non-literal expression, which the toolkit leaves out.
 func TestToolkitReExportTable(t *testing.T) {
 	notation := decodeAPIJSON(t, interchangeFixture(t, "p10.toolkit.compact.json"))
 	file := source.New("p10.sysml", notation)
@@ -120,8 +121,12 @@ func TestToolkitReExportTable(t *testing.T) {
 	}
 	got := countTable(t, reexported)
 	want := countTable(t, interchangeFixture(t, "p10.toolkit.compact.json"))
-	want["Namespace"]--
-	want["OwningMembership"]--
+	results := 0
+	for typ := range resultBearing {
+		results += want[typ]
+	}
+	want["Feature"] += results
+	want[mReturnParameterMembership] += results
 	for typ, n := range want {
 		if got[typ] != n {
 			t.Errorf("@type %s: want %d, got %d", typ, n, got[typ])
@@ -432,6 +437,20 @@ package Q {
 	for _, qualifier := range []string{"acme.proj-1:", "acme.proj-2:"} {
 		if !strings.Contains(text, qualifier) {
 			t.Fatalf("no element IRI carries the scope qualifier %q:\n%s", qualifier, text)
+		}
+	}
+}
+
+// TestToolkitStateMachineDecodes reads the toolkit's interchange of a state
+// machine — StateSubactionMembership-owned PerformActionUsages, a transition's
+// effect under TransitionFeatureMembership, sourceless `then` successions and
+// the library `start`/`done` ends — back to the notation it was written from.
+func TestToolkitStateMachineDecodes(t *testing.T) {
+	want := interchangeFixture(t, "states.sysml")
+	for _, form := range []string{"compact", "full"} {
+		got := decodeAPIJSON(t, interchangeFixture(t, "states.toolkit."+form+".json"))
+		if !bytes.Equal(got, want) {
+			t.Errorf("the %s form decodes differently:\n--- want ---\n%s\n--- got ---\n%s", form, want, got)
 		}
 	}
 }

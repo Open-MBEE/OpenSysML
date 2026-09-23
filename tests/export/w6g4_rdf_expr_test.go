@@ -63,10 +63,25 @@ func TestExpressionValueIsATree(t *testing.T) {
 	if len(args) != 2 {
 		t.Fatalf("root has %d arguments, want 2: %v", len(args), args)
 	}
-	memberships := g.Objects(iri(root), rdf.SysML+"ownedFeatureMembership")
+	var memberships, returns []rdf.Term
+	for _, membership := range g.Objects(iri(root), rdf.SysML+"ownedFeatureMembership") {
+		if g.Type(membership) == rdf.SysML+"ReturnParameterMembership" {
+			returns = append(returns, membership)
+		} else {
+			memberships = append(memberships, membership)
+		}
+	}
 	if len(memberships) != 2 {
 		t.Fatalf("root has %d parameter memberships, want 2: %v", len(memberships), memberships)
 	}
+	if len(returns) != 1 {
+		t.Fatalf("root has %d return parameter memberships, want 1: %v", len(returns), returns)
+	}
+	results := g.Objects(iri(root), rdf.SysML+"result")
+	if len(results) != 1 || g.Type(results[0]) != rdf.SysML+"Feature" {
+		t.Fatalf("root has result %v, want one Feature", results)
+	}
+	wantLexical(t, g, results[0].Value, rdf.SysML+"direction", "out")
 	for _, membership := range memberships {
 		wantType(t, g, membership.Value, "ParameterMembership")
 		parameters := g.Objects(membership, rdf.SysML+"ownedMemberParameter")
@@ -234,6 +249,7 @@ func TestExpressionIdentityIsPerPosition(t *testing.T) {
 			triple.Object.Value != rdf.SysML+"Feature" &&
 			triple.Object.Value != rdf.SysML+"FeatureValue" &&
 			triple.Object.Value != rdf.SysML+"ParameterMembership" &&
+			triple.Object.Value != rdf.SysML+"ReturnParameterMembership" &&
 			triple.Object.Value != rdf.SysML+"OwningMembership" &&
 			triple.Object.Value != rdf.SysML+"Membership" &&
 			triple.Object.Value != rdf.SysML+"MultiplicityRange" {

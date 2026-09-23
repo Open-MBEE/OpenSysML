@@ -64,6 +64,9 @@ type element struct {
 	// prefix is written ahead of the declaration, for a member a succession
 	// attached itself to (`then send Show(x) to screen;`).
 	prefix string
+	// membershipKeyword is the notation a Membership member is written with
+	// (`alias`, `first`, `done`), fixed once every element is known.
+	membershipKeyword string
 	// implied marks a materialized relationship element: accepted and verified
 	// against the collapsed property it restates, but never written, since the
 	// notation states the collapsed form.
@@ -539,7 +542,7 @@ func literalDatatypes(metaclass, predicate string) []string {
 	switch {
 	case isIndexProperty(predicate):
 		return integerLiterals
-	case strings.HasPrefix(name, "is"), name == xHasBody, name == xDeclaredID, name == xHasEffect, name == xBracedEffect:
+	case strings.HasPrefix(name, "is"), name == xHasBody, name == xDeclaredID, name == xHasEffect, name == xBracedEffect, name == xConjugatedTyping:
 		return booleanLiterals
 	case strings.HasPrefix(predicate, rdf.SysML) && (name == pLowerBound || name == pUpperBound):
 		// A feature's bound is an Expression the notation also states as a bare number.
@@ -711,9 +714,9 @@ func (d *decoder) build() ([]*element, error) {
 		}
 	}
 	for _, subject := range d.graph.Subjects() {
-		if d.isMembership(subject) || d.isExpressionNode(subject) {
+		if d.isMembership(subject) || d.isExpressionNode(subject) || d.isFilterPackageNode(subject) {
 			// A node of an expression graph belongs to the declaration that holds
-			// the expression, not to an element of its own.
+			// the expression, not to an element of its own; so does a filter package.
 			continue
 		}
 		metaclass := d.metaclass(subject)
@@ -773,6 +776,11 @@ func (d *decoder) build() ([]*element, error) {
 		el.implied = implied
 	}
 	for _, el := range order {
+		if el.metaclass == mMembership || el.metaclass == mSuccession {
+			el.membershipKeyword = d.membershipKeyword(el)
+		}
+	}
+	for _, el := range order {
 		if err := d.verifyCovered(el); err != nil {
 			return nil, err
 		}
@@ -801,12 +809,9 @@ func (d *decoder) build() ([]*element, error) {
 }
 
 // transparentRoot reports whether el is a document wrapper no notation
-// prints: an unnamed, unowned Namespace, as the toolkit's interchange
-// documents wrap their roots in one.
+// prints, as the pilot and the toolkit wrap a document's roots in one.
 func (d *decoder) transparentRoot(el *element) bool {
-	return el.metaclass == "Namespace" && el.owner == nil &&
-		!d.graph.HasProperty(rdf.IRI(el.iri), rdf.SysML+pDeclaredName) &&
-		!d.graph.HasProperty(rdf.IRI(el.iri), rdf.SysML+pDeclaredShortName)
+	return el.owner == nil && transparentRootSubject(d.graph, rdf.IRI(el.iri))
 }
 
 // isMembership reports whether a subject states ownership rather than a
@@ -825,8 +830,12 @@ func (d *decoder) isNodeMembership(subject rdf.Term) bool {
 		return true
 	}
 	metaclass := d.metaclass(subject)
+	owner, _, _ := d.agreedObject(subject, "the node membership", "owner",
+		pMembershipOwningNamespace, pOwningRelatedElement)
+	// A result expression of a calc or constraint body is the element's member;
+	// one owned by an expression body node is part of that expression.
 	if metaclass == mResultExpressionMembership {
-		return false
+		return d.expressionOwner(owner)
 	}
 	member, _, _ := d.agreedObject(subject, "the node membership", "member",
 		pMemberElement, pOwnedMemberElement, pOwnedMemberFeature, pOwnedMemberParameter, pOwnedRelatedElement, pOwnedResultExpression)
@@ -839,12 +848,7 @@ func (d *decoder) isNodeMembership(subject rdf.Term) bool {
 	if metaclass == mFeatureValue {
 		return true
 	}
-	if metaclass != mParameterMembership {
-		return false
-	}
-	owner, _, _ := d.agreedObject(subject, "the parameter membership", "owner",
-		pMembershipOwningNamespace, pOwningRelatedElement)
-	return d.isExpressionIRI(member) || d.expressionOwner(owner)
+	return d.expressionOwner(owner)
 }
 
 // isExpressionIRI reports whether a term belongs to the expression namespace.
@@ -981,7 +985,7 @@ func (d *decoder) ownerOf(el *element) (*element, error) {
 	default:
 		return nil, nil
 	}
-	if hasOwner && owner.Value != ownerIRI {
+	if hasOwner && owner.Value != ownerIRI && !d.ownerDerivedThrough(owner, ownerIRI) {
 		return nil, &UnsupportedError{
 			What: what,
 			Note: fmt.Sprintf("it states <%s> as its owner while its owning relationship puts it under <%s>, and following one would drop the other", owner.Value, ownerIRI),
@@ -995,6 +999,16 @@ func (d *decoder) ownerOf(el *element) (*element, error) {
 		}
 	}
 	return parent, nil
+}
+
+// ownerDerivedThrough reports whether owner is what KerML derives for an
+// element a relationship owns directly: the relationship's own owning element.
+func (d *decoder) ownerDerivedThrough(owner rdf.Term, relationship string) bool {
+	if _, membership := d.memberships[relationship]; membership {
+		return false
+	}
+	through := firstIRI(d.graph, rdf.IRI(relationship), pOwningRelatedElement, pOwner)
+	return through.Value != "" && through == owner
 }
 
 // referenceProperties are the predicates whose IRI objects reference elements,
@@ -1011,6 +1025,7 @@ var referenceProperties = func() map[string]bool {
 		rdf.SysML + pClient:            true,
 		rdf.SysML + pSupplier:          true,
 		rdf.SysML + pAliasFor:          true,
+		rdf.SysML + pMemberElement:     true,
 		rdf.SysML + pAnnotatedElement:  true,
 		rdf.SysML + pReferencedFeature: true,
 		// The ends a succession reaches by position, which are elements of the
@@ -1031,8 +1046,23 @@ func (d *decoder) checkReferences() error {
 		if triple.Object.Kind != rdf.TermIRI || !referenceProperties[triple.Predicate.Value] {
 			continue
 		}
+		if d.isFilterPackageNode(triple.Object) || d.isFilterPackageNode(triple.Subject) {
+			// A filter package is written as its import's filter, not named.
+			continue
+		}
 		if ownershipPredicates[triple.Predicate.Value] &&
 			(d.isExpressionNode(triple.Subject) || d.nodeMembership[triple.Subject.Value]) {
+			continue
+		}
+		// Only a Membership written as a member — an alias, a `first` — names
+		// its member; a materialized one is an ownership edge, checked as such.
+		if triple.Predicate.Value == rdf.SysML+pMemberElement &&
+			(d.isMembership(triple.Subject) || d.nodeMembership[triple.Subject.Value] ||
+				d.isExpressionNode(triple.Object) || d.isExpressionIRI(triple.Object)) {
+			continue
+		}
+		if d.isExpressionNode(triple.Subject) && d.isExpressionNode(triple.Object) {
+			// A relationship inside an expression graph ends on its own nodes.
 			continue
 		}
 		if triple.Predicate.Value == rdf.SysML+pReferences &&
@@ -1472,12 +1502,18 @@ func (d *decoder) declarationHead(el *element) (string, error) {
 		}
 	}
 	switch el.metaclass {
-	case "Package", "Namespace":
+	case mPackage, mLibraryPackage, mNamespace:
 		return d.namespaceHead(el)
 	case mNamespaceImport, mMembershipImport, mNamespaceExpose, mMembershipExpose, mImport:
 		return d.importHead(el)
-	case mAlias:
-		return d.aliasHead(el)
+	case mAlias, mMembership:
+		switch d.membershipKeyword(el) {
+		case "alias":
+			return d.aliasHead(el)
+		case "done":
+			return "done", nil
+		}
+		return d.initialNodeHead(el)
 	case "Dependency":
 		return d.dependencyHead(el)
 	case "Specialization", "FeatureTyping", "Subsetting", "Redefinition",
@@ -1489,7 +1525,7 @@ func (d *decoder) declarationHead(el *element) (string, error) {
 		return d.documentationHead(el), nil
 	case "TextualRepresentation":
 		return d.representationHead(el)
-	case mMultiplicity:
+	case mMultiplicity, mMultiplicityClass, mMultiplicityRange:
 		return d.multiplicityHead(el)
 	case mFilter:
 		condition, ok := d.stringOf(el, rdf.OpenSysML+xFilter)
@@ -1541,7 +1577,7 @@ func (d *decoder) declarationHead(el *element) (string, error) {
 	// kept verbatim never reaches here — print() writes its source text.
 	// A `succession` declaration that states the form its ends are written in
 	// is a head that binds ends, not an edge between two members.
-	if el.metaclass == mSuccession && !d.statesEnds(el) {
+	if el.metaclass == mSuccession && (!d.statesEnds(el) || d.positionalSuccession(el)) {
 		return d.successionHead(el)
 	}
 	// A control node, statement, state or region: the behavioral half of the
@@ -1581,11 +1617,12 @@ func (d *decoder) namespaceHead(el *element) (string, error) {
 		return "", err
 	}
 	words = append(words, prefixes...)
-	if el.metaclass == "Package" {
-		if d.boolOf(el, rdf.OpenSysML+"isStandardLibraryPackage") {
+	if el.metaclass == mPackage || el.metaclass == mLibraryPackage {
+		// A LibraryPackage's isStandard, or an older graph's sysx: flags on a Package.
+		if d.boolOf(el, rdf.SysML+pIsStandard) || d.boolOf(el, rdf.OpenSysML+"isStandardLibraryPackage") {
 			words = append(words, "standard")
 		}
-		if d.boolOf(el, rdf.OpenSysML+"isLibraryPackage") {
+		if el.metaclass == mLibraryPackage || d.boolOf(el, rdf.OpenSysML+"isLibraryPackage") {
 			words = append(words, "library")
 		}
 		words = append(words, "package")
@@ -1680,7 +1717,10 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	}
 	// A result parameter is declared with `return`, which carries its out
 	// direction: writing both would not parse.
-	isResult := d.boolOf(el, rdf.SysML+"isResult")
+	isResult, err := d.returnMember(el)
+	if err != nil {
+		return "", err
+	}
 	if isResult {
 		words = append(words, "return")
 	} else if direction, ok := d.stringOf(el, rdf.SysML+pDirection); ok && !d.parameterMember(el) {
@@ -2227,27 +2267,127 @@ func (d *decoder) importHead(el *element) (string, error) {
 			words = append(words, "all")
 		}
 	}
-	imported, err := d.importedName(el)
+	// A filter package's import is the one whose target and recursion the
+	// notation writes; the outer import imports the package.
+	target := el
+	if pkg, ok := d.filterPackageOf(rdf.IRI(el.iri)); ok {
+		inner, _, err := d.filterPackageParts(el, pkg)
+		if err != nil {
+			return "", err
+		}
+		probe := *el
+		probe.iri, probe.metaclass = inner.Value, d.metaclass(inner)
+		target = &probe
+	}
+	imported, err := d.importedName(target)
 	if err != nil {
 		return "", err
 	}
 	if imported == "" {
-		return "", d.missing(el, sysmlPrefix+pImportedNamespace, "an import names the namespace or membership it imports")
+		return "", d.missing(target, sysmlPrefix+pImportedNamespace, "an import names the namespace or membership it imports")
 	}
 	// `P::*::**` imports the members of P recursively; `P::**` imports P itself
 	// and, recursively, its members. An older graph states the kind of an
 	// abstract sysml:Import as a flag.
-	if el.metaclass == mNamespaceImport || el.metaclass == mNamespaceExpose || d.boolOf(el, rdf.OpenSysML+"isNamespaceImport") {
+	if target.metaclass == mNamespaceImport || target.metaclass == mNamespaceExpose || d.boolOf(target, rdf.OpenSysML+"isNamespaceImport") {
 		imported += "::*"
 	}
-	if d.boolOf(el, rdf.OpenSysML+xRecursive) {
+	if d.boolOf(target, rdf.SysML+pIsRecursive) || d.boolOf(target, rdf.OpenSysML+pIsRecursive) {
 		imported += "::**"
 	}
-	words = append(words, imported)
-	if filter, ok := d.stringOf(el, rdf.OpenSysML+xFilter); ok {
-		words = append(words, "["+filter+"]")
+	filter, err := d.importFilter(el)
+	if err != nil {
+		return "", err
 	}
+	if filter != "" {
+		imported += "[" + filter + "]"
+	}
+	words = append(words, imported)
 	return strings.Join(words, " "), nil
+}
+
+// filterPackageOf is the unnamed Package an import owns and imports — the
+// filter package `import X::*[c]` stands for — or nothing.
+func (d *decoder) filterPackageOf(subject rdf.Term) (rdf.Term, bool) {
+	pkg, ok := d.graph.Object(subject, rdf.SysML+pImportedNamespace)
+	if !ok || d.metaclass(pkg) != mPackage || d.graph.HasProperty(pkg, rdf.SysML+pQualifiedName) {
+		return rdf.Term{}, false
+	}
+	owner, ok := d.graph.Object(pkg, rdf.SysML+pOwningRelationship)
+	return pkg, ok && owner == subject
+}
+
+// isFilterPackageNode tells a filter package, or the import it owns, which the
+// import that owns the package writes as its own target and filter.
+func (d *decoder) isFilterPackageNode(subject rdf.Term) bool {
+	if d.metaclass(subject) == mPackage {
+		owner, ok := d.graph.Object(subject, rdf.SysML+pOwningRelationship)
+		if !ok || !ontology.IsAncestorOrSelf(d.metaclass(owner), mImport) {
+			return false
+		}
+		_, ok = d.filterPackageOf(owner)
+		return ok
+	}
+	if ontology.IsAncestorOrSelf(d.metaclass(subject), mImport) {
+		if owner, ok := d.graph.Object(subject, rdf.SysML+pImportOwningNamespace); ok {
+			return d.isFilterPackageNode(owner)
+		}
+	}
+	return false
+}
+
+// filterPackageParts is the import a filter package owns and the condition of
+// its ElementFilterMembership, refusing a package that is not one of each,
+// which is all `import X::*[c]` can write.
+func (d *decoder) filterPackageParts(el *element, pkg rdf.Term) (rdf.Term, rdf.Term, error) {
+	var imports, conditions []rdf.Term
+	for _, rel := range d.graph.Objects(pkg, rdf.SysML+pOwnedRelationship) {
+		switch metaclass := d.metaclass(rel); {
+		case ontology.IsAncestorOrSelf(metaclass, mImport):
+			imports = append(imports, rel)
+		case metaclass == mElementFilterMembership:
+			condition, ok := d.graph.Object(rel, rdf.SysML+pCondition)
+			if !ok {
+				if condition, ok = d.graph.Object(rel, rdf.SysML+pMemberElement); !ok {
+					return rdf.Term{}, rdf.Term{}, d.missing(&element{iri: rel.Value}, sysmlPrefix+pCondition, "an element filter states the condition it filters by")
+				}
+			}
+			conditions = append(conditions, condition)
+		}
+	}
+	if len(imports) != 1 || len(conditions) != 1 {
+		return rdf.Term{}, rdf.Term{}, &UnsupportedError{
+			What: fmt.Sprintf("the import <%s>", el.iri),
+			Note: fmt.Sprintf("its filter package owns %d imports and %d element filters, and `import X::*[c]` writes exactly one of each", len(imports), len(conditions)),
+		}
+	}
+	return imports[0], conditions[0], nil
+}
+
+// importFilter is the filter an import writes in brackets: the condition of
+// its filter package's ElementFilterMembership, agreeing with the collapsed
+// sysx:filter where a graph states one too.
+func (d *decoder) importFilter(el *element) (string, error) {
+	collapsed, hasCollapsed := d.stringOf(el, rdf.OpenSysML+xFilter)
+	pkg, ok := d.filterPackageOf(rdf.IRI(el.iri))
+	if !ok {
+		return collapsed, nil
+	}
+	_, condition, err := d.filterPackageParts(el, pkg)
+	if err != nil {
+		return "", err
+	}
+	text, err := d.expressionOperand(condition, el, bindConditional)
+	if err != nil {
+		return "", err
+	}
+	if hasCollapsed && collapsed != text {
+		return "", &UnsupportedError{
+			What: fmt.Sprintf("the import <%s>", el.iri),
+			Note: fmt.Sprintf("its sysx:filter %q and its filter package's condition %q disagree, so it is not clear which to write", collapsed, text),
+		}
+	}
+	return text, nil
 }
 
 // importedName is the name an import writes: a namespace import's namespace, a
@@ -2301,13 +2441,26 @@ func (d *decoder) aliasHead(el *element) (string, error) {
 		words = append(words, keyword)
 	}
 	words = append(words, "alias")
+	// A Membership names its member (KerML.xtext AliasMember); an older graph
+	// declared the alias's own name.
+	if short, ok := d.stringOf(el, rdf.SysML+pMemberShortName); ok {
+		words = append(words, "<"+nameText(short)+">")
+	}
+	if name, ok := d.stringOf(el, rdf.SysML+pMemberName); ok {
+		words = append(words, nameText(name))
+	}
 	words = append(words, d.identWords(el)...)
-	forName, err := d.referenceText(el, rdf.SysML+pAliasFor)
+	forName, err := d.referenceText(el, rdf.SysML+pMemberElement)
 	if err != nil {
 		return "", err
 	}
 	if forName == "" {
-		return "", d.missing(el, sysmlPrefix+pAliasFor, "an alias names the element it stands for")
+		if forName, err = d.referenceText(el, rdf.SysML+pAliasFor); err != nil {
+			return "", err
+		}
+	}
+	if forName == "" {
+		return "", d.missing(el, sysmlPrefix+pMemberElement, "an alias names the element it stands for")
 	}
 	words = append(words, "for", forName)
 	return strings.Join(words, " "), nil
@@ -3026,7 +3179,7 @@ func (d *decoder) relationshipWords(el *element, multPart string, skip ...ast.Re
 		}
 		// Conjugation qualifies the type a feature is typed by, not the feature
 		// itself: the notation is `port p : ~P` (SysML v2 ConjugatedPortTyping).
-		if kind == ast.RelTyping && d.boolOf(el, rdf.SysML+"isConjugated") {
+		if kind == ast.RelTyping && d.boolOf(el, rdf.OpenSysML+xConjugatedTyping) {
 			for i, target := range targets {
 				targets[i] = "~" + target
 			}
@@ -3133,6 +3286,9 @@ func (d *decoder) referenceName(term rdf.Term, el *element) (string, error) {
 		}
 		return qualifiedNameText(term.Value), nil
 	}
+	if name, ok := d.bodyLocalName(term); ok {
+		return nameText(name), nil
+	}
 	target, err := d.referencedElement(term.Value)
 	if err != nil {
 		return "", err
@@ -3156,6 +3312,16 @@ func (d *decoder) referenceName(term rdf.Term, el *element) (string, error) {
 		}
 	}
 	return qualifiedNameText(written), nil
+}
+
+// bodyLocalName is the declared name of a feature an expression body declares,
+// which a reference inside the body names without a qualified name.
+func (d *decoder) bodyLocalName(term rdf.Term) (string, bool) {
+	name, ok := d.graph.Object(term, rdf.SysML+pDeclaredName)
+	if !ok || !name.IsLiteral() || expressionMetaclasses[d.metaclass(term)] || !d.isExpressionNode(term) {
+		return "", false
+	}
+	return name.Value, true
 }
 
 // memberName renders a chain segment or `first` start, looked up in its operand

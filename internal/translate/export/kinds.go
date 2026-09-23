@@ -60,9 +60,9 @@ var usageMetaclass = map[ast.UsageKind]string{
 	ast.UsageView:          "ViewUsage",
 	ast.UsageViewpoint:     "ViewpointUsage",
 	ast.UsageRendering:     "RenderingUsage",
-	ast.UsageViewRendering: "ViewRenderingMembership",
+	ast.UsageViewRendering: "RenderingUsage",
 	ast.UsageConcern:       "ConcernUsage",
-	ast.UsageFramedConcern: "FramedConcernMembership",
+	ast.UsageFramedConcern: "ConcernUsage",
 	ast.UsageConnection:    "ConnectionUsage",
 	ast.UsageConnector:     "Connector",
 	ast.UsageSuccession:    "SuccessionAsUsage",
@@ -232,19 +232,43 @@ var metaclassKeywordUsage = map[string]ast.UsageKind{
 	// spells, the others come from the membership's metaclass.
 	"PartUsage":        ast.UsagePart,
 	"RequirementUsage": ast.UsageRequirement,
+	// RenderingUsage and ConcernUsage type a `render`/`frame` member too
+	// (SysML.xtext ViewRenderingUsage, FramedConcernUsage); its membership says which.
+	"RenderingUsage": ast.UsageRendering,
+	"ConcernUsage":   ast.UsageConcern,
 	// The membership metaclasses graphs before the parameter members were
 	// materialized typed the element itself with; read, never written.
-	"SubjectMembership":     ast.UsageSubject,
-	"ActorMembership":       ast.UsageActor,
-	"StakeholderMembership": ast.UsageStakeholder,
-	"ObjectiveMembership":   ast.UsageObjective,
+	"SubjectMembership":       ast.UsageSubject,
+	"ActorMembership":         ast.UsageActor,
+	"StakeholderMembership":   ast.UsageStakeholder,
+	"ObjectiveMembership":     ast.UsageObjective,
+	"ViewRenderingMembership": ast.UsageViewRendering,
+	"FramedConcernMembership": ast.UsageFramedConcern,
 }
 
-// definitionKeyword and usageKeyword give the source keyword for a kind. The
-// AST's own String() is the keyword for every kind, which is what makes the
-// printer able to reconstruct a declaration head from the metaclass alone.
-func definitionKeyword(kind ast.DefinitionKind) string { return kind.String() }
-func usageKeyword(kind ast.UsageKind) string           { return kind.String() }
+// definitionKeyword and usageKeyword give the source keyword for a kind, which
+// is what makes the printer able to reconstruct a declaration head from the
+// metaclass alone. The AST's String() is the keyword for every kind but the
+// cases the grammar spells `analysis def`/`analysis`/`verification def`/`verification`.
+func definitionKeyword(kind ast.DefinitionKind) string {
+	switch kind {
+	case ast.DefAnalysisCase:
+		return "analysis"
+	case ast.DefVerificationCase:
+		return "verification"
+	}
+	return kind.String()
+}
+
+func usageKeyword(kind ast.UsageKind) string {
+	switch kind {
+	case ast.UsageAnalysisCase:
+		return "analysis"
+	case ast.UsageVerificationCase:
+		return "verification"
+	}
+	return kind.String()
+}
 
 // memberDeclarationKeyword gives the kind keyword a member usage states after
 // its own keyword when it declares an element rather than referencing one, or

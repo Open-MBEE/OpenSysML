@@ -436,10 +436,36 @@ expr:Payloads__Ctx___402_ppayload
     sysx:sourceText "fuel" ;
     sysml:elementId "Payloads__Ctx___402_ppayload" ;
     sysml:referent "fuel" ;
+    sysml:ownedRelationship expr:Payloads__Ctx___402_ppayload_pout_om, expr:Payloads__Ctx___402_ppayload_preferent ;
+    sysml:ownedMembership expr:Payloads__Ctx___402_ppayload_pout_om ;
+    sysml:ownedFeatureMembership expr:Payloads__Ctx___402_ppayload_pout_om ;
+    sysml:ownedFeature expr:Payloads__Ctx___402_ppayload_pout ;
+    sysml:parameter expr:Payloads__Ctx___402_ppayload_pout ;
+    sysml:result expr:Payloads__Ctx___402_ppayload_pout ;
     sysml:owner elmt:Payloads__Ctx___402 ;
     sysml:owningRelationship expr:Payloads__Ctx___402_ppayload_om ;
     sysml:owningMembership expr:Payloads__Ctx___402_ppayload_om ;
-    sysml:ownedRelationship expr:Payloads__Ctx___402_ppayload_preferent .
+    json:ownedRelationship "[{\"@id\":\"Payloads__Ctx___402_ppayload_pout_om\"},{\"@id\":\"Payloads__Ctx___402_ppayload_preferent\"}]" .
+
+expr:Payloads__Ctx___402_ppayload_pout
+    a sysml:Feature ;
+    sysml:elementId "Payloads__Ctx___402_ppayload_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:Payloads__Ctx___402_ppayload ;
+    sysml:owningRelationship expr:Payloads__Ctx___402_ppayload_pout_om ;
+    sysml:owningMembership expr:Payloads__Ctx___402_ppayload_pout_om .
+
+expr:Payloads__Ctx___402_ppayload_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Payloads__Ctx___402_ppayload_pout_om" ;
+    sysml:owner expr:Payloads__Ctx___402_ppayload ;
+    sysml:memberElement expr:Payloads__Ctx___402_ppayload_pout ;
+    sysml:ownedMemberElement expr:Payloads__Ctx___402_ppayload_pout ;
+    sysml:ownedRelatedElement expr:Payloads__Ctx___402_ppayload_pout ;
+    sysml:owningRelatedElement expr:Payloads__Ctx___402_ppayload ;
+    sysml:membershipOwningNamespace expr:Payloads__Ctx___402_ppayload ;
+    sysml:ownedMemberFeature expr:Payloads__Ctx___402_ppayload_pout ;
+    sysml:ownedMemberParameter expr:Payloads__Ctx___402_ppayload_pout .
 
 expr:Payloads__Ctx___402_ppayload_om
     a sysml:OwningMembership ;
@@ -641,10 +667,36 @@ expr:Payloads__Ctx__m_ppayload
     sysx:sourceText "cmd" ;
     sysml:elementId "Payloads__Ctx__m_ppayload" ;
     sysml:referent "cmd" ;
+    sysml:ownedRelationship expr:Payloads__Ctx__m_ppayload_pout_om, expr:Payloads__Ctx__m_ppayload_preferent ;
+    sysml:ownedMembership expr:Payloads__Ctx__m_ppayload_pout_om ;
+    sysml:ownedFeatureMembership expr:Payloads__Ctx__m_ppayload_pout_om ;
+    sysml:ownedFeature expr:Payloads__Ctx__m_ppayload_pout ;
+    sysml:parameter expr:Payloads__Ctx__m_ppayload_pout ;
+    sysml:result expr:Payloads__Ctx__m_ppayload_pout ;
     sysml:owner elmt:Payloads__Ctx__m ;
     sysml:owningRelationship expr:Payloads__Ctx__m_ppayload_om ;
     sysml:owningMembership expr:Payloads__Ctx__m_ppayload_om ;
-    sysml:ownedRelationship expr:Payloads__Ctx__m_ppayload_preferent .
+    json:ownedRelationship "[{\"@id\":\"Payloads__Ctx__m_ppayload_pout_om\"},{\"@id\":\"Payloads__Ctx__m_ppayload_preferent\"}]" .
+
+expr:Payloads__Ctx__m_ppayload_pout
+    a sysml:Feature ;
+    sysml:elementId "Payloads__Ctx__m_ppayload_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:Payloads__Ctx__m_ppayload ;
+    sysml:owningRelationship expr:Payloads__Ctx__m_ppayload_pout_om ;
+    sysml:owningMembership expr:Payloads__Ctx__m_ppayload_pout_om .
+
+expr:Payloads__Ctx__m_ppayload_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Payloads__Ctx__m_ppayload_pout_om" ;
+    sysml:owner expr:Payloads__Ctx__m_ppayload ;
+    sysml:memberElement expr:Payloads__Ctx__m_ppayload_pout ;
+    sysml:ownedMemberElement expr:Payloads__Ctx__m_ppayload_pout ;
+    sysml:ownedRelatedElement expr:Payloads__Ctx__m_ppayload_pout ;
+    sysml:owningRelatedElement expr:Payloads__Ctx__m_ppayload ;
+    sysml:membershipOwningNamespace expr:Payloads__Ctx__m_ppayload ;
+    sysml:ownedMemberFeature expr:Payloads__Ctx__m_ppayload_pout ;
+    sysml:ownedMemberParameter expr:Payloads__Ctx__m_ppayload_pout .
 
 expr:Payloads__Ctx__m_ppayload_om
     a sysml:OwningMembership ;
@@ -820,10 +872,36 @@ expr:Payloads__Ctx___404_ppayload
     sysx:sourceText "cmd" ;
     sysml:elementId "Payloads__Ctx___404_ppayload" ;
     sysml:referent "cmd" ;
+    sysml:ownedRelationship expr:Payloads__Ctx___404_ppayload_pout_om, expr:Payloads__Ctx___404_ppayload_preferent ;
+    sysml:ownedMembership expr:Payloads__Ctx___404_ppayload_pout_om ;
+    sysml:ownedFeatureMembership expr:Payloads__Ctx___404_ppayload_pout_om ;
+    sysml:ownedFeature expr:Payloads__Ctx___404_ppayload_pout ;
+    sysml:parameter expr:Payloads__Ctx___404_ppayload_pout ;
+    sysml:result expr:Payloads__Ctx___404_ppayload_pout ;
     sysml:owner elmt:Payloads__Ctx___404 ;
     sysml:owningRelationship expr:Payloads__Ctx___404_ppayload_om ;
     sysml:owningMembership expr:Payloads__Ctx___404_ppayload_om ;
-    sysml:ownedRelationship expr:Payloads__Ctx___404_ppayload_preferent .
+    json:ownedRelationship "[{\"@id\":\"Payloads__Ctx___404_ppayload_pout_om\"},{\"@id\":\"Payloads__Ctx___404_ppayload_preferent\"}]" .
+
+expr:Payloads__Ctx___404_ppayload_pout
+    a sysml:Feature ;
+    sysml:elementId "Payloads__Ctx___404_ppayload_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:Payloads__Ctx___404_ppayload ;
+    sysml:owningRelationship expr:Payloads__Ctx___404_ppayload_pout_om ;
+    sysml:owningMembership expr:Payloads__Ctx___404_ppayload_pout_om .
+
+expr:Payloads__Ctx___404_ppayload_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "Payloads__Ctx___404_ppayload_pout_om" ;
+    sysml:owner expr:Payloads__Ctx___404_ppayload ;
+    sysml:memberElement expr:Payloads__Ctx___404_ppayload_pout ;
+    sysml:ownedMemberElement expr:Payloads__Ctx___404_ppayload_pout ;
+    sysml:ownedRelatedElement expr:Payloads__Ctx___404_ppayload_pout ;
+    sysml:owningRelatedElement expr:Payloads__Ctx___404_ppayload ;
+    sysml:membershipOwningNamespace expr:Payloads__Ctx___404_ppayload ;
+    sysml:ownedMemberFeature expr:Payloads__Ctx___404_ppayload_pout ;
+    sysml:ownedMemberParameter expr:Payloads__Ctx___404_ppayload_pout .
 
 expr:Payloads__Ctx___404_ppayload_om
     a sysml:OwningMembership ;
