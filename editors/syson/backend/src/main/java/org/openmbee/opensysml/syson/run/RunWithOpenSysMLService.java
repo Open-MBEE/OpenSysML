@@ -61,15 +61,31 @@ public class RunWithOpenSysMLService {
         ExportedProject project = exporter.export(context);
         IndexedElement selected = project.index().byElement(target).orElse(null);
         if (selected == null) {
-            RunResult result = RunResult.failure("", input.operation(), "", "selected element has no qualified name in the export");
-            store.put(context.getId(), result);
-            return result;
+            IndexedElement enclosing = project.index().enclosing(target).orElse(null);
+            if (enclosing != null && (input.operation() == RunOperation.VERIFY_SATISFACTION
+                    || input.operation() == RunOperation.VALIDATE_INSTANCE)) {
+                selected = enclosing;
+            } else {
+                String message = enclosing == null
+                        ? "selected element has no qualified name in the export"
+                        : "selected element has no qualified name in the export; select its enclosing element "
+                                + enclosing.qualifiedName();
+                RunResult result = RunResult.failure("", input.operation(), "", message);
+                store.put(context.getId(), result);
+                return result;
+            }
         }
         String targetName = selected.qualifiedName();
+        final IndexedElement selectedElement = selected;
         List<DiagnosticMapper.Mapped> mappedDiagnostics = new ArrayList<>();
-        List<RunDiagnostic> exportDiagnostics = project.messages().stream()
-                .map(message -> new RunDiagnostic(message.level().name().toLowerCase(), message.message(), "", null, null,
-                        targetName, selected.elementId(), selected.siriusId()))
+        List<RunResult.MappedDiagnostic> exportDiagnostics = project.messages().stream()
+                .map(message -> {
+                    IndexedElement at = project.index().firstElementIdIn(message.message())
+                            .orElse(selectedElement);
+                    RunDiagnostic diagnostic = new RunDiagnostic(message.level().name().toLowerCase(),
+                            message.message(), "", null, null, at.qualifiedName(), at.elementId(), at.siriusId());
+                    return new RunResult.MappedDiagnostic(diagnostic, at.element());
+                })
                 .toList();
         try {
             Model model = connection.parseSources(project.documents());
@@ -85,7 +101,7 @@ public class RunWithOpenSysMLService {
             RunDiagnostic diagnostic = new RunDiagnostic("error", exception.getMessage(), "", null, null, targetName,
                     selected.elementId(), selected.siriusId());
             List<RunResult.MappedDiagnostic> resultDiagnostics = new ArrayList<>();
-            exportDiagnostics.forEach(value -> resultDiagnostics.add(new RunResult.MappedDiagnostic(value, null)));
+            resultDiagnostics.addAll(exportDiagnostics);
             mappedDiagnostics.forEach(value -> resultDiagnostics.add(
                     new RunResult.MappedDiagnostic(value.diagnostic(), value.element())));
             resultDiagnostics.add(new RunResult.MappedDiagnostic(diagnostic, selected.element()));
@@ -146,9 +162,9 @@ public class RunWithOpenSysMLService {
     }
 
     private RunResult result(String hash, RunWithOpenSysMLInput input, String target, ResultParts parts,
-            List<DiagnosticMapper.Mapped> mapped, List<RunDiagnostic> exportDiagnostics) {
+            List<DiagnosticMapper.Mapped> mapped, List<RunResult.MappedDiagnostic> exportDiagnostics) {
         List<RunResult.MappedDiagnostic> mappedDiagnostics = new ArrayList<>();
-        exportDiagnostics.forEach(value -> mappedDiagnostics.add(new RunResult.MappedDiagnostic(value, null)));
+        mappedDiagnostics.addAll(exportDiagnostics);
         mapped.forEach(value -> {
             mappedDiagnostics.add(new RunResult.MappedDiagnostic(value.diagnostic(), value.element()));
         });
