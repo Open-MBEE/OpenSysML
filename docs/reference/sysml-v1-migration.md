@@ -356,6 +356,145 @@ Views the export does not cover are a normal case of export scope and are report
 `<packet>` at all refuses with the mismatch stated; without `-layout` the migration's output is
 byte-identical.
 
+### Tables, matrices and relation maps
+
+A Cameo/MagicDraw table is a diagram with a definition: the «InstanceTable», «DiagramTable»
+(generic table) or «RelationMap» stereotype of the MagicDraw profile
+(`http://www.omg.org/spec/UML/20131001/MagicDrawProfile`), or the «DependencyMatrix» of the
+Dependency Matrix profile (`http://www.magicdraw.com/schemas/Dependency_Matrix_Profile.xmi`)
+with the «MatrixFilter» application naming the same diagram, applied to the `uml:Diagram`.
+The [view](#diagrams) is still written for the diagram; the definition is written beside it,
+in the same body, as an executable query and a renderable document:
+
+```sysml
+view 'Pump Table' {
+    expose p1;
+    expose p2;
+    expose 'Pump Table Document';
+    render Views::asElementTable;
+}
+calc def 'Pump Table Rows' :> DocumentQueries::Query {
+    DocumentQueries::Project(
+        source = DocumentQueries::OrderBy(
+            source = DocumentQueries::WhereFeature(
+                source = DocumentQueries::WhereType(
+                    source = DocumentQueries::Union(
+                        source = DocumentQueries::Descendants(
+                            source = DocumentQueries::Named(qualifiedName = ("Plant::Inventory"))),
+                        other = DocumentQueries::Named(qualifiedName = ("Plant::Spares::s1", "Plant::Spares::s2"))),
+                    type = ("Plant::Structure::Pump")),
+                'feature' = "isIndividual", operator = "=", value = "true"),
+            property = "mass", direction = "descending", missing = "last", multiple = "first"),
+        properties = ("name"),
+        columns = (DocumentQueries::Column(name = "mass", expression = Plant::Structure::Pump::mass ?? "")))
+}
+part def 'Pump Table Document' :> DocumentQueries::Document {
+    attribute redefines title = "Pump Table";
+    part rows : DocumentQueries::Table {
+        attribute redefines caption = "Pump Table";
+        calc rows : 'Pump Table Rows';
+    }
+}
+```
+
+The query is a `calc def` specializing `DocumentQueries::Query`, named `<Diagram> Rows`, and the
+document a `part def` specializing `DocumentQueries::Document`, named `<Diagram> Document`
+(`Name 2`… past a taken name); the view exposes the document, so `-render-document
+Plant::Inventory::'Pump Table Document'` renders the table and `-run-query` its rows. Only
+the exact profile namespaces define a table: a user stereotype named `InstanceTable` or
+`TableStructure` under any other URI is ordinary [user-profile](#profiles-and-stereotypes)
+metadata, and a look-alike application from an unbundled profile stays a comment. The
+[query cookbook](../manual/query-cookbook.md) documents every operation; the table's parts map:
+
+| Table definition | Query |
+|---|---|
+| `scope` (the packages or classifiers whose subtree the table lists); `takeWholeModelAsScope` | `Descendants(source = Named(qualifiedName = (…)))`, unbounded; the whole model is the union of the top-level members and their descendants |
+| `rowElements`, `additionalElements` (explicit rows) | one `Union(source = <scope>, other = Named(qualifiedName = (row, row, …)))`, the rows in their v1 order after the scope's |
+| an instance table's `classifiers` | `WhereType(type = (<the classifiers' v2 names>))` then `WhereFeature('feature' = "isIndividual", operator = "=", value = "true")`, so the rows are the individuals of the classifier and, as in Cameo, of its subtypes; `includeSubtypesOfRowTypes = false` is approximated with the note that subtypes are listed too |
+| a generic table's `rowElementType` — a UML metaclass or a stereotype | `WhereType` on the v2 kind the metaclass or a standard stereotype [maps to](#mapping) (`Class` and «Block» → `PartDefinition`, «Requirement» → `RequirementDefinition`…); a user stereotype the migration writes as a `metadata def` → `WhereMetadata('metadata' = (…))`, which honors specializations |
+| `columnIds` `QPROP:Element:name`, `documentation`, `qualifiedName`, `owner`, `Id` | `Project(properties = (…))`, in column order; `hideColumns` omits a column; `QPROP:Element:classifier` and other tool properties are omitted with the note |
+| `columnIds` `IColumn:<property>` — a value property of the row classifier | `Column(name = "<property>", expression = <Def>::<property> ?? "")`, an empty cell where a row has no slot, as the tool draws it; the property is kept reachable (never written private) because the column names it |
+| `sort` `<column>^Asc` / `^Desc` | `OrderBy(property, direction, missing = "last", multiple = "first")` — empty cells last and the first value of a multi-valued slot, the tool's own ordering; `-1`/`_EMPTY_` is no sort, a sort by tool identity is dropped with the note |
+| a matrix's `rowScope`/`rowElementType` and `columnScope`/`columnElementType` | the rows are the row query; each `dependencyCriteria` becomes a `RelatedColumn(name, relationshipKind, direction, maxDepth = 1, aggregate = "list", targets = <column query>)`, whose cell lists the column elements the row is related to; `Row to column` is `"outgoing"`, `Column to row` `"incoming"`, `Both` two columns (approximated); a second criterion with the same name is `Name 2` |
+| a relation map's `contextElement`, `relationCriterion`, `depth`, `elementTypes` | `RelatedElements(source = Named(…), relationshipKind, direction, maxDepth = depth)` (0 = unbounded) filtered by `WhereType` over the element types, projected as `qualifiedName` and `@type` |
+
+A criterion is a relationship walk only for the kinds `RelatedElements` knows: «Satisfy»,
+«Verify», «Refine», «DeriveReqt», «Allocate» and UML `Generalization` (`specialization`); a
+`Dependency`, an import, a user-profile relationship, a metachain or an OCL expression is
+refused with the criterion named. So is a table whose serialization is malformed — a `scope`
+resolving to no element, a `sort` not of the form `<column>^Asc|Desc`, a `depth` that is not a
+whole number, an instance table naming no classifier, a matrix with no filter, a criterion
+whose XML does not parse — with every fault stated at once. A refused table is an `unmapped`
+report row and a `not migrated` comment beside its view, which is still written; the rest of the
+model is unaffected. Presentation settings (`displayMode`, `showScopeAsRoot`, colors, widths,
+legend, `rowsOrder`…) draw the table and are dropped without a report row.
+
+### DocGen documents
+
+An [MDK](https://github.com/Open-MBEE/mdk) DocGen document — a class stereotyped «Document» of
+the Document profile (`http://www.magicdraw.com/schemas/manual/Document_Profile.xmi`; the
+collaborator profile beside it holds the paragraphs) — is a tree of «view» classes, each
+conforming to a viewpoint whose method activity says what the view shows. It is written, beside
+the class, as a `part def '<Name> Document' :> DocumentQueries::Document` whose sections are
+the view tree in declaration order, and each view's method is lowered into the section's
+content, so `-render-document` produces the document DocGen would have:
+
+```sysml
+part def 'Fleet Handbook Document' :> DocumentQueries::Document {
+    attribute redefines title = "Fleet Handbook";
+    part Requirements : DocumentQueries::Section {
+        attribute redefines title = "Requirements";
+        part paragraph : DocumentQueries::Paragraph {
+            attribute redefines text = "Every truck of the fleet satisfies these requirements.";
+        }
+        part list : DocumentQueries::List {
+            attribute redefines style = "number";
+            calc items : 'Fleet Handbook Requirement List Rows';
+        }
+        part Safety : DocumentQueries::Section { … }
+    }
+    part Figures : DocumentQueries::Section {
+        attribute redefines title = "Figures";
+        part diagram : DocumentQueries::Diagram {
+            attribute redefines caption = "The truck and what it hauls";
+            ref redefines source = Fleet::Structure::'Truck Structure';
+        }
+    }
+}
+```
+
+The method activity is walked from its initial node along control flow; forks whose branches
+rejoin are walked branch by branch. The «Expose» suppliers (and the view's element and package
+imports) are the chain's root, `Named(qualifiedName = (…))`, and each collect, filter and sort
+step wraps the query so far; each presentation step ends one `calc def '<Document> <Title>
+Rows' :> Query` beside the document and one content part in the section, in the activity's order:
+
+| DocGen step | Query or content |
+|---|---|
+| `CollectOwnedElements(depth)`, `CollectOwners(depth)` | `Descendants` / `Ancestors(source, maxDepth = depth)`; `depth` 0 or absent is unbounded |
+| `CollectByDirectedRelationshipStereotypes(stereotypes, directionOut, depth)` | one `RelatedElements(relationshipKind, direction, maxDepth)` per stereotype the kinds above cover, `Union`ed |
+| `FilterByMetaclasses`, `FilterByStereotypes` | `WhereType` on the v2 kinds, or `WhereMetadata` for a user stereotype written as a `metadata def`; `include = false` is `Except(source, exclude = …)`; `considerDerived = false` is approximated, since `WhereMetadata` honors specializations |
+| `FilterByNames(names)` | `WhereName(operator = "matches", value = "^(?:<pattern>)$")` per pattern, `Union`ed; the pattern must compile as an RE2 regular expression |
+| `SortByName`, `SortByAttribute(Name / Documentation)` | `OrderBy(property = "name" / "documentation", …)`, `reverse` descending |
+| a fork whose branches rejoin at `Union` | `Union` of the branches' queries; a rejoin by `Intersection` or `XOR` is refused, and `RemoveDuplicates` is implicit in every operation and dropped |
+| `CollectionAndFilterGroup`, `StructuredQuery` | the group's chain, inlined |
+| `TableStructure` with `TableAttributeColumn` (`Name`, `Documentation`), `TablePropertyColumn` (a value property of the rows' definition), `TableExpressionColumn` naming a bare query property | `part table : Table { attribute redefines caption = …; calc rows : …; }` over `Project(properties, columns = (Column(…)))`; `includeDoc` adds `documentation`; a column beyond these is omitted with the note, and a table with no writable column is refused |
+| `BulletedList(orderedList, includeDoc)` | `part list : List { attribute redefines style = "number" / "bullet"; calc items : …; }`; `includeDoc` follows each item's name with its documentation |
+| `Paragraph(body)`; a «CollaboratorParagraph» reading the comment body | `part paragraph : Paragraph { attribute redefines text = "…"; }`, tool HTML reduced to text; a paragraph over the targets' documentation is `calc values : …` over `Project(properties = ("documentation"))` |
+| `Image` | one `part diagram : Diagram { attribute redefines caption = "<diagram>"; ref redefines source = <its view>; }` per diagram the step targets or the view exposes; a «CollaboratorImageParagraph»'s attached bitmap is not a view, so its caption stands as a paragraph and the report says the image is not written |
+| `Dynamic View` | a nested `Section` with the called activity's title, lowered the same way; an activity that calls itself is refused, since a recursive section has no static spelling |
+
+A step with no query spelling — `CollectTypes`, `CollectByAssociation`, `CollectThingsOnDiagram`,
+`FilterByDiagramType`, `SortByAttribute(Value)`, `SortByProperty`, a `*ByExpression` or
+`TableExpressionColumn` beyond a bare query property (`owner.name`, `allInstances()`, OCL), a
+`CollectFilterUserScript`, a user script — is refused with the offending construct quoted,
+and so is every presentation step downstream of it, while the section and its independent
+siblings are still written. A malformed document — a view whose `Conform` names no viewpoint,
+a viewpoint whose method has no initial node, a `depth` that is not a whole number, a
+collaborator paragraph whose `viewId` or `ownerId` names no view, an empty paragraph — is
+reported the same way. Where a model member named `DocumentQueries` would shadow the library,
+every reference is written `$::DocumentQueries::…`.
+
 The mapping has been run over the XMI of the [OpenMBEE TMT SysML model](https://github.com/Open-MBEE/TMT-SysML-Model)
 (27 MB; 44,600 elements once the nodes and edges of its behaviors are counted): it writes 7 MB
 of notation that passes the gate below in a few seconds, and its Turtle in a few more. Five
@@ -435,6 +574,18 @@ shortest name resolving where the usage sits — and a value that does not fit (
 literal, a reference to an element not written, a tag the stereotype does not define) is kept as
 a comment inside the usage, approximating the element with the reason. Rich text a tool stores
 as `<html><body>…</body></html>` becomes plain text, as a requirement's `Text` does.
+
+One tool stereotype is read as a type, not kept as a comment: MagicDraw's «typeModifier» on a
+property or parameter, whose tag spells a C-style shape after the type. `[]` on a feature
+whose declared multiplicity is `[1]` or absent writes `[0..*] ordered nonunique`, and `[n]`
+writes `[n] ordered nonunique`, so the feature is the sequence the tool meant; `*` (and `&`)
+on a part or item property held by value writes it `ref`, a reference rather than a
+containment. A shape with no v2 form is kept as the applied-stereotype comment with the reason
+in the report: `[][]`, `[n*m]` and other two-dimensional shapes (a multiplicity has one
+dimension), `[]` on a feature already declared a collection (a collection of collections has
+no multiplicity), `*` on an attribute or on a parameter (neither is held by reference), and a
+tag that is not one of these spellings. A same-named user stereotype outside the MagicDraw
+profile namespace is a `metadata def` like any other.
 
 ## Behaviors
 

@@ -249,6 +249,35 @@ $ sysml cookbook.sysml -run-query "Cookbook::Enclosing leaf=Cookbook::telescope:
 
 Owners are returned nearest-first, up to `maxDepth` levels.
 
+### Elements by qualified name: `Named`
+
+```sysml
+calc def NamedParts :> Query {
+	WhereType(
+		source = Descendants(source = Named(qualifiedName = ("Cookbook::telescope", "Cookbook::Traceability"))),
+		type = "PartUsage"
+	)
+}
+```
+
+```console
+$ sysml cookbook.sysml -run-query "Cookbook::NamedParts"
+✓ Query Cookbook::NamedParts returned 12 rows
+  Row 1: Cookbook::telescope::primaryMirror
+  Row 2: Cookbook::telescope::instrumentCluster
+  ...
+  Row 6: Cookbook::Traceability::gimbal
+  ...
+```
+
+A query parameter must be bound to a feature, so a walk rooted at a *package*
+or a *definition* has nothing to bind `root` to. `Named` resolves qualified
+names — spelled as strings, like the types `WhereType` takes — to the elements
+they name, in the order given, and any element may be named, a package or
+definition included. A name that resolves to nothing, or to more than one
+element, fails the query with the name quoted rather than returning fewer rows.
+The SysML v1 migration roots every table scope this way.
+
 ## Type filters
 
 `WhereType` keeps elements whose *metamodel* type matches — `"PartUsage"`,

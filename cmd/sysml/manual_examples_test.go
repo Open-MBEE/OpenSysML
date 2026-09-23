@@ -47,6 +47,20 @@ func TestManualCookbookModelAnalysesCleanly(t *testing.T) {
 			t.Fatalf("cookbook query %s: %v\n%s", query, err, output)
 		}
 	}
+	named := exec.Command(binary, source, "-run-query", "Cookbook::NamedParts")
+	output, err := named.CombinedOutput()
+	if err != nil {
+		t.Fatalf("cookbook query Cookbook::NamedParts: %v\n%s", err, output)
+	}
+	for _, want := range []string{
+		"returned 12 rows",
+		"Row 1: Cookbook::telescope::primaryMirror",
+		"Row 6: Cookbook::Traceability::gimbal",
+	} {
+		if !strings.Contains(string(output), want) {
+			t.Errorf("cookbook query Cookbook::NamedParts output is missing %q:\n%s", want, output)
+		}
+	}
 }
 
 // TestManualCookbookObjectRecipes runs the cookbook's recipes over the objects

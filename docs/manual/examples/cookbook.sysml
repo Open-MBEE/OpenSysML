@@ -106,6 +106,13 @@ package Cookbook {
 		Ancestors(source = leaf, maxDepth = 2)
 	}
 
+	calc def NamedParts :> Query {
+		WhereType(
+			source = Descendants(source = Named(qualifiedName = ("Cookbook::telescope", "Cookbook::Traceability"))),
+			type = "PartUsage"
+		)
+	}
+
 	calc def Connections :> Query {
 		in root : Element;
 		WhereType(
