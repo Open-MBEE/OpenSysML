@@ -14,8 +14,8 @@ func (e *executor) evaluateNamed(expression queryplan.Expression) (sequence, err
 	}
 	var result sequence
 	for _, name := range names {
-		element := e.resolveClassification(name)
-		if element == nil {
+		element, ok := e.context.Resolver.ResolveAliasTarget(e.resolveClassification(name))
+		if !ok || element == nil {
 			return sequence{}, &Error{
 				Kind:      ErrorUnknownElement,
 				Query:     e.definition.Name(),
@@ -23,9 +23,6 @@ func (e *executor) evaluateNamed(expression queryplan.Expression) (sequence, err
 				Actual:    name,
 				Origin:    expression.Origin(),
 			}
-		}
-		if canonical, ok := e.context.Resolver.ResolveAliasTarget(element); ok {
-			element = canonical
 		}
 		result.values = append(result.values, valueAt(ElementValue(element), expression.Origin()))
 	}

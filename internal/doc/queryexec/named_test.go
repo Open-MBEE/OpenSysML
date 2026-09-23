@@ -20,6 +20,11 @@ package Vehicle {
 package Other {
 	package Config;
 }
+package Aliases {
+	alias Broken for Missing;
+	alias Loop1 for Loop2;
+	alias Loop2 for Loop1;
+}
 calc def ByName :> Query {
 	in qualifiedName : String[1..*] ordered;
 	Named(qualifiedName = qualifiedName)
@@ -77,9 +82,11 @@ func TestExecuteNamedResolvesQualifiedNamesInOrder(t *testing.T) {
 	}
 }
 
+// A name that resolves to nothing, to several elements, or to an alias that
+// denotes no element (dangling or cyclic) is an unknown-element error, never a row.
 func TestExecuteNamedRejectsUnknownAndAmbiguousNames(t *testing.T) {
 	fixture := loadExecutionFixture(t, namedBody)
-	for _, name := range []string{"Vehicle::Missing", "Config"} {
+	for _, name := range []string{"Vehicle::Missing", "Config", "Aliases::Broken", "Aliases::Loop1", "Aliases::Loop2"} {
 		_, err := fixture.execute(t, "ByName", Bindings{"qualifiedName": {StringValue(name)}}, Options{})
 		unknown := executionError(t, err, ErrorUnknownElement)
 		if unknown.Actual != name || unknown.Operation != "named" {
