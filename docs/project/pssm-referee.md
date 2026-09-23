@@ -768,8 +768,8 @@ v2's. Five — the first two found when the referee was added, the third by its 
 fourth by attributing the failures that remained, the fifth at all four of its sites — are
 fixed, each in a change of its own; the sixth, found while fixing the fifth, is adjudicated on
 three tests as a translation limit and on two as the suite's defect, and its last runtime part —
-a do step on the entry front, *Terminate 002*'s — is fixed. A test that reaches an open site
-stays `fail` citing it until a change of its own closes it:
+a do step on the entry front, *Terminate 002*'s — is fixed. No test now cites an open site of
+the runtime; a `fail` cites a tool choice, a translation limit or the suite's defect:
 
 - **The lowerer refused a fork into orthogonal regions that have no initial pseudostate**
   (*Fork 002*, *Join 001*; alignment finding 6). UML lets a fork's outgoing transitions enter
