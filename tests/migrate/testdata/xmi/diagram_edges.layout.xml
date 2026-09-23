@@ -426,6 +426,16 @@
                <id _dtype="str">_st_running_do</id>
                <type _dtype="str">uml.OpaqueBehavior</type>
             </element>
+            <element _dtype="dict" key="4">
+               <relationship_metadata _dtype="dict">
+                  <top _dtype="int">-110</top>
+                  <bottom _dtype="int">-125</bottom>
+                  <left _dtype="int">210</left>
+                  <right _dtype="int">290</right>
+               </relationship_metadata>
+               <id _dtype="str">_t_stop</id>
+               <type _dtype="str">sysml.Transition</type>
+            </element>
          </element>
          <diagramConnector _dtype="list">
             <diagramConnector _dtype="dict" key="0">

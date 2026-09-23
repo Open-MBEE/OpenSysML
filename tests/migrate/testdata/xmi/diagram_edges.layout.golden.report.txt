@@ -5,7 +5,7 @@
 ## layout
 # source: diagram_edges.layout.xml (2022x v1.0.0, cameo 2022x Refresh2, exported 2025-06-12T21:38:50.779458500Z)
 # 6 diagram records: 6 joined, 0 matching no diagram; 0 views without layout
-# placements: 18 of 21 written (3 not exposed, 0 resolving to no element); routes: 9 of 18 written (8 not pinned, 1 resolving to no element); malformed: 0
+# placements: 18 of 22 written (4 not exposed, 0 resolving to no element); routes: 9 of 18 written (8 not pinned, 1 resolving to no element); malformed: 0
 # routes of BindingConnector: 1 written
 # routes of Connector: 1 unnamed
 # routes of Connector: 3 written
@@ -43,7 +43,7 @@ State	Behavior::Modes::<Region>::Idle	_st_idle	-> Idle
 State	Behavior::Modes::<Region>::Running	_st_running	-> Running
 Transition	Behavior::Modes::<Region>::halt	_t_stop	-> Behavior::Modes::halt
 Trigger	Behavior::Modes::<Region>::halt::<Trigger>	_tr_stop
-Diagram	Behavior::Modes::Modes	_diag_stm	-> Behavior::Modes::Modes	(a SysML State Machine Diagram written as a view rendered asInterconnectionDiagram of StateTransitionView; the view exposes state def Behavior::Modes, whose graph the rendering draws with the 6 shown nodes and edges of it; laid out from diagram_edges.layout.xml: 3 of 4 shown elements positioned (1 not exposed), 2 of 4 connectors routed (1 no v2 member, 1 resolving to no element))
+Diagram	Behavior::Modes::Modes	_diag_stm	-> Behavior::Modes::Modes	(a SysML State Machine Diagram written as a view rendered asInterconnectionDiagram of StateTransitionView; the view exposes state def Behavior::Modes, whose graph the rendering draws with the 6 shown nodes and edges of it; laid out from diagram_edges.layout.xml: 3 of 5 shown elements positioned (2 not exposed), 2 of 4 connectors routed (1 no v2 member, 1 resolving to no element))
 Signal	Behavior::Stop	_sig_stop	-> Behavior::Stop
 Model	Model	_m	(the root model's members are written at the top level)
 Package	Requirements	_pkg_reqs	-> Requirements

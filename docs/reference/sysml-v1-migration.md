@@ -396,8 +396,9 @@ box of what the view writes, and is omitted when nothing is.
 
 Geometry is written only for what the view draws: a placement whose element resolves and whose
 `expose` the view carries, or which the graph a typed view exposes draws as a node (a state's
-inline `entry`, `do` or `exit` action is listed inside the state's node, so its placement is
-counted as not exposed rather than pinned to a node the rendering never draws); a route whose
+inline `entry`, `do` or `exit` action is listed inside the state's node, and an internal
+transition Cameo places as text in its state's box is an edge to the rendering, so their
+placements are counted as not exposed rather than pinned to a node the rendering never draws); a route whose
 connector's element is written as a named member (see [Edges a diagram shows](#edges-a-diagram-shows))
 that the view exposes, or that its graph draws, *and* that the view's rendering draws as an edge —
 a succession or flow in an `ActionFlowView`, a transition in a `StateTransitionView`, a connection

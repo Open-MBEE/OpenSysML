@@ -76,6 +76,10 @@ func TestGoldenEdgeLayout(t *testing.T) {
 	if l.Routes != 18 || l.RoutesWritten != 9 || l.RoutesUnexposed != 8 || l.RoutesDangling != 1 {
 		t.Errorf("routes: %+v", l)
 	}
+	// A placement of a transition, which the state rendering draws as an edge, positions no node.
+	if l.PlacementsUnexposed != 4 || strings.Contains(string(r.Notation), "Layout about halt") {
+		t.Errorf("placements: %+v", l)
+	}
 	wantKinds := []migrate.RouteKind{
 		{Kind: "BindingConnector", Reason: "written", Count: 1},
 		{Kind: "Connector", Reason: "unnamed", Count: 1},

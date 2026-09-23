@@ -314,25 +314,41 @@ func (x exposures) exposed(ref string) bool {
 	return false
 }
 
+// inGraph reports whether el is part of the graph a view of form f draws: within
+// the form's subject, and not the subject itself.
+func inGraph(f viewForm, el *sysmlv1.Element) bool {
+	return f.subject != nil && el != f.subject && within(el, f.subject)
+}
+
 // graphPins reports whether the graph a view of form f draws shows el as a node or
 // edge of its own, which a Layout or Route pins: one of the form's subject, written.
 func (m *migration) graphPins(f viewForm, el *sysmlv1.Element) bool {
-	if f.subject == nil || el == f.subject || !within(el, f.subject) {
-		return false
-	}
-	return m.drawsNode(el, f) || nameableEdge(el) && m.written(el)
+	return inGraph(f, el) && (m.drawsNode(el, f) || nameableEdge(el) && m.written(el))
 }
 
 // graphDraws reports whether the graph a view of form f draws shows el for the
 // view: a node or edge of the subject it pins, or an action a state's node lists.
 func (m *migration) graphDraws(f viewForm, el *sysmlv1.Element) bool {
-	return m.graphPins(f, el) || f.subject != nil && within(el, f.subject) && m.drawsInNode(el, f)
+	return m.graphPins(f, el) || inGraph(f, el) && m.drawsInNode(el, f)
 }
 
 // draws reports whether a view of form f exposing x shows el, which ref names, where
 // geometry can pin it: an element it exposes, or a node or edge its subject's graph draws.
 func (m *migration) draws(x exposures, f viewForm, el *sysmlv1.Element, ref string) bool {
 	return x.exposed(ref) || m.graphPins(f, el)
+}
+
+// drawsAsEdge reports whether the rendering of form f draws el as an edge, which no
+// Layout positions: Cameo places an internal transition as text in its state's box.
+func (m *migration) drawsAsEdge(f viewForm, el *sysmlv1.Element) bool {
+	em, ok := m.edgeMembers[el]
+	return ok && em.name != "" && f.drawsEdge(em.keyword)
+}
+
+// places reports whether a view of form f exposing x shows el, which ref names, as a
+// node a Layout positions: an element it exposes or a node of its subject's graph.
+func (m *migration) places(x exposures, f viewForm, el *sysmlv1.Element, ref string) bool {
+	return !m.drawsAsEdge(f, el) && (x.exposed(ref) || inGraph(f, el) && m.drawsNode(el, f))
 }
 
 // writeView writes a diagram as a view usage exposing each shown element the
@@ -600,7 +616,7 @@ func (m *migration) viewGeometry(v *view, x exposures, form viewForm) viewGeomet
 			continue
 		}
 		ref := m.exposure(el, v.host)
-		if ref == "" || !m.draws(x, form, el, ref) {
+		if ref == "" || !m.places(x, form, el, ref) {
 			s.PlacementsUnexposed++
 			unexposed++
 			continue
