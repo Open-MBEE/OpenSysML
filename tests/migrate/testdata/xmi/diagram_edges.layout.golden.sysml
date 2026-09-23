@@ -15,9 +15,10 @@ package Structure {
             view Driving : StandardViewDefinitions::ActionFlowView {
                 expose Drive;
                 expose 'set speed.value = target';
-                @DiagramLayout::Canvas { unit = "px"; width = 140; height = 220; }
+                @DiagramLayout::Canvas { unit = "px"; width = 140; height = 240; }
                 metadata DiagramLayout::Layout about gain { x = 10; y = 60; width = 100; height = 40; }
                 metadata DiagramLayout::Layout about 'set speed' { x = 10; y = 140; width = 100; height = 40; }
+                metadata DiagramLayout::Layout about final { x = 50; y = 220; width = 20; height = 20; }
                 metadata DiagramLayout::Route about 'start to gain' { points = (60, 60, 60, 30); }
                 metadata DiagramLayout::Route about finish { points = (60, 220, 60, 180); }
                 metadata DiagramLayout::Route about 'gain.result to set speed.value' { points = (110, 160, 140, 160, 140, 80, 110, 80); }
