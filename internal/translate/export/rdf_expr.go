@@ -77,6 +77,16 @@ const (
 // position, so each expression of an element has a distinct identity; owner is
 // the qualified name of the member whose declaration the expression is part of.
 func (e *encoder) expression(subject, property rdf.Term, slot, owner string, node ast.Node) error {
+	membership := mOwningMembership
+	if property == e.sysml(pValue) {
+		membership = mFeatureValue
+	}
+	return e.expressionAs(subject, property, slot, owner, node, membership)
+}
+
+// expressionAs is expression with the metaclass of the membership that owns
+// the node: a ParameterMembership for a condition the pilot reads as a parameter.
+func (e *encoder) expressionAs(subject, property rdf.Term, slot, owner string, node ast.Node, membership string) error {
 	if node == nil {
 		return nil
 	}
@@ -89,7 +99,7 @@ func (e *encoder) expression(subject, property rdf.Term, slot, owner string, nod
 	if strings.HasPrefix(subject.Value, rdf.Expression) {
 		return nil
 	}
-	return e.expressionOwnership(target, subject, property == e.sysml(pValue))
+	return e.expressionOwnership(target, subject, membership)
 }
 
 // expressionNode emits one expression node and, recursively, its operands.
@@ -466,20 +476,20 @@ func (e *encoder) calleeMembership(subject rdf.Term, function *ast.QualifiedName
 }
 
 // expressionOwnership owns an expression root through the position that holds it.
-func (e *encoder) expressionOwnership(node, owner rdf.Term, featureValue bool) error {
+func (e *encoder) expressionOwnership(node, owner rdf.Term, metaclass string) error {
 	if isRelationship(e.metaclassOf(owner)) {
 		e.relationshipOwnership(node, owner, e.metaclassOf(owner), e.metaclassOf(node))
 		return nil
 	}
 	membership := e.ids.minted(rdf.OwningMembershipIRIOf(node), node, rdf.OwningMembershipSuffix)
-	metaclass := mOwningMembership
-	if featureValue {
-		metaclass = mFeatureValue
-	}
 	e.emitMembershipCore(membership, node, owner, metaclass, true)
 	e.graph.Add(owner, e.sysml(pOwnedRelationship), membership)
 	e.graph.Add(owner, e.sysml(pOwnedMembership), membership)
-	if featureValue {
+	if metaclass == mParameterMembership {
+		e.graph.Add(owner, e.sysml(pOwnedFeatureMembership), membership)
+		e.graph.Add(membership, e.sysml(pOwnedMemberParameter), node)
+	}
+	if metaclass == mFeatureValue {
 		e.graph.Add(owner, e.sysml(pValue), node)
 		e.graph.Add(membership, e.sysml(pFeatureWithValue), owner)
 		e.graph.Add(membership, e.sysml(pValue), node)

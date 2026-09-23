@@ -14,14 +14,14 @@ elmt:Quoted_20Names
     sysx:sourceLanguage "sysml" ;
     sysml:declaredName "Quoted Names" ;
     sysx:hasBody "true"^^xsd:boolean ;
-    sysml:ownedMember elmt:Quoted_20Names__Mass_20_28kg_29, elmt:Quoted_20Names__Rover_20Model, elmt:Quoted_20Names__the_20rover, elmt:Quoted_20Names__my_20rover, elmt:Quoted_20Names__off_20model, elmt:Quoted_20Names__state, elmt:Quoted_20Names__a_20state ;
-    sysml:ownedMembership elmt:Quoted_20Names__Mass_20_28kg_29_om, elmt:Quoted_20Names__Rover_20Model_om, elmt:Quoted_20Names__the_20rover_om, elmt:Quoted_20Names__my_20rover_om, elmt:Quoted_20Names__off_20model_om, elmt:Quoted_20Names__state_om, elmt:Quoted_20Names__a_20state_om ;
-    sysml:ownedRelationship elmt:Quoted_20Names__Mass_20_28kg_29_om, elmt:Quoted_20Names__Rover_20Model_om, elmt:Quoted_20Names__the_20rover_om, elmt:Quoted_20Names__my_20rover_om, elmt:Quoted_20Names__off_20model_om, elmt:Quoted_20Names__state_om, elmt:Quoted_20Names__a_20state_om ;
+    sysml:ownedMember elmt:Quoted_20Names__Mass_20_28kg_29, elmt:Quoted_20Names__Rover_20Model, elmt:Quoted_20Names__my_20rover, elmt:Quoted_20Names__off_20model, elmt:Quoted_20Names__state, elmt:Quoted_20Names__a_20state ;
+    sysml:ownedMembership elmt:Quoted_20Names__Mass_20_28kg_29_om, elmt:Quoted_20Names__Rover_20Model_om, elmt:Quoted_20Names__the_20rover, elmt:Quoted_20Names__my_20rover_om, elmt:Quoted_20Names__off_20model_om, elmt:Quoted_20Names__state_om, elmt:Quoted_20Names__a_20state_om ;
+    sysml:ownedRelationship elmt:Quoted_20Names__Mass_20_28kg_29_om, elmt:Quoted_20Names__Rover_20Model_om, elmt:Quoted_20Names__the_20rover, elmt:Quoted_20Names__my_20rover_om, elmt:Quoted_20Names__off_20model_om, elmt:Quoted_20Names__state_om, elmt:Quoted_20Names__a_20state_om ;
     sysx:sourceText "package 'Quoted Names' {\n" ;
     sysx:sourceTail "}\n" ;
-    json:ownedMember "[{\"@id\":\"Quoted_20Names__Mass_20_28kg_29\"},{\"@id\":\"Quoted_20Names__Rover_20Model\"},{\"@id\":\"Quoted_20Names__the_20rover\"},{\"@id\":\"Quoted_20Names__my_20rover\"},{\"@id\":\"Quoted_20Names__off_20model\"},{\"@id\":\"Quoted_20Names__state\"},{\"@id\":\"Quoted_20Names__a_20state\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Quoted_20Names__Mass_20_28kg_29_om\"},{\"@id\":\"Quoted_20Names__Rover_20Model_om\"},{\"@id\":\"Quoted_20Names__the_20rover_om\"},{\"@id\":\"Quoted_20Names__my_20rover_om\"},{\"@id\":\"Quoted_20Names__off_20model_om\"},{\"@id\":\"Quoted_20Names__state_om\"},{\"@id\":\"Quoted_20Names__a_20state_om\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"Quoted_20Names__Mass_20_28kg_29_om\"},{\"@id\":\"Quoted_20Names__Rover_20Model_om\"},{\"@id\":\"Quoted_20Names__the_20rover_om\"},{\"@id\":\"Quoted_20Names__my_20rover_om\"},{\"@id\":\"Quoted_20Names__off_20model_om\"},{\"@id\":\"Quoted_20Names__state_om\"},{\"@id\":\"Quoted_20Names__a_20state_om\"}]" .
+    json:ownedMember "[{\"@id\":\"Quoted_20Names__Mass_20_28kg_29\"},{\"@id\":\"Quoted_20Names__Rover_20Model\"},{\"@id\":\"Quoted_20Names__my_20rover\"},{\"@id\":\"Quoted_20Names__off_20model\"},{\"@id\":\"Quoted_20Names__state\"},{\"@id\":\"Quoted_20Names__a_20state\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Quoted_20Names__Mass_20_28kg_29_om\"},{\"@id\":\"Quoted_20Names__Rover_20Model_om\"},{\"@id\":\"Quoted_20Names__the_20rover\"},{\"@id\":\"Quoted_20Names__my_20rover_om\"},{\"@id\":\"Quoted_20Names__off_20model_om\"},{\"@id\":\"Quoted_20Names__state_om\"},{\"@id\":\"Quoted_20Names__a_20state_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Quoted_20Names__Mass_20_28kg_29_om\"},{\"@id\":\"Quoted_20Names__Rover_20Model_om\"},{\"@id\":\"Quoted_20Names__the_20rover\"},{\"@id\":\"Quoted_20Names__my_20rover_om\"},{\"@id\":\"Quoted_20Names__off_20model_om\"},{\"@id\":\"Quoted_20Names__state_om\"},{\"@id\":\"Quoted_20Names__a_20state_om\"}]" .
 
 elmt:Quoted_20Names__Mass_20_28kg_29
     a sysml:AttributeDefinition ;
@@ -344,28 +344,19 @@ elmt:Quoted_20Names__Rover_20Model__is_20light_om
     sysml:owningType elmt:Quoted_20Names__Rover_20Model .
 
 elmt:Quoted_20Names__the_20rover
-    a sysx:Alias ;
+    a sysml:Membership ;
     sysml:qualifiedName "Quoted Names::the rover" ;
     sysml:elementId "Quoted_20Names__the_20rover" ;
     sysx:memberIndex "2"^^xsd:integer ;
     sysml:owningNamespace elmt:Quoted_20Names ;
     sysml:owner elmt:Quoted_20Names ;
-    sysml:owningRelationship elmt:Quoted_20Names__the_20rover_om ;
-    sysml:owningMembership elmt:Quoted_20Names__the_20rover_om ;
-    sysml:declaredName "the rover" ;
-    sysml:aliasedElement elmt:Quoted_20Names__Rover_20Model ;
+    sysml:owningRelatedElement elmt:Quoted_20Names ;
+    sysml:membershipOwningNamespace elmt:Quoted_20Names ;
+    sysx:declaredKeyword "alias" ;
+    sysml:memberName "the rover" ;
+    sysml:memberElement elmt:Quoted_20Names__Rover_20Model ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "    alias 'the rover' for 'Rover Model';\n" .
-
-elmt:Quoted_20Names__the_20rover_om
-    a sysml:OwningMembership ;
-    sysml:elementId "Quoted_20Names__the_20rover_om" ;
-    sysml:owner elmt:Quoted_20Names ;
-    sysml:memberElement elmt:Quoted_20Names__the_20rover ;
-    sysml:ownedMemberElement elmt:Quoted_20Names__the_20rover ;
-    sysml:ownedRelatedElement elmt:Quoted_20Names__the_20rover ;
-    sysml:owningRelatedElement elmt:Quoted_20Names ;
-    sysml:membershipOwningNamespace elmt:Quoted_20Names .
 
 elmt:Quoted_20Names__my_20rover
     a sysml:PartUsage ;

@@ -1353,10 +1353,13 @@ elmt:LoopsAndConditionals__Control___407
     sysx:condition expr:LoopsAndConditionals__Control___407_pcondition ;
     sysml:ownedRelationship expr:LoopsAndConditionals__Control___407_pcondition_om, elmt:LoopsAndConditionals__Control___407___400_om ;
     sysml:ownedMembership expr:LoopsAndConditionals__Control___407_pcondition_om, elmt:LoopsAndConditionals__Control___407___400_om ;
+    sysml:ownedFeatureMembership expr:LoopsAndConditionals__Control___407_pcondition_om, elmt:LoopsAndConditionals__Control___407___400_om ;
     sysml:ownedMember elmt:LoopsAndConditionals__Control___407___400 ;
+    sysml:ownedFeature elmt:LoopsAndConditionals__Control___407___400 ;
     sysx:sourceText "        if count > 0 {\n            perform tick;\n        }\n" ;
     json:ownedRelationship "[{\"@id\":\"LoopsAndConditionals__Control___407_pcondition_om\"},{\"@id\":\"LoopsAndConditionals__Control___407___400_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"LoopsAndConditionals__Control___407_pcondition_om\"},{\"@id\":\"LoopsAndConditionals__Control___407___400_om\"}]" .
+    json:ownedMembership "[{\"@id\":\"LoopsAndConditionals__Control___407_pcondition_om\"},{\"@id\":\"LoopsAndConditionals__Control___407___400_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"LoopsAndConditionals__Control___407_pcondition_om\"},{\"@id\":\"LoopsAndConditionals__Control___407___400_om\"}]" .
 
 elmt:LoopsAndConditionals__Control___407_om
     a sysml:FeatureMembership ;
@@ -1528,17 +1531,18 @@ expr:LoopsAndConditionals__Control___407_pcondition_pout_om
     sysml:ownedMemberParameter expr:LoopsAndConditionals__Control___407_pcondition_pout .
 
 expr:LoopsAndConditionals__Control___407_pcondition_om
-    a sysml:OwningMembership ;
+    a sysml:ParameterMembership ;
     sysml:elementId "LoopsAndConditionals__Control___407_pcondition_om" ;
     sysml:owner elmt:LoopsAndConditionals__Control___407 ;
     sysml:memberElement expr:LoopsAndConditionals__Control___407_pcondition ;
     sysml:ownedMemberElement expr:LoopsAndConditionals__Control___407_pcondition ;
     sysml:ownedRelatedElement expr:LoopsAndConditionals__Control___407_pcondition ;
     sysml:owningRelatedElement elmt:LoopsAndConditionals__Control___407 ;
-    sysml:membershipOwningNamespace elmt:LoopsAndConditionals__Control___407 .
+    sysml:membershipOwningNamespace elmt:LoopsAndConditionals__Control___407 ;
+    sysml:ownedMemberParameter expr:LoopsAndConditionals__Control___407_pcondition .
 
 elmt:LoopsAndConditionals__Control___407___400
-    a sysx:IfBranch ;
+    a sysml:ActionUsage ;
     sysml:qualifiedName "LoopsAndConditionals::Control::@7::@0" ;
     sysml:elementId "LoopsAndConditionals__Control___407___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
@@ -1550,17 +1554,22 @@ elmt:LoopsAndConditionals__Control___407___400
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:LoopsAndConditionals__Control___407___400___400 ;
     sysml:ownedMembership elmt:LoopsAndConditionals__Control___407___400___400_om ;
-    sysml:ownedRelationship elmt:LoopsAndConditionals__Control___407___400___400_om .
+    sysml:ownedRelationship elmt:LoopsAndConditionals__Control___407___400___400_om ;
+    sysml:ownedFeature elmt:LoopsAndConditionals__Control___407___400___400 ;
+    sysml:ownedFeatureMembership elmt:LoopsAndConditionals__Control___407___400___400_om .
 
 elmt:LoopsAndConditionals__Control___407___400_om
-    a sysml:OwningMembership ;
+    a sysml:ParameterMembership ;
     sysml:elementId "LoopsAndConditionals__Control___407___400_om" ;
     sysml:owner elmt:LoopsAndConditionals__Control___407 ;
     sysml:memberElement elmt:LoopsAndConditionals__Control___407___400 ;
     sysml:ownedMemberElement elmt:LoopsAndConditionals__Control___407___400 ;
     sysml:ownedRelatedElement elmt:LoopsAndConditionals__Control___407___400 ;
     sysml:owningRelatedElement elmt:LoopsAndConditionals__Control___407 ;
-    sysml:membershipOwningNamespace elmt:LoopsAndConditionals__Control___407 .
+    sysml:membershipOwningNamespace elmt:LoopsAndConditionals__Control___407 ;
+    sysml:ownedMemberParameter elmt:LoopsAndConditionals__Control___407___400 ;
+    sysml:ownedMemberFeature elmt:LoopsAndConditionals__Control___407___400 ;
+    sysml:owningType elmt:LoopsAndConditionals__Control___407 .
 
 elmt:LoopsAndConditionals__Control___407___400___400
     a sysml:PerformActionUsage ;
@@ -1581,14 +1590,16 @@ elmt:LoopsAndConditionals__Control___407___400___400
     sysx:sourceText "            perform tick;\n" .
 
 elmt:LoopsAndConditionals__Control___407___400___400_om
-    a sysml:OwningMembership ;
+    a sysml:FeatureMembership ;
     sysml:elementId "LoopsAndConditionals__Control___407___400___400_om" ;
     sysml:owner elmt:LoopsAndConditionals__Control___407___400 ;
     sysml:memberElement elmt:LoopsAndConditionals__Control___407___400___400 ;
     sysml:ownedMemberElement elmt:LoopsAndConditionals__Control___407___400___400 ;
     sysml:ownedRelatedElement elmt:LoopsAndConditionals__Control___407___400___400 ;
     sysml:owningRelatedElement elmt:LoopsAndConditionals__Control___407___400 ;
-    sysml:membershipOwningNamespace elmt:LoopsAndConditionals__Control___407___400 .
+    sysml:membershipOwningNamespace elmt:LoopsAndConditionals__Control___407___400 ;
+    sysml:ownedMemberFeature elmt:LoopsAndConditionals__Control___407___400___400 ;
+    sysml:owningType elmt:LoopsAndConditionals__Control___407___400 .
 
 elmt:LoopsAndConditionals__Control___408
     a sysml:IfActionUsage ;
@@ -1602,11 +1613,15 @@ elmt:LoopsAndConditionals__Control___408
     sysx:condition expr:LoopsAndConditionals__Control___408_pcondition ;
     sysml:ownedRelationship expr:LoopsAndConditionals__Control___408_pcondition_om, elmt:LoopsAndConditionals__Control___408___400_om, elmt:LoopsAndConditionals__Control___408___401_om ;
     sysml:ownedMembership expr:LoopsAndConditionals__Control___408_pcondition_om, elmt:LoopsAndConditionals__Control___408___400_om, elmt:LoopsAndConditionals__Control___408___401_om ;
+    sysml:ownedFeatureMembership expr:LoopsAndConditionals__Control___408_pcondition_om, elmt:LoopsAndConditionals__Control___408___400_om, elmt:LoopsAndConditionals__Control___408___401_om ;
     sysml:ownedMember elmt:LoopsAndConditionals__Control___408___400, elmt:LoopsAndConditionals__Control___408___401 ;
+    sysml:ownedFeature elmt:LoopsAndConditionals__Control___408___400, elmt:LoopsAndConditionals__Control___408___401 ;
     sysx:sourceText "        if count > 0 {\n            perform tick;\n        } else {\n            assign total := 0;\n        }\n" ;
     json:ownedRelationship "[{\"@id\":\"LoopsAndConditionals__Control___408_pcondition_om\"},{\"@id\":\"LoopsAndConditionals__Control___408___400_om\"},{\"@id\":\"LoopsAndConditionals__Control___408___401_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"LoopsAndConditionals__Control___408_pcondition_om\"},{\"@id\":\"LoopsAndConditionals__Control___408___400_om\"},{\"@id\":\"LoopsAndConditionals__Control___408___401_om\"}]" ;
-    json:ownedMember "[{\"@id\":\"LoopsAndConditionals__Control___408___400\"},{\"@id\":\"LoopsAndConditionals__Control___408___401\"}]" .
+    json:ownedFeatureMembership "[{\"@id\":\"LoopsAndConditionals__Control___408_pcondition_om\"},{\"@id\":\"LoopsAndConditionals__Control___408___400_om\"},{\"@id\":\"LoopsAndConditionals__Control___408___401_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"LoopsAndConditionals__Control___408___400\"},{\"@id\":\"LoopsAndConditionals__Control___408___401\"}]" ;
+    json:ownedFeature "[{\"@id\":\"LoopsAndConditionals__Control___408___400\"},{\"@id\":\"LoopsAndConditionals__Control___408___401\"}]" .
 
 elmt:LoopsAndConditionals__Control___408_om
     a sysml:FeatureMembership ;
@@ -1778,17 +1793,18 @@ expr:LoopsAndConditionals__Control___408_pcondition_pout_om
     sysml:ownedMemberParameter expr:LoopsAndConditionals__Control___408_pcondition_pout .
 
 expr:LoopsAndConditionals__Control___408_pcondition_om
-    a sysml:OwningMembership ;
+    a sysml:ParameterMembership ;
     sysml:elementId "LoopsAndConditionals__Control___408_pcondition_om" ;
     sysml:owner elmt:LoopsAndConditionals__Control___408 ;
     sysml:memberElement expr:LoopsAndConditionals__Control___408_pcondition ;
     sysml:ownedMemberElement expr:LoopsAndConditionals__Control___408_pcondition ;
     sysml:ownedRelatedElement expr:LoopsAndConditionals__Control___408_pcondition ;
     sysml:owningRelatedElement elmt:LoopsAndConditionals__Control___408 ;
-    sysml:membershipOwningNamespace elmt:LoopsAndConditionals__Control___408 .
+    sysml:membershipOwningNamespace elmt:LoopsAndConditionals__Control___408 ;
+    sysml:ownedMemberParameter expr:LoopsAndConditionals__Control___408_pcondition .
 
 elmt:LoopsAndConditionals__Control___408___400
-    a sysx:IfBranch ;
+    a sysml:ActionUsage ;
     sysml:qualifiedName "LoopsAndConditionals::Control::@8::@0" ;
     sysml:elementId "LoopsAndConditionals__Control___408___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
@@ -1800,17 +1816,22 @@ elmt:LoopsAndConditionals__Control___408___400
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:LoopsAndConditionals__Control___408___400___400 ;
     sysml:ownedMembership elmt:LoopsAndConditionals__Control___408___400___400_om ;
-    sysml:ownedRelationship elmt:LoopsAndConditionals__Control___408___400___400_om .
+    sysml:ownedRelationship elmt:LoopsAndConditionals__Control___408___400___400_om ;
+    sysml:ownedFeature elmt:LoopsAndConditionals__Control___408___400___400 ;
+    sysml:ownedFeatureMembership elmt:LoopsAndConditionals__Control___408___400___400_om .
 
 elmt:LoopsAndConditionals__Control___408___400_om
-    a sysml:OwningMembership ;
+    a sysml:ParameterMembership ;
     sysml:elementId "LoopsAndConditionals__Control___408___400_om" ;
     sysml:owner elmt:LoopsAndConditionals__Control___408 ;
     sysml:memberElement elmt:LoopsAndConditionals__Control___408___400 ;
     sysml:ownedMemberElement elmt:LoopsAndConditionals__Control___408___400 ;
     sysml:ownedRelatedElement elmt:LoopsAndConditionals__Control___408___400 ;
     sysml:owningRelatedElement elmt:LoopsAndConditionals__Control___408 ;
-    sysml:membershipOwningNamespace elmt:LoopsAndConditionals__Control___408 .
+    sysml:membershipOwningNamespace elmt:LoopsAndConditionals__Control___408 ;
+    sysml:ownedMemberParameter elmt:LoopsAndConditionals__Control___408___400 ;
+    sysml:ownedMemberFeature elmt:LoopsAndConditionals__Control___408___400 ;
+    sysml:owningType elmt:LoopsAndConditionals__Control___408 .
 
 elmt:LoopsAndConditionals__Control___408___400___400
     a sysml:PerformActionUsage ;
@@ -1831,17 +1852,19 @@ elmt:LoopsAndConditionals__Control___408___400___400
     sysx:sourceText "            perform tick;\n" .
 
 elmt:LoopsAndConditionals__Control___408___400___400_om
-    a sysml:OwningMembership ;
+    a sysml:FeatureMembership ;
     sysml:elementId "LoopsAndConditionals__Control___408___400___400_om" ;
     sysml:owner elmt:LoopsAndConditionals__Control___408___400 ;
     sysml:memberElement elmt:LoopsAndConditionals__Control___408___400___400 ;
     sysml:ownedMemberElement elmt:LoopsAndConditionals__Control___408___400___400 ;
     sysml:ownedRelatedElement elmt:LoopsAndConditionals__Control___408___400___400 ;
     sysml:owningRelatedElement elmt:LoopsAndConditionals__Control___408___400 ;
-    sysml:membershipOwningNamespace elmt:LoopsAndConditionals__Control___408___400 .
+    sysml:membershipOwningNamespace elmt:LoopsAndConditionals__Control___408___400 ;
+    sysml:ownedMemberFeature elmt:LoopsAndConditionals__Control___408___400___400 ;
+    sysml:owningType elmt:LoopsAndConditionals__Control___408___400 .
 
 elmt:LoopsAndConditionals__Control___408___401
-    a sysx:IfBranch ;
+    a sysml:ActionUsage ;
     sysml:qualifiedName "LoopsAndConditionals::Control::@8::@1" ;
     sysml:elementId "LoopsAndConditionals__Control___408___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
@@ -1853,17 +1876,22 @@ elmt:LoopsAndConditionals__Control___408___401
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:LoopsAndConditionals__Control___408___401___400 ;
     sysml:ownedMembership elmt:LoopsAndConditionals__Control___408___401___400_om ;
-    sysml:ownedRelationship elmt:LoopsAndConditionals__Control___408___401___400_om .
+    sysml:ownedRelationship elmt:LoopsAndConditionals__Control___408___401___400_om ;
+    sysml:ownedFeature elmt:LoopsAndConditionals__Control___408___401___400 ;
+    sysml:ownedFeatureMembership elmt:LoopsAndConditionals__Control___408___401___400_om .
 
 elmt:LoopsAndConditionals__Control___408___401_om
-    a sysml:OwningMembership ;
+    a sysml:ParameterMembership ;
     sysml:elementId "LoopsAndConditionals__Control___408___401_om" ;
     sysml:owner elmt:LoopsAndConditionals__Control___408 ;
     sysml:memberElement elmt:LoopsAndConditionals__Control___408___401 ;
     sysml:ownedMemberElement elmt:LoopsAndConditionals__Control___408___401 ;
     sysml:ownedRelatedElement elmt:LoopsAndConditionals__Control___408___401 ;
     sysml:owningRelatedElement elmt:LoopsAndConditionals__Control___408 ;
-    sysml:membershipOwningNamespace elmt:LoopsAndConditionals__Control___408 .
+    sysml:membershipOwningNamespace elmt:LoopsAndConditionals__Control___408 ;
+    sysml:ownedMemberParameter elmt:LoopsAndConditionals__Control___408___401 ;
+    sysml:ownedMemberFeature elmt:LoopsAndConditionals__Control___408___401 ;
+    sysml:owningType elmt:LoopsAndConditionals__Control___408 .
 
 elmt:LoopsAndConditionals__Control___408___401___400
     a sysml:AssignmentActionUsage ;
@@ -1884,14 +1912,16 @@ elmt:LoopsAndConditionals__Control___408___401___400
     json:ownedMembership "[{\"@id\":\"LoopsAndConditionals__Control___408___401___400_ptarget_om\"},{\"@id\":\"LoopsAndConditionals__Control___408___401___400_pvalue_om\"}]" .
 
 elmt:LoopsAndConditionals__Control___408___401___400_om
-    a sysml:OwningMembership ;
+    a sysml:FeatureMembership ;
     sysml:elementId "LoopsAndConditionals__Control___408___401___400_om" ;
     sysml:owner elmt:LoopsAndConditionals__Control___408___401 ;
     sysml:memberElement elmt:LoopsAndConditionals__Control___408___401___400 ;
     sysml:ownedMemberElement elmt:LoopsAndConditionals__Control___408___401___400 ;
     sysml:ownedRelatedElement elmt:LoopsAndConditionals__Control___408___401___400 ;
     sysml:owningRelatedElement elmt:LoopsAndConditionals__Control___408___401 ;
-    sysml:membershipOwningNamespace elmt:LoopsAndConditionals__Control___408___401 .
+    sysml:membershipOwningNamespace elmt:LoopsAndConditionals__Control___408___401 ;
+    sysml:ownedMemberFeature elmt:LoopsAndConditionals__Control___408___401___400 ;
+    sysml:owningType elmt:LoopsAndConditionals__Control___408___401 .
 
 expr:LoopsAndConditionals__Control___408___401___400_ptarget
     a sysml:FeatureReferenceExpression ;
@@ -1972,11 +2002,15 @@ elmt:LoopsAndConditionals__Control___409
     sysx:condition expr:LoopsAndConditionals__Control___409_pcondition ;
     sysml:ownedRelationship expr:LoopsAndConditionals__Control___409_pcondition_om, elmt:LoopsAndConditionals__Control___409___400_om, elmt:LoopsAndConditionals__Control___409___401_om ;
     sysml:ownedMembership expr:LoopsAndConditionals__Control___409_pcondition_om, elmt:LoopsAndConditionals__Control___409___400_om, elmt:LoopsAndConditionals__Control___409___401_om ;
+    sysml:ownedFeatureMembership expr:LoopsAndConditionals__Control___409_pcondition_om, elmt:LoopsAndConditionals__Control___409___400_om, elmt:LoopsAndConditionals__Control___409___401_om ;
     sysml:ownedMember elmt:LoopsAndConditionals__Control___409___400, elmt:LoopsAndConditionals__Control___409___401 ;
+    sysml:ownedFeature elmt:LoopsAndConditionals__Control___409___400, elmt:LoopsAndConditionals__Control___409___401 ;
     sysx:sourceText "        if count > 0 {\n            perform tick;\n        } else if total > 0 {\n            assign total := 0;\n        }\n" ;
     json:ownedRelationship "[{\"@id\":\"LoopsAndConditionals__Control___409_pcondition_om\"},{\"@id\":\"LoopsAndConditionals__Control___409___400_om\"},{\"@id\":\"LoopsAndConditionals__Control___409___401_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"LoopsAndConditionals__Control___409_pcondition_om\"},{\"@id\":\"LoopsAndConditionals__Control___409___400_om\"},{\"@id\":\"LoopsAndConditionals__Control___409___401_om\"}]" ;
-    json:ownedMember "[{\"@id\":\"LoopsAndConditionals__Control___409___400\"},{\"@id\":\"LoopsAndConditionals__Control___409___401\"}]" .
+    json:ownedFeatureMembership "[{\"@id\":\"LoopsAndConditionals__Control___409_pcondition_om\"},{\"@id\":\"LoopsAndConditionals__Control___409___400_om\"},{\"@id\":\"LoopsAndConditionals__Control___409___401_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"LoopsAndConditionals__Control___409___400\"},{\"@id\":\"LoopsAndConditionals__Control___409___401\"}]" ;
+    json:ownedFeature "[{\"@id\":\"LoopsAndConditionals__Control___409___400\"},{\"@id\":\"LoopsAndConditionals__Control___409___401\"}]" .
 
 elmt:LoopsAndConditionals__Control___409_om
     a sysml:FeatureMembership ;
@@ -2148,17 +2182,18 @@ expr:LoopsAndConditionals__Control___409_pcondition_pout_om
     sysml:ownedMemberParameter expr:LoopsAndConditionals__Control___409_pcondition_pout .
 
 expr:LoopsAndConditionals__Control___409_pcondition_om
-    a sysml:OwningMembership ;
+    a sysml:ParameterMembership ;
     sysml:elementId "LoopsAndConditionals__Control___409_pcondition_om" ;
     sysml:owner elmt:LoopsAndConditionals__Control___409 ;
     sysml:memberElement expr:LoopsAndConditionals__Control___409_pcondition ;
     sysml:ownedMemberElement expr:LoopsAndConditionals__Control___409_pcondition ;
     sysml:ownedRelatedElement expr:LoopsAndConditionals__Control___409_pcondition ;
     sysml:owningRelatedElement elmt:LoopsAndConditionals__Control___409 ;
-    sysml:membershipOwningNamespace elmt:LoopsAndConditionals__Control___409 .
+    sysml:membershipOwningNamespace elmt:LoopsAndConditionals__Control___409 ;
+    sysml:ownedMemberParameter expr:LoopsAndConditionals__Control___409_pcondition .
 
 elmt:LoopsAndConditionals__Control___409___400
-    a sysx:IfBranch ;
+    a sysml:ActionUsage ;
     sysml:qualifiedName "LoopsAndConditionals::Control::@9::@0" ;
     sysml:elementId "LoopsAndConditionals__Control___409___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
@@ -2170,17 +2205,22 @@ elmt:LoopsAndConditionals__Control___409___400
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:LoopsAndConditionals__Control___409___400___400 ;
     sysml:ownedMembership elmt:LoopsAndConditionals__Control___409___400___400_om ;
-    sysml:ownedRelationship elmt:LoopsAndConditionals__Control___409___400___400_om .
+    sysml:ownedRelationship elmt:LoopsAndConditionals__Control___409___400___400_om ;
+    sysml:ownedFeature elmt:LoopsAndConditionals__Control___409___400___400 ;
+    sysml:ownedFeatureMembership elmt:LoopsAndConditionals__Control___409___400___400_om .
 
 elmt:LoopsAndConditionals__Control___409___400_om
-    a sysml:OwningMembership ;
+    a sysml:ParameterMembership ;
     sysml:elementId "LoopsAndConditionals__Control___409___400_om" ;
     sysml:owner elmt:LoopsAndConditionals__Control___409 ;
     sysml:memberElement elmt:LoopsAndConditionals__Control___409___400 ;
     sysml:ownedMemberElement elmt:LoopsAndConditionals__Control___409___400 ;
     sysml:ownedRelatedElement elmt:LoopsAndConditionals__Control___409___400 ;
     sysml:owningRelatedElement elmt:LoopsAndConditionals__Control___409 ;
-    sysml:membershipOwningNamespace elmt:LoopsAndConditionals__Control___409 .
+    sysml:membershipOwningNamespace elmt:LoopsAndConditionals__Control___409 ;
+    sysml:ownedMemberParameter elmt:LoopsAndConditionals__Control___409___400 ;
+    sysml:ownedMemberFeature elmt:LoopsAndConditionals__Control___409___400 ;
+    sysml:owningType elmt:LoopsAndConditionals__Control___409 .
 
 elmt:LoopsAndConditionals__Control___409___400___400
     a sysml:PerformActionUsage ;
@@ -2201,17 +2241,19 @@ elmt:LoopsAndConditionals__Control___409___400___400
     sysx:sourceText "            perform tick;\n" .
 
 elmt:LoopsAndConditionals__Control___409___400___400_om
-    a sysml:OwningMembership ;
+    a sysml:FeatureMembership ;
     sysml:elementId "LoopsAndConditionals__Control___409___400___400_om" ;
     sysml:owner elmt:LoopsAndConditionals__Control___409___400 ;
     sysml:memberElement elmt:LoopsAndConditionals__Control___409___400___400 ;
     sysml:ownedMemberElement elmt:LoopsAndConditionals__Control___409___400___400 ;
     sysml:ownedRelatedElement elmt:LoopsAndConditionals__Control___409___400___400 ;
     sysml:owningRelatedElement elmt:LoopsAndConditionals__Control___409___400 ;
-    sysml:membershipOwningNamespace elmt:LoopsAndConditionals__Control___409___400 .
+    sysml:membershipOwningNamespace elmt:LoopsAndConditionals__Control___409___400 ;
+    sysml:ownedMemberFeature elmt:LoopsAndConditionals__Control___409___400___400 ;
+    sysml:owningType elmt:LoopsAndConditionals__Control___409___400 .
 
 elmt:LoopsAndConditionals__Control___409___401
-    a sysx:IfBranch ;
+    a sysml:ActionUsage ;
     sysml:qualifiedName "LoopsAndConditionals::Control::@9::@1" ;
     sysml:elementId "LoopsAndConditionals__Control___409___401" ;
     sysx:memberIndex "1"^^xsd:integer ;
@@ -2223,17 +2265,22 @@ elmt:LoopsAndConditionals__Control___409___401
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedMember elmt:LoopsAndConditionals__Control___409___401___400 ;
     sysml:ownedMembership elmt:LoopsAndConditionals__Control___409___401___400_om ;
-    sysml:ownedRelationship elmt:LoopsAndConditionals__Control___409___401___400_om .
+    sysml:ownedRelationship elmt:LoopsAndConditionals__Control___409___401___400_om ;
+    sysml:ownedFeature elmt:LoopsAndConditionals__Control___409___401___400 ;
+    sysml:ownedFeatureMembership elmt:LoopsAndConditionals__Control___409___401___400_om .
 
 elmt:LoopsAndConditionals__Control___409___401_om
-    a sysml:OwningMembership ;
+    a sysml:ParameterMembership ;
     sysml:elementId "LoopsAndConditionals__Control___409___401_om" ;
     sysml:owner elmt:LoopsAndConditionals__Control___409 ;
     sysml:memberElement elmt:LoopsAndConditionals__Control___409___401 ;
     sysml:ownedMemberElement elmt:LoopsAndConditionals__Control___409___401 ;
     sysml:ownedRelatedElement elmt:LoopsAndConditionals__Control___409___401 ;
     sysml:owningRelatedElement elmt:LoopsAndConditionals__Control___409 ;
-    sysml:membershipOwningNamespace elmt:LoopsAndConditionals__Control___409 .
+    sysml:membershipOwningNamespace elmt:LoopsAndConditionals__Control___409 ;
+    sysml:ownedMemberParameter elmt:LoopsAndConditionals__Control___409___401 ;
+    sysml:ownedMemberFeature elmt:LoopsAndConditionals__Control___409___401 ;
+    sysml:owningType elmt:LoopsAndConditionals__Control___409 .
 
 elmt:LoopsAndConditionals__Control___409___401___400
     a sysml:IfActionUsage ;
@@ -2247,19 +2294,24 @@ elmt:LoopsAndConditionals__Control___409___401___400
     sysx:condition expr:LoopsAndConditionals__Control___409___401___400_pcondition ;
     sysml:ownedRelationship expr:LoopsAndConditionals__Control___409___401___400_pcondition_om, elmt:LoopsAndConditionals__Control___409___401___400___400_om ;
     sysml:ownedMembership expr:LoopsAndConditionals__Control___409___401___400_pcondition_om, elmt:LoopsAndConditionals__Control___409___401___400___400_om ;
+    sysml:ownedFeatureMembership expr:LoopsAndConditionals__Control___409___401___400_pcondition_om, elmt:LoopsAndConditionals__Control___409___401___400___400_om ;
     sysml:ownedMember elmt:LoopsAndConditionals__Control___409___401___400___400 ;
+    sysml:ownedFeature elmt:LoopsAndConditionals__Control___409___401___400___400 ;
     json:ownedRelationship "[{\"@id\":\"LoopsAndConditionals__Control___409___401___400_pcondition_om\"},{\"@id\":\"LoopsAndConditionals__Control___409___401___400___400_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"LoopsAndConditionals__Control___409___401___400_pcondition_om\"},{\"@id\":\"LoopsAndConditionals__Control___409___401___400___400_om\"}]" .
+    json:ownedMembership "[{\"@id\":\"LoopsAndConditionals__Control___409___401___400_pcondition_om\"},{\"@id\":\"LoopsAndConditionals__Control___409___401___400___400_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"LoopsAndConditionals__Control___409___401___400_pcondition_om\"},{\"@id\":\"LoopsAndConditionals__Control___409___401___400___400_om\"}]" .
 
 elmt:LoopsAndConditionals__Control___409___401___400_om
-    a sysml:OwningMembership ;
+    a sysml:FeatureMembership ;
     sysml:elementId "LoopsAndConditionals__Control___409___401___400_om" ;
     sysml:owner elmt:LoopsAndConditionals__Control___409___401 ;
     sysml:memberElement elmt:LoopsAndConditionals__Control___409___401___400 ;
     sysml:ownedMemberElement elmt:LoopsAndConditionals__Control___409___401___400 ;
     sysml:ownedRelatedElement elmt:LoopsAndConditionals__Control___409___401___400 ;
     sysml:owningRelatedElement elmt:LoopsAndConditionals__Control___409___401 ;
-    sysml:membershipOwningNamespace elmt:LoopsAndConditionals__Control___409___401 .
+    sysml:membershipOwningNamespace elmt:LoopsAndConditionals__Control___409___401 ;
+    sysml:ownedMemberFeature elmt:LoopsAndConditionals__Control___409___401___400 ;
+    sysml:owningType elmt:LoopsAndConditionals__Control___409___401 .
 
 expr:LoopsAndConditionals__Control___409___401___400_pcondition
     a sysml:OperatorExpression ;
@@ -2419,17 +2471,18 @@ expr:LoopsAndConditionals__Control___409___401___400_pcondition_pout_om
     sysml:ownedMemberParameter expr:LoopsAndConditionals__Control___409___401___400_pcondition_pout .
 
 expr:LoopsAndConditionals__Control___409___401___400_pcondition_om
-    a sysml:OwningMembership ;
+    a sysml:ParameterMembership ;
     sysml:elementId "LoopsAndConditionals__Control___409___401___400_pcondition_om" ;
     sysml:owner elmt:LoopsAndConditionals__Control___409___401___400 ;
     sysml:memberElement expr:LoopsAndConditionals__Control___409___401___400_pcondition ;
     sysml:ownedMemberElement expr:LoopsAndConditionals__Control___409___401___400_pcondition ;
     sysml:ownedRelatedElement expr:LoopsAndConditionals__Control___409___401___400_pcondition ;
     sysml:owningRelatedElement elmt:LoopsAndConditionals__Control___409___401___400 ;
-    sysml:membershipOwningNamespace elmt:LoopsAndConditionals__Control___409___401___400 .
+    sysml:membershipOwningNamespace elmt:LoopsAndConditionals__Control___409___401___400 ;
+    sysml:ownedMemberParameter expr:LoopsAndConditionals__Control___409___401___400_pcondition .
 
 elmt:LoopsAndConditionals__Control___409___401___400___400
-    a sysx:IfBranch ;
+    a sysml:ActionUsage ;
     sysml:qualifiedName "LoopsAndConditionals::Control::@9::@1::@0::@0" ;
     sysml:elementId "LoopsAndConditionals__Control___409___401___400___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
@@ -2441,17 +2494,22 @@ elmt:LoopsAndConditionals__Control___409___401___400___400
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:LoopsAndConditionals__Control___409___401___400___400___400 ;
     sysml:ownedMembership elmt:LoopsAndConditionals__Control___409___401___400___400___400_om ;
-    sysml:ownedRelationship elmt:LoopsAndConditionals__Control___409___401___400___400___400_om .
+    sysml:ownedRelationship elmt:LoopsAndConditionals__Control___409___401___400___400___400_om ;
+    sysml:ownedFeature elmt:LoopsAndConditionals__Control___409___401___400___400___400 ;
+    sysml:ownedFeatureMembership elmt:LoopsAndConditionals__Control___409___401___400___400___400_om .
 
 elmt:LoopsAndConditionals__Control___409___401___400___400_om
-    a sysml:OwningMembership ;
+    a sysml:ParameterMembership ;
     sysml:elementId "LoopsAndConditionals__Control___409___401___400___400_om" ;
     sysml:owner elmt:LoopsAndConditionals__Control___409___401___400 ;
     sysml:memberElement elmt:LoopsAndConditionals__Control___409___401___400___400 ;
     sysml:ownedMemberElement elmt:LoopsAndConditionals__Control___409___401___400___400 ;
     sysml:ownedRelatedElement elmt:LoopsAndConditionals__Control___409___401___400___400 ;
     sysml:owningRelatedElement elmt:LoopsAndConditionals__Control___409___401___400 ;
-    sysml:membershipOwningNamespace elmt:LoopsAndConditionals__Control___409___401___400 .
+    sysml:membershipOwningNamespace elmt:LoopsAndConditionals__Control___409___401___400 ;
+    sysml:ownedMemberParameter elmt:LoopsAndConditionals__Control___409___401___400___400 ;
+    sysml:ownedMemberFeature elmt:LoopsAndConditionals__Control___409___401___400___400 ;
+    sysml:owningType elmt:LoopsAndConditionals__Control___409___401___400 .
 
 elmt:LoopsAndConditionals__Control___409___401___400___400___400
     a sysml:AssignmentActionUsage ;
@@ -2472,14 +2530,16 @@ elmt:LoopsAndConditionals__Control___409___401___400___400___400
     json:ownedMembership "[{\"@id\":\"LoopsAndConditionals__Control___409___401___400___400___400_ptarget_om\"},{\"@id\":\"LoopsAndConditionals__Control___409___401___400___400___400_pvalue_om\"}]" .
 
 elmt:LoopsAndConditionals__Control___409___401___400___400___400_om
-    a sysml:OwningMembership ;
+    a sysml:FeatureMembership ;
     sysml:elementId "LoopsAndConditionals__Control___409___401___400___400___400_om" ;
     sysml:owner elmt:LoopsAndConditionals__Control___409___401___400___400 ;
     sysml:memberElement elmt:LoopsAndConditionals__Control___409___401___400___400___400 ;
     sysml:ownedMemberElement elmt:LoopsAndConditionals__Control___409___401___400___400___400 ;
     sysml:ownedRelatedElement elmt:LoopsAndConditionals__Control___409___401___400___400___400 ;
     sysml:owningRelatedElement elmt:LoopsAndConditionals__Control___409___401___400___400 ;
-    sysml:membershipOwningNamespace elmt:LoopsAndConditionals__Control___409___401___400___400 .
+    sysml:membershipOwningNamespace elmt:LoopsAndConditionals__Control___409___401___400___400 ;
+    sysml:ownedMemberFeature elmt:LoopsAndConditionals__Control___409___401___400___400___400 ;
+    sysml:owningType elmt:LoopsAndConditionals__Control___409___401___400___400 .
 
 expr:LoopsAndConditionals__Control___409___401___400___400___400_ptarget
     a sysml:FeatureReferenceExpression ;

@@ -64,6 +64,9 @@ type element struct {
 	// prefix is written ahead of the declaration, for a member a succession
 	// attached itself to (`then send Show(x) to screen;`).
 	prefix string
+	// membershipKeyword is the notation a Membership member is written with
+	// (`alias`, `first`, `done`), fixed once every element is known.
+	membershipKeyword string
 	// implied marks a materialized relationship element: accepted and verified
 	// against the collapsed property it restates, but never written, since the
 	// notation states the collapsed form.
@@ -773,6 +776,11 @@ func (d *decoder) build() ([]*element, error) {
 		el.implied = implied
 	}
 	for _, el := range order {
+		if el.metaclass == mMembership || el.metaclass == mSuccession {
+			el.membershipKeyword = d.membershipKeyword(el)
+		}
+	}
+	for _, el := range order {
 		if err := d.verifyCovered(el); err != nil {
 			return nil, err
 		}
@@ -1011,6 +1019,7 @@ var referenceProperties = func() map[string]bool {
 		rdf.SysML + pClient:            true,
 		rdf.SysML + pSupplier:          true,
 		rdf.SysML + pAliasFor:          true,
+		rdf.SysML + pMemberElement:     true,
 		rdf.SysML + pAnnotatedElement:  true,
 		rdf.SysML + pReferencedFeature: true,
 		// The ends a succession reaches by position, which are elements of the
@@ -1037,6 +1046,13 @@ func (d *decoder) checkReferences() error {
 		}
 		if ownershipPredicates[triple.Predicate.Value] &&
 			(d.isExpressionNode(triple.Subject) || d.nodeMembership[triple.Subject.Value]) {
+			continue
+		}
+		// Only a Membership written as a member — an alias, a `first` — names
+		// its member; a materialized one is an ownership edge, checked as such.
+		if triple.Predicate.Value == rdf.SysML+pMemberElement &&
+			(d.isMembership(triple.Subject) || d.nodeMembership[triple.Subject.Value] ||
+				d.isExpressionNode(triple.Object) || d.isExpressionIRI(triple.Object)) {
 			continue
 		}
 		if d.isExpressionNode(triple.Subject) && d.isExpressionNode(triple.Object) {
@@ -1484,8 +1500,14 @@ func (d *decoder) declarationHead(el *element) (string, error) {
 		return d.namespaceHead(el)
 	case mNamespaceImport, mMembershipImport, mNamespaceExpose, mMembershipExpose, mImport:
 		return d.importHead(el)
-	case mAlias:
-		return d.aliasHead(el)
+	case mAlias, mMembership:
+		switch d.membershipKeyword(el) {
+		case "alias":
+			return d.aliasHead(el)
+		case "done":
+			return "done", nil
+		}
+		return d.initialNodeHead(el)
 	case "Dependency":
 		return d.dependencyHead(el)
 	case "Specialization", "FeatureTyping", "Subsetting", "Redefinition",
@@ -1497,7 +1519,7 @@ func (d *decoder) declarationHead(el *element) (string, error) {
 		return d.documentationHead(el), nil
 	case "TextualRepresentation":
 		return d.representationHead(el)
-	case mMultiplicity:
+	case mMultiplicity, mMultiplicityClass, mMultiplicityRange:
 		return d.multiplicityHead(el)
 	case mFilter:
 		condition, ok := d.stringOf(el, rdf.OpenSysML+xFilter)
@@ -2410,13 +2432,26 @@ func (d *decoder) aliasHead(el *element) (string, error) {
 		words = append(words, keyword)
 	}
 	words = append(words, "alias")
+	// A Membership names its member (KerML.xtext AliasMember); an older graph
+	// declared the alias's own name.
+	if short, ok := d.stringOf(el, rdf.SysML+pMemberShortName); ok {
+		words = append(words, "<"+nameText(short)+">")
+	}
+	if name, ok := d.stringOf(el, rdf.SysML+pMemberName); ok {
+		words = append(words, nameText(name))
+	}
 	words = append(words, d.identWords(el)...)
-	forName, err := d.referenceText(el, rdf.SysML+pAliasFor)
+	forName, err := d.referenceText(el, rdf.SysML+pMemberElement)
 	if err != nil {
 		return "", err
 	}
 	if forName == "" {
-		return "", d.missing(el, sysmlPrefix+pAliasFor, "an alias names the element it stands for")
+		if forName, err = d.referenceText(el, rdf.SysML+pAliasFor); err != nil {
+			return "", err
+		}
+	}
+	if forName == "" {
+		return "", d.missing(el, sysmlPrefix+pMemberElement, "an alias names the element it stands for")
 	}
 	words = append(words, "for", forName)
 	return strings.Join(words, " "), nil

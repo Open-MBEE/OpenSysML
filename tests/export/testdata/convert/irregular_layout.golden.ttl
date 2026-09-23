@@ -2012,10 +2012,13 @@ elmt:IrregularLayout__Drive___403
     sysx:condition expr:IrregularLayout__Drive___403_pcondition ;
     sysml:ownedRelationship expr:IrregularLayout__Drive___403_pcondition_om, elmt:IrregularLayout__Drive___403___400_om ;
     sysml:ownedMembership expr:IrregularLayout__Drive___403_pcondition_om, elmt:IrregularLayout__Drive___403___400_om ;
+    sysml:ownedFeatureMembership expr:IrregularLayout__Drive___403_pcondition_om, elmt:IrregularLayout__Drive___403___400_om ;
     sysml:ownedMember elmt:IrregularLayout__Drive___403___400 ;
+    sysml:ownedFeature elmt:IrregularLayout__Drive___403___400 ;
     sysx:sourceText "        if count > 0\n              and total > 0 {\n            perform tick;\n        }\n" ;
     json:ownedRelationship "[{\"@id\":\"IrregularLayout__Drive___403_pcondition_om\"},{\"@id\":\"IrregularLayout__Drive___403___400_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"IrregularLayout__Drive___403_pcondition_om\"},{\"@id\":\"IrregularLayout__Drive___403___400_om\"}]" .
+    json:ownedMembership "[{\"@id\":\"IrregularLayout__Drive___403_pcondition_om\"},{\"@id\":\"IrregularLayout__Drive___403___400_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"IrregularLayout__Drive___403_pcondition_om\"},{\"@id\":\"IrregularLayout__Drive___403___400_om\"}]" .
 
 elmt:IrregularLayout__Drive___403_om
     a sysml:FeatureMembership ;
@@ -2456,17 +2459,18 @@ expr:IrregularLayout__Drive___403_pcondition_pout_om
     sysml:ownedMemberParameter expr:IrregularLayout__Drive___403_pcondition_pout .
 
 expr:IrregularLayout__Drive___403_pcondition_om
-    a sysml:OwningMembership ;
+    a sysml:ParameterMembership ;
     sysml:elementId "IrregularLayout__Drive___403_pcondition_om" ;
     sysml:owner elmt:IrregularLayout__Drive___403 ;
     sysml:memberElement expr:IrregularLayout__Drive___403_pcondition ;
     sysml:ownedMemberElement expr:IrregularLayout__Drive___403_pcondition ;
     sysml:ownedRelatedElement expr:IrregularLayout__Drive___403_pcondition ;
     sysml:owningRelatedElement elmt:IrregularLayout__Drive___403 ;
-    sysml:membershipOwningNamespace elmt:IrregularLayout__Drive___403 .
+    sysml:membershipOwningNamespace elmt:IrregularLayout__Drive___403 ;
+    sysml:ownedMemberParameter expr:IrregularLayout__Drive___403_pcondition .
 
 elmt:IrregularLayout__Drive___403___400
-    a sysx:IfBranch ;
+    a sysml:ActionUsage ;
     sysml:qualifiedName "IrregularLayout::Drive::@3::@0" ;
     sysml:elementId "IrregularLayout__Drive___403___400" ;
     sysx:memberIndex "0"^^xsd:integer ;
@@ -2478,17 +2482,22 @@ elmt:IrregularLayout__Drive___403___400
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:IrregularLayout__Drive___403___400___400 ;
     sysml:ownedMembership elmt:IrregularLayout__Drive___403___400___400_om ;
-    sysml:ownedRelationship elmt:IrregularLayout__Drive___403___400___400_om .
+    sysml:ownedRelationship elmt:IrregularLayout__Drive___403___400___400_om ;
+    sysml:ownedFeature elmt:IrregularLayout__Drive___403___400___400 ;
+    sysml:ownedFeatureMembership elmt:IrregularLayout__Drive___403___400___400_om .
 
 elmt:IrregularLayout__Drive___403___400_om
-    a sysml:OwningMembership ;
+    a sysml:ParameterMembership ;
     sysml:elementId "IrregularLayout__Drive___403___400_om" ;
     sysml:owner elmt:IrregularLayout__Drive___403 ;
     sysml:memberElement elmt:IrregularLayout__Drive___403___400 ;
     sysml:ownedMemberElement elmt:IrregularLayout__Drive___403___400 ;
     sysml:ownedRelatedElement elmt:IrregularLayout__Drive___403___400 ;
     sysml:owningRelatedElement elmt:IrregularLayout__Drive___403 ;
-    sysml:membershipOwningNamespace elmt:IrregularLayout__Drive___403 .
+    sysml:membershipOwningNamespace elmt:IrregularLayout__Drive___403 ;
+    sysml:ownedMemberParameter elmt:IrregularLayout__Drive___403___400 ;
+    sysml:ownedMemberFeature elmt:IrregularLayout__Drive___403___400 ;
+    sysml:owningType elmt:IrregularLayout__Drive___403 .
 
 elmt:IrregularLayout__Drive___403___400___400
     a sysml:PerformActionUsage ;
@@ -2509,14 +2518,16 @@ elmt:IrregularLayout__Drive___403___400___400
     sysx:sourceText "            perform tick;\n" .
 
 elmt:IrregularLayout__Drive___403___400___400_om
-    a sysml:OwningMembership ;
+    a sysml:FeatureMembership ;
     sysml:elementId "IrregularLayout__Drive___403___400___400_om" ;
     sysml:owner elmt:IrregularLayout__Drive___403___400 ;
     sysml:memberElement elmt:IrregularLayout__Drive___403___400___400 ;
     sysml:ownedMemberElement elmt:IrregularLayout__Drive___403___400___400 ;
     sysml:ownedRelatedElement elmt:IrregularLayout__Drive___403___400___400 ;
     sysml:owningRelatedElement elmt:IrregularLayout__Drive___403___400 ;
-    sysml:membershipOwningNamespace elmt:IrregularLayout__Drive___403___400 .
+    sysml:membershipOwningNamespace elmt:IrregularLayout__Drive___403___400 ;
+    sysml:ownedMemberFeature elmt:IrregularLayout__Drive___403___400___400 ;
+    sysml:owningType elmt:IrregularLayout__Drive___403___400 .
 
 elmt:IrregularLayout__Drive___404
     a sysml:WhileLoopActionUsage ;
@@ -2760,14 +2771,14 @@ elmt:IrregularLayout__Ops
     sysml:declaredName "Ops" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedRelationship elmt:IrregularLayout__Ops___400, elmt:IrregularLayout__Ops___401_om, elmt:IrregularLayout__Ops__off_om, elmt:IrregularLayout__Ops__on_om, elmt:IrregularLayout__Ops___404_om ;
+    sysml:ownedMembership elmt:IrregularLayout__Ops___400, elmt:IrregularLayout__Ops___401_om, elmt:IrregularLayout__Ops__off_om, elmt:IrregularLayout__Ops__on_om, elmt:IrregularLayout__Ops___404_om ;
     sysml:ownedMember elmt:IrregularLayout__Ops___401, elmt:IrregularLayout__Ops__off, elmt:IrregularLayout__Ops__on, elmt:IrregularLayout__Ops___404 ;
-    sysml:ownedMembership elmt:IrregularLayout__Ops___401_om, elmt:IrregularLayout__Ops__off_om, elmt:IrregularLayout__Ops__on_om, elmt:IrregularLayout__Ops___404_om ;
     sysml:ownedFeature elmt:IrregularLayout__Ops___401, elmt:IrregularLayout__Ops__off, elmt:IrregularLayout__Ops__on, elmt:IrregularLayout__Ops___404 ;
     sysml:ownedFeatureMembership elmt:IrregularLayout__Ops___401_om, elmt:IrregularLayout__Ops__off_om, elmt:IrregularLayout__Ops__on_om, elmt:IrregularLayout__Ops___404_om ;
     sysx:sourceText "    state def Ops {\n        entry; then off;\n        state off;\n        state on;\n        transition first off\n            if 1 > 0\n            then on;\n    }\n" ;
     json:ownedRelationship "[{\"@id\":\"IrregularLayout__Ops___400\"},{\"@id\":\"IrregularLayout__Ops___401_om\"},{\"@id\":\"IrregularLayout__Ops__off_om\"},{\"@id\":\"IrregularLayout__Ops__on_om\"},{\"@id\":\"IrregularLayout__Ops___404_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"IrregularLayout__Ops___400\"},{\"@id\":\"IrregularLayout__Ops___401_om\"},{\"@id\":\"IrregularLayout__Ops__off_om\"},{\"@id\":\"IrregularLayout__Ops__on_om\"},{\"@id\":\"IrregularLayout__Ops___404_om\"}]" ;
     json:ownedMember "[{\"@id\":\"IrregularLayout__Ops___401\"},{\"@id\":\"IrregularLayout__Ops__off\"},{\"@id\":\"IrregularLayout__Ops__on\"},{\"@id\":\"IrregularLayout__Ops___404\"}]" ;
-    json:ownedMembership "[{\"@id\":\"IrregularLayout__Ops___401_om\"},{\"@id\":\"IrregularLayout__Ops__off_om\"},{\"@id\":\"IrregularLayout__Ops__on_om\"},{\"@id\":\"IrregularLayout__Ops___404_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"IrregularLayout__Ops___401\"},{\"@id\":\"IrregularLayout__Ops__off\"},{\"@id\":\"IrregularLayout__Ops__on\"},{\"@id\":\"IrregularLayout__Ops___404\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"IrregularLayout__Ops___401_om\"},{\"@id\":\"IrregularLayout__Ops__off_om\"},{\"@id\":\"IrregularLayout__Ops__on_om\"},{\"@id\":\"IrregularLayout__Ops___404_om\"}]" .
 
@@ -2789,6 +2800,7 @@ elmt:IrregularLayout__Ops___400
     sysml:owningNamespace elmt:IrregularLayout__Ops ;
     sysml:owner elmt:IrregularLayout__Ops ;
     sysml:owningRelatedElement elmt:IrregularLayout__Ops ;
+    sysml:membershipOwningNamespace elmt:IrregularLayout__Ops ;
     sysx:subactionKind "entry" .
 
 elmt:IrregularLayout__Ops___401

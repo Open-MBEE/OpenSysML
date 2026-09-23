@@ -677,8 +677,8 @@ func TestInitialStartMustBeAMemberOfItsBody(t *testing.T) {
 	}
 	structuralRoundTrip(t, "initial", graph)
 	structural := withoutTriples(t, graph, "sysx:sourceText")
-	const link = "sysml:sourceFeature elmt:P__Outer__inner__s2"
-	refusedAsUnsupported(t, "initial", relinked(t, structural, link, "sysml:sourceFeature elmt:P__Outer__s1"),
+	const link = "sysx:declaredKeyword \"first\" ;\n    sysml:memberElement elmt:P__Outer__inner__s2"
+	refusedAsUnsupported(t, "initial", relinked(t, structural, link, "sysx:declaredKeyword \"first\" ;\n    sysml:memberElement elmt:P__Outer__s1"),
 		"`first s1` does not name P::Outer::s1 in the body it is written in")
 	// A same-named sibling of the body would read as the start instead.
 	shadowed := strings.Replace(src, "action s1;", "action s2;", 1)
@@ -687,7 +687,7 @@ func TestInitialStartMustBeAMemberOfItsBody(t *testing.T) {
 		t.Fatalf("to turtle: %v", err)
 	}
 	structural = withoutTriples(t, graph, "sysx:sourceText")
-	refusedAsUnsupported(t, "initial", relinked(t, structural, link, "sysml:sourceFeature elmt:P__Outer__s2"),
+	refusedAsUnsupported(t, "initial", relinked(t, structural, link, "sysx:declaredKeyword \"first\" ;\n    sysml:memberElement elmt:P__Outer__s2"),
 		"`first s2` does not name P::Outer::s2 in the body it is written in")
 }
 

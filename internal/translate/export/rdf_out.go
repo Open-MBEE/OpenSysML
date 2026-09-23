@@ -73,7 +73,9 @@ const (
 	pOwnedEndFeature           = "ownedEndFeature"
 	pImportedNamespace         = "importedNamespace"
 	pImportedMembership        = "importedMembership"
-	pAliasFor                  = "aliasedElement"
+	pAliasFor                  = "aliasedElement" // an older mapping's alias target, read only
+	pMemberName                = "memberName"
+	pMemberShortName           = "memberShortName"
 	pClient                    = "client"
 	pSupplier                  = "supplier"
 	pBody                      = "body"
@@ -184,9 +186,10 @@ const (
 // Metaclass names for the constructs that have no SysML metaclass of their own
 // in this mapping.
 const (
-	mAlias        = "Alias"
-	mFilter       = "FilterMember"
-	mMultiplicity = "MultiplicityDeclaration"
+	mAlias             = "Alias"
+	mFilter            = "FilterMember"
+	mMultiplicity      = "MultiplicityDeclaration"
+	mMultiplicityClass = "Multiplicity"
 	// The members that state a condition rather than declaring a feature: the
 	// conditions of a constraint body and a requirement's assumptions and
 	// required conditions.
@@ -457,6 +460,10 @@ func (e *encoder) importedMembership(name *ast.QualifiedName) rdf.Term {
 		decl, fqn, ok = e.referent(name)
 	}
 	if ok {
+		// An alias is itself the Membership an import of it imports.
+		if _, isAlias := decl.(*ast.Alias); isAlias {
+			return e.ids.subjectForNode(decl, fqn)
+		}
 		membership := e.ids.owningMembershipOf(decl, e.ids.subjectForNode(decl, fqn))
 		if _, minted := e.subjects[membership.Value]; minted || e.ids.normativeMembership(decl) {
 			return membership
@@ -911,6 +918,18 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 				e.graph.Add(membership, e.sysml(pOwnedMemberParameter), subject)
 			}
 		}
+		// A `render`/`frame` member likewise is a RenderingUsage/ConcernUsage its
+		// membership owns (SysML.xtext ViewRenderingMember, FramedConcernMember).
+		if class, end, kind := memberOwnedUsage(n.Kind); class != "" {
+			h.membershipClass = class
+			h.membershipExtra = func(membership rdf.Term) {
+				e.graph.Add(membership, e.sysml(end), subject)
+				if kind != "" {
+					e.graph.Add(membership, e.sysml(pKind), rdf.String(kind))
+					e.graph.Add(membership, e.sysml(pOwnedConstraint), subject)
+				}
+			}
+		}
 		head(rdf.SysMLTerm(metaclass))
 		if !shorthandRelationship(n) {
 			e.ident(subject, n.Ident)
@@ -1038,9 +1057,16 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		return members(n.Body)
 
 	case *ast.Alias:
-		head(rdf.OpenSysMLTerm(mAlias))
-		e.ident(subject, n.Ident)
-		e.graph.Add(subject, e.sysml(pAliasFor), e.reference(n.For))
+		// An alias is a Membership naming its member (KerML §8.3.2.5, KerML.xtext AliasMember).
+		head(rdf.SysMLTerm(mMembership))
+		e.graph.Add(subject, e.sysx(xDeclaredKeyword), rdf.String("alias"))
+		if n.Ident.Name != "" {
+			e.graph.Add(subject, e.sysml(pMemberName), rdf.String(n.Ident.Name))
+		}
+		if n.Ident.ShortName != "" {
+			e.graph.Add(subject, e.sysml(pMemberShortName), rdf.String(n.Ident.ShortName))
+		}
+		e.graph.Add(subject, e.sysml(pMemberElement), e.reference(n.For))
 		e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(n.HasBody))
 		return members(n.Body)
 
@@ -1103,9 +1129,16 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		return nil
 
 	case *ast.MultiplicityDecl:
-		head(rdf.OpenSysMLTerm(mMultiplicity))
+		// The declaration is the Multiplicity itself: a MultiplicityRange when it
+		// states bounds, a plain Multiplicity when it only subsets another.
+		if n.Range != nil {
+			head(rdf.SysMLTerm(mMultiplicityRange))
+		} else {
+			head(rdf.SysMLTerm(mMultiplicityClass))
+		}
+		e.graph.Add(subject, e.sysx(xDeclaredKeyword), rdf.String("multiplicity"))
 		e.ident(subject, n.Ident)
-		if err := e.multiplicity(subject, within, n.Range); err != nil {
+		if err := e.multiplicityBounds(subject, subject, within, n.Range); err != nil {
 			return err
 		}
 		// A MultiplicitySubset states its bounds by subsetting, not as a range.
@@ -1240,6 +1273,14 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		}
 		return nil
 	}
+	// A branch of `if` is an ActionUsage parameter the conditional owns through a
+	// ParameterMembership (SysML.xtext ActionBodyParameterMember).
+	if _, isBranch := node.(*ast.IfBranchNode); isBranch {
+		h.membershipClass = mParameterMembership
+		h.membershipExtra = func(membership rdf.Term) {
+			e.graph.Add(membership, e.sysml(pOwnedMemberParameter), subject)
+		}
+	}
 	// A behavioral node — a control node, statement, loop, conditional, state or
 	// transition — is mapped by the behavior half of this encoder.
 	if handled, err := e.encodeBehavior(node, head, subject, fqn, within, index); handled {
@@ -1309,6 +1350,9 @@ func (e *encoder) owningMembership(node ast.Node, member, owner rdf.Term, member
 		if ontology.IsAncestorOrSelf(memberClass, "Import") {
 			e.graph.Add(member, e.sysml(pImportOwningNamespace), owner)
 			e.graph.Add(owner, e.sysml(pOwnedImport), member)
+		} else {
+			e.graph.Add(member, e.sysml(pMembershipOwningNamespace), owner)
+			e.graph.Add(owner, e.sysml(pOwnedMembership), member)
 		}
 		return rdf.Term{}
 	}
@@ -1420,11 +1464,11 @@ func (e *encoder) relationshipOwnership(member, owner rdf.Term, ownerClass, memb
 	}
 	e.graph.Add(owner, e.sysml(pOwnedRelatedElement), member)
 	e.graph.Add(member, e.sysml(pOwningRelationship), owner)
-	if ontology.IsAncestorOrSelf(ownerClass, "Membership") {
+	// Only an OwningMembership owns its member; a plain Membership (an alias,
+	// a `first`) names one elsewhere and owns just its body's annotations.
+	if ontology.IsAncestorOrSelf(ownerClass, "OwningMembership") {
 		e.graph.Add(member, e.sysml(pOwningMembership), owner)
 		e.graph.Add(owner, e.sysml(pMemberElement), member)
-	}
-	if ontology.IsAncestorOrSelf(ownerClass, "OwningMembership") {
 		e.graph.Add(owner, e.sysml(pOwnedMemberElement), member)
 	}
 	if ontology.IsAncestorOrSelf(ownerClass, mFeatureMembership) && ontology.IsAncestorOrSelf(memberClass, mFeature) {
@@ -1992,6 +2036,15 @@ func (e *encoder) multiplicity(subject rdf.Term, owner string, mult *ast.Multipl
 	e.emitMembershipCore(membership, rangeNode, subject, mOwningMembership, true)
 	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
 	e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
+	return e.multiplicityBounds(subject, rangeNode, owner, mult)
+}
+
+// multiplicityBounds emits the bounds of mult, owned by rangeNode and
+// collapsed on subject.
+func (e *encoder) multiplicityBounds(subject, rangeNode rdf.Term, owner string, mult *ast.Multiplicity) error {
+	if mult == nil {
+		return nil
+	}
 	// The parser puts the single bound of `[n]` in Lower; the language reads
 	// that as lower and upper both being n, so it is written as the upper bound
 	// alone and the printer renders it back as `[n]`.
@@ -2047,6 +2100,19 @@ func parameterMembership(kind ast.UsageKind) (class, end string) {
 		return mObjectiveMembership, "ownedObjectiveRequirement"
 	}
 	return "", ""
+}
+
+// memberOwnedUsage is the membership metaclass, its owned end and its
+// RequirementConstraintKind for the members whose declaration is a usage
+// the membership owns but that is no parameter, or "" for any other kind.
+func memberOwnedUsage(kind ast.UsageKind) (class, end, constraintKind string) {
+	switch kind {
+	case ast.UsageViewRendering:
+		return mViewRenderingMembership, pOwnedRendering, ""
+	case ast.UsageFramedConcern:
+		return mFramedConcernMembership, pOwnedConcern, "requirement"
+	}
+	return "", "", ""
 }
 
 // reference renders a name reference as a link when it resolves to an element

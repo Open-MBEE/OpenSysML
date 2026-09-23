@@ -60,9 +60,9 @@ var usageMetaclass = map[ast.UsageKind]string{
 	ast.UsageView:          "ViewUsage",
 	ast.UsageViewpoint:     "ViewpointUsage",
 	ast.UsageRendering:     "RenderingUsage",
-	ast.UsageViewRendering: "ViewRenderingMembership",
+	ast.UsageViewRendering: "RenderingUsage",
 	ast.UsageConcern:       "ConcernUsage",
-	ast.UsageFramedConcern: "FramedConcernMembership",
+	ast.UsageFramedConcern: "ConcernUsage",
 	ast.UsageConnection:    "ConnectionUsage",
 	ast.UsageConnector:     "Connector",
 	ast.UsageSuccession:    "SuccessionAsUsage",
@@ -232,12 +232,18 @@ var metaclassKeywordUsage = map[string]ast.UsageKind{
 	// spells, the others come from the membership's metaclass.
 	"PartUsage":        ast.UsagePart,
 	"RequirementUsage": ast.UsageRequirement,
+	// RenderingUsage and ConcernUsage type a `render`/`frame` member too
+	// (SysML.xtext ViewRenderingUsage, FramedConcernUsage); its membership says which.
+	"RenderingUsage": ast.UsageRendering,
+	"ConcernUsage":   ast.UsageConcern,
 	// The membership metaclasses graphs before the parameter members were
 	// materialized typed the element itself with; read, never written.
-	"SubjectMembership":     ast.UsageSubject,
-	"ActorMembership":       ast.UsageActor,
-	"StakeholderMembership": ast.UsageStakeholder,
-	"ObjectiveMembership":   ast.UsageObjective,
+	"SubjectMembership":       ast.UsageSubject,
+	"ActorMembership":         ast.UsageActor,
+	"StakeholderMembership":   ast.UsageStakeholder,
+	"ObjectiveMembership":     ast.UsageObjective,
+	"ViewRenderingMembership": ast.UsageViewRendering,
+	"FramedConcernMembership": ast.UsageFramedConcern,
 }
 
 // definitionKeyword and usageKeyword give the source keyword for a kind. The

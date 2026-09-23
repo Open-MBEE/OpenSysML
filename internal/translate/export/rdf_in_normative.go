@@ -343,7 +343,7 @@ func (d *decoder) verifyCovered(owner *element) error {
 // spells out. A bare ParameterMembership declares no parameter kind, so a
 // member's direction is written explicitly.
 func (d *decoder) parameterMember(el *element) bool {
-	_, kind := d.membershipUsageKind(el)
+	_, kind := d.parameterMembershipKind(el)
 	return kind
 }
 
@@ -406,8 +406,27 @@ func (d *decoder) verifySubjectParameter(el *element, parent *element, subjects 
 
 // membershipUsageKind is the usage kind a member's metaclass does not state
 // but its owning membership does: the parameter an actor, stakeholder,
-// subject or objective member declares.
+// subject or objective member declares, or a `render`/`frame` member's usage.
 func (d *decoder) membershipUsageKind(el *element) (ast.UsageKind, bool) {
+	if kind, ok := d.parameterMembershipKind(el); ok {
+		return kind, true
+	}
+	m, owned := d.owningMembership[el.iri]
+	if !owned {
+		return 0, false
+	}
+	switch d.metaclass(rdf.IRI(m.iri)) {
+	case mViewRenderingMembership:
+		return ast.UsageViewRendering, true
+	case mFramedConcernMembership:
+		return ast.UsageFramedConcern, true
+	}
+	return 0, false
+}
+
+// parameterMembershipKind is the kind of the parameter a subject, actor,
+// stakeholder or objective membership owns.
+func (d *decoder) parameterMembershipKind(el *element) (ast.UsageKind, bool) {
 	m, owned := d.owningMembership[el.iri]
 	if !owned {
 		return 0, false

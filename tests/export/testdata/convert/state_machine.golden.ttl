@@ -142,15 +142,15 @@ elmt:StateMachine__VehicleStates
     sysml:declaredName "VehicleStates" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedRelationship elmt:StateMachine__VehicleStates___400, elmt:StateMachine__VehicleStates__off_om, elmt:StateMachine__VehicleStates__starting_om, elmt:StateMachine__VehicleStates__active_om, elmt:StateMachine__VehicleStates__off_5fto_5fstart_om, elmt:StateMachine__VehicleStates___405_om, elmt:StateMachine__VehicleStates__active_5fto_5foff_om, elmt:StateMachine__VehicleStates__lane_om ;
+    sysml:ownedMembership elmt:StateMachine__VehicleStates___400, elmt:StateMachine__VehicleStates__off_om, elmt:StateMachine__VehicleStates__starting_om, elmt:StateMachine__VehicleStates__active_om, elmt:StateMachine__VehicleStates__off_5fto_5fstart_om, elmt:StateMachine__VehicleStates___405_om, elmt:StateMachine__VehicleStates__active_5fto_5foff_om, elmt:StateMachine__VehicleStates__lane_om ;
     sysml:ownedMember elmt:StateMachine__VehicleStates__off, elmt:StateMachine__VehicleStates__starting, elmt:StateMachine__VehicleStates__active, elmt:StateMachine__VehicleStates__off_5fto_5fstart, elmt:StateMachine__VehicleStates___405, elmt:StateMachine__VehicleStates__active_5fto_5foff, elmt:StateMachine__VehicleStates__lane ;
-    sysml:ownedMembership elmt:StateMachine__VehicleStates__off_om, elmt:StateMachine__VehicleStates__starting_om, elmt:StateMachine__VehicleStates__active_om, elmt:StateMachine__VehicleStates__off_5fto_5fstart_om, elmt:StateMachine__VehicleStates___405_om, elmt:StateMachine__VehicleStates__active_5fto_5foff_om, elmt:StateMachine__VehicleStates__lane_om ;
     sysml:ownedFeature elmt:StateMachine__VehicleStates__off, elmt:StateMachine__VehicleStates__starting, elmt:StateMachine__VehicleStates__active, elmt:StateMachine__VehicleStates__off_5fto_5fstart, elmt:StateMachine__VehicleStates___405, elmt:StateMachine__VehicleStates__active_5fto_5foff, elmt:StateMachine__VehicleStates__lane ;
     sysml:ownedFeatureMembership elmt:StateMachine__VehicleStates__off_om, elmt:StateMachine__VehicleStates__starting_om, elmt:StateMachine__VehicleStates__active_om, elmt:StateMachine__VehicleStates__off_5fto_5fstart_om, elmt:StateMachine__VehicleStates___405_om, elmt:StateMachine__VehicleStates__active_5fto_5foff_om, elmt:StateMachine__VehicleStates__lane_om ;
     sysx:sourceText "    state def VehicleStates {\n" ;
     sysx:sourceTail "    }\n" ;
     json:ownedRelationship "[{\"@id\":\"StateMachine__VehicleStates___400\"},{\"@id\":\"StateMachine__VehicleStates__off_om\"},{\"@id\":\"StateMachine__VehicleStates__starting_om\"},{\"@id\":\"StateMachine__VehicleStates__active_om\"},{\"@id\":\"StateMachine__VehicleStates__off_5fto_5fstart_om\"},{\"@id\":\"StateMachine__VehicleStates___405_om\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff_om\"},{\"@id\":\"StateMachine__VehicleStates__lane_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"StateMachine__VehicleStates___400\"},{\"@id\":\"StateMachine__VehicleStates__off_om\"},{\"@id\":\"StateMachine__VehicleStates__starting_om\"},{\"@id\":\"StateMachine__VehicleStates__active_om\"},{\"@id\":\"StateMachine__VehicleStates__off_5fto_5fstart_om\"},{\"@id\":\"StateMachine__VehicleStates___405_om\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff_om\"},{\"@id\":\"StateMachine__VehicleStates__lane_om\"}]" ;
     json:ownedMember "[{\"@id\":\"StateMachine__VehicleStates__off\"},{\"@id\":\"StateMachine__VehicleStates__starting\"},{\"@id\":\"StateMachine__VehicleStates__active\"},{\"@id\":\"StateMachine__VehicleStates__off_5fto_5fstart\"},{\"@id\":\"StateMachine__VehicleStates___405\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff\"},{\"@id\":\"StateMachine__VehicleStates__lane\"}]" ;
-    json:ownedMembership "[{\"@id\":\"StateMachine__VehicleStates__off_om\"},{\"@id\":\"StateMachine__VehicleStates__starting_om\"},{\"@id\":\"StateMachine__VehicleStates__active_om\"},{\"@id\":\"StateMachine__VehicleStates__off_5fto_5fstart_om\"},{\"@id\":\"StateMachine__VehicleStates___405_om\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff_om\"},{\"@id\":\"StateMachine__VehicleStates__lane_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"StateMachine__VehicleStates__off\"},{\"@id\":\"StateMachine__VehicleStates__starting\"},{\"@id\":\"StateMachine__VehicleStates__active\"},{\"@id\":\"StateMachine__VehicleStates__off_5fto_5fstart\"},{\"@id\":\"StateMachine__VehicleStates___405\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff\"},{\"@id\":\"StateMachine__VehicleStates__lane\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"StateMachine__VehicleStates__off_om\"},{\"@id\":\"StateMachine__VehicleStates__starting_om\"},{\"@id\":\"StateMachine__VehicleStates__active_om\"},{\"@id\":\"StateMachine__VehicleStates__off_5fto_5fstart_om\"},{\"@id\":\"StateMachine__VehicleStates___405_om\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff_om\"},{\"@id\":\"StateMachine__VehicleStates__lane_om\"}]" .
 
@@ -172,6 +172,7 @@ elmt:StateMachine__VehicleStates___400
     sysml:owningNamespace elmt:StateMachine__VehicleStates ;
     sysml:owner elmt:StateMachine__VehicleStates ;
     sysml:owningRelatedElement elmt:StateMachine__VehicleStates ;
+    sysml:membershipOwningNamespace elmt:StateMachine__VehicleStates ;
     sysx:subactionKind "entry" ;
     sysx:sourceText "        entry;\n" .
 
@@ -187,6 +188,7 @@ elmt:StateMachine__VehicleStates__off
     sysml:declaredName "off" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedRelationship elmt:StateMachine__VehicleStates__off___400 ;
+    sysml:ownedMembership elmt:StateMachine__VehicleStates__off___400 ;
     sysx:sourceText "        state off {\n" ;
     sysx:sourceTail "        }\n" .
 
@@ -210,6 +212,7 @@ elmt:StateMachine__VehicleStates__off___400
     sysml:owningNamespace elmt:StateMachine__VehicleStates__off ;
     sysml:owner elmt:StateMachine__VehicleStates__off ;
     sysml:owningRelatedElement elmt:StateMachine__VehicleStates__off ;
+    sysml:membershipOwningNamespace elmt:StateMachine__VehicleStates__off ;
     sysx:subactionKind "entry" ;
     sysml:ownedRelatedElement elmt:StateMachine__VehicleStates__off___400___400 ;
     sysml:memberElement elmt:StateMachine__VehicleStates__off___400___400 ;
@@ -245,9 +248,11 @@ elmt:StateMachine__VehicleStates__starting
     sysml:declaredName "starting" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedRelationship elmt:StateMachine__VehicleStates__starting___400, elmt:StateMachine__VehicleStates__starting___401, elmt:StateMachine__VehicleStates__starting___402 ;
+    sysml:ownedMembership elmt:StateMachine__VehicleStates__starting___400, elmt:StateMachine__VehicleStates__starting___401, elmt:StateMachine__VehicleStates__starting___402 ;
     sysx:sourceText "        state starting {\n" ;
     sysx:sourceTail "        }\n" ;
-    json:ownedRelationship "[{\"@id\":\"StateMachine__VehicleStates__starting___400\"},{\"@id\":\"StateMachine__VehicleStates__starting___401\"},{\"@id\":\"StateMachine__VehicleStates__starting___402\"}]" .
+    json:ownedRelationship "[{\"@id\":\"StateMachine__VehicleStates__starting___400\"},{\"@id\":\"StateMachine__VehicleStates__starting___401\"},{\"@id\":\"StateMachine__VehicleStates__starting___402\"}]" ;
+    json:ownedMembership "[{\"@id\":\"StateMachine__VehicleStates__starting___400\"},{\"@id\":\"StateMachine__VehicleStates__starting___401\"},{\"@id\":\"StateMachine__VehicleStates__starting___402\"}]" .
 
 elmt:StateMachine__VehicleStates__starting_om
     a sysml:FeatureMembership ;
@@ -269,6 +274,7 @@ elmt:StateMachine__VehicleStates__starting___400
     sysml:owningNamespace elmt:StateMachine__VehicleStates__starting ;
     sysml:owner elmt:StateMachine__VehicleStates__starting ;
     sysml:owningRelatedElement elmt:StateMachine__VehicleStates__starting ;
+    sysml:membershipOwningNamespace elmt:StateMachine__VehicleStates__starting ;
     sysx:subactionKind "entry" ;
     sysml:ownedRelatedElement elmt:StateMachine__VehicleStates__starting___400__ready ;
     sysml:memberElement elmt:StateMachine__VehicleStates__starting___400__ready ;
@@ -299,6 +305,7 @@ elmt:StateMachine__VehicleStates__starting___401
     sysml:owningNamespace elmt:StateMachine__VehicleStates__starting ;
     sysml:owner elmt:StateMachine__VehicleStates__starting ;
     sysml:owningRelatedElement elmt:StateMachine__VehicleStates__starting ;
+    sysml:membershipOwningNamespace elmt:StateMachine__VehicleStates__starting ;
     sysx:subactionKind "do" ;
     sysml:ownedRelatedElement elmt:StateMachine__VehicleStates__starting___401__running ;
     sysml:memberElement elmt:StateMachine__VehicleStates__starting___401__running ;
@@ -329,6 +336,7 @@ elmt:StateMachine__VehicleStates__starting___402
     sysml:owningNamespace elmt:StateMachine__VehicleStates__starting ;
     sysml:owner elmt:StateMachine__VehicleStates__starting ;
     sysml:owningRelatedElement elmt:StateMachine__VehicleStates__starting ;
+    sysml:membershipOwningNamespace elmt:StateMachine__VehicleStates__starting ;
     sysx:subactionKind "exit" ;
     sysml:ownedRelatedElement elmt:StateMachine__VehicleStates__starting___402___400 ;
     sysml:memberElement elmt:StateMachine__VehicleStates__starting___402___400 ;
@@ -364,13 +372,14 @@ elmt:StateMachine__VehicleStates__active
     sysml:declaredName "active" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedRelationship elmt:StateMachine__VehicleStates__active___400, elmt:StateMachine__VehicleStates__active___401_om ;
+    sysml:ownedMembership elmt:StateMachine__VehicleStates__active___400, elmt:StateMachine__VehicleStates__active___401_om ;
     sysml:ownedMember elmt:StateMachine__VehicleStates__active___401 ;
-    sysml:ownedMembership elmt:StateMachine__VehicleStates__active___401_om ;
     sysml:ownedFeature elmt:StateMachine__VehicleStates__active___401 ;
     sysml:ownedFeatureMembership elmt:StateMachine__VehicleStates__active___401_om ;
     sysx:sourceText "        state active {\n" ;
     sysx:sourceTail "        }\n" ;
-    json:ownedRelationship "[{\"@id\":\"StateMachine__VehicleStates__active___400\"},{\"@id\":\"StateMachine__VehicleStates__active___401_om\"}]" .
+    json:ownedRelationship "[{\"@id\":\"StateMachine__VehicleStates__active___400\"},{\"@id\":\"StateMachine__VehicleStates__active___401_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"StateMachine__VehicleStates__active___400\"},{\"@id\":\"StateMachine__VehicleStates__active___401_om\"}]" .
 
 elmt:StateMachine__VehicleStates__active_om
     a sysml:FeatureMembership ;
@@ -392,6 +401,7 @@ elmt:StateMachine__VehicleStates__active___400
     sysml:owningNamespace elmt:StateMachine__VehicleStates__active ;
     sysml:owner elmt:StateMachine__VehicleStates__active ;
     sysml:owningRelatedElement elmt:StateMachine__VehicleStates__active ;
+    sysml:membershipOwningNamespace elmt:StateMachine__VehicleStates__active ;
     sysx:subactionKind "do" ;
     sysml:ownedRelatedElement elmt:StateMachine__VehicleStates__active___400__monitor ;
     sysml:memberElement elmt:StateMachine__VehicleStates__active___400__monitor ;
@@ -760,6 +770,7 @@ elmt:StateMachine__Nested__idle__substate
     sysml:declaredName "substate" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedRelationship elmt:StateMachine__Nested__idle__substate___400 ;
+    sysml:ownedMembership elmt:StateMachine__Nested__idle__substate___400 ;
     sysx:sourceText "            state substate {\n" ;
     sysx:sourceTail "            }\n" .
 
@@ -783,6 +794,7 @@ elmt:StateMachine__Nested__idle__substate___400
     sysml:owningNamespace elmt:StateMachine__Nested__idle__substate ;
     sysml:owner elmt:StateMachine__Nested__idle__substate ;
     sysml:owningRelatedElement elmt:StateMachine__Nested__idle__substate ;
+    sysml:membershipOwningNamespace elmt:StateMachine__Nested__idle__substate ;
     sysx:subactionKind "entry" ;
     sysml:ownedRelatedElement elmt:StateMachine__Nested__idle__substate___400___400 ;
     sysml:memberElement elmt:StateMachine__Nested__idle__substate___400___400 ;
@@ -818,15 +830,15 @@ elmt:StateMachine__Composite
     sysml:declaredName "Composite" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedRelationship elmt:StateMachine__Composite___400, elmt:StateMachine__Composite___401_om, elmt:StateMachine__Composite__launch_om, elmt:StateMachine__Composite__waiting_om, elmt:StateMachine__Composite___404, elmt:StateMachine__Composite___405_om, elmt:StateMachine__Composite__pick_om, elmt:StateMachine__Composite__meet_om, elmt:StateMachine__Composite__split_om, elmt:StateMachine__Composite__sync_om, elmt:StateMachine__Composite__recent_om, elmt:StateMachine__Composite__deepest_om, elmt:StateMachine__Composite__primary_om ;
+    sysml:ownedMembership elmt:StateMachine__Composite___400, elmt:StateMachine__Composite___401_om, elmt:StateMachine__Composite__launch_om, elmt:StateMachine__Composite__waiting_om, elmt:StateMachine__Composite___404, elmt:StateMachine__Composite___405_om, elmt:StateMachine__Composite__pick_om, elmt:StateMachine__Composite__meet_om, elmt:StateMachine__Composite__split_om, elmt:StateMachine__Composite__sync_om, elmt:StateMachine__Composite__recent_om, elmt:StateMachine__Composite__deepest_om, elmt:StateMachine__Composite__primary_om ;
     sysml:ownedMember elmt:StateMachine__Composite___401, elmt:StateMachine__Composite__launch, elmt:StateMachine__Composite__waiting, elmt:StateMachine__Composite___405, elmt:StateMachine__Composite__pick, elmt:StateMachine__Composite__meet, elmt:StateMachine__Composite__split, elmt:StateMachine__Composite__sync, elmt:StateMachine__Composite__recent, elmt:StateMachine__Composite__deepest, elmt:StateMachine__Composite__primary ;
-    sysml:ownedMembership elmt:StateMachine__Composite___401_om, elmt:StateMachine__Composite__launch_om, elmt:StateMachine__Composite__waiting_om, elmt:StateMachine__Composite___405_om, elmt:StateMachine__Composite__pick_om, elmt:StateMachine__Composite__meet_om, elmt:StateMachine__Composite__split_om, elmt:StateMachine__Composite__sync_om, elmt:StateMachine__Composite__recent_om, elmt:StateMachine__Composite__deepest_om, elmt:StateMachine__Composite__primary_om ;
     sysml:ownedFeature elmt:StateMachine__Composite___401, elmt:StateMachine__Composite__launch, elmt:StateMachine__Composite__waiting, elmt:StateMachine__Composite__primary ;
     sysml:ownedFeatureMembership elmt:StateMachine__Composite___401_om, elmt:StateMachine__Composite__launch_om, elmt:StateMachine__Composite__waiting_om, elmt:StateMachine__Composite__primary_om ;
     sysx:sourceText "    state def Composite {\n" ;
     sysx:sourceTail "    }\n" ;
     json:ownedRelationship "[{\"@id\":\"StateMachine__Composite___400\"},{\"@id\":\"StateMachine__Composite___401_om\"},{\"@id\":\"StateMachine__Composite__launch_om\"},{\"@id\":\"StateMachine__Composite__waiting_om\"},{\"@id\":\"StateMachine__Composite___404\"},{\"@id\":\"StateMachine__Composite___405_om\"},{\"@id\":\"StateMachine__Composite__pick_om\"},{\"@id\":\"StateMachine__Composite__meet_om\"},{\"@id\":\"StateMachine__Composite__split_om\"},{\"@id\":\"StateMachine__Composite__sync_om\"},{\"@id\":\"StateMachine__Composite__recent_om\"},{\"@id\":\"StateMachine__Composite__deepest_om\"},{\"@id\":\"StateMachine__Composite__primary_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"StateMachine__Composite___400\"},{\"@id\":\"StateMachine__Composite___401_om\"},{\"@id\":\"StateMachine__Composite__launch_om\"},{\"@id\":\"StateMachine__Composite__waiting_om\"},{\"@id\":\"StateMachine__Composite___404\"},{\"@id\":\"StateMachine__Composite___405_om\"},{\"@id\":\"StateMachine__Composite__pick_om\"},{\"@id\":\"StateMachine__Composite__meet_om\"},{\"@id\":\"StateMachine__Composite__split_om\"},{\"@id\":\"StateMachine__Composite__sync_om\"},{\"@id\":\"StateMachine__Composite__recent_om\"},{\"@id\":\"StateMachine__Composite__deepest_om\"},{\"@id\":\"StateMachine__Composite__primary_om\"}]" ;
     json:ownedMember "[{\"@id\":\"StateMachine__Composite___401\"},{\"@id\":\"StateMachine__Composite__launch\"},{\"@id\":\"StateMachine__Composite__waiting\"},{\"@id\":\"StateMachine__Composite___405\"},{\"@id\":\"StateMachine__Composite__pick\"},{\"@id\":\"StateMachine__Composite__meet\"},{\"@id\":\"StateMachine__Composite__split\"},{\"@id\":\"StateMachine__Composite__sync\"},{\"@id\":\"StateMachine__Composite__recent\"},{\"@id\":\"StateMachine__Composite__deepest\"},{\"@id\":\"StateMachine__Composite__primary\"}]" ;
-    json:ownedMembership "[{\"@id\":\"StateMachine__Composite___401_om\"},{\"@id\":\"StateMachine__Composite__launch_om\"},{\"@id\":\"StateMachine__Composite__waiting_om\"},{\"@id\":\"StateMachine__Composite___405_om\"},{\"@id\":\"StateMachine__Composite__pick_om\"},{\"@id\":\"StateMachine__Composite__meet_om\"},{\"@id\":\"StateMachine__Composite__split_om\"},{\"@id\":\"StateMachine__Composite__sync_om\"},{\"@id\":\"StateMachine__Composite__recent_om\"},{\"@id\":\"StateMachine__Composite__deepest_om\"},{\"@id\":\"StateMachine__Composite__primary_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"StateMachine__Composite___401\"},{\"@id\":\"StateMachine__Composite__launch\"},{\"@id\":\"StateMachine__Composite__waiting\"},{\"@id\":\"StateMachine__Composite__primary\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"StateMachine__Composite___401_om\"},{\"@id\":\"StateMachine__Composite__launch_om\"},{\"@id\":\"StateMachine__Composite__waiting_om\"},{\"@id\":\"StateMachine__Composite__primary_om\"}]" .
 
@@ -848,6 +860,7 @@ elmt:StateMachine__Composite___400
     sysml:owningNamespace elmt:StateMachine__Composite ;
     sysml:owner elmt:StateMachine__Composite ;
     sysml:owningRelatedElement elmt:StateMachine__Composite ;
+    sysml:membershipOwningNamespace elmt:StateMachine__Composite ;
     sysx:subactionKind "entry" ;
     sysx:sourceText "        entry;\n" .
 
@@ -934,6 +947,7 @@ elmt:StateMachine__Composite___404
     sysml:owningNamespace elmt:StateMachine__Composite ;
     sysml:owner elmt:StateMachine__Composite ;
     sysml:owningRelatedElement elmt:StateMachine__Composite ;
+    sysml:membershipOwningNamespace elmt:StateMachine__Composite ;
     sysx:subactionKind "entry" ;
     sysml:ownedRelatedElement elmt:StateMachine__Composite___404___400 ;
     sysml:memberElement elmt:StateMachine__Composite___404___400 ;

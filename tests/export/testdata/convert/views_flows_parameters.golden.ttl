@@ -936,6 +936,7 @@ elmt:FlowsAndViews__StructureView
     sysml:declaredName "StructureView" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedRelationship elmt:FlowsAndViews__StructureView___400 ;
+    sysml:ownedMembership elmt:FlowsAndViews__StructureView___400 ;
     sysx:sourceText "    view def StructureView {\n" ;
     sysx:sourceTail "    }\n" .
 
@@ -957,6 +958,7 @@ elmt:FlowsAndViews__StructureView___400
     sysml:owningNamespace elmt:FlowsAndViews__StructureView ;
     sysml:owner elmt:FlowsAndViews__StructureView ;
     sysml:owningRelatedElement elmt:FlowsAndViews__StructureView ;
+    sysml:membershipOwningNamespace elmt:FlowsAndViews__StructureView ;
     sysml:condition expr:FlowsAndViews__StructureView___400_pfilter ;
     sysml:ownedRelatedElement expr:FlowsAndViews__StructureView___400_pfilter ;
     sysml:memberElement expr:FlowsAndViews__StructureView___400_pfilter ;
