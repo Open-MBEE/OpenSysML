@@ -528,8 +528,11 @@ part def 'Fleet Handbook Document' :> DocumentQueries::Document {
     part Figures : DocumentQueries::Section {
         attribute redefines title = "Figures";
         part diagram : DocumentQueries::Diagram {
-            attribute redefines caption = "The truck and what it hauls";
+            attribute redefines caption = "Truck Structure";
             ref redefines source = Fleet::Structure::'Truck Structure';
+        }
+        part paragraph : DocumentQueries::Paragraph {
+            attribute redefines text = "The truck and what it hauls";
         }
     }
 }
@@ -551,10 +554,10 @@ one content part in the section, in the activity's order:
 | `SortByName`, `SortByAttribute(Name / Documentation)` | `OrderBy(property = "name" / "documentation", …)`, `reverse` descending |
 | a fork whose branches rejoin at `Union` | `Union` of the branches' queries; a rejoin by `Intersection` or `XOR` is refused, and `RemoveDuplicates` is implicit in every operation and dropped |
 | `CollectionAndFilterGroup`, `StructuredQuery` | the group's chain, inlined |
-| `TableStructure` with `TableAttributeColumn` (`Name`, `Documentation`), `TablePropertyColumn` (a value property of the rows' definition), `TableExpressionColumn` naming a bare query property | `part table : Table { attribute redefines caption = …; calc rows : …; }` over `Project(properties, columns = (Column(…)))`, the built-in properties first (a built-in column behind a value property is moved ahead of it with the note) and a value property captioned like a built-in property as `<caption> 2`; `includeDoc` adds `documentation`; a column beyond these is omitted with the note, and a table with no writable column is refused |
+| `TableStructure` with `TableAttributeColumn` (`Name`, `Documentation`), `TablePropertyColumn` (a value property of the rows' definition), `TableExpressionColumn` naming a bare query property | `part table : Table { attribute redefines caption = …; calc rows : …; }` over `Project(properties, columns = (Column(…)))`, the built-in properties first (a built-in column behind a value property is moved ahead of it with the note) and a value property captioned like a built-in property as `<caption> 2`; `includeDoc` adds `documentation`; a column beyond these is omitted with the note, and a table with no writable column is refused. The caption is the table's title (`titles`, between `titlePrefix` and `titleSuffix`), and its `captions` text follows the table as a `Paragraph` unless `showCaptions` is false |
 | `BulletedList(orderedList, includeDoc)` | `part list : List { attribute redefines style = "number" / "bullet"; calc items : …; }`; `includeDoc` follows each item's name with its documentation |
 | `Paragraph(body)`; a «CollaboratorParagraph» reading the comment body | `part paragraph : Paragraph { attribute redefines text = "…"; }`, tool HTML reduced to text; a paragraph over the targets' documentation is `calc values : …` over `Project(properties = ("documentation"))` |
-| `Image` | one `part diagram : Diagram { attribute redefines caption = "<diagram>"; ref redefines source = <its view>; }` per diagram the step targets or the view exposes; a diagram whose view renders as textual notation (an activity, state machine or sequence diagram) is refused, since a document draws no text view; a «CollaboratorImageParagraph»'s attached bitmap is not a view, so its caption stands as a paragraph and the report says the image is not written |
+| `Image` | one `part diagram : Diagram { attribute redefines caption = "<title>"; ref redefines source = <its view>; }` per diagram the step targets or the view exposes, captioned by its `titles` entry (else the diagram's name) between `titlePrefix` and `titleSuffix`, its `captions` entry following as a `Paragraph` unless `showCaptions` is false; a diagram whose view renders as textual notation (an activity, state machine or sequence diagram) is refused, since a document draws no text view; a «CollaboratorImageParagraph»'s attached bitmap is not a view, so its caption stands as a paragraph and the report says the image is not written |
 | `Dynamic View` | a nested `Section` with the called activity's title, lowered the same way; an activity that calls itself is refused, since a recursive section has no static spelling |
 
 A step with no query spelling — `CollectTypes`, `CollectByAssociation`, `CollectThingsOnDiagram`,

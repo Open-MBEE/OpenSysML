@@ -134,6 +134,15 @@ package 'Fleet Viewpoints' {
         }
         perform action 'figures Method' : 'Figures Method';
     }
+    viewpoint 'Gallery Viewpoint' {
+        action def 'Gallery Method' {
+            first start then Image;
+            action Image;
+            first Image then final;
+            action final terminate;
+        }
+        perform action 'gallery Method' : 'Gallery Method';
+    }
     viewpoint 'Traceability Viewpoint' {
         action def 'Traceability Method' {
             first start then 'fork';
@@ -224,6 +233,7 @@ package 'Fleet Documents' {
     part def 'Fleet Brief' {
         view figures :> Figures;
         view fleet :> 'Fleet Views'::Fleet;
+        view gallery :> 'Fleet Views'::Gallery;
         /* applied stereotype «Document» */
     }
     view Introduction {
@@ -351,6 +361,9 @@ package 'Fleet Documents' {
                 attribute redefines caption = "Fleet Parts";
                 calc rows : 'Fleet Handbook Fleet Parts Rows';
             }
+            part paragraph : DocumentQueries::Paragraph {
+                attribute redefines text = "The parts of the fleet, by name.";
+            }
         }
         part Requirements : DocumentQueries::Section {
             attribute redefines title = "Requirements";
@@ -375,8 +388,11 @@ package 'Fleet Documents' {
         part Figures : DocumentQueries::Section {
             attribute redefines title = "Figures";
             part diagram : DocumentQueries::Diagram {
-                attribute redefines caption = "The truck and what it hauls";
+                attribute redefines caption = "Truck Structure";
                 ref redefines source = Fleet::Structure::'Truck Structure';
+            }
+            part paragraph : DocumentQueries::Paragraph {
+                attribute redefines text = "The truck and what it hauls";
             }
         }
         part Traceability : DocumentQueries::Section {
@@ -436,15 +452,21 @@ package 'Fleet Documents' {
         part Figures : DocumentQueries::Section {
             attribute redefines title = "Figures";
             part diagram : DocumentQueries::Diagram {
-                attribute redefines caption = "The truck and what it hauls";
+                attribute redefines caption = "Truck Structure";
                 ref redefines source = $::Fleet::Structure::'Truck Structure';
+            }
+            part paragraph : DocumentQueries::Paragraph {
+                attribute redefines text = "The truck and what it hauls";
             }
         }
         part Fleet : DocumentQueries::Section {
             attribute redefines title = "Fleet";
             part diagram : DocumentQueries::Diagram {
-                attribute redefines caption = "The truck and what it hauls";
+                attribute redefines caption = "Truck Structure";
                 ref redefines source = $::Fleet::Structure::'Truck Structure';
+            }
+            part paragraph : DocumentQueries::Paragraph {
+                attribute redefines text = "The truck and what it hauls";
             }
             /* not migrated: «Image» CallBehaviorAction 'Image' — the SysML Activity Diagram 'Parts Method Flow' is a view rendered as textual notation, which a document does not draw */
             part 'diagram 2' : DocumentQueries::Diagram {
@@ -454,6 +476,13 @@ package 'Fleet Documents' {
             part 'diagram 3' : DocumentQueries::Diagram {
                 attribute redefines caption = "Fleet Overview";
                 ref redefines source = 'Fleet Views'::Fleet.'Fleet Overview';
+            }
+        }
+        part Gallery : DocumentQueries::Section {
+            attribute redefines title = "Gallery";
+            part diagram : DocumentQueries::Diagram {
+                attribute redefines caption = "Figure: Inside the truck";
+                ref redefines source = truck.'Truck Internals';
             }
         }
     }
@@ -470,5 +499,9 @@ package 'Fleet Views' {
             expose $::Fleet::Requirements;
             render Views::asTreeDiagram;
         }
+    }
+    view Gallery {
+        satisfy 'Fleet Viewpoints'::'Gallery Viewpoint';
+        expose $::Fleet::Structure::Truck::'Truck Internals';
     }
 }

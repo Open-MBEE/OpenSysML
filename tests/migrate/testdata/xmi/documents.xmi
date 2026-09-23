@@ -147,6 +147,16 @@
         </ownedBehavior>
       </packagedElement>
 
+      <packagedElement xmi:type="uml:Class" xmi:id="_vp_gallery" name="Gallery Viewpoint" classifierBehavior="_act_gallery">
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_gallery" name="Gallery Method">
+          <node xmi:type="uml:InitialNode" xmi:id="_gallery_init"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_gallery_image" name="Image"/>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_gallery_final"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_gallery_e1" source="_gallery_init" target="_gallery_image"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_gallery_e2" source="_gallery_image" target="_gallery_final"/>
+        </ownedBehavior>
+      </packagedElement>
+
       <packagedElement xmi:type="uml:Class" xmi:id="_vp_trace" name="Traceability Viewpoint" classifierBehavior="_act_trace">
         <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_trace" name="Traceability Method">
           <node xmi:type="uml:InitialNode" xmi:id="_trace_init"/>
@@ -239,6 +249,7 @@
       <packagedElement xmi:type="uml:Class" xmi:id="_doc_brief" name="Fleet Brief">
         <ownedAttribute xmi:type="uml:Property" xmi:id="_brief_figures" name="figures" type="_view_figures" aggregation="composite"/>
         <ownedAttribute xmi:type="uml:Property" xmi:id="_brief_fleet" name="fleet" type="_view_fleet" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_brief_gallery" name="gallery" type="_view_gallery" aggregation="composite"/>
       </packagedElement>
 
       <packagedElement xmi:type="uml:Class" xmi:id="_view_intro" name="Introduction">
@@ -297,6 +308,10 @@
       <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_fleet_flow" client="_view_fleet" supplier="_diag_parts_flow"/>
       <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_fleet_internals" client="_view_fleet" supplier="_diag_truck_internals"/>
       <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_fleet_overview" client="_view_fleet" supplier="_diag_fleet_overview"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_gallery" name="Gallery">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_gallery" general="_vp_gallery"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_gallery" client="_view_gallery" supplier="_diag_truck_internals"/>
     </packagedElement>
 
     <xmi:Extension extender="Example UML Tool 1.0">
@@ -369,6 +384,7 @@
   <sysml:Viewpoint xmi:id="_st_vp_reqs" base_Class="_vp_reqs" method="_act_reqs" purpose="List the requirements."/>
   <sysml:Viewpoint xmi:id="_st_vp_safety" base_Class="_vp_safety" purpose="List the safety requirements."/>
   <sysml:Viewpoint xmi:id="_st_vp_figures" base_Class="_vp_figures"/>
+  <sysml:Viewpoint xmi:id="_st_vp_gallery" base_Class="_vp_gallery"/>
   <sysml:Viewpoint xmi:id="_st_vp_trace" base_Class="_vp_trace"/>
   <sysml:Viewpoint xmi:id="_st_vp_odd" base_Class="_vp_odd"/>
   <sysml:Viewpoint xmi:id="_st_vp_broken" base_Class="_vp_broken"/>
@@ -386,6 +402,7 @@
   <sysml:View xmi:id="_st_view_headless" base_Class="_view_headless"/>
   <sysml:View xmi:id="_st_view_notes" base_Class="_view_notes"/>
   <sysml:View xmi:id="_st_view_fleet" base_Class="_view_fleet"/>
+  <sysml:View xmi:id="_st_view_gallery" base_Class="_view_gallery"/>
 
   <sysml:Conform xmi:id="_st_conform_intro" base_Generalization="_gen_intro"/>
   <sysml:Conform xmi:id="_st_conform_reqs" base_Generalization="_gen_reqs"/>
@@ -398,6 +415,7 @@
   <sysml:Conform xmi:id="_st_conform_headless" base_Generalization="_gen_headless"/>
   <sysml:Conform xmi:id="_st_conform_notes" base_Generalization="_gen_notes"/>
   <sysml:Conform xmi:id="_st_conform_fleet" base_Generalization="_gen_fleet"/>
+  <sysml:Conform xmi:id="_st_conform_gallery" base_Generalization="_gen_gallery"/>
 
   <sysml:Expose xmi:id="_st_expose_intro" base_Dependency="_expose_intro"/>
   <sysml:Expose xmi:id="_st_expose_reqs" base_Dependency="_expose_reqs"/>
@@ -410,6 +428,7 @@
   <sysml:Expose xmi:id="_st_expose_fleet_flow" base_Dependency="_expose_fleet_flow"/>
   <sysml:Expose xmi:id="_st_expose_fleet_internals" base_Dependency="_expose_fleet_internals"/>
   <sysml:Expose xmi:id="_st_expose_fleet_overview" base_Dependency="_expose_fleet_overview"/>
+  <sysml:Expose xmi:id="_st_expose_gallery" base_Dependency="_expose_gallery"/>
 
   <Document_View_Collaborator_Profile:Document xmi:id="_st_doc_handbook" base_Class="_doc_handbook"/>
   <Document_Profile_:Document xmi:id="_st_doc_brief" base_Class="_doc_brief"/>
@@ -421,6 +440,7 @@
   <Document_Profile_:SortByName xmi:id="_st_parts_sort" base_CallBehaviorAction="_parts_sort"/>
   <Document_Profile_:TableStructure xmi:id="_st_parts_table" base_StructuredActivityNode="_parts_table" includeDoc="true" loop="false" numberedRows="true">
     <titles>Fleet Parts</titles>
+    <captions>The parts of the fleet, by name.</captions>
   </Document_Profile_:TableStructure>
   <Document_Profile_:TableAttributeColumn xmi:id="_st_parts_col_name" base_CallBehaviorAction="_parts_col_name" desiredAttribute="Name"/>
   <Document_Profile_:TablePropertyColumn xmi:id="_st_parts_col_payload" base_CallBehaviorAction="_parts_col_payload" desiredProperty="_prop_payload">
@@ -450,13 +470,19 @@
   <Document_Profile_:FilterByNames xmi:id="_st_safety_names" base_CallBehaviorAction="_safety_names" include="false">
     <names>.*Count</names>
   </Document_Profile_:FilterByNames>
-  <Document_Profile_:TableStructure xmi:id="_st_safety_table" base_StructuredActivityNode="_safety_table" includeDoc="false"/>
+  <Document_Profile_:TableStructure xmi:id="_st_safety_table" base_StructuredActivityNode="_safety_table" includeDoc="false" showCaptions="false">
+    <captions>Hidden: showCaptions is false.</captions>
+  </Document_Profile_:TableStructure>
   <Document_Profile_:TableAttributeColumn xmi:id="_st_safety_col_name" base_CallBehaviorAction="_safety_col_name" desiredAttribute="Name"/>
   <Document_Profile_:TableAttributeColumn xmi:id="_st_safety_col_doc" base_CallBehaviorAction="_safety_col_doc" desiredAttribute="Documentation"/>
   <Document_Profile_:TableExpressionColumn xmi:id="_st_safety_col_ocl" base_CallBehaviorAction="_safety_col_ocl" expression="owner.oclAsType(NamedElement).name"/>
 
   <Document_Profile_:Image xmi:id="_st_figures_image" base_CallBehaviorAction="_figures_image" showCaptions="true">
     <captions>The truck and what it hauls</captions>
+  </Document_Profile_:Image>
+  <Document_Profile_:Image xmi:id="_st_gallery_image" base_CallBehaviorAction="_gallery_image" showCaptions="false" titlePrefix="Figure: ">
+    <titles>Inside the truck</titles>
+    <captions>Hidden: showCaptions is false.</captions>
   </Document_Profile_:Image>
 
   <Document_Profile_:CollectByDirectedRelationshipStereotypes xmi:id="_st_trace_satisfiers" base_CallBehaviorAction="_trace_satisfiers" depth="1" directionOut="false">

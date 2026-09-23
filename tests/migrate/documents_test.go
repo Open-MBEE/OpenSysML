@@ -239,16 +239,32 @@ func TestMigratedDocumentsRender(t *testing.T) {
 		"calc def 'Fleet Handbook Requirement List Rows'",
 		`value = "^(?:Axle.*)$|^(?:Brake.*)$|^(?:Load.*)$"),`,
 		"calc def 'Fleet Handbook Requirement Texts Rows'")
+	// A table's or figure's caption is the title DocGen prints over it; the
+	// captions text follows as a paragraph while showCaptions holds.
+	wantInOrder(t, "captions", string(r.Notation),
+		`attribute redefines caption = "Fleet Parts";`,
+		`attribute redefines text = "The parts of the fleet, by name.";`,
+		`attribute redefines caption = "Safety Requirements";`,
+		"calc rows : 'Fleet Handbook Safety Requirements Rows';\n                }\n            }",
+		`attribute redefines caption = "Truck Structure";`,
+		`attribute redefines text = "The truck and what it hauls";`,
+		`attribute redefines caption = "Figure: Inside the truck";`,
+		"ref redefines source = truck.'Truck Internals';\n            }\n        }")
+	if strings.Contains(string(r.Notation), "showCaptions is false") {
+		t.Fatalf("a caption DocGen hides is written:\n%s", r.Notation)
+	}
 	s := session(t, r)
 
 	md := markdown(t, s, "'Fleet Documents'::'Fleet Handbook Document'")
 	wantInOrder(t, "Fleet Handbook Markdown", md,
 		"# Fleet Handbook",
 		"## Introduction",
+		"*Fleet Parts*",
 		"| name | qualifiedName | documentation | Payload | name 2 |",
 		"| Axle | Fleet::Structure::Axle |  |  |  |",
 		"| Trailer | Fleet::Structure::Trailer | Carries the load. |  |  |",
 		"| Truck | Fleet::Structure::Truck | Hauls one trailer. |  |  |",
+		"The parts of the fleet, by name.",
 		"## Requirements",
 		"Every truck of the fleet satisfies these requirements.",
 		"1. Load Limit\n2. Brake Distance\n3. Axle Count",
@@ -256,8 +272,9 @@ func TestMigratedDocumentsRender(t *testing.T) {
 		"### Safety",
 		"| Brake Distance | A loaded truck stops within the legal distance. |",
 		"## Figures",
-		"*The truck and what it hauls*",
+		"*Truck Structure*",
 		"```mermaid",
+		"The truck and what it hauls",
 		"## Traceability",
 		"- Truck",
 		"## Oddities",
@@ -293,12 +310,16 @@ func TestMigratedDocumentsRender(t *testing.T) {
 	// declares; one inside another view through that view.
 	brief := markdown(t, s, "'Fleet Documents'::'Fleet Brief Document'")
 	wantInOrder(t, "Fleet Brief Markdown", brief,
-		"# Fleet Brief", "## Figures", "*The truck and what it hauls*", "```mermaid",
-		"## Fleet", "*The truck and what it hauls*", "```mermaid",
+		"# Fleet Brief", "## Figures", "*Truck Structure*", "```mermaid", "The truck and what it hauls",
+		"## Fleet", "*Truck Structure*", "```mermaid", "The truck and what it hauls",
 		"*Truck Internals*", "```mermaid", "axles",
-		"*Fleet Overview*", "```mermaid", "Requirements")
-	if strings.Count(brief, "```mermaid") != 4 {
-		t.Errorf("Fleet Brief Markdown draws %d diagrams, want 4:\n%s", strings.Count(brief, "```mermaid"), brief)
+		"*Fleet Overview*", "```mermaid", "Requirements",
+		"## Gallery", "*Figure: Inside the truck*", "```mermaid", "axles")
+	if strings.Count(brief, "```mermaid") != 5 {
+		t.Errorf("Fleet Brief Markdown draws %d diagrams, want 5:\n%s", strings.Count(brief, "```mermaid"), brief)
+	}
+	if strings.Contains(brief, "showCaptions is false") {
+		t.Fatalf("a caption DocGen hides is rendered:\n%s", brief)
 	}
 }
 

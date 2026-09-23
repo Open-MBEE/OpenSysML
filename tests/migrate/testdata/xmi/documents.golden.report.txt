@@ -1,6 +1,6 @@
 # SysML v1 to v2 migration report: documents.xmi
 # exported by Example UML Tool
-# migrated 236 element(s): 169 mapped, 49 approximated, 18 unmapped (4 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 251 element(s): 182 mapped, 51 approximated, 18 unmapped (4 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
 ## unmapped (18)
 «CollaboratorImageParagraph» Comment	Fleet Documents::Notes::<Comment>	_st_note_blank_image	(the attached image "depot.png" has no caption, and a Diagram shows a view, not an image file)
@@ -22,7 +22,7 @@ CallBehaviorAction	Fleet Viewpoints::Oddities Viewpoint::Oddities Method::Missin
 «Dynamic_View» CallBehaviorAction	Fleet Viewpoints::Oddities Viewpoint::Per Truck::Per Truck Again	_st_per_truck	(the «Dynamic_View» Activity Fleet Viewpoints::Oddities Viewpoint::Per Truck calls itself, and a recursive section has no static spelling)
 Activity	Fleet Viewpoints::Severed Viewpoint::Severed Method	_act_severed	(the method Fleet Viewpoints::Severed Viewpoint::Severed Method is not migrated: ControlFlow _severed_e2's target "_severed_gone" names no node)
 
-## approximated (49)
+## approximated (51)
 «Document» Class	Fleet Documents::Fleet Brief	_doc_brief	-> 'Fleet Documents'::'Fleet Brief'	(a plain UML class without «Block» is written as a part def)
 «Document» Class	Fleet Documents::Fleet Handbook	_doc_handbook	-> 'Fleet Documents'::'Fleet Handbook'	(a plain UML class without «Block» is written as a part def)
 «Document» Class	Fleet Documents::Fleet Handbook	_st_doc_handbook	-> part def 'Fleet Documents'::'Fleet Handbook Document'	(the «Document» is written as a Document definition of 9 section(s); the column «TableExpressionColumn» Fleet Viewpoints::Parts Viewpoint::Parts Method::Fleet Parts::Owner Name is not written: the expression "owner.name" is not a bare query property (name, documentation, qualifiedName, owner, id); the column name is written as name 2: column names are unique; Project lists its properties first: name, qualifiedName, documentation precede the other columns; elements of the stereotypes specializing «Safety» are kept too; the column «TableExpressionColumn» Fleet Viewpoints::Safety Viewpoint::Safety Method::Safety Requirements::Owner is not written: the expression "owner.oclAsType(NamedElement).name" is not a bare query property (name, documentation, qualifiedName, owner, id); each item's documentation follows its name; the attached image "fleet.png" is not written, since a Diagram shows a view, not an image file; its caption stands as the paragraph; Conform general "_vp_gone" names no element)
@@ -32,6 +32,8 @@ Activity	Fleet Viewpoints::Broken Viewpoint::Broken Method	_act_broken	-> 'Fleet
 «Paragraph» CallBehaviorAction	Fleet Viewpoints::Broken Viewpoint::Broken Method::Paragraph	_broken_para	-> Paragraph	(no edge leads to the node, so it starts with the activity; a step with no behavior and no duration; it passes the token on)
 Activity	Fleet Viewpoints::Figures Viewpoint::Figures Method	_act_figures	-> 'Fleet Viewpoints'::'Figures Viewpoint'::'Figures Method'	(the classifier behavior is run by every object of Fleet Viewpoints::Figures Viewpoint as its usage figures Method)
 «Image» CallBehaviorAction	Fleet Viewpoints::Figures Viewpoint::Figures Method::Image	_figures_image	-> Image	(a step with no behavior and no duration; it passes the token on)
+Activity	Fleet Viewpoints::Gallery Viewpoint::Gallery Method	_act_gallery	-> 'Fleet Viewpoints'::'Gallery Viewpoint'::'Gallery Method'	(the classifier behavior is run by every object of Fleet Viewpoints::Gallery Viewpoint as its usage gallery Method)
+«Image» CallBehaviorAction	Fleet Viewpoints::Gallery Viewpoint::Gallery Method::Image	_gallery_image	-> Image	(a step with no behavior and no duration; it passes the token on)
 Activity	Fleet Viewpoints::Oddities Viewpoint::Oddities Method	_act_odd	-> 'Fleet Viewpoints'::'Oddities Viewpoint'::'Oddities Method'	(the classifier behavior is run by every object of Fleet Viewpoints::Oddities Viewpoint as its usage oddities Method)
 «CollectOwnedElements» CallBehaviorAction	Fleet Viewpoints::Oddities Viewpoint::Oddities Method::Collect Owned Elements	_odd_depth	-> 'Collect Owned Elements'	(a step with no behavior and no duration; it passes the token on)
 «CollectTypes» CallBehaviorAction	Fleet Viewpoints::Oddities Viewpoint::Oddities Method::Collect Types	_odd_types	-> 'Collect Types'	(a step with no behavior and no duration; it passes the token on)
@@ -73,7 +75,7 @@ Activity	Fleet Viewpoints::Traceability Viewpoint::Traceability Method	_act_trac
 «BulletedList» CallBehaviorAction	Fleet Viewpoints::Traceability Viewpoint::Traceability Method::Related Elements	_trace_list	-> 'Related Elements'	(a step with no behavior and no duration; it passes the token on)
 «BulletedList» CallBehaviorAction	Fleet Viewpoints::Traceability Viewpoint::Traceability Method::Related Elements	_st_trace_list	-> part 'Fleet Documents'::'Fleet Handbook Document'::Traceability::list	(its rows are the query 'Fleet Handbook Related Elements Rows'; each item's documentation follows its name)
 
-## mapped (169)
+## mapped (182)
 Package	Fleet	_pkg_fleet	-> Fleet
 Package	Fleet Documents	_pkg_docs	-> 'Fleet Documents'
 «Expose» Dependency	Fleet Documents::<Dependency>	_expose_intro	-> 'Fleet Documents'::Introduction
@@ -87,9 +89,10 @@ Package	Fleet Documents	_pkg_docs	-> 'Fleet Documents'
 «Conform» Generalization	Fleet Documents::Broken::<Generalization>	_gen_broken	-> 'Fleet Documents'::Broken
 «View» Class	Fleet Documents::Figures	_view_figures	-> 'Fleet Documents'::Figures
 «Conform» Generalization	Fleet Documents::Figures::<Generalization>	_gen_figures	-> 'Fleet Documents'::Figures
-«Document» Class	Fleet Documents::Fleet Brief	_st_doc_brief	-> part def 'Fleet Documents'::'Fleet Brief Document'	(the «Document» is written as a Document definition of 2 section(s))
+«Document» Class	Fleet Documents::Fleet Brief	_st_doc_brief	-> part def 'Fleet Documents'::'Fleet Brief Document'	(the «Document» is written as a Document definition of 3 section(s))
 Property	Fleet Documents::Fleet Brief::figures	_brief_figures	-> 'Fleet Documents'::'Fleet Brief'::figures
 Property	Fleet Documents::Fleet Brief::fleet	_brief_fleet	-> 'Fleet Documents'::'Fleet Brief'::fleet
+Property	Fleet Documents::Fleet Brief::gallery	_brief_gallery	-> 'Fleet Documents'::'Fleet Brief'::gallery
 Property	Fleet Documents::Fleet Handbook::author	_doc_author	-> 'Fleet Documents'::'Fleet Handbook'::author
 Property	Fleet Documents::Fleet Handbook::broken	_doc_broken	-> 'Fleet Documents'::'Fleet Handbook'::broken
 Property	Fleet Documents::Fleet Handbook::figures	_doc_figures	-> 'Fleet Documents'::'Fleet Handbook'::figures
@@ -133,10 +136,18 @@ ActivityFinalNode	Fleet Viewpoints::Figures Viewpoint::Figures Method::<Activity
 ControlFlow	Fleet Viewpoints::Figures Viewpoint::Figures Method::<ControlFlow>	_figures_e2
 InitialNode	Fleet Viewpoints::Figures Viewpoint::Figures Method::<InitialNode>	_figures_init	-> start
 «Image» CallBehaviorAction	Fleet Viewpoints::Figures Viewpoint::Figures Method::Image	_st_figures_image	-> part 'Fleet Documents'::'Fleet Handbook Document'::Figures::diagram
+«Image» CallBehaviorAction	Fleet Viewpoints::Figures Viewpoint::Figures Method::Image	_st_figures_image	-> part 'Fleet Documents'::'Fleet Handbook Document'::Figures::paragraph	(the paragraph is the Diagram's caption)
 «Image» CallBehaviorAction	Fleet Viewpoints::Figures Viewpoint::Figures Method::Image	_st_figures_image	-> part 'Fleet Documents'::'Fleet Brief Document'::Figures::diagram
+«Image» CallBehaviorAction	Fleet Viewpoints::Figures Viewpoint::Figures Method::Image	_st_figures_image	-> part 'Fleet Documents'::'Fleet Brief Document'::Figures::paragraph	(the paragraph is the Diagram's caption)
 «Image» CallBehaviorAction	Fleet Viewpoints::Figures Viewpoint::Figures Method::Image	_st_figures_image	-> part 'Fleet Documents'::'Fleet Brief Document'::Fleet::diagram
+«Image» CallBehaviorAction	Fleet Viewpoints::Figures Viewpoint::Figures Method::Image	_st_figures_image	-> part 'Fleet Documents'::'Fleet Brief Document'::Fleet::paragraph	(the paragraph is the Diagram's caption)
 «Image» CallBehaviorAction	Fleet Viewpoints::Figures Viewpoint::Figures Method::Image	_st_figures_image	-> part 'Fleet Documents'::'Fleet Brief Document'::Fleet::'diagram 2'
 «Image» CallBehaviorAction	Fleet Viewpoints::Figures Viewpoint::Figures Method::Image	_st_figures_image	-> part 'Fleet Documents'::'Fleet Brief Document'::Fleet::'diagram 3'
+«Viewpoint» Class	Fleet Viewpoints::Gallery Viewpoint	_vp_gallery	-> 'Fleet Viewpoints'::'Gallery Viewpoint'
+ActivityFinalNode	Fleet Viewpoints::Gallery Viewpoint::Gallery Method::<ActivityFinalNode>	_gallery_final	-> final
+ControlFlow	Fleet Viewpoints::Gallery Viewpoint::Gallery Method::<ControlFlow>	_gallery_e2
+InitialNode	Fleet Viewpoints::Gallery Viewpoint::Gallery Method::<InitialNode>	_gallery_init	-> start
+«Image» CallBehaviorAction	Fleet Viewpoints::Gallery Viewpoint::Gallery Method::Image	_st_gallery_image	-> part 'Fleet Documents'::'Fleet Brief Document'::Gallery::diagram
 «Viewpoint» Class	Fleet Viewpoints::Headless Viewpoint	_vp_headless	-> 'Fleet Viewpoints'::'Headless Viewpoint'
 «Viewpoint» Class	Fleet Viewpoints::Oddities Viewpoint	_vp_odd	-> 'Fleet Viewpoints'::'Oddities Viewpoint'
 ActivityFinalNode	Fleet Viewpoints::Oddities Viewpoint::Oddities Method::<ActivityFinalNode>	_odd_final	-> final
@@ -168,6 +179,7 @@ ControlFlow	Fleet Viewpoints::Parts Viewpoint::Parts Method::<ControlFlow>	_part
 ControlFlow	Fleet Viewpoints::Parts Viewpoint::Parts Method::<ControlFlow>	_parts_e5
 InitialNode	Fleet Viewpoints::Parts Viewpoint::Parts Method::<InitialNode>	_parts_init	-> start
 «TableStructure» StructuredActivityNode	Fleet Viewpoints::Parts Viewpoint::Parts Method::Fleet Parts	_parts_table	-> 'Fleet Parts'
+«TableStructure» StructuredActivityNode	Fleet Viewpoints::Parts Viewpoint::Parts Method::Fleet Parts	_st_parts_table	-> part 'Fleet Documents'::'Fleet Handbook Document'::Introduction::paragraph	(the paragraph is the Table's caption)
 ControlFlow	Fleet Viewpoints::Parts Viewpoint::Parts Method::Fleet Parts::<ControlFlow>	_parts_table_e2
 ControlFlow	Fleet Viewpoints::Parts Viewpoint::Parts Method::Fleet Parts::<ControlFlow>	_parts_table_e3
 ControlFlow	Fleet Viewpoints::Parts Viewpoint::Parts Method::Fleet Parts::<ControlFlow>	_parts_table_e4
@@ -220,9 +232,12 @@ Package	Fleet Views	_pkg_views	-> 'Fleet Views'
 «Expose» Dependency	Fleet Views::<Dependency>	_expose_fleet_flow	-> 'Fleet Views'::Fleet
 «Expose» Dependency	Fleet Views::<Dependency>	_expose_fleet_internals	-> 'Fleet Views'::Fleet
 «Expose» Dependency	Fleet Views::<Dependency>	_expose_fleet_overview	-> 'Fleet Views'::Fleet
+«Expose» Dependency	Fleet Views::<Dependency>	_expose_gallery	-> 'Fleet Views'::Gallery
 «View» Class	Fleet Views::Fleet	_view_fleet	-> 'Fleet Views'::Fleet
 «Conform» Generalization	Fleet Views::Fleet::<Generalization>	_gen_fleet	-> 'Fleet Views'::Fleet
 Diagram	Fleet Views::Fleet::Fleet Overview	_diag_fleet_overview	-> 'Fleet Views'::Fleet::'Fleet Overview'	(a SysML Package Diagram written as a view rendered asTreeDiagram)
+«View» Class	Fleet Views::Gallery	_view_gallery	-> 'Fleet Views'::Gallery
+«Conform» Generalization	Fleet Views::Gallery::<Generalization>	_gen_gallery	-> 'Fleet Views'::Gallery
 Package	Fleet::Requirements	_pkg_reqs	-> Fleet::Requirements
 «Requirement» Class	Fleet::Requirements::Axle Count	_req_axles	-> Fleet::Requirements::'Axle Count'
 «Requirement» Class	Fleet::Requirements::Brake Distance	_req_brake	-> Fleet::Requirements::'Brake Distance'

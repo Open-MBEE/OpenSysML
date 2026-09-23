@@ -67,6 +67,8 @@ type contentPlan struct {
 	text  string
 	caption,
 	style string
+	// captionOf is the kind of the block a caption Paragraph follows.
+	captionOf string
 	// query and rows are the row query's reserved name and expression, for
 	// the query-backed kinds.
 	query string
@@ -765,6 +767,33 @@ func (c *chain) caption(s *sysmlv1.DocGenStep, fallback string) string {
 	return fallback
 }
 
+// title is a table's or figure's title as DocGen prints it: the given title
+// between the node's titlePrefix and titleSuffix.
+func (c *chain) title(s *sysmlv1.DocGenStep, title string) string {
+	return strings.TrimSpace(s.Application.Tag("titlePrefix") + title + s.Application.Tag("titleSuffix"))
+}
+
+// captionText is the caption DocGen prints under a table's or figure's title:
+// the i-th captions entry while showCaptions holds, else nothing.
+func (c *chain) captionText(s *sysmlv1.DocGenStep, i int) string {
+	if s.Application.Tag("showCaptions") == "false" {
+		return ""
+	}
+	captions := s.Application.Tags["captions"]
+	if i >= len(captions) {
+		return ""
+	}
+	return commentText(captions[i])
+}
+
+// captionParagraph plans the Paragraph holding a block's caption, which a
+// document prints under the block.
+func (c *chain) captionParagraph(s *sysmlv1.DocGenStep, of, text string) {
+	cp := &contentPlan{kind: "Paragraph", node: s.Node, label: "«" + c.kind(s) + "» " + s.Node.Type, text: text, captionOf: of}
+	cp.name = c.sec.names.claim("paragraph")
+	c.sec.content = append(c.sec.content, cp)
+}
+
 // block plans a query-backed block: its query name is reserved in the
 // document's host, its member name in the section.
 func (c *chain) block(s *sysmlv1.DocGenStep, kind, caption string, rows qx) *contentPlan {
@@ -816,10 +845,13 @@ func (c *chain) table(s *sysmlv1.DocGenStep) {
 	}
 	project, projectNotes := p.build(c.ctx)
 	notes = append(notes, projectNotes...)
-	cp := c.block(s, "Table", c.caption(s, "Table"), project)
+	cp := c.block(s, "Table", c.title(s, c.caption(s, "Table")), project)
 	cp.notes = append(cp.notes, notes...)
 	if s.Application.Tag("loop") == "true" {
 		cp.notes = append(cp.notes, "the table loops over its elements one table each; one table lists them together")
+	}
+	if text := c.captionText(s, 0); text != "" {
+		c.captionParagraph(s, "Table", text)
 	}
 }
 
@@ -942,7 +974,8 @@ func (c *chain) paragraph(s *sysmlv1.DocGenStep) {
 }
 
 // image lowers an Image: one Diagram block per diagram among the current
-// elements, showing its migrated view.
+// elements, showing its migrated view, captioned by the diagram's title and
+// followed by its caption paragraph when DocGen shows captions.
 func (c *chain) image(s *sysmlv1.DocGenStep) {
 	if c.broken != "" {
 		c.refuse(s, "the diagrams it shows pass through "+c.broken)
@@ -952,8 +985,7 @@ func (c *chain) image(s *sysmlv1.DocGenStep) {
 		c.refuse(s, "it shows no diagram: only a diagram the view exposes or the node targets directly has a view to show")
 		return
 	}
-	captions := s.Application.Tags["captions"]
-	show := s.Application.Tag("showCaptions") != "false"
+	titles := s.Application.Tags["titles"]
 	for i, d := range c.diagrams {
 		v := c.m.viewOf[d]
 		if v == nil || !v.placed {
@@ -973,12 +1005,16 @@ func (c *chain) image(s *sysmlv1.DocGenStep) {
 		if def != nil {
 			cp.anchor = c.dp.anchor(def)
 		}
-		cp.caption = strings.TrimSpace(d.Name)
-		if show && i < len(captions) && strings.TrimSpace(captions[i]) != "" {
-			cp.caption = strings.TrimSpace(captions[i])
+		title := strings.TrimSpace(d.Name)
+		if i < len(titles) && strings.TrimSpace(titles[i]) != "" {
+			title = strings.TrimSpace(titles[i])
 		}
+		cp.caption = c.title(s, title)
 		cp.name = c.sec.names.claim("diagram")
 		c.sec.content = append(c.sec.content, cp)
+		if text := c.captionText(s, i); text != "" {
+			c.captionParagraph(s, "Diagram", text)
+		}
 	}
 }
 
@@ -1238,6 +1274,9 @@ func (m *migration) blockEntry(cp *contentPlan) *Entry {
 	e.Target = "part " + cp.target
 	if cp.query != "" {
 		e.Note = joinNotes("its rows are the query "+writeName(cp.query), e.Note)
+	}
+	if cp.captionOf != "" {
+		e.Note = joinNotes("the paragraph is the "+cp.captionOf+"'s caption", e.Note)
 	}
 	return e
 }
