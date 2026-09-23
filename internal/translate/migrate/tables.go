@@ -71,6 +71,11 @@ func (m *migration) planTables() {
 		td.query = m.viewName(v.host, name+rowsSuffix)
 		m.tableOf[t] = td
 		v.tables = append(v.tables, td)
+		for _, c := range t.Columns {
+			if _, f, why := m.columnKey(c, v.host); f != nil && why == "" && !c.Hidden {
+				m.expose(f, "a column of the table '"+name+"' reads it")
+			}
+		}
 	}
 }
 
