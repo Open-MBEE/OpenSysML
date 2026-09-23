@@ -105,8 +105,9 @@ func TestGoldenEdgeLayout(t *testing.T) {
 	if !strings.Contains(string(r.Notation), "view 'Driving Sketch' {\n                render Views::asTextualNotation;\n            }") {
 		t.Errorf("the empty activity diagram is not an empty textual view:\n%s", r.Notation)
 	}
-	// A placement of a transition, which the state rendering draws as an edge, positions no node.
-	if l.PlacementsUnexposed != 4 || strings.Contains(string(r.Notation), "Layout about halt") {
+	// A transition, drawn as an edge, and an initial or final node written as start or done
+	// position no node; a declared final is placed.
+	if l.PlacementsUnexposed != 3 || strings.Contains(string(r.Notation), "Layout about halt") || !strings.Contains(string(r.Notation), "Layout about final {") {
 		t.Errorf("placements: %+v", l)
 	}
 	wantKinds := []migrate.RouteKind{
@@ -142,6 +143,59 @@ func TestGoldenEdgeLayout(t *testing.T) {
 	}
 }
 
+// A control node the migrator declares as a member is placed; the initial and flow final nodes,
+// written as start and done, are the placements no Layout can name, positioned from their routes.
+func TestGoldenControlNodeLayout(t *testing.T) {
+	r := migrateLaidOut(t, "control_nodes")
+	checkGolden(t, "testdata/xmi/control_nodes.layout.golden.sysml", r.Notation)
+	var report bytes.Buffer
+	if err := r.Report.WriteText(&report); err != nil {
+		t.Fatal(err)
+	}
+	checkGolden(t, "testdata/xmi/control_nodes.layout.golden.report.txt", report.Bytes())
+	for _, d := range errors(t, "control_nodes.sysml", r.Notation) {
+		t.Errorf("%v", d)
+	}
+	l := r.Report.Layout
+	if l == nil {
+		t.Fatal("no layout summary")
+	}
+	if l.Placements != 8 || l.PlacementsWritten != 6 || l.PlacementsUnexposed != 2 {
+		t.Errorf("placements: %+v", l)
+	}
+	if l.Routes != 8 || l.RoutesWritten != 8 {
+		t.Errorf("routes: %+v", l)
+	}
+	for _, want := range []string{
+		"Layout about 'fork' {", "Layout about 'join' {", "Layout about check {", "Layout about final {",
+	} {
+		if !strings.Contains(string(r.Notation), want) {
+			t.Errorf("a declared control node is not placed: %s\n%s", want, r.Notation)
+		}
+	}
+	s := session(t, r)
+	rendering, err := s.ViewRendering("Control::Controller::Run::Run")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dot, err := rendering.DOT()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"// layout: neato -n2\n",
+		`<i>«fork»</i></font>>, pos="100,217!", pin=true, width=1.6666666666666667, height=0.08333333333333333, fixedsize=true];`,
+		`<i>«initial»</i></font>>, pos="100,290!", pin=true, width=1.1111111111111112, height=1.1111111111111112];`,
+		`<i>«final»</i></font>>, pos="150,-14.5!", pin=true, width=0.9583333333333334, height=0.9583333333333334];`,
+		`"n9" -> "n1" [label="'start to fork'", pos="100,250 100,250 100,220 100,220"];`,
+		`"n7" -> "n10" [label="[false]", pos="110,70 110,70 150,70 150,70 150,70 150,20 150,20"];`,
+	} {
+		if !strings.Contains(dot, want) {
+			t.Errorf("DOT of the activity view lacks %q:\n%s", want, dot)
+		}
+	}
+}
+
 // The routes a migrated view carries reach the DOT form as pinned edge splines for each
 // edge kind, labelled by name only where the edge has no text of its own.
 func TestMigratedRoutesRenderPinned(t *testing.T) {
@@ -149,9 +203,9 @@ func TestMigratedRoutesRenderPinned(t *testing.T) {
 	s := session(t, r)
 	for view, wants := range map[string][]string{
 		"Structure::Vehicle::Drive::Driving": {
-			`"n5" -> "n1" [label="'start to gain'", pos="60,160 60,160 60,190 60,190"];`,
-			`"n3" -> "n4" [label="finish", pos="60,0 60,0 60,40 60,40"];`,
-			`[label="result to value", style=dashed, pos="110,60 110,60 140,60 140,60 140,60 140,140 140,140 140,140 110,140 110,140"];`,
+			`"n5" -> "n1" [label="'start to gain'", pos="60,180 60,180 60,210 60,210"];`,
+			`"n3" -> "n4" [label="finish", pos="60,20 60,20 60,60 60,60"];`,
+			`[label="result to value", style=dashed, pos="110,80 110,80 140,80 140,80 140,80 140,160 140,160 140,160 110,160 110,160"];`,
 		},
 		"Behavior::Modes::Modes": {
 			`"n1" -> "n2" [label="accept Go", pos="200,110 200,110 110,110 110,110"];`,

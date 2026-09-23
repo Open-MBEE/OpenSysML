@@ -217,7 +217,7 @@ func (m *migration) hostsViews(e *sysmlv1.Element) bool {
 	case "Property", "Port", "Parameter", "EnumerationLiteral", "Region":
 		return false
 	}
-	if m.methodOf[e] != nil || isActionNode(e) || vertexBase(e) != "" || !m.written(e) {
+	if m.methodOf[e] != nil || m.isActionNode(e) || vertexBase(e) != "" || !m.written(e) {
 		return false
 	}
 	cat, _ := m.classify(e)

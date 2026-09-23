@@ -1,0 +1,246 @@
+<?xml version="1.0" encoding="UTF-8"?><packet>
+   <metadata>
+      <mtipVersion>2022x v1.0.0</mtipVersion>
+      <cameoVersion>2022x Refresh2</cameoVersion>
+      <exportTime>2025-06-12T21:38:50.779458500Z</exportTime>
+   </metadata>
+   <data>
+      <attributes _dtype="dict">
+         <attribute _dtype="dict" key="name">
+            <attribute _dtype="str" key="value">Model</attribute>
+         </attribute>
+      </attributes>
+      <id _dtype="dict">
+         <cameo _dtype="str">_m</cameo>
+      </id>
+      <relationships _dtype="dict"/>
+      <type _dtype="str">sysml.Model</type>
+   </data>
+   <data>
+      <attributes _dtype="dict">
+         <attribute _dtype="dict" key="name">
+            <attribute _dtype="str" key="value">Run</attribute>
+         </attribute>
+      </attributes>
+      <id _dtype="dict">
+         <cameo _dtype="str">_diag_run</cameo>
+      </id>
+      <relationships _dtype="dict">
+         <element _dtype="list">
+            <element _dtype="dict" key="0">
+               <relationship_metadata _dtype="dict">
+                  <top _dtype="int">-10</top>
+                  <bottom _dtype="int">-30</bottom>
+                  <left _dtype="int">90</left>
+                  <right _dtype="int">110</right>
+               </relationship_metadata>
+               <id _dtype="str">_cn_init</id>
+               <type _dtype="str">sysml.InitialNode</type>
+            </element>
+            <element _dtype="dict" key="1">
+               <relationship_metadata _dtype="dict">
+                  <top _dtype="int">-60</top>
+                  <bottom _dtype="int">-66</bottom>
+                  <left _dtype="int">40</left>
+                  <right _dtype="int">160</right>
+               </relationship_metadata>
+               <id _dtype="str">_cn_fork</id>
+               <type _dtype="str">sysml.ForkNode</type>
+            </element>
+            <element _dtype="dict" key="2">
+               <relationship_metadata _dtype="dict">
+                  <top _dtype="int">-100</top>
+                  <bottom _dtype="int">-140</bottom>
+                  <left _dtype="int">10</left>
+                  <right _dtype="int">90</right>
+               </relationship_metadata>
+               <id _dtype="str">_cn_heat</id>
+               <type _dtype="str">sysml.OpaqueAction</type>
+            </element>
+            <element _dtype="dict" key="3">
+               <relationship_metadata _dtype="dict">
+                  <top _dtype="int">-100</top>
+                  <bottom _dtype="int">-140</bottom>
+                  <left _dtype="int">110</left>
+                  <right _dtype="int">190</right>
+               </relationship_metadata>
+               <id _dtype="str">_cn_cool</id>
+               <type _dtype="str">sysml.OpaqueAction</type>
+            </element>
+            <element _dtype="dict" key="4">
+               <relationship_metadata _dtype="dict">
+                  <top _dtype="int">-170</top>
+                  <bottom _dtype="int">-176</bottom>
+                  <left _dtype="int">40</left>
+                  <right _dtype="int">160</right>
+               </relationship_metadata>
+               <id _dtype="str">_cn_join</id>
+               <type _dtype="str">sysml.JoinNode</type>
+            </element>
+            <element _dtype="dict" key="5">
+               <relationship_metadata _dtype="dict">
+                  <top _dtype="int">-200</top>
+                  <bottom _dtype="int">-220</bottom>
+                  <left _dtype="int">90</left>
+                  <right _dtype="int">110</right>
+               </relationship_metadata>
+               <id _dtype="str">_cn_check</id>
+               <type _dtype="str">sysml.DecisionNode</type>
+            </element>
+            <element _dtype="dict" key="6">
+               <relationship_metadata _dtype="dict">
+                  <top _dtype="int">-260</top>
+                  <bottom _dtype="int">-280</bottom>
+                  <left _dtype="int">40</left>
+                  <right _dtype="int">60</right>
+               </relationship_metadata>
+               <id _dtype="str">_cn_final</id>
+               <type _dtype="str">sysml.ActivityFinalNode</type>
+            </element>
+            <element _dtype="dict" key="7">
+               <relationship_metadata _dtype="dict">
+                  <top _dtype="int">-260</top>
+                  <bottom _dtype="int">-280</bottom>
+                  <left _dtype="int">140</left>
+                  <right _dtype="int">160</right>
+               </relationship_metadata>
+               <id _dtype="str">_cn_flow</id>
+               <type _dtype="str">sysml.FlowFinalNode</type>
+            </element>
+         </element>
+         <diagramConnector _dtype="list">
+            <diagramConnector _dtype="dict" key="0">
+               <relationship_metadata _dtype="dict">
+                  <supplierPoint _dtype="dict">
+                     <xCoordinate _dtype="int">100</xCoordinate>
+                     <yCoordinate _dtype="int">60</yCoordinate>
+                  </supplierPoint>
+                  <clientPoint _dtype="dict">
+                     <xCoordinate _dtype="int">100</xCoordinate>
+                     <yCoordinate _dtype="int">30</yCoordinate>
+                  </clientPoint>
+                  <breakPoint _dtype="list"/>
+               </relationship_metadata>
+               <id _dtype="str">_cn_e1</id>
+               <type _dtype="str">sysml.ControlFlow</type>
+            </diagramConnector>
+            <diagramConnector _dtype="dict" key="1">
+               <relationship_metadata _dtype="dict">
+                  <supplierPoint _dtype="dict">
+                     <xCoordinate _dtype="int">50</xCoordinate>
+                     <yCoordinate _dtype="int">100</yCoordinate>
+                  </supplierPoint>
+                  <clientPoint _dtype="dict">
+                     <xCoordinate _dtype="int">50</xCoordinate>
+                     <yCoordinate _dtype="int">66</yCoordinate>
+                  </clientPoint>
+                  <breakPoint _dtype="list"/>
+               </relationship_metadata>
+               <id _dtype="str">_cn_e2</id>
+               <type _dtype="str">sysml.ControlFlow</type>
+            </diagramConnector>
+            <diagramConnector _dtype="dict" key="2">
+               <relationship_metadata _dtype="dict">
+                  <supplierPoint _dtype="dict">
+                     <xCoordinate _dtype="int">150</xCoordinate>
+                     <yCoordinate _dtype="int">100</yCoordinate>
+                  </supplierPoint>
+                  <clientPoint _dtype="dict">
+                     <xCoordinate _dtype="int">150</xCoordinate>
+                     <yCoordinate _dtype="int">66</yCoordinate>
+                  </clientPoint>
+                  <breakPoint _dtype="list"/>
+               </relationship_metadata>
+               <id _dtype="str">_cn_e3</id>
+               <type _dtype="str">sysml.ControlFlow</type>
+            </diagramConnector>
+            <diagramConnector _dtype="dict" key="3">
+               <relationship_metadata _dtype="dict">
+                  <supplierPoint _dtype="dict">
+                     <xCoordinate _dtype="int">50</xCoordinate>
+                     <yCoordinate _dtype="int">170</yCoordinate>
+                  </supplierPoint>
+                  <clientPoint _dtype="dict">
+                     <xCoordinate _dtype="int">50</xCoordinate>
+                     <yCoordinate _dtype="int">140</yCoordinate>
+                  </clientPoint>
+                  <breakPoint _dtype="list"/>
+               </relationship_metadata>
+               <id _dtype="str">_cn_e4</id>
+               <type _dtype="str">sysml.ControlFlow</type>
+            </diagramConnector>
+            <diagramConnector _dtype="dict" key="4">
+               <relationship_metadata _dtype="dict">
+                  <supplierPoint _dtype="dict">
+                     <xCoordinate _dtype="int">150</xCoordinate>
+                     <yCoordinate _dtype="int">170</yCoordinate>
+                  </supplierPoint>
+                  <clientPoint _dtype="dict">
+                     <xCoordinate _dtype="int">150</xCoordinate>
+                     <yCoordinate _dtype="int">140</yCoordinate>
+                  </clientPoint>
+                  <breakPoint _dtype="list"/>
+               </relationship_metadata>
+               <id _dtype="str">_cn_e5</id>
+               <type _dtype="str">sysml.ControlFlow</type>
+            </diagramConnector>
+            <diagramConnector _dtype="dict" key="5">
+               <relationship_metadata _dtype="dict">
+                  <supplierPoint _dtype="dict">
+                     <xCoordinate _dtype="int">100</xCoordinate>
+                     <yCoordinate _dtype="int">200</yCoordinate>
+                  </supplierPoint>
+                  <clientPoint _dtype="dict">
+                     <xCoordinate _dtype="int">100</xCoordinate>
+                     <yCoordinate _dtype="int">176</yCoordinate>
+                  </clientPoint>
+                  <breakPoint _dtype="list"/>
+               </relationship_metadata>
+               <id _dtype="str">_cn_e6</id>
+               <type _dtype="str">sysml.ControlFlow</type>
+            </diagramConnector>
+            <diagramConnector _dtype="dict" key="6">
+               <relationship_metadata _dtype="dict">
+                  <supplierPoint _dtype="dict">
+                     <xCoordinate _dtype="int">50</xCoordinate>
+                     <yCoordinate _dtype="int">260</yCoordinate>
+                  </supplierPoint>
+                  <clientPoint _dtype="dict">
+                     <xCoordinate _dtype="int">90</xCoordinate>
+                     <yCoordinate _dtype="int">210</yCoordinate>
+                  </clientPoint>
+                  <breakPoint _dtype="list">
+                     <breakPoint key="0">
+                        <xCoordinate _dtype="int">50</xCoordinate>
+                        <yCoordinate _dtype="int">210</yCoordinate>
+                     </breakPoint>
+                  </breakPoint>
+               </relationship_metadata>
+               <id _dtype="str">_cn_e7</id>
+               <type _dtype="str">sysml.ControlFlow</type>
+            </diagramConnector>
+            <diagramConnector _dtype="dict" key="7">
+               <relationship_metadata _dtype="dict">
+                  <supplierPoint _dtype="dict">
+                     <xCoordinate _dtype="int">150</xCoordinate>
+                     <yCoordinate _dtype="int">260</yCoordinate>
+                  </supplierPoint>
+                  <clientPoint _dtype="dict">
+                     <xCoordinate _dtype="int">110</xCoordinate>
+                     <yCoordinate _dtype="int">210</yCoordinate>
+                  </clientPoint>
+                  <breakPoint _dtype="list">
+                     <breakPoint key="0">
+                        <xCoordinate _dtype="int">150</xCoordinate>
+                        <yCoordinate _dtype="int">210</yCoordinate>
+                     </breakPoint>
+                  </breakPoint>
+               </relationship_metadata>
+               <id _dtype="str">_cn_e8</id>
+               <type _dtype="str">sysml.ControlFlow</type>
+            </diagramConnector>
+         </diagramConnector>
+      </relationships>
+      <type _dtype="str">sysml.ActivityDiagram</type>
+   </data>
+</packet>

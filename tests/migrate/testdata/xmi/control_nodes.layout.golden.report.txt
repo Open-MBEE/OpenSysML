@@ -1,0 +1,33 @@
+# SysML v1 to v2 migration report: control_nodes.xmi
+# exported by Example UML Tool
+# migrated 20 element(s): 18 mapped, 2 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to); laid out 1 of 1 diagrams from control_nodes.layout.xml: 6 elements positioned, 8 connectors routed
+
+## layout
+# source: control_nodes.layout.xml (2022x v1.0.0, cameo 2022x Refresh2, exported 2025-06-12T21:38:50.779458500Z)
+# 1 diagram records: 1 joined, 0 matching no diagram; 0 views without layout
+# placements: 6 of 8 written (2 not exposed, 0 resolving to no element); routes: 8 of 8 written (0 not pinned, 0 resolving to no element); malformed: 0
+# routes of ControlFlow: 8 written
+
+## approximated (2)
+OpaqueAction	Control::Controller::Run::cool	_cn_cool	-> cool	(the body is kept as a comment: the body is empty)
+OpaqueAction	Control::Controller::Run::heat	_cn_heat	-> heat	(the body is kept as a comment: the body is empty)
+
+## mapped (18)
+Package	Control	_pkg_control	-> Control
+«Block» Class	Control::Controller	_blk_controller	-> Control::Controller
+Activity	Control::Controller::Run	_act_run	-> Control::Controller::Run
+ActivityFinalNode	Control::Controller::Run::<ActivityFinalNode>	_cn_final	-> final
+ControlFlow	Control::Controller::Run::<ControlFlow>	_cn_e2	-> Control::Controller::Run::'fork to heat'
+ControlFlow	Control::Controller::Run::<ControlFlow>	_cn_e3	-> Control::Controller::Run::'fork to cool'
+ControlFlow	Control::Controller::Run::<ControlFlow>	_cn_e4	-> Control::Controller::Run::'heat to join'
+ControlFlow	Control::Controller::Run::<ControlFlow>	_cn_e5	-> Control::Controller::Run::'cool to join'
+ControlFlow	Control::Controller::Run::<ControlFlow>	_cn_e6	-> Control::Controller::Run::'join to check'
+ControlFlow	Control::Controller::Run::<ControlFlow>	_cn_e7	-> Control::Controller::Run::'check to final'	(the English body is translated to v2)
+ControlFlow	Control::Controller::Run::<ControlFlow>	_cn_e8	-> Control::Controller::Run::'check to done'	(the English body is translated to v2)
+FlowFinalNode	Control::Controller::Run::<FlowFinalNode>	_cn_flow	-> done	(a flow final ends the token, as done does)
+ForkNode	Control::Controller::Run::<ForkNode>	_cn_fork	-> 'fork'
+InitialNode	Control::Controller::Run::<InitialNode>	_cn_init	-> start
+JoinNode	Control::Controller::Run::<JoinNode>	_cn_join	-> 'join'
+Diagram	Control::Controller::Run::Run	_diag_run	-> Control::Controller::Run::Run	(a SysML Activity Diagram written as a view rendered asInterconnectionDiagram of ActionFlowView; the view exposes action def Control::Controller::Run, whose graph the rendering draws with the 16 shown nodes and edges of it; laid out from control_nodes.layout.xml: 6 of 8 shown elements positioned (2 not exposed), 8 of 8 connectors routed)
+DecisionNode	Control::Controller::Run::check	_cn_check	-> check
+Model	Model	_m	(the root model's members are written at the top level)
