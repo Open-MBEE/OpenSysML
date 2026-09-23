@@ -548,7 +548,16 @@ func (r *Resolver) eachImportMatch(into, scope *symbols.Scope, imp *ast.Import, 
 	}
 }
 
+// importPrefixAvailable reports whether imp can surface name from scope: a
+// membership import names only its last segment or the target's short name, and
+// a prefix unbound while sibling imports resolve cannot name the target.
 func (r *Resolver) importPrefixAvailable(scope *symbols.Scope, imp *ast.Import, name string) bool {
+	if imp.Kind == ast.ImportMembership && !imp.IsRecursive && imp.Imported != nil && len(imp.Imported.Parts) > 0 {
+		last := imp.Imported.Parts[len(imp.Imported.Parts)-1].Text
+		if last != name && r.idx != nil && !r.idx.ShortNamed(name) && !r.idx.ShortNamed(last) {
+			return false
+		}
+	}
 	if len(r.resolvingImports) == 0 || imp.Imported == nil || len(imp.Imported.Parts) == 0 {
 		return true
 	}
