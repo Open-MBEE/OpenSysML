@@ -673,7 +673,7 @@ func dropStatedDefaults(graph *rdf.Graph, meta func(rdf.Term) string, elementFor
 		"owningFeatureMembership": true, "owningFeature": true,
 	}
 	// The properties whose literal objects are a reference written as a name;
-	// the written spelling is unescaped so writing it back escapes it once.
+	// each is canonicalized so writing it back quotes it once.
 	referenceNameProps := map[string]bool{
 		pMemberElement: true, "referent": true, pTargetFeature: true,
 		pFunction: true, pClient: true, pSupplier: true, pSource: true,
@@ -731,7 +731,7 @@ func dropStatedDefaults(graph *rdf.Graph, meta func(rdf.Term) string, elementFor
 		}
 		owner := firstIRI(graph, subject, "representedElement", "annotatedElement", pOwner)
 		if owner.Value != "" {
-			unresolvedRef[owner.Value] = unescapeName(body)
+			unresolvedRef[owner.Value] = canonicalName(body)
 		}
 	}
 	// The same reference resolved to a library uuid only in the full form is
@@ -747,7 +747,7 @@ func dropStatedDefaults(graph *rdf.Graph, meta func(rdf.Term) string, elementFor
 		if language != "x-sysmlv2-unresolved-reference" || !hasBody {
 			continue
 		}
-		unresolvedID[identity.UnresolvedElementID(body)] = unescapeName(body)
+		unresolvedID[identity.UnresolvedElementID(body)] = canonicalName(body)
 		// The annotation exists only to carry the written name; the compact
 		// form mints no such element.
 		unresolvedTR[subject.Value] = true
@@ -776,7 +776,7 @@ func dropStatedDefaults(graph *rdf.Graph, meta func(rdf.Term) string, elementFor
 					segments = append(segments, name[strings.LastIndex(name, "::")+2:])
 				}
 			} else if name, ok := graph.Lexical(chain, rdf.SysML+"chainingFeature"); ok {
-				segments = append(segments, unescapeName(name))
+				segments = append(segments, canonicalName(name))
 			}
 		}
 		if len(segments) > 0 {
@@ -898,7 +898,7 @@ func dropStatedDefaults(graph *rdf.Graph, meta func(rdf.Term) string, elementFor
 				continue
 			}
 			if referenceNameProps[local] && !strings.HasPrefix(triple.Predicate.Value, rdf.AnnotationJSON) {
-				object = rdf.String(unescapeName(object.Value))
+				object = rdf.String(canonicalName(object.Value))
 			}
 			drop := false
 			switch {
@@ -942,15 +942,12 @@ func dropStatedDefaults(graph *rdf.Graph, meta func(rdf.Term) string, elementFor
 	return out
 }
 
-// unescapeName returns a written qualified name in its canonical spelling:
-// segments split on `::` outside quotes, each requoted and escaped once.
-func unescapeName(name string) string {
+// canonicalName returns a written qualified name in its canonical spelling:
+// segments split on `::` outside quotes, each requoted with its escapes kept.
+func canonicalName(name string) string {
 	segments, ok := source.QualifiedNameSegments(name)
 	if !ok {
-		return source.UnescapedName(strings.Trim(name, "'"))
-	}
-	for i, segment := range segments {
-		segments[i] = source.UnescapedName(segment)
+		return name
 	}
 	return source.QualifiedNameOf(segments)
 }

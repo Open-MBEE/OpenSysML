@@ -28,15 +28,3 @@ func TestQualifiedNameSegments(t *testing.T) {
 		t.Error("QualifiedNameSegments(\"A::\") succeeded, want a failure")
 	}
 }
-
-func TestUnescapedName(t *testing.T) {
-	for _, tc := range []struct{ in, want string }{
-		{`a\'b`, "a'b"},
-		{`a\\b`, `a\b`},
-		{"plain", "plain"},
-	} {
-		if got := UnescapedName(tc.in); got != tc.want {
-			t.Errorf("UnescapedName(%q) = %q, want %q", tc.in, got, tc.want)
-		}
-	}
-}

@@ -345,16 +345,16 @@ func TestUUIDDeclaredElementID(t *testing.T) {
 	}
 }
 
-// TestUnescapeNameSplitsQuotedSegments checks a written qualified name is
-// split on :: outside quotes only, each segment unescaped once.
-func TestUnescapeNameSplitsQuotedSegments(t *testing.T) {
+// TestCanonicalNameSplitsQuotedSegments checks a written qualified name is
+// split on :: outside quotes only, each segment requoted with escapes kept.
+func TestCanonicalNameSplitsQuotedSegments(t *testing.T) {
 	for _, tc := range []struct{ in, want string }{
 		{"'Sep::Pkg'::x", "'Sep::Pkg'::x"},
-		{`'a\'b'::c`, "'a'b'::c"},
+		{`'a\'b'::c`, `'a\'b'::c`},
 		{"A::B", "A::B"},
 	} {
-		if got := unescapeName(tc.in); got != tc.want {
-			t.Errorf("unescapeName(%q) = %q, want %q", tc.in, got, tc.want)
+		if got := canonicalName(tc.in); got != tc.want {
+			t.Errorf("canonicalName(%q) = %q, want %q", tc.in, got, tc.want)
 		}
 	}
 }
