@@ -3275,9 +3275,8 @@ func (m *migration) isPropertyKindMarker(e *sysmlv1.Element, s *sysmlv1.Stereoty
 	}
 	owner, _ := m.classify(e.Parent)
 	kw, prefix, _ := m.featureKeyword(e, owner)
-	if owner == catConstraintDef && kw != "constraint" {
-		// A constraint parameter's `in` says all a value, part or reference marker does.
-		return kind != "constraint"
+	if owner == catConstraintDef && kind == "part" {
+		kind = "ref" // a constraint parameter is a reference by necessity
 	}
 	return usageKind(kw, prefix) == kind
 }

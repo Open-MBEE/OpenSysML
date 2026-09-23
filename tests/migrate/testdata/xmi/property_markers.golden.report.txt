@@ -1,15 +1,17 @@
 # SysML v1 to v2 migration report: property_markers.xmi
 # exported by Example UML Tool
-# migrated 24 element(s): 22 mapped, 2 approximated, 0 unmapped (2 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 26 element(s): 24 mapped, 2 approximated, 0 unmapped (2 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
 ## approximated (2)
 Constraint	Fleet::MaxSpeed::<Constraint>	_ms_rule	-> Fleet::MaxSpeed	(opaque expression copied verbatim (language SysML))
 «SharedProperty» Property	Fleet::Vehicle::spare	_spare	-> Fleet::Vehicle::spare	(shared aggregation is written as a reference part)
 
-## mapped (22)
+## mapped (24)
 Package	Fleet	_sys	-> Fleet
 «Block» Class	Fleet::Engine	_engine_def	-> Fleet::Engine
 «ConstraintBlock» Class	Fleet::MaxSpeed	_maxspeed	-> Fleet::MaxSpeed
+«ValueProperty» Property	Fleet::MaxSpeed::hub	_ms_hub	-> Fleet::MaxSpeed::hub
+«ReferenceProperty» Property	Fleet::MaxSpeed::k	_ms_k	-> Fleet::MaxSpeed::k
 «ValueProperty» Property	Fleet::MaxSpeed::v	_ms_v	-> Fleet::MaxSpeed::v
 «PartProperty» Property	Fleet::MaxSpeed::wheel	_ms_wheel	-> Fleet::MaxSpeed::wheel
 Enumeration	Fleet::Mode	_modes	-> Fleet::Mode

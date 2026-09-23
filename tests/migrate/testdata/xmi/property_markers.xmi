@@ -45,6 +45,10 @@
           <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Real"/>
         </ownedAttribute>
         <ownedAttribute xmi:type="uml:Property" xmi:id="_ms_wheel" name="wheel" type="_wheel" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_ms_hub" name="hub" type="_wheel" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_ms_k" name="k">
+          <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Real"/>
+        </ownedAttribute>
         <ownedRule xmi:type="uml:Constraint" xmi:id="_ms_rule" constrainedElement="_maxspeed">
           <specification xmi:type="uml:OpaqueExpression" xmi:id="_ms_spec">
             <body>v &lt;= 120.0</body>
@@ -66,6 +70,8 @@
   <MD_Customization_for_SysML__additional_stereotypes:ConstraintProperty xmi:id="_mk_limit" base_Property="_limit"/>
   <MD_Customization_for_SysML__additional_stereotypes:ValueProperty xmi:id="_mk_ms_v" base_Property="_ms_v"/>
   <MD_Customization_for_SysML__additional_stereotypes:PartProperty xmi:id="_mk_ms_wheel" base_Property="_ms_wheel"/>
+  <MD_Customization_for_SysML__additional_stereotypes:ValueProperty xmi:id="_mk_ms_hub" base_Property="_ms_hub"/>
+  <MD_Customization_for_SysML__additional_stereotypes:ReferenceProperty xmi:id="_mk_ms_k" base_Property="_ms_k"/>
   <MD_Customization_for_SysML__additional_stereotypes:ValueProperty xmi:id="_mk_odd" base_Property="_odd"/>
   <MD_Customization_for_SysML__additional_stereotypes:PartProperty xmi:id="_mk_axle" base_Property="_axle" ordering="rear"/>
   <Vehicle_Profile:PartProperty xmi:id="_mk_cabin" base_Property="_cabin"/>

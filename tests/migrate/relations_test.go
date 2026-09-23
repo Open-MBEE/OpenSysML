@@ -1301,6 +1301,9 @@ func TestPropertyKindMarkersAreNotWritten(t *testing.T) {
 		"constraint limit : MaxSpeed;",
 		"in attribute v : ScalarValues::Real;",
 		"in ref part wheel : Wheel;",
+		"in ref part hub : Wheel {",
+		"in attribute k : ScalarValues::Real {",
+		"/* applied stereotype «ReferenceProperty» */",
 		"part odd : Wheel {",
 		"/* applied stereotype «ValueProperty» */",
 		"part axle : Wheel {",
@@ -1312,12 +1315,12 @@ func TestPropertyKindMarkersAreNotWritten(t *testing.T) {
 		wantLine(t, r.Notation, line)
 	}
 	for _, name := range []string{"PartProperty", "ValueProperty", "SharedProperty", "ReferenceProperty", "ConstraintProperty"} {
-		want := map[string]int{"PartProperty": 1, "ValueProperty": 2}[name]
+		want := map[string]int{"PartProperty": 1, "ValueProperty": 3, "ReferenceProperty": 1}[name]
 		if n := strings.Count(string(r.Notation), "«"+name+"»"); n != want {
 			t.Errorf("«%s» written %d times, want %d", name, n, want)
 		}
 	}
-	for _, id := range []string{"_mass", "_mode", "_engine", "_lead", "_limit", "_ms_v", "_ms_wheel", "_odd", "_axle", "_cabin", "_serial"} {
+	for _, id := range []string{"_mass", "_mode", "_engine", "_lead", "_limit", "_ms_v", "_ms_wheel", "_ms_hub", "_ms_k", "_odd", "_axle", "_cabin", "_serial"} {
 		if es := entriesFor(r, id); len(es) != 1 || es[0].Verdict != migrate.Mapped {
 			t.Errorf("%s entries = %+v", id, es)
 		}

@@ -31,6 +31,12 @@ package Fleet {
     constraint def MaxSpeed {
         in attribute v : ScalarValues::Real;
         in ref part wheel : Wheel;
+        in ref part hub : Wheel {
+            /* applied stereotype «ValueProperty» */
+        }
+        in attribute k : ScalarValues::Real {
+            /* applied stereotype «ReferenceProperty» */
+        }
         v <= 120.0
     }
 }
