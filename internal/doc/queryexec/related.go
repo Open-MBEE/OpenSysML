@@ -50,9 +50,10 @@ type relationshipEdges struct {
 // RelationshipTables memoizes one model's per-kind edge tables across the
 // executions whose Context shares them. Not safe for concurrent use.
 type RelationshipTables struct {
-	index   *symbols.Index
-	model   *semantics.Model
-	entries map[string]*relationshipEdges
+	index      *symbols.Index
+	generation uint64
+	model      *semantics.Model
+	entries    map[string]*relationshipEdges
 }
 
 // NewRelationshipTables returns empty tables for a Context to carry.
@@ -60,11 +61,12 @@ func NewRelationshipTables() *RelationshipTables {
 	return &RelationshipTables{entries: make(map[string]*relationshipEdges)}
 }
 
-// lookup returns the cached tables of one kind, discarding every entry built
-// against another index or model first.
+// lookup returns the cached tables of one kind, first discarding every entry
+// built against another index or model, or the index before an edit.
 func (t *RelationshipTables) lookup(kind string, context Context) (*relationshipEdges, bool) {
-	if t.index != context.Index || t.model != context.Model {
-		t.index, t.model = context.Index, context.Model
+	generation := context.Index.Generation()
+	if t.index != context.Index || t.generation != generation || t.model != context.Model {
+		t.index, t.generation, t.model = context.Index, generation, context.Model
 		t.entries = make(map[string]*relationshipEdges)
 	}
 	edges, ok := t.entries[kind]

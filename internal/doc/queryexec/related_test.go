@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 func (f executionFixture) related(
@@ -266,6 +268,45 @@ func TestExecuteSharesRelationshipTablesThroughTheContext(t *testing.T) {
 	}
 	if tables.entries["subsetting"] == built || tables.index != other.index {
 		t.Fatal("tables built against another index must be rebuilt")
+	}
+}
+
+func TestExecuteRebuildsRelationshipTablesAfterAnIndexEdit(t *testing.T) {
+	fixture := loadExecutionFixtureFile(t, "testdata/tmt_relationships.sysml")
+	context := Context{Index: fixture.index, Resolver: fixture.resolver, Model: fixture.model, Related: NewRelationshipTables()}
+	subsetters := func(step string) []string {
+		t.Helper()
+		rows, err := Execute(fixture.program(t, "Related"), context, Bindings{
+			"source":    {ElementValue(fixture.symbol(t, "instruments"))},
+			"kind":      {StringValue("subsetting")},
+			"direction": {StringValue("incoming")},
+			"maxDepth":  {IntegerValue(1)},
+		}, Options{})
+		if err != nil {
+			t.Fatalf("%s: %v", step, err)
+		}
+		return rowNames(rows)
+	}
+	if names := subsetters("before the edit"); len(names) != 2 {
+		t.Fatalf("rows before the edit = %v", names)
+	}
+
+	// The same index, edited in place: a document declaring one more subsetter
+	// is added, then removed again. The tables follow both edits.
+	edit := "edit.sysml"
+	p := parser.New(source.New(edit, []byte("package Edit { part nfiraos :> Observatory::instruments; }")))
+	root := p.ParseFile()
+	if len(p.Diagnostics) > 0 {
+		t.Fatalf("parse edit: %v", p.Diagnostics)
+	}
+	fixture.index.AddDocument(edit, root)
+	fixture.index.ExpandWildcardImports()
+	if names := subsetters("after adding a subsetter"); len(names) != 3 || names[0] != "Edit::nfiraos" {
+		t.Fatalf("rows after adding a subsetter = %v", names)
+	}
+	fixture.index.RemoveDocument(edit)
+	if names := subsetters("after removing it again"); len(names) != 2 {
+		t.Fatalf("rows after removing the subsetter = %v", names)
 	}
 }
 

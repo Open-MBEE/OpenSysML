@@ -785,7 +785,7 @@ to `maxDepth` (unbounded when omitted or `null`), deduplicated, in
 declaration order, and bounded by a visit budget so a pathological model
 terminates with a typed error rather than hanging. The budget pays only for
 the elements reached: the edge table a relationship kind reads is built once
-per model, from every declaration in the workspace, and is not charged to it —
+per model (again after an edit), from every declaration in the workspace, and is not charged to it —
 so a matrix over a large model costs what its rows relate to, not the model's size.
 
 ### Connections
