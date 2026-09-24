@@ -434,7 +434,7 @@ func (m *migration) columnKey(c sysmlv1.Column, host *sysmlv1.Element) (key stri
 		f := c.Feature.Element
 		switch {
 		case f == nil:
-			return "", nil, "the column " + c.ID + " names no property of the document"
+			return "", nil, columnSubject + c.ID + " names no property of the document"
 		case monteCarloFeature(f) != "":
 			return "", nil, monteCarloColumnNote(monteCarloFeature(f))
 		case !m.written(f):
@@ -444,9 +444,9 @@ func (m *migration) columnKey(c sysmlv1.Column, host *sysmlv1.Element) (key stri
 		}
 		return m.nameOf(f), f, ""
 	case sysmlv1.ColumnPropertyPair:
-		return "", nil, "the column " + c.ID + " reads a property of a property, which no Column expression reads"
+		return "", nil, columnSubject + c.ID + " reads a property of a property, which no Column expression reads"
 	}
-	return "", nil, "the column " + c.ID + " is of a form the migrator does not read"
+	return "", nil, columnSubject + c.ID + " is of a form the migrator does not read"
 }
 
 // sorted orders rows by the table's sort keys, least significant first so the
@@ -460,10 +460,10 @@ func (m *migration) sorted(rows qx, t *sysmlv1.Table, host *sysmlv1.Element, l *
 			case s.Column == "-1" || s.Column == "" || strings.HasPrefix(s.Column, "_"):
 				continue
 			case s.Column == "ID" || strings.HasSuffix(s.Column, ":hierarchyId"):
-				l.note("the sort by " + s.Column + " orders rows by a tool id, which is dropped")
+				l.note(sortBySubject + s.Column + " orders rows by a tool id, which is dropped")
 				continue
 			}
-			l.note("the sort by " + s.Column + " names no column and is dropped")
+			l.note(sortBySubject + s.Column + " names no column and is dropped")
 			continue
 		}
 		if col.Kind == sysmlv1.ColumnTool {
@@ -471,7 +471,7 @@ func (m *migration) sorted(rows qx, t *sysmlv1.Table, host *sysmlv1.Element, l *
 		}
 		key, _, why := m.columnKey(col, host)
 		if why != "" {
-			l.note("the sort by " + s.Column + " is dropped: " + why)
+			l.note(sortBySubject + s.Column + " is dropped: " + why)
 			continue
 		}
 		dir := "ascending"
@@ -511,12 +511,12 @@ func (m *migration) projected(rows qx, t *sysmlv1.Table, host *sysmlv1.Element, 
 		shown++
 		key, f, why := m.columnKey(c, host)
 		if why != "" {
-			l.note("the column " + c.ID + " is omitted: " + why)
+			l.note(columnSubject + c.ID + " is omitted: " + why)
 			continue
 		}
 		if f == nil {
 			if !p.property(key) {
-				l.note("the column " + c.ID + " repeats the column " + key + " and is omitted")
+				l.note(columnSubject + c.ID + " repeats the column " + key + " and is omitted")
 			}
 			continue
 		}
@@ -603,7 +603,7 @@ func (p *projection) build(source qx) (project qx, notes []string) {
 		}
 		name := names.claim(e.name)
 		if name != e.name {
-			notes = append(notes, "the column "+e.name+" is written as "+name+": column names are unique")
+			notes = append(notes, columnSubject+e.name+" is written as "+name+": column names are unique")
 		}
 		cols = append(cols, qcall("Column", qarg1("name", qstr(name)), qarg1("expression", e.expression)))
 	}
@@ -763,7 +763,7 @@ func (m *migration) lowerMatrix(t *sysmlv1.Table, host *sysmlv1.Element, l *lowe
 				name += " (" + dir + ")"
 			}
 			if unique := names.claim(name); unique != name {
-				l.note("the column " + name + " is written as " + unique + ": column names are unique")
+				l.note(columnSubject + name + " is written as " + unique + ": column names are unique")
 				name = unique
 			}
 			related = append(related, qcall("RelatedColumn", qarg1("name", qstr(name)),

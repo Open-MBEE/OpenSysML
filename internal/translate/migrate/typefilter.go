@@ -102,6 +102,7 @@ var packageableTypes = []string{typePackage, typeDefinition, typeViewUsage, type
 const (
 	noteDiagramViews    = "the views diagrams became are listed too"
 	noteClassifierExtra = "the views diagrams became and the action defs operations became are listed too"
+	elementTypeSubject  = "the element type "
 )
 
 // metaclassTypes maps a UML metaclass to the v2 metaclasses its elements
@@ -212,7 +213,7 @@ func standardHref(href string) (doc, name string, ok bool) {
 func (m *migration) typeFilter(ref sysmlv1.ElementRef) typeFilter {
 	e := ref.Element
 	if e == nil {
-		return typeFilter{label: ref.ID, refused: "the element type " + ref.ID + " " + m.unresolvedRef(ref)}
+		return typeFilter{label: ref.ID, refused: elementTypeSubject + ref.ID + " " + m.unresolvedRef(ref)}
 	}
 	if doc, name, ok := standardHref(e.Href); ok {
 		switch {
@@ -232,16 +233,16 @@ func (m *migration) typeFilter(ref sysmlv1.ElementRef) typeFilter {
 			return typeFilter{label: "«" + s.Name + "»", refused: "no v2 metaclass stands for the elements of «" + s.Name + "»"}
 		}
 		if e.Name == "" {
-			return typeFilter{label: e.Href, refused: "the element type " + e.Href + " is in a module the archive does not describe"}
+			return typeFilter{label: e.Href, refused: elementTypeSubject + e.Href + " is in a module the archive does not describe"}
 		}
 		if t, ok := stereotypeTypes[e.Name]; ok && isCustomizationHref(e.Href) {
 			return fromTypes("«"+e.Name+"»", t)
 		}
 		if subs := m.specializers(e); len(subs) > 0 {
 			return typeFilter{classifiers: subs, label: qualifiedName(e),
-				note: "the element type " + qualifiedName(e) + " is outside the document; rows are filtered by the document's classifiers specializing it"}
+				note: elementTypeSubject + qualifiedName(e) + " is outside the document; rows are filtered by the document's classifiers specializing it"}
 		}
-		return typeFilter{label: qualifiedName(e), refused: "the element type " + qualifiedName(e) + " is outside the document, and not a UML metaclass or a SysML stereotype"}
+		return typeFilter{label: qualifiedName(e), refused: elementTypeSubject + qualifiedName(e) + " is outside the document, and not a UML metaclass or a SysML stereotype"}
 	}
 	if e.Type == "Stereotype" {
 		if t, ok := stereotypeTypes[e.Name]; ok && m.isLibrary(e) && libraryRoots[pathRoot(qualifiedName(e))] {
@@ -253,11 +254,11 @@ func (m *migration) typeFilter(ref sysmlv1.ElementRef) typeFilter {
 		return typeFilter{label: "«" + e.Name + "»", refused: "«" + e.Name + "» is not written as a metadata def rows could be filtered by"}
 	}
 	if !m.written(e) {
-		return typeFilter{label: qualifiedName(e), refused: "the element type " + kindOf(e) + " " + qualifiedName(e) + " is not migrated"}
+		return typeFilter{label: qualifiedName(e), refused: elementTypeSubject + kindOf(e) + " " + qualifiedName(e) + " is not migrated"}
 	}
 	cat, _ := m.classify(e)
 	if cat.keyword() == "" || cat == catPackage {
-		return typeFilter{label: qualifiedName(e), refused: "the element type " + kindOf(e) + " " + qualifiedName(e) + " is not a classifier rows can be typed by"}
+		return typeFilter{label: qualifiedName(e), refused: elementTypeSubject + kindOf(e) + " " + qualifiedName(e) + " is not a classifier rows can be typed by"}
 	}
 	return typeFilter{classifiers: []*sysmlv1.Element{e}, label: qualifiedName(e)}
 }

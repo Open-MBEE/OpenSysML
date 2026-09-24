@@ -16,6 +16,7 @@ const (
 	monteCarloRun         = "run"
 	monteCarloObserved    = "observed"
 	monteCarloRecorded    = "Monte Carlo"
+	connectorSubject      = "the connector binds the simulation tool's "
 )
 
 // monteCarloStatistic maps a MonteCarloAnalysis statistic to the Simulation::MonteCarlo
@@ -108,7 +109,7 @@ func (m *migration) monteCarloBound(owner, c *sysmlv1.Element) (stat string, f *
 	if stat == "" {
 		return "", nil, ""
 	}
-	subject := "the connector binds the simulation tool's " + monteCarloAnalysisBlock + "::" + stat
+	subject := connectorSubject + monteCarloAnalysisBlock + "::" + stat
 	switch {
 	case len(c.Owned("end")) != 2:
 		note = "a connector with " + strconv.Itoa(len(c.Owned("end"))) + " ends is not migrated"
@@ -209,7 +210,7 @@ func (m *migration) settleMonteCarloBinding(cs *monteCarloCase, bound map[string
 		return monteCarloBinding{}, false
 	}
 	b := monteCarloBinding{stat: stat}
-	subject := "the connector binds the simulation tool's " + monteCarloAnalysisBlock + "::" + stat
+	subject := connectorSubject + monteCarloAnalysisBlock + "::" + stat
 	member, known := monteCarloMembers[stat]
 	switch {
 	case !known && len(c.Owned("end")) == 2:
@@ -375,7 +376,7 @@ func (m *migration) monteCarloConnector(c *sysmlv1.Element) bool {
 	}
 	cs := m.monteCarloCaseOf(c.Parent)
 	if cs == nil {
-		note := "the connector binds the simulation tool's " + monteCarloAnalysisBlock + "::" + stat + ", a statistic of an analysis its owner does not inherit"
+		note := connectorSubject + monteCarloAnalysisBlock + "::" + stat + ", a statistic of an analysis its owner does not inherit"
 		if f != nil && !f.IsProxy() {
 			note = "the connector binds " + f.Name + " to the simulation tool's " + monteCarloAnalysisBlock + "::" + stat + ", a statistic of an analysis its owner does not inherit"
 		}
@@ -423,7 +424,9 @@ func (m *migration) monteCarloSlots(e *sysmlv1.Element, slots []*sysmlv1.Element
 		count[stat]++
 	}
 	if len(stats) == 0 {
-		return others, func() {}
+		return others, func() {
+			// No held statistics means there is no recorded analysis to write.
+		}
 	}
 	cs := m.recordedCase(e)
 	var lines []string
@@ -455,7 +458,9 @@ func (m *migration) monteCarloSlots(e *sysmlv1.Element, slots []*sysmlv1.Element
 		m.add(h.slot, verdictFor(note), m.v2Name(e)+"::"+writeName(monteCarloRecorded)+"::"+member.member, note)
 	}
 	if cs == nil {
-		return others, func() {}
+		return others, func() {
+			// Without a recorded case there is no analysis block to write.
+		}
 	}
 	return others, func() {
 		m.w.block("analysis "+writeName(monteCarloRecorded)+" : "+m.refMember(cs.block.Parent, cs.name, namespaces(cs.segments), e, true), func() {
