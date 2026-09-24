@@ -1357,6 +1357,7 @@ func (m *migration) individualBody(e *sysmlv1.Element) {
 		for _, l := range lines {
 			m.w.line(l)
 		}
+		m.madeUp(f, writeName(m.nameFor(f)))
 		m.add(slot, verdictFor(note), m.v2Name(e)+"::"+writeName(m.nameFor(f)), note)
 	}
 	recorded()
@@ -1928,6 +1929,9 @@ func (m *migration) feature(p *sysmlv1.Element) {
 		m.scope = p
 		m.comments(p)
 		m.w.lines(bodyLines)
+		if payload != "" {
+			m.madeUp(p, writeName(m.nameFor(p)))
+		}
 		for _, c := range p.Children {
 			if c.Role != "defaultValue" {
 				m.member(c)
@@ -1940,7 +1944,9 @@ func (m *migration) feature(p *sysmlv1.Element) {
 		m.w.markMadeUp(m.synthesizedNames)
 		m.scope = saved
 	})
-	m.madeUp(p, writeName(name))
+	if name != "" {
+		m.madeUp(p, writeName(name))
+	}
 }
 
 // featureVisibility returns the visibility prefix written for a feature and

@@ -25,6 +25,7 @@ package 'Use Cases' {
         actor driver : Context::Driver;
         actor attendant : Context::Attendant[0..1];
         perform action 'park Flow' : 'Park Flow';
+        metadata MigrationMetadata::SynthesizedName about garage, 'pay Fee';
     }
     use case def 'Pay Fee' {
         subject garage : Context::Garage;
@@ -32,6 +33,7 @@ package 'Use Cases' {
         include use case authorise : 'Authorise Payment';
         attribute amount : Real;
         actor bank : Context::Bank;
+        metadata MigrationMetadata::SynthesizedName about garage, ticket;
     }
     use case def 'Authorise Payment' {
         subject;

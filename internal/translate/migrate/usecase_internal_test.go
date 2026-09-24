@@ -33,7 +33,7 @@ func TestUseCaseForms(t *testing.T) {
 	}{
 		{"a use case with a subject is a use case def",
 			`<packagedElement xmi:type="uml:UseCase" xmi:id="_uc" name="Buy" subject="_shop"/>`, "",
-			[]string{"use case def Buy {\n    subject shop : Shop;\n}"}, "_uc", Mapped},
+			[]string{"use case def Buy {\n    subject shop : Shop;\n    metadata MigrationMetadata::SynthesizedName about shop;\n}"}, "_uc", Mapped},
 		{"an incidental stereotype does not change the form",
 			`<packagedElement xmi:type="uml:UseCase" xmi:id="_uc" name="Buy"/>`,
 			`<Custom:HyperlinkOwner xmi:id="_st" base_Element="_uc"/>`,
@@ -53,7 +53,7 @@ func TestUseCaseForms(t *testing.T) {
 			   <nestedClassifier xmi:type="uml:Class" xmi:id="_sys" name="System"/>
 			 </packagedElement>`,
 			`<sysml:Block xmi:id="_st1" base_Class="_rep"/><sysml:Block xmi:id="_st2" base_Class="_sys"/>`,
-			[]string{"use case def Review {\n    subject system : Report::System;\n}"}, "_uc", Mapped},
+			[]string{"use case def Review {\n    subject system : Report::System;\n    metadata MigrationMetadata::SynthesizedName about system;\n}"}, "_uc", Mapped},
 		{"an association-owned actor end is an actor of the use case",
 			`<packagedElement xmi:type="uml:UseCase" xmi:id="_uc" name="Buy"/>
 			 <packagedElement xmi:type="uml:Association" xmi:id="_a" memberEnd="_e1 _e2">

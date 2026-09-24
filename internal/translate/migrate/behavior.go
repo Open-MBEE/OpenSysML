@@ -301,6 +301,7 @@ func (m *migration) parameter(p, scope *sysmlv1.Element, declared map[string]boo
 		note = joinNotes("bound to "+bound+", "+what, note)
 	}
 	m.add(p, v, m.v2Name(p), note)
+	m.madeUp(p, writeName(name))
 	m.w.block(b.String(), func() {
 		m.comments(p)
 		m.w.lines(body)

@@ -154,6 +154,10 @@ func TestDOTSymbolsInStatedBoxes(t *testing.T) {
 		{"port", stated(&Node{ID: "n", Kind: "port", Name: "cmdIn", Type: "CmdPort"}, 12, 12),
 			`"n" [label="", xlabel="cmdIn : CmdPort", pos="6,-6!", pin=true, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true];`},
 		{"ref port", stated(&Node{ID: "n", Kind: "ref port", Name: "p"}, 12, 12), `"n" [label="", xlabel="p", pos=`},
+		{"typed anonymous port", stated(&Node{ID: "n", Kind: "port", Type: "DataPort"}, 12, 12), `"n" [label="", xlabel=": DataPort", pos=`},
+		{"typed synthesized-name port", stated(&Node{ID: "n", Kind: "port", Name: "port2", NameSynthesized: true, Type: "DataPort"}, 12, 12),
+			`"n" [label="", xlabel=": DataPort", pos=`},
+		{"untyped anonymous port", stated(&Node{ID: "n", Kind: "port"}, 12, 12), `"n" [label="", pos=`},
 	}
 	for _, tc := range cases {
 		dot, err := (&Rendering{View: "V", Kind: KindAction, Roots: []*Node{tc.node}}).DOT()

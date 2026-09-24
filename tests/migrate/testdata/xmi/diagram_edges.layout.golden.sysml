@@ -161,6 +161,7 @@ package Usage {
     use case def 'Drive Vehicle' {
         include use case 'start Engine' : 'Start Engine';
         include use case 'stop Engine' : 'Stop Engine';
+        metadata MigrationMetadata::SynthesizedName about 'start Engine', 'stop Engine';
     }
     use case def 'Start Engine';
     use case def 'Stop Engine';

@@ -689,7 +689,8 @@ func isPortKind(kind string) bool {
 
 // dotSymbolAttributes draws a symbol kind in its stated box as the notation's symbol: a
 // diamond, a filled bar or a port's square (the default box at the stated size), the
-// filled dot or double ring. A given name is set outside as `xlabel`; a synthesized one is not drawn.
+// filled dot or double ring. A given name or a type is set outside as `xlabel`;
+// a synthesized name is not drawn.
 func (w *dotWriter) dotSymbolAttributes(node *Node) []string {
 	var attrs []string
 	switch node.Kind {
@@ -707,7 +708,7 @@ func (w *dotWriter) dotSymbolAttributes(node *Node) []string {
 		}
 	}
 	attrs = append(attrs, `label=""`)
-	if shown(node) != "" {
+	if keyworded(node) {
 		attrs = append(attrs, "xlabel="+dotQuote(w.labels.head(node)))
 	}
 	return attrs
