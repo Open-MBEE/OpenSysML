@@ -7,20 +7,21 @@
 
   @bottom-center {
     content: counter(page);
+    font-family: "Times New Roman", Times, "Liberation Serif", "Nimbus Roman", serif;
     font-size: 9pt;
     color: #444444;
   }
 }
 
 body {
-  font-family: serif;
+  font-family: "Times New Roman", Times, "Liberation Serif", "Nimbus Roman", serif;
   font-size: 11pt;
   line-height: 1.45;
   page: main;
 }
 
 h1, h2, h3, h4, h5, h6 {
-  font-family: sans-serif;
+  font-family: Arial, Helvetica, "Liberation Sans", "Nimbus Sans", sans-serif;
   line-height: 1.2;
   break-after: avoid;
   page-break-after: avoid;
@@ -88,4 +89,5 @@ figure { margin: 0.8em 0; }
 figure img, p img { max-width: 100%; }
 span.caption { font-size: 9.5pt; color: #444444; }
 div.formula { margin: 0.8em 0; text-align: center; }
+pre, code { font-family: "Courier New", Courier, "Liberation Mono", "Nimbus Mono PS", monospace; }
 pre { font-size: 9pt; white-space: pre-wrap; }
