@@ -332,10 +332,53 @@ const (
 	MermaidEdgeCeiling = 10_000
 )
 
-// MermaidSize is the maxTextSize and maxEdges a chart's source is drawn under
-// (an edge takes a line).
+// MermaidSize is the maxTextSize and maxEdges a chart's source is drawn under:
+// one past its length and one past the edges it declares.
 func MermaidSize(source string) (textSize, edges int) {
-	return len(source) + 1, strings.Count(source, "\n") + 2
+	return len(source) + 1, mermaidEdges(source) + 1
+}
+
+// mermaidEdges counts the lines that draw an arrow outside a quoted label; a
+// comment declares none.
+func mermaidEdges(source string) int {
+	edges := 0
+	for _, line := range strings.Split(source, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "%%") {
+			continue
+		}
+		if declaresEdge(unquoted(line)) {
+			edges++
+		}
+	}
+	return edges
+}
+
+// declaresEdge reports whether a statement without its labels draws an arrow:
+// a flowchart's or state diagram's between spaces or before its label's bar, or
+// a sequence message's.
+func declaresEdge(statement string) bool {
+	if strings.Contains(statement, "->>") {
+		return true
+	}
+	for _, arrow := range []string{"-->", "---", "-.->"} {
+		if strings.Contains(statement, " "+arrow+" ") || strings.Contains(statement, " "+arrow+"|") {
+			return true
+		}
+	}
+	return false
+}
+
+// unquoted is a statement without its quoted labels; mermaidText writes a quote
+// inside one as an entity.
+func unquoted(statement string) string {
+	var b strings.Builder
+	for i, part := range strings.Split(statement, "\"") {
+		if i%2 == 0 {
+			b.WriteString(part)
+		}
+	}
+	return b.String()
 }
 
 // MermaidFits reports whether a chart's source is drawn under the ceilings.

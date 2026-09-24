@@ -42,6 +42,10 @@ package Plant {
     view Silent {
         render Views::asTreeDiagram;
     }
+    view Stale {
+        expose Pump;
+        render Views::asTreeDiagram;
+    }
     view Partial {
         expose Tank;
         render Views::asTreeDiagram;
@@ -99,6 +103,7 @@ package 'Plant Documents' {
         expose Plant::Poster;
         expose Plant::Unlisted;
         expose Plant::Silent;
+        expose Plant::Stale;
     }
     view Shown {
         satisfy 'Plant Viewpoints'::'Shown Viewpoint';
@@ -133,6 +138,10 @@ package 'Plant Documents' {
             }
             part 'paragraph 2' : DocumentQueries::Paragraph {
                 attribute redefines text = "The plant, photographed";
+            }
+            part diagram : DocumentQueries::Diagram {
+                attribute redefines caption = "Stale";
+                ref redefines source = Plant::Stale;
             }
         }
         part Shown : DocumentQueries::Section {

@@ -57,12 +57,15 @@ returned over the service yet.
   [Diagrams](#diagrams)). The representation object is found by how it is held or tagged, or
   failing that by the `umlType` it states; a child with a plain `type` (a comment, a legend, a
   property) is not it, and what it lists is not shown; a diagram without a representation shows
-  nothing, whatever else the tool lists inside it. In an `.mdzip`, a diagram whose
-  representation lists no used element is read from the archive entry its `binaryObject`
-  names (the stream MagicDraw serializes the diagram's symbols to): each symbol's `elementID`
-  is a shown element, and a symbol naming none — a pasted image, a text box, a note — is
-  counted as free content, so a blank diagram is told from one drawing elements the list
-  omits, and a list that names elements is completed with the symbols the stream adds. Layout and the rest of the extension —
+  nothing, whatever else the tool lists inside it. In an `.mdzip`, every diagram is read from
+  the archive entry its `binaryObject` names (the stream MagicDraw serializes the diagram's
+  symbols to): each symbol's `elementID` is a shown element, and a symbol naming none — a
+  pasted image, a text box, a note — is counted as free content, so a blank diagram is told
+  from one drawing elements the list omits, and a list that names elements is completed with
+  the symbols the stream adds. The list also names what a symbol displays without one of its
+  own — a property in a compartment, a trigger on a transition — so a listed element is kept
+  when a symbol stands for it or for an element it is owned under, and dropped when none
+  does, since nothing drawn shows it. Layout and the rest of the extension —
   tool-internal state, a Papyrus `.notation` file — are skipped; the report says so once per
   skipped profile or library package. A package is library content
   when it is a standard or tool profile (a user profile is written, see

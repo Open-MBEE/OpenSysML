@@ -2,6 +2,7 @@ package docrender
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -244,8 +245,16 @@ func TestDiagramUnrenderableKind(t *testing.T) {
 
 // TestDiagramOversized checks a Mermaid chart past the ceiling a chart is drawn
 // under is refused by the Markdown and HTML backends, with its size and the
-// ceiling, while the same diagram is written in another form.
+// ceiling, while the same diagram is written in another form; a chart of as
+// many nodes, and one edge, is drawn.
 func TestDiagramOversized(t *testing.T) {
+	crowded := graphRendering(view.KindInterconnection)
+	for i := 0; i < view.MermaidEdgeCeiling; i++ {
+		crowded.Roots = append(crowded.Roots, &view.Node{ID: fmt.Sprintf("m%d", i), Kind: "part", Name: "m"})
+	}
+	if got := renderedDiagram(t, "", crowded, ""); strings.Count(got, "\n") <= view.MermaidEdgeCeiling {
+		t.Errorf("a chart of %d nodes and one edge is not drawn:\n%.200s", view.MermaidEdgeCeiling, got)
+	}
 	rendering := graphRendering(view.KindTree)
 	for i := 0; i < view.MermaidEdgeCeiling; i++ {
 		rendering.Edges = append(rendering.Edges, view.Edge{From: "n0", To: "n1"})

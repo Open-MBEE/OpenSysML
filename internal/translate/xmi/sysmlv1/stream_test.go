@@ -104,10 +104,13 @@ func TestReadSymbolsRejectsTruncatedStream(t *testing.T) {
 }
 
 // Every diagram is read from its stream in the archive: one whose tool lists
-// no used element gets what the symbols draw, one whose list names elements
-// keeps the list in order and gains the elements the symbols draw beyond it,
-// however the two spell an element's href, while hrefs into two modules stay
-// two elements though their fragments agree; one whose stream is absent or
+// no used element gets what the symbols draw; one whose list names elements
+// keeps, in order, the listed elements a symbol displays — by standing for them
+// or for an ancestor, as a compartment's — drops the listed elements none
+// displays, and gains the elements the symbols draw beyond the list, however
+// the two spell an element's href, while hrefs into two modules stay two
+// elements though their fragments agree; one whose symbols stand for no element
+// shows nothing, whatever its list names; one whose stream is absent or
 // unreadable stays unread with its list as written.
 func TestParseArchiveReadsDiagramStreams(t *testing.T) {
 	model := strings.Replace(string(diagramDocument(bddDiagram+`
@@ -128,6 +131,19 @@ func TestParseArchiveReadsDiagramStreams(t *testing.T) {
               <diagram:DiagramRepresentationObject xmi:id="_d_drawn_rep" type="SysML Block Definition Diagram" umlType="Class Diagram">
                 <diagramContents xmi:id="_d_drawn_contents">
                   <binaryObject xsi:type="binary:StreamIdentityBinaryObject" streamContentID="BINARY-drawn"/>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_d_blank" name="Blank" ownerOfDiagram="_p">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject xmi:id="_d_blank_rep" type="SysML Block Definition Diagram" umlType="Class Diagram">
+                <diagramContents xmi:id="_d_blank_contents">
+                  <usedElements>_b</usedElements>
+                  <usedElements>_a_m</usedElements>
+                  <binaryObject xsi:type="binary:StreamIdentityBinaryObject" streamContentID="BINARY-blank"/>
                 </diagramContents>
               </diagram:DiagramRepresentationObject>
             </diagramRepresentation>
@@ -156,6 +172,7 @@ func TestParseArchiveReadsDiagramStreams(t *testing.T) {
           </xmi:Extension>
         </ownedDiagram>`)),
 		`xmlns:diagram=`, `xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:diagram=`, 1)
+	model = strings.Replace(model, `<usedElements>_missing</usedElements>`, `<usedElements>_missing</usedElements><usedElements>_p</usedElements>`, 1)
 	model = strings.Replace(model, `<packagedElement xmi:type="uml:Class" xmi:id="_b" name="B"/>`,
 		`<packagedElement xmi:type="uml:Class" xmi:id="_b" name="B">
         <ownedAttribute xmi:type="uml:Property" xmi:id="_b_x" name="x"><type xmi:type="uml:Class" href="ModuleA.xmi#_shared"/></ownedAttribute>
@@ -172,8 +189,9 @@ func TestParseArchiveReadsDiagramStreams(t *testing.T) {
 			`<mdElement elementClass="DataType"><elementID href="PrimitiveTypes.mdzip#Real"/></mdElement>` +
 			`<mdElement elementClass="Class"><elementID href="ModuleA.xmi#_shared"/></mdElement>` +
 			`<mdElement elementClass="Class"><elementID href="ModuleB.xmi#_shared"/></mdElement></mdOwnedViews>`),
-		"BINARY-lost": []byte("\xff\xfe not a stream"),
-		"BINARY-cut":  []byte(`<mdOwnedViews><mdElement elementClass="Class"><elementID xmi:idref="_b"/></mdElement><mdElement elementClass="Class"><elementID xmi:idref="_a"/>`),
+		"BINARY-blank": []byte(`<mdOwnedViews><mdElement elementClass="DiagramFrame"><elementID xmi:idref="_d_blank"/></mdElement><mdElement elementClass="TextBox"/></mdOwnedViews>`),
+		"BINARY-lost":  []byte("\xff\xfe not a stream"),
+		"BINARY-cut":   []byte(`<mdOwnedViews><mdElement elementClass="Class"><elementID xmi:idref="_b"/></mdElement><mdElement elementClass="Class"><elementID xmi:idref="_a"/>`),
 	}))
 	if err != nil {
 		t.Fatal(err)
@@ -189,9 +207,9 @@ func TestParseArchiveReadsDiagramStreams(t *testing.T) {
 		}
 		return ids
 	}
-	if d := byID["_d_bdd"]; !d.Drawn || len(d.Shown) != 7 || shown(d)[0] != "_a" || shown(d)[6] != "_a_m" ||
-		d.Shown[6].Element != m.Lookup("_a_m") || !reflect.DeepEqual(d.Free, map[string]int{"TextBox": 1}) {
-		t.Errorf("listed diagram: drawn %v, shown %q, free %v; want the list kept and the unlisted element after it", d.Drawn, shown(d), d.Free)
+	if d := byID["_d_bdd"]; !d.Drawn || !reflect.DeepEqual(shown(d), []string{"_a", "_a_b", "_b", "http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real", "_a_m"}) ||
+		d.Shown[1].Element != m.Lookup("_a_b") || d.Shown[4].Element != m.Lookup("_a_m") || !reflect.DeepEqual(d.Free, map[string]int{"TextBox": 1}) {
+		t.Errorf("listed diagram: drawn %v, shown %q, free %v; want the displayed list kept, the owner and dangling ids no symbol displays dropped, and the unlisted element after", d.Drawn, shown(d), d.Free)
 	}
 	if d := byID["_d_empty"]; !d.Drawn || len(d.Shown) != 0 || !reflect.DeepEqual(d.Free, map[string]int{"ImageShape": 1}) {
 		t.Errorf("empty diagram: drawn %v, shown %q, free %v", d.Drawn, shown(d), d.Free)
@@ -201,6 +219,9 @@ func TestParseArchiveReadsDiagramStreams(t *testing.T) {
 		d.Shown[2].Element != m.Lookup("http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real") ||
 		d.Shown[3].Element != m.Lookup("ModuleA.xmi#_shared") || d.Shown[4].Element != m.Lookup("ModuleB.xmi#_shared") || d.Shown[3].Element == d.Shown[4].Element {
 		t.Errorf("drawn diagram: drawn %v, shown %q, free %v; want the module-file href resolved to the proxy and the two modules' elements both shown", d.Drawn, shown(d), d.Free)
+	}
+	if d := byID["_d_blank"]; !d.Drawn || len(d.Shown) != 0 || !reflect.DeepEqual(d.Free, map[string]int{"TextBox": 1}) {
+		t.Errorf("blank diagram: drawn %v, shown %q, free %v; want the list dropped, since no symbol displays what it names", d.Drawn, shown(d), d.Free)
 	}
 	if d := byID["_d_lost"]; d.Drawn || len(d.Shown) != 0 || !d.Represented() {
 		t.Errorf("unreadable stream: drawn %v, shown %q, represented %v", d.Drawn, shown(d), d.Represented())

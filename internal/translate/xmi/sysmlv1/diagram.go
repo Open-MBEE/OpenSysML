@@ -38,8 +38,9 @@ type Diagram struct {
 	// Documentation is the body of the diagram's first own comment: an
 	// ownedComment annotating nothing but the diagram; "" when it has none.
 	Documentation string
-	// Drawn reports whether Stream was read, so that Shown lists every element
-	// the diagram's symbols stand for and Free the symbols standing for none.
+	// Drawn reports whether Stream was read, so that Shown lists the elements
+	// the diagram's symbols display, by standing for them or for an ancestor,
+	// and Free the symbols standing for none.
 	Drawn bool
 	// Free counts the symbols standing for no model element, such as a pasted
 	// image or a text box, by the tool's symbol class; set only when Drawn.

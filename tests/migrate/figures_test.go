@@ -50,10 +50,17 @@ const streamHead = `<?xml version="1.0" encoding="UTF-8"?>
   </mdElement>`
 
 // A frame alone is a blank diagram; a picture and a text box stand for no
-// model element; a symbol naming an element shows it although the tool's
-// usedElements list omits it, or lists another element only.
+// model element; a symbol naming an element shows it although the list omits
+// it, or lists another element only, and a listed element no symbol displays
+// is not shown.
 var figureStreams = map[string]string{
 	"BINARY-blank": strings.Replace(streamHead, "%s", "_diag_blank", 1) + `
+</mdOwnedViews>`,
+	"BINARY-stale": strings.Replace(streamHead, "%s", "_diag_stale", 1) + `
+  <mdElement elementClass="Class" xmi:id="_sym_stale_tank">
+    <elementID xmi:idref="_blk_tank"/>
+    <geometry>100, 100, 120, 60</geometry>
+  </mdElement>
 </mdOwnedViews>`,
 	"BINARY-poster": strings.Replace(streamHead, "%s", "_diag_poster", 1) + `
   <mdElement elementClass="ImageShape" xmi:id="_photo">
@@ -92,7 +99,9 @@ var figureStreams = map[string]string{
 // view; one over a diagram the archive's stream shows to be blank, or to hold
 // only a pasted picture, leaves the figure out with the reason and keeps its
 // caption; a symbol the stream names is exposed although the tool's list
-// omits it; and a diagram with no stream is left out with what is known.
+// omits it; a listed element no symbol displays is not exposed, so its figure
+// draws the stream's symbols alone; and a diagram with no stream is left out
+// with what is known.
 func TestFiguresFromArchiveStreams(t *testing.T) {
 	r, err := migrate.Migrate("figures.mdzip", mdzip(t, figureStreams))
 	if err != nil {
@@ -125,11 +134,16 @@ func TestFiguresFromArchiveStreams(t *testing.T) {
 		`attribute redefines text = "Nothing to see";`,
 		`attribute redefines text = "The plant, photographed";`,
 		"part diagram : DocumentQueries::Diagram {",
-		"ref redefines source = Plant::Unlisted;")
+		"ref redefines source = Plant::Unlisted;",
+		"part 'diagram 2' : DocumentQueries::Diagram {",
+		"ref redefines source = Plant::Stale;")
 	for _, name := range []string{"Blank", "Poster", "Silent"} {
 		if strings.Contains(notation, "source = Plant::"+name+";") {
 			t.Errorf("the empty diagram %s is drawn:\n%s", name, notation)
 		}
+	}
+	if stale := notation[strings.Index(notation, "view Stale {"):]; strings.Contains(stale[:strings.Index(stale, "}")], "expose Pump;") || !strings.Contains(stale[:strings.Index(stale, "}")], "expose Tank;") {
+		t.Errorf("the view of Stale does not expose what its symbols display alone:\n%s", notation)
 	}
 	var es []migrate.Entry
 	for _, e := range entriesFor(r, "_st_pictures_image") {
@@ -137,7 +151,7 @@ func TestFiguresFromArchiveStreams(t *testing.T) {
 			es = append(es, e)
 		}
 	}
-	if len(es) != 4 {
+	if len(es) != 5 {
 		t.Fatalf("Image entries = %+v, want one per diagram", es)
 	}
 	notes := map[migrate.Verdict][]string{}
@@ -148,6 +162,7 @@ func TestFiguresFromArchiveStreams(t *testing.T) {
 		migrate.Mapped: {
 			": no Diagram shows the SysML Block Definition Diagram 'Blank': it draws nothing at all, and its view exposes nothing, so the figure would be empty and is left out; its caption stands alone",
 			"part 'Plant Documents'::'Plant Handbook Document'::Pictures::diagram: ",
+			"part 'Plant Documents'::'Plant Handbook Document'::Pictures::'diagram 2': ",
 		},
 		migrate.Approximated: {
 			": no Diagram shows the SysML Block Definition Diagram 'Poster': it shows no model element, only an image and a text box standing for none, and its view exposes nothing, so the figure would be empty and is left out; its caption stands alone",
@@ -176,9 +191,13 @@ func TestFiguresFromArchiveStreams(t *testing.T) {
 		"## Pictures",
 		"Nothing to see",
 		"The plant, photographed",
-		"*Unlisted*", "```mermaid", "Plant::Unlisted — tree rendering", `"Tank<br>«part def»"`, `"Pump<br>«part def»"`)
-	if n := strings.Count(md, "```mermaid"); n != 3 {
-		t.Errorf("Plant Handbook draws %d figures, want 3:\n%s", n, md)
+		"*Unlisted*", "```mermaid", "Plant::Unlisted — tree rendering", `"Tank<br>«part def»"`, `"Pump<br>«part def»"`,
+		"*Stale*", "```mermaid", "Plant::Stale — tree rendering", `"Tank<br>«part def»"`)
+	if n := strings.Count(md, "```mermaid"); n != 4 {
+		t.Errorf("Plant Handbook draws %d figures, want 4:\n%s", n, md)
+	}
+	if stale := md[strings.Index(md, "*Stale*"):]; strings.Contains(stale[:strings.Index(stale, "## Shown")], "Pump") {
+		t.Errorf("the figure of Stale draws the element no symbol displays:\n%s", stale)
 	}
 	if strings.Contains(md, "exposes nothing") || strings.Contains(md, "empty[") {
 		t.Errorf("an empty figure is rendered:\n%s", md)
@@ -230,10 +249,13 @@ func TestShownCollectionOverUnreadStream(t *testing.T) {
 }
 
 // Without the archive, what the four listless diagrams show is unknown; every
-// figure over them is left out with that reason, and a collection over the
-// diagram listing one element is refused for the stream it names.
+// figure over them is left out with that reason, the diagram listing an element
+// its stream would show to be gone is drawn from its list, and a collection over
+// the diagram listing one element is refused for the stream it names.
 func TestFiguresWithoutStreams(t *testing.T) {
 	r := migrateFixtureFile(t, "figures")
+	wantInOrder(t, "the listed diagram", string(r.Notation),
+		"view Stale {", "expose Pump;", "ref redefines source = Plant::Stale;")
 	wantNote(t, r, "_st_shown_collect", migrate.Unmapped,
 		"it collects what the SysML Block Definition Diagram 'Partial' shows beyond the 1 element the tool lists, whose symbols cannot be read and what the SysML Block Definition Diagram 'Unlisted' shows, which the archive does not record")
 	for _, name := range []string{"Blank", "Poster", "Unlisted", "Silent"} {
@@ -243,7 +265,7 @@ func TestFiguresWithoutStreams(t *testing.T) {
 	}
 	n := 0
 	for _, e := range entriesFor(r, "_st_pictures_image") {
-		if strings.HasPrefix(e.Note, "the paragraph is the caption") {
+		if strings.HasPrefix(e.Note, "the paragraph is the caption") || strings.HasSuffix(e.Target, "::Pictures::diagram") {
 			continue
 		}
 		n++

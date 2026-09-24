@@ -99,9 +99,12 @@ func TestHTMLMermaidScript(t *testing.T) {
 	}
 	textSize, _ := strconv.Atoi(limits[1])
 	edges, _ := strconv.Atoi(limits[2])
+	arrows := regexp.MustCompile(`(?m)^\s*\S+ (-->|---|-\.->)`)
 	for _, chart := range regexp.MustCompile(`(?s)<pre class="mermaid">(.*?)</pre>`).FindAllStringSubmatch(got, -1) {
-		if source := html.UnescapeString(chart[1]); len(source) >= textSize || strings.Count(source, "\n")+1 >= edges {
-			t.Errorf("limits %s, %s do not cover a chart of %d bytes and %d lines", limits[1], limits[2], len(source), strings.Count(source, "\n")+1)
+		source := html.UnescapeString(chart[1])
+		drawn := len(arrows.FindAllString(source, -1))
+		if drawn == 0 || len(source) >= textSize || drawn >= edges {
+			t.Errorf("limits %s, %s do not cover a chart of %d bytes and %d edges", limits[1], limits[2], len(source), drawn)
 		}
 	}
 	if textSize > 50000 || edges > 500 {

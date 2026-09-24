@@ -1,6 +1,6 @@
 # SysML v1 to v2 migration report: figures.xmi
 # exported by Example UML Tool
-# migrated 84 element(s): 64 mapped, 18 approximated, 2 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 87 element(s): 67 mapped, 18 approximated, 2 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
 ## unmapped (2)
 «CollectThingsOnDiagram» CallBehaviorAction	Plant Viewpoints::Shown Viewpoint::Shown Method::Collect Things On Diagram	_st_shown_collect	(it collects what the SysML Block Definition Diagram 'Partial' shows beyond the 1 element the tool lists, whose symbols cannot be read and what the SysML Block Definition Diagram 'Unlisted' shows, which the archive does not record)
@@ -26,7 +26,7 @@ OpaqueAction	Plant::Pump::Prime::Vent	_prime_vent	-> Vent	(the body is kept as a
 Diagram	Plant::Silent	_diag_silent	-> Plant::Silent	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; the diagram shows nothing; the view exposes nothing)
 Diagram	Plant::Unlisted	_diag_unlisted	-> Plant::Unlisted	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; the diagram shows nothing; the view exposes nothing)
 
-## mapped (64)
+## mapped (67)
 Model	Model	_m	(the root model's members are written at the top level)
 Package	Plant	_pkg_plant	-> Plant
 Package	Plant Documents	_pkg_docs	-> 'Plant Documents'
@@ -36,6 +36,7 @@ Package	Plant Documents	_pkg_docs	-> 'Plant Documents'
 «Expose» Dependency	Plant Documents::<Dependency>	_expose_pictures_poster	-> 'Plant Documents'::Pictures
 «Expose» Dependency	Plant Documents::<Dependency>	_expose_pictures_unlisted	-> 'Plant Documents'::Pictures
 «Expose» Dependency	Plant Documents::<Dependency>	_expose_pictures_silent	-> 'Plant Documents'::Pictures
+«Expose» Dependency	Plant Documents::<Dependency>	_expose_pictures_stale	-> 'Plant Documents'::Pictures
 «Expose» Dependency	Plant Documents::<Dependency>	_expose_shown_partial	-> 'Plant Documents'::Shown
 «Expose» Dependency	Plant Documents::<Dependency>	_expose_shown_unlisted	-> 'Plant Documents'::Shown
 «View» Class	Plant Documents::Behaviors	_view_behaviors	-> 'Plant Documents'::Behaviors
@@ -63,6 +64,7 @@ ControlFlow	Plant Viewpoints::Pictures Viewpoint::Pictures Method::<ControlFlow>
 InitialNode	Plant Viewpoints::Pictures Viewpoint::Pictures Method::<InitialNode>	_pictures_init	-> start
 «Image» CallBehaviorAction	Plant Viewpoints::Pictures Viewpoint::Pictures Method::Image	_st_pictures_image	-> part 'Plant Documents'::'Plant Handbook Document'::Pictures::paragraph	(the paragraph is the caption of the figure left out for the diagram 'Blank')
 «Image» CallBehaviorAction	Plant Viewpoints::Pictures Viewpoint::Pictures Method::Image	_st_pictures_image	-> part 'Plant Documents'::'Plant Handbook Document'::Pictures::'paragraph 2'	(the paragraph is the caption of the figure left out for the diagram 'Poster')
+«Image» CallBehaviorAction	Plant Viewpoints::Pictures Viewpoint::Pictures Method::Image	_st_pictures_image	-> part 'Plant Documents'::'Plant Handbook Document'::Pictures::diagram
 «Viewpoint» Class	Plant Viewpoints::Shown Viewpoint	_vp_shown	-> 'Plant Viewpoints'::'Shown Viewpoint'
 ActivityFinalNode	Plant Viewpoints::Shown Viewpoint::Shown Method::<ActivityFinalNode>	_shown_final	-> final
 ControlFlow	Plant Viewpoints::Shown Viewpoint::Shown Method::<ControlFlow>	_shown_e2
@@ -89,5 +91,6 @@ ControlFlow	Plant::Pump::Prime::<ControlFlow>	_prime_e2
 ControlFlow	Plant::Pump::Prime::<ControlFlow>	_prime_e3
 InitialNode	Plant::Pump::Prime::<InitialNode>	_prime_init	-> start
 Diagram	Plant::Pump::Prime::Priming	_diag_prime	-> Plant::Pump::Prime::Priming	(a SysML Activity Diagram written as a view rendered asInterconnectionDiagram of ActionFlowView; the view exposes action def Plant::Pump::Prime, whose graph the rendering draws with the 2 shown nodes and edges of it)
+Diagram	Plant::Stale	_diag_stale	-> Plant::Stale	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram)
 Signal	Plant::Start	_sig_start	-> Plant::Start
 «Block» Class	Plant::Tank	_blk_tank	-> Plant::Tank

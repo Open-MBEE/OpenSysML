@@ -103,8 +103,8 @@ func attr(t xml.StartElement, local string) string {
 	return ""
 }
 
-// readStreams reads each diagram's symbols and appends the elements they stand
-// for that the tool's list omits; an unreadable stream leaves the list as written.
+// readStreams lists what each diagram's symbols display: the elements they stand
+// for and the listed elements shown under one; an unreadable stream leaves the list.
 func (m *Model) readStreams(entries map[string]*zip.File) {
 	for i := range m.Diagrams {
 		d := &m.Diagrams[i]
@@ -122,29 +122,52 @@ func (m *Model) readStreams(entries map[string]*zip.File) {
 		}
 		d.Drawn = true
 		d.Free = syms.free
+		stood := map[*Element]bool{}
+		for _, id := range syms.shown {
+			if e := m.shown(id); e != nil {
+				stood[e] = true
+			}
+		}
 		// Two spellings name one element when they resolve to it; ones resolving
 		// to none are the same only when spelled alike.
 		elements := map[*Element]bool{}
 		dangling := map[string]bool{}
-		listed := func(id string) bool {
+		var shown []ElementRef
+		add := func(id string) {
 			if e := m.shown(id); e != nil {
-				was := elements[e]
+				if elements[e] {
+					return
+				}
 				elements[e] = true
-				return was
+			} else {
+				if dangling[id] {
+					return
+				}
+				dangling[id] = true
 			}
-			was := dangling[id]
-			dangling[id] = true
-			return was
+			shown = append(shown, ElementRef{ID: id})
 		}
 		for _, ref := range d.Shown {
-			listed(ref.ID)
-		}
-		for _, id := range syms.shown {
-			if !listed(id) {
-				d.Shown = append(d.Shown, ElementRef{ID: id})
+			if displayed(m.shown(ref.ID), stood) {
+				add(ref.ID)
 			}
 		}
+		for _, id := range syms.shown {
+			add(id)
+		}
+		d.Shown = shown
 	}
+}
+
+// displayed reports whether a symbol stands for e or an ancestor of it, which
+// shows e in a compartment or on a path.
+func displayed(e *Element, stood map[*Element]bool) bool {
+	for ; e != nil; e = e.Parent {
+		if stood[e] {
+			return true
+		}
+	}
+	return false
 }
 
 // fragment is the element id an href or id names: a list and the symbols may
