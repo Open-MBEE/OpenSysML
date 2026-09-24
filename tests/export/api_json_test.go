@@ -551,3 +551,75 @@ func TestAPIJSONRoundTripSingleMemberCollections(t *testing.T) {
 			diffTriples(tripleSet(graph), tripleSet(reread)), diffTriples(tripleSet(reread), tripleSet(graph)))
 	}
 }
+
+// A json: annotation is the collection's statement of order: the element
+// form emits its members in that order, references by their {"@id"} and an
+// unresolved name on an object property as {"@ref": <name>}, never a bare
+// string. A repeated member is refused with the annotation — a graph holds
+// each triple once — so the array's members always spell the triples.
+func TestAPIJSONAnnotationMembers(t *testing.T) {
+	graph, err := convert.SysMLToRDF("p.sysml", []byte("package P { part def V; }"))
+	if err != nil {
+		t.Fatalf("SysMLToRDF: %v", err)
+	}
+	subject := rdf.ElementIRI("P::V")
+	link := rdf.ElementIRI("P::X")
+	graph.Add(subject, rdf.SysMLTerm("chainingFeature"), link)
+	graph.Add(subject, rdf.SysMLTerm("chainingFeature"), rdf.String("b"))
+	graph.Add(subject, rdf.SysMLTerm("chainingFeature"), rdf.String("a"))
+	graph.Add(subject, rdf.AnnotationJSONTerm("chainingFeature"), rdf.String(`[{"@id":"P__X"},"b","a"]`))
+	chain := rdf.ElementIRI("P::C")
+	graph.Add(chain, rdf.IRI(rdf.RDFType), rdf.SysMLTerm("Feature"))
+	graph.Add(chain, rdf.SysMLTerm("chainingFeature"), link)
+	graph.Add(chain, rdf.SysMLTerm("chainingFeature"), rdf.String("b"))
+	graph.Add(chain, rdf.SysMLTerm("chainingFeature"), rdf.String("a"))
+	graph.Add(chain, rdf.AnnotationJSONTerm("chainingFeature"), rdf.String(`[{"@id":"P__X"},"b","a"]`))
+	graph.Add(link, rdf.IRI(rdf.RDFType), rdf.SysMLTerm("Feature"))
+	document, err := export.WriteAPIJSON(graph)
+	if err != nil {
+		t.Fatalf("WriteAPIJSON: %v", err)
+	}
+	var elements []map[string]json.RawMessage
+	if err := json.Unmarshal(document, &elements); err != nil {
+		t.Fatalf("the document is not a JSON array: %v\n%s", err, document)
+	}
+	usage := apiJSONElement(t, elements, "P__V")
+	var spelled []any
+	if err := json.Unmarshal(usage["chainingFeature"], &spelled); err != nil {
+		t.Fatalf("chainingFeature does not unmarshal: %v\n%s", err, usage["chainingFeature"])
+	}
+	if len(spelled) != 3 {
+		t.Fatalf("chainingFeature = %v, want three members", spelled)
+	}
+	if first, ok := spelled[0].(map[string]any); !ok || first["@id"] != "P__X" {
+		t.Errorf("chainingFeature[0] = %v, want an @id reference to P__X", spelled[0])
+	}
+	if spelled[1] != "b" || spelled[2] != "a" {
+		t.Errorf("literal members emit as their scalars in order, got %v", spelled[1:])
+	}
+
+	feature := apiJSONElement(t, elements, "P__C")
+	var links []map[string]string
+	if err := json.Unmarshal(feature["chainingFeature"], &links); err != nil {
+		t.Fatalf("the Feature's chainingFeature does not unmarshal: %v\n%s", err, feature["chainingFeature"])
+	}
+	if len(links) != 3 {
+		t.Fatalf("chainingFeature = %v, want three members", links)
+	}
+	if links[0]["@id"] != "P__X" {
+		t.Errorf("chainingFeature[0] = %v, want an @id reference to P__X", links[0])
+	}
+	if links[1]["@ref"] != "b" || links[2]["@ref"] != "a" {
+		t.Errorf("unresolved members should spell {\"@ref\": name} in order, got %v", links[1:])
+	}
+
+	other := rdf.ElementIRI("P::W")
+	graph.Add(other, rdf.IRI(rdf.RDFType), rdf.SysMLTerm("PartUsage"))
+	graph.Add(other, rdf.SysMLTerm("aliasIds"), rdf.String("a"))
+	graph.Add(other, rdf.SysMLTerm("aliasIds"), rdf.String("b"))
+	graph.Add(other, rdf.AnnotationJSONTerm("aliasIds"), rdf.String(`["a","a","b"]`))
+	_, err = export.WriteAPIJSON(graph)
+	if err == nil || !strings.Contains(err.Error(), "again at") {
+		t.Errorf("WriteAPIJSON with a repeated member = %v, want a refusal naming it", err)
+	}
+}

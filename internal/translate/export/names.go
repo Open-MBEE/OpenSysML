@@ -260,6 +260,11 @@ func (e *encoder) chooseSegment(key segmentKey, written string, refs []resolve.R
 func (e *encoder) segmentReads(refs []resolve.Reference, spelling, target string) bool {
 	for _, ref := range refs {
 		trial := ref
+		if !trial.Redefines {
+			// The referrer's own bindings hide the name it borrows, not the
+			// feature a chain's operand names (getOperandSymbol hides none).
+			trial.Referrer, trial.Subsetting = nil, nil
+		}
 		trial.QN = spelledName(spelling)
 		trial.Chain = &ast.FeatureChainExpr{Operand: ref.Chain.Operand, Member: trial.QN}
 		if _, reached, ok := e.reads(trial); !ok || reached != target {

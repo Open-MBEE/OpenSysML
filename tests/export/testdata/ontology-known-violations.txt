@@ -48,6 +48,10 @@ literal-for-object-property ReferenceSubsetting relatedElement                  
 literal-for-object-property ReferenceSubsetting referencedFeature                # ReferenceSubsetting_referencedFeature: same on a minted ReferenceSubsetting
 literal-for-object-property ReferenceSubsetting subsettedFeature                 # Subsetting_subsettedFeature: same on a minted ReferenceSubsetting
 literal-for-object-property Membership memberElement                          # Membership_memberElement: the Membership an expression's referent membership mints carries the unresolvable name as its member, as the toolkit's interchange JSON does
+literal-for-object-property Feature chainingFeature                          # Feature_chainingFeature: a chain link resolving outside the graph carries the name, as the API-JSON `{"@ref": …}` does
+literal-for-object-property FeatureChaining chainingFeature                  # FeatureChaining_chainingFeature: same unresolved link on the minted FeatureChaining element
+literal-for-object-property FeatureChaining relatedElement                   # Relationship_relatedElement: same literal on the minted FeatureChaining's relatedElement end
+literal-for-object-property FeatureChaining target                           # Relationship_target: same literal on the minted FeatureChaining's target end
 
 # 3. Metaclass names this tool writes into the SysML namespace that the 202407
 # rendering does not declare at all.
@@ -84,6 +88,9 @@ unknown-property PartUsage redefines                         # redefinition is a
 unknown-property AttributeUsage redefines                    # redefinition is a Redefinition element, not a property
 unknown-property ReferenceUsage redefines                    # redefinition is a Redefinition element, not a property
 unknown-property OccurrenceUsage redefines                   # redefinition is a Redefinition element, not a property
+unknown-property PerformActionUsage redefines                # redefinition is a Redefinition element, not a property
+unknown-property ExhibitStateUsage redefines                 # redefinition is a Redefinition element, not a property
+unknown-property IncludeUseCaseUsage includes                # the use case an `include` names, standardly its includedUseCase through a ReferenceSubsetting
 unknown-property PerformActionUsage references               # a referenced element is a ReferenceUsage or Membership, not a property
 unknown-property PartUsage references                        # a reference subsetting is a ReferenceSubsetting element, not a property
 unknown-property ReferenceUsage references                   # a `ref x ::> y` usage, written the same way

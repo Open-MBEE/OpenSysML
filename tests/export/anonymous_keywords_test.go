@@ -40,7 +40,8 @@ func TestAnonymousKeywordsAreTypedWhereTheVocabularyStatesThem(t *testing.T) {
 		fixture: "anonymous_events.sysml",
 		want: []string{
 			"a sysml:EventOccurrenceUsage ;",
-			"sysx:declaredKeyword \"event\" ;\n    sysml:references \"exchange.request\"^^sysx:Expression ;",
+			"sysx:declaredKeyword \"event\" ;\n    sysml:references <urn:opensysml:expr:AnonymousEvents__Sender___401_pchain0> ;",
+			"a sysml:FeatureChaining ;",
 		},
 		forbade: []string{"sysml:isEvent", "a sysml:OccurrenceUsage ;\n    sysml:qualifiedName \"AnonymousEvents::Sender::@"},
 	}, {
@@ -162,7 +163,7 @@ func TestContradictoryKeywordGraphsAreRefused(t *testing.T) {
 		want: []string{"the `event` declaration <urn:sysmlv2:element:AnonymousEvents__Sender___401>", "it declares a name (sysml:declaredName), which `event` written as the kind keyword cannot", "a declaration is written `event occurrence <name>`"},
 	}, {
 		name: "event_named_unreferenced", fixture: "anonymous_events.sysml",
-		old:  "    sysx:declaredKeyword \"event\" ;\n    sysml:references \"exchange.request\"^^sysx:Expression ;",
+		old:  "    sysx:declaredKeyword \"event\" ;\n    sysml:references <urn:opensysml:expr:AnonymousEvents__Sender___401_pchain0> ;",
 		new:  "    sysx:declaredKeyword \"event\" ;\n    sysml:declaredName \"e\" ;",
 		want: []string{"the `event` declaration <urn:sysmlv2:element:AnonymousEvents__Sender___401>", "would come back as a reference to a different element"},
 	}, {

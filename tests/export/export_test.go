@@ -582,6 +582,14 @@ func TestChainSegmentIsSpelledToReachTheGraphsTarget(t *testing.T) {
 		relinkedEnd = []byte(strings.Replace(string(relinkedEnd),
 			`json:chainingFeature "[{\"@id\":\"P__a\"},{\"@id\":\"P__A__x\"}]"`,
 			`json:chainingFeature "[{\"@id\":\"P__a\"},{\"@id\":\"P__B__x\"}]"`, 1))
+		// The FeatureChaining owning the target link names the same feature.
+		relinkedEnd = relinkedProperty(t, relinkedEnd, "expr:P___406_pend0_pchain_pfc1", "chainingFeature", "elmt:P__A__x", "elmt:P__B__x")
+		relinkedEnd = relinkedProperty(t, relinkedEnd, "expr:P___406_pend0_pchain_pfc1", "target", "elmt:P__A__x", "elmt:P__B__x")
+		relinkedEnd = relinkedProperty(t, relinkedEnd, "expr:P___406_pend0_pchain_pfc1", "relatedElement",
+			"expr:P___406_pend0_pchain, elmt:P__A__x", "expr:P___406_pend0_pchain, elmt:P__B__x")
+		relinkedEnd = []byte(strings.Replace(string(relinkedEnd),
+			`json:relatedElement "[{\"@id\":\"P___406_pend0_pchain\"},{\"@id\":\"P__A__x\"}]"`,
+			`json:relatedElement "[{\"@id\":\"P___406_pend0_pchain\"},{\"@id\":\"P__B__x\"}]"`, 1))
 		back, err := convert.Convert("chain-"+name+".ttl", relinkedEnd, convert.FormatTurtle, convert.FormatSysML)
 		if err != nil {
 			t.Fatalf("back to notation (%s): %v", name, err)

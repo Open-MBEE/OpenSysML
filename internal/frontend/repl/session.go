@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
@@ -166,6 +167,16 @@ type Session struct {
 	// renderWidth is the width a text rendering's table is written to fit, 0 for
 	// as wide as its widest cell.
 	renderWidth int
+
+	// toolVersion is what a recorded run's provenance names as its tool.
+	toolVersion string
+	// now is the clock a recorded run's timestamp is taken from.
+	now func() time.Time
+	// recordMerge lets a record submission merge into a loaded file's package.
+	recordMerge bool
+	// recordDrops are the drop reports of the last submission, which a record
+	// submission inspects for the loss it must not make.
+	recordDrops []dropReport
 }
 
 // unnamedObject is an object a later %instantiate of its name displaced.
@@ -282,13 +293,26 @@ func (s *stateSession) selfOf() string {
 // NewSession returns a session over a fresh workspace.
 func NewSession() *Session {
 	return &Session{
-		ws:        model.NewWorkspace(),
-		instances: make(map[string]*runtime.Instance),
-		budgets:   runtime.DefaultBudgets(),
-		jobs:      analysis.DefaultJobs(),
-		engines:   engines.Default(),
-		verbosity: VerbosityNormal,
+		ws:          model.NewWorkspace(),
+		instances:   make(map[string]*runtime.Instance),
+		budgets:     runtime.DefaultBudgets(),
+		jobs:        analysis.DefaultJobs(),
+		engines:     engines.Default(),
+		verbosity:   VerbosityNormal,
+		toolVersion: "sysml dev",
+		now:         time.Now,
 	}
+}
+
+// SetToolVersion names the tool a recorded run's provenance reports.
+func (s *Session) SetToolVersion(tool string) {
+	s.toolVersion = tool
+}
+
+// Text is the session's buffer as it was submitted: what %save writes back.
+func (s *Session) Text() string {
+	defer s.reading()()
+	return s.text()
 }
 
 // enter takes the session for one command; the function returned leaves it.
@@ -456,10 +480,13 @@ func (s *Session) acceptFrom(origin, src string) (declared []string, drops []dro
 		// snippet it absorbed, so the names it replaces are its own, not just
 		// the submitted ones — and is appended like any other submission so a
 		// report still scopes to the tail of the buffer.
-		if merged, added, drop, ok := s.mergeSubmission(src, root, comments); ok {
+		if merged, added, drop, ok, inPlace := s.mergeSubmission(src, root, comments); ok {
+			drops = append(drops, drop)
+			if inPlace {
+				return declared, drops
+			}
 			text, comments, mergedOwn = merged, "", added
 			names = declaredNames(parser.New(source.New(docName, []byte(merged))).ParseFile())
-			drops = append(drops, drop)
 		}
 		top := topLevelMembers(root)
 		kept := s.snippets[:0]
@@ -601,6 +628,10 @@ func isCommentOnly(src string) bool {
 // sessionOrigin names the accumulated session buffer in diagnostics, which
 // belongs to no file on disk.
 const sessionOrigin = "<session>"
+
+// SessionOrigin names the accumulated buffer in diagnostics, for callers that
+// write the session's text as a document of their own.
+const SessionOrigin = sessionOrigin
 
 // joined is the buffer the session analyzes: every accepted submission, with a
 // submission that does not close its own text masked out so it cannot change how
@@ -829,6 +860,7 @@ func (s *Session) submitEach(files []SourceFile) (res Result, byFile [][]string,
 		byFile[i] = dropNotices(dropped)
 		drops = append(drops, dropped...)
 	}
+	s.recordDrops = drops
 	joined := s.joined()
 	offset := s.genOffset(joined)
 	// A merge rewrote a snippet that was already accepted, so only the text the
@@ -837,29 +869,8 @@ func (s *Session) submitEach(files []SourceFile) (res Result, byFile [][]string,
 	if at, ok := firstText(own); ok {
 		offset = at
 	}
-	// What the session holds is recorded against the resolution that produced it
-	// before the new text replaces that resolution, so what the new document does
-	// not change can be told apart from what it does.
-	over := s.recordCarryover()
-	sysml, _ := s.joinedFor(docName)
-	s.ws.Open(docName, []byte(sysml), s.version)
-	if kerml, found := s.joinedFor(kermlDocName); found {
-		s.ws.Open(kermlDocName, []byte(kerml), s.version)
-	} else {
-		s.ws.Remove(kermlDocName)
-	}
-	// The document is a new AST and scope tree, so the context derived from the
-	// previous one is replaced; the objects it holds are carried into the new one
-	// where the declarations they were materialized against are unchanged. The
-	// index is re-used and brought up to date on the next lookup instead, which is
-	// why it records the version it holds.
-	s.rtCtx = nil
-	gone := goneNames(drops)
-	whole = s.carryOverObjects(over)
-	whole = append(whole, s.dropStaleDebugSessions(gone, over)...)
+	whole = s.rebuildOver(drops)
 	notices := append(dropNotices(drops), whole...)
-	s.rebindRestartedMachine()
-	s.keepIdentitiesOf(over.prev)
 	// The diagnostics already carry their own "did you mean" hints.
 	diags := s.diagnostics()
 	members := s.sessionMembers()
@@ -878,6 +889,35 @@ func (s *Session) submitEach(files []SourceFile) (res Result, byFile [][]string,
 	}
 	res.Blocked = s.blockedBy(res)
 	return res, byFile, whole
+}
+
+// rebuildOver replaces the open document and everything derived from it — the
+// runtime context, the resolutions held objects and debugging sessions were
+// made against — after the snippets changed, reporting what it carried over.
+func (s *Session) rebuildOver(drops []dropReport) []string {
+	// What the session holds is recorded against the resolution that produced it
+	// before the new text replaces that resolution, so what the new document does
+	// not change can be told apart from what it does.
+	over := s.recordCarryover()
+	sysml, _ := s.joinedFor(docName)
+	s.ws.Open(docName, []byte(sysml), s.version)
+	if kerml, found := s.joinedFor(kermlDocName); found {
+		s.ws.Open(kermlDocName, []byte(kerml), s.version)
+	} else {
+		s.ws.Remove(kermlDocName)
+	}
+	// The document is a new AST and scope tree, so the context derived from the
+	// previous one is replaced; the objects it holds are carried into the new one
+	// where the declarations they were materialized against are unchanged. The
+	// index is re-used and brought up to date on the next lookup instead, which is
+	// why it records the version it holds.
+	s.rtCtx = nil
+	gone := goneNames(drops)
+	whole := s.carryOverObjects(over)
+	whole = append(whole, s.dropStaleDebugSessions(gone, over)...)
+	s.rebindRestartedMachine()
+	s.keepIdentitiesOf(over.prev)
+	return whole
 }
 
 // fileSpan is where the current submission's text from the named file sits in the

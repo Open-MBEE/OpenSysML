@@ -455,6 +455,14 @@ func runCLI() int {
 		fmt.Fprintln(os.Stderr, "sysml: -layout accompanies -convert of a SysML v1 model; write `sysml model.xmi -convert sysml -layout model_mtip.xml`")
 		return 2
 	}
+	if flagGiven("record-into") && len(modelChecks.records) == 0 {
+		fmt.Fprintln(os.Stderr, "sysml: -record-into accompanies -record-run; write `sysml model.sysml -record-run \"Pkg::Case\" -record-into Pkg::Log`")
+		return 2
+	}
+	if flagGiven("record-into") && modelChecks.recordInto == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -record-into needs a package name; write `sysml model.sysml -record-run \"Pkg::Case\" -record-into Pkg::Log`")
+		return 2
+	}
 	if flagGiven("layout") && layoutPath == "" {
 		fmt.Fprintln(os.Stderr, "sysml: -layout is empty; name the MTIP export to lay the migrated views out from")
 		return 2
@@ -582,13 +590,22 @@ func runCLI() int {
 			fmt.Fprintln(os.Stderr, "sysml: -convert and -query are mutually exclusive")
 			return 2
 		}
-		if modelChecks.requested() {
+		if modelChecks.requested() && !modelChecks.recordsOnly() {
 			return refuse(modelChecks,
 				"-convert writes the model out and decides nothing about it; check it in its own run")
 		}
 		if renderView != "" || renderDoc != "" {
 			fmt.Fprintln(os.Stderr, "sysml: -convert, -render and -render-document each write a document out; ask for one per run")
 			return 2
+		}
+		if modelChecks.recordsOnly() {
+			if message := modelChecks.boundsMisuse(); message != "" {
+				fmt.Fprintf(os.Stderr, "sysml: %s\n", message)
+				return 2
+			}
+			if status := resolveRunBounds(); status != 0 {
+				return status
+			}
 		}
 		return runConvertExit(args)
 	}
@@ -628,11 +645,14 @@ func runCLI() int {
 		case modelChecks.jsonOut && !modelChecks.checksOnly():
 			fmt.Fprintln(os.Stderr, "sysml: -render-document writes a document, not JSON; -json reports checks")
 			return 2
-		case modelChecks.requested() && !modelChecks.instantiatesOnly():
+		case modelChecks.requested() && !modelChecks.instantiatesOnly() && !modelChecks.recordsOnly():
 			return refuse(modelChecks,
 				"-render-document writes a document out and decides nothing about the model; check it in its own run")
 		case len(evalExprs) > 0 || fromFormat != "":
 			fmt.Fprintln(os.Stderr, "sysml: -render-document cannot be combined with -eval or -from")
+			return 2
+		case modelChecks.recordsOnly() && modelChecks.boundsMisuse() != "":
+			fmt.Fprintf(os.Stderr, "sysml: %s\n", modelChecks.boundsMisuse())
 			return 2
 		}
 		if status := resolveRunBounds(); status != 0 {
@@ -681,6 +701,7 @@ func resolveRunBounds() int {
 // the run bounds resolved at startup.
 func newSession() *repl.Session {
 	sess := repl.NewSession()
+	sess.SetToolVersion("sysml " + Version)
 	if err := sess.SetBudgets(budgets); err != nil {
 		// Unreachable: budgets are validated in main before any session exists.
 		fmt.Fprintln(os.Stderr, errPrefix, err)

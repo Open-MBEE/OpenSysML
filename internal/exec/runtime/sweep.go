@@ -121,6 +121,9 @@ func (p SweepPlan) Drawn() bool { return p.Sampled || (p.IsMonteCarlo() && !p.Se
 type SweepRunResult struct {
 	Outputs  []CalcOutputValue
 	Verdicts []AnalysisVerdict
+	// Inputs are the values the run bound the case's input parameters to, in
+	// declaration order, the row's own binding included.
+	Inputs []InputBinding
 	// The object the run was about, where a case ran on one.
 	Subject *Instance
 	// Evaluations are the applications the run made of a calc held as a value,
@@ -142,6 +145,7 @@ type SweepRow struct {
 	// The object this run's verdicts are about, where a case ran on one.
 	Subject     *Instance
 	Evaluations []AnalysisEvaluation
+	Inputs      []InputBinding
 	Elapsed     time.Duration
 	Err         error
 	// Context is the context the run was made in, which its outputs, subject and
@@ -211,6 +215,7 @@ func runSweepRow(ctx *Context, bindings []SweepBinding, run SweepRun) SweepRow {
 	row.Err = err
 	row.Outputs, row.Verdicts = result.Outputs, result.Verdicts
 	row.Subject, row.Evaluations = result.Subject, result.Evaluations
+	row.Inputs = result.Inputs
 	return row
 }
 

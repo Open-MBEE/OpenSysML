@@ -36,11 +36,16 @@ was produced by it.
    graded reports, from three flat requirements and their satisfiers to a
    multi-team program with derivation chains, verdicts, coverage gaps and a
    grouped matrix, each with its source and rendered output
-10. [Limitations and troubleshooting](troubleshooting.md) — the typed error
+10. [Recording analysis runs](recording-analysis-runs.md) — writing the runs a
+    case makes into the model as `AnalysisRecords` elements, and reading them
+    back with document queries
+11. [Limitations and troubleshooting](troubleshooting.md) — the typed error
     catalog and the current limitations
 
 The document-query vocabulary is a **non-normative OpenSysML extension** — it
 is not part of the OMG SysML v2 or KerML standard. Models that use it remain
 standard SysML v2: the vocabulary is ordinary `calc def`s and `part def`s from
 the bundled `DocumentQueries` library package, and using it does not alter the
-language's semantics.
+language's semantics. The bundled `AnalysisRecords` library is the same kind
+of extension: the declarations `%record`/`-record-run` writes a run into the
+model with (see [Recording analysis runs](recording-analysis-runs.md)).

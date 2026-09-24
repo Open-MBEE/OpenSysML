@@ -60,6 +60,15 @@ Invoke this calculation and report its result, as \-calc "Fall(3, 4)"
 Run this analysis or verification case and report its outputs and verdict, as
 \-analysis "Pkg::Case(3.0) Pkg::part" (repeatable)
 .TP
+.BR \-record\-run " \fIcall\fP"
+Run this analysis case as \-analysis does and record the run into the model as
+AnalysisRecords elements, one record per \-sweep value or \-runs run
+(repeatable)
+.TP
+.BR \-record\-into " \fIpackage\fP"
+Record \-record\-run runs into this package instead of a Records package
+beside the case's
+.TP
 .BR \-run\-query " \fIquery\fP"
 Execute this document query and report its rows, as \-run\-query "Heavy
 root=telescope" (repeatable)

@@ -315,12 +315,10 @@ expr:Payloads__Ctx___402_pend0
     sysml:owningRelationship expr:Payloads__Ctx___402_pend0_om ;
     sysml:owningMembership expr:Payloads__Ctx___402_pend0_om ;
     sysx:sourceText "x.i" ;
-    sysml:ownedRelationship expr:Payloads__Ctx___402_pend0_pchain_om, expr:Payloads__Ctx___402_pend0_prs ;
-    sysml:ownedMembership expr:Payloads__Ctx___402_pend0_pchain_om ;
     sysml:ownedReferenceSubsetting expr:Payloads__Ctx___402_pend0_prs ;
     sysml:ownedSubsetting expr:Payloads__Ctx___402_pend0_prs ;
     sysml:ownedSpecialization expr:Payloads__Ctx___402_pend0_prs ;
-    json:ownedRelationship "[{\"@id\":\"Payloads__Ctx___402_pend0_pchain_om\"},{\"@id\":\"Payloads__Ctx___402_pend0_prs\"}]" .
+    sysml:ownedRelationship expr:Payloads__Ctx___402_pend0_prs .
 
 expr:Payloads__Ctx___402_pend0_om
     a sysml:EndFeatureMembership ;
@@ -335,21 +333,38 @@ expr:Payloads__Ctx___402_pend0_om
 expr:Payloads__Ctx___402_pend0_pchain
     a sysml:Feature ;
     sysml:elementId "Payloads__Ctx___402_pend0_pchain" ;
+    sysml:ownedFeatureChaining expr:Payloads__Ctx___402_pend0_pchain_pfc0, expr:Payloads__Ctx___402_pend0_pchain_pfc1 ;
+    sysml:ownedRelationship expr:Payloads__Ctx___402_pend0_pchain_pfc0, expr:Payloads__Ctx___402_pend0_pchain_pfc1 ;
     sysml:chainingFeature elmt:Payloads__Ctx__x, elmt:Payloads__A__i ;
+    sysml:owningRelationship expr:Payloads__Ctx___402_pend0_prs ;
     sysml:owner expr:Payloads__Ctx___402_pend0 ;
-    sysml:owningRelationship expr:Payloads__Ctx___402_pend0_pchain_om ;
-    sysml:owningMembership expr:Payloads__Ctx___402_pend0_pchain_om ;
+    json:ownedFeatureChaining "[{\"@id\":\"Payloads__Ctx___402_pend0_pchain_pfc0\"},{\"@id\":\"Payloads__Ctx___402_pend0_pchain_pfc1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Payloads__Ctx___402_pend0_pchain_pfc0\"},{\"@id\":\"Payloads__Ctx___402_pend0_pchain_pfc1\"}]" ;
     json:chainingFeature "[{\"@id\":\"Payloads__Ctx__x\"},{\"@id\":\"Payloads__A__i\"}]" .
 
-expr:Payloads__Ctx___402_pend0_pchain_om
-    a sysml:OwningMembership ;
-    sysml:elementId "Payloads__Ctx___402_pend0_pchain_om" ;
-    sysml:owner expr:Payloads__Ctx___402_pend0 ;
-    sysml:memberElement expr:Payloads__Ctx___402_pend0_pchain ;
-    sysml:ownedMemberElement expr:Payloads__Ctx___402_pend0_pchain ;
-    sysml:ownedRelatedElement expr:Payloads__Ctx___402_pend0_pchain ;
-    sysml:owningRelatedElement expr:Payloads__Ctx___402_pend0 ;
-    sysml:membershipOwningNamespace expr:Payloads__Ctx___402_pend0 .
+expr:Payloads__Ctx___402_pend0_pchain_pfc0
+    a sysml:FeatureChaining ;
+    sysml:elementId "Payloads__Ctx___402_pend0_pchain_pfc0" ;
+    sysml:featureChained expr:Payloads__Ctx___402_pend0_pchain ;
+    sysml:source expr:Payloads__Ctx___402_pend0_pchain ;
+    sysml:owningRelatedElement expr:Payloads__Ctx___402_pend0_pchain ;
+    sysml:chainingFeature elmt:Payloads__Ctx__x ;
+    sysml:target elmt:Payloads__Ctx__x ;
+    sysml:owner expr:Payloads__Ctx___402_pend0_pchain ;
+    sysml:relatedElement expr:Payloads__Ctx___402_pend0_pchain, elmt:Payloads__Ctx__x ;
+    json:relatedElement "[{\"@id\":\"Payloads__Ctx___402_pend0_pchain\"},{\"@id\":\"Payloads__Ctx__x\"}]" .
+
+expr:Payloads__Ctx___402_pend0_pchain_pfc1
+    a sysml:FeatureChaining ;
+    sysml:elementId "Payloads__Ctx___402_pend0_pchain_pfc1" ;
+    sysml:featureChained expr:Payloads__Ctx___402_pend0_pchain ;
+    sysml:source expr:Payloads__Ctx___402_pend0_pchain ;
+    sysml:owningRelatedElement expr:Payloads__Ctx___402_pend0_pchain ;
+    sysml:chainingFeature elmt:Payloads__A__i ;
+    sysml:target elmt:Payloads__A__i ;
+    sysml:owner expr:Payloads__Ctx___402_pend0_pchain ;
+    sysml:relatedElement expr:Payloads__Ctx___402_pend0_pchain, elmt:Payloads__A__i ;
+    json:relatedElement "[{\"@id\":\"Payloads__Ctx___402_pend0_pchain\"},{\"@id\":\"Payloads__A__i\"}]" .
 
 expr:Payloads__Ctx___402_pend0_prs
     a sysml:ReferenceSubsetting ;
@@ -367,6 +382,7 @@ expr:Payloads__Ctx___402_pend0_prs
     sysml:relatedElement expr:Payloads__Ctx___402_pend0, expr:Payloads__Ctx___402_pend0_pchain ;
     sysml:owner expr:Payloads__Ctx___402_pend0 ;
     sysml:owningRelatedElement expr:Payloads__Ctx___402_pend0 ;
+    sysml:ownedRelatedElement expr:Payloads__Ctx___402_pend0_pchain ;
     json:relatedElement "[{\"@id\":\"Payloads__Ctx___402_pend0\"},{\"@id\":\"Payloads__Ctx___402_pend0_pchain\"}]" .
 
 expr:Payloads__Ctx___402_pend1
@@ -377,12 +393,10 @@ expr:Payloads__Ctx___402_pend1
     sysml:owningRelationship expr:Payloads__Ctx___402_pend1_om ;
     sysml:owningMembership expr:Payloads__Ctx___402_pend1_om ;
     sysx:sourceText "y.j" ;
-    sysml:ownedRelationship expr:Payloads__Ctx___402_pend1_pchain_om, expr:Payloads__Ctx___402_pend1_prs ;
-    sysml:ownedMembership expr:Payloads__Ctx___402_pend1_pchain_om ;
     sysml:ownedReferenceSubsetting expr:Payloads__Ctx___402_pend1_prs ;
     sysml:ownedSubsetting expr:Payloads__Ctx___402_pend1_prs ;
     sysml:ownedSpecialization expr:Payloads__Ctx___402_pend1_prs ;
-    json:ownedRelationship "[{\"@id\":\"Payloads__Ctx___402_pend1_pchain_om\"},{\"@id\":\"Payloads__Ctx___402_pend1_prs\"}]" .
+    sysml:ownedRelationship expr:Payloads__Ctx___402_pend1_prs .
 
 expr:Payloads__Ctx___402_pend1_om
     a sysml:EndFeatureMembership ;
@@ -397,21 +411,38 @@ expr:Payloads__Ctx___402_pend1_om
 expr:Payloads__Ctx___402_pend1_pchain
     a sysml:Feature ;
     sysml:elementId "Payloads__Ctx___402_pend1_pchain" ;
+    sysml:ownedFeatureChaining expr:Payloads__Ctx___402_pend1_pchain_pfc0, expr:Payloads__Ctx___402_pend1_pchain_pfc1 ;
+    sysml:ownedRelationship expr:Payloads__Ctx___402_pend1_pchain_pfc0, expr:Payloads__Ctx___402_pend1_pchain_pfc1 ;
     sysml:chainingFeature elmt:Payloads__Ctx__y, elmt:Payloads__B__j ;
+    sysml:owningRelationship expr:Payloads__Ctx___402_pend1_prs ;
     sysml:owner expr:Payloads__Ctx___402_pend1 ;
-    sysml:owningRelationship expr:Payloads__Ctx___402_pend1_pchain_om ;
-    sysml:owningMembership expr:Payloads__Ctx___402_pend1_pchain_om ;
+    json:ownedFeatureChaining "[{\"@id\":\"Payloads__Ctx___402_pend1_pchain_pfc0\"},{\"@id\":\"Payloads__Ctx___402_pend1_pchain_pfc1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Payloads__Ctx___402_pend1_pchain_pfc0\"},{\"@id\":\"Payloads__Ctx___402_pend1_pchain_pfc1\"}]" ;
     json:chainingFeature "[{\"@id\":\"Payloads__Ctx__y\"},{\"@id\":\"Payloads__B__j\"}]" .
 
-expr:Payloads__Ctx___402_pend1_pchain_om
-    a sysml:OwningMembership ;
-    sysml:elementId "Payloads__Ctx___402_pend1_pchain_om" ;
-    sysml:owner expr:Payloads__Ctx___402_pend1 ;
-    sysml:memberElement expr:Payloads__Ctx___402_pend1_pchain ;
-    sysml:ownedMemberElement expr:Payloads__Ctx___402_pend1_pchain ;
-    sysml:ownedRelatedElement expr:Payloads__Ctx___402_pend1_pchain ;
-    sysml:owningRelatedElement expr:Payloads__Ctx___402_pend1 ;
-    sysml:membershipOwningNamespace expr:Payloads__Ctx___402_pend1 .
+expr:Payloads__Ctx___402_pend1_pchain_pfc0
+    a sysml:FeatureChaining ;
+    sysml:elementId "Payloads__Ctx___402_pend1_pchain_pfc0" ;
+    sysml:featureChained expr:Payloads__Ctx___402_pend1_pchain ;
+    sysml:source expr:Payloads__Ctx___402_pend1_pchain ;
+    sysml:owningRelatedElement expr:Payloads__Ctx___402_pend1_pchain ;
+    sysml:chainingFeature elmt:Payloads__Ctx__y ;
+    sysml:target elmt:Payloads__Ctx__y ;
+    sysml:owner expr:Payloads__Ctx___402_pend1_pchain ;
+    sysml:relatedElement expr:Payloads__Ctx___402_pend1_pchain, elmt:Payloads__Ctx__y ;
+    json:relatedElement "[{\"@id\":\"Payloads__Ctx___402_pend1_pchain\"},{\"@id\":\"Payloads__Ctx__y\"}]" .
+
+expr:Payloads__Ctx___402_pend1_pchain_pfc1
+    a sysml:FeatureChaining ;
+    sysml:elementId "Payloads__Ctx___402_pend1_pchain_pfc1" ;
+    sysml:featureChained expr:Payloads__Ctx___402_pend1_pchain ;
+    sysml:source expr:Payloads__Ctx___402_pend1_pchain ;
+    sysml:owningRelatedElement expr:Payloads__Ctx___402_pend1_pchain ;
+    sysml:chainingFeature elmt:Payloads__B__j ;
+    sysml:target elmt:Payloads__B__j ;
+    sysml:owner expr:Payloads__Ctx___402_pend1_pchain ;
+    sysml:relatedElement expr:Payloads__Ctx___402_pend1_pchain, elmt:Payloads__B__j ;
+    json:relatedElement "[{\"@id\":\"Payloads__Ctx___402_pend1_pchain\"},{\"@id\":\"Payloads__B__j\"}]" .
 
 expr:Payloads__Ctx___402_pend1_prs
     a sysml:ReferenceSubsetting ;
@@ -429,6 +460,7 @@ expr:Payloads__Ctx___402_pend1_prs
     sysml:relatedElement expr:Payloads__Ctx___402_pend1, expr:Payloads__Ctx___402_pend1_pchain ;
     sysml:owner expr:Payloads__Ctx___402_pend1 ;
     sysml:owningRelatedElement expr:Payloads__Ctx___402_pend1 ;
+    sysml:ownedRelatedElement expr:Payloads__Ctx___402_pend1_pchain ;
     json:relatedElement "[{\"@id\":\"Payloads__Ctx___402_pend1\"},{\"@id\":\"Payloads__Ctx___402_pend1_pchain\"}]" .
 
 expr:Payloads__Ctx___402_ppayload
@@ -546,12 +578,10 @@ expr:Payloads__Ctx__m_pend0
     sysml:owningRelationship expr:Payloads__Ctx__m_pend0_om ;
     sysml:owningMembership expr:Payloads__Ctx__m_pend0_om ;
     sysx:sourceText "x.i" ;
-    sysml:ownedRelationship expr:Payloads__Ctx__m_pend0_pchain_om, expr:Payloads__Ctx__m_pend0_prs ;
-    sysml:ownedMembership expr:Payloads__Ctx__m_pend0_pchain_om ;
     sysml:ownedReferenceSubsetting expr:Payloads__Ctx__m_pend0_prs ;
     sysml:ownedSubsetting expr:Payloads__Ctx__m_pend0_prs ;
     sysml:ownedSpecialization expr:Payloads__Ctx__m_pend0_prs ;
-    json:ownedRelationship "[{\"@id\":\"Payloads__Ctx__m_pend0_pchain_om\"},{\"@id\":\"Payloads__Ctx__m_pend0_prs\"}]" .
+    sysml:ownedRelationship expr:Payloads__Ctx__m_pend0_prs .
 
 expr:Payloads__Ctx__m_pend0_om
     a sysml:EndFeatureMembership ;
@@ -566,21 +596,38 @@ expr:Payloads__Ctx__m_pend0_om
 expr:Payloads__Ctx__m_pend0_pchain
     a sysml:Feature ;
     sysml:elementId "Payloads__Ctx__m_pend0_pchain" ;
+    sysml:ownedFeatureChaining expr:Payloads__Ctx__m_pend0_pchain_pfc0, expr:Payloads__Ctx__m_pend0_pchain_pfc1 ;
+    sysml:ownedRelationship expr:Payloads__Ctx__m_pend0_pchain_pfc0, expr:Payloads__Ctx__m_pend0_pchain_pfc1 ;
     sysml:chainingFeature elmt:Payloads__Ctx__x, elmt:Payloads__A__i ;
+    sysml:owningRelationship expr:Payloads__Ctx__m_pend0_prs ;
     sysml:owner expr:Payloads__Ctx__m_pend0 ;
-    sysml:owningRelationship expr:Payloads__Ctx__m_pend0_pchain_om ;
-    sysml:owningMembership expr:Payloads__Ctx__m_pend0_pchain_om ;
+    json:ownedFeatureChaining "[{\"@id\":\"Payloads__Ctx__m_pend0_pchain_pfc0\"},{\"@id\":\"Payloads__Ctx__m_pend0_pchain_pfc1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Payloads__Ctx__m_pend0_pchain_pfc0\"},{\"@id\":\"Payloads__Ctx__m_pend0_pchain_pfc1\"}]" ;
     json:chainingFeature "[{\"@id\":\"Payloads__Ctx__x\"},{\"@id\":\"Payloads__A__i\"}]" .
 
-expr:Payloads__Ctx__m_pend0_pchain_om
-    a sysml:OwningMembership ;
-    sysml:elementId "Payloads__Ctx__m_pend0_pchain_om" ;
-    sysml:owner expr:Payloads__Ctx__m_pend0 ;
-    sysml:memberElement expr:Payloads__Ctx__m_pend0_pchain ;
-    sysml:ownedMemberElement expr:Payloads__Ctx__m_pend0_pchain ;
-    sysml:ownedRelatedElement expr:Payloads__Ctx__m_pend0_pchain ;
-    sysml:owningRelatedElement expr:Payloads__Ctx__m_pend0 ;
-    sysml:membershipOwningNamespace expr:Payloads__Ctx__m_pend0 .
+expr:Payloads__Ctx__m_pend0_pchain_pfc0
+    a sysml:FeatureChaining ;
+    sysml:elementId "Payloads__Ctx__m_pend0_pchain_pfc0" ;
+    sysml:featureChained expr:Payloads__Ctx__m_pend0_pchain ;
+    sysml:source expr:Payloads__Ctx__m_pend0_pchain ;
+    sysml:owningRelatedElement expr:Payloads__Ctx__m_pend0_pchain ;
+    sysml:chainingFeature elmt:Payloads__Ctx__x ;
+    sysml:target elmt:Payloads__Ctx__x ;
+    sysml:owner expr:Payloads__Ctx__m_pend0_pchain ;
+    sysml:relatedElement expr:Payloads__Ctx__m_pend0_pchain, elmt:Payloads__Ctx__x ;
+    json:relatedElement "[{\"@id\":\"Payloads__Ctx__m_pend0_pchain\"},{\"@id\":\"Payloads__Ctx__x\"}]" .
+
+expr:Payloads__Ctx__m_pend0_pchain_pfc1
+    a sysml:FeatureChaining ;
+    sysml:elementId "Payloads__Ctx__m_pend0_pchain_pfc1" ;
+    sysml:featureChained expr:Payloads__Ctx__m_pend0_pchain ;
+    sysml:source expr:Payloads__Ctx__m_pend0_pchain ;
+    sysml:owningRelatedElement expr:Payloads__Ctx__m_pend0_pchain ;
+    sysml:chainingFeature elmt:Payloads__A__i ;
+    sysml:target elmt:Payloads__A__i ;
+    sysml:owner expr:Payloads__Ctx__m_pend0_pchain ;
+    sysml:relatedElement expr:Payloads__Ctx__m_pend0_pchain, elmt:Payloads__A__i ;
+    json:relatedElement "[{\"@id\":\"Payloads__Ctx__m_pend0_pchain\"},{\"@id\":\"Payloads__A__i\"}]" .
 
 expr:Payloads__Ctx__m_pend0_prs
     a sysml:ReferenceSubsetting ;
@@ -598,6 +645,7 @@ expr:Payloads__Ctx__m_pend0_prs
     sysml:relatedElement expr:Payloads__Ctx__m_pend0, expr:Payloads__Ctx__m_pend0_pchain ;
     sysml:owner expr:Payloads__Ctx__m_pend0 ;
     sysml:owningRelatedElement expr:Payloads__Ctx__m_pend0 ;
+    sysml:ownedRelatedElement expr:Payloads__Ctx__m_pend0_pchain ;
     json:relatedElement "[{\"@id\":\"Payloads__Ctx__m_pend0\"},{\"@id\":\"Payloads__Ctx__m_pend0_pchain\"}]" .
 
 expr:Payloads__Ctx__m_pend1
@@ -608,12 +656,10 @@ expr:Payloads__Ctx__m_pend1
     sysml:owningRelationship expr:Payloads__Ctx__m_pend1_om ;
     sysml:owningMembership expr:Payloads__Ctx__m_pend1_om ;
     sysx:sourceText "y.j" ;
-    sysml:ownedRelationship expr:Payloads__Ctx__m_pend1_pchain_om, expr:Payloads__Ctx__m_pend1_prs ;
-    sysml:ownedMembership expr:Payloads__Ctx__m_pend1_pchain_om ;
     sysml:ownedReferenceSubsetting expr:Payloads__Ctx__m_pend1_prs ;
     sysml:ownedSubsetting expr:Payloads__Ctx__m_pend1_prs ;
     sysml:ownedSpecialization expr:Payloads__Ctx__m_pend1_prs ;
-    json:ownedRelationship "[{\"@id\":\"Payloads__Ctx__m_pend1_pchain_om\"},{\"@id\":\"Payloads__Ctx__m_pend1_prs\"}]" .
+    sysml:ownedRelationship expr:Payloads__Ctx__m_pend1_prs .
 
 expr:Payloads__Ctx__m_pend1_om
     a sysml:EndFeatureMembership ;
@@ -628,21 +674,38 @@ expr:Payloads__Ctx__m_pend1_om
 expr:Payloads__Ctx__m_pend1_pchain
     a sysml:Feature ;
     sysml:elementId "Payloads__Ctx__m_pend1_pchain" ;
+    sysml:ownedFeatureChaining expr:Payloads__Ctx__m_pend1_pchain_pfc0, expr:Payloads__Ctx__m_pend1_pchain_pfc1 ;
+    sysml:ownedRelationship expr:Payloads__Ctx__m_pend1_pchain_pfc0, expr:Payloads__Ctx__m_pend1_pchain_pfc1 ;
     sysml:chainingFeature elmt:Payloads__Ctx__y, elmt:Payloads__B__j ;
+    sysml:owningRelationship expr:Payloads__Ctx__m_pend1_prs ;
     sysml:owner expr:Payloads__Ctx__m_pend1 ;
-    sysml:owningRelationship expr:Payloads__Ctx__m_pend1_pchain_om ;
-    sysml:owningMembership expr:Payloads__Ctx__m_pend1_pchain_om ;
+    json:ownedFeatureChaining "[{\"@id\":\"Payloads__Ctx__m_pend1_pchain_pfc0\"},{\"@id\":\"Payloads__Ctx__m_pend1_pchain_pfc1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Payloads__Ctx__m_pend1_pchain_pfc0\"},{\"@id\":\"Payloads__Ctx__m_pend1_pchain_pfc1\"}]" ;
     json:chainingFeature "[{\"@id\":\"Payloads__Ctx__y\"},{\"@id\":\"Payloads__B__j\"}]" .
 
-expr:Payloads__Ctx__m_pend1_pchain_om
-    a sysml:OwningMembership ;
-    sysml:elementId "Payloads__Ctx__m_pend1_pchain_om" ;
-    sysml:owner expr:Payloads__Ctx__m_pend1 ;
-    sysml:memberElement expr:Payloads__Ctx__m_pend1_pchain ;
-    sysml:ownedMemberElement expr:Payloads__Ctx__m_pend1_pchain ;
-    sysml:ownedRelatedElement expr:Payloads__Ctx__m_pend1_pchain ;
-    sysml:owningRelatedElement expr:Payloads__Ctx__m_pend1 ;
-    sysml:membershipOwningNamespace expr:Payloads__Ctx__m_pend1 .
+expr:Payloads__Ctx__m_pend1_pchain_pfc0
+    a sysml:FeatureChaining ;
+    sysml:elementId "Payloads__Ctx__m_pend1_pchain_pfc0" ;
+    sysml:featureChained expr:Payloads__Ctx__m_pend1_pchain ;
+    sysml:source expr:Payloads__Ctx__m_pend1_pchain ;
+    sysml:owningRelatedElement expr:Payloads__Ctx__m_pend1_pchain ;
+    sysml:chainingFeature elmt:Payloads__Ctx__y ;
+    sysml:target elmt:Payloads__Ctx__y ;
+    sysml:owner expr:Payloads__Ctx__m_pend1_pchain ;
+    sysml:relatedElement expr:Payloads__Ctx__m_pend1_pchain, elmt:Payloads__Ctx__y ;
+    json:relatedElement "[{\"@id\":\"Payloads__Ctx__m_pend1_pchain\"},{\"@id\":\"Payloads__Ctx__y\"}]" .
+
+expr:Payloads__Ctx__m_pend1_pchain_pfc1
+    a sysml:FeatureChaining ;
+    sysml:elementId "Payloads__Ctx__m_pend1_pchain_pfc1" ;
+    sysml:featureChained expr:Payloads__Ctx__m_pend1_pchain ;
+    sysml:source expr:Payloads__Ctx__m_pend1_pchain ;
+    sysml:owningRelatedElement expr:Payloads__Ctx__m_pend1_pchain ;
+    sysml:chainingFeature elmt:Payloads__B__j ;
+    sysml:target elmt:Payloads__B__j ;
+    sysml:owner expr:Payloads__Ctx__m_pend1_pchain ;
+    sysml:relatedElement expr:Payloads__Ctx__m_pend1_pchain, elmt:Payloads__B__j ;
+    json:relatedElement "[{\"@id\":\"Payloads__Ctx__m_pend1_pchain\"},{\"@id\":\"Payloads__B__j\"}]" .
 
 expr:Payloads__Ctx__m_pend1_prs
     a sysml:ReferenceSubsetting ;
@@ -660,6 +723,7 @@ expr:Payloads__Ctx__m_pend1_prs
     sysml:relatedElement expr:Payloads__Ctx__m_pend1, expr:Payloads__Ctx__m_pend1_pchain ;
     sysml:owner expr:Payloads__Ctx__m_pend1 ;
     sysml:owningRelatedElement expr:Payloads__Ctx__m_pend1 ;
+    sysml:ownedRelatedElement expr:Payloads__Ctx__m_pend1_pchain ;
     json:relatedElement "[{\"@id\":\"Payloads__Ctx__m_pend1\"},{\"@id\":\"Payloads__Ctx__m_pend1_pchain\"}]" .
 
 expr:Payloads__Ctx__m_ppayload
@@ -751,12 +815,10 @@ expr:Payloads__Ctx___404_pend0
     sysml:owningRelationship expr:Payloads__Ctx___404_pend0_om ;
     sysml:owningMembership expr:Payloads__Ctx___404_pend0_om ;
     sysx:sourceText "x.i" ;
-    sysml:ownedRelationship expr:Payloads__Ctx___404_pend0_pchain_om, expr:Payloads__Ctx___404_pend0_prs ;
-    sysml:ownedMembership expr:Payloads__Ctx___404_pend0_pchain_om ;
     sysml:ownedReferenceSubsetting expr:Payloads__Ctx___404_pend0_prs ;
     sysml:ownedSubsetting expr:Payloads__Ctx___404_pend0_prs ;
     sysml:ownedSpecialization expr:Payloads__Ctx___404_pend0_prs ;
-    json:ownedRelationship "[{\"@id\":\"Payloads__Ctx___404_pend0_pchain_om\"},{\"@id\":\"Payloads__Ctx___404_pend0_prs\"}]" .
+    sysml:ownedRelationship expr:Payloads__Ctx___404_pend0_prs .
 
 expr:Payloads__Ctx___404_pend0_om
     a sysml:EndFeatureMembership ;
@@ -771,21 +833,38 @@ expr:Payloads__Ctx___404_pend0_om
 expr:Payloads__Ctx___404_pend0_pchain
     a sysml:Feature ;
     sysml:elementId "Payloads__Ctx___404_pend0_pchain" ;
+    sysml:ownedFeatureChaining expr:Payloads__Ctx___404_pend0_pchain_pfc0, expr:Payloads__Ctx___404_pend0_pchain_pfc1 ;
+    sysml:ownedRelationship expr:Payloads__Ctx___404_pend0_pchain_pfc0, expr:Payloads__Ctx___404_pend0_pchain_pfc1 ;
     sysml:chainingFeature elmt:Payloads__Ctx__x, elmt:Payloads__A__i ;
+    sysml:owningRelationship expr:Payloads__Ctx___404_pend0_prs ;
     sysml:owner expr:Payloads__Ctx___404_pend0 ;
-    sysml:owningRelationship expr:Payloads__Ctx___404_pend0_pchain_om ;
-    sysml:owningMembership expr:Payloads__Ctx___404_pend0_pchain_om ;
+    json:ownedFeatureChaining "[{\"@id\":\"Payloads__Ctx___404_pend0_pchain_pfc0\"},{\"@id\":\"Payloads__Ctx___404_pend0_pchain_pfc1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Payloads__Ctx___404_pend0_pchain_pfc0\"},{\"@id\":\"Payloads__Ctx___404_pend0_pchain_pfc1\"}]" ;
     json:chainingFeature "[{\"@id\":\"Payloads__Ctx__x\"},{\"@id\":\"Payloads__A__i\"}]" .
 
-expr:Payloads__Ctx___404_pend0_pchain_om
-    a sysml:OwningMembership ;
-    sysml:elementId "Payloads__Ctx___404_pend0_pchain_om" ;
-    sysml:owner expr:Payloads__Ctx___404_pend0 ;
-    sysml:memberElement expr:Payloads__Ctx___404_pend0_pchain ;
-    sysml:ownedMemberElement expr:Payloads__Ctx___404_pend0_pchain ;
-    sysml:ownedRelatedElement expr:Payloads__Ctx___404_pend0_pchain ;
-    sysml:owningRelatedElement expr:Payloads__Ctx___404_pend0 ;
-    sysml:membershipOwningNamespace expr:Payloads__Ctx___404_pend0 .
+expr:Payloads__Ctx___404_pend0_pchain_pfc0
+    a sysml:FeatureChaining ;
+    sysml:elementId "Payloads__Ctx___404_pend0_pchain_pfc0" ;
+    sysml:featureChained expr:Payloads__Ctx___404_pend0_pchain ;
+    sysml:source expr:Payloads__Ctx___404_pend0_pchain ;
+    sysml:owningRelatedElement expr:Payloads__Ctx___404_pend0_pchain ;
+    sysml:chainingFeature elmt:Payloads__Ctx__x ;
+    sysml:target elmt:Payloads__Ctx__x ;
+    sysml:owner expr:Payloads__Ctx___404_pend0_pchain ;
+    sysml:relatedElement expr:Payloads__Ctx___404_pend0_pchain, elmt:Payloads__Ctx__x ;
+    json:relatedElement "[{\"@id\":\"Payloads__Ctx___404_pend0_pchain\"},{\"@id\":\"Payloads__Ctx__x\"}]" .
+
+expr:Payloads__Ctx___404_pend0_pchain_pfc1
+    a sysml:FeatureChaining ;
+    sysml:elementId "Payloads__Ctx___404_pend0_pchain_pfc1" ;
+    sysml:featureChained expr:Payloads__Ctx___404_pend0_pchain ;
+    sysml:source expr:Payloads__Ctx___404_pend0_pchain ;
+    sysml:owningRelatedElement expr:Payloads__Ctx___404_pend0_pchain ;
+    sysml:chainingFeature elmt:Payloads__A__i ;
+    sysml:target elmt:Payloads__A__i ;
+    sysml:owner expr:Payloads__Ctx___404_pend0_pchain ;
+    sysml:relatedElement expr:Payloads__Ctx___404_pend0_pchain, elmt:Payloads__A__i ;
+    json:relatedElement "[{\"@id\":\"Payloads__Ctx___404_pend0_pchain\"},{\"@id\":\"Payloads__A__i\"}]" .
 
 expr:Payloads__Ctx___404_pend0_prs
     a sysml:ReferenceSubsetting ;
@@ -803,6 +882,7 @@ expr:Payloads__Ctx___404_pend0_prs
     sysml:relatedElement expr:Payloads__Ctx___404_pend0, expr:Payloads__Ctx___404_pend0_pchain ;
     sysml:owner expr:Payloads__Ctx___404_pend0 ;
     sysml:owningRelatedElement expr:Payloads__Ctx___404_pend0 ;
+    sysml:ownedRelatedElement expr:Payloads__Ctx___404_pend0_pchain ;
     json:relatedElement "[{\"@id\":\"Payloads__Ctx___404_pend0\"},{\"@id\":\"Payloads__Ctx___404_pend0_pchain\"}]" .
 
 expr:Payloads__Ctx___404_pend1
@@ -813,12 +893,10 @@ expr:Payloads__Ctx___404_pend1
     sysml:owningRelationship expr:Payloads__Ctx___404_pend1_om ;
     sysml:owningMembership expr:Payloads__Ctx___404_pend1_om ;
     sysx:sourceText "y.j" ;
-    sysml:ownedRelationship expr:Payloads__Ctx___404_pend1_pchain_om, expr:Payloads__Ctx___404_pend1_prs ;
-    sysml:ownedMembership expr:Payloads__Ctx___404_pend1_pchain_om ;
     sysml:ownedReferenceSubsetting expr:Payloads__Ctx___404_pend1_prs ;
     sysml:ownedSubsetting expr:Payloads__Ctx___404_pend1_prs ;
     sysml:ownedSpecialization expr:Payloads__Ctx___404_pend1_prs ;
-    json:ownedRelationship "[{\"@id\":\"Payloads__Ctx___404_pend1_pchain_om\"},{\"@id\":\"Payloads__Ctx___404_pend1_prs\"}]" .
+    sysml:ownedRelationship expr:Payloads__Ctx___404_pend1_prs .
 
 expr:Payloads__Ctx___404_pend1_om
     a sysml:EndFeatureMembership ;
@@ -833,21 +911,38 @@ expr:Payloads__Ctx___404_pend1_om
 expr:Payloads__Ctx___404_pend1_pchain
     a sysml:Feature ;
     sysml:elementId "Payloads__Ctx___404_pend1_pchain" ;
+    sysml:ownedFeatureChaining expr:Payloads__Ctx___404_pend1_pchain_pfc0, expr:Payloads__Ctx___404_pend1_pchain_pfc1 ;
+    sysml:ownedRelationship expr:Payloads__Ctx___404_pend1_pchain_pfc0, expr:Payloads__Ctx___404_pend1_pchain_pfc1 ;
     sysml:chainingFeature elmt:Payloads__Ctx__y, elmt:Payloads__B__j ;
+    sysml:owningRelationship expr:Payloads__Ctx___404_pend1_prs ;
     sysml:owner expr:Payloads__Ctx___404_pend1 ;
-    sysml:owningRelationship expr:Payloads__Ctx___404_pend1_pchain_om ;
-    sysml:owningMembership expr:Payloads__Ctx___404_pend1_pchain_om ;
+    json:ownedFeatureChaining "[{\"@id\":\"Payloads__Ctx___404_pend1_pchain_pfc0\"},{\"@id\":\"Payloads__Ctx___404_pend1_pchain_pfc1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Payloads__Ctx___404_pend1_pchain_pfc0\"},{\"@id\":\"Payloads__Ctx___404_pend1_pchain_pfc1\"}]" ;
     json:chainingFeature "[{\"@id\":\"Payloads__Ctx__y\"},{\"@id\":\"Payloads__B__j\"}]" .
 
-expr:Payloads__Ctx___404_pend1_pchain_om
-    a sysml:OwningMembership ;
-    sysml:elementId "Payloads__Ctx___404_pend1_pchain_om" ;
-    sysml:owner expr:Payloads__Ctx___404_pend1 ;
-    sysml:memberElement expr:Payloads__Ctx___404_pend1_pchain ;
-    sysml:ownedMemberElement expr:Payloads__Ctx___404_pend1_pchain ;
-    sysml:ownedRelatedElement expr:Payloads__Ctx___404_pend1_pchain ;
-    sysml:owningRelatedElement expr:Payloads__Ctx___404_pend1 ;
-    sysml:membershipOwningNamespace expr:Payloads__Ctx___404_pend1 .
+expr:Payloads__Ctx___404_pend1_pchain_pfc0
+    a sysml:FeatureChaining ;
+    sysml:elementId "Payloads__Ctx___404_pend1_pchain_pfc0" ;
+    sysml:featureChained expr:Payloads__Ctx___404_pend1_pchain ;
+    sysml:source expr:Payloads__Ctx___404_pend1_pchain ;
+    sysml:owningRelatedElement expr:Payloads__Ctx___404_pend1_pchain ;
+    sysml:chainingFeature elmt:Payloads__Ctx__y ;
+    sysml:target elmt:Payloads__Ctx__y ;
+    sysml:owner expr:Payloads__Ctx___404_pend1_pchain ;
+    sysml:relatedElement expr:Payloads__Ctx___404_pend1_pchain, elmt:Payloads__Ctx__y ;
+    json:relatedElement "[{\"@id\":\"Payloads__Ctx___404_pend1_pchain\"},{\"@id\":\"Payloads__Ctx__y\"}]" .
+
+expr:Payloads__Ctx___404_pend1_pchain_pfc1
+    a sysml:FeatureChaining ;
+    sysml:elementId "Payloads__Ctx___404_pend1_pchain_pfc1" ;
+    sysml:featureChained expr:Payloads__Ctx___404_pend1_pchain ;
+    sysml:source expr:Payloads__Ctx___404_pend1_pchain ;
+    sysml:owningRelatedElement expr:Payloads__Ctx___404_pend1_pchain ;
+    sysml:chainingFeature elmt:Payloads__B__j ;
+    sysml:target elmt:Payloads__B__j ;
+    sysml:owner expr:Payloads__Ctx___404_pend1_pchain ;
+    sysml:relatedElement expr:Payloads__Ctx___404_pend1_pchain, elmt:Payloads__B__j ;
+    json:relatedElement "[{\"@id\":\"Payloads__Ctx___404_pend1_pchain\"},{\"@id\":\"Payloads__B__j\"}]" .
 
 expr:Payloads__Ctx___404_pend1_prs
     a sysml:ReferenceSubsetting ;
@@ -865,6 +960,7 @@ expr:Payloads__Ctx___404_pend1_prs
     sysml:relatedElement expr:Payloads__Ctx___404_pend1, expr:Payloads__Ctx___404_pend1_pchain ;
     sysml:owner expr:Payloads__Ctx___404_pend1 ;
     sysml:owningRelatedElement expr:Payloads__Ctx___404_pend1 ;
+    sysml:ownedRelatedElement expr:Payloads__Ctx___404_pend1_pchain ;
     json:relatedElement "[{\"@id\":\"Payloads__Ctx___404_pend1\"},{\"@id\":\"Payloads__Ctx___404_pend1_pchain\"}]" .
 
 expr:Payloads__Ctx___404_ppayload
