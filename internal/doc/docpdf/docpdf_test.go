@@ -366,13 +366,17 @@ func TestRenderHTMLIsTheBackendsPage(t *testing.T) {
 }
 
 // TestPrintStylesheetContract holds the print stylesheet to the HTML
-// backend's override contract: a later cascade layer, declared before use,
-// every value a --sysml-* token, and the reader's sheets after it unlayered.
+// backend's override contract: a later cascade layer, declared before use
+// ahead of the theme companions' layer, every value a --sysml-* token, and
+// the reader's sheets after it unlayered.
 func TestPrintStylesheetContract(t *testing.T) {
 	sheet := PrintStylesheet
 	layer := "@layer opensysml-print"
-	if !strings.HasPrefix(strings.TrimSpace(stripCSSComments(sheet)), layer+";") {
-		t.Fatalf("print stylesheet does not declare its layer first:\n%.200s", sheet)
+	if !strings.HasPrefix(strings.TrimSpace(stripCSSComments(sheet)), layer+", opensysml-print-theme;") {
+		t.Fatalf("print stylesheet does not declare its layer first, ahead of the theme companions' layer:\n%.200s", sheet)
+	}
+	if strings.Contains(sheet, "@layer opensysml-print-theme {") {
+		t.Fatal("print stylesheet writes into the theme companions' layer")
 	}
 	if !strings.Contains(sheet, layer+" {") {
 		t.Fatal("print stylesheet has no layered block")
@@ -398,7 +402,7 @@ func TestPrintStylesheetContract(t *testing.T) {
 		}
 		t.Errorf("declaration %s: %s resolves through no --sysml-* token", property, value)
 	}
-	page, err := docrender.HTML(plainDocument(t), htmlOptions(Options{
+	page, err := docrender.HTML(plainDocument(t), pageOptions(t, Options{
 		Stylesheets: []docrender.Stylesheet{docrender.InlineStylesheet(".sysml-document { color: red }")},
 	}, t.TempDir(), nil, formulas{}))
 	if err != nil {
@@ -423,7 +427,7 @@ func TestPrintStylesheetContract(t *testing.T) {
 // tokens, so a list of qualified names cannot push columns off the page, and
 // keeps each row, but not a whole table, on one page.
 func TestPrintStylesheetKeepsTablesWithinThePage(t *testing.T) {
-	page, err := docrender.HTML(plainDocument(t), htmlOptions(Options{}, t.TempDir(), nil, formulas{}))
+	page, err := docrender.HTML(plainDocument(t), pageOptions(t, Options{}, t.TempDir(), nil, formulas{}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -453,7 +457,7 @@ func TestPrintStylesheetKeepsTablesWithinThePage(t *testing.T) {
 // heading and lead-in paragraph ahead of it, keeps a header's words whole, and
 // keeps a heading's and lead-in's keep-with-next apart from any :has() rule.
 func TestPrintStylesheetSetsWideTablesLandscape(t *testing.T) {
-	page, err := docrender.HTML(plainDocument(t), htmlOptions(Options{}, t.TempDir(), nil, formulas{}))
+	page, err := docrender.HTML(plainDocument(t), pageOptions(t, Options{}, t.TempDir(), nil, formulas{}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -488,13 +492,14 @@ func TestPandocStylesheetSetsWideTablesLandscape(t *testing.T) {
 	wide := "table:has(thead > tr > th:nth-child(7))"
 	for _, want := range []string{
 		"@page wide { size: A4 landscape; }",
-		"body {\n  font-family: serif;\n  font-size: 11pt;\n  line-height: 1.45;\n  page: main;\n}",
+		"body {\n  font-family: \"Times New Roman\", Times, \"Liberation Serif\", \"Nimbus Roman\", serif;\n  font-size: 11pt;\n  line-height: 1.45;\n  page: main;\n}",
 		wide + " { page: wide; font-size: 9pt; }",
 		"p:has(+ " + wide + "),",
 		"p:has(.caption):has(+ p:has(+ " + wide + ")),",
 		":is(h1, h2, h3, h4, h5, h6):has(+ p:has(.caption):has(+ p:has(+ " + wide + "))) { page: wide; }",
 		"th {\n  background: #eeeeee;\n  overflow-wrap: normal;\n}",
-		"h1, h2, h3, h4, h5, h6 {\n  font-family: sans-serif;\n  line-height: 1.2;\n  break-after: avoid;",
+		"h1, h2, h3, h4, h5, h6 {\n  font-family: Arial, Helvetica, \"Liberation Sans\", \"Nimbus Sans\", sans-serif;\n  line-height: 1.2;\n  break-after: avoid;",
+		"pre, code { font-family: \"Courier New\", Courier, \"Liberation Mono\", \"Nimbus Mono PS\", monospace; }",
 		"p:has(.caption) { break-after: avoid; page-break-after: avoid; }\np:has(+ table) { break-after: avoid; page-break-after: avoid; }",
 	} {
 		if !strings.Contains(css, want) {
@@ -526,14 +531,26 @@ func stripCSSComments(css string) string {
 	return regexp.MustCompile(`(?s)/\*.*?\*/`).ReplaceAllString(css, "")
 }
 
+// pageOptions is htmlOptions for options a test knows to be well-formed.
+func pageOptions(t *testing.T, opts Options, dir string, images []string, math formulas) docrender.HTMLOptions {
+	t.Helper()
+	htmlOpts, err := htmlOptions(opts, dir, images, math)
+	if err != nil {
+		t.Fatalf("htmlOptions: %v", err)
+	}
+	return htmlOpts
+}
+
 // TestRenderReaderStylesheets checks -html-css reaches the PDF page as it
 // reaches the HTML form: inline sheets inlined, linked sheets linked, in
-// order, after the print stylesheet; and the theme and default sheet options
-// shape the page as they do for HTML.
+// order, after the bundled sheets; and that those follow in cascade order,
+// theme under print stylesheet under the theme's print companion under the
+// formula stylesheet, with -html-no-default-css leaving every one of them out.
 func TestRenderReaderStylesheets(t *testing.T) {
 	dir := t.TempDir()
+	fakeKatex(t, dir)
 	capture := captureWeasyPrint(t, dir)
-	if _, err := Render(plainDocument(t), "weasyprint", Options{
+	if _, err := Render(mathDocument(t), "weasyprint", Options{
 		Theme: "report",
 		Stylesheets: []docrender.Stylesheet{
 			docrender.InlineStylesheet(".sysml-document { --sysml-accent: teal }"),
@@ -543,7 +560,10 @@ func TestRenderReaderStylesheets(t *testing.T) {
 		t.Fatalf("Render: %v", err)
 	}
 	page, _ := readCapture(t, capture)
-	order := []string{"@layer opensysml {", "@layer opensysml-print {", ".sysml-document { --sysml-accent: teal }", `<link rel="stylesheet" href="https://example.com/house.css">`}
+	order := []string{
+		"@layer opensysml {", "/* report:", "@layer opensysml-print {", "@layer opensysml-print-theme {",
+		"katex/katex.min.css", ".sysml-document { --sysml-accent: teal }", `<link rel="stylesheet" href="https://example.com/house.css">`,
+	}
 	last := -1
 	for _, want := range order {
 		at := strings.Index(page, want)
@@ -552,6 +572,11 @@ func TestRenderReaderStylesheets(t *testing.T) {
 		}
 		last = at
 	}
+	for _, once := range order[2:5] {
+		if strings.Count(page, once) != 1 {
+			t.Errorf("%q on the page %d times, want once", once, strings.Count(page, once))
+		}
+	}
 	theme, err := docrender.ThemeStylesheet("report")
 	if err != nil {
 		t.Fatal(err)
@@ -559,15 +584,34 @@ func TestRenderReaderStylesheets(t *testing.T) {
 	if !strings.Contains(page, theme) {
 		t.Fatal("theme not laid under the print stylesheet")
 	}
+	companion, err := docrender.ThemePrintStylesheet("report")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(page, "<style>\n"+strings.TrimRight(companion, "\n")+"\n</style>") {
+		t.Fatalf("theme's print companion not inlined whole after the print stylesheet:\n%s", page)
+	}
+	if strings.Count(page, "@layer opensysml-print, opensysml-print-theme;") != 1 {
+		t.Fatalf("print stylesheet does not declare the companion's layer after its own:\n%s", page)
+	}
+
+	if _, err := Render(plainDocument(t), "weasyprint", Options{Theme: "modern"}); err != nil {
+		t.Fatalf("Render with a theme without a companion: %v", err)
+	}
+	page, _ = readCapture(t, capture)
+	if strings.Contains(page, "@layer opensysml-print-theme {") || !strings.Contains(page, "/* modern:") {
+		t.Fatalf("a theme without a print companion gets none:\n%s", page)
+	}
 
 	if _, err := Render(plainDocument(t), "weasyprint", Options{
+		Theme:               "report",
 		NoDefaultStylesheet: true,
 		Stylesheets:         []docrender.Stylesheet{docrender.InlineStylesheet("@page { size: letter }")},
 	}); err != nil {
 		t.Fatalf("Render without default stylesheet: %v", err)
 	}
 	page, _ = readCapture(t, capture)
-	if strings.Contains(page, "@layer") || !strings.Contains(page, "@page { size: letter }") {
+	if strings.Contains(page, "@layer") || strings.Contains(page, "/* report:") || !strings.Contains(page, "@page { size: letter }") {
 		t.Fatalf("page without the default stylesheet:\n%s", page)
 	}
 }

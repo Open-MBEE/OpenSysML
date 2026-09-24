@@ -3,6 +3,7 @@ package docpdf
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docir"
@@ -175,6 +176,25 @@ func plainDocument(t *testing.T) *docir.Document {
 	}
 }
 `, "Plain::Report")
+}
+
+// proseDocument is a report of one section of running text, so the size most
+// of its glyphs are set at is the body size.
+func proseDocument(t *testing.T) *docir.Document {
+	t.Helper()
+	sentence := "The mirror segments are phased by actuators that hold the wavefront error within budget across the observing night. "
+	return sourceDocument(t, "prose.sysml", `package Prose {
+	private import DocumentQueries::*;
+	part def Report :> Document {
+		attribute redefines title = "Prose";
+		part body : Section {
+			attribute redefines title = "Text";
+			part opening : Paragraph { part a : Span { attribute redefines text = "`+strings.Repeat(sentence, 6)+`"; } }
+			part closing : Paragraph { part a : Span { attribute redefines text = "`+strings.Repeat(sentence, 6)+`"; } }
+		}
+	}
+}
+`, "Prose::Report")
 }
 
 // wideTableDocument is a report whose middle section holds a captioned,
