@@ -4,39 +4,32 @@
 results of analysis runs be saved into the model itself, so a generated
 document can tabulate them later?**
 
-The honest answer is *not by itself, but yes by pattern*. `-analysis` and
-`-sweep` print each run's inputs, outputs and verdicts and then discard them:
-a run leaves no element in the model and no held object a document query can
-read, and `-render-document` cannot be combined with `-analysis`, so the
-document never sees a run happen. What a document *can* see is anything the
-model declares — so the recording pattern is to write each run back yourself:
-a `part` usage typed by a result-record definition, holding the run's inputs,
-outputs and objective as attribute values, annotated with provenance metadata
-and pointing at the part the run was about. [`report.md`](report.md) is what
-the document then renders.
+The honest answer is *yes — by recording them, which the tool can now do
+for you*. `-analysis` and `-sweep` print each run's inputs, outputs and
+verdicts, but a run leaves nothing a document query can read until it is
+**recorded**: `%record` and `-record-run` write the run back into the model as
+a `part` usage typed by a result-record definition in the bundled
+`AnalysisRecords` library — inputs, outputs, objective status, verdicts and
+evaluations, annotated with provenance metadata and a `ref` to the part the
+run was about. This demo's records are the same shape, written by hand (why,
+below). [`report.md`](report.md) is what the document then renders.
 
 ## The recording pattern
 
-The `Records` package declares the vocabulary:
+The `Records` package builds the demo's record definitions on the bundled
+`AnalysisRecords` library, which supplies `RecordedRun` (provenance
+metadata: `runAt`, `tool`, `command`, `kind`), `AnalysisRun` (`caseName`,
+`kind`, `'objective'`, `iteration`, `'subject'`, `subjectName`, `verdict`,
+plus `verdicts` and `evaluations` collections), `VerdictRecord` and
+`EvaluationRecord`:
 
 ```sysml
-metadata def RecordedRun {
-    attribute runAt : String;
-    attribute tool : String;
-    attribute revision : String;
+part def DemoRun :> AnalysisRecords::AnalysisRun {
     attribute command : String;
 }
 
-part def AnalysisRun {
-    attribute caseName : String;
-    attribute kind : String;        // "run" | "sweep" | "trade"
-    attribute 'objective' : String; // "satisfied" | "not satisfied" | "undecided"
-    attribute command : String;
-}
-
-part def FuelBudgetRun :> AnalysisRun {
+part def FuelBudgetRun :> DemoRun {
     ref part lander : Lander;
-    attribute subjectName : String;
     attribute burnTime : Real;
     attribute fuelUsed : Real;
     attribute wetMass : Real;
@@ -52,30 +45,41 @@ printed output:
 
 ```sysml
 part scoutRun : FuelBudgetRun {
-    @RecordedRun {
+    @AnalysisRecords::RecordedRun {
         runAt = "2025-11-02T09:14:00Z";
         tool = "sysml";
-        revision = "v0.8";
         command = "./bin/sysml examples/analysis-results-demo/lander-results.sysml -analysis Descent::scoutBudget";
+        kind = "run";
     }
-    ref part :>> lander = scout;
     attribute :>> caseName = "Descent::scoutBudget";
     attribute :>> kind = "run";
     attribute :>> 'objective' = "satisfied";
-    attribute :>> subjectName = "scout";
+    ref :>> 'subject' = Landers::scout;
+    ref part :>> lander = scout;
+    attribute :>> subjectName = "Landers::scout";
     attribute :>> burnTime = 40.0;
     attribute :>> fuelUsed = 120.0;
     attribute :>> wetMass = 730.0;
     attribute :>> fuelLeft = 130.0;
+    part verdict1 : AnalysisRecords::VerdictRecord :> verdicts {
+        attribute :>> kind = "objective";
+        attribute :>> name = "reserveHeld";
+        attribute :>> status = "satisfied";
+    }
 }
 ```
 
-Two limitations shape the record. The annotation's attribute values are not
-projectable — `Project(properties = ("runAt"))` reports `unknown property` —
-so `command` is also carried as a plain attribute for the provenance table to
-show; the `@RecordedRun` metadata still answers `WhereMetadata` filters and
-keeps the provenance machine-readable. And `objective` is a reserved word,
-written `'objective'` wherever a name is needed.
+Two limitations shape the record. The annotation's attribute values are
+not projectable — `Project(properties = ("runAt"))` reports
+`unknown property` — so `command` is also carried as a plain attribute on
+`DemoRun` for the provenance table to show; the `@AnalysisRecords::RecordedRun`
+metadata still answers `WhereMetadata` filters and keeps the provenance
+machine-readable. And the library's untyped `'subject'` ref cannot drive the
+`liveFuelLeft` formula, so `FuelBudgetRun` keeps a typed `lander` ref and each
+record binds both to the same part. Sweep records set the library's
+`iteration` attribute (1, 2, 3); the trade-study record carries its scores as
+`EvaluationRecord` usages under `evaluations`, the same shape `-record-run`
+emits.
 
 ## The runs that were recorded
 
@@ -189,13 +193,14 @@ can never give you: a record that notices the model moved.
     drift = 30.0
 ```
 
-The relay edit made a second record stale too: `lightestRun` still reports
-`relayScore = 630.0` while `-analysis Selection::lightest` now scores relay
-`660.0`. Nothing flags it — `TradeStudyRun` rederives nothing, so it has no
-`liveFuelLeft` to compare against. That is the limitation the paragraph above
-describes, made concrete: drift detection only exists where the record
-definition recomputes the value itself, which is exactly what an automated
-record step would have to emit for every output it saves.
+The relay edit made a second record stale too: `lightestRun`'s third
+`EvaluationRecord` still says `score = 630.0` while `-analysis
+Selection::lightest` now scores relay `660.0`. Nothing flags it —
+`EvaluationRecord` rederives nothing, so it has no `liveFuelLeft` to compare
+against. That is the limitation the paragraph above describes, made concrete:
+drift detection only exists where the record definition recomputes the value
+itself, which neither the library's records nor `-record-run`'s output does —
+a recompute-def like `FuelBudgetRun` is something a modeler writes on purpose.
 
 The comparison is a derived Boolean on the record definition rather than a
 `Column` expression, because computed columns do not support `!=`. Any model
@@ -212,7 +217,7 @@ recomputes an output can detect it, and only for the values it rederives.
 [`report.md`](report.md) is committed so the test suite can compare the
 render byte-for-byte. It shows a grouped table of every fuel-budget record by
 subject, the sweep rows alone, the stale-records table (exactly `relayRun`),
-a provenance table over `WhereMetadata(... 'metadata' = "Records::RecordedRun")`,
+a provenance table over `WhereMetadata(... 'metadata' = "AnalysisRecords::RecordedRun")`,
 the trade-study record, and — the contrast — a `Verdicts` table of the
 assertions about `scout` **evaluated live at render time**: the records say
 what a run printed; the verdicts say what holds now.
@@ -226,17 +231,69 @@ HTML and PDF render the same document tree:
   -render-document Reporting::AnalysisReport -doc-form pdf -o report.pdf
 ```
 
-## Why isn't this automatic?
+## Recording runs automatically
 
-Because nothing bridges two surfaces the tool already has — an implementation
-gap, not an architectural limitation. The runtime already holds each
-analysis run's results as typed values, `%save` already serializes the
-session model, and document queries already read declared elements and held
-objects; but analysis output is printed and discarded, no step writes it
-back, and `-render-document` cannot run alongside `-analysis`. The pattern
-this demo records by hand — a `part` usage typed by a result-record
-definition, provenance metadata, a `ref part` to the subject — is the shape
-an automated record step would emit.
+Everything above was written by hand; the same vocabulary is what
+`-record-run` emits. Running a case with `-record-run` records it into a
+`Records` package beside the case and, with `-convert sysml`, writes the
+model — records included — back out:
+
+```bash
+./bin/sysml examples/analysis-results-demo/lander-results.sysml \
+  -record-run "Descent::scoutBudget" -convert sysml -o recorded.sysml
+```
+
+```
+✓ Descent::scoutBudget
+  fuelUsed = 120.0
+  wetMass = 730.0
+  fuelLeft = 130.0
+  objective reserveHeld: satisfied
+  standing: value (observed: 1 run under reverse)
+  recorded Records::scoutBudget_run1 (Records::ScoutBudgetRun)
+```
+
+The generated record is the same shape this demo writes by hand — a def per
+case specializing `AnalysisRecords::AnalysisRun`, the library annotation, the
+subject ref, and a `VerdictRecord` per check:
+
+```sysml
+part def ScoutBudgetRun :> AnalysisRecords::AnalysisRun {
+    attribute :>> caseName default = "Descent::scoutBudget";
+    attribute burnTime : ScalarValues::Real;
+    ...
+}
+part scoutBudget_run1 : ScoutBudgetRun {
+    @AnalysisRecords::RecordedRun {
+        runAt = "2026-09-24T06:08:21Z";
+        tool = "sysml v0.8.1-2129-ge8b389eea";
+        command = "-record-run \"Descent::scoutBudget\"";
+        kind = "run";
+    }
+    ...
+    ref :>> 'subject' = Landers::scout;
+    part verdict1 : AnalysisRecords::VerdictRecord :> verdicts {
+        attribute :>> kind = "objective";
+        attribute :>> name = "reserveHeld";
+        attribute :>> status = "satisfied";
+    }
+}
+```
+
+Because both speak `AnalysisRecords`, a document written against
+`WhereMetadata(... 'metadata' = "AnalysisRecords::RecordedRun")` and
+`WhereType(... "FuelBudgetRun")`-style filters reads hand-written and
+`-record-run` records alike. The REPL form is `%record`; sweeps record one
+record per row (`recorded 3 runs as Records::scoutBudget_run1 …`), though
+`-convert` refuses a sweep — write the model out after a single
+`-record-run`, or record each row explicitly. The full flag reference is
+[the manual](../../docs/manual/recording-analysis-runs.md).
+
+These records stay hand-written for two reasons: the stale-relay story needs
+values from *before* `relay.fuel` changed — a `-record-run` today would
+record `fuelLeft = 110.0` and no drift — and the derived `liveFuelLeft` /
+`drift` / `stale` columns live on the shared `DemoRun`/`FuelBudgetRun` defs,
+while `-record-run` writes one def per case with no recompute.
 
 ## Where to read more
 

@@ -1,9 +1,7 @@
-// Analysis runs are printed, not saved: `-analysis` and `-sweep` report each
-// run's inputs, outputs and verdicts and then discard them, so nothing a
-// document query can read records that a run happened. This model shows the
-// workaround — write each run back into the model yourself as a `part` usage
-// typed by a result-record definition, annotated with provenance metadata —
-// and the one thing the pattern cannot fake: a derived attribute on the
+// An analysis run's printed results are discarded unless recorded — `%record`
+// and `-record-run` write them back on the `AnalysisRecords` library
+// vocabulary, or, as here, by hand. These records are hand-written because the
+// story needs values from before a model edit: a derived attribute on the
 // record recomputes the run's output from the model *as it stands now*, so a
 // record whose numbers the model has moved away from reports its own drift.
 // See README.md for the commands that produced each recorded row.
@@ -163,34 +161,24 @@ package Selection {
 package Records {
     private import ScalarValues::*;
     private import Landers::*;
+    private import AnalysisRecords::*;
 
-    // Provenance of a saved run: when, by what, at which revision, which command.
-    metadata def RecordedRun {
-        attribute runAt : String;
-        attribute tool : String;
-        attribute revision : String;
-        attribute command : String;
-    }
-
-    // The vocabulary of a saved analysis run. `kind` is "run", "sweep" or
-    // "trade"; `objective` records the verdict the run printed.
-    // `command` is a plain attribute, not metadata, because a document
-    // query's `Project` cannot read an annotation's attribute values — it is
-    // what the provenance table shows for each record.
-    part def AnalysisRun {
-        attribute caseName : String;
-        attribute kind : String;
-        attribute 'objective' : String;
+    // Shared definition for the demo's hand-written records: the library's
+    // AnalysisRun plus `command` as a plain attribute — a document query's
+    // `Project` cannot read an annotation's attribute values, so the provenance
+    // table needs it declared.
+    part def DemoRun :> AnalysisRecords::AnalysisRun {
         attribute command : String;
     }
 
     // A FuelBudget run written back: subject, input and outputs as recorded,
     // plus the output recomputed from the model as it stands now. `drift`
     // measures how far the model has moved since the record was written, and
-    // `stale` names a record that no longer matches.
-    part def FuelBudgetRun :> AnalysisRun {
+    // `stale` names a record that no longer matches. `lander` is the typed
+    // subject the formula reads; the library's untyped `'subject'` ref is
+    // bound to the same part on each record.
+    part def FuelBudgetRun :> DemoRun {
         ref part lander : Lander;
-        attribute subjectName : String;
         attribute burnTime : Real;
         attribute fuelUsed : Real;
         attribute wetMass : Real;
@@ -200,151 +188,218 @@ package Records {
         attribute stale : Boolean = drift != 0.0;
     }
 
-    // A TradeStudy run written back: the selection and every score it printed.
-    part def TradeStudyRun :> AnalysisRun {
+    // A TradeStudy run written back: the selection, plus the run's checks and
+    // evaluations carried under the library's `verdicts` and `evaluations`.
+    part def TradeStudyRun :> DemoRun {
         attribute selected : String;
-        attribute scoutScore : Real;
-        attribute haulerScore : Real;
-        attribute relayScore : Real;
     }
 }
 
 package Results {
     private import ScalarValues::*;
     private import Landers::*;
+    private import AnalysisRecords::*;
     private import Records::*;
 
+    // The saved runs, held as subparts of one part so a query can walk them.
     // The saved runs, held as subparts of one part so a query can walk them.
     part results {
 
         // One baseline run per candidate, at FuelBudget's default 40 s burn.
         part scoutRun : FuelBudgetRun {
-            @RecordedRun {
+            @AnalysisRecords::RecordedRun {
                 runAt = "2025-11-02T09:14:00Z";
                 tool = "sysml";
-                revision = "v0.8";
                 command = "./bin/sysml examples/analysis-results-demo/lander-results.sysml -analysis Descent::scoutBudget";
+                kind = "run";
             }
-            ref part :>> lander = scout;
             attribute :>> caseName = "Descent::scoutBudget";
             attribute :>> kind = "run";
             attribute :>> 'objective' = "satisfied";
             attribute :>> command = "./bin/sysml examples/analysis-results-demo/lander-results.sysml -analysis Descent::scoutBudget";
-            attribute :>> subjectName = "scout";
+            ref :>> 'subject' = Landers::scout;
+            ref part :>> lander = scout;
+            attribute :>> subjectName = "Landers::scout";
             attribute :>> burnTime = 40.0;
             attribute :>> fuelUsed = 120.0;
             attribute :>> wetMass = 730.0;
             attribute :>> fuelLeft = 130.0;
+            part verdict1 : AnalysisRecords::VerdictRecord :> verdicts {
+                attribute :>> kind = "objective";
+                attribute :>> name = "reserveHeld";
+                attribute :>> status = "satisfied";
+            }
         }
         part haulerRun : FuelBudgetRun {
-            @RecordedRun {
+            @AnalysisRecords::RecordedRun {
                 runAt = "2025-11-02T09:14:30Z";
                 tool = "sysml";
-                revision = "v0.8";
                 command = "./bin/sysml examples/analysis-results-demo/lander-results.sysml -analysis Descent::haulerBudget";
+                kind = "run";
             }
-            ref part :>> lander = hauler;
             attribute :>> caseName = "Descent::haulerBudget";
             attribute :>> kind = "run";
             attribute :>> 'objective' = "satisfied";
             attribute :>> command = "./bin/sysml examples/analysis-results-demo/lander-results.sysml -analysis Descent::haulerBudget";
-            attribute :>> subjectName = "hauler";
+            ref :>> 'subject' = Landers::hauler;
+            ref part :>> lander = hauler;
+            attribute :>> subjectName = "Landers::hauler";
             attribute :>> burnTime = 40.0;
             attribute :>> fuelUsed = 320.0;
             attribute :>> wetMass = 1980.0;
             attribute :>> fuelLeft = 580.0;
+            part verdict1 : AnalysisRecords::VerdictRecord :> verdicts {
+                attribute :>> kind = "objective";
+                attribute :>> name = "reserveHeld";
+                attribute :>> status = "satisfied";
+            }
         }
         part relayRun : FuelBudgetRun {
-            @RecordedRun {
+            @AnalysisRecords::RecordedRun {
                 runAt = "2025-11-02T09:15:00Z";
                 tool = "sysml";
-                revision = "v0.8";
                 command = "./bin/sysml examples/analysis-results-demo/lander-results.sysml -analysis Descent::relayBudget";
+                kind = "run";
             }
-            ref part :>> lander = relay;
             attribute :>> caseName = "Descent::relayBudget";
             attribute :>> kind = "run";
             attribute :>> 'objective' = "satisfied";
             attribute :>> command = "./bin/sysml examples/analysis-results-demo/lander-results.sysml -analysis Descent::relayBudget";
-            attribute :>> subjectName = "relay";
+            ref :>> 'subject' = Landers::relay;
+            ref part :>> lander = relay;
+            attribute :>> subjectName = "Landers::relay";
             attribute :>> burnTime = 40.0;
             attribute :>> fuelUsed = 100.0;
             attribute :>> wetMass = 530.0;
             attribute :>> fuelLeft = 80.0;
+            part verdict1 : AnalysisRecords::VerdictRecord :> verdicts {
+                attribute :>> kind = "objective";
+                attribute :>> name = "reserveHeld";
+                attribute :>> status = "satisfied";
+            }
         }
 
         // A sweep of scoutBudget over burnTime, one record per row the sweep printed.
         part scoutSweep40 : FuelBudgetRun {
-            @RecordedRun {
+            @AnalysisRecords::RecordedRun {
                 runAt = "2025-11-02T09:20:10Z";
                 tool = "sysml";
-                revision = "v0.8";
                 command = "./bin/sysml examples/analysis-results-demo/lander-results.sysml -analysis Descent::scoutBudget -sweep burnTime=40.0..80.0:20.0";
+                kind = "sweep";
             }
-            ref part :>> lander = scout;
             attribute :>> caseName = "Descent::scoutBudget";
             attribute :>> kind = "sweep";
             attribute :>> 'objective' = "satisfied";
             attribute :>> command = "./bin/sysml examples/analysis-results-demo/lander-results.sysml -analysis Descent::scoutBudget -sweep burnTime=40.0..80.0:20.0";
-            attribute :>> subjectName = "scout";
+            ref :>> 'subject' = Landers::scout;
+            ref part :>> lander = scout;
+            attribute :>> subjectName = "Landers::scout";
+            attribute :>> iteration = 1;
             attribute :>> burnTime = 40.0;
             attribute :>> fuelUsed = 120.0;
             attribute :>> wetMass = 730.0;
             attribute :>> fuelLeft = 130.0;
+            part verdict1 : AnalysisRecords::VerdictRecord :> verdicts {
+                attribute :>> kind = "objective";
+                attribute :>> name = "reserveHeld";
+                attribute :>> status = "satisfied";
+            }
         }
         part scoutSweep60 : FuelBudgetRun {
-            @RecordedRun {
+            @AnalysisRecords::RecordedRun {
                 runAt = "2025-11-02T09:20:10Z";
                 tool = "sysml";
-                revision = "v0.8";
                 command = "./bin/sysml examples/analysis-results-demo/lander-results.sysml -analysis Descent::scoutBudget -sweep burnTime=40.0..80.0:20.0";
+                kind = "sweep";
             }
-            ref part :>> lander = scout;
             attribute :>> caseName = "Descent::scoutBudget";
             attribute :>> kind = "sweep";
             attribute :>> 'objective' = "satisfied";
             attribute :>> command = "./bin/sysml examples/analysis-results-demo/lander-results.sysml -analysis Descent::scoutBudget -sweep burnTime=40.0..80.0:20.0";
-            attribute :>> subjectName = "scout";
+            ref :>> 'subject' = Landers::scout;
+            ref part :>> lander = scout;
+            attribute :>> subjectName = "Landers::scout";
+            attribute :>> iteration = 2;
             attribute :>> burnTime = 60.0;
             attribute :>> fuelUsed = 180.0;
             attribute :>> wetMass = 670.0;
             attribute :>> fuelLeft = 70.0;
+            part verdict1 : AnalysisRecords::VerdictRecord :> verdicts {
+                attribute :>> kind = "objective";
+                attribute :>> name = "reserveHeld";
+                attribute :>> status = "satisfied";
+            }
         }
         part scoutSweep80 : FuelBudgetRun {
-            @RecordedRun {
+            @AnalysisRecords::RecordedRun {
                 runAt = "2025-11-02T09:20:10Z";
                 tool = "sysml";
-                revision = "v0.8";
                 command = "./bin/sysml examples/analysis-results-demo/lander-results.sysml -analysis Descent::scoutBudget -sweep burnTime=40.0..80.0:20.0";
+                kind = "sweep";
             }
-            ref part :>> lander = scout;
             attribute :>> caseName = "Descent::scoutBudget";
             attribute :>> kind = "sweep";
             attribute :>> 'objective' = "not satisfied";
             attribute :>> command = "./bin/sysml examples/analysis-results-demo/lander-results.sysml -analysis Descent::scoutBudget -sweep burnTime=40.0..80.0:20.0";
-            attribute :>> subjectName = "scout";
+            ref :>> 'subject' = Landers::scout;
+            ref part :>> lander = scout;
+            attribute :>> subjectName = "Landers::scout";
+            attribute :>> iteration = 3;
             attribute :>> burnTime = 80.0;
             attribute :>> fuelUsed = 240.0;
             attribute :>> wetMass = 610.0;
             attribute :>> fuelLeft = 10.0;
+            part verdict1 : AnalysisRecords::VerdictRecord :> verdicts {
+                attribute :>> kind = "objective";
+                attribute :>> name = "reserveHeld";
+                attribute :>> status = "not satisfied";
+            }
         }
 
-        // The trade study run: the selection and each alternative's score.
+        // The trade study run: the selection, its objective verdict, and each
+        // alternative's evaluation — recorded before relay.fuel changed, so the
+        // relay score here is the old 630.0.
         part lightestRun : TradeStudyRun {
-            @RecordedRun {
+            @AnalysisRecords::RecordedRun {
                 runAt = "2025-11-02T09:25:00Z";
                 tool = "sysml";
-                revision = "v0.8";
                 command = "./bin/sysml examples/analysis-results-demo/lander-results.sysml -analysis Selection::lightest";
+                kind = "trade";
             }
             attribute :>> caseName = "Selection::lightest";
             attribute :>> kind = "trade";
             attribute :>> 'objective' = "satisfied";
             attribute :>> command = "./bin/sysml examples/analysis-results-demo/lander-results.sysml -analysis Selection::lightest";
-            attribute :>> selected = "relay";
-            attribute :>> scoutScore = 850.0;
-            attribute :>> haulerScore = 2300.0;
-            attribute :>> relayScore = 630.0;
+            attribute :>> selected = "Landers::relay";
+            part verdict1 : AnalysisRecords::VerdictRecord :> verdicts {
+                attribute :>> kind = "objective";
+                attribute :>> name = "tradeStudyObjective";
+                attribute :>> status = "satisfied";
+            }
+            part evaluation1 : AnalysisRecords::EvaluationRecord :> evaluations {
+                attribute :>> 'function' = "Selection::lightest::evaluationFunction";
+                attribute :>> alternative = "Landers::scout (object #1)";
+                attribute :>> score = 850.0;
+                attribute :>> result = "850.0";
+                attribute :>> selected = false;
+                attribute :>> tied = false;
+            }
+            part evaluation2 : AnalysisRecords::EvaluationRecord :> evaluations {
+                attribute :>> 'function' = "Selection::lightest::evaluationFunction";
+                attribute :>> alternative = "Landers::hauler (object #2)";
+                attribute :>> score = 2300.0;
+                attribute :>> result = "2300.0";
+                attribute :>> selected = false;
+                attribute :>> tied = false;
+            }
+            part evaluation3 : AnalysisRecords::EvaluationRecord :> evaluations {
+                attribute :>> 'function' = "Selection::lightest::evaluationFunction";
+                attribute :>> alternative = "Landers::relay (object #3)";
+                attribute :>> score = 630.0;
+                attribute :>> result = "630.0";
+                attribute :>> selected = true;
+                attribute :>> tied = false;
+            }
         }
     }
 }
@@ -391,7 +446,7 @@ package Reporting {
     calc def Provenance :> Query {
         in root : Element;
         Project(
-            source = WhereMetadata(source = Descendants(source = root, maxDepth = 1), 'metadata' = "Records::RecordedRun"),
+            source = WhereMetadata(source = Descendants(source = root, maxDepth = 1), 'metadata' = "AnalysisRecords::RecordedRun"),
             properties = ("name", "kind", "caseName", "command"))
     }
 
@@ -400,7 +455,15 @@ package Reporting {
         in root : Element;
         Project(
             source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "TradeStudyRun"),
-            properties = ("name", "caseName", "selected", "scoutScore", "haulerScore", "relayScore", "objective"))
+            properties = ("name", "caseName", "selected", "objective"))
+    }
+
+    // The evaluations nested under the trade-study record.
+    calc def TradeEvaluations :> Query {
+        in root : Element;
+        Project(
+            source = WhereType(source = Descendants(source = root, maxDepth = 2), type = "EvaluationRecord"),
+            properties = ("alternative", "score", "selected", "tied"))
     }
 
     // Assertions about the scout, checked live at render time.
@@ -416,7 +479,7 @@ package Reporting {
         attribute redefines title = "Recorded analysis runs";
 
         part intro : Paragraph {
-            attribute redefines text = "Analysis runs are printed and discarded; nothing writes them back. Every row below is a declared record — a part typed by a run definition whose attributes hold the inputs, outputs and objective a run printed, annotated with the command that produced it — except the last table, whose verdicts are recomputed live.";
+            attribute redefines text = "An analysis run's printed results are discarded unless they are recorded — by -record-run or by hand, in the vocabulary the AnalysisRecords library defines. Every row below is a declared record typed by a run definition on that vocabulary, annotated with the command that produced it — except the last table, whose verdicts are recomputed live.";
         }
 
         part budgets : Section {
@@ -453,7 +516,7 @@ package Reporting {
         part provenance : Section {
             attribute redefines title = "Provenance";
             part runs : Table {
-                attribute redefines caption = "Every element annotated @RecordedRun";
+                attribute redefines caption = "Every element annotated @AnalysisRecords::RecordedRun";
                 calc rows : Provenance {
                     in root = results;
                 }
@@ -463,8 +526,14 @@ package Reporting {
         part trade : Section {
             attribute redefines title = "Trade study";
             part runs : Table {
-                attribute redefines caption = "The recorded selection and scores";
+                attribute redefines caption = "The recorded selection and verdict";
                 calc rows : TradeRuns {
+                    in root = results;
+                }
+            }
+            part evals : Table {
+                attribute redefines caption = "Each alternative's evaluation, as recorded";
+                calc rows : TradeEvaluations {
                     in root = results;
                 }
             }

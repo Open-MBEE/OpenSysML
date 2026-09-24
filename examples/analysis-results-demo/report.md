@@ -1,31 +1,31 @@
 # Recorded analysis runs
 
-Analysis runs are printed and discarded; nothing writes them back. Every row below is a declared record — a part typed by a run definition whose attributes hold the inputs, outputs and objective a run printed, annotated with the command that produced it — except the last table, whose verdicts are recomputed live.
+An analysis run's printed results are discarded unless they are recorded — by -record-run or by hand, in the vocabulary the AnalysisRecords library defines. Every row below is a declared record typed by a run definition on that vocabulary, annotated with the command that produced it — except the last table, whose verdicts are recomputed live.
 
 ## Recorded fuel budgets
 
 *One record per run, grouped by subject*
 
-**subjectName: scout**
+**subjectName: Landers::scout**
 
 | name | subjectName | kind | burnTime | fuelUsed | wetMass | fuelLeft | objective |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| scoutRun | scout | run | 40 | 120 | 730 | 130 | satisfied |
-| scoutSweep40 | scout | sweep | 40 | 120 | 730 | 130 | satisfied |
-| scoutSweep60 | scout | sweep | 60 | 180 | 670 | 70 | satisfied |
-| scoutSweep80 | scout | sweep | 80 | 240 | 610 | 10 | not satisfied |
+| scoutRun | Landers::scout | run | 40 | 120 | 730 | 130 | satisfied |
+| scoutSweep40 | Landers::scout | sweep | 40 | 120 | 730 | 130 | satisfied |
+| scoutSweep60 | Landers::scout | sweep | 60 | 180 | 670 | 70 | satisfied |
+| scoutSweep80 | Landers::scout | sweep | 80 | 240 | 610 | 10 | not satisfied |
 
-**subjectName: hauler**
-
-| name | subjectName | kind | burnTime | fuelUsed | wetMass | fuelLeft | objective |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| haulerRun | hauler | run | 40 | 320 | 1980 | 580 | satisfied |
-
-**subjectName: relay**
+**subjectName: Landers::hauler**
 
 | name | subjectName | kind | burnTime | fuelUsed | wetMass | fuelLeft | objective |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| relayRun | relay | run | 40 | 100 | 530 | 80 | satisfied |
+| haulerRun | Landers::hauler | run | 40 | 320 | 1980 | 580 | satisfied |
+
+**subjectName: Landers::relay**
+
+| name | subjectName | kind | burnTime | fuelUsed | wetMass | fuelLeft | objective |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| relayRun | Landers::relay | run | 40 | 100 | 530 | 80 | satisfied |
 
 ## Sweep of scoutBudget
 
@@ -43,11 +43,11 @@ Analysis runs are printed and discarded; nothing writes them back. Every row bel
 
 | name | subjectName | burnTime | fuelLeft | liveFuelLeft | drift |
 | --- | --- | --- | --- | --- | --- |
-| relayRun | relay | 40 | 80 | 110 | 30 |
+| relayRun | Landers::relay | 40 | 80 | 110 | 30 |
 
 ## Provenance
 
-*Every element annotated @RecordedRun*
+*Every element annotated @AnalysisRecords::RecordedRun*
 
 | name | kind | caseName | command |
 | --- | --- | --- | --- |
@@ -61,11 +61,19 @@ Analysis runs are printed and discarded; nothing writes them back. Every row bel
 
 ## Trade study
 
-*The recorded selection and scores*
+*The recorded selection and verdict*
 
-| name | caseName | selected | scoutScore | haulerScore | relayScore | objective |
-| --- | --- | --- | --- | --- | --- | --- |
-| lightestRun | Selection::lightest | relay | 850 | 2300 | 630 | satisfied |
+| name | caseName | selected | objective |
+| --- | --- | --- | --- |
+| lightestRun | Selection::lightest | Landers::relay | satisfied |
+
+*Each alternative's evaluation, as recorded*
+
+| alternative | score | selected | tied |
+| --- | --- | --- | --- |
+| Landers::scout (object \#1) | 850 | false | false |
+| Landers::hauler (object \#2) | 2300 | false | false |
+| Landers::relay (object \#3) | 630 | true | false |
 
 ## Live verdicts
 
