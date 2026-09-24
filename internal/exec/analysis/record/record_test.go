@@ -720,3 +720,45 @@ func TestGenerateQuantityAndPlainNumbers(t *testing.T) {
 		}
 	}
 }
+
+// An inout whose two sides mix a quantity with a plain number settles both
+// members to the quantity shape, each with its unit companion declared.
+func TestGenerateInoutQuantityAndPlainNumber(t *testing.T) {
+	kg := runtime.NewQuantityValue(&runtime.Quantity{
+		Num:  semantics.Value{Kind: semantics.ValReal, Real: 3.0},
+		Unit: semantics.Unit{Text: "kg"},
+	})
+	sides := map[string][2]runtime.Value{
+		"integer out, quantity in": {integer(2), kg},
+		"real out, quantity in":    {real(2.5), kg},
+		"quantity out, integer in": {kg, integer(2)},
+		"quantity out, real in":    {kg, real(2.5)},
+	}
+	for name, v := range sides {
+		res, err := Generate(Request{
+			Package: "P::Records", Case: "P::mix", Provenance: provenance(KindRun),
+			Runs: []Run{{
+				Inputs:  []runtime.InputBinding{{Name: "x", Value: v[1]}},
+				Outputs: []runtime.CalcOutputValue{{Name: "x", Value: v[0]}},
+				Spell:   spell(),
+			}},
+		})
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		for _, want := range []string{
+			"attribute x : ScalarValues::Real;",
+			"attribute xUnit : ScalarValues::String;",
+			"attribute xIn : ScalarValues::Real;",
+			"attribute xInUnit : ScalarValues::String;",
+			`Unit = "kg";`,
+		} {
+			if !strings.Contains(res.Source, want) {
+				t.Errorf("%s: source is missing %q:\n%s", name, want, res.Source)
+			}
+		}
+		if strings.Count(res.Source, `Unit = "kg";`) != 1 {
+			t.Errorf("%s: want exactly one unit redefinition:\n%s", name, res.Source)
+		}
+	}
+}

@@ -399,35 +399,33 @@ func buildFeatures(req *Request) ([]feature, error) {
 			}
 		}
 	}
-	// Second pass: emit the features, each quantity's unit companion after it;
-	// a member named for one is a collision whatever order they met in.
+	// The two sides of an inout settle to one shape: a quantity side wins over
+	// a plain number, Integer and Real settle to Real, anything else must match.
+	for companion, owner := range companionOf {
+		o, c := shapes[owner], shapes[companion]
+		switch {
+		case o.kind == kindUnset || c.kind == kindUnset:
+		case o.kind == kindQuantity && (c.kind == kindInteger || c.kind == kindReal):
+			shapes[companion] = o
+		case c.kind == kindQuantity && (o.kind == kindInteger || o.kind == kindReal):
+			shapes[owner] = c
+		case numericPair(o.typ, c.typ):
+			shapes[owner] = shape{kind: kindReal, typ: "ScalarValues::Real"}
+			shapes[companion] = shape{kind: kindReal, typ: "ScalarValues::Real"}
+		default:
+			f := feature{name: owner}
+			applyShape(&f, o)
+			if err := compatible(&f, c); err != nil {
+				return nil, fmt.Errorf("case %s: inout %q: %w", req.Case, owner, err)
+			}
+		}
+	}
+	// Emit the features, each quantity's unit companion after it; a member
+	// named for one is a collision whatever order they met in.
 	units := map[string]string{}
 	for _, name := range names {
 		if shapes[name].kind == kindQuantity {
 			units[name+"Unit"] = name
-		}
-	}
-	// The two sides of an inout may differ only in the unset case: a settled
-	// side checks the other settles to a type it can follow.
-	for companion, owner := range companionOf {
-		if shapes[owner].kind == kindUnset || shapes[companion].kind == kindUnset {
-			continue
-		}
-		f := feature{name: owner}
-		applyShape(&f, shapes[owner])
-		if err := compatible(&f, shapes[companion]); err != nil {
-			o, c := shapes[owner], shapes[companion]
-			switch {
-			case o.kind == kindQuantity && (c.kind == kindInteger || c.kind == kindReal):
-				shapes[companion] = o
-			case c.kind == kindQuantity && (o.kind == kindInteger || o.kind == kindReal):
-				shapes[owner] = c
-			case numericPair(o.typ, c.typ):
-				shapes[owner] = shape{kind: kindReal, typ: "ScalarValues::Real"}
-				shapes[companion] = shape{kind: kindReal, typ: "ScalarValues::Real"}
-			default:
-				return nil, fmt.Errorf("case %s: inout %q: %w", req.Case, owner, err)
-			}
 		}
 	}
 	var feats []feature
