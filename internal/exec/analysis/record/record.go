@@ -299,26 +299,36 @@ func upperFirst(name string) string {
 	return strings.ToUpper(name[:1]) + name[1:]
 }
 
-// members are the input and output values a run declares, in order.
-func members(r Run) []struct {
+// member is one input or output value a run declares. inOf marks the In
+// companion of an inout: one member in the run's value, one in its binding.
+type member struct {
 	name  string
 	value runtime.Value
-} {
-	var out []struct {
-		name  string
-		value runtime.Value
+	inOf  string
+}
+
+// members are the input and output values a run declares, in order. A name
+// on both sides is one inout parameter: the value it ran to, then an
+// <name>In companion holding the value it was bound with.
+func members(r Run) []member {
+	var out []member
+	outs := map[string]bool{}
+	for _, o := range r.Outputs {
+		outs[o.Name] = true
 	}
+	inouts := map[string]runtime.Value{}
 	for _, in := range r.Inputs {
-		out = append(out, struct {
-			name  string
-			value runtime.Value
-		}{in.Name, in.Value})
+		if outs[in.Name] {
+			inouts[in.Name] = in.Value
+			continue
+		}
+		out = append(out, member{name: in.Name, value: in.Value})
 	}
 	for _, o := range r.Outputs {
-		out = append(out, struct {
-			name  string
-			value runtime.Value
-		}{o.Name, o.Value})
+		out = append(out, member{name: o.Name, value: o.Value})
+		if v, ok := inouts[o.Name]; ok {
+			out = append(out, member{name: o.Name + "In", value: v, inOf: o.Name})
+		}
 	}
 	return out
 }
@@ -327,11 +337,26 @@ func members(r Run) []struct {
 // distinct member name in first-encounter order, its shape settled from the
 // runs that supply it a value, and a unit companion after each quantity.
 func buildFeatures(req *Request) ([]feature, error) {
+	// An inout's In companion is the run's own member, but a member a run
+	// declares of the same name collides with it, as a Unit companion's does.
+	companionOf := map[string]string{}
+	for i := range req.Runs {
+		for _, m := range members(req.Runs[i]) {
+			if m.inOf != "" {
+				companionOf[m.name] = m.inOf
+			}
+		}
+	}
 	// First pass: settle each member's shape over every run that supplies it.
 	var names []string
 	shapes := map[string]shape{}
 	for i := range req.Runs {
 		for _, m := range members(req.Runs[i]) {
+			if m.inOf == "" {
+				if owner, ok := companionOf[m.name]; ok {
+					return nil, fmt.Errorf("case %s: member %q collides with the in companion of inout %q", req.Case, m.name, owner)
+				}
+			}
 			if reservedFeatures[m.name] {
 				return nil, fmt.Errorf("case %s: parameter %q shares a name with a feature of AnalysisRecords::AnalysisRun", req.Case, m.name)
 			}
@@ -366,6 +391,18 @@ func buildFeatures(req *Request) ([]feature, error) {
 	for _, name := range names {
 		if shapes[name].kind == kindQuantity {
 			units[name+"Unit"] = name
+		}
+	}
+	// The two sides of an inout may differ only in the unset case: a settled
+	// side checks the other settles to a type it can follow.
+	for companion, owner := range companionOf {
+		if shapes[owner].kind == kindUnset || shapes[companion].kind == kindUnset {
+			continue
+		}
+		f := feature{name: owner}
+		applyShape(&f, shapes[owner])
+		if err := compatible(&f, shapes[companion]); err != nil {
+			return nil, fmt.Errorf("case %s: inout %q: %w", req.Case, owner, err)
 		}
 	}
 	var feats []feature
@@ -430,11 +467,18 @@ func Generate(req Request) (Result, error) {
 	}
 	for _, r := range req.Runs {
 		seen := map[string]bool{}
-		for _, m := range members(r) {
-			if seen[m.name] {
-				return Result{}, fmt.Errorf("case %s: member %q is both an input and an output", req.Case, m.name)
+		for _, in := range r.Inputs {
+			if seen[in.Name] {
+				return Result{}, fmt.Errorf("case %s: member %q is listed twice", req.Case, in.Name)
 			}
-			seen[m.name] = true
+			seen[in.Name] = true
+		}
+		seen = map[string]bool{}
+		for _, o := range r.Outputs {
+			if seen[o.Name] {
+				return Result{}, fmt.Errorf("case %s: member %q is listed twice", req.Case, o.Name)
+			}
+			seen[o.Name] = true
 		}
 	}
 

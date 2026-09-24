@@ -204,11 +204,19 @@ func TestGenerateErrors(t *testing.T) {
 	req = base()
 	req.Runs = []Run{{
 		Spell:   spell(),
-		Inputs:  []runtime.InputBinding{{Name: "x", Value: real(1)}},
+		Outputs: []runtime.CalcOutputValue{{Name: "x", Value: real(2)}, {Name: "x", Value: real(3)}},
+	}}
+	if _, err := Generate(req); err == nil {
+		t.Error("one side of the run listing a name twice: want an error")
+	}
+	req = base()
+	req.Runs = []Run{{
+		Spell:   spell(),
+		Inputs:  []runtime.InputBinding{{Name: "x", Value: real(1)}, {Name: "xIn", Value: real(0)}},
 		Outputs: []runtime.CalcOutputValue{{Name: "x", Value: real(2)}},
 	}}
 	if _, err := Generate(req); err == nil {
-		t.Error("input and output sharing a name: want an error")
+		t.Error("member colliding with an inout's in companion: want an error")
 	}
 	req = base()
 	req.Existing = Existing{Package: true, Definition: true, Attributes: map[string]Feature{
@@ -548,5 +556,42 @@ func TestGenerateVerificationOnlyRun(t *testing.T) {
 	}
 	if !strings.Contains(res.Source, `attribute :>> verdict = "pass";`) {
 		t.Errorf("source is missing the verdict:\n%s", res.Source)
+	}
+}
+
+// An inout records as one member carrying the value the run left in it,
+// plus an <name>In companion carrying the value it was bound with.
+func TestGenerateInoutRun(t *testing.T) {
+	res, err := Generate(Request{
+		Package: "P::Records", Case: "P::count", Provenance: provenance(KindRun),
+		Runs: []Run{{
+			Inputs:  []runtime.InputBinding{{Name: "counter", Value: integer(3)}},
+			Outputs: []runtime.CalcOutputValue{{Name: "counter", Value: integer(6)}, {Name: "doubled", Value: integer(6)}},
+			Spell:   spell(),
+		}},
+	})
+	if err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	for _, want := range []string{
+		"attribute counter : ScalarValues::Integer;",
+		"attribute counterIn : ScalarValues::Integer;",
+		"attribute doubled : ScalarValues::Integer;",
+		"attribute :>> counter = 6;",
+		"attribute :>> counterIn = 3;",
+		"attribute :>> doubled = 6;",
+	} {
+		if !strings.Contains(res.Source, want) {
+			t.Errorf("source is missing %q:\n%s", want, res.Source)
+		}
+	}
+	// The In companion follows its value member.
+	if strings.Index(res.Source, "attribute counterIn") < strings.Index(res.Source, "attribute counter :") {
+		t.Errorf("the In companion precedes its member:\n%s", res.Source)
+	}
+	reparsed := parser.New(source.New("<record>", []byte(res.Source)))
+	reparsed.ParseFile()
+	if len(reparsed.Diagnostics) > 0 {
+		t.Fatalf("generated source does not parse: %v\n%s", reparsed.Diagnostics[0], res.Source)
 	}
 }
