@@ -67,6 +67,7 @@
 
   .sysml-document .sysml-caption {
     caption-side: top;
+    font-family: var(--sysml-font-heading);
     font-weight: 700;
     padding-bottom: var(--sysml-space-tight);
   }
@@ -76,7 +77,6 @@
   }
 
   .sysml-document .sysml-diagram .sysml-caption {
-    font-family: var(--sysml-font-heading);
     text-align: center;
   }
 

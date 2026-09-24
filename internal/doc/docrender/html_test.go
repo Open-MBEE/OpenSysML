@@ -485,9 +485,9 @@ func TestHTMLConventionThemes(t *testing.T) {
 	}{
 		{
 			theme: "nasa", body: times, heading: arial, size: "12pt", caption: "12pt",
-			screenOnly: []string{"--sysml-measure: 6.5in;", ".sysml-document .sysml-title {\n    font-size: 24pt;"},
+			screenOnly: []string{"--sysml-measure: 6.5in;", ".sysml-document .sysml-title {\n    font-size: 24pt;", ".sysml-document .sysml-caption {\n    caption-side: top;\n    font-family: var(--sysml-font-heading);"},
 			page:       []string{"--sysml-page-size: letter;", "--sysml-page-margin: 1in;", "--sysml-page-number-font-size: 12pt;"},
-			companion:  []string{"--sysml-subheading-font-size: 14pt;", "--sysml-subsubheading-font-size: 12pt;", "content: counter(page, lower-roman);", "counter-reset: page 1;", ".sysml-document > .sysml-title:has(+ .sysml-toc) {\n    page: front;"},
+			companion:  []string{"--sysml-subheading-font-size: 14pt;", "--sysml-subsubheading-font-size: 12pt;", "content: counter(front, lower-roman);", "counter-increment: page 0 front 1;", ".sysml-document > .sysml-title:has(+ .sysml-toc) {\n    page: front;"},
 		},
 		{
 			theme: "ieee", body: times, heading: times, size: "10pt", caption: "8pt",
@@ -497,7 +497,7 @@ func TestHTMLConventionThemes(t *testing.T) {
 		},
 		{
 			theme: "acm", body: libertine, heading: biolinum, size: "10pt", caption: "9pt",
-			screenOnly: []string{"--sysml-measure: 6.5in;", "--sysml-paragraph-indent: 10pt;", ".sysml-document .sysml-title {\n    font-size: 17pt;", "--sysml-table-font-size: 9pt;"},
+			screenOnly: []string{"--sysml-measure: 6.5in;", "--sysml-paragraph-indent: 10pt;", ".sysml-document .sysml-title {\n    font-size: 17pt;", "--sysml-table-font-size: 9pt;", ".sysml-document .sysml-caption {\n    caption-side: top;\n    font-family: var(--sysml-font-body);"},
 			page:       []string{"--sysml-page-size: letter;", "--sysml-page-margin: 1in;", "--sysml-page-number-font-size: 9pt;"},
 			companion:  []string{"--sysml-subheading-font-size: 10pt;", "--sysml-wide-table-font-size: 9pt;"},
 		},

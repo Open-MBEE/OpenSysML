@@ -1,5 +1,5 @@
 /* acm: ACM Primary Article Template (acmart, acmsmall/manuscript) conventions:
-   Libertine 10pt text, bold sans numbered heads, 9pt sans captions. */
+   Libertine 10pt text, bold sans numbered heads, 9pt captions in the text face. */
 @layer opensysml {
   .sysml-document {
     --sysml-font-body: "Libertinus Serif", "Linux Libertine O", "Linux Libertine", "Times New Roman", "Liberation Serif", serif;
@@ -79,7 +79,7 @@
 
   .sysml-document .sysml-caption {
     caption-side: top;
-    font-family: var(--sysml-font-heading);
+    font-family: var(--sysml-font-body);
     font-size: var(--sysml-caption-font-size);
     text-align: left;
     padding-bottom: var(--sysml-space-tight);

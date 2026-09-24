@@ -25,8 +25,8 @@
     --sysml-title-page-height: 80vh;
   }
 
-  /* Front matter (title page, contents, a bare title leading the contents) on
-     roman-numbered named pages; the article stays main and restarts at 1. */
+  /* Front matter (title page, contents, a bare title leading the contents) counts
+     in roman on its own counter and leaves page at 0, so the body opens at 1. */
   .sysml-document .sysml-title-page {
     page: cover;
   }
@@ -36,19 +36,17 @@
     page: front;
   }
 
-  @page main:nth(1 of main) {
-    counter-reset: page 1;
-  }
-
   @page cover {
+    counter-increment: page 0 front 1;
     @bottom-center {
       content: none;
     }
   }
 
   @page front {
+    counter-increment: page 0 front 1;
     @bottom-center {
-      content: counter(page, lower-roman);
+      content: counter(front, lower-roman);
     }
   }
 }

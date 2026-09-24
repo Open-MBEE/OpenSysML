@@ -582,27 +582,30 @@ func TestRenderThemeTablesWithInstalledEngines(t *testing.T) {
 }
 
 // TestRenderNASAPageNumbersWithInstalledEngines reads the footers back from a
-// nasa report whose running text opens the document ahead of its first section:
-// front matter counts in roman numerals, the body restarts at 1 on its first page.
+// nasa report opening with running text ahead of its first section, and one
+// opening with a landscape table: front matter counts in roman, the body from 1.
 func TestRenderNASAPageNumbersWithInstalledEngines(t *testing.T) {
+	lead, wideFirst := leadDocument(t), wideFirstDocument(t)
 	cases := []struct {
-		name    string
-		opts    Options
-		footers []string
+		name     string
+		document *docir.Document
+		opts     Options
+		footers  []string
 	}{
-		{"body", Options{Theme: "nasa"}, []string{"1", "2"}},
-		{"toc", Options{Theme: "nasa", TOC: true}, []string{"i", "1", "2"}},
-		{"title-page", Options{Theme: "nasa", TitlePage: true}, []string{"", "1", "2"}},
-		{"title-page-toc", Options{Theme: "nasa", TitlePage: true, TOC: true}, []string{"", "ii", "1", "2"}},
+		{"body", lead, Options{Theme: "nasa"}, []string{"1", "2"}},
+		{"toc", lead, Options{Theme: "nasa", TOC: true}, []string{"i", "1", "2"}},
+		{"title-page", lead, Options{Theme: "nasa", TitlePage: true}, []string{"", "1", "2"}},
+		{"title-page-toc", lead, Options{Theme: "nasa", TitlePage: true, TOC: true}, []string{"", "ii", "1", "2"}},
+		{"wide-first-toc", wideFirst, Options{Theme: "nasa", TOC: true}, []string{"i", "1", "2"}},
+		{"wide-first-title-page-toc", wideFirst, Options{Theme: "nasa", TitlePage: true, TOC: true}, []string{"", "ii", "1", "2"}},
 	}
-	document := leadDocument(t)
 	for _, engine := range Engines() {
 		if engine == pandocTool.name {
 			continue
 		}
 		for _, tc := range cases {
 			t.Run(engine+"/"+tc.name, func(t *testing.T) {
-				_, text := renderInstalled(t, document, engine, tc.opts)
+				_, text := renderInstalled(t, tc.document, engine, tc.opts)
 				if got := pageFooters(text); !slices.Equal(got, tc.footers) {
 					t.Fatalf("page footers are %q, want %q", got, tc.footers)
 				}

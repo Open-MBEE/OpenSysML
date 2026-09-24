@@ -267,11 +267,9 @@ func narrowTableDocument(t *testing.T) *docir.Document {
 `, "Narrow::Report")
 }
 
-// wideTableDocument is a report whose middle section holds a captioned,
-// grouped seven-column table between two one-paragraph sections.
-func wideTableDocument(t *testing.T) *docir.Document {
-	t.Helper()
-	return sourceDocument(t, "wide.sysml", `package Wide {
+// sevenColumnMatrix declares a part and the query projecting eight of its
+// properties, the source of every seven-plus-column table fixture.
+const sevenColumnMatrix = `
 	private import DocumentQueries::*;
 	private import KerML::Root::Element;
 	private import ScalarValues::*;
@@ -305,7 +303,13 @@ func wideTableDocument(t *testing.T) *docir.Document {
 			properties = ("team", "name", "a", "b", "c", "d", "e", "f")
 		)
 	}
+`
 
+// wideTableDocument is a report whose middle section holds a captioned,
+// grouped seven-column table between two one-paragraph sections.
+func wideTableDocument(t *testing.T) *docir.Document {
+	t.Helper()
+	return sourceDocument(t, "wide.sysml", `package Wide {`+sevenColumnMatrix+`
 	part def Report :> Document {
 		attribute redefines title = "Wide Report";
 		part intro : Paragraph {
@@ -330,6 +334,33 @@ func wideTableDocument(t *testing.T) *docir.Document {
 	}
 }
 `, "Wide::Report")
+}
+
+// wideFirstDocument is a report whose body opens with a seven-column table,
+// so its first body page is the landscape one, and closes with a paragraph.
+func wideFirstDocument(t *testing.T) *docir.Document {
+	t.Helper()
+	return sourceDocument(t, "widefirst.sysml", `package WideFirst {`+sevenColumnMatrix+`
+	part def Report :> Document {
+		attribute redefines title = "Wide First";
+		part matrixSection : Section {
+			attribute redefines title = "Matrix";
+			part cells : Table {
+				attribute redefines caption = "Every requirement";
+				calc rows : Cells {
+					in root = matrix;
+				}
+			}
+		}
+		part afterwards : Section {
+			attribute redefines title = "Afterwards";
+			part closing : Paragraph {
+				part lead : Span { attribute redefines text = "A closing paragraph."; }
+			}
+		}
+	}
+}
+`, "WideFirst::Report")
 }
 
 // tallFlowDocument is a report whose one figure is an action flow of forty
