@@ -421,3 +421,50 @@ func TestGenerateNumbersIntoTheGaps(t *testing.T) {
 		t.Errorf("records %v, want %v", res.Records, want)
 	}
 }
+
+// A case name that needs quoting is carried through quoted record names, and
+// the def marks the case it records.
+func TestGenerateQuotedName(t *testing.T) {
+	res, err := Generate(Request{
+		Package: "Records", Case: "Demo::fuel budget", CaseName: "fuel budget",
+		Provenance: provenance(KindRun),
+		Runs:       []Run{{Spell: spell(), Outputs: []runtime.CalcOutputValue{{Name: "y", Value: real(3)}}}},
+	})
+	if err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	for _, want := range []string{
+		"part def 'Fuel budgetRun' :> AnalysisRecords::AnalysisRun",
+		`attribute :>> caseName default = "Demo::fuel budget";`,
+		"part 'fuel budget_run1' : 'Fuel budgetRun'",
+	} {
+		if !strings.Contains(res.Source, want) {
+			t.Errorf("generated source is missing %q:\n%s", want, res.Source)
+		}
+	}
+	if _, err := format.Source("<test>", []byte(res.Source), format.DefaultOptions); err != nil {
+		t.Errorf("generated source does not parse: %v", err)
+	}
+}
+
+// An owner-prefixed stem names the definition and the records of a case whose
+// short name a sibling's definition already took.
+func TestGenerateOwnerStem(t *testing.T) {
+	res, err := Generate(Request{
+		Package: "Records", Case: "Demo::B::check",
+		Provenance: provenance(KindRun),
+		Existing:   Existing{Stem: "B_check"},
+		Runs:       []Run{{Spell: spell(), Outputs: []runtime.CalcOutputValue{{Name: "y", Value: real(2)}}}},
+	})
+	if err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	for _, want := range []string{
+		"part def B_checkRun :> AnalysisRecords::AnalysisRun",
+		"part B_check_run1 : B_checkRun",
+	} {
+		if !strings.Contains(res.Source, want) {
+			t.Errorf("generated source is missing %q:\n%s", want, res.Source)
+		}
+	}
+}

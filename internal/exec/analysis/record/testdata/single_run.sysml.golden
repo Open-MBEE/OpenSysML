@@ -1,5 +1,6 @@
 package Records {
     part def ScoutBudgetRun :> AnalysisRecords::AnalysisRun {
+        attribute :>> caseName default = "P::scoutBudget";
         attribute burnTime : ScalarValues::Real;
         attribute trials : ScalarValues::Integer;
         attribute crewOk : ScalarValues::Boolean;

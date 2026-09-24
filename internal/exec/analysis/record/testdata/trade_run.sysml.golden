@@ -1,6 +1,7 @@
 package P {
     package Records {
         part def ChooseRun :> AnalysisRecords::AnalysisRun {
+            attribute :>> caseName default = "P::choose";
             attribute best : ScalarValues::Real;
         }
         part choose_run1 : ChooseRun {

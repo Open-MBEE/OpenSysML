@@ -113,6 +113,11 @@ type Existing struct {
 
 	// Taken are the N for which <case>_runN is already declared in the package.
 	Taken map[int]bool
+
+	// Stem is the name the records and their definition are built on — the
+	// case's short name, or an owner-prefixed fallback a sibling case's
+	// definition forced.
+	Stem string
 }
 
 // Request is one call to Generate.
@@ -123,6 +128,11 @@ type Request struct {
 
 	// Case is the qualified name of the analysis case the runs were made of.
 	Case string
+
+	// CaseName is the case's declared name as written, quoting needs included;
+	// the records and their definition are named from it. Empty falls back to
+	// Case's last qualified-name segment.
+	CaseName string
 
 	// Provenance is what every record reports about how it was made.
 	Provenance Provenance
@@ -417,7 +427,14 @@ func Generate(req Request) (Result, error) {
 		}
 	}
 
-	defName := upperFirst(shortName(req.Case)) + "Run"
+	stem := req.Existing.Stem
+	if stem == "" {
+		stem = req.CaseName
+	}
+	if stem == "" {
+		stem = shortName(req.Case)
+	}
+	defName := upperFirst(stem) + "Run"
 	feats, err := buildFeatures(&req)
 	if err != nil {
 		return Result{}, err
@@ -435,14 +452,14 @@ func Generate(req Request) (Result, error) {
 	for _, seg := range segs {
 		writeIndent(&src, depth)
 		src.WriteString("package ")
-		src.WriteString(source.NameText(seg))
+		src.WriteString(source.QualifiedNameText(seg))
 		src.WriteString(" {\n")
 		depth++
 	}
 
 	recordNames := make([]string, len(req.Runs))
 	if !req.Existing.Definition {
-		writeDefinition(&src, depth, defName, feats)
+		writeDefinition(&src, depth, defName, feats, req.Case)
 	}
 	// Number each record the smallest free N, the package's taken numbers and
 	// this batch's both skipped.
@@ -455,7 +472,7 @@ func Generate(req Request) (Result, error) {
 		for taken[next] {
 			next++
 		}
-		name := shortName(req.Case) + "_run" + fmt.Sprint(next)
+		name := stem + "_run" + fmt.Sprint(next)
 		taken[next] = true
 		recordNames[i] = name
 		writeRecord(&src, depth, name, defName, feats, &req.Runs[i], &req)
@@ -505,12 +522,17 @@ func writeIndent(src *strings.Builder, depth int) {
 	src.WriteString(strings.Repeat("    ", depth))
 }
 
-// writeDefinition writes the per-case record definition.
-func writeDefinition(src *strings.Builder, depth int, name string, feats []feature) {
+// writeDefinition writes the per-case record definition, its caseName default
+// marking the case it records.
+func writeDefinition(src *strings.Builder, depth int, name string, feats []feature, caseFQN string) {
 	writeIndent(src, depth)
 	src.WriteString("part def ")
 	src.WriteString(source.NameText(name))
 	src.WriteString(" :> AnalysisRecords::AnalysisRun {\n")
+	writeIndent(src, depth+1)
+	src.WriteString("attribute :>> caseName default = ")
+	src.WriteString(source.StringText(caseFQN))
+	src.WriteString(";\n")
 	for _, f := range feats {
 		writeIndent(src, depth+1)
 		if f.ref {
