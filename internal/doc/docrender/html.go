@@ -2,7 +2,9 @@ package docrender
 
 import (
 	"embed"
+	"errors"
 	"html"
+	"io/fs"
 	"sort"
 	"strconv"
 	"strings"
@@ -28,14 +30,17 @@ const (
 
 func DefaultStylesheet() string { return defaultCSS }
 
-// themeFS holds the bundled themes, one <name>.css each, written against the
-// default sheet's tokens in its cascade layer.
+// themeFS holds the bundled themes, one <name>.css each written against the
+// default sheet's tokens, and the <name>.print.css companion a theme may carry.
 //
 //go:embed themes/*.css
 var themeFS embed.FS
 
 // DefaultTheme names the default stylesheet on its own.
 const DefaultTheme = "default"
+
+// printCompanionSuffix ends the file of a theme's print companion.
+const printCompanionSuffix = ".print.css"
 
 // Themes lists the bundled theme names, the default first and the rest sorted.
 func Themes() []string {
@@ -45,6 +50,9 @@ func Themes() []string {
 	}
 	names := []string{DefaultTheme}
 	for _, entry := range entries {
+		if strings.HasSuffix(entry.Name(), printCompanionSuffix) {
+			continue
+		}
 		names = append(names, strings.TrimSuffix(entry.Name(), ".css"))
 	}
 	sort.Strings(names[1:])
@@ -65,6 +73,25 @@ func ThemeStylesheet(name string) (string, error) {
 		return "", &Error{Kind: ErrorUnknownTheme, Actual: name}
 	}
 	return defaultCSS + "\n" + string(overrides), nil
+}
+
+// ThemePrintStylesheet is the named theme's print companion, the overrides a
+// paged backend lays over its print stylesheet; empty for a theme without one.
+func ThemePrintStylesheet(name string) (string, error) {
+	if _, err := ThemeStylesheet(name); err != nil {
+		return "", err
+	}
+	if name == "" || name == DefaultTheme {
+		return "", nil
+	}
+	companion, err := themeFS.ReadFile("themes/" + name + printCompanionSuffix)
+	if errors.Is(err, fs.ErrNotExist) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	return string(companion), nil
 }
 
 // StylesheetFileName is the file a rendered document set links its shared
@@ -143,6 +170,10 @@ type HTMLOptions struct {
 	// DiagramForm is the source every graph-shaped diagram is written as,
 	// Mermaid when empty; a table-kind view is a table whichever it is.
 	DiagramForm view.Form
+
+	// Unplaced is where a DOT diagram some Layout positions puts the nodes
+	// none does: left undrawn when empty, or in a strip below the drawing.
+	Unplaced view.Unplaced
 
 	// DiagramImages are images drawn ahead of the render, one per graph-shaped
 	// diagram in the order Diagrams lists them, each written as <img> in place
@@ -626,7 +657,7 @@ func displayMathHTML(source string) string {
 // or else as its source in the render's diagram form — Mermaid, which a loaded
 // Mermaid script draws, or DOT or PlantUML — shown as text.
 func (w *htmlWriter) writeDiagram(node docir.Content, id string) error {
-	return w.writeFigure(id, node.Name(), node.Caption(), node.Rendering(), node.Options())
+	return w.writeFigure(id, node.Name(), node.Caption(), node.Rendering(), figureOptions(node, w.opts.Unplaced))
 }
 
 func (w *htmlWriter) writeFigure(id, name, caption string, rendering *view.Rendering, options view.Options) error {

@@ -60,8 +60,8 @@ func (w *featureWalk) featureNode(sym *symbols.Symbol, seen map[*symbols.Symbol]
 	if !qualified {
 		name = localName(sym)
 	}
-	node := &Node{ID: w.ids.take(), Kind: declKind(sym), Name: name, Type: declType(sym), Origin: symbolOrigin(sym),
-		Geometry: r.geometryOf(w.view, sym, w.out)}
+	node := &Node{ID: w.ids.take(), Kind: declKind(sym), Name: name, NameSynthesized: r.model.NameSynthesized(sym),
+		Type: declType(sym), Typings: r.declTypings(sym), Origin: symbolOrigin(sym), Geometry: r.geometryOf(w.view, sym, w.out)}
 	if existing, ok := w.nodes[sym]; ok {
 		node.Detail = detailWith(node.Detail, "already shown as "+existing.ID)
 		return node
@@ -71,7 +71,7 @@ func (w *featureWalk) featureNode(sym *symbols.Symbol, seen map[*symbols.Symbol]
 		return node
 	}
 	seen[sym] = true
-	for _, member := range containedMembers(sym) {
+	for _, member := range r.containedMembers(sym) {
 		switch {
 		case r.drawsConnector(member):
 			w.connectors = append(w.connectors, member)
@@ -108,8 +108,8 @@ func (r *Renderer) connectionEdges(view, connector *symbols.Symbol, nodes map[*s
 	for i := 0; i < len(resolved); i++ {
 		for j := i + 1; j < len(resolved); j++ {
 			out.Edges = append(out.Edges, Edge{
-				From: resolved[i].ID, To: resolved[j].ID, Label: label, Kind: kind, Origin: symbolOrigin(connector),
-				Route: slices.Clone(route),
+				From: resolved[i].ID, To: resolved[j].ID, Label: label, Kind: kind,
+				Origin: symbolOrigin(connector), Route: slices.Clone(route),
 			})
 		}
 	}
@@ -197,11 +197,12 @@ func chainOperand(node ast.Node) ast.Node {
 
 // connectorLabel names a connection on an edge: the payload it carries, else its
 // own name, else the type it is declared with, else the keyword that declared it.
+// A name a migration made up counts as none, as for the unnamed source connector.
 func (r *Renderer) connectorLabel(connector *symbols.Symbol) string {
 	if payload := flowPayload(connector); payload != "" {
 		return "of " + notationName(payload)
 	}
-	if connector.Name != "" && !connector.EffectiveName() {
+	if connector.Name != "" && !connector.EffectiveName() && !r.model.NameSynthesized(connector) {
 		return localName(connector)
 	}
 	if declared := declType(connector); declared != "" {

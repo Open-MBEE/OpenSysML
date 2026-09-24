@@ -88,6 +88,7 @@ package Drafts {
             render Views::asTreeDiagram;
         }
     }
+    metadata MigrationMetadata::SynthesizedName about unnamed;
 }
 package 'Yard Viewpoints' {
     viewpoint 'Block Diagrams Viewpoint' {
@@ -98,6 +99,7 @@ package 'Yard Viewpoints' {
             action Image;
             first Image then final;
             action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'block Diagrams Method' : 'Block Diagrams Method';
     }
@@ -109,6 +111,7 @@ package 'Yard Viewpoints' {
             action Image;
             first Image then final;
             action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'all Diagrams Method' : 'All Diagrams Method';
     }
@@ -120,6 +123,7 @@ package 'Yard Viewpoints' {
             action Image;
             first Image then final;
             action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'no Diagrams Method' : 'No Diagrams Method';
     }
@@ -138,6 +142,7 @@ package 'Yard Viewpoints' {
             action Image;
             first Image then final;
             action final terminate;
+            metadata MigrationMetadata::SynthesizedName about 'fork', 'merge', final;
         }
         perform action 'sketched Diagrams Method' : 'Sketched Diagrams Method';
     }
@@ -158,6 +163,7 @@ package 'Yard Viewpoints' {
             action Image;
             first Image then final;
             action final terminate;
+            metadata MigrationMetadata::SynthesizedName about 'fork', 'merge', final;
         }
         perform action 'retargeted Diagrams Method' : 'Retargeted Diagrams Method';
     }
@@ -171,6 +177,7 @@ package 'Yard Viewpoints' {
             action Image;
             first Image then final;
             action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'kin Diagrams Method' : 'Kin Diagrams Method';
     }
@@ -182,6 +189,7 @@ package 'Yard Viewpoints' {
             action Image;
             first Image then final;
             action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'other Diagrams Method' : 'Other Diagrams Method';
     }
@@ -195,6 +203,7 @@ package 'Yard Viewpoints' {
             action Image;
             first Image then final;
             action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'internal Diagrams Method' : 'Internal Diagrams Method';
     }
@@ -206,6 +215,7 @@ package 'Yard Viewpoints' {
             action Image;
             first Image then final;
             action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'parametric Diagrams Method' : 'Parametric Diagrams Method';
     }
@@ -224,6 +234,7 @@ package 'Yard Viewpoints' {
             }
             first 'Shown Blocks' then final;
             action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'shown Method' : 'Shown Method';
     }
@@ -238,6 +249,7 @@ package 'Yard Viewpoints' {
             }
             first 'Shown Everywhere' then final;
             action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'shown Everywhere Method' : 'Shown Everywhere Method';
     }
@@ -249,6 +261,7 @@ package 'Yard Viewpoints' {
             action 'Drive Parts';
             first 'Drive Parts' then final;
             action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'drive Parts Method' : 'Drive Parts Method';
     }
@@ -260,6 +273,7 @@ package 'Yard Viewpoints' {
             action Parts;
             first Parts then final;
             action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'parts Method' : 'Parts Method';
     }
@@ -271,6 +285,7 @@ package 'Yard Viewpoints' {
             action 'Direct Parts';
             first 'Direct Parts' then final;
             action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'direct Parts Method' : 'Direct Parts Method';
     }
@@ -282,6 +297,7 @@ package 'Yard Viewpoints' {
             action 'Shared Parts';
             first 'Shared Parts' then final;
             action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'shared Parts Method' : 'Shared Parts Method';
     }
@@ -298,6 +314,7 @@ package 'Yard Viewpoints' {
             }
             first 'To Do Items' then final;
             action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'to Do Method' : 'To Do Method';
     }
@@ -313,6 +330,7 @@ package 'Yard Viewpoints' {
             action Image;
             first Image then final;
             action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'documented Diagrams Method' : 'Documented Diagrams Method';
     }
@@ -326,6 +344,7 @@ package 'Yard Viewpoints' {
             action Image;
             first Image then final;
             action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'reverse Documented Diagrams Method' : 'Reverse Documented Diagrams Method';
     }
@@ -337,6 +356,7 @@ package 'Yard Viewpoints' {
             action Image;
             first Image then final;
             action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'diagrams By Documentation Method' : 'Diagrams By Documentation Method';
     }
@@ -354,6 +374,7 @@ package 'Yard Viewpoints' {
             action Image;
             first Image then final;
             action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'unnamed Drafts Method' : 'Unnamed Drafts Method';
     }
@@ -371,6 +392,7 @@ package 'Yard Viewpoints' {
             action Image;
             first Image then final;
             action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'optional Drafts Method' : 'Optional Drafts Method';
     }
@@ -382,6 +404,7 @@ package 'Yard Viewpoints' {
             action Image;
             first Image then final;
             action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'owner Sorted Diagrams Method' : 'Owner Sorted Diagrams Method';
     }
@@ -402,6 +425,7 @@ package 'Yard Viewpoints' {
             }
             first 'Requirements Specification Table' then final;
             action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'specification Method' : 'Specification Method';
     }

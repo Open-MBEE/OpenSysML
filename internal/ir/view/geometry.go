@@ -78,6 +78,13 @@ func (r *Renderer) declaredRouteOf(view, elem *symbols.Symbol, decl ast.Node, ou
 	return r.routeOf(view, edge, out)
 }
 
+// declaredNameSynthesized reports whether a migration made up the name of the
+// element decl declares under elem, as declaredRouteOf finds that element.
+func (r *Renderer) declaredNameSynthesized(elem *symbols.Symbol, decl ast.Node) bool {
+	sym, ok := r.model.SymbolDeclaring(documentScope(elem), decl)
+	return ok && r.model.NameSynthesized(sym)
+}
+
 // declaredGeometryOf is the Geometry of the node lowered from decl, a state,
 // region or action node declared under elem; nil when decl declares no element.
 func (r *Renderer) declaredGeometryOf(view, elem *symbols.Symbol, decl ast.Node, out *Rendering) *Geometry {

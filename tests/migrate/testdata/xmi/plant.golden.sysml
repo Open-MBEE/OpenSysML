@@ -96,5 +96,6 @@ part def Plant {
         /* partition 'Pump' represents Plant::pump: torn, prime */
         /* partition 'Controller' represents Controller: arm */
         /* partition 'Led' represents Controller::led: light */
+        metadata MigrationMetadata::SynthesizedName about final;
     }
 }

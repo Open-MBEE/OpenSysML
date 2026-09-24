@@ -93,6 +93,43 @@ func ReferenceEndNames(text string) string {
 	}
 }
 
+// ReferenceQualifiedNames reads a typing's references — `, ` apart, `$::` led or
+// `~` conjugated — into each one's names; a feature chain, or text that does not
+// read as references, contributes none.
+func ReferenceQualifiedNames(text string) [][]string {
+	var refs [][]string
+	rest := text
+	for {
+		rest = strings.TrimPrefix(strings.TrimPrefix(rest, "~"), "$::")
+		var names []string
+		chain := false
+		for {
+			name, after, ok := readBasicOrQuotedName(rest)
+			if !ok {
+				return nil
+			}
+			names, rest = append(names, name), after
+			if strings.HasPrefix(rest, "::") {
+				rest = rest[2:]
+			} else if strings.HasPrefix(rest, ".") {
+				rest, chain = rest[1:], true
+			} else {
+				break
+			}
+		}
+		if !chain {
+			refs = append(refs, names)
+		}
+		if rest == "" {
+			return refs
+		}
+		if !strings.HasPrefix(rest, ", ") {
+			return nil
+		}
+		rest = rest[2:]
+	}
+}
+
 // readName reads one name off the front of text: a quoted one up to its closing
 // quote, else a bare one up to `::`.
 func readName(text string) (name, rest string, ok bool) {

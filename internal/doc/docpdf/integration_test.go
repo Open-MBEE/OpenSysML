@@ -5,10 +5,13 @@ import (
 	"compress/zlib"
 	"errors"
 	"io"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
+	"sort"
 	"strconv"
 	"strings"
 	"testing"
@@ -270,7 +273,7 @@ func TestRenderFormulasWithInstalledKatex(t *testing.T) {
 	if err != nil {
 		t.Fatalf("renderFormulas: %v", err)
 	}
-	page, err := docrender.HTML(document, htmlOptions(Options{}, dir, nil, typeset))
+	page, err := docrender.HTML(document, pageOptions(t, Options{}, dir, nil, typeset))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -362,7 +365,7 @@ func TestRenderDiagramsWithInstalledGraphviz(t *testing.T) {
 		skipWithout(t, "Graphviz dot", err)
 	}
 	dir := t.TempDir()
-	diagrams, err := docrender.Diagrams(telescopeDocument(t), view.FormDot)
+	diagrams, err := docrender.Diagrams(telescopeDocument(t), view.FormDot, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -424,7 +427,7 @@ func TestRenderDiagramsWithInstalledPlantUML(t *testing.T) {
 		skipWithout(t, "java", err)
 	}
 	dir := t.TempDir()
-	diagrams, err := docrender.Diagrams(telescopeDocument(t), view.FormPlantUML)
+	diagrams, err := docrender.Diagrams(telescopeDocument(t), view.FormPlantUML, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -473,10 +476,213 @@ func TestRenderWideTableLandscapeWithInstalledEngines(t *testing.T) {
 	}
 }
 
+// TestRenderThemesWithInstalledEngines reads page size, embedded faces and body
+// size back from each theme's PDF; pandoc keeps refusing themes with a typed error.
+func TestRenderThemesWithInstalledEngines(t *testing.T) {
+	if _, err := mermaidTool.locate(""); err != nil {
+		skipWithout(t, "mmdc", err)
+	}
+	letter, a4 := [2]float64{612, 792}, [2]float64{595.3, 841.9}
+	times := []string{"Times", "Liberation-Serif", "LiberationSerif", "Nimbus-Roman", "NimbusRoman"}
+	arial := []string{"Arial", "Helvetica", "Liberation-Sans", "LiberationSans", "Nimbus-Sans", "NimbusSans"}
+	courier := []string{"Courier", "Liberation-Mono", "LiberationMono", "Nimbus-Mono", "NimbusMono"}
+	cases := []struct {
+		theme string
+		page  [2]float64
+		body  float64
+		faces [][]string
+	}{
+		{"", a4, 11, [][]string{times, arial, courier}},
+		{"print", a4, 11, [][]string{times, courier}},
+		{"report", a4, 12.8, [][]string{{"Charter", "SourceSerif", "Source-Serif", "Georgia", "Times", "Liberation-Serif", "LiberationSerif"}}},
+		{"nasa", letter, 12, [][]string{times, arial, courier}},
+		{"ieee", letter, 10, [][]string{times, courier}},
+		{"acm", letter, 10, [][]string{{"Libertinus", "LinLibertine", "Linux-Libertine", "Times", "Liberation-Serif", "LiberationSerif"}, {"Libertinus", "LinBiolinum", "Linux-Biolinum", "Arial", "Helvetica", "Liberation-Sans", "LiberationSans"}, courier}},
+	}
+	telescope, prose := telescopeDocument(t), proseDocument(t)
+	for _, engine := range Engines() {
+		for _, tc := range cases {
+			name := tc.theme
+			if name == "" {
+				name = docrender.DefaultTheme
+			}
+			t.Run(engine+"/"+name, func(t *testing.T) {
+				opts := Options{Theme: tc.theme, TitlePage: true, TOC: true, NumberSections: true}
+				if engine == pandocTool.name && tc.theme != "" {
+					installedConverter(t, engine)
+					_, err := Render(telescope, engine, opts)
+					var docErr *Error
+					if !errors.As(err, &docErr) || docErr.Kind != ErrorUnsupportedOption || docErr.Option != "-html-theme" {
+						t.Fatalf("pandoc took -html-theme %s: %v", tc.theme, err)
+					}
+					return
+				}
+				pdf, _ := renderInstalled(t, telescope, engine, opts)
+				for i, box := range pageBoxes(t, pdf) {
+					if math.Abs(box[0]-tc.page[0]) > 0.5 || math.Abs(box[1]-tc.page[1]) > 0.5 {
+						t.Errorf("page %d is %v points, want %v", i+1, box, tc.page)
+					}
+				}
+				fonts := pdfFonts(t, pdf)
+				for _, face := range tc.faces {
+					if !fontAmong(fonts, face) {
+						t.Errorf("no face of %v embedded; the PDF's fonts are %v", face, fonts)
+					}
+				}
+				for _, font := range fonts {
+					if strings.Contains(font, "DejaVu") {
+						t.Errorf("a generic family fell through to %s; the PDF's fonts are %v", font, fonts)
+					}
+				}
+				pdf, _ = renderInstalled(t, prose, engine, Options{Theme: tc.theme})
+				sizes := pdfTextSizes(t, pdf)
+				if got := dominantSize(sizes); math.Abs(got-tc.body) > 0.15 {
+					t.Errorf("running text is set at %gpt, want %gpt; sizes %v", got, tc.body, sizes)
+				}
+			})
+		}
+	}
+}
+
+// TestRenderThemeTablesWithInstalledEngines reads back the size an ordinary
+// (three-column, portrait) table's text is set at under each convention theme,
+// the default's body size being the control.
+func TestRenderThemeTablesWithInstalledEngines(t *testing.T) {
+	cases := []struct {
+		theme string
+		table float64
+	}{
+		{"", 11},
+		{"nasa", 11},
+		{"ieee", 8},
+		{"acm", 9},
+	}
+	document := narrowTableDocument(t)
+	for _, engine := range Engines() {
+		if engine == pandocTool.name {
+			continue
+		}
+		for _, tc := range cases {
+			name := tc.theme
+			if name == "" {
+				name = docrender.DefaultTheme
+			}
+			t.Run(engine+"/"+name, func(t *testing.T) {
+				pdf, _ := renderInstalled(t, document, engine, Options{Theme: tc.theme})
+				if pages := pageOrientations(t, pdf); len(pages) != 1 || pages[0] != "portrait" {
+					t.Fatalf("pages are %v, want one portrait page", pages)
+				}
+				sizes := pdfTextSizes(t, pdf)
+				if got := dominantSize(sizes); math.Abs(got-tc.table) > 0.15 {
+					t.Errorf("table text is set at %gpt, want %gpt; sizes %v", got, tc.table, sizes)
+				}
+			})
+		}
+	}
+}
+
+// TestRenderNASAPageNumbersWithInstalledEngines reads the footers back from a
+// nasa report opening with running text ahead of its first section, and one
+// opening with a landscape table: front matter counts in roman, the body from 1.
+func TestRenderNASAPageNumbersWithInstalledEngines(t *testing.T) {
+	lead, wideFirst := leadDocument(t), wideFirstDocument(t)
+	cases := []struct {
+		name     string
+		document *docir.Document
+		opts     Options
+		footers  []string
+	}{
+		{"body", lead, Options{Theme: "nasa"}, []string{"1", "2"}},
+		{"toc", lead, Options{Theme: "nasa", TOC: true}, []string{"i", "1", "2"}},
+		{"title-page", lead, Options{Theme: "nasa", TitlePage: true}, []string{"", "1", "2"}},
+		{"title-page-toc", lead, Options{Theme: "nasa", TitlePage: true, TOC: true}, []string{"", "ii", "1", "2"}},
+		{"wide-first-toc", wideFirst, Options{Theme: "nasa", TOC: true}, []string{"i", "1", "2"}},
+		{"wide-first-title-page-toc", wideFirst, Options{Theme: "nasa", TitlePage: true, TOC: true}, []string{"", "ii", "1", "2"}},
+	}
+	for _, engine := range Engines() {
+		if engine == pandocTool.name {
+			continue
+		}
+		for _, tc := range cases {
+			t.Run(engine+"/"+tc.name, func(t *testing.T) {
+				_, text := renderInstalled(t, tc.document, engine, tc.opts)
+				if got := pageFooters(text); !slices.Equal(got, tc.footers) {
+					t.Fatalf("page footers are %q, want %q", got, tc.footers)
+				}
+			})
+		}
+	}
+}
+
+// pageFooters returns the last line of text on each page of pdftotext's
+// layout output; a page whose last line is not a page number has "".
+func pageFooters(text string) []string {
+	number := regexp.MustCompile(`^(\d+|[ivxlc]+)$`)
+	var footers []string
+	for _, page := range strings.Split(strings.TrimSuffix(text, "\f"), "\f") {
+		last := ""
+		for _, line := range strings.Split(page, "\n") {
+			if line = strings.TrimSpace(line); line != "" {
+				last = line
+			}
+		}
+		if !number.MatchString(last) {
+			last = ""
+		}
+		footers = append(footers, last)
+	}
+	return footers
+}
+
+// TestRenderGenericFamilyWithInstalledEngines is the named stacks' control: a
+// page asking for bare serif gets fontconfig's DejaVu, the default sheet does not.
+func TestRenderGenericFamilyWithInstalledEngines(t *testing.T) {
+	fcMatch, err := exec.LookPath("fc-match")
+	if err != nil {
+		skipWithout(t, "fc-match", err)
+	}
+	out, err := exec.Command(fcMatch, "serif").Output() // #nosec G204 -- fc-match from PATH, fixed arguments
+	if err != nil {
+		t.Fatalf("fc-match: %v", err)
+	}
+	if !strings.Contains(string(out), "DejaVu") {
+		t.Skipf("generic serif resolves to %q here, not DejaVu", strings.TrimSpace(string(out)))
+	}
+	generic := docrender.InlineStylesheet("body { font-family: serif }")
+	for _, engine := range Engines() {
+		if engine == pandocTool.name {
+			continue
+		}
+		t.Run(engine, func(t *testing.T) {
+			pdf, _ := renderInstalled(t, plainDocument(t), engine, Options{NoDefaultStylesheet: true, Stylesheets: []docrender.Stylesheet{generic}})
+			if fonts := pdfFonts(t, pdf); !fontAmong(fonts, []string{"DejaVu"}) {
+				t.Fatalf("generic serif did not resolve to DejaVu on the page; fonts %v", fonts)
+			}
+			pdf, _ = renderInstalled(t, plainDocument(t), engine, Options{})
+			if fonts := pdfFonts(t, pdf); fontAmong(fonts, []string{"DejaVu"}) {
+				t.Fatalf("the default sheet let a generic family through; fonts %v", fonts)
+			}
+		})
+	}
+}
+
+// fontAmong reports whether any embedded font name carries one of the names.
+func fontAmong(fonts, names []string) bool {
+	for _, font := range fonts {
+		for _, name := range names {
+			if strings.Contains(font, name) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // TestRenderTallFigureFitsThePageWithInstalledEngines renders a forty-step
 // action flow through each installed converter with mermaid-cli and reads back
-// that the figure is scaled onto one page, its first and last node and its
-// caption together, rather than cut at the page's foot.
+// that the figure is scaled onto one page, its first node (the language's
+// `start`, headed as `initial`) and last step and its caption together, rather
+// than cut at the page's foot.
 func TestRenderTallFigureFitsThePageWithInstalledEngines(t *testing.T) {
 	if _, err := mermaidTool.locate(""); err != nil {
 		skipWithout(t, "mmdc", err)
@@ -491,7 +697,7 @@ func TestRenderTallFigureFitsThePageWithInstalledEngines(t *testing.T) {
 				}
 			}
 			for _, page := range strings.Split(text, "\f") {
-				if strings.Contains(page, "start") && strings.Contains(page, "step40") && strings.Contains(page, "Forty steps in a column") {
+				if strings.Contains(page, "initial") && strings.Contains(page, "step40") && strings.Contains(page, "Forty steps in a column") {
 					return
 				}
 			}
@@ -504,28 +710,48 @@ func TestRenderTallFigureFitsThePageWithInstalledEngines(t *testing.T) {
 // a PDF, inflating the object streams the converters write pages into.
 func pageOrientations(t *testing.T, pdf []byte) []string {
 	t.Helper()
-	box := regexp.MustCompile(`/MediaBox \[\s*[-\d.]+\s+[-\d.]+\s+([-\d.]+)\s+([-\d.]+)\s*\]`)
 	var pages []string
-	collect := func(data []byte) {
+	for _, box := range pageBoxes(t, pdf) {
+		if box[0] > box[1] {
+			pages = append(pages, "landscape")
+		} else {
+			pages = append(pages, "portrait")
+		}
+	}
+	return pages
+}
+
+// pageBoxes reads each page's width and height in points from the /MediaBox
+// entries of a PDF, the flate-compressed object streams included.
+func pageBoxes(t *testing.T, pdf []byte) [][2]float64 {
+	t.Helper()
+	box := regexp.MustCompile(`/MediaBox \[\s*[-\d.]+\s+[-\d.]+\s+([-\d.]+)\s+([-\d.]+)\s*\]`)
+	var pages [][2]float64
+	for _, data := range pdfStreams(pdf) {
 		for _, m := range box.FindAllSubmatch(data, -1) {
 			width, errW := strconv.ParseFloat(string(m[1]), 64)
 			height, errH := strconv.ParseFloat(string(m[2]), 64)
 			if errW != nil || errH != nil {
 				t.Fatalf("unreadable /MediaBox %q", m[0])
 			}
-			if width > height {
-				pages = append(pages, "landscape")
-			} else {
-				pages = append(pages, "portrait")
-			}
+			pages = append(pages, [2]float64{width, height})
 		}
 	}
-	collect(pdf)
+	if len(pages) == 0 {
+		t.Fatal("no /MediaBox found in the PDF")
+	}
+	return pages
+}
+
+// pdfStreams is a PDF's bytes followed by every flate stream in it inflated,
+// so a regular expression sees the dictionaries and content streams alike.
+func pdfStreams(pdf []byte) [][]byte {
+	streams := [][]byte{pdf}
 	rest := pdf
 	for {
 		i := bytes.Index(rest, []byte("stream\n"))
 		if i < 0 {
-			break
+			return streams
 		}
 		rest = rest[i+len("stream\n"):]
 		reader, err := zlib.NewReader(bytes.NewReader(rest))
@@ -536,10 +762,105 @@ func pageOrientations(t *testing.T, pdf []byte) []string {
 		if err != nil && len(data) == 0 {
 			continue
 		}
-		collect(data)
+		streams = append(streams, data)
 	}
-	if len(pages) == 0 {
-		t.Fatal("no /MediaBox found in the PDF")
+}
+
+// pdfFonts lists the /BaseFont names a PDF embeds, subset tags stripped,
+// sorted and without repeats.
+func pdfFonts(t *testing.T, pdf []byte) []string {
+	t.Helper()
+	base := regexp.MustCompile(`/BaseFont\s*/([^\s/>\]]+)`)
+	subset := regexp.MustCompile(`^[A-Z]{6}\+`)
+	seen := map[string]bool{}
+	var fonts []string
+	for _, data := range pdfStreams(pdf) {
+		for _, m := range base.FindAllSubmatch(data, -1) {
+			name := subset.ReplaceAllString(string(m[1]), "")
+			if !seen[name] {
+				seen[name] = true
+				fonts = append(fonts, name)
+			}
+		}
 	}
-	return pages
+	if len(fonts) == 0 {
+		t.Fatal("no /BaseFont found in the PDF")
+	}
+	sort.Strings(fonts)
+	return fonts
+}
+
+// pdfTextSizes tallies a PDF's glyphs by the point size they are set at, each
+// Tf size read through the text and graphics matrices scaling it.
+func pdfTextSizes(t *testing.T, pdf []byte) map[float64]int {
+	t.Helper()
+	sizes := map[float64]int{}
+	for _, data := range pdfStreams(pdf) {
+		if !bytes.Contains(data, []byte(" Tf")) || !bytes.Contains(data, []byte("BT")) {
+			continue
+		}
+		tallyTextSizes(sizes, string(data))
+	}
+	if len(sizes) == 0 {
+		t.Fatal("no text found in the PDF's content streams")
+	}
+	return sizes
+}
+
+// tallyTextSizes walks one content stream, tracking the q/Q stack of cm
+// scales, the Tm scale and the Tf size, and counts each shown glyph.
+func tallyTextSizes(sizes map[float64]int, content string) {
+	scale := 1.0
+	var stack []float64
+	text, size := 1.0, 0.0
+	var operands []string
+	hex := regexp.MustCompile(`<([0-9A-Fa-f]*)>`)
+	number := func(i int) float64 {
+		if i < 0 || i >= len(operands) {
+			return 0
+		}
+		v, _ := strconv.ParseFloat(operands[i], 64)
+		return v
+	}
+	for _, token := range strings.Fields(content) {
+		switch token {
+		case "q":
+			stack = append(stack, scale)
+		case "Q":
+			if n := len(stack); n > 0 {
+				scale, stack = stack[n-1], stack[:n-1]
+			}
+		case "cm":
+			scale *= math.Hypot(number(len(operands)-6), number(len(operands)-5))
+		case "BT":
+			text = 1
+		case "Tm":
+			text = math.Hypot(number(len(operands)-6), number(len(operands)-5))
+		case "Tf":
+			size = number(len(operands) - 1)
+		case "Tj", "TJ", "'", `"`:
+			glyphs := 0
+			for _, m := range hex.FindAllStringSubmatch(strings.Join(operands, ""), -1) {
+				glyphs += len(m[1]) / 4
+			}
+			if glyphs > 0 {
+				sizes[math.Round(size*text*scale*10)/10] += glyphs
+			}
+		default:
+			operands = append(operands, token)
+			continue
+		}
+		operands = operands[:0]
+	}
+}
+
+// dominantSize is the point size most of a PDF's glyphs are set at.
+func dominantSize(sizes map[float64]int) float64 {
+	best, most := 0.0, -1
+	for size, count := range sizes {
+		if count > most || count == most && size < best {
+			best, most = size, count
+		}
+	}
+	return best
 }

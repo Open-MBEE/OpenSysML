@@ -3,6 +3,7 @@ package docrender
 import (
 	"errors"
 	"html"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -322,7 +323,7 @@ func TestHTMLDefaultStylesheetIsOverridable(t *testing.T) {
 // and that a name that is no theme is refused.
 func TestHTMLThemes(t *testing.T) {
 	names := Themes()
-	if want := []string{"default", "modern", "print", "report"}; !slices.Equal(names, want) {
+	if want := []string{"default", "acm", "ieee", "modern", "nasa", "print", "report"}; !slices.Equal(names, want) {
 		t.Fatalf("Themes() = %v, want %v", names, want)
 	}
 	plain, err := ThemeStylesheet("")
@@ -372,13 +373,13 @@ func TestHTMLThemes(t *testing.T) {
 			t.Errorf("theme %s: default and theme share one style element, supplied CSS has its own:\n%s", name, got)
 		}
 	}
-	for _, bad := range []string{"fancy", "../document", "report.css", `themes\report`} {
+	for _, bad := range []string{"fancy", "../document", "report.css", "report.print", `themes\report`} {
 		_, err := ThemeStylesheet(bad)
 		var rendering *Error
 		if !errors.As(err, &rendering) || rendering.Kind != ErrorUnknownTheme || rendering.Actual != bad {
 			t.Errorf("ThemeStylesheet(%q) = %v, want an unknown-theme error", bad, err)
 		}
-		if err != nil && !strings.Contains(err.Error(), "default, modern, print, report") {
+		if err != nil && !strings.Contains(err.Error(), "default, acm, ieee, modern, nasa, print, report") {
 			t.Errorf("ThemeStylesheet(%q) error does not list the themes: %v", bad, err)
 		}
 	}
@@ -398,6 +399,149 @@ func TestHTMLThemes(t *testing.T) {
 		if !strings.Contains(printCSS, ".sysml-link"+sel) {
 			t.Errorf("print theme lacks the link selector %s", sel)
 		}
+	}
+}
+
+// TestHTMLThemePrintCompanions checks a theme's print companion is no theme of
+// its own but comes with its theme: one block of the opensysml-print-theme
+// layer, writing page geometry, page-margin boxes and document tokens only,
+// and that the default and a theme without one have none.
+func TestHTMLThemePrintCompanions(t *testing.T) {
+	entries, err := fs.ReadDir(themeFS, "themes")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var companions []string
+	for _, entry := range entries {
+		if strings.HasSuffix(entry.Name(), ".print.css") {
+			companions = append(companions, strings.TrimSuffix(entry.Name(), ".print.css"))
+		}
+	}
+	if want := []string{"acm", "ieee", "nasa", "print", "report"}; !slices.Equal(companions, want) {
+		t.Fatalf("print companions = %v, want %v", companions, want)
+	}
+	for _, name := range Themes() {
+		if strings.HasSuffix(name, ".print") {
+			t.Errorf("Themes() lists the companion %s as a theme", name)
+		}
+	}
+	for _, name := range []string{"", DefaultTheme, "modern"} {
+		if css, err := ThemePrintStylesheet(name); err != nil || css != "" {
+			t.Errorf("ThemePrintStylesheet(%q) = %q, %v; want none", name, css, err)
+		}
+	}
+	for _, bad := range []string{"fancy", "report.print", "../document"} {
+		_, err := ThemePrintStylesheet(bad)
+		var rendering *Error
+		if !errors.As(err, &rendering) || rendering.Kind != ErrorUnknownTheme || rendering.Actual != bad {
+			t.Errorf("ThemePrintStylesheet(%q) = %v, want an unknown-theme error", bad, err)
+		}
+	}
+	for _, name := range companions {
+		css, err := ThemePrintStylesheet(name)
+		if err != nil {
+			t.Fatalf("companion %s: %v", name, err)
+		}
+		if !strings.HasPrefix(css, "/* "+name+":") {
+			t.Errorf("companion %s does not open with its theme's name:\n%.80s", name, css)
+		}
+		if strings.Count(css, "@layer opensysml-print-theme {") != 1 || strings.Contains(css, "@layer opensysml {") || strings.Contains(css, "@layer opensysml-print {") {
+			t.Errorf("companion %s must be exactly one block of the opensysml-print-theme layer:\n%s", name, css)
+		}
+		if theme, _ := ThemeStylesheet(name); strings.Contains(theme, css) {
+			t.Errorf("companion %s is folded into the theme's screen sheet", name)
+		}
+		for _, line := range strings.Split(css, "\n") {
+			sel := strings.TrimSpace(line)
+			if !strings.HasSuffix(sel, "{") && !strings.HasSuffix(sel, ",") || strings.HasPrefix(sel, "@layer") {
+				continue
+			}
+			if !strings.HasPrefix(sel, ":root") && !strings.HasPrefix(sel, ".sysml-document") && !strings.HasPrefix(sel, "@page") && !strings.HasPrefix(sel, "@bottom-") {
+				t.Errorf("companion %s selector %q is neither :root, .sysml-document, @page nor a page-margin box", name, sel)
+			}
+		}
+	}
+}
+
+// TestHTMLConventionThemes checks the nasa, ieee and acm themes set the
+// faces, sizes and black-on-white tokens their conventions call for, on
+// screen and in their print companions alike, and that both agree.
+func TestHTMLConventionThemes(t *testing.T) {
+	times := `"Times New Roman", Times, "Liberation Serif", "Nimbus Roman", serif`
+	arial := `Arial, Helvetica, "Liberation Sans", "Nimbus Sans", sans-serif`
+	courier := `"Courier New", Courier, "Liberation Mono", "Nimbus Mono PS", monospace`
+	libertine := `"Libertinus Serif", "Linux Libertine O", "Linux Libertine", "Times New Roman", "Liberation Serif", serif`
+	biolinum := `"Libertinus Sans", "Linux Biolinum O", "Linux Biolinum", Arial, Helvetica, "Liberation Sans", sans-serif`
+	cases := []struct {
+		theme       string
+		body        string
+		heading     string
+		size        string
+		caption     string
+		screenOnly  []string
+		page        []string
+		companion   []string
+		pageNumbers string
+	}{
+		{
+			theme: "nasa", body: times, heading: arial, size: "12pt", caption: "12pt",
+			screenOnly: []string{"--sysml-measure: 6.5in;", ".sysml-document .sysml-title {\n    font-size: 24pt;", ".sysml-document .sysml-caption {\n    caption-side: top;\n    font-family: var(--sysml-font-heading);"},
+			page:       []string{"--sysml-page-size: letter;", "--sysml-page-margin: 1in;", "--sysml-page-number-font-size: 12pt;"},
+			companion:  []string{"--sysml-subheading-font-size: 14pt;", "--sysml-subsubheading-font-size: 12pt;", "content: counter(front, lower-roman);", "counter-increment: page 0 front 1;", ".sysml-document > .sysml-title:has(+ .sysml-toc) {\n    page: front;"},
+		},
+		{
+			theme: "ieee", body: times, heading: times, size: "10pt", caption: "8pt",
+			screenOnly: []string{"--sysml-measure: 7.17in;", "font-variant: small-caps;", "text-align: justify;", "--sysml-paragraph-indent: 1pc;", "--sysml-table-font-size: 8pt;"},
+			page:       []string{"--sysml-page-size: letter;", "--sysml-page-margin: 0.67in;", "--sysml-page-number-font-size: 8pt;"},
+			companion:  []string{"--sysml-subheading-font-size: 10pt;", "--sysml-wide-table-font-size: 8pt;"},
+		},
+		{
+			theme: "acm", body: libertine, heading: biolinum, size: "10pt", caption: "9pt",
+			screenOnly: []string{"--sysml-measure: 6.5in;", "--sysml-paragraph-indent: 10pt;", ".sysml-document .sysml-title {\n    font-size: 17pt;", "--sysml-table-font-size: 9pt;", ".sysml-document .sysml-caption {\n    caption-side: top;\n    font-family: var(--sysml-font-body);"},
+			page:       []string{"--sysml-page-size: letter;", "--sysml-page-margin: 1in;", "--sysml-page-number-font-size: 9pt;"},
+			companion:  []string{"--sysml-subheading-font-size: 10pt;", "--sysml-wide-table-font-size: 9pt;"},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.theme, func(t *testing.T) {
+			full, err := ThemeStylesheet(tc.theme)
+			if err != nil {
+				t.Fatal(err)
+			}
+			screen := full[len(DefaultStylesheet()):]
+			companion, err := ThemePrintStylesheet(tc.theme)
+			if err != nil {
+				t.Fatal(err)
+			}
+			shared := []string{
+				"--sysml-font-body: " + tc.body + ";",
+				"--sysml-font-heading: " + tc.heading + ";",
+				"--sysml-font-mono: " + courier + ";",
+				"--sysml-font-size: " + tc.size + ";",
+			}
+			for _, want := range append(append(append([]string{}, shared...), tc.screenOnly...),
+				"--sysml-caption-font-size: "+tc.caption+";",
+				"--sysml-text: #000000;", "--sysml-accent: #000000;", "--sysml-rule: #000000;", "--sysml-surface: transparent;",
+				"border-bottom: var(--sysml-border-width) solid var(--sysml-rule);", "caption-side: top;",
+			) {
+				if !strings.Contains(screen, want) {
+					t.Errorf("theme %s lacks %q", tc.theme, want)
+				}
+			}
+			for _, want := range append(append(append([]string{}, shared...), tc.page...), tc.companion...) {
+				if !strings.Contains(companion, want) {
+					t.Errorf("companion %s lacks %q", tc.theme, want)
+				}
+			}
+			for _, stray := range []string{"--sysml-measure", "--sysml-text:", "--sysml-accent:"} {
+				if strings.Contains(companion, stray) {
+					t.Errorf("companion %s sets %s, which the screen sheet already carries to the page", tc.theme, stray)
+				}
+			}
+			if strings.Contains(screen, "--sysml-page-") {
+				t.Errorf("theme %s writes page tokens the screen never reads", tc.theme)
+			}
+		})
 	}
 }
 

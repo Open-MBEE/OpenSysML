@@ -179,11 +179,97 @@ func plainDocument(t *testing.T) *docir.Document {
 `, "Plain::Report")
 }
 
-// wideTableDocument is a report whose middle section holds a captioned,
-// grouped seven-column table between two one-paragraph sections.
-func wideTableDocument(t *testing.T) *docir.Document {
+// proseDocument is a report of one section of running text, so the size most
+// of its glyphs are set at is the body size.
+func proseDocument(t *testing.T) *docir.Document {
 	t.Helper()
-	return sourceDocument(t, "wide.sysml", `package Wide {
+	sentence := "The mirror segments are phased by actuators that hold the wavefront error within budget across the observing night. "
+	return sourceDocument(t, "prose.sysml", `package Prose {
+	private import DocumentQueries::*;
+	part def Report :> Document {
+		attribute redefines title = "Prose";
+		part body : Section {
+			attribute redefines title = "Text";
+			part opening : Paragraph { part a : Span { attribute redefines text = "`+strings.Repeat(sentence, 6)+`"; } }
+			part closing : Paragraph { part a : Span { attribute redefines text = "`+strings.Repeat(sentence, 6)+`"; } }
+		}
+	}
+}
+`, "Prose::Report")
+}
+
+// leadDocument is a report opening with a page of running text directly in
+// the document, ahead of its first section.
+func leadDocument(t *testing.T) *docir.Document {
+	t.Helper()
+	sentence := "The mirror segments are phased by actuators that hold the wavefront error within budget across the observing night. "
+	return sourceDocument(t, "lead.sysml", `package Lead {
+	private import DocumentQueries::*;
+	part def Report :> Document {
+		attribute redefines title = "Unsectioned Lead";
+		part intro : Paragraph { part a : Span { attribute redefines text = "`+strings.Repeat(sentence, 40)+`"; } }
+		part body : Section {
+			attribute redefines title = "Text";
+			part closing : Paragraph { part a : Span { attribute redefines text = "A closing paragraph."; } }
+		}
+	}
+}
+`, "Lead::Report")
+}
+
+// narrowTableDocument is a report whose one section is a three-column table
+// of sentences, so the size most of its glyphs are set at is the table's.
+func narrowTableDocument(t *testing.T) *docir.Document {
+	t.Helper()
+	sentence := "The mirror segments are phased by actuators that hold the wavefront error within budget. "
+	return sourceDocument(t, "narrow.sysml", `package Narrow {
+	private import DocumentQueries::*;
+	private import KerML::Root::Element;
+	private import ScalarValues::*;
+
+	part def Row {
+		attribute purpose : String;
+		attribute outcome : String;
+	}
+
+	part matrix {
+		part power : Row {
+			attribute redefines purpose = "`+strings.Repeat(sentence, 4)+`";
+			attribute redefines outcome = "`+strings.Repeat(sentence, 4)+`";
+		}
+		part optics : Row {
+			attribute redefines purpose = "`+strings.Repeat(sentence, 4)+`";
+			attribute redefines outcome = "`+strings.Repeat(sentence, 4)+`";
+		}
+	}
+
+	calc def Rows :> Query {
+		in root : Element;
+		Project(
+			source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
+			properties = ("name", "purpose", "outcome")
+		)
+	}
+
+	part def Report :> Document {
+		attribute redefines title = "Narrow Report";
+		part matrixSection : Section {
+			attribute redefines title = "Matrix";
+			part rows : Table {
+				attribute redefines caption = "Every row";
+				calc rows : Rows {
+					in root = matrix;
+				}
+			}
+		}
+	}
+}
+`, "Narrow::Report")
+}
+
+// sevenColumnMatrix declares a part and the query projecting eight of its
+// properties, the source of every seven-plus-column table fixture.
+const sevenColumnMatrix = `
 	private import DocumentQueries::*;
 	private import KerML::Root::Element;
 	private import ScalarValues::*;
@@ -217,7 +303,13 @@ func wideTableDocument(t *testing.T) *docir.Document {
 			properties = ("team", "name", "a", "b", "c", "d", "e", "f")
 		)
 	}
+`
 
+// wideTableDocument is a report whose middle section holds a captioned,
+// grouped seven-column table between two one-paragraph sections.
+func wideTableDocument(t *testing.T) *docir.Document {
+	t.Helper()
+	return sourceDocument(t, "wide.sysml", `package Wide {`+sevenColumnMatrix+`
 	part def Report :> Document {
 		attribute redefines title = "Wide Report";
 		part intro : Paragraph {
@@ -242,6 +334,33 @@ func wideTableDocument(t *testing.T) *docir.Document {
 	}
 }
 `, "Wide::Report")
+}
+
+// wideFirstDocument is a report whose body opens with a seven-column table,
+// so its first body page is the landscape one, and closes with a paragraph.
+func wideFirstDocument(t *testing.T) *docir.Document {
+	t.Helper()
+	return sourceDocument(t, "widefirst.sysml", `package WideFirst {`+sevenColumnMatrix+`
+	part def Report :> Document {
+		attribute redefines title = "Wide First";
+		part matrixSection : Section {
+			attribute redefines title = "Matrix";
+			part cells : Table {
+				attribute redefines caption = "Every requirement";
+				calc rows : Cells {
+					in root = matrix;
+				}
+			}
+		}
+		part afterwards : Section {
+			attribute redefines title = "Afterwards";
+			part closing : Paragraph {
+				part lead : Span { attribute redefines text = "A closing paragraph."; }
+			}
+		}
+	}
+}
+`, "WideFirst::Report")
 }
 
 // tallFlowDocument is a report whose one figure is an action flow of forty

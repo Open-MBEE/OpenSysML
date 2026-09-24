@@ -11,6 +11,7 @@ package Plant {
             state Idle;
             state Running;
             transition 'Idle accept Start then Running' first Idle accept Start then Running;
+            metadata MigrationMetadata::SynthesizedName about 'Idle accept Start then Running';
         }
         action def Prime {
             view Priming : StandardViewDefinitions::ActionFlowView {
@@ -27,6 +28,7 @@ package Plant {
             }
             first Vent then final;
             action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
     }
     part def Tank;
@@ -61,6 +63,7 @@ package 'Plant Viewpoints' {
             action Image;
             first Image then final;
             action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'figures Method' : 'Figures Method';
     }
@@ -70,6 +73,7 @@ package 'Plant Viewpoints' {
             action Image;
             first Image then final;
             action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'pictures Method' : 'Pictures Method';
     }
@@ -84,6 +88,7 @@ package 'Plant Viewpoints' {
             }
             first 'Shown Blocks' then final;
             action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'shown Method' : 'Shown Method';
     }

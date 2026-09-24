@@ -169,7 +169,7 @@ renderer emits no `style` attributes to compete with.
 
 | Flag | Effect |
 |---|---|
-| `-html-theme <name>` | Layer a bundled theme over the default sheet: `default`, `modern`, `print` or `report` |
+| `-html-theme <name>` | Layer a bundled theme over the default sheet: `default`, `acm`, `ieee`, `modern`, `nasa`, `print` or `report` |
 | `-html-default-css` | Write the default sheet and exit, to copy from; with `-html-theme`, the theme's whole sheet |
 | `-html-css <file\|url>` | Add a sheet after the default one: a file is inlined, a URL is linked (repeatable, applied in order) |
 | `-html-no-default-css` | Leave the default sheet out |
@@ -185,6 +185,17 @@ unlayered CSS still wins over both:
 | `modern` | Clean corporate sans-serif: filled table headers, zebra rows, rounded surfaces for code and contents |
 | `report` | Formal technical report: serif body, wider measure, open tables ruled top and bottom, captions above |
 | `print` | Monochrome and compact for paper: black rules, no fills, tables and figures kept whole across page breaks, external links spelled out |
+| `nasa` | NASA STI report series: Times 12pt body, Arial headings, tables and captions, letter page with 1in margins, page numbers centred below, black on white |
+| `ieee` | IEEE Transactions manuscript: Times 10pt body, 8pt captions and tables, centred small-caps section heads, italic subheads, justified with a 1pc indent, letter page with 0.67in margins, single column |
+| `acm` | ACM article (`acmart`): Libertine 10pt body falling back to Times, bold sans numbered heads, 9pt captions, letter page with 1in margins, single column |
+
+The three convention themes set their faces and point sizes on screen as on
+paper, so a page and its PDF agree. The Libertine fonts `acm` names are
+rarely installed, so Times metrics are what most machines print; and none of
+the three lays out two columns or writes a cover beyond the title, since the
+document model carries no report number, authors or affiliations. The
+sources and the choices made where a convention is silent are recorded in
+[the backend's design notes](../project/html-document-backend.md#bundled-themes).
 
 A theme needs the default sheet under it, so it is refused with
 `-html-no-default-css`, and a fragment has no page to style, so it is refused
@@ -242,15 +253,23 @@ of tables and figures, the title page and contents on pages of their own —
 is declared in a second cascade layer after the default sheet:
 
 ```css
-@layer opensysml;        /* the default sheet, or the theme over it */
-@layer opensysml-print;  /* the PDF backend's print sheet */
+@layer opensysml;              /* the default sheet, or the theme over it */
+@layer opensysml-print;        /* the PDF backend's print sheet */
+@layer opensysml-print-theme;  /* the theme's print companion, when it has one */
 ```
 
-Both layers draw their values from the same `--sysml-*` tokens and write no
-`style` attributes, so `-html-theme` rethemes a PDF as it does a page,
-`-html-css` sheets apply unlayered after both layers and win on cascade
-origin, and `-html-no-default-css` leaves both layers out so that only your
-sheets — `@page` rules included — style the PDF. A sheet's relative `url()`
+A theme that means to govern paper carries a print companion — `print`,
+`report`, `nasa`, `ieee` and `acm` do — that the PDF backend lays over the
+print sheet in the third layer, so the theme's page size and margins, faces,
+body size, heading scale and page-number footer reach the PDF rather than
+being overwritten by the print sheet's defaults. All three layers draw their
+values from the same `--sysml-*` tokens and write no `style` attributes, so
+`-html-theme` rethemes a PDF as it does a page, `-html-css` sheets apply
+unlayered after every layer and win on cascade origin, and
+`-html-no-default-css` leaves every bundled layer out so that only your
+sheets — `@page` rules included — style the PDF. Without a theme, the PDF is
+set in Times, Arial and Courier where they are installed and in their
+metric-compatible free equivalents (Liberation, Nimbus) where they are not. A sheet's relative `url()`
 and `@import` references resolve against the PDF's directory, as a page's
 resolve against the page's. The pandoc engine reads Markdown and writes its
 own HTML, so `-html-theme` and `-html-no-default-css` are refused for it,

@@ -5,6 +5,32 @@ description: How to build, drive, and record end-to-end tests of the OpenSysML s
 
 # Testing the `sysml` REPL end-to-end
 
+## Recording analysis runs and querying persisted values
+
+- Use the worked Demo model in `docs/manual/recording-analysis-runs.md`.
+  `%record Demo::timed` defaults to the sibling top-level `Records` package:
+  a `Descendants` query rooted at `Demo` cannot see it. Query `root=Records`,
+  or explicitly record `into Demo::Log` before querying `root=Demo`.
+- A document can find default records without referring to an undeclared
+  element statically: compose `Descendants(source = Named(qualifiedName =
+  "Records"), maxDepth = 10)`, `WhereMetadata('metadata' =
+  "AnalysisRecords::RecordedRun")`, and `Project(properties = ("name", "gain",
+  "x"))`. For a no-record control, declare an empty `package Records {}`;
+  otherwise `Named` reports a missing element rather than returning zero rows.
+- Compare values separately from presentation: `%run-query` and saved SysML
+  preserve Real literals such as `2.0`; document table cells may display `2`.
+  Generated-file byte counts also vary with embedded tool-version provenance.
+- For runtime-failure atomicity, first validate the negative fixture. An analysis
+  definition needs its subject first, and a usage needs a subject binding; use
+  the Demo Probe pattern with an output `1.0 / divisor` and divisor `0.0`.
+  Compare both the original input and a pre-existing output after the failed
+  `-record-run ... -convert sysml -o ...`; a static rejection alone does not
+  exercise failed analysis execution.
+
+### Devin Secrets Needed
+
+None for local recording and document-query testing.
+
 ## State/event document queries and lifetime diagnostics
 
 - Build query fixtures with `DocumentQueries::*`, `KerML::Root::Element`,

@@ -406,6 +406,7 @@ func (m *migration) stakeholder(vp *sysmlv1.Element, id string) {
 		return
 	}
 	name := m.freshName(vp, lowerFirst(m.nameFor(s)))
+	m.w.madeUp(writeName(name))
 	m.w.line("stakeholder " + writeName(name) + " : " + m.ref(s, vp) + ";")
 }
 

@@ -221,6 +221,7 @@ reported, so a script that reads it takes the output from the first `{`.
 | `--render-all <dir>` | | Render every declared view into the directory, one artifact per view |
 | `--render-form <form>` | | Form `--render` or `--render-all` writes: `text`, `mermaid`, `markdown`, `dot` or `plantuml` (default: destination-dependent for `--render`, each kind's machine-readable form for `--render-all`) |
 | `--render-palette <name>` | | Palette the `dot` or `plantuml` form of `--render` or `--render-all` fills nodes with, by keyword family: `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis`; black and white when absent. Mermaid notes it as not represented; text and Markdown ignore it. An unknown name is refused with the names there are (see [Rendering a view](#rendering-a-view)) |
+| `--render-unplaced <placement>` | | Where the `dot` form of a view some `DiagramLayout::Layout` positions puts the nodes none does: `omit` (the default) leaves them, and the edges at them, undrawn; `strip` draws them in rows below the drawing, clear of the canvas and every positioned box. Applies to `--render`, `--render-all` and the `dot` diagrams of `--render-document` and `--render-documents`; a view with no positioned node is laid out as before whichever is named. An unknown placement is refused with the placements there are (see [Rendering a view](#rendering-a-view)) |
 | `--render-document <name>` | | Compile a document definition (a `part def` specializing `DocumentQueries::Document`), run its queries against the model, render its diagram blocks through the view engine and write the result as CommonMark Markdown, as `%render-document` does. Paragraphs may hold inline runs (`Span` with a `plain`/`emphasis`/`strong`/`code` style, `Link` to a URL, `Ref` linking to another content block's anchor); a query-backed paragraph or list styles its projected values through nested `SpanColumn`/`LinkColumn` column runs; a table with a `groupBy` column writes one subtable per group value, with the query's projected properties and computed `Column` names as its columns. A `Diagram` block embeds a declared view, or an element with a stated rendering kind, as a fenced ` ```mermaid ` block (a fenced ` ```dot ` block of Graphviz DOT under `-diagram-form dot`, a ` ```plantuml ` block under `-diagram-form plantuml`; a table-kind view as a pipe table whichever form), with an optional caption and `TB`/`LR`/`RL`/`BT` flow direction. Markdown is the default form; `-doc-form html` renders the same document tree as semantic HTML (see [Rendering a document as HTML](#rendering-a-document-as-html)) and `-doc-form pdf` converts the Markdown (see [Rendering a document as PDF](#rendering-a-document-as-pdf)). Combined with `--instantiate`, the document's queries run over the objects created (see [Rendering a document over objects](#rendering-a-document-over-objects)). `-json` does not apply. See the [document generation manual](../manual/README.md) |
 | `--doc-form <form>` | | Form `--render-document` writes: `markdown` (default), `html`, rendered from the document tree itself (see [Rendering a document as HTML](#rendering-a-document-as-html)), or `pdf`, which drives an external converter |
 | `--diagram-form <form>` | | Form the graph-shaped diagram blocks of `--render-document` and `--render-documents` are written in: `mermaid` (default), `dot`, Graphviz DOT for a toolchain that lays diagrams out with Graphviz, produced without Graphviz installed, or `plantuml`, PlantUML in the Pilot visualizer's B&W style, produced without a PlantUML jar. Applies to every diagram of the document in every `--doc-form`; a table-kind view is a table whichever form, and a `sequence` diagram, which has no DOT form, is refused under `dot` |
@@ -228,7 +229,7 @@ reported, so a script that reads it takes the output from the first `{`.
 | `--doc-title-page` | | Put the document title on a page of its own (`--doc-form html` or `pdf`) |
 | `--doc-toc` | | Write a table of contents ahead of the content (`--doc-form html` or `pdf`) |
 | `--doc-number-sections` | | Number the section headings hierarchically (`--doc-form html` or `pdf`) |
-| `--html-theme <name>` | | Style the HTML page or PDF with a bundled theme layered over the default stylesheet: `default`, `modern`, `print` or `report` (default: the default stylesheet alone) |
+| `--html-theme <name>` | | Style the HTML page or PDF with a bundled theme layered over the default stylesheet: `default`, `acm`, `ieee`, `modern`, `nasa`, `print` or `report` (default: the default stylesheet alone) |
 | `--html-css <file\|url>` | | Style the HTML or PDF with this stylesheet: a file is inlined in a single page and written beside a set's pages, a URL is linked. Repeatable, applied in order after the default sheet (`--doc-form html` or `pdf`) |
 | `--html-no-default-css` | | Leave the default stylesheet out, so only `--html-css` sheets style the HTML or PDF |
 | `--html-default-css` | | Write the default document stylesheet and exit, as a starting point for your own; with `--html-theme`, the theme's whole sheet |
@@ -456,6 +457,7 @@ sysml model.sysml -render Views::vehicleView -render-form text
 # Graphviz DOT for a graph-shaped kind, to lay out with dot(1) or any Graphviz-reading tool
 sysml model.sysml -render Views::vehicleView -render-form dot -o view.dot
 sysml model.sysml -render Views::vehicleView -render-form dot -render-palette okabe-ito -o view.dot
+sysml model.sysml -render Views::vehicleView -render-form dot -render-unplaced strip -o view.dot
 
 # PlantUML in the Pilot visualizer's B&W style, for a PlantUML toolchain; no jar is run
 sysml model.sysml -render Views::vehicleView -render-form plantuml -o view.puml
@@ -641,14 +643,21 @@ y=80 w=200 h=90`, `%% route: n1->n2 320,125 400,125`) and the text form appends 
 honours it: a positioned node is pinned at the centre of its box (`pos="220,675!", pin=true`, in
 points with y measured up from the canvas's bottom edge — negated when no canvas height is
 stated — one pixel to one point under `inputscale=72`), a stated size is `width`/`height` in inches
-with `fixedsize=true` (an unstated one is fitted to the label, so the box's corner stays put), a
+with `fixedsize=true` and the label fitted to it — the name wrapped at the width and shrunk from
+14 pt to 8 pt until it fits, the keyword and detail lines kept only while height remains, and a
+decision, fork, initial, final or port drawn as its symbol with the name beside it (an unstated
+size is fitted to the label, so the box's corner stays put), a
 positioned cluster states its `bb`, a route is the edge's `pos` spline (a route of one waypoint
 draws no line and is noticed), the canvas is echoed as `// canvas:` and held by an invisible
 point pinned at each corner so the drawing's bounding box is the canvas, and the
-`// layout:` header names the command that honours it — `neato -n2` when every node is placed
-and any edge routed, `neato -n` when every node is placed and none routed, `neato` when only
-some nodes are — so `neato -n2 -Tsvg view.dot` draws the view where the model put it. `neato`
-redraws every edge, so under it a written route is noticed as redrawn.
+`// layout:` header names the command that honours it — `neato -n2` when any edge is routed,
+`neato -n` when none is — so `neato -n2 -Tsvg view.dot` draws the view where the model put it.
+A node the model does not position, in a view that positions others, is left undrawn with
+the edges at it — a migrated diagram shows what its source showed, and nothing lands on a
+placed box — and a `// not represented:` notice counts what was left out;
+`-render-unplaced strip` draws those nodes instead, in rows below the canvas or the positioned
+boxes, wrapped at the drawing's width and clear of it and of one another. Either way every node
+drawn is pinned, so `neato` is never left to place one.
 A model with no layout annotations renders exactly as before. `-validate` reports a `Layout` or
 `Route` on an element the rendering does not draw as a node or an edge, a `Route` with an odd
 number of values, a `Canvas` outside a view, and two positions for one element in one view (the
@@ -791,8 +800,10 @@ The default stylesheet is inlined in a standalone page and declared in a cascade
 Your own CSS is unlayered, so it wins on cascade origin rather than specificity — overriding a
 default needs neither `!important` nor a matching selector. Every default value comes from a
 `--sysml-*` custom property on `.sysml-document`, so retheming can be a handful of properties, and
-the renderer emits no `style` attributes to compete with. `-html-theme modern|print|report` layers
-a bundled theme over the default sheet, in the same layer, so your CSS still wins over both.
+the renderer emits no `style` attributes to compete with. `-html-theme acm|ieee|modern|nasa|print|report`
+layers a bundled theme over the default sheet, in the same layer, so your CSS still wins over both;
+`nasa`, `ieee` and `acm` follow the NASA STI report series, IEEE Transactions and ACM `acmart`
+manuscript conventions (see [the manual](../manual/outputs.md#html) for what each sets).
 `-html-default-css` writes that sheet to copy from (the theme's whole sheet with `-html-theme`),
 `-html-css` adds sheets after it (a file is inlined in a single page and written beside a set's pages, a URL is linked), and
 `-html-no-default-css` drops it entirely. A `-render-documents` set writes one shared
@@ -831,11 +842,21 @@ Markdown unchanged.
 
 A PDF from an HTML-reading engine is styled as an HTML page is: the print stylesheet — page size
 and margins, the page-number footer, print faces, page breaks kept out of tables and figures — is
-declared in a cascade layer `opensysml-print` after the default sheet's `opensysml` layer, draws
-its values from the same `--sysml-*` tokens and writes no `style` attributes, so `-html-theme`
-rethemes a PDF, `-html-css` sheets apply unlayered after both layers and win on cascade origin,
-and `-html-no-default-css` leaves both layers out so only your sheets (their `@page` rules
-included) style the PDF. A sheet's relative `url()` and `@import` references resolve against
+declared in a cascade layer `opensysml-print` after the default sheet's `opensysml` layer, and a
+theme's print companion, when the theme carries one, in a layer `opensysml-print-theme` after
+that, so the sheets cascade in the order
+
+```text
+theme (opensysml) < print sheet (opensysml-print) < theme's print part (opensysml-print-theme) < your -html-css, unlayered
+```
+
+All draw their values from the same `--sysml-*` tokens and write no `style` attributes, so
+`-html-theme` rethemes a PDF down to its page size, margins, faces, body size, heading scale and
+page-number footer, `-html-css` sheets apply unlayered after every layer and win on cascade
+origin, and `-html-no-default-css` leaves every bundled layer out so only your sheets (their
+`@page` rules included) style the PDF. Without a theme, the print sheet names Times, Arial and
+Courier first, then their metric-compatible free equivalents (Liberation, Nimbus), then the
+generic family. A sheet's relative `url()` and `@import` references resolve against
 the PDF's directory, as a page's resolve against the page's, so a font or image beside the
 `-o` path is found under every engine. `pandoc` writes its own HTML, so it refuses `-html-theme`
 and `-html-no-default-css` with an `unsupported-option` error naming an engine that reads HTML,
