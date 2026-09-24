@@ -121,6 +121,13 @@ the source had none (`MigrationMetadata::SynthesizedName`) never becomes a label
 text of its own and such a name is drawn unlabelled, as its source drew it. The rule is one place,
 so the text, Mermaid, DOT and PlantUML forms label an edge alike.
 
+A trigger names its signal or operation the way a node's type is named, by the name the reference
+ends in (`triggerLabel` in `behavior.go`): `accept Signals::'APS Internal'::'Go Now'` reads
+`accept 'Go Now'`, a named payload keeps its name (`accept msg : Halt`) and a call trigger its
+arguments (`accept setSpeed(value)`), so a transition a v1 migration wrote with the signal's whole
+path does not carry that path across the drawing. A time or change event, and an accept of an
+event feature (`accept :> shutDown`), keep their written text.
+
 ## Why DOT next to Mermaid
 
 Mermaid was chosen first because it draws where models are read — Markdown, documentation sites,
