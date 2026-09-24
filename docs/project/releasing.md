@@ -536,9 +536,11 @@ API. Without either variable the script fails immediately with
 ## The SonarCloud scan
 
 Not a release step — the `scan` job runs in the `build-test` workflow on every
-commit, after the four Go jobs (`go-static`, `go-race-test`, `go-coverage` and
-`go-gates`), `python-test`, `java-test` and `node-test` —
-but it is documented here with the other CircleCI credential plumbing.
+commit, after `go-static`, `go-coverage`, `go-gates`, `python-test`,
+`java-test` and `node-test`. It does not wait on `go-race-test`: a race-run
+failure used to hide the scan entirely, and nothing the race run produces
+reaches the analysis — but it is documented here with the other CircleCI
+credential plumbing.
 
 It waits on the three client jobs because each writes a coverage report the
 scan reads: a language whose report is absent has every one of its lines
@@ -581,14 +583,33 @@ object reachable from `HEAD`, so a blame that would silently date every issue to
 the import is reported as the configuration error it is. Other jobs read only
 the current tree and keep the faster default.
 
-The job runs on a `large` container with `SONAR_SCANNER_OPTS: -Xmx4g`, which is
-not tuning for its own sake: Sonar's Go sensor parses one directory at a time
-and holds that directory's parser output in memory, so a large package
+The job runs on a `large` container — 8 GB, the largest class in the plan —
+whose memory is split between three processes. `SONAR_SCANNER_JAVA_OPTS:
+-Xmx5500m` sizes the forked analysis JVM the sonar-scanner-cli 8 launcher
+starts: Sonar's Go sensor parses one directory at a time and holds that
+directory's parser output in memory, so a large package
 (`internal/exec/runtime`) exhausted the scanner's default heap with
-`java.lang.OutOfMemoryError`. If a new package makes it fail there again, raise
-that heap rather than splitting the package. Note also that the launcher in the
-pinned scanner CLI passes `$SONAR_SCANNER_OPTS` and not
-`SONAR_SCANNER_JAVA_OPTS`, so the newer variable name has no effect here.
+`java.lang.OutOfMemoryError` before it was raised. `SONAR_SCANNER_OPTS:
+-Xmx256m` sizes the launcher itself and carries `-D` properties such as the
+project version, and `sonar.javascript.node.maxspace=1024` caps the Node
+process the JS/TS sensor spawns, whose default 2.2 GB the ~60 TypeScript
+files do not need.
+
+A scan that dies with `EXECUTION FAILURE` and exit 3, with no Java exception
+in its log, is the container's OOM-killer, not the analysis — an analysis
+heap near the container size plus an uncapped Node heap has done this at the
+moment the JS/TS sensor starts its Node process. A `when: always` step right
+after the scan prints the cgroup memory counters, where an OOM kill shows as
+`oom_kill 1` rather than being guessed at.
+
+The scan step itself reproduces what the `sonarsource/sonarcloud` orb did —
+download the pinned sonar-scanner-cli 8.0.1.6346 into a cache keyed on the
+version, `chmod` the launcher and its JRE — but inline, so the scanner runs
+through a one-retry wrapper: a log line matching a transient SonarCloud API
+or network failure (HTTP 5xx, JRE-metadata query failure, timeouts, resets)
+sleeps 30 seconds and tries once more, while an analysis failure exits with
+the scanner's status on the first attempt. Each attempt's log is stored as an
+artifact. The orb is no longer used.
 
 ### What counts as new code
 
