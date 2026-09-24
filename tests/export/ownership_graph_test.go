@@ -237,7 +237,7 @@ func TestOwnershipComesBackFromTheMembershipSideAlone(t *testing.T) {
         }
     }
 }
-action warm;
+perform action warm;
 `
 	if string(back) != want {
 		t.Errorf("the memberships did not carry the tree\n--- want ---\n%s\n--- got ---\n%s", want, back)

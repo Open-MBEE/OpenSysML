@@ -114,7 +114,7 @@
           </xmi:Extension>
         </ownedDiagram>
         <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_bdd" name="Vehicle Structure" ownerOfDiagram="_pkg_structure">
-          <ownedComment xmi:type="uml:Comment" xmi:id="_note_bdd" body="A note on the canvas."/>
+          <ownedComment xmi:type="uml:Comment" xmi:id="_note_bdd" body="The blocks the vehicle is built from."/>
           <xmi:Extension extender="Example UML Tool 1.0">
             <legend type="_pkg_behavior"><usedElements>_pkg_behavior</usedElements></legend>
             <diagramRepresentation>

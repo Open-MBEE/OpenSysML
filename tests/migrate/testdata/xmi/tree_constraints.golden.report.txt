@@ -1,9 +1,10 @@
 # SysML v1 to v2 migration report: tree_constraints.xmi
-# migrated 29 element(s): 20 mapped, 7 approximated, 2 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 30 element(s): 20 mapped, 7 approximated, 3 unmapped (2 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
-## unmapped (2)
+## unmapped (3)
 Constraint	Tanks::Settled::<Constraint>	_sRule	(the UML Expression tree has no v2 form: the language "English" is not translated: an opaque operand is read only in a script language)
 Constraint	Tanks::Tank::sealed	_sealedRule	(the UML Expression tree has no v2 form: the call "xor" is not in the translated function table)
+Constraint	Tanks::Tank::unnamed operand	_unnamedRule	(the UML Expression tree has no v2 form: the construct "<InstanceValue>" is outside the translated subset: the instance value names no instance)
 
 ## approximated (7)
 Constraint	Tanks::Diagonal::<Constraint>	_dRule	-> Tanks::Diagonal	(the UML Expression tree is written as a v2 expression)
@@ -35,3 +36,7 @@ Property	Tanks::WithinCapacity::capacity	_wCapacity	-> Tanks::WithinCapacity::ca
 Property	Tanks::WithinCapacity::level	_wLevel	-> Tanks::WithinCapacity::level
 Property	Tanks::WithinCapacity::margin	_wMargin	-> Tanks::WithinCapacity::margin
 InstanceSpecification	Tanks::dayTank	_day	-> Tanks::dayTank
+
+## skipped (2)
+Constraint	Tanks::Tank::<Constraint>	_presentRule	(the constraint is notation only: the UML Expression tree spells nothing: no node has a symbol and every operand is an instance value naming no instance)
+Constraint	Tanks::Tank::<Constraint>	_nestedBlankRule	(the constraint is notation only: the UML Expression tree spells nothing: no node has a symbol and every operand is an instance value naming no instance)

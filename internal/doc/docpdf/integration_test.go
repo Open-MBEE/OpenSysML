@@ -473,6 +473,33 @@ func TestRenderWideTableLandscapeWithInstalledEngines(t *testing.T) {
 	}
 }
 
+// TestRenderTallFigureFitsThePageWithInstalledEngines renders a forty-step
+// action flow through each installed converter with mermaid-cli and reads back
+// that the figure is scaled onto one page, its first and last node and its
+// caption together, rather than cut at the page's foot.
+func TestRenderTallFigureFitsThePageWithInstalledEngines(t *testing.T) {
+	if _, err := mermaidTool.locate(""); err != nil {
+		skipWithout(t, "mmdc", err)
+	}
+	document := tallFlowDocument(t)
+	for _, engine := range Engines() {
+		t.Run(engine, func(t *testing.T) {
+			_, text := renderInstalled(t, document, engine, Options{})
+			for _, want := range []string{"An opening paragraph.", "A closing paragraph."} {
+				if !strings.Contains(text, want) {
+					t.Errorf("PDF text lacks %q:\n%s", want, text)
+				}
+			}
+			for _, page := range strings.Split(text, "\f") {
+				if strings.Contains(page, "start") && strings.Contains(page, "step40") && strings.Contains(page, "Forty steps in a column") {
+					return
+				}
+			}
+			t.Fatalf("no page holds the figure's first and last step with its caption:\n%s", text)
+		})
+	}
+}
+
 // pageOrientations reads each page's orientation from the /MediaBox entries of
 // a PDF, inflating the object streams the converters write pages into.
 func pageOrientations(t *testing.T, pdf []byte) []string {

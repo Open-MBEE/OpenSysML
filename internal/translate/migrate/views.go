@@ -301,17 +301,8 @@ func (m *migration) viewpointTags(e *sysmlv1.Element, concerns []*sysmlv1.Elemen
 	if vp == nil {
 		return
 	}
-	var doc []string
-	if p := vp.Tag("purpose"); p != "" {
-		doc = append(doc, p)
-	}
-	for _, tag := range []string{"language", "method", "presentation"} {
-		if vs := vp.Tags[tag]; len(vs) > 0 {
-			doc = append(doc, tag+": "+strings.Join(m.tagValues(vs), ", "))
-		}
-	}
-	if len(doc) > 0 {
-		m.w.lines(prefixFirst("doc ", commentLines(strings.Join(doc, "\n"))))
+	if doc := m.viewpointDoc(e); doc != "" {
+		m.w.lines(prefixFirst("doc ", commentLines(doc)))
 	}
 	subject := false
 	for _, id := range vp.IDs("stakeholder") {
@@ -334,6 +325,25 @@ func (m *migration) viewpointTags(e *sysmlv1.Element, concerns []*sysmlv1.Elemen
 		m.frameConcern(text)
 		m.add(c, Mapped, "", "")
 	}
+}
+
+// viewpointDoc is the doc a viewpoint's tags write: the purpose, joined by the
+// language, method and presentation v2 has no slot for; "" for none.
+func (m *migration) viewpointDoc(e *sysmlv1.Element) string {
+	vp := stereo(e, "Viewpoint")
+	if vp == nil {
+		return ""
+	}
+	var doc []string
+	if p := vp.Tag("purpose"); p != "" {
+		doc = append(doc, p)
+	}
+	for _, tag := range []string{"language", "method", "presentation"} {
+		if vs := vp.Tags[tag]; len(vs) > 0 {
+			doc = append(doc, tag+": "+strings.Join(m.tagValues(vs), ", "))
+		}
+	}
+	return strings.Join(doc, "\n")
 }
 
 // framedComments resolves the comments a viewpoint's concernList tag names and

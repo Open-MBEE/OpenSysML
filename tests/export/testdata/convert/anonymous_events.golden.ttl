@@ -149,7 +149,7 @@ elmt:AnonymousEvents__Sender___401
     sysml:owningRelationship elmt:AnonymousEvents__Sender___401_om ;
     sysml:owningMembership elmt:AnonymousEvents__Sender___401_om ;
     sysx:declaredKeyword "event" ;
-    sysml:references "exchange.request"^^sysx:Expression ;
+    sysml:references <urn:opensysml:expr:AnonymousEvents__Sender___401_pchain0> ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedReferenceSubsetting elmt:AnonymousEvents__Sender___401_rs ;
     sysml:ownedSubsetting elmt:AnonymousEvents__Sender___401_rs ;
@@ -168,6 +168,42 @@ elmt:AnonymousEvents__Sender___401_om
     sysml:membershipOwningNamespace elmt:AnonymousEvents__Sender ;
     sysml:ownedMemberFeature elmt:AnonymousEvents__Sender___401 ;
     sysml:owningType elmt:AnonymousEvents__Sender .
+
+<urn:opensysml:expr:AnonymousEvents__Sender___401_pchain0>
+    a sysml:Feature ;
+    sysml:elementId "AnonymousEvents__Sender___401_pchain0" ;
+    sysml:ownedFeatureChaining <urn:opensysml:expr:AnonymousEvents__Sender___401_pchain0_pfc0>, <urn:opensysml:expr:AnonymousEvents__Sender___401_pchain0_pfc1> ;
+    sysml:ownedRelationship <urn:opensysml:expr:AnonymousEvents__Sender___401_pchain0_pfc0>, <urn:opensysml:expr:AnonymousEvents__Sender___401_pchain0_pfc1> ;
+    sysml:chainingFeature elmt:AnonymousEvents__Sender__exchange, elmt:AnonymousEvents__Exchange__request ;
+    sysml:owningRelationship elmt:AnonymousEvents__Sender___401_rs ;
+    sysml:owner elmt:AnonymousEvents__Sender___401 ;
+    json:ownedFeatureChaining "[{\"@id\":\"AnonymousEvents__Sender___401_pchain0_pfc0\"},{\"@id\":\"AnonymousEvents__Sender___401_pchain0_pfc1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"AnonymousEvents__Sender___401_pchain0_pfc0\"},{\"@id\":\"AnonymousEvents__Sender___401_pchain0_pfc1\"}]" ;
+    json:chainingFeature "[{\"@id\":\"AnonymousEvents__Sender__exchange\"},{\"@id\":\"AnonymousEvents__Exchange__request\"}]" .
+
+<urn:opensysml:expr:AnonymousEvents__Sender___401_pchain0_pfc0>
+    a sysml:FeatureChaining ;
+    sysml:elementId "AnonymousEvents__Sender___401_pchain0_pfc0" ;
+    sysml:featureChained <urn:opensysml:expr:AnonymousEvents__Sender___401_pchain0> ;
+    sysml:source <urn:opensysml:expr:AnonymousEvents__Sender___401_pchain0> ;
+    sysml:owningRelatedElement <urn:opensysml:expr:AnonymousEvents__Sender___401_pchain0> ;
+    sysml:chainingFeature elmt:AnonymousEvents__Sender__exchange ;
+    sysml:target elmt:AnonymousEvents__Sender__exchange ;
+    sysml:owner <urn:opensysml:expr:AnonymousEvents__Sender___401_pchain0> ;
+    sysml:relatedElement <urn:opensysml:expr:AnonymousEvents__Sender___401_pchain0>, elmt:AnonymousEvents__Sender__exchange ;
+    json:relatedElement "[{\"@id\":\"AnonymousEvents__Sender___401_pchain0\"},{\"@id\":\"AnonymousEvents__Sender__exchange\"}]" .
+
+<urn:opensysml:expr:AnonymousEvents__Sender___401_pchain0_pfc1>
+    a sysml:FeatureChaining ;
+    sysml:elementId "AnonymousEvents__Sender___401_pchain0_pfc1" ;
+    sysml:featureChained <urn:opensysml:expr:AnonymousEvents__Sender___401_pchain0> ;
+    sysml:source <urn:opensysml:expr:AnonymousEvents__Sender___401_pchain0> ;
+    sysml:owningRelatedElement <urn:opensysml:expr:AnonymousEvents__Sender___401_pchain0> ;
+    sysml:chainingFeature elmt:AnonymousEvents__Exchange__request ;
+    sysml:target elmt:AnonymousEvents__Exchange__request ;
+    sysml:owner <urn:opensysml:expr:AnonymousEvents__Sender___401_pchain0> ;
+    sysml:relatedElement <urn:opensysml:expr:AnonymousEvents__Sender___401_pchain0>, elmt:AnonymousEvents__Exchange__request ;
+    json:relatedElement "[{\"@id\":\"AnonymousEvents__Sender___401_pchain0\"},{\"@id\":\"AnonymousEvents__Exchange__request\"}]" .
 
 elmt:AnonymousEvents__Sender__ack
     a sysml:EventOccurrenceUsage ;
@@ -270,13 +306,14 @@ elmt:AnonymousEvents__Sender___401_rs
     sysml:specific elmt:AnonymousEvents__Sender___401 ;
     sysml:source elmt:AnonymousEvents__Sender___401 ;
     sysml:owningRelatedElement elmt:AnonymousEvents__Sender___401 ;
-    sysml:referencedFeature "exchange.request"^^sysx:Expression ;
-    sysml:subsettedFeature "exchange.request"^^sysx:Expression ;
-    sysml:general "exchange.request"^^sysx:Expression ;
-    sysml:target "exchange.request"^^sysx:Expression ;
+    sysml:referencedFeature <urn:opensysml:expr:AnonymousEvents__Sender___401_pchain0> ;
+    sysml:subsettedFeature <urn:opensysml:expr:AnonymousEvents__Sender___401_pchain0> ;
+    sysml:general <urn:opensysml:expr:AnonymousEvents__Sender___401_pchain0> ;
+    sysml:target <urn:opensysml:expr:AnonymousEvents__Sender___401_pchain0> ;
     sysml:owner elmt:AnonymousEvents__Sender___401 ;
-    sysml:relatedElement elmt:AnonymousEvents__Sender___401, "exchange.request"^^sysx:Expression ;
-    json:relatedElement "[{\"@id\":\"AnonymousEvents__Sender___401\"},\"exchange.request\"]" .
+    sysml:relatedElement elmt:AnonymousEvents__Sender___401, <urn:opensysml:expr:AnonymousEvents__Sender___401_pchain0> ;
+    sysml:ownedRelatedElement <urn:opensysml:expr:AnonymousEvents__Sender___401_pchain0> ;
+    json:relatedElement "[{\"@id\":\"AnonymousEvents__Sender___401\"},{\"@id\":\"AnonymousEvents__Sender___401_pchain0\"}]" .
 
 elmt:AnonymousEvents__Sender___404_ft0
     a sysml:FeatureTyping ;

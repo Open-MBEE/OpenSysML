@@ -258,6 +258,8 @@ written in, so the verdicts are about that object:
 | `-instantiate <name>` | Creates an object first, so the verdicts are about it; with `-run-query` or `-render-document`, so the query reads it ([Objects the session holds](../manual/query-cookbook.md#objects-the-session-holds)). Under `-schedule explore`, `-engine check`, `smt` or `all` each run creates an object of the declaration of its own before its behaviors start, one per `-instantiate` as the session holds one per `-instantiate`, which a `-state` or `-action` named alone attaches to and a path such as `Mission::mission.vehicle` walks into ([Objects an exploration runs on](#objects-an-exploration-runs-on)) |
 | `-calc "<name>(<args>)"` | Invokes a calculation and reports what it computed |
 | `-analysis "<name>[(<args>)] [object]"` | Runs an analysis or [verification](#verification-case-verdicts) case — a [trade study](#trade-studies) included — and reports its `out` and `return` values with their units, then the verdict of its `objective` — `satisfied`, `not satisfied` with the violated condition, or `undecided` with the reason — as `%analysis` does. An objective typed by a requirement def binds the def's subject as a requirement usage does (`subject = ship;`, `subject s = ship;` or `subject :>> s = ship;`); one binding none checks the case's result, the library's default for it, and is `undecided` naming the type when that result is not of the subject's type. Arguments bind the case's `in` parameters, positionally (`Pkg::Case(3.0)`) or by name (`Pkg::Case(limit = 3.0)`); the object, one `-instantiate` created and named as `-state` names its performer, is the case's `subject`. A usage that binds its subject (`subject s = ship;`) needs no object; a definition, or a usage that binds none, is refused by name without one. A verification case runs the same way and reports beside those verdicts the `VerdictKind` its body produced. Repeatable |
+| `-record-run "<name>[(<args>)] [object]"` | Runs an analysis case as `-analysis` does and records the run into the model as `AnalysisRecords` elements: a record definition named for the case in a `Records` package beside the case's, and one part under it per run carrying the inputs bound and the outputs produced, annotated `@AnalysisRecords::RecordedRun` with when the run was made, the tool and command, and its kind. With `-sweep` the case sweeps as `-sweep` makes it and one record per row is written (`kind = "sweep"`); with `-runs <n>` and `-seed` a `Simulation::MonteCarlo` case is sampled as `-runs` makes it and each run recorded (`kind = "runs"`). Composes with `-convert sysml -o`, which writes the session text the records joined, and with `-render-document`, whose queries then see the records; a run that fails records nothing and leaves the model untouched. Repeatable. See [Recording analysis runs](#recording-analysis-runs) |
+| `-record-into <package>` | Records the `-record-run` runs into the package named instead of a `Records` package beside the case's; refused without `-record-run` |
 | `-run-query "<name> [<p>=<expr>...]"` | Executes a document query and reports its rows, as `%run-query` does — including any computed `Column(name = "<column>", expression = <expr>)` and relationship-derived `RelatedColumn(...)` projections evaluated per row. Each binding is written as `<parameter>=<expression>`; a name binds the object `-instantiate` created under it while the run holds one (`#2` and `car.wheels[2]` bind an object by id and by path), and the element otherwise. A query over `Verdicts` reports each row as `<assertion> on <path>: <verdict>` ([Which constraints and requirements hold](../manual/query-cookbook.md#which-constraints-and-requirements-hold)). The queries run after `-state`, `-action` and `-advance` have run, so `States`, `InState` and `Events` read where the run left the objects and, with `-trace`, what it recorded — a state row as `<object>.<machine> in <statePath>`, an event row as `t=<instant> <object>.<machine>: <text>` ([Where the objects stand and what they did](../manual/query-cookbook.md#where-the-objects-stand-and-what-they-did)) |
 | `-action "<name> [object]"` | Runs an action to completion and reports its outputs, on the object named as `-state` names its performer when one is; under `-schedule explore` each run performs it on an object of its own ([Objects an exploration runs on](#objects-an-exploration-runs-on)) |
 | `-state "<name> [object]"` | Runs a state machine and reports where it settled. The object is one `-instantiate` created, named as `%state` names it: a usage's name, a feature path to a part it holds (`Fleet::driver.r`), or the id the report prints (`#2`). Naming the machine the object exhibits attaches to its running machine rather than performing it again (a definition exhibited as several usages is refused with the usages to name instead); naming a usage whose definition alone was instantiated says which usage to `-instantiate`. Under `-schedule explore` the object is one each run creates of its own: a definition or usage to instantiate, a path from one into a part it holds (`Mission::mission.vehicle`, `Fleet::fleet.rovers[2]`) or, named alone, the run's one `-instantiate` object exhibiting the machine ([Objects an exploration runs on](#objects-an-exploration-runs-on)) |
@@ -763,7 +765,9 @@ Mermaid renders as a diagram and any other page shows as source. By default the 
 nothing over the network, runs no JavaScript of its own, and is byte-identical between runs.
 `-html-mermaid cdn` adds one `<script>` before `</body>` that loads a pinned Mermaid release from
 jsDelivr so a browser with network access draws the diagrams; `-html-mermaid <url>` loads the
-script from a URL of your own instead, such as a copy served beside the pages. The page still
+script from a URL of your own instead, such as a copy served beside the pages. A second
+`<script>` configures Mermaid to draw every chart on the page whatever its size: Mermaid's
+default text and edge limits refuse a large diagram of a large model. The page still
 carries only the source, so it degrades to source wherever the script cannot load. The option
 does not combine with `-html-fragment`: a fragment has no page shell to hold the script, so the
 embedding page loads Mermaid itself.
@@ -1137,6 +1141,40 @@ probable branch, so an unseeded run stays deterministic; `-schedule seed:<n>` wi
 draws the model's values from `n` too, on a stream of its own. Every draw is recorded in the
 witness the checker writes, as `draw <call> = <value>` lines, and `-schedule replay:<file>`
 consumes them instead of drawing again.
+
+## Recording analysis runs
+
+`-record-run` runs an analysis case as `-analysis` does — the same verdict lines
+and the same bindings — and then writes the run into the model as elements of the
+bundled `AnalysisRecords` library: a record definition named for the case
+(`TimedRun` for `Demo::timed`) specializing `AnalysisRecords::AnalysisRun`, in a
+`Records` package beside the case's enclosing package or the one `-record-into`
+names, and one part per run carrying a redefinition of each input bound and
+output produced, `caseName`, `kind` and `objective` — `iteration` on a sweep or
+sample's records — a `ref` to the subject and
+`@AnalysisRecords::RecordedRun` provenance metadata (`runAt`, `tool`, `command`,
+`kind`). Verdicts a trade study or verification made become
+`VerdictRecord`/`EvaluationRecord` parts under `verdicts`/`evaluations`.
+
+```bash
+$ sysml model.sysml -record-run "Demo::timed"
+✓ Demo::timed
+  x = 5.0
+  standing: value (observed: 1 run under reverse)
+  recorded Records::timed_run1 (Records::TimedRun)
+```
+
+With `-sweep` the case runs once per row and one record per row is written
+(`kind = "sweep"`); with `-runs <n>` and `-seed` a `Simulation::MonteCarlo` case
+is sampled and each run recorded (`kind = "runs"`). Recording again of the same
+case reuses the definition and numbers the parts on (`timed_run2`), including
+after the model was saved and reloaded — the probe for the next number reads the
+model. `-convert sysml` writes the session text the records joined, so
+`-record-run ... -convert sysml -o saved.sysml` is how a recorded model is
+saved; `-render-document` composes the same way, the records made before the
+document's queries run. A run that fails, or a record submission that produces
+diagnostics, records nothing and leaves the model untouched. See
+[Recording analysis runs](../manual/recording-analysis-runs.md).
 
 ## Comparing a migrated configuration with the tool's results
 

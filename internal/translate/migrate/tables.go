@@ -138,9 +138,12 @@ func (m *migration) writeTable(td *tableDoc) {
 	m.report.Entries = append(m.report.Entries, *m.tableEntry(t, verdict, "part def "+target, note))
 }
 
-// lowerTable lowers a table definition of any kind to its row query, ahead of
-// writing, so the view knows whether a Document follows it.
+// lowerTable lowers a table definition of any kind to its row query, once,
+// ahead of writing, so the view knows whether a Document follows it.
 func (m *migration) lowerTable(td *tableDoc) {
+	if td.l != nil {
+		return
+	}
 	t, host := td.t, td.v.host
 	l := &lowered{}
 	td.l = l
@@ -432,6 +435,8 @@ func (m *migration) columnKey(c sysmlv1.Column, host *sysmlv1.Element) (key stri
 		switch {
 		case f == nil:
 			return "", nil, "the column " + c.ID + " names no property of the document"
+		case monteCarloFeature(f) != "":
+			return "", nil, monteCarloColumnNote(monteCarloFeature(f))
 		case !m.written(f):
 			return "", nil, "the column's " + kindOf(f) + " " + qualifiedName(f) + " is not migrated"
 		case f.Parent == nil || f.Type != "Property" || !m.isDefinition(f.Parent):

@@ -505,6 +505,21 @@ type budgetExceededError struct {
 	errs    []error
 }
 
+// UnassignedOutputError names the declared output a run could not read
+// because the activation never assigned it, and the calc that declares it.
+type UnassignedOutputError struct {
+	Output string
+	Calc   string
+}
+
+// Error keeps the diagnostic text an ErrOutputNotAssigned carried.
+func (e *UnassignedOutputError) Error() string {
+	return fmt.Sprintf("%s: output %s of %s", ErrOutputNotAssigned, e.Output, e.Calc)
+}
+
+// Unwrap reports the failure as an ErrOutputNotAssigned.
+func (e *UnassignedOutputError) Unwrap() error { return ErrOutputNotAssigned }
+
 func (e *budgetExceededError) Error() string { return e.message }
 
 func (e *budgetExceededError) Unwrap() []error { return e.errs }

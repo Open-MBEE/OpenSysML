@@ -17,6 +17,8 @@ const (
 	ErrorUnrenderableDiagram ErrorKind = "unrenderable-diagram"
 	ErrorUnrenderableForm    ErrorKind = "unrenderable-diagram-form"
 	ErrorUnknownForm         ErrorKind = "unknown-diagram-form"
+	// ErrorOversizedDiagram is a Mermaid chart past the size a chart is drawn under.
+	ErrorOversizedDiagram    ErrorKind = "oversized-diagram"
 	ErrorEmptyStylesheet     ErrorKind = "empty-stylesheet"
 	ErrorAmbiguousStylesheet ErrorKind = "ambiguous-stylesheet"
 	ErrorUnsafeStylesheet    ErrorKind = "unsafe-stylesheet"
@@ -38,6 +40,8 @@ type Error struct {
 	// Count is how many of something the document has, when a failure is about
 	// a mismatch with it.
 	Count int
+	// TextSize and Edges size the chart an oversized diagram writes.
+	TextSize, Edges int
 }
 
 // form names the backend a failure came from.
@@ -62,6 +66,9 @@ func (e *Error) Error() string {
 		return fmt.Sprintf("diagram %s has kind %q, which is not written as %s", e.Content, e.Actual, e.DiagramForm)
 	case ErrorUnknownForm:
 		return fmt.Sprintf("no diagram form is named %q; diagrams are written as %s", e.DiagramForm, view.FormNames(view.DiagramForms()))
+	case ErrorOversizedDiagram:
+		return fmt.Sprintf("diagram %s is %d characters and %d edges of %s, past the %d characters and %d edges a chart is drawn under; write it in another diagram form",
+			e.Content, e.TextSize, e.Edges, e.DiagramForm, view.MermaidTextCeiling, view.MermaidEdgeCeiling)
 	case ErrorEmptyStylesheet:
 		return "a stylesheet must carry content to inline or a URL to link"
 	case ErrorAmbiguousStylesheet:

@@ -257,6 +257,17 @@ func (e *Element) HasStereotype(names ...string) bool {
 // IsProxy reports whether e stands for an element of another document.
 func (e *Element) IsProxy() bool { return e.Href != "" }
 
+// HrefOwnerName reads the name a proxy's href fragment spells for its owner:
+// SysML.xmi#SysML.AbstractRequirement.id is owned by AbstractRequirement.
+func (e *Element) HrefOwnerName() string {
+	frag := e.Href[strings.LastIndexByte(e.Href, '#')+1:]
+	i := strings.LastIndexByte(frag, '.')
+	if !e.IsProxy() || i < 0 {
+		return ""
+	}
+	return fragmentName(frag[:i])
+}
+
 // Generals returns the classifiers e directly specializes through its
 // generalizations: elements of the documents read, or proxies for others.
 func (m *Model) Generals(e *Element) []*Element {
@@ -369,8 +380,10 @@ func documentEntry(name string) bool {
 func parseArchive(zr *zip.Reader) (*Model, error) {
 	var project, modules, documents []*zip.File
 	names := make([]string, 0, len(zr.File))
+	entries := make(map[string]*zip.File, len(zr.File))
 	for _, f := range zr.File {
 		names = append(names, f.Name)
+		entries[f.Name] = f
 		switch {
 		case projectEntry(f.Name):
 			project = append(project, f)
@@ -412,6 +425,7 @@ func parseArchive(zr *zip.Reader) (*Model, error) {
 		sort.Strings(names)
 		return nil, fmt.Errorf("archive holds no model document (expected a MagicDraw uml_model.model entry or an .xmi file); entries: %s", strings.Join(names, ", "))
 	}
+	m.readStreams(entries)
 	model, err := m.finish()
 	if err != nil {
 		return nil, fmt.Errorf("archive: %w", err)

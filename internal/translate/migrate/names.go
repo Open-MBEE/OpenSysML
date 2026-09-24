@@ -53,6 +53,29 @@ func (m *migration) nameFor(e *sysmlv1.Element) string {
 	return name
 }
 
+// writtenName returns the name e's v2 declaration bears, as a query reads it back:
+// nameOf, or the one the write gives an anonymous declaration that needs a name.
+func (m *migration) writtenName(e *sysmlv1.Element) string {
+	if n := m.nameOf(e); n != "" || !m.written(e) {
+		return n
+	}
+	// A classifier is declared by name; a usage stays anonymous when typed, a
+	// connector always, and an association written as an actor or as its ends names nothing.
+	switch e.Type {
+	case "Connector":
+		return ""
+	case "Property", "Port":
+		if typ, _ := m.typeRef(m.model.Ref(e, "type"), e.Parent); typ != "" {
+			return ""
+		}
+	case "Association", "AssociationClass":
+		if m.actors[e] != nil || (e.Type == "Association" && !ownsEveryEnd(e, m.model.Refs(e, "memberEnd"))) {
+			return ""
+		}
+	}
+	return m.nameFor(e)
+}
+
 func (m *migration) nameTaken(owner *sysmlv1.Element, name string) bool {
 	if m.taken[owner][name] {
 		return true
