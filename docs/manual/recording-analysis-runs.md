@@ -108,7 +108,12 @@ produces `timed_run4`. `-record-into <pkg>` names the records' package;
 `-render-document` composes the same way, recording first so the document's
 queries see the records. A failed sweep row is skipped and counted; a sampled
 run whose declared output could not be read is not recorded — `run N not
-recorded: <err>` names it. A run that fails records nothing and leaves the
+recorded: <err>` names it. An output bound to a statistic of the sample
+(`mean`, `deviation`, …) is the sample's and appears only on its record. An
+output whose binding draws a random value is evaluated afresh on every read,
+as the runtime's checks and conclusion do: its recorded value is one such
+evaluation, made without moving the draws the sample's runs and conclusion see.
+A run that fails records nothing and leaves the
 model untouched — the record submission is atomic: the diagnostics it produced
 are reported and the model is as it was.
 
