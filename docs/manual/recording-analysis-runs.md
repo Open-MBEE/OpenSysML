@@ -50,6 +50,7 @@ evaluations a trade study or verification made become
 ```sysml
 package Records {
     part def TimedRun :> AnalysisRecords::AnalysisRun {
+        attribute :>> caseName default = "Demo::timed";
         attribute gain : ScalarValues::Real;
         attribute x : ScalarValues::Real;
     }
@@ -70,6 +71,11 @@ package Records {
     }
 }
 ```
+
+The definition's `caseName` marks the case it records. A sibling case of the
+same name (`Demo::B::check` beside `Demo::A::check`) gets a definition of its
+own, named from its owner (`B_checkRun`), rather than taking the first case's
+over.
 
 Recording a second run of the same case reuses the definition and numbers the
 part on (`timed_run2`) — including after the model was saved and reloaded.
