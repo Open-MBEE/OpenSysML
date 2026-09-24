@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 func (f executionFixture) related(
@@ -200,15 +202,111 @@ func TestExecuteRelatedConsumesTheVisitBudget(t *testing.T) {
 	}
 }
 
-func TestExecuteRelatedChargesTableConstructionToTheVisitBudget(t *testing.T) {
+func TestExecuteRelatedLeavesTableConstructionUncharged(t *testing.T) {
 	fixture := loadExecutionFixtureFile(t, "testdata/tmt_relationships.sysml")
-	// Building the edge table scans the workspace, so a tiny budget fails even
-	// when the source has no matching edges.
-	_, err := fixture.related(t, fixture.symbol(t, "Subsystem"), "connection", "incoming", 1,
-		Options{VisitBudget: 3})
-	var executionError *Error
-	if !errors.As(err, &executionError) || executionError.Kind != ErrorVisitBudget {
-		t.Fatalf("visit budget error = %v", err)
+	// Building the edge table scans every declaration in the workspace, yet a
+	// source with no matching edges reaches nothing and so pays nothing.
+	none, err := fixture.related(t, fixture.symbol(t, "Subsystem"), "connection", "incoming", 1,
+		Options{VisitBudget: 1})
+	if err != nil {
+		t.Fatalf("no edges: %v", err)
+	}
+	if len(none.Rows()) != 0 {
+		t.Fatalf("rows = %v, want none", rowNames(none))
+	}
+	// Only the elements reached are charged: the two subsetters fit a budget of
+	// exactly two, however many declarations the scan examined.
+	both, err := fixture.related(t, fixture.symbol(t, "instruments"), "subsetting", "incoming", 1,
+		Options{VisitBudget: 2})
+	if err != nil {
+		t.Fatalf("exact budget: %v", err)
+	}
+	if names := rowNames(both); len(names) != 2 ||
+		names[0] != "Observatory::iris" || names[1] != "Observatory::modhis" {
+		t.Fatalf("rows = %v", names)
+	}
+}
+
+func TestExecuteSharesRelationshipTablesThroughTheContext(t *testing.T) {
+	fixture := loadExecutionFixtureFile(t, "testdata/tmt_relationships.sysml")
+	tables := NewRelationshipTables()
+	context := Context{Index: fixture.index, Resolver: fixture.resolver, Model: fixture.model, Related: tables}
+	bindings := func(source string) Bindings {
+		return Bindings{
+			"source":    {ElementValue(fixture.symbol(t, source))},
+			"kind":      {StringValue("subsetting")},
+			"direction": {StringValue("incoming")},
+			"maxDepth":  {IntegerValue(1)},
+		}
+	}
+	program := fixture.program(t, "Related")
+	if _, err := Execute(program, context, bindings("instruments"), Options{}); err != nil {
+		t.Fatalf("first execution: %v", err)
+	}
+	built, ok := tables.entries["subsetting"]
+	if !ok {
+		t.Fatal("the first execution must leave its subsetting table in the context")
+	}
+	if _, err := Execute(program, context, bindings("Subsystem"), Options{}); err != nil {
+		t.Fatalf("second execution: %v", err)
+	}
+	if tables.entries["subsetting"] != built {
+		t.Fatal("a second execution under the same context must reuse the built table")
+	}
+	// Tables built against another model are discarded rather than trusted.
+	other := loadExecutionFixtureFile(t, "testdata/tmt_relationships.sysml")
+	_, err := Execute(other.program(t, "Related"),
+		Context{Index: other.index, Resolver: other.resolver, Model: other.model, Related: tables},
+		Bindings{
+			"source":    {ElementValue(other.symbol(t, "instruments"))},
+			"kind":      {StringValue("subsetting")},
+			"direction": {StringValue("incoming")},
+			"maxDepth":  {IntegerValue(1)},
+		}, Options{})
+	if err != nil {
+		t.Fatalf("other model: %v", err)
+	}
+	if tables.entries["subsetting"] == built || tables.index != other.index {
+		t.Fatal("tables built against another index must be rebuilt")
+	}
+}
+
+func TestExecuteRebuildsRelationshipTablesAfterAnIndexEdit(t *testing.T) {
+	fixture := loadExecutionFixtureFile(t, "testdata/tmt_relationships.sysml")
+	context := Context{Index: fixture.index, Resolver: fixture.resolver, Model: fixture.model, Related: NewRelationshipTables()}
+	subsetters := func(step string) []string {
+		t.Helper()
+		rows, err := Execute(fixture.program(t, "Related"), context, Bindings{
+			"source":    {ElementValue(fixture.symbol(t, "instruments"))},
+			"kind":      {StringValue("subsetting")},
+			"direction": {StringValue("incoming")},
+			"maxDepth":  {IntegerValue(1)},
+		}, Options{})
+		if err != nil {
+			t.Fatalf("%s: %v", step, err)
+		}
+		return rowNames(rows)
+	}
+	if names := subsetters("before the edit"); len(names) != 2 {
+		t.Fatalf("rows before the edit = %v", names)
+	}
+
+	// The same index, edited in place: a document declaring one more subsetter
+	// is added, then removed again. The tables follow both edits.
+	edit := "edit.sysml"
+	p := parser.New(source.New(edit, []byte("package Edit { part nfiraos :> Observatory::instruments; }")))
+	root := p.ParseFile()
+	if len(p.Diagnostics) > 0 {
+		t.Fatalf("parse edit: %v", p.Diagnostics)
+	}
+	fixture.index.AddDocument(edit, root)
+	fixture.index.ExpandWildcardImports()
+	if names := subsetters("after adding a subsetter"); len(names) != 3 || names[0] != "Edit::nfiraos" {
+		t.Fatalf("rows after adding a subsetter = %v", names)
+	}
+	fixture.index.RemoveDocument(edit)
+	if names := subsetters("after removing it again"); len(names) != 2 {
+		t.Fatalf("rows after removing the subsetter = %v", names)
 	}
 }
 

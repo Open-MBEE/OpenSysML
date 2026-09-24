@@ -293,6 +293,10 @@ func UsageAnnotatesOthers(u *ast.Usage) bool {
 // Frozen reports whether the index has been frozen.
 func (idx *Index) Frozen() bool { return idx.frozen }
 
+// Generation counts the writes the index has taken; a value read from it is
+// current while Generation is unchanged.
+func (idx *Index) Generation() uint64 { return idx.generation.get() }
+
 // Base is the frozen index an overlay reads through to, nil for an index that
 // stands alone. Two overlays over one base share its documents and symbols.
 func (idx *Index) Base() *Index { return idx.base }

@@ -288,12 +288,24 @@ func TestExecuteRelatedColumnReportsItsColumnInErrors(t *testing.T) {
 	}
 }
 
-func TestExecuteRelatedColumnChargesTableConstructionToTheVisitBudget(t *testing.T) {
+func TestExecuteRelatedColumnLeavesTableConstructionUncharged(t *testing.T) {
 	fixture := loadExecutionFixtureFile(t, traceMatrixFixture)
-	// Building the satisfaction table scans the workspace, so a tiny budget
-	// fails even for a requirement nothing satisfies.
-	_, err := fixture.traced(t, ElementValue(fixture.symbol(t, "dataRequirement")),
-		"satisfaction", "incoming", 1, "count", Options{VisitBudget: 3})
+	// Building the satisfaction table scans the workspace uncharged, so a
+	// requirement nothing satisfies is counted within a budget of one.
+	none, err := fixture.traced(t, ElementValue(fixture.symbol(t, "dataRequirement")),
+		"satisfaction", "incoming", 1, "count", Options{VisitBudget: 1})
+	if err != nil {
+		t.Fatalf("unsatisfied: %v", err)
+	}
+	assertColumn(t, cellsByColumn(t, none), "related", [][]string{{"0"}})
+	// The two satisfiers reached are what the budget pays for.
+	mass := ElementValue(fixture.symbol(t, "massRequirement"))
+	both, err := fixture.traced(t, mass, "satisfaction", "incoming", 1, "count", Options{VisitBudget: 2})
+	if err != nil {
+		t.Fatalf("exact budget: %v", err)
+	}
+	assertColumn(t, cellsByColumn(t, both), "related", [][]string{{"2"}})
+	_, err = fixture.traced(t, mass, "satisfaction", "incoming", 1, "count", Options{VisitBudget: 1})
 	execution := executionError(t, err, ErrorVisitBudget)
 	if execution.Property != "related" {
 		t.Fatalf("error column = %q, want related", execution.Property)
