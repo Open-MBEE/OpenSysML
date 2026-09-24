@@ -189,13 +189,18 @@ func apiJSONSysMLValue(graph *rdf.Graph, subject rdf.Term, predicate, key, metac
 				Note: fmt.Sprintf("its literal is not JSON: %v", err),
 			}
 		}
-		// A member in a datatype the reader can't restore is refused like a scalar.
+		// The members agree with the triples (ReconcileCollections), so they are
+		// spelled the way a scalar is — an unresolved name on an object property
+		// as {"@ref": <name>}, not the bare string the annotation stores.
+		values := make([]any, 0, len(objects))
 		for _, object := range objects {
-			if _, err := apiJSONScalar(subject, key, object, objectProperty); err != nil {
+			value, err := apiJSONScalar(subject, key, object, objectProperty)
+			if err != nil {
 				return nil, err
 			}
+			values = append(values, value)
 		}
-		return raw, nil
+		return values, nil
 	}
 	// An unbounded property is always an array, in triple order; a sysx:
 	// element has no metaclass, so the name's declarations must agree.

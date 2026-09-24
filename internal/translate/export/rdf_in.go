@@ -638,6 +638,9 @@ type decoder struct {
 	nodeMembership   map[string]bool
 	expressionNodes  map[string]bool
 	featureValues    map[string]rdf.Term
+	// chainOwned indexes the FeatureChaining elements by the chain feature
+	// each names its owningRelatedElement, built on first lookup.
+	chainOwned map[string][]rdf.Term
 	// prefixed marks the elements whose head wrote their `#M` annotations.
 	prefixed map[*element]bool
 	// names is the spelling chosen for each reference; while nil, references are
@@ -1065,12 +1068,8 @@ func (d *decoder) checkReferences() error {
 			// A relationship inside an expression graph ends on its own nodes.
 			continue
 		}
-		if triple.Predicate.Value == rdf.SysML+pReferences &&
-			d.graph.HasProperty(triple.Object, rdf.SysML+pChainingFeature) {
-			continue
-		}
-		if triple.Predicate.Value == rdf.SysML+pReferencedFeature &&
-			d.graph.HasProperty(triple.Object, rdf.SysML+pChainingFeature) {
+		if d.chainFeatureTerm(triple.Object) {
+			// A chain is written as its `a.b.c` text wherever it is reached.
 			continue
 		}
 		if d.metaclass(triple.Subject) == mReferenceSubsetting &&
@@ -1083,6 +1082,66 @@ func (d *decoder) checkReferences() error {
 		}
 	}
 	return nil
+}
+
+// chainFeatureTerm reports whether term is a chain feature of the graph: an
+// unnamed Feature stating the derived chainingFeature list or owning
+// FeatureChaining relationships. A chain is written as `a.b.c` text wherever
+// a property reaches it, never by qualified name.
+func (d *decoder) chainFeatureTerm(term rdf.Term) bool {
+	if !term.IsIRI() || d.metaclass(term) != mFeature {
+		return false
+	}
+	if d.graph.HasProperty(term, rdf.SysML+pChainingFeature) {
+		return true
+	}
+	return len(d.chainLinks(term)) > 0
+}
+
+// chainLinks is the ordered link list the FeatureChaining elements a chain
+// feature owns state, indexed over the graph on first use.
+func (d *decoder) chainLinks(chain rdf.Term) []rdf.Term {
+	if d.chainOwned == nil {
+		d.chainOwned = map[string][]rdf.Term{}
+		for _, subject := range d.graph.Subjects() {
+			if d.metaclass(subject) != mFeatureChaining {
+				continue
+			}
+			owner := firstIRI(d.graph, subject, pOwningRelatedElement, pOwner)
+			if owner.Value != "" {
+				d.chainOwned[owner.Value] = append(d.chainOwned[owner.Value], subject)
+			}
+		}
+	}
+	var links []rdf.Term
+	seen := map[string]bool{}
+	appendLink := func(chaining rdf.Term) {
+		if seen[chaining.Value] {
+			return
+		}
+		if link, ok := d.graph.Object(chaining, rdf.SysML+pChainingFeature); ok {
+			seen[chaining.Value] = true
+			links = append(links, link)
+		}
+	}
+	for _, chaining := range d.graph.Objects(chain, rdf.SysML+pOwnedRelationship) {
+		if d.metaclass(chaining) == mFeatureChaining {
+			appendLink(chaining)
+		}
+	}
+	for _, chaining := range d.chainOwned[chain.Value] {
+		appendLink(chaining)
+	}
+	return links
+}
+
+// chainSegments is the ordered link list of a chain feature: the derived
+// chainingFeature list where it is stated, else the FeatureChaining links.
+func (d *decoder) chainSegments(chain rdf.Term) []rdf.Term {
+	if segments := d.graph.Objects(chain, rdf.SysML+pChainingFeature); len(segments) > 0 {
+		return segments
+	}
+	return d.chainLinks(chain)
 }
 
 // referencedElement resolves a referenced IRI to the graph subject whose
@@ -3289,6 +3348,13 @@ func (d *decoder) referenceName(term rdf.Term, el *element) (string, error) {
 	if name, ok := d.bodyLocalName(term); ok {
 		return nameText(name), nil
 	}
+	if d.chainFeatureTerm(term) {
+		parts, err := d.standardChainText(term, el)
+		if err != nil {
+			return "", err
+		}
+		return strings.Join(parts, "."), nil
+	}
 	target, err := d.referencedElement(term.Value)
 	if err != nil {
 		return "", err
@@ -3417,7 +3483,7 @@ func (d *decoder) namingFeature(el *element) (rdf.Term, bool) {
 		return refs[0], true
 	}
 	redefs := d.graph.Objects(subject, rdf.SysML+relationshipProperty[ast.RelRedefines])
-	if len(redefs) == 0 || ast.IsFeatureChain(literalTarget(redefs[0])) {
+	if len(redefs) == 0 || ast.IsFeatureChain(literalTarget(redefs[0])) || d.chainFeatureTerm(redefs[0]) {
 		return rdf.Term{}, false
 	}
 	return redefs[0], true

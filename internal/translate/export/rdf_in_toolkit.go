@@ -128,6 +128,37 @@ func chainFeatureIn(graph *rdf.Graph, meta func(rdf.Term) string, subject rdf.Te
 	return ok
 }
 
+// chainLinksIn is the ordered link list the FeatureChaining elements a chain
+// feature owns state: the owner's ownedRelationship order first, then any
+// chainings naming it owningRelatedElement that order does not list.
+func chainLinksIn(graph *rdf.Graph, meta func(rdf.Term) string, subject rdf.Term) []rdf.Term {
+	var links []rdf.Term
+	seen := map[string]bool{}
+	appendLink := func(chaining rdf.Term) {
+		if seen[chaining.Value] {
+			return
+		}
+		if link, ok := graph.Object(chaining, rdf.SysML+pChainingFeature); ok {
+			seen[chaining.Value] = true
+			links = append(links, link)
+		}
+	}
+	for _, chaining := range graph.Objects(subject, rdf.SysML+pOwnedRelationship) {
+		if meta(chaining) == mFeatureChaining {
+			appendLink(chaining)
+		}
+	}
+	for _, chaining := range graph.Subjects() {
+		if meta(chaining) != mFeatureChaining {
+			continue
+		}
+		if owner := firstIRI(graph, chaining, pOwningRelatedElement, pOwner); owner == subject {
+			appendLink(chaining)
+		}
+	}
+	return links
+}
+
 // chainTextIn writes the chain `a.b.c` an unnamed Feature's FeatureChainings
 // spell, as notation: each segment its declared name or, through unresolved,
 // the name the writer could not resolve to an element of the document.
@@ -139,12 +170,8 @@ func chainTextIn(graph *rdf.Graph, meta func(rdf.Term) string, unresolved map[st
 		return "", false
 	}
 	var segments []string
-	for _, chain := range graph.Objects(subject, rdf.SysML+pOwnedRelationship) {
-		if meta(chain) != mFeatureChaining {
-			continue
-		}
-		feature := firstIRI(graph, chain, pChainingFeature)
-		if feature.Value != "" {
+	for _, feature := range chainLinksIn(graph, meta, subject) {
+		if feature.IsIRI() {
 			if name, ok := graph.Lexical(feature, rdf.SysML+pDeclaredName); ok {
 				segments = append(segments, nameText(name))
 			} else if name, ok := graph.Lexical(feature, rdf.SysML+pQualifiedName); ok {
@@ -157,8 +184,8 @@ func chainTextIn(graph *rdf.Graph, meta func(rdf.Term) string, unresolved map[st
 					segments = append(segments, name)
 				}
 			}
-		} else if name, ok := graph.Lexical(chain, rdf.SysML+pChainingFeature); ok {
-			segments = append(segments, qualifiedNameText(canonicalName(name)))
+		} else if feature.IsLiteral() {
+			segments = append(segments, qualifiedNameText(canonicalName(feature.Value)))
 		}
 	}
 	return strings.Join(segments, "."), len(segments) > 0
@@ -404,13 +431,8 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) *rd
 		if !chainFeature(graph, subject) || graph.HasProperty(subject, rdf.SysML+pChainingFeature) {
 			continue
 		}
-		for _, chaining := range graph.Objects(subject, rdf.SysML+pOwnedRelationship) {
-			if meta(chaining) != mFeatureChaining {
-				continue
-			}
-			if segment, ok := graph.Object(chaining, rdf.SysML+pChainingFeature); ok {
-				graph.Add(subject, rdf.SysMLTerm(pChainingFeature), segment)
-			}
+		for _, link := range chainLinksIn(graph, meta, subject) {
+			graph.Add(subject, rdf.SysMLTerm(pChainingFeature), link)
 		}
 	}
 	unresolvedID, _ := unresolvedNames(graph, meta)

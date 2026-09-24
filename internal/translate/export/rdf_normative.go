@@ -217,7 +217,15 @@ func (e *encoder) emitConjugatedPortTyping(subject, target rdf.Term, spec normat
 // emitRelationship mints the relationship element between subject and target
 // and wires its ends, its identity and its owner's owned-* properties.
 func (e *encoder) emitRelationship(subject, target rdf.Term, spec normativeRelationship) {
-	relation := e.ids.minted(rdf.RelationshipIRI(subject, spec.suffix), subject, spec.suffix)
+	e.emitRelationshipAt(subject, target, spec,
+		e.ids.minted(rdf.RelationshipIRI(subject, spec.suffix), subject, spec.suffix))
+}
+
+// emitRelationshipAt is emitRelationship with the relationship element's IRI
+// already minted: a chain's FeatureChaining is an expression node, named by
+// position under the chain rather than a `_`-suffixed id, which a `_fc` escape
+// could not spell.
+func (e *encoder) emitRelationshipAt(subject, target rdf.Term, spec normativeRelationship, relation rdf.Term) {
 	if prior, taken := e.claim(relation.Value, "the "+spec.metaclass+" of "+relation.Value); taken && e.idErr == nil {
 		e.idErr = &UnsupportedError{
 			What: fmt.Sprintf("the %s <%s>", spec.metaclass, relation.Value),
@@ -237,6 +245,48 @@ func (e *encoder) emitRelationship(subject, target rdf.Term, spec normativeRelat
 	e.graph.Add(relation, e.sysml(pRelatedElement), target)
 	for _, property := range spec.ownedProps {
 		e.graph.Add(subject, e.sysml(property), relation)
+	}
+	// A chain feature a head relationship targets is that relationship's
+	// owned chain (OwnedRedefinition/OwnedSubsetting/OwnedReferenceSubsetting).
+	if e.isChainFeature(target) && !e.graph.HasProperty(target, rdf.SysML+pOwningRelationship) {
+		e.graph.Add(relation, e.sysml(pOwnedRelatedElement), target)
+		e.graph.Add(target, e.sysml(pOwningRelationship), relation)
+		e.graph.Add(target, e.sysml(pOwner), subject)
+	}
+}
+
+// isChainFeature reports whether term is a feature chain: an unnamed Feature
+// owning FeatureChaining links or stating the derived chainingFeature list.
+func (e *encoder) isChainFeature(term rdf.Term) bool {
+	return e.metaclassOf(term) == mFeature &&
+		(e.graph.HasProperty(term, rdf.SysML+pChainingFeature) || e.hasFeatureChaining(term))
+}
+
+// hasFeatureChaining reports whether subject owns a FeatureChaining element.
+func (e *encoder) hasFeatureChaining(subject rdf.Term) bool {
+	for _, rel := range e.graph.Objects(subject, rdf.SysML+pOwnedRelationship) {
+		if e.metaclassOf(rel) == mFeatureChaining {
+			return true
+		}
+	}
+	return false
+}
+
+// featureChainings relates a chain feature to its ordered links: one
+// FeatureChaining relationship per link (KerML Feature::ownedFeatureChaining),
+// plus the derived chainingFeature list this mapping also states.
+func (e *encoder) featureChainings(chain rdf.Term, links []rdf.Term) {
+	spec := normativeRelationship{
+		metaclass:  mFeatureChaining,
+		sourceEnds: []string{"featureChained", pSource, pOwningRelatedElement},
+		targetEnds: []string{pChainingFeature, pTarget},
+		ownedProps: []string{"ownedFeatureChaining", pOwnedRelationship},
+	}
+	for i, link := range links {
+		position := fmt.Sprintf("fc%d", i)
+		e.emitRelationshipAt(chain, link, spec,
+			e.ids.mintedNode(rdf.ExpressionIRI(chain, position), chain, position))
+		e.graph.Add(chain, e.sysml(pChainingFeature), link)
 	}
 }
 

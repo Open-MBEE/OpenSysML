@@ -357,13 +357,20 @@ func withoutMember(t *testing.T, turtle []byte, member string) []byte {
 		kept = append(kept, line)
 	}
 	var subjects []string
+	expr := "expr:" + id
 	for _, block := range strings.Split(strings.Join(kept, "\n"), "\n\n") {
 		subject, _, _ := strings.Cut(block, "\n")
-		if subject == member || strings.HasPrefix(subject, member+"_") {
+		if subject == member || subject == expr ||
+			strings.HasPrefix(subject, member+"_") || strings.HasPrefix(subject, expr+"_") {
 			subjects = append(subjects, subject)
 		}
 	}
-	return withoutSubjects(t, []byte(strings.Join(kept, "\n")), subjects...)
+	turtle = []byte(strings.Join(kept, "\n"))
+	turtle = withoutSubjects(t, turtle, subjects...)
+	if body := strings.Replace(string(turtle), "@prefix expr: <urn:opensysml:expr:> .\n", "", 1); !strings.Contains(body, "expr:") {
+		turtle = []byte(body)
+	}
+	return turtle
 }
 
 // withoutSubjects drops every block of a Turtle document describing one of the

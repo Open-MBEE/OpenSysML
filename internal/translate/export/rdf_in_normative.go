@@ -554,9 +554,30 @@ func (d *decoder) verifyNormativeNodes() error {
 				return err
 			}
 		default:
+			if err := d.verifyChainFeature(subject); err != nil {
+				return err
+			}
 			if err := d.verifyNodeRelationship(subject); err != nil {
 				return err
 			}
+		}
+	}
+	return nil
+}
+
+// verifyChainFeature checks a chain feature stating both shapes — the
+// FeatureChaining relationships it owns and the derived chainingFeature list —
+// agrees with itself: a different order or set would leave two spellings.
+func (d *decoder) verifyChainFeature(subject rdf.Term) error {
+	stated := d.graph.Objects(subject, rdf.SysML+pChainingFeature)
+	owned := d.chainLinks(subject)
+	if len(stated) == 0 || len(owned) == 0 {
+		return nil
+	}
+	if !slices.Equal(stated, owned) {
+		return &UnsupportedError{
+			What: fmt.Sprintf("the chain feature <%s>", subject.Value),
+			Note: "its sysml:chainingFeature list and the sysml:chainingFeature of the FeatureChaining elements it owns disagree",
 		}
 	}
 	return nil
