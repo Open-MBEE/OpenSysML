@@ -2,11 +2,13 @@ package docrender
 
 import (
 	"errors"
+	"html"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -74,21 +76,43 @@ func TestHTMLTelescopeReportFragmentGolden(t *testing.T) {
 	checkGolden(t, got, filepath.Join("testdata", "telescope_report.fragment.golden.html"))
 }
 
-// TestHTMLMermaidScript checks a page asked to load Mermaid carries one
-// script element after the document, a fragment none, and a default page none.
+// TestHTMLMermaidScript checks a page asked to load Mermaid carries the script
+// element after the document, configured to draw the page's charts whatever
+// their size, a fragment none, and a default page none.
 func TestHTMLMermaidScript(t *testing.T) {
 	path := filepath.Join("testdata", "telescope_report.sysml")
 	url := `https://cdn.example/mermaid.js?a=1&b="2"`
 	got := renderFixtureHTML(t, path, "Observatory::MassReport", HTMLOptions{MermaidScript: url})
 	script := `<script src="https://cdn.example/mermaid.js?a=1&amp;b=&#34;2&#34;"></script>`
-	if strings.Count(got, "<script") != 1 || !strings.Contains(got, script) {
-		t.Errorf("page lacks the one script element %s:\n%s", script, got)
+	if strings.Count(got, "<script") != 2 || !strings.Contains(got, script) {
+		t.Errorf("page lacks the script element %s and its configuration:\n%s", script, got)
 	}
-	if strings.Index(got, "</article>") > strings.Index(got, script) || !strings.HasSuffix(got, script+"\n</body>\n</html>\n") {
-		t.Errorf("script must follow the document, before </body>:\n%s", got)
+	config := regexp.MustCompile(`<script>mermaid\.initialize\(\{maxTextSize: (\d+), maxEdges: (\d+)\}\);</script>`)
+	limits := config.FindStringSubmatch(got)
+	if limits == nil {
+		t.Fatalf("page lacks the Mermaid configuration:\n%s", got)
+	}
+	if strings.Index(got, "</article>") > strings.Index(got, script) || !strings.HasSuffix(got, script+"\n"+limits[0]+"\n</body>\n</html>\n") {
+		t.Errorf("script and configuration must follow the document, before </body>:\n%s", got)
 	}
 	if !strings.Contains(got, `<pre class="mermaid">`) {
 		t.Errorf("diagram source must stay for the script to draw:\n%s", got)
+	}
+	textSize, _ := strconv.Atoi(limits[1])
+	edges, _ := strconv.Atoi(limits[2])
+	arrows := regexp.MustCompile(`(?m)^\s*\S+ (-->|---|-\.->)`)
+	for _, chart := range regexp.MustCompile(`(?s)<pre class="mermaid">(.*?)</pre>`).FindAllStringSubmatch(got, -1) {
+		source := html.UnescapeString(chart[1])
+		drawn := len(arrows.FindAllString(source, -1))
+		if drawn == 0 || len(source) >= textSize || drawn >= edges {
+			t.Errorf("limits %s, %s do not cover a chart of %d bytes and %d edges", limits[1], limits[2], len(source), drawn)
+		}
+	}
+	if textSize > 50000 || edges > 500 {
+		t.Errorf("limits %s, %s are not sized to the fixture's small charts", limits[1], limits[2])
+	}
+	if out := renderFixtureHTML(t, path, "Observatory::MassReport", HTMLOptions{MermaidScript: url, DiagramForm: view.FormDot}); strings.Contains(out, "mermaid.initialize") {
+		t.Errorf("a page drawing no Mermaid chart configures Mermaid:\n%s", out)
 	}
 	for name, opts := range map[string]HTMLOptions{
 		"default":  {},

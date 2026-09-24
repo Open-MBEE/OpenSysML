@@ -1,6 +1,7 @@
 package docpdf
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -260,4 +261,45 @@ func wideTableDocument(t *testing.T) *docir.Document {
 	}
 }
 `, "Wide::Report")
+}
+
+// tallFlowDocument is a report whose one figure is an action flow of forty
+// steps in a column: drawn at its natural size it would run over the page.
+func tallFlowDocument(t *testing.T) *docir.Document {
+	t.Helper()
+	var steps strings.Builder
+	for i := 1; i <= 40; i++ {
+		fmt.Fprintf(&steps, "\t\taction step%d;\n", i)
+		if i > 1 {
+			fmt.Fprintf(&steps, "\t\tfirst step%d then step%d;\n", i-1, i)
+		}
+	}
+	return sourceDocument(t, "tall.sysml", `package Tall {
+	private import DocumentQueries::*;
+
+	action def Procedure {
+		view Flow : StandardViewDefinitions::ActionFlowView {
+			expose Procedure;
+			render Views::asInterconnectionDiagram;
+		}
+		first start then step1;
+`+steps.String()+`		first step40 then done;
+	}
+
+	part def Report :> Document {
+		attribute redefines title = "Tall Report";
+		ref procedure : Procedure;
+		part intro : Paragraph {
+			part lead : Span { attribute redefines text = "An opening paragraph."; }
+		}
+		part flow : Diagram {
+			attribute redefines caption = "Forty steps in a column";
+			ref redefines source = procedure.Flow;
+		}
+		part closing : Paragraph {
+			part lead : Span { attribute redefines text = "A closing paragraph."; }
+		}
+	}
+}
+`, "Tall::Report")
 }

@@ -355,7 +355,7 @@ func TestRenderHTMLIsTheBackendsPage(t *testing.T) {
 			t.Fatalf("page carries %q:\n%s", stray, page)
 		}
 	}
-	for _, want := range []string{"diagram-1.mmd", "diagram-1.svg", "diagram-2.svg", "mermaid-config.json"} {
+	for _, want := range []string{"diagram-1.mmd", "diagram-1.json", "diagram-1.svg", "diagram-2.svg", "diagram-2.json"} {
 		if !strings.Contains(listing, want) {
 			t.Fatalf("working directory lacks %s:\n%s", want, listing)
 		}
@@ -523,6 +523,38 @@ func TestPandocStylesheetKeepsTablesWithinThePage(t *testing.T) {
 	} {
 		if !strings.Contains(css, want) {
 			t.Fatalf("pandoc stylesheet lacks %q: a wide cell would run off the page or a row split across pages", want)
+		}
+	}
+}
+
+// TestStylesheetsKeepFiguresWithinThePage checks both print stylesheets bound
+// a drawn figure by the page's height as well as its width and keep it whole,
+// so a tall graph is scaled onto one page with its caption rather than cut.
+func TestStylesheetsKeepFiguresWithinThePage(t *testing.T) {
+	opts, err := htmlOptions(Options{}, t.TempDir(), nil, formulas{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	page, err := docrender.HTML(plainDocument(t), opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"--sysml-image-height: 85vh;",
+		".sysml-document .sysml-diagram img {\n    max-width: var(--sysml-image-width);\n    max-height: var(--sysml-image-height);",
+		".sysml-document .sysml-diagram,\n",
+	} {
+		if !strings.Contains(page, want) {
+			t.Fatalf("page lacks %q: a tall figure would run past the page's foot", want)
+		}
+	}
+	css := stripCSSComments(pandocStylesheet)
+	for _, want := range []string{
+		"figure { margin: 0.8em 0; break-inside: avoid; page-break-inside: avoid; }",
+		"figure img, p img { max-width: 100%; max-height: 85vh; }",
+	} {
+		if !strings.Contains(css, want) {
+			t.Fatalf("pandoc stylesheet lacks %q: a tall figure would run past the page's foot", want)
 		}
 	}
 }

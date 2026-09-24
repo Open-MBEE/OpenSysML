@@ -85,8 +85,9 @@ p:has(.caption):has(+ p:has(+ table:has(thead > tr > th:nth-child(7)))),
 :is(h1, h2, h3, h4, h5, h6):has(+ p:has(+ table:has(thead > tr > th:nth-child(7)))),
 :is(h1, h2, h3, h4, h5, h6):has(+ p:has(.caption):has(+ p:has(+ table:has(thead > tr > th:nth-child(7))))) { page: wide; }
 
-figure { margin: 0.8em 0; }
-figure img, p img { max-width: 100%; }
+/* A figure taller than the page is scaled onto it, with its caption. */
+figure { margin: 0.8em 0; break-inside: avoid; page-break-inside: avoid; }
+figure img, p img { max-width: 100%; max-height: 85vh; }
 span.caption { font-size: 9.5pt; color: #444444; }
 div.formula { margin: 0.8em 0; text-align: center; }
 pre, code { font-family: "Courier New", Courier, "Liberation Mono", "Nimbus Mono PS", monospace; }

@@ -142,6 +142,56 @@ func TestExpressionTreeLowering(t *testing.T) {
 	}
 }
 
+// TestBlankTreeIsNotationOnly checks that only a symbol-less tree of instance values
+// naming no instance is skipped as notation; any other tree is translated or refused.
+func TestBlankTreeIsNotationOnly(t *testing.T) {
+	blank := `<operand xmi:type="uml:InstanceValue" xmi:id="_iv"/>`
+	for _, tc := range []struct {
+		name, spec string
+		verdict    Verdict
+		note       string
+	}{
+		{"one blank instance value",
+			`<specification xmi:type="uml:Expression" xmi:id="_s">` + blank + `</specification>`,
+			Skipped, "the constraint is notation only: " + blankTreeNote},
+		{"nested blank operands",
+			`<specification xmi:type="uml:Expression" xmi:id="_s"><operand xmi:type="uml:Expression" xmi:id="_s1">` + blank +
+				`<operand xmi:type="uml:InstanceValue" xmi:id="_iv2"/></operand></specification>`,
+			Skipped, "the constraint is notation only: " + blankTreeNote},
+		{"a symbol over a blank operand is a refused expression",
+			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="not">` + blank + `</specification>`,
+			Unmapped, `the construct "<InstanceValue>" is outside the translated subset: the instance value names no instance`},
+		{"a bare symbol is read and type checked",
+			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="a"/>`,
+			Unmapped, `the types at "a" disagree: the expression is a Real, not the Boolean wanted`},
+		{"an instance value naming a literal is read and type checked",
+			`<specification xmi:type="uml:Expression" xmi:id="_s"><operand xmi:type="uml:InstanceValue" xmi:id="_iv" instance="_on"/></specification>`,
+			Unmapped, `the types at "On" disagree: the expression is a Mode, not the Boolean wanted`},
+		{"a tree without operands is not blank",
+			`<specification xmi:type="uml:Expression" xmi:id="_s"/>`,
+			Unmapped, "the UML Expression tree has no v2 form"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r, err := Migrate("tree.xmi", []byte(treeModel(tc.spec)))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var got []Entry
+			for _, e := range r.Report.Entries {
+				if e.ID == "_rule" {
+					got = append(got, e)
+				}
+			}
+			if len(got) != 1 || got[0].Verdict != tc.verdict || !strings.Contains(got[0].Note, tc.note) {
+				t.Errorf("entries for the constraint = %+v, want one %v entry noting %q", got, tc.verdict, tc.note)
+			}
+			if tc.verdict == Skipped && strings.Contains(string(r.Notation), "not migrated: Constraint") {
+				t.Errorf("a notation-only constraint leaves a comment:\n%s", r.Notation)
+			}
+		})
+	}
+}
+
 // TestTreeOpaqueLiteralDefault gives an Integer attribute a tree default whose one
 // operand is a script literal: the whole real is spelled as the integer held.
 func TestTreeOpaqueLiteralDefault(t *testing.T) {
