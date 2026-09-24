@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
          xmlns:uml="http://www.omg.org/spec/UML/20161101"
-         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:MagicDraw_Profile="http://www.omg.org/spec/UML/20131001/MagicDrawProfile"
+         xmlns:diagram="http://www.example.com/tool/diagram">
   <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
 
     <packagedElement xmi:type="uml:Class" xmi:id="_timer" name="Timer" classifierBehavior="_act">
@@ -342,7 +344,34 @@
         </slot>
       </packagedElement>
     </packagedElement>
+
+    <xmi:Extension extender="Example UML Tool 1.0">
+      <modelExtension>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_stats" name="Statistics Table" ownerOfDiagram="_results">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Instance Table" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_sum</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+      </modelExtension>
+    </xmi:Extension>
   </uml:Model>
+
+  <MagicDraw_Profile:InstanceTable xmi:id="_tbl_stats" base_Diagram="_diag_stats" scope="_results" includeSubtypesOfRowTypes="false" showScopeAsRoot="false">
+    <classifiers xmi:idref="_analysis"/>
+    <columnIds>_NUMBER_</columnIds>
+    <columnIds>QPROP:Element:name</columnIds>
+    <columnIds>IColumn:_t</columnIds>
+    <columnIds>IColumn:_mcN</columnIds>
+    <columnIds>IColumn:_mcMean</columnIds>
+    <columnIds>IColumn:_mcDeviation</columnIds>
+    <sort>IColumn:_mcN^Desc</sort>
+  </MagicDraw_Profile:InstanceTable>
 
   <sysml:Block xmi:id="_s1" base_Class="_timer"/>
   <sysml:Block xmi:id="_s2" base_Class="_analysis"/>

@@ -123,6 +123,7 @@ func opensName(sofar string, rest []rune) bool {
 const (
 	cmdQuery          = "%query"
 	cmdAnalysis       = "%analysis"
+	cmdRecord         = "%record"
 	cmdInvoke         = "%invoke"
 	cmdSweep          = "%sweep"
 	cmdSamples        = "%samples"
@@ -198,6 +199,7 @@ var metaCommandTable = []metaCommand{
 
 	{name: "%calc", group: groupBehavioral, args: "<name> <args>", desc: "invoke a calculation with arguments"},
 	{name: cmdAnalysis, group: groupBehavioral, args: "<name>[(<args>)] [<object>]", desc: "run an analysis case and report its outputs and the verdict of its objective; arguments bind its inputs and an object is its subject"},
+	{name: cmdRecord, group: groupBehavioral, args: "<name>[(<args>)] [<object>] [into <package>]", desc: "run an analysis case as %analysis does and record the run into the model as AnalysisRecords elements, into the package named or a Records package beside the case's"},
 	{name: cmdSweep, group: groupBehavioral, args: "<name>[(<args>)] [<object>] <p>=<from>..<to>[:<step>]...", desc: "run an analysis case or calc once per value of each range, one run per row of the cartesian product, and print the table"},
 	{name: cmdSamples, group: groupBehavioral, args: "<n> <seed> <name>[(<args>)] [<object>] <p>=<from>..<to>...", desc: "run an analysis case or calc over <n> values drawn uniformly from each range with the given seed, and print the table"},
 	{name: cmdRuns, group: groupBehavioral, args: "<n> [<seed>] <action> [<observable>...]", desc: "run an action <n> times, each run's modeled randomness seeded from the given seed — left out under %draws min, max or average — and print the table of the observables with each one's distribution"},
@@ -497,6 +499,11 @@ func (s *Session) metaModelCommand(fields []string, line string) (metaResult, bo
 			return metaOut([]string{analysisUsage}, false, nil), true
 		}
 		return metaOut(s.doAnalysis(strings.TrimPrefix(strings.TrimSpace(line), cmdAnalysis))), true
+	case cmdRecord:
+		if len(fields) < 2 {
+			return metaOut([]string{recordUsage}, false, nil), true
+		}
+		return metaOut(s.doRecord(strings.TrimPrefix(strings.TrimSpace(line), cmdRecord))), true
 	case cmdSweep:
 		if len(fields) < 2 {
 			return metaOut([]string{sweepUsage}, false, nil), true

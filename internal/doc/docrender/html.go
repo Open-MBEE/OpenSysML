@@ -230,7 +230,8 @@ func (s Stylesheet) Check() error {
 
 // htmlWriter accumulates one rendered document in its resolved diagram form;
 // ids maps each content node's named path to the identifier addressing it,
-// and diagrams counts the graph-shaped diagrams written so far.
+// diagrams counts the graph-shaped diagrams written so far, and mermaid holds
+// the Mermaid sources left for a loaded script to draw.
 type htmlWriter struct {
 	b        strings.Builder
 	opts     HTMLOptions
@@ -239,6 +240,7 @@ type htmlWriter struct {
 	ids      map[string]string
 	numbers  map[string]string
 	diagrams int
+	mermaid  []string
 }
 
 func (w *htmlWriter) writeDocument(document *docir.Document) error {
@@ -259,6 +261,11 @@ func (w *htmlWriter) writeDocument(document *docir.Document) error {
 	if !w.opts.Fragment {
 		if w.opts.MermaidScript != "" {
 			w.b.WriteString("<script" + attr("src", w.opts.MermaidScript) + "></script>\n")
+			if len(w.mermaid) > 0 {
+				textSize, edges := view.MermaidLimits(w.mermaid...)
+				w.b.WriteString("<script>mermaid.initialize({maxTextSize: " + strconv.Itoa(textSize) +
+					", maxEdges: " + strconv.Itoa(edges) + "});</script>\n")
+			}
 		}
 		if w.opts.MathScript != "" {
 			w.b.WriteString(mathConfig + "<script" + attr("src", w.opts.MathScript) + "></script>\n")
@@ -657,6 +664,9 @@ func (w *htmlWriter) writeFigure(id, name, caption string, rendering *view.Rende
 	default:
 		w.b.WriteString("<pre" + attr("class", string(w.form)) + ">" + html.EscapeString(source) + "</pre>\n")
 		w.diagrams++
+		if w.form == view.FormMermaid {
+			w.mermaid = append(w.mermaid, source)
+		}
 	}
 	if caption != "" {
 		w.b.WriteString("<figcaption class=\"sysml-caption\">" + htmlText(caption) + "</figcaption>\n")

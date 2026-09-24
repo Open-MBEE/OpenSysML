@@ -157,6 +157,33 @@ func TestDiagramWithoutRepresentation(t *testing.T) {
 	}
 }
 
+func TestDiagramDocumentationIsItsOwnComment(t *testing.T) {
+	m := parseDiagrams(t, `
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_d" name="Documented" ownerOfDiagram="_a">
+          <ownedComment xmi:type="uml:Comment" xmi:id="_c_about" body="About A." annotatedElement="_a"/>
+          <ownedComment xmi:type="uml:Comment" xmi:id="_c_empty" body="  "/>
+          <ownedComment xmi:type="uml:Comment" xmi:id="_c_own" annotatedElement="_d">
+            <body> Shows A and B. </body>
+          </ownedComment>
+          <ownedComment xmi:type="uml:Comment" xmi:id="_c_second" body="Second."/>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_d_bare" name="Bare" ownerOfDiagram="_a"/>`)
+	if len(m.Diagrams) != 2 {
+		t.Fatalf("diagrams = %+v", m.Diagrams)
+	}
+	if got := m.Diagrams[0].Documentation; got != "Shows A and B." {
+		t.Errorf("documentation = %q, want the first own comment with text", got)
+	}
+	if got := m.Diagrams[1].Documentation; got != "" {
+		t.Errorf("documentation of an uncommented diagram = %q", got)
+	}
+	for _, id := range []string{"_c_about", "_c_own"} {
+		if m.Lookup(id) != nil {
+			t.Errorf("the diagram's comment %s was read as a model element", id)
+		}
+	}
+}
+
 func TestDiagramKindFromTypeAlone(t *testing.T) {
 	// A representation object naming only its type, and a binary object
 	// ahead of it, still yield the diagram's kind.

@@ -38,6 +38,7 @@
     --sysml-diagram-font-size: 9pt;
     --sysml-wide-table-font-size: 9pt;
     --sysml-image-width: 100%;
+    --sysml-image-height: 85vh;
     --sysml-notice-font-style: italic;
 
     margin: 0;
@@ -125,8 +126,10 @@
     page: wide;
   }
 
+  /* A figure taller than the page is scaled onto it, with its caption. */
   .sysml-document .sysml-diagram img {
     max-width: var(--sysml-image-width);
+    max-height: var(--sysml-image-height);
   }
 
   .sysml-document .sysml-diagram pre {

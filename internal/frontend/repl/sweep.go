@@ -108,19 +108,23 @@ func (s *Session) sweepFromText(invocation string, ranges []string, draws sweepD
 // satisfied holds; any failed run or unsatisfied objective fails it. The rows'
 // traces lead the report in plan order, as one run's trace leads its verdict.
 func (s *Session) sweepVerdict(inv analysisInvocation, specs []sweepSpec, draws sweepDraws) Verdict {
-	label := sweepLabel(inv, draws)
 	table, plan, err := s.runSweep(inv, specs, draws)
 	if err != nil {
-		return standing(unresolvedVerdict(label, err.Error()), plan)
+		return standing(unresolvedVerdict(sweepLabel(inv, draws), err.Error()), plan)
 	}
+	return standing(s.sweepReport(inv, table, draws), plan)
+}
+
+// sweepReport is the verdict a completed sweep's table reports.
+func (s *Session) sweepReport(inv analysisInvocation, table runtime.SweepTable, draws sweepDraws) Verdict {
 	status, rows := sweepStatus(table)
-	return standing(Verdict{
-		Subject: label,
+	return Verdict{
+		Subject: sweepLabel(inv, draws),
 		Status:  status,
 		Lines:   append(sweepTraces(table), sweepTableLines(table)...),
 		Values:  sweepValues(table, rows),
 		Rows:    rows,
-	}, plan)
+	}
 }
 
 // sweepTraces is what the rows' runs traced, in plan order, as trace lines print.
@@ -247,6 +251,7 @@ func (s *Session) runSweep(inv analysisInvocation, specs []sweepSpec, draws swee
 			Verdicts:    result.Verdicts,
 			Subject:     result.Subject,
 			Evaluations: result.Evaluations,
+			Inputs:      result.Inputs,
 		}, err
 	}
 

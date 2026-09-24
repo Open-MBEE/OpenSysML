@@ -389,7 +389,7 @@ func TestDOTStateShapesAndLabels(t *testing.T) {
 		if !strings.Contains(dot, "label="+dotQuote(edge.Label)) {
 			t.Errorf("DOT drops the transition label %q", edge.Label)
 		}
-		if !strings.Contains(mermaid, ": "+mermaidText(edge.Label)) {
+		if !strings.Contains(mermaid, ": "+mermaidTransitionText(edge.Label)) {
 			t.Errorf("Mermaid drops the transition label %q", edge.Label)
 		}
 	}

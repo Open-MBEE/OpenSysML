@@ -450,12 +450,10 @@ expr:ConnectorEnds__Vehicle___406_pend1
     sysml:owningRelationship expr:ConnectorEnds__Vehicle___406_pend1_om ;
     sysml:owningMembership expr:ConnectorEnds__Vehicle___406_pend1_om ;
     sysx:sourceText "tanks.main" ;
-    sysml:ownedRelationship expr:ConnectorEnds__Vehicle___406_pend1_pchain_om, expr:ConnectorEnds__Vehicle___406_pend1_prs ;
-    sysml:ownedMembership expr:ConnectorEnds__Vehicle___406_pend1_pchain_om ;
     sysml:ownedReferenceSubsetting expr:ConnectorEnds__Vehicle___406_pend1_prs ;
     sysml:ownedSubsetting expr:ConnectorEnds__Vehicle___406_pend1_prs ;
     sysml:ownedSpecialization expr:ConnectorEnds__Vehicle___406_pend1_prs ;
-    json:ownedRelationship "[{\"@id\":\"ConnectorEnds__Vehicle___406_pend1_pchain_om\"},{\"@id\":\"ConnectorEnds__Vehicle___406_pend1_prs\"}]" .
+    sysml:ownedRelationship expr:ConnectorEnds__Vehicle___406_pend1_prs .
 
 expr:ConnectorEnds__Vehicle___406_pend1_om
     a sysml:EndFeatureMembership ;
@@ -470,21 +468,38 @@ expr:ConnectorEnds__Vehicle___406_pend1_om
 expr:ConnectorEnds__Vehicle___406_pend1_pchain
     a sysml:Feature ;
     sysml:elementId "ConnectorEnds__Vehicle___406_pend1_pchain" ;
+    sysml:ownedFeatureChaining expr:ConnectorEnds__Vehicle___406_pend1_pchain_pfc0, expr:ConnectorEnds__Vehicle___406_pend1_pchain_pfc1 ;
+    sysml:ownedRelationship expr:ConnectorEnds__Vehicle___406_pend1_pchain_pfc0, expr:ConnectorEnds__Vehicle___406_pend1_pchain_pfc1 ;
     sysml:chainingFeature elmt:ConnectorEnds__Vehicle__tanks, elmt:ConnectorEnds__Tank__main ;
+    sysml:owningRelationship expr:ConnectorEnds__Vehicle___406_pend1_prs ;
     sysml:owner expr:ConnectorEnds__Vehicle___406_pend1 ;
-    sysml:owningRelationship expr:ConnectorEnds__Vehicle___406_pend1_pchain_om ;
-    sysml:owningMembership expr:ConnectorEnds__Vehicle___406_pend1_pchain_om ;
+    json:ownedFeatureChaining "[{\"@id\":\"ConnectorEnds__Vehicle___406_pend1_pchain_pfc0\"},{\"@id\":\"ConnectorEnds__Vehicle___406_pend1_pchain_pfc1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"ConnectorEnds__Vehicle___406_pend1_pchain_pfc0\"},{\"@id\":\"ConnectorEnds__Vehicle___406_pend1_pchain_pfc1\"}]" ;
     json:chainingFeature "[{\"@id\":\"ConnectorEnds__Vehicle__tanks\"},{\"@id\":\"ConnectorEnds__Tank__main\"}]" .
 
-expr:ConnectorEnds__Vehicle___406_pend1_pchain_om
-    a sysml:OwningMembership ;
-    sysml:elementId "ConnectorEnds__Vehicle___406_pend1_pchain_om" ;
-    sysml:owner expr:ConnectorEnds__Vehicle___406_pend1 ;
-    sysml:memberElement expr:ConnectorEnds__Vehicle___406_pend1_pchain ;
-    sysml:ownedMemberElement expr:ConnectorEnds__Vehicle___406_pend1_pchain ;
-    sysml:ownedRelatedElement expr:ConnectorEnds__Vehicle___406_pend1_pchain ;
-    sysml:owningRelatedElement expr:ConnectorEnds__Vehicle___406_pend1 ;
-    sysml:membershipOwningNamespace expr:ConnectorEnds__Vehicle___406_pend1 .
+expr:ConnectorEnds__Vehicle___406_pend1_pchain_pfc0
+    a sysml:FeatureChaining ;
+    sysml:elementId "ConnectorEnds__Vehicle___406_pend1_pchain_pfc0" ;
+    sysml:featureChained expr:ConnectorEnds__Vehicle___406_pend1_pchain ;
+    sysml:source expr:ConnectorEnds__Vehicle___406_pend1_pchain ;
+    sysml:owningRelatedElement expr:ConnectorEnds__Vehicle___406_pend1_pchain ;
+    sysml:chainingFeature elmt:ConnectorEnds__Vehicle__tanks ;
+    sysml:target elmt:ConnectorEnds__Vehicle__tanks ;
+    sysml:owner expr:ConnectorEnds__Vehicle___406_pend1_pchain ;
+    sysml:relatedElement expr:ConnectorEnds__Vehicle___406_pend1_pchain, elmt:ConnectorEnds__Vehicle__tanks ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___406_pend1_pchain\"},{\"@id\":\"ConnectorEnds__Vehicle__tanks\"}]" .
+
+expr:ConnectorEnds__Vehicle___406_pend1_pchain_pfc1
+    a sysml:FeatureChaining ;
+    sysml:elementId "ConnectorEnds__Vehicle___406_pend1_pchain_pfc1" ;
+    sysml:featureChained expr:ConnectorEnds__Vehicle___406_pend1_pchain ;
+    sysml:source expr:ConnectorEnds__Vehicle___406_pend1_pchain ;
+    sysml:owningRelatedElement expr:ConnectorEnds__Vehicle___406_pend1_pchain ;
+    sysml:chainingFeature elmt:ConnectorEnds__Tank__main ;
+    sysml:target elmt:ConnectorEnds__Tank__main ;
+    sysml:owner expr:ConnectorEnds__Vehicle___406_pend1_pchain ;
+    sysml:relatedElement expr:ConnectorEnds__Vehicle___406_pend1_pchain, elmt:ConnectorEnds__Tank__main ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___406_pend1_pchain\"},{\"@id\":\"ConnectorEnds__Tank__main\"}]" .
 
 expr:ConnectorEnds__Vehicle___406_pend1_prs
     a sysml:ReferenceSubsetting ;
@@ -502,6 +517,7 @@ expr:ConnectorEnds__Vehicle___406_pend1_prs
     sysml:relatedElement expr:ConnectorEnds__Vehicle___406_pend1, expr:ConnectorEnds__Vehicle___406_pend1_pchain ;
     sysml:owner expr:ConnectorEnds__Vehicle___406_pend1 ;
     sysml:owningRelatedElement expr:ConnectorEnds__Vehicle___406_pend1 ;
+    sysml:ownedRelatedElement expr:ConnectorEnds__Vehicle___406_pend1_pchain ;
     json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___406_pend1\"},{\"@id\":\"ConnectorEnds__Vehicle___406_pend1_pchain\"}]" .
 
 elmt:ConnectorEnds__Vehicle___407
@@ -553,12 +569,10 @@ expr:ConnectorEnds__Vehicle___407_pend0
     sysx:sourceText "a.x" ;
     sysml:declaredName "a" ;
     sysml:name "a" ;
-    sysml:ownedRelationship expr:ConnectorEnds__Vehicle___407_pend0_pchain_om, expr:ConnectorEnds__Vehicle___407_pend0_prs ;
-    sysml:ownedMembership expr:ConnectorEnds__Vehicle___407_pend0_pchain_om ;
     sysml:ownedReferenceSubsetting expr:ConnectorEnds__Vehicle___407_pend0_prs ;
     sysml:ownedSubsetting expr:ConnectorEnds__Vehicle___407_pend0_prs ;
     sysml:ownedSpecialization expr:ConnectorEnds__Vehicle___407_pend0_prs ;
-    json:ownedRelationship "[{\"@id\":\"ConnectorEnds__Vehicle___407_pend0_pchain_om\"},{\"@id\":\"ConnectorEnds__Vehicle___407_pend0_prs\"}]" .
+    sysml:ownedRelationship expr:ConnectorEnds__Vehicle___407_pend0_prs .
 
 expr:ConnectorEnds__Vehicle___407_pend0_om
     a sysml:EndFeatureMembership ;
@@ -573,21 +587,38 @@ expr:ConnectorEnds__Vehicle___407_pend0_om
 expr:ConnectorEnds__Vehicle___407_pend0_pchain
     a sysml:Feature ;
     sysml:elementId "ConnectorEnds__Vehicle___407_pend0_pchain" ;
+    sysml:ownedFeatureChaining expr:ConnectorEnds__Vehicle___407_pend0_pchain_pfc0, expr:ConnectorEnds__Vehicle___407_pend0_pchain_pfc1 ;
+    sysml:ownedRelationship expr:ConnectorEnds__Vehicle___407_pend0_pchain_pfc0, expr:ConnectorEnds__Vehicle___407_pend0_pchain_pfc1 ;
     sysml:chainingFeature elmt:ConnectorEnds__Vehicle__a, elmt:ConnectorEnds__Tank__x ;
+    sysml:owningRelationship expr:ConnectorEnds__Vehicle___407_pend0_prs ;
     sysml:owner expr:ConnectorEnds__Vehicle___407_pend0 ;
-    sysml:owningRelationship expr:ConnectorEnds__Vehicle___407_pend0_pchain_om ;
-    sysml:owningMembership expr:ConnectorEnds__Vehicle___407_pend0_pchain_om ;
+    json:ownedFeatureChaining "[{\"@id\":\"ConnectorEnds__Vehicle___407_pend0_pchain_pfc0\"},{\"@id\":\"ConnectorEnds__Vehicle___407_pend0_pchain_pfc1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"ConnectorEnds__Vehicle___407_pend0_pchain_pfc0\"},{\"@id\":\"ConnectorEnds__Vehicle___407_pend0_pchain_pfc1\"}]" ;
     json:chainingFeature "[{\"@id\":\"ConnectorEnds__Vehicle__a\"},{\"@id\":\"ConnectorEnds__Tank__x\"}]" .
 
-expr:ConnectorEnds__Vehicle___407_pend0_pchain_om
-    a sysml:OwningMembership ;
-    sysml:elementId "ConnectorEnds__Vehicle___407_pend0_pchain_om" ;
-    sysml:owner expr:ConnectorEnds__Vehicle___407_pend0 ;
-    sysml:memberElement expr:ConnectorEnds__Vehicle___407_pend0_pchain ;
-    sysml:ownedMemberElement expr:ConnectorEnds__Vehicle___407_pend0_pchain ;
-    sysml:ownedRelatedElement expr:ConnectorEnds__Vehicle___407_pend0_pchain ;
-    sysml:owningRelatedElement expr:ConnectorEnds__Vehicle___407_pend0 ;
-    sysml:membershipOwningNamespace expr:ConnectorEnds__Vehicle___407_pend0 .
+expr:ConnectorEnds__Vehicle___407_pend0_pchain_pfc0
+    a sysml:FeatureChaining ;
+    sysml:elementId "ConnectorEnds__Vehicle___407_pend0_pchain_pfc0" ;
+    sysml:featureChained expr:ConnectorEnds__Vehicle___407_pend0_pchain ;
+    sysml:source expr:ConnectorEnds__Vehicle___407_pend0_pchain ;
+    sysml:owningRelatedElement expr:ConnectorEnds__Vehicle___407_pend0_pchain ;
+    sysml:chainingFeature elmt:ConnectorEnds__Vehicle__a ;
+    sysml:target elmt:ConnectorEnds__Vehicle__a ;
+    sysml:owner expr:ConnectorEnds__Vehicle___407_pend0_pchain ;
+    sysml:relatedElement expr:ConnectorEnds__Vehicle___407_pend0_pchain, elmt:ConnectorEnds__Vehicle__a ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___407_pend0_pchain\"},{\"@id\":\"ConnectorEnds__Vehicle__a\"}]" .
+
+expr:ConnectorEnds__Vehicle___407_pend0_pchain_pfc1
+    a sysml:FeatureChaining ;
+    sysml:elementId "ConnectorEnds__Vehicle___407_pend0_pchain_pfc1" ;
+    sysml:featureChained expr:ConnectorEnds__Vehicle___407_pend0_pchain ;
+    sysml:source expr:ConnectorEnds__Vehicle___407_pend0_pchain ;
+    sysml:owningRelatedElement expr:ConnectorEnds__Vehicle___407_pend0_pchain ;
+    sysml:chainingFeature elmt:ConnectorEnds__Tank__x ;
+    sysml:target elmt:ConnectorEnds__Tank__x ;
+    sysml:owner expr:ConnectorEnds__Vehicle___407_pend0_pchain ;
+    sysml:relatedElement expr:ConnectorEnds__Vehicle___407_pend0_pchain, elmt:ConnectorEnds__Tank__x ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___407_pend0_pchain\"},{\"@id\":\"ConnectorEnds__Tank__x\"}]" .
 
 expr:ConnectorEnds__Vehicle___407_pend0_prs
     a sysml:ReferenceSubsetting ;
@@ -605,6 +636,7 @@ expr:ConnectorEnds__Vehicle___407_pend0_prs
     sysml:relatedElement expr:ConnectorEnds__Vehicle___407_pend0, expr:ConnectorEnds__Vehicle___407_pend0_pchain ;
     sysml:owner expr:ConnectorEnds__Vehicle___407_pend0 ;
     sysml:owningRelatedElement expr:ConnectorEnds__Vehicle___407_pend0 ;
+    sysml:ownedRelatedElement expr:ConnectorEnds__Vehicle___407_pend0_pchain ;
     json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___407_pend0\"},{\"@id\":\"ConnectorEnds__Vehicle___407_pend0_pchain\"}]" .
 
 expr:ConnectorEnds__Vehicle___407_pend1
@@ -697,15 +729,14 @@ expr:ConnectorEnds__Vehicle___408_pend0
     sysx:sourceText "tanks.x" ;
     sysml:declaredName "bead" ;
     sysml:name "bead" ;
-    sysml:ownedRelationship expr:ConnectorEnds__Vehicle___408_pend0_pchain_om, expr:ConnectorEnds__Vehicle___408_pend0_prs, expr:ConnectorEnds__Vehicle___408_pend0_pmultiplicity_om ;
-    sysml:ownedMembership expr:ConnectorEnds__Vehicle___408_pend0_pchain_om, expr:ConnectorEnds__Vehicle___408_pend0_pmultiplicity_om ;
     sysml:ownedReferenceSubsetting expr:ConnectorEnds__Vehicle___408_pend0_prs ;
     sysml:ownedSubsetting expr:ConnectorEnds__Vehicle___408_pend0_prs ;
     sysml:ownedSpecialization expr:ConnectorEnds__Vehicle___408_pend0_prs ;
+    sysml:ownedRelationship expr:ConnectorEnds__Vehicle___408_pend0_prs, expr:ConnectorEnds__Vehicle___408_pend0_pmultiplicity_om ;
     sysml:multiplicity expr:ConnectorEnds__Vehicle___408_pend0_pmultiplicity ;
+    sysml:ownedMembership expr:ConnectorEnds__Vehicle___408_pend0_pmultiplicity_om ;
     sysml:upperBound expr:ConnectorEnds__Vehicle___408_pend0_pupperBound ;
-    json:ownedRelationship "[{\"@id\":\"ConnectorEnds__Vehicle___408_pend0_pchain_om\"},{\"@id\":\"ConnectorEnds__Vehicle___408_pend0_prs\"},{\"@id\":\"ConnectorEnds__Vehicle___408_pend0_pmultiplicity_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"ConnectorEnds__Vehicle___408_pend0_pchain_om\"},{\"@id\":\"ConnectorEnds__Vehicle___408_pend0_pmultiplicity_om\"}]" .
+    json:ownedRelationship "[{\"@id\":\"ConnectorEnds__Vehicle___408_pend0_prs\"},{\"@id\":\"ConnectorEnds__Vehicle___408_pend0_pmultiplicity_om\"}]" .
 
 expr:ConnectorEnds__Vehicle___408_pend0_om
     a sysml:EndFeatureMembership ;
@@ -720,21 +751,38 @@ expr:ConnectorEnds__Vehicle___408_pend0_om
 expr:ConnectorEnds__Vehicle___408_pend0_pchain
     a sysml:Feature ;
     sysml:elementId "ConnectorEnds__Vehicle___408_pend0_pchain" ;
+    sysml:ownedFeatureChaining expr:ConnectorEnds__Vehicle___408_pend0_pchain_pfc0, expr:ConnectorEnds__Vehicle___408_pend0_pchain_pfc1 ;
+    sysml:ownedRelationship expr:ConnectorEnds__Vehicle___408_pend0_pchain_pfc0, expr:ConnectorEnds__Vehicle___408_pend0_pchain_pfc1 ;
     sysml:chainingFeature elmt:ConnectorEnds__Vehicle__tanks, elmt:ConnectorEnds__Tank__x ;
+    sysml:owningRelationship expr:ConnectorEnds__Vehicle___408_pend0_prs ;
     sysml:owner expr:ConnectorEnds__Vehicle___408_pend0 ;
-    sysml:owningRelationship expr:ConnectorEnds__Vehicle___408_pend0_pchain_om ;
-    sysml:owningMembership expr:ConnectorEnds__Vehicle___408_pend0_pchain_om ;
+    json:ownedFeatureChaining "[{\"@id\":\"ConnectorEnds__Vehicle___408_pend0_pchain_pfc0\"},{\"@id\":\"ConnectorEnds__Vehicle___408_pend0_pchain_pfc1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"ConnectorEnds__Vehicle___408_pend0_pchain_pfc0\"},{\"@id\":\"ConnectorEnds__Vehicle___408_pend0_pchain_pfc1\"}]" ;
     json:chainingFeature "[{\"@id\":\"ConnectorEnds__Vehicle__tanks\"},{\"@id\":\"ConnectorEnds__Tank__x\"}]" .
 
-expr:ConnectorEnds__Vehicle___408_pend0_pchain_om
-    a sysml:OwningMembership ;
-    sysml:elementId "ConnectorEnds__Vehicle___408_pend0_pchain_om" ;
-    sysml:owner expr:ConnectorEnds__Vehicle___408_pend0 ;
-    sysml:memberElement expr:ConnectorEnds__Vehicle___408_pend0_pchain ;
-    sysml:ownedMemberElement expr:ConnectorEnds__Vehicle___408_pend0_pchain ;
-    sysml:ownedRelatedElement expr:ConnectorEnds__Vehicle___408_pend0_pchain ;
-    sysml:owningRelatedElement expr:ConnectorEnds__Vehicle___408_pend0 ;
-    sysml:membershipOwningNamespace expr:ConnectorEnds__Vehicle___408_pend0 .
+expr:ConnectorEnds__Vehicle___408_pend0_pchain_pfc0
+    a sysml:FeatureChaining ;
+    sysml:elementId "ConnectorEnds__Vehicle___408_pend0_pchain_pfc0" ;
+    sysml:featureChained expr:ConnectorEnds__Vehicle___408_pend0_pchain ;
+    sysml:source expr:ConnectorEnds__Vehicle___408_pend0_pchain ;
+    sysml:owningRelatedElement expr:ConnectorEnds__Vehicle___408_pend0_pchain ;
+    sysml:chainingFeature elmt:ConnectorEnds__Vehicle__tanks ;
+    sysml:target elmt:ConnectorEnds__Vehicle__tanks ;
+    sysml:owner expr:ConnectorEnds__Vehicle___408_pend0_pchain ;
+    sysml:relatedElement expr:ConnectorEnds__Vehicle___408_pend0_pchain, elmt:ConnectorEnds__Vehicle__tanks ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___408_pend0_pchain\"},{\"@id\":\"ConnectorEnds__Vehicle__tanks\"}]" .
+
+expr:ConnectorEnds__Vehicle___408_pend0_pchain_pfc1
+    a sysml:FeatureChaining ;
+    sysml:elementId "ConnectorEnds__Vehicle___408_pend0_pchain_pfc1" ;
+    sysml:featureChained expr:ConnectorEnds__Vehicle___408_pend0_pchain ;
+    sysml:source expr:ConnectorEnds__Vehicle___408_pend0_pchain ;
+    sysml:owningRelatedElement expr:ConnectorEnds__Vehicle___408_pend0_pchain ;
+    sysml:chainingFeature elmt:ConnectorEnds__Tank__x ;
+    sysml:target elmt:ConnectorEnds__Tank__x ;
+    sysml:owner expr:ConnectorEnds__Vehicle___408_pend0_pchain ;
+    sysml:relatedElement expr:ConnectorEnds__Vehicle___408_pend0_pchain, elmt:ConnectorEnds__Tank__x ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___408_pend0_pchain\"},{\"@id\":\"ConnectorEnds__Tank__x\"}]" .
 
 expr:ConnectorEnds__Vehicle___408_pend0_prs
     a sysml:ReferenceSubsetting ;
@@ -752,6 +800,7 @@ expr:ConnectorEnds__Vehicle___408_pend0_prs
     sysml:relatedElement expr:ConnectorEnds__Vehicle___408_pend0, expr:ConnectorEnds__Vehicle___408_pend0_pchain ;
     sysml:owner expr:ConnectorEnds__Vehicle___408_pend0 ;
     sysml:owningRelatedElement expr:ConnectorEnds__Vehicle___408_pend0 ;
+    sysml:ownedRelatedElement expr:ConnectorEnds__Vehicle___408_pend0_pchain ;
     json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___408_pend0\"},{\"@id\":\"ConnectorEnds__Vehicle___408_pend0_pchain\"}]" .
 
 expr:ConnectorEnds__Vehicle___408_pend0_pmultiplicity
@@ -991,12 +1040,10 @@ expr:ConnectorEnds__Vehicle___409_pend1
     sysml:owningRelationship expr:ConnectorEnds__Vehicle___409_pend1_om ;
     sysml:owningMembership expr:ConnectorEnds__Vehicle___409_pend1_om ;
     sysx:sourceText "tanks.main" ;
-    sysml:ownedRelationship expr:ConnectorEnds__Vehicle___409_pend1_pchain_om, expr:ConnectorEnds__Vehicle___409_pend1_prs ;
-    sysml:ownedMembership expr:ConnectorEnds__Vehicle___409_pend1_pchain_om ;
     sysml:ownedReferenceSubsetting expr:ConnectorEnds__Vehicle___409_pend1_prs ;
     sysml:ownedSubsetting expr:ConnectorEnds__Vehicle___409_pend1_prs ;
     sysml:ownedSpecialization expr:ConnectorEnds__Vehicle___409_pend1_prs ;
-    json:ownedRelationship "[{\"@id\":\"ConnectorEnds__Vehicle___409_pend1_pchain_om\"},{\"@id\":\"ConnectorEnds__Vehicle___409_pend1_prs\"}]" .
+    sysml:ownedRelationship expr:ConnectorEnds__Vehicle___409_pend1_prs .
 
 expr:ConnectorEnds__Vehicle___409_pend1_om
     a sysml:EndFeatureMembership ;
@@ -1011,21 +1058,38 @@ expr:ConnectorEnds__Vehicle___409_pend1_om
 expr:ConnectorEnds__Vehicle___409_pend1_pchain
     a sysml:Feature ;
     sysml:elementId "ConnectorEnds__Vehicle___409_pend1_pchain" ;
+    sysml:ownedFeatureChaining expr:ConnectorEnds__Vehicle___409_pend1_pchain_pfc0, expr:ConnectorEnds__Vehicle___409_pend1_pchain_pfc1 ;
+    sysml:ownedRelationship expr:ConnectorEnds__Vehicle___409_pend1_pchain_pfc0, expr:ConnectorEnds__Vehicle___409_pend1_pchain_pfc1 ;
     sysml:chainingFeature elmt:ConnectorEnds__Vehicle__tanks, elmt:ConnectorEnds__Tank__main ;
+    sysml:owningRelationship expr:ConnectorEnds__Vehicle___409_pend1_prs ;
     sysml:owner expr:ConnectorEnds__Vehicle___409_pend1 ;
-    sysml:owningRelationship expr:ConnectorEnds__Vehicle___409_pend1_pchain_om ;
-    sysml:owningMembership expr:ConnectorEnds__Vehicle___409_pend1_pchain_om ;
+    json:ownedFeatureChaining "[{\"@id\":\"ConnectorEnds__Vehicle___409_pend1_pchain_pfc0\"},{\"@id\":\"ConnectorEnds__Vehicle___409_pend1_pchain_pfc1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"ConnectorEnds__Vehicle___409_pend1_pchain_pfc0\"},{\"@id\":\"ConnectorEnds__Vehicle___409_pend1_pchain_pfc1\"}]" ;
     json:chainingFeature "[{\"@id\":\"ConnectorEnds__Vehicle__tanks\"},{\"@id\":\"ConnectorEnds__Tank__main\"}]" .
 
-expr:ConnectorEnds__Vehicle___409_pend1_pchain_om
-    a sysml:OwningMembership ;
-    sysml:elementId "ConnectorEnds__Vehicle___409_pend1_pchain_om" ;
-    sysml:owner expr:ConnectorEnds__Vehicle___409_pend1 ;
-    sysml:memberElement expr:ConnectorEnds__Vehicle___409_pend1_pchain ;
-    sysml:ownedMemberElement expr:ConnectorEnds__Vehicle___409_pend1_pchain ;
-    sysml:ownedRelatedElement expr:ConnectorEnds__Vehicle___409_pend1_pchain ;
-    sysml:owningRelatedElement expr:ConnectorEnds__Vehicle___409_pend1 ;
-    sysml:membershipOwningNamespace expr:ConnectorEnds__Vehicle___409_pend1 .
+expr:ConnectorEnds__Vehicle___409_pend1_pchain_pfc0
+    a sysml:FeatureChaining ;
+    sysml:elementId "ConnectorEnds__Vehicle___409_pend1_pchain_pfc0" ;
+    sysml:featureChained expr:ConnectorEnds__Vehicle___409_pend1_pchain ;
+    sysml:source expr:ConnectorEnds__Vehicle___409_pend1_pchain ;
+    sysml:owningRelatedElement expr:ConnectorEnds__Vehicle___409_pend1_pchain ;
+    sysml:chainingFeature elmt:ConnectorEnds__Vehicle__tanks ;
+    sysml:target elmt:ConnectorEnds__Vehicle__tanks ;
+    sysml:owner expr:ConnectorEnds__Vehicle___409_pend1_pchain ;
+    sysml:relatedElement expr:ConnectorEnds__Vehicle___409_pend1_pchain, elmt:ConnectorEnds__Vehicle__tanks ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___409_pend1_pchain\"},{\"@id\":\"ConnectorEnds__Vehicle__tanks\"}]" .
+
+expr:ConnectorEnds__Vehicle___409_pend1_pchain_pfc1
+    a sysml:FeatureChaining ;
+    sysml:elementId "ConnectorEnds__Vehicle___409_pend1_pchain_pfc1" ;
+    sysml:featureChained expr:ConnectorEnds__Vehicle___409_pend1_pchain ;
+    sysml:source expr:ConnectorEnds__Vehicle___409_pend1_pchain ;
+    sysml:owningRelatedElement expr:ConnectorEnds__Vehicle___409_pend1_pchain ;
+    sysml:chainingFeature elmt:ConnectorEnds__Tank__main ;
+    sysml:target elmt:ConnectorEnds__Tank__main ;
+    sysml:owner expr:ConnectorEnds__Vehicle___409_pend1_pchain ;
+    sysml:relatedElement expr:ConnectorEnds__Vehicle___409_pend1_pchain, elmt:ConnectorEnds__Tank__main ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___409_pend1_pchain\"},{\"@id\":\"ConnectorEnds__Tank__main\"}]" .
 
 expr:ConnectorEnds__Vehicle___409_pend1_prs
     a sysml:ReferenceSubsetting ;
@@ -1043,6 +1107,7 @@ expr:ConnectorEnds__Vehicle___409_pend1_prs
     sysml:relatedElement expr:ConnectorEnds__Vehicle___409_pend1, expr:ConnectorEnds__Vehicle___409_pend1_pchain ;
     sysml:owner expr:ConnectorEnds__Vehicle___409_pend1 ;
     sysml:owningRelatedElement expr:ConnectorEnds__Vehicle___409_pend1 ;
+    sysml:ownedRelatedElement expr:ConnectorEnds__Vehicle___409_pend1_pchain ;
     json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___409_pend1\"},{\"@id\":\"ConnectorEnds__Vehicle___409_pend1_pchain\"}]" .
 
 elmt:ConnectorEnds__Vehicle___4010
@@ -1390,12 +1455,10 @@ expr:ConnectorEnds__Vehicle__link_pend1
     sysml:owningRelationship expr:ConnectorEnds__Vehicle__link_pend1_om ;
     sysml:owningMembership expr:ConnectorEnds__Vehicle__link_pend1_om ;
     sysx:sourceText "tanks.main" ;
-    sysml:ownedRelationship expr:ConnectorEnds__Vehicle__link_pend1_pchain_om, expr:ConnectorEnds__Vehicle__link_pend1_prs ;
-    sysml:ownedMembership expr:ConnectorEnds__Vehicle__link_pend1_pchain_om ;
     sysml:ownedReferenceSubsetting expr:ConnectorEnds__Vehicle__link_pend1_prs ;
     sysml:ownedSubsetting expr:ConnectorEnds__Vehicle__link_pend1_prs ;
     sysml:ownedSpecialization expr:ConnectorEnds__Vehicle__link_pend1_prs ;
-    json:ownedRelationship "[{\"@id\":\"ConnectorEnds__Vehicle__link_pend1_pchain_om\"},{\"@id\":\"ConnectorEnds__Vehicle__link_pend1_prs\"}]" .
+    sysml:ownedRelationship expr:ConnectorEnds__Vehicle__link_pend1_prs .
 
 expr:ConnectorEnds__Vehicle__link_pend1_om
     a sysml:EndFeatureMembership ;
@@ -1410,21 +1473,38 @@ expr:ConnectorEnds__Vehicle__link_pend1_om
 expr:ConnectorEnds__Vehicle__link_pend1_pchain
     a sysml:Feature ;
     sysml:elementId "ConnectorEnds__Vehicle__link_pend1_pchain" ;
+    sysml:ownedFeatureChaining expr:ConnectorEnds__Vehicle__link_pend1_pchain_pfc0, expr:ConnectorEnds__Vehicle__link_pend1_pchain_pfc1 ;
+    sysml:ownedRelationship expr:ConnectorEnds__Vehicle__link_pend1_pchain_pfc0, expr:ConnectorEnds__Vehicle__link_pend1_pchain_pfc1 ;
     sysml:chainingFeature elmt:ConnectorEnds__Vehicle__tanks, elmt:ConnectorEnds__Tank__main ;
+    sysml:owningRelationship expr:ConnectorEnds__Vehicle__link_pend1_prs ;
     sysml:owner expr:ConnectorEnds__Vehicle__link_pend1 ;
-    sysml:owningRelationship expr:ConnectorEnds__Vehicle__link_pend1_pchain_om ;
-    sysml:owningMembership expr:ConnectorEnds__Vehicle__link_pend1_pchain_om ;
+    json:ownedFeatureChaining "[{\"@id\":\"ConnectorEnds__Vehicle__link_pend1_pchain_pfc0\"},{\"@id\":\"ConnectorEnds__Vehicle__link_pend1_pchain_pfc1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"ConnectorEnds__Vehicle__link_pend1_pchain_pfc0\"},{\"@id\":\"ConnectorEnds__Vehicle__link_pend1_pchain_pfc1\"}]" ;
     json:chainingFeature "[{\"@id\":\"ConnectorEnds__Vehicle__tanks\"},{\"@id\":\"ConnectorEnds__Tank__main\"}]" .
 
-expr:ConnectorEnds__Vehicle__link_pend1_pchain_om
-    a sysml:OwningMembership ;
-    sysml:elementId "ConnectorEnds__Vehicle__link_pend1_pchain_om" ;
-    sysml:owner expr:ConnectorEnds__Vehicle__link_pend1 ;
-    sysml:memberElement expr:ConnectorEnds__Vehicle__link_pend1_pchain ;
-    sysml:ownedMemberElement expr:ConnectorEnds__Vehicle__link_pend1_pchain ;
-    sysml:ownedRelatedElement expr:ConnectorEnds__Vehicle__link_pend1_pchain ;
-    sysml:owningRelatedElement expr:ConnectorEnds__Vehicle__link_pend1 ;
-    sysml:membershipOwningNamespace expr:ConnectorEnds__Vehicle__link_pend1 .
+expr:ConnectorEnds__Vehicle__link_pend1_pchain_pfc0
+    a sysml:FeatureChaining ;
+    sysml:elementId "ConnectorEnds__Vehicle__link_pend1_pchain_pfc0" ;
+    sysml:featureChained expr:ConnectorEnds__Vehicle__link_pend1_pchain ;
+    sysml:source expr:ConnectorEnds__Vehicle__link_pend1_pchain ;
+    sysml:owningRelatedElement expr:ConnectorEnds__Vehicle__link_pend1_pchain ;
+    sysml:chainingFeature elmt:ConnectorEnds__Vehicle__tanks ;
+    sysml:target elmt:ConnectorEnds__Vehicle__tanks ;
+    sysml:owner expr:ConnectorEnds__Vehicle__link_pend1_pchain ;
+    sysml:relatedElement expr:ConnectorEnds__Vehicle__link_pend1_pchain, elmt:ConnectorEnds__Vehicle__tanks ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle__link_pend1_pchain\"},{\"@id\":\"ConnectorEnds__Vehicle__tanks\"}]" .
+
+expr:ConnectorEnds__Vehicle__link_pend1_pchain_pfc1
+    a sysml:FeatureChaining ;
+    sysml:elementId "ConnectorEnds__Vehicle__link_pend1_pchain_pfc1" ;
+    sysml:featureChained expr:ConnectorEnds__Vehicle__link_pend1_pchain ;
+    sysml:source expr:ConnectorEnds__Vehicle__link_pend1_pchain ;
+    sysml:owningRelatedElement expr:ConnectorEnds__Vehicle__link_pend1_pchain ;
+    sysml:chainingFeature elmt:ConnectorEnds__Tank__main ;
+    sysml:target elmt:ConnectorEnds__Tank__main ;
+    sysml:owner expr:ConnectorEnds__Vehicle__link_pend1_pchain ;
+    sysml:relatedElement expr:ConnectorEnds__Vehicle__link_pend1_pchain, elmt:ConnectorEnds__Tank__main ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle__link_pend1_pchain\"},{\"@id\":\"ConnectorEnds__Tank__main\"}]" .
 
 expr:ConnectorEnds__Vehicle__link_pend1_prs
     a sysml:ReferenceSubsetting ;
@@ -1442,6 +1522,7 @@ expr:ConnectorEnds__Vehicle__link_pend1_prs
     sysml:relatedElement expr:ConnectorEnds__Vehicle__link_pend1, expr:ConnectorEnds__Vehicle__link_pend1_pchain ;
     sysml:owner expr:ConnectorEnds__Vehicle__link_pend1 ;
     sysml:owningRelatedElement expr:ConnectorEnds__Vehicle__link_pend1 ;
+    sysml:ownedRelatedElement expr:ConnectorEnds__Vehicle__link_pend1_pchain ;
     json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle__link_pend1\"},{\"@id\":\"ConnectorEnds__Vehicle__link_pend1_pchain\"}]" .
 
 elmt:ConnectorEnds__Vehicle___4012
@@ -1534,12 +1615,10 @@ expr:ConnectorEnds__Vehicle___4012_pend1
     sysml:owningRelationship expr:ConnectorEnds__Vehicle___4012_pend1_om ;
     sysml:owningMembership expr:ConnectorEnds__Vehicle___4012_pend1_om ;
     sysx:sourceText "tanks.main" ;
-    sysml:ownedRelationship expr:ConnectorEnds__Vehicle___4012_pend1_pchain_om, expr:ConnectorEnds__Vehicle___4012_pend1_prs ;
-    sysml:ownedMembership expr:ConnectorEnds__Vehicle___4012_pend1_pchain_om ;
     sysml:ownedReferenceSubsetting expr:ConnectorEnds__Vehicle___4012_pend1_prs ;
     sysml:ownedSubsetting expr:ConnectorEnds__Vehicle___4012_pend1_prs ;
     sysml:ownedSpecialization expr:ConnectorEnds__Vehicle___4012_pend1_prs ;
-    json:ownedRelationship "[{\"@id\":\"ConnectorEnds__Vehicle___4012_pend1_pchain_om\"},{\"@id\":\"ConnectorEnds__Vehicle___4012_pend1_prs\"}]" .
+    sysml:ownedRelationship expr:ConnectorEnds__Vehicle___4012_pend1_prs .
 
 expr:ConnectorEnds__Vehicle___4012_pend1_om
     a sysml:EndFeatureMembership ;
@@ -1554,21 +1633,38 @@ expr:ConnectorEnds__Vehicle___4012_pend1_om
 expr:ConnectorEnds__Vehicle___4012_pend1_pchain
     a sysml:Feature ;
     sysml:elementId "ConnectorEnds__Vehicle___4012_pend1_pchain" ;
+    sysml:ownedFeatureChaining expr:ConnectorEnds__Vehicle___4012_pend1_pchain_pfc0, expr:ConnectorEnds__Vehicle___4012_pend1_pchain_pfc1 ;
+    sysml:ownedRelationship expr:ConnectorEnds__Vehicle___4012_pend1_pchain_pfc0, expr:ConnectorEnds__Vehicle___4012_pend1_pchain_pfc1 ;
     sysml:chainingFeature elmt:ConnectorEnds__Vehicle__tanks, elmt:ConnectorEnds__Tank__main ;
+    sysml:owningRelationship expr:ConnectorEnds__Vehicle___4012_pend1_prs ;
     sysml:owner expr:ConnectorEnds__Vehicle___4012_pend1 ;
-    sysml:owningRelationship expr:ConnectorEnds__Vehicle___4012_pend1_pchain_om ;
-    sysml:owningMembership expr:ConnectorEnds__Vehicle___4012_pend1_pchain_om ;
+    json:ownedFeatureChaining "[{\"@id\":\"ConnectorEnds__Vehicle___4012_pend1_pchain_pfc0\"},{\"@id\":\"ConnectorEnds__Vehicle___4012_pend1_pchain_pfc1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"ConnectorEnds__Vehicle___4012_pend1_pchain_pfc0\"},{\"@id\":\"ConnectorEnds__Vehicle___4012_pend1_pchain_pfc1\"}]" ;
     json:chainingFeature "[{\"@id\":\"ConnectorEnds__Vehicle__tanks\"},{\"@id\":\"ConnectorEnds__Tank__main\"}]" .
 
-expr:ConnectorEnds__Vehicle___4012_pend1_pchain_om
-    a sysml:OwningMembership ;
-    sysml:elementId "ConnectorEnds__Vehicle___4012_pend1_pchain_om" ;
-    sysml:owner expr:ConnectorEnds__Vehicle___4012_pend1 ;
-    sysml:memberElement expr:ConnectorEnds__Vehicle___4012_pend1_pchain ;
-    sysml:ownedMemberElement expr:ConnectorEnds__Vehicle___4012_pend1_pchain ;
-    sysml:ownedRelatedElement expr:ConnectorEnds__Vehicle___4012_pend1_pchain ;
-    sysml:owningRelatedElement expr:ConnectorEnds__Vehicle___4012_pend1 ;
-    sysml:membershipOwningNamespace expr:ConnectorEnds__Vehicle___4012_pend1 .
+expr:ConnectorEnds__Vehicle___4012_pend1_pchain_pfc0
+    a sysml:FeatureChaining ;
+    sysml:elementId "ConnectorEnds__Vehicle___4012_pend1_pchain_pfc0" ;
+    sysml:featureChained expr:ConnectorEnds__Vehicle___4012_pend1_pchain ;
+    sysml:source expr:ConnectorEnds__Vehicle___4012_pend1_pchain ;
+    sysml:owningRelatedElement expr:ConnectorEnds__Vehicle___4012_pend1_pchain ;
+    sysml:chainingFeature elmt:ConnectorEnds__Vehicle__tanks ;
+    sysml:target elmt:ConnectorEnds__Vehicle__tanks ;
+    sysml:owner expr:ConnectorEnds__Vehicle___4012_pend1_pchain ;
+    sysml:relatedElement expr:ConnectorEnds__Vehicle___4012_pend1_pchain, elmt:ConnectorEnds__Vehicle__tanks ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___4012_pend1_pchain\"},{\"@id\":\"ConnectorEnds__Vehicle__tanks\"}]" .
+
+expr:ConnectorEnds__Vehicle___4012_pend1_pchain_pfc1
+    a sysml:FeatureChaining ;
+    sysml:elementId "ConnectorEnds__Vehicle___4012_pend1_pchain_pfc1" ;
+    sysml:featureChained expr:ConnectorEnds__Vehicle___4012_pend1_pchain ;
+    sysml:source expr:ConnectorEnds__Vehicle___4012_pend1_pchain ;
+    sysml:owningRelatedElement expr:ConnectorEnds__Vehicle___4012_pend1_pchain ;
+    sysml:chainingFeature elmt:ConnectorEnds__Tank__main ;
+    sysml:target elmt:ConnectorEnds__Tank__main ;
+    sysml:owner expr:ConnectorEnds__Vehicle___4012_pend1_pchain ;
+    sysml:relatedElement expr:ConnectorEnds__Vehicle___4012_pend1_pchain, elmt:ConnectorEnds__Tank__main ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___4012_pend1_pchain\"},{\"@id\":\"ConnectorEnds__Tank__main\"}]" .
 
 expr:ConnectorEnds__Vehicle___4012_pend1_prs
     a sysml:ReferenceSubsetting ;
@@ -1586,6 +1682,7 @@ expr:ConnectorEnds__Vehicle___4012_pend1_prs
     sysml:relatedElement expr:ConnectorEnds__Vehicle___4012_pend1, expr:ConnectorEnds__Vehicle___4012_pend1_pchain ;
     sysml:owner expr:ConnectorEnds__Vehicle___4012_pend1 ;
     sysml:owningRelatedElement expr:ConnectorEnds__Vehicle___4012_pend1 ;
+    sysml:ownedRelatedElement expr:ConnectorEnds__Vehicle___4012_pend1_pchain ;
     json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___4012_pend1\"},{\"@id\":\"ConnectorEnds__Vehicle___4012_pend1_pchain\"}]" .
 
 elmt:ConnectorEnds__Vehicle___4013
@@ -1677,12 +1774,10 @@ expr:ConnectorEnds__Vehicle___4013_pend1
     sysml:owningRelationship expr:ConnectorEnds__Vehicle___4013_pend1_om ;
     sysml:owningMembership expr:ConnectorEnds__Vehicle___4013_pend1_om ;
     sysx:sourceText "tanks.main" ;
-    sysml:ownedRelationship expr:ConnectorEnds__Vehicle___4013_pend1_pchain_om, expr:ConnectorEnds__Vehicle___4013_pend1_prs ;
-    sysml:ownedMembership expr:ConnectorEnds__Vehicle___4013_pend1_pchain_om ;
     sysml:ownedReferenceSubsetting expr:ConnectorEnds__Vehicle___4013_pend1_prs ;
     sysml:ownedSubsetting expr:ConnectorEnds__Vehicle___4013_pend1_prs ;
     sysml:ownedSpecialization expr:ConnectorEnds__Vehicle___4013_pend1_prs ;
-    json:ownedRelationship "[{\"@id\":\"ConnectorEnds__Vehicle___4013_pend1_pchain_om\"},{\"@id\":\"ConnectorEnds__Vehicle___4013_pend1_prs\"}]" .
+    sysml:ownedRelationship expr:ConnectorEnds__Vehicle___4013_pend1_prs .
 
 expr:ConnectorEnds__Vehicle___4013_pend1_om
     a sysml:EndFeatureMembership ;
@@ -1697,21 +1792,38 @@ expr:ConnectorEnds__Vehicle___4013_pend1_om
 expr:ConnectorEnds__Vehicle___4013_pend1_pchain
     a sysml:Feature ;
     sysml:elementId "ConnectorEnds__Vehicle___4013_pend1_pchain" ;
+    sysml:ownedFeatureChaining expr:ConnectorEnds__Vehicle___4013_pend1_pchain_pfc0, expr:ConnectorEnds__Vehicle___4013_pend1_pchain_pfc1 ;
+    sysml:ownedRelationship expr:ConnectorEnds__Vehicle___4013_pend1_pchain_pfc0, expr:ConnectorEnds__Vehicle___4013_pend1_pchain_pfc1 ;
     sysml:chainingFeature elmt:ConnectorEnds__Vehicle__tanks, elmt:ConnectorEnds__Tank__main ;
+    sysml:owningRelationship expr:ConnectorEnds__Vehicle___4013_pend1_prs ;
     sysml:owner expr:ConnectorEnds__Vehicle___4013_pend1 ;
-    sysml:owningRelationship expr:ConnectorEnds__Vehicle___4013_pend1_pchain_om ;
-    sysml:owningMembership expr:ConnectorEnds__Vehicle___4013_pend1_pchain_om ;
+    json:ownedFeatureChaining "[{\"@id\":\"ConnectorEnds__Vehicle___4013_pend1_pchain_pfc0\"},{\"@id\":\"ConnectorEnds__Vehicle___4013_pend1_pchain_pfc1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"ConnectorEnds__Vehicle___4013_pend1_pchain_pfc0\"},{\"@id\":\"ConnectorEnds__Vehicle___4013_pend1_pchain_pfc1\"}]" ;
     json:chainingFeature "[{\"@id\":\"ConnectorEnds__Vehicle__tanks\"},{\"@id\":\"ConnectorEnds__Tank__main\"}]" .
 
-expr:ConnectorEnds__Vehicle___4013_pend1_pchain_om
-    a sysml:OwningMembership ;
-    sysml:elementId "ConnectorEnds__Vehicle___4013_pend1_pchain_om" ;
-    sysml:owner expr:ConnectorEnds__Vehicle___4013_pend1 ;
-    sysml:memberElement expr:ConnectorEnds__Vehicle___4013_pend1_pchain ;
-    sysml:ownedMemberElement expr:ConnectorEnds__Vehicle___4013_pend1_pchain ;
-    sysml:ownedRelatedElement expr:ConnectorEnds__Vehicle___4013_pend1_pchain ;
-    sysml:owningRelatedElement expr:ConnectorEnds__Vehicle___4013_pend1 ;
-    sysml:membershipOwningNamespace expr:ConnectorEnds__Vehicle___4013_pend1 .
+expr:ConnectorEnds__Vehicle___4013_pend1_pchain_pfc0
+    a sysml:FeatureChaining ;
+    sysml:elementId "ConnectorEnds__Vehicle___4013_pend1_pchain_pfc0" ;
+    sysml:featureChained expr:ConnectorEnds__Vehicle___4013_pend1_pchain ;
+    sysml:source expr:ConnectorEnds__Vehicle___4013_pend1_pchain ;
+    sysml:owningRelatedElement expr:ConnectorEnds__Vehicle___4013_pend1_pchain ;
+    sysml:chainingFeature elmt:ConnectorEnds__Vehicle__tanks ;
+    sysml:target elmt:ConnectorEnds__Vehicle__tanks ;
+    sysml:owner expr:ConnectorEnds__Vehicle___4013_pend1_pchain ;
+    sysml:relatedElement expr:ConnectorEnds__Vehicle___4013_pend1_pchain, elmt:ConnectorEnds__Vehicle__tanks ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___4013_pend1_pchain\"},{\"@id\":\"ConnectorEnds__Vehicle__tanks\"}]" .
+
+expr:ConnectorEnds__Vehicle___4013_pend1_pchain_pfc1
+    a sysml:FeatureChaining ;
+    sysml:elementId "ConnectorEnds__Vehicle___4013_pend1_pchain_pfc1" ;
+    sysml:featureChained expr:ConnectorEnds__Vehicle___4013_pend1_pchain ;
+    sysml:source expr:ConnectorEnds__Vehicle___4013_pend1_pchain ;
+    sysml:owningRelatedElement expr:ConnectorEnds__Vehicle___4013_pend1_pchain ;
+    sysml:chainingFeature elmt:ConnectorEnds__Tank__main ;
+    sysml:target elmt:ConnectorEnds__Tank__main ;
+    sysml:owner expr:ConnectorEnds__Vehicle___4013_pend1_pchain ;
+    sysml:relatedElement expr:ConnectorEnds__Vehicle___4013_pend1_pchain, elmt:ConnectorEnds__Tank__main ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___4013_pend1_pchain\"},{\"@id\":\"ConnectorEnds__Tank__main\"}]" .
 
 expr:ConnectorEnds__Vehicle___4013_pend1_prs
     a sysml:ReferenceSubsetting ;
@@ -1729,6 +1841,7 @@ expr:ConnectorEnds__Vehicle___4013_pend1_prs
     sysml:relatedElement expr:ConnectorEnds__Vehicle___4013_pend1, expr:ConnectorEnds__Vehicle___4013_pend1_pchain ;
     sysml:owner expr:ConnectorEnds__Vehicle___4013_pend1 ;
     sysml:owningRelatedElement expr:ConnectorEnds__Vehicle___4013_pend1 ;
+    sysml:ownedRelatedElement expr:ConnectorEnds__Vehicle___4013_pend1_pchain ;
     json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___4013_pend1\"},{\"@id\":\"ConnectorEnds__Vehicle___4013_pend1_pchain\"}]" .
 
 elmt:ConnectorEnds__Vehicle___4014
@@ -1820,12 +1933,10 @@ expr:ConnectorEnds__Vehicle___4014_pend1
     sysml:owningRelationship expr:ConnectorEnds__Vehicle___4014_pend1_om ;
     sysml:owningMembership expr:ConnectorEnds__Vehicle___4014_pend1_om ;
     sysx:sourceText "tanks.main" ;
-    sysml:ownedRelationship expr:ConnectorEnds__Vehicle___4014_pend1_pchain_om, expr:ConnectorEnds__Vehicle___4014_pend1_prs ;
-    sysml:ownedMembership expr:ConnectorEnds__Vehicle___4014_pend1_pchain_om ;
     sysml:ownedReferenceSubsetting expr:ConnectorEnds__Vehicle___4014_pend1_prs ;
     sysml:ownedSubsetting expr:ConnectorEnds__Vehicle___4014_pend1_prs ;
     sysml:ownedSpecialization expr:ConnectorEnds__Vehicle___4014_pend1_prs ;
-    json:ownedRelationship "[{\"@id\":\"ConnectorEnds__Vehicle___4014_pend1_pchain_om\"},{\"@id\":\"ConnectorEnds__Vehicle___4014_pend1_prs\"}]" .
+    sysml:ownedRelationship expr:ConnectorEnds__Vehicle___4014_pend1_prs .
 
 expr:ConnectorEnds__Vehicle___4014_pend1_om
     a sysml:EndFeatureMembership ;
@@ -1840,21 +1951,38 @@ expr:ConnectorEnds__Vehicle___4014_pend1_om
 expr:ConnectorEnds__Vehicle___4014_pend1_pchain
     a sysml:Feature ;
     sysml:elementId "ConnectorEnds__Vehicle___4014_pend1_pchain" ;
+    sysml:ownedFeatureChaining expr:ConnectorEnds__Vehicle___4014_pend1_pchain_pfc0, expr:ConnectorEnds__Vehicle___4014_pend1_pchain_pfc1 ;
+    sysml:ownedRelationship expr:ConnectorEnds__Vehicle___4014_pend1_pchain_pfc0, expr:ConnectorEnds__Vehicle___4014_pend1_pchain_pfc1 ;
     sysml:chainingFeature elmt:ConnectorEnds__Vehicle__tanks, elmt:ConnectorEnds__Tank__main ;
+    sysml:owningRelationship expr:ConnectorEnds__Vehicle___4014_pend1_prs ;
     sysml:owner expr:ConnectorEnds__Vehicle___4014_pend1 ;
-    sysml:owningRelationship expr:ConnectorEnds__Vehicle___4014_pend1_pchain_om ;
-    sysml:owningMembership expr:ConnectorEnds__Vehicle___4014_pend1_pchain_om ;
+    json:ownedFeatureChaining "[{\"@id\":\"ConnectorEnds__Vehicle___4014_pend1_pchain_pfc0\"},{\"@id\":\"ConnectorEnds__Vehicle___4014_pend1_pchain_pfc1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"ConnectorEnds__Vehicle___4014_pend1_pchain_pfc0\"},{\"@id\":\"ConnectorEnds__Vehicle___4014_pend1_pchain_pfc1\"}]" ;
     json:chainingFeature "[{\"@id\":\"ConnectorEnds__Vehicle__tanks\"},{\"@id\":\"ConnectorEnds__Tank__main\"}]" .
 
-expr:ConnectorEnds__Vehicle___4014_pend1_pchain_om
-    a sysml:OwningMembership ;
-    sysml:elementId "ConnectorEnds__Vehicle___4014_pend1_pchain_om" ;
-    sysml:owner expr:ConnectorEnds__Vehicle___4014_pend1 ;
-    sysml:memberElement expr:ConnectorEnds__Vehicle___4014_pend1_pchain ;
-    sysml:ownedMemberElement expr:ConnectorEnds__Vehicle___4014_pend1_pchain ;
-    sysml:ownedRelatedElement expr:ConnectorEnds__Vehicle___4014_pend1_pchain ;
-    sysml:owningRelatedElement expr:ConnectorEnds__Vehicle___4014_pend1 ;
-    sysml:membershipOwningNamespace expr:ConnectorEnds__Vehicle___4014_pend1 .
+expr:ConnectorEnds__Vehicle___4014_pend1_pchain_pfc0
+    a sysml:FeatureChaining ;
+    sysml:elementId "ConnectorEnds__Vehicle___4014_pend1_pchain_pfc0" ;
+    sysml:featureChained expr:ConnectorEnds__Vehicle___4014_pend1_pchain ;
+    sysml:source expr:ConnectorEnds__Vehicle___4014_pend1_pchain ;
+    sysml:owningRelatedElement expr:ConnectorEnds__Vehicle___4014_pend1_pchain ;
+    sysml:chainingFeature elmt:ConnectorEnds__Vehicle__tanks ;
+    sysml:target elmt:ConnectorEnds__Vehicle__tanks ;
+    sysml:owner expr:ConnectorEnds__Vehicle___4014_pend1_pchain ;
+    sysml:relatedElement expr:ConnectorEnds__Vehicle___4014_pend1_pchain, elmt:ConnectorEnds__Vehicle__tanks ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___4014_pend1_pchain\"},{\"@id\":\"ConnectorEnds__Vehicle__tanks\"}]" .
+
+expr:ConnectorEnds__Vehicle___4014_pend1_pchain_pfc1
+    a sysml:FeatureChaining ;
+    sysml:elementId "ConnectorEnds__Vehicle___4014_pend1_pchain_pfc1" ;
+    sysml:featureChained expr:ConnectorEnds__Vehicle___4014_pend1_pchain ;
+    sysml:source expr:ConnectorEnds__Vehicle___4014_pend1_pchain ;
+    sysml:owningRelatedElement expr:ConnectorEnds__Vehicle___4014_pend1_pchain ;
+    sysml:chainingFeature elmt:ConnectorEnds__Tank__main ;
+    sysml:target elmt:ConnectorEnds__Tank__main ;
+    sysml:owner expr:ConnectorEnds__Vehicle___4014_pend1_pchain ;
+    sysml:relatedElement expr:ConnectorEnds__Vehicle___4014_pend1_pchain, elmt:ConnectorEnds__Tank__main ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___4014_pend1_pchain\"},{\"@id\":\"ConnectorEnds__Tank__main\"}]" .
 
 expr:ConnectorEnds__Vehicle___4014_pend1_prs
     a sysml:ReferenceSubsetting ;
@@ -1872,6 +2000,7 @@ expr:ConnectorEnds__Vehicle___4014_pend1_prs
     sysml:relatedElement expr:ConnectorEnds__Vehicle___4014_pend1, expr:ConnectorEnds__Vehicle___4014_pend1_pchain ;
     sysml:owner expr:ConnectorEnds__Vehicle___4014_pend1 ;
     sysml:owningRelatedElement expr:ConnectorEnds__Vehicle___4014_pend1 ;
+    sysml:ownedRelatedElement expr:ConnectorEnds__Vehicle___4014_pend1_pchain ;
     json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___4014_pend1\"},{\"@id\":\"ConnectorEnds__Vehicle___4014_pend1_pchain\"}]" .
 
 elmt:ConnectorEnds__Vehicle___4015
@@ -1962,12 +2091,10 @@ expr:ConnectorEnds__Vehicle___4015_pend1
     sysml:owningRelationship expr:ConnectorEnds__Vehicle___4015_pend1_om ;
     sysml:owningMembership expr:ConnectorEnds__Vehicle___4015_pend1_om ;
     sysx:sourceText "tanks.main" ;
-    sysml:ownedRelationship expr:ConnectorEnds__Vehicle___4015_pend1_pchain_om, expr:ConnectorEnds__Vehicle___4015_pend1_prs ;
-    sysml:ownedMembership expr:ConnectorEnds__Vehicle___4015_pend1_pchain_om ;
     sysml:ownedReferenceSubsetting expr:ConnectorEnds__Vehicle___4015_pend1_prs ;
     sysml:ownedSubsetting expr:ConnectorEnds__Vehicle___4015_pend1_prs ;
     sysml:ownedSpecialization expr:ConnectorEnds__Vehicle___4015_pend1_prs ;
-    json:ownedRelationship "[{\"@id\":\"ConnectorEnds__Vehicle___4015_pend1_pchain_om\"},{\"@id\":\"ConnectorEnds__Vehicle___4015_pend1_prs\"}]" .
+    sysml:ownedRelationship expr:ConnectorEnds__Vehicle___4015_pend1_prs .
 
 expr:ConnectorEnds__Vehicle___4015_pend1_om
     a sysml:EndFeatureMembership ;
@@ -1982,21 +2109,38 @@ expr:ConnectorEnds__Vehicle___4015_pend1_om
 expr:ConnectorEnds__Vehicle___4015_pend1_pchain
     a sysml:Feature ;
     sysml:elementId "ConnectorEnds__Vehicle___4015_pend1_pchain" ;
+    sysml:ownedFeatureChaining expr:ConnectorEnds__Vehicle___4015_pend1_pchain_pfc0, expr:ConnectorEnds__Vehicle___4015_pend1_pchain_pfc1 ;
+    sysml:ownedRelationship expr:ConnectorEnds__Vehicle___4015_pend1_pchain_pfc0, expr:ConnectorEnds__Vehicle___4015_pend1_pchain_pfc1 ;
     sysml:chainingFeature elmt:ConnectorEnds__Vehicle__tanks, elmt:ConnectorEnds__Tank__main ;
+    sysml:owningRelationship expr:ConnectorEnds__Vehicle___4015_pend1_prs ;
     sysml:owner expr:ConnectorEnds__Vehicle___4015_pend1 ;
-    sysml:owningRelationship expr:ConnectorEnds__Vehicle___4015_pend1_pchain_om ;
-    sysml:owningMembership expr:ConnectorEnds__Vehicle___4015_pend1_pchain_om ;
+    json:ownedFeatureChaining "[{\"@id\":\"ConnectorEnds__Vehicle___4015_pend1_pchain_pfc0\"},{\"@id\":\"ConnectorEnds__Vehicle___4015_pend1_pchain_pfc1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"ConnectorEnds__Vehicle___4015_pend1_pchain_pfc0\"},{\"@id\":\"ConnectorEnds__Vehicle___4015_pend1_pchain_pfc1\"}]" ;
     json:chainingFeature "[{\"@id\":\"ConnectorEnds__Vehicle__tanks\"},{\"@id\":\"ConnectorEnds__Tank__main\"}]" .
 
-expr:ConnectorEnds__Vehicle___4015_pend1_pchain_om
-    a sysml:OwningMembership ;
-    sysml:elementId "ConnectorEnds__Vehicle___4015_pend1_pchain_om" ;
-    sysml:owner expr:ConnectorEnds__Vehicle___4015_pend1 ;
-    sysml:memberElement expr:ConnectorEnds__Vehicle___4015_pend1_pchain ;
-    sysml:ownedMemberElement expr:ConnectorEnds__Vehicle___4015_pend1_pchain ;
-    sysml:ownedRelatedElement expr:ConnectorEnds__Vehicle___4015_pend1_pchain ;
-    sysml:owningRelatedElement expr:ConnectorEnds__Vehicle___4015_pend1 ;
-    sysml:membershipOwningNamespace expr:ConnectorEnds__Vehicle___4015_pend1 .
+expr:ConnectorEnds__Vehicle___4015_pend1_pchain_pfc0
+    a sysml:FeatureChaining ;
+    sysml:elementId "ConnectorEnds__Vehicle___4015_pend1_pchain_pfc0" ;
+    sysml:featureChained expr:ConnectorEnds__Vehicle___4015_pend1_pchain ;
+    sysml:source expr:ConnectorEnds__Vehicle___4015_pend1_pchain ;
+    sysml:owningRelatedElement expr:ConnectorEnds__Vehicle___4015_pend1_pchain ;
+    sysml:chainingFeature elmt:ConnectorEnds__Vehicle__tanks ;
+    sysml:target elmt:ConnectorEnds__Vehicle__tanks ;
+    sysml:owner expr:ConnectorEnds__Vehicle___4015_pend1_pchain ;
+    sysml:relatedElement expr:ConnectorEnds__Vehicle___4015_pend1_pchain, elmt:ConnectorEnds__Vehicle__tanks ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___4015_pend1_pchain\"},{\"@id\":\"ConnectorEnds__Vehicle__tanks\"}]" .
+
+expr:ConnectorEnds__Vehicle___4015_pend1_pchain_pfc1
+    a sysml:FeatureChaining ;
+    sysml:elementId "ConnectorEnds__Vehicle___4015_pend1_pchain_pfc1" ;
+    sysml:featureChained expr:ConnectorEnds__Vehicle___4015_pend1_pchain ;
+    sysml:source expr:ConnectorEnds__Vehicle___4015_pend1_pchain ;
+    sysml:owningRelatedElement expr:ConnectorEnds__Vehicle___4015_pend1_pchain ;
+    sysml:chainingFeature elmt:ConnectorEnds__Tank__main ;
+    sysml:target elmt:ConnectorEnds__Tank__main ;
+    sysml:owner expr:ConnectorEnds__Vehicle___4015_pend1_pchain ;
+    sysml:relatedElement expr:ConnectorEnds__Vehicle___4015_pend1_pchain, elmt:ConnectorEnds__Tank__main ;
+    json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___4015_pend1_pchain\"},{\"@id\":\"ConnectorEnds__Tank__main\"}]" .
 
 expr:ConnectorEnds__Vehicle___4015_pend1_prs
     a sysml:ReferenceSubsetting ;
@@ -2014,6 +2158,7 @@ expr:ConnectorEnds__Vehicle___4015_pend1_prs
     sysml:relatedElement expr:ConnectorEnds__Vehicle___4015_pend1, expr:ConnectorEnds__Vehicle___4015_pend1_pchain ;
     sysml:owner expr:ConnectorEnds__Vehicle___4015_pend1 ;
     sysml:owningRelatedElement expr:ConnectorEnds__Vehicle___4015_pend1 ;
+    sysml:ownedRelatedElement expr:ConnectorEnds__Vehicle___4015_pend1_pchain ;
     json:relatedElement "[{\"@id\":\"ConnectorEnds__Vehicle___4015_pend1\"},{\"@id\":\"ConnectorEnds__Vehicle___4015_pend1_pchain\"}]" .
 
 expr:ConnectorEnds__Vehicle___4015_pend2

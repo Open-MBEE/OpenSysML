@@ -252,6 +252,15 @@ func loadRenderingModel(files []string) (*repl.Session, error) {
 			fmt.Fprintf(os.Stderr, "%s: materialization is bounded; not every feature value was materialized\n", name)
 		}
 	}
+	// The runs -record-run names are made and written into the model before a
+	// document is rendered, so its queries see the records.
+	for _, invocation := range modelChecks.records {
+		verdict := modelChecks.record(sess, invocation)
+		writeLines(os.Stderr, verdict.Lines)
+		if verdict.Status != repl.VerdictHolds {
+			return nil, fmt.Errorf("%s: the run was not recorded; nothing was rendered", invocation)
+		}
+	}
 	return sess, nil
 }
 

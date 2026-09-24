@@ -471,7 +471,6 @@ package 'Fleet Documents' {
         part Oddities : DocumentQueries::Section {
             attribute redefines title = "Oddities";
             /* not migrated: «Paragraph» CallBehaviorAction 'Evaluated Paragraph' — its body is evaluated as OCL, which no query evaluates */
-            /* not migrated: «Image» CallBehaviorAction 'Image' — it shows no diagram: only a diagram the view exposes or the node targets directly has a view to show */
             /* not migrated: «TableStructure» StructuredActivityNode 'Type Table' — the elements it shows pass through «CollectOwnedElements» Fleet Viewpoints::Oddities Viewpoint::Oddities Method::Collect Owned Elements is not migrated: the depth "many" is not a whole number */
             part 'Per Truck' : DocumentQueries::Section {
                 attribute redefines title = "Per Truck";
@@ -524,6 +523,7 @@ package 'Fleet Documents' {
     }
     part def 'Fleet Brief Document' :> DocumentQueries::Document {
         attribute redefines title = "Fleet Brief";
+        ref 'parts Method' : 'Fleet Viewpoints'::'Parts Viewpoint'::'Parts Method';
         ref truck : $::Fleet::Structure::Truck;
         part Figures : DocumentQueries::Section {
             attribute redefines title = "Figures";
@@ -544,12 +544,15 @@ package 'Fleet Documents' {
             part paragraph : DocumentQueries::Paragraph {
                 attribute redefines text = "The truck and what it hauls";
             }
-            /* not migrated: «Image» CallBehaviorAction 'Image' — the SysML Activity Diagram 'Parts Method Flow' is a view rendered as textual notation, which a document does not draw */
             part 'diagram 2' : DocumentQueries::Diagram {
+                attribute redefines caption = "Parts Method Flow";
+                ref redefines source = 'parts Method'.'Parts Method Flow';
+            }
+            part 'diagram 3' : DocumentQueries::Diagram {
                 attribute redefines caption = "Truck Internals";
                 ref redefines source = truck.'Truck Internals';
             }
-            part 'diagram 3' : DocumentQueries::Diagram {
+            part 'diagram 4' : DocumentQueries::Diagram {
                 attribute redefines caption = "Fleet Overview";
                 ref redefines source = 'Fleet Views'::Fleet.'Fleet Overview';
             }

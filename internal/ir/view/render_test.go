@@ -3,6 +3,7 @@ package view
 import (
 	"errors"
 	"flag"
+	"fmt"
 	"maps"
 	"os"
 	"path/filepath"
@@ -678,6 +679,24 @@ func TestMermaidLabelsAreEscaped(t *testing.T) {
 	}
 }
 
+// A state transition's label follows an unquoted colon, where Mermaid reads
+// `::` as its class marker: a qualified trigger is written with entity colons.
+func TestMermaidTransitionLabelsEscapeColons(t *testing.T) {
+	rendering := &Rendering{View: "V", Kind: KindState,
+		Roots: []*Node{{ID: "a", Kind: "state", Name: "idle"}, {ID: "b", Kind: "state", Name: "busy"}},
+		Edges: []Edge{{From: "a", To: "b", Label: "accept Signals::'Go Now'; [x : T]"}}}
+	mermaid := rendering.Mermaid()
+	want := "  a --> b : accept Signals#58;#58;'Go Now'#59; [x #58; T]\n"
+	if !strings.Contains(mermaid, want) {
+		t.Errorf("Mermaid lacks %q:\n%s", want, mermaid)
+	}
+	for _, line := range strings.Split(mermaid, "\n") {
+		if _, label, ok := strings.Cut(line, " : "); ok && strings.Contains(label, "::") {
+			t.Errorf("transition label carries a bare `::`: %q", line)
+		}
+	}
+}
+
 // nodeNames collects the names of a rendering's nodes, at every depth.
 func nodeNames(nodes []*Node) map[string]bool {
 	out := map[string]bool{}
@@ -728,4 +747,90 @@ func checkGolden(t *testing.T, path, got string) {
 	if got != string(want) {
 		t.Errorf("%s differs\n--- want ---\n%s\n--- got ---\n%s", path, want, got)
 	}
+}
+
+// TestMermaidLimits checks the limits every chart fits under are sized to the
+// largest, not fixed at Mermaid's defaults, so no chart of a model under the
+// ceilings is refused, and never raised past the ceilings.
+func TestMermaidLimits(t *testing.T) {
+	small := "flowchart LR\n  a --> b"
+	large := "flowchart LR\n" + strings.Repeat("  n --> n\n", 1000) + strings.Repeat("x", 60000)
+	textSize, edges := MermaidLimits(small)
+	if textSize <= len(small) || textSize > 100 || edges <= 1 || edges > 10 {
+		t.Errorf("a two-line chart gets limits %d, %d, not ones sized to it", textSize, edges)
+	}
+	textSize, edges = MermaidLimits(small, large, small)
+	if textSize <= len(large) || edges <= 1000 {
+		t.Errorf("limits %d, %d do not fit a chart of %d bytes and 1000 edges", textSize, edges, len(large))
+	}
+	if !MermaidFits(small) || !MermaidFits(large) {
+		t.Errorf("a chart under the ceilings does not fit")
+	}
+	if textSize, edges = MermaidLimits(); textSize != 0 || edges != 0 {
+		t.Errorf("no chart gets limits %d, %d", textSize, edges)
+	}
+	manyEdges := "flowchart LR\n" + strings.Repeat("  n --> n\n", MermaidEdgeCeiling)
+	longText := "flowchart LR\n  a[\"" + strings.Repeat("x", MermaidTextCeiling) + "\"]"
+	if MermaidFits(manyEdges) || MermaidFits(longText) {
+		t.Errorf("a chart past a ceiling fits")
+	}
+	if textSize, edges = MermaidLimits(manyEdges, longText); textSize != MermaidTextCeiling || edges != MermaidEdgeCeiling {
+		t.Errorf("limits %d, %d are raised past the ceilings %d, %d", textSize, edges, MermaidTextCeiling, MermaidEdgeCeiling)
+	}
+}
+
+// TestMermaidSizeCountsEdges checks a chart's edge count is the edges it
+// declares, not its lines: a chart of many nodes, comments and labels spelling
+// an arrow fits under the edge ceiling, and a rendering of each kind is sized
+// to the edges it draws.
+func TestMermaidSizeCountsEdges(t *testing.T) {
+	var b strings.Builder
+	b.WriteString("---\nconfig:\n  flowchart:\n    subGraphTitleMargin:\n      bottom: 24\n---\n")
+	b.WriteString("%% a --> b is not an edge in a comment\nflowchart TD\n  subgraph s [\"a ->> b\"]\n    direction TD\n")
+	for i := 0; i < MermaidEdgeCeiling; i++ {
+		fmt.Fprintf(&b, "    n%d[\"n%d --> n%d\"]\n", i, i, i+1)
+	}
+	b.WriteString("  end\n  n0 --> n1\n  n1 ---|\"a --- b\"| n2\n")
+	if textSize, edges := MermaidSize(b.String()); edges != 3 || textSize != b.Len()+1 {
+		t.Errorf("a chart of two edges and %d node lines is sized %d characters, %d edges", MermaidEdgeCeiling, textSize, edges)
+	}
+	if !MermaidFits(b.String()) {
+		t.Errorf("a chart of two edges does not fit for its node lines")
+	}
+	if _, edges := MermaidSize("sequenceDiagram\n  participant a as a-#gt;#gt;b\n  a->>b: x\n  b->>a:"); edges != 3 {
+		t.Errorf("a sequence diagram of two messages is sized %d edges", edges)
+	}
+	if _, edges := MermaidSize("stateDiagram-v2\n  state \"a --> b\" as a\n  [*] --> a\n  a --> b : go --> now"); edges != 3 {
+		t.Errorf("a state diagram of two transitions is sized %d edges", edges)
+	}
+	for _, tc := range []struct{ file, view string }{
+		{"tree.sysml", "VehicleViews::vehicleView"},
+		{"interconnection.sysml", "PlantViews::loopView"},
+		{"state-entry.sysml", "MachineViews::thermostat"},
+		{"action.sysml", "FlowViews::driveView"},
+		{"sequence-vehicle.sysml", "VehicleSequenceViews::startVehicleView"},
+	} {
+		rendering := render(t, tc.file, tc.view)
+		drawn := len(rendering.Edges)
+		if rendering.Kind == KindTree {
+			for _, root := range rendering.Roots {
+				drawn += containmentEdges(root)
+			}
+		}
+		if drawn == 0 {
+			t.Errorf("%s draws no edge", tc.view)
+		}
+		if _, edges := MermaidSize(rendering.Mermaid()); edges != drawn+1 {
+			t.Errorf("%s draws %d edges and is sized %d, want one past the edges:\n%s", tc.view, drawn, edges, rendering.Mermaid())
+		}
+	}
+}
+
+// containmentEdges counts the edges a tree draws from node down to what it contains.
+func containmentEdges(node *Node) int {
+	n := len(node.Children)
+	for _, child := range node.Children {
+		n += containmentEdges(child)
+	}
+	return n
 }

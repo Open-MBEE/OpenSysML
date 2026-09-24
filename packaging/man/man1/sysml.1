@@ -60,6 +60,15 @@ Invoke this calculation and report its result, as \-calc "Fall(3, 4)"
 Run this analysis or verification case and report its outputs and verdict, as
 \-analysis "Pkg::Case(3.0) Pkg::part" (repeatable)
 .TP
+.BR \-record\-run " \fIcall\fP"
+Run this analysis case as \-analysis does and record the run into the model as
+AnalysisRecords elements, one record per \-sweep value or \-runs run
+(repeatable)
+.TP
+.BR \-record\-into " \fIpackage\fP"
+Record \-record\-run runs into this package instead of a Records package
+beside the case's
+.TP
 .BR \-run\-query " \fIquery\fP"
 Execute this document query and report its rows, as \-run\-query "Heavy
 root=telescope" (repeatable)
@@ -244,6 +253,11 @@ for \-render\-all
 Palette the dot or plantuml form fills nodes from, by keyword family:
 okabe\-ito, tol\-bright, tol\-muted, tol\-light, brewer\-set2, brewer\-dark2,
 viridis or cividis; default black and white
+.TP
+.BR \-render\-unplaced " \fIplacement\fP"
+Where the dot form of a view some Layout positions puts the nodes none does:
+omit (default) leaves them undrawn, strip draws them in rows below the
+drawing; applies to \-render, \-render\-all and document diagrams
 .SS Rendering documents
 .TP
 .BR \-render\-document " \fIname\fP"
@@ -742,6 +756,9 @@ sysml model.sysml \-render Views::vehicleView \-o view.mmd
 sysml model.sysml \-render Views::vehicleView \-render\-form dot
 sysml model.sysml \-render Views::vehicleView \-render\-form dot \e
     \-render\-palette okabe\-ito
+# unpositioned nodes in a strip below
+sysml model.sysml \-render Views::vehicleView \-render\-form dot \e
+    \-render\-unplaced strip
 sysml model.sysml \-render Views::vehicleView \-render\-form plantuml \-o \e
     view.puml
 # several files, loaded as one model
@@ -767,7 +784,12 @@ neither Graphviz nor PlantUML is needed to write them. Both are drawn in the
 black\-and\-white style of the SysML v2 Pilot visualizer; \-render\-palette
 fills their nodes by keyword family from a colourblind\-safe palette
 (okabe\-ito, tol\-bright, tol\-muted, tol\-light, brewer\-set2, brewer\-dark2,
-viridis or cividis), keeping black text legible on every fill.
+viridis or cividis), keeping black text legible on every fill. A DOT drawing
+of a view whose members carry DiagramLayout positions pins each at its stated
+place and leaves a member with no position undrawn, so nothing lands on a
+positioned box; \-render\-unplaced strip draws those members instead, in rows
+in a strip below the drawing. The same setting shapes the DOT diagrams of
+\-render\-document and \-render\-documents.
 .SH RENDERING A DOCUMENT
 .RS 2
 .nf

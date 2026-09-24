@@ -99,11 +99,17 @@ func (s *Session) doAnalysis(tail string) ([]string, bool, error) {
 // after evaluating some of what it declares reports those evaluations and the
 // verdicts left undecided beneath the error.
 func (s *Session) analysisVerdict(inv analysisInvocation) Verdict {
+	run, err := s.runAnalysis(inv)
+	return s.caseVerdict(inv, run, err)
+}
+
+// caseVerdict reports a run of the case inv names, run already made; err is the
+// error the run ended with, nil when it completed.
+func (s *Session) caseVerdict(inv analysisInvocation, run caseRun, err error) Verdict {
 	label := inv.name
 	if inv.argText != "" {
 		label += "(" + strings.TrimSpace(inv.argText) + ")"
 	}
-	run, err := s.runAnalysis(inv)
 	if err != nil {
 		verdict := unresolvedVerdict(label, err.Error())
 		s.reportCaseRun(&verdict, run.result)

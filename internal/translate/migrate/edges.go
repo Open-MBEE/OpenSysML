@@ -361,9 +361,16 @@ var graphDefinitions = []struct {
 // applies, else a behavior diagram's graph when its owner is written as that graph's kind and
 // the diagram shows some node or edge of it; a diagram showing none of the graph stays textual.
 func (m *migration) formOf(d *sysmlv1.Diagram) viewForm {
+	f, _ := m.form(d)
+	return f
+}
+
+// form is formOf with, for a diagram drawn as textual notation although its kind
+// has a graph or sequence rendering, why that rendering does not draw it.
+func (m *migration) form(d *sysmlv1.Diagram) (viewForm, string) {
 	f := viewForm{rendering: rendering(d)}
 	if f.rendering != textualRendering {
-		return f
+		return f, ""
 	}
 	kind := strings.ToLower(d.Kind + " / " + d.UMLKind)
 	for _, g := range graphDefinitions {
@@ -372,13 +379,49 @@ func (m *migration) formOf(d *sysmlv1.Diagram) viewForm {
 				continue
 			}
 			graph := viewForm{rendering: interconnectionRendering, definition: g.definition}
-			if graph.subject = m.graphSubject(d.Owner, graph); graph.subject != nil && m.showsGraph(d, graph) {
-				return graph
+			graph.subject = m.graphSubject(d.Owner, graph)
+			view, kind := graphNames(g.definition)
+			switch {
+			case graph.subject == nil && d.Owner == nil:
+				return f, "it has no owner, and " + view + " draws only the graph of " + kind
+			case graph.subject == nil:
+				return f, "its owner " + kindOf(d.Owner) + " " + qualifiedName(d.Owner) + " is not written as " + kind + ", whose graph " + view + " draws"
+			case !m.showsGraph(d, graph):
+				return f, "it shows no node or edge of " + m.hostName(m.bodyOf(graph.subject)) + ", whose graph " + view + " draws"
 			}
-			return f
+			return graph, ""
 		}
 	}
-	return f
+	if strings.Contains(kind, "sequence diagram") {
+		return f, m.sequenceNote(d.Owner)
+	}
+	return f, ""
+}
+
+// sequenceNote says why a sequence diagram is not drawn as a SequenceView, which draws
+// the message flows between the events of occurrence parts: a migrated interaction is a
+// scenario of send, accept and call steps, which declares none, or has no v2 form at all.
+func (m *migration) sequenceNote(owner *sysmlv1.Element) string {
+	const draws = "a SequenceView draws the message flows between the events of occurrence parts"
+	for cur := owner; cur != nil; cur = cur.Parent {
+		if cur.Type != "Interaction" {
+			continue
+		}
+		if note := m.interactionNote(cur); note != "" {
+			return "its Interaction " + qualifiedName(cur) + " has no v2 form: " + note
+		}
+		return "its Interaction " + qualifiedName(cur) + " is written as a scenario of send, accept and call steps, and " + draws + ", which a scenario does not declare"
+	}
+	return draws + ", and no Interaction owns the diagram"
+}
+
+// graphNames names, article included, a standard view definition and the
+// definition kind whose graph it draws.
+func graphNames(definition string) (view, kind string) {
+	if definition == "StateTransitionView" {
+		return "a StateTransitionView", "a state def"
+	}
+	return "an ActionFlowView", "an action def"
 }
 
 // drawsEdge reports whether the form draws a member declared by keyword as an
