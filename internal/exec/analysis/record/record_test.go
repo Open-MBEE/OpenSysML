@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -228,6 +229,77 @@ func TestGenerateErrors(t *testing.T) {
 	}}
 	if _, err := Generate(req); err == nil {
 		t.Error("existing ref member fed an attribute value: want an error")
+	}
+	dose := runtime.NewQuantityValue(&runtime.Quantity{
+		Num:  semantics.Value{Kind: semantics.ValReal, Real: 1.5},
+		Unit: semantics.Unit{Text: "kg"},
+	})
+	req = base()
+	req.Runs = []Run{{Outputs: []runtime.CalcOutputValue{
+		{Name: "dose", Value: dose},
+		{Name: "doseUnit", Value: real(1)},
+	}}}
+	if _, err := Generate(req); err == nil {
+		t.Error("a member named as a quantity's unit companion: want an error")
+	}
+	req = base()
+	req.Runs = []Run{{Outputs: []runtime.CalcOutputValue{
+		{Name: "doseUnit", Value: real(1)},
+		{Name: "dose", Value: dose},
+	}}}
+	if _, err := Generate(req); err == nil {
+		t.Error("a quantity whose unit companion names a member: want an error")
+	}
+}
+
+// A member unset in one run takes the type the settled run gives it, wherever
+// it sits among the members the definition declares.
+func TestGenerateSettlesAnUnsetMember(t *testing.T) {
+	res, err := Generate(Request{
+		Package: "Records", Case: "P::check", Provenance: provenance(KindSweep), Spell: spell(),
+		Runs: []Run{
+			{Iteration: 1, Outputs: []runtime.CalcOutputValue{
+				{Name: "x", Value: runtime.Value{Kind: runtime.ValNull}},
+				{Name: "a", Value: real(1)},
+				{Name: "b", Value: real(2)},
+				{Name: "c", Value: real(3)},
+			}},
+			{Iteration: 2, Outputs: []runtime.CalcOutputValue{
+				{Name: "x", Value: real(3.0)},
+				{Name: "a", Value: real(1)},
+				{Name: "b", Value: real(2)},
+				{Name: "c", Value: real(3)},
+			}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	for _, want := range []string{"attribute x : ScalarValues::Real;", "attribute :>> x = 3.0;"} {
+		if !strings.Contains(res.Source, want) {
+			t.Errorf("generated source is missing %q:\n%s", want, res.Source)
+		}
+	}
+}
+
+// Infinity has no literal of a typed attribute: it records as a string.
+func TestGenerateInfinityValue(t *testing.T) {
+	res, err := Generate(Request{
+		Package: "Records", Case: "P::check", Provenance: provenance(KindRun), Spell: spell(),
+		Runs: []Run{{Outputs: []runtime.CalcOutputValue{
+			{Name: "value", Value: runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValInfinity}}},
+		}}},
+	})
+	if err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	for _, want := range []string{"attribute value : ScalarValues::String;", `attribute :>> value = "*";`} {
+		if !strings.Contains(res.Source, want) {
+			t.Errorf("generated source is missing %q:\n%s", want, res.Source)
+		}
+	}
+	if _, err := format.Source("<test>", []byte(res.Source), format.DefaultOptions); err != nil {
+		t.Errorf("generated source does not parse: %v", err)
 	}
 }
 

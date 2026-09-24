@@ -173,7 +173,6 @@ const (
 	kindString
 	kindEnum
 	kindQuantity
-	kindScalarValue
 )
 
 // shape is how a value is recorded: its feature kind, the literal spelling,
@@ -194,7 +193,12 @@ func classify(v runtime.Value, req *Request) shape {
 	case runtime.ValNull:
 		return shape{kind: kindUnset}
 	case runtime.ValConst:
-		return shape{kind: constKind(v.Const.Kind), typ: constType(v.Const.Kind), literal: semantics.FormatConst(v.Const)}
+		if kind, typ, ok := constScalar(v.Const.Kind); ok {
+			return shape{kind: kind, typ: typ, literal: semantics.FormatConst(v.Const)}
+		}
+		// A constant without a literal spelling, Infinity included, is
+		// recorded as a string of its text.
+		return shape{kind: kindString, typ: "ScalarValues::String", literal: source.StringText(semantics.FormatConst(v.Const))}
 	case runtime.ValString:
 		return shape{kind: kindString, typ: "ScalarValues::String", literal: source.StringText(v.Str())}
 	case runtime.ValEnumLiteral:
@@ -217,31 +221,19 @@ func classify(v runtime.Value, req *Request) shape {
 	return shape{kind: kindString, typ: "ScalarValues::String", literal: source.StringText(spellText(v, req))}
 }
 
-// constKind maps a scalar constant's kind to its feature kind.
-func constKind(k semantics.ValueKind) valueKind {
+// constScalar is the feature kind and ScalarValues type a scalar literal's
+// kind is recorded under; a constant without a literal spelling, Infinity
+// included, has none and is recorded as a string.
+func constScalar(k semantics.ValueKind) (valueKind, string, bool) {
 	switch k {
 	case semantics.ValInt:
-		return kindInteger
+		return kindInteger, "ScalarValues::Integer", true
 	case semantics.ValReal:
-		return kindReal
+		return kindReal, "ScalarValues::Real", true
 	case semantics.ValBool:
-		return kindBoolean
+		return kindBoolean, "ScalarValues::Boolean", true
 	}
-	return kindScalarValue
-}
-
-// constType is the ScalarValues type a scalar constant's kind is recorded under;
-// anything without a literal spelling, Infinity included, falls back to text.
-func constType(k semantics.ValueKind) string {
-	switch k {
-	case semantics.ValInt:
-		return "ScalarValues::Integer"
-	case semantics.ValReal:
-		return "ScalarValues::Real"
-	case semantics.ValBool:
-		return "ScalarValues::Boolean"
-	}
-	return "ScalarValues::String"
+	return 0, "", false
 }
 
 // spellText is a value's text for the string features, Text when supplied and
@@ -314,30 +306,40 @@ func members(r Run) []struct {
 // value, and a unit companion after each quantity.
 func buildFeatures(req *Request) ([]feature, error) {
 	var feats []feature
-	byName := map[string]*feature{}
+	byName := map[string]int{}
+	// companions maps a quantity's unit companion name to its member's, so a
+	// real member taking that name — written before or after the quantity —
+	// is the collision it is.
+	companions := map[string]string{}
 	for i := range req.Runs {
 		for _, m := range members(req.Runs[i]) {
 			if reservedFeatures[m.name] {
 				return nil, fmt.Errorf("case %s: parameter %q shares a name with a feature of AnalysisRecords::AnalysisRun", req.Case, m.name)
 			}
 			sh := classify(m.value, req)
-			if f, ok := byName[m.name]; ok {
+			if q, ok := companions[m.name]; ok {
+				return nil, fmt.Errorf("case %s: member %q collides with the unit companion of quantity %q", req.Case, m.name, q)
+			}
+			if j, ok := byName[m.name]; ok {
 				if sh.kind == kindUnset {
 					continue
 				}
-				if err := compatible(f, sh); err != nil {
+				if err := compatible(&feats[j], sh); err != nil {
 					return nil, fmt.Errorf("case %s: member %q: %w", req.Case, m.name, err)
 				}
 				continue
 			}
-			f := feature{name: m.name}
-			applyShape(&f, sh)
-			feats = append(feats, f)
-			byName[m.name] = &feats[len(feats)-1]
+			feats = append(feats, feature{name: m.name})
+			byName[m.name] = len(feats) - 1
+			applyShape(&feats[len(feats)-1], sh)
 			if sh.kind == kindQuantity {
-				unit := feature{name: m.name + "Unit", typ: "ScalarValues::String", unitOf: m.name}
-				feats = append(feats, unit)
-				byName[unit.name] = &feats[len(feats)-1]
+				unitName := m.name + "Unit"
+				if _, taken := byName[unitName]; taken {
+					return nil, fmt.Errorf("case %s: member %q collides with the unit companion of quantity %q", req.Case, unitName, m.name)
+				}
+				feats = append(feats, feature{name: unitName, typ: "ScalarValues::String", unitOf: m.name})
+				byName[unitName] = len(feats) - 1
+				companions[unitName] = m.name
 			}
 		}
 	}
@@ -355,16 +357,10 @@ func applyShape(f *feature, sh shape) {
 	default:
 		f.typ = source.QualifiedNameText(sh.typ)
 	}
-	if sh.kind == kindScalarValue {
-		f.typ = "ScalarValues::String"
-	}
 }
 
 // compatible checks a later run's value against the shape a feature took.
 func compatible(f *feature, sh shape) error {
-	if sh.kind == kindScalarValue {
-		sh.kind = kindString
-	}
 	switch {
 	case f.ref && sh.kind != kindRef:
 		return fmt.Errorf("an object value cannot be recorded in the value member")
@@ -561,10 +557,7 @@ func writeRecord(src *strings.Builder, depth int, name, defName string, feats []
 	}
 	for _, m := range members(*r) {
 		sh := classify(m.value, req)
-		if sh.kind == kindUnset || sh.kind == kindScalarValue {
-			if sh.kind != kindUnset {
-				writeFeature(src, depth+1, m.name, sh.literal)
-			}
+		if sh.kind == kindUnset {
 			continue
 		}
 		writeIndent(src, depth+1)
