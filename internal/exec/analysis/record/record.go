@@ -72,6 +72,10 @@ type Run struct {
 
 	// Evaluations are the calc applications the run made.
 	Evaluations []runtime.AnalysisEvaluation
+
+	// Spell renders the run's values for the text it cannot supply itself, in
+	// the context it was made in — a sweep's rows each carry their own.
+	Spell Spelling
 }
 
 // Spelling renders a run's values for the text it cannot supply itself.
@@ -107,8 +111,8 @@ type Existing struct {
 	// Attributes are the features the existing definition declares, by name.
 	Attributes map[string]Feature
 
-	// NextRun is the first N for which <case>_runN is free (1-based).
-	NextRun int
+	// Taken are the N for which <case>_runN is already declared in the package.
+	Taken map[int]bool
 }
 
 // Request is one call to Generate.
@@ -128,9 +132,6 @@ type Request struct {
 
 	// Existing is what the target package already holds.
 	Existing Existing
-
-	// Spell renders the values the records cannot spell themselves.
-	Spell Spelling
 }
 
 // Result is what Generate made.
@@ -185,8 +186,8 @@ type shape struct {
 }
 
 // classify decides the feature shape a value asks for.
-func classify(v runtime.Value, req *Request) shape {
-	if req.Spell.Unset != nil && req.Spell.Unset(v) {
+func classify(v runtime.Value, r *Run) shape {
+	if r.Spell.Unset != nil && r.Spell.Unset(v) {
 		return shape{kind: kindUnset}
 	}
 	switch v.Kind {
@@ -210,15 +211,15 @@ func classify(v runtime.Value, req *Request) shape {
 		q := v.Quantity()
 		return shape{kind: kindQuantity, typ: "ScalarValues::Real", literal: semantics.FormatConst(q.Num), unit: q.Unit.String()}
 	case runtime.ValInstance, runtime.ValVariant:
-		if req.Spell.ObjectUsage != nil {
-			if usage := req.Spell.ObjectUsage(v); usage != "" {
+		if r.Spell.ObjectUsage != nil {
+			if usage := r.Spell.ObjectUsage(v); usage != "" {
 				return shape{kind: kindRef, literal: source.QualifiedNameText(usage)}
 			}
 		}
 	}
 	// Everything else — a structured value, or an object naming no usage — is
 	// recorded by its text.
-	return shape{kind: kindString, typ: "ScalarValues::String", literal: source.StringText(spellText(v, req))}
+	return shape{kind: kindString, typ: "ScalarValues::String", literal: source.StringText(spellText(v, r))}
 }
 
 // constScalar is the feature kind and ScalarValues type a scalar literal's
@@ -238,9 +239,9 @@ func constScalar(k semantics.ValueKind) (valueKind, string, bool) {
 
 // spellText is a value's text for the string features, Text when supplied and
 // the runtime's own formatting otherwise.
-func spellText(v runtime.Value, req *Request) string {
-	if req.Spell.Text != nil {
-		return req.Spell.Text(v)
+func spellText(v runtime.Value, r *Run) string {
+	if r.Spell.Text != nil {
+		return r.Spell.Text(v)
 	}
 	return runtime.FormatValue(v)
 }
@@ -302,44 +303,56 @@ func members(r Run) []struct {
 }
 
 // buildFeatures decides the members the record definition needs: every
-// distinct member name in order, its shape from the first run supplying a
-// value, and a unit companion after each quantity.
+// distinct member name in first-encounter order, its shape settled from the
+// runs that supply it a value, and a unit companion after each quantity.
 func buildFeatures(req *Request) ([]feature, error) {
-	var feats []feature
-	byName := map[string]int{}
-	// companions maps each unit companion name to its quantity member, so a
-	// real member taking that name in either order is caught as a collision.
-	companions := map[string]string{}
+	// First pass: settle each member's shape over every run that supplies it.
+	var names []string
+	shapes := map[string]shape{}
 	for i := range req.Runs {
 		for _, m := range members(req.Runs[i]) {
 			if reservedFeatures[m.name] {
 				return nil, fmt.Errorf("case %s: parameter %q shares a name with a feature of AnalysisRecords::AnalysisRun", req.Case, m.name)
 			}
-			sh := classify(m.value, req)
-			if q, ok := companions[m.name]; ok {
-				return nil, fmt.Errorf("case %s: member %q collides with the unit companion of quantity %q", req.Case, m.name, q)
-			}
-			if j, ok := byName[m.name]; ok {
-				if sh.kind == kindUnset {
-					continue
-				}
-				if err := compatible(&feats[j], sh); err != nil {
-					return nil, fmt.Errorf("case %s: member %q: %w", req.Case, m.name, err)
-				}
+			sh := classify(m.value, &req.Runs[i])
+			cur, seen := shapes[m.name]
+			if !seen {
+				names = append(names, m.name)
+				shapes[m.name] = sh
 				continue
 			}
-			feats = append(feats, feature{name: m.name})
-			byName[m.name] = len(feats) - 1
-			applyShape(&feats[len(feats)-1], sh)
-			if sh.kind == kindQuantity {
-				unitName := m.name + "Unit"
-				if _, taken := byName[unitName]; taken {
-					return nil, fmt.Errorf("case %s: member %q collides with the unit companion of quantity %q", req.Case, unitName, m.name)
-				}
-				feats = append(feats, feature{name: unitName, typ: "ScalarValues::String", unitOf: m.name})
-				byName[unitName] = len(feats) - 1
-				companions[unitName] = m.name
+			if sh.kind == kindUnset {
+				continue
 			}
+			if cur.kind == kindUnset {
+				shapes[m.name] = sh
+				continue
+			}
+			f := feature{name: m.name}
+			applyShape(&f, cur)
+			if err := compatible(&f, sh); err != nil {
+				return nil, fmt.Errorf("case %s: member %q: %w", req.Case, m.name, err)
+			}
+		}
+	}
+	// Second pass: emit the features, each quantity's unit companion after it;
+	// a member named for one is a collision whatever order they met in.
+	units := map[string]string{}
+	for _, name := range names {
+		if shapes[name].kind == kindQuantity {
+			units[name+"Unit"] = name
+		}
+	}
+	var feats []feature
+	for _, name := range names {
+		if q, ok := units[name]; ok {
+			return nil, fmt.Errorf("case %s: member %q collides with the unit companion of quantity %q", req.Case, name, q)
+		}
+		f := feature{name: name}
+		applyShape(&f, shapes[name])
+		feats = append(feats, f)
+		if shapes[name].kind == kindQuantity {
+			feats = append(feats, feature{name: name + "Unit", typ: "ScalarValues::String", unitOf: name})
 		}
 	}
 	return feats, nil
@@ -427,12 +440,19 @@ func Generate(req Request) (Result, error) {
 	if !req.Existing.Definition {
 		writeDefinition(&src, depth, defName, feats)
 	}
-	next := req.Existing.NextRun
-	if next < 1 {
-		next = 1
+	// Number each record the smallest free N, the package's taken numbers and
+	// this batch's both skipped.
+	taken := map[int]bool{}
+	for n := range req.Existing.Taken {
+		taken[n] = true
 	}
+	next := 1
 	for i := range req.Runs {
-		name := shortName(req.Case) + "_run" + fmt.Sprint(next+i)
+		for taken[next] {
+			next++
+		}
+		name := shortName(req.Case) + "_run" + fmt.Sprint(next)
+		taken[next] = true
 		recordNames[i] = name
 		writeRecord(&src, depth, name, defName, feats, &req.Runs[i], &req)
 	}
@@ -555,7 +575,7 @@ func writeRecord(src *strings.Builder, depth int, name, defName string, feats []
 		shapeByName[f.name] = f
 	}
 	for _, m := range members(*r) {
-		sh := classify(m.value, req)
+		sh := classify(m.value, r)
 		if sh.kind == kindUnset {
 			continue
 		}
@@ -578,7 +598,7 @@ func writeRecord(src *strings.Builder, depth int, name, defName string, feats []
 		writeVerdict(src, depth+1, i+1, v)
 	}
 	for i, e := range r.Evaluations {
-		writeEvaluation(src, depth+1, i+1, e, req)
+		writeEvaluation(src, depth+1, i+1, e, r)
 	}
 
 	writeIndent(src, depth)
@@ -624,20 +644,20 @@ func writeVerdict(src *strings.Builder, depth, n int, v runtime.AnalysisVerdict)
 }
 
 // writeEvaluation writes one evaluation record part.
-func writeEvaluation(src *strings.Builder, depth, n int, e runtime.AnalysisEvaluation, req *Request) {
+func writeEvaluation(src *strings.Builder, depth, n int, e runtime.AnalysisEvaluation, r *Run) {
 	writeIndent(src, depth)
 	src.WriteString(fmt.Sprintf("part evaluation%d : AnalysisRecords::EvaluationRecord :> evaluations {\n", n))
 	writeFeature(src, depth+1, "function", source.StringText(e.Function))
 	var args []string
 	for _, a := range e.Arguments {
-		args = append(args, spellText(a, req))
+		args = append(args, spellText(a, r))
 	}
 	writeFeature(src, depth+1, "alternative", source.StringText(strings.Join(args, ", ")))
-	if sh := classify(e.Result, req); sh.kind == kindInteger || sh.kind == kindReal || sh.kind == kindQuantity {
+	if sh := classify(e.Result, r); sh.kind == kindInteger || sh.kind == kindReal || sh.kind == kindQuantity {
 		writeFeature(src, depth+1, "score", sh.literal)
-		writeFeature(src, depth+1, "result", source.StringText(spellText(e.Result, req)))
+		writeFeature(src, depth+1, "result", source.StringText(spellText(e.Result, r)))
 	} else if e.Error == nil {
-		writeFeature(src, depth+1, "result", source.StringText(spellText(e.Result, req)))
+		writeFeature(src, depth+1, "result", source.StringText(spellText(e.Result, r)))
 	}
 	writeFeature(src, depth+1, "selected", boolText(e.Selected))
 	writeFeature(src, depth+1, "tied", boolText(e.Tied))

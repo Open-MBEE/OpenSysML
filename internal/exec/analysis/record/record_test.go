@@ -103,8 +103,9 @@ func TestGenerateSingleRun(t *testing.T) {
 		return ""
 	}
 	res := golden(t, "single_run.sysml.golden", Request{
-		Package: "Records", Case: "P::scoutBudget", Provenance: provenance(KindRun), Spell: sp,
+		Package: "Records", Case: "P::scoutBudget", Provenance: provenance(KindRun),
 		Runs: []Run{{
+			Spell:   sp,
 			Subject: Subject{Usage: "P::scout", Text: "P::scout"},
 			Inputs: []runtime.InputBinding{
 				{Name: "burnTime", Value: real(3.0)},
@@ -141,8 +142,9 @@ func TestGenerateSingleRun(t *testing.T) {
 func TestGenerateTradeRun(t *testing.T) {
 	failed := errors.New("boom")
 	res := golden(t, "trade_run.sysml.golden", Request{
-		Package: "P::Records", Case: "P::choose", Provenance: provenance(KindTrade), Spell: spell(),
+		Package: "P::Records", Case: "P::choose", Provenance: provenance(KindTrade),
 		Runs: []Run{{
+			Spell:   spell(),
 			Subject: Subject{Text: "P::fleet"},
 			Outputs: []runtime.CalcOutputValue{{Name: "best", Value: real(1.0)}},
 			Evaluations: []runtime.AnalysisEvaluation{
@@ -160,18 +162,18 @@ func TestGenerateTradeRun(t *testing.T) {
 // A sweep reuses the existing definition and numbers its records on.
 func TestGenerateSweepRuns(t *testing.T) {
 	res := golden(t, "sweep_runs.sysml.golden", Request{
-		Package: "Records", Case: "P::check", Provenance: provenance(KindSweep), Spell: spell(),
+		Package: "Records", Case: "P::check", Provenance: provenance(KindSweep),
 		Existing: Existing{
-			Package: true, Definition: true, NextRun: 4,
+			Package: true, Definition: true, Taken: map[int]bool{1: true, 2: true, 3: true},
 			Attributes: map[string]Feature{
 				"load": {TypeFQN: "ScalarValues::Real"},
 				"done": {TypeFQN: "ScalarValues::Boolean"},
 			},
 		},
 		Runs: []Run{
-			{Iteration: 1, Inputs: []runtime.InputBinding{{Name: "load", Value: real(1.0)}}, Outputs: []runtime.CalcOutputValue{{Name: "done", Value: boolean(true)}}},
-			{Iteration: 2, Inputs: []runtime.InputBinding{{Name: "load", Value: real(3.0)}}, Outputs: []runtime.CalcOutputValue{{Name: "done", Value: boolean(false)}}},
-			{Iteration: 3, Inputs: []runtime.InputBinding{{Name: "load", Value: real(5.0)}}, Outputs: []runtime.CalcOutputValue{{Name: "done", Value: boolean(true)}}},
+			{Iteration: 1, Spell: spell(), Inputs: []runtime.InputBinding{{Name: "load", Value: real(1.0)}}, Outputs: []runtime.CalcOutputValue{{Name: "done", Value: boolean(true)}}},
+			{Iteration: 2, Spell: spell(), Inputs: []runtime.InputBinding{{Name: "load", Value: real(3.0)}}, Outputs: []runtime.CalcOutputValue{{Name: "done", Value: boolean(false)}}},
+			{Iteration: 3, Spell: spell(), Inputs: []runtime.InputBinding{{Name: "load", Value: real(5.0)}}, Outputs: []runtime.CalcOutputValue{{Name: "done", Value: boolean(true)}}},
 		},
 	})
 	want := []string{"Records::check_run4", "Records::check_run5", "Records::check_run6"}
@@ -183,24 +185,25 @@ func TestGenerateSweepRuns(t *testing.T) {
 // Generate refuses the shapes it cannot record.
 func TestGenerateErrors(t *testing.T) {
 	base := func() Request {
-		return Request{Package: "Records", Case: "P::check", Provenance: provenance(KindRun), Spell: spell()}
+		return Request{Package: "Records", Case: "P::check", Provenance: provenance(KindRun)}
 	}
 	empty := Request{Package: "Records", Case: "P::check"}
 	if _, err := Generate(empty); err == nil {
 		t.Error("no runs: want an error")
 	}
 	req := base()
-	req.Runs = []Run{{Inputs: []runtime.InputBinding{{Name: "x", Value: real(1)}}}}
+	req.Runs = []Run{{Spell: spell(), Inputs: []runtime.InputBinding{{Name: "x", Value: real(1)}}}}
 	if _, err := Generate(req); err == nil {
 		t.Error("a run with no outputs, verdicts or evaluations: want an error")
 	}
 	req = base()
-	req.Runs = []Run{{Outputs: []runtime.CalcOutputValue{{Name: "kind", Value: real(1)}}}}
+	req.Runs = []Run{{Spell: spell(), Outputs: []runtime.CalcOutputValue{{Name: "kind", Value: real(1)}}}}
 	if _, err := Generate(req); err == nil {
 		t.Error("member colliding with an AnalysisRun feature: want an error")
 	}
 	req = base()
 	req.Runs = []Run{{
+		Spell:   spell(),
 		Inputs:  []runtime.InputBinding{{Name: "x", Value: real(1)}},
 		Outputs: []runtime.CalcOutputValue{{Name: "x", Value: real(2)}},
 	}}
@@ -212,6 +215,7 @@ func TestGenerateErrors(t *testing.T) {
 		"load": {TypeFQN: "ScalarValues::String"},
 	}}
 	req.Runs = []Run{{
+		Spell:   spell(),
 		Inputs:  []runtime.InputBinding{{Name: "load", Value: real(1)}},
 		Outputs: []runtime.CalcOutputValue{{Name: "done", Value: boolean(true)}},
 	}}
@@ -224,6 +228,7 @@ func TestGenerateErrors(t *testing.T) {
 		"done": {TypeFQN: "ScalarValues::Boolean"},
 	}}
 	req.Runs = []Run{{
+		Spell:   spell(),
 		Inputs:  []runtime.InputBinding{{Name: "load", Value: real(1)}},
 		Outputs: []runtime.CalcOutputValue{{Name: "done", Value: boolean(true)}},
 	}}
@@ -235,7 +240,7 @@ func TestGenerateErrors(t *testing.T) {
 		Unit: semantics.Unit{Text: "kg"},
 	})
 	req = base()
-	req.Runs = []Run{{Outputs: []runtime.CalcOutputValue{
+	req.Runs = []Run{{Spell: spell(), Outputs: []runtime.CalcOutputValue{
 		{Name: "dose", Value: dose},
 		{Name: "doseUnit", Value: real(1)},
 	}}}
@@ -243,7 +248,7 @@ func TestGenerateErrors(t *testing.T) {
 		t.Error("a member named as a quantity's unit companion: want an error")
 	}
 	req = base()
-	req.Runs = []Run{{Outputs: []runtime.CalcOutputValue{
+	req.Runs = []Run{{Spell: spell(), Outputs: []runtime.CalcOutputValue{
 		{Name: "doseUnit", Value: real(1)},
 		{Name: "dose", Value: dose},
 	}}}
@@ -256,15 +261,15 @@ func TestGenerateErrors(t *testing.T) {
 // it sits among the members the definition declares.
 func TestGenerateSettlesAnUnsetMember(t *testing.T) {
 	res, err := Generate(Request{
-		Package: "Records", Case: "P::check", Provenance: provenance(KindSweep), Spell: spell(),
+		Package: "Records", Case: "P::check", Provenance: provenance(KindSweep),
 		Runs: []Run{
-			{Iteration: 1, Outputs: []runtime.CalcOutputValue{
+			{Iteration: 1, Spell: spell(), Outputs: []runtime.CalcOutputValue{
 				{Name: "x", Value: runtime.Value{Kind: runtime.ValNull}},
 				{Name: "a", Value: real(1)},
 				{Name: "b", Value: real(2)},
 				{Name: "c", Value: real(3)},
 			}},
-			{Iteration: 2, Outputs: []runtime.CalcOutputValue{
+			{Iteration: 2, Spell: spell(), Outputs: []runtime.CalcOutputValue{
 				{Name: "x", Value: real(3.0)},
 				{Name: "a", Value: real(1)},
 				{Name: "b", Value: real(2)},
@@ -285,8 +290,8 @@ func TestGenerateSettlesAnUnsetMember(t *testing.T) {
 // Infinity has no literal of a typed attribute: it records as a string.
 func TestGenerateInfinityValue(t *testing.T) {
 	res, err := Generate(Request{
-		Package: "Records", Case: "P::check", Provenance: provenance(KindRun), Spell: spell(),
-		Runs: []Run{{Outputs: []runtime.CalcOutputValue{
+		Package: "Records", Case: "P::check", Provenance: provenance(KindRun),
+		Runs: []Run{{Spell: spell(), Outputs: []runtime.CalcOutputValue{
 			{Name: "value", Value: runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValInfinity}}},
 		}}},
 	})
@@ -317,5 +322,66 @@ func TestGeneratedSourceIsFormatterStable(t *testing.T) {
 		if string(out) != string(src) {
 			t.Errorf("%s is not formatter-stable:\n%s", name, out)
 		}
+	}
+}
+
+// A member unset in an early row and a quantity in a later one still gains
+// its unit companion, settled to Real.
+func TestGenerateSettlesAnUnsetMemberToQuantity(t *testing.T) {
+	res, err := Generate(Request{
+		Package: "Records", Case: "P::check", Provenance: provenance(KindSweep),
+		Runs: []Run{
+			{Iteration: 1, Spell: spell(), Outputs: []runtime.CalcOutputValue{
+				{Name: "x", Value: runtime.Value{Kind: runtime.ValNull}},
+				{Name: "a", Value: real(1)},
+				{Name: "b", Value: real(2)},
+			}},
+			{Iteration: 2, Spell: spell(), Outputs: []runtime.CalcOutputValue{
+				{Name: "x", Value: runtime.NewQuantityValue(&runtime.Quantity{
+					Num:  semantics.Value{Kind: semantics.ValReal, Real: 2.0},
+					Unit: semantics.Unit{Text: "kg"},
+				})},
+				{Name: "a", Value: real(1)},
+				{Name: "b", Value: real(2)},
+			}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	for _, want := range []string{
+		"attribute x : ScalarValues::Real;",
+		"attribute xUnit : ScalarValues::String;",
+		"attribute :>> x = 2.0;",
+		`attribute :>> xUnit = "kg";`,
+	} {
+		if !strings.Contains(res.Source, want) {
+			t.Errorf("generated source is missing %q:\n%s", want, res.Source)
+		}
+	}
+	if _, err := format.Source("<test>", []byte(res.Source), format.DefaultOptions); err != nil {
+		t.Errorf("generated source does not parse: %v", err)
+	}
+}
+
+// Record numbers fill the gaps a package's earlier records leave.
+func TestGenerateNumbersIntoTheGaps(t *testing.T) {
+	res, err := Generate(Request{
+		Package: "Records", Case: "P::check", Provenance: provenance(KindSweep),
+		Existing: Existing{
+			Package: true, Definition: true, Taken: map[int]bool{2: true},
+			Attributes: map[string]Feature{"load": {TypeFQN: "ScalarValues::Real"}},
+		},
+		Runs: []Run{
+			{Iteration: 1, Spell: spell(), Outputs: []runtime.CalcOutputValue{{Name: "load", Value: real(1)}}},
+			{Iteration: 2, Spell: spell(), Outputs: []runtime.CalcOutputValue{{Name: "load", Value: real(2)}}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	want := []string{"Records::check_run1", "Records::check_run3"}
+	if fmt.Sprint(res.Records) != fmt.Sprint(want) {
+		t.Errorf("records %v, want %v", res.Records, want)
 	}
 }
