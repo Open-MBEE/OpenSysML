@@ -8,6 +8,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // maxBehaviorDepth bounds how deep a nested action usage is lowered, so a
@@ -303,11 +304,22 @@ func behaviorNames(behaviors []lower.StateBehavior) string {
 	return strings.Join(names, ", ")
 }
 
-// triggerLabel is the event a transition waits for, as written when the source
-// is at hand, else what kind of event it is.
+// triggerLabel is the event a transition waits for: an accepted signal or called
+// operation by the name it ends in, as a type is; a time or change event as
+// written when the source is at hand; else what kind of event it is.
 func (r *Renderer) triggerLabel(doc string, trigger ast.Node) string {
 	if trigger == nil {
 		return ""
+	}
+	switch event := trigger.(type) {
+	case *ast.AcceptEvent:
+		if event.SignalType != nil {
+			return joinNonEmpty(joinNonEmpty("accept", payloadHead(event.Payload)), endName(event.SignalType))
+		}
+	case *ast.CallEvent:
+		if event.Operation != nil {
+			return "accept " + endName(event.Operation) + callParameters(event.Parameters)
+		}
 	}
 	if text := r.nodeText(doc, trigger); text != "" {
 		return text
@@ -325,17 +337,37 @@ func (r *Renderer) triggerLabel(doc string, trigger ast.Node) string {
 		if event.Subsets != nil {
 			return "accept :> " + notationName(qualifiedText(event.Subsets))
 		}
-		if event.SignalType != nil {
-			return "accept " + notationName(qualifiedText(event.SignalType))
-		}
 		return "accept event"
 	case *ast.CallEvent:
-		if event.Operation != nil {
-			return "accept " + notationName(qualifiedText(event.Operation))
-		}
 		return "call event"
 	}
 	return "event"
+}
+
+// payloadHead is the payload parameter an accept declares, `msg :` for
+// `accept msg : Warning`, and "" when the accept names none.
+func payloadHead(payload *ast.Usage) string {
+	if payload == nil || payload.Ident.Name == "" {
+		return ""
+	}
+	return nameText(payload.Ident.Name) + " :"
+}
+
+// endName is the name a qualified reference ends in, quoted as the notation does.
+func endName(name *ast.QualifiedName) string {
+	return source.ReferenceEndNames(notationName(qualifiedText(name)))
+}
+
+// callParameters writes a call trigger's argument names, `(speed)`, "" for none.
+func callParameters(parameters []ast.NameSegment) string {
+	if len(parameters) == 0 {
+		return ""
+	}
+	names := make([]string, len(parameters))
+	for i, parameter := range parameters {
+		names[i] = nameText(parameter.Text)
+	}
+	return "(" + strings.Join(names, ", ") + ")"
 }
 
 // nodeText is the notation a node was written in, collapsed to one line, and ""
