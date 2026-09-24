@@ -51,7 +51,7 @@ const streamHead = `<?xml version="1.0" encoding="UTF-8"?>
 
 // A frame alone is a blank diagram; a picture and a text box stand for no
 // model element; a symbol naming an element shows it although the tool's
-// usedElements list omits it.
+// usedElements list omits it, or lists another element only.
 var figureStreams = map[string]string{
 	"BINARY-blank": strings.Replace(streamHead, "%s", "_diag_blank", 1) + `
 </mdOwnedViews>`,
@@ -74,6 +74,16 @@ var figureStreams = map[string]string{
         <elementID xmi:idref="_blk_pump"/>
       </mdElement>
     </mdOwnedViews>
+  </mdElement>
+</mdOwnedViews>`,
+	"BINARY-partial": strings.Replace(streamHead, "%s", "_diag_partial", 1) + `
+  <mdElement elementClass="Class" xmi:id="_sym_partial_tank">
+    <elementID xmi:idref="_blk_tank"/>
+    <geometry>100, 100, 120, 60</geometry>
+  </mdElement>
+  <mdElement elementClass="Class" xmi:id="_sym_partial_pump">
+    <elementID xmi:idref="_blk_pump"/>
+    <geometry>300, 100, 120, 60</geometry>
   </mdElement>
 </mdOwnedViews>`,
 }
@@ -177,12 +187,55 @@ func TestFiguresFromArchiveStreams(t *testing.T) {
 	if strings.Contains(page, "exposes nothing") {
 		t.Errorf("an empty figure is rendered as HTML:\n%s", page)
 	}
+	// Things on the diagrams: the stream adds the pump to the one element the
+	// tool lists for Partial, so the table names both blocks.
+	wantInOrder(t, "Shown Blocks query", notation,
+		"calc def 'Plant Handbook Shown Blocks Rows'",
+		`DocumentQueries::Named(qualifiedName = ("Plant::Tank", "Plant::Pump")),`)
+	wantNote(t, r, "_st_shown_table", migrate.Mapped, "")
+}
+
+// A stream the archive names but does not hold, or holds cut short, leaves
+// what its diagram shows unknown beyond the elements the tool lists, so a
+// collection over it and a readable diagram is refused rather than named from
+// the list and the readable one as if complete.
+func TestShownCollectionOverUnreadStream(t *testing.T) {
+	cut := figureStreams["BINARY-partial"]
+	cut = cut[:strings.Index(cut, "_sym_partial_pump")]
+	for name, partial := range map[string]string{"missing": "", "truncated": cut} {
+		t.Run(name, func(t *testing.T) {
+			streams := map[string]string{}
+			for k, v := range figureStreams {
+				streams[k] = v
+			}
+			delete(streams, "BINARY-partial")
+			if partial != "" {
+				streams["BINARY-partial"] = partial
+			}
+			r, err := migrate.Migrate("figures.mdzip", mdzip(t, streams))
+			if err != nil {
+				t.Fatalf("Migrate: %v", err)
+			}
+			wantClean(t, "figures.sysml", r)
+			notation := string(r.Notation)
+			if strings.Contains(notation, "calc def 'Plant Handbook Shown Blocks Rows'") {
+				t.Errorf("a collection over a diagram whose stream is unread is spelled from its list and the readable diagram:\n%s", notation)
+			}
+			wantNote(t, r, "_st_shown_collect", migrate.Unmapped,
+				"it collects what the SysML Block Definition Diagram 'Partial' shows beyond the 1 element the tool lists, whose symbols cannot be read")
+			wantInOrder(t, "stream-read exposure", notation,
+				"view Unlisted {", "expose Tank;", "expose Pump;")
+		})
+	}
 }
 
 // Without the archive, what the four listless diagrams show is unknown; every
-// figure over them is left out with that reason.
+// figure over them is left out with that reason, and a collection over the
+// diagram listing one element is refused for the stream it names.
 func TestFiguresWithoutStreams(t *testing.T) {
 	r := migrateFixtureFile(t, "figures")
+	wantNote(t, r, "_st_shown_collect", migrate.Unmapped,
+		"it collects what the SysML Block Definition Diagram 'Partial' shows beyond the 1 element the tool lists, whose symbols cannot be read and what the SysML Block Definition Diagram 'Unlisted' shows, which the archive does not record")
 	for _, name := range []string{"Blank", "Poster", "Unlisted", "Silent"} {
 		if strings.Contains(string(r.Notation), "source = Plant::"+name+";") {
 			t.Errorf("the diagram %s, whose content is unread, is drawn:\n%s", name, r.Notation)

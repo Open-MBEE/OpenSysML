@@ -42,6 +42,10 @@ package Plant {
     view Silent {
         render Views::asTreeDiagram;
     }
+    view Partial {
+        expose Tank;
+        render Views::asTreeDiagram;
+    }
 }
 package 'Plant Viewpoints' {
     viewpoint 'Figures Viewpoint' {
@@ -62,11 +66,26 @@ package 'Plant Viewpoints' {
         }
         perform action 'pictures Method' : 'Pictures Method';
     }
+    viewpoint 'Shown Viewpoint' {
+        action def 'Shown Method' {
+            first start then 'Collect Things On Diagram';
+            action 'Collect Things On Diagram';
+            first 'Collect Things On Diagram' then 'Shown Blocks';
+            action 'Shown Blocks' {
+                first start then Name;
+                action Name;
+            }
+            first 'Shown Blocks' then final;
+            action final terminate;
+        }
+        perform action 'shown Method' : 'Shown Method';
+    }
 }
 package 'Plant Documents' {
     part def 'Plant Handbook' {
         view behaviors :> Behaviors;
         view pictures :> Pictures;
+        view shown :> Shown;
         /* applied stereotype «Document» */
     }
     view Behaviors {
@@ -80,6 +99,11 @@ package 'Plant Documents' {
         expose Plant::Poster;
         expose Plant::Unlisted;
         expose Plant::Silent;
+    }
+    view Shown {
+        satisfy 'Plant Viewpoints'::'Shown Viewpoint';
+        expose Plant::Partial;
+        expose Plant::Unlisted;
     }
     part def 'Plant Handbook Document' :> DocumentQueries::Document {
         attribute redefines title = "Plant Handbook";
@@ -110,6 +134,10 @@ package 'Plant Documents' {
             part 'paragraph 2' : DocumentQueries::Paragraph {
                 attribute redefines text = "The plant, photographed";
             }
+        }
+        part Shown : DocumentQueries::Section {
+            attribute redefines title = "Shown";
+            /* not migrated: «TableStructure» StructuredActivityNode 'Shown Blocks' — the elements it shows pass through «CollectThingsOnDiagram» Plant Viewpoints::Shown Viewpoint::Shown Method::Collect Things On Diagram is not migrated: it collects what the SysML Block Definition Diagram 'Partial' shows beyond the 1 element the tool lists, whose symbols cannot be read and what the SysML Block Definition Diagram 'Unlisted' shows, which the archive does not record */
         }
     }
 }

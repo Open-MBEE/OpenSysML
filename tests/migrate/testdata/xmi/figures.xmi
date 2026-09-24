@@ -56,12 +56,28 @@
           <edge xmi:type="uml:ControlFlow" xmi:id="_pictures_e2" source="_pictures_image" target="_pictures_final"/>
         </ownedBehavior>
       </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_vp_shown" name="Shown Viewpoint" classifierBehavior="_act_shown">
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_shown" name="Shown Method">
+          <node xmi:type="uml:InitialNode" xmi:id="_shown_init"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_shown_collect" name="Collect Things On Diagram"/>
+          <node xmi:type="uml:StructuredActivityNode" xmi:id="_shown_table" name="Shown Blocks">
+            <node xmi:type="uml:InitialNode" xmi:id="_shown_table_init"/>
+            <node xmi:type="uml:CallBehaviorAction" xmi:id="_shown_col_name" name="Name"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_shown_table_e1" source="_shown_table_init" target="_shown_col_name"/>
+          </node>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_shown_final"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_shown_e1" source="_shown_init" target="_shown_collect"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_shown_e2" source="_shown_collect" target="_shown_table"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_shown_e3" source="_shown_table" target="_shown_final"/>
+        </ownedBehavior>
+      </packagedElement>
     </packagedElement>
 
     <packagedElement xmi:type="uml:Package" xmi:id="_pkg_docs" name="Plant Documents">
       <packagedElement xmi:type="uml:Class" xmi:id="_doc_plant" name="Plant Handbook">
         <ownedAttribute xmi:type="uml:Property" xmi:id="_doc_behaviors" name="behaviors" type="_view_behaviors" aggregation="composite"/>
         <ownedAttribute xmi:type="uml:Property" xmi:id="_doc_pictures" name="pictures" type="_view_pictures" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_doc_shown" name="shown" type="_view_shown" aggregation="composite"/>
       </packagedElement>
       <packagedElement xmi:type="uml:Class" xmi:id="_view_behaviors" name="Behaviors">
         <generalization xmi:type="uml:Generalization" xmi:id="_gen_behaviors" general="_vp_figures"/>
@@ -75,6 +91,11 @@
       <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_pictures_poster" client="_view_pictures" supplier="_diag_poster"/>
       <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_pictures_unlisted" client="_view_pictures" supplier="_diag_unlisted"/>
       <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_pictures_silent" client="_view_pictures" supplier="_diag_silent"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_shown" name="Shown">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_shown" general="_vp_shown"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_shown_partial" client="_view_shown" supplier="_diag_partial"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_shown_unlisted" client="_view_shown" supplier="_diag_unlisted"/>
     </packagedElement>
 
     <xmi:Extension extender="Example UML Tool 1.0">
@@ -149,6 +170,19 @@
             </diagramRepresentation>
           </xmi:Extension>
         </ownedDiagram>
+        <!-- Partial lists one used element and names a stream showing another. -->
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_partial" name="Partial" ownerOfDiagram="_pkg_plant">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Block Definition Diagram" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_blk_tank</usedElements>
+                  <binaryObject xsi:type="binary:StreamIdentityBinaryObject" streamContentID="BINARY-partial"/>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
       </modelExtension>
     </xmi:Extension>
   </uml:Model>
@@ -158,16 +192,21 @@
 
   <sysml:Viewpoint xmi:id="_st_vp_figures" base_Class="_vp_figures"/>
   <sysml:Viewpoint xmi:id="_st_vp_pictures" base_Class="_vp_pictures"/>
+  <sysml:Viewpoint xmi:id="_st_vp_shown" base_Class="_vp_shown"/>
   <sysml:View xmi:id="_st_view_behaviors" base_Class="_view_behaviors"/>
   <sysml:View xmi:id="_st_view_pictures" base_Class="_view_pictures"/>
+  <sysml:View xmi:id="_st_view_shown" base_Class="_view_shown"/>
   <sysml:Conform xmi:id="_st_conform_behaviors" base_Generalization="_gen_behaviors"/>
   <sysml:Conform xmi:id="_st_conform_pictures" base_Generalization="_gen_pictures"/>
+  <sysml:Conform xmi:id="_st_conform_shown" base_Generalization="_gen_shown"/>
   <sysml:Expose xmi:id="_st_expose_behaviors_modes" base_Dependency="_expose_behaviors_modes"/>
   <sysml:Expose xmi:id="_st_expose_behaviors_prime" base_Dependency="_expose_behaviors_prime"/>
   <sysml:Expose xmi:id="_st_expose_pictures_blank" base_Dependency="_expose_pictures_blank"/>
   <sysml:Expose xmi:id="_st_expose_pictures_poster" base_Dependency="_expose_pictures_poster"/>
   <sysml:Expose xmi:id="_st_expose_pictures_unlisted" base_Dependency="_expose_pictures_unlisted"/>
   <sysml:Expose xmi:id="_st_expose_pictures_silent" base_Dependency="_expose_pictures_silent"/>
+  <sysml:Expose xmi:id="_st_expose_shown_partial" base_Dependency="_expose_shown_partial"/>
+  <sysml:Expose xmi:id="_st_expose_shown_unlisted" base_Dependency="_expose_shown_unlisted"/>
 
   <Document_Profile_:Document xmi:id="_st_doc_plant" base_Class="_doc_plant"/>
   <Document_Profile_:Image xmi:id="_st_figures_image" base_CallBehaviorAction="_figures_image" showCaptions="true">
@@ -178,4 +217,7 @@
     <captions>Nothing to see</captions>
     <captions>The plant, photographed</captions>
   </Document_Profile_:Image>
+  <Document_Profile_:CollectThingsOnDiagram xmi:id="_st_shown_collect" base_CallBehaviorAction="_shown_collect"/>
+  <Document_Profile_:TableStructure xmi:id="_st_shown_table" base_StructuredActivityNode="_shown_table"/>
+  <Document_Profile_:TableAttributeColumn xmi:id="_st_shown_col_name" base_CallBehaviorAction="_shown_col_name" desiredAttribute="Name"/>
 </xmi:XMI>

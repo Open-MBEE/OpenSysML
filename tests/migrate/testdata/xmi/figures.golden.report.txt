@@ -1,8 +1,12 @@
 # SysML v1 to v2 migration report: figures.xmi
 # exported by Example UML Tool
-# migrated 66 element(s): 51 mapped, 15 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 84 element(s): 64 mapped, 18 approximated, 2 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
-## approximated (15)
+## unmapped (2)
+«CollectThingsOnDiagram» CallBehaviorAction	Plant Viewpoints::Shown Viewpoint::Shown Method::Collect Things On Diagram	_st_shown_collect	(it collects what the SysML Block Definition Diagram 'Partial' shows beyond the 1 element the tool lists, whose symbols cannot be read and what the SysML Block Definition Diagram 'Unlisted' shows, which the archive does not record)
+«TableStructure» StructuredActivityNode	Plant Viewpoints::Shown Viewpoint::Shown Method::Shown Blocks	_st_shown_table	(the elements it shows pass through «CollectThingsOnDiagram» Plant Viewpoints::Shown Viewpoint::Shown Method::Collect Things On Diagram is not migrated: it collects what the SysML Block Definition Diagram 'Partial' shows beyond the 1 element the tool lists, whose symbols cannot be read and what the SysML Block Definition Diagram 'Unlisted' shows, which the archive does not record)
+
+## approximated (18)
 «Document» Class	Plant Documents::Plant Handbook	_doc_plant	-> 'Plant Documents'::'Plant Handbook'	(a plain UML class without «Block» is written as a part def)
 Activity	Plant Viewpoints::Figures Viewpoint::Figures Method	_act_figures	-> 'Plant Viewpoints'::'Figures Viewpoint'::'Figures Method'	(the classifier behavior is run by every object of Plant Viewpoints::Figures Viewpoint as its usage figures Method)
 «Image» CallBehaviorAction	Plant Viewpoints::Figures Viewpoint::Figures Method::Image	_figures_image	-> Image	(a step with no behavior and no duration; it passes the token on)
@@ -12,6 +16,9 @@ Activity	Plant Viewpoints::Pictures Viewpoint::Pictures Method	_act_pictures	-> 
 «Image» CallBehaviorAction	Plant Viewpoints::Pictures Viewpoint::Pictures Method::Image	_st_pictures_image	(no Diagram shows the SysML Block Definition Diagram 'Unlisted': it shows no model element, and its view exposes nothing, so the figure would be empty and is left out)
 «Image» CallBehaviorAction	Plant Viewpoints::Pictures Viewpoint::Pictures Method::Image	_st_pictures_image	(no Diagram shows the SysML Block Definition Diagram 'Silent': it shows no model element, and its view exposes nothing, so the figure would be empty and is left out)
 «Image» CallBehaviorAction	Plant Viewpoints::Pictures Viewpoint::Pictures Method::Image	_pictures_image	-> Image	(a step with no behavior and no duration; it passes the token on)
+Activity	Plant Viewpoints::Shown Viewpoint::Shown Method	_act_shown	-> 'Plant Viewpoints'::'Shown Viewpoint'::'Shown Method'	(the classifier behavior is run by every object of Plant Viewpoints::Shown Viewpoint as its usage shown Method)
+«CollectThingsOnDiagram» CallBehaviorAction	Plant Viewpoints::Shown Viewpoint::Shown Method::Collect Things On Diagram	_shown_collect	-> 'Collect Things On Diagram'	(a step with no behavior and no duration; it passes the token on)
+«TableAttributeColumn» CallBehaviorAction	Plant Viewpoints::Shown Viewpoint::Shown Method::Shown Blocks::Name	_shown_col_name	-> Name	(a step with no behavior and no duration; it passes the token on)
 Diagram	Plant::Blank	_diag_blank	-> Plant::Blank	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; the diagram shows nothing; the view exposes nothing)
 Diagram	Plant::Poster	_diag_poster	-> Plant::Poster	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; the diagram shows nothing; the view exposes nothing)
 OpaqueAction	Plant::Pump::Prime::Fill	_prime_fill	-> Fill	(the body is kept as a comment: the body is empty)
@@ -19,7 +26,7 @@ OpaqueAction	Plant::Pump::Prime::Vent	_prime_vent	-> Vent	(the body is kept as a
 Diagram	Plant::Silent	_diag_silent	-> Plant::Silent	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; the diagram shows nothing; the view exposes nothing)
 Diagram	Plant::Unlisted	_diag_unlisted	-> Plant::Unlisted	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; the diagram shows nothing; the view exposes nothing)
 
-## mapped (51)
+## mapped (64)
 Model	Model	_m	(the root model's members are written at the top level)
 Package	Plant	_pkg_plant	-> Plant
 Package	Plant Documents	_pkg_docs	-> 'Plant Documents'
@@ -29,13 +36,18 @@ Package	Plant Documents	_pkg_docs	-> 'Plant Documents'
 «Expose» Dependency	Plant Documents::<Dependency>	_expose_pictures_poster	-> 'Plant Documents'::Pictures
 «Expose» Dependency	Plant Documents::<Dependency>	_expose_pictures_unlisted	-> 'Plant Documents'::Pictures
 «Expose» Dependency	Plant Documents::<Dependency>	_expose_pictures_silent	-> 'Plant Documents'::Pictures
+«Expose» Dependency	Plant Documents::<Dependency>	_expose_shown_partial	-> 'Plant Documents'::Shown
+«Expose» Dependency	Plant Documents::<Dependency>	_expose_shown_unlisted	-> 'Plant Documents'::Shown
 «View» Class	Plant Documents::Behaviors	_view_behaviors	-> 'Plant Documents'::Behaviors
 «Conform» Generalization	Plant Documents::Behaviors::<Generalization>	_gen_behaviors	-> 'Plant Documents'::Behaviors
 «View» Class	Plant Documents::Pictures	_view_pictures	-> 'Plant Documents'::Pictures
 «Conform» Generalization	Plant Documents::Pictures::<Generalization>	_gen_pictures	-> 'Plant Documents'::Pictures
-«Document» Class	Plant Documents::Plant Handbook	_st_doc_plant	-> part def 'Plant Documents'::'Plant Handbook Document'	(the «Document» is written as a Document definition of 2 section(s))
+«Document» Class	Plant Documents::Plant Handbook	_st_doc_plant	-> part def 'Plant Documents'::'Plant Handbook Document'	(the «Document» is written as a Document definition of 3 section(s))
 Property	Plant Documents::Plant Handbook::behaviors	_doc_behaviors	-> 'Plant Documents'::'Plant Handbook'::behaviors
 Property	Plant Documents::Plant Handbook::pictures	_doc_pictures	-> 'Plant Documents'::'Plant Handbook'::pictures
+Property	Plant Documents::Plant Handbook::shown	_doc_shown	-> 'Plant Documents'::'Plant Handbook'::shown
+«View» Class	Plant Documents::Shown	_view_shown	-> 'Plant Documents'::Shown
+«Conform» Generalization	Plant Documents::Shown::<Generalization>	_gen_shown	-> 'Plant Documents'::Shown
 Package	Plant Viewpoints	_pkg_viewpoints	-> 'Plant Viewpoints'
 «Viewpoint» Class	Plant Viewpoints::Figures Viewpoint	_vp_figures	-> 'Plant Viewpoints'::'Figures Viewpoint'
 ActivityFinalNode	Plant Viewpoints::Figures Viewpoint::Figures Method::<ActivityFinalNode>	_figures_final	-> final
@@ -51,7 +63,15 @@ ControlFlow	Plant Viewpoints::Pictures Viewpoint::Pictures Method::<ControlFlow>
 InitialNode	Plant Viewpoints::Pictures Viewpoint::Pictures Method::<InitialNode>	_pictures_init	-> start
 «Image» CallBehaviorAction	Plant Viewpoints::Pictures Viewpoint::Pictures Method::Image	_st_pictures_image	-> part 'Plant Documents'::'Plant Handbook Document'::Pictures::paragraph	(the paragraph is the caption of the figure left out for the diagram 'Blank')
 «Image» CallBehaviorAction	Plant Viewpoints::Pictures Viewpoint::Pictures Method::Image	_st_pictures_image	-> part 'Plant Documents'::'Plant Handbook Document'::Pictures::'paragraph 2'	(the paragraph is the caption of the figure left out for the diagram 'Poster')
+«Viewpoint» Class	Plant Viewpoints::Shown Viewpoint	_vp_shown	-> 'Plant Viewpoints'::'Shown Viewpoint'
+ActivityFinalNode	Plant Viewpoints::Shown Viewpoint::Shown Method::<ActivityFinalNode>	_shown_final	-> final
+ControlFlow	Plant Viewpoints::Shown Viewpoint::Shown Method::<ControlFlow>	_shown_e2
+ControlFlow	Plant Viewpoints::Shown Viewpoint::Shown Method::<ControlFlow>	_shown_e3
+InitialNode	Plant Viewpoints::Shown Viewpoint::Shown Method::<InitialNode>	_shown_init	-> start
+«TableStructure» StructuredActivityNode	Plant Viewpoints::Shown Viewpoint::Shown Method::Shown Blocks	_shown_table	-> 'Shown Blocks'
+InitialNode	Plant Viewpoints::Shown Viewpoint::Shown Method::Shown Blocks::<InitialNode>	_shown_table_init	-> start
 SignalEvent	Plant::<SignalEvent>	_ev_start	(written where a trigger refers to it, as accept Start)
+Diagram	Plant::Partial	_diag_partial	-> Plant::Partial	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram)
 «Block» Class	Plant::Pump	_blk_pump	-> Plant::Pump
 Comment	Plant::Pump::<Comment>	_cmt_pump
 StateMachine	Plant::Pump::Modes	_sm_modes	-> Plant::Pump::Modes

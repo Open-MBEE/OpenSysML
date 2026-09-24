@@ -446,6 +446,9 @@ func TestMigratedCollectorsAndFilters(t *testing.T) {
 		"part 'Block Diagrams' : DocumentQueries::Section {",
 		`attribute redefines caption = "Crane Structure";`,
 		"part 'Sketched Diagrams' : DocumentQueries::Section {",
+		"part 'Retargeted Diagrams' : DocumentQueries::Section {",
+		`attribute redefines caption = "Crane Structure";`,
+		`attribute redefines caption = "Gantry Drive";`,
 		"part 'All Diagrams' : DocumentQueries::Section {",
 		`attribute redefines caption = "Crane Structure";`,
 		"part 'No Diagrams' : DocumentQueries::Section {",
@@ -467,12 +470,24 @@ func TestMigratedCollectorsAndFilters(t *testing.T) {
 	wantNote(t, r, "_st_bdds_image", migrate.Mapped, "")
 	// An Image is refused even where a rejoined branch knows its diagrams: the
 	// branch with an undecidable diagram type may add more.
-	from, to = to, strings.Index(notation, "part 'All Diagrams' : DocumentQueries::Section")
+	from, to = to, strings.Index(notation, "part 'Retargeted Diagrams' : DocumentQueries::Section")
 	if body := notation[from:to]; strings.Contains(body, "DocumentQueries::Diagram") {
 		t.Errorf("Sketched Diagrams draws the diagrams one branch knows while the other's are undecided:\n%s", body)
 	}
 	wantNote(t, r, "_st_sketch_image", migrate.Unmapped,
 		"the diagrams it shows are not known: «FilterByDiagramType» Yard Viewpoints::Sketched Diagrams Viewpoint::Sketched Diagrams Method::Filter By Diagram Type keeps or drops the diagram 'Sketch', whose diagram type the archive does not record")
+	// The doubt a filter leaves before a fork ends with the branches: each
+	// names its own target, so the rejoined Image knows both its diagrams.
+	from, to = to, strings.Index(notation, "part 'All Diagrams' : DocumentQueries::Section")
+	if body := notation[from:to]; strings.Count(body, "DocumentQueries::Diagram") != 2 {
+		t.Errorf("Retargeted Diagrams does not draw the two diagrams the branches target:\n%s", body)
+	}
+	wantOneNote(t, r, "_st_retarget_image", migrate.Mapped, "")
+	for _, e := range entriesFor(r, "_st_retarget_image") {
+		if e.Verdict == migrate.Unmapped {
+			t.Errorf("Retargeted Diagrams keeps the doubt the branches replaced: %+v", e)
+		}
+	}
 	// A filter naming no type decides without reading the types: excluding
 	// keeps every diagram, the untyped one included, and including keeps none.
 	from, to = to, strings.Index(notation, "part 'No Diagrams' : DocumentQueries::Section")
@@ -507,6 +522,7 @@ func TestMigratedCollectorsAndFilters(t *testing.T) {
 		`property = "name",`,
 		`properties = ("name", "documentation"))`)
 	for _, note := range []string{
+		"reads the 7 elements the tool lists as used on the SysML Block Definition Diagram 'Crane Structure', whose symbols are not serialized; the list need not be all it shows",
 		"leaves out 2 elements shown on the SysML Block Definition Diagram 'Crane Structure' that the archive does not describe",
 		"leaves out 1 element shown on the SysML Block Definition Diagram 'Crane Structure' that the migration does not write",
 		"leaves out 1 element shown on the SysML Block Definition Diagram 'Crane Structure' written within the elements owning them, with no v2 element of their own",
@@ -620,6 +636,7 @@ func TestMigratedCollectorsAndFilters(t *testing.T) {
 		"# Yard Handbook",
 		"## Block Diagrams", "*Crane Structure*", "```mermaid",
 		"## Sketched Diagrams",
+		"## Retargeted Diagrams", "*Crane Structure*", "```mermaid", "*Gantry Drive*", "```mermaid",
 		"## All Diagrams", "*Crane Structure*", "```mermaid",
 		"## No Diagrams",
 		"## Kin Diagrams", "*Sway Limits*", "```mermaid", "*Yard Requirements*", "```mermaid",
@@ -651,8 +668,8 @@ func TestMigratedCollectorsAndFilters(t *testing.T) {
 		"## Owner Sorted Diagrams",
 		"## Unnamed Drafts",
 		"## Optional Drafts", "- unnamed\n- Sketchy", "*Overview*", "```mermaid", "*Sketchy Overview*", "```mermaid")
-	if n := strings.Count(md, "```mermaid"); n != 19 {
-		t.Errorf("Yard Handbook Markdown draws %d diagrams, want 19:\n%s", n, md)
+	if n := strings.Count(md, "```mermaid"); n != 21 {
+		t.Errorf("Yard Handbook Markdown draws %d diagrams, want 21:\n%s", n, md)
 	}
 	for _, heading := range []string{"## Sketched Diagrams", "## No Diagrams", "## Parametric Diagrams", "## Shown On Both Diagrams", "## Cable Parts", "## To Do", "## Owner Sorted Diagrams", "## Unnamed Drafts"} {
 		if body := markdownSection(md, heading); strings.Contains(body, "```mermaid") || strings.Contains(body, "|") || strings.Contains(body, "\n- ") {

@@ -141,6 +141,26 @@ package 'Yard Viewpoints' {
         }
         perform action 'sketched Diagrams Method' : 'Sketched Diagrams Method';
     }
+    viewpoint 'Retargeted Diagrams Viewpoint' {
+        action def 'Retargeted Diagrams Method' {
+            first start then 'Filter By Diagram Type';
+            action 'Filter By Diagram Type';
+            first 'Filter By Diagram Type' then 'fork';
+            fork 'fork';
+            first 'fork' then 'Filter By Names';
+            first 'fork' then 'Sort By Name';
+            action 'Filter By Names';
+            first 'Filter By Names' then 'merge';
+            action 'Sort By Name';
+            first 'Sort By Name' then 'merge';
+            merge 'merge';
+            first 'merge' then Image;
+            action Image;
+            first Image then final;
+            action final terminate;
+        }
+        perform action 'retargeted Diagrams Method' : 'Retargeted Diagrams Method';
+    }
     viewpoint 'Kin Diagrams Viewpoint' {
         action def 'Kin Diagrams Method' {
             first start then 'Collect Owners';
@@ -390,6 +410,7 @@ package 'Yard Handbook' {
     part def 'Yard Handbook' {
         view blockDiagrams :> 'Block Diagrams';
         view sketchedDiagrams :> 'Sketched Diagrams';
+        view retargetedDiagrams :> 'Retargeted Diagrams';
         view allDiagrams :> 'All Diagrams';
         view noDiagrams :> 'No Diagrams';
         view kinDiagrams :> 'Kin Diagrams';
@@ -423,6 +444,11 @@ package 'Yard Handbook' {
         satisfy 'Yard Viewpoints'::'Sketched Diagrams Viewpoint';
         expose Structure::'Crane Structure';
         expose Structure::Crane::'Crane Internals';
+        expose Sketches::Sketch;
+    }
+    view 'Retargeted Diagrams' {
+        satisfy 'Yard Viewpoints'::'Retargeted Diagrams Viewpoint';
+        expose Structure::'Crane Structure';
         expose Sketches::Sketch;
     }
     view 'All Diagrams' {
@@ -577,9 +603,9 @@ package 'Yard Handbook' {
     }
     part def 'Yard Handbook Document' :> DocumentQueries::Document {
         attribute redefines title = "Yard Handbook";
+        ref gantry : Structure::Gantry;
         ref sway : Needs::Sway;
         ref crane : Structure::Crane;
-        ref gantry : Structure::Gantry;
         ref unnamed : Drafts::unnamed;
         ref sketchy : Drafts::Sketchy;
         part 'Block Diagrams' : DocumentQueries::Section {
@@ -592,6 +618,17 @@ package 'Yard Handbook' {
         part 'Sketched Diagrams' : DocumentQueries::Section {
             attribute redefines title = "Sketched Diagrams";
             /* not migrated: «Image» CallBehaviorAction 'Image' — the diagrams it shows are not known: «FilterByDiagramType» Yard Viewpoints::Sketched Diagrams Viewpoint::Sketched Diagrams Method::Filter By Diagram Type keeps or drops the diagram 'Sketch', whose diagram type the archive does not record */
+        }
+        part 'Retargeted Diagrams' : DocumentQueries::Section {
+            attribute redefines title = "Retargeted Diagrams";
+            part diagram : DocumentQueries::Diagram {
+                attribute redefines caption = "Crane Structure";
+                ref redefines source = Structure::'Crane Structure';
+            }
+            part 'diagram 2' : DocumentQueries::Diagram {
+                attribute redefines caption = "Gantry Drive";
+                ref redefines source = gantry.'Gantry Drive';
+            }
         }
         part 'All Diagrams' : DocumentQueries::Section {
             attribute redefines title = "All Diagrams";

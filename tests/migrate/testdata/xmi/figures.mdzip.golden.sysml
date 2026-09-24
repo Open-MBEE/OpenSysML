@@ -44,6 +44,11 @@ package Plant {
     view Silent {
         render Views::asTreeDiagram;
     }
+    view Partial {
+        expose Tank;
+        expose Pump;
+        render Views::asTreeDiagram;
+    }
 }
 package 'Plant Viewpoints' {
     viewpoint 'Figures Viewpoint' {
@@ -64,11 +69,26 @@ package 'Plant Viewpoints' {
         }
         perform action 'pictures Method' : 'Pictures Method';
     }
+    viewpoint 'Shown Viewpoint' {
+        action def 'Shown Method' {
+            first start then 'Collect Things On Diagram';
+            action 'Collect Things On Diagram';
+            first 'Collect Things On Diagram' then 'Shown Blocks';
+            action 'Shown Blocks' {
+                first start then Name;
+                action Name;
+            }
+            first 'Shown Blocks' then final;
+            action final terminate;
+        }
+        perform action 'shown Method' : 'Shown Method';
+    }
 }
 package 'Plant Documents' {
     part def 'Plant Handbook' {
         view behaviors :> Behaviors;
         view pictures :> Pictures;
+        view shown :> Shown;
         /* applied stereotype «Document» */
     }
     view Behaviors {
@@ -82,6 +102,16 @@ package 'Plant Documents' {
         expose Plant::Poster;
         expose Plant::Unlisted;
         expose Plant::Silent;
+    }
+    view Shown {
+        satisfy 'Plant Viewpoints'::'Shown Viewpoint';
+        expose Plant::Partial;
+        expose Plant::Unlisted;
+    }
+    calc def 'Plant Handbook Shown Blocks Rows' :> DocumentQueries::Query {
+        DocumentQueries::Project(
+            source = DocumentQueries::Named(qualifiedName = ("Plant::Tank", "Plant::Pump")),
+            properties = ("name"))
     }
     part def 'Plant Handbook Document' :> DocumentQueries::Document {
         attribute redefines title = "Plant Handbook";
@@ -115,6 +145,13 @@ package 'Plant Documents' {
             part diagram : DocumentQueries::Diagram {
                 attribute redefines caption = "Unlisted";
                 ref redefines source = Plant::Unlisted;
+            }
+        }
+        part Shown : DocumentQueries::Section {
+            attribute redefines title = "Shown";
+            part table : DocumentQueries::Table {
+                attribute redefines caption = "Shown Blocks";
+                calc rows : 'Plant Handbook Shown Blocks Rows';
             }
         }
     }

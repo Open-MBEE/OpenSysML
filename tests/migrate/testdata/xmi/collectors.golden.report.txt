@@ -1,6 +1,6 @@
 # SysML v1 to v2 migration report: collectors.xmi
 # exported by Example UML Tool
-# migrated 420 element(s): 319 mapped, 93 approximated, 8 unmapped (1 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 444 element(s): 338 mapped, 98 approximated, 8 unmapped (1 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
 ## unmapped (8)
 «Image» CallBehaviorAction	Yard Viewpoints::All Diagrams Viewpoint::All Diagrams Method::Image	_st_all_image	(the diagram of unknown kind 'Sketch' is a view rendered as textual notation, which a document does not draw)
@@ -12,14 +12,14 @@
 «FilterByStereotypes» CallBehaviorAction	Yard Viewpoints::To Do Viewpoint::To Do Method::Filter By Stereotypes	_st_todo_filter	(no v2 metaclass stands for the elements of «TODO_Owner»)
 «TableStructure» StructuredActivityNode	Yard Viewpoints::To Do Viewpoint::To Do Method::To Do Items	_st_todo_table	(the elements it shows pass through «FilterByStereotypes» Yard Viewpoints::To Do Viewpoint::To Do Method::Filter By Stereotypes is not migrated: no v2 metaclass stands for the elements of «TODO_Owner»)
 
-## approximated (93)
+## approximated (98)
 «Block» Class	Drafts::<Class>	_blk_draft	-> Drafts::unnamed	(the anonymous Class is named unnamed)
 Diagram	Sketches::Sketch	_diag_untyped	-> Sketches::Sketch	(a diagram of unknown kind written as a view rendered asTextualNotation; no diagram representation is serialized: what the diagram is and shows is unknown, and the view exposes nothing)
 Diagram	Structure::Crane Structure	_diag_structure	-> Structure::'Crane Structure'	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; 2 of 7 shown elements are not written and not exposed; 3 of 7 shown ids resolve to no element)
 Property	Structure::Crane::cable	_prop_cable	-> Structure::Crane::cable	(shared aggregation is written as a reference part)
 Property	Structure::Crane::counterweight	_prop_counterweight	-> Structure::Crane::counterweight	(the untyped property is written as a reference usage)
 «Document» Class	Yard Handbook::Yard Handbook	_doc_handbook	-> 'Yard Handbook'::'Yard Handbook'	(a plain UML class without «Block» is written as a part def)
-«Document» Class	Yard Handbook::Yard Handbook	_st_doc_handbook	-> part def 'Yard Handbook'::'Yard Handbook Document'	(the «Document» is written as a Document definition of 23 section(s); leaves out 2 elements shown on the SysML Block Definition Diagram 'Crane Structure' that the archive does not describe; leaves out 1 element shown on the SysML Block Definition Diagram 'Crane Structure' that the migration does not write; leaves out 1 element shown on the SysML Block Definition Diagram 'Crane Structure' written within the elements owning them, with no v2 element of their own; «FilterByNames» Yard Viewpoints::Optional Drafts Viewpoint::Optional Drafts Method::Filter By Names names the elements it keeps, since a WhereName query matches v2 names: the «Block» Class Drafts::<Class> is named unnamed in v2)
+«Document» Class	Yard Handbook::Yard Handbook	_st_doc_handbook	-> part def 'Yard Handbook'::'Yard Handbook Document'	(the «Document» is written as a Document definition of 24 section(s); reads the 7 elements the tool lists as used on the SysML Block Definition Diagram 'Crane Structure', whose symbols are not serialized; the list need not be all it shows; leaves out 2 elements shown on the SysML Block Definition Diagram 'Crane Structure' that the archive does not describe; leaves out 1 element shown on the SysML Block Definition Diagram 'Crane Structure' that the migration does not write; leaves out 1 element shown on the SysML Block Definition Diagram 'Crane Structure' written within the elements owning them, with no v2 element of their own; «FilterByNames» Yard Viewpoints::Optional Drafts Viewpoint::Optional Drafts Method::Filter By Names names the elements it keeps, since a WhereName query matches v2 names: the «Block» Class Drafts::<Class> is named unnamed in v2)
 Activity	Yard Viewpoints::All Diagrams Viewpoint::All Diagrams Method	_act_all	-> 'Yard Viewpoints'::'All Diagrams Viewpoint'::'All Diagrams Method'	(the classifier behavior is run by every object of Yard Viewpoints::All Diagrams Viewpoint as its usage all Diagrams Method)
 «FilterByDiagramType» CallBehaviorAction	Yard Viewpoints::All Diagrams Viewpoint::All Diagrams Method::Filter By Diagram Type	_all_filter	-> 'Filter By Diagram Type'	(a step with no behavior and no duration; it passes the token on)
 «Image» CallBehaviorAction	Yard Viewpoints::All Diagrams Viewpoint::All Diagrams Method::Image	_all_image	-> Image	(a step with no behavior and no duration; it passes the token on)
@@ -70,6 +70,11 @@ Activity	Yard Viewpoints::Parametric Diagrams Viewpoint::Parametric Diagrams Met
 Activity	Yard Viewpoints::Parts Viewpoint::Parts Method	_act_parts	-> 'Yard Viewpoints'::'Parts Viewpoint'::'Parts Method'	(the classifier behavior is run by every object of Yard Viewpoints::Parts Viewpoint as its usage parts Method)
 «CollectByAssociation» CallBehaviorAction	Yard Viewpoints::Parts Viewpoint::Parts Method::Collect By Association	_parts_collect	-> 'Collect By Association'	(a step with no behavior and no duration; it passes the token on)
 «BulletedList» CallBehaviorAction	Yard Viewpoints::Parts Viewpoint::Parts Method::Parts	_parts_list	-> Parts	(a step with no behavior and no duration; it passes the token on)
+Activity	Yard Viewpoints::Retargeted Diagrams Viewpoint::Retargeted Diagrams Method	_act_retarget	-> 'Yard Viewpoints'::'Retargeted Diagrams Viewpoint'::'Retargeted Diagrams Method'	(the classifier behavior is run by every object of Yard Viewpoints::Retargeted Diagrams Viewpoint as its usage retargeted Diagrams Method)
+«FilterByDiagramType» CallBehaviorAction	Yard Viewpoints::Retargeted Diagrams Viewpoint::Retargeted Diagrams Method::Filter By Diagram Type	_retarget_filter	-> 'Filter By Diagram Type'	(a step with no behavior and no duration; it passes the token on)
+«FilterByNames» CallBehaviorAction	Yard Viewpoints::Retargeted Diagrams Viewpoint::Retargeted Diagrams Method::Filter By Names	_retarget_names	-> 'Filter By Names'	(a step with no behavior and no duration; it passes the token on)
+«Image» CallBehaviorAction	Yard Viewpoints::Retargeted Diagrams Viewpoint::Retargeted Diagrams Method::Image	_retarget_image	-> Image	(a step with no behavior and no duration; it passes the token on)
+«SortByName» CallBehaviorAction	Yard Viewpoints::Retargeted Diagrams Viewpoint::Retargeted Diagrams Method::Sort By Name	_retarget_sort	-> 'Sort By Name'	(a step with no behavior and no duration; it passes the token on)
 Activity	Yard Viewpoints::Reverse Documented Diagrams Viewpoint::Reverse Documented Diagrams Method	_act_rdocs	-> 'Yard Viewpoints'::'Reverse Documented Diagrams Viewpoint'::'Reverse Documented Diagrams Method'	(the classifier behavior is run by every object of Yard Viewpoints::Reverse Documented Diagrams Viewpoint as its usage reverse Documented Diagrams Method)
 «CollectOwnedElements» CallBehaviorAction	Yard Viewpoints::Reverse Documented Diagrams Viewpoint::Reverse Documented Diagrams Method::Collect Owned Elements	_rdocs_collect	-> 'Collect Owned Elements'	(a step with no behavior and no duration; it passes the token on)
 «Image» CallBehaviorAction	Yard Viewpoints::Reverse Documented Diagrams Viewpoint::Reverse Documented Diagrams Method::Image	_rdocs_image	-> Image	(a step with no behavior and no duration; it passes the token on)
@@ -82,7 +87,7 @@ Activity	Yard Viewpoints::Shown Everywhere Viewpoint::Shown Everywhere Method	_a
 «TableAttributeColumn» CallBehaviorAction	Yard Viewpoints::Shown Everywhere Viewpoint::Shown Everywhere Method::Shown Everywhere::Name	_both_col_name	-> Name	(a step with no behavior and no duration; it passes the token on)
 Activity	Yard Viewpoints::Shown Viewpoint::Shown Method	_act_shown	-> 'Yard Viewpoints'::'Shown Viewpoint'::'Shown Method'	(the classifier behavior is run by every object of Yard Viewpoints::Shown Viewpoint as its usage shown Method)
 «CollectThingsOnDiagram» CallBehaviorAction	Yard Viewpoints::Shown Viewpoint::Shown Method::Collect Things On Diagram	_shown_collect	-> 'Collect Things On Diagram'	(a step with no behavior and no duration; it passes the token on)
-«TableStructure» StructuredActivityNode	Yard Viewpoints::Shown Viewpoint::Shown Method::Shown Blocks	_st_shown_table	-> part 'Yard Handbook'::'Yard Handbook Document'::'Shown On The Structure Diagram'::table	(its rows are the query 'Yard Handbook Shown Blocks Rows'; leaves out 2 elements shown on the SysML Block Definition Diagram 'Crane Structure' that the archive does not describe; leaves out 1 element shown on the SysML Block Definition Diagram 'Crane Structure' that the migration does not write; leaves out 1 element shown on the SysML Block Definition Diagram 'Crane Structure' written within the elements owning them, with no v2 element of their own)
+«TableStructure» StructuredActivityNode	Yard Viewpoints::Shown Viewpoint::Shown Method::Shown Blocks	_st_shown_table	-> part 'Yard Handbook'::'Yard Handbook Document'::'Shown On The Structure Diagram'::table	(its rows are the query 'Yard Handbook Shown Blocks Rows'; reads the 7 elements the tool lists as used on the SysML Block Definition Diagram 'Crane Structure', whose symbols are not serialized; the list need not be all it shows; leaves out 2 elements shown on the SysML Block Definition Diagram 'Crane Structure' that the archive does not describe; leaves out 1 element shown on the SysML Block Definition Diagram 'Crane Structure' that the migration does not write; leaves out 1 element shown on the SysML Block Definition Diagram 'Crane Structure' written within the elements owning them, with no v2 element of their own)
 «TableAttributeColumn» CallBehaviorAction	Yard Viewpoints::Shown Viewpoint::Shown Method::Shown Blocks::Documentation	_shown_col_doc	-> Documentation	(a step with no behavior and no duration; it passes the token on)
 «TableAttributeColumn» CallBehaviorAction	Yard Viewpoints::Shown Viewpoint::Shown Method::Shown Blocks::Name	_shown_col_name	-> Name	(a step with no behavior and no duration; it passes the token on)
 «SortByName» CallBehaviorAction	Yard Viewpoints::Shown Viewpoint::Shown Method::Sort By Name	_shown_sort	-> 'Sort By Name'	(a step with no behavior and no duration; it passes the token on)
@@ -107,7 +112,7 @@ Activity	Yard Viewpoints::Unnamed Drafts Viewpoint::Unnamed Drafts Method	_act_d
 «FilterByNames» CallBehaviorAction	Yard Viewpoints::Unnamed Drafts Viewpoint::Unnamed Drafts Method::Filter By Names	_drafts_names	-> 'Filter By Names'	(a step with no behavior and no duration; it passes the token on)
 «Image» CallBehaviorAction	Yard Viewpoints::Unnamed Drafts Viewpoint::Unnamed Drafts Method::Image	_drafts_image	-> Image	(a step with no behavior and no duration; it passes the token on)
 
-## mapped (319)
+## mapped (338)
 Package	Drafts	_pkg_drafts	-> Drafts
 Diagram	Drafts::<Class>::Overview	_diag_draft	-> Drafts::unnamed::Overview	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram)
 «Block» Class	Drafts::Sketchy	_blk_sketchy	-> Drafts::Sketchy
@@ -152,6 +157,8 @@ Package	Yard Handbook	_pkg_doc	-> 'Yard Handbook'
 «Expose» Dependency	Yard Handbook::<Dependency>	_expose_sketch_structure	-> 'Yard Handbook'::'Sketched Diagrams'
 «Expose» Dependency	Yard Handbook::<Dependency>	_expose_sketch_internals	-> 'Yard Handbook'::'Sketched Diagrams'
 «Expose» Dependency	Yard Handbook::<Dependency>	_expose_sketch_untyped	-> 'Yard Handbook'::'Sketched Diagrams'
+«Expose» Dependency	Yard Handbook::<Dependency>	_expose_retarget_structure	-> 'Yard Handbook'::'Retargeted Diagrams'
+«Expose» Dependency	Yard Handbook::<Dependency>	_expose_retarget_untyped	-> 'Yard Handbook'::'Retargeted Diagrams'
 «Expose» Dependency	Yard Handbook::<Dependency>	_expose_all_structure	-> 'Yard Handbook'::'All Diagrams'
 «Expose» Dependency	Yard Handbook::<Dependency>	_expose_all_untyped	-> 'Yard Handbook'::'All Diagrams'
 «Expose» Dependency	Yard Handbook::<Dependency>	_expose_noneof_structure	-> 'Yard Handbook'::'No Diagrams'
@@ -216,6 +223,8 @@ Package	Yard Handbook	_pkg_doc	-> 'Yard Handbook'
 «Conform» Generalization	Yard Handbook::Owner Sorted Diagrams::<Generalization>	_gen_owner	-> 'Yard Handbook'::'Owner Sorted Diagrams'
 «View» Class	Yard Handbook::Parametric Diagrams	_view_pars	-> 'Yard Handbook'::'Parametric Diagrams'
 «Conform» Generalization	Yard Handbook::Parametric Diagrams::<Generalization>	_gen_pars	-> 'Yard Handbook'::'Parametric Diagrams'
+«View» Class	Yard Handbook::Retargeted Diagrams	_view_retarget	-> 'Yard Handbook'::'Retargeted Diagrams'
+«Conform» Generalization	Yard Handbook::Retargeted Diagrams::<Generalization>	_gen_retarget	-> 'Yard Handbook'::'Retargeted Diagrams'
 «View» Class	Yard Handbook::Reverse Documented Diagrams	_view_rdocs	-> 'Yard Handbook'::'Reverse Documented Diagrams'
 «Conform» Generalization	Yard Handbook::Reverse Documented Diagrams::<Generalization>	_gen_rdocs	-> 'Yard Handbook'::'Reverse Documented Diagrams'
 «View» Class	Yard Handbook::Shared Crane Parts	_view_shared	-> 'Yard Handbook'::'Shared Crane Parts'
@@ -247,6 +256,7 @@ Property	Yard Handbook::Yard Handbook::otherDiagrams	_hb_others	-> 'Yard Handboo
 Property	Yard Handbook::Yard Handbook::ownerSortedDiagrams	_hb_owner	-> 'Yard Handbook'::'Yard Handbook'::ownerSortedDiagrams
 Property	Yard Handbook::Yard Handbook::parametricDiagrams	_hb_pars	-> 'Yard Handbook'::'Yard Handbook'::parametricDiagrams
 Property	Yard Handbook::Yard Handbook::parts	_hb_parts	-> 'Yard Handbook'::'Yard Handbook'::parts
+Property	Yard Handbook::Yard Handbook::retargetedDiagrams	_hb_retarget	-> 'Yard Handbook'::'Yard Handbook'::retargetedDiagrams
 Property	Yard Handbook::Yard Handbook::reverseDocumentedDiagrams	_hb_rdocs	-> 'Yard Handbook'::'Yard Handbook'::reverseDocumentedDiagrams
 Property	Yard Handbook::Yard Handbook::sharedParts	_hb_shared	-> 'Yard Handbook'::'Yard Handbook'::sharedParts
 Property	Yard Handbook::Yard Handbook::shown	_hb_shown	-> 'Yard Handbook'::'Yard Handbook'::shown
@@ -355,6 +365,20 @@ ControlFlow	Yard Viewpoints::Parts Viewpoint::Parts Method::<ControlFlow>	_parts
 InitialNode	Yard Viewpoints::Parts Viewpoint::Parts Method::<InitialNode>	_parts_init	-> start
 «BulletedList» CallBehaviorAction	Yard Viewpoints::Parts Viewpoint::Parts Method::Parts	_st_parts_list	(it shows nothing: «CollectByAssociation» Yard Viewpoints::Parts Viewpoint::Parts Method::Collect By Association collects nothing: the only element collected, the «Block» Class Structure::Cable, has no typed attribute of composite aggregation)
 «BulletedList» CallBehaviorAction	Yard Viewpoints::Parts Viewpoint::Parts Method::Parts	_st_parts_list	-> part 'Yard Handbook'::'Yard Handbook Document'::'Crane Parts'::list	(its rows are the query 'Yard Handbook Parts Rows')
+«Viewpoint» Class	Yard Viewpoints::Retargeted Diagrams Viewpoint	_vp_retarget	-> 'Yard Viewpoints'::'Retargeted Diagrams Viewpoint'
+ActivityFinalNode	Yard Viewpoints::Retargeted Diagrams Viewpoint::Retargeted Diagrams Method::<ActivityFinalNode>	_retarget_final	-> final
+ControlFlow	Yard Viewpoints::Retargeted Diagrams Viewpoint::Retargeted Diagrams Method::<ControlFlow>	_retarget_e2
+ControlFlow	Yard Viewpoints::Retargeted Diagrams Viewpoint::Retargeted Diagrams Method::<ControlFlow>	_retarget_e3
+ControlFlow	Yard Viewpoints::Retargeted Diagrams Viewpoint::Retargeted Diagrams Method::<ControlFlow>	_retarget_e4
+ControlFlow	Yard Viewpoints::Retargeted Diagrams Viewpoint::Retargeted Diagrams Method::<ControlFlow>	_retarget_e5
+ControlFlow	Yard Viewpoints::Retargeted Diagrams Viewpoint::Retargeted Diagrams Method::<ControlFlow>	_retarget_e6
+ControlFlow	Yard Viewpoints::Retargeted Diagrams Viewpoint::Retargeted Diagrams Method::<ControlFlow>	_retarget_e7
+ControlFlow	Yard Viewpoints::Retargeted Diagrams Viewpoint::Retargeted Diagrams Method::<ControlFlow>	_retarget_e8
+ForkNode	Yard Viewpoints::Retargeted Diagrams Viewpoint::Retargeted Diagrams Method::<ForkNode>	_retarget_fork	-> 'fork'
+InitialNode	Yard Viewpoints::Retargeted Diagrams Viewpoint::Retargeted Diagrams Method::<InitialNode>	_retarget_init	-> start
+MergeNode	Yard Viewpoints::Retargeted Diagrams Viewpoint::Retargeted Diagrams Method::<MergeNode>	_retarget_merge	-> 'merge'
+«Image» CallBehaviorAction	Yard Viewpoints::Retargeted Diagrams Viewpoint::Retargeted Diagrams Method::Image	_st_retarget_image	-> part 'Yard Handbook'::'Yard Handbook Document'::'Retargeted Diagrams'::diagram
+«Image» CallBehaviorAction	Yard Viewpoints::Retargeted Diagrams Viewpoint::Retargeted Diagrams Method::Image	_st_retarget_image	-> part 'Yard Handbook'::'Yard Handbook Document'::'Retargeted Diagrams'::'diagram 2'
 «Viewpoint» Class	Yard Viewpoints::Reverse Documented Diagrams Viewpoint	_vp_rdocs	-> 'Yard Viewpoints'::'Reverse Documented Diagrams Viewpoint'
 ActivityFinalNode	Yard Viewpoints::Reverse Documented Diagrams Viewpoint::Reverse Documented Diagrams Method::<ActivityFinalNode>	_rdocs_final	-> final
 ControlFlow	Yard Viewpoints::Reverse Documented Diagrams Viewpoint::Reverse Documented Diagrams Method::<ControlFlow>	_rdocs_e2

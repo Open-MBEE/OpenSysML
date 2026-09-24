@@ -726,21 +726,27 @@ func (c *chain) collectShown(s *sysmlv1.DocGenStep) {
 		c.fail(s, "the diagrams it reads are known only when the query runs, and no query operation reads what a diagram shows")
 		return
 	}
-	// One diagram whose contents are unread leaves the whole collection
-	// unknown: a Named query over the rest would pass for complete.
-	var unread []string
+	// One diagram whose symbols are unread leaves the whole collection unknown,
+	// listed or not: a Named query over the rest would pass for complete.
+	var unread, listed []string
 	for _, d := range diagrams {
-		if !d.Drawn && len(d.Shown) == 0 {
-			unread = append(unread, "the "+diagramKind(d)+" '"+d.Name+"'")
+		what := "what the " + diagramKind(d) + " '" + d.Name + "' shows"
+		switch {
+		case d.Drawn:
+		case d.Stream != "" && len(d.Shown) > 0:
+			unread = append(unread, what+" beyond the "+plural(len(d.Shown), "element")+" the tool lists, whose symbols cannot be read")
+		case d.Stream != "" || len(d.Shown) == 0:
+			unread = append(unread, what+", which the archive does not record")
+		default:
+			listed = append(listed, "reads the "+plural(len(d.Shown), "element")+" the tool lists as used on the "+diagramKind(d)+" '"+d.Name+"', whose symbols are not serialized; the list need not be all it shows")
 		}
 	}
 	if len(unread) > 0 {
-		verb := " shows"
-		if len(unread) > 1 {
-			verb = " show"
-		}
-		c.abort(s, "it collects what "+strings.Join(unread, " and ")+verb+", which the archive does not record")
+		c.abort(s, "it collects "+strings.Join(unread, " and "))
 		return
+	}
+	for _, n := range listed {
+		c.note(n)
 	}
 	var names []string
 	for _, d := range diagrams {
@@ -1369,6 +1375,11 @@ func (c *chain) join(s *sysmlv1.DocGenStep) {
 	var diagrams []*sysmlv1.Diagram
 	var holders []*sysmlv1.Element
 	dropped, vague, hazy, none := c.dropped, c.vague, c.hazy, c.none
+	// Each branch starts from the chain's doubt and ends with its own, none
+	// once it names its targets anew; the union carries what the branches end with.
+	if len(s.Branches) > 0 {
+		dropped, vague, hazy, none = "", "", "", ""
+	}
 	for _, branch := range s.Branches {
 		sub := c.sub()
 		sub.run(branch)
