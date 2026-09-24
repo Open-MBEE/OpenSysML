@@ -93,7 +93,9 @@ wrote saved.sysml (sysml, 2278 bytes)
 the `Records` package — formatted; loading `saved.sysml` and recording again
 produces `timed_run4`. `-record-into <pkg>` names the records' package;
 `-render-document` composes the same way, recording first so the document's
-queries see the records. A run that fails records nothing and leaves the
+queries see the records. A failed sweep row is skipped and counted; a sampled
+run whose declared output could not be read is not recorded — `run N not
+recorded: <err>` names it. A run that fails records nothing and leaves the
 model untouched — the record submission is atomic: the diagnostics it produced
 are reported and the model is as it was.
 
