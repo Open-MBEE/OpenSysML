@@ -5,7 +5,8 @@ case exactly as `%analysis`/`-analysis` does, reports the same verdict, and then
 writes the run **into the model** as elements of the bundled `AnalysisRecords`
 library: a record definition, one part per run carrying every input bound and
 output produced, and provenance metadata stating when the run was made, by what
-tool, with what command, and of which kind (`run`, `trade`, `sweep` or `runs`).
+tool, with what command, and of which kind (`run`, `trade`, `sweep`, `runs`
+or `sample`).
 
 The records are ordinary model elements, so a document query finds them and a
 document renders them — a run log lives in the model beside the cases it
@@ -86,7 +87,9 @@ On the command line the run a `-record-run` makes takes the same bounds the
 matching check takes: with `-sweep` the case runs once per row as `-sweep`
 makes it, and one record per row is written (`kind = "sweep"`, `iteration`
 the row); with `-runs <n>` and `-seed` a `Simulation::MonteCarlo` case is
-sampled as `-runs` does and each seeded run is recorded (`kind = "runs"`):
+sampled as `-runs` does and each seeded run is recorded (`kind = "runs"`),
+with the sample's conclusion — the statistics, the result and the checks that
+are the sample's — recorded once more beside them (`kind = "sample"`):
 
 ```bash
 $ sysml model.sysml -record-run "Demo::timed" -sweep "gain=1..3" -convert sysml -o saved.sysml
@@ -152,8 +155,8 @@ non-normative OpenSysML extension bundled like `DocumentQueries`, declares the
 vocabulary the records are written in:
 
 - `RecordedRun` — the metadata annotation a record carries: `runAt` (the UTC
-  timestamp), `tool`, `command`, `kind` (`"run"`, `"trade"`, `"sweep"` or
-  `"runs"`).
+  timestamp), `tool`, `command`, `kind` (`"run"`, `"trade"`, `"sweep"`,
+  `"runs"` or `"sample"`).
 - `AnalysisRun` — the record definition's supertype: `caseName`, `kind`,
   `'objective'` (the run's objective verdict, `"undecided"` when the case
   declares none), `iteration` (its position in a sweep or sample), `'subject'`
