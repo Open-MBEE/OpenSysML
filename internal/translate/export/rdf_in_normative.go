@@ -576,7 +576,17 @@ func (d *decoder) verifyChainFeature(subject rdf.Term) error {
 	if len(stated) == 0 || len(owned) == 0 {
 		return nil
 	}
-	if !slices.Equal(stated, owned) {
+	// The derived list holds each link once, in first-occurrence order: a
+	// repeated link the ordered FeatureChaining elements still carry.
+	distinct := make([]rdf.Term, 0, len(owned))
+	seen := map[rdf.Term]bool{}
+	for _, link := range owned {
+		if !seen[link] {
+			seen[link] = true
+			distinct = append(distinct, link)
+		}
+	}
+	if !slices.Equal(stated, distinct) {
 		return &UnsupportedError{
 			What: fmt.Sprintf("the chain feature <%s>", subject.Value),
 			Note: "its sysml:chainingFeature list and the sysml:chainingFeature of the FeatureChaining elements it owns disagree",

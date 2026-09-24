@@ -1116,13 +1116,19 @@ func (d *decoder) chainLinks(chain rdf.Term) ([]rdf.Term, error) {
 	return chainLinksOf(d.graph, d.metaclass, d.chainOwned, chain)
 }
 
-// chainSegments is the ordered link list of a chain feature: the derived
-// chainingFeature list where it is stated, else the FeatureChaining links.
+// chainSegments is the ordered link list of a chain feature: the
+// FeatureChaining links where they exist, else the derived list.
 func (d *decoder) chainSegments(chain rdf.Term) ([]rdf.Term, error) {
-	if segments := d.graph.Objects(chain, rdf.SysML+pChainingFeature); len(segments) > 0 {
-		return segments, nil
+	links, err := d.chainLinks(chain)
+	if err != nil {
+		return nil, err
 	}
-	return d.chainLinks(chain)
+	if len(links) > 0 {
+		// The ordered FeatureChaining elements carry the chain; a repeated
+		// link the derived chainingFeature list cannot state survives here.
+		return links, nil
+	}
+	return d.graph.Objects(chain, rdf.SysML+pChainingFeature), nil
 }
 
 // referencedElement resolves a referenced IRI to the graph subject whose

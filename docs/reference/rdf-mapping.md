@@ -1479,7 +1479,10 @@ Reading a graph back accepts three shapes of the same chain: the normative
 `FeatureChaining` elements alone (which is what other tools write), the derived
 `sysml:chainingFeature` list alone (what earlier releases of this one wrote),
 and both together — where the ordered links disagree, the graph is refused
-rather than read one way. A chain reached in an expression
+rather than read one way. A graph holds each triple once, so a repeated link
+(`n.next.next`) appears once in the derived `sysml:chainingFeature` list, in
+first-occurrence order; the ordered `FeatureChaining` elements carry the full
+chain and are the list the reader takes. A chain reached in an expression
 (`attribute x = a.b.c;`) is the nested `sysml:FeatureChainExpression` tree, and
 the chain a `a.b()` invocation reaches is a chain feature an `sysml:OwningMembership`
 owns (KerML `OwnedFeatureChainMember`), the same element an end's carries.

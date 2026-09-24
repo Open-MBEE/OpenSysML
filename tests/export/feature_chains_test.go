@@ -411,3 +411,68 @@ func TestFeatureChainMissingLinkRefused(t *testing.T) {
 		t.Errorf("the error should name %s and chainingFeature:\n%s", victim, err)
 	}
 }
+
+// A repeated link survives: a graph deduplicates the derived chainingFeature
+// triples, so the ordered FeatureChaining elements — three of them — carry
+// the chain, and the derived list states each distinct link once.
+func TestFeatureChainRepeatedLink(t *testing.T) {
+	path := filepath.Join("testdata", "convert", "feature_chains_repeated.sysml")
+	src, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, err := convert.Convert(path, src, convert.FormatSysML, convert.FormatSysML)
+	if err != nil {
+		t.Fatal(err)
+	}
+	elements := apiJSON(t, path)
+	ownerOf := func(v any) string {
+		if m, ok := v.(map[string]any); ok {
+			return refID(m)
+		}
+		return ""
+	}
+	chainLinks := map[string]int{}
+	for _, el := range elements {
+		if el["@type"] == "FeatureChaining" {
+			chainLinks[ownerOf(el["owningRelatedElement"])]++
+		}
+	}
+	repeated, two := 0, 0
+	for _, el := range elements {
+		list, ok := el["chainingFeature"].([]any)
+		if !ok || el["@type"] == "FeatureChaining" {
+			continue
+		}
+		if len(list) == 2 && refID(list[0]) == "P__n" {
+			repeated = chainLinks[el["@id"].(string)]
+			two = len(list)
+		}
+	}
+	if two != 2 || repeated != 3 {
+		t.Errorf("the end chain should derive 2 distinct links from 3 FeatureChaining elements, derived %d and owned %d", two, repeated)
+	}
+	document, err := json.Marshal(elements)
+	if err != nil {
+		t.Fatal(err)
+	}
+	back, err := convert.Convert("m.json", document, convert.FormatAPIJSON, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("api-json decode: %v", err)
+	}
+	if string(back) != string(want) {
+		t.Errorf("api-json did not round-trip:\n--- want ---\n%s\n--- got ---\n%s", want, back)
+	}
+
+	turtle, err := convert.Convert(path, src, convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	back, err = convert.Convert("m.ttl", withoutSourceText(t, turtle), convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("turtle decode: %v", err)
+	}
+	if string(back) != string(want) {
+		t.Errorf("turtle did not round-trip:\n--- want ---\n%s\n--- got ---\n%s", want, back)
+	}
+}
