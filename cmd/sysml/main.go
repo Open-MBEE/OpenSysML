@@ -459,6 +459,10 @@ func runCLI() int {
 		fmt.Fprintln(os.Stderr, "sysml: -record-into accompanies -record-run; write `sysml model.sysml -record-run \"Pkg::Case\" -record-into Pkg::Log`")
 		return 2
 	}
+	if flagGiven("record-into") && modelChecks.recordInto == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -record-into needs a package name; write `sysml model.sysml -record-run \"Pkg::Case\" -record-into Pkg::Log`")
+		return 2
+	}
 	if flagGiven("layout") && layoutPath == "" {
 		fmt.Fprintln(os.Stderr, "sysml: -layout is empty; name the MTIP export to lay the migrated views out from")
 		return 2

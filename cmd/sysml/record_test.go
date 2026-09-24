@@ -227,6 +227,18 @@ func TestRecordIntoWithoutRecordRunRefused(t *testing.T) {
 	}
 }
 
+// TestRecordIntoEmptyRefused rejects -record-into given without a package.
+func TestRecordIntoEmptyRefused(t *testing.T) {
+	binary := buildCLI(t)
+	source := writeRecordModel(t)
+	cmd := exec.Command(binary, source, "-record-run", "Demo::timed", "-record-into=", "-convert", "sysml")
+	if out, err := cmd.CombinedOutput(); err == nil {
+		t.Fatalf("-record-into= succeeded:\n%s", out)
+	} else if !strings.Contains(string(out), "-record-into needs a package name") {
+		t.Errorf("unexpected refusal:\n%s", out)
+	}
+}
+
 // TestRecordRunConvertHonoursID converts the session a -record-run produced
 // with -id applied to it, as -convert honours it on a file.
 func TestRecordRunConvertHonoursID(t *testing.T) {
