@@ -1,0 +1,49 @@
+package Records {
+    part def ScoutBudgetRun :> AnalysisRecords::AnalysisRun {
+        attribute burnTime : ScalarValues::Real;
+        attribute trials : ScalarValues::Integer;
+        attribute crewOk : ScalarValues::Boolean;
+        attribute label : ScalarValues::String;
+        attribute grade : P::Fuel;
+        attribute tank : ScalarValues::Real;
+        attribute tankUnit : ScalarValues::String;
+        ref part target;
+        attribute fuelUsed : ScalarValues::Real;
+        attribute memo : ScalarValues::ScalarValue;
+        attribute plan : ScalarValues::String;
+    }
+    part scoutBudget_run1 : ScoutBudgetRun {
+        @AnalysisRecords::RecordedRun {
+            runAt = "2026-01-01T00:00:00Z";
+            tool = "sysml test";
+            command = "%record P::check";
+            kind = "run";
+        }
+        attribute :>> caseName = "P::scoutBudget";
+        attribute :>> kind = "run";
+        attribute :>> 'objective' = "satisfied";
+        ref :>> 'subject' = P::scout;
+        attribute :>> subjectName = "P::scout";
+        attribute :>> burnTime = 3.0;
+        attribute :>> trials = 8;
+        attribute :>> crewOk = true;
+        attribute :>> label = "a \"b\"";
+        attribute :>> grade = P::Fuel::leaded;
+        attribute :>> tank = 12.5;
+        attribute :>> tankUnit = "kg";
+        ref :>> target = P::scout;
+        attribute :>> fuelUsed = 12.5;
+        attribute :>> plan = "[]";
+        part verdict1 : AnalysisRecords::VerdictRecord :> verdicts {
+            attribute :>> kind = "objective";
+            attribute :>> name = "fuelFits";
+            attribute :>> status = "satisfied";
+            attribute :>> detail = "holds";
+        }
+        part verdict2 : AnalysisRecords::VerdictRecord :> verdicts {
+            attribute :>> kind = "assertion";
+            attribute :>> name = "crewReady";
+            attribute :>> status = "not satisfied";
+        }
+    }
+}
