@@ -40,8 +40,12 @@ part def FuelBudgetRun :> DemoRun {
 }
 ```
 
-Each run is then one usage in the `Results` package, filled in from the
-printed output:
+Each run is then one usage at the top level of the `Records` package — the
+same package `-record-run` writes its records into — filled in from the
+printed output. The definitions themselves sit in `Records::Vocab`, one
+nesting level down: the report's queries walk the package's direct members,
+and a `part def` matching `WhereType` would surface its own unbound features
+as a bogus row.
 
 ```sysml
 part scoutRun : FuelBudgetRun {
@@ -181,13 +185,13 @@ can never give you: a record that notices the model moved.
 
 ```bash
 ./bin/sysml examples/analysis-results-demo/lander-results.sysml \
-  -run-query "Reporting::StaleRuns root=results"
+  -run-query "Reporting::StaleRuns"
 ```
 
 ```
 ✓ Query Reporting::StaleRuns returned 1 row
   Columns: name, subjectName, burnTime, fuelLeft, liveFuelLeft, drift
-  Row 1: Results::results::relayRun
+  Row 1: Records::relayRun
     fuelLeft = 80.0
     liveFuelLeft = 110.0
     drift = 30.0
@@ -215,12 +219,15 @@ recomputes an output can detect it, and only for the values it rederives.
 ```
 
 [`report.md`](report.md) is committed so the test suite can compare the
-render byte-for-byte. It shows a grouped table of every fuel-budget record by
-subject, the sweep rows alone, the stale-records table (exactly `relayRun`),
-a provenance table over `WhereMetadata(... 'metadata' = "AnalysisRecords::RecordedRun")`,
-the trade-study record, and — the contrast — a `Verdicts` table of the
-assertions about `scout` **evaluated live at render time**: the records say
-what a run printed; the verdicts say what holds now.
+render byte-for-byte. It opens with a table of **every recorded run** —
+`WhereMetadata(... 'metadata' = "AnalysisRecords::RecordedRun")` filtered to
+`WhereType(... type = "AnalysisRecords::AnalysisRun")` over the `Records`
+package's direct members — then a grouped table of every fuel-budget record
+by subject, the sweep rows alone, the stale-records table (exactly
+`relayRun`), a provenance table over the same `WhereMetadata` filter, the
+trade-study record and its `EvaluationRecord`s, and — the contrast — a
+`Verdicts` table of the assertions about `scout` **evaluated live at render
+time**: the records say what a run printed; the verdicts say what holds now.
 
 HTML and PDF render the same document tree:
 
@@ -280,13 +287,42 @@ part scoutBudget_run1 : ScoutBudgetRun {
 }
 ```
 
-Because both speak `AnalysisRecords`, a document written against
-`WhereMetadata(... 'metadata' = "AnalysisRecords::RecordedRun")` and
-`WhereType(... "FuelBudgetRun")`-style filters reads hand-written and
-`-record-run` records alike. The REPL form is `%record`; sweeps record one
-record per row (`recorded 3 runs as Records::scoutBudget_run1 …`), though
-`-convert` refuses a sweep — write the model out after a single
-`-record-run`, or record each row explicitly. The full flag reference is
+`-record-run` targets the `Records` package because it is the plain
+top-level package beside `Descent` — the same package this demo's
+hand-written records live in, so the generated record lands where the
+report's queries already walk. Render the document in the same invocation
+and the new record joins it:
+
+```bash
+./bin/sysml examples/analysis-results-demo/lander-results.sysml \
+  -record-run "Descent::scoutBudget" \
+  -render-document Reporting::AnalysisReport -o recorded-report.md
+```
+
+The *Every recorded run* table — annotated `AnalysisRun`s, whatever their
+definition — picks it up as an eighth row:
+
+```
+| name | caseName | kind | subjectName | objective |
+| --- | --- | --- | --- | --- |
+| scoutRun | Descent::scoutBudget | run | Landers::scout | satisfied |
+| haulerRun | Descent::haulerBudget | run | Landers::hauler | satisfied |
+| relayRun | Descent::relayBudget | run | Landers::relay | satisfied |
+| scoutSweep40 | Descent::scoutBudget | sweep | Landers::scout | satisfied |
+| scoutSweep60 | Descent::scoutBudget | sweep | Landers::scout | satisfied |
+| scoutSweep80 | Descent::scoutBudget | sweep | Landers::scout | not satisfied |
+| lightestRun | Selection::lightest | trade |  | satisfied |
+| scoutBudget\_run1 | Descent::scoutBudget | run | Landers::scout | satisfied |
+```
+
+The fuel-budget, sweep and stale tables do *not* pick it up — they filter
+`WhereType(... type = "FuelBudgetRun")`, and the generated def specializes
+`AnalysisRun`, not `FuelBudgetRun` — and the provenance table lists it with
+an empty `command` cell, since only the hand-written `DemoRun` declares that
+projectable attribute. The REPL form is `%record`; sweeps record one record
+per row (`recorded 3 runs as Records::scoutBudget_run1 …`), though `-convert`
+refuses a sweep — write the model out after a single `-record-run`, or
+record each row explicitly. The full flag reference is
 [the manual](../../docs/manual/recording-analysis-runs.md).
 
 These records stay hand-written for two reasons: the stale-relay story needs

@@ -2,6 +2,20 @@
 
 An analysis run's printed results are discarded unless they are recorded — by -record-run or by hand, in the vocabulary the AnalysisRecords library defines. Every row below is a declared record typed by a run definition on that vocabulary, annotated with the command that produced it — except the last table, whose verdicts are recomputed live.
 
+## Every recorded run
+
+*Every @AnalysisRecords::RecordedRun-annotated AnalysisRun in the Records package*
+
+| name | caseName | kind | subjectName | objective |
+| --- | --- | --- | --- | --- |
+| scoutRun | Descent::scoutBudget | run | Landers::scout | satisfied |
+| haulerRun | Descent::haulerBudget | run | Landers::hauler | satisfied |
+| relayRun | Descent::relayBudget | run | Landers::relay | satisfied |
+| scoutSweep40 | Descent::scoutBudget | sweep | Landers::scout | satisfied |
+| scoutSweep60 | Descent::scoutBudget | sweep | Landers::scout | satisfied |
+| scoutSweep80 | Descent::scoutBudget | sweep | Landers::scout | not satisfied |
+| lightestRun | Selection::lightest | trade |  | satisfied |
+
 ## Recorded fuel budgets
 
 *One record per run, grouped by subject*
